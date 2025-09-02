@@ -150,6 +150,40 @@ from core.constants import Colors, Sizes, Speeds, Timings, Balance, Physics
 from core.game_state import GameState
 from core.events import EventManager, EventType, emit_event
 from core.bridge import get_bridge, handle_item_collection
+
+# ========== 마이그레이션 모드 ==========
+MIGRATION_MODE = False
+migration_bridge = None
+collision_system = None  # 새로운 충돌 시스템
+boss_ai_system = None   # 새로운 AI 시스템
+
+if "--migration-mode" in sys.argv or "--migration" in sys.argv:
+    try:
+        from migration.migration_bridge import init_migration, get_migration_bridge
+        from migration.legacy_adapter import IncrementalMigrator
+        from game_logic.collision_system import CollisionSystem, CollisionType
+        from ai.boss_ai_system import get_boss_ai_system, init_boss_ai, AIDifficulty
+        
+        MIGRATION_MODE = True
+        print("\n" + "="*60)
+        print("🚀 마이그레이션 모드 활성화")
+        print("="*60)
+        print("✅ 새 아키텍처와 레거시 코드가 함께 동작합니다")
+        print("✅ 충돌 시스템이 새 아키텍처로 동작합니다")
+        print("✅ AI 시스템이 모듈화되어 동작합니다")
+        print("✅ 성능 모니터링이 활성화됩니다")
+        print("✅ 디버그 정보가 콘솔에 출력됩니다")
+        print("="*60 + "\n")
+        
+        # 충돌 시스템 초기화
+        collision_system = CollisionSystem()
+        
+        # AI 시스템 초기화
+        boss_ai_system = get_boss_ai_system()
+        
+    except ImportError as e:
+        print(f"⚠️ 마이그레이션 모드 로드 실패: {e}")
+        MIGRATION_MODE = False
 from backgrounds.animated_background import AnimatedBackground
 from backgrounds.animated_background_stage2 import AnimatedBackgroundStage2
 # from backgrounds.animated_background_stage3 import AnimatedBackgroundStage3
@@ -2569,6 +2603,28 @@ def draw_tears():
         for x, y, speed, prev_y in falling_tears:
             if -LARGE_SIZE <= x <= WIDTH + LARGE_SIZE and -LARGE_SIZE <= y <= HEIGHT + LARGE_SIZE:  # 화면 경계 체크
                 SCREEN.blit(img, (x - img_width_half, y - img_height_half))
+def check_collision_wrapper(obj1, obj2):
+    """충돌 검사 래퍼 - 마이그레이션 모드에서는 새 시스템 사용"""
+    global MIGRATION_MODE, collision_system
+    
+    if MIGRATION_MODE and collision_system:
+        # 새로운 충돌 시스템 사용
+        if hasattr(obj1, 'rect') and hasattr(obj2, 'rect'):
+            return collision_system.check_rect_rect_collision(obj1, obj2)
+        elif hasattr(obj1, 'radius') and hasattr(obj2, 'rect'):
+            return collision_system.check_circle_rect_collision(obj1, obj2)
+        elif hasattr(obj1, 'rect') and hasattr(obj2, 'radius'):
+            return collision_system.check_circle_rect_collision(obj2, obj1)
+        else:
+            # 폴백: pygame의 기본 충돌 검사
+            if hasattr(obj1, 'colliderect'):
+                return obj1.colliderect(obj2)
+    else:
+        # 레거시 충돌 검사
+        if hasattr(obj1, 'colliderect'):
+            return obj1.colliderect(obj2)
+    return False
+
 def check_tear_collisions():
     global falling_tears, player_slow_timer
     new_tears = []
@@ -2579,8 +2635,13 @@ def check_tear_collisions():
     for tear in falling_tears:
         x, y, speed, prev_y = tear
         tear_rect = pygame.Rect(x, y, 10, 10)
+        
+        # 마이그레이션 모드 지원 충돌 검사
+        player_obj = type('Player', (), {'rect': PLAYER})()
+        tear_obj = type('Tear', (), {'rect': tear_rect})()
+        
         if (
-            tear_rect.colliderect(PLAYER) and
+            check_collision_wrapper(tear_obj, player_obj) and
             prev_y <= PLAYER.top and y >= PLAYER.top
         ):
             # 연막 안에 있으면 면역 - 눈물이 부딪혀도 효과 없음
@@ -21334,12 +21395,49 @@ def initialize_player_analyzer():
         print(f" AI  : {e}")
         ai_enabled = False
         return False
+def get_ai_decision(boss, ball, player):
+    """AI 결정 가져오기 - 마이그레이션 모드 지원"""
+    global MIGRATION_MODE, boss_ai_system, ai_mode, AI_AVAILABLE, enhanced_ai
+    
+    if MIGRATION_MODE and boss_ai_system:
+        # 새로운 AI 시스템 사용
+        from ai.boss_ai_system import AIDifficulty
+        difficulty_map = {
+            "junior": AIDifficulty.JUNIOR,
+            "pro": AIDifficulty.PRO,
+            "champion": AIDifficulty.CHAMPION,
+            "mythic": AIDifficulty.MYTHIC
+        }
+        boss_ai_system.set_difficulty(difficulty_map.get(ai_mode, AIDifficulty.PRO))
+        
+        # 보스, 공, 플레이어 객체 생성
+        boss_obj = type('Boss', (), {'rect': boss, 'x': boss.x if hasattr(boss, 'x') else boss.centerx})()
+        ball_obj = type('Ball', (), {
+            'x': ball.centerx if hasattr(ball, 'centerx') else ball[0],
+            'y': ball.centery if hasattr(ball, 'centery') else ball[1],
+            'vel_x': ball_vel[0] if 'ball_vel' in globals() else 0,
+            'vel_y': ball_vel[1] if 'ball_vel' in globals() else 0
+        })()
+        player_obj = type('Player', (), {'rect': player})()
+        
+        return boss_ai_system.update(boss_obj, ball_obj, player_obj, 0.016)
+    
+    elif AI_AVAILABLE and enhanced_ai:
+        # 레거시 AI 시스템 사용
+        return enhanced_ai.get_decision(boss, ball, player)
+    
+    else:
+        # 기본 AI (폴백)
+        return {"move_direction": 0, "use_skill": False}
+
 def toggle_ai_mode():
     """AI 모드 전환 (N 키로 호출)"""
-    global ai_mode, enhanced_ai
-    if not AI_AVAILABLE:
+    global ai_mode, enhanced_ai, MIGRATION_MODE, boss_ai_system
+    
+    if not AI_AVAILABLE and not (MIGRATION_MODE and boss_ai_system):
         print("AI   .")
         return
+    
     if ai_mode == "junior":
         ai_mode = "pro"
         print("!")
@@ -21352,8 +21450,20 @@ def toggle_ai_mode():
     else:  # mythic
         ai_mode = "junior"
         print("!")
-    # AI 인스턴스 업데이트
-    if enhanced_ai:
+    
+    # AI 모드 업데이트
+    if MIGRATION_MODE and boss_ai_system:
+        # 새 AI 시스템 업데이트
+        from ai.boss_ai_system import AIDifficulty
+        difficulty_map = {
+            "junior": AIDifficulty.JUNIOR,
+            "pro": AIDifficulty.PRO,
+            "champion": AIDifficulty.CHAMPION,
+            "mythic": AIDifficulty.MYTHIC
+        }
+        boss_ai_system.set_difficulty(difficulty_map.get(ai_mode, AIDifficulty.PRO))
+    elif enhanced_ai:
+        # 레거시 AI 시스템 업데이트
         enhanced_ai.ai_mode = ai_mode
 def handle_boss_pro():
     """ 프로리그: 표준 AI (15% 실수율)"""
@@ -23692,6 +23802,23 @@ def main(stage_num, new_boss_mode=False):
     nine_just_pressed = False
     last_nine_state = False
     
+    # ========== 마이그레이션 모드 초기화 ==========
+    global migration_bridge
+    if MIGRATION_MODE:
+        try:
+            # 전역 변수를 새 GameState로 마이그레이션
+            migration_bridge = init_migration(globals())
+            print("✅ 마이그레이션 브리지 초기화 완료")
+            
+            # 새 게임 서비스 시작
+            from services.game_service import GameService
+            game_service = GameService()
+            game_service.start_game(stage_num)
+            print(f"✅ GameService로 스테이지 {stage_num} 시작")
+        except Exception as e:
+            print(f"⚠️ 마이그레이션 초기화 실패: {e}")
+            migration_bridge = None
+    
     #  Ultra Smooth 물리 엔진 초기화 (우선)
     if ULTRA_SMOOTH_AVAILABLE:
         ultra_smoother = get_ultra_smooth_movement()
@@ -23986,6 +24113,20 @@ def main(stage_num, new_boss_mode=False):
     
     running = True
     while running:
+        # ========== 마이그레이션 모드: 프레임 시작 동기화 ==========
+        if MIGRATION_MODE and migration_bridge:
+            try:
+                # 전역 변수를 GameState로 동기화 (프레임 시작)
+                migration_bridge.sync_globals_to_state(globals())
+                
+                # 충돌 시스템 프레임 초기화
+                if collision_system:
+                    collision_system.clear_frame()
+                    
+            except Exception as e:
+                if __debug__:
+                    print(f"⚠️ 마이그레이션 동기화 오류: {e}")
+        
         #  게임 완전 종료 체크
         if game_should_exit:
             academy.reset_all_skills()  # 스킬 초기화

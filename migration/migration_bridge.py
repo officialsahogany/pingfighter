@@ -37,10 +37,22 @@ class MigrationBridge:
         
     def _init_new_systems(self):
         """새 시스템 초기화 및 DI 컨테이너 설정"""
+        # 필요한 모든 서비스 등록
+        from game_logic.physics_engine import PhysicsEngine
+        from game_logic.collision_system import CollisionSystem
+        from game_mechanics.item_system import ItemSystem
+        from game_mechanics.skill_system import SkillSystem
+        
+        # 렌더링 및 UI 시스템은 pygame 화면이 필요하므로 나중에 초기화
+        
         # 서비스 등록
         self.container.register_singleton(GameState)
         self.container.register_singleton(EventBus)
         self.container.register_singleton(GameRepository)
+        self.container.register_singleton(PhysicsEngine)
+        self.container.register_singleton(CollisionSystem)
+        self.container.register_singleton(ItemSystem)
+        self.container.register_singleton(SkillSystem)
         self.container.register_singleton(GameService)
         
         # 서비스 인스턴스 획득

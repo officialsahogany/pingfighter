@@ -406,3 +406,25 @@ class PhysicsEngine:
             'magnetic_field': self.magnetic_field,
             'slow_motion': self.slow_motion_active
         }
+    
+    def reset(self):
+        """물리 엔진 상태 초기화"""
+        # 기본 설정으로 리셋
+        self.config = PhysicsConfig()
+        self.mode = PhysicsMode.NORMAL
+        
+        # 특수 효과 초기화
+        self.magnetic_field = None
+        self.gravity_well = None
+        self.wind_active = False
+        
+        # 시간 왜곡 초기화
+        self.time_scale = 1.0
+        self.slow_motion_active = False
+        self.slow_motion_timer = 0
+        
+        # 궤적 예측 초기화
+        self.trajectory_points = []
+        self.prediction_enabled = False
+        
+        print("⚡ 물리 엔진 리셋 완료")
