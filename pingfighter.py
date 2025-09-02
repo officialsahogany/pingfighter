@@ -17194,9 +17194,9 @@ def draw_tutorial_practice_room():
         color_b = int(75 + gradient_ratio * 20)  # 75-95
         pygame.draw.line(SCREEN, (color_r, color_g, color_b), (0, i), (WIDTH, i))
     
-    # 스타디움 스타일 코트 라인 
-    line_color = (255, 255, 255)
-    accent_color = (100, 150, 255)  # 연한 파란색 악센트
+    # 스타디움 스타일 코트 라인 (은은한 색상)
+    line_color = (150, 170, 200)  # 은은한 회청색
+    accent_color = (80, 110, 180)  # 차분한 파란색 악센트
     line_width = 3
     thin_line = 2
     
@@ -17209,7 +17209,7 @@ def draw_tutorial_practice_room():
     
     # 큰 원 (반투명 효과)
     for radius in [120, 100, 80]:
-        alpha = 50 if radius == 120 else 100 if radius == 100 else 255
+        alpha = 30 if radius == 120 else 60 if radius == 100 else 120  # 더 은은하게
         circle_surface = pygame.Surface((radius * 2 + 10, radius * 2 + 10), pygame.SRCALPHA)
         color_with_alpha = (*line_color, alpha)
         pygame.draw.circle(circle_surface, color_with_alpha, (radius + 5, radius + 5), radius, thin_line)
@@ -17231,7 +17231,7 @@ def draw_tutorial_practice_room():
     # 안쪽 테두리 (반투명)
     inner_margin = 40
     inner_surface = pygame.Surface((WIDTH - 2*inner_margin, HEIGHT - 2*inner_margin), pygame.SRCALPHA)
-    pygame.draw.rect(inner_surface, (*line_color, 80), 
+    pygame.draw.rect(inner_surface, (*line_color, 40),  # 더 은은하게 
                     (0, 0, WIDTH - 2*inner_margin, HEIGHT - 2*inner_margin), 
                     thin_line)
     SCREEN.blit(inner_surface, (inner_margin, inner_margin))
