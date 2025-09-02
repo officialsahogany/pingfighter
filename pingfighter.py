@@ -14314,7 +14314,7 @@ def show_tutorial_boss_return_dialogue():
     # 대화 내용
     dialogue = {
         "speaker": "[조교]",
-        "text": "이번엔 들어온 신입 스매셔군",
+        "text": "잘하는군 .. 그것이 서브다",
         "speaker_color": (255, 100, 100)  # 빨간색
     }
     
