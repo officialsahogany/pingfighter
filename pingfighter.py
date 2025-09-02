@@ -14303,7 +14303,116 @@ def show_tutorial_intro_dialogue():
     return True
 
 def show_tutorial_boss_return_dialogue():
-    """튜토리얼에서 보스가 서브를 받아친 후 표시되는 대화 - 초기 대화와 동일한 정지 화면 방식"""
+    """튜토리얼에서 보스가 서브를 받아친 후 표시되는 대화 시퀀스"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()    # 24pt 대사용
+    font_small = FontStyle.small()   # 18pt 안내용
+    
+    # 대화 시퀀스
+    dialogues = [
+        {
+            "speaker": "[조교]",
+            "text": "이것이 '서브'라는 것이다. 알았나?",
+            "speaker_color": (255, 100, 100)  # 빨간색
+        },
+        {
+            "speaker": "[플레이어]",
+            "text": "네!",
+            "speaker_color": (100, 200, 255)  # 파란색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "자 그럼 내가 받아칠테니 공을 받아봐",
+            "speaker_color": (255, 100, 100)  # 빨간색
+        }
+    ]
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+    
+    # 각 대화를 순차적으로 표시
+    for dialogue in dialogues:
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 50  # 밀리초당 한 글자
+        last_char_time = pygame.time.get_ticks()
+        
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if text_complete:
+                            # 현재 대화 완료, 다음 대화로
+                            running = False
+                        else:
+                            # 텍스트 즉시 완성
+                            displayed_text = dialogue["text"]
+                            text_complete = True
+            
+            # 타이핑 효과
+            if not text_complete and current_time - last_char_time >= typing_speed:
+                if len(displayed_text) < len(dialogue["text"]):
+                    displayed_text += dialogue["text"][len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 반투명 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))  # 더 진한 반투명 검은색
+            SCREEN.blit(overlay, (0, 0))
+            
+            # 대화창 영역 (하단 전체)
+            dialogue_height = 200
+            dialogue_y = HEIGHT - dialogue_height
+            
+            # 대화창 배경 (검은색 반투명)
+            dialogue_bg = pygame.Surface((WIDTH, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg.fill((0, 0, 0, 230))  # 거의 불투명한 검은색
+            SCREEN.blit(dialogue_bg, (0, dialogue_y))
+            
+            # 상단 경계선
+            pygame.draw.line(SCREEN, dialogue["speaker_color"], 
+                            (0, dialogue_y), (WIDTH, dialogue_y), 3)
+            
+            # 화자 이름 (대화창 위쪽)
+            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+            speaker_rect = speaker_surface.get_rect(left=50, top=dialogue_y + 20)
+            SCREEN.blit(speaker_surface, speaker_rect)
+            
+            # 대사 텍스트 (화자 이름 아래)
+            text_surface = font_medium.render(displayed_text, True, WHITE)
+            text_rect = text_surface.get_rect(left=50, top=dialogue_y + 70)
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 스페이스바 안내 (우측 하단)
+            if text_complete:
+                if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
+                    instruction = "SPACE - 계속"
+                    inst_surface = font_small.render(instruction, True, CYAN)
+                    inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 30, HEIGHT - 20))
+                    SCREEN.blit(inst_surface, inst_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
+    
+    return True
+
+def show_tutorial_miss_dialogue():
+    """튜토리얼 플레이어 실수 시 조교 대화"""
     clock = pygame.time.Clock()
     
     # 폰트 설정
@@ -14314,18 +14423,18 @@ def show_tutorial_boss_return_dialogue():
     # 대화 내용
     dialogue = {
         "speaker": "[조교]",
-        "text": "이것이 '서브'라는 것이다. 알았나?",
-        "speaker_color": (255, 100, 100)  # 빨간색
+        "text": "6번 훈련병! 졸지 마시오! 다시!",
+        "speaker_color": (255, 200, 0)  # 금색
     }
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
     
     # 타이핑 효과 변수
     displayed_text = ""
     text_complete = False
-    typing_speed = 50  # 밀리초당 한 글자
+    typing_speed = 30  # 밀리초당 한 글자 (빠르게)
     last_char_time = pygame.time.get_ticks()
-    
-    # 배경 캡처 (현재 게임 화면)
-    background = SCREEN.copy()
     
     running = True
     while running:
@@ -14338,8 +14447,8 @@ def show_tutorial_boss_return_dialogue():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     if text_complete:
-                        # 대화 완료, 게임 재개
-                        return True
+                        # 대화 완료
+                        running = False
                     else:
                         # 텍스트 즉시 완성
                         displayed_text = dialogue["text"]
@@ -14356,44 +14465,532 @@ def show_tutorial_boss_return_dialogue():
         # 배경 그리기 (정지된 게임 화면)
         SCREEN.blit(background, (0, 0))
         
-        # 반투명 오버레이
+        # 어두운 오버레이
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))  # 더 진한 반투명 검은색
+        overlay.fill((0, 0, 0, 150))
         SCREEN.blit(overlay, (0, 0))
         
-        # 대화창 영역 (하단 전체)
-        dialogue_height = 200
-        dialogue_y = HEIGHT - dialogue_height
+        # 대화창 영역 (화면 중앙)
+        dialogue_width = 700
+        dialogue_height = 180
+        dialogue_x = (WIDTH - dialogue_width) // 2
+        dialogue_y = (HEIGHT - dialogue_height) // 2
         
         # 대화창 배경 (검은색 반투명)
-        dialogue_bg = pygame.Surface((WIDTH, dialogue_height), pygame.SRCALPHA)
-        dialogue_bg.fill((0, 0, 0, 230))  # 거의 불투명한 검은색
-        SCREEN.blit(dialogue_bg, (0, dialogue_y))
+        dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
+        dialogue_bg.fill((0, 0, 0, 240))  # 거의 불투명한 검은색
         
-        # 상단 경계선
-        pygame.draw.line(SCREEN, dialogue["speaker_color"], 
-                        (0, dialogue_y), (WIDTH, dialogue_y), 3)
+        # 대화창 테두리
+        pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
+                       (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
         
-        # 화자 이름 (대화창 위쪽)
+        # 상단 라인 (화자 이름 구분선)
+        pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
+                       (20, 50), (dialogue_width - 20, 50), 2)
+        
+        SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
+        
+        # 화자 이름 (대화창 상단 중앙)
         speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
-        speaker_rect = speaker_surface.get_rect(left=50, top=dialogue_y + 20)
+        speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
         SCREEN.blit(speaker_surface, speaker_rect)
         
-        # 대사 텍스트 (화자 이름 아래)
+        # 대사 텍스트 (화자 이름 아래 중앙)
         text_surface = font_medium.render(displayed_text, True, WHITE)
-        text_rect = text_surface.get_rect(left=50, top=dialogue_y + 70)
+        text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
         SCREEN.blit(text_surface, text_rect)
         
-        # 스페이스바 안내 (우측 하단)
+        # 스페이스바 안내 (대화창 하단 중앙)
         if text_complete:
             if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
                 instruction = "SPACE - 계속"
                 inst_surface = font_small.render(instruction, True, CYAN)
-                inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 30, HEIGHT - 20))
+                inst_rect = inst_surface.get_rect(center=(WIDTH // 2, dialogue_y + dialogue_height - 25))
                 SCREEN.blit(inst_surface, inst_rect)
         
         pygame.display.flip()
         clock.tick(60)
+    
+    return True
+
+def show_tutorial_speed_dialogue():
+    """튜토리얼 속도 관련 대화"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()    # 24pt 대사용
+    font_small = FontStyle.small()   # 18pt 안내용
+    
+    # 대화 시퀀스
+    dialogues = [
+        {
+            "speaker": "[조교]",
+            "text": "공을 주고받을 수록",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "공의 속도가 어떤거 같나 훈련생",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "플레이어",
+            "text": "점점 빨라지는게 느껴집니다",
+            "speaker_color": (100, 255, 100)  # 초록색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "그렇다 점점 대응이 어려워지지",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "이 경우 단순 이동으로는 위기를 극복할 수 없다",
+            "speaker_color": (255, 200, 0)  # 금색
+        }
+    ]
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+    
+    # 각 대화를 순차적으로 표시
+    for dialogue_index, dialogue in enumerate(dialogues):
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자 (빠르게)
+        last_char_time = pygame.time.get_ticks()
+        
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if text_complete:
+                            # 현재 대화 완료, 다음 대화로
+                            running = False
+                        else:
+                            # 텍스트 즉시 완성
+                            displayed_text = dialogue["text"]
+                            text_complete = True
+            
+            # 타이핑 효과
+            if not text_complete and current_time - last_char_time >= typing_speed:
+                if len(displayed_text) < len(dialogue["text"]):
+                    displayed_text += dialogue["text"][len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 어두운 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            SCREEN.blit(overlay, (0, 0))
+            
+            # 대화창 영역 (화면 중앙)
+            dialogue_width = 700
+            dialogue_height = 180
+            dialogue_x = (WIDTH - dialogue_width) // 2
+            dialogue_y = (HEIGHT - dialogue_height) // 2
+            
+            # 대화창 배경 (검은색 반투명)
+            dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg.fill((0, 0, 0, 240))  # 거의 불투명한 검은색
+            
+            # 대화창 테두리
+            pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
+                           (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
+            
+            # 상단 라인 (화자 이름 구분선)
+            pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
+                           (20, 50), (dialogue_width - 20, 50), 2)
+            
+            SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
+            
+            # 화자 이름 (대화창 상단 중앙)
+            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+            speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
+            SCREEN.blit(speaker_surface, speaker_rect)
+            
+            # 대사 텍스트 (화자 이름 아래 중앙)
+            text_surface = font_medium.render(displayed_text, True, WHITE)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 스페이스바 안내 (대화창 하단 중앙)
+            if text_complete:
+                if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
+                    instruction = "SPACE - 계속"
+                    inst_surface = font_small.render(instruction, True, CYAN)
+                    inst_rect = inst_surface.get_rect(center=(WIDTH // 2, dialogue_y + dialogue_height - 25))
+                    SCREEN.blit(inst_surface, inst_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
+    
+    return True
+
+def show_tutorial_angle_dialogue():
+    """공 각도 튜토리얼 대화"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()    # 24pt 대사용
+    font_small = FontStyle.small()   # 18pt 안내용
+    
+    # 대화 시퀀스
+    dialogues = [
+        {
+            "speaker": "[도우미]",
+            "text": "잘하셨네요!",
+            "speaker_color": (100, 255, 100)  # 초록색
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "공을 받아칠 때 받아친 각도에 따라 다른 방향으로 발사됩니다",
+            "speaker_color": (100, 255, 100)  # 초록색
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "공이 발사되는 방향감각은",
+            "speaker_color": (100, 255, 100)  # 초록색
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "실전 경험을 통해 익히는게 가장 좋습니다",
+            "speaker_color": (100, 255, 100)  # 초록색
+        }
+    ]
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+    
+    # 각 대화를 순차적으로 표시
+    for dialogue_index, dialogue in enumerate(dialogues):
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자 (빠르게)
+        last_char_time = pygame.time.get_ticks()
+        
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if text_complete:
+                            # 현재 대화 완료, 다음 대화로
+                            running = False
+                        else:
+                            # 텍스트 즉시 완성
+                            displayed_text = dialogue["text"]
+                            text_complete = True
+            
+            # 타이핑 효과
+            if not text_complete and current_time - last_char_time >= typing_speed:
+                if len(displayed_text) < len(dialogue["text"]):
+                    displayed_text += dialogue["text"][len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 어두운 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            SCREEN.blit(overlay, (0, 0))
+            
+            # 대화창 영역 (화면 중앙)
+            dialogue_width = 700
+            dialogue_height = 180
+            dialogue_x = (WIDTH - dialogue_width) // 2
+            dialogue_y = (HEIGHT - dialogue_height) // 2
+            
+            # 대화창 배경 (검은색 반투명)
+            dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg.fill((0, 0, 0, 240))  # 거의 불투명한 검은색
+            
+            # 대화창 테두리
+            pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
+                           (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
+            
+            # 상단 라인 (화자 이름 구분선)
+            pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
+                           (20, 50), (dialogue_width - 20, 50), 2)
+            
+            SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
+            
+            # 화자 이름 (대화창 상단 중앙)
+            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+            speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
+            SCREEN.blit(speaker_surface, speaker_rect)
+            
+            # 대사 텍스트 (화자 이름 아래 중앙)
+            text_surface = font_medium.render(displayed_text, True, WHITE)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 스페이스바 안내 (대화창 하단 중앙)
+            if text_complete:
+                if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
+                    instruction = "SPACE - 계속"
+                    inst_surface = font_small.render(instruction, True, CYAN)
+                    inst_rect = inst_surface.get_rect(center=(WIDTH // 2, dialogue_y + dialogue_height - 25))
+                    SCREEN.blit(inst_surface, inst_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
+    
+    return True
+
+def show_tutorial_gauge_dialogue():
+    """게이지 시스템 튜토리얼 대화"""
+    global special_gauge, displayed_gauge  # 게이지 변수 전역 선언
+    
+    # 게이지를 0으로 초기화 (애니메이션 시작 전)
+    special_gauge = 0
+    displayed_gauge = 0
+    
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()    # 24pt 대사용
+    font_small = FontStyle.small()   # 18pt 안내용
+    
+    # 대화 시퀀스
+    dialogues = [
+        {
+            "speaker": "[도우미]",
+            "text": "스매셔는 공을 칠때마다 게이지를 조금씩 충전합니다.",
+            "speaker_color": (100, 255, 100),  # 초록색
+            "charge_gauge": True  # 이 대화에서 게이지 충전 애니메이션 표시
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "플레이어 게이지는 이 게이지바에서 확인 가능합니다",
+            "speaker_color": (100, 255, 100)  # 초록색
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "게이지를 충전하면 여러 기술을 사용할 수 있습니다",
+            "speaker_color": (100, 255, 100)  # 초록색
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "여러 각도로 공을 쳐보세요",
+            "speaker_color": (100, 255, 100)  # 초록색
+        }
+    ]
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+    
+    # 게이지 충전 애니메이션 변수
+    gauge_animation_start = 0  # 게이지 시작 값
+    gauge_animation_target = 80  # 목표 게이지 값
+    gauge_animation_current = 0  # 현재 애니메이션 게이지 값
+    gauge_animation_duration = 1500  # 1.5초 동안 충전
+    gauge_animation_start_time = 0
+    gauge_animation_active = False
+    first_dialogue_completed = False  # 첫 번째 대화 완료 여부
+    
+    # 각 대화를 순차적으로 표시
+    for dialogue_index, dialogue in enumerate(dialogues):
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자 (빠르게)
+        last_char_time = pygame.time.get_ticks()
+        
+        # 강조 효과 애니메이션 변수
+        highlight_timer = 0
+        
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            highlight_timer += 1
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if text_complete:
+                            # 첫 번째 대화에서 스페이스를 누르면 게이지 애니메이션 시작
+                            if dialogue_index == 0 and not gauge_animation_active:
+                                gauge_animation_active = True
+                                gauge_animation_start_time = current_time
+                                gauge_animation_start = 0  # 0부터 시작
+                                first_dialogue_completed = True
+                            elif dialogue_index == 0 and gauge_animation_active:
+                                # 애니메이션 진행 중이면 대기
+                                pass
+                            else:
+                                # 현재 대화 완료, 다음 대화로
+                                running = False
+                        else:
+                            # 텍스트 즉시 완성
+                            displayed_text = dialogue["text"]
+                            text_complete = True
+            
+            # 게이지 애니메이션 처리 (첫 번째 대화에서만)
+            if gauge_animation_active and dialogue_index == 0:
+                elapsed = current_time - gauge_animation_start_time
+                if elapsed < gauge_animation_duration:
+                    # 애니메이션 진행률 계산 (0.0 ~ 1.0)
+                    progress = elapsed / gauge_animation_duration
+                    # 이징 함수 적용 (부드러운 가속/감속)
+                    eased_progress = 1 - (1 - progress) * (1 - progress)
+                    # 현재 게이지 값 계산
+                    gauge_animation_current = gauge_animation_start + (gauge_animation_target - gauge_animation_start) * eased_progress
+                    # 실제 게이지 값 업데이트
+                    special_gauge = int(gauge_animation_current)
+                    displayed_gauge = special_gauge
+                else:
+                    # 애니메이션 완료
+                    special_gauge = gauge_animation_target
+                    displayed_gauge = gauge_animation_target
+                    gauge_animation_active = False
+                    # 자동으로 다음 대화로 진행
+                    running = False
+            
+            # 타이핑 효과
+            if not text_complete and current_time - last_char_time >= typing_speed:
+                if len(displayed_text) < len(dialogue["text"]):
+                    displayed_text += dialogue["text"][len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 게이지를 명시적으로 그리기 (배경에 게이지가 없을 수 있으므로)
+            draw_player_gauge()
+            
+            # 게이지 강조 효과 (두 번째 대화에서만)
+            if dialogue_index == 1:  # "게이지바에서 확인 가능합니다" 대화
+                # 실제 게이지 위치와 크기 (draw_player_gauge와 동일)
+                gauge_x = WIDTH - 40  # 오른쪽에서 40px
+                gauge_y = HEIGHT - 180  # 하단에서 180px 위
+                gauge_width = 14  # 얇은 세로 게이지
+                gauge_height = 100  # 게이지 높이
+                
+                # 반투명 오버레이로 화면을 어둡게 하되, 게이지 부분만 제외
+                overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                
+                # 게이지 영역 정의
+                spotlight_x = gauge_x - 20
+                spotlight_y = gauge_y - 35  # 텍스트 영역 포함
+                spotlight_width = gauge_width + 40
+                spotlight_height = gauge_height + 65  # 하단 토큰 구슬까지 포함하도록 늘림
+                
+                # 전체 화면을 어둡게 하되, 게이지 영역은 제외
+                # 상단 영역
+                pygame.draw.rect(overlay, (0, 0, 0, 180), (0, 0, WIDTH, spotlight_y))
+                # 하단 영역
+                pygame.draw.rect(overlay, (0, 0, 0, 180), (0, spotlight_y + spotlight_height, WIDTH, HEIGHT - (spotlight_y + spotlight_height)))
+                # 왼쪽 영역
+                pygame.draw.rect(overlay, (0, 0, 0, 180), (0, spotlight_y, spotlight_x, spotlight_height))
+                # 오른쪽 영역  
+                pygame.draw.rect(overlay, (0, 0, 0, 180), (spotlight_x + spotlight_width, spotlight_y, WIDTH - (spotlight_x + spotlight_width), spotlight_height))
+                
+                # 스팟라이트 경계 그라데이션
+                for i in range(10):
+                    alpha = int(180 - i * 18)
+                    if alpha > 0:
+                        # 위쪽 그라데이션
+                        pygame.draw.rect(overlay, (0, 0, 0, alpha), 
+                                       (spotlight_x - i, spotlight_y - i, spotlight_width + i*2, 2))
+                        # 아래쪽 그라데이션
+                        pygame.draw.rect(overlay, (0, 0, 0, alpha),
+                                       (spotlight_x - i, spotlight_y + spotlight_height + i - 2, spotlight_width + i*2, 2))
+                        # 왼쪽 그라데이션
+                        pygame.draw.rect(overlay, (0, 0, 0, alpha),
+                                       (spotlight_x - i, spotlight_y, 2, spotlight_height))
+                        # 오른쪽 그라데이션
+                        pygame.draw.rect(overlay, (0, 0, 0, alpha),
+                                       (spotlight_x + spotlight_width + i - 2, spotlight_y, 2, spotlight_height))
+                
+                SCREEN.blit(overlay, (0, 0))
+                
+                # 삼각형 화살표만 (왼쪽에서 가리킴)
+                arrow_offset = int(10 * math.sin(highlight_timer * 0.2))
+                arrow_x = gauge_x - 60 + arrow_offset
+                arrow_y = gauge_y + gauge_height // 2
+                
+                # 메인 화살표 (노란색 삼각형)
+                arrow_points = [
+                    (arrow_x, arrow_y - 15),
+                    (arrow_x + 30, arrow_y),
+                    (arrow_x, arrow_y + 15)
+                ]
+                pygame.draw.polygon(SCREEN, (255, 220, 0), arrow_points)
+            else:
+                # 다른 대화에서는 일반 어두운 오버레이
+                overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 150))
+                SCREEN.blit(overlay, (0, 0))
+            
+            # 대화창 영역 (화면 중앙)
+            dialogue_width = 700
+            dialogue_height = 180
+            dialogue_x = (WIDTH - dialogue_width) // 2
+            dialogue_y = (HEIGHT - dialogue_height) // 2
+            
+            # 대화창 배경 (검은색 반투명)
+            dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg.fill((0, 0, 0, 240))  # 거의 불투명한 검은색
+            
+            # 대화창 테두리
+            pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
+                           (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
+            
+            # 상단 라인 (화자 이름 구분선)
+            pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
+                           (20, 50), (dialogue_width - 20, 50), 2)
+            
+            SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
+            
+            # 화자 이름 (대화창 상단 중앙)
+            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+            speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
+            SCREEN.blit(speaker_surface, speaker_rect)
+            
+            # 대사 텍스트 (화자 이름 아래 중앙)
+            text_surface = font_medium.render(displayed_text, True, WHITE)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 스페이스바 안내 (대화창 하단 중앙)
+            if text_complete:
+                if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
+                    instruction = "SPACE - 계속"
+                    inst_surface = font_small.render(instruction, True, CYAN)
+                    inst_rect = inst_surface.get_rect(center=(WIDTH // 2, dialogue_y + dialogue_height - 25))
+                    SCREEN.blit(inst_surface, inst_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
     
     return True
 
@@ -19902,6 +20499,8 @@ def handle_ball():
     global tutorial_practice_mode, tutorial_boss_returned
     global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue
     global tutorial_saved_ball_vel
+    global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
+    global tutorial_player_hit_count, tutorial_speed_dialogue_shown
     # 롤링 스턴 타이머
     global rolling_stun_timer
     # 충돌 쿨다운 감소
@@ -21079,6 +21678,11 @@ def handle_ball():
         return
     # --- 천장 충돌 (플레이어 점수) ---
     if BALL.top <= 0:
+        # 튜토리얼 모드(스테이지 50)에서는 점수 계산하지 않고 단순히 튕김
+        if current_stage == 50:
+            ball_vel[1] = abs(ball_vel[1])  # 아래로 향하도록
+            BALL.top = 0
+            return
         #  체력형 보스전에서는 공이 보스 뒤로 나가지 않도록 바리케이트 적용
         if current_stage in boss_health_stages:
             #  스테이지 6에서 파워 스킬들이 벽에 맞으면 종료
@@ -21429,6 +22033,13 @@ def handle_ball():
                     break
     # --- 바닥 충돌 (보스 점수) - 바위에 맞지 않았을 때만 ---
     if BALL.bottom >= HEIGHT and not rock_hit:
+        # 튜토리얼 스테이지 특별 처리
+        if current_stage == 50:
+            print("튜토리얼: 플레이어 뒤 벽에서 공 반사")
+            # 공을 벽에서 반사 (위로)
+            BALL.bottom = HEIGHT - 1  # 경계선 바로 안쪽으로 위치 조정
+            ball_vel[1] = -abs(ball_vel[1])  # 위쪽으로 반사
+            return  # 점수 처리하지 않고 리턴
         #  플레이어 미스 기록 및 실수 분석 - 강화된 실수 감지
         ball_distance = abs(BALL.centery - PLAYER.centery)
         ball_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -21683,6 +22294,33 @@ def handle_ball():
         ball_vel[0] *= 1.03
         ball_vel[1] *= 1.03
         #  handle_ball에서는 게이지 충전하지 않음 (handle_player에서만 처리)
+        # 튜토리얼 스테이지 50에서 플레이어가 조교의 공을 받아쳤을 때 처리
+        if current_stage == 50 and tutorial_practice_mode and tutorial_boss_returned:
+            if not tutorial_player_returned_ball and not tutorial_gauge_tutorial_shown:
+                # 플레이어가 조교의 공을 처음 받아친 경우
+                tutorial_player_returned_ball = True
+                # 게이지 튜토리얼 표시를 위해 공 일시정지
+                tutorial_saved_ball_vel = ball_vel.copy()
+                tutorial_pause_for_dialogue = True
+                ball_vel[0] = 0
+                ball_vel[1] = 0
+                print("튜토리얼: 플레이어가 조교 공을 받아쳤습니다 - 게이지 튜토리얼 시작!")
+            
+            # 플레이어가 공을 친 횟수 증가 (게이지 튜토리얼 이후)
+            if tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
+                tutorial_player_hit_count += 1
+                print(f"튜토리얼: 플레이어 공 타격 횟수: {tutorial_player_hit_count}/8")
+                
+                # 8회 타격 시 속도 튜토리얼 대화 시작
+                if tutorial_player_hit_count >= 8:
+                    tutorial_speed_dialogue_shown = True
+                    # 속도 튜토리얼 표시를 위해 공 일시정지
+                    tutorial_saved_ball_vel = ball_vel.copy()
+                    tutorial_pause_for_dialogue = True
+                    ball_vel[0] = 0
+                    ball_vel[1] = 0
+                    print("튜토리얼: 8회 타격 완료 - 속도 튜토리얼 시작!")
+        
         # handle_player에서 놓친 충돌의 경우에만 백업으로 게이지 충전
         print(f" DEBUG: handle_ball   - handle_player")
         # handle_player가 놓친 충돌에 대해서만 게이지 충전
@@ -24992,6 +25630,16 @@ def main(stage_num, new_boss_mode=False):
     tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
     tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
     
+    # 게이지 튜토리얼 관련 변수
+    global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
+    tutorial_player_returned_ball = False  # 플레이어가 조교의 공을 받아쳤는지
+    tutorial_gauge_tutorial_shown = False  # 게이지 튜토리얼 표시 여부
+    
+    # 속도 튜토리얼 관련 변수
+    global tutorial_player_hit_count, tutorial_speed_dialogue_shown
+    tutorial_player_hit_count = 0  # 플레이어가 공을 친 횟수
+    tutorial_speed_dialogue_shown = False  # 속도 튜토리얼 대화 표시 여부
+    
     if stage_num == 50:
         print("튜토리얼 스테이지 50 시작")
         # 튜토리얼 보스 속도 설정 확인
@@ -26279,6 +26927,43 @@ def main(stage_num, new_boss_mode=False):
                         print(f"튜토리얼: 공 속도 복원 - {ball_vel}")
                     else:
                         ball_vel[1] = 5  # 기본적으로 아래로 향하도록
+                continue  # 다음 프레임으로
+            
+            # 튜토리얼: 플레이어가 조교 공을 받아친 후 게이지 튜토리얼 표시
+            if current_stage == 50 and tutorial_pause_for_dialogue and tutorial_player_returned_ball and not tutorial_gauge_tutorial_shown:
+                print("튜토리얼: 게이지 튜토리얼 대화 표시")
+                # 현재 화면 그리기 (배경용)
+                draw_field()
+                draw_objects()
+                pygame.display.flip()
+                # 각도 튜토리얼 대화 먼저 표시
+                if show_tutorial_angle_dialogue():
+                    # 각도 대화 완료 후 게이지 튜토리얼 대화 표시
+                    if show_tutorial_gauge_dialogue():
+                        tutorial_gauge_tutorial_shown = True
+                        tutorial_pause_for_dialogue = False
+                        # 공의 속도를 복원 (일시정지 전 속도로)
+                        if tutorial_saved_ball_vel:
+                            ball_vel[0] = tutorial_saved_ball_vel[0]
+                        ball_vel[1] = tutorial_saved_ball_vel[1]
+                        print(f"튜토리얼: 게이지 튜토리얼 후 공 속도 복원 - {ball_vel}")
+                continue  # 다음 프레임으로
+            
+            # 튜토리얼: 8회 타격 후 속도 튜토리얼 표시
+            if current_stage == 50 and tutorial_pause_for_dialogue and tutorial_speed_dialogue_shown and tutorial_player_hit_count >= 8:
+                print("튜토리얼: 속도 튜토리얼 대화 표시")
+                # 현재 화면 그리기 (배경용)
+                draw_field()
+                draw_objects()
+                pygame.display.flip()
+                # 속도 튜토리얼 대화 표시
+                if show_tutorial_speed_dialogue():
+                    tutorial_pause_for_dialogue = False
+                    # 공의 속도를 복원 (일시정지 전 속도로)
+                    if tutorial_saved_ball_vel:
+                        ball_vel[0] = tutorial_saved_ball_vel[0]
+                        ball_vel[1] = tutorial_saved_ball_vel[1]
+                    print(f"튜토리얼: 속도 튜토리얼 후 공 속도 복원 - {ball_vel}")
                 continue  # 다음 프레임으로
         
         pygame.display.flip()

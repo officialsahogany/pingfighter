@@ -51,17 +51,27 @@ def serve_ball(is_player_serve=True, current_stage=1):
     # 기본 서브 속도와 방향 설정
     base_speed = 9
     
-    if is_player_serve:
-        # 플레이어 서브: 위로
-        ball_vel = [random.choice([-3, 3]), -base_speed]
+    # 튜토리얼 스테이지(50)는 고정 속도 사용
+    if current_stage == 50:
+        base_speed = 7  # 튜토리얼용 느린 속도
+        if is_player_serve:
+            # 플레이어 서브: 위로
+            ball_vel = [random.choice([-2, 2]), -base_speed]
+        else:
+            # 보스 서브: 아래로
+            ball_vel = [random.choice([-2, 2]), base_speed]
     else:
-        # 보스 서브: 아래로
-        ball_vel = [random.choice([-3, 3]), base_speed]
-    
-    # 스테이지별 속도 조정
-    stage_multiplier = 1.0 + (current_stage - 1) * 0.03
-    ball_vel[0] *= stage_multiplier
-    ball_vel[1] *= stage_multiplier
+        if is_player_serve:
+            # 플레이어 서브: 위로
+            ball_vel = [random.choice([-3, 3]), -base_speed]
+        else:
+            # 보스 서브: 아래로
+            ball_vel = [random.choice([-3, 3]), base_speed]
+        
+        # 스테이지별 속도 조정 (튜토리얼 제외)
+        stage_multiplier = 1.0 + (current_stage - 1) * 0.03
+        ball_vel[0] *= stage_multiplier
+        ball_vel[1] *= stage_multiplier
     
     # 볼 임팩트 부스트 (기본값)
     ball_impact_boost = 1.0
