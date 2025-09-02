@@ -8,7 +8,11 @@ from typing import Dict, List, Any
 
 
 class GameState:
-    """게임의 전역 상태를 관리하는 싱글톤 클래스"""
+    """게임의 전역 상태를 관리하는 싱글톤 클래스
+    
+    모든 전역 변수를 중앙에서 관리하여 상태 추적과
+    디버깅을 용이하게 합니다.
+    """
     
     _instance = None
     
@@ -16,6 +20,13 @@ class GameState:
         if cls._instance is None:
             cls._instance = super(GameState, cls).__new__(cls)
             cls._instance._initialized = False
+        return cls._instance
+    
+    @classmethod
+    def get_instance(cls):
+        """싱글톤 인스턴스 반환"""
+        if cls._instance is None:
+            cls._instance = cls()
         return cls._instance
     
     def __init__(self):

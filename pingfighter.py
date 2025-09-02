@@ -1,9 +1,31 @@
 # -*- coding: utf-8 -*-
-import pygame
-import random
+"""PingFighter (핑파이터) - 아케이드 스타일 탁구 보스 배틀 게임
+
+보스 배틀, 파워업, 특수 능력이 포함된 Python/Pygame 기반 게임.
+Windows와 macOS 모두 지원.
+
+작성자: PingFighter Team
+버전: 2.0.0
+"""
+
+# ============================================================
+# 1. 표준 라이브러리 Import
+# ============================================================
+import os
 import sys
-import math 
+import math
+import random
 import importlib
+
+# ============================================================
+# 2. 외부 라이브러리 Import
+# ============================================================
+import pygame
+import pygame.freetype
+
+# ============================================================
+# 3. 게임 핵심 모듈 Import
+# ============================================================
 import items
 import option as option_module
 import gacha
@@ -20,13 +42,18 @@ from trade_point_system import TradePointSystem
 from events.stage1_event_integration import Stage1EventManager
 from game_logic.checkmate_system import get_checkmate_system
 
-
-# PyInstaller 리소스 경로 헬퍼 함수
-import os
-import sys
-
+# ============================================================
+# 4. 리소스 경로 헬퍼 함수
+# ============================================================
 def resource_path(relative_path):
-    """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환"""
+    """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환
+    
+    Args:
+        relative_path (str): 상대 파일 경로
+        
+    Returns:
+        str: 절대 경로 (PyInstaller 번들 및 일반 실행 모두 지원)
+    """
     try:
         # PyInstaller 번들인 경우
         base_path = sys._MEIPASS
@@ -41,7 +68,11 @@ def resource_path(relative_path):
     return full_path
 
 
-# === 하프 대쉬 시스템 ===
+# ============================================================
+# 5. 게임 메카닉 시스템 Import
+# ============================================================
+
+# 하프 대쉬 시스템 (옵셔널)
 try:
     from game_mechanics.half_dash_integration import (
         integrate_half_dash_with_game,
@@ -51,10 +82,8 @@ try:
         reset_half_dash_round
     )
     HALF_DASH_ENABLED = True
-    print("")
 except ImportError:
     HALF_DASH_ENABLED = False
-    print("")
 
 from ui.hud_display import show_score, draw_dash_spirit_lasers
 from ui.menu_system import MenuSystem
@@ -282,18 +311,44 @@ DEFAULT_ALPHA = 150
 GLOW_ALPHA = 50
 BORDER_WIDTH = 4
 
-# === DrawHelper 클래스 ===
+# ============================================================
+# 11. 헬퍼 클래스
+# ============================================================
+
 class DrawHelper:
-    """pygame.draw 호출을 간소화하는 헬퍼 클래스"""
+    """pygame.draw 호출을 간소화하느 헬퍼 클래스
+    
+    반복적인 그리기 코드를 줄이고 가독성을 향상시킴.
+    """
+    
     def __init__(self, surface):
+        """DrawHelper 초기화
+        
+        Args:
+            surface: pygame Surface 객체
+        """
         self.surface = surface
     
     def circle(self, color, pos, radius, width=0):
-        """원 그리기"""
+        """원 그리기
+        
+        Args:
+            color: RGB 튀플
+            pos: 중심 좌표 (x, y)
+            radius: 반지름
+            width: 선 두께 (0이면 채워진 원)
+        """
         pygame.draw.circle(self.surface, color, pos, radius, width)
     
     def rect(self, color, rect, width=0, border_radius=0):
-        """사각형 그리기"""
+        """사각형 그리기
+        
+        Args:
+            color: RGB 튀플
+            rect: pygame.Rect 객체
+            width: 선 두께 (0이면 채워진 사각형)
+            border_radius: 모서리 둥글기
+        """
         if border_radius > 0:
             pygame.draw.rect(self.surface, color, rect, width, border_radius=border_radius)
         else:
