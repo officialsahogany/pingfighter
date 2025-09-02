@@ -1,0 +1,17 @@
+{
+  "auto_commit": {
+    "enabled": false,
+    "comment": "매 프롬프트마다 자동 커밋은 권장하지 않음",
+    "recommended_triggers": [
+      "파일 10개 이상 변경",
+      "새 기능 완성",
+      "버그 수정 완료",
+      "작업 세션 종료"
+    ],
+    "quick_commands": {
+      "save_work": "git add . && git commit -m '작업 저장' && git push",
+      "checkpoint": "git add . && git commit -m '🏁 Checkpoint: 임시 저장'",
+      "daily_backup": "git add . && git commit -m '📅 Daily backup: $(date +%Y-%m-%d)' && git push"
+    }
+  }
+}
