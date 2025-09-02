@@ -14408,7 +14408,7 @@ def show_tutorial_serve_helper():
     
     # 알림 내용
     main_text = "스페이스바를 눌러 서브공을 발사해보세요!"
-    sub_text = "SPACE - 계속"
+    sub_text = "ENTER - 확인"
     
     clock = pygame.time.Clock()
     
@@ -14418,7 +14418,7 @@ def show_tutorial_serve_helper():
             if event.type == pygame.QUIT:
                 return False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
+                if event.key == pygame.K_RETURN:  # Enter 키로 도우미 닫기
                     return True
         
         # 화면 그리기
@@ -14457,10 +14457,11 @@ def show_tutorial_serve_helper():
         main_rect = main_surface.get_rect(center=(box_x + box_width // 2 + 20, box_y + box_height // 2 - 20))
         SCREEN.blit(main_surface, main_rect)
         
-        # 계속 안내
-        sub_surface = font_small.render(sub_text, True, CYAN)
-        sub_rect = sub_surface.get_rect(center=(box_x + box_width // 2 + 20, box_y + box_height - 40))
-        SCREEN.blit(sub_surface, sub_rect)
+        # 계속 안내 (깜빡임 효과 추가)
+        if pygame.time.get_ticks() % 1000 < 700:  # 0.7초 보이고 0.3초 안보임
+            sub_surface = font_small.render(sub_text, True, CYAN)
+            sub_rect = sub_surface.get_rect(center=(box_x + box_width // 2 + 20, box_y + box_height - 40))
+            SCREEN.blit(sub_surface, sub_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -25008,9 +25009,11 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 초기 대화 직후 서브 도우미 표시
                 print("튜토리얼 서브 도우미 표시")
+                print(f"도우미 표시 전: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}")
                 if show_tutorial_serve_helper():
                     tutorial_serve_helper_shown = True
                     print("튜토리얼 서브 도우미 표시 완료")
+                    print(f"도우미 표시 후: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}")
     
     running = True
     while running:
