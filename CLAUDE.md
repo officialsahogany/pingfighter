@@ -379,6 +379,36 @@ Legendary items like Ragnarok Hammer require special handling for animations:
 - **Duplicate items appearing**: Ensure global flag is properly set and checked
 - **UI not animating**: Set item["type"] = "legendary" when storing
 
+## Git Workflow & Automatic Commits
+
+### Automatic Git Saving After Each Task
+**IMPORTANT**: Per user request, save work to Git after completing each task.
+
+#### Quick Git Commands
+```bash
+# Regular commit (for each completed task)
+git add -A && git commit -m "Update: [task description]" && git push
+
+# Checkmate commit (for important checkpoints)
+--checkmate MM.DD-N  # Automatically creates: git commit -m "🏁 Checkmate MM.DD-N: [description]"
+
+# Examples:
+--checkmate 09.02-5  # Creates "🏁 Checkmate 09.02-5: 작업 체크포인트"
+```
+
+#### When to Commit
+- After fixing any bug
+- After implementing new feature
+- After completing requested changes
+- After significant code modifications
+- At the end of each work session
+- When user uses --checkmate command
+
+### Git Repository Info
+- **Remote**: https://github.com/officialsahogany/pingfighter.git
+- **Current Branch**: feature/refactor-ui
+- **GitHub Token**: Use Classic PAT for authentication
+
 ## Notes for Future Development
 
 When modifying this codebase:
@@ -389,3 +419,4 @@ When modifying this codebase:
 5. **DOCUMENT** any new item effects in detail
 6. **TEST** with PyInstaller builds before release
 7. **ENSURE** legendary item animations work in all contexts (field, UI, gacha)
+8. **COMMIT** changes to Git after each completed task
