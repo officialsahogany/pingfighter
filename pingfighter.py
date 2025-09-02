@@ -14408,7 +14408,7 @@ def show_tutorial_serve_helper():
     
     # 알림 내용
     main_text = "스페이스바를 눌러 서브공을 발사해보세요!"
-    sub_text = "ENTER - 확인"
+    sub_text = "SPACE - 확인"
     
     clock = pygame.time.Clock()
     
@@ -14418,7 +14418,7 @@ def show_tutorial_serve_helper():
             if event.type == pygame.QUIT:
                 return False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:  # Enter 키로 도우미 닫기
+                if event.key == pygame.K_SPACE:  # 스페이스 키로 도우미 닫기
                     return True
         
         # 화면 그리기
@@ -24980,6 +24980,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_dialogue_shown, tutorial_practice_mode, tutorial_serve_instruction_shown, tutorial_boss_returned
     global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue, tutorial_saved_ball_vel
     global tutorial_serve_helper_shown  # 서브 도우미 알림 표시 여부
+    global tutorial_wait_for_first_serve  # 첫 서브를 기다리는 상태
     
     tutorial_dialogue_shown = False
     tutorial_practice_mode = False  # 실습 모드 플래그
@@ -24989,6 +24990,7 @@ def main(stage_num, new_boss_mode=False):
     tutorial_pause_for_dialogue = False  # 대화를 위한 일시정지 상태
     tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
     tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
+    tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
     
     if stage_num == 50:
         print("튜토리얼 스테이지 50 시작")
@@ -25538,6 +25540,11 @@ def main(stage_num, new_boss_mode=False):
             # 플레이어 서브 입력
             if is_player_serve and is_waiting_for_serve:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    # 튜토리얼 모드에서 도우미 후 첫 서브 처리
+                    if current_stage == 50 and tutorial_wait_for_first_serve:
+                        tutorial_wait_for_first_serve = False  # 첫 서브 완료
+                        print("튜토리얼: 플레이어가 서브를 시작합니다!")
+                    
                     # 서브 실행 및 상태 업데이트
                     serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
                     ball_vel = serve_result['ball_vel']
@@ -25627,7 +25634,8 @@ def main(stage_num, new_boss_mode=False):
                             remaining_time = ((8000 - cooldown_reduction) - (current_time - last_item_use_time)) / MILLISECONDS_PER_SECOND
                             print(f"  ... {remaining_time:.1f}")
         #  플레이어 서브 자동 발사 (3초 이상 대기하면 자동으로 serve)
-        if is_player_serve and is_waiting_for_serve:
+        # 튜토리얼 모드에서는 자동 서브 비활성화
+        if is_player_serve and is_waiting_for_serve and current_stage != 50:
             if pygame.time.get_ticks() - waiting_start_time >= 3000:  # 3초
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
