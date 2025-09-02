@@ -80,7 +80,8 @@
       "Read(/Volumes/T7/윈도우용최신/game/bosspong/**)",
       "Bash(git remote add:*)",
       "Bash(git fetch:*)",
-      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --index-filter 'git rm -r --cached --ignore-unmatch dist/ build/ PingFighter_Beta* *.exe *.zip *.pkg 2>/dev/null || true' --prune-empty -f HEAD~3..HEAD)"
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --index-filter 'git rm -r --cached --ignore-unmatch dist/ build/ PingFighter_Beta* *.exe *.zip *.pkg 2>/dev/null || true' --prune-empty -f HEAD~3..HEAD)",
+      "Bash(git branch:*)"
     ],
     "defaultMode": "acceptEdits"
   }

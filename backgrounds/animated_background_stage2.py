@@ -349,11 +349,7 @@ class AnimatedBackgroundStage2:
             {'type': 'mixed_stone', 'colors': [(95, 85, 80), (115, 105, 100), (135, 125, 120)]} # 혼합 바위
         ]
         
-<<<<<<< HEAD
-        num_rocks = random.randint(1, 2)  # 1-2개 바위 생성 (정글지진 스킬용)
-=======
-        num_rocks = random.randint(3, 4)  # 3-4개 바위 생성 (사용자 요청)
->>>>>>> e065a57 (🎯 8월19일1차 체크포인트 - 고스트샷 발사각도 및 속도 개선)
+        num_rocks = random.randint(3, 4)  # 3-4개 바위 생성
         for i in range(num_rocks):
             # 맵 전체 랜덤 위치
             x = random.randint(map_x_min, map_x_max)
@@ -522,17 +518,11 @@ class AnimatedBackgroundStage2:
                 'fall_y': -150 - random.randint(0, 100),  # 화면 위 -150~-250에서 시작
                 'size': size,
                 'style': style,
-<<<<<<< HEAD
-                'falling': True,  # 처음부터 떨어짐
-                'fall_speed': 0,  # 초기 낙하 속도
-                'gravity': 0.9 + random.uniform(-0.1, 0.1),  # 중력 가속도 (약간 빠르게)
-=======
                 'fall_y': -100 - size,  # 화면 밖에서 시작
                 'target_y': y,  # 최종 도착 지점
                 'falling': True,
                 'fall_speed': 2,  # 초기 속도
                 'gravity': 0.8,
->>>>>>> e065a57 (🎯 8월19일1차 체크포인트 - 고스트샷 발사각도 및 속도 개선)
                 'bounce_count': 0,
                 'max_bounces': random.randint(1, 2),  # 1-2번 바운스
                 'collision_rect': pygame.Rect(x - size//2, y - size//2, size, size),
@@ -620,17 +610,6 @@ class AnimatedBackgroundStage2:
         
         print(f"💥 바위 파괴! {num_fragments}개 파편 생성")
     
-    def check_ball_rock_collision(self, ball_rect):
-        """공과 바위 충돌 체크 및 파괴"""
-        for i, rock in enumerate(self.crisis_rocks):
-            if not rock['falling']:  # 떨어진 바위만 충돌 체크
-                if ball_rect.colliderect(rock['collision_rect']):
-                    # 바위 파괴
-                    self.destroy_rock(rock)
-                    # 바위 리스트에서 제거
-                    self.crisis_rocks.pop(i)
-                    return True
-        return False
     
     def update(self, dt, ball_x=None, ball_y=None, boss_paddle_x=None, player_paddle_x=None, 
                player_score=None, boss_score=None):
@@ -1469,7 +1448,6 @@ class AnimatedBackgroundStage2:
             # 황금 바위 (특별한 형태)
             self.draw_golden_rock(surface, x, y, size, colors, fixed_points, rock_seed)
         
-<<<<<<< HEAD
         # 황금 바위에만 반짝임 효과 추가
         if is_golden:
             # 황금빛 반짝임 효과
@@ -1528,22 +1506,6 @@ class AnimatedBackgroundStage2:
             
             # 황금 테두리
             pygame.draw.polygon(surface, (255, 255, 100), points, 2)
-=======
-        # 공통 하이라이트 (상단 광택) - 시드 기반으로 고정
-        highlight_color = tuple(min(255, c + 40) for c in colors[2])
-        # 바위별 고정된 하이라이트 위치
-        random.seed(rock.get('rock_seed', 0) + 999)
-        highlight_x = x - size//4 + random.randint(-3, 3)
-        highlight_y = y - size//3 + random.randint(-2, 2)
-        random.seed()  # 시드 복원
-        # 부드러운 하이라이트 (더 큰 원으로 흐릿하게)
-        for i in range(3):
-            alpha = 60 - i * 20
-            h_color = (*highlight_color[:3], alpha)
-            h_size = size//8 + i * 2
-            pygame.draw.circle(surface, highlight_color, 
-                             (int(highlight_x), int(highlight_y)), h_size)
->>>>>>> e065a57 (🎯 8월19일1차 체크포인트 - 고스트샷 발사각도 및 속도 개선)
     
     def draw_dark_granite_rock(self, surface, x, y, size, colors, fixed_points, rock_seed):
         """어두운 화강암 (둥근 형태)"""
@@ -1999,13 +1961,10 @@ class AnimatedBackgroundStage2:
         # 💥 파편 렌더링 (원형 효과 제거)
         self.draw_rock_fragments(screen)
         
-<<<<<<< HEAD
         # 🔥 보스 분노 빨간색 틴트 효과
         if self.boss_red_tint > 0:
             red_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
             red_surface.fill((255, 0, 0, min(100, self.boss_red_tint // 2)))
             screen.blit(red_surface, (0, 0))
         
-=======
->>>>>>> e065a57 (🎯 8월19일1차 체크포인트 - 고스트샷 발사각도 및 속도 개선)
         # 스캔라인 효과 제거
