@@ -19715,6 +19715,8 @@ def handle_ball():
     global mega_smashing_active, mega_smashing_bonus_applied, mega_smashing_meteor_trail
     global mega_smashing_boss_defense_count, mega_smashing_ghost_scatter, mega_smashing_ghost_scatter_time
     global mega_smashing_ghosts, dashholder_obtained, rolling_charges, rolling_charge_timer
+    # 튜토리얼 관련 변수들
+    global tutorial_practice_mode, tutorial_boss_returned
     # 롤링 스턴 타이머
     global rolling_stun_timer
     # 충돌 쿨다운 감소
