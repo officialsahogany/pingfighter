@@ -17199,7 +17199,7 @@ def draw_stage2_leaves():
         leaf_rect = rotated_leaf.get_rect(center=(int(leaf['x']), int(leaf['y'])))
         SCREEN.blit(rotated_leaf, leaf_rect)
 def draw_tutorial_practice_room():
-    """튜토리얼 연습장 배경 그리기 - 세련된 스타디움 스타일"""
+    """튜토리얼 연습장 배경 그리기 - Stage 2 스타일 + 사이버펑크"""
     # 그라데이션 파란색 배경
     for i in range(HEIGHT):
         # 위에서 아래로 점점 밝아지는 그라데이션
@@ -17209,103 +17209,97 @@ def draw_tutorial_practice_room():
         color_b = int(75 + gradient_ratio * 20)  # 75-95
         pygame.draw.line(SCREEN, (color_r, color_g, color_b), (0, i), (WIDTH, i))
     
+    # 사이버펑크 바닥 그리드 패턴
+    grid_color = (30, 50, 90)  # 어두운 파란색
+    grid_bright = (50, 80, 140)  # 밝은 파란색
+    neon_color = (0, 200, 255)  # 네온 청록색
+    
+    # 원근감을 위한 그리드 라인 (아래쪽이 더 넓게)
+    grid_spacing = 40
+    
+    # 가로 그리드 라인 (원근감 적용)
+    for i in range(15):
+        y = HEIGHT - 100 - i * (grid_spacing - i * 2)  # 위로 갈수록 좁아짐
+        if y > HEIGHT // 2:  # 중앙선 아래만
+            alpha = int(100 - i * 5)  # 위로 갈수록 투명
+            if alpha > 0:
+                # 그리드 라인
+                grid_surface = pygame.Surface((WIDTH, 2), pygame.SRCALPHA)
+                grid_surface.fill((*grid_color, alpha))
+                SCREEN.blit(grid_surface, (0, y))
+                
+                # 가끔 네온 효과
+                if i % 3 == 0:
+                    neon_surface = pygame.Surface((WIDTH, 1), pygame.SRCALPHA)
+                    neon_surface.fill((*neon_color, alpha // 2))
+                    SCREEN.blit(neon_surface, (0, y))
+    
+    # 세로 그리드 라인 (원근감)
+    for i in range(-10, 11):
+        x = center_x + i * grid_spacing
+        # 중앙에서 멀수록 기울어짐
+        start_x = x + i * 15
+        end_x = x
+        
+        if 0 <= x <= WIDTH:
+            # 그리드 라인
+            pygame.draw.line(SCREEN, grid_color, 
+                           (start_x, HEIGHT), 
+                           (end_x, HEIGHT // 2), 1)
+            
+            # 가끔 네온 하이라이트
+            if abs(i) % 4 == 0:
+                neon_surface = pygame.Surface((2, HEIGHT // 2), pygame.SRCALPHA)
+                for j in range(HEIGHT // 2):
+                    alpha = int(50 * (j / (HEIGHT // 2)))
+                    if alpha > 0:
+                        neon_surface.set_at((0, j), (*neon_color, alpha))
+                # 계산된 위치에 블릿
+                line_x = start_x + (end_x - start_x) * j // (HEIGHT // 2)
+                if 0 <= line_x < WIDTH:
+                    SCREEN.blit(neon_surface, (line_x, HEIGHT // 2))
+    
+    # 사이버펑크 스캔라인 효과
+    for y in range(0, HEIGHT, 4):
+        scanline_surface = pygame.Surface((WIDTH, 1), pygame.SRCALPHA)
+        scanline_surface.fill((0, 0, 0, 20))
+        SCREEN.blit(scanline_surface, (0, y))
+    
     # 스타디움 스타일 코트 라인 (은은한 색상)
     line_color = (150, 170, 200)  # 은은한 회청색
-    accent_color = (80, 110, 180)  # 차분한 파란색 악센트
     line_width = 3
-    thin_line = 2
     
-    # 중앙 가로선
-    pygame.draw.line(SCREEN, line_color, (0, HEIGHT // 2), (WIDTH, HEIGHT // 2), line_width)
-    
-    # 중앙 원들 (다중 원으로 깊이감 추가)
     center_x = WIDTH // 2
     center_y = HEIGHT // 2
     
-    # 큰 원 (반투명 효과)
-    for radius in [120, 100, 80]:
-        alpha = 30 if radius == 120 else 60 if radius == 100 else 120  # 더 은은하게
-        circle_surface = pygame.Surface((radius * 2 + 10, radius * 2 + 10), pygame.SRCALPHA)
-        color_with_alpha = (*line_color, alpha)
-        pygame.draw.circle(circle_surface, color_with_alpha, (radius + 5, radius + 5), radius, thin_line)
-        SCREEN.blit(circle_surface, (center_x - radius - 5, center_y - radius - 5))
+    # 중앙 원 (Stage 2처럼 하나의 원만)
+    circle_radius = 80
     
-    # 중앙 점 (악센트 색상)
-    pygame.draw.circle(SCREEN, accent_color, (center_x, center_y), 12, 0)
-    pygame.draw.circle(SCREEN, line_color, (center_x, center_y), 12, 2)
-    
-    # 세로 중앙선
-    pygame.draw.line(SCREEN, line_color, (WIDTH // 2, 0), (WIDTH // 2, HEIGHT), line_width)
-    
-    # 외곽 테두리 (이중선으로 깊이감)
-    margin = 30
-    # 바깥 테두리
-    pygame.draw.rect(SCREEN, line_color, 
-                    (margin, margin, WIDTH - 2*margin, HEIGHT - 2*margin), 
+    # 중앙 가로선 (원 밖에만 그리기)
+    # 왼쪽 부분 (원 왼쪽까지)
+    pygame.draw.line(SCREEN, line_color, 
+                    (0, center_y), 
+                    (center_x - circle_radius, center_y), 
                     line_width)
-    # 안쪽 테두리 (반투명)
-    inner_margin = 40
-    inner_surface = pygame.Surface((WIDTH - 2*inner_margin, HEIGHT - 2*inner_margin), pygame.SRCALPHA)
-    pygame.draw.rect(inner_surface, (*line_color, 40),  # 더 은은하게 
-                    (0, 0, WIDTH - 2*inner_margin, HEIGHT - 2*inner_margin), 
-                    thin_line)
-    SCREEN.blit(inner_surface, (inner_margin, inner_margin))
     
-    # 골 에어리어 (더 세련된 디자인)
-    # 좌측 골 에어리어
-    pygame.draw.arc(SCREEN, line_color, 
-                   (margin - 50, center_y - 80, 100, 160), 
-                   -1.57, 1.57, line_width)
-    pygame.draw.arc(SCREEN, accent_color, 
-                   (margin - 30, center_y - 60, 60, 120), 
-                   -1.57, 1.57, thin_line)
+    # 오른쪽 부분 (원 오른쪽부터)
+    pygame.draw.line(SCREEN, line_color, 
+                    (center_x + circle_radius, center_y), 
+                    (WIDTH, center_y), 
+                    line_width)
     
-    # 우측 골 에어리어
-    pygame.draw.arc(SCREEN, line_color, 
-                   (WIDTH - margin - 50, center_y - 80, 100, 160), 
-                   1.57, 4.71, line_width)
-    pygame.draw.arc(SCREEN, accent_color, 
-                   (WIDTH - margin - 30, center_y - 60, 60, 120), 
-                   1.57, 4.71, thin_line)
+    # 중앙 원 그리기 (네온 효과 추가)
+    # 외부 글로우
+    for i in range(5):
+        glow_radius = circle_radius + i * 2
+        glow_alpha = 30 - i * 5
+        glow_surface = pygame.Surface((glow_radius * 2 + 10, glow_radius * 2 + 10), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surface, (*neon_color, glow_alpha), 
+                         (glow_radius + 5, glow_radius + 5), glow_radius, 1)
+        SCREEN.blit(glow_surface, (center_x - glow_radius - 5, center_y - glow_radius - 5))
     
-    # 코너 장식 (세련된 디테일)
-    corner_size = 20
-    corners = [
-        (margin, margin),  # 좌상
-        (WIDTH - margin, margin),  # 우상
-        (margin, HEIGHT - margin),  # 좌하
-        (WIDTH - margin, HEIGHT - margin)  # 우하
-    ]
-    
-    for cx, cy in corners:
-        # 코너 마크
-        if cx == margin:  # 왼쪽
-            if cy == margin:  # 상단
-                pygame.draw.lines(SCREEN, accent_color, False, 
-                                [(cx, cy + corner_size), (cx, cy), (cx + corner_size, cy)], thin_line)
-            else:  # 하단
-                pygame.draw.lines(SCREEN, accent_color, False, 
-                                [(cx, cy - corner_size), (cx, cy), (cx + corner_size, cy)], thin_line)
-        else:  # 오른쪽
-            if cy == margin:  # 상단
-                pygame.draw.lines(SCREEN, accent_color, False, 
-                                [(cx - corner_size, cy), (cx, cy), (cx, cy + corner_size)], thin_line)
-            else:  # 하단
-                pygame.draw.lines(SCREEN, accent_color, False, 
-                                [(cx - corner_size, cy), (cx, cy), (cx, cy - corner_size)], thin_line)
-    
-    # 추가 디테일 라인 (페널티 박스 느낌)
-    penalty_width = 200
-    penalty_height = 100
-    
-    # 상단 페널티 박스
-    pygame.draw.rect(SCREEN, line_color, 
-                    (center_x - penalty_width//2, margin, penalty_width, penalty_height), 
-                    thin_line)
-    # 하단 페널티 박스
-    pygame.draw.rect(SCREEN, line_color, 
-                    (center_x - penalty_width//2, HEIGHT - margin - penalty_height, penalty_width, penalty_height), 
-                    thin_line)
+    # 메인 원
+    pygame.draw.circle(SCREEN, line_color, (center_x, center_y), circle_radius, line_width)
 
 def draw_field():
     global psycho_bg_timer, earthquake_offset_x, earthquake_offset_y
