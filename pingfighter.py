@@ -21589,8 +21589,11 @@ def handle_ball():
         last_wall_hit = None
         
         # 튜토리얼 모드: 보스가 공을 받아쳤음을 표시
-        if current_stage == 50 and 'tutorial_practice_mode' in locals() and tutorial_practice_mode and not tutorial_boss_returned:
-            tutorial_boss_returned = True
+        if current_stage == 50 and 'tutorial_practice_mode' in globals():
+            if tutorial_practice_mode and 'tutorial_boss_returned' in globals():
+                if not tutorial_boss_returned:
+                    tutorial_boss_returned = True
+                    print("튜토리얼: 보스가 공을 받아쳤습니다!")
         
         #  파워스매싱 상태 확인 (보스 충돌 직전에)
         was_power_smashing = power_smashing_parabola_active
@@ -24778,17 +24781,26 @@ def main(stage_num, new_boss_mode=False):
     prism_particles = []  # 프리즘 파티클 초기화
     
     # 튜토리얼 스테이지 시작 시 대화 표시
+    global tutorial_dialogue_shown, tutorial_practice_mode, tutorial_serve_instruction_shown, tutorial_boss_returned
+    
     tutorial_dialogue_shown = False
     tutorial_practice_mode = False  # 실습 모드 플래그
     tutorial_serve_instruction_shown = False  # 서브 지시 표시 플래그
     tutorial_boss_returned = False  # 보스가 서브를 받아쳤는지 확인
-    if stage_num == 50 and not tutorial_dialogue_shown:
-        if show_tutorial_intro_dialogue():
-            tutorial_dialogue_shown = True
-            tutorial_practice_mode = True  # 대화 후 실습 모드 시작
-            # 플레이어에게 서브권 부여
-            boss_serves_first = False
-            serving_player = "player"
+    
+    if stage_num == 50:
+        print("튜토리얼 스테이지 50 시작")
+        if not tutorial_dialogue_shown:
+            print("튜토리얼 대화 표시 시작")
+            if show_tutorial_intro_dialogue():
+                print("튜토리얼 대화 완료")
+                tutorial_dialogue_shown = True
+                tutorial_practice_mode = True  # 대화 후 실습 모드 시작
+                # 플레이어에게 서브권 부여
+                is_player_serve = True
+                is_waiting_for_serve = True
+                waiting_start_time = pygame.time.get_ticks()
+                print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
     
     running = True
     while running:
@@ -25326,8 +25338,9 @@ def main(stage_num, new_boss_mode=False):
                     create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
                     
                     # 튜토리얼 모드: 플레이어가 서브했음을 표시
-                    if current_stage == 50 and tutorial_practice_mode:
-                        tutorial_serve_instruction_shown = False  # 서브 지시 숨기기
+                    if current_stage == 50 and 'tutorial_practice_mode' in globals():
+                        if tutorial_practice_mode:
+                            print("튜토리얼: 플레이어가 서브를 했습니다!")
             # 아이템 사용 - Aipill 활성화 시에는 아이템 사용 불가
             item_use_pressed = False
             direct_item_index = -1  # 숫자키로 직접 선택된 아이템 인덱스
@@ -25986,50 +25999,51 @@ def main(stage_num, new_boss_mode=False):
             from legendary_items import get_legendary_manager
         
         # 튜토리얼 모드 UI 표시
-        if current_stage == 50 and 'tutorial_practice_mode' in locals() and tutorial_practice_mode:
-            font_tutorial = FontStyle.body() if 'FontStyle' in globals() else pygame.font.Font(None, 24)
-            
-            # 서브 지시 표시
-            if is_waiting_for_serve and is_player_serve and not tutorial_boss_returned:
-                instruction_text = "스페이스바를 눌러 서브공을 발사해보세요!"
-                text_surface = font_tutorial.render(instruction_text, True, CYAN)
-                text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100))
+        if current_stage == 50 and 'tutorial_practice_mode' in globals():
+            if tutorial_practice_mode:
+                font_tutorial = FontStyle.body() if 'FontStyle' in globals() else pygame.font.Font(None, 24)
                 
-                # 텍스트 배경
-                bg_width = text_rect.width + 40
-                bg_height = text_rect.height + 20
-                text_bg = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
-                text_bg.fill((0, 0, 0, 180))
-                pygame.draw.rect(text_bg, CYAN, (0, 0, bg_width, bg_height), 2)
-                bg_rect = text_bg.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100))
-                SCREEN.blit(text_bg, bg_rect)
+                # 서브 지시 표시
+                if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned:
+                    instruction_text = "스페이스바를 눌러 서브공을 발사해보세요!"
+                    text_surface = font_tutorial.render(instruction_text, True, CYAN)
+                    text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100))
+                    
+                    # 텍스트 배경
+                    bg_width = text_rect.width + 40
+                    bg_height = text_rect.height + 20
+                    text_bg = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+                    text_bg.fill((0, 0, 0, 180))
+                    pygame.draw.rect(text_bg, CYAN, (0, 0, bg_width, bg_height), 2)
+                    bg_rect = text_bg.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100))
+                    SCREEN.blit(text_bg, bg_rect)
+                    
+                    # 텍스트 그리기
+                    SCREEN.blit(text_surface, text_rect)
+                    
+                    # 깜빡임 효과
+                    if pygame.time.get_ticks() % 1000 < 500:
+                        arrow_text = font_tutorial.render("▼", True, CYAN)
+                        arrow_rect = arrow_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 140))
+                        SCREEN.blit(arrow_text, arrow_rect)
                 
-                # 텍스트 그리기
-                SCREEN.blit(text_surface, text_rect)
-                
-                # 깜빡임 효과
-                if pygame.time.get_ticks() % 1000 < 500:
-                    arrow_text = font_tutorial.render("▼", True, CYAN)
-                    arrow_rect = arrow_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 140))
-                    SCREEN.blit(arrow_text, arrow_rect)
-            
-            # 보스가 공을 받아친 후 대화 표시
-            elif tutorial_boss_returned and not is_waiting_for_serve:
-                dialogue_text = "[조교] 잘하는군 .. 그것이 서브다. 그럼 내가 반격한 공을 받아 쳐봐"
-                text_surface = font_tutorial.render(dialogue_text, True, (255, 100, 100))
-                text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT - 100))
-                
-                # 텍스트 배경
-                bg_width = text_rect.width + 40
-                bg_height = text_rect.height + 20
-                text_bg = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
-                text_bg.fill((0, 0, 0, 180))
-                pygame.draw.rect(text_bg, (255, 100, 100), (0, 0, bg_width, bg_height), 2)
-                bg_rect = text_bg.get_rect(center=(WIDTH // 2, HEIGHT - 100))
-                SCREEN.blit(text_bg, bg_rect)
-                
-                # 텍스트 그리기
-                SCREEN.blit(text_surface, text_rect)
+                # 보스가 공을 받아친 후 대화 표시
+                elif 'tutorial_boss_returned' in globals() and tutorial_boss_returned and not is_waiting_for_serve:
+                    dialogue_text = "[조교] 잘하는군 .. 그것이 서브다. 그럼 내가 반격한 공을 받아 쳐봐"
+                    text_surface = font_tutorial.render(dialogue_text, True, (255, 100, 100))
+                    text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+                    
+                    # 텍스트 배경
+                    bg_width = text_rect.width + 40
+                    bg_height = text_rect.height + 20
+                    text_bg = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+                    text_bg.fill((0, 0, 0, 180))
+                    pygame.draw.rect(text_bg, (255, 100, 100), (0, 0, bg_width, bg_height), 2)
+                    bg_rect = text_bg.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+                    SCREEN.blit(text_bg, bg_rect)
+                    
+                    # 텍스트 그리기
+                    SCREEN.blit(text_surface, text_rect)
         
         pygame.display.flip()
         # 프로파일러 프레임 종료
