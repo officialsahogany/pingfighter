@@ -18507,8 +18507,8 @@ def choose_server(show_text=True):
     power_smashing_freeze_active = False
     power_smashing_freeze_start_time = 0
     # 고스트샷 관련 코드 제거됨
-    # 스테이지 6에서는 항상 플레이어가 먼저 서브
-    if current_stage == 6:
+    # 스테이지 6과 튜토리얼(스테이지 50)에서는 항상 플레이어가 먼저 서브
+    if current_stage == 6 or current_stage == 50:
         is_player_serve = True
     else:
         is_player_serve = random.choice([True, False])
@@ -24798,10 +24798,7 @@ def main(stage_num, new_boss_mode=False):
                 print("튜토리얼 대화 완료")
                 tutorial_dialogue_shown = True
                 tutorial_practice_mode = True  # 대화 후 실습 모드 시작
-                # 플레이어에게 서브권 부여
-                is_player_serve = True
-                is_waiting_for_serve = True
-                waiting_start_time = pygame.time.get_ticks()
+                # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
                 print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
     
     running = True
