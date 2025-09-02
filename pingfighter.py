@@ -14309,7 +14309,7 @@ def show_tutorial_boss_return_dialogue():
     # 폰트 설정
     font_large = FontStyle.subtitle()  # 32pt 화자 이름용
     font_medium = FontStyle.body()    # 24pt 대사용
-    font_small = FontStyle.caption()   # 18pt 안내용
+    font_small = FontStyle.small()   # 18pt 안내용
     
     # 대화 내용
     dialogue = {
