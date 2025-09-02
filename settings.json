@@ -1,0 +1,127 @@
+{
+  "settings": {
+    "graphics": {
+      "resolution": [
+        600,
+        750
+      ],
+      "fullscreen": false,
+      "vsync": true,
+      "fps_limit": 60,
+      "quality": "HIGH",
+      "particles": true,
+      "screen_shake": true,
+      "bloom_effect": true,
+      "shadows": true,
+      "antialiasing": true,
+      "show_fps": false
+    },
+    "audio": {
+      "master_volume": 0.8,
+      "sfx_volume": 1.0,
+      "music_volume": 0.7,
+      "ambient_volume": 0.5,
+      "mute_all": false,
+      "spatial_audio": true,
+      "dynamic_music": true
+    },
+    "gameplay": {
+      "difficulty": "normal",
+      "auto_save": true,
+      "save_interval": 60,
+      "show_hints": true,
+      "screen_edge_scroll": false,
+      "camera_shake_intensity": 1.0,
+      "slow_motion_effect": true,
+      "damage_numbers": true,
+      "auto_pause_on_focus_loss": true
+    },
+    "network": {
+      "default_port": 12345,
+      "player_name": "Player",
+      "auto_reconnect": true,
+      "connection_timeout": 10,
+      "ping_limit": 200,
+      "interpolation": true,
+      "prediction": true
+    },
+    "accessibility": {
+      "colorblind_mode": "none",
+      "high_contrast": false,
+      "reduce_motion": false,
+      "larger_text": false,
+      "screen_reader": false,
+      "subtitles": true
+    }
+  },
+  "key_bindings": {
+    "move_left": {
+      "primary": 1073741904,
+      "secondary": 97
+    },
+    "move_right": {
+      "primary": 1073741903,
+      "secondary": 100
+    },
+    "dash": {
+      "primary": 32,
+      "secondary": 1073742049
+    },
+    "special": {
+      "primary": 113,
+      "secondary": null
+    },
+    "item_1": {
+      "primary": 49,
+      "secondary": null
+    },
+    "item_2": {
+      "primary": 50,
+      "secondary": null
+    },
+    "item_3": {
+      "primary": 51,
+      "secondary": null
+    },
+    "item_4": {
+      "primary": 52,
+      "secondary": null
+    },
+    "item_5": {
+      "primary": 53,
+      "secondary": null
+    },
+    "item_6": {
+      "primary": 54,
+      "secondary": null
+    },
+    "item_select": {
+      "primary": 9,
+      "secondary": null
+    },
+    "pause": {
+      "primary": 27,
+      "secondary": 112
+    },
+    "menu": {
+      "primary": 109,
+      "secondary": null
+    },
+    "settings": {
+      "primary": 1073741882,
+      "secondary": null
+    },
+    "debug_menu": {
+      "primary": 1073741884,
+      "secondary": null
+    },
+    "profiler": {
+      "primary": 1073741888,
+      "secondary": null
+    },
+    "screenshot": {
+      "primary": 1073741893,
+      "secondary": null
+    }
+  }
+}

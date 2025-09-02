@@ -1,0 +1,311 @@
+"""
+🎮 픽셀 폰트 매니저
+네오둥근모 레트로 픽셀 폰트를 중앙에서 관리
+"""
+
+import pygame
+import os
+
+# 폰트 파일 경로
+# PF스타더스트 폰트 (TTF 파일이 있을 경우)
+# 없으면 둥근모꼴 사용
+import os
+
+if os.path.exists("PFStardust.ttf"):
+    PIXEL_FONT = "PFStardust.ttf"
+    print("🌟 PF스타더스트 3.0 S 폰트 활성화!")
+elif os.path.exists("둥근모꼴.ttf"):
+    PIXEL_FONT = "둥근모꼴.ttf"  
+    print("🎮 둥근모꼴 픽셀 폰트 활성화!")
+elif os.path.exists("NeoDGM.ttf"):
+    PIXEL_FONT = "NeoDGM.ttf"
+    print("🎮 네오둥근모 픽셀 폰트 활성화!")
+else:
+    PIXEL_FONT = "NeoDunggeunmoPro.ttf"
+    print("🎮 네오둥근모 프로 폰트 활성화!")
+    
+FALLBACK_FONT_BOLD = "NanumSquareB.ttf"
+FALLBACK_FONT_REGULAR = "NanumSquareR.ttf"
+
+# 픽셀 폰트 사용 여부
+USE_PIXEL_FONT = True
+
+# 폰트 캐시 (성능 최적화)
+_font_cache = {}
+
+def get_font(size, style="regular", force_pixel=None):
+    """
+    폰트 가져오기 (캐싱 지원)
+    
+    Args:
+        size: 폰트 크기
+        style: "bold", "regular", "small" 등
+        force_pixel: True면 픽셀 폰트 강제, False면 기본 폰트 강제, None이면 설정 따름
+    """
+    use_pixel = force_pixel if force_pixel is not None else USE_PIXEL_FONT
+    
+    # 캐시 키 생성
+    cache_key = (size, style, use_pixel)
+    
+    # 캐시에 있으면 반환
+    if cache_key in _font_cache:
+        return _font_cache[cache_key]
+    
+    # 픽셀 폰트 사용
+    if use_pixel:
+        # 픽셀 폰트는 크기를 약간 늘려줘야 함
+        adjusted_size = adjust_pixel_size(size)
+        try:
+            font = pygame.font.Font(PIXEL_FONT, adjusted_size)
+            _font_cache[cache_key] = font
+            return font
+        except:
+            print(f"⚠️ 픽셀 폰트 로드 실패, 폴백 사용")
+    
+    # 폴백 폰트 사용
+    if style == "bold":
+        font_file = FALLBACK_FONT_BOLD
+    else:
+        font_file = FALLBACK_FONT_REGULAR
+    
+    try:
+        font = pygame.font.Font(font_file, size)
+    except:
+        # 최종 폴백: 시스템 기본 폰트
+        font = pygame.font.Font(None, size)
+    
+    _font_cache[cache_key] = font
+    return font
+
+def adjust_pixel_size(size):
+    """픽셀 폰트용 크기 조정 (크기 감소 - 더 작고 얇게)"""
+    size_map = {
+        # 원본 크기: 픽셀 폰트 크기 (기존보다 20-30% 작게)
+        9: 9,
+        12: 11,
+        14: 13,
+        16: 15,
+        18: 17,
+        20: 19,
+        24: 22,
+        26: 24,
+        28: 26,
+        32: 29,
+        36: 32,
+        40: 36,
+        48: 42,
+        64: 56,
+        72: 64,
+        140: 110,  # 점수 표시용 특별 조정
+    }
+    
+    # 매핑된 크기가 있으면 사용
+    if size in size_map:
+        return size_map[size]
+    
+    # 없으면 10% 감소
+    return int(size * 0.9)
+
+# 미리 정의된 폰트 스타일
+class FontStyle:
+    """자주 사용하는 폰트 스타일 프리셋"""
+    
+    @staticmethod
+    def title_large():
+        """큰 제목용 (스테이지 타이틀 등)"""
+        return get_font(64, "bold")
+    
+    @staticmethod
+    def title():
+        """일반 제목용"""
+        return get_font(40, "bold")
+    
+    @staticmethod
+    def subtitle():
+        """부제목용"""
+        return get_font(32, "bold")
+    
+    @staticmethod
+    def menu():
+        """메뉴 아이템용"""
+        return get_font(28, "regular")
+    
+    @staticmethod
+    def body():
+        """본문용"""
+        return get_font(24, "regular")
+    
+    @staticmethod
+    def small():
+        """작은 텍스트용"""
+        return get_font(20, "regular")
+    
+    @staticmethod
+    def tiny():
+        """아주 작은 텍스트용 (아이템 설명 등)"""
+        return get_font(16, "regular")
+    
+    @staticmethod
+    def score():
+        """점수 표시용"""
+        return get_font(36, "bold")
+    
+    @staticmethod
+    def gauge():
+        """게이지 텍스트용"""
+        return get_font(14, "regular")
+    
+    @staticmethod
+    def item_name():
+        """아이템 이름용"""
+        return get_font(12, "bold")
+    
+    @staticmethod
+    def item_obtain():
+        """아이템 획득 메시지용"""
+        return get_font(9, "regular")
+
+# 색상 프리셋 (픽셀 게임 스타일)
+class PixelColors:
+    """레트로 픽셀 게임 색상 팔레트"""
+    
+    # 기본 색상
+    WHITE = (255, 255, 255)
+    BLACK = (0, 0, 0)
+    RED = (255, 0, 0)
+    GREEN = (0, 255, 0)
+    BLUE = (0, 0, 255)
+    YELLOW = (255, 255, 0)
+    CYAN = (0, 255, 255)
+    MAGENTA = (255, 0, 255)
+    
+    # 레트로 색상
+    RETRO_GREEN = (0, 255, 128)  # 클래식 터미널 녹색
+    RETRO_AMBER = (255, 176, 0)  # 오래된 모니터 주황색
+    RETRO_CYAN = (0, 255, 255)   # 네온 청록색
+    RETRO_PINK = (255, 0, 128)   # 네온 핑크
+    
+    # 게임 특화 색상
+    SCORE = (255, 255, 0)         # 점수 (노란색)
+    HEALTH = (0, 255, 0)          # 체력 (녹색)
+    DAMAGE = (255, 0, 0)          # 데미지 (빨간색)
+    ENERGY = (0, 128, 255)        # 에너지 (파란색)
+    ITEM = (255, 128, 0)          # 아이템 (주황색)
+    SPECIAL = (255, 0, 255)       # 특수 (마젠타)
+
+def render_pixel_text(surface, text, pos, size=24, color=PixelColors.WHITE, style="regular", center=False):
+    """
+    픽셀 텍스트 렌더링 헬퍼 함수
+    
+    Args:
+        surface: 그릴 Surface
+        text: 텍스트
+        pos: (x, y) 위치
+        size: 폰트 크기
+        color: 색상
+        style: 폰트 스타일
+        center: 중앙 정렬 여부
+    """
+    font = get_font(size, style)
+    text_surface = font.render(str(text), True, color)
+    
+    if center:
+        rect = text_surface.get_rect(center=pos)
+        surface.blit(text_surface, rect)
+    else:
+        surface.blit(text_surface, pos)
+
+def render_blinking_text(surface, text, pos, size=24, color1=PixelColors.WHITE, 
+                        color2=PixelColors.YELLOW, speed=500, style="regular"):
+    """깜빡이는 텍스트 효과 (레트로 스타일)"""
+    import time
+    current_time = int(time.time() * 1000)
+    use_color = color1 if (current_time // speed) % 2 == 0 else color2
+    render_pixel_text(surface, text, pos, size, use_color, style, center=True)
+
+def render_shadow_text(surface, text, pos, size=24, color=PixelColors.WHITE, 
+                      shadow_color=PixelColors.BLACK, offset=2, style="regular"):
+    """그림자 효과가 있는 텍스트"""
+    font = get_font(size, style)
+    
+    # 그림자
+    shadow_surface = font.render(str(text), True, shadow_color)
+    surface.blit(shadow_surface, (pos[0] + offset, pos[1] + offset))
+    
+    # 본문
+    text_surface = font.render(str(text), True, color)
+    surface.blit(text_surface, pos)
+
+def toggle_pixel_font():
+    """픽셀 폰트 토글"""
+    global USE_PIXEL_FONT
+    USE_PIXEL_FONT = not USE_PIXEL_FONT
+    _font_cache.clear()  # 캐시 초기화
+    
+    status = "활성화" if USE_PIXEL_FONT else "비활성화"
+    print(f"🎮 픽셀 폰트 {status}!")
+    return USE_PIXEL_FONT
+
+# 초기화 체크
+def check_fonts():
+    """폰트 파일 존재 확인"""
+    fonts_status = {
+        "픽셀 폰트 (네오둥근모)": os.path.exists(PIXEL_FONT),
+        "폴백 Bold": os.path.exists(FALLBACK_FONT_BOLD),
+        "폴백 Regular": os.path.exists(FALLBACK_FONT_REGULAR),
+    }
+    
+    print("📋 폰트 상태:")
+    for name, exists in fonts_status.items():
+        status = "✅" if exists else "❌"
+        print(f"  {status} {name}")
+    
+    if fonts_status["픽셀 폰트 (네오둥근모)"]:
+        print("🎮 네오둥근모 픽셀 폰트 사용 가능!")
+    else:
+        print("⚠️ 픽셀 폰트 없음, 기본 폰트 사용")
+        global USE_PIXEL_FONT
+        USE_PIXEL_FONT = False
+    
+    return fonts_status
+
+# 모듈 로드시 폰트 체크
+if __name__ != "__main__":
+    check_fonts()
+
+# 테스트 코드
+if __name__ == "__main__":
+    pygame.init()
+    screen = pygame.display.set_mode((800, 600))
+    pygame.display.set_caption("픽셀 폰트 테스트")
+    
+    clock = pygame.time.Clock()
+    running = True
+    
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    toggle_pixel_font()
+        
+        screen.fill((0, 0, 0))
+        
+        # 다양한 스타일 테스트
+        render_pixel_text(screen, "PingFighter 핑파이터", (400, 50), 48, PixelColors.RETRO_GREEN, "bold", center=True)
+        render_shadow_text(screen, "Stage 6 - BOSS", (400, 120), 36, PixelColors.YELLOW, center=True)
+        render_blinking_text(screen, "GAME START!", (400, 200), 32, PixelColors.WHITE, PixelColors.RETRO_PINK)
+        
+        # 점수
+        render_pixel_text(screen, "SCORE: 999999", (400, 280), 24, PixelColors.SCORE, center=True)
+        render_pixel_text(screen, "HIGH SCORE: 1234567", (400, 320), 20, PixelColors.RETRO_AMBER, center=True)
+        
+        # 안내
+        info = "SPACE: 폰트 전환" if USE_PIXEL_FONT else "SPACE: Switch to Pixel"
+        render_pixel_text(screen, info, (400, 500), 20, PixelColors.CYAN, center=True)
+        
+        pygame.display.flip()
+        clock.tick(30)
+    
+    pygame.quit()

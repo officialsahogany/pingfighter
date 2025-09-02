@@ -1,0 +1,1266 @@
+"""
+전설 아이템 획득 애니메이션 시스템
+- 화면 정지 효과
+- 극적인 시각 효과
+- 아이템 이름 표시
+- 빛 응축 및 폭발 효과
+- 고급 이징 함수
+- 다양한 파티클 형태
+"""
+
+import pygame
+import pygame.gfxdraw
+import math
+import random
+import os
+import sys
+from typing import Optional, Tuple, List, Any
+from enum import Enum
+
+def resource_path(relative_path):
+    """리소스 경로 헬퍼"""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+# 고급 이징 함수들
+class Easing:
+    """고급 이징 함수 모음"""
+    
+    @staticmethod
+    def ease_in_out_cubic(t: float) -> float:
+        """부드러운 시작과 끝"""
+        if t < 0.5:
+            return 4 * t * t * t
+        p = 2 * t - 2
+        return 1 + p * p * p / 2
+    
+    @staticmethod
+    def ease_out_elastic(t: float) -> float:
+        """탄성 효과로 끝나는 이징"""
+        if t == 0 or t == 1:
+            return t
+        p = 0.3
+        s = p / 4
+        return math.pow(2, -10 * t) * math.sin((t - s) * (2 * math.pi) / p) + 1
+    
+    @staticmethod
+    def ease_out_bounce(t: float) -> float:
+        """바운스 효과"""
+        if t < 1/2.75:
+            return 7.5625 * t * t
+        elif t < 2/2.75:
+            t -= 1.5/2.75
+            return 7.5625 * t * t + 0.75
+        elif t < 2.5/2.75:
+            t -= 2.25/2.75
+            return 7.5625 * t * t + 0.9375
+        else:
+            t -= 2.625/2.75
+            return 7.5625 * t * t + 0.984375
+    
+    @staticmethod
+    def ease_in_expo(t: float) -> float:
+        """지수적 가속"""
+        return 0 if t == 0 else math.pow(2, 10 * (t - 1))
+    
+    @staticmethod
+    def ease_out_expo(t: float) -> float:
+        """지수적 감속"""
+        return 1 if t == 1 else 1 - math.pow(2, -10 * t)
+    
+    @staticmethod
+    def ease_in_out_sine(t: float) -> float:
+        """사인파 이징"""
+        return -(math.cos(math.pi * t) - 1) / 2
+
+class ParticleShape(Enum):
+    """파티클 형태 종류"""
+    CIRCLE = "circle"
+    STAR = "star"
+    DIAMOND = "diamond"
+    TRIANGLE = "triangle"
+    HEXAGON = "hexagon"
+    SPARK = "spark"
+
+class LegendaryAcquisitionEffect:
+    """전설 아이템 획득 시 특별 애니메이션"""
+    
+    def __init__(self, width: int = 600, height: int = 750):
+        self.width = width
+        self.height = height
+        self.active = False
+        self.animation_time = 0
+        self.total_duration = 5000  # 5초 애니메이션
+        self.item_name = ""
+        self.korean_name = ""
+        self.item_icon = None  # 아이템 아이콘
+        
+        # 애니메이션 상태
+        self.phase = 0  # 0: 응축(2초), 1: 폭발(1초), 2: 텍스트/아이템(1.5초), 3: 대기(0.5초), 4: 완료
+        self.phase_timer = 0
+        self.animation_complete = False  # 애니메이션 완료 여부
+        self.waiting_for_input = False  # 스페이스바 대기 중
+        
+        # 파티클 시스템
+        self.particles = []
+        self.lightning_bolts = []
+        self.shockwave_radius = 0
+        self.light_orbs = []  # 빛 구체들
+        self.convergence_particles = []  # 응축 파티클
+        
+        # 빛 응축 효과
+        self.light_convergence_radius = 300
+        self.light_convergence_intensity = 0
+        self.explosion_radius = 0
+        self.explosion_particles = []
+        
+        # 화면 효과
+        self.screen_flash = 0
+        self.screen_shake = 0
+        self.zoom_factor = 1.0
+        self.vignette_intensity = 0  # 비네팅 효과
+        
+        # 색상 정의
+        self.LEGENDARY_RED = (255, 50, 50)
+        self.LEGENDARY_GOLD = (255, 215, 0)
+        self.LEGENDARY_WHITE = (255, 255, 255)
+        self.LEGENDARY_PURPLE = (200, 100, 255)
+        self.LEGENDARY_CYAN = (100, 255, 255)
+        # 엔틱 금빛 색상
+        self.ANTIQUE_GOLD = (212, 175, 55)
+        self.ANTIQUE_GOLD_DARK = (153, 101, 21)
+        self.ANTIQUE_BRONZE = (140, 120, 83)
+        
+        # 그래디언트 표면 캐시
+        self.gradient_cache = {}
+        
+        # 별빛 효과를 위한 별들
+        self.stars = []
+        self._create_stars()
+        
+    def trigger(self, item_name: str, korean_name: str, item_icon: Any = None):
+        """전설 아이템 획듍 애니메이션 시작"""
+        self.active = True
+        self.animation_time = 0
+        self.item_name = item_name
+        self.korean_name = korean_name
+        self.item_icon = item_icon
+        self.phase = 0
+        self.phase_timer = 0
+        
+        # 초기화
+        self.particles = []
+        self.lightning_bolts = []
+        self.light_orbs = []
+        self.convergence_particles = []
+        self.explosion_particles = []
+        self.shockwave_radius = 0
+        self.light_convergence_radius = 300
+        self.light_convergence_intensity = 0
+        self.explosion_radius = 0
+        self.screen_flash = 0
+        self.screen_shake = 0
+        self.zoom_factor = 1.0
+        self.vignette_intensity = 0
+        
+        # 빛 응축 파티클 생성
+        self._create_convergence_particles()
+        # 빛 구체 생성
+        self._create_light_orbs()
+        # 별빛 효과 갱신
+        self._create_stars()
+        
+    def _draw_particle(self, surface: pygame.Surface, particle: dict, center: Tuple[int, int]):
+        """다양한 형태의 파티클 그리기"""
+        shape = particle.get('shape', ParticleShape.CIRCLE)
+        size = particle['size']
+        color = particle['color']
+        alpha = int(particle.get('alpha', 255) * particle['life'])
+        
+        # 색상 처리 - 3개 또는 4개 값 모두 처리
+        if len(color) == 3:
+            final_color = (*color, min(255, alpha))
+        else:
+            # 이미 알파값이 있으면 기존 알파와 새 알파를 곱해서 사용
+            final_color = (*color[:3], min(255, int(color[3] * alpha / 255)))
+        
+        # 알파 채널이 있는 표면 생성
+        particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        
+        if shape == ParticleShape.STAR:
+            # 별 모양
+            points = []
+            for i in range(10):
+                angle = math.pi * i / 5
+                if i % 2 == 0:
+                    r = size
+                else:
+                    r = size * 0.5
+                x = size + r * math.cos(angle - math.pi / 2)
+                y = size + r * math.sin(angle - math.pi / 2)
+                points.append((x, y))
+            pygame.draw.polygon(particle_surf, final_color, points)
+            
+        elif shape == ParticleShape.DIAMOND:
+            # 다이아몬드 모양
+            points = [(size, 0), (size * 2, size), (size, size * 2), (0, size)]
+            pygame.draw.polygon(particle_surf, final_color, points)
+            
+        elif shape == ParticleShape.HEXAGON:
+            # 육각형
+            points = []
+            for i in range(6):
+                angle = math.pi * i / 3
+                x = size + size * math.cos(angle)
+                y = size + size * math.sin(angle)
+                points.append((x, y))
+            pygame.draw.polygon(particle_surf, final_color, points)
+            
+        elif shape == ParticleShape.SPARK:
+            # 불꽃 모양 (가늘고 긴 선)
+            pygame.draw.line(particle_surf, final_color, 
+                           (size, 0), (size, size * 2), max(1, size // 4))
+            pygame.draw.line(particle_surf, final_color, 
+                           (0, size), (size * 2, size), max(1, size // 4))
+        else:
+            # 기본 원형
+            pygame.draw.circle(particle_surf, final_color[:3], (size, size), size)
+            
+        # 회전 적용
+        if 'rotation' in particle:
+            particle_surf = pygame.transform.rotate(particle_surf, particle['rotation'])
+            
+        # 표면에 그리기
+        surface.blit(particle_surf, (center[0] - particle_surf.get_width() // 2,
+                                     center[1] - particle_surf.get_height() // 2))
+    
+    def _create_gradient_surface(self, size: int, inner_color: Tuple[int, int, int], 
+                                outer_color: Tuple[int, int, int], alpha: int = 255) -> pygame.Surface:
+        """그래디언트 표면 생성"""
+        cache_key = (size, inner_color, outer_color, alpha)
+        if cache_key in self.gradient_cache:
+            return self.gradient_cache[cache_key]
+            
+        surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+        surf.fill((0, 0, 0, 0))  # 투명 배경으로 초기화
+        
+        # 더 효율적인 그래디언트 생성
+        step = max(1, size // 20)  # 단계를 줄여서 성능 향상
+        for i in range(size, 0, -step):
+            progress = 1 - (i / size)
+            eased_progress = Easing.ease_in_out_sine(progress)
+            
+            r = int(inner_color[0] + (outer_color[0] - inner_color[0]) * eased_progress)
+            g = int(inner_color[1] + (outer_color[1] - inner_color[1]) * eased_progress)
+            b = int(inner_color[2] + (outer_color[2] - inner_color[2]) * eased_progress)
+            a = int(alpha * (1 - eased_progress * 0.8))  # 외곽으로 갈수록 투명
+            
+            # pygame.gfxdraw를 안전하게 사용
+            try:
+                pygame.gfxdraw.filled_circle(surf, size, size, i, pygame.Color(r, g, b, a))
+            except:
+                # 폴백: 일반 원 그리기 (알파 없이)
+                pygame.draw.circle(surf, (r, g, b), (size, size), i)
+            
+        # 전체 서피스에 알파 적용
+        surf.set_alpha(alpha)
+        self.gradient_cache[cache_key] = surf
+        return surf
+    
+    def _create_stars(self):
+        """배경 별빛 효과 생성"""
+        self.stars = []
+        for _ in range(150):  # 150개의 별
+            self.stars.append({
+                'x': random.randint(0, self.width),
+                'y': random.randint(0, self.height),
+                'size': random.uniform(0.5, 2.5),
+                'brightness': random.uniform(0.3, 1.0),
+                'twinkle_speed': random.uniform(0.001, 0.003),
+                'twinkle_phase': random.uniform(0, math.pi * 2)
+            })
+    
+    def _draw_antique_frame(self, screen: pygame.Surface, center_x: int, center_y: int, radius: int, thickness: int = 8):
+        """엔틱한 금빛 액자 프레임 그리기"""
+        # 장식적인 패턴만 남기고 원형 선 제거
+        # 액자의 모서리에 작은 장식 구체만 그리기
+        num_ornaments = 16
+        for i in range(num_ornaments):
+            angle = i * math.pi * 2 / num_ornaments + self.animation_time * 0.0005
+            x = center_x + math.cos(angle) * radius
+            y = center_y + math.sin(angle) * radius
+            
+            # 장식 구체 (금색만 사용)
+            ornament_size = 4 + math.sin(angle * 3) * 2
+            pygame.draw.circle(screen, self.ANTIQUE_GOLD, (int(x), int(y)), int(ornament_size))
+            pygame.draw.circle(screen, self.ANTIQUE_GOLD_DARK, (int(x), int(y)), int(ornament_size), 1)
+    
+    def _create_initial_particles(self):
+        """초기 파티클 생성 (다양한 형태)"""
+        center_x = self.width // 2
+        center_y = self.height // 2
+        
+        # 폭발 파티클 (다양한 형태)
+        shapes = [ParticleShape.STAR, ParticleShape.DIAMOND, ParticleShape.SPARK, 
+                 ParticleShape.HEXAGON, ParticleShape.CIRCLE]
+        
+        for _ in range(150):  # 더 많은 파티클
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(5, 20)
+            self.particles.append({
+                'x': center_x,
+                'y': center_y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'life': 1.0,
+                'size': random.randint(3, 12),
+                'color': random.choice([self.LEGENDARY_RED, self.LEGENDARY_GOLD, 
+                                       self.LEGENDARY_WHITE, self.LEGENDARY_PURPLE]),
+                'type': 'explosion',
+                'shape': random.choice(shapes),
+                'rotation': random.uniform(0, 360),
+                'rotation_speed': random.uniform(-10, 10),
+                'alpha': 255
+            })
+            
+        # 상승하는 불꽃 파티클
+        for _ in range(50):
+            self.particles.append({
+                'x': center_x + random.randint(-100, 100),
+                'y': center_y + random.randint(-50, 50),
+                'vx': random.uniform(-1, 1),
+                'vy': random.uniform(-5, -2),
+                'life': 1.0,
+                'size': random.randint(2, 5),
+                'color': self.LEGENDARY_GOLD,
+                'type': 'flame'
+            })
+            
+    def _create_lightning(self):
+        """번개 효과 생성"""
+        center_x = self.width // 2
+        center_y = self.height // 2
+        
+        for _ in range(3):
+            # 시작점과 끝점
+            angle = random.uniform(0, math.pi * 2)
+            start_x = center_x
+            start_y = center_y
+            end_x = center_x + math.cos(angle) * 200
+            end_y = center_y + math.sin(angle) * 200
+            
+            # 번개 경로 생성
+            points = [(start_x, start_y)]
+            segments = 8
+            for i in range(1, segments):
+                t = i / segments
+                base_x = start_x + (end_x - start_x) * t
+                base_y = start_y + (end_y - start_y) * t
+                offset_x = random.randint(-20, 20)
+                offset_y = random.randint(-20, 20)
+                points.append((base_x + offset_x, base_y + offset_y))
+            points.append((end_x, end_y))
+            
+            self.lightning_bolts.append({
+                'points': points,
+                'life': 0.3,
+                'thickness': random.randint(2, 5)
+            })
+            
+    def update(self, dt: float) -> bool:
+        """애니메이션 업데이트
+        
+        Returns:
+            애니메이션이 활성화 상태인지 여부
+        """
+        if not self.active:
+            return False
+            
+        # 애니메이션 시간은 항상 업데이트 (스페이스바 대기 중에도)
+        self.animation_time += dt
+        
+        # 애니메이션 완료 후 스페이스바 대기 중
+        if self.waiting_for_input:
+            # 대기 중에도 파티클과 효과 업데이트
+            self._update_particles(dt)
+            return True  # 활성 상태 유지
+            
+        self.phase_timer += dt
+        
+        # 페이즈 전환 (총 5초)
+        if self.phase == 0 and self.phase_timer > 2000:  # 2초 응축 (하스스톤 스타일)
+            self.phase = 1
+            self.phase_timer = 0
+            self._create_explosion_particles()
+            self._create_lightning()
+            self._create_transition_particles()  # 전환 연결 파티클
+            self.shockwave_radius = 1
+            self.screen_flash = 255
+            self.screen_shake = 40  # 더 강한 흔들림
+            
+        elif self.phase == 1 and self.phase_timer > 1000:  # 1초 폭발
+            self.phase = 2
+            self.phase_timer = 0
+            self._create_transition_particles()  # 페이즈 2로 연결 파티클
+            
+        elif self.phase == 2 and self.phase_timer > 1500:  # 1.5초 텍스트/아이템 표시
+            self.phase = 3
+            self.phase_timer = 0
+            
+        elif self.phase == 3 and self.phase_timer > 500:  # 0.5초 마무리
+            # 애니메이션 완료, 스페이스바 대기
+            self.animation_complete = True
+            self.waiting_for_input = True
+            return True
+            
+        # 페이즈별 업데이트
+        if self.phase == 0:
+            # 빛 응축 업데이트 (하스스톤 스타일)
+            self._update_convergence(dt)
+            self._update_light_orbs(dt)
+            # 응축이 진행될수록 중심이 밝아짐
+            self.light_convergence_intensity = min(1.0, self.phase_timer / 2000)
+        elif self.phase == 1:
+            # 폭발 업데이트
+            self._update_explosion(dt)
+            self._update_lightning(dt)
+        
+        # 일반 파티클 업데이트
+        self._update_particles(dt)
+        
+        # 충격파 업데이트
+        if self.shockwave_radius > 0:
+            self.shockwave_radius += dt * 0.5
+            if self.shockwave_radius > max(self.width, self.height):
+                self.shockwave_radius = 0
+                
+        # 화면 효과 업데이트
+        if self.screen_flash > 0:
+            self.screen_flash = max(0, self.screen_flash - dt * 0.3)
+            
+        if self.screen_shake > 0:
+            self.screen_shake = max(0, self.screen_shake - dt * 0.05)
+            
+        # 줌 효과
+        if self.phase == 1:
+            self.zoom_factor = 1.0 + math.sin(self.phase_timer * 0.01) * 0.1
+        else:
+            self.zoom_factor = 1.0
+            
+        # 연속 파티클 생성
+        if self.phase == 1 and random.random() < 0.3:
+            self._create_spiral_particles()
+            
+        return True
+        
+    def _update_particles(self, dt: float):
+        """고급 파티클 업데이트 (회전, 크기 변화)"""
+        new_particles = []
+        
+        for particle in self.particles:
+            # 위치 업데이트
+            particle['x'] += particle['vx'] * dt * 0.1
+            particle['y'] += particle['vy'] * dt * 0.1
+            
+            # 회전 업데이트
+            if 'rotation_speed' in particle:
+                particle['rotation'] = particle.get('rotation', 0) + particle['rotation_speed'] * dt
+            
+            # 수명 감소
+            particle['life'] -= dt * 0.001
+            
+            # 알파값 업데이트 (페이드 아웃)
+            particle['alpha'] = particle.get('alpha', 255) * particle['life']
+            
+            # 타입별 특수 효과
+            if particle['type'] == 'flame':
+                particle['vy'] -= dt * 0.01  # 상승 가속
+                particle['vx'] += random.uniform(-0.5, 0.5)  # 흔들림
+                # 크기 변화 (위로 갈수록 작아짐)
+                particle['size'] = max(1, particle.get('original_size', particle['size']) * particle['life'])
+            elif particle['type'] == 'spiral':
+                # 나선형 움직임
+                angle = self.animation_time * 0.005
+                particle['vx'] = math.cos(angle) * 3
+                particle['vy'] = math.sin(angle) * 3
+            elif particle['type'] == 'explosion':
+                # 폭발 파티클 감속
+                particle['vx'] *= 0.98
+                particle['vy'] *= 0.98
+                # 중력 적용
+                particle['vy'] += dt * 0.005
+            elif particle['type'] == 'transition':
+                # 전환 파티클 - 부드러운 감속과 회전
+                particle['vx'] *= 0.99
+                particle['vy'] *= 0.99
+                # 살짝 회전하며 움직임
+                rotation_angle = self.animation_time * 0.002
+                particle['vx'] += math.sin(rotation_angle) * 0.1
+                particle['vy'] += math.cos(rotation_angle) * 0.1
+                
+            if particle['life'] > 0:
+                new_particles.append(particle)
+                
+        self.particles = new_particles
+        
+    def _update_convergence(self, dt: float):
+        """고급 빛 응축 효과 업데이트 (이징 함수 적용)"""
+        new_particles = []
+        center_x = self.width // 2
+        center_y = self.height // 2
+        
+        for particle in self.convergence_particles:
+            # 진행도 업데이트
+            particle['progress'] += dt * 0.003
+            if particle['progress'] > 1.0:
+                particle['progress'] = 1.0
+                
+            # 이징 함수 적용
+            t = Easing.ease_in_out_cubic(particle['progress'])
+            
+            motion_type = particle.get('motion_type', 'default')
+            
+            if motion_type == 'spiral':
+                # 스파이럴 모션
+                spiral_angle = particle['progress'] * math.pi * 8
+                spiral_radius = (1 - t) * 300
+                new_x = center_x + math.cos(spiral_angle) * spiral_radius
+                new_y = center_y + math.sin(spiral_angle) * spiral_radius
+                particle['rotation'] = particle.get('rotation', 0) + particle.get('spiral_speed', 0.03) * dt * 100
+                
+            elif motion_type == 'wave':
+                # 웨이브 모션
+                base_x = particle['x'] + (particle['target_x'] - particle['x']) * t
+                base_y = particle['y'] + (particle['target_y'] - particle['y']) * t
+                wave_offset = math.sin(particle['progress'] * particle.get('wave_frequency', 3) * math.pi) * particle.get('wave_amplitude', 30)
+                angle_to_center = math.atan2(particle['target_y'] - particle['y'], particle['target_x'] - particle['x'])
+                new_x = base_x + math.cos(angle_to_center + math.pi/2) * wave_offset
+                new_y = base_y + math.sin(angle_to_center + math.pi/2) * wave_offset
+                
+            elif motion_type == 'pulse':
+                # 펄스 모션
+                pulse_value = math.sin(particle.get('pulse_phase', 0) + self.animation_time * particle.get('pulse_speed', 0.1))
+                pulse_scale = 1 + pulse_value * 0.3
+                base_x = particle['x'] + (particle['target_x'] - particle['x']) * t
+                base_y = particle['y'] + (particle['target_y'] - particle['y']) * t
+                new_x = center_x + (base_x - center_x) * pulse_scale
+                new_y = center_y + (base_y - center_y) * pulse_scale
+                particle['size'] = particle.get('original_size', particle['size']) * (1 + pulse_value * 0.5)
+                
+            else:
+                # 기본 이동 (이징 적용)
+                new_x = particle['x'] + (particle['target_x'] - particle['x']) * t
+                new_y = particle['y'] + (particle['target_y'] - particle['y']) * t
+            
+            # 회전 업데이트
+            if 'rotation_speed' in particle:
+                particle['rotation'] = particle.get('rotation', 0) + particle['rotation_speed'] * dt
+            
+            # 궤적 저장
+            if len(particle['trail']) > 15:
+                particle['trail'].pop(0)
+            particle['trail'].append((new_x, new_y, particle.get('size', 5)))
+            
+            particle['x'] = new_x
+            particle['y'] = new_y
+            particle['life'] -= dt * 0.002
+            
+            if particle['life'] > 0 and particle['progress'] < 1.0:
+                new_particles.append(particle)
+                
+        self.convergence_particles = new_particles
+        
+        # 응축 강도 증가
+        self.light_convergence_intensity = min(1.0, self.phase_timer / 500)
+        
+    def _update_light_orbs(self, dt: float):
+        """고급 빛 구체 업데이트 (궤도 패턴)"""
+        for orb in self.light_orbs:
+            # 궤도 회전 (각 속도 다름)
+            orb['angle'] += orb.get('orbital_speed', 0.002) * dt
+            
+            # 반경 변화 (이징 적용)
+            progress = self.phase_timer / 2000  # 0 ~ 1
+            eased_progress = Easing.ease_in_expo(progress)
+            initial_radius = orb.get('initial_radius', orb['radius'])
+            orb['radius'] = initial_radius * (1 - eased_progress * 0.8)  # 중심으로 수렴
+            
+            # 펄스 효과 (크기와 밝기 변화)
+            orb['pulse'] += dt * 0.005
+            pulse_value = math.sin(orb['pulse'])
+            orb['size'] = orb.get('base_size', 10) + pulse_value * 3
+            orb['glow_intensity'] = 0.5 + pulse_value * 0.3
+            
+            # 궤적 저장
+            if len(orb.get('trail', [])) > 20:
+                orb['trail'].pop(0)
+            if 'trail' not in orb:
+                orb['trail'] = []
+            x = self.width // 2 + math.cos(orb['angle']) * orb['radius']
+            y = self.height // 2 + math.sin(orb['angle']) * orb['radius']
+            orb['trail'].append((x, y, orb['size']))
+            
+    def _update_explosion(self, dt: float):
+        """폭발 효과 업데이트"""
+        new_particles = []
+        
+        for particle in self.explosion_particles:
+            # 위치 업데이트
+            particle['x'] += particle['vx'] * dt * 0.1
+            particle['y'] += particle['vy'] * dt * 0.1
+            
+            # 중력 적용
+            particle['vy'] += particle['gravity'] * dt * 0.1
+            
+            # 속도 감소
+            particle['vx'] *= 0.995
+            particle['vy'] *= 0.995
+            
+            # 수명 감소
+            particle['life'] -= dt * 0.0015
+            
+            if particle['life'] > 0:
+                new_particles.append(particle)
+                
+        self.explosion_particles = new_particles
+        
+        # 폭발 반경 확장
+        if self.phase_timer < 200:
+            self.explosion_radius = self.phase_timer * 2
+            
+    def _update_lightning(self, dt: float):
+        """번개 효과 업데이트"""
+        new_bolts = []
+        
+        for bolt in self.lightning_bolts:
+            bolt['life'] -= dt * 0.002
+            if bolt['life'] > 0:
+                new_bolts.append(bolt)
+                
+        self.lightning_bolts = new_bolts
+        
+        # 새 번개 생성
+        if self.phase == 1 and random.random() < 0.05:
+            self._create_lightning()
+            
+    def _create_convergence_particles(self):
+        """고급 빛 응축 파티클 생성 (스파이럴, 웨이브 패턴)"""
+        center_x = self.width // 2
+        center_y = self.height // 2
+        
+        # 스파이럴 패턴 파티클
+        for i in range(100):
+            angle = (i / 100) * math.pi * 8  # 4바퀴
+            distance = 400 - (i / 100) * 200  # 점점 가까워짐
+            start_x = center_x + math.cos(angle) * distance
+            start_y = center_y + math.sin(angle) * distance
+            
+            self.convergence_particles.append({
+                'x': start_x,
+                'y': start_y,
+                'target_x': center_x,
+                'target_y': center_y,
+                'progress': 0,
+                'life': 1.0,
+                'size': random.randint(3, 8),
+                'color': self.LEGENDARY_GOLD,
+                'trail': [],
+                'motion_type': 'spiral',
+                'spiral_speed': random.uniform(0.02, 0.05),
+                'shape': ParticleShape.STAR
+            })
+        
+        # 웨이브 패턴 파티클
+        for i in range(100):
+            angle = random.uniform(0, math.pi * 2)
+            distance = random.uniform(300, 450)
+            start_x = center_x + math.cos(angle) * distance
+            start_y = center_y + math.sin(angle) * distance
+            
+            self.convergence_particles.append({
+                'x': start_x,
+                'y': start_y,
+                'target_x': center_x,
+                'target_y': center_y,
+                'progress': 0,
+                'life': 1.0,
+                'size': random.randint(2, 6),
+                'color': random.choice([self.LEGENDARY_CYAN, self.LEGENDARY_PURPLE]),
+                'trail': [],
+                'motion_type': 'wave',
+                'wave_amplitude': random.uniform(20, 40),
+                'wave_frequency': random.uniform(2, 4),
+                'shape': ParticleShape.DIAMOND
+            })
+            
+        # 펩스 패턴 파티클 (비트에 맞춰 움직임)
+        for _ in range(50):
+            angle = random.uniform(0, math.pi * 2)
+            distance = random.uniform(200, 350)
+            start_x = center_x + math.cos(angle) * distance
+            start_y = center_y + math.sin(angle) * distance
+            
+            self.convergence_particles.append({
+                'x': start_x,
+                'y': start_y,
+                'target_x': center_x,
+                'target_y': center_y,
+                'progress': 0,
+                'life': 1.0,
+                'size': random.randint(4, 10),
+                'color': self.LEGENDARY_WHITE,
+                'trail': [],
+                'motion_type': 'pulse',
+                'pulse_phase': random.uniform(0, math.pi * 2),
+                'pulse_speed': 0.1,
+                'shape': ParticleShape.HEXAGON
+            })
+            
+    def _create_light_orbs(self):
+        """고급 빛 구체 생성 (궤도 패턴)"""
+        center_x = self.width // 2
+        center_y = self.height // 2
+        
+        # 행성 궤도 패턴 빛 구체
+        for i in range(12):
+            angle = i * math.pi * 2 / 12
+            orbital_radius = 150 + (i % 3) * 30  # 3개의 다른 궤도
+            self.light_orbs.append({
+                'angle': angle,
+                'radius': orbital_radius,
+                'size': 8 + (i % 3) * 4,
+                'pulse': random.uniform(0, math.pi * 2),
+                'color': [self.LEGENDARY_GOLD, self.LEGENDARY_CYAN, self.LEGENDARY_PURPLE][i % 3],
+                'orbital_speed': 0.05 + (i % 3) * 0.02,  # 다른 회전 속도
+                'trail': [],
+                'glow_intensity': 0.5
+            })
+            
+    def _create_explosion_particles(self):
+        """폭발 파티클 생성"""
+        center_x = self.width // 2
+        center_y = self.height // 2
+        
+        # 대규모 폭발 파티클
+        for _ in range(300):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(10, 30)
+            self.explosion_particles.append({
+                'x': center_x,
+                'y': center_y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'life': 1.0,
+                'size': random.randint(4, 12),
+                'color': random.choice([self.LEGENDARY_RED, self.LEGENDARY_GOLD, self.LEGENDARY_WHITE, self.LEGENDARY_PURPLE]),
+                'type': 'explosion',
+                'gravity': random.uniform(-0.2, 0.2)
+            })
+            
+    def _create_spiral_particles(self):
+        """나선형 파티클 생성"""
+        center_x = self.width // 2
+        center_y = self.height // 2
+        
+        for i in range(5):
+            angle = (self.animation_time * 0.005 + i * math.pi * 2 / 5) % (math.pi * 2)
+            radius = 50 + math.sin(self.animation_time * 0.003) * 20
+            
+            self.particles.append({
+                'x': center_x + math.cos(angle) * radius,
+                'y': center_y + math.sin(angle) * radius,
+                'vx': 0,
+                'vy': 0,
+                'life': 0.5,
+                'size': random.randint(4, 7),
+                'color': self.LEGENDARY_GOLD,
+                'type': 'spiral'
+            })
+    
+    def _create_transition_particles(self):
+        """페이즈 전환 연결 파티클 생성"""
+        center_x = self.width // 2
+        center_y = self.height // 2
+        
+        # 황금색 연결 파티클 원형 패턴
+        for i in range(12):
+            angle = i * math.pi * 2 / 12
+            
+            # 중심에서 퍼져나가는 파티클
+            self.particles.append({
+                'x': center_x,
+                'y': center_y,
+                'vx': math.cos(angle) * 2,
+                'vy': math.sin(angle) * 2,
+                'life': 1.5,
+                'size': random.randint(3, 6),
+                'color': self.LEGENDARY_GOLD,
+                'type': 'transition',
+                'alpha': 255
+            })
+            
+            # 수렴하는 파티클 (다음 페이즈로 연결)
+            self.particles.append({
+                'x': center_x + math.cos(angle) * 100,
+                'y': center_y + math.sin(angle) * 100,
+                'vx': -math.cos(angle) * 1.5,
+                'vy': -math.sin(angle) * 1.5,
+                'life': 2.0,
+                'size': random.randint(2, 4),
+                'color': self.LEGENDARY_WHITE,
+                'type': 'transition',
+                'alpha': 200
+            })
+            
+    def draw(self, screen: pygame.Surface, font_large: pygame.font.Font, font_huge: Optional[pygame.font.Font] = None):
+        """애니메이션 그리기"""
+        if not self.active:
+            return
+            
+        # 어두운 오버레이 (페이즈에 따라 강도 조절)
+        overlay = pygame.Surface((self.width, self.height))
+        if self.phase == 0:
+            overlay.set_alpha(120 + int(self.light_convergence_intensity * 60))
+        else:
+            overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+        
+        # 별빛 배경 효과 그리기
+        for star in self.stars:
+            # 반짝임 효과
+            star['twinkle_phase'] += star['twinkle_speed'] * 16  # 프레임 독립적
+            brightness = star['brightness'] * (0.5 + 0.5 * math.sin(star['twinkle_phase']))
+            alpha = int(255 * brightness)
+            size = star['size']
+            
+            # 별 그리기 (작은 십자가 모양)
+            star_color = (255, 255, 200, alpha) if alpha < 255 else (255, 255, 200)
+            if size > 1:
+                # 큰 별은 십자 모양
+                pygame.draw.line(screen, star_color[:3], 
+                               (star['x'] - size, star['y']), 
+                               (star['x'] + size, star['y']), 1)
+                pygame.draw.line(screen, star_color[:3], 
+                               (star['x'], star['y'] - size), 
+                               (star['x'], star['y'] + size), 1)
+            else:
+                # 작은 별은 점
+                pygame.draw.circle(screen, star_color[:3], 
+                                 (int(star['x']), int(star['y'])), 
+                                 max(1, int(size)))
+        
+        center_x = self.width // 2
+        center_y = self.height // 2
+        
+        # 화면 흔들림 적용
+        shake_x = random.randint(-int(self.screen_shake), int(self.screen_shake))
+        shake_y = random.randint(-int(self.screen_shake), int(self.screen_shake))
+        
+        # 페이즈 0: 빛 응축 효과
+        if self.phase == 0:
+            # 응축 파티클 그리기 (고급 효과)
+            for particle in self.convergence_particles:
+                # 궤적 그리기 (그래디언트)
+                for i, pos in enumerate(particle['trail']):
+                    if len(pos) >= 3:  # pos = (x, y, size)
+                        trail_progress = i / max(1, len(particle['trail']))
+                        trail_alpha = int(100 * trail_progress * particle['life'])
+                        trail_size = max(1, int(pos[2] * trail_progress * 0.5))
+                        
+                        # 그래디언트 트레일
+                        gradient_surf = self._create_gradient_surface(
+                            trail_size, 
+                            particle['color'], 
+                            (particle['color'][0]//2, particle['color'][1]//2, particle['color'][2]//2),
+                            trail_alpha
+                        )
+                        screen.blit(gradient_surf, 
+                                  (int(pos[0]) - trail_size, int(pos[1]) - trail_size),
+                                  special_flags=pygame.BLEND_ADD)
+                
+                # 파티클 본체 (다양한 형태와 그래디언트)
+                particle['alpha'] = int(255 * particle['life'] * (1 - particle['progress'] * 0.3))
+                self._draw_particle(screen, particle, (int(particle['x']), int(particle['y'])))
+                                 
+            # 빛 구체 그리기 (궤도 효과와 그래디언트)
+            for orb in self.light_orbs:
+                x = center_x + math.cos(orb['angle']) * orb['radius']
+                y = center_y + math.sin(orb['angle']) * orb['radius']
+                
+                # 궤적 그리기
+                if 'trail' in orb:
+                    for i, trail_pos in enumerate(orb['trail']):
+                        if len(trail_pos) >= 3:
+                            trail_alpha = int(30 * (i / max(1, len(orb['trail']))))
+                            trail_size = max(1, int(trail_pos[2] * 0.3))
+                            pygame.draw.circle(screen, (*orb['color'], trail_alpha)[:3],
+                                            (int(trail_pos[0]), int(trail_pos[1])), trail_size)
+                
+                # 그래디언트 글로우 효과
+                glow_intensity = orb.get('glow_intensity', 0.5)
+                glow_size = int(orb['size'] * 4 * glow_intensity)
+                glow_surf = self._create_gradient_surface(
+                    glow_size,
+                    (orb['color'][0], orb['color'][1], orb['color'][2]),
+                    (0, 0, 0),
+                    int(60 * glow_intensity)
+                )
+                screen.blit(glow_surf, 
+                          (int(x) - glow_size, int(y) - glow_size),
+                          special_flags=pygame.BLEND_ADD)
+                
+                # 구체 본체 (그래디언트)
+                core_surf = self._create_gradient_surface(
+                    int(orb['size']),
+                    (255, 255, 255),
+                    orb['color'],
+                    255
+                )
+                screen.blit(core_surf, 
+                          (int(x) - int(orb['size']), int(y) - int(orb['size'])),
+                          special_flags=pygame.BLEND_ADD)
+                                 
+            # 신성한 빛줄기 효과
+            if self.light_convergence_intensity > 0.3:
+                # 회전하는 빛의 날개
+                num_wings = 6
+                for i in range(num_wings):
+                    base_angle = i * math.pi * 2 / num_wings + self.phase_timer * 0.001
+                    
+                    # 날개 모양의 빛줄기
+                    for j in range(5):
+                        offset_angle = (j - 2) * 0.05
+                        angle = base_angle + offset_angle
+                        
+                        # 거리가 다른 여러 광선으로 깊이감 표현
+                        for dist_factor in [1.0, 0.8, 0.6]:
+                            end_x = center_x + math.cos(angle) * 300 * dist_factor
+                            end_y = center_y + math.sin(angle) * 300 * dist_factor
+                            
+                            # 중심에서 멀어질수록 투명해지는 그라데이션
+                            base_alpha = int(120 * self.light_convergence_intensity * dist_factor)
+                            width = int(5 - j) if j < 3 else int(j - 1)
+                            
+                            # 황금빛과 청록색이 섞인 신성한 색상
+                            if j == 2:  # 중심 광선
+                                color = (255, 230, 100, base_alpha)  # 밝은 황금색
+                            else:
+                                color = (*self.LEGENDARY_CYAN, base_alpha // 2)
+                            
+                            if width > 0 and base_alpha > 0:
+                                # 빛줄기 그리기
+                                pygame.draw.line(screen, color[:3],
+                                               (center_x, center_y), 
+                                               (int(end_x), int(end_y)), width)
+                                   
+        # 황금 에너지 링 효과 (충격파 대체)
+        if self.shockwave_radius > 0 and self.shockwave_radius < max(self.width, self.height):
+            # 황금빛 에너지 링
+            radius = int(self.shockwave_radius)
+            if radius > 0:
+                # 외부 글로우
+                for i in range(5):
+                    glow_radius = radius + i * 5
+                    alpha = int(80 * (1 - self.shockwave_radius / max(self.width, self.height)) * (1 - i/5))
+                    if alpha > 0:
+                        # 황금색 그라데이션
+                        glow_surf = pygame.Surface((glow_radius * 2 + 20, glow_radius * 2 + 20), pygame.SRCALPHA)
+                        pygame.draw.circle(glow_surf, (255, 215, 0, alpha), 
+                                         (glow_radius + 10, glow_radius + 10), glow_radius, 2)
+                        screen.blit(glow_surf, (center_x - glow_radius - 10 + shake_x, 
+                                              center_y - glow_radius - 10 + shake_y))
+                
+                # 에너지 파동 효과
+                wave_segments = 36
+                for j in range(wave_segments):
+                    angle = (j * 2 * math.pi / wave_segments) + self.phase_timer * 0.002
+                    wave_offset = math.sin(angle * 4 + self.phase_timer * 0.01) * 10
+                    x1 = center_x + math.cos(angle) * (radius + wave_offset)
+                    y1 = center_y + math.sin(angle) * (radius + wave_offset)
+                    
+                    next_angle = ((j + 1) * 2 * math.pi / wave_segments) + self.phase_timer * 0.002
+                    next_wave_offset = math.sin(next_angle * 4 + self.phase_timer * 0.01) * 10
+                    x2 = center_x + math.cos(next_angle) * (radius + next_wave_offset)
+                    y2 = center_y + math.sin(next_angle) * (radius + next_wave_offset)
+                    
+                    alpha = int(150 * (1 - self.shockwave_radius / max(self.width, self.height)))
+                    if alpha > 0:
+                        # 황금색에서 붉은색으로 변하는 그라데이션
+                        progress = min(1.0, self.shockwave_radius / 300)
+                        color_r = 255
+                        color_g = max(0, min(255, int(215 - (215 - 100) * progress)))
+                        color_b = max(0, min(255, int(50 * progress)))
+                        pygame.draw.line(screen, (color_r, color_g, color_b),
+                                       (x1 + shake_x, y1 + shake_y),
+                                       (x2 + shake_x, y2 + shake_y), 3)
+                                     
+                               
+        # 폭발 파티클 그리기 (페이즈 1)
+        if self.phase >= 1:
+            for particle in self.explosion_particles:
+                alpha = int(255 * particle['life'])
+                size = int(particle['size'] * particle['life'])
+                
+                if size > 0:
+                    # 큰 글로우 효과
+                    glow_size = size * 3
+                    glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surf, (*particle['color'], alpha // 4),
+                                     (glow_size, glow_size), glow_size)
+                    screen.blit(glow_surf, 
+                              (particle['x'] - glow_size + shake_x,
+                               particle['y'] - glow_size + shake_y))
+                    
+                    # 파티클 본체
+                    pygame.draw.circle(screen, (*particle['color'], alpha)[:3],
+                                     (int(particle['x'] + shake_x), 
+                                      int(particle['y'] + shake_y)),
+                                     size)
+                                     
+        # 일반 파티클 그리기 (고급 효과)
+        # 페이즈 2에서는 파티클이 서서히 사라짐
+        particle_fade = 1.0
+        if self.phase == 2:
+            particle_fade = max(0, 1.0 - self.phase_timer / 1000)  # 1초에 걸쳐 페이드아웃
+        
+        for particle in self.particles:
+            # 그래디언트 글로우 효과
+            glow_size = int(particle['size'] * 2)
+            glow_alpha = int(particle.get('alpha', 255) * particle['life'] * 0.3 * particle_fade)
+            
+            if glow_size > 0 and glow_alpha > 0:
+                # 그래디언트 글로우
+                glow_surf = self._create_gradient_surface(
+                    glow_size,
+                    particle['color'],
+                    (0, 0, 0),
+                    glow_alpha
+                )
+                screen.blit(glow_surf,
+                          (int(particle['x']) - glow_size, int(particle['y']) - glow_size),
+                          special_flags=pygame.BLEND_ADD)
+            
+            # 파티클 본체 (다양한 형태)
+            self._draw_particle(screen, particle, (int(particle['x'] + shake_x), int(particle['y'] + shake_y)))
+                                 
+                                 
+        
+        # 텍스트 및 아이콘 표시 (페이즈 2, 3)
+        if self.phase >= 2:
+            # 페이드인 효과 - 부드러운 전환
+            if self.phase == 2:
+                # 초반에는 천천히 나타나고 후반에 빠르게
+                fade_progress = min(1.0, self.phase_timer / 800)  # 0.8초에 걸쳐 페이드인
+                frame_alpha = int(255 * fade_progress * fade_progress)  # 제곱으로 부드러운 가속
+            else:
+                frame_alpha = 255
+                       
+            # 아이템 이름을 더 아래에 표시
+            item_text = font_large.render(f"{self.korean_name} 획득", 
+                                        True, self.ANTIQUE_GOLD)
+            
+            # 부드러운 글로우 배경
+            text_width = item_text.get_width()
+            text_height = item_text.get_height()
+            glow_surf = pygame.Surface((text_width + 60, text_height + 30), pygame.SRCALPHA)
+            
+            # 타원형 글로우
+            for i in range(20):
+                alpha = int(15 - i * 0.7)
+                if alpha > 0:
+                    pygame.draw.ellipse(glow_surf, (*self.ANTIQUE_GOLD, alpha),
+                                      (i, i, text_width + 60 - i*2, text_height + 30 - i*2))
+            
+            screen.blit(glow_surf, 
+                      (center_x - (text_width + 60) // 2,
+                       center_y + 120))  # 70에서 120으로 (50픽셀 아래로)
+            
+            # 텍스트 표시 (페이드인 적용)
+            item_text.set_alpha(frame_alpha)
+            screen.blit(item_text, 
+                      (center_x - text_width // 2,
+                       center_y + 135))  # 85에서 135로 (50픽셀 아래로)
+                       
+            # 아이템 아이콘 표시 (있는 경우)
+            if self.item_icon:
+                # 페이즈 전환 연결 효과
+                if self.phase == 1 and self.phase_timer > 800:
+                    # 폭발 끝나기 전 미리 페이드인 시작 (연결감 증대)
+                    early_fade = max(0, min(1.0, (self.phase_timer - 800) / 200))
+                    icon_alpha = int(255 * early_fade * 0.3)  # 30% 정도만 미리 보임
+                elif self.phase == 2:
+                    # 텍스트보다 약간 늦게 나타남 (0.2초 지연)
+                    icon_fade_progress = max(0, min(1.0, (self.phase_timer - 200) / 600))
+                    # 이미 시작된 페이드에서 이어짐
+                    base_alpha = 77  # 30%에서 시작
+                    icon_alpha = int(base_alpha + (255 - base_alpha) * icon_fade_progress * icon_fade_progress)
+                else:
+                    icon_alpha = 255
+                
+                # 앤틱 스타일 아이콘 프레임
+                # 크기 애니메이션 (폭발에서 연속적으로 이어지는 효과)
+                if self.phase == 1 and self.phase_timer > 800:
+                    # 폭발 끝나갈 때 미리 크기 준비
+                    early_scale = max(0, min(1.0, (self.phase_timer - 800) / 200))
+                    icon_size = int(120 * (1.0 - early_scale * 0.5))  # 120에서 60으로
+                elif self.phase == 2:
+                    scale_progress = max(0, min(1.0, (self.phase_timer - 200) / 600))
+                    # 60에서 시작해서 80으로 (폭발에서 이어짐)
+                    scale = 0.75 + scale_progress * 0.35 - math.sin(scale_progress * math.pi) * 0.1
+                    icon_size = int(80 * scale)
+                else:
+                    icon_size = 80
+                
+                # 스페이스바 대기 중일 때 은은한 애니메이션
+                if self.waiting_for_input:
+                    # 아이템 위아래 움직임 (뽑기 화면처럼) - 원의 정중앙에서 움직임
+                    float_offset = math.sin(self.animation_time * 0.003) * 5
+                    icon_y = center_y + float_offset  # -20 제거하여 정중앙에 위치
+                else:
+                    # 연결감 있는 위치 전환
+                    if self.phase == 1 and self.phase_timer > 800:
+                        # 폭발 끝나갈 때 미리 위치 준비
+                        early_rise = max(0, min(1.0, (self.phase_timer - 800) / 200))
+                        icon_y = center_y + 40 * (1.0 - early_rise * 0.25)  # 40에서 30으로
+                    elif self.phase == 2:
+                        rise_progress = max(0, min(1.0, (self.phase_timer - 200) / 600))
+                        # 30에서 시작해서 0으로 (폭발에서 이어짐)
+                        rise_offset = 30 * (1 - rise_progress)
+                        icon_y = center_y + rise_offset
+                    else:
+                        icon_y = center_y
+                
+                # 바로크 양식 로마 건축 기둥 장식 (페이즈 2와 대기 중 모두 표시)
+                if self.phase == 2 or self.waiting_for_input:
+                    # 바로크 양식 로마 건축 기둥 장식 (나선형)
+                    num_columns = 8  # 8개의 기둥
+                    for col in range(num_columns):
+                        base_angle = (col * math.pi * 2 / num_columns) + self.animation_time * 0.0004
+                        
+                        # 기둥 위치 (아이템 주변)
+                        col_distance = icon_size + 20 + math.sin(self.animation_time * 0.002 + col) * 5
+                        col_x = center_x + math.cos(base_angle) * col_distance
+                        col_y = icon_y + math.sin(base_angle) * col_distance
+                        
+                        # 코린트식 기둥 머리 장식 (아칸서스 잎)
+                        for leaf in range(3):
+                            leaf_angle = base_angle + (leaf - 1) * 0.3
+                            leaf_size = 8 - leaf * 2
+                            
+                            # 곡선형 잎 장식
+                            for t in range(5):
+                                progress = t / 4
+                                curve = math.sin(progress * math.pi) * 3
+                                lx = col_x + math.cos(leaf_angle) * (leaf_size * progress)
+                                ly = col_y - 10 + math.sin(leaf_angle) * (leaf_size * progress) + curve
+                                
+                                pygame.draw.circle(screen, self.ANTIQUE_GOLD, 
+                                                 (int(lx), int(ly)), 2 - int(progress))
+                        
+                        # 나선형 기둥 몸체 (플루팅)
+                        for spiral in range(2):  # 두 개의 나선
+                            spiral_points = []
+                            for h in range(15):
+                                height_offset = h * 2
+                                spiral_angle = base_angle + (h * 0.3) + (spiral * math.pi)
+                                
+                                # 나선형 회전
+                                sx = col_x + math.cos(spiral_angle) * 3
+                                sy = col_y + height_offset - 15
+                                spiral_points.append((int(sx), int(sy)))
+                            
+                            if len(spiral_points) > 1:
+                                pygame.draw.lines(screen, self.ANTIQUE_GOLD_DARK, False, 
+                                                spiral_points, 2)
+                        
+                        # 기둥 기초 (토러스 몰딩)
+                        base_y = col_y + 15
+                        for ring in range(2):
+                            ring_size = 5 - ring * 2
+                            pygame.draw.ellipse(screen, self.ANTIQUE_GOLD,
+                                              (int(col_x - ring_size), int(base_y - ring * 2),
+                                               ring_size * 2, 3), 1)
+                    
+                    # 중앙 장식 고리 (이오니아식 볼류트)
+                    for i in range(4):
+                        volute_angle = (i * math.pi / 2) + self.animation_time * 0.0003
+                        volute_dist = icon_size - 5
+                        
+                        # 볼류트 시작점
+                        vx = center_x + math.cos(volute_angle) * volute_dist
+                        vy = icon_y + math.sin(volute_angle) * volute_dist
+                        
+                        # 나선형 볼류트 그리기
+                        volute_points = []
+                        for t in range(15):
+                            t_norm = t / 14
+                            spiral_r = 10 * (1 - t_norm)
+                            spiral_a = volute_angle + t_norm * math.pi * 2
+                            
+                            px = vx + math.cos(spiral_a) * spiral_r
+                            py = vy + math.sin(spiral_a) * spiral_r
+                            volute_points.append((int(px), int(py)))
+                        
+                        if len(volute_points) > 1:
+                            pygame.draw.lines(screen, self.ANTIQUE_GOLD, False, 
+                                            volute_points, 2)
+                    
+                    # 부드럽게 빛나는 글로우 효과
+                    glow_intensity = 0.5 + 0.5 * math.sin(self.animation_time * 0.002)
+                    glow_size = int((icon_size + 30) * glow_intensity)
+                    glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surf, (*self.ANTIQUE_GOLD, int(30 * glow_intensity)), 
+                                     (glow_size, glow_size), glow_size)
+                    screen.blit(glow_surf, 
+                              (center_x - glow_size, icon_y - glow_size),
+                              special_flags=pygame.BLEND_ADD)
+                
+                # 아이콘 표시 (Surface 또는 이미지인 경우)
+                if isinstance(self.item_icon, pygame.Surface):
+                    # 아이콘 크기 조정
+                    scaled_icon = pygame.transform.scale(self.item_icon, (icon_size, icon_size))
+                    
+                    # 스페이스바 대기 중 살짝 크기 변화
+                    if self.waiting_for_input:
+                        scale_factor = 1.0 + 0.05 * math.sin(self.animation_time * 0.003)
+                        new_size = int(icon_size * scale_factor)
+                        scaled_icon = pygame.transform.scale(self.item_icon, (new_size, new_size))
+                        icon_rect = scaled_icon.get_rect(center=(center_x, icon_y))
+                    else:
+                        icon_rect = scaled_icon.get_rect(center=(center_x, icon_y))
+                    
+                    screen.blit(scaled_icon, icon_rect)
+                else:
+                    # 기본 아이콘 표시 (원형)
+                    pygame.draw.circle(screen, self.LEGENDARY_GOLD,
+                                     (center_x, int(icon_y)), icon_size // 2)
+                    
+                # 헬레니즘-바로크 장식 문양 제거 (8개의 회전하는 노란 장식 제거)
+                       
+        # 플래시 효과
+        if self.screen_flash > 0:
+            flash_surf = pygame.Surface((self.width, self.height))
+            flash_surf.set_alpha(int(self.screen_flash))
+            flash_surf.fill(self.LEGENDARY_WHITE)
+            screen.blit(flash_surf, (0, 0))
+            
+    def is_active(self) -> bool:
+        """애니메이션이 활성 상태인지 확인"""
+        return self.active
+        
+    def should_pause_game(self) -> bool:
+        """게임을 일시정지해야 하는지 확인"""
+        return self.active  # 전체 애니메이션 동안 일시정지 (스페이스바 대기 포함)
+        
+    def handle_space_press(self):
+        """스페이스바 입력 처리"""
+        if self.waiting_for_input:
+            self.active = False
+            self.waiting_for_input = False
+            self.animation_complete = False
+            return True  # 처리됨
+        return False  # 처리 안됨

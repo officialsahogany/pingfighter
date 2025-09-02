@@ -1,0 +1,29 @@
+{
+    "claude-code.autoStart": true,
+    "claude-code.autoOpenPanels": 1,
+    "claude-code.openOnStartup": true,
+    "claude-code.layout.panels": [
+        {
+            "type": "chat",
+            "position": "primary"
+        }
+    ],
+    "claude-code.autoExecute": {
+        "enabled": true,
+        "commands": [
+            "/status",
+            "/model opus"
+        ],
+        "delay": 500
+    },
+    "claude-code.preferences": {
+        "showWelcomeMessage": false,
+        "defaultModel": "opus",
+        "autoSaveContext": true,
+        "contextSaveInterval": 300000
+    },
+    "claude-code.personas": {
+        "default": "refactorer",
+        "secondary": "analyzer"
+    }
+}

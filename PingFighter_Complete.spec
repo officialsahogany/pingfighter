@@ -1,0 +1,97 @@
+# -*- mode: python ; coding: utf-8 -*-
+
+a = Analysis(
+    ['pingfighter.py'],
+    pathex=[],
+    binaries=[],
+    datas=[
+        ('*.png', '.'),
+        ('*.ttf', '.'),
+        ('*.txt', '.'),
+        ('*.json', '.'),
+        ('*.jpeg', '.'),
+        ('*.jpg', '.'),
+        ('items/*.py', 'items'),
+        ('sounds/*.wav', 'sounds'),
+        ('sounds/*.mp3', 'sounds'),
+        ('scenes/*.py', 'scenes'),
+        ('ui/*.py', 'ui'),
+        ('config/*.py', 'config'),
+        ('core/*.py', 'core'),
+        ('backgrounds/*.py', 'backgrounds'),
+        ('academy_save.json', '.'),
+    ],
+    hiddenimports=[
+        'items',
+        'option',
+        'gacha',
+        'opening',
+        'skill',
+        'academy',
+        'cinematic',
+        'ui_manager',
+        'effects_manager',
+        'physics_manager',
+        'dash_manager',
+        'ui.hud_display',
+        'ui.menu_system',
+        'ui.dialog_system',
+        'core.profiler',
+        'core.game_state',
+        'core.events',
+        'core.bridge',
+        'core.event_handlers',
+        'config.constants',
+        'config.game_settings',
+        'config.stage_configs',
+        'backgrounds.animated_background',
+        'backgrounds.animated_background_stage2',
+        'backgrounds.animated_background_stage3',
+        'backgrounds.animated_background_stage4',
+        'backgrounds.animated_background_stage5',
+    ],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=['tkinter'],
+    noarchive=False,
+    optimize=2,
+)
+
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name='PingFighter',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=None,  # macOS에서는 .icns 파일이 필요
+)
+
+app = BUNDLE(
+    exe,
+    name='PingFighter.app',
+    icon=None,  # macOS에서는 .icns 파일이 필요
+    bundle_identifier='com.pingfighter.game',
+    info_plist={
+        'CFBundleName': 'PingFighter',
+        'CFBundleDisplayName': 'PingFighter',
+        'CFBundleVersion': '2.0.0',
+        'CFBundleShortVersionString': '2.0.0',
+        'NSHighResolutionCapable': True,
+    }
+)

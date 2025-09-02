@@ -1,0 +1,17 @@
+{
+  "current_difficulty": {
+    "name": "Normal",
+    "level": 0.5,
+    "reaction_time": 0.25,
+    "prediction_accuracy": 0.55,
+    "movement_speed": 6.5,
+    "mistake_rate": 0.18,
+    "special_frequency": 0.12,
+    "aggression": 0.35,
+    "adaptation_rate": 0.05
+  },
+  "player_skill": 0.5,
+  "playstyle": "balanced",
+  "consistency": 0.5,
+  "adjustment_history": []
+}

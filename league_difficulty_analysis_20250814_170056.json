@@ -1,0 +1,62 @@
+{
+  "timestamp": "20250814_170056",
+  "league_data": {
+    "주니어리그": {
+      "boss_multiplier": 1.0,
+      "ai_fail_rate": 0.25,
+      "target_win_rate": 0.8,
+      "speed_level": 1,
+      "reaction_time": 4,
+      "strategy_required": 1,
+      "color": "#64FF64",
+      "icon": "🌱"
+    },
+    "프로리그": {
+      "boss_multiplier": 1.05,
+      "ai_fail_rate": 0.15,
+      "target_win_rate": 0.6,
+      "speed_level": 2,
+      "reaction_time": 3,
+      "strategy_required": 2,
+      "color": "#FFC864",
+      "icon": "⚡"
+    },
+    "챔피언리그": {
+      "boss_multiplier": 1.1,
+      "ai_fail_rate": 0.08,
+      "target_win_rate": 0.35,
+      "speed_level": 3,
+      "reaction_time": 2,
+      "strategy_required": 3,
+      "color": "#FF96FF",
+      "icon": "💎"
+    },
+    "신화리그": {
+      "boss_multiplier": 1.15,
+      "ai_fail_rate": 0.03,
+      "target_win_rate": 0.15,
+      "speed_level": 4,
+      "reaction_time": 1,
+      "strategy_required": 4,
+      "color": "#FFD700",
+      "icon": "👑"
+    }
+  },
+  "difficulty_scores": {
+    "주니어리그": 4.45,
+    "프로리그": 5.050000000000001,
+    "챔피언리그": 5.610000000000001,
+    "신화리그": 6.06
+  },
+  "difficulty_increases": {
+    "주니어리그 → 프로리그": 13.483146067415742,
+    "프로리그 → 챔피언리그": 11.089108910891097,
+    "챔피언리그 → 신화리그": 8.02139037433152
+  },
+  "balance_evaluation": {
+    "average_increase": 10.864548450879454,
+    "std_increase": 2.2353991981873476,
+    "is_balanced": false,
+    "recommendation": "일부 구간 조정 필요"
+  }
+}

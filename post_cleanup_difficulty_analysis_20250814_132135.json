@@ -1,0 +1,82 @@
+{
+  "timestamp": "2025-08-14T13:21:35.783835",
+  "description": "파일 정리 후 난이도 시뮬레이션 결과",
+  "removed_files": [
+    "neural/hybrid AI 모드",
+    "분석 스크립트들 (6개)",
+    "TensorFlow/Keras 라이브러리",
+    "AI 관련 파일들 (5개)"
+  ],
+  "results": {
+    "easy": {
+      "total_rounds": 100,
+      "wins": 100,
+      "losses": 0,
+      "avg_ball_speed": 15.785000000000004,
+      "max_ball_speed": 32.94,
+      "perfect_timing_count": 1692,
+      "dash_usage": 201,
+      "collision_count": 3308,
+      "drive_activations": 72,
+      "average_rally_length": 16.54,
+      "boss_advantages": 0,
+      "player_advantages": 100
+    },
+    "disabled": {
+      "total_rounds": 100,
+      "wins": 100,
+      "losses": 0,
+      "avg_ball_speed": 18.675000000000022,
+      "max_ball_speed": 35.55,
+      "perfect_timing_count": 3328,
+      "dash_usage": 198,
+      "collision_count": 3648,
+      "drive_activations": 78,
+      "average_rally_length": 18.24,
+      "boss_advantages": 0,
+      "player_advantages": 100
+    },
+    "traditional": {
+      "total_rounds": 100,
+      "wins": 20,
+      "losses": 80,
+      "avg_ball_speed": 21.24000000000001,
+      "max_ball_speed": 42.28,
+      "perfect_timing_count": 628,
+      "dash_usage": 213,
+      "collision_count": 3626,
+      "drive_activations": 82,
+      "average_rally_length": 18.13,
+      "boss_advantages": 80,
+      "player_advantages": 20
+    },
+    "lite": {
+      "total_rounds": 100,
+      "wins": 0,
+      "losses": 100,
+      "avg_ball_speed": 23.205000000000005,
+      "max_ball_speed": 40.769999999999996,
+      "perfect_timing_count": 358,
+      "dash_usage": 208,
+      "collision_count": 3510,
+      "drive_activations": 70,
+      "average_rally_length": 17.55,
+      "boss_advantages": 100,
+      "player_advantages": 0
+    },
+    "godmode": {
+      "total_rounds": 100,
+      "wins": 0,
+      "losses": 100,
+      "avg_ball_speed": 25.945000000000007,
+      "max_ball_speed": 43.040000000000006,
+      "perfect_timing_count": 355,
+      "dash_usage": 215,
+      "collision_count": 3562,
+      "drive_activations": 68,
+      "average_rally_length": 17.81,
+      "boss_advantages": 100,
+      "player_advantages": 0
+    }
+  }
+}

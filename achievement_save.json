@@ -1,0 +1,96 @@
+{
+  "stats": {
+    "total_games": 1,
+    "total_wins": 0,
+    "total_losses": 1,
+    "win_streak": 0,
+    "max_win_streak": 0,
+    "total_hits": 0,
+    "perfect_wins": 0,
+    "comeback_wins": 0,
+    "total_rallies": 0,
+    "longest_rally": 0,
+    "dashes_used": 0,
+    "perfect_dashes": 0,
+    "specials_used": 0,
+    "skills_unlocked": 0,
+    "items_collected": 1,
+    "medals_earned": 0,
+    "gacha_pulls": 0,
+    "unique_items": [],
+    "stages_cleared": [],
+    "boss_defeats": {},
+    "fastest_clear": {},
+    "play_time": 0,
+    "first_play_date": null,
+    "last_play_date": null
+  },
+  "progress": {
+    "first_win": {
+      "progress": {},
+      "completed": false,
+      "completed_at": null,
+      "claimed": false
+    },
+    "win_streak_3": {
+      "progress": {},
+      "completed": false,
+      "completed_at": null,
+      "claimed": false
+    },
+    "win_streak_5": {
+      "progress": {},
+      "completed": false,
+      "completed_at": null,
+      "claimed": false
+    },
+    "perfect_game": {
+      "progress": {},
+      "completed": false,
+      "completed_at": null,
+      "claimed": false
+    },
+    "comeback_king": {
+      "progress": {},
+      "completed": false,
+      "completed_at": null,
+      "claimed": false
+    },
+    "rally_master": {
+      "progress": {},
+      "completed": false,
+      "completed_at": null,
+      "claimed": false
+    },
+    "dash_expert": {
+      "progress": {},
+      "completed": false,
+      "completed_at": null,
+      "claimed": false
+    },
+    "collector": {
+      "progress": {},
+      "completed": false,
+      "completed_at": null,
+      "claimed": false
+    },
+    "stage_1_clear": {
+      "progress": {},
+      "completed": true,
+      "completed_at": 1755633356.67376,
+      "claimed": false
+    },
+    "all_stages": {
+      "progress": {},
+      "completed": true,
+      "completed_at": 1755633356.67377,
+      "claimed": false
+    },
+    "secret_move": {
+      "progress": {},
+      "completed": false,
+      "completed_at": null,
+      "claimed": false
+    }
+  }
+}

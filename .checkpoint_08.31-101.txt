@@ -1,0 +1,8 @@
+Checkpoint 08.31-101: Legendary animation with baroque patterns, removed 8 rotating yellow dots
+Sun Aug 31 15:54:06 KST 2025
+
+## Changes in checkpoint 08.31-101:
+- Fixed color argument errors in _draw_particle and _create_gradient_surface methods
+- Added connection effects for legendary animation phases
+- Removed 8 rotating yellow palmette patterns from waiting screen
+- Kept baroque column patterns static during waiting phase

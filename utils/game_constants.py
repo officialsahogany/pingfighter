@@ -1,0 +1,291 @@
+"""
+게임 플레이 관련 추가 상수 정의
+점진적 리팩토링을 위한 게임 상수 분리
+"""
+
+# === 중요 상수 정의 (리팩토링 시 누락 방지) ===
+MAX_COLOR = 255
+DEFAULT_SIZE = 100
+SCREEN_CENTER_X = 600 // 2  # WIDTH // 2
+SCREEN_CENTER_Y = 750 // 2  # HEIGHT // 2
+
+# === 타이머 및 시간 관련 ===
+FPS = 60
+MILLISECONDS_PER_SECOND = 1000
+HALF_SECOND_FRAMES = 30
+ONE_SECOND_FRAMES = 60
+TWO_SECONDS_FRAMES = 120
+THREE_SECONDS_FRAMES = 180
+FIVE_SECONDS_FRAMES = 300
+
+# === 크기 관련 ===
+SMALL_SIZE = 10
+MEDIUM_SIZE = 20
+DEFAULT_RADIUS = 20
+LARGE_SIZE = 50
+ICON_SIZE = 32
+TILE_SIZE = 40
+
+# === 속도 관련 ===
+SLOW_SPEED = 3
+DEFAULT_SPEED = 5
+FAST_SPEED = 10
+MAX_BALL_SPEED = 15
+MIN_BALL_SPEED = 3
+BOOST_SPEED = 15
+DASH_SPEED = 20
+
+# === 각도 관련 ===
+QUARTER_ROTATION = 90
+HALF_ROTATION = 180
+FULL_ROTATION = 360
+DEFAULT_ANGLE = 45
+
+# === UI 관련 ===
+DEFAULT_ALPHA = 150
+GLOW_ALPHA = 50
+BORDER_WIDTH = 4
+MENU_PADDING = 20
+BUTTON_HEIGHT = 50
+BUTTON_WIDTH = 200
+
+# === 게임플레이 상수 ===
+# 대시 시스템
+DASH_COOLDOWN = 60  # 프레임 (1초)
+DASH_DURATION = 10  # 프레임
+DASH_CHARGE_TIME = 180  # 프레임 (3초)
+MAX_DASH_CHARGES = 3
+
+# 차지샷 시스템
+CHARGE_TIME_MIN = 30  # 최소 차징 시간 (프레임)
+CHARGE_TIME_MAX = 120  # 최대 차징 시간 (프레임)
+CHARGE_POWER_MIN = 1.0
+CHARGE_POWER_MAX = 3.0
+
+# 아이템 시스템
+ITEM_SPAWN_INTERVAL = 300  # 프레임 (5초)
+ITEM_LIFETIME = 600  # 프레임 (10초)
+ITEM_SIZE = 30
+MAX_ITEMS_ON_FIELD = 5
+ITEM_COLLECT_DISTANCE = 40
+
+# 파워업 지속시간
+POWERUP_DURATION_SHORT = 180  # 3초
+POWERUP_DURATION_MEDIUM = 600  # 10초
+POWERUP_DURATION_LONG = 1200  # 20초
+
+# === 보스 전투 상수 ===
+# 보스 체력
+BOSS_HEALTH_BASE = 100
+BOSS_HEALTH_PER_STAGE = 50
+BOSS_MAX_HEALTH = 500
+
+# 보스 AI 상수
+BOSS_REACTION_TIME_MIN = 10  # 프레임
+BOSS_REACTION_TIME_MAX = 30  # 프레임
+BOSS_PREDICTION_ACCURACY = {
+    "EASY": 0.5,
+    "NORMAL": 0.7,
+    "HARD": 0.85,
+    "EXTREME": 0.95
+}
+
+# 보스 특수 공격
+BOSS_SPECIAL_COOLDOWN = 600  # 프레임 (10초)
+BOSS_RAGE_MODE_THRESHOLD = 0.3  # 체력 30% 이하일 때 광폭화
+
+# === 스테이지별 설정 ===
+STAGE_COUNT = 6
+STAGE_CLEAR_BONUS = 100
+STAGE_TIME_LIMIT = 300  # 초
+
+# 스테이지별 난이도 증가율
+STAGE_DIFFICULTY_MULTIPLIER = {
+    1: 1.0,
+    2: 1.2,
+    3: 1.5,
+    4: 1.8,
+    5: 2.2,
+    6: 2.5
+}
+
+# === 파티클 효과 상수 ===
+MAX_PARTICLES = 500
+PARTICLE_SPAWN_RATE = 5
+PARTICLE_LIFETIME_MIN = 10
+PARTICLE_LIFETIME_MAX = 60
+PARTICLE_SPEED_MIN = 0.5
+PARTICLE_SPEED_MAX = 5.0
+
+# === 사운드 설정 ===
+MASTER_VOLUME = 0.7
+SFX_VOLUME = 0.8
+MUSIC_VOLUME = 0.6
+VOICE_VOLUME = 1.0
+
+# 사운드 채널
+CHANNEL_SFX = 0
+CHANNEL_MUSIC = 1
+CHANNEL_VOICE = 2
+CHANNEL_AMBIENT = 3
+
+# === 화면 효과 ===
+SCREEN_SHAKE_DURATION = 20  # 프레임
+SCREEN_SHAKE_INTENSITY = 10  # 픽셀
+FLASH_DURATION = 10  # 프레임
+FLASH_ALPHA = 100
+
+# 글로우 효과
+GLOW_LAYERS = 3
+GLOW_SIZE_INCREMENT = 5
+GLOW_ALPHA_DECREMENT = 30
+
+# === 게임 모드 ===
+GAME_MODES = {
+    "STORY": "스토리 모드",
+    "ARCADE": "아케이드 모드",
+    "VERSUS": "대전 모드",
+    "TRAINING": "연습 모드",
+    "CHALLENGE": "챌린지 모드"
+}
+
+# === 점수 시스템 ===
+SCORE_HIT = 10
+SCORE_PERFECT_HIT = 50
+SCORE_COMBO_MULTIPLIER = 1.5
+SCORE_TIME_BONUS = 100
+SCORE_NO_DAMAGE_BONUS = 500
+MAX_COMBO = 99
+
+# === 아카데미 스킬 ===
+ACADEMY_SKILL_POINTS_PER_STAGE = 1
+ACADEMY_MAX_SKILL_LEVEL = 5
+ACADEMY_SKILL_COST = [1, 2, 3, 4, 5]
+
+# 스킬 타입
+SKILL_TYPES = {
+    "PASSIVE": "패시브",
+    "ACTIVE": "액티브",
+    "SPECIAL": "특수"
+}
+
+# === 트레이드 포인트 ===
+TRADE_POINT_VALUE = 1
+TRADE_POINT_SPAWN_CHANCE = 0.1
+TRADE_POINT_LIFETIME = 300  # 프레임 (5초)
+TRADE_POINT_COLLECT_RADIUS = 30
+
+# === 이벤트 시스템 ===
+EVENT_TRIGGER_SCORE = 1000
+EVENT_DURATION_MIN = 600  # 프레임 (10초)
+EVENT_DURATION_MAX = 1800  # 프레임 (30초)
+EVENT_REWARD_MULTIPLIER = 2.0
+
+# === 풍선 이벤트 (Stage 1) ===
+BALLOON_SPAWN_COUNT = 10
+BALLOON_LIFETIME = 1200  # 프레임 (20초)
+BALLOON_SCORE_VALUE = 50
+BALLOON_CHAIN_BONUS = 10
+
+# === 게임 상태 ===
+GAME_STATES = {
+    "MENU": 0,
+    "PLAYING": 1,
+    "PAUSED": 2,
+    "GAME_OVER": 3,
+    "VICTORY": 4,
+    "LOADING": 5,
+    "CUTSCENE": 6
+}
+
+# === 입력 설정 ===
+KEY_REPEAT_DELAY = 300  # 밀리초
+KEY_REPEAT_INTERVAL = 50  # 밀리초
+JOYSTICK_DEADZONE = 0.3
+JOYSTICK_SENSITIVITY = 1.5
+
+# === 네트워크 설정 (멀티플레이) ===
+DEFAULT_PORT = 5555
+MAX_PLAYERS = 2
+NETWORK_TIMEOUT = 10000  # 밀리초
+PING_INTERVAL = 1000  # 밀리초
+MAX_PING = 200  # 밀리초
+
+# === 세이브 데이터 ===
+SAVE_FILE_NAME = "academy_save.json"
+MAX_SAVE_SLOTS = 3
+AUTO_SAVE_INTERVAL = 300  # 초
+
+# === 디버그 설정 ===
+DEBUG_MODE = False
+SHOW_FPS = False
+SHOW_HITBOX = False
+SHOW_PARTICLE_COUNT = False
+GOD_MODE = False
+INFINITE_DASH = False
+
+# === 애니메이션 ===
+ANIMATION_FPS = 12
+SPRITE_SHEET_COLUMNS = 8
+SPRITE_SHEET_ROWS = 8
+DEFAULT_ANIMATION_SPEED = 1.0
+
+# === 리그 모드 추가 상수 ===
+LEAGUE_PROMOTION_WINS = 3
+LEAGUE_DEMOTION_LOSSES = 3
+LEAGUE_SEASON_DURATION = 30  # 일
+LEAGUE_REWARDS = {
+    "junior": 100,
+    "senior": 250,
+    "master": 500,
+    "legend": 1000
+}
+
+# === 가챠 시스템 ===
+GACHA_COST = 100
+GACHA_RARE_CHANCE = 0.1
+GACHA_EPIC_CHANCE = 0.05
+GACHA_LEGENDARY_CHANCE = 0.01
+GACHA_PITY_COUNTER = 100  # 100회마다 확정 레전더리
+
+# === 패들 크기 변경 ===
+PADDLE_SIZE_MIN = 50
+PADDLE_SIZE_MAX = 200
+PADDLE_SIZE_CHANGE_SPEED = 2
+
+# === 공 물리 ===
+BALL_GRAVITY = 0
+BALL_FRICTION = 1.0
+BALL_BOUNCE_DAMPING = 1.0
+BALL_SPIN_MAX = 5.0
+BALL_CURVE_FACTOR = 0.1
+
+# === 벽 시스템 ===
+WALL_MAX_COUNT = 3
+WALL_LIFETIME = 600  # 프레임 (10초)
+WALL_HEALTH = 3
+WALL_WIDTH = 100
+WALL_HEIGHT = 10
+
+# === 특수 효과 지속시간 ===
+FREEZE_DURATION = 120  # 프레임 (2초)
+SLOW_DURATION = 180  # 프레임 (3초)
+CONFUSION_DURATION = 150  # 프레임 (2.5초)
+INVISIBLE_DURATION = 300  # 프레임 (5초)
+
+# === 콤보 시스템 ===
+COMBO_WINDOW = 120  # 프레임 (2초)
+COMBO_BONUS_PER_HIT = 10
+COMBO_MULTIPLIER_INCREASE = 0.1
+MAX_COMBO_MULTIPLIER = 5.0
+
+# === 점수 등급 ===
+SCORE_RANKS = {
+    "S+": 10000,
+    "S": 8000,
+    "A": 6000,
+    "B": 4000,
+    "C": 2000,
+    "D": 1000,
+    "F": 0
+}
