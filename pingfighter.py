@@ -13743,14 +13743,23 @@ def show_start_screen():
                     play_button_click_sound()  #  클릭 사운드
                     choice = menu_options[selected]
                     if choice == "경기장 입장":
-                        # 플레이어 캐릭터 선택 화면으로 이동
-                        selected_character = show_character_selection()
-                        if selected_character is not None:
-                            # 캐릭터 선택 후 난이도 선택
-                            selected_difficulty = show_difficulty_selection()
-                            if selected_difficulty is not None:
-                                # 선택한 난이도로 게임 시작
-                                start_game_with_difficulty(selected_character, selected_difficulty)
+                        # 튜토리얼 진행 여부 물어보기
+                        start_tutorial = show_tutorial_dialog()
+                        
+                        if start_tutorial:
+                            # 튜토리얼 시작 (아직 구현되지 않음)
+                            print("튜토리얼 시작 (미구현)")
+                            # TODO: 튜토리얼 구현 후 여기에 튜토리얼 시작 코드 추가
+                            pass
+                        else:
+                            # 아니오 선택 - 캐릭터 선택 화면으로 이동
+                            selected_character = show_character_selection()
+                            if selected_character is not None:
+                                # 캐릭터 선택 후 난이도 선택
+                                selected_difficulty = show_difficulty_selection()
+                                if selected_difficulty is not None:
+                                    # 선택한 난이도로 게임 시작
+                                    start_game_with_difficulty(selected_character, selected_difficulty)
                         return
 # 헬모드 제거됨
                     elif choice == "NEW BOSS BATTLE":
@@ -13766,6 +13775,174 @@ def show_start_screen():
                         show_developer_stage_select()
                     elif choice == "아이템관리":
                         show_item_manager_menu()
+def show_tutorial_dialog():
+    """튜토리얼 진행 여부를 묻는 다이얼로그"""
+    clock = pygame.time.Clock()
+    selected = 0  # 0: 예, 1: 아니오
+    
+    # 다이얼로그 박스 설정
+    dialog_width = 600
+    dialog_height = 350
+    dialog_x = (WIDTH - dialog_width) // 2
+    dialog_y = (HEIGHT - dialog_height) // 2
+    
+    # 버튼 설정
+    button_width = 180
+    button_height = 60
+    button_spacing = 40
+    button_y = dialog_y + 230
+    
+    yes_button = pygame.Rect(dialog_x + dialog_width // 2 - button_width - button_spacing // 2, 
+                             button_y, button_width, button_height)
+    no_button = pygame.Rect(dialog_x + dialog_width // 2 + button_spacing // 2, 
+                           button_y, button_width, button_height)
+    
+    animation_timer = 0
+    
+    while True:
+        clock.tick(60)
+        animation_timer += 0.016  # 60 FPS
+        
+        # 배경 그리기 (반투명 오버레이)
+        SCREEN.fill(BLACK)
+        
+        # 사이버펑크 스타일 배경 효과
+        for i in range(5):
+            glow_alpha = int(20 * (1 - i / 5))
+            glow_rect = pygame.Rect(dialog_x - i * 5, dialog_y - i * 5, 
+                                   dialog_width + i * 10, dialog_height + i * 10)
+            pygame.draw.rect(SCREEN, (0, 100, 200, glow_alpha), glow_rect, 
+                           border_radius=15)
+        
+        # 다이얼로그 박스
+        dialog_surface = pygame.Surface((dialog_width, dialog_height), pygame.SRCALPHA)
+        pygame.draw.rect(dialog_surface, (20, 30, 40, 240), 
+                        (0, 0, dialog_width, dialog_height), 
+                        border_radius=15)
+        pygame.draw.rect(dialog_surface, (0, 200, 255, 200), 
+                        (0, 0, dialog_width, dialog_height), 
+                        width=3, border_radius=15)
+        
+        # 제목
+        title_font = get_font(40)  # 40pt 픽셀 폰트
+        title_text = title_font.render("튜토리얼", True, (0, 255, 255))
+        title_rect = title_text.get_rect(centerx=dialog_width // 2, y=40)
+        dialog_surface.blit(title_text, title_rect)
+        
+        # 질문 텍스트
+        question_font = get_font(28)  # 28pt 픽셀 폰트
+        question_text = question_font.render("튜토리얼을 진행하시겠습니까?", True, WHITE)
+        question_rect = question_text.get_rect(centerx=dialog_width // 2, y=120)
+        dialog_surface.blit(question_text, question_rect)
+        
+        # 설명 텍스트
+        desc_font = get_font(20)  # 20pt 픽셀 폰트
+        desc_lines = [
+            "게임의 기본 조작법을 배울 수 있습니다",
+            "건너뛰고 바로 게임을 시작할 수도 있습니다"
+        ]
+        
+        y_offset = 170
+        for line in desc_lines:
+            desc_text = desc_font.render(line, True, (180, 180, 180))
+            desc_rect = desc_text.get_rect(centerx=dialog_width // 2, y=y_offset)
+            dialog_surface.blit(desc_text, desc_rect)
+            y_offset += 30
+        
+        # 다이얼로그 그리기
+        SCREEN.blit(dialog_surface, (dialog_x, dialog_y))
+        
+        # 버튼 그리기
+        buttons = [(yes_button, "예", 0), (no_button, "아니오", 1)]
+        
+        for button_rect, text, index in buttons:
+            # 선택된 버튼 강조
+            if selected == index:
+                # 글로우 효과
+                for i in range(3):
+                    glow_alpha = int(60 * (1 - i / 3))
+                    glow_rect = button_rect.inflate(i * 4, i * 4)
+                    pygame.draw.rect(SCREEN, (0, 255, 255, glow_alpha), glow_rect, 
+                                   border_radius=10)
+                
+                # 버튼 배경
+                button_color = (0, 150, 200)
+                border_color = (0, 255, 255)
+                text_color = WHITE
+                
+                # 펄스 효과
+                pulse = abs(math.sin(animation_timer * 3)) * 10
+                button_rect_pulsed = button_rect.inflate(pulse, pulse // 2)
+                pygame.draw.rect(SCREEN, button_color, button_rect_pulsed, 
+                               border_radius=10)
+                pygame.draw.rect(SCREEN, border_color, button_rect_pulsed, 
+                               width=3, border_radius=10)
+            else:
+                # 일반 버튼
+                button_color = (40, 50, 60)
+                border_color = (100, 100, 100)
+                text_color = (180, 180, 180)
+                
+                pygame.draw.rect(SCREEN, button_color, button_rect, 
+                               border_radius=10)
+                pygame.draw.rect(SCREEN, border_color, button_rect, 
+                               width=2, border_radius=10)
+            
+            # 버튼 텍스트
+            button_font = get_font(32)  # 32pt 픽셀 폰트
+            button_text = button_font.render(text, True, text_color)
+            text_rect = button_text.get_rect(center=button_rect.center)
+            SCREEN.blit(button_text, text_rect)
+        
+        # 힌트 텍스트
+        hint_font = get_font(16)  # 16pt 픽셀 폰트
+        hint_text = hint_font.render("← → 키로 선택, SPACE/ENTER로 확인", True, (120, 120, 120))
+        hint_rect = hint_text.get_rect(center=(WIDTH // 2, dialog_y + dialog_height + 40))
+        SCREEN.blit(hint_text, hint_rect)
+        
+        pygame.display.flip()
+        
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            
+            if event.type == pygame.KEYDOWN:
+                if event.key in [pygame.K_LEFT, pygame.K_a]:
+                    selected = 0  # 예
+                    play_button_hover_sound()
+                elif event.key in [pygame.K_RIGHT, pygame.K_d]:
+                    selected = 1  # 아니오
+                    play_button_hover_sound()
+                elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+                    play_button_click_sound()
+                    return selected == 0  # True if 예, False if 아니오
+                elif event.key == pygame.K_ESCAPE:
+                    play_button_click_sound()
+                    return False  # ESC는 아니오와 동일
+            
+            if event.type == pygame.MOUSEMOTION:
+                mouse_pos = event.pos
+                # 마우스 호버 체크
+                if yes_button.collidepoint(mouse_pos):
+                    if selected != 0:
+                        selected = 0
+                        play_button_hover_sound()
+                elif no_button.collidepoint(mouse_pos):
+                    if selected != 1:
+                        selected = 1
+                        play_button_hover_sound()
+            
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = event.pos
+                if yes_button.collidepoint(mouse_pos):
+                    play_button_click_sound()
+                    return True  # 예
+                elif no_button.collidepoint(mouse_pos):
+                    play_button_click_sound()
+                    return False  # 아니오
+
 def show_character_selection():
     """사이버펑크 스타일 홀로그램 캐릭터 선택 화면"""
     clock = pygame.time.Clock()
