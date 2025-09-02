@@ -1161,6 +1161,12 @@ def get_final_boss_config(stage, league_mode):
     """ 통합 보스 설정: 스테이지별 + 리그별 완전 연계"""
     # 1️⃣ 스테이지별 기본 설정 가져오기
     base_config = boss_speed_config.get(stage, boss_speed_config[1])
+    
+    # 튜토리얼 스테이지(50)는 리그 보정 없이 기본 설정만 사용
+    if stage == 50:
+        print(f"튜토리얼 보스 설정 적용 - 속도 50% 증가된 값 사용")
+        return base_config
+    
     # 2️⃣ 리그별 보정 적용
     final_config = apply_league_boss_config(base_config, league_mode)
     # 3️⃣ 디버깅 정보 (가끔씩만)
@@ -1801,6 +1807,19 @@ for stage_num in range(1, 6):
             "fail_chance": 0.010 - (stage_num - 1) * 0.001,   # 스테이지별 감소
             "fail_error": BOSS_CONFIGS[stage_num]["fail_error"],
         }
+
+# 스테이지 50 (튜토리얼) 보스 설정 - 기본 스테이지 1 기반으로 속도 50% 증가
+boss_speed_config[50] = {
+    "accel": BOSS_CONFIGS[1]["accel"] * 1.5,  # 가속도 50% 증가
+    "decel": BOSS_CONFIGS[1]["decel"] * 1.5,  # 감속도 50% 증가
+    "max_speed": BOSS_CONFIGS[1]["max_speed"] * 1.5,  # 최대 속도 50% 증가
+    "instant_stop": BOSS_CONFIGS[1]["instant_stop"] * 1.5,  # 즉시 정지 속도 50% 증가
+    # AI 설정 (스테이지 1과 동일)
+    "predict_chance": 0.45,
+    "predict_error": 95,
+    "fail_chance": 0.010,
+    "fail_error": BOSS_CONFIGS[1]["fail_error"],
+}
 # 보스 기본 속도 설정값 (초기값 저장용)
 BOSS_ACCELERATION_DEFAULT = 0.798       # 35% 감소: 1.2 → 0.798
 BOSS_DECELERATION_DEFAULT = 0.798       # 35% 감소: 1.2 → 0.798
@@ -14283,6 +14302,101 @@ def show_tutorial_intro_dialogue():
     
     return True
 
+def show_tutorial_boss_return_dialogue():
+    """튜토리얼에서 보스가 서브를 받아친 후 표시되는 대화 - 초기 대화와 동일한 정지 화면 방식"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()    # 24pt 대사용
+    font_small = FontStyle.caption()   # 18pt 안내용
+    
+    # 대화 내용
+    dialogue = {
+        "speaker": "[조교]",
+        "text": "이번엔 들어온 신입 스매셔군",
+        "speaker_color": (255, 100, 100)  # 빨간색
+    }
+    
+    # 타이핑 효과 변수
+    displayed_text = ""
+    text_complete = False
+    typing_speed = 50  # 밀리초당 한 글자
+    last_char_time = pygame.time.get_ticks()
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+    
+    running = True
+    while running:
+        current_time = pygame.time.get_ticks()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    if text_complete:
+                        # 대화 완료, 게임 재개
+                        return True
+                    else:
+                        # 텍스트 즉시 완성
+                        displayed_text = dialogue["text"]
+                        text_complete = True
+        
+        # 타이핑 효과
+        if not text_complete and current_time - last_char_time >= typing_speed:
+            if len(displayed_text) < len(dialogue["text"]):
+                displayed_text += dialogue["text"][len(displayed_text)]
+                last_char_time = current_time
+            else:
+                text_complete = True
+        
+        # 배경 그리기 (정지된 게임 화면)
+        SCREEN.blit(background, (0, 0))
+        
+        # 반투명 오버레이
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))  # 더 진한 반투명 검은색
+        SCREEN.blit(overlay, (0, 0))
+        
+        # 대화창 영역 (하단 전체)
+        dialogue_height = 200
+        dialogue_y = HEIGHT - dialogue_height
+        
+        # 대화창 배경 (검은색 반투명)
+        dialogue_bg = pygame.Surface((WIDTH, dialogue_height), pygame.SRCALPHA)
+        dialogue_bg.fill((0, 0, 0, 230))  # 거의 불투명한 검은색
+        SCREEN.blit(dialogue_bg, (0, dialogue_y))
+        
+        # 상단 경계선
+        pygame.draw.line(SCREEN, dialogue["speaker_color"], 
+                        (0, dialogue_y), (WIDTH, dialogue_y), 3)
+        
+        # 화자 이름 (대화창 위쪽)
+        speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+        speaker_rect = speaker_surface.get_rect(left=50, top=dialogue_y + 20)
+        SCREEN.blit(speaker_surface, speaker_rect)
+        
+        # 대사 텍스트 (화자 이름 아래)
+        text_surface = font_medium.render(displayed_text, True, WHITE)
+        text_rect = text_surface.get_rect(left=50, top=dialogue_y + 70)
+        SCREEN.blit(text_surface, text_rect)
+        
+        # 스페이스바 안내 (우측 하단)
+        if text_complete:
+            if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
+                instruction = "SPACE - 계속"
+                inst_surface = font_small.render(instruction, True, CYAN)
+                inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 30, HEIGHT - 20))
+                SCREEN.blit(inst_surface, inst_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+    
+    return True
+
 def show_character_selection():
     """사이버펑크 스타일 홀로그램 캐릭터 선택 화면"""
     clock = pygame.time.Clock()
@@ -19717,6 +19831,8 @@ def handle_ball():
     global mega_smashing_ghosts, dashholder_obtained, rolling_charges, rolling_charge_timer
     # 튜토리얼 관련 변수들
     global tutorial_practice_mode, tutorial_boss_returned
+    global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue
+    global tutorial_saved_ball_vel
     # 롤링 스턴 타이머
     global rolling_stun_timer
     # 충돌 쿨다운 감소
@@ -21591,11 +21707,19 @@ def handle_ball():
         last_wall_hit = None
         
         # 튜토리얼 모드: 보스가 공을 받아쳤음을 표시
-        if current_stage == 50 and 'tutorial_practice_mode' in globals():
-            if tutorial_practice_mode and 'tutorial_boss_returned' in globals():
-                if not tutorial_boss_returned:
-                    tutorial_boss_returned = True
-                    print("튜토리얼: 보스가 공을 받아쳤습니다!")
+        if current_stage == 50 and tutorial_practice_mode:
+            if not tutorial_boss_returned:
+                tutorial_boss_returned = True
+                print("튜토리얼: 보스가 공을 받아쳤습니다!")
+                # 게임을 일시정지하고 대화 표시 준비
+                if not tutorial_boss_return_dialogue_shown:
+                    # 현재 공의 속도 저장 (대화 후 복원용)
+                    tutorial_saved_ball_vel = ball_vel.copy()
+                    tutorial_pause_for_dialogue = True
+                    # 공을 일시정지
+                    ball_vel[0] = 0
+                    ball_vel[1] = 0
+                    print("튜토리얼: 대화창 표시 준비 완료")
         
         #  파워스매싱 상태 확인 (보스 충돌 직전에)
         was_power_smashing = power_smashing_parabola_active
@@ -23768,9 +23892,10 @@ def handle_boss():
         error = random.randint(-150, 150)
         future_x += error
         
-        # 매우 느린 이동 속도
-        max_speed = 3  # 매우 느린 속도
-        accel = 0.3  # 느린 가속
+        # boss_speed_config[50]의 설정값 사용 (이미 50% 증가된 값)
+        # BOSS_ACCELERATION, BOSS_MAX_SPEED 등은 start_stage에서 이미 설정됨
+        max_speed = BOSS_MAX_SPEED  # boss_speed_config[50]에서 설정된 값 사용
+        accel = BOSS_ACCELERATION   # boss_speed_config[50]에서 설정된 값 사용
         
         target_distance = future_x - BOSS.centerx
         
@@ -24784,14 +24909,24 @@ def main(stage_num, new_boss_mode=False):
     
     # 튜토리얼 스테이지 시작 시 대화 표시
     global tutorial_dialogue_shown, tutorial_practice_mode, tutorial_serve_instruction_shown, tutorial_boss_returned
+    global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue, tutorial_saved_ball_vel
     
     tutorial_dialogue_shown = False
     tutorial_practice_mode = False  # 실습 모드 플래그
     tutorial_serve_instruction_shown = False  # 서브 지시 표시 플래그
     tutorial_boss_returned = False  # 보스가 서브를 받아쳤는지 확인
+    tutorial_boss_return_dialogue_shown = False  # 보스가 서브를 받아친 후 대화 표시 여부
+    tutorial_pause_for_dialogue = False  # 대화를 위한 일시정지 상태
+    tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
     
     if stage_num == 50:
         print("튜토리얼 스테이지 50 시작")
+        # 튜토리얼 보스 속도 설정 확인
+        print(f"튜토리얼 보스 속도 설정:")
+        print(f"  - BOSS_ACCELERATION: {BOSS_ACCELERATION}")
+        print(f"  - BOSS_MAX_SPEED: {BOSS_MAX_SPEED}")
+        print(f"  - BOSS_DECELERATION: {BOSS_DECELERATION}")
+        print(f"  - BOSS_INSTANT_STOP: {BOSS_INSTANT_STOP_DECELERATION}")
         if not tutorial_dialogue_shown:
             print("튜토리얼 대화 표시 시작")
             if show_tutorial_intro_dialogue():
@@ -24816,6 +24951,8 @@ def main(stage_num, new_boss_mode=False):
             except Exception as e:
                 if __debug__:
                     print(f"⚠️ 마이그레이션 동기화 오류: {e}")
+        
+        # 튜토리얼 대화로 인한 일시정지 체크 (나중에 화면이 그려진 후 처리)
         
         #  게임 완전 종료 체크
         if game_should_exit:
@@ -24859,7 +24996,7 @@ def main(stage_num, new_boss_mode=False):
         global perfect_timing_cooldown, perfect_timing_cooldown_frames, perfect_timing_input_used
         global drive_global_cooldown, drive_global_cooldown_frames, last_space_press_time
         global special_ready, special_active, special_gauge  #  파워스매싱 관련 변수들
-        global power_smashing_direction, power_smashing_original_speed, ball_vel  #  파워스매싱 관련 변수
+        global power_smashing_direction, power_smashing_original_speed  #  파워스매싱 관련 변수 (ball_vel은 이미 전역)
         # 프레임 카운터 증가
         frame_counter += 1
         #  대쉬 매니저 업데이트 (매 프레임)
@@ -26026,23 +26163,26 @@ def main(stage_num, new_boss_mode=False):
                         arrow_rect = arrow_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 140))
                         SCREEN.blit(arrow_text, arrow_rect)
                 
-                # 보스가 공을 받아친 후 대화 표시
-                elif 'tutorial_boss_returned' in globals() and tutorial_boss_returned and not is_waiting_for_serve:
-                    dialogue_text = "[조교] 잘하는군 .. 그것이 서브다. 그럼 내가 반격한 공을 받아 쳐봐"
-                    text_surface = font_tutorial.render(dialogue_text, True, (255, 100, 100))
-                    text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT - 100))
-                    
-                    # 텍스트 배경
-                    bg_width = text_rect.width + 40
-                    bg_height = text_rect.height + 20
-                    text_bg = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
-                    text_bg.fill((0, 0, 0, 180))
-                    pygame.draw.rect(text_bg, (255, 100, 100), (0, 0, bg_width, bg_height), 2)
-                    bg_rect = text_bg.get_rect(center=(WIDTH // 2, HEIGHT - 100))
-                    SCREEN.blit(text_bg, bg_rect)
-                    
-                    # 텍스트 그리기
-                    SCREEN.blit(text_surface, text_rect)
+                # 보스가 공을 받아친 후는 정지 화면 대화로 처리됨
+        
+        # 튜토리얼 대화창 표시 체크 (화면이 그려진 후)
+        if current_stage == 50 and tutorial_pause_for_dialogue:
+            if not tutorial_boss_return_dialogue_shown:
+                print("튜토리얼: 대화창 표시 시작")
+                # 현재 화면을 먼저 업데이트
+                pygame.display.flip()
+                # 대화 표시
+                if show_tutorial_boss_return_dialogue():
+                    tutorial_boss_return_dialogue_shown = True
+                    tutorial_pause_for_dialogue = False
+                    # 공의 속도를 복원 (일시정지 전 속도로)
+                    if tutorial_saved_ball_vel:
+                        ball_vel[0] = tutorial_saved_ball_vel[0]
+                        ball_vel[1] = tutorial_saved_ball_vel[1]
+                        print(f"튜토리얼: 공 속도 복원 - {ball_vel}")
+                    else:
+                        ball_vel[1] = 5  # 기본적으로 아래로 향하도록
+                continue  # 다음 프레임으로
         
         pygame.display.flip()
         # 프로파일러 프레임 종료
