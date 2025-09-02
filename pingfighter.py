@@ -13958,6 +13958,331 @@ def show_tutorial_dialog():
                     play_button_click_sound()
                     return False  # 아니오
 
+def show_tutorial_intro_dialogue():
+    """튜토리얼 시작 시 조교와의 대화 시스템"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()  # 24pt 대화 텍스트용
+    font_small = FontStyle.small()  # 20pt 안내 텍스트용
+    
+    # 대화 내용 (보스와 플레이어)
+    dialogues = [
+        {"speaker": "조교", "text": "이번에 들어온 신입 스매셔군"},
+        {"speaker": "조교", "text": "핵심만 교육받고 바로 실전으로 투입한다 알겠나"},
+        {"speaker": "플레이어", "text": "네!"},
+        {"speaker": "조교", "text": "경기의 룰은 간단하다."},
+        {"speaker": "조교", "text": "공이 상대의 가드를 뚫고 뒤로 넘어가면 1점 획득", "demo": "score_demo"},  # 득점 시연
+        {"speaker": "조교", "text": "먼저 5점을 획득하면 승리하지.", "demo": "win_demo"},  # 5:0 승리 화면 표시
+        {"speaker": "조교", "text": "단 4:4 동점일 경우 듀스가 되는데"},
+        {"speaker": "조교", "text": "이경우 2점을 추가 획득하는 자가 승리한다", "demo": "deuce_demo"},  # 듀스 화면 표시
+        {"speaker": "조교", "text": "듀스는 5:5까지 적용되며 5:5일 경우 추가점수 2점"},
+        {"speaker": "조교", "text": "즉, 7점을 획득하면 승리한다", "demo": "deuce_win_demo"},  # 5:7 듀스 승리 화면
+        {"speaker": "플레이어", "text": "네!"},
+        {"speaker": "조교", "text": "서브는 각 라운드별로\n플레이어, 보스 중 랜덤으로 서브권을 갖게돼"},
+        {"speaker": "조교", "text": "서브 시 스페이스 바를 누르면 서브공을 발사한다."},
+        {"speaker": "조교", "text": "서브 선점시 최대 2초간 움직일 수 있으며"},
+        {"speaker": "조교", "text": "2초뒤에는 자동으로 공이 발사되지"},
+        {"speaker": "조교", "text": "우선 서브 공을 한번 쳐봐"}
+    ]
+    
+    current_dialogue = 0
+    dialogue_complete = False
+    text_animation_timer = 0
+    displayed_text = ""
+    target_text = dialogues[current_dialogue]["text"]
+    
+    # 색상 정의
+    DIALOGUE_BG = (10, 10, 30, 150)  # 더 투명한 배경 (240 -> 150)
+    DIALOGUE_BORDER = CYAN
+    BOSS_COLOR = (255, 100, 100)  # 보스 텍스트 색상 (붉은색)
+    PLAYER_COLOR = (100, 200, 255)  # 플레이어 텍스트 색상 (파란색)
+    
+    while not dialogue_complete:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return False
+            
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    # 득점 시연 애니메이션 중인지 확인
+                    is_score_demo_playing = False
+                    if current_dialogue < len(dialogues) and "demo" in dialogues[current_dialogue]:
+                        if dialogues[current_dialogue]["demo"] == "score_demo":
+                            demo_timer = pygame.time.get_ticks() % 4000
+                            if demo_timer < 2000:  # 애니메이션이 재생 중일 때
+                                is_score_demo_playing = True
+                    
+                    # 애니메이션 중이 아닐 때만 스페이스바 처리
+                    if not is_score_demo_playing:
+                        if len(displayed_text) < len(target_text):
+                            # 텍스트 표시 중이면 전체 표시
+                            displayed_text = target_text
+                        else:
+                            # 다음 대화로 넘어가기
+                            current_dialogue += 1
+                            if current_dialogue >= len(dialogues):
+                                dialogue_complete = True
+                            else:
+                                target_text = dialogues[current_dialogue]["text"]
+                                displayed_text = ""
+                                text_animation_timer = 0
+        
+        # 배경 그리기 (게임 화면 유지)
+        draw_field()
+        
+        # 보스 패들을 화면 중앙 상단에 고정 표시
+        boss_paddle_x = WIDTH // 2
+        boss_paddle_y = 100
+        
+        # 보스 이미지 로드 및 표시
+        try:
+            boss_img_path = resource_path("boss_tutorial.png")
+            boss_img = pygame.image.load(boss_img_path)
+            boss_img = pygame.transform.scale(boss_img, (80, 100))  # 크기 조정
+            boss_rect = boss_img.get_rect(center=(boss_paddle_x, boss_paddle_y))
+            SCREEN.blit(boss_img, boss_rect)
+            
+            # 보스 주변 글로우 효과 (은은하게)
+            if current_dialogue < len(dialogues) and dialogues[current_dialogue]["speaker"] == "조교":
+                glow_surface = pygame.Surface((100, 120), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surface, (*BOSS_COLOR, 20), (0, 0, 100, 120))
+                SCREEN.blit(glow_surface, (boss_rect.x - 10, boss_rect.y - 10))
+        except:
+            # 이미지 로드 실패 시 원으로 대체
+            pygame.draw.circle(SCREEN, BOSS_COLOR, (boss_paddle_x, boss_paddle_y), 40)
+        
+        if current_dialogue < len(dialogues):
+            # 화자 이름
+            speaker = dialogues[current_dialogue]["speaker"]
+            speaker_color = BOSS_COLOR if speaker == "조교" else PLAYER_COLOR
+            
+            # 대화 텍스트 애니메이션
+            if len(displayed_text) < len(target_text):
+                text_animation_timer += 1
+                if text_animation_timer % 2 == 0:  # 텍스트 타이핑 속도
+                    displayed_text += target_text[len(displayed_text)]
+            
+            # 텍스트 배경 (검은색 반투명)
+            text_bg_height = 80
+            text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
+            text_bg.fill((0, 0, 0, 180))
+            text_y_position = HEIGHT - 150
+            SCREEN.blit(text_bg, (0, text_y_position))
+            
+            # 화자 이름과 대화 텍스트 처리 (멀티라인 지원)
+            lines = displayed_text.split('\n')
+            
+            if len(lines) == 1:
+                # 단일 라인
+                full_text = f"[{speaker}] {displayed_text}"
+                text_surface = font_medium.render(full_text, True, speaker_color)
+                text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+                
+                # 텍스트 그림자 효과
+                shadow_surface = font_medium.render(full_text, True, (0, 0, 0))
+                shadow_rect = text_rect.copy()
+                shadow_rect.x += 2
+                shadow_rect.y += 2
+                SCREEN.blit(shadow_surface, shadow_rect)
+                
+                # 실제 텍스트
+                SCREEN.blit(text_surface, text_rect)
+            else:
+                # 멀티 라인
+                line_height = 30
+                start_y = text_y_position + text_bg_height // 2 - (len(lines) - 1) * line_height // 2
+                
+                for i, line in enumerate(lines):
+                    if i == 0:
+                        # 첫 줄에 화자 이름 포함
+                        line_text = f"[{speaker}] {line}"
+                    else:
+                        line_text = line
+                    
+                    text_surface = font_medium.render(line_text, True, speaker_color)
+                    text_rect = text_surface.get_rect(center=(WIDTH // 2, start_y + i * line_height))
+                    
+                    # 텍스트 그림자 효과
+                    shadow_surface = font_medium.render(line_text, True, (0, 0, 0))
+                    shadow_rect = text_rect.copy()
+                    shadow_rect.x += 2
+                    shadow_rect.y += 2
+                    SCREEN.blit(shadow_surface, shadow_rect)
+                    
+                    # 실제 텍스트
+                    SCREEN.blit(text_surface, text_rect)
+            
+            # 데모 화면 표시 (특정 대화에서)
+            if len(displayed_text) == len(target_text) and "demo" in dialogues[current_dialogue]:
+                demo_type = dialogues[current_dialogue]["demo"]
+                
+                if demo_type == "score_demo":
+                    # 득점 시연 - 공이 보스 패들을 뚫고 지나가는 장면
+                    demo_timer = pygame.time.get_ticks() % 4000  # 4초 루프 (애니메이션 + 점수 표시)
+                    
+                    if demo_timer < 2000:  # 2초간 공 움직임 표시
+                        # 공 위치 계산 (플레이어 쪽에서 보스 왼쪽 끝으로, 더 빠르게)
+                        progress = demo_timer / 2000.0  # 2초 동안 애니메이션
+                        ball_start_x = WIDTH // 2
+                        ball_start_y = HEIGHT - 200
+                        ball_end_x = WIDTH // 2 - 250  # 보스 패들 더 왼쪽으로
+                        ball_end_y = -50  # 보스 패들 뒤로 완전히 넘어감
+                        
+                        ball_x = ball_start_x + (ball_end_x - ball_start_x) * progress
+                        ball_y = ball_start_y + (ball_end_y - ball_start_y) * progress
+                        
+                        # 보스 패들 움직임 (매우 늦게 반응하여 완전히 놓치는 모습)
+                        if demo_timer > 1000:  # 1초 후 반응 (공이 반 정도 지나간 후)
+                            boss_target_x = ball_end_x + 100  # 늦은 반응으로 잘못된 방향
+                            boss_move_progress = min((demo_timer - 1000) / 1000.0, 1.0)
+                            boss_demo_x = boss_paddle_x + (boss_target_x - boss_paddle_x) * boss_move_progress * 0.5  # 느린 이동
+                        else:
+                            boss_demo_x = boss_paddle_x
+                        
+                        # 보스 패들 그리기 (움직이는 위치에)
+                        try:
+                            boss_rect_demo = boss_img.get_rect(center=(boss_demo_x, boss_paddle_y))
+                            SCREEN.blit(boss_img, boss_rect_demo)
+                        except:
+                            pygame.draw.circle(SCREEN, BOSS_COLOR, (int(boss_demo_x), boss_paddle_y), 40)
+                        
+                        # 공이 화면에 보이는 경우에만 그리기
+                        if ball_y > 0:
+                            # 공 그리기
+                            pygame.draw.circle(SCREEN, YELLOW, (int(ball_x), int(ball_y)), 10)
+                            pygame.draw.circle(SCREEN, (255, 255, 100), (int(ball_x), int(ball_y)), 12, 2)
+                            
+                            # 공 궤적 효과
+                            for i in range(5):  # 더 많은 궤적
+                                trail_progress = max(0, progress - (i + 1) * 0.03)
+                                trail_x = ball_start_x + (ball_end_x - ball_start_x) * trail_progress
+                                trail_y = ball_start_y + (ball_end_y - ball_start_y) * trail_progress
+                                if trail_y > 0:  # 화면에 보이는 궤적만
+                                    alpha = 120 - i * 20
+                                    trail_surface = pygame.Surface((24, 24), pygame.SRCALPHA)
+                                    pygame.draw.circle(trail_surface, (*YELLOW, alpha), (12, 12), 8 - i)
+                                    SCREEN.blit(trail_surface, (trail_x - 12, trail_y - 12))
+                    
+                    else:  # 2초 후 1:0 점수 표시 (공이 완전히 지나간 후)
+                        # 1:0 점수판
+                        score_font = FontStyle.title_large()
+                        score_text = score_font.render("1 : 0", True, CYAN)
+                        score_rect = score_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
+                        
+                        # 점수판 배경
+                        score_bg = pygame.Surface((350, 120), pygame.SRCALPHA)
+                        pygame.draw.rect(score_bg, (0, 0, 0, 180), (0, 0, 350, 120))
+                        pygame.draw.rect(score_bg, CYAN, (0, 0, 350, 120), 3)
+                        score_bg_rect = score_bg.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+                        SCREEN.blit(score_bg, score_bg_rect)
+                        
+                        # 점수 표시
+                        SCREEN.blit(score_text, score_rect)
+                        
+                        # PLAYER WIN! 텍스트 (깜빡임)
+                        if pygame.time.get_ticks() % 400 < 200:
+                            win_text = FontStyle.title().render("PLAYER WIN!", True, CYAN)
+                            win_rect = win_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
+                            SCREEN.blit(win_text, win_rect)
+                
+                elif demo_type == "win_demo":
+                    # 5:0 전광판과 PLAYER WIN! 표시
+                    score_font = FontStyle.title_large()
+                    
+                    # 점수판 배경 (통일된 스타일)
+                    score_bg = pygame.Surface((350, 120), pygame.SRCALPHA)
+                    pygame.draw.rect(score_bg, (0, 0, 0, 180), (0, 0, 350, 120))
+                    pygame.draw.rect(score_bg, CYAN, (0, 0, 350, 120), 3)
+                    score_bg_rect = score_bg.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+                    SCREEN.blit(score_bg, score_bg_rect)
+                    
+                    # 점수 표시
+                    score_text = score_font.render("5 : 0", True, CYAN)
+                    score_rect = score_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
+                    SCREEN.blit(score_text, score_rect)
+                    
+                    # PLAYER WIN! 표시 - CYAN 색상으로 통일
+                    win_text = FontStyle.title().render("PLAYER WIN!", True, CYAN)
+                    win_rect = win_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
+                    
+                    # 깜빡임 효과
+                    if pygame.time.get_ticks() % 400 < 200:
+                        SCREEN.blit(win_text, win_rect)
+                
+                elif demo_type == "deuce_demo":
+                    # 4:4 전광판과 DEUCE 표시
+                    score_font = FontStyle.title_large()
+                    
+                    # 점수판 배경 (통일된 스타일 - 듀스는 노란색 테두리)
+                    score_bg = pygame.Surface((350, 120), pygame.SRCALPHA)
+                    pygame.draw.rect(score_bg, (0, 0, 0, 180), (0, 0, 350, 120))
+                    pygame.draw.rect(score_bg, YELLOW, (0, 0, 350, 120), 3)
+                    score_bg_rect = score_bg.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+                    SCREEN.blit(score_bg, score_bg_rect)
+                    
+                    # 점수 표시
+                    score_text = score_font.render("4 : 4", True, YELLOW)
+                    score_rect = score_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
+                    SCREEN.blit(score_text, score_rect)
+                    
+                    # DEUCE 표시
+                    deuce_text = FontStyle.title().render("DEUCE!", True, YELLOW)
+                    deuce_rect = deuce_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
+                    
+                    # 깜빡임 효과
+                    if pygame.time.get_ticks() % 400 < 200:
+                        SCREEN.blit(deuce_text, deuce_rect)
+                
+                elif demo_type == "deuce_win_demo":
+                    # 5:7 듀스 승리 화면 표시
+                    score_font = FontStyle.title_large()
+                    
+                    # 점수판 배경 (1:0과 같은 스타일)
+                    score_bg = pygame.Surface((350, 120), pygame.SRCALPHA)
+                    pygame.draw.rect(score_bg, (0, 0, 0, 180), (0, 0, 350, 120))
+                    pygame.draw.rect(score_bg, CYAN, (0, 0, 350, 120), 3)
+                    score_bg_rect = score_bg.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+                    SCREEN.blit(score_bg, score_bg_rect)
+                    
+                    # 5:7 점수 표시 (보스:플레이어) - CYAN 색상으로 통일
+                    score_text = score_font.render("5 : 7", True, CYAN)
+                    score_rect = score_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
+                    SCREEN.blit(score_text, score_rect)
+                    
+                    # PLAYER WIN! 표시 - CYAN 색상으로 통일
+                    win_text = FontStyle.title().render("PLAYER WIN!", True, CYAN)
+                    win_rect = win_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
+                    
+                    # 깜빡임 효과
+                    if pygame.time.get_ticks() % 400 < 200:
+                        SCREEN.blit(win_text, win_rect)
+            
+            # 스페이스바 안내 (하단 우측)
+            if len(displayed_text) == len(target_text):
+                # 득점 시연 애니메이션 중인지 확인
+                show_instruction = True
+                if "demo" in dialogues[current_dialogue] and dialogues[current_dialogue]["demo"] == "score_demo":
+                    demo_timer = pygame.time.get_ticks() % 4000
+                    if demo_timer < 2000:  # 애니메이션 재생 중에는 안내 숨김
+                        show_instruction = False
+                
+                if show_instruction:
+                    instruction = "SPACE - 계속" if current_dialogue < len(dialogues) - 1 else "SPACE - 시작"
+                    inst_surface = font_small.render(instruction, True, CYAN)
+                    inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, HEIGHT - 20))
+                    
+                    # 깜빡임 효과
+                    if pygame.time.get_ticks() % 1000 < 500:
+                        SCREEN.blit(inst_surface, inst_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+    
+    return True
+
 def show_character_selection():
     """사이버펑크 스타일 홀로그램 캐릭터 선택 화면"""
     clock = pygame.time.Clock()
@@ -17200,6 +17525,10 @@ def draw_stage2_leaves():
         SCREEN.blit(rotated_leaf, leaf_rect)
 def draw_tutorial_practice_room():
     """튜토리얼 연습장 배경 그리기 - Stage 2 스타일 + 사이버펑크"""
+    # 중심점 먼저 정의
+    center_x = WIDTH // 2
+    center_y = HEIGHT // 2
+    
     # 그라데이션 파란색 배경
     for i in range(HEIGHT):
         # 위에서 아래로 점점 밝아지는 그라데이션
@@ -17268,9 +17597,6 @@ def draw_tutorial_practice_room():
     # 스타디움 스타일 코트 라인 (은은한 색상)
     line_color = (150, 170, 200)  # 은은한 회청색
     line_width = 3
-    
-    center_x = WIDTH // 2
-    center_y = HEIGHT // 2
     
     # 중앙 원 (Stage 2처럼 하나의 원만)
     circle_radius = 80
@@ -21262,6 +21588,10 @@ def handle_ball():
         last_paddle_hit_time = pygame.time.get_ticks()
         last_wall_hit = None
         
+        # 튜토리얼 모드: 보스가 공을 받아쳤음을 표시
+        if current_stage == 50 and 'tutorial_practice_mode' in locals() and tutorial_practice_mode and not tutorial_boss_returned:
+            tutorial_boss_returned = True
+        
         #  파워스매싱 상태 확인 (보스 충돌 직전에)
         was_power_smashing = power_smashing_parabola_active
         #  고스트샷 공과 충돌 시 처리
@@ -24329,6 +24659,9 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 6:  #  Stage 6 추가 (항공모함)
         CURRENT_BG = STAGE6_BG
         BOSS_COLOR = (150, 200, 255)  # 금속/은색
+    elif stage_num == 50:  # Stage 50 (튜토리얼)
+        CURRENT_BG = (30, 40, 80)  # 어두운 파란색 배경
+        BOSS_COLOR = (200, 100, 100)  # 조교 색상
     reset_round()
     
     #  DEBUG: 하늘빛 아지랑이 효과 테스트용 (나중에 제거)
@@ -24443,6 +24776,19 @@ def main(stage_num, new_boss_mode=False):
     stage3_tail_curve_direction = 0
     stage3_tail_hit_ball = False
     prism_particles = []  # 프리즘 파티클 초기화
+    
+    # 튜토리얼 스테이지 시작 시 대화 표시
+    tutorial_dialogue_shown = False
+    tutorial_practice_mode = False  # 실습 모드 플래그
+    tutorial_serve_instruction_shown = False  # 서브 지시 표시 플래그
+    tutorial_boss_returned = False  # 보스가 서브를 받아쳤는지 확인
+    if stage_num == 50 and not tutorial_dialogue_shown:
+        if show_tutorial_intro_dialogue():
+            tutorial_dialogue_shown = True
+            tutorial_practice_mode = True  # 대화 후 실습 모드 시작
+            # 플레이어에게 서브권 부여
+            boss_serves_first = False
+            serving_player = "player"
     
     running = True
     while running:
@@ -24978,6 +25324,10 @@ def main(stage_num, new_boss_mode=False):
                     calculate_bounce(PLAYER)  # 서브는 드라이브 발동 안됨
                     #  서브 시 타격 이펙트 생성
                     create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+                    
+                    # 튜토리얼 모드: 플레이어가 서브했음을 표시
+                    if current_stage == 50 and tutorial_practice_mode:
+                        tutorial_serve_instruction_shown = False  # 서브 지시 숨기기
             # 아이템 사용 - Aipill 활성화 시에는 아이템 사용 불가
             item_use_pressed = False
             direct_item_index = -1  # 숫자키로 직접 선택된 아이템 인덱스
@@ -25189,7 +25539,8 @@ def main(stage_num, new_boss_mode=False):
         #  일시정지 상태가 아닐 때만 게임 로직 업데이트 (악마의 주사위 포함)
         if not game_paused and not devil_dice_paused and not legendary_effect_paused:
             # 아이템 스폰 처리 (템스폰) - 전설 애니메이션 중에는 스폰 정지
-            if pygame.time.get_ticks() - last_item_spawn_time >= next_item_spawn_delay:
+            # 튜토리얼 스테이지(50)에서는 아이템 스폰 비활성화
+            if current_stage != 50 and pygame.time.get_ticks() - last_item_spawn_time >= next_item_spawn_delay:
                 items.spawn_random_item()
                 last_item_spawn_time = pygame.time.get_ticks()
                 
@@ -25633,6 +25984,52 @@ def main(stage_num, new_boss_mode=False):
             
             # 라그나로크 해머 활성 상태
             from legendary_items import get_legendary_manager
+        
+        # 튜토리얼 모드 UI 표시
+        if current_stage == 50 and 'tutorial_practice_mode' in locals() and tutorial_practice_mode:
+            font_tutorial = FontStyle.body() if 'FontStyle' in globals() else pygame.font.Font(None, 24)
+            
+            # 서브 지시 표시
+            if is_waiting_for_serve and is_player_serve and not tutorial_boss_returned:
+                instruction_text = "스페이스바를 눌러 서브공을 발사해보세요!"
+                text_surface = font_tutorial.render(instruction_text, True, CYAN)
+                text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100))
+                
+                # 텍스트 배경
+                bg_width = text_rect.width + 40
+                bg_height = text_rect.height + 20
+                text_bg = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+                text_bg.fill((0, 0, 0, 180))
+                pygame.draw.rect(text_bg, CYAN, (0, 0, bg_width, bg_height), 2)
+                bg_rect = text_bg.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100))
+                SCREEN.blit(text_bg, bg_rect)
+                
+                # 텍스트 그리기
+                SCREEN.blit(text_surface, text_rect)
+                
+                # 깜빡임 효과
+                if pygame.time.get_ticks() % 1000 < 500:
+                    arrow_text = font_tutorial.render("▼", True, CYAN)
+                    arrow_rect = arrow_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 140))
+                    SCREEN.blit(arrow_text, arrow_rect)
+            
+            # 보스가 공을 받아친 후 대화 표시
+            elif tutorial_boss_returned and not is_waiting_for_serve:
+                dialogue_text = "[조교] 잘하는군 .. 그것이 서브다. 그럼 내가 반격한 공을 받아 쳐봐"
+                text_surface = font_tutorial.render(dialogue_text, True, (255, 100, 100))
+                text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+                
+                # 텍스트 배경
+                bg_width = text_rect.width + 40
+                bg_height = text_rect.height + 20
+                text_bg = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+                text_bg.fill((0, 0, 0, 180))
+                pygame.draw.rect(text_bg, (255, 100, 100), (0, 0, bg_width, bg_height), 2)
+                bg_rect = text_bg.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+                SCREEN.blit(text_bg, bg_rect)
+                
+                # 텍스트 그리기
+                SCREEN.blit(text_surface, text_rect)
         
         pygame.display.flip()
         # 프로파일러 프레임 종료
