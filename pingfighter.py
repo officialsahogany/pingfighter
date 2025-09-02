@@ -17184,53 +17184,113 @@ def draw_stage2_leaves():
         leaf_rect = rotated_leaf.get_rect(center=(int(leaf['x']), int(leaf['y'])))
         SCREEN.blit(rotated_leaf, leaf_rect)
 def draw_tutorial_practice_room():
-    """튜토리얼 연습장 배경 그리기 - 미니멀 스타일"""
-    # 파란색 배경
-    SCREEN.fill((20, 40, 80))  # 진한 파란색
+    """튜토리얼 연습장 배경 그리기 - 세련된 스타디움 스타일"""
+    # 그라데이션 파란색 배경
+    for i in range(HEIGHT):
+        # 위에서 아래로 점점 밝아지는 그라데이션
+        gradient_ratio = i / HEIGHT
+        color_r = int(15 + gradient_ratio * 10)  # 15-25
+        color_g = int(35 + gradient_ratio * 15)  # 35-50
+        color_b = int(75 + gradient_ratio * 20)  # 75-95
+        pygame.draw.line(SCREEN, (color_r, color_g, color_b), (0, i), (WIDTH, i))
     
-    # 스타디움 스타일 코트 라인 (흰색)
+    # 스타디움 스타일 코트 라인 
     line_color = (255, 255, 255)
+    accent_color = (100, 150, 255)  # 연한 파란색 악센트
     line_width = 3
+    thin_line = 2
     
     # 중앙 가로선
     pygame.draw.line(SCREEN, line_color, (0, HEIGHT // 2), (WIDTH, HEIGHT // 2), line_width)
     
-    # 중앙 원 (스타디움 스타일)
+    # 중앙 원들 (다중 원으로 깊이감 추가)
     center_x = WIDTH // 2
     center_y = HEIGHT // 2
-    pygame.draw.circle(SCREEN, line_color, (center_x, center_y), 80, line_width)
     
-    # 작은 중앙 원
-    pygame.draw.circle(SCREEN, line_color, (center_x, center_y), 10, 0)
+    # 큰 원 (반투명 효과)
+    for radius in [120, 100, 80]:
+        alpha = 50 if radius == 120 else 100 if radius == 100 else 255
+        circle_surface = pygame.Surface((radius * 2 + 10, radius * 2 + 10), pygame.SRCALPHA)
+        color_with_alpha = (*line_color, alpha)
+        pygame.draw.circle(circle_surface, color_with_alpha, (radius + 5, radius + 5), radius, thin_line)
+        SCREEN.blit(circle_surface, (center_x - radius - 5, center_y - radius - 5))
+    
+    # 중앙 점 (악센트 색상)
+    pygame.draw.circle(SCREEN, accent_color, (center_x, center_y), 12, 0)
+    pygame.draw.circle(SCREEN, line_color, (center_x, center_y), 12, 2)
     
     # 세로 중앙선
     pygame.draw.line(SCREEN, line_color, (WIDTH // 2, 0), (WIDTH // 2, HEIGHT), line_width)
     
-    # 외곽 테두리
+    # 외곽 테두리 (이중선으로 깊이감)
     margin = 30
+    # 바깥 테두리
     pygame.draw.rect(SCREEN, line_color, 
                     (margin, margin, WIDTH - 2*margin, HEIGHT - 2*margin), 
                     line_width)
+    # 안쪽 테두리 (반투명)
+    inner_margin = 40
+    inner_surface = pygame.Surface((WIDTH - 2*inner_margin, HEIGHT - 2*inner_margin), pygame.SRCALPHA)
+    pygame.draw.rect(inner_surface, (*line_color, 80), 
+                    (0, 0, WIDTH - 2*inner_margin, HEIGHT - 2*inner_margin), 
+                    thin_line)
+    SCREEN.blit(inner_surface, (inner_margin, inner_margin))
     
-    # 골 에어리어 반원 (좌우)
+    # 골 에어리어 (더 세련된 디자인)
+    # 좌측 골 에어리어
     pygame.draw.arc(SCREEN, line_color, 
-                   (margin - 40, center_y - 60, 80, 120), 
+                   (margin - 50, center_y - 80, 100, 160), 
                    -1.57, 1.57, line_width)
+    pygame.draw.arc(SCREEN, accent_color, 
+                   (margin - 30, center_y - 60, 60, 120), 
+                   -1.57, 1.57, thin_line)
+    
+    # 우측 골 에어리어
     pygame.draw.arc(SCREEN, line_color, 
-                   (WIDTH - margin - 40, center_y - 60, 80, 120), 
+                   (WIDTH - margin - 50, center_y - 80, 100, 160), 
                    1.57, 4.71, line_width)
+    pygame.draw.arc(SCREEN, accent_color, 
+                   (WIDTH - margin - 30, center_y - 60, 60, 120), 
+                   1.57, 4.71, thin_line)
     
-    # "TUTORIAL" 텍스트 (미니멀하게)
-    try:
-        title_font = pygame.font.Font(None, 48)
-    except:
-        title_font = pygame.font.Font(None, 48)
+    # 코너 장식 (세련된 디테일)
+    corner_size = 20
+    corners = [
+        (margin, margin),  # 좌상
+        (WIDTH - margin, margin),  # 우상
+        (margin, HEIGHT - margin),  # 좌하
+        (WIDTH - margin, HEIGHT - margin)  # 우하
+    ]
     
-    title_text = "TUTORIAL"
-    title_surface = title_font.render(title_text, True, (255, 255, 255))
-    title_surface.set_alpha(50)  # 매우 투명하게
-    title_rect = title_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-    SCREEN.blit(title_surface, title_rect)
+    for cx, cy in corners:
+        # 코너 마크
+        if cx == margin:  # 왼쪽
+            if cy == margin:  # 상단
+                pygame.draw.lines(SCREEN, accent_color, False, 
+                                [(cx, cy + corner_size), (cx, cy), (cx + corner_size, cy)], thin_line)
+            else:  # 하단
+                pygame.draw.lines(SCREEN, accent_color, False, 
+                                [(cx, cy - corner_size), (cx, cy), (cx + corner_size, cy)], thin_line)
+        else:  # 오른쪽
+            if cy == margin:  # 상단
+                pygame.draw.lines(SCREEN, accent_color, False, 
+                                [(cx - corner_size, cy), (cx, cy), (cx, cy + corner_size)], thin_line)
+            else:  # 하단
+                pygame.draw.lines(SCREEN, accent_color, False, 
+                                [(cx - corner_size, cy), (cx, cy), (cx, cy - corner_size)], thin_line)
+    
+    # 추가 디테일 라인 (페널티 박스 느낌)
+    penalty_width = 200
+    penalty_height = 100
+    
+    # 상단 페널티 박스
+    pygame.draw.rect(SCREEN, line_color, 
+                    (center_x - penalty_width//2, margin, penalty_width, penalty_height), 
+                    thin_line)
+    # 하단 페널티 박스
+    pygame.draw.rect(SCREEN, line_color, 
+                    (center_x - penalty_width//2, HEIGHT - margin - penalty_height, penalty_width, penalty_height), 
+                    thin_line)
 
 def draw_field():
     global psycho_bg_timer, earthquake_offset_x, earthquake_offset_y
