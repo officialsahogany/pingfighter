@@ -24978,6 +24978,7 @@ def main(stage_num, new_boss_mode=False):
     # 튜토리얼 스테이지 시작 시 대화 표시
     global tutorial_dialogue_shown, tutorial_practice_mode, tutorial_serve_instruction_shown, tutorial_boss_returned
     global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue, tutorial_saved_ball_vel
+    global tutorial_serve_helper_shown  # 서브 도우미 알림 표시 여부
     
     tutorial_dialogue_shown = False
     tutorial_practice_mode = False  # 실습 모드 플래그
@@ -24986,6 +24987,7 @@ def main(stage_num, new_boss_mode=False):
     tutorial_boss_return_dialogue_shown = False  # 보스가 서브를 받아친 후 대화 표시 여부
     tutorial_pause_for_dialogue = False  # 대화를 위한 일시정지 상태
     tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
+    tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
     
     if stage_num == 50:
         print("튜토리얼 스테이지 50 시작")
@@ -25003,9 +25005,6 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_practice_mode = True  # 대화 후 실습 모드 시작
                 # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
                 print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
-    
-    # 튜토리얼 서브 도우미 표시 여부
-    tutorial_serve_helper_shown = False
     
     running = True
     while running:
