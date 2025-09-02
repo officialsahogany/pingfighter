@@ -2000,12 +2000,14 @@ except:
     BOSS_IMG_STAGE5 = pygame.Surface((BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_STAGE5.fill((255, 80, 0))
 
-# Tutorial Boss (Stage 50)
+# Tutorial Boss (Stage 50) - Smaller size for instructor
+BOSS_IMG_TUTORIAL_WIDTH = 80
+BOSS_IMG_TUTORIAL_HEIGHT = 100
 try:
     BOSS_IMG_TUTORIAL = pygame.image.load(resource_path("boss_tutorial.png")).convert_alpha()
-    BOSS_IMG_TUTORIAL = pygame.transform.scale(BOSS_IMG_TUTORIAL, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
+    # Keep original size for tutorial boss (already smaller)
 except:
-    BOSS_IMG_TUTORIAL = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
+    BOSS_IMG_TUTORIAL = pygame.Surface((BOSS_IMG_TUTORIAL_WIDTH, BOSS_IMG_TUTORIAL_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_TUTORIAL.fill((200, 40, 40))  # Red color for fallback
     
 try:
@@ -10100,9 +10102,9 @@ def draw_objects():
         boss_img = BOSS_IMG_STAGE5
         boss_w, boss_h = BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT
     elif current_stage == 50:
-        # Tutorial Stage - Instructor
+        # Tutorial Stage - Instructor (smaller size)
         boss_img = BOSS_IMG_TUTORIAL
-        boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+        boss_w, boss_h = BOSS_IMG_TUTORIAL_WIDTH, BOSS_IMG_TUTORIAL_HEIGHT
     elif current_stage == 6:
         #  스테이지 6: 항공모함 스타일 보스 (체력형)
         # 보스 속도 계산 (이전 위치와 현재 위치 차이)
