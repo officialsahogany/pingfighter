@@ -17183,8 +17183,122 @@ def draw_stage2_leaves():
         rotated_leaf = pygame.transform.rotate(leaf_surface, leaf['rotation'])
         leaf_rect = rotated_leaf.get_rect(center=(int(leaf['x']), int(leaf['y'])))
         SCREEN.blit(rotated_leaf, leaf_rect)
+def draw_tutorial_practice_room():
+    """튜토리얼 연습장 배경 그리기"""
+    # 밝은 체육관 느낌의 배경색
+    SCREEN.fill((245, 240, 230))  # 베이지색 배경
+    
+    # 나무 마루 패턴
+    floor_color1 = (210, 180, 140)  # 밝은 나무색
+    floor_color2 = (190, 160, 120)  # 어두운 나무색
+    plank_height = 40
+    
+    for i in range(HEIGHT // plank_height + 1):
+        y = i * plank_height
+        # 교대로 색상 변경
+        color = floor_color1 if i % 2 == 0 else floor_color2
+        pygame.draw.rect(SCREEN, color, (0, y, WIDTH, plank_height))
+        
+        # 나무 판자 사이 라인
+        pygame.draw.line(SCREEN, (170, 140, 100), (0, y), (WIDTH, y), 1)
+        
+        # 나무 결 효과
+        for j in range(3):
+            grain_y = y + random.randint(5, plank_height - 5)
+            grain_color = (color[0] - 20, color[1] - 20, color[2] - 20)
+            pygame.draw.line(SCREEN, grain_color, 
+                           (random.randint(0, 100), grain_y), 
+                           (WIDTH - random.randint(0, 100), grain_y), 1)
+    
+    # 코트 라인 그리기
+    line_color = (255, 255, 255)  # 흰색 라인
+    line_width = 5
+    
+    # 중앙선
+    pygame.draw.line(SCREEN, line_color, 
+                    (WIDTH // 2, 0), (WIDTH // 2, HEIGHT), line_width)
+    
+    # 서브 라인 (플레이어 쪽)
+    serve_line_y = HEIGHT - 200
+    pygame.draw.line(SCREEN, line_color, 
+                    (100, serve_line_y), (WIDTH - 100, serve_line_y), line_width)
+    
+    # 서브 라인 (보스 쪽)
+    boss_serve_line_y = 200
+    pygame.draw.line(SCREEN, line_color, 
+                    (100, boss_serve_line_y), (WIDTH - 100, boss_serve_line_y), line_width)
+    
+    # 사이드 라인
+    pygame.draw.line(SCREEN, line_color, 
+                    (100, 50), (100, HEIGHT - 50), line_width)
+    pygame.draw.line(SCREEN, line_color, 
+                    (WIDTH - 100, 50), (WIDTH - 100, HEIGHT - 50), line_width)
+    
+    # 연습장 표시 텍스트
+    try:
+        practice_font = pygame.font.Font(resource_path("NeoDGM.ttf"), 48)
+        subtitle_font = pygame.font.Font(resource_path("NeoDGM.ttf"), 24)
+    except:
+        practice_font = pygame.font.Font(None, 48)
+        subtitle_font = pygame.font.Font(None, 24)
+    
+    # "PRACTICE ROOM" 텍스트
+    text_surface = practice_font.render("PRACTICE ROOM", True, (150, 150, 150, 100))
+    text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 50))
+    SCREEN.blit(text_surface, text_rect)
+    
+    # "TUTORIAL" 텍스트
+    tutorial_surface = subtitle_font.render("- TUTORIAL -", True, (180, 180, 180, 80))
+    tutorial_rect = tutorial_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+    SCREEN.blit(tutorial_surface, tutorial_rect)
+    
+    # 벽에 붙어있는 점수판 느낌
+    scoreboard_width = 300
+    scoreboard_height = 150
+    scoreboard_x = WIDTH - scoreboard_width - 50
+    scoreboard_y = 50
+    
+    # 점수판 배경
+    pygame.draw.rect(SCREEN, (60, 60, 60), 
+                    (scoreboard_x, scoreboard_y, scoreboard_width, scoreboard_height))
+    pygame.draw.rect(SCREEN, (40, 40, 40), 
+                    (scoreboard_x, scoreboard_y, scoreboard_width, scoreboard_height), 5)
+    
+    # 점수판 텍스트
+    score_font = pygame.font.Font(None, 36)
+    tutorial_text = score_font.render("TUTORIAL MODE", True, (0, 255, 0))
+    text_rect = tutorial_text.get_rect(center=(scoreboard_x + scoreboard_width // 2, 
+                                               scoreboard_y + 40))
+    SCREEN.blit(tutorial_text, text_rect)
+    
+    # 연습 팁 표시
+    tip_font = pygame.font.Font(None, 20)
+    tips = ["Mouse: Move Paddle", "Right Click: Dash", "Collect Items!"]
+    for i, tip in enumerate(tips):
+        tip_surface = tip_font.render(tip, True, (150, 255, 150))
+        tip_rect = tip_surface.get_rect(center=(scoreboard_x + scoreboard_width // 2, 
+                                                scoreboard_y + 70 + i * 25))
+        SCREEN.blit(tip_surface, tip_rect)
+    
+    # 체육관 조명 효과 (원형 그라데이션)
+    for i in range(3):
+        light_x = (i + 1) * WIDTH // 4
+        light_y = 100
+        for radius in range(150, 0, -5):
+            alpha = int(255 * (radius / 150) * 0.1)
+            light_color = (255, 255, 200, alpha)
+            light_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(light_surface, light_color, (radius, radius), radius)
+            SCREEN.blit(light_surface, (light_x - radius, light_y - radius))
+
 def draw_field():
     global psycho_bg_timer, earthquake_offset_x, earthquake_offset_y
+    
+    # Stage 50 (튜토리얼) - 연습장 배경
+    if current_stage == 50:
+        draw_tutorial_practice_room()
+        return
+    
     if current_stage == 3 and emotional_overdrive_active:
         # 깜빡이거나 색 바뀌는 배경
         psycho_bg_timer += 1
