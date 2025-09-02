@@ -13747,10 +13747,10 @@ def show_start_screen():
                         start_tutorial = show_tutorial_dialog()
                         
                         if start_tutorial:
-                            # 튜토리얼 시작 (아직 구현되지 않음)
-                            print("튜토리얼 시작 (미구현)")
-                            # TODO: 튜토리얼 구현 후 여기에 튜토리얼 시작 코드 추가
-                            pass
+                            # 튜토리얼 시작 - 스테이지 50으로 이동
+                            print("튜토리얼 시작 - Stage 50")
+                            # 스테이지 50으로 게임 시작
+                            main(50)  # 스테이지 50 (튜토리얼)
                         else:
                             # 아니오 선택 - 캐릭터 선택 화면으로 이동
                             selected_character = show_character_selection()
@@ -23299,6 +23299,38 @@ def handle_boss():
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
+    # Stage 50 (튜토리얼) - 매우 쉬운 AI
+    if current_stage == 50:
+        # 튜토리얼 전용 매우 쉬운 AI
+        # 공의 미래 위치 예측 (매우 부정확하게)
+        future_x = BALL.x
+        
+        # 큰 오차 추가 (초보자가 이길 수 있도록)
+        error = random.randint(-150, 150)
+        future_x += error
+        
+        # 매우 느린 이동 속도
+        max_speed = 3  # 매우 느린 속도
+        accel = 0.3  # 느린 가속
+        
+        target_distance = future_x - BOSS.centerx
+        
+        # 때때로 완전히 잘못된 방향으로 이동 (20% 확률)
+        if random.random() < 0.2:
+            target_distance = -target_distance
+        
+        if abs(target_distance) < 50:  # 매우 큰 허용 범위
+            boss_current_speed *= 0.7
+        elif target_distance < 0:
+            boss_current_speed = max(-max_speed, boss_current_speed - accel)
+        else:
+            boss_current_speed = min(max_speed, boss_current_speed + accel)
+        
+        # 위치 업데이트
+        BOSS.x += boss_current_speed
+        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+        return  # 튜토리얼 AI 완료
+    
     # Stage 1 상모돌리기 강제 해제 모션 중 통제불능 상태
     if current_stage == 1 and boss_stunned_after_whip:
         # 완전 통제 불능 - 이동 불가

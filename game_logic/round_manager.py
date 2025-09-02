@@ -60,6 +60,12 @@ class RoundManager:
                 'rounds_to_win': 3,
                 'boss_name': 'Battlecruiser Yamato',
                 'background': 'bg_stage6.png'
+            },
+            50: {
+                'name': 'Tutorial',
+                'rounds_to_win': 1,
+                'boss_name': 'Tutorial Bot',
+                'background': 'bg_tutorial.png'
             }
         }
         
