@@ -14397,6 +14397,74 @@ def show_tutorial_boss_return_dialogue():
     
     return True
 
+def show_tutorial_serve_helper():
+    """튜토리얼 서브 도우미 알림"""
+    # 현재 화면 캡처
+    screen_capture = SCREEN.copy()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 메인 텍스트용
+    font_small = FontStyle.small()   # 18pt 안내용
+    
+    # 알림 내용
+    main_text = "스페이스바를 눌러 서브공을 발사해보세요!"
+    sub_text = "SPACE - 계속"
+    
+    clock = pygame.time.Clock()
+    
+    while True:
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    return True
+        
+        # 화면 그리기
+        SCREEN.blit(screen_capture, (0, 0))
+        
+        # 반투명 어두운 배경
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        SCREEN.blit(overlay, (0, 0))
+        
+        # 도우미 알림 박스 
+        box_width = 700
+        box_height = 200
+        box_x = (WIDTH - box_width) // 2
+        box_y = (HEIGHT - box_height) // 2
+        
+        # 박스 배경
+        box_surface = pygame.Surface((box_width, box_height))
+        box_surface.set_alpha(240)
+        box_surface.fill((20, 20, 40))
+        pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 3)
+        SCREEN.blit(box_surface, (box_x, box_y))
+        
+        # 도우미 아이콘 (느낌표)
+        icon_text = "!"
+        icon_surface = font_large.render(icon_text, True, YELLOW)
+        icon_rect = icon_surface.get_rect(center=(box_x + 50, box_y + box_height // 2))
+        
+        # 아이콘 원형 배경
+        pygame.draw.circle(SCREEN, YELLOW, (box_x + 50, box_y + box_height // 2), 30, 3)
+        SCREEN.blit(icon_surface, icon_rect)
+        
+        # 메인 텍스트
+        main_surface = font_large.render(main_text, True, WHITE)
+        main_rect = main_surface.get_rect(center=(box_x + box_width // 2 + 20, box_y + box_height // 2 - 20))
+        SCREEN.blit(main_surface, main_rect)
+        
+        # 계속 안내
+        sub_surface = font_small.render(sub_text, True, CYAN)
+        sub_rect = sub_surface.get_rect(center=(box_x + box_width // 2 + 20, box_y + box_height - 40))
+        SCREEN.blit(sub_surface, sub_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+
 def show_character_selection():
     """사이버펑크 스타일 홀로그램 캐릭터 선택 화면"""
     clock = pygame.time.Clock()
@@ -24936,6 +25004,9 @@ def main(stage_num, new_boss_mode=False):
                 # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
                 print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
     
+    # 튜토리얼 서브 도우미 표시 여부
+    tutorial_serve_helper_shown = False
+    
     running = True
     while running:
         # ========== 마이그레이션 모드: 프레임 시작 동기화 ==========
@@ -26134,13 +26205,22 @@ def main(stage_num, new_boss_mode=False):
             # 라그나로크 해머 활성 상태
             from legendary_items import get_legendary_manager
         
+        # 튜토리얼 서브 도우미 알림 표시 (서브 전에 한 번만)
+        if current_stage == 50 and tutorial_practice_mode:
+            if is_waiting_for_serve and is_player_serve and not tutorial_serve_helper_shown and not tutorial_boss_returned:
+                # 현재 화면을 업데이트한 후 도우미 표시
+                pygame.display.flip()
+                if show_tutorial_serve_helper():
+                    tutorial_serve_helper_shown = True
+                continue  # 다음 프레임으로
+        
         # 튜토리얼 모드 UI 표시
         if current_stage == 50 and 'tutorial_practice_mode' in globals():
             if tutorial_practice_mode:
                 font_tutorial = FontStyle.body() if 'FontStyle' in globals() else pygame.font.Font(None, 24)
                 
-                # 서브 지시 표시
-                if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned:
+                # 서브 지시 표시 (도우미를 이미 표시한 경우에는 오버레이 텍스트 표시 안함)
+                if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned and tutorial_serve_helper_shown:
                     instruction_text = "스페이스바를 눌러 서브공을 발사해보세요!"
                     text_surface = font_tutorial.render(instruction_text, True, CYAN)
                     text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100))
