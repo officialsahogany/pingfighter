@@ -26223,10 +26223,8 @@ def main(stage_num, new_boss_mode=False):
                 # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
                 print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
                 
-                # 서브 도우미 표시 제거 - 사용자 요청
-                print("튜토리얼 서브 도우미 제거 (사용자 요청)")
-                tutorial_serve_helper_shown = True  # 도우미를 표시한 것처럼 처리
-                print(f"도우미 건너뜀: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}")
+                # 서브 도우미가 정상적으로 표시되도록 함
+                # tutorial_serve_helper_shown = False (기본값이므로 설정 불필요)
     
     running = True
     while running:
