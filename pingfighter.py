@@ -14526,12 +14526,27 @@ def show_tutorial_dash_dialogue():
     dialogues = [
         {
             "speaker": "[조교]",
-            "text": "이제 대쉬를 배워볼 시간이다",
+            "text": "하지만 이 모든 위기는 극복이 가능하지",
             "speaker_color": (255, 200, 0)  # 금색
         },
         {
             "speaker": "[조교]",
-            "text": "대쉬는 순간적으로 빠르게 이동하는 기술이지",
+            "text": "지금부터 대쉬를 익혀볼 건데",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "핑파이터의 핵심 기술 중 하나이다",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "대쉬란 먼 거리를 짧은시간에 순간적으로 이동하는 기술",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "지금부터 내가 치는 공을 대쉬로 막아보도록",
             "speaker_color": (255, 200, 0)  # 금색
         },
         {
@@ -14551,7 +14566,7 @@ def show_tutorial_dash_dialogue():
         },
         {
             "speaker": "[조교]",
-            "text": "자, 이제 대쉬를 사용해서 공을 받아보자",
+            "text": "준비되었나? 시작한다!",
             "speaker_color": (255, 200, 0)  # 금색
         }
     ]
