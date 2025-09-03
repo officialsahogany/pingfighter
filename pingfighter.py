@@ -16221,9 +16221,9 @@ def show_tutorial_dash_completion_dialogue():
     global tutorial_dash_completion_dialogue_shown
     
     clock = pygame.time.Clock()
-    font_large = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 26)
-    font_medium = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 20)
-    font_small = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()     # 24pt 대사 텍스트용
+    font_small = FontStyle.caption()   # 18pt 안내 텍스트용
     
     # 조교 대화 시퀀스 (축하 및 다음 스킬 소개)
     dialogues = [
