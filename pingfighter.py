@@ -4967,6 +4967,10 @@ def handle_player(keys):
     global flare_throwing, flare_throw_timer  # 조명탄 투척 모션
     global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel  # 스탑워치 관련 변수
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
+    # 튜토리얼 관련 변수 추가
+    global tutorial_practice_mode, tutorial_boss_returned, tutorial_gauge_tutorial_shown
+    global tutorial_player_hit_count, tutorial_speed_dialogue_shown
+    global tutorial_saved_ball_vel, tutorial_pause_for_dialogue, ball_vel
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
     if new_boss_mode_active:
         if selected_bottom_boss == 1:
@@ -6111,6 +6115,23 @@ def handle_player(keys):
         # 충돌 처리 플래그 설정
         player_collision_handled = True
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
+        
+        # 튜토리얼 스테이지 50에서 플레이어가 공을 친 횟수 증가 (handle_player에서도 처리)
+        if current_stage == 50 and tutorial_practice_mode and tutorial_boss_returned:
+            # 게이지 튜토리얼 이후에만 카운트
+            if tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
+                tutorial_player_hit_count += 1
+                print(f"튜토리얼 [handle_player]: 플레이어 공 타격 횟수: {tutorial_player_hit_count}/6")
+                
+                # 6회 타격 시 속도 튜토리얼 대화 시작
+                if tutorial_player_hit_count >= 6:
+                    tutorial_speed_dialogue_shown = True
+                    # 속도 튜토리얼 표시를 위해 공 일시정지
+                    tutorial_saved_ball_vel = ball_vel.copy()
+                    tutorial_pause_for_dialogue = True
+                    ball_vel[0] = 0
+                    ball_vel[1] = 0
+                    print("튜토리얼 [handle_player]: 6회 타격 완료 - 속도 튜토리얼 시작!")
         
         # 테크니컬조끼 효과 발동 (30% 확률로 연막 생성)
         on_ball_paddle_collision_technical_vest(PLAYER)
@@ -14539,10 +14560,12 @@ def show_tutorial_dash_dialogue():
         text_complete = False
         text_animation_timer = 0
         
-        # 8번 대사에서 대쉬 사운드 초기화
+        # 8번 대사에서 대쉬 사운드 초기화 및 시연 완료 추적
         if dialogue_index == 7:
             dash_sound_played = {"LEFT": False, "RIGHT": False}
             last_dash_direction = None
+            demo_complete = False  # 시연이 완료되었는지 추적
+            demo_start_time = None  # 시연 시작 시간 추적
         
         running = True
         while running:
@@ -14552,8 +14575,19 @@ def show_tutorial_dash_dialogue():
                     return False
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
-                        if text_complete:
-                            running = False  # 다음 대화로
+                        # 대쉬 시연 중에는 스페이스바 무시
+                        if dialogue_index == 7 and text_complete:
+                            # 시연이 시작된 지 6초가 지났는지 확인 (왼쪽+오른쪽 1회 사이클)
+                            if 'demo_state' in locals() and 'demo_complete' in locals():
+                                elapsed_time = pygame.time.get_ticks() - demo_state['start_time']
+                                if elapsed_time >= 6000:  # 6초 (왼쪽 대쉬 + 대기 + 오른쪽 대쉬 + 대기)
+                                    running = False  # 시연이 완료되면 다음 대화로
+                                else:
+                                    pass  # 시연 중이면 스페이스바 무시
+                            else:
+                                pass  # demo_state가 아직 생성되지 않았으면 무시
+                        elif text_complete:
+                            running = False  # 다른 대화에서는 정상 동작
                         else:
                             # 즉시 전체 텍스트 표시
                             displayed_text = target_text
@@ -14742,12 +14776,28 @@ def show_tutorial_dash_dialogue():
             
             # 스페이스바 안내 (하단 우측)
             if text_complete:
-                instruction = "SPACE - 계속" if dialogue_index < len(dialogues) - 1 else "SPACE - 시작"
-                inst_surface = font_small.render(instruction, True, CYAN)
+                # 대쉬 시연 중에는 다른 메시지 표시
+                if dialogue_index == 7 and 'demo_state' in locals():
+                    elapsed_time = pygame.time.get_ticks() - demo_state['start_time']
+                    if elapsed_time < 6000:  # 시연 진행 중
+                        instruction = "시연 시청 중..."
+                        text_color = YELLOW  # 노란색으로 표시
+                    else:  # 시연 완료
+                        instruction = "SPACE - 계속"
+                        text_color = CYAN
+                else:
+                    instruction = "SPACE - 계속" if dialogue_index < len(dialogues) - 1 else "SPACE - 시작"
+                    text_color = CYAN
+                    
+                inst_surface = font_small.render(instruction, True, text_color)
                 inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, HEIGHT - 20))
                 
-                # 깜빡임 효과
-                if pygame.time.get_ticks() % 1000 < 500:
+                # 깜빡임 효과 (시연 중이 아닐 때만)
+                if dialogue_index != 7 or 'demo_state' not in locals() or pygame.time.get_ticks() - demo_state['start_time'] >= 6000:
+                    if pygame.time.get_ticks() % 1000 < 500:
+                        SCREEN.blit(inst_surface, inst_rect)
+                else:
+                    # 시연 중에는 항상 표시
                     SCREEN.blit(inst_surface, inst_rect)
             
             pygame.display.flip()
