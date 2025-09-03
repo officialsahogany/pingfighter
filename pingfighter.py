@@ -14523,6 +14523,11 @@ def show_tutorial_dash_dialogue():
     last_dash_direction = None
     dash_sound_played = {"LEFT": False, "RIGHT": False}
     
+    # 실제 게임 필드에서 시연할 위치 변수
+    demo_boss = pygame.Rect(WIDTH // 2 - 40, 120, 80, 20)  # 조교 실제 위치
+    demo_player = pygame.Rect(WIDTH // 2 - 40, HEIGHT - 140, 80, 20)  # 플레이어 위치
+    demo_ball = pygame.Rect(WIDTH // 2 - 10, HEIGHT // 2 - 10, 20, 20)  # 공 위치
+    
     # 각 대화를 순차적으로 표시
     for dialogue_index, dialogue in enumerate(dialogues):
         speaker = dialogue[0]
@@ -14565,8 +14570,26 @@ def show_tutorial_dash_dialogue():
             else:
                 text_complete = True
             
-            # 화면 그리기
-            SCREEN.blit(background, (0, 0))
+            # 화면 그리기 - 8번 대사일 때는 실제 게임 필드 표시
+            if dialogue_index == 7 and text_complete:
+                # 게임 필드 배경 그리기
+                SCREEN.fill((20, 30, 60))  # 어두운 파란 배경
+                
+                # 중앙선 그리기
+                pygame.draw.line(SCREEN, (100, 100, 100), (0, HEIGHT // 2), (WIDTH, HEIGHT // 2), 2)
+                
+                # 중앙 원 그리기
+                pygame.draw.circle(SCREEN, (100, 100, 100), (WIDTH // 2, HEIGHT // 2), 80, 2)
+                
+                # 플레이어 패들 그리기 (아래쪽 고정)
+                pygame.draw.rect(SCREEN, (100, 150, 255), demo_player, 0, 5)
+                pygame.draw.rect(SCREEN, (150, 200, 255), demo_player, 2, 5)
+                
+                # 공 그리기 (중앙 고정)
+                pygame.draw.circle(SCREEN, (255, 255, 100), demo_ball.center, 10)
+                pygame.draw.circle(SCREEN, (255, 255, 255), demo_ball.center, 10, 2)
+            else:
+                SCREEN.blit(background, (0, 0))
             
             # 텍스트 배경 (검은색 반투명)
             text_bg_height = 80
@@ -14590,7 +14613,7 @@ def show_tutorial_dash_dialogue():
             # 실제 텍스트
             SCREEN.blit(text_surface, text_rect)
             
-            # 8번 대사에서 조교가 대쉬 시연
+            # 8번 대사에서 조교가 대쉬 시연 (실제 게임 필드에서)
             if dialogue_index == 7 and text_complete:  # "해당 방향으로 대쉬가 발동하며 빠르게 이동한다"
                 # 대쉬 시연 상태 변수
                 if 'demo_state' not in locals():
@@ -14607,7 +14630,7 @@ def show_tutorial_dash_dialogue():
                 
                 current_time = pygame.time.get_ticks()
                 elapsed = current_time - demo_state['start_time']
-                boss_demo_y = HEIGHT // 3
+                boss_demo_y = 120  # 실제 조교 위치 (상단)
                 
                 # 3초 주기로 대쉬 방향 전환 (왼쪽 -> 대기 -> 오른쪽 -> 대기)
                 cycle_phase = (elapsed // 1500) % 4
@@ -14653,10 +14676,11 @@ def show_tutorial_dash_dialogue():
                 # 조교 패들 위치 제한
                 demo_state['boss_x'] = max(100, min(WIDTH - 100, demo_state['boss_x']))
                 
-                # 조교 패들 그리기
-                boss_demo_rect = pygame.Rect(demo_state['boss_x'] - 40, boss_demo_y - 10, 80, 20)
-                pygame.draw.rect(SCREEN, (255, 100, 100), boss_demo_rect, 0, 5)
-                pygame.draw.rect(SCREEN, (255, 150, 150), boss_demo_rect, 2, 5)
+                # 조교 패들 업데이트 및 그리기 (게임 필드에서 표시)
+                demo_boss.centerx = demo_state['boss_x']
+                demo_boss.centery = boss_demo_y
+                pygame.draw.rect(SCREEN, (255, 100, 100), demo_boss, 0, 5)
+                pygame.draw.rect(SCREEN, (255, 150, 150), demo_boss, 2, 5)
                 
                 # 대쉬 중일 때 이펙트
                 if demo_state['direction'] != 0:
