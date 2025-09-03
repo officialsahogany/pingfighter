@@ -27241,15 +27241,12 @@ def main(stage_num, new_boss_mode=False):
                     # Chapter 1 타이틀 표시
                     show_chapter_title(1, "DASH", "대쉬 연습")
                     
-                    # 다음 라운드 시작 (보스 서브로 설정)
-                    # is_player_serve는 이미 전역으로 사용 가능
-                    is_player_serve = False  # 보스가 서브
+                    # 대쉬 연습 플래그 설정
                     tutorial_needs_dash_practice = True  # 대쉬 연습 필요
-                    go_to_next_round()
                     
-                    # 튜토리얼 계속 진행
-                    print("튜토리얼: Chapter 1 - DASH 시작")
-                continue  # 다음 프레임으로
+                    # 스테이지 50 재시작 (대쉬 튜토리얼로)
+                    print("튜토리얼: Chapter 1 - DASH 시작, 스테이지 50 재시작")
+                    return main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
         
         pygame.display.flip()
         # 프로파일러 프레임 종료
