@@ -16018,10 +16018,37 @@ def show_tutorial_dash_token_dialogue():
             # 배경 그리기 (정지된 게임 화면)
             SCREEN.blit(background, (0, 0))
             
-            # 어두운 오버레이
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 150))
-            SCREEN.blit(overlay, (0, 0))
+            # 토큰 강조 시 특별 처리
+            if dialogue.get("highlight_token", False):
+                # 토큰 위치 계산 (강조할 영역)
+                player_gauge_x = WIDTH - 40
+                player_gauge_width = 14
+                gauge_height = 480
+                gauge_y = HEIGHT - 540
+                token_radius = 6
+                token_spacing = 16
+                max_tokens = 1
+                token_start_x = player_gauge_x + player_gauge_width // 2 - (max_tokens * token_spacing) // 2 + token_spacing // 2
+                token_y = gauge_y + gauge_height + 15
+                
+                # 강조할 영역 정의 (토큰 주변 넓은 영역)
+                highlight_area_x = token_start_x - 30
+                highlight_area_y = token_y - 30
+                highlight_area_width = 60
+                highlight_area_height = 60
+                
+                # 어두운 오버레이를 강조 영역을 제외하고 그리기
+                overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 150))
+                # 강조할 영역을 투명하게 만들기 (원래 색상 유지)
+                pygame.draw.rect(overlay, (0, 0, 0, 0), 
+                               (highlight_area_x, highlight_area_y, highlight_area_width, highlight_area_height))
+                SCREEN.blit(overlay, (0, 0))
+            else:
+                # 일반 어두운 오버레이
+                overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 150))
+                SCREEN.blit(overlay, (0, 0))
             
             # 게이지 그리기
             draw_player_gauge()
