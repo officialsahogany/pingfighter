@@ -26292,6 +26292,26 @@ def main(stage_num, new_boss_mode=False):
                 print(f" : {'ON' if profiler.visible else 'OFF'}")
         main.key7_pressed = keys[pygame.K_7]
         
+        # 8번키로 튜토리얼에서 대쉬 챕터로 바로 이동 (스테이지 50에서만)
+        if current_stage == 50 and keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
+            print("🎮 8번 키: 대쉬 챕터로 바로 이동")
+            
+            # 게이지 초기화
+            special_gauge = 0
+            displayed_gauge = 0
+            print("튜토리얼: 대쉬 챕터 진입 전 게이지 초기화")
+            
+            # Chapter 1 타이틀 표시
+            show_chapter_title(1, "DASH", "대쉬 연습")
+            
+            # 대쉬 연습 플래그 설정
+            tutorial_needs_dash_practice = True  # 대쉬 연습 필요
+            
+            # 스테이지 50 재시작 (대쉬 튜토리얼로)
+            print("튜토리얼: Chapter 1 - DASH 시작, 스테이지 50 재시작")
+            return main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
+        main.key8_pressed = keys[pygame.K_8]
+        
         #  퍼펙트 타이밍 시스템: 스페이스바 + 방향키 프레임 단위 입력 감지
         global space_just_pressed, last_space_state, perfect_timing_active, perfect_timing_frame_count, perfect_direction
         global left_just_pressed, last_left_state, right_just_pressed, last_right_state
