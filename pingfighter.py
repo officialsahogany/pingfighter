@@ -16043,26 +16043,28 @@ def show_tutorial_dash_token_dialogue():
                 token_start_x = player_gauge_x + player_gauge_width // 2 - (max_tokens * token_spacing) // 2 + token_spacing // 2
                 token_y = gauge_y + gauge_height + 15  # 게이지바 아래 15픽셀 (실제 위치)
                 
-                # 강조 박스 그리기 (깜빡임 효과) - 빨간 구슬이 중앙에 오도록 조정
+                # 강조 박스 그리기 (깜빡임 효과) - 빨간 구슬 위치를 더 위로 조정
                 if highlight_timer % 40 < 30:  # 40프레임마다 30프레임 표시
                     highlight_color = (255, 255, 0, 150)  # 노란색 반투명
-                    # 토큰(빨간 구슬) 중앙에 박스가 위치하도록 조정
+                    # 토큰(빨간 구슬) 위치에서 박스를 위로 이동
                     box_width = 50  # 박스 너비
                     box_height = 30  # 박스 높이
+                    box_y_offset = -10  # 박스를 위로 올리는 오프셋
                     highlight_rect = pygame.Rect(
                         token_start_x - box_width // 2,  # 토큰 중심에서 박스 절반 너비만큼 왼쪽
-                        token_y - box_height // 2,  # 토큰 중심에서 박스 절반 높이만큼 위
+                        token_y - box_height // 2 + box_y_offset,  # 토큰 중심에서 위로 이동
                         box_width,
                         box_height
                     )
                     pygame.draw.rect(SCREEN, highlight_color[:3], highlight_rect, 3, border_radius=5)
                     
-                    # 화살표 그리기 (토큰 위를 가리킴)
-                    arrow_x = token_start_x
+                    # 화살표 그리기 (박스 왼쪽에 배치)
+                    arrow_x = token_start_x - box_width // 2 - 15  # 박스 왼쪽에 화살표
+                    arrow_y = token_y + box_y_offset  # 박스 중앙 높이
                     arrow_points = [
-                        (arrow_x, token_y - box_height // 2 - 5),  # 박스 위에 화살표
-                        (arrow_x - 10, token_y - box_height // 2 - 15),
-                        (arrow_x + 10, token_y - box_height // 2 - 15)
+                        (arrow_x + 10, arrow_y),  # 화살표 끝 (박스를 가리킴)
+                        (arrow_x, arrow_y - 8),  # 위쪽 꼭지점
+                        (arrow_x, arrow_y + 8)   # 아래쪽 꼭지점
                     ]
                     pygame.draw.polygon(SCREEN, highlight_color[:3], arrow_points)
             
