@@ -26281,6 +26281,10 @@ def main(stage_num, new_boss_mode=False):
             profiler.start_section("Input")
         # 키 입력 처리
         keys = pygame.key.get_pressed()
+        
+        # 점수 관련 전역 변수 선언 (8번, 9번 키에서 사용)
+        global boss_score, player_score
+        
         # 7번키로 프로파일러 표시 토글
         if keys[pygame.K_7] and not getattr(main, 'key7_pressed', False):
             if profiler:
@@ -26291,8 +26295,7 @@ def main(stage_num, new_boss_mode=False):
         # 8번키로 강제 라운드 종료 및 다음 라운드 진행
         if keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
             print("🔄 8번 키: 강제 라운드 종료 및 다음 라운드 진행")
-            # player_score와 boss_score를 global로 선언
-            global player_score, boss_score
+            # player_score와 boss_score는 아래 26336라인에서 global 선언됨
             
             # 플레이어가 이긴 것으로 처리 (플레이어 점수를 3점으로)
             player_score = 3
@@ -26333,7 +26336,7 @@ def main(stage_num, new_boss_mode=False):
                 rolling_charge_timer = dash_timer
                 rolling_consecutive_count = dash_consecutive
         # 관리자용 9키 단축키 (3-0 승리)
-        global boss_score, player_score
+        # boss_score, player_score는 이미 위에서 global 선언됨
         current_nine_state = keys[pygame.K_9]
         nine_just_pressed = current_nine_state and not last_nine_state
         if nine_just_pressed:
