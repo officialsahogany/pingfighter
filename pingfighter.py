@@ -14659,8 +14659,8 @@ def show_tutorial_dash_dialogue():
                     
                     # 대쉬 사운드 재생
                     if not demo_state['dash_sound_played']:
-                        if 'dash_sound' in globals():
-                            dash_sound.play()
+                        if 'SOUND_DASH' in globals():
+                            SOUND_DASH.play()
                         demo_state['dash_sound_played'] = True
                     
                     if dash_elapsed < demo_state['dash_duration']:
