@@ -15134,6 +15134,11 @@ def show_tutorial_angle_dialogue():
             "speaker": "[도우미]",
             "text": "실전 경험을 통해 익히는게 가장 좋습니다",
             "speaker_color": (100, 255, 100)  # 초록색
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "여러 각도로 공을 치면서 감을 익혀보세요",
+            "speaker_color": (100, 255, 100)  # 초록색
         }
     ]
     
