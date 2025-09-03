@@ -14551,6 +14551,9 @@ tutorial_dash_helper_start_time = 0
 # 서브 알림창 전역 변수
 tutorial_serve_reminder_active = False
 
+# 튜토리얼 실습 모드 전역 변수  
+tutorial_practice_mode = False
+
 # 튜토리얼 히트 카운터 애니메이션 변수
 tutorial_displayed_hit_count = 0.0
 
@@ -26644,6 +26647,9 @@ def main(stage_num, new_boss_mode=False):
             if show_tutorial_intro_dialogue():
                 print("튜토리얼 대화 완료")
                 tutorial_dialogue_shown = True
+                
+                # 전역 변수 선언 추가
+                global tutorial_practice_mode, tutorial_serve_reminder_active
                 tutorial_practice_mode = True  # 대화 후 실습 모드 시작
                 # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
                 print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
