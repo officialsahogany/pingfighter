@@ -26757,6 +26757,12 @@ def main(stage_num, new_boss_mode=False):
             # 플레이어 서브 입력
             if is_player_serve and is_waiting_for_serve:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    # 튜토리얼 모드에서 서브 도우미 즉시 비활성화
+                    if current_stage == 50 and 'tutorial_serve_helper_active' in globals():
+                        if tutorial_serve_helper_active:
+                            tutorial_serve_helper_active = False
+                            print("튜토리얼: 스페이스바 입력으로 서브 도우미 즉시 비활성화")
+                    
                     # 튜토리얼 모드에서 도우미 후 첫 서브 처리
                     if current_stage == 50 and tutorial_wait_for_first_serve:
                         tutorial_wait_for_first_serve = False  # 첫 서브 완료
@@ -27464,14 +27470,18 @@ def main(stage_num, new_boss_mode=False):
                 else:
                     print("tutorial_dash_helper_active 변수가 globals()에 없음")
                 
-                # 서브 도우미 표시 (도우미를 아직 표시하지 않은 경우 활성화)
+                # 서브 도우미 표시 (도우미를 아직 표시하지 않은 경우만 활성화)
                 if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned and not tutorial_serve_helper_shown:
-                    # 서브 도우미 활성화
-                    if 'tutorial_serve_helper_active' in globals():
+                    # 서브 도우미가 아직 활성화되지 않았을 때만 활성화
+                    if 'tutorial_serve_helper_active' in globals() and not tutorial_serve_helper_active:
                         tutorial_serve_helper_active = True
+                        print("튜토리얼: 서브 도우미 활성화")
+                    elif 'tutorial_serve_helper_active' not in globals():
+                        tutorial_serve_helper_active = True
+                        print("튜토리얼: 서브 도우미 초기 활성화")
                     
                 # 서브 도우미가 활성화되어 있으면 표시
-                if 'tutorial_serve_helper_active' in globals() and tutorial_serve_helper_active:
+                if 'tutorial_serve_helper_active' in globals() and tutorial_serve_helper_active and is_waiting_for_serve:
                     instruction_text = "스페이스바를 눌러 서브공을 발사해보세요!"
                     text_surface = font_tutorial.render(instruction_text, True, CYAN)
                     text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100))
