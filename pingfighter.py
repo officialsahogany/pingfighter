@@ -26772,6 +26772,8 @@ def main(stage_num, new_boss_mode=False):
                     if current_stage == 50 and 'tutorial_practice_mode' in globals():
                         if tutorial_practice_mode:
                             print("튜토리얼: 플레이어가 서브를 했습니다!")
+                            # 서브 도우미를 봤음으로 표시
+                            tutorial_serve_helper_shown = True
             # 아이템 사용 - Aipill 활성화 시에는 아이템 사용 불가
             item_use_pressed = False
             direct_item_index = -1  # 숫자키로 직접 선택된 아이템 인덱스
@@ -27432,14 +27434,8 @@ def main(stage_num, new_boss_mode=False):
             # 라그나로크 해머 활성 상태
             from legendary_items import get_legendary_manager
         
-        # 튜토리얼 서브 도우미 알림 표시
-        if current_stage == 50 and tutorial_practice_mode:
-            if is_waiting_for_serve and is_player_serve and not tutorial_serve_helper_shown and not tutorial_boss_returned:
-                # 현재 화면을 업데이트한 후 도우미 표시
-                pygame.display.flip()
-                if show_tutorial_serve_helper():
-                    tutorial_serve_helper_shown = True
-                continue  # 다음 프레임으로
+        # 튜토리얼 서브 도우미는 화면 그리기 부분에서 오버레이로 표시됨
+        # 여기서는 팝업 방식 제거 (게임 루프가 중단되는 문제 해결)
         
         # 튜토리얼 모드 UI 표시
         if current_stage == 50 and 'tutorial_practice_mode' in globals():
@@ -27450,8 +27446,8 @@ def main(stage_num, new_boss_mode=False):
                 if 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
                     draw_tutorial_dash_helper()
                 
-                # 서브 지시 표시 (도우미를 이미 표시한 경우에는 오버레이 텍스트 표시 안함)
-                if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned and tutorial_serve_helper_shown:
+                # 서브 도우미 표시 (도우미를 아직 표시하지 않은 경우 오버레이로 표시)
+                if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned and not tutorial_serve_helper_shown:
                     instruction_text = "스페이스바를 눌러 서브공을 발사해보세요!"
                     text_surface = font_tutorial.render(instruction_text, True, CYAN)
                     text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100))
