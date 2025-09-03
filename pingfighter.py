@@ -26821,7 +26821,9 @@ def main(stage_num, new_boss_mode=False):
         CURRENT_BG = STAGE6_BG
         BOSS_COLOR = (150, 200, 255)  # 금속/은색
     elif stage_num == 50:  # Stage 50 (튜토리얼)
-        CURRENT_BG = (30, 40, 80)  # 어두운 파란색 배경
+        # 튜토리얼용 배경 Surface 생성
+        CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
+        CURRENT_BG.fill((30, 40, 80))  # 어두운 파란색 배경
         BOSS_COLOR = (200, 100, 100)  # 조교 색상
     reset_round()
     
