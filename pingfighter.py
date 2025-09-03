@@ -9991,57 +9991,60 @@ def draw_objects():
         # 시간 계산
         current_time = pygame.time.get_ticks()
         wait_time = current_time - waiting_start_time
-        if is_player_serve:
-            #  플레이어 서브 - 하단 미니멀 UI
-            serve_font = FontStyle.body()  # 24pt 픽셀 폰트
-            info_font = FontStyle.tiny()  # 16pt 픽셀 폰트
-            # 간단한 텍스트만 표시
-            serve_text = serve_font.render("Player Serve", True, WHITE)
-            serve_rect = serve_text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
-            SCREEN.blit(serve_text, serve_rect)
-            # 액센트 라인
-            line_width = serve_rect.width + 20
-            line_y = serve_rect.bottom + 5
-            line_surface = pygame.Surface((line_width, 2), pygame.SRCALPHA)
-            line_surface.fill((0, 200, 100))
-            SCREEN.blit(line_surface, ((WIDTH - line_width) // 2, line_y))
-            # 3초 후 자동 서브 카운트다운
-            if wait_time >= MILLISECONDS_PER_SECOND:
-                remaining = max(0, 3000 - wait_time) // MILLISECONDS_PER_SECOND
-                if remaining > 0:
-                    countdown_text = info_font.render(f"SPACE ({remaining}s)", True, (200, 200, 200))
+        
+        # 튜토리얼 스테이지(50)에서는 서브 화면 표시 생략
+        if current_stage != 50:  # 튜토리얼이 아닌 경우에만 서브 화면 표시
+            if is_player_serve:
+                #  플레이어 서브 - 하단 미니멀 UI
+                serve_font = FontStyle.body()  # 24pt 픽셀 폰트
+                info_font = FontStyle.tiny()  # 16pt 픽셀 폰트
+                # 간단한 텍스트만 표시
+                serve_text = serve_font.render("Player Serve", True, WHITE)
+                serve_rect = serve_text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+                SCREEN.blit(serve_text, serve_rect)
+                # 액센트 라인
+                line_width = serve_rect.width + 20
+                line_y = serve_rect.bottom + 5
+                line_surface = pygame.Surface((line_width, 2), pygame.SRCALPHA)
+                line_surface.fill((0, 200, 100))
+                SCREEN.blit(line_surface, ((WIDTH - line_width) // 2, line_y))
+                # 3초 후 자동 서브 카운트다운
+                if wait_time >= MILLISECONDS_PER_SECOND:
+                    remaining = max(0, 3000 - wait_time) // MILLISECONDS_PER_SECOND
+                    if remaining > 0:
+                        countdown_text = info_font.render(f"SPACE ({remaining}s)", True, (200, 200, 200))
+                    else:
+                        countdown_text = info_font.render("Auto serve", True, (255, 255, 100))
                 else:
-                    countdown_text = info_font.render("Auto serve", True, (255, 255, 100))
+                    countdown_text = info_font.render("Press SPACE", True, (200, 200, 200))
+                countdown_rect = countdown_text.get_rect(center=(WIDTH // 2, serve_rect.bottom + 20))
+                SCREEN.blit(countdown_text, countdown_rect)
             else:
-                countdown_text = info_font.render("Press SPACE", True, (200, 200, 200))
-            countdown_rect = countdown_text.get_rect(center=(WIDTH // 2, serve_rect.bottom + 20))
-            SCREEN.blit(countdown_text, countdown_rect)
-        else:
-            #  보스 서브 - 상단 미니멀 UI
-            serve_font = FontStyle.body()  # 24pt 픽셀 폰트
-            info_font = FontStyle.tiny()  # 16pt 픽셀 폰트
-            # 간단한 텍스트만 표시
-            boss_name = boss_names.get(current_stage, "Boss")
-            serve_text = serve_font.render(f"{boss_name} Serve", True, WHITE)
-            serve_rect = serve_text.get_rect(center=(WIDTH // 2, 80))
-            SCREEN.blit(serve_text, serve_rect)
-            # 액센트 라인
-            line_width = serve_rect.width + 20
-            line_y = serve_rect.bottom + 5
-            line_surface = pygame.Surface((line_width, 2), pygame.SRCALPHA)
-            line_surface.fill((200, 80, 80))
-            SCREEN.blit(line_surface, ((WIDTH - line_width) // 2, line_y))
-            # 상태 텍스트
-            if boss_fake_move and wait_delay > 0:
-                remaining = max(0, wait_delay - wait_time) // 100
-                if remaining > 0:
-                    status_text = info_font.render("Preparing...", True, (200, 200, 200))
+                #  보스 서브 - 상단 미니멀 UI
+                serve_font = FontStyle.body()  # 24pt 픽셀 폰트
+                info_font = FontStyle.tiny()  # 16pt 픽셀 폰트
+                # 간단한 텍스트만 표시
+                boss_name = boss_names.get(current_stage, "Boss")
+                serve_text = serve_font.render(f"{boss_name} Serve", True, WHITE)
+                serve_rect = serve_text.get_rect(center=(WIDTH // 2, 80))
+                SCREEN.blit(serve_text, serve_rect)
+                # 액센트 라인
+                line_width = serve_rect.width + 20
+                line_y = serve_rect.bottom + 5
+                line_surface = pygame.Surface((line_width, 2), pygame.SRCALPHA)
+                line_surface.fill((200, 80, 80))
+                SCREEN.blit(line_surface, ((WIDTH - line_width) // 2, line_y))
+                # 상태 텍스트
+                if boss_fake_move and wait_delay > 0:
+                    remaining = max(0, wait_delay - wait_time) // 100
+                    if remaining > 0:
+                        status_text = info_font.render("Preparing...", True, (200, 200, 200))
+                    else:
+                        status_text = info_font.render("Ready", True, (255, 255, 100))
                 else:
-                    status_text = info_font.render("Ready", True, (255, 255, 100))
-            else:
-                status_text = info_font.render("Waiting...", True, (200, 200, 200))
-            status_rect = status_text.get_rect(center=(WIDTH // 2, serve_rect.bottom + 20))
-            SCREEN.blit(status_text, status_rect)
+                    status_text = info_font.render("Waiting...", True, (200, 200, 200))
+                status_rect = status_text.get_rect(center=(WIDTH // 2, serve_rect.bottom + 20))
+                SCREEN.blit(status_text, status_rect)
     #  퍼펙트 타이밍 윈도우 시각적 표시 (게이지 200 이상일 때만)
     elif perfect_timing_active and special_gauge >= 200:
         # 공 주변에 퍼펙트 타이밍 인디케이터 그리기
@@ -14613,35 +14616,49 @@ def show_tutorial_dash_dialogue():
             # 화면 그리기
             SCREEN.blit(background, (0, 0))
             
-            # 반투명 검은 배경 오버레이
-            overlay = pygame.Surface((WIDTH, HEIGHT))
-            overlay.set_alpha(180)
-            overlay.fill((0, 0, 0))
+            # 어두운 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
             SCREEN.blit(overlay, (0, 0))
             
-            # 대화창 그리기
-            dialog_height = 200
-            dialog_y = HEIGHT - dialog_height - 50
-            dialog_rect = pygame.Rect(50, dialog_y, WIDTH - 100, dialog_height)
+            # 대화창 영역 (화면 중앙 - 초기 튜토리얼과 동일한 스타일)
+            dialogue_width = 700
+            dialogue_height = 180
+            dialogue_x = (WIDTH - dialogue_width) // 2
+            dialogue_y = (HEIGHT - dialogue_height) // 2
             
-            # 대화창 배경
-            pygame.draw.rect(SCREEN, (30, 30, 40), dialog_rect)
-            pygame.draw.rect(SCREEN, (255, 200, 0), dialog_rect, 3)
+            # 대화창 배경 (검은색 반투명)
+            dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg.fill((0, 0, 0, 240))  # 거의 불투명한 검은색
+            
+            # 대화창 테두리
+            pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
+                           (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
+            
+            # 상단 라인 (화자 이름 구분선)
+            pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
+                           (20, 50), (dialogue_width - 20, 50), 2)
+            
+            SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
             
             # 화자 이름
             speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
-            SCREEN.blit(speaker_surface, (dialog_rect.x + 30, dialog_rect.y + 20))
+            speaker_rect = speaker_surface.get_rect(left=dialogue_x + 30, top=dialogue_y + 15)
+            SCREEN.blit(speaker_surface, speaker_rect)
             
-            # 대사 텍스트
+            # 대사 텍스트 (중앙 정렬)
+            text_y = dialogue_y + 80
             text_surface = font_medium.render(displayed_text, True, WHITE)
-            SCREEN.blit(text_surface, (dialog_rect.x + 30, dialog_rect.y + 70))
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y))
+            SCREEN.blit(text_surface, text_rect)
             
             # 스페이스바 안내 (텍스트 완료 시)
             if text_complete:
-                hint_text = "SPACE - 계속"
-                hint_surface = font_small.render(hint_text, True, (200, 200, 200))
-                hint_rect = hint_surface.get_rect(right=dialog_rect.right - 20, bottom=dialog_rect.bottom - 10)
-                SCREEN.blit(hint_surface, hint_rect)
+                if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
+                    instruction = "SPACE - 계속"
+                    inst_surface = font_small.render(instruction, True, CYAN)
+                    inst_rect = inst_surface.get_rect(center=(WIDTH // 2, dialogue_y + dialogue_height - 25))
+                    SCREEN.blit(inst_surface, inst_rect)
             
             pygame.display.flip()
             clock.tick(60)
@@ -25614,6 +25631,8 @@ def main(stage_num, new_boss_mode=False):
     # 파워스매싱 정지 시간 관리
     global power_smashing_freeze_start_time, power_smashing_freeze_active, power_smashing_freeze_duration
     global power_smashing_parabola_active, power_smashing_start_time
+    # 스페셜 게이지 시스템
+    global special_gauge, displayed_gauge, special_ready, special_active
     # 대쉬 및 아이템 관련 전역 변수
     global dashholder_obtained, rolling_charge_timer, rolling_charges
     # 스테이지 2 정글 테두리 효과
@@ -25908,15 +25927,22 @@ def main(stage_num, new_boss_mode=False):
         # tutorial_needs_dash_practice는 True 값 유지
         # 나머지 변수들은 현재 값 유지
     
-    # 게이지 튜토리얼 관련 변수
+    # 게이지 및 속도 튜토리얼 관련 변수
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
-    tutorial_player_returned_ball = False  # 플레이어가 조교의 공을 받아쳤는지
-    tutorial_gauge_tutorial_shown = False  # 게이지 튜토리얼 표시 여부
-    
-    # 속도 튜토리얼 관련 변수
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown
-    tutorial_player_hit_count = 0  # 플레이어가 공을 친 횟수
-    tutorial_speed_dialogue_shown = False  # 속도 튜토리얼 대화 표시 여부
+    
+    # 대쉬 튜토리얼 재진입이 아닌 경우에만 게이지 튜토리얼 변수 초기화
+    if not dash_practice_reentry:
+        tutorial_player_returned_ball = False  # 플레이어가 조교의 공을 받아쳤는지
+        tutorial_gauge_tutorial_shown = False  # 게이지 튜토리얼 표시 여부
+        tutorial_player_hit_count = 0  # 플레이어가 공을 친 횟수
+        tutorial_speed_dialogue_shown = False  # 속도 튜토리얼 대화 표시 여부
+    else:
+        # 대쉬 튜토리얼 재진입 시 게이지 관련 변수는 유지
+        # tutorial_gauge_tutorial_shown는 True 상태 유지
+        # special_gauge 값도 유지됨
+        tutorial_player_hit_count = 0  # 타격 횟수만 리셋
+        tutorial_speed_dialogue_shown = True  # 속도 대화는 이미 표시됨
     
     # 대쉬 튜토리얼 변수는 이미 위에서 초기화됨
     
@@ -25936,6 +25962,10 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_dash_practice_shown = True
                 tutorial_practice_mode = True
                 print("튜토리얼: 대쉬 연습 대화 완료, 보스 서브로 시작")
+                # 대쉬 연습 시작 시 게이지를 200으로 충전
+                special_gauge = 200
+                displayed_gauge = 200
+                print("튜토리얼: 대쉬 연습 시작 - 게이지 200 충전")
                 # 보스가 서브하도록 설정됨 (이미 설정되어 있음)
         elif not tutorial_dialogue_shown:
             print("튜토리얼 대화 표시 시작")
@@ -26013,7 +26043,7 @@ def main(stage_num, new_boss_mode=False):
         global left_press_frame, right_press_frame, space_press_frame, frame_counter
         global perfect_timing_cooldown, perfect_timing_cooldown_frames, perfect_timing_input_used
         global drive_global_cooldown, drive_global_cooldown_frames, last_space_press_time
-        global special_ready, special_active, special_gauge  #  파워스매싱 관련 변수들
+        # special_gauge, special_ready, special_active는 이미 함수 시작 부분에서 global 선언됨
         global power_smashing_direction, power_smashing_original_speed  #  파워스매싱 관련 변수 (ball_vel은 이미 전역)
         # 프레임 카운터 증가
         frame_counter += 1
@@ -27253,6 +27283,11 @@ def main(stage_num, new_boss_mode=False):
                     # 속도 대화 완료 후 라운드 승리 처리
                     round_wins += 1
                     print(f"튜토리얼: 속도 대화 완료, 라운드 승리 처리 (점수: {round_wins})")
+                    
+                    # 다음 라운드로 넘어가기 전에 플레이어 게이지를 0으로 초기화
+                    special_gauge = 0
+                    displayed_gauge = 0
+                    print("튜토리얼: 대쉬 챕터 진입 전 게이지 초기화")
                     
                     # Chapter 1 타이틀 표시
                     show_chapter_title(1, "DASH", "대쉬 연습")
