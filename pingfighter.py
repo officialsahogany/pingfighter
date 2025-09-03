@@ -14023,8 +14023,6 @@ def show_tutorial_intro_dialogue():
         {"speaker": "플레이어", "text": "네!"},
         {"speaker": "조교", "text": "서브는 각 라운드별로\n플레이어, 보스 중 랜덤으로 서브권을 갖게돼"},
         {"speaker": "조교", "text": "서브 시 스페이스 바를 누르면 서브공을 발사한다."},
-        {"speaker": "조교", "text": "서브 선점시 최대 2초간 움직일 수 있으며"},
-        {"speaker": "조교", "text": "2초뒤에는 자동으로 공이 발사되지"},
         {"speaker": "조교", "text": "우선 서브 공을 한번 쳐봐"}
     ]
     
