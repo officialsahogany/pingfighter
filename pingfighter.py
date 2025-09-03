@@ -26203,15 +26203,13 @@ def main(stage_num, new_boss_mode=False):
         if tutorial_needs_dash_practice and not tutorial_dash_practice_shown:
             print("튜토리얼: Chapter 1 - DASH 연습 시작")
             if show_tutorial_dash_dialogue():
-                # 대쉬 대화 후 팝업 도우미 먼저 표시 (서브 도우미와 동일한 스타일)
-                if show_tutorial_dash_helper():
-                    # 팝업 도우미 확인 후 오버레이 도우미 활성화 (게임플레이와 함께)
-                    global tutorial_dash_helper_active, tutorial_dash_helper_start_time
-                    tutorial_dash_helper_active = True
-                    tutorial_dash_helper_start_time = pygame.time.get_ticks()
-                    tutorial_dash_practice_shown = True
-                    tutorial_practice_mode = True
-                    print("튜토리얼: 대쉬 연습 대화 완료, 팝업 도우미 표시 후 오버레이 도우미 활성화, 보스 서브로 시작")
+                # 대쉬 대화 후 바로 오버레이 도우미 활성화 (서브 도우미와 동일한 방식)
+                global tutorial_dash_helper_active, tutorial_dash_helper_start_time
+                tutorial_dash_helper_active = True
+                tutorial_dash_helper_start_time = pygame.time.get_ticks()
+                tutorial_dash_practice_shown = True
+                tutorial_practice_mode = True
+                print("튜토리얼: 대쉬 연습 대화 완료, 오버레이 도우미 활성화, 보스 서브로 시작")
                 # 게이지 충전 로직 제거 - 자연스럽게 0부터 시작
                 # 보스가 서브하도록 설정됨 (이미 설정되어 있음)
         elif not tutorial_dialogue_shown:
