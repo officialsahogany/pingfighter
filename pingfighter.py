@@ -15596,7 +15596,7 @@ def show_tutorial_gauge_dialogue():
     dialogues = [
         {
             "speaker": "[도우미]",
-            "text": "잘하셨네요! 스매셔는 공을 칠때마다 게이지를 조금씩 충전합니다.",
+            "text": "스매셔는 공을 칠때마다 게이지를 조금씩 충전합니다.",
             "speaker_color": (100, 255, 100),  # 초록색
             "charge_gauge": True
         },
