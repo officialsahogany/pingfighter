@@ -26209,7 +26209,7 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_dash_helper_start_time = pygame.time.get_ticks()
                 tutorial_dash_practice_shown = True
                 tutorial_practice_mode = True
-                print("튜토리얼: 대쉬 연습 대화 완료, 오버레이 도우미 활성화, 보스 서브로 시작")
+                print(f"튜토리얼: 대쉬 연습 대화 완료, 오버레이 도우미 활성화={tutorial_dash_helper_active}, 보스 서브로 시작")
                 # 게이지 충전 로직 제거 - 자연스럽게 0부터 시작
                 # 보스가 서브하도록 설정됨 (이미 설정되어 있음)
         elif not tutorial_dialogue_shown:
@@ -27440,9 +27440,15 @@ def main(stage_num, new_boss_mode=False):
             if tutorial_practice_mode:
                 font_tutorial = FontStyle.body() if 'FontStyle' in globals() else pygame.font.Font(None, 24)
                 
-                # 대쉬 도우미 표시
-                if 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
-                    draw_tutorial_dash_helper()
+                # 대쉬 도우미 표시 - 디버그 추가
+                if 'tutorial_dash_helper_active' in globals():
+                    if tutorial_dash_helper_active:
+                        print(f"대쉬 도우미 활성 상태: {tutorial_dash_helper_active}")
+                        draw_tutorial_dash_helper()
+                    # else:
+                    #     print(f"대쉬 도우미 비활성: {tutorial_dash_helper_active}")
+                else:
+                    print("tutorial_dash_helper_active 변수가 globals()에 없음")
                 
                 # 서브 도우미 표시 (도우미를 아직 표시하지 않은 경우 오버레이로 표시)
                 if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned and not tutorial_serve_helper_shown:
