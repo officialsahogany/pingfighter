@@ -14553,7 +14553,7 @@ def draw_tutorial_dash_helper():
         SCREEN.blit(arrow_text, arrow_rect)
 
 def show_tutorial_dash_helper():
-    """튜토리얼 대쉬 도우미 알림 (이제 사용하지 않음, draw_tutorial_dash_helper로 대체)"""
+    """튜토리얼 대쉬 도우미 알림"""
     # 현재 화면 캡처
     screen_capture = SCREEN.copy()
     
@@ -14653,7 +14653,8 @@ def show_tutorial_dash_dialogue():
         ("조교", "원하는 방향키 ← →를 누르면"),
         ("조교", "해당 방향으로 대쉬가 발동하며 빠르게 이동한다"),
         ("조교", "지금부터 공을 대쉬로 받아치는 연습을 시작한다"),
-        ("조교", "총 4회 실시! 시작한다!")
+        ("조교", "총 4회 실시!! 시작한다!"),
+        ("플레이어", "실시!")
     ]
     
     # 배경 캡처 (현재 게임 화면)
