@@ -16028,7 +16028,7 @@ def show_tutorial_dash_token_dialogue():
             
             # 토큰 게이지 강조 효과 (특정 대화에서만)
             if dialogue.get("highlight_token", False):
-                # 실제 토큰 위치 계산 (플레이어 게이지바 하단 - 코드와 동일하게)
+                # 실제 토큰 위치 계산 (플레이어 게이지바 하단 - 실제 draw_player_gauge 코드와 동일)
                 player_gauge_x = WIDTH - 40  # 플레이어 게이지바 X 위치 (오른쪽)
                 player_gauge_width = 14  # 플레이어 게이지바 폭
                 gauge_height = 480  # 게이지바 높이
@@ -16039,28 +16039,30 @@ def show_tutorial_dash_token_dialogue():
                 token_spacing = 16  # 토큰 간격
                 max_tokens = 1  # 튜토리얼에서는 기본 1개
                 
-                # 토큰 표시 위치 (플레이어 게이지바 중앙 하단)
+                # 토큰 표시 위치 (플레이어 게이지바 중앙 하단 - draw_player_gauge와 정확히 일치)
                 token_start_x = player_gauge_x + player_gauge_width // 2 - (max_tokens * token_spacing) // 2 + token_spacing // 2
-                token_y = gauge_y + gauge_height + 15  # 게이지바 아래 15픽셀
+                token_y = gauge_y + gauge_height + 15  # 게이지바 아래 15픽셀 (실제 위치)
                 
-                # 강조 박스 그리기 (깜빡임 효과)
+                # 강조 박스 그리기 (깜빡임 효과) - 빨간 구슬이 중앙에 오도록 조정
                 if highlight_timer % 40 < 30:  # 40프레임마다 30프레임 표시
                     highlight_color = (255, 255, 0, 150)  # 노란색 반투명
-                    # 토큰 영역 전체를 강조
+                    # 토큰(빨간 구슬) 중앙에 박스가 위치하도록 조정
+                    box_width = 50  # 박스 너비
+                    box_height = 30  # 박스 높이
                     highlight_rect = pygame.Rect(
-                        token_start_x - 15,  # 왼쪽 여백
-                        token_y - 15,  # 위 여백
-                        max_tokens * token_spacing + 20,  # 너비
-                        30  # 높이
+                        token_start_x - box_width // 2,  # 토큰 중심에서 박스 절반 너비만큼 왼쪽
+                        token_y - box_height // 2,  # 토큰 중심에서 박스 절반 높이만큼 위
+                        box_width,
+                        box_height
                     )
                     pygame.draw.rect(SCREEN, highlight_color[:3], highlight_rect, 3, border_radius=5)
                     
-                    # 화살표 그리기 (토큰을 가리킴)
-                    arrow_x = token_start_x + (max_tokens * token_spacing) // 2
+                    # 화살표 그리기 (토큰 위를 가리킴)
+                    arrow_x = token_start_x
                     arrow_points = [
-                        (arrow_x, token_y - 20),
-                        (arrow_x - 10, token_y - 30),
-                        (arrow_x + 10, token_y - 30)
+                        (arrow_x, token_y - box_height // 2 - 5),  # 박스 위에 화살표
+                        (arrow_x - 10, token_y - box_height // 2 - 15),
+                        (arrow_x + 10, token_y - box_height // 2 - 15)
                     ]
                     pygame.draw.polygon(SCREEN, highlight_color[:3], arrow_points)
             
