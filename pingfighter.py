@@ -964,7 +964,7 @@ selected_character_type = "normal"  # 기본값: 일반 캐릭터
 #  플레이어 분석 관련
 recent_dash_time = 0             # 최근 대쉬 시간 (성공 판정용)
 recent_half_dash_time = 0        # 최근 하프대쉬 시간 (성공 판정용)
-recent_dash_success_window = 120  # 대쉬 후 성공 판정 윈도우 (2초)
+recent_dash_success_window = 400  # 대쉬 후 성공 판정 윈도우 (0.4초)
 # ️ 스핀 & 드라이브 시스템
 # 스핀 시스템
 ball_spin_strength = 0.0             # 현재 스핀 강도
@@ -6184,7 +6184,7 @@ def handle_player(keys):
         #  플레이어 히트 기록
         is_perfect = perfect_timing_active and perfect_direction is not None
         record_player_hit(is_perfect_timing=is_perfect, is_power_smash=drive_activated)
-        #  대쉬 성공 체크 (최근 2초 내에 대쉬 또는 하프대쉬했다면 성공으로 기록)
+        #  대쉬 성공 체크 (최근 0.4초 내에 대쉬 또는 하프대쉬했다면 성공으로 기록)
         current_time = pygame.time.get_ticks()
         is_dash_success = False
         
