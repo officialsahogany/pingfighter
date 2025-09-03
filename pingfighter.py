@@ -16284,11 +16284,11 @@ def show_tutorial_dash_completion_dialogue():
             overlay.fill((0, 0, 0, 150))
             SCREEN.blit(overlay, (0, 0))
             
-            # 텍스트 배경 (검은색 반투명 - 화면 중앙의 가로 바)
+            # 텍스트 배경 (검은색 반투명 - 화면 하단의 가로 바)
             text_bg_height = 80
             text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
             text_bg.fill((0, 0, 0, 180))
-            text_y_position = HEIGHT // 2 - text_bg_height // 2  # 화면 중앙에 배치
+            text_y_position = HEIGHT - 150  # 화면 하단에 배치 (기존 튜토리얼과 동일)
             SCREEN.blit(text_bg, (0, text_y_position))
             
             # 화자와 대화 텍스트를 한 줄로 표시
