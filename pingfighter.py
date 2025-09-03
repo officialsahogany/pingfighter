@@ -16221,22 +16221,16 @@ def show_tutorial_dash_completion_dialogue():
     global tutorial_dash_completion_dialogue_shown
     
     clock = pygame.time.Clock()
-    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
     font_medium = FontStyle.body()     # 24pt 대사 텍스트용
     font_small = FontStyle.small()     # 18pt 안내 텍스트용
     
     # 조교 대화 시퀀스 (축하 및 다음 스킬 소개)
     dialogues = [
-        {"speaker": "[조교]", "text": "벌써 3회를 채우다니, 생각보다 재능있는 친구군", 
-         "speaker_color": (100, 255, 100)},
-        {"speaker": "[조교]", "text": "대쉬는 방어와 동시에 킬각도 가끔 나오므로", 
-         "speaker_color": (100, 255, 100)},
-        {"speaker": "[조교]", "text": "경기에서 아주 유용한 기술이지", 
-         "speaker_color": (100, 255, 100)},
-        {"speaker": "[조교]", "text": "대쉬만 제대로 익혀도 50%는 승률이 보장된다", 
-         "speaker_color": (100, 255, 100)},
-        {"speaker": "[조교]", "text": "다음은 스매셔 스킬 동작들을 연마하는 시간을 가져보겠다", 
-         "speaker_color": (100, 255, 100)}
+        {"speaker": "조교", "text": "벌써 3회를 채우다니, 생각보다 재능있는 친구군"},
+        {"speaker": "조교", "text": "대쉬는 방어와 동시에 킬각도 가끔 나오므로"},
+        {"speaker": "조교", "text": "경기에서 아주 유용한 기술이지"},
+        {"speaker": "조교", "text": "대쉬만 제대로 익혀도 50%는 승률이 보장된다"},
+        {"speaker": "조교", "text": "다음은 스매셔 스킬 동작들을 연마하는 시간을 가져보겠다"}
     ]
     
     # 현재 게임 화면 캡처
@@ -16247,8 +16241,10 @@ def show_tutorial_dash_completion_dialogue():
     displayed_text = ""
     last_char_time = pygame.time.get_ticks()
     typing_speed = 30  # 타이핑 속도 (밀리초)
+    text_animation_timer = 0
     
-    waiting_for_input = False
+    # 색상 정의 (기존 튜토리얼과 동일)
+    BOSS_COLOR = (255, 100, 100)  # 보스(조교) 텍스트 색상 (붉은색)
     
     running = True
     while running:
@@ -16259,30 +16255,26 @@ def show_tutorial_dash_completion_dialogue():
                 return False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    if text_complete:
+                    if len(displayed_text) == len(dialogues[dialogue_index]["text"]):
                         dialogue_index += 1
                         if dialogue_index >= len(dialogues):
                             running = False
                         else:
                             # 다음 대화 준비
-                            text_complete = False
                             displayed_text = ""
-                            last_char_time = current_time
+                            text_animation_timer = 0
                     else:
                         # 텍스트 즉시 완성
                         displayed_text = dialogues[dialogue_index]["text"]
-                        text_complete = True
         
         if dialogue_index < len(dialogues):
             dialogue = dialogues[dialogue_index]
             
             # 타이핑 효과
-            if not text_complete and current_time - last_char_time >= typing_speed:
-                if len(displayed_text) < len(dialogue["text"]):
+            if len(displayed_text) < len(dialogue["text"]):
+                text_animation_timer += 1
+                if text_animation_timer % 2 == 0:  # 텍스트 타이핑 속도
                     displayed_text += dialogue["text"][len(displayed_text)]
-                    last_char_time = current_time
-                else:
-                    text_complete = True
             
             # 배경 그리기 (정지된 게임 화면)
             SCREEN.blit(background, (0, 0))
@@ -16292,47 +16284,38 @@ def show_tutorial_dash_completion_dialogue():
             overlay.fill((0, 0, 0, 150))
             SCREEN.blit(overlay, (0, 0))
             
-            # 중앙 대화창 스타일
-            dialogue_width = 800
-            dialogue_height = 150
-            dialogue_x = (WIDTH - dialogue_width) // 2
-            dialogue_y = HEIGHT // 2 - 100
+            # 텍스트 배경 (검은색 반투명 - 화면 중앙의 가로 바)
+            text_bg_height = 80
+            text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
+            text_bg.fill((0, 0, 0, 180))
+            text_y_position = HEIGHT // 2 - text_bg_height // 2  # 화면 중앙에 배치
+            SCREEN.blit(text_bg, (0, text_y_position))
             
-            # 대화창 배경
-            dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
-            dialogue_bg.fill((20, 20, 30, 230))
+            # 화자와 대화 텍스트를 한 줄로 표시
+            full_text = f"[{dialogue['speaker']}] {displayed_text}"
+            text_surface = font_medium.render(full_text, True, BOSS_COLOR)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
             
-            # 대화창 테두리
-            pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
-                           (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
+            # 텍스트 그림자 효과
+            shadow_surface = font_medium.render(full_text, True, (0, 0, 0))
+            shadow_rect = text_rect.copy()
+            shadow_rect.x += 2
+            shadow_rect.y += 2
+            SCREEN.blit(shadow_surface, shadow_rect)
             
-            # 상단 라인 (화자 이름 구분선)
-            pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
-                           (20, 50), (dialogue_width - 20, 50), 2)
-            
-            SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
-            
-            # 화자 이름 (대화창 상단 중앙)
-            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
-            speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
-            SCREEN.blit(speaker_surface, speaker_rect)
-            
-            # 대사 텍스트 (화자 이름 아래 중앙)
-            text_surface = font_medium.render(displayed_text, True, WHITE)
-            text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
+            # 실제 텍스트
             SCREEN.blit(text_surface, text_rect)
             
-            # 스페이스바 안내 (텍스트 완료 시)
-            if text_complete:
-                if dialogue_index < len(dialogues) - 1:
-                    continue_text = "[ 스페이스바 - 계속 ]"
-                else:
-                    continue_text = "[ 스페이스바 - Chapter 2로 진행 ]"
-                
-                # 깜빡임 효과
-                if current_time % 1000 < 700:
+            # 스페이스바 안내 (텍스트 완료 시 화면 하단에 표시)
+            if len(displayed_text) == len(dialogue["text"]):
+                if current_time % 1000 < 700:  # 깜빡임 효과
+                    if dialogue_index < len(dialogues) - 1:
+                        continue_text = "SPACE - 계속"
+                    else:
+                        continue_text = "SPACE - Chapter 2로 진행"
+                    
                     continue_surface = font_small.render(continue_text, True, CYAN)
-                    continue_rect = continue_surface.get_rect(center=(WIDTH // 2, dialogue_y + dialogue_height - 20))
+                    continue_rect = continue_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
                     SCREEN.blit(continue_surface, continue_rect)
         
         pygame.display.flip()
