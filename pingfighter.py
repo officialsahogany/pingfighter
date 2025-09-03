@@ -27500,14 +27500,14 @@ def main(stage_num, new_boss_mode=False):
             # 라그나로크 해머 활성 상태
             from legendary_items import get_legendary_manager
         
-        # 튜토리얼 서브 도우미 알림 표시 제거 - 사용자 요청
-        # if current_stage == 50 and tutorial_practice_mode:
-        #     if is_waiting_for_serve and is_player_serve and not tutorial_serve_helper_shown and not tutorial_boss_returned:
-        #         # 현재 화면을 업데이트한 후 도우미 표시
-        #         pygame.display.flip()
-        #         if show_tutorial_serve_helper():
-        #             tutorial_serve_helper_shown = True
-        #         continue  # 다음 프레임으로
+        # 튜토리얼 서브 도우미 알림 표시
+        if current_stage == 50 and tutorial_practice_mode:
+            if is_waiting_for_serve and is_player_serve and not tutorial_serve_helper_shown and not tutorial_boss_returned:
+                # 현재 화면을 업데이트한 후 도우미 표시
+                pygame.display.flip()
+                if show_tutorial_serve_helper():
+                    tutorial_serve_helper_shown = True
+                continue  # 다음 프레임으로
         
         # 튜토리얼 모드 UI 표시
         if current_stage == 50 and 'tutorial_practice_mode' in globals():
