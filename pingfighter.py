@@ -15249,7 +15249,7 @@ def show_tutorial_gauge_dialogue():
     dialogues = [
         {
             "speaker": "[도우미]",
-            "text": "스매셔는 공을 칠때마다 게이지를 조금씩 충전합니다.",
+            "text": "잘하셨네요! 스매셔는 공을 칠때마다 게이지를 조금씩 충전합니다.",
             "speaker_color": (100, 255, 100),  # 초록색
             "charge_gauge": True
         },
@@ -15267,7 +15267,25 @@ def show_tutorial_gauge_dialogue():
         },
         {
             "speaker": "[도우미]",
-            "text": "여러 각도로 공을 쳐보세요",
+            "text": "대쉬를 사용할 수 있는 게이지가 모였네요!",
+            "speaker_color": (100, 255, 100),  # 초록색
+            "charge_gauge": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "대쉬는 140게이지가 소모됩니다.",
+            "speaker_color": (100, 255, 100),  # 초록색
+            "charge_gauge": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "게이지가 없을때는 짧은 거리를 이동하는 비상용 '하프대쉬'가 발동됩니다",
+            "speaker_color": (100, 255, 100),  # 초록색
+            "charge_gauge": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "이제 대쉬를 사용해봅시다",
             "speaker_color": (100, 255, 100),  # 초록색
             "charge_gauge": False
         }
