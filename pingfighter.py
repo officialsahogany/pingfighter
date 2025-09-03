@@ -14913,12 +14913,12 @@ def draw_tutorial_ui():
         font_small = FontStyle.tiny()      # 16pt
         
         # 오른쪽 상단 위치 (더 작고 미니멀하게)
-        ui_x = WIDTH - 80
-        ui_y = 40
+        ui_x = WIDTH - 100
+        ui_y = 50
         
-        # 미니멀한 반투명 배경 (작은 크기)
-        bg_width = 140
-        bg_height = 80
+        # 미니멀한 반투명 배경 (크기 조정)
+        bg_width = 180
+        bg_height = 120
         bg_x = ui_x - bg_width // 2
         bg_y = ui_y - 15
         
@@ -14930,7 +14930,7 @@ def draw_tutorial_ui():
         
         # 컴팩트한 원형 진행도
         circle_radius = 22
-        circle_center_x = ui_x - 30
+        circle_center_x = ui_x - 50
         circle_center_y = ui_y + 10
         
         # 배경 원 (매우 은은하게)
@@ -14972,7 +14972,43 @@ def draw_tutorial_ui():
         counter_rect = counter_surface.get_rect(center=(circle_center_x, circle_center_y))
         SCREEN.blit(counter_surface, counter_rect)
         
-        # 진행 상태 메시지 (오른쪽에 작게)
+        # 탁구채 아이콘 그리기 (원형 진행도 오른쪽에)
+        paddle_x = circle_center_x + circle_radius + 25
+        paddle_y = circle_center_y
+        
+        # 애니메이션 각도 계산 (진행도에 따라 회전)
+        import math
+        paddle_angle = -15 + (tutorial_displayed_hit_count * 10)  # -15도에서 시작, 진행도에 따라 회전
+        
+        # 탁구채 그리기 (간단한 도형으로)
+        paddle_surf = pygame.Surface((40, 50), pygame.SRCALPHA)
+        
+        # 탁구채 헤드 (타원형)
+        paddle_color = (255, 100, 50) if tutorial_player_hit_count >= 3 else (200, 200, 200)
+        pygame.draw.ellipse(paddle_surf, paddle_color, (5, 0, 30, 35))
+        pygame.draw.ellipse(paddle_surf, (255, 255, 255, 50), (8, 3, 24, 29), 2)  # 하이라이트
+        
+        # 탁구채 손잡이
+        handle_color = (100, 50, 30)
+        pygame.draw.rect(paddle_surf, handle_color, (17, 30, 6, 20))
+        
+        # 진행도에 따른 반짝임 효과
+        if tutorial_displayed_hit_count < tutorial_player_hit_count:
+            # 애니메이션 중일 때 반짝임
+            glow_alpha = int(128 + 127 * math.sin(pygame.time.get_ticks() * 0.01))
+            glow_surf = pygame.Surface((40, 50), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (255, 255, 100, glow_alpha // 2), (2, -3, 36, 41))
+            paddle_surf.blit(glow_surf, (0, 0))
+        
+        # 회전 적용
+        rotated_paddle = pygame.transform.rotate(paddle_surf, paddle_angle)
+        
+        # 진행도에 따른 위치 조정 (위아래 움직임)
+        bounce_offset = int(5 * math.sin(tutorial_displayed_hit_count * math.pi))
+        paddle_rect = rotated_paddle.get_rect(center=(paddle_x, paddle_y + bounce_offset))
+        SCREEN.blit(rotated_paddle, paddle_rect)
+        
+        # 진행 상태 메시지 (탁구채 아래에)
         if tutorial_player_hit_count < 3:
             hint_text = "각도 연습"
             hint_color = (150, 150, 150)
@@ -14989,30 +15025,10 @@ def draw_tutorial_ui():
             if pygame.time.get_ticks() % 800 < 400:
                 pygame.draw.circle(SCREEN, (0, 255, 100, 50), (circle_center_x, circle_center_y), circle_radius + 5, 2)
         
+        # 텍스트를 탁구채 아래에 배치
         hint_surface = font_medium.render(hint_text, True, hint_color)
-        hint_rect = hint_surface.get_rect(left=circle_center_x + circle_radius + 10, centery=circle_center_y)
+        hint_rect = hint_surface.get_rect(centerx=paddle_x, top=paddle_y + 30)
         SCREEN.blit(hint_surface, hint_rect)
-        
-        # 미니 진행도 바 (텍스트 아래 작게)
-        bar_width = 50
-        bar_height = 3
-        bar_x = circle_center_x + circle_radius + 10
-        bar_y = circle_center_y + 12
-        
-        # 배경 바
-        pygame.draw.rect(SCREEN, (40, 40, 40, 100), (bar_x, bar_y, bar_width, bar_height), border_radius=2)
-        
-        # 진행도 채우기 (애니메이션 값 사용)
-        fill_width = int((tutorial_displayed_hit_count / 6) * bar_width)
-        if fill_width > 0:
-            fill_color = (0, 255, 100) if tutorial_player_hit_count >= 6 else (100, 200, 255)
-            pygame.draw.rect(SCREEN, fill_color, (bar_x, bar_y, fill_width, bar_height), border_radius=2)
-            
-            # 애니메이션 진행 중일 때 끝부분에 밝은 효과
-            if tutorial_displayed_hit_count < tutorial_player_hit_count:
-                glow_color = (150, 255, 255) if tutorial_player_hit_count < 6 else (100, 255, 150)
-                if fill_width >= 2:
-                    pygame.draw.rect(SCREEN, glow_color, (bar_x + fill_width - 2, bar_y, 2, bar_height), border_radius=1)
 
 def show_chapter_title(chapter_num, title, subtitle=None):
     """챕터 타이틀 표시 (페이드 효과 포함)"""
