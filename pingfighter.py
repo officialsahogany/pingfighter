@@ -10582,7 +10582,7 @@ def draw_objects():
     else:
         # 일반 모드에서는 UFO 플레이어 이미지 사용
         base_ufo_img = PLAYER_IMG
-        print(f"🎮 일반 모드: base_ufo_img 크기 = {base_ufo_img.get_size()}")
+        # print(f"🎮 일반 모드: base_ufo_img 크기 = {base_ufo_img.get_size()}")
     # 스킬 효과 적용: 패들 크기 증가
     skill_boosted_width = skill.apply_paddle_size_boost(PADDLE_WIDTH)
     scale_ratio = skill_boosted_width / 155
@@ -10635,7 +10635,7 @@ def draw_objects():
     # 디버깅: rotated_player 확인 (frame_count가 정의되어 있을 때만)
     try:
         if frame_count % 60 == 0:  # 1초마다 한 번씩만 출력
-            print(f"🔄 rotated_player 크기: {rotated_player.get_size()}, 틸트 각도: {tilt_angle}")
+            # print(f"🔄 rotated_player 크기: {rotated_player.get_size()}, 틸트 각도: {tilt_angle}")
     except NameError:
         pass  # frame_count가 정의되지 않았으면 무시
     #  보스 vs 보스전과  새로운 보스전에서는 빨간 효과 제거 (게이지를 사용하지 않음)
@@ -10694,7 +10694,7 @@ def draw_objects():
     player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x, PLAYER.centery + screen_shake_offset_y))
     # 디버깅: player_rect 위치 확인
     if frame_count % 60 == 0:  # 1초마다 한 번씩만 출력
-        print(f"📍 player_rect 위치: {player_rect.topleft}, 크기: {player_rect.size}")
+        # print(f"📍 player_rect 위치: {player_rect.topleft}, 크기: {player_rect.size}")
     
     #  모든 대쉬 스킬 마스터 시 하늘빛 아지랑이 효과
     if academy.check_all_dash_skills_mastered():
