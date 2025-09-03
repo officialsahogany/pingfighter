@@ -26307,6 +26307,9 @@ def main(stage_num, new_boss_mode=False):
             # 대쉬 연습 플래그 설정
             tutorial_needs_dash_practice = True  # 대쉬 연습 필요
             
+            # 대쉬 챕터 게이지 대화 표시 플래그 리셋
+            main.tutorial_dash_gauge_dialogue_shown = False
+            
             # 스테이지 50 재시작 (대쉬 튜토리얼로)
             print("튜토리얼: Chapter 1 - DASH 시작, 스테이지 50 재시작")
             return main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
@@ -27501,6 +27504,19 @@ def main(stage_num, new_boss_mode=False):
                     #     print(f"대쉬 도우미 비활성: {tutorial_dash_helper_active}")
                 else:
                     print("tutorial_dash_helper_active 변수가 globals()에 없음")
+                
+                # 대쉬 챕터에서 160 게이지 도달 시 게이지 대화 표시
+                if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
+                    if not getattr(main, 'tutorial_dash_gauge_dialogue_shown', False):
+                        if special_gauge >= 160:
+                            print("튜토리얼: 대쉬 챕터 - 160 게이지 도달! 게이지 설명 대화 표시")
+                            # 게임 일시정지 상태로 설정
+                            tutorial_pause_for_dialogue = True
+                            # 게이지 대화 표시 (일반 튜토리얼과 완전히 동일)
+                            if show_tutorial_gauge_dialogue():
+                                main.tutorial_dash_gauge_dialogue_shown = True
+                                tutorial_pause_for_dialogue = False
+                                print("튜토리얼: 대쉬 챕터 - 게이지 대화 완료")
                 
                 # 서브 도우미 표시 (도우미를 아직 표시하지 않은 경우만 활성화, 대쉬 연습 중이 아닐 때만)
                 if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned and not tutorial_serve_helper_shown:
