@@ -26287,6 +26287,26 @@ def main(stage_num, new_boss_mode=False):
                 profiler.toggle_visibility()
                 print(f" : {'ON' if profiler.visible else 'OFF'}")
         main.key7_pressed = keys[pygame.K_7]
+        
+        # 8번키로 강제 라운드 종료 및 다음 라운드 진행
+        if keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
+            print("🔄 8번 키: 강제 라운드 종료 및 다음 라운드 진행")
+            # 플레이어가 이긴 것으로 처리
+            boss_lives -= 1
+            print(f"보스 라이프 감소: {boss_lives + 1} -> {boss_lives}")
+            
+            # 라운드 리셋
+            reset_round()
+            
+            # 보스가 죽었으면 다음 스테이지로
+            if boss_lives <= 0:
+                print("보스 격파! 다음 스테이지로 진행")
+                if current_stage < 49:  # 튜토리얼 전까지만
+                    return current_stage + 1
+                else:
+                    # 게임 클리어 또는 종료 처리
+                    print("게임 클리어!")
+        main.key8_pressed = keys[pygame.K_8]
         #  퍼펙트 타이밍 시스템: 스페이스바 + 방향키 프레임 단위 입력 감지
         global space_just_pressed, last_space_state, perfect_timing_active, perfect_timing_frame_count, perfect_direction
         global left_just_pressed, last_left_state, right_just_pressed, last_right_state
