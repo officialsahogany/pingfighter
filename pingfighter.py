@@ -14918,7 +14918,7 @@ def draw_tutorial_ui():
         
         # 미니멀한 반투명 배경 (크기 조정)
         bg_width = 180
-        bg_height = 120
+        bg_height = 90  # 세로 길이 줄임 (120 -> 90)
         bg_x = ui_x - bg_width // 2
         bg_y = ui_y - 15
         
@@ -15025,9 +15025,9 @@ def draw_tutorial_ui():
             if pygame.time.get_ticks() % 800 < 400:
                 pygame.draw.circle(SCREEN, (0, 255, 100, 50), (circle_center_x, circle_center_y), circle_radius + 5, 2)
         
-        # 텍스트를 탁구채 아래에 배치
+        # 텍스트를 탁구채 아래에 배치 (위치 조정)
         hint_surface = font_medium.render(hint_text, True, hint_color)
-        hint_rect = hint_surface.get_rect(centerx=paddle_x, top=paddle_y + 30)
+        hint_rect = hint_surface.get_rect(centerx=paddle_x, top=paddle_y + 25)  # 30 -> 25로 조정
         SCREEN.blit(hint_surface, hint_rect)
 
 def show_chapter_title(chapter_num, title, subtitle=None):
