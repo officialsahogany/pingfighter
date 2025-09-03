@@ -4989,12 +4989,12 @@ def handle_player(keys):
     # 튜토리얼 대쉬 도우미는 일정 시간 동안 유지 (바로 끄지 않음)
     global tutorial_dash_helper_active, tutorial_dash_helper_start_time
     if current_stage == 50 and 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
-        # 5초 후에 자동으로 끄기 또는 대쉬 성공 시 끄기
+        # 1.2초 후에 자동으로 끄기 또는 대쉬 성공 시 끄기
         if 'tutorial_dash_helper_start_time' in globals():
             elapsed_time = pygame.time.get_ticks() - tutorial_dash_helper_start_time
-            if elapsed_time > 5000:  # 5초 경과
+            if elapsed_time > 1200:  # 1.2초 경과
                 tutorial_dash_helper_active = False  # 도우미 끄기
-                print("튜토리얼: 대쉬 도우미 5초 경과로 비활성화")
+                print("튜토리얼: 대쉬 도우미 1.2초 경과로 비활성화")
     # 마우스 조작 (비활성화됨)
     # if input_manager.get_control_mode() == "마우스":
     #     if mouse_controls.get("space", False):
