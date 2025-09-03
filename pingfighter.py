@@ -14811,29 +14811,39 @@ def show_tutorial_angle_dialogue():
     clock = pygame.time.Clock()
     
     # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
     font_medium = FontStyle.body()    # 24pt 대사용
     font_small = FontStyle.small()   # 18pt 안내용
     
     # 대화 시퀀스
     dialogues = [
-        ("도우미", "잘하셨네요!"),
-        ("도우미", "공을 받아칠 때 받아친 각도에 따라 다른 방향으로 발사됩니다"),
-        ("도우미", "공이 발사되는 방향감각은"),
-        ("도우미", "실전 경험을 통해 익히는게 가장 좋습니다")
+        {
+            "speaker": "[도우미]",
+            "text": "잘하셨네요!",
+            "speaker_color": (100, 255, 100)  # 초록색
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "공을 받아칠 때 받아친 각도에 따라 다른 방향으로 발사됩니다",
+            "speaker_color": (100, 255, 100)  # 초록색
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "공이 발사되는 방향감각은",
+            "speaker_color": (100, 255, 100)  # 초록색
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "실전 경험을 통해 익히는게 가장 좋습니다",
+            "speaker_color": (100, 255, 100)  # 초록색
+        }
     ]
-    
-    # 화자 색상
-    speaker_color = (100, 255, 100)  # 도우미: 초록색
-    
-    # 하단 바 UI 설정
-    text_bg_height = 80
-    text_y_position = HEIGHT - 150
     
     # 배경 캡처 (현재 게임 화면)
     background = SCREEN.copy()
     
     # 각 대화를 순차적으로 표시
-    for dialogue_index, (speaker, text) in enumerate(dialogues):
+    for dialogue_index, dialogue in enumerate(dialogues):
         # 타이핑 효과 변수
         displayed_text = ""
         text_complete = False
@@ -14855,13 +14865,13 @@ def show_tutorial_angle_dialogue():
                             running = False
                         else:
                             # 텍스트 즉시 완성
-                            displayed_text = text
+                            displayed_text = dialogue["text"]
                             text_complete = True
             
             # 타이핑 효과
             if not text_complete and current_time - last_char_time >= typing_speed:
-                if len(displayed_text) < len(text):
-                    displayed_text += text[len(displayed_text)]
+                if len(displayed_text) < len(dialogue["text"]):
+                    displayed_text += dialogue["text"][len(displayed_text)]
                     last_char_time = current_time
                 else:
                     text_complete = True
@@ -14869,30 +14879,47 @@ def show_tutorial_angle_dialogue():
             # 배경 그리기 (정지된 게임 화면)
             SCREEN.blit(background, (0, 0))
             
-            # 하단 바 UI 그리기
-            text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
-            text_bg.fill((0, 0, 0, 180))
-            SCREEN.blit(text_bg, (0, text_y_position))
+            # 어두운 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            SCREEN.blit(overlay, (0, 0))
             
-            # 대화 텍스트
-            full_text = f"[{speaker}] {displayed_text}"
+            # 대화창 영역 (화면 중앙)
+            dialogue_width = 700
+            dialogue_height = 180
+            dialogue_x = (WIDTH - dialogue_width) // 2
+            dialogue_y = (HEIGHT - dialogue_height) // 2
             
-            # 그림자 효과
-            shadow_surface = font_medium.render(full_text, True, (50, 50, 50))
-            shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + 2, text_y_position + text_bg_height // 2 + 2))
-            SCREEN.blit(shadow_surface, shadow_rect)
+            # 대화창 배경 (검은색 반투명)
+            dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg.fill((0, 0, 0, 240))  # 거의 불투명한 검은색
             
-            # 메인 텍스트
-            text_surface = font_medium.render(full_text, True, speaker_color)
-            text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+            # 대화창 테두리
+            pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
+                           (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
+            
+            # 상단 라인 (화자 이름 구분선)
+            pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
+                           (20, 50), (dialogue_width - 20, 50), 2)
+            
+            SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
+            
+            # 화자 이름 (대화창 상단 중앙)
+            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+            speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
+            SCREEN.blit(speaker_surface, speaker_rect)
+            
+            # 대사 텍스트 (화자 이름 아래 중앙)
+            text_surface = font_medium.render(displayed_text, True, WHITE)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
             SCREEN.blit(text_surface, text_rect)
             
-            # 스페이스바 안내 (하단 오른쪽)
+            # 스페이스바 안내 (대화창 하단 중앙)
             if text_complete:
                 if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
-                    instruction = "SPACE"
-                    inst_surface = font_small.render(instruction, True, WHITE)
-                    inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, text_y_position + text_bg_height - 10))
+                    instruction = "SPACE - 계속"
+                    inst_surface = font_small.render(instruction, True, CYAN)
+                    inst_rect = inst_surface.get_rect(center=(WIDTH // 2, dialogue_y + dialogue_height - 25))
                     SCREEN.blit(inst_surface, inst_rect)
             
             pygame.display.flip()
@@ -15111,78 +15138,65 @@ def show_tutorial_serve_helper():
     screen_capture = SCREEN.copy()
     
     # 폰트 설정
-    font_medium = FontStyle.body()     # 24pt 텍스트용
-    font_small = FontStyle.small()    # 18pt 안내용
+    font_large = FontStyle.subtitle()  # 32pt 메인 텍스트용
+    font_small = FontStyle.small()   # 18pt 안내용
     
     # 알림 내용
-    message = "스페이스바를 눌러 서브공을 발사해보세요!"
-    speaker = "도우미"
-    speaker_color = (100, 255, 100)  # 초록색
-    
-    # 하단 바 UI 설정
-    text_bg_height = 80
-    text_y_position = HEIGHT - 150
+    main_text = "스페이스바를 눌러 서브공을 발사해보세요!"
+    sub_text = "SPACE - 확인"
     
     clock = pygame.time.Clock()
     
-    # 타이핑 효과 변수
-    displayed_text = ""
-    text_complete = False
-    typing_speed = 30  # 밀리초당 한 글자
-    last_char_time = pygame.time.get_ticks()
-    
     while True:
-        current_time = pygame.time.get_ticks()
-        
         # 이벤트 처리
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    if text_complete:
-                        return True
-                    else:
-                        # 텍스트 즉시 완성
-                        displayed_text = message
-                        text_complete = True
-        
-        # 타이핑 효과
-        if not text_complete and current_time - last_char_time >= typing_speed:
-            if len(displayed_text) < len(message):
-                displayed_text += message[len(displayed_text)]
-                last_char_time = current_time
-            else:
-                text_complete = True
+                if event.key == pygame.K_SPACE:  # 스페이스 키로 도우미 닫기
+                    return True
         
         # 화면 그리기
         SCREEN.blit(screen_capture, (0, 0))
         
-        # 하단 바 UI 그리기
-        text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
-        text_bg.fill((0, 0, 0, 180))
-        SCREEN.blit(text_bg, (0, text_y_position))
+        # 반투명 어두운 배경
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        SCREEN.blit(overlay, (0, 0))
         
-        # 대화 텍스트
-        full_text = f"[{speaker}] {displayed_text}"
+        # 도우미 알림 박스 
+        box_width = 700
+        box_height = 200
+        box_x = (WIDTH - box_width) // 2
+        box_y = (HEIGHT - box_height) // 2
         
-        # 그림자 효과
-        shadow_surface = font_medium.render(full_text, True, (50, 50, 50))
-        shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + 2, text_y_position + text_bg_height // 2 + 2))
-        SCREEN.blit(shadow_surface, shadow_rect)
+        # 박스 배경
+        box_surface = pygame.Surface((box_width, box_height))
+        box_surface.set_alpha(240)
+        box_surface.fill((20, 20, 40))
+        pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 3)
+        SCREEN.blit(box_surface, (box_x, box_y))
+        
+        # 도우미 아이콘 (느낌표)
+        icon_text = "!"
+        icon_surface = font_large.render(icon_text, True, YELLOW)
+        icon_rect = icon_surface.get_rect(center=(box_x + 50, box_y + box_height // 2))
+        
+        # 아이콘 원형 배경
+        pygame.draw.circle(SCREEN, YELLOW, (box_x + 50, box_y + box_height // 2), 30, 3)
+        SCREEN.blit(icon_surface, icon_rect)
         
         # 메인 텍스트
-        text_surface = font_medium.render(full_text, True, speaker_color)
-        text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
-        SCREEN.blit(text_surface, text_rect)
+        main_surface = font_large.render(main_text, True, WHITE)
+        main_rect = main_surface.get_rect(center=(box_x + box_width // 2 + 20, box_y + box_height // 2 - 20))
+        SCREEN.blit(main_surface, main_rect)
         
-        # 스페이스바 안내 (하단 오른쪽)
-        if text_complete:
-            if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
-                instruction = "SPACE"
-                inst_surface = font_small.render(instruction, True, WHITE)
-                inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, text_y_position + text_bg_height - 10))
-                SCREEN.blit(inst_surface, inst_rect)
+        # 계속 안내 (깜빡임 효과 추가)
+        if pygame.time.get_ticks() % 1000 < 700:  # 0.7초 보이고 0.3초 안보임
+            sub_surface = font_small.render(sub_text, True, CYAN)
+            sub_rect = sub_surface.get_rect(center=(box_x + box_width // 2 + 20, box_y + box_height - 40))
+            SCREEN.blit(sub_surface, sub_rect)
         
         pygame.display.flip()
         clock.tick(60)
