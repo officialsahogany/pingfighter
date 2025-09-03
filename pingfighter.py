@@ -963,6 +963,7 @@ last_space_press_time = 0            # 마지막 스페이스바 입력 시간 (
 selected_character_type = "normal"  # 기본값: 일반 캐릭터
 #  플레이어 분석 관련
 recent_dash_time = 0             # 최근 대쉬 시간 (성공 판정용)
+recent_half_dash_time = 0        # 최근 하프대쉬 시간 (성공 판정용)
 recent_dash_success_window = 120  # 대쉬 후 성공 판정 윈도우 (2초)
 # ️ 스핀 & 드라이브 시스템
 # 스핀 시스템
@@ -4938,7 +4939,7 @@ def handle_new_boss_skills_timer():
             wind_burst_active = False
             print("!")
 def handle_player(keys):
-    global ball_angle, special_gauge, special_ready, special_active, recent_dash_time, recent_dash_success_window
+    global ball_angle, special_gauge, special_ready, special_active, recent_dash_time, recent_half_dash_time, recent_dash_success_window
     global power_smashing_direction, mega_smashing_bonus_applied
     global current_speed, player_slow_timer
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
@@ -5543,6 +5544,10 @@ def handle_player(keys):
                         rolling_active = True
                         rolling_direction = half_dash_direction
                         rolling_timer = half_dash_timer
+                        
+                        # 하프대쉬 시간 기록 (튜토리얼 카운터용)
+                        global recent_half_dash_time
+                        recent_half_dash_time = pygame.time.get_ticks()
                         
                         #  가속화 스킬: 대쉬 시작 시 패들 세로 타격 범위만 증가 및 섬광 효과
                         acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
@@ -6179,9 +6184,19 @@ def handle_player(keys):
         #  플레이어 히트 기록
         is_perfect = perfect_timing_active and perfect_direction is not None
         record_player_hit(is_perfect_timing=is_perfect, is_power_smash=drive_activated)
-        #  대쉬 성공 체크 (최근 2초 내에 대쉬했다면 성공으로 기록)
+        #  대쉬 성공 체크 (최근 2초 내에 대쉬 또는 하프대쉬했다면 성공으로 기록)
         current_time = pygame.time.get_ticks()
+        is_dash_success = False
+        
+        # 일반 대쉬 성공 체크
         if recent_dash_time > 0 and (current_time - recent_dash_time) <= recent_dash_success_window:
+            is_dash_success = True
+        
+        # 하프대쉬 성공 체크
+        if recent_half_dash_time > 0 and (current_time - recent_half_dash_time) <= recent_dash_success_window:
+            is_dash_success = True
+        
+        if is_dash_success:
             # 대쉬 후 성공적으로 공을 쳤으므로 성공으로 업데이트
             record_dash_usage(success=True)
             
@@ -6220,6 +6235,7 @@ def handle_player(keys):
             # 공속도 적응 점수 기록 - 신규
             record_speed_adaptation(ball_speed)
             recent_dash_time = 0  # 성공 기록 후 초기화
+            recent_half_dash_time = 0  # 하프대쉬 시간도 초기화
         #  가드 능력 기록 (공과의 거리, 공 속도)
         ball_distance = abs(BALL.centery - PLAYER.centery)
         ball_speed = math.hypot(ball_vel[0], ball_vel[1])
