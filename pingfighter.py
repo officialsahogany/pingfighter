@@ -27577,24 +27577,22 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[1] = 5  # 기본적으로 아래로 향하도록
                 continue  # 다음 프레임으로
             
-            # 튜토리얼: 플레이어가 조교 공을 받아친 후 게이지 튜토리얼 표시
+            # 튜토리얼: 플레이어가 조교 공을 받아친 후 각도 튜토리얼만 표시 (게이지는 대쉬 챕터로 이동)
             if current_stage == 50 and tutorial_pause_for_dialogue and tutorial_player_returned_ball and not tutorial_gauge_tutorial_shown:
-                print("튜토리얼: 게이지 튜토리얼 대화 표시")
+                print("튜토리얼: 각도 튜토리얼 대화 표시")
                 # 현재 화면 그리기 (배경용)
                 draw_field()
                 draw_objects()
                 pygame.display.flip()
-                # 각도 튜토리얼 대화 먼저 표시
+                # 각도 튜토리얼 대화만 표시 (게이지 대화는 대쉬 챕터에서 처리)
                 if show_tutorial_angle_dialogue():
-                    # 각도 대화 완료 후 게이지 튜토리얼 대화 표시
-                    if show_tutorial_gauge_dialogue():
-                        tutorial_gauge_tutorial_shown = True
-                        tutorial_pause_for_dialogue = False
-                        # 공의 속도를 복원 (일시정지 전 속도로)
-                        if tutorial_saved_ball_vel:
-                            ball_vel[0] = tutorial_saved_ball_vel[0]
-                        ball_vel[1] = tutorial_saved_ball_vel[1]
-                        print(f"튜토리얼: 게이지 튜토리얼 후 공 속도 복원 - {ball_vel}")
+                    tutorial_gauge_tutorial_shown = True  # 플래그는 유지 (로직 충돌 방지)
+                    tutorial_pause_for_dialogue = False
+                    # 공의 속도를 복원 (일시정지 전 속도로)
+                    if tutorial_saved_ball_vel:
+                        ball_vel[0] = tutorial_saved_ball_vel[0]
+                    ball_vel[1] = tutorial_saved_ball_vel[1]
+                    print(f"튜토리얼: 각도 튜토리얼 후 공 속도 복원 - {ball_vel}")
                 continue  # 다음 프레임으로
             
             # 튜토리얼: 6회 타격 후 속도 튜토리얼 표시
