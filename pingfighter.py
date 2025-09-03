@@ -19513,6 +19513,7 @@ def choose_server(show_text=True):
     global power_smashing_freeze_active, power_smashing_freeze_start_time
     global rolling_active, rolling_timer, rolling_direction, rolling_stun_timer
     global last_hit_by  # 서브하는 사람에 따라 초기화
+    global tutorial_needs_dash_practice  # 튜토리얼 대쉬 연습 플래그
     # 고스트샷 및 파워스매싱 상태 초기화 (라운드 시작 시)
     mega_smashing_active = False
     mega_smashing_start_time = 0
@@ -19522,7 +19523,15 @@ def choose_server(show_text=True):
     power_smashing_freeze_start_time = 0
     # 고스트샷 관련 코드 제거됨
     # 스테이지 6과 튜토리얼(스테이지 50)에서는 항상 플레이어가 먼저 서브
-    if current_stage == 6 or current_stage == 50:
+    # 단, 튜토리얼 대쉬 연습 모드에서는 보스가 서브
+    if current_stage == 50:
+        # 대쉬 튜토리얼 체크
+        if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
+            is_player_serve = False  # 대쉬 연습 시 보스가 서브
+            print("튜토리얼: 대쉬 연습 - 보스가 서브합니다")
+        else:
+            is_player_serve = True  # 일반 튜토리얼은 플레이어 서브
+    elif current_stage == 6:
         is_player_serve = True
     else:
         is_player_serve = random.choice([True, False])
