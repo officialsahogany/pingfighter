@@ -26750,6 +26750,13 @@ def main(stage_num, new_boss_mode=False):
                 show_game_info()
             # 전설 아이템 획득 애니메이션 스페이스바 처리
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                # 튜토리얼 스테이지 50에서는 서브 여부와 관계없이 서브 도우미 비활성화
+                if current_stage == 50 and 'tutorial_serve_helper_active' in globals():
+                    if tutorial_serve_helper_active:
+                        tutorial_serve_helper_active = False
+                        tutorial_serve_helper_shown = True  # 도우미를 봤음으로 표시
+                        print("튜토리얼: 스페이스바 입력으로 서브 도우미 즉시 비활성화 (서브 여부 무관)")
+                
                 # 전설 아이템 효과가 스페이스바를 기다리는 중이면 처리
                 if handle_legendary_space_press():
                     continue  # 전설 효과가 스페이스바를 처리했으면 다른 처리 건너뛰기
@@ -27470,15 +27477,19 @@ def main(stage_num, new_boss_mode=False):
                 else:
                     print("tutorial_dash_helper_active 변수가 globals()에 없음")
                 
-                # 서브 도우미 표시 (도우미를 아직 표시하지 않은 경우만 활성화)
+                # 서브 도우미 표시 (도우미를 아직 표시하지 않은 경우만 활성화, 대쉬 연습 중이 아닐 때만)
                 if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned and not tutorial_serve_helper_shown:
-                    # 서브 도우미가 아직 활성화되지 않았을 때만 활성화
-                    if 'tutorial_serve_helper_active' in globals() and not tutorial_serve_helper_active:
-                        tutorial_serve_helper_active = True
-                        print("튜토리얼: 서브 도우미 활성화")
-                    elif 'tutorial_serve_helper_active' not in globals():
-                        tutorial_serve_helper_active = True
-                        print("튜토리얼: 서브 도우미 초기 활성화")
+                    # 대쉬 연습 중이면 서브 도우미 표시 안 함
+                    if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
+                        pass  # 대쉬 튜토리얼에서는 서브 도우미 표시하지 않음
+                    else:
+                        # 서브 도우미가 아직 활성화되지 않았을 때만 활성화
+                        if 'tutorial_serve_helper_active' in globals() and not tutorial_serve_helper_active:
+                            tutorial_serve_helper_active = True
+                            print("튜토리얼: 서브 도우미 활성화")
+                        elif 'tutorial_serve_helper_active' not in globals():
+                            tutorial_serve_helper_active = True
+                            print("튜토리얼: 서브 도우미 초기 활성화")
                     
                 # 서브 도우미가 활성화되어 있으면 표시
                 if 'tutorial_serve_helper_active' in globals() and tutorial_serve_helper_active and is_waiting_for_serve:
