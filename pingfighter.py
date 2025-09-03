@@ -26166,6 +26166,7 @@ def main(stage_num, new_boss_mode=False):
         tutorial_pause_for_dialogue = False  # 대화를 위한 일시정지 상태
         tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
         tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
+        tutorial_serve_helper_active = False  # 서브 도우미 현재 활성 상태
         tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
         tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
         tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
@@ -26779,8 +26780,12 @@ def main(stage_num, new_boss_mode=False):
                     if current_stage == 50 and 'tutorial_practice_mode' in globals():
                         if tutorial_practice_mode:
                             print("튜토리얼: 플레이어가 서브를 했습니다!")
-                            # 서브 도우미를 봤음으로 표시
+                            # 서브 도우미를 봤음으로 표시 (스페이스바를 눌렀으므로)
                             tutorial_serve_helper_shown = True
+                            # 서브 도우미 즉시 비활성화
+                            if 'tutorial_serve_helper_active' in globals():
+                                tutorial_serve_helper_active = False
+                                print("튜토리얼: 서브 도우미 비활성화")
             # 아이템 사용 - Aipill 활성화 시에는 아이템 사용 불가
             item_use_pressed = False
             direct_item_index = -1  # 숫자키로 직접 선택된 아이템 인덱스
@@ -27459,8 +27464,14 @@ def main(stage_num, new_boss_mode=False):
                 else:
                     print("tutorial_dash_helper_active 변수가 globals()에 없음")
                 
-                # 서브 도우미 표시 (도우미를 아직 표시하지 않은 경우 오버레이로 표시)
+                # 서브 도우미 표시 (도우미를 아직 표시하지 않은 경우 활성화)
                 if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned and not tutorial_serve_helper_shown:
+                    # 서브 도우미 활성화
+                    if 'tutorial_serve_helper_active' in globals():
+                        tutorial_serve_helper_active = True
+                    
+                # 서브 도우미가 활성화되어 있으면 표시
+                if 'tutorial_serve_helper_active' in globals() and tutorial_serve_helper_active:
                     instruction_text = "스페이스바를 눌러 서브공을 발사해보세요!"
                     text_surface = font_tutorial.render(instruction_text, True, CYAN)
                     text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 100))
