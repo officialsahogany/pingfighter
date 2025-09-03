@@ -14592,6 +14592,49 @@ def draw_tutorial_dash_helper():
         arrow_rect = arrow_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + 10))
         SCREEN.blit(arrow_text, arrow_rect)
 
+def draw_tutorial_serve_reminder():
+    """튜토리얼 서브 알림 오버레이 (인트로 대화 후 표시)"""
+    global tutorial_serve_reminder_active
+    
+    if not tutorial_serve_reminder_active:
+        return
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 메인 텍스트용
+    font_small = FontStyle.small()     # 18pt 서브 텍스트용
+    
+    # 알림 내용
+    main_text = "스페이스바를 눌러 서브공을 발사하세요!"
+    
+    # 알림 박스 위치 및 크기 (대쉬 도우미와 동일한 스타일)
+    box_width = 700
+    box_height = 60
+    box_x = (WIDTH - box_width) // 2
+    box_y = HEIGHT // 2 + 100  # 화면 중앙 아래쪽
+    
+    # 박스 배경 (반투명)
+    box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+    box_surface.fill((20, 20, 40, 220))  # 반투명 배경
+    pygame.draw.rect(box_surface, YELLOW, (0, 0, box_width, box_height), 3)  # 노란색 테두리
+    SCREEN.blit(box_surface, (box_x, box_y))
+    
+    # 메인 텍스트
+    main_surface = font_large.render(main_text, True, YELLOW)
+    main_rect = main_surface.get_rect(center=(box_x + box_width // 2, box_y + box_height // 2))
+    SCREEN.blit(main_surface, main_rect)
+    
+    # 깜박임 효과 (화살표)
+    if pygame.time.get_ticks() % 1000 < 500:
+        arrow_text = font_large.render("▼", True, YELLOW)
+        arrow_rect = arrow_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + 10))
+        SCREEN.blit(arrow_text, arrow_rect)
+    
+    # 작은 안내 텍스트
+    hint_text = "SPACE - 서브 발사"
+    hint_surface = font_small.render(hint_text, True, (200, 200, 200))
+    hint_rect = hint_surface.get_rect(center=(box_x + box_width // 2, box_y - 20))
+    SCREEN.blit(hint_surface, hint_rect)
+
 def show_tutorial_dash_helper():
     """튜토리얼 대쉬 도우미 알림"""
     # 서브 도우미와 동일한 방식 - 게임 화면을 배경으로 그대로 사용
@@ -14616,7 +14659,7 @@ def show_tutorial_dash_dialogue():
     
     # 대화 시퀀스 (간단한 튜플 형식)
     dialogues = [
-        ("조교", "하지만 이 모든 위기는 극복이 가능하지"),
+        ("조교", "하지만 이 모든 한계는 극복이 가능하지"),
         ("조교", "지금부터 대쉬를 익혀볼 건데"),
         ("조교", "핑파이터의 핵심 기술 중 하나이다"),
         ("조교", "대쉬란 먼 거리를 짧은시간에 순간적으로 이동하는 기술"),
@@ -15286,7 +15329,7 @@ def show_tutorial_speed_dialogue():
         ("조교", "공의 속도가 어떤거 같나 훈련생"),
         ("플레이어", "점점 빨라지는게 느껴집니다"),
         ("조교", "그렇다 점점 대응이 어려워지지"),
-        ("조교", "이 경우 단순 이동으로는 위기를 극복할 수 없다")
+        ("조교", "이 경우 단순 이동으로는 한계를 극복할 수 없다")
     ]
     
     # 하단 바 UI 설정
@@ -26541,6 +26584,7 @@ def main(stage_num, new_boss_mode=False):
         tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
         tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
         tutorial_serve_helper_active = False  # 서브 도우미 현재 활성 상태
+        tutorial_serve_reminder_active = False  # 서브 알림창 활성 상태 (인트로 후)
         tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
         tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
         tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
@@ -26608,8 +26652,9 @@ def main(stage_num, new_boss_mode=False):
                 # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
                 print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
                 
-                # 서브 도우미가 정상적으로 표시되도록 함
-                # tutorial_serve_helper_shown = False (기본값이므로 설정 불필요)
+                # 인트로 대화 후 서브 알림창 활성화
+                tutorial_serve_reminder_active = True
+                print("튜토리얼: 서브 알림창 활성화")
     
     running = True
     while running:
@@ -27162,6 +27207,12 @@ def main(stage_num, new_boss_mode=False):
                         tutorial_serve_helper_shown = True  # 도우미를 봤음으로 표시
                         print("튜토리얼: 스페이스바 입력으로 서브 도우미 즉시 비활성화 (서브 여부 무관)")
                 
+                # 튜토리얼 서브 알림창 스페이스바로 비활성화
+                if current_stage == 50 and 'tutorial_serve_reminder_active' in globals():
+                    if tutorial_serve_reminder_active:
+                        tutorial_serve_reminder_active = False
+                        print("튜토리얼: 스페이스바 입력으로 서브 알림창 비활성화")
+                
                 # 전설 아이템 효과가 스페이스바를 기다리는 중이면 처리
                 if handle_legendary_space_press():
                     continue  # 전설 효과가 스페이스바를 처리했으면 다른 처리 건너뛰기
@@ -27174,6 +27225,12 @@ def main(stage_num, new_boss_mode=False):
                         if tutorial_serve_helper_active:
                             tutorial_serve_helper_active = False
                             print("튜토리얼: 스페이스바 입력으로 서브 도우미 즉시 비활성화")
+                    
+                    # 튜토리얼 서브 알림창 비활성화 (서브 실행 시)
+                    if current_stage == 50 and 'tutorial_serve_reminder_active' in globals():
+                        if tutorial_serve_reminder_active:
+                            tutorial_serve_reminder_active = False
+                            print("튜토리얼: 서브 실행으로 서브 알림창 비활성화")
                     
                     # 튜토리얼 모드에서 도우미 후 첫 서브 처리
                     if current_stage == 50 and tutorial_wait_for_first_serve:
@@ -27883,6 +27940,11 @@ def main(stage_num, new_boss_mode=False):
                     #     print(f"대쉬 도우미 비활성: {tutorial_dash_helper_active}")
                 else:
                     print("tutorial_dash_helper_active 변수가 globals()에 없음")
+                
+                # 튜토리얼 서브 알림창 오버레이 표시
+                if 'tutorial_serve_reminder_active' in globals():
+                    if tutorial_serve_reminder_active:
+                        draw_tutorial_serve_reminder()
                 
                 # 대쉬 챕터에서 160 게이지 도달 시 게이지 대화 표시
                 if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
