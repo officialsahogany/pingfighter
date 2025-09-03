@@ -26088,13 +26088,10 @@ def main(stage_num, new_boss_mode=False):
                 # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
                 print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
                 
-                # 초기 대화 직후 서브 도우미 표시
-                print("튜토리얼 서브 도우미 표시")
-                print(f"도우미 표시 전: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}")
-                if show_tutorial_serve_helper():
-                    tutorial_serve_helper_shown = True
-                    print("튜토리얼 서브 도우미 표시 완료")
-                    print(f"도우미 표시 후: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}")
+                # 서브 도우미 표시 제거 - 사용자 요청
+                print("튜토리얼 서브 도우미 제거 (사용자 요청)")
+                tutorial_serve_helper_shown = True  # 도우미를 표시한 것처럼 처리
+                print(f"도우미 건너뜀: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}")
     
     running = True
     while running:
@@ -27302,15 +27299,14 @@ def main(stage_num, new_boss_mode=False):
             # 라그나로크 해머 활성 상태
             from legendary_items import get_legendary_manager
         
-        # 튜토리얼 서브 도우미 알림 표시 (메인 루프에서는 백업용으로만 체크)
-        # 보통은 초기 대화 직후에 표시되지만, 혹시 놓친 경우를 위해
-        if current_stage == 50 and tutorial_practice_mode:
-            if is_waiting_for_serve and is_player_serve and not tutorial_serve_helper_shown and not tutorial_boss_returned:
-                # 현재 화면을 업데이트한 후 도우미 표시
-                pygame.display.flip()
-                if show_tutorial_serve_helper():
-                    tutorial_serve_helper_shown = True
-                continue  # 다음 프레임으로
+        # 튜토리얼 서브 도우미 알림 표시 제거 - 사용자 요청
+        # if current_stage == 50 and tutorial_practice_mode:
+        #     if is_waiting_for_serve and is_player_serve and not tutorial_serve_helper_shown and not tutorial_boss_returned:
+        #         # 현재 화면을 업데이트한 후 도우미 표시
+        #         pygame.display.flip()
+        #         if show_tutorial_serve_helper():
+        #             tutorial_serve_helper_shown = True
+        #         continue  # 다음 프레임으로
         
         # 튜토리얼 모드 UI 표시
         if current_stage == 50 and 'tutorial_practice_mode' in globals():
