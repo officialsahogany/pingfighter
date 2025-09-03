@@ -14519,6 +14519,10 @@ def show_tutorial_dash_dialogue():
     # 배경 캡처 (현재 게임 화면)
     background = SCREEN.copy()
     
+    # 대쉬 시연을 위한 변수
+    last_dash_direction = None
+    dash_sound_played = {"LEFT": False, "RIGHT": False}
+    
     # 각 대화를 순차적으로 표시
     for dialogue_index, dialogue in enumerate(dialogues):
         speaker = dialogue[0]
@@ -14529,6 +14533,11 @@ def show_tutorial_dash_dialogue():
         displayed_text = ""
         text_complete = False
         text_animation_timer = 0
+        
+        # 8번 대사에서 대쉬 사운드 초기화
+        if dialogue_index == 7:
+            dash_sound_played = {"LEFT": False, "RIGHT": False}
+            last_dash_direction = None
         
         running = True
         while running:
@@ -14580,6 +14589,62 @@ def show_tutorial_dash_dialogue():
             
             # 실제 텍스트
             SCREEN.blit(text_surface, text_rect)
+            
+            # 8번 대사에서 조교가 대쉬 시연
+            if dialogue_index == 7 and text_complete:  # "해당 방향으로 대쉬가 발동하며 빠르게 이동한다"
+                # 조교 대쉬 시연 애니메이션
+                demo_timer = pygame.time.get_ticks()
+                
+                # 조교 위치 (화면 중앙 상단)
+                boss_demo_y = HEIGHT // 3
+                boss_demo_center_x = WIDTH // 2
+                
+                # 대쉬 시연 타이밍 (2초마다 방향 전환)
+                demo_phase = (demo_timer // 2000) % 2
+                
+                if demo_phase == 0:
+                    # 왼쪽 대쉬 시연
+                    boss_demo_x = boss_demo_center_x - 150
+                    dash_direction = "LEFT"
+                else:
+                    # 오른쪽 대쉬 시연
+                    boss_demo_x = boss_demo_center_x + 150
+                    dash_direction = "RIGHT"
+                
+                # 대쉬 방향이 바뀔 때 사운드 재생
+                if dash_direction != last_dash_direction:
+                    if not dash_sound_played[dash_direction]:
+                        # 대쉬 사운드 재생
+                        if 'dash_sound' in globals():
+                            dash_sound.play()
+                        dash_sound_played[dash_direction] = True
+                        last_dash_direction = dash_direction
+                        
+                        # 2초 후 다음 방향 사운드 재생 가능하도록 리셋
+                        if demo_phase == 1:  # 오른쪽 대쉬 후 리셋
+                            dash_sound_played = {"LEFT": False, "RIGHT": False}
+                
+                # 조교 패들 그리기
+                boss_demo_rect = pygame.Rect(boss_demo_x - 40, boss_demo_y - 10, 80, 20)
+                pygame.draw.rect(SCREEN, (255, 100, 100), boss_demo_rect, 0, 5)
+                pygame.draw.rect(SCREEN, (255, 150, 150), boss_demo_rect, 2, 5)
+                
+                # 대쉬 이펙트 그리기
+                effect_alpha = 150 - (demo_timer % 1000) // 10
+                if effect_alpha > 0:
+                    # 잔상 효과
+                    for i in range(3):
+                        ghost_x = boss_demo_center_x + (boss_demo_x - boss_demo_center_x) * i // 3
+                        ghost_rect = pygame.Rect(ghost_x - 40, boss_demo_y - 10, 80, 20)
+                        ghost_surface = pygame.Surface((80, 20), pygame.SRCALPHA)
+                        ghost_surface.fill((255, 100, 100, effect_alpha // 2))
+                        SCREEN.blit(ghost_surface, ghost_rect)
+                    
+                    # 대쉬 방향 표시
+                    arrow_text = "◀ DASH" if dash_direction == "LEFT" else "DASH ▶"
+                    arrow_surface = font_small.render(arrow_text, True, YELLOW)
+                    arrow_rect = arrow_surface.get_rect(center=(boss_demo_x, boss_demo_y - 40))
+                    SCREEN.blit(arrow_surface, arrow_rect)
             
             # 스페이스바 안내 (하단 우측)
             if text_complete:
