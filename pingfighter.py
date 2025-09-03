@@ -14896,57 +14896,54 @@ def show_tutorial_dash_dialogue():
 def draw_tutorial_ui():
     """튜토리얼 UI 표시 (타격 카운터 및 안내 메시지)"""
     global tutorial_gauge_tutorial_shown, tutorial_speed_dialogue_shown
-    global tutorial_player_hit_count
+    global tutorial_player_hit_count, tutorial_displayed_hit_count
     
     # 게이지 튜토리얼 이후, 속도 튜토리얼 전에만 표시
     if current_stage == 50 and tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
+        # 점진적 애니메이션 업데이트
+        if tutorial_displayed_hit_count < tutorial_player_hit_count:
+            # 부드러운 애니메이션 속도 (프레임당 0.05 증가)
+            tutorial_displayed_hit_count = min(tutorial_displayed_hit_count + 0.05, tutorial_player_hit_count)
         # 폰트 설정
-        font_large = FontStyle.subtitle()  # 32pt - 큰 숫자용
-        font_medium = FontStyle.body()     # 24pt
-        font_small = FontStyle.small()     # 18pt
-        font_tiny = FontStyle.tiny()       # 16pt
+        font_large = FontStyle.body()      # 24pt - 숫자용 (작게 변경)
+        font_medium = FontStyle.small()    # 18pt
+        font_small = FontStyle.tiny()      # 16pt
         
-        # 중앙 상단 위치로 이동
-        ui_x = WIDTH // 2
-        ui_y = 50
+        # 오른쪽 상단 위치 (더 작고 미니멀하게)
+        ui_x = WIDTH - 80
+        ui_y = 40
         
-        # 세련된 카드 스타일 배경
-        card_width = 200
-        card_height = 120
-        card_x = ui_x - card_width // 2
-        card_y = ui_y - 20
+        # 미니멀한 반투명 배경 (작은 크기)
+        bg_width = 140
+        bg_height = 80
+        bg_x = ui_x - bg_width // 2
+        bg_y = ui_y - 15
         
-        # 카드 배경 (그라디언트 효과를 위한 다층 구조)
-        # 외부 그림자
-        shadow_surf = pygame.Surface((card_width + 10, card_height + 10), pygame.SRCALPHA)
-        pygame.draw.rect(shadow_surf, (0, 0, 0, 30), (5, 5, card_width, card_height), border_radius=12)
-        SCREEN.blit(shadow_surf, (card_x - 5, card_y - 5))
+        # 반투명 배경 (매우 은은하게)
+        bg_surf = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+        pygame.draw.rect(bg_surf, (20, 25, 40, 120), (0, 0, bg_width, bg_height), border_radius=8)
+        pygame.draw.rect(bg_surf, (100, 255, 255, 40), (0, 0, bg_width, bg_height), border_radius=8, width=1)
+        SCREEN.blit(bg_surf, (bg_x, bg_y))
         
-        # 메인 카드 배경
-        card_surf = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
-        pygame.draw.rect(card_surf, (20, 25, 40, 200), (0, 0, card_width, card_height), border_radius=10)
-        pygame.draw.rect(card_surf, (100, 255, 255, 80), (0, 0, card_width, card_height), border_radius=10, width=2)
-        SCREEN.blit(card_surf, (card_x, card_y))
+        # 컴팩트한 원형 진행도
+        circle_radius = 22
+        circle_center_x = ui_x - 30
+        circle_center_y = ui_y + 10
         
-        # 진행 상태 표시 (원형 진행도)
-        circle_radius = 35
-        circle_center_x = ui_x
-        circle_center_y = ui_y + 20
+        # 배경 원 (매우 은은하게)
+        pygame.draw.circle(SCREEN, (40, 45, 60, 180), (circle_center_x, circle_center_y), circle_radius, 2)
         
-        # 배경 원 (어두운 색)
-        pygame.draw.circle(SCREEN, (30, 35, 50), (circle_center_x, circle_center_y), circle_radius, 3)
-        
-        # 진행도 원호 그리기
-        if tutorial_player_hit_count > 0:
+        # 진행도 원호 그리기 (애니메이션 값 사용)
+        if tutorial_displayed_hit_count > 0:
             import math
-            progress = tutorial_player_hit_count / 6
+            progress = tutorial_displayed_hit_count / 6
             # 시작 각도 -90도 (12시 방향)
             start_angle = -math.pi / 2
             # 진행도에 따른 종료 각도
             end_angle = start_angle + (2 * math.pi * progress)
             
             # 아크를 작은 선분들로 그리기
-            num_segments = max(2, int(36 * progress))
+            num_segments = max(2, int(36 * progress))  # 더 부드럽게 표시
             for i in range(num_segments):
                 angle1 = start_angle + (end_angle - start_angle) * (i / num_segments)
                 angle2 = start_angle + (end_angle - start_angle) * ((i + 1) / num_segments)
@@ -14956,48 +14953,63 @@ def draw_tutorial_ui():
                 x2 = circle_center_x + circle_radius * math.cos(angle2)
                 y2 = circle_center_y + circle_radius * math.sin(angle2)
                 
-                # 그라디언트 색상 (진행도에 따라 변화)
-                color_intensity = int(100 + 155 * (i / num_segments))
-                color = (0, color_intensity, 255 - color_intensity // 2) if tutorial_player_hit_count < 6 else (0, 255, 100)
-                pygame.draw.line(SCREEN, color, (x1, y1), (x2, y2), 4)
+                # 진행도 색상 (실제 hit count 기준)
+                if tutorial_player_hit_count < 3:
+                    color = (120, 150, 180)  # 은은한 회색-파랑
+                elif tutorial_player_hit_count < 6:
+                    color = (100, 200, 255)  # 밝은 파랑
+                else:
+                    color = (0, 255, 100)  # 완료 시 초록색
+                
+                pygame.draw.line(SCREEN, color, (x1, y1), (x2, y2), 3)
         
-        # 중앙 숫자 표시 (더 크고 굵게)
-        current_text = str(tutorial_player_hit_count)
-        current_surface = font_large.render(current_text, True, (255, 255, 255))
-        current_rect = current_surface.get_rect(center=(circle_center_x, circle_center_y - 5))
-        SCREEN.blit(current_surface, current_rect)
+        # 숫자 표시 (실제 값으로)
+        counter_text = f"{tutorial_player_hit_count}/6"
+        counter_surface = font_large.render(counter_text, True, (255, 255, 255))
+        counter_rect = counter_surface.get_rect(center=(circle_center_x, circle_center_y))
+        SCREEN.blit(counter_surface, counter_rect)
         
-        # 구분선
-        line_y = circle_center_y + 8
-        pygame.draw.line(SCREEN, (100, 100, 100), (circle_center_x - 15, line_y), (circle_center_x + 15, line_y), 1)
-        
-        # 목표 숫자 (작게)
-        total_text = "6"
-        total_surface = font_small.render(total_text, True, (150, 150, 150))
-        total_rect = total_surface.get_rect(center=(circle_center_x, circle_center_y + 18))
-        SCREEN.blit(total_surface, total_rect)
-        
-        # 진행 상태 메시지 (카드 하단)
+        # 진행 상태 메시지 (오른쪽에 작게)
         if tutorial_player_hit_count < 3:
-            hint_text = "여러 각도로 쳐보세요"
+            hint_text = "각도 연습"
             hint_color = (150, 150, 150)
         elif tutorial_player_hit_count < 6:
             hint_text = "잘하고 있어요!"
             hint_color = (100, 200, 255)
+            # 칭찬 메시지에 작은 반짝임 효과
+            if pygame.time.get_ticks() % 1000 < 500:
+                hint_color = (150, 220, 255)
         else:
-            hint_text = "목표 달성!"
+            hint_text = "완료!"
             hint_color = (0, 255, 100)
+            # 완료 시 강조 효과
+            if pygame.time.get_ticks() % 800 < 400:
+                pygame.draw.circle(SCREEN, (0, 255, 100, 50), (circle_center_x, circle_center_y), circle_radius + 5, 2)
         
-        hint_surface = font_small.render(hint_text, True, hint_color)
-        hint_rect = hint_surface.get_rect(center=(ui_x, card_y + card_height - 20))
+        hint_surface = font_medium.render(hint_text, True, hint_color)
+        hint_rect = hint_surface.get_rect(left=circle_center_x + circle_radius + 10, centery=circle_center_y)
         SCREEN.blit(hint_surface, hint_rect)
         
-        # 작은 장식 요소들 (빛나는 점들)
-        if pygame.time.get_ticks() % 2000 < 1000:  # 1초마다 반짝임
-            for i in range(3):
-                dot_x = card_x + 20 + i * 25
-                dot_y = card_y + 15
-                pygame.draw.circle(SCREEN, (100, 255, 255, 100), (dot_x, dot_y), 2)
+        # 미니 진행도 바 (텍스트 아래 작게)
+        bar_width = 50
+        bar_height = 3
+        bar_x = circle_center_x + circle_radius + 10
+        bar_y = circle_center_y + 12
+        
+        # 배경 바
+        pygame.draw.rect(SCREEN, (40, 40, 40, 100), (bar_x, bar_y, bar_width, bar_height), border_radius=2)
+        
+        # 진행도 채우기 (애니메이션 값 사용)
+        fill_width = int((tutorial_displayed_hit_count / 6) * bar_width)
+        if fill_width > 0:
+            fill_color = (0, 255, 100) if tutorial_player_hit_count >= 6 else (100, 200, 255)
+            pygame.draw.rect(SCREEN, fill_color, (bar_x, bar_y, fill_width, bar_height), border_radius=2)
+            
+            # 애니메이션 진행 중일 때 끝부분에 밝은 효과
+            if tutorial_displayed_hit_count < tutorial_player_hit_count:
+                glow_color = (150, 255, 255) if tutorial_player_hit_count < 6 else (100, 255, 150)
+                if fill_width >= 2:
+                    pygame.draw.rect(SCREEN, glow_color, (bar_x + fill_width - 2, bar_y, 2, bar_height), border_radius=1)
 
 def show_chapter_title(chapter_num, title, subtitle=None):
     """챕터 타이틀 표시 (페이드 효과 포함)"""
@@ -26276,12 +26288,14 @@ def main(stage_num, new_boss_mode=False):
         tutorial_player_returned_ball = False  # 플레이어가 조교의 공을 받아쳤는지
         tutorial_gauge_tutorial_shown = False  # 게이지 튜토리얼 표시 여부
         tutorial_player_hit_count = 0  # 플레이어가 공을 친 횟수
+        tutorial_displayed_hit_count = 0.0  # 화면에 표시되는 애니메이션용 카운트
         tutorial_speed_dialogue_shown = False  # 속도 튜토리얼 대화 표시 여부
     else:
         # 대쉬 튜토리얼 재진입 시 게이지 관련 변수는 유지
         # tutorial_gauge_tutorial_shown는 True 상태 유지
         # special_gauge 값도 유지됨
         tutorial_player_hit_count = 0  # 타격 횟수만 리셋
+        tutorial_displayed_hit_count = 0.0  # 화면에 표시되는 애니메이션용 카운트
         tutorial_speed_dialogue_shown = True  # 속도 대화는 이미 표시됨
     
     # 대쉬 튜토리얼 변수는 이미 위에서 초기화됨
