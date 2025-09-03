@@ -16018,37 +16018,10 @@ def show_tutorial_dash_token_dialogue():
             # 배경 그리기 (정지된 게임 화면)
             SCREEN.blit(background, (0, 0))
             
-            # 토큰 강조 시 특별 처리
-            if dialogue.get("highlight_token", False):
-                # 토큰 위치 계산 (강조할 영역)
-                player_gauge_x = WIDTH - 40
-                player_gauge_width = 14
-                gauge_height = 480
-                gauge_y = HEIGHT - 540
-                token_radius = 6
-                token_spacing = 16
-                max_tokens = 1
-                token_start_x = player_gauge_x + player_gauge_width // 2 - (max_tokens * token_spacing) // 2 + token_spacing // 2
-                token_y = gauge_y + gauge_height + 15
-                
-                # 강조할 영역 정의 (토큰 주변 넓은 영역)
-                highlight_area_x = token_start_x - 30
-                highlight_area_y = token_y - 30
-                highlight_area_width = 60
-                highlight_area_height = 60
-                
-                # 어두운 오버레이를 강조 영역을 제외하고 그리기
-                overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                overlay.fill((0, 0, 0, 150))
-                # 강조할 영역을 투명하게 만들기 (원래 색상 유지)
-                pygame.draw.rect(overlay, (0, 0, 0, 0), 
-                               (highlight_area_x, highlight_area_y, highlight_area_width, highlight_area_height))
-                SCREEN.blit(overlay, (0, 0))
-            else:
-                # 일반 어두운 오버레이
-                overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                overlay.fill((0, 0, 0, 150))
-                SCREEN.blit(overlay, (0, 0))
+            # 일반 어두운 오버레이 먼저 그리기
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            SCREEN.blit(overlay, (0, 0))
             
             # 게이지 그리기
             draw_player_gauge()
@@ -16072,28 +16045,36 @@ def show_tutorial_dash_token_dialogue():
                 
                 # 강조 박스 그리기 (깜빡임 효과) - 빨간 구슬 위치를 더 위로 조정
                 if highlight_timer % 40 < 30:  # 40프레임마다 30프레임 표시
-                    highlight_color = (255, 255, 0, 150)  # 노란색 반투명
-                    # 토큰(빨간 구슬) 위치에서 박스를 위로 이동
+                    # 박스 위치 및 크기 정의
                     box_width = 50  # 박스 너비
                     box_height = 30  # 박스 높이
-                    box_y_offset = -20  # 박스를 더 위로 올리는 오프셋 (10 -> 20)
-                    highlight_rect = pygame.Rect(
-                        token_start_x - box_width // 2,  # 토큰 중심에서 박스 절반 너비만큼 왼쪽
-                        token_y - box_height // 2 + box_y_offset,  # 토큰 중심에서 위로 이동
-                        box_width,
-                        box_height
-                    )
-                    pygame.draw.rect(SCREEN, highlight_color[:3], highlight_rect, 3, border_radius=5)
+                    box_y_offset = -20  # 박스를 더 위로 올리는 오프셋
+                    box_x = token_start_x - box_width // 2
+                    box_y = token_y - box_height // 2 + box_y_offset
+                    
+                    # 노란색 박스 영역만 원본 배경으로 다시 그리기 (명암 제거)
+                    # 박스 영역의 원본 배경을 클리핑해서 다시 그리기
+                    clip_rect = pygame.Rect(box_x, box_y, box_width, box_height)
+                    SCREEN.set_clip(clip_rect)
+                    SCREEN.blit(background, (0, 0))
+                    # 게이지 다시 그리기 (클리핑된 영역만)
+                    draw_player_gauge()
+                    SCREEN.set_clip(None)  # 클리핑 해제
+                    
+                    # 노란색 테두리 그리기
+                    highlight_color = (255, 255, 0)  # 노란색
+                    highlight_rect = pygame.Rect(box_x, box_y, box_width, box_height)
+                    pygame.draw.rect(SCREEN, highlight_color, highlight_rect, 3, border_radius=5)
                     
                     # 화살표 그리기 (박스 왼쪽에 배치)
-                    arrow_x = token_start_x - box_width // 2 - 15  # 박스 왼쪽에 화살표
+                    arrow_x = box_x - 15  # 박스 왼쪽에 화살표
                     arrow_y = token_y + box_y_offset  # 박스 중앙 높이
                     arrow_points = [
                         (arrow_x + 10, arrow_y),  # 화살표 끝 (박스를 가리킴)
                         (arrow_x, arrow_y - 8),  # 위쪽 꼭지점
                         (arrow_x, arrow_y + 8)   # 아래쪽 꼭지점
                     ]
-                    pygame.draw.polygon(SCREEN, highlight_color[:3], arrow_points)
+                    pygame.draw.polygon(SCREEN, highlight_color, arrow_points)
             
             # 중앙 대화창 스타일
             dialogue_width = 800
