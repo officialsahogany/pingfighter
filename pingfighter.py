@@ -14548,6 +14548,9 @@ def show_tutorial_miss_dialogue():
 tutorial_dash_helper_active = False
 tutorial_dash_helper_start_time = 0
 
+# 서브 알림창 전역 변수
+tutorial_serve_reminder_active = False
+
 # 튜토리얼 히트 카운터 애니메이션 변수
 tutorial_displayed_hit_count = 0.0
 
@@ -14601,7 +14604,6 @@ def draw_tutorial_serve_reminder():
     
     # 폰트 설정
     font_large = FontStyle.subtitle()  # 32pt 메인 텍스트용
-    font_small = FontStyle.small()     # 18pt 서브 텍스트용
     
     # 알림 내용
     main_text = "스페이스바를 눌러 서브공을 발사하세요!"
@@ -14615,25 +14617,19 @@ def draw_tutorial_serve_reminder():
     # 박스 배경 (반투명)
     box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
     box_surface.fill((20, 20, 40, 220))  # 반투명 배경
-    pygame.draw.rect(box_surface, YELLOW, (0, 0, box_width, box_height), 3)  # 노란색 테두리
+    pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 3)  # 청록색 테두리
     SCREEN.blit(box_surface, (box_x, box_y))
     
     # 메인 텍스트
-    main_surface = font_large.render(main_text, True, YELLOW)
+    main_surface = font_large.render(main_text, True, CYAN)
     main_rect = main_surface.get_rect(center=(box_x + box_width // 2, box_y + box_height // 2))
     SCREEN.blit(main_surface, main_rect)
     
     # 깜박임 효과 (화살표)
     if pygame.time.get_ticks() % 1000 < 500:
-        arrow_text = font_large.render("▼", True, YELLOW)
+        arrow_text = font_large.render("▼", True, CYAN)
         arrow_rect = arrow_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + 10))
         SCREEN.blit(arrow_text, arrow_rect)
-    
-    # 작은 안내 텍스트
-    hint_text = "SPACE - 서브 발사"
-    hint_surface = font_small.render(hint_text, True, (200, 200, 200))
-    hint_rect = hint_surface.get_rect(center=(box_x + box_width // 2, box_y - 20))
-    SCREEN.blit(hint_surface, hint_rect)
 
 def show_tutorial_dash_helper():
     """튜토리얼 대쉬 도우미 알림"""
