@@ -15273,7 +15273,7 @@ def show_tutorial_gauge_dialogue():
     
     # 게이지 충전 애니메이션 변수
     gauge_animation_start = 0  # 게이지 시작 값
-    gauge_animation_target = 80  # 목표 게이지 값
+    gauge_animation_target = 160  # 목표 게이지 값 (대쉬 챕터 트리거 기준과 동일)
     gauge_animation_current = 0  # 현재 애니메이션 게이지 값
     gauge_animation_duration = 1500  # 1.5초 동안 충전
     gauge_animation_start_time = 0
