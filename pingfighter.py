@@ -16049,7 +16049,7 @@ def show_tutorial_dash_token_dialogue():
                     # 토큰(빨간 구슬) 위치에서 박스를 위로 이동
                     box_width = 50  # 박스 너비
                     box_height = 30  # 박스 높이
-                    box_y_offset = -10  # 박스를 위로 올리는 오프셋
+                    box_y_offset = -20  # 박스를 더 위로 올리는 오프셋 (10 -> 20)
                     highlight_rect = pygame.Rect(
                         token_start_x - box_width // 2,  # 토큰 중심에서 박스 절반 너비만큼 왼쪽
                         token_y - box_height // 2 + box_y_offset,  # 토큰 중심에서 위로 이동
