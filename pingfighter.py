@@ -6189,6 +6189,13 @@ def handle_player(keys):
             if current_stage == 50 and 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
                 tutorial_dash_helper_active = False
                 print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
+            
+            # 튜토리얼 대쉬 카운터 증가
+            global tutorial_dash_count, tutorial_dash_counter_active
+            if current_stage == 50 and tutorial_dash_counter_active:
+                if tutorial_dash_count < 3:
+                    tutorial_dash_count += 1
+                    print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/3")
             #  대쉬 활용 능력 상세 분석
             ball_distance = abs(BALL.centery - PLAYER.centery)
             ball_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -14528,6 +14535,11 @@ tutorial_dash_helper_start_time = 0
 # 튜토리얼 히트 카운터 애니메이션 변수
 tutorial_displayed_hit_count = 0.0
 
+# 튜토리얼 대쉬 카운터 변수
+tutorial_dash_count = 0  # 대쉬 성공 횟수
+tutorial_displayed_dash_count = 0.0  # 화면에 표시되는 애니메이션용 대쉬 카운트
+tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
+
 def draw_tutorial_dash_helper():
     """튜토리얼 대쉬 도우미 오버레이 그리기 (게임플레이 중 표시)"""
     global tutorial_dash_helper_active
@@ -15029,6 +15041,149 @@ def draw_tutorial_ui():
         hint_surface = font_medium.render(hint_text, True, hint_color)
         hint_rect = hint_surface.get_rect(centerx=paddle_x, top=paddle_y + 25)  # 30 -> 25로 조정
         SCREEN.blit(hint_surface, hint_rect)
+
+def draw_tutorial_dash_counter():
+    """튜토리얼 대쉬 카운터 UI 표시 (3회 대쉬 카운트)"""
+    global tutorial_dash_counter_active, tutorial_dash_count, tutorial_displayed_dash_count
+    
+    # 대쉬 카운터가 활성화되었을 때만 표시
+    if not tutorial_dash_counter_active or current_stage != 50:
+        return
+    
+    # 점진적 애니메이션 업데이트
+    if tutorial_displayed_dash_count < tutorial_dash_count:
+        # 부드러운 애니메이션 속도 (프레임당 0.05 증가)
+        tutorial_displayed_dash_count = min(tutorial_displayed_dash_count + 0.05, tutorial_dash_count)
+    
+    # 폰트 설정
+    font_large = FontStyle.body()      # 24pt - 숫자용
+    font_medium = FontStyle.small()    # 18pt
+    
+    # 오른쪽 상단 위치 (히트 카운터와 동일한 위치)
+    ui_x = WIDTH - 100
+    ui_y = 50
+    
+    # 미니멀한 반투명 배경
+    bg_width = 180
+    bg_height = 90
+    bg_x = ui_x - bg_width // 2
+    bg_y = ui_y - 15
+    
+    # 반투명 배경 (은은하게)
+    bg_surf = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+    pygame.draw.rect(bg_surf, (20, 25, 40, 120), (0, 0, bg_width, bg_height), border_radius=8)
+    pygame.draw.rect(bg_surf, (100, 255, 255, 40), (0, 0, bg_width, bg_height), border_radius=8, width=1)
+    SCREEN.blit(bg_surf, (bg_x, bg_y))
+    
+    # 컴팩트한 원형 진행도
+    circle_radius = 22
+    circle_center_x = ui_x - 50
+    circle_center_y = ui_y + 10
+    
+    # 배경 원
+    pygame.draw.circle(SCREEN, (40, 45, 60, 180), (circle_center_x, circle_center_y), circle_radius, 2)
+    
+    # 진행도 원호 그리기 (3분할)
+    if tutorial_displayed_dash_count > 0:
+        import math
+        progress = tutorial_displayed_dash_count / 3  # 3회 기준
+        # 시작 각도 -90도 (12시 방향)
+        start_angle = -math.pi / 2
+        # 진행도에 따른 종료 각도
+        end_angle = start_angle + (2 * math.pi * progress)
+        
+        # 아크를 작은 선분들로 그리기
+        num_segments = max(2, int(36 * progress))
+        for i in range(num_segments):
+            angle1 = start_angle + (end_angle - start_angle) * (i / num_segments)
+            angle2 = start_angle + (end_angle - start_angle) * ((i + 1) / num_segments)
+            
+            x1 = circle_center_x + circle_radius * math.cos(angle1)
+            y1 = circle_center_y + circle_radius * math.sin(angle1)
+            x2 = circle_center_x + circle_radius * math.cos(angle2)
+            y2 = circle_center_y + circle_radius * math.sin(angle2)
+            
+            # 진행도 색상
+            if tutorial_dash_count < 2:
+                color = (255, 200, 100)  # 주황색
+            elif tutorial_dash_count < 3:
+                color = (255, 255, 100)  # 노란색
+            else:
+                color = (0, 255, 200)  # 민트색 (완료)
+            
+            pygame.draw.line(SCREEN, color, (x1, y1), (x2, y2), 3)
+    
+    # 숫자 표시
+    counter_text = f"{tutorial_dash_count}/3"
+    counter_surface = font_large.render(counter_text, True, (255, 255, 255))
+    counter_rect = counter_surface.get_rect(center=(circle_center_x, circle_center_y))
+    SCREEN.blit(counter_surface, counter_rect)
+    
+    # 대쉬 아이콘 그리기 (원형 진행도 오른쪽에)
+    dash_x = circle_center_x + circle_radius + 25
+    dash_y = circle_center_y
+    
+    # 애니메이션 각도 계산
+    import math
+    dash_offset = tutorial_displayed_dash_count * 5  # 진행도에 따라 이동
+    
+    # 대쉬 화살표 그리기
+    arrow_surf = pygame.Surface((50, 40), pygame.SRCALPHA)
+    
+    # 대쉬 이펙트 라인들 (속도감 표현)
+    for i in range(3):
+        line_y = 10 + i * 10
+        line_length = 20 - i * 3
+        line_alpha = 180 - i * 40
+        line_color = (100, 200, 255, line_alpha)
+        pygame.draw.line(arrow_surf, line_color, (5, line_y), (5 + line_length, line_y), 2)
+    
+    # 메인 화살표 (삼각형)
+    arrow_color = (255, 255, 100) if tutorial_dash_count >= 2 else (100, 200, 255)
+    arrow_points = [
+        (25, 20),  # 꼭짓점
+        (35, 10),  # 위쪽
+        (35, 30),  # 아래쪽
+    ]
+    pygame.draw.polygon(arrow_surf, arrow_color, arrow_points)
+    
+    # 화살표 하이라이트
+    pygame.draw.polygon(arrow_surf, (255, 255, 255, 50), arrow_points, 2)
+    
+    # 진행도에 따른 반짝임 효과
+    if tutorial_displayed_dash_count < tutorial_dash_count:
+        # 애니메이션 중일 때 반짝임
+        glow_alpha = int(128 + 127 * math.sin(pygame.time.get_ticks() * 0.01))
+        glow_surf = pygame.Surface((50, 40), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (255, 255, 100, glow_alpha // 3), (30, 20), 15)
+        arrow_surf.blit(glow_surf, (0, 0))
+    
+    # 위치 조정 (좌우 움직임)
+    move_offset = int(8 * math.sin(tutorial_displayed_dash_count * math.pi))
+    arrow_rect = arrow_surf.get_rect(center=(dash_x + dash_offset + move_offset, dash_y))
+    SCREEN.blit(arrow_surf, arrow_rect)
+    
+    # 진행 상태 메시지
+    if tutorial_dash_count < 1:
+        hint_text = "대쉬 연습"
+        hint_color = (150, 150, 150)
+    elif tutorial_dash_count < 3:
+        hint_text = "잘하고 있어요!"
+        hint_color = (255, 200, 100)
+        # 칭찬 메시지에 반짝임 효과
+        if pygame.time.get_ticks() % 1000 < 500:
+            hint_color = (255, 230, 150)
+    else:
+        hint_text = "완벽해요!"
+        hint_color = (0, 255, 200)
+        # 완료 시 강조 효과
+        if pygame.time.get_ticks() % 800 < 400:
+            pygame.draw.circle(SCREEN, (0, 255, 200, 50), (circle_center_x, circle_center_y), circle_radius + 5, 2)
+    
+    # 텍스트를 화살표 아래에 배치
+    hint_surface = font_medium.render(hint_text, True, hint_color)
+    hint_rect = hint_surface.get_rect(centerx=dash_x + 5, top=dash_y + 25)
+    SCREEN.blit(hint_surface, hint_rect)
 
 def show_chapter_title(chapter_num, title, subtitle=None):
     """챕터 타이틀 표시 (페이드 효과 포함)"""
@@ -15574,6 +15729,12 @@ def show_tutorial_gauge_dialogue():
             
             pygame.display.flip()
             clock.tick(60)
+    
+    # 대화가 끝나면 대쉬 카운터 UI 활성화
+    global tutorial_dash_counter_active, tutorial_dash_count, tutorial_displayed_dash_count
+    tutorial_dash_counter_active = True
+    tutorial_dash_count = 0
+    tutorial_displayed_dash_count = 0.0
     
     return True
 
@@ -26301,6 +26462,7 @@ def main(stage_num, new_boss_mode=False):
     # 게이지 및 속도 튜토리얼 관련 변수
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown, tutorial_displayed_hit_count
+    global tutorial_dash_count, tutorial_displayed_dash_count, tutorial_dash_counter_active
     
     # 대쉬 튜토리얼 재진입이 아닌 경우에만 게이지 튜토리얼 변수 초기화
     if not dash_practice_reentry:
@@ -27437,6 +27599,7 @@ def main(stage_num, new_boss_mode=False):
             draw_field()
             draw_objects()
             draw_tutorial_ui()  # 튜토리얼 UI 표시
+            draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 원래 화면으로 복원하고 흔들림 적용
@@ -27485,6 +27648,7 @@ def main(stage_num, new_boss_mode=False):
             draw_field()
             draw_objects()
             draw_tutorial_ui()  # 튜토리얼 UI 표시
+            draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 스테이지별 테두리 효과를 UI 전에 그리기
