@@ -14513,6 +14513,126 @@ def show_tutorial_miss_dialogue():
     
     return True
 
+def show_tutorial_dash_dialogue():
+    """튜토리얼 대쉬 연습 대화"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()    # 24pt 대사용
+    font_small = FontStyle.small()   # 18pt 안내용
+    
+    # 대화 시퀀스
+    dialogues = [
+        {
+            "speaker": "[조교]",
+            "text": "이제 대쉬를 배워볼 시간이다",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "대쉬는 순간적으로 빠르게 이동하는 기술이지",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "화살표 키를 빠르게 두번 누르면 대쉬를 할 수 있다",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "왼쪽으로 대쉬하려면 '←←' 이렇게",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "오른쪽으로 대쉬하려면 '→→' 이렇게 누르면 된다",
+            "speaker_color": (255, 200, 0)  # 금색
+        },
+        {
+            "speaker": "[조교]",
+            "text": "자, 이제 대쉬를 사용해서 공을 받아보자",
+            "speaker_color": (255, 200, 0)  # 금색
+        }
+    ]
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+    
+    # 각 대화를 순차적으로 표시
+    for dialogue_index, dialogue in enumerate(dialogues):
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자 (빠르게)
+        last_char_time = pygame.time.get_ticks()
+        
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            
+            # 타이핑 효과 업데이트
+            if not text_complete and current_time - last_char_time > typing_speed:
+                if len(displayed_text) < len(dialogue["text"]):
+                    displayed_text += dialogue["text"][len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 이벤트 처리
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if text_complete:
+                            running = False  # 다음 대화로
+                        else:
+                            # 즉시 전체 텍스트 표시
+                            displayed_text = dialogue["text"]
+                            text_complete = True
+                    elif event.key == pygame.K_ESCAPE:
+                        # 대화 스킵
+                        return True
+            
+            # 화면 그리기
+            SCREEN.blit(background, (0, 0))
+            
+            # 반투명 검은 배경 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT))
+            overlay.set_alpha(180)
+            overlay.fill((0, 0, 0))
+            SCREEN.blit(overlay, (0, 0))
+            
+            # 대화창 그리기
+            dialog_height = 200
+            dialog_y = HEIGHT - dialog_height - 50
+            dialog_rect = pygame.Rect(50, dialog_y, WIDTH - 100, dialog_height)
+            
+            # 대화창 배경
+            pygame.draw.rect(SCREEN, (30, 30, 40), dialog_rect)
+            pygame.draw.rect(SCREEN, (255, 200, 0), dialog_rect, 3)
+            
+            # 화자 이름
+            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+            SCREEN.blit(speaker_surface, (dialog_rect.x + 30, dialog_rect.y + 20))
+            
+            # 대사 텍스트
+            text_surface = font_medium.render(displayed_text, True, WHITE)
+            SCREEN.blit(text_surface, (dialog_rect.x + 30, dialog_rect.y + 70))
+            
+            # 스페이스바 안내 (텍스트 완료 시)
+            if text_complete:
+                hint_text = "SPACE - 계속"
+                hint_surface = font_small.render(hint_text, True, (200, 200, 200))
+                hint_rect = hint_surface.get_rect(right=dialog_rect.right - 20, bottom=dialog_rect.bottom - 10)
+                SCREEN.blit(hint_surface, hint_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
+    
+    return True
+
 def draw_tutorial_ui():
     """튜토리얼 UI 표시 (타격 카운터 및 안내 메시지)"""
     global tutorial_gauge_tutorial_shown, tutorial_speed_dialogue_shown
@@ -14555,6 +14675,77 @@ def draw_tutorial_ui():
         hint_surface = font_tiny.render(hint_text, True, (150, 150, 150))
         hint_rect = hint_surface.get_rect(left=ui_x, top=progress_y + 15)
         SCREEN.blit(hint_surface, hint_rect)
+
+def show_chapter_title(chapter_num, title, subtitle=None):
+    """챕터 타이틀 표시 (페이드 효과 포함)"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_chapter = FontStyle.title()     # 48pt 챕터용
+    font_title = FontStyle.subtitle()    # 32pt 타이틀용
+    font_subtitle = FontStyle.body()     # 24pt 서브타이틀용
+    
+    # 현재 화면 캡처
+    current_screen = SCREEN.copy()
+    
+    # 페이드 아웃 (현재 화면을 어둡게)
+    for alpha in range(0, 256, 8):
+        SCREEN.fill((0, 0, 0))
+        fade_surface = current_screen.copy()
+        fade_surface.set_alpha(255 - alpha)
+        SCREEN.blit(fade_surface, (0, 0))
+        pygame.display.flip()
+        clock.tick(60)
+    
+    # 검은 화면에 챕터 타이틀 표시
+    display_duration = 120  # 2초
+    fade_in_duration = 30   # 0.5초
+    fade_out_duration = 30  # 0.5초
+    
+    for frame in range(display_duration):
+        SCREEN.fill((0, 0, 0))
+        
+        # 페이드 인/아웃 알파 계산
+        if frame < fade_in_duration:
+            alpha = int((frame / fade_in_duration) * 255)
+        elif frame >= display_duration - fade_out_duration:
+            alpha = int(((display_duration - frame) / fade_out_duration) * 255)
+        else:
+            alpha = 255
+        
+        # Chapter 텍스트
+        chapter_text = f"Chapter {chapter_num}"
+        chapter_surface = font_chapter.render(chapter_text, True, (200, 200, 200))
+        chapter_surface.set_alpha(alpha)
+        chapter_rect = chapter_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 50))
+        SCREEN.blit(chapter_surface, chapter_rect)
+        
+        # 타이틀 텍스트
+        title_surface = font_title.render(title, True, CYAN)
+        title_surface.set_alpha(alpha)
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 20))
+        SCREEN.blit(title_surface, title_rect)
+        
+        # 서브타이틀 (있을 경우)
+        if subtitle:
+            subtitle_surface = font_subtitle.render(subtitle, True, (150, 150, 150))
+            subtitle_surface.set_alpha(alpha)
+            subtitle_rect = subtitle_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 70))
+            SCREEN.blit(subtitle_surface, subtitle_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+        
+        # ESC 키로 스킵 가능
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    frame = display_duration  # 스킵
+    
+    return True
 
 def show_tutorial_speed_dialogue():
     """튜토리얼 속도 관련 대화"""
@@ -25381,7 +25572,8 @@ def main(stage_num, new_boss_mode=False):
     global BOSS_ACCELERATION, BOSS_DECELERATION, BOSS_MAX_SPEED, BOSS_INSTANT_STOP_DECELERATION
     global BOSS_ACCELERATION_DEFAULT, BOSS_DECELERATION_DEFAULT, BOSS_MAX_SPEED_DEFAULT, BOSS_INSTANT_STOP_DECELERATION_DEFAULT
     # 게임 진행 & 타이밍
-    global is_waiting_for_serve, last_item_spawn_time, next_item_spawn_delay
+    global is_waiting_for_serve, is_player_serve, last_item_spawn_time, next_item_spawn_delay
+    global tutorial_needs_dash_practice  # 대쉬 튜토리얼 플래그
     global boss_fail_timer, session_medal_earned, medal_score
     # 아이템 시스템
     global selected_item_index, last_item_use_time
@@ -25683,6 +25875,11 @@ def main(stage_num, new_boss_mode=False):
     tutorial_player_hit_count = 0  # 플레이어가 공을 친 횟수
     tutorial_speed_dialogue_shown = False  # 속도 튜토리얼 대화 표시 여부
     
+    # 대쉬 튜토리얼 관련 변수
+    global tutorial_needs_dash_practice, tutorial_dash_practice_shown
+    tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
+    tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
+    
     if stage_num == 50:
         print("튜토리얼 스테이지 50 시작")
         # 튜토리얼 보스 속도 설정 확인
@@ -25691,7 +25888,16 @@ def main(stage_num, new_boss_mode=False):
         print(f"  - BOSS_MAX_SPEED: {BOSS_MAX_SPEED}")
         print(f"  - BOSS_DECELERATION: {BOSS_DECELERATION}")
         print(f"  - BOSS_INSTANT_STOP: {BOSS_INSTANT_STOP_DECELERATION}")
-        if not tutorial_dialogue_shown:
+        
+        # Chapter 1 대쉬 튜토리얼 체크
+        if tutorial_needs_dash_practice and not tutorial_dash_practice_shown:
+            print("튜토리얼: Chapter 1 - DASH 연습 시작")
+            if show_tutorial_dash_dialogue():
+                tutorial_dash_practice_shown = True
+                tutorial_practice_mode = True
+                print("튜토리얼: 대쉬 연습 대화 완료, 보스 서브로 시작")
+                # 보스가 서브하도록 설정됨 (이미 설정되어 있음)
+        elif not tutorial_dialogue_shown:
             print("튜토리얼 대화 표시 시작")
             if show_tutorial_intro_dialogue():
                 print("튜토리얼 대화 완료")
@@ -27008,14 +27214,17 @@ def main(stage_num, new_boss_mode=False):
                     round_wins += 1
                     print(f"튜토리얼: 속도 대화 완료, 라운드 승리 처리 (점수: {round_wins})")
                     
-                    # 튜토리얼 완료 체크 (2라운드면 종료)
-                    if round_wins >= 2:
-                        print("튜토리얼: 2라운드 완료, 튜토리얼 종료")
-                        show_result(True)
-                        return
+                    # Chapter 1 타이틀 표시
+                    show_chapter_title(1, "DASH", "대쉬 연습")
                     
-                    # 다음 라운드 시작
+                    # 다음 라운드 시작 (보스 서브로 설정)
+                    # is_player_serve는 이미 전역으로 사용 가능
+                    is_player_serve = False  # 보스가 서브
+                    tutorial_needs_dash_practice = True  # 대쉬 연습 필요
                     go_to_next_round()
+                    
+                    # 튜토리얼 계속 진행
+                    print("튜토리얼: Chapter 1 - DASH 시작")
                 continue  # 다음 프레임으로
         
         pygame.display.flip()
