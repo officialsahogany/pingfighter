@@ -14521,47 +14521,39 @@ def draw_tutorial_ui():
     # 게이지 튜토리얼 이후, 속도 튜토리얼 전에만 표시
     if current_stage == 50 and tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
         # 폰트 설정
-        font_large = FontStyle.subtitle()  # 32pt
         font_medium = FontStyle.body()     # 24pt
         font_small = FontStyle.small()     # 18pt
+        font_tiny = FontStyle.tiny()       # 16pt
         
-        # 배경 박스 (상단 중앙)
-        box_width = 400
-        box_height = 120
-        box_x = (WIDTH - box_width) // 2
-        box_y = 50
+        # 미니멀한 UI - 우측 상단 위치
+        ui_x = WIDTH - 180
+        ui_y = 30
         
-        # 반투명 검은 배경
-        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-        box_surface.fill((0, 0, 0, 180))
-        pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 2)
-        SCREEN.blit(box_surface, (box_x, box_y))
-        
-        # 타격 카운터 표시
-        counter_text = f"타격 횟수: {tutorial_player_hit_count}/6"
-        counter_surface = font_large.render(counter_text, True, WHITE)
-        counter_rect = counter_surface.get_rect(center=(WIDTH // 2, box_y + 35))
+        # 간단한 카운터 텍스트
+        counter_text = f"{tutorial_player_hit_count}/6"
+        counter_surface = font_medium.render(counter_text, True, WHITE)
+        counter_rect = counter_surface.get_rect(left=ui_x, top=ui_y)
         SCREEN.blit(counter_surface, counter_rect)
         
-        # 진행도 바
-        progress_width = 300
-        progress_height = 15
-        progress_x = (WIDTH - progress_width) // 2
-        progress_y = box_y + 60
+        # 작은 진행도 바 (카운터 아래)
+        progress_width = 120
+        progress_height = 8
+        progress_x = ui_x
+        progress_y = ui_y + 30
         
-        # 배경 바
-        pygame.draw.rect(SCREEN, (50, 50, 50), (progress_x, progress_y, progress_width, progress_height), border_radius=7)
+        # 배경 바 (어둡게)
+        pygame.draw.rect(SCREEN, (40, 40, 40), (progress_x, progress_y, progress_width, progress_height), border_radius=4)
         
         # 진행도 채우기
         fill_width = int((tutorial_player_hit_count / 6) * progress_width)
         if fill_width > 0:
-            fill_color = (0, 255, 100) if tutorial_player_hit_count >= 6 else (0, 200, 255)
-            pygame.draw.rect(SCREEN, fill_color, (progress_x, progress_y, fill_width, progress_height), border_radius=7)
+            fill_color = (0, 255, 100) if tutorial_player_hit_count >= 6 else CYAN
+            pygame.draw.rect(SCREEN, fill_color, (progress_x, progress_y, fill_width, progress_height), border_radius=4)
         
-        # 안내 메시지
-        hint_text = "여러 각도로 공을 쳐보세요"
-        hint_surface = font_small.render(hint_text, True, (200, 200, 200))
-        hint_rect = hint_surface.get_rect(center=(WIDTH // 2, box_y + 95))
+        # 작은 힌트 텍스트 (진행도 바 아래)
+        hint_text = "여러 각도로 쳐보세요"
+        hint_surface = font_tiny.render(hint_text, True, (150, 150, 150))
+        hint_rect = hint_surface.get_rect(left=ui_x, top=progress_y + 15)
         SCREEN.blit(hint_surface, hint_rect)
 
 def show_tutorial_speed_dialogue():
