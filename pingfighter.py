@@ -26602,6 +26602,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown, tutorial_displayed_hit_count
     global tutorial_dash_count, tutorial_displayed_dash_count, tutorial_dash_counter_active
+    global tutorial_practice_mode, tutorial_serve_reminder_active
     
     # 대쉬 튜토리얼 재진입이 아닌 경우에만 게이지 튜토리얼 변수 초기화
     if not dash_practice_reentry:
@@ -26647,9 +26648,6 @@ def main(stage_num, new_boss_mode=False):
             if show_tutorial_intro_dialogue():
                 print("튜토리얼 대화 완료")
                 tutorial_dialogue_shown = True
-                
-                # 전역 변수 선언 추가
-                global tutorial_practice_mode, tutorial_serve_reminder_active
                 tutorial_practice_mode = True  # 대화 후 실습 모드 시작
                 # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
                 print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
