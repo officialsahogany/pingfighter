@@ -6118,8 +6118,10 @@ def handle_player(keys):
         
         # 튜토리얼 스테이지 50에서 플레이어가 공을 친 횟수 증가는 handle_ball에서만 처리
         # (중복 카운트 방지를 위해 여기서는 제거)
-                
-                # 6회 타격 시 속도 튜토리얼 대화 시작
+        
+        # 튜토리얼 스테이지 50에서 6회 타격 시 속도 튜토리얼 대화 시작
+        if current_stage == 50 and tutorial_practice_mode and tutorial_boss_returned:
+            if tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
                 if tutorial_player_hit_count >= 6:
                     tutorial_speed_dialogue_shown = True
                     # 속도 튜토리얼 표시를 위해 공 일시정지
