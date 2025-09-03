@@ -6116,12 +6116,8 @@ def handle_player(keys):
         player_collision_handled = True
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
         
-        # 튜토리얼 스테이지 50에서 플레이어가 공을 친 횟수 증가 (handle_player에서도 처리)
-        if current_stage == 50 and tutorial_practice_mode and tutorial_boss_returned:
-            # 게이지 튜토리얼 이후에만 카운트
-            if tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
-                tutorial_player_hit_count += 1
-                print(f"튜토리얼 [handle_player]: 플레이어 공 타격 횟수: {tutorial_player_hit_count}/6")
+        # 튜토리얼 스테이지 50에서 플레이어가 공을 친 횟수 증가는 handle_ball에서만 처리
+        # (중복 카운트 방지를 위해 여기서는 제거)
                 
                 # 6회 타격 시 속도 튜토리얼 대화 시작
                 if tutorial_player_hit_count >= 6:
