@@ -14592,59 +14592,108 @@ def show_tutorial_dash_dialogue():
             
             # 8번 대사에서 조교가 대쉬 시연
             if dialogue_index == 7 and text_complete:  # "해당 방향으로 대쉬가 발동하며 빠르게 이동한다"
-                # 조교 대쉬 시연 애니메이션
-                demo_timer = pygame.time.get_ticks()
+                # 대쉬 시연 상태 변수
+                if 'demo_state' not in locals():
+                    demo_state = {
+                        'start_time': pygame.time.get_ticks(),
+                        'boss_x': WIDTH // 2,
+                        'direction': 0,  # 0: 대기, -1: 왼쪽, 1: 오른쪽
+                        'dash_start': 0,
+                        'dash_duration': 200,  # 대쉬 지속 시간 (ms)
+                        'dash_speed': 800,  # 대쉬 속도 (픽셀/초)
+                        'last_direction_change': 0,
+                        'dash_sound_played': False
+                    }
                 
-                # 조교 위치 (화면 중앙 상단)
+                current_time = pygame.time.get_ticks()
+                elapsed = current_time - demo_state['start_time']
                 boss_demo_y = HEIGHT // 3
-                boss_demo_center_x = WIDTH // 2
                 
-                # 대쉬 시연 타이밍 (2초마다 방향 전환)
-                demo_phase = (demo_timer // 2000) % 2
+                # 3초 주기로 대쉬 방향 전환 (왼쪽 -> 대기 -> 오른쪽 -> 대기)
+                cycle_phase = (elapsed // 1500) % 4
                 
-                if demo_phase == 0:
-                    # 왼쪽 대쉬 시연
-                    boss_demo_x = boss_demo_center_x - 150
-                    dash_direction = "LEFT"
-                else:
-                    # 오른쪽 대쉬 시연
-                    boss_demo_x = boss_demo_center_x + 150
-                    dash_direction = "RIGHT"
+                # 대쉬 방향 및 타이밍 결정
+                if cycle_phase == 0:  # 왼쪽 대쉬 준비
+                    if demo_state['direction'] != -1:
+                        demo_state['direction'] = -1
+                        demo_state['dash_start'] = current_time
+                        demo_state['dash_sound_played'] = False
+                elif cycle_phase == 1:  # 대기
+                    demo_state['direction'] = 0
+                    demo_state['boss_x'] = WIDTH // 2 - 200  # 왼쪽 위치 유지
+                elif cycle_phase == 2:  # 오른쪽 대쉬 준비
+                    if demo_state['direction'] != 1:
+                        demo_state['direction'] = 1
+                        demo_state['dash_start'] = current_time
+                        demo_state['dash_sound_played'] = False
+                else:  # 대기
+                    demo_state['direction'] = 0
+                    demo_state['boss_x'] = WIDTH // 2 + 200  # 오른쪽 위치 유지
                 
-                # 대쉬 방향이 바뀔 때 사운드 재생
-                if dash_direction != last_dash_direction:
-                    if not dash_sound_played[dash_direction]:
-                        # 대쉬 사운드 재생
+                # 대쉬 중일 때 위치 업데이트
+                if demo_state['direction'] != 0:
+                    dash_elapsed = current_time - demo_state['dash_start']
+                    
+                    # 대쉬 사운드 재생
+                    if not demo_state['dash_sound_played']:
                         if 'dash_sound' in globals():
                             dash_sound.play()
-                        dash_sound_played[dash_direction] = True
-                        last_dash_direction = dash_direction
+                        demo_state['dash_sound_played'] = True
+                    
+                    if dash_elapsed < demo_state['dash_duration']:
+                        # 대쉬 진행 중
+                        dash_progress = dash_elapsed / demo_state['dash_duration']
+                        dash_distance = demo_state['dash_speed'] * (dash_elapsed / 1000.0)
                         
-                        # 2초 후 다음 방향 사운드 재생 가능하도록 리셋
-                        if demo_phase == 1:  # 오른쪽 대쉬 후 리셋
-                            dash_sound_played = {"LEFT": False, "RIGHT": False}
+                        if demo_state['direction'] == -1:  # 왼쪽 대쉬
+                            demo_state['boss_x'] = WIDTH // 2 - dash_distance
+                        else:  # 오른쪽 대쉬
+                            demo_state['boss_x'] = WIDTH // 2 + dash_distance
+                
+                # 조교 패들 위치 제한
+                demo_state['boss_x'] = max(100, min(WIDTH - 100, demo_state['boss_x']))
                 
                 # 조교 패들 그리기
-                boss_demo_rect = pygame.Rect(boss_demo_x - 40, boss_demo_y - 10, 80, 20)
+                boss_demo_rect = pygame.Rect(demo_state['boss_x'] - 40, boss_demo_y - 10, 80, 20)
                 pygame.draw.rect(SCREEN, (255, 100, 100), boss_demo_rect, 0, 5)
                 pygame.draw.rect(SCREEN, (255, 150, 150), boss_demo_rect, 2, 5)
                 
-                # 대쉬 이펙트 그리기
-                effect_alpha = 150 - (demo_timer % 1000) // 10
-                if effect_alpha > 0:
-                    # 잔상 효과
-                    for i in range(3):
-                        ghost_x = boss_demo_center_x + (boss_demo_x - boss_demo_center_x) * i // 3
-                        ghost_rect = pygame.Rect(ghost_x - 40, boss_demo_y - 10, 80, 20)
-                        ghost_surface = pygame.Surface((80, 20), pygame.SRCALPHA)
-                        ghost_surface.fill((255, 100, 100, effect_alpha // 2))
-                        SCREEN.blit(ghost_surface, ghost_rect)
-                    
-                    # 대쉬 방향 표시
-                    arrow_text = "◀ DASH" if dash_direction == "LEFT" else "DASH ▶"
-                    arrow_surface = font_small.render(arrow_text, True, YELLOW)
-                    arrow_rect = arrow_surface.get_rect(center=(boss_demo_x, boss_demo_y - 40))
-                    SCREEN.blit(arrow_surface, arrow_rect)
+                # 대쉬 중일 때 이펙트
+                if demo_state['direction'] != 0:
+                    dash_elapsed = current_time - demo_state['dash_start']
+                    if dash_elapsed < demo_state['dash_duration']:
+                        # 대쉬 잔상 효과
+                        for i in range(5):
+                            alpha = 100 - i * 20
+                            if demo_state['direction'] == -1:
+                                ghost_x = demo_state['boss_x'] + i * 30
+                            else:
+                                ghost_x = demo_state['boss_x'] - i * 30
+                            
+                            ghost_surface = pygame.Surface((80, 20), pygame.SRCALPHA)
+                            ghost_surface.fill((255, 100, 100, alpha))
+                            SCREEN.blit(ghost_surface, (ghost_x - 40, boss_demo_y - 10))
+                        
+                        # 대쉬 이동선 효과
+                        line_color = (255, 200, 100)
+                        if demo_state['direction'] == -1:
+                            pygame.draw.line(SCREEN, line_color, 
+                                           (demo_state['boss_x'] + 40, boss_demo_y),
+                                           (demo_state['boss_x'] + 150, boss_demo_y), 3)
+                            # 방향 표시
+                            arrow_text = "◀◀ DASH!"
+                            arrow_surface = font_small.render(arrow_text, True, YELLOW)
+                            arrow_rect = arrow_surface.get_rect(center=(demo_state['boss_x'], boss_demo_y - 40))
+                            SCREEN.blit(arrow_surface, arrow_rect)
+                        else:
+                            pygame.draw.line(SCREEN, line_color, 
+                                           (demo_state['boss_x'] - 40, boss_demo_y),
+                                           (demo_state['boss_x'] - 150, boss_demo_y), 3)
+                            # 방향 표시
+                            arrow_text = "DASH! ▶▶"
+                            arrow_surface = font_small.render(arrow_text, True, YELLOW)
+                            arrow_rect = arrow_surface.get_rect(center=(demo_state['boss_x'], boss_demo_y - 40))
+                            SCREEN.blit(arrow_surface, arrow_rect)
             
             # 스페이스바 안내 (하단 우측)
             if text_complete:
