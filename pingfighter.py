@@ -25878,16 +25878,35 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue, tutorial_saved_ball_vel
     global tutorial_serve_helper_shown  # 서브 도우미 알림 표시 여부
     global tutorial_wait_for_first_serve  # 첫 서브를 기다리는 상태
+    global tutorial_needs_dash_practice, tutorial_dash_practice_shown  # 대쉬 튜토리얼 관련 변수
     
-    tutorial_dialogue_shown = False
-    tutorial_practice_mode = False  # 실습 모드 플래그
-    tutorial_serve_instruction_shown = False  # 서브 지시 표시 플래그
-    tutorial_boss_returned = False  # 보스가 서브를 받아쳤는지 확인
-    tutorial_boss_return_dialogue_shown = False  # 보스가 서브를 받아친 후 대화 표시 여부
-    tutorial_pause_for_dialogue = False  # 대화를 위한 일시정지 상태
-    tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
-    tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
-    tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
+    # 대쉬 튜토리얼 재진입 체크
+    dash_practice_reentry = 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice
+    
+    # 대쉬 튜토리얼 재진입이 아닌 경우 일부 변수 초기화
+    if not dash_practice_reentry:
+        # 초기 튜토리얼 시작 - 모든 변수 초기화
+        tutorial_dialogue_shown = False
+        tutorial_practice_mode = False  # 실습 모드 플래그
+        tutorial_serve_instruction_shown = False  # 서브 지시 표시 플래그
+        tutorial_boss_returned = False  # 보스가 서브를 받아쳤는지 확인
+        tutorial_boss_return_dialogue_shown = False  # 보스가 서브를 받아친 후 대화 표시 여부
+        tutorial_pause_for_dialogue = False  # 대화를 위한 일시정지 상태
+        tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
+        tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
+        tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
+        tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
+        tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
+    else:
+        # 대쉬 튜토리얼 재진입 - 일부 변수만 초기화
+        tutorial_dialogue_shown = True  # 초기 대화는 이미 표시됨
+        tutorial_practice_mode = False  # 실습 모드는 대쉬 대화 후 시작
+        tutorial_pause_for_dialogue = False  # 일시정지 해제
+        tutorial_saved_ball_vel = [0, 0]  # 공 속도 초기화
+        tutorial_wait_for_first_serve = False  # 대쉬 연습에서는 보스가 서브
+        tutorial_dash_practice_shown = False  # 대쉬 연습 대화를 표시하기 위해 False로 설정
+        # tutorial_needs_dash_practice는 True 값 유지
+        # 나머지 변수들은 현재 값 유지
     
     # 게이지 튜토리얼 관련 변수
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
@@ -25899,10 +25918,7 @@ def main(stage_num, new_boss_mode=False):
     tutorial_player_hit_count = 0  # 플레이어가 공을 친 횟수
     tutorial_speed_dialogue_shown = False  # 속도 튜토리얼 대화 표시 여부
     
-    # 대쉬 튜토리얼 관련 변수
-    global tutorial_needs_dash_practice, tutorial_dash_practice_shown
-    tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
-    tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
+    # 대쉬 튜토리얼 변수는 이미 위에서 초기화됨
     
     if stage_num == 50:
         print("튜토리얼 스테이지 50 시작")
