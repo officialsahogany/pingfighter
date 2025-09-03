@@ -15461,10 +15461,50 @@ def show_tutorial_angle_dialogue():
             speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
             SCREEN.blit(speaker_surface, speaker_rect)
             
-            # 대사 텍스트 (화자 이름 아래 중앙)
-            text_surface = font_medium.render(displayed_text, True, WHITE)
-            text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
-            SCREEN.blit(text_surface, text_rect)
+            # 대사 텍스트 (화자 이름 아래 중앙) - 긴 텍스트는 줄바꿈 처리
+            # 텍스트가 너무 길면 줄바꿈
+            max_text_width = dialogue_width - 60  # 대화창 너비에서 여백 제외
+            
+            # 텍스트를 단어 단위로 분리하여 줄바꿈 처리
+            words = displayed_text.split(' ')
+            lines = []
+            current_line = ""
+            
+            for word in words:
+                test_line = current_line + word + " " if current_line else word + " "
+                test_surface = font_medium.render(test_line.strip(), True, WHITE)
+                
+                if test_surface.get_width() <= max_text_width:
+                    current_line = test_line
+                else:
+                    if current_line:
+                        lines.append(current_line.strip())
+                        current_line = word + " "
+                    else:
+                        # 단어 자체가 너무 긴 경우 강제 분할
+                        lines.append(word)
+                        current_line = ""
+            
+            # 마지막 줄 추가
+            if current_line:
+                lines.append(current_line.strip())
+            
+            # 여러 줄로 렌더링
+            if len(lines) == 1:
+                # 한 줄인 경우 기존 방식으로
+                text_surface = font_medium.render(lines[0], True, WHITE)
+                text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
+                SCREEN.blit(text_surface, text_rect)
+            else:
+                # 여러 줄인 경우
+                line_height = font_medium.get_linesize() + 5  # 줄 간격
+                total_height = len(lines) * line_height
+                start_y = dialogue_y + 90 - (total_height // 2) + (line_height // 2)
+                
+                for i, line in enumerate(lines):
+                    text_surface = font_medium.render(line, True, WHITE)
+                    text_rect = text_surface.get_rect(center=(WIDTH // 2, start_y + i * line_height))
+                    SCREEN.blit(text_surface, text_rect)
             
             # 스페이스바 안내 (대화창 하단 중앙)
             if text_complete:
@@ -15714,10 +15754,50 @@ def show_tutorial_gauge_dialogue():
             speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
             SCREEN.blit(speaker_surface, speaker_rect)
             
-            # 대사 텍스트 (화자 이름 아래 중앙)
-            text_surface = font_medium.render(displayed_text, True, WHITE)
-            text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
-            SCREEN.blit(text_surface, text_rect)
+            # 대사 텍스트 (화자 이름 아래 중앙) - 긴 텍스트는 줄바꿈 처리
+            # 텍스트가 너무 길면 줄바꿈
+            max_text_width = dialogue_width - 60  # 대화창 너비에서 여백 제외
+            
+            # 텍스트를 단어 단위로 분리하여 줄바꿈 처리
+            words = displayed_text.split(' ')
+            lines = []
+            current_line = ""
+            
+            for word in words:
+                test_line = current_line + word + " " if current_line else word + " "
+                test_surface = font_medium.render(test_line.strip(), True, WHITE)
+                
+                if test_surface.get_width() <= max_text_width:
+                    current_line = test_line
+                else:
+                    if current_line:
+                        lines.append(current_line.strip())
+                        current_line = word + " "
+                    else:
+                        # 단어 자체가 너무 긴 경우 강제 분할
+                        lines.append(word)
+                        current_line = ""
+            
+            # 마지막 줄 추가
+            if current_line:
+                lines.append(current_line.strip())
+            
+            # 여러 줄로 렌더링
+            if len(lines) == 1:
+                # 한 줄인 경우 기존 방식으로
+                text_surface = font_medium.render(lines[0], True, WHITE)
+                text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
+                SCREEN.blit(text_surface, text_rect)
+            else:
+                # 여러 줄인 경우
+                line_height = font_medium.get_linesize() + 5  # 줄 간격
+                total_height = len(lines) * line_height
+                start_y = dialogue_y + 90 - (total_height // 2) + (line_height // 2)
+                
+                for i, line in enumerate(lines):
+                    text_surface = font_medium.render(line, True, WHITE)
+                    text_rect = text_surface.get_rect(center=(WIDTH // 2, start_y + i * line_height))
+                    SCREEN.blit(text_surface, text_rect)
             
             # 스페이스바 안내 (대화창 하단 중앙)
             if text_complete:
