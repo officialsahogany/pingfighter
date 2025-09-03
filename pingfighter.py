@@ -14641,17 +14641,19 @@ def show_tutorial_dash_dialogue():
                         demo_state['direction'] = -1
                         demo_state['dash_start'] = current_time
                         demo_state['dash_sound_played'] = False
+                        demo_state['boss_x'] = WIDTH // 2  # 중앙에서 시작
                 elif cycle_phase == 1:  # 대기
                     demo_state['direction'] = 0
-                    demo_state['boss_x'] = WIDTH // 2 - 200  # 왼쪽 위치 유지
+                    # 위치 유지 (이동 없음)
                 elif cycle_phase == 2:  # 오른쪽 대쉬 준비
                     if demo_state['direction'] != 1:
                         demo_state['direction'] = 1
                         demo_state['dash_start'] = current_time
                         demo_state['dash_sound_played'] = False
+                        demo_state['boss_x'] = WIDTH // 2  # 중앙에서 시작
                 else:  # 대기
                     demo_state['direction'] = 0
-                    demo_state['boss_x'] = WIDTH // 2 + 200  # 오른쪽 위치 유지
+                    # 위치 유지 (이동 없음)
                 
                 # 대쉬 중일 때 위치 업데이트
                 if demo_state['direction'] != 0:
@@ -14666,7 +14668,8 @@ def show_tutorial_dash_dialogue():
                     if dash_elapsed < demo_state['dash_duration']:
                         # 대쉬 진행 중
                         dash_progress = dash_elapsed / demo_state['dash_duration']
-                        dash_distance = demo_state['dash_speed'] * (dash_elapsed / 1000.0)
+                        max_dash_distance = 180  # 최대 대쉬 거리 제한
+                        dash_distance = min(max_dash_distance, demo_state['dash_speed'] * (dash_elapsed / 1000.0))
                         
                         if demo_state['direction'] == -1:  # 왼쪽 대쉬
                             demo_state['boss_x'] = WIDTH // 2 - dash_distance
