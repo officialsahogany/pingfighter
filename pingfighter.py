@@ -14676,11 +14676,19 @@ def show_tutorial_dash_dialogue():
                 # 조교 패들 위치 제한
                 demo_state['boss_x'] = max(100, min(WIDTH - 100, demo_state['boss_x']))
                 
-                # 조교 패들 업데이트 및 그리기 (게임 필드에서 표시)
-                demo_boss.centerx = demo_state['boss_x']
-                demo_boss.centery = boss_demo_y
-                pygame.draw.rect(SCREEN, (255, 100, 100), demo_boss, 0, 5)
-                pygame.draw.rect(SCREEN, (255, 150, 150), demo_boss, 2, 5)
+                # 조교 이미지 로드 및 표시
+                try:
+                    boss_img_path = resource_path("boss_tutorial.png")
+                    boss_img = pygame.image.load(boss_img_path)
+                    boss_img = pygame.transform.scale(boss_img, (80, 100))  # 크기 조정
+                    boss_rect = boss_img.get_rect(center=(demo_state['boss_x'], boss_demo_y))
+                    SCREEN.blit(boss_img, boss_rect)
+                except:
+                    # 이미지 로드 실패 시 대체 표시
+                    demo_boss.centerx = demo_state['boss_x']
+                    demo_boss.centery = boss_demo_y
+                    pygame.draw.rect(SCREEN, (255, 100, 100), demo_boss, 0, 5)
+                    pygame.draw.rect(SCREEN, (255, 150, 150), demo_boss, 2, 5)
                 
                 # 대쉬 중일 때 이펙트
                 if demo_state['direction'] != 0:
@@ -14694,9 +14702,19 @@ def show_tutorial_dash_dialogue():
                             else:
                                 ghost_x = demo_state['boss_x'] - i * 30
                             
-                            ghost_surface = pygame.Surface((80, 20), pygame.SRCALPHA)
-                            ghost_surface.fill((255, 100, 100, alpha))
-                            SCREEN.blit(ghost_surface, (ghost_x - 40, boss_demo_y - 10))
+                            # 조교 이미지로 잔상 효과 생성
+                            try:
+                                boss_img_path = resource_path("boss_tutorial.png")
+                                boss_ghost_img = pygame.image.load(boss_img_path)
+                                boss_ghost_img = pygame.transform.scale(boss_ghost_img, (80, 100))
+                                boss_ghost_img.set_alpha(alpha)
+                                ghost_rect = boss_ghost_img.get_rect(center=(ghost_x, boss_demo_y))
+                                SCREEN.blit(boss_ghost_img, ghost_rect)
+                            except:
+                                # 이미지 로드 실패 시 대체 잔상
+                                ghost_surface = pygame.Surface((80, 20), pygame.SRCALPHA)
+                                ghost_surface.fill((255, 100, 100, alpha))
+                                SCREEN.blit(ghost_surface, (ghost_x - 40, boss_demo_y - 10))
                         
                         # 대쉬 이동선 효과
                         line_color = (255, 200, 100)
