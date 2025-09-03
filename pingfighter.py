@@ -25918,10 +25918,10 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_dash_practice_shown = True
                 tutorial_practice_mode = True
                 print("튜토리얼: 대쉬 연습 대화 완료, 보스 서브로 시작")
-                # 대쉬 연습 시작 시 게이지를 200으로 충전
-                special_gauge = 200
-                displayed_gauge = 200
-                print("튜토리얼: 대쉬 연습 시작 - 게이지 200 충전")
+                # 대쉬 연습 시작 시 게이지를 500으로 만충전
+                special_gauge = 500
+                displayed_gauge = 500
+                print("튜토리얼: 대쉬 연습 시작 - 게이지 500 만충전")
                 # 보스가 서브하도록 설정됨 (이미 설정되어 있음)
         elif not tutorial_dialogue_shown:
             print("튜토리얼 대화 표시 시작")
