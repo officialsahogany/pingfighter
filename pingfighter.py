@@ -26291,16 +26291,20 @@ def main(stage_num, new_boss_mode=False):
         # 8번키로 강제 라운드 종료 및 다음 라운드 진행
         if keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
             print("🔄 8번 키: 강제 라운드 종료 및 다음 라운드 진행")
-            # 플레이어가 이긴 것으로 처리
-            boss_lives -= 1
-            print(f"보스 라이프 감소: {boss_lives + 1} -> {boss_lives}")
+            # player_score와 boss_score를 global로 선언
+            global player_score, boss_score
+            
+            # 플레이어가 이긴 것으로 처리 (플레이어 점수를 3점으로)
+            player_score = 3
+            boss_score = 0
+            print(f"강제 라운드 종료: 플레이어 {player_score} - {boss_score} 보스")
             
             # 라운드 리셋
             reset_round()
             
-            # 보스가 죽었으면 다음 스테이지로
-            if boss_lives <= 0:
-                print("보스 격파! 다음 스테이지로 진행")
+            # 플레이어가 3점이면 다음 스테이지로
+            if player_score >= 3:
+                print("라운드 승리! 다음 스테이지로 진행")
                 if current_stage < 49:  # 튜토리얼 전까지만
                     return current_stage + 1
                 else:
