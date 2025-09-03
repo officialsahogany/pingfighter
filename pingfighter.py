@@ -6228,13 +6228,19 @@ def handle_player(keys):
                             print("튜토리얼: Chapter 2 - SMASHER SKILL로 이동")
                             # Chapter 2 타이틀 표시
                             show_chapter_title(2, "SMASHER SKILL", "스매셔 스킬 연습")
-                            # 다음 챕터로 진행 (스테이지 51로 가정, 실제 스테이지 번호는 조정 필요)
-                            current_stage = 51  # 또는 적절한 스테이지 번호
+                            
+                            # 대쉬 연습 완료 플래그 설정
                             tutorial_needs_dash_practice = False  # 대쉬 연습 완료
                             # 대쉬 카운터 리셋
                             tutorial_dash_counter_active = False
                             tutorial_dash_count = 0
-                            # 공 속도 복원
+                            
+                            # 게임 계속 진행을 위한 설정
+                            # 새로운 라운드 시작 (현재 스테이지 50 유지)
+                            reset_round()  # 라운드 리셋
+                            tutorial_practice_mode = True  # 실습 모드 재활성화
+                            
+                            # 공 속도 복원 및 게임 재개
                             ball_vel[0] = tutorial_saved_ball_vel[0] 
                             ball_vel[1] = tutorial_saved_ball_vel[1]
             
