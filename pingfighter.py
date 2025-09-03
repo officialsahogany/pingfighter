@@ -16028,23 +16028,39 @@ def show_tutorial_dash_token_dialogue():
             
             # 토큰 게이지 강조 효과 (특정 대화에서만)
             if dialogue.get("highlight_token", False):
-                # 토큰 게이지 위치 계산 (게이지바 하단)
-                gauge_x = 45
-                gauge_y = HEIGHT - 60
-                token_width = 30
-                token_height = 20
+                # 실제 토큰 위치 계산 (플레이어 게이지바 하단 - 코드와 동일하게)
+                player_gauge_x = WIDTH - 40  # 플레이어 게이지바 X 위치 (오른쪽)
+                player_gauge_width = 14  # 플레이어 게이지바 폭
+                gauge_height = 480  # 게이지바 높이
+                gauge_y = HEIGHT - 540  # 게이지바 Y 위치
+                
+                # 토큰 개수 계산 (실제 그리기 코드와 동일)
+                token_radius = 6  # 토큰 크기
+                token_spacing = 16  # 토큰 간격
+                max_tokens = 1  # 튜토리얼에서는 기본 1개
+                
+                # 토큰 표시 위치 (플레이어 게이지바 중앙 하단)
+                token_start_x = player_gauge_x + player_gauge_width // 2 - (max_tokens * token_spacing) // 2 + token_spacing // 2
+                token_y = gauge_y + gauge_height + 15  # 게이지바 아래 15픽셀
                 
                 # 강조 박스 그리기 (깜빡임 효과)
                 if highlight_timer % 40 < 30:  # 40프레임마다 30프레임 표시
                     highlight_color = (255, 255, 0, 150)  # 노란색 반투명
-                    highlight_rect = pygame.Rect(gauge_x - 10, gauge_y - 35, token_width + 20, token_height + 20)
+                    # 토큰 영역 전체를 강조
+                    highlight_rect = pygame.Rect(
+                        token_start_x - 15,  # 왼쪽 여백
+                        token_y - 15,  # 위 여백
+                        max_tokens * token_spacing + 20,  # 너비
+                        30  # 높이
+                    )
                     pygame.draw.rect(SCREEN, highlight_color[:3], highlight_rect, 3, border_radius=5)
                     
-                    # 화살표 그리기 (토큰 게이지를 가리킴)
+                    # 화살표 그리기 (토큰을 가리킴)
+                    arrow_x = token_start_x + (max_tokens * token_spacing) // 2
                     arrow_points = [
-                        (gauge_x + token_width // 2, gauge_y - 45),
-                        (gauge_x + token_width // 2 - 10, gauge_y - 55),
-                        (gauge_x + token_width // 2 + 10, gauge_y - 55)
+                        (arrow_x, token_y - 20),
+                        (arrow_x - 10, token_y - 30),
+                        (arrow_x + 10, token_y - 30)
                     ]
                     pygame.draw.polygon(SCREEN, highlight_color[:3], arrow_points)
             
