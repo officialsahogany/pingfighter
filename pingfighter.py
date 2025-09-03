@@ -15208,13 +15208,14 @@ def show_tutorial_serve_helper():
         pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 3)
         SCREEN.blit(box_surface, (box_x, box_y))
         
-        # 도우미 아이콘 (느낌표)
+        # 도우미 아이콘 (느낌표) - 위치를 오른쪽으로 이동
         icon_text = "!"
         icon_surface = font_large.render(icon_text, True, YELLOW)
-        icon_rect = icon_surface.get_rect(center=(box_x + 50, box_y + box_height // 2))
+        icon_x = box_x + 80  # 50 -> 80으로 변경 (30픽셀 오른쪽으로)
+        icon_rect = icon_surface.get_rect(center=(icon_x, box_y + box_height // 2))
         
         # 아이콘 원형 배경
-        pygame.draw.circle(SCREEN, YELLOW, (box_x + 50, box_y + box_height // 2), 30, 3)
+        pygame.draw.circle(SCREEN, YELLOW, (icon_x, box_y + box_height // 2), 30, 3)
         SCREEN.blit(icon_surface, icon_rect)
         
         # 메인 텍스트
