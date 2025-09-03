@@ -4624,7 +4624,7 @@ def handle_lightning_master_as_top():
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
-            if wait_delay == 0:
+            elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
                 ball_vel = serve_result['ball_vel']
@@ -4713,7 +4713,7 @@ def handle_ice_queen_as_top():
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
-            if wait_delay == 0:
+            elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
                 ball_vel = serve_result['ball_vel']
@@ -23172,7 +23172,7 @@ def handle_boss_pro():
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
-            if wait_delay == 0:
+            elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
                 ball_vel = serve_result['ball_vel']
@@ -23378,7 +23378,7 @@ def handle_boss_champion():
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
-            if wait_delay == 0:
+            elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
                 ball_vel = serve_result['ball_vel']
@@ -23945,7 +23945,7 @@ def handle_boss_junior():
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
-            if wait_delay == 0:
+            elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
                 ball_vel = serve_result['ball_vel']
@@ -24768,6 +24768,58 @@ def handle_boss():
         return  # 스턴 중에는 AI 비활성화
     # Stage 50 (튜토리얼) - 매우 쉬운 AI
     if current_stage == 50:
+        # 튜토리얼에서 필요한 전역 변수 추가
+        global fireball_last_cast, fireball_cooldown, ball_impact_boost
+        
+        # 튜토리얼 서브 대기 상태 처리
+        if is_waiting_for_serve:
+            time_now = pygame.time.get_ticks()
+            
+            # 보스 서브 차례
+            if not is_player_serve:
+                # 보스 패들 간보기 움직임
+                def fake_motion():
+                    style = random.randint(1, 4)
+                    if style == 1:
+                        return math.sin(time_now / 100) * 2.5
+                    elif style == 2 and random.random() < 0.02:
+                        return random.choice([-1, 1]) * random.randint(20, 30)
+                    elif style == 3:
+                        return math.sin(time_now / 300) * 4
+                    elif style == 4 and random.random() < 0.015:
+                        return random.choice([-1, 1]) * 10
+                    return 0
+                
+                if boss_fake_move and time_now - boss_fake_start_time < wait_delay:
+                    BOSS.centerx += fake_motion()
+                
+                if wait_delay > 0 and time_now - waiting_start_time >= wait_delay:
+                    # 서브 실행 및 상태 업데이트
+                    serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
+                    ball_vel = serve_result['ball_vel']
+                    ball_impact_boost = serve_result['ball_impact_boost']
+                    is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                    if serve_result['fireball_last_cast'] is not None:
+                        fireball_last_cast = serve_result['fireball_last_cast']
+                        fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                    play_serve_sound()
+                    calculate_bounce(BOSS)
+                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                elif wait_delay == 0:
+                    # 즉시 서브 실행
+                    serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
+                    ball_vel = serve_result['ball_vel']
+                    ball_impact_boost = serve_result['ball_impact_boost']
+                    is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                    if serve_result['fireball_last_cast'] is not None:
+                        fireball_last_cast = serve_result['fireball_last_cast']
+                        fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                    play_serve_sound()
+                    calculate_bounce(BOSS)
+                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+            
+            return  # 서브 중에는 일반 AI 실행 안함
+        
         # 튜토리얼 전용 매우 쉬운 AI
         # 공의 미래 위치 예측 (매우 부정확하게)
         future_x = BALL.x
