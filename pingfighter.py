@@ -14883,7 +14883,7 @@ def show_tutorial_dash_dialogue():
                 if dialogue_index == 7 and 'demo_state' in locals():
                     elapsed_time = pygame.time.get_ticks() - demo_state['start_time']
                     if elapsed_time < 6000:  # 시연 진행 중
-                        instruction = "시연 시청 중..."
+                        instruction = "조교 시범 중..."
                         text_color = YELLOW  # 노란색으로 표시
                     else:  # 시연 완료
                         instruction = "SPACE - 계속"
