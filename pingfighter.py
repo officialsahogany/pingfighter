@@ -26292,28 +26292,6 @@ def main(stage_num, new_boss_mode=False):
                 print(f" : {'ON' if profiler.visible else 'OFF'}")
         main.key7_pressed = keys[pygame.K_7]
         
-        # 8번키로 강제 라운드 종료 및 다음 라운드 진행
-        if keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
-            print("🔄 8번 키: 강제 라운드 종료 및 다음 라운드 진행")
-            # player_score와 boss_score는 아래 26336라인에서 global 선언됨
-            
-            # 플레이어가 이긴 것으로 처리 (플레이어 점수를 3점으로)
-            player_score = 3
-            boss_score = 0
-            print(f"강제 라운드 종료: 플레이어 {player_score} - {boss_score} 보스")
-            
-            # 라운드 리셋
-            reset_round()
-            
-            # 플레이어가 3점이면 다음 스테이지로
-            if player_score >= 3:
-                print("라운드 승리! 다음 스테이지로 진행")
-                if current_stage < 49:  # 튜토리얼 전까지만
-                    return current_stage + 1
-                else:
-                    # 게임 클리어 또는 종료 처리
-                    print("게임 클리어!")
-        main.key8_pressed = keys[pygame.K_8]
         #  퍼펙트 타이밍 시스템: 스페이스바 + 방향키 프레임 단위 입력 감지
         global space_just_pressed, last_space_state, perfect_timing_active, perfect_timing_frame_count, perfect_direction
         global left_just_pressed, last_left_state, right_just_pressed, last_right_state
