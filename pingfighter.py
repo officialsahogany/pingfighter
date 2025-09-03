@@ -14655,7 +14655,8 @@ def show_tutorial_dash_dialogue():
                         'dash_duration': 200,  # 대쉬 지속 시간 (ms)
                         'dash_speed': 800,  # 대쉬 속도 (픽셀/초)
                         'last_direction_change': 0,
-                        'dash_sound_played': False
+                        'dash_sound_played': False,
+                        'last_dash_direction': 0  # 마지막 대쉬 방향 기록
                     }
                 
                 current_time = pygame.time.get_ticks()
@@ -14669,6 +14670,7 @@ def show_tutorial_dash_dialogue():
                 if cycle_phase == 0:  # 왼쪽 대쉬 준비
                     if demo_state['direction'] != -1:
                         demo_state['direction'] = -1
+                        demo_state['last_dash_direction'] = -1  # 마지막 대쉬 방향 기록
                         demo_state['dash_start'] = current_time
                         demo_state['dash_sound_played'] = False
                         demo_state['boss_x'] = WIDTH // 2  # 중앙에서 시작
@@ -14678,6 +14680,7 @@ def show_tutorial_dash_dialogue():
                 elif cycle_phase == 2:  # 오른쪽 대쉬 준비
                     if demo_state['direction'] != 1:
                         demo_state['direction'] = 1
+                        demo_state['last_dash_direction'] = 1  # 마지막 대쉬 방향 기록
                         demo_state['dash_start'] = current_time
                         demo_state['dash_sound_played'] = False
                         demo_state['boss_x'] = WIDTH // 2  # 중앙에서 시작
@@ -14760,19 +14763,6 @@ def show_tutorial_dash_dialogue():
                             arrow_surface = font_small.render(arrow_text, True, YELLOW)
                             arrow_rect = arrow_surface.get_rect(center=(demo_state['boss_x'], boss_demo_y - 40))
                             SCREEN.blit(arrow_surface, arrow_rect)
-                            
-                            # 키 조합 표시 (하단에 크게)
-                            key_combo_text = "↓ + ←"
-                            key_combo_font = FontStyle.subtitle()  # 큰 폰트 사용
-                            key_combo_surface = key_combo_font.render(key_combo_text, True, CYAN)
-                            key_combo_rect = key_combo_surface.get_rect(center=(WIDTH // 2, HEIGHT - 200))
-                            
-                            # 배경 박스
-                            bg_rect = key_combo_rect.inflate(40, 20)
-                            pygame.draw.rect(SCREEN, (0, 0, 0, 180), bg_rect, 0, 10)
-                            pygame.draw.rect(SCREEN, CYAN, bg_rect, 3, 10)
-                            
-                            SCREEN.blit(key_combo_surface, key_combo_rect)
                         else:
                             pygame.draw.line(SCREEN, line_color, 
                                            (demo_state['boss_x'] - 40, boss_demo_y),
@@ -14782,19 +14772,24 @@ def show_tutorial_dash_dialogue():
                             arrow_surface = font_small.render(arrow_text, True, YELLOW)
                             arrow_rect = arrow_surface.get_rect(center=(demo_state['boss_x'], boss_demo_y - 40))
                             SCREEN.blit(arrow_surface, arrow_rect)
-                            
-                            # 키 조합 표시 (하단에 크게)
-                            key_combo_text = "↓ + →"
-                            key_combo_font = FontStyle.subtitle()  # 큰 폰트 사용
-                            key_combo_surface = key_combo_font.render(key_combo_text, True, CYAN)
-                            key_combo_rect = key_combo_surface.get_rect(center=(WIDTH // 2, HEIGHT - 200))
-                            
-                            # 배경 박스
-                            bg_rect = key_combo_rect.inflate(40, 20)
-                            pygame.draw.rect(SCREEN, (0, 0, 0, 180), bg_rect, 0, 10)
-                            pygame.draw.rect(SCREEN, CYAN, bg_rect, 3, 10)
-                            
-                            SCREEN.blit(key_combo_surface, key_combo_rect)
+                
+                # 키 조합 표시 (대쉬 후에도 유지)
+                if 'demo_state' in locals() and demo_state['last_dash_direction'] != 0:
+                    if demo_state['last_dash_direction'] == -1:
+                        key_combo_text = "↓ + ←"
+                    else:
+                        key_combo_text = "↓ + →"
+                    
+                    key_combo_font = FontStyle.subtitle()  # 큰 폰트 사용
+                    key_combo_surface = key_combo_font.render(key_combo_text, True, CYAN)
+                    key_combo_rect = key_combo_surface.get_rect(center=(WIDTH // 2, HEIGHT - 200))
+                    
+                    # 배경 박스
+                    bg_rect = key_combo_rect.inflate(40, 20)
+                    pygame.draw.rect(SCREEN, (0, 0, 0, 180), bg_rect, 0, 10)
+                    pygame.draw.rect(SCREEN, CYAN, bg_rect, 3, 10)
+                    
+                    SCREEN.blit(key_combo_surface, key_combo_rect)
             
             # 스페이스바 안내 (하단 우측)
             if text_complete:
