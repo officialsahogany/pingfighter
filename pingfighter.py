@@ -26564,7 +26564,7 @@ def main(stage_num, new_boss_mode=False):
     # 튜토리얼 스테이지 시작 시 대화 표시
     global tutorial_dialogue_shown, tutorial_practice_mode, tutorial_serve_instruction_shown, tutorial_boss_returned
     global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue, tutorial_saved_ball_vel
-    global tutorial_serve_helper_shown  # 서브 도우미 알림 표시 여부
+    global tutorial_serve_helper_shown, tutorial_serve_reminder_active  # 서브 관련 알림
     global tutorial_wait_for_first_serve  # 첫 서브를 기다리는 상태
     global tutorial_needs_dash_practice, tutorial_dash_practice_shown  # 대쉬 튜토리얼 관련 변수
     
@@ -26602,7 +26602,6 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown, tutorial_displayed_hit_count
     global tutorial_dash_count, tutorial_displayed_dash_count, tutorial_dash_counter_active
-    global tutorial_practice_mode, tutorial_serve_reminder_active
     
     # 대쉬 튜토리얼 재진입이 아닌 경우에만 게이지 튜토리얼 변수 초기화
     if not dash_practice_reentry:
