@@ -14525,6 +14525,9 @@ def show_tutorial_miss_dialogue():
 tutorial_dash_helper_active = False
 tutorial_dash_helper_start_time = 0
 
+# 튜토리얼 히트 카운터 애니메이션 변수
+tutorial_displayed_hit_count = 0.0
+
 def draw_tutorial_dash_helper():
     """튜토리얼 대쉬 도우미 오버레이 그리기 (게임플레이 중 표시)"""
     global tutorial_dash_helper_active
@@ -26281,7 +26284,7 @@ def main(stage_num, new_boss_mode=False):
     
     # 게이지 및 속도 튜토리얼 관련 변수
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
-    global tutorial_player_hit_count, tutorial_speed_dialogue_shown
+    global tutorial_player_hit_count, tutorial_speed_dialogue_shown, tutorial_displayed_hit_count
     
     # 대쉬 튜토리얼 재진입이 아닌 경우에만 게이지 튜토리얼 변수 초기화
     if not dash_practice_reentry:
