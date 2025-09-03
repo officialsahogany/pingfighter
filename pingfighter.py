@@ -14513,6 +14513,57 @@ def show_tutorial_miss_dialogue():
     
     return True
 
+def draw_tutorial_ui():
+    """튜토리얼 UI 표시 (타격 카운터 및 안내 메시지)"""
+    global tutorial_gauge_tutorial_shown, tutorial_speed_dialogue_shown
+    global tutorial_player_hit_count
+    
+    # 게이지 튜토리얼 이후, 속도 튜토리얼 전에만 표시
+    if current_stage == 50 and tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
+        # 폰트 설정
+        font_large = FontStyle.subtitle()  # 32pt
+        font_medium = FontStyle.body()     # 24pt
+        font_small = FontStyle.small()     # 18pt
+        
+        # 배경 박스 (상단 중앙)
+        box_width = 400
+        box_height = 120
+        box_x = (WIDTH - box_width) // 2
+        box_y = 50
+        
+        # 반투명 검은 배경
+        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        box_surface.fill((0, 0, 0, 180))
+        pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 2)
+        SCREEN.blit(box_surface, (box_x, box_y))
+        
+        # 타격 카운터 표시
+        counter_text = f"타격 횟수: {tutorial_player_hit_count}/6"
+        counter_surface = font_large.render(counter_text, True, WHITE)
+        counter_rect = counter_surface.get_rect(center=(WIDTH // 2, box_y + 35))
+        SCREEN.blit(counter_surface, counter_rect)
+        
+        # 진행도 바
+        progress_width = 300
+        progress_height = 15
+        progress_x = (WIDTH - progress_width) // 2
+        progress_y = box_y + 60
+        
+        # 배경 바
+        pygame.draw.rect(SCREEN, (50, 50, 50), (progress_x, progress_y, progress_width, progress_height), border_radius=7)
+        
+        # 진행도 채우기
+        fill_width = int((tutorial_player_hit_count / 6) * progress_width)
+        if fill_width > 0:
+            fill_color = (0, 255, 100) if tutorial_player_hit_count >= 6 else (0, 200, 255)
+            pygame.draw.rect(SCREEN, fill_color, (progress_x, progress_y, fill_width, progress_height), border_radius=7)
+        
+        # 안내 메시지
+        hint_text = "여러 각도로 공을 쳐보세요"
+        hint_surface = font_small.render(hint_text, True, (200, 200, 200))
+        hint_rect = hint_surface.get_rect(center=(WIDTH // 2, box_y + 95))
+        SCREEN.blit(hint_surface, hint_rect)
+
 def show_tutorial_speed_dialogue():
     """튜토리얼 속도 관련 대화"""
     clock = pygame.time.Clock()
@@ -22309,17 +22360,17 @@ def handle_ball():
             # 플레이어가 공을 친 횟수 증가 (게이지 튜토리얼 이후)
             if tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
                 tutorial_player_hit_count += 1
-                print(f"튜토리얼: 플레이어 공 타격 횟수: {tutorial_player_hit_count}/8")
+                print(f"튜토리얼: 플레이어 공 타격 횟수: {tutorial_player_hit_count}/6")
                 
-                # 8회 타격 시 속도 튜토리얼 대화 시작
-                if tutorial_player_hit_count >= 8:
+                # 6회 타격 시 속도 튜토리얼 대화 시작
+                if tutorial_player_hit_count >= 6:
                     tutorial_speed_dialogue_shown = True
                     # 속도 튜토리얼 표시를 위해 공 일시정지
                     tutorial_saved_ball_vel = ball_vel.copy()
                     tutorial_pause_for_dialogue = True
                     ball_vel[0] = 0
                     ball_vel[1] = 0
-                    print("튜토리얼: 8회 타격 완료 - 속도 튜토리얼 시작!")
+                    print("튜토리얼: 6회 타격 완료 - 속도 튜토리얼 시작!")
         
         # handle_player에서 놓친 충돌의 경우에만 백업으로 게이지 충전
         print(f" DEBUG: handle_ball   - handle_player")
@@ -26701,6 +26752,7 @@ def main(stage_num, new_boss_mode=False):
             SCREEN = temp_surface
             draw_field()
             draw_objects()
+            draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 원래 화면으로 복원하고 흔들림 적용
@@ -26748,6 +26800,7 @@ def main(stage_num, new_boss_mode=False):
             # 흔들림이 없을 때는 직접 그리기
             draw_field()
             draw_objects()
+            draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 스테이지별 테두리 효과를 UI 전에 그리기
@@ -26949,8 +27002,8 @@ def main(stage_num, new_boss_mode=False):
                         print(f"튜토리얼: 게이지 튜토리얼 후 공 속도 복원 - {ball_vel}")
                 continue  # 다음 프레임으로
             
-            # 튜토리얼: 8회 타격 후 속도 튜토리얼 표시
-            if current_stage == 50 and tutorial_pause_for_dialogue and tutorial_speed_dialogue_shown and tutorial_player_hit_count >= 8:
+            # 튜토리얼: 6회 타격 후 속도 튜토리얼 표시
+            if current_stage == 50 and tutorial_pause_for_dialogue and tutorial_speed_dialogue_shown and tutorial_player_hit_count >= 6:
                 print("튜토리얼: 속도 튜토리얼 대화 표시")
                 # 현재 화면 그리기 (배경용)
                 draw_field()
