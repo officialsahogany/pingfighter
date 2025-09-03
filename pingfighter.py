@@ -4986,11 +4986,15 @@ def handle_player(keys):
     space_pressed = keys[pygame.K_SPACE]
     down_pressed = keys[pygame.K_DOWN]
     
-    # 튜토리얼 대쉬 도우미가 활성화되어 있고 스페이스가 눌리면 도우미 끄기
-    global tutorial_dash_helper_active
+    # 튜토리얼 대쉬 도우미는 일정 시간 동안 유지 (바로 끄지 않음)
+    global tutorial_dash_helper_active, tutorial_dash_helper_start_time
     if current_stage == 50 and 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
-        if space_pressed:
-            tutorial_dash_helper_active = False  # 도우미 끄기
+        # 5초 후에 자동으로 끄기 또는 대쉬 성공 시 끄기
+        if 'tutorial_dash_helper_start_time' in globals():
+            elapsed_time = pygame.time.get_ticks() - tutorial_dash_helper_start_time
+            if elapsed_time > 5000:  # 5초 경과
+                tutorial_dash_helper_active = False  # 도우미 끄기
+                print("튜토리얼: 대쉬 도우미 5초 경과로 비활성화")
     # 마우스 조작 (비활성화됨)
     # if input_manager.get_control_mode() == "마우스":
     #     if mouse_controls.get("space", False):
@@ -6180,6 +6184,11 @@ def handle_player(keys):
         if recent_dash_time > 0 and (current_time - recent_dash_time) <= recent_dash_success_window:
             # 대쉬 후 성공적으로 공을 쳤으므로 성공으로 업데이트
             record_dash_usage(success=True)
+            
+            # 튜토리얼 모드에서 대쉬 성공 시 도우미 끄기
+            if current_stage == 50 and 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
+                tutorial_dash_helper_active = False
+                print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
             #  대쉬 활용 능력 상세 분석
             ball_distance = abs(BALL.centery - PLAYER.centery)
             ball_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -10635,7 +10644,7 @@ def draw_objects():
     # 디버깅: rotated_player 확인 (frame_count가 정의되어 있을 때만)
     try:
         if frame_count % 60 == 0:  # 1초마다 한 번씩만 출력
-            # print(f"🔄 rotated_player 크기: {rotated_player.get_size()}, 틸트 각도: {tilt_angle}")
+            pass  # print(f"🔄 rotated_player 크기: {rotated_player.get_size()}, 틸트 각도: {tilt_angle}")
     except NameError:
         pass  # frame_count가 정의되지 않았으면 무시
     #  보스 vs 보스전과  새로운 보스전에서는 빨간 효과 제거 (게이지를 사용하지 않음)
@@ -10694,7 +10703,7 @@ def draw_objects():
     player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x, PLAYER.centery + screen_shake_offset_y))
     # 디버깅: player_rect 위치 확인
     if frame_count % 60 == 0:  # 1초마다 한 번씩만 출력
-        # print(f"📍 player_rect 위치: {player_rect.topleft}, 크기: {player_rect.size}")
+        pass  # print(f"📍 player_rect 위치: {player_rect.topleft}, 크기: {player_rect.size}")
     
     #  모든 대쉬 스킬 마스터 시 하늘빛 아지랑이 효과
     if academy.check_all_dash_skills_mastered():
