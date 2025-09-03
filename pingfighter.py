@@ -27004,11 +27004,18 @@ def main(stage_num, new_boss_mode=False):
                 # 속도 튜토리얼 대화 표시
                 if show_tutorial_speed_dialogue():
                     tutorial_pause_for_dialogue = False
-                    # 공의 속도를 복원 (일시정지 전 속도로)
-                    if tutorial_saved_ball_vel:
-                        ball_vel[0] = tutorial_saved_ball_vel[0]
-                        ball_vel[1] = tutorial_saved_ball_vel[1]
-                    print(f"튜토리얼: 속도 튜토리얼 후 공 속도 복원 - {ball_vel}")
+                    # 속도 대화 완료 후 라운드 승리 처리
+                    round_wins += 1
+                    print(f"튜토리얼: 속도 대화 완료, 라운드 승리 처리 (점수: {round_wins})")
+                    
+                    # 튜토리얼 완료 체크 (2라운드면 종료)
+                    if round_wins >= 2:
+                        print("튜토리얼: 2라운드 완료, 튜토리얼 종료")
+                        show_result(True)
+                        return
+                    
+                    # 다음 라운드 시작
+                    go_to_next_round()
                 continue  # 다음 프레임으로
         
         pygame.display.flip()
