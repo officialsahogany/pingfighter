@@ -6207,7 +6207,7 @@ def handle_player(keys):
             
             # 튜토리얼 대쉬 카운터 증가
             global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
-            global tutorial_dash_completion_dialogue_shown
+            global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
             if current_stage == 50 and tutorial_dash_counter_active:
                 if tutorial_dash_count < 3:
                     tutorial_dash_count += 1
