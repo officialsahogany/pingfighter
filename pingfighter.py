@@ -14760,6 +14760,19 @@ def show_tutorial_dash_dialogue():
                             arrow_surface = font_small.render(arrow_text, True, YELLOW)
                             arrow_rect = arrow_surface.get_rect(center=(demo_state['boss_x'], boss_demo_y - 40))
                             SCREEN.blit(arrow_surface, arrow_rect)
+                            
+                            # 키 조합 표시 (하단에 크게)
+                            key_combo_text = "↓ + ←"
+                            key_combo_font = FontStyle.subtitle()  # 큰 폰트 사용
+                            key_combo_surface = key_combo_font.render(key_combo_text, True, CYAN)
+                            key_combo_rect = key_combo_surface.get_rect(center=(WIDTH // 2, HEIGHT - 200))
+                            
+                            # 배경 박스
+                            bg_rect = key_combo_rect.inflate(40, 20)
+                            pygame.draw.rect(SCREEN, (0, 0, 0, 180), bg_rect, 0, 10)
+                            pygame.draw.rect(SCREEN, CYAN, bg_rect, 3, 10)
+                            
+                            SCREEN.blit(key_combo_surface, key_combo_rect)
                         else:
                             pygame.draw.line(SCREEN, line_color, 
                                            (demo_state['boss_x'] - 40, boss_demo_y),
@@ -14769,6 +14782,19 @@ def show_tutorial_dash_dialogue():
                             arrow_surface = font_small.render(arrow_text, True, YELLOW)
                             arrow_rect = arrow_surface.get_rect(center=(demo_state['boss_x'], boss_demo_y - 40))
                             SCREEN.blit(arrow_surface, arrow_rect)
+                            
+                            # 키 조합 표시 (하단에 크게)
+                            key_combo_text = "↓ + →"
+                            key_combo_font = FontStyle.subtitle()  # 큰 폰트 사용
+                            key_combo_surface = key_combo_font.render(key_combo_text, True, CYAN)
+                            key_combo_rect = key_combo_surface.get_rect(center=(WIDTH // 2, HEIGHT - 200))
+                            
+                            # 배경 박스
+                            bg_rect = key_combo_rect.inflate(40, 20)
+                            pygame.draw.rect(SCREEN, (0, 0, 0, 180), bg_rect, 0, 10)
+                            pygame.draw.rect(SCREEN, CYAN, bg_rect, 3, 10)
+                            
+                            SCREEN.blit(key_combo_surface, key_combo_rect)
             
             # 스페이스바 안내 (하단 우측)
             if text_complete:
