@@ -6207,10 +6207,36 @@ def handle_player(keys):
             
             # 튜토리얼 대쉬 카운터 증가
             global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
+            global tutorial_dash_completion_dialogue_shown
             if current_stage == 50 and tutorial_dash_counter_active:
                 if tutorial_dash_count < 3:
                     tutorial_dash_count += 1
                     print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/3")
+                    
+                    # 3회 완료 시 축하 대화 표시
+                    if tutorial_dash_count == 3 and not tutorial_dash_completion_dialogue_shown:
+                        tutorial_dash_completion_dialogue_shown = True
+                        # 게임 일시정지하고 대화 표시
+                        tutorial_saved_ball_vel = ball_vel.copy()
+                        ball_vel[0] = 0
+                        ball_vel[1] = 0
+                        print("튜토리얼: 대쉬 3회 완료! 축하 대화 표시")
+                        
+                        # 대화 표시
+                        if show_tutorial_dash_completion_dialogue():
+                            # 대화 완료 후 Chapter 2로 이동
+                            print("튜토리얼: Chapter 2 - SMASHER SKILL로 이동")
+                            # Chapter 2 타이틀 표시
+                            show_chapter_title(2, "SMASHER SKILL", "스매셔 스킬 연습")
+                            # 다음 챕터로 진행 (스테이지 51로 가정, 실제 스테이지 번호는 조정 필요)
+                            current_stage = 51  # 또는 적절한 스테이지 번호
+                            tutorial_needs_dash_practice = False  # 대쉬 연습 완료
+                            # 대쉬 카운터 리셋
+                            tutorial_dash_counter_active = False
+                            tutorial_dash_count = 0
+                            # 공 속도 복원
+                            ball_vel[0] = tutorial_saved_ball_vel[0] 
+                            ball_vel[1] = tutorial_saved_ball_vel[1]
             
             # 대쉬 챕터에서 첫 대쉬 성공 시 토큰 설명 대화 표시
             if current_stage == 50 and 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
@@ -14564,6 +14590,7 @@ def show_tutorial_miss_dialogue():
 tutorial_dash_helper_active = False
 tutorial_dash_helper_start_time = 0
 tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
+tutorial_dash_completion_dialogue_shown = False  # 대쉬 3회 완료 대화 표시 여부
 
 # 서브 알림창 전역 변수
 tutorial_serve_reminder_active = False
@@ -16188,6 +16215,130 @@ def show_tutorial_serve_helper():
         
         pygame.display.flip()
         clock.tick(60)
+
+def show_tutorial_dash_completion_dialogue():
+    """대쉬 3회 완료 후 조교 축하 대화"""
+    global tutorial_dash_completion_dialogue_shown
+    
+    clock = pygame.time.Clock()
+    font_large = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 26)
+    font_medium = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 20)
+    font_small = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
+    
+    # 조교 대화 시퀀스 (축하 및 다음 스킬 소개)
+    dialogues = [
+        {"speaker": "[조교]", "text": "벌써 3회를 채우다니, 생각보다 재능있는 친구군", 
+         "speaker_color": (100, 255, 100)},
+        {"speaker": "[조교]", "text": "대쉬는 방어와 동시에 킬각도 가끔 나오므로", 
+         "speaker_color": (100, 255, 100)},
+        {"speaker": "[조교]", "text": "경기에서 아주 유용한 기술이지", 
+         "speaker_color": (100, 255, 100)},
+        {"speaker": "[조교]", "text": "대쉬만 제대로 익혀도 50%는 승률이 보장된다", 
+         "speaker_color": (100, 255, 100)},
+        {"speaker": "[조교]", "text": "다음은 스매셔 스킬 동작들을 연마하는 시간을 가져보겠다", 
+         "speaker_color": (100, 255, 100)}
+    ]
+    
+    # 현재 게임 화면 캡처
+    background = SCREEN.copy()
+    
+    dialogue_index = 0
+    text_complete = False
+    displayed_text = ""
+    last_char_time = pygame.time.get_ticks()
+    typing_speed = 30  # 타이핑 속도 (밀리초)
+    
+    waiting_for_input = False
+    
+    running = True
+    while running:
+        current_time = pygame.time.get_ticks()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    if text_complete:
+                        dialogue_index += 1
+                        if dialogue_index >= len(dialogues):
+                            running = False
+                        else:
+                            # 다음 대화 준비
+                            text_complete = False
+                            displayed_text = ""
+                            last_char_time = current_time
+                    else:
+                        # 텍스트 즉시 완성
+                        displayed_text = dialogues[dialogue_index]["text"]
+                        text_complete = True
+        
+        if dialogue_index < len(dialogues):
+            dialogue = dialogues[dialogue_index]
+            
+            # 타이핑 효과
+            if not text_complete and current_time - last_char_time >= typing_speed:
+                if len(displayed_text) < len(dialogue["text"]):
+                    displayed_text += dialogue["text"][len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 어두운 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            SCREEN.blit(overlay, (0, 0))
+            
+            # 중앙 대화창 스타일
+            dialogue_width = 800
+            dialogue_height = 150
+            dialogue_x = (WIDTH - dialogue_width) // 2
+            dialogue_y = HEIGHT // 2 - 100
+            
+            # 대화창 배경
+            dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg.fill((20, 20, 30, 230))
+            
+            # 대화창 테두리
+            pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
+                           (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
+            
+            # 상단 라인 (화자 이름 구분선)
+            pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
+                           (20, 50), (dialogue_width - 20, 50), 2)
+            
+            SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
+            
+            # 화자 이름 (대화창 상단 중앙)
+            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+            speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
+            SCREEN.blit(speaker_surface, speaker_rect)
+            
+            # 대사 텍스트 (화자 이름 아래 중앙)
+            text_surface = font_medium.render(displayed_text, True, WHITE)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 스페이스바 안내 (텍스트 완료 시)
+            if text_complete:
+                if dialogue_index < len(dialogues) - 1:
+                    continue_text = "[ 스페이스바 - 계속 ]"
+                else:
+                    continue_text = "[ 스페이스바 - Chapter 2로 진행 ]"
+                
+                # 깜빡임 효과
+                if current_time % 1000 < 700:
+                    continue_surface = font_small.render(continue_text, True, CYAN)
+                    continue_rect = continue_surface.get_rect(center=(WIDTH // 2, dialogue_y + dialogue_height - 20))
+                    SCREEN.blit(continue_surface, continue_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+    
+    return True
 
 def show_character_selection():
     """사이버펑크 스타일 홀로그램 캐릭터 선택 화면"""
@@ -26831,6 +26982,7 @@ def main(stage_num, new_boss_mode=False):
         tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
         tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
         tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
+        tutorial_dash_completion_dialogue_shown = False  # 대쉬 완료 대화 표시 여부
     else:
         # 대쉬 튜토리얼 재진입 - 일부 변수만 초기화
         tutorial_dialogue_shown = True  # 초기 대화는 이미 표시됨
@@ -26840,6 +26992,7 @@ def main(stage_num, new_boss_mode=False):
         tutorial_wait_for_first_serve = False  # 대쉬 연습에서는 보스가 서브
         tutorial_dash_practice_shown = False  # 대쉬 연습 대화를 표시하기 위해 False로 설정
         tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부 리셋
+        tutorial_dash_completion_dialogue_shown = False  # 대쉬 완료 대화 표시 여부 리셋
         # tutorial_needs_dash_practice는 True 값 유지
         # 나머지 변수들은 현재 값 유지
     
