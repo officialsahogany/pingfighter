@@ -6206,11 +6206,27 @@ def handle_player(keys):
                 print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
             
             # 튜토리얼 대쉬 카운터 증가
-            global tutorial_dash_count, tutorial_dash_counter_active
+            global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
             if current_stage == 50 and tutorial_dash_counter_active:
                 if tutorial_dash_count < 3:
                     tutorial_dash_count += 1
                     print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/3")
+            
+            # 대쉬 챕터에서 첫 대쉬 성공 시 토큰 설명 대화 표시
+            if current_stage == 50 and 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
+                if not tutorial_dash_token_dialogue_shown:
+                    tutorial_dash_token_dialogue_shown = True
+                    # 게임 일시정지하고 대화 표시
+                    tutorial_saved_ball_vel = ball_vel.copy()
+                    ball_vel[0] = 0
+                    ball_vel[1] = 0
+                    print("튜토리얼: 첫 대쉬 성공! 토큰 시스템 설명 대화 표시")
+                    # 대화 표시
+                    if show_tutorial_dash_token_dialogue():
+                        # 대화 완료 후 공 속도 복원
+                        ball_vel[0] = tutorial_saved_ball_vel[0]
+                        ball_vel[1] = tutorial_saved_ball_vel[1]
+                        print("튜토리얼: 대쉬 토큰 설명 완료")
             #  대쉬 활용 능력 상세 분석
             ball_distance = abs(BALL.centery - PLAYER.centery)
             ball_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -14547,6 +14563,7 @@ def show_tutorial_miss_dialogue():
 # 대쉬 도우미 전역 변수
 tutorial_dash_helper_active = False
 tutorial_dash_helper_start_time = 0
+tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
 
 # 서브 알림창 전역 변수
 tutorial_serve_reminder_active = False
@@ -15874,6 +15891,203 @@ def show_tutorial_gauge_dialogue():
     tutorial_dash_counter_active = True
     tutorial_dash_count = 0
     tutorial_displayed_dash_count = 0.0
+    
+    return True
+
+def show_tutorial_dash_token_dialogue():
+    """대쉬 토큰 시스템 설명 도우미 대화"""
+    global rolling_charges, rolling_charge_timer
+    
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()    # 24pt 대사용
+    font_small = FontStyle.small()   # 18pt 안내용
+    
+    # 대화 시퀀스
+    dialogues = [
+        {
+            "speaker": "[도우미]",
+            "text": "대쉬는 게이지 소모뿐만 아니라",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "화살표에 표시된 대쉬 토큰도 소모합니다",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": True  # 토큰 게이지 강조
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "대쉬토큰을 모두 소모하였을 경우",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "일정 쿨타임이 지나면 다시 충전이 됩니다",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "대쉬토큰은 패시브 아이템이나",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "아카데미 스킬을 레벨업하여",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "추가 획득이 가능해요",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "대쉬토큰이 여러개 있으면",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "추가적인 연속대쉬를 사용할 수 있습니다",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "연속대쉬를 사용할 시 에는",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "추가 대쉬당 50%의 게이지 할인이 적용됩니다",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        }
+    ]
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+    
+    # 각 대화를 순차적으로 표시
+    for dialogue_index, dialogue in enumerate(dialogues):
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자
+        last_char_time = pygame.time.get_ticks()
+        
+        # 강조 효과 애니메이션 변수
+        highlight_timer = 0
+        
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            highlight_timer += 1
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if text_complete:
+                            running = False
+                        else:
+                            # 텍스트 즉시 완성
+                            displayed_text = dialogue["text"]
+                            text_complete = True
+            
+            # 타이핑 효과
+            if not text_complete and current_time - last_char_time >= typing_speed:
+                if len(displayed_text) < len(dialogue["text"]):
+                    displayed_text += dialogue["text"][len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 어두운 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            SCREEN.blit(overlay, (0, 0))
+            
+            # 게이지 그리기
+            draw_player_gauge()
+            
+            # 토큰 게이지 강조 효과 (특정 대화에서만)
+            if dialogue.get("highlight_token", False):
+                # 토큰 게이지 위치 계산 (게이지바 하단)
+                gauge_x = 45
+                gauge_y = HEIGHT - 60
+                token_width = 30
+                token_height = 20
+                
+                # 강조 박스 그리기 (깜빡임 효과)
+                if highlight_timer % 40 < 30:  # 40프레임마다 30프레임 표시
+                    highlight_color = (255, 255, 0, 150)  # 노란색 반투명
+                    highlight_rect = pygame.Rect(gauge_x - 10, gauge_y - 35, token_width + 20, token_height + 20)
+                    pygame.draw.rect(SCREEN, highlight_color[:3], highlight_rect, 3, border_radius=5)
+                    
+                    # 화살표 그리기 (토큰 게이지를 가리킴)
+                    arrow_points = [
+                        (gauge_x + token_width // 2, gauge_y - 45),
+                        (gauge_x + token_width // 2 - 10, gauge_y - 55),
+                        (gauge_x + token_width // 2 + 10, gauge_y - 55)
+                    ]
+                    pygame.draw.polygon(SCREEN, highlight_color[:3], arrow_points)
+            
+            # 중앙 대화창 스타일
+            dialogue_width = 800
+            dialogue_height = 150
+            dialogue_x = (WIDTH - dialogue_width) // 2
+            dialogue_y = HEIGHT // 2 - 100
+            
+            # 대화창 배경
+            dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg.fill((20, 20, 30, 230))
+            
+            # 대화창 테두리
+            pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
+                           (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
+            
+            # 상단 라인 (화자 이름 구분선)
+            pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
+                           (20, 50), (dialogue_width - 20, 50), 2)
+            
+            SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
+            
+            # 화자 이름 (대화창 상단 중앙)
+            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+            speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
+            SCREEN.blit(speaker_surface, speaker_rect)
+            
+            # 대사 텍스트 (화자 이름 아래 중앙)
+            text_surface = font_medium.render(displayed_text, True, WHITE)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 90))
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 스페이스바 안내 (텍스트 완료 시)
+            if text_complete:
+                if current_time % 1000 < 500:  # 깜빡임 효과
+                    hint_text = "SPACE - 다음"
+                    hint_surface = font_small.render(hint_text, True, (200, 200, 200))
+                    hint_rect = hint_surface.get_rect(center=(WIDTH // 2, dialogue_y + dialogue_height - 20))
+                    SCREEN.blit(hint_surface, hint_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
     
     return True
 
@@ -26588,6 +26802,7 @@ def main(stage_num, new_boss_mode=False):
         tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
         tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
         tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
+        tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
     else:
         # 대쉬 튜토리얼 재진입 - 일부 변수만 초기화
         tutorial_dialogue_shown = True  # 초기 대화는 이미 표시됨
@@ -26596,6 +26811,7 @@ def main(stage_num, new_boss_mode=False):
         tutorial_saved_ball_vel = [0, 0]  # 공 속도 초기화
         tutorial_wait_for_first_serve = False  # 대쉬 연습에서는 보스가 서브
         tutorial_dash_practice_shown = False  # 대쉬 연습 대화를 표시하기 위해 False로 설정
+        tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부 리셋
         # tutorial_needs_dash_practice는 True 값 유지
         # 나머지 변수들은 현재 값 유지
     
