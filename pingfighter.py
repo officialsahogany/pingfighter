@@ -14554,79 +14554,11 @@ def draw_tutorial_dash_helper():
 
 def show_tutorial_dash_helper():
     """튜토리얼 대쉬 도우미 알림"""
-    # 현재 화면 캡처
-    screen_capture = SCREEN.copy()
+    # 서브 도우미와 동일한 방식 - 게임 화면을 배경으로 그대로 사용
+    # 별도의 팝업이 아니라 게임 화면 위에 오버레이로 표시
     
-    # 폰트 설정
-    font_large = FontStyle.subtitle()  # 32pt 메인 텍스트용
-    font_small = FontStyle.small()   # 18pt 안내용
-    
-    # 알림 내용
-    main_text = "게이지를 모은 후 대쉬를 성공시켜보세요!"
-    sub_text = "SPACE - 확인"
-    
-    clock = pygame.time.Clock()
-    
-    while True:
-        # 이벤트 처리
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:  # 스페이스 키로 도우미 닫기
-                    return True
-        
-        # 화면 그리기
-        SCREEN.blit(screen_capture, (0, 0))
-        
-        # 반투명 어두운 배경
-        overlay = pygame.Surface((WIDTH, HEIGHT))
-        overlay.set_alpha(180)
-        overlay.fill((0, 0, 0))
-        SCREEN.blit(overlay, (0, 0))
-        
-        # 도우미 알림 박스 
-        box_width = 700
-        box_height = 200
-        box_x = (WIDTH - box_width) // 2
-        box_y = (HEIGHT - box_height) // 2
-        
-        # 박스 배경
-        box_surface = pygame.Surface((box_width, box_height))
-        box_surface.set_alpha(240)
-        box_surface.fill((20, 20, 40))
-        pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 3)
-        SCREEN.blit(box_surface, (box_x, box_y))
-        
-        # 도우미 아이콘 (느낌표) - 위치를 오른쪽으로 이동
-        icon_text = "!"
-        icon_surface = font_large.render(icon_text, True, YELLOW)
-        icon_x = box_x + 80  # 50 -> 80으로 변경 (30픽셀 오른쪽으로)
-        icon_rect = icon_surface.get_rect(center=(icon_x, box_y + box_height // 2))
-        
-        # 아이콘 원형 배경
-        pygame.draw.circle(SCREEN, YELLOW, (icon_x, box_y + box_height // 2), 30, 3)
-        SCREEN.blit(icon_surface, icon_rect)
-        
-        # 메인 텍스트
-        main_surface = font_large.render(main_text, True, WHITE)
-        main_rect = main_surface.get_rect(center=(box_x + box_width // 2 + 20, box_y + box_height // 2 - 20))
-        SCREEN.blit(main_surface, main_rect)
-        
-        # 하단 가이드 텍스트
-        sub_surface = font_small.render(sub_text, True, CYAN)
-        sub_rect = sub_surface.get_rect(center=(box_x + box_width // 2, box_y + box_height - 40))
-        SCREEN.blit(sub_surface, sub_rect)
-        
-        # 하단 삼각형 애니메이션 (깜빡임)
-        if pygame.time.get_ticks() % 1000 < 500:
-            arrow_text = font_small.render("▼", True, CYAN)
-            arrow_rect = arrow_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + 10))
-            SCREEN.blit(arrow_text, arrow_rect)
-        
-        pygame.display.flip()
-        clock.tick(60)  # 60 FPS
-    
+    # 대쉬 도우미를 바로 활성화 (draw_tutorial_dash_helper()가 처리)
+    # 이 함수는 호출되자마자 즉시 True 반환
     return True
 
 def show_tutorial_dash_dialogue():
