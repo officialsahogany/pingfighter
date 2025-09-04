@@ -6231,6 +6231,14 @@ def handle_player(keys):
                     tutorial_dash_count += 1
                     print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/3")
                     
+                    # 성공 피드백 표시
+                    if tutorial_dash_count == 1:
+                        show_tutorial_success_feedback("대쉬 성공!", "normal")
+                    elif tutorial_dash_count == 2:
+                        show_tutorial_success_feedback("훌륭해요!", "great")
+                    elif tutorial_dash_count == 3:
+                        show_tutorial_success_feedback("대쉬 마스터!", "perfect")
+                    
                     # 3회 완료 시 축하 대화 표시
                     if tutorial_dash_count == 3 and not tutorial_dash_completion_dialogue_shown:
                         tutorial_dash_completion_dialogue_shown = True
@@ -14731,6 +14739,307 @@ tutorial_dash_count = 0  # 대쉬 성공 횟수
 tutorial_displayed_dash_count = 0.0  # 화면에 표시되는 애니메이션용 대쉬 카운트
 tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
 
+# 튜토리얼 현재 챕터 추적 변수
+tutorial_current_chapter = 1  # 1: BASIC, 2: DASH, 3: DRIVE
+
+def draw_tutorial_progress_bar():
+    """튜토리얼 전체 진행도 바 표시 (상단)"""
+    global tutorial_current_chapter
+    
+    if current_stage != 50:  # 튜토리얼 스테이지가 아니면 표시하지 않음
+        return
+    
+    # 폰트 설정
+    font_small = FontStyle.small()  # 18pt
+    font_medium = FontStyle.body()  # 24pt
+    
+    # 진행도 바 설정
+    bar_width = 600
+    bar_height = 40
+    bar_x = (WIDTH - bar_width) // 2
+    bar_y = 20
+    
+    # 배경 패널
+    panel_surface = pygame.Surface((bar_width + 20, bar_height + 40), pygame.SRCALPHA)
+    panel_surface.fill((20, 20, 40, 200))  # 반투명 배경
+    pygame.draw.rect(panel_surface, (100, 200, 255, 100), (0, 0, bar_width + 20, bar_height + 40), 2)
+    SCREEN.blit(panel_surface, (bar_x - 10, bar_y - 10))
+    
+    # 챕터 정보
+    chapters = [
+        {"name": "BASIC", "korean": "기본기"},
+        {"name": "DASH", "korean": "대쉬"},
+        {"name": "DRIVE", "korean": "드라이브"}
+    ]
+    
+    # 각 챕터별 진행도 표시
+    chapter_width = bar_width // 3
+    for i, chapter in enumerate(chapters):
+        chapter_x = bar_x + i * chapter_width
+        chapter_num = i + 1
+        
+        # 챕터 박스 색상 결정
+        if chapter_num < tutorial_current_chapter:
+            # 완료된 챕터 - 초록색
+            box_color = (50, 200, 50, 150)
+            border_color = (100, 255, 100)
+            text_color = (200, 255, 200)
+            status_icon = "✓"
+        elif chapter_num == tutorial_current_chapter:
+            # 현재 챕터 - 파란색 + 애니메이션
+            glow = int(50 + 30 * abs(math.sin(pygame.time.get_ticks() * 0.003)))
+            box_color = (50, 100 + glow, 200, 150)
+            border_color = (100, 150 + glow, 255)
+            text_color = (255, 255, 255)
+            status_icon = "▶"
+        else:
+            # 잠긴 챕터 - 회색
+            box_color = (50, 50, 50, 100)
+            border_color = (100, 100, 100)
+            text_color = (150, 150, 150)
+            status_icon = "🔒"
+        
+        # 챕터 박스 그리기
+        chapter_rect = pygame.Rect(chapter_x, bar_y, chapter_width - 2, bar_height)
+        pygame.draw.rect(SCREEN, box_color, chapter_rect)
+        pygame.draw.rect(SCREEN, border_color, chapter_rect, 2)
+        
+        # 챕터 이름과 상태 아이콘
+        chapter_text = f"{status_icon} {chapter['name']}"
+        text_surface = font_small.render(chapter_text, True, text_color)
+        text_rect = text_surface.get_rect(center=(chapter_x + chapter_width // 2, bar_y + bar_height // 2))
+        SCREEN.blit(text_surface, text_rect)
+        
+        # 한글 이름 (아래쪽에 작게)
+        korean_surface = font_small.render(chapter['korean'], True, text_color)
+        korean_rect = korean_surface.get_rect(center=(chapter_x + chapter_width // 2, bar_y + bar_height + 15))
+        SCREEN.blit(korean_surface, korean_rect)
+    
+    # 현재 챕터 강조 표시
+    if 1 <= tutorial_current_chapter <= 3:
+        current_x = bar_x + (tutorial_current_chapter - 1) * chapter_width
+        # 깜빡이는 테두리
+        if pygame.time.get_ticks() % 1000 < 500:
+            pygame.draw.rect(SCREEN, (255, 255, 100), 
+                           (current_x - 2, bar_y - 2, chapter_width + 2, bar_height + 4), 3)
+
+def show_tutorial_success_feedback(message, level="normal"):
+    """튜토리얼 성공 시 긍정적 피드백 표시"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt
+    font_medium = FontStyle.body()  # 24pt
+    
+    # 피드백 레벨에 따른 색상과 이펙트
+    if level == "perfect":
+        main_color = (255, 215, 0)  # 금색
+        particle_colors = [(255, 255, 100), (255, 200, 50), (255, 255, 200)]
+        num_particles = 30
+    elif level == "great":
+        main_color = (100, 255, 100)  # 초록색
+        particle_colors = [(150, 255, 150), (100, 200, 100), (200, 255, 200)]
+        num_particles = 20
+    else:  # normal
+        main_color = (100, 200, 255)  # 파란색
+        particle_colors = [(150, 200, 255), (100, 150, 200), (200, 230, 255)]
+        num_particles = 15
+    
+    # 파티클 초기화
+    particles = []
+    for _ in range(num_particles):
+        angle = random.uniform(0, math.pi * 2)
+        speed = random.uniform(2, 8)
+        particles.append({
+            'x': WIDTH // 2,
+            'y': HEIGHT // 2,
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': 60,
+            'color': random.choice(particle_colors),
+            'size': random.randint(3, 8)
+        })
+    
+    # 애니메이션 루프
+    animation_duration = 90  # 1.5초
+    for frame in range(animation_duration):
+        # 화면 그리기 (게임 화면 유지)
+        draw_field()
+        draw_objects()
+        
+        # 파티클 업데이트 및 그리기
+        for particle in particles[:]:
+            particle['x'] += particle['vx']
+            particle['y'] += particle['vy']
+            particle['vy'] += 0.2  # 중력
+            particle['life'] -= 1
+            particle['size'] = max(1, particle['size'] - 0.1)
+            
+            if particle['life'] > 0:
+                alpha = min(255, particle['life'] * 4)
+                # 별 모양 그리기
+                star_points = []
+                for i in range(10):
+                    angle = i * math.pi / 5
+                    if i % 2 == 0:
+                        r = particle['size']
+                    else:
+                        r = particle['size'] / 2
+                    x = particle['x'] + r * math.cos(angle - math.pi / 2)
+                    y = particle['y'] + r * math.sin(angle - math.pi / 2)
+                    star_points.append((x, y))
+                
+                if len(star_points) >= 3:
+                    pygame.draw.polygon(SCREEN, particle['color'], star_points)
+            else:
+                particles.remove(particle)
+        
+        # 메시지 표시 (중앙)
+        text_scale = 1.0 + 0.2 * abs(math.sin(frame * 0.1))  # 펄스 효과
+        text_surface = font_large.render(message, True, main_color)
+        text_surface = pygame.transform.scale(text_surface, 
+                                             (int(text_surface.get_width() * text_scale),
+                                              int(text_surface.get_height() * text_scale)))
+        text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        
+        # 텍스트 배경 (반투명)
+        bg_surface = pygame.Surface((text_rect.width + 40, text_rect.height + 20), pygame.SRCALPHA)
+        bg_surface.fill((0, 0, 0, 100))
+        bg_rect = bg_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        SCREEN.blit(bg_surface, bg_rect)
+        
+        # 텍스트 그리기
+        SCREEN.blit(text_surface, text_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+
+def show_chapter_completion_summary(chapter_num):
+    """챕터 완료 시 학습 내용 요약 화면 표시"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_title = FontStyle.title()  # 48pt
+    font_subtitle = FontStyle.subtitle()  # 32pt
+    font_body = FontStyle.body()  # 24pt
+    
+    # 챕터별 요약 내용
+    chapter_summaries = {
+        1: {
+            "title": "Chapter 1: BASIC",
+            "korean": "기본기 마스터",
+            "skills": [
+                "✓ 기본 타격 방법 학습",
+                "✓ 서브 시스템 이해",
+                "✓ 타이밍의 중요성 체득",
+                "✓ 스코어 시스템 이해"
+            ],
+            "message": "훌륭합니다! 이제 더 고급 기술을 배워볼까요?"
+        },
+        2: {
+            "title": "Chapter 2: DASH",
+            "korean": "대쉬 기술 습득",
+            "skills": [
+                "✓ 게이지 시스템 이해",
+                "✓ 대쉬 타이밍 마스터",
+                "✓ 대쉬 토큰 관리",
+                "✓ 회피와 공격의 조화"
+            ],
+            "message": "대단해요! 이제 최고급 기술에 도전할 준비가 되었습니다!"
+        },
+        3: {
+            "title": "Chapter 3: DRIVE",
+            "korean": "드라이브 완성",
+            "skills": [
+                "✓ 드라이브 모니터 활용",
+                "✓ 방향키 + 스페이스 조합",
+                "✓ 곡선 공격 마스터",
+                "✓ 고급 전술 이해"
+            ],
+            "message": "축하합니다! 당신은 이제 진정한 핑파이터입니다!"
+        }
+    }
+    
+    summary = chapter_summaries.get(chapter_num, chapter_summaries[1])
+    
+    # 페이드 인
+    for alpha in range(0, 255, 8):
+        SCREEN.fill((10, 10, 30))
+        
+        # 배경 장식
+        for i in range(5):
+            y = 100 + i * 150
+            pygame.draw.line(SCREEN, (30, 30, 60, alpha // 4), (0, y), (WIDTH, y), 2)
+        
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.set_alpha(alpha)
+        
+        # 타이틀
+        title_surface = font_title.render(summary["title"], True, (255, 255, 255))
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, 100))
+        overlay.blit(title_surface, title_rect)
+        
+        # 한글 부제
+        korean_surface = font_subtitle.render(summary["korean"], True, (100, 200, 255))
+        korean_rect = korean_surface.get_rect(center=(WIDTH // 2, 160))
+        overlay.blit(korean_surface, korean_rect)
+        
+        # 구분선
+        pygame.draw.line(overlay, (100, 100, 200), (WIDTH // 4, 200), (3 * WIDTH // 4, 200), 2)
+        
+        # 학습 내용
+        y_pos = 250
+        for skill in summary["skills"]:
+            skill_surface = font_body.render(skill, True, (200, 255, 200))
+            skill_rect = skill_surface.get_rect(center=(WIDTH // 2, y_pos))
+            overlay.blit(skill_surface, skill_rect)
+            y_pos += 40
+        
+        # 메시지
+        msg_surface = font_body.render(summary["message"], True, (255, 200, 100))
+        msg_rect = msg_surface.get_rect(center=(WIDTH // 2, y_pos + 40))
+        overlay.blit(msg_surface, msg_rect)
+        
+        # 계속하기 안내
+        if alpha >= 200:
+            continue_text = "스페이스바를 눌러 계속하기"
+            continue_surface = font_body.render(continue_text, True, (255, 255, 255))
+            continue_rect = continue_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+            overlay.blit(continue_surface, continue_rect)
+        
+        SCREEN.blit(overlay, (0, 0))
+        pygame.display.flip()
+        clock.tick(60)
+    
+    # 대기
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    waiting = False
+        
+        # 애니메이션 유지
+        SCREEN.fill((10, 10, 30))
+        
+        # (동일한 내용 다시 그리기 - 코드 생략)
+        # ... [위의 그리기 코드 반복] ...
+        
+        pygame.display.flip()
+        clock.tick(60)
+    
+    # 페이드 아웃
+    for alpha in range(255, 0, -8):
+        SCREEN.fill((10, 10, 30))
+        fade_surface = pygame.Surface((WIDTH, HEIGHT))
+        fade_surface.set_alpha(alpha)
+        SCREEN.blit(fade_surface, (0, 0))
+        pygame.display.flip()
+        clock.tick(60)
+
 def draw_tutorial_dash_helper():
     """튜토리얼 대쉬 도우미 오버레이 그리기 (게임플레이 중 표시)"""
     global tutorial_dash_helper_active
@@ -14953,9 +15262,14 @@ def show_drive_monitor_demo(background):
     """드라이브 모니터 표시 시범"""
     clock = pygame.time.Clock()
     
+    # 폰트 설정 (챕터2와 동일)
+    font_medium = FontStyle.body()    # 24pt 대사용
+    font_small = FontStyle.small()    # 18pt 안내용
+    BOSS_COLOR = (255, 100, 100)  # 조교 텍스트 색상
+    
     # 데모용 매개변수 - 실제 게임과 동일한 조건
     boss_x = WIDTH // 2
-    boss_y = 100
+    boss_y = 120  # 챕터2와 동일한 높이
     
     # 조교 이미지 미리 로드 (중복 방지)
     try:
@@ -14996,7 +15310,14 @@ def show_drive_monitor_demo(background):
                     if current_phase >= len(demo_phases):
                         return  # 데모 완료
         
-        SCREEN.blit(background, (0, 0))
+        # 챕터2 스타일: 실제 게임 필드 표시
+        SCREEN.fill((20, 30, 60))  # 어두운 파란 배경
+        
+        # 중앙선 그리기
+        pygame.draw.line(SCREEN, (100, 100, 100), (0, HEIGHT // 2), (WIDTH, HEIGHT // 2), 2)
+        
+        # 중앙 원 그리기
+        pygame.draw.circle(SCREEN, (100, 100, 100), (WIDTH // 2, HEIGHT // 2), 80, 2)
         
         # 현재 페이즈 시간 계산
         elapsed_time = pygame.time.get_ticks() - phase_start_time
@@ -15139,37 +15460,42 @@ def show_drive_monitor_demo(background):
                         pygame.draw.line(progress_surface, gradient_color, (x, 0), (x, bar_height))
                     SCREEN.blit(progress_surface, (bar_x, bar_y))
         
-        # 키 입력 UI 표시 (스크린샷 스타일 - 아래 간단한 텍스트)
+        # 챕터2 스타일 텍스트 배경 (항상 표시)
+        text_bg_height = 80
+        text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
+        text_bg.fill((0, 0, 0, 180))
+        text_y_position = HEIGHT - 150
+        SCREEN.blit(text_bg, (0, text_y_position))
+        
+        # 시범 안내 텍스트 표시
         if waiting_for_space:
-            # 하단에 간단한 스페이스바 안내
-            hint_y = HEIGHT - 60
-            
-            # 배경 바 (검은색 반투명)
-            bar_height = 50
-            bar_surface = pygame.Surface((WIDTH, bar_height), pygame.SRCALPHA)
-            bar_surface.fill((0, 0, 0, 180))
-            SCREEN.blit(bar_surface, (0, HEIGHT - 80))
-            
-            # 장식 원들 (좌우에 작은 원)
-            circle_color = (100, 150, 255, 100)
-            for i in range(3):
-                circle_x_left = WIDTH // 2 - 120 - i * 25
-                circle_x_right = WIDTH // 2 + 120 + i * 25
-                pygame.draw.circle(SCREEN, circle_color, (circle_x_left, hint_y), 3)
-                pygame.draw.circle(SCREEN, circle_color, (circle_x_right, hint_y), 3)
-            
-            # SPACE - 계속 텍스트
-            font = FontStyle.body()
-            space_text = font.render("SPACE - 계속", True, (0, 255, 255))
-            text_rect = space_text.get_rect(center=(WIDTH // 2, hint_y))
-            SCREEN.blit(space_text, text_rect)
+            # 스페이스바 대기 중일 때
+            direction = demo_phases[current_phase]['direction']
+            if direction == 'left':
+                display_text = "[조교] 왼쪽 드라이브 모니터가 표시되었다! 스페이스바를 눌러 계속하자"
+            else:
+                display_text = "[조교] 오른쪽 드라이브 모니터가 표시되었다! 스페이스바를 눌러 계속하자"
         else:
-            # 애니메이션 재생 중 안내 (더 작은 텍스트)
-            font_small = FontStyle.small()
-            direction_text = "왼쪽 드라이브" if demo_phases[current_phase]['direction'] == 'left' else "오른쪽 드라이브"
-            hint_text = font_small.render(f"{direction_text} 시범 - 드라이브 모니터 관찰", True, (200, 200, 200))
-            text_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 40))
-            SCREEN.blit(hint_text, text_rect)
+            # 애니메이션 재생 중
+            direction = demo_phases[current_phase]['direction']
+            if direction == 'left':
+                display_text = "[조교] 공이 왼쪽에서 접근할 때 드라이브 모니터가 활성화된다"
+            else:
+                display_text = "[조교] 공이 오른쪽에서 접근할 때 드라이브 모니터가 활성화된다"
+        
+        # 텍스트 렌더링 (챕터2 스타일)
+        text_surface = font_medium.render(display_text, True, BOSS_COLOR)
+        text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+        
+        # 텍스트 그림자 효과
+        shadow_surface = font_medium.render(display_text, True, (0, 0, 0))
+        shadow_rect = text_rect.copy()
+        shadow_rect.x += 2
+        shadow_rect.y += 2
+        SCREEN.blit(shadow_surface, shadow_rect)
+        
+        # 실제 텍스트
+        SCREEN.blit(text_surface, text_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -15177,6 +15503,11 @@ def show_drive_monitor_demo(background):
 def show_drive_animation_demo(background):
     """드라이브 애니메이션 시범"""
     clock = pygame.time.Clock()
+    
+    # 폰트 설정 (챕터2와 동일)
+    font_medium = FontStyle.body()    # 24pt 대사용
+    font_small = FontStyle.small()    # 18pt 안내용
+    BOSS_COLOR = (255, 100, 100)  # 조교 텍스트 색상
     
     # 드라이브 시범 설정
     demo_phases = [
@@ -15316,42 +15647,42 @@ def show_drive_animation_demo(background):
         pygame.draw.circle(SCREEN, (255, 255, 255), 
                          (int(demo_state['ball_x']), int(demo_state['ball_y'])), 10)
         
-        # 키 입력 UI 표시 - 스크린샷 스타일로 변경
+        # 챕터2 스타일 텍스트 배경 (항상 표시)
+        text_bg_height = 80
+        text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
+        text_bg.fill((0, 0, 0, 180))
+        text_y_position = HEIGHT - 150
+        SCREEN.blit(text_bg, (0, text_y_position))
+        
+        # 시범 안내 텍스트 표시
         if waiting_for_space:
-            # 화면 하단에 심플한 스페이스 힌트 표시
-            hint_y = HEIGHT - 60
-            bar_height = 50
-            
-            # 반투명 검정 배경 바
-            bar_surface = pygame.Surface((WIDTH, bar_height), pygame.SRCALPHA)
-            bar_surface.fill((0, 0, 0, 180))
-            SCREEN.blit(bar_surface, (0, HEIGHT - 80))
-            
-            # 좌우 장식용 원들
-            circle_color = (0, 150, 255)
-            for i in range(3):
-                pygame.draw.circle(SCREEN, circle_color, (WIDTH // 2 - 120 - i * 25, hint_y), 3)
-                pygame.draw.circle(SCREEN, circle_color, (WIDTH // 2 + 120 + i * 25, hint_y), 3)
-            
-            # SPACE - 계속 텍스트
-            font = FontStyle.body()
-            space_text = font.render("SPACE - 계속", True, (0, 255, 255))
-            text_rect = space_text.get_rect(center=(WIDTH // 2, hint_y))
-            SCREEN.blit(space_text, text_rect)
-        else:
-            # 애니메이션 재생 중 안내
-            font = FontStyle.body()
+            # 스페이스바 대기 중일 때
             direction = demo_phases[current_phase]['direction']
             if direction == 'left':
-                key_text = "← + SPACE 동시 입력"
-                color = (255, 255, 0)
+                display_text = "[조교] 왼쪽 드라이브 시범! ← + SPACE 동시 입력! (스페이스바를 눌러 계속)"
             else:
-                key_text = "→ + SPACE 동시 입력"
-                color = (255, 255, 0)
-            
-            text = font.render(key_text, True, color)
-            text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
-            SCREEN.blit(text, text_rect)
+                display_text = "[조교] 오른쪽 드라이브 시범! → + SPACE 동시 입력! (스페이스바를 눌러 계속)"
+        else:
+            # 애니메이션 재생 중
+            direction = demo_phases[current_phase]['direction']
+            if direction == 'left':
+                display_text = "[조교] 이렇게 왼쪽으로 공이 휘어진다! ← + SPACE"
+            else:
+                display_text = "[조교] 이렇게 오른쪽으로 공이 휘어진다! → + SPACE"
+        
+        # 텍스트 렌더링 (챕터2 스타일)
+        text_surface = font_medium.render(display_text, True, BOSS_COLOR)
+        text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+        
+        # 텍스트 그림자 효과
+        shadow_surface = font_medium.render(display_text, True, (0, 0, 0))
+        shadow_rect = text_rect.copy()
+        shadow_rect.x += 2
+        shadow_rect.y += 2
+        SCREEN.blit(shadow_surface, shadow_rect)
+        
+        # 실제 텍스트
+        SCREEN.blit(text_surface, text_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -15696,6 +16027,10 @@ def draw_tutorial_ui():
     """튜토리얼 UI 표시 (타격 카운터 및 안내 메시지)"""
     global tutorial_gauge_tutorial_shown, tutorial_speed_dialogue_shown
     global tutorial_player_hit_count, tutorial_displayed_hit_count
+    
+    # 튜토리얼 진행도 바 표시 (항상 표시)
+    if current_stage == 50:
+        draw_tutorial_progress_bar()
     
     # 게이지 튜토리얼 이후, 속도 튜토리얼 전에만 표시
     if current_stage == 50 and tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
@@ -24269,6 +24604,14 @@ def handle_ball():
                 tutorial_player_hit_count += 1
                 print(f"튜토리얼: 플레이어 공 타격 횟수: {tutorial_player_hit_count}/6")
                 
+                # 성공 피드백 표시
+                if tutorial_player_hit_count == 1:
+                    show_tutorial_success_feedback("좋아요!", "normal")
+                elif tutorial_player_hit_count == 3:
+                    show_tutorial_success_feedback("잘하고 있어요!", "great")
+                elif tutorial_player_hit_count == 6:
+                    show_tutorial_success_feedback("완벽해요!", "perfect")
+                
                 # 6회 타격 시 속도 튜토리얼 대화 시작
                 if tutorial_player_hit_count >= 6:
                     tutorial_speed_dialogue_shown = True
@@ -27832,9 +28175,16 @@ def main(stage_num, new_boss_mode=False):
             print("🎮 8번 키: 현재 챕터 완료 및 다음 챕터로 이동")
             
             # 현재 챕터 확인하고 다음 챕터로 이동
+            global tutorial_current_chapter
             if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
                 # Chapter 2 (대쉬 연습) 진행 중 -> Chapter 3 (드라이브)로 이동
                 print("튜토리얼: Chapter 2 (DASH) 완료, Chapter 3 - DRIVE로 이동")
+                
+                # Chapter 2 완료 요약 화면 표시
+                show_chapter_completion_summary(2)
+                
+                # 챕터 번호 업데이트
+                tutorial_current_chapter = 3
                 
                 # Chapter 3 타이틀 표시
                 show_chapter_title(3, "DRIVE", "드라이브")
@@ -27862,6 +28212,12 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 3 (드라이브) 진행 중 -> 튜토리얼 완료
                 print("튜토리얼: Chapter 3 (DRIVE) 완료, 튜토리얼 종료")
                 
+                # Chapter 3 완료 요약 화면 표시
+                show_chapter_completion_summary(3)
+                
+                # 최종 완료 피드백
+                show_tutorial_success_feedback("🎉 튜토리얼 완료! 🎉", "perfect")
+                
                 # 튜토리얼 챕터별 게이지 오버라이드 해제
                 tutorial_chapter1_max_gauge = None
                 tutorial_chapter2_max_gauge = None
@@ -27875,6 +28231,12 @@ def main(stage_num, new_boss_mode=False):
             else:
                 # Chapter 1 (BASIC) 진행 중 -> Chapter 2 (DASH)로 이동
                 print("튜토리얼: Chapter 1 (BASIC) 완료, Chapter 2 - DASH로 이동")
+                
+                # Chapter 1 완료 요약 화면 표시
+                show_chapter_completion_summary(1)
+                
+                # 챕터 번호 업데이트
+                tutorial_current_chapter = 2
                 
                 # Chapter 1 게이지 설정 해제
                 tutorial_chapter1_max_gauge = None
