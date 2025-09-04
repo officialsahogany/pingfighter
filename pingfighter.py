@@ -14868,12 +14868,19 @@ def show_tutorial_drive_dialogue():
 def show_drive_monitor_demo(background):
     """드라이브 모니터 표시 시범"""
     clock = pygame.time.Clock()
-    demo_duration = 4000  # 4초간 시범 (더 자연스러운 타이밍)
-    start_time = pygame.time.get_ticks()
     
     # 데모용 매개변수 - 실제 게임과 동일한 조건
     boss_x = WIDTH // 2
     boss_y = 100
+    
+    # 드라이브 시범 설정
+    demo_phases = [
+        {'direction': 'left', 'completed': False, 'demo_time': 0},
+        {'direction': 'right', 'completed': False, 'demo_time': 0}
+    ]
+    current_phase = 0
+    waiting_for_space = False
+    phase_start_time = pygame.time.get_ticks()
     
     # 공을 멀리서 날아오게 하기 - 실제 게임 상황과 비슷하게
     ball_start_x = boss_x - 300  # 화면 왼쪽에서 시작
@@ -14881,17 +14888,47 @@ def show_drive_monitor_demo(background):
     ball_target_x = boss_x
     ball_target_y = boss_y + 80  # 보스 패들 아래쪽
     
-    while pygame.time.get_ticks() - start_time < demo_duration:
+    # 애니메이션 지속 시간
+    animation_duration = 3000  # 3초
+    
+    while current_phase < len(demo_phases):
+        # 이벤트 처리
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
-                if event.key in [pygame.K_SPACE, pygame.K_RETURN]:
-                    return  # 스킵
+                if event.key == pygame.K_SPACE and waiting_for_space:
+                    # 스페이스바를 누르면 다음 페이즈로
+                    demo_phases[current_phase]['completed'] = True
+                    current_phase += 1
+                    phase_start_time = pygame.time.get_ticks()
+                    waiting_for_space = False
+                    if current_phase >= len(demo_phases):
+                        return  # 데모 완료
         
         SCREEN.blit(background, (0, 0))
         
-        # 시간에 따른 공 위치 계산 - 실제같은 속도와 궤적
-        elapsed_time = pygame.time.get_ticks() - start_time
-        progress = min(1.0, elapsed_time / (demo_duration * 0.7))  # 대부분의 시간에 도달
+        # 현재 페이즈 시간 계산
+        elapsed_time = pygame.time.get_ticks() - phase_start_time
+        
+        # 애니메이션 진행 상태
+        if elapsed_time < animation_duration:
+            # 애니메이션 재생 중
+            progress = min(1.0, elapsed_time / animation_duration)
+            demo_phases[current_phase]['demo_time'] = elapsed_time
+        else:
+            # 애니메이션 완료, 스페이스바 대기
+            progress = 1.0
+            waiting_for_space = True
+            demo_phases[current_phase]['demo_time'] = animation_duration
+        
+        # 현재 드라이브 방향에 따라 공 시작 위치 설정
+        if demo_phases[current_phase]['direction'] == 'left':
+            # 왼쪽 드라이브: 공이 왼쪽에서 날아옴
+            ball_start_x = boss_x - 300
+            ball_target_x = boss_x - 50  # 보스 왼쪽으로
+        else:
+            # 오른쪽 드라이브: 공이 오른쪽에서 날아옴
+            ball_start_x = boss_x + 300
+            ball_target_x = boss_x + 50  # 보스 오른쪽으로
         
         # 실제 공 과 같은 포물선 궤적 + 가속 효과
         smooth_progress = progress ** 0.8  # 처음에는 느리고 점점 빨라짐
@@ -15001,11 +15038,49 @@ def show_drive_monitor_demo(background):
                     pygame.draw.line(progress_surface, gradient_color, (x, 0), (x, bar_height))
                 SCREEN.blit(progress_surface, (bar_x, bar_y))
         
-        # 안내 텍스트
-        font_small = FontStyle.small()
-        hint_text = font_small.render("공이 보스 근처에 오면 드라이브 모니터가 표시됩니다", True, (255, 255, 255))
-        text_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-        SCREEN.blit(hint_text, text_rect)
+        # 키 입력 UI 표시 (챕터 2 스타일)
+        if waiting_for_space:
+            # 키 입력 안내 배경 박스
+            box_width = 400
+            box_height = 80
+            box_x = (WIDTH - box_width) // 2
+            box_y = HEIGHT - 150
+            
+            # 배경 박스 그리기
+            box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+            pygame.draw.rect(box_surface, (0, 0, 0, 180), (0, 0, box_width, box_height), border_radius=10)
+            pygame.draw.rect(box_surface, (0, 255, 255, 200), (0, 0, box_width, box_height), 3, border_radius=10)
+            SCREEN.blit(box_surface, (box_x, box_y))
+            
+            # 스페이스바 아이콘
+            space_width = 200
+            space_height = 40
+            space_x = box_x + (box_width - space_width) // 2
+            space_y = box_y + 10
+            
+            # 스페이스바 그리기
+            pygame.draw.rect(SCREEN, (255, 255, 255), (space_x, space_y, space_width, space_height), border_radius=5)
+            pygame.draw.rect(SCREEN, (100, 100, 100), (space_x + 2, space_y + 2, space_width - 4, space_height - 4), border_radius=5)
+            
+            # SPACE 텍스트
+            font_key = FontStyle.body()
+            space_text = font_key.render("SPACE", True, (255, 255, 255))
+            space_text_rect = space_text.get_rect(center=(space_x + space_width // 2, space_y + space_height // 2))
+            SCREEN.blit(space_text, space_text_rect)
+            
+            # 안내 텍스트
+            font_small = FontStyle.small()
+            direction_text = "왼쪽 드라이브" if demo_phases[current_phase]['direction'] == 'left' else "오른쪽 드라이브"
+            hint_text = font_small.render(f"스페이스바를 눌러 {direction_text} 확인", True, (255, 255, 255))
+            hint_rect = hint_text.get_rect(center=(WIDTH // 2, box_y + 60))
+            SCREEN.blit(hint_text, hint_rect)
+        else:
+            # 애니메이션 재생 중 안내
+            font_small = FontStyle.small()
+            direction_text = "왼쪽 드라이브" if demo_phases[current_phase]['direction'] == 'left' else "오른쪽 드라이브"
+            hint_text = font_small.render(f"{direction_text} 시범 - 드라이브 모니터 관찰", True, (255, 255, 255))
+            text_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+            SCREEN.blit(hint_text, text_rect)
         
         pygame.display.flip()
         clock.tick(60)
