@@ -14433,14 +14433,15 @@ def show_tutorial_intro_dialogue():
                     if demo_timer < 2000:  # 애니메이션 재생 중에는 안내 숨김
                         show_instruction = False
                 
-                if show_instruction:
-                    instruction = "SPACE - 계속" if current_dialogue < len(dialogues) - 1 else "SPACE - 시작"
-                    inst_surface = font_small.render(instruction, True, CYAN)
-                    inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, HEIGHT - 20))
-                    
-                    # 깜빡임 효과
-                    if pygame.time.get_ticks() % 1000 < 500:
-                        SCREEN.blit(inst_surface, inst_rect)
+                # 스페이스바 안내 문구 제거 (사용자 요청)
+                # if show_instruction:
+                #     instruction = "SPACE - 계속" if current_dialogue < len(dialogues) - 1 else "SPACE - 시작"
+                #     inst_surface = font_small.render(instruction, True, CYAN)
+                #     inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, HEIGHT - 20))
+                #     
+                #     # 깜빡임 효과
+                #     if pygame.time.get_ticks() % 1000 < 500:
+                #         SCREEN.blit(inst_surface, inst_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -15049,12 +15050,12 @@ def show_chapter_completion_summary(chapter_num):
         msg_rect = msg_surface.get_rect(center=(WIDTH // 2, y_pos + 40))
         overlay.blit(msg_surface, msg_rect)
         
-        # 계속하기 안내
-        if alpha >= 200:
-            continue_text = "스페이스바를 눌러 계속하기"
-            continue_surface = font_body.render(continue_text, True, (255, 255, 255))
-            continue_rect = continue_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-            overlay.blit(continue_surface, continue_rect)
+        # 계속하기 안내 (사용자 요청으로 제거)
+        # if alpha >= 200:
+        #     continue_text = "스페이스바를 눌러 계속하기"
+        #     continue_surface = font_body.render(continue_text, True, (255, 255, 255))
+        #     continue_rect = continue_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+        #     overlay.blit(continue_surface, continue_rect)
         
         SCREEN.blit(overlay, (0, 0))
         pygame.display.flip()
@@ -15522,9 +15523,9 @@ def show_drive_monitor_demo(background):
             # 스페이스바 대기 중일 때
             direction = demo_phases[current_phase]['direction']
             if direction == 'left':
-                display_text = "[조교] 왼쪽 드라이브 모니터가 표시되었다! 스페이스바를 눌러 계속하자"
+                display_text = "[조교] 왼쪽 드라이브 모니터가 표시되었다!"
             else:
-                display_text = "[조교] 오른쪽 드라이브 모니터가 표시되었다! 스페이스바를 눌러 계속하자"
+                display_text = "[조교] 오른쪽 드라이브 모니터가 표시되었다!"
         else:
             # 애니메이션 재생 중
             direction = demo_phases[current_phase]['direction']
@@ -15547,16 +15548,16 @@ def show_drive_monitor_demo(background):
         # 실제 텍스트
         SCREEN.blit(text_surface, text_rect)
         
-        # 스페이스바 안내 (챕터2와 동일한 스타일 - 하단 우측)
-        if waiting_for_space:
-            instruction = "SPACE - 계속"
-            text_color = CYAN
-            inst_surface = font_small.render(instruction, True, text_color)
-            inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, HEIGHT - 20))
-            
-            # 깜빡임 효과
-            if pygame.time.get_ticks() % 1000 < 500:
-                SCREEN.blit(inst_surface, inst_rect)
+        # 스페이스바 안내 (사용자 요청으로 제거)
+        # if waiting_for_space:
+        #     instruction = "SPACE - 계속"
+        #     text_color = CYAN
+        #     inst_surface = font_small.render(instruction, True, text_color)
+        #     inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, HEIGHT - 20))
+        #     
+        #     # 깜빡임 효과
+        #     if pygame.time.get_ticks() % 1000 < 500:
+        #         SCREEN.blit(inst_surface, inst_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -15715,9 +15716,9 @@ def show_drive_animation_demo(background):
             # 스페이스바 대기 중일 때
             direction = demo_phases[current_phase]['direction']
             if direction == 'left':
-                display_text = "[조교] 왼쪽 드라이브 시범! ← + SPACE 동시 입력! (스페이스바를 눌러 계속)"
+                display_text = "[조교] 왼쪽 드라이브 시범! ← + SPACE 동시 입력!"
             else:
-                display_text = "[조교] 오른쪽 드라이브 시범! → + SPACE 동시 입력! (스페이스바를 눌러 계속)"
+                display_text = "[조교] 오른쪽 드라이브 시범! → + SPACE 동시 입력!"
         else:
             # 애니메이션 재생 중
             direction = demo_phases[current_phase]['direction']
@@ -15740,16 +15741,16 @@ def show_drive_animation_demo(background):
         # 실제 텍스트
         SCREEN.blit(text_surface, text_rect)
         
-        # 스페이스바 안내 (챕터2와 동일한 스타일 - 하단 우측)
-        if waiting_for_space:
-            instruction = "SPACE - 계속"
-            text_color = CYAN
-            inst_surface = font_small.render(instruction, True, text_color)
-            inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, HEIGHT - 20))
-            
-            # 깜빡임 효과
-            if pygame.time.get_ticks() % 1000 < 500:
-                SCREEN.blit(inst_surface, inst_rect)
+        # 스페이스바 안내 (사용자 요청으로 제거)
+        # if waiting_for_space:
+        #     instruction = "SPACE - 계속"
+        #     text_color = CYAN
+        #     inst_surface = font_small.render(instruction, True, text_color)
+        #     inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, HEIGHT - 20))
+        #     
+        #     # 깜빡임 효과
+        #     if pygame.time.get_ticks() % 1000 < 500:
+        #         SCREEN.blit(inst_surface, inst_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -17397,15 +17398,16 @@ def show_tutorial_dash_completion_dialogue():
             
             # 스페이스바 안내 (텍스트 완료 시 화면 하단에 표시)
             if len(displayed_text) == len(dialogue["text"]):
-                if current_time % 1000 < 700:  # 깜빡임 효과
-                    if dialogue_index < len(dialogues) - 1:
-                        continue_text = "SPACE - 계속"
-                    else:
-                        continue_text = "SPACE - Chapter 2로 진행"
-                    
-                    continue_surface = font_small.render(continue_text, True, CYAN)
-                    continue_rect = continue_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-                    SCREEN.blit(continue_surface, continue_rect)
+                # 스페이스바 안내 문구 제거 (사용자 요청)
+                # if current_time % 1000 < 700:  # 깜빡임 효과
+                #     if dialogue_index < len(dialogues) - 1:
+                #         continue_text = "SPACE - 계속"
+                #     else:
+                #         continue_text = "SPACE - Chapter 2로 진행"
+                #     
+                #     continue_surface = font_small.render(continue_text, True, CYAN)
+                #     continue_rect = continue_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+                #     SCREEN.blit(continue_surface, continue_rect)
         
         pygame.display.flip()
         clock.tick(60)
