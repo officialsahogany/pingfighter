@@ -14868,18 +14868,18 @@ def show_tutorial_drive_dialogue():
 def show_drive_monitor_demo(background):
     """드라이브 모니터 표시 시범"""
     clock = pygame.time.Clock()
-    demo_duration = 3000  # 3초간 시범
+    demo_duration = 4000  # 4초간 시범 (더 자연스러운 타이밍)
     start_time = pygame.time.get_ticks()
     
-    # 데모용 보스 위치
+    # 데모용 매개변수 - 실제 게임과 동일한 조건
     boss_x = WIDTH // 2
     boss_y = 100
     
-    # 데모용 공 위치 (보스 근처로 이동) - 속도 조정
-    ball_start_x = boss_x - 100  # 더 가까운 위치에서 시작
-    ball_start_y = boss_y + 100  # 보스와 더 가까운 높이
+    # 공을 멀리서 날아오게 하기 - 실제 게임 상황과 비슷하게
+    ball_start_x = boss_x - 300  # 화면 왼쪽에서 시작
+    ball_start_y = HEIGHT - 150  # 플레이어 높이 근처에서 시작
     ball_target_x = boss_x
-    ball_target_y = boss_y + 50
+    ball_target_y = boss_y + 80  # 보스 패들 아래쪽
     
     while pygame.time.get_ticks() - start_time < demo_duration:
         for event in pygame.event.get():
@@ -14889,60 +14889,117 @@ def show_drive_monitor_demo(background):
         
         SCREEN.blit(background, (0, 0))
         
-        # 시간에 따른 공 위치 계산 - 더 빠른 속도
-        progress = min(1.0, (pygame.time.get_ticks() - start_time) / (demo_duration * 0.5))  # 절반 시간에 도달
-        # 부드러운 ease-in-out 곡선
-        smooth_progress = 0.5 - 0.5 * math.cos(progress * math.pi)
+        # 시간에 따른 공 위치 계산 - 실제같은 속도와 궤적
+        elapsed_time = pygame.time.get_ticks() - start_time
+        progress = min(1.0, elapsed_time / (demo_duration * 0.7))  # 대부분의 시간에 도달
+        
+        # 실제 공 과 같은 포물선 궤적 + 가속 효과
+        smooth_progress = progress ** 0.8  # 처음에는 느리고 점점 빨라짐
         ball_x = ball_start_x + (ball_target_x - ball_start_x) * smooth_progress
+        
+        # Y 축은 포물선 궤적으로
+        arc_height = -50  # 포물선 높이
         ball_y = ball_start_y + (ball_target_y - ball_start_y) * smooth_progress
+        ball_y += arc_height * 4 * smooth_progress * (1 - smooth_progress)  # 포물선 공식
         
-        # 조교(보스) 그리기 - 한 번만 그리기
-        try:
-            boss_img_path = resource_path("boss_tutorial.png")
-            boss_img = pygame.image.load(boss_img_path)
-            boss_img = pygame.transform.scale(boss_img, (80, 100))
-            boss_rect = boss_img.get_rect(center=(boss_x, boss_y))
-            SCREEN.blit(boss_img, boss_rect)
-        except:
-            # 조교 기본 모양 (사각형 대신 더 나은 표현)
-            pygame.draw.ellipse(SCREEN, (200, 100, 100), (boss_x - 40, boss_y - 50, 80, 100))
-            # 얼굴 표시
-            pygame.draw.circle(SCREEN, (250, 200, 200), (boss_x, boss_y - 20), 25)  # 얼굴
-            pygame.draw.circle(SCREEN, (0, 0, 0), (boss_x - 8, boss_y - 25), 3)  # 왼쪽 눈
-            pygame.draw.circle(SCREEN, (0, 0, 0), (boss_x + 8, boss_y - 25), 3)  # 오른쪽 눈
+        # 조교(보스) 그리기 - 단일 인스턴스 보장
+        # 정적 이미지 로드를 한번만 수행
+        if not hasattr(show_drive_monitor_demo, 'boss_img'):
+            try:
+                boss_img_path = resource_path("boss_tutorial.png")
+                show_drive_monitor_demo.boss_img = pygame.image.load(boss_img_path)
+                show_drive_monitor_demo.boss_img = pygame.transform.scale(show_drive_monitor_demo.boss_img, (80, 100))
+            except:
+                show_drive_monitor_demo.boss_img = None
         
-        # 공 그리기 - 실제 게임과 동일한 색상과 크기
-        ball_color = (255, 200, 0)  # 노란색 공 (실제 게임과 동일)
+        if show_drive_monitor_demo.boss_img:
+            boss_rect = show_drive_monitor_demo.boss_img.get_rect(center=(boss_x, boss_y))
+            SCREEN.blit(show_drive_monitor_demo.boss_img, boss_rect)
+        else:
+            # 조교 기본 모양 - 더 생동감 있게
+            # 몸통
+            body_color = (180, 90, 90)
+            pygame.draw.ellipse(SCREEN, body_color, (boss_x - 35, boss_y - 40, 70, 85))
+            # 패들 (핑을 들고 있는 모습)
+            paddle_color = (100, 50, 50)
+            pygame.draw.rect(SCREEN, paddle_color, (boss_x - 45, boss_y - 10, 90, 15), border_radius=3)
+            # 얼굴
+            pygame.draw.circle(SCREEN, (230, 180, 180), (boss_x, boss_y - 20), 22)  # 얼굴
+            # 눈
+            pygame.draw.circle(SCREEN, (0, 0, 0), (boss_x - 7, boss_y - 25), 3)  # 왼쪽 눈
+            pygame.draw.circle(SCREEN, (0, 0, 0), (boss_x + 7, boss_y - 25), 3)  # 오른쪽 눈
+            # 입 (집중하는 표정)
+            pygame.draw.arc(SCREEN, (0, 0, 0), (boss_x - 8, boss_y - 18, 16, 10), 0, math.pi, 2)
+        
+        # 공 그리기 - 실제 게임과 동일한 디테일
+        ball_color = (255, 200, 0)  # 노란색 공
         ball_radius = 8  # 실제 게임 공 크기
         
-        # 공 외곽선과 하이라이트 효과
+        # 공 속도에 따른 잔상 효과 (실제 게임처럼)
+        if progress > 0.1:  # 초반에는 잔상 없음
+            for i in range(3):
+                trail_alpha = 100 - i * 30
+                trail_offset = i * 15
+                trail_x = ball_x - (ball_x - ball_start_x) * (trail_offset / 300)
+                trail_y = ball_y - (ball_y - ball_start_y) * (trail_offset / 300)
+                trail_surface = pygame.Surface((ball_radius * 3, ball_radius * 3), pygame.SRCALPHA)
+                pygame.draw.circle(trail_surface, (*ball_color, trail_alpha), 
+                                 (ball_radius * 1.5, ball_radius * 1.5), ball_radius)
+                SCREEN.blit(trail_surface, (int(trail_x - ball_radius * 1.5), int(trail_y - ball_radius * 1.5)))
+        
+        # 메인 공
         pygame.draw.circle(SCREEN, (255, 255, 150), (int(ball_x), int(ball_y)), ball_radius + 2)  # 외곽 글로우
         pygame.draw.circle(SCREEN, ball_color, (int(ball_x), int(ball_y)), ball_radius)  # 메인 공
-        pygame.draw.circle(SCREEN, (255, 255, 255), (int(ball_x - 3), int(ball_y - 3)), 3)  # 하이라이트
+        pygame.draw.circle(SCREEN, (255, 255, 255), (int(ball_x - 2), int(ball_y - 2)), 2)  # 하이라이트
         
-        # 드라이브 모니터 표시 (공이 보스 근처에 왔을 때)
+        # 드라이브 모니터 표시 - 실제 게임 거리와 동일 (100 픽셀)
         distance = ((ball_x - boss_x) ** 2 + (ball_y - boss_y) ** 2) ** 0.5
-        if distance < 150:  # 드라이브 범위 내
-            # 드라이브 가능 영역 표시
-            pygame.draw.circle(SCREEN, (0, 255, 255, 100), (boss_x, boss_y), 150, 3)
+        drive_range = 100  # 실제 게임 드라이브 가능 범위
+        
+        if distance < drive_range:  # 드라이브 범위 내
+            # 드라이브 가능 영역 표시 - 더 세련된 효과
+            alpha = int(255 * (1 - distance / drive_range))  # 거리에 따른 투명도
             
-            # 드라이브 텍스트 표시
+            # 외곽 원 (페이드 효과)
+            for i in range(3):
+                circle_alpha = alpha // (i + 2)
+                circle_radius = drive_range - i * 10
+                circle_surface = pygame.Surface((circle_radius * 2 + 10, circle_radius * 2 + 10), pygame.SRCALPHA)
+                pygame.draw.circle(circle_surface, (0, 255, 255, circle_alpha), 
+                                 (circle_radius + 5, circle_radius + 5), circle_radius, 2)
+                SCREEN.blit(circle_surface, (boss_x - circle_radius - 5, boss_y - circle_radius - 5))
+            
+            # 드라이브 텍스트 - 게임체적인 폰트와 효과
             font = FontStyle.body()
-            drive_text = font.render("DRIVE!", True, (0, 255, 255))
-            text_rect = drive_text.get_rect(center=(boss_x, boss_y - 80))
+            # 텍스트 크기 변화 (펄싱 효과)
+            pulse = abs(math.sin(elapsed_time * 0.005)) * 0.3 + 0.7
+            text_color = (0, int(255 * pulse), int(255 * pulse))
+            drive_text = font.render("DRIVE!", True, text_color)
+            text_rect = drive_text.get_rect(center=(boss_x, boss_y - 60))
             SCREEN.blit(drive_text, text_rect)
             
-            # 타이밍 인디케이터
-            timing_progress = 1.0 - (distance / 150)
-            bar_width = 100
-            bar_height = 10
+            # 타이밍 인디케이터 - 더 세련된 UI
+            timing_progress = 1.0 - (distance / drive_range)
+            bar_width = 80  # 실제 게임 크기
+            bar_height = 8
             bar_x = boss_x - bar_width // 2
-            bar_y = boss_y - 100
+            bar_y = boss_y - 85
             
-            # 배경 바
-            pygame.draw.rect(SCREEN, (50, 50, 50), (bar_x, bar_y, bar_width, bar_height))
-            # 진행 바
-            pygame.draw.rect(SCREEN, (0, 255, 255), (bar_x, bar_y, int(bar_width * timing_progress), bar_height))
+            # 배경 바 (둥근 모서리)
+            bar_surface = pygame.Surface((bar_width + 4, bar_height + 4), pygame.SRCALPHA)
+            pygame.draw.rect(bar_surface, (30, 30, 30, 200), (0, 0, bar_width + 4, bar_height + 4), border_radius=4)
+            pygame.draw.rect(bar_surface, (100, 100, 100, 150), (0, 0, bar_width + 4, bar_height + 4), 2, border_radius=4)
+            SCREEN.blit(bar_surface, (bar_x - 2, bar_y - 2))
+            
+            # 진행 바 (그라디언트 효과)
+            if timing_progress > 0:
+                progress_width = int(bar_width * timing_progress)
+                progress_surface = pygame.Surface((progress_width, bar_height), pygame.SRCALPHA)
+                for x in range(progress_width):
+                    gradient_alpha = int(200 + 55 * (x / bar_width))
+                    gradient_color = (0, 200 + int(55 * (x / bar_width)), 200 + int(55 * (x / bar_width)), gradient_alpha)
+                    pygame.draw.line(progress_surface, gradient_color, (x, 0), (x, bar_height))
+                SCREEN.blit(progress_surface, (bar_x, bar_y))
         
         # 안내 텍스트
         font_small = FontStyle.small()
