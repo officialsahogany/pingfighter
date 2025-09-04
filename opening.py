@@ -371,7 +371,9 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         
         # 귀여운 글자 애니메이션 - 각 글자가 살짝 튀어오르기
         char_positions = []
-        base_x = 300 - (len(typing_text) * 35)  # 글자 간격 조정
+        # 중앙 정렬을 위한 계산 (4글자 기준)
+        total_width = len(typing_text) * 70 - 10  # 글자 4개 * 70픽셀 간격 - 마지막 여백
+        base_x = 300 - (total_width // 2) + 35  # 중앙에서 시작
         for i, char in enumerate(typing_text):
             # 각 글자별로 다른 타이밍으로 위아래 움직임
             bounce_offset = math.sin(animation_timer * 0.1 + i * 0.5) * 3
@@ -436,20 +438,6 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
             highlight_rect = highlight_text.get_rect(center=(pos[0] - 1, pos[1] - 2))
             logo_surface.blit(highlight_text, highlight_rect)
         
-        # 귀여운 하트 장식
-        if animation_timer % 60 < 30:  # 깜빡임 효과
-            heart_size = 8 + math.sin(animation_timer * 0.1) * 2
-            # 왼쪽 하트
-            heart_color = (255, 150, 200)
-            pygame.draw.circle(logo_surface, heart_color, (100, 140), int(heart_size))
-            pygame.draw.circle(logo_surface, heart_color, (110, 140), int(heart_size))
-            pygame.draw.polygon(logo_surface, heart_color, 
-                               [(95, 145), (115, 145), (105, 160)])
-            # 오른쪽 하트
-            pygame.draw.circle(logo_surface, heart_color, (490, 140), int(heart_size))
-            pygame.draw.circle(logo_surface, heart_color, (500, 140), int(heart_size))
-            pygame.draw.polygon(logo_surface, heart_color, 
-                               [(485, 145), (505, 145), (495, 160)])
         
         # 귀여운 별 장식 추가
         star_positions = [(80, 120), (520, 120), (60, 170), (540, 170)]
