@@ -15704,6 +15704,30 @@ def show_drive_animation_demo(background):
         pygame.draw.circle(SCREEN, (255, 255, 255), 
                          (int(demo_state['ball_x']), int(demo_state['ball_y'])), 10)
         
+        # 키보드 입력 UI 표시 (챕터2 대쉬 시범과 동일)
+        key_combo_font = FontStyle.subtitle()  # 큰 폰트 사용
+        direction = demo_phases[current_phase]['direction']
+        if direction == 'left':
+            key_combo_text = "← + SPACE"
+        else:
+            key_combo_text = "→ + SPACE"
+        
+        # 키 콤보 텍스트 렌더링
+        key_combo_surface = key_combo_font.render(key_combo_text, True, CYAN)
+        key_combo_rect = key_combo_surface.get_rect(center=(WIDTH // 2, HEIGHT - 200))
+        
+        # 배경 박스 (반투명 검정색)
+        bg_rect = key_combo_rect.inflate(40, 20)
+        bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(bg_surface, (0, 0, 0, 180), (0, 0, bg_rect.width, bg_rect.height), 0, 10)
+        SCREEN.blit(bg_surface, bg_rect.topleft)
+        
+        # 테두리 (CYAN 색상)
+        pygame.draw.rect(SCREEN, CYAN, bg_rect, 3, 10)
+        
+        # 키 콤보 텍스트 표시
+        SCREEN.blit(key_combo_surface, key_combo_rect)
+        
         # 챕터2 스타일 텍스트 배경 (항상 표시)
         text_bg_height = 80
         text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
@@ -17399,6 +17423,7 @@ def show_tutorial_dash_completion_dialogue():
             # 스페이스바 안내 (텍스트 완료 시 화면 하단에 표시)
             if len(displayed_text) == len(dialogue["text"]):
                 # 스페이스바 안내 문구 제거 (사용자 요청)
+                pass  # 빈 블록 방지
                 # if current_time % 1000 < 700:  # 깜빡임 효과
                 #     if dialogue_index < len(dialogues) - 1:
                 #         continue_text = "SPACE - 계속"
