@@ -15580,7 +15580,7 @@ def show_drive_animation_demo(background):
     current_phase = 0
     waiting_for_space = False
     phase_start_time = pygame.time.get_ticks()
-    animation_duration = 800  # 0.8초 애니메이션 (더 빠르게)
+    animation_duration = 1200  # 1.2초 애니메이션 (살짝 느리게)
     
     # 데모 상태
     demo_state = {
@@ -15589,7 +15589,7 @@ def show_drive_animation_demo(background):
         'ball_x': WIDTH // 2,
         'ball_y': HEIGHT // 2,
         'drive_start': 0,
-        'drive_duration': 800,  # 0.8초
+        'drive_duration': 1200,  # 1.2초
         'curve_points': [],
     }
     
@@ -15644,14 +15644,15 @@ def show_drive_animation_demo(background):
                 # 초기화: 공을 보스 오른쪽에서 시작
                 demo_state['ball_x'] = demo_state['boss_x'] + 100
                 demo_state['ball_y'] = demo_state['boss_y']
-                # 왼쪽 곡선 경로 생성 (더 강한 굴곡)
+                # 왼쪽 곡선 경로 생성 (포물선 느낌의 강한 굴곡)
                 demo_state['curve_points'] = []
-                for i in range(30):  # 더 많은 포인트로 부드러운 곡선
-                    t = i / 29
-                    # 더 강한 베지어 곡선으로 왼쪽 회전
+                for i in range(40):  # 더 많은 포인트로 부드러운 곡선
+                    t = i / 39
+                    # 포물선 느낌의 강한 베지어 곡선으로 왼쪽 회전
                     import math
-                    x = demo_state['boss_x'] - t * 350 - math.sin(t * math.pi) * 200  # 더 강한 굴곡
-                    y = demo_state['boss_y'] + t * 250 + math.cos(t * math.pi * 0.5) * 30
+                    x = demo_state['boss_x'] - t * 350 - math.sin(t * math.pi) * 250  # 더 강한 좌우 굴곡
+                    # 포물선 궤적: 위로 올라갔다가 아래로 떨어지는 느낌
+                    y = demo_state['boss_y'] + t * 400 - math.sin(t * math.pi) * 100  # 더 아래로, 포물선 궤적
                     demo_state['curve_points'].append((x, y))
             
             # 드라이브 애니메이션
@@ -15675,14 +15676,15 @@ def show_drive_animation_demo(background):
                 # 초기화: 공을 보스 왼쪽에서 시작
                 demo_state['ball_x'] = demo_state['boss_x'] - 100
                 demo_state['ball_y'] = demo_state['boss_y']
-                # 오른쪽 곡선 경로 생성 (더 강한 굴곡)
+                # 오른쪽 곡선 경로 생성 (포물선 느낌의 강한 굴곡)
                 demo_state['curve_points'] = []
-                for i in range(30):  # 더 많은 포인트로 부드러운 곡선
-                    t = i / 29
-                    # 더 강한 베지어 곡선으로 오른쪽 회전
+                for i in range(40):  # 더 많은 포인트로 부드러운 곡선
+                    t = i / 39
+                    # 포물선 느낌의 강한 베지어 곡선으로 오른쪽 회전
                     import math
-                    x = demo_state['boss_x'] + t * 350 + math.sin(t * math.pi) * 200  # 더 강한 굴곡
-                    y = demo_state['boss_y'] + t * 250 + math.cos(t * math.pi * 0.5) * 30
+                    x = demo_state['boss_x'] + t * 350 + math.sin(t * math.pi) * 250  # 더 강한 좌우 굴곡
+                    # 포물선 궤적: 위로 올라갔다가 아래로 떨어지는 느낌
+                    y = demo_state['boss_y'] + t * 400 - math.sin(t * math.pi) * 100  # 더 아래로, 포물선 궤적
                     demo_state['curve_points'].append((x, y))
             
             # 드라이브 애니메이션
