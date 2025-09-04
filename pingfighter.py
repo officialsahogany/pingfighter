@@ -723,6 +723,10 @@ except:
 # ===============================
 #  동적 최대 게이지 계산 함수
 def get_max_gauge():
+    # 튜토리얼 드라이브 챕터 임시 오버라이드 체크
+    if 'tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None:
+        return tutorial_drive_chapter_max_gauge
+    
     base_max = 500
     try:
         import academy
@@ -6226,8 +6230,11 @@ def handle_player(keys):
                         if show_tutorial_dash_completion_dialogue():
                             # 대화 완료 후 Chapter 2로 이동
                             print("튜토리얼: Chapter 2 - SMASHER SKILL로 이동")
-                            # Chapter 2 타이틀 표시
-                            show_chapter_title(2, "SMASHER SKILL", "스매셔 스킬 연습")
+                            # Chapter 3 타이틀 표시 (드라이브)
+                            show_chapter_title(3, "DRIVE", "드라이브")
+                            
+                            # 드라이브 챕터: 플레이어 최대 게이지를 250으로 임시 설정
+                            tutorial_drive_chapter_max_gauge = 250
                             
                             # 대쉬 연습 완료 플래그 설정
                             tutorial_needs_dash_practice = False  # 대쉬 연습 완료
@@ -26463,6 +26470,8 @@ def show_result(won):
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+        #  튜토리얼 드라이브 챕터 최대 게이지 오버라이드 초기화
+        tutorial_drive_chapter_max_gauge = None
         #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
         rolling_charges = 1  # 기본 1개로 초기화
         rolling_charge_timer = 0  # 충전 타이머 초기화
@@ -26952,6 +26961,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_serve_helper_shown, tutorial_serve_reminder_active  # 서브 관련 알림
     global tutorial_wait_for_first_serve  # 첫 서브를 기다리는 상태
     global tutorial_needs_dash_practice, tutorial_dash_practice_shown  # 대쉬 튜토리얼 관련 변수
+    global tutorial_drive_chapter_max_gauge  # 드라이브 챕터 최대 게이지 오버라이드
     
     # 대쉬 튜토리얼 재진입 체크
     dash_practice_reentry = 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice
@@ -26974,6 +26984,7 @@ def main(stage_num, new_boss_mode=False):
         tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
         tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
         tutorial_dash_completion_dialogue_shown = False  # 대쉬 완료 대화 표시 여부
+        tutorial_drive_chapter_max_gauge = None  # 드라이브 챕터 최대 게이지 임시 오버라이드
     else:
         # 대쉬 튜토리얼 재진입 - 일부 변수만 초기화
         tutorial_dialogue_shown = True  # 초기 대화는 이미 표시됨
@@ -27036,6 +27047,11 @@ def main(stage_num, new_boss_mode=False):
             if show_tutorial_intro_dialogue():
                 print("튜토리얼 대화 완료")
                 tutorial_dialogue_shown = True
+                
+                # Chapter 1 - BASIC 표시
+                show_chapter_title(1, "BASIC", "기본 연습")
+                print("튜토리얼: Chapter 1 - BASIC 시작")
+                
                 tutorial_practice_mode = True  # 대화 후 실습 모드 시작
                 # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
                 print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
@@ -27071,6 +27087,8 @@ def main(stage_num, new_boss_mode=False):
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
             acceleration_skill_level = 0
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+            #  튜토리얼 드라이브 챕터 최대 게이지 오버라이드 초기화
+            tutorial_drive_chapter_max_gauge = None
             #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
             rolling_charges = 1  # 기본 1개로 초기화
             rolling_charge_timer = 0  # 충전 타이머 초기화
@@ -27102,27 +27120,67 @@ def main(stage_num, new_boss_mode=False):
                 print(f" : {'ON' if profiler.visible else 'OFF'}")
         main.key7_pressed = keys[pygame.K_7]
         
-        # 8번키로 튜토리얼에서 대쉬 챕터로 바로 이동 (스테이지 50에서만)
+        # 8번키로 튜토리얼에서 현재 챕터 완료하고 다음 챕터로 이동 (스테이지 50에서만)
         if current_stage == 50 and keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
-            print("🎮 8번 키: 대쉬 챕터로 바로 이동")
+            print("🎮 8번 키: 현재 챕터 완료 및 다음 챕터로 이동")
             
-            # 게이지 초기화
-            special_gauge = 0
-            displayed_gauge = 0
-            print("튜토리얼: 대쉬 챕터 진입 전 게이지 초기화")
-            
-            # Chapter 1 타이틀 표시
-            show_chapter_title(1, "DASH", "대쉬 연습")
-            
-            # 대쉬 연습 플래그 설정
-            tutorial_needs_dash_practice = True  # 대쉬 연습 필요
-            
-            # 대쉬 챕터 게이지 대화 표시 플래그 리셋
-            main.tutorial_dash_gauge_dialogue_shown = False
-            
-            # 스테이지 50 재시작 (대쉬 튜토리얼로)
-            print("튜토리얼: Chapter 1 - DASH 시작, 스테이지 50 재시작")
-            return main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
+            # 현재 챕터 확인하고 다음 챕터로 이동
+            if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
+                # Chapter 2 (대쉬 연습) 진행 중 -> Chapter 3 (드라이브)로 이동
+                print("튜토리얼: Chapter 2 (DASH) 완료, Chapter 3 - DRIVE로 이동")
+                
+                # Chapter 3 타이틀 표시
+                show_chapter_title(3, "DRIVE", "드라이브")
+                
+                # 드라이브 챕터: 플레이어 최대 게이지를 250으로 임시 설정
+                tutorial_drive_chapter_max_gauge = 250
+                
+                # 대쉬 연습 완료 플래그 설정
+                tutorial_needs_dash_practice = False  # 대쉬 연습 완료
+                tutorial_dash_counter_active = False
+                tutorial_dash_count = 0
+                
+                # 게임 계속 진행을 위한 설정
+                reset_round()  # 라운드 리셋
+                tutorial_practice_mode = True  # 실습 모드 재활성화
+                
+                # 공 속도 복원 (대쉬 연습 중 저장한 속도)
+                if 'tutorial_saved_ball_vel' in globals():
+                    ball_vel[0] = tutorial_saved_ball_vel[0] if tutorial_saved_ball_vel[0] != 0 else 5
+                    ball_vel[1] = tutorial_saved_ball_vel[1] if tutorial_saved_ball_vel[1] != 0 else 5
+                
+            elif 'tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None:
+                # Chapter 3 (드라이브) 진행 중 -> 튜토리얼 완료
+                print("튜토리얼: Chapter 3 (DRIVE) 완료, 튜토리얼 종료")
+                
+                # 드라이브 챕터 게이지 오버라이드 해제
+                tutorial_drive_chapter_max_gauge = None
+                
+                # 튜토리얼 완료 메시지 표시 후 메인 메뉴로
+                # (실제 게임에서는 여기에 완료 대화나 엔딩을 추가할 수 있음)
+                print("🎉 튜토리얼 모든 챕터 완료!")
+                return "main_menu"  # 메인 메뉴로 돌아감
+                
+            else:
+                # Chapter 1 (BASIC) 진행 중 -> Chapter 2 (DASH)로 이동
+                print("튜토리얼: Chapter 1 (BASIC) 완료, Chapter 2 - DASH로 이동")
+                
+                # 게이지 초기화
+                special_gauge = 0
+                displayed_gauge = 0
+                
+                # Chapter 2 타이틀 표시
+                show_chapter_title(2, "DASH", "대쉬 연습")
+                
+                # 대쉬 연습 플래그 설정
+                tutorial_needs_dash_practice = True  # 대쉬 연습 필요
+                
+                # 대쉬 챕터 게이지 대화 표시 플래그 리셋
+                main.tutorial_dash_gauge_dialogue_shown = False
+                
+                # 스테이지 50 재시작 (대쉬 튜토리얼로)
+                print("튜토리얼: Chapter 2 - DASH 시작, 스테이지 50 재시작")
+                return main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
         main.key8_pressed = keys[pygame.K_8]
         
         #  퍼펙트 타이밍 시스템: 스페이스바 + 방향키 프레임 단위 입력 감지
@@ -27572,6 +27630,8 @@ def main(stage_num, new_boss_mode=False):
                     #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
                     acceleration_skill_level = 0
                     acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+                    #  튜토리얼 드라이브 챕터 최대 게이지 오버라이드 초기화
+                    tutorial_drive_chapter_max_gauge = None
                     #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
                     rolling_charges = 1  # 기본 1개로 초기화
                     rolling_charge_timer = 0  # 충전 타이머 초기화
@@ -28443,8 +28503,8 @@ def main(stage_num, new_boss_mode=False):
                     displayed_gauge = 0
                     print("튜토리얼: 대쉬 챕터 진입 전 게이지 초기화")
                     
-                    # Chapter 1 타이틀 표시
-                    show_chapter_title(1, "DASH", "대쉬 연습")
+                    # Chapter 2 타이틀 표시 (대쉬)
+                    show_chapter_title(2, "DASH", "대쉬 연습")
                     
                     # 대쉬 연습 플래그 설정
                     tutorial_needs_dash_practice = True  # 대쉬 연습 필요
