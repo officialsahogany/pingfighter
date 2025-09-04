@@ -369,38 +369,104 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         if len(typing_text) < len(full_text):
             typing_text = full_text[:len(typing_text) + 1]
         
-        # 간단한 3D 그림자 (한 개만)
-        shadow_text = font_large.render(typing_text, True, (30, 30, 50))  # 진한 회색 그림자
-        shadow_rect = shadow_text.get_rect(center=(304, 154))  # 오른쪽 아래로 4픽셀씩
-        logo_surface.blit(shadow_text, shadow_rect)
+        # 귀여운 글자 애니메이션 - 각 글자가 살짝 튀어오르기
+        char_positions = []
+        base_x = 300 - (len(typing_text) * 35)  # 글자 간격 조정
+        for i, char in enumerate(typing_text):
+            # 각 글자별로 다른 타이밍으로 위아래 움직임
+            bounce_offset = math.sin(animation_timer * 0.1 + i * 0.5) * 3
+            wiggle_offset = math.cos(animation_timer * 0.08 + i * 0.7) * 2  # 좌우 흔들림
+            char_positions.append((base_x + i * 70 + wiggle_offset, 150 + bounce_offset))
         
-        # 외곽선 효과 (검은색 테두리로 선명도 향상) - 더 얇게
-        outline_positions = [(-1, -1), (1, -1), (-1, 1), (1, 1)]
-        for ox, oy in outline_positions:
-            outline_text = font_large.render(typing_text, True, (0, 0, 0))
-            outline_rect = outline_text.get_rect(center=(300 + ox, 150 + oy))
-            logo_surface.blit(outline_text, outline_rect)
+        # 귀여운 별 장식 (글자 주변에)
+        if animation_timer % 20 == 0:
+            for pos in char_positions:
+                if random.random() > 0.7:  # 30% 확률로
+                    sparkle_particles.append({
+                        'x': pos[0] + random.randint(-30, 30),
+                        'y': pos[1] + random.randint(-30, 30),
+                        'life': 40,
+                        'size': random.randint(2, 4),
+                        'color': random.choice([(255, 192, 203), (255, 255, 150), (200, 255, 200)])  # 파스텔 색상
+                    })
         
-        # 부드러운 글로우 효과 (얇게)
-        glow_intensity = abs(math.sin(animation_timer * 0.05)) * 0.3 + 0.7
-        for i in range(3, 0, -1):  # 3개 레이어만
-            alpha = int(40 * glow_intensity * (1 - i / 3))
-            glow_color = (255, 255, 150, alpha)
-            glow_surface = pygame.Surface((600, 300), pygame.SRCALPHA)
-            glow_text = font_large.render(typing_text, True, glow_color)
-            glow_rect = glow_text.get_rect(center=(300, 150))
-            glow_surface.blit(glow_text, glow_rect)
-            logo_surface.blit(glow_surface, (0, 0))
+        # 부드러운 파스텔 그림자
+        shadow_color = (150, 150, 200)  # 연한 보라색 그림자
+        for i, (char, pos) in enumerate(zip(typing_text, char_positions)):
+            shadow_text = font_large.render(char, True, shadow_color)
+            shadow_rect = shadow_text.get_rect(center=(pos[0] + 3, pos[1] + 3))
+            logo_surface.blit(shadow_text, shadow_rect)
         
-        # 메인 텍스트 (선명한 황금색)
-        text_surface = font_large.render(typing_text, True, (255, 215, 0))  # 골드 색상
-        text_rect = text_surface.get_rect(center=(300, 150))
-        logo_surface.blit(text_surface, text_rect)
+        # 둥근 외곽선 효과 (파스텔 핑크)
+        outline_color = (255, 182, 193)  # 연한 핑크
+        for i, (char, pos) in enumerate(zip(typing_text, char_positions)):
+            # 더 많은 위치에 외곽선을 그려서 둥글게
+            for ox, oy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, -1), (-1, 1), (1, 1)]:
+                outline_text = font_large.render(char, True, outline_color)
+                outline_rect = outline_text.get_rect(center=(pos[0] + ox, pos[1] + oy))
+                logo_surface.blit(outline_text, outline_rect)
         
-        # 상단 하이라이트 (살짝만)
-        highlight_text = font_large.render(typing_text, True, (255, 255, 150, 30))  # 매우 연한 노란색
-        highlight_rect = highlight_text.get_rect(center=(300, 148))
-        logo_surface.blit(highlight_text, highlight_rect)
+        # 무지개 그라데이션 효과
+        rainbow_colors = [
+            (255, 150, 150),  # 연한 빨강
+            (255, 200, 150),  # 연한 주황
+            (255, 255, 150),  # 연한 노랑
+            (150, 255, 150),  # 연한 초록
+            (150, 200, 255),  # 연한 파랑
+        ]
+        
+        # 각 글자 그리기 (무지개 색상)
+        for i, (char, pos) in enumerate(zip(typing_text, char_positions)):
+            # 색상 선택 (순환)
+            color_index = i % len(rainbow_colors)
+            base_color = rainbow_colors[color_index]
+            
+            # 반짝임 효과
+            sparkle = abs(math.sin(animation_timer * 0.05 + i * 0.3)) * 0.3 + 0.7
+            char_color = tuple(int(c * sparkle) for c in base_color)
+            
+            # 글자 그리기
+            char_text = font_large.render(char, True, char_color)
+            char_rect = char_text.get_rect(center=pos)
+            logo_surface.blit(char_text, char_rect)
+            
+            # 하이라이트 (뽀얀 효과)
+            highlight_color = (255, 255, 255, 60)
+            highlight_text = font_large.render(char, True, highlight_color)
+            highlight_rect = highlight_text.get_rect(center=(pos[0] - 1, pos[1] - 2))
+            logo_surface.blit(highlight_text, highlight_rect)
+        
+        # 귀여운 하트 장식
+        if animation_timer % 60 < 30:  # 깜빡임 효과
+            heart_size = 8 + math.sin(animation_timer * 0.1) * 2
+            # 왼쪽 하트
+            heart_color = (255, 150, 200)
+            pygame.draw.circle(logo_surface, heart_color, (100, 140), int(heart_size))
+            pygame.draw.circle(logo_surface, heart_color, (110, 140), int(heart_size))
+            pygame.draw.polygon(logo_surface, heart_color, 
+                               [(95, 145), (115, 145), (105, 160)])
+            # 오른쪽 하트
+            pygame.draw.circle(logo_surface, heart_color, (490, 140), int(heart_size))
+            pygame.draw.circle(logo_surface, heart_color, (500, 140), int(heart_size))
+            pygame.draw.polygon(logo_surface, heart_color, 
+                               [(485, 145), (505, 145), (495, 160)])
+        
+        # 귀여운 별 장식 추가
+        star_positions = [(80, 120), (520, 120), (60, 170), (540, 170)]
+        for sx, sy in star_positions:
+            star_size = 5 + math.sin(animation_timer * 0.1 + sx) * 2
+            star_color = (255, 255, 100, 180)
+            # 별 그리기 (5각별)
+            angle = animation_timer * 0.05
+            points = []
+            for i in range(10):
+                r = star_size if i % 2 == 0 else star_size * 0.5
+                theta = angle + (i * math.pi / 5)
+                px = sx + r * math.cos(theta)
+                py = sy + r * math.sin(theta)
+                points.append((px, py))
+            if len(points) > 2:
+                pygame.draw.polygon(logo_surface, star_color, points)
         
         # 서브 타이틀
         try:
@@ -493,11 +559,19 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         for particle in sparkle_particles[:]:
             particle['life'] -= 1
             if particle['life'] > 0:
-                alpha = int(255 * (particle['life'] / 60))
+                # 파스텔 색상 지원
+                if 'color' in particle:
+                    base_color = particle['color']
+                    alpha = int(255 * (particle['life'] / 40))  # 40은 life 최대값
+                    color = (*base_color, alpha)
+                else:
+                    alpha = int(255 * (particle['life'] / 60))
+                    color = (255, 255, 255, alpha)
+                
                 size = max(1, particle['size'])  # 최소 크기 1로 제한
                 sparkle_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                # 기본 흰색으로 스파클 그리기
-                pygame.draw.circle(sparkle_surface, (255, 255, 255, alpha), (size, size), size)
+                # 파스텔 색상 또는 기본 흰색으로 스파클 그리기
+                pygame.draw.circle(sparkle_surface, color, (size, size), size)
                 SCREEN.blit(sparkle_surface, (particle['x'] - size, particle['y'] - size))
             else:
                 sparkle_particles.remove(particle)
