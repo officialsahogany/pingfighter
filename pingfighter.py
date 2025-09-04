@@ -14889,7 +14889,7 @@ def show_drive_monitor_demo(background):
     ball_target_y = boss_y + 80  # 보스 패들 아래쪽
     
     # 애니메이션 지속 시간
-    animation_duration = 3000  # 3초
+    animation_duration = 1500  # 1.5초 (더 빠른 공 속도)
     
     while current_phase < len(demo_phases):
         # 이벤트 처리
@@ -14994,17 +14994,14 @@ def show_drive_monitor_demo(background):
         drive_range = 100  # 실제 게임 드라이브 가능 범위
         
         if distance < drive_range:  # 드라이브 범위 내
-            # 드라이브 가능 영역 표시 - 더 세련된 효과
+            # 드라이브 가능 영역 표시 - 단일 원
             alpha = int(255 * (1 - distance / drive_range))  # 거리에 따른 투명도
             
-            # 외곽 원 (페이드 효과)
-            for i in range(3):
-                circle_alpha = alpha // (i + 2)
-                circle_radius = drive_range - i * 10
-                circle_surface = pygame.Surface((circle_radius * 2 + 10, circle_radius * 2 + 10), pygame.SRCALPHA)
-                pygame.draw.circle(circle_surface, (0, 255, 255, circle_alpha), 
-                                 (circle_radius + 5, circle_radius + 5), circle_radius, 2)
-                SCREEN.blit(circle_surface, (boss_x - circle_radius - 5, boss_y - circle_radius - 5))
+            # 단일 드라이브 모니터 원 (실제 게임과 동일)
+            circle_surface = pygame.Surface((drive_range * 2 + 10, drive_range * 2 + 10), pygame.SRCALPHA)
+            pygame.draw.circle(circle_surface, (0, 255, 255, min(200, alpha)), 
+                             (drive_range + 5, drive_range + 5), drive_range, 3)
+            SCREEN.blit(circle_surface, (boss_x - drive_range - 5, boss_y - drive_range - 5))
             
             # 드라이브 텍스트 - 게임체적인 폰트와 효과
             font = FontStyle.body()
@@ -15089,30 +15086,50 @@ def show_drive_animation_demo(background):
     """드라이브 애니메이션 시범"""
     clock = pygame.time.Clock()
     
+    # 드라이브 시범 설정
+    demo_phases = [
+        {'direction': 'left', 'completed': False},
+        {'direction': 'right', 'completed': False}
+    ]
+    current_phase = 0
+    waiting_for_space = False
+    phase_start_time = pygame.time.get_ticks()
+    animation_duration = 2000  # 2초 애니메이션
+    
     # 데모 상태
     demo_state = {
-        'phase': 'waiting',  # waiting -> drive_left -> waiting -> drive_right -> done
         'boss_x': WIDTH // 2,
         'boss_y': 100,
         'ball_x': WIDTH // 2,
         'ball_y': HEIGHT // 2,
         'drive_start': 0,
-        'drive_duration': 500,  # 0.5초
+        'drive_duration': 800,  # 0.8초
         'curve_points': [],
-        'current_demo': 0,  # 0: 왼쪽, 1: 오른쪽
     }
     
-    demo_duration = 5000  # 전체 5초간 시범
-    start_time = pygame.time.get_ticks()
-    
-    while pygame.time.get_ticks() - start_time < demo_duration:
+    while current_phase < len(demo_phases):
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
-                if event.key in [pygame.K_SPACE, pygame.K_RETURN]:
-                    return  # 스킵
+                if event.key == pygame.K_SPACE and waiting_for_space:
+                    # 스페이스바를 누르면 다음 페이즈로
+                    demo_phases[current_phase]['completed'] = True
+                    current_phase += 1
+                    phase_start_time = pygame.time.get_ticks()
+                    waiting_for_space = False
+                    if current_phase >= len(demo_phases):
+                        return  # 데모 완료
         
         current_time = pygame.time.get_ticks()
-        elapsed = current_time - start_time
+        elapsed = current_time - phase_start_time
+        
+        # 애니메이션 진행 상태 확인
+        if elapsed < animation_duration:
+            # 애니메이션 재생 중
+            progress = min(1.0, elapsed / animation_duration)
+        else:
+            # 애니메이션 완료, 스페이스바 대기
+            progress = 1.0
+            waiting_for_space = True
         
         SCREEN.blit(background, (0, 0))
         
@@ -15127,109 +15144,158 @@ def show_drive_animation_demo(background):
             pygame.draw.rect(SCREEN, (200, 100, 100), 
                            (demo_state['boss_x'] - 40, demo_state['boss_y'] - 50, 80, 100))
         
-        # 데모 진행
-        if elapsed < 2000:  # 첫 2초: 왼쪽 드라이브
-            if demo_state['phase'] == 'waiting':
-                # 공을 보스 근처로 이동
+        # 현재 phase에 따라 드라이브 방향 설정
+        if demo_phases[current_phase]['direction'] == 'left':
+            # 왼쪽 드라이브 설정
+            if progress == 0:
+                # 초기화: 공을 보스 오른쪽에서 시작
                 demo_state['ball_x'] = demo_state['boss_x'] + 100
                 demo_state['ball_y'] = demo_state['boss_y']
-                
-                if elapsed > 500:  # 0.5초 후 드라이브 시작
-                    demo_state['phase'] = 'drive_left'
-                    demo_state['drive_start'] = current_time
-                    
-                    # 왼쪽 곡선 경로 생성
-                    demo_state['curve_points'] = []
-                    for i in range(20):
-                        t = i / 19
-                        # 베지어 곡선으로 왼쪽 회전
-                        x = demo_state['boss_x'] - t * 300 - (1 - t) * t * 100
-                        y = demo_state['boss_y'] + t * 200
-                        demo_state['curve_points'].append((x, y))
+                # 왼쪽 곡선 경로 생성
+                demo_state['curve_points'] = []
+                for i in range(20):
+                    t = i / 19
+                    # 베지어 곡선으로 왼쪽 회전
+                    x = demo_state['boss_x'] - t * 300 - (1 - t) * t * 100
+                    y = demo_state['boss_y'] + t * 200
+                    demo_state['curve_points'].append((x, y))
             
-            elif demo_state['phase'] == 'drive_left':
-                drive_elapsed = current_time - demo_state['drive_start']
-                if drive_elapsed < demo_state['drive_duration']:
-                    # 드라이브 애니메이션
-                    t = drive_elapsed / demo_state['drive_duration']
-                    point_idx = min(int(t * len(demo_state['curve_points'])) - 1, 
-                                  len(demo_state['curve_points']) - 1)
-                    if point_idx >= 0:
-                        demo_state['ball_x'], demo_state['ball_y'] = demo_state['curve_points'][point_idx]
-                    
-                    # 드라이브 이펙트
-                    pygame.draw.circle(SCREEN, (255, 255, 0, 100), 
-                                     (demo_state['boss_x'] - 50, demo_state['boss_y']), 30, 5)
-                    
-                    # 곡선 궤적 표시
-                    if len(demo_state['curve_points']) > 1:
-                        for i in range(1, min(point_idx + 1, len(demo_state['curve_points']))):
-                            pygame.draw.line(SCREEN, (255, 255, 0, 150),
-                                           demo_state['curve_points'][i-1],
-                                           demo_state['curve_points'][i], 3)
-        
-        elif elapsed < 4000:  # 다음 2초: 오른쪽 드라이브
-            if demo_state['phase'] == 'drive_left':
-                demo_state['phase'] = 'waiting_right'
+            # 드라이브 애니메이션
+            if progress > 0.2:  # 0.4초 후 드라이브 시작
+                drive_progress = (progress - 0.2) / 0.8
+                point_idx = min(int(drive_progress * len(demo_state['curve_points'])), 
+                              len(demo_state['curve_points']) - 1)
+                if point_idx >= 0:
+                    demo_state['ball_x'], demo_state['ball_y'] = demo_state['curve_points'][point_idx]
                 
-            if demo_state['phase'] == 'waiting_right':
-                # 공을 다시 보스 근처로
+                # 드라이브 이펙트
+                pygame.draw.circle(SCREEN, (255, 255, 0), 
+                                 (demo_state['boss_x'] - 50, demo_state['boss_y']), 30, 5)
+                
+                # 곡선 궤적 표시
+                if len(demo_state['curve_points']) > 1:
+                    for i in range(1, min(point_idx + 1, len(demo_state['curve_points']))):
+                        pygame.draw.line(SCREEN, (255, 255, 0, 150),
+                                       demo_state['curve_points'][i-1],
+                                       demo_state['curve_points'][i], 3)
+        
+        else:  # 오른쪽 드라이브
+            # 오른쪽 드라이브 설정
+            if progress == 0:
+                # 초기화: 공을 보스 왼쪽에서 시작
                 demo_state['ball_x'] = demo_state['boss_x'] - 100
                 demo_state['ball_y'] = demo_state['boss_y']
-                
-                if elapsed > 2500:  # 2.5초 후 오른쪽 드라이브
-                    demo_state['phase'] = 'drive_right'
-                    demo_state['drive_start'] = current_time
-                    
-                    # 오른쪽 곡선 경로 생성
-                    demo_state['curve_points'] = []
-                    for i in range(20):
-                        t = i / 19
-                        # 베지어 곡선으로 오른쪽 회전
-                        x = demo_state['boss_x'] + t * 300 + (1 - t) * t * 100
-                        y = demo_state['boss_y'] + t * 200
-                        demo_state['curve_points'].append((x, y))
+                # 오른쪽 곡선 경로 생성
+                demo_state['curve_points'] = []
+                for i in range(20):
+                    t = i / 19
+                    # 베지어 곡선으로 오른쪽 회전
+                    x = demo_state['boss_x'] + t * 300 + (1 - t) * t * 100
+                    y = demo_state['boss_y'] + t * 200
+                    demo_state['curve_points'].append((x, y))
             
-            elif demo_state['phase'] == 'drive_right':
-                drive_elapsed = current_time - demo_state['drive_start']
-                if drive_elapsed < demo_state['drive_duration']:
-                    # 드라이브 애니메이션
-                    t = drive_elapsed / demo_state['drive_duration']
-                    point_idx = min(int(t * len(demo_state['curve_points'])) - 1,
-                                  len(demo_state['curve_points']) - 1)
-                    if point_idx >= 0:
-                        demo_state['ball_x'], demo_state['ball_y'] = demo_state['curve_points'][point_idx]
-                    
-                    # 드라이브 이펙트
-                    pygame.draw.circle(SCREEN, (255, 255, 0, 100),
-                                     (demo_state['boss_x'] + 50, demo_state['boss_y']), 30, 5)
-                    
-                    # 곡선 궤적 표시
-                    if len(demo_state['curve_points']) > 1:
-                        for i in range(1, min(point_idx + 1, len(demo_state['curve_points']))):
-                            pygame.draw.line(SCREEN, (255, 255, 0, 150),
-                                           demo_state['curve_points'][i-1],
-                                           demo_state['curve_points'][i], 3)
+            # 드라이브 애니메이션
+            if progress > 0.2:  # 0.4초 후 드라이브 시작
+                drive_progress = (progress - 0.2) / 0.8
+                point_idx = min(int(drive_progress * len(demo_state['curve_points'])),
+                              len(demo_state['curve_points']) - 1)
+                if point_idx >= 0:
+                    demo_state['ball_x'], demo_state['ball_y'] = demo_state['curve_points'][point_idx]
+                
+                # 드라이브 이펙트
+                pygame.draw.circle(SCREEN, (255, 255, 0),
+                                 (demo_state['boss_x'] + 50, demo_state['boss_y']), 30, 5)
+                
+                # 곡선 궤적 표시
+                if len(demo_state['curve_points']) > 1:
+                    for i in range(1, min(point_idx + 1, len(demo_state['curve_points']))):
+                        pygame.draw.line(SCREEN, (255, 255, 0, 150),
+                                       demo_state['curve_points'][i-1],
+                                       demo_state['curve_points'][i], 3)
         
         # 공 그리기
         pygame.draw.circle(SCREEN, (255, 255, 255), 
                          (int(demo_state['ball_x']), int(demo_state['ball_y'])), 10)
         
-        # 키 안내
-        font = FontStyle.body()
-        if elapsed < 2000:
-            key_text = "← + SPACE"
-            color = (255, 255, 0)
-        elif elapsed < 4000:
-            key_text = "→ + SPACE"
-            color = (255, 255, 0)
+        # 키 입력 UI 표시
+        if waiting_for_space:
+            # 키 입력 안내 배경 박스
+            box_width = 450
+            box_height = 100
+            box_x = (WIDTH - box_width) // 2
+            box_y = HEIGHT - 180
+            
+            # 배경 박스 그리기
+            box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+            pygame.draw.rect(box_surface, (0, 0, 0, 180), (0, 0, box_width, box_height), border_radius=10)
+            pygame.draw.rect(box_surface, (255, 255, 0, 200), (0, 0, box_width, box_height), 3, border_radius=10)
+            SCREEN.blit(box_surface, (box_x, box_y))
+            
+            # 방향키 + 스페이스바 표시
+            direction = demo_phases[current_phase]['direction']
+            if direction == 'left':
+                # 왼쪽 화살표 키
+                arrow_x = box_x + 80
+                arrow_y = box_y + 20
+                pygame.draw.rect(SCREEN, (255, 255, 255), (arrow_x, arrow_y, 50, 40), border_radius=5)
+                pygame.draw.rect(SCREEN, (100, 100, 100), (arrow_x + 2, arrow_y + 2, 46, 36), border_radius=5)
+                font_key = FontStyle.body()
+                arrow_text = font_key.render("←", True, (255, 255, 255))
+                arrow_rect = arrow_text.get_rect(center=(arrow_x + 25, arrow_y + 20))
+                SCREEN.blit(arrow_text, arrow_rect)
+                
+                # + 기호
+                plus_text = font_key.render("+", True, (255, 255, 255))
+                plus_rect = plus_text.get_rect(center=(arrow_x + 70, arrow_y + 20))
+                SCREEN.blit(plus_text, plus_rect)
+            else:
+                # 오른쪽 화살표 키
+                arrow_x = box_x + 80
+                arrow_y = box_y + 20
+                pygame.draw.rect(SCREEN, (255, 255, 255), (arrow_x, arrow_y, 50, 40), border_radius=5)
+                pygame.draw.rect(SCREEN, (100, 100, 100), (arrow_x + 2, arrow_y + 2, 46, 36), border_radius=5)
+                font_key = FontStyle.body()
+                arrow_text = font_key.render("→", True, (255, 255, 255))
+                arrow_rect = arrow_text.get_rect(center=(arrow_x + 25, arrow_y + 20))
+                SCREEN.blit(arrow_text, arrow_rect)
+                
+                # + 기호
+                plus_text = font_key.render("+", True, (255, 255, 255))
+                plus_rect = plus_text.get_rect(center=(arrow_x + 70, arrow_y + 20))
+                SCREEN.blit(plus_text, plus_rect)
+            
+            # 스페이스바
+            space_width = 200
+            space_height = 40
+            space_x = box_x + 160
+            space_y = box_y + 20
+            pygame.draw.rect(SCREEN, (255, 255, 255), (space_x, space_y, space_width, space_height), border_radius=5)
+            pygame.draw.rect(SCREEN, (100, 100, 100), (space_x + 2, space_y + 2, space_width - 4, space_height - 4), border_radius=5)
+            
+            space_text = font_key.render("SPACE", True, (255, 255, 255))
+            space_text_rect = space_text.get_rect(center=(space_x + space_width // 2, space_y + space_height // 2))
+            SCREEN.blit(space_text, space_text_rect)
+            
+            # 안내 텍스트
+            font_small = FontStyle.small()
+            direction_text = "왼쪽 드라이브" if direction == 'left' else "오른쪽 드라이브"
+            hint_text = font_small.render(f"스페이스바를 눌러 {direction_text} 확인", True, (255, 255, 255))
+            hint_rect = hint_text.get_rect(center=(WIDTH // 2, box_y + 75))
+            SCREEN.blit(hint_text, hint_rect)
         else:
-            key_text = "타이밍이 중요합니다!"
-            color = (0, 255, 255)
-        
-        text = font.render(key_text, True, color)
-        text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
-        SCREEN.blit(text, text_rect)
+            # 애니메이션 재생 중 안내
+            font = FontStyle.body()
+            direction = demo_phases[current_phase]['direction']
+            if direction == 'left':
+                key_text = "← + SPACE 동시 입력"
+                color = (255, 255, 0)
+            else:
+                key_text = "→ + SPACE 동시 입력"
+                color = (255, 255, 0)
+            
+            text = font.render(key_text, True, color)
+            text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+            SCREEN.blit(text, text_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -23870,10 +23936,11 @@ def handle_ball():
     if BALL.bottom >= HEIGHT and not rock_hit:
         # 튜토리얼 스테이지 특별 처리
         if current_stage == 50:
-            print("튜토리얼: 플레이어 뒤 벽에서 공 반사")
-            # 공을 벽에서 반사 (위로)
-            BALL.bottom = HEIGHT - 1  # 경계선 바로 안쪽으로 위치 조정
-            ball_vel[1] = -abs(ball_vel[1])  # 위쪽으로 반사
+            print("튜토리얼: 플레이어가 공을 놓침 - 조교 경고 대화")
+            # 조교 실수 대화 표시 (점수는 그대로)
+            show_tutorial_miss_dialogue()
+            # 라운드 리셋하여 다시 서브
+            reset_round()
             return  # 점수 처리하지 않고 리턴
         #  플레이어 미스 기록 및 실수 분석 - 강화된 실수 감지
         ball_distance = abs(BALL.centery - PLAYER.centery)
