@@ -13898,8 +13898,12 @@ def show_start_screen():
                         if start_tutorial:
                             # 튜토리얼 시작 - 스테이지 50으로 이동
                             print("튜토리얼 시작 - Stage 50")
-                            # 스테이지 50으로 게임 시작
-                            main(50)  # 스테이지 50 (튜토리얼)
+                            
+                            # Chapter 1 BASIC 표시
+                            show_chapter_title(1, "BASIC", "기본 연습")
+                            
+                            # 스테이지 50으로 게임 시작 (튜토리얼 인트로 대화 스킵)
+                            main(50, skip_tutorial_intro=True)  # 스테이지 50 (튜토리얼)
                         else:
                             # 아니오 선택 - 캐릭터 선택 화면으로 이동
                             selected_character = show_character_selection()
@@ -26640,7 +26644,7 @@ def show_new_boss_selection_screen():
             SCREEN.blit(hint_text, hint_rect)
         pygame.display.flip()
         clock.tick(60)
-def main(stage_num, new_boss_mode=False):
+def main(stage_num, new_boss_mode=False, skip_tutorial_intro=False):
     #  실시간 평가 시스템으로 변경됨
     # 관리자 단축키 변수 초기화
     global nine_just_pressed, last_nine_state
@@ -27052,22 +27056,30 @@ def main(stage_num, new_boss_mode=False):
                 # 게이지 충전 로직 제거 - 자연스럽게 0부터 시작
                 # 보스가 서브하도록 설정됨 (이미 설정되어 있음)
         elif not tutorial_dialogue_shown:
-            print("튜토리얼 대화 표시 시작")
-            if show_tutorial_intro_dialogue():
-                print("튜토리얼 대화 완료")
+            if skip_tutorial_intro:
+                # 메인 메뉴에서 튜토리얼 선택 시 인트로 대화 스킵
+                print("튜토리얼 인트로 대화 스킵 (메인 메뉴에서 이미 Chapter 1 표시함)")
                 tutorial_dialogue_shown = True
-                
-                # Chapter 1 - BASIC 표시
-                show_chapter_title(1, "BASIC", "기본 연습")
-                print("튜토리얼: Chapter 1 - BASIC 시작")
-                
-                tutorial_practice_mode = True  # 대화 후 실습 모드 시작
-                # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
+                tutorial_practice_mode = True  # 실습 모드 시작
+                tutorial_serve_reminder_active = True  # 서브 알림창 활성화
                 print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
-                
-                # 인트로 대화 후 서브 알림창 활성화
-                tutorial_serve_reminder_active = True
-                print("튜토리얼: 서브 알림창 활성화")
+            else:
+                print("튜토리얼 대화 표시 시작")
+                if show_tutorial_intro_dialogue():
+                    print("튜토리얼 대화 완료")
+                    tutorial_dialogue_shown = True
+                    
+                    # Chapter 1 - BASIC 표시
+                    show_chapter_title(1, "BASIC", "기본 연습")
+                    print("튜토리얼: Chapter 1 - BASIC 시작")
+                    
+                    tutorial_practice_mode = True  # 대화 후 실습 모드 시작
+                    # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
+                    print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
+                    
+                    # 인트로 대화 후 서브 알림창 활성화
+                    tutorial_serve_reminder_active = True
+                    print("튜토리얼: 서브 알림창 활성화")
     
     running = True
     while running:
