@@ -723,9 +723,23 @@ except:
 # ===============================
 #  동적 최대 게이지 계산 함수
 def get_max_gauge():
-    # 튜토리얼 드라이브 챕터 임시 오버라이드 체크
+    # 튜토리얼 챕터별 최대 게이지 체크
+    # 우선순위: Chapter 3 > Chapter 2 > Chapter 1 순으로 체크
+    
+    # 튜토리얼 드라이브 챕터 (Chapter 3) 임시 오버라이드 체크 - 250
     if 'tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None:
+        print(f"DEBUG: Chapter 3 게이지 사용: {tutorial_drive_chapter_max_gauge}")
         return tutorial_drive_chapter_max_gauge
+    
+    # Chapter 2 (DASH) - 300
+    if 'tutorial_chapter2_max_gauge' in globals() and tutorial_chapter2_max_gauge is not None:
+        print(f"DEBUG: Chapter 2 게이지 사용: {tutorial_chapter2_max_gauge}")
+        return tutorial_chapter2_max_gauge
+    
+    # Chapter 1 (BASIC) - 100
+    if 'tutorial_chapter1_max_gauge' in globals() and tutorial_chapter1_max_gauge is not None:
+        print(f"DEBUG: Chapter 1 게이지 사용: {tutorial_chapter1_max_gauge}")
+        return tutorial_chapter1_max_gauge
     
     base_max = 500
     try:
@@ -6241,8 +6255,13 @@ def handle_player(keys):
                             # 드라이브 챕터: 플레이어 최대 게이지를 250으로 임시 설정
                             tutorial_drive_chapter_max_gauge = 250
                             
-                            # 대쉬 연습 완료 플래그 설정
+                            # 드라이브 연습 관련 global 선언  
+                            global tutorial_needs_drive_practice, tutorial_drive_practice_shown
+                            
+                            # 대쉬 연습 완료, 드라이브 연습 시작
                             tutorial_needs_dash_practice = False  # 대쉬 연습 완료
+                            tutorial_needs_drive_practice = True  # 드라이브 연습 필요
+                            tutorial_drive_practice_shown = False  # 드라이브 대화 아직 표시 안됨
                             # 대쉬 카운터 리셋
                             tutorial_dash_counter_active = False
                             tutorial_dash_count = 0
@@ -14610,6 +14629,10 @@ tutorial_dash_helper_start_time = 0
 tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
 tutorial_dash_completion_dialogue_shown = False  # 대쉬 3회 완료 대화 표시 여부
 
+# 튜토리얼 챕터별 최대 게이지 설정
+tutorial_chapter1_max_gauge = None  # Chapter 1 (BASIC) 최대 게이지 (100)
+tutorial_chapter2_max_gauge = None  # Chapter 2 (DASH) 최대 게이지 (300)
+
 # 서브 알림창 전역 변수
 tutorial_serve_reminder_active = False
 
@@ -14704,6 +14727,302 @@ def show_tutorial_dash_helper():
     # 대쉬 도우미를 바로 활성화 (draw_tutorial_dash_helper()가 처리)
     # 이 함수는 호출되자마자 즉시 True 반환
     return True
+
+def show_tutorial_drive_dialogue():
+    """튜토리얼 드라이브 연습 대화"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_dialogue = FontStyle.body()  # 24pt 대화 내용용
+    
+    # 현재 게임 화면을 그대로 캡처 (기존 게임 상태를 보존)
+    background = SCREEN.copy()
+    
+    dialogues = [
+        ("조교", "핑파이터에서 기본적인 모든 공격은"),
+        ("조교", "공을 때린 방향으로 직선으로 날아간다."),
+        ("조교", "하지만 스매셔는 이 공에 회전을 넣어"),
+        ("조교", "곡선으로 휘게 만들 수 있지."),
+        ("플레이어", "오오..."),
+        ("조교", "회전이 들어간 공은 방향을 예측하기 어렵기 때문에"),
+        ("조교", "적이 가드를 하는데 있어 상당히 애를 먹는다."),
+        ("조교", "이번에 배워볼 기술은 바로 '드라이브'이다."),
+        ("조교", "매우 좋은 공격기술이지만"),
+        ("조교", "이 드라이브는 핑파이터에서 가장 난이도가 높은 기술이다."),
+        ("조교", "일정 타이밍에 맞춰서 키를 입력해야하기 때문인데"),
+        ("조교", "감만 익히면 크게 어렵지 않다."),
+        ("조교", "공이 내 몸의 일정 궤도내에 들어오면"),
+        ("조교", "드라이브 모니터가 표시가 된다."),
+        ("드라이브 시범", ""),  # 드라이브 모니터 표시 시범
+        ("조교", "이때 타이밍에 맞춰"),
+        ("조교", "← + 스페이스 키를 누르면 왼쪽 방향으로 드라이브가 발사"),
+        ("조교", "→ + 스페이스 키를 누르면 오른쪽 방향으로 드라이브가 발사된다."),
+        ("드라이브 애니메이션", ""),  # 드라이브 애니메이션 시범
+        ("조교", "타이밍에 맞춰서 정확히 동시에 눌러야 드라이브가 발동되므로"),
+        ("조교", "드라이브 감각을 우선 익히는 연습을 해보겠다."),
+        ("조교", "드라이브 실시!"),
+        ("플레이어", "실시!"),
+    ]
+    
+    current_dialogue = 0
+    running = True
+    
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key in [pygame.K_SPACE, pygame.K_RETURN]:
+                    current_dialogue += 1
+                    if current_dialogue >= len(dialogues):
+                        return True  # 대화 종료
+        
+        # 배경 그리기
+        SCREEN.blit(background, (0, 0))
+        
+        if current_dialogue < len(dialogues):
+            speaker, text = dialogues[current_dialogue]
+            
+            if speaker == "드라이브 시범":
+                # 드라이브 모니터 표시 시범
+                show_drive_monitor_demo(background)
+            elif speaker == "드라이브 애니메이션":
+                # 드라이브 애니메이션 시범
+                show_drive_animation_demo(background)
+            else:
+                # 일반 대화 표시
+                draw_dialogue_box(speaker, text, font_large, font_dialogue)
+        
+        pygame.display.flip()
+        clock.tick(60)
+    
+    return True
+
+def show_drive_monitor_demo(background):
+    """드라이브 모니터 표시 시범"""
+    clock = pygame.time.Clock()
+    demo_duration = 3000  # 3초간 시범
+    start_time = pygame.time.get_ticks()
+    
+    # 데모용 보스 위치
+    boss_x = WIDTH // 2
+    boss_y = 100
+    
+    # 데모용 공 위치 (보스 근처로 이동)
+    ball_start_x = WIDTH // 2 - 200
+    ball_start_y = HEIGHT // 2
+    ball_target_x = boss_x
+    ball_target_y = boss_y + 50
+    
+    while pygame.time.get_ticks() - start_time < demo_duration:
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key in [pygame.K_SPACE, pygame.K_RETURN]:
+                    return  # 스킵
+        
+        SCREEN.blit(background, (0, 0))
+        
+        # 시간에 따른 공 위치 계산
+        progress = (pygame.time.get_ticks() - start_time) / demo_duration
+        ball_x = ball_start_x + (ball_target_x - ball_start_x) * progress
+        ball_y = ball_start_y + (ball_target_y - ball_start_y) * progress
+        
+        # 보스 그리기
+        try:
+            boss_img_path = resource_path("boss_tutorial.png")
+            boss_img = pygame.image.load(boss_img_path)
+            boss_img = pygame.transform.scale(boss_img, (80, 100))
+            boss_rect = boss_img.get_rect(center=(boss_x, boss_y))
+            SCREEN.blit(boss_img, boss_rect)
+        except:
+            pygame.draw.rect(SCREEN, (200, 100, 100), (boss_x - 40, boss_y - 50, 80, 100))
+        
+        # 공 그리기
+        pygame.draw.circle(SCREEN, (255, 255, 255), (int(ball_x), int(ball_y)), 10)
+        
+        # 드라이브 모니터 표시 (공이 보스 근처에 왔을 때)
+        distance = ((ball_x - boss_x) ** 2 + (ball_y - boss_y) ** 2) ** 0.5
+        if distance < 150:  # 드라이브 범위 내
+            # 드라이브 가능 영역 표시
+            pygame.draw.circle(SCREEN, (0, 255, 255, 100), (boss_x, boss_y), 150, 3)
+            
+            # 드라이브 텍스트 표시
+            font = FontStyle.body()
+            drive_text = font.render("DRIVE!", True, (0, 255, 255))
+            text_rect = drive_text.get_rect(center=(boss_x, boss_y - 80))
+            SCREEN.blit(drive_text, text_rect)
+            
+            # 타이밍 인디케이터
+            timing_progress = 1.0 - (distance / 150)
+            bar_width = 100
+            bar_height = 10
+            bar_x = boss_x - bar_width // 2
+            bar_y = boss_y - 100
+            
+            # 배경 바
+            pygame.draw.rect(SCREEN, (50, 50, 50), (bar_x, bar_y, bar_width, bar_height))
+            # 진행 바
+            pygame.draw.rect(SCREEN, (0, 255, 255), (bar_x, bar_y, int(bar_width * timing_progress), bar_height))
+        
+        # 안내 텍스트
+        font_small = FontStyle.small()
+        hint_text = font_small.render("공이 보스 근처에 오면 드라이브 모니터가 표시됩니다", True, (255, 255, 255))
+        text_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+        SCREEN.blit(hint_text, text_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+
+def show_drive_animation_demo(background):
+    """드라이브 애니메이션 시범"""
+    clock = pygame.time.Clock()
+    
+    # 데모 상태
+    demo_state = {
+        'phase': 'waiting',  # waiting -> drive_left -> waiting -> drive_right -> done
+        'boss_x': WIDTH // 2,
+        'boss_y': 100,
+        'ball_x': WIDTH // 2,
+        'ball_y': HEIGHT // 2,
+        'drive_start': 0,
+        'drive_duration': 500,  # 0.5초
+        'curve_points': [],
+        'current_demo': 0,  # 0: 왼쪽, 1: 오른쪽
+    }
+    
+    demo_duration = 5000  # 전체 5초간 시범
+    start_time = pygame.time.get_ticks()
+    
+    while pygame.time.get_ticks() - start_time < demo_duration:
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key in [pygame.K_SPACE, pygame.K_RETURN]:
+                    return  # 스킵
+        
+        current_time = pygame.time.get_ticks()
+        elapsed = current_time - start_time
+        
+        SCREEN.blit(background, (0, 0))
+        
+        # 보스 그리기
+        try:
+            boss_img_path = resource_path("boss_tutorial.png")
+            boss_img = pygame.image.load(boss_img_path)
+            boss_img = pygame.transform.scale(boss_img, (80, 100))
+            boss_rect = boss_img.get_rect(center=(demo_state['boss_x'], demo_state['boss_y']))
+            SCREEN.blit(boss_img, boss_rect)
+        except:
+            pygame.draw.rect(SCREEN, (200, 100, 100), 
+                           (demo_state['boss_x'] - 40, demo_state['boss_y'] - 50, 80, 100))
+        
+        # 데모 진행
+        if elapsed < 2000:  # 첫 2초: 왼쪽 드라이브
+            if demo_state['phase'] == 'waiting':
+                # 공을 보스 근처로 이동
+                demo_state['ball_x'] = demo_state['boss_x'] + 100
+                demo_state['ball_y'] = demo_state['boss_y']
+                
+                if elapsed > 500:  # 0.5초 후 드라이브 시작
+                    demo_state['phase'] = 'drive_left'
+                    demo_state['drive_start'] = current_time
+                    
+                    # 왼쪽 곡선 경로 생성
+                    demo_state['curve_points'] = []
+                    for i in range(20):
+                        t = i / 19
+                        # 베지어 곡선으로 왼쪽 회전
+                        x = demo_state['boss_x'] - t * 300 - (1 - t) * t * 100
+                        y = demo_state['boss_y'] + t * 200
+                        demo_state['curve_points'].append((x, y))
+            
+            elif demo_state['phase'] == 'drive_left':
+                drive_elapsed = current_time - demo_state['drive_start']
+                if drive_elapsed < demo_state['drive_duration']:
+                    # 드라이브 애니메이션
+                    t = drive_elapsed / demo_state['drive_duration']
+                    point_idx = min(int(t * len(demo_state['curve_points'])) - 1, 
+                                  len(demo_state['curve_points']) - 1)
+                    if point_idx >= 0:
+                        demo_state['ball_x'], demo_state['ball_y'] = demo_state['curve_points'][point_idx]
+                    
+                    # 드라이브 이펙트
+                    pygame.draw.circle(SCREEN, (255, 255, 0, 100), 
+                                     (demo_state['boss_x'] - 50, demo_state['boss_y']), 30, 5)
+                    
+                    # 곡선 궤적 표시
+                    if len(demo_state['curve_points']) > 1:
+                        for i in range(1, min(point_idx + 1, len(demo_state['curve_points']))):
+                            pygame.draw.line(SCREEN, (255, 255, 0, 150),
+                                           demo_state['curve_points'][i-1],
+                                           demo_state['curve_points'][i], 3)
+        
+        elif elapsed < 4000:  # 다음 2초: 오른쪽 드라이브
+            if demo_state['phase'] == 'drive_left':
+                demo_state['phase'] = 'waiting_right'
+                
+            if demo_state['phase'] == 'waiting_right':
+                # 공을 다시 보스 근처로
+                demo_state['ball_x'] = demo_state['boss_x'] - 100
+                demo_state['ball_y'] = demo_state['boss_y']
+                
+                if elapsed > 2500:  # 2.5초 후 오른쪽 드라이브
+                    demo_state['phase'] = 'drive_right'
+                    demo_state['drive_start'] = current_time
+                    
+                    # 오른쪽 곡선 경로 생성
+                    demo_state['curve_points'] = []
+                    for i in range(20):
+                        t = i / 19
+                        # 베지어 곡선으로 오른쪽 회전
+                        x = demo_state['boss_x'] + t * 300 + (1 - t) * t * 100
+                        y = demo_state['boss_y'] + t * 200
+                        demo_state['curve_points'].append((x, y))
+            
+            elif demo_state['phase'] == 'drive_right':
+                drive_elapsed = current_time - demo_state['drive_start']
+                if drive_elapsed < demo_state['drive_duration']:
+                    # 드라이브 애니메이션
+                    t = drive_elapsed / demo_state['drive_duration']
+                    point_idx = min(int(t * len(demo_state['curve_points'])) - 1,
+                                  len(demo_state['curve_points']) - 1)
+                    if point_idx >= 0:
+                        demo_state['ball_x'], demo_state['ball_y'] = demo_state['curve_points'][point_idx]
+                    
+                    # 드라이브 이펙트
+                    pygame.draw.circle(SCREEN, (255, 255, 0, 100),
+                                     (demo_state['boss_x'] + 50, demo_state['boss_y']), 30, 5)
+                    
+                    # 곡선 궤적 표시
+                    if len(demo_state['curve_points']) > 1:
+                        for i in range(1, min(point_idx + 1, len(demo_state['curve_points']))):
+                            pygame.draw.line(SCREEN, (255, 255, 0, 150),
+                                           demo_state['curve_points'][i-1],
+                                           demo_state['curve_points'][i], 3)
+        
+        # 공 그리기
+        pygame.draw.circle(SCREEN, (255, 255, 255), 
+                         (int(demo_state['ball_x']), int(demo_state['ball_y'])), 10)
+        
+        # 키 안내
+        font = FontStyle.body()
+        if elapsed < 2000:
+            key_text = "← + SPACE"
+            color = (255, 255, 0)
+        elif elapsed < 4000:
+            key_text = "→ + SPACE"
+            color = (255, 255, 0)
+        else:
+            key_text = "타이밍이 중요합니다!"
+            color = (0, 255, 255)
+        
+        text = font.render(key_text, True, color)
+        text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+        SCREEN.blit(text, text_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
 
 def show_tutorial_dash_dialogue():
     """튜토리얼 대쉬 연습 대화"""
@@ -26494,7 +26813,9 @@ def show_result(won):
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
-        #  튜토리얼 드라이브 챕터 최대 게이지 오버라이드 초기화
+        #  튜토리얼 챕터별 최대 게이지 오버라이드 초기화
+        tutorial_chapter1_max_gauge = None
+        tutorial_chapter2_max_gauge = None
         tutorial_drive_chapter_max_gauge = None
         #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
         rolling_charges = 1  # 기본 1개로 초기화
@@ -26659,6 +26980,7 @@ def main(stage_num, new_boss_mode=False):
     #  실시간 평가 시스템으로 변경됨
     # 관리자 단축키 변수 초기화
     global nine_just_pressed, last_nine_state
+    global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge
     nine_just_pressed = False
     last_nine_state = False
     
@@ -26700,6 +27022,7 @@ def main(stage_num, new_boss_mode=False):
     # 게임 진행 & 타이밍
     global is_waiting_for_serve, is_player_serve, last_item_spawn_time, next_item_spawn_delay
     global tutorial_needs_dash_practice  # 대쉬 튜토리얼 플래그
+    global tutorial_needs_drive_practice, tutorial_drive_practice_shown  # 드라이브 튜토리얼 플래그
     global boss_fail_timer, session_medal_earned, medal_score
     # 아이템 시스템
     global selected_item_index, last_item_use_time
@@ -26985,6 +27308,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_serve_helper_shown, tutorial_serve_reminder_active  # 서브 관련 알림
     global tutorial_wait_for_first_serve  # 첫 서브를 기다리는 상태
     global tutorial_needs_dash_practice, tutorial_dash_practice_shown  # 대쉬 튜토리얼 관련 변수
+    global tutorial_needs_drive_practice, tutorial_drive_practice_shown  # 드라이브 튜토리얼 관련 변수
     global tutorial_drive_chapter_max_gauge  # 드라이브 챕터 최대 게이지 오버라이드
     
     # 대쉬 튜토리얼 재진입 체크
@@ -27009,6 +27333,8 @@ def main(stage_num, new_boss_mode=False):
         tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
         tutorial_dash_completion_dialogue_shown = False  # 대쉬 완료 대화 표시 여부
         tutorial_drive_chapter_max_gauge = None  # 드라이브 챕터 최대 게이지 임시 오버라이드
+        tutorial_needs_drive_practice = False  # 드라이브 연습이 필요한지 여부
+        tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
     else:
         # 대쉬 튜토리얼 재진입 - 일부 변수만 초기화
         tutorial_dialogue_shown = True  # 초기 대화는 이미 표시됨
@@ -27053,9 +27379,34 @@ def main(stage_num, new_boss_mode=False):
         print(f"  - BOSS_DECELERATION: {BOSS_DECELERATION}")
         print(f"  - BOSS_INSTANT_STOP: {BOSS_INSTANT_STOP_DECELERATION}")
         
-        # Chapter 1 대쉬 튜토리얼 체크
-        if tutorial_needs_dash_practice and not tutorial_dash_practice_shown:
-            print("튜토리얼: Chapter 1 - DASH 연습 시작")
+        # Chapter 3 드라이브 튜토리얼 체크
+        if 'tutorial_needs_drive_practice' in globals():
+            print(f"DEBUG: tutorial_needs_drive_practice = {tutorial_needs_drive_practice}")
+            print(f"DEBUG: tutorial_drive_practice_shown = {tutorial_drive_practice_shown if 'tutorial_drive_practice_shown' in globals() else 'NOT DEFINED'}")
+            
+        if 'tutorial_needs_drive_practice' in globals() and tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
+            print("튜토리얼: Chapter 3 - DRIVE 연습 시작")
+            
+            # 대화 시작 전에 게임 화면 그리기
+            draw_field()
+            draw_objects()
+            pygame.display.flip()
+            
+            if show_tutorial_drive_dialogue():
+                tutorial_drive_practice_shown = True
+                tutorial_practice_mode = True
+                print("튜토리얼: 드라이브 연습 대화 완료")
+                # 드라이브 연습 시작 설정
+                reset_round()  # 라운드 리셋
+        # Chapter 2 대쉬 튜토리얼 체크
+        elif tutorial_needs_dash_practice and not tutorial_dash_practice_shown:
+            print("튜토리얼: Chapter 2 - DASH 연습 시작")
+            
+            # Chapter 2 최대 게이지를 300으로 설정
+            global tutorial_chapter2_max_gauge
+            tutorial_chapter2_max_gauge = 300
+            print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정")
+            
             # 대화 시작 전에 게임 화면 그리기
             draw_field()
             draw_objects()
@@ -27074,6 +27425,11 @@ def main(stage_num, new_boss_mode=False):
             # Chapter 1 - BASIC 표시 (대화 전에)
             show_chapter_title(1, "BASIC", "기본 연습")
             print("튜토리얼: Chapter 1 - BASIC 표시 완료")
+            
+            # Chapter 1 최대 게이지를 100으로 설정
+            global tutorial_chapter1_max_gauge
+            tutorial_chapter1_max_gauge = 100
+            print("튜토리얼: Chapter 1 최대 게이지를 100으로 설정")
             
             # 대화 시작 전에 게임 화면 그리기
             draw_field()
@@ -27169,8 +27525,13 @@ def main(stage_num, new_boss_mode=False):
                 # 드라이브 챕터: 플레이어 최대 게이지를 250으로 임시 설정
                 tutorial_drive_chapter_max_gauge = 250
                 
-                # 대쉬 연습 완료 플래그 설정
+                # 드라이브 연습 관련 global 선언
+                global tutorial_needs_drive_practice, tutorial_drive_practice_shown
+                
+                # 대쉬 연습 완료, 드라이브 연습 시작
                 tutorial_needs_dash_practice = False  # 대쉬 연습 완료
+                tutorial_needs_drive_practice = True  # 드라이브 연습 필요
+                tutorial_drive_practice_shown = False  # 드라이브 대화 아직 표시 안됨
                 tutorial_dash_counter_active = False
                 tutorial_dash_count = 0
                 
@@ -27187,7 +27548,9 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 3 (드라이브) 진행 중 -> 튜토리얼 완료
                 print("튜토리얼: Chapter 3 (DRIVE) 완료, 튜토리얼 종료")
                 
-                # 드라이브 챕터 게이지 오버라이드 해제
+                # 튜토리얼 챕터별 게이지 오버라이드 해제
+                tutorial_chapter1_max_gauge = None
+                tutorial_chapter2_max_gauge = None
                 tutorial_drive_chapter_max_gauge = None
                 
                 # 튜토리얼 완료 메시지 표시 후 메인 메뉴로
@@ -27199,12 +27562,21 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 1 (BASIC) 진행 중 -> Chapter 2 (DASH)로 이동
                 print("튜토리얼: Chapter 1 (BASIC) 완료, Chapter 2 - DASH로 이동")
                 
+                # Chapter 1 게이지 설정 해제
+                tutorial_chapter1_max_gauge = None
+                print(f"DEBUG: Chapter 1 게이지 해제: {tutorial_chapter1_max_gauge}")
+                
+                # Chapter 2 최대 게이지를 300으로 설정
+                tutorial_chapter2_max_gauge = 300
+                print(f"DEBUG: Chapter 2 게이지 설정: {tutorial_chapter2_max_gauge}")
+                
                 # 게이지 초기화
                 special_gauge = 0
                 displayed_gauge = 0
                 
                 # Chapter 2 타이틀 표시
                 show_chapter_title(2, "DASH", "대쉬 연습")
+                print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정")
                 
                 # 대쉬 연습 플래그 설정
                 tutorial_needs_dash_practice = True  # 대쉬 연습 필요
@@ -28480,6 +28852,24 @@ def main(stage_num, new_boss_mode=False):
                         SCREEN.blit(arrow_text, arrow_rect)
                 
                 # 보스가 공을 받아친 후는 정지 화면 대화로 처리됨
+        
+        # 튜토리얼: Chapter 3 드라이브 연습 체크 (메인 루프 내)
+        if current_stage == 50 and 'tutorial_needs_drive_practice' in globals():
+            if tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
+                print("튜토리얼: Chapter 3 - DRIVE 연습 시작 (메인 루프)")
+                
+                # 대화 시작 전에 게임 화면 그리기
+                draw_field()
+                draw_objects()
+                pygame.display.flip()
+                
+                if show_tutorial_drive_dialogue():
+                    tutorial_drive_practice_shown = True
+                    tutorial_practice_mode = True
+                    print("튜토리얼: 드라이브 연습 대화 완료")
+                    # 드라이브 연습 시작 설정
+                    reset_round()  # 라운드 리셋
+                    continue  # 다음 프레임으로
         
         # 튜토리얼 대화창 표시 체크 (화면이 그려진 후)
         if current_stage == 50 and tutorial_pause_for_dialogue:
