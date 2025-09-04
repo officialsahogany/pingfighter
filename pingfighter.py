@@ -15302,12 +15302,17 @@ def draw_tutorial_dash_counter():
 
 def show_chapter_title(chapter_num, title, subtitle=None):
     """챕터 타이틀 표시 (페이드 효과 포함)"""
+    print(f"🎬 show_chapter_title 호출: Chapter {chapter_num} - {title}")
     clock = pygame.time.Clock()
     
     # 폰트 설정
     font_chapter = FontStyle.title()     # 48pt 챕터용
     font_title = FontStyle.subtitle()    # 32pt 타이틀용
     font_subtitle = FontStyle.body()     # 24pt 서브타이틀용
+    
+    # 게임 화면 먼저 그리기
+    draw_field()
+    pygame.display.flip()
     
     # 현재 화면 캡처
     current_screen = SCREEN.copy()
@@ -15368,6 +15373,7 @@ def show_chapter_title(chapter_num, title, subtitle=None):
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     frame = display_duration  # 스킵
+                    break  # 루프 즉시 종료
     
     # 페이드 인 (게임 화면으로 돌아오기)
     for alpha in range(0, 256, 16):  # 빠른 페이드 인
@@ -15378,6 +15384,7 @@ def show_chapter_title(chapter_num, title, subtitle=None):
         pygame.display.flip()
         clock.tick(60)
     
+    print(f"✅ Chapter {chapter_num} - {title} 표시 완료")
     return True
 
 def show_tutorial_speed_dialogue():
