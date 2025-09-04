@@ -27380,24 +27380,21 @@ def main(stage_num, new_boss_mode=False):
         print(f"  - BOSS_INSTANT_STOP: {BOSS_INSTANT_STOP_DECELERATION}")
         
         # Chapter 3 드라이브 튜토리얼 체크
-        if 'tutorial_needs_drive_practice' in globals():
-            print(f"DEBUG: tutorial_needs_drive_practice = {tutorial_needs_drive_practice}")
-            print(f"DEBUG: tutorial_drive_practice_shown = {tutorial_drive_practice_shown if 'tutorial_drive_practice_shown' in globals() else 'NOT DEFINED'}")
-            
-        if 'tutorial_needs_drive_practice' in globals() and tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
-            print("튜토리얼: Chapter 3 - DRIVE 연습 시작")
-            
-            # 대화 시작 전에 게임 화면 그리기
-            draw_field()
-            draw_objects()
-            pygame.display.flip()
-            
-            if show_tutorial_drive_dialogue():
-                tutorial_drive_practice_shown = True
-                tutorial_practice_mode = True
-                print("튜토리얼: 드라이브 연습 대화 완료")
-                # 드라이브 연습 시작 설정
-                reset_round()  # 라운드 리셋
+        if 'tutorial_needs_drive_practice' in globals() and 'tutorial_drive_practice_shown' in globals():
+            if tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
+                print("튜토리얼: Chapter 3 - DRIVE 연습 시작")
+                
+                # 대화 시작 전에 게임 화면 그리기
+                draw_field()
+                draw_objects()
+                pygame.display.flip()
+                
+                if show_tutorial_drive_dialogue():
+                    tutorial_drive_practice_shown = True
+                    tutorial_practice_mode = True
+                    print("튜토리얼: 드라이브 연습 대화 완료")
+                    # 드라이브 연습 시작 설정
+                    reset_round()  # 라운드 리셋
         # Chapter 2 대쉬 튜토리얼 체크
         elif tutorial_needs_dash_practice and not tutorial_dash_practice_shown:
             print("튜토리얼: Chapter 2 - DASH 연습 시작")
