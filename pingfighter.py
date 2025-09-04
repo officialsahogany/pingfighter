@@ -15266,6 +15266,7 @@ def show_drive_monitor_demo(background):
     font_medium = FontStyle.body()    # 24pt 대사용
     font_small = FontStyle.small()    # 18pt 안내용
     BOSS_COLOR = (255, 100, 100)  # 조교 텍스트 색상
+    CYAN = (0, 255, 255)  # 안내 텍스트 색상
     
     # 데모용 매개변수 - 실제 게임과 동일한 조건
     boss_x = WIDTH // 2
@@ -15497,6 +15498,17 @@ def show_drive_monitor_demo(background):
         # 실제 텍스트
         SCREEN.blit(text_surface, text_rect)
         
+        # 스페이스바 안내 (챕터2와 동일한 스타일 - 하단 우측)
+        if waiting_for_space:
+            instruction = "SPACE - 계속"
+            text_color = CYAN
+            inst_surface = font_small.render(instruction, True, text_color)
+            inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, HEIGHT - 20))
+            
+            # 깜빡임 효과
+            if pygame.time.get_ticks() % 1000 < 500:
+                SCREEN.blit(inst_surface, inst_rect)
+        
         pygame.display.flip()
         clock.tick(60)
 
@@ -15508,6 +15520,7 @@ def show_drive_animation_demo(background):
     font_medium = FontStyle.body()    # 24pt 대사용
     font_small = FontStyle.small()    # 18pt 안내용
     BOSS_COLOR = (255, 100, 100)  # 조교 텍스트 색상
+    CYAN = (0, 255, 255)  # 안내 텍스트 색상
     
     # 드라이브 시범 설정
     demo_phases = [
@@ -16028,9 +16041,9 @@ def draw_tutorial_ui():
     global tutorial_gauge_tutorial_shown, tutorial_speed_dialogue_shown
     global tutorial_player_hit_count, tutorial_displayed_hit_count
     
-    # 튜토리얼 진행도 바 표시 (항상 표시)
-    if current_stage == 50:
-        draw_tutorial_progress_bar()
+    # 튜토리얼 진행도 바 표시 (사용자 요청으로 제거)
+    # if current_stage == 50:
+    #     draw_tutorial_progress_bar()
     
     # 게이지 튜토리얼 이후, 속도 튜토리얼 전에만 표시
     if current_stage == 50 and tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
