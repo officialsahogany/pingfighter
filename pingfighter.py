@@ -15310,19 +15310,13 @@ def show_chapter_title(chapter_num, title, subtitle=None):
     font_title = FontStyle.subtitle()    # 32pt 타이틀용
     font_subtitle = FontStyle.body()     # 24pt 서브타이틀용
     
-    # 게임 화면 먼저 그리기
-    draw_field()
-    pygame.display.flip()
-    
-    # 현재 화면 캡처
-    current_screen = SCREEN.copy()
-    
-    # 페이드 아웃 (현재 화면을 어둡게)
-    for alpha in range(0, 256, 16):  # 더 빠른 페이드 아웃
+    # 화면을 검은색으로 페이드 아웃
+    for alpha in range(255, 0, -16):  # 페이드 아웃
         SCREEN.fill((0, 0, 0))
-        fade_surface = current_screen.copy()
-        fade_surface.set_alpha(255 - alpha)
-        SCREEN.blit(fade_surface, (0, 0))
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(255 - alpha)
+        overlay.fill((0, 0, 0))
+        SCREEN.blit(overlay, (0, 0))
         pygame.display.flip()
         clock.tick(60)
     
@@ -15375,14 +15369,9 @@ def show_chapter_title(chapter_num, title, subtitle=None):
                     frame = display_duration  # 스킵
                     break  # 루프 즉시 종료
     
-    # 페이드 인 (게임 화면으로 돌아오기)
-    for alpha in range(0, 256, 16):  # 빠른 페이드 인
-        SCREEN.fill((0, 0, 0))
-        fade_surface = current_screen.copy()
-        fade_surface.set_alpha(alpha)
-        SCREEN.blit(fade_surface, (0, 0))
-        pygame.display.flip()
-        clock.tick(60)
+    # 페이드 아웃 (챕터 화면이 서서히 사라짐)
+    SCREEN.fill((0, 0, 0))
+    pygame.display.flip()
     
     print(f"✅ Chapter {chapter_num} - {title} 표시 완료")
     return True
