@@ -14911,6 +14911,55 @@ def show_tutorial_success_feedback(message, level="normal"):
         # 텍스트 그리기
         SCREEN.blit(text_surface, text_rect)
         
+        # 최종 달성 메시지일 때만 박수 애니메이션 추가 (대쉬 마스터, 완벽해요, 튜토리얼 완료)
+        if "마스터" in message or "완벽해요" in message or "🎉" in message:
+            # 박수 애니메이션 (양쪽에 손 그리기)
+            clap_offset = abs(math.sin(frame * 0.3)) * 10  # 박수 움직임
+            hand_size = 30
+            
+            # 왼쪽 손
+            left_hand_x = text_rect.left - 50 - clap_offset
+            left_hand_y = text_rect.centery
+            
+            # 오른쪽 손
+            right_hand_x = text_rect.right + 50 + clap_offset
+            right_hand_y = text_rect.centery
+            
+            # 손 그리기 (간단한 원과 손가락)
+            # 왼쪽 손
+            pygame.draw.circle(SCREEN, (255, 220, 180), (int(left_hand_x), int(left_hand_y)), hand_size)
+            # 왼쪽 손가락들
+            for i in range(4):
+                finger_angle = -math.pi/6 + i * math.pi/12
+                finger_x = left_hand_x + hand_size * math.cos(finger_angle)
+                finger_y = left_hand_y + hand_size * math.sin(finger_angle) - 10
+                pygame.draw.ellipse(SCREEN, (255, 220, 180), 
+                                   (finger_x - 5, finger_y - 8, 10, 16))
+            # 왼쪽 엄지
+            pygame.draw.ellipse(SCREEN, (255, 220, 180), 
+                              (left_hand_x + hand_size - 5, left_hand_y - 5, 12, 10))
+            
+            # 오른쪽 손
+            pygame.draw.circle(SCREEN, (255, 220, 180), (int(right_hand_x), int(right_hand_y)), hand_size)
+            # 오른쪽 손가락들
+            for i in range(4):
+                finger_angle = math.pi - math.pi/6 + i * math.pi/12
+                finger_x = right_hand_x + hand_size * math.cos(finger_angle)
+                finger_y = right_hand_y + hand_size * math.sin(finger_angle) - 10
+                pygame.draw.ellipse(SCREEN, (255, 220, 180), 
+                                   (finger_x - 5, finger_y - 8, 10, 16))
+            # 오른쪽 엄지
+            pygame.draw.ellipse(SCREEN, (255, 220, 180), 
+                              (right_hand_x - hand_size - 7, right_hand_y - 5, 12, 10))
+            
+            # 박수 이펙트 (작은 별들)
+            if frame % 10 < 5:  # 박수칠 때마다
+                for _ in range(3):
+                    star_x = (left_hand_x + right_hand_x) / 2 + random.randint(-20, 20)
+                    star_y = left_hand_y + random.randint(-20, 20)
+                    pygame.draw.circle(SCREEN, (255, 255, 100), 
+                                     (int(star_x), int(star_y)), 3)
+        
         pygame.display.flip()
         clock.tick(60)
 
@@ -15530,7 +15579,7 @@ def show_drive_animation_demo(background):
     current_phase = 0
     waiting_for_space = False
     phase_start_time = pygame.time.get_ticks()
-    animation_duration = 2000  # 2초 애니메이션
+    animation_duration = 800  # 0.8초 애니메이션 (더 빠르게)
     
     # 데모 상태
     demo_state = {
@@ -15594,13 +15643,14 @@ def show_drive_animation_demo(background):
                 # 초기화: 공을 보스 오른쪽에서 시작
                 demo_state['ball_x'] = demo_state['boss_x'] + 100
                 demo_state['ball_y'] = demo_state['boss_y']
-                # 왼쪽 곡선 경로 생성
+                # 왼쪽 곡선 경로 생성 (더 강한 굴곡)
                 demo_state['curve_points'] = []
-                for i in range(20):
-                    t = i / 19
-                    # 베지어 곡선으로 왼쪽 회전
-                    x = demo_state['boss_x'] - t * 300 - (1 - t) * t * 100
-                    y = demo_state['boss_y'] + t * 200
+                for i in range(30):  # 더 많은 포인트로 부드러운 곡선
+                    t = i / 29
+                    # 더 강한 베지어 곡선으로 왼쪽 회전
+                    import math
+                    x = demo_state['boss_x'] - t * 350 - math.sin(t * math.pi) * 200  # 더 강한 굴곡
+                    y = demo_state['boss_y'] + t * 250 + math.cos(t * math.pi * 0.5) * 30
                     demo_state['curve_points'].append((x, y))
             
             # 드라이브 애니메이션
@@ -15611,11 +15661,7 @@ def show_drive_animation_demo(background):
                 if point_idx >= 0:
                     demo_state['ball_x'], demo_state['ball_y'] = demo_state['curve_points'][point_idx]
                 
-                # 드라이브 이펙트
-                pygame.draw.circle(SCREEN, (255, 255, 0), 
-                                 (demo_state['boss_x'] - 50, demo_state['boss_y']), 30, 5)
-                
-                # 곡선 궤적 표시
+                # 곡선 궤적 표시 (노란 원 제거)
                 if len(demo_state['curve_points']) > 1:
                     for i in range(1, min(point_idx + 1, len(demo_state['curve_points']))):
                         pygame.draw.line(SCREEN, (255, 255, 0, 150),
@@ -15628,13 +15674,14 @@ def show_drive_animation_demo(background):
                 # 초기화: 공을 보스 왼쪽에서 시작
                 demo_state['ball_x'] = demo_state['boss_x'] - 100
                 demo_state['ball_y'] = demo_state['boss_y']
-                # 오른쪽 곡선 경로 생성
+                # 오른쪽 곡선 경로 생성 (더 강한 굴곡)
                 demo_state['curve_points'] = []
-                for i in range(20):
-                    t = i / 19
-                    # 베지어 곡선으로 오른쪽 회전
-                    x = demo_state['boss_x'] + t * 300 + (1 - t) * t * 100
-                    y = demo_state['boss_y'] + t * 200
+                for i in range(30):  # 더 많은 포인트로 부드러운 곡선
+                    t = i / 29
+                    # 더 강한 베지어 곡선으로 오른쪽 회전
+                    import math
+                    x = demo_state['boss_x'] + t * 350 + math.sin(t * math.pi) * 200  # 더 강한 굴곡
+                    y = demo_state['boss_y'] + t * 250 + math.cos(t * math.pi * 0.5) * 30
                     demo_state['curve_points'].append((x, y))
             
             # 드라이브 애니메이션
@@ -15645,11 +15692,7 @@ def show_drive_animation_demo(background):
                 if point_idx >= 0:
                     demo_state['ball_x'], demo_state['ball_y'] = demo_state['curve_points'][point_idx]
                 
-                # 드라이브 이펙트
-                pygame.draw.circle(SCREEN, (255, 255, 0),
-                                 (demo_state['boss_x'] + 50, demo_state['boss_y']), 30, 5)
-                
-                # 곡선 궤적 표시
+                # 곡선 궤적 표시 (노란 원 제거)
                 if len(demo_state['curve_points']) > 1:
                     for i in range(1, min(point_idx + 1, len(demo_state['curve_points']))):
                         pygame.draw.line(SCREEN, (255, 255, 0, 150),
@@ -15696,6 +15739,17 @@ def show_drive_animation_demo(background):
         
         # 실제 텍스트
         SCREEN.blit(text_surface, text_rect)
+        
+        # 스페이스바 안내 (챕터2와 동일한 스타일 - 하단 우측)
+        if waiting_for_space:
+            instruction = "SPACE - 계속"
+            text_color = CYAN
+            inst_surface = font_small.render(instruction, True, text_color)
+            inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, HEIGHT - 20))
+            
+            # 깜빡임 효과
+            if pygame.time.get_ticks() % 1000 < 500:
+                SCREEN.blit(inst_surface, inst_rect)
         
         pygame.display.flip()
         clock.tick(60)
