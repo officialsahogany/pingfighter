@@ -15313,7 +15313,7 @@ def show_chapter_title(chapter_num, title, subtitle=None):
     current_screen = SCREEN.copy()
     
     # 페이드 아웃 (현재 화면을 어둡게)
-    for alpha in range(0, 256, 8):
+    for alpha in range(0, 256, 16):  # 더 빠른 페이드 아웃
         SCREEN.fill((0, 0, 0))
         fade_surface = current_screen.copy()
         fade_surface.set_alpha(255 - alpha)
@@ -15368,6 +15368,15 @@ def show_chapter_title(chapter_num, title, subtitle=None):
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     frame = display_duration  # 스킵
+    
+    # 페이드 인 (게임 화면으로 돌아오기)
+    for alpha in range(0, 256, 16):  # 빠른 페이드 인
+        SCREEN.fill((0, 0, 0))
+        fade_surface = current_screen.copy()
+        fade_surface.set_alpha(alpha)
+        SCREEN.blit(fade_surface, (0, 0))
+        pygame.display.flip()
+        clock.tick(60)
     
     return True
 
