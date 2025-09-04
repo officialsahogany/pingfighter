@@ -15347,6 +15347,8 @@ def show_drive_monitor_demo(background):
     
     # 애니메이션 지속 시간
     animation_duration = 2000  # 2초 (현실적인 속도)
+    drive_text_timer = 0  # DRIVE! 텍스트 표시 타이머
+    drive_text_duration = 2000  # 2초 동안 표시
     
     while current_phase < len(demo_phases):
         # 이벤트 처리
@@ -15449,7 +15451,7 @@ def show_drive_monitor_demo(background):
         
         # 드라이브 모니터 표시 - 실제 게임처럼 공이 가까이 올 때만 활성화
         distance = ((ball_x - boss_x) ** 2 + (ball_y - boss_y) ** 2) ** 0.5
-        drive_range = 100  # 실제 게임 드라이브 가능 범위
+        drive_range = 70  # 실제 게임 드라이브 가능 범위 (크기 감소)
         
         # 드라이브 범위에 가까워지면 표시 (더 넓은 범위에서 페이드 인)
         if distance < drive_range * 2:  # 드라이브 범위의 2배 내에서부터 표시 시작
@@ -15478,12 +15480,25 @@ def show_drive_monitor_demo(background):
                                      (drive_range + 5, drive_range + 5), drive_range - 3, 1)
                 SCREEN.blit(circle_surface, (boss_x - drive_range - 5, boss_y - drive_range - 5))
             
-            if distance < drive_range:
+            # 공이 드라이브 범위에 들어왔을 때 타이머 시작
+            if distance < drive_range and drive_text_timer == 0:
+                drive_text_timer = drive_text_duration
+            
+            # DRIVE! 텍스트를 타이머 기반으로 표시
+            if drive_text_timer > 0:
+                drive_text_timer -= 16  # 60fps 기준으로 약 16ms 감소
                 # 드라이브 텍스트 - 게임체적인 폰트와 효과
                 font = FontStyle.body()
                 # 텍스트 크기 변화 (펄싱 효과)
                 pulse = abs(math.sin(elapsed_time * 0.005)) * 0.3 + 0.7
-                text_color = (0, int(255 * pulse), int(255 * pulse))
+                # 페이드 인/아웃 효과
+                if drive_text_timer > drive_text_duration - 200:  # 처음 200ms는 페이드 인
+                    text_alpha = (drive_text_duration - drive_text_timer) / 200.0
+                elif drive_text_timer < 200:  # 마지막 200ms는 페이드 아웃
+                    text_alpha = drive_text_timer / 200.0
+                else:
+                    text_alpha = 1.0
+                text_color = (0, int(255 * pulse * text_alpha), int(255 * pulse * text_alpha))
                 drive_text = font.render("DRIVE!", True, text_color)
                 text_rect = drive_text.get_rect(center=(boss_x, boss_y - 60))
                 SCREEN.blit(drive_text, text_rect)
@@ -15644,15 +15659,31 @@ def show_drive_animation_demo(background):
                 # 초기화: 공을 보스 오른쪽에서 시작
                 demo_state['ball_x'] = demo_state['boss_x'] + 100
                 demo_state['ball_y'] = demo_state['boss_y']
-                # 왼쪽 곡선 경로 생성 (포물선 느낌의 강한 굴곡)
+                # 왼쪽 곡선 경로 생성 - 벽에 부딪히도록 조정
                 demo_state['curve_points'] = []
-                for i in range(40):  # 더 많은 포인트로 부드러운 곡선
-                    t = i / 39
-                    # 포물선 느낌의 강한 베지어 곡선으로 왼쪽 회전
-                    import math
-                    x = demo_state['boss_x'] - t * 350 - math.sin(t * math.pi) * 250  # 더 강한 좌우 굴곡
-                    # 포물선 궤적: 위로 올라갔다가 아래로 떨어지는 느낌
-                    y = demo_state['boss_y'] + t * 400 - math.sin(t * math.pi) * 100  # 더 아래로, 포물선 궤적
+                import math
+                wall_x = 10  # 왼쪽 벽 위치
+                
+                # 벽까지 가는 경로 (전체 경로의 60%)
+                for i in range(24):  
+                    t = i / 23
+                    # 왼쪽 벽을 향해 곡선으로 이동
+                    x = demo_state['boss_x'] - t * (demo_state['boss_x'] - wall_x - 50) - math.sin(t * math.pi) * 150
+                    y = demo_state['boss_y'] + t * 400 - math.sin(t * math.pi * 0.5) * 100
+                    # 화면 경계 확인
+                    x = max(wall_x, min(x, WIDTH - 10))
+                    demo_state['curve_points'].append((x, y))
+                
+                # 벽에서 튕겨나오는 경로 (전체 경로의 40%)
+                wall_hit_x = demo_state['curve_points'][-1][0]
+                wall_hit_y = demo_state['curve_points'][-1][1]
+                for i in range(16):
+                    t = i / 15
+                    # 벽에서 반사되어 오른쪽으로
+                    x = wall_hit_x + t * 200 + math.sin(t * math.pi) * 50
+                    y = wall_hit_y + t * 200
+                    # 화면 경계 확인
+                    x = max(10, min(x, WIDTH - 10))
                     demo_state['curve_points'].append((x, y))
             
             # 드라이브 애니메이션
@@ -15663,12 +15694,25 @@ def show_drive_animation_demo(background):
                 if point_idx >= 0:
                     demo_state['ball_x'], demo_state['ball_y'] = demo_state['curve_points'][point_idx]
                 
-                # 곡선 궤적 표시 (노란 원 제거)
+                # 곡선 궤적 표시
                 if len(demo_state['curve_points']) > 1:
                     for i in range(1, min(point_idx + 1, len(demo_state['curve_points']))):
                         pygame.draw.line(SCREEN, (255, 255, 0, 150),
                                        demo_state['curve_points'][i-1],
                                        demo_state['curve_points'][i], 3)
+                
+                # 벽 충돌 효과 (60% 지점에서)
+                if point_idx == 23:  # 벽에 부딪힌 순간
+                    # 충돌 플래시 효과
+                    flash_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                    pygame.draw.circle(flash_surface, (255, 255, 255, 100), 
+                                     (int(demo_state['ball_x']), int(demo_state['ball_y'])), 50)
+                    SCREEN.blit(flash_surface, (0, 0))
+                    # 충돌 파티클 효과
+                    for j in range(5):
+                        particle_x = demo_state['ball_x'] + random.randint(-20, 20)
+                        particle_y = demo_state['ball_y'] + random.randint(-20, 20)
+                        pygame.draw.circle(SCREEN, (255, 200, 0), (int(particle_x), int(particle_y)), 3)
         
         else:  # 오른쪽 드라이브
             # 오른쪽 드라이브 설정
@@ -15676,15 +15720,31 @@ def show_drive_animation_demo(background):
                 # 초기화: 공을 보스 왼쪽에서 시작
                 demo_state['ball_x'] = demo_state['boss_x'] - 100
                 demo_state['ball_y'] = demo_state['boss_y']
-                # 오른쪽 곡선 경로 생성 (포물선 느낌의 강한 굴곡)
+                # 오른쪽 곡선 경로 생성 - 벽에 부딪히도록 조정
                 demo_state['curve_points'] = []
-                for i in range(40):  # 더 많은 포인트로 부드러운 곡선
-                    t = i / 39
-                    # 포물선 느낌의 강한 베지어 곡선으로 오른쪽 회전
-                    import math
-                    x = demo_state['boss_x'] + t * 350 + math.sin(t * math.pi) * 250  # 더 강한 좌우 굴곡
-                    # 포물선 궤적: 위로 올라갔다가 아래로 떨어지는 느낌
-                    y = demo_state['boss_y'] + t * 400 - math.sin(t * math.pi) * 100  # 더 아래로, 포물선 궤적
+                import math
+                wall_x = WIDTH - 10  # 오른쪽 벽 위치
+                
+                # 벽까지 가는 경로 (전체 경로의 60%)
+                for i in range(24):  
+                    t = i / 23
+                    # 오른쪽 벽을 향해 곡선으로 이동
+                    x = demo_state['boss_x'] + t * (wall_x - demo_state['boss_x'] - 50) + math.sin(t * math.pi) * 150
+                    y = demo_state['boss_y'] + t * 400 - math.sin(t * math.pi * 0.5) * 100
+                    # 화면 경계 확인
+                    x = max(10, min(x, wall_x))
+                    demo_state['curve_points'].append((x, y))
+                
+                # 벽에서 튕겨나오는 경로 (전체 경로의 40%)
+                wall_hit_x = demo_state['curve_points'][-1][0]
+                wall_hit_y = demo_state['curve_points'][-1][1]
+                for i in range(16):
+                    t = i / 15
+                    # 벽에서 반사되어 왼쪽으로
+                    x = wall_hit_x - t * 200 - math.sin(t * math.pi) * 50
+                    y = wall_hit_y + t * 200
+                    # 화면 경계 확인
+                    x = max(10, min(x, WIDTH - 10))
                     demo_state['curve_points'].append((x, y))
             
             # 드라이브 애니메이션
@@ -15695,12 +15755,25 @@ def show_drive_animation_demo(background):
                 if point_idx >= 0:
                     demo_state['ball_x'], demo_state['ball_y'] = demo_state['curve_points'][point_idx]
                 
-                # 곡선 궤적 표시 (노란 원 제거)
+                # 곡선 궤적 표시
                 if len(demo_state['curve_points']) > 1:
                     for i in range(1, min(point_idx + 1, len(demo_state['curve_points']))):
                         pygame.draw.line(SCREEN, (255, 255, 0, 150),
                                        demo_state['curve_points'][i-1],
                                        demo_state['curve_points'][i], 3)
+                
+                # 벽 충돌 효과 (60% 지점에서)
+                if point_idx == 23:  # 벽에 부딪힌 순간
+                    # 충돌 플래시 효과
+                    flash_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                    pygame.draw.circle(flash_surface, (255, 255, 255, 100), 
+                                     (int(demo_state['ball_x']), int(demo_state['ball_y'])), 50)
+                    SCREEN.blit(flash_surface, (0, 0))
+                    # 충돌 파티클 효과
+                    for j in range(5):
+                        particle_x = demo_state['ball_x'] + random.randint(-20, 20)
+                        particle_y = demo_state['ball_y'] + random.randint(-20, 20)
+                        pygame.draw.circle(SCREEN, (255, 200, 0), (int(particle_x), int(particle_y)), 3)
         
         # 공 그리기
         pygame.draw.circle(SCREEN, (255, 255, 255), 
