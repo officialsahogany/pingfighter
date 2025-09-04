@@ -27514,6 +27514,9 @@ def main(stage_num, new_boss_mode=False):
         if current_stage == 50 and keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
             print("🎮 8번 키: 현재 챕터 완료 및 다음 챕터로 이동")
             
+            # 드라이브 연습 관련 global 선언 (먼저 선언)
+            global tutorial_needs_drive_practice, tutorial_drive_practice_shown
+            
             # 현재 챕터 확인하고 다음 챕터로 이동
             if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
                 # Chapter 2 (대쉬 연습) 진행 중 -> Chapter 3 (드라이브)로 이동
@@ -27524,9 +27527,6 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 드라이브 챕터: 플레이어 최대 게이지를 250으로 임시 설정
                 tutorial_drive_chapter_max_gauge = 250
-                
-                # 드라이브 연습 관련 global 선언
-                global tutorial_needs_drive_practice, tutorial_drive_practice_shown
                 
                 # 대쉬 연습 완료, 드라이브 연습 시작
                 tutorial_needs_dash_practice = False  # 대쉬 연습 완료
