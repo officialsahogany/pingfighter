@@ -14539,6 +14539,7 @@ def show_tutorial_boss_return_dialogue():
 
 def show_tutorial_miss_dialogue():
     """튜토리얼 플레이어 실수 시 조교 대화"""
+    global PLAYER, TEAR_IMG, PADDLE_WIDTH
     clock = pygame.time.Clock()
     
     # 폰트 설정
@@ -14563,7 +14564,18 @@ def show_tutorial_miss_dialogue():
     typing_speed = 30  # 밀리초당 한 글자 (빠르게)
     last_char_time = pygame.time.get_ticks()
     
+    # 땀방울 이펙트 변수 (실제 플레이어 패들 위치 사용)
+    sweat_drops = []
+    sweat_timer = 0
+    
+    # 페이드 아웃 변수
+    fade_out_start = False
+    fade_alpha = 0
+    
     running = True
+    dialogue_phase = "showing"  # showing -> waiting -> fading
+    phase_timer = 0
+    
     while running:
         current_time = pygame.time.get_ticks()
         
@@ -14573,10 +14585,11 @@ def show_tutorial_miss_dialogue():
                 return False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    if text_complete:
-                        # 대화 완료
-                        running = False
-                    else:
+                    if text_complete and dialogue_phase == "waiting":
+                        # 페이드 아웃 시작
+                        dialogue_phase = "fading"
+                        phase_timer = 0
+                    elif dialogue_phase == "showing":
                         # 텍스트 즉시 완성
                         displayed_text = text
                         text_complete = True
@@ -14588,9 +14601,49 @@ def show_tutorial_miss_dialogue():
                 last_char_time = current_time
             else:
                 text_complete = True
+                dialogue_phase = "waiting"
+        
+        # 텍스트 완료 후 자동으로 대기 상태로
+        if text_complete and dialogue_phase == "showing":
+            dialogue_phase = "waiting"
+        
+        # 땀방울 생성 (텍스트 완료 후, 실제 플레이어 패들 위치에서)
+        if text_complete and len(sweat_drops) < 4:
+            sweat_timer += 1
+            if sweat_timer % 15 == 0:  # 15프레임마다 땀방울 추가
+                # PLAYER의 실제 위치 사용
+                sweat_drops.append({
+                    'x': PLAYER.centerx + random.randint(-PADDLE_WIDTH//3, PADDLE_WIDTH//3),
+                    'y': PLAYER.top - 20,  # 패들 위쪽
+                    'vy': -2,  # 초기 위쪽 속도
+                    'life': 80,
+                    'scale': random.uniform(0.6, 1.0)  # 크기 변화
+                })
+        
+        # 땀방울 업데이트
+        for drop in sweat_drops[:]:
+            drop['vy'] += 0.8  # 중력
+            drop['y'] += drop['vy']
+            drop['life'] -= 1
+            if drop['life'] <= 0 or drop['y'] > HEIGHT:
+                sweat_drops.remove(drop)
         
         # 배경 그리기 (정지된 게임 화면)
         SCREEN.blit(background, (0, 0))
+        
+        # 플레이어 패들에 땀방울 그리기 (tear_drop.png 이미지 사용)
+        for drop in sweat_drops:
+            # 투명도 계산
+            alpha = min(255, drop['life'] * 3)
+            
+            # 눈물 이미지 크기 조정 및 투명도 설정
+            tear_size = int(36 * drop['scale'] * (0.5 + drop['life'] / 160))  # 생명에 따라 크기 변화
+            tear_img = pygame.transform.scale(TEAR_IMG, (tear_size, tear_size))
+            tear_img.set_alpha(alpha)
+            
+            # 위치 계산 (중앙 정렬)
+            tear_rect = tear_img.get_rect(center=(drop['x'], drop['y']))
+            SCREEN.blit(tear_img, tear_rect)
         
         # 하단 바 UI 그리기
         text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
@@ -14605,18 +14658,49 @@ def show_tutorial_miss_dialogue():
         shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + 2, text_y_position + text_bg_height // 2 + 2))
         SCREEN.blit(shadow_surface, shadow_rect)
         
-        # 메인 텍스트
-        text_surface = font_medium.render(full_text, True, speaker_color)
+        # 메인 텍스트 (빨간색 강조)
+        if text_complete:
+            # 텍스트 완료 시 더 강렬한 색상
+            text_color = (255, 100, 100) if pygame.time.get_ticks() % 300 < 150 else speaker_color
+        else:
+            text_color = speaker_color
+        
+        text_surface = font_medium.render(full_text, True, text_color)
         text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
         SCREEN.blit(text_surface, text_rect)
         
         # 스페이스바 안내 (하단 오른쪽)
-        if text_complete:
+        if text_complete and dialogue_phase == "waiting":
             if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
                 instruction = "SPACE"
                 inst_surface = font_small.render(instruction, True, WHITE)
                 inst_rect = inst_surface.get_rect(bottomright=(WIDTH - 20, text_y_position + text_bg_height - 10))
                 SCREEN.blit(inst_surface, inst_rect)
+        
+        # 페이드 아웃 처리
+        if dialogue_phase == "fading":
+            phase_timer += 1
+            fade_alpha = min(255, phase_timer * 8)  # 빠른 페이드 아웃
+            
+            fade_surface = pygame.Surface((WIDTH, HEIGHT))
+            fade_surface.fill((0, 0, 0))
+            fade_surface.set_alpha(fade_alpha)
+            SCREEN.blit(fade_surface, (0, 0))
+            
+            # 페이드 완료
+            if fade_alpha >= 255:
+                # 짧은 대기 후 페이드 인
+                pygame.time.wait(200)
+                
+                # 페이드 인 (빠르게)
+                for alpha in range(255, 0, -16):
+                    SCREEN.fill((0, 0, 0))
+                    fade_surface.set_alpha(alpha)
+                    SCREEN.blit(fade_surface, (0, 0))
+                    pygame.display.flip()
+                    clock.tick(60)
+                
+                running = False
         
         pygame.display.flip()
         clock.tick(60)
@@ -14873,6 +14957,14 @@ def show_drive_monitor_demo(background):
     boss_x = WIDTH // 2
     boss_y = 100
     
+    # 조교 이미지 미리 로드 (중복 방지)
+    try:
+        boss_img_path = resource_path("boss_tutorial.png")
+        boss_img = pygame.image.load(boss_img_path).convert_alpha()
+        boss_img = pygame.transform.scale(boss_img, (80, 100))
+    except:
+        boss_img = None
+    
     # 드라이브 시범 설정
     demo_phases = [
         {'direction': 'left', 'completed': False, 'demo_time': 0},
@@ -14889,7 +14981,7 @@ def show_drive_monitor_demo(background):
     ball_target_y = boss_y + 80  # 보스 패들 아래쪽
     
     # 애니메이션 지속 시간
-    animation_duration = 1500  # 1.5초 (더 빠른 공 속도)
+    animation_duration = 2000  # 2초 (현실적인 속도)
     
     while current_phase < len(demo_phases):
         # 이벤트 처리
@@ -14940,18 +15032,9 @@ def show_drive_monitor_demo(background):
         ball_y += arc_height * 4 * smooth_progress * (1 - smooth_progress)  # 포물선 공식
         
         # 조교(보스) 그리기 - 단일 인스턴스 보장
-        # 정적 이미지 로드를 한번만 수행
-        if not hasattr(show_drive_monitor_demo, 'boss_img'):
-            try:
-                boss_img_path = resource_path("boss_tutorial.png")
-                show_drive_monitor_demo.boss_img = pygame.image.load(boss_img_path)
-                show_drive_monitor_demo.boss_img = pygame.transform.scale(show_drive_monitor_demo.boss_img, (80, 100))
-            except:
-                show_drive_monitor_demo.boss_img = None
-        
-        if show_drive_monitor_demo.boss_img:
-            boss_rect = show_drive_monitor_demo.boss_img.get_rect(center=(boss_x, boss_y))
-            SCREEN.blit(show_drive_monitor_demo.boss_img, boss_rect)
+        if boss_img:
+            boss_rect = boss_img.get_rect(center=(boss_x, boss_y))
+            SCREEN.blit(boss_img, boss_rect)
         else:
             # 조교 기본 모양 - 더 생동감 있게
             # 몸통
@@ -14989,78 +15072,84 @@ def show_drive_monitor_demo(background):
         pygame.draw.circle(SCREEN, ball_color, (int(ball_x), int(ball_y)), ball_radius)  # 메인 공
         pygame.draw.circle(SCREEN, (255, 255, 255), (int(ball_x - 2), int(ball_y - 2)), 2)  # 하이라이트
         
-        # 드라이브 모니터 표시 - 실제 게임 거리와 동일 (100 픽셀)
+        # 드라이브 모니터 표시 - 실제 게임처럼 공이 가까이 올 때만 활성화
         distance = ((ball_x - boss_x) ** 2 + (ball_y - boss_y) ** 2) ** 0.5
-        drive_range = 100  # 실제 게임 드라이브 가능 범위
+        drive_range = 60  # 실제 게임 드라이브 가능 범위 (더 작게 조정)
         
-        if distance < drive_range:  # 드라이브 범위 내
+        if distance < drive_range * 1.5:  # 드라이브 범위 근처에 접근하면 페이드 인
             # 드라이브 가능 영역 표시 - 단일 원
-            alpha = int(255 * (1 - distance / drive_range))  # 거리에 따른 투명도
+            if distance < drive_range:
+                alpha = int(150 + 105 * (1 - distance / drive_range))  # 거리에 따른 투명도
+            else:
+                # 범위 밖이지만 가까이 있을 때 희미하게 표시
+                alpha = int(50 * (1 - (distance - drive_range) / (drive_range * 0.5)))
             
             # 단일 드라이브 모니터 원 (실제 게임과 동일)
-            circle_surface = pygame.Surface((drive_range * 2 + 10, drive_range * 2 + 10), pygame.SRCALPHA)
-            pygame.draw.circle(circle_surface, (0, 255, 255, min(200, alpha)), 
-                             (drive_range + 5, drive_range + 5), drive_range, 3)
-            SCREEN.blit(circle_surface, (boss_x - drive_range - 5, boss_y - drive_range - 5))
+            if alpha > 0:
+                circle_surface = pygame.Surface((drive_range * 2 + 4, drive_range * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(circle_surface, (0, 255, 255, min(255, alpha)), 
+                                 (drive_range + 2, drive_range + 2), drive_range, 2)
+                SCREEN.blit(circle_surface, (boss_x - drive_range - 2, boss_y - drive_range - 2))
             
-            # 드라이브 텍스트 - 게임체적인 폰트와 효과
-            font = FontStyle.body()
-            # 텍스트 크기 변화 (펄싱 효과)
-            pulse = abs(math.sin(elapsed_time * 0.005)) * 0.3 + 0.7
-            text_color = (0, int(255 * pulse), int(255 * pulse))
-            drive_text = font.render("DRIVE!", True, text_color)
-            text_rect = drive_text.get_rect(center=(boss_x, boss_y - 60))
-            SCREEN.blit(drive_text, text_rect)
+            if distance < drive_range:
+                # 드라이브 텍스트 - 게임체적인 폰트와 효과
+                font = FontStyle.body()
+                # 텍스트 크기 변화 (펄싱 효과)
+                pulse = abs(math.sin(elapsed_time * 0.005)) * 0.3 + 0.7
+                text_color = (0, int(255 * pulse), int(255 * pulse))
+                drive_text = font.render("DRIVE!", True, text_color)
+                text_rect = drive_text.get_rect(center=(boss_x, boss_y - 60))
+                SCREEN.blit(drive_text, text_rect)
             
-            # 타이밍 인디케이터 - 더 세련된 UI
-            timing_progress = 1.0 - (distance / drive_range)
-            bar_width = 80  # 실제 게임 크기
-            bar_height = 8
-            bar_x = boss_x - bar_width // 2
-            bar_y = boss_y - 85
-            
-            # 배경 바 (둥근 모서리)
-            bar_surface = pygame.Surface((bar_width + 4, bar_height + 4), pygame.SRCALPHA)
-            pygame.draw.rect(bar_surface, (30, 30, 30, 200), (0, 0, bar_width + 4, bar_height + 4), border_radius=4)
-            pygame.draw.rect(bar_surface, (100, 100, 100, 150), (0, 0, bar_width + 4, bar_height + 4), 2, border_radius=4)
-            SCREEN.blit(bar_surface, (bar_x - 2, bar_y - 2))
-            
-            # 진행 바 (그라디언트 효과)
-            if timing_progress > 0:
-                progress_width = int(bar_width * timing_progress)
-                progress_surface = pygame.Surface((progress_width, bar_height), pygame.SRCALPHA)
-                for x in range(progress_width):
-                    gradient_alpha = int(200 + 55 * (x / bar_width))
-                    gradient_color = (0, 200 + int(55 * (x / bar_width)), 200 + int(55 * (x / bar_width)), gradient_alpha)
-                    pygame.draw.line(progress_surface, gradient_color, (x, 0), (x, bar_height))
-                SCREEN.blit(progress_surface, (bar_x, bar_y))
+                # 타이밍 인디케이터 - 더 세련된 UI
+                timing_progress = 1.0 - (distance / drive_range)
+                bar_width = 60  # 더 작은 크기
+                bar_height = 6
+                bar_x = boss_x - bar_width // 2
+                bar_y = boss_y - 85
+                
+                # 배경 바 (둥근 모서리)
+                bar_surface = pygame.Surface((bar_width + 4, bar_height + 4), pygame.SRCALPHA)
+                pygame.draw.rect(bar_surface, (30, 30, 30, 200), (0, 0, bar_width + 4, bar_height + 4), border_radius=3)
+                pygame.draw.rect(bar_surface, (100, 100, 100, 150), (0, 0, bar_width + 4, bar_height + 4), 1, border_radius=3)
+                SCREEN.blit(bar_surface, (bar_x - 2, bar_y - 2))
+                
+                # 진행 바 (그라디언트 효과)
+                if timing_progress > 0:
+                    progress_width = int(bar_width * timing_progress)
+                    progress_surface = pygame.Surface((progress_width, bar_height), pygame.SRCALPHA)
+                    for x in range(progress_width):
+                        gradient_alpha = int(200 + 55 * (x / bar_width))
+                        gradient_color = (0, 200 + int(55 * (x / bar_width)), 200 + int(55 * (x / bar_width)), gradient_alpha)
+                        pygame.draw.line(progress_surface, gradient_color, (x, 0), (x, bar_height))
+                    SCREEN.blit(progress_surface, (bar_x, bar_y))
         
-        # 키 입력 UI 표시 (챕터 2 스타일)
+        # 키 입력 UI 표시 (챕터 2 스타일 - 더 컴팩트하게)
         if waiting_for_space:
-            # 키 입력 안내 배경 박스
-            box_width = 400
-            box_height = 80
+            # 키 입력 안내 배경 박스 (더 작은 크기)
+            box_width = 280
+            box_height = 50
             box_x = (WIDTH - box_width) // 2
-            box_y = HEIGHT - 150
+            box_y = HEIGHT - 120
             
             # 배경 박스 그리기
             box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-            pygame.draw.rect(box_surface, (0, 0, 0, 180), (0, 0, box_width, box_height), border_radius=10)
-            pygame.draw.rect(box_surface, (0, 255, 255, 200), (0, 0, box_width, box_height), 3, border_radius=10)
+            pygame.draw.rect(box_surface, (0, 0, 0, 180), (0, 0, box_width, box_height), border_radius=8)
+            pygame.draw.rect(box_surface, (0, 255, 255, 150), (0, 0, box_width, box_height), 2, border_radius=8)
             SCREEN.blit(box_surface, (box_x, box_y))
             
-            # 스페이스바 아이콘
-            space_width = 200
-            space_height = 40
+            # 스페이스바 아이콘 (더 작은 크기)
+            space_width = 120
+            space_height = 25
             space_x = box_x + (box_width - space_width) // 2
-            space_y = box_y + 10
+            space_y = box_y + 8
             
             # 스페이스바 그리기
-            pygame.draw.rect(SCREEN, (255, 255, 255), (space_x, space_y, space_width, space_height), border_radius=5)
-            pygame.draw.rect(SCREEN, (100, 100, 100), (space_x + 2, space_y + 2, space_width - 4, space_height - 4), border_radius=5)
+            pygame.draw.rect(SCREEN, (200, 200, 200), (space_x, space_y, space_width, space_height), border_radius=3)
+            pygame.draw.rect(SCREEN, (80, 80, 80), (space_x + 1, space_y + 1, space_width - 2, space_height - 2), border_radius=3)
             
             # SPACE 텍스트
-            font_key = FontStyle.body()
+            font_key = FontStyle.small()
             space_text = font_key.render("SPACE", True, (255, 255, 255))
             space_text_rect = space_text.get_rect(center=(space_x + space_width // 2, space_y + space_height // 2))
             SCREEN.blit(space_text, space_text_rect)
@@ -15068,15 +15157,15 @@ def show_drive_monitor_demo(background):
             # 안내 텍스트
             font_small = FontStyle.small()
             direction_text = "왼쪽 드라이브" if demo_phases[current_phase]['direction'] == 'left' else "오른쪽 드라이브"
-            hint_text = font_small.render(f"스페이스바를 눌러 {direction_text} 확인", True, (255, 255, 255))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, box_y + 60))
+            hint_text = font_small.render(f"{direction_text} 확인", True, (255, 255, 100))
+            hint_rect = hint_text.get_rect(center=(WIDTH // 2, box_y + 38))
             SCREEN.blit(hint_text, hint_rect)
         else:
-            # 애니메이션 재생 중 안내
+            # 애니메이션 재생 중 안내 (더 작은 텍스트)
             font_small = FontStyle.small()
             direction_text = "왼쪽 드라이브" if demo_phases[current_phase]['direction'] == 'left' else "오른쪽 드라이브"
-            hint_text = font_small.render(f"{direction_text} 시범 - 드라이브 모니터 관찰", True, (255, 255, 255))
-            text_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+            hint_text = font_small.render(f"{direction_text} 시범 - 드라이브 모니터 관찰", True, (200, 200, 200))
+            text_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 40))
             SCREEN.blit(hint_text, text_rect)
         
         pygame.display.flip()
