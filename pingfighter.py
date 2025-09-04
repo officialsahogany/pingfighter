@@ -15007,10 +15007,13 @@ def show_drive_monitor_demo(background):
             progress = min(1.0, elapsed_time / animation_duration)
             demo_phases[current_phase]['demo_time'] = elapsed_time
         else:
-            # 애니메이션 완료, 스페이스바 대기
-            progress = 1.0
+            # 애니메이션 완료, 스페이스바 대기 및 반복 재생
             waiting_for_space = True
-            demo_phases[current_phase]['demo_time'] = animation_duration
+            # 애니메이션 반복을 위해 시간 리셋
+            if waiting_for_space:
+                phase_start_time = pygame.time.get_ticks()
+                elapsed_time = 0
+                progress = 0.0
         
         # 현재 드라이브 방향에 따라 공 시작 위치 설정
         if demo_phases[current_phase]['direction'] == 'left':
@@ -15136,42 +15139,30 @@ def show_drive_monitor_demo(background):
                         pygame.draw.line(progress_surface, gradient_color, (x, 0), (x, bar_height))
                     SCREEN.blit(progress_surface, (bar_x, bar_y))
         
-        # 키 입력 UI 표시 (챕터 2 스타일 - 더 컴팩트하게)
+        # 키 입력 UI 표시 (스크린샷 스타일 - 아래 간단한 텍스트)
         if waiting_for_space:
-            # 키 입력 안내 배경 박스 (더 작은 크기)
-            box_width = 280
-            box_height = 50
-            box_x = (WIDTH - box_width) // 2
-            box_y = HEIGHT - 120
+            # 하단에 간단한 스페이스바 안내
+            hint_y = HEIGHT - 60
             
-            # 배경 박스 그리기
-            box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-            pygame.draw.rect(box_surface, (0, 0, 0, 180), (0, 0, box_width, box_height), border_radius=8)
-            pygame.draw.rect(box_surface, (0, 255, 255, 150), (0, 0, box_width, box_height), 2, border_radius=8)
-            SCREEN.blit(box_surface, (box_x, box_y))
+            # 배경 바 (검은색 반투명)
+            bar_height = 50
+            bar_surface = pygame.Surface((WIDTH, bar_height), pygame.SRCALPHA)
+            bar_surface.fill((0, 0, 0, 180))
+            SCREEN.blit(bar_surface, (0, HEIGHT - 80))
             
-            # 스페이스바 아이콘 (더 작은 크기)
-            space_width = 120
-            space_height = 25
-            space_x = box_x + (box_width - space_width) // 2
-            space_y = box_y + 8
+            # 장식 원들 (좌우에 작은 원)
+            circle_color = (100, 150, 255, 100)
+            for i in range(3):
+                circle_x_left = WIDTH // 2 - 120 - i * 25
+                circle_x_right = WIDTH // 2 + 120 + i * 25
+                pygame.draw.circle(SCREEN, circle_color, (circle_x_left, hint_y), 3)
+                pygame.draw.circle(SCREEN, circle_color, (circle_x_right, hint_y), 3)
             
-            # 스페이스바 그리기
-            pygame.draw.rect(SCREEN, (200, 200, 200), (space_x, space_y, space_width, space_height), border_radius=3)
-            pygame.draw.rect(SCREEN, (80, 80, 80), (space_x + 1, space_y + 1, space_width - 2, space_height - 2), border_radius=3)
-            
-            # SPACE 텍스트
-            font_key = FontStyle.small()
-            space_text = font_key.render("SPACE", True, (255, 255, 255))
-            space_text_rect = space_text.get_rect(center=(space_x + space_width // 2, space_y + space_height // 2))
-            SCREEN.blit(space_text, space_text_rect)
-            
-            # 안내 텍스트
-            font_small = FontStyle.small()
-            direction_text = "왼쪽 드라이브" if demo_phases[current_phase]['direction'] == 'left' else "오른쪽 드라이브"
-            hint_text = font_small.render(f"{direction_text} 확인", True, (255, 255, 100))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, box_y + 38))
-            SCREEN.blit(hint_text, hint_rect)
+            # SPACE - 계속 텍스트
+            font = FontStyle.body()
+            space_text = font.render("SPACE - 계속", True, (0, 255, 255))
+            text_rect = space_text.get_rect(center=(WIDTH // 2, hint_y))
+            SCREEN.blit(space_text, text_rect)
         else:
             # 애니메이션 재생 중 안내 (더 작은 텍스트)
             font_small = FontStyle.small()
@@ -15230,7 +15221,14 @@ def show_drive_animation_demo(background):
         else:
             # 애니메이션 완료, 스페이스바 대기
             progress = 1.0
-            waiting_for_space = True
+            if not waiting_for_space:
+                waiting_for_space = True
+            
+            # 애니메이션 반복 재생
+            if waiting_for_space:
+                phase_start_time = pygame.time.get_ticks()
+                elapsed = 0
+                progress = 0.0
         
         SCREEN.blit(background, (0, 0))
         
@@ -15318,71 +15316,28 @@ def show_drive_animation_demo(background):
         pygame.draw.circle(SCREEN, (255, 255, 255), 
                          (int(demo_state['ball_x']), int(demo_state['ball_y'])), 10)
         
-        # 키 입력 UI 표시
+        # 키 입력 UI 표시 - 스크린샷 스타일로 변경
         if waiting_for_space:
-            # 키 입력 안내 배경 박스
-            box_width = 450
-            box_height = 100
-            box_x = (WIDTH - box_width) // 2
-            box_y = HEIGHT - 180
+            # 화면 하단에 심플한 스페이스 힌트 표시
+            hint_y = HEIGHT - 60
+            bar_height = 50
             
-            # 배경 박스 그리기
-            box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-            pygame.draw.rect(box_surface, (0, 0, 0, 180), (0, 0, box_width, box_height), border_radius=10)
-            pygame.draw.rect(box_surface, (255, 255, 0, 200), (0, 0, box_width, box_height), 3, border_radius=10)
-            SCREEN.blit(box_surface, (box_x, box_y))
+            # 반투명 검정 배경 바
+            bar_surface = pygame.Surface((WIDTH, bar_height), pygame.SRCALPHA)
+            bar_surface.fill((0, 0, 0, 180))
+            SCREEN.blit(bar_surface, (0, HEIGHT - 80))
             
-            # 방향키 + 스페이스바 표시
-            direction = demo_phases[current_phase]['direction']
-            if direction == 'left':
-                # 왼쪽 화살표 키
-                arrow_x = box_x + 80
-                arrow_y = box_y + 20
-                pygame.draw.rect(SCREEN, (255, 255, 255), (arrow_x, arrow_y, 50, 40), border_radius=5)
-                pygame.draw.rect(SCREEN, (100, 100, 100), (arrow_x + 2, arrow_y + 2, 46, 36), border_radius=5)
-                font_key = FontStyle.body()
-                arrow_text = font_key.render("←", True, (255, 255, 255))
-                arrow_rect = arrow_text.get_rect(center=(arrow_x + 25, arrow_y + 20))
-                SCREEN.blit(arrow_text, arrow_rect)
-                
-                # + 기호
-                plus_text = font_key.render("+", True, (255, 255, 255))
-                plus_rect = plus_text.get_rect(center=(arrow_x + 70, arrow_y + 20))
-                SCREEN.blit(plus_text, plus_rect)
-            else:
-                # 오른쪽 화살표 키
-                arrow_x = box_x + 80
-                arrow_y = box_y + 20
-                pygame.draw.rect(SCREEN, (255, 255, 255), (arrow_x, arrow_y, 50, 40), border_radius=5)
-                pygame.draw.rect(SCREEN, (100, 100, 100), (arrow_x + 2, arrow_y + 2, 46, 36), border_radius=5)
-                font_key = FontStyle.body()
-                arrow_text = font_key.render("→", True, (255, 255, 255))
-                arrow_rect = arrow_text.get_rect(center=(arrow_x + 25, arrow_y + 20))
-                SCREEN.blit(arrow_text, arrow_rect)
-                
-                # + 기호
-                plus_text = font_key.render("+", True, (255, 255, 255))
-                plus_rect = plus_text.get_rect(center=(arrow_x + 70, arrow_y + 20))
-                SCREEN.blit(plus_text, plus_rect)
+            # 좌우 장식용 원들
+            circle_color = (0, 150, 255)
+            for i in range(3):
+                pygame.draw.circle(SCREEN, circle_color, (WIDTH // 2 - 120 - i * 25, hint_y), 3)
+                pygame.draw.circle(SCREEN, circle_color, (WIDTH // 2 + 120 + i * 25, hint_y), 3)
             
-            # 스페이스바
-            space_width = 200
-            space_height = 40
-            space_x = box_x + 160
-            space_y = box_y + 20
-            pygame.draw.rect(SCREEN, (255, 255, 255), (space_x, space_y, space_width, space_height), border_radius=5)
-            pygame.draw.rect(SCREEN, (100, 100, 100), (space_x + 2, space_y + 2, space_width - 4, space_height - 4), border_radius=5)
-            
-            space_text = font_key.render("SPACE", True, (255, 255, 255))
-            space_text_rect = space_text.get_rect(center=(space_x + space_width // 2, space_y + space_height // 2))
-            SCREEN.blit(space_text, space_text_rect)
-            
-            # 안내 텍스트
-            font_small = FontStyle.small()
-            direction_text = "왼쪽 드라이브" if direction == 'left' else "오른쪽 드라이브"
-            hint_text = font_small.render(f"스페이스바를 눌러 {direction_text} 확인", True, (255, 255, 255))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, box_y + 75))
-            SCREEN.blit(hint_text, hint_rect)
+            # SPACE - 계속 텍스트
+            font = FontStyle.body()
+            space_text = font.render("SPACE - 계속", True, (0, 255, 255))
+            text_rect = space_text.get_rect(center=(WIDTH // 2, hint_y))
+            SCREEN.blit(space_text, text_rect)
         else:
             # 애니메이션 재생 중 안내
             font = FontStyle.body()
