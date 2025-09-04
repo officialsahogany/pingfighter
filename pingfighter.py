@@ -15074,22 +15074,34 @@ def show_drive_monitor_demo(background):
         
         # 드라이브 모니터 표시 - 실제 게임처럼 공이 가까이 올 때만 활성화
         distance = ((ball_x - boss_x) ** 2 + (ball_y - boss_y) ** 2) ** 0.5
-        drive_range = 60  # 실제 게임 드라이브 가능 범위 (더 작게 조정)
+        drive_range = 100  # 실제 게임 드라이브 가능 범위
         
-        if distance < drive_range * 1.5:  # 드라이브 범위 근처에 접근하면 페이드 인
+        # 드라이브 범위에 가까워지면 표시 (더 넓은 범위에서 페이드 인)
+        if distance < drive_range * 2:  # 드라이브 범위의 2배 내에서부터 표시 시작
             # 드라이브 가능 영역 표시 - 단일 원
             if distance < drive_range:
-                alpha = int(150 + 105 * (1 - distance / drive_range))  # 거리에 따른 투명도
+                # 범위 내에서 강한 표시
+                alpha = int(200 + 55 * (1 - distance / drive_range))  # 거리에 따른 투명도
             else:
-                # 범위 밖이지만 가까이 있을 때 희미하게 표시
-                alpha = int(50 * (1 - (distance - drive_range) / (drive_range * 0.5)))
+                # 범위 밖이지만 가까이 있을 때 희미하게 표시 (페이드 아웃)
+                fade_distance = distance - drive_range
+                max_fade = drive_range  # 페이드 아웃 거리
+                if fade_distance < max_fade:
+                    alpha = int(100 * (1 - fade_distance / max_fade))
+                else:
+                    alpha = 0
             
             # 단일 드라이브 모니터 원 (실제 게임과 동일)
             if alpha > 0:
-                circle_surface = pygame.Surface((drive_range * 2 + 4, drive_range * 2 + 4), pygame.SRCALPHA)
+                # 더 큰 서페이스로 원을 그림
+                circle_surface = pygame.Surface((drive_range * 2 + 10, drive_range * 2 + 10), pygame.SRCALPHA)
                 pygame.draw.circle(circle_surface, (0, 255, 255, min(255, alpha)), 
-                                 (drive_range + 2, drive_range + 2), drive_range, 2)
-                SCREEN.blit(circle_surface, (boss_x - drive_range - 2, boss_y - drive_range - 2))
+                                 (drive_range + 5, drive_range + 5), drive_range, 3)
+                # 내부 원 추가 (더 선명한 표시)
+                if distance < drive_range:
+                    pygame.draw.circle(circle_surface, (0, 255, 255, min(100, alpha // 2)), 
+                                     (drive_range + 5, drive_range + 5), drive_range - 3, 1)
+                SCREEN.blit(circle_surface, (boss_x - drive_range - 5, boss_y - drive_range - 5))
             
             if distance < drive_range:
                 # 드라이브 텍스트 - 게임체적인 폰트와 효과
