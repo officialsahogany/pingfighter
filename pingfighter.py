@@ -6226,6 +6226,11 @@ def handle_player(keys):
                         ball_vel[1] = 0
                         print("튜토리얼: 대쉬 3회 완료! 축하 대화 표시")
                         
+                        # 대화 시작 전에 게임 화면 그리기
+                        draw_field()
+                        draw_objects()
+                        pygame.display.flip()
+                        
                         # 대화 표시
                         if show_tutorial_dash_completion_dialogue():
                             # 대화 완료 후 Chapter 2로 이동
@@ -6260,6 +6265,12 @@ def handle_player(keys):
                     ball_vel[0] = 0
                     ball_vel[1] = 0
                     print("튜토리얼: 첫 대쉬 성공! 토큰 시스템 설명 대화 표시")
+                    
+                    # 대화 시작 전에 게임 화면 그리기
+                    draw_field()
+                    draw_objects()
+                    pygame.display.flip()
+                    
                     # 대화 표시
                     if show_tutorial_dash_token_dialogue():
                         # 대화 완료 후 공 속도 복원
@@ -14096,6 +14107,9 @@ def show_tutorial_intro_dialogue():
     """튜토리얼 시작 시 조교와의 대화 시스템"""
     clock = pygame.time.Clock()
     
+    # 현재 게임 화면을 그대로 캡처 (기존 게임 상태를 보존)
+    background = SCREEN.copy()
+    
     # 폰트 설정
     font_large = FontStyle.subtitle()  # 32pt 화자 이름용
     font_medium = FontStyle.body()  # 24pt 대화 텍스트용
@@ -14162,29 +14176,8 @@ def show_tutorial_intro_dialogue():
                                 displayed_text = ""
                                 text_animation_timer = 0
         
-        # 배경 그리기 (게임 화면 유지)
-        draw_field()
-        
-        # 보스 패들을 화면 중앙 상단에 고정 표시
-        boss_paddle_x = WIDTH // 2
-        boss_paddle_y = 100
-        
-        # 보스 이미지 로드 및 표시
-        try:
-            boss_img_path = resource_path("boss_tutorial.png")
-            boss_img = pygame.image.load(boss_img_path)
-            boss_img = pygame.transform.scale(boss_img, (80, 100))  # 크기 조정
-            boss_rect = boss_img.get_rect(center=(boss_paddle_x, boss_paddle_y))
-            SCREEN.blit(boss_img, boss_rect)
-            
-            # 보스 주변 글로우 효과 (은은하게)
-            if current_dialogue < len(dialogues) and dialogues[current_dialogue]["speaker"] == "조교":
-                glow_surface = pygame.Surface((100, 120), pygame.SRCALPHA)
-                pygame.draw.ellipse(glow_surface, (*BOSS_COLOR, 20), (0, 0, 100, 120))
-                SCREEN.blit(glow_surface, (boss_rect.x - 10, boss_rect.y - 10))
-        except:
-            # 이미지 로드 실패 시 원으로 대체
-            pygame.draw.circle(SCREEN, BOSS_COLOR, (boss_paddle_x, boss_paddle_y), 40)
+        # 캡처된 배경 표시
+        SCREEN.blit(background, (0, 0))
         
         if current_dialogue < len(dialogues):
             # 화자 이름
@@ -14251,6 +14244,18 @@ def show_tutorial_intro_dialogue():
             if len(displayed_text) == len(target_text) and "demo" in dialogues[current_dialogue]:
                 demo_type = dialogues[current_dialogue]["demo"]
                 
+                # 데모용 보스 패들 위치 및 이미지 정의
+                boss_paddle_x = WIDTH // 2
+                boss_paddle_y = 100
+                
+                # 보스 이미지 로드
+                try:
+                    boss_img_path = resource_path("boss_tutorial.png")
+                    boss_img = pygame.image.load(boss_img_path)
+                    boss_img = pygame.transform.scale(boss_img, (80, 100))  # 크기 조정
+                except:
+                    boss_img = None
+                
                 if demo_type == "score_demo":
                     # 득점 시연 - 공이 보스 패들을 뚫고 지나가는 장면
                     demo_timer = pygame.time.get_ticks() % 4000  # 4초 루프 (애니메이션 + 점수 표시)
@@ -14275,10 +14280,10 @@ def show_tutorial_intro_dialogue():
                             boss_demo_x = boss_paddle_x
                         
                         # 보스 패들 그리기 (움직이는 위치에)
-                        try:
+                        if boss_img:
                             boss_rect_demo = boss_img.get_rect(center=(boss_demo_x, boss_paddle_y))
                             SCREEN.blit(boss_img, boss_rect_demo)
-                        except:
+                        else:
                             pygame.draw.circle(SCREEN, BOSS_COLOR, (int(boss_demo_x), boss_paddle_y), 40)
                         
                         # 공이 화면에 보이는 경우에만 그리기
@@ -14728,17 +14733,17 @@ def show_tutorial_dash_dialogue():
         ("플레이어", "실시!")
     ]
     
-    # 배경 캡처 (현재 게임 화면)
+    # 실제 게임 필드에서 시연할 위치 변수 (시연 시에만 사용)
+    demo_boss = pygame.Rect(WIDTH // 2 - 40, 120, 80, 20)  # 조교 실제 위치
+    demo_player = pygame.Rect(WIDTH // 2 - 40, HEIGHT - 140, 80, 20)  # 플레이어 위치
+    demo_ball = pygame.Rect(WIDTH // 2 - 10, HEIGHT // 2 - 10, 20, 20)  # 공 위치
+    
+    # 현재 게임 화면을 그대로 캡처 (기존 게임 상태를 보존)
     background = SCREEN.copy()
     
     # 대쉬 시연을 위한 변수
     last_dash_direction = None
     dash_sound_played = {"LEFT": False, "RIGHT": False}
-    
-    # 실제 게임 필드에서 시연할 위치 변수
-    demo_boss = pygame.Rect(WIDTH // 2 - 40, 120, 80, 20)  # 조교 실제 위치
-    demo_player = pygame.Rect(WIDTH // 2 - 40, HEIGHT - 140, 80, 20)  # 플레이어 위치
-    demo_ball = pygame.Rect(WIDTH // 2 - 10, HEIGHT // 2 - 10, 20, 20)  # 공 위치
     
     # 각 대화를 순차적으로 표시
     for dialogue_index, dialogue in enumerate(dialogues):
@@ -14806,9 +14811,22 @@ def show_tutorial_dash_dialogue():
                 # 중앙 원 그리기
                 pygame.draw.circle(SCREEN, (100, 100, 100), (WIDTH // 2, HEIGHT // 2), 80, 2)
                 
-                # 플레이어 패들 그리기 (아래쪽 고정)
-                pygame.draw.rect(SCREEN, (100, 150, 255), demo_player, 0, 5)
-                pygame.draw.rect(SCREEN, (150, 200, 255), demo_player, 2, 5)
+                # 플레이어 패들 이미지 그리기 (아래쪽 고정)
+                try:
+                    # 실제 플레이어 이미지 사용
+                    if 'PLAYER_IMG' in globals() and PLAYER_IMG:
+                        # 플레이어 이미지 크기 조절 (원본이 250x100이므로 축소)
+                        player_demo_img = pygame.transform.scale(PLAYER_IMG, (80, 32))
+                        player_rect = player_demo_img.get_rect(center=demo_player.center)
+                        SCREEN.blit(player_demo_img, player_rect)
+                    else:
+                        # 이미지가 없을 경우 기본 사각형
+                        pygame.draw.rect(SCREEN, (100, 150, 255), demo_player, 0, 5)
+                        pygame.draw.rect(SCREEN, (150, 200, 255), demo_player, 2, 5)
+                except:
+                    # 이미지 로드 실패 시 기본 사각형
+                    pygame.draw.rect(SCREEN, (100, 150, 255), demo_player, 0, 5)
+                    pygame.draw.rect(SCREEN, (150, 200, 255), demo_player, 2, 5)
                 
                 # 공 그리기 (중앙 고정)
                 pygame.draw.circle(SCREEN, (255, 255, 100), demo_ball.center, 10)
@@ -20639,7 +20657,8 @@ def choose_server(show_text=True):
             boss_fake_start_time = pygame.time.get_ticks()
     boss_fake_during_player_serve = is_player_serve
     physics_manager.reset_ball(is_player_serve)
-    if show_text:
+    # 튜토리얼 스테이지에서는 서브 화면 표시 안함
+    if show_text and current_stage != 50:
         boss_name = boss_names.get(current_stage, "보스")
         serve_text = "플레이어 서브!" if is_player_serve else f"{boss_name} 서브!"
         show_fade_text(serve_text)
@@ -27037,6 +27056,10 @@ def main(stage_num, new_boss_mode=False):
         # Chapter 1 대쉬 튜토리얼 체크
         if tutorial_needs_dash_practice and not tutorial_dash_practice_shown:
             print("튜토리얼: Chapter 1 - DASH 연습 시작")
+            # 대화 시작 전에 게임 화면 그리기
+            draw_field()
+            draw_objects()
+            pygame.display.flip()
             if show_tutorial_dash_dialogue():
                 # 대쉬 대화 후 바로 오버레이 도우미 활성화 (서브 도우미와 동일한 방식)
                 global tutorial_dash_helper_active, tutorial_dash_helper_start_time
@@ -27048,13 +27071,19 @@ def main(stage_num, new_boss_mode=False):
                 # 게이지 충전 로직 제거 - 자연스럽게 0부터 시작
                 # 보스가 서브하도록 설정됨 (이미 설정되어 있음)
         elif not tutorial_dialogue_shown:
+            # Chapter 1 - BASIC 표시 (대화 전에)
+            show_chapter_title(1, "BASIC", "기본 연습")
+            print("튜토리얼: Chapter 1 - BASIC 표시 완료")
+            
+            # 대화 시작 전에 게임 화면 그리기
+            draw_field()
+            draw_objects()
+            pygame.display.flip()
+            
             print("튜토리얼 대화 표시 시작")
             if show_tutorial_intro_dialogue():
                 print("튜토리얼 대화 완료")
                 tutorial_dialogue_shown = True
-                
-                # Chapter 1 - BASIC 표시
-                show_chapter_title(1, "BASIC", "기본 연습")
                 print("튜토리얼: Chapter 1 - BASIC 시작")
                 
                 tutorial_practice_mode = True  # 대화 후 실습 모드 시작
