@@ -14771,6 +14771,9 @@ def show_tutorial_drive_dialogue():
     
     current_dialogue = 0
     running = True
+    text_animation_timer = 0
+    displayed_text = ""
+    target_text = ""
     
     while running:
         for event in pygame.event.get():
@@ -14779,9 +14782,18 @@ def show_tutorial_drive_dialogue():
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
                 if event.key in [pygame.K_SPACE, pygame.K_RETURN]:
-                    current_dialogue += 1
-                    if current_dialogue >= len(dialogues):
-                        return True  # 대화 종료
+                    # 텍스트가 다 표시되지 않았으면 전체 표시, 아니면 다음 대화로
+                    if displayed_text and len(displayed_text) < len(target_text):
+                        displayed_text = target_text
+                    else:
+                        current_dialogue += 1
+                        if current_dialogue >= len(dialogues):
+                            return True  # 대화 종료
+                        # 다음 대화 초기화
+                        displayed_text = ""
+                        text_animation_timer = 0
+                        if current_dialogue < len(dialogues):
+                            target_text = dialogues[current_dialogue][1]
         
         # 배경 그리기
         SCREEN.blit(background, (0, 0))
@@ -14789,15 +14801,41 @@ def show_tutorial_drive_dialogue():
         if current_dialogue < len(dialogues):
             speaker, text = dialogues[current_dialogue]
             
+            # 첫 대화 시작 시 target_text 설정
+            if not target_text and text:
+                target_text = text
+            
             if speaker == "드라이브 시범":
                 # 드라이브 모니터 표시 시범
                 show_drive_monitor_demo(background)
+                # 데모 후 자동으로 다음 대화로 진행
+                current_dialogue += 1
+                if current_dialogue >= len(dialogues):
+                    return True
+                displayed_text = ""
+                text_animation_timer = 0
+                target_text = dialogues[current_dialogue][1] if current_dialogue < len(dialogues) else ""
+                continue  # 다음 루프로 바로 진행
             elif speaker == "드라이브 애니메이션":
                 # 드라이브 애니메이션 시범
                 show_drive_animation_demo(background)
+                # 데모 후 자동으로 다음 대화로 진행
+                current_dialogue += 1
+                if current_dialogue >= len(dialogues):
+                    return True
+                displayed_text = ""
+                text_animation_timer = 0
+                target_text = dialogues[current_dialogue][1] if current_dialogue < len(dialogues) else ""
+                continue  # 다음 루프로 바로 진행
             else:
                 # 일반 대화 표시 (배경 캡처 화면 위에)
                 SCREEN.blit(background, (0, 0))
+                
+                # 텍스트 애니메이션 (글자 하나씩 표시)
+                if len(displayed_text) < len(target_text):
+                    text_animation_timer += 1
+                    if text_animation_timer % 2 == 0:  # 텍스트 타이핑 속도 조절
+                        displayed_text += target_text[len(displayed_text)]
                 
                 # 텍스트 배경 (검은색 반투명)
                 text_bg_height = 80
@@ -14808,7 +14846,7 @@ def show_tutorial_drive_dialogue():
                 
                 # 화자 이름과 대화 텍스트 처리
                 speaker_color = BOSS_COLOR if speaker == "조교" else PLAYER_COLOR
-                full_text = f"[{speaker}] {text}"
+                full_text = f"[{speaker}] {displayed_text}"
                 text_surface = font_dialogue.render(full_text, True, speaker_color)
                 text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
                 
@@ -14837,9 +14875,9 @@ def show_drive_monitor_demo(background):
     boss_x = WIDTH // 2
     boss_y = 100
     
-    # 데모용 공 위치 (보스 근처로 이동)
-    ball_start_x = WIDTH // 2 - 200
-    ball_start_y = HEIGHT // 2
+    # 데모용 공 위치 (보스 근처로 이동) - 속도 조정
+    ball_start_x = boss_x - 100  # 더 가까운 위치에서 시작
+    ball_start_y = boss_y + 100  # 보스와 더 가까운 높이
     ball_target_x = boss_x
     ball_target_y = boss_y + 50
     
@@ -14851,12 +14889,14 @@ def show_drive_monitor_demo(background):
         
         SCREEN.blit(background, (0, 0))
         
-        # 시간에 따른 공 위치 계산
-        progress = (pygame.time.get_ticks() - start_time) / demo_duration
-        ball_x = ball_start_x + (ball_target_x - ball_start_x) * progress
-        ball_y = ball_start_y + (ball_target_y - ball_start_y) * progress
+        # 시간에 따른 공 위치 계산 - 더 빠른 속도
+        progress = min(1.0, (pygame.time.get_ticks() - start_time) / (demo_duration * 0.5))  # 절반 시간에 도달
+        # 부드러운 ease-in-out 곡선
+        smooth_progress = 0.5 - 0.5 * math.cos(progress * math.pi)
+        ball_x = ball_start_x + (ball_target_x - ball_start_x) * smooth_progress
+        ball_y = ball_start_y + (ball_target_y - ball_start_y) * smooth_progress
         
-        # 보스 그리기
+        # 조교(보스) 그리기 - 한 번만 그리기
         try:
             boss_img_path = resource_path("boss_tutorial.png")
             boss_img = pygame.image.load(boss_img_path)
@@ -14864,10 +14904,21 @@ def show_drive_monitor_demo(background):
             boss_rect = boss_img.get_rect(center=(boss_x, boss_y))
             SCREEN.blit(boss_img, boss_rect)
         except:
-            pygame.draw.rect(SCREEN, (200, 100, 100), (boss_x - 40, boss_y - 50, 80, 100))
+            # 조교 기본 모양 (사각형 대신 더 나은 표현)
+            pygame.draw.ellipse(SCREEN, (200, 100, 100), (boss_x - 40, boss_y - 50, 80, 100))
+            # 얼굴 표시
+            pygame.draw.circle(SCREEN, (250, 200, 200), (boss_x, boss_y - 20), 25)  # 얼굴
+            pygame.draw.circle(SCREEN, (0, 0, 0), (boss_x - 8, boss_y - 25), 3)  # 왼쪽 눈
+            pygame.draw.circle(SCREEN, (0, 0, 0), (boss_x + 8, boss_y - 25), 3)  # 오른쪽 눈
         
-        # 공 그리기
-        pygame.draw.circle(SCREEN, (255, 255, 255), (int(ball_x), int(ball_y)), 10)
+        # 공 그리기 - 실제 게임과 동일한 색상과 크기
+        ball_color = (255, 200, 0)  # 노란색 공 (실제 게임과 동일)
+        ball_radius = 8  # 실제 게임 공 크기
+        
+        # 공 외곽선과 하이라이트 효과
+        pygame.draw.circle(SCREEN, (255, 255, 150), (int(ball_x), int(ball_y)), ball_radius + 2)  # 외곽 글로우
+        pygame.draw.circle(SCREEN, ball_color, (int(ball_x), int(ball_y)), ball_radius)  # 메인 공
+        pygame.draw.circle(SCREEN, (255, 255, 255), (int(ball_x - 3), int(ball_y - 3)), 3)  # 하이라이트
         
         # 드라이브 모니터 표시 (공이 보스 근처에 왔을 때)
         distance = ((ball_x - boss_x) ** 2 + (ball_y - boss_y) ** 2) ** 0.5
