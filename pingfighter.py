@@ -14736,6 +14736,10 @@ def show_tutorial_drive_dialogue():
     font_large = FontStyle.subtitle()  # 32pt 화자 이름용
     font_dialogue = FontStyle.body()  # 24pt 대화 내용용
     
+    # 색상 정의
+    BOSS_COLOR = (255, 100, 100)  # 조교 텍스트 색상 (빨간색)
+    PLAYER_COLOR = (100, 200, 255)  # 플레이어 텍스트 색상 (파란색)
+    
     # 현재 게임 화면을 그대로 캡처 (기존 게임 상태를 보존)
     background = SCREEN.copy()
     
@@ -14792,8 +14796,31 @@ def show_tutorial_drive_dialogue():
                 # 드라이브 애니메이션 시범
                 show_drive_animation_demo(background)
             else:
-                # 일반 대화 표시
-                draw_dialogue_box(speaker, text, font_large, font_dialogue)
+                # 일반 대화 표시 (배경 캡처 화면 위에)
+                SCREEN.blit(background, (0, 0))
+                
+                # 텍스트 배경 (검은색 반투명)
+                text_bg_height = 80
+                text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
+                text_bg.fill((0, 0, 0, 180))
+                text_y_position = HEIGHT - 150
+                SCREEN.blit(text_bg, (0, text_y_position))
+                
+                # 화자 이름과 대화 텍스트 처리
+                speaker_color = BOSS_COLOR if speaker == "조교" else PLAYER_COLOR
+                full_text = f"[{speaker}] {text}"
+                text_surface = font_dialogue.render(full_text, True, speaker_color)
+                text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+                
+                # 텍스트 그림자 효과
+                shadow_surface = font_dialogue.render(full_text, True, (0, 0, 0))
+                shadow_rect = text_rect.copy()
+                shadow_rect.x += 2
+                shadow_rect.y += 2
+                SCREEN.blit(shadow_surface, shadow_rect)
+                
+                # 실제 텍스트
+                SCREEN.blit(text_surface, text_rect)
         
         pygame.display.flip()
         clock.tick(60)
