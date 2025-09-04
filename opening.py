@@ -364,67 +364,43 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         except:
             font_large = pygame.font.Font(None, 72)
         
-        # 3D 입체감을 위한 그림자 레이어 (더 진하고 선명하게)
-        for i in range(8, 0, -1):
-            shadow_alpha = int(150 * (1 - i / 8))  # 그림자를 더 진하게
-            shadow_color = (10, 10, 30, shadow_alpha)  # 거의 검은색에 가까운 그림자
-            shadow_surface = pygame.Surface((600, 300), pygame.SRCALPHA)
-            shadow_text = font_large.render(typing_text, True, shadow_color)
-            shadow_rect = shadow_text.get_rect(center=(302 + i*1.5, 152 + i*1.5))  # 그림자 간격 좁게
-            shadow_surface.blit(shadow_text, shadow_rect)
-            logo_surface.blit(shadow_surface, (0, 0))
-        
         # 메인 텍스트 (한글로 변경)
         full_text = "핑파이터"
         if len(typing_text) < len(full_text):
             typing_text = full_text[:len(typing_text) + 1]
         
-        # 외곽선 효과 (검은색 테두리로 선명도 향상)
-        outline_positions = [(-2, -2), (2, -2), (-2, 2), (2, 2), (0, -2), (0, 2), (-2, 0), (2, 0)]
+        # 간단한 3D 그림자 (한 개만)
+        shadow_text = font_large.render(typing_text, True, (30, 30, 50))  # 진한 회색 그림자
+        shadow_rect = shadow_text.get_rect(center=(304, 154))  # 오른쪽 아래로 4픽셀씩
+        logo_surface.blit(shadow_text, shadow_rect)
+        
+        # 외곽선 효과 (검은색 테두리로 선명도 향상) - 더 얇게
+        outline_positions = [(-1, -1), (1, -1), (-1, 1), (1, 1)]
         for ox, oy in outline_positions:
             outline_text = font_large.render(typing_text, True, (0, 0, 0))
             outline_rect = outline_text.get_rect(center=(300 + ox, 150 + oy))
             logo_surface.blit(outline_text, outline_rect)
         
-        # 그라데이션 효과를 위한 여러 레이어
-        # 밑층 - 진한 주황색
-        base_text = font_large.render(typing_text, True, (255, 140, 0))  # 다크 오렌지
-        base_rect = base_text.get_rect(center=(300, 151))
-        logo_surface.blit(base_text, base_rect)
-        
-        # 중간층 - 밝은 주황색
-        mid_text = font_large.render(typing_text, True, (255, 200, 0))  # 골드
-        mid_rect = mid_text.get_rect(center=(300, 150))
-        logo_surface.blit(mid_text, mid_rect)
-        
-        # 강력한 백색 글로우 효과 (반짝임 효과)
-        glow_intensity = abs(math.sin(animation_timer * 0.05)) * 0.5 + 0.5
-        for i in range(12, 0, -1):
-            alpha = int(60 * glow_intensity * (1 - i / 12))
-            glow_color = (255, 255, 100, alpha)  # 밝은 노란색 글로우
+        # 부드러운 글로우 효과 (얇게)
+        glow_intensity = abs(math.sin(animation_timer * 0.05)) * 0.3 + 0.7
+        for i in range(3, 0, -1):  # 3개 레이어만
+            alpha = int(40 * glow_intensity * (1 - i / 3))
+            glow_color = (255, 255, 150, alpha)
             glow_surface = pygame.Surface((600, 300), pygame.SRCALPHA)
             glow_text = font_large.render(typing_text, True, glow_color)
             glow_rect = glow_text.get_rect(center=(300, 150))
-            
-            # 블러 효과를 위한 살짝 흔들림
-            blur_offset = i * 0.8
-            for bx, by in [(blur_offset, 0), (-blur_offset, 0), (0, blur_offset), (0, -blur_offset)]:
-                blur_rect = glow_text.get_rect(center=(300 + bx, 150 + by))
-                glow_surface.blit(glow_text, blur_rect)
-            
+            glow_surface.blit(glow_text, glow_rect)
             logo_surface.blit(glow_surface, (0, 0))
         
-        # 상단 하이라이트 (입체감 강화)
-        highlight_surface = pygame.Surface((600, 300), pygame.SRCALPHA)
-        highlight_text = font_large.render(typing_text, True, (255, 255, 200, 80))  # 연한 노란색
-        highlight_rect = highlight_text.get_rect(center=(300, 148))
-        highlight_surface.blit(highlight_text, highlight_rect)
-        logo_surface.blit(highlight_surface, (0, 0))
-        
-        # 최상단 텍스트 (선명한 노란색)
-        text_surface = font_large.render(typing_text, True, (255, 230, 0))  # 밝은 노란색
+        # 메인 텍스트 (선명한 황금색)
+        text_surface = font_large.render(typing_text, True, (255, 215, 0))  # 골드 색상
         text_rect = text_surface.get_rect(center=(300, 150))
         logo_surface.blit(text_surface, text_rect)
+        
+        # 상단 하이라이트 (살짝만)
+        highlight_text = font_large.render(typing_text, True, (255, 255, 150, 30))  # 매우 연한 노란색
+        highlight_rect = highlight_text.get_rect(center=(300, 148))
+        logo_surface.blit(highlight_text, highlight_rect)
         
         # 서브 타이틀
         try:
