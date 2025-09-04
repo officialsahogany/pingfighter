@@ -15480,25 +15480,23 @@ def show_drive_monitor_demo(background):
                                      (drive_range + 5, drive_range + 5), drive_range - 3, 1)
                 SCREEN.blit(circle_surface, (boss_x - drive_range - 5, boss_y - drive_range - 5))
             
-            # 공이 드라이브 범위에 들어왔을 때 타이머 시작
-            if distance < drive_range and drive_text_timer == 0:
-                drive_text_timer = drive_text_duration
-            
-            # DRIVE! 텍스트를 타이머 기반으로 표시
-            if drive_text_timer > 0:
-                drive_text_timer -= 16  # 60fps 기준으로 약 16ms 감소
+            # 공이 드라이브 범위에 들어오면 DRIVE! 표시 (거리 기반 + 시간 지속)
+            if distance < drive_range:
                 # 드라이브 텍스트 - 게임체적인 폰트와 효과
                 font = FontStyle.body()
                 # 텍스트 크기 변화 (펄싱 효과)
                 pulse = abs(math.sin(elapsed_time * 0.005)) * 0.3 + 0.7
-                # 페이드 인/아웃 효과
-                if drive_text_timer > drive_text_duration - 200:  # 처음 200ms는 페이드 인
-                    text_alpha = (drive_text_duration - drive_text_timer) / 200.0
-                elif drive_text_timer < 200:  # 마지막 200ms는 페이드 아웃
-                    text_alpha = drive_text_timer / 200.0
-                else:
-                    text_alpha = 1.0
-                text_color = (0, int(255 * pulse * text_alpha), int(255 * pulse * text_alpha))
+                text_color = (0, int(255 * pulse), int(255 * pulse))
+                drive_text = font.render("DRIVE!", True, text_color)
+                text_rect = drive_text.get_rect(center=(boss_x, boss_y - 60))
+                SCREEN.blit(drive_text, text_rect)
+            # 공이 범위를 벗어나도 잠시 더 표시 (페이드 아웃)
+            elif distance < drive_range * 1.5:
+                # 드라이브 텍스트 - 페이드 아웃 효과
+                font = FontStyle.body()
+                pulse = abs(math.sin(elapsed_time * 0.005)) * 0.3 + 0.7
+                fade = 1.0 - (distance - drive_range) / (drive_range * 0.5)
+                text_color = (0, int(255 * pulse * fade), int(255 * pulse * fade))
                 drive_text = font.render("DRIVE!", True, text_color)
                 text_rect = drive_text.get_rect(center=(boss_x, boss_y - 60))
                 SCREEN.blit(drive_text, text_rect)
