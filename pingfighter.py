@@ -2700,11 +2700,8 @@ def check_tear_collisions():
         x, y, speed, prev_y = tear
         tear_rect = pygame.Rect(x, y, 10, 10)
         
-        # 마이그레이션 모드 지원 충돌 검사
-        player_obj = type('Player', (), {'rect': PLAYER})()
-        tear_obj = type('Tear', (), {'rect': tear_rect})()
-        
-        if check_collision_wrapper(tear_obj, player_obj):
+        # 직접적인 충돌 검사 사용 (버그 수정)
+        if tear_rect.colliderect(PLAYER):
             # 연막 안에 있으면 면역 - 눈물이 부딪혀도 효과 없음
             if player_in_smoke:
                 # 연막이 눈물을 막아주는 시각적 효과 (선택사항)
