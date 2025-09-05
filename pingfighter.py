@@ -6302,6 +6302,9 @@ def handle_player(keys):
                             
                             # 드라이브 연습 관련 global 선언  
                             global tutorial_needs_drive_practice, tutorial_drive_practice_shown
+                            global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
+                            global tutorial_dash_counter_active, tutorial_dash_count
+                            global tutorial_drive_count, tutorial_displayed_drive_count
                             
                             # 대쉬 연습 완료, 드라이브 연습 시작
                             tutorial_needs_dash_practice = False  # 대쉬 연습 완료
@@ -6444,8 +6447,7 @@ def handle_player(keys):
                 special_ready = True
             
             # 튜토리얼 Chapter 3: 160 게이지 도달시 드라이브 도우미 대화 표시
-            global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
-            global tutorial_current_chapter, tutorial_needs_drive_practice, tutorial_drive_practice_shown
+            # global 선언 제거 (이미 위에서 선언됨)
             if (current_stage == 50 and tutorial_current_chapter == 3 and 
                 tutorial_needs_drive_practice and tutorial_drive_practice_shown and
                 not tutorial_drive_helper_dialogue_shown and 
