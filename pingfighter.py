@@ -22369,6 +22369,8 @@ def choose_server(show_text=True):
             is_player_serve = True  # 일반 튜토리얼은 플레이어 서브
     elif current_stage == 6:
         is_player_serve = True
+    elif current_stage in [1, 2, 3]:  # 챕터 1, 2, 3에서는 플레이어가 먼저 서브
+        is_player_serve = True
     else:
         is_player_serve = random.choice([True, False])
     
