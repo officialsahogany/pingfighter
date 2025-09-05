@@ -51,15 +51,15 @@ def serve_ball(is_player_serve=True, current_stage=1):
     # 기본 서브 속도와 방향 설정
     base_speed = 9
     
-    # 튜토리얼 스테이지(50)는 적절한 속도 사용 (slow_ball_timer 회피)
+    # 튜토리얼 스테이지(50)는 더 느린 속도 사용 (플레이어가 반격하기 쉽게)
     if current_stage == 50:
-        base_speed = 8  # 튜토리얼용 적절한 속도 (임계값 7.65 이상, 기본 속도 9 이하)
+        base_speed = 6  # 튜토리얼용 더 느린 속도 (플레이어 반격 용이)
         if is_player_serve:
             # 플레이어 서브: 위로
-            ball_vel = [random.choice([-2, 2]), -base_speed]
+            ball_vel = [random.choice([-1.5, 1.5]), -base_speed]
         else:
-            # 보스 서브: 아래로
-            ball_vel = [random.choice([-2, 2]), base_speed]
+            # 보스 서브: 아래로 (더 느리게)
+            ball_vel = [random.choice([-1.5, 1.5]), base_speed]
         
         # 튜토리얼 서브 디버깅
         import math
