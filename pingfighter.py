@@ -6452,6 +6452,10 @@ def handle_player(keys):
             
             # 튜토리얼 Chapter 3: 160 게이지 도달시 드라이브 도우미 대화 표시
             # global 선언 제거 (이미 위에서 선언됨)
+            # Chapter 3 디버그 정보 출력
+            if current_stage == 50 and tutorial_current_chapter == 3:
+                print(f"[DEBUG Ch3] gauge: {old_gauge} -> {special_gauge}, needs_drive: {tutorial_needs_drive_practice}, shown: {tutorial_drive_practice_shown}, helper_shown: {tutorial_drive_helper_dialogue_shown}")
+            
             if (current_stage == 50 and tutorial_current_chapter == 3 and 
                 tutorial_needs_drive_practice and tutorial_drive_practice_shown and
                 not tutorial_drive_helper_dialogue_shown and 
