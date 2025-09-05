@@ -29750,8 +29750,8 @@ def main(stage_num, new_boss_mode=False):
                                         direction_y /= distance
                                     
                                     # 현재 속도 크기 유지하면서 방향만 변경 (끌어당기는 느낌)
-                                    current_speed = math.hypot(ball_vel[0], ball_vel[1])
-                                    new_speed = current_speed * 1.3  # 30% 속도 증가
+                                    ball_current_speed = math.hypot(ball_vel[0], ball_vel[1])
+                                    new_speed = ball_current_speed * 1.3  # 30% 속도 증가
                                     
                                     # 방향을 멘헤라걸 중앙으로 향하도록 설정
                                     ball_vel[0] = direction_x * new_speed
@@ -29808,10 +29808,10 @@ def main(stage_num, new_boss_mode=False):
                             
                             # 최대 속도 제한
                             max_speed = BALL_BASE_SPEED * 3
-                            current_speed = math.hypot(ball_vel[0], ball_vel[1])
-                            if current_speed > max_speed:
-                                ball_vel[0] = (ball_vel[0] / current_speed) * max_speed
-                                ball_vel[1] = (ball_vel[1] / current_speed) * max_speed
+                            ball_current_speed = math.hypot(ball_vel[0], ball_vel[1])
+                            if ball_current_speed > max_speed:
+                                ball_vel[0] = (ball_vel[0] / ball_current_speed) * max_speed
+                                ball_vel[1] = (ball_vel[1] / ball_current_speed) * max_speed
                         else:
                             # 커브 효과 종료
                             stage3_tail_curve_active = False
