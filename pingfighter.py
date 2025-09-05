@@ -30133,7 +30133,40 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[1] = 8  # 아래로 향하는 적절한 속도
                         print(f"튜토리얼: Chapter1→2 전환 기본 속도 설정 - {ball_vel}")
                     
+                    # Chapter 전환 시 완전한 게임 상태 초기화 (라운드 시작과 동일)
+                    print("튜토리얼: Chapter 1→2 전환 게임 상태 완전 초기화 시작")
+                    
+                    # 1. 플레이어/보스 위치 초기화
+                    PLAYER.centerx = WIDTH // 2
+                    PLAYER.bottom = HEIGHT - 40
+                    BOSS.centerx = WIDTH // 2  
+                    BOSS.top = 25
+                    print(f"튜토리얼: 플레이어/보스 위치 초기화 - Player: ({PLAYER.centerx}, {PLAYER.bottom}), Boss: ({BOSS.centerx}, {BOSS.top})")
+                    
+                    # 2. physics_manager를 통한 공 위치 초기화 (보스 서브로)
+                    physics_manager.reset_ball(is_player_serve=False)
+                    print(f"튜토리얼: 공 위치 초기화 - Ball: ({BALL.centerx}, {BALL.centery})")
+                    
+                    # 3. 플레이어 상태 초기화
+                    global rolling_active, rolling_timer, rolling_direction, rolling_speed, rolling_stun_timer
+                    global player_stunned_timer, player_knockback_vel, player_stunned, current_speed
+                    rolling_active = False
+                    rolling_timer = 0 
+                    rolling_direction = 0
+                    rolling_speed = 0
+                    rolling_stun_timer = 0
+                    player_stunned_timer = 0
+                    player_knockback_vel = 0
+                    player_stunned = False
+                    current_speed = 0
+                    print("튜토리얼: 플레이어 상태 초기화 완료 (롤링, 스턴, 이동속도 리셋)")
+                    
+                    # 4. 시각 효과 초기화
+                    ball_trail.clear()
+                    print("튜토리얼: 시각 효과 초기화 완료")
+                    
                     # Chapter 2 설정 완료, 메인 루프 계속 진행
+                    print("튜토리얼: Chapter 1→2 전환 완전한 게임 상태 초기화 완료")
                     print("튜토리얼: Chapter 1 완료, Chapter 2 - DASH 시작")
                     # continue는 이미 while 루프를 계속 진행하므로 추가 작업 불필요
         
