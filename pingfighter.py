@@ -28296,12 +28296,31 @@ def main(stage_num, new_boss_mode=False):
             pygame.display.flip()
             dash_dialogue_result = show_tutorial_dash_dialogue()
             if dash_dialogue_result == "skip_chapter":
-                # 8번키로 챕터 스킵 요청 - 기존 챕터 스킵 로직 실행
-                print("🎮 대쉬 대화에서 챕터 스킵 요청됨 - 8번키 스킵 로직으로 전달")
-                # 8번키 스킵 플래그 설정하여 기존 로직 재사용
-                main.key8_pressed = True
-                keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
-                return main(50)  # 메인 루프로 돌아가서 8번키 처리하게 함
+                # 8번키로 챕터 스킵 요청 - Chapter 2에서는 Chapter 3로 직접 이동
+                print("🎮 대쉬 대화에서 챕터 스킵 요청됨 - Chapter 3으로 직접 이동")
+                
+                # Chapter 2 완료 요약 화면 표시
+                show_chapter_completion_summary(2)
+                
+                # Chapter 3 타이틀 표시
+                show_chapter_title(3, "DRIVE", "드라이브")
+                
+                # 드라이브 챕터: 플레이어 최대 게이지를 250으로 임시 설정
+                tutorial_drive_chapter_max_gauge = 250
+                
+                # Chapter 3 (드라이브 연습)로 상태 변경
+                tutorial_needs_dash_practice = False  # 대쉬 연습 완료
+                tutorial_needs_drive_practice = True  # 드라이브 연습 필요
+                tutorial_drive_practice_shown = False  # 드라이브 대화 아직 표시 안됨
+                tutorial_dash_counter_active = False
+                tutorial_dash_count = 0
+                
+                # 게임 계속 진행을 위한 설정
+                reset_round()  # 라운드 리셋
+                tutorial_practice_mode = True  # 실습 모드 재활성화
+                
+                print("🎉 Chapter 2 스킵 완료, Chapter 3 - DRIVE 시작")
+                return None  # 정상적으로 메인 루프 계속
             elif dash_dialogue_result:
                 # 대쉬 대화 후 바로 오버레이 도우미 활성화 (서브 도우미와 동일한 방식)
                 global tutorial_dash_helper_active, tutorial_dash_helper_start_time
@@ -28330,12 +28349,30 @@ def main(stage_num, new_boss_mode=False):
             print("튜토리얼 대화 표시 시작")
             intro_dialogue_result = show_tutorial_intro_dialogue()
             if intro_dialogue_result == "skip_chapter":
-                # 8번키로 챕터 스킵 요청 - 기존 챕터 스킵 로직 실행
-                print("🎮 인트로 대화에서 챕터 스킵 요청됨 - 8번키 스킵 로직으로 전달")
-                # 8번키 스킵 플래그 설정하여 기존 로직 재사용
-                main.key8_pressed = True
-                keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
-                return main(50)  # 메인 루프로 돌아가서 8번키 처리하게 함
+                # 8번키로 챕터 스킵 요청 - Chapter 1에서는 Chapter 2로 직접 이동
+                print("🎮 인트로 대화에서 챕터 스킵 요청됨 - Chapter 2로 직접 이동")
+                
+                # Chapter 1 완료 요약 화면 표시
+                show_chapter_completion_summary(1)
+                
+                # Chapter 2 타이틀 표시
+                show_chapter_title(2, "DASH", "대쉬")
+                
+                # Chapter 2 최대 게이지를 300으로 설정
+                tutorial_chapter2_max_gauge = 300
+                
+                # Chapter 2 (대쉬 연습)로 상태 변경
+                tutorial_dialogue_shown = True  # Chapter 1 완료
+                tutorial_needs_dash_practice = True  # Chapter 2 시작
+                tutorial_dash_practice_shown = False  # 대쉬 대화 아직 안봄
+                tutorial_practice_mode = True  # 실습 모드 계속
+                
+                # 게임 계속 진행을 위한 설정
+                reset_round()  # 라운드 리셋
+                
+                print("🎉 Chapter 1 스킵 완료, Chapter 2 - DASH 시작")
+                # continue로 메인 루프 계속 진행
+                return None  # 정상적으로 메인 루프 계속
             elif intro_dialogue_result:
                 print("튜토리얼 대화 완료")
                 tutorial_dialogue_shown = True
@@ -29780,12 +29817,23 @@ def main(stage_num, new_boss_mode=False):
                 
                 drive_dialogue_result = show_tutorial_drive_dialogue()
                 if drive_dialogue_result == "skip_chapter":
-                    # 8번키로 챕터 스킵 요청 - 기존 챕터 스킵 로직 실행
-                    print("🎮 드라이브 대화에서 챕터 스킵 요청됨 - 8번키 스킵 로직으로 전달")
-                    # 8번키 스킵 플래그 설정하여 기존 로직 재사용
-                    main.key8_pressed = True
-                    keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
-                    return main(50)  # 메인 루프로 돌아가서 8번키 처리하게 함
+                    # 8번키로 챕터 스킵 요청 - Chapter 3에서는 튜토리얼 완료
+                    print("🎮 드라이브 대화에서 챕터 스킵 요청됨 - 튜토리얼 완료")
+                    
+                    # Chapter 3 완료 요약 화면 표시
+                    show_chapter_completion_summary(3)
+                    
+                    # 최종 완료 피드백
+                    show_tutorial_success_feedback("🎉 튜토리얼 완료! 🎉", "perfect")
+                    
+                    # 튜토리얼 챕터별 게이지 오버라이드 해제
+                    tutorial_chapter1_max_gauge = None
+                    tutorial_chapter2_max_gauge = None
+                    tutorial_drive_chapter_max_gauge = None
+                    
+                    # 튜토리얼 완료 메시지 표시 후 메인 메뉴로
+                    print("🎉 튜토리얼 모든 챕터 완료!")
+                    return "main_menu"  # 메인 메뉴로 돌아감
                 elif drive_dialogue_result:
                     tutorial_drive_practice_shown = True
                     tutorial_practice_mode = True
@@ -29841,12 +29889,28 @@ def main(stage_num, new_boss_mode=False):
                 # 속도 튜토리얼 대화 표시
                 speed_dialogue_result = show_tutorial_speed_dialogue()
                 if speed_dialogue_result == "skip_chapter":
-                    # 8번키로 챕터 스킵 요청 - 기존 챕터 스킵 로직 실행
-                    print("🎮 속도 대화에서 챕터 스킵 요청됨 - 8번키 스킵 로직으로 전달")
-                    # 8번키 스킵 플래그 설정하여 기존 로직 재사용
-                    main.key8_pressed = True
-                    keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
-                    return main(50)  # 메인 루프로 돌아가서 8번키 처리하게 함
+                    # 8번키로 챕터 스킵 요청 - Chapter 1에서 Chapter 2로 이동
+                    print("🎮 속도 대화에서 챕터 스킵 요청됨 - Chapter 2로 이동")
+                    
+                    # 속도 대화는 Chapter 1 중간에 나오므로 Chapter 2로 이동
+                    tutorial_pause_for_dialogue = False
+                    round_wins += 1
+                    print(f"튜토리얼: 속도 대화 스킵, Chapter 2로 이동 (점수: {round_wins})")
+                    
+                    # 게이지 초기화
+                    special_gauge = 0
+                    displayed_gauge = 0
+                    
+                    # Chapter 2 타이틀 표시
+                    show_chapter_title(2, "DASH", "대쉬")
+                    
+                    # Chapter 2 설정
+                    tutorial_chapter2_max_gauge = 300
+                    tutorial_needs_dash_practice = True
+                    tutorial_dash_practice_shown = False
+                    
+                    print("🎉 Chapter 1 스킵 완료, Chapter 2 - DASH 시작")
+                    continue  # 다음 프레임으로
                 elif speed_dialogue_result:
                     tutorial_pause_for_dialogue = False
                     # 속도 대화 완료 후 라운드 승리 처리
