@@ -30027,9 +30027,16 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_pause_for_dialogue = False
                     # 공의 속도를 복원 (일시정지 전 속도로)
                     if tutorial_saved_ball_vel:
-                        ball_vel[0] = tutorial_saved_ball_vel[0]
-                        ball_vel[1] = tutorial_saved_ball_vel[1]
-                        print(f"튜토리얼: 공 속도 복원 - {ball_vel}")
+                        import math
+                        saved_speed = math.hypot(tutorial_saved_ball_vel[0], tutorial_saved_ball_vel[1])
+                        if saved_speed < 6:  # 저장된 속도가 너무 느리면
+                            ball_vel[0] = random.choice([-2, 2])
+                            ball_vel[1] = 8  # 아래로 향하는 적절한 속도
+                            print(f"튜토리얼: 공 속도 복원 (보정됨) - {ball_vel} (원래속도: {saved_speed:.2f})")
+                        else:
+                            ball_vel[0] = tutorial_saved_ball_vel[0]
+                            ball_vel[1] = tutorial_saved_ball_vel[1]
+                            print(f"튜토리얼: 공 속도 복원 - {ball_vel}")
                     else:
                         ball_vel[1] = 5  # 기본적으로 아래로 향하도록
                 continue  # 다음 프레임으로
@@ -30047,9 +30054,16 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_pause_for_dialogue = False
                     # 공의 속도를 복원 (일시정지 전 속도로)
                     if tutorial_saved_ball_vel:
-                        ball_vel[0] = tutorial_saved_ball_vel[0]
-                    ball_vel[1] = tutorial_saved_ball_vel[1]
-                    print(f"튜토리얼: 각도 튜토리얼 후 공 속도 복원 - {ball_vel}")
+                        import math
+                        saved_speed = math.hypot(tutorial_saved_ball_vel[0], tutorial_saved_ball_vel[1])
+                        if saved_speed < 6:  # 저장된 속도가 너무 느리면
+                            ball_vel[0] = random.choice([-2, 2])
+                            ball_vel[1] = 8  # 아래로 향하는 적절한 속도
+                            print(f"튜토리얼: 각도 튜토리얼 후 공 속도 복원 (보정됨) - {ball_vel} (원래속도: {saved_speed:.2f})")
+                        else:
+                            ball_vel[0] = tutorial_saved_ball_vel[0]
+                            ball_vel[1] = tutorial_saved_ball_vel[1]
+                            print(f"튜토리얼: 각도 튜토리얼 후 공 속도 복원 - {ball_vel}")
                 continue  # 다음 프레임으로
             
             # 튜토리얼: 6회 타격 후 속도 튜토리얼 표시
