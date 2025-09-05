@@ -24718,9 +24718,9 @@ def handle_ball():
             draw_score()  # 3:0 완승 보너스 메시지도 표시
         go_to_next_round()
         return
-    # --- 공 속도 느려질 때 보정 (파워스매싱 활성화 시 면역, 튜토리얼에서 예외) ---
+    # --- 공 속도 느려질 때 보정 (파워스매싱 활성화 시 면역) ---
     current_speed = math.hypot(ball_vel[0], ball_vel[1])
-    if current_speed < BALL_BASE_SPEED * 0.85 and not special_active and current_stage != 50:  # 튜토리얼에서는 보정 무시
+    if current_speed < BALL_BASE_SPEED * 0.85 and not special_active:  # 파워스매싱 중에는 보정 무시
         slow_ball_timer += 1
         if slow_ball_timer >= THREE_SECONDS_FRAMES:
             direction = pygame.math.Vector2(ball_vel).normalize()
