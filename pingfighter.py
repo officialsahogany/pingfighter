@@ -28892,7 +28892,7 @@ def main(stage_num, new_boss_mode=False):
             tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
             tutorial_serve_helper_active = False  # 서브 도우미 현재 활성 상태
             tutorial_serve_reminder_active = False  # 서브 알림창 활성 상태 (인트로 후)
-            tutorial_drive_reminder_active = False  # 드라이브 알림창 활성 상태 (Chapter 3 후)
+            # tutorial_drive_reminder_active는 전역 변수이므로 여기서 재선언하지 않음
             tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
             tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
             tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
@@ -30567,6 +30567,9 @@ def main(stage_num, new_boss_mode=False):
                     print("🎉 튜토리얼 모든 챕터 완료!")
                     return "main_menu"  # 메인 메뉴로 돌아감
                 elif drive_dialogue_result:
+                    # 드라이브 알림 전역 변수 선언
+                    global tutorial_drive_reminder_active
+                    
                     tutorial_drive_practice_shown = True
                     tutorial_practice_mode = True
                     print("튜토리얼: 드라이브 연습 대화 완료")
