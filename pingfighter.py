@@ -28233,30 +28233,25 @@ def main(stage_num, new_boss_mode=False):
         tutorial_needs_drive_practice = False  # 드라이브 연습이 필요한지 여부
         tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
         
-        # 튜토리얼 상태 완전 초기화 완료
-        print("🔄 튜토리얼 상태 완전 초기화됨")
-    
-    # 게이지 및 속도 튜토리얼 관련 변수
-    global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
-    global tutorial_player_hit_count, tutorial_speed_dialogue_shown, tutorial_displayed_hit_count
-    global tutorial_dash_count, tutorial_displayed_dash_count, tutorial_dash_counter_active
-    
-    # 대쉬 튜토리얼 재진입이 아닌 경우에만 게이지 튜토리얼 변수 초기화
-    if not dash_practice_reentry:
+        # 게이지 및 속도 튜토리얼 관련 변수
+        global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
+        global tutorial_player_hit_count, tutorial_speed_dialogue_shown, tutorial_displayed_hit_count
+        global tutorial_dash_count, tutorial_displayed_dash_count, tutorial_dash_counter_active
+        
+        # 게이지 및 타격 관련 튜토리얼 변수도 완전 초기화
         tutorial_player_returned_ball = False  # 플레이어가 조교의 공을 받아쳤는지
         tutorial_gauge_tutorial_shown = False  # 게이지 튜토리얼 표시 여부
         tutorial_player_hit_count = 0  # 플레이어가 공을 친 횟수
         tutorial_displayed_hit_count = 0.0  # 화면에 표시되는 애니메이션용 카운트
         tutorial_speed_dialogue_shown = False  # 속도 튜토리얼 대화 표시 여부
-    else:
-        # 대쉬 튜토리얼 재진입 시 게이지 관련 변수는 유지
-        # tutorial_gauge_tutorial_shown는 True 상태 유지
-        # special_gauge 값도 유지됨
-        tutorial_player_hit_count = 0  # 타격 횟수만 리셋
-        tutorial_displayed_hit_count = 0.0  # 화면에 표시되는 애니메이션용 카운트
-        tutorial_speed_dialogue_shown = True  # 속도 대화는 이미 표시됨
-    
-    # 대쉬 튜토리얼 변수는 이미 위에서 초기화됨
+        
+        # 대쉬 튜토리얼 변수도 완전 초기화
+        tutorial_dash_count = 0  # 대쉬 성공 횟수
+        tutorial_displayed_dash_count = 0.0  # 화면에 표시되는 애니메이션용 대쉬 카운트
+        tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
+        
+        # 튜토리얼 상태 완전 초기화 완료
+        print("🔄 튜토리얼 상태 완전 초기화됨")
     
     if stage_num == 50:
         print("튜토리얼 스테이지 50 시작")
