@@ -6293,8 +6293,13 @@ def handle_player(keys):
                         
                         # 대화 표시
                         if show_tutorial_dash_completion_dialogue():
-                            # 대화 완료 후 Chapter 2로 이동
-                            print("튜토리얼: Chapter 2 - SMASHER SKILL로 이동")
+                            # 대화 완료 후 Chapter 3로 이동
+                            print("튜토리얼: Chapter 3 - DRIVE로 이동")
+                            
+                            # 챕터 번호 업데이트 - 이것이 빠져있었음!
+                            tutorial_current_chapter = 3
+                            print(f"튜토리얼: 챕터 변경 - Chapter {tutorial_current_chapter}")
+                            
                             # Chapter 3 타이틀 표시 (드라이브)
                             show_chapter_title(3, "DRIVE", "드라이브")
                             
@@ -6309,12 +6314,14 @@ def handle_player(keys):
                             global tutorial_needs_drive_practice, tutorial_drive_practice_shown
                             global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
                             global tutorial_drive_count, tutorial_displayed_drive_count
+                            global tutorial_drive_reminder_active
                             # tutorial_dash_counter_active와 tutorial_dash_count는 이미 위에서 선언됨
                             
                             # 대쉬 연습 완료, 드라이브 연습 시작
                             tutorial_needs_dash_practice = False  # 대쉬 연습 완료
                             tutorial_needs_drive_practice = True  # 드라이브 연습 필요
                             tutorial_drive_practice_shown = False  # 드라이브 대화 아직 표시 안됨
+                            tutorial_drive_reminder_active = False  # 드라이브 연습 알림 초기화
                             # 대쉬 카운터 리셋
                             tutorial_dash_counter_active = False
                             tutorial_dash_count = 0
@@ -15412,10 +15419,7 @@ def draw_tutorial_drive_reminder():
     """튜토리얼 드라이브 연습 알림 오버레이 (Chapter 3 드라이브 대화 후 표시)"""
     global tutorial_drive_reminder_active
     
-    print(f"[DEBUG] draw_tutorial_drive_reminder() 함수 시작, active: {tutorial_drive_reminder_active}")
-    
     if not tutorial_drive_reminder_active:
-        print("[DEBUG] tutorial_drive_reminder_active가 False라서 함수 종료")
         return
     
     # 폰트 설정
@@ -15423,27 +15427,23 @@ def draw_tutorial_drive_reminder():
     
     # 알림 내용 - 사용자 요청 텍스트
     main_text = "타이밍에 맞춰 키를 눌러 드라이브를 발사해보세요 !"
-    print(f"[DEBUG] 드라이브 알림창 텍스트: {main_text}")
     
     # 알림 박스 위치 및 크기 (서브 알림과 동일한 스타일)
     box_width = 750  # 텍스트가 길어서 조금 더 넓게
     box_height = 60
     box_x = (WIDTH - box_width) // 2
     box_y = HEIGHT // 2 + 100  # 화면 중앙 아래쪽
-    print(f"[DEBUG] 박스 위치: ({box_x}, {box_y}), 크기: {box_width}x{box_height}")
     
     # 박스 배경 (반투명)
     box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
     box_surface.fill((20, 20, 40, 220))  # 반투명 배경
     pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 3)  # 청록색 테두리
     SCREEN.blit(box_surface, (box_x, box_y))
-    print(f"[DEBUG] 박스 배경 그리기 완료, CYAN 색상: {CYAN}")
     
     # 메인 텍스트
     main_surface = font_large.render(main_text, True, CYAN)
     main_rect = main_surface.get_rect(center=(box_x + box_width // 2, box_y + box_height // 2))
     SCREEN.blit(main_surface, main_rect)
-    print(f"[DEBUG] 메인 텍스트 그리기 완료")
     
     # 깜박임 효과 (화살표)
     if pygame.time.get_ticks() % 1000 < 500:
@@ -29158,14 +29158,19 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_needs_dash_practice = False  # 대쉬 연습 완료
                 tutorial_needs_drive_practice = True  # 드라이브 연습 필요
                 tutorial_drive_practice_shown = False  # 드라이브 대화 아직 표시 안됨
-                tutorial_dash_counter_active = False
-                tutorial_dash_count = 0
                 
-                # 드라이브 카운터 초기화
-                tutorial_drive_counter_active = False  # 160 게이지 달성시 활성화
+                # 드라이브 관련 변수 초기화
+                tutorial_drive_helper_dialogue_shown = False
+                tutorial_drive_counter_active = False
                 tutorial_drive_count = 0
                 tutorial_displayed_drive_count = 0.0
-                tutorial_drive_helper_dialogue_shown = False
+                tutorial_drive_completion_dialogue_shown = False
+                tutorial_drive_reminder_active = False  # 160 게이지에서 활성화
+                
+                print("✅ Chapter 3 변수 초기화 완료")
+                # 대쉬 카운터 비활성화 (Chapter 3에서는 사용 안함)
+                tutorial_dash_counter_active = False
+                tutorial_dash_count = 0
                 
                 # 게임 계속 진행을 위한 설정
                 reset_round()  # 라운드 리셋
@@ -30462,15 +30467,8 @@ def main(stage_num, new_boss_mode=False):
                         draw_tutorial_serve_reminder()
                 
                 # 튜토리얼 드라이브 알림창 오버레이 표시
-                if 'tutorial_drive_reminder_active' in globals():
-                    print(f"[DEBUG] tutorial_drive_reminder_active in globals: {tutorial_drive_reminder_active}")
-                    if tutorial_drive_reminder_active:
-                        print("[DEBUG] 드라이브 알림창 draw_tutorial_drive_reminder() 호출")
-                        draw_tutorial_drive_reminder()
-                    else:
-                        print("[DEBUG] tutorial_drive_reminder_active is False")
-                else:
-                    print("[DEBUG] tutorial_drive_reminder_active not in globals")
+                if 'tutorial_drive_reminder_active' in globals() and tutorial_drive_reminder_active:
+                    draw_tutorial_drive_reminder()
                 
                 # Chapter 2 대쉬 대화 표시 (메인 루프에서)
                 if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
@@ -30555,9 +30553,14 @@ def main(stage_num, new_boss_mode=False):
         
         # 튜토리얼: Chapter 3 드라이브 연습 체크 (메인 루프 내)
         if current_stage == 50 and 'tutorial_needs_drive_practice' in globals():
-            # Chapter 3 상태 디버그
-            if tutorial_current_chapter == 3:
-                print(f"[CH3 DEBUG] needs_drive: {tutorial_needs_drive_practice}, shown: {tutorial_drive_practice_shown}, reminder: {tutorial_drive_reminder_active}")
+            # Chapter 상태 종합 디버그 (1초마다)
+            if not hasattr(main, 'last_chapter_debug'):
+                main.last_chapter_debug = 0
+            current_time = pygame.time.get_ticks()
+            if current_time - main.last_chapter_debug > 1000:
+                print(f"[TUTORIAL STATE] Chapter: {tutorial_current_chapter}, needs_drive: {tutorial_needs_drive_practice}, " +
+                      f"shown: {tutorial_drive_practice_shown}, gauge: {special_gauge:.0f}/300")
+                main.last_chapter_debug = current_time
             
             if tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
                 print("튜토리얼: Chapter 3 - DRIVE 연습 시작 (메인 루프)")
