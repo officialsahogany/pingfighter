@@ -741,7 +741,11 @@ except:
 #  동적 최대 게이지 계산 함수
 def get_max_gauge():
     # 튜토리얼 챕터별 최대 게이지 체크
-    # 우선순위: Chapter 3 > Chapter 2 > Chapter 1 순으로 체크
+    # 우선순위: Chapter 4 > Chapter 3 > Chapter 2 > Chapter 1 순으로 체크
+    
+    # Chapter 4 (POWER SMASHING) - 500
+    if 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 4:
+        return 500
     
     # 튜토리얼 드라이브 챕터 (Chapter 3) 임시 오버라이드 체크 - 300
     if 'tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None:
@@ -23098,8 +23102,10 @@ def calculate_bounce(paddle):
                                 
                                 # Chapter 4 타이틀 표시 (파워스매싱)
                                 show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
-                            
-                            # TODO: Chapter 4 초기화 로직 추가
+                                
+                                # Chapter 4 초기화: 최대 게이지를 500으로 설정
+                                special_gauge_max = get_max_gauge()  # 500 반환
+                                print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
                         
                         # 공 속도 복원
                         if tutorial_saved_ball_vel:
