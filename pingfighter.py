@@ -14209,9 +14209,9 @@ def show_tutorial_intro_dialogue():
     # 대화 내용 (보스와 플레이어)
     dialogues = [
         {"speaker": "조교", "text": "이번에 들어온 신입 스매셔군"},
-        {"speaker": "조교", "text": "핵심만 교육받고 바로 실전으로 투입한다 알겠나"},
+        {"speaker": "조교", "text": "차근차근 기본부터 완벽히 숙지하는게 이번 교육의 목표다"},
         {"speaker": "플레이어", "text": "네!"},
-        {"speaker": "조교", "text": "경기의 룰은 간단하다."},
+        {"speaker": "조교", "text": "경기의 기본룰부터 설명하겠다 ."},
         {"speaker": "조교", "text": "공이 상대의 가드를 뚫고 뒤로 넘어가면 1점 획득", "demo": "score_demo"},  # 득점 시연
         {"speaker": "조교", "text": "먼저 5점을 획득하면 승리하지.", "demo": "win_demo"},  # 5:0 승리 화면 표시
         {"speaker": "조교", "text": "단 4:4 동점일 경우 듀스가 되는데"},
@@ -14219,9 +14219,9 @@ def show_tutorial_intro_dialogue():
         {"speaker": "조교", "text": "듀스는 5:5까지 적용되며 5:5일 경우 추가점수 2점"},
         {"speaker": "조교", "text": "즉, 7점을 획득하면 승리한다", "demo": "deuce_win_demo"},  # 5:7 듀스 승리 화면
         {"speaker": "플레이어", "text": "네!"},
-        {"speaker": "조교", "text": "서브는 각 라운드별로\n플레이어, 보스 중 랜덤으로 서브권을 갖게돼"},
+        {"speaker": "조교", "text": "서브는 각 라운드별로\n플레이어, 보스 중 랜덤으로 서브권을 갖는다"},
         {"speaker": "조교", "text": "서브 시 스페이스 바를 누르면 서브공을 발사한다."},
-        {"speaker": "조교", "text": "우선 서브 공을 한번 쳐봐"}
+        {"speaker": "조교", "text": "우선 서브 공을 친다 실시"}
     ]
     
     current_dialogue = 0
@@ -15332,9 +15332,13 @@ def draw_tutorial_dash_helper():
 
 def draw_tutorial_serve_reminder():
     """튜토리얼 서브 알림 오버레이 (인트로 대화 후 표시)"""
-    global tutorial_serve_reminder_active
+    global tutorial_serve_reminder_active, tutorial_drive_counter_active
     
     if not tutorial_serve_reminder_active:
+        return
+    
+    # 드라이브 카운터가 활성화되면 서브 알림창 표시 안함
+    if 'tutorial_drive_counter_active' in globals() and tutorial_drive_counter_active:
         return
     
     # 폰트 설정
@@ -15564,129 +15568,189 @@ def show_tutorial_drive_helper_dialogue():
     clock = pygame.time.Clock()
     
     # 폰트 설정
-    font_medium = FontStyle.body()    # 24pt
-    font_small = FontStyle.small()    # 18pt
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()    # 24pt 대사용
+    font_small = FontStyle.small()   # 18pt 안내용
     
-    # 대화 내용
+    # 대화 시퀀스 (챕터 2 스타일과 동일하게)
     dialogues = [
-        "드라이브에 필요한 게이지가 모였습니다",
-        "드라이브는 150게이지를 소모해요",
-        "드라이브를 시전할 때 공에 닿는",
-        "패들의 위치에 따라 각도나 속도가",
-        "조금씩 달라질 수 있어요",
-        "드라이브 발동 시 팁이 있다면",
-        "공이 패들에 닿기 전에 0.1~0.3초 정도 미리",
-        "스페이스키 + 방향키를 누르는 느낌으로",
-        "하시면 더 잘될거에요",
-        "이제 원하는 방향으로",
-        "드라이브공을 발사해보세요!"
+        {
+            "speaker": "[도우미]",
+            "text": "드라이브에 필요한 게이지가 모였습니다",
+            "speaker_color": (255, 200, 50),  # 노란색 (드라이브 테마)
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "드라이브는 150게이지를 소모해요",
+            "speaker_color": (255, 200, 50),
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "드라이브를 시전할 때 공에 닿는",
+            "speaker_color": (255, 200, 50),
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "패들의 위치에 따라 각도나 속도가",
+            "speaker_color": (255, 200, 50),
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "조금씩 달라질 수 있어요",
+            "speaker_color": (255, 200, 50),
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "드라이브 발동 시 팁이 있다면",
+            "speaker_color": (255, 200, 50),
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "공이 패들에 닿기 전에 0.1~0.3초 정도 미리",
+            "speaker_color": (255, 200, 50),
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "스페이스키 + 방향키를 누르는 느낌으로",
+            "speaker_color": (255, 200, 50),
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "하시면 더 잘될거에요",
+            "speaker_color": (255, 200, 50),
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "이제 원하는 방향으로",
+            "speaker_color": (255, 200, 50),
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "드라이브공을 발사해보세요!",
+            "speaker_color": (255, 200, 50),
+        }
     ]
     
-    current_line = 0
-    char_index = 0
-    display_text = ""
-    text_complete = False
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
     
-    # 타이핑 속도 설정
-    last_char_time = pygame.time.get_ticks()
-    typing_speed = 30  # 30ms마다 한 글자
-    
-    # 대화창 설정
-    box_width = 700
-    box_height = 300
-    box_x = (WIDTH - box_width) // 2
-    box_y = HEIGHT // 2 - box_height // 2
-    
-    while current_line < len(dialogues):
-        current_time = pygame.time.get_ticks()
+    # 각 대화를 순차적으로 표시
+    for dialogue_index, dialogue in enumerate(dialogues):
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자 (빠르게)
+        last_char_time = pygame.time.get_ticks()
         
-        # 이벤트 처리
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_8:
-                    # 8번키로 스킵
-                    return "skip_chapter"
-                elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
-                    if text_complete:
-                        # 다음 대화로
-                        current_line += 1
-                        if current_line < len(dialogues):
-                            char_index = 0
-                            display_text = ""
-                            text_complete = False
-                            last_char_time = current_time
-                    else:
-                        # 텍스트 즉시 완성
-                        display_text = dialogues[current_line]
-                        char_index = len(dialogues[current_line])
-                        text_complete = True
+        # 강조 효과 애니메이션 변수
+        highlight_timer = 0
         
-        # 타이핑 애니메이션
-        if not text_complete and current_line < len(dialogues):
-            if current_time - last_char_time >= typing_speed:
-                if char_index < len(dialogues[current_line]):
-                    display_text = dialogues[current_line][:char_index + 1]
-                    char_index += 1
-                    last_char_time = current_time
-                else:
-                    text_complete = True
-        
-        # 게임 화면 그리기
-        draw_field()
-        draw_objects()
-        pygame.display.flip()
-        
-        # 반투명 배경
-        overlay = pygame.Surface((WIDTH, HEIGHT))
-        overlay.set_alpha(180)
-        overlay.fill((0, 0, 0))
-        SCREEN.blit(overlay, (0, 0))
-        
-        # 대화창 그리기
-        pygame.draw.rect(SCREEN, (40, 40, 80), (box_x, box_y, box_width, box_height))
-        pygame.draw.rect(SCREEN, (100, 200, 255), (box_x, box_y, box_width, box_height), 3)
-        
-        # 도우미 타이틀
-        title_text = "💡 드라이브 도우미"
-        title_surface = font_medium.render(title_text, True, (100, 255, 200))
-        title_rect = title_surface.get_rect(centerx=box_x + box_width // 2, y=box_y + 20)
-        SCREEN.blit(title_surface, title_rect)
-        
-        # 대화 텍스트 표시
-        if current_line < len(dialogues):
-            text_y = box_y + 80
-            # 텍스트를 줄바꿈하여 표시
-            words = display_text.split()
-            line = ""
-            for word in words:
-                test_line = line + word + " "
-                text_width = font_small.size(test_line)[0]
-                if text_width > box_width - 40:
-                    if line:
-                        text_surface = font_small.render(line, True, (255, 255, 255))
-                        text_rect = text_surface.get_rect(centerx=box_x + box_width // 2, y=text_y)
-                        SCREEN.blit(text_surface, text_rect)
-                        text_y += 30
-                    line = word + " "
-                else:
-                    line = test_line
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            highlight_timer += 1
             
-            if line:
-                text_surface = font_small.render(line, True, (255, 255, 255))
-                text_rect = text_surface.get_rect(centerx=box_x + box_width // 2, y=text_y)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_8:
+                        # 8번키로 튜토리얼 챕터 스킵
+                        print("🎮 8번 키: 드라이브 도우미 대화 중 챕터 스킵 요청")
+                        return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
+                    elif event.key == pygame.K_SPACE:
+                        if text_complete:
+                            running = False  # 다음 대화로
+                        else:
+                            # 텍스트 즉시 완성
+                            displayed_text = dialogue["text"]
+                            text_complete = True
+        
+            # 타이핑 애니메이션
+            if not text_complete:
+                if current_time - last_char_time >= typing_speed:
+                    if len(displayed_text) < len(dialogue["text"]):
+                        displayed_text = dialogue["text"][:len(displayed_text) + 1]
+                        last_char_time = current_time
+                    else:
+                        text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 어두운 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            SCREEN.blit(overlay, (0, 0))
+            
+            # 대화창 영역 (화면 중앙) - 챕터 2와 완전히 동일
+            dialogue_width = 700
+            dialogue_height = 180
+            dialogue_x = (WIDTH - dialogue_width) // 2
+            dialogue_y = (HEIGHT - dialogue_height) // 2
+            
+            # 대화창 배경 (검은색 반투명) - 챕터 2와 동일
+            dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg.fill((0, 0, 0, 240))  # 거의 불투명한 검은색
+            
+            # 대화창 테두리 - 챕터 2와 동일
+            pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
+                           (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
+            
+            # 상단 라인 (화자 이름 구분선)
+            pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
+                           (20, 50), (dialogue_width - 20, 50), 2)
+            
+            SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
+            
+            # 화자 이름 (대화창 상단 중앙)
+            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+            speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
+            SCREEN.blit(speaker_surface, speaker_rect)
+            
+            # 대사 텍스트 (화자 이름 아래 중앙) - 줄바꿈 처리
+            max_text_width = dialogue_width - 60  # 대화창 너비에서 여백 제외
+            
+            # 텍스트가 너무 길면 줄바꿈
+            words = displayed_text.split(' ')
+            lines = []
+            current_line = ""
+            
+            for word in words:
+                test_line = current_line + word + " " if current_line else word + " "
+                test_surface = font_medium.render(test_line.strip(), True, (255, 255, 255))
+                
+                if test_surface.get_width() <= max_text_width:
+                    current_line = test_line
+                else:
+                    if current_line:
+                        lines.append(current_line.strip())
+                    current_line = word + " "
+            
+            if current_line:
+                lines.append(current_line.strip())
+            
+            # 텍스트 줄별로 그리기
+            text_y = dialogue_y + 80
+            for line in lines:
+                text_surface = font_medium.render(line, True, (255, 255, 255))
+                text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y))
                 SCREEN.blit(text_surface, text_rect)
-        
-        # 진행 안내
-        if text_complete:
-            hint_text = "스페이스바를 눌러 계속..." if current_line < len(dialogues) - 1 else "스페이스바를 눌러 연습 시작!"
-            hint_surface = font_small.render(hint_text, True, (255, 255, 100))
-            hint_rect = hint_surface.get_rect(centerx=box_x + box_width // 2, y=box_y + box_height - 40)
-            SCREEN.blit(hint_surface, hint_rect)
-        
-        pygame.display.flip()
-        clock.tick(60)
+                text_y += 30
+            
+            # 진행 안내
+            if text_complete:
+                if dialogue_index < len(dialogues) - 1:
+                    hint_text = "스페이스바를 눌러 계속..."
+                else:
+                    hint_text = "스페이스바를 눌러 시작!"
+                hint_surface = font_small.render(hint_text, True, (200, 200, 200))
+                hint_rect = hint_surface.get_rect(centerx=WIDTH // 2, y=dialogue_y + dialogue_height - 35)
+                SCREEN.blit(hint_surface, hint_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
     
     return True
 
@@ -16321,11 +16385,10 @@ def show_tutorial_dash_dialogue():
     dialogues = [
         ("조교", "하지만 이 모든 한계는 극복이 가능하지"),
         ("조교", "지금부터 대쉬를 익혀볼 건데"),
-        ("조교", "핑파이터의 핵심 기술 중 하나이다"),
+        ("조교", "핑파이터에서 가장 유용한 기술 중 하나이다"),
         ("조교", "대쉬란 먼 거리를 짧은시간에 순간적으로 이동하는 기술"),
-        ("조교", "지금부터 내가 치는 공을 대쉬로 막아보도록"),
-        ("조교", "방법은 간단하다 ↓ 키를 누른 상태로"),
-        ("조교", "원하는 방향키 ← →를 누르면"),
+        ("조교", "원하는 방향 ← → 키를 누른 상태로"),
+        ("조교", " ↓ 키를 누르면"),
         ("조교", "해당 방향으로 대쉬가 발동하며 빠르게 이동한다"),
         ("조교", "지금부터 공을 대쉬로 받아치는 연습을 시작한다"),
         ("조교", "총 3회 실시!! 시작한다!"),
@@ -16784,6 +16847,7 @@ def draw_tutorial_ui():
 
 def draw_tutorial_drive_counter():
     """튜토리얼 드라이브 카운터 UI 표시 (4회 드라이브 카운트)"""
+    import math  # 함수 시작시 import
     global tutorial_drive_counter_active, tutorial_drive_count, tutorial_displayed_drive_count
     
     # 드라이브 카운터가 활성화되었을 때만 표시
@@ -16799,33 +16863,45 @@ def draw_tutorial_drive_counter():
     font_large = FontStyle.body()      # 24pt - 숫자용
     font_medium = FontStyle.small()    # 18pt
     
-    # 위치 설정 - 화면 우측 상단
-    base_x = WIDTH - 150
-    base_y = 100
+    # 오른쪽 상단 위치 (챕터 2 대쉬 카운터와 동일한 위치)
+    ui_x = WIDTH - 100
+    ui_y = 50
     
-    # 원형 진행도 배경
-    circle_center_x = base_x
-    circle_center_y = base_y
-    circle_radius = 35
+    # 미니멀한 반투명 배경 (챕터 2와 동일)
+    bg_width = 180
+    bg_height = 90
+    bg_x = ui_x - bg_width // 2
+    bg_y = ui_y - 15
     
-    # 배경 원
-    pygame.draw.circle(SCREEN, (40, 40, 60), (circle_center_x, circle_center_y), circle_radius, 0)
+    # 반투명 배경 (은은하게)
+    bg_surf = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+    pygame.draw.rect(bg_surf, (20, 25, 40, 120), (0, 0, bg_width, bg_height), border_radius=8)
+    pygame.draw.rect(bg_surf, (255, 200, 50, 40), (0, 0, bg_width, bg_height), border_radius=8, width=1)  # 노란색 테두리
+    SCREEN.blit(bg_surf, (bg_x, bg_y))
     
-    # 외곽 테두리
-    border_color = (100, 200, 255) if tutorial_drive_count < 4 else (0, 255, 200)
-    pygame.draw.circle(SCREEN, border_color, (circle_center_x, circle_center_y), circle_radius, 3)
+    # 컴팩트한 원형 진행도
+    circle_radius = 22
+    circle_center_x = ui_x - 50
+    circle_center_y = ui_y + 10
     
-    # 진행도 호 그리기
+    # 배경 원 (챕터 2와 동일)
+    pygame.draw.circle(SCREEN, (40, 45, 60, 180), (circle_center_x, circle_center_y), circle_radius, 2)
+    
+    # 진행도 원호 그리기 (4분할)
     if tutorial_displayed_drive_count > 0:
-        import math
-        # 각 성공당 90도씩 (4회 = 360도)
-        progress_angle = (tutorial_displayed_drive_count / 4) * 360
+        progress = tutorial_displayed_drive_count / 4  # 4회 기준
+        # 시작 각도 -90도 (12시 방향)
+        start_angle = -math.pi / 2
+        # 진행도에 따른 종료 각도
+        end_angle = start_angle + (2 * math.pi * progress)
         
-        # 호를 세그먼트로 그리기
-        segments = int(progress_angle / 5)  # 5도씩 나눔
-        for i in range(segments):
-            angle1 = math.radians(-90 + i * 5)  # 12시 방향에서 시작
-            angle2 = math.radians(-90 + (i + 1) * 5)
+        # 아크를 작은 선분들로 그리기
+        num_segments = 50
+        for i in range(num_segments):
+            t1 = i / num_segments
+            t2 = (i + 1) / num_segments
+            angle1 = start_angle + (end_angle - start_angle) * t1
+            angle2 = start_angle + (end_angle - start_angle) * t2
             
             x1 = circle_center_x + circle_radius * math.cos(angle1)
             y1 = circle_center_y + circle_radius * math.sin(angle1)
@@ -16850,43 +16926,50 @@ def draw_tutorial_drive_counter():
     counter_rect = counter_surface.get_rect(center=(circle_center_x, circle_center_y))
     SCREEN.blit(counter_surface, counter_rect)
     
-    # 드라이브 아이콘 그리기 (원형 진행도 오른쪽에)
-    drive_x = circle_center_x
-    drive_y = circle_center_y + 55
-    drive_offset = 40
+    # 드라이브 아이콘 그리기 (원형 진행도 오른쪽에) - 탁구채와 바람 효과
+    drive_x = circle_center_x + circle_radius + 25
+    drive_y = circle_center_y
     
-    # 드라이브 아이콘 (스타 모양)
-    star_surf = pygame.Surface((50, 40), pygame.SRCALPHA)
+    # 드라이브 아이콘 서페이스
+    icon_surf = pygame.Surface((60, 40), pygame.SRCALPHA)
     
-    # 드라이브 별 아이콘
-    star_color = (255, 255, 100) if tutorial_drive_count >= 2 else (255, 150, 150)
-    star_points = []
-    for i in range(10):
-        angle = math.radians(i * 36 - 90)
-        if i % 2 == 0:
-            r = 15
-        else:
-            r = 8
-        x = 25 + r * math.cos(angle)
-        y = 20 + r * math.sin(angle)
-        star_points.append((x, y))
+    # 탁구채 그리기
+    paddle_color = (255, 100, 50) if tutorial_drive_count >= 2 else (200, 80, 40)
     
-    pygame.draw.polygon(star_surf, star_color, star_points)
-    pygame.draw.polygon(star_surf, (255, 255, 255, 50), star_points, 2)
+    # 탁구채 몸체 (타원형)
+    pygame.draw.ellipse(icon_surf, paddle_color, (30, 10, 20, 20))
+    pygame.draw.ellipse(icon_surf, (255, 255, 255, 50), (30, 10, 20, 20), 2)  # 하이라이트
+    
+    # 탁구채 손잡이
+    pygame.draw.rect(icon_surf, (150, 75, 30), (35, 25, 10, 12))
+    
+    # 드라이브 바람 효과 (왼쪽에서 오른쪽으로)
+    wind_color = (100, 200, 255, 150)
+    for i in range(4):
+        # 바람 라인들 (속도감 표현)
+        line_y = 15 + i * 3
+        line_length = 25 - i * 4
+        line_alpha = 200 - i * 40
+        wind_color = (100, 200, 255, line_alpha) if tutorial_drive_count < 2 else (255, 255, 100, line_alpha)
+        
+        # 곡선 바람 효과
+        start_x = 5 + i * 2
+        end_x = start_x + line_length
+        control_y = line_y + math.sin(pygame.time.get_ticks() * 0.005 + i) * 2  # 물결 효과
+        
+        pygame.draw.line(icon_surf, wind_color, (start_x, line_y), (end_x, control_y), 2 - i // 2)
     
     # 진행도에 따른 반짝임 효과
     if tutorial_displayed_drive_count < tutorial_drive_count:
         # 애니메이션 중일 때 반짝임
         glow_alpha = int(128 + 127 * math.sin(pygame.time.get_ticks() * 0.01))
-        glow_surf = pygame.Surface((50, 40), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (255, 255, 100, glow_alpha // 3), (25, 20), 20)
-        star_surf.blit(glow_surf, (0, 0))
+        glow_surf = pygame.Surface((60, 40), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (255, 200, 50, glow_alpha // 3), (40, 20), 15)
+        icon_surf.blit(glow_surf, (0, 0))
     
-    # 별 아이콘 애니메이션 (회전)
-    rotation = (pygame.time.get_ticks() // 20) % 360
-    rotated_star = pygame.transform.rotate(star_surf, rotation if tutorial_drive_count > 0 else 0)
-    star_rect = rotated_star.get_rect(center=(drive_x, drive_y))
-    SCREEN.blit(rotated_star, star_rect)
+    # 위치 조정 (좌우 움직임 애니메이션)
+    move_offset = int(8 * math.sin(tutorial_displayed_drive_count * math.pi))
+    SCREEN.blit(icon_surf, (drive_x + move_offset - 30, drive_y - 20))
     
     # 진행 상태 메시지
     if tutorial_drive_count < 1:
@@ -16905,8 +16988,9 @@ def draw_tutorial_drive_counter():
         if pygame.time.get_ticks() % 600 < 300:
             hint_color = (100, 255, 255)
     
+    # 텍스트를 아이콘 아래에 표시 (아이콘 중심 기준)
     hint_surface = font_medium.render(hint_text, True, hint_color)
-    hint_rect = hint_surface.get_rect(centerx=circle_center_x, y=drive_y + 30)
+    hint_rect = hint_surface.get_rect(centerx=drive_x, y=drive_y + 25)
     SCREEN.blit(hint_surface, hint_rect)
 
 def draw_tutorial_dash_counter():
@@ -30674,7 +30758,9 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_drive_reminder_active = True
                 tutorial_drive_count = 0
                 tutorial_displayed_drive_count = 0.0
-                print("🎯 도우미 대화 완료: 드라이브 카운터와 알림 활성화")
+                # 서브 알림창 비활성화 (도우미 대화 후에는 필요 없음)
+                tutorial_serve_reminder_active = False
+                print("🎯 도우미 대화 완료: 드라이브 카운터와 알림 활성화, 서브 알림창 비활성화")
             
             # 공 속도 복원
             if tutorial_saved_ball_vel:

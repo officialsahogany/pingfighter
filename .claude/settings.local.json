@@ -127,7 +127,12 @@
       "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_HE6vrJ/**)",
       "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_Vg2EhG/**)",
       "Bash(timeout 30 python3:*)",
-      "Read(///**)"
+      "Read(///**)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_6ANJ6I/**)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_KuO2EU/**)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_EPEvu1/**)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_8NGtN8/**)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_NyUYlw/**)"
     ],
     "defaultMode": "acceptEdits"
   }
