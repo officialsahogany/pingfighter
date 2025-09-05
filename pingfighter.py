@@ -15306,11 +15306,17 @@ def draw_tutorial_serve_reminder():
     # 폰트 설정
     font_large = FontStyle.subtitle()  # 32pt 메인 텍스트용
     
-    # 알림 내용
-    main_text = "스페이스바를 눌러 서브공을 발사하세요!"
+    # 알림 내용 - 챕터에 따라 다른 텍스트 표시
+    if 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 3:
+        # 챕터 3: 드라이브 파트에서는 드라이브 관련 메시지 표시
+        main_text = "타이밍에 맞춰 키를 입력해서 드라이브를 발동해보세요"
+        box_width = 800  # 긴 텍스트를 위해 박스 너비 확장
+    else:
+        # 챕터 1, 2: 기본 서브 메시지
+        main_text = "스페이스바를 눌러 서브공을 발사하세요!"
+        box_width = 700
     
     # 알림 박스 위치 및 크기 (대쉬 도우미와 동일한 스타일)
-    box_width = 700
     box_height = 60
     box_x = (WIDTH - box_width) // 2
     box_y = HEIGHT // 2 + 100  # 화면 중앙 아래쪽
