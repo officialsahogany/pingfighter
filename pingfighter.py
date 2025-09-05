@@ -4990,6 +4990,7 @@ def handle_player(keys):
     global tutorial_practice_mode, tutorial_boss_returned, tutorial_gauge_tutorial_shown
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown
     global tutorial_saved_ball_vel, tutorial_pause_for_dialogue, ball_vel
+    global tutorial_drive_reminder_active
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
     if new_boss_mode_active:
         if selected_bottom_boss == 1:
@@ -24718,16 +24719,23 @@ def handle_ball():
             draw_score()  # 3:0 완승 보너스 메시지도 표시
         go_to_next_round()
         return
-    # --- 공 속도 느려질 때 보정 (파워스매싱 활성화 시 면역) ---
+    # --- 공 속도 느려일 때 보정 (파워스매싱 활성화 시 면역) ---
     current_speed = math.hypot(ball_vel[0], ball_vel[1])
     if current_speed < BALL_BASE_SPEED * 0.85 and not special_active:  # 파워스매싱 중에는 보정 무시
         slow_ball_timer += 1
+        # 튜토리얼에서 디버깅 로그
+        if current_stage == 50 and slow_ball_timer % 60 == 1:  # 1초마다
+            print(f"🐌 튜토리얼 slow_ball_timer 작동: 현재속도={current_speed:.2f} < 임계값={BALL_BASE_SPEED * 0.85:.2f}, 타이머={slow_ball_timer}/{THREE_SECONDS_FRAMES}")
         if slow_ball_timer >= THREE_SECONDS_FRAMES:
             direction = pygame.math.Vector2(ball_vel).normalize()
             ball_vel[0] = direction.x * BALL_BASE_SPEED
             ball_vel[1] = direction.y * BALL_BASE_SPEED
             slow_ball_timer = 0
+            if current_stage == 50:
+                print(f"⚡ 튜토리얼 속도 보정 완료: {current_speed:.2f} → {BALL_BASE_SPEED}")
     else:
+        if slow_ball_timer > 0 and current_stage == 50:  # 타이머 리셋 시에만
+            print(f"✅ 튜토리얼 slow_ball_timer 리셋: 현재속도={current_speed:.2f} >= 임계값={BALL_BASE_SPEED * 0.85:.2f}")
         slow_ball_timer = 0
         # === Stage 3 눈물샤워 충돌 처리 ===
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
@@ -28475,6 +28483,10 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_needs_dash_practice = True  # Chapter 2 시작
                 tutorial_dash_practice_shown = False  # 대쉬 대화 아직 안봄
                 tutorial_practice_mode = True  # 실습 모드 계속
+                
+                # 8번키 스킵 시에도 서브 알림창 활성화 (일관성 위해)
+                tutorial_serve_reminder_active = True
+                print("튜토리얼: 8번키 스킵 후 서브 알림창 활성화")
                 
                 # 게임 계속 진행을 위한 설정
                 reset_round()  # 라운드 리셋

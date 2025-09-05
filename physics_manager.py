@@ -60,6 +60,11 @@ def serve_ball(is_player_serve=True, current_stage=1):
         else:
             # 보스 서브: 아래로
             ball_vel = [random.choice([-2, 2]), base_speed]
+        
+        # 튜토리얼 서브 디버깅
+        import math
+        actual_speed = math.hypot(ball_vel[0], ball_vel[1])
+        print(f"🎓 튜토리얼 서브: ball_vel={ball_vel}, 실제속도={actual_speed:.2f}, 임계값={9*0.85:.2f}")
     else:
         if is_player_serve:
             # 플레이어 서브: 위로
