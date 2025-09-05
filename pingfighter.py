@@ -28488,6 +28488,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge
     global tutorial_skip_chapter2_init
     global tutorial_drive_reminder_active  # 드라이브 알림창 전역 변수
+    global tutorial_drive_counter_active  # 드라이브 카운터 전역 변수
     nine_just_pressed = False
     last_nine_state = False
     
@@ -29098,6 +29099,54 @@ def main(stage_num, new_boss_mode=False):
         # 8번키로 튜토리얼에서 현재 챕터 완료하고 다음 챕터로 이동 (스테이지 50에서만)
         if current_stage == 50 and keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
             print("🎮 8번 키: 현재 챕터 완료 및 다음 챕터로 이동")
+            
+            # 현재 챕터의 모든 카운터와 대화를 완료 상태로 설정
+            def complete_current_chapter_progress():
+                """현재 챕터의 모든 진행 사항을 완료 상태로 설정"""
+                global tutorial_dialogue_shown, tutorial_serve_instruction_shown, tutorial_boss_returned
+                global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown, tutorial_speed_dialogue_shown
+                global tutorial_player_hit_count, tutorial_displayed_hit_count
+                global tutorial_dash_token_dialogue_shown, tutorial_dash_completion_dialogue_shown
+                global tutorial_dash_count, tutorial_displayed_dash_count, tutorial_dash_counter_active
+                global tutorial_dash_gauge_dialogue_shown
+                global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
+                global tutorial_drive_count, tutorial_displayed_drive_count
+                global tutorial_drive_completion_dialogue_shown
+                global tutorial_current_chapter, tutorial_needs_dash_practice, tutorial_needs_drive_practice
+                
+                if tutorial_current_chapter == 1:
+                    # Chapter 1의 모든 진행 사항 완료
+                    print("   📝 Chapter 1 모든 진행 사항 완료 처리")
+                    tutorial_dialogue_shown = True
+                    tutorial_serve_instruction_shown = True
+                    tutorial_boss_returned = True
+                    tutorial_player_returned_ball = True
+                    tutorial_gauge_tutorial_shown = True
+                    tutorial_speed_dialogue_shown = True
+                    tutorial_player_hit_count = 6  # 카운터 팁 완료
+                    tutorial_displayed_hit_count = 6.0
+                    
+                elif tutorial_current_chapter == 2 or tutorial_needs_dash_practice:
+                    # Chapter 2의 모든 진행 사항 완료
+                    print("   📝 Chapter 2 모든 진행 사항 완료 처리")
+                    tutorial_dash_gauge_dialogue_shown = True
+                    tutorial_dash_token_dialogue_shown = True
+                    tutorial_dash_completion_dialogue_shown = True
+                    tutorial_dash_count = 3  # 대쉬 3회 완료
+                    tutorial_displayed_dash_count = 3.0
+                    tutorial_dash_counter_active = False  # 카운터 비활성화
+                    
+                elif tutorial_current_chapter == 3 or tutorial_needs_drive_practice:
+                    # Chapter 3의 모든 진행 사항 완료
+                    print("   📝 Chapter 3 모든 진행 사항 완료 처리")
+                    tutorial_drive_helper_dialogue_shown = True
+                    tutorial_drive_completion_dialogue_shown = True
+                    tutorial_drive_count = 4  # 드라이브 4회 완료
+                    tutorial_displayed_drive_count = 4.0
+                    tutorial_drive_counter_active = False  # 카운터 비활성화
+            
+            # 현재 챕터의 모든 진행 사항 완료 처리
+            complete_current_chapter_progress()
             
             # 현재 챕터 확인하고 다음 챕터로 이동
             global tutorial_current_chapter
@@ -30586,7 +30635,7 @@ def main(stage_num, new_boss_mode=False):
                     # 160 게이지 도달시 도우미 대화 표시를 위한 플래그
                     tutorial_drive_helper_dialogue_shown = False  # 아직 도우미 대화 안봄
                     tutorial_drive_reminder_active = False  # 드라이브 알림은 도우미 대화 후에
-                    tutorial_drive_counter_active = False  # 카운터도 도우미 대화 후에
+                    # 카운터 초기화 (도우미 대화 후에 활성화됨)
                     tutorial_drive_count = 0
                     tutorial_displayed_drive_count = 0.0
                     
@@ -30618,11 +30667,13 @@ def main(stage_num, new_boss_mode=False):
             draw_objects()
             pygame.display.flip()
             
-            # Chapter 2랑 똑같이 게이지 대화 사용
-            if show_tutorial_gauge_dialogue():
+            # Chapter 3 드라이브 도우미 대화 표시
+            if show_tutorial_drive_helper_dialogue():
                 # 대화 완료 후 드라이브 카운터와 알림 활성화
                 tutorial_drive_counter_active = True
                 tutorial_drive_reminder_active = True
+                tutorial_drive_count = 0
+                tutorial_displayed_drive_count = 0.0
                 print("🎯 도우미 대화 완료: 드라이브 카운터와 알림 활성화")
             
             # 공 속도 복원
