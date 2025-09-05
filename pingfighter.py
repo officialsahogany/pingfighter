@@ -2534,6 +2534,32 @@ def go_to_next_round():
     power_smashing_parabola_active = False
     power_smashing_start_time = 0
     power_smashing_arc_strength = 0.0
+    
+    # Chapter 4 파워스매싱 튜토리얼 관련 변수 초기화
+    global tutorial_power_practice_shown, tutorial_power_helper_dialogue_shown
+    global tutorial_power_completion_dialogue_shown, tutorial_power_count
+    global tutorial_displayed_power_count, tutorial_power_counter_active
+    global tutorial_needs_power_practice, tutorial_power_reminder_active
+    global tutorial_power_reminder_timer
+    
+    if 'tutorial_power_practice_shown' not in globals():
+        tutorial_power_practice_shown = False
+    if 'tutorial_power_helper_dialogue_shown' not in globals():
+        tutorial_power_helper_dialogue_shown = False
+    if 'tutorial_power_completion_dialogue_shown' not in globals():
+        tutorial_power_completion_dialogue_shown = False
+    if 'tutorial_power_count' not in globals():
+        tutorial_power_count = 0
+    if 'tutorial_displayed_power_count' not in globals():
+        tutorial_displayed_power_count = 0
+    if 'tutorial_power_counter_active' not in globals():
+        tutorial_power_counter_active = False
+    if 'tutorial_needs_power_practice' not in globals():
+        tutorial_needs_power_practice = False
+    if 'tutorial_power_reminder_active' not in globals():
+        tutorial_power_reminder_active = False
+    if 'tutorial_power_reminder_timer' not in globals():
+        tutorial_power_reminder_timer = 0
     #  새로운 보스들 속도 초기화
     lightning_master_speed = 0.0
     ice_queen_speed = 0.0
@@ -15370,7 +15396,11 @@ def draw_tutorial_serve_reminder():
     font_large = FontStyle.subtitle()  # 32pt 메인 텍스트용
     
     # 알림 내용 - 챕터에 따라 다른 텍스트 표시
-    if 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 3:
+    if 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 4:
+        # 챕터 4: 파워스매싱 파트에서는 파워스매싱 관련 메시지 표시
+        main_text = "스페이스를 길게 눌러 파워를 모으고 원하는 각도에서 떼세요!"
+        box_width = 850  # 긴 텍스트를 위해 박스 너비 확장
+    elif 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 3:
         # 챕터 3: 드라이브 파트에서는 드라이브 관련 메시지 표시
         main_text = "타이밍에 맞춰 키를 입력해서 드라이브를 발동해보세요"
         box_width = 800  # 긴 텍스트를 위해 박스 너비 확장
@@ -15884,6 +15914,459 @@ def show_tutorial_drive_completion_dialogue():
             clock.tick(60)
     
     return "proceed_to_chapter4"
+
+def show_tutorial_power_practice_dialogue():
+    """튜토리얼 파워스매싱 연습 시작 대화 (Chapter 4 시작)"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_medium = FontStyle.body()     # 24pt 대사용
+    font_small = FontStyle.small()     # 18pt 안내용
+    
+    # 대화 시퀀스
+    dialogues = [
+        ("조교", "이제 파워 스매싱을 배워볼 시간이다"),
+        ("조교", "파워 스매싱은 필살의 한 방이다"),
+        ("조교", "게이지가 500 이상일 때 사용 가능하다"),
+        ("조교", "SPACE 키를 누르고 있다가"),
+        ("조교", "떼는 타이밍에 따라 각도가 결정된다"),
+        ("조교", "3번 성공시켜보자!"),
+    ]
+    
+    # 하단 바 UI 설정
+    text_bg_height = 80
+    text_y_position = HEIGHT - 150
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+    
+    # 각 대화를 순차적으로 표시
+    for dialogue_index, (speaker, text) in enumerate(dialogues):
+        # 화자별 색상 설정
+        if speaker == "조교":
+            speaker_color = (255, 100, 100)  # 빨간색
+        elif speaker == "플레이어":
+            speaker_color = (100, 200, 255)  # 파란색
+        else:
+            speaker_color = WHITE
+        
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자 (빠르게)
+        last_char_time = pygame.time.get_ticks()
+        
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if text_complete:
+                            # 현재 대화 완료, 다음 대화로
+                            running = False
+                        else:
+                            # 텍스트 즉시 완성
+                            displayed_text = text
+                            text_complete = True
+            
+            # 타이핑 효과
+            if not text_complete and current_time - last_char_time >= typing_speed:
+                if len(displayed_text) < len(text):
+                    displayed_text += text[len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 하단 바 UI 그리기
+            text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
+            text_bg.fill((0, 0, 0, 180))
+            SCREEN.blit(text_bg, (0, text_y_position))
+            
+            # 대화 텍스트
+            full_text = f"[{speaker}] {displayed_text}"
+            
+            # 그림자 효과
+            shadow_surface = font_medium.render(full_text, True, (50, 50, 50))
+            shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + 2, text_y_position + text_bg_height // 2 + 2))
+            SCREEN.blit(shadow_surface, shadow_rect)
+            
+            # 메인 텍스트
+            text_surface = font_medium.render(full_text, True, speaker_color)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 계속 안내 (깜빡임 효과)
+            if text_complete and pygame.time.get_ticks() % 1000 < 700:
+                if dialogue_index < len(dialogues) - 1:
+                    continue_text = "SPACE - 계속"
+                else:
+                    continue_text = "SPACE - 연습 시작"
+                continue_surface = font_small.render(continue_text, True, (0, 255, 255))
+                continue_rect = continue_surface.get_rect(bottomright=(WIDTH - 30, text_y_position + text_bg_height - 10))
+                SCREEN.blit(continue_surface, continue_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
+    
+    return True
+
+def show_tutorial_power_helper_dialogue():
+    """튜토리얼 파워스매싱 도우미 대화 (게이지 500 도달 시)"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_medium = FontStyle.body()     # 24pt 대사용
+    font_small = FontStyle.small()     # 18pt 안내용
+    
+    # 대화 시퀀스
+    dialogues = [
+        ("조교", "게이지가 충분히 차올랐다!"),
+        ("조교", "이제 SPACE를 길게 눌러 파워를 모아보자"),
+        ("조교", "원하는 각도에서 키를 떼면 발사된다"),
+        ("조교", "타이밍이 중요하다!"),
+    ]
+    
+    # 하단 바 UI 설정
+    text_bg_height = 80
+    text_y_position = HEIGHT - 150
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+    
+    # 각 대화를 순차적으로 표시
+    for dialogue_index, (speaker, text) in enumerate(dialogues):
+        # 화자별 색상 설정
+        if speaker == "조교":
+            speaker_color = (255, 100, 100)  # 빨간색
+        else:
+            speaker_color = WHITE
+        
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자 (빠르게)
+        last_char_time = pygame.time.get_ticks()
+        
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if text_complete:
+                            # 현재 대화 완료, 다음 대화로
+                            running = False
+                        else:
+                            # 텍스트 즉시 완성
+                            displayed_text = text
+                            text_complete = True
+            
+            # 타이핑 효과
+            if not text_complete and current_time - last_char_time >= typing_speed:
+                if len(displayed_text) < len(text):
+                    displayed_text += text[len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 하단 바 UI 그리기
+            text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
+            text_bg.fill((0, 0, 0, 180))
+            SCREEN.blit(text_bg, (0, text_y_position))
+            
+            # 대화 텍스트
+            full_text = f"[{speaker}] {displayed_text}"
+            
+            # 그림자 효과
+            shadow_surface = font_medium.render(full_text, True, (50, 50, 50))
+            shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + 2, text_y_position + text_bg_height // 2 + 2))
+            SCREEN.blit(shadow_surface, shadow_rect)
+            
+            # 메인 텍스트
+            text_surface = font_medium.render(full_text, True, speaker_color)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 계속 안내 (깜빡임 효과)
+            if text_complete and pygame.time.get_ticks() % 1000 < 700:
+                if dialogue_index < len(dialogues) - 1:
+                    continue_text = "SPACE - 계속"
+                else:
+                    continue_text = "SPACE - 파워스매싱 도전!"
+                continue_surface = font_small.render(continue_text, True, (0, 255, 255))
+                continue_rect = continue_surface.get_rect(bottomright=(WIDTH - 30, text_y_position + text_bg_height - 10))
+                SCREEN.blit(continue_surface, continue_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
+    
+    return True
+
+def show_tutorial_power_completion_dialogue():
+    """튜토리얼 파워스매싱 완료 대화 (3회 성공 시)"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_medium = FontStyle.body()     # 24pt 대사용
+    font_small = FontStyle.small()     # 18pt 안내용
+    
+    # 대화 시퀀스
+    dialogues = [
+        ("조교", "훌륭하다! 파워스매싱을 마스터했군!"),
+        ("조교", "파워스매싱은 게이지 소모가 크지만"),
+        ("조교", "그만큼 강력한 필살기다"),
+        ("조교", "적절한 타이밍에 사용하면"),
+        ("조교", "승부를 한 번에 뒤집을 수 있다"),
+        ("조교", "모든 기초 훈련을 마쳤다!"),
+        ("조교", "이제 실전에서 활약해보자!"),
+    ]
+    
+    # 하단 바 UI 설정
+    text_bg_height = 80
+    text_y_position = HEIGHT - 150
+    
+    # 배경 캡처 (현재 게임 화면)
+    background = SCREEN.copy()
+    
+    # 각 대화를 순차적으로 표시
+    for dialogue_index, (speaker, text) in enumerate(dialogues):
+        # 화자별 색상 설정
+        if speaker == "조교":
+            speaker_color = (255, 100, 100)  # 빨간색
+        else:
+            speaker_color = WHITE
+        
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자 (빠르게)
+        last_char_time = pygame.time.get_ticks()
+        
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if text_complete:
+                            # 현재 대화 완료, 다음 대화로
+                            running = False
+                        else:
+                            # 텍스트 즉시 완성
+                            displayed_text = text
+                            text_complete = True
+            
+            # 타이핑 효과
+            if not text_complete and current_time - last_char_time >= typing_speed:
+                if len(displayed_text) < len(text):
+                    displayed_text += text[len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 하단 바 UI 그리기
+            text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
+            text_bg.fill((0, 0, 0, 180))
+            SCREEN.blit(text_bg, (0, text_y_position))
+            
+            # 대화 텍스트
+            full_text = f"[{speaker}] {displayed_text}"
+            
+            # 그림자 효과
+            shadow_surface = font_medium.render(full_text, True, (50, 50, 50))
+            shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + 2, text_y_position + text_bg_height // 2 + 2))
+            SCREEN.blit(shadow_surface, shadow_rect)
+            
+            # 메인 텍스트
+            text_surface = font_medium.render(full_text, True, speaker_color)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 계속 안내 (깜빡임 효과)
+            if text_complete and pygame.time.get_ticks() % 1000 < 700:
+                if dialogue_index < len(dialogues) - 1:
+                    continue_text = "SPACE - 계속"
+                else:
+                    continue_text = "SPACE - 튜토리얼 완료!"
+                continue_surface = font_small.render(continue_text, True, (0, 255, 255))
+                continue_rect = continue_surface.get_rect(bottomright=(WIDTH - 30, text_y_position + text_bg_height - 10))
+                SCREEN.blit(continue_surface, continue_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
+    
+    return "tutorial_complete"  # 튜토리얼 완료
+
+def draw_tutorial_power_counter():
+    """튜토리얼 파워스매싱 카운터 UI 표시 (3회 파워스매싱 카운트)"""
+    import math  # 함수 시작시 import
+    global tutorial_power_counter_active, tutorial_power_count, tutorial_displayed_power_count
+    
+    # 파워스매싱 카운터가 활성화되었을 때만 표시
+    if not tutorial_power_counter_active or current_stage != 50:
+        return
+    
+    # 점진적 애니메이션 업데이트
+    if tutorial_displayed_power_count < tutorial_power_count:
+        # 부드러운 애니메이션 속도 (프레임당 0.05 증가)
+        tutorial_displayed_power_count = min(tutorial_displayed_power_count + 0.05, tutorial_power_count)
+    
+    # 폰트 설정
+    font_large = FontStyle.body()      # 24pt - 숫자용
+    font_medium = FontStyle.small()    # 18pt
+    
+    # 오른쪽 상단 위치 (다른 카운터와 동일한 위치)
+    ui_x = WIDTH - 100
+    ui_y = 50
+    
+    # 미니멀한 반투명 배경
+    bg_width = 180
+    bg_height = 90
+    bg_x = ui_x - bg_width // 2
+    bg_y = ui_y - 15
+    
+    # 반투명 배경 (은은하게)
+    bg_surf = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+    pygame.draw.rect(bg_surf, (20, 25, 40, 120), (0, 0, bg_width, bg_height), border_radius=8)
+    pygame.draw.rect(bg_surf, (255, 50, 200, 40), (0, 0, bg_width, bg_height), border_radius=8, width=1)  # 보라색 테두리
+    SCREEN.blit(bg_surf, (bg_x, bg_y))
+    
+    # 컴팩트한 원형 진행도
+    circle_radius = 22
+    circle_center_x = ui_x - 50
+    circle_center_y = ui_y + 10
+    
+    # 배경 원
+    pygame.draw.circle(SCREEN, (40, 45, 60, 180), (circle_center_x, circle_center_y), circle_radius, 2)
+    
+    # 진행도 원호 그리기 (3분할)
+    if tutorial_displayed_power_count > 0:
+        progress = tutorial_displayed_power_count / 3  # 3회 기준
+        # 시작 각도 -90도 (12시 방향)
+        start_angle = -math.pi / 2
+        # 진행도에 따른 종료 각도
+        end_angle = start_angle + (2 * math.pi * progress)
+        
+        # 아크를 작은 선분들로 그리기
+        num_segments = 50
+        for i in range(num_segments):
+            t1 = i / num_segments
+            t2 = (i + 1) / num_segments
+            angle1 = start_angle + (end_angle - start_angle) * t1
+            angle2 = start_angle + (end_angle - start_angle) * t2
+            
+            x1 = circle_center_x + circle_radius * math.cos(angle1)
+            y1 = circle_center_y + circle_radius * math.sin(angle1)
+            x2 = circle_center_x + circle_radius * math.cos(angle2)
+            y2 = circle_center_y + circle_radius * math.sin(angle2)
+            
+            # 진행도 색상
+            if tutorial_power_count < 1:
+                color = (255, 100, 150)  # 핑크색
+            elif tutorial_power_count < 2:
+                color = (255, 100, 200)  # 밝은 보라색
+            elif tutorial_power_count < 3:
+                color = (200, 100, 255)  # 보라색
+            else:
+                color = (150, 50, 255)  # 진한 보라색 (완료)
+            
+            pygame.draw.line(SCREEN, color, (x1, y1), (x2, y2), 3)
+    
+    # 숫자 표시
+    counter_text = f"{tutorial_power_count}/3"
+    counter_surface = font_large.render(counter_text, True, (255, 255, 255))
+    counter_rect = counter_surface.get_rect(center=(circle_center_x, circle_center_y))
+    SCREEN.blit(counter_surface, counter_rect)
+    
+    # 파워스매싱 아이콘 그리기 (원형 진행도 오른쪽에) - 번개 효과
+    power_x = circle_center_x + circle_radius + 25
+    power_y = circle_center_y
+    
+    # 파워스매싱 아이콘 서페이스
+    icon_surf = pygame.Surface((60, 40), pygame.SRCALPHA)
+    
+    # 번개 모양 그리기
+    lightning_color = (255, 200, 50) if tutorial_power_count >= 2 else (200, 150, 50)
+    
+    # 번개 패스
+    lightning_points = [
+        (20, 5),
+        (30, 15),
+        (25, 20),
+        (35, 30),
+        (25, 25),
+        (30, 20),
+        (20, 10)
+    ]
+    pygame.draw.polygon(icon_surf, lightning_color, lightning_points)
+    
+    # 번개 효과 (빛나는 효과)
+    for i in range(3):
+        alpha = 100 - i * 30
+        bigger_points = [(x + i, y + i) for x, y in lightning_points]
+        lightning_glow = pygame.Surface((60, 40), pygame.SRCALPHA)
+        pygame.draw.polygon(lightning_glow, (*lightning_color, alpha), bigger_points, 1)
+        icon_surf.blit(lightning_glow, (0, 0))
+    
+    # 아이콘 블릿
+    SCREEN.blit(icon_surf, (power_x - 10, power_y - 20))
+    
+    # "POWER" 텍스트
+    power_text = "POWER"
+    power_surface = font_medium.render(power_text, True, (255, 200, 50))
+    power_rect = power_surface.get_rect(center=(ui_x, ui_y + 40))
+    SCREEN.blit(power_surface, power_rect)
+    
+    # 축하 효과 (3회 완료 시)
+    global tutorial_power_counter_celebration, tutorial_power_counter_celebration_timer
+    if 'tutorial_power_counter_celebration' not in globals():
+        tutorial_power_counter_celebration = False
+        tutorial_power_counter_celebration_timer = 0
+    
+    if tutorial_power_counter_celebration:
+        current_time = pygame.time.get_ticks()
+        if current_time - tutorial_power_counter_celebration_timer < 3000:  # 3초간 표시
+            # 축하 텍스트
+            complete_text = "완료!"
+            complete_color = (
+                random.randint(200, 255),
+                random.randint(100, 255),
+                random.randint(200, 255)
+            )
+            complete_surface = font_large.render(complete_text, True, complete_color)
+            complete_rect = complete_surface.get_rect(center=(ui_x, ui_y - 40))
+            SCREEN.blit(complete_surface, complete_rect)
+            
+            # 별 효과
+            for _ in range(3):
+                star_x = ui_x + random.randint(-60, 60)
+                star_y = ui_y + random.randint(-30, 30)
+                star_size = random.randint(2, 5)
+                pygame.draw.circle(SCREEN, (255, 255, 100), (star_x, star_y), star_size)
+        else:
+            tutorial_power_counter_celebration = False
 
 def show_drive_monitor_demo(background):
     """드라이브 모니터 표시 시범"""
@@ -23106,6 +23589,17 @@ def calculate_bounce(paddle):
                                 # Chapter 4 초기화: 최대 게이지를 500으로 설정
                                 special_gauge_max = get_max_gauge()  # 500 반환
                                 print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
+                                
+                                # Chapter 4 파워스매싱 튜토리얼 초기화
+                                tutorial_power_practice_shown = False
+                                tutorial_power_helper_dialogue_shown = False
+                                tutorial_power_completion_dialogue_shown = False
+                                tutorial_power_count = 0
+                                tutorial_displayed_power_count = 0
+                                tutorial_power_counter_active = False
+                                tutorial_needs_power_practice = True
+                                tutorial_power_reminder_active = False
+                                tutorial_power_reminder_timer = 0
                         
                         # 공 속도 복원
                         if tutorial_saved_ball_vel:
@@ -30647,6 +31141,7 @@ def main(stage_num, new_boss_mode=False):
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
             draw_tutorial_drive_counter()  # 튜토리얼 드라이브 카운터 표시
+            draw_tutorial_power_counter()  # 튜토리얼 파워스매싱 카운터 표시
             draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
@@ -30698,6 +31193,7 @@ def main(stage_num, new_boss_mode=False):
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
             draw_tutorial_drive_counter()  # 튜토리얼 드라이브 카운터 표시
+            draw_tutorial_power_counter()  # 튜토리얼 파워스매싱 카운터 표시
             draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
@@ -30960,6 +31456,39 @@ def main(stage_num, new_boss_mode=False):
                       f"shown: {tutorial_drive_practice_shown}, gauge: {special_gauge:.0f}/300")
                 main.last_chapter_debug = current_time
             
+            # Chapter 4 - 파워스매싱 연습
+            if tutorial_current_chapter == 4 and tutorial_needs_power_practice and not tutorial_power_practice_shown:
+                print("튜토리얼: Chapter 4 - POWER SMASHING 연습 시작 (메인 루프)")
+                
+                # 대화 시작 전에 게임 화면 그리기
+                draw_field()
+                draw_objects()
+                pygame.display.flip()
+                
+                power_dialogue_result = show_tutorial_power_practice_dialogue()
+                if power_dialogue_result:
+                    tutorial_power_practice_shown = True
+                    tutorial_power_counter_active = True  # 카운터 활성화
+                    print("튜토리얼: 파워스매싱 연습 대화 완료")
+            
+            # Chapter 4 - 게이지 500 도달 시 도우미 대화
+            if (current_stage == 50 and tutorial_current_chapter == 4 and 
+                tutorial_needs_power_practice and tutorial_power_practice_shown and
+                not tutorial_power_helper_dialogue_shown and special_gauge >= 500):
+                
+                print("🎯 Chapter 4: 500 게이지 도달! 도우미 대화 표시")
+                tutorial_power_helper_dialogue_shown = True
+                
+                # 대화 시작 전에 게임 화면 그리기
+                draw_field()
+                draw_objects()
+                pygame.display.flip()
+                
+                show_tutorial_power_helper_dialogue()
+                print("튜토리얼: 파워스매싱 도우미 대화 완료")
+                tutorial_power_reminder_active = True  # 서브 알림창 활성화
+            
+            # Chapter 3 - 드라이브 연습
             if tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
                 print("튜토리얼: Chapter 3 - DRIVE 연습 시작 (메인 루프)")
                 
