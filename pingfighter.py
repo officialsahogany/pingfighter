@@ -743,7 +743,7 @@ def get_max_gauge():
     # 튜토리얼 챕터별 최대 게이지 체크
     # 우선순위: Chapter 3 > Chapter 2 > Chapter 1 순으로 체크
     
-    # 튜토리얼 드라이브 챕터 (Chapter 3) 임시 오버라이드 체크 - 250
+    # 튜토리얼 드라이브 챕터 (Chapter 3) 임시 오버라이드 체크 - 300
     if 'tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None:
         print(f"DEBUG: Chapter 3 게이지 사용: {tutorial_drive_chapter_max_gauge}")
         return tutorial_drive_chapter_max_gauge
@@ -6297,8 +6297,12 @@ def handle_player(keys):
                             # Chapter 3 타이틀 표시 (드라이브)
                             show_chapter_title(3, "DRIVE", "드라이브")
                             
-                            # 드라이브 챕터: 플레이어 최대 게이지를 250으로 임시 설정
-                            tutorial_drive_chapter_max_gauge = 250
+                            # 드라이브 챕터: 플레이어 최대 게이지를 300으로 설정 (Chapter 2와 동일)
+                            tutorial_drive_chapter_max_gauge = 300
+                            
+                            # Chapter 3 시작시 게이지 0으로 초기화
+                            special_gauge = 0
+                            print(f"튜토리얼: Chapter 3 시작 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
                             
                             # 드라이브 연습 관련 global 선언  
                             global tutorial_needs_drive_practice, tutorial_drive_practice_shown
@@ -28954,8 +28958,12 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 3 타이틀 표시
                 show_chapter_title(3, "DRIVE", "드라이브")
                 
-                # 드라이브 챕터: 플레이어 최대 게이지를 250으로 임시 설정
-                tutorial_drive_chapter_max_gauge = 250
+                # 드라이브 챕터: 플레이어 최대 게이지를 300으로 설정 (Chapter 2와 동일)
+                tutorial_drive_chapter_max_gauge = 300
+                
+                # Chapter 3 시작시 게이지 0으로 초기화
+                special_gauge = 0
+                print(f"튜토리얼: Chapter 3 시작 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
                 
                 # Chapter 3 (드라이브 연습)로 상태 변경
                 tutorial_needs_dash_practice = False  # 대쉬 연습 완료
@@ -29123,8 +29131,12 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 3 타이틀 표시
                 show_chapter_title(3, "DRIVE", "드라이브")
                 
-                # 드라이브 챕터: 플레이어 최대 게이지를 250으로 임시 설정
-                tutorial_drive_chapter_max_gauge = 250
+                # 드라이브 챕터: 플레이어 최대 게이지를 300으로 설정 (Chapter 2와 동일)
+                tutorial_drive_chapter_max_gauge = 300
+                
+                # Chapter 3 시작시 게이지 0으로 초기화
+                special_gauge = 0
+                print(f"튜토리얼: Chapter 3 시작 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
                 
                 # 대쉬 연습 완료, 드라이브 연습 시작
                 tutorial_needs_dash_practice = False  # 대쉬 연습 완료
