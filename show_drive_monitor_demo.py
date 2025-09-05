@@ -8,6 +8,17 @@ def show_drive_monitor_demo(background):
     BOSS_COLOR = (255, 100, 100)  # 조교 텍스트 색상
     CYAN = (0, 255, 255)  # 안내 텍스트 색상
     
+    # 색상 그라데이션 설정
+    gradient_colors = [
+        (255, 255, 100),  # 노란색
+        (255, 200, 100),  # 주황색
+        (255, 150, 200),  # 핑크
+        (200, 150, 255),  # 보라색
+        (150, 200, 255),  # 하늘색
+        (100, 255, 200),  # 민트색
+    ]
+    color_change_duration = 2000  # 2초마다 색상 변경
+    
     # 데모용 매개변수 - 실제 게임과 동일한 조건
     boss_x = WIDTH // 2
     boss_y = 120  # 챕터2와 동일한 높이
@@ -208,8 +219,29 @@ def show_drive_monitor_demo(background):
         # 시범 안내 텍스트 - 항상 동일한 텍스트 표시
         display_text = "[조교] 드라이브 모니터가 표시가 된다."
         
-        # 텍스트 렌더링 (챕터2 스타일)
-        text_surface = font_medium.render(display_text, True, BOSS_COLOR)
+        # 색상 계산 (그라데이션)
+        color_time = current_time % (color_change_duration * len(gradient_colors))
+        color_index = int(color_time / color_change_duration)
+        next_color_index = (color_index + 1) % len(gradient_colors)
+        
+        # 현재 색상과 다음 색상 사이의 보간값 계산
+        transition_progress = (color_time % color_change_duration) / color_change_duration
+        
+        # 부드러운 전환을 위한 사인 함수 적용
+        smooth_progress = (math.sin((transition_progress - 0.5) * math.pi) + 1) / 2
+        
+        # 색상 보간
+        current_color = gradient_colors[color_index]
+        next_color = gradient_colors[next_color_index]
+        
+        interpolated_color = (
+            int(current_color[0] + (next_color[0] - current_color[0]) * smooth_progress),
+            int(current_color[1] + (next_color[1] - current_color[1]) * smooth_progress),
+            int(current_color[2] + (next_color[2] - current_color[2]) * smooth_progress)
+        )
+        
+        # 텍스트 렌더링 (그라데이션 색상 적용)
+        text_surface = font_medium.render(display_text, True, interpolated_color)
         text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
         
         # 텍스트 그림자 효과
