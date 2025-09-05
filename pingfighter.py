@@ -28301,7 +28301,7 @@ def main(stage_num, new_boss_mode=False):
                 # 8번키 스킵 플래그 설정하여 기존 로직 재사용
                 main.key8_pressed = True
                 keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
-                return main(screen_arg)  # 메인 루프로 돌아가서 8번키 처리하게 함
+                return main(50)  # 메인 루프로 돌아가서 8번키 처리하게 함
             elif dash_dialogue_result:
                 # 대쉬 대화 후 바로 오버레이 도우미 활성화 (서브 도우미와 동일한 방식)
                 global tutorial_dash_helper_active, tutorial_dash_helper_start_time
@@ -28335,7 +28335,7 @@ def main(stage_num, new_boss_mode=False):
                 # 8번키 스킵 플래그 설정하여 기존 로직 재사용
                 main.key8_pressed = True
                 keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
-                return main(screen_arg)  # 메인 루프로 돌아가서 8번키 처리하게 함
+                return main(50)  # 메인 루프로 돌아가서 8번키 처리하게 함
             elif intro_dialogue_result:
                 print("튜토리얼 대화 완료")
                 tutorial_dialogue_shown = True
@@ -29785,7 +29785,7 @@ def main(stage_num, new_boss_mode=False):
                     # 8번키 스킵 플래그 설정하여 기존 로직 재사용
                     main.key8_pressed = True
                     keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
-                    return main(screen_arg)  # 메인 루프로 돌아가서 8번키 처리하게 함
+                    return main(50)  # 메인 루프로 돌아가서 8번키 처리하게 함
                 elif drive_dialogue_result:
                     tutorial_drive_practice_shown = True
                     tutorial_practice_mode = True
@@ -29846,7 +29846,7 @@ def main(stage_num, new_boss_mode=False):
                     # 8번키 스킵 플래그 설정하여 기존 로직 재사용
                     main.key8_pressed = True
                     keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
-                    return main(screen_arg)  # 메인 루프로 돌아가서 8번키 처리하게 함
+                    return main(50)  # 메인 루프로 돌아가서 8번키 처리하게 함
                 elif speed_dialogue_result:
                     tutorial_pause_for_dialogue = False
                     # 속도 대화 완료 후 라운드 승리 처리
