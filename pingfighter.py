@@ -6454,12 +6454,13 @@ def handle_player(keys):
             # global 선언 제거 (이미 위에서 선언됨)
             # Chapter 3 디버그 정보 출력
             if current_stage == 50 and tutorial_current_chapter == 3:
-                print(f"[DEBUG Ch3] gauge: {old_gauge} -> {special_gauge}, needs_drive: {tutorial_needs_drive_practice}, shown: {tutorial_drive_practice_shown}, helper_shown: {tutorial_drive_helper_dialogue_shown}")
+                print(f"[DEBUG Ch3] gauge: {old_gauge:.1f} -> {special_gauge:.1f}, needs_drive: {tutorial_needs_drive_practice}, shown: {tutorial_drive_practice_shown}, helper_shown: {tutorial_drive_helper_dialogue_shown}")
             
+            # 조건을 간소화하여 160 게이지 이상이면 바로 표시
             if (current_stage == 50 and tutorial_current_chapter == 3 and 
                 tutorial_needs_drive_practice and tutorial_drive_practice_shown and
                 not tutorial_drive_helper_dialogue_shown and 
-                old_gauge < 160 and special_gauge >= 160):
+                special_gauge >= 160):
                 
                 tutorial_drive_helper_dialogue_shown = True
                 print("튜토리얼: 드라이브 도우미 대화 표시 (160 게이지 달성)")
