@@ -5021,6 +5021,10 @@ def handle_player(keys):
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown
     global tutorial_saved_ball_vel, tutorial_pause_for_dialogue, ball_vel
     global tutorial_drive_reminder_active, tutorial_current_chapter
+    # Chapter 3 드라이브 관련 변수 추가 (160 게이지 도우미 대화를 위해 필수)
+    global tutorial_needs_drive_practice, tutorial_drive_practice_shown
+    global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
+    global tutorial_drive_count, tutorial_displayed_drive_count
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
     if new_boss_mode_active:
         if selected_bottom_boss == 1:
