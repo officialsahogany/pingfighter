@@ -51,20 +51,25 @@ def serve_ball(is_player_serve=True, current_stage=1):
     # 기본 서브 속도와 방향 설정
     base_speed = 9
     
-    # 튜토리얼 스테이지(50)는 더 느린 속도 사용 (플레이어가 반격하기 쉽게)
+    # 튜토리얼 스테이지(50)도 스테이지 1과 동일한 속도 사용
     if current_stage == 50:
-        base_speed = 6  # 튜토리얼용 더 느린 속도 (플레이어 반격 용이)
+        # 스테이지 1과 동일한 속도 메커니즘 적용
         if is_player_serve:
             # 플레이어 서브: 위로
-            ball_vel = [random.choice([-1.5, 1.5]), -base_speed]
+            ball_vel = [random.choice([-3, 3]), -base_speed]
         else:
-            # 보스 서브: 아래로 (더 느리게)
-            ball_vel = [random.choice([-1.5, 1.5]), base_speed]
+            # 보스 서브: 아래로
+            ball_vel = [random.choice([-3, 3]), base_speed]
+        
+        # 스테이지 1과 동일한 속도 배율 적용 (1.0 + 0 * 0.03 = 1.0)
+        stage_multiplier = 1.0  # 스테이지 1과 동일
+        ball_vel[0] *= stage_multiplier
+        ball_vel[1] *= stage_multiplier
         
         # 튜토리얼 서브 디버깅
         import math
         actual_speed = math.hypot(ball_vel[0], ball_vel[1])
-        print(f"🎓 튜토리얼 서브: ball_vel={ball_vel}, 실제속도={actual_speed:.2f}, 임계값={9*0.85:.2f}")
+        print(f"🎓 튜토리얼 서브: ball_vel={ball_vel}, 실제속도={actual_speed:.2f}, 스테이지1과 동일")
     else:
         if is_player_serve:
             # 플레이어 서브: 위로
