@@ -5965,11 +5965,12 @@ def handle_player(keys):
                 left_pressed = keys[pygame.K_LEFT]
                 right_pressed = keys[pygame.K_RIGHT]
                 
-                # 튜토리얼 드라이브 알림창 화살표 키로 비활성화
-                if current_stage == 50 and 'tutorial_drive_reminder_active' in globals():
-                    if tutorial_drive_reminder_active and (left_pressed or right_pressed):
-                        tutorial_drive_reminder_active = False
-                        print("튜토리얼: 화살표 키 입력으로 드라이브 알림창 비활성화")
+                # 튜토리얼 드라이브 알림창 화살표 키로 비활성화 (임시 비활성화 - 디버깅용)
+                # TODO: 드라이브 알림창이 제대로 표시되는지 확인 후 다시 활성화
+                # if current_stage == 50 and 'tutorial_drive_reminder_active' in globals():
+                #     if tutorial_drive_reminder_active and (left_pressed or right_pressed):
+                #         tutorial_drive_reminder_active = False
+                #         print("튜토리얼: 화살표 키 입력으로 드라이브 알림창 비활성화")
                 # 마우스 조작 (비활성화됨)
                 if False:  # input_manager.get_control_mode() == "마우스":
                     # 마우스 위치로 직접 패들 이동
@@ -6452,9 +6453,14 @@ def handle_player(keys):
             
             # 튜토리얼 Chapter 3: 160 게이지 도달시 드라이브 도우미 대화 표시
             # global 선언 제거 (이미 위에서 선언됨)
-            # Chapter 3 디버그 정보 출력
-            if current_stage == 50 and tutorial_current_chapter == 3:
-                print(f"[DEBUG Ch3] gauge: {old_gauge:.1f} -> {special_gauge:.1f}, needs_drive: {tutorial_needs_drive_practice}, shown: {tutorial_drive_practice_shown}, helper_shown: {tutorial_drive_helper_dialogue_shown}")
+            # Chapter 3 디버그 정보 출력 (간격 제한)
+            if current_stage == 50 and tutorial_current_chapter == 3 and special_gauge >= 100:
+                if not hasattr(handle_player, 'last_debug_time'):
+                    handle_player.last_debug_time = 0
+                current_time = pygame.time.get_ticks()
+                if current_time - handle_player.last_debug_time > 1000:  # 1초마다 출력
+                    print(f"[CH3 GAUGE] {special_gauge:.0f}/300 | needs_drive: {tutorial_needs_drive_practice} | shown: {tutorial_drive_practice_shown} | helper_shown: {tutorial_drive_helper_dialogue_shown}")
+                    handle_player.last_debug_time = current_time
             
             # 조건을 간소화하여 160 게이지 이상이면 바로 표시
             if (current_stage == 50 and tutorial_current_chapter == 3 and 
@@ -6482,6 +6488,10 @@ def handle_player(keys):
                     tutorial_drive_count = 0
                     tutorial_displayed_drive_count = 0.0
                     print("튜토리얼: 드라이브 카운터 UI 활성화")
+                    
+                    # 드라이브 알림창도 활성화
+                    tutorial_drive_reminder_active = True
+                    print("튜토리얼: 160 게이지 도우미 대화 후 드라이브 알림창 활성화")
                     
                     # 공 속도 복원
                     if tutorial_saved_ball_vel:
@@ -30545,6 +30555,10 @@ def main(stage_num, new_boss_mode=False):
         
         # 튜토리얼: Chapter 3 드라이브 연습 체크 (메인 루프 내)
         if current_stage == 50 and 'tutorial_needs_drive_practice' in globals():
+            # Chapter 3 상태 디버그
+            if tutorial_current_chapter == 3:
+                print(f"[CH3 DEBUG] needs_drive: {tutorial_needs_drive_practice}, shown: {tutorial_drive_practice_shown}, reminder: {tutorial_drive_reminder_active}")
+            
             if tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
                 print("튜토리얼: Chapter 3 - DRIVE 연습 시작 (메인 루프)")
                 
@@ -30580,9 +30594,9 @@ def main(stage_num, new_boss_mode=False):
                     # 서브 알림창 활성화 (Chapter 3 대화 후 서브를 안내)
                     tutorial_serve_reminder_active = True
                     print("🎯 Chapter 3: 서브 알림창 활성화")
-                    # 드라이브 연습 알림도 활성화
-                    tutorial_drive_reminder_active = True
-                    print("🎯 드라이브 연습 알림 활성화")
+                    # 드라이브 연습 알림은 일단 비활성화 (160 게이지에서 도우미 대화와 함께 활성화)
+                    tutorial_drive_reminder_active = False  # 변경: 처음엔 False로 설정
+                    print("🎯 드라이브 연습 알림은 160 게이지 도달시 활성화 예정")
                     
                     # 드라이브 카운터는 160 게이지 달성시 활성화 (도우미 대화 후)
                     # 따라서 여기서는 활성화하지 않음
