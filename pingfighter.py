@@ -28065,7 +28065,7 @@ def main(stage_num, new_boss_mode=False):
     global player_missile_stunned_timer, player_stunned, player_stun_end_time
     global rolling_active, rolling_timer, rolling_direction, rolling_speed, rolling_stun_timer
     global player_flame_zone_knockback_vel, player_flame_zone_knockback_cooldown, player_in_flame_zone
-    global aipill_active
+    global aipill_active, current_speed
     
     # 플레이어 위치 가운데로 고정
     PLAYER.centerx = WIDTH // 2
@@ -30148,8 +30148,6 @@ def main(stage_num, new_boss_mode=False):
                     print(f"튜토리얼: 공 위치 초기화 - Ball: ({BALL.centerx}, {BALL.centery})")
                     
                     # 3. 플레이어 상태 초기화
-                    global rolling_active, rolling_timer, rolling_direction, rolling_speed, rolling_stun_timer
-                    global player_stunned_timer, player_knockback_vel, player_stunned, current_speed
                     rolling_active = False
                     rolling_timer = 0 
                     rolling_direction = 0
