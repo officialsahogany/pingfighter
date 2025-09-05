@@ -1842,12 +1842,12 @@ for stage_num in range(1, 6):
             "fail_error": BOSS_CONFIGS[stage_num]["fail_error"],
         }
 
-# 스테이지 50 (튜토리얼) 보스 설정 - 기본 스테이지 1 기반으로 속도 50% 증가
+# 스테이지 50 (튜토리얼) 보스 설정 - 스테이지 1과 완전히 동일
 boss_speed_config[50] = {
-    "accel": BOSS_CONFIGS[1]["accel"] * 1.5,  # 가속도 50% 증가
-    "decel": BOSS_CONFIGS[1]["decel"] * 1.5,  # 감속도 50% 증가
-    "max_speed": BOSS_CONFIGS[1]["max_speed"] * 1.5,  # 최대 속도 50% 증가
-    "instant_stop": BOSS_CONFIGS[1]["instant_stop"] * 1.5,  # 즉시 정지 속도 50% 증가
+    "accel": BOSS_CONFIGS[1]["accel"],  # 스테이지 1과 동일 (0.798)
+    "decel": BOSS_CONFIGS[1]["decel"],  # 스테이지 1과 동일 (0.798)
+    "max_speed": BOSS_CONFIGS[1]["max_speed"],  # 스테이지 1과 동일 (6.3175)
+    "instant_stop": BOSS_CONFIGS[1]["instant_stop"],  # 스테이지 1과 동일 (0.665)
     # AI 설정 (스테이지 1과 동일)
     "predict_chance": 0.45,
     "predict_error": 95,
