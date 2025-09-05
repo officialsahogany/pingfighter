@@ -500,7 +500,7 @@ try:
     STAGE1_BG = pygame.image.load(resource_path("stage1_field.png")).convert()
     STAGE1_BG = pygame.transform.scale(STAGE1_BG, (WIDTH, HEIGHT))
     # Stage 1 테두리 제거 - 기존 맵 타일 패턴으로 채우기
-    border_thickness = 30  # 테두리 두께
+    border_thickness = 10  # 테두리 두께 (Stage 2/3과 동일하게 얇게)
     
     # 테두리 안쪽의 맵 타일을 복사하여 테두리 영역에 채우기
     # 상단 테두리 - 바로 아래 타일 복사
@@ -29056,22 +29056,22 @@ def main(stage_num, new_boss_mode=False):
                     drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
                     perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
                     #  파워스매싱 - 속도 대폭 증가
-                    current_speed = math.hypot(ball_vel[0], ball_vel[1])
-                    power_smashing_original_speed = current_speed  #  원래 속도 저장 (보스 반격 시 감속용)
+                    ball_current_speed = math.hypot(ball_vel[0], ball_vel[1])
+                    power_smashing_original_speed = ball_current_speed  #  원래 속도 저장 (보스 반격 시 감속용)
                     # 고스트샷은 초기에 느리게 시작 (용의 움직임을 위해)
                     if mega_smashing_active:
                         # 고스트샷은 천천히 시작
                         new_speed = BALL_BASE_SPEED * 0.5  # 기본 속도의 50%로 시작
-                        mega_smashing_original_speed = current_speed  # 원래 속도 저장
-                        actual_boost = new_speed - current_speed  # 고스트샷도 actual_boost 계산
+                        mega_smashing_original_speed = ball_current_speed  # 원래 속도 저장
+                        actual_boost = new_speed - ball_current_speed  # 고스트샷도 actual_boost 계산
                     else:
                         # 파워스매싱은 기존대로 빠르게
                         min_boost = BALL_BASE_SPEED * 0.75  # 최소 증가량 (75%)
-                        actual_boost = max(current_speed * 0.64, min_boost)  # 64% 증가 (164% 속도) 또는 최소값
-                        new_speed = current_speed + actual_boost
+                        actual_boost = max(ball_current_speed * 0.64, min_boost)  # 64% 증가 (164% 속도) 또는 최소값
+                        new_speed = ball_current_speed + actual_boost
                     # 속도 비율 적용으로 방향 유지하면서 속도 증가
-                    if current_speed > 0:
-                        speed_ratio = new_speed / current_speed
+                    if ball_current_speed > 0:
+                        speed_ratio = new_speed / ball_current_speed
                         ball_vel[0] *= speed_ratio
                         ball_vel[1] *= speed_ratio
                     else:

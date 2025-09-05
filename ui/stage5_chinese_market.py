@@ -362,17 +362,7 @@ class Stage5ChineseMarket:
         center_y = HEIGHT // 2
         center_x = WIDTH // 2
         
-        # 상단 영역에만 은은한 장식 (패들 근처)
-        for x in range(100, WIDTH - 100, 150):
-            for y in range(50, 150, 100):
-                # 매우 은은한 작은 동전 문양
-                self.draw_chinese_coin(screen, x, y, 15, (*DARK_RED, 25))
-        
-        # 하단 영역에만 은은한 장식 (플레이어 패들 근처)
-        for x in range(100, WIDTH - 100, 150):
-            for y in range(HEIGHT - 150, HEIGHT - 50, 100):
-                # 매우 은은한 작은 동전 문양
-                self.draw_chinese_coin(screen, x, y, 15, (*DARK_RED, 25))
+        # 동전 문양 제거됨 - 배경이 더 깨끗하게 표시됩니다
     
     def add_fire_impact(self, x, y):
         """불꽃탄이 바닥에 닿았을 때 호출되는 메소드"""
