@@ -6303,8 +6303,8 @@ def handle_player(keys):
                             # 드라이브 연습 관련 global 선언  
                             global tutorial_needs_drive_practice, tutorial_drive_practice_shown
                             global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
-                            global tutorial_dash_counter_active, tutorial_dash_count
                             global tutorial_drive_count, tutorial_displayed_drive_count
+                            # tutorial_dash_counter_active와 tutorial_dash_count는 이미 위에서 선언됨
                             
                             # 대쉬 연습 완료, 드라이브 연습 시작
                             tutorial_needs_dash_practice = False  # 대쉬 연습 완료
