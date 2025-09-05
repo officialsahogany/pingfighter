@@ -28210,11 +28210,9 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown  # 드라이브 튜토리얼 관련 변수
     global tutorial_drive_chapter_max_gauge  # 드라이브 챕터 최대 게이지 오버라이드
     
-    # 대쉬 튜토리얼 재진입 체크
-    dash_practice_reentry = 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice
-    
-    # 대쉬 튜토리얼 재진입이 아닌 경우 일부 변수 초기화
-    if not dash_practice_reentry:
+    # 스테이지 50 (튜토리얼) 시작 시 항상 모든 상태 초기화
+    # 8번키 스킵 후 재시작 등의 상황에서 올바른 초기화 보장
+    if stage_num == 50:
         # 초기 튜토리얼 시작 - 모든 변수 초기화
         tutorial_dialogue_shown = False
         tutorial_practice_mode = False  # 실습 모드 플래그
@@ -28234,18 +28232,9 @@ def main(stage_num, new_boss_mode=False):
         tutorial_drive_chapter_max_gauge = None  # 드라이브 챕터 최대 게이지 임시 오버라이드
         tutorial_needs_drive_practice = False  # 드라이브 연습이 필요한지 여부
         tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
-    else:
-        # 대쉬 튜토리얼 재진입 - 일부 변수만 초기화
-        tutorial_dialogue_shown = True  # 초기 대화는 이미 표시됨
-        tutorial_practice_mode = False  # 실습 모드는 대쉬 대화 후 시작
-        tutorial_pause_for_dialogue = False  # 일시정지 해제
-        tutorial_saved_ball_vel = [0, 0]  # 공 속도 초기화
-        tutorial_wait_for_first_serve = False  # 대쉬 연습에서는 보스가 서브
-        tutorial_dash_practice_shown = False  # 대쉬 연습 대화를 표시하기 위해 False로 설정
-        tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부 리셋
-        tutorial_dash_completion_dialogue_shown = False  # 대쉬 완료 대화 표시 여부 리셋
-        # tutorial_needs_dash_practice는 True 값 유지
-        # 나머지 변수들은 현재 값 유지
+        
+        # 튜토리얼 상태 완전 초기화 완료
+        print("🔄 튜토리얼 상태 완전 초기화됨")
     
     # 게이지 및 속도 튜토리얼 관련 변수
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
@@ -28320,7 +28309,7 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_practice_mode = True  # 실습 모드 재활성화
                 
                 print("🎉 Chapter 2 스킵 완료, Chapter 3 - DRIVE 시작")
-                return None  # 정상적으로 메인 루프 계속
+                # continue로 메인 루프 계속 진행
             elif dash_dialogue_result:
                 # 대쉬 대화 후 바로 오버레이 도우미 활성화 (서브 도우미와 동일한 방식)
                 global tutorial_dash_helper_active, tutorial_dash_helper_start_time
@@ -28372,7 +28361,6 @@ def main(stage_num, new_boss_mode=False):
                 
                 print("🎉 Chapter 1 스킵 완료, Chapter 2 - DASH 시작")
                 # continue로 메인 루프 계속 진행
-                return None  # 정상적으로 메인 루프 계속
             elif intro_dialogue_result:
                 print("튜토리얼 대화 완료")
                 tutorial_dialogue_shown = True
@@ -29928,9 +29916,9 @@ def main(stage_num, new_boss_mode=False):
                     # 대쉬 연습 플래그 설정
                     tutorial_needs_dash_practice = True  # 대쉬 연습 필요
                     
-                    # 스테이지 50 재시작 (대쉬 튜토리얼로)
-                    print("튜토리얼: Chapter 1 - DASH 시작, 스테이지 50 재시작")
-                    return main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
+                    # Chapter 2 설정 완료, 메인 루프 계속 진행
+                    print("튜토리얼: Chapter 1 완료, Chapter 2 - DASH 시작")
+                    # continue는 이미 while 루프를 계속 진행하므로 추가 작업 불필요
         
         pygame.display.flip()
         # 프로파일러 프레임 종료
