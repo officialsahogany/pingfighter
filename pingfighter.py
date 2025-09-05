@@ -733,12 +733,10 @@ def get_max_gauge():
     
     # Chapter 2 (DASH) - 300
     if 'tutorial_chapter2_max_gauge' in globals() and tutorial_chapter2_max_gauge is not None:
-        print(f"DEBUG: Chapter 2 게이지 사용: {tutorial_chapter2_max_gauge}")
         return tutorial_chapter2_max_gauge
     
     # Chapter 1 (BASIC) - 100
     if 'tutorial_chapter1_max_gauge' in globals() and tutorial_chapter1_max_gauge is not None:
-        print(f"DEBUG: Chapter 1 게이지 사용: {tutorial_chapter1_max_gauge}")
         return tutorial_chapter1_max_gauge
     
     base_max = 500
@@ -28599,10 +28597,19 @@ def main(stage_num, new_boss_mode=False):
                 reset_round()  # 라운드 리셋
                 tutorial_practice_mode = True  # 실습 모드 재활성화
                 
-                # 공 속도 복원 (대쉬 연습 중 저장한 속도)
+                # 공 속도 복원 (대쉬 연습 중 저장한 속도) - 적절한 속도로 설정
                 if 'tutorial_saved_ball_vel' in globals():
-                    ball_vel[0] = tutorial_saved_ball_vel[0] if tutorial_saved_ball_vel[0] != 0 else 5
-                    ball_vel[1] = tutorial_saved_ball_vel[1] if tutorial_saved_ball_vel[1] != 0 else 5
+                    # 저장된 속도가 있으면 사용하되, 너무 느리면 적절한 속도로 설정
+                    saved_speed = math.hypot(tutorial_saved_ball_vel[0], tutorial_saved_ball_vel[1])
+                    if saved_speed < 6:  # 저장된 속도가 너무 느리면
+                        # 튜토리얼용 적절한 서브 속도로 설정 (physics_manager와 일치)
+                        ball_vel[0] = random.choice([-2, 2])
+                        ball_vel[1] = 8  # 아래로 향하는 속도
+                        print(f"🎓 Chapter 전환: 저장된 속도({saved_speed:.1f})가 느려서 적절한 속도({math.hypot(ball_vel[0], ball_vel[1]):.1f})로 설정")
+                    else:
+                        ball_vel[0] = tutorial_saved_ball_vel[0]
+                        ball_vel[1] = tutorial_saved_ball_vel[1]
+                        print(f"🎓 Chapter 전환: 저장된 속도({saved_speed:.1f}) 복원")
                 
             elif 'tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None:
                 # Chapter 3 (드라이브) 진행 중 -> 튜토리얼 완료
@@ -29884,7 +29891,7 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 튜토리얼 드라이브 알림창 오버레이 표시
                 if 'tutorial_drive_reminder_active' in globals():
-                    if tutorial_drive_reminder_active:
+                    if globals()['tutorial_drive_reminder_active']:
                         draw_tutorial_drive_reminder()
                 
                 # Chapter 2 대쉬 대화 표시 (메인 루프에서)
