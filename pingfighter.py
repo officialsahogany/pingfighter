@@ -15662,7 +15662,7 @@ def show_tutorial_drive_helper_dialogue():
             line = ""
             for word in words:
                 test_line = line + word + " "
-                text_width = font_small.get_rect(test_line)[2]
+                text_width = font_small.size(test_line)[0]
                 if text_width > box_width - 40:
                     if line:
                         text_surface = font_small.render(line, True, (255, 255, 255))
