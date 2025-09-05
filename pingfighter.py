@@ -67,6 +67,23 @@ def resource_path(relative_path):
     
     return full_path
 
+def check_ball_speed_safety():
+    """공 속도 안전성 확인 및 제한"""
+    global ball_vel
+    import math
+    
+    current_speed = math.hypot(ball_vel[0], ball_vel[1])
+    max_safe_speed = BALL_BASE_SPEED * 2.0  # 기본 속도의 2배가 안전 상한
+    
+    if current_speed > max_safe_speed:
+        # 속도 제한 적용
+        scale = max_safe_speed / current_speed
+        ball_vel[0] *= scale
+        ball_vel[1] *= scale
+        print(f"⚠️ 속도 안전 제한 적용: {current_speed:.2f} → {max_safe_speed:.2f}")
+        return True
+    return False
+
 
 # ============================================================
 # 5. 게임 메카닉 시스템 Import
@@ -4469,6 +4486,9 @@ def check_laser_ball_collision():
             ball_vel[0] *= speed_boost
             ball_vel[1] *= speed_boost
             
+            # 속도 안전성 검사
+            check_ball_speed_safety()
+            
             #  수증기 증발 효과 생성
             create_laser_evaporation_effect(laser)
             
@@ -4638,6 +4658,10 @@ def handle_lightning_master_as_top():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -4650,6 +4674,10 @@ def handle_lightning_master_as_top():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -4727,6 +4755,10 @@ def handle_ice_queen_as_top():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -4739,6 +4771,10 @@ def handle_ice_queen_as_top():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -4922,6 +4958,8 @@ def handle_new_boss_skills_timer():
                 thunder_force_y = random.uniform(-0.3, 0.3)
                 ball_vel[0] += thunder_force_x
                 ball_vel[1] += thunder_force_y
+            # 속도 안전성 검사
+            check_ball_speed_safety()
         if lightning_strike_timer <= 0:
             lightning_strike_active = False
             print("!")
@@ -25613,6 +25651,10 @@ def handle_boss_pro():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -25625,6 +25667,10 @@ def handle_boss_pro():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -25819,6 +25865,10 @@ def handle_boss_champion():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -25831,6 +25881,10 @@ def handle_boss_champion():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -26031,6 +26085,10 @@ def handle_boss_mythic():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -26043,6 +26101,10 @@ def handle_boss_mythic():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -26386,6 +26448,10 @@ def handle_boss_junior():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -26398,6 +26464,10 @@ def handle_boss_junior():
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
+                # 서브 속도 모니터링 로그
+                import math
+                serve_speed = math.hypot(ball_vel[0], ball_vel[1])
+                print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
                 calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)

@@ -73,10 +73,20 @@ def serve_ball(is_player_serve=True, current_stage=1):
             # 보스 서브: 아래로
             ball_vel = [random.choice([-3, 3]), base_speed]
         
-        # 스테이지별 속도 조정 (튜토리얼 제외)
-        stage_multiplier = 1.0 + (current_stage - 1) * 0.03
+        # 스테이지별 속도 조정 (튜토리얼 제외) - 안전한 상한 적용
+        stage_multiplier = 1.0 + min((current_stage - 1) * 0.03, 0.5)  # 최대 1.5배까지만
         ball_vel[0] *= stage_multiplier
         ball_vel[1] *= stage_multiplier
+        
+        # 서브 속도 안전 상한 적용
+        import math
+        current_speed = math.hypot(ball_vel[0], ball_vel[1])
+        max_serve_speed = base_speed * 1.6  # 기본 속도의 1.6배까지만 허용
+        if current_speed > max_serve_speed:
+            scale = max_serve_speed / current_speed
+            ball_vel[0] *= scale
+            ball_vel[1] *= scale
+            print(f"⚠️ 서브 속도 제한 적용: {current_speed:.2f} → {max_serve_speed:.2f}")
     
     # 볼 임팩트 부스트 (기본값)
     ball_impact_boost = 1.0
