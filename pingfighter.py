@@ -6462,53 +6462,6 @@ def handle_player(keys):
             if special_gauge >= 350:  # 파워스매시 발동 조건
                 special_ready = True
             
-            # 튜토리얼 Chapter 3: 160 게이지 도달시 드라이브 도우미 대화 표시
-            # global 선언 제거 (이미 위에서 선언됨)
-            # Chapter 3 디버그 정보 출력 (간격 제한)
-            if current_stage == 50 and tutorial_current_chapter == 3 and special_gauge >= 100:
-                if not hasattr(handle_player, 'last_debug_time'):
-                    handle_player.last_debug_time = 0
-                current_time = pygame.time.get_ticks()
-                if current_time - handle_player.last_debug_time > 1000:  # 1초마다 출력
-                    print(f"[CH3 GAUGE] {special_gauge:.0f}/300 | needs_drive: {tutorial_needs_drive_practice} | shown: {tutorial_drive_practice_shown} | helper_shown: {tutorial_drive_helper_dialogue_shown}")
-                    handle_player.last_debug_time = current_time
-            
-            # 조건을 간소화하여 160 게이지 이상이면 바로 표시
-            if (current_stage == 50 and tutorial_current_chapter == 3 and 
-                tutorial_needs_drive_practice and tutorial_drive_practice_shown and
-                not tutorial_drive_helper_dialogue_shown and 
-                special_gauge >= 160):
-                
-                tutorial_drive_helper_dialogue_shown = True
-                print("튜토리얼: 드라이브 도우미 대화 표시 (160 게이지 달성)")
-                
-                # 게임 일시정지하고 도우미 대화 표시
-                # global tutorial_saved_ball_vel - 이미 위에서 선언됨
-                tutorial_saved_ball_vel = ball_vel.copy()
-                ball_vel[0] = 0
-                ball_vel[1] = 0
-                
-                helper_result = show_tutorial_drive_helper_dialogue()
-                if helper_result == "skip_chapter":
-                    print("🎮 드라이브 도우미 대화에서 챕터 스킵 요청")
-                    # Chapter 3 완료 처리
-                    pass  # 메인 루프에서 처리
-                else:
-                    # 대화 후 드라이브 카운터 UI 활성화
-                    tutorial_drive_counter_active = True
-                    tutorial_drive_count = 0
-                    tutorial_displayed_drive_count = 0.0
-                    print("튜토리얼: 드라이브 카운터 UI 활성화")
-                    
-                    # 드라이브 알림창도 활성화
-                    tutorial_drive_reminder_active = True
-                    print("튜토리얼: 160 게이지 도우미 대화 후 드라이브 알림창 활성화")
-                    
-                    # 공 속도 복원
-                    if tutorial_saved_ball_vel:
-                        ball_vel[0] = tutorial_saved_ball_vel[0]
-                        ball_vel[1] = tutorial_saved_ball_vel[1]
-            
             # 충돌 쿨다운 설정하여 중복 충전 방지
             player_collision_cooldown = 15
         elif rolling_active:
@@ -30607,16 +30560,13 @@ def main(stage_num, new_boss_mode=False):
                     # 서브 알림창 활성화 (Chapter 3 대화 후 서브를 안내)
                     tutorial_serve_reminder_active = True
                     print("🎯 Chapter 3: 서브 알림창 활성화")
-                    # 드라이브 연습 알림은 일단 비활성화 (160 게이지에서 도우미 대화와 함께 활성화)
-                    tutorial_drive_reminder_active = False  # 변경: 처음엔 False로 설정
-                    print("🎯 드라이브 연습 알림은 160 게이지 도달시 활성화 예정")
                     
-                    # 드라이브 카운터는 160 게이지 달성시 활성화 (도우미 대화 후)
-                    # 따라서 여기서는 활성화하지 않음
-                    tutorial_drive_counter_active = False
+                    # 160 게이지 도달시 도우미 대화 표시를 위한 플래그
+                    tutorial_drive_helper_dialogue_shown = False  # 아직 도우미 대화 안봄
+                    tutorial_drive_reminder_active = False  # 드라이브 알림은 도우미 대화 후에
+                    tutorial_drive_counter_active = False  # 카운터도 도우미 대화 후에
                     tutorial_drive_count = 0
                     tutorial_displayed_drive_count = 0.0
-                    tutorial_drive_helper_dialogue_shown = False
                     
                     print(f"[DEBUG] 챕터3 대화 완료 후 변수 상태:")
                     print(f"[DEBUG] - tutorial_drive_practice_shown: {tutorial_drive_practice_shown}")
@@ -30627,6 +30577,38 @@ def main(stage_num, new_boss_mode=False):
                     # 드라이브 연습 시작 설정
                     reset_round()  # 라운드 리셋
                     continue  # 다음 프레임으로
+        
+        # Chapter 3: 160 게이지 도달시 도우미 대화 표시
+        if (current_stage == 50 and tutorial_current_chapter == 3 and 
+            tutorial_needs_drive_practice and tutorial_drive_practice_shown and
+            not tutorial_drive_helper_dialogue_shown and special_gauge >= 160):
+            
+            print("🎯 Chapter 3: 160 게이지 도달! 도우미 대화 표시")
+            tutorial_drive_helper_dialogue_shown = True
+            
+            # 게임 일시정지
+            tutorial_saved_ball_vel = ball_vel.copy()
+            ball_vel[0] = 0
+            ball_vel[1] = 0
+            
+            # 화면 그리기
+            draw_field()
+            draw_objects()
+            pygame.display.flip()
+            
+            # 도우미 대화 표시
+            if show_tutorial_drive_helper_dialogue():
+                # 대화 완료 후 드라이브 카운터와 알림 활성화
+                tutorial_drive_counter_active = True
+                tutorial_drive_reminder_active = True
+                print("🎯 도우미 대화 완료: 드라이브 카운터와 알림 활성화")
+            
+            # 공 속도 복원
+            if tutorial_saved_ball_vel:
+                ball_vel[0] = tutorial_saved_ball_vel[0]
+                ball_vel[1] = tutorial_saved_ball_vel[1]
+            
+            continue  # 다음 프레임으로
         
         # 튜토리얼 대화창 표시 체크 (화면이 그려진 후)
         if current_stage == 50 and tutorial_pause_for_dialogue:
