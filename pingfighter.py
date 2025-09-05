@@ -28964,9 +28964,19 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_dash_helper_start_time = pygame.time.get_ticks()
                 tutorial_dash_practice_shown = True
                 tutorial_practice_mode = True
-                print(f"튜토리얼: 대쉬 연습 대화 완료, 오버레이 도우미 활성화={tutorial_dash_helper_active}, 보스 서브로 시작")
-                # 게이지 충전 로직 제거 - 자연스럽게 0부터 시작
-                # 보스가 서브하도록 설정됨 (이미 설정되어 있음)
+                print(f"튜토리얼: 대쉬 연습 대화 완료, 오버레이 도우미 활성화={tutorial_dash_helper_active}")
+                
+                # Chapter 2: 플레이어가 먼저 서브하도록 설정
+                is_waiting_for_serve = True
+                is_player_serve = True  # 플레이어 서브
+                ball_vel[0] = 0
+                ball_vel[1] = 0
+                BALL[0] = WIDTH // 2
+                BALL[1] = HEIGHT - 100  # 플레이어 앞에 공 배치
+                print("🎯 Chapter 2: 플레이어가 먼저 서브!")
+                
+                # Chapter 1 공속도 초기화
+                tutorial_saved_ball_vel = None
         elif not tutorial_dialogue_shown:
             # Chapter 1 - BASIC 표시 (대화 전에)
             show_chapter_title(1, "BASIC", "기본 연습")
@@ -30452,6 +30462,18 @@ def main(stage_num, new_boss_mode=False):
                             tutorial_dash_practice_shown = True
                             tutorial_practice_mode = True
                             print(f"튜토리얼: 대쉬 연습 대화 완료 (메인 루프), 오버레이 도우미 활성화={tutorial_dash_helper_active}")
+                            
+                            # Chapter 2: 플레이어가 먼저 서브하도록 설정
+                            is_waiting_for_serve = True
+                            is_player_serve = True  # 플레이어가 서브
+                            ball_vel[0] = 0
+                            ball_vel[1] = 0
+                            BALL[0] = WIDTH // 2
+                            BALL[1] = HEIGHT - 100  # 플레이어 앞에 공 배치
+                            print("🎯 Chapter 2: 플레이어가 먼저 서브!")
+                            
+                            # Chapter 1 공속도 초기화 (Chapter 2용 새 속도)
+                            tutorial_saved_ball_vel = None
                         
                         tutorial_pause_for_dialogue = False
                         
