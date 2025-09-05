@@ -1060,8 +1060,15 @@ clock = pygame.time.Clock()
 speech_timer = 0
 speech_text = ""
 tear_particles = []  # 눈물 파티클 리스트
-# 사운드 초기화
+# 사운드 초기화 (macOS 호환성 개선)
+pygame.mixer.pre_init(
+    frequency=44100,  # 샘플레이트
+    size=-16,         # 16비트 사운드
+    channels=2,       # 스테레오
+    buffer=512        # 작은 버퍼 (낮은 지연시간)
+)
 pygame.mixer.init()
+pygame.mixer.set_num_channels(8)  # 동시 재생 가능한 채널 수
 # 사운드 파일 로드
 SOUND_SERVE = pygame.mixer.Sound(resource_path("sounds/serve.wav"))
 SOUND_WALL = pygame.mixer.Sound(resource_path("sounds/wall_hit.wav"))
@@ -16297,9 +16304,9 @@ def show_drive_animation_demo(background):
         key_combo_font = FontStyle.subtitle()  # 큰 폰트 사용
         direction = demo_phases[current_phase]['direction']
         if direction == 'left':
-            key_combo_text = "← + SPACE"
+            key_combo_text = "SPACE + ←"
         else:
-            key_combo_text = "→ + SPACE"
+            key_combo_text = "SPACE + →"
         
         # 키 콤보 텍스트 렌더링
         key_combo_surface = key_combo_font.render(key_combo_text, True, CYAN)
