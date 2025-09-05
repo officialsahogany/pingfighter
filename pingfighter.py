@@ -6311,6 +6311,12 @@ def handle_player(keys):
                             tutorial_dash_counter_active = False
                             tutorial_dash_count = 0
                             
+                            # 드라이브 카운터 초기화
+                            tutorial_drive_counter_active = False  # 160 게이지 달성시 활성화
+                            tutorial_drive_count = 0
+                            tutorial_displayed_drive_count = 0.0
+                            tutorial_drive_helper_dialogue_shown = False
+                            
                             # 게임 계속 진행을 위한 설정
                             # 새로운 라운드 시작 (현재 스테이지 50 유지)
                             reset_round()  # 라운드 리셋
@@ -6427,6 +6433,7 @@ def handle_player(keys):
                     print(f"    : {paddle_charge_multiplier:.1f}x → {total_gauge_gain}")
             
             print(f" DEBUG:  handle_player   ({total_gauge_gain})")
+            old_gauge = special_gauge  # 이전 게이지 저장
             special_gauge += total_gauge_gain
             #  동적 최대치 제한 적용
             current_max = get_max_gauge()
@@ -6435,6 +6442,41 @@ def handle_player(keys):
             #  필살기 준비 상태 업데이트 (400 이상일 때)
             if special_gauge >= 350:  # 파워스매시 발동 조건
                 special_ready = True
+            
+            # 튜토리얼 Chapter 3: 160 게이지 도달시 드라이브 도우미 대화 표시
+            global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
+            global tutorial_current_chapter, tutorial_needs_drive_practice, tutorial_drive_practice_shown
+            if (current_stage == 50 and tutorial_current_chapter == 3 and 
+                tutorial_needs_drive_practice and tutorial_drive_practice_shown and
+                not tutorial_drive_helper_dialogue_shown and 
+                old_gauge < 160 and special_gauge >= 160):
+                
+                tutorial_drive_helper_dialogue_shown = True
+                print("튜토리얼: 드라이브 도우미 대화 표시 (160 게이지 달성)")
+                
+                # 게임 일시정지하고 도우미 대화 표시
+                global tutorial_saved_ball_vel
+                tutorial_saved_ball_vel = ball_vel.copy()
+                ball_vel[0] = 0
+                ball_vel[1] = 0
+                
+                helper_result = show_tutorial_drive_helper_dialogue()
+                if helper_result == "skip_chapter":
+                    print("🎮 드라이브 도우미 대화에서 챕터 스킵 요청")
+                    # Chapter 3 완료 처리
+                    pass  # 메인 루프에서 처리
+                else:
+                    # 대화 후 드라이브 카운터 UI 활성화
+                    tutorial_drive_counter_active = True
+                    tutorial_drive_count = 0
+                    tutorial_displayed_drive_count = 0.0
+                    print("튜토리얼: 드라이브 카운터 UI 활성화")
+                    
+                    # 공 속도 복원
+                    if tutorial_saved_ball_vel:
+                        ball_vel[0] = tutorial_saved_ball_vel[0]
+                        ball_vel[1] = tutorial_saved_ball_vel[1]
+            
             # 충돌 쿨다운 설정하여 중복 충전 방지
             player_collision_cooldown = 15
         elif rolling_active:
@@ -14787,6 +14829,13 @@ tutorial_dash_count = 0  # 대쉬 성공 횟수
 tutorial_displayed_dash_count = 0.0  # 화면에 표시되는 애니메이션용 대쉬 카운트
 tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
 
+# 튜토리얼 드라이브 카운터 변수
+tutorial_drive_count = 0  # 드라이브 성공 횟수
+tutorial_displayed_drive_count = 0.0  # 화면에 표시되는 애니메이션용 드라이브 카운트
+tutorial_drive_counter_active = False  # 드라이브 카운터 UI 활성화 여부
+tutorial_drive_helper_dialogue_shown = False  # 드라이브 도우미 대화 표시 여부 (160 게이지 달성시)
+tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 표시 여부 (4회 성공시)
+
 # 튜토리얼 현재 챕터 추적 변수
 tutorial_current_chapter = 1  # 1: BASIC, 2: DASH, 3: DRIVE
 
@@ -15526,6 +15575,137 @@ def show_tutorial_drive_dialogue():
                 
                 # 실제 텍스트
                 SCREEN.blit(text_surface, text_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+    
+    return True
+
+def show_tutorial_drive_helper_dialogue():
+    """튜토리얼 드라이브 도우미 대화 (160 게이지 달성시)"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_medium = FontStyle.body()    # 24pt
+    font_small = FontStyle.small()    # 18pt
+    
+    # 대화 내용
+    dialogues = [
+        "드라이브에 필요한 게이지가 모였습니다",
+        "드라이브는 150게이지를 소모해요",
+        "드라이브를 시전할 때 공에 닿는",
+        "패들의 위치에 따라 각도나 속도가",
+        "조금씩 달라질 수 있어요",
+        "드라이브 발동 시 팁이 있다면",
+        "공이 패들에 닿기 전에 0.1~0.3초 정도 미리",
+        "스페이스키 + 방향키를 누르는 느낌으로",
+        "하시면 더 잘될거에요",
+        "이제 원하는 방향으로",
+        "드라이브공을 발사해보세요!"
+    ]
+    
+    current_line = 0
+    char_index = 0
+    display_text = ""
+    text_complete = False
+    
+    # 타이핑 속도 설정
+    last_char_time = pygame.time.get_ticks()
+    typing_speed = 30  # 30ms마다 한 글자
+    
+    # 대화창 설정
+    box_width = 700
+    box_height = 300
+    box_x = (WIDTH - box_width) // 2
+    box_y = HEIGHT // 2 - box_height // 2
+    
+    while current_line < len(dialogues):
+        current_time = pygame.time.get_ticks()
+        
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_8:
+                    # 8번키로 스킵
+                    return "skip_chapter"
+                elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
+                    if text_complete:
+                        # 다음 대화로
+                        current_line += 1
+                        if current_line < len(dialogues):
+                            char_index = 0
+                            display_text = ""
+                            text_complete = False
+                            last_char_time = current_time
+                    else:
+                        # 텍스트 즉시 완성
+                        display_text = dialogues[current_line]
+                        char_index = len(dialogues[current_line])
+                        text_complete = True
+        
+        # 타이핑 애니메이션
+        if not text_complete and current_line < len(dialogues):
+            if current_time - last_char_time >= typing_speed:
+                if char_index < len(dialogues[current_line]):
+                    display_text = dialogues[current_line][:char_index + 1]
+                    char_index += 1
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+        
+        # 게임 화면 그리기
+        draw_field()
+        draw_objects()
+        pygame.display.flip()
+        
+        # 반투명 배경
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        SCREEN.blit(overlay, (0, 0))
+        
+        # 대화창 그리기
+        pygame.draw.rect(SCREEN, (40, 40, 80), (box_x, box_y, box_width, box_height))
+        pygame.draw.rect(SCREEN, (100, 200, 255), (box_x, box_y, box_width, box_height), 3)
+        
+        # 도우미 타이틀
+        title_text = "💡 드라이브 도우미"
+        title_surface = font_medium.render(title_text, True, (100, 255, 200))
+        title_rect = title_surface.get_rect(centerx=box_x + box_width // 2, y=box_y + 20)
+        SCREEN.blit(title_surface, title_rect)
+        
+        # 대화 텍스트 표시
+        if current_line < len(dialogues):
+            text_y = box_y + 80
+            # 텍스트를 줄바꿈하여 표시
+            words = display_text.split()
+            line = ""
+            for word in words:
+                test_line = line + word + " "
+                text_width = font_small.get_rect(test_line)[2]
+                if text_width > box_width - 40:
+                    if line:
+                        text_surface = font_small.render(line, True, (255, 255, 255))
+                        text_rect = text_surface.get_rect(centerx=box_x + box_width // 2, y=text_y)
+                        SCREEN.blit(text_surface, text_rect)
+                        text_y += 30
+                    line = word + " "
+                else:
+                    line = test_line
+            
+            if line:
+                text_surface = font_small.render(line, True, (255, 255, 255))
+                text_rect = text_surface.get_rect(centerx=box_x + box_width // 2, y=text_y)
+                SCREEN.blit(text_surface, text_rect)
+        
+        # 진행 안내
+        if text_complete:
+            hint_text = "스페이스바를 눌러 계속..." if current_line < len(dialogues) - 1 else "스페이스바를 눌러 연습 시작!"
+            hint_surface = font_small.render(hint_text, True, (255, 255, 100))
+            hint_rect = hint_surface.get_rect(centerx=box_x + box_width // 2, y=box_y + box_height - 40)
+            SCREEN.blit(hint_surface, hint_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -16623,6 +16803,133 @@ def draw_tutorial_ui():
         hint_surface = font_medium.render(hint_text, True, hint_color)
         hint_rect = hint_surface.get_rect(centerx=paddle_x, top=paddle_y + 25)  # 30 -> 25로 조정
         SCREEN.blit(hint_surface, hint_rect)
+
+def draw_tutorial_drive_counter():
+    """튜토리얼 드라이브 카운터 UI 표시 (4회 드라이브 카운트)"""
+    global tutorial_drive_counter_active, tutorial_drive_count, tutorial_displayed_drive_count
+    
+    # 드라이브 카운터가 활성화되었을 때만 표시
+    if not tutorial_drive_counter_active or current_stage != 50:
+        return
+    
+    # 점진적 애니메이션 업데이트
+    if tutorial_displayed_drive_count < tutorial_drive_count:
+        # 부드러운 애니메이션 속도 (프레임당 0.05 증가)
+        tutorial_displayed_drive_count = min(tutorial_displayed_drive_count + 0.05, tutorial_drive_count)
+    
+    # 폰트 설정
+    font_large = FontStyle.body()      # 24pt - 숫자용
+    font_medium = FontStyle.small()    # 18pt
+    
+    # 위치 설정 - 화면 우측 상단
+    base_x = WIDTH - 150
+    base_y = 100
+    
+    # 원형 진행도 배경
+    circle_center_x = base_x
+    circle_center_y = base_y
+    circle_radius = 35
+    
+    # 배경 원
+    pygame.draw.circle(SCREEN, (40, 40, 60), (circle_center_x, circle_center_y), circle_radius, 0)
+    
+    # 외곽 테두리
+    border_color = (100, 200, 255) if tutorial_drive_count < 4 else (0, 255, 200)
+    pygame.draw.circle(SCREEN, border_color, (circle_center_x, circle_center_y), circle_radius, 3)
+    
+    # 진행도 호 그리기
+    if tutorial_displayed_drive_count > 0:
+        import math
+        # 각 성공당 90도씩 (4회 = 360도)
+        progress_angle = (tutorial_displayed_drive_count / 4) * 360
+        
+        # 호를 세그먼트로 그리기
+        segments = int(progress_angle / 5)  # 5도씩 나눔
+        for i in range(segments):
+            angle1 = math.radians(-90 + i * 5)  # 12시 방향에서 시작
+            angle2 = math.radians(-90 + (i + 1) * 5)
+            
+            x1 = circle_center_x + circle_radius * math.cos(angle1)
+            y1 = circle_center_y + circle_radius * math.sin(angle1)
+            x2 = circle_center_x + circle_radius * math.cos(angle2)
+            y2 = circle_center_y + circle_radius * math.sin(angle2)
+            
+            # 진행도 색상
+            if tutorial_drive_count < 2:
+                color = (255, 150, 150)  # 빨간색
+            elif tutorial_drive_count < 3:
+                color = (255, 200, 100)  # 주황색
+            elif tutorial_drive_count < 4:
+                color = (255, 255, 100)  # 노란색
+            else:
+                color = (0, 255, 200)  # 민트색 (완료)
+            
+            pygame.draw.line(SCREEN, color, (x1, y1), (x2, y2), 3)
+    
+    # 숫자 표시
+    counter_text = f"{tutorial_drive_count}/4"
+    counter_surface = font_large.render(counter_text, True, (255, 255, 255))
+    counter_rect = counter_surface.get_rect(center=(circle_center_x, circle_center_y))
+    SCREEN.blit(counter_surface, counter_rect)
+    
+    # 드라이브 아이콘 그리기 (원형 진행도 오른쪽에)
+    drive_x = circle_center_x
+    drive_y = circle_center_y + 55
+    drive_offset = 40
+    
+    # 드라이브 아이콘 (스타 모양)
+    star_surf = pygame.Surface((50, 40), pygame.SRCALPHA)
+    
+    # 드라이브 별 아이콘
+    star_color = (255, 255, 100) if tutorial_drive_count >= 2 else (255, 150, 150)
+    star_points = []
+    for i in range(10):
+        angle = math.radians(i * 36 - 90)
+        if i % 2 == 0:
+            r = 15
+        else:
+            r = 8
+        x = 25 + r * math.cos(angle)
+        y = 20 + r * math.sin(angle)
+        star_points.append((x, y))
+    
+    pygame.draw.polygon(star_surf, star_color, star_points)
+    pygame.draw.polygon(star_surf, (255, 255, 255, 50), star_points, 2)
+    
+    # 진행도에 따른 반짝임 효과
+    if tutorial_displayed_drive_count < tutorial_drive_count:
+        # 애니메이션 중일 때 반짝임
+        glow_alpha = int(128 + 127 * math.sin(pygame.time.get_ticks() * 0.01))
+        glow_surf = pygame.Surface((50, 40), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (255, 255, 100, glow_alpha // 3), (25, 20), 20)
+        star_surf.blit(glow_surf, (0, 0))
+    
+    # 별 아이콘 애니메이션 (회전)
+    rotation = (pygame.time.get_ticks() // 20) % 360
+    rotated_star = pygame.transform.rotate(star_surf, rotation if tutorial_drive_count > 0 else 0)
+    star_rect = rotated_star.get_rect(center=(drive_x, drive_y))
+    SCREEN.blit(rotated_star, star_rect)
+    
+    # 진행 상태 메시지
+    if tutorial_drive_count < 1:
+        hint_text = "드라이브 연습"
+        hint_color = (150, 150, 150)
+    elif tutorial_drive_count < 4:
+        hint_text = "훌륭해요!"
+        hint_color = (255, 200, 100)
+        # 칭찬 메시지에 반짝임 효과
+        if pygame.time.get_ticks() % 1000 < 500:
+            hint_color = (255, 230, 150)
+    else:
+        hint_text = "드라이브 마스터!"
+        hint_color = (0, 255, 200)
+        # 완료 시 강한 반짝임
+        if pygame.time.get_ticks() % 600 < 300:
+            hint_color = (100, 255, 255)
+    
+    hint_surface = font_medium.render(hint_text, True, hint_color)
+    hint_rect = hint_surface.get_rect(centerx=circle_center_x, y=drive_y + 30)
+    SCREEN.blit(hint_surface, hint_rect)
 
 def draw_tutorial_dash_counter():
     """튜토리얼 대쉬 카운터 UI 표시 (3회 대쉬 카운트)"""
@@ -22445,6 +22752,28 @@ def calculate_bounce(paddle):
             SOUND_DRIVE.play()  # 플레이어 드라이브 발동 효과음
             #  드라이브 성공 기록
             record_skill_usage(success=True)
+            
+            # 튜토리얼 드라이브 카운터 증가 (Chapter 3)
+            global tutorial_drive_count, tutorial_drive_counter_active, tutorial_drive_completion_dialogue_shown
+            if current_stage == 50 and tutorial_drive_counter_active:
+                if tutorial_drive_count < 4:
+                    tutorial_drive_count += 1
+                    print(f"튜토리얼: 드라이브 성공 {tutorial_drive_count}/4")
+                    
+                    # 성공 피드백 표시
+                    if tutorial_drive_count == 1:
+                        show_tutorial_success_feedback("드라이브 성공!", "normal")
+                    elif tutorial_drive_count == 2:
+                        show_tutorial_success_feedback("멋져요!", "great")
+                    elif tutorial_drive_count == 3:
+                        show_tutorial_success_feedback("대단해요!", "perfect")
+                    elif tutorial_drive_count == 4:
+                        show_tutorial_success_feedback("드라이브 마스터!", "perfect")
+                    
+                    # 4회 완료 시 축하 대화 표시
+                    if tutorial_drive_count == 4 and not tutorial_drive_completion_dialogue_shown:
+                        tutorial_drive_completion_dialogue_shown = True
+                        # 완료 메시지는 나중에 표시 (게임 흐름 유지)
             # ️ 드라이브 스핀 효과 적용 (기본 커브량 + 공속 비례 추가 커브)
             global ball_spin_strength, ball_spin_direction, drive_ball_active, drive_hit_boss, drive_just_activated
             # 기본 커브량 유지
@@ -28631,6 +28960,12 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_dash_counter_active = False
                 tutorial_dash_count = 0
                 
+                # 드라이브 카운터 초기화
+                tutorial_drive_counter_active = False  # 160 게이지 달성시 활성화
+                tutorial_drive_count = 0
+                tutorial_displayed_drive_count = 0.0
+                tutorial_drive_helper_dialogue_shown = False
+                
                 # 게임 계속 진행을 위한 설정
                 reset_round()  # 라운드 리셋
                 tutorial_practice_mode = True  # 실습 모드 재활성화
@@ -28793,6 +29128,12 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_drive_practice_shown = False  # 드라이브 대화 아직 표시 안됨
                 tutorial_dash_counter_active = False
                 tutorial_dash_count = 0
+                
+                # 드라이브 카운터 초기화
+                tutorial_drive_counter_active = False  # 160 게이지 달성시 활성화
+                tutorial_drive_count = 0
+                tutorial_displayed_drive_count = 0.0
+                tutorial_drive_helper_dialogue_shown = False
                 
                 # 게임 계속 진행을 위한 설정
                 reset_round()  # 라운드 리셋
@@ -29891,6 +30232,7 @@ def main(stage_num, new_boss_mode=False):
             draw_objects()
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
+            draw_tutorial_drive_counter()  # 튜토리얼 드라이브 카운터 표시
             draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
@@ -29941,6 +30283,7 @@ def main(stage_num, new_boss_mode=False):
             draw_objects()
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
+            draw_tutorial_drive_counter()  # 튜토리얼 드라이브 카운터 표시
             draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
@@ -30217,10 +30560,19 @@ def main(stage_num, new_boss_mode=False):
                     # 드라이브 연습 알림도 활성화
                     tutorial_drive_reminder_active = True
                     print("🎯 드라이브 연습 알림 활성화")
+                    
+                    # 드라이브 카운터는 160 게이지 달성시 활성화 (도우미 대화 후)
+                    # 따라서 여기서는 활성화하지 않음
+                    tutorial_drive_counter_active = False
+                    tutorial_drive_count = 0
+                    tutorial_displayed_drive_count = 0.0
+                    tutorial_drive_helper_dialogue_shown = False
+                    
                     print(f"[DEBUG] 챕터3 대화 완료 후 변수 상태:")
                     print(f"[DEBUG] - tutorial_drive_practice_shown: {tutorial_drive_practice_shown}")
                     print(f"[DEBUG] - tutorial_practice_mode: {tutorial_practice_mode}")
                     print(f"[DEBUG] - tutorial_drive_reminder_active: {tutorial_drive_reminder_active}")
+                    print(f"[DEBUG] - tutorial_drive_counter_active: {tutorial_drive_counter_active}")
                     print(f"[DEBUG] - current_stage: {current_stage}")
                     # 드라이브 연습 시작 설정
                     reset_round()  # 라운드 리셋
