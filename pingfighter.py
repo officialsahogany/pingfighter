@@ -30115,6 +30115,24 @@ def main(stage_num, new_boss_mode=False):
                     # 대쉬 연습 플래그 설정
                     tutorial_needs_dash_practice = True  # 대쉬 연습 필요
                     
+                    # Chapter 1→2 전환 시 공 속도 복원 (중요!)
+                    if tutorial_saved_ball_vel:
+                        import math
+                        saved_speed = math.hypot(tutorial_saved_ball_vel[0], tutorial_saved_ball_vel[1])
+                        if saved_speed < 6:  # 저장된 속도가 너무 느리면
+                            ball_vel[0] = random.choice([-2, 2])
+                            ball_vel[1] = 8  # 아래로 향하는 적절한 속도
+                            print(f"튜토리얼: Chapter1→2 전환 공 속도 복원 (보정됨) - {ball_vel} (원래속도: {saved_speed:.2f})")
+                        else:
+                            ball_vel[0] = tutorial_saved_ball_vel[0]
+                            ball_vel[1] = tutorial_saved_ball_vel[1]
+                            print(f"튜토리얼: Chapter1→2 전환 공 속도 복원 - {ball_vel}")
+                    else:
+                        # 저장된 속도가 없으면 기본 Chapter 2 속도 설정
+                        ball_vel[0] = random.choice([-2, 2])
+                        ball_vel[1] = 8  # 아래로 향하는 적절한 속도
+                        print(f"튜토리얼: Chapter1→2 전환 기본 속도 설정 - {ball_vel}")
+                    
                     # Chapter 2 설정 완료, 메인 루프 계속 진행
                     print("튜토리얼: Chapter 1 완료, Chapter 2 - DASH 시작")
                     # continue는 이미 while 루프를 계속 진행하므로 추가 작업 불필요
