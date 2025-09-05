@@ -28178,7 +28178,6 @@ def main(stage_num, new_boss_mode=False):
     global nine_just_pressed, last_nine_state
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge
     global tutorial_skip_chapter2_init
-    global math  # Fix for UnboundLocalError: math module access
     nine_just_pressed = False
     last_nine_state = False
     
@@ -30236,7 +30235,6 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_pause_for_dialogue = False
                     # 공의 속도를 복원 (일시정지 전 속도로)
                     if tutorial_saved_ball_vel:
-                        import math
                         saved_speed = math.hypot(tutorial_saved_ball_vel[0], tutorial_saved_ball_vel[1])
                         if saved_speed < 6:  # 저장된 속도가 너무 느리면
                             ball_vel[0] = random.choice([-2, 2])
@@ -30263,7 +30261,6 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_pause_for_dialogue = False
                     # 공의 속도를 복원 (일시정지 전 속도로)
                     if tutorial_saved_ball_vel:
-                        import math
                         saved_speed = math.hypot(tutorial_saved_ball_vel[0], tutorial_saved_ball_vel[1])
                         if saved_speed < 6:  # 저장된 속도가 너무 느리면
                             ball_vel[0] = random.choice([-2, 2])
@@ -30326,7 +30323,6 @@ def main(stage_num, new_boss_mode=False):
                     
                     # Chapter 1→2 전환 시 공 속도 복원 (중요!)
                     if tutorial_saved_ball_vel:
-                        import math
                         saved_speed = math.hypot(tutorial_saved_ball_vel[0], tutorial_saved_ball_vel[1])
                         if saved_speed < 6:  # 저장된 속도가 너무 느리면
                             ball_vel[0] = random.choice([-2, 2])
@@ -31366,7 +31362,7 @@ def show_item_management_menu(item_list, selected_index, item_type):
         # 아이템 정보
         item = item_list[selected_index]
         item_name = item["name"]
-        # 아이템 정보 패널
+        #  아이템 정보 패널
         panel_width = 400
         panel_height = 200
         panel_x = center_x - panel_width // 2
