@@ -6306,9 +6306,9 @@ def handle_player(keys):
                             # 드라이브 챕터: 플레이어 최대 게이지를 300으로 설정 (Chapter 2와 동일)
                             tutorial_drive_chapter_max_gauge = 300
                             
-                            # Chapter 3 시작시 게이지 0으로 초기화
-                            special_gauge = 0
-                            print(f"튜토리얼: Chapter 3 시작 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
+                            # 게이지 초기화는 Chapter 3 대화 완료 후에 하도록 변경
+                            # (이곳에서 초기화하면 대화 표시 전까지 게이지가 쌓임)
+                            print(f"튜토리얼: Chapter 3 전환 - 최대 게이지 설정 ({tutorial_drive_chapter_max_gauge})")
                             
                             # 드라이브 연습 관련 global 선언  
                             global tutorial_needs_drive_practice, tutorial_drive_practice_shown
@@ -30594,6 +30594,12 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_drive_practice_shown = True
                     tutorial_practice_mode = True
                     print("튜토리얼: 드라이브 연습 대화 완료")
+                    
+                    # Chapter 3 대화 완료 후 게이지를 0으로 초기화
+                    special_gauge = 0
+                    displayed_gauge = 0
+                    print(f"튜토리얼: Chapter 3 대화 완료 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
+                    
                     # 서브 알림창 활성화 (Chapter 3 대화 후 서브를 안내)
                     tutorial_serve_reminder_active = True
                     print("🎯 Chapter 3: 서브 알림창 활성화")
