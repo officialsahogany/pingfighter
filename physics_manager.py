@@ -53,7 +53,7 @@ def serve_ball(is_player_serve=True, current_stage=1):
     
     # 튜토리얼 스테이지(50)는 적절한 속도 사용 (slow_ball_timer 회피)
     if current_stage == 50:
-        base_speed = 10  # 튜토리얼용 적절한 속도 (BALL_BASE_SPEED의 85% 이상 유지)
+        base_speed = 8  # 튜토리얼용 적절한 속도 (임계값 7.65 이상, 기본 속도 9 이하)
         if is_player_serve:
             # 플레이어 서브: 위로
             ball_vel = [random.choice([-2, 2]), -base_speed]

@@ -5933,6 +5933,12 @@ def handle_player(keys):
                 # 키보드 조작
                 left_pressed = keys[pygame.K_LEFT]
                 right_pressed = keys[pygame.K_RIGHT]
+                
+                # 튜토리얼 드라이브 알림창 화살표 키로 비활성화
+                if current_stage == 50 and 'tutorial_drive_reminder_active' in globals():
+                    if tutorial_drive_reminder_active and (left_pressed or right_pressed):
+                        tutorial_drive_reminder_active = False
+                        print("튜토리얼: 화살표 키 입력으로 드라이브 알림창 비활성화")
                 # 마우스 조작 (비활성화됨)
                 if False:  # input_manager.get_control_mode() == "마우스":
                     # 마우스 위치로 직접 패들 이동
@@ -14737,6 +14743,7 @@ tutorial_chapter2_max_gauge = None  # Chapter 2 (DASH) 최대 게이지 (300)
 
 # 서브 알림창 전역 변수
 tutorial_serve_reminder_active = False
+tutorial_drive_reminder_active = False  # 드라이브 연습 알림
 
 # 튜토리얼 실습 모드 전역 변수  
 tutorial_practice_mode = False
@@ -15150,6 +15157,42 @@ def draw_tutorial_serve_reminder():
     
     # 알림 박스 위치 및 크기 (대쉬 도우미와 동일한 스타일)
     box_width = 700
+    box_height = 60
+    box_x = (WIDTH - box_width) // 2
+    box_y = HEIGHT // 2 + 100  # 화면 중앙 아래쪽
+    
+    # 박스 배경 (반투명)
+    box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+    box_surface.fill((20, 20, 40, 220))  # 반투명 배경
+    pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 3)  # 청록색 테두리
+    SCREEN.blit(box_surface, (box_x, box_y))
+    
+    # 메인 텍스트
+    main_surface = font_large.render(main_text, True, CYAN)
+    main_rect = main_surface.get_rect(center=(box_x + box_width // 2, box_y + box_height // 2))
+    SCREEN.blit(main_surface, main_rect)
+    
+    # 깜박임 효과 (화살표)
+    if pygame.time.get_ticks() % 1000 < 500:
+        arrow_text = font_large.render("▼", True, CYAN)
+        arrow_rect = arrow_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + 10))
+        SCREEN.blit(arrow_text, arrow_rect)
+
+def draw_tutorial_drive_reminder():
+    """튜토리얼 드라이브 연습 알림 오버레이 (Chapter 3 드라이브 대화 후 표시)"""
+    global tutorial_drive_reminder_active
+    
+    if not tutorial_drive_reminder_active:
+        return
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 메인 텍스트용
+    
+    # 알림 내용 - 사용자 요청 텍스트
+    main_text = "타이밍에 맞춰 키를 눌러 드라이브를 발사해보세요 !"
+    
+    # 알림 박스 위치 및 크기 (서브 알림과 동일한 스타일)
+    box_width = 750  # 텍스트가 길어서 조금 더 넓게
     box_height = 60
     box_x = (WIDTH - box_width) // 2
     box_y = HEIGHT // 2 + 100  # 화면 중앙 아래쪽
@@ -28305,6 +28348,7 @@ def main(stage_num, new_boss_mode=False):
             tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
             tutorial_serve_helper_active = False  # 서브 도우미 현재 활성 상태
             tutorial_serve_reminder_active = False  # 서브 알림창 활성 상태 (인트로 후)
+            tutorial_drive_reminder_active = False  # 드라이브 알림창 활성 상태 (Chapter 3 후)
             tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
             tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
             tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
@@ -29086,6 +29130,12 @@ def main(stage_num, new_boss_mode=False):
                     if tutorial_serve_reminder_active:
                         tutorial_serve_reminder_active = False
                         print("튜토리얼: 스페이스바 입력으로 서브 알림창 비활성화")
+
+                # 튜토리얼 드라이브 알림창 스페이스바로 비활성화 (드라이브 시도 시)
+                if current_stage == 50 and 'tutorial_drive_reminder_active' in globals():
+                    if tutorial_drive_reminder_active:
+                        tutorial_drive_reminder_active = False
+                        print("튜토리얼: 스페이스바 입력으로 드라이브 알림창 비활성화")
                 
                 # 전설 아이템 효과가 스페이스바를 기다리는 중이면 처리
                 if handle_legendary_space_press():
@@ -29820,6 +29870,11 @@ def main(stage_num, new_boss_mode=False):
                     if tutorial_serve_reminder_active:
                         draw_tutorial_serve_reminder()
                 
+                # 튜토리얼 드라이브 알림창 오버레이 표시
+                if 'tutorial_drive_reminder_active' in globals():
+                    if tutorial_drive_reminder_active:
+                        draw_tutorial_drive_reminder()
+                
                 # Chapter 2 대쉬 대화 표시 (메인 루프에서)
                 if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
                     if 'tutorial_dash_practice_shown' in globals() and not tutorial_dash_practice_shown:
@@ -29934,6 +29989,9 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_drive_practice_shown = True
                     tutorial_practice_mode = True
                     print("튜토리얼: 드라이브 연습 대화 완료")
+                    # 드라이브 연습 알림 활성화
+                    tutorial_drive_reminder_active = True
+                    print("🎯 드라이브 연습 알림 활성화")
                     # 드라이브 연습 시작 설정
                     reset_round()  # 라운드 리셋
                     continue  # 다음 프레임으로
