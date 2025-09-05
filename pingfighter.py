@@ -5020,7 +5020,7 @@ def handle_player(keys):
     global tutorial_practice_mode, tutorial_boss_returned, tutorial_gauge_tutorial_shown
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown
     global tutorial_saved_ball_vel, tutorial_pause_for_dialogue, ball_vel
-    global tutorial_drive_reminder_active
+    global tutorial_drive_reminder_active, tutorial_current_chapter
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
     if new_boss_mode_active:
         if selected_bottom_boss == 1:
