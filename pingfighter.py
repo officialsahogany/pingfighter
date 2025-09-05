@@ -28515,6 +28515,7 @@ def main(stage_num, new_boss_mode=False):
     global nine_just_pressed, last_nine_state
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge
     global tutorial_skip_chapter2_init
+    global tutorial_drive_reminder_active  # 드라이브 알림창 전역 변수
     nine_just_pressed = False
     last_nine_state = False
     
@@ -30567,9 +30568,7 @@ def main(stage_num, new_boss_mode=False):
                     print("🎉 튜토리얼 모든 챕터 완료!")
                     return "main_menu"  # 메인 메뉴로 돌아감
                 elif drive_dialogue_result:
-                    # 드라이브 알림 전역 변수 선언
-                    global tutorial_drive_reminder_active
-                    
+                    # 드라이브 알림 변수는 main 함수 시작부에서 global 선언됨
                     tutorial_drive_practice_shown = True
                     tutorial_practice_mode = True
                     print("튜토리얼: 드라이브 연습 대화 완료")
