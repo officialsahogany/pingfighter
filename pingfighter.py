@@ -6457,7 +6457,7 @@ def handle_player(keys):
                 print("튜토리얼: 드라이브 도우미 대화 표시 (160 게이지 달성)")
                 
                 # 게임 일시정지하고 도우미 대화 표시
-                global tutorial_saved_ball_vel
+                # global tutorial_saved_ball_vel - 이미 위에서 선언됨
                 tutorial_saved_ball_vel = ball_vel.copy()
                 ball_vel[0] = 0
                 ball_vel[1] = 0
