@@ -30618,8 +30618,8 @@ def main(stage_num, new_boss_mode=False):
             draw_objects()
             pygame.display.flip()
             
-            # 도우미 대화 표시
-            if show_tutorial_drive_helper_dialogue():
+            # Chapter 2랑 똑같이 게이지 대화 사용
+            if show_tutorial_gauge_dialogue():
                 # 대화 완료 후 드라이브 카운터와 알림 활성화
                 tutorial_drive_counter_active = True
                 tutorial_drive_reminder_active = True
