@@ -15372,7 +15372,7 @@ def show_drive_monitor_demo(background):
     # 애니메이션 지속 시간
     animation_duration = 2000  # 2초 (현실적인 속도)
     drive_text_timer = 0  # DRIVE! 텍스트 표시 타이머
-    drive_text_duration = 2000  # 2초 동안 표시
+    drive_text_duration = 500   # 0.5초 동안 표시
     
     while current_phase < len(demo_phases):
         # 이벤트 처리
@@ -15432,25 +15432,46 @@ def show_drive_monitor_demo(background):
         ball_y = ball_start_y + (ball_target_y - ball_start_y) * smooth_progress
         ball_y += arc_height * 4 * smooth_progress * (1 - smooth_progress)  # 포물선 공식
         
-        # 조교(보스) 그리기 - 단일 인스턴스 보장
+        # 조교(보스) 그리기 - 실제 게임에서 사용하는 이미지들 사용
+        boss_img = None
+        
+        # 튜토리얼에서는 조교 이미지 사용
+        if current_stage == 50:  # Tutorial stage
+            try:
+                boss_img_path = resource_path("boss_tutorial.png")
+                boss_img = pygame.image.load(boss_img_path).convert_alpha()
+                boss_img = pygame.transform.scale(boss_img, (80, 100))
+            except:
+                # 이미지 로드 실패시 기본 이미지
+                boss_img = pygame.Surface((80, 100), pygame.SRCALPHA)
+                pygame.draw.rect(boss_img, BOSS_COLOR, (0, 0, 80, 100), border_radius=10)
+        else:
+            # 실제 스테이지별 보스 이미지 사용
+            if current_stage == 1:
+                boss_img = BOSS_IMG_STAGE1
+                boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
+            elif current_stage == 2:
+                boss_img = draw_crocodile_boss(boss_x, boss_y, ball_x, ball_y)
+            elif current_stage == 3:
+                boss_img = BOSS_IMG_STAGE3
+                boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
+            elif current_stage == 4:
+                boss_img = BOSS_IMG_STAGE4
+                boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT))
+            elif current_stage == 5:
+                boss_img = BOSS_IMG_STAGE5
+                boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT))
+            elif current_stage == 6:
+                boss_img = draw_aircraft_carrier_boss(0, boss_x)
+            else:
+                # 기본 보스 이미지
+                boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
+                pygame.draw.rect(boss_img, BOSS_COLOR, (0, 0, BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), border_radius=10)
+        
+        # 보스 그리기
         if boss_img:
             boss_rect = boss_img.get_rect(center=(boss_x, boss_y))
             SCREEN.blit(boss_img, boss_rect)
-        else:
-            # 조교 기본 모양 - 더 생동감 있게
-            # 몸통
-            body_color = (180, 90, 90)
-            pygame.draw.ellipse(SCREEN, body_color, (boss_x - 35, boss_y - 40, 70, 85))
-            # 패들 (핑을 들고 있는 모습)
-            paddle_color = (100, 50, 50)
-            pygame.draw.rect(SCREEN, paddle_color, (boss_x - 45, boss_y - 10, 90, 15), border_radius=3)
-            # 얼굴
-            pygame.draw.circle(SCREEN, (230, 180, 180), (boss_x, boss_y - 20), 22)  # 얼굴
-            # 눈
-            pygame.draw.circle(SCREEN, (0, 0, 0), (boss_x - 7, boss_y - 25), 3)  # 왼쪽 눈
-            pygame.draw.circle(SCREEN, (0, 0, 0), (boss_x + 7, boss_y - 25), 3)  # 오른쪽 눈
-            # 입 (집중하는 표정)
-            pygame.draw.arc(SCREEN, (0, 0, 0), (boss_x - 8, boss_y - 18, 16, 10), 0, math.pi, 2)
         
         # 공 그리기 - 실제 게임과 동일한 디테일
         ball_color = (255, 200, 0)  # 노란색 공
@@ -15698,26 +15719,39 @@ def show_drive_animation_demo(background):
                 import math
                 wall_x = 10  # 왼쪽 벽 위치
                 
-                # 벽까지 가는 경로 (전체 경로의 60%)
-                for i in range(24):  
-                    t = i / 23
-                    # 왼쪽 벽을 향해 곡선으로 이동
-                    x = demo_state['boss_x'] - t * (demo_state['boss_x'] - wall_x - 50) - math.sin(t * math.pi) * 150
-                    y = demo_state['boss_y'] + t * 400 - math.sin(t * math.pi * 0.5) * 100
+                # 부드러운 베지어 곡선으로 전체 경로 생성
+                total_points = 40
+                
+                # 제어점들 정의 (베지어 곡선용)
+                p0 = (demo_state['boss_x'] + 100, demo_state['boss_y'])  # 시작점
+                p1 = (demo_state['boss_x'] - 100, demo_state['boss_y'] + 100)  # 첫 번째 제어점
+                p2 = (wall_x + 50, demo_state['boss_y'] + 300)  # 두 번째 제어점 (벽 근처)
+                p3 = (wall_x + 200, demo_state['boss_y'] + 500)  # 끝점
+                
+                # 3차 베지어 곡선으로 부드러운 궤적 생성
+                for i in range(total_points):
+                    t = i / (total_points - 1)
+                    
+                    # 베지어 곡선 공식: B(t) = (1-t)³P₀ + 3(1-t)²tP₁ + 3(1-t)t²P₂ + t³P₃
+                    u = 1 - t
+                    tt = t * t
+                    uu = u * u
+                    uuu = uu * u
+                    ttt = tt * t
+                    
+                    x = (uuu * p0[0] + 
+                         3 * uu * t * p1[0] + 
+                         3 * u * tt * p2[0] + 
+                         ttt * p3[0])
+                    
+                    y = (uuu * p0[1] + 
+                         3 * uu * t * p1[1] + 
+                         3 * u * tt * p2[1] + 
+                         ttt * p3[1])
+                    
                     # 화면 경계 확인
                     x = max(wall_x, min(x, WIDTH - 10))
-                    demo_state['curve_points'].append((x, y))
-                
-                # 벽에서 튕겨나오는 경로 (전체 경로의 40%)
-                wall_hit_x = demo_state['curve_points'][-1][0]
-                wall_hit_y = demo_state['curve_points'][-1][1]
-                for i in range(16):
-                    t = i / 15
-                    # 벽에서 반사되어 오른쪽으로
-                    x = wall_hit_x + t * 200 + math.sin(t * math.pi) * 50
-                    y = wall_hit_y + t * 200
-                    # 화면 경계 확인
-                    x = max(10, min(x, WIDTH - 10))
+                    y = max(50, min(y, HEIGHT - 50))
                     demo_state['curve_points'].append((x, y))
             
             # 드라이브 애니메이션
@@ -15735,8 +15769,8 @@ def show_drive_animation_demo(background):
                                        demo_state['curve_points'][i-1],
                                        demo_state['curve_points'][i], 3)
                 
-                # 벽 충돌 효과 (60% 지점에서)
-                if point_idx == 23:  # 벽에 부딪힌 순간
+                # 벽 충돌 효과 (60% 지점에서) - 베지어 곡선 기준으로 조정
+                if point_idx == int(len(demo_state['curve_points']) * 0.6):  # 벽에 부딪힌 순간
                     # 충돌 플래시 효과
                     flash_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
                     pygame.draw.circle(flash_surface, (255, 255, 255, 100), 
@@ -15759,26 +15793,39 @@ def show_drive_animation_demo(background):
                 import math
                 wall_x = WIDTH - 10  # 오른쪽 벽 위치
                 
-                # 벽까지 가는 경로 (전체 경로의 60%)
-                for i in range(24):  
-                    t = i / 23
-                    # 오른쪽 벽을 향해 곡선으로 이동
-                    x = demo_state['boss_x'] + t * (wall_x - demo_state['boss_x'] - 50) + math.sin(t * math.pi) * 150
-                    y = demo_state['boss_y'] + t * 400 - math.sin(t * math.pi * 0.5) * 100
+                # 부드러운 베지어 곡선으로 전체 경로 생성
+                total_points = 40
+                
+                # 제어점들 정의 (베지어 곡선용) - 오른쪽 드라이브
+                p0 = (demo_state['boss_x'] - 100, demo_state['boss_y'])  # 시작점
+                p1 = (demo_state['boss_x'] + 100, demo_state['boss_y'] + 100)  # 첫 번째 제어점
+                p2 = (wall_x - 50, demo_state['boss_y'] + 300)  # 두 번째 제어점 (벽 근처)
+                p3 = (wall_x - 200, demo_state['boss_y'] + 500)  # 끝점
+                
+                # 3차 베지어 곡선으로 부드러운 궤적 생성
+                for i in range(total_points):
+                    t = i / (total_points - 1)
+                    
+                    # 베지어 곡선 공식: B(t) = (1-t)³P₀ + 3(1-t)²tP₁ + 3(1-t)t²P₂ + t³P₃
+                    u = 1 - t
+                    tt = t * t
+                    uu = u * u
+                    uuu = uu * u
+                    ttt = tt * t
+                    
+                    x = (uuu * p0[0] + 
+                         3 * uu * t * p1[0] + 
+                         3 * u * tt * p2[0] + 
+                         ttt * p3[0])
+                    
+                    y = (uuu * p0[1] + 
+                         3 * uu * t * p1[1] + 
+                         3 * u * tt * p2[1] + 
+                         ttt * p3[1])
+                    
                     # 화면 경계 확인
                     x = max(10, min(x, wall_x))
-                    demo_state['curve_points'].append((x, y))
-                
-                # 벽에서 튕겨나오는 경로 (전체 경로의 40%)
-                wall_hit_x = demo_state['curve_points'][-1][0]
-                wall_hit_y = demo_state['curve_points'][-1][1]
-                for i in range(16):
-                    t = i / 15
-                    # 벽에서 반사되어 왼쪽으로
-                    x = wall_hit_x - t * 200 - math.sin(t * math.pi) * 50
-                    y = wall_hit_y + t * 200
-                    # 화면 경계 확인
-                    x = max(10, min(x, WIDTH - 10))
+                    y = max(50, min(y, HEIGHT - 50))
                     demo_state['curve_points'].append((x, y))
             
             # 드라이브 애니메이션
@@ -15796,8 +15843,8 @@ def show_drive_animation_demo(background):
                                        demo_state['curve_points'][i-1],
                                        demo_state['curve_points'][i], 3)
                 
-                # 벽 충돌 효과 (60% 지점에서)
-                if point_idx == 23:  # 벽에 부딪힌 순간
+                # 벽 충돌 효과 (60% 지점에서) - 베지어 곡선 기준으로 조정
+                if point_idx == int(len(demo_state['curve_points']) * 0.6):  # 벽에 부딪힌 순간
                     # 충돌 플래시 효과
                     flash_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
                     pygame.draw.circle(flash_surface, (255, 255, 255, 100), 
@@ -15844,35 +15891,35 @@ def show_drive_animation_demo(background):
         text_y_position = HEIGHT - 150
         SCREEN.blit(text_bg, (0, text_y_position))
         
-        # 시범 안내 텍스트 표시
-        if waiting_for_space:
-            # 스페이스바 대기 중일 때
-            direction = demo_phases[current_phase]['direction']
-            if direction == 'left':
-                display_text = "[조교] 왼쪽 드라이브 시범! ← + SPACE 동시 입력!"
-            else:
-                display_text = "[조교] 오른쪽 드라이브 시범! → + SPACE 동시 입력!"
-        else:
-            # 애니메이션 재생 중
-            direction = demo_phases[current_phase]['direction']
-            if direction == 'left':
-                display_text = "[조교] 이렇게 왼쪽으로 공이 휘어진다! ← + SPACE"
-            else:
-                display_text = "[조교] 이렇게 오른쪽으로 공이 휘어진다! → + SPACE"
+        # 시범 안내 텍스트 표시 (비활성화)
+        # if waiting_for_space:
+        #     # 스페이스바 대기 중일 때
+        #     direction = demo_phases[current_phase]['direction']
+        #     if direction == 'left':
+        #         display_text = "[조교] 왼쪽 드라이브 시범! ← + SPACE 동시 입력!"
+        #     else:
+        #         display_text = "[조교] 오른쪽 드라이브 시범! → + SPACE 동시 입력!"
+        # else:
+        #     # 애니메이션 재생 중
+        #     direction = demo_phases[current_phase]['direction']
+        #     if direction == 'left':
+        #         display_text = "[조교] 이렇게 왼쪽으로 공이 휘어진다! ← + SPACE"
+        #     else:
+        #         display_text = "[조교] 이렇게 오른쪽으로 공이 휘어진다! → + SPACE"
         
-        # 텍스트 렌더링 (챕터2 스타일)
-        text_surface = font_medium.render(display_text, True, BOSS_COLOR)
-        text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+        # # 텍스트 렌더링 (챕터2 스타일)
+        # text_surface = font_medium.render(display_text, True, BOSS_COLOR)
+        # text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
         
-        # 텍스트 그림자 효과
-        shadow_surface = font_medium.render(display_text, True, (0, 0, 0))
-        shadow_rect = text_rect.copy()
-        shadow_rect.x += 2
-        shadow_rect.y += 2
-        SCREEN.blit(shadow_surface, shadow_rect)
+        # # 텍스트 그림자 효과
+        # shadow_surface = font_medium.render(display_text, True, (0, 0, 0))
+        # shadow_rect = text_rect.copy()
+        # shadow_rect.x += 2
+        # shadow_rect.y += 2
+        # SCREEN.blit(shadow_surface, shadow_rect)
         
-        # 실제 텍스트
-        SCREEN.blit(text_surface, text_rect)
+        # # 실제 텍스트
+        # SCREEN.blit(text_surface, text_rect)
         
         # 스페이스바 안내 (사용자 요청으로 제거)
         # if waiting_for_space:
@@ -27880,8 +27927,13 @@ def main(stage_num, new_boss_mode=False):
     # 관리자 단축키 변수 초기화
     global nine_just_pressed, last_nine_state
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge
+    global tutorial_skip_chapter2_init
     nine_just_pressed = False
     last_nine_state = False
+    
+    # 챕터2 상태 유지 플래그 초기화 (존재하지 않을 경우)
+    if 'tutorial_skip_chapter2_init' not in globals():
+        tutorial_skip_chapter2_init = False
     
     # ========== 마이그레이션 모드 초기화 ==========
     global migration_bridge
@@ -28213,25 +28265,54 @@ def main(stage_num, new_boss_mode=False):
     # 스테이지 50 (튜토리얼) 시작 시 항상 모든 상태 초기화
     # 8번키 스킵 후 재시작 등의 상황에서 올바른 초기화 보장
     if stage_num == 50:
-        # 초기 튜토리얼 시작 - 모든 변수 초기화
-        tutorial_dialogue_shown = False
-        tutorial_practice_mode = False  # 실습 모드 플래그
-        tutorial_serve_instruction_shown = False  # 서브 지시 표시 플래그
-        tutorial_boss_returned = False  # 보스가 서브를 받아쳤는지 확인
-        tutorial_boss_return_dialogue_shown = False  # 보스가 서브를 받아친 후 대화 표시 여부
-        tutorial_pause_for_dialogue = False  # 대화를 위한 일시정지 상태
-        tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
-        tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
-        tutorial_serve_helper_active = False  # 서브 도우미 현재 활성 상태
-        tutorial_serve_reminder_active = False  # 서브 알림창 활성 상태 (인트로 후)
-        tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
-        tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
-        tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
-        tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
-        tutorial_dash_completion_dialogue_shown = False  # 대쉬 완료 대화 표시 여부
-        tutorial_drive_chapter_max_gauge = None  # 드라이브 챕터 최대 게이지 임시 오버라이드
-        tutorial_needs_drive_practice = False  # 드라이브 연습이 필요한지 여부
-        tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
+        # 챕터2 상태 유지 플래그 확인
+        skip_chapter2_init = 'tutorial_skip_chapter2_init' in globals() and tutorial_skip_chapter2_init
+        
+        if skip_chapter2_init:
+            # 챕터2 재시작 - 챕터2 관련 상태만 유지하고 나머지는 초기화
+            print("🔄 챕터2 상태 유지하며 부분 초기화")
+            # 챕터2 상태 유지 플래그 해제
+            tutorial_skip_chapter2_init = False
+            
+            # 챕터2에서 필요한 상태들만 유지하고 나머지는 초기화
+            tutorial_dialogue_shown = True  # Chapter 1 완료 상태 유지
+            tutorial_practice_mode = False  # 실습 모드 플래그
+            tutorial_serve_instruction_shown = False
+            tutorial_boss_returned = False
+            tutorial_boss_return_dialogue_shown = False
+            tutorial_pause_for_dialogue = False
+            tutorial_saved_ball_vel = [0, 0]
+            tutorial_serve_helper_shown = False
+            tutorial_serve_helper_active = False
+            tutorial_serve_reminder_active = False
+            tutorial_wait_for_first_serve = True
+            # tutorial_needs_dash_practice = True (이미 설정되어 있음, 유지)
+            # tutorial_dash_practice_shown = False (이미 설정되어 있음, 유지)
+            tutorial_dash_token_dialogue_shown = False
+            tutorial_dash_completion_dialogue_shown = False
+            # tutorial_drive_chapter_max_gauge = None (유지)
+            tutorial_needs_drive_practice = False
+            tutorial_drive_practice_shown = False
+        else:
+            # 초기 튜토리얼 시작 - 모든 변수 초기화
+            tutorial_dialogue_shown = False
+            tutorial_practice_mode = False  # 실습 모드 플래그
+            tutorial_serve_instruction_shown = False  # 서브 지시 표시 플래그
+            tutorial_boss_returned = False  # 보스가 서브를 받아쳤는지 확인
+            tutorial_boss_return_dialogue_shown = False  # 보스가 서브를 받아친 후 대화 표시 여부
+            tutorial_pause_for_dialogue = False  # 대화를 위한 일시정지 상태
+            tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
+            tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
+            tutorial_serve_helper_active = False  # 서브 도우미 현재 활성 상태
+            tutorial_serve_reminder_active = False  # 서브 알림창 활성 상태 (인트로 후)
+            tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
+            tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
+            tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
+            tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
+            tutorial_dash_completion_dialogue_shown = False  # 대쉬 완료 대화 표시 여부
+            tutorial_drive_chapter_max_gauge = None  # 드라이브 챕터 최대 게이지 임시 오버라이드
+            tutorial_needs_drive_practice = False  # 드라이브 연습이 필요한지 여부
+            tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
         
         # 게이지 및 속도 튜토리얼 관련 변수
         global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
@@ -28521,6 +28602,10 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 스테이지 50 재시작 (대쉬 튜토리얼로)
                 print("튜토리얼: Chapter 2 - DASH 시작, 스테이지 50 재시작")
+                
+                # 챕터2 상태를 유지하기 위한 전역 플래그 설정
+                tutorial_skip_chapter2_init = True
+                
                 return main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
         main.key8_pressed = keys[pygame.K_8]
         
