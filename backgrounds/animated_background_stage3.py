@@ -33,6 +33,12 @@ class AnimatedBackgroundStage3:
         
         # 픽셀 하트 애니메이션
         self.pixel_heart_pulse = 0
+        
+        # 꼬리 채찍 시스템
+        self.tail_whip_active = False
+        self.tail_whip_progress = 0
+        self.tail_whip_ball_pos = None
+        self.tail_collision_detected = False
     
     def update(self, dt):
         self.time += dt
@@ -52,7 +58,7 @@ class AnimatedBackgroundStage3:
         
         # 글리치 효과 제거됨
     
-    def draw(self, screen):
+    def draw(self, screen, ball_pos=None):
         screen.blit(self.base_image, (0, 0))
         
         self.glow_surface.fill((0, 0, 0, 0))
@@ -94,3 +100,40 @@ class AnimatedBackgroundStage3:
                                  (i + 20, self.height - 30), 15)
             
             screen.blit(border_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+    
+    def activate_tail_whip(self, ball_pos):
+        """꼬리 채찍 활성화"""
+        self.tail_whip_active = True
+        self.tail_whip_progress = 0
+        self.tail_whip_ball_pos = ball_pos
+        self.tail_collision_detected = False
+    
+    def update_tail_whip(self, progress, ball_pos):
+        """꼬리 채찍 애니메이션 업데이트"""
+        self.tail_whip_progress = progress
+        self.tail_whip_ball_pos = ball_pos
+    
+    def check_tail_collision(self, ball_rect):
+        """꼬리와 공의 충돌 체크"""
+        if not self.tail_whip_active or self.tail_collision_detected:
+            return False
+        
+        # 간단한 충돌 체크 로직 - 꼬리 애니메이션의 중간 지점에서 충돌 체크
+        if self.tail_whip_progress > 0.4 and self.tail_whip_progress < 0.6:
+            # 화면 중앙과 공 사이의 거리로 충돌 판정
+            center_x = self.width // 2
+            center_y = self.height // 2
+            
+            # 공과 중앙의 거리가 일정 범위 내에 있으면 충돌
+            distance = math.sqrt((ball_rect.centerx - center_x)**2 + (ball_rect.centery - center_y)**2)
+            if distance < 150:  # 충돌 범위
+                self.tail_collision_detected = True
+                return True
+        
+        return False
+    
+    def deactivate_tail_whip(self):
+        """꼬리 채찍 비활성화"""
+        self.tail_whip_active = False
+        self.tail_whip_progress = 0
+        self.tail_collision_detected = False
