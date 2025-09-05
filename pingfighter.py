@@ -14179,7 +14179,12 @@ def show_tutorial_intro_dialogue():
                 return False
             
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
+                if event.key == pygame.K_8:
+                    # 8번키로 튜토리얼 챕터 스킵
+                    print("🎮 8번 키: 대화 중 챕터 스킵 요청")
+                    dialogue_complete = True
+                    return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
+                elif event.key == pygame.K_SPACE:
                     # 득점 시연 애니메이션 중인지 확인
                     is_score_demo_playing = False
                     if current_dialogue < len(dialogues) and "demo" in dialogues[current_dialogue]:
@@ -14495,7 +14500,11 @@ def show_tutorial_boss_return_dialogue():
                     pygame.quit()
                     return False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
+                    if event.key == pygame.K_8:
+                        # 8번키로 튜토리얼 챕터 스킵
+                        print("🎮 8번 키: 속도 대화 중 챕터 스킵 요청")
+                        return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
+                    elif event.key == pygame.K_SPACE:
                         if text_complete:
                             # 현재 대화 완료, 다음 대화로
                             running = False
@@ -15224,7 +15233,11 @@ def show_tutorial_drive_dialogue():
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
-                if event.key in [pygame.K_SPACE, pygame.K_RETURN]:
+                if event.key == pygame.K_8:
+                    # 8번키로 튜토리얼 챕터 스킵
+                    print("🎮 8번 키: 드라이브 대화 중 챕터 스킵 요청")
+                    return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
+                elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
                     # 텍스트가 다 표시되지 않았으면 전체 표시, 아니면 다음 대화로
                     if displayed_text and len(displayed_text) < len(target_text):
                         displayed_text = target_text
@@ -15940,7 +15953,11 @@ def show_tutorial_dash_dialogue():
                 if event.type == pygame.QUIT:
                     return False
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
+                    if event.key == pygame.K_8:
+                        # 8번키로 튜토리얼 챕터 스킵
+                        print("🎮 8번 키: 대쉬 대화 중 챕터 스킵 요청")
+                        return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
+                    elif event.key == pygame.K_SPACE:
                         # 대쉬 시연 중에는 스페이스바 무시
                         if dialogue_index == 7 and text_complete:
                             # 시연이 시작된 지 6초가 지났는지 확인 (왼쪽+오른쪽 1회 사이클)
@@ -16615,7 +16632,11 @@ def show_tutorial_speed_dialogue():
                     pygame.quit()
                     return False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
+                    if event.key == pygame.K_8:
+                        # 8번키로 튜토리얼 챕터 스킵
+                        print("🎮 8번 키: 속도 대화 중 챕터 스킵 요청")
+                        return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
+                    elif event.key == pygame.K_SPACE:
                         if text_complete:
                             # 현재 대화 완료, 다음 대화로
                             running = False
@@ -16724,7 +16745,11 @@ def show_tutorial_angle_dialogue():
                     pygame.quit()
                     return False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
+                    if event.key == pygame.K_8:
+                        # 8번키로 튜토리얼 챕터 스킵
+                        print("🎮 8번 키: 속도 대화 중 챕터 스킵 요청")
+                        return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
+                    elif event.key == pygame.K_SPACE:
                         if text_complete:
                             # 현재 대화 완료, 다음 대화로
                             running = False
@@ -16925,7 +16950,11 @@ def show_tutorial_gauge_dialogue():
                     pygame.quit()
                     return False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
+                    if event.key == pygame.K_8:
+                        # 8번키로 튜토리얼 챕터 스킵
+                        print("🎮 8번 키: 속도 대화 중 챕터 스킵 요청")
+                        return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
+                    elif event.key == pygame.K_SPACE:
                         if text_complete:
                             # 첫 번째 대화에서 스페이스를 누르면 게이지 애니메이션 시작
                             if dialogue_index == 0 and not gauge_animation_active:
@@ -17236,7 +17265,11 @@ def show_tutorial_dash_token_dialogue():
                     pygame.quit()
                     return False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
+                    if event.key == pygame.K_8:
+                        # 8번키로 튜토리얼 챕터 스킵
+                        print("🎮 8번 키: 속도 대화 중 챕터 스킵 요청")
+                        return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
+                    elif event.key == pygame.K_SPACE:
                         if text_complete:
                             running = False
                         else:
@@ -28261,7 +28294,15 @@ def main(stage_num, new_boss_mode=False):
             draw_field()
             draw_objects()
             pygame.display.flip()
-            if show_tutorial_dash_dialogue():
+            dash_dialogue_result = show_tutorial_dash_dialogue()
+            if dash_dialogue_result == "skip_chapter":
+                # 8번키로 챕터 스킵 요청 - 기존 챕터 스킵 로직 실행
+                print("🎮 대쉬 대화에서 챕터 스킵 요청됨 - 8번키 스킵 로직으로 전달")
+                # 8번키 스킵 플래그 설정하여 기존 로직 재사용
+                main.key8_pressed = True
+                keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
+                return main(screen_arg)  # 메인 루프로 돌아가서 8번키 처리하게 함
+            elif dash_dialogue_result:
                 # 대쉬 대화 후 바로 오버레이 도우미 활성화 (서브 도우미와 동일한 방식)
                 global tutorial_dash_helper_active, tutorial_dash_helper_start_time
                 tutorial_dash_helper_active = True
@@ -28287,7 +28328,15 @@ def main(stage_num, new_boss_mode=False):
             pygame.display.flip()
             
             print("튜토리얼 대화 표시 시작")
-            if show_tutorial_intro_dialogue():
+            intro_dialogue_result = show_tutorial_intro_dialogue()
+            if intro_dialogue_result == "skip_chapter":
+                # 8번키로 챕터 스킵 요청 - 기존 챕터 스킵 로직 실행
+                print("🎮 인트로 대화에서 챕터 스킵 요청됨 - 8번키 스킵 로직으로 전달")
+                # 8번키 스킵 플래그 설정하여 기존 로직 재사용
+                main.key8_pressed = True
+                keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
+                return main(screen_arg)  # 메인 루프로 돌아가서 8번키 처리하게 함
+            elif intro_dialogue_result:
                 print("튜토리얼 대화 완료")
                 tutorial_dialogue_shown = True
                 print("튜토리얼: Chapter 1 - BASIC 시작")
@@ -29729,7 +29778,15 @@ def main(stage_num, new_boss_mode=False):
                 draw_objects()
                 pygame.display.flip()
                 
-                if show_tutorial_drive_dialogue():
+                drive_dialogue_result = show_tutorial_drive_dialogue()
+                if drive_dialogue_result == "skip_chapter":
+                    # 8번키로 챕터 스킵 요청 - 기존 챕터 스킵 로직 실행
+                    print("🎮 드라이브 대화에서 챕터 스킵 요청됨 - 8번키 스킵 로직으로 전달")
+                    # 8번키 스킵 플래그 설정하여 기존 로직 재사용
+                    main.key8_pressed = True
+                    keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
+                    return main(screen_arg)  # 메인 루프로 돌아가서 8번키 처리하게 함
+                elif drive_dialogue_result:
                     tutorial_drive_practice_shown = True
                     tutorial_practice_mode = True
                     print("튜토리얼: 드라이브 연습 대화 완료")
@@ -29782,7 +29839,15 @@ def main(stage_num, new_boss_mode=False):
                 draw_objects()
                 pygame.display.flip()
                 # 속도 튜토리얼 대화 표시
-                if show_tutorial_speed_dialogue():
+                speed_dialogue_result = show_tutorial_speed_dialogue()
+                if speed_dialogue_result == "skip_chapter":
+                    # 8번키로 챕터 스킵 요청 - 기존 챕터 스킵 로직 실행
+                    print("🎮 속도 대화에서 챕터 스킵 요청됨 - 8번키 스킵 로직으로 전달")
+                    # 8번키 스킵 플래그 설정하여 기존 로직 재사용
+                    main.key8_pressed = True
+                    keys_pressed_8 = True  # 기존 8번키 처리 로직으로 이어짐
+                    return main(screen_arg)  # 메인 루프로 돌아가서 8번키 처리하게 함
+                elif speed_dialogue_result:
                     tutorial_pause_for_dialogue = False
                     # 속도 대화 완료 후 라운드 승리 처리
                     round_wins += 1
