@@ -15761,6 +15761,119 @@ def show_tutorial_drive_helper_dialogue():
     
     return True
 
+def show_tutorial_drive_completion_dialogue():
+    """튜토리얼 드라이브 완료 대화 (4회 성공 시)"""
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 화자 이름용
+    font_medium = FontStyle.body()     # 24pt 대사용
+    
+    # 대화 내용
+    dialogues = [
+        {"speaker": "조교", "text": "드라이브는 상대의 허를 찌르는", "speaker_color": (255, 100, 100)},
+        {"speaker": "조교", "text": "공격으로 앞으로 유용하게 쓰일 것이다", "speaker_color": (255, 100, 100)},
+        {"speaker": "조교", "text": "다만 상대가 공을 반격에 성공했을 시", "speaker_color": (255, 100, 100)},
+        {"speaker": "조교", "text": "남아있는 공의 회전력으로 인해", "speaker_color": (255, 100, 100)},
+        {"speaker": "조교", "text": "대응이 어려워 질 수 있다는 단점이 있다", "speaker_color": (255, 100, 100)},
+    ]
+    
+    dialogue_index = 0
+    displayed_text = ""
+    last_char_time = pygame.time.get_ticks()
+    typing_speed = 30  # 타이핑 속도 (밀리초)
+    text_complete = False
+    
+    # 현재 게임 화면 캡처
+    background = SCREEN.copy()
+    
+    running = True
+    while running and dialogue_index < len(dialogues):
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_8:
+                    # 8번 키로 챕터 4로 스킵
+                    print("🎮 8번 키: 드라이브 완료 대화 중 챕터 스킵 요청")
+                    return "skip_to_chapter4"
+                elif event.key == pygame.K_SPACE:
+                    if text_complete:
+                        # 다음 대화로
+                        dialogue_index += 1
+                        if dialogue_index < len(dialogues):
+                            displayed_text = ""
+                            text_complete = False
+                            last_char_time = pygame.time.get_ticks()
+                        else:
+                            running = False
+                    else:
+                        # 텍스트 전체 표시
+                        displayed_text = dialogues[dialogue_index]["text"]
+                        text_complete = True
+        
+        if dialogue_index < len(dialogues):
+            dialogue = dialogues[dialogue_index]
+            
+            # 타이핑 효과
+            current_time = pygame.time.get_ticks()
+            if not text_complete:
+                if current_time - last_char_time > typing_speed:
+                    if len(displayed_text) < len(dialogue["text"]):
+                        displayed_text = dialogue["text"][:len(displayed_text) + 1]
+                        last_char_time = current_time
+                    else:
+                        text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 어두운 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 150))
+            SCREEN.blit(overlay, (0, 0))
+            
+            # 대화창 영역 (화면 중앙)
+            dialogue_width = 700
+            dialogue_height = 180
+            dialogue_x = (WIDTH - dialogue_width) // 2
+            dialogue_y = (HEIGHT - dialogue_height) // 2
+            
+            # 대화창 배경 (검은색 반투명)
+            dialogue_bg = pygame.Surface((dialogue_width, dialogue_height), pygame.SRCALPHA)
+            dialogue_bg.fill((0, 0, 0, 240))
+            
+            # 대화창 테두리
+            pygame.draw.rect(dialogue_bg, dialogue["speaker_color"], 
+                           (0, 0, dialogue_width, dialogue_height), 3, border_radius=10)
+            
+            # 상단 라인 (화자 이름 구분선)
+            pygame.draw.line(dialogue_bg, dialogue["speaker_color"], 
+                           (20, 50), (dialogue_width - 20, 50), 2)
+            
+            SCREEN.blit(dialogue_bg, (dialogue_x, dialogue_y))
+            
+            # 화자 이름 (대화창 상단 중앙)
+            speaker_surface = font_large.render(dialogue["speaker"], True, dialogue["speaker_color"])
+            speaker_rect = speaker_surface.get_rect(center=(WIDTH // 2, dialogue_y + 30))
+            SCREEN.blit(speaker_surface, speaker_rect)
+            
+            # 대사 텍스트
+            text_surface = font_medium.render(displayed_text, True, (255, 255, 255))
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, dialogue_y + 100))
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 진행 안내
+            if text_complete:
+                if pygame.time.get_ticks() % 1000 < 500:  # 깜빡임 효과
+                    instruction = "SPACE - 계속" if dialogue_index < len(dialogues) - 1 else "SPACE - Chapter 4로 진행"
+                    inst_surface = font_medium.render(instruction, True, (0, 255, 255))
+                    inst_rect = inst_surface.get_rect(center=(WIDTH // 2, dialogue_y + dialogue_height - 25))
+                    SCREEN.blit(inst_surface, inst_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+    
+    return "proceed_to_chapter4"
+
 def show_drive_monitor_demo(background):
     """드라이브 모니터 표시 시범"""
     clock = pygame.time.Clock()
@@ -22841,10 +22954,8 @@ def calculate_bounce(paddle):
                     elif tutorial_drive_count == 4:
                         show_tutorial_success_feedback("드라이브 마스터!", "perfect")
                     
-                    # 4회 완료 시 축하 대화 표시
-                    if tutorial_drive_count == 4 and not tutorial_drive_completion_dialogue_shown:
-                        tutorial_drive_completion_dialogue_shown = True
-                        # 완료 메시지는 나중에 표시 (게임 흐름 유지)
+                    # 4회 완료 시 축하 대화는 메인 루프에서 처리
+                    # tutorial_drive_completion_dialogue_shown은 메인 루프에서 설정됨
             # ️ 드라이브 스핀 효과 적용 (기본 커브량 + 공속 비례 추가 커브)
             global ball_spin_strength, ball_spin_direction, drive_ball_active, drive_hit_boss, drive_just_activated
             # 기본 커브량 유지
@@ -30768,6 +30879,47 @@ def main(stage_num, new_boss_mode=False):
                 # 서브 알림창 비활성화 (도우미 대화 후에는 필요 없음)
                 tutorial_serve_reminder_active = False
                 print("🎯 도우미 대화 완료: 드라이브 카운터와 알림 활성화, 서브 알림창 비활성화")
+            
+            # 공 속도 복원
+            if tutorial_saved_ball_vel:
+                ball_vel[0] = tutorial_saved_ball_vel[0]
+                ball_vel[1] = tutorial_saved_ball_vel[1]
+            
+            continue  # 다음 프레임으로
+        
+        # Chapter 3: 드라이브 4회 완료 시 완료 대화 표시
+        if (current_stage == 50 and tutorial_current_chapter == 3 and 
+            tutorial_drive_counter_active and tutorial_drive_count >= 4 and
+            not tutorial_drive_completion_dialogue_shown):
+            
+            print("🎯 Chapter 3: 드라이브 4회 완료! 완료 대화 표시")
+            tutorial_drive_completion_dialogue_shown = True
+            
+            # 게임 일시정지
+            tutorial_saved_ball_vel = ball_vel.copy()
+            ball_vel[0] = 0
+            ball_vel[1] = 0
+            
+            # 화면 그리기
+            draw_field()
+            draw_objects()
+            pygame.display.flip()
+            
+            # 드라이브 완료 대화 표시
+            completion_result = show_tutorial_drive_completion_dialogue()
+            
+            if completion_result == "skip_to_chapter4":
+                # 8번 키로 Chapter 4로 스킵
+                print("🎮 Chapter 4로 스킵 요청")
+                tutorial_current_chapter = 4
+                # Chapter 4 초기화 로직 추가 (파워스매싱)
+                # TODO: Chapter 4 구현 시 추가
+            elif completion_result == "proceed_to_chapter4":
+                # 정상적으로 Chapter 4로 진행
+                print("📚 Chapter 3 완료! Chapter 4로 진행")
+                tutorial_current_chapter = 4
+                # Chapter 4 초기화 로직 추가 (파워스매싱)
+                # TODO: Chapter 4 구현 시 추가
             
             # 공 속도 복원
             if tutorial_saved_ball_vel:
