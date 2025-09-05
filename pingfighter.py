@@ -2704,10 +2704,7 @@ def check_tear_collisions():
         player_obj = type('Player', (), {'rect': PLAYER})()
         tear_obj = type('Tear', (), {'rect': tear_rect})()
         
-        if (
-            check_collision_wrapper(tear_obj, player_obj) and
-            prev_y <= PLAYER.top and y >= PLAYER.top
-        ):
+        if check_collision_wrapper(tear_obj, player_obj):
             # 연막 안에 있으면 면역 - 눈물이 부딪혀도 효과 없음
             if player_in_smoke:
                 # 연막이 눈물을 막아주는 시각적 효과 (선택사항)
