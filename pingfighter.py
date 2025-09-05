@@ -15617,16 +15617,16 @@ def show_tutorial_drive_helper_dialogue():
         {
             "speaker": "[도우미]",
             "text": "하시면 더 잘될거에요",
+            "speaker_color": (255, 200, 50), 
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "공이 빨라질 수록 드라이브 타이밍을 맞추기 힘드니",
             "speaker_color": (255, 200, 50),
         },
         {
             "speaker": "[도우미]",
-            "text": "이제 원하는 방향으로",
-            "speaker_color": (255, 200, 50),
-        },
-        {
-            "speaker": "[도우미]",
-            "text": "드라이브공을 발사해보세요!",
+            "text": "적절한 타이밍에 드라이브 공을 발사해보세요!",
             "speaker_color": (255, 200, 50),
         }
     ]
@@ -16661,9 +16661,9 @@ def show_tutorial_dash_dialogue():
                     time_since_change = current_time - demo_state['direction_change_time']
                     if time_since_change > 300:  # 300ms 후부터 표시
                         if demo_state['last_dash_direction'] == -1:
-                            key_combo_text = "↓ + ←"
+                            key_combo_text = "← + ↓"
                         else:
-                            key_combo_text = "↓ + →"
+                            key_combo_text = "→ + ↓"
                         
                         key_combo_font = FontStyle.subtitle()  # 큰 폰트 사용
                         key_combo_surface = key_combo_font.render(key_combo_text, True, CYAN)
