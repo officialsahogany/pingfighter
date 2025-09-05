@@ -14796,6 +14796,13 @@ tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
 # 튜토리얼 현재 챕터 추적 변수
 tutorial_current_chapter = 1  # 1: BASIC, 2: DASH, 3: DRIVE
 
+# 실시간 성공 피드백 시스템 변수
+tutorial_success_feedback_active = False
+tutorial_success_feedback_message = ""
+tutorial_success_feedback_level = "normal"
+tutorial_success_feedback_timer = 0
+tutorial_success_feedback_particles = []
+
 def draw_tutorial_progress_bar():
     """튜토리얼 전체 진행도 바 표시 (상단)"""
     global tutorial_current_chapter
@@ -14877,8 +14884,114 @@ def draw_tutorial_progress_bar():
             pygame.draw.rect(SCREEN, (255, 255, 100), 
                            (current_x - 2, bar_y - 2, chapter_width + 2, bar_height + 4), 3)
 
-def show_tutorial_success_feedback(message, level="normal"):
-    """튜토리얼 성공 시 긍정적 피드백 표시"""
+def init_tutorial_success_feedback(message, level="normal"):
+    """실시간 튜토리얼 성공 피드백 초기화 (비차단 방식)"""
+    global tutorial_success_feedback_active, tutorial_success_feedback_message
+    global tutorial_success_feedback_level, tutorial_success_feedback_timer
+    global tutorial_success_feedback_particles
+    
+    tutorial_success_feedback_active = True
+    tutorial_success_feedback_message = message
+    tutorial_success_feedback_level = level
+    tutorial_success_feedback_timer = 90  # 1.5초간 표시
+    
+    # 피드백 레벨에 따른 파티클 생성
+    if level == "perfect":
+        particle_colors = [(255, 255, 100), (255, 200, 50), (255, 255, 200)]
+        num_particles = 30
+    elif level == "great":
+        particle_colors = [(150, 255, 150), (100, 200, 100), (200, 255, 200)]
+        num_particles = 20
+    else:  # normal
+        particle_colors = [(150, 200, 255), (100, 150, 200), (200, 230, 255)]
+        num_particles = 15
+    
+    # 파티클 초기화
+    tutorial_success_feedback_particles = []
+    for _ in range(num_particles):
+        angle = random.uniform(0, math.pi * 2)
+        speed = random.uniform(2, 8)
+        tutorial_success_feedback_particles.append({
+            'x': WIDTH // 2,
+            'y': HEIGHT // 2,
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': 60,
+            'color': random.choice(particle_colors),
+            'size': random.randint(3, 8)
+        })
+
+def draw_tutorial_success_feedback():
+    """실시간 튜토리얼 성공 피드백 그리기 (메인 게임 루프에서 호출)"""
+    global tutorial_success_feedback_active, tutorial_success_feedback_timer
+    global tutorial_success_feedback_particles
+    
+    if not tutorial_success_feedback_active:
+        return
+    
+    # 타이머 감소
+    tutorial_success_feedback_timer -= 1
+    if tutorial_success_feedback_timer <= 0:
+        tutorial_success_feedback_active = False
+        tutorial_success_feedback_particles = []
+        return
+    
+    # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt
+    
+    # 피드백 레벨에 따른 색상
+    if tutorial_success_feedback_level == "perfect":
+        main_color = (255, 215, 0)  # 금색
+    elif tutorial_success_feedback_level == "great":
+        main_color = (100, 255, 100)  # 초록색
+    else:  # normal
+        main_color = (100, 200, 255)  # 파란색
+    
+    # 파티클 업데이트 및 그리기
+    for particle in tutorial_success_feedback_particles[:]:
+        particle['x'] += particle['vx']
+        particle['y'] += particle['vy']
+        particle['vy'] += 0.2  # 중력
+        particle['life'] -= 1
+        particle['size'] = max(1, particle['size'] - 0.1)
+        
+        if particle['life'] > 0:
+            # 별 모양 그리기
+            star_points = []
+            for i in range(10):
+                angle = i * math.pi / 5
+                if i % 2 == 0:
+                    r = particle['size']
+                else:
+                    r = particle['size'] / 2
+                x = particle['x'] + r * math.cos(angle - math.pi / 2)
+                y = particle['y'] + r * math.sin(angle - math.pi / 2)
+                star_points.append((x, y))
+            
+            if len(star_points) >= 3:
+                pygame.draw.polygon(SCREEN, particle['color'], star_points)
+        else:
+            tutorial_success_feedback_particles.remove(particle)
+    
+    # 메시지 표시 (중앙)
+    text_scale = 1.0 + 0.2 * abs(math.sin(tutorial_success_feedback_timer * 0.1))  # 펠스 효과
+    text_surface = font_large.render(tutorial_success_feedback_message, True, main_color)
+    text_surface = pygame.transform.scale(text_surface, 
+                                         (int(text_surface.get_width() * text_scale),
+                                          int(text_surface.get_height() * text_scale)))
+    text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+    
+    # 텍스트 배경 (반투명)
+    bg_surface = pygame.Surface((text_rect.width + 40, text_rect.height + 20), pygame.SRCALPHA)
+    bg_surface.fill((0, 0, 0, 100))
+    bg_rect = bg_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+    SCREEN.blit(bg_surface, bg_rect)
+    
+    # 텍스트 그리기
+    SCREEN.blit(text_surface, text_rect)
+
+def show_tutorial_success_feedback_blocking(message, level="normal"):
+    """튜토리얼 성공 시 긍정적 피드백 표시 (차단 방식, 최종 달성용)"""
     clock = pygame.time.Clock()
     
     # 폰트 설정
@@ -15016,6 +15129,16 @@ def show_tutorial_success_feedback(message, level="normal"):
         
         pygame.display.flip()
         clock.tick(60)
+
+def show_tutorial_success_feedback(message, level="normal"):
+    """튜토리얼 성공 피드백 래퍼 함수 - 메시지에 따라 적절한 방식 선택"""
+    # 최종 달성 메시지들 (게임 정지)
+    if "마스터" in message or "완벽해요" in message or "🎉" in message:
+        # 차단 방식 (게임 정지)
+        show_tutorial_success_feedback_blocking(message, level)
+    else:
+        # 비차단 방식 (실시간 표시)
+        init_tutorial_success_feedback(message, level)
 
 def show_chapter_completion_summary(chapter_num):
     """챕터 완료 시 학습 내용 요약 화면 표시"""
@@ -29767,6 +29890,7 @@ def main(stage_num, new_boss_mode=False):
             draw_objects()
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
+            draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 원래 화면으로 복원하고 흔들림 적용
@@ -29816,6 +29940,7 @@ def main(stage_num, new_boss_mode=False):
             draw_objects()
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
+            draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 스테이지별 테두리 효과를 UI 전에 그리기
