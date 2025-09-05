@@ -28286,8 +28286,8 @@ def main(stage_num, new_boss_mode=False):
             tutorial_serve_helper_active = False
             tutorial_serve_reminder_active = False
             tutorial_wait_for_first_serve = True
-            # tutorial_needs_dash_practice = True (이미 설정되어 있음, 유지)
-            # tutorial_dash_practice_shown = False (이미 설정되어 있음, 유지)
+            tutorial_needs_dash_practice = True  # 챕터2 대쉬 연습 상태 유지
+            tutorial_dash_practice_shown = False  # 대쉬 연습 대화 다시 표시
             tutorial_dash_token_dialogue_shown = False
             tutorial_dash_completion_dialogue_shown = False
             # tutorial_drive_chapter_max_gauge = None (유지)
@@ -29820,6 +29820,34 @@ def main(stage_num, new_boss_mode=False):
                     if tutorial_serve_reminder_active:
                         draw_tutorial_serve_reminder()
                 
+                # Chapter 2 대쉬 대화 표시 (메인 루프에서)
+                if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
+                    if 'tutorial_dash_practice_shown' in globals() and not tutorial_dash_practice_shown:
+                        print("튜토리얼: Chapter 2 대쉬 대화 표시 (메인 루프)")
+                        # 게임 일시정지 상태로 설정
+                        tutorial_pause_for_dialogue = True
+                        # Chapter 2 최대 게이지를 300으로 설정
+                        if 'tutorial_chapter2_max_gauge' not in globals() or tutorial_chapter2_max_gauge != 300:
+                            tutorial_chapter2_max_gauge = 300
+                            print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정 (메인 루프)")
+                        
+                        dash_dialogue_result = show_tutorial_dash_dialogue()
+                        if dash_dialogue_result == "skip_chapter":
+                            # 8번키로 챕터 스킵 요청 - Chapter 2에서는 Chapter 3로 직접 이동  
+                            print("🎮 대쉬 대화에서 챕터 스킵 요청됨 - Chapter 3으로 직접 이동")
+                            tutorial_needs_dash_practice = False
+                            tutorial_needs_drive_practice = True
+                            tutorial_drive_practice_shown = False
+                        elif dash_dialogue_result:
+                            # 대쉬 대화 후 바로 오버레이 도우미 활성화
+                            tutorial_dash_helper_active = True
+                            tutorial_dash_helper_start_time = pygame.time.get_ticks()
+                            tutorial_dash_practice_shown = True
+                            tutorial_practice_mode = True
+                            print(f"튜토리얼: 대쉬 연습 대화 완료 (메인 루프), 오버레이 도우미 활성화={tutorial_dash_helper_active}")
+                        
+                        tutorial_pause_for_dialogue = False
+                        
                 # 대쉬 챕터에서 160 게이지 도달 시 게이지 대화 표시
                 if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
                     if not getattr(main, 'tutorial_dash_gauge_dialogue_shown', False):
