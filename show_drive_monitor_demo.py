@@ -219,6 +219,9 @@ def show_drive_monitor_demo(background):
         # 시범 안내 텍스트 - 항상 동일한 텍스트 표시
         display_text = "[조교] 드라이브 모니터가 표시가 된다."
         
+        # 현재 시간 가져오기
+        current_time = pygame.time.get_ticks()
+        
         # 색상 계산 (그라데이션)
         color_time = current_time % (color_change_duration * len(gradient_colors))
         color_index = int(color_time / color_change_duration)
