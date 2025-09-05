@@ -30205,7 +30205,10 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_drive_practice_shown = True
                     tutorial_practice_mode = True
                     print("튜토리얼: 드라이브 연습 대화 완료")
-                    # 드라이브 연습 알림 활성화
+                    # 서브 알림창 활성화 (Chapter 3 대화 후 서브를 안내)
+                    tutorial_serve_reminder_active = True
+                    print("🎯 Chapter 3: 서브 알림창 활성화")
+                    # 드라이브 연습 알림도 활성화
                     tutorial_drive_reminder_active = True
                     print("🎯 드라이브 연습 알림 활성화")
                     print(f"[DEBUG] 챕터3 대화 완료 후 변수 상태:")
