@@ -19302,13 +19302,41 @@ def check_tutorial_dash_missions_complete():
                 # 대화 완료 후 Chapter 3로 이동
                 print("튜토리얼: Chapter 3 - DRIVE로 이동")
                 
-                # 챕터 번호 업데이트
-                global tutorial_current_chapter, rolling_charges
+                # 챕터 번호 업데이트 및 Chapter 3 초기화
+                global tutorial_current_chapter, rolling_charges, special_gauge
+                global tutorial_needs_dash_practice, tutorial_needs_drive_practice
+                global tutorial_drive_practice_shown, tutorial_drive_helper_dialogue_shown
+                global tutorial_drive_counter_active, tutorial_drive_count
+                global tutorial_displayed_drive_count, tutorial_drive_completion_dialogue_shown
+                global tutorial_drive_reminder_active, tutorial_drive_chapter_max_gauge
+                
                 tutorial_current_chapter = 3
                 print(f"튜토리얼: 챕터 변경 - Chapter {tutorial_current_chapter}")
                 
                 # Chapter 2 종료 시 연습용 대쉬토큰 제거
                 rolling_charges = 1  # 기본 토큰 1개로 복구
+                
+                # Chapter 3 드라이브 연습 설정 (CRITICAL - 이것이 없으면 Chapter 3가 시작되지 않음)
+                tutorial_needs_dash_practice = False  # 대쉬 연습 완료
+                tutorial_needs_drive_practice = True  # 드라이브 연습 필요
+                tutorial_drive_practice_shown = False  # 드라이브 대화 아직 표시 안됨
+                
+                # 드라이브 챕터: 플레이어 최대 게이지를 300으로 설정
+                tutorial_drive_chapter_max_gauge = 300
+                
+                # Chapter 3 시작시 게이지 0으로 초기화
+                special_gauge = 0
+                print(f"튜토리얼: Chapter 3 시작 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
+                
+                # 드라이브 관련 변수 초기화
+                tutorial_drive_helper_dialogue_shown = False
+                tutorial_drive_counter_active = False
+                tutorial_drive_count = 0
+                tutorial_displayed_drive_count = 0.0
+                tutorial_drive_completion_dialogue_shown = False
+                tutorial_drive_reminder_active = False  # 160 게이지에서 활성화
+                
+                print("✅ Chapter 3 변수 초기화 완료")
                 
                 # 공 속도 복구
                 ball_vel[0] = tutorial_saved_ball_vel[0]
