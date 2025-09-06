@@ -6483,6 +6483,11 @@ def handle_player(keys):
         # Chapter 2 튜토리얼: rolling_active 상태에서 패들 충돌 시 무조건 카운트
         # (is_dash_success와 별개로 패들의 모든 부위에 공이 닿았을 때 카운트)
         elif current_stage == 50 and tutorial_dash_counter_active and rolling_active:
+            # 튜토리얼 모드에서 대쉬 성공 시 도우미 끄기
+            if 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
+                tutorial_dash_helper_active = False
+                print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
+            
             # 하프대쉬 체크
             if tutorial_half_dash_pending:
                 tutorial_half_dash_pending = False
@@ -6514,7 +6519,7 @@ def handle_player(keys):
                 check_tutorial_dash_missions_complete()
             
             # 대쉬 챕터에서 첫 대쉬 성공 시 토큰 설명 대화 표시
-            if current_stage == 50 and 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
+            if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
                 if not tutorial_dash_token_dialogue_shown:
                     tutorial_dash_token_dialogue_shown = True
                     # 게임 일시정지하고 대화 표시
@@ -6537,17 +6542,11 @@ def handle_player(keys):
                         
                         # 토큰이 추가되었으면 서브 알림창 타이머 설정
                         global tutorial_token_just_added
-                        print(f"DEBUG: tutorial_token_just_added 체크 - globals에 있음: {'tutorial_token_just_added' in globals()}")
-                        if 'tutorial_token_just_added' in globals():
-                            print(f"DEBUG: tutorial_token_just_added 값: {tutorial_token_just_added}")
                         if 'tutorial_token_just_added' in globals() and tutorial_token_just_added:
-                            tutorial_bonus_token_message = "대쉬토큰이 추가되었습니다. 연속대쉬를 사용해보세요!"
-                            tutorial_bonus_token_timer = pygame.time.get_ticks()
-                            tutorial_token_just_added = False  # 플래그 초기화
-                            print(f"DEBUG: 메인 루프로 복귀, 알림 타이머 설정: {tutorial_bonus_token_timer}")
-                            print(f"DEBUG: 메시지 설정: {tutorial_bonus_token_message}")
-                        else:
-                            print("DEBUG: 토큰 추가 플래그가 설정되지 않음")
+                            tutorial_serve_reminder_active = True
+                            tutorial_serve_reminder_timer = pygame.time.get_ticks()
+                            tutorial_token_just_added = False
+                            print("튜토리얼: 토큰 추가 후 서브 알림창 타이머 설정")
             #  대쉬 활용 능력 상세 분석
             ball_distance = abs(BALL.centery - PLAYER.centery)
             ball_speed = math.hypot(ball_vel[0], ball_vel[1])
