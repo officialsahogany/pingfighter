@@ -32270,70 +32270,71 @@ def main(stage_num, new_boss_mode=False):
                 # 튜토리얼 완료 후 메인 메뉴로
                 print("🎉 튜토리얼 모든 챕터 완료!")
                 return "main_menu"  # 메인 메뉴로 돌아감
+        
+        # Chapter 3 - 드라이브 연습 (메인 루프 내, 적절한 들여쓰기)
+        if current_stage == 50 and tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
+            print("튜토리얼: Chapter 3 - DRIVE 연습 시작 (메인 루프)")
             
-            # Chapter 3 - 드라이브 연습
-            if tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
-                print("튜토리얼: Chapter 3 - DRIVE 연습 시작 (메인 루프)")
+            # 대화 시작 전에 게임 화면 그리기
+            draw_field()
+            draw_objects()
+            pygame.display.flip()
+            
+            drive_dialogue_result = show_tutorial_drive_dialogue()
+            if drive_dialogue_result == "skip_chapter":
+                # 8번키로 챕터 스킵 요청 - Chapter 3에서는 튜토리얼 완료
+                print("🎮 드라이브 대화에서 챕터 스킵 요청됨 - 튜토리얼 완료")
                 
-                # 대화 시작 전에 게임 화면 그리기
-                draw_field()
-                draw_objects()
-                pygame.display.flip()
+                # Chapter 3 완료 요약 화면 표시
+                show_chapter_completion_summary(3)
                 
-                drive_dialogue_result = show_tutorial_drive_dialogue()
-                if drive_dialogue_result == "skip_chapter":
-                    # 8번키로 챕터 스킵 요청 - Chapter 3에서는 튜토리얼 완료
-                    print("🎮 드라이브 대화에서 챕터 스킵 요청됨 - 튜토리얼 완료")
-                    
-                    # Chapter 3 완료 요약 화면 표시
-                    show_chapter_completion_summary(3)
-                    
-                    # 최종 완료 피드백
-                    show_tutorial_success_feedback("🎉 튜토리얼 완료! 🎉", "perfect")
-                    
-                    # 튜토리얼 챕터별 게이지 오버라이드 해제
-                    tutorial_chapter1_max_gauge = None
-                    tutorial_chapter2_max_gauge = None
-                    tutorial_drive_chapter_max_gauge = None
-                    
-                    # 튜토리얼 완료 메시지 표시 후 메인 메뉴로
-                    print("🎉 튜토리얼 모든 챕터 완료!")
-                    return "main_menu"  # 메인 메뉴로 돌아감
-                elif drive_dialogue_result:
-                    # 드라이브 알림 변수는 main 함수 시작부에서 global 선언됨
-                    tutorial_drive_practice_shown = True
-                    tutorial_practice_mode = True
-                    print("튜토리얼: 드라이브 연습 대화 완료")
-                    
-                    # Chapter 3 대화 완료 후 게이지를 0으로 초기화
-                    special_gauge = 0
-                    displayed_gauge = 0
-                    print(f"튜토리얼: Chapter 3 대화 완료 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
-                    
-                    # 서브 알림창 활성화 (Chapter 3 대화 후 서브를 안내)
-                    tutorial_serve_reminder_active = True
-                    print("🎯 Chapter 3: 서브 알림창 활성화")
-                    
-                    # 160 게이지 도달시 도우미 대화 표시를 위한 플래그
-                    tutorial_drive_helper_dialogue_shown = False  # 아직 도우미 대화 안봄
-                    tutorial_drive_reminder_active = False  # 드라이브 알림은 도우미 대화 후에
-                    # 카운터 초기화 (도우미 대화 후에 활성화됨)
-                    tutorial_drive_count = 0
-                    tutorial_left_drive_count = 0
-                    tutorial_right_drive_count = 0
-                    tutorial_displayed_drive_count = 0.0
-                    tutorial_displayed_left_drive_count = 0.0
-                    tutorial_displayed_right_drive_count = 0.0
-                    
-                    print(f"[DEBUG] 챕터3 대화 완료 후 변수 상태:")
-                    print(f"[DEBUG] - tutorial_drive_practice_shown: {tutorial_drive_practice_shown}")
-                    print(f"[DEBUG] - tutorial_practice_mode: {tutorial_practice_mode}")
-                    print(f"[DEBUG] - tutorial_drive_reminder_active: {tutorial_drive_reminder_active}")
-                    print(f"[DEBUG] - tutorial_drive_counter_active: {tutorial_drive_counter_active}")
-                    print(f"[DEBUG] - current_stage: {current_stage}")
-                    # 드라이브 연습 시작 설정
-                    reset_round()  # 라운드 리셋
-                    continue  # 다음 프레임으로
+                # 최종 완료 피드백
+                show_tutorial_success_feedback("🎉 튜토리얼 완료! 🎉", "perfect")
+                
+                # 튜토리얼 챕터별 게이지 오버라이드 해제
+                tutorial_chapter1_max_gauge = None
+                tutorial_chapter2_max_gauge = None
+                tutorial_drive_chapter_max_gauge = None
+                
+                # 튜토리얼 완료 메시지 표시 후 메인 메뉴로
+                print("🎉 튜토리얼 모든 챕터 완료!")
+                return "main_menu"  # 메인 메뉴로 돌아감
+            elif drive_dialogue_result:
+                # 드라이브 알림 변수는 main 함수 시작부에서 global 선언됨
+                tutorial_drive_practice_shown = True
+                tutorial_practice_mode = True
+                print("튜토리얼: 드라이브 연습 대화 완료")
+                
+                # Chapter 3 대화 완료 후 게이지를 0으로 초기화
+                special_gauge = 0
+                displayed_gauge = 0
+                print(f"튜토리얼: Chapter 3 대화 완료 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
+                
+                # 서브 알림창 활성화 (Chapter 3 대화 후 서브를 안내)
+                tutorial_serve_reminder_active = True
+                print("🎯 Chapter 3: 서브 알림창 활성화")
+                
+                # 160 게이지 도달시 도우미 대화 표시를 위한 플래그
+                tutorial_drive_helper_dialogue_shown = False  # 아직 도우미 대화 안봄
+                tutorial_drive_reminder_active = False  # 드라이브 알림은 도우미 대화 후에
+                # 카운터 초기화 (도우미 대화 후에 활성화됨)
+                tutorial_drive_count = 0
+                tutorial_left_drive_count = 0
+                tutorial_right_drive_count = 0
+                tutorial_displayed_drive_count = 0.0
+                tutorial_displayed_left_drive_count = 0.0
+                tutorial_displayed_right_drive_count = 0.0
+                
+                print(f"[DEBUG] 챕터3 대화 완료 후 변수 상태:")
+                print(f"[DEBUG] - tutorial_drive_practice_shown: {tutorial_drive_practice_shown}")
+                print(f"[DEBUG] - tutorial_practice_mode: {tutorial_practice_mode}")
+                print(f"[DEBUG] - tutorial_drive_reminder_active: {tutorial_drive_reminder_active}")
+                print(f"[DEBUG] - tutorial_drive_counter_active: {tutorial_drive_counter_active}")
+                print(f"[DEBUG] - current_stage: {current_stage}")
+                
+                # 드라이브 연습 시작 설정
+                reset_round()  # 라운드 리셋
+                continue  # 다음 프레임으로
         
         # Chapter 3: 160 게이지 도달시 도우미 대화 표시
         if (current_stage == 50 and tutorial_current_chapter == 3 and 
