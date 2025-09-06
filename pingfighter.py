@@ -6360,7 +6360,11 @@ def handle_player(keys):
             if current_stage == 50 and tutorial_dash_counter_active:
                 # 일반 대쉬 카운터 (최대 2회) - 하프대쉬와 연속대쉬가 아닌 경우에만
                 # 하프대쉬와 연속대쉬는 각각 pending 플래그로 별도 처리됨
-                if tutorial_dash_count < 2 and not tutorial_half_dash_pending and not tutorial_consecutive_dash_pending:
+                # half_dash_used_flag도 체크하여 하프대쉬 중인 경우 제외
+                if (tutorial_dash_count < 2 and 
+                    not tutorial_half_dash_pending and 
+                    not tutorial_consecutive_dash_pending and
+                    not ('half_dash_used_flag' in globals() and half_dash_used_flag)):
                     tutorial_dash_count += 1
                     print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/2")
                     
