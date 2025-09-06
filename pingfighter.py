@@ -5698,10 +5698,13 @@ def handle_player(keys):
                         half_dash_used_flag = True
                         
                         # Increment half-dash counter for tutorial
-                        if current_stage == 50 and tutorial_dash_counter_active and tutorial_half_dash_count < 1:
+                        if current_stage == 50 and tutorial_dash_counter_active and tutorial_half_dash_count < 2:
                             tutorial_half_dash_count += 1
-                            show_tutorial_success_feedback("하프대쉬 성공!", "normal")
-                            print(f"튜토리얼: 하프대쉬 성공 {tutorial_half_dash_count}/1")
+                            if tutorial_half_dash_count == 1:
+                                show_tutorial_success_feedback("하프대쉬 성공!", "normal")
+                            else:
+                                show_tutorial_success_feedback("하프대쉬 완료!", "great")
+                            print(f"튜토리얼: 하프대쉬 성공 {tutorial_half_dash_count}/2")
                         
                         # 하프 대쉬도 토큰 소모 (게이지는 소모 없음)
                         rolling_charges -= half_dash_token_cost
