@@ -5396,6 +5396,9 @@ def handle_player(keys):
                         tutorial_consecutive_dash_count += 1
                         show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
                         print(f"튜토리얼: 연속대쉬 성공 {tutorial_consecutive_dash_count}/1")
+                        
+                        # 완료 체크
+                        check_tutorial_dash_missions_complete()
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -5705,6 +5708,9 @@ def handle_player(keys):
                             else:
                                 show_tutorial_success_feedback("하프대쉬 완료!", "great")
                             print(f"튜토리얼: 하프대쉬 성공 {tutorial_half_dash_count}/2")
+                            
+                            # 완료 체크
+                            check_tutorial_dash_missions_complete()
                         
                         # 하프 대쉬도 토큰 소모 (게이지는 소모 없음)
                         rolling_charges -= half_dash_token_cost
@@ -5882,6 +5888,9 @@ def handle_player(keys):
                         tutorial_consecutive_dash_count += 1
                         show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
                         print(f"튜토리얼: 연속대쉬 성공 {tutorial_consecutive_dash_count}/1")
+                        
+                        # 완료 체크
+                        check_tutorial_dash_missions_complete()
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -6008,6 +6017,9 @@ def handle_player(keys):
                         tutorial_consecutive_dash_count += 1
                         show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
                         print(f"튜토리얼: 연속대쉬 성공 {tutorial_consecutive_dash_count}/1")
+                        
+                        # 완료 체크
+                        check_tutorial_dash_missions_complete()
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -6359,93 +6371,8 @@ def handle_player(keys):
                     elif tutorial_dash_count == 2:
                         show_tutorial_success_feedback("훌륭해요!", "great")
                     
-                    # 모든 미션 완료 체크
-                    all_missions_complete = (tutorial_half_dash_count >= 2 and 
-                                            tutorial_dash_count >= 2 and 
-                                            tutorial_consecutive_dash_count >= 1)
-                    
-                    if all_missions_complete:
-                        show_tutorial_success_feedback("대쉬 마스터!", "perfect")
-                        # 대쉬 완료 축하 이펙트를 위한 타이머 설정
-                        tutorial_dash_completion_timer = pygame.time.get_ticks()
-                        # 카운터 축하 이펙트 활성화
-                        global tutorial_dash_counter_celebration, tutorial_dash_counter_celebration_timer
-                        tutorial_dash_counter_celebration = True
-                        tutorial_dash_counter_celebration_timer = pygame.time.get_ticks()
-                    
-                    # 모든 미션 완료 후 바로 축하 대화 표시
-                    if all_missions_complete and not tutorial_dash_completion_dialogue_shown:
-                        tutorial_dash_completion_dialogue_shown = True
-                        # 게임 일시정지하고 대화 표시
-                        tutorial_saved_ball_vel = ball_vel.copy()
-                        ball_vel[0] = 0
-                        ball_vel[1] = 0
-                        print("튜토리얼: 모든 대쉬 미션 완료! 축하 대화 표시")
-                        
-                        # 대화 시작 전에 게임 화면 그리기
-                        draw_field()
-                        draw_objects()
-                        pygame.display.flip()
-                        
-                        # 대화 표시
-                        if show_tutorial_dash_completion_dialogue():
-                            # 대화 완료 후 Chapter 3로 이동
-                            print("튜토리얼: Chapter 3 - DRIVE로 이동")
-                            
-                            # 챕터 번호 업데이트 - 이것이 빠져있었음!
-                            tutorial_current_chapter = 3
-                            print(f"튜토리얼: 챕터 변경 - Chapter {tutorial_current_chapter}")
-                            
-                            # Chapter 2 종료 시 연습용 대쉬토큰 제거
-                            global tutorial_practice_bonus_token
-                            if 'tutorial_practice_bonus_token' in globals() and tutorial_practice_bonus_token:
-                                dashholder_obtained = False  # 대쉬홀더 효과 제거
-                                rolling_charges = 1  # 원래대로 1개로 복원
-                                tutorial_practice_bonus_token = False
-                                tutorial_bonus_token_message = None  # 메시지 제거
-                                print("튜토리얼: Chapter 2 종료 - 대쉬토큰 1개로 복원")
-                            
-                            # Chapter 3 타이틀 표시 (드라이브)
-                            show_chapter_title(3, "DRIVE", "드라이브")
-                            
-                            # 드라이브 챕터: 플레이어 최대 게이지를 300으로 설정 (Chapter 2와 동일)
-                            tutorial_drive_chapter_max_gauge = 300
-                            
-                            # 게이지 초기화는 Chapter 3 대화 완료 후에 하도록 변경
-                            # (이곳에서 초기화하면 대화 표시 전까지 게이지가 쌓임)
-                            print(f"튜토리얼: Chapter 3 전환 - 최대 게이지 설정 ({tutorial_drive_chapter_max_gauge})")
-                            
-                            # 드라이브 연습 관련 global 선언  
-                            global tutorial_needs_drive_practice, tutorial_drive_practice_shown
-                            global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
-                            global tutorial_drive_count, tutorial_displayed_drive_count
-                            global tutorial_drive_reminder_active
-                            # tutorial_dash_counter_active와 tutorial_dash_count는 이미 위에서 선언됨
-                            
-                            # 대쉬 연습 완료, 드라이브 연습 시작
-                            tutorial_needs_dash_practice = False  # 대쉬 연습 완료
-                            tutorial_needs_drive_practice = True  # 드라이브 연습 필요
-                            tutorial_drive_practice_shown = False  # 드라이브 대화 아직 표시 안됨
-                            tutorial_drive_reminder_active = False  # 드라이브 연습 알림 초기화
-                            tutorial_drive_reminder_timer = 0  # 드라이브 알림 타이머 초기화
-                            # 대쉬 카운터 리셋
-                            tutorial_dash_counter_active = False
-                            tutorial_dash_count = 0
-                            
-                            # 드라이브 카운터 초기화
-                            tutorial_drive_counter_active = False  # 160 게이지 달성시 활성화
-                            tutorial_drive_count = 0
-                            tutorial_displayed_drive_count = 0.0
-                            tutorial_drive_helper_dialogue_shown = False
-                            
-                            # 게임 계속 진행을 위한 설정
-                            # 새로운 라운드 시작 (현재 스테이지 50 유지)
-                            reset_round()  # 라운드 리셋
-                            tutorial_practice_mode = True  # 실습 모드 재활성화
-                            
-                            # 공 속도 복원 및 게임 재개
-                            ball_vel[0] = tutorial_saved_ball_vel[0] 
-                            ball_vel[1] = tutorial_saved_ball_vel[1]
+                    # 완료 체크
+                    check_tutorial_dash_missions_complete()
             
             # 대쉬 챕터에서 첫 대쉬 성공 시 토큰 설명 대화 표시
             if current_stage == 50 and 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
@@ -19334,6 +19261,61 @@ def show_tutorial_serve_helper():
         
         pygame.display.flip()
         clock.tick(60)
+
+def check_tutorial_dash_missions_complete():
+    """튜토리얼 대쉬 미션 완료 체크 및 대화 트리거"""
+    global tutorial_dash_completion_dialogue_shown, tutorial_dash_counter_celebration
+    global tutorial_dash_counter_celebration_timer, tutorial_dash_completion_timer
+    global tutorial_saved_ball_vel, ball_vel, tutorial_current_chapter
+    
+    # 모든 미션 완료 체크
+    all_missions_complete = (tutorial_half_dash_count >= 2 and 
+                            tutorial_dash_count >= 2 and 
+                            tutorial_consecutive_dash_count >= 1)
+    
+    if all_missions_complete:
+        # 첫 완료 시에만 축하 피드백
+        if not tutorial_dash_completion_dialogue_shown:
+            show_tutorial_success_feedback("대쉬 마스터!", "perfect")
+            # 대쉬 완료 축하 이펙트를 위한 타이머 설정
+            tutorial_dash_completion_timer = pygame.time.get_ticks()
+            # 카운터 축하 이펙트 활성화
+            tutorial_dash_counter_celebration = True
+            tutorial_dash_counter_celebration_timer = pygame.time.get_ticks()
+        
+        # 모든 미션 완료 후 바로 축하 대화 표시
+        if not tutorial_dash_completion_dialogue_shown:
+            tutorial_dash_completion_dialogue_shown = True
+            # 게임 일시정지하고 대화 표시
+            tutorial_saved_ball_vel = ball_vel.copy()
+            ball_vel[0] = 0
+            ball_vel[1] = 0
+            print("튜토리얼: 모든 대쉬 미션 완료! 축하 대화 표시")
+            
+            # 대화 시작 전에 게임 화면 그리기
+            draw_field()
+            draw_objects()
+            pygame.display.flip()
+            
+            # 대화 표시
+            if show_tutorial_dash_completion_dialogue():
+                # 대화 완료 후 Chapter 3로 이동
+                print("튜토리얼: Chapter 3 - DRIVE로 이동")
+                
+                # 챕터 번호 업데이트
+                tutorial_current_chapter = 3
+                print(f"튜토리얼: 챕터 변경 - Chapter {tutorial_current_chapter}")
+                
+                # Chapter 2 종료 시 연습용 대쉬토큰 제거
+                global rolling_charges
+                rolling_charges = 1  # 기본 토큰 1개로 복구
+                
+                # 공 속도 복구
+                ball_vel[0] = tutorial_saved_ball_vel[0]
+                ball_vel[1] = tutorial_saved_ball_vel[1]
+                
+                return True
+    return False
 
 def show_tutorial_dash_completion_dialogue():
     """모든 대쉬 미션 완료 후 조교 축하 대화"""
