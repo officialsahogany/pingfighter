@@ -1786,6 +1786,7 @@ tutorial_power_completion_dialogue_shown = False  # 파워스매싱 완료 대�
 tutorial_needs_power_practice = False  # 파워스매싱 연습 필요 여부
 tutorial_power_reminder_active = False  # 파워스매싱 도우미 활성화 여부
 tutorial_power_practice_shown = False  # 파워스매싱 연습 대화 표시 여부
+tutorial_chapter4_just_started = False  # Chapter 4가 방금 시작되었는지 (대화 지연용)
 tutorial_power_helper_dialogue_shown = False  # 파워스매싱 도우미 대화 표시 여부
 tutorial_power_left_done = False  # 왼쪽 파워스매싱 완료 여부
 tutorial_power_center_done = False  # 중앙 파워스매싱 완료 여부
@@ -24239,6 +24240,16 @@ def calculate_bounce(paddle):
                             tutorial_power_reminder_active = False
                             tutorial_power_reminder_timer = 0
                             
+                            # Chapter 4 전환 직후 디버그 출력
+                            print(f"[CHAPTER 4 INIT] Chapter 4 initialized successfully!")
+                            print(f"[CHAPTER 4 INIT] tutorial_needs_power_practice: {tutorial_needs_power_practice}")
+                            print(f"[CHAPTER 4 INIT] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
+                            print(f"[CHAPTER 4 INIT] special_gauge_max: {special_gauge_max}")
+                            
+                            # Chapter 4 대화를 다음 프레임에 실행하도록 플래그 설정
+                            global tutorial_chapter4_just_started
+                            tutorial_chapter4_just_started = True
+                            
                             # 드라이브 카운터 비활성화
                             tutorial_drive_counter_active = False
                             tutorial_needs_drive_practice = False
@@ -32203,6 +32214,16 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_power_reminder_active = False
                 tutorial_power_reminder_timer = 0
                 
+                # Chapter 4 백업 전환 디버그 출력
+                print(f"[CHAPTER 4 BACKUP INIT] Chapter 4 initialized via backup route!")
+                print(f"[CHAPTER 4 BACKUP INIT] tutorial_needs_power_practice: {tutorial_needs_power_practice}")
+                print(f"[CHAPTER 4 BACKUP INIT] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
+                print(f"[CHAPTER 4 BACKUP INIT] special_gauge_max: {special_gauge_max}")
+                
+                # Chapter 4 대화를 다음 프레임에 실행하도록 플래그 설정
+                global tutorial_chapter4_just_started
+                tutorial_chapter4_just_started = True
+                
                 # 드라이브 카운터 비활성화
                 tutorial_drive_counter_active = False
                 tutorial_needs_drive_practice = False  # 드라이브 연습 완료
@@ -32213,63 +32234,72 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[1] = tutorial_saved_ball_vel[1]
         
         # Chapter 4 - 파워스매싱 연습 (Chapter 3 조건문 밖으로 이동)
+        if current_stage == 50 and tutorial_current_chapter == 4:
+            # 디버그 출력 추가
+            if not hasattr(main, 'chapter4_debug_shown'):
+                main.chapter4_debug_shown = True
+                print(f"[CHAPTER 4 DEBUG] current_stage: {current_stage}, tutorial_current_chapter: {tutorial_current_chapter}")
+                print(f"[CHAPTER 4 DEBUG] tutorial_needs_power_practice: {tutorial_needs_power_practice}")
+                print(f"[CHAPTER 4 DEBUG] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
+                print(f"[CHAPTER 4 DEBUG] special_gauge_max: {special_gauge_max}")
+        
         if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_needs_power_practice and not tutorial_power_practice_shown:
-                print("튜토리얼: Chapter 4 - POWER SMASHING 연습 시작 (메인 루프)")
-                
-                # 대화 시작 전에 게임 화면 그리기
-                draw_field()
-                draw_objects()
-                pygame.display.flip()
-                
-                power_dialogue_result = show_tutorial_power_practice_dialogue()
-                if power_dialogue_result:
-                    tutorial_power_practice_shown = True
-                    tutorial_power_counter_active = True  # 카운터 활성화
-                    tutorial_serve_reminder_active = True  # 서브 알림창 활성화 (Chapter 4에서는 파워스매싱 안내)
-                    print("튜토리얼: 파워스매싱 연습 대화 완료, 서브 알림창 활성화")
+            print("튜토리얼: Chapter 4 - POWER SMASHING 연습 시작 (메인 루프)")
+            
+            # 대화 시작 전에 게임 화면 그리기
+            draw_field()
+            draw_objects()
+            pygame.display.flip()
+            
+            power_dialogue_result = show_tutorial_power_practice_dialogue()
+            if power_dialogue_result:
+                tutorial_power_practice_shown = True
+                tutorial_power_counter_active = True  # 카운터 활성화
+                tutorial_serve_reminder_active = True  # 서브 알림창 활성화 (Chapter 4에서는 파워스매싱 안내)
+                print("튜토리얼: 파워스매싱 연습 대화 완료, 서브 알림창 활성화")
         
         # Chapter 4 - 게이지 500 도달 시 도우미 대화 (Chapter 3 조건문 밖으로 이동)
         if (current_stage == 50 and tutorial_current_chapter == 4 and 
                 tutorial_needs_power_practice and tutorial_power_practice_shown and
                 not tutorial_power_helper_dialogue_shown and special_gauge >= 500):
-                
-                print("🎯 Chapter 4: 500 게이지 도달! 도우미 대화 표시")
-                tutorial_power_helper_dialogue_shown = True
-                
-                # 대화 시작 전에 게임 화면 그리기
-                draw_field()
-                draw_objects()
-                pygame.display.flip()
-                
-                show_tutorial_power_helper_dialogue()
-                print("튜토리얼: 파워스매싱 도우미 대화 완료")
-                tutorial_power_reminder_active = True  # 서브 알림창 활성화
+            
+            print("🎯 Chapter 4: 500 게이지 도달! 도우미 대화 표시")
+            tutorial_power_helper_dialogue_shown = True
+            
+            # 대화 시작 전에 게임 화면 그리기
+            draw_field()
+            draw_objects()
+            pygame.display.flip()
+            
+            show_tutorial_power_helper_dialogue()
+            print("튜토리얼: 파워스매싱 도우미 대화 완료")
+            tutorial_power_reminder_active = True  # 서브 알림창 활성화
         
         # Chapter 4 - 파워스매싱 3방향 모두 완료 체크 (Chapter 3 조건문 밖으로 이동)
         if (current_stage == 50 and tutorial_current_chapter == 4 and
                 tutorial_power_counter_active and tutorial_power_count >= 3 and
                 not tutorial_power_completion_dialogue_shown):
-                
-                print("🎉 Chapter 4: 파워스매싱 3방향 모두 성공!")
-                tutorial_power_completion_dialogue_shown = True
-                tutorial_power_counter_active = False  # 카운터 비활성화
-                tutorial_power_reminder_active = False  # 서브 알림창 비활성화
-                
-                # 대화 시작 전에 게임 화면 그리기
-                draw_field()
-                draw_objects()
-                pygame.display.flip()
-                
-                # 완료 대화 표시
-                show_tutorial_power_completion_dialogue()
-                
-                # 챕터 완료 처리 - Chapter 4가 마지막이므로 튜토리얼 완료
-                show_chapter_completion_summary(4)
-                show_tutorial_success_feedback("🎉 튜토리얼 완료! 🎉", "perfect")
-                
-                # 튜토리얼 완료 후 메인 메뉴로
-                print("🎉 튜토리얼 모든 챕터 완료!")
-                return "main_menu"  # 메인 메뉴로 돌아감
+            
+            print("🎉 Chapter 4: 파워스매싱 3방향 모두 성공!")
+            tutorial_power_completion_dialogue_shown = True
+            tutorial_power_counter_active = False  # 카운터 비활성화
+            tutorial_power_reminder_active = False  # 서브 알림창 비활성화
+            
+            # 대화 시작 전에 게임 화면 그리기
+            draw_field()
+            draw_objects()
+            pygame.display.flip()
+            
+            # 완료 대화 표시
+            show_tutorial_power_completion_dialogue()
+            
+            # 챕터 완료 처리 - Chapter 4가 마지막이므로 튜토리얼 완료
+            show_chapter_completion_summary(4)
+            show_tutorial_success_feedback("🎉 튜토리얼 완료! 🎉", "perfect")
+            
+            # 튜토리얼 완료 후 메인 메뉴로
+            print("🎉 튜토리얼 모든 챕터 완료!")
+            return "main_menu"  # 메인 메뉴로 돌아감
         
         # Chapter 3 - 드라이브 연습 (메인 루프 내, 적절한 들여쓰기)
         if current_stage == 50 and tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
