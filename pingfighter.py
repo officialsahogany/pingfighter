@@ -5721,6 +5721,19 @@ def handle_player(keys):
                         #  하프대쉬 사용 플래그 설정 (연속 대쉬 방지)
                         half_dash_used_flag = True
                         
+                        # 연속 대쉬 카운터 증가 (하프대쉬도 연속 대쉬에 포함)
+                        rolling_consecutive_count += 1
+                        rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
+                        print(f"[DEBUG] 하프대쉬 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
+                        
+                        # Check consecutive dash for tutorial (half-dash also counts)
+                        if current_stage == 50 and tutorial_current_chapter == 2:
+                            print(f"[DEBUG] 챕터2 하프대쉬 연속대쉬 체크: count={rolling_consecutive_count}, 이미 완료={tutorial_consecutive_dash_count}")
+                            if rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
+                                tutorial_consecutive_dash_count += 1
+                                print(f"튜토리얼: 연속대쉬 성공! (하프대쉬 포함) {tutorial_consecutive_dash_count}/1")
+                                show_tutorial_success_feedback("연속대쉬 성공!", "great")
+                        
                         # Mark that half-dash was used, wait for ball hit to count
                         if current_stage == 50 and tutorial_dash_counter_active:
                             tutorial_half_dash_pending = True
@@ -29951,6 +29964,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending  # 튜토리얼 대쉬 pending 플래그
     global tutorial_half_dash_count, tutorial_consecutive_dash_count  # 튜토리얼 대쉬 카운트
     global tutorial_dash_counter_active  # 튜토리얼 대쉬 관련
+    global tutorial_current_chapter  # 튜토리얼 현재 챕터
     nine_just_pressed = False
     last_nine_state = False
     
@@ -30319,6 +30333,7 @@ def main(stage_num, new_boss_mode=False):
             tutorial_drive_practice_shown = False
         else:
             # 초기 튜토리얼 시작 - 모든 변수 초기화
+            tutorial_current_chapter = 1  # Chapter 1로 초기화
             tutorial_dialogue_shown = False
             tutorial_practice_mode = False  # 실습 모드 플래그
             tutorial_serve_instruction_shown = False  # 서브 지시 표시 플래그
