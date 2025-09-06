@@ -24206,27 +24206,27 @@ def calculate_bounce(paddle):
                         completion_result = show_tutorial_drive_completion_dialogue()
                         
                         if completion_result == "proceed_to_chapter4":
-                                # 정상적으로 Chapter 4로 진행
-                                print("📚 Chapter 3 완료! Chapter 4로 진행")
-                                tutorial_current_chapter = 4
-                                
-                                # Chapter 4 타이틀 표시 (파워스매싱)
-                                show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
-                                
-                                # Chapter 4 초기화: 최대 게이지를 500으로 설정
-                                special_gauge_max = get_max_gauge()  # 500 반환
-                                print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
-                                
-                                # Chapter 4 파워스매싱 튜토리얼 초기화
-                                tutorial_power_practice_shown = False
-                                tutorial_power_helper_dialogue_shown = False
-                                tutorial_power_completion_dialogue_shown = False
-                                tutorial_power_count = 0
-                                tutorial_displayed_power_count = 0
-                                tutorial_power_counter_active = False
-                                tutorial_needs_power_practice = True
-                                tutorial_power_reminder_active = False
-                                tutorial_power_reminder_timer = 0
+                            # 정상적으로 Chapter 4로 진행
+                            print("📚 Chapter 3 완료! Chapter 4로 진행")
+                            tutorial_current_chapter = 4
+                            
+                            # Chapter 4 타이틀 표시 (파워스매싱)
+                            show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
+                            
+                            # Chapter 4 초기화: 최대 게이지를 500으로 설정
+                            special_gauge_max = get_max_gauge()  # 500 반환
+                            print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
+                            
+                            # Chapter 4 파워스매싱 튜토리얼 초기화
+                            tutorial_power_practice_shown = False
+                            tutorial_power_helper_dialogue_shown = False
+                            tutorial_power_completion_dialogue_shown = False
+                            tutorial_power_count = 0
+                            tutorial_displayed_power_count = 0
+                            tutorial_power_counter_active = False
+                            tutorial_needs_power_practice = True
+                            tutorial_power_reminder_active = False
+                            tutorial_power_reminder_timer = 0
                         
                         # 공 속도 복원
                         if tutorial_saved_ball_vel:
