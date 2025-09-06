@@ -24248,10 +24248,6 @@ def calculate_bounce(paddle):
                             print(f"[CHAPTER 4 INIT] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
                             print(f"[CHAPTER 4 INIT] special_gauge_max: {special_gauge_max}")
                             
-                            # Chapter 4 대화를 다음 프레임에 실행하도록 플래그 설정
-                            global tutorial_chapter4_just_started
-                            tutorial_chapter4_just_started = True
-                            
                             # 드라이브 카운터 비활성화
                             tutorial_drive_counter_active = False
                             tutorial_needs_drive_practice = False
@@ -32223,10 +32219,6 @@ def main(stage_num, new_boss_mode=False):
                 print(f"[CHAPTER 4 BACKUP INIT] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
                 print(f"[CHAPTER 4 BACKUP INIT] special_gauge_max: {special_gauge_max}")
                 
-                # Chapter 4 대화를 다음 프레임에 실행하도록 플래그 설정
-                global tutorial_chapter4_just_started
-                tutorial_chapter4_just_started = True
-                
                 # 드라이브 카운터 비활성화
                 tutorial_drive_counter_active = False
                 tutorial_needs_drive_practice = False  # 드라이브 연습 완료
@@ -32236,24 +32228,8 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[0] = tutorial_saved_ball_vel[0]
                     ball_vel[1] = tutorial_saved_ball_vel[1]
         
-        # Chapter 4 - 파워스매싱 연습 (Chapter 3 조건문 밖으로 이동)
-        if current_stage == 50 and tutorial_current_chapter == 4:
-            # 디버그 출력 추가
-            if not hasattr(main, 'chapter4_debug_shown'):
-                main.chapter4_debug_shown = True
-                print(f"[CHAPTER 4 DEBUG] current_stage: {current_stage}, tutorial_current_chapter: {tutorial_current_chapter}")
-                print(f"[CHAPTER 4 DEBUG] tutorial_needs_power_practice: {tutorial_needs_power_practice}")
-                print(f"[CHAPTER 4 DEBUG] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
-                print(f"[CHAPTER 4 DEBUG] special_gauge_max: {special_gauge_max}")
-                print(f"[CHAPTER 4 DEBUG] tutorial_chapter4_just_started: {tutorial_chapter4_just_started}")
-            
-            # Chapter 4가 방금 시작된 경우 한 프레임 대기
-            if tutorial_chapter4_just_started:
-                print("[CHAPTER 4] Waiting one frame before showing dialogue...")
-                tutorial_chapter4_just_started = False
-                # 한 프레임 대기 후 다음 프레임에서 대화 표시
-        
-        if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_needs_power_practice and not tutorial_power_practice_shown and not tutorial_chapter4_just_started:
+        # Chapter 4 - 파워스매싱 연습 (Chapter 3와 동일한 패턴으로 수정)
+        if current_stage == 50 and tutorial_needs_power_practice and not tutorial_power_practice_shown:
             print("튜토리얼: Chapter 4 - POWER SMASHING 연습 시작 (메인 루프)")
             
             # 대화 시작 전에 게임 화면 그리기
@@ -32269,7 +32245,7 @@ def main(stage_num, new_boss_mode=False):
                 print("튜토리얼: 파워스매싱 연습 대화 완료, 서브 알림창 활성화")
         
         # Chapter 4 - 게이지 500 도달 시 도우미 대화 (Chapter 3 조건문 밖으로 이동)
-        if (current_stage == 50 and tutorial_current_chapter == 4 and 
+        if (current_stage == 50 and 
                 tutorial_needs_power_practice and tutorial_power_practice_shown and
                 not tutorial_power_helper_dialogue_shown and special_gauge >= 500):
             
@@ -32286,7 +32262,7 @@ def main(stage_num, new_boss_mode=False):
             tutorial_power_reminder_active = True  # 서브 알림창 활성화
         
         # Chapter 4 - 파워스매싱 3방향 모두 완료 체크 (Chapter 3 조건문 밖으로 이동)
-        if (current_stage == 50 and tutorial_current_chapter == 4 and
+        if (current_stage == 50 and
                 tutorial_power_counter_active and tutorial_power_count >= 3 and
                 not tutorial_power_completion_dialogue_shown):
             
