@@ -6337,7 +6337,7 @@ def handle_player(keys):
             # 튜토리얼 대쉬 카운터 관련 글로벌 변수 선언
             global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
             global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
-            global tutorial_consecutive_dash_count
+            global tutorial_consecutive_dash_count, tutorial_half_dash_count
             
             # 튜토리얼 모드에서 대쉬 성공 시 도우미 끄기
             if current_stage == 50 and 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
