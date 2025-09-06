@@ -6355,6 +6355,76 @@ def handle_player(keys):
         player_collision_handled = True
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
         
+        # Chapter 2 튜토리얼: 대쉬 상태에서 충돌 시 첫 대쉬 이벤트 처리
+        if current_stage == 50 and tutorial_current_chapter == 2 and rolling_active:
+            # 대쉬 카운터가 활성화되어 있고 대쉬 중일 때
+            if tutorial_dash_counter_active:
+                # 도우미 비활성화
+                if 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
+                    tutorial_dash_helper_active = False
+                    print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
+                
+                # 첫 대쉬 시 토큰 설명 대화 표시
+                if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
+                    if not tutorial_dash_token_dialogue_shown:
+                        tutorial_dash_token_dialogue_shown = True
+                        # 게임 일시정지하고 대화 표시
+                        tutorial_saved_ball_vel = ball_vel.copy()
+                        ball_vel[0] = 0
+                        ball_vel[1] = 0
+                        print("튜토리얼: 첫 대쉬 성공! 토큰 시스템 설명 대화 표시")
+                        
+                        # 대화 시작 전에 게임 화면 그리기
+                        draw_field()
+                        draw_objects()
+                        pygame.display.flip()
+                        
+                        # 대화 표시
+                        if show_tutorial_dash_token_dialogue():
+                            # 대화 완료 후 공 속도 복원
+                            ball_vel[0] = tutorial_saved_ball_vel[0]
+                            ball_vel[1] = tutorial_saved_ball_vel[1]
+                            print("튜토리얼: 대쉬 토큰 설명 완료")
+                            
+                            # 토큰이 추가되었으면 서브 알림창 타이머 설정
+                            global tutorial_token_just_added
+                            if 'tutorial_token_just_added' in globals() and tutorial_token_just_added:
+                                tutorial_serve_reminder_active = True
+                                tutorial_serve_reminder_timer = pygame.time.get_ticks()
+                                tutorial_token_just_added = False
+                                print("튜토리얼: 토큰 추가 후 서브 알림창 타이머 설정")
+                
+                # 대쉬 카운터 증가 처리
+                # 하프대쉬 체크
+                if tutorial_half_dash_pending:
+                    tutorial_half_dash_pending = False
+                    if tutorial_half_dash_count < 2:
+                        tutorial_half_dash_count += 1
+                        if tutorial_half_dash_count == 1:
+                            show_tutorial_success_feedback("하프대쉬 성공!", "normal")
+                        else:
+                            show_tutorial_success_feedback("하프대쉬 완료!", "great")
+                        print(f"튜토리얼: 하프대쉬로 공 타격 성공 {tutorial_half_dash_count}/2")
+                        
+                        # 완료 체크
+                        check_tutorial_dash_missions_complete()
+                
+                # 일반 대쉬 카운터
+                elif (tutorial_dash_count < 2 and 
+                    not tutorial_half_dash_pending and 
+                    not ('half_dash_used_flag' in globals() and half_dash_used_flag)):
+                    tutorial_dash_count += 1
+                    print(f"튜토리얼: 대쉬 상태에서 공 타격 성공 {tutorial_dash_count}/2")
+                    
+                    # 성공 피드백 표시
+                    if tutorial_dash_count == 1:
+                        show_tutorial_success_feedback("대쉬 성공!", "normal")
+                    elif tutorial_dash_count == 2:
+                        show_tutorial_success_feedback("훌륭해요!", "great")
+                    
+                    # 완료 체크
+                    check_tutorial_dash_missions_complete()
+        
         # 튜토리얼 스테이지 50에서 플레이어가 공을 친 횟수 증가
         # handle_player에서 처리하여 모든 각도의 충돌을 정확히 카운팅
         if current_stage == 50 and tutorial_practice_mode and tutorial_boss_returned:
