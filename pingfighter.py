@@ -24356,7 +24356,7 @@ def handle_ball():
     # 튜토리얼 관련 변수들
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
     global tutorial_half_dash_count, tutorial_consecutive_dash_count
-    global tutorial_dash_counter_active, half_dash_active
+    global tutorial_dash_counter_active, rolling_active
     # 플레이어 & 보스 게이지/스킬 시스템
     global special_gauge, special_ready, special_active
     global boss_special_gauge, boss_special_ready, boss_red_intensity
@@ -24949,7 +24949,7 @@ def handle_ball():
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
     global tutorial_half_dash_count, tutorial_consecutive_dash_count
-    global tutorial_dash_counter_active, half_dash_active
+    global tutorial_dash_counter_active, rolling_active
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown
     # 롤링 스턴 타이머
     global rolling_stun_timer
@@ -26755,8 +26755,8 @@ def handle_ball():
         # 튜토리얼 스테이지 50에서 플레이어가 조교의 공을 받아쳤을 때 처리
         if current_stage == 50 and tutorial_dash_counter_active:
             
-            # Check if half-dash is pending and ball was hit during half-dash
-            if tutorial_half_dash_pending and half_dash_active:
+            # Check if half-dash is pending and ball was hit during rolling (half-dash uses rolling system)
+            if tutorial_half_dash_pending and rolling_active:
                 tutorial_half_dash_pending = False
                 if tutorial_half_dash_count < 2:
                     tutorial_half_dash_count += 1
@@ -29892,7 +29892,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_bonus_token_message  # 튜토리얼 보너스 토큰 메시지
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending  # 튜토리얼 대쉬 pending 플래그
     global tutorial_half_dash_count, tutorial_consecutive_dash_count  # 튜토리얼 대쉬 카운트
-    global tutorial_dash_counter_active, half_dash_active  # 튜토리얼 대쉬 관련
+    global tutorial_dash_counter_active  # 튜토리얼 대쉬 관련
     nine_just_pressed = False
     last_nine_state = False
     
