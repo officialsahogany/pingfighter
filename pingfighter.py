@@ -30006,7 +30006,10 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_half_dash_count, tutorial_consecutive_dash_count  # 튜토리얼 대쉬 카운트
     global tutorial_dash_counter_active  # 튜토리얼 대쉬 관련
     global tutorial_current_chapter  # 튜토리얼 현재 챕터
-    global tutorial_chapter4_just_started  # Chapter 4 대화 지연 플래그
+    global tutorial_needs_power_practice, tutorial_power_practice_shown  # Chapter 4 파워스매싱 튜토리얼
+    global tutorial_power_helper_dialogue_shown, tutorial_power_completion_dialogue_shown  # Chapter 4 대화 플래그
+    global tutorial_power_count, tutorial_displayed_power_count  # Chapter 4 카운터
+    global tutorial_power_counter_active, tutorial_power_reminder_active, tutorial_power_reminder_timer  # Chapter 4 알림
     nine_just_pressed = False
     last_nine_state = False
     
@@ -30397,6 +30400,17 @@ def main(stage_num, new_boss_mode=False):
             tutorial_needs_drive_practice = False  # 드라이브 연습이 필요한지 여부
             tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
             tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 표시 여부
+            
+            # Chapter 4 파워스매싱 튜토리얼 변수 초기화
+            tutorial_needs_power_practice = False  # 파워스매싱 연습이 필요한지 여부
+            tutorial_power_practice_shown = False  # 파워스매싱 연습 대화 표시 여부
+            tutorial_power_helper_dialogue_shown = False  # 파워스매싱 도우미 대화 표시 여부
+            tutorial_power_completion_dialogue_shown = False  # 파워스매싱 완료 대화 표시 여부
+            tutorial_power_count = 0  # 파워스매싱 성공 횟수
+            tutorial_displayed_power_count = 0  # 화면에 표시되는 애니메이션용 카운트
+            tutorial_power_counter_active = False  # 파워스매싱 카운터 UI 활성화 여부
+            tutorial_power_reminder_active = False  # 파워스매싱 알림창 활성 상태
+            tutorial_power_reminder_timer = 0  # 파워스매싱 알림창 타이머
         
         # 게이지 및 속도 튜토리얼 관련 변수
         global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
