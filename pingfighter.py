@@ -29972,6 +29972,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_skip_chapter2_init
     global tutorial_drive_reminder_active  # 드라이브 알림창 전역 변수
     global tutorial_drive_counter_active  # 드라이브 카운터 전역 변수
+    global tutorial_drive_completion_dialogue_shown  # 드라이브 완료 대화 표시 여부
     global tutorial_bonus_token_message  # 튜토리얼 보너스 토큰 메시지
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending  # 튜토리얼 대쉬 pending 플래그
     global tutorial_half_dash_count, tutorial_consecutive_dash_count  # 튜토리얼 대쉬 카운트
@@ -30343,6 +30344,7 @@ def main(stage_num, new_boss_mode=False):
             # tutorial_drive_chapter_max_gauge = None (유지)
             tutorial_needs_drive_practice = False
             tutorial_drive_practice_shown = False
+            tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 초기화
         else:
             # 초기 튜토리얼 시작 - 모든 변수 초기화
             tutorial_current_chapter = 1  # Chapter 1로 초기화
@@ -30365,6 +30367,7 @@ def main(stage_num, new_boss_mode=False):
             tutorial_drive_chapter_max_gauge = None  # 드라이브 챕터 최대 게이지 임시 오버라이드
             tutorial_needs_drive_practice = False  # 드라이브 연습이 필요한지 여부
             tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
+            tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 표시 여부
         
         # 게이지 및 속도 튜토리얼 관련 변수
         global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
