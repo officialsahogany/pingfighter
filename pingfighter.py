@@ -16381,12 +16381,19 @@ def show_tutorial_power_demonstration():
     global ball_x, ball_y, ball_dx, ball_dy, ball_speed
     global boss_y, boss_dy, boss_special_timer, boss_special_waiting
     global tutorial_power_demo_state, tutorial_serve_complete
+    global PLAYER, BOSS, PADDLE_WIDTH, PADDLE_HEIGHT, BALL_RADIUS
     
     clock = pygame.time.Clock()
     
     # 폰트 설정
     font_medium = FontStyle.body()     # 24pt
     font_small = FontStyle.small()     # 18pt
+    
+    # 패들과 공 크기 정의
+    paddle_width = PADDLE_WIDTH
+    paddle_height = PADDLE_HEIGHT
+    ball_radius = BALL_RADIUS
+    player_y = HEIGHT - 60  # 플레이어 Y 위치
     
     # 시범 상태 초기화
     demo_sequence = ["left", "center", "right"]  # 시범 순서
@@ -24265,7 +24272,12 @@ def calculate_bounce(paddle):
                             tutorial_needs_drive_practice = False
                             
                             # Chapter 4 대화를 즉시 표시 (타이틀 후 바로)
+                            # 먼저 게임 화면을 그려서 검은 화면이 아닌 게임 화면 위에 대화가 표시되도록 함
                             print("튜토리얼: Chapter 4 - POWER SMASHING 대화 즉시 시작 (handle_player)")
+                            draw_field()
+                            draw_objects()
+                            pygame.display.flip()
+                            
                             power_dialogue_result = show_tutorial_power_practice_dialogue()
                             if power_dialogue_result:
                                 tutorial_power_practice_shown = True
@@ -32265,7 +32277,12 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_needs_drive_practice = False  # 드라이브 연습 완료
                 
                 # Chapter 4 대화를 즉시 표시 (타이틀 후 바로)
+                # 먼저 게임 화면을 그려서 검은 화면이 아닌 게임 화면 위에 대화가 표시되도록 함
                 print("튜토리얼: Chapter 4 - POWER SMASHING 대화 즉시 시작 (백업 메인 루프)")
+                draw_field()
+                draw_objects()
+                pygame.display.flip()
+                
                 power_dialogue_result = show_tutorial_power_practice_dialogue()
                 if power_dialogue_result:
                     tutorial_power_practice_shown = True
