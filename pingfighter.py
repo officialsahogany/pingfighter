@@ -31883,11 +31883,12 @@ def main(stage_num, new_boss_mode=False):
                     print("tutorial_dash_helper_active 변수가 globals()에 없음")
                 
                 # 튜토리얼 서브 알림창 오버레이 표시 (연습용 대쉬토큰 메시지도 처리)
-                if 'tutorial_serve_reminder_active' in globals():
-                    if tutorial_serve_reminder_active:
-                        draw_tutorial_serve_reminder()
-                # 연습용 대쉬토큰 메시지 표시를 위해 별도 체크
-                elif 'tutorial_bonus_token_message' in globals() and tutorial_bonus_token_message:
+                # 튜토리얼 서브 알림창 표시
+                if 'tutorial_serve_reminder_active' in globals() and tutorial_serve_reminder_active:
+                    draw_tutorial_serve_reminder()
+                
+                # 연습용 대쉬토큰 메시지 표시 (독립적으로 체크)
+                if 'tutorial_bonus_token_message' in globals() and tutorial_bonus_token_message:
                     print(f"DEBUG: 토큰 메시지 표시 호출: {tutorial_bonus_token_message}")  # 디버그
                     draw_tutorial_serve_reminder()
                 
