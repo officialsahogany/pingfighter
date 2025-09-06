@@ -19084,7 +19084,7 @@ def show_tutorial_dash_token_dialogue():
         },
         {
             "speaker": "[도우미]",
-            "text": "총 두 번의 게이지 소모가 일어납니다",
+            "text": "총 210의 게이지 소모가 일어납니다",
             "speaker_color": (100, 255, 100),
             "highlight_token": False
         },
@@ -19092,7 +19092,7 @@ def show_tutorial_dash_token_dialogue():
             "speaker": "[도우미]",
             "text": "연속대쉬도 연습해보세요!",
             "speaker_color": (100, 255, 100),
-            "highlight_token": True
+            "highlight_token": False
         }
     ]
     
