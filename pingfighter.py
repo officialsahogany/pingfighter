@@ -6397,10 +6397,24 @@ def handle_player(keys):
             
             # 튜토리얼 대쉬 카운터 증가
             if current_stage == 50 and tutorial_dash_counter_active:
+                # 하프대쉬 체크 (rolling_active 상태에서 half_dash_pending일 때)
+                if tutorial_half_dash_pending and rolling_active:
+                    tutorial_half_dash_pending = False
+                    if tutorial_half_dash_count < 2:
+                        tutorial_half_dash_count += 1
+                        if tutorial_half_dash_count == 1:
+                            show_tutorial_success_feedback("하프대쉬 성공!", "normal")
+                        else:
+                            show_tutorial_success_feedback("하프대쉬 완료!", "great")
+                        print(f"튜토리얼: 하프대쉬로 공 타격 성공 {tutorial_half_dash_count}/2")
+                        
+                        # 완료 체크
+                        check_tutorial_dash_missions_complete()
+                
                 # 일반 대쉬 카운터 (최대 2회) - 하프대쉬와 연속대쉬가 아닌 경우에만
                 # 하프대쉬와 연속대쉬는 각각 pending 플래그로 별도 처리됨
                 # half_dash_used_flag도 체크하여 하프대쉬 중인 경우 제외
-                if (tutorial_dash_count < 2 and 
+                elif (tutorial_dash_count < 2 and 
                     not tutorial_half_dash_pending and 
                     not ('half_dash_used_flag' in globals() and half_dash_used_flag)):
                     tutorial_dash_count += 1
@@ -26828,33 +26842,9 @@ def handle_ball():
         #  handle_ball에서는 게이지 충전하지 않음 (handle_player에서만 처리)
         # 튜토리얼 스테이지 50에서 플레이어가 조교의 공을 받아쳤을 때 처리
         if current_stage == 50 and tutorial_dash_counter_active:
-            
-            # Check if half-dash is pending and ball was hit during rolling (half-dash uses rolling system)
-            if tutorial_half_dash_pending and rolling_active:
-                tutorial_half_dash_pending = False
-                if tutorial_half_dash_count < 2:
-                    tutorial_half_dash_count += 1
-                    if tutorial_half_dash_count == 1:
-                        show_tutorial_success_feedback("하프대쉬 성공!", "normal")
-                    else:
-                        show_tutorial_success_feedback("하프대쉬 완료!", "great")
-                    print(f"튜토리얼: 하프대쉬로 공 타격 성공 {tutorial_half_dash_count}/2")
-                    
-                    # 완료 체크
-                    check_tutorial_dash_missions_complete()
-            
-            # Consecutive dash is now counted immediately when 2 dashes are used
-            # No longer need to wait for ball collision
-            # (This section is kept for reference but is no longer used)
-            # if tutorial_consecutive_dash_pending and rolling_active:
-            #     tutorial_consecutive_dash_pending = False
-            #     if tutorial_consecutive_dash_count < 1:
-            #         tutorial_consecutive_dash_count += 1
-            #         show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
-            #         print(f"튜토리얼: 연속대쉬로 공 타격 성공 {tutorial_consecutive_dash_count}/1")
-            #         
-            #         # 완료 체크
-            #         check_tutorial_dash_missions_complete()
+            # 하프대쉬 카운팅은 이제 handle_player에서 처리
+            # (handle_ball은 백업 충돌 처리용이므로 중복 카운팅 방지)
+            pass  # 모든 대쉬 카운팅이 handle_player로 이동됨
         
         # 원래 있던 튜토리얼 코드
         if current_stage == 50 and tutorial_practice_mode and tutorial_boss_returned:
