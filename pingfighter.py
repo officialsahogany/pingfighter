@@ -2576,6 +2576,8 @@ def go_to_next_round():
         tutorial_needs_power_practice = False
     if 'tutorial_power_reminder_active' not in globals():
         tutorial_power_reminder_active = False
+    if 'tutorial_chapter4_just_started' not in globals():
+        tutorial_chapter4_just_started = False
     if 'tutorial_power_reminder_timer' not in globals():
         tutorial_power_reminder_timer = 0
     #  새로운 보스들 속도 초기화
@@ -30008,6 +30010,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_half_dash_count, tutorial_consecutive_dash_count  # 튜토리얼 대쉬 카운트
     global tutorial_dash_counter_active  # 튜토리얼 대쉬 관련
     global tutorial_current_chapter  # 튜토리얼 현재 챕터
+    global tutorial_chapter4_just_started  # Chapter 4 대화 지연 플래그
     nine_just_pressed = False
     last_nine_state = False
     
@@ -32242,8 +32245,15 @@ def main(stage_num, new_boss_mode=False):
                 print(f"[CHAPTER 4 DEBUG] tutorial_needs_power_practice: {tutorial_needs_power_practice}")
                 print(f"[CHAPTER 4 DEBUG] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
                 print(f"[CHAPTER 4 DEBUG] special_gauge_max: {special_gauge_max}")
+                print(f"[CHAPTER 4 DEBUG] tutorial_chapter4_just_started: {tutorial_chapter4_just_started}")
+            
+            # Chapter 4가 방금 시작된 경우 한 프레임 대기
+            if tutorial_chapter4_just_started:
+                print("[CHAPTER 4] Waiting one frame before showing dialogue...")
+                tutorial_chapter4_just_started = False
+                # 한 프레임 대기 후 다음 프레임에서 대화 표시
         
-        if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_needs_power_practice and not tutorial_power_practice_shown:
+        if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_needs_power_practice and not tutorial_power_practice_shown and not tutorial_chapter4_just_started:
             print("튜토리얼: Chapter 4 - POWER SMASHING 연습 시작 (메인 루프)")
             
             # 대화 시작 전에 게임 화면 그리기
