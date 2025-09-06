@@ -30010,6 +30010,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_power_helper_dialogue_shown, tutorial_power_completion_dialogue_shown  # Chapter 4 대화 플래그
     global tutorial_power_count, tutorial_displayed_power_count  # Chapter 4 카운터
     global tutorial_power_counter_active, tutorial_power_reminder_active, tutorial_power_reminder_timer  # Chapter 4 알림
+    global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done  # Chapter 4 방향별 완료
     nine_just_pressed = False
     last_nine_state = False
     
@@ -30411,6 +30412,9 @@ def main(stage_num, new_boss_mode=False):
             tutorial_power_counter_active = False  # 파워스매싱 카운터 UI 활성화 여부
             tutorial_power_reminder_active = False  # 파워스매싱 알림창 활성 상태
             tutorial_power_reminder_timer = 0  # 파워스매싱 알림창 타이머
+            tutorial_power_left_done = False  # 왼쪽 파워스매싱 완료 여부
+            tutorial_power_center_done = False  # 중앙 파워스매싱 완료 여부
+            tutorial_power_right_done = False  # 오른쪽 파워스매싱 완료 여부
         
         # 게이지 및 속도 튜토리얼 관련 변수
         global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
@@ -31064,8 +31068,6 @@ def main(stage_num, new_boss_mode=False):
                     
                     # Chapter 4 튜토리얼: 파워스매싱 방향별 카운트 증가
                     if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_power_counter_active:
-                        global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done
-                        global tutorial_power_count
                         
                         if power_smashing_direction == -1 and not tutorial_power_left_done:
                             tutorial_power_left_done = True
