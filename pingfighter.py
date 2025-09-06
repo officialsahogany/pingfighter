@@ -24191,7 +24191,7 @@ def calculate_bounce(paddle):
                 elif tutorial_drive_count == 2:
                     show_tutorial_success_feedback("멋져요!", "great")
                 elif tutorial_drive_count == 3:
-                    show_tutorial_success_feedback("한 가지 더!", "great")
+                    show_tutorial_success_feedback("한번만더!", "great")
                 elif tutorial_drive_count == 4:
                     show_tutorial_success_feedback("드라이브 마스터!", "perfect")
                     # 카운터 축하 이펙트 활성화
