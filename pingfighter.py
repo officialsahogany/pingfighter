@@ -30309,6 +30309,7 @@ def main(stage_num, new_boss_mode=False):
             tutorial_serve_helper_active = False
             tutorial_serve_reminder_active = False
             tutorial_wait_for_first_serve = True
+            tutorial_current_chapter = 2  # Chapter 2로 설정
             tutorial_needs_dash_practice = True  # 챕터2 대쉬 연습 상태 유지
             tutorial_dash_practice_shown = False  # 대쉬 연습 대화 다시 표시
             tutorial_dash_token_dialogue_shown = False
@@ -30484,6 +30485,7 @@ def main(stage_num, new_boss_mode=False):
                 
                 # Chapter 2 (대쉬 연습)로 상태 변경
                 tutorial_dialogue_shown = True  # Chapter 1 완료
+                tutorial_current_chapter = 2  # Chapter 2로 설정
                 tutorial_needs_dash_practice = True  # Chapter 2 시작
                 tutorial_dash_practice_shown = False  # 대쉬 대화 아직 안봄
                 tutorial_practice_mode = True  # 실습 모드 계속
@@ -30629,7 +30631,6 @@ def main(stage_num, new_boss_mode=False):
             complete_current_chapter_progress()
             
             # 현재 챕터 확인하고 다음 챕터로 이동
-            global tutorial_current_chapter
             if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
                 # Chapter 2 (대쉬 연습) 진행 중 -> Chapter 3 (드라이브)로 이동
                 print("튜토리얼: Chapter 2 (DASH) 완료, Chapter 3 - DRIVE로 이동")
@@ -30751,6 +30752,7 @@ def main(stage_num, new_boss_mode=False):
                 print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정")
                 
                 # 대쉬 연습 플래그 설정
+                tutorial_current_chapter = 2  # Chapter 2로 설정
                 tutorial_needs_dash_practice = True  # 대쉬 연습 필요
                 
                 # 대쉬 챕터 게이지 대화 표시 플래그 리셋
@@ -32369,6 +32371,7 @@ def main(stage_num, new_boss_mode=False):
                     
                     # Chapter 2 설정
                     tutorial_chapter2_max_gauge = 300
+                    tutorial_current_chapter = 2  # Chapter 2로 설정
                     tutorial_needs_dash_practice = True
                     tutorial_dash_practice_shown = False
                     
@@ -32389,6 +32392,7 @@ def main(stage_num, new_boss_mode=False):
                     show_chapter_title(2, "DASH", "대쉬 연습")
                     
                     # 대쉬 연습 플래그 설정
+                    tutorial_current_chapter = 2  # Chapter 2로 설정
                     tutorial_needs_dash_practice = True  # 대쉬 연습 필요
                     
                     # Chapter 1→2 전환 시 공 속도 복원 (중요!)
