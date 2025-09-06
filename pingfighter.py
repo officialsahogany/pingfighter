@@ -1777,6 +1777,14 @@ revival_used = False  # 부활 아이템 사용 여부
 master_obtained = False  # 장인 아이템 획득 여부
 # === 레이저스코프 관련 ===
 predictor_active = False  # 레이저스코프 활성화 여부
+
+# === 튜토리얼 파워스매싱 관련 ===
+tutorial_power_counter_active = False  # 파워스매싱 카운터 활성화 여부
+tutorial_power_count = 0  # 현재 파워스매싱 카운트
+tutorial_displayed_power_count = 0  # 표시되는 파워스매싱 카운트 (애니메이션용)
+tutorial_power_completion_dialogue_shown = False  # 파워스매싱 완료 대화 표시 여부
+tutorial_needs_power_practice = False  # 파워스매싱 연습 필요 여부
+tutorial_power_reminder_active = False  # 파워스매싱 도우미 활성화 여부
 predictor_timer = 0  # 레이저스코프 남은 시간
 predicted_trajectory = []  # 예측된 궤적 저장
 last_prediction_ball_y = 0  # 마지막 예측 시 공의 Y 위치
