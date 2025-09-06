@@ -5089,6 +5089,12 @@ def handle_player(keys):
     global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
     global tutorial_consecutive_dash_count, tutorial_half_dash_count
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
+    # Chapter 4 파워스매싱 관련 변수 추가
+    global tutorial_needs_power_practice, tutorial_power_practice_shown
+    global tutorial_power_helper_dialogue_shown, tutorial_power_completion_dialogue_shown
+    global tutorial_power_count, tutorial_displayed_power_count, tutorial_power_counter_active
+    global tutorial_power_reminder_active, tutorial_power_reminder_timer
+    global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
     if new_boss_mode_active:
         if selected_bottom_boss == 1:
@@ -24246,6 +24252,7 @@ def calculate_bounce(paddle):
                             print(f"[CHAPTER 4 INIT] Chapter 4 initialized successfully!")
                             print(f"[CHAPTER 4 INIT] tutorial_needs_power_practice: {tutorial_needs_power_practice}")
                             print(f"[CHAPTER 4 INIT] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
+                            print(f"[CHAPTER 4 INIT] tutorial_current_chapter: {tutorial_current_chapter}")
                             print(f"[CHAPTER 4 INIT] special_gauge_max: {special_gauge_max}")
                             
                             # 드라이브 카운터 비활성화
@@ -32245,6 +32252,14 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[1] = tutorial_saved_ball_vel[1]
         
         # Chapter 4 - 파워스매싱 연습 (Chapter 3와 동일한 패턴으로 수정)
+        # Debug: Chapter 4 dialogue condition check
+        if current_stage == 50 and tutorial_current_chapter == 4:
+            if not hasattr(main, 'chapter4_debug_counter'):
+                main.chapter4_debug_counter = 0
+            main.chapter4_debug_counter += 1
+            if main.chapter4_debug_counter % 60 == 0:  # Print every second
+                print(f"[CH4 DEBUG] needs_power: {tutorial_needs_power_practice}, shown: {tutorial_power_practice_shown}, chapter: {tutorial_current_chapter}")
+        
         if current_stage == 50 and tutorial_needs_power_practice and not tutorial_power_practice_shown:
             print("튜토리얼: Chapter 4 - POWER SMASHING 연습 시작 (메인 루프)")
             
