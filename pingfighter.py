@@ -24203,31 +24203,9 @@ def calculate_bounce(paddle):
                         pygame.display.flip()
                         
                         # 드라이브 완료 대화 표시
-                        completion_result = show_tutorial_drive_completion_dialogue()
+                        show_tutorial_drive_completion_dialogue()
                         
-                        if completion_result == "proceed_to_chapter4":
-                            # 정상적으로 Chapter 4로 진행
-                            print("📚 Chapter 3 완료! Chapter 4로 진행")
-                            tutorial_current_chapter = 4
-                            
-                            # Chapter 4 타이틀 표시 (파워스매싱)
-                            show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
-                            
-                            # Chapter 4 초기화: 최대 게이지를 500으로 설정
-                            special_gauge_max = get_max_gauge()  # 500 반환
-                            print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
-                            
-                            # Chapter 4 파워스매싱 튜토리얼 초기화
-                            tutorial_power_practice_shown = False
-                            tutorial_power_helper_dialogue_shown = False
-                            tutorial_power_completion_dialogue_shown = False
-                            tutorial_power_count = 0
-                            tutorial_displayed_power_count = 0
-                            tutorial_power_counter_active = False
-                            tutorial_needs_power_practice = True
-                            tutorial_power_reminder_active = False
-                            tutorial_power_reminder_timer = 0
-                        
+                        # Chapter 4 전환은 메인 루프에서 처리
                         # 공 속도 복원
                         if tutorial_saved_ball_vel:
                             ball_vel[0] = tutorial_saved_ball_vel[0]
@@ -32158,6 +32136,39 @@ def main(stage_num, new_boss_mode=False):
                 print(f"[TUTORIAL STATE] Chapter: {tutorial_current_chapter}, needs_drive: {tutorial_needs_drive_practice}, " +
                       f"shown: {tutorial_drive_practice_shown}, gauge: {special_gauge:.0f}/300")
                 main.last_chapter_debug = current_time
+            
+            # Chapter 3 드라이브 완료 후 Chapter 4로 전환
+            if (current_stage == 50 and tutorial_current_chapter == 3 and 
+                tutorial_drive_completion_dialogue_shown and tutorial_drive_count >= 4):
+                # Chapter 4로 전환
+                print("📚 Chapter 3 완료 확인! Chapter 4로 전환")
+                tutorial_current_chapter = 4
+                
+                # Chapter 4 타이틀 표시 (파워스매싱)
+                show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
+                
+                # Chapter 4 초기화: 최대 게이지를 500으로 설정
+                special_gauge_max = get_max_gauge()  # 500 반환
+                print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
+                
+                # Chapter 4 파워스매싱 튜토리얼 초기화
+                tutorial_power_practice_shown = False
+                tutorial_power_helper_dialogue_shown = False
+                tutorial_power_completion_dialogue_shown = False
+                tutorial_power_count = 0
+                tutorial_displayed_power_count = 0
+                tutorial_power_counter_active = False
+                tutorial_needs_power_practice = True
+                tutorial_power_reminder_active = False
+                tutorial_power_reminder_timer = 0
+                
+                # 드라이브 카운터 비활성화
+                tutorial_drive_counter_active = False
+                
+                # 공 속도 복원
+                if tutorial_saved_ball_vel:
+                    ball_vel[0] = tutorial_saved_ball_vel[0]
+                    ball_vel[1] = tutorial_saved_ball_vel[1]
             
             # Chapter 4 - 파워스매싱 연습
             if tutorial_current_chapter == 4 and tutorial_needs_power_practice and not tutorial_power_practice_shown:
