@@ -18085,10 +18085,10 @@ def draw_tutorial_drive_counter():
         counter_rect = counter_surface.get_rect(right=bg_x + bg_width - 40, centery=mission_y + 10)
         SCREEN.blit(counter_surface, counter_rect)
         
-        # 완료 체크마크
+        # 완료 체크마크 (OK 텍스트로 대체)
         if mission["count"] >= mission["max"]:
-            check_surface = font_large.render("✓", True, (0, 255, 0))
-            check_rect = check_surface.get_rect(right=bg_x + bg_width - 15, centery=mission_y + 10)
+            check_surface = font_large.render("OK", True, (0, 255, 0))
+            check_rect = check_surface.get_rect(right=bg_x + bg_width - 10, centery=mission_y + 10)
             SCREEN.blit(check_surface, check_rect)
         
         # 진행 바 (미션 이름 아래에 작게)
@@ -24172,41 +24172,40 @@ def calculate_bounce(paddle):
                 # 총 드라이브 수 업데이트
                 tutorial_drive_count = tutorial_left_drive_count + tutorial_right_drive_count
                 
-                if tutorial_drive_count < 4:
-                    print(f"튜토리얼: 드라이브 성공 {tutorial_drive_count}/4 (왼쪽: {tutorial_left_drive_count}/2, 오른쪽: {tutorial_right_drive_count}/2)")
+                print(f"튜토리얼: 드라이브 성공 {tutorial_drive_count}/4 (왼쪽: {tutorial_left_drive_count}/2, 오른쪽: {tutorial_right_drive_count}/2)")
+                
+                # 성공 피드백 표시
+                if tutorial_drive_count == 1:
+                    show_tutorial_success_feedback("드라이브 성공!", "normal")
+                elif tutorial_drive_count == 2:
+                    show_tutorial_success_feedback("멋져요!", "great")
+                elif tutorial_drive_count == 3:
+                    show_tutorial_success_feedback("한 가지 더!", "great")
+                elif tutorial_drive_count == 4:
+                    show_tutorial_success_feedback("드라이브 마스터!", "perfect")
+                    # 카운터 축하 이펙트 활성화
+                    global tutorial_drive_counter_celebration, tutorial_drive_counter_celebration_timer
+                    tutorial_drive_counter_celebration = True
+                    tutorial_drive_counter_celebration_timer = pygame.time.get_ticks()
                     
-                    # 성공 피드백 표시
-                    if tutorial_drive_count == 1:
-                        show_tutorial_success_feedback("드라이브 성공!", "normal")
-                    elif tutorial_drive_count == 2:
-                        show_tutorial_success_feedback("멋져요!", "great")
-                    elif tutorial_drive_count == 3:
-                        show_tutorial_success_feedback("한 가지 더!", "great")
-                    elif tutorial_drive_count == 4:
-                        show_tutorial_success_feedback("드라이브 마스터!", "perfect")
-                        # 카운터 축하 이펙트 활성화
-                        global tutorial_drive_counter_celebration, tutorial_drive_counter_celebration_timer
-                        tutorial_drive_counter_celebration = True
-                        tutorial_drive_counter_celebration_timer = pygame.time.get_ticks()
+                    # 4회 완료 후 바로 축하 대화 표시
+                    if not tutorial_drive_completion_dialogue_shown:
+                        tutorial_drive_completion_dialogue_shown = True
+                        # 게임 일시정지하고 대화 표시
+                        tutorial_saved_ball_vel = ball_vel.copy()
+                        ball_vel[0] = 0
+                        ball_vel[1] = 0
+                        print("튜토리얼: 드라이브 4회 완료! 축하 대화 표시")
                         
-                        # 4회 완료 후 바로 축하 대화 표시
-                        if not tutorial_drive_completion_dialogue_shown:
-                            tutorial_drive_completion_dialogue_shown = True
-                            # 게임 일시정지하고 대화 표시
-                            tutorial_saved_ball_vel = ball_vel.copy()
-                            ball_vel[0] = 0
-                            ball_vel[1] = 0
-                            print("튜토리얼: 드라이브 3회 완료! 축하 대화 표시")
-                            
-                            # 대화 시작 전에 게임 화면 그리기
-                            draw_field()
-                            draw_objects()
-                            pygame.display.flip()
-                            
-                            # 드라이브 완료 대화 표시
-                            completion_result = show_tutorial_drive_completion_dialogue()
-                            
-                            if completion_result == "proceed_to_chapter4":
+                        # 대화 시작 전에 게임 화면 그리기
+                        draw_field()
+                        draw_objects()
+                        pygame.display.flip()
+                        
+                        # 드라이브 완료 대화 표시
+                        completion_result = show_tutorial_drive_completion_dialogue()
+                        
+                        if completion_result == "proceed_to_chapter4":
                                 # 정상적으로 Chapter 4로 진행
                                 print("📚 Chapter 3 완료! Chapter 4로 진행")
                                 tutorial_current_chapter = 4
