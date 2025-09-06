@@ -19302,11 +19302,11 @@ def check_tutorial_dash_missions_complete():
                 print("튜토리얼: Chapter 3 - DRIVE로 이동")
                 
                 # 챕터 번호 업데이트
+                global tutorial_current_chapter, rolling_charges
                 tutorial_current_chapter = 3
                 print(f"튜토리얼: 챕터 변경 - Chapter {tutorial_current_chapter}")
                 
                 # Chapter 2 종료 시 연습용 대쉬토큰 제거
-                global rolling_charges
                 rolling_charges = 1  # 기본 토큰 1개로 복구
                 
                 # 공 속도 복구
