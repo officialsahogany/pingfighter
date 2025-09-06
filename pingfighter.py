@@ -24350,6 +24350,10 @@ def handle_ball():
     global round_wins, round_losses, boss_speed_boost_timer, boss_fail_timer
     global is_waiting_for_serve, deuce_wins, deuce_losses
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
+    # 튜토리얼 관련 변수들
+    global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
+    global tutorial_half_dash_count, tutorial_consecutive_dash_count
+    global tutorial_dash_counter_active, half_dash_active
     # 플레이어 & 보스 게이지/스킬 시스템
     global special_gauge, special_ready, special_active
     global boss_special_gauge, boss_special_ready, boss_red_intensity
