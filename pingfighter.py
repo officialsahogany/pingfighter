@@ -29884,6 +29884,9 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_drive_reminder_active  # 드라이브 알림창 전역 변수
     global tutorial_drive_counter_active  # 드라이브 카운터 전역 변수
     global tutorial_bonus_token_message  # 튜토리얼 보너스 토큰 메시지
+    global tutorial_half_dash_pending, tutorial_consecutive_dash_pending  # 튜토리얼 대쉬 pending 플래그
+    global tutorial_half_dash_count, tutorial_consecutive_dash_count  # 튜토리얼 대쉬 카운트
+    global tutorial_dash_counter_active, half_dash_active  # 튜토리얼 대쉬 관련
     nine_just_pressed = False
     last_nine_state = False
     
