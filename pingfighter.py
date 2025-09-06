@@ -6377,7 +6377,7 @@ def handle_player(keys):
                         tutorial_saved_ball_vel = ball_vel.copy()
                         ball_vel[0] = 0
                         ball_vel[1] = 0
-                        print("튜토리얼: 대쉬 4회 완료! 축하 대화 표시")
+                        print("튜토리얼: 모든 대쉬 미션 완료! 축하 대화 표시")
                         
                         # 대화 시작 전에 게임 화면 그리기
                         draw_field()
@@ -19333,7 +19333,7 @@ def show_tutorial_serve_helper():
         clock.tick(60)
 
 def show_tutorial_dash_completion_dialogue():
-    """대쉬 3회 완료 후 조교 축하 대화"""
+    """모든 대쉬 미션 완료 후 조교 축하 대화"""
     global tutorial_dash_completion_dialogue_shown
     
     clock = pygame.time.Clock()
@@ -19342,14 +19342,15 @@ def show_tutorial_dash_completion_dialogue():
     
     # 조교 대화 시퀀스 (축하 및 다음 스킬 소개)
     dialogues = [
-        {"speaker": "조교", "text": "벌써 3회를 채우다니, 생각보다 재능있는 친구군"},
+        {"speaker": "조교", "text": "미션 완료! 훌륭하군!"},
+        {"speaker": "조교", "text": "하프대쉬, 일반대쉬, 연속대쉬까지"},
+        {"speaker": "조교", "text": "모든 대쉬 기술을 완벽히 익혔구나"},
         {"speaker": "조교", "text": "대쉬는 방어와 동시에 킬각도 가끔 나오므로"},
         {"speaker": "조교", "text": "경기에서 아주 유용한 기술이지"},
         {"speaker": "조교", "text": "대쉬만 제대로 익혀도 50%는 승률이 보장된다"},
-        {"speaker": "조교", "text": "이제 대쉬는 충분히 익숙해졌을거다"},
-        {"speaker": "조교", "text": "두 번 이상 연속으로 대쉬를 사용한다면"},
-        {"speaker": "조교", "text": "대쉬토큰 한 개를 더 쓰게 된다."},
-        {"speaker": "조교", "text": "하지만 대쉬가 빨라지고 길어진다."},
+        {"speaker": "조교", "text": "연속대쉬는 게이지를 많이 소모하지만"},
+        {"speaker": "조교", "text": "빠르고 긴 이동으로 상대를 압도할 수 있지"},
+        {"speaker": "조교", "text": "이제 대쉬는 충분히 마스터했으니"},
         {"speaker": "조교", "text": "다음은 스매셔 스킬 동작들을 연마하는 시간을 가져보겠다"}
     ]
     
