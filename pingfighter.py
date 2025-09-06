@@ -6479,6 +6479,39 @@ def handle_player(keys):
                     
                     # 완료 체크
                     check_tutorial_dash_missions_complete()
+        
+        # Chapter 2 튜토리얼: rolling_active 상태에서 패들 충돌 시 무조건 카운트
+        # (is_dash_success와 별개로 패들의 모든 부위에 공이 닿았을 때 카운트)
+        elif current_stage == 50 and tutorial_dash_counter_active and rolling_active:
+            # 하프대쉬 체크
+            if tutorial_half_dash_pending:
+                tutorial_half_dash_pending = False
+                if tutorial_half_dash_count < 2:
+                    tutorial_half_dash_count += 1
+                    if tutorial_half_dash_count == 1:
+                        show_tutorial_success_feedback("하프대쉬 성공!", "normal")
+                    else:
+                        show_tutorial_success_feedback("하프대쉬 완료!", "great")
+                    print(f"튜토리얼: 하프대쉬로 공 타격 성공 {tutorial_half_dash_count}/2")
+                    
+                    # 완료 체크
+                    check_tutorial_dash_missions_complete()
+            
+            # 일반 대쉬 카운터 (rolling_active 상태에서 충돌 시)
+            elif (tutorial_dash_count < 2 and 
+                not tutorial_half_dash_pending and 
+                not ('half_dash_used_flag' in globals() and half_dash_used_flag)):
+                tutorial_dash_count += 1
+                print(f"튜토리얼: 대쉬 상태에서 공 타격 성공 {tutorial_dash_count}/2")
+                
+                # 성공 피드백 표시
+                if tutorial_dash_count == 1:
+                    show_tutorial_success_feedback("대쉬 성공!", "normal")
+                elif tutorial_dash_count == 2:
+                    show_tutorial_success_feedback("훌륭해요!", "great")
+                
+                # 완료 체크
+                check_tutorial_dash_missions_complete()
             
             # 대쉬 챕터에서 첫 대쉬 성공 시 토큰 설명 대화 표시
             if current_stage == 50 and 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
