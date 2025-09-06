@@ -5079,6 +5079,8 @@ def handle_player(keys):
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown
     global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
     global tutorial_drive_count, tutorial_displayed_drive_count
+    global tutorial_left_drive_count, tutorial_right_drive_count
+    global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
     # Chapter 2 대쉬 관련 변수 추가
     global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
     global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
@@ -5239,11 +5241,8 @@ def handle_player(keys):
                 # 구르기 종료, 통제 불가능 상태 시작
                 rolling_active = False
                 
-                # 튜토리얼: 대쉬 종료 시 pending 플래그 리셋 (공에 맞지 않았으면 카운팅 안됨)
-                if current_stage == 50 and tutorial_dash_counter_active:
-                    if tutorial_consecutive_dash_pending:
-                        tutorial_consecutive_dash_pending = False
-                        print(f"튜토리얼: 연속대쉬 종료 - 공 충돌 없어서 카운팅 안함")
+                # 튜토리얼: 연속대쉬는 이제 사용 즉시 카운팅되므로 pending 플래그 리셋 불필요
+                # Consecutive dash now counts immediately when used
                 
                 #  가속화 스킬: 대쉬 종료 시 충돌 범위 복원
                 if acceleration_active:
@@ -5407,11 +5406,18 @@ def handle_player(keys):
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
                     rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
+                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
                     
-                    # Mark consecutive dash pending for tutorial (wait for ball hit)
-                    if current_stage == 50 and tutorial_dash_counter_active and rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
-                        tutorial_consecutive_dash_pending = True
-                        print(f"튜토리얼: 연속대쉬 2회 발동 - 공 충돌 대기 중")
+                    # Count consecutive dash immediately when 2 dashes are used consecutively
+                    # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
+                    if current_stage == 50 and tutorial_current_chapter == 2:
+                        print(f"[DEBUG] 챕터2 연속대쉬 체크: count={rolling_consecutive_count}, 이미 완료={tutorial_consecutive_dash_count}")
+                        if rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
+                            tutorial_consecutive_dash_count += 1
+                            print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
+                            show_tutorial_success_feedback("연속대쉬 성공!", "great")
+                            # Check if all missions are complete
+                            check_tutorial_dash_missions_complete()
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -5549,6 +5555,8 @@ def handle_player(keys):
             if rolling_consecutive_timer > 0:
                 rolling_consecutive_timer -= 1
                 if rolling_consecutive_timer <= 0:
+                    if rolling_consecutive_count > 0:
+                        print(f"[DEBUG] 연속대쉬 타이머 만료: 카운트 {rolling_consecutive_count} → 0")
                     rolling_consecutive_count = 0  # 연속 대쉬 카운터 리셋
                     #  하프대쉬 플래그도 리셋
                     if 'half_dash_used_flag' in globals():
@@ -5888,11 +5896,18 @@ def handle_player(keys):
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
                     rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
+                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
                     
-                    # Mark consecutive dash pending for tutorial (wait for ball hit)
-                    if current_stage == 50 and tutorial_dash_counter_active and rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
-                        tutorial_consecutive_dash_pending = True
-                        print(f"튜토리얼: 연속대쉬 2회 발동 - 공 충돌 대기 중")
+                    # Count consecutive dash immediately when 2 dashes are used consecutively
+                    # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
+                    if current_stage == 50 and tutorial_current_chapter == 2:
+                        print(f"[DEBUG] 챕터2 연속대쉬 체크: count={rolling_consecutive_count}, 이미 완료={tutorial_consecutive_dash_count}")
+                        if rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
+                            tutorial_consecutive_dash_count += 1
+                            print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
+                            show_tutorial_success_feedback("연속대쉬 성공!", "great")
+                            # Check if all missions are complete
+                            check_tutorial_dash_missions_complete()
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -6013,11 +6028,18 @@ def handle_player(keys):
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
                     rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
+                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
                     
-                    # Mark consecutive dash pending for tutorial (wait for ball hit)
-                    if current_stage == 50 and tutorial_dash_counter_active and rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
-                        tutorial_consecutive_dash_pending = True
-                        print(f"튜토리얼: 연속대쉬 2회 발동 - 공 충돌 대기 중")
+                    # Count consecutive dash immediately when 2 dashes are used consecutively
+                    # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
+                    if current_stage == 50 and tutorial_current_chapter == 2:
+                        print(f"[DEBUG] 챕터2 연속대쉬 체크: count={rolling_consecutive_count}, 이미 완료={tutorial_consecutive_dash_count}")
+                        if rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
+                            tutorial_consecutive_dash_count += 1
+                            print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
+                            show_tutorial_success_feedback("연속대쉬 성공!", "great")
+                            # Check if all missions are complete
+                            check_tutorial_dash_missions_complete()
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -6363,7 +6385,6 @@ def handle_player(keys):
                 # half_dash_used_flag도 체크하여 하프대쉬 중인 경우 제외
                 if (tutorial_dash_count < 2 and 
                     not tutorial_half_dash_pending and 
-                    not tutorial_consecutive_dash_pending and
                     not ('half_dash_used_flag' in globals() and half_dash_used_flag)):
                     tutorial_dash_count += 1
                     print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/2")
@@ -14921,8 +14942,12 @@ tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
 # tutorial_half_dash_pending과 tutorial_consecutive_dash_pending는 라인 1794-1795에서 초기화됨
 
 # 튜토리얼 드라이브 카운터 변수
-tutorial_drive_count = 0  # 드라이브 성공 횟수
+tutorial_drive_count = 0  # 드라이브 성공 횟수 (총합)
+tutorial_left_drive_count = 0  # 왼쪽 드라이브 성공 횟수
+tutorial_right_drive_count = 0  # 오른쪽 드라이브 성공 횟수
 tutorial_displayed_drive_count = 0.0  # 화면에 표시되는 애니메이션용 드라이브 카운트
+tutorial_displayed_left_drive_count = 0.0  # 왼쪽 드라이브 애니메이션용 카운트
+tutorial_displayed_right_drive_count = 0.0  # 오른쪽 드라이브 애니메이션용 카운트
 tutorial_drive_counter_active = False  # 드라이브 카운터 UI 활성화 여부
 tutorial_drive_helper_dialogue_shown = False  # 드라이브 도우미 대화 표시 여부 (160 게이지 달성시)
 tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 표시 여부 (4회 성공시)
@@ -17932,136 +17957,101 @@ def draw_tutorial_ui():
         SCREEN.blit(hint_surface, hint_rect)
 
 def draw_tutorial_drive_counter():
-    """튜토리얼 드라이브 카운터 UI 표시 (4회 드라이브 카운트)"""
+    """튜토리얼 드라이브 카운터 UI 표시 - 챕터 2 스타일 (우측 상단, 컴팩트)"""
     import math  # 함수 시작시 import
     global tutorial_drive_counter_active, tutorial_drive_count, tutorial_displayed_drive_count
+    global tutorial_left_drive_count, tutorial_right_drive_count
+    global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
     
     # 드라이브 카운터가 활성화되었을 때만 표시
     if not tutorial_drive_counter_active or current_stage != 50:
         return
     
     # 점진적 애니메이션 업데이트
-    if tutorial_displayed_drive_count < tutorial_drive_count:
-        # 부드러운 애니메이션 속도 (프레임당 0.05 증가)
-        tutorial_displayed_drive_count = min(tutorial_displayed_drive_count + 0.05, tutorial_drive_count)
+    if tutorial_displayed_left_drive_count < tutorial_left_drive_count:
+        tutorial_displayed_left_drive_count = min(tutorial_displayed_left_drive_count + 0.05, tutorial_left_drive_count)
+    if tutorial_displayed_right_drive_count < tutorial_right_drive_count:
+        tutorial_displayed_right_drive_count = min(tutorial_displayed_right_drive_count + 0.05, tutorial_right_drive_count)
+    tutorial_displayed_drive_count = tutorial_displayed_left_drive_count + tutorial_displayed_right_drive_count
     
     # 폰트 설정
-    font_large = FontStyle.body()      # 24pt - 숫자용
+    font_large = FontStyle.body()      # 24pt
     font_medium = FontStyle.small()    # 18pt
     
-    # 오른쪽 상단 위치 (챕터 2 대쉬 카운터와 동일한 위치)
-    ui_x = WIDTH - 100
+    # 화면 우측 상단에 위치 (챕터 2와 동일한 위치)
+    ui_x = WIDTH - 120
     ui_y = 50
     
-    # 미니멀한 반투명 배경 (챕터 2와 동일)
-    bg_width = 180
-    bg_height = 90
+    # 컴팩트한 배경 박스 크기 (챕터 2와 유사)
+    bg_width = 220
+    bg_height = 90  # 2개 미션이므로 더 작게
     bg_x = ui_x - bg_width // 2
     bg_y = ui_y - 15
     
     # 반투명 배경 (은은하게)
     bg_surf = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
     pygame.draw.rect(bg_surf, (20, 25, 40, 120), (0, 0, bg_width, bg_height), border_radius=8)
-    pygame.draw.rect(bg_surf, (255, 200, 50, 40), (0, 0, bg_width, bg_height), border_radius=8, width=1)  # 노란색 테두리
+    pygame.draw.rect(bg_surf, (255, 100, 100, 40), (0, 0, bg_width, bg_height), border_radius=8, width=1)
     SCREEN.blit(bg_surf, (bg_x, bg_y))
     
-    # 컴팩트한 원형 진행도
-    circle_radius = 22
-    circle_center_x = ui_x - 50
-    circle_center_y = ui_y + 10
+    # 미션 데이터
+    missions = [
+        {"name": "왼쪽 드라이브", "count": tutorial_left_drive_count, "max": 2, "color": (255, 150, 100)},
+        {"name": "오른쪽 드라이브", "count": tutorial_right_drive_count, "max": 2, "color": (100, 200, 255)}
+    ]
     
-    # 배경 원 (챕터 2와 동일)
-    pygame.draw.circle(SCREEN, (40, 45, 60, 180), (circle_center_x, circle_center_y), circle_radius, 2)
-    
-    # 진행도 원호 그리기 (3분할)
-    if tutorial_displayed_drive_count > 0:
-        progress = tutorial_displayed_drive_count / 3  # 3회 기준
-        # 시작 각도 -90도 (12시 방향)
-        start_angle = -math.pi / 2
-        # 진행도에 따른 종료 각도
-        end_angle = start_angle + (2 * math.pi * progress)
+    # 각 미션을 세로로 배치 (컴팩트하게)
+    mission_y = bg_y + 10
+    for i, mission in enumerate(missions):
+        mission_x = bg_x + 15
         
-        # 아크를 작은 선분들로 그리기
-        num_segments = 50
-        for i in range(num_segments):
-            t1 = i / num_segments
-            t2 = (i + 1) / num_segments
-            angle1 = start_angle + (end_angle - start_angle) * t1
-            angle2 = start_angle + (end_angle - start_angle) * t2
-            
-            x1 = circle_center_x + circle_radius * math.cos(angle1)
-            y1 = circle_center_y + circle_radius * math.sin(angle1)
-            x2 = circle_center_x + circle_radius * math.cos(angle2)
-            y2 = circle_center_y + circle_radius * math.sin(angle2)
-            
-            # 진행도 색상
-            if tutorial_drive_count < 1:
-                color = (255, 150, 150)  # 빨간색
-            elif tutorial_drive_count < 2:
-                color = (255, 200, 100)  # 주황색
-            elif tutorial_drive_count < 3:
-                color = (255, 255, 100)  # 노란색
-            else:
-                color = (0, 255, 200)  # 민트색 (완료)
-            
-            pygame.draw.line(SCREEN, color, (x1, y1), (x2, y2), 3)
-    
-    # 숫자 표시
-    counter_text = f"{tutorial_drive_count}/3"
-    counter_surface = font_large.render(counter_text, True, (255, 255, 255))
-    counter_rect = counter_surface.get_rect(center=(circle_center_x, circle_center_y))
-    SCREEN.blit(counter_surface, counter_rect)
-    
-    # 드라이브 아이콘 그리기 (원형 진행도 오른쪽에) - 탁구채와 바람 효과
-    drive_x = circle_center_x + circle_radius + 25
-    drive_y = circle_center_y
-    
-    # 드라이브 아이콘 서페이스
-    icon_surf = pygame.Surface((60, 40), pygame.SRCALPHA)
-    
-    # 탁구채 그리기
-    paddle_color = (255, 100, 50) if tutorial_drive_count >= 2 else (200, 80, 40)
-    
-    # 탁구채 몸체 (타원형)
-    pygame.draw.ellipse(icon_surf, paddle_color, (30, 10, 20, 20))
-    pygame.draw.ellipse(icon_surf, (255, 255, 255, 50), (30, 10, 20, 20), 2)  # 하이라이트
-    
-    # 탁구채 손잡이
-    pygame.draw.rect(icon_surf, (150, 75, 30), (35, 25, 10, 12))
-    
-    # 드라이브 바람 효과 (왼쪽에서 오른쪽으로)
-    wind_color = (100, 200, 255, 150)
-    for i in range(4):
-        # 바람 라인들 (속도감 표현)
-        line_y = 15 + i * 3
-        line_length = 25 - i * 4
-        line_alpha = 200 - i * 40
-        wind_color = (100, 200, 255, line_alpha) if tutorial_drive_count < 2 else (255, 255, 100, line_alpha)
+        # 미션 이름
+        name_color = (200, 200, 200)
+        if mission["count"] >= mission["max"]:
+            name_color = (100, 255, 100)  # 완료시 녹색
         
-        # 곡선 바람 효과
-        start_x = 5 + i * 2
-        end_x = start_x + line_length
-        control_y = line_y + math.sin(pygame.time.get_ticks() * 0.005 + i) * 2  # 물결 효과
+        name_surface = font_medium.render(mission["name"], True, name_color)
+        SCREEN.blit(name_surface, (mission_x, mission_y))
         
-        pygame.draw.line(icon_surf, wind_color, (start_x, line_y), (end_x, control_y), 2 - i // 2)
+        # 카운터 텍스트 (오른쪽에 배치)
+        counter_text = f"{mission['count']}/{mission['max']}"
+        counter_color = (100, 255, 100) if mission["count"] >= mission["max"] else (255, 255, 255)
+        counter_surface = font_medium.render(counter_text, True, counter_color)
+        counter_rect = counter_surface.get_rect(right=bg_x + bg_width - 40, centery=mission_y + 10)
+        SCREEN.blit(counter_surface, counter_rect)
+        
+        # 완료 체크마크
+        if mission["count"] >= mission["max"]:
+            check_surface = font_large.render("✓", True, (0, 255, 0))
+            check_rect = check_surface.get_rect(right=bg_x + bg_width - 15, centery=mission_y + 10)
+            SCREEN.blit(check_surface, check_rect)
+        
+        # 진행 바 (미션 이름 아래에 작게)
+        bar_y = mission_y + 22
+        bar_width = bg_width - 30
+        bar_height = 6
+        bar_x = bg_x + 15
+        
+        # 진행 바 배경
+        pygame.draw.rect(SCREEN, (60, 60, 60), (bar_x, bar_y, bar_width, bar_height))
+        
+        # 진행 바
+        if mission["count"] > 0:
+            progress_width = int((mission["count"] / mission["max"]) * bar_width)
+            progress_color = (0, 200, 0) if mission["count"] >= mission["max"] else mission["color"]
+            pygame.draw.rect(SCREEN, progress_color, (bar_x, bar_y, progress_width, bar_height))
+        
+        # 진행 바 테두리
+        pygame.draw.rect(SCREEN, (100, 100, 100), (bar_x, bar_y, bar_width, bar_height), 1)
+        
+        mission_y += 40  # 다음 미션 위치 (더 컴팩트하게)
     
-    # 진행도에 따른 반짝임 효과
-    if tutorial_displayed_drive_count < tutorial_drive_count:
-        # 애니메이션 중일 때 반짝임
-        glow_alpha = int(128 + 127 * math.sin(pygame.time.get_ticks() * 0.01))
-        glow_surf = pygame.Surface((60, 40), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (255, 200, 50, glow_alpha // 3), (40, 20), 15)
-        icon_surf.blit(glow_surf, (0, 0))
-    
-    # 위치 조정 (좌우 움직임 애니메이션)
-    move_offset = int(8 * math.sin(tutorial_displayed_drive_count * math.pi))
-    SCREEN.blit(icon_surf, (drive_x + move_offset - 30, drive_y - 20))
-    
-    # 진행 상태 메시지
-    if tutorial_drive_count < 1:
+    # 전체 진행 상태 메시지 (박스 아래, 작게)
+    total_count = tutorial_left_drive_count + tutorial_right_drive_count
+    if total_count < 1:
         hint_text = "드라이브 연습"
         hint_color = (150, 150, 150)
-    elif tutorial_drive_count < 3:
+    elif total_count < 4:
         hint_text = "훌륭해요!"
         hint_color = (255, 200, 100)
         # 칭찬 메시지에 반짝임 효과
@@ -18074,6 +18064,10 @@ def draw_tutorial_drive_counter():
         if pygame.time.get_ticks() % 600 < 300:
             hint_color = (100, 255, 255)
     
+    hint_surface = font_medium.render(hint_text, True, hint_color)
+    hint_rect = hint_surface.get_rect(centerx=ui_x, top=bg_y + bg_height + 5)
+    SCREEN.blit(hint_surface, hint_rect)
+    
     # 축하 이펙트 추가
     global tutorial_drive_counter_celebration, tutorial_drive_counter_celebration_timer
     if tutorial_drive_counter_celebration:
@@ -18082,9 +18076,8 @@ def draw_tutorial_drive_counter():
         
         # 2초간 축하 이펙트 표시
         if celebration_duration < 2000:
-            # 맥동 효과
-            pulse = 1.0 + 0.3 * math.sin(celebration_duration * 0.01)
-            pulse_radius = int(circle_radius * pulse)
+            # 박스 주변에 반짝이는 테두리 효과
+            pulse = 1.0 + 0.2 * math.sin(celebration_duration * 0.01)
             
             # 무지개 색상 효과
             rainbow_colors = [
@@ -18094,27 +18087,23 @@ def draw_tutorial_drive_counter():
             color_index = (celebration_duration // 100) % len(rainbow_colors)
             celebration_color = rainbow_colors[color_index]
             
-            # 반짝이는 원 그리기
-            pygame.draw.circle(SCREEN, celebration_color + (100,), 
-                             (circle_center_x, circle_center_y), pulse_radius, 3)
+            # 반짝이는 테두리
+            pygame.draw.rect(SCREEN, celebration_color, 
+                           (base_x - 10 - int(5 * pulse), base_y - 10 - int(5 * pulse), 
+                            box_width + int(10 * pulse), box_height + int(10 * pulse)), 3)
             
             # 별 이펙트
-            star_count = 8
+            star_count = 6
             for i in range(star_count):
                 angle = (2 * math.pi * i / star_count) + (celebration_duration * 0.002)
-                star_distance = pulse_radius + 15 + 10 * math.sin(celebration_duration * 0.005 + i)
-                star_x = circle_center_x + int(star_distance * math.cos(angle))
-                star_y = circle_center_y + int(star_distance * math.sin(angle))
+                star_distance = 30 + 10 * math.sin(celebration_duration * 0.005 + i)
+                star_x = base_x + box_width // 2 + int(star_distance * math.cos(angle))
+                star_y = base_y + box_height // 2 + int(star_distance * math.sin(angle))
                 star_size = 3 + int(2 * math.sin(celebration_duration * 0.01 + i))
-                pygame.draw.circle(SCREEN, (255, 200, 50), (star_x, star_y), star_size)
+                pygame.draw.circle(SCREEN, (255, 255, 100), (star_x, star_y), star_size)
         else:
             # 2초 후 축하 이펙트 종료
             tutorial_drive_counter_celebration = False
-    
-    # 텍스트를 아이콘 아래에 표시 (아이콘 중심 기준)
-    hint_surface = font_medium.render(hint_text, True, hint_color)
-    hint_rect = hint_surface.get_rect(centerx=drive_x, y=drive_y + 25)
-    SCREEN.blit(hint_surface, hint_rect)
 
 def draw_tutorial_dash_counter():
     """튜토리얼 대쉬 카운터 UI 표시 (하프대쉬, 대쉬, 연속대쉬)"""
@@ -19337,7 +19326,11 @@ def check_tutorial_dash_missions_complete():
                 tutorial_drive_helper_dialogue_shown = False
                 tutorial_drive_counter_active = False
                 tutorial_drive_count = 0
+                tutorial_left_drive_count = 0
+                tutorial_right_drive_count = 0
                 tutorial_displayed_drive_count = 0.0
+                tutorial_displayed_left_drive_count = 0.0
+                tutorial_displayed_right_drive_count = 0.0
                 tutorial_drive_completion_dialogue_shown = False
                 tutorial_drive_reminder_active = False  # 160 게이지에서 활성화
                 
@@ -24097,12 +24090,25 @@ def calculate_bounce(paddle):
             #  드라이브 성공 기록
             record_skill_usage(success=True)
             
-            # 튜토리얼 드라이브 카운터 증가 (Chapter 3)
+            # 튜토리얼 드라이브 카운터 증가 (Chapter 3) - 왼쪽/오른쪽 분리
             global tutorial_drive_count, tutorial_drive_counter_active, tutorial_drive_completion_dialogue_shown
+            global tutorial_left_drive_count, tutorial_right_drive_count
             if current_stage == 50 and tutorial_drive_counter_active:
-                if tutorial_drive_count < 3:
-                    tutorial_drive_count += 1
-                    print(f"튜토리얼: 드라이브 성공 {tutorial_drive_count}/3")
+                # 왼쪽/오른쪽 드라이브 구분
+                if perfect_direction == -1:  # 왼쪽 드라이브
+                    if tutorial_left_drive_count < 2:
+                        tutorial_left_drive_count += 1
+                        print(f"튜토리얼: 왼쪽 드라이브 성공 {tutorial_left_drive_count}/2")
+                elif perfect_direction == 1:  # 오른쪽 드라이브  
+                    if tutorial_right_drive_count < 2:
+                        tutorial_right_drive_count += 1
+                        print(f"튜토리얼: 오른쪽 드라이브 성공 {tutorial_right_drive_count}/2")
+                
+                # 총 드라이브 수 업데이트
+                tutorial_drive_count = tutorial_left_drive_count + tutorial_right_drive_count
+                
+                if tutorial_drive_count < 4:
+                    print(f"튜토리얼: 드라이브 성공 {tutorial_drive_count}/4 (왼쪽: {tutorial_left_drive_count}/2, 오른쪽: {tutorial_right_drive_count}/2)")
                     
                     # 성공 피드백 표시
                     if tutorial_drive_count == 1:
@@ -24110,13 +24116,15 @@ def calculate_bounce(paddle):
                     elif tutorial_drive_count == 2:
                         show_tutorial_success_feedback("멋져요!", "great")
                     elif tutorial_drive_count == 3:
+                        show_tutorial_success_feedback("한 가지 더!", "great")
+                    elif tutorial_drive_count == 4:
                         show_tutorial_success_feedback("드라이브 마스터!", "perfect")
                         # 카운터 축하 이펙트 활성화
                         global tutorial_drive_counter_celebration, tutorial_drive_counter_celebration_timer
                         tutorial_drive_counter_celebration = True
                         tutorial_drive_counter_celebration_timer = pygame.time.get_ticks()
                         
-                        # 3회 완료 후 바로 축하 대화 표시
+                        # 4회 완료 후 바로 축하 대화 표시
                         if not tutorial_drive_completion_dialogue_shown:
                             tutorial_drive_completion_dialogue_shown = True
                             # 게임 일시정지하고 대화 표시
@@ -26814,16 +26822,18 @@ def handle_ball():
                     # 완료 체크
                     check_tutorial_dash_missions_complete()
             
-            # Check if consecutive dash is pending and ball was hit during rolling
-            if tutorial_consecutive_dash_pending and rolling_active:
-                tutorial_consecutive_dash_pending = False
-                if tutorial_consecutive_dash_count < 1:
-                    tutorial_consecutive_dash_count += 1
-                    show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
-                    print(f"튜토리얼: 연속대쉬로 공 타격 성공 {tutorial_consecutive_dash_count}/1")
-                    
-                    # 완료 체크
-                    check_tutorial_dash_missions_complete()
+            # Consecutive dash is now counted immediately when 2 dashes are used
+            # No longer need to wait for ball collision
+            # (This section is kept for reference but is no longer used)
+            # if tutorial_consecutive_dash_pending and rolling_active:
+            #     tutorial_consecutive_dash_pending = False
+            #     if tutorial_consecutive_dash_count < 1:
+            #         tutorial_consecutive_dash_count += 1
+            #         show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
+            #         print(f"튜토리얼: 연속대쉬로 공 타격 성공 {tutorial_consecutive_dash_count}/1")
+            #         
+            #         # 완료 체크
+            #         check_tutorial_dash_missions_complete()
         
         # 원래 있던 튜토리얼 코드
         if current_stage == 50 and tutorial_practice_mode and tutorial_boss_returned:
@@ -30406,7 +30416,11 @@ def main(stage_num, new_boss_mode=False):
                 # 드라이브 카운터 초기화
                 tutorial_drive_counter_active = False  # 160 게이지 달성시 활성화
                 tutorial_drive_count = 0
+                tutorial_left_drive_count = 0
+                tutorial_right_drive_count = 0
                 tutorial_displayed_drive_count = 0.0
+                tutorial_displayed_left_drive_count = 0.0
+                tutorial_displayed_right_drive_count = 0.0
                 tutorial_drive_helper_dialogue_shown = False
                 
                 # 게임 계속 진행을 위한 설정
@@ -30568,6 +30582,8 @@ def main(stage_num, new_boss_mode=False):
                 global tutorial_dash_gauge_dialogue_shown
                 global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
                 global tutorial_drive_count, tutorial_displayed_drive_count
+                global tutorial_left_drive_count, tutorial_right_drive_count
+                global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
                 global tutorial_drive_completion_dialogue_shown
                 global tutorial_current_chapter, tutorial_needs_dash_practice, tutorial_needs_drive_practice
                 
@@ -30599,7 +30615,11 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_drive_helper_dialogue_shown = True
                     tutorial_drive_completion_dialogue_shown = True
                     tutorial_drive_count = 4  # 드라이브 4회 완료
+                    tutorial_left_drive_count = 2  # 왼쪽 2회
+                    tutorial_right_drive_count = 2  # 오른쪽 2회
                     tutorial_displayed_drive_count = 4.0
+                    tutorial_displayed_left_drive_count = 2.0
+                    tutorial_displayed_right_drive_count = 2.0
                     tutorial_drive_counter_active = False  # 카운터 비활성화
             
             # 현재 챕터의 모든 진행 사항 완료 처리
@@ -30650,7 +30670,11 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_drive_helper_dialogue_shown = False
                 tutorial_drive_counter_active = False
                 tutorial_drive_count = 0
+                tutorial_left_drive_count = 0
+                tutorial_right_drive_count = 0
                 tutorial_displayed_drive_count = 0.0
+                tutorial_displayed_left_drive_count = 0.0
+                tutorial_displayed_right_drive_count = 0.0
                 tutorial_drive_completion_dialogue_shown = False
                 tutorial_drive_reminder_active = False  # 160 게이지에서 활성화
                 
@@ -32206,7 +32230,11 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_drive_reminder_active = False  # 드라이브 알림은 도우미 대화 후에
                     # 카운터 초기화 (도우미 대화 후에 활성화됨)
                     tutorial_drive_count = 0
+                    tutorial_left_drive_count = 0
+                    tutorial_right_drive_count = 0
                     tutorial_displayed_drive_count = 0.0
+                    tutorial_displayed_left_drive_count = 0.0
+                    tutorial_displayed_right_drive_count = 0.0
                     
                     print(f"[DEBUG] 챕터3 대화 완료 후 변수 상태:")
                     print(f"[DEBUG] - tutorial_drive_practice_shown: {tutorial_drive_practice_shown}")
@@ -32243,7 +32271,11 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_drive_reminder_active = True
                 tutorial_drive_reminder_timer = pygame.time.get_ticks()  # 타이머 시작
                 tutorial_drive_count = 0
+                tutorial_left_drive_count = 0
+                tutorial_right_drive_count = 0
                 tutorial_displayed_drive_count = 0.0
+                tutorial_displayed_left_drive_count = 0.0
+                tutorial_displayed_right_drive_count = 0.0
                 # 서브 알림창 비활성화 (도우미 대화 후에는 필요 없음)
                 tutorial_serve_reminder_active = False
                 print("🎯 도우미 대화 완료: 드라이브 카운터와 알림 활성화, 서브 알림창 비활성화")
