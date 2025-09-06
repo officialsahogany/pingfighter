@@ -31727,10 +31727,13 @@ def main(stage_num, new_boss_mode=False):
                 else:
                     print("tutorial_dash_helper_active 변수가 globals()에 없음")
                 
-                # 튜토리얼 서브 알림창 오버레이 표시
+                # 튜토리얼 서브 알림창 오버레이 표시 (연습용 대쉬토큰 메시지도 처리)
                 if 'tutorial_serve_reminder_active' in globals():
                     if tutorial_serve_reminder_active:
                         draw_tutorial_serve_reminder()
+                # 연습용 대쉬토큰 메시지 표시를 위해 별도 체크
+                elif 'tutorial_bonus_token_message' in globals() and tutorial_bonus_token_message:
+                    draw_tutorial_serve_reminder()
                 
                 # 튜토리얼 드라이브 알림창 오버레이 표시 (2초 동안만)
                 if 'tutorial_drive_reminder_active' in globals() and tutorial_drive_reminder_active:
