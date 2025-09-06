@@ -6357,7 +6357,7 @@ def handle_player(keys):
                         show_tutorial_success_feedback("훌륭해요!", "great")
                     
                     # 모든 미션 완료 체크
-                    all_missions_complete = (tutorial_half_dash_count >= 1 and 
+                    all_missions_complete = (tutorial_half_dash_count >= 2 and 
                                             tutorial_dash_count >= 2 and 
                                             tutorial_consecutive_dash_count >= 1)
                     
@@ -17505,8 +17505,8 @@ def show_tutorial_dash_dialogue():
         ("조교", "원하는 방향 ← → 키를 누른 상태로"),
         ("조교", " ↓ 키를 누르면"),
         ("조교", "해당 방향으로 대쉬가 발동하며 빠르게 이동한다"),
-        ("조교", "지금부터 공을 대쉬로 받아치는 연습을 시작한다"),
-        ("조교", "총 3회 실시!! 시작한다!"),
+        ("조교", "지금부터 여러가지 대쉬기술을 익혀보겠다"),
+        ("조교", " 대쉬 동작 실시 !"),
         ("플레이어", "실시!")
     ]
     
@@ -18220,7 +18220,7 @@ def draw_tutorial_dash_counter():
     
     # 3개의 미션 표시
     missions = [
-        {"name": "하프대쉬", "count": tutorial_half_dash_count, "max": 1, "color": (255, 150, 100)},
+        {"name": "하프대쉬", "count": tutorial_half_dash_count, "max": 2, "color": (255, 150, 100)},
         {"name": "대쉬", "count": tutorial_dash_count, "max": 2, "color": (100, 200, 255)},
         {"name": "연속대쉬", "count": tutorial_consecutive_dash_count, "max": 1, "color": (255, 215, 0)}
     ]
@@ -18270,7 +18270,7 @@ def draw_tutorial_dash_counter():
     
     # 전체 진행 상태 메시지
     total_completed = 0
-    if tutorial_half_dash_count >= 1:
+    if tutorial_half_dash_count >= 2:
         total_completed += 1
     if tutorial_dash_count >= 2:
         total_completed += 1
