@@ -6611,7 +6611,6 @@ def handle_player(keys):
                         print("튜토리얼: 대쉬 토큰 설명 완료")
                         
                         # 토큰이 추가되었으면 서브 알림창 타이머 설정
-                        global tutorial_token_just_added
                         if 'tutorial_token_just_added' in globals() and tutorial_token_just_added:
                             tutorial_serve_reminder_active = True
                             tutorial_serve_reminder_timer = pygame.time.get_ticks()
