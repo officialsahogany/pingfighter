@@ -6580,7 +6580,11 @@ def handle_player(keys):
             return
         #  게이지 충전을 handle_player에서만 처리 (handle_ball 충돌 시에는 충전하지 않음)
         # 대쉬 중이거나 대쉬 직후(스턴 상태), 드라이브 발동 시에는 게이지 충전 차단
-        if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_activated and not drive_ball_active:
+        # 단, Chapter 3 드라이브 튜토리얼에서는 드라이브 활성화 여부와 관계없이 충전 허용
+        is_chapter3_tutorial = ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None)
+        drive_blocks_charge = (drive_activated or drive_ball_active) and not is_chapter3_tutorial
+        
+        if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_blocks_charge:
             # 스킬 효과 적용: 게이지 충전 증가
             # Chapter 3 드라이브 튜토리얼에서는 게이지 증가율을 200으로 설정
             if ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
@@ -26947,7 +26951,11 @@ def handle_ball():
         print(f" DEBUG: handle_ball   - handle_player")
         # handle_player가 놓친 충돌에 대해서만 게이지 충전
         # 대쉬 중이거나 대쉬 직후(스턴 상태), 드라이브 발동 시에도 게이지 충전 차단
-        if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_ball_active:
+        # 단, Chapter 3 드라이브 튜토리얼에서는 드라이브 활성화 여부와 관계없이 충전 허용
+        is_chapter3_tutorial = ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None)
+        drive_blocks_charge = drive_ball_active and not is_chapter3_tutorial
+        
+        if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_blocks_charge:
             # 스킬 효과 적용: 게이지 충전 증가
             # Chapter 3 드라이브 튜토리얼에서는 게이지 증가율을 200으로 설정
             if ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
