@@ -6437,11 +6437,17 @@ def handle_player(keys):
                         
                         # 토큰이 추가되었으면 서브 알림창 타이머 설정
                         global tutorial_token_just_added
+                        print(f"DEBUG: tutorial_token_just_added 체크 - globals에 있음: {'tutorial_token_just_added' in globals()}")
+                        if 'tutorial_token_just_added' in globals():
+                            print(f"DEBUG: tutorial_token_just_added 값: {tutorial_token_just_added}")
                         if 'tutorial_token_just_added' in globals() and tutorial_token_just_added:
                             tutorial_bonus_token_message = "대쉬토큰이 추가되었습니다. 연속대쉬를 사용해보세요!"
                             tutorial_bonus_token_timer = pygame.time.get_ticks()
                             tutorial_token_just_added = False  # 플래그 초기화
                             print(f"DEBUG: 메인 루프로 복귀, 알림 타이머 설정: {tutorial_bonus_token_timer}")
+                            print(f"DEBUG: 메시지 설정: {tutorial_bonus_token_message}")
+                        else:
+                            print("DEBUG: 토큰 추가 플래그가 설정되지 않음")
             #  대쉬 활용 능력 상세 분석
             ball_distance = abs(BALL.centery - PLAYER.centery)
             ball_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -15475,12 +15481,18 @@ def draw_tutorial_serve_reminder():
     global tutorial_serve_reminder_active, tutorial_drive_counter_active
     global tutorial_bonus_token_message, tutorial_bonus_token_timer
     
+    # 디버그: 함수 호출과 변수 상태 확인
+    if tutorial_bonus_token_message or tutorial_bonus_token_timer > 0:
+        print(f"DEBUG draw_tutorial_serve_reminder 호출: message={tutorial_bonus_token_message}, timer={tutorial_bonus_token_timer}")
+    
     # 연습용 대쉬토큰 메시지 표시 (3초간)
     if 'tutorial_bonus_token_message' in globals() and tutorial_bonus_token_message:
         current_time = pygame.time.get_ticks()
         elapsed_time = current_time - tutorial_bonus_token_timer
+        print(f"DEBUG: 메시지 표시 조건 만족 - elapsed={elapsed_time}ms")
         
         if elapsed_time < 3000:  # 3초간 표시
+            print(f"DEBUG: 3초 이내, 알림창 그리기 시작")
             # 폰트 설정
             font_large = FontStyle.subtitle()  # 32pt
             font_huge = FontStyle.title()     # 48pt
@@ -19090,10 +19102,8 @@ def show_tutorial_dash_token_dialogue():
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
-                            print(f"DEBUG: 대화 완료, dialogue_index = {dialogue_index}")  # 디버그
                             # 대화 인덱스 10에서 마지막 대화 "추가 대쉬당 50%의 게이지 할인이 적용됩니다" 가 끝날 때 토큰 추가
                             if dialogue_index == 10:  # 마지막 대화
-                                print("DEBUG: 대화 인덱스 10 (마지막 대화) 확인됨")  # 디버그
                                 global dashholder_obtained, tutorial_practice_bonus_token
                                 global tutorial_bonus_token_message, tutorial_bonus_token_timer
                                 global tutorial_token_just_added  # 토큰이 방금 추가되었음을 표시하는 플래그
@@ -19101,9 +19111,7 @@ def show_tutorial_dash_token_dialogue():
                                 # 전역 변수 초기화
                                 if 'tutorial_practice_bonus_token' not in globals():
                                     tutorial_practice_bonus_token = False
-                                    print("DEBUG: tutorial_practice_bonus_token 초기화")  # 디버그
                                 
-                                print(f"DEBUG: tutorial_practice_bonus_token = {tutorial_practice_bonus_token}")  # 디버그
                                 if not tutorial_practice_bonus_token:
                                     # 대쉬홀더 아이템 효과를 임시로 추가 (토큰 +1)
                                     global rolling_charges
@@ -19112,12 +19120,8 @@ def show_tutorial_dash_token_dialogue():
                                     tutorial_practice_bonus_token = True
                                     tutorial_token_just_added = True  # 플래그 설정
                                     print("튜토리얼: 도우미 대화에서 대쉬홀더 효과 임시 추가 (대쉬토큰 2개로 증가)")
-                                    print(f"DEBUG: rolling_charges를 2로 설정: {rolling_charges}")  # 디버그
                                     
                                     # 서브 알림창 메시지는 대화가 끝난 후 메인 게임 루프에서 설정
-                                    print("DEBUG: 토큰 추가 플래그 설정, 메인 루프에서 알림 표시 예정")  # 디버그
-                                else:
-                                    print("DEBUG: 이미 토큰이 추가되어 있음")  # 디버그
                             
                             running = False
                         else:
