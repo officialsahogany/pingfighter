@@ -1785,6 +1785,11 @@ tutorial_displayed_power_count = 0  # 표시되는 파워스매싱 카운트 (�
 tutorial_power_completion_dialogue_shown = False  # 파워스매싱 완료 대화 표시 여부
 tutorial_needs_power_practice = False  # 파워스매싱 연습 필요 여부
 tutorial_power_reminder_active = False  # 파워스매싱 도우미 활성화 여부
+tutorial_power_practice_shown = False  # 파워스매싱 연습 대화 표시 여부
+tutorial_power_helper_dialogue_shown = False  # 파워스매싱 도우미 대화 표시 여부
+tutorial_power_left_done = False  # 왼쪽 파워스매싱 완료 여부
+tutorial_power_center_done = False  # 중앙 파워스매싱 완료 여부  
+tutorial_power_right_done = False  # 오른쪽 파워스매싱 완료 여부
 predictor_timer = 0  # 레이저스코프 남은 시간
 predicted_trajectory = []  # 예측된 궤적 저장
 last_prediction_ball_y = 0  # 마지막 예측 시 공의 Y 위치
@@ -6354,6 +6359,13 @@ def handle_player(keys):
                             # 챕터 번호 업데이트 - 이것이 빠져있었음!
                             tutorial_current_chapter = 3
                             print(f"튜토리얼: 챕터 변경 - Chapter {tutorial_current_chapter}")
+                            
+                            # Chapter 2 종료 시 연습용 대쉬토큰 제거
+                            global tutorial_practice_bonus_token
+                            if 'tutorial_practice_bonus_token' in globals() and tutorial_practice_bonus_token:
+                                rolling_charges = 1  # 원래대로 1개로 복원
+                                tutorial_practice_bonus_token = False
+                                print("튜토리얼: Chapter 2 종료 - 대쉬토큰 1개로 복원")
                             
                             # Chapter 3 타이틀 표시 (드라이브)
                             show_chapter_title(3, "DRIVE", "드라이브")
@@ -14858,6 +14870,11 @@ tutorial_drive_reminder_active = False  # 드라이브 연습 알림
 # 튜토리얼 실습 모드 전역 변수  
 tutorial_practice_mode = False
 
+# 튜토리얼 연습용 대쉬토큰 추가 여부
+tutorial_practice_bonus_token = False
+tutorial_bonus_token_message = None
+tutorial_bonus_token_timer = 0
+
 # 튜토리얼 히트 카운터 애니메이션 변수
 tutorial_displayed_hit_count = 0.0
 
@@ -15392,6 +15409,46 @@ def draw_tutorial_dash_helper():
 def draw_tutorial_serve_reminder():
     """튜토리얼 서브 알림 오버레이 (인트로 대화 후 표시)"""
     global tutorial_serve_reminder_active, tutorial_drive_counter_active
+    global tutorial_bonus_token_message, tutorial_bonus_token_timer
+    
+    # 연습용 대쉬토큰 메시지 표시 (2초간)
+    if 'tutorial_bonus_token_message' in globals() and tutorial_bonus_token_message:
+        current_time = pygame.time.get_ticks()
+        if current_time - tutorial_bonus_token_timer < 2000:  # 2초간 표시
+            # 폰트 설정
+            font_large = FontStyle.subtitle()  # 32pt
+            
+            # 메시지 박스 설정
+            message_text = tutorial_bonus_token_message
+            box_width = 900
+            box_height = 80
+            box_x = (WIDTH - box_width) // 2
+            box_y = HEIGHT // 2 - 100  # 화면 중앙 약간 위
+            
+            # 박스 배경 (반투명, 노란색 계열)
+            box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+            box_surface.fill((40, 35, 20, 240))  # 반투명 어두운 노란색 배경
+            pygame.draw.rect(box_surface, (255, 215, 0), (0, 0, box_width, box_height), 3)  # 금색 테두리
+            SCREEN.blit(box_surface, (box_x, box_y))
+            
+            # 메시지 텍스트 (두 줄로 분리)
+            line1 = "연습용 대쉬토큰을 1개 추가했습니다."
+            line2 = "연속대쉬도 연습해보세요!"
+            
+            # 첫 번째 줄
+            text1_surface = font_large.render(line1, True, (255, 215, 0))  # 금색
+            text1_rect = text1_surface.get_rect(center=(box_x + box_width // 2, box_y + 25))
+            SCREEN.blit(text1_surface, text1_rect)
+            
+            # 두 번째 줄
+            text2_surface = font_large.render(line2, True, (255, 255, 100))  # 밝은 노란색
+            text2_rect = text2_surface.get_rect(center=(box_x + box_width // 2, box_y + 55))
+            SCREEN.blit(text2_surface, text2_rect)
+            
+            return  # 토큰 메시지 표시 중에는 서브 알림창 표시 안함
+        else:
+            # 2초 지나면 메시지 제거
+            tutorial_bonus_token_message = None
     
     if not tutorial_serve_reminder_active:
         return
@@ -15406,8 +15463,8 @@ def draw_tutorial_serve_reminder():
     # 알림 내용 - 챕터에 따라 다른 텍스트 표시
     if 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 4:
         # 챕터 4: 파워스매싱 파트에서는 파워스매싱 관련 메시지 표시
-        main_text = "스페이스를 길게 눌러 파워를 모으고 원하는 각도에서 떼세요!"
-        box_width = 850  # 긴 텍스트를 위해 박스 너비 확장
+        main_text = "파워스매싱을 각 방향으로 한번씩 시전해보세요!"
+        box_width = 750  # 긴 텍스트를 위해 박스 너비 확장
     elif 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 3:
         # 챕터 3: 드라이브 파트에서는 드라이브 관련 메시지 표시
         main_text = "타이밍에 맞춰 키를 입력해서 드라이브를 발동해보세요"
@@ -15933,12 +15990,16 @@ def show_tutorial_power_practice_dialogue():
     
     # 대화 시퀀스
     dialogues = [
-        ("조교", "이제 파워 스매싱을 배워볼 시간이다"),
-        ("조교", "파워 스매싱은 필살의 한 방이다"),
-        ("조교", "게이지가 500 이상일 때 사용 가능하다"),
-        ("조교", "SPACE 키를 누르고 있다가"),
-        ("조교", "떼는 타이밍에 따라 각도가 결정된다"),
-        ("조교", "3번 성공시켜보자!"),
+        ("조교", "경기가 길어질수록"),
+        ("조교", "공속은 점점 빨라지게 되고"),
+        ("조교", "드라이브처럼 커맨드 입력은 한계가 있음을 느꼈을 것이다"),
+        ("조교", "그래서 스매셔 선배들이 개발한 필살기가 있는데"),
+        ("조교", "그게 바로 '파워스매싱'이다."),
+        ("조교", "드라이브처럼 커맨드 입력이 아닌"),
+        ("조교", "스페이스바를 꾹 누른 상태에서"),
+        ("조교", "공에 닿으면 발동이 되므로 비교적 난이도는 쉬운편이다"),
+        ("조교", "드라이브는 왼쪽, 오른쪽 2지선다라면"),
+        ("조교", "파워스매싱은 왼쪽, 중앙, 오른쪽 3가지 방향을 선택할 수 있다"),
     ]
     
     # 하단 바 UI 설정
@@ -16022,6 +16083,277 @@ def show_tutorial_power_practice_dialogue():
                 SCREEN.blit(continue_surface, continue_rect)
             
             pygame.display.flip()
+            clock.tick(60)
+    
+    # 대화 완료 후 파워스매싱 시범 보이기
+    print("튜토리얼: 파워스매싱 시범 시작")
+    show_tutorial_power_demonstration()
+    
+    # 실전 연습 시작 대사
+    final_dialogues = [
+        ("조교", "바로 시작해본다 실시"),
+    ]
+    
+    for dialogue_index, (speaker, text) in enumerate(final_dialogues):
+        # 화자별 색상 설정
+        if speaker == "조교":
+            speaker_color = (255, 100, 100)  # 빨간색
+        else:
+            speaker_color = WHITE
+        
+        # 타이핑 효과 변수
+        displayed_text = ""
+        text_complete = False
+        typing_speed = 30  # 밀리초당 한 글자 (빠르게)
+        last_char_time = pygame.time.get_ticks()
+        
+        running = True
+        while running:
+            current_time = pygame.time.get_ticks()
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if text_complete:
+                            # 현재 대화 완료, 다음 대화로
+                            running = False
+                        else:
+                            # 텍스트 즉시 완성
+                            displayed_text = text
+                            text_complete = True
+            
+            # 타이핑 효과
+            if not text_complete and current_time - last_char_time >= typing_speed:
+                if len(displayed_text) < len(text):
+                    displayed_text += text[len(displayed_text)]
+                    last_char_time = current_time
+                else:
+                    text_complete = True
+            
+            # 배경 그리기 (정지된 게임 화면)
+            SCREEN.blit(background, (0, 0))
+            
+            # 하단 바 UI 그리기
+            text_bg = pygame.Surface((WIDTH, text_bg_height), pygame.SRCALPHA)
+            text_bg.fill((0, 0, 0, 180))
+            SCREEN.blit(text_bg, (0, text_y_position))
+            
+            # 대화 텍스트
+            full_text = f"[{speaker}] {displayed_text}"
+            
+            # 그림자 효과
+            shadow_surface = font_medium.render(full_text, True, (50, 50, 50))
+            shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + 2, text_y_position + text_bg_height // 2 + 2))
+            SCREEN.blit(shadow_surface, shadow_rect)
+            
+            # 메인 텍스트
+            text_surface = font_medium.render(full_text, True, speaker_color)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, text_y_position + text_bg_height // 2))
+            SCREEN.blit(text_surface, text_rect)
+            
+            # 계속 안내 (깜빡임 효과)
+            if text_complete and pygame.time.get_ticks() % 1000 < 700:
+                continue_text = "SPACE - 연습 시작"
+                continue_surface = font_small.render(continue_text, True, (0, 255, 255))
+                continue_rect = continue_surface.get_rect(bottomright=(WIDTH - 30, text_y_position + text_bg_height - 10))
+                SCREEN.blit(continue_surface, continue_rect)
+            
+            pygame.display.flip()
+            clock.tick(60)
+    
+    return True
+
+def show_tutorial_power_demonstration():
+    """튜토리얼 파워스매싱 시범 (조교가 왼쪽, 중앙, 오른쪽 시범)"""
+    global ball_x, ball_y, ball_dx, ball_dy, ball_speed
+    global boss_y, boss_dy, boss_special_timer, boss_special_waiting
+    global tutorial_power_demo_state, tutorial_serve_complete
+    
+    clock = pygame.time.Clock()
+    
+    # 폰트 설정
+    font_medium = FontStyle.body()     # 24pt
+    font_small = FontStyle.small()     # 18pt
+    
+    # 시범 상태 초기화
+    demo_sequence = ["left", "center", "right"]  # 시범 순서
+    current_demo = 0
+    demo_complete = False
+    power_charge_timer = 0
+    power_charging = False
+    demo_phase = "ready"  # ready, charging, shooting, wait
+    phase_timer = 0
+    
+    # 시범 시작 전 초기 설정
+    ball_x = WIDTH // 2
+    ball_y = HEIGHT // 2
+    ball_dx = 0
+    ball_dy = 0
+    ball_speed = 0
+    boss_y = HEIGHT // 2
+    
+    print(f"파워스매싱 시범 시작: {demo_sequence}")
+    
+    while not demo_complete:
+        dt = clock.tick(60) / 1000.0
+        phase_timer += dt
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE and current_demo >= len(demo_sequence):
+                    demo_complete = True
+        
+        # 시범 진행 로직
+        if current_demo < len(demo_sequence):
+            direction = demo_sequence[current_demo]
+            
+            if demo_phase == "ready":
+                # 공을 조교 쪽으로 이동
+                if phase_timer > 1.0:
+                    ball_x = WIDTH - 100
+                    ball_y = boss_y
+                    ball_dx = -300  # 왼쪽으로 날아옴
+                    ball_dy = 0
+                    ball_speed = 300
+                    demo_phase = "charging"
+                    phase_timer = 0
+                    power_charging = True
+                    print(f"시범 {current_demo + 1}: {direction} 방향 준비")
+            
+            elif demo_phase == "charging":
+                # 파워 차징 중
+                power_charge_timer += dt
+                if power_charge_timer > 0.5:  # 0.5초 차징
+                    demo_phase = "shooting"
+                    phase_timer = 0
+                    power_charging = False
+                    
+                    # 방향에 따른 공 발사
+                    if direction == "left":
+                        ball_dx = -500
+                        ball_dy = -200
+                    elif direction == "center":
+                        ball_dx = -500
+                        ball_dy = 0
+                    else:  # right
+                        ball_dx = -500
+                        ball_dy = 200
+                    
+                    ball_speed = math.sqrt(ball_dx**2 + ball_dy**2)
+                    print(f"파워스매싱 발사! 방향: {direction}")
+            
+            elif demo_phase == "shooting":
+                # 공이 날아가는 중
+                if phase_timer > 1.5:  # 1.5초 후 다음 시범
+                    current_demo += 1
+                    demo_phase = "ready"
+                    phase_timer = 0
+                    power_charge_timer = 0
+                    if current_demo < len(demo_sequence):
+                        print(f"다음 시범 준비: {demo_sequence[current_demo]}")
+        
+        # 공 물리 업데이트
+        if ball_speed > 0:
+            ball_x += ball_dx * dt
+            ball_y += ball_dy * dt
+            
+            # 벽 충돌
+            if ball_x <= 20 or ball_x >= WIDTH - 20:
+                ball_dx = -ball_dx
+            if ball_y <= 20 or ball_y >= HEIGHT - 20:
+                ball_dy = -ball_dy
+        
+        # 화면 그리기
+        SCREEN.fill(BLACK)
+        draw_field()
+        
+        # 패들 그리기
+        pygame.draw.rect(SCREEN, WHITE, (20, player_y - paddle_height//2, paddle_width, paddle_height))
+        pygame.draw.rect(SCREEN, BOSS_COLOR, (WIDTH - 20 - paddle_width, boss_y - paddle_height//2, paddle_width, paddle_height))
+        
+        # 파워 차징 이펙트
+        if power_charging:
+            charge_radius = int(20 + power_charge_timer * 40)
+            charge_color = (255, int(255 - power_charge_timer * 200), 0)
+            pygame.draw.circle(SCREEN, charge_color, (int(ball_x), int(ball_y)), charge_radius, 3)
+        
+        # 공 그리기
+        pygame.draw.circle(SCREEN, WHITE, (int(ball_x), int(ball_y)), ball_radius)
+        
+        # 시범 안내 텍스트
+        if current_demo < len(demo_sequence):
+            direction = demo_sequence[current_demo]
+            direction_text = {"left": "왼쪽", "center": "중앙", "right": "오른쪽"}[direction]
+            
+            if power_charging:
+                instruction = f"파워 차징 중... ({direction_text})"
+                text_color = YELLOW
+            else:
+                instruction = f"조교 시범: {direction_text} 파워스매싱"
+                text_color = WHITE
+            
+            text_surface = font_medium.render(instruction, True, text_color)
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+            SCREEN.blit(text_surface, text_rect)
+        else:
+            # 시범 완료
+            instruction = "시범 완료! SPACE - 계속"
+            text_surface = font_medium.render(instruction, True, (0, 255, 255))
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+            
+            if pygame.time.get_ticks() % 1000 < 700:  # 깜빡임 효과
+                SCREEN.blit(text_surface, text_rect)
+        
+        # 키 표시 (SPACE 누르는 모습)
+        if power_charging:
+            key_text = "SPACE ↓"
+            key_surface = font_small.render(key_text, True, (255, 255, 0))
+            key_rect = key_surface.get_rect(center=(WIDTH - 100, boss_y - 60))
+            pygame.draw.rect(SCREEN, (50, 50, 0), key_rect.inflate(10, 5))
+            pygame.draw.rect(SCREEN, (255, 255, 0), key_rect.inflate(10, 5), 2)
+            SCREEN.blit(key_surface, key_rect)
+        
+        pygame.display.flip()
+    
+    print("파워스매싱 시범 완료!")
+    return True
+
+def show_tutorial_power_completion_dialogue():
+    """Chapter 4 파워스매싱 완료 대화"""
+    global special_gauge
+    
+    dialogues = [
+        ("조교", "훌륭하다!"),
+        ("조교", "3방향 파워스매싱을 모두 마스터했군!"),
+        ("조교", "이제 너도 진정한 스매셔다."),
+        ("조교", "파워스매싱은 드라이브보다 쉽지만"),
+        ("조교", "그만큼 강력한 필살기야."),
+        ("조교", "실전에서 잘 활용하도록!"),
+    ]
+    
+    # 대화 표시
+    for speaker, text in dialogues:
+        show_tutorial_dialogue(speaker, text)
+        
+        # 키 입력 대기
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        waiting = False
+                    elif event.key == pygame.K_ESCAPE:
+                        return False
+            
             clock.tick(60)
     
     return True
@@ -18523,6 +18855,8 @@ def show_tutorial_gauge_dialogue():
 def show_tutorial_dash_token_dialogue():
     """대쉬 토큰 시스템 설명 도우미 대화"""
     global rolling_charges, rolling_charge_timer
+    global dashholder_obtained, tutorial_practice_bonus_token
+    global tutorial_bonus_token_message, tutorial_bonus_token_timer
     
     clock = pygame.time.Clock()
     
@@ -18631,6 +18965,25 @@ def show_tutorial_dash_token_dialogue():
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
+                            # 대화 인덱스 8에서 "추가적인 연속대쉬를 사용할 수 있습니다" 대화가 끝날 때 토큰 추가
+                            if dialogue_index == 8:  # "추가적인 연속대쉬를 사용할 수 있습니다" 대화
+                                global dashholder_obtained, tutorial_practice_bonus_token
+                                global tutorial_bonus_token_message, tutorial_bonus_token_timer
+                                
+                                # 전역 변수 초기화
+                                if 'tutorial_practice_bonus_token' not in globals():
+                                    tutorial_practice_bonus_token = False
+                                
+                                if not tutorial_practice_bonus_token:
+                                    # 대쉬홀더 아이템 효과를 임시로 추가 (토큰 +1)
+                                    dashholder_obtained = True
+                                    tutorial_practice_bonus_token = True
+                                    print("튜토리얼: 도우미 대화에서 대쉬홀더 효과 임시 추가 (대쉬토큰 2개로 증가)")
+                                    
+                                    # 서브 알림창에 메시지 표시
+                                    tutorial_bonus_token_message = "연습용 대쉬토큰을 1개 추가했습니다. 연속대쉬도 연습해보세요!"
+                                    tutorial_bonus_token_timer = pygame.time.get_ticks()
+                            
                             running = False
                         else:
                             # 텍스트 즉시 완성
@@ -18833,6 +19186,10 @@ def show_tutorial_dash_completion_dialogue():
         {"speaker": "조교", "text": "대쉬는 방어와 동시에 킬각도 가끔 나오므로"},
         {"speaker": "조교", "text": "경기에서 아주 유용한 기술이지"},
         {"speaker": "조교", "text": "대쉬만 제대로 익혀도 50%는 승률이 보장된다"},
+        {"speaker": "조교", "text": "이제 대쉬는 충분히 익숙해졌을거다"},
+        {"speaker": "조교", "text": "두 번 이상 연속으로 대쉬를 사용한다면"},
+        {"speaker": "조교", "text": "대쉬토큰 한 개를 더 쓰게 된다."},
+        {"speaker": "조교", "text": "하지만 대쉬가 빨라지고 길어진다."},
         {"speaker": "조교", "text": "다음은 스매셔 스킬 동작들을 연마하는 시간을 가져보겠다"}
     ]
     
@@ -30020,6 +30377,12 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 2 완료 요약 화면 표시
                 show_chapter_completion_summary(2)
                 
+                # Chapter 2 종료 시 연습용 대쉬토큰 제거
+                if 'tutorial_practice_bonus_token' in globals() and tutorial_practice_bonus_token:
+                    rolling_charges = 1  # 원래대로 1개로 복원
+                    tutorial_practice_bonus_token = False
+                    print("튜토리얼: Chapter 2 스킵 종료 - 대쉬토큰 1개로 복원")
+                
                 # 챕터 번호 업데이트
                 tutorial_current_chapter = 3
                 
@@ -30351,6 +30714,28 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[0] *= 1.098  # X축 9.8% 부스트
                         ball_vel[1] *= 1.098  # Y축 9.8% 부스트
                     final_speed = math.hypot(ball_vel[0], ball_vel[1])
+                    
+                    # Chapter 4 튜토리얼: 파워스매싱 방향별 카운트 증가
+                    if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_power_counter_active:
+                        global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done
+                        global tutorial_power_count
+                        
+                        if power_smashing_direction == -1 and not tutorial_power_left_done:
+                            tutorial_power_left_done = True
+                            print("튜토리얼: 왼쪽 파워스매싱 성공!")
+                        elif power_smashing_direction == 0 and not tutorial_power_center_done:
+                            tutorial_power_center_done = True
+                            print("튜토리얼: 중앙 파워스매싱 성공!")
+                        elif power_smashing_direction == 1 and not tutorial_power_right_done:
+                            tutorial_power_right_done = True
+                            print("튜토리얼: 오른쪽 파워스매싱 성공!")
+                        
+                        # 전체 카운트 업데이트
+                        completed_count = sum([tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done])
+                        if completed_count > tutorial_power_count:
+                            tutorial_power_count = completed_count
+                            print(f"튜토리얼: 파워스매싱 진행 {tutorial_power_count}/3")
+                    
                     # 고스트샷이 아닐 때만 POWER SMASHING 표시
                     if not mega_smashing_active:
                         show_fade_text("POWER SMASHING")
@@ -31477,7 +31862,8 @@ def main(stage_num, new_boss_mode=False):
                 if power_dialogue_result:
                     tutorial_power_practice_shown = True
                     tutorial_power_counter_active = True  # 카운터 활성화
-                    print("튜토리얼: 파워스매싱 연습 대화 완료")
+                    tutorial_serve_reminder_active = True  # 서브 알림창 활성화 (Chapter 4에서는 파워스매싱 안내)
+                    print("튜토리얼: 파워스매싱 연습 대화 완료, 서브 알림창 활성화")
             
             # Chapter 4 - 게이지 500 도달 시 도우미 대화
             if (current_stage == 50 and tutorial_current_chapter == 4 and 
@@ -31495,6 +31881,32 @@ def main(stage_num, new_boss_mode=False):
                 show_tutorial_power_helper_dialogue()
                 print("튜토리얼: 파워스매싱 도우미 대화 완료")
                 tutorial_power_reminder_active = True  # 서브 알림창 활성화
+            
+            # Chapter 4 - 파워스매싱 3방향 모두 완료 체크
+            if (current_stage == 50 and tutorial_current_chapter == 4 and
+                tutorial_power_counter_active and tutorial_power_count >= 3 and
+                not tutorial_power_completion_dialogue_shown):
+                
+                print("🎉 Chapter 4: 파워스매싱 3방향 모두 성공!")
+                tutorial_power_completion_dialogue_shown = True
+                tutorial_power_counter_active = False  # 카운터 비활성화
+                tutorial_power_reminder_active = False  # 서브 알림창 비활성화
+                
+                # 대화 시작 전에 게임 화면 그리기
+                draw_field()
+                draw_objects()
+                pygame.display.flip()
+                
+                # 완료 대화 표시
+                show_tutorial_power_completion_dialogue()
+                
+                # 챕터 완료 처리 - Chapter 4가 마지막이므로 튜토리얼 완료
+                show_chapter_completion_summary(4)
+                show_tutorial_success_feedback("🎉 튜토리얼 완료! 🎉", "perfect")
+                
+                # 튜토리얼 완료 후 메인 메뉴로
+                print("🎉 튜토리얼 모든 챕터 완료!")
+                return "main_menu"  # 메인 메뉴로 돌아감
             
             # Chapter 3 - 드라이브 연습
             if tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
