@@ -5055,7 +5055,7 @@ def handle_player(keys):
     global wall_installing  #  벽돌 설치 변수 추가
     global is_waiting_for_serve  #  서브 대기 상태 변수 추가
     global is_player_serve  #  플레이어 서브 상태 변수 추가
-    global gravitybelt_obtained  #  무중력벨트 변수 추가
+    global gravitybelt_obtained, dashholder_obtained  #  무중력벨트 및 대쉬홀더 변수 추가
     global rolling_active, rolling_timer, rolling_direction, rolling_speed
     global rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer
     global player_missile_stunned_timer, player_missile_knockback_vel, current_stage  # 스테이지 6 미사일 넉백
@@ -6365,8 +6365,10 @@ def handle_player(keys):
                             # Chapter 2 종료 시 연습용 대쉬토큰 제거
                             global tutorial_practice_bonus_token
                             if 'tutorial_practice_bonus_token' in globals() and tutorial_practice_bonus_token:
+                                dashholder_obtained = False  # 대쉬홀더 효과 제거
                                 rolling_charges = 1  # 원래대로 1개로 복원
                                 tutorial_practice_bonus_token = False
+                                tutorial_bonus_token_message = None  # 메시지 제거
                                 print("튜토리얼: Chapter 2 종료 - 대쉬토큰 1개로 복원")
                             
                             # Chapter 3 타이틀 표시 (드라이브)
@@ -6432,6 +6434,13 @@ def handle_player(keys):
                         ball_vel[0] = tutorial_saved_ball_vel[0]
                         ball_vel[1] = tutorial_saved_ball_vel[1]
                         print("튜토리얼: 대쉬 토큰 설명 완료")
+                        
+                        # 토큰이 추가되었으면 서브 알림창 타이머 설정
+                        if 'tutorial_token_just_added' in globals() and tutorial_token_just_added:
+                            tutorial_bonus_token_message = "대쉬토큰이 추가되었습니다. 연속대쉬를 사용해보세요!"
+                            tutorial_bonus_token_timer = pygame.time.get_ticks()
+                            tutorial_token_just_added = False  # 플래그 초기화
+                            print(f"DEBUG: 메인 루프로 복귀, 알림 타이머 설정: {tutorial_bonus_token_timer}")
             #  대쉬 활용 능력 상세 분석
             ball_distance = abs(BALL.centery - PLAYER.centery)
             ball_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -9227,6 +9236,16 @@ def draw_player_gauge():
     player_gauge_width = 14  # 플레이어 게이지바 폭
     token_start_x = player_gauge_x + player_gauge_width // 2 - (max_tokens * token_spacing) // 2 + token_spacing // 2
     token_y = gauge_y + gauge_height + 15  # 게이지바 아래 15픽셀
+    
+    # 토큰 추가 강조 효과 확인
+    token_emphasis = False
+    emphasis_timer = 0
+    if 'tutorial_bonus_token_message' in globals() and tutorial_bonus_token_message:
+        current_time = pygame.time.get_ticks()
+        elapsed_time = current_time - tutorial_bonus_token_timer
+        if elapsed_time < 3000:  # 3초간 강조
+            token_emphasis = True
+            emphasis_timer = elapsed_time
     #  대쉬 토큰 표시 - 오른쪽부터 소진 / 왼쪽부터 충전
     # 최종 해결: token_states 리스트로 각 토큰 개별 추적
     global token_states
@@ -9245,11 +9264,26 @@ def draw_player_gauge():
             token_states = [False] * max_tokens
     for i in range(max_tokens):
         token_x = token_start_x + i * token_spacing
+        
+        # 강조 효과 애니메이션 계산 (토큰 추가 시)
+        emphasis_scale = 1.0
+        emphasis_glow = 0
+        if token_emphasis and i == 1:  # 두 번째 토큰(추가된 토큰) 강조
+            # 펄스 효과
+            pulse = abs(math.sin(emphasis_timer * 0.008))  # 0.008 = 약 125ms 주기
+            emphasis_scale = 1.0 + pulse * 0.5  # 1.0 ~ 1.5 크기 변화
+            emphasis_glow = int(pulse * 100)  # 글로우 강도
+        
         # 토큰 상태에 따른 표시
         if i < len(token_states) and token_states[i]:
             # 사용 가능한 토큰 - 밝은 빨간색
-            token_color = (255, 80, 80)
-            glow_color = (255, 150, 150)
+            if token_emphasis and i == 1:
+                # 강조된 토큰은 더 밝은 색상
+                token_color = (255, 120 + emphasis_glow, 120 + emphasis_glow)
+                glow_color = (255, 200 + int(emphasis_glow * 0.5), 200 + int(emphasis_glow * 0.5))
+            else:
+                token_color = (255, 80, 80)
+                glow_color = (255, 150, 150)
             is_available = True
         else:
             # 사용된 토큰 - 충전 중
@@ -9302,11 +9336,22 @@ def draw_player_gauge():
                 is_available = False
         # 글로우 효과 (토큰이 사용 가능할 때만)
         if is_available:
-            # 글로우 효과를 위한 반투명 원
-            glow_surface = pygame.Surface((token_radius * 4, token_radius * 4), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surface, (*glow_color, 60), 
-                             (token_radius * 2, token_radius * 2), token_radius * 2)
-            SCREEN.blit(glow_surface, (token_x - token_radius * 2, token_y - token_radius * 2))
+            # 강조 효과가 있을 때 더 큰 글로우
+            if token_emphasis and i == 1:
+                # 다중 레이어 글로우 효과
+                for layer in range(3):
+                    glow_radius = int((token_radius * (3 + layer)) * emphasis_scale)
+                    glow_alpha = int((80 - layer * 20) * (1 + emphasis_glow / 100))
+                    glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surface, (*glow_color, min(255, glow_alpha)), 
+                                     (glow_radius, glow_radius), glow_radius)
+                    SCREEN.blit(glow_surface, (token_x - glow_radius, token_y - glow_radius))
+            else:
+                # 일반 글로우 효과
+                glow_surface = pygame.Surface((token_radius * 4, token_radius * 4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surface, (*glow_color, 60), 
+                                 (token_radius * 2, token_radius * 2), token_radius * 2)
+                SCREEN.blit(glow_surface, (token_x - token_radius * 2, token_y - token_radius * 2))
         # 충전 중인 토큰의 물 차오르는 효과
         if not is_available and 'charge_progress' in locals() and 'is_charging' in locals() and is_charging and charge_progress > 0:
             # 배경 원 (비어있는 상태)
@@ -9348,17 +9393,32 @@ def draw_player_gauge():
                                  (token_radius + 2, token_radius + 2), token_radius + 1)
                 SCREEN.blit(pulse_surface, (token_x - token_radius - 2, token_y - token_radius - 2))
         else:
-            # 메인 토큰 원 (기본 상태)
-            draw.circle(token_color, (int(token_x), int(token_y)), token_radius)
+            # 메인 토큰 원 (기본 상태 또는 강조 상태)
+            actual_radius = int(token_radius * emphasis_scale) if (token_emphasis and i == 1) else token_radius
+            draw.circle(token_color, (int(token_x), int(token_y)), actual_radius)
+            
             # 토큰 테두리 (입체감)
-            border_color = (200, 200, 200) if is_available else (80, 80, 80)
-            draw.circle(border_color, (int(token_x), int(token_y)), token_radius, 1)
+            if token_emphasis and i == 1:
+                # 강조된 토큰은 금색 테두리
+                border_color = (255, 215, 0)  # 금색
+                draw.circle(border_color, (int(token_x), int(token_y)), actual_radius, 2)
+            else:
+                border_color = (200, 200, 200) if is_available else (80, 80, 80)
+                draw.circle(border_color, (int(token_x), int(token_y)), actual_radius, 1)
+            
             # 하이라이트 효과 (작은 흰색 점)
             if is_available:
-                highlight_x = token_x - token_radius // 3
-                highlight_y = token_y - token_radius // 3
-                draw.circle(WHITE, 
-                                 (int(highlight_x), int(highlight_y)), token_radius // 4)
+                if token_emphasis and i == 1:
+                    # 강조된 토큰은 더 큰 하이라이트
+                    highlight_x = token_x - actual_radius // 3
+                    highlight_y = token_y - actual_radius // 3
+                    draw.circle((255, 255, 200),  # 밝은 노란색 하이라이트
+                                     (int(highlight_x), int(highlight_y)), int(actual_radius // 3))
+                else:
+                    highlight_x = token_x - token_radius // 3
+                    highlight_y = token_y - token_radius // 3
+                    draw.circle(WHITE, 
+                                     (int(highlight_x), int(highlight_y)), token_radius // 4)
     
     #  악마의 주사위 게이지 표시
     from item_effects.devil_dice import is_devil_dice_active, get_devil_dice_duration_ratio
@@ -15413,39 +15473,91 @@ def draw_tutorial_serve_reminder():
     global tutorial_serve_reminder_active, tutorial_drive_counter_active
     global tutorial_bonus_token_message, tutorial_bonus_token_timer
     
-    # 연습용 대쉬토큰 메시지 표시 (2초간)
+    # 연습용 대쉬토큰 메시지 표시 (3초간)
     if 'tutorial_bonus_token_message' in globals() and tutorial_bonus_token_message:
         current_time = pygame.time.get_ticks()
-        if current_time - tutorial_bonus_token_timer < 2000:  # 2초간 표시
+        elapsed_time = current_time - tutorial_bonus_token_timer
+        
+        if elapsed_time < 3000:  # 3초간 표시
             # 폰트 설정
             font_large = FontStyle.subtitle()  # 32pt
+            font_huge = FontStyle.title()     # 48pt
+            
+            # 애니메이션 효과 계산
+            animation_progress = min(1.0, elapsed_time / 300)  # 0.3초 동안 페이드인
+            fade_out_start = 2500  # 2.5초부터 페이드아웃 시작
+            if elapsed_time > fade_out_start:
+                animation_progress = 1.0 - ((elapsed_time - fade_out_start) / 500)  # 0.5초 동안 페이드아웃
             
             # 메시지 박스 설정
             message_text = tutorial_bonus_token_message
             box_width = 900
-            box_height = 80
+            box_height = 120  # 높이 증가
             box_x = (WIDTH - box_width) // 2
-            box_y = HEIGHT // 2 - 100  # 화면 중앙 약간 위
+            box_y = HEIGHT // 2 - 150  # 화면 중앙 약간 위
             
-            # 박스 배경 (반투명, 노란색 계열)
+            # 깜빡임 효과를 위한 시간 계산
+            pulse_time = elapsed_time % 600  # 0.6초 주기
+            pulse_alpha = 200 + int(55 * math.sin(pulse_time * math.pi / 300))  # 200-255 사이에서 진동
+            
+            # 박스 배경 (반투명, 노란색 계열, 애니메이션 적용)
             box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-            box_surface.fill((40, 35, 20, 240))  # 반투명 어두운 노란색 배경
-            pygame.draw.rect(box_surface, (255, 215, 0), (0, 0, box_width, box_height), 3)  # 금색 테두리
+            box_alpha = int(240 * animation_progress)
+            box_surface.fill((40, 35, 20, box_alpha))  # 반투명 어두운 노란색 배경
+            
+            # 깜빡이는 테두리
+            border_color = (255, 215, 0, int(pulse_alpha * animation_progress))
+            pygame.draw.rect(box_surface, border_color, (0, 0, box_width, box_height), 4)  # 금색 테두리
+            
+            # 내부 글로우 효과
+            inner_glow = pygame.Surface((box_width - 8, box_height - 8), pygame.SRCALPHA)
+            inner_glow.fill((255, 255, 100, int(30 * animation_progress)))
+            box_surface.blit(inner_glow, (4, 4))
+            
             SCREEN.blit(box_surface, (box_x, box_y))
             
-            # 메시지 텍스트 (두 줄로 분리)
-            line1 = "연습용 대쉬토큰을 1개 추가했습니다."
-            line2 = "연속대쉬도 연습해보세요!"
+            # 대쉬 토큰 아이콘 그리기 (왼쪽)
+            token_x = box_x + 60
+            token_y = box_y + box_height // 2
+            token_radius = int(20 * animation_progress)
             
-            # 첫 번째 줄
-            text1_surface = font_large.render(line1, True, (255, 215, 0))  # 금색
-            text1_rect = text1_surface.get_rect(center=(box_x + box_width // 2, box_y + 25))
+            # 토큰 글로우 효과
+            for i in range(3):
+                glow_radius = token_radius + (i + 1) * 5
+                glow_alpha = int(20 * animation_progress * (3 - i) / 3)
+                glow_color = (255, 215, 0, glow_alpha)
+                glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surface, glow_color, (glow_radius, glow_radius), glow_radius)
+                SCREEN.blit(glow_surface, (token_x - glow_radius, token_y - glow_radius))
+            
+            # 토큰 본체
+            pygame.draw.circle(SCREEN, (255, 50, 50), (token_x, token_y), token_radius)
+            pygame.draw.circle(SCREEN, (255, 215, 0), (token_x, token_y), token_radius, 3)
+            
+            # 메시지 텍스트 (두 줄로 분리)
+            line1 = "대쉬토큰이 추가되었습니다!"
+            line2 = "연속대쉬를 사용해보세요"
+            
+            # 첫 번째 줄 (강조)
+            text1_alpha = int(255 * animation_progress)
+            text1_color = (255, 215, 0, text1_alpha)  # 금색
+            text1_surface = font_huge.render(line1, True, text1_color[:3])  # RGB만 사용
+            text1_surface.set_alpha(text1_alpha)
+            text1_rect = text1_surface.get_rect(center=(box_x + box_width // 2 + 20, box_y + 35))
             SCREEN.blit(text1_surface, text1_rect)
             
             # 두 번째 줄
-            text2_surface = font_large.render(line2, True, (255, 255, 100))  # 밝은 노란색
-            text2_rect = text2_surface.get_rect(center=(box_x + box_width // 2, box_y + 55))
+            text2_alpha = int(255 * animation_progress)
+            text2_color = (255, 255, 100, text2_alpha)  # 밝은 노란색
+            text2_surface = font_large.render(line2, True, text2_color[:3])  # RGB만 사용
+            text2_surface.set_alpha(text2_alpha)
+            text2_rect = text2_surface.get_rect(center=(box_x + box_width // 2 + 20, box_y + 75))
             SCREEN.blit(text2_surface, text2_rect)
+            
+            # 추가 토큰 아이콘 (오른쪽) - 강조
+            token2_x = box_x + box_width - 60
+            pygame.draw.circle(SCREEN, (255, 50, 50), (token2_x, token_y), token_radius)
+            pygame.draw.circle(SCREEN, (255, 215, 0), (token2_x, token_y), token_radius, 3)
             
             return  # 토큰 메시지 표시 중에는 서브 알림창 표시 안함
         else:
@@ -18024,7 +18136,7 @@ def draw_tutorial_drive_counter():
     SCREEN.blit(hint_surface, hint_rect)
 
 def draw_tutorial_dash_counter():
-    """튜토리얼 대쉬 카운터 UI 표시 (3회 대쉬 카운트)"""
+    """튜토리얼 대쉬 카운터 UI 표시 (4회 대쉬 카운트)"""
     global tutorial_dash_counter_active, tutorial_dash_count, tutorial_displayed_dash_count
     
     # 대쉬 카운터가 활성화되었을 때만 표시
@@ -18064,10 +18176,10 @@ def draw_tutorial_dash_counter():
     # 배경 원
     pygame.draw.circle(SCREEN, (40, 45, 60, 180), (circle_center_x, circle_center_y), circle_radius, 2)
     
-    # 진행도 원호 그리기 (3분할)
+    # 진행도 원호 그리기 (4분할)
     if tutorial_displayed_dash_count > 0:
         import math
-        progress = tutorial_displayed_dash_count / 3  # 3회 기준
+        progress = tutorial_displayed_dash_count / 4  # 4회 기준
         # 시작 각도 -90도 (12시 방향)
         start_angle = -math.pi / 2
         # 진행도에 따른 종료 각도
@@ -18122,10 +18234,12 @@ def draw_tutorial_dash_counter():
         pygame.draw.line(arrow_surf, line_color, (5, line_y), (5 + line_length, line_y), 2)
     
     # 메인 화살표 (삼각형)
-    if tutorial_dash_count >= 3:
-        arrow_color = (255, 255, 100)  # 노란색 (거의 완료)
+    if tutorial_dash_count >= 4:
+        arrow_color = (0, 255, 200)  # 민트색 (완료)
+    elif tutorial_dash_count >= 3:
+        arrow_color = (100, 255, 255)  # 하늘색 (3회)
     elif tutorial_dash_count >= 2:
-        arrow_color = (100, 255, 255)  # 하늘색 (중간)
+        arrow_color = (255, 255, 100)  # 노란색 (2회)
     else:
         arrow_color = (100, 200, 255)  # 연한 파란색 (시작)
     arrow_points = [
@@ -18155,7 +18269,7 @@ def draw_tutorial_dash_counter():
     if tutorial_dash_count < 1:
         hint_text = "대쉬 연습"
         hint_color = (150, 150, 150)
-    elif tutorial_dash_count < 3:
+    elif tutorial_dash_count < 4:
         hint_text = "잘하고 있어요!"
         hint_color = (255, 200, 100)
         # 칭찬 메시지에 반짝임 효과
@@ -18974,24 +19088,34 @@ def show_tutorial_dash_token_dialogue():
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
-                            # 대화 인덱스 8에서 "추가적인 연속대쉬를 사용할 수 있습니다" 대화가 끝날 때 토큰 추가
-                            if dialogue_index == 8:  # "추가적인 연속대쉬를 사용할 수 있습니다" 대화
+                            print(f"DEBUG: 대화 완료, dialogue_index = {dialogue_index}")  # 디버그
+                            # 대화 인덱스 10에서 마지막 대화 "추가 대쉬당 50%의 게이지 할인이 적용됩니다" 가 끝날 때 토큰 추가
+                            if dialogue_index == 10:  # 마지막 대화
+                                print("DEBUG: 대화 인덱스 10 (마지막 대화) 확인됨")  # 디버그
                                 global dashholder_obtained, tutorial_practice_bonus_token
                                 global tutorial_bonus_token_message, tutorial_bonus_token_timer
+                                global tutorial_token_just_added  # 토큰이 방금 추가되었음을 표시하는 플래그
                                 
                                 # 전역 변수 초기화
                                 if 'tutorial_practice_bonus_token' not in globals():
                                     tutorial_practice_bonus_token = False
+                                    print("DEBUG: tutorial_practice_bonus_token 초기화")  # 디버그
                                 
+                                print(f"DEBUG: tutorial_practice_bonus_token = {tutorial_practice_bonus_token}")  # 디버그
                                 if not tutorial_practice_bonus_token:
                                     # 대쉬홀더 아이템 효과를 임시로 추가 (토큰 +1)
+                                    global rolling_charges
                                     dashholder_obtained = True
+                                    rolling_charges = 2  # 실제 토큰 수를 2로 증가
                                     tutorial_practice_bonus_token = True
+                                    tutorial_token_just_added = True  # 플래그 설정
                                     print("튜토리얼: 도우미 대화에서 대쉬홀더 효과 임시 추가 (대쉬토큰 2개로 증가)")
+                                    print(f"DEBUG: rolling_charges를 2로 설정: {rolling_charges}")  # 디버그
                                     
-                                    # 서브 알림창에 메시지 표시
-                                    tutorial_bonus_token_message = "연습용 대쉬토큰을 1개 추가했습니다. 연속대쉬도 연습해보세요!"
-                                    tutorial_bonus_token_timer = pygame.time.get_ticks()
+                                    # 서브 알림창 메시지는 대화가 끝난 후 메인 게임 루프에서 설정
+                                    print("DEBUG: 토큰 추가 플래그 설정, 메인 루프에서 알림 표시 예정")  # 디버그
+                                else:
+                                    print("DEBUG: 이미 토큰이 추가되어 있음")  # 디버그
                             
                             running = False
                         else:
@@ -30158,6 +30282,14 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 2 완료 요약 화면 표시
                 show_chapter_completion_summary(2)
                 
+                # Chapter 2에서 추가된 연습용 대쉬토큰 제거
+                if 'tutorial_practice_bonus_token' in globals() and tutorial_practice_bonus_token:
+                    dashholder_obtained = False  # 대쉬홀더 효과 제거
+                    rolling_charges = 1  # 토큰을 1개로 되돌림
+                    tutorial_practice_bonus_token = False
+                    tutorial_bonus_token_message = None  # 메시지 제거
+                    print("튜토리얼: Chapter 2 스킵 - 연습용 대쉬토큰 제거 (토큰 1개로 초기화)")
+                
                 # Chapter 3 타이틀 표시
                 show_chapter_title(3, "DRIVE", "드라이브")
                 
@@ -30394,6 +30526,14 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 챕터 번호 업데이트
                 tutorial_current_chapter = 3
+                
+                # Chapter 2에서 추가된 연습용 대쉬토큰 제거
+                if 'tutorial_practice_bonus_token' in globals() and tutorial_practice_bonus_token:
+                    dashholder_obtained = False  # 대쉬홀더 효과 제거
+                    rolling_charges = 1  # 토큰을 1개로 되돌림
+                    tutorial_practice_bonus_token = False
+                    tutorial_bonus_token_message = None  # 메시지 제거
+                    print("튜토리얼: Chapter 3 시작 - 연습용 대쉬토큰 제거 (토큰 1개로 초기화)")
                 
                 # Chapter 3 타이틀 표시
                 show_chapter_title(3, "DRIVE", "드라이브")
@@ -31742,6 +31882,7 @@ def main(stage_num, new_boss_mode=False):
                         draw_tutorial_serve_reminder()
                 # 연습용 대쉬토큰 메시지 표시를 위해 별도 체크
                 elif 'tutorial_bonus_token_message' in globals() and tutorial_bonus_token_message:
+                    print(f"DEBUG: 토큰 메시지 표시 호출: {tutorial_bonus_token_message}")  # 디버그
                     draw_tutorial_serve_reminder()
                 
                 # 튜토리얼 드라이브 알림창 오버레이 표시 (2초 동안만)
