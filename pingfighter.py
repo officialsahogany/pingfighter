@@ -24947,6 +24947,9 @@ def handle_ball():
     global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue
     global tutorial_saved_ball_vel
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
+    global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
+    global tutorial_half_dash_count, tutorial_consecutive_dash_count
+    global tutorial_dash_counter_active, half_dash_active
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown
     # 롤링 스턴 타이머
     global rolling_stun_timer
