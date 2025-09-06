@@ -5526,6 +5526,21 @@ def handle_player(keys):
                     rolling_cooldown = base_timer
                     rolling_charge_timer = base_timer
                     print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
+                    #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
+                    rolling_consecutive_count += 1
+                    rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
+                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
+                    
+                    # Count consecutive dash immediately when 2 dashes are used consecutively
+                    # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
+                    if current_stage == 50 and tutorial_current_chapter == 2:
+                        print(f"[DEBUG] 챕터2 연속대쉬 체크: count={rolling_consecutive_count}, 이미 완료={tutorial_consecutive_dash_count}")
+                        if rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
+                            tutorial_consecutive_dash_count += 1
+                            print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
+                            show_tutorial_success_feedback("연속대쉬 성공!", "great")
+                            # Check if all missions are complete
+                            check_tutorial_dash_missions_complete()
                     # 기본 게이지 소모량
                     base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                     
@@ -5535,10 +5550,12 @@ def handle_player(keys):
                         multipliers = get_devil_dice_multipliers()
                         base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
                     
-                    discounted_cost = base_gauge_cost
+                    # 연속 대쉬 할인 계산 (첫 번째: 140, 두 번째: 70, 세 번째: 35...)
+                    consecutive_discount = 0.5 ** (rolling_consecutive_count - 1)  # 0.5^0=1, 0.5^1=0.5, 0.5^2=0.25...
+                    discounted_cost = int(base_gauge_cost * consecutive_discount)
                     # 대쉬기어 효과: 게이지 소모 20% 감소
                     if dashgear_obtained:
-                        discounted_cost = int(discounted_cost * 0.8)  # 20% 할인
+                        discounted_cost = int(discounted_cost * 0.8)  # 20% 추가 할인
                     # 아카데미 스킬 효과 적용: 게이지 소모 감소 (배터리팩)
                     battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                     final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))  # 최소 10은 소모
@@ -5546,7 +5563,7 @@ def handle_player(keys):
                     #  게이지 감소 시 special_ready 상태 업데이트
                     if special_gauge < special_gauge_max:
                         special_ready = False
-                    print(f"    ! ( : {rolling_charges}, : {special_gauge})")
+                    print(f"    ! ( {rolling_consecutive_count},  : {final_gauge_cost},  : {rolling_charges}, : {special_gauge})")
         else:
             #  구르기 쿨타임 감소
             if rolling_cooldown > 0:
