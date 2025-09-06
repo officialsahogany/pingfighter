@@ -5279,10 +5279,14 @@ def handle_player(keys):
             rolling_stun_timer -= 1
             if rolling_dash_available_timer > 0:
                 rolling_dash_available_timer -= 1
-            #  스턴이 끝나면 하프대쉬 플래그 리셋
+            #  스턴이 끝나면 하프대쉬 플래그 리셋 및 연속 대쉬 카운터 리셋
             if rolling_stun_timer == 0:
                 if 'half_dash_used_flag' in globals():
                     half_dash_used_flag = False
+                # 스턴이 끝나면 연속 대쉬 카운터도 리셋 (통제불능 시간 내에만 연속 대쉬 가능)
+                if rolling_consecutive_count > 0:
+                    print(f"[DEBUG] 통제불능 시간 종료로 연속대쉬 카운트 리셋: {rolling_consecutive_count} → 0")
+                    rolling_consecutive_count = 0
                 # 튜토리얼: 하프대쉬 스턴 종료 시 pending 리셋
                 if current_stage == 50 and tutorial_dash_counter_active:
                     if tutorial_half_dash_pending:
@@ -5411,8 +5415,8 @@ def handle_player(keys):
                         print(f"[DEBUG] 하프대쉬 후 첫 정규 대쉬: count=1")
                     else:
                         rolling_consecutive_count += 1
-                    rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
-                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
+                    # 연속대쉬는 통제불능시간(stun timer) 내에서만 유효
+                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 통제불능시간: {rolling_stun_timer}")
                     
                     # Count consecutive dash immediately when 2 dashes are used consecutively
                     # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
@@ -5540,8 +5544,8 @@ def handle_player(keys):
                         print(f"[DEBUG] 하프대쉬 후 첫 정규 대쉬: count=1")
                     else:
                         rolling_consecutive_count += 1
-                    rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
-                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
+                    # 연속대쉬는 통제불능시간(stun timer) 내에서만 유효
+                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 통제불능시간: {rolling_stun_timer}")
                     
                     # Count consecutive dash immediately when 2 dashes are used consecutively
                     # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
@@ -5580,17 +5584,6 @@ def handle_player(keys):
             #  구르기 쿨타임 감소
             if rolling_cooldown > 0:
                 rolling_cooldown -= 1
-            #  연속 대쉬 타이머 감소 (1초 후 연속 대쉬 카운터 리셋)
-            if rolling_consecutive_timer > 0:
-                rolling_consecutive_timer -= 1
-                if rolling_consecutive_timer <= 0:
-                    if rolling_consecutive_count > 0:
-                        print(f"[DEBUG] 연속대쉬 타이머 만료: 카운트 {rolling_consecutive_count} → 0")
-                    rolling_consecutive_count = 0  # 연속 대쉬 카운터 리셋
-                    #  하프대쉬 플래그도 리셋
-                    if 'half_dash_used_flag' in globals():
-                        half_dash_used_flag = False
-                    print("-")
             #  구르기 충전 타이머 감소
             if rolling_charge_timer > 0:
                 old_timer = rolling_charge_timer
@@ -5754,7 +5747,7 @@ def handle_player(keys):
                         if rolling_consecutive_count > 0:
                             print(f"[DEBUG] 하프대쉬 사용으로 연속대쉬 카운트 리셋: {rolling_consecutive_count} → 0")
                         rolling_consecutive_count = 0  # 하프대쉬는 연속 대쉬를 끊음
-                        rolling_consecutive_timer = 0  # 타이머도 리셋
+                        # 스턴 타이머 기반으로 연속대쉬 관리됨
                         print(f"[DEBUG] 하프대쉬 사용 - 연속대쉬 불가")
                         
                         # Mark that half-dash was used, wait for ball hit to count
@@ -5937,8 +5930,8 @@ def handle_player(keys):
                         print(f"[DEBUG] 하프대쉬 후 첫 정규 대쉬: count=1")
                     else:
                         rolling_consecutive_count += 1
-                    rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
-                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
+                    # 연속대쉬는 통제불능시간(stun timer) 내에서만 유효
+                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 통제불능시간: {rolling_stun_timer}")
                     
                     # Count consecutive dash immediately when 2 dashes are used consecutively
                     # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
@@ -6075,8 +6068,8 @@ def handle_player(keys):
                         print(f"[DEBUG] 하프대쉬 후 첫 정규 대쉬: count=1")
                     else:
                         rolling_consecutive_count += 1
-                    rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
-                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
+                    # 연속대쉬는 통제불능시간(stun timer) 내에서만 유효
+                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 통제불능시간: {rolling_stun_timer}")
                     
                     # Count consecutive dash immediately when 2 dashes are used consecutively
                     # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
@@ -24221,9 +24214,35 @@ def calculate_bounce(paddle):
                         pygame.display.flip()
                         
                         # 드라이브 완료 대화 표시
-                        show_tutorial_drive_completion_dialogue()
+                        dialogue_result = show_tutorial_drive_completion_dialogue()
                         
-                        # Chapter 4 전환은 메인 루프에서 처리
+                        # 대화 완료 후 Chapter 4로 전환
+                        if dialogue_result == "proceed_to_chapter4" or dialogue_result == "skip_to_chapter4":
+                            print("📚 드라이브 완료 대화 후 Chapter 4로 전환")
+                            tutorial_current_chapter = 4
+                            
+                            # Chapter 4 타이틀 표시
+                            show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
+                            
+                            # Chapter 4 초기화: 최대 게이지를 500으로 설정
+                            special_gauge_max = get_max_gauge()  # 500 반환
+                            print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
+                            
+                            # Chapter 4 파워스매싱 튜토리얼 초기화
+                            tutorial_power_practice_shown = False
+                            tutorial_power_helper_dialogue_shown = False
+                            tutorial_power_completion_dialogue_shown = False
+                            tutorial_power_count = 0
+                            tutorial_displayed_power_count = 0
+                            tutorial_power_counter_active = False
+                            tutorial_needs_power_practice = True
+                            tutorial_power_reminder_active = False
+                            tutorial_power_reminder_timer = 0
+                            
+                            # 드라이브 카운터 비활성화
+                            tutorial_drive_counter_active = False
+                            tutorial_needs_drive_practice = False
+                        
                         # 공 속도 복원
                         if tutorial_saved_ball_vel:
                             ball_vel[0] = tutorial_saved_ball_vel[0]
@@ -32158,11 +32177,12 @@ def main(stage_num, new_boss_mode=False):
                       f"shown: {tutorial_drive_practice_shown}, gauge: {special_gauge:.0f}/300")
                 main.last_chapter_debug = current_time
             
-            # Chapter 3 드라이브 완료 후 Chapter 4로 전환
+            # Chapter 3 드라이브 완료 후 Chapter 4로 전환 (백업용 - 대화 중 전환되지 않았을 경우)
+            # 이 코드는 대부분 handle_player에서 처리되지만, 혹시 놓친 경우를 위한 백업
             if (current_stage == 50 and tutorial_current_chapter == 3 and 
                 tutorial_drive_completion_dialogue_shown and tutorial_drive_count >= 4):
                 # Chapter 4로 전환
-                print("📚 Chapter 3 완료 확인! Chapter 4로 전환")
+                print("📚 Chapter 3 완료 확인! Chapter 4로 전환 (백업 - 메인 루프)")
                 tutorial_current_chapter = 4
                 
                 # Chapter 4 타이틀 표시 (파워스매싱)
@@ -32185,14 +32205,15 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 드라이브 카운터 비활성화
                 tutorial_drive_counter_active = False
+                tutorial_needs_drive_practice = False  # 드라이브 연습 완료
                 
                 # 공 속도 복원
                 if tutorial_saved_ball_vel:
                     ball_vel[0] = tutorial_saved_ball_vel[0]
                     ball_vel[1] = tutorial_saved_ball_vel[1]
-            
-            # Chapter 4 - 파워스매싱 연습
-            if tutorial_current_chapter == 4 and tutorial_needs_power_practice and not tutorial_power_practice_shown:
+        
+        # Chapter 4 - 파워스매싱 연습 (Chapter 3 조건문 밖으로 이동)
+        if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_needs_power_practice and not tutorial_power_practice_shown:
                 print("튜토리얼: Chapter 4 - POWER SMASHING 연습 시작 (메인 루프)")
                 
                 # 대화 시작 전에 게임 화면 그리기
@@ -32206,9 +32227,9 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_power_counter_active = True  # 카운터 활성화
                     tutorial_serve_reminder_active = True  # 서브 알림창 활성화 (Chapter 4에서는 파워스매싱 안내)
                     print("튜토리얼: 파워스매싱 연습 대화 완료, 서브 알림창 활성화")
-            
-            # Chapter 4 - 게이지 500 도달 시 도우미 대화
-            if (current_stage == 50 and tutorial_current_chapter == 4 and 
+        
+        # Chapter 4 - 게이지 500 도달 시 도우미 대화 (Chapter 3 조건문 밖으로 이동)
+        if (current_stage == 50 and tutorial_current_chapter == 4 and 
                 tutorial_needs_power_practice and tutorial_power_practice_shown and
                 not tutorial_power_helper_dialogue_shown and special_gauge >= 500):
                 
@@ -32223,9 +32244,9 @@ def main(stage_num, new_boss_mode=False):
                 show_tutorial_power_helper_dialogue()
                 print("튜토리얼: 파워스매싱 도우미 대화 완료")
                 tutorial_power_reminder_active = True  # 서브 알림창 활성화
-            
-            # Chapter 4 - 파워스매싱 3방향 모두 완료 체크
-            if (current_stage == 50 and tutorial_current_chapter == 4 and
+        
+        # Chapter 4 - 파워스매싱 3방향 모두 완료 체크 (Chapter 3 조건문 밖으로 이동)
+        if (current_stage == 50 and tutorial_current_chapter == 4 and
                 tutorial_power_counter_active and tutorial_power_count >= 3 and
                 not tutorial_power_completion_dialogue_shown):
                 
