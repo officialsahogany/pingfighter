@@ -1788,7 +1788,11 @@ tutorial_power_reminder_active = False  # 파워스매싱 도우미 활성화 �
 tutorial_power_practice_shown = False  # 파워스매싱 연습 대화 표시 여부
 tutorial_power_helper_dialogue_shown = False  # 파워스매싱 도우미 대화 표시 여부
 tutorial_power_left_done = False  # 왼쪽 파워스매싱 완료 여부
-tutorial_power_center_done = False  # 중앙 파워스매싱 완료 여부  
+tutorial_power_center_done = False  # 중앙 파워스매싱 완료 여부
+
+# 튜토리얼 대쉬 pending 플래그 (handle_ball에서 사용하기 위해 조기 초기화)
+tutorial_half_dash_pending = False  # 하프대쉬 발동 후 공 충돌 대기 중
+tutorial_consecutive_dash_pending = False  # 연속대쉬 발동 후 공 충돌 대기 중  
 tutorial_power_right_done = False  # 오른쪽 파워스매싱 완료 여부
 predictor_timer = 0  # 레이저스코프 남은 시간
 predicted_trajectory = []  # 예측된 궤적 저장
@@ -14909,8 +14913,7 @@ tutorial_half_dash_count = 0  # 하프대쉬 성공 횟수
 tutorial_consecutive_dash_count = 0  # 연속대쉬 성공 횟수
 tutorial_displayed_dash_count = 0.0  # 화면에 표시되는 애니메이션용 대쉬 카운트
 tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
-tutorial_half_dash_pending = False  # 하프대쉬 발동 후 공 충돌 대기 중
-tutorial_consecutive_dash_pending = False  # 연속대쉬 발동 후 공 충돌 대기 중
+# tutorial_half_dash_pending과 tutorial_consecutive_dash_pending는 라인 1794-1795에서 초기화됨
 
 # 튜토리얼 드라이브 카운터 변수
 tutorial_drive_count = 0  # 드라이브 성공 횟수
