@@ -19271,6 +19271,7 @@ def check_tutorial_dash_missions_complete():
     global tutorial_dash_completion_dialogue_shown, tutorial_dash_counter_celebration
     global tutorial_dash_counter_celebration_timer, tutorial_dash_completion_timer
     global tutorial_saved_ball_vel, ball_vel, tutorial_current_chapter
+    global tutorial_half_dash_count, tutorial_dash_count, tutorial_consecutive_dash_count
     
     # 모든 미션 완료 체크
     all_missions_complete = (tutorial_half_dash_count >= 2 and 
@@ -19339,6 +19340,14 @@ def check_tutorial_dash_missions_complete():
                 tutorial_displayed_drive_count = 0.0
                 tutorial_drive_completion_dialogue_shown = False
                 tutorial_drive_reminder_active = False  # 160 게이지에서 활성화
+                
+                # Chapter 3 시작 시 대쉬 카운터 UI 비활성화
+                global tutorial_dash_counter_active
+                tutorial_dash_counter_active = False
+                # 대쉬 카운트는 글로벌 선언 없이 직접 초기화 (다른 곳에서 이미 선언됨)
+                tutorial_half_dash_count = 0
+                tutorial_consecutive_dash_count = 0
+                print("튜토리얼: Chapter 2 대쉬 카운터 UI 비활성화")
                 
                 print("✅ Chapter 3 변수 초기화 완료")
                 
