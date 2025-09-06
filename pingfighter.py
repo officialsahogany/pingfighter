@@ -5078,6 +5078,7 @@ def handle_player(keys):
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown
     global tutorial_saved_ball_vel, tutorial_pause_for_dialogue, ball_vel
     global tutorial_drive_reminder_active, tutorial_current_chapter, tutorial_drive_reminder_timer
+    global tutorial_serve_reminder_active  # 서브/파워스매싱 알림창용
     # Chapter 3 드라이브 관련 변수 추가 (160 게이지 도우미 대화를 위해 필수)
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown
     global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
@@ -24258,6 +24259,15 @@ def calculate_bounce(paddle):
                             # 드라이브 카운터 비활성화
                             tutorial_drive_counter_active = False
                             tutorial_needs_drive_practice = False
+                            
+                            # Chapter 4 대화를 즉시 표시 (타이틀 후 바로)
+                            print("튜토리얼: Chapter 4 - POWER SMASHING 대화 즉시 시작 (handle_player)")
+                            power_dialogue_result = show_tutorial_power_practice_dialogue()
+                            if power_dialogue_result:
+                                tutorial_power_practice_shown = True
+                                tutorial_power_counter_active = True  # 카운터 활성화
+                                tutorial_serve_reminder_active = True  # 서브 알림창 활성화
+                                print("튜토리얼: 파워스매싱 연습 대화 완료 (handle_player)")
                         
                         # 공 속도 복원
                         if tutorial_saved_ball_vel:
@@ -32246,12 +32256,21 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_drive_counter_active = False
                 tutorial_needs_drive_practice = False  # 드라이브 연습 완료
                 
+                # Chapter 4 대화를 즉시 표시 (타이틀 후 바로)
+                print("튜토리얼: Chapter 4 - POWER SMASHING 대화 즉시 시작 (백업 메인 루프)")
+                power_dialogue_result = show_tutorial_power_practice_dialogue()
+                if power_dialogue_result:
+                    tutorial_power_practice_shown = True
+                    tutorial_power_counter_active = True  # 카운터 활성화
+                    tutorial_serve_reminder_active = True  # 서브 알림창 활성화
+                    print("튜토리얼: 파워스매싱 연습 대화 완료 (백업 메인 루프)")
+                
                 # 공 속도 복원
                 if tutorial_saved_ball_vel:
                     ball_vel[0] = tutorial_saved_ball_vel[0]
                     ball_vel[1] = tutorial_saved_ball_vel[1]
         
-        # Chapter 4 - 파워스매싱 연습 (Chapter 3와 동일한 패턴으로 수정)
+        # Chapter 4 - 파워스매싱 연습 (Fallback - 이미 handle_player에서 대화를 표시함)
         # Debug: Chapter 4 dialogue condition check
         if current_stage == 50 and tutorial_current_chapter == 4:
             if not hasattr(main, 'chapter4_debug_counter'):
@@ -32260,6 +32279,7 @@ def main(stage_num, new_boss_mode=False):
             if main.chapter4_debug_counter % 60 == 0:  # Print every second
                 print(f"[CH4 DEBUG] needs_power: {tutorial_needs_power_practice}, shown: {tutorial_power_practice_shown}, chapter: {tutorial_current_chapter}")
         
+        # Fallback: 혹시 대화가 표시되지 않았다면 여기서 표시
         if current_stage == 50 and tutorial_needs_power_practice and not tutorial_power_practice_shown:
             print("튜토리얼: Chapter 4 - POWER SMASHING 연습 시작 (메인 루프)")
             
