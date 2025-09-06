@@ -19069,6 +19069,30 @@ def show_tutorial_dash_token_dialogue():
             "text": "추가 대쉬당 50%의 게이지 할인이 적용됩니다",
             "speaker_color": (100, 255, 100),
             "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "즉, 대쉬를 두 번 연속 사용하면",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "140 게이지, 70 게이지 이렇게",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "총 두 번의 게이지 소모가 일어납니다",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": False
+        },
+        {
+            "speaker": "[도우미]",
+            "text": "연속대쉬도 연습해보세요!",
+            "speaker_color": (100, 255, 100),
+            "highlight_token": True
         }
     ]
     
@@ -19102,8 +19126,8 @@ def show_tutorial_dash_token_dialogue():
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
-                            # 대화 인덱스 10에서 마지막 대화 "추가 대쉬당 50%의 게이지 할인이 적용됩니다" 가 끝날 때 토큰 추가
-                            if dialogue_index == 10:  # 마지막 대화
+                            # 대화 인덱스 14에서 마지막 대화 "연속대쉬도 연습해보세요!" 가 끝날 때 토큰 추가
+                            if dialogue_index == 14:  # 마지막 대화
                                 global dashholder_obtained, tutorial_practice_bonus_token
                                 global tutorial_bonus_token_message, tutorial_bonus_token_timer
                                 global tutorial_token_just_added  # 토큰이 방금 추가되었음을 표시하는 플래그
@@ -19120,6 +19144,11 @@ def show_tutorial_dash_token_dialogue():
                                     tutorial_practice_bonus_token = True
                                     tutorial_token_just_added = True  # 플래그 설정
                                     print("튜토리얼: 도우미 대화에서 대쉬홀더 효과 임시 추가 (대쉬토큰 2개로 증가)")
+                                    
+                                    # 토큰 추가 효과를 위한 메시지와 타이머 설정
+                                    tutorial_bonus_token_message = "대쉬토큰이 추가되었습니다. 연속대쉬를 사용해보세요!"
+                                    tutorial_bonus_token_timer = pygame.time.get_ticks()
+                                    print(f"튜토리얼: 토큰 추가 메시지 설정 - {tutorial_bonus_token_message}")
                                     
                                     # 서브 알림창 메시지는 대화가 끝난 후 메인 게임 루프에서 설정
                             
