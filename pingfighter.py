@@ -6319,9 +6319,9 @@ def handle_player(keys):
             global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
             global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
             if current_stage == 50 and tutorial_dash_counter_active:
-                if tutorial_dash_count < 3:
+                if tutorial_dash_count < 4:
                     tutorial_dash_count += 1
-                    print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/3")
+                    print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/4")
                     
                     # 성공 피드백 표시
                     if tutorial_dash_count == 1:
@@ -6329,6 +6329,8 @@ def handle_player(keys):
                     elif tutorial_dash_count == 2:
                         show_tutorial_success_feedback("훌륭해요!", "great")
                     elif tutorial_dash_count == 3:
+                        show_tutorial_success_feedback("굉장해요!", "amazing")
+                    elif tutorial_dash_count == 4:
                         show_tutorial_success_feedback("대쉬 마스터!", "perfect")
                         # 대쉬 완료 축하 이펙트를 위한 타이머 설정
                         tutorial_dash_completion_timer = pygame.time.get_ticks()
@@ -6337,14 +6339,14 @@ def handle_player(keys):
                         tutorial_dash_counter_celebration = True
                         tutorial_dash_counter_celebration_timer = pygame.time.get_ticks()
                     
-                    # 3회 완료 후 바로 축하 대화 표시
-                    if tutorial_dash_count == 3 and not tutorial_dash_completion_dialogue_shown:
+                    # 4회 완료 후 바로 축하 대화 표시
+                    if tutorial_dash_count == 4 and not tutorial_dash_completion_dialogue_shown:
                         tutorial_dash_completion_dialogue_shown = True
                         # 게임 일시정지하고 대화 표시
                         tutorial_saved_ball_vel = ball_vel.copy()
                         ball_vel[0] = 0
                         ball_vel[1] = 0
-                        print("튜토리얼: 대쉬 3회 완료! 축하 대화 표시")
+                        print("튜토리얼: 대쉬 4회 완료! 축하 대화 표시")
                         
                         # 대화 시작 전에 게임 화면 그리기
                         draw_field()
@@ -18087,13 +18089,15 @@ def draw_tutorial_dash_counter():
                 color = (255, 200, 100)  # 주황색
             elif tutorial_dash_count < 3:
                 color = (255, 255, 100)  # 노란색
+            elif tutorial_dash_count < 4:
+                color = (100, 255, 255)  # 하늘색
             else:
                 color = (0, 255, 200)  # 민트색 (완료)
             
             pygame.draw.line(SCREEN, color, (x1, y1), (x2, y2), 3)
     
     # 숫자 표시
-    counter_text = f"{tutorial_dash_count}/3"
+    counter_text = f"{tutorial_dash_count}/4"
     counter_surface = font_large.render(counter_text, True, (255, 255, 255))
     counter_rect = counter_surface.get_rect(center=(circle_center_x, circle_center_y))
     SCREEN.blit(counter_surface, counter_rect)
@@ -18118,7 +18122,12 @@ def draw_tutorial_dash_counter():
         pygame.draw.line(arrow_surf, line_color, (5, line_y), (5 + line_length, line_y), 2)
     
     # 메인 화살표 (삼각형)
-    arrow_color = (255, 255, 100) if tutorial_dash_count >= 2 else (100, 200, 255)
+    if tutorial_dash_count >= 3:
+        arrow_color = (255, 255, 100)  # 노란색 (거의 완료)
+    elif tutorial_dash_count >= 2:
+        arrow_color = (100, 255, 255)  # 하늘색 (중간)
+    else:
+        arrow_color = (100, 200, 255)  # 연한 파란색 (시작)
     arrow_points = [
         (25, 20),  # 꼭짓점
         (35, 10),  # 위쪽
