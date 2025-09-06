@@ -6436,6 +6436,7 @@ def handle_player(keys):
                         print("튜토리얼: 대쉬 토큰 설명 완료")
                         
                         # 토큰이 추가되었으면 서브 알림창 타이머 설정
+                        global tutorial_token_just_added
                         if 'tutorial_token_just_added' in globals() and tutorial_token_just_added:
                             tutorial_bonus_token_message = "대쉬토큰이 추가되었습니다. 연속대쉬를 사용해보세요!"
                             tutorial_bonus_token_timer = pygame.time.get_ticks()
@@ -14936,6 +14937,7 @@ tutorial_practice_mode = False
 tutorial_practice_bonus_token = False
 tutorial_bonus_token_message = None
 tutorial_bonus_token_timer = 0
+tutorial_token_just_added = False  # 토큰이 방금 추가되었는지 표시하는 플래그
 
 # 튜토리얼 히트 카운터 애니메이션 변수
 tutorial_displayed_hit_count = 0.0
