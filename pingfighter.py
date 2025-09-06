@@ -5079,6 +5079,7 @@ def handle_player(keys):
     global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
     global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
     global tutorial_consecutive_dash_count, tutorial_half_dash_count
+    global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
     if new_boss_mode_active:
         if selected_bottom_boss == 1:
@@ -5233,6 +5234,13 @@ def handle_player(keys):
             if rolling_timer <= 0:
                 # 구르기 종료, 통제 불가능 상태 시작
                 rolling_active = False
+                
+                # 튜토리얼: 대쉬 종료 시 pending 플래그 리셋 (공에 맞지 않았으면 카운팅 안됨)
+                if current_stage == 50 and tutorial_dash_counter_active:
+                    if tutorial_consecutive_dash_pending:
+                        tutorial_consecutive_dash_pending = False
+                        print(f"튜토리얼: 연속대쉬 종료 - 공 충돌 없어서 카운팅 안함")
+                
                 #  가속화 스킬: 대쉬 종료 시 충돌 범위 복원
                 if acceleration_active:
                     acceleration_height_bonus = 0  # 추가 높이 제거
@@ -5272,6 +5280,11 @@ def handle_player(keys):
             if rolling_stun_timer == 0:
                 if 'half_dash_used_flag' in globals():
                     half_dash_used_flag = False
+                # 튜토리얼: 하프대쉬 스턴 종료 시 pending 리셋
+                if current_stage == 50 and tutorial_dash_counter_active:
+                    if tutorial_half_dash_pending:
+                        tutorial_half_dash_pending = False
+                        print(f"튜토리얼: 하프대쉬 스턴 종료 - 공 충돌 없어서 카운팅 안함")
             # 통제 불가능 중에는 조작 불가
             if not gravitybelt_obtained:
                 # 무중력벨트가 없을 때만 감속 적용
@@ -5391,14 +5404,10 @@ def handle_player(keys):
                     rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
                     
-                    # Increment consecutive dash counter for tutorial
+                    # Mark consecutive dash pending for tutorial (wait for ball hit)
                     if current_stage == 50 and tutorial_dash_counter_active and rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
-                        tutorial_consecutive_dash_count += 1
-                        show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
-                        print(f"튜토리얼: 연속대쉬 성공 {tutorial_consecutive_dash_count}/1")
-                        
-                        # 완료 체크
-                        check_tutorial_dash_missions_complete()
+                        tutorial_consecutive_dash_pending = True
+                        print(f"튜토리얼: 연속대쉬 2회 발동 - 공 충돌 대기 중")
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -5700,17 +5709,10 @@ def handle_player(keys):
                         #  하프대쉬 사용 플래그 설정 (연속 대쉬 방지)
                         half_dash_used_flag = True
                         
-                        # Increment half-dash counter for tutorial
-                        if current_stage == 50 and tutorial_dash_counter_active and tutorial_half_dash_count < 2:
-                            tutorial_half_dash_count += 1
-                            if tutorial_half_dash_count == 1:
-                                show_tutorial_success_feedback("하프대쉬 성공!", "normal")
-                            else:
-                                show_tutorial_success_feedback("하프대쉬 완료!", "great")
-                            print(f"튜토리얼: 하프대쉬 성공 {tutorial_half_dash_count}/2")
-                            
-                            # 완료 체크
-                            check_tutorial_dash_missions_complete()
+                        # Mark that half-dash was used, wait for ball hit to count
+                        if current_stage == 50 and tutorial_dash_counter_active:
+                            tutorial_half_dash_pending = True
+                            print(f"튜토리얼: 하프대쉬 발동 - 공 충돌 대기 중")
                         
                         # 하프 대쉬도 토큰 소모 (게이지는 소모 없음)
                         rolling_charges -= half_dash_token_cost
@@ -5883,14 +5885,10 @@ def handle_player(keys):
                     rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
                     
-                    # Increment consecutive dash counter for tutorial
+                    # Mark consecutive dash pending for tutorial (wait for ball hit)
                     if current_stage == 50 and tutorial_dash_counter_active and rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
-                        tutorial_consecutive_dash_count += 1
-                        show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
-                        print(f"튜토리얼: 연속대쉬 성공 {tutorial_consecutive_dash_count}/1")
-                        
-                        # 완료 체크
-                        check_tutorial_dash_missions_complete()
+                        tutorial_consecutive_dash_pending = True
+                        print(f"튜토리얼: 연속대쉬 2회 발동 - 공 충돌 대기 중")
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -6012,14 +6010,10 @@ def handle_player(keys):
                     rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
                     
-                    # Increment consecutive dash counter for tutorial
+                    # Mark consecutive dash pending for tutorial (wait for ball hit)
                     if current_stage == 50 and tutorial_dash_counter_active and rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
-                        tutorial_consecutive_dash_count += 1
-                        show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
-                        print(f"튜토리얼: 연속대쉬 성공 {tutorial_consecutive_dash_count}/1")
-                        
-                        # 완료 체크
-                        check_tutorial_dash_missions_complete()
+                        tutorial_consecutive_dash_pending = True
+                        print(f"튜토리얼: 연속대쉬 2회 발동 - 공 충돌 대기 중")
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -14915,6 +14909,8 @@ tutorial_half_dash_count = 0  # 하프대쉬 성공 횟수
 tutorial_consecutive_dash_count = 0  # 연속대쉬 성공 횟수
 tutorial_displayed_dash_count = 0.0  # 화면에 표시되는 애니메이션용 대쉬 카운트
 tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
+tutorial_half_dash_pending = False  # 하프대쉬 발동 후 공 충돌 대기 중
+tutorial_consecutive_dash_pending = False  # 연속대쉬 발동 후 공 충돌 대기 중
 
 # 튜토리얼 드라이브 카운터 변수
 tutorial_drive_count = 0  # 드라이브 성공 횟수
@@ -26747,6 +26743,34 @@ def handle_ball():
         ball_vel[1] *= 1.03
         #  handle_ball에서는 게이지 충전하지 않음 (handle_player에서만 처리)
         # 튜토리얼 스테이지 50에서 플레이어가 조교의 공을 받아쳤을 때 처리
+        if current_stage == 50 and tutorial_dash_counter_active:
+            
+            # Check if half-dash is pending and ball was hit during half-dash
+            if tutorial_half_dash_pending and half_dash_active:
+                tutorial_half_dash_pending = False
+                if tutorial_half_dash_count < 2:
+                    tutorial_half_dash_count += 1
+                    if tutorial_half_dash_count == 1:
+                        show_tutorial_success_feedback("하프대쉬 성공!", "normal")
+                    else:
+                        show_tutorial_success_feedback("하프대쉬 완료!", "great")
+                    print(f"튜토리얼: 하프대쉬로 공 타격 성공 {tutorial_half_dash_count}/2")
+                    
+                    # 완료 체크
+                    check_tutorial_dash_missions_complete()
+            
+            # Check if consecutive dash is pending and ball was hit during rolling
+            if tutorial_consecutive_dash_pending and rolling_active:
+                tutorial_consecutive_dash_pending = False
+                if tutorial_consecutive_dash_count < 1:
+                    tutorial_consecutive_dash_count += 1
+                    show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
+                    print(f"튜토리얼: 연속대쉬로 공 타격 성공 {tutorial_consecutive_dash_count}/1")
+                    
+                    # 완료 체크
+                    check_tutorial_dash_missions_complete()
+        
+        # 원래 있던 튜토리얼 코드
         if current_stage == 50 and tutorial_practice_mode and tutorial_boss_returned:
             if not tutorial_player_returned_ball and not tutorial_gauge_tutorial_shown:
                 # 플레이어가 조교의 공을 처음 받아친 경우
