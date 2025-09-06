@@ -6334,15 +6334,17 @@ def handle_player(keys):
             # 대쉬 후 성공적으로 공을 쳤으므로 성공으로 업데이트
             record_dash_usage(success=True)
             
+            # 튜토리얼 대쉬 카운터 관련 글로벌 변수 선언
+            global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
+            global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
+            global tutorial_consecutive_dash_count
+            
             # 튜토리얼 모드에서 대쉬 성공 시 도우미 끄기
             if current_stage == 50 and 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
                 tutorial_dash_helper_active = False
                 print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
             
             # 튜토리얼 대쉬 카운터 증가
-            global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
-            global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
-            global tutorial_consecutive_dash_count
             if current_stage == 50 and tutorial_dash_counter_active:
                 # 일반 대쉬 카운터 (최대 2회)
                 if tutorial_dash_count < 2:
