@@ -19338,6 +19338,9 @@ def check_tutorial_dash_missions_complete():
                 
                 print("✅ Chapter 3 변수 초기화 완료")
                 
+                # Chapter 3 타이틀 표시 (검은 배경에 CHAPTER 3 DRIVE 표시)
+                show_chapter_title(3, "DRIVE", "드라이브")
+                
                 # 공 속도 복구
                 ball_vel[0] = tutorial_saved_ball_vel[0]
                 ball_vel[1] = tutorial_saved_ball_vel[1]
