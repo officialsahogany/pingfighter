@@ -5404,7 +5404,13 @@ def handle_player(keys):
                     rolling_charge_timer = base_timer
                     print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
-                    rolling_consecutive_count += 1
+                    # 하프대쉬 후에는 연속 대쉬 카운트를 증가시키지 않음
+                    if half_dash_used_flag:
+                        rolling_consecutive_count = 1  # 하프대쉬 후 첫 정규 대쉬는 1로 시작
+                        half_dash_used_flag = False  # 플래그 리셋
+                        print(f"[DEBUG] 하프대쉬 후 첫 정규 대쉬: count=1")
+                    else:
+                        rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
                     print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
                     
@@ -5527,7 +5533,13 @@ def handle_player(keys):
                     rolling_charge_timer = base_timer
                     print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
-                    rolling_consecutive_count += 1
+                    # 하프대쉬 후에는 연속 대쉬 카운트를 증가시키지 않음
+                    if half_dash_used_flag:
+                        rolling_consecutive_count = 1  # 하프대쉬 후 첫 정규 대쉬는 1로 시작
+                        half_dash_used_flag = False  # 플래그 리셋
+                        print(f"[DEBUG] 하프대쉬 후 첫 정규 대쉬: count=1")
+                    else:
+                        rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
                     print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
                     
@@ -5738,18 +5750,12 @@ def handle_player(keys):
                         #  하프대쉬 사용 플래그 설정 (연속 대쉬 방지)
                         half_dash_used_flag = True
                         
-                        # 연속 대쉬 카운터 증가 (하프대쉬도 연속 대쉬에 포함)
-                        rolling_consecutive_count += 1
-                        rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
-                        print(f"[DEBUG] 하프대쉬 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
-                        
-                        # Check consecutive dash for tutorial (half-dash also counts)
-                        if current_stage == 50 and tutorial_current_chapter == 2:
-                            print(f"[DEBUG] 챕터2 하프대쉬 연속대쉬 체크: count={rolling_consecutive_count}, 이미 완료={tutorial_consecutive_dash_count}")
-                            if rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
-                                tutorial_consecutive_dash_count += 1
-                                print(f"튜토리얼: 연속대쉬 성공! (하프대쉬 포함) {tutorial_consecutive_dash_count}/1")
-                                show_tutorial_success_feedback("연속대쉬 성공!", "great")
+                        # 하프대쉬는 연속 대쉬 카운터를 리셋 (연속 대쉬에 포함되지 않음)
+                        if rolling_consecutive_count > 0:
+                            print(f"[DEBUG] 하프대쉬 사용으로 연속대쉬 카운트 리셋: {rolling_consecutive_count} → 0")
+                        rolling_consecutive_count = 0  # 하프대쉬는 연속 대쉬를 끊음
+                        rolling_consecutive_timer = 0  # 타이머도 리셋
+                        print(f"[DEBUG] 하프대쉬 사용 - 연속대쉬 불가")
                         
                         # Mark that half-dash was used, wait for ball hit to count
                         if current_stage == 50 and tutorial_dash_counter_active:
@@ -5924,7 +5930,13 @@ def handle_player(keys):
                     rolling_charge_timer = base_timer
                     print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
-                    rolling_consecutive_count += 1
+                    # 하프대쉬 후에는 연속 대쉬 카운트를 증가시키지 않음
+                    if half_dash_used_flag:
+                        rolling_consecutive_count = 1  # 하프대쉬 후 첫 정규 대쉬는 1로 시작
+                        half_dash_used_flag = False  # 플래그 리셋
+                        print(f"[DEBUG] 하프대쉬 후 첫 정규 대쉬: count=1")
+                    else:
+                        rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
                     print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
                     
@@ -6056,7 +6068,13 @@ def handle_player(keys):
                     rolling_charge_timer = base_timer
                     print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
-                    rolling_consecutive_count += 1
+                    # 하프대쉬 후에는 연속 대쉬 카운트를 증가시키지 않음
+                    if half_dash_used_flag:
+                        rolling_consecutive_count = 1  # 하프대쉬 후 첫 정규 대쉬는 1로 시작
+                        half_dash_used_flag = False  # 플래그 리셋
+                        print(f"[DEBUG] 하프대쉬 후 첫 정규 대쉬: count=1")
+                    else:
+                        rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
                     print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 타이머: {rolling_consecutive_timer}")
                     
