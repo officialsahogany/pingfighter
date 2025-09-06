@@ -6208,6 +6208,9 @@ def handle_player(keys):
     # 서브 대기 중에는 충돌 체크하지 않음
     global player_collision_handled, player_collision_cooldown, player_sound_cooldown, last_hit_by
     global mega_smashing_active, mega_smashing_meteor_trail, mega_smashing_ghosts, mega_smashing_ghost_scatter
+    global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
+    global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
+    global tutorial_consecutive_dash_count, tutorial_half_dash_count
     # Y속도와 관계없이 충돌 감지 (고스트샷 등 특수 상황 대응)
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
     player_collision_rect = PLAYER.copy()
@@ -6333,11 +6336,6 @@ def handle_player(keys):
         if is_dash_success:
             # 대쉬 후 성공적으로 공을 쳤으므로 성공으로 업데이트
             record_dash_usage(success=True)
-            
-            # 튜토리얼 대쉬 카운터 관련 글로벌 변수 선언
-            global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
-            global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
-            global tutorial_consecutive_dash_count, tutorial_half_dash_count
             
             # 튜토리얼 모드에서 대쉬 성공 시 도우미 끄기
             if current_stage == 50 and 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
