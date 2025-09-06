@@ -5386,6 +5386,12 @@ def handle_player(keys):
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
                     rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
+                    
+                    # Increment consecutive dash counter for tutorial
+                    if current_stage == 50 and tutorial_dash_counter_active and rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
+                        tutorial_consecutive_dash_count += 1
+                        show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
+                        print(f"튜토리얼: 연속대쉬 성공 {tutorial_consecutive_dash_count}/1")
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -5687,6 +5693,12 @@ def handle_player(keys):
                         #  하프대쉬 사용 플래그 설정 (연속 대쉬 방지)
                         half_dash_used_flag = True
                         
+                        # Increment half-dash counter for tutorial
+                        if current_stage == 50 and tutorial_dash_counter_active and tutorial_half_dash_count < 1:
+                            tutorial_half_dash_count += 1
+                            show_tutorial_success_feedback("하프대쉬 성공!", "normal")
+                            print(f"튜토리얼: 하프대쉬 성공 {tutorial_half_dash_count}/1")
+                        
                         # 하프 대쉬도 토큰 소모 (게이지는 소모 없음)
                         rolling_charges -= half_dash_token_cost
                         
@@ -5857,6 +5869,12 @@ def handle_player(keys):
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
                     rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
+                    
+                    # Increment consecutive dash counter for tutorial
+                    if current_stage == 50 and tutorial_dash_counter_active and rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
+                        tutorial_consecutive_dash_count += 1
+                        show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
+                        print(f"튜토리얼: 연속대쉬 성공 {tutorial_consecutive_dash_count}/1")
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -5977,6 +5995,12 @@ def handle_player(keys):
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
                     rolling_consecutive_count += 1
                     rolling_consecutive_timer = 60  # 1초간 연속 대쉬 유지
+                    
+                    # Increment consecutive dash counter for tutorial
+                    if current_stage == 50 and tutorial_dash_counter_active and rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
+                        tutorial_consecutive_dash_count += 1
+                        show_tutorial_success_feedback("연속대쉬 성공!", "amazing")
+                        print(f"튜토리얼: 연속대쉬 성공 {tutorial_consecutive_dash_count}/1")
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
@@ -6318,19 +6342,25 @@ def handle_player(keys):
             # 튜토리얼 대쉬 카운터 증가
             global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
             global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
+            global tutorial_consecutive_dash_count
             if current_stage == 50 and tutorial_dash_counter_active:
-                if tutorial_dash_count < 4:
+                # 일반 대쉬 카운터 (최대 2회)
+                if tutorial_dash_count < 2:
                     tutorial_dash_count += 1
-                    print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/4")
+                    print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/2")
                     
                     # 성공 피드백 표시
                     if tutorial_dash_count == 1:
                         show_tutorial_success_feedback("대쉬 성공!", "normal")
                     elif tutorial_dash_count == 2:
                         show_tutorial_success_feedback("훌륭해요!", "great")
-                    elif tutorial_dash_count == 3:
-                        show_tutorial_success_feedback("굉장해요!", "amazing")
-                    elif tutorial_dash_count == 4:
+                    
+                    # 모든 미션 완료 체크
+                    all_missions_complete = (tutorial_half_dash_count >= 1 and 
+                                            tutorial_dash_count >= 2 and 
+                                            tutorial_consecutive_dash_count >= 1)
+                    
+                    if all_missions_complete:
                         show_tutorial_success_feedback("대쉬 마스터!", "perfect")
                         # 대쉬 완료 축하 이펙트를 위한 타이머 설정
                         tutorial_dash_completion_timer = pygame.time.get_ticks()
@@ -6339,8 +6369,8 @@ def handle_player(keys):
                         tutorial_dash_counter_celebration = True
                         tutorial_dash_counter_celebration_timer = pygame.time.get_ticks()
                     
-                    # 4회 완료 후 바로 축하 대화 표시
-                    if tutorial_dash_count == 4 and not tutorial_dash_completion_dialogue_shown:
+                    # 모든 미션 완료 후 바로 축하 대화 표시
+                    if all_missions_complete and not tutorial_dash_completion_dialogue_shown:
                         tutorial_dash_completion_dialogue_shown = True
                         # 게임 일시정지하고 대화 표시
                         tutorial_saved_ball_vel = ball_vel.copy()
@@ -14950,6 +14980,8 @@ tutorial_displayed_hit_count = 0.0
 
 # 튜토리얼 대쉬 카운터 변수
 tutorial_dash_count = 0  # 대쉬 성공 횟수
+tutorial_half_dash_count = 0  # 하프대쉬 성공 횟수
+tutorial_consecutive_dash_count = 0  # 연속대쉬 성공 횟수
 tutorial_displayed_dash_count = 0.0  # 화면에 표시되는 애니메이션용 대쉬 카운트
 tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
 
@@ -18150,29 +18182,32 @@ def draw_tutorial_drive_counter():
     SCREEN.blit(hint_surface, hint_rect)
 
 def draw_tutorial_dash_counter():
-    """튜토리얼 대쉬 카운터 UI 표시 (4회 대쉬 카운트)"""
-    global tutorial_dash_counter_active, tutorial_dash_count, tutorial_displayed_dash_count
+    """튜토리얼 대쉬 카운터 UI 표시 (하프대쉬, 대쉬, 연속대쉬)"""
+    global tutorial_dash_counter_active, tutorial_dash_count, tutorial_half_dash_count, tutorial_consecutive_dash_count
+    global tutorial_displayed_dash_count
     
     # 대쉬 카운터가 활성화되었을 때만 표시
     if not tutorial_dash_counter_active or current_stage != 50:
         return
     
-    # 점진적 애니메이션 업데이트
-    if tutorial_displayed_dash_count < tutorial_dash_count:
+    # 점진적 애니메이션 업데이트 (전체 진행도 계산)
+    total_progress = tutorial_half_dash_count + tutorial_dash_count + tutorial_consecutive_dash_count
+    if tutorial_displayed_dash_count < total_progress:
         # 부드러운 애니메이션 속도 (프레임당 0.05 증가)
-        tutorial_displayed_dash_count = min(tutorial_displayed_dash_count + 0.05, tutorial_dash_count)
+        tutorial_displayed_dash_count = min(tutorial_displayed_dash_count + 0.05, total_progress)
     
     # 폰트 설정
     font_large = FontStyle.body()      # 24pt - 숫자용
     font_medium = FontStyle.small()    # 18pt
+    font_small = FontStyle.small()     # 작은 텍스트용
     
-    # 오른쪽 상단 위치 (히트 카운터와 동일한 위치)
-    ui_x = WIDTH - 100
+    # 오른쪽 상단 위치
+    ui_x = WIDTH - 120
     ui_y = 50
     
-    # 미니멀한 반투명 배경
-    bg_width = 180
-    bg_height = 90
+    # 더 큰 반투명 배경 (3개 미션을 위해)
+    bg_width = 220
+    bg_height = 120
     bg_x = ui_x - bg_width // 2
     bg_y = ui_y - 15
     
@@ -18182,119 +18217,77 @@ def draw_tutorial_dash_counter():
     pygame.draw.rect(bg_surf, (100, 255, 255, 40), (0, 0, bg_width, bg_height), border_radius=8, width=1)
     SCREEN.blit(bg_surf, (bg_x, bg_y))
     
-    # 컴팩트한 원형 진행도
-    circle_radius = 22
-    circle_center_x = ui_x - 50
-    circle_center_y = ui_y + 10
-    
-    # 배경 원
-    pygame.draw.circle(SCREEN, (40, 45, 60, 180), (circle_center_x, circle_center_y), circle_radius, 2)
-    
-    # 진행도 원호 그리기 (4분할)
-    if tutorial_displayed_dash_count > 0:
-        import math
-        progress = tutorial_displayed_dash_count / 4  # 4회 기준
-        # 시작 각도 -90도 (12시 방향)
-        start_angle = -math.pi / 2
-        # 진행도에 따른 종료 각도
-        end_angle = start_angle + (2 * math.pi * progress)
-        
-        # 아크를 작은 선분들로 그리기
-        num_segments = max(2, int(36 * progress))
-        for i in range(num_segments):
-            angle1 = start_angle + (end_angle - start_angle) * (i / num_segments)
-            angle2 = start_angle + (end_angle - start_angle) * ((i + 1) / num_segments)
-            
-            x1 = circle_center_x + circle_radius * math.cos(angle1)
-            y1 = circle_center_y + circle_radius * math.sin(angle1)
-            x2 = circle_center_x + circle_radius * math.cos(angle2)
-            y2 = circle_center_y + circle_radius * math.sin(angle2)
-            
-            # 진행도 색상
-            if tutorial_dash_count < 2:
-                color = (255, 200, 100)  # 주황색
-            elif tutorial_dash_count < 3:
-                color = (255, 255, 100)  # 노란색
-            elif tutorial_dash_count < 4:
-                color = (100, 255, 255)  # 하늘색
-            else:
-                color = (0, 255, 200)  # 민트색 (완료)
-            
-            pygame.draw.line(SCREEN, color, (x1, y1), (x2, y2), 3)
-    
-    # 숫자 표시
-    counter_text = f"{tutorial_dash_count}/4"
-    counter_surface = font_large.render(counter_text, True, (255, 255, 255))
-    counter_rect = counter_surface.get_rect(center=(circle_center_x, circle_center_y))
-    SCREEN.blit(counter_surface, counter_rect)
-    
-    # 대쉬 아이콘 그리기 (원형 진행도 오른쪽에)
-    dash_x = circle_center_x + circle_radius + 25
-    dash_y = circle_center_y
-    
-    # 애니메이션 각도 계산
-    import math
-    dash_offset = tutorial_displayed_dash_count * 5  # 진행도에 따라 이동
-    
-    # 대쉬 화살표 그리기
-    arrow_surf = pygame.Surface((50, 40), pygame.SRCALPHA)
-    
-    # 대쉬 이펙트 라인들 (속도감 표현)
-    for i in range(3):
-        line_y = 10 + i * 10
-        line_length = 20 - i * 3
-        line_alpha = 180 - i * 40
-        line_color = (100, 200, 255, line_alpha)
-        pygame.draw.line(arrow_surf, line_color, (5, line_y), (5 + line_length, line_y), 2)
-    
-    # 메인 화살표 (삼각형)
-    if tutorial_dash_count >= 4:
-        arrow_color = (0, 255, 200)  # 민트색 (완료)
-    elif tutorial_dash_count >= 3:
-        arrow_color = (100, 255, 255)  # 하늘색 (3회)
-    elif tutorial_dash_count >= 2:
-        arrow_color = (255, 255, 100)  # 노란색 (2회)
-    else:
-        arrow_color = (100, 200, 255)  # 연한 파란색 (시작)
-    arrow_points = [
-        (25, 20),  # 꼭짓점
-        (35, 10),  # 위쪽
-        (35, 30),  # 아래쪽
+    # 3개의 미션 표시
+    missions = [
+        {"name": "하프대쉬", "count": tutorial_half_dash_count, "max": 1, "color": (255, 150, 100)},
+        {"name": "대쉬", "count": tutorial_dash_count, "max": 2, "color": (100, 200, 255)},
+        {"name": "연속대쉬", "count": tutorial_consecutive_dash_count, "max": 1, "color": (255, 215, 0)}
     ]
-    pygame.draw.polygon(arrow_surf, arrow_color, arrow_points)
     
-    # 화살표 하이라이트
-    pygame.draw.polygon(arrow_surf, (255, 255, 255, 50), arrow_points, 2)
+    # 각 미션을 세로로 배치
+    mission_y = bg_y + 10
+    for i, mission in enumerate(missions):
+        mission_x = bg_x + 15
+        
+        # 미션 이름
+        name_surface = font_medium.render(mission["name"], True, (200, 200, 200))
+        SCREEN.blit(name_surface, (mission_x, mission_y))
+        
+        # 진행도 바 배경
+        bar_x = mission_x + 80
+        bar_y = mission_y + 3
+        bar_width = 80
+        bar_height = 16
+        
+        # 배경 바
+        pygame.draw.rect(SCREEN, (40, 40, 50), (bar_x, bar_y, bar_width, bar_height), border_radius=8)
+        
+        # 진행도 바
+        if mission["count"] > 0:
+            progress_width = int(bar_width * (mission["count"] / mission["max"]))
+            pygame.draw.rect(SCREEN, mission["color"], (bar_x, bar_y, progress_width, bar_height), border_radius=8)
+        
+        # 테두리
+        pygame.draw.rect(SCREEN, (100, 100, 120), (bar_x, bar_y, bar_width, bar_height), 1, border_radius=8)
+        
+        # 카운터 텍스트
+        counter_text = f"{mission['count']}/{mission['max']}"
+        counter_surface = font_small.render(counter_text, True, (255, 255, 255))
+        counter_rect = counter_surface.get_rect(center=(bar_x + bar_width // 2, bar_y + bar_height // 2))
+        SCREEN.blit(counter_surface, counter_rect)
+        
+        # 완료 체크 표시
+        if mission["count"] >= mission["max"]:
+            check_x = bar_x + bar_width + 10
+            check_y = bar_y + bar_height // 2
+            # 체크마크 그리기
+            pygame.draw.lines(SCREEN, (0, 255, 100), False, 
+                            [(check_x, check_y), (check_x + 5, check_y + 5), (check_x + 12, check_y - 5)], 2)
+        
+        # 다음 미션 위치
+        mission_y += 35
     
-    # 진행도에 따른 반짝임 효과
-    if tutorial_displayed_dash_count < tutorial_dash_count:
-        # 애니메이션 중일 때 반짝임
-        glow_alpha = int(128 + 127 * math.sin(pygame.time.get_ticks() * 0.01))
-        glow_surf = pygame.Surface((50, 40), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (255, 255, 100, glow_alpha // 3), (30, 20), 15)
-        arrow_surf.blit(glow_surf, (0, 0))
+    # 전체 진행 상태 메시지
+    total_completed = 0
+    if tutorial_half_dash_count >= 1:
+        total_completed += 1
+    if tutorial_dash_count >= 2:
+        total_completed += 1
+    if tutorial_consecutive_dash_count >= 1:
+        total_completed += 1
     
-    # 위치 조정 (좌우 움직임)
-    move_offset = int(8 * math.sin(tutorial_displayed_dash_count * math.pi))
-    arrow_rect = arrow_surf.get_rect(center=(dash_x + dash_offset + move_offset, dash_y))
-    SCREEN.blit(arrow_surf, arrow_rect)
-    
-    # 진행 상태 메시지
-    if tutorial_dash_count < 1:
-        hint_text = "대쉬 연습"
+    if total_completed == 0:
+        hint_text = "대쉬 미션 시작!"
         hint_color = (150, 150, 150)
-    elif tutorial_dash_count < 4:
+    elif total_completed == 1:
         hint_text = "잘하고 있어요!"
         hint_color = (255, 200, 100)
-        # 칭찬 메시지에 반짝임 효과
-        if pygame.time.get_ticks() % 1000 < 500:
-            hint_color = (255, 230, 150)
+    elif total_completed == 2:
+        hint_text = "거의 다 왔어요!"
+        hint_color = (100, 255, 255)
     else:
-        hint_text = "완벽해요!"
+        hint_text = "미션 완료!"
         hint_color = (0, 255, 200)
-        # 완료 시 강조 효과
-        if pygame.time.get_ticks() % 800 < 400:
-            pygame.draw.circle(SCREEN, (0, 255, 200, 50), (circle_center_x, circle_center_y), circle_radius + 5, 2)
     
     # 축하 이펙트 추가
     global tutorial_dash_counter_celebration, tutorial_dash_counter_celebration_timer
@@ -18304,9 +18297,9 @@ def draw_tutorial_dash_counter():
         
         # 2초간 축하 이펙트 표시
         if celebration_duration < 2000:
+            import math
             # 맥동 효과
             pulse = 1.0 + 0.3 * math.sin(celebration_duration * 0.01)
-            pulse_radius = int(circle_radius * pulse)
             
             # 무지개 색상 효과
             rainbow_colors = [
@@ -18316,26 +18309,24 @@ def draw_tutorial_dash_counter():
             color_index = (celebration_duration // 100) % len(rainbow_colors)
             celebration_color = rainbow_colors[color_index]
             
-            # 반짝이는 원 그리기
-            pygame.draw.circle(SCREEN, celebration_color + (100,), 
-                             (circle_center_x, circle_center_y), pulse_radius, 3)
+            # 반짝이는 테두리
+            pygame.draw.rect(SCREEN, celebration_color, (bg_x - 2, bg_y - 2, bg_width + 4, bg_height + 4), 2, border_radius=8)
             
-            # 별 이펙트
-            star_count = 8
+            # 별 이펙트 (배경 주변)
+            star_count = 6
             for i in range(star_count):
                 angle = (2 * math.pi * i / star_count) + (celebration_duration * 0.002)
-                star_distance = pulse_radius + 15 + 10 * math.sin(celebration_duration * 0.005 + i)
-                star_x = circle_center_x + int(star_distance * math.cos(angle))
-                star_y = circle_center_y + int(star_distance * math.sin(angle))
+                star_x = ui_x + int(60 * math.cos(angle))
+                star_y = ui_y + 50 + int(40 * math.sin(angle))
                 star_size = 3 + int(2 * math.sin(celebration_duration * 0.01 + i))
-                pygame.draw.circle(SCREEN, (100, 200, 255), (star_x, star_y), star_size)
+                pygame.draw.circle(SCREEN, (255, 255, 100), (star_x, star_y), star_size)
         else:
             # 2초 후 축하 이펙트 종료
             tutorial_dash_counter_celebration = False
     
-    # 텍스트를 화살표 아래에 배치
+    # 힌트 텍스트 표시
     hint_surface = font_medium.render(hint_text, True, hint_color)
-    hint_rect = hint_surface.get_rect(centerx=dash_x + 5, top=dash_y + 25)
+    hint_rect = hint_surface.get_rect(centerx=ui_x, top=bg_y + bg_height + 5)
     SCREEN.blit(hint_surface, hint_rect)
 
 def show_chapter_title(chapter_num, title, subtitle=None):
