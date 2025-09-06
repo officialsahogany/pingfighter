@@ -5075,6 +5075,10 @@ def handle_player(keys):
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown
     global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
     global tutorial_drive_count, tutorial_displayed_drive_count
+    # Chapter 2 대쉬 관련 변수 추가
+    global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
+    global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
+    global tutorial_consecutive_dash_count, tutorial_half_dash_count
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
     if new_boss_mode_active:
         if selected_bottom_boss == 1:
@@ -6208,9 +6212,6 @@ def handle_player(keys):
     # 서브 대기 중에는 충돌 체크하지 않음
     global player_collision_handled, player_collision_cooldown, player_sound_cooldown, last_hit_by
     global mega_smashing_active, mega_smashing_meteor_trail, mega_smashing_ghosts, mega_smashing_ghost_scatter
-    global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
-    global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
-    global tutorial_consecutive_dash_count, tutorial_half_dash_count
     # Y속도와 관계없이 충돌 감지 (고스트샷 등 특수 상황 대응)
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
     player_collision_rect = PLAYER.copy()
