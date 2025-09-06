@@ -6304,8 +6304,25 @@ def handle_player(keys):
         player_collision_handled = True
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
         
-        # 튜토리얼 스테이지 50에서 플레이어가 공을 친 횟수 증가는 handle_ball에서만 처리
-        # (중복 카운트 방지를 위해 여기서는 제거)
+        # 튜토리얼 스테이지 50에서 플레이어가 공을 친 횟수 증가
+        # handle_player에서 처리하여 모든 각도의 충돌을 정확히 카운팅
+        if current_stage == 50 and tutorial_practice_mode and tutorial_boss_returned:
+            # 플레이어가 공을 친 횟수 증가 (게이지 튜토리얼 이후)
+            if tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
+                tutorial_player_hit_count += 1
+                print(f"튜토리얼: 플레이어 공 타격 횟수: {tutorial_player_hit_count}/6")
+                
+                # 성공 피드백 표시
+                if tutorial_player_hit_count == 1:
+                    show_tutorial_success_feedback("좋아요!", "normal")
+                elif tutorial_player_hit_count == 3:
+                    show_tutorial_success_feedback("잘하고 있어요!", "great")
+                elif tutorial_player_hit_count == 6:
+                    show_tutorial_success_feedback("완벽해요!", "perfect")
+                    # 카운터 축하 이펙트 활성화
+                    global tutorial_hit_counter_celebration, tutorial_hit_counter_celebration_timer
+                    tutorial_hit_counter_celebration = True
+                    tutorial_hit_counter_celebration_timer = pygame.time.get_ticks()
         
         # 튜토리얼 스테이지 50에서 6회 타격 시 속도 튜토리얼 대화 시작
         if current_stage == 50 and tutorial_practice_mode and tutorial_boss_returned:
@@ -6500,7 +6517,11 @@ def handle_player(keys):
         # 대쉬 중이거나 대쉬 직후(스턴 상태), 드라이브 발동 시에는 게이지 충전 차단
         if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_activated and not drive_ball_active:
             # 스킬 효과 적용: 게이지 충전 증가
-            base_gauge_gain = 80  # 사용자 요청에 따라 80으로 설정
+            # Chapter 3 드라이브 튜토리얼에서는 게이지 증가율을 200으로 설정
+            if ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
+                base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
+            else:
+                base_gauge_gain = 80  # 일반 게임: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
@@ -26847,32 +26868,20 @@ def handle_ball():
                 ball_vel[1] = 0
                 print("튜토리얼: 플레이어가 조교 공을 받아쳤습니다 - 게이지 튜토리얼 시작!")
             
-            # 플레이어가 공을 친 횟수 증가 (게이지 튜토리얼 이후)
-            if tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
-                tutorial_player_hit_count += 1
-                print(f"튜토리얼: 플레이어 공 타격 횟수: {tutorial_player_hit_count}/6")
+            # 플레이어가 공을 친 횟수 증가는 이제 handle_player에서 처리
+            # (handle_ball은 백업 충돌 처리용이므로 중복 카운팅 방지)
+            # tutorial_player_hit_count는 handle_player에서만 증가시킴
+            pass  # 카운팅 로직 제거
                 
-                # 성공 피드백 표시
-                if tutorial_player_hit_count == 1:
-                    show_tutorial_success_feedback("좋아요!", "normal")
-                elif tutorial_player_hit_count == 3:
-                    show_tutorial_success_feedback("잘하고 있어요!", "great")
-                elif tutorial_player_hit_count == 6:
-                    show_tutorial_success_feedback("완벽해요!", "perfect")
-                    # 카운터 축하 이펙트 활성화
-                    global tutorial_hit_counter_celebration, tutorial_hit_counter_celebration_timer
-                    tutorial_hit_counter_celebration = True
-                    tutorial_hit_counter_celebration_timer = pygame.time.get_ticks()
-                
-                # 6회 타격 후 바로 속도 튜토리얼 대화 시작
-                if tutorial_player_hit_count >= 6 and not tutorial_speed_dialogue_shown:
-                    tutorial_speed_dialogue_shown = True
-                    # 속도 튜토리얼 표시를 위해 공 일시정지
-                    tutorial_saved_ball_vel = ball_vel.copy()
-                    tutorial_pause_for_dialogue = True
-                    ball_vel[0] = 0
-                    ball_vel[1] = 0
-                    print("튜토리얼: 6회 타격 완료! 속도 튜토리얼 시작!")
+            # 6회 타격 후 속도 튜토리얼 대화 시작 체크는 유지
+            if tutorial_player_hit_count >= 6 and not tutorial_speed_dialogue_shown:
+                tutorial_speed_dialogue_shown = True
+                # 속도 튜토리얼 표시를 위해 공 일시정지
+                tutorial_saved_ball_vel = ball_vel.copy()
+                tutorial_pause_for_dialogue = True
+                ball_vel[0] = 0
+                ball_vel[1] = 0
+                print("튜토리얼: 6회 타격 완료! 속도 튜토리얼 시작!")
         
         # handle_player에서 놓친 충돌의 경우에만 백업으로 게이지 충전
         print(f" DEBUG: handle_ball   - handle_player")
@@ -26880,7 +26889,11 @@ def handle_ball():
         # 대쉬 중이거나 대쉬 직후(스턴 상태), 드라이브 발동 시에도 게이지 충전 차단
         if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_ball_active:
             # 스킬 효과 적용: 게이지 충전 증가
-            base_gauge_gain = 80  # 사용자 요청에 따라 80으로 설정
+            # Chapter 3 드라이브 튜토리얼에서는 게이지 증가율을 200으로 설정
+            if ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
+                base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
+            else:
+                base_gauge_gain = 80  # 일반 게임: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
