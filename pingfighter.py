@@ -3047,9 +3047,20 @@ def activate_stopwatch():
     """스탑워치 활성화 - 2초간 모든 것 정지 후 1초간 속도 회복"""
     global stopwatch_active, stopwatch_timer, stopwatch_flash_timer
     global stopwatch_original_ball_vel, stopwatch_recovery_timer, stopwatch_clock_angle
-    global ball_vel, BALL
+    global ball_vel, BALL, PLAYER
     global player_collision_handled, player_collision_cooldown, boss_collision_cooldown
     global current_speed
+    
+    # 패들과 공 사이 안전 거리 확인
+    MIN_SAFE_DISTANCE = 50  # 최소 안전 거리 (충돌 방지를 위해 충분한 여유)
+    if BALL and PLAYER:
+        x_distance = abs(BALL.centerx - PLAYER.centerx)
+        y_distance = abs(BALL.centery - PLAYER.centery)
+        
+        # X축이나 Y축 중 하나라도 너무 가까우면 발동하지 않음
+        if x_distance <= MIN_SAFE_DISTANCE or y_distance <= MIN_SAFE_DISTANCE:
+            print(f"[스탑워치] 발동 취소 - 패들과 너무 가까움 (X:{x_distance:.0f}, Y:{y_distance:.0f})")
+            return False
     
     if not stopwatch_active and BALL:
         stopwatch_active = True
@@ -3082,6 +3093,9 @@ def activate_stopwatch():
         play_active_item_sound()
         
         print("!   ...")
+        return True
+    
+    return False
 
 def draw_stopwatch_effect():
     """스탑워치 시계 애니메이션 그리기"""
@@ -6363,6 +6377,7 @@ def handle_player(keys):
         # 충돌 처리 플래그 설정
         player_collision_handled = True
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
+        game_vars.ball.last_hit_by = "player"  # game_vars에도 업데이트
         
         # Chapter 2 튜토리얼: 대쉬 상태에서 충돌 시 첫 대쉬 이벤트 처리
         if current_stage == 50 and tutorial_current_chapter == 2 and rolling_active:
@@ -6850,7 +6865,7 @@ def store_active_item(item_data):
         print("!")
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone"]:
         return
     if len(active_item_slot) < MAX_ITEM_SLOTS:
         # 모든 액티브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
@@ -23968,13 +23983,12 @@ def choose_server(show_text=True):
             is_player_serve = True  # 일반 튜토리얼은 플레이어 서브
     elif current_stage == 6:
         is_player_serve = True
-    elif current_stage in [1, 2, 3]:  # 챕터 1, 2, 3에서는 플레이어가 먼저 서브
-        is_player_serve = True
     else:
         is_player_serve = random.choice([True, False])
     
     # 서브하는 사람에 따라 last_hit_by 초기화
     last_hit_by = "player" if is_player_serve else "boss"
+    game_vars.ball.last_hit_by = last_hit_by  # game_vars에도 업데이트
     
     # 스테이지 3에서 플레이어 서브일 때 꼬리 채찍 5초 지연
     global stage3_tail_whip_cooldown
@@ -25863,12 +25877,10 @@ def handle_ball():
     import items
     if hasattr(items, 'smartphone_obtained') and items.smartphone_obtained:
         smartphone = get_smartphone_instance()
-        print(f"[DEBUG] 스마트폰 체크 - obtained: {items.smartphone_obtained}, instance: {smartphone is not None}")
+        # Debug: Check smartphone status
         if smartphone:
-            print(f"[DEBUG] 스마트폰 active 상태: {smartphone.active}")
             # 패시브 아이템이므로 obtained이면 자동으로 activate
             if not smartphone.active:
-                print("[DEBUG] 스마트폰 자동 활성화")
                 temp_state = {'current_stage': current_stage, 'active_items': active_item_slot}
                 smartphone.activate(temp_state, current_stage)
             
@@ -26910,7 +26922,65 @@ def handle_ball():
                     print(f"    !   !")
                     break
     # --- 바닥 충돌 (보스 점수) - 바위에 맞지 않았을 때만 ---
-    if BALL.bottom >= HEIGHT and not rock_hit:
+    # 패배 직전 '미리' 스톱워치 발동: 바닥과의 거리 기준으로 선제 발동해 바로 아래에서 멈추는 문제를 방지
+    if not rock_hit and not stopwatch_active:
+        try:
+            import items as _items_mod
+            if hasattr(_items_mod, 'smartphone_obtained') and _items_mod.smartphone_obtained:
+                smartphone = get_smartphone_instance()
+                has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (active_item_slot or []))
+                if has_stopwatch:
+                    PRE_ACTIVATE_MARGIN = 16  # 바닥까지 16px 남았을 때
+                    MIN_PLAYABLE_MARGIN = 28  # 공 중심이 바닥에서 최소 28px 위
+                    dist_to_floor = HEIGHT - BALL.bottom
+                    if 0 <= dist_to_floor <= PRE_ACTIVATE_MARGIN and BALL.centery <= HEIGHT - MIN_PLAYABLE_MARGIN:
+                        phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
+                        try:
+                            smartphone.last_activation_time = 0
+                            smartphone.urgent_override = True
+                        except Exception:
+                            pass
+                        smartphone.activate_stopwatch(phone_state, current_stage)
+                        return
+        except Exception as e:
+            print(f"⚠️ 스마트폰 사전 발동(거리) 실패: {e}")
+
+    # 스톱워치가 활성화되어 있으면 바닥 충돌에 의한 패배 판정을 잠시 유예한다
+    if BALL.bottom >= HEIGHT and not rock_hit and not stopwatch_active:
+        # 스마트폰 사전 방어: 패배 직전 스톱워치 자동 발동 시도
+        try:
+            import items as _items_mod
+            if hasattr(_items_mod, 'smartphone_obtained') and _items_mod.smartphone_obtained:
+                smartphone = get_smartphone_instance()
+                has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (active_item_slot or []))
+                # 바닥에 거의 닿았지만 아직 약간의 여유가 있을 때만 강제 발동
+                # 너무 아래(플레이어가 닿기 힘든 위치)에서는 강제 발동하지 않음
+                SAFE_MARGIN_FROM_FLOOR = 28  # px
+                # 발동 높이 가드: 공이 패들 중심보다 너무 아래면 강제 발동하지 않음
+                activation_height_ok = (BALL.centery <= (PLAYER.centery + PADDLE_HEIGHT // 4))
+                
+                # 패들과 공 사이의 최소 안전 거리 확인
+                # 공과 패들이 충돌하지 않을 정도의 거리에서만 발동
+                MIN_SAFE_DISTANCE = 50  # 패들과 공이 충돌하지 않을 최소 거리 (픽셀)
+                x_distance = abs(BALL.centerx - PLAYER.centerx)
+                y_distance = abs(BALL.centery - PLAYER.centery)
+                
+                # X축과 Y축 모두 안전 거리 확보
+                safe_distance_ok = (x_distance > MIN_SAFE_DISTANCE) and (y_distance > MIN_SAFE_DISTANCE)
+                
+                if (not stopwatch_active) and has_stopwatch and (BALL.centery <= HEIGHT - SAFE_MARGIN_FROM_FLOOR) and activation_height_ok and safe_distance_ok:
+                    # 쿨타임과 무관하게 즉시 발동하도록 플래그 설정 후 발동
+                    phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
+                    try:
+                        smartphone.last_activation_time = 0
+                        smartphone.urgent_override = True
+                    except Exception:
+                        pass
+                    smartphone.activate_stopwatch(phone_state, current_stage)
+                    # 스톱워치 발동 후에는 패배 처리를 중단하고 한 프레임 유예
+                    return
+        except Exception as e:
+            print(f"⚠️ 스마트폰 사전 발동 실패: {e}")
         # 튜토리얼 스테이지 특별 처리
         if current_stage == 50:
             print("튜토리얼: 플레이어가 공을 놓침 - 조교 경고 대화")
@@ -27379,6 +27449,7 @@ def handle_ball():
             # 일반 충돌로 처리하기 위해 아래로 계속 진행
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
+        game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
         
         #  라그나로크 스턴공 상태 확인 (스턴공이었는지 먼저 체크)
         was_stun_ball = ragnarok_speed_boost_active  # 스턴공이었는지 저장
