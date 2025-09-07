@@ -33502,12 +33502,20 @@ def show_game_info():
                                 # 폴백: 일반 아이콘 사용
                                 icon = pygame.transform.scale(item["icon"], (icon_size, icon_size))
                                 SCREEN.blit(icon, (icon_x, icon_y))
-                        elif item.get("icon"):
-                            icon = pygame.transform.scale(item["icon"], (icon_size, icon_size))
-                            SCREEN.blit(icon, (icon_x, icon_y))
                         else:
-                            # 기본 아이콘 (원형)
-                            draw.circle((100, 100, 100), (icon_x + icon_size // 2, icon_y + icon_size // 2), icon_size // 2)
+                            # 아이콘 가져오기 (캐시된 아이콘 또는 새로 로드)
+                            icon = item.get("icon")
+                            if icon is None:
+                                # 아이콘이 없으면 get_item_icon 함수로 로드
+                                icon = get_item_icon(item["name"])
+                                item["icon"] = icon  # 캐시에 저장
+                            
+                            if icon:
+                                icon = pygame.transform.scale(icon, (icon_size, icon_size))
+                                SCREEN.blit(icon, (icon_x, icon_y))
+                            else:
+                                # 기본 아이콘 (원형)
+                                draw.circle((100, 100, 100), (icon_x + icon_size // 2, icon_y + icon_size // 2), icon_size // 2)
             else:  # 패시브 아이템
                 items_to_show = passive_item_list if passive_item_list else []
                 selected_index = selected_passive_item
@@ -33544,12 +33552,20 @@ def show_game_info():
                                 # 폴백: 일반 아이콘 사용
                                 icon = pygame.transform.scale(item["icon"], (icon_size, icon_size))
                                 SCREEN.blit(icon, (icon_x, icon_y))
-                        elif item.get("icon"):
-                            icon = pygame.transform.scale(item["icon"], (icon_size, icon_size))
-                            SCREEN.blit(icon, (icon_x, icon_y))
                         else:
-                            # 기본 아이콘 (원형)
-                            draw.circle((100, 100, 100), (icon_x + icon_size // 2, icon_y + icon_size // 2), icon_size // 2)
+                            # 아이콘 가져오기 (캐시된 아이콘 또는 새로 로드)
+                            icon = item.get("icon")
+                            if icon is None:
+                                # 아이콘이 없으면 get_item_icon 함수로 로드
+                                icon = get_item_icon(item["name"])
+                                item["icon"] = icon  # 캐시에 저장
+                            
+                            if icon:
+                                icon = pygame.transform.scale(icon, (icon_size, icon_size))
+                                SCREEN.blit(icon, (icon_x, icon_y))
+                            else:
+                                # 기본 아이콘 (원형)
+                                draw.circle((100, 100, 100), (icon_x + icon_size // 2, icon_y + icon_size // 2), icon_size // 2)
             # 아이템 설명 영역 (하단)
             desc_panel_width = panel_width - 60
             desc_panel_height = 80

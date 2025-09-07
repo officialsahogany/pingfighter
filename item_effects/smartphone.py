@@ -25,19 +25,33 @@ class Smartphone:
         if ball_vx >= 0:  # Ball moving away from player
             return False
             
-        # Calculate where ball will be when it reaches paddle x position
-        time_to_paddle = abs(ball_x - 50) / abs(ball_vx) if ball_vx != 0 else float('inf')
+        # 플레이어 패들 X 위치 (왼쪽)
+        paddle_x = 50
+        
+        # 공이 패들 X 위치에 도달할 때까지의 시간 계산
+        time_to_paddle = abs(ball_x - paddle_x) / abs(ball_vx) if ball_vx != 0 else float('inf')
+        
+        # 공이 패들 위치에 도달했을 때의 Y 위치 예측
         future_ball_y = ball_y + ball_vy * time_to_paddle
         
-        # Check if ball will be outside paddle reach
+        # 패들의 상하 범위
         paddle_top = paddle_y - paddle_size // 2
         paddle_bottom = paddle_y + paddle_size // 2
         
-        # Consider it dangerous if ball will be significantly outside paddle range
-        if future_ball_y < paddle_top - self.danger_threshold or future_ball_y > paddle_bottom + self.danger_threshold:
-            # Also check if ball is close enough to paddle (x-wise)
-            if ball_x < 150 and ball_vx < 0:  # Ball approaching and close
-                return True
+        # 대쉬로 커버 가능한 거리 (대략 100~150 픽셀)
+        dash_coverage = 120
+        
+        # 위험 판단 조건:
+        # 1. 공이 패들 높이를 벗어날 예정이고
+        # 2. 대쉬로도 닿을 수 없는 거리이며
+        # 3. 공이 충분히 가까이 왔을 때 (x < 120)
+        if (future_ball_y < paddle_top - dash_coverage or future_ball_y > paddle_bottom + dash_coverage):
+            # 공이 패들에 매우 가까이 왔고 대쉬로도 막을 수 없는 상황
+            if ball_x < 120 and ball_vx < 0:  # 공이 접근 중이고 매우 가까움
+                # 공 속도도 고려 (너무 빠르면 대쉬로도 못 막음)
+                ball_speed = abs(ball_vx)
+                if ball_speed > 8 or ball_x < 100:  # 빠른 공이거나 매우 가까움
+                    return True
                 
         return False
         

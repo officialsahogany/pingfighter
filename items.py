@@ -923,6 +923,10 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
             # 슬롯 배경
             pygame.draw.rect(screen, (0, 0, 0), (x, y, SLOT_W, SLOT_H))
 
+            # item이 None인 경우 빈 슬롯으로 처리
+            if item is None:
+                continue
+
             # 아이콘 표시
             if "icon" in item and item["icon"]:
                 icon = pygame.transform.scale(item["icon"], icon_size)
@@ -1001,6 +1005,10 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
 
         # 슬롯 배경
         pygame.draw.rect(screen, (0, 0, 0), (x, y, SLOT_W, SLOT_H))
+
+        # active_item_slot이 None인 경우 처리
+        if active_item_slot is None:
+            return
 
         # 아이콘 표시
         if "icon" in active_item_slot and active_item_slot["icon"]:
