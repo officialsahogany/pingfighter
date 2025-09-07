@@ -52,6 +52,19 @@ class Smartphone:
         # 호출마다 초기화
         self.urgent_override = False
 
+        # 패들 위에 공이 있으면 발동하지 않음 (패들이 받을 수 있는 영역)
+        # X축: 패들 중심 ± 패들 너비/2 + 여유 10px
+        # Y축: 패들 위 50px 이내
+        paddle_left = PLAYER_CENTERX - (PADDLE_WIDTH / 2) - 10
+        paddle_right = PLAYER_CENTERX + (PADDLE_WIDTH / 2) + 10
+        ball_over_paddle_x = (paddle_left <= ball_x <= paddle_right)
+        ball_over_paddle_y = (ball_y >= PLAYER_CENTERY - 50) and (ball_y <= PLAYER_CENTERY + PADDLE_HEIGHT / 2)
+        
+        # 공이 패들 위에 있고 아래로 떨어지는 중이면 플레이어가 받을 수 있음
+        if ball_over_paddle_x and ball_over_paddle_y and ball_vy > 0:
+            # print(f"[DEBUG] 패들 위 공 - 발동 억제: X={ball_x:.0f} (패들:{paddle_left:.0f}~{paddle_right:.0f}), Y={ball_y:.0f}")
+            return False
+
         # 동적 위험 영역 계산: 공의 위치와 속도에 따라 조정 (조기 발동 억제 강화)
         # 기본적으로 더 아래에서만 판단하고, 빠른 공도 과도하게 일찍 감지하지 않도록 제한
         ball_speed_total = (ball_vx**2 + ball_vy**2)**0.5 if ball_vx != 0 or ball_vy != 0 else 1
