@@ -136,6 +136,7 @@ from item_effects.bluetooth_ring import (
     calculate_bluetooth_ring_gauge_charge,
     is_bluetooth_ring_active
 )
+from item_effects.smartphone import get_smartphone_instance
 #  전설 아이템 시스템
 from legendary_items import get_legendary_manager, LegendaryItem
 #  전설 아이템 획득 애니메이션
@@ -1082,6 +1083,7 @@ SOUND_QUAKE = pygame.mixer.Sound(resource_path("sounds/quake_sound.wav"))  # 퀘
 whip_sound = pygame.mixer.Sound(resource_path("sounds/whip_effect.wav"))
 SOUND_DEFENSE_HIT = pygame.mixer.Sound(resource_path("sounds/defense_hit.wav"))  # ← 파일명에 맞게 수정
 SOUND_DEFENSE_START = pygame.mixer.Sound(resource_path("sounds/speed_defense_start.wav"))  # 파일명에 맞게 수정
+SOUND_DEFENSE_BLOCK = pygame.mixer.Sound(resource_path("sounds/defense_hit.wav"))  # 스피드 디펜스 방어 효과음 (defense_hit 재사용)
 SOUND_FIREBALL = pygame.mixer.Sound(resource_path("sounds/fireball.wav"))  #  화염탄 발사 효과음
 SOUND_DASH = pygame.mixer.Sound(resource_path("sounds/dash.wav"))  #  대쉬 효과음
 SOUND_BURST_UP = pygame.mixer.Sound(resource_path("sounds/bustup.wav"))  #  버스트업 대쉬 효과음
@@ -1930,8 +1932,11 @@ boss_fake_start_time = 0
 boss_fake_duration = 2000
 boss_fake_during_player_serve = False
 speed_defense_active = False
-speed_defense_cooldown = 100  # 약 3초 쿨타임
+speed_defense_cooldown = 180  # 3초 지속 시간 (60 FPS * 3초)
 speed_defense_timer = 0
+speed_defense_last_activation = 0  # 마지막 발동 시간
+SPEED_DEFENSE_INTERVAL = 1500  # 25초 발동 간격 (60 FPS * 25초)
+SPEED_DEFENSE_BLOCK_RATE = 0.8  # 80% 방어율
 speed_defense_checked = False
 original_speed = [0, 0]  # 암행트위스트 발동 전 속도 백업용
 last_hit_time = 0  # 플레이어 마지막으로 맞은 시간
@@ -3044,6 +3049,7 @@ def activate_stopwatch():
     global stopwatch_original_ball_vel, stopwatch_recovery_timer, stopwatch_clock_angle
     global ball_vel, BALL
     global player_collision_handled, player_collision_cooldown, boss_collision_cooldown
+    global current_speed
     
     if not stopwatch_active and BALL:
         stopwatch_active = True
@@ -3063,6 +3069,9 @@ def activate_stopwatch():
         
         # 공 정지
         ball_vel = [0, 0]
+        
+        # 플레이어 이동 속도도 정지 (스탑워치 중 속도 누적 방지)
+        current_speed = 0
         
         # 충돌 플래그 리셋 (스탑워치 시작 시 충돌 상태 초기화)
         player_collision_handled = False
@@ -7082,6 +7091,21 @@ def store_passive_item(item_data):
         show_item_acquisition("bluetooth_ring", "블루투스링", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         # 아이콘은 이미 store_passive_item 상단에서 설정됨
+    elif item_data["name"] == "smartphone":
+        # 스마트폰 아이템 획득 (패시브)
+        import items
+        items.smartphone_obtained = True
+        smartphone = get_smartphone_instance()
+        if smartphone:
+            game_state = {
+                'current_stage': current_stage,
+                'active_items': active_item_slot
+            }
+            smartphone.activate(game_state, current_stage)
+        print("스마트폰 획득! 위험 시 자동 아이템 사용!")
+        # 아이템 획득 플로팅 애니메이션
+        show_item_acquisition("smartphone", "스마트폰", None, False,
+                            (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
     elif item_data["name"] == "gravitybelt":
         # 무중력벨트 아이템 획득
         if not gravitybelt_obtained:
@@ -16396,9 +16420,9 @@ def show_tutorial_power_practice_dialogue():
             pygame.display.flip()
             clock.tick(60)
     
-    # 대화 완료 후 파워스매싱 시범 보이기
-    print("튜토리얼: 파워스매싱 시범 시작")
-    show_tutorial_power_demonstration()
+    # 파워스매싱 시범 제거 - 바로 실전 연습으로 진행
+    # print("튜토리얼: 파워스매싱 시범 시작")
+    # show_tutorial_power_demonstration()
     
     # 실전 연습 시작 대사
     final_dialogues = [
@@ -21238,7 +21262,8 @@ def show_item_manager_menu():
         {"name": "technical_vest", "type": "passive", "icon": get_icon_safe("technical_vest_icon", "technical_vest")},
         {"name": "commando_arm", "type": "passive", "icon": get_icon_safe("commando_arm_icon", "commando_arm")},
         {"name": "fuel_pouch", "type": "passive", "icon": get_icon_safe("fuel_pouch_icon", "fuel_pouch")},
-        {"name": "bluetooth_ring", "type": "passive", "icon": get_icon_safe("bluetooth_ring_icon", "bluetooth_ring")}
+        {"name": "bluetooth_ring", "type": "passive", "icon": get_icon_safe("bluetooth_ring_icon", "bluetooth_ring")},
+        {"name": "smartphone", "type": "passive", "icon": get_icon_safe("smartphone_icon", "smartphone")}
     ]
     
     # 전설 아이템 추가
@@ -24162,6 +24187,24 @@ def calculate_bounce(paddle):
     global vertical_bounce_count, ball_angle, ball_impact_boost
     global perfect_timing_active, perfect_direction
     global drive_speed_increase, smoke_zones, ball_vel
+    global speed_defense_active, SPEED_DEFENSE_BLOCK_RATE
+    
+    # Stage 2 스피드 디펜스 80% 방어 처리
+    if paddle == BOSS and current_stage == 2 and speed_defense_active:
+        # 80% 확률로 방어 (20% 확률로 통과)
+        if random.random() < SPEED_DEFENSE_BLOCK_RATE:
+            # 방어 성공 - 정상 속도로 반사 (스피드 디펜스는 막을 확률만 있고 속도는 그대로)
+            print(f"🛡️ 스피드 디펜스 방어 성공! (80% 확률)")
+            # 방어 효과음
+            try:
+                SOUND_DEFENSE_BLOCK.play()
+            except:
+                pass
+            # 방어 성공 시에도 정상적으로 공을 반사 (속도 감소 없음)
+        else:
+            # 20% 확률로 방어 실패 - 정상 처리
+            print(f"⚠️ 스피드 디펜스 방어 실패! (20% 확률)")
+    
     # 패들 타입 확인 (플레이어 vs 보스)
     is_player_paddle = (paddle == PLAYER)
     # 드라이브 발동 여부를 반환하기 위한 변수
@@ -24628,6 +24671,7 @@ def handle_ball():
     global round_wins, round_losses, boss_speed_boost_timer, boss_fail_timer
     global is_waiting_for_serve, deuce_wins, deuce_losses
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
+    global game_state  # GameState 인스턴스 추가
     # 튜토리얼 관련 변수들
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
     global tutorial_half_dash_count, tutorial_consecutive_dash_count
@@ -25201,6 +25245,7 @@ def handle_ball():
     global round_wins, round_losses, boss_speed_boost_timer, boss_fail_timer
     global is_waiting_for_serve, deuce_wins, deuce_losses
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
+    global game_state  # GameState 인스턴스 추가
     global last_hit_by  # 마지막으로 공을 친 사람 추적
     # 플레이어 & 보스 게이지/스킬 시스템
     global special_gauge, special_ready, special_active
@@ -25772,6 +25817,30 @@ def handle_ball():
                     play_dash_sound()
                 else:
                     print(f"   - charges: {rolling_charges}, active: {rolling_active}, waiting: {is_waiting_for_serve}")
+    
+    # 스마트폰 패시브 아이템 업데이트
+    import items
+    if hasattr(items, 'smartphone_obtained') and items.smartphone_obtained:
+        smartphone = get_smartphone_instance()
+        if smartphone and smartphone.active:
+            # game_state 구성
+            game_state = {
+                'current_stage': current_stage,
+                'active_items': active_item_slot
+            }
+            # current_stage 대신 필요한 정보를 직접 전달
+            class StageInfo:
+                def __init__(self):
+                    self.ball_x = BALL.centerx
+                    self.ball_y = BALL.centery
+                    self.ball_vx = ball_vel[0]
+                    self.ball_vy = ball_vel[1]
+                    self.paddle_y = PLAYER.centery
+                    self.paddle_size = PADDLE_HEIGHT
+            
+            stage_info = StageInfo()
+            smartphone.update(game_state, stage_info)
+    
     # ---  적응형 물리 효과: 충돌 후 점진적 감속 ---
     #  저속에서는 감속 완화, 고속에서는 감속 강화
     current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
@@ -25938,9 +26007,41 @@ def handle_ball():
             
             #  스테이지 2 바위 충돌 체크 (매 스텝마다)
             if current_stage == 2 and animated_bg_stage2 is not None and not rock_hit:
-                # 파괴 가능한 바위 충돌 체크
+                # 파워 스매싱 중에는 바위 충돌 무시 (관통)
+                if special_active or power_smashing_parabola_active:
+                    # 바위와 충돌해도 관통하여 진행
+                    collision_result = animated_bg_stage2.check_ball_rock_collision(BALL)
+                    if collision_result[0]:  # 충돌 발생해도
+                        # 바위는 파괴되지만 공은 영향받지 않음
+                        is_golden = collision_result[2]
+                        rock_x = collision_result[3]
+                        rock_y = collision_result[4]
+                        rock_size = collision_result[1]
+                        
+                        # 황금 바위 처리
+                        if is_golden:
+                            print(f"🌟 황금 바위 관통! Trade Point 획득!")
+                            trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
+                            try:
+                                pygame.mixer.Sound(resource_path("sounds/coin.wav")).play()
+                            except:
+                                pass
+                        
+                        # 바위 파괴 효과음만 재생
+                        if rock_size <= 45:
+                            SOUND_STONEBREAK_SMALL.play()
+                        elif rock_size <= 65:
+                            SOUND_STONEBREAK_MEDIUM.play()
+                        else:
+                            SOUND_STONEBREAK_LARGE.play()
+                        
+                        print(f"💥 파워 스매싱으로 바위 관통!")
+                        # 공의 속도와 방향은 유지 (관통)
+                        continue  # 다음 스텝으로 진행
+                
+                # 일반 상태에서의 바위 충돌 체크
                 collision_result = animated_bg_stage2.check_ball_rock_collision(BALL)
-                if collision_result[0]:  # 충돌 발생
+                if collision_result[0] and not (special_active or power_smashing_parabola_active):  # 충돌 발생
                     rock_size = collision_result[1]
                     is_golden = collision_result[2]
                     rock_x = collision_result[3]
@@ -26065,17 +26166,20 @@ def handle_ball():
                     crisis_rocks = animated_bg_stage2.get_crisis_rocks()
                     for rock in crisis_rocks:
                         if BALL.colliderect(rock['collision_rect']):
+                            # 파워 스매싱 중에는 위기 바위도 관통
+                            if special_active or power_smashing_parabola_active:
+                                print(f"🔥 파워 스매싱으로 위기 바위 관통!")
+                                # 관통 효과음 재생
+                                try:
+                                    SOUND_STONEBREAK_MEDIUM.play()
+                                except:
+                                    pass
+                                continue  # 다음 바위 체크로 진행
+                            
+                            # 일반 상태에서만 충돌 처리
                             # 충돌 지점으로 복귀
                             BALL.x = old_x
                             BALL.y = old_y
-                            
-                            #  파워스매싱 중 위기 상황 바위 충돌 시에도 파워스매싱 종료
-                            if power_smashing_parabola_active:
-                                power_smashing_parabola_active = False
-                                power_smashing_direction = None
-                                power_smashing_trails.clear()
-                                power_smashing_particles.clear()
-                                print("!")
                             
                             rock_center_x = rock['collision_rect'].centerx
                             rock_center_y = rock['collision_rect'].centery
@@ -29232,7 +29336,7 @@ def handle_boss():
     global boss_fake_move, boss_fake_start_time
     global is_player_serve, is_waiting_for_serve
     global boss_fake_during_player_serve
-    global speed_defense_active, speed_defense_timer
+    global speed_defense_active, speed_defense_timer, speed_defense_last_activation, SPEED_DEFENSE_INTERVAL
     global boss_current_speed, boss_fail_timer
     global BOSS_ACCELERATION, BOSS_DECELERATION, BOSS_MAX_SPEED, BOSS_INSTANT_STOP_DECELERATION
     global waiting_start_time, wait_delay
@@ -29671,35 +29775,40 @@ def handle_boss():
         # 플레이어가 친 공이 보스에게 위험할 때 발동
         if not speed_defense_active and speed_defense_timer <= 0 and ball_vel[1] < 0:  # 공이 위로 향할 때
             # 공이 보스 근처에 도달할 시간 예측
-            if BALL.centery < HEIGHT * 0.35:  # 공이 화면 상단 35% 지점 이상 (조금 더 일찍 감지)
+            if BALL.centery < HEIGHT * 0.5:  # 공이 화면 상단 50% 지점 이상 (더 일찍 감지)
                 time_to_reach_boss = abs((BOSS.centery - BALL.centery) / ball_vel[1]) if ball_vel[1] < 0 else float('inf')
-                if time_to_reach_boss < 30:  # 0.5초 이내에 도달 예정 (더 여유있게)
+                if time_to_reach_boss < 60:  # 1초 이내에 도달 예정 (더 여유있게)
                     predicted_x = BALL.centerx + ball_vel[0] * time_to_reach_boss
                     distance_to_predicted = abs(predicted_x - BOSS.centerx)
                     # 보스가 현재 속도로 이동해도 도달하기 어려운 위치인지 확인
                     boss_max_move = BOSS_MAX_SPEED_DEFAULT * time_to_reach_boss
                     # 위험 감지: 보스가 도달하기 어려운 거리 (더 민감하게)
-                    if distance_to_predicted > boss_max_move * 0.8:  # 80% 이상 도달 어려움 (더 민감)
-                        # 3% 확률로 스피드디펜스 발동
-                        if random.random() < 0.03:
-                            speed_defense_active = True
-                            speed_defense_timer = speed_defense_cooldown
-                            # 현재 보스 속도의 200% (+100%)로 스피드디펜스 설정
-                            # 리그와 스테이지에 따른 현재 보스 속도 가져오기
-                            current_config = get_final_boss_config(current_stage, ai_mode if ai_enabled else "pro")
-                            # 스피드디펜스: 현재 속도의 200% 적용
-                            speed_multiplier = 2.0  # 100% 증가 (2배속)
-                            BOSS_ACCELERATION = current_config["accel"] * speed_multiplier
-                            BOSS_DECELERATION = current_config["decel"] * speed_multiplier
-                            BOSS_MAX_SPEED = current_config["max_speed"] * speed_multiplier
-                            BOSS_INSTANT_STOP_DECELERATION = current_config["instant_stop"] * speed_multiplier
-                            # 즉시 목표 지점으로 가속 시작
-                            if predicted_x < BOSS.centerx:
-                                boss_current_speed = -BOSS_MAX_SPEED * 0.3  # 왼쪽으로 초기 속도 부여 (최대속도의 30%)
-                            else:
-                                boss_current_speed = BOSS_MAX_SPEED * 0.3   # 오른쪽으로 초기 속도 부여 (최대속도의 30%)
-                            SOUND_DEFENSE_START.play()
-                            print(f"  !   - : {distance_to_predicted:.1f}, : {boss_max_move:.1f}")
+                    if distance_to_predicted > boss_max_move * 0.6:  # 60% 이상 도달 어려움 (더 민감)
+                        # 10% 확률로 스피드디펜스 발동 (확률 증가)
+                        if random.random() < 0.10:
+                            # 발동 간격 체크 (25초)
+                            current_time = pygame.time.get_ticks() // 16  # 프레임으로 변환
+                            if current_time - speed_defense_last_activation >= SPEED_DEFENSE_INTERVAL:
+                                speed_defense_active = True
+                                speed_defense_timer = speed_defense_cooldown  # 3초 지속
+                                speed_defense_last_activation = current_time
+                                
+                                # 현재 보스 속도의 200% (+100%)로 스피드디펜스 설정
+                                # 리그와 스테이지에 따른 현재 보스 속도 가져오기
+                                current_config = get_final_boss_config(current_stage, ai_mode if ai_enabled else "pro")
+                                # 스피드디펜스: 현재 속도의 200% 적용
+                                speed_multiplier = 2.0  # 100% 증가 (2배속)
+                                BOSS_ACCELERATION = current_config["accel"] * speed_multiplier
+                                BOSS_DECELERATION = current_config["decel"] * speed_multiplier
+                                BOSS_MAX_SPEED = current_config["max_speed"] * speed_multiplier
+                                BOSS_INSTANT_STOP_DECELERATION = current_config["instant_stop"] * speed_multiplier
+                                # 즉시 목표 지점으로 가속 시작
+                                if predicted_x < BOSS.centerx:
+                                    boss_current_speed = -BOSS_MAX_SPEED * 0.3  # 왼쪽으로 초기 속도 부여 (최대속도의 30%)
+                                else:
+                                    boss_current_speed = BOSS_MAX_SPEED * 0.3   # 오른쪽으로 초기 속도 부여 (최대속도의 30%)
+                                SOUND_DEFENSE_START.play()
+                                print(f"스피드 디펜스 발동! 거리 차이: {distance_to_predicted:.1f}, 최대 이동 가능: {boss_max_move:.1f}")
         if speed_defense_timer > 0:
             speed_defense_timer -= 1
         if speed_defense_active and speed_defense_timer <= 0:
@@ -31651,11 +31760,11 @@ def main(stage_num, new_boss_mode=False):
                     target_speed = original_speed * effective_ratio
                     
                     # 현재 공의 방향 구하기
-                    current_speed = math.hypot(ball_vel[0], ball_vel[1])
-                    if current_speed > 0.01:  # 공이 움직이고 있을 때
+                    current_ball_speed = math.hypot(ball_vel[0], ball_vel[1])
+                    if current_ball_speed > 0.01:  # 공이 움직이고 있을 때
                         # 현재 방향을 유지하면서 속도만 회복
-                        direction_x = ball_vel[0] / current_speed
-                        direction_y = ball_vel[1] / current_speed
+                        direction_x = ball_vel[0] / current_ball_speed
+                        direction_y = ball_vel[1] / current_ball_speed
                         ball_vel[0] = direction_x * target_speed
                         ball_vel[1] = direction_y * target_speed
                     else:
@@ -31663,19 +31772,20 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[0] = stopwatch_original_ball_vel[0] * effective_ratio
                         ball_vel[1] = stopwatch_original_ball_vel[1] * effective_ratio
                     
-                    # 충돌 플래그를 회복 중에도 주기적으로 리셋 (충돌 감지 정상화)
+                    # 충돌 쿨다운만 주기적으로 리셋 (충돌 감지 정상화)
+                    # player_collision_handled는 리셋하지 않음 (플레이어 패들 이동 버그 방지)
                     if stopwatch_recovery_timer % 10 == 0:  # 10프레임마다 리셋
-                        player_collision_handled = False
+                        # player_collision_handled = False  # 제거됨 - 패들 이동 버그 방지
                         player_collision_cooldown = 0
                         boss_collision_cooldown = 0
                     
                     if stopwatch_recovery_timer == 0:
                         # 완전히 회복 - 현재 방향 유지하며 원래 속도로
-                        current_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        current_ball_speed = math.hypot(ball_vel[0], ball_vel[1])
                         original_speed = math.hypot(stopwatch_original_ball_vel[0], stopwatch_original_ball_vel[1])
-                        if current_speed > 0.01:
-                            direction_x = ball_vel[0] / current_speed
-                            direction_y = ball_vel[1] / current_speed
+                        if current_ball_speed > 0.01:
+                            direction_x = ball_vel[0] / current_ball_speed
+                            direction_y = ball_vel[1] / current_ball_speed
                             ball_vel[0] = direction_x * original_speed
                             ball_vel[1] = direction_y * original_speed
                         else:
@@ -31684,8 +31794,14 @@ def main(stage_num, new_boss_mode=False):
                         
                         stopwatch_active = False
                         stopwatch_original_ball_vel = None
-                        # 충돌 플래그 최종 리셋
-                        player_collision_handled = False
+                        
+                        # 플레이어 이동 속도 리셋 (스탑워치 종료 시 패들이 우측으로 이동하는 버그 수정)
+                        global current_speed
+                        current_speed = 0
+                        
+                        # 충돌 플래그는 리셋하지 않음 (플레이어 패들 이동 버그 방지)
+                        # Stage 3 꼬리채찍 버그와 동일한 문제 - 충돌 플래그 리셋 시 의도치 않은 충돌 감지 발생
+                        # player_collision_handled = False  # 제거됨
                         player_collision_cooldown = 0
                         boss_collision_cooldown = 0
                         print("")
@@ -33628,6 +33744,7 @@ def get_item_name_korean(item_name):
         "technical_vest": "테크니컬조끼",
         "fuel_pouch": "연료파우치",
         "bluetooth_ring": "블루투스링",
+        "smartphone": "스마트폰",
         "ragnarok_hammer": "라그나로크 해머"
     }
     return korean_names.get(item_name, item_name)
@@ -33669,6 +33786,7 @@ def get_item_description(item_name):
         "technical_vest": "테크니컬조끼: 플레이어 패들에 공이 닿았을 때 20% 확률로 8초간 연막을 생성합니다. 3초간 패들을 따라 연막이 분사되며, 눈물샤워/화염탄/미사일/레이저 스턴/화염지대 넉백에 면역이 됩니다.",
         "fuel_pouch": "연료파우치: 최대 스킬 게이지가 영구적으로 100 증가합니다. 더 많은 스킬을 사용할 수 있게 해주는 필수 패시브 아이템입니다.",
         "bluetooth_ring": "블루투스링: 패들에 공이 닿을 때 게이지 충전량이 25% 증가합니다. 스킬을 더 빠르게 충전할 수 있는 유용한 패시브 아이템입니다.",
+        "smartphone": "스마트폰: 플레이어가 스탑워치나 AI알약 아이템을 소지하고 있을 경우, 공을 놓치기 직전 위험한 순간에 자동으로 해당 아이템을 사용합니다. 스탑워치가 AI알약보다 우선 발동됩니다. 한 번에 하나의 아이템만 사용됩니다.",
         "ragnarok_hammer": "라그나로크 해머:  신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 2배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!"
     }
     return descriptions.get(item_name, "설명이 없습니다.")

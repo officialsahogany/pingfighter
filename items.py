@@ -83,7 +83,8 @@ def load_item_icons():
         "life_elixir": "life_elixir.png",  # 생명수 아이콘
         "technical_vest": "technical_vest.png",  # 테크니컬조끼 아이콘
         "fuel_pouch": "fuel_pouch.png",  # 연료파우치 아이콘
-        "bluetooth_ring": "bluetooth_ring.png"  # 블루투스링 아이콘
+        "bluetooth_ring": "bluetooth_ring.png",  # 블루투스링 아이콘
+        "smartphone": "smartphone.png"  # 스마트폰 아이콘
     }
     
     for item_name, icon_file in icon_files.items():
@@ -311,6 +312,15 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
+        "name": "smartphone",  # 📱 스마트폰 패시브 아이템
+        "color": (100, 150, 200),  # 스마트폰 블루
+        "effect": "smartphone",
+        "icon": None,
+        "chance": 0.005,  # 확률 0.5%
+        "duration": 600,
+        "unlock_condition": None
+    },
+    {
         "name": "predictor",  # 🎯 레이저스코프 액티브 아이템
         "color": (100, 200, 255),  # 하늘색
         "effect": "predictor",
@@ -488,6 +498,7 @@ unlocked_items = {
     "technical_vest": True,
     "fuel_pouch": True,
     "bluetooth_ring": True,
+    "smartphone": True,
     
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True

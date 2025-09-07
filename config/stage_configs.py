@@ -26,7 +26,7 @@ BOSS_CONFIGS = {
         "color": (0, 255, 0),
         "accel": 0.840,     
         "decel": 0.840,     
-        "max_speed": 6.585,   
+        "max_speed": 6.3,   # 11.5 -> 11.0 으로 감소 (원래 6.585에서 6.3으로)
         "instant_stop": 0.714,
         "predict_distance": 150,
         "skill_power": 0.8,

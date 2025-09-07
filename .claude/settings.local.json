@@ -146,7 +146,9 @@
       "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_p4i6TF/**)",
       "Bash(claude config get:*)",
       "Bash(osascript:*)",
-      "Bash(afplay:*)"
+      "Bash(afplay:*)",
+      "Bash(do afplay:*)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_TKprY2/**)"
     ],
     "defaultMode": "acceptEdits"
   }
