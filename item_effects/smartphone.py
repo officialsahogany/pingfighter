@@ -28,8 +28,8 @@ class Smartphone:
         PLAYER_CENTERX = player_x if player_x is not None else 50  # 실제 플레이어 X 위치
         PLAYER_CENTERY = paddle_y  # 실제 플레이어 Y 위치
         
-        # 대쉬 거리 (더 가까운 거리에서 발동)
-        DASH_DISTANCE = 200  # 200 픽셀로 조정
+        # 대쉬 거리 (매우 가까운 거리에서 발동)
+        DASH_DISTANCE = 100  # 100 픽셀로 조정
         
         print(f"[DEBUG] 체크 시작 - ball:({ball_x:.1f},{ball_y:.1f}) v:({ball_vx:.1f},{ball_vy:.1f}) paddle_y:{paddle_y:.1f} player_x:{PLAYER_CENTERX}")
         
@@ -52,14 +52,14 @@ class Smartphone:
             
         x_distance = ball_x - PLAYER_CENTERX  # 오른쪽 방향 거리만 계산
         
-        # 엄격한 조건: 200픽셀 초과해야만 발동 (200 이하는 모두 안전)
-        if x_distance <= DASH_DISTANCE:  # <= 200
+        # 엄격한 조건: 100픽셀 초과해야만 발동 (100 이하는 모두 안전)
+        if x_distance <= DASH_DISTANCE:  # <= 100
             print(f"[DEBUG] 대쉬로 도달 가능한 거리 (X거리: {x_distance:.1f} <= {DASH_DISTANCE}) - 위험 없음")
             return False
         
-        # 추가 확인: 정말로 200 초과인지 다시 체크
-        if x_distance <= 200:
-            print(f"[DEBUG] 아직 대쉬 거리 내 (X거리: {x_distance:.1f} <= 200) - 위험 없음")
+        # 추가 확인: 정말로 100 초과인지 다시 체크
+        if x_distance <= 100:
+            print(f"[DEBUG] 아직 대쉬 거리 내 (X거리: {x_distance:.1f} <= 100) - 위험 없음")
             return False
         
         # 조건 4: 공이 빠르게 접근하는지 체크 (선택적)
@@ -71,7 +71,7 @@ class Smartphone:
         # 모든 조건 만족 시 위험!
         print(f"[DEBUG] 🚨 위험 감지!")
         print(f"[DEBUG]   - 플레이어 높이 근처 (Y거리: {y_distance:.1f} <= 100)")
-        print(f"[DEBUG]   - 대쉬 불가능 거리 (X거리: {x_distance:.1f} > 200)")
+        print(f"[DEBUG]   - 대쉬 불가능 거리 (X거리: {x_distance:.1f} > 100)")
         print(f"[DEBUG]   - 빠른 속도 (속도: {ball_speed:.1f} >= 5)")
         print(f"[DEBUG]   - 공 위치: ({ball_x:.1f}, {ball_y:.1f})")
         print(f"[DEBUG]   - 플레이어 X: {PLAYER_CENTERX}, 실제 X거리: {ball_x} - {PLAYER_CENTERX} = {x_distance}")
