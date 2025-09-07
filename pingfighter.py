@@ -21656,6 +21656,21 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             activate_bluetooth_ring(game_state, 1)
             print(f"[DEBUG]    !")
             print(f"[DEBUG]")
+        elif item_name == "smartphone":
+            # 스마트폰 아이템 적용
+            items.smartphone_obtained = True
+            smartphone = get_smartphone_instance()
+            if smartphone:
+                game_state = {
+                    'current_stage': 1,
+                    'active_items': active_item_slot
+                }
+                smartphone.activate(game_state, 1)
+            print(f"[DEBUG] 스마트폰 아이템 활성화!")
+        elif item_name == "stopwatch":
+            # 스탑워치는 액티브 아이템이므로 여기서는 처리하지 않음
+            # 액티브 아이템 슬롯에서 처리됨
+            pass
     print(f"  : {selected_active_items}")
     print(f"  : {selected_passive_items}")
     # 무중력벨트가 선택되어 있으면 강제로 적용
@@ -21802,6 +21817,27 @@ def get_item_icon(item_name):
     elif item_name in ["grenade", "smoke_grenade"]:
         color = (80, 100, 80) if item_name == "grenade" else (150, 150, 150)
         pygame.draw.circle(default_icon, color, (16, 16), 12)
+    elif item_name == "smartphone":
+        # 스마트폰 아이콘 - 현대적인 스마트폰 디자인
+        # 폰 본체 (검은색)
+        pygame.draw.rect(default_icon, (20, 20, 20), (10, 6, 12, 20), border_radius=2)
+        # 화면 (밝은 파란색)
+        pygame.draw.rect(default_icon, (100, 180, 255), (11, 8, 10, 15))
+        # 화면 반사 효과
+        pygame.draw.rect(default_icon, (150, 210, 255), (11, 8, 10, 7))
+        pygame.draw.rect(default_icon, (200, 230, 255), (11, 8, 5, 4))
+        # 홈 버튼
+        pygame.draw.circle(default_icon, (50, 50, 50), (16, 24), 2)
+        # 스피커 (상단)
+        pygame.draw.line(default_icon, (50, 50, 50), (14, 7), (18, 7), 1)
+        # 안테나 신호 아이콘 (화면 내)
+        pygame.draw.line(default_icon, (255, 255, 255), (12, 10), (12, 12), 1)
+        pygame.draw.line(default_icon, (255, 255, 255), (14, 9), (14, 12), 1)
+        pygame.draw.line(default_icon, (255, 255, 255), (16, 8), (16, 12), 1)
+        # 메시지 아이콘 (화면 중앙)
+        pygame.draw.rect(default_icon, (255, 255, 255), (13, 15, 6, 4))
+        pygame.draw.line(default_icon, (255, 255, 255), (13, 15), (16, 17), 1)
+        pygame.draw.line(default_icon, (255, 255, 255), (19, 15), (16, 17), 1)
     elif item_name == "pandora_box":
         pygame.draw.rect(default_icon, (255, 0, 255), (8, 8, 16, 16))
         pygame.draw.rect(default_icon, (255, 215, 0), (8, 8, 16, 16), 2)

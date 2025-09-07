@@ -67,7 +67,7 @@ class Smartphone:
         if self.check_danger(ball_x, ball_y, ball_vx, ball_vy, paddle_y, paddle_size):
             if not self.auto_activated:  # Prevent multiple activations
                 # Check for active items in player's slots
-                active_items = getattr(game_state, 'active_items', [])
+                active_items = game_state.get('active_items', [])
                 
                 # Priority: Stopwatch > AI Pill
                 stopwatch_available = False
@@ -78,7 +78,7 @@ class Smartphone:
                         item_name = item.get('name', '')
                         if item_name == 'stopwatch':
                             stopwatch_available = True
-                        elif item_name == 'ai_pill':
+                        elif item_name == 'aipill':  # Changed from 'ai_pill' to 'aipill'
                             ai_pill_available = True
                             
                 # Auto-activate appropriate item
@@ -95,37 +95,41 @@ class Smartphone:
                     
     def activate_stopwatch(self, game_state, current_stage):
         """스탑워치 자동 활성화"""
-        # Import stopwatch module
-        try:
-            from item_effects.stopwatch import get_stopwatch_instance
-            stopwatch = get_stopwatch_instance()
-            if stopwatch and not stopwatch.active:
-                stopwatch.activate(game_state, current_stage)
+        # Call the global activate_stopwatch function from pingfighter.py
+        import sys
+        # Get the main module (pingfighter.py)
+        main_module = sys.modules.get('__main__')
+        if main_module and hasattr(main_module, 'activate_stopwatch'):
+            # Check if stopwatch is not already active
+            if not getattr(main_module, 'stopwatch_active', False):
+                main_module.activate_stopwatch()
                 # Remove stopwatch from active items
-                active_items = getattr(game_state, 'active_items', [])
+                active_items = game_state.get('active_items', [])
                 for i, item in enumerate(active_items):
                     if item and item.get('name') == 'stopwatch':
                         active_items[i] = None
                         break
-        except ImportError:
-            print("스탑워치 모듈을 찾을 수 없습니다")
+        else:
+            print("스탑워치 함수를 찾을 수 없습니다")
             
     def activate_ai_pill(self, game_state, current_stage):
         """AI알약 자동 활성화"""
-        # Import ai_pill module
-        try:
-            from item_effects.ai_pill import get_ai_pill_instance
-            ai_pill = get_ai_pill_instance()
-            if ai_pill and not ai_pill.active:
-                ai_pill.activate(game_state, current_stage)
-                # Remove ai_pill from active items
-                active_items = getattr(game_state, 'active_items', [])
+        # Call the global activate_aipill function from pingfighter.py
+        import sys
+        # Get the main module (pingfighter.py)
+        main_module = sys.modules.get('__main__')
+        if main_module and hasattr(main_module, 'activate_aipill'):
+            # Check if aipill is not already active
+            if not getattr(main_module, 'aipill_active', False):
+                main_module.activate_aipill()
+                # Remove aipill from active items
+                active_items = game_state.get('active_items', [])
                 for i, item in enumerate(active_items):
-                    if item and item.get('name') == 'ai_pill':
+                    if item and item.get('name') == 'aipill':
                         active_items[i] = None
                         break
-        except ImportError:
-            print("AI알약 모듈을 찾을 수 없습니다")
+        else:
+            print("AI알약 함수를 찾을 수 없습니다")
             
     def draw_effects(self, screen, **kwargs):
         """시각적 효과 (선택사항)"""
