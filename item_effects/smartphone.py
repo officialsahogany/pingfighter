@@ -27,19 +27,34 @@ class Smartphone:
         PADDLE_HEIGHT = 50  # 패들 높이
         PLAYER_CENTERX = player_x if player_x is not None else 50  # 실제 플레이어 X 위치
         PLAYER_CENTERY = paddle_y  # 실제 플레이어 Y 위치
+        SCREEN_HEIGHT = 800  # 게임 화면 높이
         
-        # 핵심: last_hit_by 확인 - 플레이어가 친 공이면 발동 안함
+        # 플레이어 영역 정의 (화면 하단 영역)
+        PLAYER_ZONE_MIN_Y = 550  # 플레이어 영역 시작 Y (화면 하단 250픽셀)
+        
+        # 공이 플레이어 영역에 있지 않으면 위험 없음
+        if ball_y < PLAYER_ZONE_MIN_Y:
+            # print(f"[DEBUG] 공이 플레이어 영역 밖에 있음 (y={ball_y:.0f} < {PLAYER_ZONE_MIN_Y}) - 위험 없음")
+            return False
+        
+        # 첫 번째 체크: 공이 플레이어를 향해 오고 있는지 (왼쪽으로 이동)
+        if ball_vx >= 0:  # 공이 오른쪽으로 가거나 정지 = 플레이어를 향하지 않음
+            # print(f"[DEBUG] 공이 오른쪽으로 이동 중 (vx={ball_vx:.1f}) - 위험 없음")
+            return False
+        
+        # 두 번째 체크: last_hit_by 확인 - 플레이어가 친 공이면 발동 안함
         import sys
         main_module = sys.modules.get('__main__')
         if main_module and hasattr(main_module, 'last_hit_by'):
             last_hit_by = main_module.last_hit_by
             if last_hit_by == "player":
-                print("[DEBUG] 플레이어가 친 공 - 스마트폰 발동 안함")
+                # print("[DEBUG] 플레이어가 마지막으로 친 공 - 스마트폰 발동 안함")
                 return False
+            # print(f"[DEBUG] last_hit_by: {last_hit_by}")
         
-        # 기본 조건: 공이 플레이어를 향해 오고 있는지
-        if ball_vx >= 0:  # 공이 오른쪽으로 가거나 정지
-            print("[DEBUG] 공이 플레이어를 향하지 않음 - 위험 없음")
+        # 세 번째 체크: 공이 플레이어 X축 근처에 있는지
+        if ball_x > 200:  # 공이 아직 멀리 있으면 (플레이어는 보통 x=50 근처)
+            # print(f"[DEBUG] 공이 아직 X축으로 멀리 있음 (x={ball_x:.0f}) - 위험 없음")
             return False
         
         # 공이 플레이어 뒤에 있으면 이미 놓친 것
