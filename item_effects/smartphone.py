@@ -21,48 +21,51 @@ class Smartphone:
         print("스마트폰 패시브 아이템 활성화 - 위험 순간 자동 아이템 사용")
         
     def check_danger(self, ball_x, ball_y, ball_vx, ball_vy, paddle_y, paddle_size):
-        """공을 놓칠 위험이 있는지 감지"""
-        print(f"[DEBUG] 위험 감지 체크 - ball_x: {ball_x:.1f}, ball_vx: {ball_vx:.1f}, ball_y: {ball_y:.1f}, paddle_y: {paddle_y:.1f}")
+        """공을 놓칠 위험이 있는지 감지 - 간단하고 명확한 조건"""
+        print(f"[DEBUG] 위험 감지 체크 - ball_x: {ball_x:.1f}, ball_y: {ball_y:.1f}, ball_vx: {ball_vx:.1f}, ball_vy: {ball_vy:.1f}, paddle_y: {paddle_y:.1f}")
         
-        if ball_vx >= 0:  # Ball moving away from player
-            print("[DEBUG] 공이 멀어지는 중 - 위험 없음")
+        # 게임 상수
+        PADDLE_WIDTH = 155  # 패들 너비
+        PADDLE_HEIGHT = 50  # 패들 높이
+        PLAYER_CENTERX = 50  # 플레이어 X 위치 (왼쪽 패들)
+        PLAYER_CENTERY = paddle_y  # 실제 플레이어 Y 위치
+        
+        # 대쉬 거리 (대쉬기어 없을 때 기본 15프레임 * 속도 20)
+        DASH_DISTANCE = 15 * 20  # 300 픽셀
+        
+        # 조건 1: 공이 플레이어 높이 근처인지 체크 (패들 높이의 2배 범위)
+        y_distance = abs(ball_y - PLAYER_CENTERY)
+        if y_distance > PADDLE_HEIGHT * 2:  # 100픽셀 이상 떨어져 있으면
+            print(f"[DEBUG] 공이 플레이어 높이에서 멀리 있음 (Y거리: {y_distance:.1f} > {PADDLE_HEIGHT * 2}) - 위험 없음")
             return False
-            
-        # 플레이어 패들 X 위치 (왼쪽)
-        paddle_x = 50
         
-        # 공이 패들 X 위치에 도달할 때까지의 시간 계산
-        time_to_paddle = abs(ball_x - paddle_x) / abs(ball_vx) if ball_vx != 0 else float('inf')
+        # 조건 2: 공이 플레이어를 향해 오고 있는지 체크
+        if ball_vx >= 0:  # 공이 오른쪽으로 가거나 정지
+            print("[DEBUG] 공이 플레이어를 향하지 않음 - 위험 없음")
+            return False
         
-        # 공이 패들 위치에 도달했을 때의 Y 위치 예측
-        future_ball_y = ball_y + ball_vy * time_to_paddle
+        # 조건 3: 공이 대쉬로도 도달할 수 없는 수평 거리에 있는지 체크
+        x_distance = abs(ball_x - PLAYER_CENTERX)
+        if x_distance <= DASH_DISTANCE:
+            print(f"[DEBUG] 대쉬로 도달 가능한 거리 (X거리: {x_distance:.1f} <= {DASH_DISTANCE}) - 위험 없음")
+            return False
         
-        # 패들의 상하 범위
-        paddle_top = paddle_y - paddle_size // 2
-        paddle_bottom = paddle_y + paddle_size // 2
+        # 조건 4: 공이 빠르게 접근하는지 체크 (선택적)
+        ball_speed = abs(ball_vx)
+        if ball_speed < 5:  # 너무 느린 공
+            print(f"[DEBUG] 공이 너무 느림 (속도: {ball_speed:.1f} < 5) - 위험 없음")
+            return False
         
-        # 대쉬로 커버 가능한 거리 (테스트를 위해 줄임)
-        dash_coverage = 60  # 120 → 60으로 감소 (더 쉽게 발동)
-        
-        print(f"[DEBUG] 예측 Y: {future_ball_y:.1f}, 패들 범위: {paddle_top:.1f}~{paddle_bottom:.1f}, 대쉬 커버: {dash_coverage}")
-        
-        # 위험 판단 조건:
-        # 1. 공이 패들 높이를 벗어날 예정이고
-        # 2. 대쉬로도 닿을 수 없는 거리이며
-        # 3. 공이 충분히 가까이 왔을 때 (테스트를 위해 조건 완화)
-        if (future_ball_y < paddle_top - dash_coverage or future_ball_y > paddle_bottom + dash_coverage):
-            # 공이 패들에 가까이 왔고 대쉬로도 막을 수 없는 상황
-            if ball_x < 200 and ball_vx < 0:  # 120 → 200으로 증가 (더 일찍 발동)
-                # 공 속도도 고려 (조건 완화)
-                ball_speed = abs(ball_vx)
-                if ball_speed > 5 or ball_x < 150:  # 8→5, 100→150으로 완화
-                    print(f"[DEBUG] 🚨 위험 감지! ball_x: {ball_x:.1f}, speed: {ball_speed:.1f}")
-                    return True
-                
-        return False
+        # 모든 조건 만족 시 위험!
+        print(f"[DEBUG] 🚨 위험 감지!")
+        print(f"[DEBUG]   - 플레이어 높이 근처 (Y거리: {y_distance:.1f} <= {PADDLE_HEIGHT * 2})")
+        print(f"[DEBUG]   - 대쉬 불가능 거리 (X거리: {x_distance:.1f} > {DASH_DISTANCE})")
+        print(f"[DEBUG]   - 빠른 속도 (속도: {ball_speed:.1f} >= 5)")
+        return True
         
     def update(self, game_state, current_stage):
         """위험 감지 및 자동 아이템 사용"""
+        print(f"[DEBUG] 스마트폰 update 호출됨 - active: {self.active}")
         if not self.active:
             print("[DEBUG] 스마트폰 update - active가 False라서 중단")
             return
@@ -92,6 +95,7 @@ class Smartphone:
                 # Check for active items in player's slots
                 active_items = game_state.get('active_items', [])
                 print(f"[DEBUG] 위험 감지됨! active_items 개수: {len(active_items)}")
+                print(f"[DEBUG] active_items 내용: {[item.get('name') if item else None for item in active_items]}")
                 
                 # Priority: Stopwatch > AI Pill
                 stopwatch_available = False
@@ -130,11 +134,26 @@ class Smartphone:
             # Check if stopwatch is not already active
             if not getattr(main_module, 'stopwatch_active', False):
                 main_module.activate_stopwatch()
-                # Remove stopwatch from active items
+                # Remove stopwatch from active items in the actual game slot
+                if hasattr(main_module, 'active_item_slot'):
+                    active_item_slot = main_module.active_item_slot
+                    if active_item_slot:
+                        # Find and delete the stopwatch item (like normal usage)
+                        for i in range(len(active_item_slot) - 1, -1, -1):  # Iterate backwards to avoid index issues
+                            item = active_item_slot[i]
+                            if item and item.get('name') == 'stopwatch':
+                                del active_item_slot[i]  # Completely remove from list
+                                print(f"[DEBUG] 스마트폰이 스탑워치를 슬롯 {i}에서 완전히 제거 (del 사용)")
+                                # Adjust selected index if needed
+                                if hasattr(main_module, 'selected_item_index'):
+                                    if main_module.selected_item_index >= len(active_item_slot):
+                                        main_module.selected_item_index = max(0, len(active_item_slot) - 1)
+                                break
+                # Also remove from local game_state for consistency
                 active_items = game_state.get('active_items', [])
-                for i, item in enumerate(active_items):
-                    if item and item.get('name') == 'stopwatch':
-                        active_items[i] = None
+                for i in range(len(active_items) - 1, -1, -1):
+                    if active_items[i] and active_items[i].get('name') == 'stopwatch':
+                        del active_items[i]
                         break
         else:
             print("스탑워치 함수를 찾을 수 없습니다")
@@ -149,11 +168,26 @@ class Smartphone:
             # Check if aipill is not already active
             if not getattr(main_module, 'aipill_active', False):
                 main_module.activate_aipill()
-                # Remove aipill from active items
+                # Remove aipill from active items in the actual game slot
+                if hasattr(main_module, 'active_item_slot'):
+                    active_item_slot = main_module.active_item_slot
+                    if active_item_slot:
+                        # Find and delete the aipill item (like normal usage)
+                        for i in range(len(active_item_slot) - 1, -1, -1):  # Iterate backwards to avoid index issues
+                            item = active_item_slot[i]
+                            if item and item.get('name') == 'aipill':
+                                del active_item_slot[i]  # Completely remove from list
+                                print(f"[DEBUG] 스마트폰이 AI알약을 슬롯 {i}에서 완전히 제거 (del 사용)")
+                                # Adjust selected index if needed
+                                if hasattr(main_module, 'selected_item_index'):
+                                    if main_module.selected_item_index >= len(active_item_slot):
+                                        main_module.selected_item_index = max(0, len(active_item_slot) - 1)
+                                break
+                # Also remove from local game_state for consistency
                 active_items = game_state.get('active_items', [])
-                for i, item in enumerate(active_items):
-                    if item and item.get('name') == 'aipill':
-                        active_items[i] = None
+                for i in range(len(active_items) - 1, -1, -1):
+                    if active_items[i] and active_items[i].get('name') == 'aipill':
+                        del active_items[i]
                         break
         else:
             print("AI알약 함수를 찾을 수 없습니다")

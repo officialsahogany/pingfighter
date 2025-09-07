@@ -458,6 +458,7 @@ technical_vest_obtained = False  # 테크니컬조끼 아이템 획득 여부
 
 # 전설 아이템 획득 여부
 ragnarok_hammer_obtained = False  # 라그나로크 해머 획득 여부
+smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 
 
 active_item_slot = None

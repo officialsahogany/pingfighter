@@ -31722,6 +31722,9 @@ def main(stage_num, new_boss_mode=False):
                     target_index = direct_item_index
                 if use_item:
                     item = active_item_slot[target_index]
+                    # 스마트폰이 아이템을 제거한 경우 None 체크
+                    if item is None:
+                        continue  # 아이템이 없으면 건너뛰기
                     current_time = pygame.time.get_ticks()
                     #  숫자키 사용 시 선택 인덱스도 업데이트
                     if direct_item_index >= 0:
