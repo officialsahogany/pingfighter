@@ -20,18 +20,18 @@ class Smartphone:
         self.active = True
         print("스마트폰 패시브 아이템 활성화 - 위험 순간 자동 아이템 사용")
         
-    def check_danger(self, ball_x, ball_y, ball_vx, ball_vy, paddle_y, paddle_size):
+    def check_danger(self, ball_x, ball_y, ball_vx, ball_vy, paddle_y, paddle_size, player_x=None):
         """공을 놓칠 위험이 있는지 감지 - 간단하고 명확한 조건"""
-        print(f"[DEBUG] 위험 감지 체크 - ball_x: {ball_x:.1f}, ball_y: {ball_y:.1f}, ball_vx: {ball_vx:.1f}, ball_vy: {ball_vy:.1f}, paddle_y: {paddle_y:.1f}")
-        
         # 게임 상수
         PADDLE_WIDTH = 155  # 패들 너비
         PADDLE_HEIGHT = 50  # 패들 높이
-        PLAYER_CENTERX = 50  # 플레이어 X 위치 (왼쪽 패들)
+        PLAYER_CENTERX = player_x if player_x is not None else 50  # 실제 플레이어 X 위치
         PLAYER_CENTERY = paddle_y  # 실제 플레이어 Y 위치
         
         # 대쉬 거리 (대쉬기어 없을 때 기본 15프레임 * 속도 20)
-        DASH_DISTANCE = 15 * 20  # 300 픽셀
+        DASH_DISTANCE = 300  # 300 픽셀 고정
+        
+        print(f"[DEBUG] 체크 시작 - ball:({ball_x:.1f},{ball_y:.1f}) v:({ball_vx:.1f},{ball_vy:.1f}) paddle_y:{paddle_y:.1f} player_x:{PLAYER_CENTERX}")
         
         # 조건 1: 공이 플레이어 높이 근처인지 체크 (패들 높이의 2배 범위)
         y_distance = abs(ball_y - PLAYER_CENTERY)
@@ -51,8 +51,15 @@ class Smartphone:
             return False
             
         x_distance = ball_x - PLAYER_CENTERX  # 오른쪽 방향 거리만 계산
-        if x_distance <= DASH_DISTANCE:
+        
+        # 엄격한 조건: 300픽셀 초과해야만 발동 (300 이하는 모두 안전)
+        if x_distance <= DASH_DISTANCE:  # <= 300
             print(f"[DEBUG] 대쉬로 도달 가능한 거리 (X거리: {x_distance:.1f} <= {DASH_DISTANCE}) - 위험 없음")
+            return False
+        
+        # 추가 확인: 정말로 300 초과인지 다시 체크
+        if x_distance <= 300:
+            print(f"[DEBUG] 아직 대쉬 거리 내 (X거리: {x_distance:.1f} <= 300) - 위험 없음")
             return False
         
         # 조건 4: 공이 빠르게 접근하는지 체크 (선택적)
@@ -63,10 +70,11 @@ class Smartphone:
         
         # 모든 조건 만족 시 위험!
         print(f"[DEBUG] 🚨 위험 감지!")
-        print(f"[DEBUG]   - 플레이어 높이 근처 (Y거리: {y_distance:.1f} <= {PADDLE_HEIGHT * 2})")
-        print(f"[DEBUG]   - 대쉬 불가능 거리 (X거리: {x_distance:.1f} > {DASH_DISTANCE})")
+        print(f"[DEBUG]   - 플레이어 높이 근처 (Y거리: {y_distance:.1f} <= 100)")
+        print(f"[DEBUG]   - 대쉬 불가능 거리 (X거리: {x_distance:.1f} > 300)")
         print(f"[DEBUG]   - 빠른 속도 (속도: {ball_speed:.1f} >= 5)")
         print(f"[DEBUG]   - 공 위치: ({ball_x:.1f}, {ball_y:.1f})")
+        print(f"[DEBUG]   - 플레이어 X: {PLAYER_CENTERX}, 실제 X거리: {ball_x} - {PLAYER_CENTERX} = {x_distance}")
         return True
         
     def update(self, game_state, current_stage):
@@ -95,8 +103,21 @@ class Smartphone:
         paddle_y = getattr(current_stage, 'paddle_y', 300)
         paddle_size = getattr(current_stage, 'paddle_size', 100)
         
-        # Check if in danger
-        if self.check_danger(ball_x, ball_y, ball_vx, ball_vy, paddle_y, paddle_size):
+        # Get actual player X position from main module if available
+        import sys
+        main_module = sys.modules.get('__main__')
+        if main_module and hasattr(main_module, 'PLAYER'):
+            player_rect = main_module.PLAYER
+            if player_rect:
+                player_x = player_rect.centerx
+                print(f"[DEBUG] 실제 플레이어 X 위치: {player_x}")
+            else:
+                player_x = 50  # Default fallback
+        else:
+            player_x = 50  # Default fallback
+        
+        # Check if in danger (pass actual player X position)
+        if self.check_danger(ball_x, ball_y, ball_vx, ball_vy, paddle_y, paddle_size, player_x):
             if not self.auto_activated:  # Prevent multiple activations
                 # Check for active items in player's slots
                 active_items = game_state.get('active_items', [])
