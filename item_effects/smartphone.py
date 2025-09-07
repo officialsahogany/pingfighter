@@ -45,7 +45,12 @@ class Smartphone:
             return False
         
         # 조건 3: 공이 대쉬로도 도달할 수 없는 수평 거리에 있는지 체크
-        x_distance = abs(ball_x - PLAYER_CENTERX)
+        # 공이 플레이어보다 오른쪽에 있어야 함 (ball_x > PLAYER_CENTERX)
+        if ball_x <= PLAYER_CENTERX:
+            print(f"[DEBUG] 공이 플레이어 뒤에 있음 (ball_x: {ball_x:.1f} <= {PLAYER_CENTERX}) - 위험 없음")
+            return False
+            
+        x_distance = ball_x - PLAYER_CENTERX  # 오른쪽 방향 거리만 계산
         if x_distance <= DASH_DISTANCE:
             print(f"[DEBUG] 대쉬로 도달 가능한 거리 (X거리: {x_distance:.1f} <= {DASH_DISTANCE}) - 위험 없음")
             return False
@@ -61,6 +66,7 @@ class Smartphone:
         print(f"[DEBUG]   - 플레이어 높이 근처 (Y거리: {y_distance:.1f} <= {PADDLE_HEIGHT * 2})")
         print(f"[DEBUG]   - 대쉬 불가능 거리 (X거리: {x_distance:.1f} > {DASH_DISTANCE})")
         print(f"[DEBUG]   - 빠른 속도 (속도: {ball_speed:.1f} >= 5)")
+        print(f"[DEBUG]   - 공 위치: ({ball_x:.1f}, {ball_y:.1f})")
         return True
         
     def update(self, game_state, current_stage):
