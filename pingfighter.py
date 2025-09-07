@@ -3052,13 +3052,13 @@ def activate_stopwatch():
     global current_speed
     
     # 패들과 공 사이 안전 거리 확인
-    MIN_SAFE_DISTANCE = 50  # 최소 안전 거리 (충돌 방지를 위해 충분한 여유)
+    MIN_SAFE_DISTANCE = 35  # 최소 안전 거리
     if BALL and PLAYER:
         x_distance = abs(BALL.centerx - PLAYER.centerx)
         y_distance = abs(BALL.centery - PLAYER.centery)
         
-        # X축이나 Y축 중 하나라도 너무 가까우면 발동하지 않음
-        if x_distance <= MIN_SAFE_DISTANCE or y_distance <= MIN_SAFE_DISTANCE:
+        # 너무 가까우면 발동하지 않음
+        if x_distance <= MIN_SAFE_DISTANCE and y_distance <= MIN_SAFE_DISTANCE:
             print(f"[스탑워치] 발동 취소 - 패들과 너무 가까움 (X:{x_distance:.0f}, Y:{y_distance:.0f})")
             return False
     
@@ -26961,12 +26961,12 @@ def handle_ball():
                 
                 # 패들과 공 사이의 최소 안전 거리 확인
                 # 공과 패들이 충돌하지 않을 정도의 거리에서만 발동
-                MIN_SAFE_DISTANCE = 50  # 패들과 공이 충돌하지 않을 최소 거리 (픽셀)
+                MIN_SAFE_DISTANCE = 35  # 패들과 공이 충돌하지 않을 최소 거리 (픽셀)
                 x_distance = abs(BALL.centerx - PLAYER.centerx)
                 y_distance = abs(BALL.centery - PLAYER.centery)
                 
                 # X축과 Y축 모두 안전 거리 확보
-                safe_distance_ok = (x_distance > MIN_SAFE_DISTANCE) and (y_distance > MIN_SAFE_DISTANCE)
+                safe_distance_ok = (x_distance > MIN_SAFE_DISTANCE) or (y_distance > MIN_SAFE_DISTANCE)
                 
                 if (not stopwatch_active) and has_stopwatch and (BALL.centery <= HEIGHT - SAFE_MARGIN_FROM_FLOOR) and activation_height_ok and safe_distance_ok:
                     # 쿨타임과 무관하게 즉시 발동하도록 플래그 설정 후 발동
