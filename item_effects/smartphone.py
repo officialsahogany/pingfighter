@@ -40,9 +40,11 @@ class Smartphone:
             main_module = sys.modules.get('__main__')
             SCREEN_HEIGHT = getattr(main_module, 'HEIGHT', 750)
             PADDLE_HEIGHT = getattr(main_module, 'PADDLE_HEIGHT', 50)
+            PADDLE_WIDTH = getattr(main_module, 'PADDLE_WIDTH', 155)
         except Exception:
             SCREEN_HEIGHT = 750
             PADDLE_HEIGHT = 50
+            PADDLE_WIDTH = 155
 
         PLAYER_CENTERY = paddle_y
         PLAYER_CENTERX = player_x if player_x is not None else 50
@@ -96,6 +98,12 @@ class Smartphone:
         except Exception:
             pass
         player_speed = PLAYER_DASH_SPEED if is_rolling_active else PLAYER_NORMAL_SPEED
+        # 대시 토큰이 있으면 실제로는 대시로 커버 가능하므로 최소 대시 속도로 재평가
+        try:
+            if main_module and getattr(main_module, 'rolling_charges', 0) > 0:
+                player_speed = max(player_speed, PLAYER_DASH_SPEED)
+        except Exception:
+            pass
         # 실측 플레이어 속도로 상향 보정: 치러 가는 중이면 더 빠르게 가정하여 과잉 발동 억제
         try:
             if self.last_player_y is not None:
@@ -115,6 +123,24 @@ class Smartphone:
         if dy_to_player < 0 and frames_to_floor > 30:
             return False
         time_to_reach_player = abs(dy_to_player) / ball_speed_y if dy_to_player != 0 else 0
+
+        # [가드] 플레이어 패들 바로 위 영역에서는 발동하지 않음
+        # 의미: 공이 패들의 가로 범위(±width/2 + 8px) 안에 있고,
+        #       패들 중심 위쪽 근접 높이(패들 높이 × 1.2) 범위에 있으며,
+        #       아래로 이동 중일 때는 플레이어가 직접 받아칠 수 있는 안정권으로 간주
+        try:
+            x_margin = 4  # 가로 밴드 축소(덜 과민)
+            paddle_left = PLAYER_CENTERX - (PADDLE_WIDTH / 2) - x_margin
+            paddle_right = PLAYER_CENTERX + (PADDLE_WIDTH / 2) + x_margin
+            in_paddle_x_band = (paddle_left <= ball_x <= paddle_right)
+            # 세로 밴드 축소: 패들 높이의 0.6배까지만 안정권으로 간주
+            above_paddle_near = (ball_y <= PLAYER_CENTERY) and (ball_y >= (PLAYER_CENTERY - PADDLE_HEIGHT * 0.6))
+            # 극임박(바닥까지 12프레임 이내)은 예외: 가드 무시하고 이후 로직으로 판단
+            if in_paddle_x_band and above_paddle_near and (ball_vy > 0) and (frames_to_floor > 12):
+                # 패들 바로 위 안정권: 위험 아님으로 처리
+                return False
+        except Exception:
+            pass
 
         # Y축 영역 필터링: 공이 너무 높이 있으면 무시 (스크린샷 문제 해결)
         # 단, 바닥 근처나 실제 위험 상황은 예외 처리
@@ -195,7 +221,7 @@ class Smartphone:
                 # 2) 예측시점에 도달 가능한지 체크 (여유 1.10)
                 can_reach_at_player_x = time_needed_for_y2 <= t_to_player_x * 1.10
                 # 3) 패들 유효 범위 안에 들어오는지도 체크(약간의 여유)
-                within_paddle_band = y_gap_at_player_x <= (PADDLE_HEIGHT * 0.6 + 6)
+                within_paddle_band = y_gap_at_player_x <= (PADDLE_HEIGHT * 0.75 + 6)
 
                 # 3.5) 플레이어가 직접 타격 가능한 거리면 절대 발동 금지
                 # 타격 가능 조건: X축 도달시간 내에 Y축 이동 가능 + 패들 범위
@@ -307,12 +333,13 @@ class Smartphone:
             
             if y_gap_condition and not x_very_close:
                 # 발동 높이 가드: 공이 플레이어 패들 범위를 크게 벗어나면(바닥 너무 가까이) 발동하지 않음
-                # 패들 하단 + 여유 25픽셀까지 허용 (PLAYER_CENTERY + 25 + 25 = PLAYER_CENTERY + 50)
+                # 패들 하단 + 여유 50픽셀까지 허용 (더 관대하게)
                 activation_height_ok = (ball_y <= (PLAYER_CENTERY + PADDLE_HEIGHT))
                 # print(f"  - 높이 가드: {activation_height_ok} (Y={ball_y:.0f} <= {PLAYER_CENTERY + PADDLE_HEIGHT:.0f})")
-                
-                if frames_to_floor <= 10 and activation_height_ok:  # 바닥 임박+높이 가드
-                    # print(f"[DEBUG] 🚨 바닥 근처 위험 발동! Y={ball_y:.0f}, 바닥까지={frames_to_floor:.1f}")
+                # print(f"  - miss_at_player_x: {miss_at_player_x}, near_hit: {near_hit_imminent}")
+                # 바닥 임박+높이 가드일 때 허용 (프레임 조건 완화)
+                if frames_to_floor <= 15 and activation_height_ok and (not near_hit_imminent):
+                    print(f"[DEBUG] 🚨 바닥 근처 위험 발동! Y={ball_y:.0f}, 바닥까지={frames_to_floor:.1f}")
                     return True
         
         # 일반 위험 판단
@@ -320,10 +347,11 @@ class Smartphone:
         condition1 = (not can_reach_at_paddle_y) and (not in_hitting_zone) and (not near_hit_imminent)
         # 조건 2: 충분한 Y 거리 + 시간 부족
         condition2 = y_distance > PADDLE_HEIGHT / 2 and (time_needed_for_y > time_to_reach_player * SAFETY_MARGIN)
-        # 조건 3: 바닥이 어느 정도 가까움
-        condition3 = frames_to_floor <= 20
+        # 조건 3: 바닥이 어느 정도 가까움 (완화)
+        condition3 = frames_to_floor <= 24
         
-        if condition1 and condition2 and condition3 and (miss_at_player_x is True) and (not near_hit_imminent):
+        # miss_at_player_x 조건 완화 - True가 아니어도 발동 가능
+        if condition1 and condition2 and condition3 and (not near_hit_imminent):
             # 대시 중 여부를 출력(도달 판단은 is_rolling_active를 반영함)
             try:
                 dash_state = bool(is_rolling_active)
@@ -351,8 +379,9 @@ class Smartphone:
         # 패들 근접 트리거: 더 낮은 임계(패들에 매우 근접했을 때만) 발동
         # 패들 높이의 0.30배 또는 14px 중 더 큰 값(약간 더 일찍)
         near_window = max(int(PADDLE_HEIGHT * 0.30), 14)
+        # miss_at_player_x 조건 제거하여 더 쉽게 발동
         if (not can_reach_at_paddle_y) and (0 < dy_to_player <= near_window) and y_distance > PADDLE_HEIGHT / 2 \
-           and (miss_at_player_x is True) and (not in_hitting_zone) and (not near_hit_imminent):
+           and (not in_hitting_zone) and (not near_hit_imminent):
             # 치러 가는 중이면 근접 트리거 억제
             if is_closing:
                 self.last_player_y = paddle_y
@@ -374,7 +403,7 @@ class Smartphone:
         if frames_to_floor <= 18 and y_distance > PADDLE_HEIGHT / 2:
             # 발동 높이 가드: 공이 플레이어 패들 범위를 크게 벗어나면(바닥 너무 가까이) 발동하지 않음
             # 패들 하단 + 여유 25픽셀까지 허용 (PLAYER_CENTERY + 25 + 25 = PLAYER_CENTERY + 50)
-            activation_height_ok = (ball_y <= (PLAYER_CENTERY + PADDLE_HEIGHT))
+            activation_height_ok = (ball_y <= (PLAYER_CENTERY + PADDLE_HEIGHT * 0.25))
             # 바닥 임박 상황에서는 도달 가능성 + (미스 확정 또는 극임박) + 높이 가드
             if activation_height_ok and (not can_reach_before_floor) and ((miss_at_player_x is True) or (frames_to_floor <= 8)):
                 # print(f"[DEBUG] 🚨🚨 바닥 임박 긴급!: frames={frames_to_floor:.1f}, dy={y_distance:.0f}")

@@ -26931,7 +26931,7 @@ def handle_ball():
                 has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (active_item_slot or []))
                 if has_stopwatch:
                     PRE_ACTIVATE_MARGIN = 16  # 바닥까지 16px 남았을 때
-                    MIN_PLAYABLE_MARGIN = 28  # 공 중심이 바닥에서 최소 28px 위
+                    MIN_PLAYABLE_MARGIN = 32  # 공 중심이 바닥에서 최소 32px 위 (완화)
                     dist_to_floor = HEIGHT - BALL.bottom
                     if 0 <= dist_to_floor <= PRE_ACTIVATE_MARGIN and BALL.centery <= HEIGHT - MIN_PLAYABLE_MARGIN:
                         phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
@@ -26955,7 +26955,7 @@ def handle_ball():
                 has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (active_item_slot or []))
                 # 바닥에 거의 닿았지만 아직 약간의 여유가 있을 때만 강제 발동
                 # 너무 아래(플레이어가 닿기 힘든 위치)에서는 강제 발동하지 않음
-                SAFE_MARGIN_FROM_FLOOR = 28  # px
+                SAFE_MARGIN_FROM_FLOOR = 32  # px (완화)
                 # 발동 높이 가드: 공이 패들 중심보다 너무 아래면 강제 발동하지 않음
                 activation_height_ok = (BALL.centery <= (PLAYER.centery + PADDLE_HEIGHT // 4))
                 
