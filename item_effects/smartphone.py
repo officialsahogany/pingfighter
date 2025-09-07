@@ -48,6 +48,18 @@ class Smartphone:
         x_distance = ball_x - PLAYER_CENTERX
         y_distance = abs(ball_y - PLAYER_CENTERY)
         
+        # 공이 플레이어 머리 위에 있는지 확인 (패들 상단보다 위)
+        PADDLE_TOP = PLAYER_CENTERY - (PADDLE_HEIGHT / 2)  # 패들 상단 Y 좌표
+        if ball_y < PADDLE_TOP:  # 패들 상단보다 위에 있으면
+            print(f"[DEBUG] 공이 플레이어 머리 위에 있음 (ball_y: {ball_y:.1f} < 패들상단: {PADDLE_TOP:.1f}) - 위험 없음")
+            return False
+        
+        # 플레이어가 막 서브한 공인지 확인 (가까이에서 시작하고 속도가 느린 경우)
+        # 서브는 보통 속도가 느리고 플레이어 근처에서 시작
+        if ball_x < 200 and ball_speed < 10:  # 플레이어 근처에서 느린 속도
+            print(f"[DEBUG] 플레이어가 서브한 공으로 판단 (X:{ball_x:.0f}, 속도:{ball_speed:.0f}) - 위험 없음")
+            return False
+        
         # 도달 시간 계산 (공이 플레이어 X 위치에 도달하는 시간)
         time_to_reach = x_distance / ball_speed if ball_speed > 0 else 999
         
@@ -59,47 +71,67 @@ class Smartphone:
         # 플레이어가 Y축으로 이동해야 하는 거리
         y_move_needed = y_distance
         
+        # 화면 경계 상수
+        SCREEN_HEIGHT = 800  # 게임 화면 높이
+        MAX_REACHABLE_Y = 150  # 플레이어가 도달 가능한 최대 Y 거리
+        
+        # 시나리오 0: 공이 화면 밖으로 나가려는 경우 (절대 놓치면 안됨)
+        # 단, 서브가 아닌 경우에만
+        if x_distance <= 80 and ball_speed >= 8:  # 매우 가까이 있고 어느정도 속도가 있음
+            if y_distance <= MAX_REACHABLE_Y:  # Y축으로 도달 가능한 범위
+                print(f"[DEBUG] 🚨🚨 긴급! 공이 곧 지나감! (X:{x_distance:.0f}, Y:{y_distance:.0f})")
+                return True
+        
         # 시나리오 1: 매우 빠른 공 (반응 시간 부족)
         if ball_speed >= 20 and time_to_reach <= 8:
-            print(f"[DEBUG] 🚨 초고속 공! 반응 불가 (속도: {ball_speed:.1f}, 도달시간: {time_to_reach:.1f}프레임)")
-            return True
+            if y_distance <= MAX_REACHABLE_Y:  # 도달 가능한 Y 범위 내
+                print(f"[DEBUG] 🚨 초고속 공! 반응 불가 (속도: {ball_speed:.1f}, 도달시간: {time_to_reach:.1f}프레임)")
+                return True
             
         # 시나리오 2: 가까운 거리에서 빠른 공 + Y축 이동 필요
         if x_distance <= 200 and ball_speed >= 12 and y_distance > 30:
             # 플레이어가 Y축 이동에 필요한 시간
             y_move_time = y_move_needed / PLAYER_NORMAL_SPEED
-            if y_move_time > time_to_reach:
+            if y_move_time > time_to_reach and y_distance <= MAX_REACHABLE_Y:
                 print(f"[DEBUG] 🚨 Y축 이동 불가! (필요시간: {y_move_time:.1f} > 도달시간: {time_to_reach:.1f})")
                 return True
                 
         # 시나리오 3: 중거리에서 빠른 공
         if x_distance > 150 and x_distance <= 400 and ball_speed >= 15:
             # 대쉬를 사용해도 도달 불가능한지 체크
-            if time_to_reach < 10:  # 더 관대한 조건
+            if time_to_reach < 10 and y_distance <= MAX_REACHABLE_Y:  # 도달 가능한 Y 범위 내
                 print(f"[DEBUG] 🚨 대쉬로도 불가! (도달시간: {time_to_reach:.1f} < 10프레임)")
                 return True
                 
         # 시나리오 4: 공이 패들 가장자리를 노리는 경우
-        if y_distance > PADDLE_HEIGHT - 15:  # 패들 가장자리 근처 (더 넓은 범위)
+        if y_distance > PADDLE_HEIGHT - 15 and y_distance <= MAX_REACHABLE_Y:  # 패들 가장자리 근처 (더 넓은 범위)
             if ball_speed >= 10 and time_to_reach <= 15:
                 print(f"[DEBUG] 🚨 가장자리 위험! (Y거리: {y_distance:.1f}, 속도: {ball_speed:.1f})")
                 return True
                 
-        # 시나리오 5: 플레이어 높이에서 벗어난 공
-        if y_distance > PADDLE_HEIGHT * 2:  # 100픽셀 이상
-            # 하지만 매우 빠르면 여전히 위험
-            if ball_speed >= 25 and x_distance <= 200:
-                print(f"[DEBUG] 🚨 높이 벗어났지만 초고속! (Y거리: {y_distance:.1f}, 속도: {ball_speed:.1f})")
-                return True
-            else:
-                # print(f"[DEBUG] 공이 너무 높거나 낮음 (Y거리: {y_distance:.1f} > 100) - 위험 없음")
-                return False
+        # 시나리오 5: 플레이어 높이에서 벗어난 공 (너무 멀리 있으면 포기)
+        if y_distance > MAX_REACHABLE_Y:  # 150픽셀 이상 떨어진 공
+            # 도달 불가능한 공은 무시
+            print(f"[DEBUG] 공이 너무 멀리 있음 (Y거리: {y_distance:.1f} > {MAX_REACHABLE_Y}) - 도달 불가")
+            return False
         
-        # 시나리오 6: 기본 위험 감지 (심플한 조건)
+        # 시나리오 6: 화면 좌우 끝으로 가는 공 (도달 불가능)
+        expected_y_at_edge = ball_y + (ball_vy * time_to_reach)  # 공이 화면 끝에 도달했을 때 Y 위치
+        if expected_y_at_edge < 0 or expected_y_at_edge > SCREEN_HEIGHT:
+            print(f"[DEBUG] 공이 화면 밖으로 나감 (예상 Y: {expected_y_at_edge:.1f}) - 도달 불가")
+            return False
+        
+        # 시나리오 7: 기본 위험 감지 (심플한 조건)
         # 플레이어 근처에서 빠른 공
         if y_distance <= 80 and x_distance > 100 and ball_speed >= 10:
             print(f"[DEBUG] 🚨 기본 위험! (X:{x_distance:.0f}, Y:{y_distance:.0f}, 속도:{ball_speed:.0f})")
             return True
+        
+        # 시나리오 8: 마지막 순간 보호 (절대 놓치지 않도록)
+        if x_distance <= 120 and y_distance <= 100:  # 매우 가까이 있고 도달 가능한 범위
+            if ball_speed >= 8:  # 어느 정도 속도가 있는 공
+                print(f"[DEBUG] 🚨🚨 마지막 순간 보호! (X:{x_distance:.0f}, Y:{y_distance:.0f})")
+                return True
         
         # 모든 조건을 통과하면 안전
         return False
