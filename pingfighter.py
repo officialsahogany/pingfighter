@@ -25863,7 +25863,15 @@ def handle_ball():
     import items
     if hasattr(items, 'smartphone_obtained') and items.smartphone_obtained:
         smartphone = get_smartphone_instance()
-        if smartphone and smartphone.active:
+        print(f"[DEBUG] 스마트폰 체크 - obtained: {items.smartphone_obtained}, instance: {smartphone is not None}")
+        if smartphone:
+            print(f"[DEBUG] 스마트폰 active 상태: {smartphone.active}")
+            # 패시브 아이템이므로 obtained이면 자동으로 activate
+            if not smartphone.active:
+                print("[DEBUG] 스마트폰 자동 활성화")
+                temp_state = {'current_stage': current_stage, 'active_items': active_item_slot}
+                smartphone.activate(temp_state, current_stage)
+            
             # 스마트폰용 임시 game_state 구성 (전역 game_state를 덮어쓰지 않음)
             smartphone_state = {
                 'current_stage': current_stage,
