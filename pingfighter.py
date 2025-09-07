@@ -2901,17 +2901,17 @@ def apply_effect(effect_name):
         # 효과는 투척 시점에 자동 적용됨
         print("!     ,   50% ,   10% ,   50% !")
     elif effect_name == "technical_vest":  # 테크니컬조끼 패시브 아이템 활성화
-        game_state = {
+        vest_state = {
             'current_stage': current_stage
         }
-        activate_technical_vest(game_state, current_stage)
+        activate_technical_vest(vest_state, current_stage)
     elif effect_name == "fuel_pouch":  # 연료파우치 패시브 아이템 활성화
-        game_state = {
+        fuel_state = {
             'max_gauge': special_gauge_max,
             'gauge': special_gauge,
             'current_stage': current_stage
         }
-        gauge_bonus = activate_fuel_pouch(game_state, current_stage)
+        gauge_bonus = activate_fuel_pouch(fuel_state, current_stage)
         # 최대 게이지는 get_max_gauge()에서 자동으로 처리됨
         special_gauge_max = get_max_gauge()
         
@@ -2949,12 +2949,12 @@ def apply_effect(effect_name):
     elif effect_name == "devil_dice":  #  악마의 주사위 아이템 활성화
         from item_effects.devil_dice import activate_devil_dice
         # 게임 상태 정보 수집
-        game_state = {
+        dice_state = {
             'paddle_width': PADDLE_WIDTH,
             'skill_gauge_max': get_max_gauge(),
         }
         # 악마의 주사위 발동
-        multipliers = activate_devil_dice(game_state, current_stage)
+        multipliers = activate_devil_dice(dice_state, current_stage)
         print("! 6   !")
         print(f"   : x{multipliers['paddle_size']:.1f}")
         print(f"   : x{multipliers['skill_gauge']:.1f}")
@@ -5703,7 +5703,7 @@ def handle_player(keys):
                     #  아카데미 스킬 효과 계산: 도약 스킬 보너스
                     jump_bonus = academy.get_skill_bonus("dash_jump") if 'academy' in globals() else 0
                     
-                    game_state = {
+                    half_dash_state = {
                         'special_gauge': special_gauge,
                         'required_gauge': required_gauge,
                         'rolling_charges': rolling_charges,
@@ -5715,7 +5715,7 @@ def handle_player(keys):
                         'dashgear_obtained': dashgear_obtained  # 대쉬기어 상태 전달
                     }
                     
-                    half_dash_activated, half_dash_direction, half_dash_timer, half_dash_token_cost = check_and_activate_half_dash(game_state)
+                    half_dash_activated, half_dash_direction, half_dash_timer, half_dash_token_cost = check_and_activate_half_dash(half_dash_state)
                     
                     if half_dash_activated:
                         # 하프 대쉬 발동
@@ -7056,8 +7056,8 @@ def store_passive_item(item_data):
         # 테크니컬조끼 아이템 획득 (패시브)
         import items
         items.technical_vest_obtained = True
-        game_state = {'current_stage': current_stage}
-        activate_technical_vest(game_state, current_stage)
+        vest_state = {'current_stage': current_stage}
+        activate_technical_vest(vest_state, current_stage)
         print("!      30%  3  !")
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("technical_vest", "테크니컬조끼", None, False,
@@ -7067,12 +7067,12 @@ def store_passive_item(item_data):
         global special_gauge_max
         import items
         items.fuel_pouch_obtained = True
-        game_state = {
+        fuel_state = {
             'max_gauge': special_gauge_max,
             'gauge': special_gauge,
             'current_stage': current_stage
         }
-        activate_fuel_pouch(game_state, current_stage)
+        activate_fuel_pouch(fuel_state, current_stage)
         special_gauge_max = get_max_gauge()
         print("!    100 !")
         # 아이템 획득 플로팅 애니메이션
@@ -7082,10 +7082,10 @@ def store_passive_item(item_data):
         # 블루투스링 아이템 획득 (패시브)
         import items
         items.bluetooth_ring_obtained = True
-        game_state = {
+        ring_state = {
             'current_stage': current_stage
         }
-        activate_bluetooth_ring(game_state, current_stage)
+        activate_bluetooth_ring(ring_state, current_stage)
         print("!    25% !")
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("bluetooth_ring", "블루투스링", None, False,
@@ -7097,11 +7097,11 @@ def store_passive_item(item_data):
         items.smartphone_obtained = True
         smartphone = get_smartphone_instance()
         if smartphone:
-            game_state = {
+            phone_state = {
                 'current_stage': current_stage,
                 'active_items': active_item_slot
             }
-            smartphone.activate(game_state, current_stage)
+            smartphone.activate(phone_state, current_stage)
         print("스마트폰 획득! 위험 시 자동 아이템 사용!")
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("smartphone", "스마트폰", None, False,
@@ -21632,28 +21632,28 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             print(f"[DEBUG] commando_arm_obtained: {items.commando_arm_obtained}")
         elif item_name == "technical_vest":
             # 테크니컬조끼 아이템 적용
-            game_state = {'current_stage': 1}
-            activate_technical_vest(game_state, 1)
+            vest_game_state = {'current_stage': 1}
+            activate_technical_vest(vest_game_state, 1)
             print(f"[DEBUG]    !")
             print(f"[DEBUG]")
         elif item_name == "fuel_pouch":
             # 연료파우치 아이템 적용
             items.fuel_pouch_obtained = True
             global special_gauge_max, special_gauge
-            game_state = {
+            fuel_game_state = {
                 'max_gauge': special_gauge_max,
                 'gauge': special_gauge,
                 'current_stage': 1
             }
-            activate_fuel_pouch(game_state, 1)
+            activate_fuel_pouch(fuel_game_state, 1)
             special_gauge_max = get_max_gauge()
             print(f"[DEBUG]    !")
             print(f"[DEBUG]  : {special_gauge_max}")
         elif item_name == "bluetooth_ring":
             # 블루투스링 아이템 적용
             items.bluetooth_ring_obtained = True
-            game_state = {'current_stage': 1}
-            activate_bluetooth_ring(game_state, 1)
+            ring_game_state = {'current_stage': 1}
+            activate_bluetooth_ring(ring_game_state, 1)
             print(f"[DEBUG]    !")
             print(f"[DEBUG]")
         elif item_name == "smartphone":
@@ -21661,11 +21661,11 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             items.smartphone_obtained = True
             smartphone = get_smartphone_instance()
             if smartphone:
-                game_state = {
+                smartphone_game_state = {
                     'current_stage': 1,
                     'active_items': active_item_slot
                 }
-                smartphone.activate(game_state, 1)
+                smartphone.activate(smartphone_game_state, 1)
             print(f"[DEBUG] 스마트폰 아이템 활성화!")
         elif item_name == "stopwatch":
             # 스탑워치는 액티브 아이템이므로 여기서는 처리하지 않음
@@ -21713,11 +21713,11 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
                 print(f"  [{legendary_item.korean_name}]   !")
             
             # 전설 아이템 활성화
-            game_state = {
+            legendary_game_state = {
                 'current_stage': 1,
                 'cooldown_multiplier': 1.0
             }
-            legendary_manager.activate_item(item_name, game_state)
+            legendary_manager.activate_item(item_name, legendary_game_state)
             print(f"  [{item_name}] !")
         
         print(f"  : {selected_legendary_items}")
@@ -21769,7 +21769,33 @@ def get_item_icon(item_name):
             # print(f"Error loading {full_path}: {e}")  # 디버그용
             continue
     
-    # unknown_item.png 시도
+    # 스마트폰은 unknown_item 대신 직접 아이콘 생성
+    if item_name == "smartphone":
+        default_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        # 스마트폰 아이콘 - 현대적인 스마트폰 디자인
+        # 폰 본체 (검은색)
+        pygame.draw.rect(default_icon, (20, 20, 20), (10, 6, 12, 20), border_radius=2)
+        # 화면 (밝은 파란색)
+        pygame.draw.rect(default_icon, (100, 180, 255), (11, 8, 10, 15))
+        # 화면 반사 효과
+        pygame.draw.rect(default_icon, (150, 210, 255), (11, 8, 10, 7))
+        pygame.draw.rect(default_icon, (200, 230, 255), (11, 8, 5, 4))
+        # 홈 버튼
+        pygame.draw.circle(default_icon, (50, 50, 50), (16, 24), 2)
+        # 스피커 (상단)
+        pygame.draw.line(default_icon, (50, 50, 50), (14, 7), (18, 7), 1)
+        # 안테나 신호 아이콘 (화면 내)
+        pygame.draw.line(default_icon, (255, 255, 255), (12, 10), (12, 12), 1)
+        pygame.draw.line(default_icon, (255, 255, 255), (14, 9), (14, 12), 1)
+        pygame.draw.line(default_icon, (255, 255, 255), (16, 8), (16, 12), 1)
+        # 메시지 아이콘 (화면 중앙)
+        pygame.draw.rect(default_icon, (255, 255, 255), (13, 15, 6, 4))
+        pygame.draw.line(default_icon, (255, 255, 255), (13, 15), (16, 17), 1)
+        pygame.draw.line(default_icon, (255, 255, 255), (19, 15), (16, 17), 1)
+        icon_cache[item_name] = default_icon
+        return default_icon
+    
+    # unknown_item.png 시도 (스마트폰이 아닌 경우만)
     try:
         unknown_path = resource_path("items/unknown_item.png")
         if os.path.exists(unknown_path):
@@ -21817,27 +21843,6 @@ def get_item_icon(item_name):
     elif item_name in ["grenade", "smoke_grenade"]:
         color = (80, 100, 80) if item_name == "grenade" else (150, 150, 150)
         pygame.draw.circle(default_icon, color, (16, 16), 12)
-    elif item_name == "smartphone":
-        # 스마트폰 아이콘 - 현대적인 스마트폰 디자인
-        # 폰 본체 (검은색)
-        pygame.draw.rect(default_icon, (20, 20, 20), (10, 6, 12, 20), border_radius=2)
-        # 화면 (밝은 파란색)
-        pygame.draw.rect(default_icon, (100, 180, 255), (11, 8, 10, 15))
-        # 화면 반사 효과
-        pygame.draw.rect(default_icon, (150, 210, 255), (11, 8, 10, 7))
-        pygame.draw.rect(default_icon, (200, 230, 255), (11, 8, 5, 4))
-        # 홈 버튼
-        pygame.draw.circle(default_icon, (50, 50, 50), (16, 24), 2)
-        # 스피커 (상단)
-        pygame.draw.line(default_icon, (50, 50, 50), (14, 7), (18, 7), 1)
-        # 안테나 신호 아이콘 (화면 내)
-        pygame.draw.line(default_icon, (255, 255, 255), (12, 10), (12, 12), 1)
-        pygame.draw.line(default_icon, (255, 255, 255), (14, 9), (14, 12), 1)
-        pygame.draw.line(default_icon, (255, 255, 255), (16, 8), (16, 12), 1)
-        # 메시지 아이콘 (화면 중앙)
-        pygame.draw.rect(default_icon, (255, 255, 255), (13, 15, 6, 4))
-        pygame.draw.line(default_icon, (255, 255, 255), (13, 15), (16, 17), 1)
-        pygame.draw.line(default_icon, (255, 255, 255), (19, 15), (16, 17), 1)
     elif item_name == "pandora_box":
         pygame.draw.rect(default_icon, (255, 0, 255), (8, 8, 16, 16))
         pygame.draw.rect(default_icon, (255, 215, 0), (8, 8, 16, 16), 2)
@@ -25859,8 +25864,8 @@ def handle_ball():
     if hasattr(items, 'smartphone_obtained') and items.smartphone_obtained:
         smartphone = get_smartphone_instance()
         if smartphone and smartphone.active:
-            # game_state 구성
-            game_state = {
+            # 스마트폰용 임시 game_state 구성 (전역 game_state를 덮어쓰지 않음)
+            smartphone_state = {
                 'current_stage': current_stage,
                 'active_items': active_item_slot
             }
@@ -25875,7 +25880,7 @@ def handle_ball():
                     self.paddle_size = PADDLE_HEIGHT
             
             stage_info = StageInfo()
-            smartphone.update(game_state, stage_info)
+            smartphone.update(smartphone_state, stage_info)
     
     # ---  적응형 물리 효과: 충돌 후 점진적 감속 ---
     #  저속에서는 감속 완화, 고속에서는 감속 강화
