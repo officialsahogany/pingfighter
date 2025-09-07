@@ -64,6 +64,21 @@ class Smartphone:
         if ball_over_paddle_x and ball_over_paddle_y and ball_vy > 0:
             # print(f"[DEBUG] 패들 위 공 - 발동 억제: X={ball_x:.0f} (패들:{paddle_left:.0f}~{paddle_right:.0f}), Y={ball_y:.0f}")
             return False
+        
+        # 패들 양쪽 100프레임 이내 영역에서는 발동하지 않음
+        # 공이 왼쪽으로 이동 중이고 패들 X축에 도달하는 시간이 100프레임 이내
+        if ball_vx < 0 and ball_x > PLAYER_CENTERX:
+            frames_to_paddle_x = (ball_x - PLAYER_CENTERX) / abs(ball_vx)
+            if frames_to_paddle_x <= 100:
+                # print(f"[DEBUG] 패들 100프레임 이내 - 발동 억제: {frames_to_paddle_x:.1f}프레임 후 도달")
+                return False
+        
+        # 공이 오른쪽으로 이동 중이고 패들 X축에서 멀어지는 시간이 100프레임 이내
+        elif ball_vx > 0 and ball_x < PLAYER_CENTERX:
+            frames_from_paddle_x = (PLAYER_CENTERX - ball_x) / abs(ball_vx)
+            if frames_from_paddle_x <= 100:
+                # print(f"[DEBUG] 패들 100프레임 이내 - 발동 억제: {frames_from_paddle_x:.1f}프레임 전 통과")
+                return False
 
         # 동적 위험 영역 계산: 공의 위치와 속도에 따라 조정 (조기 발동 억제 강화)
         # 기본적으로 더 아래에서만 판단하고, 빠른 공도 과도하게 일찍 감지하지 않도록 제한
