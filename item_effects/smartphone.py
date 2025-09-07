@@ -21,53 +21,113 @@ class Smartphone:
         print("스마트폰 패시브 아이템 활성화 - 위험 순간 자동 아이템 사용")
         
     def check_danger(self, ball_x, ball_y, ball_vx, ball_vy, paddle_y, paddle_size, player_x=None):
-        """공을 놓칠 위험이 있는지 감지 - 플레이어가 가드할 수 없는 상황 판단"""
+        """공을 놓칠 위험이 있는지 감지 - 플레이어가 패배 직전 상황 판단"""
         # 게임 상수
         PADDLE_WIDTH = 155  # 패들 너비
         PADDLE_HEIGHT = 50  # 패들 높이
         PLAYER_CENTERX = player_x if player_x is not None else 50  # 실제 플레이어 X 위치
         PLAYER_CENTERY = paddle_y  # 실제 플레이어 Y 위치
         
+        # 핵심: last_hit_by 확인 - 플레이어가 친 공이면 발동 안함
+        import sys
+        main_module = sys.modules.get('__main__')
+        if main_module and hasattr(main_module, 'last_hit_by'):
+            last_hit_by = main_module.last_hit_by
+            if last_hit_by == "player":
+                print("[DEBUG] 플레이어가 친 공 - 스마트폰 발동 안함")
+                return False
+        
         # 기본 조건: 공이 플레이어를 향해 오고 있는지
         if ball_vx >= 0:  # 공이 오른쪽으로 가거나 정지
             print("[DEBUG] 공이 플레이어를 향하지 않음 - 위험 없음")
             return False
         
-        # 공이 플레이어 뒤에 있으면 무시
+        # 공이 플레이어 뒤에 있으면 이미 놓친 것
         if ball_x <= PLAYER_CENTERX:
-            print(f"[DEBUG] 공이 플레이어 뒤에 있음 (ball_x: {ball_x:.1f} <= {PLAYER_CENTERX}) - 위험 없음")
+            print(f"[DEBUG] 공이 이미 플레이어 뒤에 있음 (ball_x: {ball_x:.1f} <= {PLAYER_CENTERX})")
             return False
         
-        # Y축 거리 계산 (이것이 핵심!)
-        y_distance = abs(ball_y - PLAYER_CENTERY)
-        
-        # 플레이어 이동 속도
-        PLAYER_NORMAL_SPEED = 10  # 일반 이동 속도 (픽셀/프레임)
-        
-        # Y축 이동에 필요한 시간 계산 (프레임)
-        frames_needed_for_y = y_distance / PLAYER_NORMAL_SPEED
-        
-        # 핵심 조건: Y축 이동에 80프레임 이상 필요하면 가드 불가능
-        CRITICAL_FRAME_THRESHOLD = 80  # 80프레임 (약 1.3초)
-        
-        if frames_needed_for_y >= CRITICAL_FRAME_THRESHOLD:
-            print(f"[DEBUG] 🚨🚨🚨 가드 불가능! Y축 이동에 {frames_needed_for_y:.0f}프레임 필요 (임계값: {CRITICAL_FRAME_THRESHOLD})")
-            print(f"[DEBUG] 공 위치: ({ball_x:.0f}, {ball_y:.0f}), 플레이어 Y: {PLAYER_CENTERY:.0f}, Y거리: {y_distance:.0f}")
-            return True
-        
-        # 추가 보호 조건: 공이 매우 가까이 있고 Y축 거리가 멀 때
+        # X축 거리 계산 (패배 임박 감지의 핵심!)
         x_distance = ball_x - PLAYER_CENTERX
         
-        # 공이 플레이어에게 도달하는 시간 계산
+        # Y축 거리 계산
+        y_distance = abs(ball_y - PLAYER_CENTERY)
+        
+        # 공 속도
         ball_speed = abs(ball_vx)
-        if ball_speed > 0 and x_distance < 100:  # 매우 가까운 공만 체크
-            time_to_reach = x_distance / ball_speed
-            
-            # 공이 도달하는 시간보다 Y축 이동 시간이 더 오래 걸리면 위험
-            # 그리고 Y축 거리가 충분히 멀 때만
-            if frames_needed_for_y > time_to_reach and y_distance > 50:
-                print(f"[DEBUG] 🚨 가까운 공! Y축 이동 시간({frames_needed_for_y:.0f}) > 공 도달 시간({time_to_reach:.0f}) - 가드 불가!")
+        
+        # 시나리오 1: 공이 매우 가까이 있음 (절대 위험!)
+        if x_distance <= 15 and ball_speed >= 5:  # 15픽셀 이내는 무조건 위험
+            print(f"[DEBUG] 🚨🚨 패배 직전! X거리:{x_distance:.0f}px, 속도:{ball_speed:.0f}")
+            return True
+        
+        # 시나리오 1-2: 가까이 있고 Y축 체크 필요
+        if x_distance <= 30 and ball_speed >= 5:  # 30픽셀 이내
+            # X거리가 20 이하면 대부분 위험 (Y가 가깝고 속도가 느린 경우만 제외)
+            if x_distance <= 20:
+                # 반응 시간 계산: 20픽셀을 속도로 나눔
+                reaction_frames = x_distance / ball_speed
+                # Y가 가까우면 (20픽셀 이내) 일반적으로 도달 가능
+                if y_distance <= 20:
+                    # Y가 매우 가까우면 (10픽셀 이내) 거의 항상 도달 가능
+                    if y_distance <= 10:
+                        # 초고속이 아니면 안전
+                        if reaction_frames <= 2 and ball_speed >= 10:
+                            print(f"[DEBUG] 🚨 초고속 근접! 반응시간:{reaction_frames:.1f}프레임")
+                            return True
+                    else:
+                        # Y가 10-20픽셀 거리면 속도에 따라 판단
+                        if reaction_frames <= 3 and ball_speed >= 10:
+                            print(f"[DEBUG] 🚨 빠른 근접 공! 반응시간:{reaction_frames:.1f}프레임")
+                            return True
+                    
+                    # 특별 케이스: 정확히 같은 Y위치에서 속도 5 이상
+                    if y_distance == 0 and ball_speed >= 5 and reaction_frames <= 4:
+                        print(f"[DEBUG] 🚨 동일 Y축 빠른 공! 반응시간:{reaction_frames:.1f}프레임")
+                        return True
+                else:
+                    # Y가 멀면 반응 시간이 짧으면 위험
+                    if reaction_frames <= 4:
+                        print(f"[DEBUG] 🚨 반응 시간 부족! X거리:{x_distance:.0f}, Y거리:{y_distance:.0f}, 반응:{reaction_frames:.1f}프레임")
+                        return True
+            # 속도가 빠르면 Y축 관계없이 위험
+            elif ball_speed >= 10:
+                print(f"[DEBUG] 🚨 빠른 공 접근! X거리:{x_distance:.0f}, 속도:{ball_speed:.0f}")
                 return True
+            # 속도가 보통이면 Y축 체크
+            elif y_distance > 30:
+                print(f"[DEBUG] 🚨 가까운 공 + Y축 멀음! X거리:{x_distance:.0f}, Y거리:{y_distance:.0f}")
+                return True
+        
+        # 시나리오 1-3: 중간 거리지만 조건부 위험
+        if x_distance <= 80 and ball_speed >= 5:  # 80픽셀 이내
+            # 플레이어가 Y축으로 도달 가능한지 체크
+            PLAYER_NORMAL_SPEED = 10
+            frames_to_impact = x_distance / ball_speed if ball_speed > 0 else 999
+            frames_needed_for_y = y_distance / PLAYER_NORMAL_SPEED
+            
+            # Y축으로 도달 불가능하거나 시간이 부족하면 위험
+            if y_distance > 50 and frames_needed_for_y > frames_to_impact * 1.2:  # 20% 여유 마진
+                print(f"[DEBUG] 🚨 Y축 도달 불가! X거리:{x_distance:.0f}, Y거리:{y_distance:.0f}, 충돌까지:{frames_to_impact:.1f}프레임")
+                return True
+        
+        # 시나리오 2: 초고속 공이 매우 가까이 있음 (거리 조건 강화)
+        if x_distance <= 60 and ball_speed >= 20:  # 60픽셀 이내로 축소
+            print(f"[DEBUG] 🚨 초고속 공 접근! X거리:{x_distance:.0f}, 속도:{ball_speed:.0f}")
+            return True
+        
+        # 시나리오 3: 공이 패들 범위를 벗어난 위치에 있고 가까이 있음
+        PADDLE_REACH = PADDLE_HEIGHT + 20  # 패들이 닿을 수 있는 범위
+        if x_distance <= 60 and y_distance > PADDLE_REACH:
+            print(f"[DEBUG] 🚨 패들 범위 밖! X거리:{x_distance:.0f}, Y거리:{y_distance:.0f}")
+            return True
+        
+        # 시나리오 4: Y축 이동 시간이 극도로 긴 경우 (80프레임 이상)
+        CRITICAL_Y_FRAMES = 80
+        frames_needed_for_y = y_distance / 10  # 플레이어 속도 10
+        if frames_needed_for_y >= CRITICAL_Y_FRAMES and x_distance <= 200:
+            print(f"[DEBUG] 🚨 Y축 이동 불가능! 필요 프레임:{frames_needed_for_y:.0f}, X거리:{x_distance:.0f}")
+            return True
         
         # 모든 조건을 통과하면 안전
         return False
