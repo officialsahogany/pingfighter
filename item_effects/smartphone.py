@@ -28,8 +28,6 @@ class Smartphone:
         PLAYER_CENTERX = player_x if player_x is not None else 50  # 실제 플레이어 X 위치
         PLAYER_CENTERY = paddle_y  # 실제 플레이어 Y 위치
         
-        print(f"[DEBUG] 체크 시작 - ball:({ball_x:.1f},{ball_y:.1f}) v:({ball_vx:.1f},{ball_vy:.1f}) paddle_y:{paddle_y:.1f} player_x:{PLAYER_CENTERX}")
-        
         # 기본 조건: 공이 플레이어를 향해 오고 있는지
         if ball_vx >= 0:  # 공이 오른쪽으로 가거나 정지
             print("[DEBUG] 공이 플레이어를 향하지 않음 - 위험 없음")
@@ -62,45 +60,48 @@ class Smartphone:
         y_move_needed = y_distance
         
         # 시나리오 1: 매우 빠른 공 (반응 시간 부족)
-        if ball_speed >= 25 and time_to_reach <= 5:
+        if ball_speed >= 20 and time_to_reach <= 8:
             print(f"[DEBUG] 🚨 초고속 공! 반응 불가 (속도: {ball_speed:.1f}, 도달시간: {time_to_reach:.1f}프레임)")
             return True
             
         # 시나리오 2: 가까운 거리에서 빠른 공 + Y축 이동 필요
-        if x_distance <= 150 and ball_speed >= 15 and y_distance > 30:
+        if x_distance <= 200 and ball_speed >= 12 and y_distance > 30:
             # 플레이어가 Y축 이동에 필요한 시간
             y_move_time = y_move_needed / PLAYER_NORMAL_SPEED
             if y_move_time > time_to_reach:
                 print(f"[DEBUG] 🚨 Y축 이동 불가! (필요시간: {y_move_time:.1f} > 도달시간: {time_to_reach:.1f})")
                 return True
                 
-        # 시나리오 3: 중거리에서 매우 빠른 공
-        if x_distance > 100 and x_distance <= 300 and ball_speed >= 20:
+        # 시나리오 3: 중거리에서 빠른 공
+        if x_distance > 150 and x_distance <= 400 and ball_speed >= 15:
             # 대쉬를 사용해도 도달 불가능한지 체크
-            dash_reach = PLAYER_DASH_SPEED * DASH_DURATION  # 대쉬로 이동 가능한 거리 (300)
-            # 대쉬 후에도 반격할 시간이 있는지 체크
-            if time_to_reach < 15:  # 대쉬 시간보다 짧으면 위험
-                print(f"[DEBUG] 🚨 대쉬로도 불가! (도달시간: {time_to_reach:.1f} < 대쉬시간: 15)")
+            if time_to_reach < 10:  # 더 관대한 조건
+                print(f"[DEBUG] 🚨 대쉬로도 불가! (도달시간: {time_to_reach:.1f} < 10프레임)")
                 return True
                 
         # 시나리오 4: 공이 패들 가장자리를 노리는 경우
-        if y_distance > PADDLE_HEIGHT - 10:  # 패들 가장자리 근처
-            if ball_speed >= 12 and time_to_reach <= 10:
+        if y_distance > PADDLE_HEIGHT - 15:  # 패들 가장자리 근처 (더 넓은 범위)
+            if ball_speed >= 10 and time_to_reach <= 15:
                 print(f"[DEBUG] 🚨 가장자리 위험! (Y거리: {y_distance:.1f}, 속도: {ball_speed:.1f})")
                 return True
                 
         # 시나리오 5: 플레이어 높이에서 벗어난 공
         if y_distance > PADDLE_HEIGHT * 2:  # 100픽셀 이상
             # 하지만 매우 빠르면 여전히 위험
-            if ball_speed >= 30 and x_distance <= 200:
+            if ball_speed >= 25 and x_distance <= 200:
                 print(f"[DEBUG] 🚨 높이 벗어났지만 초고속! (Y거리: {y_distance:.1f}, 속도: {ball_speed:.1f})")
                 return True
             else:
-                print(f"[DEBUG] 공이 너무 높거나 낮음 (Y거리: {y_distance:.1f} > 100) - 위험 없음")
+                # print(f"[DEBUG] 공이 너무 높거나 낮음 (Y거리: {y_distance:.1f} > 100) - 위험 없음")
                 return False
         
+        # 시나리오 6: 기본 위험 감지 (심플한 조건)
+        # 플레이어 근처에서 빠른 공
+        if y_distance <= 80 and x_distance > 100 and ball_speed >= 10:
+            print(f"[DEBUG] 🚨 기본 위험! (X:{x_distance:.0f}, Y:{y_distance:.0f}, 속도:{ball_speed:.0f})")
+            return True
+        
         # 모든 조건을 통과하면 안전
-        print(f"[DEBUG] 반격 가능 - 위험 없음")
         return False
         
     def update(self, game_state, current_stage):
