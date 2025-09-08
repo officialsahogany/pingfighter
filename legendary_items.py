@@ -869,20 +869,9 @@ class RagnarokHammer(LegendaryItem):
         
         print(f"라그나로크 해머 프레임 {frames_loaded}/8개 로드")
         
-        # 프레임이 없으면 기본 아이콘 사용
+        # 프레임이 없으면 에러만 표시 (가짜 애니메이션 생성하지 않음)
         if not self.animation_frames:
-            icon_path = resource_path(self.icon_path)
-            try:
-                default_frame = pygame.image.load(icon_path).convert_alpha()
-                # 8프레임 시뮬레이션 (회전 효과)
-                import math
-                for i in range(8):
-                    angle = i * 45  # 45도씩 회전
-                    rotated = pygame.transform.rotate(default_frame, angle)
-                    self.animation_frames.append(rotated)
-                print(f"기본 아이콘으로 회전 애니메이션 생성: {icon_path}")
-            except Exception as e:
-                print(f"기본 아이콘도 로드 실패: {e}")
+            print(f"❌ 라그나로크 해머: PNG 프레임을 찾을 수 없습니다!")
     
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """애니메이션 아이콘 그리기"""
@@ -949,19 +938,6 @@ class RagnarokHammer(LegendaryItem):
                 pygame.draw.line(screen, bolt_color,
                                (x + size*3//4, y - 5),
                                (x + size*2//3, y + size//4), 2)
-        else:
-            # 애니메이션 프레임이 없으면 기본 아이콘 + 회전 효과
-            self._draw_default_icon(screen, x, y + int(self.animation_offset), size)
-            # 회전하는 번개 효과
-            angle = (pygame.time.get_ticks() // 50) % 360
-            for i in range(4):
-                bolt_angle = math.radians(angle + i * 90)
-                start_x = x + size//2 + int(math.cos(bolt_angle) * size//3)
-                start_y = y + size//2 + int(math.sin(bolt_angle) * size//3)
-                end_x = x + size//2 + int(math.cos(bolt_angle) * size//2)
-                end_y = y + size//2 + int(math.sin(bolt_angle) * size//2)
-                pygame.draw.line(screen, (255, 255, 150, 100), 
-                               (start_x, start_y), (end_x, end_y), 1)
         
         # 파티클 효과
         if self.particle_timer > 1000:
