@@ -2057,9 +2057,12 @@ class AcademyUI:
                 if required_skill in skill_positions:
                     required_pos = skill_positions[required_skill]
                     required_level = self.skill_system.get_skill_level(required_skill)
-                    current_skill_level = self.skill_system.get_skill_level(skill["id"])
-                    # 화살표는 타겟 스킬이 해금되었을 때(레벨 > 0) 초록색
-                    line_color = (100, 255, 100) if current_skill_level > 0 else (100, 100, 100)
+                    # 화살표는 선행 스킬이 해금되고 조건을 만족하면 초록색
+                    # 선행 스킬이 해금되었고, 누적 TP 조건도 만족하는지 확인
+                    prereq_met = required_level > 0
+                    tp_requirement = skill.get("total_tp_required", 0)
+                    tp_met = self.skill_system.total_invested_points >= tp_requirement
+                    line_color = (100, 255, 100) if (prereq_met and tp_met) else (100, 100, 100)
                     
                     # 화살표 선 그리기
                     pygame.draw.line(self.screen, line_color, 
@@ -2084,9 +2087,12 @@ class AcademyUI:
                 for required_skill in skill.get("requires_or"):
                     if required_skill in skill_positions:
                         required_pos = skill_positions[required_skill]
-                        current_skill_level = self.skill_system.get_skill_level(skill["id"])
-                        # 화살표는 타겟 스킬이 해금되었을 때(레벨 > 0) 초록색
-                        line_color = (100, 255, 100) if current_skill_level > 0 else (100, 100, 100)
+                        required_level = self.skill_system.get_skill_level(required_skill)
+                        # OR 조건에서는 현재 연결된 선행 스킬이 해금되면 초록색
+                        # 추가로 누적 TP 조건도 확인
+                        tp_requirement = skill.get("total_tp_required", 0)
+                        tp_met = self.skill_system.total_invested_points >= tp_requirement
+                        line_color = (100, 255, 100) if (required_level > 0 and tp_met) else (100, 100, 100)
                         
                         # 화살표 선 그리기
                         pygame.draw.line(self.screen, line_color, 
@@ -2434,9 +2440,11 @@ class AcademyUI:
                     required_skill = skill.get("requires")
                     if required_skill in skill_positions:
                         required_pos = skill_positions[required_skill]
-                        # 화살표는 타겟 스킬이 해금되었을 때(레벨 > 0) 초록색
-                        current_skill_level = self.skill_system.get_skill_level(skill["id"])
-                        line_color = (100, 255, 100) if current_skill_level > 0 else (100, 100, 100)
+                        required_level = self.skill_system.get_skill_level(required_skill)
+                        # 화살표는 선행 스킬이 해금되고 조건을 만족하면 초록색
+                        tp_requirement = skill.get("total_tp_required", 0)
+                        tp_met = self.skill_system.total_invested_points >= tp_requirement
+                        line_color = (100, 255, 100) if (required_level > 0 and tp_met) else (100, 100, 100)
                         
                         # 화살표 선 그리기
                         pygame.draw.line(self.screen, line_color, 
@@ -2461,9 +2469,11 @@ class AcademyUI:
                 for required_skill in skill.get("requires_or"):
                     if required_skill in skill_positions:
                         required_pos = skill_positions[required_skill]
-                        # 화살표는 타겟 스킬이 해금되었을 때(레벨 > 0) 초록색
-                        current_skill_level = self.skill_system.get_skill_level(skill["id"])
-                        line_color = (100, 255, 100) if current_skill_level > 0 else (100, 100, 100)
+                        required_level = self.skill_system.get_skill_level(required_skill)
+                        # OR 조건에서는 현재 연결된 선행 스킬이 해금되면 초록색
+                        tp_requirement = skill.get("total_tp_required", 0)
+                        tp_met = self.skill_system.total_invested_points >= tp_requirement
+                        line_color = (100, 255, 100) if (required_level > 0 and tp_met) else (100, 100, 100)
                         
                         # 화살표 선 그리기
                         pygame.draw.line(self.screen, line_color, 
@@ -2845,9 +2855,9 @@ class AcademyUI:
                 
                 # 선행 스킬 확인 (단일 스킬일 때만 연결선 그리기)
                 if not isinstance(skill.get("requires"), list):
-                    current_skill_level = self.skill_system.get_skill_level(skill["id"])
-                    # 화살표는 타겟 스킬이 해금되었을 때(레벨 > 0) 초록색
-                    line_color = (100, 255, 100) if current_skill_level > 0 else (100, 100, 100)
+                    required_level = self.skill_system.get_skill_level(skill.get("requires"))
+                    # 화살표는 선행 스킬이 해금되면 초록색
+                    line_color = (100, 255, 100) if required_level > 0 else (100, 100, 100)
                     
                     pygame.draw.line(self.screen, line_color, 
                                    (line_x, prev_skill_y + 5), (line_x, current_skill_y - 5), 2)
