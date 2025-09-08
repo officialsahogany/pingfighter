@@ -1167,19 +1167,7 @@ class AcademyUI:
                 star_points_right.append((x, y))
             pygame.draw.polygon(icon, star_color, star_points_right)
         
-        # 레벨 표시
-        if level > 0:            
-            if is_master:
-                # 마스터 표시 - 황금색으로 "MAX" (레벨 6 보너스)
-                level_text = self.font_small.render("MAX", True, (255, 215, 0))  # 황금색
-            elif is_maxed:
-                # 일반 MAX 표시 - 은색으로 "MAX" (보너스 없음)
-                level_text = self.font_small.render("MAX", True, (220, 220, 220))  # 은색
-            else:
-                level_text = self.font_small.render(f"{level}/{max_level}", True, (255, 255, 255))
-            
-            level_rect = level_text.get_rect(center=(size//2, size - 8))
-            icon.blit(level_text, level_rect)
+        # 레벨 표시 제거 - 이제 게이지로 표시
         
         return icon
     
@@ -1784,13 +1772,18 @@ class AcademyUI:
             name_rect = name_surf.get_rect(centerx=panel_x + panel_width//2, y=panel_y + 20)
             self.screen.blit(name_surf, name_rect)
             
-            # 구분선
+            # 레벨 게이지 표시 (이름 아래)
+            gauge_y = panel_y + 55
+            gauge_x = panel_x + (panel_width - 120) // 2  # 중앙 정렬
+            self.draw_skill_level_gauge(selected_skill, gauge_x, gauge_y, 120, 20)
+            
+            # 구분선 (게이지 아래로 이동)
             pygame.draw.line(self.screen, (0, 255, 255, 100), 
-                           (panel_x + 10, panel_y + 50), 
-                           (panel_x + panel_width - 10, panel_y + 50), 1)
+                           (panel_x + 10, panel_y + 85), 
+                           (panel_x + panel_width - 10, panel_y + 85), 1)
             
             # 스킬 설명
-            desc_y = panel_y + 70
+            desc_y = panel_y + 105
             desc_lines = selected_skill["description"].split("\n")
             for line in desc_lines:
                 # 줄 바꿈 처리
@@ -2032,26 +2025,55 @@ class AcademyUI:
                                          skill_size//2 + 10)
                         self.screen.blit(flash_surface, (skill_x - 10, skill_y - 10))
             
-            # 스킬 이름과 레벨 표시
+            # 스킬 이름 표시
             name_color = (255, 255, 255) if is_unlocked else (150, 150, 150)
             name_surf = self.font_medium.render(skill["name"], True, name_color)
             name_rect = name_surf.get_rect(center=(skill_x + skill_size//2, skill_y + skill_size + 15))
             self.screen.blit(name_surf, name_rect)
             
-            # 레벨
-            if current_level == skill["max_level"]:
-                level_text = "MAX"
-                level_color = (255, 215, 0) if skill["max_level"] == 5 else (220, 220, 220)
-            else:
-                level_text = f"Lv.{current_level}/{skill['max_level']}"
-                level_color = (200, 200, 200)
-            
-            level_surf = self.font_small.render(level_text, True, level_color)
-            level_rect = level_surf.get_rect(center=(skill_x + skill_size//2, skill_y + skill_size + 30))
-            self.screen.blit(level_surf, level_rect)
+            # 레벨 게이지 (아이콘 아래에 표시)
+            gauge_width = skill_size + 20
+            gauge_height = 12
+            gauge_x = skill_x - 10
+            gauge_y = skill_y + skill_size + 35
+            self.draw_skill_level_gauge(skill, gauge_x, gauge_y, gauge_width, gauge_height)
         
         # 우측 설명 패널 그리기 (대쉬/스매셔와 동일한 스타일)
         self.draw_tree_skill_description_panel(tree_data)
+    
+    def draw_skill_level_gauge(self, skill, x, y, width=120, height=25):
+        """스킬 레벨 게이지를 그리기 - 네모 단계 게이지 시스템"""
+        current_level = self.skill_system.get_skill_level(skill["id"])
+        max_level = skill["max_level"]
+        
+        # 게이지 박스 크기
+        box_width = width // max_level - 2
+        box_height = height
+        
+        for i in range(max_level):
+            box_x = x + i * (box_width + 2)
+            
+            # 외곽선 색상 결정
+            if i < current_level:
+                # 채워진 레벨 - 밝은 색상
+                fill_color = (255, 50, 50) if current_level == max_level else (255, 100, 100)
+                border_color = (255, 150, 150)
+            else:
+                # 비어있는 레벨 - 어두운 색상
+                fill_color = (40, 10, 10)
+                border_color = (80, 30, 30)
+            
+            # 게이지 박스 그리기
+            pygame.draw.rect(self.screen, fill_color, 
+                           (box_x, y, box_width, box_height))
+            pygame.draw.rect(self.screen, border_color, 
+                           (box_x, y, box_width, box_height), 2)
+            
+            # 채워진 레벨에 광택 효과
+            if i < current_level:
+                gloss_surface = pygame.Surface((box_width - 4, box_height // 3), pygame.SRCALPHA)
+                gloss_surface.fill((255, 255, 255, 30))
+                self.screen.blit(gloss_surface, (box_x + 2, y + 2))
     
     def draw_tree_skill_description_panel(self, tree_data):
         """아이템/패들 스킬 설명 패널 그리기 - 대쉬/스매셔와 동일한 스타일"""
@@ -2087,13 +2109,18 @@ class AcademyUI:
             name_rect = name_surf.get_rect(centerx=panel_x + panel_width//2, y=panel_y + 20)
             self.screen.blit(name_surf, name_rect)
             
-            # 구분선
+            # 레벨 게이지 표시 (이름 아래)
+            gauge_y = panel_y + 55
+            gauge_x = panel_x + (panel_width - 120) // 2  # 중앙 정렬
+            self.draw_skill_level_gauge(selected_skill, gauge_x, gauge_y, 120, 20)
+            
+            # 구분선 (게이지 아래로 이동)
             pygame.draw.line(self.screen, (0, 255, 255, 100), 
-                           (panel_x + 10, panel_y + 50), 
-                           (panel_x + panel_width - 10, panel_y + 50), 1)
+                           (panel_x + 10, panel_y + 85), 
+                           (panel_x + panel_width - 10, panel_y + 85), 1)
             
             # 스킬 설명
-            desc_y = panel_y + 70
+            desc_y = panel_y + 105
             desc_lines = selected_skill["description"].split("\n")
             for line in desc_lines:
                 # 줄 바꿈 처리
@@ -2584,12 +2611,14 @@ class AcademyUI:
             name_rect = name_text.get_rect(centerx=skill_x + skill_size//2, top=skill_y + skill_size + 5)
             self.screen.blit(name_text, name_rect)
             
-            # 레벨 표시 (이름 아래)
-            level_text = self.font_small.render(f"[{current_level}/{skill['max_level']}]", True, (200, 200, 200))
-            level_rect = level_text.get_rect(centerx=skill_x + skill_size//2, top=name_rect.bottom + 2)
-            self.screen.blit(level_text, level_rect)
+            # 레벨 게이지 표시 (이름 아래)
+            gauge_width = skill_size + 20
+            gauge_height = 10
+            gauge_x = skill_x - 10
+            gauge_y = name_rect.bottom + 5
+            self.draw_skill_level_gauge(skill, gauge_x, gauge_y, gauge_width, gauge_height)
             
-            # 비용 표시 (레벨 아래)
+            # 비용 표시 (게이지 아래)
             if current_level < skill["max_level"]:
                 cost_color = (100, 255, 100) if self.skill_system.can_upgrade_skill(skill["id"]) else (255, 100, 100)
                 
@@ -2601,11 +2630,11 @@ class AcademyUI:
                     actual_cost = 3
                 
                 cost_text = self.font_small.render(f"비용: {actual_cost}TP", True, cost_color)
-                cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=level_rect.bottom + 2)
+                cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(cost_text, cost_rect)
             else:
                 max_text = self.font_small.render("최대 레벨", True, (255, 255, 100))
-                max_rect = max_text.get_rect(centerx=skill_x + skill_size//2, top=level_rect.bottom + 2)
+                max_rect = max_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(max_text, max_rect)
             
             # 잠금 상태 표시

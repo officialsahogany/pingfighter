@@ -18463,16 +18463,16 @@ def draw_tutorial_drive_counter():
             
             # 반짝이는 테두리
             pygame.draw.rect(SCREEN, celebration_color, 
-                           (base_x - 10 - int(5 * pulse), base_y - 10 - int(5 * pulse), 
-                            box_width + int(10 * pulse), box_height + int(10 * pulse)), 3)
+                           (bg_x - 10 - int(5 * pulse), bg_y - 10 - int(5 * pulse), 
+                            bg_width + int(10 * pulse), bg_height + int(10 * pulse)), 3)
             
             # 별 이펙트
             star_count = 6
             for i in range(star_count):
                 angle = (2 * math.pi * i / star_count) + (celebration_duration * 0.002)
                 star_distance = 30 + 10 * math.sin(celebration_duration * 0.005 + i)
-                star_x = base_x + box_width // 2 + int(star_distance * math.cos(angle))
-                star_y = base_y + box_height // 2 + int(star_distance * math.sin(angle))
+                star_x = bg_x + bg_width // 2 + int(star_distance * math.cos(angle))
+                star_y = bg_y + bg_height // 2 + int(star_distance * math.sin(angle))
                 star_size = 3 + int(2 * math.sin(celebration_duration * 0.01 + i))
                 pygame.draw.circle(SCREEN, (255, 255, 100), (star_x, star_y), star_size)
         else:
@@ -18627,6 +18627,116 @@ def draw_tutorial_dash_counter():
     hint_rect = hint_surface.get_rect(centerx=ui_x, top=bg_y + bg_height + 5)
     SCREEN.blit(hint_surface, hint_rect)
 
+def draw_tutorial_drive_counter():
+    """튜토리얼 드라이브 카운터 UI 표시 - 챕터 2 스타일 (우측 상단, 컴팩트)"""
+    import math  # 함수 시작시 import
+    global tutorial_drive_counter_active, tutorial_drive_count, tutorial_displayed_drive_count
+    global tutorial_left_drive_count, tutorial_right_drive_count
+    global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
+    
+    # 드라이브 카운터가 활성화되었을 때만 표시
+    if not tutorial_drive_counter_active or current_stage != 50:
+        return
+    
+    # 점진적 애니메이션 업데이트
+    if tutorial_displayed_left_drive_count < tutorial_left_drive_count:
+        tutorial_displayed_left_drive_count = min(tutorial_displayed_left_drive_count + 0.05, tutorial_left_drive_count)
+    if tutorial_displayed_right_drive_count < tutorial_right_drive_count:
+        tutorial_displayed_right_drive_count = min(tutorial_displayed_right_drive_count + 0.05, tutorial_right_drive_count)
+    tutorial_displayed_drive_count = tutorial_displayed_left_drive_count + tutorial_displayed_right_drive_count
+    
+    # 폰트 설정
+    font_large = FontStyle.body()      # 24pt
+    font_medium = FontStyle.small()    # 18pt
+    
+    # 화면 우측 상단에 위치 (챕터 2와 동일한 위치)
+    ui_x = WIDTH - 120
+    ui_y = 50
+    
+    # 컴팩트한 배경 박스 크기 (챕터 2와 유사)
+    bg_width = 220
+    bg_height = 90  # 2개 미션이므로 더 작게
+    bg_x = ui_x - bg_width // 2
+    bg_y = ui_y - 15
+    
+    # 반투명 배경 (은은하게)
+    bg_surf = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+    pygame.draw.rect(bg_surf, (20, 25, 40, 120), (0, 0, bg_width, bg_height), border_radius=8)
+    pygame.draw.rect(bg_surf, (255, 100, 100, 40), (0, 0, bg_width, bg_height), border_radius=8, width=1)
+    SCREEN.blit(bg_surf, (bg_x, bg_y))
+    
+    # 미션 데이터
+    missions = [
+        {"name": "왼쪽 드라이브", "count": tutorial_left_drive_count, "max": 2, "color": (255, 150, 100)},
+        {"name": "오른쪽 드라이브", "count": tutorial_right_drive_count, "max": 2, "color": (100, 200, 255)}
+    ]
+    
+    # 각 미션을 세로로 배치 (컴팩트하게)
+    mission_y = bg_y + 10
+    for i, mission in enumerate(missions):
+        mission_x = bg_x + 15
+        
+        # 미션 이름
+        name_color = (200, 200, 200)
+        if mission["count"] >= mission["max"]:
+            name_color = (100, 255, 100)  # 완료시 녹색
+        
+        name_surface = font_medium.render(mission["name"], True, name_color)
+        SCREEN.blit(name_surface, (mission_x, mission_y))
+        
+        # 카운터 텍스트 (오른쪽에 배치)
+        counter_text = f"{mission['count']}/{mission['max']}"
+        counter_color = (100, 255, 100) if mission["count"] >= mission["max"] else (255, 255, 255)
+        counter_surface = font_medium.render(counter_text, True, counter_color)
+        counter_rect = counter_surface.get_rect(right=bg_x + bg_width - 40, centery=mission_y + 10)
+        SCREEN.blit(counter_surface, counter_rect)
+        
+        # 완료 체크마크 (OK 텍스트로 대체)
+        if mission["count"] >= mission["max"]:
+            check_surface = font_large.render("OK", True, (0, 255, 0))
+            check_rect = check_surface.get_rect(right=bg_x + bg_width - 10, centery=mission_y + 10)
+            SCREEN.blit(check_surface, check_rect)
+        
+        # 진행 바 (미션 이름 아래에 작게)
+        bar_y = mission_y + 22
+        bar_width = bg_width - 30
+        bar_height = 6
+        bar_x = bg_x + 15
+        
+        # 진행 바 배경
+        pygame.draw.rect(SCREEN, (60, 60, 60), (bar_x, bar_y, bar_width, bar_height))
+        
+        # 진행 바
+        if mission["count"] > 0:
+            progress_width = int((mission["count"] / mission["max"]) * bar_width)
+            progress_color = (0, 200, 0) if mission["count"] >= mission["max"] else mission["color"]
+            pygame.draw.rect(SCREEN, progress_color, (bar_x, bar_y, progress_width, bar_height))
+        
+        # 진행 바 테두리
+        pygame.draw.rect(SCREEN, (100, 100, 100), (bar_x, bar_y, bar_width, bar_height), 1)
+        
+        mission_y += 40  # 다음 미션 위치 (더 컴팩트하게)
+    
+    # 전체 진행 상태 메시지 (박스 아래, 작게)
+    total_count = tutorial_left_drive_count + tutorial_right_drive_count
+    if total_count < 1:
+        hint_text = "드라이브 연습"
+        hint_color = (150, 150, 150)
+    elif total_count < 4:
+        hint_text = "훌륭해요!"
+        hint_color = (255, 200, 100)
+        # 칭찬 메시지에 반짝임 효과
+        if pygame.time.get_ticks() % 1000 < 500:
+            hint_color = (255, 230, 150)
+    else:
+        hint_text = "드라이브 마스터!"
+        hint_color = (0, 255, 200)
+        # 완료 시 강한 반짝임
+        if pygame.time.get_ticks() % 600 < 300:
+            hint_color = (100, 255, 255)
+
+
+
 def show_chapter_title(chapter_num, title, subtitle=None):
     """챕터 타이틀 표시 (페이드 효과 포함)"""
     print(f"🎬 show_chapter_title 호출: Chapter {chapter_num} - {title}")
@@ -18702,6 +18812,10 @@ def show_chapter_title(chapter_num, title, subtitle=None):
     
     print(f"✅ Chapter {chapter_num} - {title} 표시 완료")
     return True
+
+# (reverted) 공통 카운터 배지는 사용하지 않음
+
+    
 
 def show_tutorial_speed_dialogue():
     """튜토리얼 속도 관련 대화"""
