@@ -253,7 +253,7 @@ class Smartphone:
 
                 # 3.5) 플레이어가 직접 타격 가능한 거리면 절대 발동 금지
                 # 타격 가능 조건: X축 도달시간 내에 Y축 이동 가능 + 패들 범위
-                HITTING_ZONE_FRAMES = 24  # 0.4초 이내 타격 가능 영역
+                HITTING_ZONE_FRAMES = 20  # 0.33초 이내 타격 가능 영역(민감도 상향)
                 PADDLE_EFFECTIVE_HEIGHT = PADDLE_HEIGHT * 1.2  # 패들 유효 타격 범위 (약간 여유)
                 
                 if t_to_player_x <= HITTING_ZONE_FRAMES:
@@ -375,8 +375,8 @@ class Smartphone:
         condition1 = (not can_reach_at_paddle_y) and (not in_hitting_zone) and (not near_hit_imminent)
         # 조건 2: 충분한 Y 거리 + 시간 부족
         condition2 = y_distance > PADDLE_HEIGHT / 2 and (time_needed_for_y > time_to_reach_player * SAFETY_MARGIN)
-        # 조건 3: 바닥이 어느 정도 가까움 (완화)
-        condition3 = frames_to_floor <= 24
+        # 조건 3: 바닥이 어느 정도 가까움 (민감도 상향)
+        condition3 = frames_to_floor <= 26
         
         # miss_at_player_x 조건 완화 - True가 아니어도 발동 가능
         if condition1 and condition2 and condition3 and (not near_hit_imminent):
@@ -431,7 +431,7 @@ class Smartphone:
         if frames_to_floor <= 18 and y_distance > PADDLE_HEIGHT / 2:
             # 발동 높이 가드: 공이 플레이어 패들 범위를 크게 벗어나면(바닥 너무 가까이) 발동하지 않음
             # 패들 하단 + 여유 25픽셀까지 허용 (PLAYER_CENTERY + 25 + 25 = PLAYER_CENTERY + 50)
-            activation_height_ok = (ball_y <= (PLAYER_CENTERY + PADDLE_HEIGHT * 0.25))
+            activation_height_ok = (ball_y <= (PLAYER_CENTERY + PADDLE_HEIGHT * 0.30))
             # 바닥 임박 상황에서는 도달 가능성 + (미스 확정 또는 극임박) + 높이 가드
             if activation_height_ok and (not can_reach_before_floor) and ((miss_at_player_x is True) or (frames_to_floor <= 8)):
                 # print(f"[DEBUG] 🚨🚨 바닥 임박 긴급!: frames={frames_to_floor:.1f}, dy={y_distance:.0f}")
@@ -603,14 +603,14 @@ class Smartphone:
         
         # Check if in danger (Y축 판단 버전 사용)
         danger_now = self.check_danger_v2(ball_x, ball_y, ball_vx, ball_vy, paddle_y, paddle_size, player_x)
-        # 디바운스: 긴급이 아닌 경우 연속 3프레임 이상 위험일 때만 발동 허용
+        # 디바운스: 긴급이 아닌 경우 연속 2프레임 이상 위험일 때만 발동 허용 (기본값으로 복원)
         allow_persistent = False
         if danger_now:
             if self.urgent_override:
                 allow_persistent = True
             else:
                 self.danger_streak = min(getattr(self, 'danger_streak', 0) + 1, 6)
-                allow_persistent = (self.danger_streak >= 3)
+                allow_persistent = (self.danger_streak >= 2)
         else:
             self.danger_streak = 0
 
@@ -672,6 +672,11 @@ class Smartphone:
             # Check if stopwatch is not already active
             if not getattr(main_module, 'stopwatch_active', False):
                 main_module.activate_stopwatch()
+                # 스마트폰으로 발동했음을 표시하여 복구 시 위(보스) 방향으로 보내기
+                try:
+                    setattr(main_module, 'stopwatch_forced_upward', True)
+                except Exception:
+                    pass
                 # Remove stopwatch from active items in the actual game slot
                 if hasattr(main_module, 'active_item_slot'):
                     active_item_slot = main_module.active_item_slot

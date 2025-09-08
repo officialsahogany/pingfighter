@@ -2047,6 +2047,8 @@ stopwatch_original_ball_vel = None  # 원래 공 속도 저장
 STOPWATCH_DURATION = 120  # 2초 (60fps * 2)
 STOPWATCH_RECOVERY_TIME = 60  # 1초 (60fps * 1)
 stopwatch_recovery_timer = 0  # 속도 회복 타이머
+stopwatch_forced_upward = False  # 스마트폰 발동 시 복구 후 위쪽으로 강제
+stopwatch_upward_lock_timer = 0  # 복구 직후 N프레임 동안 위 방향 고정
 
 psycho_bg_timer = 0
 # === 멘헤라걸 스킬: 눈물의 비 관련 전역 변수 ===
@@ -6328,7 +6330,8 @@ def handle_player(keys):
         # 세로 방향으로만 충돌 범위 확장 (위아래로 균등하게)
         player_collision_rect.inflate_ip(0, acceleration_height_bonus)
     
-    if BALL.colliderect(player_collision_rect) and not is_waiting_for_serve:
+    # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
+    if BALL.colliderect(player_collision_rect) and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0):
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
         last_paddle_hit_time = pygame.time.get_ticks()
@@ -26931,7 +26934,7 @@ def handle_ball():
                 has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (active_item_slot or []))
                 if has_stopwatch:
                     PRE_ACTIVATE_MARGIN = 16  # 바닥까지 16px 남았을 때
-                    MIN_PLAYABLE_MARGIN = 32  # 공 중심이 바닥에서 최소 32px 위 (완화)
+                    MIN_PLAYABLE_MARGIN = 28  # 공 중심이 바닥에서 최소 28px 위 (민감도 상향)
                     dist_to_floor = HEIGHT - BALL.bottom
                     if 0 <= dist_to_floor <= PRE_ACTIVATE_MARGIN and BALL.centery <= HEIGHT - MIN_PLAYABLE_MARGIN:
                         phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
@@ -26955,7 +26958,7 @@ def handle_ball():
                 has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (active_item_slot or []))
                 # 바닥에 거의 닿았지만 아직 약간의 여유가 있을 때만 강제 발동
                 # 너무 아래(플레이어가 닿기 힘든 위치)에서는 강제 발동하지 않음
-                SAFE_MARGIN_FROM_FLOOR = 32  # px (완화)
+                SAFE_MARGIN_FROM_FLOOR = 28  # px (민감도 상향)
                 # 발동 높이 가드: 공이 패들 중심보다 너무 아래면 강제 발동하지 않음
                 activation_height_ok = (BALL.centery <= (PLAYER.centery + PADDLE_HEIGHT // 4))
                 
@@ -27112,7 +27115,8 @@ def handle_ball():
     # 서브 대기 중에는 충돌 체크하지 않음
     # handle_player가 놓친 충돌 처리 (Y속도 조건 제거 - handle_player와 동일하게)
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장 (player_collision_rect 재사용)
-    if BALL.colliderect(player_collision_rect) and player_collision_cooldown <= 0 and not player_collision_handled and not is_waiting_for_serve:
+    # 스톱워치 정지 중에는 백업 충돌 처리도 수행하지 않음
+    if BALL.colliderect(player_collision_rect) and player_collision_cooldown <= 0 and not player_collision_handled and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0):
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
         last_paddle_hit_time = pygame.time.get_ticks()
@@ -31914,9 +31918,40 @@ def main(stage_num, new_boss_mode=False):
                         else:
                             ball_vel[0] = stopwatch_original_ball_vel[0]
                             ball_vel[1] = stopwatch_original_ball_vel[1]
+                        # 스마트폰으로 발동된 스톱워치: 복구 직후 무조건 위(보스) 방향으로 보정
+                        global stopwatch_forced_upward
+                        if 'stopwatch_forced_upward' in globals() and stopwatch_forced_upward:
+                            # 속도 계산 - 원래 속도가 있으면 사용, 없으면 기본값
+                            final_speed = original_speed if original_speed > 0 else max(5.0, math.hypot(ball_vel[0], ball_vel[1]))
+                            
+                            # X 방향 결정 (현재 X 방향 유지하거나 기본값)
+                            if abs(ball_vel[0]) > 0.1:
+                                dir_x = ball_vel[0] / abs(ball_vel[0])  # 부호만 유지
+                            else:
+                                dir_x = 0.5  # 약간 오른쪽으로
+                            
+                            # Y 방향은 무조건 위로 (음수)
+                            dir_y = -1.0
+                            
+                            # 방향 벡터 정규화
+                            norm = math.hypot(dir_x, dir_y)
+                            if norm > 0:
+                                dir_x = dir_x / norm
+                                dir_y = dir_y / norm
+                            
+                            # 최종 속도 설정
+                            ball_vel[0] = dir_x * final_speed
+                            ball_vel[1] = dir_y * final_speed  # 무조건 음수 (위쪽)
+                            
+                            print(f"[스마트폰-스톱워치] 복구 후 강제 위 방향: vx={ball_vel[0]:.1f}, vy={ball_vel[1]:.1f}")
+                            
+                            # 복구 직후 일정 프레임 동안 위 방향 고정
+                            global stopwatch_upward_lock_timer
+                            stopwatch_upward_lock_timer = 12
                         
                         stopwatch_active = False
                         stopwatch_original_ball_vel = None
+                        stopwatch_forced_upward = False
                         
                         # 플레이어 이동 속도 리셋 (스탑워치 종료 시 패들이 우측으로 이동하는 버그 수정)
                         global current_speed
@@ -31928,6 +31963,16 @@ def main(stage_num, new_boss_mode=False):
                         player_collision_cooldown = 0
                         boss_collision_cooldown = 0
                         print("")
+        # 복구 직후 위 방향 고정 타이머 처리: 다른 시스템이 속도를 바꾸더라도 Y는 위로 유지
+        if 'stopwatch_upward_lock_timer' in globals() and stopwatch_upward_lock_timer > 0:
+            stopwatch_upward_lock_timer -= 1
+            # Y가 아래로(양수) 향하면 위로(음수)로 강제
+            if ball_vel[1] >= 0:
+                speed_mag = math.hypot(ball_vel[0], ball_vel[1])
+                if speed_mag < 0.1:
+                    speed_mag = BALL_BASE_SPEED
+                ball_vel[1] = -max(1.0, abs(ball_vel[1]))
+        
         if profiler:
             profiler.end_section("Events")
             profiler.start_section("GameLogic")
