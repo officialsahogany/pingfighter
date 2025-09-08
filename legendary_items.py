@@ -91,33 +91,17 @@ class LegendaryItem:
                 icon = pygame.transform.scale(icon, (size, size))
                 screen.blit(icon, (x, icon_y))
             except:
-                # 아이콘 로드 실패시 기본 아이콘
-                self._draw_default_icon(screen, x, icon_y, size)
+                # 아이콘 로드 실패시 에러 표시
+                pass
         else:
-            self._draw_default_icon(screen, x, icon_y, size)
+            # 아이콘 경로가 없으면 에러 표시
+            pass
             
         # 파티클 효과 (가끔씩)
         if self.particle_timer > 1000:  # 1초마다
             self._spawn_particle(screen, x + size//2, y + size//2)
             self.particle_timer = 0
             
-    def _draw_default_icon(self, screen: pygame.Surface, x: int, y: int, size: int):
-        """기본 전설 아이콘"""
-        pygame.draw.rect(screen, (100, 0, 0), (x, y, size, size))
-        # 별 모양
-        star_points = []
-        cx, cy = x + size//2, y + size//2
-        for i in range(10):
-            angle = math.pi * i / 5
-            if i % 2 == 0:
-                r = size // 3
-            else:
-                r = size // 6
-            px = cx + int(r * math.cos(angle - math.pi/2))
-            py = cy + int(r * math.sin(angle - math.pi/2))
-            star_points.append((px, py))
-        pygame.draw.polygon(screen, LEGENDARY_COLOR, star_points)
-        pygame.draw.polygon(screen, (255, 255, 255), star_points, 2)
         
     def _spawn_particle(self, screen: pygame.Surface, x: int, y: int):
         """파티클 스폰"""
@@ -383,183 +367,7 @@ class HermesShoes(LegendaryItem):
         # 프레임이 없으면 에러만 표시 (가짜 애니메이션 생성하지 않음)
         if not self.animation_frames or len(self.animation_frames) == 0:
             print("❌ 헤르메스 신발: 라그나로크 해머 PNG를 찾을 수 없습니다!")
-            # _create_default_animation을 호출하지 않음 (가짜 애니메이션 제거)
-    
-    def _create_default_animation(self):
-        """라그나로크 해머 코드를 완전히 복사해서 신발로 변경"""
-        import pygame
-        import math
-        
-        # generate_ragnarok_hammer_icon.py에서 그대로 복사
-        ICON_SIZE = 32
-        FRAMES = 8
-        LEGENDARY_RED = (255, 50, 50)
-        SHOE_HEAD_COLOR = (120, 120, 140)  # 회색빛 금속 (해머 헤드와 동일)
-        SHOE_HEAD_DARK = (80, 80, 100)
-        SHOE_HEAD_LIGHT = (160, 160, 180)
-        SHOE_SOLE = (101, 67, 33)  # 나무 손잡이 색상을 밑창에 사용
-        SHOE_SOLE_DARK = (71, 47, 23)
-        LIGHTNING_YELLOW = (255, 255, 150)
-        LIGHTNING_WHITE = (255, 255, 255)
-        IMPACT_GLOW = (255, 200, 100)
-        
-        for frame_index in range(FRAMES):
-            # 라그나로크 해머와 완전히 동일한 프레임 생성
-            surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-            
-            # 큰 파란색 원형 배경 (라그나로크 해머 PNG처럼)
-            # 중앙에 큰 파란색 원 그리기
-            center_x, center_y = ICON_SIZE // 2, ICON_SIZE // 2
-            # 여러 겹의 원으로 그라데이션 효과
-            for i in range(3):
-                radius = ICON_SIZE // 2 - i
-                alpha = 200 - i * 50  # 바깥쪽이 더 진함
-                color = (50 + i * 20, 70 + i * 20, 100 + i * 30, alpha)  # 점점 밝은 파란색
-                pygame.draw.circle(surface, color, (center_x, center_y), radius)
-            
-            # 애니메이션 타이밍
-            t = frame_index / FRAMES
-            
-            # 빨간 테두리 (전설 티어) - 라그나로크 해머와 완전히 동일
-            border_thickness = 2
-            border_glow = int(128 + 127 * math.sin(t * math.pi * 2))  # 펄싱 효과
-            
-            # 글로우 효과를 위한 여러 겹의 테두리
-            for i in range(2):
-                alpha = border_glow // (i + 1)
-                thickness = border_thickness - i
-                if thickness > 0:
-                    pygame.draw.rect(surface, (*LEGENDARY_RED, alpha), 
-                                   (i, i, ICON_SIZE - i*2, ICON_SIZE - i*2), thickness)
-            
-            # 메인 빨간 테두리
-            pygame.draw.rect(surface, LEGENDARY_RED, 
-                           (0, 0, ICON_SIZE, ICON_SIZE), border_thickness)
-            
-            # 신발 회전 애니메이션
-            rotation_angle = math.sin(t * math.pi * 2) * 10  # -10도에서 +10도
-            shoe_y_offset = int(math.sin(t * math.pi * 2) * 2)  # 위아래 움직임
-            
-            # 번개 효과 (일부 프레임에만) - 날개처럼
-            if frame_index in [2, 3, 6, 7]:
-                # 작은 번개 볼트 (날개 모양)
-                for i in range(2):
-                    start_x = 8 + i * 16
-                    start_y = 5
-                    segments = 3
-                    prev_x, prev_y = start_x, start_y
-                    
-                    for seg in range(segments):
-                        next_x = prev_x + (4 if i == 0 else -4)
-                        next_y = prev_y + 5
-                        
-                        # 지그재그 효과
-                        if seg % 2 == 0:
-                            next_x += 2
-                        else:
-                            next_x -= 2
-                            
-                        pygame.draw.line(surface, LIGHTNING_YELLOW, 
-                                       (prev_x, prev_y), (next_x, next_y), 1)
-                        prev_x, prev_y = next_x, next_y
-            
-            # 신발 밑창 (해머 손잡이 위치)
-            sole_x = 14
-            sole_y = 10 + shoe_y_offset
-            sole_width = 4
-            sole_height = 16
-            
-            # 밑창 그림자
-            pygame.draw.rect(surface, SHOE_SOLE_DARK, 
-                           (sole_x + 1, sole_y + 1, sole_width, sole_height))
-            
-            # 메인 밑창
-            pygame.draw.rect(surface, SHOE_SOLE, 
-                           (sole_x, sole_y, sole_width, sole_height))
-            
-            # 밑창 하이라이트
-            pygame.draw.rect(surface, SHOE_SOLE, 
-                           (sole_x, sole_y, 1, sole_height))
-            
-            # 밑창 패턴
-            for i in range(3):
-                y = sole_y + 4 + i * 5
-                pygame.draw.line(surface, SHOE_SOLE_DARK, 
-                               (sole_x, y), (sole_x + sole_width - 1, y), 1)
-            
-            # 신발 본체 (해머 헤드 위치)
-            shoe_x = 8
-            shoe_y = 7 + shoe_y_offset
-            shoe_width = 16
-            shoe_height = 8
-            
-            # 신발 그림자
-            pygame.draw.rect(surface, SHOE_HEAD_DARK, 
-                           (shoe_x + 1, shoe_y + 1, shoe_width, shoe_height))
-            
-            # 메인 신발
-            pygame.draw.rect(surface, SHOE_HEAD_COLOR, 
-                           (shoe_x, shoe_y, shoe_width, shoe_height))
-            
-            # 신발 하이라이트 (금속 광택)
-            pygame.draw.rect(surface, SHOE_HEAD_LIGHT, 
-                           (shoe_x + 2, shoe_y + 1, shoe_width - 4, 2))
-            
-            # 신발 끝 디테일 (양쪽 끝)
-            # 왼쪽 끝
-            pygame.draw.rect(surface, SHOE_HEAD_COLOR, 
-                           (shoe_x - 2, shoe_y + 1, 3, shoe_height - 2))
-            pygame.draw.rect(surface, SHOE_HEAD_DARK, 
-                           (shoe_x - 2, shoe_y + shoe_height - 2, 3, 1))
-            
-            # 오른쪽 끝
-            pygame.draw.rect(surface, SHOE_HEAD_COLOR, 
-                           (shoe_x + shoe_width - 1, shoe_y + 1, 3, shoe_height - 2))
-            pygame.draw.rect(surface, SHOE_HEAD_DARK, 
-                           (shoe_x + shoe_width - 1, shoe_y + shoe_height - 2, 3, 1))
-            
-            # 충격파 효과 (일부 프레임)
-            if frame_index in [0, 4]:
-                # 충격파 원
-                impact_radius = 6 + (frame_index // 4) * 2
-                impact_alpha = 100 - (frame_index // 4) * 30
-                
-                for i in range(2):
-                    radius = impact_radius - i * 2
-                    if radius > 0:
-                        color = (*IMPACT_GLOW, impact_alpha // (i + 1))
-                        # 충격파를 픽셀 단위로 그리기
-                        center_x, center_y = 16, 11 + shoe_y_offset
-                        for angle in range(0, 360, 30):
-                            x = center_x + int(radius * math.cos(math.radians(angle)))
-                            y = center_y + int(radius * math.sin(math.radians(angle)))
-                            if 0 <= x < ICON_SIZE and 0 <= y < ICON_SIZE:
-                                surface.set_at((x, y), color)
-            
-            # 파워 글로우 (신발 주변)
-            if frame_index % 2 == 0:
-                # 신발 주변에 붉은 광채
-                glow_alpha = 40 + int(20 * math.sin(t * math.pi * 2))
-                for dx in range(-1, 2):
-                    for dy in range(-1, 2):
-                        if dx != 0 or dy != 0:
-                            glow_x = shoe_x + shoe_width // 2 + dx * 3
-                            glow_y = shoe_y + shoe_height // 2 + dy * 3
-                            if 0 <= glow_x < ICON_SIZE and 0 <= glow_y < ICON_SIZE:
-                                surface.set_at((glow_x, glow_y), (*LEGENDARY_RED, glow_alpha))
-            
-            # 룬 문자 (신화적 요소)
-            if frame_index in [1, 5]:
-                # 작은 룬 문자를 신발에
-                rune_color = (255, 100, 100, 150)
-                # 간단한 V 모양 룬 (날개 모양)
-                pygame.draw.lines(surface, rune_color, False, 
-                                [(shoe_x + 7, shoe_y + 3), 
-                                 (shoe_x + 9, shoe_y + 5), 
-                                 (shoe_x + 11, shoe_y + 3)], 1)
-            
-            # 프레임을 리스트에 추가
-            self.animation_frames.append(surface)
+            # 가짜 애니메이션 생성 코드 완전 제거
     
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """애니메이션 아이콘 그리기"""
@@ -617,80 +425,12 @@ class HermesShoes(LegendaryItem):
             screen.blit(scaled_icon, (x, icon_y))
             
             # 헤르메스 특수 효과 없음 (번개 효과 대신)
-        else:
-            # 애니메이션 프레임이 없으면 헤르메스 신발 기본 아이콘
-            self._draw_hermes_default_icon(screen, x, y + int(self.animation_offset), size)
         
         # 파티클 효과
         if self.particle_timer > 1000:
             self._spawn_particle(screen, x + size//2, y + size//2)
             self.particle_timer = 0
     
-    def _draw_hermes_default_icon(self, screen: pygame.Surface, x: int, y: int, size: int):
-        """헤르메스 신발 기본 아이콘 그리기"""
-        import pygame
-        
-        # 신발 그리기 (황금색)
-        shoe_color = (255, 215, 0)  # 황금색
-        shoe_outline = (200, 170, 0)  # 어두운 황금색
-        wing_color = (255, 255, 255)  # 흰색 날개
-        
-        # 신발 본체 (타원형)
-        shoe_rect = pygame.Rect(x + size//6, y + size//3, size*2//3, size//3)
-        pygame.draw.ellipse(screen, shoe_color, shoe_rect)
-        pygame.draw.ellipse(screen, shoe_outline, shoe_rect, 2)
-        
-        # 신발 앞코
-        pygame.draw.ellipse(screen, shoe_color, 
-                          (x + size*2//3 - 5, y + size//3 + 2, size//4, size//4))
-        
-        # 신발 뒤꿈치
-        pygame.draw.rect(screen, shoe_color,
-                        (x + size//6, y + size//3, size//6, size//3))
-        
-        # 왼쪽 날개
-        wing_left = [
-            (x + size//8, y + size//2 - 5),
-            (x, y + size//2),
-            (x + size//8, y + size//2 + 5),
-            (x + size//4, y + size//2)
-        ]
-        pygame.draw.polygon(screen, wing_color, wing_left)
-        pygame.draw.polygon(screen, (200, 200, 200), wing_left, 1)
-        
-        # 날개 디테일 (깃털)
-        for i in range(2):
-            feather_y = y + size//2 - 3 + i * 6
-            pygame.draw.line(screen, (220, 220, 220), 
-                           (x + size//12, feather_y), 
-                           (x + size//6, feather_y), 1)
-        
-        # 오른쪽 날개
-        wing_right = [
-            (x + size*7//8, y + size//2 - 5),
-            (x + size, y + size//2),
-            (x + size*7//8, y + size//2 + 5),
-            (x + size*3//4, y + size//2)
-        ]
-        pygame.draw.polygon(screen, wing_color, wing_right)
-        pygame.draw.polygon(screen, (200, 200, 200), wing_right, 1)
-        
-        # 날개 디테일 (깃털)
-        for i in range(2):
-            feather_y = y + size//2 - 3 + i * 6
-            pygame.draw.line(screen, (220, 220, 220),
-                           (x + size*5//6, feather_y),
-                           (x + size*11//12, feather_y), 1)
-        
-        # 반짝임 효과
-        sparkle_points = [
-            (x + size//2, y + size//4),
-            (x + size*3//4, y + size*2//5)
-        ]
-        for px, py in sparkle_points:
-            # 작은 별 모양
-            pygame.draw.line(screen, (255, 255, 200), (px-3, py), (px+3, py), 1)
-            pygame.draw.line(screen, (255, 255, 200), (px, py-3), (px, py+3), 1)
 
 
 class RagnarokHammer(LegendaryItem):
