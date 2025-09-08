@@ -1634,13 +1634,13 @@ class AcademyUI:
         # 스케일 애니메이션 적용
         display_size = star_size * self.sp_scale_factor
         
-        # 글로우 효과 (별 뒤에)
+        # 글로우 효과 (별 뒤에) - 형광 효과
         if self.sp_glow_alpha > 0:
             glow_radius = display_size * 2
             for i in range(3):
-                glow_alpha = min(30, self.sp_glow_alpha // (i + 1))
+                glow_alpha = min(40, self.sp_glow_alpha // (i + 1))  # 더 밝게
                 glow_surf = pygame.Surface((glow_radius * 4, glow_radius * 4), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (255, 255, 100, glow_alpha),
+                pygame.draw.circle(glow_surf, (255, 255, 0, glow_alpha),  # 형광 노란색
                                  (glow_radius * 2, glow_radius * 2), glow_radius - i * 3)
                 self.screen.blit(glow_surf, (star_x - glow_radius * 2, star_y - glow_radius * 2))
         
@@ -1658,12 +1658,12 @@ class AcademyUI:
             y = star_y + radius * math.sin(angle)
             star_points.append((x, y))
         
-        # 별 채우기 (노란색)
-        pygame.draw.polygon(self.screen, (255, 255, 100), star_points)
-        # 별 테두리 (진한 노란색)
-        pygame.draw.polygon(self.screen, (255, 215, 0), star_points, 2)
+        # 별 채우기 (형광 노란색)
+        pygame.draw.polygon(self.screen, (255, 255, 0), star_points)  # 순수한 노란색
+        # 별 테두리 (밝은 형광 노란색)
+        pygame.draw.polygon(self.screen, (255, 230, 0), star_points, 2)
         
-        # 작은 광택 효과
+        # 작은 광택 효과 (더 밝게)
         gloss_points = []
         for i in range(10):
             angle = -math.pi / 2 + (i * math.pi / 5)
@@ -1674,10 +1674,10 @@ class AcademyUI:
             x = star_x + radius * math.cos(angle)
             y = star_y - 2 + radius * math.sin(angle)
             gloss_points.append((x, y))
-        pygame.draw.polygon(self.screen, (255, 255, 200, 180), gloss_points)
+        pygame.draw.polygon(self.screen, (255, 255, 150), gloss_points)  # 더 밝은 광택
         
-        # 트레이드 포인트 숫자 표시 (별 옆에)
-        sp_text = self.font_medium.render(f"{self.skill_system.skill_points}", True, (255, 255, 100))
+        # 트레이드 포인트 숫자 표시 (별 옆에) - 형광 노란색
+        sp_text = self.font_medium.render(f"{self.skill_system.skill_points}", True, (255, 255, 0))
         sp_rect = sp_text.get_rect(midleft=(star_x + display_size + 10, star_y))
         self.screen.blit(sp_text, sp_rect)
         
