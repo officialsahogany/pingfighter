@@ -46,68 +46,68 @@ SKILL_TREES = {
                 "col": 1
             },
             
-            # 2단계 스킬들 (경량화 또는 모듈제어 필요 + 누적 TP 3 이상)
+            # 2단계 스킬들 (경량화 또는 모듈제어 필요 + 누적 TP 4 이상)
             {
                 "id": "dash_jump",
                 "name": "도약",
-                "description": "대쉬 거리 4% 증가\n(누적 TP 3+ 필요)",
+                "description": "대쉬 거리 4% 증가\n(누적 TP 4+ 필요)",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (150, 200, 255),
                 "requires": "dash_lightweight",
-                "total_tp_required": 3,
+                "total_tp_required": 4,
                 "row": 1,
                 "col": 0
             },
             {
                 "id": "dash_battery_pack",
                 "name": "배터리팩",
-                "description": "게이지 소모량 8% 감소\n(누적 TP 3+ 필요)",
+                "description": "게이지 소모량 8% 감소\n(누적 TP 4+ 필요)",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (150, 200, 255),
                 "requires": "dash_module_control",
-                "total_tp_required": 3,
+                "total_tp_required": 4,
                 "row": 1,
                 "col": 1
             },
             
-            # 3단계 스킬들 (배터리팩 또는 도약으로 가속화 해금 + 누적 TP 6 이상)
+            # 3단계 스킬들 (배터리팩 또는 도약으로 가속화 해금 + 누적 TP 8 이상)
             {
                 "id": "dash_acceleration",
                 "name": "버스트업",
-                "description": "대쉬 사용시 패들 세로 크기 60% 증가\n(누적 TP 6+ 필요)",
+                "description": "대쉬 사용시 패들 세로 크기 60% 증가\n(누적 TP 8+ 필요)",
                 "max_level": 5,
                 "cost": 2,
                 "icon_color": (200, 220, 255),
                 "requires_or": ["dash_battery_pack", "dash_jump"],  # 배터리팩 또는 도약 중 하나만 있으면 해금
-                "total_tp_required": 6,
+                "total_tp_required": 8,
                 "row": 2,
                 "col": 0
             },
             {
                 "id": "dash_amplification",
                 "name": "증폭",
-                "description": "대쉬토큰 1개 증가\n(누적 TP 6+ 필요)",
+                "description": "대쉬토큰 1개 증가\n(누적 TP 8+ 필요)",
                 "max_level": 2,
                 "cost": 3,
                 "icon_color": (200, 220, 255),
                 "requires": "dash_battery_pack",
-                "total_tp_required": 6,
+                "total_tp_required": 8,
                 "row": 2,
                 "col": 1
             },
             
-            # 최종 스킬 (가속화만 필요 + 누적 TP 9 이상)
+            # 최종 스킬 (가속화만 필요 + 누적 TP 12 이상)
             {
                 "id": "dash_spirit",
                 "name": "대쉬 스피릿",
-                "description": "대쉬 시전시 30% 확률로 하늘색 레이저 잔상 생성\n(레벨2: 50% 확률)\n(누적 TP 9+ 필요)",
+                "description": "대쉬 시전시 30% 확률로 하늘색 레이저 잔상 생성\n(레벨2: 50% 확률)\n(누적 TP 12+ 필요)",
                 "max_level": 2,
                 "cost": 4,
                 "icon_color": (255, 200, 100),
                 "requires": "dash_acceleration",
-                "total_tp_required": 9,
+                "total_tp_required": 12,
                 "row": 3,
                 "col": 0
             }
