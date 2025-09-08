@@ -269,6 +269,9 @@ class SkillSystem:
     def reset_all(self):
         """모든 스킬과 포인트를 완전히 초기화"""
         self.init_fresh_skills()
+        # 화살표 애니메이션 기록도 초기화
+        if hasattr(self, 'played_arrow_animations'):
+            self.played_arrow_animations.clear()
         
     def reset_skill_points(self):
         """스킬 포인트만 0으로 초기화"""
@@ -410,6 +413,7 @@ class AcademyUI:
         # 애니메이션 관련 변수
         self.unlock_animations = {}  # {skill_id: {"start_time": time, "duration": 1000}}
         self.arrow_animations = {}  # {arrow_id: {"start_time": time, "duration": 1000, "from_skill": id, "to_skill": id}}
+        self.played_arrow_animations = set()  # 이미 재생된 화살표 애니메이션 추적
         self.is_animating = False  # 애니메이션 중 키보드 입력 차단
         
         # 스킬 레벨업 테두리 빛 애니메이션
@@ -749,16 +753,22 @@ class AcademyUI:
             # 모든 조건을 만족할 때만 애니메이션
             if prereq_satisfied and tp_satisfied:
                 print(f"    : {skill['id']}")
-                # 화살표 애니메이션 생성
+                # 화살표 애니메이션 생성 (이미 재생된 것은 스킵)
                 arrow_id = f"{recently_upgraded_skill_id}_to_{skill['id']}"
-                self.arrow_animations[arrow_id] = {
-                    "start_time": current_time, 
-                    "duration": 1000, 
-                    "from_skill": recently_upgraded_skill_id, 
-                    "to_skill": skill["id"]
-                }
-                animation_created = True
-                print(f"   : {recently_upgraded_skill_id} → {skill['id']} ( TP: {self.skill_system.total_invested_points})")
+                
+                # 이미 재생된 화살표 애니메이션인지 확인
+                if arrow_id not in self.played_arrow_animations:
+                    self.arrow_animations[arrow_id] = {
+                        "start_time": current_time, 
+                        "duration": 1000, 
+                        "from_skill": recently_upgraded_skill_id, 
+                        "to_skill": skill["id"]
+                    }
+                    self.played_arrow_animations.add(arrow_id)  # 재생 기록
+                    animation_created = True
+                    print(f"   : {recently_upgraded_skill_id} → {skill['id']} ( TP: {self.skill_system.total_invested_points})")
+                else:
+                    print(f"   ( ): {recently_upgraded_skill_id} → {skill['id']}")
             else:
                 if not prereq_satisfied:
                     print(f" {skill['id']}")
@@ -858,8 +868,13 @@ class AcademyUI:
                 
                 if should_animate:
                     arrow_id = f"{unlocked_skill_id}_to_{skill['id']}"
-                    self.arrow_animations[arrow_id] = {"start_time": current_time, "duration": 1000, "from_skill": unlocked_skill_id, "to_skill": skill["id"]}
-                    print(f"   : {unlocked_skill_id} → {skill['id']} ( TP: {self.skill_system.total_invested_points})")
+                    # 이미 재생된 화살표 애니메이션인지 확인
+                    if arrow_id not in self.played_arrow_animations:
+                        self.arrow_animations[arrow_id] = {"start_time": current_time, "duration": 1000, "from_skill": unlocked_skill_id, "to_skill": skill["id"]}
+                        self.played_arrow_animations.add(arrow_id)  # 재생 기록
+                        print(f"   : {unlocked_skill_id} → {skill['id']} ( TP: {self.skill_system.total_invested_points})")
+                    else:
+                        print(f"   ( ): {unlocked_skill_id} → {skill['id']}")
 
     def update_animations(self):
         """애니메이션 업데이트"""
