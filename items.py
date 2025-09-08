@@ -86,7 +86,8 @@ def load_item_icons():
         "bluetooth_ring": "bluetooth_ring.png",  # 블루투스링 아이콘
         "smartphone": "smartphone.png",  # 스마트폰 아이콘
         # 전설 아이템(아이콘)
-        "ragnarok_hammer": "legendary/ragnarok_hammer.png"
+        "ragnarok_hammer": "legendary/ragnarok_hammer.png",
+        "hermes_shoes": "legendary/hermes_shoes.png"
     }
     
     for item_name, icon_file in icon_files.items():
@@ -421,6 +422,15 @@ ITEM_TYPES = [
         "chance": 0.0008,  # 확률 0.03% (전설 아이템 희귀도)
         "duration": 600,
         "unlock_condition": None
+    },
+    {
+        "name": "hermes_shoes",  # 헤르메스의 신발 전설 아이템
+        "color": (100, 200, 255),  # 하늘색 (전설 색상)
+        "effect": "hermes_shoes",
+        "icon": None,
+        "chance": 0.99,  # 테스트용 99% 확률
+        "duration": 600,
+        "unlock_condition": None
     }
 ]
 
@@ -460,6 +470,7 @@ technical_vest_obtained = False  # 테크니컬조끼 아이템 획득 여부
 
 # 전설 아이템 획득 여부
 ragnarok_hammer_obtained = False  # 라그나로크 해머 획득 여부
+hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 
 
@@ -504,7 +515,8 @@ unlocked_items = {
     "smartphone": True,
     
     # 전설 아이템 해금 상태
-    "ragnarok_hammer": True
+    "ragnarok_hammer": True,
+    "hermes_shoes": True
     
 }
 
@@ -562,8 +574,9 @@ def reset_items():
     technical_vest_obtained = False  # technical_vest 획득 상태 초기화
     
     # 전설 아이템 획득 상태 초기화
-    global ragnarok_hammer_obtained
+    global ragnarok_hammer_obtained, hermes_shoes_obtained
     ragnarok_hammer_obtained = False
+    hermes_shoes_obtained = False
 
 
 # 아이템 생성
@@ -658,6 +671,10 @@ def spawn_random_item():
         if item["name"] == "ragnarok_hammer" and ragnarok_hammer_obtained:
             continue
         
+        # 헤르메스의 신발은 한 번 획득하면 더 이상 스폰 안함
+        if item["name"] == "hermes_shoes" and hermes_shoes_obtained:
+            continue
+        
         # 🚫 패시브 아이템 중복 방지 (chargebag 제외)
         # 이미 소지한 패시브 아이템은 더 이상 스폰하지 않음
         # chargebag은 중복 가능하므로 제외하고 체크
@@ -719,6 +736,17 @@ def spawn_random_item():
                 if not hammer:
                     # 인스턴스가 없으면 초기화만 함 (activate 호출 안 함)
                     legendary_manager._init_legendary_items()
+        
+        # 헤르메스의 신발이 스폰되면 애니메이션을 위해 인스턴스만 준비 (효과는 적용하지 않음)
+        if selected_item["name"] == "hermes_shoes":
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                # 헤르메스의 신발 인스턴스가 없으면 생성만 하고 activate는 하지 않음
+                hermes = legendary_manager.get_item("hermes_shoes")
+                if not hermes:
+                    # 인스턴스가 없으면 초기화만 함 (activate 호출 안 함)
+                    legendary_manager._init_legendary_items()
 
 
 def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None):
@@ -764,7 +792,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             
             item_name = item["type"]["name"]
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "ragnarok_hammer"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "ragnarok_hammer", "hermes_shoes"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {
@@ -807,7 +835,7 @@ def draw_items(screen):
             # 아직 공개되지 않은 아이템은 물음표 아이콘 표시
             icon = UNKNOWN_ITEM_ICON
         else:
-            # 전설 아이템인지 체크 (라그나로크 해머 등)
+            # 전설 아이템인지 체크 (라그나로크 해머, 헤르메스의 신발 등)
             item_name = item["type"].get("name", "")
             if item_name == "ragnarok_hammer":
                 # 라그나로크 해머는 전설 아이템 매니저를 통해 애니메이션 그리기
@@ -820,6 +848,18 @@ def draw_items(screen):
                         hammer.update(0.016)  # 60fps 기준 델타타임
                         # 애니메이션 아이콘 그리기 (회전 없이)
                         hammer.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
+                        continue
+            elif item_name == "hermes_shoes":
+                # 헤르메스의 신발도 전설 아이템 매니저를 통해 애니메이션 그리기
+                from legendary_items import get_legendary_manager
+                legendary_manager = get_legendary_manager()
+                if legendary_manager:
+                    hermes = legendary_manager.get_item("hermes_shoes")
+                    if hermes:
+                        # 애니메이션 업데이트
+                        hermes.update(0.016)  # 60fps 기준 델타타임
+                        # 애니메이션 아이콘 그리기 (회전 없이)
+                        hermes.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
                         continue
             
             # 일반 아이템은 기존 방식대로 처리

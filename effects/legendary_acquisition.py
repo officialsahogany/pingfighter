@@ -47,6 +47,12 @@ class LegendaryAcquisitionEffect:
         self.phase_timer = 0
         self.animation_complete = False
         
+        # 전설 아이템 애니메이션 관련
+        self.legendary_manager = None
+        self.legendary_item = None
+        self.icon_animation_frame = 0
+        self.icon_animation_timer = 0
+        
         # 사운드 관련
         self.legendafter_sound = None
         self.legendspacebar_sound = None
@@ -150,6 +156,21 @@ class LegendaryAcquisitionEffect:
         self.phase = 0
         self.phase_timer = 0
         self.animation_complete = False
+        
+        # 전설 아이템 애니메이션 설정
+        if item_name in ["hermes_shoes", "ragnarok_hammer"]:
+            from legendary_items import get_legendary_manager
+            self.legendary_manager = get_legendary_manager()
+            if self.legendary_manager:
+                self.legendary_item = self.legendary_manager.get_item(item_name)
+                if self.legendary_item and not self.legendary_item.animation_frames:
+                    self.legendary_item._create_default_animation()
+        else:
+            self.legendary_manager = None
+            self.legendary_item = None
+        
+        self.icon_animation_frame = 0
+        self.icon_animation_timer = 0
         
         # 패들 위치 저장 (제공되면 사용, 아니면 기본값)
         if paddle_pos:
@@ -476,6 +497,13 @@ class LegendaryAcquisitionEffect:
             
         self.animation_time += dt
         self.phase_timer += dt
+        
+        # 전설 아이템 애니메이션 프레임 업데이트
+        if self.legendary_item and self.legendary_item.animation_frames:
+            self.icon_animation_timer += dt
+            if self.icon_animation_timer > 100:  # 100ms마다 프레임 변경
+                self.icon_animation_timer = 0
+                self.icon_animation_frame = (self.icon_animation_frame + 1) % len(self.legendary_item.animation_frames)
         
         # 폭발 후 0.5초 뒤에 legendafter.wav 재생
         if self.explosion_time > 0 and not self.legendafter_played:
@@ -1052,7 +1080,15 @@ class LegendaryAcquisitionEffect:
                 self._draw_illuminati_symbols(screen, center_x, center_y, fade_progress)
             
             # 아이템 아이콘 (플로팅)
-            if self.item_icon and isinstance(self.item_icon, pygame.Surface):
+            icon_to_draw = None
+            
+            # 전설 아이템 애니메이션 프레임 사용
+            if self.legendary_item and self.legendary_item.animation_frames:
+                icon_to_draw = self.legendary_item.animation_frames[self.icon_animation_frame]
+            elif self.item_icon and isinstance(self.item_icon, pygame.Surface):
+                icon_to_draw = self.item_icon
+            
+            if icon_to_draw:
                 # 페이드인 후 일정한 크기 유지
                 if fade_progress < 1.0:
                     icon_size = int(80 * (1 + 0.5 * (1 - fade_progress)))
@@ -1061,7 +1097,7 @@ class LegendaryAcquisitionEffect:
                     icon_size = 80
                     alpha = self.item_alpha if self.black_hole_phase > 0 else 255
                     
-                scaled_icon = pygame.transform.scale(self.item_icon, (icon_size, icon_size))
+                scaled_icon = pygame.transform.scale(icon_to_draw, (icon_size, icon_size))
                 scaled_icon.set_alpha(alpha)
                 
                 # 플로팅 오프셋 적용

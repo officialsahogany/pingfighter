@@ -1793,6 +1793,14 @@ tutorial_power_helper_dialogue_shown = False  # 파워스매싱 도우미 대화
 tutorial_power_left_done = False  # 왼쪽 파워스매싱 완료 여부
 tutorial_power_center_done = False  # 중앙 파워스매싱 완료 여부
 
+# Chapter 4 (current_stage == 4) 파워스매싱 도우미
+chapter4_dialogue_completed = False  # 챕터4 조교 대화 완료 여부
+chapter4_power_helper_shown = False  # 챕터4 파워스매싱 도우미 표시 여부
+chapter4_power_helper_timer = 0  # 도우미 표시 타이머
+chapter4_first_hit_after_dialogue = False  # 대화 후 첫 번째 타격 여부
+chapter4_serve_reminder_active = False  # 서브 알림 활성화 여부
+chapter4_serve_reminder_timer = 0  # 서브 알림 타이머 (90 frames = 1.5초)
+
 # 튜토리얼 대쉬 pending 플래그 (handle_ball에서 사용하기 위해 조기 초기화)
 tutorial_half_dash_pending = False  # 하프대쉬 발동 후 공 충돌 대기 중
 tutorial_consecutive_dash_pending = False  # 연속대쉬 발동 후 공 충돌 대기 중  
@@ -4609,6 +4617,10 @@ INSTANT_STOP_DECELERATION = 1.0  # 즉시 정지시킬 때 더 빠른 감속
 # 스피드부츠 관련 변수
 speedboots_obtained = False  # 스피드부츠 획득 여부
 PERMANENT_SPEED_BOOST = 0.06  # 영구 속도 증가량 (6% 증가)
+# 헤르메스의 신발 관련 변수
+hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
+hermes_star_particles = []  # 헤르메스 별가루 파티클 리스트
+last_paddle_x = 0  # 이전 패들 X 위치 (파티클 생성용)
 #  관성 보존 시스템 변수
 last_wall_collision_time = 0  # 마지막 벽 충돌 시간
 momentum_preservation = 1.0   # 관성 보존 배율
@@ -5128,6 +5140,7 @@ def handle_player(keys):
     global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
     global tutorial_consecutive_dash_count, tutorial_half_dash_count
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
+    global tutorial_dash_already_counted  # 대쉬 중복 카운팅 방지용
     # Chapter 4 파워스매싱 관련 변수 추가
     global tutorial_needs_power_practice, tutorial_power_practice_shown
     global tutorial_power_helper_dialogue_shown, tutorial_power_completion_dialogue_shown
@@ -5289,6 +5302,10 @@ def handle_player(keys):
                 # 구르기 종료, 통제 불가능 상태 시작
                 rolling_active = False
                 
+                # 튜토리얼: 대쉬 종료 시 카운팅 플래그 리셋
+                if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
+                    tutorial_dash_already_counted = False
+                
                 # 튜토리얼: 연속대쉬는 이제 사용 즉시 카운팅되므로 pending 플래그 리셋 불필요
                 # Consecutive dash now counts immediately when used
                 
@@ -5376,6 +5393,9 @@ def handle_player(keys):
                 if keys[pygame.K_LEFT] and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
                     # 통제불능 상태에서 왼쪽 대쉬 실행 (아래키 + 왼쪽키 필요)
                     rolling_active = True
+                    # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
+                    if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
+                        tutorial_dash_already_counted = False
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
                     acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
@@ -5505,6 +5525,9 @@ def handle_player(keys):
                 elif keys[pygame.K_RIGHT] and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
                     # 통제불능 상태에서 오른쪽 대쉬 실행 (아래키 + 오른쪽키 필요)
                     rolling_active = True
+                    # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
+                    if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
+                        tutorial_dash_already_counted = False
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
                     acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
@@ -5749,6 +5772,9 @@ def handle_player(keys):
                     if half_dash_activated:
                         # 하프 대쉬 발동
                         rolling_active = True
+                        # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
+                        if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
+                            tutorial_dash_already_counted = False
                         rolling_direction = half_dash_direction
                         rolling_timer = half_dash_timer
                         
@@ -5889,6 +5915,9 @@ def handle_player(keys):
                 if keys[pygame.K_LEFT] and keys[pygame.K_DOWN] and special_gauge >= required_gauge:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     rolling_active = True
+                    # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
+                    if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
+                        tutorial_dash_already_counted = False
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
                     acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
@@ -6027,6 +6056,9 @@ def handle_player(keys):
                 elif keys[pygame.K_RIGHT] and keys[pygame.K_DOWN] and special_gauge >= required_gauge:
                     # 아래키 + 오른쪽 - 대쉬 실행
                     rolling_active = True
+                    # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
+                    if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
+                        tutorial_dash_already_counted = False
                     # rolling_direction을 먼저 설정
                     rolling_direction = 1
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
@@ -6161,6 +6193,18 @@ def handle_player(keys):
                     record_dash_usage(success=False)  # 일단 사용만 기록, 성공은 공 충돌 시 체크
             #  스피드부츠 효과 적용 (6% 증가)
             speed_multiplier = (1.0 + PERMANENT_SPEED_BOOST) if speedboots_obtained else 1.0
+            
+            # 헤르메스의 신발 효과 적용 (50% 증가)
+            # 안전성 향상: items 모듈의 플래그도 함께 참조하여 적용 누락 방지
+            try:
+                hermes_active = hermes_shoes_obtained or getattr(items, 'hermes_shoes_obtained', False)
+            except Exception:
+                hermes_active = hermes_shoes_obtained
+            if hermes_active:
+                # 헤르메스의 신발을 획득했으면 즉시 50% 속도 증가 적용
+                speed_multiplier *= 1.5
+                # print(f"⚡ 헤르메스의 신발 효과 적용! 속도 배율: {speed_multiplier:.1f}x")
+            
             # 스킬 효과 적용: 패들 속도 증가
             skill_speed_boost = skill.apply_paddle_speed_boost(0)
             effective_max_speed = (MAX_SPEED + skill_speed_boost) * speed_multiplier
@@ -6320,6 +6364,26 @@ def handle_player(keys):
     # 화염 지대 넉백은 감전/스턴 상태와 무관하게 항상 적용
     PLAYER.x += player_flame_zone_knockback_vel
     
+    # 헤르메스의 신발 별가루 파티클 생성
+    global last_paddle_x, hermes_star_particles
+    if hermes_shoes_obtained and abs(PLAYER.x - last_paddle_x) > 2:  # 2픽셀 이상 움직였을 때만
+        # 움직인 방향에 따라 파티클 생성
+        particle_count = min(3, int(abs(PLAYER.x - last_paddle_x) / 5))  # 속도에 비례해서 생성
+        for _ in range(particle_count):
+            import random
+            particle = {
+                'x': PLAYER.centerx + random.randint(-PADDLE_WIDTH//3, PADDLE_WIDTH//3),
+                'y': PLAYER.centery + random.randint(-5, 5),
+                'vx': random.uniform(-0.5, 0.5),  # 약간의 수평 속도
+                'vy': random.uniform(-1, -0.3),  # 위로 떠오르는 속도
+                'life': 30,  # 0.5초 수명 (60fps 기준)
+                'max_life': 30,
+                'size': random.randint(2, 4),
+                'color_offset': random.randint(0, 2)  # 색상 변화용
+            }
+            hermes_star_particles.append(particle)
+    last_paddle_x = PLAYER.x
+    
     # 패들 크기 변화를 고려한 X 좌표 제한
     # 악마의 주사위 배율도 포함
     actual_paddle_width = int(PADDLE_WIDTH * long_boost_scale * (synergy_paddle_width_boost if gravity_speed_synergy else 1.0) * devil_dice_paddle_multiplier)
@@ -6434,36 +6498,8 @@ def handle_player(keys):
                                 tutorial_token_just_added = False
                                 print("튜토리얼: 토큰 추가 후 서브 알림창 타이머 설정")
                 
-                # 대쉬 카운터 증가 처리
-                # 하프대쉬 체크
-                if tutorial_half_dash_pending:
-                    tutorial_half_dash_pending = False
-                    if tutorial_half_dash_count < 2:
-                        tutorial_half_dash_count += 1
-                        if tutorial_half_dash_count == 1:
-                            show_tutorial_success_feedback("하프대쉬 성공!", "normal")
-                        else:
-                            show_tutorial_success_feedback("하프대쉬 완료!", "great")
-                        print(f"튜토리얼: 하프대쉬로 공 타격 성공 {tutorial_half_dash_count}/2")
-                        
-                        # 완료 체크
-                        check_tutorial_dash_missions_complete()
-                
-                # 일반 대쉬 카운터
-                elif (tutorial_dash_count < 2 and 
-                    not tutorial_half_dash_pending and 
-                    not ('half_dash_used_flag' in globals() and half_dash_used_flag)):
-                    tutorial_dash_count += 1
-                    print(f"튜토리얼: 대쉬 상태에서 공 타격 성공 {tutorial_dash_count}/2")
-                    
-                    # 성공 피드백 표시
-                    if tutorial_dash_count == 1:
-                        show_tutorial_success_feedback("대쉬 성공!", "normal")
-                    elif tutorial_dash_count == 2:
-                        show_tutorial_success_feedback("훌륭해요!", "great")
-                    
-                    # 완료 체크
-                    check_tutorial_dash_missions_complete()
+                # 대쉬 카운터는 아래에서 통합 처리 (중복 방지)
+                pass  # 대화 처리만 하고 카운팅은 하지 않음
         
         # 튜토리얼 스테이지 50에서 플레이어가 공을 친 횟수 증가
         # handle_player에서 처리하여 모든 각도의 충돌을 정확히 카운팅
@@ -6503,6 +6539,28 @@ def handle_player(keys):
         #  Stage 4: 몽크가 봉을 휘둘러 공 방향 변경 (플레이어가 칠 때 한 번 체크)
         if current_stage == 4 and animated_bg_stage4 is not None:
             animated_bg_stage4.trigger_monk_swing(BALL.centerx, BALL.centery, "player")
+        
+        # Chapter 4 (튜토리얼): 조교 대화 후 첫 타격시 체크
+        if current_stage == 50 and ('tutorial_current_chapter' in globals() and tutorial_current_chapter == 4):
+            # 스테이지 4에서는 항상 대화가 완료된 것으로 가정 (조교가 게임 시작 전에 대화함)
+            if not chapter4_dialogue_completed:
+                chapter4_dialogue_completed = True
+                tutorial_serve_reminder_active = True  # 튜토리얼 서브 알림 활성화
+                chapter4_serve_reminder_timer = int(1.5 * FPS)  # 1.5초
+                print("🎮 Chapter 4: 조교 대화 완료 상태로 설정 - 튜토리얼 서브 알림 활성화")
+            
+            # 대화 완료 후 첫 타격 체크
+            if chapter4_dialogue_completed and not chapter4_first_hit_after_dialogue:
+                chapter4_first_hit_after_dialogue = True
+                print(f"🎮 Chapter 4: 대화 후 첫 타격! 현재 게이지: {special_gauge}")
+            
+            # 게이지가 500 도달시 파워스매싱 도우미 표시
+            if (chapter4_first_hit_after_dialogue and 
+                special_gauge >= 500 and 
+                not chapter4_power_helper_shown):
+                chapter4_power_helper_shown = True
+                chapter4_power_helper_timer = 300  # 5초간 표시
+                print("🎯 Chapter 4: 500 게이지 도달! 파워스매싱 도우미 표시")
         
         #  가속화 스킬은 이제 패들 사이즈 증가로 변경됨 (공속도 증가 제거)
         drive_activated = calculate_bounce(PLAYER)
@@ -6572,13 +6630,15 @@ def handle_player(keys):
                         # 완료 체크
                         check_tutorial_dash_missions_complete()
                 
-                # 일반 대쉬 카운터 (최대 2회) - 하프대쉬와 연속대쉬가 아닌 경우에만
+                # 일반 대쉬 카운터 (최대 2회) - 하프대쉬와 연속대쉬가 아닌 경우에만 - 중복 방지
                 # 하프대쉬와 연속대쉬는 각각 pending 플래그로 별도 처리됨
                 # half_dash_used_flag도 체크하여 하프대쉬 중인 경우 제외
                 elif (tutorial_dash_count < 2 and 
                     not tutorial_half_dash_pending and 
-                    not ('half_dash_used_flag' in globals() and half_dash_used_flag)):
+                    not ('half_dash_used_flag' in globals() and half_dash_used_flag) and
+                    not ('tutorial_dash_already_counted' in globals() and tutorial_dash_already_counted)):
                     tutorial_dash_count += 1
+                    tutorial_dash_already_counted = True  # 이번 대쉬에서 카운팅 완료
                     print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/2")
                     
                     # 성공 피드백 표시
@@ -6590,8 +6650,9 @@ def handle_player(keys):
                     # 완료 체크
                     check_tutorial_dash_missions_complete()
         
-        # Chapter 2 튜토리얼: rolling_active 상태에서 패들 충돌 시 무조건 카운트
+        # Chapter 2 튜토리얼: rolling_active 상태에서 패들 충돌 시 무조건 카운트 (백업 처리)
         # (is_dash_success와 별개로 패들의 모든 부위에 공이 닿았을 때 카운트)
+        # is_dash_success가 false일 때만 실행되는 백업 카운팅
         elif current_stage == 50 and tutorial_dash_counter_active and rolling_active:
             # 튜토리얼 모드에서 대쉬 성공 시 도우미 끄기
             if 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
@@ -6612,11 +6673,13 @@ def handle_player(keys):
                     # 완료 체크
                     check_tutorial_dash_missions_complete()
             
-            # 일반 대쉬 카운터 (rolling_active 상태에서 충돌 시)
+            # 일반 대쉬 카운터 (rolling_active 상태에서 충돌 시) - 중복 방지  
             elif (tutorial_dash_count < 2 and 
                 not tutorial_half_dash_pending and 
-                not ('half_dash_used_flag' in globals() and half_dash_used_flag)):
+                not ('half_dash_used_flag' in globals() and half_dash_used_flag) and
+                not ('tutorial_dash_already_counted' in globals() and tutorial_dash_already_counted)):
                 tutorial_dash_count += 1
+                tutorial_dash_already_counted = True  # 이번 대쉬에서 카운팅 완료
                 print(f"튜토리얼: 대쉬 상태에서 공 타격 성공 {tutorial_dash_count}/2")
                 
                 # 성공 피드백 표시
@@ -6728,7 +6791,9 @@ def handle_player(keys):
         if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_blocks_charge:
             # 스킬 효과 적용: 게이지 충전 증가
             # Chapter 3 드라이브 튜토리얼에서는 게이지 증가율을 200으로 설정
-            if ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
+            if ('tutorial_current_chapter' in globals() and tutorial_current_chapter == 4):
+                base_gauge_gain = 500  # Chapter 4: 패들 히트 시 게이지 500 충전
+            elif ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
                 base_gauge_gain = 80  # 일반 게임: 게이지 충전 80
@@ -6748,6 +6813,11 @@ def handle_player(keys):
                 total_gauge_gain = int(total_gauge_gain * paddle_charge_multiplier)
                 if paddle_charge_multiplier != 1.0:
                     print(f"    : {paddle_charge_multiplier:.1f}x → {total_gauge_gain}")
+            
+            # Chapter 4: 매 타격마다 500 게이지 충전
+            if current_stage == 4:
+                total_gauge_gain = 500
+                print(f"🎮 Chapter 4: 500 게이지 충전!")
             
             print(f" DEBUG:  handle_player   ({total_gauge_gain})")
             old_gauge = special_gauge  # 이전 게이지 저장
@@ -6902,6 +6972,7 @@ def store_passive_item(item_data):
     global danger_sensor_obtained, sensor_obtained, danger_sensor_enabled, sensor_enabled  # 센서 관련 변수들
     global dashholder_obtained  # 대쉬홀더 관련 변수
     global gravitybelt_obtained, gravity_speed_synergy  # 무중력벨트 관련 변수들
+    global hermes_shoes_obtained  # 헤르메스의 신발 관련 변수
     print(f"store_passive_item : {item_data['name']}")
     # Aipill 활성화 시에는 아이템 획득 불가
     if aipill_active:
@@ -7181,6 +7252,24 @@ def store_passive_item(item_data):
             print("🔴 라그나로크 해머 획득! 신들의 황혼이 시작됩니다!")
         else:
             print("이미 라그나로크 해머를 보유 중입니다.")
+    elif item_data["name"] == "hermes_shoes":
+        # 헤르메스의 신발 전설 아이템 획득
+        if not hermes_shoes_obtained:
+            hermes_shoes_obtained = True  # 게임 전역 변수 설정
+            items.hermes_shoes_obtained = True  # items.py의 변수도 업데이트
+            # 전설 아이템 타입 설정
+            item_data["type"] = "legendary"
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            legendary_manager.activate_item("hermes_shoes", {})
+            # 전설 아이템 획득 애니메이션 트리거
+            trigger_legendary_acquisition("hermes_shoes", "헤르메스의 신발", item_icon, (PLAYER.centerx, PLAYER.centery))
+            # 아이템 획득 플로팅 애니메이션 (전설 아이템은 True 플래그)
+            show_item_acquisition("hermes_shoes", "헤르메스의 신발", item_icon, True,
+                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            print("⚡ 헤르메스의 신발 획득! 신들의 속도를 얻었습니다! 이동속도 50% 증가!")
+        else:
+            print("이미 헤르메스의 신발을 보유 중입니다.")
     else:
         # 알 수 없는 패시브 아이템 처리
         print(f"     : {item_data['name']}")
@@ -10782,6 +10871,67 @@ def draw_objects():
     # 최종 화면 흔들림 오프셋
     total_offset_x = grenade_offset_x
     total_offset_y = quake_offset_y + grenade_offset_y
+    # 헤르메스의 신발 별가루 파티클 업데이트 및 렌더링
+    def update_and_draw_hermes_particles():
+        """헤르메스의 신발 별가루 파티클 업데이트 및 렌더링"""
+        global hermes_star_particles
+        import random
+        import math
+        
+        # 파티클 업데이트
+        particles_to_remove = []
+        for particle in hermes_star_particles:
+            # 위치 업데이트
+            particle['x'] += particle['vx']
+            particle['y'] += particle['vy']
+            # 수명 감소
+            particle['life'] -= 1
+            if particle['life'] <= 0:
+                particles_to_remove.append(particle)
+        
+        # 죽은 파티클 제거
+        for particle in particles_to_remove:
+            hermes_star_particles.remove(particle)
+        
+        # 파티클 렌더링 (패들 뒤에 그려짐)
+        for particle in hermes_star_particles:
+            # 페이드 효과를 위한 알파값 계산
+            alpha = int(255 * (particle['life'] / particle['max_life']))
+            
+            # 반짝이는 효과를 위한 색상 변화
+            time_offset = pygame.time.get_ticks() / 100 + particle['color_offset']
+            r = min(255, 200 + int(55 * abs(math.sin(time_offset))))
+            g = min(255, 200 + int(55 * abs(math.cos(time_offset))))
+            b = 255  # 파란색 계열 유지
+            
+            # 별 모양 그리기 (작은 십자가 + 대각선)
+            center_x = int(particle['x'])
+            center_y = int(particle['y'])
+            size = particle['size']
+            
+            # 반짝이는 효과를 위해 크기도 약간 변화
+            twinkle_size = size + int(math.sin(time_offset * 2) * 1)
+            
+            # 별 그리기 (페이드 효과 적용)
+            if alpha > 20:  # 너무 투명하면 그리지 않음
+                # 중심 점
+                pygame.draw.circle(SCREEN, (r, g, b), (center_x, center_y), max(1, twinkle_size//2))
+                # 십자 모양
+                pygame.draw.line(SCREEN, (r, g, b), 
+                               (center_x - twinkle_size, center_y), 
+                               (center_x + twinkle_size, center_y), 1)
+                pygame.draw.line(SCREEN, (r, g, b), 
+                               (center_x, center_y - twinkle_size), 
+                               (center_x, center_y + twinkle_size), 1)
+                # 대각선 (더 작게)
+                small_size = max(1, twinkle_size // 2)
+                pygame.draw.line(SCREEN, (r, g, b), 
+                               (center_x - small_size, center_y - small_size), 
+                               (center_x + small_size, center_y + small_size), 1)
+                pygame.draw.line(SCREEN, (r, g, b), 
+                               (center_x - small_size, center_y + small_size), 
+                               (center_x + small_size, center_y - small_size), 1)
+    
     # 화면 흔들림을 적용하여 오브젝트 그리기
     def draw_with_shake(surface, pos):
         """  화면 흔들림을 적용하여 그리기"""
@@ -11667,6 +11817,11 @@ def draw_objects():
     # 미사일 무적 시간 체크
     time_now = pygame.time.get_ticks()
     is_missile_invulnerable = time_now < player_missile_invulnerable_time
+    
+    # 헤르메스의 신발 별가루 파티클 그리기 (패들 뒤에 그려짐)
+    if hermes_shoes_obtained:
+        update_and_draw_hermes_particles()
+    
     # UFO 이미지 그리기 (화면 흔들림 효과 적용 - 최적화 버전)
     if special_ready:
         if (time_now // 250) % 2 == 0:
@@ -13846,7 +14001,7 @@ def show_victory_screen(stage_cleared, reward):
                 elif score_bonus == 2:
                     temp_text = font_info.render(f"우수한 승리 (5:1): +{score_bonus}", True, base_color)
                 else:
-                    temp_text = font_info.render(f"승리 (5:2): +{score_bonus}", True, base_color)
+                    temp_text = font_info.render(f"소소한 승리 (5:2): +{score_bonus}", True, base_color)
                 text_width = temp_text.get_width()
                 text_height = temp_text.get_height()
                 
@@ -13875,7 +14030,7 @@ def show_victory_screen(stage_cleared, reward):
             elif score_bonus == 2:
                 score_text = font_info.render(f"우수한 승리 (5:1): +{score_bonus}", True, (100, 200, 255))
             else:
-                score_text = font_info.render(f"승리 (5:2): +{score_bonus}", True, (100, 255, 200))
+                score_text = font_info.render(f"소소한 승리 (5:2): +{score_bonus}", True, (100, 255, 200))
             
             if scale != 1.0:
                 score_text = pygame.transform.scale(score_text,
@@ -15306,6 +15461,7 @@ tutorial_half_dash_count = 0  # 하프대쉬 성공 횟수
 tutorial_consecutive_dash_count = 0  # 연속대쉬 성공 횟수
 tutorial_displayed_dash_count = 0.0  # 화면에 표시되는 애니메이션용 대쉬 카운트
 tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
+tutorial_dash_already_counted = False  # 현재 대쉬에서 이미 카운팅됨 플래그
 # tutorial_half_dash_pending과 tutorial_consecutive_dash_pending는 라인 1794-1795에서 초기화됨
 
 # 튜토리얼 드라이브 카운터 변수
@@ -21804,6 +21960,7 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
     global danger_sensor_obtained, danger_sensor_enabled
     global dashholder_obtained
     global gravitybelt_obtained, items, rolling_charges
+    global hermes_shoes_obtained  # 헤르메스의 신발 전역 변수 추가
     
     print(f"[DEBUG] apply_selected_items !")
     print(f"[DEBUG]   : {selected_passive_items}")
@@ -21834,6 +21991,10 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
         if item_name == "speedboots":
             speedboots_obtained = True
             items.speedboots_obtained = True
+        elif item_name == "hermes_shoes":
+            hermes_shoes_obtained = True
+            items.hermes_shoes_obtained = True
+            print("헤르메스의 신발 적용! 패들 이동속도 50% 증가!")
         elif item_name == "speedgear":
             speedgear_obtained = True
             items.speedgear_obtained = True
@@ -21997,6 +22158,80 @@ def get_item_icon(item_name):
     # 캐시 확인
     if item_name in icon_cache:
         return icon_cache[item_name]
+    
+    # 전설 아이템들은 정적 스냅샷 생성
+    if item_name in ["hermes_shoes", "ragnarok_hammer"]:
+        from legendary_items import get_legendary_manager
+        legendary_manager = get_legendary_manager()
+        if legendary_manager:
+            # 아이템이 없으면 초기화
+            legendary_item = legendary_manager.get_item(item_name)
+            if not legendary_item:
+                legendary_manager._init_legendary_items()
+                legendary_item = legendary_manager.get_item(item_name)
+            
+            if legendary_item:
+                # 정적 아이콘 스냅샷 생성
+                icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+                icon_surface.fill((0, 0, 0, 0))  # 투명 배경
+                
+                # 전설 아이템의 현재 프레임을 정적 아이콘으로 그리기
+                if item_name == "hermes_shoes":
+                    # 헤르메스의 신발 - 애니메이션 프레임 사용 (라그나로크 해머와 동일한 방식)
+                    if not legendary_item.animation_frames:
+                        legendary_item._create_default_animation()
+                    
+                    if legendary_item.animation_frames:
+                        frame = legendary_item.animation_frames[0]  # 첫 프레임 사용
+                        scaled_frame = pygame.transform.scale(frame, (ICON_SIZE, ICON_SIZE))
+                        icon_surface.blit(scaled_frame, (0, 0))
+                    else:
+                        # 폴백: 기본 아이콘 그리기
+                        legendary_item._draw_hermes_default_icon(icon_surface, 0, 0, ICON_SIZE)
+                elif item_name == "ragnarok_hammer":
+                    # 라그나로크 해머 정적 아이콘 (현재 프레임 사용)
+                    if legendary_item.animation_frames:
+                        frame = legendary_item.animation_frames[0]  # 첫 프레임 사용
+                        scaled_frame = pygame.transform.scale(frame, (ICON_SIZE, ICON_SIZE))
+                        icon_surface.blit(scaled_frame, (0, 0))
+                    else:
+                        # 기본 해머 아이콘 그리기
+                        hammer_color = (150, 75, 0)  # 갈색
+                        metal_color = (200, 200, 200)  # 은색
+                        # 해머 헤드
+                        pygame.draw.rect(icon_surface, metal_color, 
+                                       (ICON_SIZE//4, ICON_SIZE//6, ICON_SIZE//2, ICON_SIZE//3))
+                        # 해머 손잡이
+                        pygame.draw.rect(icon_surface, hammer_color,
+                                       (ICON_SIZE*2//5, ICON_SIZE//3, ICON_SIZE//5, ICON_SIZE*2//3))
+                
+                icon_cache[item_name] = icon_surface
+                return icon_surface
+        
+        # LegendaryManager를 사용할 수 없는 경우 기본 아이콘 생성
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))
+        
+        if item_name == "hermes_shoes":
+            # 헤르메스 기본 아이콘 (황금 신발)
+            shoe_color = (255, 215, 0)  # 황금색
+            wing_color = (255, 255, 255)  # 흰색 날개
+            # 신발 본체
+            pygame.draw.ellipse(icon_surface, shoe_color, 
+                              (ICON_SIZE//4, ICON_SIZE//3, ICON_SIZE//2, ICON_SIZE//3))
+            # 날개
+            pygame.draw.polygon(icon_surface, wing_color, 
+                              [(ICON_SIZE//8, ICON_SIZE//2), (0, ICON_SIZE//2+5), 
+                               (ICON_SIZE//8, ICON_SIZE//2+10), (ICON_SIZE//4, ICON_SIZE//2+5)])
+        else:  # ragnarok_hammer
+            # 해머 기본 아이콘
+            pygame.draw.rect(icon_surface, (200, 200, 200),  # 은색 헤드
+                           (ICON_SIZE//4, ICON_SIZE//6, ICON_SIZE//2, ICON_SIZE//3))
+            pygame.draw.rect(icon_surface, (150, 75, 0),  # 갈색 손잡이
+                           (ICON_SIZE*2//5, ICON_SIZE//3, ICON_SIZE//5, ICON_SIZE*2//3))
+        
+        icon_cache[item_name] = icon_surface
+        return icon_surface
     
     # 디버그 로그 (필요시 주석 해제)
     # print(f"Loading icon for: {item_name}")
@@ -23558,6 +23793,73 @@ def check_deuce_system():
     return "continue"
 def draw_score():
     global perfect_victory_bonus_timer, victory_bonus_type
+    global chapter4_power_helper_timer, chapter4_serve_reminder_timer, chapter4_serve_reminder_active
+    
+    # Chapter 4 서브 알림 표시 (대화 완료 후 1.5초간)
+    if current_stage == 4 and chapter4_serve_reminder_active and chapter4_serve_reminder_timer > 0:
+        chapter4_serve_reminder_timer -= 1
+        
+        # 알림이 끝나면 비활성화
+        if chapter4_serve_reminder_timer == 0:
+            chapter4_serve_reminder_active = False
+        
+        # 서브 알림 UI 그리기 (서브 도우미와 동일한 스타일)
+        try:
+            font_large = get_font(24)
+        except:
+            font_large = pygame.font.Font(None, 30)
+        
+        main_text = "세 방향으로 한번씩 파워스매싱을 날려보세요!"
+        box_width = 800
+        box_height = 60
+        box_x = (WIDTH - box_width) // 2
+        box_y = HEIGHT // 2 + 100  # 화면 중앙 아래쪽
+        
+        # 박스 배경 (반투명 - 스크린샷과 동일한 스타일)
+        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        box_surface.fill((20, 20, 40, 220))  # 반투명 어두운 파란색 배경
+        pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 3)  # 청록색 테두리
+        SCREEN.blit(box_surface, (box_x, box_y))
+        
+        # 메인 텍스트
+        main_surface = font_large.render(main_text, True, CYAN)
+        main_rect = main_surface.get_rect(center=(box_x + box_width // 2, box_y + box_height // 2))
+        SCREEN.blit(main_surface, main_rect)
+    
+    # Chapter 4 파워스매싱 도우미 표시
+    if current_stage == 4 and chapter4_power_helper_timer > 0:
+        chapter4_power_helper_timer -= 1
+        
+        # 도우미 폰트 설정
+        try:
+            helper_font = get_font(20)
+        except:
+            helper_font = pygame.font.Font(None, 24)
+        
+        # 도우미 메시지
+        helper_text = "각 방향별로 1회씩 파워스매싱을 발동해보세요!"
+        text_surface = helper_font.render(helper_text, True, (255, 255, 100))
+        
+        # 반투명 배경
+        bg_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 100))
+        bg_rect.inflate_ip(20, 10)
+        bg_surface = pygame.Surface((bg_rect.width, bg_rect.height))
+        bg_surface.set_alpha(200)
+        bg_surface.fill((0, 0, 0))
+        
+        # 배경과 텍스트 그리기
+        SCREEN.blit(bg_surface, bg_rect)
+        SCREEN.blit(text_surface, text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 100)))
+        
+        # 추가 안내 메시지 (작은 글씨)
+        try:
+            small_font = get_font(14)
+        except:
+            small_font = pygame.font.Font(None, 18)
+        
+        guide_text = "↑ + SPACE (위), ← + SPACE (왼쪽), → + SPACE (오른쪽)"
+        guide_surface = small_font.render(guide_text, True, (200, 200, 200))
+        SCREEN.blit(guide_surface, guide_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 70)))
     
     # 승리 보너스 메시지 표시
     if perfect_victory_bonus_timer > 0:
@@ -23578,7 +23880,7 @@ def draw_score():
         elif victory_bonus_type == "dominant":
             bonus_text = "5:1 Victory! +2 Trade Points!"
         elif victory_bonus_type == "victory":
-            bonus_text = "5:2 Victory! +1 Trade Point!"
+            bonus_text = "5:2 소소한 승리! +1 Trade Point!"
         else:
             bonus_text = "Victory Bonus!"
         
@@ -27571,7 +27873,9 @@ def handle_ball():
         if not aipill_active and not special_active and not rolling_active and rolling_stun_timer <= 0 and player_collision_cooldown <= 0 and not drive_blocks_charge:
             # 스킬 효과 적용: 게이지 충전 증가
             # Chapter 3 드라이브 튜토리얼에서는 게이지 증가율을 200으로 설정
-            if ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
+            if ('tutorial_current_chapter' in globals() and tutorial_current_chapter == 4):
+                base_gauge_gain = 500  # Chapter 4: 패들 히트 시 게이지 500 충전 (백업 경로)
+            elif ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
                 base_gauge_gain = 80  # 일반 게임: 게이지 충전 80
@@ -29679,7 +29983,7 @@ def record_victory_result(player_wins, boss_wins):
             perfect_victory_bonus_timer = 180  # 3초간 메시지 표시
             victory_bonus_type = "victory"
             
-            print("5:2 승리! 보너스 트레이드 포인트 +1")
+            print("5:2 소소한 승리! 보너스 트레이드 포인트 +1")
     
     if player_analyzer:
         try:
@@ -30396,6 +30700,10 @@ def show_result(won):
         if not items.ragnarok_hammer_obtained:
             ragnarok_icon = get_item_icon("ragnarok_hammer")
             available_items.append({"name": "ragnarok_hammer", "color": (255, 50, 50), "type": "passive", "icon": ragnarok_icon})
+        # 헤르메스의 신발 전설 아이템 추가
+        if not items.hermes_shoes_obtained:
+            hermes_icon = get_item_icon("hermes_shoes")
+            available_items.append({"name": "hermes_shoes", "color": (255, 50, 50), "type": "passive", "icon": hermes_icon})
         # 엑티브 아이템들 추가
         available_items.append({"name": "long_boost", "color": (255, 100, 100), "type": "active", "icon": long_boost_icon})
         available_items.append({"name": "gauge_charge", "color": (100, 255, 100), "type": "active", "icon": gauge_charge_icon})
@@ -30504,6 +30812,8 @@ def show_result(won):
         gravitybelt_obtained = False  # 무중력벨트 아이템 제거
         danger_sensor_obtained = False  # 위험감지센서 아이템 제거
         sensor_obtained = False  # 센서 아이템 제거
+        hermes_shoes_obtained = False  # 헤르메스의 신발 아이템 제거
+        hermes_star_particles.clear()  # 헤르메스 별가루 파티클 초기화
         #  연료파우치와 블루투스링 효과 초기화
         from item_effects.fuel_pouch import deactivate_fuel_pouch
         from item_effects.bluetooth_ring import deactivate_bluetooth_ring
@@ -30525,6 +30835,7 @@ def show_result(won):
         items.dashholder_obtained = False
         items.gravitybelt_obtained = False
         items.sensor_obtained = False
+        items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
         # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
         rolling_charges = 1
         gravity_speed_synergy = False  # 시너지 효과 리셋
@@ -30663,6 +30974,10 @@ def main(stage_num, new_boss_mode=False):
     # 스톱워치 복구 방향 보정 관련 전역
     global stopwatch_forced_upward, stopwatch_upward_lock_timer
     global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done  # Chapter 4 방향별 완료
+    # Chapter 4 서브 알림/도우미 관련
+    global chapter4_serve_reminder_timer, chapter4_serve_reminder_active
+    global chapter4_dialogue_completed, chapter4_first_hit_after_dialogue
+    global chapter4_power_helper_shown, chapter4_power_helper_timer
     nine_just_pressed = False
     last_nine_state = False
     
@@ -31330,6 +31645,18 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_player_returned_ball = True
                     tutorial_gauge_tutorial_shown = True
                     tutorial_speed_dialogue_shown = True
+                    # 대화/도우미/일시정지 관련 플래그도 완료 처리
+                    try:
+                        global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue
+                        global tutorial_serve_helper_shown, tutorial_serve_helper_active
+                        global tutorial_serve_reminder_active
+                        tutorial_boss_return_dialogue_shown = True
+                        tutorial_pause_for_dialogue = False
+                        tutorial_serve_helper_shown = True
+                        tutorial_serve_helper_active = False
+                        tutorial_serve_reminder_active = False
+                    except Exception:
+                        pass
                     tutorial_player_hit_count = 6  # 카운터 팁 완료
                     tutorial_displayed_hit_count = 6.0
                     
@@ -31935,6 +32262,8 @@ def main(stage_num, new_boss_mode=False):
                     gravitybelt_obtained = False
                     danger_sensor_obtained = False
                     sensor_obtained = False
+                    hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
+                    hermes_star_particles.clear()  # 헤르메스 별가루 파티클 초기화
                     items.speedboots_obtained = False
                     items.speedgear_obtained = False
                     items.battery_obtained = False
@@ -31949,6 +32278,7 @@ def main(stage_num, new_boss_mode=False):
                     items.dashholder_obtained = False
                     items.gravitybelt_obtained = False
                     items.sensor_obtained = False
+                    items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
                     # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
                     rolling_charges = 1
                     gravity_speed_synergy = False  # 시너지 효과 리셋
@@ -32887,6 +33217,33 @@ def main(stage_num, new_boss_mode=False):
                             tutorial_serve_helper_active = True
                             print("튜토리얼: 서브 도우미 초기 활성화")
                     
+                # Chapter 4 전용 서브 알림 (대화 완료 직후 1.5초 노출)
+                if (current_stage == 50 and 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 4 
+                    and 'tutorial_serve_reminder_active' in globals() and tutorial_serve_reminder_active):
+                    try:
+                        global chapter4_serve_reminder_timer
+                        if chapter4_serve_reminder_timer > 0:
+                            chapter4_serve_reminder_timer -= 1
+                        if chapter4_serve_reminder_timer <= 0:
+                            tutorial_serve_reminder_active = False
+                        else:
+                            # 알림 UI (서브 도우미 스타일)
+                            font_large = FontStyle.subtitle() if 'FontStyle' in globals() else pygame.font.Font(None, 28)
+                            main_text = "세 방향으로 한번씩 파워스매싱을 날려보세요!"
+                            box_width = 860
+                            box_height = 70
+                            box_x = (WIDTH - box_width) // 2
+                            box_y = HEIGHT // 2 + 100
+                            box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+                            box_surface.fill((20, 20, 40, 220))
+                            pygame.draw.rect(box_surface, CYAN, (0, 0, box_width, box_height), 3)
+                            SCREEN.blit(box_surface, (box_x, box_y))
+                            text_surface = font_large.render(main_text, True, CYAN)
+                            text_rect = text_surface.get_rect(center=(box_x + box_width // 2, box_y + box_height // 2))
+                            SCREEN.blit(text_surface, text_rect)
+                    except Exception:
+                        pass
+
                 # 서브 도우미가 활성화되어 있으면 표시
                 if 'tutorial_serve_helper_active' in globals() and tutorial_serve_helper_active and is_waiting_for_serve:
                     instruction_text = "스페이스바를 눌러 서브공을 발사해보세요!"
@@ -32976,6 +33333,7 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_power_practice_shown = True
                     tutorial_power_counter_active = True  # 카운터 활성화
                     tutorial_serve_reminder_active = True  # 서브 알림창 활성화
+                    chapter4_serve_reminder_timer = int(1.5 * FPS)
                     print("튜토리얼: 파워스매싱 연습 대화 완료 (백업 메인 루프)")
                 
                 # 공 속도 복원
@@ -33006,6 +33364,7 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_power_practice_shown = True
                 tutorial_power_counter_active = True  # 카운터 활성화
                 tutorial_serve_reminder_active = True  # 서브 알림창 활성화 (Chapter 4에서는 파워스매싱 안내)
+                chapter4_serve_reminder_timer = int(1.5 * FPS)
                 print("튜토리얼: 파워스매싱 연습 대화 완료, 서브 알림창 활성화")
         
         # Chapter 4 - 게이지 500 도달 시 도우미 대화 (Chapter 3 조건문 밖으로 이동)
@@ -34232,7 +34591,8 @@ def get_item_name_korean(item_name):
         "fuel_pouch": "연료파우치",
         "bluetooth_ring": "블루투스링",
         "smartphone": "스마트폰",
-        "ragnarok_hammer": "라그나로크 해머"
+        "ragnarok_hammer": "라그나로크 해머",
+        "hermes_shoes": "헤르메스의 신발"
     }
     return korean_names.get(item_name, item_name)
 def get_item_description(item_name):
@@ -34274,7 +34634,8 @@ def get_item_description(item_name):
         "fuel_pouch": "연료파우치: 최대 스킬 게이지가 영구적으로 100 증가합니다. 더 많은 스킬을 사용할 수 있게 해주는 필수 패시브 아이템입니다.",
         "bluetooth_ring": "블루투스링: 패들에 공이 닿을 때 게이지 충전량이 25% 증가합니다. 스킬을 더 빠르게 충전할 수 있는 유용한 패시브 아이템입니다.",
         "smartphone": "스마트폰: 플레이어가 스탑워치나 AI알약 아이템을 소지하고 있을 경우, 공을 놓치기 직전 위험한 순간에 자동으로 해당 아이템을 사용합니다. 스탑워치가 AI알약보다 우선 발동됩니다. 한 번에 하나의 아이템만 사용됩니다.",
-        "ragnarok_hammer": "라그나로크 해머:  신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 2배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!"
+        "ragnarok_hammer": "라그나로크 해머:  신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 2배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
+        "hermes_shoes": "헤르메스의 신발: ⚡ 신들의 전령이 신던 전설의 날개 신발! 패들 이동속도가 50% 증가하여 순간이동하듯 빠르게 움직입니다. 황금빛 날개가 패들 양옆에서 펄럭이며, 이동 시 황금색 잔상과 속도선이 남습니다. 그리스 신화의 가장 빠른 신의 축복을 받으세요!"
     }
     return descriptions.get(item_name, "설명이 없습니다.")
 def show_item_management_menu(item_list, selected_index, item_type):
@@ -34284,6 +34645,7 @@ def show_item_management_menu(item_list, selected_index, item_type):
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained
     global rolling_charges, sensor_enabled, sensor_obtained
     global items
+    global hermes_shoes_obtained  # 헤르메스의 신발 전역 변수 추가
     if not item_list or selected_index >= len(item_list):
         return
     font_large = FontStyle.subtitle()  # 32pt 픽셀 폰트
@@ -34338,6 +34700,21 @@ def show_item_management_menu(item_list, selected_index, item_type):
                     hammer.update(0.016)  # 60fps 기준 델타타임
                     # 애니메이션 아이콘 그리기
                     hammer.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
+            elif item.get("icon"):
+                # 폴백: 일반 아이콘 사용
+                icon = pygame.transform.scale(item["icon"], (60, 60))
+                SCREEN.blit(icon, (panel_x + 20, panel_y + 20))
+        elif item_name == "hermes_shoes":
+            # 헤르메스의 신발도 전설 아이템 매니저를 통해 애니메이션 그리기
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                hermes = legendary_manager.get_item("hermes_shoes")
+                if hermes:
+                    # 애니메이션 업데이트
+                    hermes.update(0.016)  # 60fps 기준 델타타임
+                    # 애니메이션 아이콘 그리기
+                    hermes.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
             elif item.get("icon"):
                 # 폴백: 일반 아이콘 사용
                 icon = pygame.transform.scale(item["icon"], (60, 60))
@@ -34514,9 +34891,15 @@ def show_item_management_menu(item_list, selected_index, item_type):
                                 elif removed_item["name"] == "gravitybelt":
                                     gravitybelt_obtained = False
                                     items.gravitybelt_obtained = False
+                                elif removed_item["name"] == "hermes_shoes":
+                                    hermes_shoes_obtained = False
+                                    items.hermes_shoes_obtained = False
                                 elif removed_item["name"] == "gravitybelt":
                                     gravitybelt_obtained = False
                                     items.gravitybelt_obtained = False
+                                elif removed_item["name"] == "hermes_shoes":
+                                    hermes_shoes_obtained = False
+                                    items.hermes_shoes_obtained = False
                             # 아이템 이름을 한글로 표시
                             item_name_korean = get_item_name_korean(removed_item['name'])
                             print(f"{item_name_korean}  .")
