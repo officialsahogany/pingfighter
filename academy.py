@@ -2000,18 +2000,15 @@ class AcademyUI:
             is_available = self.skill_system.can_upgrade_skill(skill["id"])
             is_unlocked = current_level > 0
             
-            # 홀로그램 글로우 효과
+            # 홀로그램 글로우 효과 (노란색 제거, 시안색만 유지)
             if is_unlocked:
                 glow_color = (0, 255, 255)
                 bg_color = (0, 100, 100)
-            elif is_available:
-                glow_color = (255, 255, 0)
-                bg_color = (100, 100, 0)
             else:
                 glow_color = None
                 bg_color = (40, 40, 40)
             
-            if glow_color and (is_unlocked or is_available):
+            if glow_color and is_unlocked:  # is_available 조건 제거
                 for j in range(3):
                     glow_alpha = 50 - j * 15
                     glow_surf = pygame.Surface((skill_size * 3, skill_size * 3), pygame.SRCALPHA)
@@ -2391,18 +2388,15 @@ class AcademyUI:
             is_available = self.skill_system.can_upgrade_skill(skill["id"])
             is_unlocked = current_level > 0
             
-            # 홀로그램 글로우 효과
+            # 홀로그램 글로우 효과 (노란색 제거, 시안색만 유지)
             if is_unlocked:
                 glow_color = (0, 255, 255)
                 bg_color = (0, 100, 100)
-            elif is_available:
-                glow_color = (255, 255, 0)
-                bg_color = (100, 100, 0)
             else:
                 glow_color = None
                 bg_color = (40, 40, 40)
             
-            if glow_color and (is_unlocked or is_available):
+            if glow_color and is_unlocked:  # is_available 조건 제거
                 for j in range(3):
                     glow_alpha = 50 - j * 15
                     glow_surf = pygame.Surface((skill_size * 3, skill_size * 3), pygame.SRCALPHA)
@@ -2764,18 +2758,15 @@ class AcademyUI:
             is_available = self.skill_system.can_upgrade_skill(skill["id"])
             is_unlocked = current_level > 0
             
-            # 홀로그램 글로우 효과
+            # 홀로그램 글로우 효과 (노란색 제거, 시안색만 유지)
             if is_unlocked:
                 glow_color = (0, 255, 255)
                 bg_color = (0, 100, 100)
-            elif is_available:
-                glow_color = (255, 255, 0)
-                bg_color = (100, 100, 0)
             else:
                 glow_color = None
                 bg_color = (40, 40, 40)
             
-            if glow_color and (is_unlocked or is_available):
+            if glow_color and is_unlocked:  # is_available 조건 제거
                 for j in range(3):
                     glow_alpha = 50 - j * 15
                     glow_surf = pygame.Surface((skill_size * 3, skill_size * 3), pygame.SRCALPHA)

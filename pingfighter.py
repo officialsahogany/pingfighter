@@ -1181,7 +1181,7 @@ ai_decisions_history = []            # AI 결정 기록 (시각화용)
 ai_learning_active = True            # AI 학습 활성화 여부
 #  리그별 보스 능력치 보정
 def get_league_boss_multiplier(league_mode):
-    """리그별 보스 능력치 배수 반환 (개선된 배율)"""
+    """리그별 보스 능력치 배수 반환 (개선된 배율)""" 
     league_multipliers = {
         "junior": 0.85,    #  주니어리그: -15% (85%) - 초보자 친화적
         "pro": 1.00,       #  프로리그: 기본 (100%) - 표준 난이도
