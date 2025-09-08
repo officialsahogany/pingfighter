@@ -1627,7 +1627,7 @@ class AcademyUI:
         self.draw_sp_effect()
         
         # 트레이드 포인트 별 아이콘 그리기
-        star_x = self.width - 120
+        star_x = self.width - 80  # 더 우측으로 이동 (120 -> 80)
         star_y = 25
         star_size = 12
         
