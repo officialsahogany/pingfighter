@@ -1,0 +1,41 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/v0.1/client-config.schema.json",
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "--directory",
+        "~",
+        "--directory",
+        "/tmp"
+      ],
+      "transport": "stdio"
+    },
+    "slack": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-slack"
+      ],
+      "env": {
+        "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
+        "SLACK_APP_TOKEN": "${SLACK_APP_TOKEN}",
+        "SLACK_SIGNING_SECRET": "${SLACK_SIGNING_SECRET}"
+      },
+      "transport": "stdio"
+    },
+    "youtube": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-youtube"
+      ],
+      "env": {
+        "YOUTUBE_API_KEY": "${YOUTUBE_API_KEY}"
+      },
+      "transport": "stdio"
+    }
+  }
+}

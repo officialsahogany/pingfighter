@@ -84,7 +84,9 @@ def load_item_icons():
         "technical_vest": "technical_vest.png",  # 테크니컬조끼 아이콘
         "fuel_pouch": "fuel_pouch.png",  # 연료파우치 아이콘
         "bluetooth_ring": "bluetooth_ring.png",  # 블루투스링 아이콘
-        "smartphone": "smartphone.png"  # 스마트폰 아이콘
+        "smartphone": "smartphone.png",  # 스마트폰 아이콘
+        # 전설 아이템(아이콘)
+        "ragnarok_hammer": "legendary/ragnarok_hammer.png"
     }
     
     for item_name, icon_file in icon_files.items():

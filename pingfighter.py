@@ -2049,6 +2049,9 @@ STOPWATCH_RECOVERY_TIME = 60  # 1초 (60fps * 1)
 stopwatch_recovery_timer = 0  # 속도 회복 타이머
 stopwatch_forced_upward = False  # 스마트폰 발동 시 복구 후 위쪽으로 강제
 stopwatch_upward_lock_timer = 0  # 복구 직후 N프레임 동안 위 방향 고정
+# 스톱워치 복구 후 위 방향 락 튜닝
+STOPWATCH_UPWARD_LOCK_FRAMES = 16   # 락 지속 프레임 (0.27초)
+STOPWATCH_UPWARD_MIN_SPEED = 2.5    # 락 기간 최소 위향 속도
 
 psycho_bg_timer = 0
 # === 멘헤라걸 스킬: 눈물의 비 관련 전역 변수 ===
@@ -2367,6 +2370,16 @@ def go_to_next_round():
     global round_wins, round_losses  #  점수 변수 추가
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
     
+    # 스톱워치/스마트폰 관련 상태 초기화 (라운드 이월 방지)
+    global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
+    global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
+    stopwatch_active = False
+    stopwatch_timer = 0
+    stopwatch_recovery_timer = 0
+    stopwatch_original_ball_vel = None
+    stopwatch_forced_upward = False
+    stopwatch_upward_lock_timer = 0
+
     #  Stage 1 이벤트 체크 - 타이머 기반으로 변경되어 더 이상 점수 체크하지 않음
     # 기존 코드 주석 처리 (타이머 기반으로 변경)
     # if BALLOON_EVENT_AVAILABLE and stage1_events and current_stage == 1 and balloon_event_delay == 0:
@@ -9644,6 +9657,127 @@ def draw_player_gauge():
                     highlight_y = token_y - token_radius // 3
                     draw.circle(WHITE, 
                                      (int(highlight_x), int(highlight_y)), token_radius // 4)
+    
+    # 위험감지센서 쿨타임 토큰 게이지볼 표시
+    if danger_sensor_obtained:
+        # 위험감지센서 토큰볼 위치 (기존 토큰볼 아래에 더 크게)
+        sensor_token_radius = 8  # 기존 토큰(6)보다 큰 크기
+        sensor_token_x = player_gauge_x + player_gauge_width // 2  # 플레이어 게이지바 중앙
+        sensor_token_y = token_y + 20  # 기존 토큰볼 아래 20픽셀
+        
+        # 쿨타임 진행률 계산 (15초 쿨타임)
+        sensor_cooldown = 15000  # 15초 in milliseconds
+        current_time = pygame.time.get_ticks()
+        
+        # danger_sensor_last_activation_time 초기화
+        if not hasattr(handle_ball, 'danger_sensor_last_activation_time'):
+            handle_ball.danger_sensor_last_activation_time = 0
+        
+        time_since_activation = current_time - handle_ball.danger_sensor_last_activation_time
+        sensor_charge_progress = min(1.0, time_since_activation / sensor_cooldown)
+        
+        # 보라색 테마 색상
+        sensor_empty_color = (40, 20, 60)  # 어두운 보라색 (비어있는 상태)
+        sensor_full_color = (150, 80, 200)  # 밝은 보라색 (충전된 상태)
+        sensor_glow_color = (200, 150, 255)  # 연한 보라색 글로우
+        
+        # 쿨타임 완료 시 글로우 효과
+        if sensor_charge_progress >= 1.0:
+            # 펄스 글로우 효과
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.003))
+            for layer in range(3):
+                glow_radius = sensor_token_radius * (2 + layer)
+                glow_alpha = int((100 - layer * 25) * pulse)
+                glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surface, (*sensor_glow_color, min(255, glow_alpha)), 
+                                 (glow_radius, glow_radius), glow_radius)
+                SCREEN.blit(glow_surface, (sensor_token_x - glow_radius, sensor_token_y - glow_radius))
+        
+        # 물 차오르는 애니메이션 효과
+        if sensor_charge_progress < 1.0:
+            # 배경 원 (비어있는 상태)
+            draw.circle(sensor_empty_color, (int(sensor_token_x), int(sensor_token_y)), sensor_token_radius)
+            
+            # 아래에서 위로 차오르는 물 효과
+            if sensor_charge_progress > 0:
+                fill_height = int(sensor_token_radius * 2 * sensor_charge_progress)
+                fill_y_start = sensor_token_y + sensor_token_radius - fill_height
+                
+                # 물결 효과
+                wave_offset = math.sin(pygame.time.get_ticks() * 0.004) * 1.5
+                
+                # 채워진 부분 그리기
+                for y in range(int(fill_y_start), int(sensor_token_y + sensor_token_radius)):
+                    dy = abs(y - sensor_token_y)
+                    if dy <= sensor_token_radius:
+                        dx = math.sqrt(sensor_token_radius * sensor_token_radius - dy * dy)
+                        
+                        # 물결 효과 추가
+                        wave = wave_offset * (1 - (y - fill_y_start) / fill_height) if fill_height > 0 else 0
+                        
+                        # 그라데이션 색상
+                        gradient_ratio = (y - fill_y_start) / fill_height if fill_height > 0 else 0
+                        color_r = int(sensor_empty_color[0] + (sensor_full_color[0] - sensor_empty_color[0]) * sensor_charge_progress * (0.7 + 0.3 * gradient_ratio))
+                        color_g = int(sensor_empty_color[1] + (sensor_full_color[1] - sensor_empty_color[1]) * sensor_charge_progress * (0.7 + 0.3 * gradient_ratio))
+                        color_b = int(sensor_empty_color[2] + (sensor_full_color[2] - sensor_empty_color[2]) * sensor_charge_progress * (0.7 + 0.3 * gradient_ratio))
+                        
+                        # 수평선 그리기
+                        draw.line((color_r, color_g, color_b),
+                                       (sensor_token_x - dx + wave, y),
+                                       (sensor_token_x + dx + wave, y))
+            
+            # 테두리
+            draw.circle((100, 50, 150), (int(sensor_token_x), int(sensor_token_y)), sensor_token_radius, 1)
+            
+            # 충전 중 펄스 효과
+            if sensor_charge_progress > 0.8:
+                pulse_alpha = int(30 + 30 * math.sin(pygame.time.get_ticks() * 0.008))
+                pulse_surface = pygame.Surface((sensor_token_radius * 2 + 6, sensor_token_radius * 2 + 6), pygame.SRCALPHA)
+                pygame.draw.circle(pulse_surface, (150, 80, 200, pulse_alpha),
+                                 (sensor_token_radius + 3, sensor_token_radius + 3), sensor_token_radius + 2)
+                SCREEN.blit(pulse_surface, (sensor_token_x - sensor_token_radius - 3, sensor_token_y - sensor_token_radius - 3))
+        else:
+            # 충전 완료 상태 - 밝은 보라색
+            draw.circle(sensor_full_color, (int(sensor_token_x), int(sensor_token_y)), sensor_token_radius)
+            
+            # 반짝이는 효과
+            sparkle = abs(math.sin(pygame.time.get_ticks() * 0.005))
+            if sparkle > 0.7:
+                # 작은 별 효과
+                star_points = []
+                for i in range(8):
+                    angle = i * math.pi / 4
+                    if i % 2 == 0:
+                        r = sensor_token_radius * 0.9
+                    else:
+                        r = sensor_token_radius * 0.5
+                    x = sensor_token_x + r * math.cos(angle)
+                    y = sensor_token_y + r * math.sin(angle)
+                    star_points.append((x, y))
+                pygame.draw.polygon(SCREEN, (255, 220, 255), star_points, 1)
+            
+            # 테두리 (더 밝은 보라색)
+            draw.circle((220, 180, 255), (int(sensor_token_x), int(sensor_token_y)), sensor_token_radius, 2)
+            
+            # 하이라이트
+            highlight_x = sensor_token_x - sensor_token_radius // 3
+            highlight_y = sensor_token_y - sensor_token_radius // 3
+            draw.circle((255, 240, 255), (int(highlight_x), int(highlight_y)), sensor_token_radius // 3)
+        
+        # 센서 아이콘 오버레이 (작은 센서 심볼)
+        if sensor_charge_progress >= 1.0:
+            # 센서 안테나 효과
+            antenna_color = (255, 255, 255, 200)
+            # 중앙 점
+            draw.circle(WHITE, (int(sensor_token_x), int(sensor_token_y)), 2)
+            # 전파 효과
+            for i in range(3):
+                wave_radius = 3 + i * 2
+                wave_alpha = int(100 - i * 30)
+                wave_surface = pygame.Surface((wave_radius * 2, wave_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(wave_surface, (255, 255, 255, wave_alpha), 
+                                 (wave_radius, wave_radius), wave_radius, 1)
+                SCREEN.blit(wave_surface, (sensor_token_x - wave_radius, sensor_token_y - wave_radius))
     
     #  악마의 주사위 게이지 표시
     from item_effects.devil_dice import is_devil_dice_active, get_devil_dice_duration_ratio
@@ -23748,6 +23882,15 @@ def reset_round():
     global fire_zones, molotovs  #  화염병 관련 변수 추가
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
+    # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
+    global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
+    global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
+    stopwatch_active = False
+    stopwatch_timer = 0
+    stopwatch_recovery_timer = 0
+    stopwatch_original_ball_vel = None
+    stopwatch_forced_upward = False
+    stopwatch_upward_lock_timer = 0
     global boss_stun_timer, ragnarok_shock_playing  #  라그나로크 해머 스턴 관련
     global ragnarok_speed_boost_active, ragnarok_stun_pending  #  라그나로크 공속 증가 및 스턴 예약
     global boss_knockback_timer, boss_knockback_vel  #  라그나로크 넉백 관련
@@ -24745,6 +24888,14 @@ def handle_ball():
     global ball_vel, ball_angle, slow_ball_timer, horizontal_bounce_count
     global ball_impact_boost, ball_boost_decay_rate, ball_min_boost
     global player_last_shot_speed
+    # 스톱워치 보정/락 상태 (스마트폰)
+    global stopwatch_forced_upward, stopwatch_upward_lock_timer
+    # 스톱워치 보정/락 상태 (스마트폰)
+    global stopwatch_forced_upward, stopwatch_upward_lock_timer
+    # 스톱워치 보정/락 상태 (스마트폰)
+    global stopwatch_forced_upward, stopwatch_upward_lock_timer
+    # 스톱워치 보정/락 상태 (스마트폰)
+    global stopwatch_forced_upward, stopwatch_upward_lock_timer
     # 롤링 관련 변수들
     global dashholder_obtained, rolling_charges, rolling_charge_timer, rolling_stun_timer
     # 충돌 쿨다운 감소
@@ -25820,11 +25971,11 @@ def handle_ball():
     # 공이 화면의 절반 이하(플레이어와 중간지점의 가운데)로 내려왔을 때만 탐지
     if danger_sensor_obtained and danger_sensor_enabled and ball_vel[1] > 0 and BALL.centery > HEIGHT * 0.75:  # 공이 아래로 내려오고 화면 3/4 지점 이하
         current_time = pygame.time.get_ticks()
-        # 쿨타임 체크 (10초)
+        # 쿨타임 체크 (15초)
         if not hasattr(handle_ball, 'danger_sensor_last_activation_time'):
             handle_ball.danger_sensor_last_activation_time = 0
         # 쿨타임 중이면 위험감지센서만 비활성화하고 공 이동은 계속
-        sensor_can_activate = current_time - handle_ball.danger_sensor_last_activation_time >= 10000
+        sensor_can_activate = current_time - handle_ball.danger_sensor_last_activation_time >= 15000
         # 공의 예상 위치 계산
         time_to_reach_player = (PLAYER.centery - BALL.centery) / ball_vel[1] if ball_vel[1] > 0 else 0
         if time_to_reach_player > 0 and time_to_reach_player < 60:  # 1초 이내에 도달할 예정
@@ -27471,6 +27622,12 @@ def handle_ball():
             screen_shake_timer = 12  # 0.2초 (60 FPS)
             screen_shake_intensity = 8  # 중간 강도 흔들림
         
+        # 스마트폰 보정/락이 남아있으면 보스 충돌 직전 해제하여 정상 반사 보장
+        if globals().get('stopwatch_forced_upward', False):
+            globals()['stopwatch_forced_upward'] = False
+        if globals().get('stopwatch_upward_lock_timer', 0) > 0:
+            globals()['stopwatch_upward_lock_timer'] = 0
+
         calculate_bounce(BOSS)
         
         #  라그나로크 보스 반격 사운드 (스턴공이었을 때만)
@@ -30381,6 +30538,8 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_power_helper_dialogue_shown, tutorial_power_completion_dialogue_shown  # Chapter 4 대화 플래그
     global tutorial_power_count, tutorial_displayed_power_count  # Chapter 4 카운터
     global tutorial_power_counter_active, tutorial_power_reminder_active, tutorial_power_reminder_timer  # Chapter 4 알림
+    # 스톱워치 복구 방향 보정 관련 전역
+    global stopwatch_forced_upward, stopwatch_upward_lock_timer
     global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done  # Chapter 4 방향별 완료
     nine_just_pressed = False
     last_nine_state = False
@@ -31892,12 +32051,25 @@ def main(stage_num, new_boss_mode=False):
                         # 현재 방향을 유지하면서 속도만 회복
                         direction_x = ball_vel[0] / current_ball_speed
                         direction_y = ball_vel[1] / current_ball_speed
+                        # 스마트폰 강제 위향: 회복 중에도 Y를 위로
+                        if stopwatch_forced_upward and direction_y >= 0:
+                            direction_y = -abs(direction_y if abs(direction_y) > 1e-3 else 0.5)
                         ball_vel[0] = direction_x * target_speed
                         ball_vel[1] = direction_y * target_speed
                     else:
                         # 공이 정지 상태일 때만 원래 방향 사용
-                        ball_vel[0] = stopwatch_original_ball_vel[0] * effective_ratio
-                        ball_vel[1] = stopwatch_original_ball_vel[1] * effective_ratio
+                        dir_x = stopwatch_original_ball_vel[0]
+                        dir_y = stopwatch_original_ball_vel[1]
+                        if stopwatch_forced_upward and dir_y >= 0:
+                            dir_y = -abs(dir_y if abs(dir_y) > 1e-3 else 0.5)
+                        # 정규화 후 적용
+                        dnorm = math.hypot(dir_x, dir_y)
+                        if dnorm > 0:
+                            ball_vel[0] = (dir_x / dnorm) * target_speed
+                            ball_vel[1] = (dir_y / dnorm) * target_speed
+                        else:
+                            ball_vel[0] = 0
+                            ball_vel[1] = -target_speed
                     
                     # 충돌 쿨다운만 주기적으로 리셋 (충돌 감지 정상화)
                     # player_collision_handled는 리셋하지 않음 (플레이어 패들 이동 버그 방지)
@@ -31919,7 +32091,6 @@ def main(stage_num, new_boss_mode=False):
                             ball_vel[0] = stopwatch_original_ball_vel[0]
                             ball_vel[1] = stopwatch_original_ball_vel[1]
                         # 스마트폰으로 발동된 스톱워치: 복구 직후 무조건 위(보스) 방향으로 보정
-                        global stopwatch_forced_upward
                         if 'stopwatch_forced_upward' in globals() and stopwatch_forced_upward:
                             # 속도 계산 - 원래 속도가 있으면 사용, 없으면 기본값
                             final_speed = original_speed if original_speed > 0 else max(5.0, math.hypot(ball_vel[0], ball_vel[1]))
@@ -31946,8 +32117,7 @@ def main(stage_num, new_boss_mode=False):
                             print(f"[스마트폰-스톱워치] 복구 후 강제 위 방향: vx={ball_vel[0]:.1f}, vy={ball_vel[1]:.1f}")
                             
                             # 복구 직후 일정 프레임 동안 위 방향 고정
-                            global stopwatch_upward_lock_timer
-                            stopwatch_upward_lock_timer = 12
+                            stopwatch_upward_lock_timer = STOPWATCH_UPWARD_LOCK_FRAMES
                         
                         stopwatch_active = False
                         stopwatch_original_ball_vel = None
@@ -31963,15 +32133,22 @@ def main(stage_num, new_boss_mode=False):
                         player_collision_cooldown = 0
                         boss_collision_cooldown = 0
                         print("")
-        # 복구 직후 위 방향 고정 타이머 처리: 다른 시스템이 속도를 바꾸더라도 Y는 위로 유지
+        # 복구 직후 위 방향 고정 타이머 처리: 다른 시스템이 속도를 바꾸더라도 위쪽 진행을 보장
         if 'stopwatch_upward_lock_timer' in globals() and stopwatch_upward_lock_timer > 0:
             stopwatch_upward_lock_timer -= 1
-            # Y가 아래로(양수) 향하면 위로(음수)로 강제
-            if ball_vel[1] >= 0:
-                speed_mag = math.hypot(ball_vel[0], ball_vel[1])
-                if speed_mag < 0.1:
-                    speed_mag = BALL_BASE_SPEED
-                ball_vel[1] = -max(1.0, abs(ball_vel[1]))
+            vx, vy = ball_vel[0], ball_vel[1]
+            # 최소 속도 보장
+            speed_mag = math.hypot(vx, vy)
+            if speed_mag < STOPWATCH_UPWARD_MIN_SPEED:
+                speed_mag = STOPWATCH_UPWARD_MIN_SPEED
+            # 음수 Y(위쪽) 강제 및 최소 위향 비율 보장(세로 성분이 전체의 60% 이상)
+            min_up_y = max(STOPWATCH_UPWARD_MIN_SPEED, 0.6 * speed_mag)
+            new_y = -max(min_up_y, abs(vy))
+            # X 성분은 유지하되, 과도하게 수평이 되지 않도록 수직 비중을 우선 보장
+            # new_x는 기존 부호를 유지하며, 합성 속도가 speed_mag가 되도록 계산
+            rem_sq = max(0.0, speed_mag * speed_mag - (abs(new_y) ** 2))
+            new_x = math.copysign(math.sqrt(rem_sq), vx)
+            ball_vel[0], ball_vel[1] = new_x, new_y
         
         if profiler:
             profiler.end_section("Events")
@@ -34225,7 +34402,7 @@ def show_item_management_menu(item_list, selected_index, item_type):
                             print(f" {status_text}  .")
                             return
                         else:  # 취소
-                            return
+                            returnㅎ
 def show_surrender_confirm():
     """기권 확인 메뉴"""
     font_large = FontStyle.subtitle()  # 32pt 픽셀 폰트
