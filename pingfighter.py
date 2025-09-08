@@ -24700,6 +24700,14 @@ def calculate_bounce(paddle):
                         if dialogue_result == "proceed_to_chapter4" or dialogue_result == "skip_to_chapter4":
                             print("📚 드라이브 완료 대화 후 Chapter 4로 전환")
                             tutorial_current_chapter = 4
+                            # 챕터별 임시 게이지 오버라이드 해제 (Chapter 4는 500 고정)
+                            try:
+                                global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge
+                                tutorial_chapter1_max_gauge = None
+                                tutorial_chapter2_max_gauge = None
+                                tutorial_drive_chapter_max_gauge = None
+                            except Exception:
+                                pass
                             
                             # Chapter 4 타이틀 표시
                             show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
@@ -32923,6 +32931,14 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 4로 전환
                 print("📚 Chapter 3 완료 확인! Chapter 4로 전환 (백업 - 메인 루프)")
                 tutorial_current_chapter = 4
+                # 챕터별 임시 게이지 오버라이드 해제 (Chapter 4는 500 고정)
+                try:
+                    global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge
+                    tutorial_chapter1_max_gauge = None
+                    tutorial_chapter2_max_gauge = None
+                    tutorial_drive_chapter_max_gauge = None
+                except Exception:
+                    pass
                 
                 # Chapter 4 타이틀 표시 (파워스매싱)
                 show_chapter_title(4, "POWER SMASHING", "파워 스매싱")

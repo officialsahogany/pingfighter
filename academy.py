@@ -1626,22 +1626,59 @@ class AcademyUI:
         self.update_sp_effect()
         self.draw_sp_effect()
         
-        # 트레이드 포인트 표시
-        sp_text = self.font_medium.render(f"트레이드 포인트: {self.skill_system.skill_points}", True, (255, 255, 100))
-        sp_rect = sp_text.get_rect(topright=(self.width - 20, 15))
+        # 트레이드 포인트 별 아이콘 그리기
+        star_x = self.width - 120
+        star_y = 25
+        star_size = 12
         
         # 스케일 애니메이션 적용
-        if self.sp_scale_factor > 1.0:
-            scaled_font = pygame.font.Font(resource_path("NanumSquareR.ttf") if os.path.exists(resource_path("NanumSquareR.ttf")) else None, int(18 * self.sp_scale_factor))
-            sp_text = scaled_font.render(f"트레이드 포인트: {self.skill_system.skill_points}", True, (255, 255, 100))
-            
-        # 글로우 효과 렌더링
+        display_size = star_size * self.sp_scale_factor
+        
+        # 글로우 효과 (별 뒤에)
         if self.sp_glow_alpha > 0:
-            glow_surf = pygame.Surface((sp_rect.width + 20, sp_rect.height + 20), pygame.SRCALPHA)
-            glow_color = (255, 255, 100, min(self.sp_glow_alpha, 100))
-            pygame.draw.rect(glow_surf, glow_color, (0, 0, sp_rect.width + 20, sp_rect.height + 20), border_radius=5)
-            self.screen.blit(glow_surf, (sp_rect.left - 10, sp_rect.top - 10))
-            
+            glow_radius = display_size * 2
+            for i in range(3):
+                glow_alpha = min(30, self.sp_glow_alpha // (i + 1))
+                glow_surf = pygame.Surface((glow_radius * 4, glow_radius * 4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (255, 255, 100, glow_alpha),
+                                 (glow_radius * 2, glow_radius * 2), glow_radius - i * 3)
+                self.screen.blit(glow_surf, (star_x - glow_radius * 2, star_y - glow_radius * 2))
+        
+        # 5각 별 그리기
+        star_points = []
+        for i in range(10):
+            angle = -math.pi / 2 + (i * math.pi / 5)  # 위쪽부터 시작
+            if i % 2 == 0:
+                # 외부 꼭지점
+                radius = display_size
+            else:
+                # 내부 꼭지점
+                radius = display_size * 0.5
+            x = star_x + radius * math.cos(angle)
+            y = star_y + radius * math.sin(angle)
+            star_points.append((x, y))
+        
+        # 별 채우기 (노란색)
+        pygame.draw.polygon(self.screen, (255, 255, 100), star_points)
+        # 별 테두리 (진한 노란색)
+        pygame.draw.polygon(self.screen, (255, 215, 0), star_points, 2)
+        
+        # 작은 광택 효과
+        gloss_points = []
+        for i in range(10):
+            angle = -math.pi / 2 + (i * math.pi / 5)
+            if i % 2 == 0:
+                radius = display_size * 0.3
+            else:
+                radius = display_size * 0.15
+            x = star_x + radius * math.cos(angle)
+            y = star_y - 2 + radius * math.sin(angle)
+            gloss_points.append((x, y))
+        pygame.draw.polygon(self.screen, (255, 255, 200, 180), gloss_points)
+        
+        # 트레이드 포인트 숫자 표시 (별 옆에)
+        sp_text = self.font_medium.render(f"{self.skill_system.skill_points}", True, (255, 255, 100))
+        sp_rect = sp_text.get_rect(midleft=(star_x + display_size + 10, star_y))
         self.screen.blit(sp_text, sp_rect)
         
         # 누적 투자 TP 표시
