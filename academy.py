@@ -3089,9 +3089,36 @@ class AcademyUI:
         # 테두리 강조
         pygame.draw.rect(self.screen, (0, 255, 255), (desc_x, desc_y, desc_width, desc_height), 2)
         
-        # 패널 제목 (작은 폰트 사용)
-        title_text = self.font_small.render("📖 정보", True, (255, 255, 100))
-        self.screen.blit(title_text, (desc_x + 8, desc_y + 8))
+        # 패널 제목 아이콘 그리기
+        icon_size = 16
+        icon_x = desc_x + 8
+        icon_y = desc_y + 8
+        
+        # 스킬 아이콘 그리기 (육각형 모양)
+        icon_surface = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+        center_x = icon_size // 2
+        center_y = icon_size // 2
+        
+        # 육각형 점들 계산
+        hex_points = []
+        for i in range(6):
+            angle = i * math.pi / 3
+            x = center_x + 7 * math.cos(angle)
+            y = center_y + 7 * math.sin(angle)
+            hex_points.append((x, y))
+        
+        # 육각형 채우기
+        pygame.draw.polygon(icon_surface, (100, 200, 255), hex_points)
+        pygame.draw.polygon(icon_surface, (255, 255, 255), hex_points, 1)
+        
+        # 중앙에 작은 원 그리기
+        pygame.draw.circle(icon_surface, (255, 255, 255), (center_x, center_y), 2)
+        
+        self.screen.blit(icon_surface, (icon_x, icon_y))
+        
+        # 패널 제목 텍스트 (아이콘 옆에)
+        title_text = self.font_small.render("정보", True, (255, 255, 100))
+        self.screen.blit(title_text, (desc_x + 28, desc_y + 8))
         
         # 스킬 이름 (작은 폰트 사용)
         skill_name = self.font_small.render(selected_skill['name'], True, (255, 255, 255))
