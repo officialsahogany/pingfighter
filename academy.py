@@ -2103,22 +2103,11 @@ class AcademyUI:
             is_available = self.skill_system.can_upgrade_skill(skill["id"])
             is_unlocked = current_level > 0
             
-            # 홀로그램 글로우 효과 (노란색 제거, 시안색만 유지)
+            # 홀로그램 글로우 효과 제거 (배경 원 제거)
             if is_unlocked:
-                glow_color = (0, 255, 255)
                 bg_color = (0, 100, 100)
             else:
-                glow_color = None
                 bg_color = (40, 40, 40)
-            
-            if glow_color and is_unlocked:  # is_available 조건 제거
-                for j in range(3):
-                    glow_alpha = 50 - j * 15
-                    glow_surf = pygame.Surface((skill_size * 3, skill_size * 3), pygame.SRCALPHA)
-                    pygame.draw.circle(glow_surf, (*glow_color, glow_alpha), 
-                                     (skill_size * 1.5, skill_size * 1.5), 
-                                     skill_size + j * 5)
-                    self.screen.blit(glow_surf, (skill_x - skill_size, skill_y - skill_size))
             
             # 선택된 스킬 펄스 효과
             if i == self.selected_skill_index and not self.tab_selection_mode:
@@ -2491,22 +2480,11 @@ class AcademyUI:
             is_available = self.skill_system.can_upgrade_skill(skill["id"])
             is_unlocked = current_level > 0
             
-            # 홀로그램 글로우 효과 (노란색 제거, 시안색만 유지)
+            # 홀로그램 글로우 효과 제거 (배경 원 제거)
             if is_unlocked:
-                glow_color = (0, 255, 255)
                 bg_color = (0, 100, 100)
             else:
-                glow_color = None
                 bg_color = (40, 40, 40)
-            
-            if glow_color and is_unlocked:  # is_available 조건 제거
-                for j in range(3):
-                    glow_alpha = 50 - j * 15
-                    glow_surf = pygame.Surface((skill_size * 3, skill_size * 3), pygame.SRCALPHA)
-                    pygame.draw.circle(glow_surf, (*glow_color, glow_alpha), 
-                                     (skill_size * 1.5, skill_size * 1.5), 
-                                     skill_size + j * 5)
-                    self.screen.blit(glow_surf, (skill_x - skill_size * 1.5, skill_y - skill_size * 1.5))
             
             # 선택된 스킬 펄스 효과
             if i == self.selected_skill_index and not self.tab_selection_mode:
@@ -2861,22 +2839,11 @@ class AcademyUI:
             is_available = self.skill_system.can_upgrade_skill(skill["id"])
             is_unlocked = current_level > 0
             
-            # 홀로그램 글로우 효과 (노란색 제거, 시안색만 유지)
+            # 홀로그램 글로우 효과 제거 (배경 원 제거)
             if is_unlocked:
-                glow_color = (0, 255, 255)
                 bg_color = (0, 100, 100)
             else:
-                glow_color = None
                 bg_color = (40, 40, 40)
-            
-            if glow_color and is_unlocked:  # is_available 조건 제거
-                for j in range(3):
-                    glow_alpha = 50 - j * 15
-                    glow_surf = pygame.Surface((skill_size * 3, skill_size * 3), pygame.SRCALPHA)
-                    pygame.draw.circle(glow_surf, (*glow_color, glow_alpha), 
-                                     (skill_size * 1.5, skill_size * 1.5), 
-                                     skill_size + j * 5)
-                    self.screen.blit(glow_surf, (skill_x - skill_size * 1.5, skill_y - skill_size * 1.5))
             
             # 선택된 스킬 펄스 효과
             if i == self.selected_skill_index and not self.tab_selection_mode:
