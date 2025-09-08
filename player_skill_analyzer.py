@@ -223,10 +223,13 @@ class PlayerSkillAnalyzer:
             
     def record_dash_usage(self, ball_distance, ball_speed, success=False, situation="normal"):
         """대쉬 사용 기록"""
-        self.stats.dash_usage_count += 1
-        
+        # success=True는 이미 기록된 대쉬의 성공 여부만 업데이트
         if success:
             self.stats.dash_success_count += 1
+            return  # 중복 처리 방지
+            
+        # success=False일 때만 새로운 대쉬 사용으로 카운트
+        self.stats.dash_usage_count += 1
             
         # 대쉬 상황 분석
         if ball_distance > 150 and ball_speed > 8:

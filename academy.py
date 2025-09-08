@@ -425,6 +425,10 @@ class AcademyUI:
         self.sp_glow_alpha = 0  # 글로우 효과 알파값
         self.sp_scale_factor = 1.0  # 스케일 애니메이션
         
+        # 캐시된 glow surface들
+        self.glow_cache = {}
+        self._create_glow_cache()
+        
         # 폰트 로드 (크기 조정)
         try:
             self.font_large = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
@@ -434,6 +438,99 @@ class AcademyUI:
             self.font_large = pygame.font.Font(None, 24)
             self.font_medium = pygame.font.Font(None, 18)
             self.font_small = pygame.font.Font(None, 14)
+    
+    def _create_glow_cache(self):
+        """Glow surface들을 미리 생성하여 캐시"""
+        skill_size = 60
+        
+        # 시안색 glow (언락된 스킬용)
+        for radius in range(10, 31, 5):  # 다양한 크기의 glow
+            glow_key = f"cyan_{radius}"
+            glow_surface = pygame.Surface((skill_size + radius * 4, skill_size + radius * 4), pygame.SRCALPHA)
+            for i in range(radius):
+                alpha = int(100 * (1 - i/radius))
+                pygame.draw.rect(glow_surface, (0, 255, 255, alpha), 
+                               (radius * 2 - i, radius * 2 - i, 
+                                skill_size + i * 2, skill_size + i * 2), 2)
+            self.glow_cache[glow_key] = glow_surface
+    
+    def handle_mouse_click(self, pos):
+        """마우스 클릭 처리"""
+        x, y = pos
+        
+        # 탭 클릭 확인
+        tab_y = 160
+        tab_height = 30
+        tab_width = 100
+        
+        # 대쉬 탭
+        if 200 <= x <= 200 + tab_width and tab_y <= y <= tab_y + tab_height:
+            self.selected_tree = "dash"
+            self.tab_selection_mode = False
+            self.update_skill_positions()
+            return None
+            
+        # 아이템 탭
+        if 300 <= x <= 300 + tab_width and tab_y <= y <= tab_y + tab_height:
+            self.selected_tree = "item"
+            self.tab_selection_mode = False
+            self.update_skill_positions()
+            return None
+            
+        # 패들 탭
+        if 400 <= x <= 400 + tab_width and tab_y <= y <= tab_y + tab_height:
+            self.selected_tree = "paddle"
+            self.tab_selection_mode = False
+            self.update_skill_positions()
+            return None
+        
+        # 스킬 클릭 확인
+        if hasattr(self, 'skill_positions'):
+            for skill_id, pos_data in self.skill_positions.items():
+                skill_x = pos_data['x']
+                skill_y = pos_data['y']
+                skill_size = 60
+                
+                # 스킬 박스 영역 체크
+                if skill_x <= x <= skill_x + skill_size and skill_y <= y <= skill_y + skill_size:
+                    # 스킬 선택
+                    self.set_selected_skill_by_id(skill_id)
+                    
+                    # 더블클릭처럼 바로 업그레이드 시도
+                    tree_data = SKILL_TREES.get(self.selected_tree)
+                    if tree_data:
+                        for i, skill in enumerate(tree_data["skills"]):
+                            if skill["id"] == skill_id:
+                                self.selected_skill_index = i
+                                if self.skill_system.can_upgrade_skill(skill_id):
+                                    self.skill_system.upgrade_skill(skill_id)
+                                    self.start_levelup_animation(skill_id)
+                                break
+                    return None
+        
+        return None
+    
+    def handle_mouse_hover(self, pos):
+        """마우스 호버 처리"""
+        x, y = pos
+        
+        # 스킬 호버 확인
+        if hasattr(self, 'skill_positions'):
+            for skill_id, pos_data in self.skill_positions.items():
+                skill_x = pos_data['x']
+                skill_y = pos_data['y']
+                skill_size = 60
+                
+                # 스킬 박스 영역 체크
+                if skill_x <= x <= skill_x + skill_size and skill_y <= y <= skill_y + skill_size:
+                    # 호버 상태로 선택 (시각적 피드백용)
+                    tree_data = SKILL_TREES.get(self.selected_tree)
+                    if tree_data:
+                        for i, skill in enumerate(tree_data["skills"]):
+                            if skill["id"] == skill_id:
+                                self.selected_skill_index = i
+                                break
+                    break
     
     def start_levelup_animation(self, skill_id):
         """스킬 레벨업 반짝임 애니메이션 시작"""
@@ -1320,6 +1417,12 @@ class AcademyUI:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return "quit"
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    result = self.handle_mouse_click(event.pos)
+                    if result:
+                        return result
+                elif event.type == pygame.MOUSEMOTION:
+                    self.handle_mouse_hover(event.pos)
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         return "back"
@@ -1832,13 +1935,13 @@ class AcademyUI:
                         current_line = test_line
                     else:
                         if current_line:
-                            desc_surf = self.font_small.render(current_line, True, (200, 200, 200))
+                            desc_surf = self.font_small.render(current_line, True, (230, 230, 230))
                             self.screen.blit(desc_surf, (panel_x + 10, desc_y))
                             desc_y += 20
                         current_line = word
                 
                 if current_line:
-                    desc_surf = self.font_small.render(current_line, True, (200, 200, 200))
+                    desc_surf = self.font_small.render(current_line, True, (230, 230, 230))
                     self.screen.blit(desc_surf, (panel_x + 10, desc_y))
                     desc_y += 25
             
@@ -2166,13 +2269,13 @@ class AcademyUI:
                         current_line = test_line
                     else:
                         if current_line:
-                            desc_surf = self.font_small.render(current_line, True, (200, 200, 200))
+                            desc_surf = self.font_small.render(current_line, True, (230, 230, 230))
                             self.screen.blit(desc_surf, (panel_x + 10, desc_y))
                             desc_y += 20
                         current_line = word
                 
                 if current_line:
-                    desc_surf = self.font_small.render(current_line, True, (200, 200, 200))
+                    desc_surf = self.font_small.render(current_line, True, (230, 230, 230))
                     self.screen.blit(desc_surf, (panel_x + 10, desc_y))
                     desc_y += 25
             
@@ -3008,7 +3111,7 @@ class AcademyUI:
             self.screen.blit(name_text, name_rect)
             
             # 스킬 설명
-            desc_text = self.font_small.render(skill["description"], True, (200, 200, 200))
+            desc_text = self.font_small.render(skill["description"], True, (230, 230, 230))
             desc_rect = desc_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 22)
             self.screen.blit(desc_text, desc_rect)
             
@@ -3076,6 +3179,14 @@ class AcademyUI:
                     center_x, center_y = skill_x + skill_size//2, skill_y + skill_size//2
                     pygame.draw.rect(self.screen, lock_color, (center_x - 6, center_y - 2, 12, 8), 2)
                     pygame.draw.arc(self.screen, lock_color, (center_x - 8, center_y - 8, 16, 12), 0, 3.14, 2)
+                    
+                    # 대각선 패턴 추가 (색맹 사용자를 위한 시각적 구분)
+                    for i in range(0, skill_size, 8):
+                        pygame.draw.line(lock_surface, (255, 255, 255, 40), 
+                                       (i, 0), (0, i), 1)
+                        pygame.draw.line(lock_surface, (255, 255, 255, 40),
+                                       (skill_size, i), (i, skill_size), 1)
+                    self.screen.blit(lock_surface, (skill_x, skill_y))
     
     def draw_skill_description(self, tree_data):
         """선택된 스킬의 상세 설명 표시 (우측 배치)"""
@@ -3093,11 +3204,20 @@ class AcademyUI:
         # 홀로그램 패널 배경
         desc_surface = pygame.Surface((desc_width, desc_height), pygame.SRCALPHA)
         
-        # 배경 그라데이션
+        # 향상된 배경 그라데이션 (상단에서 하단으로 어두워짐)
         for y in range(desc_height):
             ratio = y / desc_height
-            alpha = int(180 - ratio * 50)
-            pygame.draw.line(desc_surface, (0, 50, 100, alpha), (0, y), (desc_width, y))
+            # 더 부드러운 그라데이션
+            alpha = int(200 - ratio * 80)
+            color_intensity = int(50 + ratio * 30)
+            pygame.draw.line(desc_surface, (0, color_intensity, color_intensity * 2, alpha), (0, y), (desc_width, y))
+        
+        # 내부 그림자 효과 (depth 추가)
+        shadow_width = 3
+        for i in range(shadow_width):
+            alpha = 50 - i * 15
+            pygame.draw.rect(desc_surface, (0, 0, 0, alpha), 
+                           (i, i, desc_width - i*2, desc_height - i*2), 1, border_radius=10)
         
         # 네온 테두리
         pygame.draw.rect(desc_surface, (0, 255, 255), (0, 0, desc_width, desc_height), 2, border_radius=10)
