@@ -349,24 +349,24 @@ class HermesShoes(LegendaryItem):
         import pygame
         import os
         
-        # 라그나로크 해머의 PNG 파일을 그대로 사용 (진짜 애니메이션)
+        # 헤르메스 신발 전용 PNG 파일 사용
         frames_loaded = 0
         for i in range(8):
-            # 라그나로크 해머 프레임을 로드
-            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            # 헤르메스 신발 프레임을 로드
+            frame_path = resource_path(f"items/legendary/hermes_shoes_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
                 self.animation_frames.append(frame)
                 frames_loaded += 1
-                print(f"✓ 헤르메스 신발 프레임 {i} 로드 성공 (라그나로크 해머 PNG 사용)")
+                print(f"✓ 헤르메스 신발 프레임 {i} 로드 성공")
             except Exception as e:
                 print(f"✗ 프레임 {i} 로드 실패: {frame_path} - {e}")
         
-        print(f"헤르메스 신발: 라그나로크 해머 스타일 프레임 {frames_loaded}/8개 로드")
+        print(f"헤르메스 신발: 전용 프레임 {frames_loaded}/8개 로드")
         
         # 프레임이 없으면 에러만 표시 (가짜 애니메이션 생성하지 않음)
         if not self.animation_frames or len(self.animation_frames) == 0:
-            print("❌ 헤르메스 신발: 라그나로크 해머 PNG를 찾을 수 없습니다!")
+            print("❌ 헤르메스 신발: PNG 프레임을 찾을 수 없습니다!")
             # 가짜 애니메이션 생성 코드 완전 제거
     
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
