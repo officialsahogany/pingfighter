@@ -22004,10 +22004,9 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             if legendary_manager:
-                trident = legendary_manager.get_item("poseidon_trident")
-                if trident:
-                    trident.activate()
-                    print("포세이돈의 삼지창 적용! 물의 파동이 생성됩니다!")
+                # activate_item을 사용하여 올바르게 활성화
+                legendary_manager.activate_item("poseidon_trident", {})
+                print("포세이돈의 삼지창 적용! 물의 파동이 생성됩니다!")
         elif item_name == "speedgear":
             speedgear_obtained = True
             items.speedgear_obtained = True

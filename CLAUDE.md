@@ -335,6 +335,30 @@ The project is currently undergoing UI refactoring with extensive changes to:
 
 ## Legendary Item System (전설 아이템)
 
+### Legendary Item Passive Classification (전설 아이템 패시브 분류)
+**CRITICAL**: All legendary items MUST be classified as passive items to prevent them from being added to active item slots.
+
+1. **In store_active_item()** - Add all legendary items to passive filter:
+   ```python
+   # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
+   if item_data["name"] in [..., "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
+       return
+   ```
+
+2. **In store_passive_item()** - Ensure proper handling:
+   ```python
+   elif item_data["name"] == "poseidon_trident":
+       items.poseidon_trident_obtained = True
+       item_data["type"] = "legendary"  # Set type for animation
+       passive_item_list.append(item_data)  # Add to passive list
+       # Activate legendary manager
+       legendary_manager = get_legendary_manager()
+       if legendary_manager:
+           trident = legendary_manager.get_item("poseidon_trident")
+           if trident:
+               trident.activate()
+   ```
+
 ### Key Implementation Details
 Legendary items like Ragnarok Hammer require special handling for animations:
 
@@ -378,6 +402,19 @@ Legendary items like Ragnarok Hammer require special handling for animations:
 - **Effects applying before pickup**: Don't call activate_item() on spawn
 - **Duplicate items appearing**: Ensure global flag is properly set and checked
 - **UI not animating**: Set item["type"] = "legendary" when storing
+- **Added to active slot by mistake**: Add to passive filter list in store_active_item()
+- **Effects not working in game**: Must integrate legendary_manager.update() and effect calls in game loop
+
+### Legendary Item Effect Integration (전설 아이템 효과 통합)
+**CRITICAL**: Legendary item effects need to be integrated into the game loop to work properly.
+
+**Note**: As of current implementation, legendary item effects (especially Poseidon's Trident) are NOT fully integrated into the main game loop. The water wave effects and dash wave mechanics require manual integration in pingfighter.py's physics update sections.
+
+**Required Integration Points**:
+1. Ball physics update - Apply trajectory influence
+2. Dash mechanics - Trigger dash wave on player dash
+3. Rendering loop - Draw water wave effects
+4. Update loop - Call legendary_manager.update(dt)
 
 ### Effect Reset Rules (효과 초기화 규칙)
 **IMPORTANT**: Legendary item effects are temporary and must be reset when:
