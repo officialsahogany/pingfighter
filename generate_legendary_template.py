@@ -40,11 +40,11 @@ def create_legendary_base_frame(frame_index):
     """전설 아이템 기본 프레임 (애니메이션 배경 + 테두리)"""
     surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     
-    # 1. 애니메이션 원형 배경 (필수! - 라그나로크 해머 스타일)
-    t = frame_index / FRAMES
+    # 1. 초대형 단색 원형 배경 (필수! - 라그나로크 해머 스타일)
+    # 배경을 가장 먼저 그려야 함!
     
-    # 배경 크기 애니메이션 (14-18 픽셀 반경)
-    bg_radius = int(14 + math.sin(t * math.pi * 2) * 2)
+    # 배경 크기 고정 (28픽셀 - 거의 전체 아이콘 채움)
+    bg_radius = 28
     
     # 배경 색상 변화 (템플릿용 보라색 계열)
     bg_colors = [
@@ -59,13 +59,20 @@ def create_legendary_base_frame(frame_index):
     ]
     bg_color = bg_colors[frame_index % len(bg_colors)]
     
-    # 배경 원 그리기
-    center = ICON_SIZE // 2
-    for r in range(bg_radius, 0, -1):
-        # 안쪽으로 갈수록 밝아지는 그라데이션
-        alpha = int(150 * (r / bg_radius))
-        color = tuple(min(255, c + (bg_radius - r) * 5) for c in bg_color)
-        pygame.draw.circle(surface, color, (center, center), r)
+    # 배경 원 그리기 (단색으로!)
+    center_x, center_y = 16, 16
+    pygame.draw.circle(surface, bg_color, (center_x, center_y), bg_radius)
+    
+    # 가장자리에만 약간의 그라데이션 추가 (선택사항)
+    for r in range(bg_radius - 3, bg_radius + 1):
+        alpha = 255 - (r - (bg_radius - 3)) * 30
+        if r <= bg_radius:
+            for angle in range(360):
+                rad = math.radians(angle)
+                px = int(center_x + r * math.cos(rad))
+                py = int(center_y + r * math.sin(rad))
+                if 0 <= px < 32 and 0 <= py < 32:
+                    surface.set_at((px, py), (*bg_color, alpha))
     
     # 2. 은색/보라색 모서리 장식 (3x3 영역) (필수!)
     left_corner, right_corner = CORNER_COLORS[frame_index]
