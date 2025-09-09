@@ -158,9 +158,9 @@ def create_hermes_frame(frame_index):
     wing_flap = math.sin(t * math.pi * 4) * 2
     hover = int(math.sin(t * math.pi * 2) * 1)
     
-    # === 부츠 디테일 그리기 (측면 뷰) - 더 크게 ===
-    boot_x = 8  # 부츠를 더 크게 그리기 위해 위치 조정
-    boot_y = 8 + hover  # 위쪽으로 올려서 더 큰 부츠 공간 확보
+    # === 부츠 디테일 그리기 (측면 뷰) - 중앙 배치 ===
+    boot_x = 11  # 아이콘 중심에 배치 (32px의 중심에 맞춤)
+    boot_y = 10 + hover  # 세로 중심에 맞춤
     
     # 1. 부츠 윤곽선 정의 (더 크고 명확한 부츠 모양)
     # 부츠 상단 (다리 부분) - 원통형 (더 크게)
@@ -252,7 +252,7 @@ def create_hermes_frame(frame_index):
         surface.set_at((boot_x + 3, y), BOOT_DARK)
     
     # === 날개 디자인 (더 크고 화려하게) ===
-    wing_base_x = boot_x + 9  # 날개 위치 조정 (더 큰 부츠에 맞춰)
+    wing_base_x = boot_x + 9  # 날개 위치 조정 (중앙 배치된 부츠에 맞춤)
     wing_base_y = boot_y + 5
     
     # 메인 날개 (더 크고 디테일하게)
