@@ -40,15 +40,41 @@ def create_hermes_frame(frame_index):
     """헤르메스 날개 부츠 - 디테일 강화"""
     surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     
-    # 1. 파란색 원형 배경 (전설 아이템 필수)
-    center = ICON_SIZE // 2
-    radius = 13
+    # ===== 동그란 배경 효과 (라그나로크 해머와 동일) - 가장 먼저 그리기 =====
+    # 프레임별로 크기와 색상이 변하는 배경
+    t = frame_index / FRAMES
     
-    for r in range(radius, 0, -1):
-        alpha = 255 - (radius - r) * 10
-        blue_intensity = 100 + (radius - r) * 10
-        color = (100, 150, min(255, blue_intensity), alpha)
-        pygame.draw.circle(surface, color, (center, center), r)
+    # 배경 크기 애니메이션 (전체 아이콘을 거의 채우는 초대형 배경)
+    bg_radius = 28  # 32픽셀 아이콘에서 거의 모서리까지 닿는 크기
+    
+    # 배경 색상 변화 (초록색/청록색 계열로 변화 - 헤르메스 테마)
+    bg_colors = [
+        (50, 200, 150),   # 청록색
+        (40, 180, 130),   # 진한 청록색
+        (60, 220, 170),   # 밝은 청록색
+        (45, 190, 140),   # 중간 청록색
+        (35, 170, 120),   # 어두운 청록색
+        (55, 210, 160),   # 연한 청록색
+        (48, 195, 145),   # 민트색
+        (52, 205, 155),   # 에메랄드색
+    ]
+    bg_color = bg_colors[frame_index % len(bg_colors)]
+    
+    # 배경 원 그리기 (라그나로크 해머처럼 진하고 단색 느낌)
+    center_x, center_y = 16, 16
+    # 먼저 큰 단색 원을 그림
+    pygame.draw.circle(surface, bg_color, (center_x, center_y), bg_radius)
+    
+    # 가장자리에만 약간의 그라데이션 추가
+    for r in range(bg_radius - 3, bg_radius + 1):
+        alpha = 255 - (r - (bg_radius - 3)) * 30
+        if r <= bg_radius:
+            for angle in range(360):
+                rad = math.radians(angle)
+                px = int(center_x + r * math.cos(rad))
+                py = int(center_y + r * math.sin(rad))
+                if 0 <= px < 32 and 0 <= py < 32:
+                    surface.set_at((px, py), (*bg_color, alpha))
     
     # 2. 은색/보라색 모서리 장식 (3x3 영역)
     left_corner, right_corner = CORNER_COLORS[frame_index]
@@ -98,43 +124,6 @@ def create_hermes_frame(frame_index):
     for y in range(3, 29):
         surface.set_at((30, y), (*border_color, 255))
         surface.set_at((31, y), (*border_color, 255))
-    
-    # ===== 동그란 배경 효과 (라그나로크 해머와 동일) =====
-    # 프레임별로 크기와 색상이 변하는 배경
-    t = frame_index / FRAMES
-    
-    # 배경 크기 애니메이션 (전체 아이콘을 거의 채우는 초대형 배경)
-    bg_radius = 28  # 32픽셀 아이콘에서 거의 모서리까지 닿는 크기
-    
-    # 배경 색상 변화 (초록색/청록색 계열로 변화 - 헤르메스 테마)
-    bg_colors = [
-        (50, 200, 150),   # 청록색
-        (40, 180, 130),   # 진한 청록색
-        (60, 220, 170),   # 밝은 청록색
-        (45, 190, 140),   # 중간 청록색
-        (35, 170, 120),   # 어두운 청록색
-        (55, 210, 160),   # 연한 청록색
-        (48, 195, 145),   # 민트색
-        (52, 205, 155),   # 에메랄드색
-    ]
-    bg_color = bg_colors[frame_index % len(bg_colors)]
-    
-    # 배경 원 그리기 (아이템 뒤에)
-    center_x, center_y = 16, 16
-    for r in range(bg_radius, 0, -1):
-        # 안쪽으로 갈수록 밝아지는 그라데이션
-        alpha = int(150 * (r / bg_radius))
-        color = tuple(min(255, c + (bg_radius - r) * 5) for c in bg_color)
-        
-        # 원 그리기
-        for angle in range(360):
-            rad = math.radians(angle)
-            px = int(center_x + r * math.cos(rad))
-            py = int(center_y + r * math.sin(rad))
-            if 0 <= px < 32 and 0 <= py < 32:
-                existing = surface.get_at((px, py))
-                if existing[3] == 0:  # 투명한 픽셀에만 그리기
-                    surface.set_at((px, py), (*color, alpha))
     
     # ===== 디테일한 부츠 디자인 =====
     
