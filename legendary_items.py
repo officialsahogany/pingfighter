@@ -433,11 +433,19 @@ class PoseidonTrident(LegendaryItem):
                 print(f"🌊 충돌체크: x_in={x_in_vortex}, y_in={y_in_vortex}, ball=({ball_x:.0f},{ball_y:.0f}), vortex=({self.vortex_x:.0f},{self.vortex_y:.0f}), height={current_vortex_height:.0f}")
             
             if x_in_vortex and y_in_vortex:
+                print(f"⭐ 공이 물회오리 안에 있음!")
+                print(f"   - 공 위치: ({ball_x:.0f}, {ball_y:.0f})")
+                print(f"   - 공 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}")
+                print(f"   - 회오리 중심: ({self.vortex_x:.0f}, {self.vortex_y:.0f})")
+                print(f"   - 회오리 크기: width={self.vortex_width}, height={current_vortex_height:.0f}")
+                
                 # 플레이어가 쳐낸 공 (위로 올라가는 공)은 무시
                 # 보스가 쳐낸 공(아래로 향하는)만 효과 적용
                 if ball_vy < 0:  # 위로 올라가는 공은 플레이어가 친 것
                     print(f"🚫 플레이어가 친 공 무시: vy={ball_vy:.1f}")
                     return ball_vx, ball_vy  # 물 회오리 효과 무시
+                
+                print(f"✅ 보스가 친 공 처리 시작: vy={ball_vy:.1f}")
                 
                 # === Stage 4 굴절자기장과 동일한 메커니즘 적용 ===
                 # 회오리 중심과의 거리 계산
@@ -448,10 +456,16 @@ class PoseidonTrident(LegendaryItem):
                 vortex_radius = self.vortex_width / 2 + 100  # 50에서 100으로 증가
                 
                 
+                print(f"   - 거리: {distance:.1f}, 반경: {vortex_radius:.1f}")
+                
                 if distance < vortex_radius:
+                    print(f"🎯 회오리 영향 범위 내!")
+                    
                     # 거리 기반 굴절 강도 계산 (중심에 가까울수록 강함)
                     refraction_strength = 1.0 - (distance / vortex_radius)
                     refraction_strength = refraction_strength ** 2  # 비선형 증가
+                    
+                    print(f"   - 굴절 강도: {refraction_strength:.3f}")
                     
                     # 현재 속도 벡터의 각도와 속력
                     current_angle = math.atan2(ball_vy, ball_vx)
@@ -470,6 +484,9 @@ class PoseidonTrident(LegendaryItem):
                         boss_x = 400  # 보스는 화면 중앙
                         boss_y = 50   # 보스는 화면 상단
                         
+                        print(f"📍 보스 방향으로 반사 설정")
+                        print(f"   - 보스 위치: ({boss_x}, {boss_y})")
+                        
                         direction_to_target_x = boss_x - ball_x
                         direction_to_target_y = boss_y - ball_y
                         distance_to_target = math.sqrt(direction_to_target_x ** 2 + direction_to_target_y ** 2)
@@ -477,6 +494,7 @@ class PoseidonTrident(LegendaryItem):
                         if distance_to_target > 0:
                             direction_to_target_x /= distance_to_target
                             direction_to_target_y /= distance_to_target
+                            print(f"   - 정규화된 방향: ({direction_to_target_x:.3f}, {direction_to_target_y:.3f})")
                     else:
                         # 플레이어가 친 공은 원래대로 (하지만 이미 위에서 걸러짐)
                         direction_to_target_x = player_x - ball_x
@@ -538,13 +556,19 @@ class PoseidonTrident(LegendaryItem):
                     
                     # 상승 효과 추가 (물 회오리 특성)
                     if ball_vy > 0:  # 보스가 친 공은 자연스럽게 위로 반사
+                        print(f"🔄 보스 공 반사 처리")
+                        print(f"   - 굴절 후 속도: vx={new_vx:.1f}, vy={new_vy:.1f}")
+                        
                         # 감속된 속도에 맞춰 자연스러운 반사
                         # 공의 y속도를 반전시키고 약간의 추가 상승력
                         new_vy = -abs(new_vy) * 1.2  # y속도를 위로 반전하고 20% 증폭
+                        print(f"   - Y속도 반전: {new_vy:.1f}")
                         
                         # 추가 상승력 (중심에 가까울수록 강함)
                         upward_boost = -8.0 * refraction_strength
                         new_vy += upward_boost
+                        print(f"   - 추가 상승력: {upward_boost:.1f}")
+                        print(f"   - 최종 Y속도: {new_vy:.1f}")
                     else:
                         # 플레이어가 친 공은 기존 상승 효과
                         upward_boost = -8.0 * refraction_strength * (1 - self.vortex_timer / 2.0)
@@ -557,12 +581,17 @@ class PoseidonTrident(LegendaryItem):
                         self.water_momentum_force_y = new_vy * 0.3  # 30%의 추진력 유지
                         self.water_momentum_force_x = new_vx * 0.1  # 10%의 횡방향 추진력
                     
-                    print(f"🌊 포세이돈 굴절 적용!")
+                    print(f"🌊 포세이돈 굴절 최종 결과:")
                     print(f"   - 원래 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}")
-                    print(f"   - 새 속도: vx={new_vx:.1f}, vy={new_vy:.1f}")
-                    print(f"   - 굴절 강도: {refraction_strength:.2f}")
+                    print(f"   - 최종 속도: vx={new_vx:.1f}, vy={new_vy:.1f}")
+                    print(f"   - 굴절 강도: {refraction_strength:.3f}")
                     print(f"   - 각도 변화: {math.degrees(refraction_amount):.1f}°")
-                    print(f"   - 속도 증폭: {speed_boost:.2f}x")
+                    if ball_vy > 0:
+                        print(f"   - 속도 감속: {(1.0 - speed_reduction):.2f}x (감속률: {speed_reduction:.1%})")
+                    else:
+                        print(f"   - 속도 증폭: {speed_boost:.2f}x")
+                    print(f"   - 반환값: new_vx={new_vx:.1f}, new_vy={new_vy:.1f}")
+                    print("=" * 50)
                     
                     return new_vx, new_vy
                 else:

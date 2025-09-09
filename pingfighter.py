@@ -26722,7 +26722,15 @@ def handle_ball():
                             )
                             # 디버그: 반환된 속도 확인
                             if wave_vx != actual_vel_x or wave_vy != actual_vel_y:
-                                print(f"⚡ 속도 변경됨! 원래: ({actual_vel_x:.1f}, {actual_vel_y:.1f}) → 새: ({wave_vx:.1f}, {wave_vy:.1f})")
+                                print(f"⚡ [pingfighter.py] 속도 변경 감지!")
+                                print(f"   - 원래: vx={actual_vel_x:.1f}, vy={actual_vel_y:.1f}")
+                                print(f"   - 반환: vx={wave_vx:.1f}, vy={wave_vy:.1f}")
+                                print(f"   - 차이: Δvx={wave_vx-actual_vel_x:.1f}, Δvy={wave_vy-actual_vel_y:.1f}")
+                            else:
+                                # 0.1초마다 한 번씩만 출력
+                                if trident.vortex_active and int(trident.vortex_timer * 10) != int((trident.vortex_timer - 0.016) * 10):
+                                    print(f"⚠️ [pingfighter.py] 속도 변경 없음: vx={actual_vel_x:.1f}, vy={actual_vel_y:.1f}")
+                            
                             actual_vel_x = wave_vx
                             actual_vel_y = wave_vy
             except Exception as e:
