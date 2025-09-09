@@ -425,8 +425,8 @@ class PoseidonTrident(LegendaryItem):
             current_vortex_height = min(self.vortex_height, self.vortex_max_height)
             
             # 회오리 충돌 체크 - 시각적 효과와 정확히 일치
-            x_in_vortex = abs(ball_x - self.vortex_x) <= (self.vortex_width / 2 + 50)
-            y_in_vortex = (self.vortex_y - current_vortex_height - 50) <= ball_y <= (self.vortex_y + 100)
+            x_in_vortex = abs(ball_x - self.vortex_x) <= (self.vortex_width / 2)  # 시각적 너비와 정확히 일치
+            y_in_vortex = (self.vortex_y - current_vortex_height) <= ball_y <= self.vortex_y  # 시각적 높이와 정확히 일치
             
             # 디버그: 충돌 체크 상태 (0.5초마다 출력)
             if int(self.vortex_timer * 2) != int((self.vortex_timer - 0.016) * 2):
