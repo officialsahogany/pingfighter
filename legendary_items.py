@@ -428,9 +428,14 @@ class PoseidonTrident(LegendaryItem):
             x_in_vortex = abs(ball_x - self.vortex_x) <= (self.vortex_width / 2 + 50)
             y_in_vortex = (self.vortex_y - current_vortex_height - 50) <= ball_y <= (self.vortex_y + 100)
             
+            # 디버그: 충돌 체크 상태 (0.5초마다 출력)
+            if int(self.vortex_timer * 2) != int((self.vortex_timer - 0.016) * 2):
+                print(f"🌊 충돌체크: x_in={x_in_vortex}, y_in={y_in_vortex}, ball=({ball_x:.0f},{ball_y:.0f}), vortex=({self.vortex_x:.0f},{self.vortex_y:.0f}), height={current_vortex_height:.0f}")
+            
             if x_in_vortex and y_in_vortex:
                 # 플레이어가 발사한 공 (아래로 향하는 공)은 영향받지 않음
                 if ball_vy > 0:  # 공이 아래로 향하고 있으면 (플레이어 -> 보스 방향)
+                    print(f"🚫 플레이어 발사 공 무시: vy={ball_vy:.1f}")
                     return ball_vx, ball_vy  # 물 회오리 효과 무시
                 
                 # === Stage 4 굴절자기장과 동일한 메커니즘 적용 ===
