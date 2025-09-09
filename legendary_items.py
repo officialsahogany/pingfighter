@@ -559,14 +559,21 @@ class PoseidonTrident(LegendaryItem):
                     spin_effect = math.sin(self.vortex_timer * 8) * 0.1 * refraction_strength
                     new_angle += spin_effect
                     
-                    # 물 회오리 내부에서 자연스러운 감속
-                    # 중심에 가까울수록 더 많이 감속
+                    # 물 회오리 내부에서 매우 부드러운 감속
+                    # 점진적이고 자연스러운 감속 효과
                     if ball_vy > 0:  # 보스가 친 공
-                        # 감속 효과 (중심에 가까울수록 더 많이 감속)
-                        speed_reduction = 0.3 + refraction_strength * 0.5  # 30%~80% 감속
+                        # 부드러운 감속 효과 (더 완만하게)
+                        # 거리에 따른 감속을 더 부드럽게 (10%~40% 감속으로 줄임)
+                        speed_reduction = 0.1 + refraction_strength * 0.3  # 10%~40% 감속
+                        
+                        # 시간에 따른 추가 감속 (회오리가 오래될수록 약해짐)
+                        time_factor = min(1.0, self.vortex_timer / 1.5)  # 1.5초에 걸쳐 서서히
+                        speed_reduction *= (0.7 + time_factor * 0.3)  # 시간이 지날수록 감속 증가
+                        
                         new_speed = current_speed * (1.0 - speed_reduction)
-                        # 최소 속도 보장 (너무 느려지지 않도록)
-                        min_speed = 5.0
+                        
+                        # 최소 속도를 더 높게 설정 (너무 느려지지 않도록)
+                        min_speed = 7.0  # 5.0에서 7.0으로 증가
                         if new_speed < min_speed:
                             new_speed = min_speed
                     else:
@@ -582,17 +589,23 @@ class PoseidonTrident(LegendaryItem):
                     new_vx = math.cos(new_angle) * new_speed
                     new_vy = math.sin(new_angle) * new_speed
                     
+                    # X축 속도도 부드럽게 감속 (너무 빠른 횡방향 이동 방지)
+                    if abs(new_vx) > 15:  # X축 속도가 너무 빠르면
+                        new_vx = new_vx * 0.7  # 30% 감속
+                    
                     # 상승 효과 추가 (물 회오리 특성)
-                    if ball_vy > 0:  # 보스가 친 공은 강력하게 위로 반사
+                    if ball_vy > 0:  # 보스가 친 공은 부드럽게 위로 반사
                         print(f"🔄 보스 공 반사 처리")
                         print(f"   - 굴절 후 속도: vx={new_vx:.1f}, vy={new_vy:.1f}")
                         
-                        # 매우 부드러운 반사 - Y속도를 반전만 하고 거의 증폭 안함
-                        new_vy = -abs(ball_vy) * 0.8  # 원래 속도의 80%로 위로 반사 (감속)
-                        print(f"   - Y속도 매우 부드럽게 반전: {new_vy:.1f}")
+                        # 더욱 부드러운 반사 - 속도를 점진적으로 변경
+                        # 원래 속도의 60%~90% 사이로 부드럽게 조절
+                        smooth_factor = 0.6 + (1.0 - refraction_strength) * 0.3  # 60%~90%
+                        new_vy = -abs(ball_vy) * smooth_factor
+                        print(f"   - Y속도 매우 부드럽게 반전: {new_vy:.1f} (factor: {smooth_factor:.2f})")
                         
-                        # 추가 상승력 (매우 약하게)
-                        upward_boost = -2.0 * refraction_strength  # 매우 약한 상승력
+                        # 추가 상승력을 더 부드럽게 (거의 없애기)
+                        upward_boost = -1.0 * refraction_strength  # 매우 약한 상승력 (2.0에서 1.0으로)
                         new_vy += upward_boost
                         print(f"   - 추가 상승력: {upward_boost:.1f}")
                         print(f"   - 최종 Y속도: {new_vy:.1f}")
