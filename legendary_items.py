@@ -444,8 +444,8 @@ class PoseidonTrident(LegendaryItem):
                 distance = math.sqrt((ball_x - self.vortex_x) ** 2 + 
                                    (ball_y - (self.vortex_y - current_vortex_height/2)) ** 2)
                 
-                # 회오리 반경
-                vortex_radius = self.vortex_width / 2 + 50
+                # 회오리 반경 (확대)
+                vortex_radius = self.vortex_width / 2 + 100  # 50에서 100으로 증가
                 
                 
                 if distance < vortex_radius:
@@ -481,9 +481,9 @@ class PoseidonTrident(LegendaryItem):
                     # 각도를 -π ~ π 범위로 정규화 (최적화)
                     angle_diff = math.atan2(math.sin(angle_diff), math.cos(angle_diff))
                     
-                    # 굴절 적용 (최대 15도/프레임, Stage 4와 동일)
-                    max_refraction = 0.26  # 약 15도 in radians
-                    refraction_amount = angle_diff * refraction_strength * 0.15
+                    # 굴절 적용 (강화된 굴절 효과)
+                    max_refraction = 0.52  # 약 30도 in radians (15도에서 30도로 증가)
+                    refraction_amount = angle_diff * refraction_strength * 0.5  # 0.15에서 0.5로 증가
                     refraction_amount = max(-max_refraction, min(max_refraction, refraction_amount))
                     
                     # 새로운 각도 계산
@@ -493,8 +493,8 @@ class PoseidonTrident(LegendaryItem):
                     spin_effect = math.sin(self.vortex_timer * 8) * 0.1 * refraction_strength
                     new_angle += spin_effect
                     
-                    # 속도 증폭 (물의 추진력) - 밸런스 조정
-                    speed_boost = 1.0 + refraction_strength * 0.3  # 최대 30% 속도 증가 (40%에서 감소)
+                    # 속도 증폭 (물의 추진력) - 강화
+                    speed_boost = 1.0 + refraction_strength * 0.8  # 최대 80% 속도 증가
                     new_speed = current_speed * speed_boost
                     
                     # 속도 상한
@@ -506,8 +506,8 @@ class PoseidonTrident(LegendaryItem):
                     new_vx = math.cos(new_angle) * new_speed
                     new_vy = math.sin(new_angle) * new_speed
                     
-                    # 상승 효과 추가 (물 회오리 특성) - 밸런스 조정
-                    upward_boost = -6.0 * refraction_strength * (1 - self.vortex_timer / 2.0)  # -8.0에서 -6.0으로 감소
+                    # 상승 효과 추가 (물 회오리 특성) - 강화
+                    upward_boost = -12.0 * refraction_strength * (1 - self.vortex_timer / 2.0)  # 강한 상승 효과
                     new_vy += upward_boost
                     
                     # 물 추진력 저장 (물에서 나온 후에도 지속)
