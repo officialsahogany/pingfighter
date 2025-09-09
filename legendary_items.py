@@ -453,7 +453,7 @@ class PoseidonTrident(LegendaryItem):
                                    (ball_y - (self.vortex_y - current_vortex_height/2)) ** 2)
                 
                 # 회오리 반경 (대폭 확대)
-                vortex_radius = self.vortex_width / 2 + 150  # 더 넓은 영향 범위
+                vortex_radius = self.vortex_width / 2 + 250  # 매우 넓은 영향 범위
                 
                 
                 print(f"   - 거리: {distance:.1f}, 반경: {vortex_radius:.1f}")
@@ -463,8 +463,8 @@ class PoseidonTrident(LegendaryItem):
                     
                     # 거리 기반 굴절 강도 계산 (중심에 가까울수록 강함)
                     refraction_strength = 1.0 - (distance / vortex_radius)
-                    # 굴절 강도 대폭 증가 (최소 0.3 보장)
-                    refraction_strength = max(0.3, refraction_strength)  # 최소 30% 강도 보장
+                    # 굴절 강도 대폭 증가 (최소 0.5 보장)
+                    refraction_strength = max(0.5, refraction_strength)  # 최소 50% 강도 보장
                     
                     print(f"   - 굴절 강도: {refraction_strength:.3f}")
                     
@@ -517,9 +517,9 @@ class PoseidonTrident(LegendaryItem):
                     # 굴절 적용 (강력한 굴절 효과)
                     # 보스가 친 공은 강하게 반사
                     if ball_vy > 0:  # 보스가 친 공
-                        # 강력한 굴절
-                        max_refraction = 2.0  # 약 115도 in radians (거의 역방향)
-                        refraction_amount = angle_diff * refraction_strength  # 100% 굴절
+                        # 매우 강력한 굴절 (거의 직각으로 반사)
+                        max_refraction = 3.14  # π radians (180도 - 완전 역방향)
+                        refraction_amount = angle_diff * refraction_strength * 1.5  # 150% 굴절
                     else:
                         max_refraction = 0.52  # 약 30도 in radians
                         refraction_amount = angle_diff * refraction_strength * 0.3
@@ -560,12 +560,12 @@ class PoseidonTrident(LegendaryItem):
                         print(f"🔄 보스 공 반사 처리")
                         print(f"   - 굴절 후 속도: vx={new_vx:.1f}, vy={new_vy:.1f}")
                         
-                        # 강력한 반사 - Y속도를 완전히 반전
-                        new_vy = -abs(ball_vy) * 1.5  # 원래 속도의 150%로 위로 반사
+                        # 매우 강력한 반사 - Y속도를 완전히 반전하고 대폭 증폭
+                        new_vy = -abs(ball_vy) * 2.5  # 원래 속도의 250%로 위로 반사
                         print(f"   - Y속도 강력 반전: {new_vy:.1f}")
                         
-                        # 추가 상승력 (매우 강하게)
-                        upward_boost = -15.0 * refraction_strength
+                        # 추가 상승력 (극도로 강하게)
+                        upward_boost = -25.0 * refraction_strength  # 매우 강한 상승력
                         new_vy += upward_boost
                         print(f"   - 추가 상승력: {upward_boost:.1f}")
                         print(f"   - 최종 Y속도: {new_vy:.1f}")
