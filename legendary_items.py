@@ -425,6 +425,10 @@ class PoseidonTrident(LegendaryItem):
             y_in_vortex = (self.vortex_y - current_vortex_height - 50) <= ball_y <= (self.vortex_y + 100)
             
             if x_in_vortex and y_in_vortex:
+                # 플레이어가 발사한 공 (아래로 향하는 공)은 영향받지 않음
+                if ball_vy > 0:  # 공이 아래로 향하고 있으면 (플레이어 -> 보스 방향)
+                    return ball_vx, ball_vy  # 물 회오리 효과 무시
+                
                 # 공이 물에 들어왔을 때 - 부드러운 물리 효과
                 print(f"🌊 포세이돈의 물결이 공을 감쌉니다!")
                 
@@ -479,6 +483,10 @@ class PoseidonTrident(LegendaryItem):
         
         # 기존 물결 효과 (보조 효과)
         if self.dash_wave_active:
+            # 플레이어가 발사한 공 (아래로 향하는 공)은 영향받지 않음
+            if ball_vy > 0:  # 공이 아래로 향하고 있으면 (플레이어 -> 보스 방향)
+                return ball_vx, ball_vy  # 물결 효과 무시
+                
             distance = math.sqrt((ball_x - paddle_x) ** 2 + (ball_y - paddle_y) ** 2)
             wave_radius = 50 + self.dash_wave_timer * 10
             
