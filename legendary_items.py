@@ -343,6 +343,8 @@ class PoseidonTrident(LegendaryItem):
             self.vortex_height = 0
             self.vortex_spin_speed = 0
             
+            print(f"🔱 포세이돈 회오리 발동! 위치: ({paddle_x:.0f}, {paddle_y:.0f}), 방향: {direction}")
+            
             # 회오리 파티클 대량 생성 (용솟음치는 효과)
             for i in range(50):  # 많은 파티클로 거대한 효과
                 # 나선형 상승 파티클
@@ -393,6 +395,7 @@ class PoseidonTrident(LegendaryItem):
             if x_in_vortex and y_in_vortex:
                 # 공이 회오리에 닿았을 때 - 괴멸적인 반사!
                 print(f"🌊 포세이돈의 회오리 발동! 공이 변칙적으로 반사됩니다!")
+                print(f"   Ball: ({ball_x:.0f}, {ball_y:.0f}) -> Vortex at ({self.vortex_x:.0f}, {self.vortex_y:.0f})")
                 
                 # 강력한 상향 추진력 (보스 방향으로)
                 new_vy = -abs(ball_vy) * 2.5 - self.deflection_power  # 매우 강한 위쪽 속도

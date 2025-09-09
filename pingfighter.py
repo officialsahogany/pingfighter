@@ -26709,8 +26709,8 @@ def handle_ball():
                         actual_vel_x = modified_vx
                         actual_vel_y = modified_vy
                         
-                        # 대시 물결 효과 적용
-                        if trident.dash_wave_active:
+                        # 대시 물결 효과 적용 (물결 또는 회오리가 활성화되어 있을 때)
+                        if trident.dash_wave_active or trident.vortex_active:
                             wave_vx, wave_vy = trident.apply_dash_wave_to_ball(
                                 BALL.centerx, BALL.centery,
                                 actual_vel_x, actual_vel_y,
