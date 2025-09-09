@@ -6951,7 +6951,7 @@ def store_active_item(item_data):
         print("!")
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
         return
     if len(active_item_slot) < MAX_ITEM_SLOTS:
         # 모든 액티브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
@@ -21997,6 +21997,10 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             print("헤르메스의 신발 적용! 패들 이동속도 50% 증가!")
         elif item_name == "poseidon_trident":
             items.poseidon_trident_obtained = True
+            # 전설 아이템 타입 설정
+            item_data["type"] = "legendary"
+            # 패시브 아이템 리스트에 추가
+            passive_item_list.append(item_data)
             from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             if legendary_manager:
