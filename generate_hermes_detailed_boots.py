@@ -291,20 +291,20 @@ def create_hermes_frame(frame_index):
     #                   (wing_base_x + 6, wing_base_y - 3),
     #                   (wing_base_x + 7, wing_base_y)], 1)
     
-    # 날개 광채 효과
-    if frame_index % 2 == 0:
-        for i in range(3):
-            glow_x = wing_base_x + 4 + i
-            glow_y = wing_base_y - 2 - i
-            if 3 < glow_x < 29 and 3 < glow_y < 29:
-                current = surface.get_at((glow_x, glow_y))
-                new_color = (
-                    min(255, current[0] + 50),
-                    min(255, current[1] + 50),
-                    min(255, current[2] + 100),
-                    255
-                )
-                surface.set_at((glow_x, glow_y), new_color)
+    # 날개 광채 효과 (제거 - 불필요한 파란색 직사각형 방지)
+    # if frame_index % 2 == 0:
+    #     for i in range(3):
+    #         glow_x = wing_base_x + 4 + i
+    #         glow_y = wing_base_y - 2 - i
+    #         if 3 < glow_x < 29 and 3 < glow_y < 29:
+    #             current = surface.get_at((glow_x, glow_y))
+    #             new_color = (
+    #                 min(255, current[0] + 50),
+    #                 min(255, current[1] + 50),
+    #                 min(255, current[2] + 100),
+    #                 255
+    #             )
+    #             surface.set_at((glow_x, glow_y), new_color)
     
     # 스피드 효과
     if frame_index in [1, 3, 5, 7]:
