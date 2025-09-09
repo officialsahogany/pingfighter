@@ -5396,6 +5396,12 @@ def handle_player(keys):
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                         tutorial_dash_already_counted = False
+                    # 포세이돈의 삼지창 물결 효과 발동
+                    legendary_manager = get_legendary_manager()
+                    if legendary_manager:
+                        trident = legendary_manager.get_item("poseidon_trident")
+                        if trident and trident.active:
+                            trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, -1)  # 왼쪽 대쉬
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
                     acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
@@ -5528,6 +5534,12 @@ def handle_player(keys):
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                         tutorial_dash_already_counted = False
+                    # 포세이돈의 삼지창 물결 효과 발동
+                    legendary_manager = get_legendary_manager()
+                    if legendary_manager:
+                        trident = legendary_manager.get_item("poseidon_trident")
+                        if trident and trident.active:
+                            trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, 1)  # 오른쪽 대쉬
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
                     acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
@@ -5775,6 +5787,12 @@ def handle_player(keys):
                         # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                         if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                             tutorial_dash_already_counted = False
+                        # 포세이돈의 삼지창 물결 효과 발동 (하프 대쉬)
+                        legendary_manager = get_legendary_manager()
+                        if legendary_manager:
+                            trident = legendary_manager.get_item("poseidon_trident")
+                            if trident and trident.active:
+                                trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, half_dash_direction)
                         rolling_direction = half_dash_direction
                         rolling_timer = half_dash_timer
                         
@@ -5918,6 +5936,12 @@ def handle_player(keys):
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                         tutorial_dash_already_counted = False
+                    # 포세이돈의 삼지창 물결 효과 발동
+                    legendary_manager = get_legendary_manager()
+                    if legendary_manager:
+                        trident = legendary_manager.get_item("poseidon_trident")
+                        if trident and trident.active:
+                            trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, -1)  # 왼쪽 대쉬
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
                     acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
@@ -6061,6 +6085,12 @@ def handle_player(keys):
                         tutorial_dash_already_counted = False
                     # rolling_direction을 먼저 설정
                     rolling_direction = 1
+                    # 포세이돈의 삼지창 물결 효과 발동
+                    legendary_manager = get_legendary_manager()
+                    if legendary_manager:
+                        trident = legendary_manager.get_item("poseidon_trident")
+                        if trident and trident.active:
+                            trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, 1)  # 오른쪽 대쉬
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
                     acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
@@ -10774,6 +10804,18 @@ def draw_objects():
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
     global frame_count  # 프레임 카운터 추가
     new_tear_particles = []  #  함수 시작 시 초기화
+    
+    # 전설 아이템 매니저 업데이트 및 물결 효과 그리기
+    legendary_manager = get_legendary_manager()
+    if legendary_manager:
+        # 업데이트 (delta time을 밀리초로 전달)
+        legendary_manager.update(16)  # 60fps 기준 16ms
+        
+        # 포세이돈의 삼지창 물결 효과 그리기
+        trident = legendary_manager.get_item("poseidon_trident")
+        if trident and trident.active:
+            trident.update(16)  # 물결 타이머 업데이트
+            trident.draw_effects(SCREEN)  # 물결 파티클 그리기
     #  서브 대기 상태 UI (미니멀 디자인)
     if is_waiting_for_serve:
         # 시간 계산
@@ -26432,6 +26474,13 @@ def handle_ball():
                     rolling_active = True
                     is_danger_sensor_dash = True  # 위험감지센서 대쉬 플래그 설정
                     
+                    # 포세이돈의 삼지창 물결 효과 발동 (위험감지센서 자동 대쉬)
+                    legendary_manager = get_legendary_manager()
+                    if legendary_manager:
+                        trident = legendary_manager.get_item("poseidon_trident")
+                        if trident and trident.active:
+                            trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, dash_direction)
+                    
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
                     acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
                     if acceleration_bonus > 0:
@@ -26605,9 +26654,35 @@ def handle_ball():
             old_x = BALL.x
             old_y = BALL.y
             
+            # 포세이돈의 삼지창 궤적 영향 적용
+            actual_vel_x = step_vel_x
+            actual_vel_y = step_vel_y
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                trident = legendary_manager.get_item("poseidon_trident")
+                if trident and trident.active:
+                    # 물의 파동으로 공의 궤적에 영향
+                    modified_vx, modified_vy = trident.apply_trajectory_influence(
+                        BALL.centerx, BALL.centery,
+                        step_vel_x, step_vel_y,
+                        PLAYER.centerx, PLAYER.centery
+                    )
+                    actual_vel_x = modified_vx
+                    actual_vel_y = modified_vy
+                    
+                    # 대시 물결 효과 적용
+                    if trident.dash_wave_active:
+                        wave_vx, wave_vy = trident.apply_dash_wave_to_ball(
+                            BALL.centerx, BALL.centery,
+                            actual_vel_x, actual_vel_y,
+                            PLAYER.centerx, PLAYER.centery
+                        )
+                        actual_vel_x = wave_vx
+                        actual_vel_y = wave_vy
+            
             # 한 스텝 이동
-            BALL.x += step_vel_x
-            BALL.y += step_vel_y
+            BALL.x += actual_vel_x
+            BALL.y += actual_vel_y
             
             #  스테이지 4 몽크 봉 충돌 체크 (매 스텝마다)
             if current_stage == 4 and animated_bg_stage4 is not None:
