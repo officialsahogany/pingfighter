@@ -194,16 +194,19 @@ def create_hermes_frame(frame_index):
             else:
                 surface.set_at((x, y), BOOT_BROWN)
     
-    # 4. 발가락 부분 (둥근 앞코 - 훨씬 더 크게)
+    # 4. 발가락 부분 (둥근 앞코 - 훨씬 더 길게)
     toe_y = ankle_y + 4  # 3에서 4로
-    # 둥근 발가락 표현 (앞으로 더 길게 확장)
-    for x in range(boot_x - 4, boot_x + 11):  # 더 크게 확장
-        if x < boot_x - 1:  # 발가락 맨 앞부분
+    # 둥근 발가락 표현 (앞으로 훨씬 더 길게 확장)
+    for x in range(boot_x - 7, boot_x + 11):  # 앞코를 7픽셀까지 확장
+        if x < boot_x - 4:  # 발가락 맨 앞부분 (더 길게)
             surface.set_at((x, toe_y), BOOT_DARK)
             surface.set_at((x, toe_y + 1), BOOT_DARK)
-        elif x < boot_x + 1:  # 발가락 앞부분
+        elif x < boot_x - 1:  # 발가락 중간 앞부분
             surface.set_at((x, toe_y), BOOT_MID)
             surface.set_at((x, toe_y + 1), BOOT_DARK)
+        elif x < boot_x + 1:  # 발가락 앞부분
+            surface.set_at((x, toe_y), BOOT_BROWN)
+            surface.set_at((x, toe_y + 1), BOOT_MID)
         elif x < boot_x + 7:  # 중간 부분
             surface.set_at((x, toe_y), BOOT_BROWN)
             surface.set_at((x, toe_y + 1), BOOT_MID)
@@ -211,9 +214,9 @@ def create_hermes_frame(frame_index):
             surface.set_at((x, toe_y), BOOT_MID)
             surface.set_at((x, toe_y + 1), BOOT_DARK)
     
-    # 5. 밑창 (두껍고 명확하게 - 훨씬 더 크게)
+    # 5. 밑창 (두껍고 명확하게 - 훨씬 더 길게)
     sole_y = toe_y + 2
-    for x in range(boot_x - 4, boot_x + 11):  # 밑창도 더 크게
+    for x in range(boot_x - 7, boot_x + 11):  # 밑창도 앞코와 맞춰서 7픽셀까지 확장
         surface.set_at((x, sole_y), BOOT_SOLE)
         # 밑창 패턴
         if x % 2 == 0:
