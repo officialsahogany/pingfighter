@@ -297,10 +297,9 @@ class PoseidonTrident(LegendaryItem):
         
     def activate(self, game_state: Dict):
         """삼지창 활성화"""
-        if not self.active:
-            self.active = True
-            self.wave_timer = 0
-            print(f"🔱 {self.korean_name} 활성화! 물의 파동이 공을 조작합니다!")
+        super().activate(game_state)  # 부모 클래스의 activate 호출 (self.active = True 설정)
+        self.wave_timer = 0
+        print(f"🔱 {self.korean_name} 활성화! 물의 파동이 공을 조작합니다!")
             
     def deactivate(self):
         """삼지창 비활성화"""
@@ -345,51 +344,55 @@ class PoseidonTrident(LegendaryItem):
         
     def trigger_dash_wave(self, paddle_x: float, paddle_y: float, direction: int):
         """대시 시 거대한 물결 회오리 발동"""
-        if self.active:
-            self.dash_wave_active = True
-            self.dash_wave_timer = 0
+        print(f"🔍 트리거 호출됨 - self.active: {self.active}")
+        if not self.active:
+            print(f"⚠️ 포세이돈 삼지창이 비활성화 상태입니다!")
+            return
             
-            # 거대한 물결 회오리 활성화
-            self.vortex_active = True
-            self.vortex_timer = 0
-            self.vortex_x = paddle_x
-            self.vortex_y = paddle_y
-            self.vortex_height = 0
-            self.vortex_spin_speed = 0
+        self.dash_wave_active = True
+        self.dash_wave_timer = 0
+        
+        # 거대한 물결 회오리 활성화
+        self.vortex_active = True
+        self.vortex_timer = 0
+        self.vortex_x = paddle_x
+        self.vortex_y = paddle_y
+        self.vortex_height = 0
+        self.vortex_spin_speed = 0
+        
+        print(f"🔱 포세이돈 회오리 발동! 위치: ({paddle_x:.0f}, {paddle_y:.0f}), 방향: {direction}")
+        print(f"   Active: {self.active}, Vortex: {self.vortex_active}, Height: {self.vortex_height}")
+        
+        # 회오리 파티클 대량 생성 (용솟음치는 효과)
+        for i in range(50):  # 많은 파티클로 거대한 효과
+            # 나선형 상승 파티클
+            angle = (i / 10) * math.pi * 2
+            height_offset = random.uniform(0, 200)
+            particle = {
+                "x": paddle_x + random.uniform(-30, 30),
+                "y": paddle_y - height_offset,
+                "vx": math.cos(angle) * random.uniform(2, 8) * direction,
+                "vy": random.uniform(-8, -3),  # 위로 솟구치는 속도
+                "life": random.randint(40, 80),
+                "color": (50, 150 + random.randint(0, 100), 255),
+                "size": random.uniform(3, 10),
+                "spiral_angle": angle,
+                "spiral_radius": random.uniform(20, 60)
+            }
+            self.vortex_particles.append(particle)
             
-            print(f"🔱 포세이돈 회오리 발동! 위치: ({paddle_x:.0f}, {paddle_y:.0f}), 방향: {direction}")
-            print(f"   Active: {self.active}, Vortex: {self.vortex_active}, Height: {self.vortex_height}")
-            
-            # 회오리 파티클 대량 생성 (용솟음치는 효과)
-            for i in range(50):  # 많은 파티클로 거대한 효과
-                # 나선형 상승 파티클
-                angle = (i / 10) * math.pi * 2
-                height_offset = random.uniform(0, 200)
-                particle = {
-                    "x": paddle_x + random.uniform(-30, 30),
-                    "y": paddle_y - height_offset,
-                    "vx": math.cos(angle) * random.uniform(2, 8) * direction,
-                    "vy": random.uniform(-8, -3),  # 위로 솟구치는 속도
-                    "life": random.randint(40, 80),
-                    "color": (50, 150 + random.randint(0, 100), 255),
-                    "size": random.uniform(3, 10),
-                    "spiral_angle": angle,
-                    "spiral_radius": random.uniform(20, 60)
-                }
-                self.vortex_particles.append(particle)
-                
-            # 기존 물결 파티클도 생성 (바닥 효과)
-            for i in range(20):
-                angle = (i / 20) * math.pi * 2
-                particle = {
-                    "x": paddle_x,
-                    "y": paddle_y,
-                    "vx": math.cos(angle) * 5 * direction,
-                    "vy": math.sin(angle) * 3,
-                    "life": 40,
-                    "color": (100, 200, 255)
-                }
-                self.wave_particles.append(particle)
+        # 기존 물결 파티클도 생성 (바닥 효과)
+        for i in range(20):
+            angle = (i / 20) * math.pi * 2
+            particle = {
+                "x": paddle_x,
+                "y": paddle_y,
+                "vx": math.cos(angle) * 5 * direction,
+                "vy": math.sin(angle) * 3,
+                "life": 40,
+                "color": (100, 200, 255)
+            }
+            self.wave_particles.append(particle)
                 
     def apply_dash_wave_to_ball(self, ball_x: float, ball_y: float,
                                ball_vx: float, ball_vy: float,
