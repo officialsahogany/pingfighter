@@ -237,7 +237,7 @@ class PoseidonTrident(LegendaryItem):
         super().__init__(
             name="poseidon_trident",
             korean_name="포세이돈의 삼지창",
-            description="물의 파동으로 공의 궤적을 조작하고, 대시 시 물결로 공을 밀어냅니다",
+            description="물의 파동으로 공의 궤적을 조작하고, 대시 시 거대한 물결 회오리를 생성합니다",
             unlock_condition="스테이지 7 클리어",
             icon_path="items/legendary/poseidon_trident.png"
         )
@@ -248,6 +248,21 @@ class PoseidonTrident(LegendaryItem):
         self.wave_timer = 0
         self.dash_wave_active = False
         self.dash_wave_timer = 0
+        
+        # 거대한 물결 회오리 효과 속성
+        self.vortex_active = False
+        self.vortex_timer = 0
+        self.vortex_x = 0
+        self.vortex_y = 0
+        self.vortex_height = 0  # 시작 높이
+        self.vortex_max_height = 400  # 최대 높이 (화면 대부분 커버)
+        self.vortex_width = 120  # 회오리 너비
+        self.vortex_spin_speed = 0  # 회전 속도
+        self.vortex_particles = []  # 회오리 파티클
+        
+        # 공 반사 효과 속성
+        self.deflection_power = 15.0  # 반사 힘
+        self.spin_power = 8.0  # 드라이브 회전력
         
         # 애니메이션용 아이콘 프레임들
         self.icon_frames = []
@@ -311,44 +326,98 @@ class PoseidonTrident(LegendaryItem):
         return ball_vx, ball_vy
         
     def trigger_dash_wave(self, paddle_x: float, paddle_y: float, direction: int):
-        """대시 시 물결 효과 발동"""
+        """대시 시 거대한 물결 회오리 발동"""
         if self.active:
             self.dash_wave_active = True
             self.dash_wave_timer = 0
             
-            # 물결 파티클 생성
-            for i in range(10):
+            # 거대한 물결 회오리 활성화
+            self.vortex_active = True
+            self.vortex_timer = 0
+            self.vortex_x = paddle_x
+            self.vortex_y = paddle_y
+            self.vortex_height = 0
+            self.vortex_spin_speed = 0
+            
+            # 회오리 파티클 대량 생성 (용솟음치는 효과)
+            for i in range(50):  # 많은 파티클로 거대한 효과
+                # 나선형 상승 파티클
                 angle = (i / 10) * math.pi * 2
+                height_offset = random.uniform(0, 200)
+                particle = {
+                    "x": paddle_x + random.uniform(-30, 30),
+                    "y": paddle_y - height_offset,
+                    "vx": math.cos(angle) * random.uniform(2, 8) * direction,
+                    "vy": random.uniform(-8, -3),  # 위로 솟구치는 속도
+                    "life": random.randint(40, 80),
+                    "color": (50, 150 + random.randint(0, 100), 255),
+                    "size": random.uniform(3, 10),
+                    "spiral_angle": angle,
+                    "spiral_radius": random.uniform(20, 60)
+                }
+                self.vortex_particles.append(particle)
+                
+            # 기존 물결 파티클도 생성 (바닥 효과)
+            for i in range(20):
+                angle = (i / 20) * math.pi * 2
                 particle = {
                     "x": paddle_x,
                     "y": paddle_y,
-                    "vx": math.cos(angle) * 3 * direction,
-                    "vy": math.sin(angle) * 2,
-                    "life": 30,
-                    "color": (50, 150, 255)
+                    "vx": math.cos(angle) * 5 * direction,
+                    "vy": math.sin(angle) * 3,
+                    "life": 40,
+                    "color": (100, 200, 255)
                 }
                 self.wave_particles.append(particle)
                 
     def apply_dash_wave_to_ball(self, ball_x: float, ball_y: float,
                                ball_vx: float, ball_vy: float,
                                paddle_x: float, paddle_y: float) -> Tuple[float, float]:
-        """대시 물결이 공에 미치는 영향"""
-        if not self.dash_wave_active:
+        """거대한 물결 회오리가 공에 미치는 괴멸적인 영향"""
+        if not self.dash_wave_active and not self.vortex_active:
             return ball_vx, ball_vy
             
-        # 패들과의 거리 계산
-        distance = math.sqrt((ball_x - paddle_x) ** 2 + (ball_y - paddle_y) ** 2)
+        # 거대한 회오리 효과 (우선 처리)
+        if self.vortex_active:
+            # 회오리의 Y축 범위 (시간에 따라 확장)
+            current_vortex_height = min(self.vortex_height, self.vortex_max_height)
+            
+            # 회오리 충돌 체크 (X축 범위와 Y축 범위)
+            x_in_vortex = abs(ball_x - self.vortex_x) < self.vortex_width / 2
+            y_in_vortex = (self.vortex_y - current_vortex_height) <= ball_y <= self.vortex_y + 50
+            
+            if x_in_vortex and y_in_vortex:
+                # 공이 회오리에 닿았을 때 - 괴멸적인 반사!
+                print(f"🌊 포세이돈의 회오리 발동! 공이 변칙적으로 반사됩니다!")
+                
+                # 강력한 상향 추진력 (보스 방향으로)
+                new_vy = -abs(ball_vy) * 2.5 - self.deflection_power  # 매우 강한 위쪽 속도
+                
+                # 나선형 회전 효과 (드라이브)
+                spin_angle = self.vortex_spin_speed * 0.1
+                new_vx = ball_vx * math.cos(spin_angle) + self.spin_power * math.sin(self.vortex_timer * 0.3)
+                
+                # 변칙적인 좌우 움직임 추가
+                random_deflection = random.uniform(-5, 5)
+                new_vx += random_deflection
+                
+                # 속도 제한 (너무 빠르면 게임이 불가능)
+                max_speed = 35
+                speed = math.sqrt(new_vx ** 2 + new_vy ** 2)
+                if speed > max_speed:
+                    new_vx = new_vx / speed * max_speed
+                    new_vy = new_vy / speed * max_speed
+                
+                return new_vx, new_vy
         
-        # 물결 효과 범위 (시간에 따라 확장)
-        wave_radius = 50 + self.dash_wave_timer * 10
-        
-        if distance < wave_radius:
-            # 패들로부터 공을 밀어내는 힘
-            if distance > 0:
+        # 기존 물결 효과 (보조 효과)
+        if self.dash_wave_active:
+            distance = math.sqrt((ball_x - paddle_x) ** 2 + (ball_y - paddle_y) ** 2)
+            wave_radius = 50 + self.dash_wave_timer * 10
+            
+            if distance < wave_radius and distance > 0:
                 push_x = (ball_x - paddle_x) / distance * self.dash_wave_force
                 push_y = (ball_y - paddle_y) / distance * self.dash_wave_force * 0.5
-                
-                # 거리에 따른 감쇠
                 attenuation = 1 - (distance / wave_radius)
                 
                 return ball_vx + push_x * attenuation, ball_vy + push_y * attenuation
@@ -372,10 +441,56 @@ class PoseidonTrident(LegendaryItem):
         # 물결 타이머
         self.wave_timer += dt * 60
         
+        # 거대한 회오리 업데이트
+        if self.vortex_active:
+            self.vortex_timer += dt
+            
+            # 회오리 높이 급속 확장 (용솟음치는 효과)
+            if self.vortex_height < self.vortex_max_height:
+                self.vortex_height += 800 * dt  # 빠르게 상승
+            
+            # 회전 속도 증가
+            self.vortex_spin_speed += dt * 10
+            
+            # 회오리 파티클 업데이트
+            for particle in self.vortex_particles[:]:
+                # 나선형 움직임
+                particle["spiral_angle"] += dt * 5
+                particle["x"] = self.vortex_x + math.cos(particle["spiral_angle"]) * particle["spiral_radius"]
+                particle["y"] -= dt * 200  # 위로 상승
+                
+                particle["spiral_radius"] += dt * 30  # 반경 확대
+                particle["life"] -= dt * 60
+                
+                if particle["life"] <= 0:
+                    self.vortex_particles.remove(particle)
+                    
+            # 새로운 파티클 지속적으로 생성
+            if self.vortex_timer < 1.0 and len(self.vortex_particles) < 100:
+                for _ in range(3):
+                    particle = {
+                        "x": self.vortex_x + random.uniform(-30, 30),
+                        "y": self.vortex_y,
+                        "vx": random.uniform(-5, 5),
+                        "vy": random.uniform(-10, -5),
+                        "life": random.randint(30, 60),
+                        "color": (50, 150 + random.randint(0, 100), 255),
+                        "size": random.uniform(5, 15),
+                        "spiral_angle": random.uniform(0, math.pi * 2),
+                        "spiral_radius": random.uniform(10, 30)
+                    }
+                    self.vortex_particles.append(particle)
+            
+            # 회오리 종료 체크 (1.5초 후)
+            if self.vortex_timer > 1.5:
+                self.vortex_active = False
+                self.vortex_height = 0
+                self.vortex_particles.clear()
+        
         # 대시 물결 타이머
         if self.dash_wave_active:
             self.dash_wave_timer += dt * 60
-            if self.dash_wave_timer > 30:  # 0.5초 후 종료
+            if self.dash_wave_timer > 60:  # 1초 후 종료
                 self.dash_wave_active = False
                 self.dash_wave_timer = 0
                 
@@ -390,11 +505,64 @@ class PoseidonTrident(LegendaryItem):
                 self.wave_particles.remove(particle)
                 
     def draw_effects(self, screen: pygame.Surface):
-        """물결 효과 그리기"""
+        """거대한 물결 회오리 효과 그리기"""
         if not self.active:
             return
             
-        # 물결 파티클 그리기
+        # 거대한 회오리 그리기
+        if self.vortex_active:
+            # 회오리 기둥 효과 (반투명 거대한 물기둥)
+            current_height = int(min(self.vortex_height, self.vortex_max_height))
+            if current_height > 0:
+                # 여러 레이어로 회오리 표현
+                for i in range(5):
+                    alpha = 30 + i * 10  # 레이어별 투명도
+                    width = self.vortex_width - i * 10
+                    
+                    # 회오리 기둥
+                    vortex_surf = pygame.Surface((width, current_height), pygame.SRCALPHA)
+                    
+                    # 그라데이션 효과
+                    for y in range(0, current_height, 5):
+                        gradient_alpha = alpha * (1 - y / current_height)
+                        color = (50, 150 + int(50 * (1 - y / current_height)), 255, int(gradient_alpha))
+                        pygame.draw.rect(vortex_surf, color, (0, y, width, 5))
+                    
+                    # 회오리 중심에 그리기
+                    screen.blit(vortex_surf, 
+                              (self.vortex_x - width // 2, 
+                               self.vortex_y - current_height))
+                
+                # 회오리 윤곽선 효과
+                for i in range(3):
+                    pygame.draw.lines(screen, (100, 200, 255, 100), False,
+                                    [(self.vortex_x - self.vortex_width // 2 + i * 20, 
+                                      self.vortex_y),
+                                     (self.vortex_x - self.vortex_width // 3 + i * 15, 
+                                      self.vortex_y - current_height // 2),
+                                     (self.vortex_x - self.vortex_width // 4 + i * 10, 
+                                      self.vortex_y - current_height)], 2)
+            
+            # 회오리 파티클 그리기
+            for particle in self.vortex_particles:
+                if "size" in particle:
+                    size = particle["size"]
+                    alpha = min(255, int(particle["life"] * 5))
+                    
+                    # 거대한 물방울 효과
+                    water_surf = pygame.Surface((int(size * 2), int(size * 2)), pygame.SRCALPHA)
+                    color = (*particle["color"], alpha)
+                    pygame.draw.circle(water_surf, color, (int(size), int(size)), int(size))
+                    
+                    # 하이라이트 효과
+                    highlight_color = (200, 230, 255, alpha // 2)
+                    pygame.draw.circle(water_surf, highlight_color, 
+                                     (int(size - size // 3), int(size - size // 3)), 
+                                     int(size // 3))
+                    
+                    screen.blit(water_surf, (particle["x"] - size, particle["y"] - size))
+        
+        # 기존 물결 파티클 그리기
         for particle in self.wave_particles:
             alpha = particle["life"] * 8  # 투명도
             size = 3 + (30 - particle["life"]) / 5
