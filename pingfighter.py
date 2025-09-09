@@ -26720,6 +26720,9 @@ def handle_ball():
                                 PLAYER.centerx, PLAYER.centery,
                                 PLAYER.centerx, PLAYER.centery  # 실제 플레이어 위치 전달
                             )
+                            # 디버그: 반환된 속도 확인
+                            if wave_vx != actual_vel_x or wave_vy != actual_vel_y:
+                                print(f"⚡ 속도 변경됨! 원래: ({actual_vel_x:.1f}, {actual_vel_y:.1f}) → 새: ({wave_vx:.1f}, {wave_vy:.1f})")
                             actual_vel_x = wave_vx
                             actual_vel_y = wave_vy
             except Exception as e:

@@ -517,7 +517,12 @@ class PoseidonTrident(LegendaryItem):
                         self.water_momentum_force_y = new_vy * 0.3  # 30%의 추진력 유지
                         self.water_momentum_force_x = new_vx * 0.1  # 10%의 횡방향 추진력
                     
-                    print(f"🌊 포세이돈 굴절: 강도={refraction_strength:.2f}, 각도변화={math.degrees(refraction_amount):.1f}°")
+                    print(f"🌊 포세이돈 굴절 적용!")
+                    print(f"   - 원래 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}")
+                    print(f"   - 새 속도: vx={new_vx:.1f}, vy={new_vy:.1f}")
+                    print(f"   - 굴절 강도: {refraction_strength:.2f}")
+                    print(f"   - 각도 변화: {math.degrees(refraction_amount):.1f}°")
+                    print(f"   - 속도 증폭: {speed_boost:.2f}x")
                     
                     return new_vx, new_vy
                 else:
@@ -529,8 +534,8 @@ class PoseidonTrident(LegendaryItem):
         
         # 기존 물결 효과 (보조 효과)
         if self.dash_wave_active:
-            # 플레이어가 발사한 공 (아래로 향하는 공)은 영향받지 않음
-            if ball_vy > 0:  # 공이 아래로 향하고 있으면 (플레이어 -> 보스 방향)
+            # 플레이어가 발사한 공 (위로 향하는 공)은 영향받지 않음
+            if ball_vy < 0:  # 공이 위로 향하고 있으면 (플레이어가 친 공)
                 return ball_vx, ball_vy  # 물결 효과 무시
                 
             distance = math.sqrt((ball_x - paddle_x) ** 2 + (ball_y - paddle_y) ** 2)
