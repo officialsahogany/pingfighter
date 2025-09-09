@@ -43,20 +43,12 @@ for frame_index in range(FRAMES):
     # Create surface with alpha channel
     surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     
-    # 1. 파란색 원형 배경 (라그나로크 해머와 동일)
-    center_x, center_y = ICON_SIZE // 2, ICON_SIZE // 2
-    for i in range(3):
-        radius = ICON_SIZE // 2 - i
-        alpha = 200 - i * 50
-        color = (*BACKGROUND_BLUE[i], alpha)
-        pygame.draw.circle(surface, color, (center_x, center_y), radius)
-    
     # Animation timing
     t = frame_index / FRAMES
     
-    # 2. 빨간 테두리 (펄싱 효과) - 라그나로크 해머와 동일
+    # 1. 빨간 테두리 먼저 (라그나로크 해머와 정확히 동일한 순서)
     border_thickness = 2
-    border_glow = int(128 + 127 * math.sin(t * math.pi * 2))
+    border_glow = int(128 + 127 * math.sin(t * math.pi * 2))  # 펄싱 효과
     
     # 글로우 효과를 위한 여러 겹의 테두리
     for i in range(2):
@@ -70,7 +62,10 @@ for frame_index in range(FRAMES):
     pygame.draw.rect(surface, LEGENDARY_RED, 
                    (0, 0, ICON_SIZE, ICON_SIZE), border_thickness)
     
-    # 3. 날개달린 신발 그리기
+    # 중앙 좌표 정의
+    center_x, center_y = ICON_SIZE // 2, ICON_SIZE // 2
+    
+    # 2. 날개달린 신발 그리기
     shoe_y_offset = int(math.sin(t * math.pi * 2) * 1.5)  # 위아래 움직임
     
     # 신발 본체 (황금색)
