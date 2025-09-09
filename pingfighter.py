@@ -28097,6 +28097,16 @@ def handle_ball():
         last_paddle_hit_time = pygame.time.get_ticks()
         last_wall_hit = None
         
+        # 포세이돈의 삼지창 물 추진력 종료 (보스 패들에 맞았을 때)
+        try:
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                trident = legendary_manager.get_item("poseidon_trident")
+                if trident and trident.active and trident.water_momentum_active:
+                    trident.stop_water_momentum()
+        except Exception as e:
+            pass  # 에러 무시
+        
         # 튜토리얼 모드: 보스가 공을 받아쳤음을 표시
         if current_stage == 50 and tutorial_practice_mode:
             if not tutorial_boss_returned:

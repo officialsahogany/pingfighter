@@ -308,6 +308,14 @@ class PoseidonTrident(LegendaryItem):
         self.wave_particles.clear()
         self.dash_wave_active = False
         
+    def stop_water_momentum(self):
+        """물의 추진력 즉시 중단 (보스 패들에 맞았을 때)"""
+        self.water_momentum_active = False
+        self.water_momentum_timer = 0
+        self.water_momentum_force_y = 0
+        self.water_momentum_force_x = 0
+        print(f"🔱 물의 추진력 종료 - 보스 패들 충돌")
+        
     def apply_trajectory_influence(self, ball_x: float, ball_y: float, 
                                   ball_vx: float, ball_vy: float, 
                                   paddle_x: float, paddle_y: float) -> Tuple[float, float]:
