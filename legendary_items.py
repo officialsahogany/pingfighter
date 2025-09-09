@@ -559,23 +559,29 @@ class PoseidonTrident(LegendaryItem):
                     spin_effect = math.sin(self.vortex_timer * 8) * 0.1 * refraction_strength
                     new_angle += spin_effect
                     
-                    # 물 회오리 내부에서 매우 부드러운 감속
-                    # 점진적이고 자연스러운 감속 효과
+                    # 물 회오리 내부에서 강력한 감속 효과
+                    # 물의 저항으로 인한 명확한 감속
                     if ball_vy > 0:  # 보스가 친 공
-                        # 부드러운 감속 효과 (더 완만하게)
-                        # 거리에 따른 감속을 더 부드럽게 (10%~40% 감속으로 줄임)
-                        speed_reduction = 0.1 + refraction_strength * 0.3  # 10%~40% 감속
+                        # 강력한 감속 효과 (40%~80% 감속)
+                        # 중심에 가까울수록 더 강한 감속
+                        speed_reduction = 0.4 + refraction_strength * 0.4  # 40%~80% 감속
                         
-                        # 시간에 따른 추가 감속 (회오리가 오래될수록 약해짐)
-                        time_factor = min(1.0, self.vortex_timer / 1.5)  # 1.5초에 걸쳐 서서히
-                        speed_reduction *= (0.7 + time_factor * 0.3)  # 시간이 지날수록 감속 증가
+                        # 시간에 따른 추가 감속 (회오리에 머무를수록 더 느려짐)
+                        time_factor = min(1.0, self.vortex_timer / 1.0)  # 1초에 걸쳐 빠르게
+                        speed_reduction = speed_reduction + (time_factor * 0.2)  # 시간에 따라 최대 20% 추가 감속
+                        
+                        # 최대 감속률 제한 (90%까지만)
+                        if speed_reduction > 0.9:
+                            speed_reduction = 0.9
                         
                         new_speed = current_speed * (1.0 - speed_reduction)
                         
-                        # 최소 속도를 더 높게 설정 (너무 느려지지 않도록)
-                        min_speed = 7.0  # 5.0에서 7.0으로 증가
+                        # 최소 속도 보장 (완전히 멈추지는 않도록)
+                        min_speed = 3.0  # 더 낮은 최소 속도로 감속 효과 강조
                         if new_speed < min_speed:
                             new_speed = min_speed
+                        
+                        print(f"   💧 감속 효과: {speed_reduction:.1%} 감속 (원래: {current_speed:.1f} → 새로운: {new_speed:.1f})")
                     else:
                         # 플레이어가 친 공은 약간 증폭
                         speed_boost = 1.0 + refraction_strength * 0.3  # 최대 30% 속도 증가
@@ -604,24 +610,26 @@ class PoseidonTrident(LegendaryItem):
                         print(f"🔄 보스 공 반사 처리")
                         print(f"   - 굴절 후 속도: vx={new_vx:.1f}, vy={new_vy:.1f}")
                         
-                        # 매우 부드러운 반사를 위한 보간 처리
-                        # 원래 속도와 반전 속도 사이를 부드럽게 전환
+                        # 감속된 속도로 반사 (물의 저항 효과 강조)
+                        # 이미 감속된 new_speed를 사용하여 반사
                         
-                        # 1. 기본 반사 속도 계산 (원래보다 약하게)
-                        base_reflect_factor = 0.7  # 기본 70% 반사
-                        reflected_vy = -abs(ball_vy) * base_reflect_factor
+                        # 1. 감속된 속도의 일부만 반사 (물의 저항 때문에)
+                        base_reflect_factor = 0.4  # 40% 반사로 대폭 감소 (원래 70%)
                         
-                        # 2. 현재 속도와 반사 속도를 부드럽게 보간
-                        # 굴절 강도가 높을수록 반사가 강해짐
-                        blend_factor = refraction_strength * 0.8  # 최대 80%만 반사 적용
+                        # 2. 감속된 속도 기반으로 반사 계산
+                        # new_speed는 이미 감속되어 있음
+                        reflected_vy = -new_speed * base_reflect_factor
+                        
+                        # 3. 원래 Y속도와 반사 속도를 부드럽게 전환
+                        blend_factor = refraction_strength * 0.7  # 최대 70%만 반사 적용
                         new_vy = ball_vy * (1.0 - blend_factor) + reflected_vy * blend_factor
                         
-                        print(f"   - 부드러운 보간: 원래={ball_vy:.1f}, 반사={reflected_vy:.1f}, 보간={blend_factor:.2f}")
-                        print(f"   - Y속도 부드럽게 전환: {new_vy:.1f}")
+                        print(f"   - 감속 반사: 원래속력={current_speed:.1f}, 감속속력={new_speed:.1f}, 반사율={base_reflect_factor:.1%}")
+                        print(f"   - Y속도 전환: 원래={ball_vy:.1f} → 반사={reflected_vy:.1f} → 최종={new_vy:.1f}")
                         
-                        # 3. 약간의 상승 보정 (매우 약하게)
-                        if new_vy > -3.0:  # 너무 약한 반사는 보정
-                            new_vy = -3.0
+                        # 4. 최소 반사 속도 보장 (너무 약하면 안됨)
+                        if new_vy > -2.0:  # 너무 약한 반사는 보정
+                            new_vy = -2.0
                         
                         print(f"   - 최종 Y속도: {new_vy:.1f}")
                     else:
