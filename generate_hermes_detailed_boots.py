@@ -103,8 +103,8 @@ def create_hermes_frame(frame_index):
     # 프레임별로 크기와 색상이 변하는 배경
     t = frame_index / FRAMES
     
-    # 배경 크기 애니메이션 (14-18 픽셀 반경)
-    bg_radius = int(14 + math.sin(t * math.pi * 2) * 2)
+    # 배경 크기 애니메이션 (15-16 픽셀 반경 - 라그나로크 해머와 동일)
+    bg_radius = 15  # 거의 전체 아이콘 크기
     
     # 배경 색상 변화 (초록색/청록색 계열로 변화 - 헤르메스 테마)
     bg_colors = [
