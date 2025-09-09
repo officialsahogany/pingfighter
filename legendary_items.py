@@ -589,25 +589,40 @@ class PoseidonTrident(LegendaryItem):
                     new_vx = math.cos(new_angle) * new_speed
                     new_vy = math.sin(new_angle) * new_speed
                     
-                    # X축 속도도 부드럽게 감속 (너무 빠른 횡방향 이동 방지)
-                    if abs(new_vx) > 15:  # X축 속도가 너무 빠르면
-                        new_vx = new_vx * 0.7  # 30% 감속
+                    # X축 속도도 부드럽게 조절 (자연스러운 궤적 유지)
+                    # 원래 X속도와 새로운 X속도를 보간하여 급격한 변화 방지
+                    x_blend_factor = 0.6  # 60%만 새로운 속도 적용
+                    new_vx = ball_vx * (1.0 - x_blend_factor) + new_vx * x_blend_factor
+                    
+                    # X축 속도 상한 설정 (너무 빠른 횡방향 이동 방지)
+                    max_x_speed = 12.0
+                    if abs(new_vx) > max_x_speed:
+                        new_vx = max_x_speed if new_vx > 0 else -max_x_speed
                     
                     # 상승 효과 추가 (물 회오리 특성)
                     if ball_vy > 0:  # 보스가 친 공은 부드럽게 위로 반사
                         print(f"🔄 보스 공 반사 처리")
                         print(f"   - 굴절 후 속도: vx={new_vx:.1f}, vy={new_vy:.1f}")
                         
-                        # 더욱 부드러운 반사 - 속도를 점진적으로 변경
-                        # 원래 속도의 60%~90% 사이로 부드럽게 조절
-                        smooth_factor = 0.6 + (1.0 - refraction_strength) * 0.3  # 60%~90%
-                        new_vy = -abs(ball_vy) * smooth_factor
-                        print(f"   - Y속도 매우 부드럽게 반전: {new_vy:.1f} (factor: {smooth_factor:.2f})")
+                        # 매우 부드러운 반사를 위한 보간 처리
+                        # 원래 속도와 반전 속도 사이를 부드럽게 전환
                         
-                        # 추가 상승력을 더 부드럽게 (거의 없애기)
-                        upward_boost = -1.0 * refraction_strength  # 매우 약한 상승력 (2.0에서 1.0으로)
-                        new_vy += upward_boost
-                        print(f"   - 추가 상승력: {upward_boost:.1f}")
+                        # 1. 기본 반사 속도 계산 (원래보다 약하게)
+                        base_reflect_factor = 0.7  # 기본 70% 반사
+                        reflected_vy = -abs(ball_vy) * base_reflect_factor
+                        
+                        # 2. 현재 속도와 반사 속도를 부드럽게 보간
+                        # 굴절 강도가 높을수록 반사가 강해짐
+                        blend_factor = refraction_strength * 0.8  # 최대 80%만 반사 적용
+                        new_vy = ball_vy * (1.0 - blend_factor) + reflected_vy * blend_factor
+                        
+                        print(f"   - 부드러운 보간: 원래={ball_vy:.1f}, 반사={reflected_vy:.1f}, 보간={blend_factor:.2f}")
+                        print(f"   - Y속도 부드럽게 전환: {new_vy:.1f}")
+                        
+                        # 3. 약간의 상승 보정 (매우 약하게)
+                        if new_vy > -3.0:  # 너무 약한 반사는 보정
+                            new_vy = -3.0
+                        
                         print(f"   - 최종 Y속도: {new_vy:.1f}")
                     else:
                         # 플레이어가 친 공은 기존 상승 효과
