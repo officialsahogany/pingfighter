@@ -284,12 +284,12 @@ def create_hermes_frame(frame_index):
                     if fy - 1 > 3:
                         surface.set_at((fx, fy - 1), WING_WHITE)
     
-    # 날개 윤곽 강조
-    pygame.draw.lines(surface, WING_WHITE, False,
-                     [(wing_base_x, wing_base_y - 2),
-                      (wing_base_x + 3, wing_base_y - 4),
-                      (wing_base_x + 6, wing_base_y - 3),
-                      (wing_base_x + 7, wing_base_y)], 1)
+    # 날개 윤곽 강조 (제거 - 불필요한 픽셀 방지)
+    # pygame.draw.lines(surface, WING_WHITE, False,
+    #                  [(wing_base_x, wing_base_y - 2),
+    #                   (wing_base_x + 3, wing_base_y - 4),
+    #                   (wing_base_x + 6, wing_base_y - 3),
+    #                   (wing_base_x + 7, wing_base_y)], 1)
     
     # 날개 광채 효과
     if frame_index % 2 == 0:
