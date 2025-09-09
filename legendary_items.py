@@ -826,15 +826,8 @@ class PoseidonTrident(LegendaryItem):
                               (self.vortex_x - width // 2, 
                                self.vortex_y - current_height))
                 
-                # 회오리 윤곽선 효과
-                for i in range(3):
-                    pygame.draw.lines(screen, (100, 200, 255, 100), False,
-                                    [(self.vortex_x - self.vortex_width // 2 + i * 20, 
-                                      self.vortex_y),
-                                     (self.vortex_x - self.vortex_width // 3 + i * 15, 
-                                      self.vortex_y - current_height // 2),
-                                     (self.vortex_x - self.vortex_width // 4 + i * 10, 
-                                      self.vortex_y - current_height)], 2)
+                # 회오리 윤곽선 효과 제거 (사용자 요청)
+                # 깔끔한 물기둥 효과만 유지
                 
                 # 디버그 테두리 제거됨 - 실제 게임에서는 표시하지 않음
             
