@@ -393,7 +393,8 @@ class PoseidonTrident(LegendaryItem):
                 
     def apply_dash_wave_to_ball(self, ball_x: float, ball_y: float,
                                ball_vx: float, ball_vy: float,
-                               paddle_x: float, paddle_y: float) -> Tuple[float, float]:
+                               paddle_x: float, paddle_y: float,
+                               player_x: float = None, player_y: float = None) -> Tuple[float, float]:
         """거대한 물결 회오리가 공에 미치는 굴절 효과 (Stage 4 자기장과 동일한 메커니즘)"""
         
         # 물 추진력이 남아있으면 계속 적용
@@ -448,9 +449,11 @@ class PoseidonTrident(LegendaryItem):
                     current_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
                     
                     # 목표 방향 계산 (플레이어 방향으로 굴절)
-                    # 플레이어 위치 추정 (화면 하단 중앙)
-                    player_x = 400  # 화면 중앙
-                    player_y = 550  # 화면 하단 근처
+                    # 플레이어 위치 사용 (전달되지 않으면 기본값 사용)
+                    if player_x is None:
+                        player_x = 400  # 화면 중앙 기본값
+                    if player_y is None:
+                        player_y = 550  # 화면 하단 기본값
                     
                     # 플레이어 방향 벡터
                     direction_to_player_x = player_x - ball_x
@@ -466,11 +469,8 @@ class PoseidonTrident(LegendaryItem):
                     
                     # 각도 차이 계산
                     angle_diff = target_angle - current_angle
-                    # 각도를 -π ~ π 범위로 정규화
-                    while angle_diff > math.pi:
-                        angle_diff -= 2 * math.pi
-                    while angle_diff < -math.pi:
-                        angle_diff += 2 * math.pi
+                    # 각도를 -π ~ π 범위로 정규화 (최적화)
+                    angle_diff = math.atan2(math.sin(angle_diff), math.cos(angle_diff))
                     
                     # 굴절 적용 (최대 15도/프레임, Stage 4와 동일)
                     max_refraction = 0.26  # 약 15도 in radians
@@ -484,12 +484,12 @@ class PoseidonTrident(LegendaryItem):
                     spin_effect = math.sin(self.vortex_timer * 8) * 0.1 * refraction_strength
                     new_angle += spin_effect
                     
-                    # 속도 증폭 (물의 추진력)
-                    speed_boost = 1.0 + refraction_strength * 0.4  # 최대 40% 속도 증가
+                    # 속도 증폭 (물의 추진력) - 밸런스 조정
+                    speed_boost = 1.0 + refraction_strength * 0.3  # 최대 30% 속도 증가 (40%에서 감소)
                     new_speed = current_speed * speed_boost
                     
                     # 속도 상한
-                    max_speed = 33  # BALL_BASE_SPEED * 2.2 유사
+                    max_speed = 30  # 최대 속도 감소 (33에서 30으로)
                     if new_speed > max_speed:
                         new_speed = max_speed
                     
@@ -497,8 +497,8 @@ class PoseidonTrident(LegendaryItem):
                     new_vx = math.cos(new_angle) * new_speed
                     new_vy = math.sin(new_angle) * new_speed
                     
-                    # 상승 효과 추가 (물 회오리 특성)
-                    upward_boost = -8.0 * refraction_strength * (1 - self.vortex_timer / 2.0)
+                    # 상승 효과 추가 (물 회오리 특성) - 밸런스 조정
+                    upward_boost = -6.0 * refraction_strength * (1 - self.vortex_timer / 2.0)  # -8.0에서 -6.0으로 감소
                     new_vy += upward_boost
                     
                     # 물 추진력 저장 (물에서 나온 후에도 지속)

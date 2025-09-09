@@ -26717,7 +26717,8 @@ def handle_ball():
                             wave_vx, wave_vy = trident.apply_dash_wave_to_ball(
                                 BALL.centerx, BALL.centery,
                                 actual_vel_x, actual_vel_y,
-                                PLAYER.centerx, PLAYER.centery
+                                PLAYER.centerx, PLAYER.centery,
+                                PLAYER.centerx, PLAYER.centery  # 실제 플레이어 위치 전달
                             )
                             actual_vel_x = wave_vx
                             actual_vel_y = wave_vy
