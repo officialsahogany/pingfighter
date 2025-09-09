@@ -447,7 +447,7 @@ class PoseidonTrident(LegendaryItem):
             
             # 회오리 충돌 체크 - 시각적 효과와 정확히 일치
             x_distance = abs(ball_x - self.vortex_x)
-            x_in_vortex = x_distance <= (self.vortex_width / 2)  # 시각적 너비와 정확히 일치
+            x_in_vortex = x_distance <= (self.vortex_width / 2 - 10)  # 시각 효과보다 10픽셀 작게
             y_in_vortex = (self.vortex_y - current_vortex_height) <= ball_y <= self.vortex_y  # 시각적 높이와 정확히 일치
             
             # 디버그: 충돌 체크 상태 (항상 출력)
@@ -479,8 +479,9 @@ class PoseidonTrident(LegendaryItem):
                 distance = math.sqrt((ball_x - self.vortex_x) ** 2 + 
                                    (ball_y - (self.vortex_y - current_vortex_height/2)) ** 2)
                 
-                # 회오리 반경 (시각적 효과와 일치하도록)
-                vortex_radius = self.vortex_width / 2  # 시각적 크기와 동일한 범위
+                # 회오리 반경 (시각적 효과보다 약간 작게 설정)
+                # 시각 효과는 실제 충돌 범위보다 크게 보이므로 충돌 범위를 약간 줄임
+                vortex_radius = min(self.vortex_width / 2 - 20, 80)  # 최대 반경 80, 시각 효과보다 20픽셀 작게
                 
                 
                 print(f"   - 거리: {distance:.1f}, 반경: {vortex_radius:.1f}")
@@ -572,6 +573,7 @@ class PoseidonTrident(LegendaryItem):
                         
                         # 속도 변화: 진입시 100% → 중간 30% → 반사시 다시 증가
                         speed_factor = 1.0 - (decel_curve * 0.7)  # 최대 70% 감속
+                        speed_reduction = decel_curve * 0.7  # 디버그용 변수 추가
                         new_speed = current_speed * speed_factor
                         
                         # 최소 속도 보장
@@ -653,9 +655,11 @@ class PoseidonTrident(LegendaryItem):
                     print(f"   - 굴절 강도: {refraction_strength:.3f}")
                     print(f"   - 각도 변화: {math.degrees(refraction_amount):.1f}°")
                     if ball_vy > 0:
-                        print(f"   - 속도 감속: {(1.0 - speed_reduction):.2f}x (감속률: {speed_reduction:.1%})")
+                        if 'speed_reduction' in locals():
+                            print(f"   - 속도 감속: {(1.0 - speed_reduction):.2f}x (감속률: {speed_reduction:.1%})")
                     else:
-                        print(f"   - 속도 증폭: {speed_boost:.2f}x")
+                        if 'speed_boost' in locals():
+                            print(f"   - 속도 증폭: {speed_boost:.2f}x")
                     print(f"   - 반환값: new_vx={new_vx:.1f}, new_vy={new_vy:.1f}")
                     print("=" * 50)
                     
