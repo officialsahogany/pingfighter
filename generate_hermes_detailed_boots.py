@@ -309,17 +309,17 @@ def create_hermes_frame(frame_index):
     #             )
     #             surface.set_at((glow_x, glow_y), new_color)
     
-    # 스피드 효과
-    if frame_index in [1, 3, 5, 7]:
-        for i in range(3):
-            trail_y = boot_y + 6 + i
-            for j in range(5):
-                trail_x = boot_x - 2 - j
-                if 3 < trail_x < 29 and 3 < trail_y < 29:
-                    alpha = 80 - j * 15
-                    pygame.draw.line(surface, (100, 150, 255, alpha),
-                                   (trail_x, trail_y),
-                                   (trail_x - 1, trail_y), 1)
+    # 스피드 효과 (제거 - 왼쪽에 깜빡거리는 검은색 사각형 방지)
+    # if frame_index in [1, 3, 5, 7]:
+    #     for i in range(3):
+    #         trail_y = boot_y + 6 + i
+    #         for j in range(5):
+    #             trail_x = boot_x - 2 - j
+    #             if 3 < trail_x < 29 and 3 < trail_y < 29:
+    #                 alpha = 80 - j * 15
+    #                 pygame.draw.line(surface, (100, 150, 255, alpha),
+    #                                (trail_x, trail_y),
+    #                                (trail_x - 1, trail_y), 1)
     
     return surface
 
