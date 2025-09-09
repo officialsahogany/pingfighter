@@ -391,17 +391,17 @@ class PoseidonTrident(LegendaryItem):
         # 물의 추진력이 남아있을 때 (물에서 나온 후에도 지속)
         if self.water_momentum_active:
             # 추진력을 점진적으로 감소시키면서 적용
-            momentum_decay = max(0, 1.0 - (self.water_momentum_timer / 60))  # 1초간 지속
+            momentum_decay = max(0, 1.0 - (self.water_momentum_timer / 120))  # 2초간 지속 (기존 1초에서 증가)
             
             # 위쪽 추진력 유지 (점진적 감소)
             ball_vy += self.water_momentum_force_y * momentum_decay
-            ball_vx += self.water_momentum_force_x * momentum_decay * 0.5  # X축은 더 빨리 감소
+            ball_vx += self.water_momentum_force_x * momentum_decay * 0.3  # X축은 더 빨리 감소
             
             # 타이머 증가
             self.water_momentum_timer += 1
             
-            # 1초 후 추진력 종료
-            if self.water_momentum_timer > 60:
+            # 2초 후 추진력 종료
+            if self.water_momentum_timer > 120:
                 self.water_momentum_active = False
                 self.water_momentum_timer = 0
                 self.water_momentum_force_y = 0
@@ -461,7 +461,7 @@ class PoseidonTrident(LegendaryItem):
                     new_vy = new_vy / speed * max_speed
                 
                 # 물에서 나갈 때를 대비한 추진력 저장
-                self.water_momentum_force_y = -10.0  # 지속적인 상승 추진력
+                self.water_momentum_force_y = -15.0  # 강한 지속적인 상승 추진력 (기존 -10에서 증가)
                 self.water_momentum_force_x = spin_effect * 0.3  # 약간의 회전 유지
                 self.water_momentum_active = True
                 self.water_momentum_timer = 0
@@ -562,11 +562,8 @@ class PoseidonTrident(LegendaryItem):
                 self.vortex_active = False
                 self.vortex_height = 0
                 self.vortex_particles.clear()
-                # 물의 추진력도 종료
-                self.water_momentum_active = False
-                self.water_momentum_timer = 0
-                self.water_momentum_force_y = 0
-                self.water_momentum_force_x = 0
+                # 물의 추진력은 유지! (회오리가 끝나도 공의 추진력은 계속됨)
+                # 추진력은 자체 타이머로 관리되므로 여기서 리셋하지 않음
         
         # 대시 물결 타이머
         if self.dash_wave_active:
