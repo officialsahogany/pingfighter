@@ -457,24 +457,38 @@ class PoseidonTrident(LegendaryItem):
                     current_angle = math.atan2(ball_vy, ball_vx)
                     current_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
                     
-                    # 목표 방향 계산 (플레이어 방향으로 굴절)
+                    # 목표 방향 계산
+                    # 보스가 친 공(아래로 가는 공)은 위로(보스 방향으로) 반사
                     # 플레이어 위치 사용 (전달되지 않으면 기본값 사용)
                     if player_x is None:
                         player_x = 400  # 화면 중앙 기본값
                     if player_y is None:
                         player_y = 550  # 화면 하단 기본값
                     
-                    # 플레이어 방향 벡터
-                    direction_to_player_x = player_x - ball_x
-                    direction_to_player_y = player_y - ball_y
-                    distance_to_player = math.sqrt(direction_to_player_x ** 2 + direction_to_player_y ** 2)
-                    
-                    if distance_to_player > 0:
-                        direction_to_player_x /= distance_to_player
-                        direction_to_player_y /= distance_to_player
+                    if ball_vy > 0:  # 보스가 친 공 (아래로 향하는)
+                        # 보스 방향으로 반사 (위로)
+                        boss_x = 400  # 보스는 화면 중앙
+                        boss_y = 50   # 보스는 화면 상단
+                        
+                        direction_to_target_x = boss_x - ball_x
+                        direction_to_target_y = boss_y - ball_y
+                        distance_to_target = math.sqrt(direction_to_target_x ** 2 + direction_to_target_y ** 2)
+                        
+                        if distance_to_target > 0:
+                            direction_to_target_x /= distance_to_target
+                            direction_to_target_y /= distance_to_target
+                    else:
+                        # 플레이어가 친 공은 원래대로 (하지만 이미 위에서 걸러짐)
+                        direction_to_target_x = player_x - ball_x
+                        direction_to_target_y = player_y - ball_y
+                        distance_to_target = math.sqrt(direction_to_target_x ** 2 + direction_to_target_y ** 2)
+                        
+                        if distance_to_target > 0:
+                            direction_to_target_x /= distance_to_target
+                            direction_to_target_y /= distance_to_target
                     
                     # 목표 각도
-                    target_angle = math.atan2(direction_to_player_y, direction_to_player_x)
+                    target_angle = math.atan2(direction_to_target_y, direction_to_target_x)
                     
                     # 각도 차이 계산
                     angle_diff = target_angle - current_angle
@@ -482,8 +496,13 @@ class PoseidonTrident(LegendaryItem):
                     angle_diff = math.atan2(math.sin(angle_diff), math.cos(angle_diff))
                     
                     # 굴절 적용 (강화된 굴절 효과)
-                    max_refraction = 0.52  # 약 30도 in radians (15도에서 30도로 증가)
-                    refraction_amount = angle_diff * refraction_strength * 0.5  # 0.15에서 0.5로 증가
+                    # 보스가 친 공은 더 강하게 반사
+                    if ball_vy > 0:  # 보스가 친 공
+                        max_refraction = 1.57  # 약 90도 in radians (거의 완전 반사)
+                        refraction_amount = angle_diff * refraction_strength * 0.8  # 매우 강한 굴절
+                    else:
+                        max_refraction = 0.52  # 약 30도 in radians
+                        refraction_amount = angle_diff * refraction_strength * 0.5
                     refraction_amount = max(-max_refraction, min(max_refraction, refraction_amount))
                     
                     # 새로운 각도 계산
@@ -507,7 +526,10 @@ class PoseidonTrident(LegendaryItem):
                     new_vy = math.sin(new_angle) * new_speed
                     
                     # 상승 효과 추가 (물 회오리 특성) - 강화
-                    upward_boost = -12.0 * refraction_strength * (1 - self.vortex_timer / 2.0)  # 강한 상승 효과
+                    if ball_vy > 0:  # 보스가 친 공은 강하게 위로 반사
+                        upward_boost = -20.0 * refraction_strength  # 매우 강한 위로 반사
+                    else:
+                        upward_boost = -12.0 * refraction_strength * (1 - self.vortex_timer / 2.0)  # 기존 상승 효과
                     new_vy += upward_boost
                     
                     # 물 추진력 저장 (물에서 나온 후에도 지속)
