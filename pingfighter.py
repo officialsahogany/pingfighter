@@ -34827,8 +34827,8 @@ def show_item_management_menu(item_list, selected_index, item_type):
             if legendary_manager:
                 hammer = legendary_manager.get_item("ragnarok_hammer")
                 if hammer:
-                    # 애니메이션 업데이트 (밀리초 단위로 전달)
-                    hammer.update(16)  # 60fps 기준 16ms
+                    # UI 모드로 애니메이션 업데이트 (충돌 감지 비활성화)
+                    hammer.update(0.016, ui_mode=True)  # 60fps 기준 16ms, UI 모드
                     # 애니메이션 아이콘 그리기
                     hammer.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
             elif item.get("icon"):
@@ -34842,8 +34842,8 @@ def show_item_management_menu(item_list, selected_index, item_type):
             if legendary_manager:
                 hermes = legendary_manager.get_item("hermes_shoes")
                 if hermes:
-                    # 애니메이션 업데이트 (밀리초 단위로 전달)
-                    hermes.update(16)  # 60fps 기준 16ms
+                    # UI 모드로 애니메이션 업데이트 (충돌 감지 비활성화)
+                    hermes.update(0.016, ui_mode=True)  # 60fps 기준 16ms, UI 모드
                     # 애니메이션 아이콘 그리기
                     hermes.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
             elif item.get("icon"):
@@ -34857,8 +34857,8 @@ def show_item_management_menu(item_list, selected_index, item_type):
             if legendary_manager:
                 trident = legendary_manager.get_item("poseidon_trident")
                 if trident:
-                    # 애니메이션 업데이트 (밀리초 단위로 전달)
-                    trident.update(16)  # 60fps 기준 16ms
+                    # UI 모드로 애니메이션 업데이트 (충돌 감지 비활성화)
+                    trident.update(0.016, ui_mode=True)  # 60fps 기준 16ms, UI 모드
                     # 애니메이션 아이콘 그리기
                     trident.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
             elif item.get("icon"):

@@ -57,8 +57,12 @@ class LegendaryItem:
         """아이템 비활성화"""
         self.active = False
         
-    def update(self, dt: float):
-        """애니메이션 업데이트"""
+    def update(self, dt: float, ui_mode: bool = False):
+        """애니메이션 업데이트
+        Args:
+            dt: 델타 타임
+            ui_mode: UI 모드 여부 (True면 게임플레이 효과 비활성화)
+        """
         self.animation_time += dt
         # 아이콘 흔들림 효과
         self.animation_offset = math.sin(self.animation_time * 0.003) * 2
@@ -424,12 +428,16 @@ class PoseidonTrident(LegendaryItem):
                 
         return ball_vx, ball_vy
         
-    def update(self, dt: float):
-        """업데이트"""
-        if not self.active:
+    def update(self, dt: float, ui_mode: bool = False):
+        """업데이트
+        Args:
+            dt: 델타 타임
+            ui_mode: UI 모드 여부 (True면 게임플레이 효과 비활성화)
+        """
+        if not self.active and not ui_mode:
             return
             
-        # 애니메이션 업데이트
+        # 애니메이션 업데이트 (UI 모드에서도 동작)
         self.animation_time += dt
         self.frame_timer += dt
         
@@ -438,10 +446,14 @@ class PoseidonTrident(LegendaryItem):
             self.frame_timer = 0
             self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
             
-        # 물결 타이머
+        # UI 모드에서는 게임플레이 효과 스킵
+        if ui_mode:
+            return
+            
+        # 물결 타이머 (게임플레이에서만)
         self.wave_timer += dt * 60
         
-        # 거대한 회오리 업데이트
+        # 거대한 회오리 업데이트 (게임플레이에서만)
         if self.vortex_active:
             self.vortex_timer += dt
             
