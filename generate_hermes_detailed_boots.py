@@ -40,41 +40,29 @@ def create_hermes_frame(frame_index):
     """헤르메스 날개 부츠 - 디테일 강화"""
     surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     
-    # ===== 동그란 배경 효과 (라그나로크 해머와 동일) - 가장 먼저 그리기 =====
-    # 프레임별로 크기와 색상이 변하는 배경
+    # ===== 라그나로크 해머와 동일한 에너지 필드 (배경) =====
+    # 애니메이션 타이밍
     t = frame_index / FRAMES
     
-    # 배경 크기 애니메이션 (전체 아이콘을 거의 채우는 초대형 배경)
-    bg_radius = 28  # 32픽셀 아이콘에서 거의 모서리까지 닿는 크기
+    # 중심점
+    center_x = ICON_SIZE // 2
+    center_y = ICON_SIZE // 2
     
-    # 배경 색상 변화 (초록색/청록색 계열로 변화 - 헤르메스 테마)
-    bg_colors = [
-        (50, 200, 150),   # 청록색
-        (40, 180, 130),   # 진한 청록색
-        (60, 220, 170),   # 밝은 청록색
-        (45, 190, 140),   # 중간 청록색
-        (35, 170, 120),   # 어두운 청록색
-        (55, 210, 160),   # 연한 청록색
-        (48, 195, 145),   # 민트색
-        (52, 205, 155),   # 에메랄드색
-    ]
-    bg_color = bg_colors[frame_index % len(bg_colors)]
+    # === 1. 에너지 필드 (배경) - 라그나로크 해머와 동일 ===
+    # 응축된 에너지 오라 (펄싱)
+    energy_radius = 14 + math.sin(t * math.pi * 2) * 2
+    for i in range(5, 0, -1):
+        radius = energy_radius + i * 2
+        alpha = 40 - i * 8
+        # 청록색 전기 에너지
+        energy_color = (100, 200, 255, alpha)
+        
+        # 에너지 원
+        energy_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        pygame.draw.circle(energy_surf, energy_color, (center_x, center_y), radius)
+        surface.blit(energy_surf, (0, 0))
     
-    # 배경 원 그리기 (라그나로크 해머처럼 진하고 단색 느낌)
-    center_x, center_y = 16, 16
-    # 먼저 큰 단색 원을 그림
-    pygame.draw.circle(surface, bg_color, (center_x, center_y), bg_radius)
-    
-    # 가장자리에만 약간의 그라데이션 추가
-    for r in range(bg_radius - 3, bg_radius + 1):
-        alpha = 255 - (r - (bg_radius - 3)) * 30
-        if r <= bg_radius:
-            for angle in range(360):
-                rad = math.radians(angle)
-                px = int(center_x + r * math.cos(rad))
-                py = int(center_y + r * math.sin(rad))
-                if 0 <= px < 32 and 0 <= py < 32:
-                    surface.set_at((px, py), (*bg_color, alpha))
+    t = frame_index / FRAMES
     
     # 2. 은색/보라색 모서리 장식 (3x3 영역)
     left_corner, right_corner = CORNER_COLORS[frame_index]
@@ -129,19 +117,19 @@ def create_hermes_frame(frame_index):
     
     t = frame_index / FRAMES
     
-    # 색상 팔레트
-    BOOT_BROWN = (101, 67, 33)  # 메인 갈색
-    BOOT_MID = (139, 69, 19)  # 중간 갈색
-    BOOT_LIGHT = (160, 82, 45)  # 밝은 갈색
-    BOOT_DARK = (71, 47, 23)  # 어두운 갈색
-    BOOT_SOLE = (30, 30, 30)  # 검은 밑창
-    BUCKLE_GOLD = (255, 215, 0)  # 금색 버클
-    BUCKLE_DARK = (184, 134, 11)  # 어두운 금색
-    LACE_WHITE = (240, 240, 240)  # 흰색 끈
-    WING_SILVER = (192, 192, 192)  # 은색
-    WING_WHITE = (255, 255, 255)  # 흰색
-    WING_LIGHT = (220, 220, 220)  # 밝은 은색
-    WING_CYAN = (173, 216, 230)  # 하늘색
+    # 색상 팔레트 (금빛 테마)
+    BOOT_BROWN = (184, 134, 11)  # 금갈색 (기본 부츠 색)
+    BOOT_MID = (218, 165, 32)  # 골드 브라운
+    BOOT_LIGHT = (255, 223, 0)  # 밝은 금색
+    BOOT_DARK = (139, 90, 0)  # 어두운 금갈색
+    BOOT_SOLE = (50, 30, 0)  # 진한 갈색 밑창
+    BUCKLE_GOLD = (255, 255, 0)  # 순금색 버클
+    BUCKLE_DARK = (255, 215, 0)  # 진한 금색
+    LACE_WHITE = (255, 248, 220)  # 아이보리 끈
+    WING_SILVER = (255, 223, 170)  # 금빛 은색
+    WING_WHITE = (255, 250, 240)  # 밝은 금빛
+    WING_LIGHT = (255, 235, 205)  # 연한 금색
+    WING_CYAN = (255, 228, 181)  # 샴페인 골드
     
     # 애니메이션
     wing_flap = math.sin(t * math.pi * 4) * 2

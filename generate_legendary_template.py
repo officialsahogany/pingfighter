@@ -37,42 +37,30 @@ BORDER_COLORS = [
 ]
 
 def create_legendary_base_frame(frame_index):
-    """전설 아이템 기본 프레임 (애니메이션 배경 + 테두리)"""
+    """전설 아이템 기본 프레임 (에너지 필드 애니메이션 + 테두리)"""
     surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     
-    # 1. 초대형 단색 원형 배경 (필수! - 라그나로크 해머 스타일)
-    # 배경을 가장 먼저 그려야 함!
+    # ===== 1. 에너지 필드 (배경) - 모든 전설 아이템 기본 =====
+    # 라그나로크 해머와 헤르메스의 신발에 사용된 동일한 에너지 필드
+    # 애니메이션 타이밍
+    t = frame_index / FRAMES
     
-    # 배경 크기 고정 (28픽셀 - 거의 전체 아이콘 채움)
-    bg_radius = 28
+    # 중심점
+    center_x = ICON_SIZE // 2
+    center_y = ICON_SIZE // 2
     
-    # 배경 색상 변화 (템플릿용 보라색 계열)
-    bg_colors = [
-        (150, 100, 200),  # 밝은 보라색
-        (130, 80, 180),   # 중간 보라색
-        (170, 120, 220),  # 연한 보라색
-        (140, 90, 190),   # 진한 보라색
-        (160, 110, 210),  # 라벤더색
-        (145, 95, 195),   # 보라빛
-        (155, 105, 205),  # 중간톤
-        (135, 85, 185),   # 어두운 보라색
-    ]
-    bg_color = bg_colors[frame_index % len(bg_colors)]
-    
-    # 배경 원 그리기 (단색으로!)
-    center_x, center_y = 16, 16
-    pygame.draw.circle(surface, bg_color, (center_x, center_y), bg_radius)
-    
-    # 가장자리에만 약간의 그라데이션 추가 (선택사항)
-    for r in range(bg_radius - 3, bg_radius + 1):
-        alpha = 255 - (r - (bg_radius - 3)) * 30
-        if r <= bg_radius:
-            for angle in range(360):
-                rad = math.radians(angle)
-                px = int(center_x + r * math.cos(rad))
-                py = int(center_y + r * math.sin(rad))
-                if 0 <= px < 32 and 0 <= py < 32:
-                    surface.set_at((px, py), (*bg_color, alpha))
+    # 응축된 에너지 오라 (펄싱)
+    energy_radius = 14 + math.sin(t * math.pi * 2) * 2
+    for i in range(5, 0, -1):
+        radius = energy_radius + i * 2
+        alpha = 40 - i * 8
+        # 청록색 전기 에너지
+        energy_color = (100, 200, 255, alpha)
+        
+        # 에너지 원
+        energy_surf = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        pygame.draw.circle(energy_surf, energy_color, (center_x, center_y), radius)
+        surface.blit(energy_surf, (0, 0))
     
     # 2. 은색/보라색 모서리 장식 (3x3 영역) (필수!)
     left_corner, right_corner = CORNER_COLORS[frame_index]
@@ -184,14 +172,22 @@ def main():
     사용법:
     1. draw_custom_item() 함수에 아이템 디자인 추가
     2. create_legendary_item("아이템명") 호출
+    
+    기본 포함 요소:
+    - 에너지 필드 애니메이션 (펄싱하는 청록색 원)
+    - 전설 등급 빨간 테두리
+    - 은색/보라색 모서리 장식
     """
     # 템플릿 생성 예시
     create_legendary_item("template")
     
     print("\n" + "="*50)
     print("✅ 전설 아이템 템플릿 생성 완료!")
+    print("📌 기본 포함 요소:")
+    print("   - 에너지 필드 애니메이션 (자동)")
+    print("   - 전설 등급 테두리 (자동)")
     print("⚠️  draw_custom_item() 함수를 수정하여 고유 디자인을 추가하세요")
-    print("⚠️  테두리 스타일은 절대 변경하지 마세요!")
+    print("⚠️  에너지 필드와 테두리는 자동으로 포함됩니다!")
     print("="*50)
 
 if __name__ == "__main__":

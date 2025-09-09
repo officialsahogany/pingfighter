@@ -431,6 +431,15 @@ ITEM_TYPES = [
         "chance": 0.99,  # 테스트용 99% 확률
         "duration": 600,
         "unlock_condition": None
+    },
+    {
+        "name": "poseidon_trident",  # 포세이돈의 삼지창 전설 아이템
+        "color": (50, 150, 255),  # 바다색 (전설 색상)
+        "effect": "poseidon_trident",
+        "icon": None,
+        "chance": 0.99,  # 테스트용 99% 확률
+        "duration": 600,
+        "unlock_condition": None
     }
 ]
 
@@ -516,7 +525,8 @@ unlocked_items = {
     
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True,
-    "hermes_shoes": True
+    "hermes_shoes": True,
+    "poseidon_trident": True
     
 }
 
@@ -574,9 +584,10 @@ def reset_items():
     technical_vest_obtained = False  # technical_vest 획득 상태 초기화
     
     # 전설 아이템 획득 상태 초기화
-    global ragnarok_hammer_obtained, hermes_shoes_obtained
+    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained
     ragnarok_hammer_obtained = False
     hermes_shoes_obtained = False
+    poseidon_trident_obtained = False
 
 
 # 아이템 생성
@@ -675,6 +686,10 @@ def spawn_random_item():
         if item["name"] == "hermes_shoes" and hermes_shoes_obtained:
             continue
         
+        # 포세이돈의 삼지창은 한 번 획득하면 더 이상 스폰 안함
+        if item["name"] == "poseidon_trident" and poseidon_trident_obtained:
+            continue
+        
         # 🚫 패시브 아이템 중복 방지 (chargebag 제외)
         # 이미 소지한 패시브 아이템은 더 이상 스폰하지 않음
         # chargebag은 중복 가능하므로 제외하고 체크
@@ -745,6 +760,17 @@ def spawn_random_item():
                 # 헤르메스의 신발 인스턴스가 없으면 생성만 하고 activate는 하지 않음
                 hermes = legendary_manager.get_item("hermes_shoes")
                 if not hermes:
+                    # 인스턴스가 없으면 초기화만 함 (activate 호출 안 함)
+                    legendary_manager._init_legendary_items()
+        
+        # 포세이돈의 삼지창이 스폰되면 애니메이션을 위해 인스턴스만 준비 (효과는 적용하지 않음)
+        if selected_item["name"] == "poseidon_trident":
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                # 포세이돈의 삼지창 인스턴스가 없으면 생성만 하고 activate는 하지 않음
+                trident = legendary_manager.get_item("poseidon_trident")
+                if not trident:
                     # 인스턴스가 없으면 초기화만 함 (activate 호출 안 함)
                     legendary_manager._init_legendary_items()
 
@@ -844,8 +870,8 @@ def draw_items(screen):
                 if legendary_manager:
                     hammer = legendary_manager.get_item("ragnarok_hammer")
                     if hammer:
-                        # 애니메이션 업데이트
-                        hammer.update(0.016)  # 60fps 기준 델타타임
+                        # 애니메이션 업데이트 (밀리초 단위)
+                        hammer.update(16)  # 60fps 기준 16ms
                         # 애니메이션 아이콘 그리기 (회전 없이)
                         hammer.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
                         continue
@@ -856,10 +882,22 @@ def draw_items(screen):
                 if legendary_manager:
                     hermes = legendary_manager.get_item("hermes_shoes")
                     if hermes:
-                        # 애니메이션 업데이트
-                        hermes.update(0.016)  # 60fps 기준 델타타임
+                        # 애니메이션 업데이트 (밀리초 단위)
+                        hermes.update(16)  # 60fps 기준 16ms
                         # 애니메이션 아이콘 그리기 (회전 없이)
                         hermes.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
+                        continue
+            elif item_name == "poseidon_trident":
+                # 포세이돈의 삼지창도 전설 아이템 매니저를 통해 애니메이션 그리기
+                from legendary_items import get_legendary_manager
+                legendary_manager = get_legendary_manager()
+                if legendary_manager:
+                    trident = legendary_manager.get_item("poseidon_trident")
+                    if trident:
+                        # 애니메이션 업데이트 (밀리초 단위)
+                        trident.update(0.016)  # 60fps 기준 16ms
+                        # 애니메이션 아이콘 그리기 (회전 없이)
+                        trident.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
                         continue
             
             # 일반 아이템은 기존 방식대로 처리

@@ -231,6 +231,205 @@ class ExcaliburBlade(LegendaryItem):
         return base_damage
 
 
+class PoseidonTrident(LegendaryItem):
+    """포세이돈의 삼지창 - 물의 신의 무기"""
+    def __init__(self):
+        super().__init__(
+            name="poseidon_trident",
+            korean_name="포세이돈의 삼지창",
+            description="물의 파동으로 공의 궤적을 조작하고, 대시 시 물결로 공을 밀어냅니다",
+            unlock_condition="스테이지 7 클리어",
+            icon_path="items/legendary/poseidon_trident.png"
+        )
+        self.wave_effect_radius = 100  # 물결 효과 반경
+        self.trajectory_influence = 0.15  # 궤적 영향력 (15%)
+        self.dash_wave_force = 5.0  # 대시 시 물결 힘
+        self.wave_particles = []  # 물결 파티클
+        self.wave_timer = 0
+        self.dash_wave_active = False
+        self.dash_wave_timer = 0
+        
+        # 애니메이션용 아이콘 프레임들
+        self.icon_frames = []
+        self.current_frame = 0
+        self.frame_timer = 0
+        self.load_animation_frames()
+        
+    def load_animation_frames(self):
+        """애니메이션 프레임 로드"""
+        for i in range(8):  # 8프레임 애니메이션
+            try:
+                frame_path = resource_path(f"items/legendary/poseidon_trident_frame_{i}.png")
+                frame = pygame.image.load(frame_path).convert_alpha()
+                self.icon_frames.append(frame)
+            except:
+                # 프레임 로드 실패 시 기본 아이콘 사용
+                pass
+                
+    def check_unlock_condition(self, game_stats: Dict) -> bool:
+        """스테이지 7 클리어 체크"""
+        return game_stats.get("highest_stage_cleared", 0) >= 7
+        
+    def activate(self, game_state: Dict):
+        """삼지창 활성화"""
+        if not self.active:
+            self.active = True
+            self.wave_timer = 0
+            print(f"🔱 {self.korean_name} 활성화! 물의 파동이 공을 조작합니다!")
+            
+    def deactivate(self):
+        """삼지창 비활성화"""
+        self.active = False
+        self.wave_particles.clear()
+        self.dash_wave_active = False
+        
+    def apply_trajectory_influence(self, ball_x: float, ball_y: float, 
+                                  ball_vx: float, ball_vy: float, 
+                                  paddle_x: float, paddle_y: float) -> Tuple[float, float]:
+        """공의 궤적에 물의 파동 영향 적용"""
+        if not self.active:
+            return ball_vx, ball_vy
+            
+        # 패들과의 거리 계산
+        distance = math.sqrt((ball_x - paddle_x) ** 2 + (ball_y - paddle_y) ** 2)
+        
+        # 영향 범위 내에 있을 때만
+        if distance < self.wave_effect_radius:
+            # 거리에 따른 영향력 계산 (가까울수록 강함)
+            influence = (1 - distance / self.wave_effect_radius) * self.trajectory_influence
+            
+            # 물결 효과로 미세한 궤적 변경 (사인파)
+            wave_effect_x = math.sin(self.wave_timer * 0.1) * influence
+            wave_effect_y = math.cos(self.wave_timer * 0.1) * influence * 0.5
+            
+            # 속도에 물결 효과 적용
+            new_vx = ball_vx * (1 + wave_effect_x)
+            new_vy = ball_vy * (1 + wave_effect_y)
+            
+            return new_vx, new_vy
+            
+        return ball_vx, ball_vy
+        
+    def trigger_dash_wave(self, paddle_x: float, paddle_y: float, direction: int):
+        """대시 시 물결 효과 발동"""
+        if self.active:
+            self.dash_wave_active = True
+            self.dash_wave_timer = 0
+            
+            # 물결 파티클 생성
+            for i in range(10):
+                angle = (i / 10) * math.pi * 2
+                particle = {
+                    "x": paddle_x,
+                    "y": paddle_y,
+                    "vx": math.cos(angle) * 3 * direction,
+                    "vy": math.sin(angle) * 2,
+                    "life": 30,
+                    "color": (50, 150, 255)
+                }
+                self.wave_particles.append(particle)
+                
+    def apply_dash_wave_to_ball(self, ball_x: float, ball_y: float,
+                               ball_vx: float, ball_vy: float,
+                               paddle_x: float, paddle_y: float) -> Tuple[float, float]:
+        """대시 물결이 공에 미치는 영향"""
+        if not self.dash_wave_active:
+            return ball_vx, ball_vy
+            
+        # 패들과의 거리 계산
+        distance = math.sqrt((ball_x - paddle_x) ** 2 + (ball_y - paddle_y) ** 2)
+        
+        # 물결 효과 범위 (시간에 따라 확장)
+        wave_radius = 50 + self.dash_wave_timer * 10
+        
+        if distance < wave_radius:
+            # 패들로부터 공을 밀어내는 힘
+            if distance > 0:
+                push_x = (ball_x - paddle_x) / distance * self.dash_wave_force
+                push_y = (ball_y - paddle_y) / distance * self.dash_wave_force * 0.5
+                
+                # 거리에 따른 감쇠
+                attenuation = 1 - (distance / wave_radius)
+                
+                return ball_vx + push_x * attenuation, ball_vy + push_y * attenuation
+                
+        return ball_vx, ball_vy
+        
+    def update(self, dt: float):
+        """업데이트"""
+        if not self.active:
+            return
+            
+        # 애니메이션 업데이트
+        self.animation_time += dt
+        self.frame_timer += dt
+        
+        # 프레임 전환 (8fps)
+        if self.frame_timer >= 0.125 and self.icon_frames:
+            self.frame_timer = 0
+            self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
+            
+        # 물결 타이머
+        self.wave_timer += dt * 60
+        
+        # 대시 물결 타이머
+        if self.dash_wave_active:
+            self.dash_wave_timer += dt * 60
+            if self.dash_wave_timer > 30:  # 0.5초 후 종료
+                self.dash_wave_active = False
+                self.dash_wave_timer = 0
+                
+        # 파티클 업데이트
+        for particle in self.wave_particles[:]:
+            particle["x"] += particle["vx"]
+            particle["y"] += particle["vy"]
+            particle["life"] -= 1
+            particle["vy"] += 0.1  # 중력
+            
+            if particle["life"] <= 0:
+                self.wave_particles.remove(particle)
+                
+    def draw_effects(self, screen: pygame.Surface):
+        """물결 효과 그리기"""
+        if not self.active:
+            return
+            
+        # 물결 파티클 그리기
+        for particle in self.wave_particles:
+            alpha = particle["life"] * 8  # 투명도
+            size = 3 + (30 - particle["life"]) / 5
+            
+            # 물방울 효과
+            water_surf = pygame.Surface((int(size * 2), int(size * 2)), pygame.SRCALPHA)
+            color = (*particle["color"], min(alpha, 255))
+            pygame.draw.circle(water_surf, color, (int(size), int(size)), int(size))
+            screen.blit(water_surf, (particle["x"] - size, particle["y"] - size))
+            
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int):
+        """아이콘 그리기 (애니메이션)"""
+        if self.icon_frames and self.current_frame < len(self.icon_frames):
+            # 애니메이션 프레임 그리기
+            icon = pygame.transform.scale(self.icon_frames[self.current_frame], (size, size))
+        elif self.icon_path and os.path.exists(resource_path(self.icon_path)):
+            # 기본 아이콘 그리기
+            icon = pygame.image.load(resource_path(self.icon_path)).convert_alpha()
+            icon = pygame.transform.scale(icon, (size, size))
+        else:
+            # 아이콘이 없으면 기본 도형
+            icon = pygame.Surface((size, size), pygame.SRCALPHA)
+            pygame.draw.rect(icon, LEGENDARY_COLOR, (0, 0, size, size), 3)
+            
+        # 글로우 효과
+        if self.active:
+            glow_size = int(size * 1.3)
+            glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, LEGENDARY_GLOW_COLOR,
+                             (glow_size // 2, glow_size // 2), glow_size // 2)
+            screen.blit(glow_surf, (x - (glow_size - size) // 2, y - (glow_size - size) // 2))
+            
+        screen.blit(icon, (x, y))
+
+
 class HermesShoes(LegendaryItem):
     """헤르메스의 신발 - 이동속도 50% 증가"""
     def __init__(self):
@@ -251,6 +450,9 @@ class HermesShoes(LegendaryItem):
         self.frame_counter = 0
         self.animation_speed = 4  # 프레임당 틱 수 (12프레임에 맞춰 더 빠르게)
         self._load_animation_frames()
+        
+        # 헤르메스의 신발도 라그나로크 해머와 동일한 글로우 효과
+        self.hermes_glow_multiplier = 1.8  # 라그나로크와 동일한 글로우 크기
         
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         """누적 이동 거리 체크"""
@@ -374,24 +576,24 @@ class HermesShoes(LegendaryItem):
         import pygame
         import math
         
-        # 글로우 효과
-        glow_size = int(size * (1.2 + self.glow_intensity * 0.1))
+        # 글로우 효과 (라그나로크 해머와 완전히 동일하게)
+        glow_size = int(size * (self.hermes_glow_multiplier + self.glow_intensity * 0.15))
         glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-        for i in range(3):
-            alpha = 50 - i * 15
+        for i in range(5):  # 더 많은 레이어로 강렬한 효과
+            alpha = 80 - i * 12  # 더 진한 글로우
             pygame.draw.circle(glow_surf, (*LEGENDARY_COLOR, alpha), 
                              (glow_size//2, glow_size//2), 
-                             glow_size//2 - i * 5)
+                             glow_size//2 - i * 4)  # 더 촘촘한 간격
         screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
         
-        # 붉은색 테두리 (펄싱 효과)
-        border_thickness = 2 + int(self.glow_intensity * 2)
+        # 붉은색 테두리 (펄싱 효과 - 더 두껍게)
+        border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
         border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
         pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)
         
         # 꼭지점 디테일 (코너 장식)
-        corner_size = 6
-        corner_color = (200, 200, 200)  # 은색 (해머 테마)
+        corner_size = 8  # 더 큰 코너
+        corner_color = (255, 215, 0)  # 황금색 (신의 무기)
         # 왼쪽 위
         pygame.draw.lines(screen, corner_color, False, 
                          [(x-2, y+corner_size), (x-2, y-2), (x+corner_size, y-2)], 2)
@@ -425,6 +627,35 @@ class HermesShoes(LegendaryItem):
             screen.blit(scaled_icon, (x, icon_y))
             
             # 헤르메스 특수 효과 없음 (번개 효과 대신)
+        else:
+            # 프레임이 없으면 기본 신발 아이콘 그리기
+            icon_y = y + int(self.animation_offset)
+            shoe_color = (100, 200, 255)  # 하늘색
+            wing_color = (255, 255, 255)  # 흰색
+            
+            # 신발 본체
+            pygame.draw.ellipse(screen, shoe_color, (x + size//4, y + size//2, size//2, size//4))
+            pygame.draw.ellipse(screen, (50, 150, 200), (x + size//4, y + size//2, size//2, size//4), 2)
+            
+            # 날개 (왼쪽)
+            wing_points = [
+                (x + size//4 - 5, y + size//2 + 5),
+                (x + size//4 - 15, y + size//2),
+                (x + size//4 - 10, y + size//2 + 10),
+                (x + size//4, y + size//2 + 8)
+            ]
+            pygame.draw.polygon(screen, wing_color, wing_points)
+            pygame.draw.polygon(screen, shoe_color, wing_points, 1)
+            
+            # 날개 (오른쪽)
+            wing_points = [
+                (x + size*3//4 + 5, y + size//2 + 5),
+                (x + size*3//4 + 15, y + size//2),
+                (x + size*3//4 + 10, y + size//2 + 10),
+                (x + size*3//4, y + size//2 + 8)
+            ]
+            pygame.draw.polygon(screen, wing_color, wing_points)
+            pygame.draw.polygon(screen, shoe_color, wing_points, 1)
         
         # 파티클 효과
         if self.particle_timer > 1000:
@@ -455,6 +686,9 @@ class RagnarokHammer(LegendaryItem):
         self.frame_counter = 0
         self.animation_speed = 8  # 프레임당 틱 수
         self._load_animation_frames()
+        
+        # 라그나로크 해머 전용 더 큰 글로우
+        self.hammer_glow_multiplier = 1.8  # 헤르메스보다 더 큰 글로우
         
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         """누적 넉백 거리 체크"""
@@ -618,24 +852,24 @@ class RagnarokHammer(LegendaryItem):
         import pygame
         import math
         
-        # 글로우 효과
-        glow_size = int(size * (1.2 + self.glow_intensity * 0.1))
+        # 글로우 효과 (라그나로크 해머는 더 크고 강렬하게)
+        glow_size = int(size * (self.hammer_glow_multiplier + self.glow_intensity * 0.15))
         glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-        for i in range(3):
-            alpha = 50 - i * 15
+        for i in range(5):  # 더 많은 레이어로 강렬한 효과
+            alpha = 80 - i * 12  # 더 진한 글로우
             pygame.draw.circle(glow_surf, (*LEGENDARY_COLOR, alpha), 
                              (glow_size//2, glow_size//2), 
-                             glow_size//2 - i * 5)
+                             glow_size//2 - i * 4)  # 더 촘촘한 간격
         screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
         
-        # 붉은색 테두리 (펄싱 효과)
-        border_thickness = 2 + int(self.glow_intensity * 2)
+        # 붉은색 테두리 (펄싱 효과 - 더 두껍게)
+        border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
         border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
         pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)
         
         # 꼭지점 디테일 (코너 장식)
-        corner_size = 6
-        corner_color = (200, 200, 200)  # 은색 (해머 테마)
+        corner_size = 8  # 더 큰 코너
+        corner_color = (255, 215, 0)  # 황금색 (신의 무기)
         # 왼쪽 위
         pygame.draw.lines(screen, corner_color, False, 
                          [(x-2, y+corner_size), (x-2, y-2), (x+corner_size, y-2)], 2)
@@ -737,8 +971,9 @@ class LegendaryItemManager:
         self.items["excalibur_blade"] = ExcaliburBlade()
         self.items["ragnarok_hammer"] = RagnarokHammer()
         self.items["hermes_shoes"] = HermesShoes()
+        self.items["poseidon_trident"] = PoseidonTrident()
         
-        # 테스트용: 라그나로크 해머와 헤르메스 신발 강제 해금
+        # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
         if "ragnarok_hammer" not in self.unlocked_items:
             self.unlocked_items.append("ragnarok_hammer")
@@ -746,6 +981,10 @@ class LegendaryItemManager:
         self.items["hermes_shoes"].unlocked = True
         if "hermes_shoes" not in self.unlocked_items:
             self.unlocked_items.append("hermes_shoes")
+            
+        self.items["poseidon_trident"].unlocked = True
+        if "poseidon_trident" not in self.unlocked_items:
+            self.unlocked_items.append("poseidon_trident")
     
     def _init_legendary_items(self):
         """전설 아이템 초기화 (애니메이션용)"""
@@ -755,6 +994,9 @@ class LegendaryItemManager:
         # 헤르메스 신발 초기화
         if "hermes_shoes" not in self.items:
             self.items["hermes_shoes"] = HermesShoes()
+        # 포세이돈의 삼지창 초기화
+        if "poseidon_trident" not in self.items:
+            self.items["poseidon_trident"] = PoseidonTrident()
         
     def check_unlocks(self, game_stats: Dict):
         """해금 조건 체크"""

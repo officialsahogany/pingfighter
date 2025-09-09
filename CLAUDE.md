@@ -379,6 +379,31 @@ Legendary items like Ragnarok Hammer require special handling for animations:
 - **Duplicate items appearing**: Ensure global flag is properly set and checked
 - **UI not animating**: Set item["type"] = "legendary" when storing
 
+### Effect Reset Rules (효과 초기화 규칙)
+**IMPORTANT**: Legendary item effects are temporary and must be reset when:
+
+1. **Game Over** - Player loses the game
+2. **Return to Main Menu** - Player exits to main menu via ESC
+3. **Force Quit** - Game is forcefully terminated
+
+**Reset Implementation**:
+```python
+# Reset legendary item effects (3 locations in pingfighter.py)
+# 1. Game over - around line 20185
+# 2. ESC menu return to main - around line 20965  
+# 3. Force quit flag - around line 20506
+
+# Example reset code:
+if hasattr(legendary_manager, 'reset_all_items'):
+    legendary_manager.reset_all_items()  # Deactivate all legendary effects
+    
+# Also reset obtained flags if items should be re-obtainable:
+ragnarok_hammer_obtained = False  # Optional: allow re-obtaining
+hermes_shoes_obtained = False     # Optional: allow re-obtaining
+```
+
+**Note**: The `obtained` flag can be kept as True if you want to prevent re-obtaining the same legendary item in the same session, or reset to False if items should be obtainable again.
+
 ## Git Workflow & Automatic Commits
 
 ### Automatic Git Saving After Each Task

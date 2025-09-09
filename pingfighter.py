@@ -21995,6 +21995,15 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             hermes_shoes_obtained = True
             items.hermes_shoes_obtained = True
             print("헤르메스의 신발 적용! 패들 이동속도 50% 증가!")
+        elif item_name == "poseidon_trident":
+            items.poseidon_trident_obtained = True
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                trident = legendary_manager.get_item("poseidon_trident")
+                if trident:
+                    trident.activate()
+                    print("포세이돈의 삼지창 적용! 물의 파동이 생성됩니다!")
         elif item_name == "speedgear":
             speedgear_obtained = True
             items.speedgear_obtained = True
@@ -34592,7 +34601,8 @@ def get_item_name_korean(item_name):
         "bluetooth_ring": "블루투스링",
         "smartphone": "스마트폰",
         "ragnarok_hammer": "라그나로크 해머",
-        "hermes_shoes": "헤르메스의 신발"
+        "hermes_shoes": "헤르메스의 신발",
+        "poseidon_trident": "포세이돈의 삼지창"
     }
     return korean_names.get(item_name, item_name)
 def get_item_description(item_name):
@@ -34635,7 +34645,8 @@ def get_item_description(item_name):
         "bluetooth_ring": "블루투스링: 패들에 공이 닿을 때 게이지 충전량이 25% 증가합니다. 스킬을 더 빠르게 충전할 수 있는 유용한 패시브 아이템입니다.",
         "smartphone": "스마트폰: 플레이어가 스탑워치나 AI알약 아이템을 소지하고 있을 경우, 공을 놓치기 직전 위험한 순간에 자동으로 해당 아이템을 사용합니다. 스탑워치가 AI알약보다 우선 발동됩니다. 한 번에 하나의 아이템만 사용됩니다.",
         "ragnarok_hammer": "라그나로크 해머:  신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 2배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
-        "hermes_shoes": "헤르메스의 신발: ⚡ 신들의 전령이 신던 전설의 날개 신발! 패들 이동속도가 50% 증가하여 순간이동하듯 빠르게 움직입니다. 황금빛 날개가 패들 양옆에서 펄럭이며, 이동 시 황금색 잔상과 속도선이 남습니다. 그리스 신화의 가장 빠른 신의 축복을 받으세요!"
+        "hermes_shoes": "헤르메스의 신발: ⚡ 신들의 전령이 신던 전설의 날개 신발! 패들 이동속도가 50% 증가하여 순간이동하듯 빠르게 움직입니다. 황금빛 날개가 패들 양옆에서 펄럭이며, 이동 시 황금색 잔상과 속도선이 남습니다. 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
+        "poseidon_trident": "포세이돈의 삼지창: 🌊 바다의 신이 휘두르는 전설의 삼지창! 패들 주변에 물의 파동이 생성되어 공의 궤적을 미세하게 변경합니다. 대시 시 거대한 물결이 일어나 공을 밀어내는 강력한 효과! 파란색 물결이 패들을 감싸며, 바다의 힘이 당신과 함께합니다!"
     }
     return descriptions.get(item_name, "설명이 없습니다.")
 def show_item_management_menu(item_list, selected_index, item_type):
@@ -34696,8 +34707,8 @@ def show_item_management_menu(item_list, selected_index, item_type):
             if legendary_manager:
                 hammer = legendary_manager.get_item("ragnarok_hammer")
                 if hammer:
-                    # 애니메이션 업데이트
-                    hammer.update(0.016)  # 60fps 기준 델타타임
+                    # 애니메이션 업데이트 (밀리초 단위로 전달)
+                    hammer.update(16)  # 60fps 기준 16ms
                     # 애니메이션 아이콘 그리기
                     hammer.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
             elif item.get("icon"):
@@ -34711,10 +34722,25 @@ def show_item_management_menu(item_list, selected_index, item_type):
             if legendary_manager:
                 hermes = legendary_manager.get_item("hermes_shoes")
                 if hermes:
-                    # 애니메이션 업데이트
-                    hermes.update(0.016)  # 60fps 기준 델타타임
+                    # 애니메이션 업데이트 (밀리초 단위로 전달)
+                    hermes.update(16)  # 60fps 기준 16ms
                     # 애니메이션 아이콘 그리기
                     hermes.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
+            elif item.get("icon"):
+                # 폴백: 일반 아이콘 사용
+                icon = pygame.transform.scale(item["icon"], (60, 60))
+                SCREEN.blit(icon, (panel_x + 20, panel_y + 20))
+        elif item_name == "poseidon_trident":
+            # 포세이돈의 삼지창도 전설 아이템 매니저를 통해 애니메이션 그리기
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                trident = legendary_manager.get_item("poseidon_trident")
+                if trident:
+                    # 애니메이션 업데이트 (밀리초 단위로 전달)
+                    trident.update(16)  # 60fps 기준 16ms
+                    # 애니메이션 아이콘 그리기
+                    trident.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
             elif item.get("icon"):
                 # 폴백: 일반 아이콘 사용
                 icon = pygame.transform.scale(item["icon"], (60, 60))
