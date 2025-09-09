@@ -103,8 +103,8 @@ def create_hermes_frame(frame_index):
     # 프레임별로 크기와 색상이 변하는 배경
     t = frame_index / FRAMES
     
-    # 배경 크기 애니메이션 (15-16 픽셀 반경 - 라그나로크 해머와 동일)
-    bg_radius = 15  # 거의 전체 아이콘 크기
+    # 배경 크기 애니메이션 (더 큰 배경)
+    bg_radius = 20  # 거의 전체 화면을 채우는 큰 배경
     
     # 배경 색상 변화 (초록색/청록색 계열로 변화 - 헤르메스 테마)
     bg_colors = [
@@ -158,18 +158,18 @@ def create_hermes_frame(frame_index):
     wing_flap = math.sin(t * math.pi * 4) * 2
     hover = int(math.sin(t * math.pi * 2) * 1)
     
-    # === 부츠 디테일 그리기 (측면 뷰) ===
-    boot_x = 10  # 8에서 10으로 변경 (오른쪽으로 2픽셀 이동)
-    boot_y = 11 + hover
+    # === 부츠 디테일 그리기 (측면 뷰) - 더 크게 ===
+    boot_x = 8  # 부츠를 더 크게 그리기 위해 위치 조정
+    boot_y = 8 + hover  # 위쪽으로 올려서 더 큰 부츠 공간 확보
     
-    # 1. 부츠 윤곽선 정의 (더 명확한 부츠 모양)
-    # 부츠 상단 (다리 부분) - 원통형
-    for y in range(boot_y, boot_y + 7):
-        for x in range(boot_x + 1, boot_x + 7):
-            # 측면 그라데이션 효과
-            if x == boot_x + 1:  # 왼쪽 가장자리
+    # 1. 부츠 윤곽선 정의 (더 크고 명확한 부츠 모양)
+    # 부츠 상단 (다리 부분) - 원통형 (더 크게)
+    for y in range(boot_y, boot_y + 9):  # 7에서 9로 증가
+        for x in range(boot_x, boot_x + 9):  # 더 넓게
+            # 측면 그라데이션 효과 (더 큰 부츠용)
+            if x == boot_x:  # 왼쪽 가장자리
                 surface.set_at((x, y), BOOT_DARK)
-            elif x == boot_x + 6:  # 오른쪽 가장자리
+            elif x == boot_x + 8:  # 오른쪽 가장자리
                 surface.set_at((x, y), BOOT_DARK)
             elif x == boot_x + 2:  # 왼쪽 하이라이트
                 surface.set_at((x, y), BOOT_LIGHT)
@@ -177,27 +177,27 @@ def create_hermes_frame(frame_index):
                 surface.set_at((x, y), BOOT_BROWN)
     
     # 2. 발목 부분 (약간 좁아짐)
-    ankle_y = boot_y + 7
-    for x in range(boot_x + 2, boot_x + 6):
+    ankle_y = boot_y + 9  # 7에서 9로
+    for x in range(boot_x + 2, boot_x + 7):  # 더 넓게
         surface.set_at((x, ankle_y), BOOT_MID)
     
-    # 3. 발 부분 (측면 실루엣)
+    # 3. 발 부분 (측면 실루엣) - 더 크게
     # 발등
-    for y in range(ankle_y + 1, ankle_y + 3):
-        for x in range(boot_x, boot_x + 8):
-            if x == boot_x:  # 왼쪽 윤곽
+    for y in range(ankle_y + 1, ankle_y + 4):  # 더 높게
+        for x in range(boot_x - 1, boot_x + 10):  # 더 넓게
+            if x == boot_x - 1:  # 왼쪽 윤곽
                 surface.set_at((x, y), BOOT_DARK)
-            elif x == boot_x + 7:  # 오른쪽 윤곽
+            elif x == boot_x + 9:  # 오른쪽 윤곽
                 surface.set_at((x, y), BOOT_DARK)
             elif x == boot_x + 1:  # 하이라이트
                 surface.set_at((x, y), BOOT_LIGHT)
             else:
                 surface.set_at((x, y), BOOT_BROWN)
     
-    # 4. 발가락 부분 (둥근 앞코 - 더 길게)
-    toe_y = ankle_y + 3
+    # 4. 발가락 부분 (둥근 앞코 - 훨씬 더 크게)
+    toe_y = ankle_y + 4  # 3에서 4로
     # 둥근 발가락 표현 (앞으로 더 길게 확장)
-    for x in range(boot_x - 3, boot_x + 9):  # 앞코를 3픽셀 더 길게
+    for x in range(boot_x - 4, boot_x + 11):  # 더 크게 확장
         if x < boot_x - 1:  # 발가락 맨 앞부분
             surface.set_at((x, toe_y), BOOT_DARK)
             surface.set_at((x, toe_y + 1), BOOT_DARK)
@@ -211,9 +211,9 @@ def create_hermes_frame(frame_index):
             surface.set_at((x, toe_y), BOOT_MID)
             surface.set_at((x, toe_y + 1), BOOT_DARK)
     
-    # 5. 밑창 (두껍고 명확하게 - 더 길게)
+    # 5. 밑창 (두껍고 명확하게 - 훨씬 더 크게)
     sole_y = toe_y + 2
-    for x in range(boot_x - 3, boot_x + 9):  # 밑창도 더 길게
+    for x in range(boot_x - 4, boot_x + 11):  # 밑창도 더 크게
         surface.set_at((x, sole_y), BOOT_SOLE)
         # 밑창 패턴
         if x % 2 == 0:
@@ -248,14 +248,14 @@ def create_hermes_frame(frame_index):
     for y in range(boot_y + 1, ankle_y, 2):
         surface.set_at((boot_x + 3, y), BOOT_DARK)
     
-    # === 날개 디자인 (더 화려하게) ===
-    wing_base_x = boot_x + 7
-    wing_base_y = boot_y + 4
+    # === 날개 디자인 (더 크고 화려하게) ===
+    wing_base_x = boot_x + 9  # 날개 위치 조정 (더 큰 부츠에 맞춰)
+    wing_base_y = boot_y + 5
     
-    # 메인 날개 (크고 디테일하게)
-    for feather in range(6):  # 6개 깃털
-        angle = -35 + feather * 12 + wing_flap * (1 - feather * 0.15)
-        length = 9 - feather
+    # 메인 날개 (더 크고 디테일하게)
+    for feather in range(7):  # 7개 깃털로 증가
+        angle = -35 + feather * 11 + wing_flap * (1 - feather * 0.15)
+        length = 12 - feather  # 더 긴 깃털
         
         for i in range(length):
             rad = math.radians(angle)
