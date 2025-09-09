@@ -7286,7 +7286,6 @@ def store_passive_item(item_data):
             items.ragnarok_hammer_obtained = True
             # 전설 아이템 타입 설정
             item_data["type"] = "legendary"
-            from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             legendary_manager.activate_item("ragnarok_hammer", {})
             # 전설 아이템 획득 애니메이션 트리거
@@ -7304,7 +7303,6 @@ def store_passive_item(item_data):
             items.hermes_shoes_obtained = True  # items.py의 변수도 업데이트
             # 전설 아이템 타입 설정
             item_data["type"] = "legendary"
-            from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             legendary_manager.activate_item("hermes_shoes", {})
             # 전설 아이템 획득 애니메이션 트리거
@@ -7321,7 +7319,6 @@ def store_passive_item(item_data):
             items.poseidon_trident_obtained = True
             # 전설 아이템 타입 설정
             item_data["type"] = "legendary"
-            from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             legendary_manager.activate_item("poseidon_trident", {})
             # 전설 아이템 획득 애니메이션 트리거
@@ -10837,17 +10834,13 @@ def draw_objects():
     global frame_count  # 프레임 카운터 추가
     new_tear_particles = []  #  함수 시작 시 초기화
     
-    # 전설 아이템 매니저 업데이트 및 물결 효과 그리기
+    # 전설 아이템 물결 효과 그리기 (업데이트는 물리 루프에서 이미 처리됨)
     try:
         legendary_manager = get_legendary_manager()
         if legendary_manager:
-            # 업데이트 (delta time을 초 단위로 전달)
-            legendary_manager.update(0.016)  # 60fps 기준 0.016초
-            
             # 포세이돈의 삼지창 물결 효과 그리기
             trident = legendary_manager.get_item("poseidon_trident")
             if trident and trident.active:
-                trident.update(0.016)  # 물결 타이머 업데이트 (초 단위)
                 trident.draw_effects(SCREEN)  # 물결 파티클 그리기
     except:
         pass  # 전설 아이템 매니저 접근 실패 시 무시
@@ -22078,7 +22071,6 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             item_data["type"] = "legendary"
             # 패시브 아이템 리스트에 추가
             passive_item_list.append(item_data)
-            from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             if legendary_manager:
                 # activate_item을 사용하여 올바르게 활성화
@@ -22206,7 +22198,7 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
     
     # 전설 아이템 적용
     if selected_legendary_items:
-        from legendary_items import get_legendary_manager
+        # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         
         # 모든 전설 아이템 비활성화
@@ -22250,7 +22242,7 @@ def get_item_icon(item_name):
     
     # 전설 아이템들은 정적 스냅샷 생성
     if item_name in ["hermes_shoes", "ragnarok_hammer"]:
-        from legendary_items import get_legendary_manager
+        # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         if legendary_manager:
             # 아이템이 없으면 초기화
@@ -26697,9 +26689,17 @@ def handle_ball():
             actual_vel_y = step_vel_y
             try:
                 legendary_manager = get_legendary_manager()
+                # 첫 프레임만 디버그 출력
+                if pygame.time.get_ticks() % 1000 < 16:  # 1초마다 한 번만
+                    print(f"🔍 LM exists: {legendary_manager is not None}")
                 if legendary_manager:
                     trident = legendary_manager.get_item("poseidon_trident")
+                    if pygame.time.get_ticks() % 1000 < 16:  # 1초마다 한 번만
+                        print(f"🔍 Trident exists: {trident is not None}, Active: {trident.active if trident else 'N/A'}")
                     if trident and trident.active:
+                        # 한 번만 로그 출력 (vortex 활성 시)
+                        if trident.vortex_active and pygame.time.get_ticks() % 100 < 16:
+                            print(f"⚡ VORTEX ACTIVE! Ball=({BALL.centerx:.0f},{BALL.centery:.0f}), Player=({PLAYER.centerx:.0f},{PLAYER.centery:.0f})")
                         # 물의 파동으로 공의 궤적에 영향
                         modified_vx, modified_vy = trident.apply_trajectory_influence(
                             BALL.centerx, BALL.centery,
@@ -26710,6 +26710,9 @@ def handle_ball():
                         actual_vel_y = modified_vy
                         
                         # 대시 물결 효과 적용 (물결 또는 회오리가 활성화되어 있을 때)
+                        # 첫 0.1초만 로그 
+                        if trident.vortex_active and trident.vortex_timer < 0.1:
+                            print(f"🔍 dash={trident.dash_wave_active}, vortex={trident.vortex_active}")
                         if trident.dash_wave_active or trident.vortex_active:
                             wave_vx, wave_vy = trident.apply_dash_wave_to_ball(
                                 BALL.centerx, BALL.centery,
@@ -26718,8 +26721,9 @@ def handle_ball():
                             )
                             actual_vel_x = wave_vx
                             actual_vel_y = wave_vy
-            except:
+            except Exception as e:
                 # 전설 아이템 매니저 접근 실패 시 기본 속도 사용
+                print(f"❌ Legendary manager error: {e}")
                 pass
             
             # 한 스텝 이동
@@ -27893,7 +27897,7 @@ def handle_ball():
         calculate_bounce(PLAYER)  # handle_ball에서는 반환값 사용 안함 (게이지 처리가 handle_player에서 이미 됨)
         
         #  라그나로크 해머가 활성화되어 있으면 50% 확률로 스턴공 발동
-        from legendary_items import get_legendary_manager
+        # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         global ragnarok_speed_boost_active
         if legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
@@ -28190,7 +28194,7 @@ def handle_ball():
             play_ragnarok_boom_sound()
         
         #  라그나로크 해머 넉백 효과 (스턴공이었을 때만 발동)
-        from legendary_items import get_legendary_manager
+        # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         
         if was_stun_ball and legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
@@ -30190,7 +30194,7 @@ def handle_boss():
         boss_knockback_timer -= 1
         
         # 라그나로크 해머 체크
-        from legendary_items import get_legendary_manager
+        # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         
         if "ragnarok_hammer" in legendary_manager.active_items:
@@ -30288,7 +30292,7 @@ def handle_boss():
     #  넉백 후 원위치 복귀 처리 (넉백이 없을 때만)
     if boss_knockback_timer == 0:
         # 라그나로크 해머가 활성화되어 있으면 복귀 속도 감소
-        from legendary_items import get_legendary_manager
+        # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         
         if "ragnarok_hammer" in legendary_manager.active_items:
@@ -33035,6 +33039,14 @@ def main(stage_num, new_boss_mode=False):
                 # 아이템 업데이트 (아이템 획득 사운드 전달)
                 items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET)
                 
+                # 전설 아이템 매니저 업데이트 (물리 업데이트 전에 실행)
+                try:
+                    legendary_manager = get_legendary_manager()
+                    if legendary_manager:
+                        legendary_manager.update(0.016)  # 60fps 기준 0.016초
+                except:
+                    pass  # 전설 아이템 매니저 접근 실패 시 무시
+                
                 handle_player(keys)
                 handle_ball()
                 handle_boss()
@@ -33236,7 +33248,6 @@ def main(stage_num, new_boss_mode=False):
             
             
             # 라그나로크 해머 활성 상태
-            from legendary_items import get_legendary_manager
         
         # 튜토리얼 서브 도우미는 화면 그리기 부분에서 오버레이로 표시됨
         # 여기서는 팝업 방식 제거 (게임 루프가 중단되는 문제 해결)
@@ -34413,7 +34424,6 @@ def show_game_info():
                         # 전설 아이템인지 확인
                         if item.get("type") == "legendary":
                             # 전설 아이템은 LegendaryItemManager에서 직접 가져와서 draw_icon 사용
-                            from legendary_items import get_legendary_manager
                             legendary_manager = get_legendary_manager()
                             legendary_item = legendary_manager.get_item(item["name"])
                             if legendary_item:
@@ -34463,7 +34473,6 @@ def show_game_info():
                         # 전설 아이템인지 확인
                         if item.get("type") == "legendary":
                             # 전설 아이템은 LegendaryItemManager에서 직접 가져와서 draw_icon 사용
-                            from legendary_items import get_legendary_manager
                             legendary_manager = get_legendary_manager()
                             legendary_item = legendary_manager.get_item(item["name"])
                             if legendary_item:
@@ -34822,7 +34831,6 @@ def show_item_management_menu(item_list, selected_index, item_type):
         # 아이템 아이콘
         if item_name == "ragnarok_hammer":
             # 라그나로크 해머는 전설 아이템 매니저를 통해 애니메이션 그리기
-            from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             if legendary_manager:
                 hammer = legendary_manager.get_item("ragnarok_hammer")
@@ -34837,7 +34845,6 @@ def show_item_management_menu(item_list, selected_index, item_type):
                 SCREEN.blit(icon, (panel_x + 20, panel_y + 20))
         elif item_name == "hermes_shoes":
             # 헤르메스의 신발도 전설 아이템 매니저를 통해 애니메이션 그리기
-            from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             if legendary_manager:
                 hermes = legendary_manager.get_item("hermes_shoes")
@@ -34852,7 +34859,6 @@ def show_item_management_menu(item_list, selected_index, item_type):
                 SCREEN.blit(icon, (panel_x + 20, panel_y + 20))
         elif item_name == "poseidon_trident":
             # 포세이돈의 삼지창도 전설 아이템 매니저를 통해 애니메이션 그리기
-            from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             if legendary_manager:
                 trident = legendary_manager.get_item("poseidon_trident")

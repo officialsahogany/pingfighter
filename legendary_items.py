@@ -260,7 +260,7 @@ class PoseidonTrident(LegendaryItem):
         self.vortex_y = 0
         self.vortex_height = 0  # 시작 높이
         self.vortex_max_height = 400  # 최대 높이 (화면 대부분 커버)
-        self.vortex_width = 120  # 회오리 너비
+        self.vortex_width = 200  # 회오리 너비 (대폭 증가 for better collision)
         self.vortex_spin_speed = 0  # 회전 속도
         self.vortex_particles = []  # 회오리 파티클
         
@@ -344,6 +344,7 @@ class PoseidonTrident(LegendaryItem):
             self.vortex_spin_speed = 0
             
             print(f"🔱 포세이돈 회오리 발동! 위치: ({paddle_x:.0f}, {paddle_y:.0f}), 방향: {direction}")
+            print(f"   Active: {self.active}, Vortex: {self.vortex_active}, Height: {self.vortex_height}")
             
             # 회오리 파티클 대량 생성 (용솟음치는 효과)
             for i in range(50):  # 많은 파티클로 거대한 효과
@@ -380,6 +381,10 @@ class PoseidonTrident(LegendaryItem):
                                ball_vx: float, ball_vy: float,
                                paddle_x: float, paddle_y: float) -> Tuple[float, float]:
         """거대한 물결 회오리가 공에 미치는 괴멸적인 영향"""
+        # 함수 호출 확인 로그
+        if self.vortex_active:
+            print(f"🎯 apply_dash_wave_to_ball CALLED! vortex={self.vortex_active}")
+        
         if not self.dash_wave_active and not self.vortex_active:
             return ball_vx, ball_vy
             
@@ -388,14 +393,24 @@ class PoseidonTrident(LegendaryItem):
             # 회오리의 Y축 범위 (시간에 따라 확장)
             current_vortex_height = min(self.vortex_height, self.vortex_max_height)
             
-            # 회오리 충돌 체크 (X축 범위와 Y축 범위)
-            x_in_vortex = abs(ball_x - self.vortex_x) < self.vortex_width / 2
-            y_in_vortex = (self.vortex_y - current_vortex_height) <= ball_y <= self.vortex_y + 50
+            # 회오리 충돌 체크 - 시각적 효과와 정확히 일치
+            # X축: 회오리 너비 전체 (vortex_width = 120픽셀)
+            x_in_vortex = abs(ball_x - self.vortex_x) <= (self.vortex_width / 2 + 50)  # 여유 50픽셀 추가 (총 250픽셀)
+            # Y축: 패들 위치(vortex_y)부터 위로 현재 회오리 높이까지 + 아래로 100픽셀
+            y_in_vortex = (self.vortex_y - current_vortex_height - 50) <= ball_y <= (self.vortex_y + 100)
+            
+            # 디버그 로그 출력 (처음 0.2초만)
+            if self.vortex_timer < 0.2:
+                print(f"🔍 Vortex: ball=({ball_x:.0f},{ball_y:.0f}), vortex=({self.vortex_x:.0f},{self.vortex_y:.0f})")
+                print(f"   Height={current_vortex_height:.0f}/{self.vortex_max_height}, Timer={self.vortex_timer:.2f}")
+                print(f"   X_range=[{self.vortex_x - self.vortex_width/2 - 50:.0f}, {self.vortex_x + self.vortex_width/2 + 50:.0f}], X_in={x_in_vortex}")
+                print(f"   Y_range=[{self.vortex_y - current_vortex_height - 50:.0f}, {self.vortex_y + 100:.0f}], Y_in={y_in_vortex}")
             
             if x_in_vortex and y_in_vortex:
                 # 공이 회오리에 닿았을 때 - 괴멸적인 반사!
-                print(f"🌊 포세이돈의 회오리 발동! 공이 변칙적으로 반사됩니다!")
+                print(f"🌊🌊🌊 포세이돈의 회오리 발동! 공이 변칙적으로 반사됩니다! 🌊🌊🌊")
                 print(f"   Ball: ({ball_x:.0f}, {ball_y:.0f}) -> Vortex at ({self.vortex_x:.0f}, {self.vortex_y:.0f})")
+                print(f"   COLLISION DETECTED! X_in={x_in_vortex}, Y_in={y_in_vortex}")
                 
                 # 강력한 상향 추진력 (보스 방향으로)
                 new_vy = -abs(ball_vy) * 2.5 - self.deflection_power  # 매우 강한 위쪽 속도
@@ -463,6 +478,9 @@ class PoseidonTrident(LegendaryItem):
             # 회오리 높이 급속 확장 (용솟음치는 효과)
             if self.vortex_height < self.vortex_max_height:
                 self.vortex_height += 800 * dt  # 빠르게 상승
+                # 매 0.5초마다 업데이트 상태 출력
+            if int(self.vortex_timer * 2) != int((self.vortex_timer - dt) * 2):
+                print(f"📈 Vortex Update: timer={self.vortex_timer:.2f}s, height={self.vortex_height:.0f}, dt={dt:.4f}")
             
             # 회전 속도 증가
             self.vortex_spin_speed += dt * 10
@@ -496,8 +514,8 @@ class PoseidonTrident(LegendaryItem):
                     }
                     self.vortex_particles.append(particle)
             
-            # 회오리 종료 체크 (1.5초 후)
-            if self.vortex_timer > 1.5:
+            # 회오리 종료 체크 (3초 후 - 테스트를 위해 증가)
+            if self.vortex_timer > 3.0:
                 self.vortex_active = False
                 self.vortex_height = 0
                 self.vortex_particles.clear()
@@ -531,7 +549,7 @@ class PoseidonTrident(LegendaryItem):
             if current_height > 0:
                 # 여러 레이어로 회오리 표현
                 for i in range(5):
-                    alpha = 30 + i * 10  # 레이어별 투명도
+                    alpha = 60 + i * 20  # 레이어별 투명도 (더 진하게)
                     width = self.vortex_width - i * 10
                     
                     # 회오리 기둥
@@ -557,6 +575,16 @@ class PoseidonTrident(LegendaryItem):
                                       self.vortex_y - current_height // 2),
                                      (self.vortex_x - self.vortex_width // 4 + i * 10, 
                                       self.vortex_y - current_height)], 2)
+                
+                # 디버그: 충돌 영역 표시 (빨간 테두리)
+                if self.vortex_timer < 1.0:  # 처음 1초간만 표시
+                    collision_rect = pygame.Rect(
+                        self.vortex_x - self.vortex_width // 2 - 50,
+                        self.vortex_y - current_height - 50,
+                        self.vortex_width + 100,
+                        current_height + 150
+                    )
+                    pygame.draw.rect(screen, (255, 0, 0), collision_rect, 2)
             
             # 회오리 파티클 그리기
             for particle in self.vortex_particles:
