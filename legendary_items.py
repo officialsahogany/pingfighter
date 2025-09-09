@@ -452,8 +452,8 @@ class PoseidonTrident(LegendaryItem):
                 distance = math.sqrt((ball_x - self.vortex_x) ** 2 + 
                                    (ball_y - (self.vortex_y - current_vortex_height/2)) ** 2)
                 
-                # 회오리 반경 (확대)
-                vortex_radius = self.vortex_width / 2 + 100  # 50에서 100으로 증가
+                # 회오리 반경 (대폭 확대)
+                vortex_radius = self.vortex_width / 2 + 150  # 더 넓은 영향 범위
                 
                 
                 print(f"   - 거리: {distance:.1f}, 반경: {vortex_radius:.1f}")
@@ -463,7 +463,8 @@ class PoseidonTrident(LegendaryItem):
                     
                     # 거리 기반 굴절 강도 계산 (중심에 가까울수록 강함)
                     refraction_strength = 1.0 - (distance / vortex_radius)
-                    refraction_strength = refraction_strength ** 2  # 비선형 증가
+                    # 굴절 강도 대폭 증가 (최소 0.3 보장)
+                    refraction_strength = max(0.3, refraction_strength)  # 최소 30% 강도 보장
                     
                     print(f"   - 굴절 강도: {refraction_strength:.3f}")
                     
@@ -513,12 +514,12 @@ class PoseidonTrident(LegendaryItem):
                     # 각도를 -π ~ π 범위로 정규화 (최적화)
                     angle_diff = math.atan2(math.sin(angle_diff), math.cos(angle_diff))
                     
-                    # 굴절 적용 (자연스러운 굴절 효과)
-                    # 보스가 친 공은 부드럽게 반사
+                    # 굴절 적용 (강력한 굴절 효과)
+                    # 보스가 친 공은 강하게 반사
                     if ball_vy > 0:  # 보스가 친 공
-                        # 점진적인 굴절 (급격한 변화 방지)
-                        max_refraction = 0.785  # 약 45도 in radians (자연스러운 굴절)
-                        refraction_amount = angle_diff * refraction_strength * 0.4  # 부드러운 굴절
+                        # 강력한 굴절
+                        max_refraction = 2.0  # 약 115도 in radians (거의 역방향)
+                        refraction_amount = angle_diff * refraction_strength  # 100% 굴절
                     else:
                         max_refraction = 0.52  # 약 30도 in radians
                         refraction_amount = angle_diff * refraction_strength * 0.3
@@ -555,17 +556,16 @@ class PoseidonTrident(LegendaryItem):
                     new_vy = math.sin(new_angle) * new_speed
                     
                     # 상승 효과 추가 (물 회오리 특성)
-                    if ball_vy > 0:  # 보스가 친 공은 자연스럽게 위로 반사
+                    if ball_vy > 0:  # 보스가 친 공은 강력하게 위로 반사
                         print(f"🔄 보스 공 반사 처리")
                         print(f"   - 굴절 후 속도: vx={new_vx:.1f}, vy={new_vy:.1f}")
                         
-                        # 감속된 속도에 맞춰 자연스러운 반사
-                        # 공의 y속도를 반전시키고 약간의 추가 상승력
-                        new_vy = -abs(new_vy) * 1.2  # y속도를 위로 반전하고 20% 증폭
-                        print(f"   - Y속도 반전: {new_vy:.1f}")
+                        # 강력한 반사 - Y속도를 완전히 반전
+                        new_vy = -abs(ball_vy) * 1.5  # 원래 속도의 150%로 위로 반사
+                        print(f"   - Y속도 강력 반전: {new_vy:.1f}")
                         
-                        # 추가 상승력 (중심에 가까울수록 강함)
-                        upward_boost = -8.0 * refraction_strength
+                        # 추가 상승력 (매우 강하게)
+                        upward_boost = -15.0 * refraction_strength
                         new_vy += upward_boost
                         print(f"   - 추가 상승력: {upward_boost:.1f}")
                         print(f"   - 최종 Y속도: {new_vy:.1f}")
