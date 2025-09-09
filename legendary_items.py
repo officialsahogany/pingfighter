@@ -559,29 +559,28 @@ class PoseidonTrident(LegendaryItem):
                     spin_effect = math.sin(self.vortex_timer * 8) * 0.1 * refraction_strength
                     new_angle += spin_effect
                     
-                    # 물 회오리 내부에서 강력한 감속 효과
-                    # 물의 저항으로 인한 명확한 감속
+                    # 물 회오리 내부에서 포물선 움직임 (감속 → 정점 → 가속)
+                    # 공이 들어와서 천천히 감속했다가 다시 가속하며 반사
                     if ball_vy > 0:  # 보스가 친 공
-                        # 강력한 감속 효과 (40%~80% 감속)
-                        # 중심에 가까울수록 더 강한 감속
-                        speed_reduction = 0.4 + refraction_strength * 0.4  # 40%~80% 감속
+                        # 회오리 중심까지의 수직 거리 비율 계산 (0: 진입, 1: 중심)
+                        vertical_progress = 1.0 - ((ball_y - (self.vortex_y - current_vortex_height)) / current_vortex_height)
+                        vertical_progress = max(0.0, min(1.0, vertical_progress))  # 0~1 범위로 제한
                         
-                        # 시간에 따른 추가 감속 (회오리에 머무를수록 더 느려짐)
-                        time_factor = min(1.0, self.vortex_timer / 1.0)  # 1초에 걸쳐 빠르게
-                        speed_reduction = speed_reduction + (time_factor * 0.2)  # 시간에 따라 최대 20% 추가 감속
+                        # 포물선 곡선: 처음엔 빠르게 감속, 중간에 최저점, 이후 가속
+                        # 사인 곡선을 사용하여 부드러운 감속-가속 패턴 생성
+                        decel_curve = math.sin(vertical_progress * math.pi)  # 0→1→0 곡선
                         
-                        # 최대 감속률 제한 (90%까지만)
-                        if speed_reduction > 0.9:
-                            speed_reduction = 0.9
+                        # 속도 변화: 진입시 100% → 중간 30% → 반사시 다시 증가
+                        speed_factor = 1.0 - (decel_curve * 0.7)  # 최대 70% 감속
+                        new_speed = current_speed * speed_factor
                         
-                        new_speed = current_speed * (1.0 - speed_reduction)
-                        
-                        # 최소 속도 보장 (완전히 멈추지는 않도록)
-                        min_speed = 3.0  # 더 낮은 최소 속도로 감속 효과 강조
+                        # 최소 속도 보장
+                        min_speed = 3.0
                         if new_speed < min_speed:
                             new_speed = min_speed
                         
-                        print(f"   💧 감속 효과: {speed_reduction:.1%} 감속 (원래: {current_speed:.1f} → 새로운: {new_speed:.1f})")
+                        print(f"   💧 포물선 움직임: 진행도={vertical_progress:.2f}, 곡선={decel_curve:.2f}, 속도비={speed_factor:.2f}")
+                        print(f"   💧 속도 변화: {current_speed:.1f} → {new_speed:.1f}")
                     else:
                         # 플레이어가 친 공은 약간 증폭
                         speed_boost = 1.0 + refraction_strength * 0.3  # 최대 30% 속도 증가
@@ -610,26 +609,30 @@ class PoseidonTrident(LegendaryItem):
                         print(f"🔄 보스 공 반사 처리")
                         print(f"   - 굴절 후 속도: vx={new_vx:.1f}, vy={new_vy:.1f}")
                         
-                        # 감속된 속도로 반사 (물의 저항 효과 강조)
-                        # 이미 감속된 new_speed를 사용하여 반사
+                        # 포물선 움직임의 반사 부분 - 가속하면서 튕겨나감
+                        # vertical_progress가 1에 가까울수록 (중심에 가까울수록) 더 강한 반사
                         
-                        # 1. 감속된 속도의 일부만 반사 (물의 저항 때문에)
-                        base_reflect_factor = 0.4  # 40% 반사로 대폭 감소 (원래 70%)
+                        # 1. 반사 시점의 가속도 계산
+                        # 중심에서 멀어질수록 가속 (역포물선)
+                        acceleration_factor = 1.0 + (vertical_progress * 0.8)  # 최대 180% 속도로 가속
                         
-                        # 2. 감속된 속도 기반으로 반사 계산
-                        # new_speed는 이미 감속되어 있음
-                        reflected_vy = -new_speed * base_reflect_factor
+                        # 2. Y축 반사 - 가속하면서 위로
+                        # 감속된 속도가 아닌 가속된 속도로 반사
+                        reflected_speed = new_speed * acceleration_factor
+                        new_vy = -reflected_speed * 0.9  # 90% 반사 (강력한 반사)
                         
-                        # 3. 원래 Y속도와 반사 속도를 부드럽게 전환
-                        blend_factor = refraction_strength * 0.7  # 최대 70%만 반사 적용
-                        new_vy = ball_vy * (1.0 - blend_factor) + reflected_vy * blend_factor
+                        # 3. 추가 추진력 (물 회오리의 밀어내는 힘)
+                        push_force = -3.0 * vertical_progress  # 중심에 가까울수록 강한 추진
+                        new_vy += push_force
                         
-                        print(f"   - 감속 반사: 원래속력={current_speed:.1f}, 감속속력={new_speed:.1f}, 반사율={base_reflect_factor:.1%}")
-                        print(f"   - Y속도 전환: 원래={ball_vy:.1f} → 반사={reflected_vy:.1f} → 최종={new_vy:.1f}")
+                        print(f"   🚀 가속 반사: 진행도={vertical_progress:.2f}, 가속비={acceleration_factor:.2f}")
+                        print(f"   🚀 반사 속도: 감속={new_speed:.1f} → 가속={reflected_speed:.1f} → Y속도={new_vy:.1f}")
+                        print(f"   🚀 추진력: {push_force:.1f}")
                         
-                        # 4. 최소 반사 속도 보장 (너무 약하면 안됨)
-                        if new_vy > -2.0:  # 너무 약한 반사는 보정
-                            new_vy = -2.0
+                        # 4. 최대 반사 속도 제한 (너무 빠르면 안됨)
+                        max_reflect_speed = -20.0
+                        if new_vy < max_reflect_speed:
+                            new_vy = max_reflect_speed
                         
                         print(f"   - 최종 Y속도: {new_vy:.1f}")
                     else:
