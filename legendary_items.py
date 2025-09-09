@@ -495,14 +495,15 @@ class PoseidonTrident(LegendaryItem):
                     # 각도를 -π ~ π 범위로 정규화 (최적화)
                     angle_diff = math.atan2(math.sin(angle_diff), math.cos(angle_diff))
                     
-                    # 굴절 적용 (강화된 굴절 효과)
-                    # 보스가 친 공은 더 강하게 반사
+                    # 굴절 적용 (자연스러운 굴절 효과)
+                    # 보스가 친 공은 부드럽게 반사
                     if ball_vy > 0:  # 보스가 친 공
-                        max_refraction = 1.57  # 약 90도 in radians (거의 완전 반사)
-                        refraction_amount = angle_diff * refraction_strength * 0.8  # 매우 강한 굴절
+                        # 점진적인 굴절 (급격한 변화 방지)
+                        max_refraction = 0.785  # 약 45도 in radians (자연스러운 굴절)
+                        refraction_amount = angle_diff * refraction_strength * 0.4  # 부드러운 굴절
                     else:
                         max_refraction = 0.52  # 약 30도 in radians
-                        refraction_amount = angle_diff * refraction_strength * 0.5
+                        refraction_amount = angle_diff * refraction_strength * 0.3
                     refraction_amount = max(-max_refraction, min(max_refraction, refraction_amount))
                     
                     # 새로운 각도 계산
@@ -512,25 +513,42 @@ class PoseidonTrident(LegendaryItem):
                     spin_effect = math.sin(self.vortex_timer * 8) * 0.1 * refraction_strength
                     new_angle += spin_effect
                     
-                    # 속도 증폭 (물의 추진력) - 강화
-                    speed_boost = 1.0 + refraction_strength * 0.8  # 최대 80% 속도 증가
-                    new_speed = current_speed * speed_boost
-                    
-                    # 속도 상한
-                    max_speed = 30  # 최대 속도 감소 (33에서 30으로)
-                    if new_speed > max_speed:
-                        new_speed = max_speed
+                    # 물 회오리 내부에서 자연스러운 감속
+                    # 중심에 가까울수록 더 많이 감속
+                    if ball_vy > 0:  # 보스가 친 공
+                        # 감속 효과 (중심에 가까울수록 더 많이 감속)
+                        speed_reduction = 0.3 + refraction_strength * 0.5  # 30%~80% 감속
+                        new_speed = current_speed * (1.0 - speed_reduction)
+                        # 최소 속도 보장 (너무 느려지지 않도록)
+                        min_speed = 5.0
+                        if new_speed < min_speed:
+                            new_speed = min_speed
+                    else:
+                        # 플레이어가 친 공은 약간 증폭
+                        speed_boost = 1.0 + refraction_strength * 0.3  # 최대 30% 속도 증가
+                        new_speed = current_speed * speed_boost
+                        # 속도 상한
+                        max_speed = 30
+                        if new_speed > max_speed:
+                            new_speed = max_speed
                     
                     # 새로운 속도 벡터 계산
                     new_vx = math.cos(new_angle) * new_speed
                     new_vy = math.sin(new_angle) * new_speed
                     
-                    # 상승 효과 추가 (물 회오리 특성) - 강화
-                    if ball_vy > 0:  # 보스가 친 공은 강하게 위로 반사
-                        upward_boost = -20.0 * refraction_strength  # 매우 강한 위로 반사
+                    # 상승 효과 추가 (물 회오리 특성)
+                    if ball_vy > 0:  # 보스가 친 공은 자연스럽게 위로 반사
+                        # 감속된 속도에 맞춰 자연스러운 반사
+                        # 공의 y속도를 반전시키고 약간의 추가 상승력
+                        new_vy = -abs(new_vy) * 1.2  # y속도를 위로 반전하고 20% 증폭
+                        
+                        # 추가 상승력 (중심에 가까울수록 강함)
+                        upward_boost = -8.0 * refraction_strength
+                        new_vy += upward_boost
                     else:
-                        upward_boost = -12.0 * refraction_strength * (1 - self.vortex_timer / 2.0)  # 기존 상승 효과
-                    new_vy += upward_boost
+                        # 플레이어가 친 공은 기존 상승 효과
+                        upward_boost = -8.0 * refraction_strength * (1 - self.vortex_timer / 2.0)
+                        new_vy += upward_boost
                     
                     # 물 추진력 저장 (물에서 나온 후에도 지속)
                     if new_vy < -5:  # 상승 추진력이 충분히 클 때만
