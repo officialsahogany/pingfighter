@@ -396,24 +396,7 @@ class PoseidonTrident(LegendaryItem):
                                paddle_x: float, paddle_y: float) -> Tuple[float, float]:
         """거대한 물결 회오리가 공에 미치는 부드러운 물리 효과"""
         
-        # 물의 추진력이 남아있을 때 (물에서 나온 후에도 지속)
-        if self.water_momentum_active:
-            # 추진력을 점진적으로 감소시키면서 적용
-            momentum_decay = max(0, 1.0 - (self.water_momentum_timer / 120))  # 2초간 지속 (기존 1초에서 증가)
-            
-            # 위쪽 추진력 유지 (점진적 감소)
-            ball_vy += self.water_momentum_force_y * momentum_decay
-            ball_vx += self.water_momentum_force_x * momentum_decay * 0.3  # X축은 더 빨리 감소
-            
-            # 타이머 증가
-            self.water_momentum_timer += 1
-            
-            # 2초 후 추진력 종료
-            if self.water_momentum_timer > 120:
-                self.water_momentum_active = False
-                self.water_momentum_timer = 0
-                self.water_momentum_force_y = 0
-                self.water_momentum_force_x = 0
+        # 물의 추진력 지속 효과 제거 - 회오리가 활성화된 동안만 효과 적용
         
         if not self.dash_wave_active and not self.vortex_active:
             return ball_vx, ball_vy
@@ -468,20 +451,10 @@ class PoseidonTrident(LegendaryItem):
                     new_vx = new_vx / speed * max_speed
                     new_vy = new_vy / speed * max_speed
                 
-                # 물에서 나갈 때를 대비한 추진력 저장
-                self.water_momentum_force_y = -15.0  # 강한 지속적인 상승 추진력 (기존 -10에서 증가)
-                self.water_momentum_force_x = spin_effect * 0.3  # 약간의 회전 유지
-                self.water_momentum_active = True
-                self.water_momentum_timer = 0
+                # 물 추진력 저장 코드 제거 - 회오리 안에 있을 때만 효과 적용
                 
                 return new_vx, new_vy
-            else:
-                # 공이 물 밖에 있지만 회오리는 활성 상태
-                # 물에서 나온 직후라면 추진력 활성화
-                if not self.water_momentum_active and self.vortex_timer < 2.0:
-                    # 물에서 막 나왔을 때 추진력 시작
-                    self.water_momentum_active = True
-                    self.water_momentum_timer = 0
+            # else 블록 제거 - 회오리 밖에서는 효과 없음
         
         # 기존 물결 효과 (보조 효과)
         if self.dash_wave_active:
