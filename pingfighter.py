@@ -10821,16 +10821,19 @@ def draw_objects():
     new_tear_particles = []  #  함수 시작 시 초기화
     
     # 전설 아이템 매니저 업데이트 및 물결 효과 그리기
-    legendary_manager = get_legendary_manager()
-    if legendary_manager:
-        # 업데이트 (delta time을 밀리초로 전달)
-        legendary_manager.update(16)  # 60fps 기준 16ms
-        
-        # 포세이돈의 삼지창 물결 효과 그리기
-        trident = legendary_manager.get_item("poseidon_trident")
-        if trident and trident.active:
-            trident.update(16)  # 물결 타이머 업데이트
-            trident.draw_effects(SCREEN)  # 물결 파티클 그리기
+    try:
+        legendary_manager = get_legendary_manager()
+        if legendary_manager:
+            # 업데이트 (delta time을 밀리초로 전달)
+            legendary_manager.update(16)  # 60fps 기준 16ms
+            
+            # 포세이돈의 삼지창 물결 효과 그리기
+            trident = legendary_manager.get_item("poseidon_trident")
+            if trident and trident.active:
+                trident.update(16)  # 물결 타이머 업데이트
+                trident.draw_effects(SCREEN)  # 물결 파티클 그리기
+    except:
+        pass  # 전설 아이템 매니저 접근 실패 시 무시
     #  서브 대기 상태 UI (미니멀 디자인)
     if is_waiting_for_serve:
         # 시간 계산
