@@ -268,6 +268,12 @@ class PoseidonTrident(LegendaryItem):
         self.deflection_power = 15.0  # 반사 힘
         self.spin_power = 8.0  # 드라이브 회전력
         
+        # 물의 추진력 지속 효과
+        self.water_momentum_active = False  # 물에서 나온 후 추진력 유지
+        self.water_momentum_timer = 0  # 추진력 유지 타이머
+        self.water_momentum_force_y = 0  # 유지되는 Y축 힘
+        self.water_momentum_force_x = 0  # 유지되는 X축 힘
+        
         # 애니메이션용 아이콘 프레임들
         self.icon_frames = []
         self.current_frame = 0
@@ -382,6 +388,25 @@ class PoseidonTrident(LegendaryItem):
                                paddle_x: float, paddle_y: float) -> Tuple[float, float]:
         """거대한 물결 회오리가 공에 미치는 부드러운 물리 효과"""
         
+        # 물의 추진력이 남아있을 때 (물에서 나온 후에도 지속)
+        if self.water_momentum_active:
+            # 추진력을 점진적으로 감소시키면서 적용
+            momentum_decay = max(0, 1.0 - (self.water_momentum_timer / 60))  # 1초간 지속
+            
+            # 위쪽 추진력 유지 (점진적 감소)
+            ball_vy += self.water_momentum_force_y * momentum_decay
+            ball_vx += self.water_momentum_force_x * momentum_decay * 0.5  # X축은 더 빨리 감소
+            
+            # 타이머 증가
+            self.water_momentum_timer += 1
+            
+            # 1초 후 추진력 종료
+            if self.water_momentum_timer > 60:
+                self.water_momentum_active = False
+                self.water_momentum_timer = 0
+                self.water_momentum_force_y = 0
+                self.water_momentum_force_x = 0
+        
         if not self.dash_wave_active and not self.vortex_active:
             return ball_vx, ball_vy
             
@@ -435,7 +460,20 @@ class PoseidonTrident(LegendaryItem):
                     new_vx = new_vx / speed * max_speed
                     new_vy = new_vy / speed * max_speed
                 
+                # 물에서 나갈 때를 대비한 추진력 저장
+                self.water_momentum_force_y = -10.0  # 지속적인 상승 추진력
+                self.water_momentum_force_x = spin_effect * 0.3  # 약간의 회전 유지
+                self.water_momentum_active = True
+                self.water_momentum_timer = 0
+                
                 return new_vx, new_vy
+            else:
+                # 공이 물 밖에 있지만 회오리는 활성 상태
+                # 물에서 나온 직후라면 추진력 활성화
+                if not self.water_momentum_active and self.vortex_timer < 2.0:
+                    # 물에서 막 나왔을 때 추진력 시작
+                    self.water_momentum_active = True
+                    self.water_momentum_timer = 0
         
         # 기존 물결 효과 (보조 효과)
         if self.dash_wave_active:
@@ -524,6 +562,11 @@ class PoseidonTrident(LegendaryItem):
                 self.vortex_active = False
                 self.vortex_height = 0
                 self.vortex_particles.clear()
+                # 물의 추진력도 종료
+                self.water_momentum_active = False
+                self.water_momentum_timer = 0
+                self.water_momentum_force_y = 0
+                self.water_momentum_force_x = 0
         
         # 대시 물결 타이머
         if self.dash_wave_active:
