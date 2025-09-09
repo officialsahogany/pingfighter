@@ -7315,6 +7315,23 @@ def store_passive_item(item_data):
             print("⚡ 헤르메스의 신발 획득! 신들의 속도를 얻었습니다! 이동속도 50% 증가!")
         else:
             print("이미 헤르메스의 신발을 보유 중입니다.")
+    elif item_data["name"] == "poseidon_trident":
+        # 포세이돈의 삼지창 전설 아이템 획득
+        if not items.poseidon_trident_obtained:
+            items.poseidon_trident_obtained = True
+            # 전설 아이템 타입 설정
+            item_data["type"] = "legendary"
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            legendary_manager.activate_item("poseidon_trident", {})
+            # 전설 아이템 획득 애니메이션 트리거
+            trigger_legendary_acquisition("poseidon_trident", "포세이돈의 삼지창", item_icon, (PLAYER.centerx, PLAYER.centery))
+            # 아이템 획득 플로팅 애니메이션 (전설 아이템은 True 플래그)
+            show_item_acquisition("poseidon_trident", "포세이돈의 삼지창", item_icon, True,
+                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            print("🌊 포세이돈의 삼지창 획득! 바다의 힘이 깃들었습니다!")
+        else:
+            print("이미 포세이돈의 삼지창을 보유 중입니다.")
     else:
         # 알 수 없는 패시브 아이템 처리
         print(f"     : {item_data['name']}")
@@ -10824,13 +10841,13 @@ def draw_objects():
     try:
         legendary_manager = get_legendary_manager()
         if legendary_manager:
-            # 업데이트 (delta time을 밀리초로 전달)
-            legendary_manager.update(16)  # 60fps 기준 16ms
+            # 업데이트 (delta time을 초 단위로 전달)
+            legendary_manager.update(0.016)  # 60fps 기준 0.016초
             
             # 포세이돈의 삼지창 물결 효과 그리기
             trident = legendary_manager.get_item("poseidon_trident")
             if trident and trident.active:
-                trident.update(16)  # 물결 타이머 업데이트
+                trident.update(0.016)  # 물결 타이머 업데이트 (초 단위)
                 trident.draw_effects(SCREEN)  # 물결 파티클 그리기
     except:
         pass  # 전설 아이템 매니저 접근 실패 시 무시
