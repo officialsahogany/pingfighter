@@ -411,8 +411,8 @@ class PoseidonTrident(LegendaryItem):
                 new_vy = ball_vy * water_resistance
                 
                 # 2. 물의 흐름에 따른 방향 전환 (보스 쪽으로)
-                # 회오리가 공을 위로 밀어올리는 효과
-                upward_current = -8.0 * depth_factor  # 중심에 가까울수록 강한 상승류
+                # 회오리가 공을 위로 강력하게 밀어올리는 효과
+                upward_current = -20.0 * depth_factor  # 중심에 가까울수록 매우 강한 상승류 (기존 -8.0에서 증가)
                 new_vy += upward_current
                 
                 # 3. 나선형 회전 효과 (물의 소용돌이)
@@ -421,7 +421,7 @@ class PoseidonTrident(LegendaryItem):
                 
                 # 4. 점진적인 가속 (물에서 튕겨나가는 효과)
                 if new_vy < 0:  # 위로 향할 때만
-                    push_multiplier = 1.2 + (0.3 * depth_factor)  # 1.2 ~ 1.5배 가속
+                    push_multiplier = 1.5 + (0.5 * depth_factor)  # 1.5 ~ 2.0배 가속 (기존 1.2~1.5에서 증가)
                     new_vy *= push_multiplier
                 
                 # 5. 부드러운 좌우 흔들림
@@ -429,7 +429,7 @@ class PoseidonTrident(LegendaryItem):
                 new_vx += wave_motion
                 
                 # 속도 제한 (적절한 게임플레이를 위해)
-                max_speed = 25  # 더 적절한 최대 속도
+                max_speed = 35  # 강력한 상승을 위해 증가 (기존 25에서 35로)
                 speed = math.sqrt(new_vx ** 2 + new_vy ** 2)
                 if speed > max_speed:
                     new_vx = new_vx / speed * max_speed
