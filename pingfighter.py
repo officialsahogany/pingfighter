@@ -27086,6 +27086,9 @@ def handle_ball():
     if BALL.left <= 0:
         BALL.left = 0
         ball_vel[0] *= -1
+        # 🔧 벽 충돌 시 속도 약간 감속 (포세이돈 회오리 후 너무 빠른 속도 방지)
+        ball_vel[0] *= 0.95  # 5% 감속
+        ball_vel[1] *= 0.95  # Y 속도도 약간 감속
         play_wall_sound()
         
         # 무승부 판정 시스템: 좌우 벽 연속 충돌 카운트
@@ -27188,6 +27191,9 @@ def handle_ball():
     elif BALL.right >= WIDTH:
         BALL.right = WIDTH
         ball_vel[0] *= -1
+        # 🔧 벽 충돌 시 속도 약간 감속 (포세이돈 회오리 후 너무 빠른 속도 방지)
+        ball_vel[0] *= 0.95  # 5% 감속
+        ball_vel[1] *= 0.95  # Y 속도도 약간 감속
         play_wall_sound()
         
         # 무승부 판정 시스템: 좌우 벽 연속 충돌 카운트

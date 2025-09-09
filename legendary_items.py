@@ -452,8 +452,8 @@ class PoseidonTrident(LegendaryItem):
                 distance = math.sqrt((ball_x - self.vortex_x) ** 2 + 
                                    (ball_y - (self.vortex_y - current_vortex_height/2)) ** 2)
                 
-                # 회오리 반경 (대폭 확대)
-                vortex_radius = self.vortex_width / 2 + 250  # 매우 넓은 영향 범위
+                # 회오리 반경 (시각적 효과와 일치하도록)
+                vortex_radius = self.vortex_width / 2  # 시각적 크기와 동일한 범위
                 
                 
                 print(f"   - 거리: {distance:.1f}, 반경: {vortex_radius:.1f}")
