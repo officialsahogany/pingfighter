@@ -380,10 +380,7 @@ class PoseidonTrident(LegendaryItem):
     def apply_dash_wave_to_ball(self, ball_x: float, ball_y: float,
                                ball_vx: float, ball_vy: float,
                                paddle_x: float, paddle_y: float) -> Tuple[float, float]:
-        """거대한 물결 회오리가 공에 미치는 괴멸적인 영향"""
-        # 함수 호출 확인 로그
-        if self.vortex_active:
-            print(f"🎯 apply_dash_wave_to_ball CALLED! vortex={self.vortex_active}")
+        """거대한 물결 회오리가 공에 미치는 부드러운 물리 효과"""
         
         if not self.dash_wave_active and not self.vortex_active:
             return ball_vx, ball_vy
@@ -394,37 +391,45 @@ class PoseidonTrident(LegendaryItem):
             current_vortex_height = min(self.vortex_height, self.vortex_max_height)
             
             # 회오리 충돌 체크 - 시각적 효과와 정확히 일치
-            # X축: 회오리 너비 전체 (vortex_width = 120픽셀)
-            x_in_vortex = abs(ball_x - self.vortex_x) <= (self.vortex_width / 2 + 50)  # 여유 50픽셀 추가 (총 250픽셀)
-            # Y축: 패들 위치(vortex_y)부터 위로 현재 회오리 높이까지 + 아래로 100픽셀
+            x_in_vortex = abs(ball_x - self.vortex_x) <= (self.vortex_width / 2 + 50)
             y_in_vortex = (self.vortex_y - current_vortex_height - 50) <= ball_y <= (self.vortex_y + 100)
             
-            # 디버그 로그 출력 (처음 0.2초만)
-            if self.vortex_timer < 0.2:
-                print(f"🔍 Vortex: ball=({ball_x:.0f},{ball_y:.0f}), vortex=({self.vortex_x:.0f},{self.vortex_y:.0f})")
-                print(f"   Height={current_vortex_height:.0f}/{self.vortex_max_height}, Timer={self.vortex_timer:.2f}")
-                print(f"   X_range=[{self.vortex_x - self.vortex_width/2 - 50:.0f}, {self.vortex_x + self.vortex_width/2 + 50:.0f}], X_in={x_in_vortex}")
-                print(f"   Y_range=[{self.vortex_y - current_vortex_height - 50:.0f}, {self.vortex_y + 100:.0f}], Y_in={y_in_vortex}")
-            
             if x_in_vortex and y_in_vortex:
-                # 공이 회오리에 닿았을 때 - 괴멸적인 반사!
-                print(f"🌊🌊🌊 포세이돈의 회오리 발동! 공이 변칙적으로 반사됩니다! 🌊🌊🌊")
-                print(f"   Ball: ({ball_x:.0f}, {ball_y:.0f}) -> Vortex at ({self.vortex_x:.0f}, {self.vortex_y:.0f})")
-                print(f"   COLLISION DETECTED! X_in={x_in_vortex}, Y_in={y_in_vortex}")
+                # 공이 물에 들어왔을 때 - 부드러운 물리 효과
+                print(f"🌊 포세이돈의 물결이 공을 감쌉니다!")
                 
-                # 강력한 상향 추진력 (보스 방향으로)
-                new_vy = -abs(ball_vy) * 2.5 - self.deflection_power  # 매우 강한 위쪽 속도
+                # 1. 부드러운 감속 효과 (물의 저항)
+                # 회오리 중심으로부터의 거리 계산
+                distance_from_center = abs(ball_x - self.vortex_x)
+                depth_factor = 1.0 - (distance_from_center / (self.vortex_width / 2 + 50))
                 
-                # 나선형 회전 효과 (드라이브)
-                spin_angle = self.vortex_spin_speed * 0.1
-                new_vx = ball_vx * math.cos(spin_angle) + self.spin_power * math.sin(self.vortex_timer * 0.3)
+                # 물속 깊이에 따른 감속 (중심에 가까울수록 강함)
+                water_resistance = 0.7 + (0.25 * depth_factor)  # 0.7 ~ 0.95 사이의 감속
                 
-                # 변칙적인 좌우 움직임 추가
-                random_deflection = random.uniform(-5, 5)
-                new_vx += random_deflection
+                # 현재 속도를 부드럽게 감속
+                new_vx = ball_vx * water_resistance
+                new_vy = ball_vy * water_resistance
                 
-                # 속도 제한 (너무 빠르면 게임이 불가능)
-                max_speed = 35
+                # 2. 물의 흐름에 따른 방향 전환 (보스 쪽으로)
+                # 회오리가 공을 위로 밀어올리는 효과
+                upward_current = -8.0 * depth_factor  # 중심에 가까울수록 강한 상승류
+                new_vy += upward_current
+                
+                # 3. 나선형 회전 효과 (물의 소용돌이)
+                spin_effect = math.sin(self.vortex_timer * 5) * 3.0 * depth_factor
+                new_vx += spin_effect
+                
+                # 4. 점진적인 가속 (물에서 튕겨나가는 효과)
+                if new_vy < 0:  # 위로 향할 때만
+                    push_multiplier = 1.2 + (0.3 * depth_factor)  # 1.2 ~ 1.5배 가속
+                    new_vy *= push_multiplier
+                
+                # 5. 부드러운 좌우 흔들림
+                wave_motion = math.sin(self.vortex_timer * 8) * 2.0
+                new_vx += wave_motion
+                
+                # 속도 제한 (적절한 게임플레이를 위해)
+                max_speed = 25  # 더 적절한 최대 속도
                 speed = math.sqrt(new_vx ** 2 + new_vy ** 2)
                 if speed > max_speed:
                     new_vx = new_vx / speed * max_speed
@@ -576,15 +581,7 @@ class PoseidonTrident(LegendaryItem):
                                      (self.vortex_x - self.vortex_width // 4 + i * 10, 
                                       self.vortex_y - current_height)], 2)
                 
-                # 디버그: 충돌 영역 표시 (빨간 테두리)
-                if self.vortex_timer < 1.0:  # 처음 1초간만 표시
-                    collision_rect = pygame.Rect(
-                        self.vortex_x - self.vortex_width // 2 - 50,
-                        self.vortex_y - current_height - 50,
-                        self.vortex_width + 100,
-                        current_height + 150
-                    )
-                    pygame.draw.rect(screen, (255, 0, 0), collision_rect, 2)
+                # 디버그 테두리 제거됨 - 실제 게임에서는 표시하지 않음
             
             # 회오리 파티클 그리기
             for particle in self.vortex_particles:
