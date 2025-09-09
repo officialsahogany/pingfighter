@@ -26697,10 +26697,14 @@ def handle_ball():
                     if pygame.time.get_ticks() % 1000 < 16:  # 1초마다 한 번만
                         print(f"🔍 Trident exists: {trident is not None}, Active: {trident.active if trident else 'N/A'}")
                     if trident and trident.active:
-                        # 한 번만 로그 출력 (vortex 활성 시)
-                        if trident.vortex_active and pygame.time.get_ticks() % 100 < 16:
-                            print(f"⚡ VORTEX ACTIVE! Ball=({BALL.centerx:.0f},{BALL.centery:.0f}), Player=({PLAYER.centerx:.0f},{PLAYER.centery:.0f})")
-                        # 물의 파동으로 공의 궤적에 영향
+                        # 회오리가 활성화되고 공이 실제로 회오리 안에 있을 때만 로그
+                        if trident.vortex_active:
+                            current_vortex_height = min(trident.vortex_height, trident.vortex_max_height)
+                            x_in_vortex = abs(BALL.centerx - trident.vortex_x) <= (trident.vortex_width / 2)
+                            y_in_vortex = (trident.vortex_y - current_vortex_height) <= BALL.centery <= trident.vortex_y
+                            if x_in_vortex and y_in_vortex and pygame.time.get_ticks() % 100 < 16:
+                                print(f"⚡ BALL IN VORTEX! Ball=({BALL.centerx:.0f},{BALL.centery:.0f}), Vortex=({trident.vortex_x:.0f},{trident.vortex_y:.0f})")
+                        # 물의 파동으로 공의 궤적에 영향 (회오리가 없을 때만 작동)
                         modified_vx, modified_vy = trident.apply_trajectory_influence(
                             BALL.centerx, BALL.centery,
                             step_vel_x, step_vel_y,
@@ -26740,7 +26744,7 @@ def handle_ball():
                                 # 스텝 수를 고려하여 원래 속도로 변환
                                 ball_vel[0] = wave_vx * num_steps / ball_impact_boost
                                 ball_vel[1] = wave_vy * num_steps / ball_impact_boost
-                                print(f"🌊 [VORTEX] ball_vel 영구 업데이트: [{ball_vel[0]:.1f}, {ball_vel[1]:.1f}]")
+                                # 디버그 출력 제거 - 너무 자주 출력됨
             except Exception as e:
                 # 전설 아이템 매니저 접근 실패 시 기본 속도 사용
                 print(f"❌ Legendary manager error: {e}")

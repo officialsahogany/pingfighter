@@ -318,17 +318,25 @@ class PoseidonTrident(LegendaryItem):
     def apply_trajectory_influence(self, ball_x: float, ball_y: float, 
                                   ball_vx: float, ball_vy: float, 
                                   paddle_x: float, paddle_y: float) -> Tuple[float, float]:
-        """공의 궤적에 물의 파동 영향 적용"""
+        """공의 궤적에 물의 파동 영향 적용 (회오리가 없을 때만)"""
         if not self.active:
+            return ball_vx, ball_vy
+        
+        # 회오리가 활성화되어 있으면 trajectory influence 비활성화
+        # (회오리가 모든 물 효과를 대체함)
+        if self.vortex_active:
             return ball_vx, ball_vy
             
         # 패들과의 거리 계산
         distance = math.sqrt((ball_x - paddle_x) ** 2 + (ball_y - paddle_y) ** 2)
         
+        # 영향 범위를 200픽셀로 축소 (기존 400에서 감소)
+        reduced_radius = 200  # 더 가까운 범위에서만 작동
+        
         # 영향 범위 내에 있을 때만
-        if distance < self.wave_effect_radius:
+        if distance < reduced_radius:
             # 거리에 따른 영향력 계산 (가까울수록 강함)
-            influence = (1 - distance / self.wave_effect_radius) * self.trajectory_influence
+            influence = (1 - distance / reduced_radius) * self.trajectory_influence * 0.5  # 영향력도 반으로 감소
             
             # 물결 효과로 미세한 궤적 변경 (사인파)
             wave_effect_x = math.sin(self.wave_timer * 0.1) * influence
@@ -400,23 +408,36 @@ class PoseidonTrident(LegendaryItem):
                                player_x: float = None, player_y: float = None) -> Tuple[float, float]:
         """거대한 물결 회오리가 공에 미치는 굴절 효과 (Stage 4 자기장과 동일한 메커니즘)"""
         
+        # 디버그: 함수 진입
+        print(f"🔍 [apply_dash_wave_to_ball] 진입")
+        print(f"   - ball_pos: ({ball_x:.0f}, {ball_y:.0f})")
+        print(f"   - ball_vel: ({ball_vx:.1f}, {ball_vy:.1f})")
+        print(f"   - vortex_active: {self.vortex_active}")
+        print(f"   - dash_wave_active: {self.dash_wave_active}")
+        print(f"   - water_momentum_active: {self.water_momentum_active}")
+        
         # 물 추진력이 남아있으면 계속 적용
         if self.water_momentum_active:
+            print(f"💧 [WATER MOMENTUM] 활성화됨!")
             # 추진력 타이머 감소
             self.water_momentum_timer -= 0.016  # 60fps 기준
             
             if self.water_momentum_timer <= 0:
                 # 추진력 종료
+                print(f"💧 [WATER MOMENTUM] 종료")
                 self.water_momentum_active = False
                 self.water_momentum_force_y = 0
                 self.water_momentum_force_x = 0
             else:
                 # 추진력 적용 (시간이 지나면서 약해짐)
                 fade_factor = self.water_momentum_timer / 2.0  # 2초 동안 서서히 감소
-                return (ball_vx + self.water_momentum_force_x * fade_factor,
-                       ball_vy + self.water_momentum_force_y * fade_factor)
+                new_vx = ball_vx + self.water_momentum_force_x * fade_factor
+                new_vy = ball_vy + self.water_momentum_force_y * fade_factor
+                print(f"💧 [WATER MOMENTUM] 적용: ({ball_vx:.1f}, {ball_vy:.1f}) → ({new_vx:.1f}, {new_vy:.1f})")
+                return (new_vx, new_vy)
         
         if not self.dash_wave_active and not self.vortex_active:
+            print(f"🔍 [apply_dash_wave_to_ball] 비활성 상태 - 원래 속도 반환")
             return ball_vx, ball_vy
             
         # 거대한 회오리 효과 (우선 처리)
@@ -425,12 +446,18 @@ class PoseidonTrident(LegendaryItem):
             current_vortex_height = min(self.vortex_height, self.vortex_max_height)
             
             # 회오리 충돌 체크 - 시각적 효과와 정확히 일치
-            x_in_vortex = abs(ball_x - self.vortex_x) <= (self.vortex_width / 2)  # 시각적 너비와 정확히 일치
+            x_distance = abs(ball_x - self.vortex_x)
+            x_in_vortex = x_distance <= (self.vortex_width / 2)  # 시각적 너비와 정확히 일치
             y_in_vortex = (self.vortex_y - current_vortex_height) <= ball_y <= self.vortex_y  # 시각적 높이와 정확히 일치
             
-            # 디버그: 충돌 체크 상태 (0.5초마다 출력)
-            if int(self.vortex_timer * 2) != int((self.vortex_timer - 0.016) * 2):
-                print(f"🌊 충돌체크: x_in={x_in_vortex}, y_in={y_in_vortex}, ball=({ball_x:.0f},{ball_y:.0f}), vortex=({self.vortex_x:.0f},{self.vortex_y:.0f}), height={current_vortex_height:.0f}")
+            # 디버그: 충돌 체크 상태 (항상 출력)
+            print(f"🌊 [VORTEX 충돌체크]")
+            print(f"   - 공 위치: ({ball_x:.0f}, {ball_y:.0f})")
+            print(f"   - 회오리 중심: ({self.vortex_x:.0f}, {self.vortex_y:.0f})")
+            print(f"   - 회오리 크기: width={self.vortex_width}, height={current_vortex_height:.0f}")
+            print(f"   - X축 체크: 거리={x_distance:.0f}, 한계={self.vortex_width/2:.0f}, 결과={x_in_vortex}")
+            print(f"   - Y축 체크: 범위=[{self.vortex_y - current_vortex_height:.0f}, {self.vortex_y:.0f}], 공Y={ball_y:.0f}, 결과={y_in_vortex}")
+            print(f"   - 최종 결과: 회오리 안={'예' if (x_in_vortex and y_in_vortex) else '아니오'}")
             
             if x_in_vortex and y_in_vortex:
                 print(f"⭐ 공이 물회오리 안에 있음!")
@@ -574,12 +601,12 @@ class PoseidonTrident(LegendaryItem):
                         upward_boost = -8.0 * refraction_strength * (1 - self.vortex_timer / 2.0)
                         new_vy += upward_boost
                     
-                    # 물 추진력 저장 (물에서 나온 후에도 지속)
-                    if new_vy < -5:  # 상승 추진력이 충분히 클 때만
-                        self.water_momentum_active = True
-                        self.water_momentum_timer = 2.0  # 2초간 지속
-                        self.water_momentum_force_y = new_vy * 0.3  # 30%의 추진력 유지
-                        self.water_momentum_force_x = new_vx * 0.1  # 10%의 횡방향 추진력
+                    # 물 추진력 비활성화 (회오리 밖에서 영향을 주지 않도록)
+                    # 원래는 물에서 나온 후에도 추진력이 지속되었지만, 이제는 회오리 안에서만 작동
+                    self.water_momentum_active = False
+                    self.water_momentum_timer = 0
+                    self.water_momentum_force_y = 0
+                    self.water_momentum_force_x = 0
                     
                     print(f"🌊 포세이돈 굴절 최종 결과:")
                     print(f"   - 원래 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}")
@@ -596,27 +623,42 @@ class PoseidonTrident(LegendaryItem):
                     return new_vx, new_vy
                 else:
                     # 회오리 범위 밖
+                    print(f"🌊 [VORTEX] 거리 범위 밖 - 효과 없음 (거리={distance:.0f} >= 반경={vortex_radius:.0f})")
                     return ball_vx, ball_vy
             else:
-                # 회오리 밖에 있지만 추진력이 활성화되어 있으면 위의 코드에서 처리됨
+                # 회오리 충돌 범위 밖
+                print(f"🌊 [VORTEX] 충돌 범위 밖 - 효과 없음")
+                print(f"   - X축 밖: {not x_in_vortex}, Y축 밖: {not y_in_vortex}")
+                # 추진력이 활성화되어 있으면 위의 코드에서 이미 처리됨
                 pass
         
-        # 기존 물결 효과 (보조 효과)
-        if self.dash_wave_active:
+        # 기존 물결 효과는 회오리가 없을 때만 작동
+        # (회오리가 활성화되면 회오리가 모든 물 효과를 대체)
+        if self.dash_wave_active and not self.vortex_active:
+            print(f"💦 [DASH WAVE] 활성화 (회오리 없음)")
             # 플레이어가 발사한 공 (위로 향하는 공)은 영향받지 않음
             if ball_vy < 0:  # 공이 위로 향하고 있으면 (플레이어가 친 공)
+                print(f"💦 [DASH WAVE] 플레이어 공 무시 (vy={ball_vy:.1f} < 0)")
                 return ball_vx, ball_vy  # 물결 효과 무시
                 
             distance = math.sqrt((ball_x - paddle_x) ** 2 + (ball_y - paddle_y) ** 2)
             wave_radius = 50 + self.dash_wave_timer * 10
+            
+            print(f"💦 [DASH WAVE] 거리={distance:.0f}, 반경={wave_radius:.0f}")
             
             if distance < wave_radius and distance > 0:
                 push_x = (ball_x - paddle_x) / distance * self.dash_wave_force
                 push_y = (ball_y - paddle_y) / distance * self.dash_wave_force * 0.5
                 attenuation = 1 - (distance / wave_radius)
                 
-                return ball_vx + push_x * attenuation, ball_vy + push_y * attenuation
-                
+                new_vx = ball_vx + push_x * attenuation
+                new_vy = ball_vy + push_y * attenuation
+                print(f"💦 [DASH WAVE] 적용: ({ball_vx:.1f}, {ball_vy:.1f}) → ({new_vx:.1f}, {new_vy:.1f})")
+                return new_vx, new_vy
+            else:
+                print(f"💦 [DASH WAVE] 범위 밖 - 효과 없음")
+        
+        print(f"🔍 [apply_dash_wave_to_ball] 종료 - 원래 속도 반환")
         return ball_vx, ball_vy
         
     def update(self, dt: float, ui_mode: bool = False):
