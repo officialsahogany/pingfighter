@@ -565,8 +565,8 @@ class PoseidonTrident(LegendaryItem):
                     }
                     self.vortex_particles.append(particle)
             
-            # 회오리 종료 체크 (3초 후 - 테스트를 위해 증가)
-            if self.vortex_timer > 3.0:
+            # 회오리 종료 체크 (2초 후)
+            if self.vortex_timer > 2.0:
                 self.vortex_active = False
                 self.vortex_height = 0
                 self.vortex_particles.clear()
