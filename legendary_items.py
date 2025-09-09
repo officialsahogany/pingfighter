@@ -394,7 +394,7 @@ class PoseidonTrident(LegendaryItem):
     def apply_dash_wave_to_ball(self, ball_x: float, ball_y: float,
                                ball_vx: float, ball_vy: float,
                                paddle_x: float, paddle_y: float) -> Tuple[float, float]:
-        """거대한 물결 회오리가 공에 미치는 부드러운 물리 효과"""
+        """거대한 물결 회오리가 공에 미치는 굴절 효과 (Stage 4 자기장과 동일한 메커니즘)"""
         
         # 물 추진력이 남아있으면 계속 적용
         if self.water_momentum_active:
@@ -429,54 +429,91 @@ class PoseidonTrident(LegendaryItem):
                 if ball_vy > 0:  # 공이 아래로 향하고 있으면 (플레이어 -> 보스 방향)
                     return ball_vx, ball_vy  # 물 회오리 효과 무시
                 
-                # 공이 물에 들어왔을 때 - 부드러운 물리 효과
-                print(f"🌊 포세이돈의 물결이 공을 감쌉니다!")
+                # === Stage 4 굴절자기장과 동일한 메커니즘 적용 ===
+                # 회오리 중심과의 거리 계산
+                distance = math.sqrt((ball_x - self.vortex_x) ** 2 + 
+                                   (ball_y - (self.vortex_y - current_vortex_height/2)) ** 2)
                 
-                # 1. 부드러운 감속 효과 (물의 저항)
-                # 회오리 중심으로부터의 거리 계산
-                distance_from_center = abs(ball_x - self.vortex_x)
-                depth_factor = 1.0 - (distance_from_center / (self.vortex_width / 2 + 50))
+                # 회오리 반경
+                vortex_radius = self.vortex_width / 2 + 50
                 
-                # 물속 깊이에 따른 감속 (중심에 가까울수록 강함)
-                water_resistance = 0.7 + (0.25 * depth_factor)  # 0.7 ~ 0.95 사이의 감속
                 
-                # 현재 속도를 부드럽게 감속
-                new_vx = ball_vx * water_resistance
-                new_vy = ball_vy * water_resistance
-                
-                # 2. 물의 흐름에 따른 방향 전환 (보스 쪽으로)
-                # 회오리가 공을 위로 강력하게 밀어올리는 효과
-                upward_current = -20.0 * depth_factor  # 중심에 가까울수록 매우 강한 상승류 (기존 -8.0에서 증가)
-                new_vy += upward_current
-                
-                # 3. 나선형 회전 효과 (물의 소용돌이)
-                spin_effect = math.sin(self.vortex_timer * 5) * 3.0 * depth_factor
-                new_vx += spin_effect
-                
-                # 4. 점진적인 가속 (물에서 튕겨나가는 효과)
-                if new_vy < 0:  # 위로 향할 때만
-                    push_multiplier = 1.5 + (0.5 * depth_factor)  # 1.5 ~ 2.0배 가속 (기존 1.2~1.5에서 증가)
-                    new_vy *= push_multiplier
-                
-                # 5. 부드러운 좌우 흔들림
-                wave_motion = math.sin(self.vortex_timer * 8) * 2.0
-                new_vx += wave_motion
-                
-                # 속도 제한 (적절한 게임플레이를 위해)
-                max_speed = 35  # 강력한 상승을 위해 증가 (기존 25에서 35로)
-                speed = math.sqrt(new_vx ** 2 + new_vy ** 2)
-                if speed > max_speed:
-                    new_vx = new_vx / speed * max_speed
-                    new_vy = new_vy / speed * max_speed
-                
-                # 물 추진력 저장 (물에서 나온 후에도 지속)
-                if new_vy < -5:  # 상승 추진력이 충분히 클 때만
-                    self.water_momentum_active = True
-                    self.water_momentum_timer = 2.0  # 2초간 지속
-                    self.water_momentum_force_y = new_vy * 0.3  # 30%의 추진력 유지
-                    self.water_momentum_force_x = new_vx * 0.1  # 10%의 횡방향 추진력
-                
-                return new_vx, new_vy
+                if distance < vortex_radius:
+                    # 거리 기반 굴절 강도 계산 (중심에 가까울수록 강함)
+                    refraction_strength = 1.0 - (distance / vortex_radius)
+                    refraction_strength = refraction_strength ** 2  # 비선형 증가
+                    
+                    # 현재 속도 벡터의 각도와 속력
+                    current_angle = math.atan2(ball_vy, ball_vx)
+                    current_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
+                    
+                    # 목표 방향 계산 (플레이어 방향으로 굴절)
+                    # 플레이어 위치 추정 (화면 하단 중앙)
+                    player_x = 400  # 화면 중앙
+                    player_y = 550  # 화면 하단 근처
+                    
+                    # 플레이어 방향 벡터
+                    direction_to_player_x = player_x - ball_x
+                    direction_to_player_y = player_y - ball_y
+                    distance_to_player = math.sqrt(direction_to_player_x ** 2 + direction_to_player_y ** 2)
+                    
+                    if distance_to_player > 0:
+                        direction_to_player_x /= distance_to_player
+                        direction_to_player_y /= distance_to_player
+                    
+                    # 목표 각도
+                    target_angle = math.atan2(direction_to_player_y, direction_to_player_x)
+                    
+                    # 각도 차이 계산
+                    angle_diff = target_angle - current_angle
+                    # 각도를 -π ~ π 범위로 정규화
+                    while angle_diff > math.pi:
+                        angle_diff -= 2 * math.pi
+                    while angle_diff < -math.pi:
+                        angle_diff += 2 * math.pi
+                    
+                    # 굴절 적용 (최대 15도/프레임, Stage 4와 동일)
+                    max_refraction = 0.26  # 약 15도 in radians
+                    refraction_amount = angle_diff * refraction_strength * 0.15
+                    refraction_amount = max(-max_refraction, min(max_refraction, refraction_amount))
+                    
+                    # 새로운 각도 계산
+                    new_angle = current_angle + refraction_amount
+                    
+                    # 회전 효과 추가 (물 회오리 특성)
+                    spin_effect = math.sin(self.vortex_timer * 8) * 0.1 * refraction_strength
+                    new_angle += spin_effect
+                    
+                    # 속도 증폭 (물의 추진력)
+                    speed_boost = 1.0 + refraction_strength * 0.4  # 최대 40% 속도 증가
+                    new_speed = current_speed * speed_boost
+                    
+                    # 속도 상한
+                    max_speed = 33  # BALL_BASE_SPEED * 2.2 유사
+                    if new_speed > max_speed:
+                        new_speed = max_speed
+                    
+                    # 새로운 속도 벡터 계산
+                    new_vx = math.cos(new_angle) * new_speed
+                    new_vy = math.sin(new_angle) * new_speed
+                    
+                    # 상승 효과 추가 (물 회오리 특성)
+                    upward_boost = -8.0 * refraction_strength * (1 - self.vortex_timer / 2.0)
+                    new_vy += upward_boost
+                    
+                    # 물 추진력 저장 (물에서 나온 후에도 지속)
+                    if new_vy < -5:  # 상승 추진력이 충분히 클 때만
+                        self.water_momentum_active = True
+                        self.water_momentum_timer = 2.0  # 2초간 지속
+                        self.water_momentum_force_y = new_vy * 0.3  # 30%의 추진력 유지
+                        self.water_momentum_force_x = new_vx * 0.1  # 10%의 횡방향 추진력
+                    
+                    print(f"🌊 포세이돈 굴절: 강도={refraction_strength:.2f}, 각도변화={math.degrees(refraction_amount):.1f}°")
+                    
+                    return new_vx, new_vy
+                else:
+                    # 회오리 범위 밖
+                    return ball_vx, ball_vy
             else:
                 # 회오리 밖에 있지만 추진력이 활성화되어 있으면 위의 코드에서 처리됨
                 pass
