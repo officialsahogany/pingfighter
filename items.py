@@ -591,7 +591,7 @@ def reset_items():
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained
+    global ragnarok_hammer_obtained, poseidon_trident_obtained
     
     # 스폰 가능한 아이템 목록 생성
     available_items = []
