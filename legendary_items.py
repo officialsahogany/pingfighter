@@ -494,16 +494,16 @@ class PoseidonTrident(LegendaryItem):
             
             # 왼쪽 회오리 충돌 체크
             x_distance_left = abs(ball_x - self.vortex_left_x)
-            x_in_left_vortex = x_distance_left <= (self.vortex_width / 2)  # 범위를 넓게 설정
+            x_in_left_vortex = x_distance_left <= (self.vortex_width / 2 + 10)  # 범위를 더 넓게 설정 (+10픽셀)
             # Y축 체크: 회오리는 아래에서 위로 올라가므로, 공이 회오리 높이 범위 안에 있는지 체크
-            # 회오리 아래쪽(패들 위치)부터 위로 솟은 높이까지
-            y_in_left_vortex = (self.vortex_left_y - left_vortex_height) <= ball_y <= self.vortex_left_y + 50
+            # 회오리 아래쪽(패들 위치)부터 위로 솟은 높이까지 + 여유 공간
+            y_in_left_vortex = (self.vortex_left_y - left_vortex_height - 20) <= ball_y <= (self.vortex_left_y + 100)
             
             # 오른쪽 회오리 충돌 체크
             x_distance_right = abs(ball_x - self.vortex_right_x)
-            x_in_right_vortex = x_distance_right <= (self.vortex_width / 2)  # 범위를 넓게 설정
+            x_in_right_vortex = x_distance_right <= (self.vortex_width / 2 + 10)  # 범위를 더 넓게 설정 (+10픽셀)
             # Y축 체크: 회오리는 아래에서 위로 올라가므로, 공이 회오리 높이 범위 안에 있는지 체크
-            y_in_right_vortex = (self.vortex_right_y - right_vortex_height) <= ball_y <= self.vortex_right_y + 50
+            y_in_right_vortex = (self.vortex_right_y - right_vortex_height - 20) <= ball_y <= (self.vortex_right_y + 100)
             
             # 어느 쪽 회오리에든 들어갔는지 확인
             in_left = x_in_left_vortex and y_in_left_vortex
@@ -538,8 +538,8 @@ class PoseidonTrident(LegendaryItem):
             # 디버그: 충돌 체크 상태 (항상 출력)
             if pygame.time.get_ticks() % 100 < 16:  # 0.1초마다 한 번
                 print(f"🎯 [VORTEX CHECK] Ball=({ball_x:.0f},{ball_y:.0f}), vy={ball_vy:.1f}")
-                print(f"   왼쪽 회오리: 중심X={self.vortex_left_x:.0f}, Y범위=[{self.vortex_left_y - left_vortex_height:.0f} ~ {self.vortex_left_y + 50:.0f}]")
-                print(f"   오른쪽 회오리: 중심X={self.vortex_right_x:.0f}, Y범위=[{self.vortex_right_y - right_vortex_height:.0f} ~ {self.vortex_right_y + 50:.0f}]")
+                print(f"   왼쪽 회오리: 중심X={self.vortex_left_x:.0f}, Y범위=[{self.vortex_left_y - left_vortex_height - 20:.0f} ~ {self.vortex_left_y + 100:.0f}]")
+                print(f"   오른쪽 회오리: 중심X={self.vortex_right_x:.0f}, Y범위=[{self.vortex_right_y - right_vortex_height - 20:.0f} ~ {self.vortex_right_y + 100:.0f}]")
                 print(f"   왼쪽: X거리={x_distance_left:.0f}, X범위={x_in_left_vortex}, Y범위={y_in_left_vortex}, 충돌={in_left}")
                 print(f"   오른쪽: X거리={x_distance_right:.0f}, X범위={x_in_right_vortex}, Y범위={y_in_right_vortex}, 충돌={in_right}")
                 if in_left:
@@ -566,12 +566,19 @@ class PoseidonTrident(LegendaryItem):
                 
                 # === Stage 4 굴절자기장과 동일한 메커니즘 적용 ===
                 # 회오리 중심과의 거리 계산
-                distance = math.sqrt((ball_x - vortex_x) ** 2 + 
-                                   (ball_y - (vortex_y - current_vortex_height/2)) ** 2)
+                # 회오리는 패들 위치에서 위로 솟아오르므로, Y축 거리는 회오리 범위 내에서만 계산
+                vortex_center_y = vortex_y - current_vortex_height/2  # 회오리의 실제 중심
+                # 공이 회오리 Y 범위 내에 있으면 Y축 거리는 0으로 처리
+                if vortex_y - current_vortex_height <= ball_y <= vortex_y:
+                    y_distance = 0  # 회오리 Y 범위 내에 있음
+                else:
+                    y_distance = abs(ball_y - vortex_center_y)
                 
-                # 회오리 반경 (시각적 효과보다 약간 작게 설정)
-                # 시각 효과는 실제 충돌 범위보다 크게 보이므로 충돌 범위를 약간 줄임
-                vortex_radius = min(self.vortex_width / 2 - 20, 80)  # 최대 반경 80, 시각 효과보다 20픽셀 작게
+                distance = math.sqrt((ball_x - vortex_x) ** 2 + y_distance ** 2)
+                
+                # 회오리 반경 (충돌 범위를 더 크게 설정)
+                # 시각 효과와 동일하게 설정하여 보이는 대로 작동하도록 함
+                vortex_radius = min(self.vortex_width / 2, 100)  # 최대 반경 100
                 
                 
                 print(f"   - 거리: {distance:.1f}, 반경: {vortex_radius:.1f}")
@@ -584,8 +591,8 @@ class PoseidonTrident(LegendaryItem):
                     
                     # 거리 기반 굴절 강도 계산 (중심에 가까울수록 강함)
                     refraction_strength = 1.0 - (distance / vortex_radius)
-                    # 굴절 강도 대폭 증가 (최소 0.5 보장)
-                    refraction_strength = max(0.5, refraction_strength)  # 최소 50% 강도 보장
+                    # 굴절 강도 대폭 증가 (최소 0.7 보장)
+                    refraction_strength = max(0.7, refraction_strength)  # 최소 70% 강도 보장
                     
                     print(f"   - 굴절 강도: {refraction_strength:.3f}")
                     print(f"   - 원래 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}")
@@ -718,7 +725,7 @@ class PoseidonTrident(LegendaryItem):
                         new_vy = -reflected_speed * 0.9  # 90% 반사 (강력한 반사)
                         
                         # 3. 추가 추진력 (물 회오리의 밀어내는 힘)
-                        push_force = -3.0 * vertical_progress  # 중심에 가까울수록 강한 추진
+                        push_force = -5.0 * vertical_progress  # 중심에 가까울수록 강한 추진 (3.0 -> 5.0 증가)
                         new_vy += push_force
                         
                         print(f"   🚀 가속 반사: 진행도={vertical_progress:.2f}, 가속비={acceleration_factor:.2f}")
@@ -731,6 +738,17 @@ class PoseidonTrident(LegendaryItem):
                             new_vy = max_reflect_speed
                         
                         print(f"   - 최종 Y속도: {new_vy:.1f}")
+                        
+                        # 디버그: 공 굴절 성공 알림
+                        print(f"")
+                        print(f"=" * 60)
+                        print(f"⚡⚡⚡ 회오리가 보스 공을 성공적으로 튕겨냈습니다! ⚡⚡⚡")
+                        print(f"   원래 속도: ({ball_vx:.1f}, {ball_vy:.1f})")
+                        print(f"   변경 속도: ({new_vx:.1f}, {new_vy:.1f})")
+                        print(f"   굴절각도: {math.degrees(math.atan2(new_vy, new_vx)):.1f}도")
+                        print(f"   회오리 위치: {vortex_side}")
+                        print(f"=" * 60)
+                        print(f"")
                     else:
                         # 플레이어가 친 공은 기존 상승 효과
                         upward_boost = -8.0 * refraction_strength * (1 - self.vortex_timer / 2.0)
