@@ -288,15 +288,28 @@ class PoseidonTrident(LegendaryItem):
         self.load_animation_frames()
         
     def load_animation_frames(self):
-        """애니메이션 프레임 로드"""
-        for i in range(8):  # 8프레임 애니메이션
+        """애니메이션 프레임 로드 - 라그나로크 해머와 동일한 프레임 사용"""
+        import pygame
+        import os
+        
+        # 라그나로크 해머의 프레임을 그대로 사용 (8개 프레임)
+        frames_loaded = 0
+        for i in range(8):
+            # 라그나로크 해머 프레임 경로 사용
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
             try:
-                frame_path = resource_path(f"items/legendary/poseidon_trident_frame_{i}.png")
                 frame = pygame.image.load(frame_path).convert_alpha()
                 self.icon_frames.append(frame)
-            except:
-                # 프레임 로드 실패 시 기본 아이콘 사용
-                pass
+                frames_loaded += 1
+                print(f"✓ 포세이돈 프레임 {i} 로드 성공 (라그나로크 프레임 사용): {frame_path}")
+            except Exception as e:
+                print(f"✗ 포세이돈 프레임 {i} 로드 실패: {frame_path} - {e}")
+        
+        print(f"포세이돈의 삼지창 프레임 {frames_loaded}/8개 로드 (라그나로크 프레임 복사)")
+        
+        # 프레임이 없으면 에러만 표시
+        if not self.icon_frames:
+            print(f"❌ 포세이돈의 삼지창: PNG 프레임을 찾을 수 없습니다!")
                 
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         """스테이지 7 클리어 체크"""
@@ -918,19 +931,19 @@ class PoseidonTrident(LegendaryItem):
                     screen.blit(water_surf, (particle["x"] - size, particle["y"] - size))
             
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기"""
+        """애니메이션 아이콘 그리기 - 라그나로크 해머와 완전 동일 (색상만 다름)"""
         import pygame
         import math
         
-        # 포세이돈의 삼지창도 라그나로크 해머와 동일한 글로우 설정
-        self.trident_glow_multiplier = 1.8  # 라그나로크 해머와 완전 동일
+        # 포세이돈도 라그나로크와 동일한 글로우 설정
+        self.trident_glow_multiplier = 1.8  # 헤르메스보다 더 큰 글로우
         
-        # 글로우 효과 (라그나로크 해머와 완전 동일한 구조, 색상만 푸른색)
+        # 글로우 효과 (포세이돈은 푸른색 테마)
         glow_size = int(size * (self.trident_glow_multiplier + self.glow_intensity * 0.15))
         glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
         for i in range(5):  # 더 많은 레이어로 강렬한 효과
             alpha = 80 - i * 12  # 더 진한 글로우
-            pygame.draw.circle(glow_surf, (0, 150, 255, alpha),  # 푸른색으로 변경
+            pygame.draw.circle(glow_surf, (0, 150, 255, alpha),  # 푸른색
                              (glow_size//2, glow_size//2), 
                              glow_size//2 - i * 4)  # 더 촘촘한 간격
         screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
@@ -961,7 +974,7 @@ class PoseidonTrident(LegendaryItem):
             pygame.draw.circle(screen, (0, 150, 255), (cx, cy), 3)  # 푸른색
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
         
-        # 애니메이션 프레임 그리기
+        # 애니메이션 프레임 그리기 (라그나로크 해머와 동일한 프레임 사용)
         if self.icon_frames and len(self.icon_frames) > 0:
             # 프레임 업데이트 (항상 진행)
             self.frame_counter += 1
@@ -975,10 +988,10 @@ class PoseidonTrident(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
             
-            # 물결 효과 추가 (프레임 0, 4에서) - 라그나로크는 번개
+            # 물결 효과 추가 (프레임 0, 4에서)
             if self.current_frame in [0, 4]:
-                # 작은 물결 이펙트
-                wave_color = (150, 200, 255)
+                # 작은 물결 이펙트 (포세이돈 버전)
+                wave_color = (150, 200, 255)  # 하늘색
                 pygame.draw.line(screen, wave_color, 
                                (x + size//4, y - 5), 
                                (x + size//3, y + size//4), 2)
