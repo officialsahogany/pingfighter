@@ -35190,7 +35190,7 @@ def show_surrender_confirm():
         SCREEN.blit(overlay, (0, 0))
         # 기권 메시지
         message_text = font_large.render("기권하시겠습니까?", True, WHITE)
-        meㄱssage_rect = message_text.get_rect(center=(center_x, start_y - 80))
+        message_rect = message_text.get_rect(center=(center_x, start_y - 80))
         SCREEN.blit(message_text, message_rect)
         warning_text = font_medium.render(f"획득한 메달의 50%만 받을 수 있습니다", True, (255, 200, 200))
         warning_rect = warning_text.get_rect(center=(center_x, start_y - 40))

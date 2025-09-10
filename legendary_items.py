@@ -281,6 +281,7 @@ class PoseidonTrident(LegendaryItem):
         
         # 애니메이션용 아이콘 프레임들
         self.icon_frames = []
+        self.animation_frames = []  # legendary_acquisition에서 사용하는 속성
         self.current_frame = 0
         self.frame_timer = 0
         self.frame_counter = 0  # 프레임 카운터 추가
@@ -299,6 +300,7 @@ class PoseidonTrident(LegendaryItem):
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
                 self.icon_frames.append(frame)
+                self.animation_frames.append(frame)  # legendary_acquisition에서 사용
                 frames_loaded += 1
                 print(f"✓ 포세이돈 삼지창 프레임 {i} 로드 성공")
             except Exception as e:
@@ -316,9 +318,17 @@ class PoseidonTrident(LegendaryItem):
         
     def activate(self, game_state: Dict):
         """삼지창 활성화"""
+        print(f"🔱 [BEFORE] PoseidonTrident.activate 호출, self.active = {self.active}")
         super().activate(game_state)  # 부모 클래스의 activate 호출 (self.active = True 설정)
         self.wave_timer = 0
-        print(f"🔱 {self.korean_name} 활성화! 물의 파동이 공을 조작합니다!")
+        print(f"🔱 [AFTER] {self.korean_name} 활성화!")
+        print(f"   - self.active = {self.active}")
+        print(f"   - 물의 파동이 공을 조작합니다!")
+        
+        # 강제로 active 확인
+        if not self.active:
+            print(f"⚠️ WARNING: self.active가 False입니다! 강제로 True로 설정합니다.")
+            self.active = True
             
     def deactivate(self):
         """삼지창 비활성화"""
@@ -370,7 +380,9 @@ class PoseidonTrident(LegendaryItem):
         
     def trigger_dash_wave(self, paddle_x: float, paddle_y: float, direction: int = 0):
         """대시 후 통제불능 시 양쪽에 거대한 물결 회오리 발동"""
-        print(f"🔍 트리거 호출됨 - self.active: {self.active}")
+        print(f"🔱 [trigger_dash_wave] 호출됨!")
+        print(f"   - self.active: {self.active}")
+        print(f"   - paddle_pos: ({paddle_x:.0f}, {paddle_y:.0f})")
         if not self.active:
             print(f"⚠️ 포세이돈 삼지창이 비활성화 상태입니다!")
             return
@@ -783,6 +795,14 @@ class PoseidonTrident(LegendaryItem):
             dt: 델타 타임
             ui_mode: UI 모드 여부 (True면 게임플레이 효과 비활성화)
         """
+        # 디버그: 업데이트 호출 확인
+        if not hasattr(self, '_update_debug_counter'):
+            self._update_debug_counter = 0
+        self._update_debug_counter += 1
+        
+        if self._update_debug_counter <= 3:
+            print(f"🔱 PoseidonTrident.update 호출: dt={dt:.4f}, ui_mode={ui_mode}, active={self.active}")
+        
         # 부모 클래스의 update 호출 (animation_offset 업데이트 포함)
         super().update(dt, ui_mode)
         
@@ -793,11 +813,15 @@ class PoseidonTrident(LegendaryItem):
                 self.frame_counter = 0
                 self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
         
-        if not self.active and not ui_mode:
+        if not self.active:
+            if self._update_debug_counter <= 3:
+                print(f"🔱 PoseidonTrident.update: active=False, 리턴")
             return
             
-        # UI 모드에서는 게임플레이 효과 스킵
+        # UI 모드에서는 아이콘 애니메이션만 업데이트하고 게임플레이 효과는 스킵
         if ui_mode:
+            if self._update_debug_counter <= 3:
+                print(f"🔱 PoseidonTrident.update: ui_mode=True, 게임플레이 효과 스킵")
             return
             
         # 물결 타이머 (게임플레이에서만)
@@ -806,6 +830,10 @@ class PoseidonTrident(LegendaryItem):
         # 거대한 회오리 업데이트 (게임플레이에서만) - 양쪽 회오리
         if self.vortex_active:
             self.vortex_timer += dt
+            
+            # 디버그: 첫 프레임에만 출력
+            if self.vortex_timer < 0.02:
+                print(f"🌀 Vortex active! dt={dt:.4f}, particles={len(self.vortex_particles)}")
             
             # 왼쪽 회오리 높이 급속 확장 (용솟음치는 효과)
             if self.vortex_left_height < self.vortex_max_height:
@@ -823,9 +851,16 @@ class PoseidonTrident(LegendaryItem):
             self.vortex_spin_speed += dt * 10
             
             # 회오리 파티클 업데이트 - 각 회오리별로 처리
+            particle_count = 0
             for particle in self.vortex_particles[:]:
-                # 나선형 움직임
-                particle["spiral_angle"] += dt * 5
+                particle_count += 1
+                # 나선형 움직임 (dt를 프레임 단위로 변환: dt * 60 = 1프레임)
+                old_angle = particle["spiral_angle"]
+                particle["spiral_angle"] += dt * 60 * 0.3  # 프레임당 0.3 라디안 회전
+                
+                # 첫 번째 파티클의 움직임 디버그
+                if particle_count == 1 and int(self.vortex_timer * 10) != int((self.vortex_timer - dt) * 10):
+                    print(f"🔄 Particle 1: angle {old_angle:.2f} → {particle['spiral_angle']:.2f}, y={particle['y']:.0f}")
                 
                 # 파티클이 어느 회오리에 속하는지에 따라 중심 결정
                 if "vortex_side" in particle:
@@ -841,10 +876,10 @@ class PoseidonTrident(LegendaryItem):
                     center_y = self.vortex_left_y
                 
                 particle["x"] = center_x + math.cos(particle["spiral_angle"]) * particle["spiral_radius"]
-                particle["y"] -= dt * 200  # 위로 상승
+                particle["y"] -= dt * 60 * 3.5  # 프레임당 3.5픽셀 위로 상승
                 
-                particle["spiral_radius"] += dt * 30  # 반경 확대
-                particle["life"] -= dt * 60
+                particle["spiral_radius"] += dt * 60 * 0.5  # 프레임당 0.5픽셀 반경 확대
+                particle["life"] -= dt * 60  # 프레임당 1씩 감소
                 
                 if particle["life"] <= 0:
                     self.vortex_particles.remove(particle)
@@ -906,6 +941,9 @@ class PoseidonTrident(LegendaryItem):
             
         # 거대한 회오리 그리기
         if self.vortex_active:
+            # 디버그 출력 추가
+            if len(self.vortex_particles) > 0:
+                print(f"🌊 Drawing {len(self.vortex_particles)} particles, timer: {self.vortex_timer:.2f}")
             # 물기둥 효과 제거 - 파티클만 표시
             # 두 회오리 중 더 높은 것 사용 (시각적 효과용)
             current_height = int(min(max(self.vortex_left_height, self.vortex_right_height), self.vortex_max_height))
@@ -1634,11 +1672,33 @@ class LegendaryItemManager:
             if name in self.active_items:
                 self.active_items.remove(name)
                 
-    def update(self, dt: float):
-        """모든 활성 아이템 업데이트"""
+    def update(self, dt: float, ui_mode: bool = False):
+        """모든 활성 아이템 업데이트
+        Args:
+            dt: 델타 타임
+            ui_mode: UI 모드 여부 (True면 게임플레이 효과 비활성화)
+        """
+        # 디버그: 첫 프레임에만 출력
+        if hasattr(self, '_debug_counter'):
+            self._debug_counter += 1
+        else:
+            self._debug_counter = 0
+            
+        if self._debug_counter == 1:
+            print(f"🔍 LegendaryManager.update: active_items={self.active_items}, ui_mode={ui_mode}")
+            
         for name in self.active_items:
             if name in self.items:
-                self.items[name].update(dt)
+                # PoseidonTrident는 ui_mode 파라미터를 받음
+                if name == "poseidon_trident":
+                    self.items[name].update(dt, ui_mode)
+                else:
+                    # 다른 아이템들도 ui_mode를 받을 수 있도록 처리
+                    try:
+                        self.items[name].update(dt, ui_mode)
+                    except TypeError:
+                        # ui_mode 파라미터를 받지 않는 아이템은 dt만 전달
+                        self.items[name].update(dt)
                 
     def draw_active_items(self, screen: pygame.Surface, x: int, y: int):
         """활성 아이템 표시"""
