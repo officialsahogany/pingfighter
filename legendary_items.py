@@ -611,7 +611,7 @@ class PoseidonTrident(LegendaryItem):
                     # 공이 들어와서 천천히 감속했다가 다시 가속하며 반사
                     if ball_vy > 0:  # 보스가 친 공
                         # 회오리 중심까지의 수직 거리 비율 계산 (0: 진입, 1: 중심)
-                        vertical_progress = 1.0 - ((ball_y - (self.vortex_y - current_vortex_height)) / current_vortex_height)
+                        vertical_progress = 1.0 - ((ball_y - (vortex_y - current_vortex_height)) / current_vortex_height)
                         vertical_progress = max(0.0, min(1.0, vertical_progress))  # 0~1 범위로 제한
                         
                         # 포물선 곡선: 처음엔 빠르게 감속, 중간에 최저점, 이후 가속
@@ -880,7 +880,8 @@ class PoseidonTrident(LegendaryItem):
         # 거대한 회오리 그리기
         if self.vortex_active:
             # 물기둥 효과 제거 - 파티클만 표시
-            current_height = int(min(self.vortex_height, self.vortex_max_height))
+            # 두 회오리 중 더 높은 것 사용 (시각적 효과용)
+            current_height = int(min(max(self.vortex_left_height, self.vortex_right_height), self.vortex_max_height))
             # 시각 효과는 제거하고 물리 효과만 유지
             
             # 회오리 파티클 그리기
