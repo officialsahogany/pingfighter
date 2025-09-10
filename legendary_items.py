@@ -301,10 +301,9 @@ class PoseidonTrident(LegendaryItem):
             # 애니메이션 진행도 (0.0 ~ 1.0)
             progress = i / 8.0
             
-            # 배경 에너지 필드는 그리지 않음 (draw_icon에서 처리)
-            # 아이콘 내부만 그림
-            
-            # 회전하는 에너지 라인도 제거 (테두리와 충돌 방지)
+            # 내부 빨간색 테두리 (라그나로크 해머와 동일)
+            border_color = (255, 0, 0, 255)  # 빨간색
+            pygame.draw.rect(frame, border_color, (2, 2, 60, 60), 2)  # 내부 테두리
             
             # 포세이돈의 삼지창 그리기 (중앙에)
             # 삼지창 색상 - 바다의 푸른색과 금속 실버
