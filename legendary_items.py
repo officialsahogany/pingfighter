@@ -1070,9 +1070,14 @@ class PoseidonTrident(LegendaryItem):
             self._spawn_particle(screen, x + size//2, y + size//2)
             self.particle_timer = 0
     
-    def update(self, dt: float):
-        """애니메이션 업데이트 - 프레임 카운터 업데이트 포함"""
-        super().update(dt)  # 부모 클래스의 update 호출 (animation_offset 등 업데이트)
+    def update(self, dt: float, ui_mode: bool = False):
+        """애니메이션 업데이트 - 프레임 카운터 업데이트 포함
+        
+        Args:
+            dt: 델타 타임
+            ui_mode: UI 모드 여부 (True면 게임플레이 효과 비활성화)
+        """
+        super().update(dt, ui_mode)  # 부모 클래스의 update 호출 (animation_offset 등 업데이트)
         
         # 애니메이션 프레임 카운터 업데이트
         if self.icon_frames and len(self.icon_frames) > 1:
@@ -1080,6 +1085,100 @@ class PoseidonTrident(LegendaryItem):
             if self.frame_counter >= self.animation_speed:
                 self.frame_counter = 0
                 self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
+        
+        # 회오리 애니메이션 업데이트 (ui_mode가 아닐 때만)
+        if not ui_mode and self.vortex_active:
+            # 타이머 업데이트 
+            self.vortex_timer += dt * 60  # 60fps 기준으로 변환
+            
+            # 회오리 성장 단계 (0.5초 동안 성장)
+            if self.vortex_timer < 30:  # 0.5초 * 60fps = 30 프레임
+                growth_rate = self.vortex_timer / 30
+                self.vortex_left_height = self.vortex_max_height * growth_rate
+                self.vortex_right_height = self.vortex_max_height * growth_rate
+                self.vortex_spin_speed = 10 * growth_rate
+            # 회오리 유지 단계 (2초 동안 유지)
+            elif self.vortex_timer < 150:  # 2.5초 * 60fps = 150 프레임
+                self.vortex_left_height = self.vortex_max_height
+                self.vortex_right_height = self.vortex_max_height
+                self.vortex_spin_speed = 10
+            # 회오리 소멸 단계 (0.5초 동안 소멸)
+            elif self.vortex_timer < 180:  # 3초 * 60fps = 180 프레임
+                fade_rate = 1 - (self.vortex_timer - 150) / 30
+                self.vortex_left_height = self.vortex_max_height * fade_rate
+                self.vortex_right_height = self.vortex_max_height * fade_rate
+                self.vortex_spin_speed = 10 * fade_rate
+            else:
+                # 회오리 종료
+                self.vortex_active = False
+                self.vortex_left_height = 0
+                self.vortex_right_height = 0
+                self.vortex_particles.clear()
+            
+            # 파티클 업데이트
+            for particle in self.vortex_particles[:]:
+                particle["life"] -= 1
+                if particle["life"] <= 0:
+                    self.vortex_particles.remove(particle)
+                    continue
+                
+                # 회오리 회전 움직임
+                if "vortex_side" in particle:
+                    if particle["vortex_side"] == "left":
+                        center_x = self.vortex_left_x
+                        center_y = self.vortex_left_y
+                    else:
+                        center_x = self.vortex_right_x
+                        center_y = self.vortex_right_y
+                    
+                    # 나선형 움직임
+                    particle["spiral_angle"] += self.vortex_spin_speed * 0.1
+                    particle["spiral_radius"] *= 0.98  # 서서히 중심으로
+                    particle["x"] = center_x + math.cos(particle["spiral_angle"]) * particle["spiral_radius"]
+                    particle["y"] -= 3  # 위로 상승
+                    
+                    # 크기 감소
+                    particle["size"] *= 0.98
+                
+            # 새 파티클 추가 (회오리가 활성화된 동안)
+            if self.vortex_timer < 150 and len(self.vortex_particles) < 100:
+                # 왼쪽 회오리 파티클
+                for _ in range(2):
+                    angle = random.uniform(0, math.pi * 2)
+                    particle = {
+                        "x": self.vortex_left_x + math.cos(angle) * random.uniform(10, 50),
+                        "y": self.vortex_left_y + random.uniform(-20, 20),
+                        "vx": math.cos(angle) * random.uniform(1, 3),
+                        "vy": random.uniform(-5, -2),
+                        "life": random.randint(30, 60),
+                        "color": (50, 150 + random.randint(0, 100), 255),
+                        "size": random.uniform(3, 8),
+                        "spiral_angle": angle,
+                        "spiral_radius": random.uniform(20, 60),
+                        "vortex_side": "left"
+                    }
+                    self.vortex_particles.append(particle)
+                
+                # 오른쪽 회오리 파티클
+                for _ in range(2):
+                    angle = random.uniform(0, math.pi * 2)
+                    particle = {
+                        "x": self.vortex_right_x + math.cos(angle) * random.uniform(10, 50),
+                        "y": self.vortex_right_y + random.uniform(-20, 20),
+                        "vx": math.cos(angle) * random.uniform(1, 3),
+                        "vy": random.uniform(-5, -2),
+                        "life": random.randint(30, 60),
+                        "color": (50, 150 + random.randint(0, 100), 255),
+                        "size": random.uniform(3, 8),
+                        "spiral_angle": angle,
+                        "spiral_radius": random.uniform(20, 60),
+                        "vortex_side": "right"
+                    }
+                    self.vortex_particles.append(particle)
+        
+        # 물결 타이머 업데이트
+        if self.active and not ui_mode:
+            self.wave_timer += dt * 60
 
 
 class HermesShoes(LegendaryItem):
