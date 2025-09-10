@@ -784,11 +784,13 @@ class PoseidonTrident(LegendaryItem):
             dt: 델타 타임
             ui_mode: UI 모드 여부 (True면 게임플레이 효과 비활성화)
         """
+        # 부모 클래스의 update 호출 (animation_offset 업데이트 포함)
+        super().update(dt, ui_mode)
+        
         if not self.active and not ui_mode:
             return
             
         # 애니메이션 업데이트 (UI 모드에서도 동작)
-        self.animation_time += dt
         self.frame_timer += dt
         
         # 프레임 전환 (8fps)
