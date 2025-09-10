@@ -1031,14 +1031,14 @@ class PoseidonTrident(LegendaryItem):
                     screen.blit(water_surf, (particle["x"] - size, particle["y"] - size))
             
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 라그나로크 해머와 완전 동일"""
+        """애니메이션 아이콘 그리기 - 헤르메스의 신발과 완전 동일"""
         import pygame
         import math
         
-        # 포세이돈도 라그나로크와 동일한 글로우 설정
-        self.trident_glow_multiplier = 1.8  # 라그나로크와 동일한 글로우
+        # 헤르메스와 동일한 글로우 설정
+        self.trident_glow_multiplier = 1.8  # 헤르메스와 동일한 글로우 크기
         
-        # 글로우 효과 (라그나로크 해머와 완전히 동일)
+        # 글로우 효과 (헤르메스의 신발과 완전히 동일하게)
         glow_size = int(size * (self.trident_glow_multiplier + self.glow_intensity * 0.15))
         glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
         for i in range(5):  # 더 많은 레이어로 강렬한 효과
@@ -1048,12 +1048,12 @@ class PoseidonTrident(LegendaryItem):
                              glow_size//2 - i * 4)  # 더 촘촘한 간격
         screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
         
-        # 붉은색 테두리 (펄싱 효과 - 더 두껍게) - 라그나로크와 완전 동일
+        # 붉은색 테두리 (펄싱 효과 - 더 두껍게)
         border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
         border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
         pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)
         
-        # 꼭지점 디테일 (코너 장식) - 라그나로크와 동일
+        # 꼭지점 디테일 (코너 장식)
         corner_size = 8  # 더 큰 코너
         corner_color = (255, 215, 0)  # 황금색 (신의 무기)
         # 왼쪽 위
@@ -1069,9 +1069,9 @@ class PoseidonTrident(LegendaryItem):
         pygame.draw.lines(screen, corner_color, False,
                          [(x+size-corner_size+2, y+size+2), (x+size+2, y+size+2), (x+size+2, y+size-corner_size+2)], 2)
         
-        # 코너 점 장식 (더 화려하게) - 라그나로크와 동일
+        # 코너 점 장식 (더 화려하게)
         for cx, cy in [(x, y), (x+size, y), (x, y+size), (x+size, y+size)]:
-            pygame.draw.circle(screen, LEGENDARY_COLOR, (cx, cy), 3)  # 빨간색
+            pygame.draw.circle(screen, LEGENDARY_COLOR, (cx, cy), 3)
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
         
         # 애니메이션 프레임 그리기 (라그나로크 해머와 동일한 프레임 사용)
