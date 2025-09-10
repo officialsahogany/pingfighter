@@ -480,6 +480,7 @@ technical_vest_obtained = False  # 테크니컬조끼 아이템 획득 여부
 # 전설 아이템 획득 여부
 ragnarok_hammer_obtained = False  # 라그나로크 해머 획득 여부
 hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
+poseidon_trident_obtained = False  # 포세이돈의 삼지창 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 
 
@@ -583,11 +584,8 @@ def reset_items():
     commando_arm_obtained = False  # commando_arm 획득 상태 초기화
     technical_vest_obtained = False  # technical_vest 획득 상태 초기화
     
-    # 전설 아이템 획득 상태 초기화
-    global ragnarok_hammer_obtained, hermes_shoes_obtained, poseidon_trident_obtained
-    ragnarok_hammer_obtained = False
-    hermes_shoes_obtained = False
-    poseidon_trident_obtained = False
+    # 전설 아이템 획득 상태는 게임 세션 동안 유지되므로 초기화하지 않음
+    # (한 번 획득한 전설 아이템은 더 이상 필드에 나타나지 않도록 함)
 
 
 # 아이템 생성
