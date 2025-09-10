@@ -301,24 +301,10 @@ class PoseidonTrident(LegendaryItem):
             # 애니메이션 진행도 (0.0 ~ 1.0)
             progress = i / 8.0
             
-            # 배경 에너지 필드 (라그나로크와 동일)
-            energy_alpha = 30 + int(20 * math.sin(progress * math.pi * 2))
-            for ring in range(3):
-                ring_size = 50 - ring * 8
-                ring_alpha = energy_alpha - ring * 10
-                if ring_alpha > 0:
-                    pygame.draw.circle(frame, (255, 50, 50, ring_alpha), (32, 32), ring_size)
+            # 배경 에너지 필드는 그리지 않음 (draw_icon에서 처리)
+            # 아이콘 내부만 그림
             
-            # 회전하는 에너지 라인 (라그나로크와 동일)
-            angle = progress * 360
-            for j in range(4):
-                line_angle = math.radians(angle + j * 90)
-                start_x = 32 + int(math.cos(line_angle) * 10)
-                start_y = 32 + int(math.sin(line_angle) * 10)
-                end_x = 32 + int(math.cos(line_angle) * 25)
-                end_y = 32 + int(math.sin(line_angle) * 25)
-                pygame.draw.line(frame, (255, 100, 100, 50), 
-                               (start_x, start_y), (end_x, end_y), 2)
+            # 회전하는 에너지 라인도 제거 (테두리와 충돌 방지)
             
             # 포세이돈의 삼지창 그리기 (중앙에)
             # 삼지창 색상 - 바다의 푸른색과 금속 실버
