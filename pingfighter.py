@@ -7348,6 +7348,8 @@ def store_passive_item(item_data):
             items.poseidon_trident_obtained = True
             # 전설 아이템 타입 설정
             item_data["type"] = "legendary"
+            # 패시브 아이템 리스트에 추가
+            passive_item_list.append(item_data)
             legendary_manager = get_legendary_manager()
             legendary_manager.activate_item("poseidon_trident", {})
             # 전설 아이템 획득 애니메이션 트리거
@@ -22314,6 +22316,26 @@ def get_item_icon(item_name):
                         # 해머 손잡이
                         pygame.draw.rect(icon_surface, hammer_color,
                                        (ICON_SIZE*2//5, ICON_SIZE//3, ICON_SIZE//5, ICON_SIZE*2//3))
+                elif item_name == "poseidon_trident":
+                    # 포세이돈의 삼지창 정적 아이콘 (현재 프레임 사용)
+                    if hasattr(legendary_item, 'icon_frames') and legendary_item.icon_frames:
+                        frame = legendary_item.icon_frames[0]  # 첫 프레임 사용
+                        scaled_frame = pygame.transform.scale(frame, (ICON_SIZE, ICON_SIZE))
+                        icon_surface.blit(scaled_frame, (0, 0))
+                    else:
+                        # 기본 삼지창 아이콘 그리기
+                        ocean_color = (0, 150, 255)  # 바다색
+                        # 삼지창 모양
+                        center_x = ICON_SIZE // 2
+                        # 중앙 창
+                        pygame.draw.line(icon_surface, ocean_color, 
+                                       (center_x, ICON_SIZE - 10), (center_x, 10), 3)
+                        # 왼쪽 창
+                        pygame.draw.line(icon_surface, ocean_color,
+                                       (center_x - 10, 15), (center_x, 10), 3)
+                        # 오른쪽 창
+                        pygame.draw.line(icon_surface, ocean_color,
+                                       (center_x + 10, 15), (center_x, 10), 3)
                 
                 icon_cache[item_name] = icon_surface
                 return icon_surface
