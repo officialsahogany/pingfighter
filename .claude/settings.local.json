@@ -176,7 +176,8 @@
       "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_lzkvSQ/**)",
       "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_eUtNsk/**)",
       "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_ZQr1fJ/**)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_Ie7nMe/**)"
     ],
     "defaultMode": "acceptEdits"
   }

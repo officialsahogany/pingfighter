@@ -288,59 +288,77 @@ class PoseidonTrident(LegendaryItem):
         self.load_animation_frames()
         
     def load_animation_frames(self):
-        """애니메이션 프레임 로드 - 삼지창 모양으로 커스텀 생성"""
+        """애니메이션 프레임 로드 - PNG 파일 우선, 없으면 커스텀 생성"""
         import pygame
         import os
         import math
         
-        # 8개 프레임 생성 (라그나로크와 동일한 애니메이션 프레임 수)
+        # PNG 파일 로드 시도 (라그나로크 해머와 동일한 방식)
+        frames_loaded = 0
         for i in range(8):
-            # 각 프레임마다 새로운 Surface 생성
-            frame = pygame.Surface((64, 64), pygame.SRCALPHA)
+            frame_path = resource_path(f"items/legendary/poseidon_trident_frame_{i}.png")
+            try:
+                frame = pygame.image.load(frame_path).convert_alpha()
+                self.icon_frames.append(frame)
+                frames_loaded += 1
+                print(f"✓ 포세이돈 삼지창 프레임 {i} 로드 성공")
+            except Exception as e:
+                print(f"✗ 프레임 {i} 로드 실패: {frame_path} - {e}")
+        
+        # PNG 파일이 없으면 커스텀 그림 생성
+        if frames_loaded < 8:
+            print(f"포세이돈 삼지창: PNG 프레임 {frames_loaded}/8개만 로드, 나머지는 커스텀 생성")
+            self.icon_frames.clear()  # 부분 로드된 프레임 클리어
             
-            # 애니메이션 진행도 (0.0 ~ 1.0)
-            progress = i / 8.0
+        # 8개 프레임 생성 (PNG가 없을 때만)
+        if not self.icon_frames:
+            for i in range(8):
+                # 각 프레임마다 새로운 Surface 생성
+                frame = pygame.Surface((64, 64), pygame.SRCALPHA)
+                
+                # 애니메이션 진행도 (0.0 ~ 1.0)
+                progress = i / 8.0
+                
+                # 배경 에너지 필드 (라그나로크와 동일)
+                energy_alpha = 30 + int(20 * math.sin(progress * math.pi * 2))
+                for ring in range(3):
+                    ring_size = 50 - ring * 8
+                    ring_alpha = energy_alpha - ring * 10
+                    if ring_alpha > 0:
+                        pygame.draw.circle(frame, (255, 50, 50, ring_alpha), (32, 32), ring_size)
             
-            # 배경 에너지 필드 (라그나로크와 동일)
-            energy_alpha = 30 + int(20 * math.sin(progress * math.pi * 2))
-            for ring in range(3):
-                ring_size = 50 - ring * 8
-                ring_alpha = energy_alpha - ring * 10
-                if ring_alpha > 0:
-                    pygame.draw.circle(frame, (255, 50, 50, ring_alpha), (32, 32), ring_size)
+                # 회전하는 에너지 라인 (라그나로크와 동일)
+                angle = progress * 360
+                for j in range(4):
+                    line_angle = math.radians(angle + j * 90)
+                    start_x = 32 + int(math.cos(line_angle) * 10)
+                    start_y = 32 + int(math.sin(line_angle) * 10)
+                    end_x = 32 + int(math.cos(line_angle) * 25)
+                    end_y = 32 + int(math.sin(line_angle) * 25)
+                    pygame.draw.line(frame, (255, 100, 100, 50), 
+                                   (start_x, start_y), (end_x, end_y), 2)
             
-            # 회전하는 에너지 라인 (라그나로크와 동일)
-            angle = progress * 360
-            for j in range(4):
-                line_angle = math.radians(angle + j * 90)
-                start_x = 32 + int(math.cos(line_angle) * 10)
-                start_y = 32 + int(math.sin(line_angle) * 10)
-                end_x = 32 + int(math.cos(line_angle) * 25)
-                end_y = 32 + int(math.sin(line_angle) * 25)
-                pygame.draw.line(frame, (255, 100, 100, 50), 
-                               (start_x, start_y), (end_x, end_y), 2)
+                # 포세이돈의 삼지창 그리기 (중앙에)
+                # 삼지창 색상 - 바다의 푸른색과 금속 실버
+                trident_color = (100, 180, 255)  # 바다색
+                metal_color = (200, 220, 240)    # 은빛 금속
+                highlight_color = (255, 255, 255)  # 하이라이트
             
-            # 포세이돈의 삼지창 그리기 (중앙에)
-            # 삼지창 색상 - 바다의 푸른색과 금속 실버
-            trident_color = (100, 180, 255)  # 바다색
-            metal_color = (200, 220, 240)    # 은빛 금속
-            highlight_color = (255, 255, 255)  # 하이라이트
+                # 삼지창 손잡이 (아래쪽)
+                handle_width = 4
+                handle_height = 35
+                handle_x = 32 - handle_width // 2
+                handle_y = 32 - 5
             
-            # 삼지창 손잡이 (아래쪽)
-            handle_width = 4
-            handle_height = 35
-            handle_x = 32 - handle_width // 2
-            handle_y = 32 - 5
-            
-            # 손잡이 그리기 (그라데이션 효과)
-            for offset in range(handle_width):
-                color_intensity = 1.0 - (abs(offset - handle_width/2) / (handle_width/2))
-                color_r = int(metal_color[0] * color_intensity + trident_color[0] * (1-color_intensity))
-                color_g = int(metal_color[1] * color_intensity + trident_color[1] * (1-color_intensity))
-                color_b = int(metal_color[2] * color_intensity + trident_color[2] * (1-color_intensity))
-                pygame.draw.line(frame, (color_r, color_g, color_b),
-                               (handle_x + offset, handle_y),
-                               (handle_x + offset, handle_y + handle_height), 1)
+                # 손잡이 그리기 (그라데이션 효과)
+                for offset in range(handle_width):
+                    color_intensity = 1.0 - (abs(offset - handle_width/2) / (handle_width/2))
+                    color_r = int(metal_color[0] * color_intensity + trident_color[0] * (1-color_intensity))
+                    color_g = int(metal_color[1] * color_intensity + trident_color[1] * (1-color_intensity))
+                    color_b = int(metal_color[2] * color_intensity + trident_color[2] * (1-color_intensity))
+                    pygame.draw.line(frame, (color_r, color_g, color_b),
+                                   (handle_x + offset, handle_y),
+                                   (handle_x + offset, handle_y + handle_height), 1)
             
             # 삼지창 머리 부분 (3개의 창)
             prong_length = 20
