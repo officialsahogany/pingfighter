@@ -750,9 +750,9 @@ class PoseidonTrident(LegendaryItem):
                         print(f"=" * 60)
                         print(f"")
                     else:
-                        # 플레이어가 친 공은 기존 상승 효과
-                        upward_boost = -8.0 * refraction_strength * (1 - self.vortex_timer / 2.0)
-                        new_vy += upward_boost
+                        # 플레이어가 친 공은 회오리 영향을 받지 않음
+                        print(f"❌ 플레이어 공은 회오리 영향을 받지 않음 (vy={ball_vy:.1f} <= 0)")
+                        return ball_vx, ball_vy  # 원래 속도 그대로 반환
                     
                     # 물 추진력 비활성화 (회오리 밖에서 영향을 주지 않도록)
                     # 원래는 물에서 나온 후에도 추진력이 지속되었지만, 이제는 회오리 안에서만 작동
