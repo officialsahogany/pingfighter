@@ -288,28 +288,11 @@ class PoseidonTrident(LegendaryItem):
         self.load_animation_frames()
         
     def load_animation_frames(self):
-        """애니메이션 프레임 로드 - 라그나로크 해머와 동일한 프레임 사용"""
-        import pygame
-        import os
-        
-        # 라그나로크 해머의 프레임을 그대로 사용 (8개 프레임)
-        frames_loaded = 0
-        for i in range(8):
-            # 라그나로크 해머 프레임 경로 사용
-            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
-            try:
-                frame = pygame.image.load(frame_path).convert_alpha()
-                self.icon_frames.append(frame)
-                frames_loaded += 1
-                print(f"✓ 포세이돈 프레임 {i} 로드 성공 (라그나로크 프레임 사용): {frame_path}")
-            except Exception as e:
-                print(f"✗ 포세이돈 프레임 {i} 로드 실패: {frame_path} - {e}")
-        
-        print(f"포세이돈의 삼지창 프레임 {frames_loaded}/8개 로드 (라그나로크 프레임 복사)")
-        
-        # 프레임이 없으면 에러만 표시
-        if not self.icon_frames:
-            print(f"❌ 포세이돈의 삼지창: PNG 프레임을 찾을 수 없습니다!")
+        """애니메이션 프레임 로드 - 삼지창은 직접 그리기로 대체"""
+        # 포세이돈의 삼지창은 코드로 직접 그리므로 프레임 로드 불필요
+        # icon_frames는 빈 리스트로 유지 (애니메이션 로직 호환성)
+        self.icon_frames = []
+        print(f"✓ 포세이돈의 삼지창: 코드로 직접 렌더링 (프레임 로드 불필요)")
                 
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         """스테이지 7 클리어 체크"""
@@ -787,12 +770,11 @@ class PoseidonTrident(LegendaryItem):
         # 부모 클래스의 update 호출 (animation_offset 업데이트 포함)
         super().update(dt, ui_mode)
         
-        # 라그나로크 해머와 동일한 애니메이션 프레임 카운터 업데이트
-        if self.icon_frames and len(self.icon_frames) > 1:
-            self.frame_counter += 1
-            if self.frame_counter >= self.animation_speed:
-                self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
+        # 애니메이션 타이머 업데이트 (직접 그리기용)
+        self.frame_counter += 1
+        if self.frame_counter >= self.animation_speed:
+            self.frame_counter = 0
+            self.current_frame = (self.current_frame + 1) % 8  # 8프레임 애니메이션 사이클
         
         if not self.active and not ui_mode:
             return
@@ -975,24 +957,95 @@ class PoseidonTrident(LegendaryItem):
             pygame.draw.circle(screen, LEGENDARY_COLOR, (cx, cy), 3)  # 빨간색
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
         
-        # 애니메이션 프레임 그리기 (라그나로크 해머와 동일한 프레임 사용)
-        if self.icon_frames and len(self.icon_frames) > 0:
-            # 현재 프레임 그리기 (위아래 움직임 효과 포함)
-            icon_y = y + int(self.animation_offset)
-            current_icon = self.icon_frames[self.current_frame % len(self.icon_frames)]
-            scaled_icon = pygame.transform.scale(current_icon, (size, size))
-            screen.blit(scaled_icon, (x, icon_y))
+        # 삼지창 아이콘 직접 그리기 (위아래 움직임 효과 적용)
+        icon_y = y + int(self.animation_offset)
+        
+        # 삼지창 색상 (물의 신의 무기 - 청록색/물색 계열)
+        trident_color = (0, 191, 255)  # 딥 스카이 블루
+        trident_dark = (0, 139, 139)   # 다크 시안
+        trident_light = (135, 206, 235)  # 스카이 블루
+        handle_color = (192, 192, 192)  # 실버 (금속 손잡이)
+        
+        # 삼지창 손잡이 (중앙 수직선)
+        handle_width = 3
+        handle_x = x + size // 2
+        handle_top = icon_y + size // 6
+        handle_bottom = icon_y + size * 5 // 6
+        
+        # 손잡이 그라데이션 효과
+        for i in range(handle_width):
+            color_intensity = 255 - i * 30
+            pygame.draw.line(screen, (color_intensity, color_intensity, color_intensity),
+                           (handle_x - handle_width//2 + i, handle_top),
+                           (handle_x - handle_width//2 + i, handle_bottom), 1)
+        
+        # 삼지창 머리 부분 (3개의 창날)
+        prong_length = size // 3
+        prong_top = icon_y + size // 6
+        
+        # 중앙 창날 (더 길게)
+        center_x = x + size // 2
+        pygame.draw.polygon(screen, trident_color, [
+            (center_x - 2, prong_top + prong_length // 4),
+            (center_x + 2, prong_top + prong_length // 4),
+            (center_x + 3, prong_top - 2),
+            (center_x, prong_top - 5),  # 뾰족한 끝
+            (center_x - 3, prong_top - 2)
+        ])
+        
+        # 왼쪽 창날
+        left_x = x + size // 3
+        pygame.draw.polygon(screen, trident_dark, [
+            (left_x - 2, prong_top + prong_length // 3),
+            (left_x + 2, prong_top + prong_length // 3),
+            (left_x + 2, prong_top + 3),
+            (left_x, prong_top),  # 뾰족한 끝
+            (left_x - 2, prong_top + 3)
+        ])
+        
+        # 오른쪽 창날
+        right_x = x + size * 2 // 3
+        pygame.draw.polygon(screen, trident_dark, [
+            (right_x - 2, prong_top + prong_length // 3),
+            (right_x + 2, prong_top + prong_length // 3),
+            (right_x + 2, prong_top + 3),
+            (right_x, prong_top),  # 뾰족한 끝
+            (right_x - 2, prong_top + 3)
+        ])
+        
+        # 창날 연결 부분 (수평 바)
+        crossbar_y = prong_top + prong_length // 3
+        pygame.draw.rect(screen, trident_color,
+                        (left_x - 2, crossbar_y - 1, right_x - left_x + 4, 3))
+        
+        # 물의 에너지 효과 (애니메이션)
+        wave_offset = math.sin(self.animation_time * 0.05) * 3
+        
+        # 물결 효과 라인들
+        for i in range(3):
+            wave_y = icon_y + size // 2 + i * 8 + wave_offset
+            wave_alpha = 100 - i * 30
+            wave_color = (*trident_light, wave_alpha)
             
-            # 번개 효과 추가 (프레임 0, 4에서) - 라그나로크와 동일
-            if self.current_frame in [0, 4]:
-                # 작은 번개 이펙트
-                bolt_color = (255, 255, 150)
-                pygame.draw.line(screen, bolt_color, 
-                               (x + size//4, y - 5), 
-                               (x + size//3, y + size//4), 2)
-                pygame.draw.line(screen, bolt_color,
-                               (x + size*3//4, y - 5),
-                               (x + size*2//3, y + size//4), 2)
+            # 물결 곡선
+            points = []
+            for j in range(5):
+                wx = x + size // 4 + j * (size // 8)
+                wy = wave_y + math.sin((j + self.animation_time * 0.01) * math.pi / 2) * 3
+                points.append((wx, wy))
+            
+            if len(points) > 1:
+                pygame.draw.lines(screen, trident_light[:3], False, points, 2)
+        
+        # 파워 이펙트 (프레임에 따라)
+        frame_effect = int(self.animation_time * 0.1) % 8
+        if frame_effect in [0, 4]:
+            # 물의 파동 효과
+            for ring_size in [10, 15, 20]:
+                alpha = 60 - ring_size
+                pygame.draw.circle(screen, (*trident_light, alpha),
+                                 (x + size // 2, icon_y + size // 3),
+                                 ring_size, 1)
         
         # 파티클 효과
         if self.particle_timer > 1000:
