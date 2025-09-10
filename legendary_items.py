@@ -1022,6 +1022,17 @@ class PoseidonTrident(LegendaryItem):
         if self.particle_timer > 1000:
             self._spawn_particle(screen, x + size//2, y + size//2)
             self.particle_timer = 0
+    
+    def update(self, dt: float):
+        """애니메이션 업데이트 - 프레임 카운터 업데이트 포함"""
+        super().update(dt)  # 부모 클래스의 update 호출 (animation_offset 등 업데이트)
+        
+        # 애니메이션 프레임 카운터 업데이트
+        if self.icon_frames and len(self.icon_frames) > 1:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
 
 
 class HermesShoes(LegendaryItem):

@@ -901,7 +901,7 @@ def draw_items(screen):
                     trident = legendary_manager.get_item("poseidon_trident")
                     if trident:
                         # 애니메이션 업데이트 (밀리초 단위)
-                        trident.update(0.016)  # 60fps 기준 16ms
+                        trident.update(16)  # 60fps 기준 16ms
                         # 애니메이션 아이콘 그리기 (회전 없이)
                         trident.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
                         continue
