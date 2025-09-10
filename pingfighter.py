@@ -5118,6 +5118,7 @@ def handle_player(keys):
     global is_player_serve  #  플레이어 서브 상태 변수 추가
     global gravitybelt_obtained, dashholder_obtained  #  무중력벨트 및 대쉬홀더 변수 추가
     global rolling_active, rolling_timer, rolling_direction, rolling_speed
+    global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y  # 포세이돈 삼지창 대시 플래그
     global rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer
     global player_missile_stunned_timer, player_missile_knockback_vel, current_stage  # 스테이지 6 미사일 넉백
     global is_danger_sensor_dash  # 위험감지센서 대쉬 플래그
