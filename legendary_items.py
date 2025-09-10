@@ -1048,10 +1048,24 @@ class PoseidonTrident(LegendaryItem):
                              glow_size//2 - i * 4)  # 더 촘촘한 간격
         screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
         
-        # 붉은색 테두리 (펄싱 효과 - 더 두껍게) - 라그나로크와 동일
+        # 프레임별로 색이 변하는 테두리 (라그나로크와 동일한 동기화)
+        # 프레임에 따라 테두리 색상이 변화 (8프레임 기준)
+        frame_colors = [
+            (255, 50, 50),    # 프레임 0: 진한 빨강
+            (255, 100, 50),   # 프레임 1: 주황빛 빨강
+            (255, 150, 50),   # 프레임 2: 밝은 주황
+            (255, 200, 50),   # 프레임 3: 황금빛 주황
+            (255, 215, 0),    # 프레임 4: 순수 황금색
+            (255, 200, 50),   # 프레임 5: 황금빛 주황
+            (255, 150, 50),   # 프레임 6: 밝은 주황
+            (255, 100, 50),   # 프레임 7: 주황빛 빨강
+        ]
+        current_border_color = frame_colors[self.current_frame % len(frame_colors)]
+        
+        # 테두리 (펄싱 효과 - 더 두껍게) - 프레임별 색상 변화
         border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
         border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
-        pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)  # 빨간색
+        pygame.draw.rect(screen, current_border_color, border_rect, border_thickness)  # 프레임별 색상
         
         # 꼭지점 디테일 (코너 장식) - 라그나로크와 동일
         corner_size = 8  # 더 큰 코너
