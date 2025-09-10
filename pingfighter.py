@@ -22087,26 +22087,19 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             "icon": get_item_icon(item_name),
             "type": "passive"
         }
-        passive_item_list.append(item_data)
+        # 전설 아이템(포세이돈 삼지창, 라그나로크 해머, 헤르메스 신발)은 store_passive_item에서 추가하므로 여기서는 추가하지 않음
+        if item_name not in ["poseidon_trident", "ragnarok_hammer", "hermes_shoes"]:
+            passive_item_list.append(item_data)
         # 아이템 효과 적용
         if item_name == "speedboots":
             speedboots_obtained = True
             items.speedboots_obtained = True
         elif item_name == "hermes_shoes":
-            hermes_shoes_obtained = True
-            items.hermes_shoes_obtained = True
-            print("헤르메스의 신발 적용! 패들 이동속도 50% 증가!")
+            # store_passive_item을 호출하여 일관된 처리
+            store_passive_item(item_data)
         elif item_name == "poseidon_trident":
-            items.poseidon_trident_obtained = True
-            # 전설 아이템 타입 설정
-            item_data["type"] = "legendary"
-            # 패시브 아이템 리스트에 추가
-            passive_item_list.append(item_data)
-            legendary_manager = get_legendary_manager()
-            if legendary_manager:
-                # activate_item을 사용하여 올바르게 활성화
-                legendary_manager.activate_item("poseidon_trident", {})
-                print("포세이돈의 삼지창 적용! 물의 파동이 생성됩니다!")
+            # store_passive_item을 호출하여 일관된 처리
+            store_passive_item(item_data)
         elif item_name == "speedgear":
             speedgear_obtained = True
             items.speedgear_obtained = True
@@ -22162,8 +22155,9 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             items.dowsing_pendulum_obtained = True
             dowsing_pendulum_effect.activate()
             print(f"[DEBUG]    !")
-            print(f"[DEBUG] dowsing_pendulum_obtained: {items.dowsing_pendulum_obtained}")
-            print(f"[DEBUG] dowsing_pendulum_effect.enabled: {dowsing_pendulum_effect.enabled}")
+        elif item_name == "ragnarok_hammer":
+            # store_passive_item을 호출하여 일관된 처리
+            store_passive_item(item_data)
         elif item_name == "commando_arm":
             # 코만도암 아이템 적용 - 투척 준비시간 제거
             items.commando_arm_obtained = True
