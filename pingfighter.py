@@ -5342,8 +5342,8 @@ def handle_player(keys):
                     if poseidon_dash_pending and legendary_manager:
                         trident = legendary_manager.get_item("poseidon_trident")
                         if trident and trident.active:
-                            # 대쉬가 완료되고 통제불능 상태에 진입할 때 양쪽에 회오리 생성
-                            trident.trigger_dash_wave(poseidon_dash_x, poseidon_dash_y, rolling_direction)
+                            # 대쉬가 완료되고 통제불능 상태에 진입할 때 현재 플레이어 위치 양쪽에 회오리 생성
+                            trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, rolling_direction)
                             poseidon_dash_pending = False  # 플래그 리셋
                 current_speed = 0
             else:
