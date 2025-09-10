@@ -787,16 +787,15 @@ class PoseidonTrident(LegendaryItem):
         # 부모 클래스의 update 호출 (animation_offset 업데이트 포함)
         super().update(dt, ui_mode)
         
+        # 라그나로크 해머와 동일한 애니메이션 프레임 카운터 업데이트
+        if self.icon_frames and len(self.icon_frames) > 1:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
+        
         if not self.active and not ui_mode:
             return
-            
-        # 애니메이션 업데이트 (UI 모드에서도 동작)
-        self.frame_timer += dt
-        
-        # 프레임 전환 (8fps)
-        if self.frame_timer >= 0.125 and self.icon_frames:
-            self.frame_timer = 0
-            self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
             
         # UI 모드에서는 게임플레이 효과 스킵
         if ui_mode:
@@ -978,12 +977,6 @@ class PoseidonTrident(LegendaryItem):
         
         # 애니메이션 프레임 그리기 (라그나로크 해머와 동일한 프레임 사용)
         if self.icon_frames and len(self.icon_frames) > 0:
-            # 프레임 업데이트 (항상 진행)
-            self.frame_counter += 1
-            if self.frame_counter >= self.animation_speed:
-                self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
-            
             # 현재 프레임 그리기 (위아래 움직임 효과 포함)
             icon_y = y + int(self.animation_offset)
             current_icon = self.icon_frames[self.current_frame % len(self.icon_frames)]
