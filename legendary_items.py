@@ -829,15 +829,24 @@ class PoseidonTrident(LegendaryItem):
         
         # 거대한 회오리 업데이트 (게임플레이에서만) - 양쪽 회오리
         if self.vortex_active:
+            # 타이머와 높이 업데이트 디버그
+            old_timer = self.vortex_timer
+            old_left_height = self.vortex_left_height
+            
             self.vortex_timer += dt
             
-            # 디버그: 첫 프레임에만 출력
-            if self.vortex_timer < 0.02:
-                print(f"🌀 Vortex active! dt={dt:.4f}, particles={len(self.vortex_particles)}")
+            # 디버그: 업데이트 확인
+            if self._update_debug_counter <= 10:
+                print(f"🌀 Vortex UPDATE: dt={dt:.4f}, timer={old_timer:.3f}→{self.vortex_timer:.3f}")
+                print(f"   왼쪽 높이: {old_left_height:.1f} → ", end="")
             
             # 왼쪽 회오리 높이 급속 확장 (용솟음치는 효과)
             if self.vortex_left_height < self.vortex_max_height:
                 self.vortex_left_height += 800 * dt  # 빠르게 상승
+                if self._update_debug_counter <= 10:
+                    print(f"{self.vortex_left_height:.1f} (증가: {800 * dt:.1f})")
+            elif self._update_debug_counter <= 10:
+                print(f"{self.vortex_left_height:.1f} (최대값 도달)")
             
             # 오른쪽 회오리 높이 급속 확장 (용솟음치는 효과)
             if self.vortex_right_height < self.vortex_max_height:
@@ -1659,11 +1668,25 @@ class LegendaryItemManager:
         
     def activate_item(self, name: str, game_state: Dict):
         """아이템 활성화"""
-        if name in self.items and name in self.unlocked_items:
+        print(f"🎮 activate_item 호출: name={name}")
+        print(f"   - items에 있음: {name in self.items}")
+        print(f"   - unlocked_items에 있음: {name in self.unlocked_items}")
+        print(f"   - unlocked_items: {self.unlocked_items}")
+        
+        if name in self.items:
+            # 아이템이 해금되지 않았으면 자동으로 해금
+            if name not in self.unlocked_items:
+                print(f"   ⚠️ {name}이 unlocked_items에 없음! 자동 추가")
+                self.unlocked_items.append(name)
+                self.items[name].unlocked = True
+            
             item = self.items[name]
             item.activate(game_state)
             if name not in self.active_items:
                 self.active_items.append(name)
+                print(f"   ✅ {name}을 active_items에 추가: {self.active_items}")
+            else:
+                print(f"   ℹ️ {name}은 이미 active_items에 있음")
                 
     def deactivate_item(self, name: str):
         """아이템 비활성화"""
