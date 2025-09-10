@@ -26728,11 +26728,22 @@ def handle_ball():
                     if trident and trident.active:
                         # 회오리가 활성화되고 공이 실제로 회오리 안에 있을 때만 로그
                         if trident.vortex_active:
-                            current_vortex_height = min(trident.vortex_height, trident.vortex_max_height)
-                            x_in_vortex = abs(BALL.centerx - trident.vortex_x) <= (trident.vortex_width / 2)
-                            y_in_vortex = (trident.vortex_y - current_vortex_height) <= BALL.centery <= trident.vortex_y
+                            # 양쪽 회오리 중 더 큰 높이 사용 (둘 다 동일하게 증가하므로)
+                            current_vortex_height = min(trident.vortex_left_height, trident.vortex_max_height)
+                            # 왼쪽 회오리 체크
+                            x_in_left = abs(BALL.centerx - trident.vortex_left_x) <= (trident.vortex_width / 2)
+                            y_in_left = (trident.vortex_left_y - current_vortex_height) <= BALL.centery <= trident.vortex_left_y
+                            # 오른쪽 회오리 체크
+                            x_in_right = abs(BALL.centerx - trident.vortex_right_x) <= (trident.vortex_width / 2)
+                            y_in_right = (trident.vortex_right_y - current_vortex_height) <= BALL.centery <= trident.vortex_right_y
+                            # 어느 한쪽이라도 충돌
+                            x_in_vortex = x_in_left or x_in_right
+                            y_in_vortex = y_in_left or y_in_right
                             if x_in_vortex and y_in_vortex and pygame.time.get_ticks() % 100 < 16:
-                                print(f"⚡ BALL IN VORTEX! Ball=({BALL.centerx:.0f},{BALL.centery:.0f}), Vortex=({trident.vortex_x:.0f},{trident.vortex_y:.0f})")
+                                if x_in_left:
+                                    print(f"⚡ BALL IN LEFT VORTEX! Ball=({BALL.centerx:.0f},{BALL.centery:.0f}), Vortex=({trident.vortex_left_x:.0f},{trident.vortex_left_y:.0f})")
+                                elif x_in_right:
+                                    print(f"⚡ BALL IN RIGHT VORTEX! Ball=({BALL.centerx:.0f},{BALL.centery:.0f}), Vortex=({trident.vortex_right_x:.0f},{trident.vortex_right_y:.0f})")
                         # 물의 파동으로 공의 궤적에 영향 (회오리가 없을 때만 작동)
                         modified_vx, modified_vy = trident.apply_trajectory_influence(
                             BALL.centerx, BALL.centery,
