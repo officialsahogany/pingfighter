@@ -248,7 +248,6 @@ class PoseidonTrident(LegendaryItem):
         self.wave_effect_radius = 100  # 물결 효과 반경
         self.trajectory_influence = 0.15  # 궤적 영향력 (15%)
         self.dash_wave_force = 5.0  # 대시 시 물결 힘
-        self.wave_particles = []  # 물결 파티클
         self.wave_timer = 0
         self.dash_wave_active = False
         self.dash_wave_timer = 0
@@ -304,7 +303,6 @@ class PoseidonTrident(LegendaryItem):
     def deactivate(self):
         """삼지창 비활성화"""
         self.active = False
-        self.wave_particles.clear()
         self.dash_wave_active = False
         
     def stop_water_momentum(self):
@@ -388,19 +386,6 @@ class PoseidonTrident(LegendaryItem):
                 "spiral_radius": random.uniform(20, 60)
             }
             self.vortex_particles.append(particle)
-            
-        # 기존 물결 파티클도 생성 (바닥 효과)
-        for i in range(20):
-            angle = (i / 20) * math.pi * 2
-            particle = {
-                "x": paddle_x,
-                "y": paddle_y,
-                "vx": math.cos(angle) * 5 * direction,
-                "vy": math.sin(angle) * 3,
-                "life": 40,
-                "color": (100, 200, 255)
-            }
-            self.wave_particles.append(particle)
                 
     def apply_dash_wave_to_ball(self, ball_x: float, ball_y: float,
                                ball_vx: float, ball_vy: float,
@@ -787,16 +772,6 @@ class PoseidonTrident(LegendaryItem):
                 self.dash_wave_active = False
                 self.dash_wave_timer = 0
                 
-        # 파티클 업데이트
-        for particle in self.wave_particles[:]:
-            particle["x"] += particle["vx"]
-            particle["y"] += particle["vy"]
-            particle["life"] -= 1
-            particle["vy"] += 0.1  # 중력
-            
-            if particle["life"] <= 0:
-                self.wave_particles.remove(particle)
-                
     def draw_effects(self, screen: pygame.Surface):
         """거대한 물결 회오리 효과 그리기"""
         if not self.active:
@@ -826,17 +801,6 @@ class PoseidonTrident(LegendaryItem):
                                      int(size // 3))
                     
                     screen.blit(water_surf, (particle["x"] - size, particle["y"] - size))
-        
-        # 기존 물결 파티클 그리기
-        for particle in self.wave_particles:
-            alpha = particle["life"] * 8  # 투명도
-            size = 3 + (30 - particle["life"]) / 5
-            
-            # 물방울 효과
-            water_surf = pygame.Surface((int(size * 2), int(size * 2)), pygame.SRCALPHA)
-            color = (*particle["color"], min(alpha, 255))
-            pygame.draw.circle(water_surf, color, (int(size), int(size)), int(size))
-            screen.blit(water_surf, (particle["x"] - size, particle["y"] - size))
             
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int):
         """아이콘 그리기 (애니메이션)"""
