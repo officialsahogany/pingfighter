@@ -314,9 +314,31 @@ class PoseidonTrident(LegendaryItem):
                     energy_color = (255, 50, 50, ring_alpha)
                     pygame.draw.circle(frame, energy_color, (32, 32), ring_size, 2)
             
-            # 내부 빨간색 테두리 (라그나로크 해머와 동일)
-            border_color = (255, 0, 0, 255)  # 빨간색
-            pygame.draw.rect(frame, border_color, (2, 2, 60, 60), 2)  # 내부 테두리
+            # 이중 테두리 애니메이션 (프레임마다 색상 변화)
+            # 외부 테두리 - 프레임에 따라 색상 변화
+            if i % 4 == 0:
+                outer_border_color = (255, 215, 0, 255)  # 황금색
+            elif i % 4 == 1:
+                outer_border_color = (255, 0, 0, 255)    # 빨간색
+            elif i % 4 == 2:
+                outer_border_color = (0, 150, 255, 255)  # 파란색
+            else:
+                outer_border_color = (255, 100, 0, 255)  # 주황색
+            
+            # 외부 테두리 그리기
+            pygame.draw.rect(frame, outer_border_color, (0, 0, 64, 64), 3)  # 외부 테두리
+            
+            # 내부 테두리 - 프레임에 따라 색상 변화 (외부와 반대)
+            if i % 4 == 0:
+                inner_border_color = (255, 0, 0, 255)    # 빨간색
+            elif i % 4 == 1:
+                inner_border_color = (0, 150, 255, 255)  # 파란색
+            elif i % 4 == 2:
+                inner_border_color = (255, 215, 0, 255)  # 황금색
+            else:
+                inner_border_color = (150, 0, 255, 255)  # 보라색
+            
+            pygame.draw.rect(frame, inner_border_color, (2, 2, 60, 60), 2)  # 내부 테두리
             
             # 포세이돈의 삼지창 그리기 (중앙에)
             # 삼지창 색상 - 바다의 푸른색과 금속 실버
