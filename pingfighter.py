@@ -33145,9 +33145,16 @@ def main(stage_num, new_boss_mode=False):
                 try:
                     legendary_manager = get_legendary_manager()
                     if legendary_manager:
+                        # 디버그: 포세이돈 삼지창 상태 확인
+                        if frame_count % 60 == 0:  # 1초마다 한 번
+                            trident = legendary_manager.get_item("poseidon_trident")
+                            if trident and trident.vortex_active:
+                                print(f"🔍 LegendaryManager 호출 전: active_items={legendary_manager.active_items}")
                         legendary_manager.update(0.016)  # 60fps 기준 0.016초
-                except:
-                    pass  # 전설 아이템 매니저 접근 실패 시 무시
+                except Exception as e:
+                    print(f"❌ LegendaryManager 업데이트 실패: {e}")
+                    import traceback
+                    traceback.print_exc()
                 
                 handle_player(keys)
                 handle_ball()
