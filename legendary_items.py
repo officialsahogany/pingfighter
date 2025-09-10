@@ -288,77 +288,59 @@ class PoseidonTrident(LegendaryItem):
         self.load_animation_frames()
         
     def load_animation_frames(self):
-        """애니메이션 프레임 로드 - PNG 파일 우선, 없으면 커스텀 생성"""
+        """애니메이션 프레임 로드 - 삼지창 모양으로 커스텀 생성"""
         import pygame
         import os
         import math
         
-        # PNG 파일 로드 시도 (라그나로크 해머와 동일한 방식)
-        frames_loaded = 0
+        # 8개 프레임 생성 (라그나로크와 동일한 애니메이션 프레임 수)
         for i in range(8):
-            frame_path = resource_path(f"items/legendary/poseidon_trident_frame_{i}.png")
-            try:
-                frame = pygame.image.load(frame_path).convert_alpha()
-                self.icon_frames.append(frame)
-                frames_loaded += 1
-                print(f"✓ 포세이돈 삼지창 프레임 {i} 로드 성공")
-            except Exception as e:
-                print(f"✗ 프레임 {i} 로드 실패: {frame_path} - {e}")
-        
-        # PNG 파일이 없으면 커스텀 그림 생성
-        if frames_loaded < 8:
-            print(f"포세이돈 삼지창: PNG 프레임 {frames_loaded}/8개만 로드, 나머지는 커스텀 생성")
-            self.icon_frames.clear()  # 부분 로드된 프레임 클리어
+            # 각 프레임마다 새로운 Surface 생성
+            frame = pygame.Surface((64, 64), pygame.SRCALPHA)
             
-        # 8개 프레임 생성 (PNG가 없을 때만)
-        if not self.icon_frames:
-            for i in range(8):
-                # 각 프레임마다 새로운 Surface 생성
-                frame = pygame.Surface((64, 64), pygame.SRCALPHA)
-                
-                # 애니메이션 진행도 (0.0 ~ 1.0)
-                progress = i / 8.0
-                
-                # 배경 에너지 필드 (라그나로크와 동일)
-                energy_alpha = 30 + int(20 * math.sin(progress * math.pi * 2))
-                for ring in range(3):
-                    ring_size = 50 - ring * 8
-                    ring_alpha = energy_alpha - ring * 10
-                    if ring_alpha > 0:
-                        pygame.draw.circle(frame, (255, 50, 50, ring_alpha), (32, 32), ring_size)
+            # 애니메이션 진행도 (0.0 ~ 1.0)
+            progress = i / 8.0
             
-                # 회전하는 에너지 라인 (라그나로크와 동일)
-                angle = progress * 360
-                for j in range(4):
-                    line_angle = math.radians(angle + j * 90)
-                    start_x = 32 + int(math.cos(line_angle) * 10)
-                    start_y = 32 + int(math.sin(line_angle) * 10)
-                    end_x = 32 + int(math.cos(line_angle) * 25)
-                    end_y = 32 + int(math.sin(line_angle) * 25)
-                    pygame.draw.line(frame, (255, 100, 100, 50), 
-                                   (start_x, start_y), (end_x, end_y), 2)
+            # 배경 에너지 필드 (라그나로크와 동일)
+            energy_alpha = 30 + int(20 * math.sin(progress * math.pi * 2))
+            for ring in range(3):
+                ring_size = 50 - ring * 8
+                ring_alpha = energy_alpha - ring * 10
+                if ring_alpha > 0:
+                    pygame.draw.circle(frame, (255, 50, 50, ring_alpha), (32, 32), ring_size)
             
-                # 포세이돈의 삼지창 그리기 (중앙에)
-                # 삼지창 색상 - 바다의 푸른색과 금속 실버
-                trident_color = (100, 180, 255)  # 바다색
-                metal_color = (200, 220, 240)    # 은빛 금속
-                highlight_color = (255, 255, 255)  # 하이라이트
+            # 회전하는 에너지 라인 (라그나로크와 동일)
+            angle = progress * 360
+            for j in range(4):
+                line_angle = math.radians(angle + j * 90)
+                start_x = 32 + int(math.cos(line_angle) * 10)
+                start_y = 32 + int(math.sin(line_angle) * 10)
+                end_x = 32 + int(math.cos(line_angle) * 25)
+                end_y = 32 + int(math.sin(line_angle) * 25)
+                pygame.draw.line(frame, (255, 100, 100, 50), 
+                               (start_x, start_y), (end_x, end_y), 2)
             
-                # 삼지창 손잡이 (아래쪽)
-                handle_width = 4
-                handle_height = 35
-                handle_x = 32 - handle_width // 2
-                handle_y = 32 - 5
+            # 포세이돈의 삼지창 그리기 (중앙에)
+            # 삼지창 색상 - 바다의 푸른색과 금속 실버
+            trident_color = (100, 180, 255)  # 바다색
+            metal_color = (200, 220, 240)    # 은빛 금속
+            highlight_color = (255, 255, 255)  # 하이라이트
             
-                # 손잡이 그리기 (그라데이션 효과)
-                for offset in range(handle_width):
-                    color_intensity = 1.0 - (abs(offset - handle_width/2) / (handle_width/2))
-                    color_r = int(metal_color[0] * color_intensity + trident_color[0] * (1-color_intensity))
-                    color_g = int(metal_color[1] * color_intensity + trident_color[1] * (1-color_intensity))
-                    color_b = int(metal_color[2] * color_intensity + trident_color[2] * (1-color_intensity))
-                    pygame.draw.line(frame, (color_r, color_g, color_b),
-                                   (handle_x + offset, handle_y),
-                                   (handle_x + offset, handle_y + handle_height), 1)
+            # 삼지창 손잡이 (아래쪽)
+            handle_width = 4
+            handle_height = 35
+            handle_x = 32 - handle_width // 2
+            handle_y = 32 - 5
+            
+            # 손잡이 그리기 (그라데이션 효과)
+            for offset in range(handle_width):
+                color_intensity = 1.0 - (abs(offset - handle_width/2) / (handle_width/2))
+                color_r = int(metal_color[0] * color_intensity + trident_color[0] * (1-color_intensity))
+                color_g = int(metal_color[1] * color_intensity + trident_color[1] * (1-color_intensity))
+                color_b = int(metal_color[2] * color_intensity + trident_color[2] * (1-color_intensity))
+                pygame.draw.line(frame, (color_r, color_g, color_b),
+                               (handle_x + offset, handle_y),
+                               (handle_x + offset, handle_y + handle_height), 1)
             
             # 삼지창 머리 부분 (3개의 창)
             prong_length = 20
@@ -1049,14 +1031,14 @@ class PoseidonTrident(LegendaryItem):
                     screen.blit(water_surf, (particle["x"] - size, particle["y"] - size))
             
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 헤르메스의 신발과 완전 동일"""
+        """애니메이션 아이콘 그리기 - 라그나로크 해머와 완전 동일"""
         import pygame
         import math
         
-        # 헤르메스와 동일한 글로우 설정
-        self.trident_glow_multiplier = 1.8  # 헤르메스와 동일한 글로우 크기
+        # 포세이돈도 라그나로크와 동일한 글로우 설정
+        self.trident_glow_multiplier = 1.8  # 라그나로크와 동일한 글로우
         
-        # 글로우 효과 (헤르메스의 신발과 완전히 동일하게)
+        # 글로우 효과 (라그나로크 해머와 완전히 동일)
         glow_size = int(size * (self.trident_glow_multiplier + self.glow_intensity * 0.15))
         glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
         for i in range(5):  # 더 많은 레이어로 강렬한 효과
@@ -1066,12 +1048,12 @@ class PoseidonTrident(LegendaryItem):
                              glow_size//2 - i * 4)  # 더 촘촘한 간격
         screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
         
-        # 붉은색 테두리 (펄싱 효과 - 더 두껍게)
+        # 붉은색 테두리 (펄싱 효과 - 더 두껍게) - 라그나로크와 완전 동일
         border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
         border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
         pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)
         
-        # 꼭지점 디테일 (코너 장식)
+        # 꼭지점 디테일 (코너 장식) - 라그나로크와 동일
         corner_size = 8  # 더 큰 코너
         corner_color = (255, 215, 0)  # 황금색 (신의 무기)
         # 왼쪽 위
@@ -1087,9 +1069,9 @@ class PoseidonTrident(LegendaryItem):
         pygame.draw.lines(screen, corner_color, False,
                          [(x+size-corner_size+2, y+size+2), (x+size+2, y+size+2), (x+size+2, y+size-corner_size+2)], 2)
         
-        # 코너 점 장식 (더 화려하게)
+        # 코너 점 장식 (더 화려하게) - 라그나로크와 동일
         for cx, cy in [(x, y), (x+size, y), (x, y+size), (x+size, y+size)]:
-            pygame.draw.circle(screen, LEGENDARY_COLOR, (cx, cy), 3)
+            pygame.draw.circle(screen, LEGENDARY_COLOR, (cx, cy), 3)  # 빨간색
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
         
         # 애니메이션 프레임 그리기 (라그나로크 해머와 동일한 프레임 사용)
