@@ -26797,6 +26797,7 @@ def handle_ball():
                                 if trident.vortex_active and int(trident.vortex_timer * 10) != int((trident.vortex_timer - 0.016) * 10):
                                     print(f"⚠️ [pingfighter.py] 속도 변경 없음: vx={actual_vel_x:.1f}, vy={actual_vel_y:.1f}")
                             
+                            # 회오리 효과 적용
                             actual_vel_x = wave_vx
                             actual_vel_y = wave_vy
                             
@@ -26804,9 +26805,13 @@ def handle_ball():
                             # actual_vel은 현재 프레임만 영향을 주므로, ball_vel 배열도 업데이트해야 함
                             if wave_vx != step_vel_x or wave_vy != step_vel_y:
                                 # 스텝 수를 고려하여 원래 속도로 변환
+                                old_ball_vel = [ball_vel[0], ball_vel[1]]
                                 ball_vel[0] = wave_vx * num_steps / ball_impact_boost
                                 ball_vel[1] = wave_vy * num_steps / ball_impact_boost
-                                # 디버그 출력 제거 - 너무 자주 출력됨
+                                print(f"🔧 [BALL_VEL 업데이트]")
+                                print(f"   - 원래: [{old_ball_vel[0]:.1f}, {old_ball_vel[1]:.1f}]")
+                                print(f"   - 새로운: [{ball_vel[0]:.1f}, {ball_vel[1]:.1f}]")
+                                print(f"   - 계산: wave_v * {num_steps} / {ball_impact_boost:.1f}")
             except Exception as e:
                 # 전설 아이템 매니저 접근 실패 시 기본 속도 사용
                 print(f"❌ Legendary manager error: {e}")

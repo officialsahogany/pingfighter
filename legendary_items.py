@@ -494,13 +494,16 @@ class PoseidonTrident(LegendaryItem):
             
             # 왼쪽 회오리 충돌 체크
             x_distance_left = abs(ball_x - self.vortex_left_x)
-            x_in_left_vortex = x_distance_left <= (self.vortex_width / 2 - 10)
-            y_in_left_vortex = (self.vortex_left_y - left_vortex_height) <= ball_y <= self.vortex_left_y
+            x_in_left_vortex = x_distance_left <= (self.vortex_width / 2)  # 범위를 넓게 설정
+            # Y축 체크: 회오리는 아래에서 위로 올라가므로, 공이 회오리 높이 범위 안에 있는지 체크
+            # 회오리 아래쪽(패들 위치)부터 위로 솟은 높이까지
+            y_in_left_vortex = (self.vortex_left_y - left_vortex_height) <= ball_y <= self.vortex_left_y + 50
             
             # 오른쪽 회오리 충돌 체크
             x_distance_right = abs(ball_x - self.vortex_right_x)
-            x_in_right_vortex = x_distance_right <= (self.vortex_width / 2 - 10)
-            y_in_right_vortex = (self.vortex_right_y - right_vortex_height) <= ball_y <= self.vortex_right_y
+            x_in_right_vortex = x_distance_right <= (self.vortex_width / 2)  # 범위를 넓게 설정
+            # Y축 체크: 회오리는 아래에서 위로 올라가므로, 공이 회오리 높이 범위 안에 있는지 체크
+            y_in_right_vortex = (self.vortex_right_y - right_vortex_height) <= ball_y <= self.vortex_right_y + 50
             
             # 어느 쪽 회오리에든 들어갔는지 확인
             in_left = x_in_left_vortex and y_in_left_vortex
@@ -534,9 +537,11 @@ class PoseidonTrident(LegendaryItem):
             
             # 디버그: 충돌 체크 상태 (항상 출력)
             if pygame.time.get_ticks() % 100 < 16:  # 0.1초마다 한 번
-                print(f"🎯 [VORTEX CHECK] Ball=({ball_x:.0f},{ball_y:.0f})")
-                print(f"   왼쪽: X범위={x_in_left_vortex}, Y범위={y_in_left_vortex}, 충돌={in_left}")
-                print(f"   오른쪽: X범위={x_in_right_vortex}, Y범위={y_in_right_vortex}, 충돌={in_right}")
+                print(f"🎯 [VORTEX CHECK] Ball=({ball_x:.0f},{ball_y:.0f}), vy={ball_vy:.1f}")
+                print(f"   왼쪽 회오리: 중심X={self.vortex_left_x:.0f}, Y범위=[{self.vortex_left_y - left_vortex_height:.0f} ~ {self.vortex_left_y + 50:.0f}]")
+                print(f"   오른쪽 회오리: 중심X={self.vortex_right_x:.0f}, Y범위=[{self.vortex_right_y - right_vortex_height:.0f} ~ {self.vortex_right_y + 50:.0f}]")
+                print(f"   왼쪽: X거리={x_distance_left:.0f}, X범위={x_in_left_vortex}, Y범위={y_in_left_vortex}, 충돌={in_left}")
+                print(f"   오른쪽: X거리={x_distance_right:.0f}, X범위={x_in_right_vortex}, Y범위={y_in_right_vortex}, 충돌={in_right}")
                 if in_left:
                     print(f"   💫 왼쪽 회오리 충돌! 중심=({vortex_x:.0f},{vortex_y:.0f}), 높이={current_vortex_height:.0f}")
                 elif in_right:
@@ -573,6 +578,9 @@ class PoseidonTrident(LegendaryItem):
                 
                 if distance < vortex_radius:
                     print(f"🎯 회오리 영향 범위 내!")
+                    print(f"   - 공 위치: ({ball_x:.0f}, {ball_y:.0f})")
+                    print(f"   - 회오리 중심: ({vortex_x:.0f}, {vortex_y:.0f})")
+                    print(f"   - 거리: {distance:.1f} < 반경: {vortex_radius:.1f}")
                     
                     # 거리 기반 굴절 강도 계산 (중심에 가까울수록 강함)
                     refraction_strength = 1.0 - (distance / vortex_radius)
@@ -580,6 +588,7 @@ class PoseidonTrident(LegendaryItem):
                     refraction_strength = max(0.5, refraction_strength)  # 최소 50% 강도 보장
                     
                     print(f"   - 굴절 강도: {refraction_strength:.3f}")
+                    print(f"   - 원래 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}")
                     
                     # 현재 속도 벡터의 각도와 속력
                     current_angle = math.atan2(ball_vy, ball_vx)
