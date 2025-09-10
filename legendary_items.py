@@ -931,31 +931,31 @@ class PoseidonTrident(LegendaryItem):
                     screen.blit(water_surf, (particle["x"] - size, particle["y"] - size))
             
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """애니메이션 아이콘 그리기 - 라그나로크 해머와 완전 동일 (색상만 다름)"""
+        """애니메이션 아이콘 그리기 - 라그나로크 해머와 완전 동일"""
         import pygame
         import math
         
         # 포세이돈도 라그나로크와 동일한 글로우 설정
         self.trident_glow_multiplier = 1.8  # 헤르메스보다 더 큰 글로우
         
-        # 글로우 효과 (포세이돈은 푸른색 테마)
+        # 글로우 효과 (라그나로크 해머와 완전 동일 - 빨간색)
         glow_size = int(size * (self.trident_glow_multiplier + self.glow_intensity * 0.15))
         glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
         for i in range(5):  # 더 많은 레이어로 강렬한 효과
             alpha = 80 - i * 12  # 더 진한 글로우
-            pygame.draw.circle(glow_surf, (0, 150, 255, alpha),  # 푸른색
+            pygame.draw.circle(glow_surf, (*LEGENDARY_COLOR, alpha),  # 빨간색 (라그나로크와 동일)
                              (glow_size//2, glow_size//2), 
                              glow_size//2 - i * 4)  # 더 촘촘한 간격
         screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
         
-        # 푸른색 테두리 (펄싱 효과 - 더 두껍게)
+        # 붉은색 테두리 (펄싱 효과 - 더 두껍게) - 라그나로크와 동일
         border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
         border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
-        pygame.draw.rect(screen, (0, 150, 255), border_rect, border_thickness)  # 푸른색
+        pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)  # 빨간색
         
-        # 꼭지점 디테일 (코너 장식)
+        # 꼭지점 디테일 (코너 장식) - 라그나로크와 동일
         corner_size = 8  # 더 큰 코너
-        corner_color = (100, 200, 255)  # 하늘색 (포세이돈 테마)
+        corner_color = (255, 215, 0)  # 황금색 (신의 무기) - 라그나로크와 동일
         # 왼쪽 위
         pygame.draw.lines(screen, corner_color, False, 
                          [(x-2, y+corner_size), (x-2, y-2), (x+corner_size, y-2)], 2)
@@ -969,9 +969,9 @@ class PoseidonTrident(LegendaryItem):
         pygame.draw.lines(screen, corner_color, False,
                          [(x+size-corner_size+2, y+size+2), (x+size+2, y+size+2), (x+size+2, y+size-corner_size+2)], 2)
         
-        # 코너 점 장식 (더 화려하게)
+        # 코너 점 장식 (더 화려하게) - 라그나로크와 동일
         for cx, cy in [(x, y), (x+size, y), (x, y+size), (x+size, y+size)]:
-            pygame.draw.circle(screen, (0, 150, 255), (cx, cy), 3)  # 푸른색
+            pygame.draw.circle(screen, LEGENDARY_COLOR, (cx, cy), 3)  # 빨간색
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
         
         # 애니메이션 프레임 그리기 (라그나로크 해머와 동일한 프레임 사용)
@@ -988,14 +988,14 @@ class PoseidonTrident(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
             
-            # 물결 효과 추가 (프레임 0, 4에서)
+            # 번개 효과 추가 (프레임 0, 4에서) - 라그나로크와 동일
             if self.current_frame in [0, 4]:
-                # 작은 물결 이펙트 (포세이돈 버전)
-                wave_color = (150, 200, 255)  # 하늘색
-                pygame.draw.line(screen, wave_color, 
+                # 작은 번개 이펙트
+                bolt_color = (255, 255, 150)
+                pygame.draw.line(screen, bolt_color, 
                                (x + size//4, y - 5), 
                                (x + size//3, y + size//4), 2)
-                pygame.draw.line(screen, wave_color,
+                pygame.draw.line(screen, bolt_color,
                                (x + size*3//4, y - 5),
                                (x + size*2//3, y + size//4), 2)
         
