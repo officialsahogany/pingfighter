@@ -479,6 +479,14 @@ class PoseidonTrident(LegendaryItem):
             # 어느 쪽 회오리에든 들어갔는지 확인
             in_left = x_in_left_vortex and y_in_left_vortex
             in_right = x_in_right_vortex and y_in_right_vortex
+            
+            # 디버그: 회오리 위치와 크기 (최초 1회만)
+            if not hasattr(self, '_vortex_debug_shown'):
+                print(f"🌊 [VORTEX INFO]")
+                print(f"   왼쪽 회오리: X={self.vortex_left_x:.0f}, Y={self.vortex_left_y:.0f}, 너비={self.vortex_width:.0f}")
+                print(f"   오른쪽 회오리: X={self.vortex_right_x:.0f}, Y={self.vortex_right_y:.0f}, 너비={self.vortex_width:.0f}")
+                print(f"   최대 높이: {self.vortex_max_height:.0f}")
+                self._vortex_debug_shown = True
             in_any_vortex = in_left or in_right
             
             # 어느 회오리에 들어갔는지에 따라 중심점 결정
@@ -499,6 +507,14 @@ class PoseidonTrident(LegendaryItem):
                 vortex_side = "없음"
             
             # 디버그: 충돌 체크 상태 (항상 출력)
+            if pygame.time.get_ticks() % 100 < 16:  # 0.1초마다 한 번
+                print(f"🎯 [VORTEX CHECK] Ball=({ball_x:.0f},{ball_y:.0f})")
+                print(f"   왼쪽: X범위={x_in_left_vortex}, Y범위={y_in_left_vortex}, 충돌={in_left}")
+                print(f"   오른쪽: X범위={x_in_right_vortex}, Y범위={y_in_right_vortex}, 충돌={in_right}")
+                if in_left:
+                    print(f"   💫 왼쪽 회오리 충돌! 중심=({vortex_x:.0f},{vortex_y:.0f}), 높이={current_vortex_height:.0f}")
+                elif in_right:
+                    print(f"   💫 오른쪽 회오리 충돌! 중심=({vortex_x:.0f},{vortex_y:.0f}), 높이={current_vortex_height:.0f}")
             print(f"🌊 [VORTEX 충돌체크]")
             print(f"   - 공 위치: ({ball_x:.0f}, {ball_y:.0f})")
             print(f"   - 왼쪽 회오리: 중심=({self.vortex_left_x:.0f}, {self.vortex_left_y:.0f}), 높이={left_vortex_height:.0f}")
@@ -513,13 +529,9 @@ class PoseidonTrident(LegendaryItem):
                 print(f"   - 회오리 중심: ({vortex_x:.0f}, {vortex_y:.0f}) [{vortex_side}]")
                 print(f"   - 회오리 크기: width={self.vortex_width}, height={current_vortex_height:.0f}")
                 
-                # 플레이어가 쳐낸 공 (위로 올라가는 공)은 무시
-                # 보스가 쳐낸 공(아래로 향하는)만 효과 적용
-                if ball_vy < 0:  # 위로 올라가는 공은 플레이어가 친 것
-                    print(f"🚫 플레이어가 친 공 무시: vy={ball_vy:.1f}")
-                    return ball_vx, ball_vy  # 물 회오리 효과 무시
-                
-                print(f"✅ 보스가 친 공 처리 시작: vy={ball_vy:.1f}")
+                # 회오리 효과는 모든 공에 적용
+                # (이전에는 방향으로 필터링했지만, 회오리는 모든 공에 영향을 줌)
+                print(f"✅ 회오리 효과 적용 시작: vx={ball_vx:.1f}, vy={ball_vy:.1f}")
                 
                 # === Stage 4 굴절자기장과 동일한 메커니즘 적용 ===
                 # 회오리 중심과의 거리 계산
