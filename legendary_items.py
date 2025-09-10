@@ -804,32 +804,9 @@ class PoseidonTrident(LegendaryItem):
             
         # 거대한 회오리 그리기
         if self.vortex_active:
-            # 회오리 기둥 효과 (반투명 거대한 물기둥)
+            # 물기둥 효과 제거 - 파티클만 표시
             current_height = int(min(self.vortex_height, self.vortex_max_height))
-            if current_height > 0:
-                # 여러 레이어로 회오리 표현
-                for i in range(5):
-                    alpha = 60 + i * 20  # 레이어별 투명도 (더 진하게)
-                    width = self.vortex_width - i * 10
-                    
-                    # 회오리 기둥
-                    vortex_surf = pygame.Surface((width, current_height), pygame.SRCALPHA)
-                    
-                    # 그라데이션 효과
-                    for y in range(0, current_height, 5):
-                        gradient_alpha = alpha * (1 - y / current_height)
-                        color = (50, 150 + int(50 * (1 - y / current_height)), 255, int(gradient_alpha))
-                        pygame.draw.rect(vortex_surf, color, (0, y, width, 5))
-                    
-                    # 회오리 중심에 그리기
-                    screen.blit(vortex_surf, 
-                              (self.vortex_x - width // 2, 
-                               self.vortex_y - current_height))
-                
-                # 회오리 윤곽선 효과 제거 (사용자 요청)
-                # 깔끔한 물기둥 효과만 유지
-                
-                # 디버그 테두리 제거됨 - 실제 게임에서는 표시하지 않음
+            # 시각 효과는 제거하고 물리 효과만 유지
             
             # 회오리 파티클 그리기
             for particle in self.vortex_particles:
