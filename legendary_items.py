@@ -283,6 +283,8 @@ class PoseidonTrident(LegendaryItem):
         self.icon_frames = []
         self.current_frame = 0
         self.frame_timer = 0
+        self.frame_counter = 0  # 프레임 카운터 추가
+        self.animation_speed = 8  # 애니메이션 속도 (라그나로크와 동일)
         self.load_animation_frames()
         
     def load_animation_frames(self):
@@ -915,29 +917,116 @@ class PoseidonTrident(LegendaryItem):
                     
                     screen.blit(water_surf, (particle["x"] - size, particle["y"] - size))
             
-    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int):
-        """아이콘 그리기 (애니메이션)"""
-        if self.icon_frames and self.current_frame < len(self.icon_frames):
-            # 애니메이션 프레임 그리기
-            icon = pygame.transform.scale(self.icon_frames[self.current_frame], (size, size))
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """애니메이션 아이콘 그리기 with 라그나로크 해머 스타일"""
+        import pygame
+        import math
+        
+        # 포세이돈 특유의 물결 효과를 위한 값들
+        self.trident_glow_multiplier = 1.8  # 라그나로크와 동일한 글로우 크기
+        
+        # 글로우 효과 (포세이돈은 푸른색 테마)
+        ocean_color = (0, 150, 255)  # 바다색
+        glow_size = int(size * (self.trident_glow_multiplier + self.glow_intensity * 0.15))
+        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        for i in range(5):  # 더 많은 레이어로 강렬한 효과
+            alpha = 80 - i * 12  # 더 진한 글로우
+            pygame.draw.circle(glow_surf, (*ocean_color, alpha), 
+                             (glow_size//2, glow_size//2), 
+                             glow_size//2 - i * 4)  # 더 촘촘한 간격
+        screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
+        
+        # 푸른색 테두리 (펄싱 효과 - 더 두껍게)
+        border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
+        border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
+        pygame.draw.rect(screen, ocean_color, border_rect, border_thickness)
+        
+        # 꼭지점 디테일 (코너 장식) - 포세이돈은 은색
+        corner_size = 8  # 더 큰 코너
+        corner_color = (192, 192, 255)  # 은빛 파란색 (신의 무기)
+        # 왼쪽 위
+        pygame.draw.lines(screen, corner_color, False, 
+                         [(x-2, y+corner_size), (x-2, y-2), (x+corner_size, y-2)], 2)
+        # 오른쪽 위
+        pygame.draw.lines(screen, corner_color, False,
+                         [(x+size-corner_size+2, y-2), (x+size+2, y-2), (x+size+2, y+corner_size)], 2)
+        # 왼쪽 아래
+        pygame.draw.lines(screen, corner_color, False,
+                         [(x-2, y+size-corner_size+2), (x-2, y+size+2), (x+corner_size, y+size+2)], 2)
+        # 오른쪽 아래
+        pygame.draw.lines(screen, corner_color, False,
+                         [(x+size-corner_size+2, y+size+2), (x+size+2, y+size+2), (x+size+2, y+size-corner_size+2)], 2)
+        
+        # 코너 점 장식 (더 화려하게)
+        for cx, cy in [(x, y), (x+size, y), (x, y+size), (x+size, y+size)]:
+            pygame.draw.circle(screen, ocean_color, (cx, cy), 3)
+            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
+        
+        # 애니메이션 프레임 그리기
+        if self.icon_frames and len(self.icon_frames) > 0:
+            # 프레임 업데이트 (항상 진행)
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
+            
+            # 현재 프레임 그리기 (위아래 움직임 효과 포함)
+            icon_y = y + int(self.animation_offset)
+            current_icon = self.icon_frames[self.current_frame % len(self.icon_frames)]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
+            
+            # 물결 효과 추가 (프레임 2, 6에서)
+            if self.current_frame in [2, 6]:
+                # 작은 물결 이펙트
+                wave_color = (150, 200, 255)
+                # 물결 원
+                pygame.draw.circle(screen, wave_color, 
+                                 (x + size//2, y + size//2), 
+                                 size//2 + 5, 2)
+                # 물방울 효과
+                for i in range(3):
+                    drop_x = x + size//4 + (i * size//4)
+                    drop_y = y - 5 - i * 3
+                    pygame.draw.circle(screen, wave_color, (drop_x, drop_y), 2)
         elif self.icon_path and os.path.exists(resource_path(self.icon_path)):
-            # 기본 아이콘 그리기
+            # 기본 아이콘 그리기 (애니메이션 프레임이 없을 때)
+            icon_y = y + int(self.animation_offset)
             icon = pygame.image.load(resource_path(self.icon_path)).convert_alpha()
             icon = pygame.transform.scale(icon, (size, size))
+            screen.blit(icon, (x, icon_y))
         else:
-            # 아이콘이 없으면 기본 도형
-            icon = pygame.Surface((size, size), pygame.SRCALPHA)
-            pygame.draw.rect(icon, LEGENDARY_COLOR, (0, 0, size, size), 3)
-            
-        # 글로우 효과
-        if self.active:
-            glow_size = int(size * 1.3)
-            glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, LEGENDARY_GLOW_COLOR,
-                             (glow_size // 2, glow_size // 2), glow_size // 2)
-            screen.blit(glow_surf, (x - (glow_size - size) // 2, y - (glow_size - size) // 2))
-            
-        screen.blit(icon, (x, y))
+            # 아이콘이 전혀 없으면 기본 삼지창 그리기
+            icon_y = y + int(self.animation_offset)
+            trident_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            # 삼지창 모양 그리기
+            center_x = size // 2
+            # 중앙 창
+            pygame.draw.line(trident_surf, ocean_color, 
+                           (center_x, size - 10), (center_x, 10), 3)
+            # 왼쪽 창
+            pygame.draw.line(trident_surf, ocean_color,
+                           (center_x - 10, 15), (center_x, 10), 3)
+            # 오른쪽 창
+            pygame.draw.line(trident_surf, ocean_color,
+                           (center_x + 10, 15), (center_x, 10), 3)
+            screen.blit(trident_surf, (x, icon_y))
+        
+        # 파티클 효과 (가끔씩) - 물방울 효과
+        if self.particle_timer > 1000:  # 1초마다
+            self._spawn_water_particle(screen, x + size//2, y + size//2)
+            self.particle_timer = 0
+    
+    def _spawn_water_particle(self, screen: pygame.Surface, x: int, y: int):
+        """물방울 파티클 스폰"""
+        ocean_color = (0, 150, 255)
+        for _ in range(3):
+            px = x + random.randint(-20, 20)
+            py = y + random.randint(-20, 20)
+            # 물방울 효과
+            pygame.draw.circle(screen, ocean_color, (px, py), random.randint(2, 4))
+            # 하이라이트
+            pygame.draw.circle(screen, (150, 200, 255), (px-1, py-1), 1)
 
 
 class HermesShoes(LegendaryItem):
