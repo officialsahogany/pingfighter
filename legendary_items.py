@@ -301,6 +301,19 @@ class PoseidonTrident(LegendaryItem):
             # 애니메이션 진행도 (0.0 ~ 1.0)
             progress = i / 8.0
             
+            # 회색 배경 (라그나로크 해머와 동일)
+            background_color = (80, 80, 80, 200)  # 어두운 회색 배경
+            pygame.draw.rect(frame, background_color, (4, 4, 56, 56))  # 배경 채우기
+            
+            # 에너지 필드 효과 (라그나로크 해머와 동일)
+            energy_alpha = 60 + int(30 * math.sin(progress * math.pi * 2))
+            for ring in range(2):  # 2개의 링
+                ring_size = 28 - ring * 8
+                ring_alpha = energy_alpha - ring * 20
+                if ring_alpha > 0:
+                    energy_color = (255, 50, 50, ring_alpha)
+                    pygame.draw.circle(frame, energy_color, (32, 32), ring_size, 2)
+            
             # 내부 빨간색 테두리 (라그나로크 해머와 동일)
             border_color = (255, 0, 0, 255)  # 빨간색
             pygame.draw.rect(frame, border_color, (2, 2, 60, 60), 2)  # 내부 테두리
