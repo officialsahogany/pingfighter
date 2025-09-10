@@ -428,7 +428,7 @@ ITEM_TYPES = [
         "color": (100, 200, 255),  # 하늘색 (전설 색상)
         "effect": "hermes_shoes",
         "icon": None,
-        "chance": 0.99,  # 테스트용 99% 확률
+        "chance": 0.0008,  # 테스트용 99% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -437,7 +437,7 @@ ITEM_TYPES = [
         "color": (50, 150, 255),  # 바다색 (전설 색상)
         "effect": "poseidon_trident",
         "icon": None,
-        "chance": 0.99,  # 테스트용 99% 확률
+        "chance": 0.9999,  # 테스트용 99% 확률
         "duration": 600,
         "unlock_condition": None
     }
@@ -817,9 +817,11 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                         print(f"   : {e}")
             
             item_name = item["type"]["name"]
+            print(f"🔍 DEBUG: 아이템 획득 감지: {item_name}")
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "ragnarok_hammer", "hermes_shoes"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
                 # 패시브 아이템 처리
+                print(f"🔍 DEBUG: {item_name}을(를) 패시브 아이템으로 처리 중...")
                 if store_passive_func:
                     item_data = {
                         "name": item_name,
@@ -829,7 +831,11 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                         "x": item["x"],
                         "y": item["y"]
                     }
+                    print(f"🔍 DEBUG: store_passive_func 호출 중... item_data: {item_data['name']}")
                     store_passive_func(item_data)
+                    print(f"✅ DEBUG: {item_name} 패시브 아이템 처리 완료!")
+                else:
+                    print(f"❌ DEBUG: store_passive_func가 None입니다!")
             else:
                 # 엑티브 아이템 처리 - store_active_item을 통해 슬롯에 저장
                 if store_active_func:
