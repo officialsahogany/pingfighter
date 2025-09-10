@@ -4691,6 +4691,10 @@ rolling_direction = 0  # -1: 왼쪽, 1: 오른쪽
 rolling_speed = 30
 rolling_stun_timer = 0  # 구르기 후 통제 불가능 시간
 rolling_dash_available_timer = 0  # 구르기 대쉬 가능 타이머
+# 포세이돈의 삼지창 대시 회오리 효과 플래그
+poseidon_dash_pending = False  # 대시 후 통제불능 시 회오리 발동 대기
+poseidon_dash_x = 0  # 회오리 발동 위치 X
+poseidon_dash_y = 0  # 회오리 발동 위치 Y
 rolling_cooldown = 0  # 구르기 쿨타임
 rolling_charges = 1  # 구르기 사용 가능 횟수 (기본값 1개)
 token_states = [True]  # 각 토큰의 상태 (True=사용가능, False=소진) - 왼쪽부터 소진/충전
@@ -5331,6 +5335,14 @@ def handle_player(keys):
                     final_stun_time = max(1, base_stun_time - stun_reduction)  # 최소 1프레임
                     rolling_stun_timer = final_stun_time
                     rolling_dash_available_timer = final_stun_time
+                    
+                    # 포세이돈 삼지창 효과: 통제불능 상태 진입시 양쪽에 회오리 생성
+                    if poseidon_dash_pending and legendary_manager:
+                        trident = legendary_manager.get_item("poseidon_trident")
+                        if trident and trident.active:
+                            # 대쉬가 완료되고 통제불능 상태에 진입할 때 양쪽에 회오리 생성
+                            trident.trigger_dash_wave(poseidon_dash_x, poseidon_dash_y, rolling_direction)
+                            poseidon_dash_pending = False  # 플래그 리셋
                 current_speed = 0
             else:
                 # 구르기 중에는 순간적으로 매우 빠르게 이동 후 빠르게 감속
@@ -5402,7 +5414,10 @@ def handle_player(keys):
                         if legendary_manager:
                             trident = legendary_manager.get_item("poseidon_trident")
                             if trident and trident.active:
-                                trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, -1)  # 왼쪽 대쉬
+                                # 대쉬 시에는 바로 발동하지 않고 플래그만 설정
+                                poseidon_dash_pending = True
+                                poseidon_dash_x = PLAYER.centerx
+                                poseidon_dash_y = PLAYER.centery
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
@@ -5543,7 +5558,10 @@ def handle_player(keys):
                         if legendary_manager:
                             trident = legendary_manager.get_item("poseidon_trident")
                             if trident and trident.active:
-                                trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, 1)  # 오른쪽 대쉬
+                                # 대쉬 시에는 바로 발동하지 않고 플래그만 설정
+                                poseidon_dash_pending = True
+                                poseidon_dash_x = PLAYER.centerx
+                                poseidon_dash_y = PLAYER.centery
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
@@ -5799,7 +5817,10 @@ def handle_player(keys):
                             if legendary_manager:
                                 trident = legendary_manager.get_item("poseidon_trident")
                                 if trident and trident.active:
-                                    trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, half_dash_direction)
+                                    # 대쉬 시에는 바로 발동하지 않고 플래그만 설정
+                                    poseidon_dash_pending = True
+                                    poseidon_dash_x = PLAYER.centerx
+                                    poseidon_dash_y = PLAYER.centery
                         except:
                             pass  # 전설 아이템 접근 실패 시 무시
                         rolling_direction = half_dash_direction
@@ -5951,7 +5972,10 @@ def handle_player(keys):
                         if legendary_manager:
                             trident = legendary_manager.get_item("poseidon_trident")
                             if trident and trident.active:
-                                trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, -1)  # 왼쪽 대쉬
+                                # 대쉬 시에는 바로 발동하지 않고 플래그만 설정
+                                poseidon_dash_pending = True
+                                poseidon_dash_x = PLAYER.centerx
+                                poseidon_dash_y = PLAYER.centery
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
@@ -6103,7 +6127,10 @@ def handle_player(keys):
                         if legendary_manager:
                             trident = legendary_manager.get_item("poseidon_trident")
                             if trident and trident.active:
-                                trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, 1)  # 오른쪽 대쉬
+                                # 대쉬 시에는 바로 발동하지 않고 플래그만 설정
+                                poseidon_dash_pending = True
+                                poseidon_dash_x = PLAYER.centerx
+                                poseidon_dash_y = PLAYER.centery
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
                     #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과

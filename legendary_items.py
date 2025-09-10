@@ -252,12 +252,18 @@ class PoseidonTrident(LegendaryItem):
         self.dash_wave_active = False
         self.dash_wave_timer = 0
         
-        # 거대한 물결 회오리 효과 속성
+        # 거대한 물결 회오리 효과 속성 - 양쪽 회오리 지원
         self.vortex_active = False
         self.vortex_timer = 0
-        self.vortex_x = 0
-        self.vortex_y = 0
-        self.vortex_height = 0  # 시작 높이
+        # 왼쪽 회오리
+        self.vortex_left_x = 0
+        self.vortex_left_y = 0
+        self.vortex_left_height = 0  # 시작 높이
+        # 오른쪽 회오리
+        self.vortex_right_x = 0
+        self.vortex_right_y = 0
+        self.vortex_right_height = 0  # 시작 높이
+        # 공통 속성
         self.vortex_max_height = 400  # 최대 높이 (화면 대부분 커버)
         self.vortex_width = 200  # 회오리 너비 (대폭 증가 for better collision)
         self.vortex_spin_speed = 0  # 회전 속도
@@ -348,8 +354,8 @@ class PoseidonTrident(LegendaryItem):
             
         return ball_vx, ball_vy
         
-    def trigger_dash_wave(self, paddle_x: float, paddle_y: float, direction: int):
-        """대시 시 거대한 물결 회오리 발동"""
+    def trigger_dash_wave(self, paddle_x: float, paddle_y: float, direction: int = 0):
+        """대시 후 통제불능 시 양쪽에 거대한 물결 회오리 발동"""
         print(f"🔍 트리거 호출됨 - self.active: {self.active}")
         if not self.active:
             print(f"⚠️ 포세이돈 삼지창이 비활성화 상태입니다!")
@@ -358,32 +364,61 @@ class PoseidonTrident(LegendaryItem):
         self.dash_wave_active = True
         self.dash_wave_timer = 0
         
-        # 거대한 물결 회오리 활성화
+        # 거대한 물결 회오리 활성화 - 양쪽에 생성
         self.vortex_active = True
         self.vortex_timer = 0
-        self.vortex_x = paddle_x
-        self.vortex_y = paddle_y
-        self.vortex_height = 0
+        
+        # 왼쪽 회오리 (패들 왼쪽 150픽셀)
+        self.vortex_left_x = paddle_x - 150
+        self.vortex_left_y = paddle_y
+        self.vortex_left_height = 0
+        
+        # 오른쪽 회오리 (패들 오른쪽 150픽셀)
+        self.vortex_right_x = paddle_x + 150
+        self.vortex_right_y = paddle_y
+        self.vortex_right_height = 0
+        
         self.vortex_spin_speed = 0
         
-        print(f"🔱 포세이돈 회오리 발동! 위치: ({paddle_x:.0f}, {paddle_y:.0f}), 방향: {direction}")
-        print(f"   Active: {self.active}, Vortex: {self.vortex_active}, Height: {self.vortex_height}")
+        print(f"🔱 포세이돈 양쪽 회오리 발동! 중심: ({paddle_x:.0f}, {paddle_y:.0f})")
+        print(f"   왼쪽: ({self.vortex_left_x:.0f}, {self.vortex_left_y:.0f})")
+        print(f"   오른쪽: ({self.vortex_right_x:.0f}, {self.vortex_right_y:.0f})")
+        print(f"   Active: {self.active}, Vortex: {self.vortex_active}")
         
-        # 회오리 파티클 대량 생성 (용솟음치는 효과)
-        for i in range(50):  # 많은 파티클로 거대한 효과
-            # 나선형 상승 파티클
+        # 양쪽 회오리에 대한 파티클 대량 생성 (용솟음치는 효과)
+        # 왼쪽 회오리 파티클
+        for i in range(30):  # 각 회오리당 30개
             angle = (i / 10) * math.pi * 2
             height_offset = random.uniform(0, 200)
             particle = {
-                "x": paddle_x + random.uniform(-30, 30),
-                "y": paddle_y - height_offset,
-                "vx": math.cos(angle) * random.uniform(2, 8) * direction,
+                "x": self.vortex_left_x + random.uniform(-30, 30),
+                "y": self.vortex_left_y - height_offset,
+                "vx": math.cos(angle) * random.uniform(2, 8),
                 "vy": random.uniform(-8, -3),  # 위로 솟구치는 속도
                 "life": random.randint(40, 80),
                 "color": (50, 150 + random.randint(0, 100), 255),
                 "size": random.uniform(3, 10),
                 "spiral_angle": angle,
-                "spiral_radius": random.uniform(20, 60)
+                "spiral_radius": random.uniform(20, 60),
+                "vortex_side": "left"  # 왼쪽 회오리 표시
+            }
+            self.vortex_particles.append(particle)
+        
+        # 오른쪽 회오리 파티클
+        for i in range(30):  # 각 회오리당 30개
+            angle = (i / 10) * math.pi * 2
+            height_offset = random.uniform(0, 200)
+            particle = {
+                "x": self.vortex_right_x + random.uniform(-30, 30),
+                "y": self.vortex_right_y - height_offset,
+                "vx": math.cos(angle) * random.uniform(2, 8),
+                "vy": random.uniform(-8, -3),  # 위로 솟구치는 속도
+                "life": random.randint(40, 80),
+                "color": (50, 150 + random.randint(0, 100), 255),
+                "size": random.uniform(3, 10),
+                "spiral_angle": angle,
+                "spiral_radius": random.uniform(20, 60),
+                "vortex_side": "right"  # 오른쪽 회오리 표시
             }
             self.vortex_particles.append(particle)
                 
@@ -425,30 +460,57 @@ class PoseidonTrident(LegendaryItem):
             print(f"🔍 [apply_dash_wave_to_ball] 비활성 상태 - 원래 속도 반환")
             return ball_vx, ball_vy
             
-        # 거대한 회오리 효과 (우선 처리)
+        # 거대한 회오리 효과 (우선 처리) - 양쪽 회오리 체크
         if self.vortex_active:
             # 회오리의 Y축 범위 (시간에 따라 확장)
-            current_vortex_height = min(self.vortex_height, self.vortex_max_height)
+            left_vortex_height = min(self.vortex_left_height, self.vortex_max_height)
+            right_vortex_height = min(self.vortex_right_height, self.vortex_max_height)
             
-            # 회오리 충돌 체크 - 시각적 효과와 정확히 일치
-            x_distance = abs(ball_x - self.vortex_x)
-            x_in_vortex = x_distance <= (self.vortex_width / 2 - 10)  # 시각 효과보다 10픽셀 작게
-            y_in_vortex = (self.vortex_y - current_vortex_height) <= ball_y <= self.vortex_y  # 시각적 높이와 정확히 일치
+            # 왼쪽 회오리 충돌 체크
+            x_distance_left = abs(ball_x - self.vortex_left_x)
+            x_in_left_vortex = x_distance_left <= (self.vortex_width / 2 - 10)
+            y_in_left_vortex = (self.vortex_left_y - left_vortex_height) <= ball_y <= self.vortex_left_y
+            
+            # 오른쪽 회오리 충돌 체크
+            x_distance_right = abs(ball_x - self.vortex_right_x)
+            x_in_right_vortex = x_distance_right <= (self.vortex_width / 2 - 10)
+            y_in_right_vortex = (self.vortex_right_y - right_vortex_height) <= ball_y <= self.vortex_right_y
+            
+            # 어느 쪽 회오리에든 들어갔는지 확인
+            in_left = x_in_left_vortex and y_in_left_vortex
+            in_right = x_in_right_vortex and y_in_right_vortex
+            in_any_vortex = in_left or in_right
+            
+            # 어느 회오리에 들어갔는지에 따라 중심점 결정
+            if in_left:
+                vortex_x = self.vortex_left_x
+                vortex_y = self.vortex_left_y
+                current_vortex_height = left_vortex_height
+                vortex_side = "왼쪽"
+            elif in_right:
+                vortex_x = self.vortex_right_x
+                vortex_y = self.vortex_right_y
+                current_vortex_height = right_vortex_height
+                vortex_side = "오른쪽"
+            else:
+                vortex_x = 0
+                vortex_y = 0
+                current_vortex_height = 0
+                vortex_side = "없음"
             
             # 디버그: 충돌 체크 상태 (항상 출력)
             print(f"🌊 [VORTEX 충돌체크]")
             print(f"   - 공 위치: ({ball_x:.0f}, {ball_y:.0f})")
-            print(f"   - 회오리 중심: ({self.vortex_x:.0f}, {self.vortex_y:.0f})")
-            print(f"   - 회오리 크기: width={self.vortex_width}, height={current_vortex_height:.0f}")
-            print(f"   - X축 체크: 거리={x_distance:.0f}, 한계={self.vortex_width/2:.0f}, 결과={x_in_vortex}")
-            print(f"   - Y축 체크: 범위=[{self.vortex_y - current_vortex_height:.0f}, {self.vortex_y:.0f}], 공Y={ball_y:.0f}, 결과={y_in_vortex}")
-            print(f"   - 최종 결과: 회오리 안={'예' if (x_in_vortex and y_in_vortex) else '아니오'}")
+            print(f"   - 왼쪽 회오리: 중심=({self.vortex_left_x:.0f}, {self.vortex_left_y:.0f}), 높이={left_vortex_height:.0f}")
+            print(f"   - 오른쪽 회오리: 중심=({self.vortex_right_x:.0f}, {self.vortex_right_y:.0f}), 높이={right_vortex_height:.0f}")
+            print(f"   - 왼쪽 충돌: {in_left}, 오른쪽 충돌: {in_right}")
+            print(f"   - 최종 결과: 회오리 안={'예 (' + vortex_side + ')' if in_any_vortex else '아니오'}")
             
-            if x_in_vortex and y_in_vortex:
+            if in_any_vortex:
                 print(f"⭐ 공이 물회오리 안에 있음!")
                 print(f"   - 공 위치: ({ball_x:.0f}, {ball_y:.0f})")
                 print(f"   - 공 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}")
-                print(f"   - 회오리 중심: ({self.vortex_x:.0f}, {self.vortex_y:.0f})")
+                print(f"   - 회오리 중심: ({vortex_x:.0f}, {vortex_y:.0f}) [{vortex_side}]")
                 print(f"   - 회오리 크기: width={self.vortex_width}, height={current_vortex_height:.0f}")
                 
                 # 플레이어가 쳐낸 공 (위로 올라가는 공)은 무시
@@ -461,8 +523,8 @@ class PoseidonTrident(LegendaryItem):
                 
                 # === Stage 4 굴절자기장과 동일한 메커니즘 적용 ===
                 # 회오리 중심과의 거리 계산
-                distance = math.sqrt((ball_x - self.vortex_x) ** 2 + 
-                                   (ball_y - (self.vortex_y - current_vortex_height/2)) ** 2)
+                distance = math.sqrt((ball_x - vortex_x) ** 2 + 
+                                   (ball_y - (vortex_y - current_vortex_height/2)) ** 2)
                 
                 # 회오리 반경 (시각적 효과보다 약간 작게 설정)
                 # 시각 효과는 실제 충돌 범위보다 크게 보이므로 충돌 범위를 약간 줄임
@@ -656,7 +718,7 @@ class PoseidonTrident(LegendaryItem):
             else:
                 # 회오리 충돌 범위 밖
                 print(f"🌊 [VORTEX] 충돌 범위 밖 - 효과 없음")
-                print(f"   - X축 밖: {not x_in_vortex}, Y축 밖: {not y_in_vortex}")
+                print(f"   - 왼쪽 회오리 밖: {not in_left}, 오른쪽 회오리 밖: {not in_right}")
                 # 추진력이 활성화되어 있으면 위의 코드에서 이미 처리됨
                 pass
         
@@ -714,25 +776,44 @@ class PoseidonTrident(LegendaryItem):
         # 물결 타이머 (게임플레이에서만)
         self.wave_timer += dt * 60
         
-        # 거대한 회오리 업데이트 (게임플레이에서만)
+        # 거대한 회오리 업데이트 (게임플레이에서만) - 양쪽 회오리
         if self.vortex_active:
             self.vortex_timer += dt
             
-            # 회오리 높이 급속 확장 (용솟음치는 효과)
-            if self.vortex_height < self.vortex_max_height:
-                self.vortex_height += 800 * dt  # 빠르게 상승
-                # 매 0.5초마다 업데이트 상태 출력
+            # 왼쪽 회오리 높이 급속 확장 (용솟음치는 효과)
+            if self.vortex_left_height < self.vortex_max_height:
+                self.vortex_left_height += 800 * dt  # 빠르게 상승
+            
+            # 오른쪽 회오리 높이 급속 확장 (용솟음치는 효과)
+            if self.vortex_right_height < self.vortex_max_height:
+                self.vortex_right_height += 800 * dt  # 빠르게 상승
+                
+            # 매 0.5초마다 업데이트 상태 출력
             if int(self.vortex_timer * 2) != int((self.vortex_timer - dt) * 2):
-                print(f"📈 Vortex Update: timer={self.vortex_timer:.2f}s, height={self.vortex_height:.0f}, dt={dt:.4f}")
+                print(f"📈 Vortex Update: timer={self.vortex_timer:.2f}s, 왼쪽={self.vortex_left_height:.0f}, 오른쪽={self.vortex_right_height:.0f}")
             
             # 회전 속도 증가
             self.vortex_spin_speed += dt * 10
             
-            # 회오리 파티클 업데이트
+            # 회오리 파티클 업데이트 - 각 회오리별로 처리
             for particle in self.vortex_particles[:]:
                 # 나선형 움직임
                 particle["spiral_angle"] += dt * 5
-                particle["x"] = self.vortex_x + math.cos(particle["spiral_angle"]) * particle["spiral_radius"]
+                
+                # 파티클이 어느 회오리에 속하는지에 따라 중심 결정
+                if "vortex_side" in particle:
+                    if particle["vortex_side"] == "left":
+                        center_x = self.vortex_left_x
+                        center_y = self.vortex_left_y
+                    else:  # right
+                        center_x = self.vortex_right_x
+                        center_y = self.vortex_right_y
+                else:
+                    # 기본값 (호환성)
+                    center_x = self.vortex_left_x
+                    center_y = self.vortex_left_y
+                
+                particle["x"] = center_x + math.cos(particle["spiral_angle"]) * particle["spiral_radius"]
                 particle["y"] -= dt * 200  # 위로 상승
                 
                 particle["spiral_radius"] += dt * 30  # 반경 확대
@@ -741,26 +822,45 @@ class PoseidonTrident(LegendaryItem):
                 if particle["life"] <= 0:
                     self.vortex_particles.remove(particle)
                     
-            # 새로운 파티클 지속적으로 생성
-            if self.vortex_timer < 1.0 and len(self.vortex_particles) < 100:
-                for _ in range(3):
+            # 새로운 파티클 지속적으로 생성 - 양쪽 회오리에 각각
+            if self.vortex_timer < 1.0 and len(self.vortex_particles) < 150:  # 양쪽이니까 150개까지
+                # 왼쪽 회오리 파티클
+                for _ in range(2):
                     particle = {
-                        "x": self.vortex_x + random.uniform(-30, 30),
-                        "y": self.vortex_y,
+                        "x": self.vortex_left_x + random.uniform(-30, 30),
+                        "y": self.vortex_left_y,
                         "vx": random.uniform(-5, 5),
                         "vy": random.uniform(-10, -5),
                         "life": random.randint(30, 60),
                         "color": (50, 150 + random.randint(0, 100), 255),
                         "size": random.uniform(5, 15),
                         "spiral_angle": random.uniform(0, math.pi * 2),
-                        "spiral_radius": random.uniform(10, 30)
+                        "spiral_radius": random.uniform(10, 30),
+                        "vortex_side": "left"
+                    }
+                    self.vortex_particles.append(particle)
+                
+                # 오른쪽 회오리 파티클
+                for _ in range(2):
+                    particle = {
+                        "x": self.vortex_right_x + random.uniform(-30, 30),
+                        "y": self.vortex_right_y,
+                        "vx": random.uniform(-5, 5),
+                        "vy": random.uniform(-10, -5),
+                        "life": random.randint(30, 60),
+                        "color": (50, 150 + random.randint(0, 100), 255),
+                        "size": random.uniform(5, 15),
+                        "spiral_angle": random.uniform(0, math.pi * 2),
+                        "spiral_radius": random.uniform(10, 30),
+                        "vortex_side": "right"
                     }
                     self.vortex_particles.append(particle)
             
             # 회오리 종료 체크 (2초 후)
             if self.vortex_timer > 2.0:
                 self.vortex_active = False
-                self.vortex_height = 0
+                self.vortex_left_height = 0
+                self.vortex_right_height = 0
                 self.vortex_particles.clear()
                 # 물의 추진력은 유지! (회오리가 끝나도 공의 추진력은 계속됨)
                 # 추진력은 자체 타이머로 관리되므로 여기서 리셋하지 않음
