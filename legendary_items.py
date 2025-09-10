@@ -1036,40 +1036,26 @@ class PoseidonTrident(LegendaryItem):
         import math
         
         # 포세이돈도 라그나로크와 동일한 글로우 설정
-        self.trident_glow_multiplier = 1.8  # 헤르메스보다 더 큰 글로우
+        self.trident_glow_multiplier = 1.8  # 라그나로크와 동일한 글로우
         
-        # 글로우 효과 (라그나로크 해머와 완전 동일 - 빨간색)
+        # 글로우 효과 (라그나로크 해머와 완전히 동일)
         glow_size = int(size * (self.trident_glow_multiplier + self.glow_intensity * 0.15))
         glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
         for i in range(5):  # 더 많은 레이어로 강렬한 효과
             alpha = 80 - i * 12  # 더 진한 글로우
-            pygame.draw.circle(glow_surf, (*LEGENDARY_COLOR, alpha),  # 빨간색 (라그나로크와 동일)
+            pygame.draw.circle(glow_surf, (*LEGENDARY_COLOR, alpha), 
                              (glow_size//2, glow_size//2), 
                              glow_size//2 - i * 4)  # 더 촘촘한 간격
         screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
         
-        # 프레임별로 색이 변하는 테두리 (라그나로크와 동일한 동기화)
-        # 프레임에 따라 테두리 색상이 변화 (8프레임 기준)
-        frame_colors = [
-            (255, 50, 50),    # 프레임 0: 진한 빨강
-            (255, 100, 50),   # 프레임 1: 주황빛 빨강
-            (255, 150, 50),   # 프레임 2: 밝은 주황
-            (255, 200, 50),   # 프레임 3: 황금빛 주황
-            (255, 215, 0),    # 프레임 4: 순수 황금색
-            (255, 200, 50),   # 프레임 5: 황금빛 주황
-            (255, 150, 50),   # 프레임 6: 밝은 주황
-            (255, 100, 50),   # 프레임 7: 주황빛 빨강
-        ]
-        current_border_color = frame_colors[self.current_frame % len(frame_colors)]
-        
-        # 테두리 (펄싱 효과 - 더 두껍게) - 프레임별 색상 변화
+        # 붉은색 테두리 (펄싱 효과 - 더 두껍게) - 라그나로크와 완전 동일
         border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
         border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
-        pygame.draw.rect(screen, current_border_color, border_rect, border_thickness)  # 프레임별 색상
+        pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)
         
         # 꼭지점 디테일 (코너 장식) - 라그나로크와 동일
         corner_size = 8  # 더 큰 코너
-        corner_color = (255, 215, 0)  # 황금색 (신의 무기) - 라그나로크와 동일
+        corner_color = (255, 215, 0)  # 황금색 (신의 무기)
         # 왼쪽 위
         pygame.draw.lines(screen, corner_color, False, 
                          [(x-2, y+corner_size), (x-2, y-2), (x+corner_size, y-2)], 2)
