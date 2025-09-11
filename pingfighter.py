@@ -26765,9 +26765,7 @@ def handle_ball():
                             y_in_vortex = y_in_left or y_in_right
                             if x_in_vortex and y_in_vortex and pygame.time.get_ticks() % 100 < 16:
                                 if x_in_left:
-                                    print(f"⚡ BALL IN LEFT VORTEX! Ball=({BALL.centerx:.0f},{BALL.centery:.0f}), Vortex=({trident.vortex_left_x:.0f},{trident.vortex_left_y:.0f})")
                                 elif x_in_right:
-                                    print(f"⚡ BALL IN RIGHT VORTEX! Ball=({BALL.centerx:.0f},{BALL.centery:.0f}), Vortex=({trident.vortex_right_x:.0f},{trident.vortex_right_y:.0f})")
                         # 물의 파동으로 공의 궤적에 영향 (회오리가 없을 때만 작동)
                         modified_vx, modified_vy = trident.apply_trajectory_influence(
                             BALL.centerx, BALL.centery,
@@ -26780,7 +26778,6 @@ def handle_ball():
                         # 대시 물결 효과 적용 (물결 또는 회오리가 활성화되어 있을 때)
                         # 첫 0.1초만 로그 
                         if trident.vortex_active and trident.vortex_timer < 0.1:
-                            print(f"🔍 dash={trident.dash_wave_active}, vortex={trident.vortex_active}")
                         if trident.dash_wave_active or trident.vortex_active:
                             wave_vx, wave_vy = trident.apply_dash_wave_to_ball(
                                 BALL.centerx, BALL.centery,
@@ -26805,10 +26802,6 @@ def handle_ball():
                                 old_ball_vel = [ball_vel[0], ball_vel[1]]
                                 ball_vel[0] = wave_vx * num_steps / ball_impact_boost
                                 ball_vel[1] = wave_vy * num_steps / ball_impact_boost
-                                print(f"🔧 [BALL_VEL 업데이트]")
-                                print(f"   - 원래: [{old_ball_vel[0]:.1f}, {old_ball_vel[1]:.1f}]")
-                                print(f"   - 새로운: [{ball_vel[0]:.1f}, {ball_vel[1]:.1f}]")
-                                print(f"   - 계산: wave_v * {num_steps} / {ball_impact_boost:.1f}")
             except Exception as e:
                 # 전설 아이템 매니저 접근 실패 시 기본 속도 사용
                 print(f"❌ Legendary manager error: {e}")

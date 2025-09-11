@@ -380,9 +380,6 @@ class PoseidonTrident(LegendaryItem):
         
     def trigger_dash_wave(self, paddle_x: float, paddle_y: float, direction: int = 0):
         """대시 후 통제불능 시 양쪽에 거대한 물결 회오리 발동"""
-        print(f"🔱 [trigger_dash_wave] 호출됨!")
-        print(f"   - self.active: {self.active}")
-        print(f"   - paddle_pos: ({paddle_x:.0f}, {paddle_y:.0f})")
         if not self.active:
             print(f"⚠️ 포세이돈 삼지창이 비활성화 상태입니다!")
             return
@@ -406,7 +403,6 @@ class PoseidonTrident(LegendaryItem):
         
         self.vortex_spin_speed = 0
         
-        print(f"   Active: {self.active}, Vortex: {self.vortex_active}")
         
         # 양쪽 회오리에 대한 파티클 대량 생성 (용솟음치는 효과)
         # 왼쪽 회오리 파티클
@@ -548,18 +544,14 @@ class PoseidonTrident(LegendaryItem):
                 vortex_radius = min(self.vortex_width / 2, 100)  # 최대 반경 100
                 
                 
-                print(f"   - 거리: {distance:.1f}, 반경: {vortex_radius:.1f}")
                 
                 if distance < vortex_radius:
-                    print(f"   - 거리: {distance:.1f} < 반경: {vortex_radius:.1f}")
                     
                     # 거리 기반 굴절 강도 계산 (중심에 가까울수록 강함)
                     refraction_strength = 1.0 - (distance / vortex_radius)
                     # 굴절 강도 대폭 증가 (최소 0.7 보장)
                     refraction_strength = max(0.7, refraction_strength)  # 최소 70% 강도 보장
                     
-                    print(f"   - 굴절 강도: {refraction_strength:.3f}")
-                    print(f"   - 원래 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}")
                     
                     # 현재 속도 벡터의 각도와 속력
                     current_angle = math.atan2(ball_vy, ball_vx)
@@ -578,8 +570,6 @@ class PoseidonTrident(LegendaryItem):
                         boss_x = 400  # 보스는 화면 중앙
                         boss_y = 50   # 보스는 화면 상단
                         
-                        print(f"📍 보스 방향으로 반사 설정")
-                        print(f"   - 보스 위치: ({boss_x}, {boss_y})")
                         
                         direction_to_target_x = boss_x - ball_x
                         direction_to_target_y = boss_y - ball_y
