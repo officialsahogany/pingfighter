@@ -745,15 +745,18 @@ def get_max_gauge():
     # 우선순위: Chapter 4 > Chapter 3 > Chapter 2 > Chapter 1 순으로 체크
     
     # Chapter 4 (POWER SMASHING) - 500 (최우선)
-    if 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 4:
-        # Chapter 4는 무조건 500 반환 (다른 변수 무시)
-        print(f"🔍 DEBUG: Chapter 4 감지! 500 반환")
-        return 500
+    if 'tutorial_current_chapter' in globals():
+        current_chapter = globals().get('tutorial_current_chapter', 0)
+        print(f"🔍 DEBUG: get_max_gauge() - tutorial_current_chapter = {current_chapter}")
+        if current_chapter == 4:
+            # Chapter 4는 무조건 500 반환 (다른 변수 무시)
+            print(f"🔍 DEBUG: Chapter 4 감지! 500 반환")
+            return 500
     
     # 튜토리얼 드라이브 챕터 (Chapter 3) 임시 오버라이드 체크 - 300
     # Chapter 4에서는 이 조건 무시
     if ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None and
-        ('tutorial_current_chapter' not in globals() or tutorial_current_chapter < 4)):
+        ('tutorial_current_chapter' not in globals() or globals().get('tutorial_current_chapter', 0) < 4)):
         print(f"DEBUG: Chapter 3 게이지 사용: {tutorial_drive_chapter_max_gauge}")
         return tutorial_drive_chapter_max_gauge
     
@@ -25206,6 +25209,10 @@ def calculate_bounce(paddle):
                             special_gauge_max = get_max_gauge()  # 500 반환
                             print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
                             
+                            # 게이지 업데이트 강제 적용
+                            game_state.special_gauge_max = special_gauge_max
+                            print(f"🔍 DEBUG: game_state.special_gauge_max도 {game_state.special_gauge_max}로 업데이트")
+                            
                             # Chapter 4 파워스매싱 튜토리얼 초기화
                             tutorial_power_practice_shown = False
                             tutorial_power_helper_dialogue_shown = False
@@ -33689,6 +33696,10 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 4 초기화: 최대 게이지를 500으로 설정
                 special_gauge_max = get_max_gauge()  # 500 반환
                 print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
+                
+                # 게이지 업데이트 강제 적용 (백업)
+                game_state.special_gauge_max = special_gauge_max
+                print(f"🔍 DEBUG: (백업) game_state.special_gauge_max도 {game_state.special_gauge_max}로 업데이트")
                 
                 # Chapter 4 파워스매싱 튜토리얼 초기화
                 tutorial_power_practice_shown = False
