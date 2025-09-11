@@ -6576,13 +6576,12 @@ def handle_player(keys):
                             ball_vel[1] = tutorial_saved_ball_vel[1]
                             print("튜토리얼: 대쉬 토큰 설명 완료")
                             
-                            # 토큰이 추가되었으면 서브 알림창 타이머 설정
+                            # 토큰이 추가되었으면 서브 알림창 비활성화 (챕터 2에서는 대시 토큰 메시지 후 서브 알림 불필요)
                             global tutorial_token_just_added
                             if 'tutorial_token_just_added' in globals() and tutorial_token_just_added:
-                                tutorial_serve_reminder_active = True
-                                tutorial_serve_reminder_timer = pygame.time.get_ticks()
+                                tutorial_serve_reminder_active = False  # 챕터 2에서는 토큰 추가 후 서브 알림 비활성화
                                 tutorial_token_just_added = False
-                                print("튜토리얼: 토큰 추가 후 서브 알림창 타이머 설정")
+                                print("튜토리얼: 토큰 추가 후 서브 알림창 비활성화 (챕터 2)")
                 
                 # 대쉬 카운터는 아래에서 통합 처리 (중복 방지)
                 pass  # 대화 처리만 하고 카운팅은 하지 않음
@@ -6799,12 +6798,11 @@ def handle_player(keys):
                         ball_vel[1] = tutorial_saved_ball_vel[1]
                         print("튜토리얼: 대쉬 토큰 설명 완료")
                         
-                        # 토큰이 추가되었으면 서브 알림창 타이머 설정
+                        # 토큰이 추가되었으면 서브 알림창 비활성화 (챕터 2에서는 대시 토큰 메시지 후 서브 알림 불필요)
                         if 'tutorial_token_just_added' in globals() and tutorial_token_just_added:
-                            tutorial_serve_reminder_active = True
-                            tutorial_serve_reminder_timer = pygame.time.get_ticks()
+                            tutorial_serve_reminder_active = False  # 챕터 2에서는 토큰 추가 후 서브 알림 비활성화
                             tutorial_token_just_added = False
-                            print("튜토리얼: 토큰 추가 후 서브 알림창 타이머 설정")
+                            print("튜토리얼: 토큰 추가 후 서브 알림창 비활성화 (챕터 2)")
             #  대쉬 활용 능력 상세 분석
             ball_distance = abs(BALL.centery - PLAYER.centery)
             ball_speed = math.hypot(ball_vel[0], ball_vel[1])
