@@ -16228,8 +16228,12 @@ def draw_tutorial_serve_reminder():
         # 챕터 3: 드라이브 파트에서는 드라이브 관련 메시지 표시
         main_text = "타이밍에 맞춰 키를 입력해서 드라이브를 발동해보세요"
         box_width = 800  # 긴 텍스트를 위해 박스 너비 확장
+    elif 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 2:
+        # 챕터 2: 대시 파트에서는 대시 관련 메시지 표시
+        main_text = "방향키를 두 번 눌러 대시를 사용해보세요!"
+        box_width = 700
     else:
-        # 챕터 1, 2: 기본 서브 메시지
+        # 챕터 1: 기본 서브 메시지
         main_text = "스페이스바를 눌러 서브공을 발사하세요!"
         box_width = 700
     
