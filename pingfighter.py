@@ -22095,9 +22095,15 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             speedboots_obtained = True
             items.speedboots_obtained = True
         elif item_name == "hermes_shoes":
+            # 헤르메스의 신발 획득 플래그 설정
+            items.hermes_shoes_obtained = True
             # store_passive_item을 호출하여 일관된 처리
             store_passive_item(item_data)
         elif item_name == "poseidon_trident":
+            # 포세이돈의 삼지창 획득 플래그 설정
+            print(f"[DEBUG apply_selected_items] Before: items.poseidon_trident_obtained = {items.poseidon_trident_obtained}")
+            items.poseidon_trident_obtained = True
+            print(f"[DEBUG apply_selected_items] After: items.poseidon_trident_obtained = {items.poseidon_trident_obtained}")
             # store_passive_item을 호출하여 일관된 처리
             store_passive_item(item_data)
         elif item_name == "speedgear":
@@ -22156,6 +22162,8 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             dowsing_pendulum_effect.activate()
             print(f"[DEBUG]    !")
         elif item_name == "ragnarok_hammer":
+            # 라그나로크 해머 획득 플래그 설정
+            items.ragnarok_hammer_obtained = True
             # store_passive_item을 호출하여 일관된 처리
             store_passive_item(item_data)
         elif item_name == "commando_arm":
@@ -26736,11 +26744,11 @@ def handle_ball():
                 legendary_manager = get_legendary_manager()
                 # 첫 프레임만 디버그 출력
                 if pygame.time.get_ticks() % 1000 < 16:  # 1초마다 한 번만
-                    print(f"🔍 LM exists: {legendary_manager is not None}")
+                    pass  # Debug log removed
                 if legendary_manager:
                     trident = legendary_manager.get_item("poseidon_trident")
                     if pygame.time.get_ticks() % 1000 < 16:  # 1초마다 한 번만
-                        print(f"🔍 Trident exists: {trident is not None}, Active: {trident.active if trident else 'N/A'}")
+                        pass  # Debug log removed
                     if trident and trident.active:
                         # 회오리가 활성화되고 공이 실제로 회오리 안에 있을 때만 로그
                         if trident.vortex_active:
@@ -26782,14 +26790,9 @@ def handle_ball():
                             )
                             # 디버그: 반환된 속도 확인
                             if wave_vx != actual_vel_x or wave_vy != actual_vel_y:
-                                print(f"⚡ [pingfighter.py] 속도 변경 감지!")
-                                print(f"   - 원래: vx={actual_vel_x:.1f}, vy={actual_vel_y:.1f}")
-                                print(f"   - 반환: vx={wave_vx:.1f}, vy={wave_vy:.1f}")
-                                print(f"   - 차이: Δvx={wave_vx-actual_vel_x:.1f}, Δvy={wave_vy-actual_vel_y:.1f}")
+                                pass  # Debug log removed
                             else:
-                                # 0.1초마다 한 번씩만 출력
-                                if trident.vortex_active and int(trident.vortex_timer * 10) != int((trident.vortex_timer - 0.016) * 10):
-                                    print(f"⚠️ [pingfighter.py] 속도 변경 없음: vx={actual_vel_x:.1f}, vy={actual_vel_y:.1f}")
+                                pass  # Debug log removed
                             
                             # 회오리 효과 적용
                             actual_vel_x = wave_vx
@@ -30938,6 +30941,10 @@ def show_result(won):
         if not items.hermes_shoes_obtained:
             hermes_icon = get_item_icon("hermes_shoes")
             available_items.append({"name": "hermes_shoes", "color": (255, 50, 50), "type": "passive", "icon": hermes_icon})
+        # 포세이돈의 삼지창 전설 아이템 추가
+        if not items.poseidon_trident_obtained:
+            poseidon_icon = get_item_icon("poseidon_trident")
+            available_items.append({"name": "poseidon_trident", "color": (50, 150, 255), "type": "passive", "icon": poseidon_icon})
         # 엑티브 아이템들 추가
         available_items.append({"name": "long_boost", "color": (255, 100, 100), "type": "active", "icon": long_boost_icon})
         available_items.append({"name": "gauge_charge", "color": (100, 255, 100), "type": "active", "icon": gauge_charge_icon})
@@ -33148,7 +33155,7 @@ def main(stage_num, new_boss_mode=False):
                         if frame_count % 60 == 0:  # 1초마다 한 번
                             trident = legendary_manager.get_item("poseidon_trident")
                             if trident and trident.vortex_active:
-                                print(f"🔍 LegendaryManager 호출 전: active_items={legendary_manager.active_items}")
+                                pass  # Debug log removed
                         legendary_manager.update(0.016)  # 60fps 기준 0.016초
                 except Exception as e:
                     print(f"❌ LegendaryManager 업데이트 실패: {e}")

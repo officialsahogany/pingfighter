@@ -419,7 +419,7 @@ ITEM_TYPES = [
         "color": (255, 50, 50),  # 붉은색 (전설 색상)
         "effect": "ragnarok_hammer",
         "icon": None,
-        "chance": 0.0008,  # 확률 0.03% (전설 아이템 희귀도)
+        "chance": 0.01,  # 전설 아이템 1% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -428,7 +428,7 @@ ITEM_TYPES = [
         "color": (100, 200, 255),  # 하늘색 (전설 색상)
         "effect": "hermes_shoes",
         "icon": None,
-        "chance": 0.0008,  # 테스트용 99% 확률
+        "chance": 0.01,  # 전설 아이템 1% 확률
         "duration": 600,
         "unlock_condition": None
     },
@@ -593,6 +593,9 @@ def spawn_random_item():
     # 전역 변수 참조
     global ragnarok_hammer_obtained, poseidon_trident_obtained
     
+    # 디버그: 포세이돈 플래그 상태 출력
+    print(f"[DEBUG spawn_random_item] poseidon_trident_obtained = {poseidon_trident_obtained}")
+    
     # 스폰 가능한 아이템 목록 생성
     available_items = []
     
@@ -685,8 +688,13 @@ def spawn_random_item():
             continue
         
         # 포세이돈의 삼지창은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "poseidon_trident" and poseidon_trident_obtained:
-            continue
+        if item["name"] == "poseidon_trident":
+            print(f"[DEBUG] Checking poseidon_trident: obtained = {poseidon_trident_obtained}")
+            if poseidon_trident_obtained:
+                print(f"[DEBUG] Skipping poseidon_trident spawn (already obtained)")
+                continue
+            else:
+                print(f"[DEBUG] poseidon_trident can spawn (not obtained yet)")
         
         # 🚫 패시브 아이템 중복 방지 (chargebag 제외)
         # 이미 소지한 패시브 아이템은 더 이상 스폰하지 않음
