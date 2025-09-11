@@ -5139,6 +5139,7 @@ def handle_player(keys):
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
     global tutorial_drive_completion_dialogue_shown, tutorial_drive_count  # Chapter 3 완료 체크
     global chapter4_dialogue_completed, chapter4_serve_reminder_active, chapter4_serve_reminder_timer  # Chapter 4 대화 및 서브 알림 변수
+    global chapter4_first_hit_after_dialogue, chapter4_power_helper_shown, chapter4_power_helper_timer  # Chapter 4 추가 변수
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
     # 튜토리얼 관련 변수 추가
     global tutorial_practice_mode, tutorial_boss_returned, tutorial_gauge_tutorial_shown
@@ -25228,6 +25229,9 @@ def calculate_bounce(paddle):
                             chapter4_dialogue_completed = False  # Chapter 4 대화 완료 플래그 초기화
                             chapter4_serve_reminder_active = False  # Chapter 4 서브 알림 플래그 초기화
                             chapter4_serve_reminder_timer = 0  # Chapter 4 서브 알림 타이머 초기화
+                            chapter4_first_hit_after_dialogue = False  # Chapter 4 대화 후 첫 타격 플래그 초기화
+                            chapter4_power_helper_shown = False  # Chapter 4 파워스매싱 도우미 표시 플래그 초기화
+                            chapter4_power_helper_timer = 0  # Chapter 4 파워스매싱 도우미 타이머 초기화
                             
                             # Chapter 4 전환 직후 디버그 출력
                             print(f"[CHAPTER 4 INIT] Chapter 4 initialized successfully!")
