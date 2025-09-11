@@ -16846,9 +16846,9 @@ def show_tutorial_power_practice_dialogue():
             pygame.display.flip()
             clock.tick(60)
     
-    # 파워스매싱 시범 제거 - 바로 실전 연습으로 진행
-    # print("튜토리얼: 파워스매싱 시범 시작")
-    # show_tutorial_power_demonstration()
+    # 파워스매싱 시범 시작
+    print("튜토리얼: 파워스매싱 시범 시작")
+    show_tutorial_power_demonstration()
     
     # 실전 연습 시작 대사
     final_dialogues = [
@@ -16938,6 +16938,7 @@ def show_tutorial_power_demonstration():
     clock = pygame.time.Clock()
     
     # 폰트 설정
+    font_large = FontStyle.subtitle()  # 32pt 큰 텍스트용
     font_medium = FontStyle.body()     # 24pt
     font_small = FontStyle.small()     # 18pt
     
@@ -16947,6 +16948,26 @@ def show_tutorial_power_demonstration():
     ball_radius = BALL_RADIUS
     player_y = HEIGHT - 60  # 플레이어 Y 위치
     
+    # 시작 대화 표시
+    intro_dialogues = [
+        ("조교", "제가 파워스매싱 시범을 보여드리겠습니다."),
+        ("조교", "파워스매싱은 왼쪽, 중앙, 오른쪽 3가지 방향을 선택할 수 있습니다."),
+        ("조교", "각 방향별로 키 조합이 다르니 잘 보세요!")
+    ]
+    
+    for speaker, text in intro_dialogues:
+        show_tutorial_dialogue(speaker, text)
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        waiting = False
+            clock.tick(60)
+    
     # 시범 상태 초기화
     demo_sequence = ["left", "center", "right"]  # 시범 순서
     current_demo = 0
@@ -16955,6 +16976,10 @@ def show_tutorial_power_demonstration():
     power_charging = False
     demo_phase = "ready"  # ready, charging, shooting, wait
     phase_timer = 0
+    
+    # 추가 효과 변수
+    charge_effect_particles = []  # 차징 이펙트 파티클
+    power_trails = []  # 파워스매싱 트레일 효과
     
     # 시범 시작 전 초기 설정
     ball_x = WIDTH // 2
@@ -16998,24 +17023,42 @@ def show_tutorial_power_demonstration():
             elif demo_phase == "charging":
                 # 파워 차징 중
                 power_charge_timer += dt
-                if power_charge_timer > 0.5:  # 0.5초 차징
+                
+                # 차징 파티클 생성
+                if random.random() < 0.3:
+                    angle = random.uniform(0, math.pi * 2)
+                    radius = random.uniform(30, 60)
+                    particle_x = ball_x + math.cos(angle) * radius
+                    particle_y = ball_y + math.sin(angle) * radius
+                    charge_effect_particles.append({
+                        'x': particle_x,
+                        'y': particle_y, 
+                        'vx': (ball_x - particle_x) * 2,
+                        'vy': (ball_y - particle_y) * 2,
+                        'life': 1.0
+                    })
+                
+                if power_charge_timer > 1.5:  # 1.5초 차징 (더 길게)
                     demo_phase = "shooting"
                     phase_timer = 0
                     power_charging = False
                     
                     # 방향에 따른 공 발사
                     if direction == "left":
-                        ball_dx = -500
-                        ball_dy = -200
+                        ball_dx = -600
+                        ball_dy = -300
                     elif direction == "center":
-                        ball_dx = -500
+                        ball_dx = -700
                         ball_dy = 0
                     else:  # right
-                        ball_dx = -500
-                        ball_dy = 200
+                        ball_dx = -600
+                        ball_dy = 300
                     
                     ball_speed = math.sqrt(ball_dx**2 + ball_dy**2)
                     print(f"파워스매싱 발사! 방향: {direction}")
+                    
+                    # 트레일 초기화
+                    power_trails = []
             
             elif demo_phase == "shooting":
                 # 공이 날아가는 중
@@ -17029,6 +17072,14 @@ def show_tutorial_power_demonstration():
         
         # 공 물리 업데이트
         if ball_speed > 0:
+            # 트레일 추가
+            if demo_phase == "shooting" and len(power_trails) < 10:
+                power_trails.append({
+                    'x': ball_x,
+                    'y': ball_y,
+                    'alpha': 255
+                })
+            
             ball_x += ball_dx * dt
             ball_y += ball_dy * dt
             
@@ -17037,6 +17088,18 @@ def show_tutorial_power_demonstration():
                 ball_dx = -ball_dx
             if ball_y <= 20 or ball_y >= HEIGHT - 20:
                 ball_dy = -ball_dy
+        
+        # 파티클 업데이트
+        for particle in charge_effect_particles[:]:
+            particle['x'] += particle['vx'] * dt
+            particle['y'] += particle['vy'] * dt
+            particle['life'] -= dt * 2
+            if particle['life'] <= 0:
+                charge_effect_particles.remove(particle)
+        
+        # 트레일 페이드 효과
+        for trail in power_trails:
+            trail['alpha'] = max(0, trail['alpha'] - 500 * dt)
         
         # 화면 그리기
         SCREEN.fill(BLACK)
@@ -17048,9 +17111,31 @@ def show_tutorial_power_demonstration():
         
         # 파워 차징 이펙트
         if power_charging:
-            charge_radius = int(20 + power_charge_timer * 40)
-            charge_color = (255, int(255 - power_charge_timer * 200), 0)
-            pygame.draw.circle(SCREEN, charge_color, (int(ball_x), int(ball_y)), charge_radius, 3)
+            # 차징 링 효과
+            for i in range(3):
+                charge_radius = int(20 + power_charge_timer * 40 + i * 15)
+                alpha = max(0, 255 - i * 80 - power_charge_timer * 100)
+                charge_color = (255, int(255 - power_charge_timer * 150), 0)
+                charge_surface = pygame.Surface((charge_radius * 2, charge_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(charge_surface, (*charge_color, min(alpha, 255)), 
+                                 (charge_radius, charge_radius), charge_radius, 3)
+                SCREEN.blit(charge_surface, (ball_x - charge_radius, ball_y - charge_radius))
+            
+            # 차징 파티클 그리기
+            for particle in charge_effect_particles:
+                particle_alpha = int(particle['life'] * 255)
+                particle_color = (255, 200, 0, particle_alpha)
+                particle_surface = pygame.Surface((6, 6), pygame.SRCALPHA)
+                pygame.draw.circle(particle_surface, particle_color, (3, 3), 3)
+                SCREEN.blit(particle_surface, (particle['x'] - 3, particle['y'] - 3))
+        
+        # 파워스매싱 트레일 효과
+        for trail in power_trails:
+            if trail['alpha'] > 0:
+                trail_surface = pygame.Surface((30, 30), pygame.SRCALPHA)
+                trail_color = (255, 100, 100, int(trail['alpha']))
+                pygame.draw.circle(trail_surface, trail_color, (15, 15), 12)
+                SCREEN.blit(trail_surface, (trail['x'] - 15, trail['y'] - 15))
         
         # 공 그리기
         pygame.draw.circle(SCREEN, WHITE, (int(ball_x), int(ball_y)), ball_radius)
@@ -17060,16 +17145,51 @@ def show_tutorial_power_demonstration():
             direction = demo_sequence[current_demo]
             direction_text = {"left": "왼쪽", "center": "중앙", "right": "오른쪽"}[direction]
             
+            # 메인 텍스트
             if power_charging:
-                instruction = f"파워 차징 중... ({direction_text})"
-                text_color = YELLOW
+                instruction = f"파워 차징 중... ({direction_text} 방향)"
+                text_color = (255, 200, 0)
+                
+                # 키 커맨드 표시
+                if direction == "left":
+                    key_command = "← + X"
+                elif direction == "center":
+                    key_command = "X"
+                else:  # right
+                    key_command = "→ + X"
+                
+                # 키 커맨드 박스
+                key_bg = pygame.Surface((200, 80), pygame.SRCALPHA)
+                pygame.draw.rect(key_bg, (0, 0, 0, 200), key_bg.get_rect(), border_radius=10)
+                key_bg_rect = key_bg.get_rect(center=(WIDTH // 2, HEIGHT - 200))
+                SCREEN.blit(key_bg, key_bg_rect)
+                
+                # 키 커맨드 텍스트
+                key_surface = font_large.render(key_command, True, (0, 255, 255))
+                key_rect = key_surface.get_rect(center=(WIDTH // 2, HEIGHT - 200))
+                
+                # 깜빡임 효과
+                if int(power_charge_timer * 4) % 2 == 0:
+                    SCREEN.blit(key_surface, key_rect)
+                
+                # 키 설명
+                desc_text = f"{direction_text} 파워스매싱"
+                desc_surface = font_small.render(desc_text, True, (200, 200, 200))
+                desc_rect = desc_surface.get_rect(center=(WIDTH // 2, HEIGHT - 160))
+                SCREEN.blit(desc_surface, desc_rect)
             else:
-                instruction = f"조교 시범: {direction_text} 파워스매싱"
+                instruction = f"조교 시범: {direction_text} 파워스매싱 준비"
                 text_color = WHITE
             
             text_surface = font_medium.render(instruction, True, text_color)
-            text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT - 100))
+            text_rect = text_surface.get_rect(center=(WIDTH // 2, 50))
             SCREEN.blit(text_surface, text_rect)
+            
+            # 진행 상황 표시
+            progress_text = f"시범 {current_demo + 1}/3"
+            progress_surface = font_small.render(progress_text, True, (200, 200, 200))
+            progress_rect = progress_surface.get_rect(topright=(WIDTH - 20, 20))
+            SCREEN.blit(progress_surface, progress_rect)
         else:
             # 시범 완료
             instruction = "시범 완료! SPACE - 계속"
@@ -17079,14 +17199,11 @@ def show_tutorial_power_demonstration():
             if pygame.time.get_ticks() % 1000 < 700:  # 깜빡임 효과
                 SCREEN.blit(text_surface, text_rect)
         
-        # 키 표시 (SPACE 누르는 모습)
-        if power_charging:
-            key_text = "SPACE ↓"
-            key_surface = font_small.render(key_text, True, (255, 255, 0))
-            key_rect = key_surface.get_rect(center=(WIDTH - 100, boss_y - 60))
-            pygame.draw.rect(SCREEN, (50, 50, 0), key_rect.inflate(10, 5))
-            pygame.draw.rect(SCREEN, (255, 255, 0), key_rect.inflate(10, 5), 2)
-            SCREEN.blit(key_surface, key_rect)
+        # 조교 위치에 "조교" 라벨 표시
+        if current_demo < len(demo_sequence):
+            instructor_label = font_small.render("조교", True, (100, 200, 255))
+            instructor_rect = instructor_label.get_rect(center=(WIDTH - 60, boss_y - 40))
+            SCREEN.blit(instructor_label, instructor_rect)
         
         pygame.display.flip()
     
@@ -18695,19 +18812,25 @@ def draw_tutorial_drive_counter():
         
         mission_y += 40  # 다음 미션 위치 (더 컴팩트하게)
     
-    # 전체 진행 상태 메시지 (박스 아래, 작게)
+    # 전체 진행 상태 메시지 (박스 아래, 작게) - 챕터 2와 동일한 스타일
     total_count = tutorial_left_drive_count + tutorial_right_drive_count
-    if total_count < 1:
+    if total_count == 0:
         hint_text = "드라이브 연습"
         hint_color = (150, 150, 150)
-    elif total_count < 4:
+    elif total_count == 1:
+        hint_text = "잘하고 있어요!"
+        hint_color = (255, 200, 100)
+    elif total_count == 2:
         hint_text = "훌륭해요!"
         hint_color = (255, 200, 100)
         # 칭찬 메시지에 반짝임 효과
         if pygame.time.get_ticks() % 1000 < 500:
             hint_color = (255, 230, 150)
+    elif total_count == 3:
+        hint_text = "거의 다 왔어요!"
+        hint_color = (100, 255, 255)
     else:
-        hint_text = "드라이브 마스터!"
+        hint_text = "미션 완료!"
         hint_color = (0, 255, 200)
         # 완료 시 강한 반짝임
         if pygame.time.get_ticks() % 600 < 300:
@@ -18992,19 +19115,25 @@ def draw_tutorial_drive_counter():
         
         mission_y += 40  # 다음 미션 위치 (더 컴팩트하게)
     
-    # 전체 진행 상태 메시지 (박스 아래, 작게)
+    # 전체 진행 상태 메시지 (박스 아래, 작게) - 챕터 2와 동일한 스타일
     total_count = tutorial_left_drive_count + tutorial_right_drive_count
-    if total_count < 1:
+    if total_count == 0:
         hint_text = "드라이브 연습"
         hint_color = (150, 150, 150)
-    elif total_count < 4:
+    elif total_count == 1:
+        hint_text = "잘하고 있어요!"
+        hint_color = (255, 200, 100)
+    elif total_count == 2:
         hint_text = "훌륭해요!"
         hint_color = (255, 200, 100)
         # 칭찬 메시지에 반짝임 효과
         if pygame.time.get_ticks() % 1000 < 500:
             hint_color = (255, 230, 150)
+    elif total_count == 3:
+        hint_text = "거의 다 왔어요!"
+        hint_color = (100, 255, 255)
     else:
-        hint_text = "드라이브 마스터!"
+        hint_text = "미션 완료!"
         hint_color = (0, 255, 200)
         # 완료 시 강한 반짝임
         if pygame.time.get_ticks() % 600 < 300:
