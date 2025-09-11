@@ -25194,6 +25194,7 @@ def calculate_bounce(paddle):
                         # 대화 완료 후 Chapter 4로 전환
                         if dialogue_result == "proceed_to_chapter4" or dialogue_result == "skip_to_chapter4":
                             print("📚 드라이브 완료 대화 후 Chapter 4로 전환")
+                            global tutorial_current_chapter
                             tutorial_current_chapter = 4
                             print(f"🔍 DEBUG: tutorial_current_chapter 변경됨 = {tutorial_current_chapter}")
                             # 챕터별 임시 게이지 오버라이드 해제 (Chapter 4는 500 고정)
