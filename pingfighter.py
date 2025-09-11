@@ -757,7 +757,7 @@ def get_max_gauge():
     # Chapter 4에서는 이 조건 무시
     if ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None and
         ('tutorial_current_chapter' not in globals() or globals().get('tutorial_current_chapter', 0) < 4)):
-        print(f"DEBUG: Chapter 3 게이지 사용: {tutorial_drive_chapter_max_gauge}")
+        # print(f"DEBUG: Chapter 3 게이지 사용: {tutorial_drive_chapter_max_gauge}")  # 디버그 출력 제거
         return tutorial_drive_chapter_max_gauge
     
     # Chapter 2 (DASH) - 300
