@@ -23994,7 +23994,7 @@ def draw_score():
     global chapter4_power_helper_timer, chapter4_serve_reminder_timer, chapter4_serve_reminder_active
     
     # Chapter 4 서브 알림 표시 (대화 완료 후 1.5초간)
-    if current_stage == 4 and chapter4_serve_reminder_active and chapter4_serve_reminder_timer > 0:
+    if current_stage == 50 and chapter4_serve_reminder_active and chapter4_serve_reminder_timer > 0:
         chapter4_serve_reminder_timer -= 1
         
         # 알림이 끝나면 비활성화
@@ -24025,7 +24025,7 @@ def draw_score():
         SCREEN.blit(main_surface, main_rect)
     
     # Chapter 4 파워스매싱 도우미 표시
-    if current_stage == 4 and chapter4_power_helper_timer > 0:
+    if current_stage == 50 and chapter4_power_helper_timer > 0:
         chapter4_power_helper_timer -= 1
         
         # 도우미 폰트 설정
