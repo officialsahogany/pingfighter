@@ -5138,6 +5138,7 @@ def handle_player(keys):
     global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
     global tutorial_drive_completion_dialogue_shown, tutorial_drive_count  # Chapter 3 완료 체크
+    global chapter4_dialogue_completed, chapter4_serve_reminder_active, chapter4_serve_reminder_timer  # Chapter 4 대화 및 서브 알림 변수
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
     # 튜토리얼 관련 변수 추가
     global tutorial_practice_mode, tutorial_boss_returned, tutorial_gauge_tutorial_shown
