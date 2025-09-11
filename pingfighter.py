@@ -25224,6 +25224,9 @@ def calculate_bounce(paddle):
                             tutorial_needs_power_practice = True
                             tutorial_power_reminder_active = False
                             tutorial_power_reminder_timer = 0
+                            chapter4_dialogue_completed = False  # Chapter 4 대화 완료 플래그 초기화
+                            chapter4_serve_reminder_active = False  # Chapter 4 서브 알림 플래그 초기화
+                            chapter4_serve_reminder_timer = 0  # Chapter 4 서브 알림 타이머 초기화
                             
                             # Chapter 4 전환 직후 디버그 출력
                             print(f"[CHAPTER 4 INIT] Chapter 4 initialized successfully!")
