@@ -264,10 +264,29 @@ class PoseidonTrident(LegendaryItem):
         self.vortex_right_y = 0
         self.vortex_right_height = 0  # 시작 높이
         # 공통 속성
-        self.vortex_max_height = 400  # 최대 높이 (화면 대부분 커버)
-        self.vortex_width = 200  # 회오리 너비 (대폭 증가 for better collision)
+        self.vortex_max_height = 300  # 최대 높이 (화면의 40% 커버)
+        self.vortex_width = 140  # 회오리 너비 (영향 반경 70픽셀)
         self.vortex_spin_speed = 0  # 회전 속도
         self.vortex_particles = []  # 회오리 파티클
+        self.vortex_deflection_seed = 0  # 공 굴절 랜덤 시드
+        
+        # 공 회전 상태 추적
+        self.ball_in_vortex = False  # 공이 회오리 안에 있는지
+        self.ball_vortex_timer = 0  # 공이 회오리에 머무른 시간
+        self.ball_vortex_angle = 0  # 공의 회전 각도
+        self.ball_vortex_radius = 0  # 현재 회전 반경
+        self.ball_capture_duration = 9  # 공을 잡고 있는 시간 (9 프레임 = 0.15초)
+        self.vortex_center_x = 0  # 회오리 중심 X
+        self.vortex_center_y = 0  # 회오리 중심 Y
+        self.captured_ball_speed = 0  # 캡처된 공의 원래 속도
+        self.vortex_cooldown = 0  # 회오리 재진입 쿨다운
+        self.vortex_affected = False  # 회오리 효과를 받았는지
+        self.original_ball_speed = 0  # 회오리 효과 전 원래 속도 저장
+        
+        # 물 궤적 효과
+        self.water_trail = []  # 물에 젖은 공의 궤적
+        self.water_trail_active = False  # 물 궤적 활성화 여부
+        self.water_droplets = []  # 물방울 파티클
         
         # 공 반사 효과 속성
         self.deflection_power = 15.0  # 반사 힘
@@ -391,13 +410,13 @@ class PoseidonTrident(LegendaryItem):
         self.vortex_active = True
         self.vortex_timer = 0
         
-        # 왼쪽 회오리 (패들 왼쪽 150픽셀)
-        self.vortex_left_x = paddle_x - 150
+        # 왼쪽 회오리 (패들 왼쪽 120픽셀)
+        self.vortex_left_x = paddle_x - 120
         self.vortex_left_y = paddle_y
         self.vortex_left_height = 0
         
-        # 오른쪽 회오리 (패들 오른쪽 150픽셀)
-        self.vortex_right_x = paddle_x + 150
+        # 오른쪽 회오리 (패들 오른쪽 120픽셀)
+        self.vortex_right_x = paddle_x + 120
         self.vortex_right_y = paddle_y
         self.vortex_right_height = 0
         
@@ -447,7 +466,33 @@ class PoseidonTrident(LegendaryItem):
                                player_x: float = None, player_y: float = None) -> Tuple[float, float]:
         """거대한 물결 회오리가 공에 미치는 굴절 효과 (Stage 4 자기장과 동일한 메커니즘)"""
         
-        # 디버그: 함수 진입
+        # 회오리 효과를 받은 공이 보스에게 맞았는지 확인
+        if self.vortex_affected:
+            # 공의 방향이 바뀌었는지 확인 (보스가 쳤는지)
+            # 회오리는 위로 튕기므로, 공이 아래로 가고 있다면 보스가 친 것
+            if ball_vy > 0:  # 공이 아래로 향하고 있음 = 보스가 쳤음
+                # 원래 속도로 복원
+                current_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
+                if current_speed > 0 and self.original_ball_speed > 0:
+                    # 현재 방향을 유지하면서 원래 속도로 복원
+                    speed_ratio = self.original_ball_speed / current_speed
+                    new_vx = ball_vx * speed_ratio
+                    new_vy = ball_vy * speed_ratio
+                    print(f"[포세이돈] 보스 반격 감지 - 속도 복원: {current_speed:.1f} → {self.original_ball_speed:.1f}")
+                    
+                    # 회오리 효과 플래그 해제
+                    self.vortex_affected = False
+                    self.original_ball_speed = 0
+                    
+                    # 물 궤적 종료
+                    self.water_trail_active = False
+                    print(f"[DEBUG] 보스 반격 - 물 궤적 종료! 남은 포인트: {len(self.water_trail)}")
+                    
+                    # 복원된 속도 반환
+                    return new_vx, new_vy
+        
+        # 원래 속도 저장 (디버그용)
+        original_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
         
         # 물 추진력이 남아있으면 계속 적용
         if self.water_momentum_active:
@@ -467,10 +512,15 @@ class PoseidonTrident(LegendaryItem):
                 return (new_vx, new_vy)
         
         if not self.dash_wave_active and not self.vortex_active:
+            # 회오리가 비활성화되면 캡처 상태 초기화
+            if self.ball_in_vortex:
+                self.ball_in_vortex = False
+                self.ball_vortex_timer = 0
             return ball_vx, ball_vy
             
         # 거대한 회오리 효과 (우선 처리) - 양쪽 회오리 체크
-        if self.vortex_active:
+        # 소멸 단계(타이머 >= 48)에서는 효과 비활성화
+        if self.vortex_active and self.vortex_timer < 48:
             # 회오리의 Y축 범위 (시간에 따라 확장)
             left_vortex_height = min(self.vortex_left_height, self.vortex_max_height)
             right_vortex_height = min(self.vortex_right_height, self.vortex_max_height)
@@ -514,6 +564,11 @@ class PoseidonTrident(LegendaryItem):
                 vortex_y = 0
                 current_vortex_height = 0
                 vortex_side = "없음"
+                # 회오리 밖에 있으면 캡처 상태 해제
+                if self.ball_in_vortex:
+                    self.ball_in_vortex = False
+                    self.ball_vortex_timer = 0
+                    self.vortex_cooldown = 30  # 쿨다운 설정
             
             # 디버그: 충돌 체크 상태 (항상 출력)
             if pygame.time.get_ticks() % 100 < 16:  # 0.1초마다 한 번
@@ -524,9 +579,11 @@ class PoseidonTrident(LegendaryItem):
             
             if in_any_vortex:
                 
-                # 회오리 효과는 모든 공에 적용
-                # (이전에는 방향으로 필터링했지만, 회오리는 모든 공에 영향을 줌)
+                # 플레이어가 발사한 공(위로 향하는 공)은 회오리 효과 무시
+                if ball_vy < 0:  # 공이 위로 향하고 있음 = 플레이어가 친 공
+                    return ball_vx, ball_vy
                 
+                # 보스가 친 공(아래로 향하는 공)에만 회오리 효과 적용
                 # === Stage 4 굴절자기장과 동일한 메커니즘 적용 ===
                 # 회오리 중심과의 거리 계산
                 # 회오리는 패들 위치에서 위로 솟아오르므로, Y축 거리는 회오리 범위 내에서만 계산
@@ -543,9 +600,98 @@ class PoseidonTrident(LegendaryItem):
                 # 시각 효과와 동일하게 설정하여 보이는 대로 작동하도록 함
                 vortex_radius = min(self.vortex_width / 2, 100)  # 최대 반경 100
                 
+                # 공이 회오리에 처음 들어왔는지 확인 (쿨다운 체크)
+                if not self.ball_in_vortex and self.vortex_cooldown <= 0 and distance < vortex_radius * 0.8:
+                    # 공 캡처 시작
+                    self.ball_in_vortex = True
+                    self.ball_vortex_timer = 0
+                    self.vortex_center_x = vortex_x
+                    self.vortex_center_y = vortex_center_y
+                    self.ball_vortex_angle = math.atan2(ball_y - vortex_center_y, ball_x - vortex_x)
+                    self.ball_vortex_radius = distance
+                    self.captured_ball_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
+                    self.original_ball_speed = self.captured_ball_speed  # 원래 속도 저장
+                    
+                    # 물 궤적 시작
+                    self.water_trail_active = True
+                    self.water_trail = []  # 새로운 궤적 시작
+                    print(f"[DEBUG] 물 궤적 활성화! 공 위치: ({ball_x:.0f}, {ball_y:.0f})")
                 
+                # 공이 회오리에 캡처되어 있는 경우 - 빙글빙글 회전
+                if self.ball_in_vortex:
+                    self.ball_vortex_timer += 1
+                    
+                    # 회전 각속도 (빠르게 회전)
+                    rotation_speed = 0.4  # 라디안/프레임
+                    self.ball_vortex_angle += rotation_speed
+                    
+                    # 회전 반경 점진적으로 감소 (중심으로 끌어당김)
+                    self.ball_vortex_radius *= 0.95
+                    if self.ball_vortex_radius < 10:
+                        self.ball_vortex_radius = 10
+                    
+                    # 회전하는 공의 새 위치 계산
+                    new_ball_x = self.vortex_center_x + math.cos(self.ball_vortex_angle) * self.ball_vortex_radius
+                    new_ball_y = self.vortex_center_y + math.sin(self.ball_vortex_angle) * self.ball_vortex_radius
+                    
+                    # 물 궤적 업데이트 (회전 중인 공 위치 추적)
+                    self.update_water_trail(new_ball_x, new_ball_y)
+                    
+                    # 공 속도를 회전 운동으로 변경
+                    # 목표 위치로 부드럽게 이동하기 위한 속도 계산
+                    dx = new_ball_x - ball_x
+                    dy = new_ball_y - ball_y
+                    
+                    # 스무스한 이동을 위해 속도 조정 (회전 속도 유지)
+                    # 원래 속도의 일부만 적용하여 부드러운 회전
+                    smooth_factor = 0.3  # 30% 속도로 목표 위치로 이동
+                    new_vx = dx * smooth_factor
+                    new_vy = dy * smooth_factor
+                    
+                    # 속도 제한 (너무 빠르면 순간이동처럼 보임)
+                    max_speed = 15
+                    speed = math.sqrt(new_vx * new_vx + new_vy * new_vy)
+                    if speed > max_speed:
+                        new_vx = new_vx / speed * max_speed
+                        new_vy = new_vy / speed * max_speed
+                    
+                    # 캡처 시간이 끝나면 랜덤 방향으로 튕겨냄
+                    if self.ball_vortex_timer >= self.ball_capture_duration:
+                        # 랜덤 반사 방향 계산
+                        if ball_vy > 0:  # 보스가 친 공
+                            # 위쪽 부채꼴 범위로 반사
+                            base_angle = -math.pi / 2  # -90도 (위쪽)
+                            fan_spread = math.pi / 3  # 60도
+                            
+                            # 랜덤 시드 생성
+                            self.vortex_deflection_seed = (ball_x * 1000 + ball_y * 100 + self.vortex_timer * 10) % 10000
+                            random.seed(int(self.vortex_deflection_seed))
+                            random_offset = random.uniform(-fan_spread, fan_spread)
+                            random.seed()  # 시드 초기화
+                            
+                            target_angle = base_angle + random_offset
+                            
+                            # 반사 속도 (캡처된 속도의 120%, 최대 20으로 제한)
+                            deflect_speed = min(self.captured_ball_speed * 1.2, 20)
+                            new_vx = math.cos(target_angle) * deflect_speed
+                            new_vy = math.sin(target_angle) * deflect_speed
+                        else:
+                            # 플레이어가 친 공은 원래 방향 유지
+                            new_vx = ball_vx
+                            new_vy = ball_vy
+                        
+                        # 캡처 상태 해제 및 쿨다운 설정
+                        self.ball_in_vortex = False
+                        self.ball_vortex_timer = 0
+                        self.vortex_cooldown = 30  # 0.5초 쿨다운
+                        self.vortex_affected = True  # 회오리 효과를 받았음을 표시
+                        # 물 궤적은 계속 유지 (보스가 칠 때까지)
+                    
+                    return new_vx, new_vy
                 
-                if distance < vortex_radius:
+                # 아직 캡처되지 않은 공이 회오리 영향권에 있는 경우 - 효과 제거
+                # (캡처 효과만 사용하고, 캡처되지 않은 공은 영향 없음)
+                elif False:  # 비활성화 - 캡처되지 않은 공은 영향 없음
                     
                     # 거리 기반 굴절 강도 계산 (중심에 가까울수록 강함)
                     refraction_strength = 1.0 - (distance / vortex_radius)
@@ -557,29 +703,44 @@ class PoseidonTrident(LegendaryItem):
                     current_angle = math.atan2(ball_vy, ball_vx)
                     current_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
                     
-                    # 목표 방향 계산
-                    # 보스가 친 공(아래로 가는 공)은 위로(보스 방향으로) 반사
-                    # 플레이어 위치 사용 (전달되지 않으면 기본값 사용)
-                    if player_x is None:
-                        player_x = 400  # 화면 중앙 기본값
-                    if player_y is None:
-                        player_y = 550  # 화면 하단 기본값
+                    # 회오리에 들어온 공은 빙글빙글 돌다가 랜덤하게 튀겨냄
+                    # 공의 회전 각도 계산 (회오리 중심 기준)
+                    spin_angle = math.atan2(ball_y - vortex_y, ball_x - vortex_x)
+                    spin_angle += self.vortex_timer * 10  # 시간에 따른 회전
                     
+                    # 회전 반경을 점진적으로 줄여가며 중심으로 끌어당김
+                    spin_radius = distance * (0.8 + 0.2 * math.sin(self.vortex_timer * 5))
+                    
+                    # 랜덤 방향 결정 (부채꼴 범위 내에서)
                     if ball_vy > 0:  # 보스가 친 공 (아래로 향하는)
-                        # 보스 방향으로 반사 (위로)
-                        boss_x = 400  # 보스는 화면 중앙
-                        boss_y = 50   # 보스는 화면 상단
+                        # 보스 방향으로 부채꼴 범위 내에서 랜덤 반사
+                        # 기본 방향: 직진 위로 (90도)
+                        base_angle = -math.pi / 2  # -90도 (위쪽)
                         
+                        # 부채꼴 범위: 왼우 60도씩 (120도 범위)
+                        fan_spread = math.pi / 3  # 60도
+                        # 공의 위치와 시간을 기반으로 랜덤 시드 생성
+                        self.vortex_deflection_seed = (ball_x * 1000 + ball_y * 100 + self.vortex_timer * 10) % 10000
+                        random.seed(int(self.vortex_deflection_seed))
+                        random_offset = random.uniform(-fan_spread, fan_spread)
+                        random.seed()  # 시드 초기화
                         
-                        direction_to_target_x = boss_x - ball_x
-                        direction_to_target_y = boss_y - ball_y
-                        distance_to_target = math.sqrt(direction_to_target_x ** 2 + direction_to_target_y ** 2)
+                        target_angle = base_angle + random_offset
                         
-                        if distance_to_target > 0:
-                            direction_to_target_x /= distance_to_target
-                            direction_to_target_y /= distance_to_target
+                        # 보스 방향으로 약간 편향
+                        boss_x = 300  # 화면 중앙
+                        boss_y = 50   # 보스 위치
+                        angle_to_boss = math.atan2(boss_y - ball_y, boss_x - ball_x)
+                        target_angle = target_angle * 0.7 + angle_to_boss * 0.3
+                        
+                        direction_to_target_x = math.cos(target_angle)
+                        direction_to_target_y = math.sin(target_angle)
                     else:
-                        # 플레이어가 친 공은 원래대로 (하지만 이미 위에서 걸러짐)
+                        # 플레이어가 친 공은 원래 방향 유지 (하지만 이미 위에서 걸러짐)
+                        if player_x is None:
+                            player_x = 300
+                        if player_y is None:
+                            player_y = 550
                         direction_to_target_x = player_x - ball_x
                         direction_to_target_y = player_y - ball_y
                         distance_to_target = math.sqrt(direction_to_target_x ** 2 + direction_to_target_y ** 2)
@@ -610,47 +771,34 @@ class PoseidonTrident(LegendaryItem):
                     # 새로운 각도 계산
                     new_angle = current_angle + refraction_amount
                     
-                    # 회전 효과 추가 (물 회오리 특성)
-                    spin_effect = math.sin(self.vortex_timer * 8) * 0.1 * refraction_strength
+                    # 빙글빙글 회전 효과 강화
+                    spin_effect = math.sin(self.vortex_timer * 12) * 0.3 * refraction_strength
                     new_angle += spin_effect
                     
-                    # 물 회오리 내부에서 포물선 움직임 (감속 → 정점 → 가속)
-                    # 공이 들어와서 천천히 감속했다가 다시 가속하며 반사
+                    # 회전 가속도 추가 (회오리에 빨려들어가는 효과)
+                    if distance < vortex_radius * 0.5:  # 중심 근처
+                        spin_acceleration = 0.2 * (1 - distance / (vortex_radius * 0.5))
+                        new_angle += spin_acceleration * self.vortex_timer
+                    
+                    # 속도는 기본적으로 유지 (캡처되지 않은 공은 속도 변화 없음)
+                    new_speed = current_speed
+                    
+                    # 보스가 친 공만 약간의 영향
                     if ball_vy > 0:  # 보스가 친 공
-                        # 회오리 중심까지의 수직 거리 비율 계산 (0: 진입, 1: 중심)
-                        vertical_progress = 1.0 - ((ball_y - (vortex_y - current_vortex_height)) / current_vortex_height)
-                        vertical_progress = max(0.0, min(1.0, vertical_progress))  # 0~1 범위로 제한
-                        
-                        # 포물선 곡선: 처음엔 빠르게 감속, 중간에 최저점, 이후 가속
-                        # 사인 곡선을 사용하여 부드러운 감속-가속 패턴 생성
-                        decel_curve = math.sin(vertical_progress * math.pi)  # 0→1→0 곡선
-                        
-                        # 속도 변화: 진입시 100% → 중간 30% → 반사시 다시 증가
-                        speed_factor = 1.0 - (decel_curve * 0.7)  # 최대 70% 감속
-                        speed_reduction = decel_curve * 0.7  # 디버그용 변수 추가
-                        new_speed = current_speed * speed_factor
-                        
-                        # 최소 속도 보장
-                        min_speed = 3.0
-                        if new_speed < min_speed:
-                            new_speed = min_speed
-                        
+                        # 회오리 근처에서 약간의 가속 (회오리의 끌어당기는 효과)
+                        if distance < vortex_radius * 0.5:
+                            new_speed = current_speed * 1.1  # 10% 가속
                     else:
-                        # 플레이어가 친 공은 약간 증폭
-                        speed_boost = 1.0 + refraction_strength * 0.3  # 최대 30% 속도 증가
-                        new_speed = current_speed * speed_boost
-                        # 속도 상한
-                        max_speed = 30
-                        if new_speed > max_speed:
-                            new_speed = max_speed
+                        # 플레이어가 친 공은 속도 유지
+                        new_speed = current_speed
                     
                     # 새로운 속도 벡터 계산
                     new_vx = math.cos(new_angle) * new_speed
                     new_vy = math.sin(new_angle) * new_speed
                     
-                    # X축 속도도 부드럽게 조절 (자연스러운 궤적 유지)
-                    # 원래 X속도와 새로운 X속도를 보간하여 급격한 변화 방지
-                    x_blend_factor = 0.6  # 60%만 새로운 속도 적용
+                    # X축 속도는 크게 변경하지 않음 (약간의 회전 효과만)
+                    # 원래 X속도를 대부분 유지
+                    x_blend_factor = 0.2  # 20%만 새로운 속도 적용 (기존 속도 80% 유지)
                     new_vx = ball_vx * (1.0 - x_blend_factor) + new_vx * x_blend_factor
                     
                     # X축 속도 상한 설정 (너무 빠른 횡방향 이동 방지)
@@ -658,31 +806,11 @@ class PoseidonTrident(LegendaryItem):
                     if abs(new_vx) > max_x_speed:
                         new_vx = max_x_speed if new_vx > 0 else -max_x_speed
                     
-                    # 상승 효과 추가 (물 회오리 특성)
-                    if ball_vy > 0:  # 보스가 친 공은 부드럽게 위로 반사
-                        
-                        # 포물선 움직임의 반사 부분 - 가속하면서 튕겨나감
-                        # vertical_progress가 1에 가까울수록 (중심에 가까울수록) 더 강한 반사
-                        
-                        # 1. 반사 시점의 가속도 계산
-                        # 중심에서 멀어질수록 가속 (역포물선)
-                        acceleration_factor = 1.0 + (vertical_progress * 0.8)  # 최대 180% 속도로 가속
-                        
-                        # 2. Y축 반사 - 가속하면서 위로
-                        # 감속된 속도가 아닌 가속된 속도로 반사
-                        reflected_speed = new_speed * acceleration_factor
-                        new_vy = -reflected_speed * 0.9  # 90% 반사 (강력한 반사)
-                        
-                        # 3. 추가 추진력 (물 회오리의 밀어내는 힘)
-                        push_force = -5.0 * vertical_progress  # 중심에 가까울수록 강한 추진 (3.0 -> 5.0 증가)
-                        new_vy += push_force
-                        
-                        
-                        # 4. 최대 반사 속도 제한 (너무 빠르면 안됨)
-                        max_reflect_speed = -20.0
-                        if new_vy < max_reflect_speed:
-                            new_vy = max_reflect_speed
-                        
+                    # 보스가 친 공은 위로 반사되도록 Y축 속도 조정
+                    if ball_vy > 0:  # 보스가 친 공
+                        # 단순히 위로 반사 (회오리 영향권에서 반사)
+                        if new_vy > 0:  # 아래로 향하는 경우만
+                            new_vy = -abs(new_vy)  # 위로 반사
                     else:
                         # 플레이어가 친 공은 회오리 영향을 받지 않음
                         return ball_vx, ball_vy  # 원래 속도 그대로 반환
@@ -706,7 +834,8 @@ class PoseidonTrident(LegendaryItem):
         
         # 기존 물결 효과는 회오리가 없을 때만 작동
         # (회오리가 활성화되면 회오리가 모든 물 효과를 대체)
-        if self.dash_wave_active and not self.vortex_active:
+        # dash_wave는 회오리가 없을 때만 작동 (비활성화 - 불필요한 효과)
+        if False and self.dash_wave_active and not self.vortex_active:
             # 플레이어가 발사한 공 (위로 향하는 공)은 영향받지 않음
             if ball_vy < 0:  # 공이 위로 향하고 있으면 (플레이어가 친 공)
                 return ball_vx, ball_vy  # 물결 효과 무시
@@ -725,6 +854,17 @@ class PoseidonTrident(LegendaryItem):
                 return new_vx, new_vy
             else:
                 pass
+        
+        # 최종 속도 확인 (디버그)
+        final_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
+        if abs(final_speed - original_speed) > 2.0:  # 속도가 2 이상 변했으면
+            print(f"⚠️ 속도 변화 감지! 원래: {original_speed:.1f} → 최종: {final_speed:.1f}")
+            print(f"   위치: ({ball_x:.0f}, {ball_y:.0f}), 회오리 활성: {self.vortex_active}, 캡처: {self.ball_in_vortex}")
+        
+        # 물 궤적이 활성화되어 있으면 공 위치 업데이트 (회오리 밖에서)
+        if self.water_trail_active and not self.ball_in_vortex:
+            # 회오리에서 나온 후에도 물 궤적 계속 업데이트
+            self.update_water_trail(ball_x, ball_y)
         
         return ball_vx, ball_vy
         
@@ -832,8 +972,8 @@ class PoseidonTrident(LegendaryItem):
                 if particle["life"] <= 0:
                     self.vortex_particles.remove(particle)
                     
-            # 새로운 파티클 지속적으로 생성 - 양쪽 회오리에 각각
-            if self.vortex_timer < 1.0 and len(self.vortex_particles) < 150:  # 양쪽이니까 150개까지
+            # 새로운 파티클 지속적으로 생성 - 소멸 단계 전까지만 (0.8초)
+            if self.vortex_timer < 0.8 and len(self.vortex_particles) < 150:  # 양쪽이니까 150개까지
                 # 왼쪽 회오리 파티클
                 for _ in range(2):
                     particle = {
@@ -866,8 +1006,8 @@ class PoseidonTrident(LegendaryItem):
                     }
                     self.vortex_particles.append(particle)
             
-            # 회오리 종료 체크 (2초 후)
-            if self.vortex_timer > 2.0:
+            # 회오리 종료 체크 (1.3초 후: 0.3 + 0.5 + 0.5)
+            if self.vortex_timer > 1.3:
                 self.vortex_active = False
                 self.vortex_left_height = 0
                 self.vortex_right_height = 0
@@ -886,6 +1026,9 @@ class PoseidonTrident(LegendaryItem):
         """거대한 물결 회오리 효과 그리기"""
         if not self.active:
             return
+        
+        # 물 궤적 그리기 (회오리 효과보다 먼저 그려서 아래에 표시)
+        self.draw_water_trail(screen)
             
         # 거대한 회오리 그리기
         if self.vortex_active:
@@ -1030,20 +1173,20 @@ class PoseidonTrident(LegendaryItem):
             # 타이머 업데이트 
             self.vortex_timer += dt * 60  # 60fps 기준으로 변환
             
-            # 회오리 성장 단계 (0.5초 동안 성장)
-            if self.vortex_timer < 30:  # 0.5초 * 60fps = 30 프레임
-                growth_rate = self.vortex_timer / 30
+            # 회오리 성장 단계 (0.3초 동안 성장)
+            if self.vortex_timer < 18:  # 0.3초 * 60fps = 18 프레임
+                growth_rate = self.vortex_timer / 18
                 self.vortex_left_height = self.vortex_max_height * growth_rate
                 self.vortex_right_height = self.vortex_max_height * growth_rate
                 self.vortex_spin_speed = 10 * growth_rate
-            # 회오리 유지 단계 (2초 동안 유지)
-            elif self.vortex_timer < 150:  # 2.5초 * 60fps = 150 프레임
+            # 회오리 유지 단계 (0.5초 동안 유지)
+            elif self.vortex_timer < 48:  # 0.8초 * 60fps = 48 프레임 (0.3 + 0.5 = 0.8)
                 self.vortex_left_height = self.vortex_max_height
                 self.vortex_right_height = self.vortex_max_height
                 self.vortex_spin_speed = 10
-            # 회오리 소멸 단계 (0.5초 동안 소멸)
-            elif self.vortex_timer < 180:  # 3초 * 60fps = 180 프레임
-                fade_rate = 1 - (self.vortex_timer - 150) / 30
+            # 회오리 소멸 단계 (0.5초 동안 소멸) - 효과 없음
+            elif self.vortex_timer < 78:  # 1.3초 * 60fps = 78 프레임 (0.3 + 0.5 + 0.5 = 1.3)
+                fade_rate = 1 - (self.vortex_timer - 48) / 30
                 self.vortex_left_height = self.vortex_max_height * fade_rate
                 self.vortex_right_height = self.vortex_max_height * fade_rate
                 self.vortex_spin_speed = 10 * fade_rate
@@ -1079,8 +1222,8 @@ class PoseidonTrident(LegendaryItem):
                     # 크기 감소
                     particle["size"] *= 0.98
                 
-            # 새 파티클 추가 (회오리가 활성화된 동안)
-            if self.vortex_timer < 150 and len(self.vortex_particles) < 100:
+            # 새 파티클 추가 (소멸 단계 전까지만)
+            if self.vortex_timer < 48 and len(self.vortex_particles) < 100:
                 # 왼쪽 회오리 파티클
                 for _ in range(2):
                     angle = random.uniform(0, math.pi * 2)
@@ -1118,6 +1261,105 @@ class PoseidonTrident(LegendaryItem):
         # 물결 타이머 업데이트
         if self.active and not ui_mode:
             self.wave_timer += dt * 60
+            
+        # 쿨다운 업데이트
+        if self.vortex_cooldown > 0:
+            self.vortex_cooldown -= 1
+        
+        # 물방울 파티클 업데이트
+        for droplet in self.water_droplets[:]:
+            droplet['lifetime'] -= dt * 60
+            droplet['y'] += droplet['vy'] * dt * 60
+            droplet['vy'] += 0.5  # 중력
+            droplet['x'] += droplet['vx'] * dt * 60
+            
+            if droplet['lifetime'] <= 0 or droplet['y'] > 800:
+                self.water_droplets.remove(droplet)
+    
+    def update_water_trail(self, ball_x, ball_y):
+        """물 궤적 업데이트"""
+        if self.water_trail_active:
+            # 궤적에 현재 위치 추가
+            self.water_trail.append({'x': ball_x, 'y': ball_y, 'lifetime': 30})
+            
+            # 물방울 파티클 생성 (확률적으로)
+            if random.random() < 0.3:  # 30% 확률
+                for _ in range(random.randint(1, 3)):
+                    droplet = {
+                        'x': ball_x + random.uniform(-5, 5),
+                        'y': ball_y + random.uniform(-5, 5),
+                        'vx': random.uniform(-2, 2),
+                        'vy': random.uniform(-1, 1),
+                        'lifetime': 20,
+                        'size': random.uniform(2, 4)
+                    }
+                    self.water_droplets.append(droplet)
+        
+        # 궤적 수명 관리
+        for point in self.water_trail[:]:
+            point['lifetime'] -= 1
+            if point['lifetime'] <= 0:
+                self.water_trail.remove(point)
+        
+        # 궤적 길이 제한
+        if len(self.water_trail) > 50:
+            self.water_trail.pop(0)
+    
+    def draw_water_trail(self, screen: pygame.Surface):
+        """물 궤적 그리기"""
+        if len(self.water_trail) > 1:
+            # 궤적 그리기
+            for i in range(1, len(self.water_trail)):
+                prev_point = self.water_trail[i-1]
+                curr_point = self.water_trail[i]
+                
+                # 알파값 계산 (수명에 따라)
+                alpha = min(255, int(curr_point['lifetime'] * 8))
+                
+                # 두께 계산 (앞쪽이 더 두껍게)
+                thickness = max(1, int(curr_point['lifetime'] / 5))
+                
+                # 물색상 (파란색 계열)
+                water_color = (50, 150, 255)
+                
+                # 선 그리기
+                if alpha > 0:
+                    # 메인 궤적
+                    pygame.draw.line(screen, water_color, 
+                                   (prev_point['x'], prev_point['y']),
+                                   (curr_point['x'], curr_point['y']), 
+                                   thickness)
+                    
+                    # 물 효과를 위한 추가 선 (더 밝은 색)
+                    if thickness > 2:
+                        pygame.draw.line(screen, (100, 200, 255),
+                                       (prev_point['x'], prev_point['y']-1),
+                                       (curr_point['x'], curr_point['y']-1),
+                                       thickness-1)
+        
+        # 물방울 파티클 그리기
+        for droplet in self.water_droplets:
+            alpha = min(255, int(droplet['lifetime'] * 12))
+            if alpha > 0:
+                # 물방울 색상
+                droplet_color = (100, 180, 255)
+                
+                # 물방울 그리기
+                droplet_surf = pygame.Surface((int(droplet['size'] * 2), int(droplet['size'] * 2)), pygame.SRCALPHA)
+                pygame.draw.circle(droplet_surf, (*droplet_color, alpha),
+                                 (int(droplet['size']), int(droplet['size'])),
+                                 int(droplet['size']))
+                
+                # 하이라이트
+                if droplet['size'] > 2:
+                    pygame.draw.circle(droplet_surf, (200, 230, 255, alpha // 2),
+                                     (int(droplet['size'] - droplet['size']/3), 
+                                      int(droplet['size'] - droplet['size']/3)),
+                                     int(droplet['size'] / 3))
+                
+                screen.blit(droplet_surf, 
+                          (int(droplet['x'] - droplet['size']), 
+                           int(droplet['y'] - droplet['size'])))
 
 
 class HermesShoes(LegendaryItem):
