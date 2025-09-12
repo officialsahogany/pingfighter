@@ -2710,16 +2710,26 @@ class ShaolinTempleBackground:
     def _start_lanterns_falling(self):
         """Start all lanterns falling during destruction"""
         for lantern in self.lanterns:
+            # Calculate horizontal movement to aim for player floor area
+            # Player area is roughly at y=650, x centered around 300
+            target_x = 300 + random.randint(-100, 100)  # Player floor area width
+            distance_x = target_x - lantern['x']
+            # Add some randomness but bias toward player area
+            vx = (distance_x / 100) + random.uniform(-1, 1)
+            vx = max(-4, min(4, vx))  # Limit horizontal speed
+            
             falling_lantern = {
                 'x': lantern['x'],
                 'y': lantern['y'],
-                'vx': random.uniform(-2, 2),  # Slight horizontal movement
+                'vx': vx,  # Horizontal movement toward player area
                 'vy': 0,  # Start with no vertical velocity
                 'rotation': 0,
                 'rotation_speed': random.uniform(-5, 5),
                 'size': lantern['size'],
                 'broken': False,
-                'ground_y': self.height - 100 + random.randint(-20, 20),  # Varied ground positions
+                'ground_y': 650 + random.randint(-10, 10),  # Player floor area (around y=650)
+                'deformation': 0,  # For squash effect when landing
+                'bounce_count': 0,  # Track bounces for deformation
             }
             self.falling_lanterns.append(falling_lantern)
     
@@ -2733,13 +2743,30 @@ class ShaolinTempleBackground:
                 lantern['x'] += lantern['vx']
                 lantern['rotation'] += lantern['rotation_speed']
                 
+                # Apply air resistance to horizontal movement
+                lantern['vx'] *= 0.99
+                
                 # Check if hit ground
                 if lantern['y'] >= lantern['ground_y']:
-                    lantern['broken'] = True
-                    # Create fire effect at crash site
-                    self._create_ground_fire(lantern['x'], lantern['ground_y'])
-                    # Create glass breaking debris
-                    self._create_lantern_debris(lantern['x'], lantern['ground_y'])
+                    # First impact - apply deformation
+                    if lantern['bounce_count'] == 0:
+                        lantern['deformation'] = 0.5  # Squash to 50% height
+                        lantern['y'] = lantern['ground_y']
+                        lantern['vy'] = -lantern['vy'] * 0.3  # Small bounce
+                        lantern['bounce_count'] += 1
+                        lantern['rotation_speed'] *= 0.5  # Slow rotation after impact
+                    elif lantern['bounce_count'] == 1 and lantern['vy'] > 0:
+                        # Second impact - break
+                        lantern['broken'] = True
+                        lantern['deformation'] = 0.3  # Maximum squash
+                        # Create fire effect at crash site
+                        self._create_ground_fire(lantern['x'], lantern['ground_y'])
+                        # Create glass breaking debris with more particles
+                        self._create_lantern_debris(lantern['x'], lantern['ground_y'])
+                
+                # Update deformation (spring back effect)
+                if lantern['deformation'] > 0:
+                    lantern['deformation'] = max(0, lantern['deformation'] - 0.05)
     
     def _create_ground_fire(self, x: float, y: float):
         """Create fire effect on ground when lantern breaks"""
@@ -2767,24 +2794,44 @@ class ShaolinTempleBackground:
     
     def _create_lantern_debris(self, x: float, y: float):
         """Create glass debris when lantern breaks"""
-        for _ in range(15):
+        # More debris for dramatic breaking effect
+        for _ in range(25):
+            # Debris flies more horizontally when hitting ground
             debris = {
                 'x': x,
-                'y': y,
-                'vx': random.uniform(-5, 5),
-                'vy': random.uniform(-8, -3),
-                'size': random.randint(2, 5),
+                'y': y - 5,  # Start slightly above ground
+                'vx': random.uniform(-8, 8),  # More horizontal spread
+                'vy': random.uniform(-6, -2),  # Less vertical, more sideways
+                'size': random.randint(2, 6),
                 'rotation': random.uniform(0, 360),
-                'rotation_speed': random.uniform(-20, 20),
+                'rotation_speed': random.uniform(-30, 30),
                 'color': random.choice([
                     (255, 200, 150),  # Glass color
                     (255, 100, 50),   # Red glass
                     (200, 150, 100),  # Brown frame
+                    (255, 150, 100),  # Orange glass
+                    (180, 50, 30),    # Dark red frame
                 ]),
                 'opacity': 255,
                 'type': 'glass',
             }
             self.collapse_debris.append(debris)
+        
+        # Add some larger frame pieces
+        for _ in range(5):
+            frame_piece = {
+                'x': x,
+                'y': y - 5,
+                'vx': random.uniform(-6, 6),
+                'vy': random.uniform(-4, -1),
+                'size': random.randint(6, 10),
+                'rotation': random.uniform(0, 360),
+                'rotation_speed': random.uniform(-15, 15),
+                'color': (100, 70, 40),  # Dark wood color
+                'opacity': 255,
+                'type': 'rectangle',  # Frame pieces are rectangular
+            }
+            self.collapse_debris.append(frame_piece)
     
     def _update_ground_fires(self):
         """Update ground fire effects"""
@@ -2882,19 +2929,37 @@ class ShaolinTempleBackground:
                     'medium': (20, 25),
                     'large': (25, 30),
                 }
-                width, height = sizes[lantern['size']]
+                base_width, base_height = sizes[lantern['size']]
                 
-                # Create rotated lantern surface
-                lantern_surf = pygame.Surface((width * 2, height * 2), pygame.SRCALPHA)
+                # Apply deformation (squash effect)
+                deformation = lantern.get('deformation', 0)
+                width = base_width * (1 + deformation * 0.5)  # Wider when squashed
+                height = base_height * (1 - deformation)  # Shorter when squashed
                 
-                # Draw lantern body
-                cx, cy = width, height
-                points = [
-                    (cx - width // 2, cy - height // 2),
-                    (cx + width // 2, cy - height // 2),
-                    (cx + width // 2 - 3, cy + height // 2),
-                    (cx - width // 2 + 3, cy + height // 2),
-                ]
+                # Create larger surface for deformed lantern
+                surf_size = max(int(width * 2), int(height * 2)) + 20
+                lantern_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+                
+                # Draw lantern body with deformation
+                cx, cy = surf_size // 2, surf_size // 2
+                
+                # Adjust shape based on deformation
+                if deformation > 0:
+                    # Squashed shape - wider at bottom, flattened
+                    points = [
+                        (cx - width // 2 * 0.7, cy - height // 2),  # Top left (narrower)
+                        (cx + width // 2 * 0.7, cy - height // 2),  # Top right (narrower)
+                        (cx + width // 2, cy + height // 2),  # Bottom right (wider)
+                        (cx - width // 2, cy + height // 2),  # Bottom left (wider)
+                    ]
+                else:
+                    # Normal lantern shape
+                    points = [
+                        (cx - width // 2, cy - height // 2),
+                        (cx + width // 2, cy - height // 2),
+                        (cx + width // 2 - 3, cy + height // 2),
+                        (cx - width // 2 + 3, cy + height // 2),
+                    ]
                 
                 # Rotate points
                 rotated_points = []
@@ -2907,17 +2972,33 @@ class ShaolinTempleBackground:
                     rotated_points.append((rx, ry))
                 
                 # Draw lantern with some transparency as it falls
-                pygame.draw.polygon(lantern_surf, (*self.colors['lantern_red'], 200), rotated_points)
+                # More damaged appearance when deformed
+                opacity = 200 if deformation == 0 else int(200 - deformation * 100)
+                pygame.draw.polygon(lantern_surf, (*self.colors['lantern_red'], opacity), rotated_points)
                 pygame.draw.polygon(lantern_surf, self.colors['temple_dark'], rotated_points, 1)
                 
-                # Draw flame inside (flickering)
-                if self.frame_count % 3 == 0:
-                    flame_color = (255, 200, 100, 150)
-                    pygame.draw.circle(lantern_surf, flame_color, (cx, cy), width // 3)
+                # Draw flame inside (flickering, dimmer when deformed)
+                if self.frame_count % 3 == 0 and deformation < 0.3:
+                    flame_opacity = int(150 * (1 - deformation * 2))
+                    flame_color = (255, 200, 100, flame_opacity)
+                    flame_size = int(width // 3 * (1 - deformation))
+                    pygame.draw.circle(lantern_surf, flame_color, (cx, cy), flame_size)
+                
+                # Add cracks when deformed
+                if deformation > 0.2:
+                    crack_color = (50, 30, 20, 100)
+                    for i in range(3):
+                        angle = random.random() * math.pi * 2
+                        start_x = cx + random.randint(-int(width//3), int(width//3))
+                        start_y = cy + random.randint(-int(height//3), int(height//3))
+                        end_x = start_x + math.cos(angle) * width // 2
+                        end_y = start_y + math.sin(angle) * height // 2
+                        pygame.draw.line(lantern_surf, crack_color, 
+                                       (start_x, start_y), (end_x, end_y), 1)
                 
                 surface.blit(lantern_surf, 
-                           (int(lantern['x'] - width), 
-                            int(lantern['y'] - height)))
+                           (int(lantern['x'] - surf_size // 2), 
+                            int(lantern['y'] - surf_size // 2)))
     
     def _draw_ground_fires(self, surface: pygame.Surface):
         """Draw fire effects on the ground"""
