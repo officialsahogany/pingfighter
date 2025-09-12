@@ -2346,15 +2346,16 @@ class ShaolinTempleBackground:
             
             # Add chi energy effect when ready or active
             if is_ready or is_active:
-                # Floating energy particles
-                for _ in range(3):
-                    if random.random() < 0.3:  # 30% chance per frame
-                        particle_x = inner_x + random.randint(2, inner_width - 3)
-                        particle_y = fill_y + random.randint(0, fill_height - 1)
-                        particle_size = random.randint(1, 2)
-                        # Golden particles
-                        particle_color = (255, random.randint(200, 255), random.randint(100, 200))
-                        pygame.draw.circle(surface, particle_color, (particle_x, particle_y), particle_size)
+                # Floating energy particles (only if there's fill to show particles in)
+                if fill_height > 0:
+                    for _ in range(3):
+                        if random.random() < 0.3:  # 30% chance per frame
+                            particle_x = inner_x + random.randint(2, inner_width - 3)
+                            particle_y = fill_y + random.randint(0, max(1, fill_height - 1))
+                            particle_size = random.randint(1, 2)
+                            # Golden particles
+                            particle_color = (255, random.randint(200, 255), random.randint(100, 200))
+                            pygame.draw.circle(surface, particle_color, (particle_x, particle_y), particle_size)
                 
                 # Energy wisps at the top of the fill
                 if self.frame_count % 2 == 0:
