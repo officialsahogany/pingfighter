@@ -29,6 +29,12 @@ class ShaolinTempleBackground:
         self.falling_lanterns = []  # Lanterns that are falling during destruction
         self.ground_fires = []  # Fire effects on ground from broken lanterns
         
+        # Moon crater fragments system
+        self.moon_fragments = []  # Active moon crater fragments
+        self.moon_fragment_timer = 0  # Timer for spawning fragments
+        self.moon_fragment_interval = random.randint(600, 900)  # 10-15 seconds at 60 FPS
+        self.moon_fragment_active = False  # Only active after moon turns red
+        
         # Colors - Muted night palette (불 꺼진 밤 느낌)
         self.colors = {
             'sky_top': (40, 35, 55),  # 어두운 보라빛 밤하늘
@@ -53,6 +59,9 @@ class ShaolinTempleBackground:
             'mist': (200, 200, 210, 20),  # 안개
             'star': (255, 255, 230),  # 별
             'ruins': (30, 25, 30),  # 폐허 색상
+            'fragment_core': (255, 80, 60),  # 붉은 크레이터 파편 중심
+            'fragment_glow': (255, 50, 30),  # 파편 빛
+            'fragment_trail': (255, 100, 80, 100),  # 파편 궤적
         }
         
         # Animated elements
@@ -2034,6 +2043,7 @@ class ShaolinTempleBackground:
         self._update_crow_particles()
         self._update_monks()
         self._update_destruction_animation()  # Update temple destruction
+        self._update_moon_fragments()  # Update moon crater fragments
     
     def draw(self, surface: pygame.Surface):
         """Draw the complete Shaolin Temple background"""
@@ -2103,6 +2113,9 @@ class ShaolinTempleBackground:
         # Draw falling lanterns during destruction
         if self.destruction_animation_active:
             self._draw_falling_lanterns(temp_surface)
+        
+        # Draw moon crater fragments
+        self._draw_moon_fragments(temp_surface)
         
         # Draw floating leaves
         self._draw_floating_leaves(temp_surface)
@@ -3059,6 +3072,200 @@ class ShaolinTempleBackground:
                 pygame.draw.line(surface, (20, 20, 20),
                                (pillar_x - 5, crack_y),
                                (pillar_x + 5, crack_y + 3), 1)
+    
+    def _spawn_moon_fragments(self):
+        """Spawn red crater fragments from the moon"""
+        # Spawn 5-8 fragments at once
+        num_fragments = random.randint(5, 8)
+        
+        # Moon position (center of screen, top area)
+        moon_x = self.width // 2
+        moon_y = 100
+        
+        for _ in range(num_fragments):
+            # Random target position across the entire map
+            target_x = random.randint(50, self.width - 50)
+            target_y = random.randint(400, self.height - 50)  # Focus on playable area
+            
+            # Calculate trajectory
+            dx = target_x - moon_x
+            dy = target_y - moon_y
+            distance = math.sqrt(dx*dx + dy*dy)
+            
+            # Normalize and set velocity
+            speed = random.uniform(3, 5)
+            vx = (dx / distance) * speed
+            vy = (dy / distance) * speed
+            
+            fragment = {
+                'x': moon_x + random.randint(-30, 30),  # Start near moon
+                'y': moon_y + random.randint(-30, 30),
+                'vx': vx,
+                'vy': vy,
+                'target_x': target_x,
+                'target_y': target_y,
+                'size': random.randint(8, 15),
+                'rotation': 0,
+                'rotation_speed': random.uniform(-10, 10),
+                'lifetime': 180,  # 3 seconds
+                'trail': [],  # Trail effect
+                'impact': False,
+                'glow_phase': random.uniform(0, math.pi * 2),
+            }
+            self.moon_fragments.append(fragment)
+        
+        print(f"Spawned {num_fragments} moon fragments!")
+    
+    def _update_moon_fragments(self):
+        """Update moon crater fragments"""
+        # Only spawn fragments if moon is red and temple is destroyed
+        if self.moon_fragment_active or (self.temple_destroyed and self.moon_red_intensity > 0):
+            self.moon_fragment_active = True
+            
+            # Update spawn timer
+            self.moon_fragment_timer += 1
+            if self.moon_fragment_timer >= self.moon_fragment_interval:
+                self._spawn_moon_fragments()
+                self.moon_fragment_timer = 0
+                # Reset interval for next spawn
+                self.moon_fragment_interval = random.randint(600, 900)  # 10-15 seconds
+        
+        # Update existing fragments
+        for fragment in self.moon_fragments[:]:
+            if not fragment['impact']:
+                # Update position
+                fragment['x'] += fragment['vx']
+                fragment['y'] += fragment['vy']
+                fragment['rotation'] += fragment['rotation_speed']
+                fragment['glow_phase'] += 0.1
+                
+                # Add to trail
+                if len(fragment['trail']) < 15:
+                    fragment['trail'].append({
+                        'x': fragment['x'],
+                        'y': fragment['y'],
+                        'size': fragment['size'] * 0.7,
+                        'alpha': 150,
+                    })
+                else:
+                    # Shift trail and add new position
+                    fragment['trail'].pop(0)
+                    fragment['trail'].append({
+                        'x': fragment['x'],
+                        'y': fragment['y'],
+                        'size': fragment['size'] * 0.7,
+                        'alpha': 150,
+                    })
+                
+                # Fade trail
+                for i, trail_point in enumerate(fragment['trail']):
+                    trail_point['alpha'] = int(150 * (i / len(fragment['trail'])))
+                
+                # Check if reached target or went off screen
+                dist_to_target = math.sqrt((fragment['x'] - fragment['target_x'])**2 + 
+                                          (fragment['y'] - fragment['target_y'])**2)
+                
+                if dist_to_target < 20 or fragment['y'] >= fragment['target_y']:
+                    fragment['impact'] = True
+                    fragment['impact_timer'] = 30  # 0.5 second impact effect
+                    # Create impact shockwave effect
+                    fragment['shockwave_radius'] = 0
+            else:
+                # Handle impact animation
+                if fragment.get('impact_timer', 0) > 0:
+                    fragment['impact_timer'] -= 1
+                    fragment['shockwave_radius'] = (30 - fragment['impact_timer']) * 3
+                else:
+                    # Remove fragment after impact
+                    self.moon_fragments.remove(fragment)
+    
+    def _draw_moon_fragments(self, surface: pygame.Surface):
+        """Draw moon crater fragments"""
+        for fragment in self.moon_fragments:
+            if not fragment['impact']:
+                # Draw trail
+                for trail_point in fragment['trail']:
+                    trail_surf = pygame.Surface((trail_point['size'] * 2, trail_point['size'] * 2), pygame.SRCALPHA)
+                    # Glowing trail
+                    for i in range(3):
+                        radius = trail_point['size'] - i * 2
+                        if radius > 0:
+                            alpha = trail_point['alpha'] // (i + 1)
+                            color = (*self.colors['fragment_trail'][:3], alpha)
+                            pygame.draw.circle(trail_surf, color,
+                                             (trail_point['size'], trail_point['size']),
+                                             radius)
+                    surface.blit(trail_surf,
+                               (int(trail_point['x'] - trail_point['size']),
+                                int(trail_point['y'] - trail_point['size'])))
+                
+                # Draw main fragment with glow
+                fragment_surf = pygame.Surface((fragment['size'] * 4, fragment['size'] * 4), pygame.SRCALPHA)
+                center = fragment['size'] * 2
+                
+                # Outer glow (pulsing)
+                glow_intensity = abs(math.sin(fragment['glow_phase'])) * 0.5 + 0.5
+                glow_size = fragment['size'] * 2 * glow_intensity
+                pygame.draw.circle(fragment_surf, (*self.colors['fragment_glow'], 50),
+                                 (center, center), int(glow_size))
+                
+                # Middle glow
+                pygame.draw.circle(fragment_surf, (*self.colors['fragment_glow'], 100),
+                                 (center, center), int(fragment['size'] * 1.5))
+                
+                # Core (rocky texture)
+                points = []
+                num_points = 8
+                for i in range(num_points):
+                    angle = (i * 2 * math.pi / num_points) + math.radians(fragment['rotation'])
+                    radius = fragment['size'] * random.uniform(0.8, 1.0)
+                    x = center + radius * math.cos(angle)
+                    y = center + radius * math.sin(angle)
+                    points.append((x, y))
+                
+                if len(points) >= 3:
+                    pygame.draw.polygon(fragment_surf, self.colors['fragment_core'], points)
+                    pygame.draw.polygon(fragment_surf, (255, 255, 200), points, 2)  # Bright edge
+                
+                surface.blit(fragment_surf,
+                           (int(fragment['x'] - center),
+                            int(fragment['y'] - center)))
+            else:
+                # Draw impact effect
+                if fragment.get('impact_timer', 0) > 0:
+                    # Shockwave
+                    if fragment.get('shockwave_radius', 0) > 0:
+                        shockwave_surf = pygame.Surface((fragment['shockwave_radius'] * 2, 
+                                                        fragment['shockwave_radius'] * 2), pygame.SRCALPHA)
+                        alpha = int(150 * (fragment['impact_timer'] / 30))
+                        pygame.draw.circle(shockwave_surf, (*self.colors['fragment_glow'], alpha),
+                                         (fragment['shockwave_radius'], fragment['shockwave_radius']),
+                                         fragment['shockwave_radius'], 3)
+                        surface.blit(shockwave_surf,
+                                   (int(fragment['x'] - fragment['shockwave_radius']),
+                                    int(fragment['y'] - fragment['shockwave_radius'])))
+                    
+                    # Impact sparks
+                    for i in range(5):
+                        spark_angle = (i * 72 + fragment['rotation']) * math.pi / 180
+                        spark_dist = fragment.get('shockwave_radius', 0) * 0.5
+                        spark_x = fragment['x'] + math.cos(spark_angle) * spark_dist
+                        spark_y = fragment['y'] + math.sin(spark_angle) * spark_dist
+                        spark_size = random.randint(2, 4)
+                        pygame.draw.circle(surface, self.colors['fragment_core'],
+                                         (int(spark_x), int(spark_y)), spark_size)
+    
+    def get_moon_fragments(self):
+        """Get current moon fragments for collision detection"""
+        active_fragments = []
+        for fragment in self.moon_fragments:
+            if not fragment['impact']:
+                active_fragments.append({
+                    'x': fragment['x'],
+                    'y': fragment['y'],
+                    'radius': fragment['size'],
+                })
+        return active_fragments
 
 
 def main():

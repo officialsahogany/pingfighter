@@ -5229,6 +5229,16 @@ def handle_player(keys):
     #     if mouse_controls.get("down", False):
     #         down_pressed = True
     special_gauge_max = get_max_gauge()  #  아카데미 스킬 적용된 최대치
+    
+    # Stage 4 화상 효과 처리
+    global player_burn_timer, player_burn_effect
+    if player_burn_timer > 0:
+        player_burn_timer -= 1
+        if player_burn_timer <= 0:
+            player_burn_effect = False
+        PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 화상 중에도 거대화포션 효과 적용
+        return  # 화상 중에는 조작 불가
+    
     #  스턴 상태 처리
     if player_stunned_timer > 0:
         player_stunned_timer -= 1
@@ -12012,6 +12022,29 @@ def draw_objects():
         if is_missile_invulnerable and (time_now // 100) % 2 == 0:
             player_to_draw.set_alpha(100)
         draw_with_shake(player_to_draw, player_rect.topleft)
+    
+    # Stage 4 화상 효과 그리기
+    if player_burn_effect and player_burn_timer > 0:
+        # 화상 효과 (빨간 오버레이와 불꽃 파티클)
+        burn_surface = pygame.Surface((PADDLE_WIDTH + 40, PADDLE_HEIGHT + 40), pygame.SRCALPHA)
+        
+        # 빨간 오버레이 깜빡임
+        if (time_now // 50) % 2 == 0:
+            pygame.draw.ellipse(burn_surface, (255, 100, 50, 100), 
+                              (10, 10, PADDLE_WIDTH + 20, PADDLE_HEIGHT + 20))
+        
+        # 불꽃 파티클
+        for _ in range(3):
+            particle_x = random.randint(0, PADDLE_WIDTH + 40)
+            particle_y = random.randint(0, PADDLE_HEIGHT + 40)
+            particle_size = random.randint(2, 5)
+            particle_color = random.choice([(255, 100, 0), (255, 150, 0), (255, 200, 0)])
+            pygame.draw.circle(burn_surface, particle_color, 
+                             (particle_x, particle_y), particle_size)
+        
+        SCREEN.blit(burn_surface, 
+                   (PLAYER.centerx - (PADDLE_WIDTH + 40) // 2 + screen_shake_offset_x,
+                    PLAYER.centery - (PADDLE_HEIGHT + 40) // 2 + screen_shake_offset_y))
     #  투척 모션 중 아이템 표시
     if molotov_throwing or grenade_throwing or flare_throwing:
         throw_progress = 0
@@ -25027,12 +25060,15 @@ def reset_round():
     # 🔧 플레이어 움직임 관련 변수 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
     global player_missile_stunned_timer, player_stunned, player_stun_end_time
+    global player_burn_timer, player_burn_effect
     player_stunned_timer = 0
     player_knockback_vel = 0
     player_missile_knockback_vel = 0
     player_missile_stunned_timer = 0
     player_stunned = False
     player_stun_end_time = 0
+    player_burn_timer = 0
+    player_burn_effect = False
     
     # 대시 움직임도 완전 초기화 (중요!)
     rolling_active = False
@@ -25945,6 +25981,9 @@ def calculate_bounce(paddle):
 #  화염탄 맞았을 때 플레이어 스턴 관련 변수
 player_stunned_timer = 0      # 프레임 단위 (0이면 스턴 아님)
 player_knockback_vel = 0      # 좌우 튕김 속도
+# Stage 4 달 크레이터 파편 화상 효과
+player_burn_timer = 0         # 화상 통제불능 타이머 (프레임 단위)
+player_burn_effect = False    # 화상 효과 활성화 여부
 #  화염병으로 보스 스턴 관련 변수
 boss_stunned_timer = 0        # 프레임 단위 (0이면 스턴 아님)
 boss_knockback_vel = 0        # 좌우 튕김 속도
@@ -27759,6 +27798,32 @@ def handle_ball():
                 if animated_bg_stage4.collect_corpse(corpse_data['index']):
                     # 시체 수집 효과음만 재생
                     print(f"   !")
+        
+        # 3. 플레이어와 달 크레이터 파편 충돌 (화상 효과)
+        moon_fragments = animated_bg_stage4.get_moon_fragments()
+        for fragment in moon_fragments:
+            # 플레이어 패들과 파편의 거리 계산
+            paddle_center_x = PLAYER.centerx
+            paddle_center_y = PLAYER.centery
+            distance = math.hypot(paddle_center_x - fragment['x'], paddle_center_y - fragment['y'])
+            
+            # 충돌 체크 (파편 반경 + 패들 높이/2)
+            if distance < fragment['radius'] + PADDLE_HEIGHT:
+                # 화상 효과 적용
+                player_burn_timer = 18  # 0.3초 (60 FPS 기준)
+                player_burn_effect = True
+                
+                # 게이지 감소
+                special_gauge = max(0, special_gauge - 50)
+                
+                # 화상 효과음 재생
+                try:
+                    SOUND_BIRDKILL.play()  # 임시로 새 죽는 소리 사용
+                except:
+                    pass
+                
+                print(f"플레이어 화상! 게이지 -50, 0.3초 통제불능")
+                break  # 한 프레임에 하나의 파편만 처리
     
     # --- 벽 충돌 처리 ---
     if BALL.left <= 0:
