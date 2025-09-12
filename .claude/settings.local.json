@@ -130,7 +130,8 @@
       "Bash(claude --version)",
       "Bash(rm:*)",
       "Bash(claude restart)",
-      "mcp__codex__codex"
+      "mcp__codex__codex",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_rAvX8W/**)"
     ],
     "defaultMode": "acceptEdits"
   }

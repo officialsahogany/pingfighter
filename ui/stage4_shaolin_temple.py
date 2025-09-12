@@ -2169,8 +2169,8 @@ class ShaolinTempleBackground:
         surface.blit(subtitle_text, (self.width // 2 - subtitle_text.get_width() // 2, 60))
     
     def draw_monk_gauge(self, surface: pygame.Surface):
-        """Draw monk's gauge in Shaolin temple style (무협지 소림사 스타일)
-        Shows monk's remaining staff swings in traditional martial arts novel style"""
+        """Draw monk's gauge as a bar gauge similar to player gauge
+        Shows monk's staff swing charges as a horizontal bar"""
         
         # Only draw if there are monks
         if not self.monks:
@@ -2186,169 +2186,131 @@ class ShaolinTempleBackground:
         if not active_monk:
             return
         
-        # Gauge position (upper right corner)
-        gauge_x = self.width - 180
-        gauge_y = 40
-        gauge_width = 150
-        gauge_height = 80
+        # Gauge position (upper right corner) - horizontal bar style
+        gauge_x = self.width - 220
+        gauge_y = 50
+        gauge_width = 180
+        gauge_height = 25
         
-        # Create semi-transparent background panel with oriental border
-        panel_surface = pygame.Surface((gauge_width + 20, gauge_height + 20), pygame.SRCALPHA)
+        # Background frame with Shaolin temple style
+        frame_color = self.colors['gold_accent']
+        bg_color = (20, 18, 25)
         
-        # Draw traditional Chinese style border (고전 중국식 테두리)
-        # Outer frame with gold accent
-        border_color = (*self.colors['gold_accent'], 180)
-        dark_border = (*self.colors['temple_dark'], 200)
+        # Draw outer frame
+        pygame.draw.rect(surface, frame_color, 
+                        (gauge_x - 2, gauge_y - 2, gauge_width + 4, gauge_height + 4), 2)
         
-        # Draw multi-layered border for depth
-        pygame.draw.rect(panel_surface, dark_border, (0, 0, gauge_width + 20, gauge_height + 20), 3)
-        pygame.draw.rect(panel_surface, border_color, (2, 2, gauge_width + 16, gauge_height + 16), 2)
+        # Draw background
+        pygame.draw.rect(surface, bg_color,
+                        (gauge_x, gauge_y, gauge_width, gauge_height))
         
-        # Draw corner ornaments (모서리 장식)
-        corner_size = 15
-        for corner_x, corner_y in [(5, 5), (gauge_width + 5, 5), 
-                                   (5, gauge_height + 5), (gauge_width + 5, gauge_height + 5)]:
-            # Draw L-shaped corner decoration
-            if corner_x == 5:  # Left corners
-                pygame.draw.lines(panel_surface, border_color, False, 
-                                [(corner_x, corner_y + corner_size), (corner_x, corner_y), 
-                                 (corner_x + corner_size, corner_y)], 2)
-            else:  # Right corners
-                pygame.draw.lines(panel_surface, border_color, False,
-                                [(corner_x - corner_size, corner_y), (corner_x, corner_y),
-                                 (corner_x, corner_y + corner_size)], 2)
+        # Draw inner dark area for gauge
+        inner_x = gauge_x + 2
+        inner_y = gauge_y + 2
+        inner_width = gauge_width - 4
+        inner_height = gauge_height - 4
+        pygame.draw.rect(surface, (10, 10, 15),
+                        (inner_x, inner_y, inner_width, inner_height))
         
-        # Semi-transparent black background
-        pygame.draw.rect(panel_surface, (20, 18, 25, 160), (5, 5, gauge_width + 10, gauge_height + 10))
-        
-        # Draw title in classical Chinese style (고전 한자 스타일)
-        try:
-            title_font = pygame.font.Font("NeoDGM.ttf", 16)
-            main_font = pygame.font.Font("NeoDGM.ttf", 14)
-        except:
-            title_font = pygame.font.Font(None, 16)
-            main_font = pygame.font.Font(None, 14)
-        
-        # Title: "무승장법" (Monk Staff Technique)
-        title_text = "武僧杖法"  # Chinese characters for "Monk Staff Technique"
-        title_kr = "무승장법"  # Korean reading
-        
-        # Draw title with glow effect
-        title_surface = title_font.render(title_kr, True, self.colors['gold_accent'])
-        title_rect = title_surface.get_rect(centerx=gauge_width // 2 + 10, y=12)
-        
-        # Glow effect for title
-        for offset in [(1, 1), (-1, -1), (1, -1), (-1, 1)]:
-            glow_surface = title_font.render(title_kr, True, (*self.colors['gold_dim'], 100))
-            panel_surface.blit(glow_surface, (title_rect.x + offset[0], title_rect.y + offset[1]))
-        
-        panel_surface.blit(title_surface, title_rect)
-        
-        # Draw staff swing indicators (남은 봉술 횟수)
-        swing_y = 40
+        # Calculate gauge fill based on remaining swings
         max_swings = 2
         remaining_swings = max_swings - active_monk['swing_count']
+        fill_ratio = remaining_swings / max_swings
         
-        # Draw Yin-Yang style indicators for swings
-        for i in range(max_swings):
-            indicator_x = 35 + i * 60
+        # Draw the gauge fill
+        if remaining_swings > 0:
+            fill_width = int(inner_width * fill_ratio)
             
-            # Draw circle background
-            circle_color = (*self.colors['temple_dark'], 100)
-            pygame.draw.circle(panel_surface, circle_color, (indicator_x + 15, swing_y + 15), 18)
-            pygame.draw.circle(panel_surface, border_color, (indicator_x + 15, swing_y + 15), 18, 2)
-            
-            if i < remaining_swings:
-                # Draw active swing indicator (태극 스타일)
-                # Create yin-yang style symbol
-                # Upper half - bright
-                pygame.draw.arc(panel_surface, self.colors['gold_accent'], 
-                              (indicator_x, swing_y, 30, 30), 0, math.pi, 12)
-                # Lower half - dark
-                pygame.draw.arc(panel_surface, self.colors['gold_dim'],
-                              (indicator_x, swing_y, 30, 30), math.pi, 2*math.pi, 12)
-                
-                # Inner circles (태극의 점)
-                pygame.draw.circle(panel_surface, self.colors['gold_accent'], 
-                                 (indicator_x + 15, swing_y + 22), 4)
-                pygame.draw.circle(panel_surface, self.colors['gold_dim'],
-                                 (indicator_x + 15, swing_y + 8), 4)
-                
-                # Draw staff icon in center
-                staff_color = self.colors['gold_accent']
-                # Vertical staff line
-                pygame.draw.line(panel_surface, staff_color,
-                               (indicator_x + 15, swing_y + 5),
-                               (indicator_x + 15, swing_y + 25), 3)
-                # Horizontal grip
-                pygame.draw.line(panel_surface, staff_color,
-                               (indicator_x + 10, swing_y + 15),
-                               (indicator_x + 20, swing_y + 15), 2)
+            # Create gradient effect for the fill
+            if remaining_swings == 2:
+                # Full power - bright gold
+                fill_color = self.colors['gold_accent']
+                glow_color = (180, 165, 100)
+            elif remaining_swings == 1:
+                # Half power - dim gold
+                fill_color = self.colors['gold_dim']
+                glow_color = (100, 90, 60)
             else:
-                # Draw used swing indicator (dimmed)
-                # Draw X mark to show it's used
-                x_color = (*self.colors['roof_dark'], 150)
-                pygame.draw.line(panel_surface, x_color,
-                               (indicator_x + 5, swing_y + 5),
-                               (indicator_x + 25, swing_y + 25), 3)
-                pygame.draw.line(panel_surface, x_color,
-                               (indicator_x + 25, swing_y + 5),
-                               (indicator_x + 5, swing_y + 25), 3)
+                fill_color = self.colors['temple_dark']
+                glow_color = (60, 55, 40)
+            
+            # Draw main fill
+            pygame.draw.rect(surface, fill_color,
+                           (inner_x, inner_y, fill_width, inner_height))
+            
+            # Add gradient shine effect
+            for i in range(inner_height // 2):
+                alpha = 1.0 - (i / (inner_height // 2))
+                shine_color = tuple(int(glow_color[j] * alpha + fill_color[j] * (1 - alpha)) for j in range(3))
+                pygame.draw.line(surface, shine_color,
+                               (inner_x, inner_y + i),
+                               (inner_x + fill_width - 1, inner_y + i))
         
-        # Draw monk state text (수도승 상태)
-        state_y = 70
+        # Draw divider lines to show segments
+        segment_width = inner_width // max_swings
+        for i in range(1, max_swings):
+            divider_x = inner_x + segment_width * i
+            pygame.draw.line(surface, frame_color,
+                           (divider_x, gauge_y),
+                           (divider_x, gauge_y + gauge_height), 1)
+        
+        # Draw text labels
+        try:
+            font = pygame.font.Font("NeoDGM.ttf", 12)
+            small_font = pygame.font.Font("NeoDGM.ttf", 10)
+        except:
+            font = pygame.font.Font(None, 12)
+            small_font = pygame.font.Font(None, 10)
+        
+        # Draw title above gauge
+        title_text = "무승장법"  # Monk Staff Technique
+        title_surface = font.render(title_text, True, self.colors['gold_accent'])
+        title_rect = title_surface.get_rect(centerx=gauge_x + gauge_width // 2, bottom=gauge_y - 4)
+        surface.blit(title_surface, title_rect)
+        
+        # Draw count text on the gauge
+        count_text = f"{remaining_swings}/{max_swings}"
+        count_surface = font.render(count_text, True, (255, 255, 255))
+        count_rect = count_surface.get_rect(center=(gauge_x + gauge_width // 2, gauge_y + gauge_height // 2))
+        
+        # Draw shadow for better readability
+        shadow_surface = font.render(count_text, True, (0, 0, 0))
+        surface.blit(shadow_surface, (count_rect.x + 1, count_rect.y + 1))
+        surface.blit(count_surface, count_rect)
+        
+        # Draw monk state below gauge
         state_text = ""
         state_color = self.colors['moon']
         
         if active_monk['state'] == 'walking':
-            state_text = "순찰 중"  # Patrolling
+            state_text = "순찰 중"
             state_color = self.colors['moon']
         elif active_monk['state'] == 'meditating':
-            state_text = "명상 중"  # Meditating
-            state_color = (*self.colors['incense_smoke'][:3], 255)
+            state_text = "명상 중"
+            state_color = self.colors['gold_dim']
         elif active_monk['state'] == 'swinging':
-            state_text = "봉술 시전!"  # Staff technique!
+            state_text = "봉술 시전!"
             state_color = self.colors['lantern_red']
         elif active_monk['state'] == 'returning':
-            state_text = "사원 복귀"  # Returning to temple
-            state_color = self.colors['gold_dim']
+            state_text = "사원 복귀"
+            state_color = self.colors['temple_dark']
         
         if state_text:
-            state_surface = main_font.render(state_text, True, state_color)
-            state_rect = state_surface.get_rect(centerx=gauge_width // 2 + 10, y=state_y)
-            panel_surface.blit(state_surface, state_rect)
+            state_surface = small_font.render(state_text, True, state_color)
+            state_rect = state_surface.get_rect(centerx=gauge_x + gauge_width // 2, top=gauge_y + gauge_height + 2)
+            surface.blit(state_surface, state_rect)
         
-        # Draw swing cooldown bar if applicable
+        # Draw cooldown overlay if on cooldown
         if active_monk['swing_cooldown'] > 0:
-            cooldown_y = 90
-            cooldown_width = 120
-            cooldown_height = 6
-            cooldown_x = (gauge_width - cooldown_width) // 2 + 10
+            cooldown_ratio = active_monk['swing_cooldown'] / 180.0  # 3 seconds = 180 frames
+            overlay_width = int(inner_width * (1.0 - cooldown_ratio))
             
-            # Background bar
-            pygame.draw.rect(panel_surface, (*self.colors['temple_dark'], 100),
-                           (cooldown_x, cooldown_y, cooldown_width, cooldown_height))
-            
-            # Cooldown progress bar
-            cooldown_progress = 1.0 - (active_monk['swing_cooldown'] / 180.0)  # 3 seconds cooldown
-            fill_width = int(cooldown_width * cooldown_progress)
-            if fill_width > 0:
-                # Gradient effect for cooldown bar
-                for i in range(fill_width):
-                    progress = i / max(1, fill_width)
-                    color_r = int(self.colors['gold_dim'][0] * (1 - progress) + self.colors['gold_accent'][0] * progress)
-                    color_g = int(self.colors['gold_dim'][1] * (1 - progress) + self.colors['gold_accent'][1] * progress)
-                    color_b = int(self.colors['gold_dim'][2] * (1 - progress) + self.colors['gold_accent'][2] * progress)
-                    pygame.draw.line(panel_surface, (color_r, color_g, color_b),
-                                   (cooldown_x + i, cooldown_y),
-                                   (cooldown_x + i, cooldown_y + cooldown_height - 1))
-            
-            # Border for cooldown bar
-            pygame.draw.rect(panel_surface, border_color,
-                           (cooldown_x, cooldown_y, cooldown_width, cooldown_height), 1)
-        
-        # Blit the panel to the main surface
-        surface.blit(panel_surface, (gauge_x - 10, gauge_y - 10))
+            # Draw dark overlay on the right side (cooldown part)
+            if overlay_width < inner_width:
+                overlay_surface = pygame.Surface((inner_width - overlay_width, inner_height))
+                overlay_surface.set_alpha(128)
+                overlay_surface.fill((0, 0, 0))
+                surface.blit(overlay_surface, (inner_x + overlay_width, inner_y))
 
 
 def main():

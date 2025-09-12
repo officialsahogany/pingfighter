@@ -77,7 +77,7 @@ def main():
         # Draw background
         background.draw(screen)
         
-        # Draw monk gauge (무협지 스타일)
+        # Draw monk gauge (막대바 스타일)
         background.draw_monk_gauge(screen)
         
         # Draw instructions
