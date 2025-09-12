@@ -7381,6 +7381,8 @@ def store_passive_item(item_data):
         }
         activate_bluetooth_ring(ring_state, current_stage)
         print("!    25% !")
+        # 패시브 아이템 리스트에 추가
+        passive_item_list.append(item_data)
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("bluetooth_ring", "블루투스링", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
@@ -7397,6 +7399,8 @@ def store_passive_item(item_data):
             }
             smartphone.activate(phone_state, current_stage)
         print("스마트폰 획득! 위험 시 자동 아이템 사용!")
+        # 패시브 아이템 리스트에 추가
+        passive_item_list.append(item_data)
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("smartphone", "스마트폰", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
@@ -7409,6 +7413,8 @@ def store_passive_item(item_data):
         if knee_pads:
             knee_pads.activate()
         print("무릎보호대 획득! 하프대쉬 공 타격 시 게이지 50% 충전!")
+        # 패시브 아이템 리스트에 추가
+        passive_item_list.append(item_data)
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("knee_pads", "무릎보호대", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
@@ -23075,8 +23081,32 @@ def get_item_icon(item_name):
             # print(f"Error loading {full_path}: {e}")  # 디버그용
             continue
     
+    # 무릎보호대는 unknown_item 대신 직접 아이콘 생성 (파일이 없을 경우)
+    if item_name == "knee_pads":
+        default_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        # 무릎보호대 아이콘 - 무릎 패드 디자인
+        pad_color = (60, 60, 80)
+        strap_color = (40, 40, 50)
+        highlight_color = (100, 100, 120)
+        
+        # 메인 패드
+        pygame.draw.ellipse(default_icon, pad_color, (8, 6, 16, 20))
+        pygame.draw.ellipse(default_icon, highlight_color, (10, 8, 12, 16))
+        
+        # 스트랩
+        pygame.draw.rect(default_icon, strap_color, (6, 8, 20, 3))
+        pygame.draw.rect(default_icon, strap_color, (6, 21, 20, 3))
+        
+        # 패딩 디테일
+        pygame.draw.line(default_icon, highlight_color, (14, 12), (18, 12), 1)
+        pygame.draw.line(default_icon, highlight_color, (14, 16), (18, 16), 1)
+        pygame.draw.line(default_icon, highlight_color, (14, 20), (18, 20), 1)
+        
+        icon_cache[item_name] = default_icon
+        return default_icon
+    
     # 스마트폰은 unknown_item 대신 직접 아이콘 생성
-    if item_name == "smartphone":
+    elif item_name == "smartphone":
         default_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
         # 스마트폰 아이콘 - 현대적인 스마트폰 디자인
         # 폰 본체 (검은색)
@@ -31866,6 +31896,17 @@ def show_result(won):
         rolling_charge_timer = 0  # 충전 타이머 초기화
         #  듀스 시스템 리셋 (게임 오버 시)
         reset_deuce_system()
+        
+        # 무릎보호대 효과 초기화 (게임 오버 시)
+        try:
+            from item_effects.knee_pads import get_knee_pads_instance
+            knee_pads = get_knee_pads_instance()
+            if knee_pads:
+                knee_pads.deactivate()
+        except:
+            pass
+        items.knee_pads_obtained = False
+        
         #  패시브 아이템 효과 초기화 (게임 오버 시)
         speedboots_obtained = False
         speedgear_obtained = False
@@ -32685,6 +32726,17 @@ def main(stage_num, new_boss_mode=False):
             #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
             rolling_charges = 1  # 기본 1개로 초기화
             rolling_charge_timer = 0  # 충전 타이머 초기화
+            
+            # 무릎보호대 효과 초기화 (ESC 메뉴로 메인 복귀 시)
+            try:
+                from item_effects.knee_pads import get_knee_pads_instance
+                knee_pads = get_knee_pads_instance()
+                if knee_pads:
+                    knee_pads.deactivate()
+            except:
+                pass
+            items.knee_pads_obtained = False
+            
             #  패시브 아이템 효과 초기화
             from item_effects.fuel_pouch import deactivate_fuel_pouch
             from item_effects.bluetooth_ring import deactivate_bluetooth_ring
@@ -33414,6 +33466,17 @@ def main(stage_num, new_boss_mode=False):
                     items.gravitybelt_obtained = False
                     items.sensor_obtained = False
                     items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
+                    items.knee_pads_obtained = False  # 무릎보호대 초기화
+                    
+                    # 무릎보호대 효과 초기화 (강제 종료 시)
+                    try:
+                        from item_effects.knee_pads import get_knee_pads_instance
+                        knee_pads = get_knee_pads_instance()
+                        if knee_pads:
+                            knee_pads.deactivate()
+                    except:
+                        pass
+                    
                     # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
                     rolling_charges = 1
                     gravity_speed_synergy = False  # 시너지 효과 리셋

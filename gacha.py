@@ -116,6 +116,8 @@ def init_gacha(available_items):
             should_skip = True
         elif item_name == "smartphone" and getattr(items, 'smartphone_obtained', False):
             should_skip = True
+        elif item_name == "knee_pads" and getattr(items, 'knee_pads_obtained', False):
+            should_skip = True
         elif item_name == "ragnarok_hammer" and getattr(items, 'ragnarok_hammer_obtained', False):
             should_skip = True  # 라그나로크 해머도 중복 방지
         elif item_name == "hermes_shoes" and getattr(items, 'hermes_shoes_obtained', False):
