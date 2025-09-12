@@ -3199,7 +3199,8 @@ class ShaolinTempleBackground:
                 dist_to_target = math.sqrt((fragment['x'] - fragment['target_x'])**2 + 
                                           (fragment['y'] - fragment['target_y'])**2)
                 
-                if dist_to_target < 20 or fragment['y'] >= fragment['target_y']:
+                # Impact when: close to target, reached target Y, or went off bottom of screen
+                if dist_to_target < 20 or fragment['y'] >= fragment['target_y'] or fragment['y'] >= self.height - 20:
                     fragment['impact'] = True
                     fragment['impact_timer'] = 30  # 0.5 second impact effect
                     # Create impact shockwave effect
