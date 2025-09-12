@@ -27413,8 +27413,8 @@ def handle_ball():
                     # 현재 속도 계산
                     current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                     
-                    # 봉에 맞은 경우 공 방향 변경 및 5~20% 속도 증가 (랜덤)
-                    speed_boost = random.uniform(1.05, 1.20)  # 5~20% 증가
+                    # 봉에 맞은 경우 공 방향 변경 및 50~80% 속도 증가 (랜덤)
+                    speed_boost = random.uniform(1.50, 1.80)  # 50~80% 증가
                     new_speed = current_speed * speed_boost
                     
                     # 방향 변경 (봉의 각도에 따라)
