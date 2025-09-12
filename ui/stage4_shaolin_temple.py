@@ -35,6 +35,11 @@ class ShaolinTempleBackground:
         self.moon_fragment_interval = random.randint(600, 900)  # 10-15 seconds at 60 FPS
         self.moon_fragment_active = False  # Only active after moon turns red
         
+        # Moon pulsing effect when firing fragments
+        self.moon_pulse_timer = 0  # Timer for pulsing animation
+        self.moon_pulse_active = False  # Whether moon is pulsing
+        self.moon_pulse_scale = 1.0  # Scale factor for moon size
+        
         # Colors - Muted night palette (불 꺼진 밤 느낌)
         self.colors = {
             'sky_top': (40, 35, 55),  # 어두운 보라빛 밤하늘
@@ -217,6 +222,9 @@ class ShaolinTempleBackground:
         if hasattr(self, 'frame_count'):
             pulse = math.sin(self.frame_count * 0.05) * 0.15  # Gentle pulsing
         
+        # Apply fragment firing pulse effect (stronger pulse when firing)
+        moon_scale = getattr(self, 'moon_pulse_scale', 1.0)
+        
         # Create gradient red glow with softer falloff
         for i in range(20, 0, -1):
             # Gradient calculation - more transparent as distance increases
@@ -225,7 +233,7 @@ class ShaolinTempleBackground:
             alpha_multiplier = (distance_ratio ** 2) * self.moon_red_intensity * (1.0 + pulse)
             alpha = int(80 * alpha_multiplier)  # Reduced from 30*i to create softer glow
             
-            glow_radius = 35 + i * 8  # Smaller increments for smoother gradient
+            glow_radius = int((35 + i * 8) * moon_scale)  # Apply scale for pulsing effect
             
             # Create glow surface
             glow_size = glow_radius * 2 + 10
@@ -249,18 +257,20 @@ class ShaolinTempleBackground:
                          moon_y - glow_size // 2))
         
         # Draw red moon overlay with better blending
-        moon_surface = pygame.Surface((80, 80), pygame.SRCALPHA)
+        moon_size = int(80 * moon_scale)  # Apply scale to moon size
+        moon_surface = pygame.Surface((moon_size, moon_size), pygame.SRCALPHA)
         
         # Create gradient moon surface
-        for r in range(35, 0, -1):
-            r_ratio = r / 35.0
+        moon_radius = int(35 * moon_scale)  # Scale the radius too
+        for r in range(moon_radius, 0, -1):
+            r_ratio = r / float(moon_radius)
             # Blend original moon color with red based on intensity
             base_intensity = int(200 * self.moon_red_intensity * (1.0 + pulse * 0.5))
             
             # Gradient from center to edge
-            if r > 30:
+            if r > moon_radius - 5:
                 # Outer edge - more original moon color
-                red = int(255 - (35 - r) * 10)
+                red = int(255 - (moon_radius - r) * 10)
                 green = int(200 - 150 * self.moon_red_intensity * r_ratio)
                 blue = int(150 - 140 * self.moon_red_intensity * r_ratio)
             else:
@@ -270,16 +280,23 @@ class ShaolinTempleBackground:
                 blue = int(80 - 70 * self.moon_red_intensity)
             
             moon_color = (red, green, blue, min(255, base_intensity))
-            pygame.draw.circle(moon_surface, moon_color, (40, 40), r)
+            pygame.draw.circle(moon_surface, moon_color, (moon_size // 2, moon_size // 2), r)
         
-        # Add subtle craters with transparency
+        # Add subtle craters with transparency (scaled positions)
         crater_intensity = int(180 * self.moon_red_intensity)
         crater_color = (180, 40, 20, crater_intensity)
-        pygame.draw.circle(moon_surface, crater_color, (30, 35), 5)
-        pygame.draw.circle(moon_surface, crater_color, (48, 50), 3)
-        pygame.draw.circle(moon_surface, crater_color, (55, 32), 4)
+        center = moon_size // 2
+        pygame.draw.circle(moon_surface, crater_color, 
+                         (int(center - 10 * moon_scale), int(center - 5 * moon_scale)), 
+                         int(5 * moon_scale))
+        pygame.draw.circle(moon_surface, crater_color, 
+                         (int(center + 8 * moon_scale), int(center + 10 * moon_scale)), 
+                         int(3 * moon_scale))
+        pygame.draw.circle(moon_surface, crater_color, 
+                         (int(center + 15 * moon_scale), int(center - 8 * moon_scale)), 
+                         int(4 * moon_scale))
         
-        surface.blit(moon_surface, (moon_x - 40, moon_y - 40))
+        surface.blit(moon_surface, (moon_x - moon_size // 2, moon_y - moon_size // 2))
     
     def _draw_static_background(self):
         """Draw static background elements"""
@@ -3075,12 +3092,16 @@ class ShaolinTempleBackground:
     
     def _spawn_moon_fragments(self):
         """Spawn red crater fragments from the moon"""
-        # Spawn 5-8 fragments at once
-        num_fragments = random.randint(5, 8)
+        # Spawn 3-5 fragments at once
+        num_fragments = random.randint(3, 5)
         
-        # Moon position (center of screen, top area)
-        moon_x = self.width // 2
+        # Moon position (top-right area, same as where moon is drawn)
+        moon_x = self.width - 120
         moon_y = 100
+        
+        # Activate moon pulsing effect
+        self.moon_pulse_active = True
+        self.moon_pulse_timer = 30  # 0.5 second pulse
         
         for _ in range(num_fragments):
             # Random target position across the entire map
@@ -3118,6 +3139,17 @@ class ShaolinTempleBackground:
     
     def _update_moon_fragments(self):
         """Update moon crater fragments"""
+        # Update moon pulsing effect
+        if self.moon_pulse_active:
+            if self.moon_pulse_timer > 0:
+                self.moon_pulse_timer -= 1
+                # Create pulsing effect with sin wave
+                pulse_progress = (30 - self.moon_pulse_timer) / 30.0
+                self.moon_pulse_scale = 1.0 + math.sin(pulse_progress * math.pi) * 0.3  # Pulse up to 30% larger
+            else:
+                self.moon_pulse_active = False
+                self.moon_pulse_scale = 1.0
+        
         # Only spawn fragments if moon is red and temple is destroyed
         if self.moon_fragment_active or (self.temple_destroyed and self.moon_red_intensity > 0):
             self.moon_fragment_active = True
