@@ -1,165 +1,251 @@
 #!/usr/bin/env python3
-"""
-수정된 회오리 효과 테스트
-- 지속시간: 1.6초
-- 최대 높이: 350픽셀
-- 수평 범위: 100픽셀
-"""
+"""포세이돈 삼지창 수평 왕복 버그 수정 검증 테스트"""
+
 import pygame
+import math
 import sys
 import os
 
-# 모듈 임포트를 위한 경로 설정
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from legendary_items import PoseidonTrident
 
-from legendary_items import get_legendary_manager
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+pygame.display.set_caption("Vortex Horizontal Oscillation Test")
+clock = pygame.time.Clock()
 
-def test_vortex_update():
-    """수정된 회오리 효과 테스트"""
-    print("=" * 60)
-    print("포세이돈의 삼지창 - 수정된 회오리 효과 테스트")
-    print("=" * 60)
+# 색상
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+BLUE = (0, 100, 255)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
+ORANGE = (255, 165, 0)
+
+# 포세이돈 삼지창
+trident = PoseidonTrident()
+trident.active = True
+
+# 테스트 케이스들
+test_cases = [
+    {"name": "수직 하강", "x": 400, "y": 100, "vx": 0, "vy": 10},
+    {"name": "대각선 하강", "x": 350, "y": 100, "vx": 3, "vy": 8},
+    {"name": "거의 수평", "x": 300, "y": 350, "vx": 8, "vy": 1},
+    {"name": "완전 수평", "x": 250, "y": 400, "vx": 10, "vy": 0},
+    {"name": "수평 상승", "x": 450, "y": 450, "vx": 7, "vy": -2},
+]
+
+current_test = 0
+ball_x = test_cases[0]["x"]
+ball_y = test_cases[0]["y"]
+ball_vel_x = test_cases[0]["vx"]
+ball_vel_y = test_cases[0]["vy"]
+ball_radius = 10
+
+paddle_x = 400
+paddle_y = 500
+
+# 수평 왕복 감지
+horizontal_oscillation_count = 0
+last_vx_sign = 0
+oscillation_detected = False
+
+# 통계
+stats = {
+    "frames_in_vortex": 0,
+    "horizontal_frames": 0,
+    "upward_frames": 0,
+    "downward_frames": 0,
+    "max_horizontal_speed": 0,
+    "min_vertical_speed": 100,
+}
+
+messages = []
+
+def add_message(msg, color=WHITE):
+    messages.append({"text": msg, "color": color, "time": 60})
+    print(msg)
+
+def reset_test(index):
+    global ball_x, ball_y, ball_vel_x, ball_vel_y, current_test
+    global horizontal_oscillation_count, last_vx_sign, oscillation_detected, stats
     
-    # Pygame 초기화
-    pygame.init()
-    WIDTH, HEIGHT = 800, 600
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Updated Vortex Test")
-    clock = pygame.time.Clock()
+    current_test = index % len(test_cases)
+    test = test_cases[current_test]
+    ball_x = test["x"]
+    ball_y = test["y"]
+    ball_vel_x = test["vx"]
+    ball_vel_y = test["vy"]
     
-    # 전설 아이템 매니저
-    legendary_manager = get_legendary_manager()
-    trident = legendary_manager.get_item("poseidon_trident")
-    trident.activate({})
+    horizontal_oscillation_count = 0
+    last_vx_sign = 0
+    oscillation_detected = False
+    stats = {
+        "frames_in_vortex": 0,
+        "horizontal_frames": 0,
+        "upward_frames": 0,
+        "downward_frames": 0,
+        "max_horizontal_speed": 0,
+        "min_vertical_speed": 100,
+    }
     
-    print(f"✅ 포세이돈의 삼지창 활성화됨")
-    print(f"📏 회오리 최대 높이: {trident.vortex_max_height}픽셀")
-    print(f"📏 회오리 너비: {trident.vortex_width}픽셀 (반경: {trident.vortex_width/2}픽셀)")
-    print(f"⏱️  총 지속시간: 1.6초 (96프레임)")
+    add_message(f"테스트 {current_test+1}: {test['name']}", GREEN)
+
+running = True
+frame_count = 0
+auto_test_timer = 0
+
+while running:
+    dt = clock.tick(60) / 1000.0
+    frame_count += 1
+    auto_test_timer += 1
     
-    # 플레이어 위치
-    player_x = WIDTH // 2
-    player_y = HEIGHT - 100
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                trident.trigger_dash_wave(paddle_x, paddle_y)
+                add_message("대시 웨이브 발동!", BLUE)
+            elif event.key == pygame.K_1:
+                reset_test(0)
+            elif event.key == pygame.K_2:
+                reset_test(1)
+            elif event.key == pygame.K_3:
+                reset_test(2)
+            elif event.key == pygame.K_4:
+                reset_test(3)
+            elif event.key == pygame.K_5:
+                reset_test(4)
+            elif event.key == pygame.K_n:
+                reset_test(current_test + 1)
+            elif event.key == pygame.K_r:
+                reset_test(current_test)
     
-    # 회오리 활성화
-    trident.trigger_dash_wave(player_x, player_y)
+    # 자동 테스트 (5초마다 대시 웨이브 발동)
+    if auto_test_timer >= 300:
+        trident.trigger_dash_wave(paddle_x, paddle_y)
+        add_message("자동 대시 웨이브!", BLUE)
+        auto_test_timer = 0
     
-    font = pygame.font.Font(None, 24)
+    # 물리 업데이트
+    old_vx, old_vy = ball_vel_x, ball_vel_y
+    trident.update(dt)
     
-    # 메인 루프
-    running = True
-    frame_count = 0
+    new_vel_x, new_vel_y = trident.apply_dash_wave_to_ball(
+        ball_x, ball_y, ball_vel_x, ball_vel_y, 0, paddle_y
+    )
     
-    while running:
-        dt = clock.tick(60) / 1000.0
-        frame_count += 1
+    # 통계 수집
+    if trident.ball_in_vortex:
+        stats["frames_in_vortex"] += 1
         
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    running = False
-                elif event.key == pygame.K_r:
-                    # R키로 회오리 재활성화
-                    trident.trigger_dash_wave(player_x, player_y)
-                    frame_count = 0
-                    print("🌊 회오리 재활성화!")
-        
-        # 화면 그리기
-        screen.fill((20, 20, 40))
-        
-        # 플레이어 패들
-        pygame.draw.rect(screen, (100, 200, 255), 
-                        (player_x - 40, player_y - 10, 80, 20))
-        
-        # 회오리 업데이트
-        if trident.vortex_active:
-            trident.update(dt)
+        if abs(new_vel_y) < 1:
+            stats["horizontal_frames"] += 1
+        if new_vel_y < 0:
+            stats["upward_frames"] += 1
+        elif new_vel_y > 0:
+            stats["downward_frames"] += 1
             
-            # 왼쪽 회오리 범위 표시
-            left_x = int(trident.vortex_left_x)
-            left_y = int(trident.vortex_left_y)
-            left_height = int(min(trident.vortex_left_height, trident.vortex_max_height))
-            
-            # 수평 범위 (반경 100픽셀)
-            pygame.draw.circle(screen, (50, 100, 200, 50), 
-                             (left_x, left_y), 
-                             int(trident.vortex_width / 2), 2)
-            
-            # 수직 범위
-            if left_height > 0:
-                pygame.draw.rect(screen, (50, 100, 200, 30),
-                               (left_x - trident.vortex_width/2, 
-                                left_y - left_height, 
-                                trident.vortex_width, 
-                                left_height), 1)
-            
-            # 오른쪽 회오리 범위 표시
-            right_x = int(trident.vortex_right_x)
-            right_y = int(trident.vortex_right_y)
-            right_height = int(min(trident.vortex_right_height, trident.vortex_max_height))
-            
-            # 수평 범위 (반경 100픽셀)
-            pygame.draw.circle(screen, (50, 100, 200, 50), 
-                             (right_x, right_y), 
-                             int(trident.vortex_width / 2), 2)
-            
-            # 수직 범위
-            if right_height > 0:
-                pygame.draw.rect(screen, (50, 100, 200, 30),
-                               (right_x - trident.vortex_width/2, 
-                                right_y - right_height, 
-                                trident.vortex_width, 
-                                right_height), 1)
-            
-            # 회오리 파티클 그리기
-            for particle in trident.vortex_particles:
-                pygame.draw.circle(screen, particle['color'],
-                                 (int(particle['x']), int(particle['y'])),
-                                 int(particle['size']))
-        
-        # UI 정보
-        info_texts = [
-            f"Frame: {frame_count} / Timer: {trident.vortex_timer:.1f}",
-            f"Left Height: {int(trident.vortex_left_height)} / {trident.vortex_max_height}",
-            f"Right Height: {int(trident.vortex_right_height)} / {trident.vortex_max_height}",
-            f"Width: {trident.vortex_width}px (Radius: {int(trident.vortex_width/2)}px)",
-            f"Active: {trident.vortex_active}",
-            "",
-            "Stage:",
-            f"0-18f (0-0.3s): Growing",
-            f"18-48f (0.3-0.8s): Active",
-            f"48-96f (0.8-1.6s): Fading",
-            "",
-            "Press R to restart vortex"
-        ]
-        
-        y_offset = 10
-        for text in info_texts:
-            if text == "":
-                y_offset += 10
-                continue
+        stats["max_horizontal_speed"] = max(stats["max_horizontal_speed"], abs(new_vel_x))
+        stats["min_vertical_speed"] = min(stats["min_vertical_speed"], abs(new_vel_y))
+    
+    # 수평 왕복 감지
+    if trident.ball_in_vortex:
+        vx_sign = 1 if new_vel_x > 0 else -1 if new_vel_x < 0 else 0
+        if vx_sign != 0 and last_vx_sign != 0 and vx_sign != last_vx_sign:
+            horizontal_oscillation_count += 1
+            if horizontal_oscillation_count >= 3 and not oscillation_detected:
+                add_message("⚠️ 수평 왕복 패턴 감지!", RED)
+                oscillation_detected = True
+        last_vx_sign = vx_sign
+    
+    # 속도 업데이트
+    ball_vel_x = new_vel_x
+    ball_vel_y = new_vel_y
+    ball_x += ball_vel_x
+    ball_y += ball_vel_y
+    
+    # 경계 처리
+    if ball_x < ball_radius or ball_x > 800 - ball_radius:
+        ball_vel_x = -ball_vel_x
+        ball_x = max(ball_radius, min(800 - ball_radius, ball_x))
+    
+    if ball_y < ball_radius:
+        ball_vel_y = abs(ball_vel_y)
+        ball_y = ball_radius
+    elif ball_y > 600 - ball_radius:
+        add_message("공이 바닥에 닿음", ORANGE)
+        reset_test(current_test)
+    
+    # 화면 그리기
+    screen.fill(BLACK)
+    
+    # 회오리 그리기
+    if trident.vortex_timer > 0:
+        for vortex in trident.vortex_positions:
+            if vortex:
+                vx, vy = vortex
+                height = min(trident.vortex_timer * 8, 300)
+                width = min(trident.vortex_timer * 5, 150)
                 
-            # 현재 단계 강조
-            color = (255, 255, 255)
-            if trident.vortex_active:
-                if "0-18f" in text and trident.vortex_timer < 18:
-                    color = (100, 255, 100)
-                elif "18-48f" in text and 18 <= trident.vortex_timer < 48:
-                    color = (255, 255, 100)
-                elif "48-96f" in text and 48 <= trident.vortex_timer < 96:
-                    color = (255, 100, 100)
-            
-            text_surface = font.render(text, True, color)
-            screen.blit(text_surface, (10, y_offset))
-            y_offset += 25
-        
-        pygame.display.flip()
+                vortex_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+                vortex_surf.fill((0, 100, 255, 100))
+                screen.blit(vortex_surf, (vx - width//2, vy - height))
+                
+                # 중심 표시
+                pygame.draw.circle(screen, YELLOW, (int(vx), int(vy - height//2)), 5)
     
-    pygame.quit()
+    # 패들
+    pygame.draw.rect(screen, WHITE, (paddle_x - 50, paddle_y - 5, 100, 10))
     
-    print("\n테스트 종료")
+    # 공
+    color = GREEN if ball_vel_y < 0 else RED if ball_vel_y > 0 else YELLOW
+    pygame.draw.circle(screen, color, (int(ball_x), int(ball_y)), ball_radius)
+    
+    # 속도 벡터
+    pygame.draw.line(screen, WHITE,
+                     (int(ball_x), int(ball_y)),
+                     (int(ball_x + ball_vel_x * 3), int(ball_y + ball_vel_y * 3)), 2)
+    
+    # 정보 표시
+    font = pygame.font.Font(None, 20)
+    info = [
+        f"테스트 {current_test+1}/{len(test_cases)}: {test_cases[current_test]['name']}",
+        f"위치: ({ball_x:.0f}, {ball_y:.0f})",
+        f"속도: ({ball_vel_x:.1f}, {ball_vel_y:.1f})",
+        f"회오리 캡처: {trident.ball_in_vortex}",
+        f"",
+        f"통계:",
+        f"  회오리 프레임: {stats['frames_in_vortex']}",
+        f"  수평 프레임: {stats['horizontal_frames']}",
+        f"  상향 프레임: {stats['upward_frames']}",
+        f"  하향 프레임: {stats['downward_frames']}",
+        f"  수평 왕복: {horizontal_oscillation_count}회",
+        f"",
+        f"조작: SPACE(웨이브) 1-5(테스트) N(다음) R(리셋)",
+    ]
+    
+    for i, text in enumerate(info):
+        surf = font.render(text, True, WHITE)
+        screen.blit(surf, (10, 10 + i * 22))
+    
+    # 경고 표시
+    if oscillation_detected:
+        warning = font.render("⚠️ 수평 왕복 버그 발생!", True, RED)
+        screen.blit(warning, (300, 10))
+    
+    # 메시지 표시
+    for i, msg in enumerate(messages[-5:]):
+        surf = font.render(msg["text"], True, msg["color"])
+        screen.blit(surf, (10, 450 + i * 22))
+    
+    # 메시지 타이머 감소
+    messages[:] = [m for m in messages if m["time"] > 0]
+    for m in messages:
+        m["time"] -= 1
+    
+    pygame.display.flip()
 
-if __name__ == "__main__":
-    test_vortex_update()
+pygame.quit()

@@ -121,11 +121,13 @@ while running:
     )
     
     # 속도 변화 감지
-    if old_vel_y != new_vel_y:
+    if old_vel_y != new_vel_y or abs(new_vel_y) < 1:
         if new_vel_y > 0 and old_vel_y <= 0:
             add_message(f"[WARNING] 공이 아래로 방향 전환! vy: {old_vel_y:.1f} → {new_vel_y:.1f}")
         elif new_vel_y > old_vel_y and new_vel_y > 0:
             add_message(f"[WARNING] 하향 가속! vy: {old_vel_y:.1f} → {new_vel_y:.1f}")
+        elif abs(new_vel_y) < 1 and abs(new_vel_x) > 3:
+            add_message(f"[WARNING] 수평 왕복 패턴! vx: {new_vel_x:.1f}, vy: {new_vel_y:.1f}")
         elif new_vel_y < 0:
             add_message(f"[OK] 상향 반사! vy: {old_vel_y:.1f} → {new_vel_y:.1f}")
     

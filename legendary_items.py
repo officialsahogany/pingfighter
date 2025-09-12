@@ -659,8 +659,9 @@ class PoseidonTrident(LegendaryItem):
                     self.ball_in_vortex = True
                     self.ball_vortex_timer = 0
                     self.vortex_center_x = vortex_x
-                    self.vortex_center_y = vortex_center_y
-                    self.ball_vortex_angle = math.atan2(ball_y - vortex_center_y, ball_x - vortex_x)
+                    # 회오리 중심을 더 위쪽으로 설정하여 수평 왕복 방지
+                    self.vortex_center_y = vortex_center_y - 20  # 중심을 위로 이동
+                    self.ball_vortex_angle = math.atan2(ball_y - self.vortex_center_y, ball_x - vortex_x)
                     self.ball_vortex_radius = distance
                     self.captured_ball_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
                     self.original_ball_speed = self.captured_ball_speed  # 원래 속도 저장
@@ -701,19 +702,27 @@ class PoseidonTrident(LegendaryItem):
                     new_vx = dx * smooth_factor
                     new_vy = dy * smooth_factor
                     
-                    # 캡처 중 아래 방향 이동 방지 (버그 수정)
+                    # 캡처 중 아래 방향 이동 방지 및 수평 왕복 방지
                     if new_vy > 0:
-                        new_vy = 0  # 하향 속도를 0으로 설정하여 아래로 떨어지지 않도록 함
-                        print(f"[DEBUG] 회오리 하향 속도 차단: vy={new_vy:.1f} → 0")
+                        new_vy = -2  # 하향 속도를 약한 상향으로 변환
+                        print(f"[DEBUG] 회오리 하향 속도 상향 전환: vy → {new_vy:.1f}")
+                    elif abs(new_vy) < 1 and abs(new_vx) > 2:  # 수평 왕복 패턴 감지
+                        # 수평 이동이 감지되면 위쪽으로 살짝 보정
+                        new_vy = -3  # 위쪽으로 약간 이동
+                        new_vx *= 0.7  # 수평 속도 감소
+                        print(f"[DEBUG] 회오리 수평 왕복 방지: vx={new_vx:.1f}, vy={new_vy:.1f}")
                     
-                    # 최소 속도 보장 (상향 또는 수평 이동일 때만 적용)
+                    # 최소 속도 보장 (회전 운동 유지)
                     min_speed = 8  # 최소 속도
                     current_speed = math.sqrt(new_vx * new_vx + new_vy * new_vy)
-                    if current_speed < min_speed and current_speed > 0 and new_vy <= 0:
-                        # 속도가 너무 느리면 최소 속도로 증가 (상향일 때만)
+                    if current_speed < min_speed and current_speed > 0:
+                        # 속도가 너무 느리면 최소 속도로 증가
                         speed_ratio = min_speed / current_speed
                         new_vx *= speed_ratio
                         new_vy *= speed_ratio
+                        # 상향 성분 추가 보장
+                        if new_vy > -2:
+                            new_vy = -2
                         print(f"[DEBUG] 회오리 속도 보정: {current_speed:.1f} → {min_speed:.1f}")
                     
                     # 속도 제한 (너무 빠르면 순간이동처럼 보임)
