@@ -440,6 +440,15 @@ ITEM_TYPES = [
         "chance": 0.0008,  # 테스트용 99% 확률
         "duration": 600,
         "unlock_condition": None
+    },
+    {
+        "name": "knee_pads",  # 🦵 무릎보호대 패시브 아이템
+        "color": (80, 80, 100),  # 어두운 회색-파란색
+        "effect": "knee_pads",
+        "icon": None,
+        "chance": 0.010,  # 확률 1.0%
+        "duration": 600,
+        "unlock_condition": None
     }
 ]
 
@@ -482,6 +491,7 @@ ragnarok_hammer_obtained = False  # 라그나로크 해머 획득 여부
 hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
 poseidon_trident_obtained = False  # 포세이돈의 삼지창 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
+knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 
 
 active_item_slot = None
@@ -527,7 +537,10 @@ unlocked_items = {
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True,
     "hermes_shoes": True,
-    "poseidon_trident": True
+    "poseidon_trident": True,
+    
+    # 패시브 아이템
+    "knee_pads": True
     
 }
 
@@ -677,6 +690,10 @@ def spawn_random_item():
         
         # bluetooth_ring 아이템은 한 번 획득하면 더 이상 스폰 안함
         if item["name"] == "bluetooth_ring" and bluetooth_ring_obtained:
+            continue
+        
+        # knee_pads 아이템은 한 번 획득하면 더 이상 스폰 안함
+        if item["name"] == "knee_pads" and knee_pads_obtained:
             continue
         
         # 라그나로크 해머는 한 번 획득하면 더 이상 스폰 안함
