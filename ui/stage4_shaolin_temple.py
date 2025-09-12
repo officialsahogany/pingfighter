@@ -15,12 +15,26 @@ class ShaolinTempleBackground:
         self.height = height
         self.frame_count = 0
         
+        # Temple destruction state
+        self.temple_destroyed = False
+        self.destruction_animation_active = False
+        self.destruction_phase = 0  # 0: idle, 1: moon turning red, 2: red light, 3: collapsing, 4: ruins
+        self.destruction_timer = 0
+        self.moon_red_intensity = 0.0
+        self.red_light_alpha = 0
+        self.collapse_offset = 0
+        self.collapse_debris = []
+        self.screen_shake_offset = [0, 0]
+        self.screen_shake_intensity = 0
+        
         # Colors - Muted night palette (불 꺼진 밤 느낌)
         self.colors = {
             'sky_top': (40, 35, 55),  # 어두운 보라빛 밤하늘
             'sky_bottom': (60, 50, 70),  # 약간 밝은 보라
             'moon': (255, 248, 220),  # 달빛
             'moon_glow': (255, 248, 220, 30),  # 달 광채
+            'moon_red': (255, 50, 50),  # 붉은 달
+            'moon_red_glow': (255, 50, 50, 60),  # 붉은 달 광채
             'temple_dark': (35, 32, 40),  # 사원 그림자 (보라빛 밤에 어울리게)
             'temple_main': (45, 42, 50),  # 사원 메인 색상 (어두운 회보라)
             'temple_highlight': (55, 52, 60),  # 사원 하이라이트 (약간 밝은 회보라)
@@ -36,6 +50,7 @@ class ShaolinTempleBackground:
             'tree_dark': (20, 25, 20),  # 나무 실루엣
             'mist': (200, 200, 210, 20),  # 안개
             'star': (255, 255, 230),  # 별
+            'ruins': (30, 25, 30),  # 폐허 색상
         }
         
         # Animated elements
@@ -1350,6 +1365,14 @@ class ShaolinTempleBackground:
     
     def _update_monks(self):
         """Update monk positions and behaviors"""
+        # Don't spawn monks if temple is destroyed
+        if self.temple_destroyed:
+            # Still update existing monks if any
+            for monk in self.monks[:]:
+                # Existing monk update logic continues...
+                pass
+            return
+            
         # Spawn timer
         self.monk_spawn_timer += 1
         if self.monk_spawn_timer >= self.monk_spawn_interval:
@@ -1893,68 +1916,96 @@ class ShaolinTempleBackground:
         self._update_crow_fragments()
         self._update_crow_particles()
         self._update_monks()
+        self._update_destruction_animation()  # Update temple destruction
     
     def draw(self, surface: pygame.Surface):
         """Draw the complete Shaolin Temple background"""
+        # Apply screen shake if active
+        shake_x, shake_y = 0, 0
+        if self.screen_shake_intensity > 0:
+            shake_x = random.randint(-self.screen_shake_intensity, self.screen_shake_intensity)
+            shake_y = random.randint(-self.screen_shake_intensity, self.screen_shake_intensity)
+        
+        # Create temporary surface for shaking effect
+        temp_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        
         # Draw static background
-        surface.blit(self.static_surface, (0, 0))
+        temp_surface.blit(self.static_surface, (0, 0))
         
         # Draw stars
-        self._draw_stars(surface)
+        self._draw_stars(temp_surface)
         
         # Draw back layer elements
-        self._draw_bamboo_trees(surface)
+        self._draw_bamboo_trees(temp_surface)
         
         # Draw mist (back layer)
-        self._draw_mist(surface)
+        self._draw_mist(temp_surface)
         
-        # Draw temple
-        self._draw_temple(surface)
+        # Draw temple or ruins
+        if self.temple_destroyed:
+            self._draw_ruins(temp_surface)
+        else:
+            self._draw_temple(temp_surface)
         
-        # Draw dragon ornaments
-        for dragon in self.dragon_ornaments:
-            self._draw_dragon_ornament(surface, dragon)
+        # Draw dragon ornaments (only if temple not destroyed)
+        if not self.temple_destroyed:
+            for dragon in self.dragon_ornaments:
+                self._draw_dragon_ornament(temp_surface, dragon)
         
-        # Draw bell
-        self._draw_bell(surface)
+        # Draw bell (only if temple not destroyed)
+        if not self.temple_destroyed:
+            self._draw_bell(temp_surface)
         
         # Draw training dummies
         for dummy in self.training_dummies:
-            self._draw_training_dummy(surface, dummy)
+            self._draw_training_dummy(temp_surface, dummy)
         
         # Draw ritual brazier (불이 꺼진 의식용 화로)
-        self._draw_ritual_brazier(surface)
+        if not self.temple_destroyed:
+            self._draw_ritual_brazier(temp_surface)
         
         # Draw monks
         for monk in self.monks:
-            self._draw_monk(surface, monk)
+            self._draw_monk(temp_surface, monk)
         
         # Draw monk hit effects (on top of monks)
-        self._draw_monk_hit_effects(surface)
+        self._draw_monk_hit_effects(temp_surface)
         
         # Draw incense
-        self._draw_incense(surface)
+        self._draw_incense(temp_surface)
         
         # Draw lanterns
         for lantern in self.lanterns:
-            self._draw_lantern(surface, lantern)
+            self._draw_lantern(temp_surface, lantern)
         
         # Draw floating leaves
-        self._draw_floating_leaves(surface)
+        self._draw_floating_leaves(temp_surface)
         
         # Draw flying crows
         for crow in self.crows[:]:
-            if not self._draw_crow(surface, crow):
+            if not self._draw_crow(temp_surface, crow):
                 self.crows.remove(crow)  # Remove caught crows after animation
         
         # Draw crow explosion fragments and particles
-        self._draw_crow_fragments(surface)
-        self._draw_crow_particles(surface)
+        self._draw_crow_fragments(temp_surface)
+        self._draw_crow_particles(temp_surface)
         
         # Draw falling crow corpses (kept for compatibility)
         for corpse in self.crow_corpses[:]:
-            if not self._draw_crow_corpse(surface, corpse):
+            if not self._draw_crow_corpse(temp_surface, corpse):
                 self.crow_corpses.remove(corpse)  # Remove collected corpses after fade
+        
+        # Draw collapse debris
+        self._draw_collapse_debris(temp_surface)
+        
+        # Apply shaking and draw to main surface
+        surface.blit(temp_surface, (shake_x, shake_y))
+        
+        # Draw red light overlay (after shaking)
+        if self.red_light_alpha > 0:
+            red_overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            red_overlay.fill((255, 50, 50, self.red_light_alpha))
+            surface.blit(red_overlay, (0, 0))
         
         # Update animations
         self.update()
@@ -2386,6 +2437,148 @@ class ShaolinTempleBackground:
         # Text labels removed per user request - no title text
         
         # Numerical values and state text removed per user request
+    
+    def start_destruction_animation(self):
+        """Start the temple destruction animation sequence"""
+        if not self.destruction_animation_active and not self.temple_destroyed:
+            self.destruction_animation_active = True
+            self.destruction_phase = 1
+            self.destruction_timer = 0
+            print("Temple destruction animation started!")
+    
+    def _update_destruction_animation(self):
+        """Update the temple destruction animation"""
+        if not self.destruction_animation_active:
+            return
+        
+        self.destruction_timer += 1
+        
+        if self.destruction_phase == 1:  # Moon turning red (2 seconds)
+            # Gradually increase red intensity
+            self.moon_red_intensity = min(1.0, self.destruction_timer / 120.0)
+            
+            if self.destruction_timer >= 120:  # 2 seconds at 60 FPS
+                self.destruction_phase = 2
+                self.destruction_timer = 0
+                
+        elif self.destruction_phase == 2:  # Red light emission (1 second)
+            # Flash red light across the map
+            if self.destruction_timer < 30:
+                self.red_light_alpha = min(150, self.destruction_timer * 5)
+            else:
+                self.red_light_alpha = max(0, 150 - (self.destruction_timer - 30) * 5)
+            
+            if self.destruction_timer >= 60:  # 1 second
+                self.destruction_phase = 3
+                self.destruction_timer = 0
+                self._create_collapse_debris()
+                
+        elif self.destruction_phase == 3:  # Temple collapsing (3 seconds)
+            # Screen shake effect
+            self.screen_shake_intensity = max(0, 10 - self.destruction_timer // 20)
+            
+            # Collapse animation
+            self.collapse_offset = min(300, self.destruction_timer * 2)
+            
+            # Update debris
+            for debris in self.collapse_debris:
+                debris['y'] += debris['vy']
+                debris['x'] += debris['vx']
+                debris['vy'] += 0.5  # Gravity
+                debris['rotation'] += debris['rotation_speed']
+                debris['opacity'] = max(0, debris['opacity'] - 1)
+            
+            if self.destruction_timer >= 180:  # 3 seconds
+                self.destruction_phase = 4
+                self.destruction_timer = 0
+                
+        elif self.destruction_phase == 4:  # Complete - show ruins
+            self.temple_destroyed = True
+            self.destruction_animation_active = False
+            self.screen_shake_intensity = 0
+            self.monks.clear()  # Remove all monks
+            self.monk_spawn_timer = float('inf')  # Stop monk spawning
+            print("Temple destruction complete! No more monks will spawn.")
+    
+    def _create_collapse_debris(self):
+        """Create debris particles for temple collapse"""
+        self.collapse_debris = []
+        
+        # Create many debris pieces
+        for _ in range(50):
+            debris = {
+                'x': self.width // 2 + random.randint(-100, 100),
+                'y': 450 + random.randint(-50, 50),
+                'vx': random.uniform(-5, 5),
+                'vy': random.uniform(-10, -2),
+                'size': random.randint(5, 20),
+                'rotation': random.uniform(0, 360),
+                'rotation_speed': random.uniform(-10, 10),
+                'color': random.choice([
+                    self.colors['temple_main'],
+                    self.colors['temple_dark'],
+                    self.colors['roof_red'],
+                    self.colors['stone_gray']
+                ]),
+                'opacity': 255
+            }
+            self.collapse_debris.append(debris)
+    
+    def _draw_collapse_debris(self, surface: pygame.Surface):
+        """Draw falling debris during collapse"""
+        for debris in self.collapse_debris:
+            if debris['opacity'] > 0:
+                # Create surface for debris
+                debris_surf = pygame.Surface((debris['size'] * 2, debris['size'] * 2), pygame.SRCALPHA)
+                
+                # Draw debris piece
+                color = (*debris['color'], debris['opacity'])
+                points = []
+                for i in range(4):
+                    angle = math.radians(debris['rotation'] + i * 90)
+                    x = debris['size'] + debris['size'] * 0.8 * math.cos(angle)
+                    y = debris['size'] + debris['size'] * 0.8 * math.sin(angle)
+                    points.append((x, y))
+                
+                if len(points) >= 3:
+                    pygame.draw.polygon(debris_surf, color, points)
+                
+                surface.blit(debris_surf, 
+                           (int(debris['x'] - debris['size']), 
+                            int(debris['y'] - debris['size'])))
+    
+    def _draw_ruins(self, surface: pygame.Surface):
+        """Draw the ruined temple after destruction"""
+        # Draw broken temple base
+        ruins_y = 550 + self.collapse_offset // 2
+        
+        # Broken foundation
+        pygame.draw.polygon(surface, self.colors['ruins'],
+                          [(self.width//2 - 120, ruins_y),
+                           (self.width//2 - 80, ruins_y - 20),
+                           (self.width//2 + 90, ruins_y - 15),
+                           (self.width//2 + 110, ruins_y + 10)])
+        
+        # Scattered stones
+        for i in range(8):
+            stone_x = self.width//2 - 100 + i * 30 + random.randint(-10, 10)
+            stone_y = ruins_y + random.randint(-10, 20)
+            stone_size = random.randint(10, 25)
+            pygame.draw.ellipse(surface, self.colors['stone_dark'],
+                              (stone_x, stone_y, stone_size, stone_size // 2))
+        
+        # Broken pillars
+        for offset in [-60, 60]:
+            pillar_x = self.width//2 + offset
+            # Broken pillar stub
+            pygame.draw.rect(surface, self.colors['temple_dark'],
+                           (pillar_x - 8, ruins_y - 30, 16, 30))
+            # Cracks
+            for j in range(3):
+                crack_y = ruins_y - 25 + j * 8
+                pygame.draw.line(surface, (20, 20, 20),
+                               (pillar_x - 5, crack_y),
+                               (pillar_x + 5, crack_y + 3), 1)
 
 
 def main():

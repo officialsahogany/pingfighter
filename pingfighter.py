@@ -28043,6 +28043,12 @@ def handle_ball():
                 checkmate_system = get_checkmate_system()
                 checkmate_system.check_checkmate(round_wins, round_losses)
             
+            # Stage 4에서 플레이어가 4점 획득 시 사원 파괴 애니메이션 시작
+            if current_stage == 4 and round_wins == 4:
+                if animated_bg_stage4 is not None:
+                    animated_bg_stage4.start_destruction_animation()
+                    print("Stage 4: Temple destruction triggered at 4 player points!")
+            
             show_winner_text("플레이어")
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects)
             
