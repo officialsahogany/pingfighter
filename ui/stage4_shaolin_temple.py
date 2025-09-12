@@ -2169,148 +2169,290 @@ class ShaolinTempleBackground:
         surface.blit(subtitle_text, (self.width // 2 - subtitle_text.get_width() // 2, 60))
     
     def draw_ponk_gauge(self, surface: pygame.Surface, gauge_value: int, is_ready: bool, is_active: bool):
-        """Draw Stage 4 Boss Ponk's magnetic field gauge
+        """Draw Stage 4 Boss Ponk's magnetic field gauge in vertical Shaolin temple style
         Shows the charging progress for the refraction magnetic field skill"""
         
-        # Gauge position (upper right corner) - horizontal bar style
-        gauge_x = self.width - 220
-        gauge_y = 50
-        gauge_width = 180
-        gauge_height = 25
+        # Gauge position (upper right corner) - vertical bar style like player gauge
+        gauge_x = self.width - 45  # Right side
+        gauge_y = 80  # Top position
+        gauge_width = 18  # Thinner for vertical
+        gauge_height = 120  # Vertical height
         max_gauge = 250  # Maximum gauge value for Ponk's magnetic field
         
-        # Background frame - magnetic field style colors
+        # Shaolin temple style decorative elements
+        time_now = pygame.time.get_ticks()
+        
+        # Dynamic colors based on state
         if is_active:
-            frame_color = (255, 100, 100)  # Red when active
-            pulse = abs(math.sin(self.frame_count * 0.1))
-            frame_color = tuple(int(c + pulse * 50) for c in frame_color)
+            primary_color = (255, 80, 80)  # Crimson red
+            secondary_color = (255, 150, 100)
+            glow_intensity = abs(math.sin(time_now * 0.005)) * 100
         elif is_ready:
-            frame_color = (255, 200, 100)  # Orange when ready
-            pulse = abs(math.sin(self.frame_count * 0.15))
-            frame_color = tuple(int(c + pulse * 30) for c in frame_color)
+            primary_color = (255, 180, 50)  # Golden orange
+            secondary_color = (255, 220, 100)
+            glow_intensity = abs(math.sin(time_now * 0.003)) * 80
         else:
-            frame_color = (100, 150, 200)  # Blue when charging
+            primary_color = self.colors['gold_accent']  # Temple gold
+            secondary_color = self.colors['gold_dim']
+            glow_intensity = 30
         
-        bg_color = (20, 18, 25)
+        # Draw ornamental top piece (pagoda roof style)
+        pagoda_top = [
+            (gauge_x + gauge_width // 2, gauge_y - 12),  # Peak
+            (gauge_x - 4, gauge_y - 2),  # Left corner
+            (gauge_x - 6, gauge_y + 2),  # Left edge
+            (gauge_x, gauge_y + 4),  # Left base
+            (gauge_x + gauge_width, gauge_y + 4),  # Right base
+            (gauge_x + gauge_width + 6, gauge_y + 2),  # Right edge
+            (gauge_x + gauge_width + 4, gauge_y - 2),  # Right corner
+        ]
+        pygame.draw.polygon(surface, primary_color, pagoda_top)
+        pygame.draw.polygon(surface, secondary_color, pagoda_top, 2)
         
-        # Draw outer frame with glow effect when ready/active
-        if is_ready or is_active:
-            # Draw glow effect
-            for i in range(3):
-                glow_alpha = 100 - i * 30
-                glow_rect = pygame.Rect(gauge_x - 2 - i*2, gauge_y - 2 - i*2, 
-                                       gauge_width + 4 + i*4, gauge_height + 4 + i*4)
-                glow_color = (*frame_color[:3], glow_alpha) if len(frame_color) > 3 else frame_color
-                pygame.draw.rect(surface, glow_color[:3], glow_rect, 2)
+        # Draw ornamental bottom piece (lotus base style)
+        lotus_bottom = [
+            (gauge_x - 2, gauge_y + gauge_height - 4),
+            (gauge_x - 4, gauge_y + gauge_height),
+            (gauge_x, gauge_y + gauge_height + 4),
+            (gauge_x + gauge_width // 3, gauge_y + gauge_height + 6),
+            (gauge_x + gauge_width // 2, gauge_y + gauge_height + 8),  # Center petal
+            (gauge_x + 2 * gauge_width // 3, gauge_y + gauge_height + 6),
+            (gauge_x + gauge_width, gauge_y + gauge_height + 4),
+            (gauge_x + gauge_width + 4, gauge_y + gauge_height),
+            (gauge_x + gauge_width + 2, gauge_y + gauge_height - 4),
+        ]
+        pygame.draw.polygon(surface, primary_color, lotus_bottom)
+        pygame.draw.polygon(surface, secondary_color, lotus_bottom, 2)
         
-        pygame.draw.rect(surface, frame_color, 
-                        (gauge_x - 2, gauge_y - 2, gauge_width + 4, gauge_height + 4), 2)
+        # Main gauge frame with Chinese lattice pattern
+        main_frame = pygame.Rect(gauge_x - 3, gauge_y, gauge_width + 6, gauge_height)
         
-        # Draw background
-        pygame.draw.rect(surface, bg_color,
-                        (gauge_x, gauge_y, gauge_width, gauge_height))
+        # Outer frame with gradient
+        pygame.draw.rect(surface, (40, 35, 45), main_frame)  # Dark background
+        pygame.draw.rect(surface, primary_color, main_frame, 3)  # Main border
+        pygame.draw.rect(surface, secondary_color, 
+                        (gauge_x - 1, gauge_y + 2, gauge_width + 2, gauge_height - 4), 1)  # Inner border
         
-        # Draw inner dark area for gauge
-        inner_x = gauge_x + 2
-        inner_y = gauge_y + 2
-        inner_width = gauge_width - 4
-        inner_height = gauge_height - 4
-        pygame.draw.rect(surface, (10, 10, 15),
+        # Inner gauge area
+        inner_x = gauge_x + 1
+        inner_y = gauge_y + 3
+        inner_width = gauge_width - 2
+        inner_height = gauge_height - 6
+        pygame.draw.rect(surface, (15, 12, 18),
                         (inner_x, inner_y, inner_width, inner_height))
         
-        # Calculate gauge fill
+        # Draw Chinese lattice decorations on sides
+        for i in range(4):
+            deco_y = gauge_y + 15 + i * 25
+            # Left decoration
+            pygame.draw.lines(surface, secondary_color, False,
+                            [(gauge_x - 5, deco_y), (gauge_x - 2, deco_y - 3), 
+                             (gauge_x - 2, deco_y + 3), (gauge_x - 5, deco_y)], 1)
+            # Right decoration  
+            pygame.draw.lines(surface, secondary_color, False,
+                            [(gauge_x + gauge_width + 5, deco_y), 
+                             (gauge_x + gauge_width + 2, deco_y - 3),
+                             (gauge_x + gauge_width + 2, deco_y + 3),
+                             (gauge_x + gauge_width + 5, deco_y)], 1)
+        
+        # Calculate gauge fill (vertical - fills from bottom to top)
         fill_ratio = min(gauge_value / max_gauge, 1.0)
         
         # Draw the gauge fill
         if gauge_value > 0:
-            fill_width = int(inner_width * fill_ratio)
+            fill_height = int(inner_height * fill_ratio)
+            fill_y = inner_y + inner_height - fill_height  # Start from bottom
             
-            # Create gradient effect for the fill
+            # Multi-layer fill for depth effect
             if is_active:
-                # Active - pulsing red magnetic field
-                pulse = abs(math.sin(self.frame_count * 0.2))
-                fill_color = (255, 50 + pulse * 50, 50)
-                glow_color = (255, 100, 100)
+                # Active - pulsing crimson with chi energy effect
+                pulse = abs(math.sin(time_now * 0.004))
+                base_color = (200, 40, 40)
+                mid_color = (255, 80 + pulse * 40, 60)
+                core_color = (255, 120 + pulse * 60, 100)
             elif is_ready:
-                # Ready - pulsing orange
-                pulse = abs(math.sin(self.frame_count * 0.15))
-                fill_color = (255, 150 + pulse * 50, 50)
-                glow_color = (255, 200, 100)
+                # Ready - golden chi energy
+                pulse = abs(math.sin(time_now * 0.003))
+                base_color = (180, 120, 40)
+                mid_color = (255, 180 + pulse * 30, 80)
+                core_color = (255, 220 + pulse * 35, 150)
             else:
-                # Charging - blue to cyan gradient
+                # Charging - temple blue to gold gradient
                 progress = fill_ratio
-                fill_color = (
-                    int(100 + progress * 100),
-                    int(150 + progress * 50),
+                base_color = (
+                    int(80 + progress * 100),
+                    int(100 + progress * 80),
+                    int(120 + progress * 60)
+                )
+                mid_color = (
+                    int(120 + progress * 100),
+                    int(140 + progress * 80),
+                    int(160 + progress * 60)
+                )
+                core_color = (
+                    int(160 + progress * 95),
+                    int(180 + progress * 75),
                     int(200 + progress * 55)
                 )
-                glow_color = (150, 200, 255)
             
-            # Draw main fill
-            pygame.draw.rect(surface, fill_color,
-                           (inner_x, inner_y, fill_width, inner_height))
+            # Draw three layers for depth
+            # Outer layer (darkest)
+            pygame.draw.rect(surface, base_color,
+                           (inner_x, fill_y, inner_width, fill_height))
             
-            # Add gradient shine effect
-            for i in range(inner_height // 2):
-                alpha = 1.0 - (i / (inner_height // 2))
-                shine_color = tuple(int(glow_color[j] * alpha + fill_color[j] * (1 - alpha)) for j in range(3))
-                pygame.draw.line(surface, shine_color,
-                               (inner_x, inner_y + i),
-                               (inner_x + fill_width - 1, inner_y + i))
+            # Middle layer 
+            if inner_width > 4:
+                pygame.draw.rect(surface, mid_color,
+                               (inner_x + 2, fill_y + 2, inner_width - 4, fill_height - 4))
             
-            # Add electric effect when ready or active
+            # Core layer (brightest) with vertical gradient
+            if inner_width > 6:
+                core_width = inner_width - 6
+                core_x = inner_x + 3
+                for i in range(fill_height - 6):
+                    gradient_ratio = i / max(1, fill_height - 6)
+                    # Gradient from bright at top to darker at bottom
+                    gradient_color = tuple(
+                        int(core_color[j] * (1.5 - gradient_ratio * 0.5)) 
+                        for j in range(3)
+                    )
+                    # Clamp to valid color range
+                    gradient_color = tuple(min(255, c) for c in gradient_color)
+                    pygame.draw.line(surface, gradient_color,
+                                   (core_x, fill_y + 3 + i),
+                                   (core_x + core_width - 1, fill_y + 3 + i))
+            
+            # Add chi energy effect when ready or active
             if is_ready or is_active:
-                # Draw random electric sparks
-                if self.frame_count % 3 == 0:
-                    for _ in range(2):
-                        spark_x = inner_x + random.randint(0, fill_width - 1)
-                        spark_y = inner_y + random.randint(0, inner_height - 1)
-                        spark_size = random.randint(1, 3)
-                        pygame.draw.circle(surface, (255, 255, 255), (spark_x, spark_y), spark_size)
+                # Floating energy particles
+                for _ in range(3):
+                    if random.random() < 0.3:  # 30% chance per frame
+                        particle_x = inner_x + random.randint(2, inner_width - 3)
+                        particle_y = fill_y + random.randint(0, fill_height - 1)
+                        particle_size = random.randint(1, 2)
+                        # Golden particles
+                        particle_color = (255, random.randint(200, 255), random.randint(100, 200))
+                        pygame.draw.circle(surface, particle_color, (particle_x, particle_y), particle_size)
+                
+                # Energy wisps at the top of the fill
+                if self.frame_count % 2 == 0:
+                    wisp_height = 8
+                    pulse = abs(math.sin(time_now * 0.004))
+                    wisp_alpha = int(128 + pulse * 127)
+                    for i in range(wisp_height):
+                        wisp_y = fill_y - i
+                        if wisp_y >= inner_y:
+                            alpha_factor = 1.0 - (i / wisp_height)
+                            wisp_color = tuple(int(c * alpha_factor) for c in core_color)
+                            pygame.draw.line(surface, wisp_color,
+                                           (inner_x + 2, wisp_y),
+                                           (inner_x + inner_width - 3, wisp_y))
         
-        # Draw text labels
+        # Draw decorative dividers (segment marks)
+        segment_height = inner_height // 4
+        for i in range(1, 4):
+            divider_y = inner_y + inner_height - (segment_height * i)
+            # Draw notches on sides
+            pygame.draw.line(surface, secondary_color,
+                           (gauge_x - 1, divider_y),
+                           (gauge_x + 3, divider_y), 1)
+            pygame.draw.line(surface, secondary_color,
+                           (gauge_x + gauge_width - 3, divider_y),
+                           (gauge_x + gauge_width + 1, divider_y), 1)
+        
+        # Draw text labels with vertical orientation
         try:
-            font = pygame.font.Font("NeoDGM.ttf", 12)
-            small_font = pygame.font.Font("NeoDGM.ttf", 10)
+            font = pygame.font.Font("NeoDGM.ttf", 11)
+            small_font = pygame.font.Font("NeoDGM.ttf", 9)
         except:
-            font = pygame.font.Font(None, 12)
-            small_font = pygame.font.Font(None, 10)
+            font = pygame.font.Font(None, 11)
+            small_font = pygame.font.Font(None, 9)
         
-        # Draw title above gauge
-        title_text = "굴절자기장"  # Refraction Magnetic Field
-        title_color = frame_color if is_ready or is_active else self.colors['gold_accent']
-        title_surface = font.render(title_text, True, title_color)
-        title_rect = title_surface.get_rect(centerx=gauge_x + gauge_width // 2, bottom=gauge_y - 4)
-        surface.blit(title_surface, title_rect)
+        # Draw title above gauge with Chinese style
+        title_text = "굴절"  # Split for vertical
+        title_text2 = "자기장"
+        title_color = primary_color
         
-        # Draw count text on the gauge
-        count_text = f"{gauge_value}/{max_gauge}"
-        count_surface = font.render(count_text, True, (255, 255, 255))
-        count_rect = count_surface.get_rect(center=(gauge_x + gauge_width // 2, gauge_y + gauge_height // 2))
+        # Draw title with glow effect
+        for dy in [-1, 0, 1]:
+            glow_color = tuple(int(c * 0.7) for c in title_color)
+            title1_glow = small_font.render(title_text, True, glow_color)
+            title2_glow = small_font.render(title_text2, True, glow_color)
+            surface.blit(title1_glow, (gauge_x + gauge_width // 2 - title1_glow.get_width() // 2, 
+                                      gauge_y - 28 + dy))
+            surface.blit(title2_glow, (gauge_x + gauge_width // 2 - title2_glow.get_width() // 2, 
+                                      gauge_y - 18 + dy))
         
-        # Draw shadow for better readability
-        shadow_surface = font.render(count_text, True, (0, 0, 0))
-        surface.blit(shadow_surface, (count_rect.x + 1, count_rect.y + 1))
-        surface.blit(count_surface, count_rect)
+        title1_surface = small_font.render(title_text, True, title_color)
+        title2_surface = small_font.render(title_text2, True, title_color)
+        surface.blit(title1_surface, (gauge_x + gauge_width // 2 - title1_surface.get_width() // 2, 
+                                     gauge_y - 28))
+        surface.blit(title2_surface, (gauge_x + gauge_width // 2 - title2_surface.get_width() // 2, 
+                                     gauge_y - 18))
         
-        # Draw state below gauge
+        # Draw numerical value vertically on the side
+        value_text = f"{gauge_value}"
+        max_text = f"{max_gauge}"
+        
+        # Current value (beside the fill level)
+        if gauge_value > 0:
+            # Calculate position based on fill ratio
+            fill_height = int(inner_height * fill_ratio)
+            fill_y = inner_y + inner_height - fill_height
+            value_y = min(fill_y + fill_height // 2, inner_y + inner_height - 10)
+            value_surface = small_font.render(value_text, True, (255, 255, 255))
+            value_rect = value_surface.get_rect(midright=(gauge_x - 6, value_y))
+            # Shadow
+            shadow = small_font.render(value_text, True, (0, 0, 0))
+            surface.blit(shadow, (value_rect.x + 1, value_rect.y + 1))
+            surface.blit(value_surface, value_rect)
+        
+        # Max value at top
+        max_surface = small_font.render(max_text, True, secondary_color)
+        max_rect = max_surface.get_rect(midright=(gauge_x - 6, inner_y + 5))
+        surface.blit(max_surface, max_rect)
+        
+        # Draw state below gauge with ornamental frame
         state_text = ""
         state_color = (255, 255, 255)
         
         if is_active:
-            state_text = "자기장 발동중!"
+            state_text = "발동중"
             state_color = (255, 100, 100)
+            # Add pulsing glow around text
+            pulse_alpha = int(128 + glow_intensity)
+            glow_surf = pygame.Surface((60, 20), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surf, (*state_color, pulse_alpha // 2), 
+                              (0, 0, 60, 20))
+            surface.blit(glow_surf, (gauge_x + gauge_width // 2 - 30, 
+                                    gauge_y + gauge_height + 10))
         elif is_ready:
-            state_text = "준비 완료"
+            state_text = "준비"
             state_color = (255, 200, 100)
         else:
             percent = int(fill_ratio * 100)
-            state_text = f"충전중... {percent}%"
-            state_color = (150, 200, 255)
+            state_text = f"{percent}%"
+            state_color = secondary_color
         
         if state_text:
-            state_surface = small_font.render(state_text, True, state_color)
-            state_rect = state_surface.get_rect(centerx=gauge_x + gauge_width // 2, top=gauge_y + gauge_height + 2)
+            state_surface = font.render(state_text, True, state_color)
+            state_rect = state_surface.get_rect(centerx=gauge_x + gauge_width // 2, 
+                                               top=gauge_y + gauge_height + 12)
+            # Draw ornamental brackets around state text
+            if is_active or is_ready:
+                bracket_y = state_rect.centery
+                # Left bracket
+                pygame.draw.lines(surface, state_color, False,
+                                [(state_rect.left - 8, bracket_y - 4),
+                                 (state_rect.left - 5, bracket_y - 4),
+                                 (state_rect.left - 5, bracket_y + 4),
+                                 (state_rect.left - 8, bracket_y + 4)], 1)
+                # Right bracket
+                pygame.draw.lines(surface, state_color, False,
+                                [(state_rect.right + 8, bracket_y - 4),
+                                 (state_rect.right + 5, bracket_y - 4),
+                                 (state_rect.right + 5, bracket_y + 4),
+                                 (state_rect.right + 8, bracket_y + 4)], 1)
             surface.blit(state_surface, state_rect)
 
 
