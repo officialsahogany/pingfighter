@@ -748,10 +748,10 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     else:
         speed = 1.0  # 기본 속도
     
-    # 왼쪽 캡슐 (정방향 회전)
-    draw_pokeball_icon(container_x + 100, text_center_y, 28, 0, speed)
-    # 오른쪽 캡슐 (역방향 회전)
-    draw_pokeball_icon(container_x + container_width - 100, text_center_y, 28, 180, speed)
+    # 왼쪽 캡슐 (텍스트 왼쪽에 더 가깝게)
+    draw_pokeball_icon(container_x + 200, text_center_y, 28, 0, speed)
+    # 오른쪽 캡슐 (텍스트 오른쪽에 더 가깝게)
+    draw_pokeball_icon(container_x + container_width - 200, text_center_y, 28, 180, speed)
     
 
     
