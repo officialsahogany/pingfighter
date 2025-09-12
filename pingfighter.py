@@ -33943,9 +33943,12 @@ def main(stage_num, new_boss_mode=False):
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
                 draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
                 
-                # Stage 4: 소림사 수도승 게이지 그리기 (막대바 스타일)
+                # Stage 4: 보스 퐁크의 굴절자기장 게이지 그리기
                 if current_stage == 4 and animated_bg_stage4 is not None:
-                    animated_bg_stage4.draw_monk_gauge(SCREEN)
+                    animated_bg_stage4.draw_ponk_gauge(SCREEN, 
+                                                      boss_special_gauge_stage4, 
+                                                      boss_special_ready_stage4,
+                                                      stage4_magnetic_active)
         else:
             # 흔들림이 없을 때는 직접 그리기
             draw_field()
@@ -33993,9 +33996,12 @@ def main(stage_num, new_boss_mode=False):
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
                 draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
                 
-                # Stage 4: 소림사 수도승 게이지 그리기 (막대바 스타일)
+                # Stage 4: 보스 퐁크의 굴절자기장 게이지 그리기
                 if current_stage == 4 and animated_bg_stage4 is not None:
-                    animated_bg_stage4.draw_monk_gauge(SCREEN)
+                    animated_bg_stage4.draw_ponk_gauge(SCREEN, 
+                                                      boss_special_gauge_stage4, 
+                                                      boss_special_ready_stage4,
+                                                      stage4_magnetic_active)
         
         draw_water_trail()  #  물자국 그리기
         # draw_balloons()  # Stage 1 보스 풍선파티 스킬 제거됨

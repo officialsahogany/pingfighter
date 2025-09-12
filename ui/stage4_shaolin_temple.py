@@ -2168,35 +2168,41 @@ class ShaolinTempleBackground:
         subtitle_text = font_kr.render(subtitle, True, self.colors['moon'])
         surface.blit(subtitle_text, (self.width // 2 - subtitle_text.get_width() // 2, 60))
     
-    def draw_monk_gauge(self, surface: pygame.Surface):
-        """Draw monk's gauge as a bar gauge similar to player gauge
-        Shows monk's staff swing charges as a horizontal bar"""
-        
-        # Only draw if there are monks
-        if not self.monks:
-            return
-        
-        # Get the first active monk (usually only one at a time)
-        active_monk = None
-        for monk in self.monks:
-            if not monk['returning_to_temple']:
-                active_monk = monk
-                break
-        
-        if not active_monk:
-            return
+    def draw_ponk_gauge(self, surface: pygame.Surface, gauge_value: int, is_ready: bool, is_active: bool):
+        """Draw Stage 4 Boss Ponk's magnetic field gauge
+        Shows the charging progress for the refraction magnetic field skill"""
         
         # Gauge position (upper right corner) - horizontal bar style
         gauge_x = self.width - 220
         gauge_y = 50
         gauge_width = 180
         gauge_height = 25
+        max_gauge = 250  # Maximum gauge value for Ponk's magnetic field
         
-        # Background frame with Shaolin temple style
-        frame_color = self.colors['gold_accent']
+        # Background frame - magnetic field style colors
+        if is_active:
+            frame_color = (255, 100, 100)  # Red when active
+            pulse = abs(math.sin(self.frame_count * 0.1))
+            frame_color = tuple(int(c + pulse * 50) for c in frame_color)
+        elif is_ready:
+            frame_color = (255, 200, 100)  # Orange when ready
+            pulse = abs(math.sin(self.frame_count * 0.15))
+            frame_color = tuple(int(c + pulse * 30) for c in frame_color)
+        else:
+            frame_color = (100, 150, 200)  # Blue when charging
+        
         bg_color = (20, 18, 25)
         
-        # Draw outer frame
+        # Draw outer frame with glow effect when ready/active
+        if is_ready or is_active:
+            # Draw glow effect
+            for i in range(3):
+                glow_alpha = 100 - i * 30
+                glow_rect = pygame.Rect(gauge_x - 2 - i*2, gauge_y - 2 - i*2, 
+                                       gauge_width + 4 + i*4, gauge_height + 4 + i*4)
+                glow_color = (*frame_color[:3], glow_alpha) if len(frame_color) > 3 else frame_color
+                pygame.draw.rect(surface, glow_color[:3], glow_rect, 2)
+        
         pygame.draw.rect(surface, frame_color, 
                         (gauge_x - 2, gauge_y - 2, gauge_width + 4, gauge_height + 4), 2)
         
@@ -2212,27 +2218,33 @@ class ShaolinTempleBackground:
         pygame.draw.rect(surface, (10, 10, 15),
                         (inner_x, inner_y, inner_width, inner_height))
         
-        # Calculate gauge fill based on remaining swings
-        max_swings = 2
-        remaining_swings = max_swings - active_monk['swing_count']
-        fill_ratio = remaining_swings / max_swings
+        # Calculate gauge fill
+        fill_ratio = min(gauge_value / max_gauge, 1.0)
         
         # Draw the gauge fill
-        if remaining_swings > 0:
+        if gauge_value > 0:
             fill_width = int(inner_width * fill_ratio)
             
             # Create gradient effect for the fill
-            if remaining_swings == 2:
-                # Full power - bright gold
-                fill_color = self.colors['gold_accent']
-                glow_color = (180, 165, 100)
-            elif remaining_swings == 1:
-                # Half power - dim gold
-                fill_color = self.colors['gold_dim']
-                glow_color = (100, 90, 60)
+            if is_active:
+                # Active - pulsing red magnetic field
+                pulse = abs(math.sin(self.frame_count * 0.2))
+                fill_color = (255, 50 + pulse * 50, 50)
+                glow_color = (255, 100, 100)
+            elif is_ready:
+                # Ready - pulsing orange
+                pulse = abs(math.sin(self.frame_count * 0.15))
+                fill_color = (255, 150 + pulse * 50, 50)
+                glow_color = (255, 200, 100)
             else:
-                fill_color = self.colors['temple_dark']
-                glow_color = (60, 55, 40)
+                # Charging - blue to cyan gradient
+                progress = fill_ratio
+                fill_color = (
+                    int(100 + progress * 100),
+                    int(150 + progress * 50),
+                    int(200 + progress * 55)
+                )
+                glow_color = (150, 200, 255)
             
             # Draw main fill
             pygame.draw.rect(surface, fill_color,
@@ -2245,14 +2257,16 @@ class ShaolinTempleBackground:
                 pygame.draw.line(surface, shine_color,
                                (inner_x, inner_y + i),
                                (inner_x + fill_width - 1, inner_y + i))
-        
-        # Draw divider lines to show segments
-        segment_width = inner_width // max_swings
-        for i in range(1, max_swings):
-            divider_x = inner_x + segment_width * i
-            pygame.draw.line(surface, frame_color,
-                           (divider_x, gauge_y),
-                           (divider_x, gauge_y + gauge_height), 1)
+            
+            # Add electric effect when ready or active
+            if is_ready or is_active:
+                # Draw random electric sparks
+                if self.frame_count % 3 == 0:
+                    for _ in range(2):
+                        spark_x = inner_x + random.randint(0, fill_width - 1)
+                        spark_y = inner_y + random.randint(0, inner_height - 1)
+                        spark_size = random.randint(1, 3)
+                        pygame.draw.circle(surface, (255, 255, 255), (spark_x, spark_y), spark_size)
         
         # Draw text labels
         try:
@@ -2263,13 +2277,14 @@ class ShaolinTempleBackground:
             small_font = pygame.font.Font(None, 10)
         
         # Draw title above gauge
-        title_text = "무승장법"  # Monk Staff Technique
-        title_surface = font.render(title_text, True, self.colors['gold_accent'])
+        title_text = "굴절자기장"  # Refraction Magnetic Field
+        title_color = frame_color if is_ready or is_active else self.colors['gold_accent']
+        title_surface = font.render(title_text, True, title_color)
         title_rect = title_surface.get_rect(centerx=gauge_x + gauge_width // 2, bottom=gauge_y - 4)
         surface.blit(title_surface, title_rect)
         
         # Draw count text on the gauge
-        count_text = f"{remaining_swings}/{max_swings}"
+        count_text = f"{gauge_value}/{max_gauge}"
         count_surface = font.render(count_text, True, (255, 255, 255))
         count_rect = count_surface.get_rect(center=(gauge_x + gauge_width // 2, gauge_y + gauge_height // 2))
         
@@ -2278,39 +2293,25 @@ class ShaolinTempleBackground:
         surface.blit(shadow_surface, (count_rect.x + 1, count_rect.y + 1))
         surface.blit(count_surface, count_rect)
         
-        # Draw monk state below gauge
+        # Draw state below gauge
         state_text = ""
-        state_color = self.colors['moon']
+        state_color = (255, 255, 255)
         
-        if active_monk['state'] == 'walking':
-            state_text = "순찰 중"
-            state_color = self.colors['moon']
-        elif active_monk['state'] == 'meditating':
-            state_text = "명상 중"
-            state_color = self.colors['gold_dim']
-        elif active_monk['state'] == 'swinging':
-            state_text = "봉술 시전!"
-            state_color = self.colors['lantern_red']
-        elif active_monk['state'] == 'returning':
-            state_text = "사원 복귀"
-            state_color = self.colors['temple_dark']
+        if is_active:
+            state_text = "자기장 발동중!"
+            state_color = (255, 100, 100)
+        elif is_ready:
+            state_text = "준비 완료"
+            state_color = (255, 200, 100)
+        else:
+            percent = int(fill_ratio * 100)
+            state_text = f"충전중... {percent}%"
+            state_color = (150, 200, 255)
         
         if state_text:
             state_surface = small_font.render(state_text, True, state_color)
             state_rect = state_surface.get_rect(centerx=gauge_x + gauge_width // 2, top=gauge_y + gauge_height + 2)
             surface.blit(state_surface, state_rect)
-        
-        # Draw cooldown overlay if on cooldown
-        if active_monk['swing_cooldown'] > 0:
-            cooldown_ratio = active_monk['swing_cooldown'] / 180.0  # 3 seconds = 180 frames
-            overlay_width = int(inner_width * (1.0 - cooldown_ratio))
-            
-            # Draw dark overlay on the right side (cooldown part)
-            if overlay_width < inner_width:
-                overlay_surface = pygame.Surface((inner_width - overlay_width, inner_height))
-                overlay_surface.set_alpha(128)
-                overlay_surface.fill((0, 0, 0))
-                surface.blit(overlay_surface, (inner_x + overlay_width, inner_y))
 
 
 def main():
