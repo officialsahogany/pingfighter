@@ -2172,11 +2172,32 @@ class ShaolinTempleBackground:
         """Draw Stage 4 Boss Ponk's magnetic field gauge in vertical Shaolin temple style
         Shows the charging progress for the refraction magnetic field skill"""
         
+        # Initialize display gauge value for smooth animation
+        if not hasattr(self, 'ponk_display_gauge'):
+            self.ponk_display_gauge = 0
+        
+        # Smooth gauge animation (progressive filling)
+        if gauge_value != self.ponk_display_gauge:
+            diff = gauge_value - self.ponk_display_gauge
+            # Smooth interpolation - adjust speed as needed
+            if abs(diff) > 5:
+                self.ponk_display_gauge += diff * 0.15  # 15% per frame for fast changes
+            elif abs(diff) > 1:
+                self.ponk_display_gauge += diff * 0.25  # 25% per frame for medium changes
+            else:
+                self.ponk_display_gauge += diff * 0.4  # 40% per frame for small changes
+            
+            # Clamp to actual value to prevent overshooting
+            if diff > 0:
+                self.ponk_display_gauge = min(self.ponk_display_gauge, gauge_value)
+            else:
+                self.ponk_display_gauge = max(self.ponk_display_gauge, gauge_value)
+        
         # Gauge position (upper right corner) - vertical bar style like player gauge
         gauge_x = self.width - 45  # Right side
-        gauge_y = 80  # Top position
-        gauge_width = 18  # Thinner for vertical
-        gauge_height = 120  # Vertical height
+        gauge_y = 50  # Higher position (was 80)
+        gauge_width = 16  # 10% smaller (was 18)
+        gauge_height = 108  # 10% smaller (was 120)
         max_gauge = 250  # Maximum gauge value for Ponk's magnetic field
         
         # Shaolin temple style decorative elements
@@ -2256,10 +2277,11 @@ class ShaolinTempleBackground:
                              (gauge_x + gauge_width + 5, deco_y)], 1)
         
         # Calculate gauge fill (vertical - fills from bottom to top)
-        fill_ratio = min(gauge_value / max_gauge, 1.0)
+        # Use animated display value instead of raw value
+        fill_ratio = min(self.ponk_display_gauge / max_gauge, 1.0)
         
         # Draw the gauge fill
-        if gauge_value > 0:
+        if self.ponk_display_gauge > 0:
             fill_height = int(inner_height * fill_ratio)
             fill_y = inner_y + inner_height - fill_height  # Start from bottom
             
@@ -2360,100 +2382,9 @@ class ShaolinTempleBackground:
                            (gauge_x + gauge_width - 3, divider_y),
                            (gauge_x + gauge_width + 1, divider_y), 1)
         
-        # Draw text labels with vertical orientation
-        try:
-            font = pygame.font.Font("NeoDGM.ttf", 11)
-            small_font = pygame.font.Font("NeoDGM.ttf", 9)
-        except:
-            font = pygame.font.Font(None, 11)
-            small_font = pygame.font.Font(None, 9)
+        # Text labels removed per user request - no title text
         
-        # Draw title above gauge with Chinese style
-        title_text = "굴절"  # Split for vertical
-        title_text2 = "자기장"
-        title_color = primary_color
-        
-        # Draw title with glow effect
-        for dy in [-1, 0, 1]:
-            glow_color = tuple(int(c * 0.7) for c in title_color)
-            title1_glow = small_font.render(title_text, True, glow_color)
-            title2_glow = small_font.render(title_text2, True, glow_color)
-            surface.blit(title1_glow, (gauge_x + gauge_width // 2 - title1_glow.get_width() // 2, 
-                                      gauge_y - 28 + dy))
-            surface.blit(title2_glow, (gauge_x + gauge_width // 2 - title2_glow.get_width() // 2, 
-                                      gauge_y - 18 + dy))
-        
-        title1_surface = small_font.render(title_text, True, title_color)
-        title2_surface = small_font.render(title_text2, True, title_color)
-        surface.blit(title1_surface, (gauge_x + gauge_width // 2 - title1_surface.get_width() // 2, 
-                                     gauge_y - 28))
-        surface.blit(title2_surface, (gauge_x + gauge_width // 2 - title2_surface.get_width() // 2, 
-                                     gauge_y - 18))
-        
-        # Draw numerical value vertically on the side
-        value_text = f"{gauge_value}"
-        max_text = f"{max_gauge}"
-        
-        # Current value (beside the fill level)
-        if gauge_value > 0:
-            # Calculate position based on fill ratio
-            fill_height = int(inner_height * fill_ratio)
-            fill_y = inner_y + inner_height - fill_height
-            value_y = min(fill_y + fill_height // 2, inner_y + inner_height - 10)
-            value_surface = small_font.render(value_text, True, (255, 255, 255))
-            value_rect = value_surface.get_rect(midright=(gauge_x - 6, value_y))
-            # Shadow
-            shadow = small_font.render(value_text, True, (0, 0, 0))
-            surface.blit(shadow, (value_rect.x + 1, value_rect.y + 1))
-            surface.blit(value_surface, value_rect)
-        
-        # Max value at top
-        max_surface = small_font.render(max_text, True, secondary_color)
-        max_rect = max_surface.get_rect(midright=(gauge_x - 6, inner_y + 5))
-        surface.blit(max_surface, max_rect)
-        
-        # Draw state below gauge with ornamental frame
-        state_text = ""
-        state_color = (255, 255, 255)
-        
-        if is_active:
-            state_text = "발동중"
-            state_color = (255, 100, 100)
-            # Add pulsing glow around text
-            pulse_alpha = int(128 + glow_intensity)
-            glow_surf = pygame.Surface((60, 20), pygame.SRCALPHA)
-            pygame.draw.ellipse(glow_surf, (*state_color, pulse_alpha // 2), 
-                              (0, 0, 60, 20))
-            surface.blit(glow_surf, (gauge_x + gauge_width // 2 - 30, 
-                                    gauge_y + gauge_height + 10))
-        elif is_ready:
-            state_text = "준비"
-            state_color = (255, 200, 100)
-        else:
-            percent = int(fill_ratio * 100)
-            state_text = f"{percent}%"
-            state_color = secondary_color
-        
-        if state_text:
-            state_surface = font.render(state_text, True, state_color)
-            state_rect = state_surface.get_rect(centerx=gauge_x + gauge_width // 2, 
-                                               top=gauge_y + gauge_height + 12)
-            # Draw ornamental brackets around state text
-            if is_active or is_ready:
-                bracket_y = state_rect.centery
-                # Left bracket
-                pygame.draw.lines(surface, state_color, False,
-                                [(state_rect.left - 8, bracket_y - 4),
-                                 (state_rect.left - 5, bracket_y - 4),
-                                 (state_rect.left - 5, bracket_y + 4),
-                                 (state_rect.left - 8, bracket_y + 4)], 1)
-                # Right bracket
-                pygame.draw.lines(surface, state_color, False,
-                                [(state_rect.right + 8, bracket_y - 4),
-                                 (state_rect.right + 5, bracket_y - 4),
-                                 (state_rect.right + 5, bracket_y + 4),
-                                 (state_rect.right + 8, bracket_y + 4)], 1)
-            surface.blit(state_surface, state_rect)
+        # Numerical values and state text removed per user request
 
 
 def main():
