@@ -3130,7 +3130,7 @@ class ShaolinTempleBackground:
                 'size': random.randint(8, 15),
                 'rotation': 0,
                 'rotation_speed': random.uniform(-10, 10),
-                'lifetime': 180,  # 3 seconds
+                'lifetime': 300,  # 5 seconds - increased for better reach
                 'trail': [],  # Trail effect
                 'impact': False,
                 'glow_phase': random.uniform(0, math.pi * 2),
@@ -3201,8 +3201,22 @@ class ShaolinTempleBackground:
                 dist_to_target = math.sqrt((fragment['x'] - fragment['target_x'])**2 + 
                                           (fragment['y'] - fragment['target_y'])**2)
                 
-                # Impact when: close to target, reached target Y, or went off bottom of screen
-                if dist_to_target < 20 or fragment['y'] >= fragment['target_y'] or fragment['y'] >= self.height - 20:
+                # Only impact when went completely off screen
+                # Remove target distance check - let fragments continue until off screen
+                off_screen = (fragment['y'] >= self.height + 10 or  # Give more room at bottom
+                             fragment['x'] < -30 or fragment['x'] > self.width + 30)
+                
+                # Also check lifetime
+                fragment['lifetime'] -= 1
+                expired = fragment['lifetime'] <= 0
+                
+                if off_screen or expired:
+                    # Debug: print why fragment is impacting
+                    if off_screen:
+                        print(f"Fragment impact: off screen at ({fragment['x']:.0f}, {fragment['y']:.0f})")
+                    elif expired:
+                        print(f"Fragment impact: expired at ({fragment['x']:.0f}, {fragment['y']:.0f})")
+                    
                     fragment['impact'] = True
                     fragment['impact_timer'] = 30  # 0.5 second impact effect
                     # Create impact shockwave effect
