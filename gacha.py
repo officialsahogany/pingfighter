@@ -737,11 +737,18 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
     # 스페이스 누른 후 가속도 계산
     if gacha_phase > 0 and gacha_start_time > 0:
-        # phase가 진행될수록 더 빠르게 회전 (지수적 가속)
+        # phase가 진행될수록 더 빠르게 회전 (부드러운 가속)
         elapsed_time = (pygame.time.get_ticks() - gacha_start_time) / 1000.0
-        # 1초에 2배속, 2초에 4배속, 3초에 6배속으로 더 명확한 가속
-        speed = 1.0 + (elapsed_time * 2.0)
-        speed = min(speed, 15.0)  # 최대 15배속 제한
+        # 처음 2초는 천천히, 그 다음부터 점진적으로 가속
+        # 0초: 1배속, 2초: 1.5배속, 4초: 3배속, 6초: 6배속
+        if elapsed_time < 2.0:
+            speed = 1.0 + (elapsed_time * 0.25)  # 천천히 시작
+        elif elapsed_time < 4.0:
+            speed = 1.5 + ((elapsed_time - 2.0) * 0.75)  # 중간 가속
+        else:
+            speed = 3.0 + ((elapsed_time - 4.0) * 1.5)  # 빠른 가속
+        
+        speed = min(speed, 12.0)  # 최대 12배속 제한
     else:
         speed = 1.0  # 기본 속도
     
