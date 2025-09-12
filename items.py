@@ -446,7 +446,7 @@ ITEM_TYPES = [
         "color": (80, 80, 100),  # 어두운 회색-파란색
         "effect": "knee_pads",
         "icon": None,
-        "chance": 0.010,  # 확률 1.0%
+        "chance": 0.5,  # 테스트용 50% 확률
         "duration": 600,
         "unlock_condition": None
     }
@@ -491,7 +491,7 @@ ragnarok_hammer_obtained = False  # 라그나로크 해머 획득 여부
 hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
 poseidon_trident_obtained = False  # 포세이돈의 삼지창 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
-knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
+knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부 (초기값: False로 스폰 가능)
 
 
 active_item_slot = None
@@ -747,6 +747,9 @@ def spawn_random_item():
     
     # 선택된 아이템이 있으면 스폰
     if selected_item:
+        # 디버그: 무릎보호대 스폰 확인
+        if selected_item["name"] == "knee_pads":
+            print(f"[DEBUG] 무릎보호대 스폰 시도! 위치: ({x}, {y})")
         x = WIDTH // 2
         y = HEIGHT // 2
         vel = [random.choice([-4, -3, 3, 4]), random.choice([-4, -3, 3, 4])]  # 기존보다 빠름
