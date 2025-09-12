@@ -3137,7 +3137,9 @@ class ShaolinTempleBackground:
             }
             self.moon_fragments.append(fragment)
         
-        print(f"Spawned {num_fragments} moon fragments!")
+        print(f"Spawned {num_fragments} moon fragments from ({moon_x}, {moon_y})!")
+        for frag in self.moon_fragments[-num_fragments:]:
+            print(f"  Fragment target: ({frag['target_x']}, {frag['target_y']}), speed: {math.sqrt(frag['vx']**2 + frag['vy']**2):.1f}")
     
     def _update_moon_fragments(self):
         """Update moon crater fragments"""

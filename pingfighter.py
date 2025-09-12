@@ -27802,13 +27802,14 @@ def handle_ball():
         # 3. 플레이어와 달 크레이터 파편 충돌 (화상 효과)
         moon_fragments = animated_bg_stage4.get_moon_fragments()
         for fragment in moon_fragments:
-            # 플레이어 패들과 파편의 거리 계산
-            paddle_center_x = PLAYER.centerx
-            paddle_center_y = PLAYER.centery
-            distance = math.hypot(paddle_center_x - fragment['x'], paddle_center_y - fragment['y'])
+            # 파편을 원으로 간주하고 패들과 충돌 체크
+            fragment_rect = pygame.Rect(fragment['x'] - fragment['radius'], 
+                                       fragment['y'] - fragment['radius'],
+                                       fragment['radius'] * 2, 
+                                       fragment['radius'] * 2)
             
-            # 충돌 체크 (파편 반경 + 패들 높이/2)
-            if distance < fragment['radius'] + PADDLE_HEIGHT:
+            # 패들과 파편의 충돌 체크 (Rect 충돌)
+            if PLAYER.colliderect(fragment_rect):
                 # 화상 효과 적용
                 player_burn_timer = 18  # 0.3초 (60 FPS 기준)
                 player_burn_effect = True
@@ -27823,6 +27824,7 @@ def handle_ball():
                     pass
                 
                 print(f"플레이어 화상! 게이지 -50, 0.3초 통제불능")
+                print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
                 break  # 한 프레임에 하나의 파편만 처리
     
     # --- 벽 충돌 처리 ---
