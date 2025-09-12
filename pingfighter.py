@@ -29213,10 +29213,16 @@ def handle_ball():
             # 명상 발동 체크 (20% 확률로 증가, 자기장과 동시 발동 가능)
             if not meditation_active and not stage4_magnetic_active and random.random() <= 0.20:
                 activate_meditation()
-            # 자기장 게이지 충전 (명상과 독립적으로 처리) - 난이도 상향
+                # 명상 발동시 게이지 100 차감 (100 이하면 0으로 처리)
+                if boss_special_gauge_stage4 <= 100:
+                    boss_special_gauge_stage4 = 0
+                else:
+                    boss_special_gauge_stage4 -= 100
+                boss_special_ready_stage4 = False  # 게이지 차감 시 준비 상태 해제
+            # 자기장 게이지 충전 (명상과 독립적으로 처리)
             elif not stage4_magnetic_active and not meditation_active:
-                boss_special_gauge_stage4 += 120  # 90 → 120 (더 빠른 충전)
-                if boss_special_gauge_stage4 >= 250:  # 300 → 250 (더 낮은 발동 조건)
+                boss_special_gauge_stage4 += 50  # 120 → 50 (충전량 조정)
+                if boss_special_gauge_stage4 >= 250:  # 발동 조건 유지
                     boss_special_gauge_stage4 = 250
                     boss_special_ready_stage4 = True
 def predict_ball_position(frames=20):
