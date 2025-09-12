@@ -2586,41 +2586,41 @@ class ShaolinTempleBackground:
         
         self.destruction_timer += 1
         
-        if self.destruction_phase == 1:  # Moon turning red (2 seconds)
+        if self.destruction_phase == 1:  # Moon turning red (3 seconds)
             # Gradually increase red intensity with more dramatic curve
-            progress = self.destruction_timer / 120.0
+            progress = self.destruction_timer / 180.0  # 3 seconds
             # Use exponential curve for more intense transition
             self.moon_red_intensity = min(1.0, progress ** 0.5)  # Faster initial change
             
-            if self.destruction_timer >= 120:  # 2 seconds at 60 FPS
+            if self.destruction_timer >= 180:  # 3 seconds at 60 FPS
                 self.moon_red_intensity = 1.0  # Ensure it's fully red
                 self.destruction_phase = 2
                 self.destruction_timer = 0
                 
-        elif self.destruction_phase == 2:  # Red light emission (1 second)
+        elif self.destruction_phase == 2:  # Red light emission (1.5 seconds)
             # Flash red light across the map
-            if self.destruction_timer < 30:
-                self.red_light_alpha = min(150, self.destruction_timer * 5)
+            if self.destruction_timer < 45:
+                self.red_light_alpha = min(150, self.destruction_timer * 3.3)
             else:
-                self.red_light_alpha = max(0, 150 - (self.destruction_timer - 30) * 5)
+                self.red_light_alpha = max(0, 150 - (self.destruction_timer - 45) * 3.3)
             
-            if self.destruction_timer >= 60:  # 1 second
+            if self.destruction_timer >= 90:  # 1.5 seconds
                 self.destruction_phase = 3
                 self.destruction_timer = 0
                 self._create_collapse_debris()
                 self._start_lanterns_falling()  # Start lanterns falling
                 
-        elif self.destruction_phase == 3:  # Temple collapsing (3 seconds)
+        elif self.destruction_phase == 3:  # Temple collapsing (4.5 seconds)
             # More intense screen shake
-            if self.destruction_timer < 60:
-                self.screen_shake_intensity = 5 + int(self.destruction_timer / 10)
-            elif self.destruction_timer < 120:
+            if self.destruction_timer < 90:
+                self.screen_shake_intensity = 5 + int(self.destruction_timer / 15)
+            elif self.destruction_timer < 180:
                 self.screen_shake_intensity = 10
             else:
-                self.screen_shake_intensity = max(0, 10 - (self.destruction_timer - 120) // 10)
+                self.screen_shake_intensity = max(0, 10 - (self.destruction_timer - 180) // 15)
             
             # Gradual collapse animation with acceleration
-            collapse_progress = self.destruction_timer / 180.0
+            collapse_progress = self.destruction_timer / 270.0  # 4.5 seconds
             # Use exponential curve for more natural collapse
             self.collapse_offset = int(350 * (collapse_progress ** 1.5))
             
@@ -2632,11 +2632,11 @@ class ShaolinTempleBackground:
                 debris['vx'] *= 0.98  # Air resistance
                 debris['rotation'] += debris['rotation_speed']
                 # Slower fade for better visibility
-                if self.destruction_timer > 60:  # Start fading after 1 second
-                    debris['opacity'] = max(0, debris['opacity'] - 0.5)
+                if self.destruction_timer > 90:  # Start fading after 1.5 seconds
+                    debris['opacity'] = max(0, debris['opacity'] - 0.3)
             
             # Add more debris periodically for continuous collapse effect
-            if self.destruction_timer % 15 == 0 and self.destruction_timer < 120:
+            if self.destruction_timer % 20 == 0 and self.destruction_timer < 180:
                 self._create_additional_debris()
             
             # Update falling lanterns
@@ -2645,9 +2645,11 @@ class ShaolinTempleBackground:
             # Update ground fires
             self._update_ground_fires()
             
-            if self.destruction_timer >= 180:  # 3 seconds
+            if self.destruction_timer >= 270:  # 4.5 seconds
                 self.destruction_phase = 4
                 self.destruction_timer = 0
+                # Clear lanterns from the map after they've fallen
+                self.lanterns.clear()
                 
         elif self.destruction_phase == 4:  # Complete - show ruins
             self.temple_destroyed = True
@@ -2737,14 +2739,14 @@ class ShaolinTempleBackground:
         """Update falling lanterns during destruction"""
         for lantern in self.falling_lanterns[:]:
             if not lantern['broken']:
-                # Apply gravity
-                lantern['vy'] += 0.6  # Gravity
+                # Apply gravity (reduced for slower falling)
+                lantern['vy'] += 0.35  # Reduced gravity for slower fall
                 lantern['y'] += lantern['vy']
                 lantern['x'] += lantern['vx']
-                lantern['rotation'] += lantern['rotation_speed']
+                lantern['rotation'] += lantern['rotation_speed'] * 0.7  # Slower rotation
                 
                 # Apply air resistance to horizontal movement
-                lantern['vx'] *= 0.99
+                lantern['vx'] *= 0.98  # More air resistance
                 
                 # Check if hit ground
                 if lantern['y'] >= lantern['ground_y']:
