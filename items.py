@@ -696,6 +696,10 @@ def spawn_random_item():
         if item["name"] == "knee_pads" and knee_pads_obtained:
             continue
         
+        # 스마트폰은 한 번 획득하면 더 이상 스폰 안함
+        if item["name"] == "smartphone" and smartphone_obtained:
+            continue
+        
         # 라그나로크 해머는 한 번 획득하면 더 이상 스폰 안함
         if item["name"] == "ragnarok_hammer" and ragnarok_hammer_obtained:
             continue
@@ -842,7 +846,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             item_name = item["type"]["name"]
             print(f"🔍 DEBUG: 아이템 획득 감지: {item_name}")
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
                 # 패시브 아이템 처리
                 print(f"🔍 DEBUG: {item_name}을(를) 패시브 아이템으로 처리 중...")
                 if store_passive_func:

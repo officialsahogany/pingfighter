@@ -7390,6 +7390,11 @@ def store_passive_item(item_data):
     elif item_data["name"] == "smartphone":
         # 스마트폰 아이템 획득 (패시브)
         import items
+        # 이미 획득한 경우 처리하지 않음
+        if items.smartphone_obtained:
+            print("스마트폰이 이미 획득되어 있습니다.")
+            return
+        
         items.smartphone_obtained = True
         smartphone = get_smartphone_instance()
         if smartphone:
@@ -22859,15 +22864,19 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             print(f"[DEBUG]")
         elif item_name == "smartphone":
             # 스마트폰 아이템 적용
-            items.smartphone_obtained = True
-            smartphone = get_smartphone_instance()
-            if smartphone:
-                smartphone_game_state = {
-                    'current_stage': 1,
-                    'active_items': active_item_slot
-                }
-                smartphone.activate(smartphone_game_state, 1)
-            print(f"[DEBUG] 스마트폰 아이템 활성화!")
+            # 이미 획득한 경우 재적용하지 않음
+            if not items.smartphone_obtained:
+                items.smartphone_obtained = True
+                smartphone = get_smartphone_instance()
+                if smartphone:
+                    smartphone_game_state = {
+                        'current_stage': 1,
+                        'active_items': active_item_slot
+                    }
+                    smartphone.activate(smartphone_game_state, 1)
+                print(f"[DEBUG] 스마트폰 아이템 활성화!")
+            else:
+                print(f"[DEBUG] 스마트폰이 이미 활성화되어 있습니다.")
         elif item_name == "knee_pads":
             # 무릎보호대 아이템 적용
             items.knee_pads_obtained = True
