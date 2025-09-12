@@ -191,38 +191,37 @@ class Chapter4Power(BaseChapter):
             # 준비 단계
             if not self.demo_ball_active:
                 self.demo_ball_active = True
-                self.demo_ball_x = self.game.get_screen_dimensions()[0] // 2
+                # 조교 패들 위치 (오른쪽)에서 시작
+                self.demo_ball_x = self.game.get_screen_dimensions()[0] - 170
                 self.demo_ball_y = self.game.get_screen_dimensions()[1] // 2
                 self.demo_ball_dx = 0
-                self.demo_ball_dy = 5
+                self.demo_ball_dy = 0
         elif self.demo_phase_timer < 2.5:
             # 차징 단계
             self.demo_charge_timer = self.demo_phase_timer - 1.0
-            # 공이 조교 패들 근처로 이동
-            if self.demo_ball_y < self.game.get_screen_dimensions()[1] - 150:
-                self.demo_ball_y += self.demo_ball_dy * dt * 60
+            # 공은 조교 패들 위치에서 차징
         elif self.demo_phase_timer < 3.0:
             # 발사 단계
             if not self.demo_shooting:
                 self.demo_shooting = True
-                # 방향에 따른 발사
+                # 방향에 따른 발사 (조교가 오른쪽에서 왼쪽으로)
                 if direction == 'left':
-                    self.demo_ball_dx = -15
-                    self.demo_ball_dy = -20
+                    self.demo_ball_dx = -25  # 왼쪽 대각선
+                    self.demo_ball_dy = -10
                 elif direction == 'center':
-                    self.demo_ball_dx = 0
-                    self.demo_ball_dy = -25
+                    self.demo_ball_dx = -20  # 중앙 직선
+                    self.demo_ball_dy = 0
                 else:  # right
-                    self.demo_ball_dx = 15
-                    self.demo_ball_dy = -20
+                    self.demo_ball_dx = -25  # 오른쪽 대각선 (실제로는 왼쪽 위)
+                    self.demo_ball_dy = 10
         else:
             # 공 날아가는 애니메이션
             if self.demo_shooting:
                 self.demo_ball_x += self.demo_ball_dx * dt * 60
                 self.demo_ball_y += self.demo_ball_dy * dt * 60
                 
-                # 화면 밖으로 나가면 다음 시범으로
-                if self.demo_ball_y < -50:
+                # 화면 밖으로 나가면 다음 시범으로 (왼쪽으로 나감)
+                if self.demo_ball_x < -50:
                     self.demo_phase += 1
                     self.demo_phase_timer = 0.0
                     self.demo_shooting = False
@@ -233,9 +232,24 @@ class Chapter4Power(BaseChapter):
         """시범 렌더링"""
         width, height = self.game.get_screen_dimensions()
         
-        # 조교 패들 그리기
-        instructor_paddle = pygame.Rect(width // 2 - 50, height - 100, 100, 15)
+        # 배경 어둡게
+        dark_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        dark_surface.fill((0, 0, 0, 180))
+        screen.blit(dark_surface, (0, 0))
+        
+        # 중앙선과 원 그리기
+        pygame.draw.line(screen, (100, 100, 100), (width // 2, 0), (width // 2, height), 2)
+        pygame.draw.circle(screen, (100, 100, 100), (width // 2, height // 2), 50, 2)
+        
+        # 조교 패들 그리기 (오른쪽에 위치)
+        instructor_paddle = pygame.Rect(width - 150, height // 2 - 50, 15, 100)
         pygame.draw.rect(screen, (0, 200, 255), instructor_paddle)
+        
+        # 조교 라벨
+        font = self.game.get_font(24)
+        instructor_label = font.render("조교", True, (0, 200, 255))
+        label_rect = instructor_label.get_rect(centerx=width - 142, y=height // 2 - 80)
+        screen.blit(instructor_label, label_rect)
         
         # 시범용 공 그리기
         if self.demo_ball_active:
