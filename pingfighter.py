@@ -27407,7 +27407,7 @@ def handle_ball():
                 animated_bg_stage4.trigger_monk_swing(BALL.centerx, BALL.centery, last_hit_by)
                 
                 # 실제 봉 충돌 체크
-                deflection = animated_bg_stage4.get_monk_staff_deflection()
+                deflection = animated_bg_stage4.get_monk_staff_deflection(BALL.centerx, BALL.centery)
                 if deflection:
                     print(f" DEBUG:    ! deflection: {deflection}")
                     # 현재 속도 계산
@@ -27421,9 +27421,10 @@ def handle_ball():
                     ball_vel[0] += deflection[0] * 5  # 방향 변경 강도 증가
                     ball_vel[1] += deflection[1] * 5
                     
-                    # 새로운 방향으로 정규화 후 1.5배 속도 적용
+                    # 새로운 방향으로 정규화 후 증가된 속도 적용
                     new_current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                     if new_current_speed > 0:
+                        # 방향은 유지하되, 속도를 50~80% 증가시킨 값으로 설정
                         ball_vel[0] = (ball_vel[0] / new_current_speed) * new_speed
                         ball_vel[1] = (ball_vel[1] / new_current_speed) * new_speed
                     
@@ -27438,7 +27439,8 @@ def handle_ball():
                         ball_vel[1] = (ball_vel[1] / new_speed) * max_speed
                     
                     boost_percentage = (speed_boost - 1) * 100
-                    print(f"    !  {boost_percentage:.0f}%  ({current_speed:.1f} → {new_speed:.1f})")
+                    final_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                    print(f"    !  {boost_percentage:.0f}%  ({current_speed:.1f} → {new_speed:.1f} → 최종: {final_speed:.1f})")
                     
                     # 타격 효과음 재생
                     try:
