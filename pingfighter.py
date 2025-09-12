@@ -27432,8 +27432,8 @@ def handle_ball():
                     ball_spin_strength = 0.3  # 스핀 강도
                     ball_spin_direction = 1 if deflection[0] > 0 else -1  # 스핀 방향
                     
-                    # 최대 속도 제한
-                    max_speed = 20.0
+                    # 최대 속도 제한 (수도승 타격 시 더 높은 제한)
+                    max_speed = 35.0  # 20.0에서 35.0으로 상향
                     if new_speed > max_speed:
                         ball_vel[0] = (ball_vel[0] / new_speed) * max_speed
                         ball_vel[1] = (ball_vel[1] / new_speed) * max_speed
