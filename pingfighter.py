@@ -1629,6 +1629,23 @@ except Exception as e:
     pygame.draw.circle(fuel_pouch_icon, (200, 150, 50), (16, 16), 12)
     pygame.draw.circle(fuel_pouch_icon, (255, 200, 100), (16, 16), 8)
 
+# 스마트폰 아이콘 로드
+smartphone_icon = None  # 전역 변수로 선언
+try:
+    smartphone_icon = pygame.image.load(resource_path("items/smartphone.png")).convert_alpha()
+    smartphone_icon = pygame.transform.scale(smartphone_icon, (ICON_SIZE, ICON_SIZE))
+    print("Smartphone icon loaded successfully")
+except Exception as e:
+    print(f"Failed to load smartphone icon: {e}")
+    # 스마트폰 모양 그리기
+    smartphone_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+    # 본체
+    pygame.draw.rect(smartphone_icon, (40, 40, 45), (8, 6, 16, 20), border_radius=2)
+    # 화면
+    pygame.draw.rect(smartphone_icon, (100, 150, 200), (10, 8, 12, 14))
+    # 홈 버튼
+    pygame.draw.circle(smartphone_icon, (60, 60, 65), (16, 23), 2)
+
 # 다우징팬들럼 아이콘 로드
 dowsing_pendulum_icon = None  # 전역 변수로 선언
 try:
@@ -6756,6 +6773,27 @@ def handle_player(keys):
         # 하프대쉬 성공 체크
         if recent_half_dash_time > 0 and (current_time - recent_half_dash_time) <= recent_dash_success_window:
             is_dash_success = True
+            
+            # 무릎보호대 효과 체크 - 하프대쉬로 공을 맞췄을 때 게이지 50% 충전
+            try:
+                from item_effects.knee_pads import get_knee_pads_instance
+                knee_pads = get_knee_pads_instance()
+                if knee_pads and knee_pads.active:
+                    # 게이지 50% 충전
+                    max_rolling_charges = 2  # 기본 최대 게이지
+                    if 'amplifier_amplifies_applied' in globals() and amplifier_amplifies_applied > 0:
+                        max_rolling_charges += amplifier_amplifies_applied
+                    
+                    charge_amount = max_rolling_charges * 0.5  # 50% 충전
+                    rolling_charges = min(rolling_charges + charge_amount, max_rolling_charges)
+                    rolling_charge_timer = 0  # 충전 타이머 리셋
+                    
+                    # 이펙트 트리거
+                    ball_center = (ball_x, ball_y)
+                    if knee_pads.on_half_dash_hit(ball_center):
+                        print(f"무릎보호대 효과: 게이지 {charge_amount:.1f} 충전 (현재: {rolling_charges}/{max_rolling_charges})")
+            except Exception as e:
+                print(f"무릎보호대 효과 처리 중 오류: {e}")
         
         if is_dash_success:
             # 대쉬 후 성공적으로 공을 쳤으므로 성공으로 업데이트
@@ -7361,6 +7399,18 @@ def store_passive_item(item_data):
         print("스마트폰 획득! 위험 시 자동 아이템 사용!")
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("smartphone", "스마트폰", None, False,
+                            (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+    elif item_data["name"] == "knee_pads":
+        # 무릎보호대 아이템 획득 (패시브)
+        import items
+        items.knee_pads_obtained = True
+        from item_effects.knee_pads import get_knee_pads_instance
+        knee_pads = get_knee_pads_instance()
+        if knee_pads:
+            knee_pads.activate()
+        print("무릎보호대 획득! 하프대쉬 공 타격 시 게이지 50% 충전!")
+        # 아이템 획득 플로팅 애니메이션
+        show_item_acquisition("knee_pads", "무릎보호대", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
     elif item_data["name"] == "gravitybelt":
         # 무중력벨트 아이템 획득
@@ -10955,6 +11005,16 @@ def draw_objects():
                 trident.draw_effects(SCREEN)  # 물결 파티클 그리기
     except:
         pass  # 전설 아이템 매니저 접근 실패 시 무시
+    
+    # 무릎보호대 빛나는 이펙트 그리기
+    try:
+        from item_effects.knee_pads import get_knee_pads_instance
+        knee_pads = get_knee_pads_instance()
+        if knee_pads:
+            knee_pads.update()  # 타이머 업데이트
+            knee_pads.draw_effect(SCREEN)  # 이펙트 그리기
+    except:
+        pass
     #  서브 대기 상태 UI (미니멀 디자인)
     if is_waiting_for_serve:
         # 시간 계산
@@ -22802,6 +22862,14 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
                 }
                 smartphone.activate(smartphone_game_state, 1)
             print(f"[DEBUG] 스마트폰 아이템 활성화!")
+        elif item_name == "knee_pads":
+            # 무릎보호대 아이템 적용
+            items.knee_pads_obtained = True
+            from item_effects.knee_pads import get_knee_pads_instance
+            knee_pads = get_knee_pads_instance()
+            if knee_pads:
+                knee_pads.activate()
+            print(f"[DEBUG] 무릎보호대 아이템 활성화!")
         elif item_name == "stopwatch":
             # 스탑워치는 액티브 아이템이므로 여기서는 처리하지 않음
             # 액티브 아이템 슬롯에서 처리됨
@@ -31690,6 +31758,10 @@ def show_result(won):
         if not items.bluetooth_ring_obtained:
             bluetooth_ring_icon = get_item_icon("bluetooth_ring")
             available_items.append({"name": "bluetooth_ring", "color": (100, 150, 200), "type": "passive", "icon": bluetooth_ring_icon})
+        # 스마트폰 추가
+        if not items.smartphone_obtained:
+            smartphone_icon_gacha = get_item_icon("smartphone")
+            available_items.append({"name": "smartphone", "color": (100, 150, 200), "type": "passive", "icon": smartphone_icon_gacha})
         # 라그나로크 해머 전설 아이템 추가
         if not items.ragnarok_hammer_obtained:
             ragnarok_icon = get_item_icon("ragnarok_hammer")
@@ -35696,6 +35768,7 @@ def get_item_name_korean(item_name):
         "fuel_pouch": "연료파우치",
         "bluetooth_ring": "블루투스링",
         "smartphone": "스마트폰",
+        "knee_pads": "무릎보호대",
         "ragnarok_hammer": "라그나로크 해머",
         "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창"
@@ -35739,7 +35812,8 @@ def get_item_description(item_name):
         "technical_vest": "테크니컬조끼: 플레이어 패들에 공이 닿았을 때 20% 확률로 8초간 연막을 생성합니다. 3초간 패들을 따라 연막이 분사되며, 눈물샤워/화염탄/미사일/레이저 스턴/화염지대 넉백에 면역이 됩니다.",
         "fuel_pouch": "연료파우치: 최대 스킬 게이지가 영구적으로 100 증가합니다. 더 많은 스킬을 사용할 수 있게 해주는 필수 패시브 아이템입니다.",
         "bluetooth_ring": "블루투스링: 패들에 공이 닿을 때 게이지 충전량이 25% 증가합니다. 스킬을 더 빠르게 충전할 수 있는 유용한 패시브 아이템입니다.",
-        "smartphone": "스마트폰: 플레이어가 스탑워치나 AI알약 아이템을 소지하고 있을 경우, 공을 놓치기 직전 위험한 순간에 자동으로 해당 아이템을 사용합니다. 스탑워치가 AI알약보다 우선 발동됩니다. 한 번에 하나의 아이템만 사용됩니다.",
+        "smartphone": "스마트폰: [자동 위기관리] 스탑워치/AI알약을 소지 시 공을 놓치기 직전 자동 사용 (스탑워치 우선). [자동 치유] 게이지가 120 이하일 때 생명수/에너지드링크를 자동 사용 (생명수 우선). 모든 자동 사용은 한 번에 하나씩만 발동됩니다.",
+        "knee_pads": "무릎보호대: 하프대쉬로 공을 맞출 때 특수 게이지가 50% 충전됩니다. 하프대쉬 성공 시 노란색 빛나는 이펙트가 나타나며, 일반 대쉬와 달리 게이지 소모 없이 절반의 힘으로 공을 막을 수 있게 해주는 전술적 패시브 아이템입니다.",
         "ragnarok_hammer": "라그나로크 해머:  신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 2배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: ⚡ 신들의 전령이 신던 전설의 날개 신발! 패들 이동속도가 50% 증가하여 순간이동하듯 빠르게 움직입니다. 황금빛 날개가 패들 양옆에서 펄럭이며, 이동 시 황금색 잔상과 속도선이 남습니다. 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 🌊 바다의 신이 휘두르는 전설의 삼지창! 패들 주변에 물의 파동이 생성되어 공의 궤적을 미세하게 변경합니다. 대시 시 거대한 물결이 일어나 공을 밀어내는 강력한 효과! 파란색 물결이 패들을 감싸며, 바다의 힘이 당신과 함께합니다!"

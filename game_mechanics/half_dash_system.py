@@ -184,6 +184,19 @@ class HalfDashSystem:
         if self.half_dash_active and player_rect.colliderect(ball_rect):
             self.half_dash_saves += 1
             print(f"    ! ( {self.half_dash_saves})")
+            
+            # 무릎보호대 효과 체크
+            try:
+                from item_effects.knee_pads import get_knee_pads_instance
+                knee_pads = get_knee_pads_instance()
+                if knee_pads and knee_pads.active:
+                    # 하프대쉬 성공 시 무릎보호대 효과 발동
+                    ball_center = (ball_rect.centerx, ball_rect.centery)
+                    knee_pads.on_half_dash_hit(ball_center)
+                    print("무릎보호대 효과 발동 - 게이지 50% 충전 신호")
+            except:
+                pass
+            
             return True
         return False
         

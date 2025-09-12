@@ -565,7 +565,7 @@ class Smartphone:
         return False
         
     def update(self, game_state, current_stage):
-        """위험 감지 및 자동 아이템 사용"""
+        """위험 감지 및 자동 아이템 사용 + 자동 치유"""
         if not self.active:
             print("[DEBUG] 스마트폰이 비활성 상태입니다.")
             return
@@ -579,6 +579,97 @@ class Smartphone:
         # 쿨타임 종료 시 플래그 리셋
         if self.last_activation_time <= 0:
             self.auto_activated = False
+            
+        # 자동 치유 기능: 게이지가 120 이하일 때 힐링 아이템 자동 사용
+        import sys
+        main_module = sys.modules.get('__main__')
+        if main_module:
+            # 현재 게이지 확인
+            current_gauge = getattr(main_module, 'special_gauge', 0)
+            
+            # 게이지가 120 이하이고 쿨타임이 아닐 때
+            if current_gauge <= 120 and self.last_activation_time <= 0:
+                # active_item_slot에서 생명수 또는 에너지드링크 찾기
+                active_items = getattr(main_module, 'active_item_slot', [])
+                
+                # 생명수(life_elixir) 우선, 없으면 에너지드링크(gauge_charge) 사용
+                healing_item_index = -1
+                healing_item_name = None
+                
+                for i, item in enumerate(active_items):
+                    if item and isinstance(item, dict):
+                        item_name = item.get('name', '')
+                        # 생명수 발견 시 즉시 사용
+                        if item_name == 'life_elixir':
+                            healing_item_index = i
+                            healing_item_name = 'life_elixir'
+                            break
+                        # 에너지드링크 발견 (생명수가 없을 경우 사용)
+                        elif item_name == 'gauge_charge' and healing_item_index == -1:
+                            healing_item_index = i
+                            healing_item_name = 'gauge_charge'
+                
+                # 힐링 아이템을 찾았으면 자동 사용
+                if healing_item_index >= 0:
+                    print(f"📱 스마트폰: 게이지 {current_gauge} → 자동 {healing_item_name} 사용!")
+                    
+                    # 아이템 효과 적용
+                    if healing_item_name == 'life_elixir':
+                        # 생명수: 500 충전
+                        try:
+                            SOUND_DRINK = getattr(main_module, 'SOUND_DRINK', None)
+                            if SOUND_DRINK:
+                                SOUND_DRINK.play()
+                        except:
+                            pass
+                        
+                        get_max_gauge = getattr(main_module, 'get_max_gauge', lambda: 550)
+                        if callable(get_max_gauge):
+                            current_max = get_max_gauge()
+                        else:
+                            current_max = 550
+                        new_gauge = min(current_max, current_gauge + 500)
+                        setattr(main_module, 'special_gauge', new_gauge)
+                        
+                        # special_ready 플래그 설정
+                        if new_gauge >= 350:
+                            setattr(main_module, 'special_ready', True)
+                        
+                        print(f"생명수 사용! 게이지: {current_gauge} → {new_gauge}")
+                        
+                    elif healing_item_name == 'gauge_charge':
+                        # 에너지드링크: 220 충전
+                        try:
+                            SOUND_DRINK = getattr(main_module, 'SOUND_DRINK', None)
+                            if SOUND_DRINK:
+                                SOUND_DRINK.play()
+                        except:
+                            pass
+                        
+                        get_max_gauge = getattr(main_module, 'get_max_gauge', lambda: 550)
+                        if callable(get_max_gauge):
+                            current_max = get_max_gauge()
+                        else:
+                            current_max = 550
+                        new_gauge = min(current_max, current_gauge + 220)
+                        setattr(main_module, 'special_gauge', new_gauge)
+                        
+                        # special_ready 플래그 설정
+                        if new_gauge >= 350:
+                            setattr(main_module, 'special_ready', True)
+                        
+                        print(f"에너지드링크 사용! 게이지: {current_gauge} → {new_gauge}")
+                    
+                    # 아이템을 슬롯에서 제거 (스탑워치와 동일한 방식)
+                    del active_items[healing_item_index]
+                    
+                    # selected_item_index 조정
+                    if hasattr(main_module, 'selected_item_index'):
+                        if main_module.selected_item_index >= len(active_items):
+                            main_module.selected_item_index = max(0, len(active_items) - 1)
+                    
+                    # 쿨타임 설정 (자동 치유 후에도 짧은 쿨타임)
+                    self.last_activation_time = 60  # 1초 쿨타임
             
         # Get necessary game state
         ball_x = getattr(current_stage, 'ball_x', 400)
