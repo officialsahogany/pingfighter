@@ -256,51 +256,10 @@ class DevilDice:
     
     def draw_gauge(self, screen: pygame.Surface, x: int, y: int):
         """
-        지속시간 게이지 그리기
-        Args:
-            screen: 화면
-            x, y: 게이지 위치 (우측 상단 기준)
+        지속시간 게이지 그리기 - 사용자 요청으로 비활성화됨
+        우측 상단 게이지는 표시하지 않음
         """
-        if not self.active:
-            return
-        
-        # 게이지 크기
-        gauge_width = 150
-        gauge_height = 20
-        
-        # 남은 시간 비율
-        time_ratio = self.time_remaining / self.duration
-        
-        # 게이지 배경 (어두운 색)
-        bg_rect = pygame.Rect(x - gauge_width - 10, y, gauge_width, gauge_height)
-        pygame.draw.rect(screen, (50, 0, 0), bg_rect)
-        pygame.draw.rect(screen, (100, 0, 0), bg_rect, 2)
-        
-        # 게이지 채우기 (악마스러운 붉은색)
-        if time_ratio > 0:
-            fill_width = int(gauge_width * time_ratio)
-            fill_rect = pygame.Rect(x - gauge_width - 10, y, fill_width, gauge_height)
-            
-            # 그라데이션 효과
-            glow_intensity = abs(math.sin(self.gauge_glow_timer)) * 0.3 + 0.7
-            color = (
-                int(139 * glow_intensity),
-                int(0),
-                int(0)
-            )
-            pygame.draw.rect(screen, color, fill_rect)
-        
-        # 악마 아이콘 또는 텍스트
-        if self.small_font:
-            text = self.small_font.render("😈", True, (255, 100, 100))
-            screen.blit(text, (x - gauge_width - 35, y - 2))
-        
-        # 남은 시간 텍스트
-        if self.small_font:
-            time_text = f"{self.time_remaining // 60}s"
-            text_surface = self.small_font.render(time_text, True, (255, 255, 255))
-            text_rect = text_surface.get_rect(center=(x - gauge_width // 2 - 10, y + gauge_height // 2))
-            screen.blit(text_surface, text_rect)
+        pass  # 게이지 그리기 비활성화
     
     def draw_paddle_effect(self, screen: pygame.Surface, paddle_rect: pygame.Rect):
         """
@@ -559,8 +518,8 @@ def draw_devil_dice_effects(screen: pygame.Surface, paddle_rect: pygame.Rect = N
     """악마의 주사위 시각 효과 그리기"""
     instance = get_devil_dice_instance()
     
-    # 게이지는 이제 pingfighter.py의 draw_player_gauge()에서 그림
-    # instance.draw_gauge(screen, 590, 100)  # 제거됨
+    # 우측 상단 게이지는 사용자 요청으로 제거됨
+    # 우측 하단 게이지는 pingfighter.py의 draw_player_gauge()에서 그림
     
     # 패들 효과 그리기
     if paddle_rect:

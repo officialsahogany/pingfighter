@@ -2065,6 +2065,7 @@ kuromi_chewing_phase = 0  # 씹기 애니메이션 페이즈
 ball_in_kuromi = False  # 공이 쿠로미 안에 있는지
 kuromi_spit_angle = 0  # 공을 뱉는 각도
 chewing_particles = []  # 씹는 이펙트 파티클
+kuromi_eating_cooldown = 0  # 공 먹기 쿨타임 (20초 = 1200 프레임)
 flame_trail_timer = 0
 flame_trail_phase = 0
 flame_trail_positions = []  # [(x, y)] 궤적 저장
@@ -33990,13 +33991,14 @@ def main(stage_num, new_boss_mode=False):
                 
                 #  Stage 3 멘헤라걸 꼬리 채찍 시스템 및 공 먹기 이벤트
                 if current_stage == 3:
-                    # 쿠로미 공 먹기 이벤트 체크 (공이 쿠로미 안에 없을 때만)
-                    if not ball_in_kuromi and animated_bg_stage3 and not kuromi_eating_active:
+                    # 쿠로미 공 먹기 이벤트 체크 (공이 쿠로미 안에 없고 쿨타임이 끝났을 때만)
+                    if not ball_in_kuromi and animated_bg_stage3 and not kuromi_eating_active and kuromi_eating_cooldown <= 0:
                         if animated_bg_stage3.check_ball_eating(BALL):
                             # 공 먹기 시작
                             kuromi_eating_active = True
                             kuromi_eating_timer = 0
                             ball_in_kuromi = True
+                            kuromi_eating_cooldown = 1200  # 20초 쿨타임 시작 (60 FPS * 20초)
                             animated_bg_stage3.start_eating()
                             print("🍽️ 쿠로미가 공을 먹기 시작!")
                     
@@ -34032,6 +34034,10 @@ def main(stage_num, new_boss_mode=False):
                         if stage3_tail_whip_cooldown == 0:
                             stage3_tail_whip_active = True
                             stage3_tail_whip_animation_timer = 60  # 1초 애니메이션
+                    
+                    # 쿠로미 공 먹기 쿨다운 감소
+                    if kuromi_eating_cooldown > 0:
+                        kuromi_eating_cooldown -= 1
                             stage3_tail_hit_ball = False
                             # 애니메이션 배경에 꼬리 채찍 발동 알림 (공 위치 전달)
                             if animated_bg_stage3:
