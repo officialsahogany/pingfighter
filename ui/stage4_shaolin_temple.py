@@ -2446,6 +2446,10 @@ class ShaolinTempleBackground:
             self.destruction_timer = 0
             print("Temple destruction animation started!")
     
+    def is_destruction_animation_active(self):
+        """Check if destruction animation is currently playing"""
+        return self.destruction_animation_active
+    
     def _update_destruction_animation(self):
         """Update the temple destruction animation"""
         if not self.destruction_animation_active:

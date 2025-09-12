@@ -2386,6 +2386,13 @@ def go_to_next_round():
     global balloon_event_delay, balloon_event_reserved_score  #  풍선 이벤트 타이머와 예약 점수
     global round_wins, round_losses  #  점수 변수 추가
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
+    global animated_bg_stage4  # Stage 4 배경 추가
+    
+    # Stage 4에서 플레이어가 4점 획득한 후 다음 라운드 시작 시 사원 파괴 애니메이션 시작
+    if current_stage == 4 and round_wins == 4:
+        if animated_bg_stage4 is not None and not animated_bg_stage4.temple_destroyed:
+            animated_bg_stage4.start_destruction_animation()
+            print("Stage 4: Temple destruction animation started at round start!")
     
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 이월 방지)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
@@ -6322,7 +6329,12 @@ def handle_player(keys):
             effective_max_speed = (MAX_SPEED + skill_speed_boost) * speed_multiplier
             # 일반 이동 키 처리 (키보드 + 마우스 조작 통합)
             # 통제불능 상태에서는 일반 이동 불가 (더블대쉬 아이템 소지 시에도)
-            if rolling_stun_timer <= 0:
+            # Stage 4 사원 파괴 애니메이션 중에도 이동 불가
+            temple_destruction_active = False
+            if current_stage == 4 and animated_bg_stage4 is not None:
+                temple_destruction_active = animated_bg_stage4.is_destruction_animation_active()
+            
+            if rolling_stun_timer <= 0 and not temple_destruction_active:
                 # 키보드 조작
                 left_pressed = keys[pygame.K_LEFT]
                 right_pressed = keys[pygame.K_RIGHT]
@@ -6400,8 +6412,13 @@ def handle_player(keys):
                     else:
                         # 감전 상태일 때는 즉시 정지
                         current_speed = 0
-    #  스피드기어 효과: 빠른 방향 전환 감속 (무중력벨트 없을 때만, 감전 상태가 아닐 때만)
-    if not gravitybelt_obtained and not player_stunned:
+    # Stage 4 사원 파괴 애니메이션 중인지 체크
+    temple_destruction_active = False
+    if current_stage == 4 and animated_bg_stage4 is not None:
+        temple_destruction_active = animated_bg_stage4.is_destruction_animation_active()
+    
+    #  스피드기어 효과: 빠른 방향 전환 감속 (무중력벨트 없을 때만, 감전 상태가 아닐 때만, 사원 파괴 애니메이션 중이 아닐 때만)
+    if not gravitybelt_obtained and not player_stunned and not temple_destruction_active:
         #  악마의 주사위 플레이어 속도 배율 가져오기 (방향 전환에도 적용)
         devil_dice_speed_multiplier = 1.0
         from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
@@ -6467,6 +6484,14 @@ def handle_player(keys):
         # 속도가 충분히 작아지면 0으로 설정
         if abs(player_flame_zone_knockback_vel) < 0.5:
             player_flame_zone_knockback_vel = 0
+    
+    # Stage 4 사원 파괴 애니메이션 중에는 감속 적용
+    if temple_destruction_active and abs(current_speed) > 0.1:
+        deceleration = DECELERATION * 2  # 빠른 감속
+        if current_speed > 0:
+            current_speed = max(0, current_speed - deceleration)
+        else:
+            current_speed = min(0, current_speed + deceleration)
     
     # 감전 상태일 때도 모든 감속 로직 무시
     # 위치 적용 (감전 상태가 아닐 때만 기본 이동)
@@ -28043,11 +28068,8 @@ def handle_ball():
                 checkmate_system = get_checkmate_system()
                 checkmate_system.check_checkmate(round_wins, round_losses)
             
-            # Stage 4에서 플레이어가 4점 획득 시 사원 파괴 애니메이션 시작
-            if current_stage == 4 and round_wins == 4:
-                if animated_bg_stage4 is not None:
-                    animated_bg_stage4.start_destruction_animation()
-                    print("Stage 4: Temple destruction triggered at 4 player points!")
+            # Stage 4에서 플레이어가 4점 획득 시 플래그 설정 (다음 라운드에서 애니메이션 시작)
+            # 애니메이션은 go_to_next_round()에서 실행됨
             
             show_winner_text("플레이어")
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects)
@@ -33602,8 +33624,13 @@ def main(stage_num, new_boss_mode=False):
                 last_item_spawn_time = pygame.time.get_ticks()
         main.was_legendary_paused = legendary_effect_paused
         
+        # Stage 4 사원 파괴 애니메이션 중인지 체크
+        temple_destruction_paused = False
+        if current_stage == 4 and animated_bg_stage4 is not None:
+            temple_destruction_paused = animated_bg_stage4.is_destruction_animation_active()
+        
         #  일시정지 상태가 아닐 때만 게임 로직 업데이트 (악마의 주사위 포함)
-        if not game_paused and not devil_dice_paused and not legendary_effect_paused:
+        if not game_paused and not devil_dice_paused and not legendary_effect_paused and not temple_destruction_paused:
             # 아이템 스폰 처리 (템스폰) - 전설 애니메이션 중에는 스폰 정지
             # 튜토리얼 스테이지(50)에서는 아이템 스폰 비활성화
             if current_stage != 50 and pygame.time.get_ticks() - last_item_spawn_time >= next_item_spawn_delay:
