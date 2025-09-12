@@ -3104,17 +3104,19 @@ class ShaolinTempleBackground:
         self.moon_pulse_timer = 30  # 0.5 second pulse
         
         for _ in range(num_fragments):
-            # Random target position across the entire map
+            # Random target position across the entire map, including player area
             target_x = random.randint(50, self.width - 50)
-            target_y = random.randint(400, self.height - 50)  # Focus on playable area
+            # Target area from middle to player position (500-710)
+            # Player is around HEIGHT-140 (610) to HEIGHT-40 (710)
+            target_y = random.randint(500, self.height - 40)  # Cover full playable area including player
             
             # Calculate trajectory
             dx = target_x - moon_x
             dy = target_y - moon_y
             distance = math.sqrt(dx*dx + dy*dy)
             
-            # Normalize and set velocity
-            speed = random.uniform(3, 5)
+            # Normalize and set velocity (increased speed for better reach)
+            speed = random.uniform(5, 8)  # Increased from 3-5 to 5-8
             vx = (dx / distance) * speed
             vy = (dy / distance) * speed
             
