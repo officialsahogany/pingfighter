@@ -129,7 +129,8 @@
       "Bash(find:*)",
       "Bash(claude --version)",
       "Bash(rm:*)",
-      "Bash(claude restart)"
+      "Bash(claude restart)",
+      "mcp__codex__codex"
     ],
     "defaultMode": "acceptEdits"
   }

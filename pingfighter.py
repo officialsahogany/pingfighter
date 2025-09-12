@@ -4134,10 +4134,15 @@ def handle_quake():
                 influence = 0.15 / distance
                 ball_vel[0] += dx * influence * 0.01
                 ball_vel[1] += dy * influence * 0.01
-            # 속도 제한
-            max_speed = 8
-            ball_vel[0] = max(-max_speed, min(max_speed, ball_vel[0]))
-            ball_vel[1] = max(-max_speed, min(max_speed, ball_vel[1]))
+            # 속도 제한 (벡터 크기 기반)
+            # NOTE: 이전에는 축별(±8) 클램프로 지터가 상쇄되어 공이 일자로 보이는 경우가 있었음.
+            #       크기(벡터) 기준 클램프로 변경하여 흔들림 방향성은 유지하면서 과속만 제한.
+            max_speed = 8.0
+            cur_speed = math.hypot(ball_vel[0], ball_vel[1])
+            if cur_speed > max_speed:
+                scale = max_speed / cur_speed
+                ball_vel[0] *= scale
+                ball_vel[1] *= scale
         else:
             #  효과 종료 시 상태 복원
             quake_active = False
