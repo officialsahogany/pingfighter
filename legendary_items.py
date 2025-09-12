@@ -684,9 +684,10 @@ class PoseidonTrident(LegendaryItem):
                     if self.ball_vortex_radius < 10:
                         self.ball_vortex_radius = 10
                     
-                    # 회전하는 공의 새 위치 계산
+                    # 회전하는 공의 새 위치 계산 (위쪽으로 이동하도록 Y 오프셋 추가)
+                    vertical_offset = -self.ball_vortex_timer * 0.5  # 시간에 따라 위로 이동
                     new_ball_x = self.vortex_center_x + math.cos(self.ball_vortex_angle) * self.ball_vortex_radius
-                    new_ball_y = self.vortex_center_y + math.sin(self.ball_vortex_angle) * self.ball_vortex_radius
+                    new_ball_y = self.vortex_center_y + math.sin(self.ball_vortex_angle) * self.ball_vortex_radius + vertical_offset
                     
                     # 물 궤적 업데이트 (회전 중인 공 위치 추적)
                     self.update_water_trail(new_ball_x, new_ball_y)
@@ -703,14 +704,13 @@ class PoseidonTrident(LegendaryItem):
                     new_vy = dy * smooth_factor
                     
                     # 캡처 중 아래 방향 이동 방지 및 수평 왕복 방지
-                    if new_vy > 0:
-                        new_vy = -2  # 하향 속도를 약한 상향으로 변환
-                        print(f"[DEBUG] 회오리 하향 속도 상향 전환: vy → {new_vy:.1f}")
-                    elif abs(new_vy) < 1 and abs(new_vx) > 2:  # 수평 왕복 패턴 감지
-                        # 수평 이동이 감지되면 위쪽으로 살짝 보정
-                        new_vy = -3  # 위쪽으로 약간 이동
-                        new_vx *= 0.7  # 수평 속도 감소
-                        print(f"[DEBUG] 회오리 수평 왕복 방지: vx={new_vx:.1f}, vy={new_vy:.1f}")
+                    if new_vy >= 0:  # 하향 또는 수평 이동
+                        # 상향 이동 강제 (회전 각도에 따라 조정)
+                        upward_force = -5 - abs(math.sin(self.ball_vortex_angle) * 3)
+                        new_vy = upward_force
+                        if abs(new_vx) > 5:  # 수평 속도가 너무 강하면 감소
+                            new_vx *= 0.6
+                        print(f"[DEBUG] 회오리 상향 강제: vx={new_vx:.1f}, vy={new_vy:.1f}")
                     
                     # 최소 속도 보장 (회전 운동 유지)
                     min_speed = 8  # 최소 속도
