@@ -2777,9 +2777,9 @@ class ShaolinTempleBackground:
                 'rotation': random.uniform(0, 360),
                 'rotation_speed': random.uniform(-20, 20),
                 'color': random.choice([
-                    (255, 200, 150, 200),  # Glass color
-                    (255, 100, 50, 180),   # Red glass
-                    (200, 150, 100, 150),  # Brown frame
+                    (255, 200, 150),  # Glass color
+                    (255, 100, 50),   # Red glass
+                    (200, 150, 100),  # Brown frame
                 ]),
                 'opacity': 255,
                 'type': 'glass',
