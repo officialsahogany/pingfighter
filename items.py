@@ -747,11 +747,11 @@ def spawn_random_item():
     
     # 선택된 아이템이 있으면 스폰
     if selected_item:
+        x = WIDTH // 2
+        y = HEIGHT // 2
         # 디버그: 무릎보호대 스폰 확인
         if selected_item["name"] == "knee_pads":
             print(f"[DEBUG] 무릎보호대 스폰 시도! 위치: ({x}, {y})")
-        x = WIDTH // 2
-        y = HEIGHT // 2
         vel = [random.choice([-4, -3, 3, 4]), random.choice([-4, -3, 3, 4])]  # 기존보다 빠름
 
         # 아이템 타입 복사 후 revealed 속성 추가

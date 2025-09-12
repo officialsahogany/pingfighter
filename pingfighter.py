@@ -2056,6 +2056,15 @@ stage3_tail_curve_direction = 0
 stage3_tail_hit_ball = False
 #  프리즘 파티클 시스템 (꼬리 채찍 히트 이펙트)
 prism_particles = []  # [(x, y, vx, vy, color, size, lifetime)]
+
+# === Stage 3 쿠로미 공 먹기 이벤트 관련 전역 변수 ===
+kuromi_eating_active = False  # 공 먹기 이벤트 활성화 상태
+kuromi_eating_timer = 0  # 타이머 (0~90: 먹기 애니메이션, 90~210: 씹기, 210~: 발사)
+kuromi_mouth_open = 0  # 입 열림 정도 (0~1)
+kuromi_chewing_phase = 0  # 씹기 애니메이션 페이즈
+ball_in_kuromi = False  # 공이 쿠로미 안에 있는지
+kuromi_spit_angle = 0  # 공을 뱉는 각도
+chewing_particles = []  # 씹는 이펙트 파티클
 flame_trail_timer = 0
 flame_trail_phase = 0
 flame_trail_positions = []  # [(x, y)] 궤적 저장
@@ -12934,11 +12943,12 @@ def draw_objects():
         # 회전 적용
         rotated_ball = pygame.transform.rotate(base_ball, ball_angle)
         ball_img_rect = rotated_ball.get_rect(center=ball_rect.center)
-        draw_with_shake(rotated_ball, ball_img_rect.topleft)
+        if not ball_in_kuromi:  # 쿠로미가 먹지 않았을 때만 그리기
+            draw_with_shake(rotated_ball, ball_img_rect.topleft)
         ball_already_drawn = True  # 공이 그려졌음을 표시
     
-    # 기본 공 그리기 (아직 그려지지 않은 경우에만)
-    if not ball_already_drawn:
+    # 기본 공 그리기 (아직 그려지지 않은 경우에만, 그리고 쿠로미가 먹지 않았을 때)
+    if not ball_already_drawn and not ball_in_kuromi:
         rotated_ball = pygame.transform.rotate(ball_img_to_draw, ball_angle)
         ball_img_rect = rotated_ball.get_rect(center=ball_rect.center)
         draw_with_shake(rotated_ball, ball_img_rect.topleft)
@@ -32415,13 +32425,24 @@ def main(stage_num, new_boss_mode=False):
     if current_stage == 3 and is_player_serve:
         stage3_tail_whip_cooldown = 300  # 5초 (60FPS * 5)
     else:
-        stage3_tail_whip_cooldown = random.randint(900, 1320)  # 15~22초 랜덤 쿨타임 (60FPS 기준)
+        stage3_tail_whip_cooldown = random.randint(1500, 2100)  # 25~35초 랜덤 쿨타임 (60FPS 기준)
     stage3_tail_whip_animation_timer = 0
     stage3_tail_curve_active = False
     stage3_tail_curve_timer = 0
     stage3_tail_curve_direction = 0
     stage3_tail_hit_ball = False
     prism_particles = []  # 프리즘 파티클 초기화
+    
+    # 스테이지 3 쿠로미 공 먹기 이벤트 초기화
+    global kuromi_eating_active, kuromi_eating_timer, kuromi_mouth_open
+    global kuromi_chewing_phase, ball_in_kuromi, kuromi_spit_angle, chewing_particles
+    kuromi_eating_active = False
+    kuromi_eating_timer = 0
+    kuromi_mouth_open = 0
+    kuromi_chewing_phase = 0
+    ball_in_kuromi = False
+    kuromi_spit_angle = 0
+    chewing_particles = []
     
     # 튜토리얼 스테이지 시작 시 대화 표시
     global tutorial_dialogue_shown, tutorial_practice_mode, tutorial_serve_instruction_shown, tutorial_boss_returned
@@ -33961,8 +33982,42 @@ def main(stage_num, new_boss_mode=False):
                 handle_tears()
                 check_tear_collisions()
                 
-                #  Stage 3 멘헤라걸 꼬리 채찍 시스템
+                #  Stage 3 멘헤라걸 꼬리 채찍 시스템 및 공 먹기 이벤트
                 if current_stage == 3:
+                    # 쿠로미 공 먹기 이벤트 체크 (공이 쿠로미 안에 없을 때만)
+                    if not ball_in_kuromi and animated_bg_stage3 and not kuromi_eating_active:
+                        if animated_bg_stage3.check_ball_eating(BALL):
+                            # 공 먹기 시작
+                            kuromi_eating_active = True
+                            kuromi_eating_timer = 0
+                            ball_in_kuromi = True
+                            animated_bg_stage3.start_eating()
+                            print("🍽️ 쿠로미가 공을 먹기 시작!")
+                    
+                    # 공 먹기 이벤트 업데이트
+                    if kuromi_eating_active:
+                        kuromi_eating_timer += 1
+                        
+                        # animated_bg_stage3의 eating 업데이트
+                        if animated_bg_stage3:
+                            ball_hidden = animated_bg_stage3.update_eating(16.67)  # 60FPS 기준
+                            
+                            if not ball_hidden and ball_in_kuromi:
+                                # 공을 뱉어냄 - 랜덤 방향으로 발사
+                                ball_in_kuromi = False
+                                kuromi_eating_active = False
+                                
+                                # 공을 중앙으로 이동
+                                BALL.centerx = WIDTH // 2
+                                BALL.centery = HEIGHT // 2
+                                
+                                # 랜덤 방향으로 발사
+                                new_vx, new_vy = animated_bg_stage3.get_spit_velocity()
+                                ball_vel[0] = new_vx
+                                ball_vel[1] = new_vy
+                                
+                                print(f"💥 쿠로미가 공을 뱉어냄! 속도: ({new_vx:.1f}, {new_vy:.1f})")
+                    
                     # 꼬리 채찍 쿨다운 감소
                     if stage3_tail_whip_cooldown > 0 and not stage3_tail_whip_active:
                         stage3_tail_whip_cooldown -= 1
@@ -34057,7 +34112,7 @@ def main(stage_num, new_boss_mode=False):
                             if animated_bg_stage3:
                                 animated_bg_stage3.deactivate_tail_whip()
                             # 다음 꼬리 채찍 쿨다운 설정
-                            stage3_tail_whip_cooldown = random.randint(900, 1320)  # 15~22초
+                            stage3_tail_whip_cooldown = random.randint(1500, 2100)  # 25~35초
                             print(".  :", stage3_tail_whip_cooldown // 60,"")
                     
                     # 커브 효과 처리

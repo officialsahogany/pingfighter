@@ -38,6 +38,14 @@ class Stage3MenheraWorld:
         self.tail_points = []  # 꼬리 포인트 저장
         self.tail_whip_target = None  # 채찍 타겟 위치 (공의 위치)
         self.tail_whip_hit = False  # 채찍이 공을 맞췄는지 여부
+        
+        # 공 먹기 이벤트 관련 변수
+        self.eating_active = False
+        self.eating_timer = 0
+        self.mouth_open = 0  # 입 열림 정도 (0~1)
+        self.chewing_phase = 0
+        self.chewing_particles = []
+        
         self.init_decorations()
         
     def init_decorations(self):
@@ -636,8 +644,31 @@ class Stage3MenheraWorld:
         # 😊 카와이 입 (W 모양 고양이 입)
         mouth_y = y + head_size//4
         
+        # 공 먹기 이벤트 중에는 입을 크게 벌림
+        if self.eating_active and self.mouth_open > 0:
+            # 입 벌림 애니메이션
+            mouth_size = int(head_size * 0.4 * self.mouth_open)
+            mouth_height = int(head_size * 0.5 * self.mouth_open)
+            
+            # 입 안 (검은색)
+            pygame.draw.ellipse(screen, SOFT_BLACK,
+                              (x - mouth_size//2, mouth_y - mouth_height//4, 
+                               mouth_size, mouth_height))
+            # 입 안쪽 (어두운 분홍)
+            pygame.draw.ellipse(screen, (*CRIMSON, 200),
+                              (x - mouth_size//2 + 2, mouth_y - mouth_height//4 + 2,
+                               mouth_size - 4, mouth_height - 4))
+            
+            # 씹기 애니메이션
+            if self.chewing_phase > 0:
+                # 위아래로 씹는 모션
+                chew_offset = math.sin(self.chewing_phase * math.pi * 4) * 3
+                pygame.draw.arc(screen, WHITE,
+                              (x - mouth_size//2, mouth_y - mouth_height//4 + chew_offset,
+                               mouth_size, mouth_height//2),
+                              0, math.pi, 2)  # 이빨
         # 감정에 따른 입 모양
-        if self.emotional_phase == 1:  # 행복
+        elif self.emotional_phase == 1:  # 행복
             # 큰 웃음
             pygame.draw.arc(screen, SOFT_BLACK,
                           (x - head_size//5, mouth_y - 5, head_size//5, 15),
@@ -1073,6 +1104,104 @@ class Stage3MenheraWorld:
             # 눈물
             pygame.draw.circle(screen, BABY_BLUE, (x - 5, y), 1)
             pygame.draw.circle(screen, BABY_BLUE, (x + 5, y), 1)
+    
+    def check_ball_eating(self, ball_rect):
+        """공이 쿠로미 근처에 있는지 확인 (50% 확률)"""
+        if self.eating_active:
+            return False  # 이미 먹는 중이면 스킵
+        
+        # 중앙 캐릭터 위치
+        center_x = WIDTH // 2
+        center_y = HEIGHT // 2
+        kuromi_rect = pygame.Rect(center_x - 60, center_y - 60, 120, 120)
+        
+        # 공이 쿠로미와 충돌하면 50% 확률로 먹기
+        if kuromi_rect.colliderect(ball_rect):
+            if random.random() < 0.5:  # 50% 확률
+                return True
+        return False
+    
+    def start_eating(self):
+        """공 먹기 이벤트 시작"""
+        self.eating_active = True
+        self.eating_timer = 0
+        self.mouth_open = 0
+        self.chewing_phase = 0
+        self.chewing_particles = []
+    
+    def update_eating(self, dt):
+        """공 먹기 애니메이션 업데이트"""
+        if not self.eating_active:
+            return False  # 공이 여전히 화면에 표시됨
+        
+        self.eating_timer += dt / 16.67  # 60FPS 기준으로 정규화
+        
+        if self.eating_timer < 90:  # 1.5초 - 입 벌리기
+            # 입을 점점 크게 벌림
+            self.mouth_open = min(1.0, self.eating_timer / 90)
+            return True  # 공을 숨김
+            
+        elif self.eating_timer < 210:  # 2초 - 씹기
+            # 씹기 애니메이션
+            self.mouth_open = 0.3  # 입을 약간 닫은 상태
+            self.chewing_phase = (self.eating_timer - 90) / 120
+            
+            # 씹는 파티클 생성
+            if random.random() < 0.3:
+                particle_x = WIDTH // 2 + random.randint(-20, 20)
+                particle_y = HEIGHT // 2 + random.randint(-10, 10)
+                self.chewing_particles.append({
+                    'x': particle_x,
+                    'y': particle_y,
+                    'vx': random.uniform(-2, 2),
+                    'vy': random.uniform(-3, -1),
+                    'life': 30,
+                    'color': random.choice([PASTEL_PINK, LAVENDER, WHITE])
+                })
+            
+            # 파티클 업데이트
+            self.chewing_particles = [
+                {**p, 'x': p['x'] + p['vx'], 'y': p['y'] + p['vy'], 'life': p['life'] - 1}
+                for p in self.chewing_particles if p['life'] > 0
+            ]
+            return True  # 공을 숨김
+            
+        else:  # 3.5초 이후 - 공 발사
+            self.eating_active = False
+            self.mouth_open = 0
+            self.chewing_phase = 0
+            return False  # 공을 다시 표시
+    
+    def get_spit_velocity(self):
+        """랜덤한 방향으로 공을 뱉어낼 속도 벡터 반환"""
+        # 랜덤 각도 (위아래로 더 많이 발사)
+        angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
+        speed = random.uniform(8, 12)
+        
+        vx = speed * math.cos(angle)
+        vy = speed * math.sin(angle)
+        
+        # 위 또는 아래로 더 강하게
+        if random.random() < 0.5:
+            vy = -abs(vy) if random.random() < 0.5 else abs(vy)
+        
+        return vx, vy
+    
+    def draw_chewing_effects(self, screen):
+        """씹는 이펙트 그리기"""
+        for particle in self.chewing_particles:
+            alpha = int(255 * (particle['life'] / 30))
+            size = 3 + particle['life'] // 10
+            color = (*particle['color'][:3], alpha)
+            
+            # 별 모양 파티클
+            if random.random() < 0.5:
+                self.draw_mini_star(screen, int(particle['x']), int(particle['y']), 
+                                  size, color)
+            else:
+                # 하트 모양 파티클
+                self.draw_mini_heart(screen, int(particle['x']), int(particle['y']), 
+                                   size, color)
 
 
 # 테스트 코드
