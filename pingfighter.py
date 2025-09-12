@@ -5231,13 +5231,20 @@ def handle_player(keys):
     special_gauge_max = get_max_gauge()  #  아카데미 스킬 적용된 최대치
     
     # Stage 4 화상 효과 처리
-    global player_burn_timer, player_burn_effect
+    global player_burn_timer, player_burn_effect, player_knockback_y
     if player_burn_timer > 0:
         player_burn_timer -= 1
         if player_burn_timer <= 0:
             player_burn_effect = False
         PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 화상 중에도 거대화포션 효과 적용
         return  # 화상 중에는 조작 불가
+    
+    # 넉백 Y 위치 복구 (화상이 아닐 때도 계속 적용)
+    if player_knockback_y != 0:
+        # 부드럽게 원래 위치로 복구
+        player_knockback_y *= 0.9
+        if abs(player_knockback_y) < 1:
+            player_knockback_y = 0
     
     #  스턴 상태 처리
     if player_stunned_timer > 0:
@@ -11688,8 +11695,9 @@ def draw_objects():
         if afterimage['alpha'] > 0 and afterimage['life'] > 0:
             new_afterimages.append(afterimage)
     dash_afterimages = new_afterimages
-    # UFO 이미지 그리기 (화면 흔들림 오프셋 적용)
-    player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x, PLAYER.centery + screen_shake_offset_y))
+    # UFO 이미지 그리기 (화면 흔들림 오프셋 및 넉백 효과 적용)
+    player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x, 
+                                                  PLAYER.centery + screen_shake_offset_y + player_knockback_y))
     # 디버깅: player_rect 위치 확인
     if frame_count % 60 == 0:  # 1초마다 한 번씩만 출력
         pass  # print(f"📍 player_rect 위치: {player_rect.topleft}, 크기: {player_rect.size}")
@@ -12018,9 +12026,22 @@ def draw_objects():
             draw_with_shake(player_to_draw, player_rect.topleft)
     else:
         player_to_draw = rotated_player.copy()
+        
+        # Stage 4 화상 효과 중이면 붉은색 틴트 적용
+        if player_burn_effect and player_burn_timer > 0:
+            # 붉은색 틴트 효과 - 이미지 픽셀만 빨갛게 (투명 배경은 유지)
+            red_tint = pygame.Surface(player_to_draw.get_size(), pygame.SRCALPHA)
+            red_tint.fill((255, 50, 50, 180))  # 붉은색 반투명
+            player_to_draw.blit(red_tint, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            
+            # 깜빡이는 효과
+            if (time_now // 100) % 2 == 0:
+                player_to_draw.set_alpha(200)
+        
         # 미사일 무적 시간이면 반투명 처리
-        if is_missile_invulnerable and (time_now // 100) % 2 == 0:
+        elif is_missile_invulnerable and (time_now // 100) % 2 == 0:
             player_to_draw.set_alpha(100)
+        
         draw_with_shake(player_to_draw, player_rect.topleft)
     
     # Stage 4 화상 효과 그리기
@@ -25984,6 +26005,7 @@ player_knockback_vel = 0      # 좌우 튕김 속도
 # Stage 4 달 크레이터 파편 화상 효과
 player_burn_timer = 0         # 화상 통제불능 타이머 (프레임 단위)
 player_burn_effect = False    # 화상 효과 활성화 여부
+player_knockback_y = 0        # 넉백 효과로 인한 Y 위치 오프셋
 #  화염병으로 보스 스턴 관련 변수
 boss_stunned_timer = 0        # 프레임 단위 (0이면 스턴 아님)
 boss_knockback_vel = 0        # 좌우 튕김 속도
@@ -27811,8 +27833,11 @@ def handle_ball():
             # 패들과 파편의 충돌 체크 (Rect 충돌)
             if PLAYER.colliderect(fragment_rect):
                 # 화상 효과 적용
-                player_burn_timer = 18  # 0.3초 (60 FPS 기준)
+                player_burn_timer = 30  # 0.5초 (60 FPS 기준)
                 player_burn_effect = True
+                
+                # 넉백 효과 - 부드러운 넉백을 위한 오프셋 설정
+                player_knockback_y = -20  # 20픽셀 위로 넉백
                 
                 # 게이지 감소
                 special_gauge = max(0, special_gauge - 50)
@@ -27823,7 +27848,7 @@ def handle_ball():
                 except:
                     pass
                 
-                print(f"플레이어 화상! 게이지 -50, 0.3초 통제불능")
+                print(f"플레이어 화상! 게이지 -50, 0.5초 통제불능 + 넉백")
                 print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
                 break  # 한 프레임에 하나의 파편만 처리
     
