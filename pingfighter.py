@@ -7649,7 +7649,7 @@ def handle_wall():
             distance = calculate_distance((boss_center_x, boss_center_y), (grenade["x"], grenade["y"]))
             if distance < explosion_zone["radius"]:
                 # 보스 스턴 및 넉백 효과
-                boss_stunned_timer = 84  # 1.4초 스턴
+                boss_stunned_timer = 120  # 2초 스턴
                 # 화염병처럼 넉백 효과 (튕겨나가는 느낌)
                 knockback_power = 40  # 넉백 강도 조정
                 if grenade["x"] < WIDTH / 2:
