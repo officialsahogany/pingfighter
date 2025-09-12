@@ -638,56 +638,58 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     pygame.draw.rect(screen, (40, 30, 20), guide_area)
     pygame.draw.rect(screen, (255, 215, 0), guide_area, 3)
     
-    # 가챠 캡슐 아이콘 그리기 함수
+    # 세련된 캡슐 아이콘 그리기 함수
     def draw_pokeball_icon(x, y, size=30, rotation=0):
-        """가챠 캡슐 스타일 아이콘을 그립니다"""
-        # 애니메이션 효과
-        pulse = math.sin(pygame.time.get_ticks() / 200) * 2
-        current_size = size + pulse
+        """미니멀하고 세련된 캡슐 아이콘을 그립니다"""
+        # 부드러운 애니메이션
+        time = pygame.time.get_ticks() / 1000
+        glow_alpha = int(128 + 127 * math.sin(time * 2))
+        rotate_angle = time * 30 + rotation
         
-        # 육각형 외곽 (포켓볼과 다른 독특한 모양)
-        points = []
-        for i in range(6):
-            angle_rad = math.radians(60 * i + rotation)
-            px = x + current_size * math.cos(angle_rad)
-            py = y + current_size * math.sin(angle_rad)
-            points.append((px, py))
+        # 메인 캡슐 (원형 + 그라데이션 효과)
+        # 외부 글로우
+        for i in range(5, 0, -1):
+            glow_color = (100, 200, 255, 20)
+            pygame.draw.circle(screen, glow_color, (x, y), size + i * 2, 1)
         
-        # 그라데이션 효과를 위한 내부 육각형
-        inner_points = []
-        for i in range(6):
-            angle_rad = math.radians(60 * i + rotation)
-            px = x + (current_size * 0.8) * math.cos(angle_rad)
-            py = y + (current_size * 0.8) * math.sin(angle_rad)
-            inner_points.append((px, py))
+        # 메인 원 (깔끔한 흰색 배경)
+        pygame.draw.circle(screen, (240, 240, 245), (x, y), size)
         
-        # 배경 육각형 (사이버펑크 네온 색상)
-        pygame.draw.polygon(screen, (100, 200, 255), points)
-        pygame.draw.polygon(screen, (150, 100, 255), inner_points)
-        
-        # 외곽선
-        pygame.draw.polygon(screen, (0, 255, 255), points, 3)
-        
-        # 중앙 다이아몬드 모양 (포켓볼의 원 대신)
-        diamond_points = [
-            (x, y - size // 2),  # 상단
-            (x + size // 3, y),  # 오른쪽
-            (x, y + size // 2),  # 하단
-            (x - size // 3, y)   # 왼쪽
-        ]
-        pygame.draw.polygon(screen, (255, 255, 255), diamond_points)
-        pygame.draw.polygon(screen, (0, 255, 255), diamond_points, 2)
-        
-        # 중앙 점 (에너지 코어)
-        pygame.draw.circle(screen, (255, 100, 255), (x, y), size // 6)
-        pygame.draw.circle(screen, (255, 255, 255), (x, y), size // 10)
-        
-        # 빛나는 효과
+        # 내부 원형 그라데이션 링
         for i in range(3):
-            alpha = 100 - (i * 30)
-            glow_size = size // 4 + (i * 3)
-            pygame.draw.circle(screen, (100, 200, 255, alpha), 
-                             (x, y), glow_size, 1)
+            ring_size = size - (i * 8)
+            if ring_size > 0:
+                color_intensity = 255 - (i * 40)
+                ring_color = (color_intensity, color_intensity, 255)
+                pygame.draw.circle(screen, ring_color, (x, y), ring_size, 2)
+        
+        # 중앙 오브 (궤도 회전하는 작은 구체들)
+        orbit_radius = size * 0.4
+        for i in range(3):
+            orbit_angle = math.radians(rotate_angle + i * 120)
+            orb_x = x + orbit_radius * math.cos(orbit_angle)
+            orb_y = y + orbit_radius * math.sin(orbit_angle)
+            
+            # 오브 그림자
+            pygame.draw.circle(screen, (150, 150, 200), 
+                             (int(orb_x) + 1, int(orb_y) + 1), 3)
+            # 오브 본체
+            orb_color = [(255, 100, 150), (100, 255, 200), (255, 200, 100)][i]
+            pygame.draw.circle(screen, orb_color, (int(orb_x), int(orb_y)), 3)
+        
+        # 중앙 코어 (미니멀한 스타일)
+        pygame.draw.circle(screen, (255, 255, 255), (x, y), size // 5)
+        pygame.draw.circle(screen, (100, 150, 255), (x, y), size // 5, 2)
+        
+        # 하이라이트 (세련된 광택 효과)
+        highlight_offset = size // 3
+        highlight_size = size // 4
+        pygame.draw.circle(screen, (255, 255, 255, 180),
+                          (x - highlight_offset, y - highlight_offset), 
+                          highlight_size)
+        
+        # 얇은 외곽선 (미니멀한 느낌)
+        pygame.draw.circle(screen, (180, 180, 200), (x, y), size, 1)
     
     # 안내 텍스트 (더 크고 깔끔하게)
     if gacha_phase == 0:
