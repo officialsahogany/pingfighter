@@ -183,4 +183,4 @@ def initialize_legendary_effects(width: int = 600, height: int = 750):
     """
     global _legendary_effect
     _legendary_effect = LegendaryAcquisitionEffect(width, height)
-    print("✨ 전설 아이템 획득 효과 시스템 초기화 완료")
+    print("[Legendary] Item acquisition effect system initialized")

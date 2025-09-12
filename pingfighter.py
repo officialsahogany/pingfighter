@@ -186,11 +186,11 @@ if "--migration-mode" in sys.argv or "--migration" in sys.argv:
         print("\n" + "="*60)
         print("🚀 마이그레이션 모드 활성화")
         print("="*60)
-        print("✅ 새 아키텍처와 레거시 코드가 함께 동작합니다")
-        print("✅ 충돌 시스템이 새 아키텍처로 동작합니다")
-        print("✅ AI 시스템이 모듈화되어 동작합니다")
-        print("✅ 성능 모니터링이 활성화됩니다")
-        print("✅ 디버그 정보가 콘솔에 출력됩니다")
+        print("[OK] New architecture and legacy code work together")
+        print("[OK] Collision system runs on new architecture")
+        print("[OK] AI system is modularized and operational")
+        print("[OK] Performance monitoring is enabled")
+        print("[OK] Debug information will be output to console")
         print("="*60 + "\n")
         
         # 충돌 시스템 초기화
@@ -747,10 +747,10 @@ def get_max_gauge():
     # Chapter 4 (POWER SMASHING) - 500 (최우선)
     if 'tutorial_current_chapter' in globals():
         current_chapter = globals().get('tutorial_current_chapter', 0)
-        print(f"🔍 DEBUG: get_max_gauge() - tutorial_current_chapter = {current_chapter}")
+        # print(f"🔍 DEBUG: get_max_gauge() - tutorial_current_chapter = {current_chapter}")  # 디버그 출력 제거
         if current_chapter == 4:
             # Chapter 4는 무조건 500 반환 (다른 변수 무시)
-            print(f"🔍 DEBUG: Chapter 4 감지! 500 반환")
+            # print(f"🔍 DEBUG: Chapter 4 감지! 500 반환")  # 디버그 출력 제거
             return 500
     
     # 튜토리얼 드라이브 챕터 (Chapter 3) 임시 오버라이드 체크 - 300
@@ -1962,15 +1962,15 @@ try:
     ufo_path = "/Volumes/T7/윈도우용최신/game/bosspong/ufo_player.png"
     if os.path.exists(ufo_path):
         PLAYER_IMG = pygame.image.load(ufo_path).convert_alpha()
-        print(f"✅ UFO 플레이어 이미지 로드 성공: {ufo_path}")
+        print(f"[OK] UFO player image loaded: {ufo_path}")
     else:
         # resource_path로 시도
         PLAYER_IMG = pygame.image.load(resource_path("ufo_player.png")).convert_alpha()
-        print(f"✅ UFO 플레이어 이미지 로드 성공: resource_path")
+        print(f"[OK] UFO player image loaded: resource_path")
     
     PLAYER_IMG = pygame.transform.scale(PLAYER_IMG, (250, 100))  # 세로 늘리기
 except Exception as e:
-    print(f"❌ UFO 플레이어 이미지 로드 실패: {e}")
+    print(f"[ERROR] UFO player image load failed: {e}")
     # 실패시 기본 패들 생성
     PLAYER_IMG = pygame.Surface((250, 100), pygame.SRCALPHA)
     pygame.draw.rect(PLAYER_IMG, (0, 255, 0), (0, 0, 250, 100))
@@ -16774,7 +16774,10 @@ def show_tutorial_power_practice_dialogue():
     for dialogue_index, (speaker, text) in enumerate(dialogues):
         # 파워스매싱 시범 처리
         if speaker == "파워스매싱 시범":
-            show_power_smashing_demo_inline(background)
+            # show_power_smashing_demo_inline(background)  # TODO: 함수 구현 필요
+            # 임시로 짧은 대기 시간만 추가
+            pygame.display.flip()
+            pygame.time.wait(1000)
             continue
         
         # 화자별 색상 설정
@@ -19518,7 +19521,7 @@ def show_chapter_title(chapter_num, title, subtitle=None):
     SCREEN.fill((0, 0, 0))
     pygame.display.flip()
     
-    print(f"✅ Chapter {chapter_num} - {title} 표시 완료")
+    print(f"[OK] Chapter {chapter_num} - {title} display complete")
     return True
 
 # (reverted) 공통 카운터 배지는 사용하지 않음
@@ -20538,7 +20541,7 @@ def check_tutorial_dash_missions_complete():
                 tutorial_consecutive_dash_count = 0
                 print("튜토리얼: Chapter 2 대쉬 카운터 UI 비활성화")
                 
-                print("✅ Chapter 3 변수 초기화 완료")
+                print("[OK] Chapter 3 variables initialized")
                 
                 # Chapter 3 타이틀 표시 (검은 배경에 CHAPTER 3 DRIVE 표시)
                 show_chapter_title(3, "DRIVE", "드라이브")
@@ -25462,6 +25465,50 @@ def calculate_bounce(paddle):
     # 드라이브 발동 여부를 반환하기 위한 변수
     drive_activated = False
     
+    # 보스가 공을 칠 때 포세이돈 삼지창 회오리 가속 효과 해제
+    if not is_player_paddle:  # 보스가 공을 칠 때
+        print(f"[DEBUG] 보스가 공을 침! paddle={paddle}, BOSS={BOSS}")
+        try:
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            print(f"[DEBUG] legendary_manager 존재: {legendary_manager is not None}")
+            if legendary_manager:
+                trident = legendary_manager.get_item("poseidon_trident")
+                print(f"[DEBUG] trident 존재: {trident is not None}")
+                if trident:
+                    speed_restored = getattr(trident, 'speed_restored', False)
+                    print(f"[DEBUG] trident.active={trident.active}, vortex_affected={trident.vortex_affected}, speed_restored={speed_restored}, original_ball_speed={trident.original_ball_speed}")
+                    # 회오리 효과를 받았고 아직 속도가 복원되지 않은 경우
+                    if trident.active and trident.vortex_affected and not speed_restored and trident.original_ball_speed > 0:
+                        # 원래 속도에서 20% 감소시켜 복원
+                        current_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        reduced_speed = trident.original_ball_speed * 0.8  # 원래 속도의 80% (20% 감소)
+                        print(f"[DEBUG] 속도 복원 시도 - 현재속도: {current_speed:.1f}, 원래속도: {trident.original_ball_speed:.1f}, 감소된속도: {reduced_speed:.1f}")
+                        if current_speed > 0:
+                            # 현재 방향을 유지하면서 감소된 속도로 복원
+                            speed_ratio = reduced_speed / current_speed
+                            ball_vel[0] *= speed_ratio
+                            ball_vel[1] *= speed_ratio
+                            print(f"[포세이돈] ★★★ 보스 반격 - 속도 20% 감소 적용: {current_speed:.1f} → {reduced_speed:.1f} (원래: {trident.original_ball_speed:.1f})")
+                            
+                            # 속도 복원 완료 표시
+                            trident.speed_restored = True
+                            
+                            # 회오리 효과 플래그 해제
+                            trident.vortex_affected = False
+                            trident.original_ball_speed = 0
+                            
+                            # 물 궤적 종료
+                            trident.water_trail_active = False
+                            trident.water_trail = []
+                            print(f"[DEBUG] 회오리 효과 해제 완료!")
+                        else:
+                            print(f"[DEBUG] 속도가 0이어서 복원 실패")
+                    else:
+                        print(f"[DEBUG] 조건 미충족 - active={trident.active}, vortex_affected={trident.vortex_affected}, speed_restored={speed_restored}")
+        except Exception as e:
+            print(f"[ERROR] 포세이돈 효과 해제 실패: {e}")
+    
     #  플레이어가 공을 칠 때 연막 감속 효과 해제
     if is_player_paddle:
         # 모든 연막 존에서 속도 복원 정보 확인
@@ -27320,7 +27367,7 @@ def handle_ball():
                                 ball_vel[1] = wave_vy * num_steps / ball_impact_boost
             except Exception as e:
                 # 전설 아이템 매니저 접근 실패 시 기본 속도 사용
-                print(f"❌ Legendary manager error: {e}")
+                print(f"[ERROR] Legendary manager error: {e}")
                 pass
             
             # 한 스텝 이동
@@ -28390,7 +28437,7 @@ def handle_ball():
                 print(f"⚡ 튜토리얼 속도 보정 완료: {current_speed:.2f} → {BALL_BASE_SPEED}")
     else:
         if slow_ball_timer > 0 and current_stage == 50:  # 타이머 리셋 시에만
-            print(f"✅ 튜토리얼 slow_ball_timer 리셋: 현재속도={current_speed:.2f} >= 임계값={BALL_BASE_SPEED * 0.85:.2f}")
+            print(f"[OK] Tutorial slow_ball_timer reset: current_speed={current_speed:.2f} >= threshold={BALL_BASE_SPEED * 0.85:.2f}")
         slow_ball_timer = 0
         # === Stage 3 눈물샤워 충돌 처리 ===
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
@@ -31751,13 +31798,13 @@ def main(stage_num, new_boss_mode=False):
         try:
             # 전역 변수를 새 GameState로 마이그레이션
             migration_bridge = init_migration(globals())
-            print("✅ 마이그레이션 브리지 초기화 완료")
+            print("[OK] Migration bridge initialized")
             
             # 새 게임 서비스 시작
             from services.game_service import GameService
             game_service = GameService()
             game_service.start_game(stage_num)
-            print(f"✅ GameService로 스테이지 {stage_num} 시작")
+            print(f"[OK] Starting stage {stage_num} with GameService")
         except Exception as e:
             print(f"⚠️ 마이그레이션 초기화 실패: {e}")
             migration_bridge = None
@@ -32525,7 +32572,7 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_drive_completion_dialogue_shown = False
                 tutorial_drive_reminder_active = False  # 160 게이지에서 활성화
                 
-                print("✅ Chapter 3 변수 초기화 완료")
+                print("[OK] Chapter 3 variables initialized")
                 # 대쉬 카운터 비활성화 (Chapter 3에서는 사용 안함)
                 tutorial_dash_counter_active = False
                 tutorial_dash_count = 0
@@ -33750,7 +33797,7 @@ def main(stage_num, new_boss_mode=False):
                                 BOSS.x, BOSS.y, BOSS.width, BOSS.height
                             )
                 except Exception as e:
-                    print(f"❌ LegendaryManager 업데이트 실패: {e}")
+                    print(f"[ERROR] LegendaryManager update failed: {e}")
                     import traceback
                     traceback.print_exc()
                 

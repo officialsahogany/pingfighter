@@ -264,8 +264,8 @@ class PoseidonTrident(LegendaryItem):
         self.vortex_right_y = 0
         self.vortex_right_height = 0  # 시작 높이
         # 공통 속성
-        self.vortex_max_height = 300  # 최대 높이 (화면의 40% 커버)
-        self.vortex_width = 140  # 회오리 너비 (영향 반경 70픽셀)
+        self.vortex_max_height = 350  # 최대 높이 (화면의 약 47% 커버)
+        self.vortex_width = 200  # 회오리 너비 (영향 반경 100픽셀)
         self.vortex_spin_speed = 0  # 회전 속도
         self.vortex_particles = []  # 회오리 파티클
         self.vortex_deflection_seed = 0  # 공 굴절 랜덤 시드
@@ -282,6 +282,7 @@ class PoseidonTrident(LegendaryItem):
         self.vortex_cooldown = 0  # 회오리 재진입 쿨다운
         self.vortex_affected = False  # 회오리 효과를 받았는지
         self.original_ball_speed = 0  # 회오리 효과 전 원래 속도 저장
+        self.speed_restored = False  # 속도가 이미 복원되었는지 추적
         
         # 물 궤적 효과
         self.water_trail = []  # 물에 젖은 공의 궤적
@@ -342,7 +343,7 @@ class PoseidonTrident(LegendaryItem):
                 frames_loaded += 1
                 print(f"✓ 포세이돈 삼지창 프레임 {i} 로드 성공 (빨간색 배경 제거)")
             except Exception as e:
-                print(f"✗ 프레임 {i} 로드 실패: {frame_path} - {e}")
+                print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")
         
         print(f"포세이돈 삼지창: PNG 프레임 {frames_loaded}/8개 로드")
         
@@ -517,6 +518,7 @@ class PoseidonTrident(LegendaryItem):
         
         # 회오리 효과를 받은 공이 보스에게 맞았는지 확인
         if self.vortex_affected:
+            print(f"[DEBUG apply_dash_wave] vortex_affected=True, ball_vy={ball_vy:.1f}, original_speed={self.original_ball_speed:.1f}")
             # 공의 방향이 바뀌었는지 확인 (보스가 쳤는지)
             # 회오리는 위로 튕기므로, 공이 아래로 가고 있다면 보스가 친 것
             if ball_vy > 0:  # 공이 아래로 향하고 있음 = 보스가 쳤음
@@ -576,14 +578,14 @@ class PoseidonTrident(LegendaryItem):
             
             # 왼쪽 회오리 충돌 체크
             x_distance_left = abs(ball_x - self.vortex_left_x)
-            x_in_left_vortex = x_distance_left <= (self.vortex_width / 2 + 10)  # 범위를 더 넓게 설정 (+10픽셀)
+            x_in_left_vortex = x_distance_left <= (self.vortex_width / 2)  # 회오리 반경 100픽셀
             # Y축 체크: 회오리는 아래에서 위로 올라가므로, 공이 회오리 높이 범위 안에 있는지 체크
             # 회오리 아래쪽(패들 위치)부터 위로 솟은 높이까지 + 여유 공간
             y_in_left_vortex = (self.vortex_left_y - left_vortex_height - 20) <= ball_y <= (self.vortex_left_y + 100)
             
             # 오른쪽 회오리 충돌 체크
             x_distance_right = abs(ball_x - self.vortex_right_x)
-            x_in_right_vortex = x_distance_right <= (self.vortex_width / 2 + 10)  # 범위를 더 넓게 설정 (+10픽셀)
+            x_in_right_vortex = x_distance_right <= (self.vortex_width / 2)  # 회오리 반경 100픽셀
             # Y축 체크: 회오리는 아래에서 위로 올라가므로, 공이 회오리 높이 범위 안에 있는지 체크
             y_in_right_vortex = (self.vortex_right_y - right_vortex_height - 20) <= ball_y <= (self.vortex_right_y + 100)
             
@@ -638,7 +640,8 @@ class PoseidonTrident(LegendaryItem):
                 # 회오리는 패들 위치에서 위로 솟아오르므로, Y축 거리는 회오리 범위 내에서만 계산
                 vortex_center_y = vortex_y - current_vortex_height/2  # 회오리의 실제 중심
                 # 공이 회오리 Y 범위 내에 있으면 Y축 거리는 0으로 처리
-                if vortex_y - current_vortex_height <= ball_y <= vortex_y:
+                # 바운딩 범위와 일치하도록 아래쪽 여유도 포함
+                if vortex_y - current_vortex_height <= ball_y <= vortex_y + 20:
                     y_distance = 0  # 회오리 Y 범위 내에 있음
                 else:
                     y_distance = abs(ball_y - vortex_center_y)
@@ -649,8 +652,9 @@ class PoseidonTrident(LegendaryItem):
                 # 시각 효과와 동일하게 설정하여 보이는 대로 작동하도록 함
                 vortex_radius = min(self.vortex_width / 2, 100)  # 최대 반경 100
                 
-                # 공이 회오리에 처음 들어왔는지 확인 (쿨다운 체크)
-                if not self.ball_in_vortex and self.vortex_cooldown <= 0 and distance < vortex_radius * 0.8:
+                # 공이 회오리에 처음 들어왔는지 확인 (바운딩에 있으면 더 관대하게)
+                capture_threshold = vortex_radius * 0.9 if in_any_vortex else vortex_radius * 0.8
+                if not self.ball_in_vortex and self.vortex_cooldown <= 0 and distance < capture_threshold:
                     # 공 캡처 시작
                     self.ball_in_vortex = True
                     self.ball_vortex_timer = 0
@@ -693,9 +697,24 @@ class PoseidonTrident(LegendaryItem):
                     
                     # 스무스한 이동을 위해 속도 조정 (회전 속도 유지)
                     # 원래 속도의 일부만 적용하여 부드러운 회전
-                    smooth_factor = 0.3  # 30% 속도로 목표 위치로 이동
+                    smooth_factor = 0.5  # 50% 속도로 목표 위치로 이동 (0.3에서 증가)
                     new_vx = dx * smooth_factor
                     new_vy = dy * smooth_factor
+                    
+                    # 캡처 중 아래 방향 이동 방지 (버그 수정)
+                    if new_vy > 0:
+                        new_vy = 0  # 하향 속도를 0으로 설정하여 아래로 떨어지지 않도록 함
+                        print(f"[DEBUG] 회오리 하향 속도 차단: vy={new_vy:.1f} → 0")
+                    
+                    # 최소 속도 보장 (상향 또는 수평 이동일 때만 적용)
+                    min_speed = 8  # 최소 속도
+                    current_speed = math.sqrt(new_vx * new_vx + new_vy * new_vy)
+                    if current_speed < min_speed and current_speed > 0 and new_vy <= 0:
+                        # 속도가 너무 느리면 최소 속도로 증가 (상향일 때만)
+                        speed_ratio = min_speed / current_speed
+                        new_vx *= speed_ratio
+                        new_vy *= speed_ratio
+                        print(f"[DEBUG] 회오리 속도 보정: {current_speed:.1f} → {min_speed:.1f}")
                     
                     # 속도 제한 (너무 빠르면 순간이동처럼 보임)
                     max_speed = 15
@@ -706,46 +725,54 @@ class PoseidonTrident(LegendaryItem):
                     
                     # 캡처 시간이 끝나면 랜덤 방향으로 튕겨냄
                     if self.ball_vortex_timer >= self.ball_capture_duration:
-                        # 랜덤 반사 방향 계산
-                        if ball_vy > 0:  # 보스가 친 공
-                            # 위쪽 부채꼴 범위로 반사 (안전한 범위로 축소)
-                            base_angle = -math.pi / 2  # -90도 (위쪽)
-                            fan_spread = math.pi / 4  # 45도로 축소 (기존 60도에서 감소)
-                            
-                            # 랜덤 시드 생성
-                            self.vortex_deflection_seed = (ball_x * 1000 + ball_y * 100 + self.vortex_timer * 10) % 10000
-                            random.seed(int(self.vortex_deflection_seed))
-                            random_offset = random.uniform(-fan_spread, fan_spread)
-                            random.seed()  # 시드 초기화
-                            
-                            target_angle = base_angle + random_offset
-                            
-                            # 반사 속도 (캡처된 속도의 150%, 최소 18, 최대 30으로 제한)
-                            deflect_speed = max(18, min(self.captured_ball_speed * 1.5, 30))
-                            new_vx = math.cos(target_angle) * deflect_speed
-                            new_vy = math.sin(target_angle) * deflect_speed
-                            
-                            # Y축 속도 안전장치 - 반드시 위쪽으로 향하도록 보장
-                            min_upward_speed = -15  # 최소 위쪽 속도 (더 빠르게)
-                            if new_vy >= 0:  # 아래쪽이나 수평이면
-                                new_vy = min_upward_speed  # 강제로 위쪽으로
-                            elif new_vy > min_upward_speed:  # 위쪽이지만 너무 느리면
-                                new_vy = min_upward_speed
-                            
-                            # X축 속도도 너무 극단적이지 않도록 제한
-                            max_x_speed = 20  # 더 빠른 횡방향 이동 허용
-                            if abs(new_vx) > max_x_speed:
-                                new_vx = max_x_speed if new_vx > 0 else -max_x_speed
-                        else:
-                            # 플레이어가 친 공은 원래 방향 유지
-                            new_vx = ball_vx
-                            new_vy = ball_vy
+                        # 포세이돈의 삼지창은 항상 보스 쪽(위쪽)으로 공을 튕겨냄
+                        # 플레이어에게 유리하도록 작동
+                        
+                        # 위쪽 부채꼴 범위로 반사 (안전한 범위)
+                        base_angle = -math.pi / 2  # -90도 (위쪽)
+                        fan_spread = math.pi / 6  # 30도로 더 축소 (안전한 각도)
+                        
+                        # 랜덤 시드 생성
+                        self.vortex_deflection_seed = (ball_x * 1000 + ball_y * 100 + self.vortex_timer * 10) % 10000
+                        random.seed(int(self.vortex_deflection_seed))
+                        random_offset = random.uniform(-fan_spread, fan_spread)
+                        random.seed()  # 시드 초기화
+                        
+                        target_angle = base_angle + random_offset
+                        
+                        # 반사 속도 (캡처된 속도의 150%, 최소 18, 최대 30으로 제한)
+                        deflect_speed = max(18, min(self.captured_ball_speed * 1.5, 30))
+                        new_vx = math.cos(target_angle) * deflect_speed
+                        new_vy = math.sin(target_angle) * deflect_speed
+                        
+                        # Y축 속도 안전장치 - 반드시 위쪽으로 향하도록 보장
+                        min_upward_speed = -18  # 최소 위쪽 속도 (더 빠르게)
+                        max_upward_speed = -10  # 최대 위쪽 속도 (너무 수직이지 않게)
+                        
+                        # Y 속도가 아래쪽이거나 너무 느리면 강제로 위쪽으로
+                        if new_vy >= 0:  # 아래쪽이나 수평이면
+                            new_vy = min_upward_speed  # 강제로 위쪽으로
+                            print(f"[DEBUG] 회오리 방향 보정: 아래쪽 → 위쪽 (vy={min_upward_speed})")
+                        elif new_vy > max_upward_speed:  # 위쪽이지만 너무 느리면
+                            new_vy = max_upward_speed
+                            print(f"[DEBUG] 회오리 방향 보정: 너무 느림 → {max_upward_speed}")
+                        elif new_vy < min_upward_speed:  # 너무 빠르면
+                            new_vy = min_upward_speed
+                            print(f"[DEBUG] 회오리 방향 보정: 너무 빠름 → {min_upward_speed}")
+                        
+                        # X축 속도도 너무 극단적이지 않도록 제한
+                        max_x_speed = 15  # 횡방향 속도 제한 (너무 빠르지 않게)
+                        if abs(new_vx) > max_x_speed:
+                            new_vx = max_x_speed if new_vx > 0 else -max_x_speed
+                            print(f"[DEBUG] 회오리 X축 속도 제한: {new_vx}")
                         
                         # 캡처 상태 해제 및 쿨다운 설정
                         self.ball_in_vortex = False
                         self.ball_vortex_timer = 0
                         self.vortex_cooldown = 30  # 0.5초 쿨다운
                         self.vortex_affected = True  # 회오리 효과를 받았음을 표시
+                        self.speed_restored = False  # 속도 복원 플래그 초기화
+                        print(f"[DEBUG] vortex_affected 플래그 설정! original_ball_speed={self.original_ball_speed}")
                         # 물 궤적은 계속 유지 (보스가 칠 때까지)
                     
                     return new_vx, new_vy
@@ -1237,9 +1264,9 @@ class PoseidonTrident(LegendaryItem):
                 self.vortex_left_height = self.vortex_max_height
                 self.vortex_right_height = self.vortex_max_height
                 self.vortex_spin_speed = 10
-            # 회오리 소멸 단계 (0.5초 동안 소멸) - 효과 없음
-            elif self.vortex_timer < 78:  # 1.3초 * 60fps = 78 프레임 (0.3 + 0.5 + 0.5 = 1.3)
-                fade_rate = 1 - (self.vortex_timer - 48) / 30
+            # 회오리 소멸 단계 (0.8초 동안 소멸) - 효과 없음
+            elif self.vortex_timer < 96:  # 1.6초 * 60fps = 96 프레임 (0.3 + 0.5 + 0.8 = 1.6)
+                fade_rate = 1 - (self.vortex_timer - 48) / 48  # 48프레임(0.8초) 동안 소멸
                 self.vortex_left_height = self.vortex_max_height * fade_rate
                 self.vortex_right_height = self.vortex_max_height * fade_rate
                 self.vortex_spin_speed = 10 * fade_rate
@@ -1569,7 +1596,7 @@ class HermesShoes(LegendaryItem):
                 frames_loaded += 1
                 print(f"✓ 헤르메스 신발 프레임 {i} 로드 성공")
             except Exception as e:
-                print(f"✗ 프레임 {i} 로드 실패: {frame_path} - {e}")
+                print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")
         
         print(f"헤르메스 신발: 전용 프레임 {frames_loaded}/8개 로드")
         
@@ -1846,7 +1873,7 @@ class RagnarokHammer(LegendaryItem):
                 frames_loaded += 1
                 print(f"✓ 프레임 {i} 로드 성공: {frame_path}")
             except Exception as e:
-                print(f"✗ 프레임 {i} 로드 실패: {frame_path} - {e}")
+                print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")
         
         print(f"라그나로크 해머 프레임 {frames_loaded}/8개 로드")
         
