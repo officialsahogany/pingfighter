@@ -7152,7 +7152,7 @@ def store_active_item(item_data):
         print("!")
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
         return
     if len(active_item_slot) < MAX_ITEM_SLOTS:
         # 모든 액티브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
@@ -24499,6 +24499,10 @@ def draw_field():
             SCREEN.blit(temp_surface, (GAME_OFFSET_X + screen_shake_offset_x, GAME_OFFSET_Y + screen_shake_offset_y))
         else:
             animated_bg_stage3.draw(SCREEN, ball_pos=(BALL.centerx, BALL.centery))
+        
+        # 씹는 이펙트 그리기
+        if kuromi_eating_active and animated_bg_stage3:
+            animated_bg_stage3.draw_chewing_effects(SCREEN)
     elif current_stage == 4 and animated_bg_stage4 is not None:
         # 스테이지4에서는 소림사 사원 애니메이션 배경 사용
         animated_bg_stage4.update()  # ShaolinTempleBackground는 update()만 호출
@@ -28191,7 +28195,8 @@ def handle_ball():
         reset_round()
         return
     # --- 천장 충돌 (플레이어 점수) ---
-    if BALL.top <= 0:
+    # 쿠로미가 공을 먹은 상태에서는 승패 판정 안함
+    if BALL.top <= 0 and not ball_in_kuromi:
         # 튜토리얼 모드(스테이지 50)에서는 점수 계산하지 않고 단순히 튕김
         if current_stage == 50:
             ball_vel[1] = abs(ball_vel[1])  # 아래로 향하도록
@@ -28573,7 +28578,8 @@ def handle_ball():
             print(f"⚠️ 스마트폰 사전 발동(거리) 실패: {e}")
 
     # 스톱워치가 활성화되어 있으면 바닥 충돌에 의한 패배 판정을 잠시 유예한다
-    if BALL.bottom >= HEIGHT and not rock_hit and not stopwatch_active:
+    # 쿠로미가 공을 먹은 상태에서는 승패 판정 안함
+    if BALL.bottom >= HEIGHT and not rock_hit and not stopwatch_active and not ball_in_kuromi:
         # 스마트폰 사전 방어: 패배 직전 스톱워치 자동 발동 시도
         try:
             import items as _items_mod
@@ -36144,6 +36150,12 @@ def show_item_management_menu(item_list, selected_index, item_type):
                                 sensor_obtained = False
                                 sensor_enabled = True  # 초기화
                                 items.sensor_obtained = False
+                            elif removed_item["name"] == "knee_pads":
+                                items.knee_pads_obtained = False
+                                from item_effects.knee_pads import get_knee_pads_instance
+                                knee_pads = get_knee_pads_instance()
+                                if knee_pads:
+                                    knee_pads.deactivate()
                         # 아이템 이름을 한글로 표시
                         item_name_korean = get_item_name_korean(removed_item['name'])
                         print(f"{item_name_korean}  .")
@@ -36208,6 +36220,12 @@ def show_item_management_menu(item_list, selected_index, item_type):
                                     danger_sensor_enabled = True  #  메인 변수 초기화  
                                     sensor_enabled = True  # 초기화
                                     items.sensor_obtained = False
+                                elif removed_item["name"] == "knee_pads":
+                                    items.knee_pads_obtained = False
+                                    from item_effects.knee_pads import get_knee_pads_instance
+                                    knee_pads = get_knee_pads_instance()
+                                    if knee_pads:
+                                        knee_pads.deactivate()
                                 elif removed_item["name"] == "gravitybelt":
                                     gravitybelt_obtained = False
                                     items.gravitybelt_obtained = False
