@@ -26,6 +26,8 @@ class ShaolinTempleBackground:
         self.collapse_debris = []
         self.screen_shake_offset = [0, 0]
         self.screen_shake_intensity = 0
+        self.falling_lanterns = []  # Lanterns that are falling during destruction
+        self.ground_fires = []  # Fire effects on ground from broken lanterns
         
         # Colors - Muted night palette (불 꺼진 밤 느낌)
         self.colors = {
@@ -198,38 +200,72 @@ class ShaolinTempleBackground:
         return dummies
     
     def _draw_red_moon(self, surface: pygame.Surface):
-        """Draw red moon overlay during destruction"""
+        """Draw red moon overlay during destruction with gradient and pulsing"""
         moon_x, moon_y = self.width - 120, 100
         
-        # Create intense red glow
-        for i in range(12, 0, -1):
-            # More intense red glow
-            alpha = int(30 * i * self.moon_red_intensity)  # Stronger glow
-            glow_radius = 35 + i * 15
+        # Add pulsing effect
+        pulse = 0.0
+        if hasattr(self, 'frame_count'):
+            pulse = math.sin(self.frame_count * 0.05) * 0.15  # Gentle pulsing
+        
+        # Create gradient red glow with softer falloff
+        for i in range(20, 0, -1):
+            # Gradient calculation - more transparent as distance increases
+            distance_ratio = i / 20.0
+            # Use exponential falloff for smoother gradient
+            alpha_multiplier = (distance_ratio ** 2) * self.moon_red_intensity * (1.0 + pulse)
+            alpha = int(80 * alpha_multiplier)  # Reduced from 30*i to create softer glow
+            
+            glow_radius = 35 + i * 8  # Smaller increments for smoother gradient
             
             # Create glow surface
             glow_size = glow_radius * 2 + 10
             glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
             glow_surface.fill((0, 0, 0, 0))
             
-            # Draw intense red glow
-            glow_color = (255, 0, 0, min(255, alpha))
-            pygame.draw.circle(glow_surface, glow_color,
-                             (glow_size // 2, glow_size // 2),
-                             glow_radius)
+            # Radial gradient for each layer
+            for r in range(glow_radius, 0, -2):
+                r_ratio = r / float(glow_radius)
+                layer_alpha = int(alpha * r_ratio)
+                # Blend from red to orange at edges
+                red_component = 255
+                green_component = int(100 * (1 - r_ratio))  # Add orange tint at edges
+                glow_color = (red_component, green_component, 0, min(255, layer_alpha))
+                pygame.draw.circle(glow_surface, glow_color,
+                                 (glow_size // 2, glow_size // 2),
+                                 r)
             
             surface.blit(glow_surface,
                         (moon_x - glow_size // 2,
                          moon_y - glow_size // 2))
         
-        # Draw intense red moon overlay
+        # Draw red moon overlay with better blending
         moon_surface = pygame.Surface((80, 80), pygame.SRCALPHA)
-        red_intensity = int(255 * self.moon_red_intensity)
-        moon_color = (255, 50 - int(30 * self.moon_red_intensity), 50 - int(40 * self.moon_red_intensity), red_intensity)
-        pygame.draw.circle(moon_surface, moon_color, (40, 40), 35)
         
-        # Add darker red craters for depth
-        crater_color = (200, 0, 0, red_intensity)
+        # Create gradient moon surface
+        for r in range(35, 0, -1):
+            r_ratio = r / 35.0
+            # Blend original moon color with red based on intensity
+            base_intensity = int(200 * self.moon_red_intensity * (1.0 + pulse * 0.5))
+            
+            # Gradient from center to edge
+            if r > 30:
+                # Outer edge - more original moon color
+                red = int(255 - (35 - r) * 10)
+                green = int(200 - 150 * self.moon_red_intensity * r_ratio)
+                blue = int(150 - 140 * self.moon_red_intensity * r_ratio)
+            else:
+                # Inner area - more red
+                red = 255
+                green = int(100 - 80 * self.moon_red_intensity)
+                blue = int(80 - 70 * self.moon_red_intensity)
+            
+            moon_color = (red, green, blue, min(255, base_intensity))
+            pygame.draw.circle(moon_surface, moon_color, (40, 40), r)
+        
+        # Add subtle craters with transparency
+        crater_intensity = int(180 * self.moon_red_intensity)
+        crater_color = (180, 40, 20, crater_intensity)
         pygame.draw.circle(moon_surface, crater_color, (30, 35), 5)
         pygame.draw.circle(moon_surface, crater_color, (48, 50), 3)
         pygame.draw.circle(moon_surface, crater_color, (55, 32), 4)
@@ -2059,9 +2095,14 @@ class ShaolinTempleBackground:
         # Draw incense
         self._draw_incense(temp_surface)
         
-        # Draw lanterns
-        for lantern in self.lanterns:
-            self._draw_lantern(temp_surface, lantern)
+        # Draw lanterns (hide during destruction)
+        if not self.destruction_animation_active:
+            for lantern in self.lanterns:
+                self._draw_lantern(temp_surface, lantern)
+        
+        # Draw falling lanterns during destruction
+        if self.destruction_animation_active:
+            self._draw_falling_lanterns(temp_surface)
         
         # Draw floating leaves
         self._draw_floating_leaves(temp_surface)
@@ -2082,6 +2123,9 @@ class ShaolinTempleBackground:
         
         # Draw collapse debris
         self._draw_collapse_debris(temp_surface)
+        
+        # Draw ground fires from broken lanterns
+        self._draw_ground_fires(temp_surface)
         
         # Apply shaking and draw to main surface
         surface.blit(temp_surface, (shake_x, shake_y))
@@ -2564,6 +2608,7 @@ class ShaolinTempleBackground:
                 self.destruction_phase = 3
                 self.destruction_timer = 0
                 self._create_collapse_debris()
+                self._start_lanterns_falling()  # Start lanterns falling
                 
         elif self.destruction_phase == 3:  # Temple collapsing (3 seconds)
             # More intense screen shake
@@ -2593,6 +2638,12 @@ class ShaolinTempleBackground:
             # Add more debris periodically for continuous collapse effect
             if self.destruction_timer % 15 == 0 and self.destruction_timer < 120:
                 self._create_additional_debris()
+            
+            # Update falling lanterns
+            self._update_falling_lanterns()
+            
+            # Update ground fires
+            self._update_ground_fires()
             
             if self.destruction_timer >= 180:  # 3 seconds
                 self.destruction_phase = 4
@@ -2656,6 +2707,119 @@ class ShaolinTempleBackground:
             }
             self.collapse_debris.append(debris)
     
+    def _start_lanterns_falling(self):
+        """Start all lanterns falling during destruction"""
+        for lantern in self.lanterns:
+            falling_lantern = {
+                'x': lantern['x'],
+                'y': lantern['y'],
+                'vx': random.uniform(-2, 2),  # Slight horizontal movement
+                'vy': 0,  # Start with no vertical velocity
+                'rotation': 0,
+                'rotation_speed': random.uniform(-5, 5),
+                'size': lantern['size'],
+                'broken': False,
+                'ground_y': self.height - 100 + random.randint(-20, 20),  # Varied ground positions
+            }
+            self.falling_lanterns.append(falling_lantern)
+    
+    def _update_falling_lanterns(self):
+        """Update falling lanterns during destruction"""
+        for lantern in self.falling_lanterns[:]:
+            if not lantern['broken']:
+                # Apply gravity
+                lantern['vy'] += 0.6  # Gravity
+                lantern['y'] += lantern['vy']
+                lantern['x'] += lantern['vx']
+                lantern['rotation'] += lantern['rotation_speed']
+                
+                # Check if hit ground
+                if lantern['y'] >= lantern['ground_y']:
+                    lantern['broken'] = True
+                    # Create fire effect at crash site
+                    self._create_ground_fire(lantern['x'], lantern['ground_y'])
+                    # Create glass breaking debris
+                    self._create_lantern_debris(lantern['x'], lantern['ground_y'])
+    
+    def _create_ground_fire(self, x: float, y: float):
+        """Create fire effect on ground when lantern breaks"""
+        fire = {
+            'x': x,
+            'y': y,
+            'lifetime': 60,  # 1 second at 60 FPS
+            'particles': []
+        }
+        
+        # Create initial fire particles
+        for _ in range(20):
+            particle = {
+                'x': x + random.randint(-20, 20),
+                'y': y + random.randint(-5, 5),
+                'vx': random.uniform(-2, 2),
+                'vy': random.uniform(-3, -1),
+                'size': random.randint(3, 8),
+                'life': random.randint(20, 40),
+                'color_phase': random.uniform(0, 1),
+            }
+            fire['particles'].append(particle)
+        
+        self.ground_fires.append(fire)
+    
+    def _create_lantern_debris(self, x: float, y: float):
+        """Create glass debris when lantern breaks"""
+        for _ in range(15):
+            debris = {
+                'x': x,
+                'y': y,
+                'vx': random.uniform(-5, 5),
+                'vy': random.uniform(-8, -3),
+                'size': random.randint(2, 5),
+                'rotation': random.uniform(0, 360),
+                'rotation_speed': random.uniform(-20, 20),
+                'color': random.choice([
+                    (255, 200, 150, 200),  # Glass color
+                    (255, 100, 50, 180),   # Red glass
+                    (200, 150, 100, 150),  # Brown frame
+                ]),
+                'opacity': 255,
+                'type': 'glass',
+            }
+            self.collapse_debris.append(debris)
+    
+    def _update_ground_fires(self):
+        """Update ground fire effects"""
+        for fire in self.ground_fires[:]:
+            fire['lifetime'] -= 1
+            
+            # Update fire particles
+            for particle in fire['particles'][:]:
+                particle['y'] += particle['vy']
+                particle['x'] += particle['vx']
+                particle['vy'] -= 0.1  # Rise faster
+                particle['life'] -= 1
+                particle['size'] = max(1, particle['size'] - 0.1)
+                
+                if particle['life'] <= 0 or particle['size'] <= 0:
+                    fire['particles'].remove(particle)
+            
+            # Add new particles while fire is active
+            if fire['lifetime'] > 30 and len(fire['particles']) < 15:
+                for _ in range(3):
+                    particle = {
+                        'x': fire['x'] + random.randint(-15, 15),
+                        'y': fire['y'],
+                        'vx': random.uniform(-1, 1),
+                        'vy': random.uniform(-2, -0.5),
+                        'size': random.randint(3, 6),
+                        'life': random.randint(15, 25),
+                        'color_phase': random.uniform(0, 1),
+                    }
+                    fire['particles'].append(particle)
+            
+            # Remove fire when done
+            if fire['lifetime'] <= 0 and len(fire['particles']) == 0:
+                self.ground_fires.remove(fire)
+    
     def _draw_collapse_debris(self, surface: pygame.Surface):
         """Draw falling debris during collapse"""
         for debris in self.collapse_debris:
@@ -2707,6 +2871,78 @@ class ShaolinTempleBackground:
                 surface.blit(debris_surf, 
                            (int(debris['x'] - debris['size']), 
                             int(debris['y'] - debris['size'])))
+    
+    def _draw_falling_lanterns(self, surface: pygame.Surface):
+        """Draw lanterns falling during destruction"""
+        for lantern in self.falling_lanterns:
+            if not lantern['broken']:
+                # Lantern size
+                sizes = {
+                    'small': (15, 20),
+                    'medium': (20, 25),
+                    'large': (25, 30),
+                }
+                width, height = sizes[lantern['size']]
+                
+                # Create rotated lantern surface
+                lantern_surf = pygame.Surface((width * 2, height * 2), pygame.SRCALPHA)
+                
+                # Draw lantern body
+                cx, cy = width, height
+                points = [
+                    (cx - width // 2, cy - height // 2),
+                    (cx + width // 2, cy - height // 2),
+                    (cx + width // 2 - 3, cy + height // 2),
+                    (cx - width // 2 + 3, cy + height // 2),
+                ]
+                
+                # Rotate points
+                rotated_points = []
+                angle = math.radians(lantern['rotation'])
+                for px, py in points:
+                    dx = px - cx
+                    dy = py - cy
+                    rx = cx + dx * math.cos(angle) - dy * math.sin(angle)
+                    ry = cy + dx * math.sin(angle) + dy * math.cos(angle)
+                    rotated_points.append((rx, ry))
+                
+                # Draw lantern with some transparency as it falls
+                pygame.draw.polygon(lantern_surf, (*self.colors['lantern_red'], 200), rotated_points)
+                pygame.draw.polygon(lantern_surf, self.colors['temple_dark'], rotated_points, 1)
+                
+                # Draw flame inside (flickering)
+                if self.frame_count % 3 == 0:
+                    flame_color = (255, 200, 100, 150)
+                    pygame.draw.circle(lantern_surf, flame_color, (cx, cy), width // 3)
+                
+                surface.blit(lantern_surf, 
+                           (int(lantern['x'] - width), 
+                            int(lantern['y'] - height)))
+    
+    def _draw_ground_fires(self, surface: pygame.Surface):
+        """Draw fire effects on the ground"""
+        for fire in self.ground_fires:
+            for particle in fire['particles']:
+                # Fire color gradient (yellow -> orange -> red)
+                if particle['color_phase'] < 0.3:
+                    color = (255, 255, 100)  # Yellow
+                elif particle['color_phase'] < 0.6:
+                    color = (255, 150, 50)   # Orange
+                else:
+                    color = (255, 50, 50)     # Red
+                
+                # Add transparency based on life
+                alpha = int(200 * (particle['life'] / 40))
+                
+                # Create particle surface
+                particle_surf = pygame.Surface((particle['size'] * 2, particle['size'] * 2), pygame.SRCALPHA)
+                pygame.draw.circle(particle_surf, (*color, alpha), 
+                                 (particle['size'], particle['size']), 
+                                 particle['size'])
+                
+                surface.blit(particle_surf,
+                           (int(particle['x'] - particle['size']),
+                            int(particle['y'] - particle['size'])))
     
     def _draw_ruins(self, surface: pygame.Surface):
         """Draw the ruined temple after destruction"""
