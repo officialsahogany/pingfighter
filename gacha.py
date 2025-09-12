@@ -638,10 +638,56 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     pygame.draw.rect(screen, (40, 30, 20), guide_area)
     pygame.draw.rect(screen, (255, 215, 0), guide_area, 3)
     
+    # 포켓볼 아이콘 그리기 함수
+    def draw_pokeball_icon(x, y, size=30, rotation=0):
+        """포켓볼 스타일 아이콘을 그립니다"""
+        # 회전 애니메이션을 위한 각도
+        angle = (pygame.time.get_ticks() / 20 + rotation) % 360
+        
+        # 상단 빨간 부분 (채워진 반원)
+        upper_points = []
+        for i in range(181):
+            angle_rad = math.radians(i)
+            px = x + size * math.cos(angle_rad)
+            py = y - size * math.sin(angle_rad)
+            upper_points.append((px, py))
+        if len(upper_points) > 2:
+            pygame.draw.polygon(screen, (220, 50, 50), upper_points)
+        
+        # 하단 흰 부분 (채워진 반원)
+        lower_points = []
+        for i in range(180, 361):
+            angle_rad = math.radians(i)
+            px = x + size * math.cos(angle_rad)
+            py = y - size * math.sin(angle_rad)
+            lower_points.append((px, py))
+        if len(lower_points) > 2:
+            pygame.draw.polygon(screen, (245, 245, 245), lower_points)
+        
+        # 외곽 원
+        pygame.draw.circle(screen, (20, 20, 20), (x, y), size, 3)
+        
+        # 중간 가로선
+        pygame.draw.line(screen, (20, 20, 20), 
+                        (x - size, y), (x + size, y), 4)
+        
+        # 중앙 버튼 (외곽)
+        pygame.draw.circle(screen, (20, 20, 20), (x, y), size // 3 + 2)
+        # 중앙 버튼 (흰색 부분)
+        pygame.draw.circle(screen, (255, 255, 255), (x, y), size // 3)
+        # 중앙 버튼 (내부)
+        pygame.draw.circle(screen, (80, 80, 80), (x, y), size // 5)
+        
+        # 하이라이트 효과
+        highlight_x = x - size // 3
+        highlight_y = y - size // 3
+        pygame.draw.circle(screen, (255, 255, 255, 100), 
+                          (highlight_x, highlight_y), size // 6)
+    
     # 안내 텍스트 (더 크고 깔끔하게)
     if gacha_phase == 0:
         guide_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 32)
-        guide_text = "✨ SPACE를 눌러 뽑기 시작! ✨"
+        guide_text = "SPACE를 눌러 뽑기 시작!"
         text = guide_font.render(guide_text, True, (255, 255, 255))
         # 텍스트 그림자
         shadow_text = guide_font.render(guide_text, True, (80, 80, 80))
@@ -651,6 +697,13 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
         shadow_rect.y += 2
         screen.blit(shadow_text, shadow_rect)
         screen.blit(text, text_rect)
+        
+        # 포켓볼 아이콘 그리기 (텍스트 양 옆)
+        pokeball_offset = text_rect.width // 2 + 60
+        # 왼쪽 포켓볼 (약간 회전)
+        draw_pokeball_icon(text_rect.centerx - pokeball_offset, text_rect.centery, 28, 0)
+        # 오른쪽 포켓볼 (반대로 회전)
+        draw_pokeball_icon(text_rect.centerx + pokeball_offset, text_rect.centery, 28, 180)
     
     elif gacha_phase == 1:
         guide_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 28)

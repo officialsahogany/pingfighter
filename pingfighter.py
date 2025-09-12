@@ -1947,12 +1947,14 @@ boss_fake_start_time = 0
 boss_fake_duration = 2000
 boss_fake_during_player_serve = False
 speed_defense_active = False
-speed_defense_cooldown = 180  # 3초 지속 시간 (60 FPS * 3초)
+speed_defense_cooldown = 120  # 2초 지속 시간 (60 FPS * 2초) - 난이도 하향
 speed_defense_timer = 0
 speed_defense_last_activation = 0  # 마지막 발동 시간
-SPEED_DEFENSE_INTERVAL = 1500  # 25초 발동 간격 (60 FPS * 25초)
+SPEED_DEFENSE_INTERVAL = 2100  # 35초 발동 간격 (60 FPS * 35초) - 난이도 하향
 SPEED_DEFENSE_BLOCK_RATE = 0.8  # 80% 방어율
 speed_defense_checked = False
+serve_grace_period = 0  # 서브 후 유예 기간 (난이도 하향)
+SERVE_GRACE_DURATION = 180  # 3초간 Speed Defense/지진 방지 (60 FPS * 3초)
 original_speed = [0, 0]  # 암행트위스트 발동 전 속도 백업용
 last_hit_time = 0  # 플레이어 마지막으로 맞은 시간
 final_wave_direction = [0, 0]  # 공의 마지막 이동 방향 (X, Y)
@@ -2632,7 +2634,7 @@ boss_special_gauge_stage4 = 0
 boss_special_ready_stage4 = False
 stage4_magnetic_active = False
 stage4_magnetic_timer = 0
-stage4_magnetic_radius = 130
+stage4_magnetic_radius = 160  # 130 → 160 (더 넓은 범위) - 난이도 상향
 # ️ get_reddish_ball_image 함수 제거됨 - 예전 파워스매싱 시스템 제거
 def activate_fireball():
     global fireball_active, fireball_pos, fireball_vel, fireball_timer, fireball_direction
@@ -4083,6 +4085,13 @@ def handle_meditation():
         ball_vel = [speed * math.sin(rad), abs(speed * math.cos(rad))]
 def activate_quake(animated_bg=None):
     global quake_active, quake_timer, PLAYER_SPEED, original_ball_speed_quake
+    global serve_grace_period, current_stage  # 난이도 하향
+    
+    # Stage 2에서 서브 유예 기간 중에는 정글지진 발동 방지 (난이도 하향)
+    if current_stage == 2 and serve_grace_period > 0:
+        print(f"정글지진 발동 방지 - 서브 유예 기간 중 (남은 시간: {serve_grace_period/60:.1f}초)")
+        return
+    
     print(f" activate_quake ! quake_duration={quake_duration}, animated_bg={animated_bg is not None}")
     quake_active = True
     quake_timer = quake_duration
@@ -4772,6 +4781,9 @@ def handle_lightning_master_as_top():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -4788,6 +4800,9 @@ def handle_lightning_master_as_top():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -4869,6 +4884,9 @@ def handle_ice_queen_as_top():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -4885,6 +4903,9 @@ def handle_ice_queen_as_top():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -28532,7 +28553,7 @@ def handle_ball():
                 print(f"     ({elapsed_time:.1f}/2.0) -    (handle_ball)")
         if current_stage == 4 and boss_special_ready_stage4:
             stage4_magnetic_active = True
-            stage4_magnetic_timer = 150
+            stage4_magnetic_timer = 200  # 150 → 200 (더 긴 지속시간) - 난이도 상향
             boss_special_ready_stage4 = False
             boss_special_gauge_stage4 = 0
             show_speech("굴절자기장!", duration=90)
@@ -29188,11 +29209,11 @@ def handle_ball():
             # 명상 발동 체크 (20% 확률로 증가, 자기장과 동시 발동 가능)
             if not meditation_active and not stage4_magnetic_active and random.random() <= 0.20:
                 activate_meditation()
-            # 자기장 게이지 충전 (명상과 독립적으로 처리)
+            # 자기장 게이지 충전 (명상과 독립적으로 처리) - 난이도 상향
             elif not stage4_magnetic_active and not meditation_active:
-                boss_special_gauge_stage4 += 90
-                if boss_special_gauge_stage4 >= 300:
-                    boss_special_gauge_stage4 = 300
+                boss_special_gauge_stage4 += 120  # 90 → 120 (더 빠른 충전)
+                if boss_special_gauge_stage4 >= 250:  # 300 → 250 (더 낮은 발동 조건)
+                    boss_special_gauge_stage4 = 250
                     boss_special_ready_stage4 = True
 def predict_ball_position(frames=20):
     predict_x = BALL.centerx + ball_vel[0] * frames
@@ -29355,6 +29376,9 @@ def handle_boss_pro():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -29371,6 +29395,9 @@ def handle_boss_pro():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -29569,6 +29596,9 @@ def handle_boss_champion():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -29585,6 +29615,9 @@ def handle_boss_champion():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -29789,6 +29822,9 @@ def handle_boss_mythic():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -29805,6 +29841,9 @@ def handle_boss_mythic():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -30152,6 +30191,9 @@ def handle_boss_junior():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -30168,6 +30210,9 @@ def handle_boss_junior():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -30852,6 +30897,7 @@ def handle_boss():
     global is_player_serve, is_waiting_for_serve
     global boss_fake_during_player_serve
     global speed_defense_active, speed_defense_timer, speed_defense_last_activation, SPEED_DEFENSE_INTERVAL
+    global serve_grace_period  # 난이도 하향 - 서브 유예 기간
     global boss_current_speed, boss_fail_timer
     global BOSS_ACCELERATION, BOSS_DECELERATION, BOSS_MAX_SPEED, BOSS_INSTANT_STOP_DECELERATION
     global waiting_start_time, wait_delay
@@ -31176,6 +31222,9 @@ def handle_boss():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -31190,6 +31239,9 @@ def handle_boss():
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
@@ -31287,8 +31339,12 @@ def handle_boss():
     BOSS.centerx = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, BOSS.centerx))
     # --- Stage 2 보스 스피드 디펜스 (위험감지센서 역할) ---
     if current_stage == 2:
-        # 플레이어가 친 공이 보스에게 위험할 때 발동
-        if not speed_defense_active and speed_defense_timer <= 0 and ball_vel[1] < 0:  # 공이 위로 향할 때
+        # 서브 유예 기간 카운트다운 (난이도 하향)
+        if serve_grace_period > 0:
+            serve_grace_period -= 1
+        
+        # 플레이어가 친 공이 보스에게 위험할 때 발동 (유예 기간 제외)
+        if not speed_defense_active and speed_defense_timer <= 0 and ball_vel[1] < 0 and serve_grace_period <= 0:  # 공이 위로 향할 때
             # 공이 보스 근처에 도달할 시간 예측
             if BALL.centery < HEIGHT * 0.5:  # 공이 화면 상단 50% 지점 이상 (더 일찍 감지)
                 time_to_reach_boss = abs((BOSS.centery - BALL.centery) / ball_vel[1]) if ball_vel[1] < 0 else float('inf')
@@ -31298,9 +31354,9 @@ def handle_boss():
                     # 보스가 현재 속도로 이동해도 도달하기 어려운 위치인지 확인
                     boss_max_move = BOSS_MAX_SPEED_DEFAULT * time_to_reach_boss
                     # 위험 감지: 보스가 도달하기 어려운 거리 (더 민감하게)
-                    if distance_to_predicted > boss_max_move * 0.6:  # 60% 이상 도달 어려움 (더 민감)
+                    if distance_to_predicted > boss_max_move * 0.8:  # 80% 이상 도달 어려움 (덜 민감) - 난이도 하향
                         # 10% 확률로 스피드디펜스 발동 (확률 증가)
-                        if random.random() < 0.10:
+                        if random.random() < 0.06:  # 6% 확률로 발동 (기존 10%) - 난이도 하향
                             # 발동 간격 체크 (25초)
                             current_time = pygame.time.get_ticks() // 16  # 프레임으로 변환
                             if current_time - speed_defense_last_activation >= SPEED_DEFENSE_INTERVAL:
@@ -31312,16 +31368,16 @@ def handle_boss():
                                 # 리그와 스테이지에 따른 현재 보스 속도 가져오기
                                 current_config = get_final_boss_config(current_stage, ai_mode if ai_enabled else "pro")
                                 # 스피드디펜스: 현재 속도의 200% 적용
-                                speed_multiplier = 2.0  # 100% 증가 (2배속)
+                                speed_multiplier = 1.5  # 50% 증가 (1.5배속) - 난이도 하향
                                 BOSS_ACCELERATION = current_config["accel"] * speed_multiplier
                                 BOSS_DECELERATION = current_config["decel"] * speed_multiplier
                                 BOSS_MAX_SPEED = current_config["max_speed"] * speed_multiplier
                                 BOSS_INSTANT_STOP_DECELERATION = current_config["instant_stop"] * speed_multiplier
                                 # 즉시 목표 지점으로 가속 시작
                                 if predicted_x < BOSS.centerx:
-                                    boss_current_speed = -BOSS_MAX_SPEED * 0.3  # 왼쪽으로 초기 속도 부여 (최대속도의 30%)
+                                    boss_current_speed = -BOSS_MAX_SPEED * 0.2  # 왼쪽으로 초기 속도 부여 (최대속도의 20%) - 난이도 하향
                                 else:
-                                    boss_current_speed = BOSS_MAX_SPEED * 0.3   # 오른쪽으로 초기 속도 부여 (최대속도의 30%)
+                                    boss_current_speed = BOSS_MAX_SPEED * 0.2   # 오른쪽으로 초기 속도 부여 (최대속도의 20%) - 난이도 하향
                                 SOUND_DEFENSE_START.play()
                                 print(f"스피드 디펜스 발동! 거리 차이: {distance_to_predicted:.1f}, 최대 이동 가능: {boss_max_move:.1f}")
         if speed_defense_timer > 0:
@@ -33331,6 +33387,9 @@ def main(stage_num, new_boss_mode=False):
                 ball_vel = serve_result['ball_vel']
                 ball_impact_boost = serve_result['ball_impact_boost']
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
+                # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
+                if current_stage == 2:
+                    serve_grace_period = SERVE_GRACE_DURATION
                 if serve_result['fireball_last_cast'] is not None:
                     fireball_last_cast = serve_result['fireball_last_cast']
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정

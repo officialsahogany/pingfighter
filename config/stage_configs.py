@@ -48,13 +48,13 @@ BOSS_CONFIGS = {
     4: {
         "name": "퐁크",
         "color": (255, 215, 0),
-        "accel": 0.867,     
-        "decel": 0.867,     
-        "max_speed": 6.785,  
-        "instant_stop": 0.720,
-        "predict_distance": 150,
+        "accel": 0.950,     # 0.867 → 0.950 상향
+        "decel": 0.950,     # 0.867 → 0.950 상향
+        "max_speed": 7.200,  # 6.785 → 7.200 상향 (Stage 3보다 높게)
+        "instant_stop": 0.800,  # 0.720 → 0.800 상향
+        "predict_distance": 140,  # 150 → 140 (더 정확하게)
         "skill_power": 0.4,
-        "fail_error": 270,
+        "fail_error": 250,  # 270 → 250 (더 정확하게)
         "special_skill": "grenade",  # 수류탄
     },
     5: {

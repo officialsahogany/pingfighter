@@ -144,7 +144,7 @@ class AnimatedBackgroundStage2:
         self.crisis_rocks = []  # 위기 상황 바위들
         self.earthquake_active = False  # 지진 효과 활성화
         self.earthquake_timer = 0  # 지진 타이머
-        self.earthquake_duration = 80  # 정글지진 스킬 지속시간과 동기화 (80프레임)
+        self.earthquake_duration = 60  # 정글지진 스킬 지속시간 감소 (60프레임) - 난이도 하향
         self.rock_spawn_triggered = False  # 바위 생성 트리거 여부
         self.crisis_triggered = False  # 위기 상황 발동 여부 (한 번만)
         
