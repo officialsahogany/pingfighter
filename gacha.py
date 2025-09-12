@@ -736,22 +736,19 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     text_center_y = container_y + container_height - 80
     
     # 스페이스 누른 후 가속도 계산
-    if gacha_phase > 0:
+    if gacha_phase > 0 and gacha_start_time > 0:
         # phase가 진행될수록 더 빠르게 회전 (지수적 가속)
-        try:
-            elapsed_time = (pygame.time.get_ticks() - gacha_start_time) / 1000.0
-        except:
-            elapsed_time = 0
-        # 1초에 1.5배속, 2초에 2.25배속, 3초에 3.375배속으로 가속
-        speed = 1.0 + (elapsed_time * 0.8) + (elapsed_time ** 2 * 0.3)
-        speed = min(speed, 10.0)  # 최대 10배속 제한
+        elapsed_time = (pygame.time.get_ticks() - gacha_start_time) / 1000.0
+        # 1초에 2배속, 2초에 4배속, 3초에 6배속으로 더 명확한 가속
+        speed = 1.0 + (elapsed_time * 2.0)
+        speed = min(speed, 15.0)  # 최대 15배속 제한
     else:
         speed = 1.0  # 기본 속도
     
-    # 왼쪽 캡슐 (텍스트 왼쪽에 더 가깝게)
-    draw_pokeball_icon(container_x + 200, text_center_y, 28, 0, speed)
-    # 오른쪽 캡슐 (텍스트 오른쪽에 더 가깝게)
-    draw_pokeball_icon(container_x + container_width - 200, text_center_y, 28, 180, speed)
+    # 왼쪽 캡슐 (적당한 거리)
+    draw_pokeball_icon(container_x + 150, text_center_y, 28, 0, speed)
+    # 오른쪽 캡슐 (적당한 거리)
+    draw_pokeball_icon(container_x + container_width - 150, text_center_y, 28, 180, speed)
     
 
     
@@ -759,10 +756,11 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
 
 def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, store_active_item, get_item_description):
     """뽑기 시스템 실행 함수"""
-    global gacha_phase, gacha_spinning, gacha_result
+    global gacha_phase, gacha_spinning, gacha_result, gacha_start_time
     
     clock = pygame.time.Clock()
     running = True
+    gacha_start_time = 0  # 초기화
     
     while running:
         clock.tick(60)
