@@ -638,51 +638,56 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     pygame.draw.rect(screen, (40, 30, 20), guide_area)
     pygame.draw.rect(screen, (255, 215, 0), guide_area, 3)
     
-    # 포켓볼 아이콘 그리기 함수
+    # 가챠 캡슐 아이콘 그리기 함수
     def draw_pokeball_icon(x, y, size=30, rotation=0):
-        """포켓볼 스타일 아이콘을 그립니다"""
-        # 회전 애니메이션을 위한 각도
-        angle = (pygame.time.get_ticks() / 20 + rotation) % 360
+        """가챠 캡슐 스타일 아이콘을 그립니다"""
+        # 애니메이션 효과
+        pulse = math.sin(pygame.time.get_ticks() / 200) * 2
+        current_size = size + pulse
         
-        # 상단 빨간 부분 (채워진 반원)
-        upper_points = []
-        for i in range(181):
-            angle_rad = math.radians(i)
-            px = x + size * math.cos(angle_rad)
-            py = y - size * math.sin(angle_rad)
-            upper_points.append((px, py))
-        if len(upper_points) > 2:
-            pygame.draw.polygon(screen, (220, 50, 50), upper_points)
+        # 육각형 외곽 (포켓볼과 다른 독특한 모양)
+        points = []
+        for i in range(6):
+            angle_rad = math.radians(60 * i + rotation)
+            px = x + current_size * math.cos(angle_rad)
+            py = y + current_size * math.sin(angle_rad)
+            points.append((px, py))
         
-        # 하단 흰 부분 (채워진 반원)
-        lower_points = []
-        for i in range(180, 361):
-            angle_rad = math.radians(i)
-            px = x + size * math.cos(angle_rad)
-            py = y - size * math.sin(angle_rad)
-            lower_points.append((px, py))
-        if len(lower_points) > 2:
-            pygame.draw.polygon(screen, (245, 245, 245), lower_points)
+        # 그라데이션 효과를 위한 내부 육각형
+        inner_points = []
+        for i in range(6):
+            angle_rad = math.radians(60 * i + rotation)
+            px = x + (current_size * 0.8) * math.cos(angle_rad)
+            py = y + (current_size * 0.8) * math.sin(angle_rad)
+            inner_points.append((px, py))
         
-        # 외곽 원
-        pygame.draw.circle(screen, (20, 20, 20), (x, y), size, 3)
+        # 배경 육각형 (사이버펑크 네온 색상)
+        pygame.draw.polygon(screen, (100, 200, 255), points)
+        pygame.draw.polygon(screen, (150, 100, 255), inner_points)
         
-        # 중간 가로선
-        pygame.draw.line(screen, (20, 20, 20), 
-                        (x - size, y), (x + size, y), 4)
+        # 외곽선
+        pygame.draw.polygon(screen, (0, 255, 255), points, 3)
         
-        # 중앙 버튼 (외곽)
-        pygame.draw.circle(screen, (20, 20, 20), (x, y), size // 3 + 2)
-        # 중앙 버튼 (흰색 부분)
-        pygame.draw.circle(screen, (255, 255, 255), (x, y), size // 3)
-        # 중앙 버튼 (내부)
-        pygame.draw.circle(screen, (80, 80, 80), (x, y), size // 5)
+        # 중앙 다이아몬드 모양 (포켓볼의 원 대신)
+        diamond_points = [
+            (x, y - size // 2),  # 상단
+            (x + size // 3, y),  # 오른쪽
+            (x, y + size // 2),  # 하단
+            (x - size // 3, y)   # 왼쪽
+        ]
+        pygame.draw.polygon(screen, (255, 255, 255), diamond_points)
+        pygame.draw.polygon(screen, (0, 255, 255), diamond_points, 2)
         
-        # 하이라이트 효과
-        highlight_x = x - size // 3
-        highlight_y = y - size // 3
-        pygame.draw.circle(screen, (255, 255, 255, 100), 
-                          (highlight_x, highlight_y), size // 6)
+        # 중앙 점 (에너지 코어)
+        pygame.draw.circle(screen, (255, 100, 255), (x, y), size // 6)
+        pygame.draw.circle(screen, (255, 255, 255), (x, y), size // 10)
+        
+        # 빛나는 효과
+        for i in range(3):
+            alpha = 100 - (i * 30)
+            glow_size = size // 4 + (i * 3)
+            pygame.draw.circle(screen, (100, 200, 255, alpha), 
+                             (x, y), glow_size, 1)
     
     # 안내 텍스트 (더 크고 깔끔하게)
     if gacha_phase == 0:
