@@ -197,6 +197,45 @@ class ShaolinTempleBackground:
             })
         return dummies
     
+    def _draw_red_moon(self, surface: pygame.Surface):
+        """Draw red moon overlay during destruction"""
+        moon_x, moon_y = self.width - 120, 100
+        
+        # Create intense red glow
+        for i in range(12, 0, -1):
+            # More intense red glow
+            alpha = int(30 * i * self.moon_red_intensity)  # Stronger glow
+            glow_radius = 35 + i * 15
+            
+            # Create glow surface
+            glow_size = glow_radius * 2 + 10
+            glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            glow_surface.fill((0, 0, 0, 0))
+            
+            # Draw intense red glow
+            glow_color = (255, 0, 0, min(255, alpha))
+            pygame.draw.circle(glow_surface, glow_color,
+                             (glow_size // 2, glow_size // 2),
+                             glow_radius)
+            
+            surface.blit(glow_surface,
+                        (moon_x - glow_size // 2,
+                         moon_y - glow_size // 2))
+        
+        # Draw intense red moon overlay
+        moon_surface = pygame.Surface((80, 80), pygame.SRCALPHA)
+        red_intensity = int(255 * self.moon_red_intensity)
+        moon_color = (255, 50 - int(30 * self.moon_red_intensity), 50 - int(40 * self.moon_red_intensity), red_intensity)
+        pygame.draw.circle(moon_surface, moon_color, (40, 40), 35)
+        
+        # Add darker red craters for depth
+        crater_color = (200, 0, 0, red_intensity)
+        pygame.draw.circle(moon_surface, crater_color, (30, 35), 5)
+        pygame.draw.circle(moon_surface, crater_color, (48, 50), 3)
+        pygame.draw.circle(moon_surface, crater_color, (55, 32), 4)
+        
+        surface.blit(moon_surface, (moon_x - 40, moon_y - 40))
+    
     def _draw_static_background(self):
         """Draw static background elements"""
         # Gradient sky
@@ -250,65 +289,107 @@ class ShaolinTempleBackground:
         temple_x = self.width // 2
         temple_base_y = 450
         
+        # Apply gradual collapse offset if destruction is active
+        collapse_y_offset = 0
+        collapse_rotation = 0
+        collapse_opacity = 255
+        
+        if hasattr(self, 'collapse_offset') and self.collapse_offset > 0:
+            # Temple gradually sinks and becomes transparent
+            collapse_y_offset = self.collapse_offset
+            # Add slight rotation for tilting effect
+            collapse_rotation = min(5, self.collapse_offset / 30)
+            # Gradually fade temple
+            collapse_opacity = max(100, 255 - self.collapse_offset)
+        
+        # Create temple surface for collapse effects
+        temple_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        
         # 5층 탑 그리기
         for level in range(self.pagoda_levels):
-            level_y = temple_base_y - level * 60
+            # Each level falls at slightly different speed for more natural collapse
+            level_collapse_offset = collapse_y_offset * (1 + level * 0.1)
+            level_y = temple_base_y - level * 60 + level_collapse_offset
             level_width = 200 - level * 25
             level_height = 50
             
-            # 층 몸체
+            # 층 몸체 (with collapse opacity)
             body_rect = pygame.Rect(
                 temple_x - level_width // 2,
                 level_y - level_height,
                 level_width,
                 level_height
             )
-            pygame.draw.rect(surface, self.colors['temple_main'], body_rect)
-            pygame.draw.rect(surface, self.colors['temple_dark'], body_rect, 2)
+            # Apply opacity for collapse effect
+            main_color = (*self.colors['temple_main'], collapse_opacity)
+            dark_color = (*self.colors['temple_dark'], collapse_opacity)
             
-            # 기와 지붕
+            # Draw on temple surface with opacity
+            pygame.draw.rect(temple_surface, main_color, body_rect)
+            pygame.draw.rect(temple_surface, dark_color, body_rect, 2)
+            
+            # 기와 지붕 (with collapse opacity)
             roof_points = [
                 (temple_x - level_width // 2 - 15, level_y - level_height),
                 (temple_x + level_width // 2 + 15, level_y - level_height),
                 (temple_x + level_width // 2 + 5, level_y - level_height - 20),
                 (temple_x - level_width // 2 - 5, level_y - level_height - 20),
             ]
-            pygame.draw.polygon(surface, self.colors['roof_red'], roof_points)
-            pygame.draw.polygon(surface, self.colors['roof_dark'], roof_points, 2)
+            roof_color = (*self.colors['roof_red'], collapse_opacity)
+            roof_dark_color = (*self.colors['roof_dark'], collapse_opacity)
+            pygame.draw.polygon(temple_surface, roof_color, roof_points)
+            pygame.draw.polygon(temple_surface, roof_dark_color, roof_points, 2)
             
-            # 금색 장식
+            # 금색 장식 (with collapse opacity)
             if level == 0:  # 최상층
                 # 탑 꼭대기 장식
-                pygame.draw.circle(surface, self.colors['gold_accent'], 
+                gold_color = (*self.colors['gold_accent'], collapse_opacity)
+                pygame.draw.circle(temple_surface, gold_color, 
                                  (temple_x, level_y - level_height - 30), 8)
-                pygame.draw.lines(surface, self.colors['gold_accent'], False,
+                pygame.draw.lines(temple_surface, gold_color, False,
                                 [(temple_x, level_y - level_height - 38),
                                  (temple_x, level_y - level_height - 50)], 2)
             
             # 창문
             if level < self.pagoda_levels - 1:
                 window_y = level_y - level_height // 2
-                pygame.draw.rect(surface, self.colors['temple_dark'],
+                window_dark_color = (*self.colors['temple_dark'], collapse_opacity)
+                window_gold_color = (*self.colors['gold_dim'], collapse_opacity)
+                pygame.draw.rect(temple_surface, window_dark_color,
                                (temple_x - 15, window_y - 8, 30, 16))
-                pygame.draw.rect(surface, self.colors['gold_dim'],
+                pygame.draw.rect(temple_surface, window_gold_color,
                                (temple_x - 15, window_y - 8, 30, 16), 1)
         
-        # 입구
-        entrance_y = temple_base_y
-        pygame.draw.rect(surface, self.colors['temple_dark'],
+        # 입구 (with collapse offset)
+        entrance_y = temple_base_y + collapse_y_offset
+        entrance_dark_color = (*self.colors['temple_dark'], collapse_opacity)
+        entrance_gold_color = (*self.colors['gold_accent'], collapse_opacity)
+        pygame.draw.rect(temple_surface, entrance_dark_color,
                         (temple_x - 25, entrance_y - 40, 50, 40))
-        pygame.draw.rect(surface, self.colors['gold_accent'],
+        pygame.draw.rect(temple_surface, entrance_gold_color,
                         (temple_x - 25, entrance_y - 40, 50, 40), 2)
         
-        # 돌계단
+        # 돌계단 (with collapse offset)
         for step in range(5):
             step_y = entrance_y + step * 8
             step_width = 150 + step * 20
-            pygame.draw.rect(surface, self.colors['stone_gray'],
+            stone_color = (*self.colors['stone_gray'], collapse_opacity)
+            stone_dark_color = (*self.colors['stone_dark'], collapse_opacity)
+            pygame.draw.rect(temple_surface, stone_color,
                            (temple_x - step_width // 2, step_y, step_width, 8))
-            pygame.draw.line(surface, self.colors['stone_dark'],
+            pygame.draw.line(temple_surface, stone_dark_color,
                            (temple_x - step_width // 2, step_y),
                            (temple_x + step_width // 2, step_y), 1)
+        
+        # Blit the temple surface to the main surface
+        # Apply rotation if collapsing for tilting effect
+        if collapse_rotation > 0:
+            rotated_temple = pygame.transform.rotate(temple_surface, collapse_rotation)
+            # Center the rotated surface
+            rot_rect = rotated_temple.get_rect(center=(self.width // 2, self.height // 2))
+            surface.blit(rotated_temple, rot_rect)
+        else:
+            surface.blit(temple_surface, (0, 0))
     
     def _draw_dragon_ornament(self, surface: pygame.Surface, dragon: Dict[str, Any]):
         """Draw a dragon ornament"""
@@ -1932,6 +2013,10 @@ class ShaolinTempleBackground:
         # Draw static background
         temp_surface.blit(self.static_surface, (0, 0))
         
+        # Draw red moon during destruction (overlay on top of normal moon)
+        if self.moon_red_intensity > 0:
+            self._draw_red_moon(temp_surface)
+        
         # Draw stars
         self._draw_stars(temp_surface)
         
@@ -2458,10 +2543,13 @@ class ShaolinTempleBackground:
         self.destruction_timer += 1
         
         if self.destruction_phase == 1:  # Moon turning red (2 seconds)
-            # Gradually increase red intensity
-            self.moon_red_intensity = min(1.0, self.destruction_timer / 120.0)
+            # Gradually increase red intensity with more dramatic curve
+            progress = self.destruction_timer / 120.0
+            # Use exponential curve for more intense transition
+            self.moon_red_intensity = min(1.0, progress ** 0.5)  # Faster initial change
             
             if self.destruction_timer >= 120:  # 2 seconds at 60 FPS
+                self.moon_red_intensity = 1.0  # Ensure it's fully red
                 self.destruction_phase = 2
                 self.destruction_timer = 0
                 
@@ -2478,19 +2566,33 @@ class ShaolinTempleBackground:
                 self._create_collapse_debris()
                 
         elif self.destruction_phase == 3:  # Temple collapsing (3 seconds)
-            # Screen shake effect
-            self.screen_shake_intensity = max(0, 10 - self.destruction_timer // 20)
+            # More intense screen shake
+            if self.destruction_timer < 60:
+                self.screen_shake_intensity = 5 + int(self.destruction_timer / 10)
+            elif self.destruction_timer < 120:
+                self.screen_shake_intensity = 10
+            else:
+                self.screen_shake_intensity = max(0, 10 - (self.destruction_timer - 120) // 10)
             
-            # Collapse animation
-            self.collapse_offset = min(300, self.destruction_timer * 2)
+            # Gradual collapse animation with acceleration
+            collapse_progress = self.destruction_timer / 180.0
+            # Use exponential curve for more natural collapse
+            self.collapse_offset = int(350 * (collapse_progress ** 1.5))
             
-            # Update debris
+            # Update debris with more realistic physics
             for debris in self.collapse_debris:
                 debris['y'] += debris['vy']
                 debris['x'] += debris['vx']
-                debris['vy'] += 0.5  # Gravity
+                debris['vy'] += 0.4  # Slightly less gravity for more float time
+                debris['vx'] *= 0.98  # Air resistance
                 debris['rotation'] += debris['rotation_speed']
-                debris['opacity'] = max(0, debris['opacity'] - 1)
+                # Slower fade for better visibility
+                if self.destruction_timer > 60:  # Start fading after 1 second
+                    debris['opacity'] = max(0, debris['opacity'] - 0.5)
+            
+            # Add more debris periodically for continuous collapse effect
+            if self.destruction_timer % 15 == 0 and self.destruction_timer < 120:
+                self._create_additional_debris()
             
             if self.destruction_timer >= 180:  # 3 seconds
                 self.destruction_phase = 4
@@ -2508,23 +2610,49 @@ class ShaolinTempleBackground:
         """Create debris particles for temple collapse"""
         self.collapse_debris = []
         
-        # Create many debris pieces
-        for _ in range(50):
+        # Create many debris pieces with varied sizes and positions
+        for _ in range(80):  # More debris for better effect
             debris = {
-                'x': self.width // 2 + random.randint(-100, 100),
-                'y': 450 + random.randint(-50, 50),
-                'vx': random.uniform(-5, 5),
-                'vy': random.uniform(-10, -2),
-                'size': random.randint(5, 20),
+                'x': self.width // 2 + random.randint(-150, 150),
+                'y': 350 + random.randint(-100, 100),  # Various starting heights
+                'vx': random.uniform(-8, 8),
+                'vy': random.uniform(-15, -3),  # Stronger initial upward velocity
+                'size': random.randint(3, 25),  # More size variation
                 'rotation': random.uniform(0, 360),
-                'rotation_speed': random.uniform(-10, 10),
+                'rotation_speed': random.uniform(-15, 15),
                 'color': random.choice([
                     self.colors['temple_main'],
                     self.colors['temple_dark'],
                     self.colors['roof_red'],
-                    self.colors['stone_gray']
+                    self.colors['stone_gray'],
+                    (80, 60, 40),  # Wood color
+                    (100, 80, 60),  # Light wood
                 ]),
-                'opacity': 255
+                'opacity': 255,
+                'type': random.choice(['square', 'rectangle', 'triangle'])  # Different shapes
+            }
+            self.collapse_debris.append(debris)
+    
+    def _create_additional_debris(self):
+        """Create additional debris during collapse for continuous effect"""
+        # Add 5-10 new debris pieces
+        for _ in range(random.randint(5, 10)):
+            debris = {
+                'x': self.width // 2 + random.randint(-120, 120),
+                'y': 400 + random.randint(-50, 50),
+                'vx': random.uniform(-6, 6),
+                'vy': random.uniform(-8, -2),
+                'size': random.randint(4, 15),
+                'rotation': random.uniform(0, 360),
+                'rotation_speed': random.uniform(-12, 12),
+                'color': random.choice([
+                    self.colors['temple_main'],
+                    self.colors['temple_dark'],
+                    self.colors['roof_red'],
+                    (90, 70, 50),  # Darker wood
+                ]),
+                'opacity': 255,
+                'type': random.choice(['square', 'rectangle', 'triangle'])
             }
             self.collapse_debris.append(debris)
     
@@ -2535,17 +2663,46 @@ class ShaolinTempleBackground:
                 # Create surface for debris
                 debris_surf = pygame.Surface((debris['size'] * 2, debris['size'] * 2), pygame.SRCALPHA)
                 
-                # Draw debris piece
+                # Draw debris piece based on type
                 color = (*debris['color'], debris['opacity'])
-                points = []
-                for i in range(4):
-                    angle = math.radians(debris['rotation'] + i * 90)
-                    x = debris['size'] + debris['size'] * 0.8 * math.cos(angle)
-                    y = debris['size'] + debris['size'] * 0.8 * math.sin(angle)
-                    points.append((x, y))
                 
-                if len(points) >= 3:
+                if debris.get('type') == 'triangle':
+                    # Draw triangle debris
+                    points = []
+                    for i in range(3):
+                        angle = math.radians(debris['rotation'] + i * 120)
+                        x = debris['size'] + debris['size'] * 0.9 * math.cos(angle)
+                        y = debris['size'] + debris['size'] * 0.9 * math.sin(angle)
+                        points.append((x, y))
+                    if len(points) >= 3:
+                        pygame.draw.polygon(debris_surf, color, points)
+                
+                elif debris.get('type') == 'rectangle':
+                    # Draw rectangular debris
+                    rect_width = debris['size'] * 1.5
+                    rect_height = debris['size'] * 0.7
+                    # Create rotated rectangle
+                    points = []
+                    for dx, dy in [(-rect_width/2, -rect_height/2), 
+                                  (rect_width/2, -rect_height/2),
+                                  (rect_width/2, rect_height/2),
+                                  (-rect_width/2, rect_height/2)]:
+                        angle = math.radians(debris['rotation'])
+                        x = debris['size'] + dx * math.cos(angle) - dy * math.sin(angle)
+                        y = debris['size'] + dx * math.sin(angle) + dy * math.cos(angle)
+                        points.append((x, y))
                     pygame.draw.polygon(debris_surf, color, points)
+                
+                else:  # square or default
+                    # Draw square debris
+                    points = []
+                    for i in range(4):
+                        angle = math.radians(debris['rotation'] + i * 90)
+                        x = debris['size'] + debris['size'] * 0.8 * math.cos(angle)
+                        y = debris['size'] + debris['size'] * 0.8 * math.sin(angle)
+                        points.append((x, y))
+                    if len(points) >= 3:
+                        pygame.draw.polygon(debris_surf, color, points)
                 
                 surface.blit(debris_surf, 
                            (int(debris['x'] - debris['size']), 
