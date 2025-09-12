@@ -1235,7 +1235,8 @@ class ShaolinTempleBackground:
     
     def get_monk_staff_deflection(self, ball_x: float = 300, ball_y: float = 400) -> tuple:
         """Get deflection angle for ball based on monk's staff swing
-        Returns (deflection_x, deflection_y) or None if no deflection"""
+        Returns (deflection_x, deflection_y) or None if no deflection
+        Note: Ball speed is increased by 5~20% in pingfighter.py when monk hits"""
         # 몽크가 있는지 체크
         if not self.monks:
             return None

@@ -639,12 +639,15 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     pygame.draw.rect(screen, (255, 215, 0), guide_area, 3)
     
     # 세련된 캡슐 아이콘 그리기 함수
-    def draw_pokeball_icon(x, y, size=30, rotation=0):
-        """미니멀하고 세련된 캡슐 아이콘을 그립니다"""
+    def draw_pokeball_icon(x, y, size=30, rotation=0, speed_multiplier=1.0):
+        """미니멀하고 세련된 캡슐 아이콘을 그립니다
+        speed_multiplier: 회전 속도 배수 (1.0 = 기본 속도)
+        """
         # 부드러운 애니메이션
         time = pygame.time.get_ticks() / 1000
         glow_alpha = int(128 + 127 * math.sin(time * 2))
-        rotate_angle = time * 30 + rotation
+        # 속도 배수를 적용한 회전 각도
+        rotate_angle = time * 30 * speed_multiplier + rotation
         
         # 메인 캡슐 (원형 + 그라데이션 효과)
         # 외부 글로우
@@ -704,17 +707,10 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
         shadow_rect.y += 2
         screen.blit(shadow_text, shadow_rect)
         screen.blit(text, text_rect)
-        
-        # 포켓볼 아이콘 그리기 (텍스트 양 옆)
-        pokeball_offset = text_rect.width // 2 + 60
-        # 왼쪽 포켓볼 (약간 회전)
-        draw_pokeball_icon(text_rect.centerx - pokeball_offset, text_rect.centery, 28, 0)
-        # 오른쪽 포켓볼 (반대로 회전)
-        draw_pokeball_icon(text_rect.centerx + pokeball_offset, text_rect.centery, 28, 180)
     
     elif gacha_phase == 1:
         guide_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 28)
-        guide_text = "🪙 동전을 투입하고 있습니다..."
+        guide_text = "동전을 투입하고 있습니다..."
         text = guide_font.render(guide_text, True, (255, 255, 255))
         shadow_text = guide_font.render(guide_text, True, (80, 80, 80))
         text_rect = text.get_rect(center=(container_x + container_width // 2, container_y + container_height - 80))
@@ -726,7 +722,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
     elif gacha_phase == 2:
         guide_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 28)
-        guide_text = "🎁 아이템이 나오고 있습니다..."
+        guide_text = "아이템이 나오고 있습니다..."
         text = guide_font.render(guide_text, True, (255, 255, 255))
         shadow_text = guide_font.render(guide_text, True, (80, 80, 80))
         text_rect = text.get_rect(center=(container_x + container_width // 2, container_y + container_height - 80))
@@ -735,6 +731,27 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
         shadow_rect.y += 2
         screen.blit(shadow_text, shadow_rect)
         screen.blit(text, text_rect)
+    
+    # 캡슐 아이콘 항상 그리기 (모든 phase에서)
+    text_center_y = container_y + container_height - 80
+    
+    # 스페이스 누른 후 가속도 계산
+    if gacha_phase > 0:
+        # phase가 진행될수록 더 빠르게 회전 (지수적 가속)
+        try:
+            elapsed_time = (pygame.time.get_ticks() - gacha_start_time) / 1000.0
+        except:
+            elapsed_time = 0
+        # 1초에 1.5배속, 2초에 2.25배속, 3초에 3.375배속으로 가속
+        speed = 1.0 + (elapsed_time * 0.8) + (elapsed_time ** 2 * 0.3)
+        speed = min(speed, 10.0)  # 최대 10배속 제한
+    else:
+        speed = 1.0  # 기본 속도
+    
+    # 왼쪽 캡슐 (정방향 회전)
+    draw_pokeball_icon(container_x + 100, text_center_y, 28, 0, speed)
+    # 오른쪽 캡슐 (역방향 회전)
+    draw_pokeball_icon(container_x + container_width - 100, text_center_y, 28, 180, speed)
     
 
     
@@ -760,6 +777,7 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
                     if gacha_phase == 0:  # 시작
                         gacha_phase = 1
                         gacha_spin_timer = 0
+                        gacha_start_time = pygame.time.get_ticks()  # 가속 시작 시간 기록
                     elif gacha_phase == 3:  # 결과 - 별도 결과 페이지로 이동
                         # 뽑기 종료하고 결과 페이지로
                         global gacha_active

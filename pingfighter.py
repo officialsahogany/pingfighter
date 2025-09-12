@@ -27413,8 +27413,9 @@ def handle_ball():
                     # 현재 속도 계산
                     current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                     
-                    # 봉에 맞은 경우 공 방향 변경 및 1.1배 속도 증가 (10% 증가)
-                    new_speed = current_speed * 1.1
+                    # 봉에 맞은 경우 공 방향 변경 및 5~20% 속도 증가 (랜덤)
+                    speed_boost = random.uniform(1.05, 1.20)  # 5~20% 증가
+                    new_speed = current_speed * speed_boost
                     
                     # 방향 변경 (봉의 각도에 따라)
                     ball_vel[0] += deflection[0] * 5  # 방향 변경 강도 증가
@@ -27436,7 +27437,8 @@ def handle_ball():
                         ball_vel[0] = (ball_vel[0] / new_speed) * max_speed
                         ball_vel[1] = (ball_vel[1] / new_speed) * max_speed
                     
-                    print(f"    !  10%  ({current_speed:.1f} → {new_speed:.1f})")
+                    boost_percentage = (speed_boost - 1) * 100
+                    print(f"    !  {boost_percentage:.0f}%  ({current_speed:.1f} → {new_speed:.1f})")
                     
                     # 타격 효과음 재생
                     try:
