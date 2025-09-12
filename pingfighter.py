@@ -33901,6 +33901,11 @@ def main(stage_num, new_boss_mode=False):
             draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
+            
+            # Stage 4: 소림사 수도승 게이지 그리기 (무협지 스타일)
+            if current_stage == 4 and animated_bg_stage4 is not None:
+                animated_bg_stage4.draw_monk_gauge(SCREEN)
+            
             # 원래 화면으로 복원하고 흔들림 적용
             SCREEN = temp_screen
             SCREEN.fill(BLACK)  # 원래 화면도 검은색으로 지우기
@@ -33953,6 +33958,11 @@ def main(stage_num, new_boss_mode=False):
             draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
+            
+            # Stage 4: 소림사 수도승 게이지 그리기 (무협지 스타일)
+            if current_stage == 4 and animated_bg_stage4 is not None:
+                animated_bg_stage4.draw_monk_gauge(SCREEN)
+            
             # 스테이지별 테두리 효과를 UI 전에 그리기
             if current_stage == 1:
                 # 스테이지1은 테두리 없음 - 무지개 테두리만 검은색으로 덮음
