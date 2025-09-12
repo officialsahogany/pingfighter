@@ -318,10 +318,29 @@ class PoseidonTrident(LegendaryItem):
             frame_path = resource_path(f"items/legendary/poseidon_trident_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
-                self.icon_frames.append(frame)
-                self.animation_frames.append(frame)  # legendary_acquisition에서 사용
+                
+                # PNG의 빨간색 배경 원 제거
+                cleaned_frame = pygame.Surface((frame.get_width(), frame.get_height()), pygame.SRCALPHA)
+                
+                # PNG의 각 픽셀을 확인하여 빨간색 원 부분을 투명하게 만들기
+                for py in range(frame.get_height()):
+                    for px in range(frame.get_width()):
+                        color = frame.get_at((px, py))
+                        # 빨간색 계열이면서 삼지창이 아닌 부분 (배경) 제거
+                        # 삼지창은 파란색/하늘색 계열이므로 빨간색만 제거
+                        if color.a > 0:  # 투명하지 않은 픽셀만 처리
+                            # 빨간색이 강하고 파란색이 약한 픽셀은 배경으로 간주
+                            if color.r > 150 and color.g < 100 and color.b < 100:
+                                # 빨간색 배경을 투명하게
+                                cleaned_frame.set_at((px, py), (0, 0, 0, 0))
+                            else:
+                                # 삼지창 부분은 그대로 유지
+                                cleaned_frame.set_at((px, py), color)
+                
+                self.icon_frames.append(cleaned_frame)
+                self.animation_frames.append(cleaned_frame)  # legendary_acquisition에서 사용
                 frames_loaded += 1
-                print(f"✓ 포세이돈 삼지창 프레임 {i} 로드 성공")
+                print(f"✓ 포세이돈 삼지창 프레임 {i} 로드 성공 (빨간색 배경 제거)")
             except Exception as e:
                 print(f"✗ 프레임 {i} 로드 실패: {frame_path} - {e}")
         
@@ -353,6 +372,36 @@ class PoseidonTrident(LegendaryItem):
         """삼지창 비활성화"""
         self.active = False
         self.dash_wave_active = False
+        
+    def reset_round_effects(self):
+        """라운드 종료 시 효과 초기화 (물방울 파티클 등)"""
+        # 물방울 파티클 초기화
+        self.water_droplets.clear()
+        
+        # 물 궤적 초기화
+        self.water_trail.clear()
+        self.water_trail_active = False
+        
+        # 회오리 효과 초기화
+        self.vortex_active = False
+        self.vortex_timer = 0
+        self.vortex_particles.clear()
+        self.vortex_left_height = 0
+        self.vortex_right_height = 0
+        
+        # 공 캡처 상태 초기화
+        self.ball_in_vortex = False
+        self.ball_vortex_timer = 0
+        self.vortex_cooldown = 0
+        self.vortex_affected = False
+        
+        # 물 추진력 초기화
+        self.water_momentum_active = False
+        self.water_momentum_timer = 0
+        self.water_momentum_force_y = 0
+        self.water_momentum_force_x = 0
+        
+        print(f"🔱 포세이돈의 삼지창 라운드 효과 초기화")
         
     def stop_water_momentum(self):
         """물의 추진력 즉시 중단 (보스 패들에 맞았을 때)"""
@@ -659,9 +708,9 @@ class PoseidonTrident(LegendaryItem):
                     if self.ball_vortex_timer >= self.ball_capture_duration:
                         # 랜덤 반사 방향 계산
                         if ball_vy > 0:  # 보스가 친 공
-                            # 위쪽 부채꼴 범위로 반사
+                            # 위쪽 부채꼴 범위로 반사 (안전한 범위로 축소)
                             base_angle = -math.pi / 2  # -90도 (위쪽)
-                            fan_spread = math.pi / 3  # 60도
+                            fan_spread = math.pi / 4  # 45도로 축소 (기존 60도에서 감소)
                             
                             # 랜덤 시드 생성
                             self.vortex_deflection_seed = (ball_x * 1000 + ball_y * 100 + self.vortex_timer * 10) % 10000
@@ -671,10 +720,22 @@ class PoseidonTrident(LegendaryItem):
                             
                             target_angle = base_angle + random_offset
                             
-                            # 반사 속도 (캡처된 속도의 120%, 최대 20으로 제한)
-                            deflect_speed = min(self.captured_ball_speed * 1.2, 20)
+                            # 반사 속도 (캡처된 속도의 150%, 최소 18, 최대 30으로 제한)
+                            deflect_speed = max(18, min(self.captured_ball_speed * 1.5, 30))
                             new_vx = math.cos(target_angle) * deflect_speed
                             new_vy = math.sin(target_angle) * deflect_speed
+                            
+                            # Y축 속도 안전장치 - 반드시 위쪽으로 향하도록 보장
+                            min_upward_speed = -15  # 최소 위쪽 속도 (더 빠르게)
+                            if new_vy >= 0:  # 아래쪽이나 수평이면
+                                new_vy = min_upward_speed  # 강제로 위쪽으로
+                            elif new_vy > min_upward_speed:  # 위쪽이지만 너무 느리면
+                                new_vy = min_upward_speed
+                            
+                            # X축 속도도 너무 극단적이지 않도록 제한
+                            max_x_speed = 20  # 더 빠른 횡방향 이동 허용
+                            if abs(new_vx) > max_x_speed:
+                                new_vx = max_x_speed if new_vx > 0 else -max_x_speed
                         else:
                             # 플레이어가 친 공은 원래 방향 유지
                             new_vx = ball_vx
@@ -1064,50 +1125,15 @@ class PoseidonTrident(LegendaryItem):
         import pygame
         import math
         
-        # 포세이돈도 라그나로크와 동일한 글로우 설정
-        self.trident_glow_multiplier = 1.8  # 라그나로크와 동일한 글로우
+        # 포세이돈의 삼지창은 글로우 효과 제거 (사용자 요청)
+        # 부모 클래스의 draw_icon을 호출하지 않음 - 완전히 오버라이드
         
-        # 글로우 효과 (라그나로크 해머와 완전히 동일)
-        glow_size = int(size * (self.trident_glow_multiplier + self.glow_intensity * 0.15))
-        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-        for i in range(5):  # 더 많은 레이어로 강렬한 효과
-            alpha = 80 - i * 12  # 더 진한 글로우
-            pygame.draw.circle(glow_surf, (*LEGENDARY_COLOR, alpha), 
-                             (glow_size//2, glow_size//2), 
-                             glow_size//2 - i * 4)  # 더 촘촘한 간격
-        screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
-        
-        # 이중 테두리 애니메이션 (프레임마다 색상 변화)
-        # 외부 테두리 - 프레임에 따라 색상 변화
-        if self.current_frame % 4 == 0:
-            outer_border_color = (255, 215, 0)  # 황금색
-        elif self.current_frame % 4 == 1:
-            outer_border_color = (255, 0, 0)    # 빨간색
-        elif self.current_frame % 4 == 2:
-            outer_border_color = (0, 150, 255)  # 파란색
-        else:
-            outer_border_color = (255, 100, 0)  # 주황색
-        
-        # 외부 테두리 그리기
-        outer_rect = pygame.Rect(x-4, y-4, size+8, size+8)
-        pygame.draw.rect(screen, outer_border_color, outer_rect, 3)
-        
-        # 내부 테두리 - 프레임에 따라 색상 변화 (외부와 반대)
-        if self.current_frame % 4 == 0:
-            inner_border_color = (255, 0, 0)    # 빨간색
-        elif self.current_frame % 4 == 1:
-            inner_border_color = (0, 150, 255)  # 파란색
-        elif self.current_frame % 4 == 2:
-            inner_border_color = (255, 215, 0)  # 황금색
-        else:
-            inner_border_color = (150, 0, 255)  # 보라색
-        
-        # 내부 테두리 그리기
-        border_thickness = 2 + int(self.glow_intensity * 2)
+        # 외부 테두리 - 붉은색 (펄싱 효과)
+        border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
         border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
-        pygame.draw.rect(screen, inner_border_color, border_rect, border_thickness)
+        pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)
         
-        # 꼭지점 디테일 (코너 장식) - 라그나로크와 동일
+        # 꼭지점 디테일 (코너 장식)
         corner_size = 8  # 더 큰 코너
         corner_color = (255, 215, 0)  # 황금색 (신의 무기)
         # 왼쪽 위
@@ -1123,18 +1149,45 @@ class PoseidonTrident(LegendaryItem):
         pygame.draw.lines(screen, corner_color, False,
                          [(x+size-corner_size+2, y+size+2), (x+size+2, y+size+2), (x+size+2, y+size-corner_size+2)], 2)
         
-        # 코너 점 장식 (더 화려하게) - 라그나로크와 동일
-        for cx, cy in [(x, y), (x+size, y), (x, y+size), (x+size, y+size)]:
-            pygame.draw.circle(screen, LEGENDARY_COLOR, (cx, cy), 3)  # 빨간색
-            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
+        # 포세이돈의 삼지창은 코너 점 장식 제거 (사용자 요청)
         
         # 애니메이션 프레임 그리기 (라그나로크 해머와 동일한 프레임 사용)
         if self.icon_frames and len(self.icon_frames) > 0:
             # 현재 프레임 그리기 (위아래 움직임 효과 포함)
             icon_y = y + int(self.animation_offset)
             current_icon = self.icon_frames[self.current_frame % len(self.icon_frames)]
+            # 이미 로드 시점에 빨간색 배경을 제거했으므로 그대로 사용
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
+            
+            # PNG에 없는 내부 디자인 추가 (라그나로크/헤르메스 스타일)
+            # 1. 내부 빨간색 테두리 (프레임별 그라데이션)
+            frame_gradient = self.current_frame / 8.0  # 0.0 ~ 1.0
+            inner_red = int(200 + 55 * math.sin(frame_gradient * math.pi * 2))  # 200-255 사이 변화
+            inner_border_color = (inner_red, 0, 0)
+            inner_border_rect = pygame.Rect(x, icon_y, size, size)  # 아이콘 전체 크기와 동일하게
+            pygame.draw.rect(screen, inner_border_color, inner_border_rect, 3)
+            
+            # 2. 꼭지점 (프레임별 색상 변화 - 라그나로크 스타일)
+            # 프레임에 따라 색상 변화 (스크린샷 기반)
+            if self.current_frame == 0 or self.current_frame == 4:
+                corner_color_inner = (0, 150, 255)  # 파란색
+            elif self.current_frame == 1 or self.current_frame == 5:
+                corner_color_inner = (255, 200, 0)  # 주황색/노란색
+            elif self.current_frame == 2 or self.current_frame == 6:
+                corner_color_inner = (255, 50, 50)  # 빨간색
+            else:  # 3, 7
+                corner_color_inner = (255, 255, 200)  # 밝은 노란색/흰색
+                
+            corner_positions = [
+                (x, icon_y),  # 왼쪽 위
+                (x+size, icon_y),  # 오른쪽 위  
+                (x, icon_y+size),  # 왼쪽 아래
+                (x+size, icon_y+size)  # 오른쪽 아래
+            ]
+            for cx, cy in corner_positions:
+                # 사각형 꼭지점 (라그나로크 스타일)
+                pygame.draw.rect(screen, corner_color_inner, (cx-3, cy-3, 6, 6))
             
             # 번개 효과 추가 (프레임 0, 4에서) - 라그나로크와 동일
             if self.current_frame in [0, 4]:
@@ -1276,22 +1329,58 @@ class PoseidonTrident(LegendaryItem):
             if droplet['lifetime'] <= 0 or droplet['y'] > 800:
                 self.water_droplets.remove(droplet)
     
+    def update_water_droplets_with_boss(self, boss_x: float, boss_y: float, boss_width: float, boss_height: float):
+        """물방울 파티클과 보스 패들의 충돌 체크"""
+        if not self.active:
+            return
+            
+        # 보스 패들 히트박스 생성 (약간 확장)
+        boss_rect = pygame.Rect(boss_x - 5, boss_y - 5, boss_width + 10, boss_height + 10)
+        
+        removed_count = 0
+        # 물방울과 보스 패들 충돌 체크
+        for droplet in self.water_droplets[:]:
+            # 물방울의 위치와 크기로 충돌 체크
+            size = int(droplet['size'])  # float를 int로 변환
+            droplet_rect = pygame.Rect(
+                int(droplet['x']) - size,
+                int(droplet['y']) - size,
+                size * 2,
+                size * 2
+            )
+            
+            # 충돌하면 물방울 제거
+            if boss_rect.colliderect(droplet_rect):
+                self.water_droplets.remove(droplet)
+                removed_count += 1
+        
+        # 디버그 옵션 (필요시 활성화)
+        # if removed_count > 0:
+        #     print(f"🔱 포세이돈 삼지창: {removed_count}개의 물방울이 보스 패들과 충돌하여 제거됨")
+    
+    def deactivate_water_trail(self):
+        """물 궤적 비활성화 (보스가 공을 칠 때 호출)"""
+        if self.water_trail_active:
+            self.water_trail_active = False
+            self.water_trail.clear()
+            print(f"🔱 포세이돈 삼지창: 물 궤적 비활성화 (보스가 공을 쳤음)")
+    
     def update_water_trail(self, ball_x, ball_y):
         """물 궤적 업데이트"""
         if self.water_trail_active:
             # 궤적에 현재 위치 추가
             self.water_trail.append({'x': ball_x, 'y': ball_y, 'lifetime': 30})
             
-            # 물방울 파티클 생성 (확률적으로)
-            if random.random() < 0.3:  # 30% 확률
-                for _ in range(random.randint(1, 3)):
+            # 물방울 파티클 생성 (확률적으로) - 물 궤적 대신 더 많은 파티클 생성
+            if random.random() < 0.5:  # 50% 확률로 증가
+                for _ in range(random.randint(2, 5)):  # 더 많은 파티클
                     droplet = {
-                        'x': ball_x + random.uniform(-5, 5),
-                        'y': ball_y + random.uniform(-5, 5),
-                        'vx': random.uniform(-2, 2),
-                        'vy': random.uniform(-1, 1),
-                        'lifetime': 20,
-                        'size': random.uniform(2, 4)
+                        'x': ball_x + random.uniform(-8, 8),
+                        'y': ball_y + random.uniform(-8, 8),
+                        'vx': random.uniform(-3, 3),
+                        'vy': random.uniform(-2, 2),
+                        'lifetime': 30,  # 더 오래 지속
+                        'size': random.uniform(3, 6)  # 더 큰 물방울
                     }
                     self.water_droplets.append(droplet)
         
@@ -1306,56 +1395,42 @@ class PoseidonTrident(LegendaryItem):
             self.water_trail.pop(0)
     
     def draw_water_trail(self, screen: pygame.Surface):
-        """물 궤적 그리기"""
-        if len(self.water_trail) > 1:
-            # 궤적 그리기
-            for i in range(1, len(self.water_trail)):
-                prev_point = self.water_trail[i-1]
-                curr_point = self.water_trail[i]
-                
-                # 알파값 계산 (수명에 따라)
-                alpha = min(255, int(curr_point['lifetime'] * 8))
-                
-                # 두께 계산 (앞쪽이 더 두껍게)
-                thickness = max(1, int(curr_point['lifetime'] / 5))
-                
-                # 물색상 (파란색 계열)
-                water_color = (50, 150, 255)
-                
-                # 선 그리기
-                if alpha > 0:
-                    # 메인 궤적
-                    pygame.draw.line(screen, water_color, 
-                                   (prev_point['x'], prev_point['y']),
-                                   (curr_point['x'], curr_point['y']), 
-                                   thickness)
-                    
-                    # 물 효과를 위한 추가 선 (더 밝은 색)
-                    if thickness > 2:
-                        pygame.draw.line(screen, (100, 200, 255),
-                                       (prev_point['x'], prev_point['y']-1),
-                                       (curr_point['x'], curr_point['y']-1),
-                                       thickness-1)
+        """물 궤적 그리기 - 물방울 파티클만 표시"""
+        # 궤적 선은 그리지 않고 물방울 파티클만 그리도록 수정
+        # (이전 코드는 주석 처리)
         
-        # 물방울 파티클 그리기
+        # if len(self.water_trail) > 1:
+        #     # 궤적 그리기 - 제거됨
+        #     pass
+        
+        # 물방울 파티클 그리기 (더 화려하게)
         for droplet in self.water_droplets:
-            alpha = min(255, int(droplet['lifetime'] * 12))
+            alpha = min(255, int(droplet['lifetime'] * 8.5))
             if alpha > 0:
-                # 물방울 색상
-                droplet_color = (100, 180, 255)
+                # 물방울 색상 (더 선명하게)
+                droplet_color = (80, 160, 255)
                 
                 # 물방울 그리기
                 droplet_surf = pygame.Surface((int(droplet['size'] * 2), int(droplet['size'] * 2)), pygame.SRCALPHA)
+                
+                # 메인 물방울
                 pygame.draw.circle(droplet_surf, (*droplet_color, alpha),
                                  (int(droplet['size']), int(droplet['size'])),
                                  int(droplet['size']))
                 
-                # 하이라이트
+                # 하이라이트 (더 밝게)
                 if droplet['size'] > 2:
-                    pygame.draw.circle(droplet_surf, (200, 230, 255, alpha // 2),
+                    highlight_alpha = min(255, alpha + 50)
+                    pygame.draw.circle(droplet_surf, (220, 240, 255, highlight_alpha // 2),
                                      (int(droplet['size'] - droplet['size']/3), 
                                       int(droplet['size'] - droplet['size']/3)),
-                                     int(droplet['size'] / 3))
+                                     int(droplet['size'] / 2.5))
+                
+                # 외곽선 효과 추가
+                if droplet['size'] > 3:
+                    pygame.draw.circle(droplet_surf, (50, 120, 200, alpha // 3),
+                                     (int(droplet['size']), int(droplet['size'])),
+                                     int(droplet['size']), 1)
                 
                 screen.blit(droplet_surf, 
                           (int(droplet['x'] - droplet['size']), 
@@ -2029,6 +2104,17 @@ class LegendaryItemManager:
         for name in self.active_items:
             if name in self.items:
                 self.items[name].active = True
+    
+    def reset_round_effects(self):
+        """라운드 종료 시 모든 활성 아이템의 효과 초기화"""
+        for name in self.active_items:
+            if name in self.items:
+                item = self.items[name]
+                # reset_round_effects 메서드가 있는 아이템만 호출
+                if hasattr(item, 'reset_round_effects'):
+                    item.reset_round_effects()
+                    
+        print(f"🎮 모든 전설 아이템 라운드 효과 초기화 완료")
 
 
 # 싱글톤 인스턴스
