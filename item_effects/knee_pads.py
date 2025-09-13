@@ -31,11 +31,13 @@ class KneePads:
     
     def on_half_dash_hit(self, ball_pos):
         """하프대쉬로 공을 맞췄을 때 호출"""
+        print(f"[DEBUG] on_half_dash_hit 호출됨, active={self.active}, ball_pos={ball_pos}")
         if self.active:
             # 빛나는 이펙트 시작
             self.flash_timer = 30  # 30프레임 동안 이펙트 (0.5초)
             self.flash_pos = ball_pos
             self.shockwave_radius = 0  # 충격파 시작
+            print(f"[DEBUG] 이펙트 설정 완료: flash_timer={self.flash_timer}, flash_pos={self.flash_pos}")
             
             # 파티클 생성 (충전 에너지 파티클)
             for _ in range(20):

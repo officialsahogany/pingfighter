@@ -4758,6 +4758,7 @@ rolling_speed = 30
 rolling_stun_timer = 0  # 구르기 후 통제 불가능 시간
 rolling_dash_available_timer = 0  # 구르기 대쉬 가능 타이머
 is_half_dash_active = False  # 하프대쉬 활성화 플래그 (무릎보호대 효과용)
+half_dash_effect_timer = 0  # 하프대쉬 효과 지속 시간 (충돌 감지용)
 # 게이지 충전 애니메이션 변수
 gauge_charge_animation_timer = 0  # 애니메이션 타이머
 gauge_charge_animation_amount = 0  # 충전량 표시
@@ -5419,8 +5420,9 @@ def handle_player(keys):
             if rolling_timer <= 0:
                 # 구르기 종료, 통제 불가능 상태 시작
                 rolling_active = False
-                is_half_dash_active = False  # 대쉬 종료 시 하프대쉬 플래그 리셋
-                print(f"[DEBUG 무릎보호대] 대쉬 종료, is_half_dash_active = False")
+                # 하프대쉬 플래그는 충돌 처리가 완료될 때까지 유지
+                # is_half_dash_active = False  # 주석 처리 - 충돌 체크 후에 리셋
+                print(f"[DEBUG 무릎보호대] 대쉬 종료, is_half_dash_active는 유지: {is_half_dash_active}")
                 
                 # 튜토리얼: 대쉬 종료 시 카운팅 플래그 리셋
                 if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -5522,6 +5524,7 @@ def handle_player(keys):
                     # 통제불능 상태에서 왼쪽 대쉬 실행 (아래키 + 왼쪽키 필요)
                     rolling_active = True
                     is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
+                    half_dash_effect_timer = 0  # 타이머도 리셋
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                         tutorial_dash_already_counted = False
@@ -5667,6 +5670,7 @@ def handle_player(keys):
                     # 통제불능 상태에서 오른쪽 대쉬 실행 (아래키 + 오른쪽키 필요)
                     rolling_active = True
                     is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
+                    half_dash_effect_timer = 0  # 타이머도 리셋
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                         tutorial_dash_already_counted = False
@@ -5927,7 +5931,8 @@ def handle_player(keys):
                         # 하프 대쉬 발동
                         rolling_active = True
                         is_half_dash_active = True  # 하프대쉬 플래그 설정
-                        print(f"[DEBUG 무릎보호대] 하프대쉬 발동! is_half_dash_active = True")
+                        half_dash_effect_timer = 20  # 하프대쉬 효과 지속 시간 (약 0.33초)
+                        print(f"[DEBUG 무릎보호대] 하프대쉬 발동! is_half_dash_active = True, timer = {half_dash_effect_timer}")
                         # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                         if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                             tutorial_dash_already_counted = False
@@ -27045,6 +27050,8 @@ def handle_ball():
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown
     # 롤링 스턴 타이머
     global rolling_stun_timer
+    # 하프대쉬 관련 변수들
+    global is_half_dash_active, half_dash_effect_timer
     # 쿠로미 뱉기 궤적 관련
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
     # 충돌 쿨다운 감소
@@ -27821,8 +27828,16 @@ def handle_ball():
             BALL.x += actual_vel_x
             BALL.y += actual_vel_y
             
+            # 하프대쉬 효과 타이머 업데이트
+            if half_dash_effect_timer > 0:
+                half_dash_effect_timer -= 1
+                if half_dash_effect_timer == 0:
+                    is_half_dash_active = False
+                    print(f"[DEBUG 무릎보호대] 하프대쉬 타이머 만료, is_half_dash_active = False")
+            
             # 🦵 무릎보호대: 하프대쉬 중 공과 충돌 체크
-            if rolling_active and is_half_dash_active and BALL.colliderect(PLAYER):
+            # 하프대쉬는 대쉬가 끝난 후에도 짧은 시간 동안 유효함
+            if is_half_dash_active and BALL.colliderect(PLAYER):
                 print(f"[DEBUG 무릎보호대] 하프대쉬 충돌 감지! rolling_active={rolling_active}, is_half_dash_active={is_half_dash_active}")
                 # 무릎보호대 효과 발동
                 from item_effects.knee_pads import get_knee_pads_instance
@@ -27857,6 +27872,11 @@ def handle_ball():
                         # 사운드 효과
                         SOUND_ACTIVE_ITEM.play()  # 특수 게이지 충전 사운드
                         print(f"[DEBUG 무릎보호대] 아이템 사운드 재생 완료")
+                        
+                        # 하프대쉬 충돌 처리 완료 - 플래그 리셋
+                        is_half_dash_active = False
+                        half_dash_effect_timer = 0  # 타이머도 리셋
+                        print(f"[DEBUG 무릎보호대] 하프대쉬 효과 완료, is_half_dash_active = False, timer = 0")
                 else:
                     print(f"[DEBUG 무릎보호대] 효과 미발동 - knee_pads 없거나 비활성")
             
@@ -34265,7 +34285,7 @@ def main(stage_num, new_boss_mode=False):
                             kuromi_eating_timer = 0
                             ball_in_kuromi = True
                             kuromi_eating_cooldown = 1200  # 20초 쿨타임 시작 (60 FPS * 20초)
-                            animated_bg_stage3.start_eating((ball_x, ball_y))  # 공 위치 전달
+                            animated_bg_stage3.start_eating((BALL.centerx, BALL.centery))  # 공 위치 전달
                             print("🍽️ 쿠로미가 공을 먹기 시작! 혀로 낼름~")
                     
                     # 쿠로미 신비로운 궤적 업데이트
