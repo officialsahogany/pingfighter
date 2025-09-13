@@ -32614,6 +32614,8 @@ def main(stage_num, new_boss_mode=False):
         CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
         CURRENT_BG.fill((30, 40, 80))  # 어두운 파란색 배경
         BOSS_COLOR = (200, 100, 100)  # 조교 색상
+        # 튜토리얼 BGM 재생
+        bgm_manager.play_stage_bgm(50)
     reset_round()
     
     #  DEBUG: 하늘빛 아지랑이 효과 테스트용 (나중에 제거)
