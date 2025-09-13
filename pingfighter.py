@@ -2424,6 +2424,14 @@ def go_to_next_round():
             animated_bg_stage4.start_destruction_animation()
             print("Stage 4: Temple destruction animation started at round start!")
     
+    # Stage 3 쿠로미 신비로운 궤적 효과 초기화
+    global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
+    if current_stage == 3:
+        kuromi_spit_trail_active = False
+        kuromi_spit_trail_positions = []
+        kuromi_spit_trail_color_phase = 0
+        print("Stage 3: 쿠로미 궤적 이펙트 초기화 (go_to_next_round)")
+    
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 이월 방지)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -4750,6 +4758,9 @@ rolling_speed = 30
 rolling_stun_timer = 0  # 구르기 후 통제 불가능 시간
 rolling_dash_available_timer = 0  # 구르기 대쉬 가능 타이머
 is_half_dash_active = False  # 하프대쉬 활성화 플래그 (무릎보호대 효과용)
+# 게이지 충전 애니메이션 변수
+gauge_charge_animation_timer = 0  # 애니메이션 타이머
+gauge_charge_animation_amount = 0  # 충전량 표시
 # 포세이돈의 삼지창 대시 회오리 효과 플래그
 poseidon_dash_pending = False  # 대시 후 통제불능 시 회오리 발동 대기
 poseidon_dash_x = 0  # 회오리 발동 위치 X
@@ -5370,6 +5381,12 @@ def handle_player(keys):
         if predictor_timer == 0:
             predictor_active = False
             print("!")
+    
+    # === 무릎보호대 게이지 충전 애니메이션 타이머 ===
+    global gauge_charge_animation_timer
+    if gauge_charge_animation_timer > 0:
+        gauge_charge_animation_timer -= 1
+    
     #  AI 필 효과 적용
     if aipill_active:
         # AI 필 활성화 시 필살기/아이템 사용 불가 (게이지는 유지하되 획득 불가)
@@ -6812,7 +6829,8 @@ def handle_player(keys):
                     charge_amount = base_charge * 0.5  # 50% = 40
                     
                     # 블루투스링 효과 적용 (있을 경우)
-                    if bluetooth_ring_obtained:
+                    import items
+                    if items.bluetooth_ring_obtained:
                         charge_amount *= 1.25  # 25% 추가 충전
                     
                     special_gauge = min(special_gauge + charge_amount, special_gauge_max)
@@ -9444,6 +9462,7 @@ def draw_player_gauge():
     global long_boost_active, long_boost_timer
     global wall_installing, wall_install_timer, wall_install_gauge_visible
     global rolling_charges, rolling_cooldown  #  대쉬 토큰 표시용
+    global gauge_charge_animation_timer, gauge_charge_animation_amount  # 충전 애니메이션
     # 필살기 게이지바 위치와 크기 - 엣지있는 주인공 스타일
     gauge_x = WIDTH - 40  # 오른쪽에서 40px
     gauge_y = HEIGHT - 180  # 하단에서 180px 위
@@ -9499,6 +9518,13 @@ def draw_player_gauge():
     if displayed_gauge > 0:
         fill_ratio = displayed_gauge / current_max_gauge
         fill_height = int((gauge_height - 4) * fill_ratio)
+        
+        # 무릎보호대 충전 애니메이션 효과
+        charge_glow_intensity = 0
+        if gauge_charge_animation_timer > 0:
+            # 충전 애니메이션 강도 계산 (페이드 아웃 효과)
+            charge_glow_intensity = gauge_charge_animation_timer / 30.0
+            
         # 게이지 레벨별 색상 (차갑고 날카로운 색상)
         if displayed_gauge < 150:
             # 레벨 1: 차가운 청백색
@@ -9521,6 +9547,21 @@ def draw_player_gauge():
                 255
             )
             energy_color = (200, 200, 255)
+        
+        # 무릎보호대 충전 효과가 활성화되면 황금빛 글로우 추가
+        if charge_glow_intensity > 0:
+            # 황금빛으로 색상 보정
+            golden_blend = charge_glow_intensity
+            base_color = (
+                min(255, int(base_color[0] + golden_blend * 75)),
+                min(255, int(base_color[1] + golden_blend * 55)),
+                min(255, int(base_color[2] * (1 - golden_blend * 0.3)))
+            )
+            energy_color = (
+                min(255, int(energy_color[0] + golden_blend * 75)),
+                min(255, int(energy_color[1] + golden_blend * 55)),
+                min(255, int(energy_color[2] * (1 - golden_blend * 0.3)))
+            )
         # 메인 에너지 채우기
         fill_y = gauge_y + gauge_height - fill_height - 2
         # 3층 레이어 구조
@@ -9594,6 +9635,59 @@ def draw_player_gauge():
         # 하단 코너
         draw.circle(corner_color, (gauge_x, gauge_y + gauge_height), 3)
         draw.circle(corner_color, (gauge_x + gauge_width, gauge_y + gauge_height), 3)
+    # 무릎보호대 충전 애니메이션 - 황금빛 테두리 효과
+    if gauge_charge_animation_timer > 0:
+        # 충전 효과 강도
+        glow_strength = gauge_charge_animation_timer / 30.0
+        pulse_effect = abs(math.sin(pygame.time.get_ticks() * 0.01)) * glow_strength
+        
+        # 황금빛 외곽 글로우 (여러 겹)
+        for i in range(3):
+            glow_alpha = int((3 - i) * 85 * glow_strength)
+            glow_size = 3 - i
+            glow_color = (
+                min(255, 255),
+                min(255, 215 + i * 10),
+                min(255, int(50 * (1 - pulse_effect)))
+            )
+            
+            # 외곽 테두리 그리기
+            glow_rect = pygame.Rect(
+                gauge_x - glow_size,
+                gauge_y - glow_size,
+                gauge_width + glow_size * 2,
+                gauge_height + glow_size * 2
+            )
+            pygame.draw.rect(SCREEN, glow_color, glow_rect, 2, border_radius=5)
+        
+        # 충전 파티클 효과
+        if random.random() < 0.3 * glow_strength:
+            # 랜덤 위치에 작은 별 파티클 생성
+            particle_x = gauge_x + random.randint(-5, gauge_width + 5)
+            particle_y = gauge_y + random.randint(-5, gauge_height + 5)
+            particle_size = random.randint(2, 4)
+            pygame.draw.circle(SCREEN, (255, 255, 100), (particle_x, particle_y), particle_size)
+        
+        # 상하단에 충전 빛줄기 효과
+        if glow_strength > 0.3:
+            # 상단 빛줄기
+            beam_alpha = int(100 * glow_strength)
+            beam_height = int(15 * pulse_effect)
+            for i in range(beam_height):
+                alpha_factor = 1 - (i / max(beam_height, 1))
+                beam_color = (255, 230, int(100 * alpha_factor))
+                pygame.draw.line(SCREEN, beam_color,
+                               (gauge_x, gauge_y - i),
+                               (gauge_x + gauge_width, gauge_y - i), 1)
+            
+            # 하단 빛줄기
+            for i in range(beam_height):
+                alpha_factor = 1 - (i / max(beam_height, 1))
+                beam_color = (255, 230, int(100 * alpha_factor))
+                pygame.draw.line(SCREEN, beam_color,
+                               (gauge_x, gauge_y + gauge_height + i),
+                               (gauge_x + gauge_width, gauge_y + gauge_height + i), 1)
+    
     #  게이지바 위에 숫자 표시 (현재/최대)
     gauge_text = f"{int(displayed_gauge)}/{current_max_gauge}"
     text_color = WHITE if displayed_gauge < current_max_gauge else (255, 255, 100)  # 만렙일 때는 노란색
@@ -11057,8 +11151,11 @@ def draw_objects():
         if knee_pads:
             knee_pads.update()  # 타이머 업데이트
             knee_pads.draw_effect(SCREEN)  # 이펙트 그리기
+            # 디버그: 이펙트 상태 확인
+            if knee_pads.flash_timer > 0:
+                print(f"[DEBUG] 무릎보호대 이펙트 활성: flash_timer={knee_pads.flash_timer}")
     except Exception as e:
-        pass  # 디버깅시 주석 해제: print(f"무릎보호대 이펙트 그리기 오류: {e}")
+        print(f"[ERROR] 무릎보호대 이펙트 그리기 오류: {e}")
     #  서브 대기 상태 UI (미니멀 디자인)
     if is_waiting_for_serve:
         # 시간 계산
@@ -25529,6 +25626,14 @@ def choose_server(show_text=True):
     is_waiting_for_serve = True
     waiting_start_time = pygame.time.get_ticks()
     
+    # Stage 3 쿠로미 신비로운 궤적 효과 초기화
+    global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
+    if current_stage == 3:
+        kuromi_spit_trail_active = False
+        kuromi_spit_trail_positions = []
+        kuromi_spit_trail_color_phase = 0
+        print("Stage 3: 쿠로미 궤적 이펙트 초기화")
+    
     # 전설 아이템 라운드 효과 초기화 (물방울 파티클 등)
     legendary_manager = get_legendary_manager()
     if legendary_manager:
@@ -27735,7 +27840,8 @@ def handle_ball():
                         charge_amount = base_charge * 0.5  # 50% = 40
                         
                         # 블루투스링 효과 적용 (있을 경우)
-                        if bluetooth_ring_obtained:
+                        import items
+                        if items.bluetooth_ring_obtained:
                             charge_amount *= 1.25  # 25% 추가 충전
                             print(f"[DEBUG 무릎보호대] 블루투스링 보너스 적용: 25% 추가")
                         
@@ -27743,9 +27849,14 @@ def handle_ball():
                         special_gauge = min(special_gauge + charge_amount, special_gauge_max)
                         print(f"[무릎보호대] 하프대쉬 공 타격! 게이지 {charge_amount:.0f} 충전 ({old_gauge} → {special_gauge}/{special_gauge_max})")
                         
+                        # 게이지 충전 애니메이션 트리거
+                        global gauge_charge_animation_timer, gauge_charge_animation_amount
+                        gauge_charge_animation_timer = 30  # 0.5초 동안 애니메이션
+                        gauge_charge_animation_amount = charge_amount
+                        
                         # 사운드 효과
-                        SOUND_SPECIAL.play()
-                        print(f"[DEBUG 무릎보호대] 특수 사운드 재생 완료")
+                        SOUND_ACTIVE_ITEM.play()  # 특수 게이지 충전 사운드
+                        print(f"[DEBUG 무릎보호대] 아이템 사운드 재생 완료")
                 else:
                     print(f"[DEBUG 무릎보호대] 효과 미발동 - knee_pads 없거나 비활성")
             
@@ -34154,8 +34265,8 @@ def main(stage_num, new_boss_mode=False):
                             kuromi_eating_timer = 0
                             ball_in_kuromi = True
                             kuromi_eating_cooldown = 1200  # 20초 쿨타임 시작 (60 FPS * 20초)
-                            animated_bg_stage3.start_eating()
-                            print("🍽️ 쿠로미가 공을 먹기 시작!")
+                            animated_bg_stage3.start_eating((ball_x, ball_y))  # 공 위치 전달
+                            print("🍽️ 쿠로미가 공을 먹기 시작! 혀로 낼름~")
                     
                     # 쿠로미 신비로운 궤적 업데이트
                     if kuromi_spit_trail_active:

@@ -50,6 +50,14 @@ class Stage3MenheraWorld:
         self.spit_angle = None  # 뱉을 방향 미리 결정
         self.mouth_direction = 0  # 입 방향 (라디안)
         
+        # 혀 애니메이션 관련 변수
+        self.tongue_extended = 0  # 혀 길이 (0~1)
+        self.tongue_angle = 0  # 혀 방향
+        self.tongue_wrap_phase = 0  # 혀로 공 감싸는 애니메이션 단계
+        self.tongue_segments = []  # 혀 세그먼트 위치 (곡선 표현용)
+        self.ball_on_tongue = False  # 공이 혀 위에 있는지
+        self.ball_tongue_pos = None  # 혀 위의 공 위치
+        
         self.init_decorations()
         
     def init_decorations(self):
@@ -328,6 +336,10 @@ class Stage3MenheraWorld:
     
     def draw_kuromi(self, screen, x, y, size, ball_pos=None):
         """울트라 카와이 쿠로미 - 산리오 x 포켓몬 스타일 (일본 만화 디테일)"""
+        # 혀 애니메이션 그리기 (캐릭터 뒤에)
+        if self.eating_active and self.tongue_extended > 0:
+            self.draw_tongue(screen)
+        
         # 크기 조정 (더 둥글고 귀여운 비율)
         head_size = int(size * 0.6)  # 더 큰 머리 (치비 스타일)
         
@@ -1335,7 +1347,7 @@ class Stage3MenheraWorld:
                 return True
         return False
     
-    def start_eating(self):
+    def start_eating(self, ball_pos=None):
         """공 먹기 이벤트 시작"""
         self.eating_active = True
         self.eating_timer = 0
@@ -1344,25 +1356,71 @@ class Stage3MenheraWorld:
         self.chewing_particles = []
         self.spit_angle = None  # 발사 각도 초기화
         self.mouth_direction = 0  # 입 방향 초기화
+        
+        # 혀 애니메이션 초기화
+        self.tongue_extended = 0
+        self.tongue_wrap_phase = 0
+        self.ball_on_tongue = False
+        self.tongue_segments = []
+        
+        # 공 위치를 향한 혀 방향 계산
+        if ball_pos:
+            center_x = WIDTH // 2
+            center_y = HEIGHT // 2
+            dx = ball_pos[0] - center_x
+            dy = ball_pos[1] - center_y
+            self.tongue_angle = math.atan2(dy, dx)
+            self.ball_tongue_pos = ball_pos
+        else:
+            self.tongue_angle = 0
+            self.ball_tongue_pos = (WIDTH // 2, HEIGHT // 2 + 30)
     
     def update_eating(self, dt):
-        """공 먹기 애니메이션 업데이트 - 더 리얼하고 생동감 있게"""
+        """공 먹기 애니메이션 업데이트 - 혀로 낼름거리면서 공 가져오기"""
         if not self.eating_active:
             return False  # 공이 여전히 화면에 표시됨
         
         self.eating_timer += dt / 16.67  # 60FPS 기준으로 정규화
         
-        if self.eating_timer < 90:  # 1.5초 - 입 벌리기
-            # Elastic easing으로 더 다이나믹한 입 열기
-            t = min(1.0, self.eating_timer / 90)
-            if t < 0.4:
-                self.mouth_open = t * t * 2.5
-            else:
-                # 입이 벌어질 때 탄성 효과
-                self.mouth_open = 1 + math.sin((t - 0.4) * math.pi * 4) * 0.15 * (1 - t)
+        if self.eating_timer < 60:  # 1초 - 혀 내밀기
+            # 혀를 공 방향으로 내밀기
+            t = min(1.0, self.eating_timer / 60)
+            self.tongue_extended = self._ease_out_elastic(t)
+            self.mouth_open = t * 0.6  # 입도 살짝 벌림
             
-            # 침 떨어지는 효과 (입 벌릴 때)
-            if self.eating_timer < 30 and random.random() < 0.4:
+            # 혀 세그먼트 업데이트 (곡선 효과)
+            self._update_tongue_segments()
+            
+        elif self.eating_timer < 90:  # 1.5초 - 혀로 공 감싸서 가져오기
+            # 혀로 공을 감싸는 애니메이션
+            t = (self.eating_timer - 60) / 30
+            self.tongue_wrap_phase = t
+            self.ball_on_tongue = True
+            
+            # 공을 입으로 가져오기
+            if self.ball_tongue_pos:
+                center_x = WIDTH // 2
+                center_y = HEIGHT // 2 + 20
+                target_x = center_x
+                target_y = center_y
+                
+                # 공 위치 보간
+                current_x = self.ball_tongue_pos[0] * (1 - t) + target_x * t
+                current_y = self.ball_tongue_pos[1] * (1 - t) + target_y * t
+                self.ball_tongue_pos = (current_x, current_y)
+            
+            # 혀 길이 줄이기
+            self.tongue_extended = 1.0 - t * 0.8
+            self.mouth_open = 0.6 + t * 0.4  # 입 더 벌리기
+            self._update_tongue_segments()
+            
+        elif self.eating_timer < 120:  # 90-120 - 입 벌리고 씹기 준비
+            self.ball_on_tongue = False  # 공이 입 안으로
+            self.tongue_extended = 0  # 혀 들어감
+            self.mouth_open = 1.0  # 입 완전히 벌림
+            
+            # 침 떨어지는 효과
+            if random.random() < 0.4:
                 for _ in range(2):
                     particle_x = WIDTH // 2 + random.randint(-15, 15)
                     particle_y = HEIGHT // 2 + 25
@@ -1377,29 +1435,12 @@ class Stage3MenheraWorld:
                         'size': random.uniform(2, 4)
                     })
             
-            # 빨아들이는 바람 효과 (공이 입으로)
-            if self.eating_timer > 60:
-                for _ in range(3):
-                    angle = random.uniform(0, math.pi * 2)
-                    dist = random.uniform(40, 80)
-                    particle_x = WIDTH // 2 + math.cos(angle) * dist
-                    particle_y = HEIGHT // 2 + math.sin(angle) * dist
-                    self.chewing_particles.append({
-                        'x': particle_x,
-                        'y': particle_y,
-                        'vx': -math.cos(angle) * 5,
-                        'vy': -math.sin(angle) * 5,
-                        'life': 15,
-                        'color': (*WHITE, 80),
-                        'type': 'wind',
-                        'size': random.uniform(1, 3)
-                    })
             
             return True  # 공을 숨김
             
-        elif self.eating_timer < 150:  # 150까지 - 씹기 (1초 단축)
+        elif self.eating_timer < 150:  # 120-150 - 씹기
             # 더 리얼한 씹기 모션
-            chew_progress = (self.eating_timer - 90) / 60  # 60프레임(1초) 동안 씹기
+            chew_progress = (self.eating_timer - 120) / 30
             self.chewing_phase = chew_progress
             
             # 턱 움직임 (위아래로 씹기)
@@ -1573,6 +1614,101 @@ class Stage3MenheraWorld:
             # self.spit_angle = None  # 발사 각도 리셋
             # self.mouth_direction = 0  # 입 방향 리셋
             return False  # 공을 다시 표시
+    
+    def _ease_out_elastic(self, t):
+        """Elastic easing function for tongue extension"""
+        if t == 0:
+            return 0
+        if t == 1:
+            return 1
+        p = 0.3
+        s = p / 4
+        return math.pow(2, -10 * t) * math.sin((t - s) * (2 * math.pi) / p) + 1
+    
+    def _update_tongue_segments(self):
+        """Update tongue segments for curved animation"""
+        if self.tongue_extended <= 0:
+            self.tongue_segments = []
+            return
+        
+        center_x = WIDTH // 2
+        center_y = HEIGHT // 2 + 20
+        
+        # Calculate tongue length
+        max_length = 120  # Maximum tongue extension
+        current_length = max_length * self.tongue_extended
+        
+        # Create segments for smooth curve
+        num_segments = int(10 + current_length / 10)
+        self.tongue_segments = []
+        
+        for i in range(num_segments):
+            t = i / (num_segments - 1) if num_segments > 1 else 0
+            
+            # Add wave motion to tongue
+            wave = math.sin(self.eating_timer * 0.2 + i * 0.5) * 5 * (1 - t)
+            
+            # Calculate segment position
+            seg_x = center_x + math.cos(self.tongue_angle) * (current_length * t)
+            seg_y = center_y + math.sin(self.tongue_angle) * (current_length * t)
+            
+            # Add perpendicular wave
+            perp_angle = self.tongue_angle + math.pi / 2
+            seg_x += math.cos(perp_angle) * wave
+            seg_y += math.sin(perp_angle) * wave
+            
+            # Segment width (narrower at tip)
+            width = 20 * (1 - t * 0.5)
+            
+            self.tongue_segments.append({
+                'x': seg_x,
+                'y': seg_y,
+                'width': width,
+                't': t
+            })
+    
+    def draw_tongue(self, screen):
+        """Draw the extended tongue"""
+        if not self.tongue_segments or self.tongue_extended <= 0:
+            return
+        
+        # Draw tongue segments
+        for i in range(len(self.tongue_segments) - 1):
+            seg1 = self.tongue_segments[i]
+            seg2 = self.tongue_segments[i + 1]
+            
+            # Main tongue body (pink)
+            color = (*PASTEL_PINK, int(200 * (1 - seg1['t'] * 0.3)))
+            pygame.draw.line(screen, color,
+                           (seg1['x'], seg1['y']),
+                           (seg2['x'], seg2['y']),
+                           int(seg1['width']))
+            
+            # Darker center line
+            if i % 2 == 0:
+                dark_color = (*CRIMSON, int(100 * (1 - seg1['t'] * 0.5)))
+                pygame.draw.line(screen, dark_color,
+                               (seg1['x'], seg1['y']),
+                               (seg2['x'], seg2['y']),
+                               max(2, int(seg1['width'] * 0.3)))
+        
+        # Draw wrapped ball if on tongue
+        if self.ball_on_tongue and self.ball_tongue_pos:
+            ball_x, ball_y = self.ball_tongue_pos
+            
+            # Draw wrapping effect
+            if self.tongue_wrap_phase > 0:
+                wrap_angle = self.tongue_wrap_phase * math.pi
+                for i in range(3):
+                    offset_angle = wrap_angle + i * math.pi / 3
+                    wrap_x = ball_x + math.cos(offset_angle) * 10
+                    wrap_y = ball_y + math.sin(offset_angle) * 10
+                    pygame.draw.circle(screen, (*PASTEL_PINK, 150),
+                                     (int(wrap_x), int(wrap_y)), 8)
+            
+            # Draw the ball
+            pygame.draw.circle(screen, WHITE, (int(ball_x), int(ball_y)), 10)
+            pygame.draw.circle(screen, (200, 200, 200), (int(ball_x), int(ball_y)), 10, 2)
     
     def get_spit_velocity(self):
         """미리 결정된 방향으로 공을 뱉어낼 속도 벡터 반환 - 3배 빠르게"""
