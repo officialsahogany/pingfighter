@@ -7397,6 +7397,7 @@ def store_passive_item(item_data):
         show_item_acquisition("bluetooth_ring", "블루투스링", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         # 아이콘은 이미 store_passive_item 상단에서 설정됨
+        return  # 처리 완료 후 반환
     elif item_data["name"] == "smartphone":
         # 스마트폰 아이템 획득 (패시브)
         import items
@@ -7419,6 +7420,7 @@ def store_passive_item(item_data):
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("smartphone", "스마트폰", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        return  # 처리 완료 후 반환
     elif item_data["name"] == "knee_pads":
         # 무릎보호대 아이템 획득 (패시브)
         import items
@@ -7433,6 +7435,7 @@ def store_passive_item(item_data):
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("knee_pads", "무릎보호대", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        return  # 처리 완료 후 반환
     elif item_data["name"] == "gravitybelt":
         # 무중력벨트 아이템 획득
         if not gravitybelt_obtained:
@@ -32443,6 +32446,7 @@ def main(stage_num, new_boss_mode=False):
     # 스테이지 3 쿠로미 공 먹기 이벤트 초기화
     global kuromi_eating_active, kuromi_eating_timer, kuromi_mouth_open
     global kuromi_chewing_phase, ball_in_kuromi, kuromi_spit_angle, chewing_particles
+    global kuromi_eating_cooldown
     kuromi_eating_active = False
     kuromi_eating_timer = 0
     kuromi_mouth_open = 0
@@ -32450,6 +32454,7 @@ def main(stage_num, new_boss_mode=False):
     ball_in_kuromi = False
     kuromi_spit_angle = 0
     chewing_particles = []
+    kuromi_eating_cooldown = 0  # 쿨타임 초기화
     
     # 튜토리얼 스테이지 시작 시 대화 표시
     global tutorial_dialogue_shown, tutorial_practice_mode, tutorial_serve_instruction_shown, tutorial_boss_returned
@@ -34034,15 +34039,15 @@ def main(stage_num, new_boss_mode=False):
                         if stage3_tail_whip_cooldown == 0:
                             stage3_tail_whip_active = True
                             stage3_tail_whip_animation_timer = 60  # 1초 애니메이션
-                    
-                    # 쿠로미 공 먹기 쿨다운 감소
-                    if kuromi_eating_cooldown > 0:
-                        kuromi_eating_cooldown -= 1
                             stage3_tail_hit_ball = False
                             # 애니메이션 배경에 꼬리 채찍 발동 알림 (공 위치 전달)
                             if animated_bg_stage3:
                                 animated_bg_stage3.activate_tail_whip((BALL.centerx, BALL.centery))
-                            print("Stage 3:    !")
+                            print("Stage 3: 꼬리 채찍 발동!")
+                    
+                    # 쿠로미 공 먹기 쿨다운 감소
+                    if kuromi_eating_cooldown > 0:
+                        kuromi_eating_cooldown -= 1
                     
                     # 꼬리 채찍 애니메이션 처리
                     if stage3_tail_whip_active:

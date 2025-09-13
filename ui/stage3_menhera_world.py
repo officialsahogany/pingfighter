@@ -646,27 +646,87 @@ class Stage3MenheraWorld:
         
         # 공 먹기 이벤트 중에는 입을 크게 벌림
         if self.eating_active and self.mouth_open > 0:
-            # 입 벌림 애니메이션
-            mouth_size = int(head_size * 0.4 * self.mouth_open)
-            mouth_height = int(head_size * 0.5 * self.mouth_open)
+            # 입 벌림 애니메이션 (더 리얼하게)
+            mouth_size = int(head_size * 0.45 * self.mouth_open)
+            mouth_height = int(head_size * 0.6 * self.mouth_open)
             
-            # 입 안 (검은색)
+            # 입술 윤곽 (먼저 그리기)
+            lip_thickness = 3
+            pygame.draw.ellipse(screen, (*CRIMSON, 150),
+                              (x - mouth_size//2 - lip_thickness, 
+                               mouth_y - mouth_height//4 - lip_thickness, 
+                               mouth_size + lip_thickness*2, 
+                               mouth_height + lip_thickness*2))
+            
+            # 입 안 (검은색 - 깊이감)
             pygame.draw.ellipse(screen, SOFT_BLACK,
                               (x - mouth_size//2, mouth_y - mouth_height//4, 
                                mouth_size, mouth_height))
-            # 입 안쪽 (어두운 분홍)
-            pygame.draw.ellipse(screen, (*CRIMSON, 200),
-                              (x - mouth_size//2 + 2, mouth_y - mouth_height//4 + 2,
-                               mouth_size - 4, mouth_height - 4))
+            
+            # 입 안쪽 그라데이션 효과
+            for i in range(3):
+                inner_size = mouth_size - 4 - i*4
+                inner_height = mouth_height - 4 - i*4
+                alpha = 200 - i*40
+                pygame.draw.ellipse(screen, (*CRIMSON, alpha),
+                                  (x - inner_size//2, mouth_y - inner_height//4,
+                                   inner_size, inner_height))
+            
+            # 혀 그리기
+            if self.mouth_open > 0.5:
+                tongue_width = int(mouth_size * 0.6)
+                tongue_height = int(mouth_height * 0.4)
+                tongue_y = mouth_y + mouth_height//6
+                
+                # 혀 본체
+                pygame.draw.ellipse(screen, (*PASTEL_PINK, 180),
+                                  (x - tongue_width//2, tongue_y - tongue_height//2,
+                                   tongue_width, tongue_height))
+                # 혀 중앙선
+                pygame.draw.line(screen, (*CRIMSON, 100),
+                               (x, tongue_y - tongue_height//3),
+                               (x, tongue_y + tongue_height//3), 2)
             
             # 씹기 애니메이션
             if self.chewing_phase > 0:
-                # 위아래로 씹는 모션
-                chew_offset = math.sin(self.chewing_phase * math.pi * 4) * 3
-                pygame.draw.arc(screen, WHITE,
-                              (x - mouth_size//2, mouth_y - mouth_height//4 + chew_offset,
-                               mouth_size, mouth_height//2),
-                              0, math.pi, 2)  # 이빨
+                # 더 다이나믹한 씹기 모션
+                chew_offset = math.sin(self.chewing_phase * math.pi * 8) * 5
+                jaw_rotation = math.sin(self.chewing_phase * math.pi * 4) * 0.2
+                
+                # 위 이빨
+                teeth_count = 5
+                teeth_width = mouth_size // (teeth_count + 1)
+                for i in range(teeth_count):
+                    tooth_x = x - mouth_size//2 + teeth_width * (i + 1)
+                    tooth_y = mouth_y - mouth_height//4 + 5
+                    tooth_size = 4
+                    pygame.draw.polygon(screen, WHITE,
+                                      [(tooth_x - tooth_size, tooth_y),
+                                       (tooth_x, tooth_y + tooth_size),
+                                       (tooth_x + tooth_size, tooth_y)])
+                
+                # 아래 이빨 (씹을 때 움직임)
+                for i in range(teeth_count):
+                    tooth_x = x - mouth_size//2 + teeth_width * (i + 1)
+                    tooth_y = mouth_y + mouth_height//4 - 5 + chew_offset
+                    tooth_size = 4
+                    pygame.draw.polygon(screen, WHITE,
+                                      [(tooth_x - tooth_size, tooth_y),
+                                       (tooth_x, tooth_y - tooth_size),
+                                       (tooth_x + tooth_size, tooth_y)])
+                
+                # 씹는 동작 강조선
+                if int(self.chewing_phase * 8) % 2 == 0:
+                    # 좌우 움직임 선
+                    for i in range(3):
+                        line_x = x - mouth_size//2 - 10 - i*5
+                        line_y = mouth_y + random.randint(-10, 10)
+                        pygame.draw.line(screen, (*SOFT_YELLOW, 100 - i*20),
+                                       (line_x, line_y - 5), (line_x - 10, line_y), 2)
+                        
+                        line_x = x + mouth_size//2 + 10 + i*5
+                        pygame.draw.line(screen, (*SOFT_YELLOW, 100 - i*20),
+                                       (line_x, line_y - 5), (line_x + 10, line_y), 2)
         # 감정에 따른 입 모양
         elif self.emotional_phase == 1:  # 행복
             # 큰 웃음
@@ -1130,43 +1190,211 @@ class Stage3MenheraWorld:
         self.chewing_particles = []
     
     def update_eating(self, dt):
-        """공 먹기 애니메이션 업데이트"""
+        """공 먹기 애니메이션 업데이트 - 더 리얼하고 생동감 있게"""
         if not self.eating_active:
             return False  # 공이 여전히 화면에 표시됨
         
         self.eating_timer += dt / 16.67  # 60FPS 기준으로 정규화
         
         if self.eating_timer < 90:  # 1.5초 - 입 벌리기
-            # 입을 점점 크게 벌림
-            self.mouth_open = min(1.0, self.eating_timer / 90)
+            # Elastic easing으로 더 다이나믹한 입 열기
+            t = min(1.0, self.eating_timer / 90)
+            if t < 0.4:
+                self.mouth_open = t * t * 2.5
+            else:
+                # 입이 벌어질 때 탄성 효과
+                self.mouth_open = 1 + math.sin((t - 0.4) * math.pi * 4) * 0.15 * (1 - t)
+            
+            # 침 떨어지는 효과 (입 벌릴 때)
+            if self.eating_timer < 30 and random.random() < 0.4:
+                for _ in range(2):
+                    particle_x = WIDTH // 2 + random.randint(-15, 15)
+                    particle_y = HEIGHT // 2 + 25
+                    self.chewing_particles.append({
+                        'x': particle_x,
+                        'y': particle_y,
+                        'vx': random.uniform(-1.5, 1.5),
+                        'vy': random.uniform(2, 4),
+                        'life': 25,
+                        'color': (*LAVENDER, 120),
+                        'type': 'saliva',
+                        'size': random.uniform(2, 4)
+                    })
+            
+            # 빨아들이는 바람 효과 (공이 입으로)
+            if self.eating_timer > 60:
+                for _ in range(3):
+                    angle = random.uniform(0, math.pi * 2)
+                    dist = random.uniform(40, 80)
+                    particle_x = WIDTH // 2 + math.cos(angle) * dist
+                    particle_y = HEIGHT // 2 + math.sin(angle) * dist
+                    self.chewing_particles.append({
+                        'x': particle_x,
+                        'y': particle_y,
+                        'vx': -math.cos(angle) * 5,
+                        'vy': -math.sin(angle) * 5,
+                        'life': 15,
+                        'color': (*WHITE, 80),
+                        'type': 'wind',
+                        'size': random.uniform(1, 3)
+                    })
+            
             return True  # 공을 숨김
             
         elif self.eating_timer < 210:  # 2초 - 씹기
-            # 씹기 애니메이션
-            self.mouth_open = 0.3  # 입을 약간 닫은 상태
-            self.chewing_phase = (self.eating_timer - 90) / 120
+            # 더 리얼한 씹기 모션
+            chew_progress = (self.eating_timer - 90) / 120
+            self.chewing_phase = chew_progress
             
-            # 씹는 파티클 생성
-            if random.random() < 0.3:
-                particle_x = WIDTH // 2 + random.randint(-20, 20)
-                particle_y = HEIGHT // 2 + random.randint(-10, 10)
+            # 턱 움직임 (위아래로 씹기)
+            chew_cycle = math.sin(chew_progress * math.pi * 8)  # 더 빠른 씹기
+            self.mouth_open = 0.15 + abs(chew_cycle) * 0.35
+            
+            # 다양한 씹는 파티클 효과
+            if random.random() < 0.6:
+                # 음식 조각
+                for _ in range(2):
+                    particle_x = WIDTH // 2 + random.randint(-30, 30)
+                    particle_y = HEIGHT // 2 + random.randint(-20, 20)
+                    particle_color = random.choice([
+                        PASTEL_PINK, LAVENDER, SOFT_YELLOW, WHITE,
+                        (*CRIMSON, 150), (*SOFT_BLACK, 100)
+                    ])
+                    self.chewing_particles.append({
+                        'x': particle_x,
+                        'y': particle_y,
+                        'vx': random.uniform(-5, 5),
+                        'vy': random.uniform(-6, -2),
+                        'life': 45,
+                        'color': particle_color,
+                        'type': 'food',
+                        'size': random.uniform(3, 7),
+                        'rotation': random.uniform(0, math.pi * 2),
+                        'rotation_speed': random.uniform(-0.4, 0.4)
+                    })
+            
+            # 증기 효과 (맛있는 음식)
+            if random.random() < 0.25:
+                for _ in range(2):
+                    particle_x = WIDTH // 2 + random.randint(-25, 25)
+                    particle_y = HEIGHT // 2 - 15
+                    self.chewing_particles.append({
+                        'x': particle_x,
+                        'y': particle_y,
+                        'vx': random.uniform(-1.5, 1.5),
+                        'vy': random.uniform(-3, -1),
+                        'life': 60,
+                        'color': (*WHITE, 60),
+                        'type': 'steam',
+                        'size': random.uniform(10, 15)
+                    })
+            
+            # 씹는 소리 시각화 (작은 충격파)
+            if int(chew_progress * 8) % 2 == 0 and random.random() < 0.3:
                 self.chewing_particles.append({
-                    'x': particle_x,
-                    'y': particle_y,
-                    'vx': random.uniform(-2, 2),
-                    'vy': random.uniform(-3, -1),
-                    'life': 30,
-                    'color': random.choice([PASTEL_PINK, LAVENDER, WHITE])
+                    'x': WIDTH // 2,
+                    'y': HEIGHT // 2,
+                    'vx': 0,
+                    'vy': 0,
+                    'life': 10,
+                    'color': (*SOFT_YELLOW, 100),
+                    'type': 'shockwave',
+                    'size': 5,
+                    'max_size': 30
                 })
             
-            # 파티클 업데이트
-            self.chewing_particles = [
-                {**p, 'x': p['x'] + p['vx'], 'y': p['y'] + p['vy'], 'life': p['life'] - 1}
-                for p in self.chewing_particles if p['life'] > 0
-            ]
+            # 파티클 업데이트 (물리 효과 적용)
+            updated_particles = []
+            for p in self.chewing_particles:
+                p['x'] += p['vx']
+                p['y'] += p['vy']
+                p['life'] -= 1
+                
+                # 타입별 특수 효과
+                if p['type'] == 'food':
+                    p['vy'] += 0.4  # 중력
+                    if 'rotation' in p:
+                        p['rotation'] += p.get('rotation_speed', 0)
+                elif p['type'] == 'steam':
+                    p['vy'] -= 0.08  # 위로 올라감
+                    p['size'] *= 1.03  # 퍼짐
+                    p['vx'] *= 0.95  # 감속
+                elif p['type'] == 'saliva':
+                    p['vy'] += 0.6  # 중력
+                elif p['type'] == 'shockwave':
+                    # 충격파 확장
+                    expansion = (10 - p['life']) / 10
+                    p['size'] = p.get('max_size', 30) * expansion
+                elif p['type'] == 'wind':
+                    p['vx'] *= 0.9  # 감속
+                    p['vy'] *= 0.9
+                
+                if p['life'] > 0:
+                    updated_particles.append(p)
+            
+            self.chewing_particles = updated_particles
             return True  # 공을 숨김
             
-        else:  # 3.5초 이후 - 공 발사
+        elif self.eating_timer < 220:  # 0.17초 - 뱉기 준비
+            # 볼 부풀리기 (압력 증가)
+            buildup = (self.eating_timer - 210) / 10
+            self.mouth_open = 0.2 + buildup * 0.6
+            self.chewing_phase = 0
+            
+            # 압력 파티클
+            if random.random() < 0.8:
+                for _ in range(2):
+                    particle_x = WIDTH // 2 + random.randint(-10, 10)
+                    particle_y = HEIGHT // 2 + random.randint(-5, 5)
+                    self.chewing_particles.append({
+                        'x': particle_x,
+                        'y': particle_y,
+                        'vx': random.uniform(-3, 3),
+                        'vy': random.uniform(-1, 1),
+                        'life': 8,
+                        'color': (*CRIMSON, 180),
+                        'type': 'pressure',
+                        'size': random.uniform(3, 5)
+                    })
+            
+            return True
+            
+        else:  # 3.67초 이후 - 폭발적으로 뱉기
+            if self.eating_timer < 225:  # 뱉는 순간
+                # 대폭발 효과
+                for _ in range(25):
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(8, 20)
+                    particle_x = WIDTH // 2
+                    particle_y = HEIGHT // 2
+                    particle_color = random.choice([
+                        PASTEL_PINK, LAVENDER, WHITE, SOFT_YELLOW,
+                        (*CRIMSON, 200), (*MINT_GREEN, 150)
+                    ])
+                    self.chewing_particles.append({
+                        'x': particle_x,
+                        'y': particle_y,
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed,
+                        'life': 35,
+                        'color': particle_color,
+                        'type': 'explosion',
+                        'size': random.uniform(5, 10)
+                    })
+                
+                # 큰 충격파
+                self.chewing_particles.append({
+                    'x': WIDTH // 2,
+                    'y': HEIGHT // 2,
+                    'vx': 0,
+                    'vy': 0,
+                    'life': 20,
+                    'color': (*WHITE, 150),
+                    'type': 'shockwave',
+                    'size': 10,
+                    'max_size': 100
+                })
+            
             self.eating_active = False
             self.mouth_open = 0
             self.chewing_phase = 0
@@ -1188,20 +1416,134 @@ class Stage3MenheraWorld:
         return vx, vy
     
     def draw_chewing_effects(self, screen):
-        """씹는 이펙트 그리기"""
+        """씹는 이펙트 그리기 - 더 다양하고 생동감 있게"""
         for particle in self.chewing_particles:
-            alpha = int(255 * (particle['life'] / 30))
-            size = 3 + particle['life'] // 10
-            color = (*particle['color'][:3], alpha)
+            p_type = particle.get('type', 'default')
             
-            # 별 모양 파티클
-            if random.random() < 0.5:
-                self.draw_mini_star(screen, int(particle['x']), int(particle['y']), 
-                                  size, color)
+            if p_type == 'saliva':
+                # 침 방울 (반투명 물방울)
+                alpha = int(180 * (particle['life'] / 25))
+                size = particle.get('size', 3)
+                color = (*particle['color'][:3], alpha)
+                pygame.draw.circle(screen, color, 
+                                 (int(particle['x']), int(particle['y'])), 
+                                 int(size))
+                # 하이라이트
+                pygame.draw.circle(screen, (*WHITE, alpha//2),
+                                 (int(particle['x'] - size//3), int(particle['y'] - size//3)),
+                                 max(1, int(size//3)))
+                
+            elif p_type == 'food':
+                # 음식 조각 (회전하는 사각형/다각형)
+                alpha = int(255 * (particle['life'] / 45))
+                size = particle.get('size', 5)
+                color = (*particle['color'][:3], alpha)
+                rotation = particle.get('rotation', 0)
+                
+                # 회전하는 음식 조각
+                points = []
+                sides = random.choice([3, 4, 5])
+                for i in range(sides):
+                    angle = rotation + (i * 2 * math.pi / sides)
+                    px = particle['x'] + size * math.cos(angle)
+                    py = particle['y'] + size * math.sin(angle)
+                    points.append((int(px), int(py)))
+                
+                if len(points) >= 3:
+                    pygame.draw.polygon(screen, color, points)
+                
+            elif p_type == 'steam':
+                # 증기 (부드러운 원형, 퍼지면서 사라짐)
+                alpha = int(60 * (particle['life'] / 60))
+                size = particle.get('size', 10)
+                color = (*particle['color'][:3], alpha)
+                
+                # 여러 겹의 원으로 부드러운 증기 효과
+                for i in range(3):
+                    layer_size = size + i * 3
+                    layer_alpha = max(0, alpha - i * 20)
+                    if layer_alpha > 0:
+                        pygame.draw.circle(screen, (*color[:3], layer_alpha),
+                                         (int(particle['x']), int(particle['y'])),
+                                         int(layer_size), 1)
+                
+            elif p_type == 'wind':
+                # 바람 효과 (선)
+                alpha = int(80 * (particle['life'] / 15))
+                size = particle.get('size', 2)
+                color = (*particle['color'][:3], alpha)
+                
+                # 속도 방향으로 선 그리기
+                end_x = particle['x'] - particle['vx'] * 3
+                end_y = particle['y'] - particle['vy'] * 3
+                pygame.draw.line(screen, color,
+                               (int(particle['x']), int(particle['y'])),
+                               (int(end_x), int(end_y)), max(1, int(size)))
+                
+            elif p_type == 'shockwave':
+                # 충격파 (확장하는 원)
+                alpha = int(150 * (particle['life'] / 20))
+                size = particle.get('size', 10)
+                color = (*particle['color'][:3], alpha)
+                
+                # 여러 겹의 원으로 충격파 효과
+                pygame.draw.circle(screen, color,
+                                 (int(particle['x']), int(particle['y'])),
+                                 int(size), max(1, 3 - int(size/20)))
+                
+                # 내부 밝은 원
+                if size > 15:
+                    pygame.draw.circle(screen, (*WHITE, alpha//2),
+                                     (int(particle['x']), int(particle['y'])),
+                                     int(size * 0.7), 1)
+                
+            elif p_type == 'pressure':
+                # 압력 파티클 (진동하는 점)
+                alpha = int(180 * (particle['life'] / 8))
+                size = particle.get('size', 3)
+                color = (*particle['color'][:3], alpha)
+                
+                # 진동 효과
+                vibrate_x = particle['x'] + random.uniform(-2, 2)
+                vibrate_y = particle['y'] + random.uniform(-2, 2)
+                pygame.draw.circle(screen, color,
+                                 (int(vibrate_x), int(vibrate_y)),
+                                 int(size))
+                
+            elif p_type == 'explosion':
+                # 폭발 파티클 (빛나는 별)
+                alpha = int(255 * (particle['life'] / 35))
+                size = particle.get('size', 7)
+                color = (*particle['color'][:3], alpha)
+                
+                # 별 모양 또는 빛나는 원
+                if random.random() < 0.3:
+                    self.draw_mini_star(screen, int(particle['x']), int(particle['y']),
+                                      int(size), color)
+                else:
+                    # 빛나는 원
+                    pygame.draw.circle(screen, color,
+                                     (int(particle['x']), int(particle['y'])),
+                                     int(size))
+                    # 광채 효과
+                    for i in range(1, 3):
+                        glow_alpha = max(0, alpha - i * 60)
+                        if glow_alpha > 0:
+                            pygame.draw.circle(screen, (*color[:3], glow_alpha),
+                                             (int(particle['x']), int(particle['y'])),
+                                             int(size + i * 3), 1)
             else:
-                # 하트 모양 파티클
-                self.draw_mini_heart(screen, int(particle['x']), int(particle['y']), 
-                                   size, color)
+                # 기본 파티클 (별/하트)
+                alpha = int(255 * (particle['life'] / 30))
+                size = 3 + particle['life'] // 10
+                color = (*particle['color'][:3], alpha)
+                
+                if random.random() < 0.5:
+                    self.draw_mini_star(screen, int(particle['x']), int(particle['y']), 
+                                      size, color)
+                else:
+                    self.draw_mini_heart(screen, int(particle['x']), int(particle['y']), 
+                                       size, color)
 
 
 # 테스트 코드
