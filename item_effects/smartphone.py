@@ -587,10 +587,25 @@ class Smartphone:
             # 현재 게이지 확인
             current_gauge = getattr(main_module, 'special_gauge', 0)
             
+            # 게이지가 높아지면 디버그 플래그 리셋
+            if current_gauge > 120:
+                self._last_debug_gauge = current_gauge
+            
             # 게이지가 120 이하이고 쿨타임이 아닐 때
             if current_gauge <= 120 and self.last_activation_time <= 0:
                 # active_item_slot에서 생명수 또는 에너지드링크 찾기
                 active_items = getattr(main_module, 'active_item_slot', [])
+                
+                # 디버그: 게이지가 낮을 때마다 한 번씩 출력
+                if not hasattr(self, '_last_debug_gauge') or self._last_debug_gauge > 120:
+                    print(f"[DEBUG 스마트폰] 게이지: {current_gauge}, 활성 아이템 개수: {len(active_items)}")
+                    if active_items:
+                        for idx, item in enumerate(active_items):
+                            if item and isinstance(item, dict):
+                                print(f"  슬롯 {idx}: {item.get('name', 'unknown')}")
+                    else:
+                        print("  활성 아이템 슬롯이 비어있음")
+                self._last_debug_gauge = current_gauge
                 
                 # 생명수(life_elixir) 우선, 없으면 에너지드링크(gauge_charge) 사용
                 healing_item_index = -1

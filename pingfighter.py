@@ -7480,7 +7480,12 @@ def store_passive_item(item_data):
                 'active_items': active_item_slot
             }
             smartphone.activate(phone_state, current_stage)
+            print(f"[DEBUG] 스마트폰 활성화 상태: {smartphone.active}")
         print("스마트폰 획득! 위험 시 자동 아이템 사용!")
+        
+        # 패시브 아이템 리스트에 추가 (중요!)
+        passive_item_list.append(item_data)
+        
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
@@ -27647,6 +27652,7 @@ def handle_ball():
             if not smartphone.active:
                 temp_state = {'current_stage': current_stage, 'active_items': active_item_slot}
                 smartphone.activate(temp_state, current_stage)
+                print(f"[DEBUG] 스마트폰 재활성화! active={smartphone.active}")
             
             # 스마트폰용 임시 game_state 구성 (전역 game_state를 덮어쓰지 않음)
             smartphone_state = {
