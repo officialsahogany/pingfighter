@@ -14787,16 +14787,17 @@ def show_start_screen():
     frame_count = 0  # frame_count 초기화
     smoke_zones = []  # 메인 메뉴 복귀 시 연막 효과 초기화
     
-    # 메인 메뉴 BGM 재생
-    try:
-        bgm_path = resource_path(os.path.join("bgm", "introbgm.mp3"))
-        if os.path.exists(bgm_path):
-            pygame.mixer.music.load(bgm_path)
-            pygame.mixer.music.set_volume(0.5)  # 볼륨 50%
-            pygame.mixer.music.play(-1)  # 무한 루프 재생
-            print("메인 메뉴 BGM 재생 시작")
-    except Exception as e:
-        print(f"BGM 로드 실패: {e}")
+    # 메인 메뉴 BGM 재생 (이미 재생 중이 아닌 경우에만)
+    if not pygame.mixer.music.get_busy():
+        try:
+            bgm_path = resource_path(os.path.join("bgm", "introbgm.mp3"))
+            if os.path.exists(bgm_path):
+                pygame.mixer.music.load(bgm_path)
+                pygame.mixer.music.set_volume(0.5)  # 볼륨 50%
+                pygame.mixer.music.play(-1)  # 무한 루프 재생
+                print("메인 메뉴 BGM 재생 시작")
+        except Exception as e:
+            print(f"BGM 로드 실패: {e}")
     
     #  악마의 주사위 효과 강제 종료 (메인 메뉴 복귀 시)
     from item_effects.devil_dice import deactivate_devil_dice
