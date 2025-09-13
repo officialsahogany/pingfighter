@@ -1140,6 +1140,7 @@ SOUND_CRY = pygame.mixer.Sound(resource_path("sounds/cry.wav"))  #  Stage 2 보�
 SOUND_THROW_BEFORE = pygame.mixer.Sound(resource_path("sounds/throwbefore.wav"))  #  투척 준비 효과음
 SOUND_GRENADE = pygame.mixer.Sound(resource_path("sounds/grenade.wav"))  #  수류탄 폭발 효과음
 SOUND_FIREBOMB = pygame.mixer.Sound(resource_path("sounds/firebomb.wav"))  #  화염병 폭발 효과음
+SOUND_FLAME = pygame.mixer.Sound(resource_path("sounds/flame.wav"))  #  화염 지속 효과음
 SOUND_SMOKEBOMB = pygame.mixer.Sound(resource_path("sounds/smokebomb.wav"))  #  연막탄 연막 분출 효과음
 SOUND_FLASHBOMB = pygame.mixer.Sound(resource_path("sounds/flashbomb.wav"))  #  조명탄 폭발 효과음
 SOUND_TIMEWATCH = pygame.mixer.Sound(resource_path("sounds/timewatch.wav"))  # ️ 타임워치 발동 효과음
@@ -1883,6 +1884,7 @@ wall_install_timer = 0  # 설치 타이머 (0.5초 = 30프레임)
 # === 화염병 관련 ===
 molotovs = []  # 던져진 화염병 리스트
 fire_zones = []  # 화염 지대 리스트
+fire_zone_sounds = {}  # 화염 지대별 사운드 채널 관리
 wall_install_gauge_visible = False  # 설치 게이지 표시 여부
 molotov_throwing = False  # 화염병 투척 모션 중
 molotov_throw_timer = 0  # 투척 모션 타이머
@@ -2501,6 +2503,14 @@ def go_to_next_round():
     last_wall_hit = None
     last_paddle_hit_time = 0
     #  화염병 관련 초기화 (라운드 전환 시 화염 지대 제거)
+    # 모든 화염 효과음 정지
+    for zone_id, channel in fire_zone_sounds.items():
+        try:
+            if channel and channel.get_busy():
+                channel.stop()
+        except:
+            pass
+    fire_zone_sounds.clear()  # 채널 정보 초기화
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
     #  수류탄 관련 초기화
@@ -8279,6 +8289,16 @@ def handle_wall():
             # 폭발 효과음
             try:
                 play_sound_with_volume(SOUND_FIREBOMB)  #  화염병 폭발 사운드 재생
+                # 화염 지속 효과음 재생
+                try:
+                    flame_channel = pygame.mixer.find_channel()
+                    if flame_channel:
+                        flame_channel.set_volume(sfx_volume * 0.3)  # 화염 효과음은 작게
+                        flame_channel.play(SOUND_FLAME, loops=-1)  # 루프 재생
+                        fire_zone_sounds[id(fire_zone)] = flame_channel  # 채널 저장
+                        print(f"화염 효과음 재생 시작 - Zone ID: {id(fire_zone)}")
+                except Exception as e:
+                    print(f"화염 효과음 재생 실패: {e}")
             except:
                 pass
             print(f"  !    : X={fire_zone['x']:.1f}, Y={fire_zone['y']:.1f}")
@@ -8290,6 +8310,19 @@ def handle_wall():
         if "push_timer" not in fire_zone:
             fire_zone["push_timer"] = 0
         fire_zone["push_timer"] += 1
+
+        # 화염 효과음을 1초 일찍 정지 (60프레임 = 1초)
+        if fire_zone["duration"] == 60:
+            zone_id = id(fire_zone)
+            if zone_id in fire_zone_sounds:
+                try:
+                    channel = fire_zone_sounds[zone_id]
+                    if channel and channel.get_busy():
+                        channel.stop()  # 1초 일찍 정지
+                        print(f"화염 효과음 조기 정지 (1초 전) - Zone ID: {zone_id}")
+                    del fire_zone_sounds[zone_id]  # 채널 정보 삭제
+                except Exception as e:
+                    print(f"화염 효과음 조기 정지 실패: {e}")
         # 불길 번짐 효과 - 지속적으로 새 불꽃 추가
         if fire_zone["spread_timer"] % 5 == 0 and len(fire_zone["flames"]) < 30:
             for i in range(3):
@@ -8367,6 +8400,18 @@ def handle_wall():
                     BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
         # 지속시간 종료 체크
         if fire_zone["duration"] <= 0:
+            # 화염 효과음이 이미 정지되었을 수 있음 (0.5초 전에 정지됨)
+            zone_id = id(fire_zone)
+            if zone_id in fire_zone_sounds:
+                try:
+                    channel = fire_zone_sounds[zone_id]
+                    if channel and channel.get_busy():
+                        channel.stop()  # 아직 재생 중이면 정지
+                        print(f"화염 효과음 정지 (종료 시점) - Zone ID: {zone_id}")
+                    del fire_zone_sounds[zone_id]  # 채널 정보 삭제
+                except Exception as e:
+                    print(f"화염 효과음 정지 실패: {e}")
+            # 이미 0.5초 전에 정지되었으므로 경고 메시지 제거
             fire_zones.remove(fire_zone)
     #  모든 화염 지대를 체크한 후, 보스가 어떤 화염 지대에도 없으면 속도 감소 효과 리셋
     if len(fire_zones) == 0 or not any(zone.get("boss_in_fire", False) for zone in fire_zones):
@@ -25474,6 +25519,14 @@ def reset_round():
     #  라운드 시작 시간 초기화 (화염탄 2.5초 지연용)
     round_start_time = pygame.time.get_ticks()
     #  화염병 관련 초기화 (라운드 전환 시 화염 지대 제거)
+    # 모든 화염 효과음 정지
+    for zone_id, channel in fire_zone_sounds.items():
+        try:
+            if channel and channel.get_busy():
+                channel.stop()
+        except:
+            pass
+    fire_zone_sounds.clear()  # 채널 정보 초기화
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
     #  수류탄 관련 초기화
