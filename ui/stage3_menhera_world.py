@@ -1542,16 +1542,16 @@ class Stage3MenheraWorld:
             return False  # 공을 다시 표시
     
     def get_spit_velocity(self):
-        """미리 결정된 방향으로 공을 뱉어낼 속도 벡터 반환 - 2배 빠르게"""
+        """미리 결정된 방향으로 공을 뱉어낼 속도 벡터 반환 - 3배 빠르게"""
         # 미리 결정된 각도 사용 (없으면 랜덤)
         if self.spit_angle is not None:
             angle = self.spit_angle
         else:
             angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
         
-        # 기본 속도를 2배로 증가 (8-12 → 16-24)
+        # 기본 속도를 3배로 증가 (8-12 → 24-36)
         base_speed = random.uniform(8, 12)
-        speed = base_speed * 2.0  # 2배 증가
+        speed = base_speed * 3.0  # 3배 증가 (300%)
         
         vx = speed * math.cos(angle)
         vy = speed * math.sin(angle)
