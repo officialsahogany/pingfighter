@@ -17,7 +17,7 @@ def show_credits_screen():
     
     # 크레딧 정보
     credits_data = [
-        {"role": "Game Director", "name": "caisetgames", "color": (255, 215, 0)},
+        {"role": "Game Director", "name": "Caisetgames", "color": (255, 215, 0)},
         {"role": "BGM Sound Director", "name": "BK", "color": (100, 200, 255)},
         {"role": "Programming", "name": "Caiset & ClaudeCode", "color": (0, 255, 150)},
         {"role": "Special Thanks", "name": "All Players", "color": (255, 150, 200)},
