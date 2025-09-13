@@ -32580,6 +32580,8 @@ def main(stage_num, new_boss_mode=False):
     global kuromi_eating_active, kuromi_eating_timer, kuromi_mouth_open
     global kuromi_chewing_phase, ball_in_kuromi, kuromi_spit_angle, chewing_particles
     global kuromi_eating_cooldown
+    # 쿠로미 뱉기 궤적 관련 변수 추가
+    global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
     kuromi_eating_active = False
     kuromi_eating_timer = 0
     kuromi_mouth_open = 0
@@ -32588,6 +32590,10 @@ def main(stage_num, new_boss_mode=False):
     kuromi_spit_angle = 0
     chewing_particles = []
     kuromi_eating_cooldown = 0  # 쿨타임 초기화
+    # 쿠로미 뱉기 궤적 초기화
+    kuromi_spit_trail_active = False
+    kuromi_spit_trail_positions = []
+    kuromi_spit_trail_color_phase = 0
     
     # 튜토리얼 스테이지 시작 시 대화 표시
     global tutorial_dialogue_shown, tutorial_practice_mode, tutorial_serve_instruction_shown, tutorial_boss_returned
