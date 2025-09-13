@@ -1477,6 +1477,7 @@ class Stage3MenheraWorld:
             if self.spit_angle is None:
                 self.spit_angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
                 self.mouth_direction = self.spit_angle  # 입 방향 설정
+                print(f"🎯 쿠로미 발사 각도 결정: {math.degrees(self.spit_angle):.1f}도")
             
             # 볼 부풀리기 (압력 증가) - 1초 동안 서서히
             buildup = (self.eating_timer - 150) / 60  # 0~1 (1초 동안)
@@ -1525,6 +1526,10 @@ class Stage3MenheraWorld:
             return True
             
         else:  # 220 이후 - 폭발적으로 뱉기
+            # spit_angle이 유지되고 있는지 확인
+            if self.spit_angle is not None:
+                print(f"🔄 뱉기 직전 각도 확인: {math.degrees(self.spit_angle):.1f}도")
+            
             if self.eating_timer < 225:  # 뱉는 순간
                 # 대폭발 효과
                 for _ in range(25):
@@ -1560,11 +1565,13 @@ class Stage3MenheraWorld:
                     'max_size': 100
                 })
             
+            # get_spit_velocity()가 호출된 후에 리셋되도록 일단 유지
             self.eating_active = False
             self.mouth_open = 0
             self.chewing_phase = 0
-            self.spit_angle = None  # 발사 각도 리셋
-            self.mouth_direction = 0  # 입 방향 리셋
+            # spit_angle은 get_spit_velocity() 호출 후에 리셋하도록 주석 처리
+            # self.spit_angle = None  # 발사 각도 리셋
+            # self.mouth_direction = 0  # 입 방향 리셋
             return False  # 공을 다시 표시
     
     def get_spit_velocity(self):
@@ -1579,15 +1586,18 @@ class Stage3MenheraWorld:
         base_speed = random.uniform(8, 12)
         speed = base_speed * 3.0  # 3배 증가 (300%)
         
+        # 정확한 방향으로 발사 (추가 수정 없이)
         vx = speed * math.cos(angle)
         vy = speed * math.sin(angle)
         
-        # 위 또는 아래로 더 강하게
-        if random.random() < 0.5:
-            vy = -abs(vy) if random.random() < 0.5 else abs(vy)
+        print(f"💥 쿠로미 실제 발사: 각도={math.degrees(angle):.1f}도, 속도=({vx:.1f}, {vy:.1f})")
         
         # 뱉을 때 특수 이펙트 파티클 생성
         self.create_spit_effect_particles(angle, speed)
+        
+        # 발사 후 각도 리셋
+        self.spit_angle = None
+        self.mouth_direction = 0
         
         return vx, vy
     

@@ -5403,6 +5403,7 @@ def handle_player(keys):
                 # 구르기 종료, 통제 불가능 상태 시작
                 rolling_active = False
                 is_half_dash_active = False  # 대쉬 종료 시 하프대쉬 플래그 리셋
+                print(f"[DEBUG 무릎보호대] 대쉬 종료, is_half_dash_active = False")
                 
                 # 튜토리얼: 대쉬 종료 시 카운팅 플래그 리셋
                 if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -5909,6 +5910,7 @@ def handle_player(keys):
                         # 하프 대쉬 발동
                         rolling_active = True
                         is_half_dash_active = True  # 하프대쉬 플래그 설정
+                        print(f"[DEBUG 무릎보호대] 하프대쉬 발동! is_half_dash_active = True")
                         # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                         if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                             tutorial_dash_already_counted = False
@@ -7446,6 +7448,7 @@ def store_passive_item(item_data):
         knee_pads = get_knee_pads_instance()
         if knee_pads:
             knee_pads.activate()
+            print(f"[DEBUG 무릎보호대] 아이템 획득! knee_pads.active = {knee_pads.active}")
         print("무릎보호대 획득! 하프대쉬 공 타격 시 게이지 50% 충전!")
         # 패시브 아이템 리스트에 추가
         passive_item_list.append(item_data)
@@ -22464,7 +22467,7 @@ def show_developer_stage_select():
                         main(num)
                         return
 def show_item_manager_menu():
-    """아이템 관리 메뉴 - 탭키 아이템창과 동일한 UI"""
+    """아이템 관리자 메뉴 - 탭키 아이템창과 동일한 UI"""
     global active_item_slot, passive_item_list, selected_item_index, selected_passive_item
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained, sensor_obtained
@@ -22606,7 +22609,7 @@ def show_item_manager_menu():
         # 배경 그리기
         SCREEN.fill((10, 10, 40))
         # 제목
-        title_text = font_large.render("아이템 관리", True, WHITE)
+        title_text = font_large.render("아이템 관리자", True, WHITE)
         title_rect = title_text.get_rect(center=(WIDTH // 2, 80))
         SCREEN.blit(title_text, title_rect)
         # 탭 버튼 (3개로 확장)
@@ -27715,13 +27718,16 @@ def handle_ball():
             
             # 🦵 무릎보호대: 하프대쉬 중 공과 충돌 체크
             if rolling_active and is_half_dash_active and BALL.colliderect(PLAYER):
+                print(f"[DEBUG 무릎보호대] 하프대쉬 충돌 감지! rolling_active={rolling_active}, is_half_dash_active={is_half_dash_active}")
                 # 무릎보호대 효과 발동
                 from item_effects.knee_pads import get_knee_pads_instance
                 knee_pads = get_knee_pads_instance()
+                print(f"[DEBUG 무릎보호대] knee_pads 인스턴스: {knee_pads}, active: {knee_pads.active if knee_pads else 'None'}")
                 if knee_pads and knee_pads.active:
                     # 하프대쉬로 공을 맞췄을 때
                     ball_center = (BALL.centerx, BALL.centery)
                     should_charge = knee_pads.on_half_dash_hit(ball_center)
+                    print(f"[DEBUG 무릎보호대] on_half_dash_hit 결과: {should_charge}")
                     
                     if should_charge:
                         # 특수 게이지 50% 충전 (기본 충전량 80의 50% = 40)
@@ -27731,12 +27737,17 @@ def handle_ball():
                         # 블루투스링 효과 적용 (있을 경우)
                         if bluetooth_ring_obtained:
                             charge_amount *= 1.25  # 25% 추가 충전
+                            print(f"[DEBUG 무릎보호대] 블루투스링 보너스 적용: 25% 추가")
                         
+                        old_gauge = special_gauge
                         special_gauge = min(special_gauge + charge_amount, special_gauge_max)
-                        print(f"[무릎보호대] 하프대쉬 공 타격! 게이지 {charge_amount:.0f} 충전 (현재: {special_gauge}/{special_gauge_max})")
+                        print(f"[무릎보호대] 하프대쉬 공 타격! 게이지 {charge_amount:.0f} 충전 ({old_gauge} → {special_gauge}/{special_gauge_max})")
                         
                         # 사운드 효과
                         SOUND_SPECIAL.play()
+                        print(f"[DEBUG 무릎보호대] 특수 사운드 재생 완료")
+                else:
+                    print(f"[DEBUG 무릎보호대] 효과 미발동 - knee_pads 없거나 비활성")
             
             #  스테이지 4 몽크 봉 충돌 체크 (매 스텝마다)
             if current_stage == 4 and animated_bg_stage4 is not None:
@@ -35699,7 +35710,7 @@ def show_game_info():
             draw.rect((30, 30, LARGE_SIZE), (panel_x, panel_y, panel_width, panel_height))
             draw.rect((100, 150, 255), (panel_x, panel_y, panel_width, panel_height), 3)
             # 제목
-            title_text = font_large.render("아이템 관리", True, WHITE)
+            title_text = font_large.render("아이템 관리자", True, WHITE)
             title_rect = title_text.get_rect(center=(panel_x + panel_width // 2, panel_y + 25))
             SCREEN.blit(title_text, title_rect)
             # 아이템 카테고리 탭
@@ -36138,7 +36149,7 @@ def get_item_description(item_name):
     }
     return descriptions.get(item_name, "설명이 없습니다.")
 def show_item_management_menu(item_list, selected_index, item_type):
-    """아이템 관리 메뉴 (버리기/취소)"""
+    """아이템 관리자 메뉴 (버리기/취소)"""
     global active_item_slot, passive_item_list, selected_item_index, selected_passive_item
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained
