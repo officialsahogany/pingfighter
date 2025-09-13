@@ -19,7 +19,7 @@ def show_credits_screen():
     credits_data = [
         {"role": "Game Director", "name": "caisetgames", "color": (255, 215, 0)},
         {"role": "BGM Sound Director", "name": "BK", "color": (100, 200, 255)},
-        {"role": "Programming", "name": "PingFighter Team", "color": (0, 255, 150)},
+        {"role": "Programming", "name": "Caiset & ClaudeCode", "color": (0, 255, 150)},
         {"role": "Special Thanks", "name": "All Players", "color": (255, 150, 200)},
     ]
     
@@ -50,6 +50,12 @@ def show_credits_screen():
         # 배경 그리기
         simple_bg.update(dt)
         simple_bg.draw(SCREEN)
+        
+        # 반투명 어두운 오버레이 추가 (가독성 향상)
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(180)  # 70% 불투명도
+        overlay.fill((0, 0, 0))
+        SCREEN.blit(overlay, (0, 0))
         
         # 별 효과
         for star in stars:
@@ -105,8 +111,8 @@ def show_credits_screen():
         for i, credit in enumerate(credits_data):
             y_pos = start_y + i * spacing
             
-            # 역할 (작은 폰트, 회색)
-            role_surf = font_role.render(credit["role"], True, (150, 150, 150))
+            # 역할 (작은 폰트, 밝은 회색으로 가독성 향상)
+            role_surf = font_role.render(credit["role"], True, (200, 200, 200))
             role_rect = role_surf.get_rect(center=(WIDTH // 2, y_pos))
             SCREEN.blit(role_surf, role_rect)
             
