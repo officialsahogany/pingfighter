@@ -2212,9 +2212,6 @@ star_particle_spawn_rate = 3  # 3프레임마다 파티클 생성
 jupiter_ring_angle = 0  # 회전 각도
 jupiter_ring_speed = 3  # 회전 속도
 jupiter_ring_segments = 12  # 띠 세그먼트 개수
-# 무중력벨트 + 스피드기어 시너지 효과
-gravity_speed_synergy = False  # 시너지 활성화 여부
-synergy_paddle_width_boost = 1.6  # 패들 가로길이 60% 증가
 def draw_jupiter_ring(surface, paddle_rect):
     """목성 띠 애니메이션 그리기 (무중력벨트 + 스피드기어 시너지)"""
     global jupiter_ring_angle
@@ -3370,9 +3367,9 @@ def throw_grenade():
     distance = math.sqrt(dx**2 + dy**2)
     # 속도 정규화 (일정한 속도로 날아가도록)
     base_speed = 12  # 수류탄 기본 속도
-    # 코만도암 효과 적용 (투척 속도 30% 증가)
+    # 코만도암 효과 적용 (투척 속도 50% 증가)
     if items.commando_arm_obtained:
-        speed = base_speed * 1.3  # 12 → 15.6
+        speed = base_speed * 1.5  # 12 → 18
         print(f"  !  : {speed:.1f} (: {base_speed})")
     else:
         speed = base_speed
@@ -3443,9 +3440,9 @@ def throw_flare():
     distance = math.sqrt(dx**2 + dy**2)
     # 속도 정규화 (일정한 속도로 날아가도록)
     base_speed = 9.6  # 조명탄 기본 속도
-    # 코만도암 효과 적용 (투척 속도 30% 증가)
+    # 코만도암 효과 적용 (투척 속도 50% 증가)
     if items.commando_arm_obtained:
-        speed = base_speed * 1.3  # 9.6 → 12.48
+        speed = base_speed * 1.5  # 9.6 → 14.4
         print(f"  !  : {speed:.1f} (: {base_speed})")
     else:
         speed = base_speed
@@ -3959,9 +3956,9 @@ def throw_molotov():
     distance = math.sqrt(dx**2 + dy**2)
     # 속도 정규화 (일정한 속도로 날아가도록)
     base_speed = 14.4  # 화염병 기본 속도
-    # 코만도암 효과 적용 (투척 속도 30% 증가)
+    # 코만도암 효과 적용 (투척 속도 50% 증가)
     if items.commando_arm_obtained:
-        speed = base_speed * 1.3  # 14.4 → 18.72
+        speed = base_speed * 1.5  # 14.4 → 21.6
         print(f"  !  : {speed:.1f} (: {base_speed})")
     else:
         speed = base_speed
@@ -6471,8 +6468,7 @@ def handle_player(keys):
                                 devil_dice_speed_multiplier = multipliers.get('player_speed', 1.0)
                             
                             # 무중력벨트: 완전히 기계적인 즉각 이동 (키 누르는 동안만)
-                            # 시너지 효과일 때는 추가 속도 +3
-                            speed_bonus = 3 if gravity_speed_synergy else 0
+                            speed_bonus = 0
                             if left_pressed:
                                 current_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
                             elif right_pressed:
@@ -6620,14 +6616,10 @@ def handle_player(keys):
     
     # 패들 크기 변화를 고려한 X 좌표 제한
     # 악마의 주사위 배율도 포함
-    actual_paddle_width = int(PADDLE_WIDTH * long_boost_scale * (synergy_paddle_width_boost if gravity_speed_synergy else 1.0) * devil_dice_paddle_multiplier)
+    actual_paddle_width = int(PADDLE_WIDTH * long_boost_scale * devil_dice_paddle_multiplier)
     PLAYER.x = max(0, min(WIDTH - actual_paddle_width, PLAYER.x))
     
-    # 무중력벨트 + 스피드기어 시너지 효과 적용
-    if gravity_speed_synergy:
-        PLAYER.width = int(PADDLE_WIDTH * synergy_paddle_width_boost * long_boost_scale * devil_dice_paddle_multiplier)  # 시너지 + 거대화포션 + 악마의 주사위
-    else:
-        PLAYER.width = int(PADDLE_WIDTH * long_boost_scale * devil_dice_paddle_multiplier)  # 거대화포션 + 악마의 주사위 효과 적용
+    PLAYER.width = int(PADDLE_WIDTH * long_boost_scale * devil_dice_paddle_multiplier)  # 거대화포션 + 악마의 주사위 효과 적용
     # (퍼펙트 타이밍 윈도우 감지 로직은 메인 루프로 이동)
     # 공 충돌 처리 - Aipill 활성화 시에는 모든 방향에서 감지, 비활성화 시에는 측면 충돌도 감지
     # 패들 끝부분 충돌을 위해 Y속도 조건 완화 - 공이 매우 빠르게 위로 가지 않는 한 모두 감지
@@ -7006,12 +6998,6 @@ def handle_player(keys):
         global hit_animation_active, hit_animation_timer
         hit_animation_active = True
         hit_animation_timer = HIT_ANIMATION_DURATION
-        # 무중력벨트 + 스피드기어 시너지 시 별가루 파티클 생성
-        if gravity_speed_synergy:
-            print(f"  !  : {gravity_speed_synergy}")
-            effects_manager.spawn_star_particles(PLAYER.centerx, PLAYER.centery, count=3)
-        else:
-            print(f"   !  : {gravity_speed_synergy}")
         #  게이지 처리 - Aipill 활성화 시에는 게이지 감소만, 비활성화 시에는 게이지 증가
         print(f"   aipill_active: {aipill_active}")  # 
         # Aipill 활성화 시 게이지 감소만
@@ -7224,7 +7210,7 @@ def store_passive_item(item_data):
     global items, aipill_active, battery_obtained, revival_obtained, master_obtained, cooltime_obtained, chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained
     global danger_sensor_obtained, sensor_obtained, danger_sensor_enabled, sensor_enabled  # 센서 관련 변수들
     global dashholder_obtained  # 대쉬홀더 관련 변수
-    global gravitybelt_obtained, gravity_speed_synergy  # 무중력벨트 관련 변수들
+    global gravitybelt_obtained  # 무중력벨트 관련 변수
     global hermes_shoes_obtained  # 헤르메스의 신발 관련 변수
     print(f"store_passive_item : {item_data['name']}")
     # Aipill 활성화 시에는 아이템 획득 불가
@@ -7269,9 +7255,7 @@ def store_passive_item(item_data):
             print("!     150% !")
             # 무중력벨트 + 스피드기어 시너지 효과 확인
             if gravitybelt_obtained:
-                gravity_speed_synergy = True
                 # 전설의 벨트 시너지 - 전설 애니메이션 트리거
-                trigger_legendary_acquisition("legendary_belt", "전설의 벨트", None, (PLAYER.centerx, PLAYER.centery))
                 print("+   !   60% !")
     elif item_data["name"] == "battery":
         # 배터리 영구 효과 적용
@@ -7524,9 +7508,7 @@ def store_passive_item(item_data):
             #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # 무중력벨트 + 스피드기어 시너지 효과 확인
             if speedgear_obtained:
-                gravity_speed_synergy = True
                 # 전설의 벨트 시너지 - 전설 애니메이션 트리거
-                trigger_legendary_acquisition("legendary_belt", "전설의 벨트", None, (PLAYER.centerx, PLAYER.centery))
                 print("+   !   60% !")
         else:
             print(".")
@@ -9454,7 +9436,7 @@ def draw_item_obtained_effect():
     # 픽셀 폰트 (아이템 이름)
     name_font = FontStyle.item_name()  # 14pt 픽셀 폰트
     # 시너지 효과일 때 보라색으로 표시
-    if item_obtained_effect["name"] == "gravitybelt" and gravity_speed_synergy:
+    if item_obtained_effect["name"] == "gravitybelt":
         name_color = (128, 0, 128)  # 보라색
     else:
         name_color = WHITE  # 흰색
@@ -13950,7 +13932,7 @@ def draw_objects():
                         draw.circle((100, 150, 200), 
                                          (int(trail_x), int(trail_y)), 4 - i)
     # 목성 띠 애니메이션 그리기 (무중력벨트 + 스피드기어 시너지)
-    if gravity_speed_synergy:
+    if False:
         draw_jupiter_ring(SCREEN, PLAYER)
     
     #  Stage 1 이벤트 배경 그리기 (공 아래에 그려질 문과 기계)
@@ -22836,7 +22818,7 @@ def show_item_manager_menu():
             # 아이템 이름
             item_name = get_item_name_korean(item["name"])
             # 시너지 효과일 때 보라색으로 표시
-            if item["name"] == "gravitybelt" and gravity_speed_synergy:
+            if item["name"] == "gravitybelt":
                 name_color = (128, 0, 128)  # 보라색
             else:
                 name_color = WHITE
@@ -22856,7 +22838,7 @@ def show_item_manager_menu():
             selected_items_text = ", ".join([item["korean_name"] for item in legendary_items if item["name"] in selected_legendary_items]) if selected_legendary_items else "없음"
         # 시너지 효과가 포함된 경우 보라색으로 표시
         text_color = (200, 200, 200)  # 기본 색상
-        if "gravitybelt" in selected_passive_items and gravity_speed_synergy:
+        if "gravitybelt" in selected_passive_items:
             text_color = (128, 0, 128)  # 보라색
         selected_text = font_small.render(selected_items_text, True, text_color)
         SCREEN.blit(selected_text, (50, info_y + 30))
@@ -23158,13 +23140,6 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
         # 전역 변수 직접 수정
         globals()['gravitybelt_obtained'] = True
     # 무중력벨트 + 스피드기어 시너지 효과 확인
-    global gravity_speed_synergy
-    if gravitybelt_obtained and speedgear_obtained:
-        gravity_speed_synergy = True
-        print("+   !")
-    else:
-        gravity_speed_synergy = False
-    
     # 전설 아이템 적용
     if selected_legendary_items:
         # Import already done globally at line 141
@@ -27825,15 +27800,14 @@ def handle_ball():
                                     pass  # Debug log removed
                                 elif x_in_right:
                                     pass  # Debug log removed
-                        # 물의 파동 효과 제거됨 - 순수 대시 보조용
-                        # apply_trajectory_influence는 이제 아무 효과 없이 원래 속도를 반환
-                        # modified_vx, modified_vy = trident.apply_trajectory_influence(
-                        #     BALL.centerx, BALL.centery,
-                        #     step_vel_x, step_vel_y,
-                        #     PLAYER.centerx, PLAYER.centery
-                        # )
-                        actual_vel_x = step_vel_x  # 원래 속도 그대로 사용
-                        actual_vel_y = step_vel_y  # 원래 속도 그대로 사용
+                        # 물의 파동으로 공의 궤적에 영향 (회오리가 없을 때만 작동)
+                        modified_vx, modified_vy = trident.apply_trajectory_influence(
+                            BALL.centerx, BALL.centery,
+                            step_vel_x, step_vel_y,
+                            PLAYER.centerx, PLAYER.centery
+                        )
+                        actual_vel_x = modified_vx
+                        actual_vel_y = modified_vy
                         
                         # 대시 물결 효과 적용 (물결 또는 회오리가 활성화되어 있을 때)
                         # 첫 0.1초만 로그 
@@ -32000,7 +31974,7 @@ def show_result(won):
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained  #  충전가방, 스파이크부츠, 대쉬기어 변수 추가
     global bulkup_obtained, dashholder_obtained, gravitybelt_obtained  #  벌크업, 대쉬홀더, 무중력벨트 변수 추가
     global danger_sensor_obtained, sensor_obtained  #  센서 관련 변수 추가
-    global rolling_charges, gravity_speed_synergy  #  대쉬 토큰 수, 시너지 효과 변수 추가
+    global rolling_charges  #  대쉬 토큰 수, 시너지 효과 변수 추가
     global walls, passive_item_list, round_losses  #  벽돌 변수 추가
     global deuce_mode, deuce_wins, deuce_losses, deuce_goal  #  듀스 시스템 변수 추가
     global whip_sound  #  상모돌리기 사운드 추가
@@ -32320,7 +32294,6 @@ def show_result(won):
         items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
         # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
         rolling_charges = 1
-        gravity_speed_synergy = False  # 시너지 효과 리셋
         # 대쉬 매니저 완전 리셋
         if dash is not None:
             dash.update_bonuses(False, False, False)  # 모든 아이템 비활성화
@@ -33882,7 +33855,6 @@ def main(stage_num, new_boss_mode=False):
                     
                     # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
                     rolling_charges = 1
-                    gravity_speed_synergy = False  # 시너지 효과 리셋
                     # 대쉬 매니저 완전 리셋
                     if dash is not None:
                         dash.update_bonuses(False, False, False)  # 모든 아이템 비활성화
@@ -36278,8 +36250,6 @@ def show_game_info():
 def get_item_name_korean(item_name):
     """아이템 이름을 한글로 변환"""
     # 무중력벨트 + 스피드기어 시너지 효과 확인
-    if item_name == "gravitybelt" and gravity_speed_synergy:
-        return "전설의벨트"
     korean_names = {
         "long_boost": "거대화포션",
         "gauge_charge": "에너지드링크",
@@ -36323,46 +36293,44 @@ def get_item_name_korean(item_name):
 def get_item_description(item_name):
     """아이템 설명 반환"""
     # 무중력벨트 + 스피드기어 시너지 효과 확인
-    if item_name == "gravitybelt" and gravity_speed_synergy:
-        return "전설의벨트: 무중력벨트와 스피드기어의 시너지로 패들 크기가 60% 증가하고 별가루 파티클이 생성됩니다!"
     descriptions = {
-        "long_boost": "거대화포션: 6초 동안 패들 크기가 1.5배로 증가합니다.",
-        "gauge_charge": "에너지드링크: 특수 게이지를 220만큼 충전합니다.",
-        "life_elixir": "생명수: 특수 게이지를 500만큼 충전합니다. 무지개빛 신비한 물약입니다.",  #  생명수 추가
-        "aipill": "AI 알약: 이 알약을 먹으면 신체가 로봇이 되어 거의 모든 공격 가드하지만 게이지가 감소하는 부작용이 있습니다.",
-        "wall": "벽돌: 방어용 벽돌을 설치합니다.",
+        "long_boost": "거대화포션: 일정기간동안 플레이어의 몸집이 대폭 커집니다.",
+        "gauge_charge": "에너지드링크: 게이지를 220만큼 충전합니다.",
+        "life_elixir": "생명수: 게이지를 500만큼 충전합니다. 무지개빛 신비한 물약입니다.",  #  생명수 추가
+        "aipill": "AI 알약: 이 알약을 먹으면 신체가 로봇이 되어 거의 모든 공격을 가드하지만 가드할때마다 게이지가 감소하는 부작용이 있습니다.",
+        "wall": "벽돌: 공을 막아주는 방어용 벽돌을 바닥에 설치합니다. ",
         "speedboots": "스피드부츠: 영구적으로 이동 속도가 6% 증가합니다.",
-        "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 벨트",
+        "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 첨단벨트",
         "speedgear": "스피드기어: 영구적으로 방향 전환 속도가 증가합니다.",
         "battery": "배터리: 다음 스테이지로 넘어가도 게이지가 유지됩니다.",
         "slot_add": "배낭: 엑티브 아이템 슬롯이 영구적으로 1개 증가합니다.",
-        "revival": "부활: 패배 시 한 번 기회를 제공합니다.",
+        "revival": "부활: 패배 시 한 번 기회를 제공합니다. 한 게임 당 한번만 스폰되는 귀중한 아이템",
         "master": "장인의 망치: 벽돌 길이 30% 증가, 제작 쿨타임 0.8초, 아이템 쿨타임 10% 감소.",
         "cooltime": "쿨링볼: 아이템 재사용 쿨타임이 30% 감소합니다.",
         "chargebag": "충전가방: 공이 벽에 닿을 때마다 기본 게이지 충전량의 20%를 얻습니다.",
         "spikeboots": "스파이크부츠: 대쉬 후 제어불능 시간이 30% 감소하고 쿨타임이 15% 감소합니다.",
         "dashgear": "대쉬기어: 대쉬 거리가 10% 증가하고 게이지 소모가 20% 감소합니다.",
-        "bulkup": "벌크업: 플레이어 패들의 크기가 영구적으로 10% 증가합니다.",
+        "bulkup": "벌크업: 플레이어의 몸집이 영구적으로 10% 증가합니다.",
         "sensor": "위험감지센서: 때때로 위험한 상황에 직면하면 자동으로 대쉬를 시전합니다.",
         "dashholder": "대쉬홀더: 대쉬토큰 1개를 추가로 얻습니다.",
-        "dowsing_pendulum": "다우징팬들럼: 떨어진 아이템이 플레이어 패들 주변에서 자동으로 끌려옵니다.",
-        "molotov": "화염병: 보스 패들 뒤쪽에 폭발하여 3초간 화염 지대를 생성하고, 0.15초마다 보스를 밀어냅니다.",
-        "grenade": "수류탄: 보스 패들 근처에 폭발하여 보스를 밀어내고 공속을 증가시킵니다.",
-        "flare": "조명탄: 상대 진영에 도착 후 1.5초 뒤 폭발하여 2초간 보스를 혼란 상태로 만듭니다.",
-        "predictor": "레이저스코프: 10초간 공의 궤적을 예측하여 표시합니다.",
-        "smoke_grenade": "연막탄: 포물선으로 투척하여 플레이어 근처에 연막을 생성합니다. 연막 속 공은 속도가 50% 감소하고, 스테이지3 눈물샤워와 스테이지5 홍련의 화염탄에 면역이 됩니다.",
-        "pandora_box": "판도라의 상자: 3초간 아이템 스폰 시간이 0.5~1초로 단축되어 아이템이 쏟아집니다!",
-        "commando_arm": "코만도암: 모든 투척 무기를 즉시 투척! 투척 속도 30% 증가, 폭발 범위 10% 증가, 연막탄 지속시간 50% 증가로 더욱 강력한 공격이 가능합니다.",
-        "stopwatch": "스탑워치: 시간을 멈추고 공이 1초 동안 정지했다가 천천히 원래 속도로 돌아옵니다. 위기 상황을 벗어날 수 있는 강력한 방어 아이템입니다.",
-        "devil_dice": "악마의 주사위: 6가지 항목에 대해 각각 주사위를 굴려 50% 감소/변화없음/50% 증가 중 랜덤 효과를 받습니다. 60초 지속, 스테이지 전환시 종료.",
-        "technical_vest": "테크니컬조끼: 플레이어 패들에 공이 닿았을 때 20% 확률로 8초간 연막을 생성합니다. 3초간 패들을 따라 연막이 분사되며, 눈물샤워/화염탄/미사일/레이저 스턴/화염지대 넉백에 면역이 됩니다.",
-        "fuel_pouch": "연료파우치: 최대 스킬 게이지가 영구적으로 100 증가합니다. 더 많은 스킬을 사용할 수 있게 해주는 필수 패시브 아이템입니다.",
-        "bluetooth_ring": "블루투스링: 패들에 공이 닿을 때 게이지 충전량이 25% 증가합니다. 스킬을 더 빠르게 충전할 수 있는 유용한 패시브 아이템입니다.",
-        "smartphone": "스마트폰: [자동 위기관리] 스탑워치/AI알약을 소지 시 공을 놓치기 직전 자동 사용 (스탑워치 우선). [자동 치유] 게이지가 120 이하일 때 생명수/에너지드링크를 자동 사용 (생명수 우선). 모든 자동 사용은 한 번에 하나씩만 발동됩니다.",
-        "knee_pads": "무릎보호대: 하프대쉬로 공을 맞출 때 특수 게이지가 50% 충전됩니다. 하프대쉬 성공 시 노란색 빛나는 이펙트가 나타나며, 일반 대쉬와 달리 게이지 소모 없이 절반의 힘으로 공을 막을 수 있게 해주는 전술적 패시브 아이템입니다.",
-        "ragnarok_hammer": "라그나로크 해머:  신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 2배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
-        "hermes_shoes": "헤르메스의 신발: ⚡ 신들의 전령이 신던 전설의 날개 신발! 패들 이동속도가 50% 증가하여 순간이동하듯 빠르게 움직입니다. 황금빛 날개가 패들 양옆에서 펄럭이며, 이동 시 황금색 잔상과 속도선이 남습니다. 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
-        "poseidon_trident": "포세이돈의 삼지창: 🌊 바다의 신이 휘두르는 전설의 삼지창! 패들 주변에 물의 파동이 생성되어 공의 궤적을 미세하게 변경합니다. 대시 시 거대한 물결이 일어나 공을 밀어내는 강력한 효과! 파란색 물결이 패들을 감싸며, 바다의 힘이 당신과 함께합니다!"
+        "dowsing_pendulum": "다우징팬들럼: 플레이어 주위에 아이템을 끌어당깁니다.",
+        "molotov": "화염병: 상대방의 이동경로를 차단하는 화염병을 던집니다.",
+        "grenade": "수류탄: 명중 시 상대방을 밀어내고 일정기간 스턴 시킵니다.",
+        "flare": "조명탄: 투척 후 1.5초 뒤 폭발하며 명중 시 일정기간 상대방을 혼란 상태로 만듭니다.",
+        "predictor": "레이저스코프: 공의 궤적을 예측하여 표시합니다. 정확도가 항상 100%는 아니지만 꽤 유용할 때가 있습니다",
+        "smoke_grenade": "연막탄: 플레이어 근처에 연막을 생성합니다. 연막은 빠른 공의 속도를 감소시켜주며, 각종 보스들의 스킬 공격을 방어해줍니다",
+        "pandora_box": "판도라의 상자: 무지개 블랙홀을 발생시켜 아이템이 쏟아집니다!",
+        "commando_arm": "코만도암: 숙련된 군인의 유품, 투척류 아이템 사용시 준비동작이 사라지며 투척 속도 30% 증가, 폭발 범위 10% 증가, 연막탄 지속시간 50%가 증가합니다",
+        "stopwatch": "스탑워치: 시간을 왜곡시켜 공의 움직임을 일정시간 정지시킵니다 .",
+        "devil_dice": "악마의 주사위: 모든 능력치를 랜덤하게 변화시키는 주사위. 결과는 하늘의 뜻에 달려있습니다",
+        "technical_vest": "테크니컬조끼: 플레이어가 공을 칠 때 일정 확률로 플레이어 주변에 연막을 생성합니다. 각종 보스들의 스킬 공격을 방어해줍니다",
+        "fuel_pouch": "연료파우치: 최대 게이지가 영구적으로 100 증가합니다.",
+        "bluetooth_ring": "블루투스링: 플레이어가 공을 칠 때 게이지 충전량이 25% 증가합니다.",
+        "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
+        "knee_pads": "무릎보호대: 하프대쉬로 공을 맞출 때 게이지가 50% 충전됩니다. 하프대쉬 성공 시 노란색 빛나는 이펙트가 나타납니다.",
+        "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
+        "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
+        "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!"
     }
     return descriptions.get(item_name, "설명이 없습니다.")
 def show_item_management_menu(item_list, selected_index, item_type):
