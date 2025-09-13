@@ -28272,24 +28272,37 @@ def handle_ball():
             
             # 패들과 파편의 충돌 체크 (Rect 충돌)
             if PLAYER.colliderect(fragment_rect):
-                # 화상 효과 적용
-                player_burn_timer = 30  # 0.5초 (60 FPS 기준)
-                player_burn_effect = True
-                
-                # 넉백 효과 - 부드러운 넉백을 위한 오프셋 설정
-                player_knockback_y = -20  # 20픽셀 위로 넉백
-                
-                # 게이지 감소
-                special_gauge = max(0, special_gauge - 50)
-                
-                # 화상 효과음 재생
+                # 테크니컬 조끼 연막이 활성화되어 있는지 확인
+                vest_protected = False
                 try:
-                    play_sound_with_volume(SOUND_BIRDKILL)  # 임시로 새 죽는 소리 사용
+                    # 파편의 위치가 연막 안에 있는지 체크
+                    vest_protected = check_technical_vest_smoke_collision(fragment['x'], fragment['y'])
                 except:
                     pass
                 
-                print(f"플레이어 화상! 게이지 -50, 0.5초 통제불능 + 넉백")
-                print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
+                if vest_protected:
+                    # 연막에 의해 보호됨 - 파편이 막힘
+                    print(f"테크니컬 조끼 연막이 달의 파편을 막았습니다!")
+                    print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f})")
+                else:
+                    # 연막이 없거나 범위 밖 - 화상 효과 적용
+                    player_burn_timer = 30  # 0.5초 (60 FPS 기준)
+                    player_burn_effect = True
+                    
+                    # 넉백 효과 - 부드러운 넉백을 위한 오프셋 설정
+                    player_knockback_y = -20  # 20픽셀 위로 넉백
+                    
+                    # 게이지 감소
+                    special_gauge = max(0, special_gauge - 50)
+                    
+                    # 화상 효과음 재생
+                    try:
+                        play_sound_with_volume(SOUND_BIRDKILL)  # 임시로 새 죽는 소리 사용
+                    except:
+                        pass
+                    
+                    print(f"플레이어 화상! 게이지 -50, 0.5초 통제불능 + 넉백")
+                    print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
                 break  # 한 프레임에 하나의 파편만 처리
     
     # --- 벽 충돌 처리 ---
@@ -36312,16 +36325,16 @@ def get_item_description(item_name):
     if item_name == "gravitybelt" and gravity_speed_synergy:
         return "전설의벨트: 무중력벨트와 스피드기어의 시너지로 패들 크기가 60% 증가하고 별가루 파티클이 생성됩니다!"
     descriptions = {
-        "long_boost": "거대화포션: 6초 동안 패들 크기가 1.5배로 증가합니다. (점진적 크기 변화)",
+        "long_boost": "거대화포션: 6초 동안 패들 크기가 1.5배로 증가합니다.",
         "gauge_charge": "에너지드링크: 특수 게이지를 220만큼 충전합니다.",
         "life_elixir": "생명수: 특수 게이지를 500만큼 충전합니다. 무지개빛 신비한 물약입니다.",  #  생명수 추가
-        "aipill": "AI 알약: 모든 방향에서 공을 반사하고, 공이 맞을 때마다 게이지가 감소합니다.",
-        "wall": "벽돌: 패들 앞에 방어용 벽돌을 설치합니다.",
+        "aipill": "AI 알약: 이 알약을 먹으면 신체가 로봇이 되어 거의 모든 공격 가드하지만 게이지가 감소하는 부작용이 있습니다.",
+        "wall": "벽돌: 방어용 벽돌을 설치합니다.",
         "speedboots": "스피드부츠: 영구적으로 이동 속도가 6% 증가합니다.",
-        "gravitybelt": "무중력벨트: 이동 시 감속이 없고 즉각적인 방향 전환이 가능합니다. 좌우 키를 누르면 0.1초 딜레이 없이 바로바로 이동할 수 있습니다.",
+        "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 벨트",
         "speedgear": "스피드기어: 영구적으로 방향 전환 속도가 증가합니다.",
         "battery": "배터리: 다음 스테이지로 넘어가도 게이지가 유지됩니다.",
-        "slot_add": "배낭: 엑티브 아이템 슬롯이 1개 증가합니다.",
+        "slot_add": "배낭: 엑티브 아이템 슬롯이 영구적으로 1개 증가합니다.",
         "revival": "부활: 패배 시 한 번 기회를 제공합니다.",
         "master": "장인의 망치: 벽돌 길이 30% 증가, 제작 쿨타임 0.8초, 아이템 쿨타임 10% 감소.",
         "cooltime": "쿨링볼: 아이템 재사용 쿨타임이 30% 감소합니다.",

@@ -35,7 +35,7 @@ WIDTH, HEIGHT = 600, 750  # 화면 크기
 # 사운드 로드
 try:
     SOUND_ITEM_GET = pygame.mixer.Sound("sounds/itemget.wav")
-    # 고정 볼륨 제거 - 런타임에 동적으로 설정
+    SOUND_ITEM_GET.set_volume(0.5)  # 볼륨 조절 (0.0 ~ 1.0)
 except:
     SOUND_ITEM_GET = None
 
@@ -319,7 +319,7 @@ ITEM_TYPES = [
         "color": (100, 150, 200),  # 스마트폰 블루
         "effect": "smartphone",
         "icon": None,
-        "chance": 0.999,  # 확률 0.5%
+        "chance": 0.005,  # 확률 0.5%
         "duration": 600,
         "unlock_condition": None
     },
@@ -446,7 +446,7 @@ ITEM_TYPES = [
         "color": (80, 80, 100),  # 어두운 회색-파란색
         "effect": "knee_pads",
         "icon": None,
-        "chance": 0.99,  # 확률 99% (테스트용)
+        "chance": 0.005,  # 확률 1.0%
         "duration": 600,
         "unlock_condition": None
     }
@@ -713,10 +713,6 @@ def spawn_random_item():
             else:
                 print(f"[DEBUG] poseidon_trident can spawn (not obtained yet)")
         
-        # 스마트폰은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "smartphone" and smartphone_obtained:
-            continue
-        
         # 🚫 패시브 아이템 중복 방지 (chargebag 제외)
         # 이미 소지한 패시브 아이템은 더 이상 스폰하지 않음
         # chargebag은 중복 가능하므로 제외하고 체크
@@ -802,7 +798,7 @@ def spawn_random_item():
                     legendary_manager._init_legendary_items()
 
 
-def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None, sfx_volume=0.7):
+def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None):
     global item_list
     new_items = []
 
@@ -829,10 +825,9 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 아이템 획득 시 revealed를 True로 설정
             item["type"]["revealed"] = True
             
-            # 아이템 획득 사운드 재생 (외부에서 전달받은 사운드 사용) - 볼륨 적용
+            # 아이템 획득 사운드 재생 (외부에서 전달받은 사운드 사용)
             if sound_item_get:
                 try:
-                    sound_item_get.set_volume(sfx_volume)
                     sound_item_get.play()
                 except Exception as e:
                     print(f"  : {e}")
@@ -840,7 +835,6 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                 # 내부 사운드 시도
                 if SOUND_ITEM_GET:
                     try:
-                        SOUND_ITEM_GET.set_volume(sfx_volume)
                         SOUND_ITEM_GET.play()
                     except Exception as e:
                         print(f"   : {e}")

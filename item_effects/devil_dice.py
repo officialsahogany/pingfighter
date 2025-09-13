@@ -1,7 +1,7 @@
 """
 😈 Devil's Dice Active Item
 악마의 주사위 - 6가지 랜덤 효과를 발동하는 액티브 아이템
-지속시간: 60초 (다음 라운드 유지, 스테이지 전환시 종료)
+지속시간: 30초 (다음 라운드 유지, 스테이지 전환시 종료)
 """
 
 import pygame
@@ -16,7 +16,7 @@ class DevilDice:
         """초기화"""
         # 효과 상태
         self.active = False
-        self.duration = 3600  # 60초 (60 FPS * 60)
+        self.duration = 1800  # 30초 (60 FPS * 30)
         self.time_remaining = 0
         self.current_stage = -1  # 효과가 시작된 스테이지
         
