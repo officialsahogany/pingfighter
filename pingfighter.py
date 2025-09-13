@@ -6784,24 +6784,25 @@ def handle_player(keys):
         if recent_half_dash_time > 0 and (current_time - recent_half_dash_time) <= recent_dash_success_window:
             is_dash_success = True
             
-            # 무릎보호대 효과 체크 - 하프대쉬로 공을 맞췄을 때 게이지 50% 충전
+            # 무릎보호대 효과 체크 - 하프대쉬로 공을 맞췄을 때 특수 게이지 50% 충전
             try:
                 from item_effects.knee_pads import get_knee_pads_instance
                 knee_pads = get_knee_pads_instance()
                 if knee_pads and knee_pads.active:
-                    # 게이지 50% 충전
-                    max_rolling_charges = 2  # 기본 최대 게이지
-                    if 'amplifier_amplifies_applied' in globals() and amplifier_amplifies_applied > 0:
-                        max_rolling_charges += amplifier_amplifies_applied
+                    # 특수 게이지 50% 충전 (기본 충전량 80의 50% = 40)
+                    base_charge = 80  # 기본 충전량
+                    charge_amount = base_charge * 0.5  # 50% = 40
                     
-                    charge_amount = max_rolling_charges * 0.5  # 50% 충전
-                    rolling_charges = min(rolling_charges + charge_amount, max_rolling_charges)
-                    rolling_charge_timer = 0  # 충전 타이머 리셋
+                    # 블루투스링 효과 적용 (있을 경우)
+                    if bluetooth_ring_obtained:
+                        charge_amount *= 1.25  # 25% 추가 충전
+                    
+                    special_gauge = min(special_gauge + charge_amount, special_gauge_max)
                     
                     # 이펙트 트리거
                     ball_center = (ball_x, ball_y)
                     if knee_pads.on_half_dash_hit(ball_center):
-                        print(f"무릎보호대 효과: 게이지 {charge_amount:.1f} 충전 (현재: {rolling_charges}/{max_rolling_charges})")
+                        print(f"무릎보호대 효과: 특수 게이지 {charge_amount:.0f} 충전 (현재: {special_gauge}/{special_gauge_max})")
             except Exception as e:
                 print(f"무릎보호대 효과 처리 중 오류: {e}")
         
@@ -11036,9 +11037,9 @@ def draw_objects():
         knee_pads = get_knee_pads_instance()
         if knee_pads:
             knee_pads.update()  # 타이머 업데이트
-            knee_pads.draw_effect(SCREEN)  # 이펙트 그리기
-    except:
-        pass
+            knee_pads.draw_flash_effect(SCREEN)  # 이펙트 그리기
+    except Exception as e:
+        pass  # 디버깅시 주석 해제: print(f"무릎보호대 이펙트 그리기 오류: {e}")
     #  서브 대기 상태 UI (미니멀 디자인)
     if is_waiting_for_serve:
         # 시간 계산

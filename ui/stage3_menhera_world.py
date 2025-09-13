@@ -329,6 +329,30 @@ class Stage3MenheraWorld:
         # 크기 조정 (더 둥글고 귀여운 비율)
         head_size = int(size * 0.6)  # 더 큰 머리 (치비 스타일)
         
+        # 씹기 애니메이션에 따른 얼굴 변형 계산
+        face_distortion_x = 0
+        face_distortion_y = 0
+        cheek_bulge_left = 0
+        cheek_bulge_right = 0
+        
+        if self.eating_active and self.chewing_phase > 0:
+            # 씹기 동작에 따른 얼굴 변형
+            chew_cycle = math.sin(self.chewing_phase * math.pi * 8)
+            
+            # 턱 움직임 (위아래)
+            face_distortion_y = int(abs(chew_cycle) * 8)
+            
+            # 좌우 볼 움직임 (번갈아가며)
+            if int(self.chewing_phase * 8) % 2 == 0:
+                cheek_bulge_left = abs(chew_cycle) * 15
+                cheek_bulge_right = -abs(chew_cycle) * 5
+            else:
+                cheek_bulge_left = -abs(chew_cycle) * 5
+                cheek_bulge_right = abs(chew_cycle) * 15
+            
+            # 좌우 흔들림
+            face_distortion_x = int(math.sin(self.chewing_phase * math.pi * 4) * 3)
+        
         # 🌸 부드러운 그림자 효과 (깊이감)
         shadow_surface = pygame.Surface((head_size * 3, head_size * 3), pygame.SRCALPHA)
         shadow_center = head_size * 1.5
@@ -337,10 +361,13 @@ class Stage3MenheraWorld:
             radius = head_size + i * 2
             pygame.draw.circle(shadow_surface, (*LAVENDER, alpha), 
                              (shadow_center, shadow_center), radius)
-        screen.blit(shadow_surface, (x - shadow_center, y - shadow_center + 10))
+        screen.blit(shadow_surface, (x - shadow_center + face_distortion_x, y - shadow_center + 10))
         
-        # 얼굴 (더 둥글고 포동포동한 모양)
-        face_rect = pygame.Rect(x - head_size, y - head_size + 8, head_size * 2, int(head_size * 1.9))
+        # 얼굴 (씹을 때 변형)
+        face_rect = pygame.Rect(x - head_size + face_distortion_x, 
+                               y - head_size + 8, 
+                               head_size * 2, 
+                               int(head_size * 1.9 + face_distortion_y))
         
         # 얼굴 그라데이션 효과
         for i in range(5):
@@ -352,6 +379,58 @@ class Stage3MenheraWorld:
         # 얼굴 테두리 (부드러운 파스텔 핑크)
         pygame.draw.ellipse(screen, (*PASTEL_PINK, 200), face_rect, 3)
         pygame.draw.ellipse(screen, SOFT_BLACK, face_rect, 1)
+        
+        # 씹을 때 볼 부풀리기 효과
+        if self.eating_active and self.chewing_phase > 0:
+            # 왼쪽 볼
+            if cheek_bulge_left > 0:
+                cheek_x = x - head_size * 0.7
+                cheek_y = y + head_size * 0.2
+                bulge_size = int(head_size * 0.4 + cheek_bulge_left)
+                
+                # 볼 그라데이션
+                for i in range(3):
+                    bulge_alpha = 100 - i * 30
+                    bulge_color = (*PASTEL_PINK, bulge_alpha)
+                    pygame.draw.ellipse(screen, bulge_color,
+                                      (cheek_x - bulge_size//2 - i*2, 
+                                       cheek_y - bulge_size//2 - i*2,
+                                       bulge_size + i*4, bulge_size + i*4))
+                
+                # 볼 메인
+                pygame.draw.ellipse(screen, (255, 230, 240),
+                                  (cheek_x - bulge_size//2, cheek_y - bulge_size//2,
+                                   bulge_size, bulge_size))
+                
+                # 볼 하이라이트
+                pygame.draw.ellipse(screen, (*WHITE, 180),
+                                  (cheek_x - bulge_size//4, cheek_y - bulge_size//3,
+                                   bulge_size//3, bulge_size//3))
+            
+            # 오른쪽 볼
+            if cheek_bulge_right > 0:
+                cheek_x = x + head_size * 0.7
+                cheek_y = y + head_size * 0.2
+                bulge_size = int(head_size * 0.4 + cheek_bulge_right)
+                
+                # 볼 그라데이션
+                for i in range(3):
+                    bulge_alpha = 100 - i * 30
+                    bulge_color = (*PASTEL_PINK, bulge_alpha)
+                    pygame.draw.ellipse(screen, bulge_color,
+                                      (cheek_x - bulge_size//2 - i*2, 
+                                       cheek_y - bulge_size//2 - i*2,
+                                       bulge_size + i*4, bulge_size + i*4))
+                
+                # 볼 메인
+                pygame.draw.ellipse(screen, (255, 230, 240),
+                                  (cheek_x - bulge_size//2, cheek_y - bulge_size//2,
+                                   bulge_size, bulge_size))
+                
+                # 볼 하이라이트
+                pygame.draw.ellipse(screen, (*WHITE, 180),
+                                  (cheek_x - bulge_size//4, cheek_y - bulge_size//3,
+                                   bulge_size//3, bulge_size//3))
         
         # 🐰 울트라 카와이 토끼 귀 (더 둥글고 부드럽게)
         ear_height = int(head_size * 1.4)
@@ -689,33 +768,62 @@ class Stage3MenheraWorld:
                                (x, tongue_y - tongue_height//3),
                                (x, tongue_y + tongue_height//3), 2)
             
-            # 씹기 애니메이션
+            # 씹기 애니메이션 (더 리얼한 오물거림)
             if self.chewing_phase > 0:
-                # 더 다이나믹한 씹기 모션
-                chew_offset = math.sin(self.chewing_phase * math.pi * 8) * 5
-                jaw_rotation = math.sin(self.chewing_phase * math.pi * 4) * 0.2
+                # 턱의 실제 움직임 모션
+                chew_cycle = math.sin(self.chewing_phase * math.pi * 8)
+                chew_offset = chew_cycle * 8  # 턱 위아래 움직임
                 
-                # 위 이빨
+                # 입의 좌우 움직임 (음식을 옮기는 듯한)
+                mouth_shift_x = math.sin(self.chewing_phase * math.pi * 4) * 5
+                
+                # 입 모양 변화 (오물거릴 때 입이 약간 벌어졌다 닫힘)
+                mouth_open_variation = 0.2 + abs(chew_cycle) * 0.3
+                actual_mouth_size = int(mouth_size * mouth_open_variation)
+                actual_mouth_height = int(mouth_height * (0.5 + abs(chew_cycle) * 0.5))
+                
+                # 위 이빨 (입의 움직임에 따라 이동)
                 teeth_count = 5
-                teeth_width = mouth_size // (teeth_count + 1)
+                teeth_width = actual_mouth_size // (teeth_count + 1)
                 for i in range(teeth_count):
-                    tooth_x = x - mouth_size//2 + teeth_width * (i + 1)
-                    tooth_y = mouth_y - mouth_height//4 + 5
+                    tooth_x = x - actual_mouth_size//2 + teeth_width * (i + 1) + mouth_shift_x
+                    tooth_y = mouth_y - actual_mouth_height//4 + 5
                     tooth_size = 4
                     pygame.draw.polygon(screen, WHITE,
                                       [(tooth_x - tooth_size, tooth_y),
                                        (tooth_x, tooth_y + tooth_size),
                                        (tooth_x + tooth_size, tooth_y)])
                 
-                # 아래 이빨 (씹을 때 움직임)
+                # 아래 이빨 (씹을 때 크게 움직임)
                 for i in range(teeth_count):
-                    tooth_x = x - mouth_size//2 + teeth_width * (i + 1)
-                    tooth_y = mouth_y + mouth_height//4 - 5 + chew_offset
+                    tooth_x = x - actual_mouth_size//2 + teeth_width * (i + 1) + mouth_shift_x
+                    tooth_y = mouth_y + actual_mouth_height//4 - 5 + chew_offset
                     tooth_size = 4
-                    pygame.draw.polygon(screen, WHITE,
-                                      [(tooth_x - tooth_size, tooth_y),
-                                       (tooth_x, tooth_y - tooth_size),
-                                       (tooth_x + tooth_size, tooth_y)])
+                    
+                    # 씹을 때 이빨이 약간 기울어짐
+                    tilt = math.sin((self.chewing_phase + i * 0.2) * math.pi * 8) * 0.1
+                    points = [
+                        (tooth_x - tooth_size + tilt * tooth_size, tooth_y),
+                        (tooth_x, tooth_y - tooth_size),
+                        (tooth_x + tooth_size - tilt * tooth_size, tooth_y)
+                    ]
+                    pygame.draw.polygon(screen, WHITE, points)
+                
+                # 입술 움직임 (오물거리는 효과)
+                # 위 입술
+                lip_curve = abs(chew_cycle) * 5
+                pygame.draw.arc(screen, (*CRIMSON, 100),
+                              (x - actual_mouth_size//2 + mouth_shift_x, 
+                               mouth_y - actual_mouth_height//2 - lip_curve,
+                               actual_mouth_size, actual_mouth_height//2),
+                              0, math.pi, 3)
+                
+                # 아래 입술 (더 크게 움직임)
+                pygame.draw.arc(screen, (*CRIMSON, 100),
+                              (x - actual_mouth_size//2 + mouth_shift_x, 
+                               mouth_y + chew_offset,
+                               actual_mouth_size, actual_mouth_height//2),
+                              math.pi, math.pi * 2, 3)
                 
                 # 씹는 동작 강조선
                 if int(self.chewing_phase * 8) % 2 == 0:
@@ -1252,57 +1360,38 @@ class Stage3MenheraWorld:
             chew_cycle = math.sin(chew_progress * math.pi * 8)  # 더 빠른 씹기
             self.mouth_open = 0.15 + abs(chew_cycle) * 0.35
             
-            # 다양한 씹는 파티클 효과
-            if random.random() < 0.6:
-                # 음식 조각
-                for _ in range(2):
-                    particle_x = WIDTH // 2 + random.randint(-30, 30)
-                    particle_y = HEIGHT // 2 + random.randint(-20, 20)
-                    particle_color = random.choice([
-                        PASTEL_PINK, LAVENDER, SOFT_YELLOW, WHITE,
-                        (*CRIMSON, 150), (*SOFT_BLACK, 100)
-                    ])
-                    self.chewing_particles.append({
-                        'x': particle_x,
-                        'y': particle_y,
-                        'vx': random.uniform(-5, 5),
-                        'vy': random.uniform(-6, -2),
-                        'life': 45,
-                        'color': particle_color,
-                        'type': 'food',
-                        'size': random.uniform(3, 7),
-                        'rotation': random.uniform(0, math.pi * 2),
-                        'rotation_speed': random.uniform(-0.4, 0.4)
-                    })
-            
-            # 증기 효과 (맛있는 음식)
-            if random.random() < 0.25:
-                for _ in range(2):
-                    particle_x = WIDTH // 2 + random.randint(-25, 25)
-                    particle_y = HEIGHT // 2 - 15
-                    self.chewing_particles.append({
-                        'x': particle_x,
-                        'y': particle_y,
-                        'vx': random.uniform(-1.5, 1.5),
-                        'vy': random.uniform(-3, -1),
-                        'life': 60,
-                        'color': (*WHITE, 60),
-                        'type': 'steam',
-                        'size': random.uniform(10, 15)
-                    })
-            
-            # 씹는 소리 시각화 (작은 충격파)
-            if int(chew_progress * 8) % 2 == 0 and random.random() < 0.3:
+            # 씹는 파티클 효과 (간소화 - 실제 움직임에 집중)
+            if random.random() < 0.3:  # 빈도 감소
+                # 음식 조각 (적게)
+                particle_x = WIDTH // 2 + random.randint(-20, 20)
+                particle_y = HEIGHT // 2 + random.randint(-10, 10)
+                particle_color = random.choice([PASTEL_PINK, WHITE])
                 self.chewing_particles.append({
-                    'x': WIDTH // 2,
-                    'y': HEIGHT // 2,
-                    'vx': 0,
-                    'vy': 0,
-                    'life': 10,
-                    'color': (*SOFT_YELLOW, 100),
-                    'type': 'shockwave',
-                    'size': 5,
-                    'max_size': 30
+                    'x': particle_x,
+                    'y': particle_y,
+                    'vx': random.uniform(-3, 3),
+                    'vy': random.uniform(-4, -1),
+                    'life': 30,
+                    'color': particle_color,
+                    'type': 'food',
+                    'size': random.uniform(2, 4),
+                    'rotation': random.uniform(0, math.pi * 2),
+                    'rotation_speed': random.uniform(-0.3, 0.3)
+                })
+            
+            # 증기 효과 (간소화)
+            if random.random() < 0.1:  # 빈도 대폭 감소
+                particle_x = WIDTH // 2 + random.randint(-15, 15)
+                particle_y = HEIGHT // 2 - 10
+                self.chewing_particles.append({
+                    'x': particle_x,
+                    'y': particle_y,
+                    'vx': random.uniform(-1, 1),
+                    'vy': random.uniform(-2, -1),
+                    'life': 40,
+                    'color': (*WHITE, 40),
+                    'type': 'steam',
+                    'size': random.uniform(5, 8)
                 })
             
             # 파티클 업데이트 (물리 효과 적용)
