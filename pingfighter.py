@@ -32145,6 +32145,8 @@ def show_result(won):
         # 아이템이 없으면 기본 아이템 추가
         if not available_items:
             available_items = [{"name": "long_boost", "color": (100, 200, 255), "type": "active", "icon": long_boost_icon}]
+        # 가차 화면 전환 시 BGM 정지
+        bgm_manager.stop_bgm()
         gacha.init_gacha(available_items)
         gacha.run_gacha(SCREEN, WIDTH, HEIGHT, get_item_name_korean, store_passive_item, store_active_item, get_item_description)
         show_victory_screen(stage_cleared=current_stage, reward=reward)

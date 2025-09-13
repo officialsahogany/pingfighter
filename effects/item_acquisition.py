@@ -41,8 +41,9 @@ class ItemAcquisitionEffect:
             is_legendary: 전설 아이템 여부
             position: 시작 위치 (None이면 화면 중앙)
         """
-        # 항상 화면 중앙에서 시작
-        position = (self.width // 2, self.height // 2 + 100)  # 화면 중앙 약간 아래에서 시작
+        # position이 제공되지 않으면 화면 중앙에서 시작
+        if position is None:
+            position = (self.width // 2, self.height // 2 + 100)  # 화면 중앙 약간 아래에서 시작
             
         item_data = {
             'name': item_name,
@@ -51,6 +52,7 @@ class ItemAcquisitionEffect:
             'is_legendary': is_legendary,
             'x': position[0],
             'y': position[1],
+            'start_x': position[0],  # 시작 x 위치 저장
             'start_y': position[1],
             'time': 0,
             'alpha': 0,
@@ -99,9 +101,9 @@ class ItemAcquisitionEffect:
             progress = item['time'] / self.animation_duration
             item['y'] = item['start_y'] - (self.rise_speed * item['time'] / 1000)
             
-            # 좌우 흔들림 (사인파) - 중앙 기준으로 흔들림
+            # 좌우 흔들림 (사인파) - 시작 위치 기준으로 흔들림
             float_offset = math.sin(item['time'] * 0.001 * self.float_frequency) * self.float_amplitude
-            item['x'] = self.width // 2 + float_offset  # 중앙 기준으로 좌우 흔들림
+            item['x'] = item['start_x'] + float_offset  # 시작 위치 기준으로 좌우 흔들림
             
             # 페이드 인
             if item['time'] < self.fade_in_duration:

@@ -446,7 +446,7 @@ ITEM_TYPES = [
         "color": (80, 80, 100),  # 어두운 회색-파란색
         "effect": "knee_pads",
         "icon": None,
-        "chance": 0.01,  # 확률 1.0%
+        "chance": 0.99,  # 확률 99% (테스트용)
         "duration": 600,
         "unlock_condition": None
     }
