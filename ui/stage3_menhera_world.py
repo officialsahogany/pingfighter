@@ -47,6 +47,8 @@ class Stage3MenheraWorld:
         self.mouth_open = 0  # 입 열림 정도 (0~1)
         self.chewing_phase = 0
         self.chewing_particles = []
+        self.spit_angle = None  # 뱉을 방향 미리 결정
+        self.mouth_direction = 0  # 입 방향 (라디안)
         
         self.init_decorations()
         
@@ -731,17 +733,56 @@ class Stage3MenheraWorld:
             mouth_size = int(head_size * 0.45 * self.mouth_open)
             mouth_height = int(head_size * 0.6 * self.mouth_open)
             
+            # 뱉기 준비 시 입 방향 조정
+            mouth_offset_x = 0
+            mouth_offset_y = 0
+            if self.mouth_direction != 0 and self.eating_timer >= 210:  # 뱉기 준비 단계
+                # 발사 방향으로 입 이동
+                direction_strength = (self.eating_timer - 210) / 10  # 0~1
+                mouth_offset_x = int(math.cos(self.mouth_direction) * 15 * direction_strength)
+                mouth_offset_y = int(math.sin(self.mouth_direction) * 10 * direction_strength)
+                
+                # 방향 표시 화살표 그리기
+                arrow_length = 40 + direction_strength * 20
+                arrow_start_x = x + mouth_offset_x
+                arrow_start_y = mouth_y + mouth_offset_y
+                arrow_end_x = arrow_start_x + int(math.cos(self.mouth_direction) * arrow_length)
+                arrow_end_y = arrow_start_y + int(math.sin(self.mouth_direction) * arrow_length)
+                
+                # 화살표 라인 (점선 효과)
+                for i in range(0, int(arrow_length), 5):
+                    if i % 10 < 5:  # 점선 패턴
+                        dot_x = arrow_start_x + int(math.cos(self.mouth_direction) * i)
+                        dot_y = arrow_start_y + int(math.sin(self.mouth_direction) * i)
+                        alpha = int(255 * direction_strength * (1 - i / arrow_length * 0.3))
+                        pygame.draw.circle(screen, (*CRIMSON, alpha), (dot_x, dot_y), 2)
+                
+                # 화살표 머리
+                arrowhead_size = 8 + direction_strength * 4
+                angle1 = self.mouth_direction + math.pi * 0.8
+                angle2 = self.mouth_direction - math.pi * 0.8
+                arrowhead_x1 = arrow_end_x + int(math.cos(angle1) * arrowhead_size)
+                arrowhead_y1 = arrow_end_y + int(math.sin(angle1) * arrowhead_size)
+                arrowhead_x2 = arrow_end_x + int(math.cos(angle2) * arrowhead_size)
+                arrowhead_y2 = arrow_end_y + int(math.sin(angle2) * arrowhead_size)
+                
+                arrow_color = (*CRIMSON, int(200 * direction_strength))
+                pygame.draw.polygon(screen, arrow_color, 
+                                  [(arrow_end_x, arrow_end_y), 
+                                   (arrowhead_x1, arrowhead_y1), 
+                                   (arrowhead_x2, arrowhead_y2)])
+            
             # 입술 윤곽 (먼저 그리기)
             lip_thickness = 3
             pygame.draw.ellipse(screen, (*CRIMSON, 150),
-                              (x - mouth_size//2 - lip_thickness, 
-                               mouth_y - mouth_height//4 - lip_thickness, 
+                              (x - mouth_size//2 - lip_thickness + mouth_offset_x, 
+                               mouth_y - mouth_height//4 - lip_thickness + mouth_offset_y, 
                                mouth_size + lip_thickness*2, 
                                mouth_height + lip_thickness*2))
             
             # 입 안 (검은색 - 깊이감)
             pygame.draw.ellipse(screen, SOFT_BLACK,
-                              (x - mouth_size//2, mouth_y - mouth_height//4, 
+                              (x - mouth_size//2 + mouth_offset_x, mouth_y - mouth_height//4 + mouth_offset_y, 
                                mouth_size, mouth_height))
             
             # 입 안쪽 그라데이션 효과
@@ -750,23 +791,23 @@ class Stage3MenheraWorld:
                 inner_height = mouth_height - 4 - i*4
                 alpha = 200 - i*40
                 pygame.draw.ellipse(screen, (*CRIMSON, alpha),
-                                  (x - inner_size//2, mouth_y - inner_height//4,
+                                  (x - inner_size//2 + mouth_offset_x, mouth_y - inner_height//4 + mouth_offset_y,
                                    inner_size, inner_height))
             
             # 혀 그리기
             if self.mouth_open > 0.5:
                 tongue_width = int(mouth_size * 0.6)
                 tongue_height = int(mouth_height * 0.4)
-                tongue_y = mouth_y + mouth_height//6
+                tongue_y = mouth_y + mouth_height//6 + mouth_offset_y
                 
                 # 혀 본체
                 pygame.draw.ellipse(screen, (*PASTEL_PINK, 180),
-                                  (x - tongue_width//2, tongue_y - tongue_height//2,
+                                  (x - tongue_width//2 + mouth_offset_x, tongue_y - tongue_height//2,
                                    tongue_width, tongue_height))
                 # 혀 중앙선
                 pygame.draw.line(screen, (*CRIMSON, 100),
-                               (x, tongue_y - tongue_height//3),
-                               (x, tongue_y + tongue_height//3), 2)
+                               (x + mouth_offset_x, tongue_y - tongue_height//3),
+                               (x + mouth_offset_x, tongue_y + tongue_height//3), 2)
             
             # 씹기 애니메이션 (더 리얼한 오물거림)
             if self.chewing_phase > 0:
@@ -1298,6 +1339,8 @@ class Stage3MenheraWorld:
         self.mouth_open = 0
         self.chewing_phase = 0
         self.chewing_particles = []
+        self.spit_angle = None  # 발사 각도 초기화
+        self.mouth_direction = 0  # 입 방향 초기화
     
     def update_eating(self, dt):
         """공 먹기 애니메이션 업데이트 - 더 리얼하고 생동감 있게"""
@@ -1427,6 +1470,11 @@ class Stage3MenheraWorld:
             return True  # 공을 숨김
             
         elif self.eating_timer < 220:  # 0.17초 - 뱉기 준비
+            # 뱉을 방향 미리 결정 (처음 한 번만)
+            if self.spit_angle is None:
+                self.spit_angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
+                self.mouth_direction = self.spit_angle  # 입 방향 설정
+            
             # 볼 부풀리기 (압력 증가)
             buildup = (self.eating_timer - 210) / 10
             self.mouth_open = 0.2 + buildup * 0.6
@@ -1489,12 +1537,18 @@ class Stage3MenheraWorld:
             self.eating_active = False
             self.mouth_open = 0
             self.chewing_phase = 0
+            self.spit_angle = None  # 발사 각도 리셋
+            self.mouth_direction = 0  # 입 방향 리셋
             return False  # 공을 다시 표시
     
     def get_spit_velocity(self):
-        """랜덤한 방향으로 공을 뱉어낼 속도 벡터 반환 - 2배 빠르게"""
-        # 랜덤 각도 (위아래로 더 많이 발사)
-        angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
+        """미리 결정된 방향으로 공을 뱉어낼 속도 벡터 반환 - 2배 빠르게"""
+        # 미리 결정된 각도 사용 (없으면 랜덤)
+        if self.spit_angle is not None:
+            angle = self.spit_angle
+        else:
+            angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
+        
         # 기본 속도를 2배로 증가 (8-12 → 16-24)
         base_speed = random.uniform(8, 12)
         speed = base_speed * 2.0  # 2배 증가
