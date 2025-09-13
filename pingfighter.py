@@ -5203,6 +5203,7 @@ def handle_player(keys):
     global rolling_active, rolling_timer, rolling_direction, rolling_speed
     global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y  # 포세이돈 삼지창 대시 플래그
     global rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer
+    global is_half_dash_active, half_dash_effect_timer  # 하프대쉬 효과 관련 변수
     global legendary_manager  # 전설 아이템 매니저
     global player_missile_stunned_timer, player_missile_knockback_vel, current_stage  # 스테이지 6 미사일 넉백
     global is_danger_sensor_dash  # 위험감지센서 대쉬 플래그
@@ -6622,7 +6623,7 @@ def handle_player(keys):
         player_collision_rect.inflate_ip(0, acceleration_height_bonus)
     
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
-    if BALL.colliderect(player_collision_rect) and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0):
+    if BALL.colliderect(player_collision_rect) and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
         # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
         if kuromi_spit_trail_active:
             kuromi_spit_trail_active = False
@@ -27312,7 +27313,7 @@ def handle_ball():
         if acceleration_active and acceleration_height_bonus > 0:
             player_collision_rect.inflate_ip(0, acceleration_height_bonus)
         
-        if BALL.colliderect(player_collision_rect):
+        if BALL.colliderect(player_collision_rect) and not ball_in_kuromi:
             flame_trail_active = False
             flame_trail_positions.clear()
             
@@ -27837,7 +27838,7 @@ def handle_ball():
             
             # 🦵 무릎보호대: 하프대쉬 중 공과 충돌 체크
             # 하프대쉬는 대쉬가 끝난 후에도 짧은 시간 동안 유효함
-            if is_half_dash_active and BALL.colliderect(PLAYER):
+            if is_half_dash_active and BALL.colliderect(PLAYER) and not ball_in_kuromi:
                 print(f"[DEBUG 무릎보호대] 하프대쉬 충돌 감지! rolling_active={rolling_active}, is_half_dash_active={is_half_dash_active}")
                 # 무릎보호대 효과 발동
                 from item_effects.knee_pads import get_knee_pads_instance
@@ -29019,7 +29020,7 @@ def handle_ball():
     # handle_player가 놓친 충돌 처리 (Y속도 조건 제거 - handle_player와 동일하게)
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장 (player_collision_rect 재사용)
     # 스톱워치 정지 중에는 백업 충돌 처리도 수행하지 않음
-    if BALL.colliderect(player_collision_rect) and player_collision_cooldown <= 0 and not player_collision_handled and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0):
+    if BALL.colliderect(player_collision_rect) and player_collision_cooldown <= 0 and not player_collision_handled and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
         last_paddle_hit_time = pygame.time.get_ticks()
