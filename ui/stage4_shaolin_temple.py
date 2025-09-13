@@ -2173,6 +2173,10 @@ class ShaolinTempleBackground:
         """연막탄 연기가 화로에 닿았는지 체크
         Returns: True if smoke touches brazier and lights it"""
         
+        # 사원이 파괴된 후에는 이벤트 발생하지 않음
+        if self.temple_destroyed:
+            return False
+        
         # 이미 불이 붙어있으면 False
         if self.brazier_lit:
             return False
