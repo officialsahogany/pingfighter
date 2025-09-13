@@ -7356,7 +7356,7 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("spikeboots", "스파이크부츠", None, False,
-                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
             print(".")
     elif item_data["name"] == "dashgear":
@@ -7372,7 +7372,7 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("dashgear", "대쉬기어", None, False,
-                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
             print(".")
     elif item_data["name"] == "bulkup":
@@ -7404,7 +7404,7 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("sensor", "위험감지센서", None, False,
-                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
             print(".")
     elif item_data["name"] == "dashholder":
@@ -7417,7 +7417,7 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("dashholder", "대쉬홀더", None, False,
-                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
             print(".")
     elif item_data["name"] == "dowsing_pendulum":
@@ -7434,7 +7434,7 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("dowsing_pendulum", "다우징팬들럼", None, False,
-                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # 아이콘은 이미 store_passive_item 상단에서 설정됨
         else:
             print("[DEBUG]      .")
@@ -7449,7 +7449,7 @@ def store_passive_item(item_data):
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
         # show_item_acquisition("technical_vest", "테크니컬조끼", None, False,
-                            (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        #                   (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
     elif item_data["name"] == "fuel_pouch":
         # 연료파우치 아이템 획득 (패시브)
         global special_gauge_max
@@ -7467,7 +7467,7 @@ def store_passive_item(item_data):
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
         # show_item_acquisition("fuel_pouch", "연료파우치", None, False,
-                            (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        #                   (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
     elif item_data["name"] == "bluetooth_ring":
         # 블루투스링 아이템 획득 (패시브)
         import items
@@ -7481,7 +7481,7 @@ def store_passive_item(item_data):
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
         # show_item_acquisition("bluetooth_ring", "블루투스링", None, False,
-                            (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        #                   (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "smartphone":
         # 스마트폰 아이템 획득 (패시브)
@@ -7504,7 +7504,7 @@ def store_passive_item(item_data):
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
         # show_item_acquisition("smartphone", "스마트폰", None, False,
-                            (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
+        #                   (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "knee_pads":
         # 무릎보호대 아이템 획득 (패시브)
@@ -7520,7 +7520,7 @@ def store_passive_item(item_data):
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
         # show_item_acquisition("knee_pads", "무릎보호대", None, False,
-                            (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+        #                   (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "gravitybelt":
         # 무중력벨트 아이템 획득
@@ -7532,7 +7532,7 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("gravitybelt", "무중력벨트", None, False, 
-                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # 무중력벨트 + 스피드기어 시너지 효과 확인
             if speedgear_obtained:
                 gravity_speed_synergy = True
@@ -7550,7 +7550,7 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("commando_arm", "코만도암", None, False,
-                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
             print(".")
     elif item_data["name"] == "ragnarok_hammer":
@@ -7562,10 +7562,8 @@ def store_passive_item(item_data):
             legendary_manager = get_legendary_manager()
             legendary_manager.activate_item("ragnarok_hammer", {})
             # 전설 아이템 획득 애니메이션 트리거
-            trigger_legendary_acquisition("ragnarok_hammer", "라그나로크 해머", item_icon, (PLAYER.centerx, PLAYER.centery))
-            # 아이템 획득 플로팅 애니메이션 (전설 아이템은 True 플래그)
-            show_item_acquisition("ragnarok_hammer", "라그나로크 해머", item_icon, True,
-                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            trigger_legendary_acquisition("ragnarok_hammer", "라그나로크 해머", item_icon, 
+                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             print("🔴 라그나로크 해머 획득! 신들의 황혼이 시작됩니다!")
         else:
             print("이미 라그나로크 해머를 보유 중입니다.")
@@ -7579,10 +7577,8 @@ def store_passive_item(item_data):
             legendary_manager = get_legendary_manager()
             legendary_manager.activate_item("hermes_shoes", {})
             # 전설 아이템 획득 애니메이션 트리거
-            trigger_legendary_acquisition("hermes_shoes", "헤르메스의 신발", item_icon, (PLAYER.centerx, PLAYER.centery))
-            # 아이템 획득 플로팅 애니메이션 (전설 아이템은 True 플래그)
-            show_item_acquisition("hermes_shoes", "헤르메스의 신발", item_icon, True,
-                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            trigger_legendary_acquisition("hermes_shoes", "헤르메스의 신발", item_icon,
+                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             print("⚡ 헤르메스의 신발 획득! 신들의 속도를 얻었습니다! 이동속도 50% 증가!")
         else:
             print("이미 헤르메스의 신발을 보유 중입니다.")
@@ -7597,10 +7593,8 @@ def store_passive_item(item_data):
             legendary_manager = get_legendary_manager()
             legendary_manager.activate_item("poseidon_trident", {})
             # 전설 아이템 획득 애니메이션 트리거
-            trigger_legendary_acquisition("poseidon_trident", "포세이돈의 삼지창", item_icon, (PLAYER.centerx, PLAYER.centery))
-            # 아이템 획득 플로팅 애니메이션 (전설 아이템은 True 플래그)
-            show_item_acquisition("poseidon_trident", "포세이돈의 삼지창", item_icon, True,
-                                (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+            trigger_legendary_acquisition("poseidon_trident", "포세이돈의 삼지창", item_icon,
+                                         (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             print("🌊 포세이돈의 삼지창 획득! 바다의 힘이 깃들었습니다!")
         else:
             print("이미 포세이돈의 삼지창을 보유 중입니다.")
