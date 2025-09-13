@@ -5219,6 +5219,8 @@ def handle_player(keys):
     global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
     # Chapter 2 대쉬 관련 변수 추가
     global tutorial_dash_count, tutorial_dash_counter_active, tutorial_dash_token_dialogue_shown
+    # 쿠로미 뱉기 궤적 관련
+    global kuromi_spit_trail_active, kuromi_spit_trail_positions
     global tutorial_dash_completion_dialogue_shown, tutorial_needs_dash_practice
     global tutorial_consecutive_dash_count, tutorial_half_dash_count
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
@@ -26935,6 +26937,8 @@ def handle_ball():
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown
     # 롤링 스턴 타이머
     global rolling_stun_timer
+    # 쿠로미 뱉기 궤적 관련
+    global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
     # 충돌 쿨다운 감소
     if player_collision_cooldown > 0:
         player_collision_cooldown -= 1
