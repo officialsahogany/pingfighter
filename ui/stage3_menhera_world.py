@@ -1405,6 +1405,7 @@ class Stage3MenheraWorld:
             
             # 혀 세그먼트 업데이트 (곡선 효과)
             self._update_tongue_segments()
+            return True  # 공을 숨김 (먹는 중)
             
         elif self.eating_timer < 90:  # 1.5초 - 혀로 공 감싸서 가져오기
             # 혀로 공을 감싸는 애니메이션
@@ -1428,6 +1429,7 @@ class Stage3MenheraWorld:
             self.tongue_extended = 1.0 - t * 0.8
             self.mouth_open = 0.6 + t * 0.4  # 입 더 벌리기
             self._update_tongue_segments()
+            return True  # 공을 숨김 (먹는 중)
             
         elif self.eating_timer < 120:  # 90-120 - 입 벌리고 씹기 준비
             self.ball_on_tongue = False  # 공이 입 안으로

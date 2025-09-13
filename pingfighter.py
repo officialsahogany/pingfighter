@@ -34346,7 +34346,8 @@ def main(stage_num, new_boss_mode=False):
                         if animated_bg_stage3:
                             ball_hidden = animated_bg_stage3.update_eating(16.67)  # 60FPS 기준
                             
-                            if not ball_hidden and ball_in_kuromi:
+                            # ball_hidden이 명시적으로 False일 때만 공을 뱉음 (None이면 아직 먹는 중)
+                            if ball_hidden == False and ball_in_kuromi:
                                 print(f"[DEBUG] 공 뱉기 - ball_hidden={ball_hidden}, eating_timer={kuromi_eating_timer}")
                                 # 공을 뱉어냄 - 랜덤 방향으로 발사
                                 ball_in_kuromi = False
