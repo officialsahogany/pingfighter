@@ -35,7 +35,7 @@ WIDTH, HEIGHT = 600, 750  # 화면 크기
 # 사운드 로드
 try:
     SOUND_ITEM_GET = pygame.mixer.Sound("sounds/itemget.wav")
-    SOUND_ITEM_GET.set_volume(0.5)  # 볼륨 조절 (0.0 ~ 1.0)
+    # 고정 볼륨 제거 - 런타임에 동적으로 설정
 except:
     SOUND_ITEM_GET = None
 
@@ -802,7 +802,7 @@ def spawn_random_item():
                     legendary_manager._init_legendary_items()
 
 
-def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None):
+def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None, sfx_volume=0.7):
     global item_list
     new_items = []
 
@@ -829,9 +829,10 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 아이템 획득 시 revealed를 True로 설정
             item["type"]["revealed"] = True
             
-            # 아이템 획득 사운드 재생 (외부에서 전달받은 사운드 사용)
+            # 아이템 획득 사운드 재생 (외부에서 전달받은 사운드 사용) - 볼륨 적용
             if sound_item_get:
                 try:
+                    sound_item_get.set_volume(sfx_volume)
                     sound_item_get.play()
                 except Exception as e:
                     print(f"  : {e}")
@@ -839,6 +840,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
                 # 내부 사운드 시도
                 if SOUND_ITEM_GET:
                     try:
+                        SOUND_ITEM_GET.set_volume(sfx_volume)
                         SOUND_ITEM_GET.play()
                     except Exception as e:
                         print(f"   : {e}")

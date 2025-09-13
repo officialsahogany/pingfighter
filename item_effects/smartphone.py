@@ -618,7 +618,9 @@ class Smartphone:
                         # 생명수: 500 충전
                         try:
                             SOUND_DRINK = getattr(main_module, 'SOUND_DRINK', None)
+                            sfx_volume = getattr(main_module, 'sfx_volume', 0.7)
                             if SOUND_DRINK:
+                                SOUND_DRINK.set_volume(sfx_volume)
                                 SOUND_DRINK.play()
                         except:
                             pass
@@ -641,7 +643,9 @@ class Smartphone:
                         # 에너지드링크: 220 충전
                         try:
                             SOUND_DRINK = getattr(main_module, 'SOUND_DRINK', None)
+                            sfx_volume = getattr(main_module, 'sfx_volume', 0.7)
                             if SOUND_DRINK:
+                                SOUND_DRINK.set_volume(sfx_volume)
                                 SOUND_DRINK.play()
                         except:
                             pass

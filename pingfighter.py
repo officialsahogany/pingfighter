@@ -802,6 +802,11 @@ hongryun_ready = game_state.hongryun_ready
 HONGRYUN_MAX_HITS = game_state.HONGRYUN_MAX_HITS
 #  게임 기본 설정
 CURRENT_BG = STAGE1_BG  # 현재 배경 기본값은 Stage 1
+
+# 볼륨 설정 (0.0 ~ 1.0)
+bgm_volume = 0.5  # BGM 볼륨 기본값 50%
+sfx_volume = 0.7  # 효과음 볼륨 기본값 70%
+
 boss_names = {
     1: "풍악보이",
     2: "악어장군", 
@@ -845,52 +850,65 @@ def get_special_gauge():
 def consume_special_gauge(amount):
     global special_gauge
     special_gauge = max(0, special_gauge - amount)
+
+def play_sound_with_volume(sound, volume=None):
+    """효과음을 지정된 볼륨으로 재생"""
+    global sfx_volume
+    if volume is None:
+        volume = sfx_volume
+    sound.set_volume(volume)
+    return sound.play()
+
 def play_dash_sound():
     #  버스트업 스킬이 있으면 bustup.wav 재생
     if acceleration_skill_level > 0:  # 버스트업 스킬 레벨이 1 이상이면
         try:
-            SOUND_BURST_UP.play()
+            play_sound_with_volume(SOUND_BURST_UP)
         except:
-            SOUND_DASH.play()  # bustup.wav가 없으면 기본 대쉬 사운드 재생
+            play_sound_with_volume(SOUND_DASH)  # bustup.wav가 없으면 기본 대쉬 사운드 재생
     else:
-        SOUND_DASH.play()
+        play_sound_with_volume(SOUND_DASH)
 
 #  사운드 재생 헬퍼 함수들 (중복 제거용)
 def play_active_item_sound():
     """아이템 사용 사운드 재생"""
-    SOUND_ACTIVE_ITEM.play()
+    play_sound_with_volume(SOUND_ACTIVE_ITEM)
 
 def play_serve_sound():
     """서브 사운드 재생"""
-    SOUND_SERVE.play()
+    play_sound_with_volume(SOUND_SERVE)
 
 def play_wall_sound():
     """벽 충돌 사운드 재생"""
-    SOUND_WALL.play()
+    play_sound_with_volume(SOUND_WALL)
 
 def play_paddle_sound():
     """패들 충돌 사운드 재생"""
-    SOUND_PADDLE.play()
+    play_sound_with_volume(SOUND_PADDLE)
 
 def play_button_hover_sound():
     """버튼 호버 사운드 재생"""
-    SOUND_BUTTON_HOVER.play()
+    global sfx_volume
+    SOUND_BUTTON_HOVER.set_volume(sfx_volume)
+    play_sound_with_volume(SOUND_BUTTON_HOVER)
 
 def play_button_click_sound():
     """버튼 클릭 사운드 재생"""
-    SOUND_BUTTON_CLICK.play()
+    global sfx_volume
+    SOUND_BUTTON_CLICK.set_volume(sfx_volume)
+    play_sound_with_volume(SOUND_BUTTON_CLICK)
 
 def play_ragnarok_shot_sound():
     """라그나로크 스턴볼 발사 사운드 재생"""
     try:
-        SOUND_RAGNAROK_SHOT.play()
+        play_sound_with_volume(SOUND_RAGNAROK_SHOT)
     except:
         pass  # 사운드 파일이 없으면 무시
 
 def play_ragnarok_boom_sound():
     """라그나로크 보스 반격 사운드 재생"""
     try:
-        SOUND_RAGNAROK_BOOM.play()
+        play_sound_with_volume(SOUND_RAGNAROK_BOOM)
     except:
         pass  # 사운드 파일이 없으면 무시
 
@@ -2866,7 +2884,7 @@ def check_tear_collisions():
                 try:
                     tears_sound = pygame.mixer.Sound(resource_path("sounds/tears.wav"))
                     tears_sound.set_volume(0.6)
-                    tears_sound.play()
+                    play_sound_with_volume(tears_sound)
                 except:
                     pass  # 사운드 파일이 없으면 무시
                 
@@ -2914,7 +2932,7 @@ def apply_effect(effect_name):
     elif effect_name == "gauge_charge":  #  게이지 충전 아이템
         # 물약 마시는 효과음 재생
         try:
-            SOUND_DRINK.play()
+            play_sound_with_volume(SOUND_DRINK)
         except:
             pass
         #  동적 최대치 계산 적용
@@ -2996,7 +3014,7 @@ def apply_effect(effect_name):
     elif effect_name == "life_elixir":  #  생명수 아이템 활성화
         # 물약 마시는 효과음 재생
         try:
-            SOUND_DRINK.play()
+            play_sound_with_volume(SOUND_DRINK)
         except:
             pass
         # 게이지를 500 충전
@@ -3074,13 +3092,13 @@ def activate_flare():
         flare_throw_timer = 36  # 0.6초 (60fps * 0.6)
         print(f"    : {flare_throw_timer/60:.1f}")
         # 일반 준비 사운드 전체 재생
-        SOUND_THROW_BEFORE.play()
+        play_sound_with_volume(SOUND_THROW_BEFORE)
 def activate_smoke_grenade():
     """연막탄 설치 함수 - 즉시 설치"""
     global smoke_grenade_target_x, smoke_grenade_target_y, current_stage
     # 연막탄 사운드 즉시 재생
     try:
-        SOUND_SMOKEBOMB.play()  #  연막탄 사운드 즉시 재생
+        play_sound_with_volume(SOUND_SMOKEBOMB)  #  연막탄 사운드 즉시 재생
     except:
         pass
     # 목표 지점 계산 (스테이지 4에서는 화로 근처, 그 외는 플레이어 위)
@@ -3115,7 +3133,7 @@ def activate_pandora_box():
         
         # 판도라의 상자 효과음 재생
         try:
-            SOUND_PANDORA.play()
+            play_sound_with_volume(SOUND_PANDORA)
         except:
             play_active_item_sound()  # 판도라 사운드 실패 시 기본 액티브 아이템 사운드
         
@@ -3149,7 +3167,7 @@ def activate_stopwatch():
         
         # 타임워치 발동 사운드 재생
         try:
-            SOUND_TIMEWATCH.play()  # ️ 타임워치 발동 사운드
+            play_sound_with_volume(SOUND_TIMEWATCH)  # ️ 타임워치 발동 사운드
         except:
             pass
         
@@ -3338,7 +3356,7 @@ def activate_grenade():
         grenade_throw_timer = 36  # 0.6초 (60fps * 0.6)
         print(f"   : {grenade_throw_timer/60:.1f}")
         # 일반 준비 사운드 전체 재생
-        SOUND_THROW_BEFORE.play()
+        play_sound_with_volume(SOUND_THROW_BEFORE)
     # 효과음 재생 (투척 시작)
     play_active_item_sound()
     print(f"   ! {grenade_throw_timer/60:.1f}  .")
@@ -3923,7 +3941,7 @@ def activate_molotov():
         molotov_throw_timer = 36  # 0.6초 (60fps * 0.6)
         print(f"    : {molotov_throw_timer/60:.1f}")
         # 일반 준비 사운드 전체 재생
-        SOUND_THROW_BEFORE.play()
+        play_sound_with_volume(SOUND_THROW_BEFORE)
     # 효과음 재생 (투척 시작)
     play_active_item_sound()
     print(f"  ! {molotov_throw_timer/60:.1f}  .")
@@ -4044,7 +4062,7 @@ def activate_meditation():
     #  명상 사운드
     try:
         meditation_sound = pygame.mixer.Sound(resource_path("sounds/meditation.wav"))
-        meditation_sound.play()
+        play_sound_with_volume(meditation_sound)
     except:
         pass
 def handle_meditation():
@@ -4628,7 +4646,7 @@ def check_laser_ball_collision():
             
             #  대쉬 스피릿 소멸 효과음 재생
             try:
-                SOUND_DASH_SPIRIT_DELETE.play()
+                play_sound_with_volume(SOUND_DASH_SPIRIT_DELETE)
             except:
                 pass  # 사운드 파일이 없으면 무시
             
@@ -5322,7 +5340,7 @@ def handle_player(keys):
         # 0.6초 후 (36프레임 후) throw.wav 재생 - 그러나 총 시간이 0.5초이므로 재생 안됨
         # 투척 완료 직후 재생하도록 변경
         if molotov_throw_timer == 0:  # 투척 완료 시점
-            SOUND_THROW.play()
+            play_sound_with_volume(SOUND_THROW)
         if molotov_throw_timer <= 0:
             molotov_throwing = False
             throw_molotov()  # 실제 투척
@@ -5333,7 +5351,7 @@ def handle_player(keys):
         # 0.6초 후 (36프레임 후) throw.wav 재생 - 그러나 총 시간이 0.5초이므로 재생 안됨
         # 투척 완료 직후 재생하도록 변경
         if grenade_throw_timer == 0:  # 투척 완료 시점
-            SOUND_THROW.play()
+            play_sound_with_volume(SOUND_THROW)
         if grenade_throw_timer <= 0:
             grenade_throwing = False
             throw_grenade()  # 실제 투척
@@ -5344,7 +5362,7 @@ def handle_player(keys):
         # 0.6초 후 (36프레임 후) throw.wav 재생 - 그러나 총 시간이 0.5초이므로 재생 안됨
         # 투척 완료 직후 재생하도록 변경
         if flare_throw_timer == 0:  # 투척 완료 시점
-            SOUND_THROW.play()
+            play_sound_with_volume(SOUND_THROW)
         if flare_throw_timer <= 0:
             flare_throwing = False
             throw_flare()  # 실제 투척
@@ -6049,7 +6067,7 @@ def handle_player(keys):
                         
                         # 하프대쉬 전용 효과음
                         if 'SOUND_HALF_DASH' in globals():
-                            SOUND_HALF_DASH.play()
+                            play_sound_with_volume(SOUND_HALF_DASH)
                         else:
                             play_dash_sound()  # 폴백: 일반 대쉬 사운드
                         
@@ -6804,8 +6822,8 @@ def handle_player(keys):
         # 드라이브 발동 확인 (drive_ball_active로 충분함)
         if drive_activated:
             print("!")
-        # 사운드 쿨다운이 없을 때만 사운드 재생
-        if player_sound_cooldown <= 0:
+        # 사운드 쿨다운이 없을 때만 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
+        if player_sound_cooldown <= 0 and not ball_in_kuromi:
             play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
             print(f" handle_player   ( : 20)")
@@ -7209,8 +7227,8 @@ def store_active_item(item_data):
         item_data["last_use"] = last_item_use_time  # 전역 쿨타임 적용
         active_item_slot.append(item_data)
         selected_item_index = len(active_item_slot) - 1  # 자동 선택
-        # 아이템 획득 효과 표시 (아이템 위치에서)
-        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+        # 아이템 획득 효과 표시 (아이템 위치에서) - 큰 흰색 원 애니메이션 비활성화
+        # show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
 # bosspong.py
 def store_passive_item(item_data):
     global MAX_ITEM_SLOTS, passive_item_list, speedboots_obtained, speedgear_obtained
@@ -7435,13 +7453,10 @@ def store_passive_item(item_data):
         }
         activate_bluetooth_ring(ring_state, current_stage)
         print("!    25% !")
-        # 패시브 아이템 리스트에 추가
-        passive_item_list.append(item_data)
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("bluetooth_ring", "블루투스링", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-        # 아이콘은 이미 store_passive_item 상단에서 설정됨
-        return  # 처리 완료 후 반환
+        # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "smartphone":
         # 스마트폰 아이템 획득 (패시브)
         import items
@@ -7459,12 +7474,10 @@ def store_passive_item(item_data):
             }
             smartphone.activate(phone_state, current_stage)
         print("스마트폰 획득! 위험 시 자동 아이템 사용!")
-        # 패시브 아이템 리스트에 추가
-        passive_item_list.append(item_data)
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("smartphone", "스마트폰", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
-        return  # 처리 완료 후 반환
+        # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "knee_pads":
         # 무릎보호대 아이템 획득 (패시브)
         import items
@@ -7475,12 +7488,10 @@ def store_passive_item(item_data):
             knee_pads.activate()
             print(f"[DEBUG 무릎보호대] 아이템 획득! knee_pads.active = {knee_pads.active}")
         print("무릎보호대 획득! 하프대쉬 공 타격 시 게이지 50% 충전!")
-        # 패시브 아이템 리스트에 추가
-        passive_item_list.append(item_data)
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("knee_pads", "무릎보호대", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-        return  # 처리 완료 후 반환
+        # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "gravitybelt":
         # 무중력벨트 아이템 획득
         if not gravitybelt_obtained:
@@ -7567,8 +7578,8 @@ def store_passive_item(item_data):
     if item_data not in passive_item_list:
         passive_item_list.append(item_data)
     
-    # 아이템 획득 효과 표시 (아이템 위치에서)
-    show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    # 아이템 획득 효과 표시 (아이템 위치에서) - 큰 흰색 원 애니메이션 비활성화
+    # show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
 def activate_emotional_overdrive():
     global emotional_overdrive_active, emotional_overdrive_timer
     global overdrive_flash_timer, overdrive_trails
@@ -7663,7 +7674,7 @@ def handle_emotional_overdrive():
                         # 연막 효과음 재생
                         smoke_sound = pygame.mixer.Sound(resource_path("sounds/smoke_neutralize.wav"))
                         smoke_sound.set_volume(0.7)
-                        smoke_sound.play()
+                        play_sound_with_volume(smoke_sound)
                     except:
                         # 효과음 없으면 기본 사운드
                         try:
@@ -7777,7 +7788,7 @@ def handle_wall():
             }
             # 화면 흔들림 효과 시작 (폭발하면 무조건 흔들림)
             grenade_shake_timer = 40  # 40프레임 동안 흔들림 (2배로 증가)
-            SOUND_GRENADE.play()  #  수류탄 폭발 사운드 재생
+            play_sound_with_volume(SOUND_GRENADE)  #  수류탄 폭발 사운드 재생
             print(f"  !   : {grenade_shake_timer}")
             # 보스가 폭발 범위 내에 있는지 체크
             boss_center_x = BOSS.centerx
@@ -7808,7 +7819,7 @@ def handle_wall():
                     
                     # 피격 사운드 재생 (3개 중 랜덤)
                     if SOUND_STAGE5_HURTS:
-                        random.choice(SOUND_STAGE5_HURTS).play()
+                        play_sound_with_volume(random.choice(SOUND_STAGE5_HURTS))
                     
                     #  트레이드 별 2개 드롭
                     for i in range(2):
@@ -8152,7 +8163,7 @@ def handle_wall():
                 flare["exploded"] = True
                 #  조명탄 폭발 사운드 재생
                 try:
-                    SOUND_FLASHBOMB.play()
+                    play_sound_with_volume(SOUND_FLASHBOMB)
                 except:
                     pass  # 사운드 재생 실패 시 무시
                 # 섬광 효과 생성 (0.15초 = 9프레임)
@@ -8255,7 +8266,7 @@ def handle_wall():
             molotovs.remove(molotov)
             # 폭발 효과음
             try:
-                SOUND_FIREBOMB.play()  #  화염병 폭발 사운드 재생
+                play_sound_with_volume(SOUND_FIREBOMB)  #  화염병 폭발 사운드 재생
             except:
                 pass
             print(f"  !    : X={fire_zone['x']:.1f}, Y={fire_zone['y']:.1f}")
@@ -8587,7 +8598,7 @@ def check_balloon_collisions():
         if distance <= collision_distance:
             print(f"  !  : 30")
             #  풍선 터지는 효과음 재생
-            SOUND_BALLOON_BOOM.play()
+            play_sound_with_volume(SOUND_BALLOON_BOOM)
             # 풍선 터뜨리기 효과
             effects_manager.create_balloon_pop_effect(balloon["x"], balloon["y"], balloon["color"])
             # 풍선 제거
@@ -8687,7 +8698,7 @@ def handle_spinning_top():
                 )
                 
                 # 효과음
-                SOUND_PADDLE.play()
+                play_sound_with_volume(SOUND_PADDLE)
                 
                 # 400% 속도 부스트 (0.3초)
                 angle = math.atan2(dy, dx)
@@ -8847,7 +8858,7 @@ def check_spinning_top_collision():
             create_impact_effect(top_center[0], top_center[1], [0, 0], is_player=False)
             
             # 효과음 재생
-            SOUND_PADDLE.play()
+            play_sound_with_volume(SOUND_PADDLE)
             
             print(f"  !  !  : {math.degrees(random_angle):.0f}°")
             return True
@@ -9355,7 +9366,7 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
     global item_obtained_effect
     # 아이템 타입 확인
     item_name = item_data.get("name", "")
-    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring"]
+    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "gravitybelt"]
     # 시작 위치 (아이템이 있던 위치 또는 화면 중앙)
     if item_x is not None and item_y is not None:
         start_x = item_x
@@ -13395,7 +13406,7 @@ def draw_objects():
                         effects_manager.spawn_star_particles(spark_x, spark_y, count=3)
                     # 한 프레임에 한 번만 사운드 재생
                     if not missile_hit_this_frame:
-                        SOUND_MISSILE.play()  # 미사일 충돌 사운드 재생
+                        play_sound_with_volume(SOUND_MISSILE)  # 미사일 충돌 사운드 재생
                         missile_hit_this_frame = True
                         # 무적 시간 설정 (0.5초로 감소)
                         player_missile_invulnerable_time = current_time + 500
@@ -13473,7 +13484,7 @@ def draw_objects():
             laser_charging = True
             laser_charge_start = current_time
             # 레이저 충전 사운드 재생
-            SOUND_STAGE6_BEAM_CHARGE.play()
+            play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
             # 체력에 따른 레이저 패턴 결정
             if health_percent <= 40:
                 # 40% 이하: 등대처럼 회전하는 레이저 (모든 요소 랜덤)
@@ -13497,7 +13508,7 @@ def draw_objects():
             else:
                 laser_beam_duration = 1500  # 기본: 1.5초
             # 레이저 빔 사운드 재생
-            SOUND_STAGE6_BEAM.play()
+            play_sound_with_volume(SOUND_STAGE6_BEAM)
         # 레이저 빔 그리기 및 충돌 체크
         if laser_cannon_active:
             beam_time = current_time - last_laser_time
@@ -13865,7 +13876,7 @@ def draw_objects():
                         # 인터셉터 파괴
                         interceptors.remove(interceptor)
                         # 폭발 이펙트
-                        SOUND_STAGE6_INTERCEPTOR_HIT.play()
+                        play_sound_with_volume(SOUND_STAGE6_INTERCEPTOR_HIT)
                         for _ in range(15):
                             spark_angle = random.uniform(0, math.pi * 2)
                             spark_dist = random.uniform(0, 25)
@@ -17529,7 +17540,7 @@ def show_tutorial_power_demonstration():
                     # 사운드 재생
                     try:
                         if 'SOUND_POWER' in globals():
-                            SOUND_POWER.play()
+                            play_sound_with_volume(SOUND_POWER)
                     except:
                         pass
                     
@@ -17585,14 +17596,14 @@ def show_tutorial_power_demonstration():
                 demo_ball_dx = -demo_ball_dx
                 try:
                     if 'SOUND_WALL' in globals():
-                        SOUND_WALL.play()
+                        play_sound_with_volume(SOUND_WALL)
                 except:
                     pass
             if demo_ball_y <= ball_radius or demo_ball_y >= HEIGHT - ball_radius:
                 demo_ball_dy = -demo_ball_dy
                 try:
                     if 'SOUND_PADDLE' in globals():
-                        SOUND_PADDLE.play()
+                        play_sound_with_volume(SOUND_PADDLE)
                 except:
                     pass
         
@@ -19120,7 +19131,7 @@ def show_tutorial_dash_dialogue():
                     # 대쉬 사운드 재생
                     if not demo_state['dash_sound_played']:
                         if 'SOUND_DASH' in globals():
-                            SOUND_DASH.play()
+                            play_sound_with_volume(SOUND_DASH)
                         demo_state['dash_sound_played'] = True
                     
                     if dash_elapsed < demo_state['dash_duration']:
@@ -24036,7 +24047,8 @@ def update_trade_point_stars():
         
         # 획득 효과음
         try:
-            pygame.mixer.Sound(resource_path("sounds/coin.wav")).play()
+            coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+            play_sound_with_volume(coin_sound)
         except:
             pass
     
@@ -24101,7 +24113,8 @@ def update_trade_point_stars():
             
             # 획득 효과음
             try:
-                pygame.mixer.Sound(resource_path("sounds/coin.wav")).play()
+                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+                play_sound_with_volume(coin_sound)
             except:
                 pass
             
@@ -24321,7 +24334,8 @@ def update_stage3_hearts():
             
             # 획득 효과음
             try:
-                pygame.mixer.Sound(resource_path("sounds/coin.wav")).play()
+                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+                play_sound_with_volume(coin_sound)
             except:
                 pass
             heart['life'] = 0  # 하트 제거
@@ -25272,7 +25286,7 @@ def show_fade_text(message):
     if is_power_smashing:
         try:
             power_smash_sound = pygame.mixer.Sound(resource_path("sounds/power_smash.wav"))
-            power_smash_sound.play()
+            play_sound_with_volume(power_smash_sound)
         except:
             pass
     # 폰트 생성 (깔끔한 폰트)
@@ -25903,7 +25917,7 @@ def calculate_bounce(paddle):
             print(f"🛡️ 스피드 디펜스 방어 성공! (80% 확률)")
             # 방어 효과음
             try:
-                SOUND_DEFENSE_BLOCK.play()
+                play_sound_with_volume(SOUND_DEFENSE_BLOCK)
             except:
                 pass
             # 방어 성공 시에도 정상적으로 공을 반사 (속도 감소 없음)
@@ -26077,7 +26091,7 @@ def calculate_bounce(paddle):
             drive_activated = True  #  드라이브 발동 표시
             special_gauge -= 150  #  드라이브 발동 시 150 게이지 소모
             print(f"   !  ! ( 150 ,  : {special_gauge})")
-            SOUND_DRIVE.play()  # 플레이어 드라이브 발동 효과음
+            play_sound_with_volume(SOUND_DRIVE)  # 플레이어 드라이브 발동 효과음
             #  드라이브 성공 기록
             record_skill_usage(success=True)
             
@@ -26586,7 +26600,7 @@ def handle_ball():
             ball_angle = 0
             drive_active = True
             drive_spin_speed = random.choice([-0.6, 0.6])
-            SOUND_MEDITATION_AFTER.play()  # 명상 후 드라이브 효과음 재생
+            play_sound_with_volume(SOUND_MEDITATION_AFTER)  # 명상 후 드라이브 효과음 재생
         return
     #  서브 대기
     if is_waiting_for_serve:
@@ -27175,7 +27189,7 @@ def handle_ball():
             ball_angle = 0
             drive_active = True
             drive_spin_speed = random.choice([-0.6, 0.6])
-            SOUND_MEDITATION_AFTER.play()  # 명상 후 드라이브 효과음 재생
+            play_sound_with_volume(SOUND_MEDITATION_AFTER)  # 명상 후 드라이브 효과음 재생
         return
     #  서브 대기
     if is_waiting_for_serve:
@@ -27196,7 +27210,7 @@ def handle_ball():
             fireball_cooldown = random.randint(3500, 5000)
             num_fireballs = random.randint(2, 3) if random.random() < 0.4 else 1
             #  화염탄 발사 효과음 재생
-            SOUND_FIREBALL.play()
+            play_sound_with_volume(SOUND_FIREBALL)
             for i in range(num_fireballs):
                 pos = [BOSS.centerx, BOSS.bottom]
                 offset_angle = random.uniform(-20, 20)
@@ -27284,7 +27298,7 @@ def handle_ball():
                 PLAYER.centery - BALL.centery
             ).normalize()
             #  홍련폭염 차징 사운드 재생
-            SOUND_HONGRYUN_CHARGE.play()
+            play_sound_with_volume(SOUND_HONGRYUN_CHARGE)
             
             # Stage 5 나선 폭발 효과 - 홍련폭염 모드 설정
             if animated_bg_stage5 is not None and hasattr(animated_bg_stage5, 'set_inferno_mode'):
@@ -27299,7 +27313,7 @@ def handle_ball():
         if flame_trail_phase == 1:
             flame_trail_phase = 2
             #  홍련폭염 발사 사운드 재생
-            SOUND_HONGRYUN_SHOOT.play()
+            play_sound_with_volume(SOUND_HONGRYUN_SHOOT)
         accel_elapsed = elapsed - 1.0
         max_speed = 6.0
         accel_time = 6.0
@@ -27875,7 +27889,7 @@ def handle_ball():
                         gauge_charge_animation_amount = charge_amount
                         
                         # 사운드 효과
-                        SOUND_ACTIVE_ITEM.play()  # 특수 게이지 충전 사운드
+                        play_sound_with_volume(SOUND_ACTIVE_ITEM)  # 특수 게이지 충전 사운드
                         print(f"[DEBUG 무릎보호대] 아이템 사운드 재생 완료")
                         
                         # 하프대쉬 충돌 처리 완료 - 플래그 리셋
@@ -27954,17 +27968,18 @@ def handle_ball():
                             print(f"🌟 황금 바위 관통! Trade Point 획득!")
                             trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
                             try:
-                                pygame.mixer.Sound(resource_path("sounds/coin.wav")).play()
+                                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+                                play_sound_with_volume(coin_sound)
                             except:
                                 pass
                         
                         # 바위 파괴 효과음만 재생
                         if rock_size <= 45:
-                            SOUND_STONEBREAK_SMALL.play()
+                            play_sound_with_volume(SOUND_STONEBREAK_SMALL)
                         elif rock_size <= 65:
-                            SOUND_STONEBREAK_MEDIUM.play()
+                            play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
                         else:
-                            SOUND_STONEBREAK_LARGE.play()
+                            play_sound_with_volume(SOUND_STONEBREAK_LARGE)
                         
                         print(f"💥 파워 스매싱으로 바위 관통!")
                         # 공의 속도와 방향은 유지 (관통)
@@ -28074,19 +28089,20 @@ def handle_ball():
                         print(f"   ! Trade Point  !")
                         trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
                         try:
-                            pygame.mixer.Sound(resource_path("sounds/coin.wav")).play()
+                            coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+                            play_sound_with_volume(coin_sound)
                         except:
                             pass
                     
                     # 바위 크기별 효과음
                     if rock_size <= 45:
-                        SOUND_STONEBREAK_SMALL.play()
+                        play_sound_with_volume(SOUND_STONEBREAK_SMALL)
                         print(f"   ! (: {rock_size})")
                     elif rock_size <= 65:
-                        SOUND_STONEBREAK_MEDIUM.play()
+                        play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
                         print(f"   ! (: {rock_size})")
                     else:
-                        SOUND_STONEBREAK_LARGE.play()
+                        play_sound_with_volume(SOUND_STONEBREAK_LARGE)
                         print(f"   ! (: {rock_size})")
                     
                     # 남은 스텝 건너뛰기
@@ -28102,7 +28118,7 @@ def handle_ball():
                                 print(f"🔥 파워 스매싱으로 위기 바위 관통!")
                                 # 관통 효과음 재생
                                 try:
-                                    SOUND_STONEBREAK_MEDIUM.play()
+                                    play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
                                 except:
                                     pass
                                 continue  # 다음 바위 체크로 진행
@@ -28202,7 +28218,7 @@ def handle_ball():
                     
                     # 까마귀 폭발 효과음 재생
                     try:
-                        SOUND_BIRDKILL.play()
+                        play_sound_with_volume(SOUND_BIRDKILL)
                     except:
                         # 폴백으로 일반 타격 효과음 재생
                         pass  # hit_sound not available in this context
@@ -28244,7 +28260,7 @@ def handle_ball():
                 
                 # 화상 효과음 재생
                 try:
-                    SOUND_BIRDKILL.play()  # 임시로 새 죽는 소리 사용
+                    play_sound_with_volume(SOUND_BIRDKILL)  # 임시로 새 죽는 소리 사용
                 except:
                     pass
                 
@@ -28517,7 +28533,7 @@ def handle_ball():
             ball_vel[1] = abs(ball_vel[1])  # 아래쪽으로 방향 전환
             # 스테이지 6에서는 바리어 사운드 재생 및 깜빡임 효과
             if current_stage == 6:
-                SOUND_BARRIER.play()
+                play_sound_with_volume(SOUND_BARRIER)
                 global stage6_barrier_flash_timer
                 stage6_barrier_flash_timer = 12  # 약 0.2초간 깜빡임 (60fps 기준)
             # 바리케이트 충돌 이펙트 (텍스트 없이 파티클만)
@@ -28729,19 +28745,20 @@ def handle_ball():
                 trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
                 # 황금 바위 효과음
                 try:
-                    pygame.mixer.Sound(resource_path("sounds/coin.wav")).play()
+                    coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+                    play_sound_with_volume(coin_sound)
                 except:
                     pass
             
             # 바위 크기에 따라 다른 효과음 재생
             if rock_size <= 45:  # 작은 바위 (25-45)
-                SOUND_STONEBREAK_SMALL.play()
+                play_sound_with_volume(SOUND_STONEBREAK_SMALL)
                 print(f"   ! (: {rock_size})")
             elif rock_size <= 65:  # 중간 바위 (45-65)
-                SOUND_STONEBREAK_MEDIUM.play()
+                play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
                 print(f"   ! (: {rock_size})")
             else:  # 큰 바위 (65-90)
-                SOUND_STONEBREAK_LARGE.play()
+                play_sound_with_volume(SOUND_STONEBREAK_LARGE)
                 print(f"   ! (: {rock_size})")
         else:
             # 기존 충돌 체크 (떨어지는 바위는 파괴 안됨)
@@ -29150,8 +29167,8 @@ def handle_ball():
             drive_speed_increase = 0.0  #  드라이브 속도 증가량 리셋
             print("!")
         # handle_player에서 이미 사운드를 재생하므로 여기서는 재생하지 않음
-        # handle_player에서 놓친 충돌의 경우에만 사운드 재생
-        if not player_collision_handled and player_sound_cooldown <= 0:
+        # handle_player에서 놓친 충돌의 경우에만 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
+        if not player_collision_handled and player_sound_cooldown <= 0 and not ball_in_kuromi:
             play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
             print("handle_ball   (handle_player  )")
@@ -29659,11 +29676,12 @@ def handle_ball():
             #  발동 후 게이지 초기화
             hongryun_ready = False
             hongryun_hit_count = 0
-        # 보스 충돌 사운드 재생
-        if current_stage == 2 and speed_defense_active:
-            SOUND_DEFENSE_HIT.play()
-        else:
-            play_paddle_sound()
+        # 보스 충돌 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
+        if not ball_in_kuromi:
+            if current_stage == 2 and speed_defense_active:
+                play_sound_with_volume(SOUND_DEFENSE_HIT)
+            else:
+                play_paddle_sound()
         if ball_vel[0] != 0:
             direction = math.copysign(1, ball_vel[0])
             ball_angle += direction * 10
@@ -31916,7 +31934,7 @@ def handle_boss():
                                     boss_current_speed = -BOSS_MAX_SPEED * 0.2  # 왼쪽으로 초기 속도 부여 (최대속도의 20%) - 난이도 하향
                                 else:
                                     boss_current_speed = BOSS_MAX_SPEED * 0.2   # 오른쪽으로 초기 속도 부여 (최대속도의 20%) - 난이도 하향
-                                SOUND_DEFENSE_START.play()
+                                play_sound_with_volume(SOUND_DEFENSE_START)
                                 print(f"스피드 디펜스 발동! 거리 차이: {distance_to_predicted:.1f}, 최대 이동 가능: {boss_max_move:.1f}")
         if speed_defense_timer > 0:
             speed_defense_timer -= 1
@@ -32383,6 +32401,10 @@ def main(stage_num, new_boss_mode=False):
     #  실시간 평가 시스템으로 변경됨
     # 메인 메뉴 BGM 정지
     bgm_manager.stop_bgm()
+    
+    # BGM 볼륨 초기화
+    global bgm_volume
+    bgm_manager.set_bgm_volume(bgm_volume)
     
     # 관리자 단축키 변수 초기화
     global nine_just_pressed, last_nine_state
@@ -33498,7 +33520,7 @@ def main(stage_num, new_boss_mode=False):
                         if special_gauge > current_max:
                             special_gauge = current_max  # 파워스매시 게이지 소모: 350
                     #  파워스매싱 발동 효과음 재생
-                    SOUND_POWER_SMASH.play()
+                    play_sound_with_volume(SOUND_POWER_SMASH)
                     print("!")
                     #  파워스매싱 성공 기록
                     record_skill_usage(success=True)
@@ -34239,7 +34261,7 @@ def main(stage_num, new_boss_mode=False):
                     # 파워스매시 발사 후 special_active를 False로 설정하여 게이지 충전 허용
                     special_active = False
                     #  파워스매싱 공 발사 효과음 재생
-                    SOUND_POWER_SMASH_LAUNCH.play()
+                    play_sound_with_volume(SOUND_POWER_SMASH_LAUNCH)
                     print("!    !")
                     # 고스트샷 상태 확인
                     if mega_smashing_active:
@@ -34279,7 +34301,8 @@ def main(stage_num, new_boss_mode=False):
                 if not new_boss_mode_active:
                     update_red_intensity()
                     update_gauge_animation()  # 게이지 부드러운 애니메이션 업데이트
-                update_item_obtained_effect()  #  아이템 획득 효과 업데이트
+                # update_item_obtained_effect()  #  아이템 획득 효과 업데이트 - 큰 흰색 원 애니메이션 비활성화
+                update_item_effects(16)  # 아이템 획득 플로팅 애니메이션 업데이트 (60fps 기준 16ms)
                 # 풍선 터지는 효과는 effects_manager에서 통합 관리
                 update_impact_particles()  #  타격 이펙트 파티클 업데이트
                 #  프리즘 파티클 업데이트 (Stage 3 꼬리 채찍)
@@ -34532,7 +34555,7 @@ def main(stage_num, new_boss_mode=False):
                         dowsing_pendulum_effect.draw_attraction_range(SCREEN, PLAYER, alpha=20)
                 
                 # 아이템 업데이트 (아이템 획득 사운드 전달)
-                items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET)
+                items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, sfx_volume)
                 
                 # 전설 아이템 매니저 업데이트 (물리 업데이트 전에 실행)
                 try:
@@ -34696,7 +34719,7 @@ def main(stage_num, new_boss_mode=False):
         # draw_whip_waves(SCREEN)  #  상모돌리기 파동 효과 그리기 - 제거됨
         draw_spinning_top(SCREEN)  # Stage 1 보스 팽이치기 그리기
         # 풍선 터지는 효과는 effects_manager에서 통합 관리
-        draw_item_obtained_effect()  #  아이템 획득 효과 그리기
+        # draw_item_obtained_effect()  #  아이템 획득 효과 그리기 - 큰 흰색 원 애니메이션 비활성화
         # render_throwing_item_cooldown()  # 제거 - 액티브 아이템 슬롯에서 직접 표시
         draw_dash_spirit_lasers(SCREEN, PLAYER, dash_spirit_lasers)  #  대쉬 스피릿 레이저 그리기
         draw_laser_evaporation_particles(SCREEN)  #  레이저 증발 효과 그리기
@@ -35406,9 +35429,9 @@ def show_pause_menu():
     start_y = HEIGHT // 2 - 100
     continue_rect = pygame.Rect(center_x - button_width // 2, start_y, button_width, button_height)
     inventory_rect = pygame.Rect(center_x - button_width // 2, start_y + button_height + button_spacing, button_width, button_height)
-    info_rect = pygame.Rect(center_x - button_width // 2, start_y + (button_height + button_spacing) * 2, button_width, button_height)
+    options_rect = pygame.Rect(center_x - button_width // 2, start_y + (button_height + button_spacing) * 2, button_width, button_height)
     quit_rect = pygame.Rect(center_x - button_width // 2, start_y + (button_height + button_spacing) * 3, button_width, button_height)
-    selected = 0  # 0: 계속, 1: 인벤토리, 2: 정보, 3: 나가기
+    selected = 0  # 0: 계속, 1: 인벤토리, 2: 옵션, 3: 나가기
     last_selected = -1  # 호버 사운드용
     while True:
         # 현재 게임 화면을 배경으로 사용
@@ -35425,8 +35448,8 @@ def show_pause_menu():
         title_rect = title_text.get_rect(center=(center_x, start_y - 60))
         SCREEN.blit(title_text, title_rect)
         # 버튼들 그리기
-        buttons = [continue_rect, inventory_rect, info_rect, quit_rect]
-        button_texts = ["계속", "인벤토리", "정보", "나가기"]
+        buttons = [continue_rect, inventory_rect, options_rect, quit_rect]
+        button_texts = ["계속", "인벤토리", "옵션", "나가기"]
         for i, (rect, text) in enumerate(zip(buttons, button_texts)):
             if i == selected:
                 # 선택된 버튼
@@ -35461,8 +35484,8 @@ def show_pause_menu():
                         return "continue"
                     elif selected == 1:  # 인벤토리
                         show_game_info()
-                    elif selected == 2:  # 정보
-                        show_player_info()
+                    elif selected == 2:  # 옵션
+                        show_pause_options()
                     elif selected == 3:  # 나가기
                         if show_surrender_confirm():
                             return "surrender"
@@ -35475,8 +35498,8 @@ def show_pause_menu():
                             return "continue"
                         elif i == 1:  # 인벤토리
                             show_game_info()
-                        elif i == 2:  # 정보
-                            show_player_info()
+                        elif i == 2:  # 옵션
+                            show_pause_options()
                         elif i == 3:  # 나가기
                             if show_surrender_confirm():
                                 return "surrender"
@@ -36602,6 +36625,255 @@ def show_item_management_menu(item_list, selected_index, item_type):
                             return
                         else:  # 취소
                             return
+def show_pause_options():
+    """일시정지 옵션 메뉴 - 볼륨 조절 UI"""
+    global bgm_volume, sfx_volume
+    
+    font_large = FontStyle.subtitle()  # 32pt 제목용
+    font_medium = FontStyle.body()  # 24pt 텍스트용
+    font_small = FontStyle.small()  # 20pt 설명용
+    
+    # 현재 볼륨 값 가져오기
+    import bgm_manager
+    current_bgm_volume = bgm_manager.bgm_manager.volume if hasattr(bgm_manager, 'bgm_manager') else bgm_volume
+    current_sfx_volume = sfx_volume
+    
+    # 슬라이더 설정
+    slider_width = 400
+    slider_height = 10
+    handle_size = 20
+    
+    # 패널 설정
+    panel_width = 600
+    panel_height = 400
+    panel_x = (WIDTH - panel_width) // 2
+    panel_y = (HEIGHT - panel_height) // 2
+    
+    # 슬라이더 위치
+    bgm_slider_x = panel_x + (panel_width - slider_width) // 2
+    bgm_slider_y = panel_y + 120
+    sfx_slider_x = panel_x + (panel_width - slider_width) // 2
+    sfx_slider_y = panel_y + 220
+    
+    # 뒤로가기 버튼
+    back_button_width = 150
+    back_button_height = 50
+    back_button_x = panel_x + (panel_width - back_button_width) // 2
+    back_button_y = panel_y + 320
+    back_button_rect = pygame.Rect(back_button_x, back_button_y, back_button_width, back_button_height)
+    
+    selected_slider = None  # None, 'bgm', 'sfx'
+    dragging = False
+    
+    clock = pygame.time.Clock()
+    running = True
+    
+    while running:
+        # 현재 게임 화면을 배경으로
+        draw_field()
+        draw_shaking_screen()
+        draw_objects()
+        draw_water_trail()
+        
+        # 반투명 오버레이
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        SCREEN.blit(overlay, (0, 0))
+        
+        # 옵션 패널 배경
+        panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        panel.fill((30, 30, 40, 240))
+        pygame.draw.rect(panel, CYAN, (0, 0, panel_width, panel_height), 3, border_radius=10)
+        SCREEN.blit(panel, (panel_x, panel_y))
+        
+        # 제목
+        title_text = font_large.render("음악 설정", True, WHITE)
+        title_rect = title_text.get_rect(center=(WIDTH // 2, panel_y + 40))
+        SCREEN.blit(title_text, title_rect)
+        
+        # BGM 볼륨 슬라이더
+        bgm_label = font_medium.render("BGM 볼륨", True, WHITE)
+        bgm_label_rect = bgm_label.get_rect(left=bgm_slider_x, bottom=bgm_slider_y - 10)
+        SCREEN.blit(bgm_label, bgm_label_rect)
+        
+        # BGM 슬라이더 트랙
+        pygame.draw.rect(SCREEN, (60, 60, 60), 
+                        (bgm_slider_x, bgm_slider_y, slider_width, slider_height), 
+                        border_radius=5)
+        pygame.draw.rect(SCREEN, (0, 200, 255), 
+                        (bgm_slider_x, bgm_slider_y, int(slider_width * current_bgm_volume), slider_height), 
+                        border_radius=5)
+        
+        # BGM 슬라이더 핸들
+        bgm_handle_x = bgm_slider_x + int(slider_width * current_bgm_volume)
+        bgm_handle_rect = pygame.Rect(bgm_handle_x - handle_size // 2, 
+                                      bgm_slider_y - (handle_size - slider_height) // 2,
+                                      handle_size, handle_size)
+        pygame.draw.circle(SCREEN, WHITE if selected_slider == 'bgm' else (200, 200, 200),
+                          (bgm_handle_x, bgm_slider_y + slider_height // 2), handle_size // 2)
+        
+        # BGM 퍼센트 표시
+        bgm_percent = font_small.render(f"{int(current_bgm_volume * 100)}%", True, CYAN)
+        bgm_percent_rect = bgm_percent.get_rect(left=bgm_slider_x + slider_width + 20, 
+                                                centery=bgm_slider_y + slider_height // 2)
+        SCREEN.blit(bgm_percent, bgm_percent_rect)
+        
+        # 효과음 볼륨 슬라이더
+        sfx_label = font_medium.render("효과음 볼륨", True, WHITE)
+        sfx_label_rect = sfx_label.get_rect(left=sfx_slider_x, bottom=sfx_slider_y - 10)
+        SCREEN.blit(sfx_label, sfx_label_rect)
+        
+        # 효과음 슬라이더 트랙
+        pygame.draw.rect(SCREEN, (60, 60, 60), 
+                        (sfx_slider_x, sfx_slider_y, slider_width, slider_height), 
+                        border_radius=5)
+        pygame.draw.rect(SCREEN, (0, 255, 100), 
+                        (sfx_slider_x, sfx_slider_y, int(slider_width * current_sfx_volume), slider_height), 
+                        border_radius=5)
+        
+        # 효과음 슬라이더 핸들
+        sfx_handle_x = sfx_slider_x + int(slider_width * current_sfx_volume)
+        sfx_handle_rect = pygame.Rect(sfx_handle_x - handle_size // 2, 
+                                      sfx_slider_y - (handle_size - slider_height) // 2,
+                                      handle_size, handle_size)
+        pygame.draw.circle(SCREEN, WHITE if selected_slider == 'sfx' else (200, 200, 200),
+                          (sfx_handle_x, sfx_slider_y + slider_height // 2), handle_size // 2)
+        
+        # 효과음 퍼센트 표시
+        sfx_percent = font_small.render(f"{int(current_sfx_volume * 100)}%", True, (0, 255, 100))
+        sfx_percent_rect = sfx_percent.get_rect(left=sfx_slider_x + slider_width + 20, 
+                                                centery=sfx_slider_y + slider_height // 2)
+        SCREEN.blit(sfx_percent, sfx_percent_rect)
+        
+        # 뒤로가기 버튼
+        button_color = (100, 150, 255) if back_button_rect.collidepoint(pygame.mouse.get_pos()) else (50, 50, 50)
+        pygame.draw.rect(SCREEN, button_color, back_button_rect, border_radius=5)
+        pygame.draw.rect(SCREEN, WHITE, back_button_rect, 2, border_radius=5)
+        
+        back_text = font_medium.render("뒤로가기", True, WHITE)
+        back_text_rect = back_text.get_rect(center=back_button_rect.center)
+        SCREEN.blit(back_text, back_text_rect)
+        
+        # 안내 텍스트
+        hint_text = font_small.render("마우스 클릭/드래그/휠로 조절, ESC로 돌아가기", True, (150, 150, 150))
+        hint_rect = hint_text.get_rect(center=(WIDTH // 2, panel_y + panel_height - 30))
+        SCREEN.blit(hint_text, hint_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    # 변경사항 저장
+                    bgm_volume = current_bgm_volume
+                    sfx_volume = current_sfx_volume
+                    return
+                elif event.key == pygame.K_LEFT:
+                    if selected_slider == 'bgm':
+                        current_bgm_volume = max(0.0, current_bgm_volume - 0.05)
+                        bgm_manager.set_bgm_volume(current_bgm_volume)
+                    elif selected_slider == 'sfx':
+                        current_sfx_volume = max(0.0, current_sfx_volume - 0.05)
+                        set_sfx_volume(current_sfx_volume)
+                elif event.key == pygame.K_RIGHT:
+                    if selected_slider == 'bgm':
+                        current_bgm_volume = min(1.0, current_bgm_volume + 0.05)
+                        bgm_manager.set_bgm_volume(current_bgm_volume)
+                    elif selected_slider == 'sfx':
+                        current_sfx_volume = min(1.0, current_sfx_volume + 0.05)
+                        set_sfx_volume(current_sfx_volume)
+                elif event.key == pygame.K_UP:
+                    selected_slider = 'bgm'
+                elif event.key == pygame.K_DOWN:
+                    selected_slider = 'sfx'
+            
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                mouse_x = mouse_pos[0]
+                
+                # 뒤로가기 버튼 클릭
+                if back_button_rect.collidepoint(mouse_pos):
+                    play_button_click_sound()
+                    bgm_volume = current_bgm_volume
+                    sfx_volume = current_sfx_volume
+                    return
+                
+                # BGM 슬라이더 클릭 - 클릭한 위치로 즉시 이동
+                bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
+                if bgm_slider_rect.collidepoint(mouse_pos) or bgm_handle_rect.collidepoint(mouse_pos):
+                    selected_slider = 'bgm'
+                    dragging = True
+                    # 클릭한 위치로 즉시 볼륨 설정
+                    relative_x = mouse_x - bgm_slider_x
+                    current_bgm_volume = max(0.0, min(1.0, relative_x / slider_width))
+                    bgm_manager.set_bgm_volume(current_bgm_volume)
+                
+                # 효과음 슬라이더 클릭 - 클릭한 위치로 즉시 이동
+                sfx_slider_rect = pygame.Rect(sfx_slider_x, sfx_slider_y - 10, slider_width, slider_height + 20)
+                if sfx_slider_rect.collidepoint(mouse_pos) or sfx_handle_rect.collidepoint(mouse_pos):
+                    selected_slider = 'sfx'
+                    dragging = True
+                    # 클릭한 위치로 즉시 볼륨 설정
+                    relative_x = mouse_x - sfx_slider_x
+                    current_sfx_volume = max(0.0, min(1.0, relative_x / slider_width))
+                    set_sfx_volume(current_sfx_volume)
+            
+            elif event.type == pygame.MOUSEBUTTONUP:
+                dragging = False
+                if selected_slider:
+                    play_button_click_sound()  # 슬라이더 조작 완료 사운드
+            
+            elif event.type == pygame.MOUSEMOTION and dragging:
+                mouse_x = pygame.mouse.get_pos()[0]
+                
+                if selected_slider == 'bgm':
+                    # BGM 볼륨 조절
+                    relative_x = mouse_x - bgm_slider_x
+                    current_bgm_volume = max(0.0, min(1.0, relative_x / slider_width))
+                    bgm_manager.set_bgm_volume(current_bgm_volume)
+                    
+                elif selected_slider == 'sfx':
+                    # 효과음 볼륨 조절
+                    relative_x = mouse_x - sfx_slider_x
+                    current_sfx_volume = max(0.0, min(1.0, relative_x / slider_width))
+                    set_sfx_volume(current_sfx_volume)
+            
+            elif event.type == pygame.MOUSEWHEEL:
+                # 마우스 휠로 볼륨 미세 조정
+                mouse_pos = pygame.mouse.get_pos()
+                bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
+                sfx_slider_rect = pygame.Rect(sfx_slider_x, sfx_slider_y - 10, slider_width, slider_height + 20)
+                
+                # 마우스가 BGM 슬라이더 위에 있을 때
+                if bgm_slider_rect.collidepoint(mouse_pos) or selected_slider == 'bgm':
+                    current_bgm_volume = max(0.0, min(1.0, current_bgm_volume + event.y * 0.02))
+                    bgm_manager.set_bgm_volume(current_bgm_volume)
+                    selected_slider = 'bgm'
+                    
+                # 마우스가 효과음 슬라이더 위에 있을 때
+                elif sfx_slider_rect.collidepoint(mouse_pos) or selected_slider == 'sfx':
+                    current_sfx_volume = max(0.0, min(1.0, current_sfx_volume + event.y * 0.02))
+                    set_sfx_volume(current_sfx_volume)
+                    selected_slider = 'sfx'
+    
+    # 변경사항 저장
+    bgm_volume = current_bgm_volume
+    sfx_volume = current_sfx_volume
+
+def set_sfx_volume(volume):
+    """효과음 볼륨 설정 함수"""
+    global sfx_volume
+    sfx_volume = max(0.0, min(1.0, volume))
+    # 모든 효과음 채널의 볼륨 조절
+    for i in range(pygame.mixer.get_num_channels()):
+        channel = pygame.mixer.Channel(i)
+        channel.set_volume(sfx_volume)
+
 def show_surrender_confirm():
     """기권 확인 메뉴"""
     font_large = FontStyle.subtitle()  # 32pt 픽셀 폰트

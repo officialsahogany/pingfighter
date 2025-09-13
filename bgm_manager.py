@@ -113,7 +113,11 @@ class BGMManager:
         
     def play_menu_bgm(self):
         """메인 메뉴 BGM 재생 (이미 재생 중이 아닌 경우)"""
-        if not self.is_playing():
+        # 메뉴 BGM이 아닌 다른 BGM이 재생 중이면 멈추고 메뉴 BGM 재생
+        if self.current_bgm != 'menu' and self.current_bgm != 'intro':
+            self.stop_bgm()
+            self.play_bgm('menu')
+        elif not self.is_playing():
             self.play_bgm('menu')
             
     def play_stage_bgm(self, stage_num):
