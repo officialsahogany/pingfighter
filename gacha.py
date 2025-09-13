@@ -861,7 +861,9 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
                             "name": gacha_result["name"],
                             "color": gacha_result["color"],
                             "effect": gacha_result["name"],
-                            "icon": gacha_result.get("icon")
+                            "icon": gacha_result.get("icon"),
+                            "x": width // 2,  # 획득 애니메이션을 위한 좌표
+                            "y": height // 2  # 획득 애니메이션을 위한 좌표
                         }
                         store_passive_item(item_data)
                     else:
@@ -869,7 +871,9 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
                             "name": gacha_result["name"],
                             "color": gacha_result["color"],
                             "effect": gacha_result["name"],
-                            "icon": gacha_result.get("icon")
+                            "icon": gacha_result.get("icon"),
+                            "x": width // 2,  # 획득 애니메이션을 위한 좌표
+                            "y": height // 2  # 획득 애니메이션을 위한 좌표
                         }
                         store_active_item(item_data)
                     running = False

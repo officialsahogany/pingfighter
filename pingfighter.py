@@ -14787,6 +14787,17 @@ def show_start_screen():
     frame_count = 0  # frame_count 초기화
     smoke_zones = []  # 메인 메뉴 복귀 시 연막 효과 초기화
     
+    # 메인 메뉴 BGM 재생
+    try:
+        bgm_path = resource_path(os.path.join("bgm", "introbgm.mp3"))
+        if os.path.exists(bgm_path):
+            pygame.mixer.music.load(bgm_path)
+            pygame.mixer.music.set_volume(0.5)  # 볼륨 50%
+            pygame.mixer.music.play(-1)  # 무한 루프 재생
+            print("메인 메뉴 BGM 재생 시작")
+    except Exception as e:
+        print(f"BGM 로드 실패: {e}")
+    
     #  악마의 주사위 효과 강제 종료 (메인 메뉴 복귀 시)
     from item_effects.devil_dice import deactivate_devil_dice
     deactivate_devil_dice()
@@ -28217,7 +28228,7 @@ def handle_ball():
                     print(f"   !")
         
         # 3. 플레이어와 달 크레이터 파편 충돌 (화상 효과)
-        global player_burn_timer, player_burn_effect, player_knockback_y, special_gauge
+        global player_burn_timer, player_burn_effect, player_knockback_y
         moon_fragments = animated_bg_stage4.get_moon_fragments()
         for fragment in moon_fragments:
             # 파편을 원으로 간주하고 패들과 충돌 체크
@@ -32372,6 +32383,9 @@ def show_new_boss_selection_screen():
         clock.tick(60)
 def main(stage_num, new_boss_mode=False):
     #  실시간 평가 시스템으로 변경됨
+    # 메인 메뉴 BGM 정지
+    pygame.mixer.music.stop()
+    
     # 관리자 단축키 변수 초기화
     global nine_just_pressed, last_nine_state
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge

@@ -18,6 +18,17 @@ def resource_path(relative_path):
 
 def show_opening_animation(SCREEN, WIDTH, HEIGHT):
     """게임 오프닝 애니메이션 - 간단한 버전"""
+    # 인트로 BGM 재생
+    try:
+        bgm_path = resource_path(os.path.join("bgm", "introbgm.mp3"))
+        if os.path.exists(bgm_path):
+            pygame.mixer.music.load(bgm_path)
+            pygame.mixer.music.set_volume(0.5)  # 볼륨 50%
+            pygame.mixer.music.play(-1)  # 무한 루프 재생
+            print("인트로 BGM 재생 시작")
+    except Exception as e:
+        print(f"인트로 BGM 로드 실패: {e}")
+    
     # 애니메이션 상태 변수들
     animation_timer = 0
     fade_alpha = 0
