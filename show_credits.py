@@ -111,10 +111,8 @@ def show_credits_screen():
             SCREEN.blit(role_surf, role_rect)
             
             # 이름 (큰 폰트, 컬러풀)
-            # 펄스 효과
-            pulse = abs(math.sin(animation_timer * 2 + i * 0.5))
-            color_intensity = 0.7 + pulse * 0.3
-            name_color = tuple(int(c * color_intensity) for c in credit["color"])
+            # 펄스 효과 제거 - 고정된 색상 사용
+            name_color = credit["color"]
             
             # 글로우 효과
             for j in range(3):
