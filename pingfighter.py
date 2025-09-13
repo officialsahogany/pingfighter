@@ -3370,9 +3370,9 @@ def throw_grenade():
     distance = math.sqrt(dx**2 + dy**2)
     # 속도 정규화 (일정한 속도로 날아가도록)
     base_speed = 12  # 수류탄 기본 속도
-    # 코만도암 효과 적용 (투척 속도 50% 증가)
+    # 코만도암 효과 적용 (투척 속도 30% 증가)
     if items.commando_arm_obtained:
-        speed = base_speed * 1.5  # 12 → 18
+        speed = base_speed * 1.3  # 12 → 15.6
         print(f"  !  : {speed:.1f} (: {base_speed})")
     else:
         speed = base_speed
@@ -3443,9 +3443,9 @@ def throw_flare():
     distance = math.sqrt(dx**2 + dy**2)
     # 속도 정규화 (일정한 속도로 날아가도록)
     base_speed = 9.6  # 조명탄 기본 속도
-    # 코만도암 효과 적용 (투척 속도 50% 증가)
+    # 코만도암 효과 적용 (투척 속도 30% 증가)
     if items.commando_arm_obtained:
-        speed = base_speed * 1.5  # 9.6 → 14.4
+        speed = base_speed * 1.3  # 9.6 → 12.48
         print(f"  !  : {speed:.1f} (: {base_speed})")
     else:
         speed = base_speed
@@ -3959,9 +3959,9 @@ def throw_molotov():
     distance = math.sqrt(dx**2 + dy**2)
     # 속도 정규화 (일정한 속도로 날아가도록)
     base_speed = 14.4  # 화염병 기본 속도
-    # 코만도암 효과 적용 (투척 속도 50% 증가)
+    # 코만도암 효과 적용 (투척 속도 30% 증가)
     if items.commando_arm_obtained:
-        speed = base_speed * 1.5  # 14.4 → 21.6
+        speed = base_speed * 1.3  # 14.4 → 18.72
         print(f"  !  : {speed:.1f} (: {base_speed})")
     else:
         speed = base_speed
@@ -36352,7 +36352,7 @@ def get_item_description(item_name):
         "predictor": "레이저스코프: 10초간 공의 궤적을 예측하여 표시합니다.",
         "smoke_grenade": "연막탄: 포물선으로 투척하여 플레이어 근처에 연막을 생성합니다. 연막 속 공은 속도가 50% 감소하고, 스테이지3 눈물샤워와 스테이지5 홍련의 화염탄에 면역이 됩니다.",
         "pandora_box": "판도라의 상자: 3초간 아이템 스폰 시간이 0.5~1초로 단축되어 아이템이 쏟아집니다!",
-        "commando_arm": "코만도암: 모든 투척 무기를 즉시 투척! 투척 속도 50% 증가, 폭발 범위 10% 증가, 연막탄 지속시간 50% 증가로 더욱 강력한 공격이 가능합니다.",
+        "commando_arm": "코만도암: 모든 투척 무기를 즉시 투척! 투척 속도 30% 증가, 폭발 범위 10% 증가, 연막탄 지속시간 50% 증가로 더욱 강력한 공격이 가능합니다.",
         "stopwatch": "스탑워치: 시간을 멈추고 공이 1초 동안 정지했다가 천천히 원래 속도로 돌아옵니다. 위기 상황을 벗어날 수 있는 강력한 방어 아이템입니다.",
         "devil_dice": "악마의 주사위: 6가지 항목에 대해 각각 주사위를 굴려 50% 감소/변화없음/50% 증가 중 랜덤 효과를 받습니다. 60초 지속, 스테이지 전환시 종료.",
         "technical_vest": "테크니컬조끼: 플레이어 패들에 공이 닿았을 때 20% 확률로 8초간 연막을 생성합니다. 3초간 패들을 따라 연막이 분사되며, 눈물샤워/화염탄/미사일/레이저 스턴/화염지대 넉백에 면역이 됩니다.",
