@@ -35,6 +35,7 @@ import academy
 import cinematic
 import ui_manager
 import effects_manager
+import bgm_manager
 from effects_manager import spawn_drive_particles, update_drive_particles, draw_drive_particles
 import physics_manager
 import dash_manager
@@ -7462,7 +7463,7 @@ def store_passive_item(item_data):
         passive_item_list.append(item_data)
         # 아이템 획득 플로팅 애니메이션
         show_item_acquisition("smartphone", "스마트폰", None, False,
-                            (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
+                            (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
         return  # 처리 완료 후 반환
     elif item_data["name"] == "knee_pads":
         # 무릎보호대 아이템 획득 (패시브)
@@ -14788,16 +14789,7 @@ def show_start_screen():
     smoke_zones = []  # 메인 메뉴 복귀 시 연막 효과 초기화
     
     # 메인 메뉴 BGM 재생 (이미 재생 중이 아닌 경우에만)
-    if not pygame.mixer.music.get_busy():
-        try:
-            bgm_path = resource_path(os.path.join("bgm", "introbgm.mp3"))
-            if os.path.exists(bgm_path):
-                pygame.mixer.music.load(bgm_path)
-                pygame.mixer.music.set_volume(0.5)  # 볼륨 50%
-                pygame.mixer.music.play(-1)  # 무한 루프 재생
-                print("메인 메뉴 BGM 재생 시작")
-        except Exception as e:
-            print(f"BGM 로드 실패: {e}")
+    bgm_manager.play_menu_bgm()
     
     #  악마의 주사위 효과 강제 종료 (메인 메뉴 복귀 시)
     from item_effects.devil_dice import deactivate_devil_dice
@@ -32385,7 +32377,7 @@ def show_new_boss_selection_screen():
 def main(stage_num, new_boss_mode=False):
     #  실시간 평가 시스템으로 변경됨
     # 메인 메뉴 BGM 정지
-    pygame.mixer.music.stop()
+    bgm_manager.stop_bgm()
     
     # 관리자 단축키 변수 초기화
     global nine_just_pressed, last_nine_state
@@ -32601,15 +32593,7 @@ def main(stage_num, new_boss_mode=False):
         CURRENT_BG = STAGE1_BG
         BOSS_COLOR = WHITE
         # Stage 1 BGM 재생
-        try:
-            bgm_path = resource_path(os.path.join("bgm", "stage1bgm.mp3"))
-            if os.path.exists(bgm_path):
-                pygame.mixer.music.load(bgm_path)
-                pygame.mixer.music.set_volume(0.5)  # 볼륨 50%
-                pygame.mixer.music.play(-1)  # 무한 루프 재생
-                print("Stage 1 BGM 재생 시작")
-        except Exception as e:
-            print(f"Stage 1 BGM 로드 실패: {e}")
+        bgm_manager.play_stage_bgm(1)
     elif stage_num == 2:
         CURRENT_BG = STAGE2_BG
         BOSS_COLOR = (100, 255, 100)
