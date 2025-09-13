@@ -14831,7 +14831,7 @@ def show_start_screen():
     menu_system = MenuSystem(SCREEN, WIDTH, HEIGHT)
     menu_system.current_menu = menu_system.create_main_menu()
     # 기존 변수들 (임시 유지)
-    menu_options = ["경기장 입장", "NEW BOSS BATTLE", "메달샵", "크레딧"]
+    menu_options = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
     selected = 0
     last_selected = -1  # 호버 사운드용
     locked_message_timer = 0
@@ -15012,7 +15012,7 @@ def show_start_screen():
         # 메뉴 아이콘과 텍스트 설정
         menu_icons = {
             "경기장 입장": "▶",
-            "NEW BOSS BATTLE": "★",
+            "테스트메뉴": "★",
             "메달샵": "◆",
             "크레딧": "●"
         }
@@ -15084,16 +15084,16 @@ def show_start_screen():
             display_text = option
             if option == "경기장 입장":
                 display_text = "경기장"
-            elif option == "NEW BOSS BATTLE":
-                display_text = "BOSS"
+            elif option == "테스트메뉴":
+                display_text = "테스트"
             
             text_surface = font_menu.render(display_text, True, text_color)
             text_rect = text_surface.get_rect(center=(x + menu_item_width // 2, menu_y + 38))
             SCREEN.blit(text_surface, text_rect)
-            #  NEW BOSS BATTLE 선택 시 추가 설명 표시
-            if i == selected and option == "NEW BOSS BATTLE":
+            #  테스트메뉴 선택 시 추가 설명 표시
+            if i == selected and option == "테스트메뉴":
                 font_desc = FontStyle.tiny()  # 16pt 픽셀 폰트
-                desc_text = font_desc.render(" 4명의 새로운 보스들의 대결!", True, (200, 200, 255))
+                desc_text = font_desc.render("게임 테스트 및 디버깅 모드", True, (200, 200, 255))
                 desc_rect = desc_text.get_rect(center=(WIDTH // 2, menu_y + 75))
                 SCREEN.blit(desc_text, desc_rect)
         if locked_message_timer > 0:
@@ -15184,8 +15184,8 @@ def show_start_screen():
                                     start_game_with_difficulty(selected_character, selected_difficulty)
                         return
 # 헬모드 제거됨
-                    elif choice == "NEW BOSS BATTLE":
-                        #  새로운 보스 배틀 모드 바로 시작
+                    elif choice == "테스트메뉴":
+                        #  테스트 모드 시작 (기존 NEW BOSS BATTLE 기능)
                         main(1, new_boss_mode=True)
                         return
                     elif choice == "메달샵":
