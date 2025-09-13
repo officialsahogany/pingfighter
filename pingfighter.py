@@ -7957,9 +7957,9 @@ def handle_wall():
                 # 연막 지역 생성
                 import items
                 # 코만도암 효과: 연막탄 지속시간 50% 증가
-                base_duration = 420  # 7초 지속 (6초 + 1초 페이드아웃)
+                base_duration = 600  # 10초 지속 (9초 + 1초 페이드아웃)
                 if items.commando_arm_obtained:
-                    smoke_duration = int(base_duration * 1.5)  # 50% 증가 (10.5초)
+                    smoke_duration = int(base_duration * 1.5)  # 50% 증가 (15초)
                     print(f"  !  : {smoke_duration/60:.1f} (: {base_duration/60:.1f})")
                 else:
                     smoke_duration = base_duration
@@ -7997,7 +7997,7 @@ def handle_wall():
                 smoke_grenades.remove(smoke_grenade)
                 # 연막 분출 효과음 (이미 사용 시 재생했으므로 제거)
                 # 연막이 생성되는 시각적 효과만 표시
-                print(f"  ! 6 .")
+                print(f"  ! 9 .")
     # 연막 지역 업데이트
     for smoke_zone in smoke_zones[:]:
         smoke_zone["duration"] -= 1
@@ -8031,9 +8031,9 @@ def handle_wall():
                     print(f"    -")
                 smoke_zone['brazier_checked'] = True  # 중복 체크 방지
         # 투명도 조절 (서서히 나타났다가 사라짐)
-        if smoke_zone["duration"] > 360:  # 처음 1초: 페이드인
+        if smoke_zone["duration"] > 540:  # 처음 1초: 페이드인
             smoke_zone["opacity"] = min(150, smoke_zone["opacity"] + 5)
-        elif smoke_zone["duration"] > 60:  # 중간 5초: 유지
+        elif smoke_zone["duration"] > 60:  # 중간 8초: 유지
             smoke_zone["opacity"] = 150
         else:  # 마지막 1초: 페이드아웃
             smoke_zone["opacity"] = max(0, smoke_zone["opacity"] - 3)
@@ -8249,7 +8249,7 @@ def handle_wall():
                 "y": molotov["target_y"],  # 목표 지점에 생성
                 "width": fire_width,  # 코만도암 효과 적용된 화염 지대 너비
                 "height": fire_height,  # 코만도암 효과 적용된 화염 지대 높이
-                "duration": 150,  # 2.5초로 단축 (60fps * 2.5)
+                "duration": 120,  # 2초 (60fps * 2)
                 "flames": [],  # 개별 불꽃 파티클들
                 "spread_timer": 0  # 불길 번짐 타이머
             }
@@ -29494,12 +29494,12 @@ def handle_ball():
         
         #  Stage 5 홍련 피격 효과 - 드라이브/파워스매싱에 따라 확률 변경
         if current_stage == 5:
-            # 확률 계산: 파워스매싱 25%, 드라이브 15%, 일반 4%
-            hurt_chance = 0.04  # 기본 4%
+            # 확률 계산: 파워스매싱 20%, 드라이브 10%, 일반 2%
+            hurt_chance = 0.02  # 기본 2%
             if was_power_smashing:
-                hurt_chance = 0.25  # 파워스매싱 시 25%
+                hurt_chance = 0.20  # 파워스매싱 시 20%
             elif drive_ball_active:
-                hurt_chance = 0.15  # 드라이브 시 15%
+                hurt_chance = 0.10  # 드라이브 시 10%
             
             if random.random() < hurt_chance:
                 stage5_boss_hurt_active = True
@@ -34347,18 +34347,18 @@ def main(stage_num, new_boss_mode=False):
                         # 공이 영역에 진입했을 때 한 번만 체크
                         if ball_in_kuromi_area and not kuromi_ball_entered:
                             kuromi_ball_entered = True  # 진입 플래그 설정
-                            # 10% 확률로 공 먹기 시도
-                            if random.random() < 0.1:  # 10% 확률
+                            # 6% 확률로 공 먹기 시도
+                            if random.random() < 0.06:  # 6% 확률
                                 # 공 먹기 시작
                                 kuromi_eating_active = True
                                 kuromi_eating_timer = 0
                                 ball_in_kuromi = True
                                 kuromi_eating_cooldown = 1200  # 20초 쿨타임 시작 (60 FPS * 20초)
                                 animated_bg_stage3.start_eating((BALL.centerx, BALL.centery))  # 공 위치 전달
-                                print("🍽️ 쿠로미가 공을 먹기 시작! (10% 확률 성공)")
+                                print("🍽️ 쿠로미가 공을 먹기 시작! (6% 확률 성공)")
                                 print(f"[DEBUG] 공 먹기 시작 - ball_in_kuromi={ball_in_kuromi}, eating_active={kuromi_eating_active}")
                             else:
-                                print("[DEBUG] 쿠로미가 공을 먹지 않음 (10% 확률 실패)")
+                                print("[DEBUG] 쿠로미가 공을 먹지 않음 (6% 확률 실패)")
                         elif not ball_in_kuromi_area and kuromi_ball_entered:
                             # 공이 영역을 벗어나면 플래그 리셋
                             kuromi_ball_entered = False
@@ -34678,7 +34678,7 @@ def main(stage_num, new_boss_mode=False):
                 # 아이템과 게이지는 흔들리지 않도록 별도로 그리기
                 cooldown_reduction = 800 if master_obtained else 0
                 cooldown_reduction += 2400 if cooltime_obtained else 0
-                items.draw_active_item(SCREEN, active_item_slot, active_item_icon_size, selected_item_index, 8000 - cooldown_reduction)
+                items.draw_active_item(SCREEN, active_item_slot, active_item_icon_size, selected_item_index, 8000 - cooldown_reduction, round_start_time)
                 items.draw_items(SCREEN)
                 draw_pandora_box_effect()  # 판도라의 상자 무지개 효과
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
@@ -34731,7 +34731,7 @@ def main(stage_num, new_boss_mode=False):
                 # 장인 아이템이 있으면 쿨타임 10% 감소 (0.8초), 쿨타임 아이템이 있으면 2.4초 추가 감소
                 cooldown_reduction = 800 if master_obtained else 0
                 cooldown_reduction += 2400 if cooltime_obtained else 0
-                items.draw_active_item(SCREEN, active_item_slot, active_item_icon_size, selected_item_index, 8000 - cooldown_reduction)
+                items.draw_active_item(SCREEN, active_item_slot, active_item_icon_size, selected_item_index, 8000 - cooldown_reduction, round_start_time)
                 items.draw_items(SCREEN)
                 draw_pandora_box_effect()  # 판도라의 상자 무지개 효과
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
@@ -36317,7 +36317,7 @@ def get_item_description(item_name):
         "long_boost": "거대화포션: 일정기간동안 플레이어의 몸집이 대폭 커집니다.",
         "gauge_charge": "에너지드링크: 게이지를 220만큼 충전합니다.",
         "life_elixir": "생명수: 게이지를 500만큼 충전합니다. 무지개빛 신비한 물약입니다.",  #  생명수 추가
-        "aipill": "AI 알약: 이 알약을 먹으면 신체가 로봇이 되어 거의 모든 공격을 가드하지만 가드할때마다 게이지가 감소하는 부작용이 있습니다.",
+        "aipill": "AI 알약: 이 알약을 먹으면 신체가 로봇이 되어 거의 모든 공격을 가드하지만 가드할때마다 게이지가 감소하는 부작용이 있습니다. 게이지가 바닥나면 종료됩니다",
         "wall": "벽돌: 공을 막아주는 방어용 벽돌을 바닥에 설치합니다. ",
         "speedboots": "스피드부츠: 영구적으로 이동 속도가 6% 증가합니다.",
         "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 첨단벨트",

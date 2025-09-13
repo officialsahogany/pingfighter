@@ -1533,9 +1533,16 @@ class Stage3MenheraWorld:
         elif self.eating_timer < 180:  # 120~180 (1초간) - 방향 예고 단계
             # 뱉을 방향 미리 결정 (처음 한 번만, 1초 전에)
             if self.spit_angle is None:
-                self.spit_angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
+                # 수평 방향(±15도)을 제외한 각도 선택
+                # 위쪽: -70도 ~ -15도 또는 아래쪽: 15도 ~ 70도
+                if random.random() < 0.5:
+                    # 위쪽 발사 (-70도 ~ -15도)
+                    self.spit_angle = random.uniform(-math.pi * 0.7, -math.pi * 0.083)  # -126도 ~ -15도
+                else:
+                    # 아래쪽 발사 (15도 ~ 70도)
+                    self.spit_angle = random.uniform(math.pi * 0.083, math.pi * 0.7)  # 15도 ~ 126도
                 self.mouth_direction = self.spit_angle  # 입 방향 설정
-                print(f"🎯 쿠로미 발사 각도 결정: {math.degrees(self.spit_angle):.1f}도")
+                print(f"🎯 쿠로미 발사 각도 결정: {math.degrees(self.spit_angle):.1f}도 (수평 방향 제외)")
             
             # 볼 부풀리기 (압력 증가) - 1초 동안 서서히
             buildup = (self.eating_timer - 120) / 60  # 0~1 (1초 동안)
@@ -1736,7 +1743,13 @@ class Stage3MenheraWorld:
         if self.spit_angle is not None:
             angle = self.spit_angle
         else:
-            angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
+            # 수평 방향을 제외한 각도 선택
+            if random.random() < 0.5:
+                # 위쪽 발사 (-70도 ~ -15도)
+                angle = random.uniform(-math.pi * 0.7, -math.pi * 0.083)
+            else:
+                # 아래쪽 발사 (15도 ~ 70도)
+                angle = random.uniform(math.pi * 0.083, math.pi * 0.7)
         
         # 기본 속도를 3배로 증가 (8-12 → 24-36)
         base_speed = random.uniform(8, 12)

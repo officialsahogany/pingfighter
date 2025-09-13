@@ -1001,7 +1001,7 @@ def draw_cooldown_overlay(screen, x, y, size, last_use_time, cooldown_ms):
     screen.blit(overlay, (x, y))
 
 
-def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cooldown_ms=10000):
+def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cooldown_ms=10000, round_start_time=None):
     """엑티브 아이템 슬롯 + 쿨타임 표시 통합"""
     if not active_item_slot:
         return
@@ -1015,14 +1015,12 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
     # 라운드 시작 시간 체크 (투척류 아이템 5초 제한용)
     import pygame
     current_time = pygame.time.get_ticks()
-    # round_start_time을 가져오기 위해 pingfighter의 전역 변수 접근
-    try:
-        import sys
-        # pingfighter 모듈에서 round_start_time 가져오기
-        from __main__ import round_start_time
+    
+    # round_start_time이 전달되지 않은 경우 충분한 시간이 지난 것으로 간주
+    if round_start_time is None:
+        time_since_round_start = 10000
+    else:
         time_since_round_start = current_time - round_start_time
-    except:
-        time_since_round_start = 10000  # 가져올 수 없으면 충분한 시간이 지난 것으로 간주
 
     # 리스트 형태(다중 슬롯)
     if isinstance(active_item_slot, list):
