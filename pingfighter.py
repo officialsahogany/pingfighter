@@ -7227,8 +7227,8 @@ def store_active_item(item_data):
         item_data["last_use"] = last_item_use_time  # 전역 쿨타임 적용
         active_item_slot.append(item_data)
         selected_item_index = len(active_item_slot) - 1  # 자동 선택
-        # 아이템 획득 효과 표시 (아이템 위치에서) - 큰 흰색 원 애니메이션 비활성화
-        # show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+        # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
 # bosspong.py
 def store_passive_item(item_data):
     global MAX_ITEM_SLOTS, passive_item_list, speedboots_obtained, speedgear_obtained
@@ -7265,8 +7265,8 @@ def store_passive_item(item_data):
             items.speedboots_obtained = True  # items.py의 변수도 업데이트
             # ️ 새 시스템으로도 업데이트
             handle_item_collection("speedboots")
-            # 아이템 획득 애니메이션 표시
-            show_item_acquisition("speedboots", "스피드부츠", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             print("!   6% !")
     elif item_data["name"] == "speedgear":
         # 스피드기어 영구 효과 적용
@@ -7275,8 +7275,8 @@ def store_passive_item(item_data):
             items.speedgear_obtained = True  # items.py의 변수도 업데이트
             # ️ 새 시스템으로도 업데이트
             handle_item_collection("speedgear")
-            # 아이템 획듍 애니메이션 표시
-            show_item_acquisition("speedgear", "스피드기어", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             print("!     150% !")
             # 무중력벨트 + 스피드기어 시너지 효과 확인
             if gravitybelt_obtained:
@@ -7290,8 +7290,8 @@ def store_passive_item(item_data):
         if not battery_obtained:
             battery_obtained = True
             items.battery_obtained = True  # items.py의 변수도 업데이트
-            # 아이템 획듍 애니메이션 표시
-            show_item_acquisition("battery", "배터리", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             print("!     !")
         else:
             print(".")
@@ -7300,8 +7300,10 @@ def store_passive_item(item_data):
         if not revival_obtained:
             revival_obtained = True
             items.revival_obtained = True  # items.py의 변수도 업데이트
-            # 아이템 획듍 애니메이션 표시
-            show_item_acquisition("revival", "부활", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("revival", "부활", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
             print("!      !")
         else:
             print(".")
@@ -7310,8 +7312,10 @@ def store_passive_item(item_data):
         if not master_obtained:
             master_obtained = True
             items.master_obtained = True  # items.py의 변수도 업데이트
-            # 아이템 획듍 애니메이션 표시
-            show_item_acquisition("master", "장인", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("master", "장인", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
             print("!   30%    0.8 ,   10% !")
         else:
             print(".")
@@ -7320,8 +7324,10 @@ def store_passive_item(item_data):
         if not cooltime_obtained:
             cooltime_obtained = True
             items.cooltime_obtained = True  # items.py의 변수도 업데이트
-            # 아이템 획듍 애니메이션 표시
-            show_item_acquisition("cooltime", "쿨타임", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("cooltime", "쿨타임", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
             print("!    30% !")
         else:
             print(".")
@@ -7330,8 +7336,10 @@ def store_passive_item(item_data):
         if not chargebag_obtained:
             chargebag_obtained = True
             items.chargebag_obtained = True  # items.py의 변수도 업데이트
-            # 아이템 획듍 애니메이션 표시
-            show_item_acquisition("chargebag", "충전가방", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("chargebag", "충전가방", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
             print("!        20% !")
         else:
             print(".")
@@ -7344,8 +7352,10 @@ def store_passive_item(item_data):
             if dash is not None:
                 dash.update_bonuses(dashholder_obtained, dashgear_obtained, True)
             print("!     30%   15% !")
-            # 아이템 획득 플로팅 애니메이션
-            show_item_acquisition("spikeboots", "스파이크부츠", None, False,
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("spikeboots", "스파이크부츠", None, False,
                                 (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
             print(".")
@@ -7358,8 +7368,10 @@ def store_passive_item(item_data):
             if dash is not None:
                 dash.update_bonuses(dashholder_obtained, True, spikeboots_obtained)
             print("!   10%    20% !")
-            # 아이템 획득 플로팅 애니메이션
-            show_item_acquisition("dashgear", "대쉬기어", None, False,
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("dashgear", "대쉬기어", None, False,
                                 (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
             print(".")
@@ -7372,8 +7384,10 @@ def store_passive_item(item_data):
             global PADDLE_WIDTH, PADDLE_HEIGHT
             PADDLE_WIDTH = int(PADDLE_WIDTH * 1.10)
             PADDLE_HEIGHT = int(PADDLE_HEIGHT * 1.10)
-            # 아이템 획듍 애니메이션 표시
-            show_item_acquisition("bulkup", "볼크업", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("bulkup", "볼크업", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
             print(f" !    10% ! ( : {PADDLE_WIDTH}x{PADDLE_HEIGHT})")
         else:
             print(".")
@@ -7386,8 +7400,10 @@ def store_passive_item(item_data):
             sensor_enabled = True  # 호환성을 위해 두 변수 모두 설정
             items.sensor_obtained = True  # items.py의 변수도 업데이트
             print("!       !")
-            # 아이템 획득 플로팅 애니메이션
-            show_item_acquisition("sensor", "위험감지센서", None, False,
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("sensor", "위험감지센서", None, False,
                                 (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
             print(".")
@@ -7397,8 +7413,10 @@ def store_passive_item(item_data):
             dashholder_obtained = True
             items.dashholder_obtained = True  # items.py의 변수도 업데이트
             print("!     !")
-            # 아이템 획득 플로팅 애니메이션
-            show_item_acquisition("dashholder", "대쉬홀더", None, False,
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("dashholder", "대쉬홀더", None, False,
                                 (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
             print(".")
@@ -7412,8 +7430,10 @@ def store_passive_item(item_data):
             print(f"[DEBUG] dowsing_pendulum_effect.enabled: {dowsing_pendulum_effect.enabled}")
             print(f"[DEBUG]  : {dowsing_pendulum_effect.attraction_range}px")
             print(f"[DEBUG]  : {dowsing_pendulum_effect.attraction_force}")
-            # 아이템 획득 플로팅 애니메이션
-            show_item_acquisition("dowsing_pendulum", "다우징팬들럼", None, False,
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("dowsing_pendulum", "다우징팬들럼", None, False,
                                 (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # 아이콘은 이미 store_passive_item 상단에서 설정됨
         else:
@@ -7425,8 +7445,10 @@ def store_passive_item(item_data):
         vest_state = {'current_stage': current_stage}
         activate_technical_vest(vest_state, current_stage)
         print("!      30%  3  !")
-        # 아이템 획득 플로팅 애니메이션
-        show_item_acquisition("technical_vest", "테크니컬조끼", None, False,
+        # 아이템 획득 효과 표시 (옛날 버전)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+        # 기존 라인 주석 처리
+        # show_item_acquisition("technical_vest", "테크니컬조끼", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
     elif item_data["name"] == "fuel_pouch":
         # 연료파우치 아이템 획득 (패시브)
@@ -7441,8 +7463,10 @@ def store_passive_item(item_data):
         activate_fuel_pouch(fuel_state, current_stage)
         special_gauge_max = get_max_gauge()
         print("!    100 !")
-        # 아이템 획득 플로팅 애니메이션
-        show_item_acquisition("fuel_pouch", "연료파우치", None, False,
+        # 아이템 획득 효과 표시 (옛날 버전)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+        # 기존 라인 주석 처리
+        # show_item_acquisition("fuel_pouch", "연료파우치", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
     elif item_data["name"] == "bluetooth_ring":
         # 블루투스링 아이템 획득 (패시브)
@@ -7453,8 +7477,10 @@ def store_passive_item(item_data):
         }
         activate_bluetooth_ring(ring_state, current_stage)
         print("!    25% !")
-        # 아이템 획득 플로팅 애니메이션
-        show_item_acquisition("bluetooth_ring", "블루투스링", None, False,
+        # 아이템 획득 효과 표시 (옛날 버전)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+        # 기존 라인 주석 처리
+        # show_item_acquisition("bluetooth_ring", "블루투스링", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "smartphone":
@@ -7474,8 +7500,10 @@ def store_passive_item(item_data):
             }
             smartphone.activate(phone_state, current_stage)
         print("스마트폰 획득! 위험 시 자동 아이템 사용!")
-        # 아이템 획득 플로팅 애니메이션
-        show_item_acquisition("smartphone", "스마트폰", None, False,
+        # 아이템 획득 효과 표시 (옛날 버전)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+        # 기존 라인 주석 처리
+        # show_item_acquisition("smartphone", "스마트폰", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "knee_pads":
@@ -7488,8 +7516,10 @@ def store_passive_item(item_data):
             knee_pads.activate()
             print(f"[DEBUG 무릎보호대] 아이템 획득! knee_pads.active = {knee_pads.active}")
         print("무릎보호대 획득! 하프대쉬 공 타격 시 게이지 50% 충전!")
-        # 아이템 획득 플로팅 애니메이션
-        show_item_acquisition("knee_pads", "무릎보호대", None, False,
+        # 아이템 획득 효과 표시 (옛날 버전)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+        # 기존 라인 주석 처리
+        # show_item_acquisition("knee_pads", "무릎보호대", None, False,
                             (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "gravitybelt":
@@ -7498,8 +7528,10 @@ def store_passive_item(item_data):
             gravitybelt_obtained = True
             items.gravitybelt_obtained = True  # items.py의 변수도 업데이트
             print("!        !")
-            # 아이템 획득 플로팅 애니메이션
-            show_item_acquisition("gravitybelt", "무중력벨트", None, False, 
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("gravitybelt", "무중력벨트", None, False, 
                                 (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             # 무중력벨트 + 스피드기어 시너지 효과 확인
             if speedgear_obtained:
@@ -7514,8 +7546,10 @@ def store_passive_item(item_data):
         if not items.commando_arm_obtained:
             items.commando_arm_obtained = True
             print("!     ,   50% ,   10% ,   50% !")
-            # 아이템 획득 플로팅 애니메이션
-            show_item_acquisition("commando_arm", "코만도암", None, False,
+            # 아이템 획득 효과 표시 (옛날 버전)
+            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+            # 기존 라인 주석 처리
+            # show_item_acquisition("commando_arm", "코만도암", None, False,
                                 (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
             print(".")
@@ -7578,8 +7612,8 @@ def store_passive_item(item_data):
     if item_data not in passive_item_list:
         passive_item_list.append(item_data)
     
-    # 아이템 획득 효과 표시 (아이템 위치에서) - 큰 흰색 원 애니메이션 비활성화
-    # show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
+    show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
 def activate_emotional_overdrive():
     global emotional_overdrive_active, emotional_overdrive_timer
     global overdrive_flash_timer, overdrive_trails
@@ -34301,8 +34335,8 @@ def main(stage_num, new_boss_mode=False):
                 if not new_boss_mode_active:
                     update_red_intensity()
                     update_gauge_animation()  # 게이지 부드러운 애니메이션 업데이트
-                # update_item_obtained_effect()  #  아이템 획득 효과 업데이트 - 큰 흰색 원 애니메이션 비활성화
-                update_item_effects(16)  # 아이템 획득 플로팅 애니메이션 업데이트 (60fps 기준 16ms)
+                update_item_obtained_effect()  #  아이템 획득 효과 업데이트 - 옛날 버전 활성화
+                # update_item_effects(16)  # 아이템 획득 플로팅 애니메이션 비활성화 (새 버전)
                 # 풍선 터지는 효과는 effects_manager에서 통합 관리
                 update_impact_particles()  #  타격 이펙트 파티클 업데이트
                 #  프리즘 파티클 업데이트 (Stage 3 꼬리 채찍)
@@ -34719,7 +34753,7 @@ def main(stage_num, new_boss_mode=False):
         # draw_whip_waves(SCREEN)  #  상모돌리기 파동 효과 그리기 - 제거됨
         draw_spinning_top(SCREEN)  # Stage 1 보스 팽이치기 그리기
         # 풍선 터지는 효과는 effects_manager에서 통합 관리
-        # draw_item_obtained_effect()  #  아이템 획득 효과 그리기 - 큰 흰색 원 애니메이션 비활성화
+        draw_item_obtained_effect()  #  아이템 획득 효과 그리기 - 옛날 버전 활성화
         # render_throwing_item_cooldown()  # 제거 - 액티브 아이템 슬롯에서 직접 표시
         draw_dash_spirit_lasers(SCREEN, PLAYER, dash_spirit_lasers)  #  대쉬 스피릿 레이저 그리기
         draw_laser_evaporation_particles(SCREEN)  #  레이저 증발 효과 그리기
@@ -34727,9 +34761,9 @@ def main(stage_num, new_boss_mode=False):
         draw_ai_visualization()  #  AI 상태 시각화
         # draw_player_skill_display()  #  플레이어 실력 표시 (ESC 메뉴에서 확인)
         
-        # 아이템 획득 플로팅 애니메이션 그리기
-        font_medium = FontStyle.menu() if 'FontStyle' in globals() else pygame.font.Font(None, 32)
-        draw_item_effects(SCREEN, font_medium)
+        # 아이템 획득 플로팅 애니메이션 그리기 - 새 버전 비활성화
+        # font_medium = FontStyle.menu() if 'FontStyle' in globals() else pygame.font.Font(None, 32)
+        # draw_item_effects(SCREEN, font_medium)
         
         # 전설 아이템 획득 애니메이션 그리기 (일시정지 UI 전에)
         if is_legendary_effect_active():
