@@ -2268,9 +2268,15 @@ def show_winner_text(winner_name):
     # 말풍선 제거
     speech_text = ""
     speech_timer = 0
-    # 키 이벤트 큐 비우기 - 대쉬 버그 방지
-    pygame.event.clear()
+    # 키 이벤트 큐 비우기 - 대시 버그 방지 (특히 윈도우)
+    pygame.event.clear()  # 모든 이벤트 클리어
     pygame.event.pump()
+    pygame.key.set_repeat()  # 키 반복 설정 리셋
+    # 키 상태도 강제로 재설정
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]:
+        pygame.event.clear(pygame.KEYDOWN)
+        pygame.event.clear(pygame.KEYUP)
     #  대쉬 상태 초기화 - 다음 라운드 버그 방지
     # 레거시 대쉬 변수 초기화
     rolling_active = False
@@ -25677,9 +25683,10 @@ def choose_server(show_text=True):
     # 토큰 상태 리스트 초기화 (모든 토큰 사용 가능)
     global token_states
     token_states = [True] * max_charges  # 모든 토큰 충전된 상태로 시작
-    # 키 이벤트 큐 비우기 - 대쉬 버그 방지
-    pygame.event.clear()
+    # 키 이벤트 큐 비우기 - 대쉬 버그 방지 (특히 윈도우)
+    pygame.event.clear()  # 모든 이벤트 클리어
     pygame.event.pump()
+    pygame.key.set_repeat()  # 키 반복 설정 리셋
     # 대쉬 매니저와 동기화
     # 레거시 대쉬 변수 명시적 초기화
     rolling_active = False
@@ -28583,6 +28590,16 @@ def handle_ball():
                 animated_bg_stage2.set_expression('sad')
         else:
             round_wins += 1
+            # 🔧 라운드 승리 시 즉시 대시 상태 초기화 (윈도우 버그 방지)
+            rolling_active = False
+            rolling_timer = 0
+            rolling_direction = 0
+            rolling_speed = 0
+            rolling_stun_timer = 0
+            # 키 입력 버퍼 클리어
+            pygame.event.clear(pygame.KEYDOWN)
+            pygame.event.clear(pygame.KEYUP)
+            pygame.key.set_repeat()  # 키 반복 리셋
             # ️ GameState 동기화 및 이벤트 발생
             game_state.round_wins = round_wins
             emit_event(EventType.ROUND_WIN, {'stage': current_stage, 'score': round_wins})
@@ -28976,6 +28993,10 @@ def handle_ball():
             rolling_direction = 0
             rolling_speed = 0
             rolling_stun_timer = 0
+            # 키 입력 버퍼 클리어
+            pygame.event.clear(pygame.KEYDOWN)
+            pygame.event.clear(pygame.KEYUP)
+            pygame.key.set_repeat()  # 키 반복 리셋
             # ️ GameState 동기화 및 이벤트 발생
             game_state.round_losses = round_losses
             emit_event(EventType.ROUND_LOSE, {'stage': current_stage, 'score': round_losses})

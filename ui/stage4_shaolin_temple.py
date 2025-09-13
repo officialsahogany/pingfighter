@@ -2166,8 +2166,7 @@ class ShaolinTempleBackground:
             red_overlay.fill((255, 50, 50, self.red_light_alpha))
             surface.blit(red_overlay, (0, 0))
         
-        # Update animations
-        self.update()
+        # Note: update() should be called separately from the main game loop, not here
     
     def check_smoke_touches_brazier(self, smoke_x: float, smoke_y: float, smoke_radius: float) -> bool:
         """연막탄 연기가 화로에 닿았는지 체크
