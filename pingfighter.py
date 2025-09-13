@@ -27,12 +27,13 @@ import pygame.freetype
 # 3. 게임 핵심 모듈 Import
 # ============================================================
 import items
-import option as option_module
+# import option as option_module  # Options menu removed
 import gacha
 import opening
 import skill
 import academy
 import cinematic
+from show_credits import show_credits_screen
 import ui_manager
 import effects_manager
 import bgm_manager
@@ -2088,6 +2089,7 @@ kuromi_eating_cooldown = 0  # 공 먹기 쿨타임 (20초 = 1200 프레임)
 kuromi_spit_trail_active = False  # 뱉은 후 신비로운 궤적 활성화
 kuromi_spit_trail_positions = []  # 신비로운 궤적 위치들 [(x, y, life)]
 kuromi_spit_trail_color_phase = 0  # 궤적 색상 변화 페이즈
+kuromi_ball_entered = False  # 공이 쿠로미 영역에 진입했는지 여부 (진입시 한 번만 체크용)
 flame_trail_timer = 0
 flame_trail_phase = 0
 flame_trail_positions = []  # [(x, y)] 궤적 저장
@@ -14829,7 +14831,7 @@ def show_start_screen():
     menu_system = MenuSystem(SCREEN, WIDTH, HEIGHT)
     menu_system.current_menu = menu_system.create_main_menu()
     # 기존 변수들 (임시 유지)
-    menu_options = ["경기장 입장", "NEW BOSS BATTLE", "메달샵", "옵션"]
+    menu_options = ["경기장 입장", "NEW BOSS BATTLE", "메달샵", "크레딧"]
     selected = 0
     last_selected = -1  # 호버 사운드용
     locked_message_timer = 0
@@ -15012,7 +15014,7 @@ def show_start_screen():
             "경기장 입장": "▶",
             "NEW BOSS BATTLE": "★",
             "메달샵": "◆",
-            "옵션": "⚙"
+            "크레딧": "♫"
         }
         
         # 메뉴 컨테이너 설정 (화면에 맞게 조정)
@@ -15189,8 +15191,9 @@ def show_start_screen():
                     elif choice == "메달샵":
                         # 메달샵 기능 (아직 구현되지 않음)
                         locked_message_timer = TWO_SECONDS_FRAMES
-                    elif choice == "옵션":
-                        option_module.show_options_menu(SCREEN, WIDTH, HEIGHT)
+                    elif choice == "크레딧":
+                        show_credits_screen()
+                        return
                     elif choice == "개발자":
                         show_developer_stage_select()
                     elif choice == "아이템관리":
@@ -32772,7 +32775,7 @@ def main(stage_num, new_boss_mode=False):
     # 스테이지 3 쿠로미 공 먹기 이벤트 초기화
     global kuromi_eating_active, kuromi_eating_timer, kuromi_mouth_open
     global kuromi_chewing_phase, ball_in_kuromi, kuromi_spit_angle, chewing_particles
-    global kuromi_eating_cooldown
+    global kuromi_eating_cooldown, kuromi_ball_entered
     # 쿠로미 뱉기 궤적 관련 변수 추가
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
     kuromi_eating_active = False
@@ -32783,6 +32786,7 @@ def main(stage_num, new_boss_mode=False):
     kuromi_spit_angle = 0
     chewing_particles = []
     kuromi_eating_cooldown = 0  # 쿨타임 초기화
+    kuromi_ball_entered = False  # 진입 플래그 초기화
     # 쿠로미 뱉기 궤적 초기화
     kuromi_spit_trail_active = False
     kuromi_spit_trail_positions = []
@@ -34332,17 +34336,33 @@ def main(stage_num, new_boss_mode=False):
                 if current_stage == 3:
                     # 쿠로미 공 먹기 이벤트 체크 (공이 쿠로미 안에 없고 쿨타임이 끝났을 때만)
                     if not ball_in_kuromi and animated_bg_stage3 and not kuromi_eating_active and kuromi_eating_cooldown <= 0:
-                        # 매 프레임 체크하면 너무 많으므로 10프레임마다 체크
-                        if frame_count % 10 == 0:
-                            if animated_bg_stage3.check_ball_eating(BALL):
+                        # 쿠로미 영역 정의
+                        center_x = WIDTH // 2
+                        center_y = HEIGHT // 2
+                        kuromi_rect = pygame.Rect(center_x - 60, center_y - 60, 120, 120)
+                        
+                        # 공이 쿠로미 영역에 있는지 체크
+                        ball_in_kuromi_area = kuromi_rect.colliderect(BALL)
+                        
+                        # 공이 영역에 진입했을 때 한 번만 체크
+                        if ball_in_kuromi_area and not kuromi_ball_entered:
+                            kuromi_ball_entered = True  # 진입 플래그 설정
+                            # 10% 확률로 공 먹기 시도
+                            if random.random() < 0.1:  # 10% 확률
                                 # 공 먹기 시작
                                 kuromi_eating_active = True
                                 kuromi_eating_timer = 0
                                 ball_in_kuromi = True
                                 kuromi_eating_cooldown = 1200  # 20초 쿨타임 시작 (60 FPS * 20초)
                                 animated_bg_stage3.start_eating((BALL.centerx, BALL.centery))  # 공 위치 전달
-                                print("🍽️ 쿠로미가 공을 먹기 시작! 혀로 낼름~")
+                                print("🍽️ 쿠로미가 공을 먹기 시작! (10% 확률 성공)")
                                 print(f"[DEBUG] 공 먹기 시작 - ball_in_kuromi={ball_in_kuromi}, eating_active={kuromi_eating_active}")
+                            else:
+                                print("[DEBUG] 쿠로미가 공을 먹지 않음 (10% 확률 실패)")
+                        elif not ball_in_kuromi_area and kuromi_ball_entered:
+                            # 공이 영역을 벗어나면 플래그 리셋
+                            kuromi_ball_entered = False
+                            print("[DEBUG] 공이 쿠로미 영역을 벗어남 - 다음 진입시 다시 체크 가능")
                     
                     # 쿠로미 신비로운 궤적 업데이트
                     if kuromi_spit_trail_active:
