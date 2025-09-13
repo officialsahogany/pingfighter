@@ -1492,10 +1492,12 @@ class Stage3MenheraWorld:
             return False  # 공을 다시 표시
     
     def get_spit_velocity(self):
-        """랜덤한 방향으로 공을 뱉어낼 속도 벡터 반환"""
+        """랜덤한 방향으로 공을 뱉어낼 속도 벡터 반환 - 70% 빠르게"""
         # 랜덤 각도 (위아래로 더 많이 발사)
         angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
-        speed = random.uniform(8, 12)
+        # 기본 속도를 70% 증가 (8-12 → 13.6-20.4)
+        base_speed = random.uniform(8, 12)
+        speed = base_speed * 1.7  # 70% 증가
         
         vx = speed * math.cos(angle)
         vy = speed * math.sin(angle)
@@ -1504,7 +1506,59 @@ class Stage3MenheraWorld:
         if random.random() < 0.5:
             vy = -abs(vy) if random.random() < 0.5 else abs(vy)
         
+        # 뱉을 때 특수 이펙트 파티클 생성
+        self.create_spit_effect_particles(angle, speed)
+        
         return vx, vy
+    
+    def create_spit_effect_particles(self, angle, speed):
+        """공을 뱉을 때 특수 이펙트 생성"""
+        # 스피드 라인 효과
+        for i in range(15):
+            line_angle = angle + random.uniform(-0.3, 0.3)
+            line_speed = speed * random.uniform(0.8, 1.5)
+            particle_x = WIDTH // 2
+            particle_y = HEIGHT // 2
+            
+            self.chewing_particles.append({
+                'x': particle_x,
+                'y': particle_y,
+                'vx': math.cos(line_angle) * line_speed,
+                'vy': math.sin(line_angle) * line_speed,
+                'life': 20,
+                'color': (*SOFT_YELLOW, 200),
+                'type': 'speed_line',
+                'size': random.uniform(15, 25),
+                'angle': line_angle
+            })
+        
+        # 파워 링 효과 (충격파)
+        self.chewing_particles.append({
+            'x': WIDTH // 2,
+            'y': HEIGHT // 2,
+            'vx': 0,
+            'vy': 0,
+            'life': 30,
+            'color': (*WHITE, 255),
+            'type': 'power_ring',
+            'size': 20,
+            'max_size': 150
+        })
+        
+        # 침 폭발 효과
+        for _ in range(20):
+            splash_angle = random.uniform(0, math.pi * 2)
+            splash_speed = random.uniform(5, 15)
+            self.chewing_particles.append({
+                'x': WIDTH // 2,
+                'y': HEIGHT // 2,
+                'vx': math.cos(splash_angle) * splash_speed,
+                'vy': math.sin(splash_angle) * splash_speed,
+                'life': 25,
+                'color': (*LAVENDER, 150),
+                'type': 'spit_splash',
+                'size': random.uniform(3, 6)
+            })
     
     def draw_chewing_effects(self, screen):
         """씹는 이펙트 그리기 - 더 다양하고 생동감 있게"""
@@ -1623,6 +1677,62 @@ class Stage3MenheraWorld:
                             pygame.draw.circle(screen, (*color[:3], glow_alpha),
                                              (int(particle['x']), int(particle['y'])),
                                              int(size + i * 3), 1)
+            
+            elif p_type == 'speed_line':
+                # 스피드 라인 효과 (뱉을 때)
+                alpha = int(200 * (particle['life'] / 20))
+                size = particle.get('size', 20)
+                color = (*particle['color'][:3], alpha)
+                angle = particle.get('angle', 0)
+                
+                # 선의 시작점과 끝점
+                start_x = particle['x']
+                start_y = particle['y']
+                end_x = start_x - math.cos(angle) * size
+                end_y = start_y - math.sin(angle) * size
+                
+                # 두께가 변하는 선
+                for i in range(3):
+                    line_alpha = max(0, alpha - i * 50)
+                    if line_alpha > 0:
+                        pygame.draw.line(screen, (*color[:3], line_alpha),
+                                       (int(start_x), int(start_y)),
+                                       (int(end_x), int(end_y)), 
+                                       max(1, 4 - i))
+            
+            elif p_type == 'power_ring':
+                # 파워 링 효과 (충격파)
+                alpha = int(255 * (particle['life'] / 30))
+                expansion = (30 - particle['life']) / 30
+                size = particle.get('max_size', 150) * expansion
+                color = (*particle['color'][:3], alpha)
+                
+                # 여러 겹의 링
+                for i in range(3):
+                    ring_alpha = max(0, alpha - i * 50)
+                    ring_size = size - i * 10
+                    if ring_alpha > 0 and ring_size > 0:
+                        pygame.draw.circle(screen, (*color[:3], ring_alpha),
+                                         (int(particle['x']), int(particle['y'])),
+                                         int(ring_size), max(1, 5 - int(expansion * 4)))
+            
+            elif p_type == 'spit_splash':
+                # 침 스플래시 효과
+                alpha = int(150 * (particle['life'] / 25))
+                size = particle.get('size', 4)
+                color = (*particle['color'][:3], alpha)
+                
+                # 물방울 효과
+                pygame.draw.circle(screen, color,
+                                 (int(particle['x']), int(particle['y'])),
+                                 int(size))
+                # 하이라이트
+                if size > 2:
+                    pygame.draw.circle(screen, (*WHITE, alpha//2),
+                                     (int(particle['x'] - size//3), 
+                                      int(particle['y'] - size//3)),
+                                     max(1, int(size//2)))
+            
             else:
                 # 기본 파티클 (별/하트)
                 alpha = int(255 * (particle['life'] / 30))

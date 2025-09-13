@@ -2066,6 +2066,9 @@ ball_in_kuromi = False  # 공이 쿠로미 안에 있는지
 kuromi_spit_angle = 0  # 공을 뱉는 각도
 chewing_particles = []  # 씹는 이펙트 파티클
 kuromi_eating_cooldown = 0  # 공 먹기 쿨타임 (20초 = 1200 프레임)
+kuromi_spit_trail_active = False  # 뱉은 후 신비로운 궤적 활성화
+kuromi_spit_trail_positions = []  # 신비로운 궤적 위치들 [(x, y, life)]
+kuromi_spit_trail_color_phase = 0  # 궤적 색상 변화 페이즈
 flame_trail_timer = 0
 flame_trail_phase = 0
 flame_trail_positions = []  # [(x, y)] 궤적 저장
@@ -4746,6 +4749,7 @@ rolling_direction = 0  # -1: 왼쪽, 1: 오른쪽
 rolling_speed = 30
 rolling_stun_timer = 0  # 구르기 후 통제 불가능 시간
 rolling_dash_available_timer = 0  # 구르기 대쉬 가능 타이머
+is_half_dash_active = False  # 하프대쉬 활성화 플래그 (무릎보호대 효과용)
 # 포세이돈의 삼지창 대시 회오리 효과 플래그
 poseidon_dash_pending = False  # 대시 후 통제불능 시 회오리 발동 대기
 poseidon_dash_x = 0  # 회오리 발동 위치 X
@@ -5396,6 +5400,7 @@ def handle_player(keys):
             if rolling_timer <= 0:
                 # 구르기 종료, 통제 불가능 상태 시작
                 rolling_active = False
+                is_half_dash_active = False  # 대쉬 종료 시 하프대쉬 플래그 리셋
                 
                 # 튜토리얼: 대쉬 종료 시 카운팅 플래그 리셋
                 if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -5496,6 +5501,7 @@ def handle_player(keys):
                 if keys[pygame.K_LEFT] and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
                     # 통제불능 상태에서 왼쪽 대쉬 실행 (아래키 + 왼쪽키 필요)
                     rolling_active = True
+                    is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                         tutorial_dash_already_counted = False
@@ -5640,6 +5646,7 @@ def handle_player(keys):
                 elif keys[pygame.K_RIGHT] and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
                     # 통제불능 상태에서 오른쪽 대쉬 실행 (아래키 + 오른쪽키 필요)
                     rolling_active = True
+                    is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                     if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                         tutorial_dash_already_counted = False
@@ -5899,6 +5906,7 @@ def handle_player(keys):
                     if half_dash_activated:
                         # 하프 대쉬 발동
                         rolling_active = True
+                        is_half_dash_active = True  # 하프대쉬 플래그 설정
                         # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                         if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                             tutorial_dash_already_counted = False
@@ -6589,6 +6597,12 @@ def handle_player(keys):
     
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     if BALL.colliderect(player_collision_rect) and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0):
+        # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
+        if kuromi_spit_trail_active:
+            kuromi_spit_trail_active = False
+            kuromi_spit_trail_positions.clear()
+            print("쿠로미 뱉기 궤적 종료 - 플레이어 패들 충돌")
+        
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
         last_paddle_hit_time = pygame.time.get_ticks()
@@ -11037,7 +11051,7 @@ def draw_objects():
         knee_pads = get_knee_pads_instance()
         if knee_pads:
             knee_pads.update()  # 타이머 업데이트
-            knee_pads.draw_flash_effect(SCREEN)  # 이펙트 그리기
+            knee_pads.draw_effect(SCREEN)  # 이펙트 그리기
     except Exception as e:
         pass  # 디버깅시 주석 해제: print(f"무릎보호대 이펙트 그리기 오류: {e}")
     #  서브 대기 상태 UI (미니멀 디자인)
@@ -13042,6 +13056,88 @@ def draw_objects():
         trail = pygame.transform.scale(ball_img_to_draw, (BALL.width, BALL.height))
         trail.set_alpha(alpha)
         SCREEN.blit(trail, (x - BALL.width // 2, y - BALL.height // 2))
+    
+    # 쿠로미 뱉기 신비로운 궤적 렌더링
+    if kuromi_spit_trail_active and kuromi_spit_trail_positions:
+        for i, pos in enumerate(kuromi_spit_trail_positions):
+            # 시간에 따라 변하는 무지개색
+            time_offset = kuromi_spit_trail_color_phase + i * 0.3
+            
+            # HSV to RGB 변환을 사용한 무지개색
+            hue = (time_offset * 30) % 360  # 색상 (0-360도)
+            saturation = 1.0  # 채도 (최대)
+            value = pos['life']  # 명도 (생명력에 따라 감소)
+            
+            # HSV to RGB 변환
+            c = value * saturation
+            x = c * (1 - abs((hue / 60) % 2 - 1))
+            m = value - c
+            
+            if hue < 60:
+                r, g, b = c, x, 0
+            elif hue < 120:
+                r, g, b = x, c, 0
+            elif hue < 180:
+                r, g, b = 0, c, x
+            elif hue < 240:
+                r, g, b = 0, x, c
+            elif hue < 300:
+                r, g, b = x, 0, c
+            else:
+                r, g, b = c, 0, x
+            
+            # RGB 값 정수로 변환 (0-255)
+            r = int((r + m) * 255)
+            g = int((g + m) * 255)
+            b = int((b + m) * 255)
+            
+            # 알파값은 생명력에 따라 결정
+            alpha = int(pos['life'] * 200)
+            
+            # 신비로운 오라 효과 (외부 글로우)
+            if alpha > 50:
+                glow_surface = pygame.Surface((pos['size'] * 3, pos['size'] * 3), pygame.SRCALPHA)
+                glow_alpha = int(alpha * 0.3)
+                pygame.draw.circle(glow_surface, (r, g, b, glow_alpha), 
+                                 (pos['size'] * 3 // 2, pos['size'] * 3 // 2), 
+                                 int(pos['size'] * 1.5))
+                SCREEN.blit(glow_surface, 
+                          (int(pos['x'] - pos['size'] * 1.5), 
+                           int(pos['y'] - pos['size'] * 1.5)))
+            
+            # 메인 궤적 원
+            trail_surface = pygame.Surface((pos['size'] * 2, pos['size'] * 2), pygame.SRCALPHA)
+            pygame.draw.circle(trail_surface, (r, g, b, alpha),
+                             (pos['size'], pos['size']), 
+                             int(pos['size']))
+            SCREEN.blit(trail_surface, 
+                      (int(pos['x'] - pos['size']), 
+                       int(pos['y'] - pos['size'])))
+            
+            # 중심부 밝은 코어
+            if pos['size'] > 4:
+                core_size = int(pos['size'] * 0.4)
+                pygame.draw.circle(SCREEN, (255, 255, 255),
+                                 (int(pos['x']), int(pos['y'])), 
+                                 core_size)
+            
+            # 별 모양 반짝임 효과 (일부 궤적에만)
+            if i % 3 == 0 and pos['life'] > 0.5:
+                sparkle_size = int(pos['size'] * 0.8)
+                sparkle_alpha = int(alpha * 0.6)
+                # 십자 모양 반짝임
+                sparkle_surface = pygame.Surface((sparkle_size * 4, sparkle_size * 4), pygame.SRCALPHA)
+                # 가로선
+                pygame.draw.line(sparkle_surface, (255, 255, 255, sparkle_alpha),
+                               (0, sparkle_size * 2), 
+                               (sparkle_size * 4, sparkle_size * 2), 2)
+                # 세로선
+                pygame.draw.line(sparkle_surface, (255, 255, 255, sparkle_alpha),
+                               (sparkle_size * 2, 0), 
+                               (sparkle_size * 2, sparkle_size * 4), 2)
+                SCREEN.blit(sparkle_surface,
+                          (int(pos['x'] - sparkle_size * 2), 
+                           int(pos['y'] - sparkle_size * 2)))
     # === Stage 5 화염탄 ===
     if current_stage == 5:
         for fireball in fireballs:
@@ -27613,6 +27709,31 @@ def handle_ball():
             BALL.x += actual_vel_x
             BALL.y += actual_vel_y
             
+            # 🦵 무릎보호대: 하프대쉬 중 공과 충돌 체크
+            if rolling_active and is_half_dash_active and BALL.colliderect(PLAYER):
+                # 무릎보호대 효과 발동
+                from item_effects.knee_pads import get_knee_pads_instance
+                knee_pads = get_knee_pads_instance()
+                if knee_pads and knee_pads.active:
+                    # 하프대쉬로 공을 맞췄을 때
+                    ball_center = (BALL.centerx, BALL.centery)
+                    should_charge = knee_pads.on_half_dash_hit(ball_center)
+                    
+                    if should_charge:
+                        # 특수 게이지 50% 충전 (기본 충전량 80의 50% = 40)
+                        base_charge = 80  # 기본 충전량
+                        charge_amount = base_charge * 0.5  # 50% = 40
+                        
+                        # 블루투스링 효과 적용 (있을 경우)
+                        if bluetooth_ring_obtained:
+                            charge_amount *= 1.25  # 25% 추가 충전
+                        
+                        special_gauge = min(special_gauge + charge_amount, special_gauge_max)
+                        print(f"[무릎보호대] 하프대쉬 공 타격! 게이지 {charge_amount:.0f} 충전 (현재: {special_gauge}/{special_gauge_max})")
+                        
+                        # 사운드 효과
+                        SOUND_SPECIAL.play()
+            
             #  스테이지 4 몽크 봉 충돌 체크 (매 스텝마다)
             if current_stage == 4 and animated_bg_stage4 is not None:
                 # 공이 몽크 근처를 지나갈 때 체크 (이제 한 번만 확률 체크함)
@@ -29021,6 +29142,12 @@ def handle_ball():
         # 다른 스테이지는 원래 크기 사용
         boss_hitbox_expanded = BOSS
     if boss_hitbox_expanded.colliderect(BALL) and boss_collision_cooldown <= 0 and not is_waiting_for_serve:
+        # 쿠로미 뱉기 궤적 비활성화 (보스 패들 충돌)
+        if kuromi_spit_trail_active:
+            kuromi_spit_trail_active = False
+            kuromi_spit_trail_positions.clear()
+            print("쿠로미 뱉기 궤적 종료 - 보스 패들 충돌")
+        
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
         last_paddle_hit_time = pygame.time.get_ticks()
@@ -34009,6 +34136,36 @@ def main(stage_num, new_boss_mode=False):
                             animated_bg_stage3.start_eating()
                             print("🍽️ 쿠로미가 공을 먹기 시작!")
                     
+                    # 쿠로미 신비로운 궤적 업데이트
+                    if kuromi_spit_trail_active:
+                        # 궤적 색상 페이즈 업데이트
+                        kuromi_spit_trail_color_phase += 0.1
+                        
+                        # 현재 공 위치를 궤적에 추가 (3프레임마다 추가로 너무 많이 쌓이는 것 방지)
+                        if len(kuromi_spit_trail_positions) == 0 or frame_count % 3 == 0:
+                            kuromi_spit_trail_positions.append({
+                                'x': BALL.centerx,
+                                'y': BALL.centery,
+                                'life': 1.0,  # 생명력 (1.0에서 시작해서 점점 감소)
+                                'size': 15  # 초기 크기
+                            })
+                        
+                        # 궤적 위치들 업데이트 (페이드 아웃 및 크기 감소)
+                        kuromi_spit_trail_positions = [
+                            {
+                                'x': pos['x'],
+                                'y': pos['y'],
+                                'life': pos['life'] - 0.02,  # 점진적으로 사라짐
+                                'size': pos['size'] * 0.98  # 크기도 점점 줄어듦
+                            }
+                            for pos in kuromi_spit_trail_positions
+                            if pos['life'] > 0  # 생명력이 0 이하면 제거
+                        ]
+                        
+                        # 궤적이 너무 길어지면 오래된 것부터 제거
+                        if len(kuromi_spit_trail_positions) > 30:
+                            kuromi_spit_trail_positions = kuromi_spit_trail_positions[-30:]
+                    
                     # 공 먹기 이벤트 업데이트
                     if kuromi_eating_active:
                         kuromi_eating_timer += 1
@@ -34030,6 +34187,11 @@ def main(stage_num, new_boss_mode=False):
                                 new_vx, new_vy = animated_bg_stage3.get_spit_velocity()
                                 ball_vel[0] = new_vx
                                 ball_vel[1] = new_vy
+                                
+                                # 신비로운 궤적 활성화
+                                kuromi_spit_trail_active = True
+                                kuromi_spit_trail_positions = []
+                                kuromi_spit_trail_color_phase = 0
                                 
                                 print(f"💥 쿠로미가 공을 뱉어냄! 속도: ({new_vx:.1f}, {new_vy:.1f})")
                     
@@ -36119,7 +36281,7 @@ def show_item_management_menu(item_list, selected_index, item_type):
                     if selected == 0:  # 버리기
                         # 아이템 제거
                         removed_item = item_list.pop(selected_index)
-                        # 아이템 타입에 따른 효과 제거
+                         # 아이템 타입에 따른 효과 제거
                         if item_type == "active":
                             # 엑티브 아이템 제거 시 선택 인덱스 조정
                             if selected_item_index >= len(active_item_slot):
