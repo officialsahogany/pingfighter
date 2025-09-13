@@ -111,22 +111,10 @@ def show_credits_screen():
             SCREEN.blit(role_surf, role_rect)
             
             # 이름 (큰 폰트, 컬러풀)
-            # 펄스 효과
-            pulse = abs(math.sin(animation_timer * 2 + i * 0.5))
-            color_intensity = 0.7 + pulse * 0.3
-            name_color = tuple(int(c * color_intensity) for c in credit["color"])
+            # 펄스 효과와 글로우 효과 제거 - 고정된 색상만 사용
+            name_color = credit["color"]
             
-            # 글로우 효과
-            for j in range(3):
-                glow_alpha = 80 - j * 25
-                glow_color = (*credit["color"], glow_alpha)
-                glow_surf = font_name.render(credit["name"], True, glow_color)
-                glow_rect = glow_surf.get_rect(center=(WIDTH // 2, y_pos + 35))
-                glow_rect.x += j - 1
-                glow_rect.y += j - 1
-                SCREEN.blit(glow_surf, glow_rect)
-            
-            # 메인 이름
+            # 메인 이름 (글로우 없이 직접 렌더링)
             name_surf = font_name.render(credit["name"], True, name_color)
             name_rect = name_surf.get_rect(center=(WIDTH // 2, y_pos + 35))
             SCREEN.blit(name_surf, name_rect)
