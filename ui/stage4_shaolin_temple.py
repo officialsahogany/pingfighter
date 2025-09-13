@@ -214,7 +214,7 @@ class ShaolinTempleBackground:
         return dummies
     
     def _draw_red_moon(self, surface: pygame.Surface):
-        """Draw red moon overlay during destruction with gradient and pulsing"""
+        """Draw red moon overlay during destruction with optimized rendering"""
         moon_x, moon_y = self.width - 120, 100
         
         # Add pulsing effect
@@ -225,113 +225,76 @@ class ShaolinTempleBackground:
         # Apply fragment firing pulse effect (stronger pulse when firing)
         moon_scale = getattr(self, 'moon_pulse_scale', 1.0)
         
-        # Create gradient red glow with softer falloff
-        for i in range(20, 0, -1):
+        # OPTIMIZATION: Reduce glow layers from 20 to 5 for better performance
+        # Only draw every 4th layer (5, 10, 15, 20)
+        for i in [5, 10, 15, 20]:
             # Gradient calculation - more transparent as distance increases
             distance_ratio = i / 20.0
             # Use exponential falloff for smoother gradient
             alpha_multiplier = (distance_ratio ** 2) * self.moon_red_intensity * (1.0 + pulse)
-            alpha = int(80 * alpha_multiplier)  # Reduced from 30*i to create softer glow
+            alpha = int(60 * alpha_multiplier)  # Reduced alpha for performance
             
             glow_radius = int((35 + i * 8) * moon_scale)  # Apply scale for pulsing effect
             
-            # Create glow surface
-            glow_size = glow_radius * 2 + 10
-            glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-            glow_surface.fill((0, 0, 0, 0))
-            
-            # Radial gradient for each layer
-            for r in range(glow_radius, 0, -2):
-                r_ratio = r / float(glow_radius)
-                layer_alpha = int(alpha * r_ratio)
-                # Blend from red to orange at edges
-                red_component = 255
-                green_component = int(100 * (1 - r_ratio))  # Add orange tint at edges
-                glow_color = (red_component, green_component, 0, min(255, layer_alpha))
-                pygame.draw.circle(glow_surface, glow_color,
-                                 (glow_size // 2, glow_size // 2),
-                                 r)
-            
-            surface.blit(glow_surface,
-                        (moon_x - glow_size // 2,
-                         moon_y - glow_size // 2))
+            # OPTIMIZATION: Draw simple circle instead of gradient
+            # This reduces thousands of draw calls to just a few
+            glow_color = (255, int(100 * (1 - distance_ratio)), 0, min(255, alpha))
+            pygame.draw.circle(surface, glow_color, (moon_x, moon_y), glow_radius, 0)
         
-        # Draw red moon overlay with better blending
-        moon_size = int(80 * moon_scale)  # Apply scale to moon size
-        moon_surface = pygame.Surface((moon_size, moon_size), pygame.SRCALPHA)
+        # Draw red moon overlay with simplified rendering
+        moon_radius = int(35 * moon_scale)  # Scale the radius
         
-        # Create gradient moon surface
-        moon_radius = int(35 * moon_scale)  # Scale the radius too
-        for r in range(moon_radius, 0, -1):
-            r_ratio = r / float(moon_radius)
-            # Blend original moon color with red based on intensity
-            base_intensity = int(200 * self.moon_red_intensity * (1.0 + pulse * 0.5))
-            
-            # Gradient from center to edge
-            if r > moon_radius - 5:
-                # Outer edge - more original moon color
-                red = int(255 - (moon_radius - r) * 10)
-                green = int(200 - 150 * self.moon_red_intensity * r_ratio)
-                blue = int(150 - 140 * self.moon_red_intensity * r_ratio)
-            else:
-                # Inner area - more red
-                red = 255
-                green = int(100 - 80 * self.moon_red_intensity)
-                blue = int(80 - 70 * self.moon_red_intensity)
-            
-            moon_color = (red, green, blue, min(255, base_intensity))
-            pygame.draw.circle(moon_surface, moon_color, (moon_size // 2, moon_size // 2), r)
+        # OPTIMIZATION: Draw only 3 circles for moon gradient instead of 35
+        # Outer glow
+        base_intensity = int(200 * self.moon_red_intensity * (1.0 + pulse * 0.5))
+        moon_color_outer = (255, int(100 - 50 * self.moon_red_intensity), 
+                           int(80 - 40 * self.moon_red_intensity), min(255, base_intensity // 2))
+        pygame.draw.circle(surface, moon_color_outer, (moon_x, moon_y), moon_radius)
         
-        # Add subtle craters with transparency (scaled positions)
+        # Middle layer
+        moon_color_mid = (255, int(80 - 60 * self.moon_red_intensity), 
+                         int(60 - 50 * self.moon_red_intensity), min(255, base_intensity * 3 // 4))
+        pygame.draw.circle(surface, moon_color_mid, (moon_x, moon_y), int(moon_radius * 0.7))
+        
+        # Inner core
+        moon_color_inner = (255, int(50 - 40 * self.moon_red_intensity), 
+                           int(30 - 25 * self.moon_red_intensity), min(255, base_intensity))
+        pygame.draw.circle(surface, moon_color_inner, (moon_x, moon_y), int(moon_radius * 0.4))
+        
+        # Add simple craters (no scaling for performance)
         crater_intensity = int(180 * self.moon_red_intensity)
-        crater_color = (180, 40, 20, crater_intensity)
-        center = moon_size // 2
-        pygame.draw.circle(moon_surface, crater_color, 
-                         (int(center - 10 * moon_scale), int(center - 5 * moon_scale)), 
-                         int(5 * moon_scale))
-        pygame.draw.circle(moon_surface, crater_color, 
-                         (int(center + 8 * moon_scale), int(center + 10 * moon_scale)), 
-                         int(3 * moon_scale))
-        pygame.draw.circle(moon_surface, crater_color, 
-                         (int(center + 15 * moon_scale), int(center - 8 * moon_scale)), 
-                         int(4 * moon_scale))
-        
-        surface.blit(moon_surface, (moon_x - moon_size // 2, moon_y - moon_size // 2))
+        if crater_intensity > 50:  # Only draw craters when visible
+            crater_color = (180, 40, 20, crater_intensity)
+            pygame.draw.circle(surface, crater_color, 
+                             (moon_x - 10, moon_y - 5), 5)
+            pygame.draw.circle(surface, crater_color, 
+                             (moon_x + 8, moon_y + 10), 3)
+            pygame.draw.circle(surface, crater_color, 
+                             (moon_x + 15, moon_y - 8), 4)
     
     def _draw_static_background(self):
-        """Draw static background elements"""
-        # Gradient sky
-        for y in range(self.height):
+        """Draw static background elements with optimized rendering"""
+        # OPTIMIZATION: Draw gradient sky in larger steps (every 4 pixels)
+        # This reduces drawing operations from ~600 to ~150
+        for y in range(0, self.height, 4):
             ratio = y / self.height
             color = self._interpolate_color(self.colors['sky_top'], self.colors['sky_bottom'], ratio)
-            pygame.draw.line(self.static_surface, color, (0, y), (self.width, y))
+            # Draw a thicker line to cover the gap
+            pygame.draw.rect(self.static_surface, color, (0, y, self.width, 4))
         
-        # Moon with natural glow effect
+        # Moon with optimized glow effect
         moon_x, moon_y = self.width - 120, 100
         
-        # Create softer, more natural glow layers
-        for i in range(8, 0, -1):
+        # OPTIMIZATION: Reduce glow layers from 8 to 3 for better performance
+        for i in [2, 5, 8]:
             # Progressive alpha fade for natural glow
             alpha = int(5 * i)  # More gradual fade
             glow_radius = 35 + i * 12
             
-            # Draw glow directly on static surface with alpha blending
+            # Draw glow directly as simple circles instead of creating surfaces
             glow_color = (*self.colors['moon_glow'][:3], alpha)
-            
-            # Create a temporary surface for this glow layer
-            glow_size = glow_radius * 2 + 10
-            glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-            glow_surface.fill((0, 0, 0, 0))  # Clear with transparent
-            
-            # Draw the glow circle
-            pygame.draw.circle(glow_surface, glow_color, 
-                             (glow_size // 2, glow_size // 2), 
-                             glow_radius)
-            
-            # Blit with proper centering
-            self.static_surface.blit(glow_surface, 
-                                    (moon_x - glow_size // 2, 
-                                     moon_y - glow_size // 2))
+            pygame.draw.circle(self.static_surface, glow_color, 
+                             (moon_x, moon_y), glow_radius)
         
         # Draw the moon itself
         pygame.draw.circle(self.static_surface, self.colors['moon'], (moon_x, moon_y), 35)
@@ -745,17 +708,16 @@ class ShaolinTempleBackground:
             if mist['x'] < -mist['width']:
                 mist['x'] = 0
             
-            # Draw mist
-            mist_surface = pygame.Surface((mist['width'], mist['height']), pygame.SRCALPHA)
-            
-            # Create gradient mist effect
-            for i in range(0, int(mist['width']), 20):
+            # OPTIMIZATION: Simplified mist effect - use fewer circles
+            # Draw mist directly without creating a surface
+            # Draw only every 40 pixels instead of every 20
+            for i in range(0, int(mist['width']), 40):
                 alpha = int(mist['opacity'] * abs(math.sin(i / 100 + self.frame_count * 0.01)))
-                color = (*self.colors['mist'][:3], alpha)
-                pygame.draw.circle(mist_surface, color,
-                                 (i, mist['height'] // 2), mist['height'] // 2)
-            
-            surface.blit(mist_surface, (mist['x'], mist['y']))
+                if alpha > 10:  # Skip nearly invisible circles
+                    color = (*self.colors['mist'][:3], alpha)
+                    pygame.draw.circle(surface, color,
+                                     (int(mist['x'] + i), int(mist['y'] + mist['height'] // 2)), 
+                                     int(mist['height'] // 2))
     
     def _draw_stars(self, surface: pygame.Surface):
         """Draw twinkling stars with soft glow"""
@@ -890,14 +852,14 @@ class ShaolinTempleBackground:
                                   [(p[0] - brazier_x + 40, p[1] - brazier_y + 30) for p in flame_points])
                 surface.blit(flame_surface, (brazier_x - 40, brazier_y - 30))
             
-            # 불빛 광채 효과
+            # OPTIMIZATION: Simplified fire glow effect - use fewer circles
             glow_radius = int(40 + abs(math.sin(self.brazier_fire_animation * 0.5)) * 10)
-            glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-            for i in range(glow_radius, 0, -2):
-                alpha = int(30 * (i / glow_radius))
-                pygame.draw.circle(glow_surface, (255, 150, 50, alpha), 
-                                 (glow_radius, glow_radius), i)
-            surface.blit(glow_surface, (brazier_x - glow_radius, brazier_y - glow_radius))
+            # Draw only 3 glow circles instead of many
+            for i, factor in [(1.0, 10), (0.6, 20), (0.3, 30)]:
+                radius = int(glow_radius * i)
+                if radius > 0:
+                    pygame.draw.circle(surface, (255, 150, 50, factor), 
+                                     (brazier_x, brazier_y), radius)
             
         else:
             # 불이 꺼진 상태
