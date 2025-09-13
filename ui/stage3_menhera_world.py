@@ -736,9 +736,12 @@ class Stage3MenheraWorld:
             # 뱉기 준비 시 입 방향 조정
             mouth_offset_x = 0
             mouth_offset_y = 0
-            if self.mouth_direction != 0 and self.eating_timer >= 210:  # 뱉기 준비 단계
+            if self.mouth_direction != 0 and self.eating_timer >= 150:  # 1초 전부터 방향 표시
                 # 발사 방향으로 입 이동
-                direction_strength = (self.eating_timer - 210) / 10  # 0~1
+                if self.eating_timer >= 210:  # 마지막 0.17초는 더 강하게
+                    direction_strength = 0.7 + (self.eating_timer - 210) / 10 * 0.3  # 0.7~1.0
+                else:  # 150~210 (1초간 서서히)
+                    direction_strength = (self.eating_timer - 150) / 60 * 0.7  # 0~0.7
                 mouth_offset_x = int(math.cos(self.mouth_direction) * 15 * direction_strength)
                 mouth_offset_y = int(math.sin(self.mouth_direction) * 10 * direction_strength)
                 
@@ -1394,9 +1397,9 @@ class Stage3MenheraWorld:
             
             return True  # 공을 숨김
             
-        elif self.eating_timer < 210:  # 2초 - 씹기
+        elif self.eating_timer < 150:  # 150까지 - 씹기 (1초 단축)
             # 더 리얼한 씹기 모션
-            chew_progress = (self.eating_timer - 90) / 120
+            chew_progress = (self.eating_timer - 90) / 60  # 60프레임(1초) 동안 씹기
             self.chewing_phase = chew_progress
             
             # 턱 움직임 (위아래로 씹기)
@@ -1469,15 +1472,15 @@ class Stage3MenheraWorld:
             self.chewing_particles = updated_particles
             return True  # 공을 숨김
             
-        elif self.eating_timer < 220:  # 0.17초 - 뱉기 준비
-            # 뱉을 방향 미리 결정 (처음 한 번만)
+        elif self.eating_timer < 210:  # 150~210 (1초간) - 방향 예고 단계
+            # 뱉을 방향 미리 결정 (처음 한 번만, 1초 전에)
             if self.spit_angle is None:
                 self.spit_angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
                 self.mouth_direction = self.spit_angle  # 입 방향 설정
             
-            # 볼 부풀리기 (압력 증가)
-            buildup = (self.eating_timer - 210) / 10
-            self.mouth_open = 0.2 + buildup * 0.6
+            # 볼 부풀리기 (압력 증가) - 1초 동안 서서히
+            buildup = (self.eating_timer - 150) / 60  # 0~1 (1초 동안)
+            self.mouth_open = 0.2 + buildup * 0.4
             self.chewing_phase = 0
             
             # 압력 파티클
@@ -1498,7 +1501,30 @@ class Stage3MenheraWorld:
             
             return True
             
-        else:  # 3.67초 이후 - 폭발적으로 뱉기
+        elif self.eating_timer < 220:  # 210~220 - 최종 준비
+            # 최대 압력
+            self.mouth_open = 0.6 + 0.4 * ((self.eating_timer - 210) / 10)
+            self.chewing_phase = 0
+            
+            # 강력한 압력 파티클
+            if random.random() < 0.9:
+                for _ in range(3):
+                    particle_x = WIDTH // 2 + random.randint(-15, 15)
+                    particle_y = HEIGHT // 2 + random.randint(-8, 8)
+                    self.chewing_particles.append({
+                        'x': particle_x,
+                        'y': particle_y,
+                        'vx': random.uniform(-5, 5),
+                        'vy': random.uniform(-2, 2),
+                        'life': 10,
+                        'color': (*CRIMSON, 220),
+                        'type': 'pressure',
+                        'size': random.uniform(4, 7)
+                    })
+            
+            return True
+            
+        else:  # 220 이후 - 폭발적으로 뱉기
             if self.eating_timer < 225:  # 뱉는 순간
                 # 대폭발 효과
                 for _ in range(25):
