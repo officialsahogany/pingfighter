@@ -464,6 +464,39 @@ def draw_gradient_rect(rect, color1, color2, vertical=True):
     """그라데이션 사각형 그리기 - Phase 101: unified_renderer 사용"""
     unified_renderer.draw_gradient_rect(rect, color1, color2, vertical)
 
+# 해상도 변경 함수
+def change_resolution(direction=1):
+    """화면 해상도 변경 (direction: 1=다음, -1=이전)"""
+    global SCREEN, current_resolution_index, unified_renderer, draw
+    global dialog_system, menu_system, trade_point_system
+    
+    # 현재 해상도 인덱스 변경
+    current_resolution_index = (current_resolution_index + direction) % len(RESOLUTION_OPTIONS)
+    
+    # 새 해상도 가져오기
+    new_width, new_height = RESOLUTION_OPTIONS[current_resolution_index]
+    
+    # 화면 재생성 (pygame.SCALED 플래그 사용)
+    SCREEN = pygame.display.set_mode((new_width, new_height), pygame.SCALED)
+    
+    # 시스템 재초기화 (내부 해상도 유지)
+    draw = DrawHelper(SCREEN)
+    unified_renderer = UnifiedRenderer(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+    dialog_system = DialogSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+    menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+    trade_point_system = TradePointSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+    
+    # UI 매니저 재초기화
+    ui_manager.init_ui_manager(SCREEN, FONT, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+    effects_manager.init_effects_manager(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+    physics_manager.init_physics_manager(SCREEN, BALL, PLAYER, BOSS, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+    
+    # 전설 아이템 효과 시스템 재초기화
+    initialize_legendary_effects(INTERNAL_WIDTH, INTERNAL_HEIGHT)
+    initialize_item_effects(INTERNAL_WIDTH, INTERNAL_HEIGHT)
+    
+    print(f"해상도 변경: {new_width}x{new_height} (스케일: {new_width/INTERNAL_WIDTH:.1f}x)")
+
 # 화면 생성 (통합)
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("PINGFIGHTER")
@@ -14884,7 +14917,7 @@ def show_start_screen():
     #  아카데미 스킬 포인트 초기화 (게임 시작시 0포인트)
     academy.reset_skill_points()
     #  새로운 메뉴 시스템 초기화
-    menu_system = MenuSystem(SCREEN, WIDTH, HEIGHT)
+    menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
     menu_system.current_menu = menu_system.create_main_menu()
     # 기존 변수들 (임시 유지)
     menu_options = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
@@ -14896,8 +14929,8 @@ def show_start_screen():
     input_buffer = []
     developer_unlocked = False
     item_manager_unlocked = False
-    # 사이버펑크 테마 배경 시스템
-    simple_bg = SimpleMenuBackground(WIDTH, HEIGHT)
+    # 사이버펑크 테마 배경 시스템 (내부 해상도 사용)
+    simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
     animation_timer = 0
     clock = pygame.time.Clock()
     # 호환성을 위한 빈 리스트 초기화 (기존 코드에서 참조하는 부분이 있음)
@@ -15180,6 +15213,16 @@ def show_start_screen():
             message_rect = locked_surface.get_rect(center=(WIDTH // 2, 600))
             SCREEN.blit(locked_surface, message_rect)
             locked_message_timer -= 1
+        
+        # 해상도 정보 표시
+        font_resolution = FontStyle.tiny()  # 16pt 폰트
+        current_width, current_height = RESOLUTION_OPTIONS[current_resolution_index]
+        resolution_text = f"해상도: {current_width}x{current_height} (F9/F10으로 변경)"
+        resolution_color = (150, 200, 255)
+        resolution_surface = font_resolution.render(resolution_text, True, resolution_color)
+        resolution_rect = resolution_surface.get_rect(bottomright=(WIDTH - 10, HEIGHT - 10))
+        SCREEN.blit(resolution_surface, resolution_rect)
+        
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -15194,6 +15237,24 @@ def show_start_screen():
                 if event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
+                
+                # F9/F10 키로 해상도 변경
+                elif event.key == pygame.K_F9:
+                    change_resolution(-1)  # 이전 해상도
+                    # 메뉴 시스템 재초기화
+                    menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+                    menu_system.current_menu = menu_system.create_main_menu()
+                    simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
+                    # 스타 리셋 (새 해상도에 맞게)
+                    show_start_screen.stars = []
+                elif event.key == pygame.K_F10:
+                    change_resolution(1)  # 다음 해상도
+                    # 메뉴 시스템 재초기화
+                    menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+                    menu_system.current_menu = menu_system.create_main_menu()
+                    simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
+                    # 스타 리셋 (새 해상도에 맞게)
+                    show_start_screen.stars = []
                 
                 # 숫자 키 바로 이동
                 elif event.key == pygame.K_1:

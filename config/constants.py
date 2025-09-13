@@ -22,13 +22,29 @@ PURPLE = (128, 0, 128)
 PINK = (255, 192, 203)
 
 # ============= 화면 설정 =============
+# 기본 내부 해상도 (게임 로직이 사용하는 해상도)
+INTERNAL_WIDTH = 600
+INTERNAL_HEIGHT = 750
+
+# 실제 창 크기 (화면에 표시되는 크기)
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 750
 WIDTH = SCREEN_WIDTH  # 호환성 유지
 HEIGHT = SCREEN_HEIGHT  # 호환성 유지
 
-GAME_WIDTH = 600
-GAME_HEIGHT = 750
+# 사용 가능한 해상도 옵션
+RESOLUTION_OPTIONS = [
+    (600, 750),    # 1x (기본)
+    (900, 1125),   # 1.5x
+    (1200, 1500),  # 2x
+    (1800, 2250),  # 3x
+]
+
+# 현재 선택된 해상도 인덱스
+current_resolution_index = 0
+
+GAME_WIDTH = INTERNAL_WIDTH
+GAME_HEIGHT = INTERNAL_HEIGHT
 GAME_OFFSET_X = 0
 GAME_OFFSET_Y = 0
 
