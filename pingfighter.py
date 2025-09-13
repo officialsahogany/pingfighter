@@ -27825,14 +27825,15 @@ def handle_ball():
                                     pass  # Debug log removed
                                 elif x_in_right:
                                     pass  # Debug log removed
-                        # 물의 파동으로 공의 궤적에 영향 (회오리가 없을 때만 작동)
-                        modified_vx, modified_vy = trident.apply_trajectory_influence(
-                            BALL.centerx, BALL.centery,
-                            step_vel_x, step_vel_y,
-                            PLAYER.centerx, PLAYER.centery
-                        )
-                        actual_vel_x = modified_vx
-                        actual_vel_y = modified_vy
+                        # 물의 파동 효과 제거됨 - 순수 대시 보조용
+                        # apply_trajectory_influence는 이제 아무 효과 없이 원래 속도를 반환
+                        # modified_vx, modified_vy = trident.apply_trajectory_influence(
+                        #     BALL.centerx, BALL.centery,
+                        #     step_vel_x, step_vel_y,
+                        #     PLAYER.centerx, PLAYER.centery
+                        # )
+                        actual_vel_x = step_vel_x  # 원래 속도 그대로 사용
+                        actual_vel_y = step_vel_y  # 원래 속도 그대로 사용
                         
                         # 대시 물결 효과 적용 (물결 또는 회오리가 활성화되어 있을 때)
                         # 첫 0.1초만 로그 

@@ -241,12 +241,13 @@ class PoseidonTrident(LegendaryItem):
         super().__init__(
             name="poseidon_trident",
             korean_name="포세이돈의 삼지창",
-            description="물의 파동으로 공의 궤적을 조작하고, 대시 시 거대한 물결 회오리를 생성합니다",
+            description="대시 시 거대한 물결 회오리를 생성하여 공을 튕겨냅니다 (순수 대시 보조용)",
             unlock_condition="스테이지 7 클리어",
             icon_path="items/legendary/poseidon_trident.png"
         )
-        self.wave_effect_radius = 100  # 물결 효과 반경
-        self.trajectory_influence = 0.15  # 궤적 영향력 (15%)
+        # 물의 파동 효과 제거됨 (순수 대시 보조용 아이템)
+        # self.wave_effect_radius = 100  # 물결 효과 반경 (제거됨)
+        # self.trajectory_influence = 0.15  # 궤적 영향력 (제거됨)
         self.dash_wave_force = 5.0  # 대시 시 물결 힘
         self.wave_timer = 0
         self.dash_wave_active = False
@@ -362,7 +363,7 @@ class PoseidonTrident(LegendaryItem):
         self.wave_timer = 0
         print(f"🔱 [AFTER] {self.korean_name} 활성화!")
         print(f"   - self.active = {self.active}")
-        print(f"   - 물의 파동이 공을 조작합니다!")
+        print(f"   - 대시 시 거대한 물결 회오리 생성!")
         
         # 강제로 active 확인
         if not self.active:
@@ -415,36 +416,9 @@ class PoseidonTrident(LegendaryItem):
     def apply_trajectory_influence(self, ball_x: float, ball_y: float, 
                                   ball_vx: float, ball_vy: float, 
                                   paddle_x: float, paddle_y: float) -> Tuple[float, float]:
-        """공의 궤적에 물의 파동 영향 적용 (회오리가 없을 때만)"""
-        if not self.active:
-            return ball_vx, ball_vy
-        
-        # 회오리가 활성화되어 있으면 trajectory influence 비활성화
-        # (회오리가 모든 물 효과를 대체함)
-        if self.vortex_active:
-            return ball_vx, ball_vy
-            
-        # 패들과의 거리 계산
-        distance = math.sqrt((ball_x - paddle_x) ** 2 + (ball_y - paddle_y) ** 2)
-        
-        # 영향 범위를 200픽셀로 축소 (기존 400에서 감소)
-        reduced_radius = 200  # 더 가까운 범위에서만 작동
-        
-        # 영향 범위 내에 있을 때만
-        if distance < reduced_radius:
-            # 거리에 따른 영향력 계산 (가까울수록 강함)
-            influence = (1 - distance / reduced_radius) * self.trajectory_influence * 0.5  # 영향력도 반으로 감소
-            
-            # 물결 효과로 미세한 궤적 변경 (사인파)
-            wave_effect_x = math.sin(self.wave_timer * 0.1) * influence
-            wave_effect_y = math.cos(self.wave_timer * 0.1) * influence * 0.5
-            
-            # 속도에 물결 효과 적용
-            new_vx = ball_vx * (1 + wave_effect_x)
-            new_vy = ball_vy * (1 + wave_effect_y)
-            
-            return new_vx, new_vy
-            
+        """물의 파동 효과 제거됨 - 순수 대시 보조용"""
+        # 물의 파동 효과는 제거되었습니다
+        # 이제 포세이돈의 삼지창은 순수하게 대시 물결 회오리만 생성합니다
         return ball_vx, ball_vy
         
     def trigger_dash_wave(self, paddle_x: float, paddle_y: float, direction: int = 0):
