@@ -166,14 +166,95 @@ class ItemAcquisitionEffect:
         self.active_items = new_items
         
     def draw(self, screen: pygame.Surface, font: pygame.font.Font):
-        """애니메이션 그리기 - 전설 아이템도 표시하지 않음
+        """애니메이션 그리기
         
         Args:
             screen: 게임 화면
             font: 텍스트 폰트
         """
-        # 전설 아이템과 일반 아이템 모두 아무것도 그리지 않음
-        pass
+        for item in self.active_items:
+            x, y = int(item['x']), int(item['y'])
+            alpha = item['alpha']
+            scale = item['scale']
+            
+            # 전설 아이템 글로우
+            if item['is_legendary'] and item['glow_intensity'] > 0:
+                glow_size = int(self.icon_size * scale * 1.5)
+                glow_alpha = int(alpha * item['glow_intensity'] * 0.3)
+                
+                # 여러 겹의 글로우
+                for i in range(3):
+                    size = glow_size + i * 20
+                    surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                    color = (255, 215, 0, glow_alpha // (i + 1))
+                    pygame.draw.circle(surf, color, (size, size), size)
+                    screen.blit(surf, (x - size, y - size))
+                    
+                # 파티클 그리기
+                for particle in item['particles']:
+                    px = x + particle['x']
+                    py = y + particle['y']
+                    
+                    # 트레일
+                    for i, pos in enumerate(particle['trail']):
+                        trail_alpha = int(alpha * particle['life'] * (i / len(particle['trail'])) * 0.5)
+                        trail_color = (*particle['color'], trail_alpha)
+                        pygame.draw.circle(screen, trail_color[:3], 
+                                         (int(x + pos[0]), int(y + pos[1])), 
+                                         max(1, particle['size'] // 2))
+                    
+                    # 파티클 본체
+                    particle_alpha = int(alpha * particle['life'])
+                    particle_color = (*particle['color'], particle_alpha)
+                    pygame.draw.circle(screen, particle_color[:3],
+                                     (int(px), int(py)), particle['size'])
+            
+            # 아이템 아이콘 그리기
+            if item['icon'] and isinstance(item['icon'], pygame.Surface):
+                # 크기 조정
+                icon_size = int(self.icon_size * scale)
+                scaled_icon = pygame.transform.scale(item['icon'], (icon_size, icon_size))
+                
+                # 알파 적용
+                scaled_icon.set_alpha(alpha)
+                
+                # 중앙 정렬로 그리기
+                icon_rect = scaled_icon.get_rect(center=(x, y))
+                screen.blit(scaled_icon, icon_rect)
+            else:
+                # 아이콘이 없는 경우 기본 원형 표시
+                size = int(self.icon_size * scale / 2)
+                color = (255, 255, 255) if not item['is_legendary'] else (255, 215, 0)
+                
+                # 외곽선
+                pygame.draw.circle(screen, color, (x, y), size, 3)
+                
+                # 내부 채우기 (반투명)
+                fill_alpha = alpha // 2
+                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                fill_color = (*color, fill_alpha)
+                pygame.draw.circle(surf, fill_color, (size, size), size - 3)
+                screen.blit(surf, (x - size, y - size))
+            
+            # 아이템 이름 표시
+            if font and item['korean_name']:
+                # 텍스트 렌더링
+                text_surface = font.render(item['korean_name'] + " 획득!", True, (255, 255, 255))
+                text_surface.set_alpha(alpha)
+                
+                # 텍스트 위치 (아이콘 아래)
+                text_rect = text_surface.get_rect(center=(x, y + int(self.icon_size * scale / 2) + 30))
+                
+                # 배경 그리기 (가독성을 위해)
+                bg_padding = 10
+                bg_rect = text_rect.inflate(bg_padding * 2, bg_padding)
+                bg_surf = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+                bg_color = (0, 0, 0, int(alpha * 0.5))
+                bg_surf.fill(bg_color)
+                screen.blit(bg_surf, bg_rect)
+                
+                # 텍스트 그리기
+                screen.blit(text_surface, text_rect)
                     
     def clear(self):
         """모든 활성 애니메이션 제거"""

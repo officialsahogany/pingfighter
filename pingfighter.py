@@ -32209,6 +32209,9 @@ def show_result(won):
         #  듀스 시스템 리셋 (게임 오버 시)
         reset_deuce_system()
         
+        # BGM 정지 (게임 오버 시 메인 메뉴로 돌아가기 전)
+        bgm_manager.stop_bgm()
+        
         # 무릎보호대 효과 초기화 (게임 오버 시)
         try:
             from item_effects.knee_pads import get_knee_pads_instance
@@ -33052,6 +33055,8 @@ def main(stage_num, new_boss_mode=False):
         
         #  게임 완전 종료 체크
         if game_should_exit:
+            # BGM 정지 (메인 메뉴로 돌아가기 전)
+            bgm_manager.stop_bgm()
             academy.reset_all_skills()  # 스킬 초기화
             game_session_active = False  #  게임 세션 종료
             # 테크니컬조끼 비활성화
