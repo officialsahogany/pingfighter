@@ -28217,6 +28217,7 @@ def handle_ball():
                     print(f"   !")
         
         # 3. 플레이어와 달 크레이터 파편 충돌 (화상 효과)
+        global player_burn_timer, player_burn_effect, player_knockback_y, special_gauge
         moon_fragments = animated_bg_stage4.get_moon_fragments()
         for fragment in moon_fragments:
             # 파편을 원으로 간주하고 패들과 충돌 체크
@@ -34280,14 +34281,17 @@ def main(stage_num, new_boss_mode=False):
                 if current_stage == 3:
                     # 쿠로미 공 먹기 이벤트 체크 (공이 쿠로미 안에 없고 쿨타임이 끝났을 때만)
                     if not ball_in_kuromi and animated_bg_stage3 and not kuromi_eating_active and kuromi_eating_cooldown <= 0:
-                        if animated_bg_stage3.check_ball_eating(BALL):
-                            # 공 먹기 시작
-                            kuromi_eating_active = True
-                            kuromi_eating_timer = 0
-                            ball_in_kuromi = True
-                            kuromi_eating_cooldown = 1200  # 20초 쿨타임 시작 (60 FPS * 20초)
-                            animated_bg_stage3.start_eating((BALL.centerx, BALL.centery))  # 공 위치 전달
-                            print("🍽️ 쿠로미가 공을 먹기 시작! 혀로 낼름~")
+                        # 매 프레임 체크하면 너무 많으므로 10프레임마다 체크
+                        if frame_count % 10 == 0:
+                            if animated_bg_stage3.check_ball_eating(BALL):
+                                # 공 먹기 시작
+                                kuromi_eating_active = True
+                                kuromi_eating_timer = 0
+                                ball_in_kuromi = True
+                                kuromi_eating_cooldown = 1200  # 20초 쿨타임 시작 (60 FPS * 20초)
+                                animated_bg_stage3.start_eating((BALL.centerx, BALL.centery))  # 공 위치 전달
+                                print("🍽️ 쿠로미가 공을 먹기 시작! 혀로 낼름~")
+                                print(f"[DEBUG] 공 먹기 시작 - ball_in_kuromi={ball_in_kuromi}, eating_active={kuromi_eating_active}")
                     
                     # 쿠로미 신비로운 궤적 업데이트
                     if kuromi_spit_trail_active:
@@ -34328,6 +34332,7 @@ def main(stage_num, new_boss_mode=False):
                             ball_hidden = animated_bg_stage3.update_eating(16.67)  # 60FPS 기준
                             
                             if not ball_hidden and ball_in_kuromi:
+                                print(f"[DEBUG] 공 뱉기 - ball_hidden={ball_hidden}, eating_timer={kuromi_eating_timer}")
                                 # 공을 뱉어냄 - 랜덤 방향으로 발사
                                 ball_in_kuromi = False
                                 kuromi_eating_active = False

@@ -1343,8 +1343,14 @@ class Stage3MenheraWorld:
         
         # 공이 쿠로미와 충돌하면 50% 확률로 먹기
         if kuromi_rect.colliderect(ball_rect):
-            if random.random() < 0.5:  # 50% 확률
+            eating_decision = random.random() < 0.5  # 50% 확률
+            print(f"[DEBUG] 쿠로미 공 먹기 체크: 충돌={True}, 먹기 결정={eating_decision}")
+            print(f"[DEBUG] 공 위치: ({ball_rect.centerx}, {ball_rect.centery}), 쿠로미 영역: {kuromi_rect}")
+            if eating_decision:
+                print("[DEBUG] 🍽️ 쿠로미가 공을 먹기로 결정!")
                 return True
+            else:
+                print("[DEBUG] 쿠로미가 공을 먹지 않기로 결정 (50% 확률 실패)")
         return False
     
     def start_eating(self, ball_pos=None):
@@ -1380,13 +1386,22 @@ class Stage3MenheraWorld:
         if not self.eating_active:
             return False  # 공이 여전히 화면에 표시됨
         
+        prev_timer = self.eating_timer
         self.eating_timer += dt / 16.67  # 60FPS 기준으로 정규화
+        
+        # 타이머가 너무 빨리 진행되는지 체크
+        if self.eating_timer - prev_timer > 5:
+            print(f"[WARNING] eating_timer가 너무 빨리 증가! dt={dt}, 증가량={self.eating_timer - prev_timer}")
+            self.eating_timer = prev_timer + 1  # 최대 1프레임씩만 증가
         
         if self.eating_timer < 60:  # 1초 - 혀 내밀기
             # 혀를 공 방향으로 내밀기
             t = min(1.0, self.eating_timer / 60)
             self.tongue_extended = self._ease_out_elastic(t)
             self.mouth_open = t * 0.6  # 입도 살짝 벌림
+            
+            if self.eating_timer % 20 == 0:  # 간헐적 로그
+                print(f"[DEBUG] 혀 내밀기 단계: timer={self.eating_timer:.1f}, tongue_extended={self.tongue_extended:.2f}")
             
             # 혀 세그먼트 업데이트 (곡선 효과)
             self._update_tongue_segments()
@@ -1567,9 +1582,12 @@ class Stage3MenheraWorld:
             return True
             
         else:  # 220 이후 - 폭발적으로 뱉기
+            print(f"[DEBUG] 공 뱉기 단계: eating_timer={self.eating_timer:.1f}")
             # spit_angle이 유지되고 있는지 확인
             if self.spit_angle is not None:
                 print(f"🔄 뱉기 직전 각도 확인: {math.degrees(self.spit_angle):.1f}도")
+            else:
+                print(f"[WARNING] spit_angle이 None입니다! 랜덤 각도가 사용됩니다.")
             
             if self.eating_timer < 225:  # 뱉는 순간
                 # 대폭발 효과

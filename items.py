@@ -713,6 +713,10 @@ def spawn_random_item():
             else:
                 print(f"[DEBUG] poseidon_trident can spawn (not obtained yet)")
         
+        # 스마트폰은 한 번 획득하면 더 이상 스폰 안함
+        if item["name"] == "smartphone" and smartphone_obtained:
+            continue
+        
         # 🚫 패시브 아이템 중복 방지 (chargebag 제외)
         # 이미 소지한 패시브 아이템은 더 이상 스폰하지 않음
         # chargebag은 중복 가능하므로 제외하고 체크
