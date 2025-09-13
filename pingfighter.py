@@ -1812,7 +1812,7 @@ long_boost_active = False
 long_boost_timer = 0
 long_boost_scale = 1.0  # 현재 패들 크기 배율
 long_boost_target_scale = 1.0  # 목표 패들 크기 배율
-LONG_BOOST_DURATION = 360  # 6초 (60fps * 6)
+LONG_BOOST_DURATION = 480  # 8초 (60fps * 8)
 LONG_BOOST_TRANSITION_TIME = 60  # 1초 동안 크기 변화
 # === 배터리 관련 ===
 battery_obtained = False  # 배터리 획득 여부
@@ -3069,11 +3069,11 @@ def activate_long_boost():
     global LONG_BOOST_DURATION
     if not long_boost_active:
         long_boost_active = True
-        long_boost_timer = LONG_BOOST_DURATION  # 6초 지속
+        long_boost_timer = LONG_BOOST_DURATION  # 8초 지속
         long_boost_target_scale = 1.5  # 목표 크기: 1.5배
         #  엑티브 아이템 사용 효과음 재생
         play_active_item_sound()
-        print("! 6   1.5")
+        print("🍄 거대화포션 발동! 8초간 패들 크기 1.5배 증가")
 def activate_flare():
     """조명탄 투척 함수 - 0.5초 투척 모션 후 발사"""
     global flare_throwing, flare_throw_timer, flare_target_x, flare_target_y
@@ -36343,7 +36343,7 @@ def get_item_description(item_name):
     """아이템 설명 반환"""
     # 무중력벨트 + 스피드기어 시너지 효과 확인
     descriptions = {
-        "long_boost": "거대화포션: 일정기간동안 플레이어의 몸집이 대폭 커집니다.",
+        "long_boost": "거대화포션: 8초 동안 플레이어의 몸집이 1.5배로 커집니다.",
         "gauge_charge": "에너지드링크: 게이지를 220만큼 충전합니다.",
         "life_elixir": "생명수: 게이지를 500만큼 충전합니다. 무지개빛 신비한 물약입니다.",  #  생명수 추가
         "aipill": "AI 알약: 이 알약을 먹으면 신체가 로봇이 되어 거의 모든 공격을 가드하지만 가드할때마다 게이지가 감소하는 부작용이 있습니다. 게이지가 바닥나면 종료됩니다",
