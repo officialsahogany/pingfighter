@@ -748,12 +748,12 @@ class Stage3MenheraWorld:
             # 뱉기 준비 시 입 방향 조정
             mouth_offset_x = 0
             mouth_offset_y = 0
-            if self.mouth_direction != 0 and self.eating_timer >= 150:  # 1초 전부터 방향 표시
+            if self.mouth_direction != 0 and self.eating_timer >= 120:  # 1초 전부터 방향 표시
                 # 발사 방향으로 입 이동
-                if self.eating_timer >= 210:  # 마지막 0.17초는 더 강하게
-                    direction_strength = 0.7 + (self.eating_timer - 210) / 10 * 0.3  # 0.7~1.0
-                else:  # 150~210 (1초간 서서히)
-                    direction_strength = (self.eating_timer - 150) / 60 * 0.7  # 0~0.7
+                if self.eating_timer >= 180:  # 마지막 0.17초는 더 강하게
+                    direction_strength = 0.7 + (self.eating_timer - 180) / 10 * 0.3  # 0.7~1.0
+                else:  # 120~180 (1초간 서서히)
+                    direction_strength = (self.eating_timer - 120) / 60 * 0.7  # 0~0.7
                 mouth_offset_x = int(math.cos(self.mouth_direction) * 15 * direction_strength)
                 mouth_offset_y = int(math.sin(self.mouth_direction) * 10 * direction_strength)
                 
@@ -1394,46 +1394,46 @@ class Stage3MenheraWorld:
             print(f"[WARNING] eating_timer가 너무 빨리 증가! dt={dt}, 증가량={self.eating_timer - prev_timer}")
             self.eating_timer = prev_timer + 1  # 최대 1프레임씩만 증가
         
-        if self.eating_timer < 60:  # 1초 - 혀 내밀기
-            # 혀를 공 방향으로 내밀기
-            t = min(1.0, self.eating_timer / 60)
+        if self.eating_timer < 20:  # 0.33초 - 빠르게 혀 내밀기
+            # 혀를 공 방향으로 빠르게 내밀기
+            t = min(1.0, self.eating_timer / 20)
             self.tongue_extended = self._ease_out_elastic(t)
             self.mouth_open = t * 0.6  # 입도 살짝 벌림
             
-            if self.eating_timer % 20 == 0:  # 간헐적 로그
+            if self.eating_timer % 10 == 0:  # 간헐적 로그
                 print(f"[DEBUG] 혀 내밀기 단계: timer={self.eating_timer:.1f}, tongue_extended={self.tongue_extended:.2f}")
             
             # 혀 세그먼트 업데이트 (곡선 효과)
             self._update_tongue_segments()
             return True  # 공을 숨김 (먹는 중)
             
-        elif self.eating_timer < 90:  # 1.5초 - 혀로 공 감싸서 가져오기
+        elif self.eating_timer < 40:  # 0.33초 - 빠르게 혀로 공 감싸서 가져오기
             # 혀로 공을 감싸는 애니메이션
-            t = (self.eating_timer - 60) / 30
+            t = (self.eating_timer - 20) / 20
             self.tongue_wrap_phase = t
             self.ball_on_tongue = True
             
-            # 공을 입으로 가져오기
+            # 공을 입으로 빠르게 가져오기
             if self.ball_tongue_pos:
                 center_x = WIDTH // 2
                 center_y = HEIGHT // 2 + 20
                 target_x = center_x
                 target_y = center_y
                 
-                # 공 위치 보간
+                # 공 위치 보간 (더 빠르게)
                 current_x = self.ball_tongue_pos[0] * (1 - t) + target_x * t
                 current_y = self.ball_tongue_pos[1] * (1 - t) + target_y * t
                 self.ball_tongue_pos = (current_x, current_y)
             
-            # 혀 길이 줄이기
-            self.tongue_extended = 1.0 - t * 0.8
+            # 혀 길이 빠르게 줄이기
+            self.tongue_extended = 1.0 - t * 0.9  # 더 빠르게 줄어듦
             self.mouth_open = 0.6 + t * 0.4  # 입 더 벌리기
             self._update_tongue_segments()
             return True  # 공을 숨김 (먹는 중)
             
-        elif self.eating_timer < 120:  # 90-120 - 입 벌리고 씹기 준비
+        elif self.eating_timer < 50:  # 0.17초 - 혀 완전히 들어가기
             self.ball_on_tongue = False  # 공이 입 안으로
-            self.tongue_extended = 0  # 혀 들어감
+            self.tongue_extended = 0  # 혀 완전히 들어감
             self.mouth_open = 1.0  # 입 완전히 벌림
             
             # 침 떨어지는 효과
@@ -1455,9 +1455,9 @@ class Stage3MenheraWorld:
             
             return True  # 공을 숨김
             
-        elif self.eating_timer < 150:  # 120-150 - 씹기
+        elif self.eating_timer < 120:  # 50-120 - 씹기 (1.17초)
             # 더 리얼한 씹기 모션
-            chew_progress = (self.eating_timer - 120) / 30
+            chew_progress = (self.eating_timer - 50) / 70  # 50에서 120까지
             self.chewing_phase = chew_progress
             
             # 턱 움직임 (위아래로 씹기)
@@ -1530,7 +1530,7 @@ class Stage3MenheraWorld:
             self.chewing_particles = updated_particles
             return True  # 공을 숨김
             
-        elif self.eating_timer < 210:  # 150~210 (1초간) - 방향 예고 단계
+        elif self.eating_timer < 180:  # 120~180 (1초간) - 방향 예고 단계
             # 뱉을 방향 미리 결정 (처음 한 번만, 1초 전에)
             if self.spit_angle is None:
                 self.spit_angle = random.uniform(-math.pi * 0.7, math.pi * 0.7)
@@ -1538,7 +1538,7 @@ class Stage3MenheraWorld:
                 print(f"🎯 쿠로미 발사 각도 결정: {math.degrees(self.spit_angle):.1f}도")
             
             # 볼 부풀리기 (압력 증가) - 1초 동안 서서히
-            buildup = (self.eating_timer - 150) / 60  # 0~1 (1초 동안)
+            buildup = (self.eating_timer - 120) / 60  # 0~1 (1초 동안)
             self.mouth_open = 0.2 + buildup * 0.4
             self.chewing_phase = 0
             
@@ -1560,9 +1560,9 @@ class Stage3MenheraWorld:
             
             return True
             
-        elif self.eating_timer < 220:  # 210~220 - 최종 준비
+        elif self.eating_timer < 190:  # 180~190 - 최종 준비 (0.17초)
             # 최대 압력
-            self.mouth_open = 0.6 + 0.4 * ((self.eating_timer - 210) / 10)
+            self.mouth_open = 0.6 + 0.4 * ((self.eating_timer - 180) / 10)
             self.chewing_phase = 0
             
             # 강력한 압력 파티클
@@ -1583,7 +1583,7 @@ class Stage3MenheraWorld:
             
             return True
             
-        else:  # 220 이후 - 폭발적으로 뱉기
+        else:  # 190 이후 - 폭발적으로 뱉기
             print(f"[DEBUG] 공 뱉기 단계: eating_timer={self.eating_timer:.1f}")
             # spit_angle이 유지되고 있는지 확인
             if self.spit_angle is not None:
@@ -1591,7 +1591,7 @@ class Stage3MenheraWorld:
             else:
                 print(f"[WARNING] spit_angle이 None입니다! 랜덤 각도가 사용됩니다.")
             
-            if self.eating_timer < 225:  # 뱉는 순간
+            if self.eating_timer < 195:  # 뱉는 순간
                 # 대폭발 효과
                 for _ in range(25):
                     angle = random.uniform(0, math.pi * 2)

@@ -32600,6 +32600,16 @@ def main(stage_num, new_boss_mode=False):
     if stage_num == 1:
         CURRENT_BG = STAGE1_BG
         BOSS_COLOR = WHITE
+        # Stage 1 BGM 재생
+        try:
+            bgm_path = resource_path(os.path.join("bgm", "stage1bgm.mp3"))
+            if os.path.exists(bgm_path):
+                pygame.mixer.music.load(bgm_path)
+                pygame.mixer.music.set_volume(0.5)  # 볼륨 50%
+                pygame.mixer.music.play(-1)  # 무한 루프 재생
+                print("Stage 1 BGM 재생 시작")
+        except Exception as e:
+            print(f"Stage 1 BGM 로드 실패: {e}")
     elif stage_num == 2:
         CURRENT_BG = STAGE2_BG
         BOSS_COLOR = (100, 255, 100)
