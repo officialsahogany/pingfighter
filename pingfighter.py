@@ -497,77 +497,6 @@ def change_resolution(direction=1):
     
     print(f"해상도 변경: {new_width}x{new_height} (스케일: {new_width/INTERNAL_WIDTH:.1f}x)")
 
-# 내부 해상도 변경 함수
-def change_internal_resolution(new_width, new_height):
-    """내부 해상도 변경 (게임 로직의 기본 해상도 변경)"""
-    global INTERNAL_WIDTH, INTERNAL_HEIGHT, WIDTH, HEIGHT
-    global SCREEN, unified_renderer, draw
-    global dialog_system, menu_system, trade_point_system
-    global BALL, PLAYER, BOSS
-    
-    # 스케일 비율 계산
-    scale_x = new_width / INTERNAL_WIDTH
-    scale_y = new_height / INTERNAL_HEIGHT
-    
-    # 내부 해상도 업데이트
-    INTERNAL_WIDTH = new_width
-    INTERNAL_HEIGHT = new_height
-    WIDTH = new_width
-    HEIGHT = new_height
-    
-    # 화면 재생성
-    SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
-    
-    # 게임 오브젝트 위치 스케일링
-    if BALL and hasattr(BALL, 'x'):
-        BALL.x = int(BALL.x * scale_x)
-        BALL.y = int(BALL.y * scale_y)
-        BALL.rect.x = int(BALL.rect.x * scale_x)
-        BALL.rect.y = int(BALL.rect.y * scale_y)
-    
-    if PLAYER and hasattr(PLAYER, 'x'):
-        PLAYER.x = int(PLAYER.x * scale_x)
-        PLAYER.y = int(PLAYER.y * scale_y)
-        PLAYER.rect.x = int(PLAYER.rect.x * scale_x)
-        PLAYER.rect.y = int(PLAYER.rect.y * scale_y)
-        PLAYER.width = int(PLAYER.width * scale_x)
-        PLAYER.height = int(PLAYER.height * scale_y)
-    
-    if BOSS and hasattr(BOSS, 'x'):
-        BOSS.x = int(BOSS.x * scale_x)
-        BOSS.y = int(BOSS.y * scale_y)
-        BOSS.rect.x = int(BOSS.rect.x * scale_x)
-        BOSS.rect.y = int(BOSS.rect.y * scale_y)
-        BOSS.width = int(BOSS.width * scale_x)
-        BOSS.height = int(BOSS.height * scale_y)
-    
-    # 시스템 재초기화
-    draw = DrawHelper(SCREEN)
-    unified_renderer = UnifiedRenderer(SCREEN, WIDTH, HEIGHT)
-    dialog_system = DialogSystem(SCREEN, WIDTH, HEIGHT)
-    menu_system = MenuSystem(SCREEN, WIDTH, HEIGHT)
-    trade_point_system = TradePointSystem(SCREEN, WIDTH, HEIGHT)
-    
-    # UI 매니저 재초기화
-    ui_manager.init_ui_manager(SCREEN, FONT, WIDTH, HEIGHT)
-    effects_manager.init_effects_manager(SCREEN, WIDTH, HEIGHT)
-    physics_manager.init_physics_manager(SCREEN, BALL, PLAYER, BOSS, WIDTH, HEIGHT)
-    
-    # 전설 아이템 효과 시스템 재초기화
-    initialize_legendary_effects(WIDTH, HEIGHT)
-    initialize_item_effects(WIDTH, HEIGHT)
-    
-    # constants.py 업데이트
-    import config.constants
-    config.constants.INTERNAL_WIDTH = new_width
-    config.constants.INTERNAL_HEIGHT = new_height
-    config.constants.SCREEN_WIDTH = new_width
-    config.constants.SCREEN_HEIGHT = new_height
-    config.constants.WIDTH = new_width
-    config.constants.HEIGHT = new_height
-    
-    print(f"내부 해상도 변경: {new_width}x{new_height} (스케일: {scale_x:.2f}x)")
-
 # 화면 생성 (통합)
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("PINGFIGHTER")
@@ -588,6 +517,53 @@ initialize_item_effects(WIDTH, HEIGHT)
 
 # 아이템 아이콘 로드
 items.load_item_icons()
+
+def change_internal_resolution(new_width, new_height):
+    """내부 해상도 변경 (게임 로직의 기본 해상도 변경)"""
+    global INTERNAL_WIDTH, INTERNAL_HEIGHT, WIDTH, HEIGHT
+    global SCREEN, unified_renderer, draw, dialog_system, menu_system, trade_point_system
+    global PLAYER, BOSS, BALL
+    
+    # 스케일 비율 계산
+    scale_x = new_width / INTERNAL_WIDTH
+    scale_y = new_height / INTERNAL_HEIGHT
+    
+    # 내부 해상도 업데이트
+    INTERNAL_WIDTH = new_width
+    INTERNAL_HEIGHT = new_height
+    WIDTH = new_width
+    HEIGHT = new_height
+    
+    # Pygame 화면 재생성
+    SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
+    
+    # UI 시스템 재초기화
+    draw = DrawHelper(SCREEN)
+    unified_renderer = UnifiedRenderer(SCREEN, WIDTH, HEIGHT)
+    dialog_system = DialogSystem(SCREEN, WIDTH, HEIGHT)
+    menu_system = MenuSystem(SCREEN, WIDTH, HEIGHT)
+    trade_point_system = TradePointSystem(SCREEN)
+    
+    # 게임 오브젝트 위치 스케일링
+    if 'PLAYER' in globals() and PLAYER is not None:
+        PLAYER.x = int(PLAYER.x * scale_x)
+        PLAYER.y = int(PLAYER.y * scale_y)
+        PLAYER.width = int(PLAYER.width * scale_x)
+        PLAYER.height = int(PLAYER.height * scale_y)
+    
+    if 'BOSS' in globals() and BOSS is not None:
+        BOSS.x = int(BOSS.x * scale_x)
+        BOSS.y = int(BOSS.y * scale_y)
+        BOSS.width = int(BOSS.width * scale_x)
+        BOSS.height = int(BOSS.height * scale_y)
+    
+    if 'BALL' in globals() and BALL is not None:
+        BALL.x = int(BALL.x * scale_x)
+        BALL.y = int(BALL.y * scale_y)
+        BALL.width = int(BALL.width * scale_x)
+        BALL.height = int(BALL.height * scale_y)
+    
+    print(f"✅ 내부 해상도 변경 완료: {new_width}x{new_height}")
 
 # Phase 101: UnifiedRenderer 초기화
 unified_renderer = UnifiedRenderer(SCREEN, WIDTH, HEIGHT)
@@ -14902,9 +14878,7 @@ def show_victory_screen(stage_cleared, reward):
                             else:
                                 #  게임 종료 체크
                                 if not game_should_exit:
-                                    result = main(next_stage)  # 다음 스테이지로 이동
-                                    if result == "restart":
-                                        return "restart"  # 재시작 요청을 상위로 전달
+                                    main(next_stage)  # 다음 스테이지로 이동
                             return
                         elif selected == 1:
                             # 아카데미 화면 표시
@@ -15362,9 +15336,7 @@ def show_start_screen():
                             # 튜토리얼 시작 - 스테이지 50으로 이동
                             print("튜토리얼 시작 - Stage 50")
                             # 스테이지 50으로 게임 시작
-                            result = main(50)  # 스테이지 50 (튜토리얼)
-                            if result == "restart":
-                                continue  # 메뉴 루프로 돌아가서 재시작
+                            main(50)  # 스테이지 50 (튜토리얼)
                         else:
                             # 아니오 선택 - 캐릭터 선택 화면으로 이동
                             selected_character = show_character_selection()
@@ -15378,9 +15350,7 @@ def show_start_screen():
 # 헬모드 제거됨
                     elif choice == "테스트메뉴":
                         #  테스트 모드 시작 (기존 NEW BOSS BATTLE 기능)
-                        result = main(1, new_boss_mode=True)
-                        if result == "restart":
-                            continue  # 메뉴 루프로 돌아가서 재시작
+                        main(1, new_boss_mode=True)
                         return
                     elif choice == "메달샵":
                         # 메달샵 기능 (아직 구현되지 않음)
@@ -22727,10 +22697,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
                 break
     # 게임 시작 (스테이지 1부터)
     print(f"  ! : {character_id}, : {difficulty_mode}")
-    result = main(1)
-    if result == "restart":
-        # 재시작 시 다시 메인 메뉴로
-        return
+    main(1)
 def show_developer_stage_select():
     # 개발자 모드 진입 시 자동으로 신화리그 설정
     global ai_mode
@@ -22782,17 +22749,13 @@ def show_developer_stage_select():
                 selected_index = max(0, min(selected_index, len(stage_buttons) - 1))
                 if event.key == pygame.K_SPACE:
                     _, stage_num = stage_buttons[selected_index]
-                    result = main(stage_num)
-                    if result == "restart":
-                        return  # 메뉴로 돌아가기
+                    main(stage_num)
                     return
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
                 for idx, (rect, num) in enumerate(stage_buttons):
                     if rect.collidepoint(mx, my):
-                        result = main(num)
-                        if result == "restart":
-                            return  # 메뉴로 돌아가기
+                        main(num)
                         return
 def show_item_manager_menu():
     """아이템 관리자 메뉴 - 탭키 아이템창과 동일한 UI"""
@@ -32436,9 +32399,7 @@ def show_result(won):
             # 부활 후 게임 루프를 다시 시작하기 위해 main 함수를 재귀 호출
             #  게임 종료 체크
             if not game_should_exit:
-                result = main(current_stage)
-                if result == "restart":
-                    return "restart"  # 재시작 요청을 상위로 전달
+                main(current_stage)
             return  # 부활했으므로 게임 계속
         # 부활 아이템이 없거나 이미 사용했다면 일반 패배 처리
         earned = int(session_medal_earned * 0.5)
@@ -33614,10 +33575,7 @@ def main(stage_num, new_boss_mode=False):
                 # 챕터2 상태를 유지하기 위한 전역 플래그 설정
                 tutorial_skip_chapter2_init = True
                 
-                result = main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
-                if result == "restart":
-                    return "restart"  # 재시작 요청을 상위로 전달
-                return result
+                return main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
         main.key8_pressed = keys[pygame.K_8]
         
         #  퍼펙트 타이밍 시스템: 스페이스바 + 방향키 프레임 단위 입력 감지
@@ -34037,10 +33995,6 @@ def main(stage_num, new_boss_mode=False):
                             show_death_evaluation()  # 기권 시에도 평가 결과 표시
                     except:
                         pass  # 평가 실패해도 계속 진행
-                elif result == "restart":
-                    # 게임 재시작을 위해 메인 함수로 돌아가기
-                    print("🔄 내부 해상도 변경으로 인한 게임 재시작...")
-                    return "restart"
                     # 기권 처리
                     earned = int(session_medal_earned * 0.5)
                     medal_score += earned
@@ -35751,9 +35705,7 @@ def show_pause_menu():
                     elif selected == 1:  # 인벤토리
                         show_game_info()
                     elif selected == 2:  # 옵션
-                        result = show_pause_options()
-                        if result == "restart":
-                            return "restart"
+                        show_pause_options()
                     elif selected == 3:  # 나가기
                         if show_surrender_confirm():
                             return "surrender"
@@ -35767,9 +35719,7 @@ def show_pause_menu():
                         elif i == 1:  # 인벤토리
                             show_game_info()
                         elif i == 2:  # 옵션
-                            result = show_pause_options()
-                            if result == "restart":
-                                return "restart"
+                            show_pause_options()
                         elif i == 3:  # 나가기
                             if show_surrender_confirm():
                                 return "surrender"
@@ -36892,10 +36842,8 @@ def show_item_management_menu(item_list, selected_index, item_type):
                         else:  # 취소
                             return
 def show_pause_options():
-    """일시정지 옵션 메뉴 - 탭으로 구분된 설정"""
-    global bgm_volume, sfx_volume, WIDTH, HEIGHT, current_resolution_index
-    global SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT, BALL, PLAYER, BOSS
-    global unified_renderer, draw, dialog_system, menu_system, trade_point_system
+    """일시정지 옵션 메뉴 - 볼륨 조절 UI"""
+    global bgm_volume, sfx_volume
     
     font_large = FontStyle.subtitle()  # 32pt 제목용
     font_medium = FontStyle.body()  # 24pt 텍스트용
@@ -36913,28 +36861,9 @@ def show_pause_options():
     
     # 패널 설정
     panel_width = 600
-    panel_height = 450
+    panel_height = 400
     panel_x = (WIDTH - panel_width) // 2
     panel_y = (HEIGHT - panel_height) // 2
-    
-    # 탭 설정
-    tab_width = 150
-    tab_height = 40
-    current_tab = 0  # 0: 음악, 1: 화면
-    
-    # 해상도 옵션
-    internal_resolutions = [
-        (600, 750),    # 기본
-        (800, 1000),   # 1.33x
-        (1000, 1250),  # 1.67x
-        (1200, 1500),  # 2x
-    ]
-    temp_resolution_index = 0
-    # 현재 내부 해상도 찾기
-    for i, res in enumerate(internal_resolutions):
-        if res[0] == INTERNAL_WIDTH:
-            temp_resolution_index = i
-            break
     
     # 슬라이더 위치
     bgm_slider_x = panel_x + (panel_width - slider_width) // 2
@@ -36973,148 +36902,64 @@ def show_pause_options():
         pygame.draw.rect(panel, CYAN, (0, 0, panel_width, panel_height), 3, border_radius=10)
         SCREEN.blit(panel, (panel_x, panel_y))
         
-        # 탭 그리기
-        tab_y = panel_y + 20
-        tabs = ["음악", "화면"]
-        for i, tab_name in enumerate(tabs):
-            tab_x = panel_x + 50 + i * (tab_width + 20)
-            tab_rect = pygame.Rect(tab_x, tab_y, tab_width, tab_height)
-            
-            # 선택된 탭 강조
-            if i == current_tab:
-                pygame.draw.rect(SCREEN, (100, 150, 255), tab_rect, border_radius=5)
-                pygame.draw.rect(SCREEN, WHITE, tab_rect, 2, border_radius=5)
-                text_color = WHITE
-            else:
-                pygame.draw.rect(SCREEN, (50, 50, 50), tab_rect, border_radius=5)
-                pygame.draw.rect(SCREEN, (100, 100, 100), tab_rect, 1, border_radius=5)
-                text_color = (150, 150, 150)
-            
-            tab_text = font_medium.render(tab_name, True, text_color)
-            tab_text_rect = tab_text.get_rect(center=tab_rect.center)
-            SCREEN.blit(tab_text, tab_text_rect)
+        # 제목
+        title_text = font_large.render("음악 설정", True, WHITE)
+        title_rect = title_text.get_rect(center=(WIDTH // 2, panel_y + 40))
+        SCREEN.blit(title_text, title_rect)
         
-        # 탭 내용 표시
-        if current_tab == 0:  # 음악 탭
-            # BGM 볼륨 슬라이더
-            bgm_label = font_medium.render("BGM 볼륨", True, WHITE)
-            bgm_label_rect = bgm_label.get_rect(left=bgm_slider_x, bottom=bgm_slider_y - 10)
-            SCREEN.blit(bgm_label, bgm_label_rect)
-            
-            # BGM 슬라이더 트랙
-            pygame.draw.rect(SCREEN, (60, 60, 60), 
-                            (bgm_slider_x, bgm_slider_y, slider_width, slider_height), 
-                            border_radius=5)
-            pygame.draw.rect(SCREEN, (0, 200, 255), 
-                            (bgm_slider_x, bgm_slider_y, int(slider_width * current_bgm_volume), slider_height), 
-                            border_radius=5)
-            
-            # BGM 슬라이더 핸들
-            bgm_handle_x = bgm_slider_x + int(slider_width * current_bgm_volume)
-            bgm_handle_rect = pygame.Rect(bgm_handle_x - handle_size // 2, 
-                                          bgm_slider_y - (handle_size - slider_height) // 2,
-                                          handle_size, handle_size)
-            pygame.draw.circle(SCREEN, WHITE if selected_slider == 'bgm' else (200, 200, 200),
-                              (bgm_handle_x, bgm_slider_y + slider_height // 2), handle_size // 2)
-            
-            # BGM 퍼센트 표시
-            bgm_percent = font_small.render(f"{int(current_bgm_volume * 100)}%", True, CYAN)
-            bgm_percent_rect = bgm_percent.get_rect(left=bgm_slider_x + slider_width + 20, 
-                                                    centery=bgm_slider_y + slider_height // 2)
-            SCREEN.blit(bgm_percent, bgm_percent_rect)
-            
-            # 효과음 볼륨 슬라이더
-            sfx_label = font_medium.render("효과음 볼륨", True, WHITE)
-            sfx_label_rect = sfx_label.get_rect(left=sfx_slider_x, bottom=sfx_slider_y - 10)
-            SCREEN.blit(sfx_label, sfx_label_rect)
-            
-            # 효과음 슬라이더 트랙
-            pygame.draw.rect(SCREEN, (60, 60, 60), 
-                            (sfx_slider_x, sfx_slider_y, slider_width, slider_height), 
-                            border_radius=5)
-            pygame.draw.rect(SCREEN, (0, 255, 100), 
-                            (sfx_slider_x, sfx_slider_y, int(slider_width * current_sfx_volume), slider_height), 
-                            border_radius=5)
-            
-            # 효과음 슬라이더 핸들
-            sfx_handle_x = sfx_slider_x + int(slider_width * current_sfx_volume)
-            sfx_handle_rect = pygame.Rect(sfx_handle_x - handle_size // 2, 
-                                          sfx_slider_y - (handle_size - slider_height) // 2,
-                                          handle_size, handle_size)
-            pygame.draw.circle(SCREEN, WHITE if selected_slider == 'sfx' else (200, 200, 200),
-                              (sfx_handle_x, sfx_slider_y + slider_height // 2), handle_size // 2)
-            
-            # 효과음 퍼센트 표시
-            sfx_percent = font_small.render(f"{int(current_sfx_volume * 100)}%", True, (0, 255, 100))
-            sfx_percent_rect = sfx_percent.get_rect(left=sfx_slider_x + slider_width + 20, 
-                                                    centery=sfx_slider_y + slider_height // 2)
-            SCREEN.blit(sfx_percent, sfx_percent_rect)
-            
-        else:  # 화면 탭
-            # 내부 해상도 설정
-            resolution_label = font_medium.render("내부 해상도", True, WHITE)
-            resolution_label_rect = resolution_label.get_rect(center=(WIDTH // 2, panel_y + 120))
-            SCREEN.blit(resolution_label, resolution_label_rect)
-            
-            # 해상도 옵션 표시
-            button_width = 150
-            button_height = 60
-            button_spacing = 20
-            start_x = panel_x + (panel_width - (len(internal_resolutions) * button_width + (len(internal_resolutions) - 1) * button_spacing)) // 2
-            
-            for i, resolution in enumerate(internal_resolutions):
-                button_x = start_x + i * (button_width + button_spacing)
-                button_y = panel_y + 160
-                button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
-                
-                # 선택된 해상도 강조
-                if i == temp_resolution_index:
-                    pygame.draw.rect(SCREEN, (100, 200, 255), button_rect, border_radius=5)
-                    pygame.draw.rect(SCREEN, WHITE, button_rect, 3, border_radius=5)
-                    text_color = BLACK
-                else:
-                    pygame.draw.rect(SCREEN, (50, 50, 50), button_rect, border_radius=5)
-                    pygame.draw.rect(SCREEN, (150, 150, 150), button_rect, 2, border_radius=5)
-                    text_color = WHITE
-                
-                # 해상도 텍스트
-                res_text = f"{resolution[0]}x{resolution[1]}"
-                res_surface = font_small.render(res_text, True, text_color)
-                res_rect = res_surface.get_rect(center=(button_rect.centerx, button_rect.centery - 10))
-                SCREEN.blit(res_surface, res_rect)
-                
-                # 배율 텍스트
-                scale_text = f"{resolution[0]/600:.2f}x"
-                scale_surface = font_small.render(scale_text, True, text_color)
-                scale_rect = scale_surface.get_rect(center=(button_rect.centerx, button_rect.centery + 10))
-                SCREEN.blit(scale_surface, scale_rect)
-            
-            # 경고 메시지
-            warning_text = font_small.render("해상도 변경은 게임을 재시작합니다", True, (255, 200, 100))
-            warning_rect = warning_text.get_rect(center=(WIDTH // 2, panel_y + 260))
-            SCREEN.blit(warning_text, warning_rect)
-            
-            # 적용 버튼
-            apply_button_width = 200
-            apply_button_height = 50
-            apply_button_x = panel_x + (panel_width - apply_button_width) // 2
-            apply_button_y = panel_y + 290
-            apply_button_rect = pygame.Rect(apply_button_x, apply_button_y, apply_button_width, apply_button_height)
-            
-            # 현재 해상도와 다른 경우에만 적용 버튼 활성화
-            if temp_resolution_index != [i for i, res in enumerate(internal_resolutions) if res[0] == INTERNAL_WIDTH][0]:
-                apply_color = (100, 255, 100) if apply_button_rect.collidepoint(pygame.mouse.get_pos()) else (50, 150, 50)
-                pygame.draw.rect(SCREEN, apply_color, apply_button_rect, border_radius=5)
-                pygame.draw.rect(SCREEN, WHITE, apply_button_rect, 2, border_radius=5)
-                apply_text_color = WHITE
-            else:
-                pygame.draw.rect(SCREEN, (40, 40, 40), apply_button_rect, border_radius=5)
-                pygame.draw.rect(SCREEN, (80, 80, 80), apply_button_rect, 1, border_radius=5)
-                apply_text_color = (100, 100, 100)
-            
-            apply_text = font_medium.render("적용", True, apply_text_color)
-            apply_text_rect = apply_text.get_rect(center=apply_button_rect.center)
-            SCREEN.blit(apply_text, apply_text_rect)
+        # BGM 볼륨 슬라이더
+        bgm_label = font_medium.render("BGM 볼륨", True, WHITE)
+        bgm_label_rect = bgm_label.get_rect(left=bgm_slider_x, bottom=bgm_slider_y - 10)
+        SCREEN.blit(bgm_label, bgm_label_rect)
+        
+        # BGM 슬라이더 트랙
+        pygame.draw.rect(SCREEN, (60, 60, 60), 
+                        (bgm_slider_x, bgm_slider_y, slider_width, slider_height), 
+                        border_radius=5)
+        pygame.draw.rect(SCREEN, (0, 200, 255), 
+                        (bgm_slider_x, bgm_slider_y, int(slider_width * current_bgm_volume), slider_height), 
+                        border_radius=5)
+        
+        # BGM 슬라이더 핸들
+        bgm_handle_x = bgm_slider_x + int(slider_width * current_bgm_volume)
+        bgm_handle_rect = pygame.Rect(bgm_handle_x - handle_size // 2, 
+                                      bgm_slider_y - (handle_size - slider_height) // 2,
+                                      handle_size, handle_size)
+        pygame.draw.circle(SCREEN, WHITE if selected_slider == 'bgm' else (200, 200, 200),
+                          (bgm_handle_x, bgm_slider_y + slider_height // 2), handle_size // 2)
+        
+        # BGM 퍼센트 표시
+        bgm_percent = font_small.render(f"{int(current_bgm_volume * 100)}%", True, CYAN)
+        bgm_percent_rect = bgm_percent.get_rect(left=bgm_slider_x + slider_width + 20, 
+                                                centery=bgm_slider_y + slider_height // 2)
+        SCREEN.blit(bgm_percent, bgm_percent_rect)
+        
+        # 효과음 볼륨 슬라이더
+        sfx_label = font_medium.render("효과음 볼륨", True, WHITE)
+        sfx_label_rect = sfx_label.get_rect(left=sfx_slider_x, bottom=sfx_slider_y - 10)
+        SCREEN.blit(sfx_label, sfx_label_rect)
+        
+        # 효과음 슬라이더 트랙
+        pygame.draw.rect(SCREEN, (60, 60, 60), 
+                        (sfx_slider_x, sfx_slider_y, slider_width, slider_height), 
+                        border_radius=5)
+        pygame.draw.rect(SCREEN, (0, 255, 100), 
+                        (sfx_slider_x, sfx_slider_y, int(slider_width * current_sfx_volume), slider_height), 
+                        border_radius=5)
+        
+        # 효과음 슬라이더 핸들
+        sfx_handle_x = sfx_slider_x + int(slider_width * current_sfx_volume)
+        sfx_handle_rect = pygame.Rect(sfx_handle_x - handle_size // 2, 
+                                      sfx_slider_y - (handle_size - slider_height) // 2,
+                                      handle_size, handle_size)
+        pygame.draw.circle(SCREEN, WHITE if selected_slider == 'sfx' else (200, 200, 200),
+                          (sfx_handle_x, sfx_slider_y + slider_height // 2), handle_size // 2)
+        
+        # 효과음 퍼센트 표시
+        sfx_percent = font_small.render(f"{int(current_sfx_volume * 100)}%", True, (0, 255, 100))
+        sfx_percent_rect = sfx_percent.get_rect(left=sfx_slider_x + slider_width + 20, 
+                                                centery=sfx_slider_y + slider_height // 2)
+        SCREEN.blit(sfx_percent, sfx_percent_rect)
         
         # 뒤로가기 버튼
         button_color = (100, 150, 255) if back_button_rect.collidepoint(pygame.mouse.get_pos()) else (50, 50, 50)
@@ -37174,75 +37019,30 @@ def show_pause_options():
                     sfx_volume = current_sfx_volume
                     return
                 
-                # 탭 클릭
-                tab_y = panel_y + 20
-                for i in range(2):
-                    tab_x = panel_x + 50 + i * (tab_width + 20)
-                    tab_rect = pygame.Rect(tab_x, tab_y, tab_width, tab_height)
-                    if tab_rect.collidepoint(mouse_pos):
-                        current_tab = i
-                        play_button_click_sound()
-                        break
+                # BGM 슬라이더 클릭 - 클릭한 위치로 즉시 이동
+                bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
+                if bgm_slider_rect.collidepoint(mouse_pos) or bgm_handle_rect.collidepoint(mouse_pos):
+                    selected_slider = 'bgm'
+                    dragging = True
+                    # 클릭한 위치로 즉시 볼륨 설정
+                    relative_x = mouse_x - bgm_slider_x
+                    current_bgm_volume = max(0.0, min(1.0, relative_x / slider_width))
+                    bgm_manager.set_bgm_volume(current_bgm_volume)
                 
-                if current_tab == 0:  # 음악 탭
-                    # BGM 슬라이더 클릭 - 클릭한 위치로 즉시 이동
-                    bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
-                    if bgm_slider_rect.collidepoint(mouse_pos) or bgm_handle_rect.collidepoint(mouse_pos):
-                        selected_slider = 'bgm'
-                        dragging = True
-                        # 클릭한 위치로 즉시 볼륨 설정
-                        relative_x = mouse_x - bgm_slider_x
-                        current_bgm_volume = max(0.0, min(1.0, relative_x / slider_width))
-                        bgm_manager.set_bgm_volume(current_bgm_volume)
-                    
-                    # 효과음 슬라이더 클릭 - 클릭한 위치로 즉시 이동
-                    sfx_slider_rect = pygame.Rect(sfx_slider_x, sfx_slider_y - 10, slider_width, slider_height + 20)
-                    if sfx_slider_rect.collidepoint(mouse_pos) or sfx_handle_rect.collidepoint(mouse_pos):
-                        selected_slider = 'sfx'
-                        dragging = True
-                        # 클릭한 위치로 즉시 볼륨 설정
-                        relative_x = mouse_x - sfx_slider_x
-                        current_sfx_volume = max(0.0, min(1.0, relative_x / slider_width))
-                        set_sfx_volume(current_sfx_volume)
-                        
-                else:  # 화면 탭
-                    # 해상도 버튼 클릭
-                    button_width = 150
-                    button_height = 60
-                    button_spacing = 20
-                    start_x = panel_x + (panel_width - (len(internal_resolutions) * button_width + (len(internal_resolutions) - 1) * button_spacing)) // 2
-                    
-                    for i in range(len(internal_resolutions)):
-                        button_x = start_x + i * (button_width + button_spacing)
-                        button_y = panel_y + 160
-                        button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
-                        if button_rect.collidepoint(mouse_pos):
-                            temp_resolution_index = i
-                            play_button_click_sound()
-                            break
-                    
-                    # 적용 버튼 클릭
-                    apply_button_width = 200
-                    apply_button_height = 50
-                    apply_button_x = panel_x + (panel_width - apply_button_width) // 2
-                    apply_button_y = panel_y + 290
-                    apply_button_rect = pygame.Rect(apply_button_x, apply_button_y, apply_button_width, apply_button_height)
-                    
-                    if apply_button_rect.collidepoint(mouse_pos):
-                        # 현재 해상도와 다른 경우에만 적용
-                        current_index = [i for i, res in enumerate(internal_resolutions) if res[0] == INTERNAL_WIDTH][0]
-                        if temp_resolution_index != current_index:
-                            play_button_click_sound()
-                            # 내부 해상도 변경
-                            new_width, new_height = internal_resolutions[temp_resolution_index]
-                            change_internal_resolution(new_width, new_height)
-                            # 게임 재시작
-                            return "restart"
+                # 효과음 슬라이더 클릭 - 클릭한 위치로 즉시 이동
+                sfx_slider_rect = pygame.Rect(sfx_slider_x, sfx_slider_y - 10, slider_width, slider_height + 20)
+                if sfx_slider_rect.collidepoint(mouse_pos) or sfx_handle_rect.collidepoint(mouse_pos):
+                    selected_slider = 'sfx'
+                    dragging = True
+                    # 클릭한 위치로 즉시 볼륨 설정
+                    relative_x = mouse_x - sfx_slider_x
+                    current_sfx_volume = max(0.0, min(1.0, relative_x / slider_width))
+                    set_sfx_volume(current_sfx_volume)
             
             elif event.type == pygame.MOUSEBUTTONUP:
                 dragging = False
                 if selected_slider:
-                    play_button_click_sound()  # 슬라이더 조작 완료 사운드
+                     play_button_click_sound()  # 슬라이더 조작 완료 사운드
             
             elif event.type == pygame.MOUSEMOTION and dragging:
                 mouse_x = pygame.mouse.get_pos()[0]
