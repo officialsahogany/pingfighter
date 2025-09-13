@@ -40,6 +40,17 @@ class ShaolinTempleBackground:
         self.moon_pulse_active = False  # Whether moon is pulsing
         self.moon_pulse_scale = 1.0  # Scale factor for moon size
         
+        # OPTIMIZATION: Cache for red moon effect
+        self.red_moon_cache = None  # Cached red moon surface
+        self.red_moon_cache_intensity = -1  # Last cached intensity
+        self.red_moon_cache_scale = -1  # Last cached scale
+        self.red_moon_update_counter = 0  # Update every N frames
+        
+        # OPTIMIZATION: Performance mode for low FPS
+        self.performance_mode = False  # Enable reduced quality for better FPS
+        self.fps_counter = 0
+        self.low_fps_threshold = 30  # Enable performance mode below 30 FPS
+        
         # Colors - Muted night palette (불 꺼진 밤 느낌)
         self.colors = {
             'sky_top': (40, 35, 55),  # 어두운 보라빛 밤하늘
@@ -225,6 +236,53 @@ class ShaolinTempleBackground:
         # Apply fragment firing pulse effect (stronger pulse when firing)
         moon_scale = getattr(self, 'moon_pulse_scale', 1.0)
         
+        # OPTIMIZATION: Use cached surface if available and unchanged
+        # Only update cache every 3 frames or when intensity/scale changes significantly
+        self.red_moon_update_counter += 1
+        intensity_changed = abs(self.moon_red_intensity - self.red_moon_cache_intensity) > 0.05
+        scale_changed = abs(moon_scale - self.red_moon_cache_scale) > 0.05
+        
+        if (self.red_moon_cache is None or intensity_changed or scale_changed or 
+            self.red_moon_update_counter >= 3):
+            # Create new cache
+            self.red_moon_cache = self._create_red_moon_surface(pulse, moon_scale)
+            self.red_moon_cache_intensity = self.moon_red_intensity
+            self.red_moon_cache_scale = moon_scale
+            self.red_moon_update_counter = 0
+        
+        # Draw cached surface
+        if self.red_moon_cache:
+            surface.blit(self.red_moon_cache, (moon_x - 200, moon_y - 200))
+    
+    def _create_red_moon_surface(self, pulse: float, moon_scale: float) -> pygame.Surface:
+        """Create the red moon effect surface (for caching)"""
+        # Create a surface large enough for the effect (400x400 to fit all glows)
+        cache_surface = pygame.Surface((400, 400), pygame.SRCALPHA)
+        cache_surface.fill((0, 0, 0, 0))
+        
+        # Center position in cache surface
+        center_x, center_y = 200, 200
+        
+        # OPTIMIZATION: Reduce quality in performance mode
+        if self.performance_mode:
+            # Simple red moon with minimal glow layers (5 instead of 20)
+            for i in [5, 10, 15, 20]:
+                distance_ratio = i / 20.0
+                alpha = int(60 * (distance_ratio ** 2) * self.moon_red_intensity)
+                glow_radius = int((35 + i * 8) * moon_scale)
+                glow_color = (255, int(50 * (1 - distance_ratio)), 0, min(255, alpha))
+                pygame.draw.circle(cache_surface, glow_color, (center_x, center_y), glow_radius)
+            
+            # Simple moon without gradient
+            moon_radius = int(35 * moon_scale)
+            base_intensity = int(200 * self.moon_red_intensity)
+            moon_color = (255, int(60 - 50 * self.moon_red_intensity), 
+                         int(40 - 35 * self.moon_red_intensity), min(255, base_intensity))
+            pygame.draw.circle(cache_surface, moon_color, (center_x, center_y), moon_radius)
+            
+            return cache_surface
+        
+        # Full quality rendering
         # Create gradient red glow with softer falloff
         for i in range(20, 0, -1):
             # Gradient calculation - more transparent as distance increases
@@ -252,9 +310,9 @@ class ShaolinTempleBackground:
                                  (glow_size // 2, glow_size // 2),
                                  r)
             
-            surface.blit(glow_surface,
-                        (moon_x - glow_size // 2,
-                         moon_y - glow_size // 2))
+            cache_surface.blit(glow_surface,
+                        (center_x - glow_size // 2,
+                         center_y - glow_size // 2))
         
         # Draw red moon overlay with better blending
         moon_size = int(80 * moon_scale)  # Apply scale to moon size
@@ -296,7 +354,8 @@ class ShaolinTempleBackground:
                          (int(center + 15 * moon_scale), int(center - 8 * moon_scale)), 
                          int(4 * moon_scale))
         
-        surface.blit(moon_surface, (moon_x - moon_size // 2, moon_y - moon_size // 2))
+        cache_surface.blit(moon_surface, (center_x - moon_size // 2, center_y - moon_size // 2))
+        return cache_surface
     
     def _draw_static_background(self):
         """Draw static background elements"""
@@ -2050,9 +2109,25 @@ class ShaolinTempleBackground:
         # Draw to main surface
         surface.blit(monk_surface, (x - 30, y - 40))
     
-    def update(self):
+    def update(self, dt: float = 0.016):
         """Update animations"""
         self.frame_count += 1
+        
+        # OPTIMIZATION: Auto-detect low FPS and enable performance mode
+        if dt > 0 and self.moon_red_intensity > 0:  # Only check during red moon
+            current_fps = 1.0 / dt
+            if current_fps < self.low_fps_threshold:
+                self.fps_counter += 1
+                if self.fps_counter > 60:  # If low FPS for 1 second
+                    self.performance_mode = True
+                    self.red_moon_cache = None  # Force cache refresh
+                    print(f"Performance mode enabled (FPS: {current_fps:.1f})")
+            else:
+                self.fps_counter = max(0, self.fps_counter - 1)
+                if self.fps_counter == 0 and self.performance_mode:
+                    self.performance_mode = False
+                    self.red_moon_cache = None  # Force cache refresh
+                    print("Performance mode disabled")
         self._update_crows()
         self._update_monk_hit_effects()  # Update monk hit effects
         self._update_crow_corpses()

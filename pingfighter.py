@@ -24746,7 +24746,9 @@ def draw_field():
             animated_bg_stage3.draw_chewing_effects(SCREEN)
     elif current_stage == 4 and animated_bg_stage4 is not None:
         # 스테이지4에서는 소림사 사원 애니메이션 배경 사용
-        animated_bg_stage4.update()  # ShaolinTempleBackground는 update()만 호출
+        # Calculate dt for performance monitoring
+        dt = clock.get_time() / 1000.0 if 'clock' in globals() else 0.016
+        animated_bg_stage4.update(dt)  # Pass dt for FPS detection
         if FULLSCREEN_MODE:
             SCREEN.fill(BLACK)
             temp_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
