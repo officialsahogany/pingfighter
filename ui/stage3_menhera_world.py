@@ -1332,7 +1332,7 @@ class Stage3MenheraWorld:
             pygame.draw.circle(screen, BABY_BLUE, (x + 5, y), 1)
     
     def check_ball_eating(self, ball_rect):
-        """공이 쿠로미 근처에 있는지 확인 (50% 확률)"""
+        """공이 쿠로미 근처에 있는지 확인 (10% 확률)"""
         if self.eating_active:
             return False  # 이미 먹는 중이면 스킵
         
@@ -1341,16 +1341,16 @@ class Stage3MenheraWorld:
         center_y = HEIGHT // 2
         kuromi_rect = pygame.Rect(center_x - 60, center_y - 60, 120, 120)
         
-        # 공이 쿠로미와 충돌하면 50% 확률로 먹기
+        # 공이 쿠로미와 충돌하면 10% 확률로 먹기
         if kuromi_rect.colliderect(ball_rect):
-            eating_decision = random.random() < 0.5  # 50% 확률
+            eating_decision = random.random() < 0.1  # 10% 확률
             print(f"[DEBUG] 쿠로미 공 먹기 체크: 충돌={True}, 먹기 결정={eating_decision}")
             print(f"[DEBUG] 공 위치: ({ball_rect.centerx}, {ball_rect.centery}), 쿠로미 영역: {kuromi_rect}")
             if eating_decision:
                 print("[DEBUG] 🍽️ 쿠로미가 공을 먹기로 결정!")
                 return True
             else:
-                print("[DEBUG] 쿠로미가 공을 먹지 않기로 결정 (50% 확률 실패)")
+                print("[DEBUG] 쿠로미가 공을 먹지 않기로 결정 (10% 확률 실패)")
         return False
     
     def start_eating(self, ball_pos=None):

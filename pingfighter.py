@@ -6844,26 +6844,15 @@ def handle_player(keys):
         if recent_half_dash_time > 0 and (current_time - recent_half_dash_time) <= recent_dash_success_window:
             is_dash_success = True
             
-            # 무릎보호대 효과 체크 - 하프대쉬로 공을 맞췄을 때 특수 게이지 50% 충전
+            # 무릎보호대 효과 체크 - 하프대쉬로 공을 맞췄을 때 이펙트만 트리거 (충전은 별도 처리)
             try:
                 from item_effects.knee_pads import get_knee_pads_instance
                 knee_pads = get_knee_pads_instance()
                 if knee_pads and knee_pads.active:
-                    # 특수 게이지 50% 충전 (기본 충전량 80의 50% = 40)
-                    base_charge = 80  # 기본 충전량
-                    charge_amount = base_charge * 0.5  # 50% = 40
-                    
-                    # 블루투스링 효과 적용 (있을 경우)
-                    import items
-                    if items.bluetooth_ring_obtained:
-                        charge_amount *= 1.25  # 25% 추가 충전
-                    
-                    special_gauge = min(special_gauge + charge_amount, special_gauge_max)
-                    
-                    # 이펙트 트리거
+                    # 이펙트 트리거만 호출 (실제 충전은 아래 다른 곳에서 처리됨)
                     ball_center = (ball_x, ball_y)
-                    if knee_pads.on_half_dash_hit(ball_center):
-                        print(f"무릎보호대 효과: 특수 게이지 {charge_amount:.0f} 충전 (현재: {special_gauge}/{special_gauge_max})")
+                    knee_pads.on_half_dash_hit(ball_center)
+                    print(f"무릎보호대 이펙트 트리거 (충전은 line 27899에서 처리)")
             except Exception as e:
                 print(f"무릎보호대 효과 처리 중 오류: {e}")
         
@@ -12276,14 +12265,21 @@ def draw_objects():
         
         # Stage 4 화상 효과 중이면 붉은색 틴트 적용
         if player_burn_effect and player_burn_timer > 0:
-            # 붉은색 틴트 효과 - 이미지 픽셀만 빨갛게 (투명 배경은 유지)
-            red_tint = pygame.Surface(player_to_draw.get_size(), pygame.SRCALPHA)
-            red_tint.fill((255, 50, 50, 180))  # 붉은색 반투명
-            player_to_draw.blit(red_tint, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            # 패들 이미지에만 붉은색 적용 (투명 배경 제외)
+            # BLEND_RGB_MULT를 사용하여 알파 채널은 유지하면서 색상만 변경
             
-            # 깜빡이는 효과
+            # 붉은색 필터 생성 (알파 채널 유지)
+            red_tint = pygame.Surface(player_to_draw.get_size(), pygame.SRCALPHA)
+            
+            # 깜빡임 효과를 위한 색상 변경
             if (time_now // 100) % 2 == 0:
-                player_to_draw.set_alpha(200)
+                # 더 강한 붉은색
+                red_tint.fill((255, 60, 60, 255))
+                player_to_draw.blit(red_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            else:
+                # 약간 약한 붉은색
+                red_tint.fill((255, 100, 100, 255))
+                player_to_draw.blit(red_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
         
         # 미사일 무적 시간이면 반투명 처리
         elif is_missile_invulnerable and (time_now // 100) % 2 == 0:
