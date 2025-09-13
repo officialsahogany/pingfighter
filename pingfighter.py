@@ -22465,7 +22465,8 @@ def show_item_manager_menu():
         {"name": "commando_arm", "type": "passive", "icon": get_icon_safe("commando_arm_icon", "commando_arm")},
         {"name": "fuel_pouch", "type": "passive", "icon": get_icon_safe("fuel_pouch_icon", "fuel_pouch")},
         {"name": "bluetooth_ring", "type": "passive", "icon": get_icon_safe("bluetooth_ring_icon", "bluetooth_ring")},
-        {"name": "smartphone", "type": "passive", "icon": get_icon_safe("smartphone_icon", "smartphone")}
+        {"name": "smartphone", "type": "passive", "icon": get_icon_safe("smartphone_icon", "smartphone")},
+        {"name": "knee_pads", "type": "passive", "icon": get_icon_safe("knee_pads_icon", "knee_pads")}
     ]
     
     # 전설 아이템 추가

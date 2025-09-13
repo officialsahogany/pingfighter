@@ -23,6 +23,8 @@ WHITE = (255, 255, 255)             # 흰색
 SOFT_BLACK = (60, 60, 60)           # 부드러운 검은색
 CRIMSON = (220, 20, 60)             # 크림슨 (액센트)
 BABY_BLUE = (137, 207, 240)         # 베이비 블루
+SOFT_YELLOW = (255, 255, 200)      # 부드러운 노란색
+MINT_GREEN = (152, 255, 152)       # 민트 그린
 
 class Stage3MenheraWorld:
     def __init__(self):
