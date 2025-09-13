@@ -34592,7 +34592,7 @@ def main(stage_num, new_boss_mode=False):
                         dowsing_pendulum_effect.draw_attraction_range(SCREEN, PLAYER, alpha=20)
                 
                 # 아이템 업데이트 (아이템 획득 사운드 전달)
-                items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET, sfx_volume)
+                items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET)
                 
                 # 전설 아이템 매니저 업데이트 (물리 업데이트 전에 실행)
                 try:
