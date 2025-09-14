@@ -18,7 +18,7 @@ class ShaolinTempleBackground:
         # Temple destruction state
         self.temple_destroyed = False
         self.destruction_animation_active = False
-        self.destruction_phase = 0  # 0: idle, 1: moon turning red, 2: red light, 3: collapsing, 4: ruins
+        self.destruction_phase = 0  # 0: idle, 1: moon turning red, 2: red light, 3: destruction wave, 4: collapsing, 5: ruins
         self.destruction_timer = 0
         self.moon_red_intensity = 0.0
         self.red_light_alpha = 0
@@ -39,6 +39,10 @@ class ShaolinTempleBackground:
         self.moon_pulse_timer = 0  # Timer for pulsing animation
         self.moon_pulse_active = False  # Whether moon is pulsing
         self.moon_pulse_scale = 1.0  # Scale factor for moon size
+        
+        # Destruction wave from moon
+        self.destruction_wave = None  # Active destruction wave
+        self.destruction_wave_charging = False  # Moon charging up wave
         
         # OPTIMIZATION: Cache for red moon effect
         self.red_moon_cache = None  # Cached red moon surface
@@ -1814,18 +1818,24 @@ class ShaolinTempleBackground:
                 particle['x'] += particle['vx']
                 particle['y'] += particle['vy']
                 particle['vy'] += particle.get('gravity', 0.2)
-                
-                # Debug: Check if particle is on screen
-                if particle['lifetime'] % 10 == 0:  # Log every 10 frames
-                    print(f"Particle at ({particle['x']}, {particle['y']}), size: {particle.get('size', 0)}")
             
-            particle['lifetime'] -= 1
+            # Handle both life and lifetime keys for compatibility
+            if 'life' in particle:
+                particle['life'] -= 1
+                life_remaining = particle['life']
+            elif 'lifetime' in particle:
+                particle['lifetime'] -= 1
+                life_remaining = particle['lifetime']
+            else:
+                # Default lifetime if neither exists
+                particle['life'] = 60
+                life_remaining = 60
             
-            # Fade out dust particles
+            # Fade out particles
             if 'opacity' in particle:
-                particle['opacity'] = int(particle['opacity'] * 0.95)
+                particle['opacity'] = max(0, int(particle['opacity'] * 0.95))
             
-            if particle['lifetime'] <= 0:
+            if life_remaining <= 0:
                 self.monk_death_particles.remove(particle)
         
         # Update body parts
@@ -1873,94 +1883,227 @@ class ShaolinTempleBackground:
     
     def _draw_monk_death_effects(self, surface: pygame.Surface):
         """Draw monk death particles and body parts"""
-        # Debug: Log if we have effects to draw
-        if len(self.monk_death_particles) > 0 or len(self.monk_body_parts) > 0:
-            print(f"Drawing death effects: {len(self.monk_death_particles)} particles, {len(self.monk_body_parts)} body parts")
-        
-        # Draw particles
+        # Draw particles - simplified for visibility
         for particle in self.monk_death_particles:
-            if particle.get('type') == 'shockwave':
-                # Draw expanding shockwave
-                particle['radius'] += 3
-                if particle['radius'] < particle['max_radius']:
-                    alpha = int(255 * (1 - particle['radius'] / particle['max_radius']))
-                    # Create temp surface for alpha
-                    shockwave_surf = pygame.Surface((int(particle['radius']*2+4), int(particle['radius']*2+4)), pygame.SRCALPHA)
-                    pygame.draw.circle(shockwave_surf, (*particle['color'], alpha),
-                                     (int(particle['radius']+2), int(particle['radius']+2)),
-                                     int(particle['radius']), 2)
-                    surface.blit(shockwave_surf, (int(particle['x'] - particle['radius'] - 2), 
-                                                  int(particle['y'] - particle['radius'] - 2)))
-            elif particle.get('type') == 'sparkle':
-                # Draw sparkle with glow
-                pygame.draw.circle(surface, particle['color'],
-                                 (int(particle['x']), int(particle['y'])),
-                                 particle['size'])
-                # Add glow
-                glow_surf = pygame.Surface((particle['size']*4, particle['size']*4), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (*particle['color'], 50),
-                                 (particle['size']*2, particle['size']*2),
-                                 particle['size']*2)
-                surface.blit(glow_surf, (particle['x'] - particle['size']*2,
-                                       particle['y'] - particle['size']*2))
-            elif 'opacity' in particle and particle['opacity'] > 0:
-                # Dust particles with opacity
-                color = (*particle['color'], particle['opacity'])
-                temp_surf = pygame.Surface((particle['size']*2, particle['size']*2), pygame.SRCALPHA)
-                pygame.draw.circle(temp_surf, color, 
-                                 (particle['size'], particle['size']), 
-                                 particle['size'])
-                surface.blit(temp_surf, (int(particle['x'] - particle['size']), 
-                                       int(particle['y'] - particle['size'])))
-            else:
-                # Regular particles (blood, gold, etc) - draw directly for visibility
-                try:
-                    # Make sure position is valid
-                    x, y = int(particle['x']), int(particle['y'])
-                    if 0 <= x <= surface.get_width() and 0 <= y <= surface.get_height():
-                        pygame.draw.circle(surface, particle['color'], (x, y), particle['size'])
-                        # Debug: Draw a larger outline for visibility
-                        if particle['size'] > 5:
-                            pygame.draw.circle(surface, (255, 255, 255), (x, y), particle['size'], 1)
-                except Exception as e:
-                    print(f"Error drawing particle: {e}")
+            try:
+                x, y = int(particle['x']), int(particle['y'])
                 
-                # Add glow for golden particles
-                if particle.get('glow'):
-                    glow_surf = pygame.Surface((particle['size']*3, particle['size']*3), pygame.SRCALPHA)
-                    pygame.draw.circle(glow_surf, (*particle['color'], 30),
-                                     (particle['size']*1.5, particle['size']*1.5),
-                                     particle['size']*1.5)
-                    surface.blit(glow_surf, (particle['x'] - particle['size']*1.5,
-                                           particle['y'] - particle['size']*1.5))
+                if particle.get('type') == 'shockwave':
+                    # Draw expanding shockwave as polygonal blast
+                    if particle['radius'] < particle['max_radius']:
+                        # Create jagged shockwave effect
+                        points = []
+                        num_points = 12
+                        for i in range(num_points):
+                            angle = (i * 2 * math.pi / num_points)
+                            radius = particle['radius'] * random.uniform(0.8, 1.2)  # Jagged edge
+                            px = x + radius * math.cos(angle)
+                            py = y + radius * math.sin(angle)
+                            points.append((px, py))
+                        if len(points) >= 3:
+                            pygame.draw.polygon(surface, particle['color'], points, 3)
+                        particle['radius'] += 5  # Expand faster for visibility
+                elif particle.get('type') in ['head', 'torso', 'arm', 'leg']:
+                    # Draw body fragments as irregular shapes based on type
+                    size = max(particle.get('size', 5), 8)
+                    frag_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                    
+                    if particle['type'] == 'head':
+                        # Draw skull-like fragment
+                        points = []
+                        for i in range(6):
+                            angle = (i * 2 * math.pi / 6) + math.radians(particle.get('rotation', 0))
+                            radius = size * (0.9 if i % 2 == 0 else 0.7)  # Irregular head shape
+                            px = size + radius * math.cos(angle)
+                            py = size + radius * math.sin(angle)
+                            points.append((px, py))
+                    elif particle['type'] == 'torso':
+                        # Draw torso fragment as oval
+                        oval_width = size * 1.4
+                        oval_height = size * 1.8
+                        points = []
+                        for i in range(8):
+                            angle = (i * 2 * math.pi / 8) + math.radians(particle.get('rotation', 0))
+                            rx = oval_width * 0.7 * math.cos(angle)
+                            ry = oval_height * 0.7 * math.sin(angle)
+                            px = size + rx
+                            py = size + ry
+                            points.append((px, py))
+                    elif particle['type'] in ['arm', 'leg']:
+                        # Draw limb fragments as elongated shapes
+                        limb_width = size * 0.6
+                        limb_length = size * 2.0
+                        points = [
+                            (size, size - limb_length/2),  # Top
+                            (size + limb_width/2, size - limb_length/4),
+                            (size + limb_width/2, size + limb_length/4),
+                            (size, size + limb_length/2),  # Bottom
+                            (size - limb_width/2, size + limb_length/4),
+                            (size - limb_width/2, size - limb_length/4)
+                        ]
+                        # Apply rotation
+                        rotated_points = []
+                        angle = math.radians(particle.get('rotation', 0))
+                        for px, py in points:
+                            rx = size + (px - size) * math.cos(angle) - (py - size) * math.sin(angle)
+                            ry = size + (px - size) * math.sin(angle) + (py - size) * math.cos(angle)
+                            rotated_points.append((rx, ry))
+                        points = rotated_points
+                    
+                    if len(points) >= 3:
+                        color = (*particle['color'], particle.get('opacity', 255))
+                        pygame.draw.polygon(frag_surface, color, points)
+                        # Add darker outline for definition
+                        darker_color = tuple(max(0, c - 50) for c in particle['color']) + (particle.get('opacity', 255),)
+                        pygame.draw.polygon(frag_surface, darker_color, points, 2)
+                    
+                    surface.blit(frag_surface, (x - size, y - size))
+                else:
+                    # Blood droplets as small irregular shapes
+                    size = max(particle.get('size', 3), 4)
+                    droplet_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                    
+                    # Create droplet shape (teardrop-like)
+                    points = []
+                    for i in range(6):
+                        angle = (i * 2 * math.pi / 6)
+                        if i == 0:  # Top point (teardrop tip)
+                            radius = size * 1.2
+                        else:
+                            radius = size * 0.8
+                        px = size + radius * math.cos(angle)
+                        py = size + radius * math.sin(angle)
+                        points.append((px, py))
+                    
+                    if len(points) >= 3:
+                        color = (*particle['color'], particle.get('opacity', 255))
+                        pygame.draw.polygon(droplet_surface, color, points)
+                    
+                    surface.blit(droplet_surface, (x - size, y - size))
+                    
+            except Exception as e:
+                print(f"Error drawing particle at ({particle.get('x', 0)}, {particle.get('y', 0)}): {e}")
         
-        # Draw body parts
+        # Draw body parts with realistic shapes
         for part in self.monk_body_parts:
-            # Create surface for rotation
-            size = part['size'] * 2
-            part_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-            
-            # Draw different body part shapes
-            if part['type'] == 'head':
-                pygame.draw.circle(part_surface, part['color'], 
-                                 (size//2, size//2), part['size']//2)
-            elif part['type'] == 'torso':
-                pygame.draw.ellipse(part_surface, part['color'],
-                                  (size//4, size//4, size//2, size//2))
-            elif part['type'] in ['arm', 'leg']:
-                pygame.draw.rect(part_surface, part['color'],
-                               (size//3, 0, size//3, size))
-            
-            # Add glow for hero parts
-            if part.get('is_hero') and part.get('glow'):
-                glow_color = (*part['color'], 100)
-                pygame.draw.circle(part_surface, glow_color,
-                                 (size//2, size//2), size//2, 2)
-            
-            # Apply rotation
-            rotated = pygame.transform.rotate(part_surface, part['rotation'])
-            rect = rotated.get_rect(center=(int(part['x']), int(part['y'])))
-            surface.blit(rotated, rect)
+            try:
+                x, y = int(part['x']), int(part['y'])
+                size = max(part.get('size', 8), 10)  # Minimum size 10
+                
+                # Create surface for body part
+                part_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                center = size
+                
+                # Draw realistic body part shapes
+                if part['type'] == 'head':
+                    # Draw head as irregular oval
+                    points = []
+                    for i in range(8):
+                        angle = (i * 2 * math.pi / 8) + math.radians(part.get('rotation', 0))
+                        # Head is slightly wider than tall
+                        rx = size * 0.8 * math.cos(angle)
+                        ry = size * 0.9 * math.sin(angle)
+                        px = center + rx
+                        py = center + ry
+                        points.append((px, py))
+                    
+                    if len(points) >= 3:
+                        pygame.draw.polygon(part_surface, part['color'], points)
+                        # Add face features with darker color
+                        darker_color = tuple(max(0, c - 30) for c in part['color'])
+                        pygame.draw.polygon(part_surface, darker_color, points, 2)
+                        
+                        # Add simple facial features (eyes, mouth)
+                        eye_color = (20, 20, 20)
+                        eye1_x, eye1_y = int(center - size * 0.3), int(center - size * 0.2)
+                        eye2_x, eye2_y = int(center + size * 0.3), int(center - size * 0.2)
+                        mouth_x, mouth_y = int(center), int(center + size * 0.3)
+                        
+                        # Draw simple pixel eyes and mouth
+                        part_surface.set_at((eye1_x, eye1_y), eye_color)
+                        part_surface.set_at((eye2_x, eye2_y), eye_color)
+                        part_surface.set_at((mouth_x, mouth_y), eye_color)
+                
+                elif part['type'] == 'torso':
+                    # Draw torso as rectangular body shape
+                    torso_width = size * 1.2
+                    torso_height = size * 1.6
+                    
+                    points = []
+                    for dx, dy in [(-torso_width/2, -torso_height/2),
+                                  (torso_width/2, -torso_height/2),
+                                  (torso_width/2, torso_height/2),
+                                  (-torso_width/2, torso_height/2)]:
+                        angle = math.radians(part.get('rotation', 0))
+                        px = center + dx * math.cos(angle) - dy * math.sin(angle)
+                        py = center + dx * math.sin(angle) + dy * math.cos(angle)
+                        points.append((px, py))
+                    
+                    pygame.draw.polygon(part_surface, part['color'], points)
+                    # Add robe details
+                    darker_color = tuple(max(0, c - 40) for c in part['color'])
+                    pygame.draw.polygon(part_surface, darker_color, points, 2)
+                
+                elif part['type'] == 'arm':
+                    # Draw arm as elongated shape
+                    arm_width = size * 0.5
+                    arm_length = size * 1.8
+                    
+                    points = [
+                        (center - arm_width/2, center - arm_length/2),  # Shoulder
+                        (center + arm_width/2, center - arm_length/2),
+                        (center + arm_width/3, center),  # Elbow (narrower)
+                        (center + arm_width/2, center + arm_length/2),  # Hand
+                        (center - arm_width/2, center + arm_length/2),
+                        (center - arm_width/3, center),  # Elbow
+                    ]
+                    
+                    # Apply rotation
+                    rotated_points = []
+                    angle = math.radians(part.get('rotation', 0))
+                    for px, py in points:
+                        rx = center + (px - center) * math.cos(angle) - (py - center) * math.sin(angle)
+                        ry = center + (px - center) * math.sin(angle) + (py - center) * math.cos(angle)
+                        rotated_points.append((rx, ry))
+                    
+                    pygame.draw.polygon(part_surface, part['color'], rotated_points)
+                    darker_color = tuple(max(0, c - 30) for c in part['color'])
+                    pygame.draw.polygon(part_surface, darker_color, rotated_points, 2)
+                
+                elif part['type'] == 'leg':
+                    # Draw leg as elongated shape with foot
+                    leg_width = size * 0.6
+                    leg_length = size * 2.0
+                    
+                    points = [
+                        (center - leg_width/2, center - leg_length/2),  # Hip
+                        (center + leg_width/2, center - leg_length/2),
+                        (center + leg_width/2, center + leg_length/3),  # Knee
+                        (center + leg_width/2, center + leg_length/2),  # Ankle
+                        (center + leg_width, center + leg_length/2),    # Foot tip
+                        (center - leg_width/2, center + leg_length/2),
+                        (center - leg_width/2, center + leg_length/3),  # Knee
+                    ]
+                    
+                    # Apply rotation
+                    rotated_points = []
+                    angle = math.radians(part.get('rotation', 0))
+                    for px, py in points:
+                        rx = center + (px - center) * math.cos(angle) - (py - center) * math.sin(angle)
+                        ry = center + (px - center) * math.sin(angle) + (py - center) * math.cos(angle)
+                        rotated_points.append((rx, ry))
+                    
+                    pygame.draw.polygon(part_surface, part['color'], rotated_points)
+                    darker_color = tuple(max(0, c - 30) for c in part['color'])
+                    pygame.draw.polygon(part_surface, darker_color, rotated_points, 2)
+                
+                # No special glow for hero parts - removed as requested
+                
+                # Blit the body part
+                surface.blit(part_surface, (x - center, y - center))
+                    
+            except Exception as e:
+                print(f"Error drawing body part: {e}")
     
     def _draw_monk_hit_effects(self, surface: pygame.Surface):
         """Draw monk hit effects"""
@@ -2261,6 +2404,7 @@ class ShaolinTempleBackground:
         self._update_crow_particles()
         self._update_monks()
         self._update_destruction_animation()  # Update temple destruction
+        self._update_destruction_wave()  # Update destruction wave
         self._update_moon_fragments()  # Update moon crater fragments
     
     def draw(self, surface: pygame.Surface):
@@ -2326,13 +2470,6 @@ class ShaolinTempleBackground:
         # Draw monk death effects
         self._draw_monk_death_effects(temp_surface)
         
-        # Debug: Draw a big red circle if we have death effects
-        if len(self.monk_death_particles) > 0:
-            pygame.draw.circle(temp_surface, (255, 0, 0), (self.width // 2, 100), 50)
-            font = pygame.font.Font(None, 36)
-            text = font.render(f"PARTICLES: {len(self.monk_death_particles)}", True, (255, 255, 255))
-            temp_surface.blit(text, (self.width // 2 - 100, 150))
-        
         # Draw incense
         self._draw_incense(temp_surface)
         
@@ -2347,6 +2484,9 @@ class ShaolinTempleBackground:
         
         # Draw moon crater fragments
         self._draw_moon_fragments(temp_surface)
+        
+        # Draw destruction wave
+        self._draw_destruction_wave(temp_surface)
         
         # Draw floating leaves
         self._draw_floating_leaves(temp_surface)
@@ -2373,21 +2513,6 @@ class ShaolinTempleBackground:
         
         # Apply shaking and draw to main surface
         surface.blit(temp_surface, (shake_x, shake_y))
-        
-        # Draw death effects directly on main surface (after shaking) for visibility
-        if len(self.monk_death_particles) > 0 or len(self.monk_body_parts) > 0:
-            # Create a simple red flash effect
-            flash_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-            flash_surface.fill((255, 0, 0, min(50, len(self.monk_death_particles))))
-            surface.blit(flash_surface, (0, 0))
-            
-            # Draw particles directly on main surface
-            for particle in self.monk_death_particles[:20]:  # Draw first 20 for performance
-                if 'vx' in particle and 'vy' in particle:
-                    x = int(particle['x'] + shake_x)
-                    y = int(particle['y'] + shake_y)
-                    if 0 <= x <= self.width and 0 <= y <= self.height:
-                        pygame.draw.circle(surface, particle['color'], (x, y), particle['size'] * 2)  # Double size
         
         # Draw red light overlay (after shaking)
         if self.red_light_alpha > 0:
@@ -2558,11 +2683,25 @@ class ShaolinTempleBackground:
                 if len(points) >= 3:
                     pygame.draw.polygon(frag_surface, color, points)
             else:
-                # Draw fragment as irregular shape
+                # Draw fragment as irregular body chunk
                 color = (*fragment['color'], fragment['opacity'])
-                pygame.draw.circle(frag_surface, color, 
-                                 (fragment['size'], fragment['size']), 
-                                 fragment['size'])
+                
+                # Create irregular fragment shape (not circle)
+                points = []
+                num_points = random.randint(5, 7)  # Irregular shape with 5-7 points
+                for i in range(num_points):
+                    angle = (i * 2 * math.pi / num_points) + math.radians(fragment['rotation'])
+                    # Random radius for irregular look
+                    radius = fragment['size'] * random.uniform(0.6, 1.0)
+                    x = fragment['size'] + radius * math.cos(angle)
+                    y = fragment['size'] + radius * math.sin(angle)
+                    points.append((x, y))
+                
+                if len(points) >= 3:
+                    pygame.draw.polygon(frag_surface, color, points)
+                    # Add darker outline for definition
+                    darker_color = tuple(max(0, c - 40) for c in fragment['color']) + (fragment['opacity'],)
+                    pygame.draw.polygon(frag_surface, darker_color, points, 1)
             
             # Blit to main surface
             surface.blit(frag_surface, 
@@ -2570,14 +2709,26 @@ class ShaolinTempleBackground:
                          int(fragment['y'] - fragment['size'])))
     
     def _draw_crow_particles(self, surface: pygame.Surface):
-        """Draw crow explosion particles"""
+        """Draw crow explosion particles as small debris"""
         for particle in self.crow_particles:
-            # Draw small particle with opacity
+            # Draw small debris particle with irregular shape
             particle_surface = pygame.Surface((particle['size'] * 2, particle['size'] * 2), pygame.SRCALPHA)
             color = (*particle['color'], particle['opacity'])
-            pygame.draw.circle(particle_surface, color,
-                             (particle['size'], particle['size']), 
-                             particle['size'])
+            
+            # Create small irregular debris shape
+            center = particle['size']
+            points = []
+            num_points = 4  # Small triangular/diamond debris
+            for i in range(num_points):
+                angle = (i * 2 * math.pi / num_points) + math.radians(particle.get('rotation', 0))
+                radius = particle['size'] * random.uniform(0.7, 1.0)
+                x = center + radius * math.cos(angle)
+                y = center + radius * math.sin(angle)
+                points.append((x, y))
+            
+            if len(points) >= 3:
+                pygame.draw.polygon(particle_surface, color, points)
+            
             surface.blit(particle_surface,
                         (int(particle['x'] - particle['size']), 
                          int(particle['y'] - particle['size'])))
@@ -2836,10 +2987,6 @@ class ShaolinTempleBackground:
             self.destruction_phase = 1
             self.destruction_timer = 0
             print("Temple destruction animation started!")
-            
-            # Create immediate visual feedback
-            self._create_massive_explosion_effect(self.width // 2, 400)
-            print(f"Initial explosion created with {len(self.monk_death_particles)} particles")
     
     def is_destruction_animation_active(self):
         """Check if destruction animation is currently playing"""
@@ -2852,6 +2999,10 @@ class ShaolinTempleBackground:
         
         self.destruction_timer += 1
         
+        # Debug: Track phase changes
+        if self.destruction_timer % 60 == 0:  # Every second
+            print(f"🔥 Destruction Phase {self.destruction_phase}, Timer: {self.destruction_timer}")
+        
         if self.destruction_phase == 1:  # Moon turning red (3 seconds)
             # Gradually increase red intensity with more dramatic curve
             progress = self.destruction_timer / 180.0  # 3 seconds
@@ -2862,6 +3013,7 @@ class ShaolinTempleBackground:
                 self.moon_red_intensity = 1.0  # Ensure it's fully red
                 self.destruction_phase = 2
                 self.destruction_timer = 0
+                print("🔥 Entering Phase 2: Red light emission")
                 
         elif self.destruction_phase == 2:  # Red light emission (1.5 seconds)
             # Flash red light across the map
@@ -2871,33 +3023,52 @@ class ShaolinTempleBackground:
                 self.red_light_alpha = max(0, 150 - (self.destruction_timer - 45) * 3.3)
             
             if self.destruction_timer >= 90:  # 1.5 seconds
+                print("🔥 Entering Phase 3: Destruction wave charging!")
                 self.destruction_phase = 3
+                self.destruction_timer = 0
+                self.destruction_wave_charging = True
+                
+        elif self.destruction_phase == 3:  # Destruction wave (2 seconds)
+            # Moon charges up and fires destruction wave
+            if self.destruction_timer <= 60:  # 1 second charging
+                self.moon_pulse_active = True
+                self.moon_pulse_scale = 1.0 + (self.destruction_timer / 60.0) * 0.5  # Grow to 1.5x
+            elif self.destruction_timer == 61:  # Fire the wave
+                print("🌙 FIRING DESTRUCTION WAVE!")
+                self._fire_destruction_wave()
+                self.destruction_wave_charging = False
+                self.moon_pulse_active = False
+                self.moon_pulse_scale = 1.0
+            
+            if self.destruction_timer >= 120:  # 2 seconds total
+                print("🔥 Entering Phase 4: Temple collapsing - MONKS SHOULD EXPLODE!")
+                self.destruction_phase = 4
                 self.destruction_timer = 0
                 self._create_collapse_debris()
                 self._start_lanterns_falling()  # Start lanterns falling
                 
-        elif self.destruction_phase == 3:  # Temple collapsing (4.5 seconds)
+        elif self.destruction_phase == 4:  # Temple collapsing (4.5 seconds)
             # Kill all monks and dummies when temple starts collapsing
-            if self.destruction_timer == 0:
-                # Debug: Check if monks exist
-                print(f"Temple collapsing! Current monks: {len(self.monks)}")
-                if len(self.monks) == 0:
-                    print("No monks to explode! Spawning test monks...")
-                    # Spawn some test monks for visual effect
-                    for i in range(3):
-                        test_monk = {
-                            'x': self.width // 2 + random.randint(-100, 100),
-                            'y': 500 + random.randint(-30, 30),  # More visible position
-                            'color': self.colors['temple_main'],
-                            'type': 'star_reward' if i == 0 else 'normal'  # One hero monk
-                        }
-                        self.monks.append(test_monk)
-                        print(f"Spawned test monk at ({test_monk['x']}, {test_monk['y']})")
+            if self.destruction_timer == 1:  # Changed from 0 to 1 since timer increments first
+                print(f"🔥 Temple collapsing! Current monks: {len(self.monks)}")
+                for i, monk in enumerate(self.monks):
+                    print(f"   Monk {i}: at ({monk['x']}, {monk['y']}) - type: {monk.get('type', 'normal')}")
                 
-                # Add a massive central explosion for visibility
-                self._create_massive_explosion_effect(self.width // 2, 480)
+                # Always spawn some test monks to ensure explosion effect is visible
+                for i in range(2):
+                    test_monk = {
+                        'x': self.width // 2 + random.randint(-80, 80),
+                        'y': 480 + random.randint(-30, 30),
+                        'color': (100, 80, 60),  # Brown robe
+                        'type': 'star_reward' if i == 0 else 'normal'
+                    }
+                    self.monks.append(test_monk)
+                    print(f"   Added test monk at ({test_monk['x']}, {test_monk['y']})")
                 
+                print(f"🔥 About to explode {len(self.monks)} monks...")
                 self._explode_all_monks()
+                print(f"🔥 After explosion: {len(self.monk_death_particles)} particles, {len(self.monk_body_parts)} body parts")
+                
                 self._explode_all_training_dummies()
             
             # More intense screen shake
@@ -2935,18 +3106,183 @@ class ShaolinTempleBackground:
             self._update_ground_fires()
             
             if self.destruction_timer >= 270:  # 4.5 seconds
-                self.destruction_phase = 4
+                self.destruction_phase = 5
                 self.destruction_timer = 0
                 # Clear lanterns from the map after they've fallen
                 self.lanterns.clear()
                 
-        elif self.destruction_phase == 4:  # Complete - show ruins
+        elif self.destruction_phase == 5:  # Complete - show ruins
             self.temple_destroyed = True
             self.destruction_animation_active = False
             self.screen_shake_intensity = 0
             self.monks.clear()  # Remove all monks
             self.monk_spawn_timer = float('inf')  # Stop monk spawning
             print("Temple destruction complete! No more monks will spawn.")
+    
+    def _fire_destruction_wave(self):
+        """Fire a destruction wave from the moon towards the temple"""
+        # Get moon position
+        moon_x = self.width // 2 + 100
+        moon_y = 70
+        
+        # Get temple position (target)
+        temple_x = self.width // 2
+        temple_y = 350
+        
+        # Create destruction wave
+        self.destruction_wave = {
+            'start_x': moon_x,
+            'start_y': moon_y,
+            'current_x': moon_x,
+            'current_y': moon_y,
+            'target_x': temple_x,
+            'target_y': temple_y,
+            'speed': 8.0,  # Fast wave
+            'radius': 15,  # Initial radius
+            'max_radius': 60,  # Maximum expanding radius
+            'intensity': 1.0,
+            'lifetime': 0,
+            'max_lifetime': 90,  # 1.5 seconds at 60 FPS
+            'trail': []  # Trail particles
+        }
+        
+        # Calculate direction
+        import math
+        dx = temple_x - moon_x
+        dy = temple_y - moon_y
+        distance = math.sqrt(dx*dx + dy*dy)
+        if distance > 0:
+            self.destruction_wave['vx'] = (dx / distance) * self.destruction_wave['speed']
+            self.destruction_wave['vy'] = (dy / distance) * self.destruction_wave['speed']
+        else:
+            self.destruction_wave['vx'] = 0
+            self.destruction_wave['vy'] = self.destruction_wave['speed']
+        
+        print(f"🌙 Destruction wave fired from ({moon_x}, {moon_y}) to ({temple_x}, {temple_y})")
+    
+    def _update_destruction_wave(self):
+        """Update the destruction wave animation"""
+        if self.destruction_wave is None:
+            return
+            
+        wave = self.destruction_wave
+        wave['lifetime'] += 1
+        
+        # Move the wave
+        wave['current_x'] += wave['vx']
+        wave['current_y'] += wave['vy']
+        
+        # Expand the wave as it travels
+        progress = wave['lifetime'] / wave['max_lifetime']
+        wave['radius'] = wave['max_radius'] * min(1.0, progress * 2.0)  # Expand quickly
+        
+        # Create trail particles
+        if wave['lifetime'] % 3 == 0:  # Every 3 frames
+            trail_particle = {
+                'x': wave['current_x'] + random.randint(-10, 10),
+                'y': wave['current_y'] + random.randint(-10, 10),
+                'life': 20,
+                'size': random.randint(3, 8),
+                'color': (255, 50 + random.randint(0, 50), 50 + random.randint(0, 30))  # Red variations
+            }
+            wave['trail'].append(trail_particle)
+        
+        # Update trail particles
+        for particle in wave['trail'][:]:
+            particle['life'] -= 1
+            if particle['life'] <= 0:
+                wave['trail'].remove(particle)
+        
+        # Check if wave reached temple or expired
+        temple_distance = math.sqrt((wave['current_x'] - wave['target_x'])**2 + 
+                                  (wave['current_y'] - wave['target_y'])**2)
+        
+        if temple_distance < 50 or wave['lifetime'] >= wave['max_lifetime']:
+            print("🌙 Destruction wave hit the temple!")
+            self.destruction_wave = None  # Remove the wave
+    
+    def _draw_destruction_wave(self, surface: pygame.Surface):
+        """Draw the destruction wave from moon to temple"""
+        if self.destruction_wave is None:
+            return
+        
+        wave = self.destruction_wave
+        
+        # Draw trail particles first (behind the main wave)
+        for particle in wave['trail']:
+            alpha = int(255 * (particle['life'] / 20))
+            if alpha > 0:
+                # Create small debris-like trail particles
+                trail_surf = pygame.Surface((particle['size'] * 2, particle['size'] * 2), pygame.SRCALPHA)
+                center = particle['size']
+                
+                # Create irregular debris shape for trail
+                points = []
+                num_points = 4
+                for i in range(num_points):
+                    angle = (i * 2 * math.pi / num_points)
+                    radius = particle['size'] * random.uniform(0.7, 1.0)
+                    x = center + radius * math.cos(angle)
+                    y = center + radius * math.sin(angle)
+                    points.append((x, y))
+                
+                if len(points) >= 3:
+                    color = (*particle['color'], alpha)
+                    pygame.draw.polygon(trail_surf, color, points)
+                
+                surface.blit(trail_surf, 
+                           (int(particle['x'] - particle['size']), 
+                            int(particle['y'] - particle['size'])))
+        
+        # Draw main wave core
+        wave_surf = pygame.Surface((wave['radius'] * 2, wave['radius'] * 2), pygame.SRCALPHA)
+        center = wave['radius']
+        
+        # Create destructive energy wave (jagged circular shape)
+        wave_points = []
+        num_points = 16
+        for i in range(num_points):
+            angle = (i * 2 * math.pi / num_points)
+            # Create jagged energy wave
+            radius_variation = random.uniform(0.7, 1.3)
+            radius = wave['radius'] * radius_variation
+            x = center + radius * math.cos(angle)
+            y = center + radius * math.sin(angle)
+            wave_points.append((x, y))
+        
+        if len(wave_points) >= 3:
+            # Multiple layers for energy effect
+            # Outer red glow
+            pygame.draw.polygon(wave_surf, (255, 0, 0, 100), wave_points)
+            
+            # Inner bright core
+            inner_points = []
+            for i in range(num_points):
+                angle = (i * 2 * math.pi / num_points)
+                radius = wave['radius'] * 0.6 * random.uniform(0.8, 1.2)
+                x = center + radius * math.cos(angle)
+                y = center + radius * math.sin(angle)
+                inner_points.append((x, y))
+            
+            if len(inner_points) >= 3:
+                pygame.draw.polygon(wave_surf, (255, 150, 100, 150), inner_points)
+            
+            # Very bright center
+            center_points = []
+            for i in range(8):
+                angle = (i * 2 * math.pi / 8)
+                radius = wave['radius'] * 0.3 * random.uniform(0.9, 1.1)
+                x = center + radius * math.cos(angle)
+                y = center + radius * math.sin(angle)
+                center_points.append((x, y))
+            
+            if len(center_points) >= 3:
+                pygame.draw.polygon(wave_surf, (255, 255, 200, 200), center_points)
+        
+        # Blit the wave
+        surface.blit(wave_surf, 
+                   (int(wave['current_x'] - wave['radius']), 
+                    int(wave['current_y'] - wave['radius'])))
     
     def _create_collapse_debris(self):
         """Create debris particles for temple collapse"""
@@ -2971,7 +3307,7 @@ class ShaolinTempleBackground:
                     (100, 80, 60),  # Light wood
                 ]),
                 'opacity': 255,
-                'type': random.choice(['square', 'rectangle', 'triangle'])  # Different shapes
+                'type': random.choice(['brick', 'roof_tile', 'wood_beam', 'stone', 'pillar_chunk'])  # Building fragment types
             }
             self.collapse_debris.append(debris)
     
@@ -2994,7 +3330,7 @@ class ShaolinTempleBackground:
                     (90, 70, 50),  # Darker wood
                 ]),
                 'opacity': 255,
-                'type': random.choice(['square', 'rectangle', 'triangle'])
+                'type': random.choice(['brick', 'roof_tile', 'wood_beam', 'stone', 'pillar_chunk'])
             }
             self.collapse_debris.append(debris)
     
@@ -3120,7 +3456,7 @@ class ShaolinTempleBackground:
                 'rotation_speed': random.uniform(-15, 15),
                 'color': (100, 70, 40),  # Dark wood color
                 'opacity': 255,
-                'type': 'rectangle',  # Frame pieces are rectangular
+                'type': 'wood_beam',  # Frame pieces are wooden beams
             }
             self.collapse_debris.append(frame_piece)
     
@@ -3159,58 +3495,164 @@ class ShaolinTempleBackground:
                 self.ground_fires.remove(fire)
     
     def _draw_collapse_debris(self, surface: pygame.Surface):
-        """Draw falling debris during collapse"""
+        """Draw falling debris during collapse as realistic building fragments"""
         for debris in self.collapse_debris:
             # Check if debris has opacity (default to 255 if not)
             opacity = debris.get('opacity', 255)
             if opacity > 0:
                 # Create surface for debris
-                debris_surf = pygame.Surface((debris['size'] * 2, debris['size'] * 2), pygame.SRCALPHA)
+                debris_surf = pygame.Surface((debris['size'] * 3, debris['size'] * 3), pygame.SRCALPHA)
+                center = debris['size'] * 1.5
                 
-                # Draw debris piece based on type
+                # Draw debris piece based on type with building fragment appearance
                 color = (*debris['color'], opacity)
+                darker_color = tuple(max(0, c - 30) for c in debris['color']) + (opacity,)
                 
-                if debris.get('type') == 'triangle':
-                    # Draw triangle debris
+                if debris.get('type') == 'brick':
+                    # Draw brick fragment (rectangular with texture lines)
+                    brick_width = debris['size'] * 1.8
+                    brick_height = debris['size'] * 0.9
+                    
+                    # Main brick shape
                     points = []
-                    for i in range(3):
-                        angle = math.radians(debris['rotation'] + i * 120)
-                        x = debris['size'] + debris['size'] * 0.9 * math.cos(angle)
-                        y = debris['size'] + debris['size'] * 0.9 * math.sin(angle)
-                        points.append((x, y))
-                    if len(points) >= 3:
-                        pygame.draw.polygon(debris_surf, color, points)
-                
-                elif debris.get('type') == 'rectangle':
-                    # Draw rectangular debris
-                    rect_width = debris['size'] * 1.5
-                    rect_height = debris['size'] * 0.7
-                    # Create rotated rectangle
-                    points = []
-                    for dx, dy in [(-rect_width/2, -rect_height/2), 
-                                  (rect_width/2, -rect_height/2),
-                                  (rect_width/2, rect_height/2),
-                                  (-rect_width/2, rect_height/2)]:
+                    for dx, dy in [(-brick_width/2, -brick_height/2), 
+                                  (brick_width/2, -brick_height/2),
+                                  (brick_width/2, brick_height/2),
+                                  (-brick_width/2, brick_height/2)]:
                         angle = math.radians(debris['rotation'])
-                        x = debris['size'] + dx * math.cos(angle) - dy * math.sin(angle)
-                        y = debris['size'] + dx * math.sin(angle) + dy * math.cos(angle)
+                        x = center + dx * math.cos(angle) - dy * math.sin(angle)
+                        y = center + dx * math.sin(angle) + dy * math.cos(angle)
                         points.append((x, y))
                     pygame.draw.polygon(debris_surf, color, points)
+                    
+                    # Add mortar lines for brick texture
+                    pygame.draw.polygon(debris_surf, darker_color, points, 2)
                 
-                else:  # square or default
-                    # Draw square debris
+                elif debris.get('type') == 'roof_tile':
+                    # Draw curved roof tile fragment
+                    tile_width = debris['size'] * 1.2
+                    tile_height = debris['size'] * 1.6
+                    
+                    # Curved tile shape using multiple points
                     points = []
-                    for i in range(4):
-                        angle = math.radians(debris['rotation'] + i * 90)
-                        x = debris['size'] + debris['size'] * 0.8 * math.cos(angle)
-                        y = debris['size'] + debris['size'] * 0.8 * math.sin(angle)
+                    for i in range(8):
+                        t = i / 7.0
+                        # Create curved top edge
+                        if i < 4:
+                            dx = (t - 0.5) * tile_width
+                            dy = -tile_height/2 + (t * (1-t)) * tile_height * 0.3
+                        else:
+                            dx = (1 - t + 0.5) * tile_width
+                            dy = tile_height/2
+                        
+                        angle = math.radians(debris['rotation'])
+                        x = center + dx * math.cos(angle) - dy * math.sin(angle)
+                        y = center + dx * math.sin(angle) + dy * math.cos(angle)
                         points.append((x, y))
+                    
                     if len(points) >= 3:
                         pygame.draw.polygon(debris_surf, color, points)
+                        pygame.draw.polygon(debris_surf, darker_color, points, 1)
+                
+                elif debris.get('type') == 'wood_beam':
+                    # Draw wooden beam fragment (long and narrow)
+                    beam_width = debris['size'] * 2.2
+                    beam_height = debris['size'] * 0.6
+                    
+                    # Main beam shape
+                    points = []
+                    for dx, dy in [(-beam_width/2, -beam_height/2), 
+                                  (beam_width/2, -beam_height/2),
+                                  (beam_width/2, beam_height/2),
+                                  (-beam_width/2, beam_height/2)]:
+                        angle = math.radians(debris['rotation'])
+                        x = center + dx * math.cos(angle) - dy * math.sin(angle)
+                        y = center + dx * math.sin(angle) + dy * math.cos(angle)
+                        points.append((x, y))
+                    pygame.draw.polygon(debris_surf, color, points)
+                    
+                    # Add wood grain lines
+                    for i in range(3):
+                        line_x = center + (i - 1) * beam_width * 0.2
+                        line_start = (line_x, center - beam_height/2)
+                        line_end = (line_x, center + beam_height/2)
+                        pygame.draw.line(debris_surf, darker_color, line_start, line_end, 1)
+                
+                elif debris.get('type') == 'stone':
+                    # Draw irregular stone fragment
+                    num_points = 6
+                    points = []
+                    for i in range(num_points):
+                        angle = (i * 2 * math.pi / num_points) + math.radians(debris['rotation'])
+                        # Irregular radius for natural stone look
+                        radius = debris['size'] * random.uniform(0.7, 1.1)
+                        x = center + radius * math.cos(angle)
+                        y = center + radius * math.sin(angle)
+                        points.append((x, y))
+                    
+                    if len(points) >= 3:
+                        pygame.draw.polygon(debris_surf, color, points)
+                        pygame.draw.polygon(debris_surf, darker_color, points, 2)
+                
+                elif debris.get('type') == 'pillar_chunk':
+                    # Draw cylindrical pillar chunk
+                    chunk_radius = debris['size'] * 0.9
+                    # Draw as octagon for pillar appearance
+                    points = []
+                    for i in range(8):
+                        angle = (i * 2 * math.pi / 8) + math.radians(debris['rotation'])
+                        x = center + chunk_radius * math.cos(angle)
+                        y = center + chunk_radius * math.sin(angle)
+                        points.append((x, y))
+                    
+                    pygame.draw.polygon(debris_surf, color, points)
+                    # Add pillar ridges
+                    pygame.draw.polygon(debris_surf, darker_color, points, 2)
+                    pygame.draw.circle(debris_surf, darker_color, (int(center), int(center)), int(chunk_radius * 0.6), 1)
+                
+                elif debris.get('type') == 'glass':
+                    # Draw glass shard (sharp triangular pieces)
+                    shard_length = debris['size'] * 1.4
+                    shard_width = debris['size'] * 0.5
+                    
+                    # Create sharp glass shard shape
+                    points = [
+                        (center, center - shard_length/2),  # Sharp tip
+                        (center - shard_width/2, center + shard_length/2),  # Bottom left
+                        (center + shard_width/2, center + shard_length/2),  # Bottom right
+                    ]
+                    
+                    # Apply rotation
+                    rotated_points = []
+                    for px, py in points:
+                        angle = math.radians(debris['rotation'])
+                        rx = center + (px - center) * math.cos(angle) - (py - center) * math.sin(angle)
+                        ry = center + (px - center) * math.sin(angle) + (py - center) * math.cos(angle)
+                        rotated_points.append((rx, ry))
+                    
+                    pygame.draw.polygon(debris_surf, color, rotated_points)
+                    # Add sharp edge highlight
+                    bright_color = tuple(min(255, c + 50) for c in debris['color']) + (opacity,)
+                    pygame.draw.polygon(debris_surf, bright_color, rotated_points, 1)
+                
+                else:  # default irregular fragment
+                    # Draw irregular building fragment
+                    num_points = random.randint(4, 7)
+                    points = []
+                    for i in range(num_points):
+                        angle = (i * 2 * math.pi / num_points) + math.radians(debris['rotation'])
+                        radius = debris['size'] * random.uniform(0.6, 1.0)
+                        x = center + radius * math.cos(angle)
+                        y = center + radius * math.sin(angle)
+                        points.append((x, y))
+                    
+                    if len(points) >= 3:
+                        pygame.draw.polygon(debris_surf, color, points)
+                        pygame.draw.polygon(debris_surf, darker_color, points, 1)
                 
                 surface.blit(debris_surf, 
-                           (int(debris['x'] - debris['size']), 
-                            int(debris['y'] - debris['size'])))
+                           (int(debris['x'] - center), 
+                            int(debris['y'] - center)))
     
     def _draw_falling_lanterns(self, surface: pygame.Surface):
         """Draw lanterns falling during destruction"""
@@ -3308,11 +3750,45 @@ class ShaolinTempleBackground:
                 # Add transparency based on life
                 alpha = int(200 * (particle['life'] / 40))
                 
-                # Create particle surface
+                # Create particle surface for flame shape
                 particle_surf = pygame.Surface((particle['size'] * 2, particle['size'] * 2), pygame.SRCALPHA)
-                pygame.draw.circle(particle_surf, (*color, alpha), 
-                                 (particle['size'], particle['size']), 
-                                 particle['size'])
+                
+                # Create flame-like shape (teardrop pointing up)
+                center = particle['size']
+                flame_points = []
+                
+                # Create flame shape with pointed top and wider base
+                for i in range(8):
+                    angle = (i * 2 * math.pi / 8)
+                    if i == 0:  # Top point (flame tip)
+                        radius = particle['size'] * 1.3
+                        x = center + radius * math.cos(angle - math.pi/2)
+                        y = center + radius * math.sin(angle - math.pi/2)
+                    elif i <= 2 or i >= 6:  # Upper sides
+                        radius = particle['size'] * 0.7
+                        x = center + radius * math.cos(angle - math.pi/2)
+                        y = center + radius * math.sin(angle - math.pi/2)
+                    else:  # Base of flame (wider)
+                        radius = particle['size'] * 0.9
+                        x = center + radius * math.cos(angle - math.pi/2)
+                        y = center + radius * math.sin(angle - math.pi/2)
+                    flame_points.append((x, y))
+                
+                if len(flame_points) >= 3:
+                    pygame.draw.polygon(particle_surf, (*color, alpha), flame_points)
+                    # Add bright core
+                    core_color = tuple(min(255, c + 50) for c in color)
+                    core_size = max(1, particle['size'] // 3)
+                    if core_size > 0:
+                        core_points = []
+                        for i in range(4):
+                            angle = (i * 2 * math.pi / 4)
+                            radius = core_size
+                            x = center + radius * math.cos(angle - math.pi/2)
+                            y = center + radius * math.sin(angle - math.pi/2)
+                            core_points.append((x, y))
+                        if len(core_points) >= 3:
+                            pygame.draw.polygon(particle_surf, (*core_color, alpha), core_points)
                 
                 surface.blit(particle_surf,
                            (int(particle['x'] - particle['size']),
@@ -3579,162 +4055,86 @@ class ShaolinTempleBackground:
         self.dummy_animations.clear()
     
     def _create_monk_explosion(self, x, y, color):
-        """Create blood explosion effect when monk dies"""
-        # Create blood particles - make them bigger and more visible
-        for i in range(30):  # More particles
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(3, 12)  # Faster speed
-            particle = {
+        """Create monk body fragments explosion like crow explosion"""
+        # Create monk body fragments (like crow fragments)
+        for _ in range(8):  # 8 body fragments
+            fragment_angle = random.uniform(0, 2 * math.pi)
+            fragment_speed = random.uniform(4, 12)
+            
+            fragment = {
                 'x': x,
                 'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed - 3,  # Add upward force
-                'size': random.randint(4, 10),  # Bigger particles
-                'color': (255, 0, 0),  # Bright red
-                'lifetime': 120,  # Longer lifetime
-                'gravity': 0.3,
-            }
-            self.monk_death_particles.append(particle)
-        
-        # Add some darker blood droplets
-        for i in range(15):  # More droplets
-            angle = random.uniform(0, math.pi * 2) 
-            speed = random.uniform(2, 6)
-            particle = {
-                'x': x,
-                'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed - 2,
-                'size': random.randint(5, 12),  # Bigger
-                'color': (150, 0, 0),  # Dark blood
-                'lifetime': 100,
+                'vx': math.cos(fragment_angle) * fragment_speed,
+                'vy': math.sin(fragment_angle) * fragment_speed - 3,  # Upward bias
+                'rotation': random.uniform(0, 360),
+                'rotation_speed': random.uniform(-15, 15),
+                'size': random.randint(8, 15),
                 'gravity': 0.4,
+                'life': random.randint(90, 150),  # 1.5-2.5 seconds
+                'color': color,  # Use monk's robe color
+                'type': random.choice(['head', 'torso', 'arm', 'leg']),
+                'opacity': 255
+            }
+            self.monk_death_particles.append(fragment)
+        
+        # Create small blood droplets (fewer than before)
+        for _ in range(8):  # Reduced from 30
+            particle_angle = random.uniform(0, 2 * math.pi)
+            particle_speed = random.uniform(2, 6)
+            
+            particle = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(particle_angle) * particle_speed,
+                'vy': math.sin(particle_angle) * particle_speed - 2,
+                'size': random.randint(3, 6),
+                'color': (200, 0, 0),  # Blood red
+                'life': random.randint(40, 60),
+                'opacity': 200
             }
             self.monk_death_particles.append(particle)
-        
-        # Add impact dust cloud for visibility
-        self._create_dust_cloud(x, y)
     
     def _create_hero_monk_explosion(self, x, y):
-        """Create epic explosion effect for hero monks"""
-        # Create golden explosion particles - make them much more visible
-        for i in range(60):  # Even more particles for heroes
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(5, 18)  # Much faster
+        """Create epic hero monk body fragments explosion"""
+        # Create golden monk body fragments (bigger and more dramatic)
+        for _ in range(12):  # More fragments for hero
+            fragment_angle = random.uniform(0, 2 * math.pi)
+            fragment_speed = random.uniform(6, 15)  # Faster
+            
+            fragment = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(fragment_angle) * fragment_speed,
+                'vy': math.sin(fragment_angle) * fragment_speed - 5,  # Strong upward force
+                'rotation': random.uniform(0, 360),
+                'rotation_speed': random.uniform(-20, 20),
+                'size': random.randint(12, 20),  # Bigger fragments
+                'gravity': 0.3,  # Slower fall
+                'life': random.randint(120, 180),  # Longer life
+                'color': (255, 215, 0),  # Gold color
+                'type': random.choice(['head', 'torso', 'arm', 'leg']),
+                'opacity': 255,
+                'is_hero': True  # Special flag for hero fragments
+            }
+            self.monk_death_particles.append(fragment)
+        
+        # Create golden sparkle particles (fewer)
+        for _ in range(15):  # Reduced from 30
+            particle_angle = random.uniform(0, 2 * math.pi)
+            particle_speed = random.uniform(3, 8)
+            
             particle = {
                 'x': x,
                 'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed - 4,  # Strong upward force
-                'size': random.randint(5, 12),  # Bigger particles
-                'color': (255, 215, 0),  # Gold
-                'lifetime': 150,  # Longer lifetime
-                'gravity': 0.4,
-                'glow': True
-            }
-            self.monk_death_particles.append(particle)
-        
-        # Add sparkles - more and bigger
-        for i in range(30):
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(8, 20)
-            sparkle = {
-                'x': x,
-                'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed - 5,
-                'size': random.randint(3, 6),  # Bigger sparkles
-                'color': (255, 255, 100),  # Bright yellow
-                'lifetime': 60,
-                'gravity': 0.2,
+                'vx': math.cos(particle_angle) * particle_speed,
+                'vy': math.sin(particle_angle) * particle_speed - 3,
+                'size': random.randint(4, 8),
+                'color': (255, 255, 100),  # Bright golden
+                'life': random.randint(60, 90),
+                'opacity': 255,
                 'type': 'sparkle'
             }
-            self.monk_death_particles.append(sparkle)
-        
-        # Add multiple shockwaves for dramatic effect
-        for i in range(3):
-            shockwave = {
-                'x': x,
-                'y': y,
-                'radius': i * 20,  # Staggered start
-                'max_radius': 120 + i * 30,  # Different sizes
-                'color': (255, 215, 0),
-                'lifetime': 40 + i * 10,
-                'type': 'shockwave'
-            }
-            self.monk_death_particles.append(shockwave)
-        
-        # Add golden dust cloud
-        for i in range(20):
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(2, 5)
-            dust = {
-                'x': x,
-                'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed - 2,
-                'size': random.randint(15, 25),
-                'color': (255, 200, 50),  # Golden dust
-                'lifetime': 80,
-                'opacity': 200,
-            }
-            self.monk_death_particles.append(dust)
-    
-    def _create_massive_explosion_effect(self, x, y):
-        """Create a massive explosion effect at the center"""
-        print(f"Creating MASSIVE explosion at ({x}, {y})")
-        
-        # Create a huge shockwave
-        huge_shockwave = {
-            'x': x,
-            'y': y,
-            'radius': 0,
-            'max_radius': 300,  # Huge radius
-            'color': (255, 100, 50),  # Orange-red
-            'lifetime': 60,
-            'type': 'shockwave'
-        }
-        self.monk_death_particles.append(huge_shockwave)
-        
-        # Create tons of explosion particles
-        for i in range(100):  # Many particles
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(5, 25)  # Very fast
-            particle = {
-                'x': x,
-                'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed - 10,  # Strong upward bias
-                'size': random.randint(8, 20),  # Big particles
-                'color': random.choice([
-                    (255, 0, 0),      # Red
-                    (255, 100, 0),    # Orange
-                    (255, 200, 0),    # Yellow
-                    (200, 50, 0),     # Dark red
-                ]),
-                'lifetime': 180,  # 3 seconds
-                'gravity': 0.5,
-            }
             self.monk_death_particles.append(particle)
-        
-        # Add fire particles
-        for i in range(50):
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(3, 15)
-            fire = {
-                'x': x,
-                'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed - 5,
-                'size': random.randint(10, 25),
-                'color': (255, random.randint(150, 255), 0),  # Yellow-orange
-                'lifetime': 120,
-                'gravity': 0.3,
-                'glow': True
-            }
-            self.monk_death_particles.append(fire)
-        
-        print(f"Created {len(self.monk_death_particles)} total particles for massive explosion")
     
     def _create_dust_cloud(self, x, y):
         """Create dust cloud effect"""
@@ -3779,6 +4179,10 @@ class ShaolinTempleBackground:
         self.moon_pulse_timer = 0
         self.moon_pulse_active = False
         self.moon_pulse_scale = 1.0
+        
+        # Reset destruction wave
+        self.destruction_wave = None
+        self.destruction_wave_charging = False
         
         # Reset performance mode
         self.performance_mode = False
@@ -3848,15 +4252,33 @@ class ShaolinTempleBackground:
                 fragment_surf = pygame.Surface((fragment['size'] * 4, fragment['size'] * 4), pygame.SRCALPHA)
                 center = fragment['size'] * 2
                 
-                # Outer glow (pulsing)
+                # Outer glow (pulsing) - irregular shape instead of circle
                 glow_intensity = abs(math.sin(fragment['glow_phase'])) * 0.5 + 0.5
                 glow_size = fragment['size'] * 2 * glow_intensity
-                pygame.draw.circle(fragment_surf, (*self.colors['fragment_glow'], 50),
-                                 (center, center), int(glow_size))
                 
-                # Middle glow
-                pygame.draw.circle(fragment_surf, (*self.colors['fragment_glow'], 100),
-                                 (center, center), int(fragment['size'] * 1.5))
+                # Create irregular glow points
+                glow_points = []
+                for i in range(12):
+                    angle = (i * 2 * math.pi / 12) + math.radians(fragment['rotation'])
+                    radius = glow_size * random.uniform(0.8, 1.2)  # Irregular glow
+                    x = center + radius * math.cos(angle)
+                    y = center + radius * math.sin(angle)
+                    glow_points.append((x, y))
+                
+                if len(glow_points) >= 3:
+                    pygame.draw.polygon(fragment_surf, (*self.colors['fragment_glow'], 50), glow_points)
+                
+                # Middle glow - also irregular
+                middle_glow_points = []
+                for i in range(10):
+                    angle = (i * 2 * math.pi / 10) + math.radians(fragment['rotation'])
+                    radius = fragment['size'] * 1.5 * random.uniform(0.9, 1.1)
+                    x = center + radius * math.cos(angle)
+                    y = center + radius * math.sin(angle)
+                    middle_glow_points.append((x, y))
+                
+                if len(middle_glow_points) >= 3:
+                    pygame.draw.polygon(fragment_surf, (*self.colors['fragment_glow'], 100), middle_glow_points)
                 
                 # Core (rocky texture)
                 points = []
@@ -3878,27 +4300,49 @@ class ShaolinTempleBackground:
             else:
                 # Draw impact effect
                 if fragment.get('impact_timer', 0) > 0:
-                    # Shockwave
+                    # Shockwave - jagged instead of circular
                     if fragment.get('shockwave_radius', 0) > 0:
                         shockwave_surf = pygame.Surface((fragment['shockwave_radius'] * 2, 
                                                         fragment['shockwave_radius'] * 2), pygame.SRCALPHA)
                         alpha = int(150 * (fragment['impact_timer'] / 30))
-                        pygame.draw.circle(shockwave_surf, (*self.colors['fragment_glow'], alpha),
-                                         (fragment['shockwave_radius'], fragment['shockwave_radius']),
-                                         fragment['shockwave_radius'], 3)
+                        
+                        # Create jagged shockwave
+                        center = fragment['shockwave_radius']
+                        shockwave_points = []
+                        num_points = 16
+                        for i in range(num_points):
+                            angle = (i * 2 * math.pi / num_points)
+                            radius = fragment['shockwave_radius'] * random.uniform(0.8, 1.2)
+                            x = center + radius * math.cos(angle)
+                            y = center + radius * math.sin(angle)
+                            shockwave_points.append((x, y))
+                        
+                        if len(shockwave_points) >= 3:
+                            pygame.draw.polygon(shockwave_surf, (*self.colors['fragment_glow'], alpha), shockwave_points, 3)
+                        
                         surface.blit(shockwave_surf,
                                    (int(fragment['x'] - fragment['shockwave_radius']),
                                     int(fragment['y'] - fragment['shockwave_radius'])))
                     
-                    # Impact sparks
+                    # Impact sparks as small debris instead of circles
                     for i in range(5):
                         spark_angle = (i * 72 + fragment['rotation']) * math.pi / 180
                         spark_dist = fragment.get('shockwave_radius', 0) * 0.5
                         spark_x = fragment['x'] + math.cos(spark_angle) * spark_dist
                         spark_y = fragment['y'] + math.sin(spark_angle) * spark_dist
                         spark_size = random.randint(2, 4)
-                        pygame.draw.circle(surface, self.colors['fragment_core'],
-                                         (int(spark_x), int(spark_y)), spark_size)
+                        
+                        # Draw spark as small triangular debris
+                        spark_points = []
+                        for j in range(3):
+                            s_angle = (j * 2 * math.pi / 3) + spark_angle
+                            s_radius = spark_size
+                            s_x = spark_x + s_radius * math.cos(s_angle)
+                            s_y = spark_y + s_radius * math.sin(s_angle)
+                            spark_points.append((s_x, s_y))
+                        
+                        if len(spark_points) >= 3:
+                            pygame.draw.polygon(surface, self.colors['fragment_core'], spark_points)
     
     def get_moon_fragments(self):
         """Get current moon fragments for collision detection"""

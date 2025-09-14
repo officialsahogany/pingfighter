@@ -276,7 +276,7 @@ class PoseidonTrident(LegendaryItem):
         self.ball_vortex_timer = 0  # 공이 회오리에 머무른 시간
         self.ball_vortex_angle = 0  # 공의 회전 각도
         self.ball_vortex_radius = 0  # 현재 회전 반경
-        self.ball_capture_duration = 9  # 공을 잡고 있는 시간 (9 프레임 = 0.15초)
+        self.ball_capture_duration = 2  # 공을 잡고 있는 시간 (2 프레임 = 0.03초) - 즉시 튕겨냄
         self.vortex_center_x = 0  # 회오리 중심 X
         self.vortex_center_y = 0  # 회오리 중심 Y
         self.captured_ball_speed = 0  # 캡처된 공의 원래 속도
@@ -609,7 +609,33 @@ class PoseidonTrident(LegendaryItem):
                     return ball_vx, ball_vy
                 
                 # 보스가 친 공(아래로 향하는 공)에만 회오리 효과 적용
-                # === Stage 4 굴절자기장과 동일한 메커니즘 적용 ===
+                # === 단순하고 강력한 즉시 반사 (복잡한 간섭 제거) ===
+                
+                # 보스가 친 공은 회오리에 닿으면 즉시 강력하게 반사 (간섭 없이)
+                if ball_vy > 0:  # 보스가 친 공
+                    print(f"🌊 [즉시 반사] 보스 공 회오리 접촉!")
+                    current_ball_speed = math.sqrt(ball_vx**2 + ball_vy**2)
+                    
+                    # 랜덤 증폭 반사 (현재 공 속도의 500~1500%)
+                    amplify_factor = random.uniform(5.0, 15.0)  # 5배~15배 랜덤
+                    amplified_speed = current_ball_speed * amplify_factor
+                    
+                    # 위쪽 방향 랜덤 반사 (-90도 기준 ±45도)
+                    base_angle = -math.pi / 2  # -90도 (위쪽)
+                    random_spread = math.pi / 4  # ±45도
+                    random_offset = random.uniform(-random_spread, random_spread)
+                    target_angle = base_angle + random_offset
+                    
+                    # 최종 속도 계산 (간섭 없음)
+                    final_vx = math.cos(target_angle) * amplified_speed
+                    final_vy = math.sin(target_angle) * amplified_speed
+                    
+                    print(f"🌊 [즉시 반사] 속도: {current_ball_speed:.1f} → {amplified_speed:.1f} ({amplify_factor:.1f}배) | 각도: {math.degrees(target_angle):.1f}도")
+                    print(f"🌊 [즉시 반사] 결과: vx={final_vx:.1f}, vy={final_vy:.1f}")
+                    
+                    return final_vx, final_vy  # 즉시 반환하여 복잡한 간섭 제거
+                
+                # === 기존의 복잡한 Stage 4 굴절자기장 메커니즘 (플레이어 공용, 사실상 사용 안됨) ===
                 # 회오리 중심과의 거리 계산
                 # 회오리는 패들 위치에서 위로 솟아오르므로, Y축 거리는 회오리 범위 내에서만 계산
                 vortex_center_y = vortex_y - current_vortex_height/2  # 회오리의 실제 중심
@@ -639,6 +665,8 @@ class PoseidonTrident(LegendaryItem):
                     self.ball_vortex_radius = distance
                     self.captured_ball_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
                     self.original_ball_speed = self.captured_ball_speed  # 원래 속도 저장
+                    
+                    print(f"🌊 [포세이돈 DEBUG] 공 캡처! 입력 속도: {self.captured_ball_speed:.1f}")
                     
                     # 물 궤적 시작
                     self.water_trail_active = True
@@ -708,6 +736,7 @@ class PoseidonTrident(LegendaryItem):
                     
                     # 캡처 시간이 끝나면 랜덤 방향으로 튕겨냄
                     if self.ball_vortex_timer >= self.ball_capture_duration:
+                        print(f"🌊 [포세이돈 DEBUG] 캡처 완료! 타이머: {self.ball_vortex_timer}/{self.ball_capture_duration}")
                         # 포세이돈의 삼지창은 항상 보스 쪽(위쪽)으로 공을 튕겨냄
                         # 플레이어에게 유리하도록 작동
                         
@@ -723,31 +752,41 @@ class PoseidonTrident(LegendaryItem):
                         
                         target_angle = base_angle + random_offset
                         
-                        # 반사 속도 (캡처된 속도의 300%, 최소 25, 최대 50로 제한)
-                        deflect_speed = max(25, min(self.captured_ball_speed * 3.0, 50))
+                        # 반사 속도 (현재 공 속도의 500~1500% 랜덤 증폭)
+                        amplify_factor = random.uniform(5.0, 15.0)  # 5배~15배 랜덤
+                        deflect_speed = self.captured_ball_speed * amplify_factor
                         new_vx = math.cos(target_angle) * deflect_speed
                         new_vy = math.sin(target_angle) * deflect_speed
                         
+                        print(f"🌊 [포세이돈 DEBUG] 속도 계산: {self.captured_ball_speed:.1f} → {deflect_speed:.1f} ({amplify_factor:.1f}배 랜덤)")
+                        print(f"🌊 [포세이돈 DEBUG] 각도 계산: {math.degrees(target_angle):.1f}도")
+                        
                         # Y축 속도 안전장치 - 반드시 위쪽으로 향하도록 보장
-                        min_upward_speed = -35  # 최소 위쪽 속도 (훨씬 더 빠르게)
-                        max_upward_speed = -20  # 최대 위쪽 속도 (너무 수직이지 않게)
+                        min_upward_speed = -50  # 최소 위쪽 속도 (극도로 빠르게)
+                        max_upward_speed = -30  # 최대 위쪽 속도 (매우 빠르게)
                         
                         # Y 속도가 아래쪽이거나 너무 느리면 강제로 위쪽으로
+                        original_vy = new_vy
                         if new_vy >= 0:  # 아래쪽이나 수평이면
                             new_vy = min_upward_speed  # 강제로 위쪽으로
-                            print(f"[DEBUG] 회오리 방향 보정: 아래쪽 → 위쪽 (vy={min_upward_speed})")
+                            print(f"🌊 [포세이돈 DEBUG] Y축 보정: {original_vy:.1f} → {new_vy:.1f} (아래쪽→위쪽)")
                         elif new_vy > max_upward_speed:  # 위쪽이지만 너무 느리면
                             new_vy = max_upward_speed
-                            print(f"[DEBUG] 회오리 방향 보정: 너무 느림 → {max_upward_speed}")
+                            print(f"🌊 [포세이돈 DEBUG] Y축 보정: {original_vy:.1f} → {new_vy:.1f} (너무 느림)")
                         elif new_vy < min_upward_speed:  # 너무 빠르면
                             new_vy = min_upward_speed
-                            print(f"[DEBUG] 회오리 방향 보정: 너무 빠름 → {min_upward_speed}")
+                            print(f"🌊 [포세이돈 DEBUG] Y축 보정: {original_vy:.1f} → {new_vy:.1f} (너무 빠름)")
                         
                         # X축 속도도 너무 극단적이지 않도록 제한
-                        max_x_speed = 30  # 횡방향 속도 제한 (더 빠르게)
+                        max_x_speed = 50  # 횡방향 속도 제한 (극도로 빠르게)
+                        original_vx = new_vx
                         if abs(new_vx) > max_x_speed:
                             new_vx = max_x_speed if new_vx > 0 else -max_x_speed
-                            print(f"[DEBUG] 회오리 X축 속도 제한: {new_vx}")
+                            print(f"🌊 [포세이돈 DEBUG] X축 보정: {original_vx:.1f} → {new_vx:.1f} (속도 제한)")
+                        
+                        # 최종 속도 계산 및 출력
+                        final_speed = math.sqrt(new_vx ** 2 + new_vy ** 2)
+                        print(f"🌊 [포세이돈 DEBUG] 최종 튕김: vx={new_vx:.1f}, vy={new_vy:.1f}, 총속도={final_speed:.1f}")
                         
                         # 캡처 상태 해제 및 쿨다운 설정
                         self.ball_in_vortex = False
@@ -877,11 +916,30 @@ class PoseidonTrident(LegendaryItem):
                     if abs(new_vx) > max_x_speed:
                         new_vx = max_x_speed if new_vx > 0 else -max_x_speed
                     
-                    # 보스가 친 공은 위로 반사되도록 Y축 속도 조정
+                    # 보스가 친 공은 위로 반사되도록 Y축 속도 조정 + 강력한 속도 증폭
                     if ball_vy > 0:  # 보스가 친 공
-                        # 단순히 위로 반사 (회오리 영향권에서 반사)
-                        if new_vy > 0:  # 아래로 향하는 경우만
-                            new_vy = -abs(new_vy)  # 위로 반사
+                        # 일정한 고속 반사 (편차 없이 항상 동일한 고속)
+                        current_ball_speed = math.sqrt(ball_vx**2 + ball_vy**2)
+                        amplified_speed = 65  # 항상 고정된 고속 (편차 제거)
+                        
+                        # 기본 위쪽 방향 (-90도)에서 좌우 60도 범위로 랜덤 반사
+                        base_angle = -math.pi / 2  # -90도 (위쪽)
+                        fan_spread = math.pi / 3  # 60도
+                        random_offset = random.uniform(-fan_spread, fan_spread)
+                        target_angle = base_angle + random_offset
+                        
+                        # 강력한 반사 속도 계산
+                        new_vx = math.cos(target_angle) * amplified_speed
+                        new_vy = math.sin(target_angle) * amplified_speed
+                        
+                        # Y축 속도 보정 (반드시 위쪽으로)
+                        if new_vy >= 0:
+                            new_vy = -40  # 강제로 위쪽 방향
+                        elif new_vy < -50:
+                            new_vy = -50  # 너무 빠르면 제한
+                        
+                        print(f"🌊 [보스공 반사] 속도: {current_ball_speed:.1f} → {amplified_speed} (고정 고속)")
+                        print(f"🌊 [보스공 반사] 최종: vx={new_vx:.1f}, vy={new_vy:.1f}")
                     else:
                         # 플레이어가 친 공은 회오리 영향을 받지 않음
                         return ball_vx, ball_vy  # 원래 속도 그대로 반환

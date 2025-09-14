@@ -353,7 +353,7 @@ TILE_SIZE = 40
 SLOW_SPEED = 3
 DEFAULT_SPEED = 5
 FAST_SPEED = 10
-MAX_BALL_SPEED = 40
+MAX_BALL_SPEED = 60
 
 # 각도 관련
 QUARTER_ROTATION = 90
@@ -28259,7 +28259,7 @@ def handle_ball():
             print(f"    : {horizontal_movement_timer} → 0")
             horizontal_movement_timer = 0
     # --- 공 속도 제한 (최대 속도 35로 제한, 특수 기술 제외) ---
-    MAX_BALL_VELOCITY = 60  # 최대 공 속도 제한 (물회오리 효과를 위해 상향)
+    MAX_BALL_VELOCITY = 100  # 최대 공 속도 제한 (물회오리 효과를 위해 대폭 상향)
     
     # 특수 기술 사용 중인지 확인 (파워스매싱, 상모돌리기, 드라이브, 고스트샷, 사이코볼 등)
     is_special_skill_active = (
@@ -28379,6 +28379,11 @@ def handle_ball():
                                 old_ball_vel = [ball_vel[0], ball_vel[1]]
                                 ball_vel[0] = wave_vx * num_steps / ball_impact_boost
                                 ball_vel[1] = wave_vy * num_steps / ball_impact_boost
+                                
+                                # 디버그: 속도 변화 추적
+                                old_speed = math.sqrt(old_ball_vel[0]**2 + old_ball_vel[1]**2)
+                                new_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                                print(f"🌊 [메인 루프] 포세이돈 효과 적용: {old_speed:.1f} → {new_speed:.1f}")
             except Exception as e:
                 # 전설 아이템 매니저 접근 실패 시 기본 속도 사용
                 print(f"[ERROR] Legendary manager error: {e}")
