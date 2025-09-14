@@ -1225,6 +1225,7 @@ pygame.mixer.set_num_channels(8)  # 동시 재생 가능한 채널 수
 # 사운드 파일 로드
 SOUND_SERVE = pygame.mixer.Sound(resource_path("sounds/serve.wav"))
 SOUND_WALL = pygame.mixer.Sound(resource_path("sounds/wall_hit.wav"))
+SOUND_ROCK_BREAK = pygame.mixer.Sound(resource_path("sounds/rock_break.wav"))  # 벽돌 부서지는 소리
 SOUND_PADDLE = pygame.mixer.Sound(resource_path("sounds/paddle_hit.wav"))
 # 정글지진 효과음 로드
 SOUND_QUAKE = pygame.mixer.Sound(resource_path("sounds/quake_sound.wav"))  # 퀘이크 효과음 파일 로드 (이 경로는 실제 파일에 맞게 수정 필요)
@@ -2002,6 +2003,7 @@ boss_hit_timer = 0  # 보스가 공을 때린 후 경과 시간
 walls = []  # 벽돌 리스트 [{"rect": pygame.Rect, "hit_count": int, "crack_level": int}]
 wall_installing = False  # 벽돌 설치 중
 wall_install_timer = 0  # 설치 타이머 (0.5초 = 30프레임)
+brick_particles = []  # 벽돌 부서지는 파티클 리스트
 # === 화염병 관련 ===
 molotovs = []  # 던져진 화염병 리스트
 fire_zones = []  # 화염 지대 리스트
@@ -4126,6 +4128,116 @@ def throw_molotov():
         print(f"[DEBUG]  !")
     
     print(f" !  : X={molotov_target_x:.1f}, Y={molotov_target_y:.1f}")
+
+def create_brick_destruction_effect(brick_rect):
+    """벽돌 부서지는 파티클 이펙트 생성"""
+    global brick_particles
+    
+    # 벽돌 부서지는 사운드 재생
+    try:
+        SOUND_ROCK_BREAK.play()
+    except:
+        pass
+    
+    # 벽돌 조각 파티클 생성 (8-12개)
+    particle_count = random.randint(8, 12)
+    
+    for i in range(particle_count):
+        # 파티클 시작 위치 (벽돌 내부 랜덤)
+        start_x = brick_rect.centerx + random.randint(-brick_rect.width//2, brick_rect.width//2)
+        start_y = brick_rect.centery + random.randint(-brick_rect.height//2, brick_rect.height//2)
+        
+        # 파티클 속도 (폭발적으로 퍼짐)
+        vel_x = random.uniform(-8, 8)
+        vel_y = random.uniform(-12, -3)  # 위로 튀어오르기
+        
+        # 파티클 크기 (벽돌 조각 크기)
+        size = random.randint(3, 8)
+        
+        # 벽돌 색상 계열
+        color_base = random.choice([
+            (139, 69, 19),   # 갈색 벽돌
+            (160, 82, 45),   # 밝은 갈색  
+            (105, 105, 105), # 모르타르 회색
+            (184, 134, 11)   # 노란 갈색
+        ])
+        
+        # 색상 약간 변화
+        color = tuple(max(0, min(255, c + random.randint(-30, 30))) for c in color_base)
+        
+        # 파티클 생성
+        particle = {
+            "x": start_x,
+            "y": start_y,
+            "vel_x": vel_x,
+            "vel_y": vel_y,
+            "size": size,
+            "color": color,
+            "life": 60,  # 1초 생존 (60프레임)
+            "rotation": random.uniform(0, 360),  # 회전각
+            "angular_vel": random.uniform(-10, 10)  # 회전속도
+        }
+        
+        brick_particles.append(particle)
+
+def update_brick_particles():
+    """벽돌 파티클 업데이트"""
+    global brick_particles
+    
+    for particle in brick_particles[:]:
+        # 물리 업데이트
+        particle["x"] += particle["vel_x"]
+        particle["y"] += particle["vel_y"]
+        particle["vel_y"] += 0.5  # 중력
+        particle["vel_x"] *= 0.98  # 공기 저항
+        particle["rotation"] += particle["angular_vel"]
+        
+        # 바닥에 닿으면 튕기기
+        if particle["y"] > HEIGHT - 50:
+            particle["y"] = HEIGHT - 50
+            particle["vel_y"] *= -0.3  # 탄성
+            particle["vel_x"] *= 0.7   # 마찰
+            particle["angular_vel"] *= 0.5
+        
+        # 수명 감소
+        particle["life"] -= 1
+        
+        # 수명 다한 파티클 제거
+        if particle["life"] <= 0:
+            brick_particles.remove(particle)
+
+def draw_brick_particles(screen):
+    """벽돌 파티클 그리기"""
+    for particle in brick_particles:
+        # 알파 값 계산 (수명에 따라 페이드아웃)
+        alpha_ratio = particle["life"] / 60.0
+        alpha = int(255 * alpha_ratio)
+        
+        # 색상에 알파 적용
+        color_with_alpha = (*particle["color"], alpha)
+        
+        # 파티클을 작은 사각형으로 그리기
+        particle_rect = pygame.Rect(
+            int(particle["x"] - particle["size"]//2),
+            int(particle["y"] - particle["size"]//2),
+            particle["size"],
+            particle["size"]
+        )
+        
+        # 회전 효과를 위한 표면 생성
+        if alpha > 0:
+            particle_surface = pygame.Surface((particle["size"], particle["size"]), pygame.SRCALPHA)
+            pygame.draw.rect(particle_surface, particle["color"], 
+                           (0, 0, particle["size"], particle["size"]))
+            
+            # 회전 적용
+            rotated_surface = pygame.transform.rotate(particle_surface, particle["rotation"])
+            
+            # 화면에 그리기
+            rotated_rect = rotated_surface.get_rect()
+            rotated_rect.center = (int(particle["x"]), int(particle["y"]))
+            screen.blit(rotated_surface, rotated_rect)
+
 def activate_wall():
     """벽돌 설치 함수"""
     global walls, wall_installing, wall_install_timer, wall_install_gauge_visible, master_obtained
@@ -7899,7 +8011,11 @@ def handle_wall():
             wall_installing = False
             wall_install_gauge_visible = False  # 설치 게이지 숨기기
             print("!    .")
-    # 파괴된 벽돌들 제거
+    # 파괴된 벽돌들 제거 (부서지는 이펙트 생성)
+    destroyed_walls = [wall for wall in walls if wall["hit_count"] >= 2]
+    for wall in destroyed_walls:
+        # 벽돌 부서지는 파티클 이펙트 생성
+        create_brick_destruction_effect(wall["rect"])
     walls = [wall for wall in walls if wall["hit_count"] < 2]
     # 수류탄 업데이트
     global grenade_shake_timer, boss_stunned_timer, boss_knockback_vel, explosion_zones
@@ -12890,25 +13006,74 @@ def draw_objects():
         
         # 5. 벽돌 외곽선
         draw.rect((80, 40, 10), wall_rect, 1)  # 어두운 갈색 테두리
-        # 균열 그리기
+        # 균열 그리기 (정적 균열 패턴)
         if wall_crack_level > 0:
-            crack_color = RED if wall_crack_level >= 3 else (255, 255, 0)
-            # 충돌횟수에 비례해서 균열 개수 증가
-            crack_count = wall_crack_level * 3  # 1회 충돌당 3개, 2회 충돌당 6개, 3회 충돌당 9개 균열
-            # 균열 선 그리기
-            for i in range(crack_count):
-                # 균열의 시작점 (벽돌 내부에서 랜덤) - 오프셋이 적용된 wall_rect 사용
-                start_x = wall_rect.x + random.randint(5, wall_rect.width - 5)
-                start_y = wall_rect.y + random.randint(5, wall_rect.height - 5)
-                # 균열의 방향과 길이 (충돌횟수가 많을수록 더 긴 균열)
-                crack_length = random.randint(8, 15 + wall_crack_level * 3)  # 충돌횟수에 따라 길이 증가
-                angle = random.uniform(0, 2 * math.pi)  # 랜덤 각도
-                # 균열의 끝점 계산
-                end_x = start_x + int(math.cos(angle) * crack_length)
-                end_y = start_y + int(math.sin(angle) * crack_length)
-                # 균열 두께 (충돌횟수가 많을수록 두꺼워짐)
-                crack_thickness = min(4, 1 + wall_crack_level)
-                draw.line(crack_color, (start_x, start_y), (end_x, end_y), crack_thickness)
+            # 벽돌 ID를 기반으로 고정된 시드 생성 (균열이 매번 같은 패턴으로)
+            wall_id = hash((wall_rect.x, wall_rect.y)) % 1000
+            random.seed(wall_id)
+            
+            # 균열 색상 (레벨에 따라)
+            if wall_crack_level == 1:
+                crack_color = (139, 69, 19)  # 어두운 갈색 (작은 균열)
+            elif wall_crack_level == 2:
+                crack_color = (105, 105, 105)  # 회색 (중간 균열)
+            else:
+                crack_color = (220, 20, 60)  # 진한 빨간색 (심각한 균열)
+            
+            # 현실적인 균열 패턴
+            # 1단계: 작은 균열들
+            if wall_crack_level >= 1:
+                # 상단에서 시작하는 수직 균열
+                crack_x = wall_rect.centerx + random.randint(-10, 10)
+                crack_start_y = wall_rect.top + 3
+                crack_end_y = wall_rect.top + wall_rect.height // 3
+                draw.line(crack_color, (crack_x, crack_start_y), (crack_x, crack_end_y), 1)
+                
+                # 좌측에서 시작하는 수평 균열  
+                crack_y = wall_rect.centery + random.randint(-5, 5)
+                crack_start_x = wall_rect.left + 3
+                crack_end_x = wall_rect.left + wall_rect.width // 3
+                draw.line(crack_color, (crack_start_x, crack_y), (crack_end_x, crack_y), 1)
+            
+            # 2단계: 중간 균열들 (연결됨)
+            if wall_crack_level >= 2:
+                # 대각선 균열 (좌상단에서 우하단으로)
+                start_x = wall_rect.left + wall_rect.width // 4
+                start_y = wall_rect.top + wall_rect.height // 4
+                end_x = wall_rect.right - wall_rect.width // 4  
+                end_y = wall_rect.bottom - wall_rect.height // 4
+                draw.line(crack_color, (start_x, start_y), (end_x, end_y), 1)
+                
+                # 가운데를 가로지르는 수평 균열
+                mid_y = wall_rect.centery
+                draw.line(crack_color, (wall_rect.left + 5, mid_y), (wall_rect.right - 5, mid_y), 1)
+            
+            # 3단계: 심각한 균열 (거의 부서지기 직전)
+            if wall_crack_level >= 3:
+                # X자 형태의 교차 균열
+                draw.line(crack_color, (wall_rect.left + 2, wall_rect.top + 2), 
+                         (wall_rect.right - 2, wall_rect.bottom - 2), 2)
+                draw.line(crack_color, (wall_rect.right - 2, wall_rect.top + 2), 
+                         (wall_rect.left + 2, wall_rect.bottom - 2), 2)
+                
+                # 가장자리 균열들
+                for i in range(3):
+                    # 상단 가장자리 균열
+                    x_pos = wall_rect.left + (wall_rect.width * i) // 2
+                    draw.line(crack_color, (x_pos, wall_rect.top), 
+                             (x_pos, wall_rect.top + 8), 1)
+                    
+                    # 하단 가장자리 균열  
+                    x_pos = wall_rect.left + (wall_rect.width * i) // 2
+                    draw.line(crack_color, (x_pos, wall_rect.bottom), 
+                             (x_pos, wall_rect.bottom - 8), 1)
+            
+            # 시드 리셋 (다른 요소들에 영향 안주도록)
+            random.seed()
+    
+    # 벽돌 파괴 파티클 그리기
+    draw_brick_particles(SCREEN)
+    
     # === Stage 4 명상타임 이펙트 ===
     if current_stage == 4 and meditation_active:
         # 선 원 효과 그리기 (보스 주변)
@@ -34849,6 +35014,7 @@ def main(stage_num, new_boss_mode=False):
                 update_water_trail()  #  물자국 업데이트
                 handle_aipill()  #  AI 필 타이머 처리
                 handle_wall()  #  벽돌 처리
+                update_brick_particles()  # 벽돌 파티클 업데이트
                 
                 # 다우징팬들럼 효과 적용 (아이템을 끌어당김)
                 if items.dowsing_pendulum_obtained and dowsing_pendulum_effect.enabled:
