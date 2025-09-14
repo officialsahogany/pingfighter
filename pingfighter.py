@@ -34953,8 +34953,8 @@ def main(stage_num, new_boss_mode=False):
                 #  Stage 3 멘헤라걸 꼬리 채찍 시스템 및 공 먹기 이벤트
                 if current_stage == 3:
                     # 쿠로미 공 먹기 이벤트 체크 (공이 쿠로미 안에 없고 쿨타임이 끝났을 때만)
-                    # 추가로 쿠로미가 석화화 상태가 아닐 때만 체크
-                    if not ball_in_kuromi and animated_bg_stage3 and not kuromi_eating_active and kuromi_eating_cooldown <= 0 and not animated_bg_stage3.kuromi_petrified:
+                    # 추가로 쿠로미가 석화화 상태가 아니고 사이코볼이 활성화되지 않았을 때만 체크
+                    if not ball_in_kuromi and animated_bg_stage3 and not kuromi_eating_active and kuromi_eating_cooldown <= 0 and not animated_bg_stage3.kuromi_petrified and not emotional_overdrive_active:
                         # 쿠로미 영역 정의
                         center_x = WIDTH // 2
                         center_y = HEIGHT // 2
@@ -35044,12 +35044,12 @@ def main(stage_num, new_boss_mode=False):
                                 
                                 print(f"💥 쿠로미가 공을 뱉어냄! 속도: ({new_vx:.1f}, {new_vy:.1f})")
                     
-                    # 꼬리 채찍 쿨다운 감소 (쿠로미가 각성했을 때만)
-                    if animated_bg_stage3 and animated_bg_stage3.kuromi_awakened and stage3_tail_whip_cooldown > 0 and not stage3_tail_whip_active:
+                    # 꼬리 채찍 쿨다운 감소 (쿠로미가 각성했을 때만, 사이코볼이 활성화되지 않았을 때만)
+                    if animated_bg_stage3 and animated_bg_stage3.kuromi_awakened and stage3_tail_whip_cooldown > 0 and not stage3_tail_whip_active and not emotional_overdrive_active:
                         stage3_tail_whip_cooldown -= 1
                         
-                        # 쿨다운 완료 시 꼬리 채찍 발동
-                        if stage3_tail_whip_cooldown == 0:
+                        # 쿨다운 완료 시 꼬리 채찍 발동 (사이코볼이 활성화되지 않았을 때만)
+                        if stage3_tail_whip_cooldown == 0 and not emotional_overdrive_active:
                             stage3_tail_whip_active = True
                             stage3_tail_whip_animation_timer = 60  # 1초 애니메이션
                             stage3_tail_hit_ball = False
