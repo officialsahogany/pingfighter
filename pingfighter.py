@@ -1171,6 +1171,10 @@ power_smashing_parabola_active = False  # 포물선 궤적 활성화 상태
 power_smashing_start_time = 0           # 파워스매싱 시작 시간
 power_smashing_arc_strength = 0.0       # 포물선 강도 (방향에 따라 ± 값)
 power_smashing_gravity_effect = 0.035    # 중력 효과 강도 (완만한 곡선으로 조정)
+# 파워스매싱 초기 부스트
+power_smashing_initial_boost = False    # 초기 부스트 활성화 상태
+power_smashing_boost_duration = 500     # 부스트 지속 시간 (밀리초, 0.5초)
+power_smashing_target_speed = 0.0       # 목표 속도 (부스트 후 복귀할 속도)
 # 파워스매싱 정지 시간 관리
 power_smashing_freeze_start_time = 0    # 파워스매싱 정지 시작 시간
 power_smashing_freeze_duration = 1000   # 정지 시간 (밀리초, 1초)
@@ -26039,6 +26043,10 @@ def reset_round():
     power_smashing_arc_strength = 0.0
     power_smashing_trails.clear()  # 잔상 효과 리셋
     power_smashing_particles.clear()  # 파티클 효과 리셋
+    # 초기 부스트 관련 변수 리셋
+    global power_smashing_initial_boost, power_smashing_target_speed
+    power_smashing_initial_boost = False
+    power_smashing_target_speed = 0.0
     # 파워스매싱 정지 시간 관련 변수 리셋
     global power_smashing_freeze_start_time, power_smashing_freeze_active
     power_smashing_freeze_start_time = 0
@@ -27957,6 +27965,30 @@ def handle_ball():
     if power_smashing_parabola_active:
         time_now = pygame.time.get_ticks()
         elapsed_time = (time_now - power_smashing_start_time) / 1000.0  # 초 단위
+        
+        # 초기 부스트 감속 처리 (0.5초 동안)
+        global power_smashing_initial_boost, power_smashing_boost_duration, power_smashing_target_speed
+        if power_smashing_initial_boost and elapsed_time < (power_smashing_boost_duration / 1000.0):
+            # 현재 속도 계산
+            current_speed = math.hypot(ball_vel[0], ball_vel[1])
+            
+            # 부스트 진행도 (0~1)
+            boost_progress = elapsed_time / (power_smashing_boost_duration / 1000.0)
+            
+            # 초기 부스트 속도에서 목표 속도로 부드럽게 감속 (선형 보간)
+            initial_boosted_speed = power_smashing_target_speed * 1.5  # 2.5배 (기본 2.1배 + 추가 1.5배)
+            interpolated_speed = initial_boosted_speed - (initial_boosted_speed - power_smashing_target_speed) * boost_progress
+            
+            # 속도 조정
+            if current_speed > 0:
+                speed_ratio = interpolated_speed / current_speed
+                ball_vel[0] *= speed_ratio
+                ball_vel[1] *= speed_ratio
+                
+                if boost_progress >= 1.0:
+                    power_smashing_initial_boost = False
+                    print(f"🎯 파워스매싱 부스트 종료! 최종속도: {interpolated_speed:.1f}")
+        
         # 파워스매싱만 처리 (고스트샷은 위에서 별도 처리)
         if False:  # 고스트샷 로직 제거
             #  고스트샷: 뱀처럼 구불거리고 예측불가능한 궤적
@@ -30355,6 +30387,9 @@ def handle_ball():
             #  파워스매싱 이펙트 즉시 정리
             power_smashing_trails.clear()
             power_smashing_particles.clear()
+            # 초기 부스트 리셋
+            power_smashing_initial_boost = False
+            power_smashing_target_speed = 0.0
             mega_smashing_meteor_trail.clear()
             mega_smashing_active = False
             # 양자 이펙트 정리
@@ -34239,6 +34274,19 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[0] *= 1.2805  # X축 28.05% 부스트
                         ball_vel[1] *= 1.2805  # Y축 28.05% 부스트
                     final_speed = math.hypot(ball_vel[0], ball_vel[1])
+                    
+                    # 파워스매싱 초기 부스트 적용 (150% 추가 속도)
+                    global power_smashing_initial_boost, power_smashing_target_speed
+                    power_smashing_target_speed = final_speed  # 현재 속도를 목표 속도로 저장
+                    initial_boost_multiplier = 1.5  # 150% 추가 = 2.5배
+                    
+                    # 초기 부스트 속도 적용
+                    if final_speed > 0:
+                        boost_ratio = initial_boost_multiplier
+                        ball_vel[0] *= boost_ratio
+                        ball_vel[1] *= boost_ratio
+                        power_smashing_initial_boost = True
+                        print(f"🚀 파워스매싱 초기 부스트 적용! 목표속도: {power_smashing_target_speed:.1f}, 부스트속도: {final_speed * initial_boost_multiplier:.1f}")
                     
                     # Chapter 4 튜토리얼: 파워스매싱 방향별 카운트 증가
                     if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_power_counter_active:
