@@ -4146,7 +4146,7 @@ def throw_molotov():
     print(f" !  : X={molotov_target_x:.1f}, Y={molotov_target_y:.1f}")
 
 def create_brick_destruction_effect(brick_rect):
-    """벽돌 부서지는 파티클 이펙트 생성"""
+    """벽돌 부서지는 파티클 이펙트 생성 - 폭발적인 파편 효과"""
     global brick_particles
     
     # 벽돌 부서지는 사운드 재생 - rock_break.wav 제거됨
@@ -4156,31 +4156,45 @@ def create_brick_destruction_effect(brick_rect):
     except:
         pass
     
-    # 벽돌 조각 파티클 생성 (8-12개)
-    particle_count = random.randint(8, 12)
+    # 폭발 중심점
+    explosion_center_x = brick_rect.centerx
+    explosion_center_y = brick_rect.centery
+    
+    # 더 많은 파티클 생성 (15-25개) - 더 폭발적인 느낌
+    particle_count = random.randint(15, 25)
     
     for i in range(particle_count):
-        # 파티클 시작 위치 (벽돌 내부 랜덤)
-        start_x = brick_rect.centerx + random.randint(-brick_rect.width//2, brick_rect.width//2)
-        start_y = brick_rect.centery + random.randint(-brick_rect.height//2, brick_rect.height//2)
+        # 파티클 시작 위치 (벽돌 중심에서 약간 퍼짐)
+        start_x = explosion_center_x + random.randint(-5, 5)
+        start_y = explosion_center_y + random.randint(-5, 5)
         
-        # 파티클 속도 (폭발적으로 퍼짐)
-        vel_x = random.uniform(-8, 8)
-        vel_y = random.uniform(-12, -3)  # 위로 튀어오르기
+        # 폭발 방향 (360도 전방향으로)
+        angle = random.uniform(0, 2 * math.pi)
         
-        # 파티클 크기 (벽돌 조각 크기)
-        size = random.randint(3, 8)
+        # 폭발 속도 (더 강력하고 다양한 속도)
+        speed = random.uniform(8, 20)  # 더 빠른 속도
+        vel_x = math.cos(angle) * speed
+        vel_y = math.sin(angle) * speed - random.uniform(0, 5)  # 약간 위로 편향
         
-        # 벽돌 색상 계열
+        # 파티클 크기 (더 다양한 크기의 파편)
+        size = random.choice([
+            random.randint(2, 4),    # 작은 파편 (40%)
+            random.randint(4, 7),    # 중간 파편 (40%)  
+            random.randint(7, 12)    # 큰 파편 (20%)
+        ])
+        
+        # 벽돌 색상 계열 (더 다양한 색상)
         color_base = random.choice([
             (139, 69, 19),   # 갈색 벽돌
             (160, 82, 45),   # 밝은 갈색  
             (105, 105, 105), # 모르타르 회색
-            (184, 134, 11)   # 노란 갈색
+            (184, 134, 11),  # 노란 갈색
+            (120, 50, 10),   # 어두운 갈색
+            (200, 150, 100)  # 밝은 벽돌색
         ])
         
         # 색상 약간 변화
-        color = tuple(max(0, min(255, c + random.randint(-30, 30))) for c in color_base)
+        color = tuple(max(0, min(255, c + random.randint(-40, 40))) for c in color_base)
         
         # 파티클 생성
         particle = {
@@ -4190,62 +4204,150 @@ def create_brick_destruction_effect(brick_rect):
             "vel_y": vel_y,
             "size": size,
             "color": color,
-            "life": 60,  # 1초 생존 (60프레임)
+            "life": random.randint(45, 90),  # 0.75~1.5초 생존 (더 다양한 수명)
             "rotation": random.uniform(0, 360),  # 회전각
-            "angular_vel": random.uniform(-10, 10)  # 회전속도
+            "angular_vel": random.uniform(-20, 20),  # 더 빠른 회전속도
+            "type": "brick"  # 파티클 타입 추가
+        }
+        
+        brick_particles.append(particle)
+    
+    # 추가 효과: 먼지 파티클 (폭발 연기 효과)
+    dust_count = random.randint(8, 12)
+    for i in range(dust_count):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(3, 8)
+        
+        particle = {
+            "x": explosion_center_x + random.randint(-10, 10),
+            "y": explosion_center_y + random.randint(-10, 10),
+            "vel_x": math.cos(angle) * speed,
+            "vel_y": math.sin(angle) * speed - 2,
+            "size": random.randint(8, 15),
+            "color": (150, 150, 150),  # 회색 먼지
+            "life": random.randint(20, 40),  # 짧은 수명
+            "rotation": 0,
+            "angular_vel": 0,
+            "type": "dust"  # 먼지 타입
         }
         
         brick_particles.append(particle)
 
 def update_brick_particles():
-    """벽돌 파티클 업데이트"""
+    """벽돌 파티클 업데이트 - 더 역동적인 물리 효과"""
     global brick_particles
     
     for particle in brick_particles[:]:
-        # 물리 업데이트
-        particle["x"] += particle["vel_x"]
-        particle["y"] += particle["vel_y"]
-        particle["vel_y"] += 0.5  # 중력
-        particle["vel_x"] *= 0.98  # 공기 저항
-        particle["rotation"] += particle["angular_vel"]
-        
-        # 바닥에 닿으면 튕기기
-        if particle["y"] > HEIGHT - 50:
-            particle["y"] = HEIGHT - 50
-            particle["vel_y"] *= -0.3  # 탄성
-            particle["vel_x"] *= 0.7   # 마찰
-            particle["angular_vel"] *= 0.5
+        # 파티클 타입에 따른 다른 물리 효과
+        if particle.get("type") == "dust":
+            # 먼지는 천천히 퍼지면서 사라짐
+            particle["x"] += particle["vel_x"]
+            particle["y"] += particle["vel_y"]
+            particle["vel_y"] += 0.1  # 약한 중력
+            particle["vel_x"] *= 0.92  # 강한 공기 저항
+            particle["size"] *= 1.05  # 크기 증가 (퍼짐 효과)
+        else:
+            # 벽돌 파편은 더 현실적인 물리
+            particle["x"] += particle["vel_x"]
+            particle["y"] += particle["vel_y"]
+            particle["vel_y"] += 0.8  # 더 강한 중력
+            particle["vel_x"] *= 0.96  # 공기 저항
+            particle["rotation"] += particle["angular_vel"]
+            
+            # 회전 속도 감소
+            particle["angular_vel"] *= 0.98
+            
+            # 바닥에 닿으면 튕기기
+            if particle["y"] > HEIGHT - 50:
+                particle["y"] = HEIGHT - 50
+                
+                # 크기에 따른 다른 탄성
+                if particle["size"] > 7:  # 큰 파편
+                    particle["vel_y"] *= -0.2  # 덜 튕김
+                    particle["vel_x"] *= 0.5   # 더 많은 마찰
+                else:  # 작은 파편
+                    particle["vel_y"] *= -0.4  # 더 튕김
+                    particle["vel_x"] *= 0.8   # 덜 마찰
+                
+                particle["angular_vel"] *= 0.5
+                
+                # 바닥에 충돌 시 파편이 더 작게 부서질 수 있음
+                if particle["size"] > 5 and random.random() < 0.3:
+                    particle["size"] -= 1
+            
+            # 벽에 충돌
+            if particle["x"] < 0 or particle["x"] > WIDTH:
+                particle["vel_x"] *= -0.7
+                particle["angular_vel"] *= -0.8
         
         # 수명 감소
         particle["life"] -= 1
         
         # 수명 다한 파티클 제거
-        if particle["life"] <= 0:
+        if particle["life"] <= 0 or particle.get("size", 1) <= 0:
             brick_particles.remove(particle)
 
 def draw_brick_particles(screen):
-    """벽돌 파티클 그리기"""
+    """벽돌 파티클 그리기 - 먼지와 파편을 다르게 렌더링"""
     for particle in brick_particles:
         # 알파 값 계산 (수명에 따라 페이드아웃)
-        alpha_ratio = particle["life"] / 60.0
+        max_life = 90 if particle.get("type") == "brick" else 40
+        alpha_ratio = particle["life"] / max_life
         alpha = int(255 * alpha_ratio)
         
-        # 색상에 알파 적용
-        color_with_alpha = (*particle["color"], alpha)
+        if alpha <= 0:
+            continue
         
-        # 파티클을 작은 사각형으로 그리기
-        particle_rect = pygame.Rect(
-            int(particle["x"] - particle["size"]//2),
-            int(particle["y"] - particle["size"]//2),
-            particle["size"],
-            particle["size"]
-        )
-        
-        # 회전 효과를 위한 표면 생성
-        if alpha > 0:
-            particle_surface = pygame.Surface((particle["size"], particle["size"]), pygame.SRCALPHA)
-            pygame.draw.rect(particle_surface, particle["color"], 
-                           (0, 0, particle["size"], particle["size"]))
+        # 파티클 타입에 따른 다른 렌더링
+        if particle.get("type") == "dust":
+            # 먼지는 원형으로 그리고 더 투명하게
+            dust_surface = pygame.Surface((int(particle["size"]*2), int(particle["size"]*2)), pygame.SRCALPHA)
+            
+            # 그라데이션 효과를 위한 여러 원 그리기
+            for i in range(3):
+                radius = int(particle["size"] * (1 - i*0.3))
+                fade_alpha = int(alpha * (0.3 - i*0.1))
+                if fade_alpha > 0 and radius > 0:
+                    pygame.draw.circle(dust_surface, (*particle["color"], fade_alpha), 
+                                     (int(particle["size"]), int(particle["size"])), radius)
+            
+            screen.blit(dust_surface, (int(particle["x"] - particle["size"]), 
+                                      int(particle["y"] - particle["size"])))
+        else:
+            # 벽돌 파편은 각진 모양으로
+            size = int(particle["size"])
+            if size <= 0:
+                continue
+                
+            particle_surface = pygame.Surface((size*2, size*2), pygame.SRCALPHA)
+            
+            # 파편 모양 그리기 (다각형)
+            if particle["size"] > 7:  # 큰 파편
+                # 불규칙한 육각형
+                points = [
+                    (size//3, 0),
+                    (size*2//3, 0),
+                    (size, size//3),
+                    (size*2//3, size),
+                    (size//3, size),
+                    (0, size*2//3)
+                ]
+            else:  # 작은 파편
+                # 불규칙한 사각형
+                points = [
+                    (0, size//4),
+                    (size*3//4, 0),
+                    (size, size*3//4),
+                    (size//4, size)
+                ]
+            
+            # 파편 그리기
+            pygame.draw.polygon(particle_surface, (*particle["color"], alpha), points)
+            
+            # 테두리 추가 (더 선명하게)
+            if alpha > 100:
+                edge_color = tuple(max(0, c - 50) for c in particle["color"])
+                pygame.draw.polygon(particle_surface, (*edge_color, alpha//2), points, 1)
             
             # 회전 적용
             rotated_surface = pygame.transform.rotate(particle_surface, particle["rotation"])
