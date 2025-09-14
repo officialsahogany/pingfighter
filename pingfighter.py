@@ -28029,12 +28029,12 @@ def handle_ball():
                 ball_vel[0] *= speed_ratio
                 ball_vel[1] *= speed_ratio
         else:
-            # 일반 파워스매싱: 완만한 포물선 궤적
-            # 수평 이동: 부드러운 방향성 + 작은 랜덤 변화
-            horizontal_decay = max(0.6, 1.0 - elapsed_time * 0.08)  # 천천히 감소, 최소 60% 유지
-            # 작은 랜덤 요소 추가
-            chaos_factor = math.sin(elapsed_time * 5.0) * 0.1 + random.uniform(-0.08, 0.08)
-            horizontal_force = power_smashing_arc_strength * horizontal_decay * (0.7 + chaos_factor * 0.3)
+            # 일반 파워스매싱: 수직에 가까운 포물선 궤적
+            # 수평 이동: 최소한의 방향성 + 매우 작은 랜덤 변화
+            horizontal_decay = max(0.8, 1.0 - elapsed_time * 0.05)  # 매우 천천히 감소, 최소 80% 유지
+            # 매우 작은 랜덤 요소 추가
+            chaos_factor = math.sin(elapsed_time * 5.0) * 0.05 + random.uniform(-0.04, 0.04)
+            horizontal_force = power_smashing_arc_strength * horizontal_decay * (0.5 + chaos_factor * 0.2)
             ball_vel[0] += horizontal_force
             # 수직 이동: 뚜렷한 중력 효과로 명확한 포물선
             # 포물선의 상승과 하강을 뚜렷하게
@@ -34139,16 +34139,16 @@ def main(stage_num, new_boss_mode=False):
                     global power_smashing_freeze_start_time, power_smashing_freeze_active
                     if keys[pygame.K_LEFT]:
                         power_smashing_direction = -1  # 왼쪽
-                        # 완만한 곡선 효과 적용
-                        base_strength = -1.6  # 기본 강도 감소 (2.8 → 1.6)
-                        random_variation = random.uniform(-0.2, 0.2)  # 랜덤 변화량도 감소
-                        power_smashing_arc_strength = base_strength + random_variation  # 왼쪽 방향으로 완만한 곡선
+                        # 수직에 가까운 곡선 효과 적용
+                        base_strength = -0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
+                        random_variation = random.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
+                        power_smashing_arc_strength = base_strength + random_variation  # 왼쪽 방향으로 수직에 가까운 곡선
                     elif keys[pygame.K_RIGHT]:
                         power_smashing_direction = 1   # 오른쪽
-                        # 완만한 곡선 효과 적용
-                        base_strength = 1.6  # 기본 강도 감소 (2.8 → 1.6)
-                        random_variation = random.uniform(-0.2, 0.2)  # 랜덤 변화량도 감소
-                        power_smashing_arc_strength = base_strength + random_variation  # 오른쪽 방향으로 완만한 곡선
+                        # 수직에 가까운 곡선 효과 적용
+                        base_strength = 0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
+                        random_variation = random.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
+                        power_smashing_arc_strength = base_strength + random_variation  # 오른쪽 방향으로 수직에 가까운 곡선
                     else:
                         power_smashing_direction = 0   # 직선
                         # 직선이므로 포물선 효과 없음
