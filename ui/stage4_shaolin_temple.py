@@ -116,6 +116,10 @@ class ShaolinTempleBackground:
         # Monk hit effects (공을 칠 때 이펙트)
         self.monk_hit_effects = []  # 충격파 이펙트
         
+        # Monk death effects (사원 파괴 시 수도승 죽음)
+        self.monk_death_particles = []  # 수도승 폭발 파티클
+        self.monk_body_parts = []  # 수도승 신체 파편
+        
         # Ritual brazier state (의식용 화로 상태)
         self.brazier_lit = False  # 화로에 불이 붙어있는지
         self.brazier_fire_animation = 0  # 불꽃 애니메이션
@@ -1797,6 +1801,37 @@ class ShaolinTempleBackground:
                 'type': 'spark'
             })
     
+    def _update_monk_death_effects(self):
+        """Update monk death particles and body parts"""
+        # Update death particles
+        for particle in self.monk_death_particles[:]:
+            particle['x'] += particle['vx']
+            particle['y'] += particle['vy']
+            particle['vy'] += particle.get('gravity', 0.2)
+            particle['lifetime'] -= 1
+            
+            # Fade out dust particles
+            if 'opacity' in particle:
+                particle['opacity'] = int(particle['opacity'] * 0.95)
+            
+            if particle['lifetime'] <= 0:
+                self.monk_death_particles.remove(particle)
+        
+        # Update body parts
+        for part in self.monk_body_parts[:]:
+            part['x'] += part['vx']
+            part['y'] += part['vy']
+            part['vy'] += part['gravity']
+            part['rotation'] += part['rotation_speed']
+            part['lifetime'] -= 1
+            
+            # Slow down horizontal movement
+            part['vx'] *= 0.98
+            
+            # Remove if off screen or expired
+            if part['lifetime'] <= 0 or part['y'] > self.height + 50:
+                self.monk_body_parts.remove(part)
+    
     def _update_monk_hit_effects(self):
         """Update monk hit effects"""
         effects_to_remove = []
@@ -1824,6 +1859,80 @@ class ShaolinTempleBackground:
         for effect in effects_to_remove:
             if effect in self.monk_hit_effects:
                 self.monk_hit_effects.remove(effect)
+    
+    def _draw_monk_death_effects(self, surface: pygame.Surface):
+        """Draw monk death particles and body parts"""
+        # Draw particles
+        for particle in self.monk_death_particles:
+            if particle.get('type') == 'shockwave':
+                # Draw expanding shockwave
+                particle['radius'] += 3
+                if particle['radius'] < particle['max_radius']:
+                    alpha = int(255 * (1 - particle['radius'] / particle['max_radius']))
+                    color = (*particle['color'], alpha)
+                    pygame.draw.circle(surface, color,
+                                     (int(particle['x']), int(particle['y'])),
+                                     int(particle['radius']), 2)
+            elif particle.get('type') == 'sparkle':
+                # Draw sparkle with glow
+                pygame.draw.circle(surface, particle['color'],
+                                 (int(particle['x']), int(particle['y'])),
+                                 particle['size'])
+                # Add glow
+                glow_surf = pygame.Surface((particle['size']*4, particle['size']*4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (*particle['color'], 50),
+                                 (particle['size']*2, particle['size']*2),
+                                 particle['size']*2)
+                surface.blit(glow_surf, (particle['x'] - particle['size']*2,
+                                       particle['y'] - particle['size']*2))
+            elif 'opacity' in particle and particle['opacity'] > 0:
+                # Dust particles with opacity
+                color = (*particle['color'], particle['opacity'])
+                pygame.draw.circle(surface, color, 
+                                 (int(particle['x']), int(particle['y'])), 
+                                 particle['size'])
+            else:
+                # Regular particles (blood, gold, etc)
+                pygame.draw.circle(surface, particle['color'], 
+                                 (int(particle['x']), int(particle['y'])), 
+                                 particle['size'])
+                
+                # Add glow for golden particles
+                if particle.get('glow'):
+                    glow_surf = pygame.Surface((particle['size']*3, particle['size']*3), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surf, (*particle['color'], 30),
+                                     (particle['size']*1.5, particle['size']*1.5),
+                                     particle['size']*1.5)
+                    surface.blit(glow_surf, (particle['x'] - particle['size']*1.5,
+                                           particle['y'] - particle['size']*1.5))
+        
+        # Draw body parts
+        for part in self.monk_body_parts:
+            # Create surface for rotation
+            size = part['size'] * 2
+            part_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+            
+            # Draw different body part shapes
+            if part['type'] == 'head':
+                pygame.draw.circle(part_surface, part['color'], 
+                                 (size//2, size//2), part['size']//2)
+            elif part['type'] == 'torso':
+                pygame.draw.ellipse(part_surface, part['color'],
+                                  (size//4, size//4, size//2, size//2))
+            elif part['type'] in ['arm', 'leg']:
+                pygame.draw.rect(part_surface, part['color'],
+                               (size//3, 0, size//3, size))
+            
+            # Add glow for hero parts
+            if part.get('is_hero') and part.get('glow'):
+                glow_color = (*part['color'], 100)
+                pygame.draw.circle(part_surface, glow_color,
+                                 (size//2, size//2), size//2, 2)
+            
+            # Apply rotation
+            rotated = pygame.transform.rotate(part_surface, part['rotation'])
+            rect = rotated.get_rect(center=(int(part['x']), int(part['y'])))
+            surface.blit(rotated, rect)
     
     def _draw_monk_hit_effects(self, surface: pygame.Surface):
         """Draw monk hit effects"""
@@ -2118,6 +2227,7 @@ class ShaolinTempleBackground:
                     print("Performance mode disabled")
         self._update_crows()
         self._update_monk_hit_effects()  # Update monk hit effects
+        self._update_monk_death_effects()  # Update monk death particles
         self._update_crow_corpses()
         self._update_crow_fragments()
         self._update_crow_particles()
@@ -2181,6 +2291,9 @@ class ShaolinTempleBackground:
         
         # Draw monk hit effects (on top of monks)
         self._draw_monk_hit_effects(temp_surface)
+        
+        # Draw monk death effects
+        self._draw_monk_death_effects(temp_surface)
         
         # Draw incense
         self._draw_incense(temp_surface)
@@ -2670,6 +2783,12 @@ class ShaolinTempleBackground:
             self.destruction_phase = 1
             self.destruction_timer = 0
             print("Temple destruction animation started!")
+            
+            # Kill all monks when destruction starts
+            self._explode_all_monks()
+            
+            # Kill all training dummies too
+            self._explode_all_training_dummies()
     
     def is_destruction_animation_active(self):
         """Check if destruction animation is currently playing"""
@@ -3296,6 +3415,190 @@ class ShaolinTempleBackground:
                     # Remove fragment after impact
                     self.moon_fragments.remove(fragment)
     
+    def _explode_all_monks(self):
+        """Explode all monks when temple is destroyed"""
+        for monk in self.monks:
+            # Check if this is a hero monk (star reward monk)
+            is_hero = monk.get('type') == 'star_reward'
+            
+            if is_hero:
+                # Special explosion for hero monks - bigger and more dramatic
+                self._create_hero_monk_explosion(monk['x'], monk['y'])
+                
+                # More body parts for hero monks
+                for i in range(10):  # 10 body parts for heroes
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(8, 16)  # Faster flying parts
+                    body_part = {
+                        'x': monk['x'],
+                        'y': monk['y'],
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed - 8,  # More upward force
+                        'gravity': 0.5,
+                        'rotation': random.uniform(0, 360),
+                        'rotation_speed': random.uniform(-30, 30),
+                        'size': random.randint(10, 20),  # Bigger parts
+                        'color': (255, 215, 0),  # Gold color for hero parts
+                        'lifetime': 240,  # 4 seconds
+                        'type': random.choice(['arm', 'leg', 'torso', 'head']),
+                        'is_hero': True,
+                        'glow': True
+                    }
+                    self.monk_body_parts.append(body_part)
+            else:
+                # Normal explosion for regular monks
+                self._create_monk_explosion(monk['x'], monk['y'], monk.get('color', self.colors['temple_main']))
+                
+                # Create body parts flying in random directions
+                for i in range(6):  # 6 body parts
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(5, 12)
+                    body_part = {
+                        'x': monk['x'],
+                        'y': monk['y'],
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed - 5,  # Add upward force
+                        'gravity': 0.4,
+                        'rotation': random.uniform(0, 360),
+                        'rotation_speed': random.uniform(-20, 20),
+                        'size': random.randint(8, 16),
+                        'color': monk.get('color', self.colors['temple_main']),
+                        'lifetime': 180,  # 3 seconds
+                        'type': random.choice(['arm', 'leg', 'torso', 'head'])
+                    }
+                    self.monk_body_parts.append(body_part)
+        
+        # Clear all monks
+        self.monks.clear()
+        print(f"All monks exploded during temple destruction!")
+    
+    def _explode_all_training_dummies(self):
+        """Explode all training dummies when temple is destroyed"""
+        for dummy in self.training_dummies:
+            # Create wooden splinters
+            for i in range(8):
+                angle = random.uniform(0, math.pi * 2)
+                speed = random.uniform(3, 8)
+                splinter = {
+                    'x': dummy['x'],
+                    'y': dummy['y'],
+                    'vx': math.cos(angle) * speed,
+                    'vy': math.sin(angle) * speed - 3,
+                    'gravity': 0.3,
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-15, 15),
+                    'size': random.randint(5, 12),
+                    'color': (139, 90, 43),  # Wood brown
+                    'lifetime': 150,
+                }
+                self.collapse_debris.append(splinter)
+                
+            # Add dust cloud
+            self._create_dust_cloud(dummy['x'], dummy['y'])
+        
+        # Clear all dummies
+        self.training_dummies.clear()
+        self.dummy_animations.clear()
+    
+    def _create_monk_explosion(self, x, y, color):
+        """Create blood explosion effect when monk dies"""
+        # Create blood particles
+        for i in range(20):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(2, 8)
+            particle = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'size': random.randint(2, 6),
+                'color': (200, 0, 0),  # Blood red
+                'lifetime': 60,
+                'gravity': 0.2,
+            }
+            self.monk_death_particles.append(particle)
+        
+        # Add some darker blood droplets
+        for i in range(10):
+            angle = random.uniform(0, math.pi * 2) 
+            speed = random.uniform(1, 4)
+            particle = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'size': random.randint(3, 8),
+                'color': (120, 0, 0),  # Dark blood
+                'lifetime': 80,
+                'gravity': 0.3,
+            }
+            self.monk_death_particles.append(particle)
+    
+    def _create_hero_monk_explosion(self, x, y):
+        """Create epic explosion effect for hero monks"""
+        # Create golden explosion particles
+        for i in range(40):  # More particles for heroes
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(3, 12)
+            particle = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 2,
+                'size': random.randint(3, 8),
+                'color': (255, 215, 0),  # Gold
+                'lifetime': 80,
+                'gravity': 0.3,
+                'glow': True
+            }
+            self.monk_death_particles.append(particle)
+        
+        # Add sparkles
+        for i in range(20):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(5, 15)
+            sparkle = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 3,
+                'size': random.randint(2, 4),
+                'color': (255, 255, 200),  # Bright yellow-white
+                'lifetime': 40,
+                'gravity': 0.1,
+                'type': 'sparkle'
+            }
+            self.monk_death_particles.append(sparkle)
+        
+        # Add shockwave effect
+        shockwave = {
+            'x': x,
+            'y': y,
+            'radius': 0,
+            'max_radius': 80,
+            'color': (255, 215, 0),
+            'lifetime': 30,
+            'type': 'shockwave'
+        }
+        self.monk_death_particles.append(shockwave)
+    
+    def _create_dust_cloud(self, x, y):
+        """Create dust cloud effect"""
+        for i in range(15):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(1, 3)
+            dust = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 1,
+                'size': random.randint(10, 20),
+                'color': (150, 130, 100),  # Dust color
+                'lifetime': 45,
+                'opacity': 150,
+            }
+            self.monk_death_particles.append(dust)
+    
     def reset(self):
         """Reset stage 4 background to initial state"""
         # Reset temple destruction state
@@ -3343,6 +3646,10 @@ class ShaolinTempleBackground:
         
         # Clear hit effects
         self.monk_fragments.clear()
+        
+        # Clear death effects
+        self.monk_death_particles.clear()
+        self.monk_body_parts.clear()
         
         # Reset crows positions
         for crow in self.crows:
