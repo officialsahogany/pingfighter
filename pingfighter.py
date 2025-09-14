@@ -13075,11 +13075,13 @@ def draw_objects():
         base_color = (139, 69, 19)
         # 균열에 따른 색상 변화
         if wall_crack_level == 1:
-            base_color = (160, 82, 45)  # 살짝 밝은 갈색
+            base_color = (125, 60, 15)  # 약간 어두운 갈색 (손상된 느낌)
+            # 약간의 붉은 색조 추가 (손상 표현)
+            base_color = tuple(c + random.randint(-5, 5) for c in base_color)
         elif wall_crack_level == 2:
-            base_color = (184, 134, 11)  # 더 밝은 갈색
-        elif wall_crack_level == 3:
-            base_color = (218, 165, 32)  # 금색
+            base_color = (150, 50, 20)  # 더 붉은 갈색 (심각한 손상)
+            # 더 많은 색상 변화
+            base_color = tuple(c + random.randint(-10, 10) for c in base_color)
         
         # 벽돌 바탕 그리기
         draw.rect(base_color, wall_rect)
@@ -13124,56 +13126,103 @@ def draw_objects():
                              (x_pos, wall_rect.bottom - 2), 1)
         
         # 5. 벽돌 외곽선
-        draw.rect((80, 40, 10), wall_rect, 1)  # 어두운 갈색 테두리
+        if wall_crack_level > 0:
+            # 균열이 있으면 테두리도 손상된 느낌으로
+            border_color = (60, 30, 10) if wall_crack_level == 1 else (40, 20, 5)
+            draw.rect(border_color, wall_rect, 2)  # 더 두꺼운 테두리
+        else:
+            draw.rect((80, 40, 10), wall_rect, 1)  # 어두운 갈색 테두리
         # 균열 그리기 (정적 균열 패턴)
         if wall_crack_level > 0:
             # 벽돌 ID를 기반으로 고정된 시드 생성 (균열이 매번 같은 패턴으로)
             wall_id = hash((wall_rect.x, wall_rect.y)) % 1000
-            random.seed(wall_id)
             
             # 균열 색상 (레벨에 따라)  
             if wall_crack_level == 1:
-                crack_color = (80, 40, 10)  # 어두운 갈색 (작은 균열)
+                crack_color = (60, 30, 10)  # 어두운 갈색 (작은 균열)
+                crack_width = 2  # 더 두꺼운 균열
             else:  # wall_crack_level == 2 (파괴 직전)
                 crack_color = (220, 20, 60)  # 진한 빨간색 (심각한 균열)
+                crack_width = 3
             
             # 자연스러운 균열 패턴 (브랜칭)
             if wall_crack_level == 1:
-                # 1단계: 작은 균열들 - 자연스러운 가지형태
+                # 1단계: 충격 부위 중심의 방사형 균열
                 random.seed(wall_rect.x + wall_rect.y)  # 일관된 패턴을 위한 시드
                 
-                # 주 균열 - 위쪽에서 시작해서 아래로 뻗어나가는 불규칙한 선
-                main_crack_start_x = wall_rect.centerx + random.randint(-10, 10)
-                main_crack_start_y = wall_rect.top + random.randint(1, 3)
+                # 충격 중심점 (공이 맞은 위치 근처)
+                impact_x = wall_rect.centerx + random.randint(-15, 15)
+                impact_y = wall_rect.centery + random.randint(-5, 5)
                 
-                current_x, current_y = main_crack_start_x, main_crack_start_y
-                crack_points = [(current_x, current_y)]
+                # 메인 균열 - Y자 또는 X자 형태의 큰 균열
+                main_cracks = []
                 
-                # 균열이 아래로 진행하며 랜덤하게 구부러짐
-                for step in range(3):
-                    # 다음 점 계산 (주로 아래쪽으로, 약간 좌우로 흔들림)
-                    next_x = current_x + random.randint(-4, 4)
-                    next_y = current_y + random.randint(3, 6)
+                # 방사형 균열 3-4개
+                num_main_cracks = random.randint(3, 4)
+                for crack_idx in range(num_main_cracks):
+                    angle = (crack_idx * 2 * math.pi / num_main_cracks) + random.uniform(-0.3, 0.3)
                     
-                    # 벽돌 경계 내에 유지
-                    next_x = max(wall_rect.left + 2, min(wall_rect.right - 2, next_x))
-                    next_y = min(wall_rect.bottom - 2, next_y)
+                    # 균열 시작점 (충격점에서 약간 떨어진 곳)
+                    start_dist = random.randint(3, 6)
+                    start_x = impact_x + int(math.cos(angle) * start_dist)
+                    start_y = impact_y + int(math.sin(angle) * start_dist)
                     
-                    crack_points.append((next_x, next_y))
-                    current_x, current_y = next_x, next_y
+                    # 균열 진행
+                    crack_points = [(start_x, start_y)]
+                    current_x, current_y = start_x, start_y
+                    
+                    crack_length = random.randint(12, 20)
+                    for step in range(3):
+                        # 균열이 뻗어나가는 방향 (약간의 랜덤성 추가)
+                        next_angle = angle + random.uniform(-0.4, 0.4)
+                        step_dist = crack_length // 3
+                        
+                        next_x = current_x + int(math.cos(next_angle) * step_dist)
+                        next_y = current_y + int(math.sin(next_angle) * step_dist)
+                        
+                        # 벽돌 경계 내에 유지
+                        next_x = max(wall_rect.left + 2, min(wall_rect.right - 2, next_x))
+                        next_y = max(wall_rect.top + 2, min(wall_rect.bottom - 2, next_y))
+                        
+                        crack_points.append((next_x, next_y))
+                        current_x, current_y = next_x, next_y
+                    
+                    main_cracks.append(crack_points)
                 
-                # 균열 선 그리기
-                for i in range(len(crack_points) - 1):
-                    draw.line(crack_color, crack_points[i], crack_points[i + 1], 1)
+                # 메인 균열 그리기
+                for crack_points in main_cracks:
+                    for i in range(len(crack_points) - 1):
+                        draw.line(crack_color, crack_points[i], crack_points[i + 1], crack_width)
+                
+                # 충격점 주변 작은 균열들
+                for _ in range(random.randint(3, 5)):
+                    angle = random.uniform(0, 2 * math.pi)
+                    start_dist = random.randint(2, 5)
+                    crack_len = random.randint(4, 8)
+                    
+                    start_x = impact_x + int(math.cos(angle) * start_dist)
+                    start_y = impact_y + int(math.sin(angle) * start_dist)
+                    end_x = start_x + int(math.cos(angle) * crack_len)
+                    end_y = start_y + int(math.sin(angle) * crack_len)
+                    
+                    # 경계 내 유지
+                    start_x = max(wall_rect.left + 1, min(wall_rect.right - 1, start_x))
+                    start_y = max(wall_rect.top + 1, min(wall_rect.bottom - 1, start_y))
+                    end_x = max(wall_rect.left + 1, min(wall_rect.right - 1, end_x))
+                    end_y = max(wall_rect.top + 1, min(wall_rect.bottom - 1, end_y))
+                    
+                    draw.line(crack_color, (start_x, start_y), (end_x, end_y), 1)
                 
                 # 가지 균열들 (메인 균열에서 뻗어나오는 작은 가지들)
-                for i in range(1, len(crack_points) - 1):
-                    main_point = crack_points[i]
-                    # 좌우로 작은 가지들
-                    for side in [-1, 1]:
-                        if random.random() < 0.6:  # 60% 확률로 가지 생성
-                            branch_end_x = main_point[0] + side * random.randint(3, 8)
-                            branch_end_y = main_point[1] + random.randint(-2, 2)
+                for crack_points in main_cracks:
+                    for i in range(1, len(crack_points) - 1):
+                        main_point = crack_points[i]
+                        # 가지 균열 생성
+                        if random.random() < 0.4:  # 40% 확률로 가지 생성
+                            branch_angle = random.uniform(-math.pi/3, math.pi/3)
+                            branch_length = random.randint(3, 6)
+                            branch_end_x = main_point[0] + int(math.cos(branch_angle) * branch_length)
+                            branch_end_y = main_point[1] + int(math.sin(branch_angle) * branch_length)
                             
                             # 경계 체크
                             branch_end_x = max(wall_rect.left + 1, min(wall_rect.right - 1, branch_end_x))
@@ -28672,6 +28721,31 @@ def handle_ball():
                     # 공 튕기기 (백업 파일의 간단한 방식 사용)
                     ball_vel[1] = -abs(ball_vel[1])  # 위로 튕기기
                     ball_vel[0] *= 0.8  # 좌우 속도 감소
+                    
+                    # 벽돌 타격 시 작은 파티클 효과 (균열 생성 시)
+                    if wall["hit_count"] == 1:
+                        # 첫 타격 시 작은 파편들
+                        impact_x = BALL.centerx
+                        impact_y = BALL.centery
+                        
+                        # 작은 먼지 파티클 생성
+                        for _ in range(random.randint(5, 8)):
+                            angle = random.uniform(0, 2 * math.pi)
+                            speed = random.uniform(2, 5)
+                            
+                            particle = {
+                                "x": impact_x,
+                                "y": impact_y,
+                                "vel_x": math.cos(angle) * speed,
+                                "vel_y": math.sin(angle) * speed - 1,
+                                "size": random.randint(2, 4),
+                                "color": (120, 60, 20),  # 갈색 먼지
+                                "life": random.randint(15, 25),
+                                "rotation": 0,
+                                "angular_vel": 0,
+                                "type": "dust"
+                            }
+                            brick_particles.append(particle)
                     
                     # 벽돌 파괴 시 효과음 재생
                     if wall["hit_count"] >= 2:
