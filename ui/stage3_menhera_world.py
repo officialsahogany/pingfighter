@@ -661,109 +661,111 @@ class Stage3MenheraWorld:
         # 왼쪽 눈
         left_eye_x = x - eye_spacing + face_distortion_x
         left_eye_y = eye_y + emotion_y_offset
-            
-            # 눈 테두리
-            pygame.draw.ellipse(screen, SOFT_BLACK,
-                              (left_eye_x - eye_width//2, left_eye_y - eye_height//2,
-                               eye_width, eye_height), 2)
-            
-            # 눈 내부 밝은 색상 (초롱초롱 효과)
-            inner_eye_rect = pygame.Rect(left_eye_x - eye_width//2 + 2, left_eye_y - eye_height//2 + 2,
-                                        eye_width - 4, eye_height - 4)
-            pygame.draw.ellipse(screen, (255, 248, 255), inner_eye_rect)
-            
-            # 큰 동공 (초롱초롱한 효과를 위해 크게)
-            pupil_size = int(eye_width * 0.6)
-            if ball_pos and not self.kuromi_petrified:
-                ball_x, ball_y = ball_pos
-                # 공을 바라보는 방향
-                angle_to_ball = math.atan2(ball_y - left_eye_y, ball_x - left_eye_x)
-                pupil_offset_x = int(math.cos(angle_to_ball) * eye_width * 0.1)
-                pupil_offset_y = int(math.sin(angle_to_ball) * eye_height * 0.1)
-            else:
-                pupil_offset_x = 0
-                pupil_offset_y = 0
-            
-            # 동공 그라데이션 효과
-            pupil_x = left_eye_x + pupil_offset_x
-            pupil_y = left_eye_y + pupil_offset_y
-            
-            # 외곽 동공 (어두운 보라색)
-            pygame.draw.circle(screen, (80, 60, 100), (pupil_x, pupil_y), pupil_size)
-            # 중간 동공 (보라색)
-            pygame.draw.circle(screen, (120, 90, 150), (pupil_x, pupil_y), int(pupil_size * 0.8))
-            # 내부 동공 (검은색)
-            pygame.draw.circle(screen, SOFT_BLACK, (pupil_x, pupil_y), int(pupil_size * 0.5))
-            
-            # 여러 개의 하이라이트 (초롱초롱)
-            # 큰 메인 하이라이트
-            highlight_size = int(pupil_size * 0.4)
-            pygame.draw.circle(screen, WHITE,
-                             (pupil_x - pupil_size//3, pupil_y - pupil_size//3),
-                             highlight_size)
-            
-            # 작은 보조 하이라이트들
-            pygame.draw.circle(screen, WHITE,
-                             (pupil_x + pupil_size//4, pupil_y - pupil_size//4),
-                             int(highlight_size * 0.5))
-            pygame.draw.circle(screen, (255, 240, 250),
-                             (pupil_x - pupil_size//5, pupil_y + pupil_size//4),
-                             int(highlight_size * 0.3))
-            
-            # 반짝이는 효과 (애니메이션)
-            if not self.kuromi_petrified:
-                sparkle = abs(math.sin(self.time * 0.01))
-                if sparkle > 0.8:
-                    # 작은 별 모양 반짝임
-                    star_x = pupil_x + pupil_size//3
-                    star_y = pupil_y - pupil_size//2
-                    self.draw_mini_star(screen, star_x, star_y, 3, 
-                                      (*WHITE, int(255 * (sparkle - 0.8) * 5)))
-            
+        
+        # 눈 테두리
+        pygame.draw.ellipse(screen, SOFT_BLACK,
+                          (left_eye_x - eye_width//2, left_eye_y - eye_height//2,
+                           eye_width, eye_height), 2)
+        
+        # 눈 내부 밝은 색상 (초롱초롱 효과)
+        inner_eye_rect = pygame.Rect(left_eye_x - eye_width//2 + 2, left_eye_y - eye_height//2 + 2,
+                                    eye_width - 4, eye_height - 4)
+        pygame.draw.ellipse(screen, (255, 248, 255), inner_eye_rect)
+        
+        # 큰 동공 (초롱초롱한 효과를 위해 크게)
+        pupil_size = int(eye_width * 0.6)
+        if ball_pos and not self.kuromi_petrified:
+            ball_x, ball_y = ball_pos
+            # 공을 바라보는 방향
+            angle_to_ball = math.atan2(ball_y - left_eye_y, ball_x - left_eye_x)
+            pupil_offset_x = int(math.cos(angle_to_ball) * eye_width * 0.1)
+            pupil_offset_y = int(math.sin(angle_to_ball) * eye_height * 0.1)
+        else:
+            pupil_offset_x = 0
+            pupil_offset_y = 0
+        
+        # 동공 그라데이션 효과
+        pupil_x = left_eye_x + pupil_offset_x
+        pupil_y = left_eye_y + pupil_offset_y
+        
+        # 외곽 동공 (어두운 보라색)
+        pygame.draw.circle(screen, (80, 60, 100), (pupil_x, pupil_y), pupil_size)
+        # 중간 동공 (보라색)
+        pygame.draw.circle(screen, (120, 90, 150), (pupil_x, pupil_y), int(pupil_size * 0.8))
+        # 내부 동공 (검은색)
+        pygame.draw.circle(screen, SOFT_BLACK, (pupil_x, pupil_y), int(pupil_size * 0.5))
+        
+        # 여러 개의 하이라이트 (초롱초롱)
+        # 큰 메인 하이라이트
+        highlight_size = int(pupil_size * 0.4)
+        pygame.draw.circle(screen, WHITE,
+                         (pupil_x - pupil_size//3, pupil_y - pupil_size//3),
+                         highlight_size)
+        
+        # 작은 보조 하이라이트들
+        pygame.draw.circle(screen, WHITE,
+                         (pupil_x + pupil_size//4, pupil_y - pupil_size//4),
+                         int(highlight_size * 0.5))
+        pygame.draw.circle(screen, (255, 240, 250),
+                         (pupil_x - pupil_size//5, pupil_y + pupil_size//4),
+                         int(highlight_size * 0.3))
+        
+        # 반짝이는 효과 (애니메이션)
+        if not self.kuromi_petrified:
+            sparkle = abs(math.sin(self.time * 0.01))
+            if sparkle > 0.8:
+                # 작은 별 모양 반짝임
+                star_x = pupil_x + pupil_size//3
+                star_y = pupil_y - pupil_size//2
+                self.draw_mini_star(screen, star_x, star_y, 3, 
+                                  (*WHITE, int(255 * (sparkle - 0.8) * 5)))
+        
         # 오른쪽 눈
         right_eye_x = x + eye_spacing + face_distortion_x
         right_eye_y = eye_y + emotion_y_offset
-            
-            # 눈 테두리
-            pygame.draw.ellipse(screen, SOFT_BLACK,
-                              (right_eye_x - eye_width//2, right_eye_y - eye_height//2,
-                               eye_width, eye_height), 2)
-            
-            # 눈 내부 밝은 색상
-            inner_eye_rect = pygame.Rect(right_eye_x - eye_width//2 + 2, right_eye_y - eye_height//2 + 2,
-                                        eye_width - 4, eye_height - 4)
-            pygame.draw.ellipse(screen, (255, 248, 255), inner_eye_rect)
-            
-            # 동공 위치
-            if ball_pos and not self.kuromi_petrified:
-                angle_to_ball = math.atan2(ball_y - right_eye_y, ball_x - right_eye_x)
-                pupil_offset_x = int(math.cos(angle_to_ball) * eye_width * 0.1)
-                pupil_offset_y = int(math.sin(angle_to_ball) * eye_height * 0.1)
-            else:
-                pupil_offset_x = 0
-                pupil_offset_y = 0
-            
-            pupil_x = right_eye_x + pupil_offset_x
-            pupil_y = right_eye_y + pupil_offset_y
-            
-            # 동공 그라데이션
-            pygame.draw.circle(screen, (80, 60, 100), (pupil_x, pupil_y), pupil_size)
-            pygame.draw.circle(screen, (120, 90, 150), (pupil_x, pupil_y), int(pupil_size * 0.8))
-            pygame.draw.circle(screen, SOFT_BLACK, (pupil_x, pupil_y), int(pupil_size * 0.5))
-            
-            # 하이라이트들
-            pygame.draw.circle(screen, WHITE,
-                             (pupil_x - pupil_size//3, pupil_y - pupil_size//3),
-                             highlight_size)
-            pygame.draw.circle(screen, WHITE,
-                             (pupil_x + pupil_size//4, pupil_y - pupil_size//4),
-                             int(highlight_size * 0.5))
-            pygame.draw.circle(screen, (255, 240, 250),
-                             (pupil_x - pupil_size//5, pupil_y + pupil_size//4),
-                             int(highlight_size * 0.3))
-            
-            # 반짝이는 효과
-            if not self.kuromi_petrified and sparkle > 0.8:
+        
+        # 눈 테두리
+        pygame.draw.ellipse(screen, SOFT_BLACK,
+                          (right_eye_x - eye_width//2, right_eye_y - eye_height//2,
+                           eye_width, eye_height), 2)
+        
+        # 눈 내부 밝은 색상
+        inner_eye_rect = pygame.Rect(right_eye_x - eye_width//2 + 2, right_eye_y - eye_height//2 + 2,
+                                    eye_width - 4, eye_height - 4)
+        pygame.draw.ellipse(screen, (255, 248, 255), inner_eye_rect)
+        
+        # 동공 위치
+        if ball_pos and not self.kuromi_petrified:
+            angle_to_ball = math.atan2(ball_y - right_eye_y, ball_x - right_eye_x)
+            pupil_offset_x = int(math.cos(angle_to_ball) * eye_width * 0.1)
+            pupil_offset_y = int(math.sin(angle_to_ball) * eye_height * 0.1)
+        else:
+            pupil_offset_x = 0
+            pupil_offset_y = 0
+        
+        pupil_x = right_eye_x + pupil_offset_x
+        pupil_y = right_eye_y + pupil_offset_y
+        
+        # 동공 그라데이션
+        pygame.draw.circle(screen, (80, 60, 100), (pupil_x, pupil_y), pupil_size)
+        pygame.draw.circle(screen, (120, 90, 150), (pupil_x, pupil_y), int(pupil_size * 0.8))
+        pygame.draw.circle(screen, SOFT_BLACK, (pupil_x, pupil_y), int(pupil_size * 0.5))
+        
+        # 하이라이트들
+        pygame.draw.circle(screen, WHITE,
+                         (pupil_x - pupil_size//3, pupil_y - pupil_size//3),
+                         highlight_size)
+        pygame.draw.circle(screen, WHITE,
+                         (pupil_x + pupil_size//4, pupil_y - pupil_size//4),
+                         int(highlight_size * 0.5))
+        pygame.draw.circle(screen, (255, 240, 250),
+                         (pupil_x - pupil_size//5, pupil_y + pupil_size//4),
+                         int(highlight_size * 0.3))
+        
+        # 반짝이는 효과
+        if not self.kuromi_petrified:
+            sparkle = abs(math.sin(self.time * 0.01))
+            if sparkle > 0.8:
                 star_x = pupil_x + pupil_size//3
                 star_y = pupil_y - pupil_size//2
                 self.draw_mini_star(screen, star_x, star_y, 3,
