@@ -2172,6 +2172,12 @@ boss_special_ready = False
 emotional_overdrive_active = False
 emotional_overdrive_timer = 0
 psycho_sound_channel = None  # 사이코볼 사운드 채널
+# 쿠로미 석회화 시스템
+kuromi_petrified = True  # 석회화 상태 (시작 시 석회화)
+kuromi_awakening = False  # 각성 중 상태
+kuromi_awakening_timer = 0  # 각성 애니메이션 타이머
+kuromi_awakened = False  # 각성 완료 상태
+crack_particles = []  # 석회 조각 파티클
 # === 대쉬 스피릿 레이저 시스템 ===
 dash_spirit_lasers = []  # [(start_x, start_y, end_x, end_y, remaining_time, direction, electric_offset), ...]
 DASH_SPIRIT_LASER_DURATION = 360  # 6초 (60fps 기준)
@@ -2576,11 +2582,19 @@ def go_to_next_round():
     
     # Stage 3 쿠로미 신비로운 궤적 효과 초기화
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
+    global kuromi_petrified, kuromi_awakening, kuromi_awakening_timer, kuromi_awakened
+    
     if current_stage == 3:
         kuromi_spit_trail_active = False
         kuromi_spit_trail_positions = []
         kuromi_spit_trail_color_phase = 0
         print("Stage 3: 쿠로미 궤적 이펙트 초기화 (go_to_next_round)")
+        
+        # 플레이어가 2점을 획득했고 아직 각성하지 않았다면 각성 시작
+        if round_wins >= 2 and kuromi_petrified and not kuromi_awakened:
+            kuromi_awakening = True
+            kuromi_awakening_timer = 180  # 3초간 각성 애니메이션
+            print("Stage 3: 쿠로미 각성 시작!")
     
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 이월 방지)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
@@ -11661,6 +11675,57 @@ def draw_objects():
     elif current_stage == 3:
         boss_img = BOSS_IMG_STAGE3
         boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+        
+        # 석회화 상태일 때 회색 처리
+        if kuromi_petrified:
+            # 회색 버전 생성
+            boss_img = boss_img.copy()
+            gray_overlay = pygame.Surface(boss_img.get_size(), pygame.SRCALPHA)
+            gray_overlay.fill((128, 128, 128, 180))  # 회색 오버레이
+            boss_img.blit(gray_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            
+            # 석회화 텍스처 효과 추가
+            for _ in range(20):
+                x = random.randint(0, boss_img.get_width() - 1)
+                y = random.randint(0, boss_img.get_height() - 1)
+                crack_color = (100, 100, 100, 200)
+                pygame.draw.line(boss_img, crack_color, (x, y), (x + random.randint(-5, 5), y + random.randint(-5, 5)), 1)
+        
+        # 각성 중일 때 특수 효과
+        elif kuromi_awakening and kuromi_awakening_timer > 0:
+            # 원본 이미지 복사
+            boss_img = boss_img.copy()
+            
+            # 각성 진행도 계산 (0.0 ~ 1.0)
+            progress = 1.0 - (kuromi_awakening_timer / 180.0)
+            
+            # 석회화에서 점진적으로 원래 색으로 변환
+            gray_alpha = int(180 * (1 - progress))
+            if gray_alpha > 0:
+                gray_overlay = pygame.Surface(boss_img.get_size(), pygame.SRCALPHA)
+                gray_overlay.fill((128, 128, 128, gray_alpha))
+                boss_img.blit(gray_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            
+            # 각성 파티클 효과 - 석회 조각이 떨어지는 효과
+            if kuromi_awakening_timer % 3 == 0:
+                for _ in range(5):
+                    particle_x = BOSS.centerx + random.randint(-30, 30)
+                    particle_y = BOSS.centery + random.randint(-40, 40)
+                    crack_particles.append({
+                        'x': particle_x,
+                        'y': particle_y,
+                        'vx': random.uniform(-2, 2),
+                        'vy': random.uniform(2, 5),
+                        'life': 30,
+                        'color': (150, 150, 150)
+                    })
+            
+            # 빛나는 효과
+            if kuromi_awakening_timer % 10 < 5:
+                glow_surf = pygame.Surface(boss_img.get_size(), pygame.SRCALPHA)
+                glow_alpha = int(100 * progress)
+                glow_surf.fill((255, 200, 255, glow_alpha))
+                boss_img.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_ADD)
     elif current_stage == 4:
         boss_img = BOSS_IMG_STAGE4
         boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
@@ -13860,6 +13925,34 @@ def draw_objects():
     #  프리즘 파티클 그리기 (Stage 3 꼬리 채찍 히트 이펙트)
     if current_stage == 3 and prism_particles:
         draw_prism_particles(SCREEN)
+    
+    #  Stage 3 쿠로미 각성 석회 조각 파티클 그리기
+    if current_stage == 3 and crack_particles:
+        for particle in crack_particles:
+            # 알파값 계산 (수명에 따라 점점 투명하게)
+            alpha = int(255 * (particle['life'] / 60))
+            if alpha > 0:
+                # 석회 조각 색상 (회색)
+                color = (150, 150, 150)
+                
+                # 회전된 사각형 그리기 위한 점들 계산
+                size = particle['size']
+                cx, cy = particle['x'], particle['y']
+                angle = math.radians(particle['rotation'])
+                
+                # 사각형의 4개 꼭지점
+                half_size = size / 2
+                points = []
+                for dx, dy in [(-half_size, -half_size), (half_size, -half_size), 
+                              (half_size, half_size), (-half_size, half_size)]:
+                    # 회전 변환
+                    rx = dx * math.cos(angle) - dy * math.sin(angle)
+                    ry = dx * math.sin(angle) + dy * math.cos(angle)
+                    points.append((cx + rx, cy + ry))
+                
+                # 석회 조각 그리기
+                if len(points) >= 3:
+                    pygame.draw.polygon(SCREEN, color, points)
     # 모든 이펙트 업데이트 및 그리기
     effects_manager.update_all_effects()
     effects_manager.draw_all_effects(SCREEN)
@@ -29689,7 +29782,7 @@ def handle_ball():
         if boss_fail_timer > 0:
             tear_chance = min(1.0, tear_chance + 0.3)
         time_now = pygame.time.get_ticks()
-        if current_stage == 3:
+        if current_stage == 3 and not kuromi_petrified:  # 석화화 상태가 아닐 때만
             if time_now - last_tears_cast_time >= TEARS_COOLDOWN:
                 if random.random() < tear_chance:
                     activate_tears_of_pain()
@@ -32048,6 +32141,12 @@ def handle_boss():
     global whip_deactivation_active, boss_stunned_after_whip  #  상모돌리기 강제 해제 관련 변수
     global boss_knockback_timer, boss_knockback_distance  #  라그나로크 해머 넉백 관련 변수
     global boss_stun_timer, ragnarok_stun_pending  #  라그나로크 해머 스턴 관련 변수
+    global kuromi_petrified, kuromi_awakening  # 쿠로미 석회화 관련 변수
+    
+    # Stage 3에서 석회화 상태이거나 각성 중일 때 AI 비활성화
+    if current_stage == 3 and (kuromi_petrified or kuromi_awakening):
+        boss_current_speed = 0  # 속도 0으로 설정
+        return  # AI 완전 정지
     
     #  라그나로크 해머 넉백 처리 (스턴 체크보다 먼저 실행해야 넉백 후 스턴이 적용됨)
     if boss_knockback_timer > 0:
@@ -34895,6 +34994,60 @@ def main(stage_num, new_boss_mode=False):
                 #  프리즘 파티클 업데이트 (Stage 3 꼬리 채찍)
                 if current_stage == 3 and prism_particles:
                     update_prism_particles()
+                
+                #  Stage 3 쿠로미 각성 타이머 업데이트
+                if current_stage == 3 and kuromi_awakening and kuromi_awakening_timer > 0:
+                    kuromi_awakening_timer -= 1
+                    
+                    # 각성 진행도에 따른 파티클 생성
+                    if kuromi_awakening_timer % 10 == 0:  # 10프레임마다
+                        # 석회 조각 파티클 생성
+                        for _ in range(5):
+                            particle = {
+                                'x': BOSS.centerx + random.randint(-30, 30),
+                                'y': BOSS.centery + random.randint(-30, 30),
+                                'vx': random.uniform(-3, 3),
+                                'vy': random.uniform(-4, -1),
+                                'life': 60,
+                                'size': random.randint(3, 6),
+                                'rotation': random.uniform(0, 360)
+                            }
+                            crack_particles.append(particle)
+                    
+                    # 각성 완료
+                    if kuromi_awakening_timer <= 0:
+                        kuromi_awakening = False
+                        kuromi_petrified = False
+                        kuromi_awakened = True
+                        print("Stage 3: 쿠로미 각성 완료!")
+                        
+                        # 각성 완료 효과음
+                        try:
+                            awakening_sound = pygame.mixer.Sound(resource_path("sounds/powerup.wav"))
+                            play_sound_with_volume(awakening_sound)
+                        except:
+                            pass
+                
+                # 석회 조각 파티클 업데이트
+                if current_stage == 3 and crack_particles:
+                    new_particles = []
+                    for particle in crack_particles:
+                        # 물리 업데이트
+                        particle['x'] += particle['vx']
+                        particle['y'] += particle['vy']
+                        particle['vy'] += 0.3  # 중력
+                        particle['vx'] *= 0.98  # 공기 저항
+                        particle['rotation'] += random.uniform(-5, 5)
+                        
+                        # 수명 감소
+                        particle['life'] -= 1
+                        
+                        # 살아있는 파티클만 유지
+                        if particle['life'] > 0:
+                            new_particles.append(particle)
+                    
+                    crack_particles = new_particles
+                
                 handle_whip()
                 # handle_balloon()  # Stage 1 보스 풍선파티 스킬 제거됨
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
@@ -34998,8 +35151,8 @@ def main(stage_num, new_boss_mode=False):
                                 
                                 print(f"💥 쿠로미가 공을 뱉어냄! 속도: ({new_vx:.1f}, {new_vy:.1f})")
                     
-                    # 꼬리 채찍 쿨다운 감소
-                    if stage3_tail_whip_cooldown > 0 and not stage3_tail_whip_active:
+                    # 꼬리 채찍 쿨다운 감소 (석회화 상태가 아닐 때만)
+                    if not kuromi_petrified and stage3_tail_whip_cooldown > 0 and not stage3_tail_whip_active:
                         stage3_tail_whip_cooldown -= 1
                         
                         # 쿨다운 완료 시 꼬리 채찍 발동
