@@ -49,7 +49,7 @@ class ShaolinTempleBackground:
         # OPTIMIZATION: Performance mode for low FPS
         self.performance_mode = False  # Enable reduced quality for better FPS
         self.fps_counter = 0
-        self.low_fps_threshold = 30  # Enable performance mode below 30 FPS
+        self.low_fps_threshold = 50  # Enable performance mode below 50 FPS
         
         # Colors - Muted night palette (불 꺼진 밤 느낌)
         self.colors = {
@@ -237,13 +237,13 @@ class ShaolinTempleBackground:
         moon_scale = getattr(self, 'moon_pulse_scale', 1.0)
         
         # OPTIMIZATION: Use cached surface if available and unchanged
-        # Only update cache every 3 frames or when intensity/scale changes significantly
+        # Only update cache every 6 frames (10fps) or when intensity/scale changes significantly
         self.red_moon_update_counter += 1
-        intensity_changed = abs(self.moon_red_intensity - self.red_moon_cache_intensity) > 0.05
-        scale_changed = abs(moon_scale - self.red_moon_cache_scale) > 0.05
+        intensity_changed = abs(self.moon_red_intensity - self.red_moon_cache_intensity) > 0.1
+        scale_changed = abs(moon_scale - self.red_moon_cache_scale) > 0.1
         
         if (self.red_moon_cache is None or intensity_changed or scale_changed or 
-            self.red_moon_update_counter >= 3):
+            self.red_moon_update_counter >= 6):
             # Create new cache
             self.red_moon_cache = self._create_red_moon_surface(pulse, moon_scale)
             self.red_moon_cache_intensity = self.moon_red_intensity
@@ -265,12 +265,12 @@ class ShaolinTempleBackground:
         
         # OPTIMIZATION: Reduce quality in performance mode
         if self.performance_mode:
-            # Simple red moon with minimal glow layers (5 instead of 20)
-            for i in [5, 10, 15, 20]:
-                distance_ratio = i / 20.0
-                alpha = int(60 * (distance_ratio ** 2) * self.moon_red_intensity)
-                glow_radius = int((35 + i * 8) * moon_scale)
-                glow_color = (255, int(50 * (1 - distance_ratio)), 0, min(255, alpha))
+            # Ultra-simple red moon with only 3 glow layers
+            for i in [8, 16, 24]:
+                distance_ratio = i / 24.0
+                alpha = int(40 * (distance_ratio ** 1.5) * self.moon_red_intensity)
+                glow_radius = int((35 + i * 6) * moon_scale)
+                glow_color = (255, int(40 * (1 - distance_ratio)), 0, min(255, alpha))
                 pygame.draw.circle(cache_surface, glow_color, (center_x, center_y), glow_radius)
             
             # Simple moon without gradient
@@ -282,60 +282,48 @@ class ShaolinTempleBackground:
             
             return cache_surface
         
-        # Full quality rendering
-        # Create gradient red glow with softer falloff
-        for i in range(20, 0, -1):
+        # Optimized quality rendering - reduced from 20 to 10 layers
+        # Create gradient red glow with optimized falloff
+        for i in range(10, 0, -1):
             # Gradient calculation - more transparent as distance increases
-            distance_ratio = i / 20.0
+            distance_ratio = i / 10.0
             # Use exponential falloff for smoother gradient
             alpha_multiplier = (distance_ratio ** 2) * self.moon_red_intensity * (1.0 + pulse)
-            alpha = int(80 * alpha_multiplier)  # Reduced from 30*i to create softer glow
+            alpha = int(60 * alpha_multiplier)  # Reduced alpha for better performance
             
-            glow_radius = int((35 + i * 8) * moon_scale)  # Apply scale for pulsing effect
+            glow_radius = int((35 + i * 12) * moon_scale)  # Adjusted spacing for 10 layers
             
-            # Create glow surface
-            glow_size = glow_radius * 2 + 10
-            glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-            glow_surface.fill((0, 0, 0, 0))
-            
-            # Radial gradient for each layer
-            for r in range(glow_radius, 0, -2):
-                r_ratio = r / float(glow_radius)
-                layer_alpha = int(alpha * r_ratio)
-                # Blend from red to orange at edges
-                red_component = 255
-                green_component = int(100 * (1 - r_ratio))  # Add orange tint at edges
-                glow_color = (red_component, green_component, 0, min(255, layer_alpha))
-                pygame.draw.circle(glow_surface, glow_color,
-                                 (glow_size // 2, glow_size // 2),
-                                 r)
-            
-            cache_surface.blit(glow_surface,
-                        (center_x - glow_size // 2,
-                         center_y - glow_size // 2))
+            # Simplified glow - single circle per layer instead of gradient
+            glow_color = (255, int(80 * (1 - distance_ratio * 0.8)), 0, min(255, alpha))
+            pygame.draw.circle(cache_surface, glow_color, (center_x, center_y), glow_radius)
         
         # Draw red moon overlay with better blending
         moon_size = int(80 * moon_scale)  # Apply scale to moon size
         moon_surface = pygame.Surface((moon_size, moon_size), pygame.SRCALPHA)
         
-        # Create gradient moon surface
+        # Optimized gradient moon surface - reduced gradient steps
         moon_radius = int(35 * moon_scale)  # Scale the radius too
-        for r in range(moon_radius, 0, -1):
+        base_intensity = int(200 * self.moon_red_intensity * (1.0 + pulse * 0.5))
+        
+        # Create simplified 3-layer gradient instead of pixel-by-pixel
+        for layer in range(3):
+            r = moon_radius - layer * (moon_radius // 3)
+            if r <= 0:
+                break
+                
             r_ratio = r / float(moon_radius)
-            # Blend original moon color with red based on intensity
-            base_intensity = int(200 * self.moon_red_intensity * (1.0 + pulse * 0.5))
             
             # Gradient from center to edge
-            if r > moon_radius - 5:
-                # Outer edge - more original moon color
-                red = int(255 - (moon_radius - r) * 10)
-                green = int(200 - 150 * self.moon_red_intensity * r_ratio)
-                blue = int(150 - 140 * self.moon_red_intensity * r_ratio)
-            else:
-                # Inner area - more red
+            if layer == 0:  # Center
+                red, green, blue = 255, int(80 - 60 * self.moon_red_intensity), int(60 - 50 * self.moon_red_intensity)
+            elif layer == 1:  # Middle
                 red = 255
-                green = int(100 - 80 * self.moon_red_intensity)
-                blue = int(80 - 70 * self.moon_red_intensity)
+                green = int(120 - 90 * self.moon_red_intensity * r_ratio)
+                blue = int(100 - 80 * self.moon_red_intensity * r_ratio)
+            else:  # Outer
+                red = int(255 - (3 - layer) * 20)
+                green = int(180 - 130 * self.moon_red_intensity * r_ratio)
+                blue = int(130 - 110 * self.moon_red_intensity * r_ratio)
             
             moon_color = (red, green, blue, min(255, base_intensity))
             pygame.draw.circle(moon_surface, moon_color, (moon_size // 2, moon_size // 2), r)
@@ -2118,7 +2106,7 @@ class ShaolinTempleBackground:
             current_fps = 1.0 / dt
             if current_fps < self.low_fps_threshold:
                 self.fps_counter += 1
-                if self.fps_counter > 60:  # If low FPS for 1 second
+                if self.fps_counter > 30:  # If low FPS for 0.5 seconds (faster activation)
                     self.performance_mode = True
                     self.red_moon_cache = None  # Force cache refresh
                     print(f"Performance mode enabled (FPS: {current_fps:.1f})")
