@@ -3645,7 +3645,7 @@ class ShaolinTempleBackground:
             }
         
         # Clear hit effects
-        self.monk_fragments.clear()
+        self.moon_fragments.clear()
         
         # Clear death effects
         self.monk_death_particles.clear()
