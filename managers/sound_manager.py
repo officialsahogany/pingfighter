@@ -108,7 +108,7 @@ class SoundManager:
             # 스테이지별 특수 사운드
             'whip': 'whip.wav',
             'rock_spawn': 'rock_spawn.wav',
-            'rock_break': 'rock_break.wav',
+            # 'rock_break': 'rock_break.wav',  # removed - file no longer exists
             'tears': 'tears.wav',
             'magnetic': 'magnetic.wav',
             'flame': 'flame.wav',
@@ -169,7 +169,7 @@ class SoundManager:
             'boss_defeat': (220, 1.5, 'out', 1.0),
             'whip': (880, 0.15, 'out', 0.8),
             'rock_spawn': (110, 0.3, 'in', 0.7),
-            'rock_break': (150, 0.25, 'out', 0.9),
+            # 'rock_break': (150, 0.25, 'out', 0.9),  # removed - file no longer exists
             'tears': (660, 0.2, 'in_out', 0.6),
             'magnetic': (440, 0.35, 'in_out', 0.8),
             'flame': (220, 0.4, 'in', 0.9),

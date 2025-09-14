@@ -1229,7 +1229,7 @@ pygame.mixer.set_num_channels(8)  # 동시 재생 가능한 채널 수
 # 사운드 파일 로드
 SOUND_SERVE = pygame.mixer.Sound(resource_path("sounds/serve.wav"))
 SOUND_WALL = pygame.mixer.Sound(resource_path("sounds/wall_hit.wav"))
-SOUND_ROCK_BREAK = pygame.mixer.Sound(resource_path("sounds/rock_break.wav"))  # 벽돌 부서지는 소리
+# SOUND_ROCK_BREAK removed - file no longer exists
 SOUND_BRICK_DESTROY = pygame.mixer.Sound(resource_path("sounds/stonebreak2.wav"))  # 벽돌 완전 파괴 소리
 SOUND_PADDLE = pygame.mixer.Sound(resource_path("sounds/paddle_hit.wav"))
 # 정글지진 효과음 로드
@@ -4149,9 +4149,10 @@ def create_brick_destruction_effect(brick_rect):
     """벽돌 부서지는 파티클 이펙트 생성"""
     global brick_particles
     
-    # 벽돌 부서지는 사운드 재생
+    # 벽돌 부서지는 사운드 재생 - rock_break.wav 제거됨
+    # 대신 stonebreak2.wav 사용
     try:
-        SOUND_ROCK_BREAK.play()
+        SOUND_BRICK_DESTROY.play()
     except:
         pass
     
