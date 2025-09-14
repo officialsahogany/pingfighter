@@ -2573,8 +2573,8 @@ def go_to_next_round():
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
     global animated_bg_stage4  # Stage 4 배경 추가
     
-    # Stage 4에서 플레이어가 4점 획득한 후 다음 라운드 시작 시 사원 파괴 애니메이션 시작
-    if current_stage == 4 and round_wins == 4:
+    # Stage 4에서 플레이어가 3점 획득한 후 다음 라운드 시작 시 사원 파괴 애니메이션 시작
+    if current_stage == 4 and round_wins == 3:
         if animated_bg_stage4 is not None and not animated_bg_stage4.temple_destroyed:
             animated_bg_stage4.start_destruction_animation()
             print("Stage 4: Temple destruction animation started at round start!")
@@ -2596,14 +2596,6 @@ def go_to_next_round():
             # 화면 지진 효과 시작
             screen_shake_timer = 180  # 3초간 화면 흔들림
             screen_shake_intensity = 15  # 강한 흔들림
-            
-            # 돌 깨지는 사운드 재생
-            try:
-                SOUND_STONEBREAK_LARGE.play()  # 큰 돌 깨지는 사운드
-                # 약간의 딜레이 후 추가 사운드
-                pygame.time.set_timer(pygame.USEREVENT + 10, 500)  # 0.5초 후 이벤트
-            except:
-                pass
             
             print("Stage 3: 쿠로미 각성 시작! 화면 지진 효과 활성화")
     
@@ -34445,6 +34437,14 @@ def main(stage_num, new_boss_mode=False):
                     elif power_smashing_direction == 1:  # 오른쪽 파워스매싱
                         ball_vel[0] = abs(ball_vel[0]) * 1.2805  # 오른쪽으로 강하게 (28.05% 부스트)
                     else:  # 직선 파워스매싱
+                        # 중앙 파워스매싱 - X축 속도가 너무 작을 때 최소값 보장
+                        if abs(ball_vel[0]) < BALL_BASE_SPEED * 0.3:  # X축 속도가 너무 작으면
+                            # 패들 중심에서 공까지의 X 거리에 따라 방향 결정
+                            x_diff = BALL.centerx - PLAYER.centerx
+                            if abs(x_diff) > 5:  # 약간의 오차 허용
+                                # 적절한 X축 속도 부여 (기본 속도의 40~60%)
+                                ball_vel[0] = BALL_BASE_SPEED * 0.5 * (1 if x_diff > 0 else -1)
+                        
                         ball_vel[0] *= 1.2805  # X축 28.05% 부스트
                         ball_vel[1] *= 1.2805  # Y축 28.05% 부스트
                     final_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -35093,8 +35093,13 @@ def main(stage_num, new_boss_mode=False):
         if current_stage == 4 and animated_bg_stage4 is not None:
             temple_destruction_paused = animated_bg_stage4.is_destruction_animation_active()
         
+        # Stage 3 쿠로미 각성 중 일시정지 체크
+        kuromi_awakening_paused = False
+        if current_stage == 3 and animated_bg_stage3 is not None:
+            kuromi_awakening_paused = animated_bg_stage3.kuromi_awakening
+        
         #  일시정지 상태가 아닐 때만 게임 로직 업데이트 (악마의 주사위 포함)
-        if not game_paused and not devil_dice_paused and not legendary_effect_paused and not temple_destruction_paused:
+        if not game_paused and not devil_dice_paused and not legendary_effect_paused and not temple_destruction_paused and not kuromi_awakening_paused:
             # 아이템 스폰 처리 (템스폰) - 전설 애니메이션 중에는 스폰 정지
             # 튜토리얼 스테이지(50)에서는 아이템 스폰 비활성화
             if current_stage != 50 and pygame.time.get_ticks() - last_item_spawn_time >= next_item_spawn_delay:
@@ -35635,6 +35640,13 @@ def main(stage_num, new_boss_mode=False):
         #  일시정지 UI 렌더링
         if game_paused:
             draw_pause_overlay()
+        
+        # Stage 3 쿠로미 각성 오버레이
+        if kuromi_awakening_paused and current_stage == 3:
+            # 반투명 검은색 오버레이
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 100))  # 반투명 검은색
+            SCREEN.blit(overlay, (0, 0))
         # === DRIVE! 텍스트 표시 ===
         global drive_text_timer
         if drive_text_timer > 0:

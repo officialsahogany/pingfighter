@@ -108,7 +108,10 @@ while running:
         screen.blit(text, (WIDTH//2 - text.get_width()//2, HEIGHT//2 - 100))
     else:
         if stage3_bg.kuromi_awakening:
-            status_text = f"Awakening... Timer: {stage3_bg.kuromi_awakening_timer}"
+            elapsed_time = (180 - stage3_bg.kuromi_awakening_timer) / 60.0  # 경과 시간 (초)
+            status_text = f"Awakening... Timer: {stage3_bg.kuromi_awakening_timer} ({elapsed_time:.1f}s elapsed)"
+            if stage3_bg.kuromi_awakening_timer == 1:
+                status_text += " - EXPLOSION NOW!"
         else:
             status_text = "Awakening Complete!"
         text = small_font.render(status_text, True, WHITE)
