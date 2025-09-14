@@ -792,14 +792,55 @@ try:
     wall_icon = pygame.image.load(resource_path("items/wall.png")).convert_alpha()
     wall_icon = pygame.transform.scale(wall_icon, (28, 28))
 except:
-    # 사이버펑크 스타일 벽 아이콘
+    # 실제 벽돌처럼 보이는 아이콘
     wall_icon = pygame.Surface((28, 28), pygame.SRCALPHA)
-    # 벽돌 패턴
-    for y in range(0, 28, 7):
-        for x in range(0, 28, 9):
-            offset = 4 if (y // 7) % 2 == 1 else 0
-            pygame.draw.rect(wall_icon, (150, 100, 50), (x + offset, y, 8, 6))
-            pygame.draw.rect(wall_icon, (100, 60, 30), (x + offset, y, 8, 6), 1)
+    
+    # 벽돌 기본 색상
+    brick_base = (139, 69, 19)
+    brick_highlight = (179, 109, 59)
+    brick_shadow = (109, 49, 9)
+    mortar_color = (105, 105, 105)
+    
+    # 벽돌 패턴 (2x3 그리드)
+    brick_width = 12
+    brick_height = 8
+    
+    for row in range(3):
+        for col in range(3):
+            # 벽돌마다 조금씩 오프셋 적용 (실제 벽돌 쌓기 패턴)
+            offset = 6 if row % 2 == 1 else 0
+            x = col * (brick_width - 4) + offset
+            y = row * (brick_height - 1)
+            
+            # 화면 경계 체크
+            if x + brick_width <= 28 and y + brick_height <= 28:
+                brick_rect = pygame.Rect(x, y, brick_width, brick_height)
+                
+                # 벽돌 바탕
+                pygame.draw.rect(wall_icon, brick_base, brick_rect)
+                
+                # 3D 효과 - 하이라이트 (상단/좌측)
+                pygame.draw.line(wall_icon, brick_highlight, 
+                               (brick_rect.left, brick_rect.top), 
+                               (brick_rect.right - 1, brick_rect.top), 1)
+                pygame.draw.line(wall_icon, brick_highlight, 
+                               (brick_rect.left, brick_rect.top), 
+                               (brick_rect.left, brick_rect.bottom - 1), 1)
+                
+                # 3D 효과 - 그림자 (하단/우측)  
+                pygame.draw.line(wall_icon, brick_shadow, 
+                               (brick_rect.left + 1, brick_rect.bottom - 1), 
+                               (brick_rect.right - 1, brick_rect.bottom - 1), 1)
+                pygame.draw.line(wall_icon, brick_shadow, 
+                               (brick_rect.right - 1, brick_rect.top + 1), 
+                               (brick_rect.right - 1, brick_rect.bottom - 1), 1)
+                
+                # 벽돌 구분선 (모르타르)
+                if brick_height >= 6:  # 충분히 클 때만
+                    mid_y = brick_rect.top + brick_height // 2
+                    pygame.draw.line(wall_icon, mortar_color, 
+                                   (brick_rect.left + 1, mid_y), 
+                                   (brick_rect.right - 1, mid_y), 1)
 for item in items.ITEM_TYPES:
     if item["name"] == "wall":
         item["icon"] = wall_icon
@@ -12794,18 +12835,61 @@ def draw_objects():
         wall_rect.x += screen_shake_offset_x
         wall_rect.y += screen_shake_offset_y
         
+        # 실제 벽돌처럼 보이도록 개선된 렌더링
         # 벽돌 기본 색상 (갈색)
-        wall_color = (139, 69, 19)
+        base_color = (139, 69, 19)
         # 균열에 따른 색상 변화
         if wall_crack_level == 1:
-            wall_color = (160, 82, 45)  # 살짝 밝은 갈색
+            base_color = (160, 82, 45)  # 살짝 밝은 갈색
         elif wall_crack_level == 2:
-            wall_color = (184, 134, 11)  # 더 밝은 갈색
+            base_color = (184, 134, 11)  # 더 밝은 갈색
         elif wall_crack_level == 3:
-            wall_color = (218, 165, 32)  # 금색
-        # 벽돌 그리기
-        draw.rect(wall_color, wall_rect)
-        draw.rect(WHITE, wall_rect, 2)  # 흰색 테두리
+            base_color = (218, 165, 32)  # 금색
+        
+        # 벽돌 바탕 그리기
+        draw.rect(base_color, wall_rect)
+        
+        # 벽돌 질감 효과 추가
+        # 1. 상단과 좌측에 밝은 하이라이트 (3D 효과)
+        highlight_color = tuple(min(255, c + 40) for c in base_color)
+        draw.line(highlight_color, (wall_rect.left, wall_rect.top), 
+                 (wall_rect.right - 1, wall_rect.top), 2)  # 상단 라인
+        draw.line(highlight_color, (wall_rect.left, wall_rect.top), 
+                 (wall_rect.left, wall_rect.bottom - 1), 2)  # 좌측 라인
+        
+        # 2. 하단과 우측에 어두운 그림자 (3D 효과)
+        shadow_color = tuple(max(0, c - 30) for c in base_color)
+        draw.line(shadow_color, (wall_rect.left + 1, wall_rect.bottom - 1), 
+                 (wall_rect.right - 1, wall_rect.bottom - 1), 2)  # 하단 라인
+        draw.line(shadow_color, (wall_rect.right - 1, wall_rect.top + 1), 
+                 (wall_rect.right - 1, wall_rect.bottom - 1), 2)  # 우측 라인
+        
+        # 3. 벽돌 모르타르 선 (가로줄)
+        mortar_color = (105, 105, 105)  # 회색 모르타르
+        # 벽돌을 3등분하는 가로선들
+        third_height = wall_rect.height // 3
+        if third_height > 2:  # 벽돌이 충분히 클 때만
+            for i in range(1, 3):
+                y_pos = wall_rect.top + third_height * i
+                draw.line(mortar_color, (wall_rect.left + 2, y_pos), 
+                         (wall_rect.right - 2, y_pos), 1)
+        
+        # 4. 벽돌 세로 구분선 (벽돌 패턴)
+        quarter_width = wall_rect.width // 4
+        if quarter_width > 3:  # 벽돌이 충분히 클 때만
+            for i in range(1, 4):
+                x_pos = wall_rect.left + quarter_width * i
+                # 세로선이 가로선과 만나지 않도록 조정
+                draw.line(mortar_color, (x_pos, wall_rect.top + 2), 
+                         (x_pos, wall_rect.top + third_height - 1), 1)
+                if third_height > 2:
+                    draw.line(mortar_color, (x_pos, wall_rect.top + third_height + 1), 
+                             (x_pos, wall_rect.top + third_height * 2 - 1), 1)
+                    draw.line(mortar_color, (x_pos, wall_rect.top + third_height * 2 + 1), 
+                             (x_pos, wall_rect.bottom - 2), 1)
+        
+        # 5. 벽돌 외곽선
+        draw.rect((80, 40, 10), wall_rect, 1)  # 어두운 갈색 테두리
         # 균열 그리기
         if wall_crack_level > 0:
             crack_color = RED if wall_crack_level >= 3 else (255, 255, 0)
