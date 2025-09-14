@@ -36,11 +36,11 @@ BOSS_CONFIGS = {
     3: {
         "name": "멘헤라걸",
         "color": (255, 0, 255),
-        "accel": 0.899,     
-        "decel": 0.899,     
-        "max_speed": 6.952,   
+        "accel": 0.866,     
+        "decel": 0.866,     
+        "max_speed": 6.521,   
         "instant_stop": 0.768,
-        "predict_distance": 140,
+        "predict_distance": 150,
         "skill_power": 0.6,
         "fail_error": 260,
         "special_skill": "emotional_overdrive",  # 감정 폭주
