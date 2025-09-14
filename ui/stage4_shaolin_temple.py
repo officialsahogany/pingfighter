@@ -1803,6 +1803,10 @@ class ShaolinTempleBackground:
     
     def _update_monk_death_effects(self):
         """Update monk death particles and body parts"""
+        # Debug logging
+        if len(self.monk_death_particles) > 0 or len(self.monk_body_parts) > 0:
+            print(f"Updating monk death effects: {len(self.monk_death_particles)} particles, {len(self.monk_body_parts)} body parts")
+        
         # Update death particles
         for particle in self.monk_death_particles[:]:
             particle['x'] += particle['vx']
@@ -3475,6 +3479,7 @@ class ShaolinTempleBackground:
         # Clear all monks
         self.monks.clear()
         print(f"All monks exploded during temple destruction!")
+        print(f"Created {len(self.monk_death_particles)} death particles and {len(self.monk_body_parts)} body parts")
     
     def _explode_all_training_dummies(self):
         """Explode all training dummies when temple is destroyed"""
