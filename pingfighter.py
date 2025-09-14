@@ -2761,8 +2761,10 @@ def go_to_next_round():
     #  Stage 4 자기장 강제 종료
     stage4_magnetic_active = False
     stage4_magnetic_timer = 0
-    boss_special_ready_stage4 = False
-    boss_special_gauge_stage4 = 0
+    # Stage 4에서는 게이지를 유지 (다른 스테이지에서는 초기화)
+    if current_stage != 4:
+        boss_special_ready_stage4 = False
+        boss_special_gauge_stage4 = 0
     #  Stage 2 스킬: 스피드디펜스 상태 초기화
     global speed_defense_active, speed_defense_timer
     global boss_trail  #  보스 꼬리 효과 변수 추가

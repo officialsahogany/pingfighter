@@ -32,7 +32,7 @@ class ShaolinTempleBackground:
         # Moon crater fragments system
         self.moon_fragments = []  # Active moon crater fragments
         self.moon_fragment_timer = 0  # Timer for spawning fragments
-        self.moon_fragment_interval = random.randint(1200, 1800)  # 20-30 seconds at 60 FPS
+        self.moon_fragment_interval = random.randint(120, 1800)  # 2-30 seconds at 60 FPS
         self.moon_fragment_active = False  # Only active after moon turns red
         
         # Moon pulsing effect when firing fragments
@@ -3901,7 +3901,7 @@ class ShaolinTempleBackground:
                 self._spawn_moon_fragments()
                 self.moon_fragment_timer = 0
                 # Reset interval for next spawn
-                self.moon_fragment_interval = random.randint(1200, 1800)  # 20-30 seconds
+                self.moon_fragment_interval = random.randint(120, 1800)  # 2-30 seconds
         
         # Update existing fragments
         for fragment in self.moon_fragments[:]:
@@ -4172,7 +4172,7 @@ class ShaolinTempleBackground:
         # Reset moon crater fragments
         self.moon_fragments = []
         self.moon_fragment_timer = 0
-        self.moon_fragment_interval = random.randint(1200, 1800)
+        self.moon_fragment_interval = random.randint(120, 1800)
         self.moon_fragment_active = False
         
         # Reset moon pulsing
