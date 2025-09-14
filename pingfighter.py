@@ -27976,7 +27976,11 @@ def handle_ball():
             boost_progress = elapsed_time / (power_smashing_boost_duration / 1000.0)
             
             # 초기 부스트 속도에서 목표 속도로 부드럽게 감속 (선형 보간)
-            initial_boosted_speed = power_smashing_target_speed * 1.8  # 3.6배 (기본 2.1배에 추가 1.8배)
+            # 방향에 따라 초기 부스트 속도 계산
+            if power_smashing_direction == 0:  # 직선
+                initial_boosted_speed = power_smashing_target_speed * 1.65  # 3.3배 (230% 추가)
+            else:  # 좌/우
+                initial_boosted_speed = power_smashing_target_speed * 1.8  # 3.6배 (260% 추가)
             interpolated_speed = initial_boosted_speed - (initial_boosted_speed - power_smashing_target_speed) * boost_progress
             
             # 속도 조정
@@ -34275,10 +34279,15 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[1] *= 1.2805  # Y축 28.05% 부스트
                     final_speed = math.hypot(ball_vel[0], ball_vel[1])
                     
-                    # 파워스매싱 초기 부스트 적용 (260% 추가 속도)
+                    # 파워스매싱 초기 부스트 적용 (방향에 따라 차별화)
                     global power_smashing_initial_boost, power_smashing_target_speed
                     power_smashing_target_speed = final_speed  # 현재 속도를 목표 속도로 저장
-                    initial_boost_multiplier = 1.8  # 260% 추가 = 3.6배
+                    
+                    # 방향에 따른 초기 부스트 차별화
+                    if power_smashing_direction == 0:  # 직선(중앙) 파워스매싱
+                        initial_boost_multiplier = 1.65  # 230% 추가 = 3.3배
+                    else:  # 좌/우 파워스매싱
+                        initial_boost_multiplier = 1.8  # 260% 추가 = 3.6배
                     
                     # 초기 부스트 속도 적용
                     if final_speed > 0:
@@ -34286,7 +34295,8 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[0] *= boost_ratio
                         ball_vel[1] *= boost_ratio
                         power_smashing_initial_boost = True
-                        print(f"🚀 파워스매싱 초기 부스트 적용! 목표속도: {power_smashing_target_speed:.1f}, 부스트속도: {final_speed * initial_boost_multiplier:.1f}")
+                        boost_percent = int((initial_boost_multiplier - 1) * 100 + 100)
+                        print(f"🚀 파워스매싱 초기 부스트 적용! 방향: {'직선' if power_smashing_direction == 0 else '좌/우'}, 부스트: {boost_percent}%, 목표속도: {power_smashing_target_speed:.1f}, 부스트속도: {final_speed * initial_boost_multiplier:.1f}")
                     
                     # Chapter 4 튜토리얼: 파워스매싱 방향별 카운트 증가
                     if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_power_counter_active:
