@@ -353,7 +353,7 @@ TILE_SIZE = 40
 SLOW_SPEED = 3
 DEFAULT_SPEED = 5
 FAST_SPEED = 10
-MAX_BALL_SPEED = 15
+MAX_BALL_SPEED = 40
 
 # 각도 관련
 QUARTER_ROTATION = 90
@@ -28259,7 +28259,7 @@ def handle_ball():
             print(f"    : {horizontal_movement_timer} → 0")
             horizontal_movement_timer = 0
     # --- 공 속도 제한 (최대 속도 35로 제한, 특수 기술 제외) ---
-    MAX_BALL_VELOCITY = 35  # 최대 공 속도 제한
+    MAX_BALL_VELOCITY = 60  # 최대 공 속도 제한 (물회오리 효과를 위해 상향)
     
     # 특수 기술 사용 중인지 확인 (파워스매싱, 상모돌리기, 드라이브, 고스트샷, 사이코볼 등)
     is_special_skill_active = (

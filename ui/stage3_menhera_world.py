@@ -646,55 +646,21 @@ class Stage3MenheraWorld:
         eye_y = y - head_size//6  # 얼굴 중앙 약간 위
         eye_spacing = head_size//2.2  # 적절한 간격
         
-        # 감정에 따른 눈 변화
+        # 모든 감정 상태에서 초롱초롱한 눈 (일관성 유지)
+        # 감정에 따른 눈 위치 조정만
+        emotion_y_offset = 0
         if self.emotional_phase == 1:  # 행복
-            # 웃는 눈 (호 모양)
-            left_eye_x = x - eye_spacing
-            right_eye_x = x + eye_spacing
-            
-            # 왼쪽 웃는 눈
-            pygame.draw.arc(screen, SOFT_BLACK,
-                          (left_eye_x - head_size//8, eye_y - head_size//12,
-                           head_size//4, head_size//6),
-                          0, math.pi, 3)
-            
-            # 오른쪽 웃는 눈
-            pygame.draw.arc(screen, SOFT_BLACK,
-                          (right_eye_x - head_size//8, eye_y - head_size//12,
-                           head_size//4, head_size//6),
-                          0, math.pi, 3)
-                          
+            emotion_y_offset = -2  # 약간 위로
         elif self.emotional_phase == 2:  # 슬픔
-            # 처진 눈
-            eye_width = int(head_size * 0.3)
-            eye_height = int(head_size * 0.35)
-            
-            # 왼쪽 눈
-            left_eye_x = x - eye_spacing
-            left_eye_y = eye_y + 3
-            pygame.draw.ellipse(screen, SOFT_BLACK,
-                              (left_eye_x - eye_width//2, left_eye_y - eye_height//2,
-                               eye_width, eye_height), 2)
-            # 눈물
-            pygame.draw.circle(screen, BABY_BLUE, (left_eye_x, left_eye_y + eye_height//2 + 3), 3)
-            
-            # 오른쪽 눈
-            right_eye_x = x + eye_spacing
-            right_eye_y = eye_y + 3
-            pygame.draw.ellipse(screen, SOFT_BLACK,
-                              (right_eye_x - eye_width//2, right_eye_y - eye_height//2,
-                               eye_width, eye_height), 2)
-            # 눈물
-            pygame.draw.circle(screen, BABY_BLUE, (right_eye_x, right_eye_y + eye_height//2 + 3), 3)
-            
-        else:  # 평온 (기본)
-            # 단순한 타원형 눈
-            eye_width = int(head_size * 0.25)
-            eye_height = int(head_size * 0.3)
-            
-            # 왼쪽 눈
-            left_eye_x = x - eye_spacing + face_distortion_x
-            left_eye_y = eye_y
+            emotion_y_offset = 3   # 약간 아래로
+        
+        # 통일된 눈 크기
+        eye_width = int(head_size * 0.25)
+        eye_height = int(head_size * 0.3)
+        
+        # 왼쪽 눈
+        left_eye_x = x - eye_spacing + face_distortion_x
+        left_eye_y = eye_y + emotion_y_offset
             
             # 눈 테두리
             pygame.draw.ellipse(screen, SOFT_BLACK,
