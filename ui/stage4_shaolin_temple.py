@@ -2247,6 +2247,9 @@ class ShaolinTempleBackground:
         temp_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         
         # Draw static background
+        if self.static_surface is None:
+            self.static_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            self._draw_static_background()
         temp_surface.blit(self.static_surface, (0, 0))
         
         # Draw red moon during destruction (overlay on top of normal moon)
@@ -3665,7 +3668,8 @@ class ShaolinTempleBackground:
         self.bell_swing = 0
         
         # Force recreation of static surface
-        self.static_surface = None
+        self.static_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self._draw_static_background()
         
         print("Stage 4: Shaolin Temple background reset to initial state")
     

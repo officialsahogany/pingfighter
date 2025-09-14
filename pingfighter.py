@@ -11676,35 +11676,6 @@ def draw_objects():
         boss_img = BOSS_IMG_STAGE3
         boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
         
-        # 석회화 상태일 때 회색 처리
-        if kuromi_petrified:
-            # 회색 버전 생성
-            boss_img = boss_img.copy()
-            gray_overlay = pygame.Surface(boss_img.get_size(), pygame.SRCALPHA)
-            gray_overlay.fill((128, 128, 128, 180))  # 회색 오버레이
-            boss_img.blit(gray_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            
-            # 석회화 텍스처 효과 추가
-            for _ in range(20):
-                x = random.randint(0, boss_img.get_width() - 1)
-                y = random.randint(0, boss_img.get_height() - 1)
-                crack_color = (100, 100, 100, 200)
-                pygame.draw.line(boss_img, crack_color, (x, y), (x + random.randint(-5, 5), y + random.randint(-5, 5)), 1)
-        
-        # 각성 중일 때 특수 효과
-        elif kuromi_awakening and kuromi_awakening_timer > 0:
-            # 원본 이미지 복사
-            boss_img = boss_img.copy()
-            
-            # 각성 진행도 계산 (0.0 ~ 1.0)
-            progress = 1.0 - (kuromi_awakening_timer / 180.0)
-            
-            # 석회화에서 점진적으로 원래 색으로 변환
-            gray_alpha = int(180 * (1 - progress))
-            if gray_alpha > 0:
-                gray_overlay = pygame.Surface(boss_img.get_size(), pygame.SRCALPHA)
-                gray_overlay.fill((128, 128, 128, gray_alpha))
-                boss_img.blit(gray_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
             
             # 각성 파티클 효과 - 석회 조각이 떨어지는 효과
             if kuromi_awakening_timer % 3 == 0:
@@ -32143,10 +32114,6 @@ def handle_boss():
     global boss_stun_timer, ragnarok_stun_pending  #  라그나로크 해머 스턴 관련 변수
     global kuromi_petrified, kuromi_awakening  # 쿠로미 석회화 관련 변수
     
-    # Stage 3에서 석회화 상태이거나 각성 중일 때 AI 비활성화
-    if current_stage == 3 and (kuromi_petrified or kuromi_awakening):
-        boss_current_speed = 0  # 속도 0으로 설정
-        return  # AI 완전 정지
     
     #  라그나로크 해머 넉백 처리 (스턴 체크보다 먼저 실행해야 넉백 후 스턴이 적용됨)
     if boss_knockback_timer > 0:
