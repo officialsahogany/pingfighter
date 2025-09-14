@@ -26472,47 +26472,16 @@ def calculate_bounce(paddle):
     
     # 보스가 공을 칠 때 포세이돈 삼지창 회오리 가속 효과 해제
     if not is_player_paddle:  # 보스가 공을 칠 때
-        print(f"[DEBUG] 보스가 공을 침! paddle={paddle}, BOSS={BOSS}")
         try:
             from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
-            print(f"[DEBUG] legendary_manager 존재: {legendary_manager is not None}")
             if legendary_manager:
                 trident = legendary_manager.get_item("poseidon_trident")
-                print(f"[DEBUG] trident 존재: {trident is not None}")
-                if trident:
-                    speed_restored = getattr(trident, 'speed_restored', False)
-                    print(f"[DEBUG] trident.active={trident.active}, vortex_affected={trident.vortex_affected}, speed_restored={speed_restored}, original_ball_speed={trident.original_ball_speed}")
-                    # 회오리 효과를 받았고 아직 속도가 복원되지 않은 경우
-                    if trident.active and trident.vortex_affected and not speed_restored and trident.original_ball_speed > 0:
-                        # 원래 속도에서 20% 감소시켜 복원
-                        current_speed = math.hypot(ball_vel[0], ball_vel[1])
-                        reduced_speed = trident.original_ball_speed * 0.8  # 원래 속도의 80% (20% 감소)
-                        print(f"[DEBUG] 속도 복원 시도 - 현재속도: {current_speed:.1f}, 원래속도: {trident.original_ball_speed:.1f}, 감소된속도: {reduced_speed:.1f}")
-                        if current_speed > 0:
-                            # 현재 방향을 유지하면서 감소된 속도로 복원
-                            speed_ratio = reduced_speed / current_speed
-                            ball_vel[0] *= speed_ratio
-                            ball_vel[1] *= speed_ratio
-                            print(f"[포세이돈] ★★★ 보스 반격 - 속도 20% 감소 적용: {current_speed:.1f} → {reduced_speed:.1f} (원래: {trident.original_ball_speed:.1f})")
-                            
-                            # 속도 복원 완료 표시
-                            trident.speed_restored = True
-                            
-                            # 회오리 효과 플래그 해제
-                            trident.vortex_affected = False
-                            trident.original_ball_speed = 0
-                            
-                            # 물 궤적 종료
-                            trident.water_trail_active = False
-                            trident.water_trail = []
-                            print(f"[DEBUG] 회오리 효과 해제 완료!")
-                        else:
-                            print(f"[DEBUG] 속도가 0이어서 복원 실패")
-                    else:
-                        print(f"[DEBUG] 조건 미충족 - active={trident.active}, vortex_affected={trident.vortex_affected}, speed_restored={speed_restored}")
+                if trident and trident.active:
+                    # deactivate_water_trail을 호출하여 boss_hit_count 증가시키기
+                    trident.deactivate_water_trail()
         except Exception as e:
-            print(f"[ERROR] 포세이돈 효과 해제 실패: {e}")
+            print(f"[ERROR] 포세이돈 효과 처리 실패: {e}")
     
     #  플레이어가 공을 칠 때 연막 감속 효과 해제
     if is_player_paddle:
@@ -28201,6 +28170,19 @@ def handle_ball():
     # ---  적응형 물리 효과: 충돌 후 점진적 감속 ---
     #  저속에서는 감속 완화, 고속에서는 감속 강화
     current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+    
+    # 포세이돈 삼지창 효과를 받은 공인지 확인
+    is_water_affected = False
+    try:
+        from legendary_items import get_legendary_manager
+        legendary_manager = get_legendary_manager()
+        if legendary_manager:
+            trident = legendary_manager.get_item("poseidon_trident")
+            if trident and trident.active and (trident.vortex_affected or trident.water_trail_active):
+                is_water_affected = True
+    except:
+        pass
+    
     if ball_impact_boost > ball_min_boost:
         # 속도별 적응형 감속률 적용
         if current_speed < 10:  # 저속: 감속 60% 완화
@@ -28209,8 +28191,17 @@ def handle_ball():
             adaptive_decay_rate = ball_boost_decay_rate
         else:  # 고속: 감속 강화
             speed_ratio = min(current_speed / 25.0, 1.0)
-            penalty_factor = 1.0 + speed_ratio * 0.5
+            # 고속일수록 더 강한 감속 적용 (0.5 → 1.2로 증가)
+            penalty_factor = 1.0 + speed_ratio * 1.2  # 기존 0.5에서 1.2로 증가
             adaptive_decay_rate = 1.0 - (1.0 - ball_boost_decay_rate) * penalty_factor
+            # 매우 빠른 속도(30 이상)에서는 추가 감속
+            if current_speed > 30:
+                adaptive_decay_rate *= 0.95  # 추가 5% 감속
+        
+        # 포세이돈 효과를 받은 공은 더 강한 감속 적용
+        if is_water_affected and current_speed > 20:
+            adaptive_decay_rate *= 0.92  # 추가 8% 감속
+            
         ball_impact_boost *= adaptive_decay_rate
         # 최소값 보정
         if ball_impact_boost < ball_min_boost:
@@ -28355,7 +28346,8 @@ def handle_ball():
                         # 첫 0.1초만 로그 
                         if trident.vortex_active and trident.vortex_timer < 0.1:
                             pass  # Debug log removed
-                        if trident.dash_wave_active or trident.vortex_active:
+                        # 회오리가 활성화되어 있거나, 회오리 효과를 받은 공인 경우 처리
+                        if trident.dash_wave_active or trident.vortex_active or trident.vortex_affected:
                             wave_vx, wave_vy = trident.apply_dash_wave_to_ball(
                                 BALL.centerx, BALL.centery,
                                 actual_vel_x, actual_vel_y,
@@ -28369,12 +28361,20 @@ def handle_ball():
                                 pass  # Debug log removed
                             
                             # 회오리 효과 적용
+                            # 속도 변경 적용
                             actual_vel_x = wave_vx
                             actual_vel_y = wave_vy
                             
                             # 🔧 CRITICAL FIX: 회오리 효과를 영구적으로 적용
                             # actual_vel은 현재 프레임만 영향을 주므로, ball_vel 배열도 업데이트해야 함
-                            if wave_vx != step_vel_x or wave_vy != step_vel_y:
+                            # 회오리 반사가 일어났을 때는 강제로 업데이트 (큰 속도 변화 감지)
+                            speed_change_ratio = abs(wave_vy - step_vel_y) / (abs(step_vel_y) + 0.1)  # 0으로 나누기 방지
+                            is_vortex_reflection = speed_change_ratio > 1.5  # 속도가 1.5배 이상 변했으면 회오리 반사
+                            
+                            # 보스가 공을 친 경우도 속도 업데이트 허용
+                            boss_hit_detected = trident.vortex_affected and trident.boss_hit_count > 0
+                            
+                            if (wave_vx != step_vel_x or wave_vy != step_vel_y) and (not trident.vortex_affected or is_vortex_reflection or boss_hit_detected):
                                 # 스텝 수를 고려하여 원래 속도로 변환
                                 old_ball_vel = [ball_vel[0], ball_vel[1]]
                                 ball_vel[0] = wave_vx * num_steps / ball_impact_boost
@@ -28383,7 +28383,13 @@ def handle_ball():
                                 # 디버그: 속도 변화 추적
                                 old_speed = math.sqrt(old_ball_vel[0]**2 + old_ball_vel[1]**2)
                                 new_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                                print(f"🌊 [메인 루프] 포세이돈 효과 적용: {old_speed:.1f} → {new_speed:.1f}")
+                                if is_vortex_reflection:
+                                    print(f"🌊 [메인 루프] 회오리 반사! 속도: {old_speed:.1f} → {new_speed:.1f}")
+                                elif boss_hit_detected:
+                                    print(f"🌊 [메인 루프] 보스 반격 속도 조정! 속도: {old_speed:.1f} → {new_speed:.1f}")
+                                else:
+                                    print(f"🌊 [메인 루프] 포세이돈 효과 적용: {old_speed:.1f} → {new_speed:.1f}")
+                            # vortex_affected 상태에서는 ball_vel 변경 건너뜀
             except Exception as e:
                 # 전설 아이템 매니저 접근 실패 시 기본 속도 사용
                 print(f"[ERROR] Legendary manager error: {e}")
@@ -28392,6 +28398,16 @@ def handle_ball():
             # 한 스텝 이동
             BALL.x += actual_vel_x
             BALL.y += actual_vel_y
+            
+            # 속도 안전 제한 (너무 빠른 속도 방지)
+            current_total_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+            if current_total_speed > MAX_BALL_SPEED * 0.85:  # 최대 속도의 85% 이상이면
+                speed_scale = (MAX_BALL_SPEED * 0.85) / current_total_speed
+                ball_vel[0] *= speed_scale
+                ball_vel[1] *= speed_scale
+                # 디버그 로그 (가끔만)
+                if pygame.time.get_ticks() % 120 < 16:  # 2초마다
+                    print(f"⚠️ 속도 안전 제한: {current_total_speed:.1f} → {MAX_BALL_SPEED * 0.85:.1f}")
             
             # 하프대쉬 효과 타이머 업데이트
             if half_dash_effect_timer > 0:

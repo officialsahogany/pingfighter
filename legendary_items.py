@@ -284,6 +284,7 @@ class PoseidonTrident(LegendaryItem):
         self.vortex_affected = False  # 회오리 효과를 받았는지
         self.original_ball_speed = 0  # 회오리 효과 전 원래 속도 저장
         self.speed_restored = False  # 속도가 이미 복원되었는지 추적
+        self.boss_hit_count = 0  # 보스가 공을 친 횟수 추적
         
         # 물 궤적 효과
         self.water_trail = []  # 물에 젖은 공의 궤적
@@ -492,29 +493,33 @@ class PoseidonTrident(LegendaryItem):
         
         # 회오리 효과를 받은 공이 보스에게 맞았는지 확인
         if self.vortex_affected:
-            print(f"[DEBUG apply_dash_wave] vortex_affected=True, ball_vy={ball_vy:.1f}, original_speed={self.original_ball_speed:.1f}")
-            # 공의 방향이 바뀌었는지 확인 (보스가 쳤는지)
-            # 회오리는 위로 튕기므로, 공이 아래로 가고 있다면 보스가 친 것
-            if ball_vy > 0:  # 공이 아래로 향하고 있음 = 보스가 쳤음
-                # 원래 속도로 복원
+            # 회오리 효과를 받은 공이 보스에게 맞았는지 확인
+            
+            # 보스가 실제로 공을 친 경우에만 속도 복원
+            if self.boss_hit_count > 0:
                 current_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
-                if current_speed > 0 and self.original_ball_speed > 0:
-                    # 현재 방향을 유지하면서 원래 속도로 복원
-                    speed_ratio = self.original_ball_speed / current_speed
+                if current_speed > 0:
+                    # 무조건 현재 속도의 50%로 감속
+                    target_speed = current_speed * 0.5
+                    speed_ratio = target_speed / current_speed
                     new_vx = ball_vx * speed_ratio
                     new_vy = ball_vy * speed_ratio
-                    print(f"[포세이돈] 보스 반격 감지 - 속도 복원: {current_speed:.1f} → {self.original_ball_speed:.1f}")
+                    print(f"🔱 [포세이돈] 보스 반격 - 속도 50% 감속: {current_speed:.1f} → {target_speed:.1f}")
                     
                     # 회오리 효과 플래그 해제
                     self.vortex_affected = False
                     self.original_ball_speed = 0
+                    self.boss_hit_count = 0  # 카운트 리셋
                     
                     # 물 궤적 종료
                     self.water_trail_active = False
-                    print(f"[DEBUG] 보스 반격 - 물 궤적 종료! 남은 포인트: {len(self.water_trail)}")
+                    # 물 궤적 종료
                     
                     # 복원된 속도 반환
+                    # 속도 복원 완료
                     return new_vx, new_vy
+                else:
+                    print(f"🔍 [DEBUG] 속도 복원 실패: current_speed={current_speed:.1f}, original_speed={self.original_ball_speed:.1f}")
         
         # 원래 속도 저장 (디버그용)
         original_speed = math.sqrt(ball_vx ** 2 + ball_vy ** 2)
@@ -612,17 +617,33 @@ class PoseidonTrident(LegendaryItem):
                 # === 단순하고 강력한 즉시 반사 (복잡한 간섭 제거) ===
                 
                 # 보스가 친 공은 회오리에 닿으면 즉시 강력하게 반사 (간섭 없이)
-                if ball_vy > 0:  # 보스가 친 공
+                # 단, 이미 회오리 효과를 받았거나 쿨다운 중이면 무시
+                if ball_vy > 0 and not self.vortex_affected and self.vortex_cooldown <= 0:  # 보스가 친 공
                     print(f"🌊 [즉시 반사] 보스 공 회오리 접촉!")
                     current_ball_speed = math.sqrt(ball_vx**2 + ball_vy**2)
                     
-                    # 랜덤 증폭 반사 (현재 공 속도의 500~1500%)
-                    amplify_factor = random.uniform(5.0, 15.0)  # 5배~15배 랜덤
+                    # 원래 속도 저장 (복원용)
+                    self.original_ball_speed = current_ball_speed
+                    self.vortex_affected = True  # 회오리 효과를 받았음을 표시
+                    self.boss_hit_count = 0  # 보스 히트 카운트 리셋
+                    print(f"🔍 [즉시 반사] vortex_affected=True 설정, original_speed={self.original_ball_speed:.1f}, boss_hit_count=0")
+                    
+                    # 물 궤적 활성화 (즉시 반사 후에도 궤적 유지)
+                    self.water_trail_active = True
+                    print(f"🌊 [즉시 반사] 물 궤적 활성화!")
+                    
+                    # 랜덤 증폭 반사 (현재 공 속도의 150~200%)
+                    amplify_factor = random.uniform(1.5, 2.0)  # 1.5배~2배 랜덤
                     amplified_speed = current_ball_speed * amplify_factor
                     
-                    # 위쪽 방향 랜덤 반사 (-90도 기준 ±45도)
+                    # 최소 속도 보장 (회오리 영역을 확실히 벗어나도록)
+                    min_speed = 20.0  # 최소 속도
+                    if amplified_speed < min_speed:
+                        amplified_speed = min_speed
+                    
+                    # 위쪽 방향 랜덤 반사 (-90도 기준 ±30도) - 더 위쪽으로
                     base_angle = -math.pi / 2  # -90도 (위쪽)
-                    random_spread = math.pi / 4  # ±45도
+                    random_spread = math.pi / 6  # ±30도 (더 좁은 범위)
                     random_offset = random.uniform(-random_spread, random_spread)
                     target_angle = base_angle + random_offset
                     
@@ -632,6 +653,12 @@ class PoseidonTrident(LegendaryItem):
                     
                     print(f"🌊 [즉시 반사] 속도: {current_ball_speed:.1f} → {amplified_speed:.1f} ({amplify_factor:.1f}배) | 각도: {math.degrees(target_angle):.1f}도")
                     print(f"🌊 [즉시 반사] 결과: vx={final_vx:.1f}, vy={final_vy:.1f}")
+                    
+                    # 반사된 공의 현재 위치를 물궤적에 추가
+                    self.update_water_trail(ball_x, ball_y)
+                    
+                    # 재진입 방지를 위한 쿨다운 설정
+                    self.vortex_cooldown = 60  # 1초 쿨다운
                     
                     return final_vx, final_vy  # 즉시 반환하여 복잡한 간섭 제거
                 
@@ -752,8 +779,8 @@ class PoseidonTrident(LegendaryItem):
                         
                         target_angle = base_angle + random_offset
                         
-                        # 반사 속도 (현재 공 속도의 500~1500% 랜덤 증폭)
-                        amplify_factor = random.uniform(5.0, 15.0)  # 5배~15배 랜덤
+                        # 반사 속도 (현재 공 속도의 150~200% 랜덤 증폭)
+                        amplify_factor = random.uniform(1.5, 2.0)  # 1.5배~2배 랜덤
                         deflect_speed = self.captured_ball_speed * amplify_factor
                         new_vx = math.cos(target_angle) * deflect_speed
                         new_vy = math.sin(target_angle) * deflect_speed
@@ -1426,8 +1453,22 @@ class PoseidonTrident(LegendaryItem):
         # if removed_count > 0:
         #     print(f"🔱 포세이돈 삼지창: {removed_count}개의 물방울이 보스 패들과 충돌하여 제거됨")
     
+    def on_boss_hit(self):
+        """보스가 공을 칠 때 호출되는 함수"""
+        print(f"🔍 [on_boss_hit 호출됨] vortex_affected={self.vortex_affected}")
+        if self.vortex_affected and self.boss_hit_count == 0:  # 첫 번째 히트만 카운트
+            self.boss_hit_count += 1
+            print(f"🔍 [보스 히트] boss_hit_count 증가: {self.boss_hit_count - 1} → {self.boss_hit_count}")
+    
     def deactivate_water_trail(self):
         """물 궤적 비활성화 (보스가 공을 칠 때 호출)"""
+        print(f"🔍 [deactivate_water_trail 호출됨] vortex_affected={self.vortex_affected}, water_trail_active={self.water_trail_active}")
+        # 회오리 효과를 받은 공은 보스가 쳐도 궤적 유지
+        if self.vortex_affected:
+            print(f"🔱 포세이돈 삼지창: 회오리 효과 중이므로 물 궤적 유지")
+            self.on_boss_hit()  # 보스 히트 카운트 증가
+            return  # 궤적을 끄지 않음
+            
         if self.water_trail_active:
             self.water_trail_active = False
             self.water_trail.clear()
