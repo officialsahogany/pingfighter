@@ -30390,7 +30390,7 @@ def handle_ball():
                 boss_special_ready_stage4 = False  # 게이지 차감 시 준비 상태 해제
             # 자기장 게이지 충전 (명상과 독립적으로 처리)
             elif not stage4_magnetic_active and not meditation_active:
-                boss_special_gauge_stage4 += 80  # 70 → 80 (충전량 추가 상향)
+                boss_special_gauge_stage4 += 90  # 80 → 90 (충전량 추가 상향)
                 if boss_special_gauge_stage4 >= 500:  # 250 → 500 (최대 게이지 상향)
                     boss_special_gauge_stage4 = 500
                     boss_special_ready_stage4 = True
