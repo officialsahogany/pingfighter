@@ -1809,9 +1809,16 @@ class ShaolinTempleBackground:
         
         # Update death particles
         for particle in self.monk_death_particles[:]:
-            particle['x'] += particle['vx']
-            particle['y'] += particle['vy']
-            particle['vy'] += particle.get('gravity', 0.2)
+            # Only update position for particles with velocity
+            if 'vx' in particle and 'vy' in particle:
+                particle['x'] += particle['vx']
+                particle['y'] += particle['vy']
+                particle['vy'] += particle.get('gravity', 0.2)
+                
+                # Debug: Check if particle is on screen
+                if particle['lifetime'] % 10 == 0:  # Log every 10 frames
+                    print(f"Particle at ({particle['x']}, {particle['y']}), size: {particle.get('size', 0)}")
+            
             particle['lifetime'] -= 1
             
             # Fade out dust particles
@@ -1899,14 +1906,24 @@ class ShaolinTempleBackground:
             elif 'opacity' in particle and particle['opacity'] > 0:
                 # Dust particles with opacity
                 color = (*particle['color'], particle['opacity'])
-                pygame.draw.circle(surface, color, 
-                                 (int(particle['x']), int(particle['y'])), 
+                temp_surf = pygame.Surface((particle['size']*2, particle['size']*2), pygame.SRCALPHA)
+                pygame.draw.circle(temp_surf, color, 
+                                 (particle['size'], particle['size']), 
                                  particle['size'])
+                surface.blit(temp_surf, (int(particle['x'] - particle['size']), 
+                                       int(particle['y'] - particle['size'])))
             else:
-                # Regular particles (blood, gold, etc)
-                pygame.draw.circle(surface, particle['color'], 
-                                 (int(particle['x']), int(particle['y'])), 
-                                 particle['size'])
+                # Regular particles (blood, gold, etc) - draw directly for visibility
+                try:
+                    # Make sure position is valid
+                    x, y = int(particle['x']), int(particle['y'])
+                    if 0 <= x <= surface.get_width() and 0 <= y <= surface.get_height():
+                        pygame.draw.circle(surface, particle['color'], (x, y), particle['size'])
+                        # Debug: Draw a larger outline for visibility
+                        if particle['size'] > 5:
+                            pygame.draw.circle(surface, (255, 255, 255), (x, y), particle['size'], 1)
+                except Exception as e:
+                    print(f"Error drawing particle: {e}")
                 
                 # Add glow for golden particles
                 if particle.get('glow'):
@@ -2309,6 +2326,13 @@ class ShaolinTempleBackground:
         # Draw monk death effects
         self._draw_monk_death_effects(temp_surface)
         
+        # Debug: Draw a big red circle if we have death effects
+        if len(self.monk_death_particles) > 0:
+            pygame.draw.circle(temp_surface, (255, 0, 0), (self.width // 2, 100), 50)
+            font = pygame.font.Font(None, 36)
+            text = font.render(f"PARTICLES: {len(self.monk_death_particles)}", True, (255, 255, 255))
+            temp_surface.blit(text, (self.width // 2 - 100, 150))
+        
         # Draw incense
         self._draw_incense(temp_surface)
         
@@ -2349,6 +2373,21 @@ class ShaolinTempleBackground:
         
         # Apply shaking and draw to main surface
         surface.blit(temp_surface, (shake_x, shake_y))
+        
+        # Draw death effects directly on main surface (after shaking) for visibility
+        if len(self.monk_death_particles) > 0 or len(self.monk_body_parts) > 0:
+            # Create a simple red flash effect
+            flash_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            flash_surface.fill((255, 0, 0, min(50, len(self.monk_death_particles))))
+            surface.blit(flash_surface, (0, 0))
+            
+            # Draw particles directly on main surface
+            for particle in self.monk_death_particles[:20]:  # Draw first 20 for performance
+                if 'vx' in particle and 'vy' in particle:
+                    x = int(particle['x'] + shake_x)
+                    y = int(particle['y'] + shake_y)
+                    if 0 <= x <= self.width and 0 <= y <= self.height:
+                        pygame.draw.circle(surface, particle['color'], (x, y), particle['size'] * 2)  # Double size
         
         # Draw red light overlay (after shaking)
         if self.red_light_alpha > 0:
@@ -2797,6 +2836,10 @@ class ShaolinTempleBackground:
             self.destruction_phase = 1
             self.destruction_timer = 0
             print("Temple destruction animation started!")
+            
+            # Create immediate visual feedback
+            self._create_massive_explosion_effect(self.width // 2, 400)
+            print(f"Initial explosion created with {len(self.monk_death_particles)} particles")
     
     def is_destruction_animation_active(self):
         """Check if destruction animation is currently playing"""
@@ -2844,12 +2887,15 @@ class ShaolinTempleBackground:
                     for i in range(3):
                         test_monk = {
                             'x': self.width // 2 + random.randint(-100, 100),
-                            'y': 450 + random.randint(-50, 50),
+                            'y': 500 + random.randint(-30, 30),  # More visible position
                             'color': self.colors['temple_main'],
                             'type': 'star_reward' if i == 0 else 'normal'  # One hero monk
                         }
                         self.monks.append(test_monk)
                         print(f"Spawned test monk at ({test_monk['x']}, {test_monk['y']})")
+                
+                # Add a massive central explosion for visibility
+                self._create_massive_explosion_effect(self.width // 2, 480)
                 
                 self._explode_all_monks()
                 self._explode_all_training_dummies()
@@ -3633,6 +3679,62 @@ class ShaolinTempleBackground:
                 'opacity': 200,
             }
             self.monk_death_particles.append(dust)
+    
+    def _create_massive_explosion_effect(self, x, y):
+        """Create a massive explosion effect at the center"""
+        print(f"Creating MASSIVE explosion at ({x}, {y})")
+        
+        # Create a huge shockwave
+        huge_shockwave = {
+            'x': x,
+            'y': y,
+            'radius': 0,
+            'max_radius': 300,  # Huge radius
+            'color': (255, 100, 50),  # Orange-red
+            'lifetime': 60,
+            'type': 'shockwave'
+        }
+        self.monk_death_particles.append(huge_shockwave)
+        
+        # Create tons of explosion particles
+        for i in range(100):  # Many particles
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(5, 25)  # Very fast
+            particle = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 10,  # Strong upward bias
+                'size': random.randint(8, 20),  # Big particles
+                'color': random.choice([
+                    (255, 0, 0),      # Red
+                    (255, 100, 0),    # Orange
+                    (255, 200, 0),    # Yellow
+                    (200, 50, 0),     # Dark red
+                ]),
+                'lifetime': 180,  # 3 seconds
+                'gravity': 0.5,
+            }
+            self.monk_death_particles.append(particle)
+        
+        # Add fire particles
+        for i in range(50):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(3, 15)
+            fire = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 5,
+                'size': random.randint(10, 25),
+                'color': (255, random.randint(150, 255), 0),  # Yellow-orange
+                'lifetime': 120,
+                'gravity': 0.3,
+                'glow': True
+            }
+            self.monk_death_particles.append(fire)
+        
+        print(f"Created {len(self.monk_death_particles)} total particles for massive explosion")
     
     def _create_dust_cloud(self, x, y):
         """Create dust cloud effect"""
