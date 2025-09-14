@@ -27976,7 +27976,7 @@ def handle_ball():
             boost_progress = elapsed_time / (power_smashing_boost_duration / 1000.0)
             
             # 초기 부스트 속도에서 목표 속도로 부드럽게 감속 (선형 보간)
-            initial_boosted_speed = power_smashing_target_speed * 2.0  # 4배 (기본 2.1배에 추가 2.0배)
+            initial_boosted_speed = power_smashing_target_speed * 1.7  # 3.4배 (기본 2.1배에 추가 1.7배)
             interpolated_speed = initial_boosted_speed - (initial_boosted_speed - power_smashing_target_speed) * boost_progress
             
             # 속도 조정
@@ -34275,10 +34275,10 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[1] *= 1.2805  # Y축 28.05% 부스트
                     final_speed = math.hypot(ball_vel[0], ball_vel[1])
                     
-                    # 파워스매싱 초기 부스트 적용 (300% 추가 속도)
+                    # 파워스매싱 초기 부스트 적용 (240% 추가 속도)
                     global power_smashing_initial_boost, power_smashing_target_speed
                     power_smashing_target_speed = final_speed  # 현재 속도를 목표 속도로 저장
-                    initial_boost_multiplier = 2.0  # 300% 추가 = 4배
+                    initial_boost_multiplier = 1.7  # 240% 추가 = 3.4배
                     
                     # 초기 부스트 속도 적용
                     if final_speed > 0:
