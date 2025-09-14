@@ -1170,7 +1170,7 @@ power_smashing_original_speed = 0.0  # 파워스매싱 발동 전 원래 공 속
 power_smashing_parabola_active = False  # 포물선 궤적 활성화 상태
 power_smashing_start_time = 0           # 파워스매싱 시작 시간
 power_smashing_arc_strength = 0.0       # 포물선 강도 (방향에 따라 ± 값)
-power_smashing_gravity_effect = 0.06    # 중력 효과 강도 (뚜렷한 곡선으로 조정)
+power_smashing_gravity_effect = 0.035    # 중력 효과 강도 (완만한 곡선으로 조정)
 # 파워스매싱 정지 시간 관리
 power_smashing_freeze_start_time = 0    # 파워스매싱 정지 시작 시간
 power_smashing_freeze_duration = 1000   # 정지 시간 (밀리초, 1초)
@@ -28029,25 +28029,25 @@ def handle_ball():
                 ball_vel[0] *= speed_ratio
                 ball_vel[1] *= speed_ratio
         else:
-            # 일반 파워스매싱: 기존 포물선 궤적
-            # 수평 이동: 강한 방향성 + 적당한 랜덤 변화
-            horizontal_decay = max(0.4, 1.0 - elapsed_time * 0.15)  # 적당히 감소, 최소 40% 유지
-            # 적당한 랜덤 요소 추가
-            chaos_factor = math.sin(elapsed_time * 5.0) * 0.2 + random.uniform(-0.15, 0.15)
-            horizontal_force = power_smashing_arc_strength * horizontal_decay * (1.0 + chaos_factor)
+            # 일반 파워스매싱: 완만한 포물선 궤적
+            # 수평 이동: 부드러운 방향성 + 작은 랜덤 변화
+            horizontal_decay = max(0.6, 1.0 - elapsed_time * 0.08)  # 천천히 감소, 최소 60% 유지
+            # 작은 랜덤 요소 추가
+            chaos_factor = math.sin(elapsed_time * 5.0) * 0.1 + random.uniform(-0.08, 0.08)
+            horizontal_force = power_smashing_arc_strength * horizontal_decay * (0.7 + chaos_factor * 0.3)
             ball_vel[0] += horizontal_force
             # 수직 이동: 뚜렷한 중력 효과로 명확한 포물선
             # 포물선의 상승과 하강을 뚜렷하게
             if elapsed_time < 1.8:  # 첫 1.8초 동안은 포물선 상승
                 # 초기에는 확실하게 위로, 시간이 지나면서 감소
-                base_lift = power_smashing_gravity_effect * 2.2 * (1.8 - elapsed_time) / 1.8  # 뚜렷하게 증가
+                base_lift = power_smashing_gravity_effect * 1.5 * (1.8 - elapsed_time) / 1.8  # 완만하게 증가
                 # 적당한 수직 변화 요소 추가
                 vertical_chaos = math.cos(elapsed_time * 5.0) * 0.015
                 vertical_lift = base_lift + vertical_chaos
                 ball_vel[1] -= vertical_lift  # 위로 밀어올림 (음수)
                 vertical_force = -vertical_lift
             else:  # 1.8초 후부터는 중력으로 뚜렷하게 하강
-                base_pull = power_smashing_gravity_effect * 1.8 * (elapsed_time - 1.8)  # 뚜렷한 하강
+                base_pull = power_smashing_gravity_effect * 1.2 * (elapsed_time - 1.8)  # 완만한 하강
                 # 적당한 하강 변화 요소 추가
                 descent_chaos = math.sin(elapsed_time * 7.0) * 0.015
                 vertical_pull = base_pull + descent_chaos
@@ -29223,13 +29223,29 @@ def handle_ball():
             # 올바른 공 반사 로직: 충돌면에 따른 반사
             # 벽돌은 주로 수평이므로 위아래 충돌이 대부분
             ball_center_y = BALL.centery
+            ball_center_x = BALL.centerx
             wall_center_y = wall["rect"].centery
+            wall_center_x = wall["rect"].centerx
+            
+            # 충돌 방향 결정 및 위치 조정
+            dx = ball_center_x - wall_center_x
+            dy = ball_center_y - wall_center_y
             
             # 공이 벽돌의 위쪽이나 아래쪽에서 충돌한 경우 (주 충돌 방향)
-            if abs(ball_center_y - wall_center_y) > abs(BALL.centerx - wall["rect"].centerx):
+            if abs(dy) > abs(dx):
                 ball_vel[1] = -ball_vel[1]  # Y 방향 반사
+                # 공을 벽돌 밖으로 밀어냄
+                if dy > 0:  # 공이 벽돌 아래에서 충돌
+                    BALL.bottom = wall["rect"].top - 1
+                else:  # 공이 벽돌 위에서 충돌
+                    BALL.top = wall["rect"].bottom + 1
             else:
                 ball_vel[0] = -ball_vel[0]  # X 방향 반사
+                # 공을 벽돌 밖으로 밀어냄
+                if dx > 0:  # 공이 벽돌 오른쪽에서 충돌
+                    BALL.left = wall["rect"].right + 1
+                else:  # 공이 벽돌 왼쪽에서 충돌
+                    BALL.right = wall["rect"].left - 1
             
             # 속도 감쇠 (에너지 손실)
             ball_vel[0] *= 0.9
@@ -34123,16 +34139,16 @@ def main(stage_num, new_boss_mode=False):
                     global power_smashing_freeze_start_time, power_smashing_freeze_active
                     if keys[pygame.K_LEFT]:
                         power_smashing_direction = -1  # 왼쪽
-                        # 뚜렷한 곡선 효과 적용
-                        base_strength = -2.8  # 기본 강도 증가
-                        random_variation = random.uniform(-0.4, 0.4)  # 랜덤 변화량
-                        power_smashing_arc_strength = base_strength + random_variation  # 왼쪽 방향으로 뚜렷한 곡선
+                        # 완만한 곡선 효과 적용
+                        base_strength = -1.6  # 기본 강도 감소 (2.8 → 1.6)
+                        random_variation = random.uniform(-0.2, 0.2)  # 랜덤 변화량도 감소
+                        power_smashing_arc_strength = base_strength + random_variation  # 왼쪽 방향으로 완만한 곡선
                     elif keys[pygame.K_RIGHT]:
                         power_smashing_direction = 1   # 오른쪽
-                        # 뚜렷한 곡선 효과 적용
-                        base_strength = 2.8  # 기본 강도 증가
-                        random_variation = random.uniform(-0.4, 0.4)  # 랜덤 변화량
-                        power_smashing_arc_strength = base_strength + random_variation  # 오른쪽 방향으로 뚜렷한 곡선
+                        # 완만한 곡선 효과 적용
+                        base_strength = 1.6  # 기본 강도 감소 (2.8 → 1.6)
+                        random_variation = random.uniform(-0.2, 0.2)  # 랜덤 변화량도 감소
+                        power_smashing_arc_strength = base_strength + random_variation  # 오른쪽 방향으로 완만한 곡선
                     else:
                         power_smashing_direction = 0   # 직선
                         # 직선이므로 포물선 효과 없음
