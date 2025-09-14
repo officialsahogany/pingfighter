@@ -28562,43 +28562,13 @@ def handle_ball():
             wall_hit = False
             for wall in walls[:]:  # 리스트 복사본으로 순회
                 if BALL.colliderect(wall["rect"]):
-                    # 충돌 위치로 공 위치 조정 (터널링 방지)
-                    BALL.x = old_x
-                    BALL.y = old_y
-                    
                     # 벽돌에 맞은 횟수 증가
                     wall["hit_count"] += 1
                     wall["crack_level"] = wall["hit_count"]
                     
-                    # 충돌면에 따른 반사
-                    ball_center_y = BALL.centery
-                    ball_center_x = BALL.centerx
-                    wall_center_y = wall["rect"].centery
-                    wall_center_x = wall["rect"].centerx
-                    
-                    # 충돌 방향 결정
-                    dx = ball_center_x - wall_center_x
-                    dy = ball_center_y - wall_center_y
-                    
-                    # 공이 벽돌의 위쪽이나 아래쪽에서 충돌한 경우
-                    if abs(dy) > abs(dx):
-                        ball_vel[1] = -ball_vel[1]  # Y 방향 반사
-                        # 공을 벽돌 밖으로 밀어냄
-                        if dy > 0:  # 공이 벽돌 아래에서 충돌
-                            BALL.bottom = wall["rect"].top - 1
-                        else:  # 공이 벽돌 위에서 충돌
-                            BALL.top = wall["rect"].bottom + 1
-                    else:
-                        ball_vel[0] = -ball_vel[0]  # X 방향 반사
-                        # 공을 벽돌 밖으로 밀어냄
-                        if dx > 0:  # 공이 벽돌 오른쪽에서 충돌
-                            BALL.left = wall["rect"].right + 1
-                        else:  # 공이 벽돌 왼쪽에서 충돌
-                            BALL.right = wall["rect"].left - 1
-                    
-                    # 속도 감쇠 (에너지 손실)
-                    ball_vel[0] *= 0.9
-                    ball_vel[1] *= 0.9
+                    # 공 튕기기 (백업 파일의 간단한 방식 사용)
+                    ball_vel[1] = -abs(ball_vel[1])  # 위로 튕기기
+                    ball_vel[0] *= 0.8  # 좌우 속도 감소
                     
                     # 벽돌 파괴 시 효과음 재생
                     if wall["hit_count"] >= 2:
