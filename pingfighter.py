@@ -34214,14 +34214,14 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[0] = BALL_BASE_SPEED * 0.8
                         ball_vel[1] = BALL_BASE_SPEED * 0.8
                     # 파워스매싱 방향에 따른 X축 속도 조정 (고스트샷도 동일하게 처리)
-                    # 1.64배에 추가로 약 9.8% 부스트하여 총 1.8배 효과
+                    # 1.64배에 추가로 약 15.85% 부스트하여 총 1.9배 효과
                     if power_smashing_direction == -1:  # 왼쪽 파워스매싱
-                        ball_vel[0] = -abs(ball_vel[0]) * 1.098  # 왼쪽으로 강하게 (9.8% 부스트)
+                        ball_vel[0] = -abs(ball_vel[0]) * 1.1585  # 왼쪽으로 강하게 (15.85% 부스트)
                     elif power_smashing_direction == 1:  # 오른쪽 파워스매싱
-                        ball_vel[0] = abs(ball_vel[0]) * 1.098  # 오른쪽으로 강하게 (9.8% 부스트)
+                        ball_vel[0] = abs(ball_vel[0]) * 1.1585  # 오른쪽으로 강하게 (15.85% 부스트)
                     else:  # 직선 파워스매싱
-                        ball_vel[0] *= 1.098  # X축 9.8% 부스트
-                        ball_vel[1] *= 1.098  # Y축 9.8% 부스트
+                        ball_vel[0] *= 1.1585  # X축 15.85% 부스트
+                        ball_vel[1] *= 1.1585  # Y축 15.85% 부스트
                     final_speed = math.hypot(ball_vel[0], ball_vel[1])
                     
                     # Chapter 4 튜토리얼: 파워스매싱 방향별 카운트 증가
