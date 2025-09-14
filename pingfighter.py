@@ -8508,7 +8508,7 @@ def handle_wall():
                 "y": molotov["target_y"],  # 목표 지점에 생성
                 "width": fire_width,  # 코만도암 효과 적용된 화염 지대 너비
                 "height": fire_height,  # 코만도암 효과 적용된 화염 지대 높이
-                "duration": 120,  # 2초 (60fps * 2)
+                "duration": 150,  # 2.5초 (60fps * 2.5)
                 "flames": [],  # 개별 불꽃 파티클들
                 "spread_timer": 0  # 불길 번짐 타이머
             }
@@ -8549,8 +8549,8 @@ def handle_wall():
             fire_zone["push_timer"] = 0
         fire_zone["push_timer"] += 1
 
-        # 화염 효과음을 1초 일찍 정지 (60프레임 = 1초)
-        if fire_zone["duration"] == 60:
+        # 화염 효과음을 1초 일찍 정지 (90프레임 = 1.5초 남음)
+        if fire_zone["duration"] == 90:
             zone_id = id(fire_zone)
             if zone_id in fire_zone_sounds:
                 try:
