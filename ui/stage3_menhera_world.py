@@ -58,6 +58,13 @@ class Stage3MenheraWorld:
         self.ball_on_tongue = False  # 공이 혀 위에 있는지
         self.ball_tongue_pos = None  # 혀 위의 공 위치
         
+        # 쿠로미 석회화 시스템
+        self.kuromi_petrified = True  # 시작 시 석회화 상태
+        self.kuromi_awakening = False  # 각성 중 상태
+        self.kuromi_awakening_timer = 0  # 각성 애니메이션 타이머
+        self.kuromi_awakened = False  # 각성 완료 상태
+        self.crack_particles = []  # 석회 조각 파티클
+        
         self.init_decorations()
         
     def init_decorations(self):
@@ -85,6 +92,57 @@ class Stage3MenheraWorld:
             self.round_count = round_count
             self.emotional_phase = (self.emotional_phase + 1) % 3
             self.emotional_timer = 0
+        
+        # 쿠로미 각성 애니메이션 업데이트
+        if self.kuromi_awakening and self.kuromi_awakening_timer > 0:
+            self.kuromi_awakening_timer -= 1
+            
+            # 각성 진행도에 따른 파티클 생성
+            if self.kuromi_awakening_timer % 10 == 0:  # 10프레임마다
+                # 석회 조각 파티클 생성
+                for _ in range(5):
+                    particle = {
+                        'x': WIDTH // 2 + random.randint(-30, 30),
+                        'y': HEIGHT // 2 + random.randint(-30, 30),
+                        'vx': random.uniform(-3, 3),
+                        'vy': random.uniform(-4, -1),
+                        'life': 60,
+                        'size': random.randint(3, 6),
+                        'rotation': random.uniform(0, 360),
+                        'color': random.choice([
+                            (180, 180, 180),  # 밝은 회색
+                            (150, 150, 150),  # 중간 회색
+                            (120, 120, 120)   # 어두운 회색
+                        ])
+                    }
+                    self.crack_particles.append(particle)
+            
+            # 각성 완료
+            if self.kuromi_awakening_timer <= 0:
+                self.kuromi_awakening = False
+                self.kuromi_petrified = False
+                self.kuromi_awakened = True
+                print("Stage 3: 쿠로미 각성 완료!")
+        
+        # 석회 조각 파티클 업데이트
+        if self.crack_particles:
+            new_particles = []
+            for particle in self.crack_particles:
+                # 물리 업데이트
+                particle['x'] += particle['vx']
+                particle['y'] += particle['vy']
+                particle['vy'] += 0.3  # 중력
+                particle['vx'] *= 0.98  # 공기 저항
+                particle['rotation'] += random.uniform(-5, 5)
+                
+                # 수명 감소
+                particle['life'] -= 1
+                
+                # 생존한 파티클만 유지
+                if particle['life'] > 0:
+                    new_particles.append(particle)
+            
+            self.crack_particles = new_particles
         
         # 하트 파티클 생성 (더 적게)
         if random.random() < 0.01:  # 빈도 감소
@@ -138,6 +196,10 @@ class Stage3MenheraWorld:
     
     def activate_tail_whip(self, ball_pos=None):
         """꼬리 채찍 발동"""
+        # 석회화 상태에서는 꼬리 채찍 비활성화
+        if self.kuromi_petrified:
+            return
+            
         self.tail_whip_active = True
         self.tail_whip_progress = 0.0
         self.tail_whip_target = ball_pos  # 공의 현재 위치 저장
@@ -336,7 +398,12 @@ class Stage3MenheraWorld:
     
     def draw_kuromi(self, screen, x, y, size, ball_pos=None):
         """울트라 카와이 쿠로미 - 산리오 x 포켓몬 스타일 (일본 만화 디테일)"""
-        # 혀 애니메이션 그리기 (캐릭터 뒤에)
+        # 석회화 상태일 때는 완전히 다른 석상으로 그리기
+        if self.kuromi_petrified:
+            self.draw_petrified_kuromi(screen, x, y, size)
+            return
+            
+        # 석화화 상태가 아닐 때만 혀 애니메이션 그리기
         if self.eating_active and self.tongue_extended > 0:
             self.draw_tongue(screen)
         
@@ -349,7 +416,7 @@ class Stage3MenheraWorld:
         cheek_bulge_left = 0
         cheek_bulge_right = 0
         
-        if self.eating_active and self.chewing_phase > 0:
+        if self.eating_active and self.chewing_phase > 0 and not self.kuromi_petrified:
             # 씹기 동작에 따른 얼굴 변형
             chew_cycle = math.sin(self.chewing_phase * math.pi * 8)
             
@@ -451,7 +518,7 @@ class Stage3MenheraWorld:
         ear_width = int(head_size * 0.5)
         
         # 귀 움직임 애니메이션 (미세한 흔들림)
-        ear_wiggle = math.sin(self.time * 0.008) * 2
+        ear_wiggle = 0 if self.kuromi_petrified else math.sin(self.time * 0.008) * 2
         
         # 왼쪽 귀 (곡선으로 더 부드럽게)
         left_ear_base_x = x - head_size//2
@@ -627,7 +694,7 @@ class Stage3MenheraWorld:
         
         # 동공 (반짝이는 효과)
         pupil_size = int(iris_width * 0.35)
-        pupil_pulse = abs(math.sin(self.time * 0.005)) * 2
+        pupil_pulse = 0 if self.kuromi_petrified else abs(math.sin(self.time * 0.005)) * 2
         pygame.draw.ellipse(screen, SOFT_BLACK,
                           (left_eye_x - pupil_size//2, left_eye_y - pupil_size//2 + 2,
                            pupil_size + pupil_pulse, pupil_size + pupil_pulse))
@@ -647,8 +714,8 @@ class Stage3MenheraWorld:
         pygame.draw.circle(screen, WHITE, (left_eye_x + eye_width//8, left_eye_y + eye_height//5), 2)
         
         # 별 모양 반짝임
-        star_twinkle = abs(math.sin(self.time * 0.01)) * 255
-        if star_twinkle > 200:
+        star_twinkle = 0 if self.kuromi_petrified else abs(math.sin(self.time * 0.01)) * 255
+        if star_twinkle > 200 and not self.kuromi_petrified:
             self.draw_mini_star(screen, left_eye_x - eye_width//3, left_eye_y - eye_height//4, 
                               2, (*WHITE, int(star_twinkle)))
         
@@ -695,7 +762,7 @@ class Stage3MenheraWorld:
         pygame.draw.circle(screen, (255, 230, 240), (right_eye_x - eye_width//6, right_eye_y + eye_height//6), 3)
         pygame.draw.circle(screen, WHITE, (right_eye_x + eye_width//8, right_eye_y + eye_height//5), 2)
         
-        if star_twinkle > 200:
+        if star_twinkle > 200 and not self.kuromi_petrified:
             self.draw_mini_star(screen, right_eye_x - eye_width//3, right_eye_y - eye_height//4,
                               2, (*WHITE, int(star_twinkle)))
         
@@ -924,7 +991,10 @@ class Stage3MenheraWorld:
         pygame.draw.line(screen, (*SOFT_BLACK, 80), (x, nose_y + 2), (x, mouth_y - 3), 1)
         
         # 🎀 울트라 카와이 꼬리 (공을 따라 원 안에서 회전 + 채찍 모드)
-        if self.tail_whip_active and self.tail_whip_target:
+        # 석화화 상태일 때는 꼬리를 그리지 않음
+        if self.kuromi_petrified:
+            return  # 꼬리 애니메이션 및 하단 코드 전체 스킵
+        elif self.tail_whip_active and self.tail_whip_target:
             # 꼬리 채찍 모드: 공을 향해 빠르게 뻗어나가는 모션
             target_x, target_y = self.tail_whip_target
             
@@ -1128,7 +1198,7 @@ class Stage3MenheraWorld:
         
         # 💖 울트라 카와이 블러시 (애니메이션 효과)
         blush_y = y + head_size//5
-        blush_intensity = int(100 + abs(math.sin(self.time * 0.006)) * 50)
+        blush_intensity = 100 if self.kuromi_petrified else int(100 + abs(math.sin(self.time * 0.006)) * 50)
         
         # 왼쪽 볼
         for i in range(3):
@@ -1147,34 +1217,36 @@ class Stage3MenheraWorld:
                                blush_size, blush_size//2))
         
         # ✨ 주변 떠다니는 장식들 (키라키라 효과)
-        decoration_time = self.time * 0.003
-        
-        # 하트 버블들
-        for i in range(3):
-            bubble_angle = decoration_time + i * (math.pi * 2 / 3)
-            bubble_radius = head_size * 1.5 + math.sin(decoration_time * 2 + i) * 10
-            bubble_x = x + int(math.cos(bubble_angle) * bubble_radius)
-            bubble_y = y + int(math.sin(bubble_angle) * bubble_radius * 0.7)
+        # 석화화 상태일 때는 장식들을 그리지 않음
+        if not self.kuromi_petrified:
+            decoration_time = self.time * 0.003
             
-            # 투명 하트
-            bubble_alpha = 80 + int(math.sin(decoration_time * 3 + i * 2) * 40)
-            self.draw_heart(screen, bubble_x, bubble_y, 5, (*PASTEL_PINK, bubble_alpha))
-        
-        # 별 이펙트
-        for i in range(5):
-            star_angle = -decoration_time * 1.5 + i * (math.pi * 2 / 5)
-            star_radius = head_size * 1.3 + math.cos(decoration_time * 2.5 + i) * 8
-            star_x = x + int(math.cos(star_angle) * star_radius)
-            star_y = y + int(math.sin(star_angle) * star_radius * 0.7)
+            # 하트 버블들
+            for i in range(3):
+                bubble_angle = decoration_time + i * (math.pi * 2 / 3)
+                bubble_radius = head_size * 1.5 + math.sin(decoration_time * 2 + i) * 10
+                bubble_x = x + int(math.cos(bubble_angle) * bubble_radius)
+                bubble_y = y + int(math.sin(bubble_angle) * bubble_radius * 0.7)
+                
+                # 투명 하트
+                bubble_alpha = 80 + int(math.sin(decoration_time * 3 + i * 2) * 40)
+                self.draw_heart(screen, bubble_x, bubble_y, 5, (*PASTEL_PINK, bubble_alpha))
             
-            star_alpha = 120 + int(math.cos(decoration_time * 4 + i * 3) * 60)
-            self.draw_mini_star(screen, star_x, star_y, 3, (*WHITE, star_alpha))
-        
-        # 🌈 감정 파티클 (감정 상태에 따라)
-        if self.emotional_phase == 1:  # 행복
-            # 무지개 색 스파클
-            for i in range(4):
-                sparkle_angle = decoration_time * 3 + i * math.pi/2
+            # 별 이펙트
+            for i in range(5):
+                star_angle = -decoration_time * 1.5 + i * (math.pi * 2 / 5)
+                star_radius = head_size * 1.3 + math.cos(decoration_time * 2.5 + i) * 8
+                star_x = x + int(math.cos(star_angle) * star_radius)
+                star_y = y + int(math.sin(star_angle) * star_radius * 0.7)
+                
+                star_alpha = 120 + int(math.cos(decoration_time * 4 + i * 3) * 60)
+                self.draw_mini_star(screen, star_x, star_y, 3, (*WHITE, star_alpha))
+            
+            # 🌈 감정 파티클 (감정 상태에 따라)
+            if self.emotional_phase == 1:  # 행복
+                # 무지개 색 스파클
+                for i in range(4):
+                    sparkle_angle = decoration_time * 3 + i * math.pi/2
                 sparkle_radius = head_size + 20
                 sparkle_x = x + int(math.cos(sparkle_angle) * sparkle_radius)
                 sparkle_y = y + int(math.sin(sparkle_angle) * sparkle_radius * 0.5)
@@ -1183,14 +1255,191 @@ class Stage3MenheraWorld:
                                  (185, 255, 185), (185, 218, 255), (218, 185, 255)]
                 color = rainbow_colors[i % len(rainbow_colors)]
                 pygame.draw.circle(screen, (*color, 150), (sparkle_x, sparkle_y), 3)
+            
+            elif self.emotional_phase == 2:  # 슬픔
+                # 눈물 효과
+                tear_offset = abs(math.sin(self.time * 0.004)) * 5
+                pygame.draw.circle(screen, (*BABY_BLUE, 180),
+                                 (left_eye_x, left_eye_y + eye_height//2 + tear_offset), 2)
+                pygame.draw.circle(screen, (*BABY_BLUE, 180),
+                                 (right_eye_x, right_eye_y + eye_height//2 + tear_offset + 2), 2)
         
-        elif self.emotional_phase == 2:  # 슬픔
-            # 눈물 효과
-            tear_offset = abs(math.sin(self.time * 0.004)) * 5
-            pygame.draw.circle(screen, (*BABY_BLUE, 180),
-                             (left_eye_x, left_eye_y + eye_height//2 + tear_offset), 2)
-            pygame.draw.circle(screen, (*BABY_BLUE, 180),
-                             (right_eye_x, right_eye_y + eye_height//2 + tear_offset + 2), 2)
+    
+    def draw_petrified_kuromi(self, screen, x, y, size):
+        """석회화된 쿠로미 - 완전한 돌 석상"""
+        head_size = int(size * 0.6)
+        
+        # 석상 색상 정의 (회색 계열)
+        STONE_BASE = (120, 120, 120)  # 기본 돌 색상
+        STONE_DARK = (80, 80, 80)     # 어두운 부분
+        STONE_LIGHT = (150, 150, 150) # 밝은 부분
+        STONE_CRACK = (60, 60, 60)    # 균열 색상
+        
+        # 그림자 효과 (더 어둡게)
+        shadow_surface = pygame.Surface((head_size * 3, head_size * 3), pygame.SRCALPHA)
+        shadow_center = head_size * 1.5
+        for i in range(10, 0, -1):
+            alpha = 5 * i
+            radius = head_size + i * 2
+            pygame.draw.circle(shadow_surface, (*STONE_DARK, alpha), 
+                             (shadow_center, shadow_center), radius)
+        screen.blit(shadow_surface, (x - shadow_center, y - shadow_center + 10))
+        
+        # 석상 몸체 (단색으로)
+        face_rect = pygame.Rect(x - head_size, y - head_size + 8, 
+                               head_size * 2, int(head_size * 1.9))
+        
+        # 돌 질감을 위한 레이어
+        pygame.draw.ellipse(screen, STONE_DARK, face_rect)
+        pygame.draw.ellipse(screen, STONE_BASE, 
+                          (face_rect.x + 2, face_rect.y + 2, 
+                           face_rect.width - 4, face_rect.height - 4))
+        
+        # 귀 (석상 버전)
+        ear_height = int(head_size * 1.4)
+        ear_width = int(head_size * 0.5)
+        
+        # 왼쪽 귀
+        left_ear_points = [
+            (x - head_size//2, y - head_size//2 + 5),
+            (x - head_size//2 - ear_width//2, y - head_size - ear_height),
+            (x - head_size//4, y - head_size//2 + 5)
+        ]
+        pygame.draw.polygon(screen, STONE_DARK, left_ear_points)
+        # 내부
+        left_inner_points = [
+            (x - head_size//2 + 4, y - head_size//2 + 5),
+            (x - head_size//2 - ear_width//2 + 8, y - head_size - ear_height + 15),
+            (x - head_size//3, y - head_size//2 + 5)
+        ]
+        pygame.draw.polygon(screen, STONE_BASE, left_inner_points)
+        
+        # 오른쪽 귀
+        right_ear_points = [
+            (x + head_size//2, y - head_size//2 + 5),
+            (x + head_size//2 + ear_width//2, y - head_size - ear_height),
+            (x + head_size//4, y - head_size//2 + 5)
+        ]
+        pygame.draw.polygon(screen, STONE_DARK, right_ear_points)
+        # 내부
+        right_inner_points = [
+            (x + head_size//2 - 4, y - head_size//2 + 5),
+            (x + head_size//2 + ear_width//2 - 8, y - head_size - ear_height + 15),
+            (x + head_size//3, y - head_size//2 + 5)
+        ]
+        pygame.draw.polygon(screen, STONE_BASE, right_inner_points)
+        
+        # 해골 장식 (석상 버전)
+        skull_y = y - head_size - ear_height//2 + 5
+        skull_size = int(ear_width * 0.7)
+        pygame.draw.circle(screen, STONE_DARK, (x, skull_y), skull_size)
+        pygame.draw.circle(screen, STONE_BASE, (x, skull_y), skull_size - 2)
+        
+        # 눈 (빈 구멍으로 표현)
+        eye_y = y - head_size//10
+        eye_spacing = head_size//2.2
+        eye_width = int(head_size * 0.5)
+        eye_height = int(head_size * 0.6)
+        
+        # 왼쪽 눈 구멍
+        left_eye_rect = pygame.Rect(x - eye_spacing - eye_width//2, 
+                                    eye_y - eye_height//2,
+                                    eye_width, eye_height)
+        pygame.draw.ellipse(screen, STONE_DARK, left_eye_rect)
+        pygame.draw.ellipse(screen, (50, 50, 50), 
+                          (left_eye_rect.x + 2, left_eye_rect.y + 2,
+                           left_eye_rect.width - 4, left_eye_rect.height - 4))
+        
+        # 오른쪽 눈 구멍
+        right_eye_rect = pygame.Rect(x + eye_spacing - eye_width//2, 
+                                     eye_y - eye_height//2,
+                                     eye_width, eye_height)
+        pygame.draw.ellipse(screen, STONE_DARK, right_eye_rect)
+        pygame.draw.ellipse(screen, (50, 50, 50), 
+                          (right_eye_rect.x + 2, right_eye_rect.y + 2,
+                           right_eye_rect.width - 4, right_eye_rect.height - 4))
+        
+        # 코 (작은 조각)
+        nose_y = y + head_size//6
+        pygame.draw.circle(screen, STONE_DARK, (x, nose_y), 3)
+        
+        # 입 (조각된 선)
+        mouth_y = y + head_size//3
+        pygame.draw.arc(screen, STONE_DARK,
+                      (x - head_size//4, mouth_y - 8, head_size//2, 16),
+                      0, math.pi, 3)
+        
+        # 꼬리 (석상 버전)
+        tail_base_x = x
+        tail_base_y = y + head_size
+        
+        # 간단한 석상 꼬리
+        tail_points = []
+        for i in range(10):
+            t = i / 9
+            tx = tail_base_x + int(math.sin(t * math.pi) * 20)
+            ty = tail_base_y + int(t * 40)
+            tail_points.append((tx, ty))
+        
+        # 꼬리 그리기
+        for i in range(len(tail_points) - 1):
+            thickness = max(1, int(8 - i * 0.7))
+            pygame.draw.line(screen, STONE_BASE, 
+                           tail_points[i], tail_points[i + 1], thickness + 2)
+            pygame.draw.line(screen, STONE_DARK, 
+                           tail_points[i], tail_points[i + 1], thickness)
+        
+        # 꼬리 끝 하트 (석상)
+        if tail_points:
+            end_x, end_y = tail_points[-1]
+            heart_size = 8
+            # 석상 하트
+            pygame.draw.circle(screen, STONE_DARK, 
+                             (end_x - heart_size//3, end_y - heart_size//3), heart_size//2)
+            pygame.draw.circle(screen, STONE_DARK,
+                             (end_x + heart_size//3, end_y - heart_size//3), heart_size//2)
+            heart_bottom = [
+                (end_x - heart_size, end_y),
+                (end_x, end_y + heart_size),
+                (end_x + heart_size, end_y)
+            ]
+            pygame.draw.polygon(screen, STONE_DARK, heart_bottom)
+        
+        # 석상 균열 효과 (랜덤하게)
+        if not hasattr(self, 'stone_cracks'):
+            self.stone_cracks = []
+            for i in range(8):
+                crack_x = x + random.randint(-head_size, head_size)
+                crack_y = y + random.randint(-head_size, head_size)
+                crack_angle = random.uniform(0, math.pi * 2)
+                crack_length = random.randint(5, 15)
+                self.stone_cracks.append((crack_x, crack_y, crack_angle, crack_length))
+        
+        # 균열 그리기
+        for crack_x, crack_y, crack_angle, crack_length in self.stone_cracks:
+            end_x = crack_x + crack_length * math.cos(crack_angle)
+            end_y = crack_y + crack_length * math.sin(crack_angle)
+            pygame.draw.line(screen, STONE_CRACK, 
+                           (crack_x, crack_y), (end_x, end_y), 1)
+        
+        # 각성 중일 때 균열 강조
+        if self.kuromi_awakening:
+            crack_intensity = 1 - (self.kuromi_awakening_timer / 180)
+            for i in range(5):
+                crack_x = x + random.randint(-head_size, head_size)
+                crack_y = y + random.randint(-head_size, head_size)
+                crack_length = random.randint(10, 20)
+                crack_angle = random.uniform(0, math.pi * 2)
+                end_x = crack_x + crack_length * math.cos(crack_angle)
+                end_y = crack_y + crack_length * math.sin(crack_angle)
+                
+                # 빛나는 균열
+                glow_intensity = int(255 * crack_intensity)
+                glow_color = (glow_intensity, glow_intensity, glow_intensity)
+                pygame.draw.line(screen, glow_color, 
+                               (crack_x, crack_y), (end_x, end_y), 2)
+                pygame.draw.line(screen, (200, 200, 200), 
+                               (crack_x, crack_y), (end_x, end_y), 1)
     
     def draw_heart(self, screen, x, y, size, color):
         """하트 그리기"""
@@ -1300,6 +1549,30 @@ class Stage3MenheraWorld:
         # 중앙 스타디움 라인 (공 위치 전달)
         self.draw_stadium_line(screen, ball_pos)
         
+        # 석회 조각 파티클 그리기 (각성 중일 때)
+        if self.crack_particles:
+            for particle in self.crack_particles:
+                alpha = int(255 * (particle['life'] / 60))
+                color = (*particle['color'], alpha)
+                
+                # 회전하는 조각 그리기
+                angle_rad = math.radians(particle['rotation'])
+                size = particle['size']
+                
+                # 삼각형 조각
+                points = []
+                for i in range(3):
+                    angle = angle_rad + (i * 2 * math.pi / 3)
+                    px = particle['x'] + size * math.cos(angle)
+                    py = particle['y'] + size * math.sin(angle)
+                    points.append((px, py))
+                
+                # 알파 블렌딩을 위한 서페이스 생성
+                particle_surface = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
+                adjusted_points = [(p[0] - particle['x'] + size * 1.5, p[1] - particle['y'] + size * 1.5) for p in points]
+                pygame.draw.polygon(particle_surface, color, adjusted_points)
+                screen.blit(particle_surface, (particle['x'] - size * 1.5, particle['y'] - size * 1.5))
+        
         # 테두리 (마지막에 그려서 위에 표시)
         self.draw_border(screen)
     
@@ -1333,8 +1606,9 @@ class Stage3MenheraWorld:
     
     def check_ball_eating(self, ball_rect):
         """공이 쿠로미 근처에 있는지 확인 (10% 확률)"""
-        if self.eating_active:
-            return False  # 이미 먹는 중이면 스킵
+        # 석회화 상태이거나 이미 먹는 중이면 스킵
+        if self.kuromi_petrified or self.eating_active:
+            return False
         
         # 중앙 캐릭터 위치
         center_x = WIDTH // 2

@@ -3090,12 +3090,14 @@ class ShaolinTempleBackground:
     def _draw_collapse_debris(self, surface: pygame.Surface):
         """Draw falling debris during collapse"""
         for debris in self.collapse_debris:
-            if debris['opacity'] > 0:
+            # Check if debris has opacity (default to 255 if not)
+            opacity = debris.get('opacity', 255)
+            if opacity > 0:
                 # Create surface for debris
                 debris_surf = pygame.Surface((debris['size'] * 2, debris['size'] * 2), pygame.SRCALPHA)
                 
                 # Draw debris piece based on type
-                color = (*debris['color'], debris['opacity'])
+                color = (*debris['color'], opacity)
                 
                 if debris.get('type') == 'triangle':
                     # Draw triangle debris
@@ -3493,6 +3495,7 @@ class ShaolinTempleBackground:
                     'size': random.randint(5, 12),
                     'color': (139, 90, 43),  # Wood brown
                     'lifetime': 150,
+                    'opacity': 255,  # Add opacity
                 }
                 self.collapse_debris.append(splinter)
                 
