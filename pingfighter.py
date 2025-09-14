@@ -30390,9 +30390,9 @@ def handle_ball():
                 boss_special_ready_stage4 = False  # 게이지 차감 시 준비 상태 해제
             # 자기장 게이지 충전 (명상과 독립적으로 처리)
             elif not stage4_magnetic_active and not meditation_active:
-                boss_special_gauge_stage4 += 50  # 120 → 50 (충전량 조정)
-                if boss_special_gauge_stage4 >= 250:  # 발동 조건 유지
-                    boss_special_gauge_stage4 = 250
+                boss_special_gauge_stage4 += 60  # 50 → 60 (충전량 상향)
+                if boss_special_gauge_stage4 >= 500:  # 250 → 500 (최대 게이지 상향)
+                    boss_special_gauge_stage4 = 500
                     boss_special_ready_stage4 = True
 def predict_ball_position(frames=20):
     predict_x = BALL.centerx + ball_vel[0] * frames

@@ -2791,7 +2791,7 @@ class ShaolinTempleBackground:
         gauge_y = 50  # Higher position (was 80)
         gauge_width = 16  # 10% smaller (was 18)
         gauge_height = 108  # 10% smaller (was 120)
-        max_gauge = 250  # Maximum gauge value for Ponk's magnetic field
+        max_gauge = 500  # Maximum gauge value for Ponk's magnetic field (250 → 500)
         
         # Shaolin temple style decorative elements
         time_now = pygame.time.get_ticks()
@@ -2976,9 +2976,47 @@ class ShaolinTempleBackground:
                            (gauge_x + gauge_width - 3, divider_y),
                            (gauge_x + gauge_width + 1, divider_y), 1)
         
-        # Text labels removed per user request - no title text
+        # Draw gauge value text (like player gauge and Stage 3 boss)
+        # Create fonts if not already exists
+        if not hasattr(self, 'gauge_value_font'):
+            self.gauge_value_font = pygame.font.Font(None, 20)
+            self.gauge_value_font_small = pygame.font.Font(None, 16)
         
-        # Numerical values and state text removed per user request
+        # Draw current value / max value
+        gauge_text = f"{int(self.ponk_display_gauge)}/{max_gauge}"
+        text_surface = self.gauge_value_font.render(gauge_text, True, (255, 255, 255))
+        text_rect = text_surface.get_rect(centerx=gauge_x + gauge_width // 2, 
+                                          centery=gauge_y + gauge_height + 20)
+        
+        # Draw text shadow for better visibility
+        shadow_surface = self.gauge_value_font.render(gauge_text, True, (0, 0, 0))
+        shadow_rect = text_rect.copy()
+        shadow_rect.x += 1
+        shadow_rect.y += 1
+        surface.blit(shadow_surface, shadow_rect)
+        surface.blit(text_surface, text_rect)
+        
+        # Draw state text if ready or active
+        if is_active:
+            state_text = "굴절자기장!"
+            state_color = (255, 100, 100)
+        elif is_ready:
+            state_text = "준비 완료"
+            state_color = (255, 220, 100)
+        else:
+            state_text = None
+            
+        if state_text:
+            state_surface = self.gauge_value_font_small.render(state_text, True, state_color)
+            state_rect = state_surface.get_rect(centerx=gauge_x + gauge_width // 2,
+                                                centery=gauge_y - 20)
+            # Shadow for state text
+            shadow_surface = self.gauge_value_font_small.render(state_text, True, (0, 0, 0))
+            shadow_rect = state_rect.copy()
+            shadow_rect.x += 1
+            shadow_rect.y += 1
+            surface.blit(shadow_surface, shadow_rect)
+            surface.blit(state_surface, state_rect)
     
     def start_destruction_animation(self):
         """Start the temple destruction animation sequence"""
