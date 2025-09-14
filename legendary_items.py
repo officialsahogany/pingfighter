@@ -494,6 +494,9 @@ class PoseidonTrident(LegendaryItem):
         # 회오리 효과를 받은 공이 보스에게 맞았는지 확인
         if self.vortex_affected:
             # 회오리 효과를 받은 공이 보스에게 맞았는지 확인
+            print(f"🔍 [물회오리 디버그] vortex_affected={self.vortex_affected}, ball_vy={ball_vy:.1f}, original_speed={self.original_ball_speed:.1f}")
+            print(f"🔍 [물회오리 디버그] 현재 속도: vx={ball_vx:.1f}, vy={ball_vy:.1f}, total={math.sqrt(ball_vx**2 + ball_vy**2):.1f}")
+            print(f"🔍 [물회오리 디버그] boss_hit_count={self.boss_hit_count}")
             
             # 보스가 실제로 공을 친 경우에만 속도 복원
             if self.boss_hit_count > 0:

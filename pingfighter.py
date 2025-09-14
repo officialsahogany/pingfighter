@@ -29723,9 +29723,12 @@ def handle_ball():
         time_now = pygame.time.get_ticks()
         if current_stage == 3:  # Stage 3 눈물 스킬 (쿠로미 각성 상태는 배경에서 체크)
             if time_now - last_tears_cast_time >= TEARS_COOLDOWN:
-                if random.random() < tear_chance:
+                if random.random() < tear_chance and boss_special_gauge >= 80:  # 80 게이지 필요
                     activate_tears_of_pain()
                     show_speech("눈물샤워!!", duration=90)
+                    boss_special_gauge -= 80  # 80 게이지 소모
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
                     last_tears_cast_time = time_now
         calculate_bounce(PLAYER)  # handle_ball에서는 반환값 사용 안함 (게이지 처리가 handle_player에서 이미 됨)
         
