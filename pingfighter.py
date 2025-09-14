@@ -1226,6 +1226,7 @@ pygame.mixer.set_num_channels(8)  # 동시 재생 가능한 채널 수
 SOUND_SERVE = pygame.mixer.Sound(resource_path("sounds/serve.wav"))
 SOUND_WALL = pygame.mixer.Sound(resource_path("sounds/wall_hit.wav"))
 SOUND_ROCK_BREAK = pygame.mixer.Sound(resource_path("sounds/rock_break.wav"))  # 벽돌 부서지는 소리
+SOUND_BRICK_DESTROY = pygame.mixer.Sound(resource_path("sounds/stonebreak2.wav"))  # 벽돌 완전 파괴 소리
 SOUND_PADDLE = pygame.mixer.Sound(resource_path("sounds/paddle_hit.wav"))
 # 정글지진 효과음 로드
 SOUND_QUAKE = pygame.mixer.Sound(resource_path("sounds/quake_sound.wav"))  # 퀘이크 효과음 파일 로드 (이 경로는 실제 파일에 맞게 수정 필요)
@@ -29175,17 +29176,43 @@ def handle_ball():
         return
     #  벽돌 충돌 검사 (공이 벽돌 영역을 통과할 때)
     wall_hit = False
-    for wall in walls:
+    for wall in walls[:]:  # 리스트 복사본으로 순회 (안전한 수정을 위해)
         if BALL.colliderect(wall["rect"]):
             # 벽돌에 맞은 횟수 증가
             wall["hit_count"] += 1
             wall["crack_level"] = wall["hit_count"]
-            # 공 튕기기
-            ball_vel[1] = -abs(ball_vel[1])  # 위로 튕기기
-            ball_vel[0] *= 0.8  # 좌우 속도 감소
-            # 벽돌 파괴 효과음
-            play_wall_sound()
-            print(f" ! ({wall['hit_count']}/2)")
+            
+            # 올바른 공 반사 로직: 충돌면에 따른 반사
+            # 벽돌은 주로 수평이므로 위아래 충돌이 대부분
+            ball_center_y = BALL.centery
+            wall_center_y = wall["rect"].centery
+            
+            # 공이 벽돌의 위쪽이나 아래쪽에서 충돌한 경우 (주 충돌 방향)
+            if abs(ball_center_y - wall_center_y) > abs(BALL.centerx - wall["rect"].centerx):
+                ball_vel[1] = -ball_vel[1]  # Y 방향 반사
+            else:
+                ball_vel[0] = -ball_vel[0]  # X 방향 반사
+            
+            # 속도 감쇠 (에너지 손실)
+            ball_vel[0] *= 0.9
+            ball_vel[1] *= 0.9
+            
+            # 벽돌 파괴 시 효과음 재생
+            if wall["hit_count"] >= 2:
+                # 벽돌 완전 파괴 시 stonebreak2.wav 재생
+                if 'SOUND_BRICK_DESTROY' in globals() and SOUND_BRICK_DESTROY:
+                    try:
+                        SOUND_BRICK_DESTROY.play()
+                    except:
+                        play_wall_sound()  # 폴백
+                else:
+                    play_wall_sound()
+                print(f"벽돌 완전 파괴! ({wall['hit_count']}/2)")
+            else:
+                # 일반 벽돌 타격 소리
+                play_wall_sound()
+                print(f"벽돌 타격 ({wall['hit_count']}/2)")
+                
             # 충전가방 효과: 공이 벽에 닿을 때마다 플레이어 패들 충전량의 20% 충전
             if chargebag_obtained and not aipill_active:
                 # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
