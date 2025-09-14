@@ -28201,6 +28201,8 @@ def handle_ball():
         # 포세이돈 효과를 받은 공은 더 강한 감속 적용
         if is_water_affected and current_speed > 20:
             adaptive_decay_rate *= 0.92  # 추가 8% 감속
+            if pygame.time.get_ticks() % 60 < 16:  # 1초마다
+                print(f"🔍 [물회오리 감속] 포세이돈 효과 추가 감속 적용! 현재 속도: {current_speed:.1f}")
             
         ball_impact_boost *= adaptive_decay_rate
         # 최소값 보정
@@ -28385,8 +28387,10 @@ def handle_ball():
                                 new_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                                 if is_vortex_reflection:
                                     print(f"🌊 [메인 루프] 회오리 반사! 속도: {old_speed:.1f} → {new_speed:.1f}")
+                                    print(f"🔍 [물회오리 디버그] ball_vel 변경: ({old_ball_vel[0]:.1f}, {old_ball_vel[1]:.1f}) → ({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
                                 elif boss_hit_detected:
                                     print(f"🌊 [메인 루프] 보스 반격 속도 조정! 속도: {old_speed:.1f} → {new_speed:.1f}")
+                                    print(f"🔍 [물회오리 디버그] boss_hit_count={trident.boss_hit_count}, ball_vel 변경: ({old_ball_vel[0]:.1f}, {old_ball_vel[1]:.1f}) → ({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
                                 else:
                                     print(f"🌊 [메인 루프] 포세이돈 효과 적용: {old_speed:.1f} → {new_speed:.1f}")
                             # vortex_affected 상태에서는 ball_vel 변경 건너뜀
@@ -30375,13 +30379,12 @@ def handle_ball():
                 boss_red_intensity = 0
         elif not new_boss_mode_active and current_stage == 4:
             # 명상 발동 체크 (20% 확률로 증가, 자기장과 동시 발동 가능)
-            if not meditation_active and not stage4_magnetic_active and random.random() <= 0.20:
+            if not meditation_active and not stage4_magnetic_active and boss_special_gauge_stage4 >= 100 and random.random() <= 0.20:
                 activate_meditation()
-                # 명상 발동시 게이지 100 차감 (100 이하면 0으로 처리)
-                if boss_special_gauge_stage4 <= 100:
+                # 명상 발동시 게이지 100 차감
+                boss_special_gauge_stage4 -= 100
+                if boss_special_gauge_stage4 < 0:
                     boss_special_gauge_stage4 = 0
-                else:
-                    boss_special_gauge_stage4 -= 100
                 boss_special_ready_stage4 = False  # 게이지 차감 시 준비 상태 해제
             # 자기장 게이지 충전 (명상과 독립적으로 처리)
             elif not stage4_magnetic_active and not meditation_active:

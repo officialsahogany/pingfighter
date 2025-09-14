@@ -508,6 +508,7 @@ class PoseidonTrident(LegendaryItem):
                     new_vx = ball_vx * speed_ratio
                     new_vy = ball_vy * speed_ratio
                     print(f"🔱 [포세이돈] 보스 반격 - 속도 50% 감속: {current_speed:.1f} → {target_speed:.1f}")
+                    print(f"🔍 [물회오리 디버그] 속도 조정: vx {ball_vx:.1f} → {new_vx:.1f}, vy {ball_vy:.1f} → {new_vy:.1f}")
                     
                     # 회오리 효과 플래그 해제
                     self.vortex_affected = False
@@ -643,6 +644,8 @@ class PoseidonTrident(LegendaryItem):
                     min_speed = 20.0  # 최소 속도
                     if amplified_speed < min_speed:
                         amplified_speed = min_speed
+                    
+                    print(f"🔍 [물회오리 즉시반사] 원래 속도: {current_ball_speed:.1f} × {amplify_factor:.2f} = 증폭 속도: {amplified_speed:.1f}")
                     
                     # 위쪽 방향 랜덤 반사 (-90도 기준 ±30도) - 더 위쪽으로
                     base_angle = -math.pi / 2  # -90도 (위쪽)
