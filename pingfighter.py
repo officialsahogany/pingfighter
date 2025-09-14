@@ -34996,6 +34996,7 @@ def main(stage_num, new_boss_mode=False):
                     update_prism_particles()
                 
                 #  Stage 3 쿠로미 각성 타이머 업데이트
+                global kuromi_awakening, kuromi_awakening_timer, kuromi_petrified, kuromi_awakened, crack_particles
                 if current_stage == 3 and kuromi_awakening and kuromi_awakening_timer > 0:
                     kuromi_awakening_timer -= 1
                     
