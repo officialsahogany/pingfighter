@@ -28558,6 +28558,89 @@ def handle_ball():
                     # 타격 이펙트 생성
                     create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
             
+            # 벽돌 충돌 체크 (매 스텝마다)
+            wall_hit = False
+            for wall in walls[:]:  # 리스트 복사본으로 순회
+                if BALL.colliderect(wall["rect"]):
+                    # 충돌 위치로 공 위치 조정 (터널링 방지)
+                    BALL.x = old_x
+                    BALL.y = old_y
+                    
+                    # 벽돌에 맞은 횟수 증가
+                    wall["hit_count"] += 1
+                    wall["crack_level"] = wall["hit_count"]
+                    
+                    # 충돌면에 따른 반사
+                    ball_center_y = BALL.centery
+                    ball_center_x = BALL.centerx
+                    wall_center_y = wall["rect"].centery
+                    wall_center_x = wall["rect"].centerx
+                    
+                    # 충돌 방향 결정
+                    dx = ball_center_x - wall_center_x
+                    dy = ball_center_y - wall_center_y
+                    
+                    # 공이 벽돌의 위쪽이나 아래쪽에서 충돌한 경우
+                    if abs(dy) > abs(dx):
+                        ball_vel[1] = -ball_vel[1]  # Y 방향 반사
+                        # 공을 벽돌 밖으로 밀어냄
+                        if dy > 0:  # 공이 벽돌 아래에서 충돌
+                            BALL.bottom = wall["rect"].top - 1
+                        else:  # 공이 벽돌 위에서 충돌
+                            BALL.top = wall["rect"].bottom + 1
+                    else:
+                        ball_vel[0] = -ball_vel[0]  # X 방향 반사
+                        # 공을 벽돌 밖으로 밀어냄
+                        if dx > 0:  # 공이 벽돌 오른쪽에서 충돌
+                            BALL.left = wall["rect"].right + 1
+                        else:  # 공이 벽돌 왼쪽에서 충돌
+                            BALL.right = wall["rect"].left - 1
+                    
+                    # 속도 감쇠 (에너지 손실)
+                    ball_vel[0] *= 0.9
+                    ball_vel[1] *= 0.9
+                    
+                    # 벽돌 파괴 시 효과음 재생
+                    if wall["hit_count"] >= 2:
+                        # 벽돌 완전 파괴
+                        if 'SOUND_BRICK_DESTROY' in globals() and SOUND_BRICK_DESTROY:
+                            try:
+                                SOUND_BRICK_DESTROY.play()
+                            except:
+                                play_wall_sound()
+                        else:
+                            play_wall_sound()
+                        print(f"벽돌 완전 파괴! ({wall['hit_count']}/2)")
+                        # 벽돌 파괴 효과 생성
+                        create_brick_destruction_effect(wall["rect"])
+                        # 벽돌 제거
+                        walls.remove(wall)
+                    else:
+                        # 일반 벽돌 타격 소리
+                        play_wall_sound()
+                        print(f"벽돌 타격 ({wall['hit_count']}/2)")
+                    
+                    # 충전가방 효과
+                    if chargebag_obtained and not aipill_active:
+                        base_gauge_gain = 80
+                        skill_gauge_boost = skill.apply_gauge_boost(0)
+                        total_gauge_gain = base_gauge_gain + skill_gauge_boost
+                        
+                        from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
+                        if is_devil_dice_active():
+                            multipliers = get_devil_dice_multipliers()
+                            paddle_charge_multiplier = multipliers.get('paddle_gauge_charge', 1.0)
+                            total_gauge_gain = int(total_gauge_gain * paddle_charge_multiplier)
+                        
+                        chargebag_gain = int(total_gauge_gain * 0.2)  # 20%
+                        old_gauge = special_gauge
+                        current_max = get_max_gauge()
+                        special_gauge = min(current_max, special_gauge + chargebag_gain)
+                        print(f"충전가방! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
+                    
+                    wall_hit = True
+                    break  # 한 번에 하나의 벽돌만 처리
+            
             #  스테이지 2 바위 충돌 체크 (매 스텝마다)
             if current_stage == 2 and animated_bg_stage2 is not None and not rock_hit:
                 # 파워 스매싱 중에는 바위 충돌 무시 (관통)
@@ -29252,84 +29335,8 @@ def handle_ball():
             draw_score()  # 3:0 완승 보너스 메시지도 표시
         go_to_next_round()
         return
-    #  벽돌 충돌 검사 (공이 벽돌 영역을 통과할 때)
-    wall_hit = False
-    for wall in walls[:]:  # 리스트 복사본으로 순회 (안전한 수정을 위해)
-        if BALL.colliderect(wall["rect"]):
-            # 벽돌에 맞은 횟수 증가
-            wall["hit_count"] += 1
-            wall["crack_level"] = wall["hit_count"]
-            
-            # 올바른 공 반사 로직: 충돌면에 따른 반사
-            # 벽돌은 주로 수평이므로 위아래 충돌이 대부분
-            ball_center_y = BALL.centery
-            ball_center_x = BALL.centerx
-            wall_center_y = wall["rect"].centery
-            wall_center_x = wall["rect"].centerx
-            
-            # 충돌 방향 결정 및 위치 조정
-            dx = ball_center_x - wall_center_x
-            dy = ball_center_y - wall_center_y
-            
-            # 공이 벽돌의 위쪽이나 아래쪽에서 충돌한 경우 (주 충돌 방향)
-            if abs(dy) > abs(dx):
-                ball_vel[1] = -ball_vel[1]  # Y 방향 반사
-                # 공을 벽돌 밖으로 밀어냄
-                if dy > 0:  # 공이 벽돌 아래에서 충돌
-                    BALL.bottom = wall["rect"].top - 1
-                else:  # 공이 벽돌 위에서 충돌
-                    BALL.top = wall["rect"].bottom + 1
-            else:
-                ball_vel[0] = -ball_vel[0]  # X 방향 반사
-                # 공을 벽돌 밖으로 밀어냄
-                if dx > 0:  # 공이 벽돌 오른쪽에서 충돌
-                    BALL.left = wall["rect"].right + 1
-                else:  # 공이 벽돌 왼쪽에서 충돌
-                    BALL.right = wall["rect"].left - 1
-            
-            # 속도 감쇠 (에너지 손실)
-            ball_vel[0] *= 0.9
-            ball_vel[1] *= 0.9
-            
-            # 벽돌 파괴 시 효과음 재생
-            if wall["hit_count"] >= 2:
-                # 벽돌 완전 파괴 시 stonebreak2.wav 재생
-                if 'SOUND_BRICK_DESTROY' in globals() and SOUND_BRICK_DESTROY:
-                    try:
-                        SOUND_BRICK_DESTROY.play()
-                    except:
-                        play_wall_sound()  # 폴백
-                else:
-                    play_wall_sound()
-                print(f"벽돌 완전 파괴! ({wall['hit_count']}/2)")
-            else:
-                # 일반 벽돌 타격 소리
-                play_wall_sound()
-                print(f"벽돌 타격 ({wall['hit_count']}/2)")
-                
-            # 충전가방 효과: 공이 벽에 닿을 때마다 플레이어 패들 충전량의 20% 충전
-            if chargebag_obtained and not aipill_active:
-                # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
-                base_gauge_gain = 80
-                skill_gauge_boost = skill.apply_gauge_boost(0)
-                total_gauge_gain = base_gauge_gain + skill_gauge_boost
-                
-                #  악마의 주사위 패들 게이지 충전량 배율 적용
-                from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
-                if is_devil_dice_active():
-                    multipliers = get_devil_dice_multipliers()
-                    paddle_charge_multiplier = multipliers.get('paddle_gauge_charge', 1.0)
-                    total_gauge_gain = int(total_gauge_gain * paddle_charge_multiplier)
-                
-                chargebag_gain = int(total_gauge_gain * 0.2)  # 20%
-                old_gauge = special_gauge
-                #  동적 최대치 계산 적용
-                current_max = get_max_gauge()
-                special_gauge = min(current_max, special_gauge + chargebag_gain)
-                print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
-            # 벽돌이 파괴되면 handle_wall에서 처리됨
-            wall_hit = True
-            break
+    # 벽돌 충돌 검사는 이제 Sub-stepping 루프 내에서 처리됨
+    # (터널링 방지를 위해 매 스텝마다 체크)
     #  스테이지 2 바위 충돌은 이제 Sub-stepping 안에서 처리됨
     # rock_hit 변수는 이미 위에서 처리됨
     if False and current_stage == 2 and animated_bg_stage2 is not None:  # 이 블록은 더 이상 필요없음
