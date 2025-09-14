@@ -13012,61 +13012,163 @@ def draw_objects():
             wall_id = hash((wall_rect.x, wall_rect.y)) % 1000
             random.seed(wall_id)
             
-            # 균열 색상 (레벨에 따라)
+            # 균열 색상 (레벨에 따라)  
             if wall_crack_level == 1:
-                crack_color = (139, 69, 19)  # 어두운 갈색 (작은 균열)
-            elif wall_crack_level == 2:
-                crack_color = (105, 105, 105)  # 회색 (중간 균열)
-            else:
+                crack_color = (80, 40, 10)  # 어두운 갈색 (작은 균열)
+            else:  # wall_crack_level == 2 (파괴 직전)
                 crack_color = (220, 20, 60)  # 진한 빨간색 (심각한 균열)
             
-            # 현실적인 균열 패턴
-            # 1단계: 작은 균열들
-            if wall_crack_level >= 1:
-                # 상단에서 시작하는 수직 균열
-                crack_x = wall_rect.centerx + random.randint(-10, 10)
-                crack_start_y = wall_rect.top + 3
-                crack_end_y = wall_rect.top + wall_rect.height // 3
-                draw.line(crack_color, (crack_x, crack_start_y), (crack_x, crack_end_y), 1)
+            # 자연스러운 균열 패턴 (브랜칭)
+            if wall_crack_level == 1:
+                # 1단계: 작은 균열들 - 자연스러운 가지형태
+                random.seed(wall_rect.x + wall_rect.y)  # 일관된 패턴을 위한 시드
                 
-                # 좌측에서 시작하는 수평 균열  
-                crack_y = wall_rect.centery + random.randint(-5, 5)
-                crack_start_x = wall_rect.left + 3
-                crack_end_x = wall_rect.left + wall_rect.width // 3
-                draw.line(crack_color, (crack_start_x, crack_y), (crack_end_x, crack_y), 1)
-            
-            # 2단계: 중간 균열들 (연결됨)
-            if wall_crack_level >= 2:
-                # 대각선 균열 (좌상단에서 우하단으로)
-                start_x = wall_rect.left + wall_rect.width // 4
-                start_y = wall_rect.top + wall_rect.height // 4
-                end_x = wall_rect.right - wall_rect.width // 4  
-                end_y = wall_rect.bottom - wall_rect.height // 4
-                draw.line(crack_color, (start_x, start_y), (end_x, end_y), 1)
+                # 주 균열 - 위쪽에서 시작해서 아래로 뻗어나가는 불규칙한 선
+                main_crack_start_x = wall_rect.centerx + random.randint(-10, 10)
+                main_crack_start_y = wall_rect.top + random.randint(1, 3)
                 
-                # 가운데를 가로지르는 수평 균열
-                mid_y = wall_rect.centery
-                draw.line(crack_color, (wall_rect.left + 5, mid_y), (wall_rect.right - 5, mid_y), 1)
-            
-            # 3단계: 심각한 균열 (거의 부서지기 직전)
-            if wall_crack_level >= 3:
-                # X자 형태의 교차 균열
-                draw.line(crack_color, (wall_rect.left + 2, wall_rect.top + 2), 
-                         (wall_rect.right - 2, wall_rect.bottom - 2), 2)
-                draw.line(crack_color, (wall_rect.right - 2, wall_rect.top + 2), 
-                         (wall_rect.left + 2, wall_rect.bottom - 2), 2)
+                current_x, current_y = main_crack_start_x, main_crack_start_y
+                crack_points = [(current_x, current_y)]
                 
-                # 가장자리 균열들
-                for i in range(3):
-                    # 상단 가장자리 균열
-                    x_pos = wall_rect.left + (wall_rect.width * i) // 2
-                    draw.line(crack_color, (x_pos, wall_rect.top), 
-                             (x_pos, wall_rect.top + 8), 1)
+                # 균열이 아래로 진행하며 랜덤하게 구부러짐
+                for step in range(3):
+                    # 다음 점 계산 (주로 아래쪽으로, 약간 좌우로 흔들림)
+                    next_x = current_x + random.randint(-4, 4)
+                    next_y = current_y + random.randint(3, 6)
                     
-                    # 하단 가장자리 균열  
-                    x_pos = wall_rect.left + (wall_rect.width * i) // 2
-                    draw.line(crack_color, (x_pos, wall_rect.bottom), 
-                             (x_pos, wall_rect.bottom - 8), 1)
+                    # 벽돌 경계 내에 유지
+                    next_x = max(wall_rect.left + 2, min(wall_rect.right - 2, next_x))
+                    next_y = min(wall_rect.bottom - 2, next_y)
+                    
+                    crack_points.append((next_x, next_y))
+                    current_x, current_y = next_x, next_y
+                
+                # 균열 선 그리기
+                for i in range(len(crack_points) - 1):
+                    draw.line(crack_color, crack_points[i], crack_points[i + 1], 1)
+                
+                # 가지 균열들 (메인 균열에서 뻗어나오는 작은 가지들)
+                for i in range(1, len(crack_points) - 1):
+                    main_point = crack_points[i]
+                    # 좌우로 작은 가지들
+                    for side in [-1, 1]:
+                        if random.random() < 0.6:  # 60% 확률로 가지 생성
+                            branch_end_x = main_point[0] + side * random.randint(3, 8)
+                            branch_end_y = main_point[1] + random.randint(-2, 2)
+                            
+                            # 경계 체크
+                            branch_end_x = max(wall_rect.left + 1, min(wall_rect.right - 1, branch_end_x))
+                            branch_end_y = max(wall_rect.top + 1, min(wall_rect.bottom - 1, branch_end_y))
+                            
+                            draw.line(crack_color, main_point, (branch_end_x, branch_end_y), 1)
+                
+                # 추가 작은 균열 (독립적)
+                if random.random() < 0.5:
+                    small_start_x = wall_rect.left + random.randint(5, wall_rect.width - 10)
+                    small_start_y = wall_rect.top + random.randint(5, wall_rect.height - 10)
+                    small_end_x = small_start_x + random.randint(-6, 6)
+                    small_end_y = small_start_y + random.randint(-3, 6)
+                    
+                    # 경계 내 유지
+                    small_end_x = max(wall_rect.left + 1, min(wall_rect.right - 1, small_end_x))
+                    small_end_y = max(wall_rect.top + 1, min(wall_rect.bottom - 1, small_end_y))
+                    
+                    draw.line(crack_color, (small_start_x, small_start_y), (small_end_x, small_end_y), 1)
+            
+            elif wall_crack_level == 2:
+                # 2단계: 심각한 균열 - 복잡한 네트워크 형태
+                random.seed(wall_rect.x + wall_rect.y + 1000)  # 다른 시드 사용
+                
+                # 메인 균열 네트워크 - 여러 방향에서 시작
+                crack_origins = [
+                    (wall_rect.left + random.randint(2, 8), wall_rect.top + random.randint(2, 5)),
+                    (wall_rect.right - random.randint(2, 8), wall_rect.top + random.randint(2, 5)),
+                    (wall_rect.centerx + random.randint(-5, 5), wall_rect.centery + random.randint(-3, 3))
+                ]
+                
+                all_crack_points = []
+                
+                for origin in crack_origins:
+                    current_x, current_y = origin
+                    crack_network = [origin]
+                    
+                    # 각 기점에서 불규칙하게 뻗어나가는 균열들
+                    directions = [
+                        (random.randint(-2, 2), random.randint(2, 5)),  # 주로 아래쪽
+                        (random.randint(2, 5), random.randint(-1, 3)),  # 오른쪽
+                        (random.randint(-5, -2), random.randint(-1, 3)), # 왼쪽
+                        (random.randint(-1, 1), random.randint(-3, -1))  # 위쪽
+                    ]
+                    
+                    for dx, dy in directions[:random.randint(2, 4)]:  # 2-4개의 방향으로 균열
+                        branch_points = [origin]
+                        curr_x, curr_y = origin
+                        
+                        for step in range(random.randint(2, 4)):
+                            # 방향을 유지하되 약간의 랜덤성 추가
+                            next_x = curr_x + dx + random.randint(-2, 2)
+                            next_y = curr_y + dy + random.randint(-2, 2)
+                            
+                            # 경계 내 유지
+                            next_x = max(wall_rect.left + 1, min(wall_rect.right - 1, next_x))
+                            next_y = max(wall_rect.top + 1, min(wall_rect.bottom - 1, next_y))
+                            
+                            branch_points.append((next_x, next_y))
+                            curr_x, curr_y = next_x, next_y
+                            
+                            # 방향을 점진적으로 변경 (자연스러운 곡선)
+                            dx += random.randint(-1, 1)
+                            dy += random.randint(-1, 1)
+                        
+                        crack_network.extend(branch_points)
+                        
+                        # 브랜치 선들 그리기
+                        for i in range(len(branch_points) - 1):
+                            draw.line(crack_color, branch_points[i], branch_points[i + 1], 2)
+                    
+                    all_crack_points.extend(crack_network)
+                
+                # 균열들을 연결하는 추가 선들 (네트워크 형성)
+                if len(all_crack_points) > 6:
+                    for _ in range(random.randint(2, 4)):
+                        point1 = random.choice(all_crack_points)
+                        point2 = random.choice(all_crack_points)
+                        
+                        # 너무 멀리 떨어진 점들은 연결하지 않음
+                        distance = ((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)**0.5
+                        if distance > 5 and distance < 20:
+                            draw.line(crack_color, point1, point2, 1)
+                
+                # 가장자리에서 내부로 뻗어나오는 짧은 균열들
+                edge_cracks = [
+                    (wall_rect.left, wall_rect.centery + random.randint(-5, 5)),
+                    (wall_rect.right, wall_rect.centery + random.randint(-5, 5)),
+                    (wall_rect.centerx + random.randint(-8, 8), wall_rect.top),
+                    (wall_rect.centerx + random.randint(-8, 8), wall_rect.bottom)
+                ]
+                
+                for edge_point in edge_cracks:
+                    if random.random() < 0.7:  # 70% 확률
+                        # 가장자리에서 내부로 향하는 짧은 균열
+                        target_x = edge_point[0] + random.randint(-8, 8)
+                        target_y = edge_point[1] + random.randint(-4, 4)
+                        
+                        # 내부 방향으로 조정
+                        if edge_point[0] == wall_rect.left:
+                            target_x = edge_point[0] + random.randint(3, 10)
+                        elif edge_point[0] == wall_rect.right:
+                            target_x = edge_point[0] - random.randint(3, 10)
+                        
+                        if edge_point[1] == wall_rect.top:
+                            target_y = edge_point[1] + random.randint(3, 8)
+                        elif edge_point[1] == wall_rect.bottom:
+                            target_y = edge_point[1] - random.randint(3, 8)
+                        
+                        # 경계 내 유지
+                        target_x = max(wall_rect.left + 1, min(wall_rect.right - 1, target_x))
+                        target_y = max(wall_rect.top + 1, min(wall_rect.bottom - 1, target_y))
+                        
+                        draw.line(crack_color, edge_point, (target_x, target_y), 1)
             
             # 시드 리셋 (다른 요소들에 영향 안주도록)
             random.seed()
