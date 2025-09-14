@@ -27018,6 +27018,8 @@ def handle_ball():
     global drive_active, drive_spin_speed
     global power_smashing_original_speed, power_smashing_parabola_active
     global power_smashing_start_time, power_smashing_arc_strength
+    global power_smashing_direction, power_smashing_initial_boost, power_smashing_boost_duration
+    global power_smashing_target_speed
     # 보스별 특수 스킬들
     global whip_hit_by_player, whip_active, original_speed, whip_original_ball_speed
     global whip_deactivation_active, whip_deactivation_timer, whip_rotation_speed  # 상모돌리기 강제 해제 모션
@@ -27606,6 +27608,8 @@ def handle_ball():
     global drive_active, drive_spin_speed
     global power_smashing_original_speed, power_smashing_parabola_active
     global power_smashing_start_time, power_smashing_arc_strength
+    global power_smashing_direction, power_smashing_initial_boost, power_smashing_boost_duration
+    global power_smashing_target_speed
     global mega_smashing_active, mega_smashing_bonus_applied, mega_smashing_meteor_trail
     # 보스별 특수 스킬들
     global whip_hit_by_player, whip_active, original_speed, whip_original_ball_speed
@@ -27978,9 +27982,9 @@ def handle_ball():
             # 초기 부스트 속도에서 목표 속도로 부드럽게 감속 (선형 보간)
             # 방향에 따라 초기 부스트 속도 계산
             if power_smashing_direction == 0:  # 직선
-                initial_boosted_speed = power_smashing_target_speed * 1.65  # 3.3배 (230% 추가)
+                initial_boosted_speed = power_smashing_target_speed * 1.8  # 3.6배 (280% 추가)
             else:  # 좌/우
-                initial_boosted_speed = power_smashing_target_speed * 1.8  # 3.6배 (260% 추가)
+                initial_boosted_speed = power_smashing_target_speed * 2.0  # 4.0배 (300% 추가)
             interpolated_speed = initial_boosted_speed - (initial_boosted_speed - power_smashing_target_speed) * boost_progress
             
             # 속도 조정
@@ -34285,9 +34289,9 @@ def main(stage_num, new_boss_mode=False):
                     
                     # 방향에 따른 초기 부스트 차별화
                     if power_smashing_direction == 0:  # 직선(중앙) 파워스매싱
-                        initial_boost_multiplier = 1.65  # 230% 추가 = 3.3배
+                        initial_boost_multiplier = 1.8  # 280% 추가 = 3.6배
                     else:  # 좌/우 파워스매싱
-                        initial_boost_multiplier = 1.8  # 260% 추가 = 3.6배
+                        initial_boost_multiplier = 2.0  # 300% 추가 = 4.0배
                     
                     # 초기 부스트 속도 적용
                     if final_speed > 0:
