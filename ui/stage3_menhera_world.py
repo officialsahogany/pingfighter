@@ -1335,39 +1335,75 @@ class Stage3MenheraWorld:
         pygame.draw.circle(screen, STONE_DARK, (x, skull_y), skull_size)
         pygame.draw.circle(screen, STONE_BASE, (x, skull_y), skull_size - 2)
         
-        # 눈 (빈 구멍으로 표현)
+        # 눈 (귀엽게 표현 - 석상이지만 표정은 유지)
         eye_y = y - head_size//10
         eye_spacing = head_size//2.2
         eye_width = int(head_size * 0.5)
         eye_height = int(head_size * 0.6)
         
-        # 왼쪽 눈 구멍
+        # 왼쪽 눈 (석상 버전 - 단순한 타원)
         left_eye_rect = pygame.Rect(x - eye_spacing - eye_width//2, 
                                     eye_y - eye_height//2,
                                     eye_width, eye_height)
-        pygame.draw.ellipse(screen, STONE_DARK, left_eye_rect)
-        pygame.draw.ellipse(screen, (50, 50, 50), 
-                          (left_eye_rect.x + 2, left_eye_rect.y + 2,
-                           left_eye_rect.width - 4, left_eye_rect.height - 4))
+        # 눈 윤곽
+        pygame.draw.ellipse(screen, STONE_DARK, left_eye_rect, 2)
+        # 눈 내부 (밝은 석상색)
+        pygame.draw.ellipse(screen, STONE_LIGHT, 
+                          (left_eye_rect.x + 3, left_eye_rect.y + 3,
+                           left_eye_rect.width - 6, left_eye_rect.height - 6))
         
-        # 오른쪽 눈 구멍
+        # 동공 (작고 귀여운 타원)
+        pupil_width = int(eye_width * 0.3)
+        pupil_height = int(eye_height * 0.35)
+        left_pupil_x = x - eye_spacing - pupil_width//2
+        left_pupil_y = eye_y - pupil_height//2 + 2
+        pygame.draw.ellipse(screen, STONE_DARK,
+                          (left_pupil_x, left_pupil_y, pupil_width, pupil_height))
+        
+        # 오른쪽 눈 (동일한 스타일)
         right_eye_rect = pygame.Rect(x + eye_spacing - eye_width//2, 
                                      eye_y - eye_height//2,
                                      eye_width, eye_height)
-        pygame.draw.ellipse(screen, STONE_DARK, right_eye_rect)
-        pygame.draw.ellipse(screen, (50, 50, 50), 
-                          (right_eye_rect.x + 2, right_eye_rect.y + 2,
-                           right_eye_rect.width - 4, right_eye_rect.height - 4))
+        # 눈 윤곽
+        pygame.draw.ellipse(screen, STONE_DARK, right_eye_rect, 2)
+        # 눈 내부
+        pygame.draw.ellipse(screen, STONE_LIGHT, 
+                          (right_eye_rect.x + 3, right_eye_rect.y + 3,
+                           right_eye_rect.width - 6, right_eye_rect.height - 6))
+        
+        # 동공
+        right_pupil_x = x + eye_spacing - pupil_width//2
+        right_pupil_y = eye_y - pupil_height//2 + 2
+        pygame.draw.ellipse(screen, STONE_DARK,
+                          (right_pupil_x, right_pupil_y, pupil_width, pupil_height))
+        
+        # 작은 하이라이트 효과 (귀여움 추가)
+        highlight_size = 3
+        pygame.draw.circle(screen, (160, 160, 160), 
+                         (left_pupil_x + pupil_width//3, left_pupil_y + pupil_height//3), 
+                         highlight_size)
+        pygame.draw.circle(screen, (160, 160, 160),
+                         (right_pupil_x + pupil_width//3, right_pupil_y + pupil_height//3),
+                         highlight_size)
         
         # 코 (작은 조각)
         nose_y = y + head_size//6
-        pygame.draw.circle(screen, STONE_DARK, (x, nose_y), 3)
+        pygame.draw.circle(screen, STONE_DARK, (x, nose_y), 2)
         
-        # 입 (조각된 선)
-        mouth_y = y + head_size//3
-        pygame.draw.arc(screen, STONE_DARK,
-                      (x - head_size//4, mouth_y - 8, head_size//2, 16),
-                      0, math.pi, 3)
+        # 입 (귀여운 W 모양)
+        mouth_y = y + head_size//4
+        # W 모양 입 (쿠로미 특징)
+        mouth_points = [
+            (x - head_size//6, mouth_y),          # 왼쪽 끝
+            (x - head_size//12, mouth_y + 4),     # 왼쪽 아래
+            (x, mouth_y - 2),                      # 중앙 위
+            (x + head_size//12, mouth_y + 4),     # 오른쪽 아래
+            (x + head_size//6, mouth_y)           # 오른쪽 끝
+        ]
+        pygame.draw.lines(screen, STONE_DARK, False, mouth_points, 2)
+        
+        # 작은 입 중앙선 (코에서 입까지)
+        pygame.draw.line(screen, STONE_DARK, (x, nose_y + 2), (x, mouth_y - 3), 1)
         
         # 꼬리 (석상 버전)
         tail_base_x = x

@@ -34924,7 +34924,8 @@ def main(stage_num, new_boss_mode=False):
                 #  Stage 3 멘헤라걸 꼬리 채찍 시스템 및 공 먹기 이벤트
                 if current_stage == 3:
                     # 쿠로미 공 먹기 이벤트 체크 (공이 쿠로미 안에 없고 쿨타임이 끝났을 때만)
-                    if not ball_in_kuromi and animated_bg_stage3 and not kuromi_eating_active and kuromi_eating_cooldown <= 0:
+                    # 추가로 쿠로미가 석화화 상태가 아닐 때만 체크
+                    if not ball_in_kuromi and animated_bg_stage3 and not kuromi_eating_active and kuromi_eating_cooldown <= 0 and not animated_bg_stage3.kuromi_petrified:
                         # 쿠로미 영역 정의
                         center_x = WIDTH // 2
                         center_y = HEIGHT // 2

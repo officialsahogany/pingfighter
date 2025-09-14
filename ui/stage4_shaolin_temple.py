@@ -2786,12 +2786,6 @@ class ShaolinTempleBackground:
             self.destruction_phase = 1
             self.destruction_timer = 0
             print("Temple destruction animation started!")
-            
-            # Kill all monks when destruction starts
-            self._explode_all_monks()
-            
-            # Kill all training dummies too
-            self._explode_all_training_dummies()
     
     def is_destruction_animation_active(self):
         """Check if destruction animation is currently playing"""
@@ -2829,6 +2823,11 @@ class ShaolinTempleBackground:
                 self._start_lanterns_falling()  # Start lanterns falling
                 
         elif self.destruction_phase == 3:  # Temple collapsing (4.5 seconds)
+            # Kill all monks and dummies when temple starts collapsing
+            if self.destruction_timer == 0:
+                self._explode_all_monks()
+                self._explode_all_training_dummies()
+            
             # More intense screen shake
             if self.destruction_timer < 90:
                 self.screen_shake_intensity = 5 + int(self.destruction_timer / 15)
