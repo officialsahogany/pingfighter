@@ -723,14 +723,14 @@ class PoseidonTrident(LegendaryItem):
                         
                         target_angle = base_angle + random_offset
                         
-                        # 반사 속도 (캡처된 속도의 150%, 최소 18, 최대 30으로 제한)
-                        deflect_speed = max(18, min(self.captured_ball_speed * 1.5, 30))
+                        # 반사 속도 (캡처된 속도의 200%, 최소 20, 최대 35로 제한)
+                        deflect_speed = max(20, min(self.captured_ball_speed * 2.0, 35))
                         new_vx = math.cos(target_angle) * deflect_speed
                         new_vy = math.sin(target_angle) * deflect_speed
                         
                         # Y축 속도 안전장치 - 반드시 위쪽으로 향하도록 보장
-                        min_upward_speed = -18  # 최소 위쪽 속도 (더 빠르게)
-                        max_upward_speed = -10  # 최대 위쪽 속도 (너무 수직이지 않게)
+                        min_upward_speed = -25  # 최소 위쪽 속도 (더 빠르게)
+                        max_upward_speed = -15  # 최대 위쪽 속도 (너무 수직이지 않게)
                         
                         # Y 속도가 아래쪽이거나 너무 느리면 강제로 위쪽으로
                         if new_vy >= 0:  # 아래쪽이나 수평이면
@@ -744,7 +744,7 @@ class PoseidonTrident(LegendaryItem):
                             print(f"[DEBUG] 회오리 방향 보정: 너무 빠름 → {min_upward_speed}")
                         
                         # X축 속도도 너무 극단적이지 않도록 제한
-                        max_x_speed = 15  # 횡방향 속도 제한 (너무 빠르지 않게)
+                        max_x_speed = 20  # 횡방향 속도 제한 (너무 빠르지 않게)
                         if abs(new_vx) > max_x_speed:
                             new_vx = max_x_speed if new_vx > 0 else -max_x_speed
                             print(f"[DEBUG] 회오리 X축 속도 제한: {new_vx}")

@@ -642,81 +642,86 @@ class Stage3MenheraWorld:
         pygame.draw.ellipse(screen, ribbon_color,
                           (x + skull_size - 1, skull_y - 3, 6, 8))
         
-        # ✨ 울트라 빅 아이즈 (일본 만화 스타일 - 초대형) - 더 귀엽게!
-        eye_y = y - head_size//10
-        eye_spacing = head_size//2.3  # 눈 간격 약간 좁게 (더 귀여워 보임)
-        eye_width = int(head_size * 0.6)  # 더 둥글고 큰 눈
-        eye_height = int(head_size * 0.7)  # 세로로 더 크게
+        # ✨ 쿠로미 스타일 눈 (얼굴에 자연스럽게 통합)
+        eye_y = y - head_size//8  # 얼굴 중앙에 가깝게
+        eye_spacing = head_size//2.5  # 눈 간격을 좁게
+        eye_width = int(head_size * 0.45)  # 얼굴에 맞는 크기
+        eye_height = int(head_size * 0.5)  # 세로로 길쭉한 타원형
         
         # 감정에 따른 눈 표정 변화
         emotion_offset = 0
         if self.emotional_phase == 1:  # 행복
             emotion_offset = -2
+            eye_height = int(head_size * 0.4)  # 웃을 때 눈이 좁아짐
         elif self.emotional_phase == 2:  # 슬픔
             emotion_offset = 3
+            eye_height = int(head_size * 0.55)  # 슬플 때 눈이 커짐
         
-        # 👁️ 왼쪽 눈 (초대형 만화 스타일)
-        left_eye_x = x - eye_spacing
+        # 👁️ 왼쪽 눈 (쿠로미 스타일)
+        left_eye_x = x - eye_spacing + face_distortion_x
         left_eye_y = eye_y + emotion_offset
         
-        # 눈 외곽 그림자 (깊이감)
-        for i in range(3):
-            shadow_rect = pygame.Rect(left_eye_x - eye_width//2 - i, 
-                                     left_eye_y - eye_height//2 - i,
-                                     eye_width + i*2, eye_height + i*2)
-            pygame.draw.ellipse(screen, (*LAVENDER, 30 - i*8), shadow_rect)
+        # 눈 홈 (얼굴에 파인 부분)
+        eye_socket_rect = pygame.Rect(left_eye_x - eye_width//2 - 3, 
+                                     left_eye_y - eye_height//2 - 3,
+                                     eye_width + 6, eye_height + 6)
+        pygame.draw.ellipse(screen, (240, 235, 245), eye_socket_rect)
         
-        # 눈 흰자위
+        # 눈 흰자위 (얼굴색과 자연스럽게 연결)
         left_eye_rect = pygame.Rect(left_eye_x - eye_width//2, left_eye_y - eye_height//2,
                                     eye_width, eye_height)
-        pygame.draw.ellipse(screen, (255, 252, 255), left_eye_rect)
-        pygame.draw.ellipse(screen, SOFT_BLACK, left_eye_rect, 2)
+        pygame.draw.ellipse(screen, (255, 250, 255), left_eye_rect)
+        pygame.draw.ellipse(screen, (200, 180, 210), left_eye_rect, 1)  # 부드러운 테두리
         
-        # 홍채 (그라데이션 효과)
-        iris_width = int(eye_width * 0.7)
-        iris_height = int(eye_height * 0.75)
-        iris_x = left_eye_x - iris_width//2
-        iris_y = left_eye_y - iris_height//2 + 2
+        # 홍채 (쿠로미 스타일 - 큰 동그란 홍채)
+        iris_size = int(min(eye_width, eye_height) * 0.65)  # 동그란 홍채
         
-        # 홍채 그라데이션 (여러 층) - 더 파스텔톤으로!
+        # 눈동자가 공을 바라보도록 위치 조정
+        if ball_pos and not self.kuromi_petrified:
+            ball_x, ball_y = ball_pos
+            # 공을 향한 방향 계산
+            angle_to_ball = math.atan2(ball_y - left_eye_y, ball_x - left_eye_x)
+            # 홍채가 움직일 수 있는 최대 거리
+            max_iris_offset = min(eye_width - iris_size, eye_height - iris_size) * 0.2
+            iris_offset_x = int(max_iris_offset * math.cos(angle_to_ball))
+            iris_offset_y = int(max_iris_offset * math.sin(angle_to_ball))
+        else:
+            iris_offset_x = 0
+            iris_offset_y = 0
+        
+        iris_x = left_eye_x - iris_size//2 + iris_offset_x
+        iris_y = left_eye_y - iris_size//2 + iris_offset_y
+        
+        # 홍채 그라데이션 (쿠로미 보라색)
         iris_colors = [
-            (240, 220, 255),  # 매우 밝은 라벤더
-            (230, 200, 250),  # 파스텔 보라
-            (220, 180, 240),  # 부드러운 보라
-            (210, 160, 230),  # 중간 보라
-            (200, 140, 220),  # 약간 진한 보라
+            (180, 150, 220),  # 진한 보라
+            (200, 170, 230),  # 중간 보라
+            (220, 190, 240),  # 밝은 보라
         ]
         
         for i, color in enumerate(iris_colors):
-            iris_rect = pygame.Rect(iris_x + i*2, iris_y + i*2,
-                                   iris_width - i*4, iris_height - i*4)
-            pygame.draw.ellipse(screen, color, iris_rect)
+            size = iris_size - i * 6
+            pygame.draw.circle(screen, color, (iris_x + iris_size//2, iris_y + iris_size//2), size//2)
         
-        # 동공 (반짝이는 효과) - 더 귀여운 크기로!
-        pupil_size = int(iris_width * 0.3)  # 작은 동공이 더 귀여움
-        pupil_pulse = 0 if self.kuromi_petrified else abs(math.sin(self.time * 0.005)) * 1.5
+        # 동공 (쿠로미 스타일)
+        pupil_size = int(iris_size * 0.4)  # 홍채 대비 적절한 크기
+        pupil_pulse = 0 if self.kuromi_petrified else abs(math.sin(self.time * 0.005)) * 1
         
-        # 동공 하이라이트를 위한 그라데이션
-        pupil_color = (40, 30, 50)  # 약간 보라빛 검은색
-        pygame.draw.ellipse(screen, pupil_color,
-                          (left_eye_x - pupil_size//2, left_eye_y - pupil_size//2 + 2,
-                           pupil_size + pupil_pulse, pupil_size + pupil_pulse))
+        # 동공 (검은색)
+        pygame.draw.circle(screen, (20, 10, 30), 
+                         (iris_x + iris_size//2, iris_y + iris_size//2), 
+                         pupil_size//2 + int(pupil_pulse))
         
-        # ✨ 초대형 하이라이트 (더 많고 반짝반짝!)
-        # 메인 하이라이트 (더 크게)
-        pygame.draw.ellipse(screen, WHITE,
-                          (left_eye_x - eye_width//3, left_eye_y - eye_height//3,
-                           eye_width//2.5, eye_height//3))
-        pygame.draw.ellipse(screen, (255, 245, 250),
-                          (left_eye_x - eye_width//3 + 2, left_eye_y - eye_height//3 + 2,
-                           eye_width//3, eye_height//4))
+        # ✨ 눈 하이라이트 (쿠로미 스타일)
+        # 메인 하이라이트
+        highlight_x = iris_x + iris_size//3
+        highlight_y = iris_y + iris_size//3
+        pygame.draw.circle(screen, WHITE, (highlight_x, highlight_y), iris_size//5)
+        pygame.draw.circle(screen, (255, 245, 250), (highlight_x + 1, highlight_y + 1), iris_size//6)
         
-        # 서브 하이라이트들 (더 많이!)
-        pygame.draw.circle(screen, WHITE, (left_eye_x + eye_width//4, left_eye_y - eye_height//4), 5)
-        pygame.draw.circle(screen, (255, 240, 250), (left_eye_x - eye_width//5, left_eye_y + eye_height//6), 4)
-        pygame.draw.circle(screen, WHITE, (left_eye_x + eye_width//6, left_eye_y + eye_height//5), 3)
-        pygame.draw.circle(screen, (255, 250, 255), (left_eye_x - eye_width//8, left_eye_y - eye_height//6), 2)
-        pygame.draw.circle(screen, WHITE, (left_eye_x + eye_width//10, left_eye_y), 2)
+        # 서브 하이라이트
+        pygame.draw.circle(screen, WHITE, (iris_x + iris_size*2//3, iris_y + iris_size*2//3), iris_size//8)
+        pygame.draw.circle(screen, (255, 250, 255), (iris_x + iris_size//2, iris_y + iris_size//4), iris_size//10)
         
         # 별 모양 반짝임
         star_twinkle = 0 if self.kuromi_petrified else abs(math.sin(self.time * 0.01)) * 255
@@ -725,85 +730,92 @@ class Stage3MenheraWorld:
                               2, (*WHITE, int(star_twinkle)))
         
         # 👁️ 오른쪽 눈 (동일한 스타일)
-        right_eye_x = x + eye_spacing
+        right_eye_x = x + eye_spacing + face_distortion_x
         right_eye_y = eye_y + emotion_offset
         
-        # 눈 외곽 그림자
-        for i in range(3):
-            shadow_rect = pygame.Rect(right_eye_x - eye_width//2 - i,
-                                     right_eye_y - eye_height//2 - i,
-                                     eye_width + i*2, eye_height + i*2)
-            pygame.draw.ellipse(screen, (*LAVENDER, 30 - i*8), shadow_rect)
+        # 눈 홈 (얼굴에 파인 부분)
+        eye_socket_rect = pygame.Rect(right_eye_x - eye_width//2 - 3,
+                                     right_eye_y - eye_height//2 - 3,
+                                     eye_width + 6, eye_height + 6)
+        pygame.draw.ellipse(screen, (240, 235, 245), eye_socket_rect)
         
         # 눈 흰자위
         right_eye_rect = pygame.Rect(right_eye_x - eye_width//2, right_eye_y - eye_height//2,
                                      eye_width, eye_height)
-        pygame.draw.ellipse(screen, (255, 252, 255), right_eye_rect)
-        pygame.draw.ellipse(screen, SOFT_BLACK, right_eye_rect, 2)
+        pygame.draw.ellipse(screen, (255, 250, 255), right_eye_rect)
+        pygame.draw.ellipse(screen, (200, 180, 210), right_eye_rect, 1)
+        
+        # 홍채 (오른쪽 눈도 공을 바라봄)
+        if ball_pos and not self.kuromi_petrified:
+            ball_x, ball_y = ball_pos
+            angle_to_ball = math.atan2(ball_y - right_eye_y, ball_x - right_eye_x)
+            max_iris_offset = min(eye_width - iris_size, eye_height - iris_size) * 0.2
+            iris_offset_x = int(max_iris_offset * math.cos(angle_to_ball))
+            iris_offset_y = int(max_iris_offset * math.sin(angle_to_ball))
+        else:
+            iris_offset_x = 0
+            iris_offset_y = 0
+        
+        iris_x = right_eye_x - iris_size//2 + iris_offset_x
+        iris_y = right_eye_y - iris_size//2 + iris_offset_y
         
         # 홍채 그라데이션
-        iris_x = right_eye_x - iris_width//2
-        iris_y = right_eye_y - iris_height//2 + 2
-        
         for i, color in enumerate(iris_colors):
-            iris_rect = pygame.Rect(iris_x + i*2, iris_y + i*2,
-                                   iris_width - i*4, iris_height - i*4)
-            pygame.draw.ellipse(screen, color, iris_rect)
+            size = iris_size - i * 6
+            pygame.draw.circle(screen, color, (iris_x + iris_size//2, iris_y + iris_size//2), size//2)
         
-        # 동공 (귀여운 보라빛)
-        pygame.draw.ellipse(screen, pupil_color,
-                          (right_eye_x - pupil_size//2, right_eye_y - pupil_size//2 + 2,
-                           pupil_size + pupil_pulse, pupil_size + pupil_pulse))
+        # 동공
+        pygame.draw.circle(screen, (20, 10, 30),
+                         (iris_x + iris_size//2, iris_y + iris_size//2),
+                         pupil_size//2 + int(pupil_pulse))
         
-        # 하이라이트들 (더 많고 반짝반짝!)
-        pygame.draw.ellipse(screen, WHITE,
-                          (right_eye_x - eye_width//3, right_eye_y - eye_height//3,
-                           eye_width//2.5, eye_height//3))
-        pygame.draw.ellipse(screen, (255, 245, 250),
-                          (right_eye_x - eye_width//3 + 2, right_eye_y - eye_height//3 + 2,
-                           eye_width//3, eye_height//4))
+        # 하이라이트 (오른쪽 눈)
+        highlight_x = iris_x + iris_size//3
+        highlight_y = iris_y + iris_size//3
+        pygame.draw.circle(screen, WHITE, (highlight_x, highlight_y), iris_size//5)
+        pygame.draw.circle(screen, (255, 245, 250), (highlight_x + 1, highlight_y + 1), iris_size//6)
         
-        pygame.draw.circle(screen, WHITE, (right_eye_x + eye_width//4, right_eye_y - eye_height//4), 5)
-        pygame.draw.circle(screen, (255, 240, 250), (right_eye_x - eye_width//5, right_eye_y + eye_height//6), 4)
-        pygame.draw.circle(screen, WHITE, (right_eye_x + eye_width//6, right_eye_y + eye_height//5), 3)
-        pygame.draw.circle(screen, (255, 250, 255), (right_eye_x - eye_width//8, right_eye_y - eye_height//6), 2)
-        pygame.draw.circle(screen, WHITE, (right_eye_x + eye_width//10, right_eye_y), 2)
+        # 서브 하이라이트
+        pygame.draw.circle(screen, WHITE, (iris_x + iris_size*2//3, iris_y + iris_size*2//3), iris_size//8)
+        pygame.draw.circle(screen, (255, 250, 255), (iris_x + iris_size//2, iris_y + iris_size//4), iris_size//10)
         
         if star_twinkle > 200 and not self.kuromi_petrified:
             self.draw_mini_star(screen, right_eye_x - eye_width//3, right_eye_y - eye_height//4,
                               2, (*WHITE, int(star_twinkle)))
         
-        # 🌸 속눈썹 제거 (사용자 요청에 따라 눈 위 속눈썹/눈썹 제거)
-        # lash_length = 8
-        # lash_count = 5
-        # for i in range(lash_count):
-        #     angle = math.pi * (0.15 + i * 0.06)
-        #     lash_x = left_eye_x - eye_width//2 + i * (eye_width//lash_count)
-        #     lash_y = left_eye_y - eye_height//2
-        #     end_x = lash_x + math.cos(angle) * lash_length
-        #     end_y = lash_y - math.sin(angle) * lash_length
-        #     pygame.draw.line(screen, SOFT_BLACK, (lash_x, lash_y), (end_x, end_y), 2)
-        #     
-        #     # 오른쪽 눈 속눈썹
-        #     lash_x = right_eye_x - eye_width//2 + i * (eye_width//lash_count)
-        #     angle = math.pi * (0.85 - i * 0.06)
-        #     end_x = lash_x + math.cos(angle) * lash_length
-        #     end_y = lash_y - math.sin(angle) * lash_length
-        #     pygame.draw.line(screen, SOFT_BLACK, (lash_x, lash_y), (end_x, end_y), 2)
+        # 🌸 쿠로미 스타일 속눈썹 (얼굴에 통합된 디자인)
+        # 위 속눈썹 (짧고 귀엽게)
+        lash_count = 3
+        for i in range(lash_count):
+            # 왼쪽 눈
+            angle = math.pi * (0.2 + i * 0.1)
+            lash_x = left_eye_x - eye_width//3 + i * (eye_width//2)
+            lash_y = left_eye_y - eye_height//2
+            end_x = lash_x + math.cos(angle) * 5
+            end_y = lash_y - math.sin(angle) * 5
+            pygame.draw.line(screen, (100, 80, 110), (lash_x, lash_y), (end_x, end_y), 1)
+            
+            # 오른쪽 눈
+            lash_x = right_eye_x - eye_width//3 + i * (eye_width//2)
+            angle = math.pi * (0.8 - i * 0.1)
+            end_x = lash_x + math.cos(angle) * 5
+            end_y = lash_y - math.sin(angle) * 5
+            pygame.draw.line(screen, (100, 80, 110), (lash_x, lash_y), (end_x, end_y), 1)
         
-        # 아래 속눈썹 (짧게)
-        for i in range(3):
+        # 아래 속눈썹 (더 짧게)
+        for i in range(2):
+            # 왼쪽 눈
             angle = -math.pi * (0.3 + i * 0.2)
-            lash_x = left_eye_x - eye_width//4 + i * (eye_width//3)
+            lash_x = left_eye_x - eye_width//5 + i * (eye_width//2)
             lash_y = left_eye_y + eye_height//2
-            end_x = lash_x + math.cos(angle) * 4
-            end_y = lash_y - math.sin(angle) * 4
-            pygame.draw.line(screen, (*SOFT_BLACK, 100), (lash_x, lash_y), (end_x, end_y), 1)
+            end_x = lash_x + math.cos(angle) * 3
+            end_y = lash_y - math.sin(angle) * 3
+            pygame.draw.line(screen, (120, 100, 130), (lash_x, lash_y), (end_x, end_y), 1)
             
             # 오른쪽
-            lash_x = right_eye_x - eye_width//4 + i * (eye_width//3)
-            pygame.draw.line(screen, (*SOFT_BLACK, 100), (lash_x, lash_y), 
-                           (lash_x + math.cos(angle) * 4, lash_y - math.sin(angle) * 4), 1)
+            lash_x = right_eye_x - eye_width//5 + i * (eye_width//2)
+            pygame.draw.line(screen, (120, 100, 130), (lash_x, lash_y), 
+                           (lash_x + math.cos(angle) * 3, lash_y - math.sin(angle) * 3), 1)
         
         # 🌸 미니 코 (더 귀여운 하트 모양!)
         nose_y = y + head_size//6
