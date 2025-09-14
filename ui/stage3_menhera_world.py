@@ -952,26 +952,6 @@ class Stage3MenheraWorld:
         # 입 중앙선 (코에서 입까지)
         pygame.draw.line(screen, (*SOFT_BLACK, 80), (x, nose_y + 2), (x, mouth_y - 3), 1)
         
-        # 🌸 볼터치 (더 귀엽게!)
-        blush_y = y + head_size//10
-        blush_spacing = head_size//1.8
-        
-        # 왼쪽 볼
-        if not self.kuromi_petrified:
-            blush_alpha = 100 + abs(math.sin(self.time * 0.005)) * 50
-            for i in range(3):
-                pygame.draw.circle(screen, (*PASTEL_PINK, blush_alpha - i*20),
-                                 (x - blush_spacing, blush_y), 12 - i*2)
-            # 볼 하이라이트
-            pygame.draw.circle(screen, (*WHITE, 80), (x - blush_spacing - 3, blush_y - 3), 3)
-            
-        # 오른쪽 볼
-        if not self.kuromi_petrified:
-            for i in range(3):
-                pygame.draw.circle(screen, (*PASTEL_PINK, blush_alpha - i*20),
-                                 (x + blush_spacing, blush_y), 12 - i*2)
-            # 볼 하이라이트
-            pygame.draw.circle(screen, (*WHITE, 80), (x + blush_spacing - 3, blush_y - 3), 3)
         
         # ✨ 반짝이는 별 효과 (각성 후 더 귀엽게!)
         if self.kuromi_awakened and not self.kuromi_petrified:

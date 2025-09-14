@@ -1866,6 +1866,10 @@ class ShaolinTempleBackground:
     
     def _draw_monk_death_effects(self, surface: pygame.Surface):
         """Draw monk death particles and body parts"""
+        # Debug: Log if we have effects to draw
+        if len(self.monk_death_particles) > 0 or len(self.monk_body_parts) > 0:
+            print(f"Drawing death effects: {len(self.monk_death_particles)} particles, {len(self.monk_body_parts)} body parts")
+        
         # Draw particles
         for particle in self.monk_death_particles:
             if particle.get('type') == 'shockwave':
@@ -1873,10 +1877,13 @@ class ShaolinTempleBackground:
                 particle['radius'] += 3
                 if particle['radius'] < particle['max_radius']:
                     alpha = int(255 * (1 - particle['radius'] / particle['max_radius']))
-                    color = (*particle['color'], alpha)
-                    pygame.draw.circle(surface, color,
-                                     (int(particle['x']), int(particle['y'])),
+                    # Create temp surface for alpha
+                    shockwave_surf = pygame.Surface((int(particle['radius']*2+4), int(particle['radius']*2+4)), pygame.SRCALPHA)
+                    pygame.draw.circle(shockwave_surf, (*particle['color'], alpha),
+                                     (int(particle['radius']+2), int(particle['radius']+2)),
                                      int(particle['radius']), 2)
+                    surface.blit(shockwave_surf, (int(particle['x'] - particle['radius'] - 2), 
+                                                  int(particle['y'] - particle['radius'] - 2)))
             elif particle.get('type') == 'sparkle':
                 # Draw sparkle with glow
                 pygame.draw.circle(surface, particle['color'],
@@ -2829,6 +2836,21 @@ class ShaolinTempleBackground:
         elif self.destruction_phase == 3:  # Temple collapsing (4.5 seconds)
             # Kill all monks and dummies when temple starts collapsing
             if self.destruction_timer == 0:
+                # Debug: Check if monks exist
+                print(f"Temple collapsing! Current monks: {len(self.monks)}")
+                if len(self.monks) == 0:
+                    print("No monks to explode! Spawning test monks...")
+                    # Spawn some test monks for visual effect
+                    for i in range(3):
+                        test_monk = {
+                            'x': self.width // 2 + random.randint(-100, 100),
+                            'y': 450 + random.randint(-50, 50),
+                            'color': self.colors['temple_main'],
+                            'type': 'star_reward' if i == 0 else 'normal'  # One hero monk
+                        }
+                        self.monks.append(test_monk)
+                        print(f"Spawned test monk at ({test_monk['x']}, {test_monk['y']})")
+                
                 self._explode_all_monks()
                 self._explode_all_training_dummies()
             
@@ -3512,85 +3534,105 @@ class ShaolinTempleBackground:
     
     def _create_monk_explosion(self, x, y, color):
         """Create blood explosion effect when monk dies"""
-        # Create blood particles
-        for i in range(20):
+        # Create blood particles - make them bigger and more visible
+        for i in range(30):  # More particles
             angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(2, 8)
+            speed = random.uniform(3, 12)  # Faster speed
             particle = {
                 'x': x,
                 'y': y,
                 'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
-                'size': random.randint(2, 6),
-                'color': (200, 0, 0),  # Blood red
-                'lifetime': 60,
-                'gravity': 0.2,
+                'vy': math.sin(angle) * speed - 3,  # Add upward force
+                'size': random.randint(4, 10),  # Bigger particles
+                'color': (255, 0, 0),  # Bright red
+                'lifetime': 120,  # Longer lifetime
+                'gravity': 0.3,
             }
             self.monk_death_particles.append(particle)
         
         # Add some darker blood droplets
-        for i in range(10):
+        for i in range(15):  # More droplets
             angle = random.uniform(0, math.pi * 2) 
-            speed = random.uniform(1, 4)
-            particle = {
-                'x': x,
-                'y': y,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
-                'size': random.randint(3, 8),
-                'color': (120, 0, 0),  # Dark blood
-                'lifetime': 80,
-                'gravity': 0.3,
-            }
-            self.monk_death_particles.append(particle)
-    
-    def _create_hero_monk_explosion(self, x, y):
-        """Create epic explosion effect for hero monks"""
-        # Create golden explosion particles
-        for i in range(40):  # More particles for heroes
-            angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(3, 12)
+            speed = random.uniform(2, 6)
             particle = {
                 'x': x,
                 'y': y,
                 'vx': math.cos(angle) * speed,
                 'vy': math.sin(angle) * speed - 2,
-                'size': random.randint(3, 8),
+                'size': random.randint(5, 12),  # Bigger
+                'color': (150, 0, 0),  # Dark blood
+                'lifetime': 100,
+                'gravity': 0.4,
+            }
+            self.monk_death_particles.append(particle)
+        
+        # Add impact dust cloud for visibility
+        self._create_dust_cloud(x, y)
+    
+    def _create_hero_monk_explosion(self, x, y):
+        """Create epic explosion effect for hero monks"""
+        # Create golden explosion particles - make them much more visible
+        for i in range(60):  # Even more particles for heroes
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(5, 18)  # Much faster
+            particle = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 4,  # Strong upward force
+                'size': random.randint(5, 12),  # Bigger particles
                 'color': (255, 215, 0),  # Gold
-                'lifetime': 80,
-                'gravity': 0.3,
+                'lifetime': 150,  # Longer lifetime
+                'gravity': 0.4,
                 'glow': True
             }
             self.monk_death_particles.append(particle)
         
-        # Add sparkles
-        for i in range(20):
+        # Add sparkles - more and bigger
+        for i in range(30):
             angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(5, 15)
+            speed = random.uniform(8, 20)
             sparkle = {
                 'x': x,
                 'y': y,
                 'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed - 3,
-                'size': random.randint(2, 4),
-                'color': (255, 255, 200),  # Bright yellow-white
-                'lifetime': 40,
-                'gravity': 0.1,
+                'vy': math.sin(angle) * speed - 5,
+                'size': random.randint(3, 6),  # Bigger sparkles
+                'color': (255, 255, 100),  # Bright yellow
+                'lifetime': 60,
+                'gravity': 0.2,
                 'type': 'sparkle'
             }
             self.monk_death_particles.append(sparkle)
         
-        # Add shockwave effect
-        shockwave = {
-            'x': x,
-            'y': y,
-            'radius': 0,
-            'max_radius': 80,
-            'color': (255, 215, 0),
-            'lifetime': 30,
-            'type': 'shockwave'
-        }
-        self.monk_death_particles.append(shockwave)
+        # Add multiple shockwaves for dramatic effect
+        for i in range(3):
+            shockwave = {
+                'x': x,
+                'y': y,
+                'radius': i * 20,  # Staggered start
+                'max_radius': 120 + i * 30,  # Different sizes
+                'color': (255, 215, 0),
+                'lifetime': 40 + i * 10,
+                'type': 'shockwave'
+            }
+            self.monk_death_particles.append(shockwave)
+        
+        # Add golden dust cloud
+        for i in range(20):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(2, 5)
+            dust = {
+                'x': x,
+                'y': y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 2,
+                'size': random.randint(15, 25),
+                'color': (255, 200, 50),  # Golden dust
+                'lifetime': 80,
+                'opacity': 200,
+            }
+            self.monk_death_particles.append(dust)
     
     def _create_dust_cloud(self, x, y):
         """Create dust cloud effect"""
