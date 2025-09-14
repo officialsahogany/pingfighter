@@ -97,8 +97,141 @@ class Stage3MenheraWorld:
         if self.kuromi_awakening and self.kuromi_awakening_timer > 0:
             self.kuromi_awakening_timer -= 1
             
-            # 각성 진행도에 따른 파티클 생성
-            if self.kuromi_awakening_timer % 10 == 0:  # 10프레임마다
+            # 각성 시작 시점에 폭발적인 돌 파편 생성 (한 번만)
+            if self.kuromi_awakening_timer == 179:  # 각성 시작 직후
+                # 화면을 향해 날아가는 큰 돌 파편들 생성
+                center_x = WIDTH // 2
+                center_y = HEIGHT // 2
+                
+                # 많은 돌 파편 생성 (60-80개로 대폭 증가)
+                for _ in range(random.randint(60, 80)):
+                    # 전 방향으로 퍼지는 각도
+                    angle = random.uniform(0, 2 * math.pi)
+                    
+                    # 다양한 속도로 화면을 향해 날아감 (매우 빠르게)
+                    base_speed = random.uniform(15, 40)  # 기본 속도 증가
+                    
+                    # 화면 가장자리로 향하는 파편은 더 빠르게
+                    edge_boost = 1.0
+                    if abs(math.cos(angle)) > 0.7 or abs(math.sin(angle)) > 0.7:  # 가장자리 방향
+                        edge_boost = random.uniform(1.2, 1.8)
+                    
+                    speed = base_speed * edge_boost
+                    
+                    # Z축 효과를 위한 크기 변화율
+                    z_velocity = random.uniform(0.5, 2.0)  # 화면으로 날아오는 효과
+                    
+                    particle = {
+                        'x': center_x + random.randint(-30, 30),
+                        'y': center_y + random.randint(-30, 30),
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed - random.uniform(-2, 8),  # 다양한 수직 움직임
+                        'life': 180,  # 3초간 유지
+                        'initial_size': random.choice([
+                            random.randint(3, 6),     # 작은 파편
+                            random.randint(6, 10),    # 중간 파편
+                            random.randint(10, 15),   # 큰 파편
+                            random.randint(15, 25)    # 특대 파편
+                        ]),
+                        'size': 0,  # 실제 크기는 update에서 계산
+                        'z_vel': z_velocity,  # 화면으로 날아오는 속도
+                        'z_pos': 0,  # Z 위치 (0 = 시작점, 값이 클수록 화면에 가까움)
+                        'rotation': random.uniform(0, 360),
+                        'angular_vel': random.uniform(-30, 30),  # 더 빠른 회전
+                        'color': random.choice([
+                            (180, 180, 180),  # 밝은 회색
+                            (150, 150, 150),  # 중간 회색
+                            (120, 120, 120),  # 어두운 회색
+                            (200, 200, 200),  # 매우 밝은 회색
+                            (100, 100, 100),  # 어두운 회색
+                            (160, 140, 120)   # 갈색빛 회색
+                        ]),
+                        'is_fragment': True  # 파편 타입 표시
+                    }
+                    # 초기 크기 설정
+                    particle['size'] = particle['initial_size']
+                    self.crack_particles.append(particle)
+                
+                # 추가 먼지 효과 (더 많이)
+                for _ in range(40):  # 먼지도 2배로 증가
+                    angle = random.uniform(0, 2 * math.pi)
+                    speed = random.uniform(8, 25)
+                    
+                    dust_particle = {
+                        'x': center_x + random.randint(-40, 40),
+                        'y': center_y + random.randint(-40, 40),
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed - 3,
+                        'life': 80,  # 더 오래 지속
+                        'size': random.randint(20, 40),  # 더 큰 먼지
+                        'rotation': 0,
+                        'angular_vel': 0,
+                        'color': (150, 150, 150),  # 회색 먼지
+                        'alpha': 150,  # 더 진한 반투명
+                        'is_dust': True  # 먼지 타입 표시
+                    }
+                    self.crack_particles.append(dust_particle)
+                
+                print("Stage 3: 쿠로미 각성 - 돌 파편 폭발 효과 생성!")
+            
+            # 추가 사운드 효과 타이밍 (각성 중간에 추가 효과음)
+            elif self.kuromi_awakening_timer == 120:  # 1초 후
+                # 추가 파편 생성 (두 번째 폭발)
+                center_x = WIDTH // 2
+                center_y = HEIGHT // 2
+                
+                # 중간 크기 파편들 추가
+                for _ in range(30):
+                    angle = random.uniform(0, 2 * math.pi)
+                    base_speed = random.uniform(20, 35)
+                    
+                    # 방사형으로 더 강하게
+                    radial_boost = 1.0 + abs(math.sin(angle * 4)) * 0.5
+                    speed = base_speed * radial_boost
+                    
+                    particle = {
+                        'x': center_x + random.randint(-20, 20),
+                        'y': center_y + random.randint(-20, 20),
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed - random.uniform(0, 5),
+                        'life': 120,
+                        'initial_size': random.randint(8, 18),
+                        'size': 0,
+                        'z_vel': random.uniform(1.0, 2.5),
+                        'z_pos': 0,
+                        'rotation': random.uniform(0, 360),
+                        'angular_vel': random.uniform(-25, 25),
+                        'color': random.choice([
+                            (190, 190, 190),  # 밝은 회색
+                            (170, 170, 170),  # 중간 회색
+                            (140, 140, 140),  # 어두운 회색
+                        ]),
+                        'is_fragment': True
+                    }
+                    particle['size'] = particle['initial_size']
+                    self.crack_particles.append(particle)
+                
+                # 추가 먼지 폭발
+                for _ in range(15):
+                    angle = random.uniform(0, 2 * math.pi)
+                    speed = random.uniform(15, 30)
+                    dust_particle = {
+                        'x': center_x,
+                        'y': center_y,
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed - 5,
+                        'life': 60,
+                        'size': random.randint(30, 50),
+                        'rotation': 0,
+                        'angular_vel': 0,
+                        'color': (160, 160, 160),
+                        'alpha': 180,
+                        'is_dust': True
+                    }
+                    self.crack_particles.append(dust_particle)
+            
+            # 기존 파티클 생성 (지속적으로)
+            elif self.kuromi_awakening_timer % 10 == 0:  # 10프레임마다
                 # 석회 조각 파티클 생성
                 for _ in range(5):
                     particle = {
@@ -131,9 +264,34 @@ class Stage3MenheraWorld:
                 # 물리 업데이트
                 particle['x'] += particle['vx']
                 particle['y'] += particle['vy']
-                particle['vy'] += 0.3  # 중력
-                particle['vx'] *= 0.98  # 공기 저항
-                particle['rotation'] += random.uniform(-5, 5)
+                
+                # 파편과 먼지를 다르게 처리
+                if particle.get('is_fragment'):
+                    # 돌 파편: 중력 약간, 공기 저항 적음
+                    particle['vy'] += 0.2  # 약한 중력
+                    particle['vx'] *= 0.99  # 적은 공기 저항
+                    
+                    # Z축 업데이트 (화면으로 날아오는 효과)
+                    if 'z_pos' in particle:
+                        particle['z_pos'] += particle.get('z_vel', 1.0)
+                        # Z 위치에 따른 크기 계산 (가까울수록 커짐)
+                        size_multiplier = 1.0 + (particle['z_pos'] / 50.0)  # Z 위치에 따라 크기 증가
+                        particle['size'] = int(particle.get('initial_size', 10) * size_multiplier)
+                        
+                        # 화면 가장자리로 갈수록 속도 증가 (원근감)
+                        if particle['z_pos'] > 30:
+                            particle['vx'] *= 1.02
+                            particle['vy'] *= 1.02
+                else:
+                    # 먼지: 더 많은 중력과 공기 저항
+                    particle['vy'] += 0.5  # 더 강한 중력
+                    particle['vx'] *= 0.95  # 더 많은 공기 저항
+                
+                # 회전 업데이트 (angular_vel이 있는 경우 사용)
+                if 'angular_vel' in particle:
+                    particle['rotation'] += particle['angular_vel']
+                else:
+                    particle['rotation'] += random.uniform(-5, 5)
                 
                 # 수명 감소
                 particle['life'] -= 1
@@ -1591,27 +1749,84 @@ class Stage3MenheraWorld:
         
         # 석회 조각 파티클 그리기 (각성 중일 때)
         if self.crack_particles:
-            for particle in self.crack_particles:
-                alpha = int(255 * (particle['life'] / 60))
-                color = (*particle['color'], alpha)
-                
-                # 회전하는 조각 그리기
-                angle_rad = math.radians(particle['rotation'])
-                size = particle['size']
-                
-                # 삼각형 조각
-                points = []
-                for i in range(3):
-                    angle = angle_rad + (i * 2 * math.pi / 3)
-                    px = particle['x'] + size * math.cos(angle)
-                    py = particle['y'] + size * math.sin(angle)
-                    points.append((px, py))
-                
-                # 알파 블렌딩을 위한 서페이스 생성
-                particle_surface = pygame.Surface((size * 3, size * 3), pygame.SRCALPHA)
-                adjusted_points = [(p[0] - particle['x'] + size * 1.5, p[1] - particle['y'] + size * 1.5) for p in points]
-                pygame.draw.polygon(particle_surface, color, adjusted_points)
-                screen.blit(particle_surface, (particle['x'] - size * 1.5, particle['y'] - size * 1.5))
+            # Z 위치에 따라 정렬 (멀리 있는 것부터 그리기)
+            sorted_particles = sorted(self.crack_particles, key=lambda p: p.get('z_pos', 0))
+            
+            for particle in sorted_particles:
+                # 먼지 파티클인 경우 다르게 처리
+                if particle.get('is_dust'):
+                    alpha = int(particle.get('alpha', 150) * (particle['life'] / 80))
+                    color = (*particle['color'], alpha)
+                    
+                    # 먼지는 원형으로 그리기 (블러 효과)
+                    dust_surface = pygame.Surface((particle['size'] * 3, particle['size'] * 3), pygame.SRCALPHA)
+                    # 여러 층으로 그려서 부드러운 효과
+                    for i in range(3):
+                        layer_alpha = alpha // (i + 1)
+                        layer_size = particle['size'] - i * 3
+                        if layer_size > 0:
+                            pygame.draw.circle(dust_surface, (*particle['color'], layer_alpha), 
+                                             (dust_surface.get_width()//2, dust_surface.get_height()//2), 
+                                             layer_size)
+                    screen.blit(dust_surface, (particle['x'] - dust_surface.get_width()//2, 
+                                             particle['y'] - dust_surface.get_height()//2))
+                elif particle.get('is_fragment'):
+                    # 돌 파편 그리기
+                    # Z 위치에 따른 알파값 조정 (가까울수록 선명)
+                    z_alpha_boost = 1.0 + (particle.get('z_pos', 0) / 100.0)
+                    alpha = int(min(255, 255 * (particle['life'] / 180) * z_alpha_boost))
+                    
+                    # 크기에 따른 색상 조정 (큰 파편은 더 밝게)
+                    size = particle['size']
+                    brightness_boost = min(30, int(size / 2))
+                    base_color = particle['color']
+                    color = tuple(min(255, c + brightness_boost) for c in base_color) + (alpha,)
+                    
+                    # 회전하는 조각 그리기
+                    angle_rad = math.radians(particle['rotation'])
+                    
+                    # 불규칙한 돌 조각 모양 (고정된 점 개수 사용)
+                    points = []
+                    num_points = 5 + (hash(str(particle['x']) + str(particle['y'])) % 3)  # 5-7각형
+                    for i in range(num_points):
+                        # 각 파티클마다 고유한 모양 유지
+                        angle_offset = (hash(str(particle['x']) + str(i)) % 100) / 100.0 * 0.5 - 0.25
+                        angle = angle_rad + (i * 2 * math.pi / num_points) + angle_offset
+                        dist_var = 0.8 + (hash(str(particle['y']) + str(i)) % 100) / 200.0  # 0.8-1.3
+                        dist = size * dist_var
+                        px = particle['x'] + dist * math.cos(angle)
+                        py = particle['y'] + dist * math.sin(angle)
+                        points.append((px, py))
+                    
+                    if len(points) >= 3:  # 최소 3개 점이 있어야 폴리곤 그리기 가능
+                        # 알파 블렌딩을 위한 서페이스 생성
+                        surface_size = int(size * 4)
+                        particle_surface = pygame.Surface((surface_size, surface_size), pygame.SRCALPHA)
+                        adjusted_points = [(p[0] - particle['x'] + surface_size//2, 
+                                          p[1] - particle['y'] + surface_size//2) for p in points]
+                        
+                        # 그림자 효과 (3D 깊이감)
+                        if particle.get('z_pos', 0) > 20:
+                            shadow_offset = int(particle['z_pos'] / 10)
+                            shadow_points = [(p[0] + shadow_offset, p[1] + shadow_offset) for p in adjusted_points]
+                            shadow_alpha = int(alpha * 0.3)
+                            pygame.draw.polygon(particle_surface, (0, 0, 0, shadow_alpha), shadow_points)
+                        
+                        # 돌 파편 본체
+                        pygame.draw.polygon(particle_surface, color, adjusted_points)
+                        
+                        # 하이라이트 효과 (입체감)
+                        if size > 8:
+                            highlight_color = tuple(min(255, c + 50) for c in base_color) + (int(alpha * 0.6),)
+                            highlight_points = adjusted_points[:3]  # 일부만 하이라이트
+                            pygame.draw.polygon(particle_surface, highlight_color, highlight_points)
+                        
+                        # 테두리 추가 (더 어두운 색)
+                        darker_color = tuple(max(0, c - 40) for c in base_color) + (alpha,)
+                        pygame.draw.polygon(particle_surface, darker_color, adjusted_points, 2)
+                        
+                        screen.blit(particle_surface, (particle['x'] - surface_size//2, 
+                                                     particle['y'] - surface_size//2))
         
         # 테두리 (마지막에 그려서 위에 표시)
         self.draw_border(screen)

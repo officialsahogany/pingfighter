@@ -926,7 +926,7 @@ HONGRYUN_MAX_HITS = game_state.HONGRYUN_MAX_HITS
 CURRENT_BG = STAGE1_BG  # 현재 배경 기본값은 Stage 1
 
 # 볼륨 설정 (0.0 ~ 1.0)
-bgm_volume = 0.5  # BGM 볼륨 기본값 50%
+bgm_volume = 0.4  # BGM 볼륨 기본값 40%
 sfx_volume = 0.7  # 효과음 볼륨 기본값 70%
 
 boss_names = {
@@ -2589,11 +2589,23 @@ def go_to_next_round():
         print("Stage 3: 쿠로미 궤적 이펙트 초기화 (go_to_next_round)")
         
         # 플레이어가 2점을 획득했고 아직 각성하지 않았다면 각성 시작
-        global animated_bg_stage3
+        global animated_bg_stage3, screen_shake_timer, screen_shake_intensity
         if round_wins >= 2 and animated_bg_stage3 and animated_bg_stage3.kuromi_petrified and not animated_bg_stage3.kuromi_awakened:
             animated_bg_stage3.kuromi_awakening = True
             animated_bg_stage3.kuromi_awakening_timer = 180  # 3초간 각성 애니메이션
-            print("Stage 3: 쿠로미 각성 시작!")
+            # 화면 지진 효과 시작
+            screen_shake_timer = 180  # 3초간 화면 흔들림
+            screen_shake_intensity = 15  # 강한 흔들림
+            
+            # 돌 깨지는 사운드 재생
+            try:
+                SOUND_STONEBREAK_LARGE.play()  # 큰 돌 깨지는 사운드
+                # 약간의 딜레이 후 추가 사운드
+                pygame.time.set_timer(pygame.USEREVENT + 10, 500)  # 0.5초 후 이벤트
+            except:
+                pass
+            
+            print("Stage 3: 쿠로미 각성 시작! 화면 지진 효과 활성화")
     
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 이월 방지)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer

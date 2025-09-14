@@ -24,7 +24,7 @@ class BGMManager:
     def __init__(self):
         """BGM 매니저 초기화"""
         self.current_bgm = None
-        self.volume = 0.5  # 기본 볼륨 50%
+        self.volume = 0.4  # 기본 볼륨 40%
         self.bgm_paths = {
             'intro': resource_path(os.path.join("bgm", "introbgm.mp3")),
             'menu': resource_path(os.path.join("bgm", "introbgm.mp3")),  # 메뉴도 같은 BGM 사용
