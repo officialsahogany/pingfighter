@@ -720,9 +720,9 @@ class Stage3MenheraWorld:
                     self.draw_mini_star(screen, star_x, star_y, 3, 
                                       (*WHITE, int(255 * (sparkle - 0.8) * 5)))
             
-            # 오른쪽 눈
-            right_eye_x = x + eye_spacing + face_distortion_x
-            right_eye_y = eye_y
+        # 오른쪽 눈
+        right_eye_x = x + eye_spacing + face_distortion_x
+        right_eye_y = eye_y + emotion_y_offset
             
             # 눈 테두리
             pygame.draw.ellipse(screen, SOFT_BLACK,
@@ -768,6 +768,13 @@ class Stage3MenheraWorld:
                 star_y = pupil_y - pupil_size//2
                 self.draw_mini_star(screen, star_x, star_y, 3,
                                   (*WHITE, int(255 * (sparkle - 0.8) * 5)))
+        
+        # 슬픔 감정일 때 눈물 추가
+        if self.emotional_phase == 2 and not self.kuromi_petrified:  # 슬픔
+            # 왼쪽 눈물
+            pygame.draw.circle(screen, BABY_BLUE, (left_eye_x, left_eye_y + eye_height//2 + 3), 3)
+            # 오른쪽 눈물
+            pygame.draw.circle(screen, BABY_BLUE, (right_eye_x, right_eye_y + eye_height//2 + 3), 3)
         
         
         # 🌸 미니 코 (더 귀여운 하트 모양!)
