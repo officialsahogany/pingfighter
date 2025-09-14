@@ -33161,6 +33161,11 @@ def main(stage_num, new_boss_mode=False):
         animated_bg_stage2.boss_red_tint = 0
         animated_bg_stage2.boss_shake_offset_y = 0
         print("Stage 2:")
+    
+    # Stage 4 배경 초기화 (사원 복구, 달 정상화)
+    if animated_bg_stage4:
+        animated_bg_stage4.reset()
+        print("Stage 4: 배경 초기화 완료")
     #  체력형 보스 스테이지에서는 패배 조건을 5점으로 설정
     global win_goal, boss_current_health, boss_displayed_health, boss_damage_preview_health
     if current_stage in boss_health_stages:

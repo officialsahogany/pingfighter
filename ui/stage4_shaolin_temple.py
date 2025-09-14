@@ -3296,6 +3296,72 @@ class ShaolinTempleBackground:
                     # Remove fragment after impact
                     self.moon_fragments.remove(fragment)
     
+    def reset(self):
+        """Reset stage 4 background to initial state"""
+        # Reset temple destruction state
+        self.temple_destroyed = False
+        self.destruction_animation_active = False
+        self.destruction_phase = 0
+        self.destruction_timer = 0
+        self.moon_red_intensity = 0.0
+        self.red_light_alpha = 0
+        self.collapse_offset = 0
+        self.collapse_debris = []
+        self.screen_shake_offset = [0, 0]
+        self.screen_shake_intensity = 0
+        self.falling_lanterns = []
+        self.ground_fires = []
+        
+        # Reset moon crater fragments
+        self.moon_fragments = []
+        self.moon_fragment_timer = 0
+        self.moon_fragment_interval = random.randint(1200, 1800)
+        self.moon_fragment_active = False
+        
+        # Reset moon pulsing
+        self.moon_pulse_timer = 0
+        self.moon_pulse_active = False
+        self.moon_pulse_scale = 1.0
+        
+        # Reset performance mode
+        self.performance_mode = False
+        self.fps_counter = 0
+        
+        # Clear caches
+        self.red_moon_cache = None
+        self.red_moon_cache_intensity = -1
+        self.red_moon_cache_scale = -1
+        self.red_moon_update_counter = 0
+        
+        # Reset monk animations
+        for monk_id in self.monk_hit_effects:
+            self.monk_hit_effects[monk_id] = {
+                'timer': 0,
+                'intensity': 0,
+                'direction': 0
+            }
+        
+        # Clear hit effects
+        self.monk_fragments.clear()
+        
+        # Reset crows positions
+        for crow in self.crows:
+            crow['reset_timer'] = 30  # Will respawn at original position
+        
+        # Clear crow fragments
+        self.crow_fragments.clear()
+        
+        # Reset animated elements
+        self.lanterns = self._create_lanterns()
+        self.incense_particles = []
+        self.floating_leaves = self._create_leaves()
+        self.bell_swing = 0
+        
+        # Force recreation of static surface
+        self.static_surface = None
+        
+        print("Stage 4: Shaolin Temple background reset to initial state")
+    
     def _draw_moon_fragments(self, surface: pygame.Surface):
         """Draw moon crater fragments"""
         for fragment in self.moon_fragments:
