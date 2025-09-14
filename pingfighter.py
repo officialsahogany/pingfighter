@@ -30381,16 +30381,16 @@ def handle_ball():
                 boss_red_intensity = 0
         elif not new_boss_mode_active and current_stage == 4:
             # 명상 발동 체크 (20% 확률로 증가, 자기장과 동시 발동 가능)
-            if not meditation_active and not stage4_magnetic_active and boss_special_gauge_stage4 >= 100 and random.random() <= 0.20:
+            if not meditation_active and not stage4_magnetic_active and boss_special_gauge_stage4 >= 150 and random.random() <= 0.20:
                 activate_meditation()
-                # 명상 발동시 게이지 100 차감
-                boss_special_gauge_stage4 -= 100
+                # 명상 발동시 게이지 150 차감 (100 → 150)
+                boss_special_gauge_stage4 -= 150
                 if boss_special_gauge_stage4 < 0:
                     boss_special_gauge_stage4 = 0
                 boss_special_ready_stage4 = False  # 게이지 차감 시 준비 상태 해제
             # 자기장 게이지 충전 (명상과 독립적으로 처리)
             elif not stage4_magnetic_active and not meditation_active:
-                boss_special_gauge_stage4 += 60  # 50 → 60 (충전량 상향)
+                boss_special_gauge_stage4 += 70  # 60 → 70 (충전량 추가 상향)
                 if boss_special_gauge_stage4 >= 500:  # 250 → 500 (최대 게이지 상향)
                     boss_special_gauge_stage4 = 500
                     boss_special_ready_stage4 = True
