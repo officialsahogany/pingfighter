@@ -34888,6 +34888,8 @@ def main(stage_num, new_boss_mode=False):
     # 군인 총알 시스템
     global soldier_bullets, soldier_gun_cooldown, soldier_control_lock_timer, soldier_gun_drawn
     global selected_character_type
+    # 군인 휘두르기 애니메이션 시스템
+    global soldier_swing_active, soldier_swing_timer
     # 파워스매싱 정지 시간 관리
     global power_smashing_freeze_start_time, power_smashing_freeze_active, power_smashing_freeze_duration
     global power_smashing_parabola_active, power_smashing_start_time
