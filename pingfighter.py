@@ -16986,6 +16986,10 @@ tutorial_dash_helper_start_time = 0
 tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
 tutorial_dash_completion_dialogue_shown = False  # 대쉬 3회 완료 대화 표시 여부
 
+# 튜토리얼 Chapter 1 대화 플래그
+tutorial_boss_hit_dialogue_shown = False  # 보스가 공을 맞았을 때 대화 표시 여부
+tutorial_player_hit_dialogue_shown = False  # 플레이어가 공을 맞았을 때 대화 표시 여부
+
 # 튜토리얼 챕터별 최대 게이지 설정
 tutorial_chapter1_max_gauge = None  # Chapter 1 (BASIC) 최대 게이지 (100)
 tutorial_chapter2_max_gauge = None  # Chapter 2 (DASH) 최대 게이지 (300)
@@ -20293,13 +20297,14 @@ def draw_tutorial_ui():
     """튜토리얼 UI 표시 (타격 카운터 및 안내 메시지)"""
     global tutorial_gauge_tutorial_shown, tutorial_speed_dialogue_shown
     global tutorial_player_hit_count, tutorial_displayed_hit_count
+    global tutorial_current_chapter
     
     # 튜토리얼 진행도 바 표시 (사용자 요청으로 제거)
     # if current_stage == 50:
     #     draw_tutorial_progress_bar()
     
-    # 게이지 튜토리얼 이후, 속도 튜토리얼 전에만 표시
-    if current_stage == 50 and tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
+    # Chapter 1에서 게이지 튜토리얼 이후, 속도 튜토리얼 전에만 표시
+    if current_stage == 50 and tutorial_current_chapter == 1 and tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
         # 점진적 애니메이션 업데이트
         if tutorial_displayed_hit_count < tutorial_player_hit_count:
             # 부드러운 애니메이션 속도 (프레임당 0.05 증가)
@@ -30145,9 +30150,9 @@ def handle_ball():
                     return
         except Exception as e:
             print(f"⚠️ 스마트폰 사전 발동 실패: {e}")
-        # 튜토리얼 스테이지 특별 처리
-        if current_stage == 50:
-            print("튜토리얼: 플레이어가 공을 놓침 - 조교 경고 대화")
+        # 튜토리얼 스테이지 특별 처리 (모든 챕터에서 적용)
+        if current_stage == 50 and tutorial_practice_mode:
+            print(f"튜토리얼: 플레이어가 공을 놓침 - Chapter {tutorial_current_chapter}")
             # 조교 실수 대화 표시 (점수는 그대로)
             show_tutorial_miss_dialogue()
             # 라운드 리셋하여 다시 서브
@@ -33692,7 +33697,7 @@ def main(stage_num, new_boss_mode=False):
     # 관리자 단축키 변수 초기화
     global nine_just_pressed, last_nine_state
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge
-    global tutorial_skip_chapter2_init
+    global tutorial_skip_chapter2_init, tutorial_skip_chapter3_init
     global tutorial_drive_reminder_active  # 드라이브 알림창 전역 변수
     global tutorial_drive_counter_active  # 드라이브 카운터 전역 변수
     global tutorial_drive_completion_dialogue_shown  # 드라이브 완료 대화 표시 여부
@@ -33700,6 +33705,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending  # 튜토리얼 대쉬 pending 플래그
     global tutorial_half_dash_count, tutorial_consecutive_dash_count  # 튜토리얼 대쉬 카운트
     global tutorial_dash_counter_active  # 튜토리얼 대쉬 관련
+    global tutorial_dash_helper_active, tutorial_dash_helper_start_time  # 튜토리얼 대쉬 도우미
     global tutorial_current_chapter  # 튜토리얼 현재 챕터
     global tutorial_needs_power_practice, tutorial_power_practice_shown  # Chapter 4 파워스매싱 튜토리얼
     global tutorial_power_helper_dialogue_shown, tutorial_power_completion_dialogue_shown  # Chapter 4 대화 플래그
@@ -33718,6 +33724,10 @@ def main(stage_num, new_boss_mode=False):
     # 챕터2 상태 유지 플래그 초기화 (존재하지 않을 경우)
     if 'tutorial_skip_chapter2_init' not in globals():
         tutorial_skip_chapter2_init = False
+    
+    # 챕터3 상태 유지 플래그 초기화 (존재하지 않을 경우)
+    if 'tutorial_skip_chapter3_init' not in globals():
+        tutorial_skip_chapter3_init = False
     
     # ========== 마이그레이션 모드 초기화 ==========
     global migration_bridge
@@ -34074,6 +34084,10 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_needs_dash_practice, tutorial_dash_practice_shown  # 대쉬 튜토리얼 관련 변수
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown  # 드라이브 튜토리얼 관련 변수
     global tutorial_drive_chapter_max_gauge  # 드라이브 챕터 최대 게이지 오버라이드
+    global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
+    global tutorial_player_hit_count, tutorial_speed_dialogue_shown, tutorial_displayed_hit_count
+    global tutorial_dash_count, tutorial_displayed_dash_count, tutorial_dash_counter_active
+    global tutorial_serve_helper_active
     
     # 스테이지 50 (튜토리얼) 시작 시 항상 모든 상태 초기화
     # 8번키 스킵 후 재시작 등의 상황에서 올바른 초기화 보장
@@ -34087,18 +34101,33 @@ def main(stage_num, new_boss_mode=False):
             # 챕터2 상태 유지 플래그 해제
             tutorial_skip_chapter2_init = False
             
-            # 챕터2에서 필요한 상태들만 유지하고 나머지는 초기화
+            # 전역 변수 선언 추가
+            global tutorial_boss_hit_dialogue_shown, tutorial_player_hit_dialogue_shown
+            
+            # Chapter 1 관련 상태를 모두 완료 처리
             tutorial_dialogue_shown = True  # Chapter 1 완료 상태 유지
             tutorial_practice_mode = False  # 실습 모드 플래그
-            tutorial_serve_instruction_shown = False
-            tutorial_boss_returned = False
-            tutorial_boss_return_dialogue_shown = False
+            tutorial_serve_instruction_shown = True  # 서브 지시 완료
+            tutorial_boss_returned = True  # 보스가 공을 받아침
+            tutorial_boss_return_dialogue_shown = True  # 보스 대화 완료
             tutorial_pause_for_dialogue = False
             tutorial_saved_ball_vel = [0, 0]
-            tutorial_serve_helper_shown = False
+            tutorial_serve_helper_shown = True  # 서브 도우미 완료
             tutorial_serve_helper_active = False
             tutorial_serve_reminder_active = False
             tutorial_wait_for_first_serve = True
+            # Chapter 1 카운터 완료 처리
+            tutorial_player_hit_count = 6  # 카운터 팁 완료
+            tutorial_displayed_hit_count = 6.0
+            tutorial_player_returned_ball = True  # 플레이어가 공을 받아침
+            tutorial_gauge_tutorial_shown = True  # 게이지 튜토리얼 완료
+            tutorial_speed_dialogue_shown = True  # 속도 대화 완료
+            
+            # Chapter 1 대화 플래그도 완료 처리 (중요!)
+            tutorial_boss_hit_dialogue_shown = True  # 보스 히트 대화 완료
+            tutorial_player_hit_dialogue_shown = True  # 플레이어 히트 대화 완료
+            
+            # Chapter 2 설정
             tutorial_current_chapter = 2  # Chapter 2로 설정
             tutorial_needs_dash_practice = True  # 챕터2 대쉬 연습 상태 유지
             tutorial_dash_practice_shown = False  # 대쉬 연습 대화 다시 표시
@@ -34109,14 +34138,88 @@ def main(stage_num, new_boss_mode=False):
             tutorial_drive_practice_shown = False
             tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 초기화
         else:
-            # 초기 튜토리얼 시작 - 모든 변수 초기화
-            # 개발자용: 4번 키를 누르고 있으면 Chapter 4에서 시작
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_4]:
-                tutorial_current_chapter = 4  # Chapter 4로 바로 시작
-                print("🔍 DEBUG: 4번키 감지 - Chapter 4에서 시작")
-                # Chapter 4 관련 변수 초기화
-                tutorial_needs_power_practice = True
+            # 챕터3 상태 유지 플래그 확인
+            skip_chapter3_init = 'tutorial_skip_chapter3_init' in globals() and tutorial_skip_chapter3_init
+            
+            if skip_chapter3_init:
+                # 전역 변수 선언 먼저 (할당 전에 선언해야 함)
+                global tutorial_half_dash_count, tutorial_consecutive_dash_count
+                global tutorial_dash_gauge_dialogue_shown, tutorial_dash_helper_active
+                global tutorial_left_drive_count, tutorial_right_drive_count
+                global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
+                global tutorial_displayed_drive_count
+                global tutorial_practice_bonus_token, dashholder_obtained
+                global tutorial_bonus_token_message
+                global rolling_charges, special_gauge, displayed_gauge
+                
+                # 챕터3 재시작 - 챕터3 관련 상태만 유지하고 나머지는 초기화
+                print("🔄 챕터3 상태 유지하며 부분 초기화")
+                # 챕터3 상태 유지 플래그 해제
+                tutorial_skip_chapter3_init = False
+                
+                # Chapter 2 관련 상태를 모두 완료 처리
+                tutorial_dialogue_shown = True  # Chapter 1 완료 상태 유지
+                tutorial_practice_mode = True  # 실습 모드 플래그 유지 (중요!)
+                tutorial_serve_instruction_shown = True  # 서브 지시 완료
+                tutorial_boss_returned = True  # 보스가 공을 받아침
+                tutorial_boss_return_dialogue_shown = True  # 보스 대화 완료
+                tutorial_boss_hit_dialogue_shown = True  # 보스 히트 대화 완료
+                tutorial_player_hit_dialogue_shown = True  # 플레이어 히트 대화 완료
+                tutorial_player_returned_ball = True  # 플레이어가 공을 받아침
+                tutorial_gauge_tutorial_shown = True  # 게이지 튜토리얼 완료
+                tutorial_speed_dialogue_shown = True  # 속도 대화 완료
+                tutorial_player_hit_count = 6  # Chapter 1 카운터 완료
+                tutorial_displayed_hit_count = 6.0
+                tutorial_serve_helper_shown = True  # 서브 도우미 완료
+                tutorial_serve_helper_active = False
+                tutorial_serve_reminder_active = False
+                tutorial_wait_for_first_serve = False
+                
+                # Chapter 2 대쉬 관련 상태를 모두 완료 처리
+                tutorial_needs_dash_practice = False  # 대쉬 연습 완료
+                tutorial_dash_practice_shown = True  # 대쉬 연습 대화 완료
+                tutorial_dash_token_dialogue_shown = True  # 토큰 설명 완료
+                tutorial_dash_completion_dialogue_shown = True  # 대쉬 완료 대화 완료
+                tutorial_dash_gauge_dialogue_shown = True  # 게이지 대화 완료
+                tutorial_dash_count = 2  # 일반 대쉬 2회 완료
+                tutorial_half_dash_count = 2  # 하프대쉬 2회 완료
+                tutorial_consecutive_dash_count = 1  # 연속대쉬 1회 완료
+                tutorial_displayed_dash_count = 5.0  # 총 5회 표시
+                tutorial_dash_counter_active = False  # 대쉬 카운터 비활성화
+                tutorial_dash_helper_active = False  # 대쉬 도우미 비활성화
+                
+                # Chapter 3로 설정
+                tutorial_current_chapter = 3
+                
+                # Chapter 3 드라이브 관련 변수 초기화
+                tutorial_needs_drive_practice = True  # 드라이브 연습 필요
+                tutorial_drive_practice_shown = False  # 드라이브 대화 아직 안보임
+                tutorial_drive_chapter_max_gauge = 300  # 드라이브 챕터 최대 게이지
+                tutorial_drive_helper_dialogue_shown = False
+                tutorial_drive_counter_active = False
+                tutorial_drive_count = 0
+                tutorial_left_drive_count = 0
+                tutorial_right_drive_count = 0
+                tutorial_displayed_drive_count = 0.0
+                tutorial_displayed_left_drive_count = 0.0
+                tutorial_displayed_right_drive_count = 0.0
+                tutorial_drive_completion_dialogue_shown = False
+                tutorial_drive_reminder_active = False
+                
+                # Chapter 2 종료 시 연습용 대쉬토큰 제거
+                if 'tutorial_practice_bonus_token' in globals() and tutorial_practice_bonus_token:
+                    rolling_charges = 1  # 원래대로 1개로 복원
+                    tutorial_practice_bonus_token = False
+                    dashholder_obtained = False  # 대쉬홀더 효과 제거
+                    tutorial_bonus_token_message = None
+                    print("튜토리얼: Chapter 3 시작 - 연습용 대쉬토큰 제거")
+                
+                # 게이지 초기화
+                special_gauge = 0
+                displayed_gauge = 0
+                
+                # Chapter 4 관련 변수는 기본값으로 초기화
+                tutorial_needs_power_practice = False
                 tutorial_power_practice_shown = False
                 tutorial_power_helper_dialogue_shown = False
                 tutorial_power_completion_dialogue_shown = False
@@ -34128,72 +34231,93 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_power_left_done = False
                 tutorial_power_center_done = False
                 tutorial_power_right_done = False
-                chapter4_dialogue_completed = False
-                chapter4_first_hit_after_dialogue = False
-                chapter4_power_helper_shown = False
-                chapter4_power_helper_timer = 0
-                chapter4_serve_reminder_active = False
-                chapter4_serve_reminder_timer = 0
-                # 챕터별 게이지 오버라이드 해제 (Chapter 4는 500 고정)
-                tutorial_chapter1_max_gauge = None
-                tutorial_chapter2_max_gauge = None
-                tutorial_drive_chapter_max_gauge = None
+                
+                print("[OK] Chapter 3 시작 상태로 초기화 완료")
             else:
-                tutorial_current_chapter = 1  # Chapter 1로 초기화
-            tutorial_dialogue_shown = False
-            tutorial_practice_mode = False  # 실습 모드 플래그
-            tutorial_serve_instruction_shown = False  # 서브 지시 표시 플래그
-            tutorial_boss_returned = False  # 보스가 서브를 받아쳤는지 확인
-            tutorial_boss_return_dialogue_shown = False  # 보스가 서브를 받아친 후 대화 표시 여부
-            tutorial_pause_for_dialogue = False  # 대화를 위한 일시정지 상태
-            tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
-            tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
-            tutorial_serve_helper_active = False  # 서브 도우미 현재 활성 상태
-            tutorial_serve_reminder_active = False  # 서브 알림창 활성 상태 (인트로 후)
-            # tutorial_drive_reminder_active는 전역 변수이므로 여기서 재선언하지 않음
-            tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
-            tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
-            tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
-            tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
-            tutorial_dash_completion_dialogue_shown = False  # 대쉬 완료 대화 표시 여부
-            tutorial_drive_chapter_max_gauge = None  # 드라이브 챕터 최대 게이지 임시 오버라이드
-            tutorial_needs_drive_practice = False  # 드라이브 연습이 필요한지 여부
-            tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
-            tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 표시 여부
+                # 초기 튜토리얼 시작 - 모든 변수 초기화
+                # 개발자용: 4번 키를 누르고 있으면 Chapter 4에서 시작
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_4]:
+                    tutorial_current_chapter = 4  # Chapter 4로 바로 시작
+                    print("🔍 DEBUG: 4번키 감지 - Chapter 4에서 시작")
+                    # Chapter 4 관련 변수 초기화
+                    tutorial_needs_power_practice = True
+                    tutorial_power_practice_shown = False
+                    tutorial_power_helper_dialogue_shown = False
+                    tutorial_power_completion_dialogue_shown = False
+                    tutorial_power_count = 0
+                    tutorial_displayed_power_count = 0
+                    tutorial_power_counter_active = False
+                    tutorial_power_reminder_active = False
+                    tutorial_power_reminder_timer = 0
+                    tutorial_power_left_done = False
+                    tutorial_power_center_done = False
+                    tutorial_power_right_done = False
+                    chapter4_dialogue_completed = False
+                    chapter4_first_hit_after_dialogue = False
+                    chapter4_power_helper_shown = False
+                    chapter4_power_helper_timer = 0
+                    chapter4_serve_reminder_active = False
+                    chapter4_serve_reminder_timer = 0
+                    # 챕터별 게이지 오버라이드 해제 (Chapter 4는 500 고정)
+                    tutorial_chapter1_max_gauge = None
+                    tutorial_chapter2_max_gauge = None
+                    tutorial_drive_chapter_max_gauge = None
+                else:
+                    tutorial_current_chapter = 1  # Chapter 1로 초기화
+                tutorial_dialogue_shown = False
+                tutorial_practice_mode = False  # 실습 모드 플래그
+                tutorial_serve_instruction_shown = False  # 서브 지시 표시 플래그
+                tutorial_boss_returned = False  # 보스가 서브를 받아쳤는지 확인
+                tutorial_boss_return_dialogue_shown = False  # 보스가 서브를 받아친 후 대화 표시 여부
+                tutorial_boss_hit_dialogue_shown = False  # 보스가 공을 맞았을 때 대화 표시 여부
+                tutorial_player_hit_dialogue_shown = False  # 플레이어가 공을 맞았을 때 대화 표시 여부
+                tutorial_pause_for_dialogue = False  # 대화를 위한 일시정지 상태
+                tutorial_saved_ball_vel = [0, 0]  # 일시정지 전 공 속도 저장용
+                tutorial_serve_helper_shown = False  # 서브 도우미 알림 표시 여부
+                tutorial_serve_helper_active = False  # 서브 도우미 현재 활성 상태
+                tutorial_serve_reminder_active = False  # 서브 알림창 활성 상태 (인트로 후)
+                # tutorial_drive_reminder_active는 전역 변수이므로 여기서 재선언하지 않음
+                tutorial_wait_for_first_serve = True  # 첫 서브를 기다리는 상태 (도우미 이후)
+                tutorial_needs_dash_practice = False  # 대쉬 연습이 필요한지 여부
+                tutorial_dash_practice_shown = False  # 대쉬 연습 대화 표시 여부
+                tutorial_dash_token_dialogue_shown = False  # 대쉬 토큰 설명 대화 표시 여부
+                tutorial_dash_completion_dialogue_shown = False  # 대쉬 완료 대화 표시 여부
+                tutorial_drive_chapter_max_gauge = None  # 드라이브 챕터 최대 게이지 임시 오버라이드
+                tutorial_needs_drive_practice = False  # 드라이브 연습이 필요한지 여부
+                tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
+                tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 표시 여부
+                
+                # Chapter 4 파워스매싱 튜토리얼 변수 초기화
+                tutorial_needs_power_practice = False  # 파워스매싱 연습이 필요한지 여부
+                tutorial_power_practice_shown = False  # 파워스매싱 연습 대화 표시 여부
+                tutorial_power_helper_dialogue_shown = False  # 파워스매싱 도우미 대화 표시 여부
+                tutorial_power_completion_dialogue_shown = False  # 파워스매싱 완료 대화 표시 여부
+                tutorial_power_count = 0  # 파워스매싱 성공 횟수
+                tutorial_displayed_power_count = 0  # 화면에 표시되는 애니메이션용 카운트
+                tutorial_power_counter_active = False  # 파워스매싱 카운터 UI 활성화 여부
+                tutorial_power_reminder_active = False  # 파워스매싱 알림창 활성 상태
+                tutorial_power_reminder_timer = 0  # 파워스매싱 알림창 타이머
+                tutorial_power_left_done = False  # 왼쪽 파워스매싱 완료 여부
+                tutorial_power_center_done = False  # 중앙 파워스매싱 완료 여부
+                tutorial_power_right_done = False  # 오른쪽 파워스매싱 완료 여부
+        
+        # skip_chapter2_init과 skip_chapter3_init이 아닌 경우에만 초기화
+        if not skip_chapter2_init and not skip_chapter3_init:
+            # 게이지 및 타격 관련 튜토리얼 변수도 완전 초기화
+            tutorial_player_returned_ball = False  # 플레이어가 조교의 공을 받아쳤는지
+            tutorial_gauge_tutorial_shown = False  # 게이지 튜토리얼 표시 여부
+            tutorial_player_hit_count = 0  # 플레이어가 공을 친 횟수
+            tutorial_displayed_hit_count = 0.0  # 화면에 표시되는 애니메이션용 카운트
+            tutorial_speed_dialogue_shown = False  # 속도 튜토리얼 대화 표시 여부
             
-            # Chapter 4 파워스매싱 튜토리얼 변수 초기화
-            tutorial_needs_power_practice = False  # 파워스매싱 연습이 필요한지 여부
-            tutorial_power_practice_shown = False  # 파워스매싱 연습 대화 표시 여부
-            tutorial_power_helper_dialogue_shown = False  # 파워스매싱 도우미 대화 표시 여부
-            tutorial_power_completion_dialogue_shown = False  # 파워스매싱 완료 대화 표시 여부
-            tutorial_power_count = 0  # 파워스매싱 성공 횟수
-            tutorial_displayed_power_count = 0  # 화면에 표시되는 애니메이션용 카운트
-            tutorial_power_counter_active = False  # 파워스매싱 카운터 UI 활성화 여부
-            tutorial_power_reminder_active = False  # 파워스매싱 알림창 활성 상태
-            tutorial_power_reminder_timer = 0  # 파워스매싱 알림창 타이머
-            tutorial_power_left_done = False  # 왼쪽 파워스매싱 완료 여부
-            tutorial_power_center_done = False  # 중앙 파워스매싱 완료 여부
-            tutorial_power_right_done = False  # 오른쪽 파워스매싱 완료 여부
-        
-        # 게이지 및 속도 튜토리얼 관련 변수
-        global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
-        global tutorial_player_hit_count, tutorial_speed_dialogue_shown, tutorial_displayed_hit_count
-        global tutorial_dash_count, tutorial_displayed_dash_count, tutorial_dash_counter_active
-        
-        # 게이지 및 타격 관련 튜토리얼 변수도 완전 초기화
-        tutorial_player_returned_ball = False  # 플레이어가 조교의 공을 받아쳤는지
-        tutorial_gauge_tutorial_shown = False  # 게이지 튜토리얼 표시 여부
-        tutorial_player_hit_count = 0  # 플레이어가 공을 친 횟수
-        tutorial_displayed_hit_count = 0.0  # 화면에 표시되는 애니메이션용 카운트
-        tutorial_speed_dialogue_shown = False  # 속도 튜토리얼 대화 표시 여부
-        
-        # 대쉬 튜토리얼 변수도 완전 초기화
-        tutorial_dash_count = 0  # 대쉬 성공 횟수
-        tutorial_displayed_dash_count = 0.0  # 화면에 표시되는 애니메이션용 대쉬 카운트
-        tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
-        
-        # 튜토리얼 상태 완전 초기화 완료
-        print("🔄 튜토리얼 상태 완전 초기화됨")
+            # 대쉬 튜토리얼 변수도 완전 초기화
+            tutorial_dash_count = 0  # 대쉬 성공 횟수
+            tutorial_displayed_dash_count = 0.0  # 화면에 표시되는 애니메이션용 대쉬 카운트
+            tutorial_dash_counter_active = False  # 대쉬 카운터 UI 활성화 여부
+            
+            # 튜토리얼 상태 완전 초기화 완료
+            print("🔄 튜토리얼 상태 완전 초기화됨")
     
     if stage_num == 50:
         print("튜토리얼 스테이지 50 시작")
@@ -34270,7 +34394,6 @@ def main(stage_num, new_boss_mode=False):
                 # continue로 메인 루프 계속 진행
             elif dash_dialogue_result:
                 # 대쉬 대화 후 바로 오버레이 도우미 활성화 (서브 도우미와 동일한 방식)
-                global tutorial_dash_helper_active, tutorial_dash_helper_start_time
                 tutorial_dash_helper_active = True
                 tutorial_dash_helper_start_time = pygame.time.get_ticks()
                 tutorial_dash_practice_shown = True
@@ -34432,6 +34555,7 @@ def main(stage_num, new_boss_mode=False):
                 global tutorial_dash_token_dialogue_shown, tutorial_dash_completion_dialogue_shown
                 global tutorial_dash_count, tutorial_displayed_dash_count, tutorial_dash_counter_active
                 global tutorial_dash_gauge_dialogue_shown
+                global tutorial_half_dash_count, tutorial_consecutive_dash_count
                 global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
                 global tutorial_drive_count, tutorial_displayed_drive_count
                 global tutorial_left_drive_count, tutorial_right_drive_count
@@ -34453,11 +34577,14 @@ def main(stage_num, new_boss_mode=False):
                         global tutorial_boss_return_dialogue_shown, tutorial_pause_for_dialogue
                         global tutorial_serve_helper_shown, tutorial_serve_helper_active
                         global tutorial_serve_reminder_active
+                        global tutorial_boss_hit_dialogue_shown, tutorial_player_hit_dialogue_shown
                         tutorial_boss_return_dialogue_shown = True
                         tutorial_pause_for_dialogue = False
                         tutorial_serve_helper_shown = True
                         tutorial_serve_helper_active = False
                         tutorial_serve_reminder_active = False
+                        tutorial_boss_hit_dialogue_shown = True
+                        tutorial_player_hit_dialogue_shown = True
                     except Exception:
                         pass
                     tutorial_player_hit_count = 6  # 카운터 팁 완료
@@ -34469,9 +34596,24 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_dash_gauge_dialogue_shown = True
                     tutorial_dash_token_dialogue_shown = True
                     tutorial_dash_completion_dialogue_shown = True
-                    tutorial_dash_count = 3  # 대쉬 3회 완료
-                    tutorial_displayed_dash_count = 3.0
+                    # Chapter 2 대쉬 카운트 완료 상태로 설정
+                    tutorial_dash_count = 2  # 일반 대쉬 2회
+                    tutorial_half_dash_count = 2  # 하프대쉬 2회
+                    tutorial_consecutive_dash_count = 1  # 연속대쉬 1회
+                    tutorial_displayed_dash_count = 5.0  # 총 5회 (2+2+1)
                     tutorial_dash_counter_active = False  # 카운터 비활성화
+                    # Chapter 2 관련 대화 플래그 완료 처리
+                    try:
+                        global tutorial_dash_reminder_active, tutorial_dash_demonstration_shown
+                        global tutorial_dash_practice_dialogue_shown, tutorial_dash_helper_active
+                        global tutorial_dash_practice_shown
+                        tutorial_dash_reminder_active = False
+                        tutorial_dash_demonstration_shown = True
+                        tutorial_dash_practice_dialogue_shown = True
+                        tutorial_dash_helper_active = False
+                        tutorial_dash_practice_shown = True
+                    except Exception:
+                        pass
                     
                 elif tutorial_current_chapter == 3 or tutorial_needs_drive_practice:
                     # Chapter 3의 모든 진행 사항 완료
@@ -34485,6 +34627,13 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_displayed_left_drive_count = 2.0
                     tutorial_displayed_right_drive_count = 2.0
                     tutorial_drive_counter_active = False  # 카운터 비활성화
+                    # Chapter 3 관련 대화 플래그 완료 처리
+                    try:
+                        global tutorial_drive_practice_dialogue_shown, tutorial_drive_reminder_active
+                        tutorial_drive_practice_dialogue_shown = True
+                        tutorial_drive_reminder_active = False
+                    except Exception:
+                        pass
             
             # 현재 챕터의 모든 진행 사항 완료 처리
             complete_current_chapter_progress()
@@ -34497,72 +34646,16 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 2 완료 요약 화면 표시
                 show_chapter_completion_summary(2)
                 
-                # Chapter 2 종료 시 연습용 대쉬토큰 제거
-                if 'tutorial_practice_bonus_token' in globals() and tutorial_practice_bonus_token:
-                    rolling_charges = 1  # 원래대로 1개로 복원
-                    tutorial_practice_bonus_token = False
-                    print("튜토리얼: Chapter 2 스킵 종료 - 대쉬토큰 1개로 복원")
-                
-                # 챕터 번호 업데이트
-                tutorial_current_chapter = 3
-                
-                # Chapter 2에서 추가된 연습용 대쉬토큰 제거
-                if 'tutorial_practice_bonus_token' in globals() and tutorial_practice_bonus_token:
-                    dashholder_obtained = False  # 대쉬홀더 효과 제거
-                    rolling_charges = 1  # 토큰을 1개로 되돌림
-                    tutorial_practice_bonus_token = False
-                    tutorial_bonus_token_message = None  # 메시지 제거
-                    print("튜토리얼: Chapter 3 시작 - 연습용 대쉬토큰 제거 (토큰 1개로 초기화)")
-                
                 # Chapter 3 타이틀 표시
                 show_chapter_title(3, "DRIVE", "드라이브")
                 
-                # 드라이브 챕터: 플레이어 최대 게이지를 300으로 설정 (Chapter 2와 동일)
-                tutorial_drive_chapter_max_gauge = 300
+                # 챕터3 상태를 유지하기 위한 전역 플래그 설정
+                tutorial_skip_chapter3_init = True
                 
-                # Chapter 3 시작시 게이지 0으로 초기화
-                special_gauge = 0
-                print(f"튜토리얼: Chapter 3 시작 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
+                # 스테이지 50 재시작 (드라이브 튜토리얼로)
+                print("튜토리얼: Chapter 3 - DRIVE 시작, 스테이지 50 재시작")
                 
-                # 대쉬 연습 완료, 드라이브 연습 시작
-                tutorial_needs_dash_practice = False  # 대쉬 연습 완료
-                tutorial_needs_drive_practice = True  # 드라이브 연습 필요
-                tutorial_drive_practice_shown = False  # 드라이브 대화 아직 표시 안됨
-                
-                # 드라이브 관련 변수 초기화
-                tutorial_drive_helper_dialogue_shown = False
-                tutorial_drive_counter_active = False
-                tutorial_drive_count = 0
-                tutorial_left_drive_count = 0
-                tutorial_right_drive_count = 0
-                tutorial_displayed_drive_count = 0.0
-                tutorial_displayed_left_drive_count = 0.0
-                tutorial_displayed_right_drive_count = 0.0
-                tutorial_drive_completion_dialogue_shown = False
-                tutorial_drive_reminder_active = False  # 160 게이지에서 활성화
-                
-                print("[OK] Chapter 3 variables initialized")
-                # 대쉬 카운터 비활성화 (Chapter 3에서는 사용 안함)
-                tutorial_dash_counter_active = False
-                tutorial_dash_count = 0
-                
-                # 게임 계속 진행을 위한 설정
-                reset_round()  # 라운드 리셋
-                tutorial_practice_mode = True  # 실습 모드 재활성화
-                
-                # 공 속도 복원 (대쉬 연습 중 저장한 속도) - 적절한 속도로 설정
-                if 'tutorial_saved_ball_vel' in globals():
-                    # 저장된 속도가 있으면 사용하되, 너무 느리면 적절한 속도로 설정
-                    saved_speed = math.hypot(tutorial_saved_ball_vel[0], tutorial_saved_ball_vel[1])
-                    if saved_speed < 6:  # 저장된 속도가 너무 느리면
-                        # 튜토리얼용 적절한 서브 속도로 설정 (physics_manager와 일치)
-                        ball_vel[0] = random.choice([-2, 2])
-                        ball_vel[1] = 8  # 아래로 향하는 속도
-                        print(f"🎓 Chapter 전환: 저장된 속도({saved_speed:.1f})가 느려서 적절한 속도({math.hypot(ball_vel[0], ball_vel[1]):.1f})로 설정")
-                    else:
-                        ball_vel[0] = tutorial_saved_ball_vel[0]
-                        ball_vel[1] = tutorial_saved_ball_vel[1]
-                        print(f"🎓 Chapter 전환: 저장된 속도({saved_speed:.1f}) 복원")
+                return main(50)  # 스테이지 50으로 다시 시작하여 드라이브 튜토리얼 진행
                 
             elif 'tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None:
                 # Chapter 3 (드라이브) 진행 중 -> Chapter 4로 이동
@@ -34652,6 +34745,11 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 대쉬 챕터 게이지 대화 표시 플래그 리셋
                 main.tutorial_dash_gauge_dialogue_shown = False
+                
+                # 8번 키로 전환 시 Chapter 1의 모든 상태를 완료 처리
+                tutorial_player_hit_count = 6  # 카운터 완료
+                tutorial_displayed_hit_count = 6.0
+                # 대화 플래그는 함수에서 처리됨
                 
                 # 스테이지 50 재시작 (대쉬 튜토리얼로)
                 print("튜토리얼: Chapter 2 - DASH 시작, 스테이지 50 재시작")
