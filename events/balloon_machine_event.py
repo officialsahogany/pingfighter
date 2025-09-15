@@ -35,7 +35,7 @@ class BalloonMachineEvent:
         self.DOOR_OPEN_DELAY = 30  # 0.5초 대기
         self.MACHINE_RISE_TIME = 90  # 1.5초 (기계 등장)
         self.MACHINE_RISE_DELAY = 90  # 1.5초 대기
-        self.SHOOTING_TIME = 60  # 1초 (풍선 발사 - 2~4개 발사 시간)
+        self.SHOOTING_TIME = 90  # 1.5초 (풍선 발사 - 6개 발사 시간)
         self.SHOOTING_DELAY = 90  # 1.5초 대기
         self.MACHINE_LOWER_TIME = 90  # 1.5초 (기계 하강)
         self.MACHINE_LOWER_DELAY = 30  # 0.5초 대기
@@ -70,7 +70,7 @@ class BalloonMachineEvent:
         ]
         
         # Randomization for balloons
-        self.total_balloon_count = 4  # 실제 개수는 activate에서 2~4로 랜덤 설정
+        self.total_balloon_count = 6  # 실제 개수는 activate에서 4~6으로 랜덤 설정
         self.balloon_shoot_order = []  # 랜덤 발사 순서
         self.balloon_shoot_angles = []  # 랜덤 발사 각도
         self.special_balloon_indices = []  # 특별한 풍선이 나올 순서들 (0~2개)
@@ -139,16 +139,16 @@ class BalloonMachineEvent:
         self.balloon_shoot_count = 0  # 발사한 풍선 개수 초기화
         self.init_font()
         
-        # 발사할 풍선 개수를 2~4개 사이에서 랜덤하게 결정
-        self.total_balloon_count = random.randint(2, 4)
+        # 발사할 풍선 개수를 4~6개 사이에서 랜덤하게 결정
+        self.total_balloon_count = random.randint(4, 6)
         
         # 랜덤 발사 순서 생성 (발사할 개수만큼의 인덱스를 섞음)
         self.balloon_shoot_order = list(range(self.total_balloon_count))
         random.shuffle(self.balloon_shoot_order)
         
-        # 특별한 풍선이 나올 순서들을 랜덤하게 결정 (0~1개)
-        # 먼저 개수를 0~1 사이에서 랜덤하게 결정
-        special_count = random.randint(0, min(1, self.total_balloon_count))  # 풍선 개수를 초과하지 않도록
+        # 특별한 풍선이 나올 순서들을 랜덤하게 결정 (0~2개)
+        # 먼저 개수를 0~2 사이에서 랜덤하게 결정
+        special_count = random.randint(0, min(2, self.total_balloon_count))  # 풍선 개수를 초과하지 않도록
         # 중복되지 않게 특별한 풍선 인덱스 선택
         if special_count > 0:
             self.special_balloon_indices = random.sample(range(self.total_balloon_count), special_count)
@@ -456,9 +456,9 @@ class BalloonMachineEvent:
                 pygame.draw.circle(screen, (120, 120, 140, alpha), (int(jx), int(jy)), joint_size)
                 pygame.draw.circle(screen, (180, 180, 200, alpha), (int(jx), int(jy)), joint_size, 2)
         
-        # 발사구 (4개 - 최대 풍선 개수와 일치)
-        for i in range(4):
-            angle = (math.pi * 2 / 4) * i
+        # 발사구 (6개 - 풍선 개수와 일치)
+        for i in range(6):
+            angle = (math.pi * 2 / 6) * i
             barrel_distance = 35 * self.machine_scale
             barrel_x = center_x + math.cos(angle) * barrel_distance
             barrel_y = center_y + math.sin(angle) * barrel_distance

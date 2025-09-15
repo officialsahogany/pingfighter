@@ -9903,7 +9903,7 @@ def draw_stage1_boss_gauge_bar():
     current_gauge = boss_special_gauge  # 현재 게이지
     
     # 게이지바 위치 - 플레이어 게이지바와 같은 크기 (14x100)
-    bar_x = WIDTH - 40  # 플레이어와 같은 x 위치
+    bar_x = WIDTH - 45  # 살짝 왼쪽으로 이동
     bar_y = 50
     bar_width = 14  # 플레이어와 같은 크기
     bar_height = 100  # 플레이어와 같은 크기
@@ -9911,28 +9911,68 @@ def draw_stage1_boss_gauge_bar():
     # 시간 기반 애니메이션
     time_offset = pygame.time.get_ticks() * 0.001
     
-    # 조선시대 용 문양 상단 (왕실 상징)
-    dragon_x = bar_x + bar_width // 2
-    dragon_y = bar_y - 20
-    dragon_size = 10
+    # 한국 전통 태극문양 상단 (회전 애니메이션)
+    taegeuk_x = bar_x + bar_width // 2
+    taegeuk_y = bar_y - 20
+    taegeuk_radius = 12
     
-    # 용의 머리 (둥근 형태)
-    pygame.draw.circle(SCREEN, (200, 150, 50), (dragon_x, dragon_y), dragon_size)
-    pygame.draw.circle(SCREEN, (120, 80, 20), (dragon_x, dragon_y), dragon_size, 2)
+    # 태극 회전 각도
+    rotation_angle = time_offset * 2  # 회전 속도
     
-    # 용의 눈 (움직이는 애니메이션)
-    eye_offset = int(2 * math.sin(time_offset * 2))
-    pygame.draw.circle(SCREEN, (220, 0, 0), (dragon_x - 3 + eye_offset, dragon_y - 2), 2)
-    pygame.draw.circle(SCREEN, (220, 0, 0), (dragon_x + 3 + eye_offset, dragon_y - 2), 2)
+    # 태극 원형 배경 (검은 테두리)
+    pygame.draw.circle(SCREEN, (40, 40, 40), (taegeuk_x, taegeuk_y), taegeuk_radius + 1)
+    pygame.draw.circle(SCREEN, (240, 240, 240), (taegeuk_x, taegeuk_y), taegeuk_radius)
     
-    # 용의 뿔 (위로 뻗은 형태)
-    horn_height = 4 + int(2 * abs(math.sin(time_offset)))
-    pygame.draw.line(SCREEN, (180, 120, 30), 
-                    (dragon_x - 4, dragon_y - dragon_size), 
-                    (dragon_x - 6, dragon_y - dragon_size - horn_height), 3)
-    pygame.draw.line(SCREEN, (180, 120, 30), 
-                    (dragon_x + 4, dragon_y - dragon_size), 
-                    (dragon_x + 6, dragon_y - dragon_size - horn_height), 3)
+    # 태극 빨간색 반원 (양)
+    red_points = []
+    for angle in range(0, 181, 5):  # 상반부 반원
+        rad = math.radians(angle + math.degrees(rotation_angle))
+        x = taegeuk_x + (taegeuk_radius - 1) * math.cos(rad)
+        y = taegeuk_y + (taegeuk_radius - 1) * math.sin(rad)
+        red_points.append((x, y))
+    
+    # S자 곡선을 위한 중간점들 추가
+    for angle in range(0, 181, 5):
+        rad = math.radians(angle + math.degrees(rotation_angle))
+        curve_radius = (taegeuk_radius - 1) * (0.3 + 0.4 * math.sin(math.radians(angle)))
+        x = taegeuk_x - curve_radius * math.cos(rad)
+        y = taegeuk_y + curve_radius * math.sin(rad)
+        red_points.append((x, y))
+    
+    if len(red_points) > 2:
+        pygame.draw.polygon(SCREEN, (220, 50, 50), red_points)
+    
+    # 태극 파란색 반원 (음)
+    blue_points = []
+    for angle in range(181, 361, 5):  # 하반부 반원
+        rad = math.radians(angle + math.degrees(rotation_angle))
+        x = taegeuk_x + (taegeuk_radius - 1) * math.cos(rad)
+        y = taegeuk_y + (taegeuk_radius - 1) * math.sin(rad)
+        blue_points.append((x, y))
+    
+    # S자 곡선을 위한 중간점들 추가
+    for angle in range(181, 361, 5):
+        rad = math.radians(angle + math.degrees(rotation_angle))
+        curve_radius = (taegeuk_radius - 1) * (0.3 + 0.4 * math.sin(math.radians(angle)))
+        x = taegeuk_x - curve_radius * math.cos(rad)
+        y = taegeuk_y + curve_radius * math.sin(rad)
+        blue_points.append((x, y))
+    
+    if len(blue_points) > 2:
+        pygame.draw.polygon(SCREEN, (50, 50, 220), blue_points)
+    
+    # 작은 원점들 (양음 표시)
+    small_circle_radius = 3
+    yang_x = taegeuk_x + int(4 * math.cos(rotation_angle + math.pi/2))
+    yang_y = taegeuk_y + int(4 * math.sin(rotation_angle + math.pi/2))
+    yin_x = taegeuk_x - int(4 * math.cos(rotation_angle + math.pi/2))
+    yin_y = taegeuk_y - int(4 * math.sin(rotation_angle + math.pi/2))
+    
+    pygame.draw.circle(SCREEN, (50, 50, 220), (yang_x, yang_y), small_circle_radius)  # 양에 음점
+    pygame.draw.circle(SCREEN, (220, 50, 50), (yin_x, yin_y), small_circle_radius)   # 음에 양점
+    
+    # 태극 외곽 흰색 원형 테두리
+    pygame.draw.circle(SCREEN, (255, 255, 255), (taegeuk_x, taegeuk_y), taegeuk_radius + 1, 2)
     
     # 조선 궁궐 기둥 스타일 프레임
     # 기둥 상단 (공포)
@@ -9959,17 +9999,10 @@ def draw_stage1_boss_gauge_bar():
     pygame.draw.polygon(SCREEN, (160, 100, 40), pillar_bottom)
     pygame.draw.polygon(SCREEN, (100, 60, 20), pillar_bottom, 2)
     
-    # 메인 기둥 몸체 (깔끔한 목재 질감)
+    # 메인 기둥 몸체 (검은색 배경 - 깔끔한 단색)
     main_pillar = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
-    pygame.draw.rect(SCREEN, (200, 160, 110), main_pillar)  # 더 밝고 깔끔한 목재색
-    pygame.draw.rect(SCREEN, (140, 100, 60), main_pillar, 1)  # 얇은 테두리
-    
-    # 깔끔한 목재 결 패턴 (최소화)
-    for i in range(0, bar_height, 12):  # 간격 넓혀서 깔끔하게
-        wood_alpha = 25 + int(10 * math.sin(i * 0.1 + time_offset * 0.3))
-        pygame.draw.line(SCREEN, (180, 140, 90, wood_alpha), 
-                        (bar_x + 1, bar_y + i), 
-                        (bar_x + bar_width - 1, bar_y + i), 1)
+    pygame.draw.rect(SCREEN, (25, 25, 25), main_pillar)  # 검은색 배경
+    pygame.draw.rect(SCREEN, (140, 100, 60), main_pillar, 1)  # 황금 테두리
     
     # 필살기 게이지 채우기 (깔끔한 황금 스타일)
     if current_gauge > 0:
@@ -10033,12 +10066,6 @@ def draw_stage1_boss_gauge_bar():
                         (feather_x + i * 2 - 2, feather_y), 
                         (feather_x + i * 2 - 2 + feather_offset, feather_y - 6), 2)
     
-    # 보스 이름 표시 (조선 서예체 느낌)
-    boss_name_font = FontStyle.small()
-    boss_name = "조교"
-    name_surface = boss_name_font.render(boss_name, True, (100, 60, 20))
-    name_rect = name_surface.get_rect(centerx=bar_x + bar_width // 2, bottom=bar_y - 35)
-    SCREEN.blit(name_surface, name_rect)
     
     # 게이지 수치 표시 (한문 느낌)
     gauge_font = FontStyle.tiny()
@@ -10065,7 +10092,7 @@ def draw_player_gauge():
     global gauge_charge_animation_timer, gauge_charge_animation_amount  # 충전 애니메이션
     # 필살기 게이지바 위치와 크기 - 엣지있는 주인공 스타일
     gauge_x = WIDTH - 40  # 오른쪽에서 40px
-    gauge_y = HEIGHT - 180  # 하단에서 180px 위
+    gauge_y = HEIGHT - 200  # 하단에서 200px 위 (살짝 조정)
     gauge_width = 14  # 더 얇게
     gauge_height = 100  # 높이
     time_now = pygame.time.get_ticks()
@@ -10084,6 +10111,100 @@ def draw_player_gauge():
     ]
     draw.polygon((80, 90, 100), hex_top)
     draw.polygon((180, 190, 200), hex_top, 2)
+    
+    # 스매셔 엠블럼 애니메이션 상단
+    emblem_x = gauge_x + gauge_width // 2
+    emblem_y = gauge_y - 30
+    
+    # 애니메이션 효과
+    pulse_scale = 1.0 + math.sin(time_now * 0.003) * 0.1  # 펄스 효과
+    rotation_angle = time_now * 0.001  # 천천히 회전
+    glow_intensity = abs(math.sin(time_now * 0.002))  # 빛나는 효과
+    
+    # 엠블럼 크기
+    emblem_radius = 15
+    
+    # 배경 원형 글로우 효과
+    for i in range(3):
+        glow_radius = emblem_radius + (i + 1) * 2  # 3에서 2로 줄임
+        alpha = int(60 - i * 20) * glow_intensity  # 알파값도 조정
+        glow_color = (100, 150, 255, alpha)
+        pygame.draw.circle(SCREEN, glow_color[:3], (emblem_x, emblem_y), int(glow_radius * pulse_scale))
+    
+    # 메인 엠블럼 원형 베이스
+    base_color = (40, 50, 80)
+    border_color = (150, 180, 255)
+    pygame.draw.circle(SCREEN, base_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale))
+    pygame.draw.circle(SCREEN, border_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale), 2)
+    
+    # 스매셔 심볼 - 번개 모양
+    lightning_points = []
+    
+    # 번개 패턴 정의 (스매시의 파워를 상징)
+    base_points = [
+        (-8, -10),  # 상단 왼쪽
+        (-2, -4),   # 중간 왼쪽
+        (-5, 0),    # 중앙 왼쪽
+        (2, -2),    # 중앙
+        (-1, 2),    # 중앙 아래
+        (5, 8),     # 하단 오른쪽
+        (8, 10),    # 끝점
+        (3, 6),     # 아래쪽 포인트
+        (6, 2),     # 중간 오른쪽
+        (0, 4),     # 중앙 복귀
+        (3, 0),     # 상단 복귀
+        (-3, 2),    # 왼쪽 복귀
+        (0, -2),    # 중앙 상단
+        (-8, -10)   # 시작점으로
+    ]
+    
+    # 회전 및 스케일 적용
+    for bx, by in base_points:
+        # 회전 변환
+        rot_x = bx * math.cos(rotation_angle) - by * math.sin(rotation_angle)
+        rot_y = bx * math.sin(rotation_angle) + by * math.cos(rotation_angle)
+        
+        # 최종 위치
+        final_x = emblem_x + rot_x * pulse_scale
+        final_y = emblem_y + rot_y * pulse_scale
+        lightning_points.append((final_x, final_y))
+    
+    # 번개 그리기
+    if len(lightning_points) > 2:
+        # 메인 번개 (밝은 파란색)
+        pygame.draw.polygon(SCREEN, (100, 200, 255), lightning_points)
+        # 번개 테두리 (더 밝은 색)
+        pygame.draw.lines(SCREEN, (200, 230, 255), True, lightning_points, 2)
+    
+    # 중앙 파워 코어
+    core_radius = 4
+    core_color = (255, 255, 255)
+    energy_color = (150, 200, 255)
+    
+    # 코어 글로우
+    pygame.draw.circle(SCREEN, energy_color, (emblem_x, emblem_y), int(core_radius * 1.5 * pulse_scale))
+    pygame.draw.circle(SCREEN, core_color, (emblem_x, emblem_y), int(core_radius * pulse_scale))
+    
+    # 전기 스파크 효과 (게이지가 높을 때)
+    if displayed_gauge > 250:
+        spark_count = min(3, int(displayed_gauge / 100))
+        for i in range(spark_count):
+            angle = (rotation_angle * 2 + i * 2.094) % (math.pi * 2)  # 120도 간격
+            spark_length = emblem_radius + random.randint(5, 10)
+            
+            start_x = emblem_x + math.cos(angle) * core_radius
+            start_y = emblem_y + math.sin(angle) * core_radius
+            end_x = emblem_x + math.cos(angle) * spark_length
+            end_y = emblem_y + math.sin(angle) * spark_length
+            
+            # 전기 번개 효과
+            mid_x = (start_x + end_x) / 2 + random.randint(-3, 3)
+            mid_y = (start_y + end_y) / 2 + random.randint(-3, 3)
+            
+            pygame.draw.lines(SCREEN, (200, 220, 255), False, 
+                            [(start_x, start_y), (mid_x, mid_y), (end_x, end_y)], 1)
+    
+    
     #  육각형 프레임 하단
     hex_bottom = [
         (gauge_x - 3, gauge_y + gauge_height - 8),
@@ -10288,7 +10409,7 @@ def draw_player_gauge():
                                (gauge_x, gauge_y + gauge_height + i),
                                (gauge_x + gauge_width, gauge_y + gauge_height + i), 1)
     
-    #  게이지바 위에 숫자 표시 (현재/최대)
+    #  게이지바 수치 표시 (토큰볼 아래에 배치)
     gauge_text = f"{int(displayed_gauge)}/{current_max_gauge}"
     text_color = WHITE if displayed_gauge < current_max_gauge else (255, 255, 100)  # 만렙일 때는 노란색
     # 폰트 로드 (작은 크기)
@@ -10296,9 +10417,9 @@ def draw_player_gauge():
     gauge_font = FontStyle.gauge()  # 16pt 픽셀 폰트
     gauge_text_surface = gauge_font.render(gauge_text, True, text_color)
     text_rect = gauge_text_surface.get_rect()
-    # 게이지바 위쪽에 중앙 정렬
+    # 토큰볼 아래쪽에 중앙 정렬 (token_y는 게이지바 아래 15px, 토큰볼 아래 추가로 15px)
     text_x = gauge_x + gauge_width // 2 - text_rect.width // 2
-    text_y = gauge_y - 20  # 게이지바 위 20픽셀
+    text_y = gauge_y + gauge_height + 15 + 15  # 게이지바 아래 30픽셀 (토큰볼 아래)
     # 텍스트 배경 (반투명 검은 배경으로 가독성 향상)
     text_bg_rect = pygame.Rect(text_x - 2, text_y - 1, text_rect.width + 4, text_rect.height + 2)
     pygame.draw.rect(SCREEN, (0, 0, 0, 180), text_bg_rect, border_radius=3)
@@ -10309,7 +10430,7 @@ def draw_player_gauge():
     item_gauge_active = (long_boost_active and long_boost_timer > 0) or (predictor_active and predictor_timer > 0)
     if item_gauge_active:
         gauge_x = WIDTH - 75  # 필살기 게이지 왼쪽에 배치
-        gauge_y = HEIGHT - 180  # 필살기 게이지와 같은 높이
+        gauge_y = HEIGHT - 200  # 필살기 게이지와 같은 높이
         gauge_width = 14  # 플레이어 게이지와 동일한 폭
         gauge_height = 100
         #  육각형 프레임 상단 (플레이어 게이지와 동일)
