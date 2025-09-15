@@ -29091,14 +29091,6 @@ def handle_ball():
                     wall["hit_count"] += 1
                     wall["crack_level"] = wall["hit_count"]
                     
-                    # 상모돌리기 중 벽돌 충돌 시 상모돌리기 종료
-                    if whip_active:
-                        whip_active = False
-                        whip_timer = 0
-                        whip_sound.stop()  # 상모돌리기 사운드 중지
-                        whip_wave_particles.clear()  # 파동 파티클도 제거
-                        print("상모돌리기 종료 - 벽돌 충돌")
-                    
                     # 공 튕기기 (백업 파일의 간단한 방식 사용)
                     ball_vel[1] = -abs(ball_vel[1])  # 위로 튕기기
                     ball_vel[0] *= 0.8  # 좌우 속도 감소
@@ -29509,14 +29501,6 @@ def handle_ball():
         ball_vel[1] *= 0.95  # Y 속도도 약간 감속
         play_wall_sound()
         
-        # 상모돌리기 중 좌벽 충돌 시 상모돌리기 종료
-        if whip_active:
-            whip_active = False
-            whip_timer = 0
-            whip_sound.stop()  # 상모돌리기 사운드 중지
-            whip_wave_particles.clear()  # 파동 파티클도 제거
-            print("상모돌리기 종료 - 좌벽 충돌")
-        
         # 무승부 판정 시스템: 좌우 벽 연속 충돌 카운트
         current_time = pygame.time.get_ticks()
         if current_time - last_paddle_hit_time > 100:  # 패들 충돌 후 0.1초 이상 경과
@@ -29621,11 +29605,6 @@ def handle_ball():
         ball_vel[0] *= 0.95  # 5% 감속
         ball_vel[1] *= 0.95  # Y 속도도 약간 감속
         play_wall_sound()
-        
-        # 상모돌리기 활성화 시 우벽 충돌 시 종료
-        if whip_active:
-            whip_active = False
-            whip_angle = 0
         
         # 무승부 판정 시스템: 좌우 벽 연속 충돌 카운트
         current_time = pygame.time.get_ticks()
@@ -29737,11 +29716,6 @@ def handle_ball():
     # --- 천장 충돌 (플레이어 점수) ---
     # 쿠로미가 공을 먹은 상태에서는 승패 판정 안함
     if BALL.top <= 0 and not ball_in_kuromi:
-        # 상모돌리기 활성화 시 천장 충돌 시 종료
-        if whip_active:
-            whip_active = False
-            whip_angle = 0
-            
         # 튜토리얼 모드(스테이지 50)에서는 점수 계산하지 않고 단순히 튕김
         if current_stage == 50:
             ball_vel[1] = abs(ball_vel[1])  # 아래로 향하도록
