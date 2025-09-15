@@ -9766,8 +9766,8 @@ def update_gauge_animation():
         # 정확히 목표값에 도달하도록 보정
         if displayed_gauge < special_gauge + 1:
             displayed_gauge = special_gauge
-    # 멘헤라걸(스테이지 3) 게이지 애니메이션
-    if current_stage == 3:
+    # 보스 게이지 애니메이션 (스테이지 1, 3)
+    if current_stage in [1, 3]:
         if displayed_boss_gauge < boss_special_gauge:
             displayed_boss_gauge += (boss_special_gauge - displayed_boss_gauge) * boss_gauge_animation_speed
             # 정확히 목표값에 도달하도록 보정
@@ -9891,6 +9891,154 @@ def apply_white_glow(surface, intensity=60):
                 except ValueError:
                     # 색상 값이 잘못된 경우 기본값 사용
                     surface.set_at((x, y), pygame.Color(255, 255, 255, pixel.a))
+def draw_stage1_boss_gauge_bar():
+    """스테이지 1 보스 필살기 게이지바 - 한국 전통 태극문양과 한지 느낌 (세로형)"""
+    global current_stage, boss_special_gauge, displayed_boss_gauge
+    
+    if current_stage != 1:
+        return
+    
+    # 보스 필살기 게이지 표시
+    max_gauge = 500  # 최대 게이지
+    current_gauge = boss_special_gauge  # 현재 게이지
+    
+    # 게이지바 위치 - 오른쪽 상단 (세로형)
+    bar_x = WIDTH - 50
+    bar_y = 50
+    bar_width = 20
+    bar_height = 150
+    
+    # 한지 텍스처 효과를 위한 노이즈
+    time_offset = pygame.time.get_ticks() * 0.001
+    
+    # 배경 한지 효과 (연한 베이지색)
+    hanji_bg = pygame.Surface((bar_width + 40, bar_height + 20), pygame.SRCALPHA)
+    for i in range(5):
+        alpha = 40 - i * 8
+        border_color = (245, 235, 220, alpha)
+        pygame.draw.rect(hanji_bg, border_color, 
+                        (i, i, bar_width + 40 - i*2, bar_height + 20 - i*2), 
+                        border_radius=10)
+    SCREEN.blit(hanji_bg, (bar_x - 20, bar_y - 10))
+    
+    # 태극 문양 배경 (상단)
+    taegeuk_x = bar_x + bar_width // 2
+    taegeuk_y = bar_y - 30
+    taegeuk_radius = 15
+    
+    # 태극 원 그리기
+    pygame.draw.circle(SCREEN, (255, 250, 240), (taegeuk_x, taegeuk_y), taegeuk_radius)
+    pygame.draw.circle(SCREEN, (50, 50, 50), (taegeuk_x, taegeuk_y), taegeuk_radius, 2)
+    
+    # 태극 문양 (회전 애니메이션)
+    rotation = time_offset * 0.5
+    
+    # 빨간색 부분
+    red_arc_rect = pygame.Rect(taegeuk_x - taegeuk_radius, taegeuk_y - taegeuk_radius, 
+                               taegeuk_radius * 2, taegeuk_radius * 2)
+    pygame.draw.arc(SCREEN, (200, 50, 50), red_arc_rect, 
+                   -math.pi/2 + rotation, math.pi/2 + rotation, taegeuk_radius)
+    
+    # 파란색 부분
+    blue_arc_rect = pygame.Rect(taegeuk_x - taegeuk_radius, taegeuk_y - taegeuk_radius, 
+                                taegeuk_radius * 2, taegeuk_radius * 2)
+    pygame.draw.arc(SCREEN, (50, 50, 200), blue_arc_rect, 
+                   math.pi/2 + rotation, 3*math.pi/2 + rotation, taegeuk_radius)
+    
+    # 작은 원들
+    small_radius = taegeuk_radius // 3
+    red_circle_x = taegeuk_x + int(small_radius * math.cos(rotation))
+    red_circle_y = taegeuk_y - int(small_radius * math.sin(rotation))
+    blue_circle_x = taegeuk_x - int(small_radius * math.cos(rotation))
+    blue_circle_y = taegeuk_y + int(small_radius * math.sin(rotation))
+    
+    pygame.draw.circle(SCREEN, (200, 50, 50), (red_circle_x, red_circle_y), small_radius)
+    pygame.draw.circle(SCREEN, (50, 50, 200), (blue_circle_x, blue_circle_y), small_radius)
+    
+    # 게이지바 테두리 (전통 문양 스타일 - 세로형)
+    border_points = [
+        (bar_x, bar_y - 5),
+        (bar_x - 3, bar_y),
+        (bar_x - 3, bar_y + bar_height),
+        (bar_x, bar_y + bar_height + 5),
+        (bar_x + bar_width, bar_y + bar_height + 5),
+        (bar_x + bar_width + 3, bar_y + bar_height),
+        (bar_x + bar_width + 3, bar_y),
+        (bar_x + bar_width, bar_y - 5)
+    ]
+    pygame.draw.polygon(SCREEN, (80, 60, 40), border_points)
+    pygame.draw.polygon(SCREEN, (120, 90, 60), border_points, 2)
+    
+    # 내부 배경 (한지 질감)
+    inner_rect = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
+    pygame.draw.rect(SCREEN, (240, 230, 210), inner_rect)
+    
+    # 한지 질감 패턴 (세로형)
+    for i in range(0, bar_height, 10):
+        alpha = 20 + int(10 * math.sin(i * 0.1 + time_offset))
+        pygame.draw.line(SCREEN, (220, 210, 190, alpha), 
+                        (bar_x, bar_y + i), 
+                        (bar_x + bar_width, bar_y + i), 1)
+    
+    # 필살기 게이지 채우기
+    if displayed_boss_gauge > 0:
+        gauge_ratio = displayed_boss_gauge / max_gauge
+        gauge_width = int(bar_width * gauge_ratio)
+        
+        # 게이지 색상 (청록색 계열 - 필살기 느낌)
+        if gauge_ratio > 0.8:
+            gauge_color = (0, 180, 200)  # 밝은 청록
+            glow_color = (0, 220, 255)
+        elif gauge_ratio > 0.6:
+            gauge_color = (50, 150, 180)  # 중간 청록
+            glow_color = (100, 200, 220)
+        elif gauge_ratio > 0.3:
+            gauge_color = (100, 120, 160)  # 어두운 청록
+            glow_color = (150, 170, 200)
+        else:
+            gauge_color = (120, 120, 140)  # 회색빛
+            glow_color = (160, 160, 180)
+        
+        # 그라데이션 효과
+        for i in range(bar_height):
+            gradient_factor = 1.0 - (i / bar_height) * 0.3
+            color = tuple(int(c * gradient_factor) for c in gauge_color)
+            pygame.draw.line(SCREEN, color, 
+                           (bar_x, bar_y + i), 
+                           (bar_x + gauge_width - 1, bar_y + i))
+        
+        # 끝부분 하이라이트
+        if gauge_width > 3:
+            for i in range(3):
+                alpha = (1.0 - i / 3) * abs(math.sin(time_offset * 2))
+                highlight_color = tuple(int(c * (1 + alpha * 0.3)) for c in glow_color)
+                pygame.draw.line(SCREEN, highlight_color, 
+                               (bar_x + gauge_width - 3 + i, bar_y), 
+                               (bar_x + gauge_width - 3 + i, bar_y + bar_height - 1))
+    
+    # 보스 이름 표시 (한지 위에)
+    boss_name_font = FontStyle.body()  # 24pt
+    boss_name = "조교"
+    name_surface = boss_name_font.render(boss_name, True, (80, 60, 40))
+    name_rect = name_surface.get_rect(centerx=bar_x + bar_width // 2, bottom=bar_y - 5)
+    SCREEN.blit(name_surface, name_rect)
+    
+    # 게이지 수치 표시 (오른쪽)
+    gauge_font = FontStyle.small()  # 18pt
+    gauge_text = f"{int(displayed_boss_gauge)}/{max_gauge}"
+    gauge_surface = gauge_font.render(gauge_text, True, (100, 80, 60))
+    gauge_rect = gauge_surface.get_rect(left=bar_x + bar_width + 10, centery=bar_y + bar_height // 2)
+    SCREEN.blit(gauge_surface, gauge_rect)
+    
+    # 필살기 준비 상태 경고 (게이지가 높을 때)
+    if displayed_boss_gauge >= 400:  # 필살기 준비 상태
+        warning_alpha = int(abs(math.sin(time_offset * 8)) * 120)
+        warning_surface = pygame.Surface((bar_width + 30, bar_height + 30), pygame.SRCALPHA)
+        pygame.draw.rect(warning_surface, (255, 200, 0, warning_alpha), 
+                        (0, 0, bar_width + 30, bar_height + 30), 
+                        border_radius=5, width=3)
+        SCREEN.blit(warning_surface, (bar_x - 15, bar_y - 15))
+
 def draw_player_gauge():
     """플레이어 게이지바를 오른쪽 하단에 세로로 표시 - 고급스러운 버전"""
     global special_gauge, special_gauge_max, special_ready, aipill_active
@@ -30149,6 +30297,11 @@ def handle_ball():
         # 다른 스테이지는 원래 크기 사용
         boss_hitbox_expanded = BOSS
     if boss_hitbox_expanded.colliderect(BALL) and boss_collision_cooldown <= 0 and not is_waiting_for_serve:
+        # 스테이지 1 보스 게이지 충전 (+50)
+        if current_stage == 1:
+            boss_special_gauge = min(boss_special_gauge + 50, 500)
+            print(f"스테이지1 보스 게이지 충전: +50 (현재: {boss_special_gauge}/500)")
+        
         # 쿠로미 뱉기 궤적 비활성화 (보스 패들 충돌)
         if kuromi_spit_trail_active:
             kuromi_spit_trail_active = False
@@ -35521,6 +35674,7 @@ def main(stage_num, new_boss_mode=False):
             draw_tutorial_power_counter()  # 튜토리얼 파워스매싱 카운터 표시
             draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
+            draw_stage1_boss_gauge_bar()  # 스테이지 1 보스 게이지바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 원래 화면으로 복원하고 흔들림 적용
             SCREEN = temp_screen
@@ -35580,6 +35734,7 @@ def main(stage_num, new_boss_mode=False):
             draw_tutorial_power_counter()  # 튜토리얼 파워스매싱 카운터 표시
             draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
+            draw_stage1_boss_gauge_bar()  # 스테이지 1 보스 게이지바 그리기
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 스테이지별 테두리 효과를 UI 전에 그리기
             if current_stage == 1:
