@@ -2144,253 +2144,166 @@ except Exception as e:
     PLAYER_IMG = pygame.Surface((250, 100), pygame.SRCALPHA)
     pygame.draw.rect(PLAYER_IMG, (0, 255, 0), (0, 0, 250, 100))
 
-# 군인 패들 이미지 생성 (더 섬세하고 디테일한 버전)
+# 군인 패들 이미지 생성 (위에서 바라본 각도 - 정수리가 보이는 버전)
 SOLDIER_PADDLE_IMG = pygame.Surface((250, 100), pygame.SRCALPHA)
 
 # 중심점 설정
 center_x = 125
 center_y = 50
 
-# === 헬멧 (군용 철모) - 더 디테일하게 ===
-helmet_y = center_y - 25
-# 헬멧 기본 형태 (더 각진 디자인)
-helmet_points = [
-    (center_x - 22, helmet_y - 8),   # 왼쪽 상단
-    (center_x - 20, helmet_y - 12),  # 왼쪽 중상단
-    (center_x - 10, helmet_y - 15),  # 좌측 정점
-    (center_x, helmet_y - 16),       # 중앙 정점
-    (center_x + 10, helmet_y - 15),  # 우측 정점
-    (center_x + 20, helmet_y - 12),  # 오른쪽 중상단
-    (center_x + 22, helmet_y - 8),   # 오른쪽 상단
-    (center_x + 23, helmet_y),       # 오른쪽 중단
-    (center_x + 22, helmet_y + 8),   # 오른쪽 하단
-    (center_x + 18, helmet_y + 12),  # 오른쪽 밑
-    (center_x - 18, helmet_y + 12),  # 왼쪽 밑
-    (center_x - 22, helmet_y + 8),   # 왼쪽 하단
-    (center_x - 23, helmet_y)        # 왼쪽 중단
+# === 헬멧 (위에서 본 각도 - 정수리 중심) ===
+helmet_center_y = center_y - 15  # 머리가 더 위쪽에 위치
+# 헬멧 정수리 (원형으로 표현)
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (50, 70, 30), 
+                    (center_x - 25, helmet_center_y - 20, 50, 40))
+# 헬멧 내부 원 (더 어두운 색)
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (40, 60, 25), 
+                    (center_x - 20, helmet_center_y - 15, 40, 30))
+# 헬멧 중앙 패턴 (정수리 부분)
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (45, 65, 28), 
+                    (center_x - 12, helmet_center_y - 10, 24, 20))
+# 헬멧 하이라이트
+pygame.draw.arc(SOLDIER_PADDLE_IMG, (70, 90, 50), 
+                (center_x - 23, helmet_center_y - 18, 46, 36), 
+                math.radians(220), math.radians(320), 2)
+
+# 헬멧 통풍구 (정수리 디테일)
+for angle in [0, 120, 240]:
+    rad = math.radians(angle)
+    vent_x = center_x + int(8 * math.cos(rad))
+    vent_y = helmet_center_y - 5 + int(6 * math.sin(rad))
+    pygame.draw.circle(SOLDIER_PADDLE_IMG, (35, 55, 20), (vent_x, vent_y), 2)
+
+# === 머리/얼굴 (헬멧 아래 살짝 보이는 부분) ===
+# 뒷머리와 목 부분
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (190, 150, 120), 
+                    (center_x - 15, helmet_center_y + 10, 30, 20))
+
+# === 군복 상체 (위에서 본 각도) ===
+body_y = helmet_center_y + 25
+# 어깨 (넓게 펼쳐진 모습)
+shoulder_points = [
+    (center_x - 45, body_y),        # 왼쪽 어깨 끝
+    (center_x - 35, body_y - 5),    # 왼쪽 어깨 위
+    (center_x - 20, body_y - 8),    # 왼쪽 목 연결부
+    (center_x + 20, body_y - 8),    # 오른쪽 목 연결부
+    (center_x + 35, body_y - 5),    # 오른쪽 어깨 위
+    (center_x + 45, body_y),        # 오른쪽 어깨 끝
+    (center_x + 48, body_y + 15),   # 오른쪽 몸통
+    (center_x + 40, body_y + 30),   # 오른쪽 하단
+    (center_x - 40, body_y + 30),   # 왼쪽 하단
+    (center_x - 48, body_y + 15)    # 왼쪽 몸통
 ]
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (50, 70, 30), helmet_points)
-# 헬멧 림 (더 어두운 부분)
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (30, 50, 20), helmet_points, 2)
+pygame.draw.polygon(SOLDIER_PADDLE_IMG, (100, 90, 50), shoulder_points)
 
-# 헬멧 디테일 - 그물망 패턴
-for i in range(3):
-    for j in range(2):
-        net_x = center_x - 15 + i * 10
-        net_y = helmet_y - 8 + j * 8
-        pygame.draw.circle(SOLDIER_PADDLE_IMG, (40, 60, 25), (net_x, net_y), 1)
-
-# 헬멧 스트랩
-pygame.draw.lines(SOLDIER_PADDLE_IMG, (30, 40, 20), False, 
-                  [(center_x - 20, helmet_y + 10), (center_x - 15, helmet_y + 15), (center_x - 10, helmet_y + 16)], 1)
-pygame.draw.lines(SOLDIER_PADDLE_IMG, (30, 40, 20), False, 
-                  [(center_x + 20, helmet_y + 10), (center_x + 15, helmet_y + 15), (center_x + 10, helmet_y + 16)], 1)
-
-# === 얼굴 - 더 디테일하게 ===
-face_y = helmet_y + 15
-# 얼굴 윤곽 (더 사실적인 형태)
-face_points = [
-    (center_x - 10, face_y - 5),
-    (center_x - 12, face_y),
-    (center_x - 11, face_y + 5),
-    (center_x - 8, face_y + 8),
-    (center_x, face_y + 10),
-    (center_x + 8, face_y + 8),
-    (center_x + 11, face_y + 5),
-    (center_x + 12, face_y),
-    (center_x + 10, face_y - 5)
-]
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (210, 170, 140), face_points)
-
-# 눈 (작은 점으로 표현 - 위에서 본 각도)
-pygame.draw.circle(SOLDIER_PADDLE_IMG, (30, 30, 30), (center_x - 5, face_y + 2), 2)
-pygame.draw.circle(SOLDIER_PADDLE_IMG, (30, 30, 30), (center_x + 5, face_y + 2), 2)
-
-# 코 그림자
-pygame.draw.line(SOLDIER_PADDLE_IMG, (180, 140, 110), 
-                 (center_x, face_y + 3), (center_x, face_y + 5), 1)
-
-# === 군복 상체 - 더 사실적인 형태 ===
-body_y = face_y + 12
-# 목 부분
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (190, 150, 120), [
-    (center_x - 8, body_y - 2),
-    (center_x + 8, body_y - 2),
-    (center_x + 10, body_y + 2),
-    (center_x - 10, body_y + 2)
-])
-
-# 어깨와 가슴 (더 자연스러운 곡선)
-body_points = [
-    (center_x - 35, body_y + 5),    # 왼쪽 어깨 끝
-    (center_x - 30, body_y + 2),    # 왼쪽 어깨
-    (center_x - 15, body_y),        # 왼쪽 가슴
-    (center_x, body_y - 1),         # 가슴 중앙
-    (center_x + 15, body_y),        # 오른쪽 가슴
-    (center_x + 30, body_y + 2),    # 오른쪽 어깨
-    (center_x + 35, body_y + 5),    # 오른쪽 어깨 끝
-    (center_x + 38, body_y + 20),   # 오른쪽 옆구리
-    (center_x + 35, body_y + 35),   # 오른쪽 하단
-    (center_x - 35, body_y + 35),   # 왼쪽 하단
-    (center_x - 38, body_y + 20)    # 왼쪽 옆구리
-]
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (100, 90, 50), body_points)
-
-# 군복 주름과 그림자
-# 중앙 지퍼 라인
+# 군복 중앙 지퍼
 pygame.draw.line(SOLDIER_PADDLE_IMG, (70, 60, 30), 
-                 (center_x, body_y), (center_x, body_y + 30), 2)
+                 (center_x, body_y - 5), (center_x, body_y + 25), 2)
 
-# 가슴 주머니
+# 가슴 주머니 (위에서 본 각도)
 pygame.draw.rect(SOLDIER_PADDLE_IMG, (80, 70, 40), 
-                 (center_x - 25, body_y + 8, 15, 12))
+                 (center_x - 25, body_y + 5, 18, 10))
 pygame.draw.rect(SOLDIER_PADDLE_IMG, (80, 70, 40), 
-                 (center_x + 10, body_y + 8, 15, 12))
-# 주머니 플랩
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (70, 60, 30), [
-    (center_x - 25, body_y + 8),
-    (center_x - 10, body_y + 8),
-    (center_x - 12, body_y + 5),
-    (center_x - 23, body_y + 5)
-])
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (70, 60, 30), [
-    (center_x + 10, body_y + 8),
-    (center_x + 25, body_y + 8),
-    (center_x + 23, body_y + 5),
-    (center_x + 12, body_y + 5)
-])
+                 (center_x + 7, body_y + 5, 18, 10))
 
-# 계급장 (더 디테일하게)
-# 왼쪽 어깨
+# 계급장 (어깨 위)
 pygame.draw.polygon(SOLDIER_PADDLE_IMG, (130, 110, 40), [
-    (center_x - 32, body_y + 3),
-    (center_x - 20, body_y + 1),
-    (center_x - 20, body_y + 7),
-    (center_x - 32, body_y + 9)
+    (center_x - 40, body_y - 3),
+    (center_x - 28, body_y - 5),
+    (center_x - 28, body_y + 2),
+    (center_x - 40, body_y + 4)
 ])
-# 계급 표시 (별 모양)
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (200, 180, 60), [
-    (center_x - 26, body_y + 3),
-    (center_x - 25, body_y + 5),
-    (center_x - 23, body_y + 5),
-    (center_x - 24, body_y + 7),
-    (center_x - 26, body_y + 7)
+pygame.draw.polygon(SOLDIER_PADDLE_IMG, (130, 110, 40), [
+    (center_x + 28, body_y - 5),
+    (center_x + 40, body_y - 3),
+    (center_x + 40, body_y + 4),
+    (center_x + 28, body_y + 2)
 ])
 
-# === 왼팔 (탁구채 들고 있음) - 더 자연스럽게 ===
-left_arm_x = center_x - 45
-left_arm_y = body_y - 5
-# 어깨에서 팔꿈치까지
-arm_points_upper = [
-    (center_x - 30, body_y + 3),     # 어깨 연결부
-    (center_x - 35, body_y + 5),     # 어깨 외곽
-    (left_arm_x - 5, left_arm_y + 5), # 팔꿈치 외측
-    (left_arm_x + 5, left_arm_y),     # 팔꿈치 내측
-    (center_x - 25, body_y + 1)       # 어깨 내측
+# === 왼팔 (탁구채 들고 있음 - 전방을 향해) ===
+left_arm_x = center_x - 30
+left_arm_y = body_y - 20  # 팔이 앞쪽으로 뻗어있음
+# 왼쪽 팔 (앞으로 뻗은 모습)
+arm_points = [
+    (center_x - 35, body_y - 2),      # 어깨 시작
+    (center_x - 40, body_y),          # 어깨 외곽
+    (left_arm_x - 8, left_arm_y),     # 팔꿈치
+    (left_arm_x - 5, left_arm_y - 15),# 손목
+    (left_arm_x + 5, left_arm_y - 15),# 손목 안쪽
+    (left_arm_x + 8, left_arm_y),     # 팔꿈치 안쪽
+    (center_x - 25, body_y - 4)       # 어깨 안쪽
 ]
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (110, 95, 55), arm_points_upper)
+pygame.draw.polygon(SOLDIER_PADDLE_IMG, (110, 95, 55), arm_points)
 
-# 팔꿈치에서 손목까지
-arm_points_lower = [
-    (left_arm_x - 3, left_arm_y + 3),
-    (left_arm_x - 8, left_arm_y - 12),
-    (left_arm_x, left_arm_y - 15),
-    (left_arm_x + 5, left_arm_y - 10),
-    (left_arm_x + 3, left_arm_y)
-]
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (115, 100, 60), arm_points_lower)
-
-# 손 (더 디테일하게)
-hand_x = left_arm_x - 3
-hand_y = left_arm_y - 18
-# 손바닥
+# 왼손 (탁구채를 잡고 있음)
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (200, 160, 130), 
-                    (hand_x - 8, hand_y - 6, 16, 12))
-# 손가락들 (탁구채를 잡고 있는 모습)
-for i in range(4):
-    finger_x = hand_x - 6 + i * 3
-    finger_y = hand_y - 8
-    pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (190, 150, 120), 
-                        (finger_x, finger_y, 3, 6))
+                    (left_arm_x - 8, left_arm_y - 20, 16, 14))
 
-# === 군용 탁구채 - 더 디테일하게 ===
-paddle_x = hand_x - 10
-paddle_y = hand_y - 20
-# 탁구채 면 (타원형이 아닌 더 사실적인 형태)
-paddle_face = [
-    (paddle_x - 12, paddle_y - 15),
-    (paddle_x - 10, paddle_y - 18),
-    (paddle_x, paddle_y - 20),
-    (paddle_x + 10, paddle_y - 18),
-    (paddle_x + 12, paddle_y - 15),
-    (paddle_x + 12, paddle_y + 5),
-    (paddle_x + 8, paddle_y + 10),
-    (paddle_x, paddle_y + 12),
-    (paddle_x - 8, paddle_y + 10),
-    (paddle_x - 12, paddle_y + 5)
-]
-# 탁구채 면 (군용 다크 그린)
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (60, 80, 40), paddle_face)
+# === 군용 탁구채 (전방을 향해) ===
+paddle_x = left_arm_x
+paddle_y = left_arm_y - 35
+# 탁구채 면 (타원형 - 전방을 향한 각도)
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (60, 80, 40), 
+                    (paddle_x - 18, paddle_y - 15, 36, 45))
 # 탁구채 고무 (빨간색)
-inner_paddle = [(point[0] * 0.85 + paddle_x * 0.15, point[1] * 0.85 + paddle_y * 0.15) 
-                for point in paddle_face]
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (120, 30, 20), inner_paddle)
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (120, 30, 20), 
+                    (paddle_x - 14, paddle_y - 11, 28, 37))
+# 탁구채 중앙 원
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (100, 25, 15), 
+                    (paddle_x - 8, paddle_y - 5, 16, 20))
+# 탁구채 손잡이 (일부만 보임)
+pygame.draw.rect(SOLDIER_PADDLE_IMG, (80, 40, 20), 
+                 (paddle_x - 4, paddle_y + 28, 8, 15))
 
-# 탁구채 손잡이
-handle_points = [
-    (paddle_x - 3, paddle_y + 10),
-    (paddle_x + 3, paddle_y + 10),
-    (paddle_x + 4, paddle_y + 25),
-    (paddle_x - 4, paddle_y + 25)
-]
-pygame.draw.polygon(SOLDIER_PADDLE_IMG, (80, 40, 20), handle_points)
-# 손잡이 그립 무늬
-for i in range(3):
-    grip_y = paddle_y + 12 + i * 4
-    pygame.draw.line(SOLDIER_PADDLE_IMG, (60, 30, 15), 
-                     (paddle_x - 3, grip_y), (paddle_x + 3, grip_y), 1)
-
-# === 오른팔 - 더 자연스럽게 ===
-right_arm_x = center_x + 40
-right_arm_y = body_y + 10
-# 오른팔 (자연스럽게 내려놓은 자세)
+# === 오른팔 (자연스럽게 옆에) ===
+right_arm_x = center_x + 35
+right_arm_y = body_y + 5
+# 오른팔
 arm_points_right = [
-    (center_x + 30, body_y + 3),
-    (center_x + 35, body_y + 5),
-    (right_arm_x + 5, right_arm_y + 5),
-    (right_arm_x + 3, right_arm_y + 15),
-    (right_arm_x - 3, right_arm_y + 15),
+    (center_x + 35, body_y - 2),
+    (center_x + 40, body_y),
+    (right_arm_x + 5, right_arm_y + 10),
+    (right_arm_x, right_arm_y + 18),
+    (right_arm_x - 8, right_arm_y + 15),
     (right_arm_x - 5, right_arm_y + 5),
-    (center_x + 25, body_y + 1)
+    (center_x + 25, body_y - 4)
 ]
 pygame.draw.polygon(SOLDIER_PADDLE_IMG, (110, 95, 55), arm_points_right)
 
 # 오른손
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (200, 160, 130), 
-                    (right_arm_x - 5, right_arm_y + 13, 10, 12))
+                    (right_arm_x - 5, right_arm_y + 15, 12, 10))
 
-# === 벨트와 하체 일부 ===
-pygame.draw.rect(SOLDIER_PADDLE_IMG, (40, 30, 20), 
-                 (center_x - 35, body_y + 33, 70, 4))
-# 벨트 버클
-pygame.draw.rect(SOLDIER_PADDLE_IMG, (120, 100, 40), 
-                 (center_x - 8, body_y + 32, 16, 6))
-pygame.draw.rect(SOLDIER_PADDLE_IMG, (80, 70, 30), 
-                 (center_x - 5, body_y + 33, 10, 4))
+# === 위장 패턴 (위에서 본 각도) ===
+# 몸통에 카무플라주 패턴 추가
+camo_colors = [(70, 60, 30), (90, 80, 40), (80, 70, 35)]
+for i in range(8):
+    camo_x = center_x - 30 + (i % 3) * 20 + random.randint(-5, 5)
+    camo_y = body_y - 5 + (i // 3) * 10 + random.randint(-3, 3)
+    camo_size = random.randint(8, 15)
+    pygame.draw.ellipse(SOLDIER_PADDLE_IMG, camo_colors[i % 3], 
+                        (camo_x, camo_y, camo_size, camo_size - 2))
 
-# === 위장 무늬 패턴 - 더 섬세하게 ===
-# 불규칙한 위장 패턴
-camo_patterns = [
-    [(center_x - 20, body_y + 10), (center_x - 15, body_y + 8), 
-     (center_x - 12, body_y + 12), (center_x - 18, body_y + 14)],
-    [(center_x + 15, body_y + 15), (center_x + 20, body_y + 13), 
-     (center_x + 18, body_y + 18), (center_x + 13, body_y + 17)],
-    [(center_x - 5, body_y + 20), (center_x, body_y + 18), 
-     (center_x + 3, body_y + 22), (center_x - 3, body_y + 23)],
-]
-camo_colors = [(80, 70, 40), (70, 80, 45), (90, 80, 50)]
-for i, pattern in enumerate(camo_patterns):
-    pygame.draw.polygon(SOLDIER_PADDLE_IMG, camo_colors[i % len(camo_colors)], pattern)
+# 어깨 위장 패턴
+for i in range(4):
+    camo_x = center_x - 40 + i * 20 + random.randint(-3, 3)
+    camo_y = body_y - 2 + random.randint(-2, 2)
+    pygame.draw.circle(SOLDIER_PADDLE_IMG, camo_colors[i % 3], 
+                       (camo_x, camo_y), random.randint(3, 6))
+
+# === 추가 디테일 ===
+# 군복 주름 (위에서 본 각도로 간략화)
+pygame.draw.line(SOLDIER_PADDLE_IMG, (70, 60, 30), 
+                 (center_x - 15, body_y + 10), (center_x - 18, body_y + 20), 1)
+pygame.draw.line(SOLDIER_PADDLE_IMG, (70, 60, 30), 
+                 (center_x + 15, body_y + 10), (center_x + 18, body_y + 20), 1)
+
+# === 헬멧 스트랩 (정수리 부분에서 이어짐) ===
+# 턱끈 연결부 (헬멧 아래 부분)
+pygame.draw.arc(SOLDIER_PADDLE_IMG, (40, 60, 25), 
+                (center_x - 20, helmet_center_y + 15, 40, 20), 
+                math.radians(10), math.radians(170), 2)
+
 boss_special_waiting = False
 boss_special_timer = 0  # 이 변수도 같이 쓰이므로!
 # UFO 확장 애니메이션 관련
