@@ -2754,10 +2754,12 @@ def go_to_next_round():
         # 붉은 정도를 게이지에 비례하여 다시 계산
         boss_red_intensity = (boss_special_gauge / 500) * 220
     else:
-        boss_special_gauge = 0
-        boss_special_ready = False
-        boss_special_waiting = False
-        boss_red_intensity = 0
+        # 스테이지 1이 아닌 경우만 게이지 초기화
+        if current_stage != 1:
+            boss_special_gauge = 0
+            boss_special_ready = False
+            boss_special_waiting = False
+            boss_red_intensity = 0
     #  멘헤라걸 눈물샤워 초기화
     global tears_active, tears_timer, falling_tears, last_tears_cast_time
     global player_slow_timer  # ← 디버프 초기화용
@@ -10112,14 +10114,6 @@ def draw_stage1_boss_gauge_bar():
     gauge_rect = gauge_surface.get_rect(centerx=bar_x + bar_width // 2, top=bar_y + bar_height + 25)
     SCREEN.blit(gauge_surface, gauge_rect)
     
-    # 필살기 준비 상태 경고 (게이지가 높을 때)
-    if displayed_boss_gauge >= 400:  # 필살기 준비 상태
-        warning_alpha = int(abs(math.sin(time_offset * 8)) * 120)
-        warning_surface = pygame.Surface((bar_width + 30, bar_height + 30), pygame.SRCALPHA)
-        pygame.draw.rect(warning_surface, (255, 200, 0, warning_alpha), 
-                        (0, 0, bar_width + 30, bar_height + 30), 
-                        border_radius=5, width=3)
-        SCREEN.blit(warning_surface, (bar_x - 15, bar_y - 15))
 
 def draw_player_gauge():
     """플레이어 게이지바를 오른쪽 하단에 세로로 표시 - 고급스러운 버전"""
@@ -33236,12 +33230,14 @@ def show_result(won):
         psycho_sound_channel.stop()
         psycho_sound_channel = None
     #  멘헤라걸 필살기 게이지 초기화 (스테이지 종료 시)
+    # 스테이지 1의 경우 게이지 유지, 다른 스테이지는 초기화
     global displayed_boss_gauge
-    boss_special_gauge = 0
-    displayed_boss_gauge = 0  # 표시 게이지도 초기화
-    boss_special_ready = False
-    boss_special_waiting = False
-    boss_red_intensity = 0
+    if current_stage != 1:
+        boss_special_gauge = 0
+        displayed_boss_gauge = 0  # 표시 게이지도 초기화
+        boss_special_ready = False
+        boss_special_waiting = False
+        boss_red_intensity = 0
     #  풍선 스킬 상태 초기화 - 모두 제거됨
     # balloon_active = False  # Stage 1 보스 풍선파티 스킬 제거됨
     # balloon_timer = 0  # Stage 1 보스 풍선파티 스킬 제거됨
@@ -35593,7 +35589,7 @@ def main(stage_num, new_boss_mode=False):
                 #  Stage 3 쿠로미 각성은 Stage3MenheraWorld 클래스에서 처리
                 # 배경 객체의 각성 애니메이션 업데이트는 background.update()에서 자동으로 처리됨
                 
-                handle_whip()
+                handle_whip()  # 상모돌리기 처리도 파워스매싱 정지 시간 중에는 건너뛰기
                 # handle_balloon()  # Stage 1 보스 풍선파티 스킬 제거됨
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
                 handle_quake()
