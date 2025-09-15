@@ -2802,63 +2802,75 @@ def create_soldier_paddle_walking():
     # 기본 군인 패들 이미지 복사
     walking_paddle = SOLDIER_PADDLE_IMG.copy()
     
-    # 기본 설정 (원본 이미지와 동일하게)
+    # 기본 설정 - 실제 캐릭터 비례에 맞게 조정
     center_x = 125
     center_y = 60
     helmet_center_y = center_y - 10
     body_y = helmet_center_y + 18
-    hip_y = body_y + 25  # 원본과 동일한 계산
+    hip_y = body_y + 15  # 엉덩이/골반 위치를 몸통 바로 아래로 조정
     
     # 걸음 주기 계산 (0.0 ~ 1.0 사이의 값)
     walk_progress = (soldier_walking_timer % SOLDIER_WALKING_CYCLE) / SOLDIER_WALKING_CYCLE
     
     # 사인파를 이용한 자연스러운 발 움직임
-    step_offset = int(math.sin(walk_progress * 2 * math.pi) * 12)  # -12 ~ +12 픽셀 (더 크게)
+    step_offset = int(math.sin(walk_progress * 2 * math.pi) * 8)  # -8 ~ +8 픽셀
     
-    # 원본 다리 위치 (원본과 동일하게)
-    leg_length = 15  # 원본과 동일
-    left_leg_x = center_x - 12  # 왼쪽 다리 (고정)
-    right_leg_x = center_x + 12  # 오른쪽 다리 허벅지 (고정)
+    # 다리 설정 - 실제 캐릭터 비례에 맞게 조정
+    leg_length = 20  # 다리 길이를 좀 더 길게
+    left_leg_x = center_x - 10  # 왼쪽 다리 (고정)
+    right_leg_x = center_x + 10  # 오른쪽 다리 허벅지 기본 위치
     
     # 무릎 위치 (허벅지 중간)
-    knee_y = hip_y + 8
+    knee_y = hip_y + 10
     
-    # 오른쪽 다리 종아리 위치 (무릎을 중심으로 움직임)
-    right_shin_x = right_leg_x + step_offset  # 종아리만 움직임
+    # 자연스러운 걸음걸이: 허벅지와 종아리 모두 움직임
+    # 허벅지는 작게, 종아리는 크게 움직임
+    thigh_offset = step_offset // 3  # 허벅지는 종아리의 1/3만큼 움직임
+    shin_offset = step_offset  # 종아리는 전체 움직임
     
-    # 기존 다리 영역 완전히 지우기 (더 넓은 영역)
-    clear_rect = pygame.Rect(center_x - 25, hip_y, 50, leg_length + 10)
+    # 오른쪽 다리 위치 계산
+    right_thigh_x = right_leg_x + thigh_offset  # 허벅지 위치
+    right_shin_x = right_leg_x + shin_offset    # 종아리 위치
+    
+    # 기존 다리 영역 완전히 지우기 (새로운 위치에 맞게 조정)
+    clear_rect = pygame.Rect(center_x - 25, hip_y, 50, leg_length + 15)
     pygame.draw.rect(walking_paddle, (0, 0, 0, 0), clear_rect)
     
     # 새로운 다리 그리기
-    # 왼쪽 다리 (완전히 고정)
+    # 왼쪽 다리 (완전히 고정) - 전체 다리를 하나로 그리기
     pygame.draw.polygon(walking_paddle, (110, 100, 60), [
-        (left_leg_x - 6, hip_y + 2),
-        (left_leg_x - 7, hip_y + 8),
-        (left_leg_x - 6, hip_y + leg_length),
-        (left_leg_x - 3, hip_y + leg_length + 2),
-        (left_leg_x + 3, hip_y + leg_length + 2),
-        (left_leg_x + 6, hip_y + leg_length),
-        (left_leg_x + 7, hip_y + 8),
-        (left_leg_x + 6, hip_y + 2)
+        (left_leg_x - 5, hip_y),          # 엉덩이 왼쪽
+        (left_leg_x - 6, hip_y + 6),      # 허벅지 굵은 부분
+        (left_leg_x - 5, knee_y),         # 무릎 위
+        (left_leg_x - 4, knee_y + 2),     # 무릎 아래
+        (left_leg_x - 4, hip_y + leg_length),     # 발목
+        (left_leg_x - 2, hip_y + leg_length + 3), # 발 왼쪽
+        (left_leg_x + 2, hip_y + leg_length + 3), # 발 오른쪽
+        (left_leg_x + 4, hip_y + leg_length),     # 발목
+        (left_leg_x + 4, knee_y + 2),     # 무릎 아래
+        (left_leg_x + 5, knee_y),         # 무릎 위
+        (left_leg_x + 6, hip_y + 6),      # 허벅지 굵은 부분
+        (left_leg_x + 5, hip_y)           # 엉덩이 오른쪽
     ])
     
-    # 오른쪽 다리 - 허벅지 부분 (고정)
+    # 오른쪽 다리 - 허벅지 부분 (작은 움직임)
     pygame.draw.polygon(walking_paddle, (110, 100, 60), [
-        (right_leg_x - 6, hip_y + 2),
-        (right_leg_x - 7, knee_y),
-        (right_leg_x + 7, knee_y),
-        (right_leg_x + 6, hip_y + 2)
+        (right_thigh_x - 5, hip_y),        # 엉덩이 왼쪽
+        (right_thigh_x - 6, hip_y + 6),    # 허벅지 굵은 부분
+        (right_thigh_x - 5, knee_y),       # 무릎 위
+        (right_thigh_x + 5, knee_y),       # 무릎 위
+        (right_thigh_x + 6, hip_y + 6),    # 허벅지 굵은 부분
+        (right_thigh_x + 5, hip_y)         # 엉덩이 오른쪽
     ])
     
-    # 오른쪽 다리 - 종아리 부분 (움직임)
+    # 오른쪽 다리 - 종아리 부분 (큰 움직임)
     pygame.draw.polygon(walking_paddle, (110, 100, 60), [
-        (right_shin_x - 6, knee_y),
-        (right_shin_x - 6, hip_y + leg_length),
-        (right_shin_x - 3, hip_y + leg_length + 2),
-        (right_shin_x + 3, hip_y + leg_length + 2),
-        (right_shin_x + 6, hip_y + leg_length),
-        (right_shin_x + 6, knee_y)
+        (right_shin_x - 4, knee_y + 2),          # 무릎 아래 왼쪽
+        (right_shin_x - 4, hip_y + leg_length),  # 발목 왼쪽
+        (right_shin_x - 2, hip_y + leg_length + 3), # 발 왼쪽
+        (right_shin_x + 2, hip_y + leg_length + 3), # 발 오른쪽
+        (right_shin_x + 4, hip_y + leg_length),  # 발목 오른쪽
+        (right_shin_x + 4, knee_y + 2)           # 무릎 아래 오른쪽
     ])
     
     return walking_paddle
@@ -2960,11 +2972,39 @@ SOLDIER_GUN_COOLDOWN = 60  # 1초 쿨타임
 SOLDIER_CONTROL_LOCK_TIME = 18  # 0.3초 통제불능 시간
 SOLDIER_BULLET_SIZE = 5  # 총알 크기
 SOLDIER_BULLET_COLOR = (255, 215, 0)  # 황금색 총알
+
+# === 군인 총 발사 애니메이션 관련 변수 ===
+soldier_gun_animation_active = False  # 총 발사 애니메이션 진행 중인지
+soldier_gun_animation_frame = 0  # 현재 애니메이션 프레임
+soldier_gun_animation_timer = 0  # 애니메이션 타이머
+
+# 애니메이션 단계별 프레임 수 (60fps 기준)
+SOLDIER_GUN_DRAW_FRAMES = 6     # 총 꺼내기 애니메이션 (0.1초)
+SOLDIER_GUN_AIM_FRAMES = 6      # 조준 애니메이션 (0.1초)  
+SOLDIER_GUN_FIRE_FRAMES = 6     # 발사 애니메이션 (0.1초)
+SOLDIER_GUN_TOTAL_FRAMES = SOLDIER_GUN_DRAW_FRAMES + SOLDIER_GUN_AIM_FRAMES + SOLDIER_GUN_FIRE_FRAMES
+
+# 애니메이션 단계 상수
+SOLDIER_GUN_STAGE_DRAW = 0
+SOLDIER_GUN_STAGE_AIM = 1
+SOLDIER_GUN_STAGE_FIRE = 2
+
+soldier_gun_target_x = 0  # 조준 대상 X 좌표
+soldier_gun_target_y = 0  # 조준 대상 Y 좌표
 stopwatch_forced_upward = False  # 스마트폰 발동 시 복구 후 위쪽으로 강제
 stopwatch_upward_lock_timer = 0  # 복구 직후 N프레임 동안 위 방향 고정
 # 스톱워치 복구 후 위 방향 락 튜닝
 STOPWATCH_UPWARD_LOCK_FRAMES = 16   # 락 지속 프레임 (0.27초)
 STOPWATCH_UPWARD_MIN_SPEED = 2.5    # 락 기간 최소 위향 속도
+
+# === 보스 패들 넉백 효과 관련 변수 ===
+boss_knockback_active = False  # 넉백 효과 활성화 여부
+boss_knockback_offset_x = 0   # X축 넉백 오프셋
+boss_knockback_offset_y = 0   # Y축 넉백 오프셋
+boss_knockback_timer = 0      # 넉백 지속 시간
+BOSS_KNOCKBACK_DURATION = 15  # 넉백 지속 프레임 (0.25초)
+BOSS_KNOCKBACK_STRENGTH = 10  # 넉백 강도 (픽셀)
+BOSS_KNOCKBACK_DECAY = 0.8    # 넉백 감쇠율
 
 psycho_bg_timer = 0
 # === 멘헤라걸 스킬: 눈물의 비 관련 전역 변수 ===
@@ -6290,14 +6330,37 @@ def handle_new_boss_skills_timer():
 def fire_soldier_bullet():
     """군인 캐릭터가 총알을 발사하는 함수"""
     global soldier_bullets, soldier_gun_cooldown, soldier_control_lock_timer, soldier_gun_drawn
+    global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
+    global soldier_gun_target_x, soldier_gun_target_y
     
     if soldier_gun_cooldown > 0:
         return  # 쿨타임 중이면 발사 불가
+    
+    # 총 발사 애니메이션 시작
+    soldier_gun_animation_active = True
+    soldier_gun_animation_frame = 0
+    soldier_gun_animation_timer = 0
+    
+    # 조준 대상 설정 (보스 위치)
+    soldier_gun_target_x = BOSS.centerx
+    soldier_gun_target_y = BOSS.centery
     
     # 총을 꺼내고 통제불능 시작
     soldier_gun_drawn = True
     soldier_control_lock_timer = SOLDIER_CONTROL_LOCK_TIME
     soldier_gun_cooldown = SOLDIER_GUN_COOLDOWN
+    
+    # 총 장전 사운드 재생 (버튼을 누르자마자)
+    try:
+        gunroad_sound = pygame.mixer.Sound(resource_path("sounds/gunroad.wav"))
+        gunroad_sound.set_volume(0.7)
+        gunroad_sound.play()
+    except:
+        pass
+    
+def create_soldier_bullet():
+    """실제 총알을 생성하는 함수 (애니메이션 완료 후 호출)"""
+    global soldier_bullets
     
     # 플레이어 위치에서 보스 방향으로 총알 발사
     player_center_x = PLAYER.centerx
@@ -6327,13 +6390,112 @@ def fire_soldier_bullet():
         
         # 총 발사 효과음 재생
         try:
-            gun_sound = pygame.mixer.Sound(resource_path("sounds/gun_shot.wav"))
+            gun_sound = pygame.mixer.Sound(resource_path("sounds/gunshot.wav"))
             gun_sound.set_volume(0.5)
             gun_sound.play()
         except:
             pass
         
         print(f"🔫 총알 발사! 방향: ({dx_norm:.2f}, {dy_norm:.2f})")
+
+def update_soldier_gun_animation():
+    """군인 총 발사 애니메이션 업데이트"""
+    global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
+    
+    if not soldier_gun_animation_active:
+        return
+    
+    soldier_gun_animation_timer += 1
+    
+    # 애니메이션 프레임 진행
+    if soldier_gun_animation_timer >= 2:  # 2프레임마다 진행 (30fps 애니메이션)
+        soldier_gun_animation_timer = 0
+        soldier_gun_animation_frame += 1
+        
+        # 발사 단계에서 총알 생성
+        if soldier_gun_animation_frame == SOLDIER_GUN_DRAW_FRAMES + SOLDIER_GUN_AIM_FRAMES:
+            create_soldier_bullet()  # 조준 완료 후 총알 발사
+        
+        # 애니메이션 완료
+        if soldier_gun_animation_frame >= SOLDIER_GUN_TOTAL_FRAMES:
+            soldier_gun_animation_active = False
+            soldier_gun_animation_frame = 0
+
+def trigger_boss_knockback(bullet_x, bullet_y):
+    """보스 패들 넉백 효과 트리거"""
+    global boss_knockback_active, boss_knockback_offset_x, boss_knockback_offset_y, boss_knockback_timer
+    
+    # 넉백 효과 활성화
+    boss_knockback_active = True
+    boss_knockback_timer = BOSS_KNOCKBACK_DURATION
+    
+    # X축(가로)으로만 넉백 방향 계산
+    boss_center_x = BOSS.centerx
+    
+    # 총알이 보스의 어느 쪽을 맞췄는지 계산
+    bullet_relative_to_boss = bullet_x - boss_center_x
+    
+    # 맞은 부위의 반대 방향으로 넉백
+    if bullet_relative_to_boss > 5:  # 총알이 보스 오른쪽을 맞췄음
+        # 보스 오른쪽에 맞았으므로 왼쪽으로 튕겨나감
+        knockback_direction_x = -1
+    elif bullet_relative_to_boss < -5:  # 총알이 보스 왼쪽을 맞췄음
+        # 보스 왼쪽에 맞았으므로 오른쪽으로 튕겨나감
+        knockback_direction_x = 1
+    else:
+        # 중앙에 가까울 때는 랜덤하게 좌우로 넉백
+        import random
+        knockback_direction_x = random.choice([-1, 1])
+    
+    # X축으로만 넉백 오프셋 설정, Y축은 0
+    boss_knockback_offset_x = knockback_direction_x * BOSS_KNOCKBACK_STRENGTH
+    boss_knockback_offset_y = 0  # Y축 넉백 없음
+
+def update_boss_knockback():
+    """보스 패들 넉백 효과 업데이트"""
+    global boss_knockback_active, boss_knockback_offset_x, boss_knockback_offset_y, boss_knockback_timer
+    
+    if boss_knockback_active:
+        # 타이머 감소
+        boss_knockback_timer -= 1
+        
+        # X축만 넉백 감쇠 (Y축은 항상 0)
+        boss_knockback_offset_x *= BOSS_KNOCKBACK_DECAY
+        boss_knockback_offset_y = 0  # Y축은 항상 0 유지
+        
+        # 넉백 종료 조건 (X축만 체크)
+        if boss_knockback_timer <= 0 or abs(boss_knockback_offset_x) < 0.1:
+            boss_knockback_active = False
+            boss_knockback_offset_x = 0
+            boss_knockback_offset_y = 0
+            boss_knockback_timer = 0
+
+def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
+    """군인 총알의 보스 패들 넉백 효과 트리거 (라그나로크 해머 방식 참조)"""
+    global boss_knockback_timer, boss_knockback_vel
+    
+    # 라그나로크 해머 방식의 넉백 계산
+    base_power = 8  # 기본 넉백 파워 (라그나로크보다 약하게)
+    
+    # 보스 위치에 따라 방향 결정 (라그나로크 해머와 동일한 로직)
+    center_x = 300  # 화면 중앙
+    boss_x = BOSS.x
+    
+    if boss_x + 50 < center_x:  # 보스가 왼쪽에 있으면
+        horizontal_velocity = base_power  # 오른쪽으로 넉백
+    else:  # 보스가 오른쪽에 있으면
+        horizontal_velocity = -base_power  # 왼쪽으로 넉백
+    
+    # 랜덤 추가 넉백 (10-20%)
+    import random
+    random_factor = 1.0 + random.uniform(0.1, 0.2)
+    horizontal_velocity *= random_factor
+    
+    # 라그나로크 해머 넉백 시스템 활용
+    boss_knockback_timer = 24  # 0.4초간 넉백 효과 지속 (라그나로크보다 짧게)
+    boss_knockback_vel = horizontal_velocity
+    
+    print(f"군인 총알 넉백: 속도={horizontal_velocity:.1f}, 지속시간={boss_knockback_timer}")
 
 def update_soldier_bullets():
     """군인 총알 업데이트"""
@@ -6365,6 +6527,9 @@ def update_soldier_bullets():
                 # 보스 스턴 효과 (0.5초)
                 global boss_stun_timer
                 boss_stun_timer = 30  # 0.5초 스턴
+                
+                # 라그나로크 해머 방식의 넉백 효과 적용
+                trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
                 
                 # 타격 효과음
                 try:
@@ -6402,6 +6567,117 @@ def draw_soldier_bullets(screen):
             pygame.draw.circle(screen, (255, 255, 200), 
                              (int(bullet["x"] - 2), int(bullet["y"] - 2)), 
                              SOLDIER_BULLET_SIZE // 2)
+
+def draw_soldier_gun_animation(screen, paddle_rect):
+    """군인 총 발사 애니메이션 그리기"""
+    global soldier_gun_animation_active, soldier_gun_animation_frame
+    global soldier_gun_target_x, soldier_gun_target_y
+    
+    if not soldier_gun_animation_active:
+        return
+    
+    # 현재 애니메이션 단계 확인
+    current_stage = SOLDIER_GUN_STAGE_DRAW
+    if soldier_gun_animation_frame >= SOLDIER_GUN_DRAW_FRAMES:
+        current_stage = SOLDIER_GUN_STAGE_AIM
+    if soldier_gun_animation_frame >= SOLDIER_GUN_DRAW_FRAMES + SOLDIER_GUN_AIM_FRAMES:
+        current_stage = SOLDIER_GUN_STAGE_FIRE
+    
+    # 패들 중심점에서 오른손 위치 계산
+    paddle_center_x = paddle_rect.centerx
+    paddle_center_y = paddle_rect.centery
+    hand_offset_x = 35  # 오른손 위치 (패들 오른쪽)
+    hand_offset_y = -10  # 손 높이 조정
+    
+    hand_x = paddle_center_x + hand_offset_x
+    hand_y = paddle_center_y + hand_offset_y
+    
+    # 단계별 애니메이션 그리기
+    if current_stage == SOLDIER_GUN_STAGE_DRAW:
+        # 1단계: 총 꺼내기 애니메이션
+        frame_progress = (soldier_gun_animation_frame % SOLDIER_GUN_DRAW_FRAMES) / SOLDIER_GUN_DRAW_FRAMES
+        
+        # 총이 아래에서 위로 올라오는 애니메이션
+        gun_offset = int(20 * (1 - frame_progress))  # 20픽셀에서 시작해서 0으로
+        gun_x = hand_x
+        gun_y = hand_y + gun_offset
+        
+        # 총 그리기 (간단한 직사각형)
+        gun_width = 8
+        gun_height = 3
+        gun_rect = pygame.Rect(gun_x - gun_width//2, gun_y - gun_height//2, gun_width, gun_height)
+        pygame.draw.rect(screen, (50, 50, 50), gun_rect)  # 총 본체 (회색)
+        pygame.draw.rect(screen, (100, 100, 100), gun_rect, 1)  # 테두리
+        
+    elif current_stage == SOLDIER_GUN_STAGE_AIM:
+        # 2단계: 조준 애니메이션
+        frame_progress = ((soldier_gun_animation_frame - SOLDIER_GUN_DRAW_FRAMES) % SOLDIER_GUN_AIM_FRAMES) / SOLDIER_GUN_AIM_FRAMES
+        
+        # 총이 목표를 향해 회전하는 애니메이션
+        dx = soldier_gun_target_x - hand_x
+        dy = soldier_gun_target_y - hand_y
+        target_angle = math.atan2(dy, dx)
+        
+        # 초기 각도에서 목표 각도로 보간
+        initial_angle = 0  # 수평 방향
+        current_angle = initial_angle + (target_angle - initial_angle) * frame_progress
+        
+        # 총 길이와 위치 계산
+        gun_length = 12
+        gun_end_x = hand_x + math.cos(current_angle) * gun_length
+        gun_end_y = hand_y + math.sin(current_angle) * gun_length
+        
+        # 총 그리기 (선으로)
+        pygame.draw.line(screen, (50, 50, 50), (hand_x, hand_y), (gun_end_x, gun_end_y), 4)
+        pygame.draw.line(screen, (100, 100, 100), (hand_x, hand_y), (gun_end_x, gun_end_y), 2)
+        
+        # 조준선 그리기 (점선)
+        if frame_progress > 0.5:  # 조준 후반에만 조준선 표시
+            aim_distance = 100
+            aim_end_x = gun_end_x + math.cos(current_angle) * aim_distance
+            aim_end_y = gun_end_y + math.sin(current_angle) * aim_distance
+            
+            # 점선으로 조준선 그리기
+            for i in range(0, int(aim_distance), 10):
+                if i % 20 < 10:  # 점선 효과
+                    point_x = gun_end_x + math.cos(current_angle) * i
+                    point_y = gun_end_y + math.sin(current_angle) * i
+                    pygame.draw.circle(screen, (255, 0, 0), (int(point_x), int(point_y)), 1)
+        
+    elif current_stage == SOLDIER_GUN_STAGE_FIRE:
+        # 3단계: 발사 애니메이션
+        frame_progress = ((soldier_gun_animation_frame - SOLDIER_GUN_DRAW_FRAMES - SOLDIER_GUN_AIM_FRAMES) % SOLDIER_GUN_FIRE_FRAMES) / SOLDIER_GUN_FIRE_FRAMES
+        
+        # 목표 방향으로 총 그리기
+        dx = soldier_gun_target_x - hand_x
+        dy = soldier_gun_target_y - hand_y
+        fire_angle = math.atan2(dy, dx)
+        
+        # 발사 반동 효과
+        recoil_offset = int(5 * (1 - frame_progress))  # 발사 시 뒤로 밀리는 효과
+        gun_length = 12
+        gun_end_x = hand_x + math.cos(fire_angle) * (gun_length - recoil_offset)
+        gun_end_y = hand_y + math.sin(fire_angle) * (gun_length - recoil_offset)
+        
+        # 총 그리기
+        pygame.draw.line(screen, (50, 50, 50), (hand_x, hand_y), (gun_end_x, gun_end_y), 4)
+        pygame.draw.line(screen, (100, 100, 100), (hand_x, hand_y), (gun_end_x, gun_end_y), 2)
+        
+        # 총구 화염 효과
+        if frame_progress < 0.5:  # 발사 초반에만 화염 효과
+            flame_length = int(15 * (1 - frame_progress * 2))
+            flame_end_x = gun_end_x + math.cos(fire_angle) * flame_length
+            flame_end_y = gun_end_y + math.sin(fire_angle) * flame_length
+            
+            # 화염 색상 (노란색에서 빨간색으로)
+            flame_color = (255, int(255 * (1 - frame_progress * 2)), 0)
+            pygame.draw.line(screen, flame_color, (gun_end_x, gun_end_y), (flame_end_x, flame_end_y), 6)
+            
+            # 화염 중심부 (흰색)
+            center_length = flame_length // 2
+            center_end_x = gun_end_x + math.cos(fire_angle) * center_length
+            center_end_y = gun_end_y + math.sin(fire_angle) * center_length
+            pygame.draw.line(screen, (255, 255, 255), (gun_end_x, gun_end_y), (center_end_x, center_end_y), 3)
 
 def handle_player(keys):
     global ball_angle, special_gauge, special_ready, special_active, recent_dash_time, recent_half_dash_time, recent_dash_success_window
@@ -15689,6 +15965,10 @@ def draw_objects():
     # === 군인 총알 그리기 ===
     if selected_character_type == "soldier" and soldier_bullets:
         draw_soldier_bullets(SCREEN)
+    
+    # === 군인 총 발사 애니메이션 그리기 ===
+    if selected_character_type == "soldier":
+        draw_soldier_gun_animation(SCREEN, PLAYER)
     
     # === 쉴드 안테나 시스템 (스테이지 6) ===
     if current_stage == 6:
@@ -28160,23 +28440,48 @@ def update_impact_particles():
     """타격 이펙트 파티클 업데이트 - 격투게임 스타일"""
     global impact_particles
     for particle in impact_particles[:]:
-        # 위치 업데이트
-        particle[0] += particle[2]  # x += vx
-        particle[1] += particle[3]  # y += vy
-        # 격투게임 스타일 - 빠른 감속, 중력 없음
-        particle[2] *= 0.85  # 빠른 감속
-        particle[3] *= 0.85  # 빠른 감속
-        # 생명력 감소
-        particle[7] -= 1
-        # 빠른 페이드아웃
-        particle[5] = max(0, particle[5] - 22)  # 8프레임에 빠르게 사라짐
-        # 생명력이 다하면 제거
-        if particle[7] <= 0 or particle[5] <= 0:
-            impact_particles.remove(particle)
+        # 딕셔너리 형식과 리스트 형식 모두 지원
+        if isinstance(particle, dict):
+            # 딕셔너리 형식 업데이트
+            particle["x"] += particle.get("vx", 0)
+            particle["y"] += particle.get("vy", 0)
+            particle["vx"] *= 0.85  # 빠른 감속
+            particle["vy"] *= 0.85  # 빠른 감속
+            particle["life"] = particle.get("life", 1) - 1
+            particle["alpha"] = max(0, particle.get("alpha", 0) - 22)
+            
+            # 생명력이 다하면 제거
+            if particle.get("life", 0) <= 0 or particle.get("alpha", 0) <= 0:
+                impact_particles.remove(particle)
+        else:
+            # 리스트 형식 업데이트
+            particle[0] += particle[2]  # x += vx
+            particle[1] += particle[3]  # y += vy
+            particle[2] *= 0.85  # 빠른 감속
+            particle[3] *= 0.85  # 빠른 감속
+            particle[7] -= 1  # 생명력 감소
+            particle[5] = max(0, particle[5] - 22)  # 빠른 페이드아웃
+            
+            # 생명력이 다하면 제거
+            if particle[7] <= 0 or particle[5] <= 0:
+                impact_particles.remove(particle)
 def draw_impact_particles():
     """타격 이펙트 파티클 그리기 - 격투게임 스타일"""
     for particle in impact_particles:
-        x, y, vx, vy, size, alpha, color, life = particle
+        # 딕셔너리 형식과 리스트 형식 모두 지원
+        if isinstance(particle, dict):
+            x = particle.get("x", 0)
+            y = particle.get("y", 0)
+            vx = particle.get("vx", 0)
+            vy = particle.get("vy", 0)
+            size = particle.get("size", 1)
+            alpha = particle.get("alpha", 0)
+            color = particle.get("color", (255, 255, 255))
+            life = particle.get("life", 1)
+        else:
+            # 리스트 형식
+            x, y, vx, vy, size, alpha, color, life = particle
+        
         # 알파값이 있는 경우에만 그리기
         if alpha > 0:
             # 격투게임 스타일 - 스파크 라인 그리기
@@ -28188,7 +28493,7 @@ def draw_impact_particles():
                 end_y = y + (vy / line_length) * min(line_length, 8)
                 # 얇은 스파크 라인
                 if size > 1:
-                    draw.line(color, (int(x), int(y)), (int(end_x), int(end_y)), size)
+                    draw.line(color, (int(x), int(y)), (int(end_x), int(end_y)), int(size))
                 else:
                     # 1픽셀 점만 그리기
                     draw.circle(color, (int(x), int(y)), 1)
@@ -35038,6 +35343,22 @@ def main(stage_num, new_boss_mode=False):
     soldier_control_lock_timer = 0
     soldier_gun_drawn = False
     
+    # 군인 총 발사 애니메이션 초기화
+    global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
+    global soldier_gun_target_x, soldier_gun_target_y
+    soldier_gun_animation_active = False
+    soldier_gun_animation_frame = 0
+    soldier_gun_animation_timer = 0
+    soldier_gun_target_x = 0
+    soldier_gun_target_y = 0
+    
+    # 보스 넉백 효과 초기화
+    global boss_knockback_active, boss_knockback_offset_x, boss_knockback_offset_y, boss_knockback_timer
+    boss_knockback_active = False
+    boss_knockback_offset_x = 0
+    boss_knockback_offset_y = 0
+    boss_knockback_timer = 0
+    
     #  게임 세션 최초 시작 시에만 스킬 포인트 초기화
     global trade_point_collected, stage3_hearts_collected, stage4_crows_collected, trade_point_system
     
@@ -37285,6 +37606,7 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 군인 총알 시스템 업데이트
                 if selected_character_type == "soldier":
+                    update_soldier_gun_animation()  # 총 발사 애니메이션 업데이트
                     update_soldier_bullets()
                     # 쿨다운 감소
                     if soldier_gun_cooldown > 0:
