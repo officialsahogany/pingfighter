@@ -6492,7 +6492,7 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     horizontal_velocity *= random_factor
     
     # 라그나로크 해머 넉백 시스템 활용
-    boss_knockback_timer = 24  # 0.4초간 넉백 효과 지속 (라그나로크보다 짧게)
+    boss_knockback_timer = 40  # 0.67초간 넉백 효과 지속 (적절한 거리로 조정)
     boss_knockback_vel = horizontal_velocity
 
 def update_soldier_bullets():
