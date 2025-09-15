@@ -34437,13 +34437,24 @@ def main(stage_num, new_boss_mode=False):
                     elif power_smashing_direction == 1:  # 오른쪽 파워스매싱
                         ball_vel[0] = abs(ball_vel[0]) * 1.2805  # 오른쪽으로 강하게 (28.05% 부스트)
                     else:  # 직선 파워스매싱
-                        # 중앙 파워스매싱 - X축 속도가 너무 작을 때 최소값 보장
-                        if abs(ball_vel[0]) < BALL_BASE_SPEED * 0.3:  # X축 속도가 너무 작으면
-                            # 패들 중심에서 공까지의 X 거리에 따라 방향 결정
-                            x_diff = BALL.centerx - PLAYER.centerx
-                            if abs(x_diff) > 5:  # 약간의 오차 허용
-                                # 적절한 X축 속도 부여 (기본 속도의 40~60%)
-                                ball_vel[0] = BALL_BASE_SPEED * 0.5 * (1 if x_diff > 0 else -1)
+                        # 중앙 파워스매싱 - 패들 중심에서 공의 위치에 따라 방향 결정
+                        x_diff = BALL.centerx - PLAYER.centerx
+                        
+                        # X축 속도가 너무 작거나 방향키를 누른 경우 강제로 방향 설정
+                        if abs(ball_vel[0]) < BALL_BASE_SPEED * 0.3 or keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]:
+                            # 방향키가 눌렸으면 해당 방향으로, 아니면 공의 위치에 따라
+                            if keys[pygame.K_LEFT]:
+                                # 왼쪽 방향키 누르면 왼쪽으로
+                                ball_vel[0] = -abs(BALL_BASE_SPEED * 0.7)
+                            elif keys[pygame.K_RIGHT]:
+                                # 오른쪽 방향키 누르면 오른쪽으로
+                                ball_vel[0] = abs(BALL_BASE_SPEED * 0.7)
+                            elif abs(x_diff) > 3:  # 중앙에서 약간이라도 벗어났으면
+                                # 공이 패들 중심보다 오른쪽에 있으면 오른쪽으로, 왼쪽에 있으면 왼쪽으로
+                                ball_vel[0] = BALL_BASE_SPEED * 0.6 * (1 if x_diff > 0 else -1)
+                            else:
+                                # 정말 중앙에 가까운 경우에만 수직으로
+                                ball_vel[0] *= 0.3  # X축 속도를 크게 줄임
                         
                         ball_vel[0] *= 1.2805  # X축 28.05% 부스트
                         ball_vel[1] *= 1.2805  # Y축 28.05% 부스트
