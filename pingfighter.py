@@ -2457,6 +2457,338 @@ BOSS_IMG_STAGE5_HEIGHT = 70
 whip_wave_phase = 0
 whip_angle = 0  # 상모돌리기 각도
 whip_wave_particles = []  # 상모돌리기 파동 파티클 [(x, y, radius, alpha)]
+
+# === 군인 패들 휘두르기 애니메이션 변수 ===
+soldier_swing_active = False
+soldier_swing_timer = 0
+SOLDIER_SWING_DURATION = 15  # 0.25초 (60fps * 0.25)
+
+def create_soldier_paddle_animated():
+    """휘두르기 애니메이션이 적용된 군인 패들 이미지 생성"""
+    global soldier_swing_timer
+    
+    # 애니메이션 진행도 계산 (0.0 ~ 1.0)
+    progress = 1.0 - (soldier_swing_timer / SOLDIER_SWING_DURATION)
+    
+    # 애니메이션된 패들 이미지 생성
+    animated_paddle = pygame.Surface((250, 120), pygame.SRCALPHA)
+    
+    # 중심점 설정
+    center_x = 125
+    center_y = 45
+    
+    # === 헬멧 (정수리에서 바라본 각도) ===
+    helmet_center_y = center_y - 10
+    # 헬멧 그림자 (깊이감)
+    pygame.draw.ellipse(animated_paddle, (25, 35, 15), 
+                        (center_x - 19, helmet_center_y - 13, 38, 28))
+    # 헬멧 베이스
+    pygame.draw.ellipse(animated_paddle, (70, 90, 50), 
+                        (center_x - 18, helmet_center_y - 12, 36, 26))
+    # 헬멧 내부 (어두운 톤)
+    pygame.draw.ellipse(animated_paddle, (55, 75, 40), 
+                        (center_x - 15, helmet_center_y - 10, 30, 22))
+    # 헬멧 정수리 중앙
+    pygame.draw.ellipse(animated_paddle, (60, 80, 45), 
+                        (center_x - 10, helmet_center_y - 7, 20, 16))
+    # 헬멧 하이라이트 (광택)
+    pygame.draw.arc(animated_paddle, (95, 115, 75), 
+                    (center_x - 16, helmet_center_y - 11, 32, 24), 
+                    math.radians(200), math.radians(340), 2)
+    # 헬멧 통풍구 (정교한 배치)
+    for angle in [0, 72, 144, 216, 288]:
+        rad = math.radians(angle)
+        vent_x = center_x + int(6 * math.cos(rad))
+        vent_y = helmet_center_y - 3 + int(4 * math.sin(rad))
+        pygame.draw.circle(animated_paddle, (40, 60, 25), (vent_x, vent_y), 1)
+    # 헬멧 스트랩 커넥터
+    pygame.draw.circle(animated_paddle, (45, 65, 30), (center_x - 12, helmet_center_y + 8), 2)
+    pygame.draw.circle(animated_paddle, (45, 65, 30), (center_x + 12, helmet_center_y + 8), 2)
+
+    # === 목과 어깨 연결부 ===
+    pygame.draw.ellipse(animated_paddle, (185, 145, 115), 
+                        (center_x - 8, helmet_center_y + 8, 16, 10))
+
+    # === 군복 상체 (고급 디테일) ===
+    body_y = helmet_center_y + 18
+    # 어깨와 몸통 (더 정교한 실루엣)
+    shoulder_points = [
+        (center_x - 42, body_y + 2),      # 왼쪽 어깨 시작
+        (center_x - 38, body_y - 3),      # 왼쪽 어깨 상단
+        (center_x - 22, body_y - 6),      # 왼쪽 목 연결부
+        (center_x - 8, body_y - 7),       # 목 중앙 왼쪽
+        (center_x + 8, body_y - 7),       # 목 중앙 오른쪽
+        (center_x + 22, body_y - 6),      # 오른쪽 목 연결부
+        (center_x + 38, body_y - 3),      # 오른쪽 어깨 상단
+        (center_x + 42, body_y + 2),      # 오른쪽 어깨 시작
+        (center_x + 45, body_y + 12),     # 오른쪽 몸통
+        (center_x + 38, body_y + 25),     # 오른쪽 하단
+        (center_x - 38, body_y + 25),     # 왼쪽 하단
+        (center_x - 45, body_y + 12)      # 왼쪽 몸통
+    ]
+    pygame.draw.polygon(animated_paddle, (115, 105, 65), shoulder_points)
+
+    # 군복 중앙 지퍼 (더 세밀하게)
+    pygame.draw.line(animated_paddle, (85, 75, 45), 
+                     (center_x, body_y - 4), (center_x, body_y + 22), 2)
+    # 지퍼 톱니 효과
+    for i in range(8):
+        zip_y = body_y - 2 + i * 3
+        pygame.draw.line(animated_paddle, (70, 60, 35), 
+                         (center_x - 1, zip_y), (center_x + 1, zip_y), 1)
+
+    # 가슴 주머니 (더 입체적)
+    # 왼쪽 주머니
+    pygame.draw.rect(animated_paddle, (95, 85, 55), 
+                     (center_x - 28, body_y + 4, 16, 8))
+    pygame.draw.rect(animated_paddle, (80, 70, 40), 
+                     (center_x - 28, body_y + 4, 16, 8), 1)
+    pygame.draw.line(animated_paddle, (75, 65, 35), 
+                     (center_x - 20, body_y + 4), (center_x - 20, body_y + 7), 1)
+    # 오른쪽 주머니
+    pygame.draw.rect(animated_paddle, (95, 85, 55), 
+                     (center_x + 12, body_y + 4, 16, 8))
+    pygame.draw.rect(animated_paddle, (80, 70, 40), 
+                     (center_x + 12, body_y + 4, 16, 8), 1)
+    pygame.draw.line(animated_paddle, (75, 65, 35), 
+                     (center_x + 20, body_y + 4), (center_x + 20, body_y + 7), 1)
+
+    # 계급장 (더 정교한 디자인)
+    # 왼쪽 계급장
+    pygame.draw.polygon(animated_paddle, (160, 140, 70), [
+        (center_x - 38, body_y - 1),
+        (center_x - 26, body_y - 3),
+        (center_x - 26, body_y + 3),
+        (center_x - 38, body_y + 5)
+    ])
+    pygame.draw.polygon(animated_paddle, (140, 120, 50), [
+        (center_x - 37, body_y),
+        (center_x - 27, body_y - 2),
+        (center_x - 27, body_y + 2),
+        (center_x - 37, body_y + 4)
+    ])
+    # 오른쪽 계급장
+    pygame.draw.polygon(animated_paddle, (160, 140, 70), [
+        (center_x + 26, body_y - 3),
+        (center_x + 38, body_y - 1),
+        (center_x + 38, body_y + 5),
+        (center_x + 26, body_y + 3)
+    ])
+    pygame.draw.polygon(animated_paddle, (140, 120, 50), [
+        (center_x + 27, body_y - 2),
+        (center_x + 37, body_y),
+        (center_x + 37, body_y + 4),
+        (center_x + 27, body_y + 2)
+    ])
+
+    # === 왼팔과 탁구채 (애니메이션 적용) ===
+    left_arm_x = center_x - 25
+    left_arm_y = body_y - 15
+    
+    # 애니메이션 효과: 휘두르기 동작
+    swing_offset = int(progress * 8)  # 최대 8픽셀 이동
+    swing_angle = progress * 15  # 최대 15도 회전
+    
+    # 팔 (애니메이션 적용)
+    arm_points = [
+        (center_x - 38, body_y - 1),
+        (center_x - 35 + swing_offset, body_y + 3),
+        (left_arm_x - 4 + swing_offset, left_arm_y + 2),
+        (left_arm_x - 2 + swing_offset, left_arm_y - 12),
+        (left_arm_x + 2 + swing_offset, left_arm_y - 12),
+        (left_arm_x + 4 + swing_offset, left_arm_y + 2),
+        (center_x - 22, body_y - 4)
+    ]
+    pygame.draw.polygon(animated_paddle, (120, 108, 68), arm_points)
+    # 팔 음영
+    pygame.draw.polygon(animated_paddle, (105, 93, 53), [
+        (left_arm_x - 1 + swing_offset, left_arm_y - 10),
+        (left_arm_x + 1 + swing_offset, left_arm_y - 10),
+        (left_arm_x + 3 + swing_offset, left_arm_y),
+        (left_arm_x - 3 + swing_offset, left_arm_y)
+    ])
+
+    # 손 (애니메이션 적용)
+    pygame.draw.ellipse(animated_paddle, (195, 155, 125), 
+                        (left_arm_x - 4 + swing_offset, left_arm_y - 16, 8, 8))
+    pygame.draw.ellipse(animated_paddle, (180, 140, 110), 
+                        (left_arm_x - 3 + swing_offset, left_arm_y - 15, 6, 6))
+
+    # 탁구채 (애니메이션 적용 - 회전과 이동)
+    paddle_x = left_arm_x + swing_offset
+    paddle_y = left_arm_y - 28 - swing_offset  # 위아래로도 움직임
+    
+    # 라켓 회전을 위한 중심점
+    racket_center_x = paddle_x
+    racket_center_y = paddle_y + 8
+    
+    # 회전된 라켓 면 그리기 (간단한 회전 효과)
+    if swing_angle > 0:
+        # 회전 효과를 위해 타원의 각도를 조정
+        racket_width = int(24 * math.cos(math.radians(swing_angle)))
+        racket_height = 30
+    else:
+        racket_width = 24
+        racket_height = 30
+    
+    # 라켓 면
+    pygame.draw.ellipse(animated_paddle, (75, 95, 55), 
+                        (paddle_x - racket_width//2, paddle_y - 8, racket_width, racket_height))
+    # 라켓 테두리
+    pygame.draw.ellipse(animated_paddle, (95, 115, 75), 
+                        (paddle_x - racket_width//2, paddle_y - 8, racket_width, racket_height), 2)
+    # 라켓 고무 (빨간색)
+    if racket_width > 4:
+        pygame.draw.ellipse(animated_paddle, (120, 35, 25), 
+                            (paddle_x - (racket_width-4)//2, paddle_y - 6, racket_width-4, 26))
+    # 라켓 중앙 원형 패턴
+    if racket_width > 8:
+        pygame.draw.ellipse(animated_paddle, (100, 25, 15), 
+                            (paddle_x - (racket_width-8)//2, paddle_y - 2, racket_width-8, 18))
+    
+    # 군용 별 마크 (회전에 관계없이 표시)
+    star_cx = paddle_x
+    star_cy = paddle_y + 4
+    for i in range(5):
+        angle = math.radians(i * 72 - 90)
+        x = star_cx + int(3 * math.cos(angle))
+        y = star_cy + int(3 * math.sin(angle))
+        pygame.draw.line(animated_paddle, (140, 50, 40), 
+                         (star_cx, star_cy), (x, y), 2)
+    
+    # 손잡이
+    pygame.draw.rect(animated_paddle, (95, 55, 35), 
+                     (paddle_x - 2, paddle_y + 18, 4, 10))
+    pygame.draw.rect(animated_paddle, (80, 40, 20), 
+                     (paddle_x - 2, paddle_y + 18, 4, 10), 1)
+    # 손잡이 그립 패턴
+    for i in range(3):
+        grip_y = paddle_y + 20 + i * 2
+        pygame.draw.line(animated_paddle, (70, 35, 15), 
+                         (paddle_x - 1, grip_y), (paddle_x + 1, grip_y), 1)
+
+    # === 오른팔 ===
+    right_arm_x = center_x + 35
+    right_arm_y = body_y + 3
+    arm_points_right = [
+        (center_x + 38, body_y - 1),
+        (center_x + 42, body_y + 1),
+        (right_arm_x + 3, right_arm_y + 8),
+        (right_arm_x - 2, right_arm_y + 15),
+        (right_arm_x - 6, right_arm_y + 12),
+        (right_arm_x - 3, right_arm_y + 3),
+        (center_x + 22, body_y - 4)
+    ]
+    pygame.draw.polygon(animated_paddle, (120, 108, 68), arm_points_right)
+
+    # 오른손
+    pygame.draw.ellipse(animated_paddle, (195, 155, 125), 
+                        (right_arm_x - 4, right_arm_y + 12, 8, 6))
+
+    # === 나머지 부분들 (다리, 군화 등) ===
+    # 고급 위장 패턴
+    camo_colors = [(85, 75, 45), (105, 95, 55), (95, 85, 50)]
+    # 몸통 위장
+    for i in range(12):
+        camo_x = center_x - 35 + (i % 4) * 18 + random.randint(-4, 4)
+        camo_y = body_y - 2 + (i // 4) * 8 + random.randint(-2, 2)
+        camo_size = random.randint(6, 12)
+        pygame.draw.ellipse(animated_paddle, camo_colors[i % 3], 
+                            (camo_x, camo_y, camo_size, camo_size - 1))
+
+    # 다리와 군화 (기존 코드와 동일)
+    hip_y = body_y + 25
+    # 벨트
+    pygame.draw.rect(animated_paddle, (60, 50, 30), 
+                     (center_x - 32, hip_y - 1, 64, 4))
+    pygame.draw.rect(animated_paddle, (140, 120, 60), 
+                     (center_x - 10, hip_y - 2, 20, 6))
+    pygame.draw.rect(animated_paddle, (120, 100, 40), 
+                     (center_x - 8, hip_y - 1, 16, 4))
+    # 벨트 구멍
+    for i in range(3):
+        hole_x = center_x - 4 + i * 3
+        pygame.draw.circle(animated_paddle, (50, 40, 20), (hole_x, hip_y + 1), 1)
+
+    # 다리
+    leg_length = 15
+    left_leg_x = center_x - 12
+    right_leg_x = center_x + 12
+
+    # 왼쪽 다리
+    pygame.draw.polygon(animated_paddle, (110, 100, 60), [
+        (left_leg_x - 6, hip_y + 2),
+        (left_leg_x - 7, hip_y + 8),
+        (left_leg_x - 6, hip_y + leg_length),
+        (left_leg_x - 3, hip_y + leg_length + 2),
+        (left_leg_x + 3, hip_y + leg_length + 2),
+        (left_leg_x + 6, hip_y + leg_length),
+        (left_leg_x + 7, hip_y + 8),
+        (left_leg_x + 6, hip_y + 2)
+    ])
+
+    # 오른쪽 다리
+    pygame.draw.polygon(animated_paddle, (110, 100, 60), [
+        (right_leg_x - 6, hip_y + 2),
+        (right_leg_x - 7, hip_y + 8),
+        (right_leg_x - 6, hip_y + leg_length),
+        (right_leg_x - 3, hip_y + leg_length + 2),
+        (right_leg_x + 3, hip_y + leg_length + 2),
+        (right_leg_x + 6, hip_y + leg_length),
+        (right_leg_x + 7, hip_y + 8),
+        (right_leg_x + 6, hip_y + 2)
+    ])
+
+    # 군화
+    boot_y = hip_y + leg_length + 2
+    # 왼쪽 군화
+    pygame.draw.polygon(animated_paddle, (40, 35, 25), [
+        (left_leg_x - 4, boot_y),
+        (left_leg_x - 6, boot_y + 2),
+        (left_leg_x - 5, boot_y + 5),
+        (left_leg_x - 2, boot_y + 6),
+        (left_leg_x + 2, boot_y + 6),
+        (left_leg_x + 5, boot_y + 5),
+        (left_leg_x + 6, boot_y + 2),
+        (left_leg_x + 4, boot_y)
+    ])
+    # 군화 끈
+    pygame.draw.line(animated_paddle, (25, 20, 15), 
+                     (left_leg_x - 3, boot_y + 1), (left_leg_x + 3, boot_y + 1), 1)
+    pygame.draw.line(animated_paddle, (25, 20, 15), 
+                     (left_leg_x - 2, boot_y + 3), (left_leg_x + 2, boot_y + 3), 1)
+
+    # 오른쪽 군화
+    pygame.draw.polygon(animated_paddle, (40, 35, 25), [
+        (right_leg_x - 4, boot_y),
+        (right_leg_x - 6, boot_y + 2),
+        (right_leg_x - 5, boot_y + 5),
+        (right_leg_x - 2, boot_y + 6),
+        (right_leg_x + 2, boot_y + 6),
+        (right_leg_x + 5, boot_y + 5),
+        (right_leg_x + 6, boot_y + 2),
+        (right_leg_x + 4, boot_y)
+    ])
+    # 군화 끈
+    pygame.draw.line(animated_paddle, (25, 20, 15), 
+                     (right_leg_x - 3, boot_y + 1), (right_leg_x + 3, boot_y + 1), 1)
+    pygame.draw.line(animated_paddle, (25, 20, 15), 
+                     (right_leg_x - 2, boot_y + 3), (right_leg_x + 2, boot_y + 3), 1)
+
+    # 다리 위장 패턴
+    for i in range(4):
+        # 왼쪽 다리
+        camo_x = left_leg_x - 3 + random.randint(-2, 4)
+        camo_y = hip_y + 4 + i * 3
+        pygame.draw.ellipse(animated_paddle, camo_colors[i % 3], 
+                            (camo_x, camo_y, random.randint(3, 6), random.randint(2, 4)))
+        # 오른쪽 다리
+        camo_x = right_leg_x - 3 + random.randint(-2, 4)
+        camo_y = hip_y + 4 + i * 3
+        pygame.draw.ellipse(animated_paddle, camo_colors[i % 3], 
+                            (camo_x, camo_y, random.randint(3, 6), random.randint(2, 4)))
+
+    return animated_paddle
 #  버스트업 스킬 관련 변수 (대쉬 중 패들 세로 타격 범위만 증가 + 섬광 효과)
 acceleration_active = False  # 버스트업 효과 활성 여부
 acceleration_height_bonus = 0  # 대쉬 중 추가되는 패들 높이 (충돌 판정용)
@@ -7504,6 +7836,12 @@ def handle_player(keys):
         player_collision_handled = True
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "player"  # game_vars에도 업데이트
+        
+        # 군인 캐릭터 휘두르기 애니메이션 활성화
+        global soldier_swing_active, soldier_swing_timer
+        if selected_character_type == "soldier":
+            soldier_swing_active = True
+            soldier_swing_timer = SOLDIER_SWING_DURATION
         
         # Chapter 2 튜토리얼: 대쉬 상태에서 충돌 시 첫 대쉬 이벤트 처리
         if current_stage == 50 and tutorial_current_chapter == 2 and rolling_active:
@@ -13157,7 +13495,11 @@ def draw_objects():
     else:
         # 일반 모드에서는 캐릭터 타입에 따라 다른 이미지 사용
         if selected_character_type == "soldier":
-            base_ufo_img = SOLDIER_PADDLE_IMG
+            # 군인 캐릭터 애니메이션 처리
+            if soldier_swing_active:
+                base_ufo_img = create_soldier_paddle_animated()
+            else:
+                base_ufo_img = SOLDIER_PADDLE_IMG
         else:
             # 기본 UFO 플레이어 이미지 사용
             base_ufo_img = PLAYER_IMG
@@ -31178,6 +31520,11 @@ def handle_ball():
             print("handle_ball   (handle_player  )")
         hit_animation_active = True
         hit_animation_timer = HIT_ANIMATION_DURATION
+        
+        # 군인 캐릭터 휘두르기 애니메이션 활성화 (handle_ball에서 놓친 충돌)
+        if selected_character_type == "soldier" and not player_collision_handled:
+            soldier_swing_active = True
+            soldier_swing_timer = SOLDIER_SWING_DURATION
         if ball_vel[0] != 0:
             direction = math.copysign(1, ball_vel[0])
             ball_angle += direction * 10
@@ -36846,6 +37193,11 @@ def main(stage_num, new_boss_mode=False):
                     # 쿨다운 감소
                     if soldier_gun_cooldown > 0:
                         soldier_gun_cooldown -= 1
+                    # 휘두르기 애니메이션 타이머 감소
+                    if soldier_swing_timer > 0:
+                        soldier_swing_timer -= 1
+                        if soldier_swing_timer <= 0:
+                            soldier_swing_active = False
                 
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
