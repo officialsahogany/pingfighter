@@ -2159,6 +2159,7 @@ BOSS_IMG_STAGE5_WIDTH = 130
 BOSS_IMG_STAGE5_HEIGHT = 70
 # 전역 변수 추가 (파일 위쪽에 위치)
 whip_wave_phase = 0
+whip_angle = 0  # 상모돌리기 각도
 whip_wave_particles = []  # 상모돌리기 파동 파티클 [(x, y, radius, alpha)]
 #  버스트업 스킬 관련 변수 (대쉬 중 패들 세로 타격 범위만 증가 + 섬광 효과)
 acceleration_active = False  # 버스트업 효과 활성 여부
