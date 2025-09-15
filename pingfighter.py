@@ -9919,6 +9919,16 @@ def handle_wall():
     if len(fire_zones) == 0 or not any(zone.get("boss_in_fire", False) for zone in fire_zones):
         boss_speed_reduction_active = False
         boss_speed_reduction_factor = 1.0  # 정상 속도로 복구
+
+def deactivate_whip():
+    """상모돌리기 완전 비활성화 - 사운드 정지 보장"""
+    global whip_active, whip_timer, whip_wave_particles
+    whip_active = False
+    whip_timer = 0
+    whip_sound.stop()  # 반드시 사운드 정지
+    whip_wave_particles.clear()
+    print("[DEBUG] 상모돌리기 완전 비활성화 - 사운드 정지 완료")
+
 def activate_whip():
     global whip_active, whip_timer, whip_wave_phase, whip_original_ball_speed, whip_wave_particles
     print(f"[DEBUG] 상모돌리기 활성화 시작!")
@@ -9936,8 +9946,8 @@ def activate_whip():
     #  파동 파티클 초기화 - 보스에서 플레이어를 향해 나아가는 파동
     whip_wave_particles = []
     
-    # 효과음이 처음 발동될 때만 플레이
-    whip_sound.play(loops=-1, maxtime=whip_duration * MILLISECONDS_PER_SECOND)  # 효과음이 지속되는 시간 설정
+    # 효과음이 처음 발동될 때만 플레이 (무한 반복하지 않고 제한된 시간 동안만)
+    whip_sound.play(loops=0)  # 한 번만 재생하고 타이머로 제어
     
     #  X축 속도를 거의 0으로 설정 (일직선 아래로)
     ball_vel[0] = 0
@@ -9999,9 +10009,7 @@ def handle_whip():
             whip_wave_phase += 0.3  # 사인 함수로 진폭 파형 진행
             # 진폭 계산 (사인 함수에 의해 -1에서 1 사이의 값을 가짐)
             wave = math.sin(whip_wave_phase) * 15  # 진폭을 15로 감소 (좌우 흔들림 최소화)
-            # 볼륨 조정: -1에서 1 사이의 값을 0.0에서 1.0으로 변환
-            volume = (math.sin(whip_wave_phase) + 1) / 2  # 0.0 ~ 1.0 범위로 변환
-            whip_sound.set_volume(volume)  # 효과음 볼륨 설정
+            # 볼륨 조정 제거 - 사운드가 계속 재생되는 문제 방지
             # 공의 속도에 진폭 적용 (X축만 약간 물결치도록)
             # 파워스매싱이 활성화되어 있지 않을 때만 상모돌리기 효과 적용
             if not power_smashing_parabola_active and not power_smashing_freeze_active:
@@ -10062,10 +10070,8 @@ def handle_whip():
                 if abs(ball_vel[1]) < 8:
                     ball_vel[1] = -8
         else:
-            # 효과음 정지
-            whip_active = False  # 효과음 종료
-            whip_sound.stop()  # 타이머가 0이 되면 효과음 정지
-            whip_wave_particles.clear()  # 파동 파티클도 제거
+            # 상모돌리기 효과 완전 종료
+            deactivate_whip()  # 통합된 비활성화 함수 사용
 def activate_balloon():
     """풍선 스킬 활성화"""
     global balloon_active, balloon_timer, balloons, balloon_used_this_round
@@ -30621,7 +30627,7 @@ def handle_ball():
                         print(f"  - power_smashing_parabola_active: {power_smashing_parabola_active}")
                         print(f"  - power_smashing_freeze_active: {power_smashing_freeze_active}")
                         
-                        whip_active = False
+                        deactivate_whip()  # 통합된 비활성화 함수 사용
                         whip_angle = 0
                         print("상모돌리기 종료 - 벽돌 충돌")
                     
@@ -32004,7 +32010,7 @@ def handle_ball():
                 print(f"  - 특수 게이지: {special_gauge}/800")
                 print(f"  - whip_angle: {globals().get('whip_angle', 0):.2f}")
                 
-                whip_active = False
+                deactivate_whip()  # 통합된 비활성화 함수 사용
                 whip_angle = 0
                 print("상모돌리기 종료 - 플레이어 패들 충돌")
             
@@ -32041,10 +32047,8 @@ def handle_ball():
             
             #  스테이지 1: 상모돌리기 강제 해제 모션 시작
             if current_stage == 1:
-                whip_active = False
-                whip_timer = 0
+                deactivate_whip()  # 통합된 비활성화 함수 사용
                 whip_animation_timer = 0
-                whip_sound.stop()  # 상모돌리기 사운드 중지
                 
                 # 강제 해제 슬로우다운 모션 시작
                 whip_deactivation_active = True
@@ -32207,7 +32211,7 @@ def handle_ball():
 
         # 상모돌리기 활성화 시 보스 패들 충돌 시 종료
         if whip_active:
-            whip_active = False
+            deactivate_whip()  # 통합된 비활성화 함수 사용
             whip_angle = 0
             print("상모돌리기 종료 - 보스 패들 충돌")
             
@@ -32411,11 +32415,7 @@ def handle_ball():
         #  상모돌리기 중 플레이어가 공을 맞춘 후 보스 패들에 재충돌 시 상모돌리기 강제종료 + 속도 복구
         if whip_active and whip_hit_by_player:
             #  상모돌리기 강제종료
-            whip_active = False
-            whip_timer = 0
-            whip_sound.stop()  # 상모돌리기 사운드 중지
-            whip_wave_particles.clear()  # 파동 파티클도 제거
-            print("! ( →  )")
+            deactivate_whip()  # 통합된 비활성화 함수 사용
             #  공속도 복구 (X축은 적절한 값으로, Y축은 원래대로)
             # 보스 위치에 따라 X축 속도 결정
             if BOSS.centerx < WIDTH // 2:
@@ -37235,7 +37235,7 @@ def main(stage_num, new_boss_mode=False):
                     
                     # 상모돌리기가 활성화되어 있으면 종료
                     if whip_active:
-                        whip_active = False
+                        deactivate_whip()  # 통합된 비활성화 함수 사용
                         whip_angle = 0
                         print("[DEBUG] 파워스매싱 발사 시 상모돌리기 강제 종료!")
                     
@@ -38403,18 +38403,14 @@ def main(stage_num, new_boss_mode=False):
         # 라운드 종료 체크
         if round_wins >= win_goal:
             #  게임 종료 시 즉시 상모돌리기 사운드 정지
-            whip_active = False
-            whip_timer = 0
-            whip_sound.stop()
+            deactivate_whip()  # 통합된 비활성화 함수 사용
             if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
                 BOSS.whip_sound.stop()
             show_result(True)
             return
         elif round_losses >= win_goal:
             #  게임 종료 시 즉시 상모돌리기 사운드 정지
-            whip_active = False
-            whip_timer = 0
-            whip_sound.stop()
+            deactivate_whip()  # 통합된 비활성화 함수 사용
             if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
                 BOSS.whip_sound.stop()
             #  스테이지 실패 기록
