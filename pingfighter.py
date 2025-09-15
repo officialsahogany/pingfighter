@@ -28130,6 +28130,8 @@ def handle_ball():
     global is_half_dash_active, half_dash_effect_timer
     # 쿠로미 뱉기 궤적 관련
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
+    # 상모돌리기 관련 변수
+    global whip_active, whip_angle
     # 충돌 쿨다운 감소
     if player_collision_cooldown > 0:
         player_collision_cooldown -= 1
@@ -28146,6 +28148,7 @@ def handle_ball():
     global power_smashing_start_time, power_smashing_arc_strength
     global power_smashing_direction, power_smashing_initial_boost, power_smashing_boost_duration
     global power_smashing_target_speed
+    global power_smashing_freeze_active
     global mega_smashing_active, mega_smashing_bonus_applied, mega_smashing_meteor_trail
     # 보스별 특수 스킬들
     global whip_hit_by_player, whip_active, original_speed, whip_original_ball_speed
@@ -30487,7 +30490,7 @@ def handle_ball():
                 print(f"[DEBUG] 상모돌리기 플레이어 패들 충돌 감지!")
                 print(f"  - 충돌 전 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
                 print(f"  - 파워스매싱 상태: freeze={power_smashing_freeze_active}, parabola={power_smashing_parabola_active}")
-                print(f"  - 파워 차지 활성화: {perfect_timing_input}")
+                print(f"  - 특수 게이지: {special_gauge}/800")
                 print(f"  - whip_angle: {whip_angle:.2f}")
                 
                 whip_active = False
