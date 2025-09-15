@@ -3369,7 +3369,7 @@ class ShaolinTempleBackground:
                 
                 surface.blit(particle_surf, 
                            (int(particle['x'] - center), 
-                            int(particle['y'] - center))))
+                            int(particle['y'] - center)))
         
         # Draw main wave core with enhanced destruction effect
         wave_size = int(wave['radius'] * 3)  # Larger surface for effects
@@ -3466,7 +3466,7 @@ class ShaolinTempleBackground:
         # Blit the enhanced wave
         surface.blit(wave_surf, 
                    (int(wave['current_x'] - center), 
-                    int(wave['current_y'] - center))))
+                    int(wave['current_y'] - center)))
     
     def _create_collapse_debris(self):
         """Create debris particles for temple collapse"""
