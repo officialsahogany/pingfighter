@@ -2332,8 +2332,8 @@ paddle_face = [
 # 탁구채 면 (군용 다크 그린)
 pygame.draw.polygon(SOLDIER_PADDLE_IMG, (60, 80, 40), paddle_face)
 # 탁구채 고무 (빨간색)
-inner_paddle = [(x[0] * 0.85 + paddle_x * 0.15, y[1] * 0.85 + paddle_y * 0.15) 
-                for x, y in paddle_face]
+inner_paddle = [(point[0] * 0.85 + paddle_x * 0.15, point[1] * 0.85 + paddle_y * 0.15) 
+                for point in paddle_face]
 pygame.draw.polygon(SOLDIER_PADDLE_IMG, (120, 30, 20), inner_paddle)
 
 # 탁구채 손잡이
