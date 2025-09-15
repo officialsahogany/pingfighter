@@ -2463,6 +2463,11 @@ soldier_swing_active = False
 soldier_swing_timer = 0
 SOLDIER_SWING_DURATION = 15  # 0.25초 (60fps * 0.25)
 
+# === 군인 걷기 애니메이션 변수 ===
+soldier_walking_active = False
+soldier_walking_timer = 0
+SOLDIER_WALKING_CYCLE = 30  # 0.5초 (60fps * 0.5)
+
 def create_soldier_paddle_animated():
     """휘두르기 애니메이션이 적용된 군인 패들 이미지 생성"""
     global soldier_swing_timer
@@ -2789,6 +2794,58 @@ def create_soldier_paddle_animated():
                             (camo_x, camo_y, random.randint(3, 6), random.randint(2, 4)))
 
     return animated_paddle
+
+def create_soldier_paddle_walking():
+    """걷기 애니메이션이 적용된 군인 패들 이미지 생성"""
+    global soldier_walking_timer
+    
+    # 기본 군인 패들 이미지 복사
+    walking_paddle = SOLDIER_PADDLE_IMG.copy()
+    
+    # 기본 설정
+    center_x = 125
+    center_y = 60
+    
+    # 걸음 주기 계산 (0.0 ~ 1.0 사이의 값)
+    walk_progress = (soldier_walking_timer % SOLDIER_WALKING_CYCLE) / SOLDIER_WALKING_CYCLE
+    
+    # 사인파를 이용한 자연스러운 발 움직임
+    step_offset = int(math.sin(walk_progress * 2 * math.pi) * 8)  # -8 ~ +8 픽셀
+    
+    # 다리 위치 (기존 다리를 지우고 새로 그리기)
+    hip_y = center_y + 55
+    leg_width = 8
+    leg_height = 25
+    
+    # 왼쪽 다리 (기본 위치)
+    left_leg_x = center_x - 15
+    left_foot_y = hip_y + leg_height
+    
+    # 오른쪽 다리 (걸음에 따라 움직임)
+    right_leg_x = center_x + 5 + step_offset
+    right_foot_y = hip_y + leg_height
+    
+    # 기존 다리 영역 지우기 (배경색으로 덮기)
+    clear_rect = pygame.Rect(center_x - 25, hip_y, 50, leg_height + 5)
+    pygame.draw.rect(walking_paddle, (0, 0, 0, 0), clear_rect)
+    
+    # 새로운 다리 그리기
+    # 왼쪽 다리
+    pygame.draw.ellipse(walking_paddle, (60, 80, 45), 
+                        (left_leg_x, hip_y, leg_width, leg_height))
+    # 왼쪽 발
+    pygame.draw.ellipse(walking_paddle, (40, 60, 25), 
+                        (left_leg_x - 2, left_foot_y - 3, leg_width + 4, 6))
+    
+    # 오른쪽 다리
+    pygame.draw.ellipse(walking_paddle, (60, 80, 45), 
+                        (right_leg_x, hip_y, leg_width, leg_height))
+    # 오른쪽 발
+    pygame.draw.ellipse(walking_paddle, (40, 60, 25), 
+                        (right_leg_x - 2, right_foot_y - 3, leg_width + 4, 6))
+    
+    return walking_paddle
+
 #  버스트업 스킬 관련 변수 (대쉬 중 패들 세로 타격 범위만 증가 + 섬광 효과)
 acceleration_active = False  # 버스트업 효과 활성 여부
 acceleration_height_bonus = 0  # 대쉬 중 추가되는 패들 높이 (충돌 판정용)
@@ -6362,6 +6419,7 @@ def handle_player(keys):
     global flare_throwing, flare_throw_timer  # 조명탄 투척 모션
     global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel  # 스탑워치 관련 변수
     global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
+    global soldier_walking_active, soldier_walking_timer  # 군인 걷기 애니메이션 변수
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
     global tutorial_drive_completion_dialogue_shown, tutorial_drive_count  # Chapter 3 완료 체크
     global chapter4_dialogue_completed, chapter4_serve_reminder_active, chapter4_serve_reminder_timer  # Chapter 4 대화 및 서브 알림 변수
@@ -7740,6 +7798,21 @@ def handle_player(keys):
     
     # 화염 지대 넉백은 감전/스턴 상태와 무관하게 항상 적용
     PLAYER.x += player_flame_zone_knockback_vel
+    
+    # === 군인 캐릭터 걷기 애니메이션 처리 ===
+    if selected_character_type == "soldier":
+        # 플레이어가 움직이고 있는지 확인 (속도가 충분히 클 때)
+        if abs(current_speed) > 1.0:
+            # 걷기 애니메이션 활성화
+            if not soldier_walking_active:
+                soldier_walking_active = True
+                soldier_walking_timer = 0
+            # 애니메이션 타이머 증가
+            soldier_walking_timer += 1
+        else:
+            # 멈춤 상태 - 걷기 애니메이션 비활성화
+            soldier_walking_active = False
+            soldier_walking_timer = 0
     
     # 헤르메스의 신발 별가루 파티클 생성
     global last_paddle_x, hermes_star_particles
@@ -13495,9 +13568,11 @@ def draw_objects():
     else:
         # 일반 모드에서는 캐릭터 타입에 따라 다른 이미지 사용
         if selected_character_type == "soldier":
-            # 군인 캐릭터 애니메이션 처리
+            # 군인 캐릭터 애니메이션 처리 (우선순위: 휘두르기 > 걷기 > 기본)
             if soldier_swing_active:
                 base_ufo_img = create_soldier_paddle_animated()
+            elif soldier_walking_active:
+                base_ufo_img = create_soldier_paddle_walking()
             else:
                 base_ufo_img = SOLDIER_PADDLE_IMG
         else:
@@ -34890,6 +34965,8 @@ def main(stage_num, new_boss_mode=False):
     global selected_character_type
     # 군인 휘두르기 애니메이션 시스템
     global soldier_swing_active, soldier_swing_timer
+    # 군인 걷기 애니메이션 시스템
+    global soldier_walking_active, soldier_walking_timer
     # 파워스매싱 정지 시간 관리
     global power_smashing_freeze_start_time, power_smashing_freeze_active, power_smashing_freeze_duration
     global power_smashing_parabola_active, power_smashing_start_time
