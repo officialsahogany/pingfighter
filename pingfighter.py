@@ -9892,7 +9892,7 @@ def apply_white_glow(surface, intensity=60):
                     # 색상 값이 잘못된 경우 기본값 사용
                     surface.set_at((x, y), pygame.Color(255, 255, 255, pixel.a))
 def draw_stage1_boss_gauge_bar():
-    """스테이지 1 보스 필살기 게이지바 - 한국 전통 태극문양과 한지 느낌 (세로형)"""
+    """스테이지 1 보스 필살기 게이지바 - 조선시대 궁궐 스타일"""
     global current_stage, boss_special_gauge, displayed_boss_gauge
     
     if current_stage != 1:
@@ -9911,97 +9911,112 @@ def draw_stage1_boss_gauge_bar():
     # 시간 기반 애니메이션
     time_offset = pygame.time.get_ticks() * 0.001
     
-    # 태극 문양 상단 아이콘 (작은 크기)
-    taegeuk_x = bar_x + bar_width // 2
-    taegeuk_y = bar_y - 20
-    taegeuk_radius = 8
+    # 조선시대 용 문양 상단 (왕실 상징)
+    dragon_x = bar_x + bar_width // 2
+    dragon_y = bar_y - 20
+    dragon_size = 10
     
-    # 태극 문양 회전 애니메이션
-    rotation = time_offset * 0.8
+    # 용의 머리 (둥근 형태)
+    pygame.draw.circle(SCREEN, (200, 150, 50), (dragon_x, dragon_y), dragon_size)
+    pygame.draw.circle(SCREEN, (120, 80, 20), (dragon_x, dragon_y), dragon_size, 2)
     
-    # 태극 배경원
-    pygame.draw.circle(SCREEN, (250, 245, 235), (taegeuk_x, taegeuk_y), taegeuk_radius)
-    pygame.draw.circle(SCREEN, (60, 40, 20), (taegeuk_x, taegeuk_y), taegeuk_radius, 1)
+    # 용의 눈 (움직이는 애니메이션)
+    eye_offset = int(2 * math.sin(time_offset * 2))
+    pygame.draw.circle(SCREEN, (220, 0, 0), (dragon_x - 3 + eye_offset, dragon_y - 2), 2)
+    pygame.draw.circle(SCREEN, (220, 0, 0), (dragon_x + 3 + eye_offset, dragon_y - 2), 2)
     
-    # 태극 문양 (빨강/파랑)
-    for i, color in enumerate([(180, 60, 60), (60, 80, 180)]):
-        start_angle = math.pi * i + rotation
-        end_angle = start_angle + math.pi
-        arc_rect = pygame.Rect(taegeuk_x - taegeuk_radius, taegeuk_y - taegeuk_radius, 
-                              taegeuk_radius * 2, taegeuk_radius * 2)
-        
-        # 호 그리기 (두께 증가)
-        for thickness in range(taegeuk_radius):
-            pygame.draw.arc(SCREEN, color, arc_rect, start_angle, end_angle, 1)
+    # 용의 뿔 (위로 뻗은 형태)
+    horn_height = 4 + int(2 * abs(math.sin(time_offset)))
+    pygame.draw.line(SCREEN, (180, 120, 30), 
+                    (dragon_x - 4, dragon_y - dragon_size), 
+                    (dragon_x - 6, dragon_y - dragon_size - horn_height), 3)
+    pygame.draw.line(SCREEN, (180, 120, 30), 
+                    (dragon_x + 4, dragon_y - dragon_size), 
+                    (dragon_x + 6, dragon_y - dragon_size - horn_height), 3)
     
-    # 작은 태극 점들
-    small_r = 2
-    for i, color in enumerate([(60, 80, 180), (180, 60, 60)]):
-        angle = rotation + math.pi * i
-        dot_x = taegeuk_x + int(3 * math.cos(angle))
-        dot_y = taegeuk_y + int(3 * math.sin(angle))
-        pygame.draw.circle(SCREEN, color, (dot_x, dot_y), small_r)
-    
-    # 한국 전통 게이지바 프레임 (육각형 스타일)
-    frame_points = [
-        (bar_x + bar_width // 2, bar_y - 5),  # 상단 중앙
-        (bar_x - 2, bar_y + 3),               # 좌상단
-        (bar_x - 2, bar_y + bar_height - 3),  # 좌하단
-        (bar_x + bar_width // 2, bar_y + bar_height + 5), # 하단 중앙
-        (bar_x + bar_width + 2, bar_y + bar_height - 3),  # 우하단
-        (bar_x + bar_width + 2, bar_y + 3),   # 우상단
+    # 조선 궁궐 기둥 스타일 프레임
+    # 기둥 상단 (공포)
+    pillar_top = [
+        (bar_x - 4, bar_y - 2),
+        (bar_x + bar_width + 4, bar_y - 2),
+        (bar_x + bar_width + 6, bar_y + 5),
+        (bar_x + bar_width + 2, bar_y + 8),
+        (bar_x - 2, bar_y + 8),
+        (bar_x - 6, bar_y + 5)
     ]
+    pygame.draw.polygon(SCREEN, (160, 100, 40), pillar_top)
+    pygame.draw.polygon(SCREEN, (100, 60, 20), pillar_top, 2)
     
-    # 프레임 배경 (한지색)
-    pygame.draw.polygon(SCREEN, (240, 230, 215), frame_points)
-    pygame.draw.polygon(SCREEN, (120, 90, 60), frame_points, 2)
+    # 기둥 하단 (공포)
+    pillar_bottom = [
+        (bar_x - 2, bar_y + bar_height - 8),
+        (bar_x + bar_width + 2, bar_y + bar_height - 8),
+        (bar_x + bar_width + 6, bar_y + bar_height - 5),
+        (bar_x + bar_width + 4, bar_y + bar_height + 2),
+        (bar_x - 4, bar_y + bar_height + 2),
+        (bar_x - 6, bar_y + bar_height - 5)
+    ]
+    pygame.draw.polygon(SCREEN, (160, 100, 40), pillar_bottom)
+    pygame.draw.polygon(SCREEN, (100, 60, 20), pillar_bottom, 2)
     
-    # 내부 배경 (한지 질감)
-    inner_rect = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
-    pygame.draw.rect(SCREEN, (235, 225, 210), inner_rect)
+    # 메인 기둥 몸체 (목재 질감)
+    main_pillar = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
+    pygame.draw.rect(SCREEN, (180, 130, 80), main_pillar)
+    pygame.draw.rect(SCREEN, (120, 80, 40), main_pillar, 2)
     
-    # 전통 문양 배경 패턴 (단청 느낌)
-    for i in range(0, bar_height, 8):
-        pattern_alpha = 30 + int(15 * math.sin(i * 0.2 + time_offset))
-        # 한지 세로 결 패턴
-        pygame.draw.line(SCREEN, (220, 200, 180, pattern_alpha), 
-                        (bar_x + 1, bar_y + i), 
-                        (bar_x + bar_width - 1, bar_y + i), 1)
-        # 전통 격자 패턴
-        if i % 16 == 0:
-            pygame.draw.line(SCREEN, (200, 180, 160, pattern_alpha), 
-                            (bar_x, bar_y + i), 
-                            (bar_x + bar_width, bar_y + i), 1)
+    # 조선시대 전통 문양 패턴 (세로 나무결 + 단청)
+    for i in range(0, bar_height, 6):
+        # 나무결 패턴 (세로줄)
+        wood_alpha = 40 + int(20 * math.sin(i * 0.15 + time_offset * 0.5))
+        pygame.draw.line(SCREEN, (160, 110, 60, wood_alpha), 
+                        (bar_x + 2, bar_y + i), 
+                        (bar_x + bar_width - 2, bar_y + i), 1)
+        
+        # 단청 장식 (규칙적 간격)
+        if i % 18 == 0:
+            # 빨강 단청
+            pygame.draw.line(SCREEN, (180, 60, 40), 
+                            (bar_x + 1, bar_y + i), 
+                            (bar_x + bar_width - 1, bar_y + i), 1)
+        elif i % 18 == 6:
+            # 파랑 단청  
+            pygame.draw.line(SCREEN, (40, 80, 160), 
+                            (bar_x + 1, bar_y + i), 
+                            (bar_x + bar_width - 1, bar_y + i), 1)
+        elif i % 18 == 12:
+            # 초록 단청
+            pygame.draw.line(SCREEN, (60, 140, 80), 
+                            (bar_x + 1, bar_y + i), 
+                            (bar_x + bar_width - 1, bar_y + i), 1)
     
-    # 필살기 게이지 채우기 (세로형)
+    # 필살기 게이지 채우기 (조선 왕실 색상)
     if current_gauge > 0:
         gauge_ratio = min(current_gauge / max_gauge, 1.0)
         filled_height = int(bar_height * gauge_ratio)
         
-        # 게이지 색상 (전통 단청색 - 청록/금색 조합)
+        # 조선 왕실 색상 (황금색 계열)
         if gauge_ratio > 0.8:
-            base_color = (0, 150, 180)      # 진한 청록
-            accent_color = (200, 180, 100)  # 금색
+            base_color = (220, 180, 50)     # 황금색
+            accent_color = (255, 220, 100)  # 밝은 금색
         elif gauge_ratio > 0.6:
-            base_color = (40, 120, 150)     # 중간 청록
-            accent_color = (180, 160, 80)   # 어두운 금색
+            base_color = (200, 160, 40)     # 진한 황금
+            accent_color = (240, 200, 80)   # 중간 금색
         elif gauge_ratio > 0.3:
-            base_color = (80, 100, 130)     # 연한 청록
-            accent_color = (160, 140, 60)   # 갈색 금색
+            base_color = (180, 140, 30)     # 어두운 황금
+            accent_color = (220, 180, 60)   # 연한 금색
         else:
-            base_color = (100, 110, 120)    # 회청색
-            accent_color = (140, 130, 50)   # 어두운 갈색
+            base_color = (160, 120, 20)     # 갈색 금색
+            accent_color = (200, 160, 40)   # 어두운 금색
         
         # 게이지 채우기 (아래에서 위로)
         gauge_start_y = bar_y + bar_height - filled_height
         
-        # 단청 그라데이션 효과
+        # 왕실 황금 그라데이션
         for y in range(filled_height):
-            # 아래에서 위로 갈수록 밝아지는 효과
-            brightness = 0.7 + 0.3 * (y / filled_height)
+            brightness = 0.8 + 0.2 * (y / filled_height)
             
-            # 기본색과 강조색 혼합
-            if y % 10 < 3:  # 전통 문양 줄무늬
+            # 전통 문양 효과 (용린 패턴)
+            if y % 8 < 2:  # 용의 비늘 무늬
                 color = tuple(int(c * brightness) for c in accent_color)
             else:
                 color = tuple(int(c * brightness) for c in base_color)
@@ -10010,39 +10025,51 @@ def draw_stage1_boss_gauge_bar():
                            (bar_x + 1, gauge_start_y + y), 
                            (bar_x + bar_width - 1, gauge_start_y + y))
         
-        # 상단 하이라이트 (전통 금박 효과)
-        if filled_height > 2:
-            glow_intensity = abs(math.sin(time_offset * 3)) * 0.5 + 0.5
-            highlight_color = tuple(int(c + (255 - c) * glow_intensity * 0.3) for c in accent_color)
-            pygame.draw.line(SCREEN, highlight_color, 
-                           (bar_x + 1, gauge_start_y), 
-                           (bar_x + bar_width - 1, gauge_start_y), 2)
+        # 상단 왕실 광채 효과
+        if filled_height > 3:
+            glow_pulse = abs(math.sin(time_offset * 4)) * 0.6 + 0.4
+            royal_glow = tuple(int(c + (255 - c) * glow_pulse * 0.4) for c in accent_color)
+            pygame.draw.line(SCREEN, royal_glow, 
+                           (bar_x, gauge_start_y), 
+                           (bar_x + bar_width, gauge_start_y), 3)
     
-    # 전통 스타일 장식 요소 (상하단)
-    # 상단 전통 구름 문양
-    cloud_y = bar_y - 8
-    for i in range(3):
-        cloud_x = bar_x + 2 + i * 3
-        pygame.draw.circle(SCREEN, (200, 180, 160, 80), (cloud_x, cloud_y), 2)
+    # 조선 전통 장식 요소
+    # 좌우 단청 장식선
+    for offset in [-3, bar_width + 3]:
+        x_pos = bar_x + offset
+        # 빨강 장식선
+        pygame.draw.line(SCREEN, (180, 60, 40), 
+                        (x_pos, bar_y + 10), (x_pos, bar_y + 30), 2)
+        # 파랑 장식선  
+        pygame.draw.line(SCREEN, (40, 80, 160), 
+                        (x_pos, bar_y + 35), (x_pos, bar_y + 55), 2)
+        # 초록 장식선
+        pygame.draw.line(SCREEN, (60, 140, 80), 
+                        (x_pos, bar_y + 60), (x_pos, bar_y + 80), 2)
     
-    # 하단 전통 구름 문양
-    cloud_y = bar_y + bar_height + 6
-    for i in range(3):
-        cloud_x = bar_x + 2 + i * 3
-        pygame.draw.circle(SCREEN, (200, 180, 160, 80), (cloud_x, cloud_y), 2)
+    # 왕실 문양 하단 (봉황 깃털)
+    feather_x = bar_x + bar_width // 2
+    feather_y = bar_y + bar_height + 15
+    feather_colors = [(220, 180, 50), (180, 60, 40), (40, 80, 160)]
     
-    # 보스 이름 표시 (전통 한지 스타일)
-    boss_name_font = FontStyle.small()  # 18pt로 축소
+    for i, color in enumerate(feather_colors):
+        feather_offset = int(3 * math.sin(time_offset * 2 + i))
+        pygame.draw.line(SCREEN, color, 
+                        (feather_x + i * 2 - 2, feather_y), 
+                        (feather_x + i * 2 - 2 + feather_offset, feather_y - 6), 2)
+    
+    # 보스 이름 표시 (조선 서예체 느낌)
+    boss_name_font = FontStyle.small()
     boss_name = "조교"
-    name_surface = boss_name_font.render(boss_name, True, (80, 50, 30))
-    name_rect = name_surface.get_rect(centerx=bar_x + bar_width // 2, bottom=bar_y - 12)
+    name_surface = boss_name_font.render(boss_name, True, (100, 60, 20))
+    name_rect = name_surface.get_rect(centerx=bar_x + bar_width // 2, bottom=bar_y - 35)
     SCREEN.blit(name_surface, name_rect)
     
-    # 게이지 수치 표시 (하단, 전통 스타일)
-    gauge_font = FontStyle.tiny()  # 14pt로 축소
+    # 게이지 수치 표시 (한문 느낌)
+    gauge_font = FontStyle.tiny()
     gauge_text = f"{int(current_gauge)}/{max_gauge}"
-    gauge_surface = gauge_font.render(gauge_text, True, (80, 50, 30))
-    gauge_rect = gauge_surface.get_rect(centerx=bar_x + bar_width // 2, top=bar_y + bar_height + 12)
+    gauge_surface = gauge_font.render(gauge_text, True, (100, 60, 20))
+    gauge_rect = gauge_surface.get_rect(centerx=bar_x + bar_width // 2, top=bar_y + bar_height + 25)
     SCREEN.blit(gauge_surface, gauge_rect)
     
     # 필살기 준비 상태 경고 (게이지가 높을 때)
