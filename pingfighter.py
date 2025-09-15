@@ -10049,8 +10049,20 @@ def draw_stage1_boss_gauge_bar():
             sparkle_count = int(charge_intensity * 2) + 1
             
             for i in range(sparkle_count):
-                sparkle_y = random.randint(gauge_start_y, bar_y + bar_height - 2)
-                sparkle_x = bar_x + random.randint(2, bar_width - 2)
+                # 범위 검사를 통해 빈 범위 오류 방지
+                min_y = gauge_start_y
+                max_y = bar_y + bar_height - 2
+                if max_y <= min_y:
+                    sparkle_y = min_y  # 범위가 없을 때는 시작점 사용
+                else:
+                    sparkle_y = random.randint(min_y, max_y)
+                
+                # X축도 동일하게 범위 검사
+                if bar_width <= 4:
+                    sparkle_x = bar_x + bar_width // 2  # 너비가 너무 작을 때는 중앙 사용
+                else:
+                    sparkle_x = bar_x + random.randint(2, bar_width - 2)
+                
                 sparkle_alpha = int(charge_intensity * 150)
                 pygame.draw.circle(SCREEN, (255, 255, 200), (sparkle_x, sparkle_y), 1)
         
@@ -30495,11 +30507,15 @@ def handle_ball():
                 
                 print("1:       !")
         
-        # Stage 1 보스 팽이치기 스킬 발동 체크 (20% 확률)
-        if current_stage == 1 and not spinning_top_active and not spinning_top_used_this_round:
+        # Stage 1 보스 팽이치기 스킬 발동 체크 (20% 확률, 게이지 150 필요)
+        if current_stage == 1 and not spinning_top_active and not spinning_top_used_this_round and boss_special_gauge >= 150:
             if random.random() < 0.20:  # 20% 확률
                 activate_spinning_top()
                 show_speech("팽이치기!", duration=90)
+                # 게이지 150 소모
+                boss_special_gauge -= 150
+                if boss_special_gauge < 0:
+                    boss_special_gauge = 0
         #  handle_ball에서의 파워스매싱은 이미 handle_player에서 처리되므로 제거
         # (중복 발동 방지를 위해 주석 처리)
     # --- 보스 충돌 ---
@@ -30779,10 +30795,14 @@ def handle_ball():
             drive_hit_boss = False
             print("!")
         #  AI 학습: 보스가 공을 성공적으로 맞췄음 (제거됨)
-        # ️ 상모돌리기 발동 체크 (스테이지 1, 보스 충돌 시 12% 확률)
-        if not new_boss_mode_active and current_stage == 1 and random.random() <= 0.12:
+        # ️ 상모돌리기 발동 체크 (스테이지 1, 보스 충돌 시 12% 확률, 게이지 200 필요)
+        if not new_boss_mode_active and current_stage == 1 and boss_special_gauge >= 200 and random.random() <= 0.12:
             activate_whip()
             show_speech("상모돌리기!!", duration=whip_duration)
+            # 게이지 200 소모
+            boss_special_gauge -= 200
+            if boss_special_gauge < 0:
+                boss_special_gauge = 0
         #  새로운 보스 모드에서 상단 보스의 스킬 발동 체크
         if new_boss_mode_active:
             print(f" handle_ball       ! selected_top_boss={selected_top_boss}")  # 
