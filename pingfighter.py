@@ -2973,6 +2973,14 @@ SOLDIER_CONTROL_LOCK_TIME = 18  # 0.3초 통제불능 시간
 SOLDIER_BULLET_SIZE = 5  # 총알 크기
 SOLDIER_BULLET_COLOR = (255, 215, 0)  # 황금색 총알
 
+# === 군인 탄약 시스템 관련 변수 ===
+soldier_ammo_count = 5  # 현재 탄약 개수 (최대 5개)
+soldier_max_ammo = 5  # 최대 탄약 개수
+soldier_reloading = False  # 재장전 중인지
+soldier_reload_timer = 0  # 재장전 타이머 (120프레임 = 2초)
+SOLDIER_RELOAD_TIME = 120  # 2초 재장전 시간
+SOLDIER_RELOAD_GAUGE_COST = 200  # 재장전시 게이지 소모량
+
 # === 군인 총 발사 애니메이션 관련 변수 ===
 soldier_gun_animation_active = False  # 총 발사 애니메이션 진행 중인지
 soldier_gun_animation_frame = 0  # 현재 애니메이션 프레임
@@ -3002,8 +3010,8 @@ boss_knockback_active = False  # 넉백 효과 활성화 여부
 boss_knockback_offset_x = 0   # X축 넉백 오프셋
 boss_knockback_offset_y = 0   # Y축 넉백 오프셋
 boss_knockback_timer = 0      # 넉백 지속 시간
-BOSS_KNOCKBACK_DURATION = 15  # 넉백 지속 프레임 (0.25초)
-BOSS_KNOCKBACK_STRENGTH = 10  # 넉백 강도 (픽셀)
+BOSS_KNOCKBACK_DURATION = 18  # 넉백 지속 프레임 (0.3초 - 화염탄과 동일)
+BOSS_KNOCKBACK_STRENGTH = 36  # 넉백 강도 (36픽셀 - 화염탄과 동일)
 BOSS_KNOCKBACK_DECAY = 0.8    # 넉백 감쇠율
 
 psycho_bg_timer = 0
@@ -6332,9 +6340,22 @@ def fire_soldier_bullet():
     global soldier_bullets, soldier_gun_cooldown, soldier_control_lock_timer, soldier_gun_drawn
     global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
     global soldier_gun_target_x, soldier_gun_target_y
+    global soldier_ammo_count, soldier_reloading, soldier_reload_timer, special_gauge
     
     if soldier_gun_cooldown > 0:
         return  # 쿨타임 중이면 발사 불가
+    
+    # 재장전 중이면 발사 불가
+    if soldier_reloading:
+        return
+    
+    # 탄약이 없으면 재장전 시도
+    if soldier_ammo_count <= 0:
+        start_soldier_reload()
+        return
+    
+    # 탄약 소모
+    soldier_ammo_count -= 1
     
     # 총 발사 애니메이션 시작
     soldier_gun_animation_active = True
@@ -6357,6 +6378,122 @@ def fire_soldier_bullet():
         gunroad_sound.play()
     except:
         pass
+
+def start_soldier_reload():
+    """군인 탄약 재장전 시작"""
+    global soldier_reloading, soldier_reload_timer, special_gauge
+    
+    # 이미 재장전 중이면 무시
+    if soldier_reloading:
+        return
+    
+    # 게이지가 부족하면 재장전 불가
+    if special_gauge < SOLDIER_RELOAD_GAUGE_COST:
+        return
+    
+    # 게이지 소모
+    special_gauge -= SOLDIER_RELOAD_GAUGE_COST
+    
+    # 재장전 시작
+    soldier_reloading = True
+    soldier_reload_timer = SOLDIER_RELOAD_TIME
+
+def update_soldier_reload():
+    """군인 재장전 업데이트"""
+    global soldier_reloading, soldier_reload_timer, soldier_ammo_count
+    
+    if not soldier_reloading:
+        return
+    
+    # 재장전 타이머 감소
+    soldier_reload_timer -= 1
+    
+    # 재장전 완료
+    if soldier_reload_timer <= 0:
+        soldier_reloading = False
+        soldier_reload_timer = 0
+        soldier_ammo_count = soldier_max_ammo  # 탄약 모두 충전
+
+def draw_soldier_weapon_ui(screen):
+    """군인 권총 UI 그리기 - 왼쪽 하단 액티브 아이템 슬롯 위에 표시"""
+    global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
+    
+    # 액티브 아이템 슬롯 크기 및 위치 계산
+    slot_size = 60
+    slot_margin = 10
+    bottom_margin = 80  # 화면 하단에서 여백
+    
+    # 권총 아이콘 위치 (액티브 슬롯 위)
+    weapon_size = int(slot_size * 1.5)  # 1.5배 크기
+    weapon_x = slot_margin
+    weapon_y = HEIGHT - bottom_margin - slot_size - weapon_size - 10
+    
+    # 권총 아이콘 그리기 (간단한 도형으로 구현)
+    weapon_rect = pygame.Rect(weapon_x, weapon_y, weapon_size, weapon_size)
+    
+    # 배경 원
+    pygame.draw.circle(screen, (40, 40, 40), weapon_rect.center, weapon_size // 2)
+    pygame.draw.circle(screen, (100, 100, 100), weapon_rect.center, weapon_size // 2, 3)
+    
+    # 권총 모양 그리기
+    gun_center_x, gun_center_y = weapon_rect.center
+    gun_body_rect = pygame.Rect(gun_center_x - 15, gun_center_y - 8, 20, 16)
+    gun_barrel_rect = pygame.Rect(gun_center_x + 5, gun_center_y - 3, 12, 6)
+    
+    # 권총 본체 (회색)
+    pygame.draw.rect(screen, (80, 80, 80), gun_body_rect)
+    pygame.draw.rect(screen, (60, 60, 60), gun_body_rect, 2)
+    
+    # 권총 총열 (어두운 회색)
+    pygame.draw.rect(screen, (50, 50, 50), gun_barrel_rect)
+    pygame.draw.rect(screen, (30, 30, 30), gun_barrel_rect, 1)
+    
+    # 총탄 개수 표시 (권총 아이콘 아래)
+    bullet_start_x = weapon_x + 10
+    bullet_y = weapon_y + weapon_size + 5
+    bullet_size = 8
+    bullet_spacing = 12
+    
+    for i in range(soldier_max_ammo):
+        bullet_x = bullet_start_x + i * bullet_spacing
+        bullet_rect = pygame.Rect(bullet_x, bullet_y, bullet_size, bullet_size)
+        
+        if i < soldier_ammo_count:
+            # 보유 탄약 (황금색)
+            pygame.draw.circle(screen, SOLDIER_BULLET_COLOR, bullet_rect.center, bullet_size // 2)
+            pygame.draw.circle(screen, (200, 150, 0), bullet_rect.center, bullet_size // 2, 1)
+        else:
+            # 소모된 탄약 (회색 테두리만)
+            pygame.draw.circle(screen, (60, 60, 60), bullet_rect.center, bullet_size // 2, 2)
+    
+    # 재장전 중이면 진행도 표시
+    if soldier_reloading:
+        # 재장전 진행도 바
+        progress_width = weapon_size
+        progress_height = 6
+        progress_x = weapon_x
+        progress_y = bullet_y + bullet_size + 8
+        
+        # 배경 바
+        progress_bg_rect = pygame.Rect(progress_x, progress_y, progress_width, progress_height)
+        pygame.draw.rect(screen, (40, 40, 40), progress_bg_rect)
+        pygame.draw.rect(screen, (100, 100, 100), progress_bg_rect, 1)
+        
+        # 진행도 바
+        progress_ratio = 1.0 - (soldier_reload_timer / SOLDIER_RELOAD_TIME)
+        progress_fill_width = int(progress_width * progress_ratio)
+        progress_fill_rect = pygame.Rect(progress_x, progress_y, progress_fill_width, progress_height)
+        pygame.draw.rect(screen, (0, 150, 255), progress_fill_rect)
+        
+        # 재장전 텍스트
+        reload_text = "재장전 중..."
+        try:
+            reload_surface = ui_manager.korean_font.render(reload_text, True, (255, 255, 255))
+            text_x = progress_x
+            text_y = progress_y + progress_height + 5
+            screen.blit(reload_surface, (text_x, text_y))
+        except:
+            pass
     
 def create_soldier_bullet():
     """실제 총알을 생성하는 함수 (애니메이션 완료 후 호출)"""
@@ -6450,6 +6587,16 @@ def trigger_boss_knockback(bullet_x, bullet_y):
     # X축으로만 넉백 오프셋 설정, Y축은 0
     boss_knockback_offset_x = knockback_direction_x * BOSS_KNOCKBACK_STRENGTH
     boss_knockback_offset_y = 0  # Y축 넉백 없음
+    
+    # 디버그 정보 출력
+    print(f"🔫 군인 총알 넉백 발동!")
+    print(f"   총알 위치: X={bullet_x}, Y={bullet_y}")
+    print(f"   보스 중심: X={boss_center_x}")
+    print(f"   상대 위치: {bullet_relative_to_boss}")
+    print(f"   넉백 방향: {knockback_direction_x} ({'왼쪽' if knockback_direction_x < 0 else '오른쪽'})")
+    print(f"   넉백 강도: {BOSS_KNOCKBACK_STRENGTH}픽셀")
+    print(f"   지속 시간: {BOSS_KNOCKBACK_DURATION}프레임 ({BOSS_KNOCKBACK_DURATION/60:.2f}초)")
+    print(f"   최종 오프셋: X={boss_knockback_offset_x}, Y={boss_knockback_offset_y}")
 
 def update_boss_knockback():
     """보스 패들 넉백 효과 업데이트"""
@@ -31309,6 +31456,9 @@ def handle_ball():
             print(f" [ ]  ! deuce_wins: {deuce_wins}, round_wins: {round_wins}")
             show_winner_text("플레이어")
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects)
+            # 군인 권총 UI 표시
+            if selected_character_type == "soldier":
+                draw_soldier_weapon_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
             
             #  Stage 1 듀스 모드 - 타이머 기반으로 변경되어 더 이상 점수 체크하지 않음
@@ -31356,6 +31506,9 @@ def handle_ball():
             
             show_winner_text("플레이어")
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects)
+            # 군인 권총 UI 표시
+            if selected_character_type == "soldier":
+                draw_soldier_weapon_ui(SCREEN)
             
             # 3:0 완승 보너스 메시지 표시
             draw_score()
@@ -31392,6 +31545,9 @@ def handle_ball():
         elif result == "deuce_started" or result == "deuce_restart":
             # 듀스 시작/재시작 시 점수 표시 업데이트
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects)
+            # 군인 권총 UI 표시
+            if selected_character_type == "soldier":
+                draw_soldier_weapon_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
         go_to_next_round()
         return
@@ -31689,6 +31845,9 @@ def handle_ball():
             boss_name = boss_names.get(current_stage, "보스")
             show_winner_text(boss_name)
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects)
+            # 군인 권총 UI 표시
+            if selected_character_type == "soldier":
+                draw_soldier_weapon_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
             # 스테이지 2에서 보스가 라운드 이길 때마다 악어 짧은 웃음
             if current_stage == 2 and animated_bg_stage2:
@@ -31711,6 +31870,9 @@ def handle_ball():
             boss_name = boss_names.get(current_stage, "보스")
             show_winner_text(boss_name)
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects)
+            # 군인 권총 UI 표시
+            if selected_character_type == "soldier":
+                draw_soldier_weapon_ui(SCREEN)
             # 스테이지 2에서 보스가 라운드 이길 때마다 악어 짧은 웃음
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('happy')
@@ -31731,6 +31893,9 @@ def handle_ball():
         elif result == "deuce_started" or result == "deuce_restart":
             # 듀스 시작/재시작 시 점수 표시 업데이트
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects)
+            # 군인 권총 UI 표시
+            if selected_character_type == "soldier":
+                draw_soldier_weapon_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
         go_to_next_round()
         return
@@ -35332,6 +35497,13 @@ def main(stage_num, new_boss_mode=False):
     soldier_control_lock_timer = 0
     soldier_gun_drawn = False
     
+    # 군인 탄약 시스템 초기화
+    global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
+    soldier_ammo_count = 5
+    soldier_max_ammo = 5
+    soldier_reloading = False
+    soldier_reload_timer = 0
+    
     # 군인 총 발사 애니메이션 초기화
     global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
     global soldier_gun_target_x, soldier_gun_target_y
@@ -37600,6 +37772,8 @@ def main(stage_num, new_boss_mode=False):
                     # 쿨다운 감소
                     if soldier_gun_cooldown > 0:
                         soldier_gun_cooldown -= 1
+                    # 재장전 업데이트
+                    update_soldier_reload()
                     # 휘두르기 애니메이션 타이머 감소
                     if soldier_swing_timer > 0:
                         soldier_swing_timer -= 1
