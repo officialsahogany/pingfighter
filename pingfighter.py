@@ -2143,6 +2143,94 @@ except Exception as e:
     # 실패시 기본 패들 생성
     PLAYER_IMG = pygame.Surface((250, 100), pygame.SRCALPHA)
     pygame.draw.rect(PLAYER_IMG, (0, 255, 0), (0, 0, 250, 100))
+
+# 군인 패들 이미지 생성
+SOLDIER_PADDLE_IMG = pygame.Surface((250, 100), pygame.SRCALPHA)
+
+# 군인 몸체 (위쪽 바라보는 각도)
+# 머리 (헬멧 착용)
+helmet_center_x = 125
+helmet_center_y = 30
+# 헬멧 (군용 철모 스타일)
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (60, 80, 40), (helmet_center_x - 20, helmet_center_y - 15, 40, 30))  # 헬멧 본체
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (40, 60, 20), (helmet_center_x - 22, helmet_center_y - 10, 44, 25))  # 헬멧 림
+# 헬멧 하이라이트
+pygame.draw.arc(SOLDIER_PADDLE_IMG, (80, 100, 60), (helmet_center_x - 18, helmet_center_y - 13, 36, 26), 
+                math.radians(200), math.radians(340), 2)
+
+# 얼굴 (헬멧 아래 살짝 보이는 부분)
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (220, 180, 150), (helmet_center_x - 12, helmet_center_y + 5, 24, 18))
+
+# 몸통 (군복)
+body_y = helmet_center_y + 20
+# 군복 상의 (카키색)
+pygame.draw.polygon(SOLDIER_PADDLE_IMG, (120, 100, 60), [
+    (helmet_center_x - 30, body_y),      # 왼쪽 어깨
+    (helmet_center_x - 35, body_y + 35), # 왼쪽 하단
+    (helmet_center_x + 35, body_y + 35), # 오른쪽 하단
+    (helmet_center_x + 30, body_y)       # 오른쪽 어깨
+])
+# 군복 어두운 부분 (그림자/주름)
+pygame.draw.polygon(SOLDIER_PADDLE_IMG, (80, 70, 40), [
+    (helmet_center_x - 5, body_y),
+    (helmet_center_x - 5, body_y + 35),
+    (helmet_center_x + 5, body_y + 35),
+    (helmet_center_x + 5, body_y)
+])
+
+# 계급장 (어깨)
+pygame.draw.rect(SOLDIER_PADDLE_IMG, (150, 130, 50), (helmet_center_x - 30, body_y + 5, 12, 4))
+pygame.draw.rect(SOLDIER_PADDLE_IMG, (150, 130, 50), (helmet_center_x + 18, body_y + 5, 12, 4))
+
+# 군번줄 (목 부분)
+pygame.draw.line(SOLDIER_PADDLE_IMG, (80, 80, 80), 
+                 (helmet_center_x - 10, body_y), (helmet_center_x + 10, body_y), 2)
+
+# 왼팔 (탁구채 들고 있음)
+left_arm_x = helmet_center_x - 40
+# 팔
+pygame.draw.polygon(SOLDIER_PADDLE_IMG, (120, 100, 60), [
+    (helmet_center_x - 28, body_y + 5),
+    (left_arm_x - 5, body_y - 10),
+    (left_arm_x + 5, body_y - 10),
+    (helmet_center_x - 22, body_y + 10)
+])
+# 손 (살색)
+pygame.draw.circle(SOLDIER_PADDLE_IMG, (220, 180, 150), (left_arm_x, body_y - 15), 8)
+
+# 군용 탁구채 (왼손에 들고 있음)
+paddle_x = left_arm_x - 15
+paddle_y = body_y - 25
+# 탁구채 면 (군용 그린)
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (80, 100, 60), (paddle_x - 15, paddle_y - 20, 30, 40))
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (60, 80, 40), (paddle_x - 13, paddle_y - 18, 26, 36))
+# 탁구채 손잡이
+pygame.draw.rect(SOLDIER_PADDLE_IMG, (100, 50, 30), (paddle_x - 4, paddle_y + 15, 8, 20))
+pygame.draw.rect(SOLDIER_PADDLE_IMG, (80, 40, 20), (paddle_x - 3, paddle_y + 15, 6, 20))
+# 탁구채 테두리
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (40, 60, 20), (paddle_x - 15, paddle_y - 20, 30, 40), 2)
+
+# 오른팔
+pygame.draw.polygon(SOLDIER_PADDLE_IMG, (120, 100, 60), [
+    (helmet_center_x + 28, body_y + 5),
+    (helmet_center_x + 40, body_y + 15),
+    (helmet_center_x + 35, body_y + 20),
+    (helmet_center_x + 22, body_y + 10)
+])
+# 오른손
+pygame.draw.circle(SOLDIER_PADDLE_IMG, (220, 180, 150), (helmet_center_x + 38, body_y + 18), 8)
+
+# 군용 부츠 표시 (하단)
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (40, 30, 20), (helmet_center_x - 25, body_y + 30, 20, 15))
+pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (40, 30, 20), (helmet_center_x + 5, body_y + 30, 20, 15))
+
+# 위장 무늬 패턴 추가
+for i in range(8):
+    camo_x = random.randint(helmet_center_x - 30, helmet_center_x + 30)
+    camo_y = random.randint(body_y, body_y + 30)
+    camo_size = random.randint(3, 8)
+    camo_color = random.choice([(100, 80, 40), (80, 100, 60), (60, 80, 40)])
+    pygame.draw.circle(SOLDIER_PADDLE_IMG, camo_color, (camo_x, camo_y), camo_size)
 boss_special_waiting = False
 boss_special_timer = 0  # 이 변수도 같이 쓰이므로!
 # UFO 확장 애니메이션 관련
@@ -2193,7 +2281,7 @@ DASH_SPIRIT_LASER_COLOR = (135, 206, 235)  # 하늘색 (SkyBlue)
 neutralize_particles = []  # 연막으로 사이코볼 무효화 시 파티클 효과
 DASH_SPIRIT_ELECTRIC_COLOR = WHITE  # 전기 효과 (흰색)
 long_boost_last_width = 166  # 기본 패들 크기
-long_boost_scaled_img = PLAYER_IMG.copy()
+long_boost_scaled_img = PLAYER_IMG.copy()  # 나중에 캐릭터 타입에 따라 업데이트됨
 # === Stage 5 화염 궤적 스킬 관련 전역 ===
 flame_trail_active = False
 
@@ -2247,6 +2335,17 @@ stopwatch_original_ball_vel = None  # 원래 공 속도 저장
 STOPWATCH_DURATION = 120  # 2초 (60fps * 2)
 STOPWATCH_RECOVERY_TIME = 60  # 1초 (60fps * 1)
 stopwatch_recovery_timer = 0  # 속도 회복 타이머
+
+# === 군인 총알 시스템 관련 변수 ===
+soldier_bullets = []  # 총알 리스트 [{x, y, vel_x, vel_y, active}]
+soldier_gun_cooldown = 0  # 총 쿨타임 (60프레임 = 1초)
+soldier_control_lock_timer = 0  # 통제불능 타이머 (18프레임 = 0.3초)
+soldier_gun_drawn = False  # 총을 꺼낸 상태인지
+SOLDIER_BULLET_SPEED = 25  # 총알 속도
+SOLDIER_GUN_COOLDOWN = 60  # 1초 쿨타임
+SOLDIER_CONTROL_LOCK_TIME = 18  # 0.3초 통제불능 시간
+SOLDIER_BULLET_SIZE = 5  # 총알 크기
+SOLDIER_BULLET_COLOR = (255, 215, 0)  # 황금색 총알
 stopwatch_forced_upward = False  # 스마트폰 발동 시 복구 후 위쪽으로 강제
 stopwatch_upward_lock_timer = 0  # 복구 직후 N프레임 동안 위 방향 고정
 # 스톱워치 복구 후 위 방향 락 튜닝
@@ -5573,6 +5672,123 @@ def handle_new_boss_skills_timer():
         if wind_burst_timer <= 0:
             wind_burst_active = False
             print("!")
+
+def fire_soldier_bullet():
+    """군인 캐릭터가 총알을 발사하는 함수"""
+    global soldier_bullets, soldier_gun_cooldown, soldier_control_lock_timer, soldier_gun_drawn
+    
+    if soldier_gun_cooldown > 0:
+        return  # 쿨타임 중이면 발사 불가
+    
+    # 총을 꺼내고 통제불능 시작
+    soldier_gun_drawn = True
+    soldier_control_lock_timer = SOLDIER_CONTROL_LOCK_TIME
+    soldier_gun_cooldown = SOLDIER_GUN_COOLDOWN
+    
+    # 플레이어 위치에서 보스 방향으로 총알 발사
+    player_center_x = PLAYER.centerx
+    player_center_y = PLAYER.centery
+    boss_center_x = BOSS.centerx
+    boss_center_y = BOSS.centery
+    
+    # 방향 벡터 계산
+    dx = boss_center_x - player_center_x
+    dy = boss_center_y - player_center_y
+    distance = math.sqrt(dx**2 + dy**2)
+    
+    if distance > 0:
+        # 정규화된 방향 벡터
+        dx_norm = dx / distance
+        dy_norm = dy / distance
+        
+        # 총알 생성
+        bullet = {
+            "x": player_center_x,
+            "y": player_center_y - 20,  # 패들 위쪽에서 발사
+            "vel_x": dx_norm * SOLDIER_BULLET_SPEED,
+            "vel_y": dy_norm * SOLDIER_BULLET_SPEED,
+            "active": True
+        }
+        soldier_bullets.append(bullet)
+        
+        # 총 발사 효과음 재생
+        try:
+            gun_sound = pygame.mixer.Sound(resource_path("sounds/gun_shot.wav"))
+            gun_sound.set_volume(0.5)
+            gun_sound.play()
+        except:
+            pass
+        
+        print(f"🔫 총알 발사! 방향: ({dx_norm:.2f}, {dy_norm:.2f})")
+
+def update_soldier_bullets():
+    """군인 총알 업데이트"""
+    global soldier_bullets
+    
+    # 비활성 총알 제거
+    soldier_bullets = [b for b in soldier_bullets if b["active"]]
+    
+    # 각 총알 업데이트
+    for bullet in soldier_bullets:
+        if bullet["active"]:
+            # 위치 업데이트
+            bullet["x"] += bullet["vel_x"]
+            bullet["y"] += bullet["vel_y"]
+            
+            # 화면 밖으로 나가면 비활성화
+            if (bullet["x"] < -50 or bullet["x"] > WIDTH + 50 or 
+                bullet["y"] < -50 or bullet["y"] > HEIGHT + 50):
+                bullet["active"] = False
+            
+            # 보스와의 충돌 검사
+            bullet_rect = pygame.Rect(bullet["x"] - SOLDIER_BULLET_SIZE, 
+                                     bullet["y"] - SOLDIER_BULLET_SIZE,
+                                     SOLDIER_BULLET_SIZE * 2, 
+                                     SOLDIER_BULLET_SIZE * 2)
+            
+            if bullet_rect.colliderect(BOSS):
+                bullet["active"] = False
+                # 보스 스턴 효과 (0.5초)
+                global boss_stun_timer
+                boss_stun_timer = 30  # 0.5초 스턴
+                
+                # 타격 효과음
+                try:
+                    hit_sound = pygame.mixer.Sound(resource_path("sounds/bullet_hit.wav"))
+                    hit_sound.set_volume(0.6)
+                    hit_sound.play()
+                except:
+                    pass
+                
+                # 타격 이펙트 생성
+                for _ in range(10):
+                    impact_particles.append({
+                        "x": bullet["x"],
+                        "y": bullet["y"],
+                        "vx": random.uniform(-5, 5),
+                        "vy": random.uniform(-5, 5),
+                        "size": random.uniform(3, 6),
+                        "alpha": 255,
+                        "color": SOLDIER_BULLET_COLOR,
+                        "life": 30
+                    })
+                
+                print("💥 총알이 보스에게 명중! 보스 스턴!")
+
+def draw_soldier_bullets(screen):
+    """군인 총알 그리기"""
+    for bullet in soldier_bullets:
+        if bullet["active"]:
+            # 총알 본체
+            pygame.draw.circle(screen, SOLDIER_BULLET_COLOR, 
+                             (int(bullet["x"]), int(bullet["y"])), 
+                             SOLDIER_BULLET_SIZE)
+            
+            # 총알 광택 효과
+            pygame.draw.circle(screen, (255, 255, 200), 
+                             (int(bullet["x"] - 2), int(bullet["y"] - 2)), 
+                             SOLDIER_BULLET_SIZE // 2)
+
 def handle_player(keys):
     global ball_angle, special_gauge, special_ready, special_active, recent_dash_time, recent_half_dash_time, recent_dash_success_window
     global power_smashing_direction, mega_smashing_bonus_applied
@@ -5619,6 +5835,8 @@ def handle_player(keys):
     global tutorial_serve_reminder_active  # 서브/파워스매싱 알림창용
     # Chapter 3 드라이브 관련 변수 추가 (160 게이지 도우미 대화를 위해 필수)
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown
+    global soldier_control_lock_timer, soldier_gun_cooldown, soldier_gun_drawn  # 군인 총알 시스템 변수
+    global selected_character_type  # 선택된 캐릭터 타입
     global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
     global tutorial_drive_count, tutorial_displayed_drive_count
     global tutorial_left_drive_count, tutorial_right_drive_count
@@ -6967,7 +7185,18 @@ def handle_player(keys):
     # 감전 상태일 때도 모든 감속 로직 무시
     # 위치 적용 (감전 상태가 아닐 때만 기본 이동)
     if not player_stunned:
-        PLAYER.x += current_speed
+        # 군인 캐릭터 총알 발사 처리
+        if selected_character_type == "soldier" and keys[pygame.K_UP] and soldier_control_lock_timer <= 0:
+            fire_soldier_bullet()
+        
+        # 통제불능 상태가 아닐 때만 이동 가능
+        if soldier_control_lock_timer <= 0:
+            PLAYER.x += current_speed
+        else:
+            # 통제불능 시간 감소
+            soldier_control_lock_timer -= 1
+            if soldier_control_lock_timer <= 0:
+                soldier_gun_drawn = False  # 총 수납
     
     # 화염 지대 넉백은 감전/스턴 상태와 무관하게 항상 적용
     PLAYER.x += player_flame_zone_knockback_vel
@@ -8826,6 +9055,10 @@ def handle_whip():
     
     # 강제 해제 모션 처리
     if whip_deactivation_active:
+        # 강제 해제 시작 시 사운드 즉시 중지
+        if whip_deactivation_timer == whip_deactivation_duration:
+            whip_sound.stop()
+            
         if whip_deactivation_timer > 0:
             whip_deactivation_timer -= 1
             # 회전 속도를 점차 감소 (이징 효과 적용)
@@ -10134,6 +10367,7 @@ def draw_player_gauge():
     global wall_installing, wall_install_timer, wall_install_gauge_visible
     global rolling_charges, rolling_cooldown  #  대쉬 토큰 표시용
     global gauge_charge_animation_timer, gauge_charge_animation_amount  # 충전 애니메이션
+    global selected_character_type  # 캐릭터 타입 확인용
     # 필살기 게이지바 위치와 크기 - 엣지있는 주인공 스타일
     gauge_x = WIDTH - 40  # 오른쪽에서 40px
     gauge_y = HEIGHT - 200  # 하단에서 200px 위 (살짝 조정)
@@ -10145,20 +10379,38 @@ def draw_player_gauge():
     
     #  전기 효과 강도 (게이지가 높을수록 강해짐)
     electric_intensity = displayed_gauge / current_max_gauge if displayed_gauge > 0 else 0
-    #  육각형 프레임 상단
-    hex_top = [
-        (gauge_x + gauge_width // 2, gauge_y - 10),
-        (gauge_x - 3, gauge_y),
-        (gauge_x - 3, gauge_y + 8),
-        (gauge_x + gauge_width + 3, gauge_y + 8),
-        (gauge_x + gauge_width + 3, gauge_y),
-    ]
-    draw.polygon((80, 90, 100), hex_top)
-    draw.polygon((180, 190, 200), hex_top, 2)
-    
-    # 스매셔 엠블럼 애니메이션 상단
-    emblem_x = gauge_x + gauge_width // 2
-    emblem_y = gauge_y - 30
+    # 캐릭터별 프레임 디자인
+    if selected_character_type == "soldier":
+        # 군사용 육각형 프레임 (더 견고하고 각진 디자인)
+        hex_top = [
+            (gauge_x + gauge_width // 2, gauge_y - 12),
+            (gauge_x - 4, gauge_y - 2),
+            (gauge_x - 4, gauge_y + 10),
+            (gauge_x + gauge_width + 4, gauge_y + 10),
+            (gauge_x + gauge_width + 4, gauge_y - 2),
+        ]
+        # 군복 올리브 그린 색상
+        draw.polygon((60, 80, 40), hex_top)  # 어두운 올리브
+        draw.polygon((120, 140, 80), hex_top, 3)  # 밝은 올리브 테두리
+        
+        # 군인 엠블럼 애니메이션 상단
+        emblem_x = gauge_x + gauge_width // 2
+        emblem_y = gauge_y - 35  # 좀 더 위에 배치
+    else:
+        # 기존 스매셔 프레임
+        hex_top = [
+            (gauge_x + gauge_width // 2, gauge_y - 10),
+            (gauge_x - 3, gauge_y),
+            (gauge_x - 3, gauge_y + 8),
+            (gauge_x + gauge_width + 3, gauge_y + 8),
+            (gauge_x + gauge_width + 3, gauge_y),
+        ]
+        draw.polygon((80, 90, 100), hex_top)
+        draw.polygon((180, 190, 200), hex_top, 2)
+        
+        # 스매셔 엠블럼 애니메이션 상단
+        emblem_x = gauge_x + gauge_width // 2
+        emblem_y = gauge_y - 30
     
     # 애니메이션 효과
     pulse_scale = 1.0 + math.sin(time_now * 0.003) * 0.1  # 펄스 효과
@@ -10168,117 +10420,236 @@ def draw_player_gauge():
     # 엠블럼 크기
     emblem_radius = 15
     
-    # 배경 원형 글로우 효과
-    for i in range(3):
-        glow_radius = emblem_radius + (i + 1) * 2  # 3에서 2로 줄임
-        alpha = int(60 - i * 20) * glow_intensity  # 알파값도 조정
-        glow_color = (100, 150, 255, alpha)
-        pygame.draw.circle(SCREEN, glow_color[:3], (emblem_x, emblem_y), int(glow_radius * pulse_scale))
-    
-    # 메인 엠블럼 원형 베이스
-    base_color = (40, 50, 80)
-    border_color = (150, 180, 255)
-    pygame.draw.circle(SCREEN, base_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale))
-    pygame.draw.circle(SCREEN, border_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale), 2)
-    
-    # 스매셔 심볼 - 번개 모양
-    lightning_points = []
-    
-    # 번개 패턴 정의 (스매시의 파워를 상징)
-    base_points = [
-        (-8, -10),  # 상단 왼쪽
-        (-2, -4),   # 중간 왼쪽
-        (-5, 0),    # 중앙 왼쪽
-        (2, -2),    # 중앙
-        (-1, 2),    # 중앙 아래
-        (5, 8),     # 하단 오른쪽
-        (8, 10),    # 끝점
-        (3, 6),     # 아래쪽 포인트
-        (6, 2),     # 중간 오른쪽
-        (0, 4),     # 중앙 복귀
-        (3, 0),     # 상단 복귀
-        (-3, 2),    # 왼쪽 복귀
-        (0, -2),    # 중앙 상단
-        (-8, -10)   # 시작점으로
-    ]
-    
-    # 회전 및 스케일 적용
-    for bx, by in base_points:
-        # 회전 변환
-        rot_x = bx * math.cos(rotation_angle) - by * math.sin(rotation_angle)
-        rot_y = bx * math.sin(rotation_angle) + by * math.cos(rotation_angle)
+    # 캐릭터별 엠블럼 디자인
+    if selected_character_type == "soldier":
+        # === 군인 엠블럼 디자인 ===
+        # 배경 원형 글로우 효과 (올리브 그린)
+        for i in range(3):
+            glow_radius = emblem_radius + (i + 1) * 2
+            alpha = int(40 - i * 12) * glow_intensity  # 더 어두운 글로우
+            glow_color = (80, 120, 60, alpha)  # 올리브 그린 글로우
+            pygame.draw.circle(SCREEN, glow_color[:3], (emblem_x, emblem_y), int(glow_radius * pulse_scale))
         
-        # 최종 위치
-        final_x = emblem_x + rot_x * pulse_scale
-        final_y = emblem_y + rot_y * pulse_scale
-        lightning_points.append((final_x, final_y))
-    
-    # 번개 그리기
-    if len(lightning_points) > 2:
-        # 메인 번개 (밝은 파란색)
-        pygame.draw.polygon(SCREEN, (100, 200, 255), lightning_points)
-        # 번개 테두리 (더 밝은 색)
-        pygame.draw.lines(SCREEN, (200, 230, 255), True, lightning_points, 2)
-    
-    # 중앙 파워 코어
-    core_radius = 4
-    core_color = (255, 255, 255)
-    energy_color = (150, 200, 255)
-    
-    # 코어 글로우
-    pygame.draw.circle(SCREEN, energy_color, (emblem_x, emblem_y), int(core_radius * 1.5 * pulse_scale))
-    pygame.draw.circle(SCREEN, core_color, (emblem_x, emblem_y), int(core_radius * pulse_scale))
-    
-    # 전기 스파크 효과 (게이지가 높을 때)
-    if displayed_gauge > 250:
-        spark_count = min(3, int(displayed_gauge / 100))
-        for i in range(spark_count):
-            angle = (rotation_angle * 2 + i * 2.094) % (math.pi * 2)  # 120도 간격
-            spark_length = emblem_radius + random.randint(5, 10)
+        # 메인 엠블럼 원형 베이스 (군사용 어두운 올리브)
+        base_color = (40, 60, 35)  # 어두운 올리브
+        border_color = (120, 160, 90)  # 밝은 올리브
+        pygame.draw.circle(SCREEN, base_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale))
+        pygame.draw.circle(SCREEN, border_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale), 3)
+        
+        # 군인 심볼 - 별과 독수리 날개 모양
+        # 중앙 별 그리기
+        star_points = []
+        star_radius = 8
+        for i in range(10):
+            angle = i * math.pi / 5 + rotation_angle
+            radius = star_radius if i % 2 == 0 else star_radius * 0.4
+            x = emblem_x + radius * math.cos(angle) * pulse_scale
+            y = emblem_y + radius * math.sin(angle) * pulse_scale
+            star_points.append((x, y))
+        
+        # 별 그리기 (금색)
+        pygame.draw.polygon(SCREEN, (255, 215, 0), star_points)
+        pygame.draw.polygon(SCREEN, (255, 255, 150), star_points, 1)
+        
+        # 독수리 날개 모양 (양쪽)
+        wing_color = (200, 180, 100)
+        wing_size = 6
+        
+        # 왼쪽 날개
+        left_wing = [
+            (emblem_x - wing_size, emblem_y - 3),
+            (emblem_x - wing_size - 4, emblem_y - 1),
+            (emblem_x - wing_size - 3, emblem_y + 2),
+            (emblem_x - wing_size + 1, emblem_y + 1)
+        ]
+        pygame.draw.polygon(SCREEN, wing_color, left_wing)
+        
+        # 오른쪽 날개
+        right_wing = [
+            (emblem_x + wing_size, emblem_y - 3),
+            (emblem_x + wing_size + 4, emblem_y - 1),
+            (emblem_x + wing_size + 3, emblem_y + 2),
+            (emblem_x + wing_size - 1, emblem_y + 1)
+        ]
+        pygame.draw.polygon(SCREEN, wing_color, right_wing)
+        
+        # 중앙 파워 코어 (군사용 금색)
+        core_radius = 3
+        core_color = (255, 255, 200)
+        energy_color = (200, 180, 100)
+        
+        # 코어 글로우
+        pygame.draw.circle(SCREEN, energy_color, (emblem_x, emblem_y), int(core_radius * 1.5 * pulse_scale))
+        pygame.draw.circle(SCREEN, core_color, (emblem_x, emblem_y), int(core_radius * pulse_scale))
+        
+        # 전술적 레이더 스캔 효과 (게이지가 높을 때)
+        if displayed_gauge > 250:
+            scan_angle = (time_now * 0.005) % (math.pi * 2)
+            scan_radius = emblem_radius + 5
+            scan_end_x = emblem_x + math.cos(scan_angle) * scan_radius
+            scan_end_y = emblem_y + math.sin(scan_angle) * scan_radius
             
-            start_x = emblem_x + math.cos(angle) * core_radius
-            start_y = emblem_y + math.sin(angle) * core_radius
-            end_x = emblem_x + math.cos(angle) * spark_length
-            end_y = emblem_y + math.sin(angle) * spark_length
+            # 스캔 라인
+            pygame.draw.line(SCREEN, (150, 200, 100), (emblem_x, emblem_y), (scan_end_x, scan_end_y), 2)
             
-            # 전기 번개 효과
-            mid_x = (start_x + end_x) / 2 + random.randint(-3, 3)
-            mid_y = (start_y + end_y) / 2 + random.randint(-3, 3)
+            # 스캔 포인트
+            for i in range(3):
+                point_angle = scan_angle + i * 0.3
+                point_radius = emblem_radius - 2 + i * 2
+                point_x = emblem_x + math.cos(point_angle) * point_radius
+                point_y = emblem_y + math.sin(point_angle) * point_radius
+                pygame.draw.circle(SCREEN, (100, 255, 100), (int(point_x), int(point_y)), 1)
+                
+    else:
+        # === 기존 스매셔 엠블럼 디자인 ===
+        # 배경 원형 글로우 효과
+        for i in range(3):
+            glow_radius = emblem_radius + (i + 1) * 2  # 3에서 2로 줄임
+            alpha = int(60 - i * 20) * glow_intensity  # 알파값도 조정
+            glow_color = (100, 150, 255, alpha)
+            pygame.draw.circle(SCREEN, glow_color[:3], (emblem_x, emblem_y), int(glow_radius * pulse_scale))
+        
+        # 메인 엠블럼 원형 베이스
+        base_color = (40, 50, 80)
+        border_color = (150, 180, 255)
+        pygame.draw.circle(SCREEN, base_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale))
+        pygame.draw.circle(SCREEN, border_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale), 2)
+        
+        # 스매셔 심볼 - 번개 모양
+        lightning_points = []
+        
+        # 번개 패턴 정의 (스매시의 파워를 상징)
+        base_points = [
+            (-8, -10),  # 상단 왼쪽
+            (-2, -4),   # 중간 왼쪽
+            (-5, 0),    # 중앙 왼쪽
+            (2, -2),    # 중앙
+            (-1, 2),    # 중앙 아래
+            (5, 8),     # 하단 오른쪽
+            (8, 10),    # 끝점
+            (3, 6),     # 아래쪽 포인트
+            (6, 2),     # 중간 오른쪽
+            (0, 4),     # 중앙 복귀
+            (3, 0),     # 상단 복귀
+            (-3, 2),    # 왼쪽 복귀
+            (0, -2),    # 중앙 상단
+            (-8, -10)   # 시작점으로
+        ]
+        
+        # 회전 및 스케일 적용
+        for bx, by in base_points:
+            # 회전 변환
+            rot_x = bx * math.cos(rotation_angle) - by * math.sin(rotation_angle)
+            rot_y = bx * math.sin(rotation_angle) + by * math.cos(rotation_angle)
             
-            pygame.draw.lines(SCREEN, (200, 220, 255), False, 
-                            [(start_x, start_y), (mid_x, mid_y), (end_x, end_y)], 1)
+            # 최종 위치
+            final_x = emblem_x + rot_x * pulse_scale
+            final_y = emblem_y + rot_y * pulse_scale
+            lightning_points.append((final_x, final_y))
+        
+        # 번개 그리기
+        if len(lightning_points) > 2:
+            # 메인 번개 (밝은 파란색)
+            pygame.draw.polygon(SCREEN, (100, 200, 255), lightning_points)
+            # 번개 테두리 (더 밝은 색)
+            pygame.draw.lines(SCREEN, (200, 230, 255), True, lightning_points, 2)
+        
+        # 중앙 파워 코어
+        core_radius = 4
+        core_color = (255, 255, 255)
+        energy_color = (150, 200, 255)
+        
+        # 코어 글로우
+        pygame.draw.circle(SCREEN, energy_color, (emblem_x, emblem_y), int(core_radius * 1.5 * pulse_scale))
+        pygame.draw.circle(SCREEN, core_color, (emblem_x, emblem_y), int(core_radius * pulse_scale))
+        
+        # 전기 스파크 효과 (게이지가 높을 때)
+        if displayed_gauge > 250:
+            spark_count = min(3, int(displayed_gauge / 100))
+            for i in range(spark_count):
+                angle = (rotation_angle * 2 + i * 2.094) % (math.pi * 2)  # 120도 간격
+                spark_length = emblem_radius + random.randint(5, 10)
+                
+                start_x = emblem_x + math.cos(angle) * core_radius
+                start_y = emblem_y + math.sin(angle) * core_radius
+                end_x = emblem_x + math.cos(angle) * spark_length
+                end_y = emblem_y + math.sin(angle) * spark_length
+                
+                # 전기 번개 효과
+                mid_x = (start_x + end_x) / 2 + random.randint(-3, 3)
+                mid_y = (start_y + end_y) / 2 + random.randint(-3, 3)
+                
+                pygame.draw.lines(SCREEN, (200, 220, 255), False, 
+                                [(start_x, start_y), (mid_x, mid_y), (end_x, end_y)], 1)
     
     
-    #  육각형 프레임 하단
-    hex_bottom = [
-        (gauge_x - 3, gauge_y + gauge_height - 8),
-        (gauge_x - 3, gauge_y + gauge_height),
-        (gauge_x + gauge_width // 2, gauge_y + gauge_height + 10),
-        (gauge_x + gauge_width + 3, gauge_y + gauge_height),
-        (gauge_x + gauge_width + 3, gauge_y + gauge_height - 8),
-    ]
-    draw.polygon((80, 90, 100), hex_bottom)
-    draw.polygon((180, 190, 200), hex_bottom, 2)
-    #  메인 프레임 배경
-    # 어두운 메탈릭 배경
-    main_rect = pygame.Rect(gauge_x - 2, gauge_y, gauge_width + 4, gauge_height)
-    draw.rect((25, 28, 35), main_rect)
-    # 내부 홈 (음각 효과)
-    inner_rect = pygame.Rect(gauge_x, gauge_y + 2, gauge_width, gauge_height - 4)
-    draw.rect((15, 18, 25), inner_rect)
-    # 사이드 라인 디테일 (테크니컬한 느낌)
-    for i in range(3):
-        line_y = gauge_y + 20 + i * 30
-        # 왼쪽 라인
-        draw.line((100, 110, 120), 
-                        (gauge_x - 5, line_y), (gauge_x - 2, line_y), 1)
-        # 오른쪽 라인
-        draw.line((100, 110, 120), 
-                        (gauge_x + gauge_width + 2, line_y), (gauge_x + gauge_width + 5, line_y), 1)
-    # 센터 라인 (세로 중앙선)
-    center_x = gauge_x + gauge_width // 2
-    draw.line((60, 65, 75), 
-                    (center_x, gauge_y + 5), (center_x, gauge_y + gauge_height - 5), 1)
+    # 캐릭터별 프레임 하단 디자인
+    if selected_character_type == "soldier":
+        # 군사용 육각형 프레임 하단 (더 견고한 디자인)
+        hex_bottom = [
+            (gauge_x - 4, gauge_y + gauge_height - 10),
+            (gauge_x - 4, gauge_y + gauge_height + 2),
+            (gauge_x + gauge_width // 2, gauge_y + gauge_height + 12),
+            (gauge_x + gauge_width + 4, gauge_y + gauge_height + 2),
+            (gauge_x + gauge_width + 4, gauge_y + gauge_height - 10),
+        ]
+        # 군복 올리브 그린 색상
+        draw.polygon((60, 80, 40), hex_bottom)  # 어두운 올리브
+        draw.polygon((120, 140, 80), hex_bottom, 3)  # 밝은 올리브 테두리
+        
+        # 군사용 메인 프레임 배경 (올리브 톤)
+        main_rect = pygame.Rect(gauge_x - 2, gauge_y, gauge_width + 4, gauge_height)
+        draw.rect((35, 45, 25), main_rect)  # 올리브 배경
+        # 내부 홈 (음각 효과)
+        inner_rect = pygame.Rect(gauge_x, gauge_y + 2, gauge_width, gauge_height - 4)
+        draw.rect((25, 35, 15), inner_rect)  # 더 어두운 올리브
+        
+        # 군사용 사이드 라인 디테일 (전술적 느낌)
+        for i in range(4):  # 4개 라인으로 더 세밀하게
+            line_y = gauge_y + 15 + i * 22
+            # 왼쪽 라인 (올리브 골드)
+            draw.line((140, 120, 80), 
+                            (gauge_x - 5, line_y), (gauge_x - 2, line_y), 1)
+            # 오른쪽 라인
+            draw.line((140, 120, 80), 
+                            (gauge_x + gauge_width + 2, line_y), (gauge_x + gauge_width + 5, line_y), 1)
+        
+        # 센터 라인 (세로 중앙선) - 군사용 골드
+        center_x = gauge_x + gauge_width // 2
+        draw.line((100, 80, 50), 
+                        (center_x, gauge_y + 5), (center_x, gauge_y + gauge_height - 5), 1)
+    else:
+        # 기존 스매셔 프레임 하단
+        hex_bottom = [
+            (gauge_x - 3, gauge_y + gauge_height - 8),
+            (gauge_x - 3, gauge_y + gauge_height),
+            (gauge_x + gauge_width // 2, gauge_y + gauge_height + 10),
+            (gauge_x + gauge_width + 3, gauge_y + gauge_height),
+            (gauge_x + gauge_width + 3, gauge_y + gauge_height - 8),
+        ]
+        draw.polygon((80, 90, 100), hex_bottom)
+        draw.polygon((180, 190, 200), hex_bottom, 2)
+        
+        #  메인 프레임 배경
+        # 어두운 메탈릭 배경
+        main_rect = pygame.Rect(gauge_x - 2, gauge_y, gauge_width + 4, gauge_height)
+        draw.rect((25, 28, 35), main_rect)
+        # 내부 홈 (음각 효과)
+        inner_rect = pygame.Rect(gauge_x, gauge_y + 2, gauge_width, gauge_height - 4)
+        draw.rect((15, 18, 25), inner_rect)
+        # 사이드 라인 디테일 (테크니컬한 느낌)
+        for i in range(3):
+            line_y = gauge_y + 20 + i * 30
+            # 왼쪽 라인
+            draw.line((100, 110, 120), 
+                            (gauge_x - 5, line_y), (gauge_x - 2, line_y), 1)
+            # 오른쪽 라인
+            draw.line((100, 110, 120), 
+                            (gauge_x + gauge_width + 2, line_y), (gauge_x + gauge_width + 5, line_y), 1)
+        # 센터 라인 (세로 중앙선)
+        center_x = gauge_x + gauge_width // 2
+        draw.line((60, 65, 75), 
+                        (center_x, gauge_y + 5), (center_x, gauge_y + gauge_height - 5), 1)
     #  게이지 채우기 - 전기/플라즈마 스타일
     if displayed_gauge > 0:
         fill_ratio = displayed_gauge / current_max_gauge
@@ -10290,28 +10661,53 @@ def draw_player_gauge():
             # 충전 애니메이션 강도 계산 (페이드 아웃 효과)
             charge_glow_intensity = gauge_charge_animation_timer / 30.0
             
-        # 게이지 레벨별 색상 (차갑고 날카로운 색상)
-        if displayed_gauge < 150:
-            # 레벨 1: 차가운 청백색
-            base_color = (180, 200, 220)
-            energy_color = (200, 220, 240)
-        elif displayed_gauge < 250:
-            # 레벨 2: 전기 청색
-            base_color = (100, 180, 255)
-            energy_color = (150, 200, 255)
-        elif displayed_gauge < 350:
-            # 레벨 3: 강렬한 시안
-            base_color = (0, 220, 255)
-            energy_color = (100, 240, 255)
+        # 캐릭터별 게이지 색상
+        if selected_character_type == "soldier":
+            # === 군인 전용 게이지 색상 (올리브/골드 계열) ===
+            if displayed_gauge < 150:
+                # 레벨 1: 어두운 올리브
+                base_color = (120, 140, 80)
+                energy_color = (140, 160, 100)
+            elif displayed_gauge < 250:
+                # 레벨 2: 밝은 올리브
+                base_color = (160, 180, 100)
+                energy_color = (180, 200, 120)
+            elif displayed_gauge < 350:
+                # 레벨 3: 골드 올리브
+                base_color = (200, 180, 100)
+                energy_color = (220, 200, 120)
+            else:
+                # 레벨 4: 전술적 골드 (펄스 효과)
+                pulse = abs(math.sin(time_now * 0.005))
+                base_color = (
+                    int(200 + pulse * 55),
+                    int(180 + pulse * 35),
+                    int(80 + pulse * 20)
+                )
+                energy_color = (255, 215, 100)
         else:
-            # 레벨 4: 플라즈마 (청백색 + 보라)
-            pulse = abs(math.sin(time_now * 0.005))
-            base_color = (
-                int(100 + pulse * 100),
-                int(150 + pulse * 50),
-                255
-            )
-            energy_color = (200, 200, 255)
+            # === 기존 스매셔 게이지 색상 (전기/플라즈마 계열) ===
+            if displayed_gauge < 150:
+                # 레벨 1: 차가운 청백색
+                base_color = (180, 200, 220)
+                energy_color = (200, 220, 240)
+            elif displayed_gauge < 250:
+                # 레벨 2: 전기 청색
+                base_color = (100, 180, 255)
+                energy_color = (150, 200, 255)
+            elif displayed_gauge < 350:
+                # 레벨 3: 강렬한 시안
+                base_color = (0, 220, 255)
+                energy_color = (100, 240, 255)
+            else:
+                # 레벨 4: 플라즈마 (청백색 + 보라)
+                pulse = abs(math.sin(time_now * 0.005))
+                base_color = (
+                    int(100 + pulse * 100),
+                    int(150 + pulse * 50),
+                    255
+                )
+                energy_color = (200, 200, 255)
         
         # 무릎보호대 충전 효과가 활성화되면 황금빛 글로우 추가
         if charge_glow_intensity > 0:
@@ -11980,8 +12376,8 @@ def draw_objects():
                     status_text = info_font.render("Waiting...", True, (200, 200, 200))
                 status_rect = status_text.get_rect(center=(WIDTH // 2, serve_rect.bottom + 20))
                 SCREEN.blit(status_text, status_rect)
-    #  퍼펙트 타이밍 윈도우 시각적 표시 (게이지 200 이상일 때만)
-    elif perfect_timing_active and special_gauge >= 200:
+    #  퍼펙트 타이밍 윈도우 시각적 표시 (게이지 200 이상일 때만, 군인 캐릭터 제외)
+    elif perfect_timing_active and special_gauge >= 200 and selected_character_type != "soldier":
         # 공 주변에 퍼펙트 타이밍 인디케이터 그리기
         timing_alpha = int(255 * (1.0 - perfect_timing_frame_count / perfect_timing_window))
         timing_radius = 30 + int(5 * math.sin(pygame.time.get_ticks() * 0.2))
@@ -12551,8 +12947,12 @@ def draw_objects():
             # 이미지 로드 실패 시 기본 플레이어 이미지 사용
             base_ufo_img = PLAYER_IMG
     else:
-        # 일반 모드에서는 UFO 플레이어 이미지 사용
-        base_ufo_img = PLAYER_IMG
+        # 일반 모드에서는 캐릭터 타입에 따라 다른 이미지 사용
+        if selected_character_type == "soldier":
+            base_ufo_img = SOLDIER_PADDLE_IMG
+        else:
+            # 기본 UFO 플레이어 이미지 사용
+            base_ufo_img = PLAYER_IMG
         # print(f"🎮 일반 모드: base_ufo_img 크기 = {base_ufo_img.get_size()}")
     # 스킬 효과 적용: 패들 크기 증가
     skill_boosted_width = skill.apply_paddle_size_boost(PADDLE_WIDTH)
@@ -14024,8 +14424,8 @@ def draw_objects():
     # 공 이미지 결정
     ball_img_to_draw = BALL_IMG  #  예전 파워스매싱(공이 붉게 되는 것) 제거
     ball_already_drawn = False  # 공이 이미 그려졌는지 추적
-    #  새로운 보스전에서는 드라이브 모니터(연두색 공) 제거
-    if not new_boss_mode_active and drive_ball_active:
+    #  새로운 보스전에서는 드라이브 모니터(연두색 공) 제거, 군인 캐릭터도 제외
+    if not new_boss_mode_active and drive_ball_active and selected_character_type != "soldier":
         # 프리즘 구체 효과를 위한 시간 기반 변화
         prism_time = pygame.time.get_ticks() * 0.003
         # 기본 공 이미지 복사
@@ -14089,8 +14489,8 @@ def draw_objects():
         ball_img_rect = rotated_ball.get_rect(center=ball_rect.center)
         draw_with_shake(rotated_ball, ball_img_rect.topleft)
     
-    #  드라이브 별빛가루 파티클 그리기 (공 뒤에 그려서 은은하게)
-    if drive_ball_active:
+    #  드라이브 별빛가루 파티클 그리기 (공 뒤에 그려서 은은하게, 군인 캐릭터 제외)
+    if drive_ball_active and selected_character_type != "soldier":
         # 드라이브 활성화 중 계속 파티클 생성 (적은 양으로)
         if random.random() < 0.3:  # 30% 확률로 파티클 추가 생성
             spawn_drive_particles(BALL.centerx, BALL.centery, count=1)
@@ -14644,6 +15044,10 @@ def draw_objects():
                     spark_size = random.randint(3, 8)
                     draw.circle((150, 200, 255), (spark_x, spark_y), spark_size)
                     draw.circle(WHITE, (spark_x, spark_y), spark_size - 2)
+    # === 군인 총알 그리기 ===
+    if selected_character_type == "soldier" and soldier_bullets:
+        draw_soldier_bullets(SCREEN)
+    
     # === 쉴드 안테나 시스템 (스테이지 6) ===
     if current_stage == 6:
         current_time = pygame.time.get_ticks()
@@ -18682,7 +19086,11 @@ def show_tutorial_power_demonstration():
         # 플레이어 패들 그리기
         try:
             if 'PLAYER_IMG' in globals() and PLAYER_IMG:
-                player_demo_img = pygame.transform.scale(PLAYER_IMG, (80, 32))
+                # 캐릭터 타입에 따라 다른 이미지 사용
+                if selected_character_type == "soldier" and 'SOLDIER_PADDLE_IMG' in globals():
+                    player_demo_img = pygame.transform.scale(SOLDIER_PADDLE_IMG, (80, 32))
+                else:
+                    player_demo_img = pygame.transform.scale(PLAYER_IMG, (80, 32))
                 player_rect = player_demo_img.get_rect(center=(player_x, player_y))
                 SCREEN.blit(player_demo_img, player_rect)
             else:
@@ -20067,8 +20475,12 @@ def show_tutorial_dash_dialogue():
                 try:
                     # 실제 플레이어 이미지 사용
                     if 'PLAYER_IMG' in globals() and PLAYER_IMG:
-                        # 플레이어 이미지 크기 조절 (원본이 250x100이므로 축소)
-                        player_demo_img = pygame.transform.scale(PLAYER_IMG, (80, 32))
+                        # 캐릭터 타입에 따라 다른 이미지 사용
+                        if selected_character_type == "soldier" and 'SOLDIER_PADDLE_IMG' in globals():
+                            player_demo_img = pygame.transform.scale(SOLDIER_PADDLE_IMG, (80, 32))
+                        else:
+                            # 플레이어 이미지 크기 조절 (원본이 250x100이므로 축소)
+                            player_demo_img = pygame.transform.scale(PLAYER_IMG, (80, 32))
                         player_rect = player_demo_img.get_rect(center=demo_player.center)
                         SCREEN.blit(player_demo_img, player_rect)
                     else:
@@ -22152,26 +22564,26 @@ def show_character_selection():
     characters = [
         {
             "id": "ufo_player",
-            "name": "기본 플레이어",
-            "description": "균형잡힌 올라운드 캐릭터",
+            "name": "스매셔",
+            "description": "강력한 스매시 샷을 사용하는 캐릭터",
             "image": "ufo_player.png",
-            "stats": {"속도": 5, "파워": 5, "방어": 5},
-            "special": " 평범하지만 안정적인 플레이",
+            "stats": {"속도": 4, "파워": 7, "방어": 4},
+            "special": " 스매시 전용 스킬트리 보유",
             "unlocked": True,
             "card_color": CYAN,  # 사이버 청록
             "glow_color": (0, 200, 255),
             "card_suit": "◆"
         },
         {
-            "id": "smasher",
-            "name": "스매셔",
-            "description": "강력한 스매시 샷을 사용하는 캐릭터",
-            "image": "smasher.png",
-            "stats": {"속도": 4, "파워": 7, "방어": 4},
-            "special": " 스매시 전용 스킬트리 보유",
-            "unlocked": True,
-            "card_color": (255, 100, 100),  # 빨간색
-            "glow_color": (255, 150, 150),
+            "id": "soldier",
+            "name": "군인",
+            "description": "전술적 플레이와 강인한 정신력",
+            "image": "soldier.png",
+            "stats": {"속도": 6, "파워": 6, "방어": 6},
+            "special": " 전투 경험과 전술적 우위",
+            "unlocked": True,  # 해금됨
+            "card_color": (80, 120, 40),  # 군복 녹색
+            "glow_color": (100, 150, 50),
             "card_suit": ""
         },
         {
@@ -22235,7 +22647,7 @@ def show_character_selection():
             "card_suit": "◆"
         }
     ]
-    selected = 0
+    selected = 0  # 기본 선택을 기본 플레이어(인덱스 0)로 설정
     animation_timer = 0
     card_flip_timer = 0
     card_hover_offset = 0
@@ -22582,18 +22994,12 @@ def show_character_selection():
                 radius = image_size // 2
                 pygame.draw.circle(surface, border_color, (w//2, 30 + radius), radius)
                 pygame.draw.circle(surface, WHITE, (w//2, 30 + radius), radius - 5, 3)
-            # 캐릭터 이름 (카드가 클 때만)
+            # 캐릭터 이름 (카드가 클 때만) - 중앙 정렬 및 색상 개선
             if is_selected and w > 120:
-                name_text = font_card.render(character["name"], True, (30, 30, 30))
-                name_rect = name_text.get_rect(center=(w//2, 30 + image_size + 20))
+                name_text = font_card.render(character["name"], True, WHITE)  # 흰색으로 변경하여 가독성 향상
+                name_rect = name_text.get_rect(center=(w//2, h//2 + 20))  # 카드 중앙에 위치하도록 수정
                 surface.blit(name_text, name_rect)
-                # 간단한 스탯 표시 (선택된 카드일 때만)
-                stats_y = 30 + image_size + 45
-                for stat_name, stat_value in character["stats"].items():
-                    stat_text = font_small.render(f"{stat_name}: {'' * stat_value}", True, (60, 60, 60))
-                    stat_rect = stat_text.get_rect(center=(w//2, stats_y))
-                    surface.blit(stat_text, stat_rect)
-                    stats_y += 15
+                # 스탯 표시 부분 제거 (사용자 요청)
         def draw_card_back(surface, card_index, is_selected, w, h):
             pattern = card_back_patterns[card_index % len(card_back_patterns)]
             base_color = pattern["color"]
@@ -22873,6 +23279,195 @@ def show_character_selection():
                 name_text = font_subtitle.render(current_char["name"], True, name_color)
                 name_rect = name_text.get_rect(center=(detail_x + detail_card_width//2 + glow_offset[0], name_y + glow_offset[1]))
                 SCREEN.blit(name_text, name_rect)
+            
+            # 스매셔 캐릭터인 경우 엠블럼 애니메이션 추가
+            if current_char["id"] == "ufo_player":  # 스매셔로 변경된 기본 캐릭터
+                # 스매셔 엠블럼 애니메이션 (캐릭터 이름 옆)
+                emblem_x = detail_x + detail_card_width//2 + name_rect.width//2 + 40
+                emblem_y = name_y
+                
+                time_now = pygame.time.get_ticks()
+                
+                # 애니메이션 효과
+                pulse_scale = 1.0 + math.sin(time_now * 0.003) * 0.1  # 펄스 효과
+                rotation_angle = time_now * 0.001  # 천천히 회전
+                glow_intensity = abs(math.sin(time_now * 0.002))  # 빛나는 효과
+                
+                # 엠블럼 크기
+                emblem_radius = 15
+                
+                # 배경 원형 글로우 효과
+                for i in range(3):
+                    glow_radius = emblem_radius + (i + 1) * 2  # 3에서 2로 줄임
+                    alpha = int(60 - i * 20) * glow_intensity  # 알파값도 조정
+                    glow_color_emblem = (100, 150, 255, alpha)
+                    pygame.draw.circle(SCREEN, glow_color_emblem[:3], (emblem_x, emblem_y), int(glow_radius * pulse_scale))
+                
+                # 메인 엠블럼 원형 베이스
+                base_color = (40, 50, 80)
+                border_color_emblem = (150, 180, 255)
+                pygame.draw.circle(SCREEN, base_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale))
+                pygame.draw.circle(SCREEN, border_color_emblem, (emblem_x, emblem_y), int(emblem_radius * pulse_scale), 2)
+                
+                # 스매셔 심볼 - 번개 모양
+                lightning_points = []
+                
+                # 번개 패턴 정의 (스매시의 파워를 상징)
+                base_points = [
+                    (-8, -10),  # 상단 왼쪽
+                    (-2, -4),   # 중간 왼쪽
+                    (-5, 0),    # 중앙 왼쪽
+                    (2, -2),    # 중앙
+                    (-1, 2),    # 중앙 아래
+                    (5, 8),     # 하단 오른쪽
+                    (8, 10),    # 끝점
+                    (3, 6),     # 아래쪽 포인트
+                    (6, 2),     # 중간 오른쪽
+                    (0, 4),     # 중앙 복귀
+                    (3, 0),     # 상단 복귀
+                    (-3, 2),    # 왼쪽 복귀
+                    (0, -2),    # 중앙 상단
+                    (-8, -10)   # 시작점으로
+                ]
+                
+                # 회전 및 스케일 적용
+                for bx, by in base_points:
+                    # 회전 변환
+                    rot_x = bx * math.cos(rotation_angle) - by * math.sin(rotation_angle)
+                    rot_y = bx * math.sin(rotation_angle) + by * math.cos(rotation_angle)
+                    
+                    # 최종 위치
+                    final_x = emblem_x + rot_x * pulse_scale
+                    final_y = emblem_y + rot_y * pulse_scale
+                    lightning_points.append((final_x, final_y))
+                
+                # 번개 그리기
+                if len(lightning_points) > 2:
+                    # 메인 번개 (밝은 파란색)
+                    pygame.draw.polygon(SCREEN, (100, 200, 255), lightning_points)
+                    # 번개 테두리 (더 밝은 색)
+                    pygame.draw.lines(SCREEN, (200, 230, 255), True, lightning_points, 2)
+                
+                # 중앙 파워 코어
+                core_radius = 4
+                core_color = (255, 255, 255)
+                energy_color = (150, 200, 255)
+                
+                # 코어 글로우
+                pygame.draw.circle(SCREEN, energy_color, (emblem_x, emblem_y), int(core_radius * 1.5 * pulse_scale))
+                pygame.draw.circle(SCREEN, core_color, (emblem_x, emblem_y), int(core_radius * pulse_scale))
+                
+                # 전기 스파크 효과
+                spark_count = 2
+                for i in range(spark_count):
+                    angle = (rotation_angle * 2 + i * 2.094) % (math.pi * 2)  # 120도 간격
+                    spark_length = emblem_radius + random.randint(5, 10)
+                    
+                    start_x = emblem_x + math.cos(angle) * core_radius
+                    start_y = emblem_y + math.sin(angle) * core_radius
+                    end_x = emblem_x + math.cos(angle) * spark_length
+                    end_y = emblem_y + math.sin(angle) * spark_length
+                    
+                    # 전기 번개 효과
+                    mid_x = (start_x + end_x) / 2 + random.randint(-3, 3)
+                    mid_y = (start_y + end_y) / 2 + random.randint(-3, 3)
+                    
+                    pygame.draw.lines(SCREEN, (200, 220, 255), False, 
+                                    [(start_x, start_y), (mid_x, mid_y), (end_x, end_y)], 1)
+            
+            # 군인 캐릭터인 경우 엠블럼 애니메이션 추가
+            elif current_char["id"] == "soldier":  # 군인 캐릭터
+                # 군인 엠블럼 애니메이션 (캐릭터 이름 옆)
+                emblem_x = detail_x + detail_card_width//2 + name_rect.width//2 + 40
+                emblem_y = name_y
+                
+                time_now = pygame.time.get_ticks()
+                
+                # 애니메이션 효과
+                pulse_scale = 1.0 + math.sin(time_now * 0.003) * 0.1  # 펄스 효과
+                rotation_angle = time_now * 0.001  # 천천히 회전
+                glow_intensity = abs(math.sin(time_now * 0.002))  # 빛나는 효과
+                
+                # 엠블럼 크기
+                emblem_radius = 15
+                
+                # === 군인 엠블럼 디자인 ===
+                # 배경 원형 글로우 효과 (올리브 그린)
+                for i in range(3):
+                    glow_radius = emblem_radius + (i + 1) * 2
+                    alpha = int(40 - i * 12) * glow_intensity  # 더 어두운 글로우
+                    glow_color = (80, 120, 60, alpha)  # 올리브 그린 글로우
+                    pygame.draw.circle(SCREEN, glow_color[:3], (emblem_x, emblem_y), int(glow_radius * pulse_scale))
+                
+                # 메인 엠블럼 원형 베이스 (군사용 어두운 올리브)
+                base_color = (40, 60, 35)  # 어두운 올리브
+                border_color = (120, 160, 90)  # 밝은 올리브
+                pygame.draw.circle(SCREEN, base_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale))
+                pygame.draw.circle(SCREEN, border_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale), 3)
+                
+                # 군인 심볼 - 별과 독수리 날개 모양
+                # 중앙 별 그리기
+                star_points = []
+                star_radius = 8
+                for i in range(10):
+                    angle = i * math.pi / 5 + rotation_angle
+                    radius = star_radius if i % 2 == 0 else star_radius * 0.4
+                    x = emblem_x + radius * math.cos(angle) * pulse_scale
+                    y = emblem_y + radius * math.sin(angle) * pulse_scale
+                    star_points.append((x, y))
+                
+                # 별 그리기 (금색)
+                pygame.draw.polygon(SCREEN, (255, 215, 0), star_points)
+                pygame.draw.polygon(SCREEN, (255, 255, 150), star_points, 1)
+                
+                # 독수리 날개 모양 (양쪽)
+                wing_color = (200, 180, 100)
+                wing_size = 6
+                
+                # 왼쪽 날개
+                left_wing = [
+                    (emblem_x - wing_size, emblem_y - 3),
+                    (emblem_x - wing_size - 4, emblem_y - 1),
+                    (emblem_x - wing_size - 3, emblem_y + 2),
+                    (emblem_x - wing_size + 1, emblem_y + 1)
+                ]
+                pygame.draw.polygon(SCREEN, wing_color, left_wing)
+                
+                # 오른쪽 날개
+                right_wing = [
+                    (emblem_x + wing_size, emblem_y - 3),
+                    (emblem_x + wing_size + 4, emblem_y - 1),
+                    (emblem_x + wing_size + 3, emblem_y + 2),
+                    (emblem_x + wing_size - 1, emblem_y + 1)
+                ]
+                pygame.draw.polygon(SCREEN, wing_color, right_wing)
+                
+                # 중앙 파워 코어 (군사용 금색)
+                core_radius = 3
+                core_color = (255, 255, 200)
+                energy_color = (200, 180, 100)
+                
+                # 코어 글로우
+                pygame.draw.circle(SCREEN, energy_color, (emblem_x, emblem_y), int(core_radius * 1.5 * pulse_scale))
+                pygame.draw.circle(SCREEN, core_color, (emblem_x, emblem_y), int(core_radius * pulse_scale))
+                
+                # 전술적 레이더 스캔 효과
+                scan_angle = (time_now * 0.005) % (math.pi * 2)
+                scan_radius = emblem_radius + 5
+                scan_end_x = emblem_x + math.cos(scan_angle) * scan_radius
+                scan_end_y = emblem_y + math.sin(scan_angle) * scan_radius
+                
+                # 스캔 라인
+                pygame.draw.line(SCREEN, (150, 200, 100), (emblem_x, emblem_y), (scan_end_x, scan_end_y), 2)
+                
+                # 스캔 포인트
+                for i in range(3):
+                    point_angle = scan_angle + i * 0.3
+                    point_radius = emblem_radius - 2 + i * 2
+                    point_x = emblem_x + math.cos(point_angle) * point_radius
+                    point_y = emblem_y + math.sin(point_angle) * point_radius
+                    pygame.draw.circle(SCREEN, (100, 255, 100), (int(point_x), int(point_y)), 1)
+                    
             # 캐릭터 설명 (홀로그램 스타일)
             desc_y = detail_y + 55
             desc_text = font_desc.render(current_char["description"], True, (180, 220, 255))
@@ -22882,7 +23477,8 @@ def show_character_selection():
             special_y = detail_y + 80
             for glow_offset in [(1, 1), (0, 0)]:
                 alpha = 120 if glow_offset != (0, 0) else 255
-                special_color = (*glow_color, alpha) if glow_offset != (0, 0) else glow_color
+                # render() 함수는 RGB 3개 값만 받으므로 알파값 제거
+                special_color = glow_color[:3] if len(glow_color) > 3 else glow_color
                 special_text = font_desc.render(current_char["special"], True, special_color)
                 special_rect = special_text.get_rect(center=(detail_x + detail_card_width//2 + glow_offset[0], special_y + glow_offset[1]))
                 SCREEN.blit(special_text, special_rect)
@@ -22903,21 +23499,26 @@ def show_character_selection():
                 bar_y = stats_start_y + 18
                 # 홀로그램 배경 바
                 draw.rect((10, DEFAULT_RADIUS, 30), (bar_x, bar_y, bar_width, bar_height), border_radius=3)
-                draw.rect((*glow_color, 80), (bar_x, bar_y, bar_width, bar_height), 1, border_radius=3)
+                # draw.rect는 RGB 3개 값만 받으므로 알파값 제거
+                draw.rect(glow_color[:3] if len(glow_color) > 3 else glow_color, (bar_x, bar_y, bar_width, bar_height), 1, border_radius=3)
                 # 네온 값 바 (글로우 효과)
                 filled_width = int((stat_value / 8) * bar_width)
                 if filled_width > 0:
                     # 메인 바
-                    pygame.draw.rect(SCREEN, glow_color, (bar_x, bar_y, filled_width, bar_height), border_radius=3)
+                    # pygame.draw.rect도 RGB 3개 값만 받음
+                    pygame.draw.rect(SCREEN, glow_color[:3] if len(glow_color) > 3 else glow_color, (bar_x, bar_y, filled_width, bar_height), border_radius=3)
                     # 글로우 효과
                     for glow_layer in range(2, 0, -1):
                         glow_intensity = int(abs(math.sin(animation_timer * 0.15 + i)) * HALF_SECOND_FRAMES) + 50
                         glow_surface = pygame.Surface((filled_width + glow_layer*2, bar_height + glow_layer*2), pygame.SRCALPHA)
-                        pygame.draw.rect(glow_surface, (*glow_color, glow_intensity // glow_layer), 
+                        # glow_surface는 SRCALPHA이므로 알파값 사용 가능하지만 안전하게 처리
+                        glow_color_with_alpha = (*glow_color[:3], glow_intensity // glow_layer) if len(glow_color) >= 3 else (*glow_color, glow_intensity // glow_layer)
+                        pygame.draw.rect(glow_surface, glow_color_with_alpha, 
                                        (0, 0, filled_width + glow_layer*2, bar_height + glow_layer*2), border_radius=3)
                         SCREEN.blit(glow_surface, (bar_x - glow_layer, bar_y - glow_layer))
                 # 홀로그램 숫자 표시
-                value_text = font_small.render(str(stat_value), True, glow_color)
+                # font.render도 RGB 3개 값만 받음
+                value_text = font_small.render(str(stat_value), True, glow_color[:3] if len(glow_color) > 3 else glow_color)
                 value_rect = value_text.get_rect(center=(stat_x, stats_start_y + 38))
                 SCREEN.blit(value_text, value_rect)
         else:
@@ -23500,8 +24101,14 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     ai_enabled = True
     # 캐릭터별 설정
     if character_id == "ufo_player":
-        # 기본 UFO 플레이어 설정
-        selected_character_type = "normal"
+        # 스매셔 캐릭터 (기본 캐릭터가 스매셔로 변경됨)
+        selected_character_type = "smasher"
+    elif character_id == "soldier":
+        # 군인 캐릭터 설정
+        selected_character_type = "soldier"
+        # 군인 캐릭터는 기본적으로 코만도암 패시브 아이템 소지
+        items.commando_arm_obtained = True
+        print("💪 군인 캐릭터 선택! 코만도암 패시브 아이템 자동 장착!")
     elif character_id == "smasher":
         # 스매셔 캐릭터 설정
         selected_character_type = "smasher"
@@ -33781,6 +34388,9 @@ def main(stage_num, new_boss_mode=False):
     global hit_animation_active, hit_animation_timer
     # 일시정지 시스템
     global game_paused
+    # 군인 총알 시스템
+    global soldier_bullets, soldier_gun_cooldown, soldier_control_lock_timer, soldier_gun_drawn
+    global selected_character_type
     # 파워스매싱 정지 시간 관리
     global power_smashing_freeze_start_time, power_smashing_freeze_active, power_smashing_freeze_duration
     global power_smashing_parabola_active, power_smashing_start_time
@@ -33828,6 +34438,12 @@ def main(stage_num, new_boss_mode=False):
     rolling_direction = 0
     rolling_speed = 0
     rolling_stun_timer = 0
+    
+    # 군인 총알 시스템 초기화
+    soldier_bullets = []
+    soldier_gun_cooldown = 0
+    soldier_control_lock_timer = 0
+    soldier_gun_drawn = False
     
     #  게임 세션 최초 시작 시에만 스킬 포인트 초기화
     global trade_point_collected, stage3_hearts_collected, stage4_crows_collected, trade_point_system
@@ -34469,6 +35085,33 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_serve_reminder_active = True
                 print("튜토리얼: 서브 알림창 활성화")
     
+    # 군인 캐릭터 코만도암 패시브 아이템 확인 및 설정
+    if selected_character_type == "soldier":
+        items.commando_arm_obtained = True
+        # 패시브 아이템 목록에도 추가 (중복 방지)
+        commando_arm_data = {
+            "name": "commando_arm",
+            "type": "passive",
+            "icon": get_item_icon("commando_arm")
+        }
+        # 이미 목록에 없을 때만 추가
+        if not any(item["name"] == "commando_arm" for item in passive_item_list):
+            passive_item_list.append(commando_arm_data)
+        
+        # 수류탄 액티브 아이템도 추가
+        grenade_data = {
+            "name": "grenade",
+            "type": "active",
+            "effect": "grenade",
+            "icon": get_item_icon("grenade"),
+            "count": 1
+        }
+        # 액티브 아이템 슬롯에 추가 (중복 방지)
+        if not any(item["name"] == "grenade" for item in active_item_slot):
+            active_item_slot.append(grenade_data)
+        
+        print("💪 군인 캐릭터 게임 시작 - 코만도암 패시브 아이템 + 수류탄 액티브 아이템 활성화!")
+    
     running = True
     while running:
         # ========== 마이그레이션 모드: 프레임 시작 동기화 ==========
@@ -34873,7 +35516,7 @@ def main(stage_num, new_boss_mode=False):
                 max_frame_gap = 2  # 최대 2프레임(0.033초) 차이까지 동시 입력으로 인정 (3 → 2)
                 max_input_age = 8  # 최대 8프레임(약 0.13초) 전까지의 입력만 유효
                                     #  파워스매싱/고스트샷 발동: 게이지가 준비되었고 스페이스를 홀드하고 있다면
-                if special_gauge >= 350 and keys[pygame.K_SPACE]:  # 파워스매시 발동 조건: 350 이상
+                if special_gauge >= 350 and keys[pygame.K_SPACE] and selected_character_type != "soldier":  # 파워스매시 발동 조건: 350 이상 (군인 캐릭터는 사용 불가)
                     # 파워스매싱 발동 (고스트샷 제거됨)
                     global power_smashing_parabola_active
                     # 파워스매싱 방향 설정
@@ -35085,7 +35728,8 @@ def main(stage_num, new_boss_mode=False):
                 elif (left_press_frame >= 0 and space_press_frame >= 0 and 
                     abs(left_press_frame - space_press_frame) <= max_frame_gap and
                     (frame_counter - left_press_frame) <= max_input_age and  # 왼쪽 키가 최근에 눌렸는지
-                    (frame_counter - space_press_frame) <= max_input_age):   # 스페이스 키가 최근에 눌렸는지
+                    (frame_counter - space_press_frame) <= max_input_age and  # 스페이스 키가 최근에 눌렸는지
+                    selected_character_type != "soldier"):   # 군인 캐릭터는 드라이브 사용 불가
                     perfect_direction = -1  # 왼쪽 드라이브
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
                     drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
@@ -35100,7 +35744,8 @@ def main(stage_num, new_boss_mode=False):
                 elif (right_press_frame >= 0 and space_press_frame >= 0 and 
                       abs(right_press_frame - space_press_frame) <= max_frame_gap and
                       (frame_counter - right_press_frame) <= max_input_age and  # 오른쪽 키가 최근에 눌렸는지
-                      (frame_counter - space_press_frame) <= max_input_age):    # 스페이스 키가 최근에 눌렸는지
+                      (frame_counter - space_press_frame) <= max_input_age and  # 스페이스 키가 최근에 눌렸는지
+                      selected_character_type != "soldier"):    # 군인 캐릭터는 드라이브 사용 불가
                     perfect_direction = 1   # 오른쪽 드라이브
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
                     drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
@@ -36044,6 +36689,14 @@ def main(stage_num, new_boss_mode=False):
                 handle_player(keys)
                 handle_ball()
                 handle_boss()
+                
+                # 군인 총알 시스템 업데이트
+                if selected_character_type == "soldier":
+                    update_soldier_bullets()
+                    # 쿨다운 감소
+                    if soldier_gun_cooldown > 0:
+                        soldier_gun_cooldown -= 1
+                
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
                 check_laser_ball_collision()
