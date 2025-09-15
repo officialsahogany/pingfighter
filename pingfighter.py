@@ -8852,7 +8852,9 @@ def handle_whip():
             volume = (math.sin(whip_wave_phase) + 1) / 2  # 0.0 ~ 1.0 범위로 변환
             whip_sound.set_volume(volume)  # 효과음 볼륨 설정
             # 공의 속도에 진폭 적용 (X축만 약간 물결치도록)
-            ball_vel[0] = wave  # 원래 속도 무시하고 파동만 적용 (중앙 기준)
+            # 파워스매싱이 활성화되어 있지 않을 때만 상모돌리기 효과 적용
+            if not power_smashing_parabola_active and not power_smashing_freeze_active:
+                ball_vel[0] = wave  # 원래 속도 무시하고 파동만 적용 (중앙 기준)
             
             #  파동 파티클 생성 (10프레임마다)
             if whip_timer % 10 == 0:
@@ -9900,7 +9902,7 @@ def draw_stage1_boss_gauge_bar():
     
     # 보스 필살기 게이지 표시
     max_gauge = 500  # 최대 게이지
-    current_gauge = boss_special_gauge  # 현재 게이지
+    current_gauge = displayed_boss_gauge  # 부드러운 애니메이션을 위해 displayed_boss_gauge 사용
     
     # 게이지바 위치 - 플레이어 게이지바와 같은 크기 (14x100)
     bar_x = WIDTH - 45  # 살짝 왼쪽으로 이동
@@ -10040,6 +10042,30 @@ def draw_stage1_boss_gauge_bar():
             pygame.draw.line(SCREEN, highlight_color, 
                            (bar_x + 1, gauge_start_y), 
                            (bar_x + bar_width - 1, gauge_start_y), 1)
+        
+        # 충전 중일 때 반짝임 효과 (부드러운 애니메이션)
+        if boss_special_gauge > displayed_boss_gauge:  # 충전 중
+            charge_intensity = min((boss_special_gauge - displayed_boss_gauge) / 50, 1.0)
+            sparkle_count = int(charge_intensity * 2) + 1
+            
+            for i in range(sparkle_count):
+                sparkle_y = random.randint(gauge_start_y, bar_y + bar_height - 2)
+                sparkle_x = bar_x + random.randint(2, bar_width - 2)
+                sparkle_alpha = int(charge_intensity * 150)
+                pygame.draw.circle(SCREEN, (255, 255, 200), (sparkle_x, sparkle_y), 1)
+        
+        # 웨이브 애니메이션 효과 (상단)
+        if filled_height > 5:
+            wave_offset = math.sin(time_offset * 4) * 1.5
+            wave_y = gauge_start_y + int(wave_offset)
+            
+            # 부드러운 웨이브 라인
+            wave_brightness = abs(math.sin(time_offset * 3)) * 0.3 + 0.7
+            wave_color = tuple(min(255, int(c * wave_brightness * 1.2)) for c in gauge_color)
+            
+            pygame.draw.line(SCREEN, wave_color, 
+                           (bar_x + 1, wave_y), 
+                           (bar_x + bar_width - 1, wave_y), 1)
     
     # 조선 전통 장식 요소
     # 좌우 단청 장식선
@@ -30442,13 +30468,18 @@ def handle_ball():
         # handle_player에서 이미 쿨다운을 설정했으므로 여기서는 설정하지 않음
         if whip_active:
             whip_hit_by_player = True
-            #  플레이어가 상모돌리기 공을 반격할 때 무조건 위쪽(보스 방향)으로 보정
-            if ball_vel[1] > 0:  # 공이 아래로 가고 있다면
-                ball_vel[1] = -abs(ball_vel[1])  # 위쪽으로 방향 전환
-            # 최소 Y 속도 보장 (충분한 속도로 보스 쪽으로)
-            if abs(ball_vel[1]) < 8:
-                ball_vel[1] = -8
-            print(f"   !   : Y={ball_vel[1]}")
+            
+            # 파워스매싱이 활성화되어 있으면 상모돌리기 효과를 적용하지 않음
+            if not power_smashing_parabola_active and not power_smashing_freeze_active:
+                #  플레이어가 상모돌리기 공을 반격할 때 무조건 위쪽(보스 방향)으로 보정
+                if ball_vel[1] > 0:  # 공이 아래로 가고 있다면
+                    ball_vel[1] = -abs(ball_vel[1])  # 위쪽으로 방향 전환
+                # 최소 Y 속도 보장 (충분한 속도로 보스 쪽으로)
+                if abs(ball_vel[1]) < 8:
+                    ball_vel[1] = -8
+                print(f"   !   : Y={ball_vel[1]}")
+            else:
+                print(f"   !       !")
             
             #  스테이지 1: 상모돌리기 강제 해제 모션 시작
             if current_stage == 1:
