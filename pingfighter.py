@@ -25676,22 +25676,25 @@ def draw_field():
             # 밝은 회색 테두리 (백업 이미지 분석 결과)
             pygame.draw.circle(SCREEN, (200, 200, 200), (taegeuk_center_x, taegeuk_center_y), taegeuk_radius + 2, 4)
             
-            # Stage 1 필드 전체에 8픽셀 조선시대 색상 테두리 추가 (풀스크린)
-            # 빨강 테두리 (가장 바깥쪽)
-            pygame.draw.rect(SCREEN, (220, 50, 50), 
-                           (GAME_OFFSET_X + screen_shake_offset_x, 
-                            GAME_OFFSET_Y + screen_shake_offset_y, 
-                            WIDTH, HEIGHT), 8)
-            # 노랑 테두리 (중간)
-            pygame.draw.rect(SCREEN, (255, 215, 0), 
-                           (GAME_OFFSET_X + screen_shake_offset_x + 8, 
-                            GAME_OFFSET_Y + screen_shake_offset_y + 8, 
-                            WIDTH-16, HEIGHT-16), 8)
-            # 파랑 테두리 (안쪽)
-            pygame.draw.rect(SCREEN, (50, 50, 220), 
-                           (GAME_OFFSET_X + screen_shake_offset_x + 16, 
-                            GAME_OFFSET_Y + screen_shake_offset_y + 16, 
-                            WIDTH-32, HEIGHT-32), 8)
+            # Stage 1 필드 전체에 8픽셀 단청 스타일 테두리 추가 (풀스크린)
+            offset_x = GAME_OFFSET_X + screen_shake_offset_x
+            offset_y = GAME_OFFSET_Y + screen_shake_offset_y
+            
+            # 외곽선 (진한 갈색)
+            pygame.draw.rect(SCREEN, (101, 67, 33), (offset_x, offset_y, WIDTH, HEIGHT), 8)
+            # 단청 패턴을 위한 내부 장식
+            # 상단 단청 패턴
+            pygame.draw.rect(SCREEN, (220, 50, 50), (offset_x + 8, offset_y + 4, WIDTH-16, 2), 0)  # 빨강
+            pygame.draw.rect(SCREEN, (255, 215, 0), (offset_x + 8, offset_y + 6, WIDTH-16, 2), 0)  # 노랑
+            # 하단 단청 패턴
+            pygame.draw.rect(SCREEN, (50, 50, 220), (offset_x + 8, offset_y + HEIGHT-6, WIDTH-16, 2), 0)  # 파랑
+            pygame.draw.rect(SCREEN, (50, 180, 50), (offset_x + 8, offset_y + HEIGHT-8, WIDTH-16, 2), 0)  # 초록
+            # 좌측 단청 패턴
+            pygame.draw.rect(SCREEN, (220, 50, 50), (offset_x + 4, offset_y + 8, 2, HEIGHT-16), 0)  # 빨강
+            pygame.draw.rect(SCREEN, (255, 215, 0), (offset_x + 6, offset_y + 8, 2, HEIGHT-16), 0)  # 노랑
+            # 우측 단청 패턴
+            pygame.draw.rect(SCREEN, (50, 50, 220), (offset_x + WIDTH-6, offset_y + 8, 2, HEIGHT-16), 0)  # 파랑
+            pygame.draw.rect(SCREEN, (50, 180, 50), (offset_x + WIDTH-8, offset_y + 8, 2, HEIGHT-16), 0)  # 초록
         else:
             # 배경을 화면 전체에 맞게 스케일링
             temp_surface = pygame.Surface((animated_bg.width, animated_bg.height), pygame.SRCALPHA)
@@ -25707,13 +25710,22 @@ def draw_field():
         # 밝은 회색 테두리 (백업 이미지 분석 결과)
         pygame.draw.circle(SCREEN, (200, 200, 200), (taegeuk_center_x, taegeuk_center_y), taegeuk_radius + 2, 4)
         
-        # Stage 1 필드 전체에 8픽셀 조선시대 색상 테두리 추가
-        # 빨강 테두리 (가장 바깥쪽)
-        pygame.draw.rect(SCREEN, (220, 50, 50), (0, 0, WIDTH, HEIGHT), 8)
-        # 노랑 테두리 (중간)
-        pygame.draw.rect(SCREEN, (255, 215, 0), (8, 8, WIDTH-16, HEIGHT-16), 8)
-        # 파랑 테두리 (안쪽)
-        pygame.draw.rect(SCREEN, (50, 50, 220), (16, 16, WIDTH-32, HEIGHT-32), 8)
+        # Stage 1 필드 전체에 8픽셀 단청 스타일 테두리 추가
+        # 외곽선 (진한 갈색)
+        pygame.draw.rect(SCREEN, (101, 67, 33), (0, 0, WIDTH, HEIGHT), 8)
+        # 단청 패턴을 위한 내부 장식
+        # 상단 단청 패턴
+        pygame.draw.rect(SCREEN, (220, 50, 50), (8, 4, WIDTH-16, 2), 0)  # 빨강
+        pygame.draw.rect(SCREEN, (255, 215, 0), (8, 6, WIDTH-16, 2), 0)  # 노랑
+        # 하단 단청 패턴
+        pygame.draw.rect(SCREEN, (50, 50, 220), (8, HEIGHT-6, WIDTH-16, 2), 0)  # 파랑
+        pygame.draw.rect(SCREEN, (50, 180, 50), (8, HEIGHT-8, WIDTH-16, 2), 0)  # 초록
+        # 좌측 단청 패턴
+        pygame.draw.rect(SCREEN, (220, 50, 50), (4, 8, 2, HEIGHT-16), 0)  # 빨강
+        pygame.draw.rect(SCREEN, (255, 215, 0), (6, 8, 2, HEIGHT-16), 0)  # 노랑
+        # 우측 단청 패턴
+        pygame.draw.rect(SCREEN, (50, 50, 220), (WIDTH-6, 8, 2, HEIGHT-16), 0)  # 파랑
+        pygame.draw.rect(SCREEN, (50, 180, 50), (WIDTH-8, 8, 2, HEIGHT-16), 0)  # 초록
     elif current_stage == 2 and animated_bg_stage2 is not None:
         # 스테이지2에서는 정글 사이버펑크 애니메이션 배경 사용
         # 공 위치, 패들 위치, 점수를 배경에 전달 (눈동자 추적 + 덤불 흔들림 + 위기 상황용)
