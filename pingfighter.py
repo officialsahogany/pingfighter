@@ -25668,6 +25668,13 @@ def draw_field():
             temp_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             animated_bg.draw(temp_surface)
             SCREEN.blit(temp_surface, (GAME_OFFSET_X + screen_shake_offset_x, GAME_OFFSET_Y + screen_shake_offset_y))
+            
+            # Stage 1 필드 중앙 태극문양에 회색 테두리 추가 (풀스크린)
+            taegeuk_center_x = GAME_OFFSET_X + WIDTH // 2 + screen_shake_offset_x
+            taegeuk_center_y = GAME_OFFSET_Y + HEIGHT // 2 + screen_shake_offset_y
+            taegeuk_radius = 80  # 태극문양 크기
+            # 밝은 회색 테두리 (백업 이미지 분석 결과)
+            pygame.draw.circle(SCREEN, (200, 200, 200), (taegeuk_center_x, taegeuk_center_y), taegeuk_radius + 2, 4)
         else:
             # 배경을 화면 전체에 맞게 스케일링
             temp_surface = pygame.Surface((animated_bg.width, animated_bg.height), pygame.SRCALPHA)
@@ -25675,6 +25682,13 @@ def draw_field():
             # 배경 이미지를 화면 크기에 맞게 스케일
             scaled_bg = pygame.transform.scale(temp_surface, (WIDTH, HEIGHT))
             SCREEN.blit(scaled_bg, (0, 0))
+        
+        # Stage 1 필드 중앙 태극문양에 회색 테두리 추가 (백업 이미지와 동일)
+        taegeuk_center_x = WIDTH // 2
+        taegeuk_center_y = HEIGHT // 2
+        taegeuk_radius = 80  # 태극문양 크기
+        # 밝은 회색 테두리 (백업 이미지 분석 결과)
+        pygame.draw.circle(SCREEN, (200, 200, 200), (taegeuk_center_x, taegeuk_center_y), taegeuk_radius + 2, 4)
     elif current_stage == 2 and animated_bg_stage2 is not None:
         # 스테이지2에서는 정글 사이버펑크 애니메이션 배경 사용
         # 공 위치, 패들 위치, 점수를 배경에 전달 (눈동자 추적 + 덤불 흔들림 + 위기 상황용)
