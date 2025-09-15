@@ -29091,6 +29091,12 @@ def handle_ball():
                     wall["hit_count"] += 1
                     wall["crack_level"] = wall["hit_count"]
                     
+                    # 상모돌리기 활성화 시 벽돌 충돌 시 종료
+                    if whip_active:
+                        whip_active = False
+                        whip_angle = 0
+                        print("상모돌리기 종료 - 벽돌 충돌")
+                    
                     # 공 튕기기 (백업 파일의 간단한 방식 사용)
                     ball_vel[1] = -abs(ball_vel[1])  # 위로 튕기기
                     ball_vel[0] *= 0.8  # 좌우 속도 감소
@@ -30456,6 +30462,13 @@ def handle_ball():
                     print(f"    : {paddle_charge_multiplier:.1f}x → {total_gauge_gain}")
             
             print(f" DEBUG:  handle_ball    (handle_player  ) ({total_gauge_gain})")
+            
+            # 상모돌리기 활성화 시 플레이어 패들 충돌 시 종료
+            if whip_active:
+                whip_active = False
+                whip_angle = 0
+                print("상모돌리기 종료 - 플레이어 패들 충돌")
+            
             special_gauge += total_gauge_gain
             #  동적 최대치 제한 적용
             current_max = get_max_gauge()
@@ -30653,6 +30666,12 @@ def handle_ball():
         if globals().get('stopwatch_upward_lock_timer', 0) > 0:
             globals()['stopwatch_upward_lock_timer'] = 0
 
+        # 상모돌리기 활성화 시 보스 패들 충돌 시 종료
+        if whip_active:
+            whip_active = False
+            whip_angle = 0
+            print("상모돌리기 종료 - 보스 패들 충돌")
+            
         calculate_bounce(BOSS)
         
         #  라그나로크 보스 반격 사운드 (스턴공이었을 때만)
