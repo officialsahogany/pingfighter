@@ -6474,8 +6474,8 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     """군인 총알의 보스 패들 넉백 효과 트리거 (라그나로크 해머 방식 참조)"""
     global boss_knockback_timer, boss_knockback_vel
     
-    # 라그나로크 해머 방식의 넉백 계산
-    base_power = 15  # 기본 넉백 파워 (더 빠르게 조정)
+    # 라그나로크 해머 방식의 넉백 계산 (수류탄 수준으로 강화)
+    base_power = 40  # 기본 넉백 파워 (수류탄 넉백과 동일한 속도)
     
     # 보스 위치에 따라 방향 결정 (라그나로크 해머와 동일한 로직)
     center_x = 300  # 화면 중앙
