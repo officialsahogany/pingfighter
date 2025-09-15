@@ -26458,6 +26458,7 @@ def reset_round():
     global fire_zones, molotovs  #  화염병 관련 변수 추가
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
+    global boss_special_gauge, current_stage  #  스테이지 1 보스 게이지 감소용 변수 추가
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -26683,6 +26684,11 @@ def reset_round():
         psycho_sound_channel = None
     #  AI 프레임 카운터 초기화 (부드러운 AI 업데이트를 위해)
     ai_frame_counter = 0
+    
+    # Stage 1 보스 게이지 감소 (라운드 전환 시)
+    if current_stage == 1:
+        boss_special_gauge = max(0, boss_special_gauge - 100)
+        print(f"Stage 1 보스 게이지 감소: -100 (현재: {boss_special_gauge}/500)")
 def reset_deuce_system():
     """듀스 시스템을 완전히 리셋합니다."""
     global deuce_mode, deuce_wins, deuce_losses, deuce_goal

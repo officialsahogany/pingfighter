@@ -2040,9 +2040,9 @@ class RagnarokHammer(LegendaryItem):
             self._spawn_particle(screen, x + size//2, y + size//2)
             self.particle_timer = 0
     
-    def update(self, dt: float):
+    def update(self, dt: float, ui_mode: bool = False):
         """애니메이션 업데이트"""
-        super().update(dt)
+        super().update(dt, ui_mode)
         
         # 애니메이션 프레임 카운터 업데이트 (draw_icon에서도 처리하지만 여기서도 추가)
         if self.animation_frames and len(self.animation_frames) > 1:
