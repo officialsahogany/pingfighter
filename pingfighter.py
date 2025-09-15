@@ -8781,6 +8781,11 @@ def handle_wall():
         boss_speed_reduction_factor = 1.0  # 정상 속도로 복구
 def activate_whip():
     global whip_active, whip_timer, whip_wave_phase, whip_original_ball_speed, whip_wave_particles
+    print(f"[DEBUG] 상모돌리기 활성화 시작!")
+    print(f"  - 현재 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
+    print(f"  - 현재 공 위치: X={BALL.centerx}, Y={BALL.centery}")
+    print(f"  - 파워스매싱 상태: freeze={power_smashing_freeze_active}, parabola={power_smashing_parabola_active}")
+    
     whip_active = True
     whip_timer = whip_duration
     whip_wave_phase = 0  # 사인 파형 초기화
@@ -8856,7 +8861,13 @@ def handle_whip():
             # 공의 속도에 진폭 적용 (X축만 약간 물결치도록)
             # 파워스매싱이 활성화되어 있지 않을 때만 상모돌리기 효과 적용
             if not power_smashing_parabola_active and not power_smashing_freeze_active:
+                old_vel_x = ball_vel[0]
                 ball_vel[0] = wave  # 원래 속도 무시하고 파동만 적용 (중앙 기준)
+                if whip_timer % 30 == 0:  # 0.5초마다 디버그 출력
+                    print(f"[DEBUG] 상모돌리기 파동 적용: X속도 {old_vel_x:.2f} → {ball_vel[0]:.2f}")
+            else:
+                if whip_timer % 30 == 0:  # 0.5초마다 디버그 출력
+                    print(f"[DEBUG] 상모돌리기 파동 스킵 (파워스매싱 활성화): freeze={power_smashing_freeze_active}, parabola={power_smashing_parabola_active}")
             
             #  파동 파티클 생성 (10프레임마다)
             if whip_timer % 10 == 0:
@@ -29093,6 +29104,14 @@ def handle_ball():
                     
                     # 상모돌리기 활성화 시 벽돌 충돌 시 종료
                     if whip_active:
+                        print(f"[DEBUG] 상모돌리기 벽돌 충돌 감지!")
+                        print(f"  - 충돌 전 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
+                        print(f"  - 충돌 전 공 위치: X={BALL.centerx}, Y={BALL.centery}")
+                        print(f"  - 충돌한 벽돌: X={wall['rect'].centerx}, Y={wall['rect'].centery}")
+                        print(f"  - whip_angle: {whip_angle:.2f}")
+                        print(f"  - power_smashing_parabola_active: {power_smashing_parabola_active}")
+                        print(f"  - power_smashing_freeze_active: {power_smashing_freeze_active}")
+                        
                         whip_active = False
                         whip_angle = 0
                         print("상모돌리기 종료 - 벽돌 충돌")
@@ -30465,6 +30484,12 @@ def handle_ball():
             
             # 상모돌리기 활성화 시 플레이어 패들 충돌 시 종료
             if whip_active:
+                print(f"[DEBUG] 상모돌리기 플레이어 패들 충돌 감지!")
+                print(f"  - 충돌 전 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
+                print(f"  - 파워스매싱 상태: freeze={power_smashing_freeze_active}, parabola={power_smashing_parabola_active}")
+                print(f"  - 파워 차지 활성화: {perfect_timing_input}")
+                print(f"  - whip_angle: {whip_angle:.2f}")
+                
                 whip_active = False
                 whip_angle = 0
                 print("상모돌리기 종료 - 플레이어 패들 충돌")
@@ -34784,6 +34809,9 @@ def main(stage_num, new_boss_mode=False):
                         power_smashing_freeze_start_time = pygame.time.get_ticks()
                         power_smashing_freeze_active = True
                         print(f"    ! (1)")
+                        print(f"[DEBUG] 파워스매싱 프리즈 활성화!")
+                        print(f"  - 상모돌리기 활성 상태: {whip_active}")
+                        print(f"  - 현재 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
                     else:
                         # 고스트샷은 정지 없이 바로 시작
                         power_smashing_freeze_active = False
