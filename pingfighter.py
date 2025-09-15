@@ -9902,132 +9902,147 @@ def draw_stage1_boss_gauge_bar():
     max_gauge = 500  # 최대 게이지
     current_gauge = boss_special_gauge  # 현재 게이지
     
-    # 게이지바 위치 - 오른쪽 상단 (세로형)
-    bar_x = WIDTH - 50
+    # 게이지바 위치 - 플레이어 게이지바와 같은 크기 (14x100)
+    bar_x = WIDTH - 40  # 플레이어와 같은 x 위치
     bar_y = 50
-    bar_width = 20
-    bar_height = 150
+    bar_width = 14  # 플레이어와 같은 크기
+    bar_height = 100  # 플레이어와 같은 크기
     
-    # 한지 텍스처 효과를 위한 노이즈
+    # 시간 기반 애니메이션
     time_offset = pygame.time.get_ticks() * 0.001
     
-    # 배경 한지 효과 (연한 베이지색)
-    hanji_bg = pygame.Surface((bar_width + 40, bar_height + 20), pygame.SRCALPHA)
-    for i in range(5):
-        alpha = 40 - i * 8
-        border_color = (245, 235, 220, alpha)
-        pygame.draw.rect(hanji_bg, border_color, 
-                        (i, i, bar_width + 40 - i*2, bar_height + 20 - i*2), 
-                        border_radius=10)
-    SCREEN.blit(hanji_bg, (bar_x - 20, bar_y - 10))
-    
-    # 태극 문양 배경 (상단)
+    # 태극 문양 상단 아이콘 (작은 크기)
     taegeuk_x = bar_x + bar_width // 2
-    taegeuk_y = bar_y - 30
-    taegeuk_radius = 15
+    taegeuk_y = bar_y - 20
+    taegeuk_radius = 8
     
-    # 태극 원 그리기
-    pygame.draw.circle(SCREEN, (255, 250, 240), (taegeuk_x, taegeuk_y), taegeuk_radius)
-    pygame.draw.circle(SCREEN, (50, 50, 50), (taegeuk_x, taegeuk_y), taegeuk_radius, 2)
+    # 태극 문양 회전 애니메이션
+    rotation = time_offset * 0.8
     
-    # 태극 문양 (회전 애니메이션)
-    rotation = time_offset * 0.5
+    # 태극 배경원
+    pygame.draw.circle(SCREEN, (250, 245, 235), (taegeuk_x, taegeuk_y), taegeuk_radius)
+    pygame.draw.circle(SCREEN, (60, 40, 20), (taegeuk_x, taegeuk_y), taegeuk_radius, 1)
     
-    # 빨간색 부분
-    red_arc_rect = pygame.Rect(taegeuk_x - taegeuk_radius, taegeuk_y - taegeuk_radius, 
-                               taegeuk_radius * 2, taegeuk_radius * 2)
-    pygame.draw.arc(SCREEN, (200, 50, 50), red_arc_rect, 
-                   -math.pi/2 + rotation, math.pi/2 + rotation, taegeuk_radius)
+    # 태극 문양 (빨강/파랑)
+    for i, color in enumerate([(180, 60, 60), (60, 80, 180)]):
+        start_angle = math.pi * i + rotation
+        end_angle = start_angle + math.pi
+        arc_rect = pygame.Rect(taegeuk_x - taegeuk_radius, taegeuk_y - taegeuk_radius, 
+                              taegeuk_radius * 2, taegeuk_radius * 2)
+        
+        # 호 그리기 (두께 증가)
+        for thickness in range(taegeuk_radius):
+            pygame.draw.arc(SCREEN, color, arc_rect, start_angle, end_angle, 1)
     
-    # 파란색 부분
-    blue_arc_rect = pygame.Rect(taegeuk_x - taegeuk_radius, taegeuk_y - taegeuk_radius, 
-                                taegeuk_radius * 2, taegeuk_radius * 2)
-    pygame.draw.arc(SCREEN, (50, 50, 200), blue_arc_rect, 
-                   math.pi/2 + rotation, 3*math.pi/2 + rotation, taegeuk_radius)
+    # 작은 태극 점들
+    small_r = 2
+    for i, color in enumerate([(60, 80, 180), (180, 60, 60)]):
+        angle = rotation + math.pi * i
+        dot_x = taegeuk_x + int(3 * math.cos(angle))
+        dot_y = taegeuk_y + int(3 * math.sin(angle))
+        pygame.draw.circle(SCREEN, color, (dot_x, dot_y), small_r)
     
-    # 작은 원들
-    small_radius = taegeuk_radius // 3
-    red_circle_x = taegeuk_x + int(small_radius * math.cos(rotation))
-    red_circle_y = taegeuk_y - int(small_radius * math.sin(rotation))
-    blue_circle_x = taegeuk_x - int(small_radius * math.cos(rotation))
-    blue_circle_y = taegeuk_y + int(small_radius * math.sin(rotation))
-    
-    pygame.draw.circle(SCREEN, (200, 50, 50), (red_circle_x, red_circle_y), small_radius)
-    pygame.draw.circle(SCREEN, (50, 50, 200), (blue_circle_x, blue_circle_y), small_radius)
-    
-    # 게이지바 테두리 (전통 문양 스타일 - 세로형)
-    border_points = [
-        (bar_x, bar_y - 5),
-        (bar_x - 3, bar_y),
-        (bar_x - 3, bar_y + bar_height),
-        (bar_x, bar_y + bar_height + 5),
-        (bar_x + bar_width, bar_y + bar_height + 5),
-        (bar_x + bar_width + 3, bar_y + bar_height),
-        (bar_x + bar_width + 3, bar_y),
-        (bar_x + bar_width, bar_y - 5)
+    # 한국 전통 게이지바 프레임 (육각형 스타일)
+    frame_points = [
+        (bar_x + bar_width // 2, bar_y - 5),  # 상단 중앙
+        (bar_x - 2, bar_y + 3),               # 좌상단
+        (bar_x - 2, bar_y + bar_height - 3),  # 좌하단
+        (bar_x + bar_width // 2, bar_y + bar_height + 5), # 하단 중앙
+        (bar_x + bar_width + 2, bar_y + bar_height - 3),  # 우하단
+        (bar_x + bar_width + 2, bar_y + 3),   # 우상단
     ]
-    pygame.draw.polygon(SCREEN, (80, 60, 40), border_points)
-    pygame.draw.polygon(SCREEN, (120, 90, 60), border_points, 2)
+    
+    # 프레임 배경 (한지색)
+    pygame.draw.polygon(SCREEN, (240, 230, 215), frame_points)
+    pygame.draw.polygon(SCREEN, (120, 90, 60), frame_points, 2)
     
     # 내부 배경 (한지 질감)
     inner_rect = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
-    pygame.draw.rect(SCREEN, (240, 230, 210), inner_rect)
+    pygame.draw.rect(SCREEN, (235, 225, 210), inner_rect)
     
-    # 한지 질감 패턴 (세로형)
-    for i in range(0, bar_height, 10):
-        alpha = 20 + int(10 * math.sin(i * 0.1 + time_offset))
-        pygame.draw.line(SCREEN, (220, 210, 190, alpha), 
-                        (bar_x, bar_y + i), 
-                        (bar_x + bar_width, bar_y + i), 1)
+    # 전통 문양 배경 패턴 (단청 느낌)
+    for i in range(0, bar_height, 8):
+        pattern_alpha = 30 + int(15 * math.sin(i * 0.2 + time_offset))
+        # 한지 세로 결 패턴
+        pygame.draw.line(SCREEN, (220, 200, 180, pattern_alpha), 
+                        (bar_x + 1, bar_y + i), 
+                        (bar_x + bar_width - 1, bar_y + i), 1)
+        # 전통 격자 패턴
+        if i % 16 == 0:
+            pygame.draw.line(SCREEN, (200, 180, 160, pattern_alpha), 
+                            (bar_x, bar_y + i), 
+                            (bar_x + bar_width, bar_y + i), 1)
     
-    # 필살기 게이지 채우기
-    if displayed_boss_gauge > 0:
-        gauge_ratio = displayed_boss_gauge / max_gauge
-        gauge_width = int(bar_width * gauge_ratio)
+    # 필살기 게이지 채우기 (세로형)
+    if current_gauge > 0:
+        gauge_ratio = min(current_gauge / max_gauge, 1.0)
+        filled_height = int(bar_height * gauge_ratio)
         
-        # 게이지 색상 (청록색 계열 - 필살기 느낌)
+        # 게이지 색상 (전통 단청색 - 청록/금색 조합)
         if gauge_ratio > 0.8:
-            gauge_color = (0, 180, 200)  # 밝은 청록
-            glow_color = (0, 220, 255)
+            base_color = (0, 150, 180)      # 진한 청록
+            accent_color = (200, 180, 100)  # 금색
         elif gauge_ratio > 0.6:
-            gauge_color = (50, 150, 180)  # 중간 청록
-            glow_color = (100, 200, 220)
+            base_color = (40, 120, 150)     # 중간 청록
+            accent_color = (180, 160, 80)   # 어두운 금색
         elif gauge_ratio > 0.3:
-            gauge_color = (100, 120, 160)  # 어두운 청록
-            glow_color = (150, 170, 200)
+            base_color = (80, 100, 130)     # 연한 청록
+            accent_color = (160, 140, 60)   # 갈색 금색
         else:
-            gauge_color = (120, 120, 140)  # 회색빛
-            glow_color = (160, 160, 180)
+            base_color = (100, 110, 120)    # 회청색
+            accent_color = (140, 130, 50)   # 어두운 갈색
         
-        # 그라데이션 효과
-        for i in range(bar_height):
-            gradient_factor = 1.0 - (i / bar_height) * 0.3
-            color = tuple(int(c * gradient_factor) for c in gauge_color)
+        # 게이지 채우기 (아래에서 위로)
+        gauge_start_y = bar_y + bar_height - filled_height
+        
+        # 단청 그라데이션 효과
+        for y in range(filled_height):
+            # 아래에서 위로 갈수록 밝아지는 효과
+            brightness = 0.7 + 0.3 * (y / filled_height)
+            
+            # 기본색과 강조색 혼합
+            if y % 10 < 3:  # 전통 문양 줄무늬
+                color = tuple(int(c * brightness) for c in accent_color)
+            else:
+                color = tuple(int(c * brightness) for c in base_color)
+            
             pygame.draw.line(SCREEN, color, 
-                           (bar_x, bar_y + i), 
-                           (bar_x + gauge_width - 1, bar_y + i))
+                           (bar_x + 1, gauge_start_y + y), 
+                           (bar_x + bar_width - 1, gauge_start_y + y))
         
-        # 끝부분 하이라이트
-        if gauge_width > 3:
-            for i in range(3):
-                alpha = (1.0 - i / 3) * abs(math.sin(time_offset * 2))
-                highlight_color = tuple(int(c * (1 + alpha * 0.3)) for c in glow_color)
-                pygame.draw.line(SCREEN, highlight_color, 
-                               (bar_x + gauge_width - 3 + i, bar_y), 
-                               (bar_x + gauge_width - 3 + i, bar_y + bar_height - 1))
+        # 상단 하이라이트 (전통 금박 효과)
+        if filled_height > 2:
+            glow_intensity = abs(math.sin(time_offset * 3)) * 0.5 + 0.5
+            highlight_color = tuple(int(c + (255 - c) * glow_intensity * 0.3) for c in accent_color)
+            pygame.draw.line(SCREEN, highlight_color, 
+                           (bar_x + 1, gauge_start_y), 
+                           (bar_x + bar_width - 1, gauge_start_y), 2)
     
-    # 보스 이름 표시 (한지 위에)
-    boss_name_font = FontStyle.body()  # 24pt
+    # 전통 스타일 장식 요소 (상하단)
+    # 상단 전통 구름 문양
+    cloud_y = bar_y - 8
+    for i in range(3):
+        cloud_x = bar_x + 2 + i * 3
+        pygame.draw.circle(SCREEN, (200, 180, 160, 80), (cloud_x, cloud_y), 2)
+    
+    # 하단 전통 구름 문양
+    cloud_y = bar_y + bar_height + 6
+    for i in range(3):
+        cloud_x = bar_x + 2 + i * 3
+        pygame.draw.circle(SCREEN, (200, 180, 160, 80), (cloud_x, cloud_y), 2)
+    
+    # 보스 이름 표시 (전통 한지 스타일)
+    boss_name_font = FontStyle.small()  # 18pt로 축소
     boss_name = "조교"
-    name_surface = boss_name_font.render(boss_name, True, (80, 60, 40))
-    name_rect = name_surface.get_rect(centerx=bar_x + bar_width // 2, bottom=bar_y - 5)
+    name_surface = boss_name_font.render(boss_name, True, (80, 50, 30))
+    name_rect = name_surface.get_rect(centerx=bar_x + bar_width // 2, bottom=bar_y - 12)
     SCREEN.blit(name_surface, name_rect)
     
-    # 게이지 수치 표시 (오른쪽)
-    gauge_font = FontStyle.small()  # 18pt
-    gauge_text = f"{int(displayed_boss_gauge)}/{max_gauge}"
-    gauge_surface = gauge_font.render(gauge_text, True, (100, 80, 60))
-    gauge_rect = gauge_surface.get_rect(left=bar_x + bar_width + 10, centery=bar_y + bar_height // 2)
+    # 게이지 수치 표시 (하단, 전통 스타일)
+    gauge_font = FontStyle.tiny()  # 14pt로 축소
+    gauge_text = f"{int(current_gauge)}/{max_gauge}"
+    gauge_surface = gauge_font.render(gauge_text, True, (80, 50, 30))
+    gauge_rect = gauge_surface.get_rect(centerx=bar_x + bar_width // 2, top=bar_y + bar_height + 12)
     SCREEN.blit(gauge_surface, gauge_rect)
     
     # 필살기 준비 상태 경고 (게이지가 높을 때)
