@@ -25675,6 +25675,23 @@ def draw_field():
             taegeuk_radius = 80  # 태극문양 크기
             # 밝은 회색 테두리 (백업 이미지 분석 결과)
             pygame.draw.circle(SCREEN, (200, 200, 200), (taegeuk_center_x, taegeuk_center_y), taegeuk_radius + 2, 4)
+            
+            # Stage 1 필드 전체에 8픽셀 조선시대 색상 테두리 추가 (풀스크린)
+            # 빨강 테두리 (가장 바깥쪽)
+            pygame.draw.rect(SCREEN, (220, 50, 50), 
+                           (GAME_OFFSET_X + screen_shake_offset_x, 
+                            GAME_OFFSET_Y + screen_shake_offset_y, 
+                            WIDTH, HEIGHT), 8)
+            # 노랑 테두리 (중간)
+            pygame.draw.rect(SCREEN, (255, 215, 0), 
+                           (GAME_OFFSET_X + screen_shake_offset_x + 8, 
+                            GAME_OFFSET_Y + screen_shake_offset_y + 8, 
+                            WIDTH-16, HEIGHT-16), 8)
+            # 파랑 테두리 (안쪽)
+            pygame.draw.rect(SCREEN, (50, 50, 220), 
+                           (GAME_OFFSET_X + screen_shake_offset_x + 16, 
+                            GAME_OFFSET_Y + screen_shake_offset_y + 16, 
+                            WIDTH-32, HEIGHT-32), 8)
         else:
             # 배경을 화면 전체에 맞게 스케일링
             temp_surface = pygame.Surface((animated_bg.width, animated_bg.height), pygame.SRCALPHA)
@@ -25689,6 +25706,14 @@ def draw_field():
         taegeuk_radius = 80  # 태극문양 크기
         # 밝은 회색 테두리 (백업 이미지 분석 결과)
         pygame.draw.circle(SCREEN, (200, 200, 200), (taegeuk_center_x, taegeuk_center_y), taegeuk_radius + 2, 4)
+        
+        # Stage 1 필드 전체에 8픽셀 조선시대 색상 테두리 추가
+        # 빨강 테두리 (가장 바깥쪽)
+        pygame.draw.rect(SCREEN, (220, 50, 50), (0, 0, WIDTH, HEIGHT), 8)
+        # 노랑 테두리 (중간)
+        pygame.draw.rect(SCREEN, (255, 215, 0), (8, 8, WIDTH-16, HEIGHT-16), 8)
+        # 파랑 테두리 (안쪽)
+        pygame.draw.rect(SCREEN, (50, 50, 220), (16, 16, WIDTH-32, HEIGHT-32), 8)
     elif current_stage == 2 and animated_bg_stage2 is not None:
         # 스테이지2에서는 정글 사이버펑크 애니메이션 배경 사용
         # 공 위치, 패들 위치, 점수를 배경에 전달 (눈동자 추적 + 덤불 흔들림 + 위기 상황용)
