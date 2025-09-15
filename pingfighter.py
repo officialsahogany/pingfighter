@@ -23635,45 +23635,7 @@ def show_character_selection():
                 special_text = font_desc.render(current_char["special"], True, special_color)
                 special_rect = special_text.get_rect(center=(detail_x + detail_card_width//2 + glow_offset[0], special_y + glow_offset[1]))
                 SCREEN.blit(special_text, special_rect)
-            # 홀로그램 스탯 표시
-            stats_start_y = detail_y + 110
-            stats_start_x = detail_x + 60
-            stat_width = 120  # 더 넓은 간격
-            for i, (stat_name, stat_value) in enumerate(current_char["stats"].items()):
-                stat_x = stats_start_x + (i * stat_width)
-                # 스탯명
-                stat_name_text = font_small.render(stat_name, True, glow_color)
-                stat_name_rect = stat_name_text.get_rect(center=(stat_x, stats_start_y))
-                SCREEN.blit(stat_name_text, stat_name_rect)
-                # 홀로그램 스탯 바
-                bar_width = 80
-                bar_height = 6
-                bar_x = stat_x - bar_width // 2
-                bar_y = stats_start_y + 18
-                # 홀로그램 배경 바
-                draw.rect((10, DEFAULT_RADIUS, 30), (bar_x, bar_y, bar_width, bar_height), border_radius=3)
-                # draw.rect는 RGB 3개 값만 받으므로 알파값 제거
-                draw.rect(glow_color[:3] if len(glow_color) > 3 else glow_color, (bar_x, bar_y, bar_width, bar_height), 1, border_radius=3)
-                # 네온 값 바 (글로우 효과)
-                filled_width = int((stat_value / 8) * bar_width)
-                if filled_width > 0:
-                    # 메인 바
-                    # pygame.draw.rect도 RGB 3개 값만 받음
-                    pygame.draw.rect(SCREEN, glow_color[:3] if len(glow_color) > 3 else glow_color, (bar_x, bar_y, filled_width, bar_height), border_radius=3)
-                    # 글로우 효과
-                    for glow_layer in range(2, 0, -1):
-                        glow_intensity = int(abs(math.sin(animation_timer * 0.15 + i)) * HALF_SECOND_FRAMES) + 50
-                        glow_surface = pygame.Surface((filled_width + glow_layer*2, bar_height + glow_layer*2), pygame.SRCALPHA)
-                        # glow_surface는 SRCALPHA이므로 알파값 사용 가능하지만 안전하게 처리
-                        glow_color_with_alpha = (*glow_color[:3], glow_intensity // glow_layer) if len(glow_color) >= 3 else (*glow_color, glow_intensity // glow_layer)
-                        pygame.draw.rect(glow_surface, glow_color_with_alpha, 
-                                       (0, 0, filled_width + glow_layer*2, bar_height + glow_layer*2), border_radius=3)
-                        SCREEN.blit(glow_surface, (bar_x - glow_layer, bar_y - glow_layer))
-                # 홀로그램 숫자 표시
-                # font.render도 RGB 3개 값만 받음
-                value_text = font_small.render(str(stat_value), True, glow_color[:3] if len(glow_color) > 3 else glow_color)
-                value_rect = value_text.get_rect(center=(stat_x, stats_start_y + 38))
-                SCREEN.blit(value_text, value_rect)
+            # 홀로그램 스탯 표시 제거 (사용자 요청)
         else:
             # 해금되지 않은 캐릭터 - ???? 표시
             # 캐릭터 이름
@@ -23688,27 +23650,7 @@ def show_character_selection():
             special_text = font_desc.render("?? ???????", True, (100, 120, 100))
             special_rect = special_text.get_rect(center=(detail_x + detail_card_width//2, detail_y + 75))
             SCREEN.blit(special_text, special_rect)
-            # 상세 스탯 - ??? 표시
-            stats_start_y = detail_y + 100
-            stats_start_x = detail_x + 50
-            stat_width = 80
-            for i in range(3):  # 3개의 스탯
-                stat_x = stats_start_x + (i * stat_width)
-                # 스탯명
-                stat_name_text = font_small.render("???", True, (150, 150, 150))
-                stat_name_rect = stat_name_text.get_rect(center=(stat_x, stats_start_y))
-                SCREEN.blit(stat_name_text, stat_name_rect)
-                # 스탯 바 (빈 상태)
-                bar_width = 60
-                bar_height = 8
-                bar_x = stat_x - bar_width // 2
-                bar_y = stats_start_y + 15
-                # 배경 바만 표시
-                draw.rect((60, 60, 60), (bar_x, bar_y, bar_width, bar_height), border_radius=BORDER_WIDTH)
-                # 물음표 표시
-                value_text = font_small.render("?", True, (150, 150, 150))
-                value_rect = value_text.get_rect(center=(stat_x, stats_start_y + 35))
-                SCREEN.blit(value_text, value_rect)
+            # 상세 스탯 표시 제거 (사용자 요청)
         # 홀로그램 캐릭터 선택 인디케이터 - 제거됨
         # indicator_y = HEIGHT - 30
         # total_width = len(characters) * 35  # 더 넓은 간격
