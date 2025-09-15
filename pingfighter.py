@@ -2255,68 +2255,68 @@ pygame.draw.polygon(SOLDIER_PADDLE_IMG, (140, 120, 50), [
     (center_x + 27, body_y + 2)
 ])
 
-# === 왼팔과 탁구채 (완전한 라켓) ===
-left_arm_x = center_x - 32
-left_arm_y = body_y - 25  # 팔 위치 조정
-# 팔 (더 자연스러운 형태)
+# === 왼팔과 탁구채 (균형잡힌 형태) ===
+left_arm_x = center_x - 25  # 팔을 몸에 더 가깝게
+left_arm_y = body_y - 15   # 팔 위치를 아래로 조정
+# 팔 (더 자연스럽고 균형잡힌 형태)
 arm_points = [
     (center_x - 38, body_y - 1),      # 어깨 연결
-    (center_x - 42, body_y + 1),      # 어깨 외곽
-    (left_arm_x - 6, left_arm_y - 3), # 팔꿈치 외곽
-    (left_arm_x - 3, left_arm_y - 18),# 손목 외곽
-    (left_arm_x + 3, left_arm_y - 18),# 손목 내곽
-    (left_arm_x + 6, left_arm_y - 3), # 팔꿈치 내곽
+    (center_x - 35, body_y + 3),      # 어깨 외곽 (축소)
+    (left_arm_x - 4, left_arm_y + 2), # 팔꿈치 외곽 (축소)
+    (left_arm_x - 2, left_arm_y - 12),# 손목 외곽 (축소)
+    (left_arm_x + 2, left_arm_y - 12),# 손목 내곽 (축소)
+    (left_arm_x + 4, left_arm_y + 2), # 팔꿈치 내곽 (축소)
     (center_x - 22, body_y - 4)       # 어깨 내곽
 ]
 pygame.draw.polygon(SOLDIER_PADDLE_IMG, (120, 108, 68), arm_points)
 # 팔 음영
 pygame.draw.polygon(SOLDIER_PADDLE_IMG, (105, 93, 53), [
-    (left_arm_x - 2, left_arm_y - 15),
-    (left_arm_x + 2, left_arm_y - 15),
-    (left_arm_x + 4, left_arm_y - 5),
-    (left_arm_x - 4, left_arm_y - 5)
+    (left_arm_x - 1, left_arm_y - 10),
+    (left_arm_x + 1, left_arm_y - 10),
+    (left_arm_x + 3, left_arm_y),
+    (left_arm_x - 3, left_arm_y)
 ])
 
 # 손 (더 정교하게)
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (195, 155, 125), 
-                    (left_arm_x - 6, left_arm_y - 22, 12, 10))
+                    (left_arm_x - 4, left_arm_y - 16, 8, 8))
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (180, 140, 110), 
-                    (left_arm_x - 5, left_arm_y - 21, 10, 8))
+                    (left_arm_x - 3, left_arm_y - 15, 6, 6))
 
-# 탁구채 (완전한 형태 - 잘리지 않게)
+# 탁구채 (적절한 크기와 위치)
 paddle_x = left_arm_x
-paddle_y = left_arm_y - 40  # 더 위로 올려서 완전히 보이게
-# 라켓 면 (완전한 타원)
+paddle_y = left_arm_y - 28  # 적절한 위치로 조정
+# 라켓 면 (적절한 크기)
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (75, 95, 55), 
-                    (paddle_x - 16, paddle_y - 12, 32, 40))
+                    (paddle_x - 12, paddle_y - 8, 24, 30))
 # 라켓 테두리 (입체감)
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (95, 115, 75), 
-                    (paddle_x - 16, paddle_y - 12, 32, 40), 2)
+                    (paddle_x - 12, paddle_y - 8, 24, 30), 2)
 # 라켓 고무 (빨간색)
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (120, 35, 25), 
-                    (paddle_x - 13, paddle_y - 9, 26, 34))
+                    (paddle_x - 10, paddle_y - 6, 20, 26))
 # 라켓 중앙 원형 패턴
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (100, 25, 15), 
-                    (paddle_x - 8, paddle_y - 4, 16, 24))
+                    (paddle_x - 6, paddle_y - 2, 12, 18))
 # 군용 별 마크 (더 정교하게)
 star_cx = paddle_x
-star_cy = paddle_y + 6
+star_cy = paddle_y + 4
 for i in range(5):
     angle = math.radians(i * 72 - 90)
-    x = star_cx + int(5 * math.cos(angle))
-    y = star_cy + int(5 * math.sin(angle))
+    x = star_cx + int(4 * math.cos(angle))
+    y = star_cy + int(4 * math.sin(angle))
     pygame.draw.line(SOLDIER_PADDLE_IMG, (140, 50, 40), 
                      (star_cx, star_cy), (x, y), 2)
-# 손잡이 (완전히 보이게)
+# 손잡이 (적절한 크기)
 pygame.draw.rect(SOLDIER_PADDLE_IMG, (95, 55, 35), 
-                 (paddle_x - 3, paddle_y + 25, 6, 12))
+                 (paddle_x - 2, paddle_y + 18, 4, 10))
 pygame.draw.rect(SOLDIER_PADDLE_IMG, (80, 40, 20), 
-                 (paddle_x - 3, paddle_y + 25, 6, 12), 1)
+                 (paddle_x - 2, paddle_y + 18, 4, 10), 1)
 # 손잡이 그립 패턴
 for i in range(3):
-    grip_y = paddle_y + 27 + i * 3
+    grip_y = paddle_y + 20 + i * 2
     pygame.draw.line(SOLDIER_PADDLE_IMG, (70, 35, 15), 
-                     (paddle_x - 2, grip_y), (paddle_x + 2, grip_y), 1)
+                     (paddle_x - 1, grip_y), (paddle_x + 1, grip_y), 1)
 
 # === 오른팔 ===
 right_arm_x = center_x + 35
