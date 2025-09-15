@@ -6475,7 +6475,7 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     global boss_knockback_timer, boss_knockback_vel
     
     # 라그나로크 해머 방식의 넉백 계산
-    base_power = 8  # 기본 넉백 파워 (라그나로크보다 약하게)
+    base_power = 15  # 기본 넉백 파워 (더 빠르게 조정)
     
     # 보스 위치에 따라 방향 결정 (라그나로크 해머와 동일한 로직)
     center_x = 300  # 화면 중앙
@@ -6494,8 +6494,6 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     # 라그나로크 해머 넉백 시스템 활용
     boss_knockback_timer = 24  # 0.4초간 넉백 효과 지속 (라그나로크보다 짧게)
     boss_knockback_vel = horizontal_velocity
-    
-    print(f"군인 총알 넉백: 속도={horizontal_velocity:.1f}, 지속시간={boss_knockback_timer}")
 
 def update_soldier_bullets():
     """군인 총알 업데이트"""
@@ -34254,35 +34252,35 @@ def handle_boss():
     global boss_stun_timer, ragnarok_stun_pending  #  라그나로크 해머 스턴 관련 변수
     
     
-    #  라그나로크 해머 넉백 처리 (스턴 체크보다 먼저 실행해야 넉백 후 스턴이 적용됨)
+    #  수평 넉백 처리 (라그나로크 해머 + 군인 총알)
     if boss_knockback_timer > 0:
         boss_knockback_timer -= 1
         
         # 라그나로크 해머 체크
         # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
+        is_ragnarok_knockback = "ragnarok_hammer" in legendary_manager.active_items
         
-        if "ragnarok_hammer" in legendary_manager.active_items:
-            # 라그나로크 해머는 수평 넉백만 적용 (수류탄 방식)
+        # 수평 넉백 속도 적용 (라그나로크 해머 또는 군인 총알)
+        if abs(boss_knockback_vel) > 0.1:
+            BOSS.x += boss_knockback_vel
+            BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
             
-            # 수평 넉백 속도 적용
-            if abs(boss_knockback_vel) > 0.1:
-                BOSS.x += boss_knockback_vel
-                BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
-                # 부드러운 감속 (초반엔 빠르게, 후반엔 천천히)
-                if boss_knockback_timer > 24:  # 처음 0.2초는 빠른 감속
-                    boss_knockback_vel *= 0.92
-                elif boss_knockback_timer > 12:  # 중간 0.2초는 중간 감속
-                    boss_knockback_vel *= 0.95
-                else:  # 마지막 0.2초는 느린 감속
-                    boss_knockback_vel *= 0.98
-            
+            # 부드러운 감속 (초반엔 빠르게, 후반엔 천천히)
+            if boss_knockback_timer > 18:  # 처음 0.3초는 빠른 감속
+                boss_knockback_vel *= 0.92
+            elif boss_knockback_timer > 12:  # 중간 0.2초는 중간 감속
+                boss_knockback_vel *= 0.95
+            else:  # 마지막 0.2초는 느린 감속
+                boss_knockback_vel *= 0.98
+        
+        # 라그나로크 해머만의 추가 효과
+        if is_ragnarok_knockback:
             # 추가 흔들림 효과 (수평만, 넉백 초반에만 강하게)
             if boss_knockback_timer > 18:  # 처음 0.3초만 흔들림
                 shake_x = random.uniform(-3, 3)
                 BOSS.x += shake_x
                 BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
-            # Y 위치는 변경하지 않음 (수직 넉백 없음)
             
             # 넉백이 끝나면 스턴 적용 (라그나로크 해머만)
             if boss_knockback_timer <= 1 and boss_knockback_timer > 0 and ragnarok_stun_pending > 0:  # 넉백 마지막 프레임 (타이밍 안정성 개선)
@@ -34292,19 +34290,10 @@ def handle_boss():
                 # 전기 감전 사운드 시작
                 play_ragnarok_shock_sound()
                 ragnarok_shock_playing = True
-            
-            # 라그나로크 넉백 중에는 보스 이동 불가
-            boss_current_speed = 0  # 속도를 0으로 설정
-            return  # AI 및 모든 이동 처리 차단
-        else:
-            # 기존 넉백 처리 (다른 넉백 효과용)
-            knockback_amount = boss_knockback_distance / 30  # 30프레임에 걸쳐 밀려남
-            BOSS.y -= knockback_amount
-            BOSS.y = max(50, BOSS.y)  # 최소 Y 위치 제한
-            # 좌우로도 약간 흔들림
-            shake_x = random.uniform(-3, 3)
-            BOSS.x += shake_x
-            BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
+        
+        # 넉백 중에는 보스 이동 불가
+        boss_current_speed = 0  # 속도를 0으로 설정
+        return  # AI 및 모든 이동 처리 차단
         
         # 타이머가 끝나면 원위치로 돌아오기 시작
         if boss_knockback_timer == 0:
