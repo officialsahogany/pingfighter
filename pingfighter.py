@@ -2802,47 +2802,64 @@ def create_soldier_paddle_walking():
     # 기본 군인 패들 이미지 복사
     walking_paddle = SOLDIER_PADDLE_IMG.copy()
     
-    # 기본 설정
+    # 기본 설정 (원본 이미지와 동일하게)
     center_x = 125
     center_y = 60
+    helmet_center_y = center_y - 10
+    body_y = helmet_center_y + 18
+    hip_y = body_y + 25  # 원본과 동일한 계산
     
     # 걸음 주기 계산 (0.0 ~ 1.0 사이의 값)
     walk_progress = (soldier_walking_timer % SOLDIER_WALKING_CYCLE) / SOLDIER_WALKING_CYCLE
     
     # 사인파를 이용한 자연스러운 발 움직임
-    step_offset = int(math.sin(walk_progress * 2 * math.pi) * 8)  # -8 ~ +8 픽셀
+    step_offset = int(math.sin(walk_progress * 2 * math.pi) * 12)  # -12 ~ +12 픽셀 (더 크게)
     
-    # 다리 위치 (기존 다리를 지우고 새로 그리기)
-    hip_y = center_y + 55
-    leg_width = 8
-    leg_height = 25
+    # 원본 다리 위치 (원본과 동일하게)
+    leg_length = 15  # 원본과 동일
+    left_leg_x = center_x - 12  # 왼쪽 다리 (고정)
+    right_leg_x = center_x + 12  # 오른쪽 다리 허벅지 (고정)
     
-    # 왼쪽 다리 (기본 위치)
-    left_leg_x = center_x - 15
-    left_foot_y = hip_y + leg_height
+    # 무릎 위치 (허벅지 중간)
+    knee_y = hip_y + 8
     
-    # 오른쪽 다리 (걸음에 따라 움직임)
-    right_leg_x = center_x + 5 + step_offset
-    right_foot_y = hip_y + leg_height
+    # 오른쪽 다리 종아리 위치 (무릎을 중심으로 움직임)
+    right_shin_x = right_leg_x + step_offset  # 종아리만 움직임
     
-    # 기존 다리 영역 지우기 (배경색으로 덮기)
-    clear_rect = pygame.Rect(center_x - 25, hip_y, 50, leg_height + 5)
+    # 기존 다리 영역 완전히 지우기 (더 넓은 영역)
+    clear_rect = pygame.Rect(center_x - 25, hip_y, 50, leg_length + 10)
     pygame.draw.rect(walking_paddle, (0, 0, 0, 0), clear_rect)
     
     # 새로운 다리 그리기
-    # 왼쪽 다리
-    pygame.draw.ellipse(walking_paddle, (60, 80, 45), 
-                        (left_leg_x, hip_y, leg_width, leg_height))
-    # 왼쪽 발
-    pygame.draw.ellipse(walking_paddle, (40, 60, 25), 
-                        (left_leg_x - 2, left_foot_y - 3, leg_width + 4, 6))
+    # 왼쪽 다리 (완전히 고정)
+    pygame.draw.polygon(walking_paddle, (110, 100, 60), [
+        (left_leg_x - 6, hip_y + 2),
+        (left_leg_x - 7, hip_y + 8),
+        (left_leg_x - 6, hip_y + leg_length),
+        (left_leg_x - 3, hip_y + leg_length + 2),
+        (left_leg_x + 3, hip_y + leg_length + 2),
+        (left_leg_x + 6, hip_y + leg_length),
+        (left_leg_x + 7, hip_y + 8),
+        (left_leg_x + 6, hip_y + 2)
+    ])
     
-    # 오른쪽 다리
-    pygame.draw.ellipse(walking_paddle, (60, 80, 45), 
-                        (right_leg_x, hip_y, leg_width, leg_height))
-    # 오른쪽 발
-    pygame.draw.ellipse(walking_paddle, (40, 60, 25), 
-                        (right_leg_x - 2, right_foot_y - 3, leg_width + 4, 6))
+    # 오른쪽 다리 - 허벅지 부분 (고정)
+    pygame.draw.polygon(walking_paddle, (110, 100, 60), [
+        (right_leg_x - 6, hip_y + 2),
+        (right_leg_x - 7, knee_y),
+        (right_leg_x + 7, knee_y),
+        (right_leg_x + 6, hip_y + 2)
+    ])
+    
+    # 오른쪽 다리 - 종아리 부분 (움직임)
+    pygame.draw.polygon(walking_paddle, (110, 100, 60), [
+        (right_shin_x - 6, knee_y),
+        (right_shin_x - 6, hip_y + leg_length),
+        (right_shin_x - 3, hip_y + leg_length + 2),
+        (right_shin_x + 3, hip_y + leg_length + 2),
+        (right_shin_x + 6, hip_y + leg_length),
+        (right_shin_x + 6, knee_y)
+    ])
     
     return walking_paddle
 
