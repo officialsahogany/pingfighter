@@ -29112,7 +29112,7 @@ def handle_ball():
                         print(f"  - 충돌 전 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
                         print(f"  - 충돌 전 공 위치: X={BALL.centerx}, Y={BALL.centery}")
                         print(f"  - 충돌한 벽돌: X={wall['rect'].centerx}, Y={wall['rect'].centery}")
-                        print(f"  - whip_angle: {whip_angle:.2f}")
+                        print(f"  - whip_angle: {globals().get('whip_angle', 0):.2f}")
                         print(f"  - power_smashing_parabola_active: {power_smashing_parabola_active}")
                         print(f"  - power_smashing_freeze_active: {power_smashing_freeze_active}")
                         
@@ -30492,7 +30492,7 @@ def handle_ball():
                 print(f"  - 충돌 전 공 속도: X={ball_vel[0]:.2f}, Y={ball_vel[1]:.2f}")
                 print(f"  - 파워스매싱 상태: freeze={power_smashing_freeze_active}, parabola={power_smashing_parabola_active}")
                 print(f"  - 특수 게이지: {special_gauge}/800")
-                print(f"  - whip_angle: {whip_angle:.2f}")
+                print(f"  - whip_angle: {globals().get('whip_angle', 0):.2f}")
                 
                 whip_active = False
                 whip_angle = 0
