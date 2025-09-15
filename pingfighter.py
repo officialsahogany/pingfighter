@@ -35579,6 +35579,13 @@ def main(stage_num, new_boss_mode=False):
                 if elapsed_freeze_time >= power_smashing_freeze_duration:
                     # 정지 시간 종료 - 공 발사 및 효과음 재생
                     power_smashing_freeze_active = False
+                    
+                    # 상모돌리기가 활성화되어 있으면 종료
+                    if whip_active:
+                        whip_active = False
+                        whip_angle = 0
+                        print("[DEBUG] 파워스매싱 발사 시 상모돌리기 강제 종료!")
+                    
                     # 고스트샷이 아닐 때만 파워스매싱 포물선 활성화
                     if not mega_smashing_active:
                         power_smashing_parabola_active = True
