@@ -2461,14 +2461,16 @@ whip_wave_particles = []  # 상모돌리기 파동 파티클 [(x, y, radius, alp
 # === 군인 패들 휘두르기 애니메이션 변수 ===
 soldier_swing_active = False
 soldier_swing_timer = 0
-SOLDIER_SWING_DURATION = 15  # 0.25초 (60fps * 0.25)
+SOLDIER_SWING_DURATION = 25  # 0.42초 (60fps * 0.42) - 더 길고 눈에 띄는 애니메이션
 
 def create_soldier_paddle_animated():
     """휘두르기 애니메이션이 적용된 군인 패들 이미지 생성"""
     global soldier_swing_timer
     
-    # 애니메이션 진행도 계산 (0.0 ~ 1.0)
-    progress = 1.0 - (soldier_swing_timer / SOLDIER_SWING_DURATION)
+    # 애니메이션 진행도 계산 (0.0 ~ 1.0) with smooth curve
+    raw_progress = 1.0 - (soldier_swing_timer / SOLDIER_SWING_DURATION)
+    # 부드러운 애니메이션 커브 적용 (ease-out)
+    progress = 1.0 - (1.0 - raw_progress) ** 2
     
     # 애니메이션된 패들 이미지 생성
     animated_paddle = pygame.Surface((250, 120), pygame.SRCALPHA)
@@ -2585,51 +2587,58 @@ def create_soldier_paddle_animated():
     left_arm_x = center_x - 25
     left_arm_y = body_y - 15
     
-    # 애니메이션 효과: 휘두르기 동작
-    swing_offset = int(progress * 8)  # 최대 8픽셀 이동
-    swing_angle = progress * 15  # 최대 15도 회전
+    # 애니메이션 효과: 휘두르기 동작 (더 크게)
+    swing_offset = int(progress * 20)  # 최대 20픽셀 이동 (2.5배 증가)
+    swing_angle = progress * 35  # 최대 35도 회전 (2.3배 증가)
     
-    # 팔 (애니메이션 적용)
+    # 더 역동적인 움직임을 위한 추가 변수
+    swing_y_offset = int(progress * 12)  # 상하 움직임 추가
+    arm_extension = int(progress * 15)  # 팔 확장 움직임
+    
+    # 팔 (애니메이션 적용 - 더 역동적)
     arm_points = [
         (center_x - 38, body_y - 1),
-        (center_x - 35 + swing_offset, body_y + 3),
-        (left_arm_x - 4 + swing_offset, left_arm_y + 2),
-        (left_arm_x - 2 + swing_offset, left_arm_y - 12),
-        (left_arm_x + 2 + swing_offset, left_arm_y - 12),
-        (left_arm_x + 4 + swing_offset, left_arm_y + 2),
+        (center_x - 35 + swing_offset, body_y + 3 - swing_y_offset),
+        (left_arm_x - 4 + swing_offset + arm_extension, left_arm_y + 2 - swing_y_offset),
+        (left_arm_x - 2 + swing_offset + arm_extension, left_arm_y - 12 - swing_y_offset),
+        (left_arm_x + 2 + swing_offset + arm_extension, left_arm_y - 12 - swing_y_offset),
+        (left_arm_x + 4 + swing_offset + arm_extension, left_arm_y + 2 - swing_y_offset),
         (center_x - 22, body_y - 4)
     ]
     pygame.draw.polygon(animated_paddle, (120, 108, 68), arm_points)
-    # 팔 음영
+    # 팔 음영 (더 역동적)
     pygame.draw.polygon(animated_paddle, (105, 93, 53), [
-        (left_arm_x - 1 + swing_offset, left_arm_y - 10),
-        (left_arm_x + 1 + swing_offset, left_arm_y - 10),
-        (left_arm_x + 3 + swing_offset, left_arm_y),
-        (left_arm_x - 3 + swing_offset, left_arm_y)
+        (left_arm_x - 1 + swing_offset + arm_extension, left_arm_y - 10 - swing_y_offset),
+        (left_arm_x + 1 + swing_offset + arm_extension, left_arm_y - 10 - swing_y_offset),
+        (left_arm_x + 3 + swing_offset + arm_extension, left_arm_y - swing_y_offset),
+        (left_arm_x - 3 + swing_offset + arm_extension, left_arm_y - swing_y_offset)
     ])
 
-    # 손 (애니메이션 적용)
+    # 손 (애니메이션 적용 - 더 크게 움직임)
     pygame.draw.ellipse(animated_paddle, (195, 155, 125), 
-                        (left_arm_x - 4 + swing_offset, left_arm_y - 16, 8, 8))
+                        (left_arm_x - 4 + swing_offset + arm_extension, left_arm_y - 16 - swing_y_offset, 8, 8))
     pygame.draw.ellipse(animated_paddle, (180, 140, 110), 
-                        (left_arm_x - 3 + swing_offset, left_arm_y - 15, 6, 6))
+                        (left_arm_x - 3 + swing_offset + arm_extension, left_arm_y - 15 - swing_y_offset, 6, 6))
 
-    # 탁구채 (애니메이션 적용 - 회전과 이동)
-    paddle_x = left_arm_x + swing_offset
-    paddle_y = left_arm_y - 28 - swing_offset  # 위아래로도 움직임
+    # 탁구채 (애니메이션 적용 - 회전과 이동, 더 역동적)
+    paddle_x = left_arm_x + swing_offset + arm_extension
+    paddle_y = left_arm_y - 28 - swing_offset - swing_y_offset  # 위아래로도 움직임
     
     # 라켓 회전을 위한 중심점
     racket_center_x = paddle_x
     racket_center_y = paddle_y + 8
     
-    # 회전된 라켓 면 그리기 (간단한 회전 효과)
+    # 회전된 라켓 면 그리기 (강화된 회전 효과)
     if swing_angle > 0:
-        # 회전 효과를 위해 타원의 각도를 조정
-        racket_width = int(24 * math.cos(math.radians(swing_angle)))
-        racket_height = 30
+        # 더 강한 회전 효과를 위해 타원의 각도를 조정
+        racket_width = max(4, int(24 * abs(math.cos(math.radians(swing_angle)))))
+        racket_height = int(30 + swing_angle * 0.5)  # 높이도 약간 변화
+        # 회전 시 투명도 효과 추가
+        swing_alpha = max(180, int(255 - swing_angle * 2))
     else:
         racket_width = 24
         racket_height = 30
+        swing_alpha = 255
     
     # 라켓 면
     pygame.draw.ellipse(animated_paddle, (75, 95, 55), 
