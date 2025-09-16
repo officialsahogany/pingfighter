@@ -3886,29 +3886,29 @@ def apply_effect(effect_name):
     elif effect_name == "wall":  #  벽돌 설치 아이템 활성화
         activate_wall()
     elif effect_name == "molotov":  #  화염병 아이템 활성화
-        # 라운드 시작 5초 제한 체크
+        # 라운드 시작 3초 제한 체크
         current_time = pygame.time.get_ticks()
-        if current_time - round_start_time < 5000:  # 5초 미만
-            remaining_time = (5000 - (current_time - round_start_time)) / 1000
-            print(f"      5   ! ( : {remaining_time:.1f})")
+        if current_time - round_start_time < 3000:  # 3초 미만
+            remaining_time = (3000 - (current_time - round_start_time)) / 1000
+            print(f"🔥 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
             return False
         activate_molotov()
         print("!    !")
     elif effect_name == "grenade":  #  수류탄 아이템 활성화
-        # 라운드 시작 5초 제한 체크
+        # 라운드 시작 3초 제한 체크
         current_time = pygame.time.get_ticks()
-        if current_time - round_start_time < 5000:  # 5초 미만
-            remaining_time = (5000 - (current_time - round_start_time)) / 1000
-            print(f"      5   ! ( : {remaining_time:.1f})")
+        if current_time - round_start_time < 3000:  # 3초 미만
+            remaining_time = (3000 - (current_time - round_start_time)) / 1000
+            print(f"🔥 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
             return False
         activate_grenade()
         print("!    !")
     elif effect_name == "flare":  #  조명탄 아이템 활성화
-        # 라운드 시작 5초 제한 체크
+        # 라운드 시작 3초 제한 체크
         current_time = pygame.time.get_ticks()
-        if current_time - round_start_time < 5000:  # 5초 미만
-            remaining_time = (5000 - (current_time - round_start_time)) / 1000
-            print(f"      5   ! ( : {remaining_time:.1f})")
+        if current_time - round_start_time < 3000:  # 3초 미만
+            remaining_time = (3000 - (current_time - round_start_time)) / 1000
+            print(f"🔥 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
             return False
         activate_flare()
         print("!     1.5  !")
@@ -4768,32 +4768,38 @@ def draw_predicted_trajectory():
         SCREEN.blit(marker_surface, (final_point[0] - 40, final_point[1] - 40))
 
 def render_throwing_item_cooldown():
-    """투척류 아이템 라운드 시작 5초 제한 표시"""
+    """화기류 아이템 라운드 시작 3초 제한 표시"""
     global round_start_time, active_item_slot
     
     current_time = pygame.time.get_ticks()
     time_since_round_start = current_time - round_start_time
     
-    # 5초가 지나면 표시하지 않음
-    if time_since_round_start >= 5000:
+    # 3초가 지나면 표시하지 않음
+    if time_since_round_start >= 3000:
         return
     
-    # 투척류 아이템이 있는지 확인
-    throwing_items = ["molotov", "grenade", "flare"]
-    has_throwing_item = False
+    # 화기류 아이템이 있는지 확인 (투척류 + 권총)
+    firearm_items = ["molotov", "grenade", "flare", "smoke_grenade"]
+    has_firearm_item = False
     
+    # 군인 캐릭터 권총 확인
+    global selected_character_type
+    if selected_character_type == "soldier":
+        has_firearm_item = True
+    
+    # 투척류 아이템 확인
     for item in active_item_slot:
-        if item.get("name") in throwing_items or item.get("effect") in throwing_items:
-            has_throwing_item = True
+        if item.get("name") in firearm_items or item.get("effect") in firearm_items:
+            has_firearm_item = True
             break
     
-    # 투척류 아이템이 없으면 표시하지 않음
-    if not has_throwing_item:
+    # 화기류 아이템이 없으면 표시하지 않음
+    if not has_firearm_item:
         return
     
     # 남은 시간 계산 (0~1 사이의 비율)
-    cooldown_ratio = min(time_since_round_start / 5000, 1.0)
-    remaining_time = max(0, 5.0 - time_since_round_start / 1000)
+    cooldown_ratio = min(time_since_round_start / 3000, 1.0)
+    remaining_time = max(0, 3.0 - time_since_round_start / 1000)
     
     # 화면 중앙 상단에 표시
     center_x = SCREEN_WIDTH // 2
@@ -4823,7 +4829,7 @@ def render_throwing_item_cooldown():
     # 테두리 원
     pygame.draw.circle(SCREEN, (100, 100, 100), (center_x, center_y), radius, 2)
     
-    # 투척 금지 아이콘 (X 표시)
+    # 화기류 금지 아이콘 (X 표시)
     if cooldown_ratio < 1.0:
         cross_size = 15
         pygame.draw.line(SCREEN, (255, 100, 100), 
@@ -6353,6 +6359,14 @@ def fire_soldier_bullet():
     global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
     global soldier_gun_target_x, soldier_gun_target_y
     global soldier_ammo_count, soldier_reloading, soldier_reload_timer, special_gauge
+    global round_start_time
+    
+    # 라운드 시작 3초 제한 체크
+    current_time = pygame.time.get_ticks()
+    if current_time - round_start_time < 3000:  # 3초 미만
+        remaining_time = (3000 - (current_time - round_start_time)) / 1000
+        print(f"🔫 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+        return False
     
     if soldier_gun_cooldown > 0:
         return  # 쿨타임 중이면 발사 불가
