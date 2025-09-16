@@ -3179,6 +3179,7 @@ class SupplyAircraft:
                 'vx': random.uniform(-1, 1),
                 'vy': random.uniform(-2, -0.5),  # 연기는 위로
                 'size': random.randint(5, 10),
+                'color': (80, 80, 80),  # 회색 연기
                 'alpha': 150,
                 'life': random.randint(40, 60)
             })
@@ -3193,6 +3194,7 @@ class SupplyAircraft:
             'vx': random.uniform(-0.5, 0.5),
             'vy': random.uniform(-1.5, -0.5),
             'size': random.randint(8, 15),
+            'color': (70, 70, 70),  # 진한 회색 연기
             'alpha': 180,
             'life': random.randint(50, 80)
         })
@@ -3255,6 +3257,7 @@ class SupplyAircraft:
                 'vx': random.uniform(-3, 3),
                 'vy': random.uniform(-5, -1),
                 'size': random.randint(20, 40),
+                'color': (60, 60, 60),  # 짙은 회색 연기
                 'alpha': 200,
                 'life': random.randint(60, 100)
             })
@@ -3605,16 +3608,24 @@ def activate_supply_drop_item(item_name):
     
     # 바주카포인 경우 특별 처리
     if item_name == "bazooka":
-        global soldier_weapons
+        global soldier_weapons, current_weapon_index, weapon_ui_highlight_timer
         
         # 바주카포를 화기류 리스트에 추가
         if "bazooka" not in soldier_weapons:
             soldier_weapons.append("bazooka")
             print(f"🚀 바주카포 획득! 현재 화기류: {soldier_weapons}")
             
-            # 바주카포 인스턴스 초기화
+            # 바주카포 인스턴스 초기화 및 장착
             from item_effects.bazooka import get_bazooka_instance
             bazooka = get_bazooka_instance()
+            bazooka.equip()
+            
+            # 무기를 바주카포로 교체
+            current_weapon_index = len(soldier_weapons) - 1  # 방금 추가된 바주카포 선택
+            
+            # UI 강조 효과 활성화
+            weapon_ui_highlight_timer = weapon_ui_highlight_duration
+            print(f"💫 화기류 UI 강조 효과 활성화! ({weapon_ui_highlight_duration//60}초)")
             
             # 아이템 획득 사운드
             try:
@@ -3867,8 +3878,8 @@ def draw_supply_drop_system(screen):
         # 폭발 파티클은 비행기가 비활성화되어도 계속 그리기
         # 연기 파티클 그리기
         for particle in supply_aircraft.smoke_particles[:]:
-            particle['y'] += particle['vel_y']
-            particle['x'] += particle['vel_x']
+            particle['y'] += particle['vy']
+            particle['x'] += particle['vx']
             particle['life'] -= 1
             
             if particle['life'] <= 0:
@@ -3885,8 +3896,8 @@ def draw_supply_drop_system(screen):
         
         # 폭발 파티클 그리기
         for particle in supply_aircraft.explosion_particles[:]:
-            particle['x'] += particle['vel_x']
-            particle['y'] += particle['vel_y']
+            particle['x'] += particle['vx']
+            particle['y'] += particle['vy']
             particle['life'] -= 1
             
             if particle['life'] <= 0:
@@ -3899,9 +3910,9 @@ def draw_supply_drop_system(screen):
         
         # 파편 파티클 그리기
         for particle in supply_aircraft.debris_particles[:]:
-            particle['x'] += particle['vel_x']
-            particle['y'] += particle['vel_y']
-            particle['vel_y'] += 0.5  # 중력
+            particle['x'] += particle['vx']
+            particle['y'] += particle['vy']
+            particle['vy'] += 0.5  # 중력
             particle['life'] -= 1
             
             if particle['life'] <= 0:
@@ -4001,6 +4012,10 @@ soldier_weapons = ["pistol"]  # 현재 보유 중인 화기류 리스트
 current_weapon_index = 0  # 현재 선택된 화기 인덱스
 weapon_switch_cooldown = 0  # 화기 교체 쿨타임
 WEAPON_SWITCH_COOLDOWN = 30  # 0.5초 쿨타임 시간
+
+# === 화기류 UI 강조 효과 ===
+weapon_ui_highlight_timer = 0  # UI 강조 효과 타이머
+weapon_ui_highlight_duration = 180  # 3초간 강조 효과 (60fps)
 SOLDIER_BULLET_SIZE = 5  # 총알 크기
 SOLDIER_BULLET_COLOR = (255, 215, 0)  # 황금색 총알
 
@@ -7500,8 +7515,10 @@ def update_soldier_reload():
 
 def draw_soldier_weapon_ui(screen):
     """군인 화기류 UI 그리기 - 현재 장착된 무기 표시"""
+    import math
+    import pygame
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
-    global soldier_weapons, current_weapon_index
+    global soldier_weapons, current_weapon_index, weapon_ui_highlight_timer
     
     # 액티브 아이템 슬롯 크기 및 위치 계산
     slot_size = 60
@@ -7516,9 +7533,31 @@ def draw_soldier_weapon_ui(screen):
     # 권총 아이콘 배경 (사각형)
     weapon_rect = pygame.Rect(weapon_x, weapon_y, weapon_size, weapon_size)
     
-    # 배경 사각형
-    pygame.draw.rect(screen, (40, 40, 40), weapon_rect)
-    pygame.draw.rect(screen, (100, 100, 100), weapon_rect, 3)
+    # 강조 효과 처리
+    highlight_active = weapon_ui_highlight_timer > 0
+    if highlight_active:
+        # 강조 효과 - 반짝거리는 테두리
+        pulse = int(128 + 127 * math.sin(weapon_ui_highlight_timer * 0.3))  # 반짝거림
+        glow_color = (255, pulse, 0)  # 황금색 반짝임
+        
+        # 외부 글로우 효과
+        for i in range(3, 0, -1):
+            glow_rect = weapon_rect.inflate(i * 4, i * 4)
+            alpha = 80 - i * 20
+            glow_surface = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surface, (*glow_color, alpha), glow_surface.get_rect(), 2)
+            screen.blit(glow_surface, glow_rect.topleft)
+        
+        # 강조된 배경
+        pygame.draw.rect(screen, (60, 60, 40), weapon_rect)
+        pygame.draw.rect(screen, glow_color, weapon_rect, 4)
+        
+        # 타이머 감소
+        weapon_ui_highlight_timer -= 1
+    else:
+        # 일반 배경 사각형
+        pygame.draw.rect(screen, (40, 40, 40), weapon_rect)
+        pygame.draw.rect(screen, (100, 100, 100), weapon_rect, 3)
     
     # 현재 장착된 무기 확인
     current_weapon = soldier_weapons[current_weapon_index] if soldier_weapons else "pistol"
@@ -7738,6 +7777,112 @@ def draw_soldier_weapon_ui(screen):
             screen.blit(reload_surface, (text_x, text_y))
         except Exception as e:
             print(f"[DEBUG] 재장전 텍스트 렌더링 실패: {e}")
+    
+    # 현재 무기 이름 표시 (강조 효과 있을 때 더 크게)
+    weapon_names = {
+        "pistol": "권총",
+        "bazooka": "바주카포"
+    }
+    
+    weapon_name = weapon_names.get(current_weapon, current_weapon)
+    font_size = 22 if highlight_active else 18
+    text_color = (255, 255, 100) if highlight_active else (200, 200, 200)
+    
+    try:
+        # 한글 폰트 렌더링 개선
+        weapon_surface = None
+        
+        # 1차: UI 매니저 한글 폰트 시도
+        if hasattr(ui_manager, 'korean_font') and ui_manager.korean_font:
+            try:
+                weapon_surface = ui_manager.korean_font.render(weapon_name, True, text_color)
+            except:
+                weapon_surface = None
+        
+        # 2차: pygame.freetype 한글 폰트 시도 (여러 폰트 경로 시도)
+        if weapon_surface is None:
+            try:
+                import pygame.freetype
+                
+                # 한글 폰트 우선순위 목록
+                font_paths = [
+                    resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")),
+                    resource_path(os.path.join("fonts", "pixel", "네오둥근모.ttf")),
+                    resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf")),
+                    resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "Pretendard-Regular.otf")),
+                    resource_path(os.path.join("fonts", "NanumSquareB.ttf"))  # 기존 경로 유지
+                ]
+                
+                for font_path in font_paths:
+                    if os.path.exists(font_path):
+                        try:
+                            korean_font = pygame.freetype.Font(font_path, font_size)
+                            weapon_surface, _ = korean_font.render(weapon_name, text_color)
+                            break
+                        except:
+                            continue
+            except:
+                weapon_surface = None
+        
+        # 3차: 시스템 한글 폰트 시도
+        if weapon_surface is None:
+            try:
+                # macOS/Windows 시스템 한글 폰트 시도
+                system_fonts = [
+                    "AppleSDGothicNeo.ttc",  # macOS 기본 한글 폰트
+                    "Arial Unicode MS",      # 유니코드 지원 폰트
+                    "Malgun Gothic",         # Windows 기본 한글 폰트
+                    "NanumGothic"           # 나눔고딕
+                ]
+                
+                for system_font in system_fonts:
+                    try:
+                        font = pygame.font.SysFont(system_font, font_size)
+                        if font:
+                            weapon_surface = font.render(weapon_name, True, text_color)
+                            break
+                    except:
+                        continue
+            except:
+                pass
+        
+        # 4차: 최종 폴백 - 기본 폰트
+        if weapon_surface is None:
+            font = pygame.font.Font(None, font_size)
+            weapon_surface = font.render(weapon_name, True, text_color)
+        
+        # 무기 이름 위치 (무기 아이콘 위)
+        name_x = weapon_x + weapon_size // 2 - weapon_surface.get_width() // 2  # 가운데 정렬
+        name_y = weapon_y - weapon_surface.get_height() - 5  # 아이콘 위 5px 여백
+        
+        # 강조 효과 시 그림자 효과
+        if highlight_active:
+            shadow_surface = weapon_surface.copy()
+            shadow_surface.fill((50, 50, 0))
+            screen.blit(shadow_surface, (name_x + 2, name_y + 2))
+        
+        screen.blit(weapon_surface, (name_x, name_y))
+        
+        # 무기 교체 안내 표시 (무기가 2개 이상일 때)
+        if len(soldier_weapons) > 1 and weapon_switch_cooldown <= 0:
+            guide_text = "↑키: 무기 교체"
+            guide_color = (150, 150, 150)
+            
+            try:
+                if hasattr(ui_manager, 'korean_font') and ui_manager.korean_font:
+                    guide_surface = ui_manager.korean_font.render(guide_text, True, guide_color)
+                else:
+                    small_font = pygame.font.Font(None, 16)
+                    guide_surface = small_font.render("UP: Switch", True, guide_color)
+                
+                guide_x = name_x
+                guide_y = name_y + weapon_surface.get_height() + 5
+                screen.blit(guide_surface, (guide_x, guide_y))
+            except:
+                pass
+        
+    except Exception as e:
+        print(f"[DEBUG] 무기 이름 렌더링 실패: {e}")
     
 def create_soldier_bullet():
     """실제 총알을 생성하는 함수 (애니메이션 완료 후 호출)"""
@@ -8371,6 +8516,11 @@ def handle_player(keys):
     global long_boost_animating, long_boost_shrinking, long_boost_growing
     global player_stunned_timer, player_knockback_vel  #  스턴 전역
     global player_stun_immunity_timer  # ️ 스턴 면역 타이머
+    global weapon_switch_cooldown  # 화기 교체 쿨다운
+    
+    # 화기 교체 쿨다운 감소
+    if weapon_switch_cooldown > 0:
+        weapon_switch_cooldown -= 1
     global long_boost_scale, long_boost_target_scale, LONG_BOOST_TRANSITION_TIME, LONG_BOOST_DURATION
     global player_flame_zone_knockback_vel, player_flame_zone_knockback_cooldown, player_in_flame_zone  #  Stage 5 화염 넉백
     global PLAYER, speedboots_obtained, speedgear_obtained
@@ -8410,7 +8560,7 @@ def handle_player(keys):
     global soldier_control_lock_timer, soldier_gun_cooldown, soldier_gun_drawn  # 군인 총알 시스템 변수
     global selected_character_type  # 선택된 캐릭터 타입
     global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
-    global soldier_weapons, current_weapon_index, weapon_switch_cooldown  # 화기류 시스템
+    global soldier_weapons, current_weapon_index  # 화기류 시스템
     global tutorial_drive_count, tutorial_displayed_drive_count
     global tutorial_left_drive_count, tutorial_right_drive_count
     global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
@@ -17812,6 +17962,15 @@ def draw_objects():
     # === 군인 총 발사 애니메이션 그리기 ===
     if selected_character_type == "soldier":
         draw_soldier_gun_animation(SCREEN, PLAYER)
+        
+        # === 바주카포 발사 자세 애니메이션 그리기 ===
+        try:
+            from item_effects.bazooka import get_bazooka_instance
+            bazooka = get_bazooka_instance()
+            if bazooka.equipped and bazooka.firing_pose_timer > 0:
+                bazooka.draw_firing_pose(SCREEN, PLAYER)
+        except Exception as e:
+            print(f"바주카포 발사 자세 애니메이션 오류: {e}")
     
     # === 쉴드 안테나 시스템 (스테이지 6) ===
     if current_stage == 6:
@@ -18991,7 +19150,7 @@ def show_start_screen():
     menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
     menu_system.current_menu = menu_system.create_main_menu()
     # 기존 변수들 (임시 유지)
-    menu_options = ["경기장 입장", "아이템관리", "테스트메뉴", "메달샵", "크레딧"]
+    menu_options = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
     selected = 0
     last_selected = -1  # 호버 사운드용
     locked_message_timer = 0
@@ -19169,11 +19328,7 @@ def show_start_screen():
         pygame.draw.circle(SCREEN, (0, 255, 255), (WIDTH // 2 - 200, line_y + 1), 4)
         pygame.draw.circle(SCREEN, (0, 255, 255), (WIDTH // 2 + 200, line_y + 1), 4)
         # 동적 메뉴 옵션 업데이트
-        # 아이템관리를 2번째 위치에 고정
-        current_menu_options = ["경기장 입장"]
-        if item_manager_unlocked:
-            current_menu_options.append("아이템관리")  # 2번 위치
-        current_menu_options.extend(["테스트메뉴", "메달샵", "크레딧"])
+        current_menu_options = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
         if developer_unlocked:
             if "개발자" not in current_menu_options:
                 current_menu_options.append("개발자")
@@ -19190,7 +19345,6 @@ def show_start_screen():
             "메달샵": "◆",
             "크레딧": "●",
             "개발자": "⚙",
-            "아이템관리": "📦"
         }
         
         # 메뉴 컨테이너 설정 (화면에 맞게 조정)
@@ -19262,8 +19416,6 @@ def show_start_screen():
                 display_text = "경기장"
             elif option == "테스트메뉴":
                 display_text = "테스트"
-            elif option == "아이템관리":
-                display_text = "아이템"
             
             text_surface = font_menu.render(display_text, True, text_color)
             text_rect = text_surface.get_rect(center=(x + menu_item_width // 2, menu_y + 38))
@@ -19273,8 +19425,6 @@ def show_start_screen():
                 font_desc = FontStyle.tiny()  # 16pt 픽셀 폰트
                 if option == "테스트메뉴":
                     desc_text = font_desc.render("게임 테스트 및 디버깅 모드", True, (200, 200, 255))
-                elif option == "아이템관리":
-                    desc_text = font_desc.render("캐릭터 선택 및 아이템 관리", True, (200, 255, 200))
                 else:
                     desc_text = None
                     
@@ -19357,10 +19507,6 @@ def show_start_screen():
                     play_button_click_sound()  #  클릭 사운드
                     show_developer_stage_select()
                     return
-                elif event.key == pygame.K_2:
-                    play_button_click_sound()  #  클릭 사운드
-                    show_item_manager_menu()
-                    return
                 if pygame.K_0 <= event.key <= pygame.K_9:
                     num = event.key - pygame.K_0
                     input_buffer.append(num)
@@ -19409,10 +19555,6 @@ def show_start_screen():
                         return
                     elif choice == "개발자":
                         show_developer_stage_select()
-                    elif choice == "아이템관리":
-                        print("DEBUG: 아이템관리 선택됨 - show_character_item_manager() 호출")
-                        show_character_item_manager()
-                        print("DEBUG: show_character_item_manager() 완료")
 def show_tutorial_dialog():
     """튜토리얼 진행 여부를 묻는 다이얼로그"""
     clock = pygame.time.Clock()
@@ -36666,7 +36808,7 @@ def handle_boss():
         from item_effects.bazooka import get_bazooka_instance
         bazooka = get_bazooka_instance()
         if bazooka.equipped:
-            explosions = bazooka.check_boss_collision(BOSS)
+            explosions = bazooka.check_boss_collision(BOSS, WIDTH)
             for explosion in explosions:
                 # 폭발 넉백 효과 적용
                 boss_knockback_timer = explosion["stun_duration"]  # 2초 스턴
@@ -42907,140 +43049,6 @@ def show_stage_selection():
                     play_button_hover_sound()
 
 
-def show_character_selection():
-    """캐릭터 선택 화면"""
-    global selected_character_type
-    
-    # 캐릭터 정보
-    characters = [
-        {
-            "id": "smasher",
-            "name": "스매셔",
-            "desc": "강력한 스매싱 공격",
-            "color": (255, 100, 100)
-        },
-        {
-            "id": "soldier",
-            "name": "군인",
-            "desc": "코만도암 + 수류탄",
-            "color": (100, 200, 100)
-        }
-    ]
-    
-    selected_index = 0
-    font_large = FontStyle.title()  # 36pt
-    font_medium = FontStyle.subtitle()  # 32pt
-    font_small = FontStyle.body()  # 24pt
-    
-    clock = pygame.time.Clock()
-    
-    while True:
-        SCREEN.fill((20, 20, 50))
-        
-        # 제목
-        title_text = font_large.render("캐릭터 선택", True, WHITE)
-        title_rect = title_text.get_rect(center=(WIDTH // 2, 100))
-        SCREEN.blit(title_text, title_rect)
-        
-        # 캐릭터 카드 그리기
-        card_width = 250
-        card_height = 300
-        card_spacing = 50
-        total_width = len(characters) * card_width + (len(characters) - 1) * card_spacing
-        start_x = (WIDTH - total_width) // 2
-        card_y = 200
-        
-        for i, char in enumerate(characters):
-            card_x = start_x + i * (card_width + card_spacing)
-            card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
-            
-            # 카드 배경
-            if i == selected_index:
-                # 선택된 카드 - 더 밝게
-                card_color = tuple(min(255, c + 50) for c in char["color"])
-                pygame.draw.rect(SCREEN, card_color, card_rect)
-                pygame.draw.rect(SCREEN, WHITE, card_rect, 5)
-            else:
-                # 비선택 카드 - 어둡게
-                card_color = tuple(c // 2 for c in char["color"])
-                pygame.draw.rect(SCREEN, card_color, card_rect)
-                pygame.draw.rect(SCREEN, (100, 100, 100), card_rect, 2)
-            
-            # 캐릭터 이름
-            name_text = font_medium.render(char["name"], True, WHITE)
-            name_rect = name_text.get_rect(centerx=card_rect.centerx, top=card_rect.top + 20)
-            SCREEN.blit(name_text, name_rect)
-            
-            # 캐릭터 설명
-            desc_text = font_small.render(char["desc"], True, (200, 200, 200))
-            desc_rect = desc_text.get_rect(centerx=card_rect.centerx, bottom=card_rect.bottom - 20)
-            SCREEN.blit(desc_text, desc_rect)
-            
-            # 캐릭터 이미지/아이콘
-            icon_size = 100
-            icon_rect = pygame.Rect(
-                card_rect.centerx - icon_size // 2,
-                card_rect.centery - icon_size // 2,
-                icon_size, icon_size
-            )
-            pygame.draw.circle(SCREEN, WHITE, icon_rect.center, icon_size // 2, 3)
-            
-            # 캐릭터 아이콘 텍스트 (임시)
-            icon_text = font_medium.render(char["name"][0], True, WHITE)
-            icon_text_rect = icon_text.get_rect(center=icon_rect.center)
-            SCREEN.blit(icon_text, icon_text_rect)
-        
-        # 하단 안내 메시지
-        info_text = "좌우 키로 선택, ENTER로 결정, ESC로 돌아가기"
-        info_surface = font_small.render(info_text, True, WHITE)
-        info_rect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-        SCREEN.blit(info_surface, info_rect)
-        
-        pygame.display.flip()
-        clock.tick(60)
-        
-        # 이벤트 처리
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    return None  # 취소
-                elif event.key == pygame.K_LEFT:
-                    selected_index = (selected_index - 1) % len(characters)
-                    play_button_hover_sound()
-                elif event.key == pygame.K_RIGHT:
-                    selected_index = (selected_index + 1) % len(characters)
-                    play_button_hover_sound()
-                elif event.key == pygame.K_RETURN:
-                    # 캐릭터 선택 완료
-                    selected_character_type = characters[selected_index]["id"]
-                    
-                    # 군인 캐릭터일 경우 코만도암 활성화
-                    if selected_character_type == "soldier":
-                        items.commando_arm_obtained = True
-                        print("💪 군인 캐릭터 선택! 코만도암 패시브 아이템 자동 장착!")
-                    
-                    play_button_click_sound()
-                    return selected_character_type
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = pygame.mouse.get_pos()
-                # 마우스 클릭으로 캐릭터 선택
-                for i, char in enumerate(characters):
-                    card_x = start_x + i * (card_width + card_spacing)
-                    card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
-                    if card_rect.collidepoint(mouse_pos):
-                        selected_index = i
-                        selected_character_type = characters[selected_index]["id"]
-                        
-                        # 군인 캐릭터일 경우 코만도암 활성화
-                        if selected_character_type == "soldier":
-                            items.commando_arm_obtained = True
-                            print("💪 군인 캐릭터 선택! 코만도암 패시브 아이템 자동 장착!")
-                        
-                        play_button_click_sound()
-                        return selected_character_type
 
 def get_character_name(character_id):
     """캐릭터 ID로부터 이름 반환"""
