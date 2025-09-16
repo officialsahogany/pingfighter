@@ -6660,7 +6660,7 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     global boss_knockback_timer, boss_knockback_vel
     
     # 라그나로크 해머 방식의 넉백 계산 (홍련 화염탄 수준)
-    base_power = 36  # 기본 넉백 파워 (홍련 화염탄과 동일한 속도)
+    base_power = 8  # 기본 넉백 파워 (홍련 화염탄 수준으로 조정)
     
     # 보스 위치에 따라 방향 결정 (라그나로크 해머와 동일한 로직)
     center_x = 300  # 화면 중앙
@@ -6679,6 +6679,8 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     # 라그나로크 해머 넉백 시스템 활용
     boss_knockback_timer = 18  # 0.3초간 넉백 효과 지속 (화염탄과 동일한 거리)
     boss_knockback_vel = horizontal_velocity
+    
+    print(f"[DEBUG] 군인 총알 넉백 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}")
 
 def update_soldier_bullets():
     """군인 총알 업데이트"""
@@ -34472,13 +34474,19 @@ def handle_boss():
             BOSS.x += boss_knockback_vel
             BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
             
-            # 부드러운 감속 (초반엔 빠르게, 후반엔 천천히)
-            if boss_knockback_timer > 18:  # 처음 0.3초는 빠른 감속
-                boss_knockback_vel *= 0.92
-            elif boss_knockback_timer > 12:  # 중간 0.2초는 중간 감속
-                boss_knockback_vel *= 0.95
-            else:  # 마지막 0.2초는 느린 감속
-                boss_knockback_vel *= 0.98
+            # 군인 총알 넉백을 위한 감속 처리
+            if boss_knockback_timer <= 18:  # 군인 총알 (18프레임)
+                boss_knockback_vel *= 0.85  # 매 프레임마다 15% 감속
+            else:  # 라그나로크 해머 (더 긴 넉백)
+                # 부드러운 감속 (초반엔 빠르게, 후반엔 천천히)
+                if boss_knockback_timer > 18:  # 처음 0.3초는 빠른 감속
+                    boss_knockback_vel *= 0.92
+                elif boss_knockback_timer > 12:  # 중간 0.2초는 중간 감속
+                    boss_knockback_vel *= 0.95
+                else:  # 마지막 0.2초는 느린 감속
+                    boss_knockback_vel *= 0.98
+            
+            print(f"[DEBUG] 보스 넉백 업데이트 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}, pos: {BOSS.x:.2f}")
         
         # 라그나로크 해머만의 추가 효과
         if is_ragnarok_knockback:
