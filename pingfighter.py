@@ -3156,6 +3156,52 @@ class SupplyAircraft:
                 return False
         return False
     
+    def check_paddle_brick_collision(self, player_paddle, boss_paddle, bricks):
+        """패들과 벽돌과의 충돌 체크"""
+        # 무적 시간 동안은 충돌 무시
+        if self.spawn_timer < self.invulnerable_time:
+            return False
+            
+        if self.is_crashing:
+            return False  # 이미 추락 중이면 무시
+            
+        aircraft_rect = self.get_rect()
+        
+        # 플레이어 패들과 충돌 체크
+        if player_paddle and aircraft_rect.colliderect(player_paddle):
+            self.is_crashing = True
+            self.crash_velocity_y = 0.5
+            self.crash_phase = 0
+            self.create_crash_particles()
+            self.create_initial_smoke()
+            print("💥 비행기가 플레이어 패들에 충돌하여 추락합니다!")
+            return True
+            
+        # 보스 패들과 충돌 체크
+        if boss_paddle and aircraft_rect.colliderect(boss_paddle):
+            self.is_crashing = True
+            self.crash_velocity_y = 0.5
+            self.crash_phase = 0
+            self.create_crash_particles()
+            self.create_initial_smoke()
+            print("💥 비행기가 보스 패들에 충돌하여 추락합니다!")
+            return True
+            
+        # 벽돌과 충돌 체크
+        if bricks:
+            for brick in bricks:
+                if brick.get("visible", True) and aircraft_rect.colliderect(brick["rect"]):
+                    self.is_crashing = True
+                    self.crash_velocity_y = 0.5
+                    self.crash_phase = 0
+                    self.create_crash_particles()
+                    self.create_initial_smoke()
+                    print("💥 비행기가 벽돌에 충돌하여 추락합니다!")
+                    # 벽돌은 파괴하지 않음 (비행기만 추락)
+                    return True
+                    
+        return False
+    
     def create_crash_particles(self):
         """추락 시 초기 폭발 파티클 생성"""
         # 작은 폭발과 불꽃 파티클
@@ -3701,6 +3747,15 @@ def update_supply_drop_system():
                 # 충돌 시 공의 방향을 약간 변경 (반발)
                 global ball_vel
                 ball_vel[1] *= -0.5  # Y 속도를 반대로
+        
+        # 패들과 벽돌과의 충돌 체크
+        global PLAYER, BOSS, bricks
+        player_paddle_rect = pygame.Rect(player_x, player_y, player_width, player_height) if 'player_x' in globals() else None
+        boss_paddle_rect = pygame.Rect(boss_x, boss_y, boss_width, boss_height) if 'boss_x' in globals() else None
+        
+        if supply_aircraft.check_paddle_brick_collision(player_paddle_rect, boss_paddle_rect, bricks):
+            # 충돌 발생 - 추락 시작됨
+            pass
                 
         if not supply_aircraft.active:
             # 비행기가 비활성화되면 사운드 중지 (혹시 남아있을 경우를 대비)
