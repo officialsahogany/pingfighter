@@ -19,9 +19,9 @@ class Bazooka:
         self.INITIAL_SPEED = 3  # 초기 속도 (매우 느림)
         self.ACCELERATION = 0.3  # 가속도
         self.MAX_SPEED = 25  # 최대 속도
-        self.EXPLOSION_RADIUS = 80  # 폭발 범위
-        self.KNOCKBACK_POWER = 30  # 넉백 거리 (권총의 2배)
-        self.STUN_DURATION = 120  # 스턴 시간 2초 (60fps)
+        self.EXPLOSION_RADIUS = 75  # 폭발 범위 (수류탄 150의 50%)
+        self.KNOCKBACK_POWER = 40  # 넉백 거리 (수류탄과 동일)
+        self.STUN_DURATION = 90  # 스턴 시간 1.5초 (수류탄보다 0.5초 짧음)
         
         # 애니메이션 관련
         self.fire_animation_timer = 0
