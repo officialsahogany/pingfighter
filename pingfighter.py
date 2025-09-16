@@ -3246,88 +3246,107 @@ class SupplyAircraft:
         })
     
     def explode(self):
-        """바닥에 닿았을 때 대규모 폭발"""
+        """바닥에 닿았을 때 현실적인 폭발"""
         explosion_center_x = self.x + self.width // 2
         explosion_center_y = self.y + self.height // 2
         
-        print(f"💥💥💥 비행기 바닥 폭발! 위치: ({explosion_center_x}, {explosion_center_y})")
+        print(f"💥 비행기 폭발! 위치: ({explosion_center_x}, {explosion_center_y})")
         
-        # 💥 대형 붉은 화염 폭발 - 중심부 (강화됨)
-        for _ in range(50):  # 30 → 50개로 증가
+        # 🔥 화염 파티클 - 적당한 강도로 조정
+        for _ in range(25):  # 50 → 25개로 줄임
             angle = random.uniform(0, 2 * 3.14159)
-            speed = random.uniform(8, 25)  # 5-15 → 8-25로 더 빠르게
+            speed = random.uniform(5, 15)  # 8-25 → 5-15로 줄임
             self.explosion_particles.append({
-                'x': explosion_center_x,
-                'y': explosion_center_y,
+                'x': explosion_center_x + random.randint(-10, 10),
+                'y': explosion_center_y + random.randint(-5, 5),
                 'vx': speed * math.cos(angle),
-                'vy': speed * math.sin(angle) - 8,  # 위쪽으로 더 많이
-                'color': random.choice([(255, 0, 0), (255, 50, 0), (255, 100, 0), (255, 150, 0), (255, 200, 0)]),  # 더 붉은 색상
-                'size': random.randint(12, 30),  # 8-20 → 12-30으로 더 크게
-                'life': random.randint(60, 120)  # 40-80 → 60-120으로 더 오래
+                'vy': speed * math.sin(angle) - 5,  # 위쪽으로 적당히
+                'color': random.choice([(255, 100, 0), (255, 150, 0), (255, 200, 50)]),  # 주황빛 화염
+                'size': random.randint(8, 18),  # 크기 조정
+                'life': random.randint(30, 60)  # 수명 줄임
             })
         
-        # 🔥 작은 불꽃 파편들 (강화됨)
-        for _ in range(60):  # 40 → 60개로 증가
+        # 🛠️ 현실적인 금속 파편 - 날카로운 조각들
+        for _ in range(35):  # 40 → 35개로 조정
             angle = random.uniform(0, 2 * 3.14159)
-            speed = random.uniform(12, 30)  # 8-20 → 12-30으로 더 빠르게
-            self.explosion_particles.append({
-                'x': explosion_center_x + random.randint(-30, 30),  # 범위 확대
-                'y': explosion_center_y + random.randint(-15, 15),
-                'vx': speed * math.cos(angle),
-                'vy': speed * math.sin(angle) - 10,
-                'color': random.choice([(255, 0, 0), (255, 80, 0), (255, 120, 0), (255, 200, 50), (255, 255, 100)]),
-                'size': random.randint(5, 15),  # 3-8 → 5-15로 더 크게
-                'life': random.randint(30, 60)  # 20-40 → 30-60으로 더 오래
-            })
+            speed = random.uniform(8, 20)  # 적당한 속도
+            # 불규칙한 파편 모양
+            fragment_type = random.choice(['shard', 'chunk', 'wire', 'plate'])
+            
+            if fragment_type == 'shard':  # 날카로운 파편
+                self.debris_particles.append({
+                    'x': explosion_center_x,
+                    'y': explosion_center_y,
+                    'vx': speed * math.cos(angle),
+                    'vy': speed * math.sin(angle) - random.uniform(3, 8),
+                    'width': random.randint(2, 6),
+                    'height': random.randint(8, 20),
+                    'color': random.choice([(90, 90, 90), (120, 120, 120), (150, 150, 150)]),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-20, 20),
+                    'life': random.randint(60, 120),
+                    'type': 'shard'
+                })
+            elif fragment_type == 'chunk':  # 덩어리 파편
+                self.debris_particles.append({
+                    'x': explosion_center_x,
+                    'y': explosion_center_y,
+                    'vx': speed * math.cos(angle) * 0.7,  # 무거워서 조금 느림
+                    'vy': speed * math.sin(angle) - random.uniform(2, 5),
+                    'width': random.randint(6, 12),
+                    'height': random.randint(6, 12),
+                    'color': random.choice([(60, 60, 60), (80, 80, 80), (100, 100, 100)]),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-15, 15),
+                    'life': random.randint(80, 150),
+                    'type': 'chunk'
+                })
+            elif fragment_type == 'wire':  # 전선 파편
+                self.debris_particles.append({
+                    'x': explosion_center_x,
+                    'y': explosion_center_y,
+                    'vx': speed * math.cos(angle),
+                    'vy': speed * math.sin(angle) - random.uniform(1, 4),
+                    'width': random.randint(1, 3),
+                    'height': random.randint(10, 25),
+                    'color': random.choice([(40, 40, 40), (80, 60, 40), (120, 100, 80)]),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-30, 30),
+                    'life': random.randint(70, 130),
+                    'type': 'wire'
+                })
+            else:  # plate - 판금 파편
+                self.debris_particles.append({
+                    'x': explosion_center_x,
+                    'y': explosion_center_y,
+                    'vx': speed * math.cos(angle),
+                    'vy': speed * math.sin(angle) - random.uniform(2, 6),
+                    'width': random.randint(8, 15),
+                    'height': random.randint(3, 8),
+                    'color': random.choice([(100, 100, 100), (130, 130, 130), (160, 160, 160)]),
+                    'rotation': random.uniform(0, 360),
+                    'rotation_speed': random.uniform(-25, 25),
+                    'life': random.randint(70, 140),
+                    'type': 'plate'
+                })
         
-        # 🛠️ 금속 파편들 생성 (강화됨)
-        for _ in range(40):  # 20 → 40개로 증가
-            angle = random.uniform(0, 2 * 3.14159)
-            speed = random.uniform(15, 35)  # 10-25 → 15-35로 더 빠르게
-            self.debris_particles.append({
-                'x': explosion_center_x,
-                'y': explosion_center_y,
-                'vx': speed * math.cos(angle),
-                'vy': speed * math.sin(angle) - 12,
-                'width': random.randint(8, 20),  # 5-15 → 8-20으로 더 크게
-                'height': random.randint(5, 12),  # 3-8 → 5-12로 더 크게
-                'color': random.choice([(60, 60, 60), (80, 80, 80), (100, 100, 100), (120, 120, 100), (140, 140, 120)]),
-                'rotation': random.uniform(0, 360),
-                'rotation_speed': random.uniform(-30, 30),  # 회전 속도 증가
-                'life': random.randint(90, 180)  # 60-120 → 90-180으로 더 오래
-            })
-        
-        # 💨 연기 폭발 (강화됨)
-        for _ in range(40):  # 25 → 40개로 증가
+        # 💨 연기 - 적당한 양으로 조정
+        for _ in range(20):  # 40 → 20개로 줄임
             self.smoke_particles.append({
-                'x': explosion_center_x + random.randint(-50, 50),  # 범위 확대
-                'y': explosion_center_y + random.randint(-30, 30),
-                'vx': random.uniform(-5, 5),  # 속도 증가
-                'vy': random.uniform(-8, -2),
-                'size': random.randint(30, 60),  # 20-40 → 30-60으로 더 크게
-                'color': (40, 40, 40),  # 더 짙은 회색 연기
-                'alpha': 220,  # 200 → 220으로 더 진하게
-                'life': random.randint(80, 150)  # 60-100 → 80-150으로 더 오래
+                'x': explosion_center_x + random.randint(-25, 25),
+                'y': explosion_center_y + random.randint(-15, 15),
+                'vx': random.uniform(-2, 2),
+                'vy': random.uniform(-5, -1),
+                'size': random.randint(15, 35),  # 크기 조정
+                'color': (60, 60, 60),  # 적당한 회색
+                'alpha': 180,  # 투명도 조정
+                'life': random.randint(60, 100)
             })
         
-        # 🌋 추가 화염 이펙트 (새로 추가)
-        for _ in range(30):
-            angle = random.uniform(-3.14159/3, 3.14159/3)  # 위쪽 방향으로 주로 분사
-            speed = random.uniform(20, 40)
-            self.explosion_particles.append({
-                'x': explosion_center_x + random.randint(-40, 40),
-                'y': explosion_center_y,
-                'vx': speed * math.cos(angle),
-                'vy': speed * math.sin(angle) - 15,  # 강하게 위로
-                'color': random.choice([(255, 0, 0), (255, 20, 0), (255, 40, 0), (220, 0, 0)]),  # 진한 붉은색
-                'size': random.randint(15, 25),
-                'life': random.randint(40, 80)
-            })
-        
-        # 폭발음 재생 (있다면)
+        # 폭발음 재생 (적당한 볼륨)
         try:
             explosion_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "explosion.wav")))
-            explosion_sound.set_volume(0.8)  # 볼륨 증가
+            explosion_sound.set_volume(0.5)  # 0.8 → 0.5로 줄임
             explosion_sound.play()
         except:
             pass
@@ -3365,13 +3384,57 @@ class SupplyAircraft:
                        (int(particle['x'] - particle['size']), 
                         int(particle['y'] - particle['size'])))
         
-        # 파편 파티클 그리기
+        # 현실적인 파편 파티클 그리기
         for particle in self.debris_particles:
-            # 회전된 사각형 파편 그리기
-            debris_surf = pygame.Surface((particle['width'] * 2, particle['height'] * 2), pygame.SRCALPHA)
-            debris_rect = pygame.Rect(particle['width'] // 2, particle['height'] // 2, 
-                                    particle['width'], particle['height'])
-            pygame.draw.rect(debris_surf, particle['color'], debris_rect)
+            # 파편 타입에 따라 다른 모양으로 그리기
+            fragment_type = particle.get('type', 'chunk')
+            
+            if fragment_type == 'shard':  # 날카로운 파편 - 삼각형
+                debris_surf = pygame.Surface((particle['width'] * 4, particle['height'] * 4), pygame.SRCALPHA)
+                center_x = particle['width'] * 2
+                center_y = particle['height'] * 2
+                points = [
+                    (center_x, center_y - particle['height']),  # 위쪽 끝
+                    (center_x - particle['width']//2, center_y + particle['height']//2),  # 왼쪽 아래
+                    (center_x + particle['width']//2, center_y + particle['height']//2)   # 오른쪽 아래
+                ]
+                pygame.draw.polygon(debris_surf, particle['color'], points)
+                
+            elif fragment_type == 'wire':  # 전선 - 얇은 직선
+                debris_surf = pygame.Surface((particle['width'] * 4, particle['height'] * 4), pygame.SRCALPHA)
+                center_x = particle['width'] * 2
+                center_y = particle['height'] * 2
+                pygame.draw.rect(debris_surf, particle['color'], 
+                               (center_x - particle['width']//2, center_y - particle['height']//2,
+                                particle['width'], particle['height']))
+                
+            elif fragment_type == 'plate':  # 판금 - 평평한 사각형
+                debris_surf = pygame.Surface((particle['width'] * 3, particle['height'] * 3), pygame.SRCALPHA)
+                center_x = particle['width'] * 1.5
+                center_y = particle['height'] * 1.5
+                # 테두리가 있는 사각형
+                pygame.draw.rect(debris_surf, particle['color'], 
+                               (center_x - particle['width']//2, center_y - particle['height']//2,
+                                particle['width'], particle['height']))
+                # 가장자리 강조
+                edge_color = tuple(min(255, c + 30) for c in particle['color'])
+                pygame.draw.rect(debris_surf, edge_color, 
+                               (center_x - particle['width']//2, center_y - particle['height']//2,
+                                particle['width'], particle['height']), 1)
+                
+            else:  # chunk - 불규칙한 덩어리
+                debris_surf = pygame.Surface((particle['width'] * 3, particle['height'] * 3), pygame.SRCALPHA)
+                center_x = particle['width'] * 1.5
+                center_y = particle['height'] * 1.5
+                # 불규칙한 다각형 모양
+                points = []
+                for i in range(6):  # 6각형 기반
+                    angle = i * 60 + particle['rotation']
+                    radius = random.uniform(particle['width'] * 0.3, particle['width'] * 0.7)
+                    x = center_x + radius * math.cos(math.radians(angle))
+                    y = center_y + radius * math.sin(math.radians(angle))
+                    points.append((x, y))
+                pygame.draw.polygon(debris_surf, particle['color'], points)
             
             # 회전 적용
             rotated_debris = pygame.transform.rotate(debris_surf, particle['rotation'])
@@ -3379,11 +3442,38 @@ class SupplyAircraft:
             debris_y = int(particle['y'] - rotated_debris.get_height() // 2)
             screen.blit(rotated_debris, (debris_x, debris_y))
             
-        # 폭발 파티클 그리기
+        # 현실적인 화염 파티클 그리기
         for particle in self.explosion_particles:
-            pygame.draw.circle(screen, particle['color'], 
-                             (int(particle['x']), int(particle['y'])), 
-                             particle['size'])
+            # 화염 모양을 위한 불규칙한 원형
+            flame_surf = pygame.Surface((particle['size'] * 3, particle['size'] * 3), pygame.SRCALPHA)
+            center_x = particle['size'] * 1.5
+            center_y = particle['size'] * 1.5
+            
+            # 화염의 핵심부 (밝은 색)
+            core_size = max(2, particle['size'] // 2)
+            core_color = tuple(min(255, c + 50) for c in particle['color'])
+            pygame.draw.circle(flame_surf, core_color, (int(center_x), int(center_y)), core_size)
+            
+            # 화염의 외곽부 (어두운 색)
+            outer_size = particle['size']
+            # 화염 모양을 위한 여러 개의 작은 원들
+            for i in range(3):
+                offset_x = random.randint(-2, 2)
+                offset_y = random.randint(-2, 2)
+                flame_size = max(1, outer_size - i * 2)
+                flame_alpha = max(50, 255 - i * 60)
+                
+                if len(particle['color']) == 3:
+                    flame_color = particle['color'] + (flame_alpha,)
+                else:
+                    flame_color = particle['color'][:3] + (flame_alpha,)
+                    
+                flame_pos = (int(center_x + offset_x), int(center_y + offset_y))
+                pygame.draw.circle(flame_surf, flame_color, flame_pos, flame_size)
+            
+            flame_x = int(particle['x'] - flame_surf.get_width() // 2)
+            flame_y = int(particle['y'] - flame_surf.get_height() // 2)
+            screen.blit(flame_surf, (flame_x, flame_y))
             
         # 추락 중일 때는 회전된 비행기 그리기
         if self.is_crashing:
@@ -8735,9 +8825,27 @@ def handle_player(keys):
         except:
             pass
     
+    # 물자보급 스킬 발동 조건 체크 (대시와 같은 방식으로 서브 상태 처리)
+    can_use_supply_drop = False
+    # 기본 조건 (일반 상태에서)
+    if not is_waiting_for_serve and not is_player_serve:
+        can_use_supply_drop = True
+    # 플레이어 서브 상태에서는 6초 후에만 사용 가능
+    elif is_player_serve and is_waiting_for_serve:
+        serve_wait_time = pygame.time.get_ticks() - waiting_start_time
+        if serve_wait_time >= 6000:  # 6초 이상 대기했을 때만
+            can_use_supply_drop = True
+    
+    # 디버그: 물자보급 시도 감지
+    if space_pressed and up_pressed and selected_character_type == "soldier":
+        print(f"🎁 [물자보급 시도] gauge={special_gauge}/{SUPPLY_DROP_GAUGE_COST}, active={supply_drop_active}, can_use={can_use_supply_drop}")
+        if is_player_serve and is_waiting_for_serve:
+            serve_wait_time = pygame.time.get_ticks() - waiting_start_time
+            print(f"  서브 대기 중: {serve_wait_time}ms (6000ms 필요)")
+    
     if (space_pressed and up_pressed and selected_character_type == "soldier" and 
         not supply_drop_active and special_gauge >= SUPPLY_DROP_GAUGE_COST and
-        not is_waiting_for_serve and not is_player_serve):
+        can_use_supply_drop):
         # 물자보급 스킬 발동
         supply_drop_active = True
         special_gauge -= SUPPLY_DROP_GAUGE_COST
