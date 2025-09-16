@@ -31367,6 +31367,45 @@ def create_fireball_explosion(x, y):
         life = random.randint(15, 35)  # 프레임 단위
         fireball_explosion_particles.append([x, y, vx, vy, life, life])
 
+def deflect_fragment_to_boss(fragment):
+    """대쉬로 달의 파편을 보스에게 반사시키는 함수"""
+    global animated_bg_stage4
+    
+    if not animated_bg_stage4:
+        return
+    
+    # 보스 위치 계산
+    boss_center_x = BOSS.centerx
+    boss_center_y = BOSS.centery
+    
+    # 파편에서 보스까지의 방향 벡터 계산
+    dx = boss_center_x - fragment['x']
+    dy = boss_center_y - fragment['y']
+    distance = math.sqrt(dx*dx + dy*dy)
+    
+    if distance == 0:
+        return
+    
+    # 정규화된 방향 벡터
+    dir_x = dx / distance
+    dir_y = dy / distance
+    
+    # 파편 속도 (원래 속도보다 빠르게 설정)
+    fragment_speed = 12.0  # 원래 파편 속도보다 빠르게
+    
+    # 백그라운드 매니저의 파편 데이터를 직접 수정
+    for bg_fragment in animated_bg_stage4.moon_fragments:
+        if (abs(bg_fragment['x'] - fragment['x']) < 5 and 
+            abs(bg_fragment['y'] - fragment['y']) < 5 and 
+            not bg_fragment['impact']):
+            # 파편의 속도와 방향을 보스쪽으로 변경
+            bg_fragment['vx'] = dir_x * fragment_speed
+            bg_fragment['vy'] = dir_y * fragment_speed
+            # 파편이 반사되었음을 표시 (보스 피격 감지용)
+            bg_fragment['deflected'] = True
+            print(f"파편 반사 완료: 속도 ({bg_fragment['vx']:.1f}, {bg_fragment['vy']:.1f})")
+            break
+
 def update_fireball_explosion_particles():
     """화염탄 폭발 파티클 업데이트"""
     global fireball_explosion_particles
@@ -33395,8 +33434,9 @@ def handle_ball():
                     # 시체 수집 효과음만 재생
                     print(f"   !")
         
-        # 3. 플레이어와 달 크레이터 파편 충돌 (화상 효과)
+        # 3. 플레이어와 달 크레이터 파편 충돌 (화상 효과 및 대쉬 반사)
         global player_burn_timer, player_burn_effect, player_knockback_y
+        global rolling_active, boss_stunned_timer, boss_knockback_vel  # 대쉬 및 보스 스턴 변수 추가
         moon_fragments = animated_bg_stage4.get_moon_fragments()
         for fragment in moon_fragments:
             # 파편을 원으로 간주하고 패들과 충돌 체크
@@ -33419,8 +33459,19 @@ def handle_ball():
                     # 연막에 의해 보호됨 - 파편이 막힘
                     print(f"테크니컬 조끼 연막이 달의 파편을 막았습니다!")
                     print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f})")
+                elif rolling_active:
+                    # 🦵 대쉬 중일 때 - 파편을 보스에게 반사!
+                    deflect_fragment_to_boss(fragment)
+                    print(f"대쉬로 달의 파편을 퐁크에게 반사!")
+                    print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}) → 보스: ({BOSS.centerx}, {BOSS.centery})")
+                    
+                    # 반사 효과음 재생 (대쉬 효과음 사용)
+                    try:
+                        play_dash_sound()
+                    except:
+                        pass
                 else:
-                    # 연막이 없거나 범위 밖 - 화상 효과 적용
+                    # 일반 상황 - 화상 효과 적용
                     player_burn_timer = 30  # 0.5초 (60 FPS 기준)
                     player_burn_effect = True
                     
@@ -33439,6 +33490,61 @@ def handle_ball():
                     print(f"플레이어 화상! 게이지 -50, 0.5초 통제불능 + 넉백")
                     print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
                 break  # 한 프레임에 하나의 파편만 처리
+
+        # 4. 보스와 반사된 달 크레이터 파편 충돌 (스테이지 4 대쉬 반사 시스템)
+        if current_stage == 4 and animated_bg_stage4:
+            moon_fragments = animated_bg_stage4.get_moon_fragments()
+            for fragment in moon_fragments:
+                # 반사된 파편만 보스 충돌 체크
+                fragment_deflected = False
+                # 백그라운드 매니저에서 deflected 플래그 확인
+                for bg_fragment in animated_bg_stage4.moon_fragments:
+                    if (abs(bg_fragment['x'] - fragment['x']) < 5 and 
+                        abs(bg_fragment['y'] - fragment['y']) < 5 and
+                        bg_fragment.get('deflected', False)):
+                        fragment_deflected = True
+                        break
+                
+                if fragment_deflected:
+                    # 보스와 파편 충돌 체크
+                    fragment_rect = pygame.Rect(fragment['x'] - fragment['radius'], 
+                                               fragment['y'] - fragment['radius'],
+                                               fragment['radius'] * 2, 
+                                               fragment['radius'] * 2)
+                    
+                    if BOSS.colliderect(fragment_rect):
+                        # 🎯 보스 피격! - 플레이어가 파편에 맞았을 때와 동일한 효과
+                        
+                        # 보스 스턴 (0.5초)
+                        boss_stunned_timer = 30  # 0.5초 (60 FPS 기준)
+                        
+                        # 보스 넉백 (파편 방향의 반대로)
+                        fragment_dx = fragment['x'] - BOSS.centerx
+                        if abs(fragment_dx) > 5:  # 충분한 거리가 있을 때만 넉백 방향 결정
+                            boss_knockback_vel = 8 if fragment_dx > 0 else -8
+                        else:
+                            boss_knockback_vel = random.choice([-8, 8])  # 랜덤 방향
+                        
+                        # 보스 게이지 감소 (Stage 4 전용)
+                        if 'boss_special_gauge_stage4' in globals():
+                            boss_special_gauge_stage4 = max(0, boss_special_gauge_stage4 - 50)
+                        
+                        # 파편 제거 (충돌 완료)
+                        for bg_fragment in animated_bg_stage4.moon_fragments:
+                            if (abs(bg_fragment['x'] - fragment['x']) < 5 and 
+                                abs(bg_fragment['y'] - fragment['y']) < 5):
+                                bg_fragment['impact'] = True  # 파편 제거
+                                break
+                        
+                        # 파편 피격 효과음 재생
+                        try:
+                            play_sound_with_volume(SOUND_BIRDKILL)  # 동일한 효과음
+                        except:
+                            pass
+                        
+                        print(f"퐁크 피격! 달의 파편 반사 성공! 게이지 -50, 0.5초 스턴 + 넉백")
+                        print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}) → 보스: ({BOSS.centerx}, {BOSS.centery})")
+                        break  # 한 프레임에 하나의 파편만 처리
     
     # --- 벽 충돌 처리 ---
     if BALL.left <= 0:
