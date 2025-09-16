@@ -9922,7 +9922,7 @@ def handle_player(keys):
             else:
                 # 캐릭터별 기본 게이지 충전량
                 if selected_character_type == "soldier":
-                    base_gauge_gain = 60  # 군인: 게이지 충전 60
+                    base_gauge_gain = 50  # 군인: 게이지 충전 50
                 else:
                     base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -32528,7 +32528,7 @@ def handle_ball():
                     if chargebag_obtained and not aipill_active:
                         # 캐릭터별 기본 게이지 충전량
                         if selected_character_type == "soldier":
-                            base_gauge_gain = 60  # 군인: 게이지 충전 60
+                            base_gauge_gain = 50  # 군인: 게이지 충전 50
                         else:
                             base_gauge_gain = 80  # 스매셔: 게이지 충전 80
                         skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -32970,7 +32970,7 @@ def handle_ball():
             # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
             # 캐릭터별 기본 게이지 충전량
             if selected_character_type == "soldier":
-                base_gauge_gain = 60  # 군인: 게이지 충전 60
+                base_gauge_gain = 50  # 군인: 게이지 충전 50
             else:
                 base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -33079,7 +33079,7 @@ def handle_ball():
             # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
             # 캐릭터별 기본 게이지 충전량
             if selected_character_type == "soldier":
-                base_gauge_gain = 60  # 군인: 게이지 충전 60
+                base_gauge_gain = 50  # 군인: 게이지 충전 50
             else:
                 base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -33858,7 +33858,7 @@ def handle_ball():
             else:
                 # 캐릭터별 기본 게이지 충전량
                 if selected_character_type == "soldier":
-                    base_gauge_gain = 60  # 군인: 게이지 충전 60
+                    base_gauge_gain = 50  # 군인: 게이지 충전 50
                 else:
                     base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
