@@ -6424,7 +6424,7 @@ def draw_soldier_weapon_ui(screen):
     bottom_margin = 80  # 화면 하단에서 여백
     
     # 권총 아이콘 위치 (액티브 슬롯 위) - 크기를 더 줄이고 위치 조정
-    weapon_size = int(slot_size * 1.0)  # 1.0배 크기로 축소 (슬롯과 동일)
+    weapon_size = int(slot_size * 0.8)  # 0.8배 크기로 축소
     weapon_x = slot_margin
     weapon_y = HEIGHT - bottom_margin - slot_size - weapon_size + 15  # 위치를 더 아래로 조정
     
@@ -6438,33 +6438,33 @@ def draw_soldier_weapon_ui(screen):
     # 실제 권총 모양 그리기
     gun_center_x, gun_center_y = weapon_rect.center
     
-    # 권총 손잡이 (그립)
-    grip_rect = pygame.Rect(gun_center_x - 12, gun_center_y, 10, 20)
+    # 권총 손잡이 (그립) - 작은 크기에 맞게 조정
+    grip_rect = pygame.Rect(gun_center_x - 8, gun_center_y, 7, 15)
     pygame.draw.rect(screen, (60, 40, 20), grip_rect)  # 갈색 손잡이
     pygame.draw.rect(screen, (40, 25, 10), grip_rect, 1)
     
-    # 권총 본체
-    body_rect = pygame.Rect(gun_center_x - 15, gun_center_y - 10, 25, 12)
+    # 권총 본체 - 작은 크기에 맞게 조정
+    body_rect = pygame.Rect(gun_center_x - 12, gun_center_y - 7, 20, 10)
     pygame.draw.rect(screen, (80, 80, 80), body_rect)  # 회색 본체
     pygame.draw.rect(screen, (50, 50, 50), body_rect, 2)
     
-    # 권총 총열
-    barrel_rect = pygame.Rect(gun_center_x + 10, gun_center_y - 5, 15, 6)
+    # 권총 총열 - 작은 크기에 맞게 조정
+    barrel_rect = pygame.Rect(gun_center_x + 8, gun_center_y - 3, 12, 5)
     pygame.draw.rect(screen, (40, 40, 40), barrel_rect)  # 어두운 총열
     
-    # 방아쇠 가드
-    trigger_guard = [(gun_center_x - 8, gun_center_y + 2),
-                     (gun_center_x - 5, gun_center_y + 7),
-                     (gun_center_x - 2, gun_center_y + 7),
+    # 방아쇠 가드 - 작은 크기에 맞게 조정
+    trigger_guard = [(gun_center_x - 6, gun_center_y + 2),
+                     (gun_center_x - 4, gun_center_y + 5),
+                     (gun_center_x - 2, gun_center_y + 5),
                      (gun_center_x, gun_center_y + 2)]
     pygame.draw.lines(screen, (60, 60, 60), False, trigger_guard, 2)
     
-    # 총탄 개수 표시 (권총 아이콘 아래) - 실제 총탄 모양으로
-    bullet_start_x = weapon_x + 5
-    bullet_y = weapon_y + weapon_size + 8
-    bullet_width = 6
-    bullet_height = 12
-    bullet_spacing = 14
+    # 총탄 개수 표시 (권총 아이콘 아래) - 실제 총탄 모양으로 (크기 축소)
+    bullet_start_x = weapon_x + 3
+    bullet_y = weapon_y + weapon_size + 6
+    bullet_width = 5
+    bullet_height = 10
+    bullet_spacing = 11
     
     # 재장전 중일 때 표시할 총탄 수 계산
     if soldier_reloading:
@@ -6659,8 +6659,8 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     """군인 총알의 보스 패들 넉백 효과 트리거 (라그나로크 해머 방식 참조)"""
     global boss_knockback_timer, boss_knockback_vel
     
-    # 라그나로크 해머 방식의 넉백 계산 (홍련 화염탄 수준)
-    base_power = 8  # 기본 넉백 파워 (홍련 화염탄 수준으로 조정)
+    # 라그나로크 해머 방식의 넉백 곈4산 (홍련 화염탄 수준)
+    base_power = 14  # 기본 넉백 파워 (홍련 화염탄 수준으로 조정)
     
     # 보스 위치에 따라 방향 결정 (라그나로크 해머와 동일한 로직)
     center_x = 300  # 화면 중앙
