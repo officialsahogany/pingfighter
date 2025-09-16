@@ -2897,6 +2897,280 @@ psycho_sound_channel = None  # 사이코볼 사운드 채널
 dash_spirit_lasers = []  # [(start_x, start_y, end_x, end_y, remaining_time, direction, electric_offset), ...]
 DASH_SPIRIT_LASER_DURATION = 360  # 6초 (60fps 기준)
 
+# === 물자보급 스킬 시스템 ===
+supply_drop_active = False  # 물자보급 스킬 활성 여부
+supply_aircraft = None  # 군용 비행기 객체
+supply_drop_items = []  # 낙하산으로 떨어지는 아이템들
+supply_drop_timer = 0  # 물자보급 발동 후 타이머
+SUPPLY_DROP_GAUGE_COST = 350  # 물자보급 스킬 게이지 소모량
+SUPPLY_DROP_ITEMS = ["grenade", "molotov", "flare"]  # 투척 가능한 아이템 목록
+
+# === 군용 비행기 클래스 ===
+class SupplyAircraft:
+    def __init__(self, direction="left_to_right"):
+        """
+        군용 비행기 초기화
+        Args:
+            direction: "left_to_right" 또는 "right_to_left"
+        """
+        self.direction = direction
+        self.width = 80
+        self.height = 30
+        self.speed = 2
+        
+        # 위치 초기화
+        if direction == "left_to_right":
+            self.x = -self.width
+        else:
+            self.x = WIDTH + self.width
+        
+        self.y = 50  # 화면 상단에서 50픽셀 아래
+        self.active = True
+        self.drop_timer = 0
+        self.drop_interval = 60  # 1초마다 아이템 투척 (60fps 기준)
+        self.items_dropped = 0
+        self.max_items = random.randint(2, 3)  # 2~3개 아이템 투척
+        
+    def update(self):
+        """비행기 업데이트"""
+        if not self.active:
+            return
+            
+        # 비행기 이동
+        if self.direction == "left_to_right":
+            self.x += self.speed
+            if self.x > WIDTH + self.width:
+                self.active = False
+        else:
+            self.x -= self.speed
+            if self.x < -self.width:
+                self.active = False
+                
+        # 아이템 투척 타이머
+        self.drop_timer += 1
+        if self.drop_timer >= self.drop_interval and self.items_dropped < self.max_items:
+            self.drop_item()
+            self.drop_timer = 0
+            self.items_dropped += 1
+            
+    def drop_item(self):
+        """아이템 투척"""
+        global supply_drop_items
+        
+        # 랜덤 아이템 선택
+        item_name = random.choice(SUPPLY_DROP_ITEMS)
+        
+        # 아이템 투척 위치 계산 (비행기 중앙에서)
+        drop_x = self.x + self.width // 2
+        drop_y = self.y + self.height
+        
+        # 낙하산 아이템 생성
+        parachute_item = {
+            "name": item_name,
+            "x": drop_x,
+            "y": drop_y,
+            "vx": 0,  # 수평 속도
+            "vy": 1,  # 낙하 속도
+            "parachute_open": True,
+            "rotation": 0,
+            "sway": 0,  # 좌우 흔들림
+            "active": True
+        }
+        
+        supply_drop_items.append(parachute_item)
+        
+    def draw(self, screen):
+        """비행기 그리기"""
+        if not self.active:
+            return
+            
+        # 비행기 몸체 (진한 회색)
+        body_color = (60, 60, 60)
+        pygame.draw.ellipse(screen, body_color, 
+                          (self.x, self.y + 8, self.width, 14))
+        
+        # 날개 (회색)
+        wing_color = (100, 100, 100)
+        if self.direction == "left_to_right":
+            # 왼쪽에서 오른쪽으로 비행
+            pygame.draw.polygon(screen, wing_color, [
+                (self.x + 20, self.y + 15),
+                (self.x + 60, self.y + 5),
+                (self.x + 60, self.y + 25),
+                (self.x + 20, self.y + 15)
+            ])
+            # 꼬리날개
+            pygame.draw.polygon(screen, wing_color, [
+                (self.x + 5, self.y + 10),
+                (self.x + 20, self.y + 5),
+                (self.x + 20, self.y + 25),
+                (self.x + 5, self.y + 20)
+            ])
+        else:
+            # 오른쪽에서 왼쪽으로 비행
+            pygame.draw.polygon(screen, wing_color, [
+                (self.x + 60, self.y + 15),
+                (self.x + 20, self.y + 5),
+                (self.x + 20, self.y + 25),
+                (self.x + 60, self.y + 15)
+            ])
+            # 꼬리날개
+            pygame.draw.polygon(screen, wing_color, [
+                (self.x + 75, self.y + 10),
+                (self.x + 60, self.y + 5),
+                (self.x + 60, self.y + 25),
+                (self.x + 75, self.y + 20)
+            ])
+        
+        # 프로펠러 (빠르게 회전하는 효과)
+        prop_color = (150, 150, 150)
+        if self.direction == "left_to_right":
+            prop_x = self.x + self.width - 5
+        else:
+            prop_x = self.x + 5
+        pygame.draw.circle(screen, prop_color, (prop_x, self.y + 15), 3)
+
+# === 낙하산 아이템 시스템 함수 ===
+def update_supply_drop_items():
+    """낙하산 아이템들 업데이트"""
+    global supply_drop_items
+    
+    for item in supply_drop_items[:]:  # 복사본을 만들어 안전하게 순회
+        if not item["active"]:
+            continue
+            
+        # 좌우 흔들림 효과
+        item["sway"] += 0.1
+        item["vx"] = math.sin(item["sway"]) * 0.5
+        
+        # 위치 업데이트
+        item["x"] += item["vx"]
+        item["y"] += item["vy"]
+        
+        # 회전 효과
+        item["rotation"] += 2
+        
+        # 화면 밖으로 나가면 제거
+        if item["y"] > HEIGHT + 50:
+            supply_drop_items.remove(item)
+            continue
+            
+        # 플레이어와 충돌 검사 (paddle_x, paddle_y 사용)
+        player_rect = pygame.Rect(paddle_x - 25, paddle_y - 25, 50, 50)
+        item_rect = pygame.Rect(item["x"] - 16, item["y"] - 16, 32, 32)
+        
+        if player_rect.colliderect(item_rect):
+            # 아이템 획득
+            activate_supply_drop_item(item["name"])
+            supply_drop_items.remove(item)
+
+def draw_supply_drop_items(screen):
+    """낙하산 아이템들 그리기"""
+    for item in supply_drop_items:
+        if not item["active"]:
+            continue
+            
+        x, y = int(item["x"]), int(item["y"])
+        
+        # 낙하산 그리기
+        parachute_color = (200, 200, 200)
+        parachute_radius = 12
+        
+        # 낙하산 캔버스
+        pygame.draw.circle(screen, parachute_color, (x, y - 20), parachute_radius)
+        pygame.draw.circle(screen, (150, 150, 150), (x, y - 20), parachute_radius, 2)
+        
+        # 낙하산 줄
+        pygame.draw.line(screen, (100, 100, 100), (x - 8, y - 8), (x - 4, y + 8), 1)
+        pygame.draw.line(screen, (100, 100, 100), (x + 8, y - 8), (x + 4, y + 8), 1)
+        pygame.draw.line(screen, (100, 100, 100), (x, y - 12), (x, y + 8), 1)
+        
+        # 아이템 아이콘 그리기
+        draw_supply_item_icon(screen, item["name"], x, y, item["rotation"])
+
+def draw_supply_item_icon(screen, item_name, x, y, rotation):
+    """물자보급 아이템 아이콘 그리기"""
+    icon_size = 16
+    
+    if item_name == "grenade":
+        # 수류탄 아이콘 (녹색 원형)
+        color = (50, 150, 50)
+        pygame.draw.circle(screen, color, (x, y), icon_size)
+        pygame.draw.circle(screen, (30, 100, 30), (x, y), icon_size, 2)
+        # 핀 그리기
+        pygame.draw.circle(screen, (200, 200, 200), (x - 8, y - 8), 3)
+        
+    elif item_name == "molotov":
+        # 화염병 아이콘 (주황색 병)
+        color = (200, 100, 50)
+        bottle_rect = pygame.Rect(x - icon_size//2, y - icon_size//2, icon_size, icon_size)
+        pygame.draw.ellipse(screen, color, bottle_rect)
+        # 불꽃 효과
+        flame_color = (255, 150, 0)
+        pygame.draw.circle(screen, flame_color, (x, y - 10), 4)
+        
+    elif item_name == "flare":
+        # 조명탄 아이콘 (빨간색 원통)
+        color = (200, 50, 50)
+        flare_rect = pygame.Rect(x - icon_size//2, y - icon_size//2, icon_size, icon_size//2)
+        pygame.draw.ellipse(screen, color, flare_rect)
+        # 빛 효과
+        light_color = (255, 255, 100)
+        pygame.draw.circle(screen, light_color, (x, y), icon_size + 4, 2)
+
+def activate_supply_drop_item(item_name):
+    """물자보급 아이템 활성화"""
+    if item_name == "grenade":
+        from item_effects.grenade import get_grenade_instance
+        grenade = get_grenade_instance()
+        if grenade:
+            grenade.activate(None, current_stage)
+            
+    elif item_name == "molotov":
+        from item_effects.molotov import get_molotov_instance
+        molotov = get_molotov_instance()
+        if molotov:
+            molotov.activate(None, current_stage)
+            
+    elif item_name == "flare":
+        from item_effects.flare import get_flare_instance
+        flare = get_flare_instance()
+        if flare:
+            flare.activate(None, current_stage)
+
+def update_supply_drop_system():
+    """물자보급 시스템 전체 업데이트"""
+    global supply_drop_active, supply_aircraft, supply_drop_timer
+    
+    # 물자보급 타이머 처리
+    if supply_drop_active and supply_drop_timer > 0:
+        supply_drop_timer -= 1
+        if supply_drop_timer == 0:
+            # 비행기 생성
+            direction = random.choice(["left_to_right", "right_to_left"])
+            supply_aircraft = SupplyAircraft(direction)
+            print(f"군용 비행기 출현! 방향: {direction}")
+    
+    # 비행기 업데이트
+    if supply_aircraft and supply_aircraft.active:
+        supply_aircraft.update()
+        if not supply_aircraft.active:
+            supply_aircraft = None
+            supply_drop_active = False
+            print("물자보급 완료")
+    
+    # 낙하산 아이템 업데이트
+    update_supply_drop_items()
+
+def draw_supply_drop_system(screen):
+    """물자보급 시스템 그리기"""
+    # 비행기 그리기
+    if supply_aircraft and supply_aircraft.active:
+        supply_aircraft.draw(screen)
+    
+    # 낙하산 아이템들 그리기
+    draw_supply_drop_items(screen)
+
 # 3:0 완승 보너스 메시지 타이머
 perfect_victory_bonus_timer = 0
 victory_bonus_type = ""  # "perfect" (3:0) or "dominant" (3:1)
@@ -7274,6 +7548,22 @@ def handle_player(keys):
     # 키 입력 변수 초기화
     space_pressed = keys[pygame.K_SPACE]
     down_pressed = keys[pygame.K_DOWN]
+    
+    # 물자보급 스킬 처리 (군인 캐릭터 전용)
+    global supply_drop_active, supply_aircraft, special_gauge, selected_character_type, supply_drop_timer
+    
+    # 물자보급 스킬 발동 조건 확인
+    
+    if (space_pressed and selected_character_type == "soldier" and 
+        not supply_drop_active and special_gauge >= SUPPLY_DROP_GAUGE_COST):
+        # 물자보급 스킬 발동
+        supply_drop_active = True
+        special_gauge -= SUPPLY_DROP_GAUGE_COST
+        supply_drop_timer = 60  # 1초 (60fps 기준)
+        print("물자보급 발동! 1초 후 비행기 출현")
+    
+    # 물자보급 시스템 업데이트
+    update_supply_drop_system()
     
     # 튜토리얼 대쉬 도우미는 일정 시간 동안 유지 (바로 끄지 않음)
     global tutorial_dash_helper_active, tutorial_dash_helper_start_time
@@ -18101,7 +18391,7 @@ def show_start_screen():
                     elif choice == "개발자":
                         show_developer_stage_select()
                     elif choice == "아이템관리":
-                        show_item_manager_menu()
+                        show_character_item_manager()
 def show_tutorial_dialog():
     """튜토리얼 진행 여부를 묻는 다이얼로그"""
     clock = pygame.time.Clock()
@@ -36062,6 +36352,11 @@ def show_result(won):
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+        # 물자보급 스킬 초기화
+        supply_drop_active = False
+        supply_aircraft = None
+        supply_drop_items = []
+        supply_drop_timer = 0
         #  튜토리얼 챕터별 최대 게이지 오버라이드 초기화
         tutorial_chapter1_max_gauge = None
         tutorial_chapter2_max_gauge = None
@@ -37125,6 +37420,11 @@ def main(stage_num, new_boss_mode=False):
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
             acceleration_skill_level = 0
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+            # 물자보급 스킬 초기화
+            supply_drop_active = False
+            supply_aircraft = None
+            supply_drop_items = []
+            supply_drop_timer = 0
             #  튜토리얼 드라이브 챕터 최대 게이지 오버라이드 초기화
             tutorial_drive_chapter_max_gauge = None
             #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
@@ -37912,6 +38212,11 @@ def main(stage_num, new_boss_mode=False):
                     #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
                     acceleration_skill_level = 0
                     acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+                    # 물자보급 스킬 초기화
+                    supply_drop_active = False
+                    supply_aircraft = None
+                    supply_drop_items = []
+                    supply_drop_timer = 0
                     #  튜토리얼 드라이브 챕터 최대 게이지 오버라이드 초기화
                     tutorial_drive_chapter_max_gauge = None
                     #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
@@ -38773,6 +39078,11 @@ def main(stage_num, new_boss_mode=False):
                 cooldown_reduction += 2400 if cooltime_obtained else 0
                 items.draw_active_item(SCREEN, active_item_slot, active_item_icon_size, selected_item_index, 8000 - cooldown_reduction, round_start_time)
                 items.draw_items(SCREEN)
+                
+                # 물자보급 시스템 그리기 (군인 캐릭터 전용)
+                if selected_character_type == "soldier":
+                    draw_supply_drop_system(SCREEN)
+                
                 draw_pandora_box_effect()  # 판도라의 상자 무지개 효과
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
                 draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
@@ -38831,6 +39141,11 @@ def main(stage_num, new_boss_mode=False):
                 cooldown_reduction += 2400 if cooltime_obtained else 0
                 items.draw_active_item(SCREEN, active_item_slot, active_item_icon_size, selected_item_index, 8000 - cooldown_reduction, round_start_time)
                 items.draw_items(SCREEN)
+                
+                # 물자보급 시스템 그리기 (군인 캐릭터 전용)
+                if selected_character_type == "soldier":
+                    draw_supply_drop_system(SCREEN)
+                
                 draw_pandora_box_effect()  # 판도라의 상자 무지개 효과
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
                 draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
@@ -41070,6 +41385,490 @@ def show_surrender_confirm():
                 for i, rect in enumerate(buttons):
                     if rect.collidepoint(mouse_pos):
                         return i == 0  # 예를 선택했으면 True
+def show_character_item_manager():
+    """캐릭터 & 아이템 관리자 메뉴 - 캐릭터 선택과 아이템 관리를 통합"""
+    global active_item_slot, passive_item_list, selected_item_index, selected_passive_item
+    global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
+    global chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained, sensor_obtained
+    global dashholder_obtained
+    global rolling_charges, items, selected_character_type
+    
+    # 메뉴 탭 선택 상태: 0: 캐릭터, 1: 엑티브, 2: 패시브, 3: 전설
+    selected_main_tab = 0  
+    selected_category = 1  # 아이템 카테고리별 선택 (캐릭터 탭에서는 사용하지 않음)
+    selected_item_index = 0
+    
+    # 캐릭터 선택 관련 변수
+    selected_character_index = 0
+    
+    # 캐릭터 데이터 정의
+    characters = [
+        {
+            "id": "normal",
+            "name": "일반 플레이어",
+            "description": "균형잡힌 기본 캐릭터\n기본적이고 안정적인 성능",
+            "stats": {"속도": 5, "파워": 5, "방어": 5},
+            "special": "안정적인 기본 성능",
+            "unlocked": True,
+            "card_color": (120, 120, 120),
+            "glow_color": (150, 150, 150),
+        },
+        {
+            "id": "smasher",
+            "name": "스매셔",
+            "description": "강력한 스매시 샷을 사용하는 캐릭터\n공격적인 플레이 스타일",
+            "stats": {"속도": 4, "파워": 7, "방어": 4},
+            "special": "스매시 전용 스킬트리 보유",
+            "unlocked": True,
+            "card_color": CYAN,
+            "glow_color": (0, 200, 255),
+        },
+        {
+            "id": "soldier",
+            "name": "군인",
+            "description": "전술적 플레이와 강인한 정신력\n화기류 아이템 전문",
+            "stats": {"속도": 6, "파워": 6, "방어": 6},
+            "special": "전투 경험과 전술적 우위",
+            "unlocked": True,
+            "card_color": (80, 120, 40),
+            "glow_color": (100, 150, 50),
+        }
+    ]
+    
+    # 현재 선택된 캐릭터 찾기
+    for i, char in enumerate(characters):
+        if char["id"] == selected_character_type:
+            selected_character_index = i
+            break
+    
+    # 선택된 아이템들을 저장할 리스트
+    selected_active_items = []
+    selected_passive_items = []
+    selected_legendary_items = []
+    
+    # 아이템 그리드 설정
+    grid_cols = 6
+    grid_rows = 4
+    item_size = 60
+    item_spacing = 20
+    grid_start_x = (WIDTH - (grid_cols * item_size + (grid_cols - 1) * item_spacing)) // 2
+    grid_start_y = 200
+    
+    # 아이템 목록 생성 함수
+    def get_icon_safe(icon_var_name, item_name):
+        try:
+            icon = globals().get(icon_var_name)
+            if icon is not None:
+                return icon
+        except:
+            pass
+        return get_item_icon(item_name)
+    
+    all_items = [
+        # 엑티브 아이템들
+        {"name": "long_boost", "type": "active", "icon": get_icon_safe("long_boost_icon", "long_boost")},
+        {"name": "gauge_charge", "type": "active", "icon": get_icon_safe("gauge_200_icon", "gauge_charge")},
+        {"name": "life_elixir", "type": "active", "icon": get_icon_safe("life_elixir_icon", "life_elixir")},
+        {"name": "aipill", "type": "active", "icon": get_icon_safe("aipill_icon", "aipill")},
+        {"name": "wall", "type": "active", "icon": get_icon_safe("wall_icon", "wall")},
+        {"name": "molotov", "type": "active", "icon": get_icon_safe("molotov_icon", "molotov")},
+        {"name": "grenade", "type": "active", "icon": get_icon_safe("grenade_icon", "grenade")},
+        {"name": "flare", "type": "active", "icon": get_icon_safe("flare_icon", "flare")},
+        {"name": "predictor", "type": "active", "icon": get_icon_safe("predictor_icon", "predictor")},
+        {"name": "smoke_grenade", "type": "active", "icon": get_icon_safe("smoke_grenade_icon", "smoke_grenade")},
+        {"name": "pandora_box", "type": "active", "icon": get_icon_safe("pandora_box_icon", "pandora_box")},
+        {"name": "stopwatch", "type": "active", "icon": get_icon_safe("stopwatch_icon", "stopwatch")},
+        {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
+        # 패시브 아이템들
+        {"name": "slot_add", "type": "passive", "icon": get_icon_safe("slot_add_icon", "slot_add")},
+        {"name": "revival", "type": "passive", "icon": get_icon_safe("revival_icon", "revival")},
+        {"name": "master", "type": "passive", "icon": get_icon_safe("master_icon", "master")},
+        {"name": "cooltime", "type": "passive", "icon": get_icon_safe("cooltime_icon", "cooltime")},
+        {"name": "speedboots", "type": "passive", "icon": get_icon_safe("speedboots_icon", "speedboots")},
+        {"name": "gravitybelt", "type": "passive", "icon": get_icon_safe("gravitybelt_icon", "gravitybelt")},
+        {"name": "speedgear", "type": "passive", "icon": get_icon_safe("speedgear_icon", "speedgear")},
+        {"name": "battery", "type": "passive", "icon": get_icon_safe("battery_icon", "battery")},
+        {"name": "chargebag", "type": "passive", "icon": get_icon_safe("chargebag_icon", "chargebag")},
+        {"name": "spikeboots", "type": "passive", "icon": get_icon_safe("spikeboots_icon", "spikeboots")},
+        {"name": "dashgear", "type": "passive", "icon": get_icon_safe("dashgear_icon", "dashgear")},
+        {"name": "bulkup", "type": "passive", "icon": get_icon_safe("bulkup_icon", "bulkup")},
+        {"name": "sensor", "type": "passive", "icon": get_icon_safe("sensor_icon", "sensor")},
+        {"name": "dashholder", "type": "passive", "icon": get_icon_safe("dashholder_icon", "dashholder")},
+    ]
+    
+    # 전설 아이템 추가
+    legendary_manager = get_legendary_manager()
+    legendary_items = []
+    if legendary_manager:
+        for item_name, item in legendary_manager.items.items():
+            if item.unlocked:
+                legendary_icon = get_item_icon(item.name)
+                legendary_items.append({
+                    "name": item.name,
+                    "type": "legendary",
+                    "icon": legendary_icon,
+                    "item_obj": item,
+                    "korean_name": item.korean_name,
+                    "description": item.description
+                })
+    
+    # 엑티브/패시브/전설 아이템 분리
+    active_items = [item for item in all_items if item["type"] == "active"]
+    passive_items = [item for item in all_items if item["type"] == "passive"]
+    
+    font_large = FontStyle.subtitle()  # 32pt 픽셀 폰트
+    font_medium = FontStyle.body()     # 24pt 픽셀 폰트
+    font_small = get_font(18)          # 18pt 픽셀 폰트
+    
+    clock = pygame.time.Clock()
+    
+    while True:
+        dt = clock.tick(60)
+        
+        # 전설 아이템 애니메이션 업데이트
+        for item in legendary_items:
+            if "item_obj" in item:
+                item["item_obj"].update(dt)
+        
+        # 배경 그리기
+        SCREEN.fill((10, 10, 40))
+        
+        # 제목
+        title_text = font_large.render("캐릭터 & 아이템 관리자", True, WHITE)
+        title_rect = title_text.get_rect(center=(WIDTH // 2, 80))
+        SCREEN.blit(title_text, title_rect)
+        
+        # 탭 버튼 (4개)
+        tab_width = 120
+        tab_height = 40
+        tab_y = 120
+        tab_spacing = 10
+        total_tab_width = tab_width * 4 + tab_spacing * 3
+        start_x = (WIDTH - total_tab_width) // 2
+        
+        tab_names = ["캐릭터", "엑티브", "패시브", "전설"]
+        tab_colors = [
+            (150, 100, 200) if selected_main_tab == 0 else (60, 60, 80),  # 캐릭터 - 보라색
+            (100, 150, 255) if selected_main_tab == 1 else (60, 60, 80),  # 엑티브 - 파란색
+            (100, 255, 150) if selected_main_tab == 2 else (60, 60, 80),  # 패시브 - 초록색
+            (255, 100, 100) if selected_main_tab == 3 else (80, 40, 40),  # 전설 - 빨간색
+        ]
+        
+        for i, (name, color) in enumerate(zip(tab_names, tab_colors)):
+            tab_rect = pygame.Rect(start_x + i * (tab_width + tab_spacing), tab_y, tab_width, tab_height)
+            draw.rect(color, tab_rect)
+            draw.rect(WHITE, tab_rect, 2)
+            tab_text = font_medium.render(name, True, WHITE)
+            tab_text_rect = tab_text.get_rect(center=tab_rect.center)
+            SCREEN.blit(tab_text, tab_text_rect)
+        
+        # 선택된 탭에 따른 내용 표시
+        if selected_main_tab == 0:  # 캐릭터 탭
+            # 캐릭터 카드들 표시
+            card_width = 280
+            card_height = 400
+            card_spacing = 40
+            total_width = len(characters) * card_width + (len(characters) - 1) * card_spacing
+            start_x = (WIDTH - total_width) // 2
+            start_y = 200
+            
+            for i, char in enumerate(characters):
+                card_x = start_x + i * (card_width + card_spacing)
+                card_rect = pygame.Rect(card_x, start_y, card_width, card_height)
+                
+                # 카드 배경 (선택된 캐릭터는 다른 색상)
+                if i == selected_character_index:
+                    card_color = char["glow_color"]
+                    border_color = WHITE
+                    border_width = 3
+                else:
+                    card_color = char["card_color"]
+                    border_color = (100, 100, 100)
+                    border_width = 1
+                
+                draw.rect(card_color, card_rect)
+                draw.rect(border_color, card_rect, border_width)
+                
+                # 캐릭터 이름
+                name_text = font_medium.render(char["name"], True, WHITE)
+                name_rect = name_text.get_rect(center=(card_rect.centerx, card_rect.y + 40))
+                SCREEN.blit(name_text, name_rect)
+                
+                # 캐릭터 설명
+                desc_lines = char["description"].split("\\n")
+                for j, line in enumerate(desc_lines):
+                    desc_text = font_small.render(line, True, WHITE)
+                    desc_rect = desc_text.get_rect(center=(card_rect.centerx, card_rect.y + 80 + j * 25))
+                    SCREEN.blit(desc_text, desc_rect)
+                
+                # 스탯 표시
+                stats_y = card_rect.y + 200
+                for j, (stat_name, stat_value) in enumerate(char["stats"].items()):
+                    stat_text = font_small.render(f"{stat_name}: {stat_value}", True, WHITE)
+                    stat_rect = stat_text.get_rect(center=(card_rect.centerx, stats_y + j * 25))
+                    SCREEN.blit(stat_text, stat_rect)
+                    
+                    # 스탯 바
+                    bar_width = 200
+                    bar_height = 8
+                    bar_x = card_rect.centerx - bar_width // 2
+                    bar_y = stats_y + j * 25 + 15
+                    
+                    # 배경 바
+                    bar_bg_rect = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
+                    draw.rect((50, 50, 50), bar_bg_rect)
+                    
+                    # 스탯 바
+                    stat_bar_width = int((stat_value / 8) * bar_width)
+                    stat_bar_rect = pygame.Rect(bar_x, bar_y, stat_bar_width, bar_height)
+                    stat_color = (255, 255 - stat_value * 30, 0) if stat_value > 5 else (255, 255, 0)
+                    draw.rect(stat_color, stat_bar_rect)
+                
+                # 특수 능력
+                special_text = font_small.render(char["special"], True, (255, 255, 150))
+                special_rect = special_text.get_rect(center=(card_rect.centerx, card_rect.y + 330))
+                SCREEN.blit(special_text, special_rect)
+                
+                # 현재 선택된 캐릭터 표시
+                if char["id"] == selected_character_type:
+                    current_text = font_small.render("현재 선택됨", True, (100, 255, 100))
+                    current_rect = current_text.get_rect(center=(card_rect.centerx, card_rect.y + 360))
+                    SCREEN.blit(current_text, current_rect)
+        
+        else:  # 아이템 탭들
+            # 현재 선택된 카테고리의 아이템들 표시
+            if selected_main_tab == 1:
+                current_items = active_items
+            elif selected_main_tab == 2:
+                current_items = passive_items
+            else:  # selected_main_tab == 3
+                current_items = legendary_items
+            
+            for i, item in enumerate(current_items):
+                row = i // grid_cols
+                col = i % grid_cols
+                x = grid_start_x + col * (item_size + item_spacing)
+                y = grid_start_y + row * (item_size + item_spacing)
+                
+                # 아이템 배경
+                item_rect = pygame.Rect(x, y, item_size, item_size)
+                draw.rect((60, 60, 80), item_rect)
+                draw.rect(WHITE, item_rect, 2)
+                
+                # 아이템 아이콘
+                if item["icon"]:
+                    # 아이콘을 item_size에 맞게 스케일
+                    scaled_icon = pygame.transform.scale(item["icon"], (item_size - 10, item_size - 10))
+                    icon_rect = scaled_icon.get_rect(center=item_rect.center)
+                    SCREEN.blit(scaled_icon, icon_rect)
+        
+        # 캐릭터 탭에서만 게임 시작 버튼 표시
+        if selected_main_tab == 0:
+            # 게임 시작 버튼
+            button_width = 200
+            button_height = 50
+            button_x = WIDTH // 2 - button_width // 2
+            button_y = HEIGHT - 120
+            start_button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
+            
+            # 버튼 그리기
+            button_color = (100, 200, 100)
+            draw.rect(button_color, start_button_rect)
+            draw.rect(WHITE, start_button_rect, 3)
+            
+            # 버튼 텍스트
+            button_text = font_medium.render("게임 시작", True, WHITE)
+            button_text_rect = button_text.get_rect(center=start_button_rect.center)
+            SCREEN.blit(button_text, button_text_rect)
+        
+        # 하단 안내 메시지
+        info_text = ""
+        if selected_main_tab == 0:
+            info_text = "좌우 키로 캐릭터 선택, SPACE로 캐릭터 변경, ENTER로 게임 시작, ESC로 돌아가기"
+        else:
+            info_text = "TAB으로 탭 전환, ESC로 돌아가기"
+        
+        info_surface = font_small.render(info_text, True, WHITE)
+        info_rect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+        SCREEN.blit(info_surface, info_rect)
+        
+        pygame.display.flip()
+        
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return  # 메뉴로 돌아가기
+                elif event.key == pygame.K_TAB:
+                    # 탭 전환
+                    selected_main_tab = (selected_main_tab + 1) % 4
+                    play_button_hover_sound()
+                elif event.key == pygame.K_LEFT and selected_main_tab == 0:
+                    # 캐릭터 선택
+                    selected_character_index = (selected_character_index - 1) % len(characters)
+                    play_button_hover_sound()
+                elif event.key == pygame.K_RIGHT and selected_main_tab == 0:
+                    # 캐릭터 선택
+                    selected_character_index = (selected_character_index + 1) % len(characters)
+                    play_button_hover_sound()
+                elif event.key == pygame.K_SPACE and selected_main_tab == 0:
+                    # 캐릭터 변경
+                    selected_character_type = characters[selected_character_index]["id"]
+                    play_button_click_sound()
+                elif event.key == pygame.K_RETURN and selected_main_tab == 0:
+                    # 게임 시작 - 스테이지 선택 화면으로 이동
+                    play_button_click_sound()
+                    selected_stage = show_stage_selection()
+                    if selected_stage is not None:
+                        main(selected_stage)  # 선택한 스테이지로 게임 시작
+                    return
+                elif event.key == pygame.K_1:
+                    selected_main_tab = 0
+                    play_button_hover_sound()
+                elif event.key == pygame.K_2:
+                    selected_main_tab = 1
+                    play_button_hover_sound()
+                elif event.key == pygame.K_3:
+                    selected_main_tab = 2
+                    play_button_hover_sound()
+                elif event.key == pygame.K_4:
+                    selected_main_tab = 3
+                    play_button_hover_sound()
+
+def show_stage_selection():
+    """스테이지 선택 화면"""
+    global ai_mode
+    
+    # 기본 리그 모드 설정
+    ai_mode = "pro"  # 프로리그가 기본
+    
+    # 스테이지 정보
+    stages = [
+        {"num": 1, "name": "스테이지 1", "desc": "UFO 플레이어", "color": (0, 150, 100)},
+        {"num": 2, "name": "스테이지 2", "desc": "정글 지진", "color": (0, 100, 200)},
+        {"num": 3, "name": "스테이지 3", "desc": "멘헤라걸", "color": (255, 0, 128)},
+        {"num": 4, "name": "스테이지 4", "desc": "자석 패들", "color": (255, 128, 0)},
+        {"num": 5, "name": "스테이지 5", "desc": "홍련폭염", "color": (255, 50, 50)},
+        {"num": 50, "name": "튜토리얼", "desc": "게임 방법 익히기", "color": (100, 255, 100)},
+    ]
+    
+    selected_index = 0
+    font_large = FontStyle.subtitle()
+    font_medium = FontStyle.body()
+    font_small = get_font(18)
+    
+    clock = pygame.time.Clock()
+    
+    while True:
+        clock.tick(60)
+        
+        # 배경
+        SCREEN.fill((10, 10, 40))
+        
+        # 제목
+        title_text = font_large.render("스테이지 선택", True, WHITE)
+        title_rect = title_text.get_rect(center=(WIDTH // 2, 80))
+        SCREEN.blit(title_text, title_rect)
+        
+        # 현재 캐릭터 표시
+        char_text = font_medium.render(f"선택된 캐릭터: {get_character_name(selected_character_type)}", True, WHITE)
+        char_rect = char_text.get_rect(center=(WIDTH // 2, 120))
+        SCREEN.blit(char_text, char_rect)
+        
+        # 스테이지 카드들
+        card_width = 200
+        card_height = 150
+        cards_per_row = 3
+        card_spacing = 40
+        start_y = 180
+        
+        for i, stage in enumerate(stages):
+            row = i // cards_per_row
+            col = i % cards_per_row
+            
+            # 카드 위치 계산
+            total_width = cards_per_row * card_width + (cards_per_row - 1) * card_spacing
+            start_x = (WIDTH - total_width) // 2
+            card_x = start_x + col * (card_width + card_spacing)
+            card_y = start_y + row * (card_height + card_spacing)
+            
+            card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+            
+            # 선택된 카드는 하이라이트
+            if i == selected_index:
+                border_color = WHITE
+                border_width = 3
+                card_color = stage["color"]
+            else:
+                border_color = (100, 100, 100)
+                border_width = 1
+                # 색상을 좀 더 어둡게
+                card_color = tuple(c // 2 for c in stage["color"])
+            
+            # 카드 그리기
+            draw.rect(card_color, card_rect)
+            draw.rect(border_color, card_rect, border_width)
+            
+            # 스테이지 번호
+            num_text = font_large.render(str(stage["num"]), True, WHITE)
+            num_rect = num_text.get_rect(center=(card_rect.centerx, card_rect.y + 40))
+            SCREEN.blit(num_text, num_rect)
+            
+            # 스테이지 이름
+            name_text = font_medium.render(stage["name"], True, WHITE)
+            name_rect = name_text.get_rect(center=(card_rect.centerx, card_rect.y + 80))
+            SCREEN.blit(name_text, name_rect)
+            
+            # 설명
+            desc_text = font_small.render(stage["desc"], True, WHITE)
+            desc_rect = desc_text.get_rect(center=(card_rect.centerx, card_rect.y + 110))
+            SCREEN.blit(desc_text, desc_rect)
+        
+        # 안내 메시지
+        info_text = "방향키로 스테이지 선택, ENTER로 시작, ESC로 돌아가기"
+        info_surface = font_small.render(info_text, True, WHITE)
+        info_rect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+        SCREEN.blit(info_surface, info_rect)
+        
+        pygame.display.flip()
+        
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return None  # 취소
+                elif event.key == pygame.K_RETURN:
+                    # 선택된 스테이지 반환
+                    play_button_click_sound()
+                    return stages[selected_index]["num"]
+                elif event.key == pygame.K_LEFT:
+                    selected_index = (selected_index - 1) % len(stages)
+                    play_button_hover_sound()
+                elif event.key == pygame.K_RIGHT:
+                    selected_index = (selected_index + 1) % len(stages)
+                    play_button_hover_sound()
+                elif event.key == pygame.K_UP:
+                    selected_index = (selected_index - cards_per_row) % len(stages)
+                    play_button_hover_sound()
+                elif event.key == pygame.K_DOWN:
+                    selected_index = (selected_index + cards_per_row) % len(stages)
+                    play_button_hover_sound()
+
+def get_character_name(character_id):
+    """캐릭터 ID로부터 이름 반환"""
+    char_names = {
+        "normal": "일반 플레이어",
+        "smasher": "스매셔",
+        "soldier": "군인"
+    }
+    return char_names.get(character_id, "알 수 없음")
+
 if __name__ == "__main__":
     # 무조건 오프닝 애니메이션 표시
     opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
