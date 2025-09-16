@@ -7629,7 +7629,8 @@ def fire_soldier_bullet():
     
     # 라운드 시작 3초 제한 체크
     current_time = pygame.time.get_ticks()
-    if current_time - round_start_time < 3000:  # 3초 미만
+    # round_start_time이 0이거나 비정상적인 값일 경우 제한하지 않음
+    if round_start_time > 0 and current_time - round_start_time < 3000:  # 3초 미만
         remaining_time = (3000 - (current_time - round_start_time)) / 1000
         print(f"🔫 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
         return False
@@ -40103,6 +40104,9 @@ def main(stage_num, new_boss_mode=False):
                     #  서브 시 타격 이펙트 생성
                     create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
                     
+                    # 서브 완료 - is_player_serve를 False로 설정
+                    is_player_serve = False
+                    
                     # 튜토리얼 모드: 플레이어가 서브했음을 표시
                     if current_stage == 50 and 'tutorial_practice_mode' in globals():
                         if tutorial_practice_mode:
@@ -40206,6 +40210,9 @@ def main(stage_num, new_boss_mode=False):
                 calculate_bounce(PLAYER)  # 자동 서브는 드라이브 발동 안됨
                 #  플레이어 자동 서브 시 타격 이펙트 생성
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+                
+                # 서브 완료 - is_player_serve를 False로 설정
+                is_player_serve = False
         # 판도라의 상자 효과 업데이트
         if pandora_box_active:
             pandora_box_timer -= 1
