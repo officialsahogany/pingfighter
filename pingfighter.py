@@ -2907,7 +2907,7 @@ supply_drop_timer = 0  # 물자보급 발동 후 타이머
 supply_radio_motion = False  # 무전기 모션 활성 여부
 supply_radio_timer = 0  # 무전기 모션 타이머 (0.5초)
 SUPPLY_DROP_GAUGE_COST = 350  # 물자보급 스킬 게이지 소모량
-SUPPLY_DROP_ITEMS = ["grenade", "molotov", "flare"]  # 투척 가능한 아이템 목록
+SUPPLY_DROP_ITEMS = ["grenade", "molotov", "flare", "bazooka"]  # 투척 가능한 아이템 목록 (바주카포 추가)
 
 # === 군용 비행기 클래스 ===
 class SupplyAircraft:
@@ -3100,7 +3100,7 @@ class SupplyAircraft:
         global supply_drop_items
         
         # 랜덤 아이템 선택 (균등 확률)
-        weights = [1, 1, 1]  # 수류탄, 화염병, 조명탄 각각 33.33%
+        weights = [1, 1, 1, 0.5]  # 수류탄, 화염병, 조명탄 각각 30%, 바주카포 15%
         item_name = random.choices(SUPPLY_DROP_ITEMS, weights=weights, k=1)[0]
         print(f"🎁🎁🎁 [물자보급 드롭] {item_name} 드롭! 🎁🎁🎁")
         
@@ -3603,6 +3603,28 @@ def activate_supply_drop_item(item_name):
     
     print(f"🔍 아이템 검색 시작: {item_name}")
     
+    # 바주카포인 경우 특별 처리
+    if item_name == "bazooka":
+        global soldier_weapons
+        
+        # 바주카포를 화기류 리스트에 추가
+        if "bazooka" not in soldier_weapons:
+            soldier_weapons.append("bazooka")
+            print(f"🚀 바주카포 획득! 현재 화기류: {soldier_weapons}")
+            
+            # 바주카포 인스턴스 초기화
+            from item_effects.bazooka import get_bazooka_instance
+            bazooka = get_bazooka_instance()
+            
+            # 아이템 획득 사운드
+            try:
+                if 'SOUND_ITEM_GET' in globals() and SOUND_ITEM_GET:
+                    SOUND_ITEM_GET.play()
+            except:
+                pass
+        return
+    
+    # 일반 투척류 아이템 처리
     # 아이템 정보 검색
     item_data = None
     for item in items.ITEM_TYPES:
@@ -3972,7 +3994,13 @@ soldier_control_lock_timer = 0  # 통제불능 타이머 (18프레임 = 0.3초)
 soldier_gun_drawn = False  # 총을 꺼낸 상태인지
 SOLDIER_BULLET_SPEED = 25  # 총알 속도
 SOLDIER_GUN_COOLDOWN = 60  # 1초 쿨타임
-SOLDIER_CONTROL_LOCK_TIME = 18  # 0.3초 통제불능 시간
+SOLDIER_CONTROL_LOCK_TIME = 18  # 0.3초 통제불능
+
+# === 군인 화기류 시스템 ===
+soldier_weapons = ["pistol"]  # 현재 보유 중인 화기류 리스트
+current_weapon_index = 0  # 현재 선택된 화기 인덱스
+weapon_switch_cooldown = 0  # 화기 교체 쿨타임
+WEAPON_SWITCH_COOLDOWN = 30  # 0.5초 쿨타임 시간
 SOLDIER_BULLET_SIZE = 5  # 총알 크기
 SOLDIER_BULLET_COLOR = (255, 215, 0)  # 황금색 총알
 
@@ -5895,7 +5923,6 @@ def throw_molotov():
     """실제 화염병 투척 (모션 후 실행)"""
     global molotovs, BOSS, PLAYER, molotov_target_x, molotov_target_y
     import items
-    import pygame
     current_time = pygame.time.get_ticks()
     print(f"[DEBUG] throw_molotov  : {current_time}ms,  molotovs : {len(molotovs)}")
     # 투척 사운드는 타이머에서 이미 재생됨
@@ -7472,8 +7499,9 @@ def update_soldier_reload():
         soldier_last_reload_bullets = 0  # 다음 재장전을 위해 초기화
 
 def draw_soldier_weapon_ui(screen):
-    """군인 권총 UI 그리기 - 왼쪽 하단 액티브 아이템 슬롯 위에 표시"""
+    """군인 화기류 UI 그리기 - 현재 장착된 무기 표시"""
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
+    global soldier_weapons, current_weapon_index
     
     # 액티브 아이템 슬롯 크기 및 위치 계산
     slot_size = 60
@@ -7492,82 +7520,168 @@ def draw_soldier_weapon_ui(screen):
     pygame.draw.rect(screen, (40, 40, 40), weapon_rect)
     pygame.draw.rect(screen, (100, 100, 100), weapon_rect, 3)
     
-    # 실제 권총 모양 그리기
-    gun_center_x, gun_center_y = weapon_rect.center
+    # 현재 장착된 무기 확인
+    current_weapon = soldier_weapons[current_weapon_index] if soldier_weapons else "pistol"
     
-    # 권총 손잡이 (그립) - 작은 크기에 맞게 조정
-    grip_rect = pygame.Rect(gun_center_x - 8, gun_center_y, 7, 15)
-    pygame.draw.rect(screen, (60, 40, 20), grip_rect)  # 갈색 손잡이
-    pygame.draw.rect(screen, (40, 25, 10), grip_rect, 1)
+    # 바주카포가 장착된 경우 바주카포 정보 표시
+    from item_effects.bazooka import get_bazooka_instance
+    bazooka = get_bazooka_instance()
     
-    # 권총 본체 - 작은 크기에 맞게 조정
-    body_rect = pygame.Rect(gun_center_x - 12, gun_center_y - 7, 20, 10)
-    pygame.draw.rect(screen, (80, 80, 80), body_rect)  # 회색 본체
-    pygame.draw.rect(screen, (50, 50, 50), body_rect, 2)
-    
-    # 권총 총열 - 작은 크기에 맞게 조정
-    barrel_rect = pygame.Rect(gun_center_x + 8, gun_center_y - 3, 12, 5)
-    pygame.draw.rect(screen, (40, 40, 40), barrel_rect)  # 어두운 총열
-    
-    # 방아쇠 가드 - 작은 크기에 맞게 조정
-    trigger_guard = [(gun_center_x - 6, gun_center_y + 2),
-                     (gun_center_x - 4, gun_center_y + 5),
-                     (gun_center_x - 2, gun_center_y + 5),
-                     (gun_center_x, gun_center_y + 2)]
-    pygame.draw.lines(screen, (60, 60, 60), False, trigger_guard, 2)
-    
-    # 총탄 개수 표시 (권총 아이콘 아래) - 실제 총탄 모양으로 (크기 축소)
-    bullet_start_x = weapon_x + 3
-    bullet_y = weapon_y + weapon_size + 6
-    bullet_width = 5
-    bullet_height = 10
-    bullet_spacing = 11
-    
-    # 재장전 중일 때 표시할 총탄 수 계산
-    if soldier_reloading:
-        # 재장전 진행도에 따라 총탄이 하나씩 나타남
-        progress_ratio = 1.0 - (soldier_reload_timer / SOLDIER_RELOAD_TIME)
-        bullets_to_show = int(progress_ratio * soldier_max_ammo)
-    else:
-        bullets_to_show = soldier_ammo_count
-    
-    for i in range(soldier_max_ammo):
-        bullet_x = bullet_start_x + i * bullet_spacing
+    if current_weapon == "bazooka" and bazooka.equipped:
+        # 바주카포 무기 정보 표시
+        weapon_center_x, weapon_center_y = weapon_rect.center
         
-        if i < bullets_to_show:
-            # 실제 총탄 모양 그리기
-            # 탄두 (위쪽 뾰족한 부분)
-            bullet_tip = [
-                (bullet_x + bullet_width // 2, bullet_y),
-                (bullet_x, bullet_y + 4),
-                (bullet_x + bullet_width, bullet_y + 4)
-            ]
-            pygame.draw.polygon(screen, (180, 140, 0), bullet_tip)  # 구리색 탄두
+        # 바주카포 본체 (원통형)
+        body_rect = pygame.Rect(weapon_center_x - 15, weapon_center_y - 5, 30, 10)
+        pygame.draw.rect(screen, (60, 80, 40), body_rect)  # 군용 녹색
+        pygame.draw.rect(screen, (40, 60, 20), body_rect, 2)
+        
+        # 바주카포 앞부분 (발사구)
+        front_circle = pygame.Rect(weapon_center_x + 12, weapon_center_y - 8, 16, 16)
+        pygame.draw.ellipse(screen, (40, 40, 40), front_circle)
+        pygame.draw.ellipse(screen, (20, 20, 20), front_circle, 3)
+        
+        # 조준기
+        sight_rect = pygame.Rect(weapon_center_x - 5, weapon_center_y - 12, 3, 8)
+        pygame.draw.rect(screen, (100, 100, 100), sight_rect)
+        
+        # 손잡이
+        grip_rect = pygame.Rect(weapon_center_x - 8, weapon_center_y + 5, 6, 10)
+        pygame.draw.rect(screen, (60, 40, 20), grip_rect)
+        
+        # 바주카포 로켓 탄약 표시
+        ammo_to_show = bazooka.ammo_count
+        max_ammo = bazooka.max_ammo
+        
+        # 로켓 탄약 그리기 (권총보다 큰 크기)
+        rocket_start_x = weapon_x + 5
+        rocket_y = weapon_y + weapon_size + 8
+        rocket_width = 8
+        rocket_height = 16
+        rocket_spacing = 15
+        
+        for i in range(max_ammo):
+            rocket_x = rocket_start_x + i * rocket_spacing
             
-            # 탄피 (아래쪽 원통 부분)
-            case_rect = pygame.Rect(bullet_x, bullet_y + 4, bullet_width, bullet_height - 4)
-            pygame.draw.rect(screen, (200, 170, 0), case_rect)  # 황동색 탄피
-            
-            # 하이라이트
-            highlight_rect = pygame.Rect(bullet_x + 1, bullet_y + 4, 2, bullet_height - 6)
-            pygame.draw.rect(screen, (240, 210, 0), highlight_rect)
-            
-            # 테두리
-            pygame.draw.polygon(screen, (140, 110, 0), bullet_tip, 1)
-            pygame.draw.rect(screen, (140, 110, 0), case_rect, 1)
+            if i < ammo_to_show:
+                # 로켓 탄두 (빨간색)
+                warhead_rect = pygame.Rect(rocket_x, rocket_y, rocket_width, 6)
+                pygame.draw.rect(screen, (200, 50, 50), warhead_rect)
+                
+                # 로켓 본체 (회색)
+                body_rect = pygame.Rect(rocket_x, rocket_y + 6, rocket_width, 8)
+                pygame.draw.rect(screen, (80, 80, 80), body_rect)
+                
+                # 로켓 추진부 (노란색)
+                thruster_rect = pygame.Rect(rocket_x + 2, rocket_y + 14, rocket_width - 4, 2)
+                pygame.draw.rect(screen, (255, 200, 0), thruster_rect)
+                
+                # 테두리
+                pygame.draw.rect(screen, (150, 30, 30), warhead_rect, 1)
+                pygame.draw.rect(screen, (50, 50, 50), body_rect, 1)
+            else:
+                # 빈 로켓 자리 (회색 실루엣)
+                empty_rect = pygame.Rect(rocket_x, rocket_y, rocket_width, rocket_height)
+                pygame.draw.rect(screen, (60, 60, 60), empty_rect, 1)
+                
+        # 바주카포 쿨다운 표시
+        if bazooka.cooldown_timer > 0:
+            cooldown_text = f"쿨다운: {bazooka.cooldown_timer // 60 + 1}초"
+            cooldown_color = (255, 100, 100)
+        elif bazooka.control_lock_timer > 0:
+            cooldown_text = "통제불능"
+            cooldown_color = (255, 150, 0)
         else:
-            # 빈 총탄 자리 (회색 실루엣)
-            # 탄두 실루엣
-            bullet_tip = [
-                (bullet_x + bullet_width // 2, bullet_y),
-                (bullet_x, bullet_y + 4),
-                (bullet_x + bullet_width, bullet_y + 4)
-            ]
-            pygame.draw.polygon(screen, (60, 60, 60), bullet_tip, 1)
+            cooldown_text = "준비완료"
+            cooldown_color = (100, 255, 100)
             
-            # 탄피 실루엣
-            case_rect = pygame.Rect(bullet_x, bullet_y + 4, bullet_width, bullet_height - 4)
-            pygame.draw.rect(screen, (60, 60, 60), case_rect, 1)
+        # 폰트가 있다면 상태 텍스트 표시
+        try:
+            if 'font_small' in globals() and font_small:
+                status_surface = font_small.render(cooldown_text, True, cooldown_color)
+                screen.blit(status_surface, (weapon_x, weapon_y - 20))
+        except:
+            pass
+            
+    else:
+        # 권총 무기 정보 표시 (기존 코드)
+        gun_center_x, gun_center_y = weapon_rect.center
+        
+        # 권총 손잡이 (그립) - 작은 크기에 맞게 조정
+        grip_rect = pygame.Rect(gun_center_x - 8, gun_center_y, 7, 15)
+        pygame.draw.rect(screen, (60, 40, 20), grip_rect)  # 갈색 손잡이
+        pygame.draw.rect(screen, (40, 25, 10), grip_rect, 1)
+        
+        # 권총 본체 - 작은 크기에 맞게 조정
+        body_rect = pygame.Rect(gun_center_x - 12, gun_center_y - 7, 20, 10)
+        pygame.draw.rect(screen, (80, 80, 80), body_rect)  # 회색 본체
+        pygame.draw.rect(screen, (50, 50, 50), body_rect, 2)
+        
+        # 권총 총열 - 작은 크기에 맞게 조정
+        barrel_rect = pygame.Rect(gun_center_x + 8, gun_center_y - 3, 12, 5)
+        pygame.draw.rect(screen, (40, 40, 40), barrel_rect)  # 어두운 총열
+        
+        # 방아쇠 가드 - 작은 크기에 맞게 조정
+        trigger_guard = [(gun_center_x - 6, gun_center_y + 2),
+                         (gun_center_x - 4, gun_center_y + 5),
+                         (gun_center_x - 2, gun_center_y + 5),
+                         (gun_center_x, gun_center_y + 2)]
+        pygame.draw.lines(screen, (60, 60, 60), False, trigger_guard, 2)
+    
+    # 권총 탄약 표시 (권총이 선택된 경우에만)
+    if current_weapon == "pistol" or not bazooka.equipped:
+        # 총탄 개수 표시 (권총 아이콘 아래) - 실제 총탄 모양으로 (크기 축소)
+        bullet_start_x = weapon_x + 3
+        bullet_y = weapon_y + weapon_size + 6
+        bullet_width = 5
+        bullet_height = 10
+        bullet_spacing = 11
+        
+        # 재장전 중일 때 표시할 총탄 수 계산
+        if soldier_reloading:
+            # 재장전 진행도에 따라 총탄이 하나씩 나타남
+            progress_ratio = 1.0 - (soldier_reload_timer / SOLDIER_RELOAD_TIME)
+            bullets_to_show = int(progress_ratio * soldier_max_ammo)
+        else:
+            bullets_to_show = soldier_ammo_count
+        
+        for i in range(soldier_max_ammo):
+            bullet_x = bullet_start_x + i * bullet_spacing
+            
+            if i < bullets_to_show:
+                # 실제 총탄 모양 그리기
+                # 탄두 (위쪽 뾰족한 부분)
+                bullet_tip = [
+                    (bullet_x + bullet_width // 2, bullet_y),
+                    (bullet_x, bullet_y + 4),
+                    (bullet_x + bullet_width, bullet_y + 4)
+                ]
+                pygame.draw.polygon(screen, (180, 140, 0), bullet_tip)  # 구리색 탄두
+                
+                # 탄피 (아래쪽 원통 부분)
+                case_rect = pygame.Rect(bullet_x, bullet_y + 4, bullet_width, bullet_height - 4)
+                pygame.draw.rect(screen, (200, 170, 0), case_rect)  # 황동색 탄피
+                
+                # 하이라이트
+                highlight_rect = pygame.Rect(bullet_x + 1, bullet_y + 4, 2, bullet_height - 6)
+                pygame.draw.rect(screen, (240, 210, 0), highlight_rect)
+                
+                # 테두리
+                pygame.draw.polygon(screen, (140, 110, 0), bullet_tip, 1)
+                pygame.draw.rect(screen, (140, 110, 0), case_rect, 1)
+            else:
+                # 빈 총탄 자리 (회색 실루엣)
+                # 탄두 실루엣
+                bullet_tip = [
+                    (bullet_x + bullet_width // 2, bullet_y),
+                    (bullet_x, bullet_y + 4),
+                    (bullet_x + bullet_width, bullet_y + 4)
+                ]
+                pygame.draw.polygon(screen, (60, 60, 60), bullet_tip, 1)
+                
+                # 탄피 실루엣
+                case_rect = pygame.Rect(bullet_x, bullet_y + 4, bullet_width, bullet_height - 4)
+                pygame.draw.rect(screen, (60, 60, 60), case_rect, 1)
     
     # 라운드 시작 3초 제한 표시
     current_time = pygame.time.get_ticks()
@@ -8296,6 +8410,7 @@ def handle_player(keys):
     global soldier_control_lock_timer, soldier_gun_cooldown, soldier_gun_drawn  # 군인 총알 시스템 변수
     global selected_character_type  # 선택된 캐릭터 타입
     global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
+    global soldier_weapons, current_weapon_index, weapon_switch_cooldown  # 화기류 시스템
     global tutorial_drive_count, tutorial_displayed_drive_count
     global tutorial_left_drive_count, tutorial_right_drive_count
     global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
@@ -8334,6 +8449,37 @@ def handle_player(keys):
     
     # 물자보급 스킬 발동 조건 확인 (스페이스 + ↑ 동시 입력)
     up_pressed = keys[pygame.K_UP]
+    
+    # 화기류 교체 처리 (↑키 단독 입력)
+    if (up_pressed and not space_pressed and selected_character_type == "soldier" and
+        weapon_switch_cooldown <= 0 and len(soldier_weapons) > 1 and
+        not is_waiting_for_serve and not is_player_serve):
+        # 다음 화기로 교체
+        current_weapon_index = (current_weapon_index + 1) % len(soldier_weapons)
+        weapon_switch_cooldown = WEAPON_SWITCH_COOLDOWN
+        
+        # 현재 화기에 따른 처리
+        current_weapon = soldier_weapons[current_weapon_index]
+        if current_weapon == "bazooka":
+            from item_effects.bazooka import get_bazooka_instance
+            bazooka = get_bazooka_instance()
+            bazooka.equip()
+        elif current_weapon == "pistol":
+            # 권총으로 전환
+            if 'bazooka' in soldier_weapons:
+                from item_effects.bazooka import get_bazooka_instance
+                bazooka = get_bazooka_instance()
+                bazooka.unequip()
+        
+        print(f"🔄 화기 교체: {current_weapon}")
+        
+        # 화기 교체 사운드
+        try:
+            switch_sound = pygame.mixer.Sound(resource_path("sounds/weapon_switch.wav"))
+            switch_sound.set_volume(0.3)
+            switch_sound.play()
+        except:
+            pass
     
     if (space_pressed and up_pressed and selected_character_type == "soldier" and 
         not supply_drop_active and special_gauge >= SUPPLY_DROP_GAUGE_COST and
@@ -9681,7 +9827,25 @@ def handle_player(keys):
         if selected_character_type == "soldier" and keys[pygame.K_SPACE] and soldier_control_lock_timer <= 0:
             # 서브 중이거나 물자보급 스킬 사용 중이 아닐 때만 발사
             if not is_waiting_for_serve and not is_player_serve and not supply_drop_active:
-                fire_soldier_bullet()
+                # 현재 무기 확인
+                current_weapon = soldier_weapons[current_weapon_index]
+                if current_weapon == "bazooka":
+                    # 바주카포 발사
+                    from item_effects.bazooka import get_bazooka_instance
+                    bazooka = get_bazooka_instance()
+                    if bazooka.can_fire():
+                        if bazooka.fire(PLAYER, pygame.time.get_ticks()):
+                            soldier_control_lock_timer = bazooka.control_lock_timer
+                            # 바주카포 발사 사운드
+                            try:
+                                bazooka_sound = pygame.mixer.Sound(resource_path("sounds/rocket_launch.wav"))
+                                bazooka_sound.set_volume(0.5)
+                                bazooka_sound.play()
+                            except:
+                                pass
+                else:
+                    # 권총 발사
+                    fire_soldier_bullet()
         
         # 통제불능 상태가 아닐 때만 이동 가능
         if soldier_control_lock_timer <= 0:
@@ -17625,6 +17789,13 @@ def draw_objects():
     # === 군인 총알 그리기 ===
     if selected_character_type == "soldier" and soldier_bullets:
         draw_soldier_bullets(SCREEN)
+    
+    # === 바주카포 발사체 그리기 ===
+    if selected_character_type == "soldier":
+        from item_effects.bazooka import get_bazooka_instance
+        bazooka = get_bazooka_instance()
+        if bazooka.equipped:
+            bazooka.draw_projectiles(SCREEN)
     
     # === 피 파티클 그리기 ===
     if selected_character_type == "soldier":
@@ -36490,6 +36661,27 @@ def handle_boss():
             print(f"   !  : {boss_stun_timer/60:.1f}, : {boss_current_speed}")
         return  # 스턴 중에는 모든 처리 차단
     
+    # 바주카포 충돌 체크 및 폭발 처리
+    if selected_character_type == "soldier":
+        from item_effects.bazooka import get_bazooka_instance
+        bazooka = get_bazooka_instance()
+        if bazooka.equipped:
+            explosions = bazooka.check_boss_collision(BOSS)
+            for explosion in explosions:
+                # 폭발 넉백 효과 적용
+                boss_knockback_timer = explosion["stun_duration"]  # 2초 스턴
+                boss_knockback_vel = explosion["knockback"]  # 넉백 거리
+                print(f"🚀💥 바주카포 명중! 넉백: {boss_knockback_vel}, 스턴: {explosion['stun_duration']}프레임")
+                
+                # 바주카포 폭발 사운드 재생
+                try:
+                    if 'SOUND_GRENADE' in globals():
+                        play_sound_with_volume(SOUND_GRENADE)  # 폭발 사운드
+                    else:
+                        print("🔊 바주카포 폭발 사운드 재생 (사운드 파일 없음)")
+                except:
+                    print("🔊 바주카포 사운드 재생 실패")
+
     # 헤드샷 스턴 상태 처리 - 1.5초간 보스 완전 정지
     global head_shot_active, head_shot_timer
     if head_shot_active and head_shot_timer > 0:
@@ -39838,6 +40030,12 @@ def main(stage_num, new_boss_mode=False):
                     update_soldier_gun_animation()  # 총 발사 애니메이션 업데이트
                     update_soldier_bullets()
                     update_blood_particles()  # 피 파티클 업데이트
+                    
+                    # 바주카포 시스템 업데이트
+                    from item_effects.bazooka import get_bazooka_instance
+                    bazooka = get_bazooka_instance()
+                    if bazooka.equipped:
+                        bazooka.update(0.016)  # 60fps 기준
                     # 쿨다운 감소
                     if soldier_gun_cooldown > 0:
                         soldier_gun_cooldown -= 1
@@ -42241,7 +42439,6 @@ def show_surrender_confirm():
                         return i == 0  # 예를 선택했으면 True
 def show_character_item_manager():
     """캐릭터 & 아이템 관리자 메뉴 - 캐릭터 선택과 아이템 관리를 통합"""
-    print("DEBUG: show_character_item_manager() 함수 시작")
     global active_item_slot, passive_item_list, selected_item_index, selected_passive_item
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained, sensor_obtained
@@ -42250,7 +42447,7 @@ def show_character_item_manager():
     
     # 메뉴 탭 선택 상태: 0: 캐릭터, 1: 엑티브, 2: 패시브, 3: 전설
     selected_main_tab = 0
-    print(f"DEBUG: selected_main_tab = {selected_main_tab} (캐릭터 탭)")  
+  
     selected_category = 1  # 아이템 카테고리별 선택 (캐릭터 탭에서는 사용하지 않음)
     selected_item_index = 0
     
@@ -42574,17 +42771,6 @@ def show_character_item_manager():
                     # 캐릭터 변경
                     selected_character_type = characters[selected_character_index]["id"]
                     play_button_click_sound()
-                elif event.key == pygame.K_RETURN and selected_main_tab == 0:
-                    # 게임 시작 - 캐릭터 선택 후 스테이지 선택 순서로 변경
-                    play_button_click_sound()
-                    # 먼저 캐릭터 선택 화면을 보여줌
-                    character_result = show_character_selection_from_manager()
-                    if character_result is not None:
-                        # 캐릭터 선택이 완료되면 스테이지 선택 화면으로 이동
-                        selected_stage = show_stage_selection()
-                        if selected_stage is not None:
-                            main(selected_stage)  # 선택한 스테이지로 게임 시작
-                    return
                 elif event.key == pygame.K_1:
                     selected_main_tab = 0
                     play_button_hover_sound()
@@ -42720,8 +42906,9 @@ def show_stage_selection():
                     selected_index = (selected_index + cards_per_row) % len(stages)
                     play_button_hover_sound()
 
-def show_character_selection_from_manager():
-    """아이템관리자에서 게임 시작 시 캐릭터 선택 화면"""
+
+def show_character_selection():
+    """캐릭터 선택 화면"""
     global selected_character_type
     
     # 캐릭터 정보
@@ -42789,7 +42976,7 @@ def show_character_selection_from_manager():
             desc_rect = desc_text.get_rect(centerx=card_rect.centerx, bottom=card_rect.bottom - 20)
             SCREEN.blit(desc_text, desc_rect)
             
-            # 캐릭터 이미지/아이콘 (나중에 추가 가능)
+            # 캐릭터 이미지/아이콘
             icon_size = 100
             icon_rect = pygame.Rect(
                 card_rect.centerx - icon_size // 2,
