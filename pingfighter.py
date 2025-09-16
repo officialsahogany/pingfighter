@@ -6488,12 +6488,18 @@ def draw_soldier_weapon_ui(screen):
         # 재장전 텍스트
         reload_text = "재장전 중..."
         try:
-            reload_surface = ui_manager.korean_font.render(reload_text, True, (255, 255, 255))
+            # UI 매니저의 폰트 사용
+            if hasattr(ui_manager, 'korean_font') and ui_manager.korean_font:
+                reload_surface = ui_manager.korean_font.render(reload_text, True, (255, 255, 255))
+            else:
+                # 폰트가 없으면 pygame 기본 폰트 사용
+                font = pygame.font.Font(None, 20)
+                reload_surface = font.render(reload_text, True, (255, 255, 255))
             text_x = progress_x
             text_y = progress_y + progress_height + 5
             screen.blit(reload_surface, (text_x, text_y))
-        except:
-            pass
+        except Exception as e:
+            print(f"[DEBUG] 재장전 텍스트 렌더링 실패: {e}")
     
 def create_soldier_bullet():
     """실제 총알을 생성하는 함수 (애니메이션 완료 후 호출)"""
@@ -37855,6 +37861,10 @@ def main(stage_num, new_boss_mode=False):
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
                 draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
                 
+                # 군인 권총 UI 표시
+                if selected_character_type == "soldier":
+                    draw_soldier_weapon_ui(SCREEN)
+                
                 # Stage 4: 보스 퐁크의 굴절자기장 게이지 그리기
                 if current_stage == 4 and animated_bg_stage4 is not None:
                     animated_bg_stage4.draw_ponk_gauge(SCREEN, 
@@ -37908,6 +37918,10 @@ def main(stage_num, new_boss_mode=False):
                 draw_pandora_box_effect()  # 판도라의 상자 무지개 효과
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
                 draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
+                
+                # 군인 권총 UI 표시
+                if selected_character_type == "soldier":
+                    draw_soldier_weapon_ui(SCREEN)
                 
                 # Stage 4: 보스 퐁크의 굴절자기장 게이지 그리기
                 if current_stage == 4 and animated_bg_stage4 is not None:
