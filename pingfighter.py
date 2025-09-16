@@ -2993,7 +2993,7 @@ leg_shot_active = False  # 레그샷 효과 활성화 상태
 leg_shot_timer = 0  # 레그샷 효과 지속 타이머
 leg_shot_text_timer = 0  # '레그샷!' 텍스트 표시 타이머
 LEG_SHOT_DURATION = 180  # 3초간 지속 (60fps * 3)
-LEG_SHOT_CHANCE = 0.5  # 50% 확률
+LEG_SHOT_CHANCE = 0.12  # 12% 확률
 LEG_SHOT_SPEED_REDUCTION = 0.7  # 이동속도 70% (30% 감소)
 LEG_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
 
@@ -3002,7 +3002,7 @@ head_shot_active = False  # 헤드샷 효과 활성화 상태
 head_shot_timer = 0  # 헤드샷 스턴 지속 타이머
 head_shot_text_timer = 0  # '헤드샷!' 텍스트 표시 타이머
 HEAD_SHOT_DURATION = 90  # 1.5초간 스턴 (60fps * 1.5)
-HEAD_SHOT_CHANCE = 0.5  # 50% 확률
+HEAD_SHOT_CHANCE = 0.1  # 10% 확률
 HEAD_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
 
 # 애니메이션 단계별 프레임 수 (60fps 기준)
