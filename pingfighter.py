@@ -7509,11 +7509,11 @@ def fire_soldier_bullet():
     if soldier_reloading:
         return
     
-    # 탄약이 없으면 재장전 시도 (단, UP 키가 눌려있거나 물자보급 중이 아닐 때만)
+    # 탄약이 없으면 재장전 시도 (단, UP 키가 눌려있지 않을 때만)
     if soldier_ammo_count <= 0:
-        # UP 키가 눌려있거나 물자보급 스킬 사용 중이면 재장전하지 않음
+        # UP 키가 눌려있으면 물자보급 시도 중이므로 재장전하지 않음
         keys = pygame.key.get_pressed()
-        if not keys[pygame.K_UP] and not supply_drop_active and not supply_radio_motion:
+        if not keys[pygame.K_UP]:
             start_soldier_reload()
         return
     
@@ -7545,14 +7545,14 @@ def fire_soldier_bullet():
 def start_soldier_reload():
     """군인 탄약 재장전 시작"""
     global soldier_reloading, soldier_reload_timer, special_gauge, soldier_last_reload_bullets
-    global supply_drop_active, supply_radio_motion
     
     # 이미 재장전 중이면 무시
     if soldier_reloading:
         return
     
-    # 물자보급 시스템 사용 중이면 재장전 불가
-    if supply_drop_active or supply_radio_motion:
+    # UP 키가 눌려있으면 물자보급 발동 시도 중이므로 재장전 불가
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_UP]:
         return
     
     # 게이지가 부족하면 재장전 불가
@@ -10066,9 +10066,11 @@ def handle_player(keys):
     if not player_stunned:
         # 군인 캐릭터 총알 발사 처리
         if selected_character_type == "soldier" and keys[pygame.K_SPACE] and soldier_control_lock_timer <= 0:
-            # 서브 중이거나 물자보급 스킬 사용 중이 아닐 때만 발사
-            # 물자보급 중에는 모든 화기류 사용 금지 (무전기 사용 중, 비행기 출현 중, 아이템 낙하 중)
-            if not is_waiting_for_serve and not is_player_serve and not supply_drop_active and not supply_radio_motion:
+            # UP 키가 동시에 눌려있으면 물자보급 발동 시도 중이므로 화기류 발사 불가
+            if keys[pygame.K_UP]:
+                pass  # 물자보급 발동을 우선시, 화기류 발사하지 않음
+            # 서브 중이 아닐 때만 발사
+            elif not is_waiting_for_serve and not is_player_serve:
                 # 현재 무기 확인
                 current_weapon = soldier_weapons[current_weapon_index]
                 if current_weapon == "bazooka":
