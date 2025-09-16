@@ -2996,6 +2996,14 @@ LEG_SHOT_CHANCE = 0.5  # 50% 확률
 LEG_SHOT_SPEED_REDUCTION = 0.7  # 이동속도 70% (30% 감소)
 LEG_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
 
+# === 군인 헤드샷 효과 관련 변수 ===
+head_shot_active = False  # 헤드샷 효과 활성화 상태
+head_shot_timer = 0  # 헤드샷 스턴 지속 타이머
+head_shot_text_timer = 0  # '헤드샷!' 텍스트 표시 타이머
+HEAD_SHOT_DURATION = 90  # 1.5초간 스턴 (60fps * 1.5)
+HEAD_SHOT_CHANCE = 0.5  # 50% 확률
+HEAD_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
+
 # 애니메이션 단계별 프레임 수 (60fps 기준)
 SOLDIER_GUN_DRAW_FRAMES = 6     # 총 꺼내기 애니메이션 (0.1초)
 SOLDIER_GUN_AIM_FRAMES = 6      # 조준 애니메이션 (0.1초)  
@@ -6730,10 +6738,19 @@ def update_soldier_bullets():
                 bullet["active"] = False
                 # 보스 스턴 효과 (0.5초) - 수류탄과 동일한 별 효과 사용
                 global boss_stunned_timer, leg_shot_active, leg_shot_timer, leg_shot_text_timer
+                global head_shot_active, head_shot_timer, head_shot_text_timer
                 boss_stunned_timer = 30  # 0.5초 스턴 (수류탄과 동일한 시각 효과)
                 
-                # 레그샷 효과 발동 (50% 확률)
-                if random.random() < LEG_SHOT_CHANCE:
+                # 헤드샷과 레그샷 중 하나만 발동 (각 50% 확률)
+                shot_roll = random.random()
+                if shot_roll < HEAD_SHOT_CHANCE:
+                    # 헤드샷 발동
+                    head_shot_active = True
+                    head_shot_timer = HEAD_SHOT_DURATION  # 1.5초간 스턴
+                    head_shot_text_timer = HEAD_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
+                    print("💥 헤드샷! 보스 1.5초간 스턴!")
+                elif shot_roll < HEAD_SHOT_CHANCE + LEG_SHOT_CHANCE:
+                    # 레그샷 발동 (헤드샷이 발동하지 않은 경우에만)
                     leg_shot_active = True
                     leg_shot_timer = LEG_SHOT_DURATION  # 3초간 지속
                     leg_shot_text_timer = LEG_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
@@ -6855,6 +6872,109 @@ def draw_leg_shot_effect(screen):
             
         except Exception as e:
             print(f"레그샷 텍스트 렌더링 오류: {e}")
+
+def draw_head_shot_effect(screen):
+    """헤드샷 텍스트 효과 그리기 - 큰 임팩트와 스턴 이펙트"""
+    global head_shot_text_timer, head_shot_timer
+    
+    # 헤드샷 텍스트 효과
+    if head_shot_text_timer > 0:
+        try:
+            # 더 큰 폰트 사용 (30pt)
+            font = pygame.freetype.Font(resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")), 30)
+            
+            # 애니메이션 진행도 (0.0 ~ 1.0)
+            progress = 1.0 - (head_shot_text_timer / HEAD_SHOT_TEXT_DURATION)
+            
+            # 다이나믹한 애니메이션 계산
+            if progress < 0.1:  # 0~0.1초: 급격한 확대
+                scale = 0.3 + (progress * 20)  # 0.3에서 2.3까지
+                alpha = 255
+            elif progress < 0.3:  # 0.1~0.3초: 안정화
+                scale = 2.3 - ((progress - 0.1) * 6.5)  # 2.3에서 1.0으로
+                alpha = 255
+            elif progress < 0.7:  # 0.3~0.7초: 유지
+                scale = 1.0
+                alpha = 255
+            else:  # 0.7~1.0초: 페이드 아웃
+                scale = 1.0
+                alpha = int(255 * (1.0 - progress) / 0.3)
+            
+            # 텍스트 렌더링
+            text_surface, text_rect = font.render("헤드샷!", (255, 255, 255))
+            
+            # 발광 효과를 위한 배경
+            glow_surface = pygame.Surface((text_surface.get_width() + 40, text_surface.get_height() + 40), pygame.SRCALPHA)
+            
+            # 노란색 발광 효과 (여러 겹)
+            for i in range(4):
+                glow_alpha = alpha // (i + 1.5)
+                glow_size = 8 * (4 - i)
+                pygame.draw.ellipse(glow_surface, (255, 220, 0, glow_alpha), 
+                                  (20 - glow_size, 20 - glow_size, 
+                                   text_surface.get_width() + glow_size * 2, 
+                                   text_surface.get_height() + glow_size * 2))
+            
+            # 텍스트를 glow surface 중앙에 배치
+            glow_surface.blit(text_surface, (20, 20))
+            
+            # 스케일 적용
+            if scale != 1.0:
+                glow_surface = pygame.transform.scale(glow_surface, 
+                                                    (int(glow_surface.get_width() * scale), 
+                                                     int(glow_surface.get_height() * scale)))
+            
+            # 알파값 적용
+            glow_surface.set_alpha(alpha)
+            
+            # 화면에 그리기 (보스 패들 중앙 위)
+            text_x = BOSS.centerx
+            text_y = BOSS.top - 50
+            final_rect = glow_surface.get_rect(center=(text_x, text_y))
+            screen.blit(glow_surface, final_rect)
+            
+            # 충격파 효과 (초반에만)
+            if progress < 0.15:
+                ring_radius = int(100 * (progress / 0.15))
+                ring_alpha = int(255 * (1.0 - progress / 0.15))
+                pygame.draw.circle(screen, (255, 220, 0), (text_x, text_y), ring_radius, 3)
+            
+        except Exception as e:
+            print(f"헤드샷 텍스트 렌더링 오류: {e}")
+    
+    # 헤드샷 스턴 중 별 효과
+    if head_shot_active and head_shot_timer > 0:
+        # 별 5개가 머리 위에서 회전 (더 많은 별)
+        rotation_angle = (HEAD_SHOT_DURATION - head_shot_timer) * 4  # 빠른 회전
+        num_stars = 5
+        
+        for i in range(num_stars):
+            angle = math.radians(rotation_angle + (360 / num_stars * i))
+            radius = 40  # 큰 회전 반경
+            
+            star_x = BOSS.centerx + int(math.cos(angle) * radius)
+            star_y = BOSS.top - 30 + int(math.sin(angle) * radius / 2)  # 타원형 회전
+            
+            # 별 그리기 (더 크고 밝게)
+            star_size = 10
+            star_color = (255, 255, 0)  # 노란색
+            
+            # 별 모양 그리기
+            points = []
+            for j in range(10):
+                if j % 2 == 0:
+                    r = star_size
+                else:
+                    r = star_size // 2
+                point_angle = math.radians(rotation_angle + 36 * j)
+                px = star_x + int(math.cos(point_angle) * r)
+                py = star_y + int(math.sin(point_angle) * r)
+                points.append((px, py))
+            
+            pygame.draw.polygon(screen, star_color, points)
+            
+            # 별 발광 효과
+            pygame.draw.circle(screen, (255, 255, 200, 50), (star_x, star_y), star_size + 5)
 
 def draw_soldier_gun_animation(screen, paddle_rect):
     """군인 총 발사 애니메이션 그리기"""
@@ -16237,6 +16357,10 @@ def draw_objects():
     if selected_character_type == "soldier":
         draw_leg_shot_effect(SCREEN)
     
+    # === 헤드샷 효과 그리기 ===
+    if selected_character_type == "soldier":
+        draw_head_shot_effect(SCREEN)
+    
     # === 군인 총 발사 애니메이션 그리기 ===
     if selected_character_type == "soldier":
         draw_soldier_gun_animation(SCREEN, PLAYER)
@@ -23750,6 +23874,359 @@ def show_tutorial_dash_completion_dialogue():
     
     return True
 
+def create_soldier_character_card_image(size):
+    """캐릭터 선택 카드용 군인 이미지 - 아래를 바라보는 모습"""
+    img = pygame.Surface((size, size), pygame.SRCALPHA)
+    
+    # 크기에 따라 스케일 조정
+    scale = size / 120.0
+    center_x = size // 2
+    center_y = size // 2
+    
+    # === 헬멧 (위에서 본 모습) ===
+    helmet_y = int(25 * scale)
+    # 헬멧 외곽 그림자
+    pygame.draw.ellipse(img, (25, 35, 15), 
+                       (int(center_x - 22 * scale), int(helmet_y - 2 * scale), 
+                        int(44 * scale), int(36 * scale)))
+    # 헬멧 베이스
+    pygame.draw.ellipse(img, (70, 90, 50), 
+                       (int(center_x - 20 * scale), helmet_y, 
+                        int(40 * scale), int(32 * scale)))
+    # 헬멧 내부
+    pygame.draw.ellipse(img, (55, 75, 40), 
+                       (int(center_x - 17 * scale), int(helmet_y + 2 * scale), 
+                        int(34 * scale), int(28 * scale)))
+    # 헬멧 중앙 하이라이트
+    pygame.draw.ellipse(img, (85, 105, 65), 
+                       (int(center_x - 12 * scale), int(helmet_y + 5 * scale), 
+                        int(24 * scale), int(20 * scale)))
+    # 헬멧 통풍구
+    for angle in [0, 60, 120, 180, 240, 300]:
+        rad = math.radians(angle)
+        vent_x = center_x + int(8 * scale * math.cos(rad))
+        vent_y = helmet_y + int(15 * scale) + int(6 * scale * math.sin(rad))
+        pygame.draw.circle(img, (40, 60, 25), (vent_x, vent_y), max(1, int(2 * scale)))
+    
+    # === 어깨와 상체 (아래 보는 각도) ===
+    body_y = helmet_y + int(30 * scale)
+    # 어깨 실루엣
+    shoulder_points = [
+        (int(center_x - 35 * scale), body_y),
+        (int(center_x - 25 * scale), int(body_y - 5 * scale)),
+        (int(center_x - 10 * scale), int(body_y - 8 * scale)),
+        (int(center_x + 10 * scale), int(body_y - 8 * scale)),
+        (int(center_x + 25 * scale), int(body_y - 5 * scale)),
+        (int(center_x + 35 * scale), body_y),
+        (int(center_x + 30 * scale), int(body_y + 15 * scale)),
+        (int(center_x + 15 * scale), int(body_y + 20 * scale)),
+        (int(center_x - 15 * scale), int(body_y + 20 * scale)),
+        (int(center_x - 30 * scale), int(body_y + 15 * scale))
+    ]
+    pygame.draw.polygon(img, (115, 105, 65), shoulder_points)
+    
+    # 군복 디테일
+    # 중앙 지퍼
+    pygame.draw.line(img, (85, 75, 45), 
+                    (center_x, int(body_y - 5 * scale)), 
+                    (center_x, int(body_y + 18 * scale)), max(1, int(2 * scale)))
+    
+    # === 손과 탁구채 (왼손에) ===
+    if scale > 0.5:  # 작은 크기에서는 생략
+        hand_x = int(center_x - 25 * scale)
+        hand_y = int(body_y + 42 * scale) if body_y + int(42 * scale) < size - int(20 * scale) else size - int(20 * scale)
+        # 손
+        pygame.draw.ellipse(img, (195, 155, 125), 
+                           (int(hand_x - 4 * scale), int(hand_y - 4 * scale), 
+                            int(8 * scale), int(8 * scale)))
+        
+        # 탁구채 (원형)
+        paddle_x = hand_x
+        paddle_y = hand_y + int(8 * scale)
+        paddle_size = int(26 * scale)
+        if paddle_y + paddle_size // 2 < size:  # 화면을 벗어나지 않도록
+            # 라켓 면
+            pygame.draw.ellipse(img, (75, 95, 55), 
+                               (paddle_x - paddle_size // 2, paddle_y - paddle_size // 2, 
+                                paddle_size, paddle_size))
+            # 라켓 테두리
+            pygame.draw.ellipse(img, (95, 115, 75), 
+                               (paddle_x - paddle_size // 2, paddle_y - paddle_size // 2, 
+                                paddle_size, paddle_size), max(1, int(2 * scale)))
+            # 라켓 고무
+            inner_size = int(20 * scale)
+            pygame.draw.ellipse(img, (120, 35, 25), 
+                               (paddle_x - inner_size // 2, paddle_y - inner_size // 2, 
+                                inner_size, inner_size))
+    
+    # === 위장 패턴 ===
+    if scale > 0.3:  # 매우 작은 크기에서는 생략
+        camo_colors = [(85, 75, 45), (105, 95, 55), (95, 85, 50)]
+        # 몸통 위장
+        for i in range(min(8, int(8 * scale))):
+            camo_x = int(center_x - 20 * scale + (i % 4) * 10 * scale + random.randint(-3, 3))
+            camo_y = int(body_y + (i // 4) * 8 * scale + random.randint(-2, 2))
+            camo_size = max(2, int(random.randint(4, 8) * scale))
+            if camo_y + camo_size < size:  # 화면을 벗어나지 않도록
+                pygame.draw.ellipse(img, camo_colors[i % 3], 
+                                   (camo_x, camo_y, camo_size, camo_size - 1))
+    
+    return img
+
+def create_soldier_front_view():
+    """군인 캐릭터 앞모습 - 전신"""
+    img = pygame.Surface((150, 200), pygame.SRCALPHA)
+    
+    # 중심점 설정
+    center_x = 75
+    
+    # === 머리와 헬멧 ===
+    head_y = 30
+    # 헬멧 그림자
+    pygame.draw.ellipse(img, (45, 65, 30), 
+                       (center_x - 22, head_y - 2, 44, 36))
+    # 헬멧 베이스
+    pygame.draw.ellipse(img, (70, 90, 50), 
+                       (center_x - 20, head_y, 40, 35))
+    # 헬멧 앞면 디테일
+    pygame.draw.ellipse(img, (80, 100, 60), 
+                       (center_x - 15, head_y + 3, 30, 28))
+    # 헬멧 끈
+    pygame.draw.arc(img, (50, 70, 35), 
+                   (center_x - 20, head_y + 28, 40, 20), 
+                   0, math.pi, 2)
+    
+    # === 얼굴 ===
+    face_y = head_y + 25
+    # 얼굴 베이스
+    pygame.draw.ellipse(img, (210, 180, 150), 
+                       (center_x - 12, face_y, 24, 28))
+    # 눈
+    eye_y = face_y + 8
+    # 왼쪽 눈
+    pygame.draw.ellipse(img, (30, 30, 30), 
+                       (center_x - 8, eye_y, 5, 6))
+    pygame.draw.ellipse(img, WHITE, 
+                       (center_x - 7, eye_y + 1, 2, 2))
+    # 오른쪽 눈
+    pygame.draw.ellipse(img, (30, 30, 30), 
+                       (center_x + 3, eye_y, 5, 6))
+    pygame.draw.ellipse(img, WHITE, 
+                       (center_x + 4, eye_y + 1, 2, 2))
+    # 코
+    pygame.draw.line(img, (180, 150, 120), 
+                    (center_x, eye_y + 6), (center_x, eye_y + 10), 1)
+    # 입 (진지한 표정)
+    pygame.draw.arc(img, (160, 120, 90), 
+                   (center_x - 5, face_y + 16, 10, 6), 
+                   0.2, 2.9, 2)
+    
+    # === 목 ===
+    neck_y = face_y + 26
+    pygame.draw.rect(img, (190, 160, 130), 
+                    (center_x - 8, neck_y, 16, 8))
+    
+    # === 상체 (군복) ===
+    body_y = neck_y + 8
+    # 어깨
+    shoulder_points = [
+        (center_x - 35, body_y + 5),
+        (center_x - 20, body_y),
+        (center_x + 20, body_y),
+        (center_x + 35, body_y + 5),
+        (center_x + 32, body_y + 40),
+        (center_x + 15, body_y + 45),
+        (center_x - 15, body_y + 45),
+        (center_x - 32, body_y + 40)
+    ]
+    pygame.draw.polygon(img, (115, 105, 65), shoulder_points)
+    
+    # 군복 디테일
+    # 지퍼
+    pygame.draw.line(img, (85, 75, 45), 
+                    (center_x, body_y + 5), (center_x, body_y + 40), 2)
+    # 주머니
+    pygame.draw.rect(img, (95, 85, 55), 
+                    (center_x - 25, body_y + 15, 12, 10))
+    pygame.draw.rect(img, (95, 85, 55), 
+                    (center_x + 13, body_y + 15, 12, 10))
+    # 계급장
+    pygame.draw.polygon(img, (160, 140, 70), [
+        (center_x - 30, body_y + 8),
+        (center_x - 20, body_y + 6),
+        (center_x - 20, body_y + 12),
+        (center_x - 30, body_y + 10)
+    ])
+    pygame.draw.polygon(img, (160, 140, 70), [
+        (center_x + 20, body_y + 6),
+        (center_x + 30, body_y + 8),
+        (center_x + 30, body_y + 10),
+        (center_x + 20, body_y + 12)
+    ])
+    
+    # === 팔 ===
+    # 왼팔 (탁구채를 들고 있는 팔)
+    left_arm_points = [
+        (center_x - 32, body_y + 10),
+        (center_x - 35, body_y + 25),
+        (center_x - 30, body_y + 45),
+        (center_x - 25, body_y + 48),
+        (center_x - 20, body_y + 45),
+        (center_x - 25, body_y + 25),
+        (center_x - 28, body_y + 12)
+    ]
+    pygame.draw.polygon(img, (120, 108, 68), left_arm_points)
+    
+    # 오른팔
+    right_arm_points = [
+        (center_x + 28, body_y + 12),
+        (center_x + 25, body_y + 25),
+        (center_x + 20, body_y + 45),
+        (center_x + 25, body_y + 48),
+        (center_x + 30, body_y + 45),
+        (center_x + 35, body_y + 25),
+        (center_x + 32, body_y + 10)
+    ]
+    pygame.draw.polygon(img, (120, 108, 68), right_arm_points)
+    
+    # === 손 ===
+    # 왼손 (탁구채를 잡고 있는 손)
+    hand_x = center_x - 25
+    hand_y = body_y + 50
+    pygame.draw.ellipse(img, (210, 180, 150), 
+                       (hand_x - 5, hand_y - 5, 10, 10))
+    # 손가락들
+    for i in range(4):
+        angle = -0.3 + i * 0.2
+        finger_x = hand_x + math.cos(angle) * 7
+        finger_y = hand_y + math.sin(angle) * 7
+        pygame.draw.ellipse(img, (200, 170, 140), 
+                           (finger_x - 1, finger_y - 1, 3, 4))
+    
+    # 오른손
+    right_hand_x = center_x + 25
+    pygame.draw.ellipse(img, (210, 180, 150), 
+                       (right_hand_x - 5, hand_y + 10, 10, 10))
+    
+    # === 탁구채 ===
+    paddle_x = hand_x - 5
+    paddle_y = hand_y - 15
+    # 손잡이
+    pygame.draw.rect(img, (100, 60, 40), 
+                    (paddle_x - 2, paddle_y + 15, 5, 15))
+    # 라켓 면 (원형)
+    pygame.draw.ellipse(img, (80, 100, 60), 
+                       (paddle_x - 13, paddle_y - 13, 26, 26))
+    pygame.draw.ellipse(img, (100, 120, 80), 
+                       (paddle_x - 13, paddle_y - 13, 26, 26), 2)
+    # 라켓 고무 (빨간색)
+    pygame.draw.ellipse(img, (150, 40, 30), 
+                       (paddle_x - 10, paddle_y - 10, 20, 20))
+    # 중앙 패턴
+    pygame.draw.ellipse(img, (130, 30, 20), 
+                       (paddle_x - 6, paddle_y - 6, 12, 12))
+    # 군용 별 마크
+    for i in range(5):
+        angle = math.radians(i * 72 - 90)
+        x = paddle_x + int(3 * math.cos(angle))
+        y = paddle_y + int(3 * math.sin(angle))
+        pygame.draw.line(img, (100, 20, 10), (paddle_x, paddle_y), (x, y), 1)
+    
+    # === 하체 ===
+    waist_y = body_y + 45
+    # 벨트
+    pygame.draw.rect(img, (60, 50, 30), 
+                    (center_x - 25, waist_y, 50, 5))
+    pygame.draw.rect(img, (140, 120, 60), 
+                    (center_x - 8, waist_y - 1, 16, 7))
+    
+    # === 다리 ===
+    leg_y = waist_y + 5
+    # 왼쪽 다리
+    left_leg_points = [
+        (center_x - 15, leg_y),
+        (center_x - 18, leg_y + 20),
+        (center_x - 16, leg_y + 40),
+        (center_x - 12, leg_y + 55),
+        (center_x - 8, leg_y + 55),
+        (center_x - 5, leg_y + 40),
+        (center_x - 8, leg_y + 20),
+        (center_x - 10, leg_y)
+    ]
+    pygame.draw.polygon(img, (110, 100, 60), left_leg_points)
+    
+    # 오른쪽 다리
+    right_leg_points = [
+        (center_x + 10, leg_y),
+        (center_x + 8, leg_y + 20),
+        (center_x + 5, leg_y + 40),
+        (center_x + 8, leg_y + 55),
+        (center_x + 12, leg_y + 55),
+        (center_x + 16, leg_y + 40),
+        (center_x + 18, leg_y + 20),
+        (center_x + 15, leg_y)
+    ]
+    pygame.draw.polygon(img, (110, 100, 60), right_leg_points)
+    
+    # === 군화 ===
+    boot_y = leg_y + 55
+    # 왼쪽 군화
+    pygame.draw.polygon(img, (40, 35, 25), [
+        (center_x - 12, boot_y),
+        (center_x - 14, boot_y + 8),
+        (center_x - 12, boot_y + 12),
+        (center_x - 2, boot_y + 12),
+        (center_x, boot_y + 8),
+        (center_x - 2, boot_y),
+        (center_x - 8, boot_y)
+    ])
+    # 군화 끈
+    pygame.draw.line(img, (25, 20, 15), 
+                    (center_x - 10, boot_y + 2), (center_x - 4, boot_y + 2), 1)
+    pygame.draw.line(img, (25, 20, 15), 
+                    (center_x - 10, boot_y + 5), (center_x - 4, boot_y + 5), 1)
+    
+    # 오른쪽 군화
+    pygame.draw.polygon(img, (40, 35, 25), [
+        (center_x + 2, boot_y),
+        (center_x, boot_y + 8),
+        (center_x + 2, boot_y + 12),
+        (center_x + 12, boot_y + 12),
+        (center_x + 14, boot_y + 8),
+        (center_x + 12, boot_y),
+        (center_x + 8, boot_y)
+    ])
+    # 군화 끈
+    pygame.draw.line(img, (25, 20, 15), 
+                    (center_x + 4, boot_y + 2), (center_x + 10, boot_y + 2), 1)
+    pygame.draw.line(img, (25, 20, 15), 
+                    (center_x + 4, boot_y + 5), (center_x + 10, boot_y + 5), 1)
+    
+    # === 위장 패턴 ===
+    camo_colors = [(85, 75, 45), (105, 95, 55), (95, 85, 50)]
+    # 상체 위장
+    for i in range(12):
+        camo_x = center_x - 25 + (i % 4) * 12 + random.randint(-3, 3)
+        camo_y = body_y + 10 + (i // 4) * 10 + random.randint(-2, 2)
+        camo_size = random.randint(5, 9)
+        pygame.draw.ellipse(img, camo_colors[i % 3], 
+                           (camo_x, camo_y, camo_size, camo_size - 1))
+    
+    # 다리 위장
+    for i in range(6):
+        # 왼쪽 다리
+        camo_x = center_x - 12 + random.randint(-3, 3)
+        camo_y = leg_y + 10 + i * 7 + random.randint(-1, 1)
+        pygame.draw.ellipse(img, camo_colors[i % 3], 
+                           (camo_x, camo_y, random.randint(4, 6), random.randint(3, 5)))
+        # 오른쪽 다리
+        camo_x = center_x + 12 + random.randint(-3, 3)
+        camo_y = leg_y + 10 + i * 7 + random.randint(-1, 1)
+        pygame.draw.ellipse(img, camo_colors[i % 3], 
+                           (camo_x, camo_y, random.randint(4, 6), random.randint(3, 5)))
+    
+    return img
+
 def show_character_selection():
     """사이버펑크 스타일 홀로그램 캐릭터 선택 화면"""
     clock = pygame.time.Clock()
@@ -24176,17 +24653,24 @@ def show_character_selection():
             surface.blit(rotated_suit, (w - suit_text.get_width() - 8, h - suit_text.get_height() - 8))
             # 캐릭터 이미지 영역
             image_size = min(w - 20, h // 3)  # 카드 크기에 비례
-            try:
-                char_image = pygame.image.load(character["image"])
-                char_image = pygame.transform.scale(char_image, (image_size, image_size))
+            if character["id"] == "soldier":
+                # 군인 캐릭터는 직접 그리기 (아래를 바라보는 모습)
+                soldier_img = create_soldier_character_card_image(image_size)
                 image_x = (w - image_size) // 2
                 image_y = 30
-                surface.blit(char_image, (image_x, image_y))
-            except:
-                # 이미지 로드 실패 시 대체 그래픽
-                radius = image_size // 2
-                pygame.draw.circle(surface, border_color, (w//2, 30 + radius), radius)
-                pygame.draw.circle(surface, WHITE, (w//2, 30 + radius), radius - 5, 3)
+                surface.blit(soldier_img, (image_x, image_y))
+            else:
+                try:
+                    char_image = pygame.image.load(character["image"])
+                    char_image = pygame.transform.scale(char_image, (image_size, image_size))
+                    image_x = (w - image_size) // 2
+                    image_y = 30
+                    surface.blit(char_image, (image_x, image_y))
+                except:
+                    # 이미지 로드 실패 시 대체 그래픽
+                    radius = image_size // 2
+                    pygame.draw.circle(surface, border_color, (w//2, 30 + radius), radius)
+                    pygame.draw.circle(surface, WHITE, (w//2, 30 + radius), radius - 5, 3)
             # 캐릭터 이름 (카드가 클 때만) - 중앙 정렬 및 색상 개선
             if is_selected and w > 120:
                 name_text = font_card.render(character["name"], True, WHITE)  # 흰색으로 변경하여 가독성 향상
@@ -32974,6 +33458,15 @@ def handle_boss_pro():
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
+    
+    # 헤드샷 스턴 상태 처리
+    global head_shot_active, head_shot_timer
+    if head_shot_active and head_shot_timer > 0:
+        head_shot_timer -= 1
+        boss_current_speed = 0  # 스턴 중에는 속도를 0으로
+        if head_shot_timer <= 0:
+            head_shot_active = False
+        return  # 헤드샷 스턴 중에는 AI 완전 정지
     #  서브 대기 상태 처리 (기존 로직과 동일)
     if is_waiting_for_serve:
         time_now = pygame.time.get_ticks()
@@ -33200,6 +33693,15 @@ def handle_boss_champion():
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
+    
+    # 헤드샷 스턴 상태 처리
+    global head_shot_active, head_shot_timer
+    if head_shot_active and head_shot_timer > 0:
+        head_shot_timer -= 1
+        boss_current_speed = 0  # 스턴 중에는 속도를 0으로
+        if head_shot_timer <= 0:
+            head_shot_active = False
+        return  # 헤드샷 스턴 중에는 AI 완전 정지
     #  서브 대기 상태 처리 (기존 로직과 동일)
     if is_waiting_for_serve:
         time_now = pygame.time.get_ticks()
@@ -33442,6 +33944,15 @@ def handle_boss_mythic():
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
+    
+    # 헤드샷 스턴 상태 처리
+    global head_shot_active, head_shot_timer
+    if head_shot_active and head_shot_timer > 0:
+        head_shot_timer -= 1
+        boss_current_speed = 0  # 스턴 중에는 속도를 0으로
+        if head_shot_timer <= 0:
+            head_shot_active = False
+        return  # 헤드샷 스턴 중에는 AI 완전 정지
     # 서브 대기 상태에서는 기본 AI 사용
     if is_waiting_for_serve:
         # 서브 중에는 미세한 패들 움직임만
@@ -33816,6 +34327,15 @@ def handle_boss_junior():
         # 감속
         boss_knockback_vel *= 0.85
         return  # 스턴 중에는 AI 비활성화
+    
+    # 헤드샷 스턴 상태 처리
+    global head_shot_active, head_shot_timer
+    if head_shot_active and head_shot_timer > 0:
+        head_shot_timer -= 1
+        boss_current_speed = 0  # 스턴 중에는 속도를 0으로
+        if head_shot_timer <= 0:
+            head_shot_active = False
+        return  # 헤드샷 스턴 중에는 AI 완전 정지
     #  서브 대기 상태 처리 (기존 로직과 동일)
     if is_waiting_for_serve:
         time_now = pygame.time.get_ticks()
@@ -35608,6 +36128,8 @@ def main(stage_num, new_boss_mode=False):
     global soldier_walking_active, soldier_walking_timer
     # 군인 레그샷 효과 시스템
     global leg_shot_active, leg_shot_timer, leg_shot_text_timer
+    # 군인 헤드샷 효과 시스템
+    global head_shot_active, head_shot_timer, head_shot_text_timer
     # 파워스매싱 정지 시간 관리
     global power_smashing_freeze_start_time, power_smashing_freeze_active, power_smashing_freeze_duration
     global power_smashing_parabola_active, power_smashing_start_time
@@ -37955,6 +38477,10 @@ def main(stage_num, new_boss_mode=False):
                     # 레그샷 텍스트 타이머 업데이트
                     if leg_shot_text_timer > 0:
                         leg_shot_text_timer -= 1
+                    
+                    # 헤드샷 텍스트 타이머 업데이트
+                    if head_shot_text_timer > 0:
+                        head_shot_text_timer -= 1
                 
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
