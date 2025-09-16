@@ -35194,6 +35194,7 @@ def handle_boss():
     global whip_deactivation_active, boss_stunned_after_whip  #  상모돌리기 강제 해제 관련 변수
     global boss_knockback_timer, boss_knockback_distance  #  라그나로크 해머 넉백 관련 변수
     global boss_stun_timer, ragnarok_stun_pending  #  라그나로크 해머 스턴 관련 변수
+    global head_shot_active, head_shot_timer  # 헤드샷 스턴 관련 변수
     
     
     #  수평 넉백 처리 (라그나로크 해머 + 군인 총알)
@@ -35268,6 +35269,17 @@ def handle_boss():
         if boss_stun_timer % 20 == 0:  # 매 20프레임마다 디버그 출력
             print(f"   !  : {boss_stun_timer/60:.1f}, : {boss_current_speed}")
         return  # 스턴 중에는 모든 처리 차단
+    
+    # 헤드샷 스턴 상태 처리 - 1.5초간 보스 완전 정지
+    global head_shot_active, head_shot_timer
+    if head_shot_active and head_shot_timer > 0:
+        head_shot_timer -= 1
+        boss_current_speed = 0  # 스턴 중에는 속도를 0으로
+        BOSS.x = BOSS.x  # 위치 고정 (현재 위치 유지)
+        if head_shot_timer <= 0:
+            head_shot_active = False
+            print("🎯 헤드샷 스턴 종료!")
+        return  # 헤드샷 스턴 중에는 AI 완전 정지
     
     #  리그별 AI 모드 체크 및 분기 (4단계 리그 시스템)
     if ai_enabled and ai_mode == "junior":
