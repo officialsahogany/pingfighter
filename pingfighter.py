@@ -6687,8 +6687,8 @@ def create_blood_particles(x, y, bullet_vx, bullet_vy):
     """피 튀기는 파티클 생성 함수"""
     global blood_particles
     
-    # 피 파티클 개수 (15~25개)
-    particle_count = random.randint(15, 25)
+    # 피 파티클 개수 (8~12개)
+    particle_count = random.randint(8, 12)
     
     # 총알 방향의 반대 방향으로 주로 튀도록 설정
     bullet_angle = math.atan2(bullet_vy, bullet_vx)
@@ -24071,8 +24071,8 @@ def create_soldier_character_card_image(size):
     return img
 
 def create_soldier_front_view():
-    """군인 캐릭터 앞모습 - 전신"""
-    img = pygame.Surface((150, 200), pygame.SRCALPHA)
+    """군인 캐릭터 앞모습 - 전신 (다리 짧은 버전)"""
+    img = pygame.Surface((150, 170), pygame.SRCALPHA)  # 높이를 200에서 170으로 줄임
     
     # 중심점 설정
     center_x = 75
