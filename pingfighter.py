@@ -3334,6 +3334,7 @@ class SupplyAircraft:
         
         # 비행기 사운드 중지
         self.stop_sound()
+        
     
     def stop_sound(self):
         """비행기 사운드 중지"""
@@ -3761,9 +3762,13 @@ def update_supply_drop_system():
             # 비행기가 비활성화되면 사운드 중지 (혹시 남아있을 경우를 대비)
             if supply_aircraft and hasattr(supply_aircraft, 'stop_sound'):
                 supply_aircraft.stop_sound()
-            supply_aircraft = None
-            supply_drop_active = False
-            print("물자보급 완료")
+            # 모든 파티클이 소진될 때까지 대기
+            if (len(supply_aircraft.explosion_particles) == 0 and 
+                len(supply_aircraft.debris_particles) == 0 and 
+                len(supply_aircraft.smoke_particles) == 0):
+                supply_aircraft = None
+                supply_drop_active = False
+                print("물자보급 완료")
     
     # 낙하산 아이템 업데이트
     update_supply_drop_items()
@@ -4013,7 +4018,7 @@ def draw_supply_drop_system(screen):
             
             pygame.draw.rect(screen, particle['color'], 
                            (particle['x'], particle['y'], 
-                            particle['size'], particle['size']))
+                            particle['width'], particle['height']))
     
     # 낙하산 아이템들 그리기
     draw_supply_drop_items(screen)
@@ -17648,6 +17653,8 @@ def draw_objects():
             SCREEN.blit(FIREBALL_IMG, (pos[0] - 16, pos[1] - 16))
     #  화염탄 폭발 이펙트 그리기
     draw_fireball_explosion_particles()
+    # 바주카포 폭발 이펙트 그리기
+    draw_bazooka_explosion_effects()
     # === Stage 5 화염 용이 소용돌이치며 공을 따라오는 이펙트 ===
     if flame_trail_active:
         # 용의 몸체를 그리기 위한 시간 기반 애니메이션
@@ -31523,6 +31530,100 @@ def draw_fireball_explosion_particles():
             else:
                 pygame.draw.circle(SCREEN, color, (int(x), int(y)), size)
 
+# 바주카포 폭발 이펙트 관련 변수
+bazooka_explosion_effects = []  # [(x, y, timer, max_timer), ...]
+def create_bazooka_explosion(x, y):
+    """바주카포 폭발 이펙트 생성"""
+    global bazooka_explosion_effects
+    max_timer = 40  # 약 0.67초 (60fps)
+    bazooka_explosion_effects.append([x, y, max_timer, max_timer])
+    print(f"💥 바주카포 폭발 이펙트 생성: ({x}, {y})")
+
+def update_bazooka_explosion_effects():
+    """바주카포 폭발 이펙트 업데이트"""
+    global bazooka_explosion_effects
+    new_effects = []
+    for effect in bazooka_explosion_effects:
+        x, y, timer, max_timer = effect
+        timer -= 1
+        if timer > 0:
+            new_effects.append([x, y, timer, max_timer])
+    bazooka_explosion_effects = new_effects
+
+def draw_bazooka_explosion_effects():
+    """바주카포 폭발 이펙트 그리기"""
+    for effect in bazooka_explosion_effects:
+        x, y, timer, max_timer = effect
+        progress = 1.0 - (timer / max_timer)  # 0.0 ~ 1.0
+        
+        # 바주카포 폭발 반경 75
+        max_radius = 75
+        
+        # 충격파 효과 (초기)
+        if progress < 0.3:
+            shockwave_progress = progress / 0.3
+            shockwave_radius = int(max_radius * 1.8 * shockwave_progress)
+            shockwave_alpha = int(150 * (1 - shockwave_progress))
+            if shockwave_alpha > 10:
+                # 충격파 링
+                for thickness in range(4):
+                    pygame.draw.circle(SCREEN, (255, 255, 255), 
+                                     (int(x), int(y)), 
+                                     shockwave_radius - thickness, 1)
+        
+        # 메인 폭발 효과
+        if progress < 0.7:
+            explosion_progress = progress / 0.7
+            current_radius = int(max_radius * explosion_progress)
+            
+            # 외부 폭발 (주황-빨강)
+            outer_alpha = int(200 * (1 - explosion_progress))
+            if outer_alpha > 20:
+                explosion_color = (255, int(150 * (1 - explosion_progress)), 0)
+                pygame.draw.circle(SCREEN, explosion_color,
+                                 (int(x), int(y)), current_radius)
+            
+            # 내부 코어 (밝은 노랑-흰색)
+            core_radius = int(current_radius * 0.6)
+            if core_radius > 0:
+                core_alpha = int(255 * (1 - explosion_progress))
+                if core_alpha > 30:
+                    core_color = (255, 255, int(200 * (1 - explosion_progress * 0.5)))
+                    pygame.draw.circle(SCREEN, core_color,
+                                     (int(x), int(y)), core_radius)
+        
+        # 파편 효과
+        if progress < 0.8:
+            fragment_progress = progress / 0.8
+            fragment_count = 16
+            for i in range(fragment_count):
+                angle = (math.pi * 2 * i) / fragment_count + (progress * 0.5)  # 회전 효과
+                distance = max_radius * fragment_progress * 1.2
+                frag_x = x + math.cos(angle) * distance
+                frag_y = y + math.sin(angle) * distance
+                frag_size = max(1, int(8 * (1 - fragment_progress)))
+                frag_alpha = int(255 * (1 - fragment_progress))
+                if frag_alpha > 30:
+                    frag_color = (255, int(100 + 100 * (1 - fragment_progress)), 0)
+                    pygame.draw.circle(SCREEN, frag_color, 
+                                     (int(frag_x), int(frag_y)), frag_size)
+        
+        # 연기 효과 (후기)
+        if progress > 0.4:
+            smoke_progress = (progress - 0.4) / 0.6
+            smoke_count = 8
+            for i in range(smoke_count):
+                angle = (math.pi * 2 * i) / smoke_count
+                smoke_distance = max_radius * 0.3 * smoke_progress
+                smoke_x = x + math.cos(angle) * smoke_distance
+                smoke_y = y + math.sin(angle) * smoke_distance - (smoke_progress * 20)  # 위로 상승
+                smoke_size = max(1, int(15 * smoke_progress))
+                smoke_alpha = int(100 * (1 - smoke_progress))
+                if smoke_alpha > 10:
+                    smoke_color = (50, 50, 50)
+                    pygame.draw.circle(SCREEN, smoke_color,
+                                     (int(smoke_x), int(smoke_y)), smoke_size)
+
 def handle_ball():
     # 게임 상태 변수들
     global round_wins, round_losses, boss_speed_boost_timer, boss_fail_timer
@@ -32355,6 +32456,8 @@ def handle_ball():
         fireballs = new_fireballs
         #  화염탄 폭발 파티클 업데이트
         update_fireball_explosion_particles()
+    # 바주카포 폭발 이펙트 업데이트
+    update_bazooka_explosion_effects()
     # === Stage 5 홍련폭염 (뱀 궤적) ===
     if flame_trail_active:
         # 스탑워치 활성화 시 홍련폭염도 정지
@@ -33513,8 +33616,8 @@ def handle_ball():
                 # 테크니컬 조끼 연막이 활성화되어 있는지 확인
                 vest_protected = False
                 try:
-                    # 파편의 위치가 연막 안에 있는지 체크
-                    vest_protected = check_technical_vest_smoke_collision(fragment['x'], fragment['y'])
+                    # 플레이어가 연막 안에 있는지 체크 (연막은 플레이어를 보호함)
+                    vest_protected = check_technical_vest_smoke_collision(PLAYER.centerx, PLAYER.centery)
                 except:
                     pass
                 
@@ -37012,6 +37115,9 @@ def handle_boss():
                 boss_knockback_vel = explosion["knockback"]  # 넉백 거리
                 print(f"🚀💥 바주카포 명중! 넉백: {boss_knockback_vel}, 스턴: {explosion['stun_duration']}프레임")
                 
+                # 바주카포 폭발 이펙트 생성
+                create_bazooka_explosion(explosion["x"], explosion["y"])
+                
                 # 바주카포 폭발 사운드 재생
                 try:
                     if 'SOUND_GRENADE' in globals():
@@ -37020,6 +37126,21 @@ def handle_boss():
                         print("🔊 바주카포 폭발 사운드 재생 (사운드 파일 없음)")
                 except:
                     print("🔊 바주카포 사운드 재생 실패")
+            
+            # 바주카포 벽 충돌 체크
+            wall_explosions = bazooka.check_wall_collision()
+            for explosion in wall_explosions:
+                # 벽 충돌 폭발 이펙트 생성
+                create_bazooka_explosion(explosion["x"], explosion["y"])
+                
+                # 벽 충돌 폭발 사운드 재생
+                try:
+                    if 'SOUND_GRENADE' in globals():
+                        play_sound_with_volume(SOUND_GRENADE)  # 폭발 사운드
+                    else:
+                        print("🔊 바주카포 벽 충돌 폭발 사운드 재생 (사운드 파일 없음)")
+                except:
+                    print("🔊 바주카포 벽 충돌 사운드 재생 실패")
 
     # 헤드샷 스턴 상태 처리 - 1.5초간 보스 완전 정지
     global head_shot_active, head_shot_timer
