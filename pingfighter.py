@@ -10711,8 +10711,8 @@ def handle_wall():
                     print(f"  !")
                 
                 # 군인 캐릭터의 수류탄 보스 명중 시 게이지 50+ 증가
-                global special_gauge, special_ready, current_player
-                if current_player == "soldier":
+                global special_gauge, special_ready, selected_character_type
+                if selected_character_type == "soldier":
                     gauge_increase = 50  # 기본 50 증가
                     
                     # 코만도암 착용 시 추가 보너스
@@ -11115,7 +11115,7 @@ def handle_wall():
                     print(f"  !  3  !")
                     
                     # 군인 캐릭터의 조명탄 보스 명중 시 게이지 50+ 증가
-                    if current_player == "soldier":
+                    if selected_character_type == "soldier":
                         gauge_increase = 50  # 기본 50 증가
                         
                         # 코만도암 착용 시 추가 보너스
