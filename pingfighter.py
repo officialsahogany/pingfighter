@@ -3252,6 +3252,35 @@ class SupplyAircraft:
         
         print(f"💥 비행기 폭발! 위치: ({explosion_center_x}, {explosion_center_y})")
         
+        # 플레이어와의 거리 계산 및 스턴/넉백 효과
+        global player_missile_stunned_timer, player_missile_knockback_vel
+        if PLAYER:
+            player_center_x = PLAYER.x + PADDLE_WIDTH // 2
+            player_center_y = PLAYER.y + PADDLE_HEIGHT // 2
+            
+            # 폭발 중심으로부터의 거리 계산
+            distance = math.sqrt((player_center_x - explosion_center_x)**2 + 
+                               (player_center_y - explosion_center_y)**2)
+            
+            # 100픽셀 반경 내에 있으면 스턴과 넉백 적용
+            if distance <= 100:
+                # 0.3초 스턴 효과 (스테이지5 화염탄과 동일)
+                player_missile_stunned_timer = int(0.3 * FPS)  # 0.3초 = 18프레임
+                
+                # 스테이지5 홍련의 화염탄 수준의 넉백 (기본 9, 방향에 따라)
+                if player_center_x < explosion_center_x:
+                    # 플레이어가 폭발 왼쪽에 있으면 왼쪽으로 넉백
+                    player_missile_knockback_vel = -12  # 화염탄(9)보다 약간 강하게
+                else:
+                    # 플레이어가 폭발 오른쪽에 있으면 오른쪽으로 넉백
+                    player_missile_knockback_vel = 12
+                
+                # 거리에 따른 넉백 강도 조정 (가까울수록 강함)
+                knockback_multiplier = 1.0 - (distance / 100)  # 0~1 사이 값
+                player_missile_knockback_vel *= (0.5 + 0.5 * knockback_multiplier)  # 최소 50% ~ 최대 100%
+                
+                print(f"💥 플레이어 폭발 피해! 거리: {distance:.1f}px, 넉백: {player_missile_knockback_vel:.1f}")
+        
         # 🔥 화염 파티클 - 적당한 강도로 조정
         for _ in range(25):  # 50 → 25개로 줄임
             angle = random.uniform(0, 2 * 3.14159)
@@ -8839,6 +8868,8 @@ def handle_player(keys):
     # 디버그: 물자보급 시도 감지
     if space_pressed and up_pressed and selected_character_type == "soldier":
         print(f"🎁 [물자보급 시도] gauge={special_gauge}/{SUPPLY_DROP_GAUGE_COST}, active={supply_drop_active}, can_use={can_use_supply_drop}")
+        print(f"  - is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}")
+        print(f"  - space_pressed={space_pressed}, up_pressed={up_pressed}")
         if is_player_serve and is_waiting_for_serve:
             serve_wait_time = pygame.time.get_ticks() - waiting_start_time
             print(f"  서브 대기 중: {serve_wait_time}ms (6000ms 필요)")
@@ -8847,9 +8878,10 @@ def handle_player(keys):
         not supply_drop_active and special_gauge >= SUPPLY_DROP_GAUGE_COST and
         can_use_supply_drop):
         # 물자보급 스킬 발동
+        print(f"✅ 물자보급 발동 성공! special_gauge: {special_gauge} -> {special_gauge - SUPPLY_DROP_GAUGE_COST}")
         supply_drop_active = True
         special_gauge -= SUPPLY_DROP_GAUGE_COST
-        supply_drop_timer = 60  # 1초 (60fps 기준)
+        supply_drop_timer = random.randint(90, 300)  # 1.5초~5초 (60fps 기준)
         
         # 무전기 모션 활성화 (0.5초)
         supply_radio_motion = True
@@ -30540,6 +30572,8 @@ def reset_round():
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
     global boss_special_gauge, current_stage  #  스테이지 1 보스 게이지 감소용 변수 추가
+    global leg_shot_active, leg_shot_timer, leg_shot_text_timer  # 권총 레그샷 관련 변수
+    global head_shot_active, head_shot_timer, head_shot_text_timer, boss_stunned_timer  # 권총 헤드샷 관련 변수
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -30744,6 +30778,17 @@ def reset_round():
             rolling_consecutive_count = max(0, dash_consecutive)
     #  듀스 시스템 상태 초기화 (라운드 시작 시 듀스 모드 유지, 듀스 점수는 유지)
     # 듀스 모드에서는 듀스 점수를 리셋하지 않음 (듀스 모드가 끝날 때까지 유지)
+    # 권총 레그샷/헤드샷 상태 초기화 (라운드 시작 시)
+    leg_shot_active = False
+    leg_shot_timer = 0
+    leg_shot_text_timer = 0
+    head_shot_active = False
+    head_shot_timer = 0
+    head_shot_text_timer = 0
+    # 헤드샷으로 인한 boss_stunned_timer도 초기화
+    if boss_stunned_timer > 0 and head_shot_active:
+        boss_stunned_timer = 0
+    
     #  상모돌리기 상태 초기화 (라운드 시작 시)
     whip_active = False
     whip_timer = 0
@@ -37365,19 +37410,25 @@ def handle_boss():
     # 바주카포 충돌 체크 및 폭발 처리
     if selected_character_type == "soldier":
         from item_effects.bazooka import get_bazooka_instance
-        bazooka = get_bazooka_instance()
-        if bazooka.equipped:
-            explosions = bazooka.check_boss_collision(BOSS, WIDTH)
-            for explosion in explosions:
-                # 폭발 넉백 효과 적용
-                boss_knockback_timer = explosion["stun_duration"]  # 2초 스턴
-                boss_knockback_vel = explosion["knockback"]  # 넉백 거리
-                print(f"🚀💥 바주카포 명중! 넉백: {boss_knockback_vel}, 스턴: {explosion['stun_duration']}프레임")
-                
-                # 바주카포 폭발 이펙트 생성
+        bazooka_inst = get_bazooka_instance()
+        if bazooka_inst.equipped:
+            # 모든 폭발 수집 (직접 명중 + 벽 충돌)
+            all_explosions = []
+            
+            # 보스와의 직접 충돌 체크
+            direct_explosions = bazooka_inst.check_boss_collision(BOSS, WIDTH)
+            all_explosions.extend(direct_explosions)
+            
+            # 벽과의 충돌 체크
+            wall_explosions = bazooka_inst.check_wall_collision()
+            all_explosions.extend(wall_explosions)
+            
+            # 모든 폭발에 대해 처리
+            for explosion in all_explosions:
+                # 폭발 이펙트 생성
                 create_bazooka_explosion(explosion["x"], explosion["y"])
                 
-                # 바주카포 폭발 사운드 재생
+                # 폭발 사운드 재생
                 try:
                     if 'SOUND_GRENADE' in globals():
                         play_sound_with_volume(SOUND_GRENADE)  # 폭발 사운드
@@ -37385,21 +37436,26 @@ def handle_boss():
                         print("🔊 바주카포 폭발 사운드 재생 (사운드 파일 없음)")
                 except:
                     print("🔊 바주카포 사운드 재생 실패")
-            
-            # 바주카포 벽 충돌 체크
-            wall_explosions = bazooka.check_wall_collision()
-            for explosion in wall_explosions:
-                # 벽 충돌 폭발 이펙트 생성
-                create_bazooka_explosion(explosion["x"], explosion["y"])
                 
-                # 벽 충돌 폭발 사운드 재생
-                try:
-                    if 'SOUND_GRENADE' in globals():
-                        play_sound_with_volume(SOUND_GRENADE)  # 폭발 사운드
+                # 폭발 범위 내 보스 체크 (수류탄과 동일한 로직)
+                boss_center_x = BOSS.centerx
+                boss_center_y = BOSS.centery
+                distance = calculate_distance((boss_center_x, boss_center_y), (explosion["x"], explosion["y"]))
+                
+                if distance < explosion["radius"]:
+                    # 보스 스턴 적용 (1.5초 = 90프레임)
+                    boss_stunned_timer = 90  # 수류탄(120프레임)보다 짧음
+                    
+                    # 넉백 방향 결정 (수류탄과 동일)
+                    knockback_power = 40  # 수류탄과 동일한 넉백 강도
+                    if explosion["x"] < WIDTH / 2:
+                        # 폭발이 왼쪽에서 터지면 보스를 오른쪽으로 넉백
+                        boss_knockback_vel = knockback_power
                     else:
-                        print("🔊 바주카포 벽 충돌 폭발 사운드 재생 (사운드 파일 없음)")
-                except:
-                    print("🔊 바주카포 벽 충돌 사운드 재생 실패")
+                        # 폭발이 오른쪽에서 터지면 보스를 왼쪽으로 넉백
+                        boss_knockback_vel = -knockback_power
+                    
+                    print(f"🚀💥 바주카포 폭발! 보스 스턴 1.5초, 넉백: {boss_knockback_vel}")
 
     # 헤드샷 스턴 상태 처리 - 1.5초간 보스 완전 정지
     global head_shot_active, head_shot_timer

@@ -19,7 +19,7 @@ class Bazooka:
         self.INITIAL_SPEED = 3  # 초기 속도 (매우 느림)
         self.ACCELERATION = 0.3  # 가속도
         self.MAX_SPEED = 25  # 최대 속도
-        self.EXPLOSION_RADIUS = 75  # 폭발 범위 (수류탄 150의 50%)
+        self.EXPLOSION_RADIUS = 110  # 폭발 범위 (수류탄 150의 약 73%)
         self.KNOCKBACK_POWER = 40  # 넉백 거리 (수류탄과 동일)
         self.STUN_DURATION = 90  # 스턴 시간 1.5초 (수류탄보다 0.5초 짧음)
         
@@ -152,7 +152,7 @@ class Bazooka:
                 
                 # 발사체 제거
                 projectile["active"] = False
-                print(f"💥 바주카포 보스 패들 명중! 폭발 범위: {self.EXPLOSION_RADIUS}")
+                print(f"💥 바주카포 보스 패들 명중! 폭발 범위: {self.EXPLOSION_RADIUS}px")
                 
         return explosions
         
@@ -178,7 +178,7 @@ class Bazooka:
                 
                 # 발사체 제거
                 projectile["active"] = False
-                print(f"💥 바주카포 벽 충돌! 폭발 범위: {self.EXPLOSION_RADIUS}")
+                print(f"💥 바주카포 벽 충돌! 폭발 범위: {self.EXPLOSION_RADIUS}px")
                 
             # 화면 좌우 벽과 충돌 체크
             elif projectile["x"] <= 10 or projectile["x"] >= 790:
@@ -194,7 +194,7 @@ class Bazooka:
                 
                 # 발사체 제거
                 projectile["active"] = False
-                print(f"💥 바주카포 측벽 충돌! 폭발 범위: {self.EXPLOSION_RADIUS}")
+                print(f"💥 바주카포 측벽 충돌! 폭발 범위: {self.EXPLOSION_RADIUS}px")
                 
         return explosions
         
