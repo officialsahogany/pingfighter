@@ -2012,7 +2012,7 @@ brick_particles = []  # 벽돌 부서지는 파티클 리스트
 # === 화염병 관련 ===
 molotovs = []  # 던져진 화염병 리스트
 fire_zones = []  # 화염 지대 리스트
-fire_zone_sounds = {}  # 화염 지대별 사운드 채널 관리
+# fire_zone_sounds = {}  # 화염 지대별 사운드 채널 관리 - SOUND_FLAME 제거로 사용 안 함
 wall_install_gauge_visible = False  # 설치 게이지 표시 여부
 molotov_throwing = False  # 화염병 투척 모션 중
 molotov_throw_timer = 0  # 투척 모션 타이머
@@ -2286,21 +2286,21 @@ pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (180, 140, 110),
 # 탁구채 (적절한 크기와 위치)
 paddle_x = left_arm_x
 paddle_y = left_arm_y - 28  # 적절한 위치로 조정
-# 라켓 면 (적절한 크기)
+# 라켓 면 (원형에 가까운 크기)
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (75, 95, 55), 
-                    (paddle_x - 12, paddle_y - 8, 24, 30))
+                    (paddle_x - 13, paddle_y - 8, 26, 26))
 # 라켓 테두리 (입체감)
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (95, 115, 75), 
-                    (paddle_x - 12, paddle_y - 8, 24, 30), 2)
+                    (paddle_x - 13, paddle_y - 8, 26, 26), 2)
 # 라켓 고무 (빨간색)
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (120, 35, 25), 
-                    (paddle_x - 10, paddle_y - 6, 20, 26))
+                    (paddle_x - 11, paddle_y - 6, 22, 22))
 # 라켓 중앙 원형 패턴
 pygame.draw.ellipse(SOLDIER_PADDLE_IMG, (100, 25, 15), 
-                    (paddle_x - 6, paddle_y - 2, 12, 18))
+                    (paddle_x - 7, paddle_y - 2, 14, 14))
 # 군용 별 마크 (더 정교하게)
 star_cx = paddle_x
-star_cy = paddle_y + 4
+star_cy = paddle_y + 5
 for i in range(5):
     angle = math.radians(i * 72 - 90)
     x = star_cx + int(4 * math.cos(angle))
@@ -3416,14 +3416,7 @@ def go_to_next_round():
     last_wall_hit = None
     last_paddle_hit_time = 0
     #  화염병 관련 초기화 (라운드 전환 시 화염 지대 제거)
-    # 모든 화염 효과음 정지
-    for zone_id, channel in fire_zone_sounds.items():
-        try:
-            if channel and channel.get_busy():
-                channel.stop()
-        except:
-            pass
-    fire_zone_sounds.clear()  # 채널 정보 초기화
+    # 화염 효과음 관련 코드 제거됨 (SOUND_FLAME 사용 안 함)
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
     #  수류탄 관련 초기화
@@ -6790,53 +6783,75 @@ def draw_soldier_bullets(screen):
                              SOLDIER_BULLET_SIZE // 2)
 
 def draw_leg_shot_effect(screen):
-    """레그샷 텍스트 효과 그리기"""
+    """레그샷 텍스트 효과 그리기 - 작고 임팩트 있는 애니메이션"""
     global leg_shot_text_timer
     
     if leg_shot_text_timer > 0:
-        # 텍스트 알파값 계산 (페이드 아웃 효과)
-        if leg_shot_text_timer > LEG_SHOT_TEXT_DURATION * 0.8:  # 처음 80%는 불투명
-            alpha = 255
-        else:  # 마지막 20%는 페이드 아웃
-            alpha = int(255 * (leg_shot_text_timer / (LEG_SHOT_TEXT_DURATION * 0.2)))
-        
-        # 텍스트 표면 생성
         try:
-            font_large = pygame.freetype.Font(resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")), 48)
+            # 작은 폰트 사용 (20pt)
+            font = pygame.freetype.Font(resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")), 20)
             
-            # 텍스트 크기 애니메이션 (팝 효과)
-            if leg_shot_text_timer > LEG_SHOT_TEXT_DURATION * 0.9:
-                scale = 1.2
-            else:
+            # 애니메이션 진행도 (0.0 ~ 1.0)
+            progress = 1.0 - (leg_shot_text_timer / LEG_SHOT_TEXT_DURATION)
+            
+            # 다이나믹한 애니메이션 계산
+            if progress < 0.1:  # 0~0.1초: 급격한 확대
+                scale = 0.5 + (progress * 15)  # 0.5에서 2.0까지
+                rotation = progress * 360  # 빠른 회전
+                alpha = 255
+            elif progress < 0.3:  # 0.1~0.3초: 안정화
+                scale = 2.0 - ((progress - 0.1) * 5)  # 2.0에서 1.0으로
+                rotation = 36  # 회전 멈춤
+                alpha = 255
+            elif progress < 0.7:  # 0.3~0.7초: 유지
                 scale = 1.0
+                rotation = 0
+                alpha = 255
+            else:  # 0.7~1.0초: 페이드 아웃
+                scale = 1.0 - ((progress - 0.7) * 1.0)  # 축소하며 사라짐
+                rotation = 0
+                alpha = int(255 * (1.0 - progress) / 0.3)
             
-            # 그림자 효과
-            shadow_text, shadow_rect = font_large.render("레그샷!", (0, 0, 0))
-            shadow_text.set_alpha(alpha // 2)
-            shadow_pos = (BOSS.centerx + 3, BOSS.centery - 80 + 3)
-            shadow_rect.center = shadow_pos
-            screen.blit(shadow_text, shadow_rect)
+            # 텍스트 렌더링
+            text_surface, text_rect = font.render("레그샷!", (255, 255, 255))
             
-            # 메인 텍스트 (빨간색)
-            main_text, main_rect = font_large.render("레그샷!", (255, 50, 50))
-            main_text.set_alpha(alpha)
+            # 발광 효과를 위한 배경
+            glow_surface = pygame.Surface((text_surface.get_width() + 20, text_surface.get_height() + 20), pygame.SRCALPHA)
             
-            # 스케일 적용
-            if scale != 1.0:
-                scaled_width = int(main_text.get_width() * scale)
-                scaled_height = int(main_text.get_height() * scale)
-                main_text = pygame.transform.scale(main_text, (scaled_width, scaled_height))
+            # 빨간색 발광 효과 (여러 겹)
+            for i in range(3):
+                glow_alpha = alpha // (i + 2)
+                glow_size = 5 * (3 - i)
+                pygame.draw.ellipse(glow_surface, (255, 50, 50, glow_alpha), 
+                                  (10 - glow_size, 10 - glow_size, 
+                                   text_surface.get_width() + glow_size * 2, 
+                                   text_surface.get_height() + glow_size * 2))
             
-            main_rect = main_text.get_rect(center=(BOSS.centerx, BOSS.centery - 80))
-            screen.blit(main_text, main_rect)
+            # 텍스트를 glow surface 중앙에 배치
+            glow_surface.blit(text_surface, (10, 10))
             
-            # 작은 부가 텍스트
-            if leg_shot_text_timer > LEG_SHOT_TEXT_DURATION * 0.5:
-                small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")), 24)
-                sub_text, sub_rect = small_font.render("이동속도 -30%", (255, 150, 150))
-                sub_text.set_alpha(alpha)
-                sub_rect.center = (BOSS.centerx, BOSS.centery - 40)
-                screen.blit(sub_text, sub_rect)
+            # 스케일 및 회전 적용
+            if scale != 1.0 or rotation != 0:
+                glow_surface = pygame.transform.rotozoom(glow_surface, rotation, scale)
+            
+            # 알파값 적용
+            glow_surface.set_alpha(alpha)
+            
+            # 화면에 그리기 (보스 위 50픽셀)
+            final_rect = glow_surface.get_rect(center=(BOSS.centerx, BOSS.centery - 50))
+            screen.blit(glow_surface, final_rect)
+            
+            # 임팩트 라인 효과 (초반에만)
+            if progress < 0.2:
+                line_brightness = int(255 * (1.0 - progress * 5))
+                for angle in range(0, 360, 45):
+                    import math
+                    end_x = BOSS.centerx + math.cos(math.radians(angle)) * 50 * (1 + progress * 2)
+                    end_y = BOSS.centery - 50 + math.sin(math.radians(angle)) * 50 * (1 + progress * 2)
+                    pygame.draw.line(screen, (line_brightness, line_brightness // 2, line_brightness // 2), 
+                                   (BOSS.centerx, BOSS.centery - 50), 
+                                   (end_x, end_y), 2)
+            
         except Exception as e:
             print(f"레그샷 텍스트 렌더링 오류: {e}")
 
@@ -10064,16 +10079,6 @@ def handle_wall():
             # 폭발 효과음
             try:
                 play_sound_with_volume(SOUND_FIREBOMB)  #  화염병 폭발 사운드 재생
-                # 화염 지속 효과음 재생
-                try:
-                    flame_channel = pygame.mixer.find_channel()
-                    if flame_channel:
-                        flame_channel.set_volume(sfx_volume * 0.3)  # 화염 효과음은 작게
-                        flame_channel.play(SOUND_FLAME, loops=-1)  # 루프 재생
-                        fire_zone_sounds[id(fire_zone)] = flame_channel  # 채널 저장
-                        print(f"화염 효과음 재생 시작 - Zone ID: {id(fire_zone)}")
-                except Exception as e:
-                    print(f"화염 효과음 재생 실패: {e}")
             except:
                 pass
             print(f"  !    : X={fire_zone['x']:.1f}, Y={fire_zone['y']:.1f}")
@@ -10086,18 +10091,6 @@ def handle_wall():
             fire_zone["push_timer"] = 0
         fire_zone["push_timer"] += 1
 
-        # 화염 효과음을 1초 일찍 정지 (90프레임 = 1.5초 남음)
-        if fire_zone["duration"] == 90:
-            zone_id = id(fire_zone)
-            if zone_id in fire_zone_sounds:
-                try:
-                    channel = fire_zone_sounds[zone_id]
-                    if channel and channel.get_busy():
-                        channel.stop()  # 1초 일찍 정지
-                        print(f"화염 효과음 조기 정지 (1초 전) - Zone ID: {zone_id}")
-                    del fire_zone_sounds[zone_id]  # 채널 정보 삭제
-                except Exception as e:
-                    print(f"화염 효과음 조기 정지 실패: {e}")
         # 불길 번짐 효과 - 지속적으로 새 불꽃 추가
         if fire_zone["spread_timer"] % 5 == 0 and len(fire_zone["flames"]) < 30:
             for i in range(3):
@@ -10175,18 +10168,7 @@ def handle_wall():
                     BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
         # 지속시간 종료 체크
         if fire_zone["duration"] <= 0:
-            # 화염 효과음이 이미 정지되었을 수 있음 (0.5초 전에 정지됨)
-            zone_id = id(fire_zone)
-            if zone_id in fire_zone_sounds:
-                try:
-                    channel = fire_zone_sounds[zone_id]
-                    if channel and channel.get_busy():
-                        channel.stop()  # 아직 재생 중이면 정지
-                        print(f"화염 효과음 정지 (종료 시점) - Zone ID: {zone_id}")
-                    del fire_zone_sounds[zone_id]  # 채널 정보 삭제
-                except Exception as e:
-                    print(f"화염 효과음 정지 실패: {e}")
-            # 이미 0.5초 전에 정지되었으므로 경고 메시지 제거
+            # 화염 효과음 관련 코드 제거됨 (SOUND_FLAME 사용 안 함)
             fire_zones.remove(fire_zone)
     #  모든 화염 지대를 체크한 후, 보스가 어떤 화염 지대에도 없으면 속도 감소 효과 리셋
     if len(fire_zones) == 0 or not any(zone.get("boss_in_fire", False) for zone in fire_zones):
@@ -10279,7 +10261,14 @@ def handle_whip():
     if whip_active:
         if whip_timer > 0:
             whip_timer -= 1  # 타이머 감소 (효과음의 지속시간)
+            old_wave_phase = whip_wave_phase
             whip_wave_phase += 0.3  # 사인 함수로 진폭 파형 진행
+            
+            # 공이 한 바퀴 돌 때마다 효과음 재생 (사인파가 2π를 넘을 때)
+            if int(old_wave_phase / (2 * math.pi)) < int(whip_wave_phase / (2 * math.pi)):
+                whip_sound.play()
+                print(f"[DEBUG] 상모돌리기 효과음 재생 - 회전수: {int(whip_wave_phase / (2 * math.pi))}")
+            
             # 진폭 계산 (사인 함수에 의해 -1에서 1 사이의 값을 가짐)
             wave = math.sin(whip_wave_phase) * 15  # 진폭을 15로 감소 (좌우 흔들림 최소화)
             # 볼륨 조정 제거 - 사운드가 계속 재생되는 문제 방지
@@ -28291,14 +28280,7 @@ def reset_round():
     #  라운드 시작 시간 초기화 (화염탄 2.5초 지연용)
     round_start_time = pygame.time.get_ticks()
     #  화염병 관련 초기화 (라운드 전환 시 화염 지대 제거)
-    # 모든 화염 효과음 정지
-    for zone_id, channel in fire_zone_sounds.items():
-        try:
-            if channel and channel.get_busy():
-                channel.stop()
-        except:
-            pass
-    fire_zone_sounds.clear()  # 채널 정보 초기화
+    # 화염 효과음 관련 코드 제거됨 (SOUND_FLAME 사용 안 함)
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
     #  수류탄 관련 초기화
