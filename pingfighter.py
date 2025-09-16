@@ -33613,17 +33613,17 @@ def handle_ball():
             
             # 패들과 파편의 충돌 체크 (Rect 충돌)
             if PLAYER.colliderect(fragment_rect):
-                # 테크니컬 조끼 연막이 활성화되어 있는지 확인
-                vest_protected = False
+                # 연막 보호 체크 (테크니컬 조끼 + 연막탄 아이템)
+                smoke_protected = False
                 try:
-                    # 플레이어가 연막 안에 있는지 체크 (연막은 플레이어를 보호함)
-                    vest_protected = check_technical_vest_smoke_collision(PLAYER.centerx, PLAYER.centery)
+                    # 플레이어가 연막 안에 있는지 체크 (모든 연막 타입 포함)
+                    smoke_protected = is_player_in_smoke()
                 except:
                     pass
                 
-                if vest_protected:
-                    # 연막에 의해 보호됨 - 파편이 막힘
-                    print(f"테크니컬 조끼 연막이 달의 파편을 막았습니다!")
+                if smoke_protected:
+                    # 연막에 의해 보호됨 - 파편이 막힘 (테크니컬 조끼 또는 연막탄)
+                    print(f"연막이 달의 파편을 막았습니다!")
                     print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f})")
                 elif rolling_active:
                     # 🦵 대쉬 중일 때 - 파편을 보스에게 반사!
