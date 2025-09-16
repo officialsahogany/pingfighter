@@ -130,8 +130,24 @@ def init_gacha(available_items):
     if not filtered_items:
         filtered_items = available_items
     
+    # 전설 아이템과 일반 아이템 분리
+    legendary_items = [item for item in filtered_items if item.get("name", "") in ["ragnarok_hammer", "hermes_shoes", "poseidon_trident"]]
+    normal_items = [item for item in filtered_items if item.get("name", "") not in ["ragnarok_hammer", "hermes_shoes", "poseidon_trident"]]
+    
+    # 캡슐 40개 생성 (전설 아이템은 낮은 확률로)
     for i in range(40):
-        item = random.choice(filtered_items).copy()
+        # 1% 확률로 전설 아이템, 99% 확률로 일반 아이템
+        if random.random() < 0.01 and legendary_items:  # 1% 확률로 전설 아이템 (기존 3% → 1%)
+            item = random.choice(legendary_items).copy()
+        elif normal_items:
+            item = random.choice(normal_items).copy()
+        else:
+            # 일반 아이템이 없으면 전설 아이템이라도 선택
+            if legendary_items:
+                item = random.choice(legendary_items).copy()
+            else:
+                continue  # 아무 아이템도 없으면 건너뛰기
+                
         item["capsule_color"] = random.choice(capsule_colors)
         gacha_items.append(item)
     

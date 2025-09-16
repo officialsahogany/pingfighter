@@ -609,6 +609,18 @@ def spawn_random_item():
     # 디버그: 포세이돈 플래그 상태 출력
     print(f"[DEBUG spawn_random_item] poseidon_trident_obtained = {poseidon_trident_obtained}")
     
+    # passive_item_list를 가져와서 이미 보유한 패시브 아이템 확인
+    try:
+        import pingfighter
+        current_passive_items = [item["name"] for item in pingfighter.passive_item_list]
+        print(f"[DEBUG] Current passive items in inventory: {current_passive_items}")
+    except:
+        current_passive_items = []
+    
+    # 현재 필드에 떠 있는 아이템들의 이름 목록 생성 (중복 방지)
+    items_in_field = [item["type"]["name"] for item in item_list]
+    print(f"[DEBUG] Items currently in field: {items_in_field}")
+    
     # 스폰 가능한 아이템 목록 생성
     available_items = []
     
@@ -716,6 +728,16 @@ def spawn_random_item():
         # 🚫 패시브 아이템 중복 방지 (chargebag 제외)
         # 이미 소지한 패시브 아이템은 더 이상 스폰하지 않음
         # chargebag은 중복 가능하므로 제외하고 체크
+        
+        # 이미 인벤토리에 있는 패시브 아이템인지 확인
+        if item["name"] in current_passive_items and item["name"] != "chargebag":
+            print(f"[DEBUG] Skipping {item['name']} - already in passive inventory")
+            continue
+        
+        # 현재 필드에 떠 있는 아이템과 중복되는지 확인 (판도라의 상자 중복 방지)
+        if item["name"] in items_in_field and item["name"] != "chargebag":
+            print(f"[DEBUG] Skipping {item['name']} - already spawned in field")
+            continue
 
         # 스폰 가능한 아이템을 목록에 추가 (확률 포함)
         available_items.append(item)

@@ -1257,6 +1257,7 @@ SOUND_BALLOON_BOOM = pygame.mixer.Sound(resource_path("sounds/balloonboom.wav"))
 SOUND_POWER_SMASH = pygame.mixer.Sound(resource_path("sounds/power_smash.wav"))  #  파워스매싱 발동 효과음
 SOUND_POWER_SMASH_LAUNCH = pygame.mixer.Sound(resource_path("sounds/power_smash_launch.wav"))  #  파워스매싱 공 발사 효과음  #  풍선 터지는 효과음
 SOUND_MISSILE = pygame.mixer.Sound(resource_path("sounds/missle.wav"))  #  미사일 충돌 효과음
+SOUND_PISTOL_RELOAD_START = pygame.mixer.Sound(resource_path("sounds/pistolreloadstart.wav"))  # 군인 권총 재장전 시작 효과음
 SOUND_RAGNAROK_SHOT = pygame.mixer.Sound(resource_path("sounds/ragnarokshot.wav"))  #  라그나로크 스턴공 발사 효과음
 SOUND_RAGNAROK_BOOM = pygame.mixer.Sound(resource_path("sounds/ragnarokboom.wav"))  #  라그나로크 보스 반격 효과음
 SOUND_RAGNAROK_SHOCK = pygame.mixer.Sound(resource_path("sounds/ragnarokshock.wav"))  #  라그나로크 전기 감전 효과음
@@ -2905,7 +2906,7 @@ supply_drop_items = []  # 낙하산으로 떨어지는 아이템들
 supply_drop_timer = 0  # 물자보급 발동 후 타이머
 supply_radio_motion = False  # 무전기 모션 활성 여부
 supply_radio_timer = 0  # 무전기 모션 타이머 (0.5초)
-SUPPLY_DROP_GAUGE_COST = 400  # 물자보급 스킬 게이지 소모량
+SUPPLY_DROP_GAUGE_COST = 350  # 물자보급 스킬 게이지 소모량
 SUPPLY_DROP_ITEMS = ["grenade", "molotov", "flare"]  # 투척 가능한 아이템 목록
 
 # === 군용 비행기 클래스 ===
@@ -2951,7 +2952,11 @@ class SupplyAircraft:
         self.is_crashing = False
         self.crash_velocity_y = 0
         self.crash_rotation = 0
+        self.crash_angle = 0  # 추락 각도
         self.explosion_particles = []
+        self.smoke_particles = []  # 연기 파티클
+        self.debris_particles = []  # 파편 파티클
+        self.crash_phase = 0  # 0: 초기, 1: 가속, 2: 최종 추락
         
         # 사운드 재생
         self.sound_channel = None
@@ -2968,15 +2973,46 @@ class SupplyAircraft:
             
         if self.is_crashing:
             # 추락 중일 때
-            self.crash_velocity_y += 0.5  # 중력 가속
+            # 추락 단계별 다른 가속도 적용
+            if self.crash_phase == 0:  # 초기 단계 - 매우 천천히
+                self.crash_velocity_y += 0.05  # 더 느린 가속도
+                if self.crash_velocity_y > 1.5:
+                    self.crash_phase = 1
+            elif self.crash_phase == 1:  # 중간 단계 - 조금씩 빨라짐
+                self.crash_velocity_y += 0.1
+                if self.crash_velocity_y > 3:
+                    self.crash_phase = 2
+            else:  # 최종 단계 - 빨라지지만 여전히 천천히
+                self.crash_velocity_y += 0.15
+                # 최대 속도 제한
+                if self.crash_velocity_y > 5:
+                    self.crash_velocity_y = 5
+                
             self.y += self.crash_velocity_y
-            self.crash_rotation += 15  # 회전
+            self.crash_rotation += min(10, 2 + self.crash_velocity_y * 0.3)  # 회전도 더 천천히
+            self.crash_angle += 2  # 추락 각도 증가
+            
+            # 연속적인 연기 생성
+            if random.randint(1, 3) == 1:  # 33% 확률로 연기 생성
+                self.create_smoke_particle()
             
             # 바닥에 닿으면 폭발
-            if self.y > HEIGHT - 50:
+            if self.y > HEIGHT - 80:  # 플레이어 패들 근처
                 self.explode()
                 self.active = False
                 return
+            
+            # 연기 파티클 업데이트
+            for particle in self.smoke_particles[:]:
+                particle['x'] += particle['vx']
+                particle['y'] += particle['vy']
+                particle['vy'] -= 0.1  # 연기는 위로 올라감
+                particle['life'] -= 1
+                particle['size'] += 0.3  # 연기가 퍼짐
+                particle['alpha'] = max(0, particle['alpha'] - 2)
+                
+                if particle['life'] <= 0 or particle['alpha'] <= 0:
+                    self.smoke_particles.remove(particle)
             
             # 폭발 파티클 업데이트
             for particle in self.explosion_particles[:]:
@@ -2987,6 +3023,22 @@ class SupplyAircraft:
                 
                 if particle['life'] <= 0:
                     self.explosion_particles.remove(particle)
+                    
+            # 파편 파티클 업데이트
+            for particle in self.debris_particles[:]:
+                particle['x'] += particle['vx']
+                particle['y'] += particle['vy']
+                particle['vy'] += 0.5  # 파편은 중력 영향 더 받음
+                particle['rotation'] += particle['rotation_speed']
+                particle['life'] -= 1
+                
+                # 바닥에 닿으면 튀어오름
+                if particle['y'] > HEIGHT - 60 and particle['vy'] > 0:
+                    particle['vy'] *= -0.6  # 에너지 손실과 함께 튀어오름
+                    particle['vx'] *= 0.8
+                
+                if particle['life'] <= 0:
+                    self.debris_particles.remove(particle)
         else:
             # 정상 비행 중
             # 등장 타이머 업데이트
@@ -3092,9 +3144,11 @@ class SupplyAircraft:
             # 플레이어가 쏜 공만 격추 가능
             if hit_by == "player":
                 self.is_crashing = True
-                self.crash_velocity_y = 2
-                # 폭발 파티클 생성
+                self.crash_velocity_y = 0.5  # 초기 속도를 더 느리게 (1 → 0.5)
+                self.crash_phase = 0  # 추락 단계 초기화
+                # 초기 폭발 및 연기 파티클 생성
                 self.create_crash_particles()
+                self.create_initial_smoke()
                 print("💥 비행기가 플레이어의 공에 맞아 추락합니다!")
                 return True
             else:
@@ -3103,37 +3157,112 @@ class SupplyAircraft:
         return False
     
     def create_crash_particles(self):
-        """추락 시 폭발 파티클 생성"""
-        # 연기와 불꽃 파티클 생성
-        for _ in range(20):
+        """추락 시 초기 폭발 파티클 생성"""
+        # 작은 폭발과 불꽃 파티클
+        for _ in range(15):
             self.explosion_particles.append({
-                'x': self.x + self.width // 2,
+                'x': self.x + self.width // 2 + random.randint(-10, 10),
+                'y': self.y + self.height // 2 + random.randint(-5, 5),
+                'vx': random.uniform(-3, 3),
+                'vy': random.uniform(-3, 2),
+                'color': random.choice([(255, 100, 0), (255, 200, 0), (255, 150, 50)]),
+                'size': random.randint(2, 5),
+                'life': random.randint(15, 30)
+            })
+    
+    def create_initial_smoke(self):
+        """초기 연기 생성"""
+        for _ in range(10):
+            self.smoke_particles.append({
+                'x': self.x + self.width // 2 + random.randint(-15, 15),
                 'y': self.y + self.height // 2,
-                'vx': random.uniform(-5, 5),
-                'vy': random.uniform(-5, 3),
-                'color': random.choice([(255, 100, 0), (255, 200, 0), (100, 100, 100)]),  # 불꽃과 연기
+                'vx': random.uniform(-1, 1),
+                'vy': random.uniform(-2, -0.5),  # 연기는 위로
+                'size': random.randint(5, 10),
+                'alpha': 150,
+                'life': random.randint(40, 60)
+            })
+    
+    def create_smoke_particle(self):
+        """추락 중 연속적인 연기 생성"""
+        # 비행기 뒤쪽에서 연기 생성
+        smoke_x = self.x + self.width // 2 - (10 if self.direction == "left_to_right" else -10)
+        self.smoke_particles.append({
+            'x': smoke_x + random.randint(-5, 5),
+            'y': self.y + self.height // 2 + random.randint(-5, 5),
+            'vx': random.uniform(-0.5, 0.5),
+            'vy': random.uniform(-1.5, -0.5),
+            'size': random.randint(8, 15),
+            'alpha': 180,
+            'life': random.randint(50, 80)
+        })
+    
+    def explode(self):
+        """바닥에 닿았을 때 대규모 폭발"""
+        explosion_center_x = self.x + self.width // 2
+        explosion_center_y = self.y + self.height // 2
+        
+        # 큰 폭발 효과 - 중심부
+        for _ in range(30):
+            angle = random.uniform(0, 2 * 3.14159)
+            speed = random.uniform(5, 15)
+            self.explosion_particles.append({
+                'x': explosion_center_x,
+                'y': explosion_center_y,
+                'vx': speed * math.cos(angle),
+                'vy': speed * math.sin(angle) - 5,  # 위쪽으로 더 많이
+                'color': random.choice([(255, 50, 0), (255, 150, 0), (255, 255, 0), (255, 200, 50)]),
+                'size': random.randint(8, 20),
+                'life': random.randint(40, 80)
+            })
+        
+        # 작은 불꽃 파편들
+        for _ in range(40):
+            angle = random.uniform(0, 2 * 3.14159)
+            speed = random.uniform(8, 20)
+            self.explosion_particles.append({
+                'x': explosion_center_x + random.randint(-20, 20),
+                'y': explosion_center_y + random.randint(-10, 10),
+                'vx': speed * math.cos(angle),
+                'vy': speed * math.sin(angle) - 8,
+                'color': random.choice([(255, 100, 0), (255, 200, 0), (255, 255, 100)]),
                 'size': random.randint(3, 8),
                 'life': random.randint(20, 40)
             })
-    
-    def explode(self):
-        """바닥에 닿았을 때 큰 폭발"""
-        # 큰 폭발 효과
-        for _ in range(50):
-            self.explosion_particles.append({
-                'x': self.x + self.width // 2,
-                'y': self.y + self.height // 2,
-                'vx': random.uniform(-10, 10),
-                'vy': random.uniform(-15, 5),
-                'color': random.choice([(255, 50, 0), (255, 150, 0), (255, 255, 0), (50, 50, 50)]),
-                'size': random.randint(5, 15),
-                'life': random.randint(30, 60)
+        
+        # 금속 파편들 생성
+        for _ in range(20):
+            angle = random.uniform(0, 2 * 3.14159)
+            speed = random.uniform(10, 25)
+            self.debris_particles.append({
+                'x': explosion_center_x,
+                'y': explosion_center_y,
+                'vx': speed * math.cos(angle),
+                'vy': speed * math.sin(angle) - 10,
+                'width': random.randint(5, 15),
+                'height': random.randint(3, 8),
+                'color': random.choice([(80, 80, 80), (100, 100, 100), (120, 120, 100)]),
+                'rotation': random.uniform(0, 360),
+                'rotation_speed': random.uniform(-20, 20),
+                'life': random.randint(60, 120)
+            })
+        
+        # 연기 폭발
+        for _ in range(25):
+            self.smoke_particles.append({
+                'x': explosion_center_x + random.randint(-30, 30),
+                'y': explosion_center_y + random.randint(-20, 20),
+                'vx': random.uniform(-3, 3),
+                'vy': random.uniform(-5, -1),
+                'size': random.randint(20, 40),
+                'alpha': 200,
+                'life': random.randint(60, 100)
             })
         
         # 폭발음 재생 (있다면)
         try:
             explosion_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "explosion.wav")))
-            explosion_sound.set_volume(0.5)
+            explosion_sound.set_volume(0.7)
             explosion_sound.play()
         except:
             pass
@@ -3158,6 +3287,32 @@ class SupplyAircraft:
             if (self.spawn_timer // 4) % 2 == 0:
                 return  # 깜빡임으로 무적 상태 표시
             
+        # 연기 파티클 그리기 (뒤쪽에 그려서 비행기 뒤에 나타나게)
+        for particle in self.smoke_particles:
+            smoke_surf = pygame.Surface((particle['size'] * 2, particle['size'] * 2), pygame.SRCALPHA)
+            alpha = int(particle['alpha'])
+            smoke_color = (80, 80, 80, alpha)
+            pygame.draw.circle(smoke_surf, smoke_color, 
+                             (particle['size'], particle['size']), 
+                             particle['size'])
+            screen.blit(smoke_surf, 
+                       (int(particle['x'] - particle['size']), 
+                        int(particle['y'] - particle['size'])))
+        
+        # 파편 파티클 그리기
+        for particle in self.debris_particles:
+            # 회전된 사각형 파편 그리기
+            debris_surf = pygame.Surface((particle['width'] * 2, particle['height'] * 2), pygame.SRCALPHA)
+            debris_rect = pygame.Rect(particle['width'] // 2, particle['height'] // 2, 
+                                    particle['width'], particle['height'])
+            pygame.draw.rect(debris_surf, particle['color'], debris_rect)
+            
+            # 회전 적용
+            rotated_debris = pygame.transform.rotate(debris_surf, particle['rotation'])
+            debris_x = int(particle['x'] - rotated_debris.get_width() // 2)
+            debris_y = int(particle['y'] - rotated_debris.get_height() // 2)
+            screen.blit(rotated_debris, (debris_x, debris_y))
+            
         # 폭발 파티클 그리기
         for particle in self.explosion_particles:
             pygame.draw.circle(screen, particle['color'], 
@@ -3166,20 +3321,18 @@ class SupplyAircraft:
             
         # 추락 중일 때는 회전된 비행기 그리기
         if self.is_crashing:
-            # 비행기 이미지를 회전시켜 그리기 위해 Surface 생성
-            aircraft_surface = pygame.Surface((self.width + 20, self.height + 20), pygame.SRCALPHA)
-            
-            # 연기 효과 추가
-            smoke_x = self.x + self.width // 2
-            smoke_y = self.y
-            for i in range(5):
-                smoke_size = 10 + i * 3
-                smoke_alpha = 100 - i * 20
-                smoke_color = (80, 80, 80, smoke_alpha)
-                smoke_surf = pygame.Surface((smoke_size * 2, smoke_size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(smoke_surf, smoke_color, (smoke_size, smoke_size), smoke_size)
-                screen.blit(smoke_surf, (smoke_x - smoke_size + random.randint(-5, 5), 
-                                       smoke_y - smoke_size - i * 10))
+            # 추락 중 추가 연기 효과 (비행기에서 나오는 검은 연기)
+            trail_length = min(5, int(self.crash_velocity_y))
+            for i in range(trail_length):
+                trail_alpha = max(20, 80 - i * 15)
+                trail_size = 8 + i * 2
+                trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(trail_surf, (40, 40, 40, trail_alpha), 
+                                 (trail_size, trail_size), trail_size)
+                trail_y = self.y - i * 10 - self.height // 2
+                screen.blit(trail_surf, 
+                          (int(self.x + self.width // 2 - trail_size), 
+                           int(trail_y)))
             
         # 색상 정의
         fuselage_color = (120, 120, 100)  # 밝은 카키색 동체
@@ -3188,122 +3341,144 @@ class SupplyAircraft:
         strut_color = (80, 80, 80)  # 회색 (지지대)
         black = (30, 30, 30)
         
+        # 추락 중일 때 회전 각도 적용
+        if self.is_crashing:
+            # 회전을 위한 임시 Surface 생성
+            temp_surf = pygame.Surface((self.width + 40, self.height + 40), pygame.SRCALPHA)
+            # 임시 Surface의 중심에 비행기를 그리기
+            draw_x = 20
+            draw_y = 20
+        else:
+            temp_surf = None
+            draw_x = self.x
+            draw_y = self.y
+        
         if self.direction == "left_to_right":
             # === 왼쪽에서 오른쪽으로 비행 ===
             
             # 메인 날개 (높은 위치의 직선형 날개)
-            pygame.draw.polygon(screen, fuselage_color, [
-                (self.x + 15, self.y),
-                (self.x + 65, self.y),
-                (self.x + 65, self.y + 8),
-                (self.x + 15, self.y + 8)
+            draw_surface = temp_surf if self.is_crashing else screen
+            pygame.draw.polygon(draw_surface, fuselage_color, [
+                (draw_x + 15, draw_y),
+                (draw_x + 65, draw_y),
+                (draw_x + 65, draw_y + 8),
+                (draw_x + 15, draw_y + 8)
             ])
             
             # 날개 지지대 (특징적인 스트럿)
             for i in range(2):
-                strut_x = self.x + 25 + i * 20
-                pygame.draw.line(screen, strut_color, 
-                               (strut_x, self.y + 8), 
-                               (strut_x - 3, self.y + 20), 2)
+                strut_x = draw_x + 25 + i * 20
+                pygame.draw.line(draw_surface, strut_color, 
+                               (strut_x, draw_y + 8), 
+                               (strut_x - 3, draw_y + 20), 2)
             
             # 동체 (가늘고 긴 형태)
-            pygame.draw.polygon(screen, fuselage_color, [
-                (self.x + 5, self.y + 15),
-                (self.x + 75, self.y + 12),
-                (self.x + 75, self.y + 23),
-                (self.x + 5, self.y + 20)
+            pygame.draw.polygon(draw_surface, fuselage_color, [
+                (draw_x + 5, draw_y + 15),
+                (draw_x + 75, draw_y + 12),
+                (draw_x + 75, draw_y + 23),
+                (draw_x + 5, draw_y + 20)
             ])
             
             # 조종석 캐노피 (높고 큰 창문)
-            pygame.draw.polygon(screen, canopy_color, [
-                (self.x + 40, self.y + 10),
-                (self.x + 55, self.y + 10),
-                (self.x + 55, self.y + 18),
-                (self.x + 40, self.y + 18)
+            pygame.draw.polygon(draw_surface, canopy_color, [
+                (draw_x + 40, draw_y + 10),
+                (draw_x + 55, draw_y + 10),
+                (draw_x + 55, draw_y + 18),
+                (draw_x + 40, draw_y + 18)
             ])
             
             # 꼬리날개 (수직/수평 안정판)
-            pygame.draw.polygon(screen, dark_green, [
-                (self.x, self.y + 12),
-                (self.x + 15, self.y + 15),
-                (self.x + 15, self.y + 20),
-                (self.x, self.y + 23)
+            pygame.draw.polygon(draw_surface, dark_green, [
+                (draw_x, draw_y + 12),
+                (draw_x + 15, draw_y + 15),
+                (draw_x + 15, draw_y + 20),
+                (draw_x, draw_y + 23)
             ])
             
             # 프로펠러
-            prop_x = self.x + 78
-            prop_y = self.y + 17
+            prop_x = draw_x + 78
+            prop_y = draw_y + 17
             # 프로펠러 블레이드 (회전 효과)
             angle = pygame.time.get_ticks() * 0.5
             for i in range(3):
                 blade_angle = angle + i * 120
                 end_x = prop_x + int(8 * math.cos(math.radians(blade_angle)))
                 end_y = prop_y + int(8 * math.sin(math.radians(blade_angle)))
-                pygame.draw.line(screen, black, (prop_x, prop_y), (end_x, end_y), 2)
+                pygame.draw.line(draw_surface, black, (prop_x, prop_y), (end_x, end_y), 2)
             
             # 랜딩기어 (고정식)
-            pygame.draw.line(screen, black, (self.x + 35, self.y + 23), (self.x + 35, self.y + 28), 2)
-            pygame.draw.line(screen, black, (self.x + 50, self.y + 23), (self.x + 50, self.y + 28), 2)
-            pygame.draw.circle(screen, black, (self.x + 35, self.y + 29), 2)
-            pygame.draw.circle(screen, black, (self.x + 50, self.y + 29), 2)
+            pygame.draw.line(draw_surface, black, (draw_x + 35, draw_y + 23), (draw_x + 35, draw_y + 28), 2)
+            pygame.draw.line(draw_surface, black, (draw_x + 50, draw_y + 23), (draw_x + 50, draw_y + 28), 2)
+            pygame.draw.circle(draw_surface, black, (draw_x + 35, draw_y + 29), 2)
+            pygame.draw.circle(draw_surface, black, (draw_x + 50, draw_y + 29), 2)
             
         else:
             # === 오른쪽에서 왼쪽으로 비행 (좌우 반전) ===
+            draw_surface = temp_surf if self.is_crashing else screen
             
             # 메인 날개
-            pygame.draw.polygon(screen, fuselage_color, [
-                (self.x + 15, self.y),
-                (self.x + 65, self.y),
-                (self.x + 65, self.y + 8),
-                (self.x + 15, self.y + 8)
+            pygame.draw.polygon(draw_surface, fuselage_color, [
+                (draw_x + 15, draw_y),
+                (draw_x + 65, draw_y),
+                (draw_x + 65, draw_y + 8),
+                (draw_x + 15, draw_y + 8)
             ])
             
             # 날개 지지대
             for i in range(2):
-                strut_x = self.x + 35 + i * 20
-                pygame.draw.line(screen, strut_color, 
-                               (strut_x, self.y + 8), 
-                               (strut_x + 3, self.y + 20), 2)
+                strut_x = draw_x + 35 + i * 20
+                pygame.draw.line(draw_surface, strut_color, 
+                               (strut_x, draw_y + 8), 
+                               (strut_x + 3, draw_y + 20), 2)
             
             # 동체
-            pygame.draw.polygon(screen, fuselage_color, [
-                (self.x + 75, self.y + 15),
-                (self.x + 5, self.y + 12),
-                (self.x + 5, self.y + 23),
-                (self.x + 75, self.y + 20)
+            pygame.draw.polygon(draw_surface, fuselage_color, [
+                (draw_x + 75, draw_y + 15),
+                (draw_x + 5, draw_y + 12),
+                (draw_x + 5, draw_y + 23),
+                (draw_x + 75, draw_y + 20)
             ])
             
             # 조종석 캐노피
-            pygame.draw.polygon(screen, canopy_color, [
-                (self.x + 25, self.y + 10),
-                (self.x + 40, self.y + 10),
-                (self.x + 40, self.y + 18),
-                (self.x + 25, self.y + 18)
+            pygame.draw.polygon(draw_surface, canopy_color, [
+                (draw_x + 25, draw_y + 10),
+                (draw_x + 40, draw_y + 10),
+                (draw_x + 40, draw_y + 18),
+                (draw_x + 25, draw_y + 18)
             ])
             
             # 꼬리날개
-            pygame.draw.polygon(screen, dark_green, [
-                (self.x + 80, self.y + 12),
-                (self.x + 65, self.y + 15),
-                (self.x + 65, self.y + 20),
-                (self.x + 80, self.y + 23)
+            pygame.draw.polygon(draw_surface, dark_green, [
+                (draw_x + 80, draw_y + 12),
+                (draw_x + 65, draw_y + 15),
+                (draw_x + 65, draw_y + 20),
+                (draw_x + 80, draw_y + 23)
             ])
             
             # 프로펠러
-            prop_x = self.x + 2
-            prop_y = self.y + 17
+            prop_x = draw_x + 2
+            prop_y = draw_y + 17
             angle = pygame.time.get_ticks() * 0.5
             for i in range(3):
                 blade_angle = angle + i * 120
                 end_x = prop_x + int(8 * math.cos(math.radians(blade_angle)))
                 end_y = prop_y + int(8 * math.sin(math.radians(blade_angle)))
-                pygame.draw.line(screen, black, (prop_x, prop_y), (end_x, end_y), 2)
+                pygame.draw.line(draw_surface, black, (prop_x, prop_y), (end_x, end_y), 2)
             
             # 랜딩기어
-            pygame.draw.line(screen, black, (self.x + 30, self.y + 23), (self.x + 30, self.y + 28), 2)
-            pygame.draw.line(screen, black, (self.x + 45, self.y + 23), (self.x + 45, self.y + 28), 2)
-            pygame.draw.circle(screen, black, (self.x + 30, self.y + 29), 2)
-            pygame.draw.circle(screen, black, (self.x + 45, self.y + 29), 2)
+            pygame.draw.line(draw_surface, black, (draw_x + 30, draw_y + 23), (draw_x + 30, draw_y + 28), 2)
+            pygame.draw.line(draw_surface, black, (draw_x + 45, draw_y + 23), (draw_x + 45, draw_y + 28), 2)
+            pygame.draw.circle(draw_surface, black, (draw_x + 30, draw_y + 29), 2)
+            pygame.draw.circle(draw_surface, black, (draw_x + 45, draw_y + 29), 2)
+        
+        # 추락 중이면 회전하여 그리기
+        if self.is_crashing:
+            # 비행기를 회전시킨 후 화면에 그리기
+            rotated_surf = pygame.transform.rotate(temp_surf, self.crash_rotation)
+            # 회전 후 위치 조정 (중심을 맞추기 위해)
+            rot_rect = rotated_surf.get_rect(center=(self.x + self.width // 2, self.y + self.height // 2))
+            screen.blit(rotated_surf, rot_rect)
 
 # === 낙하산 아이템 시스템 함수 ===
 def update_supply_drop_items():
@@ -3661,9 +3836,65 @@ def draw_supply_drop_system(screen):
     if selected_character_type == "soldier":
         draw_supply_radio_motion(screen)
     
-    # 비행기 그리기
-    if supply_aircraft and supply_aircraft.active:
-        supply_aircraft.draw(screen)
+    # 비행기 그리기 및 파티클 효과
+    if supply_aircraft:
+        # 비행기가 활성화되어 있을 때만 비행기 자체를 그리기
+        if supply_aircraft.active:
+            supply_aircraft.draw(screen)
+        
+        # 폭발 파티클은 비행기가 비활성화되어도 계속 그리기
+        # 연기 파티클 그리기
+        for particle in supply_aircraft.smoke_particles[:]:
+            particle['y'] += particle['vel_y']
+            particle['x'] += particle['vel_x']
+            particle['life'] -= 1
+            
+            if particle['life'] <= 0:
+                supply_aircraft.smoke_particles.remove(particle)
+                continue
+                
+            alpha = min(255, particle['life'] * 4)
+            size = particle['size'] + (60 - particle['life']) * 0.3
+            
+            smoke_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            color = (*particle['color'], alpha)
+            pygame.draw.circle(smoke_surf, color, (size, size), size)
+            screen.blit(smoke_surf, (particle['x'] - size, particle['y'] - size))
+        
+        # 폭발 파티클 그리기
+        for particle in supply_aircraft.explosion_particles[:]:
+            particle['x'] += particle['vel_x']
+            particle['y'] += particle['vel_y']
+            particle['life'] -= 1
+            
+            if particle['life'] <= 0:
+                supply_aircraft.explosion_particles.remove(particle)
+                continue
+                
+            color = particle['color']
+            size = particle['size'] * (particle['life'] / 30)
+            pygame.draw.circle(screen, color, (int(particle['x']), int(particle['y'])), max(1, int(size)))
+        
+        # 파편 파티클 그리기
+        for particle in supply_aircraft.debris_particles[:]:
+            particle['x'] += particle['vel_x']
+            particle['y'] += particle['vel_y']
+            particle['vel_y'] += 0.5  # 중력
+            particle['life'] -= 1
+            
+            if particle['life'] <= 0:
+                supply_aircraft.debris_particles.remove(particle)
+                continue
+                
+            # 바닥에 닿으면 튕기기
+            if particle['y'] >= screen.get_height() - 50:
+                particle['y'] = screen.get_height() - 50
+                particle['vel_y'] *= -0.5
+                particle['vel_x'] *= 0.8
+            
+            pygame.draw.rect(screen, particle['color'], 
+                           (particle['x'], particle['y'], 
+                            particle['size'], particle['size']))
     
     # 낙하산 아이템들 그리기
     draw_supply_drop_items(screen)
@@ -3751,7 +3982,7 @@ soldier_max_ammo = 5  # 최대 탄약 개수
 soldier_reloading = False  # 재장전 중인지
 soldier_reload_timer = 0  # 재장전 타이머 (120프레임 = 2초)
 SOLDIER_RELOAD_TIME = 120  # 2초 재장전 시간
-SOLDIER_RELOAD_GAUGE_COST = 200  # 재장전시 게이지 소모량
+SOLDIER_RELOAD_GAUGE_COST = 150  # 재장전시 게이지 소모량
 soldier_last_reload_bullets = 0  # 재장전 중 마지막으로 표시된 총알 수
 
 # === 군인 총 발사 애니메이션 관련 변수 ===
@@ -7150,9 +7381,12 @@ def fire_soldier_bullet():
     if soldier_reloading:
         return
     
-    # 탄약이 없으면 재장전 시도
+    # 탄약이 없으면 재장전 시도 (단, UP 키가 눌려있지 않을 때만)
     if soldier_ammo_count <= 0:
-        start_soldier_reload()
+        # UP 키가 눌려있으면 물자보급 시도 중이므로 재장전하지 않음
+        keys = pygame.key.get_pressed()
+        if not keys[pygame.K_UP]:
+            start_soldier_reload()
         return
     
     # 탄약 소모
@@ -7199,6 +7433,12 @@ def start_soldier_reload():
     soldier_reloading = True
     soldier_reload_timer = SOLDIER_RELOAD_TIME
     soldier_last_reload_bullets = 0  # 재장전 시작시 초기화
+    
+    # 재장전 시작 사운드 재생
+    try:
+        SOUND_PISTOL_RELOAD_START.play()
+    except:
+        pass  # 사운드 재생 실패시 무시
 
 def update_soldier_reload():
     """군인 재장전 업데이트"""
@@ -10129,9 +10369,10 @@ def store_passive_item(item_data):
             items.speedboots_obtained = True  # items.py의 변수도 업데이트
             # ️ 새 시스템으로도 업데이트
             handle_item_collection("speedboots")
-            # 아이템 획득 효과 표시 (옛날 버전)
-            show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             print("!   6% !")
+        else:
+            print("이미 스피드부츠를 보유 중입니다.")
+            return  # 중복 획득 시 즉시 리턴
     elif item_data["name"] == "speedgear":
         # 스피드기어 영구 효과 적용
         if not speedgear_obtained:
@@ -10156,7 +10397,8 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             print("!     !")
         else:
-            print(".")
+            print("이미 배터리팩을 보유 중입니다.")
+            return  # 중복 획득 시 즉시 리턴
     elif item_data["name"] == "revival":
         # 부활 아이템 획득
         if not revival_obtained:
@@ -10168,7 +10410,8 @@ def store_passive_item(item_data):
             # show_item_acquisition("revival", "부활", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
             print("!      !")
         else:
-            print(".")
+            print("이미 부활 아이템을 보유 중입니다.")
+            return  # 중복 획득 시 즉시 리턴
     elif item_data["name"] == "master":
         # 장인 아이템 획득
         if not master_obtained:
@@ -10180,7 +10423,8 @@ def store_passive_item(item_data):
             # show_item_acquisition("master", "장인", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
             print("!   30%    0.8 ,   10% !")
         else:
-            print(".")
+            print("이미 장인의 망치를 보유 중입니다.")
+            return  # 중복 획득 시 즉시 리턴
     elif item_data["name"] == "cooltime":
         # 쿨타임 아이템 획득
         if not cooltime_obtained:
@@ -10468,8 +10712,18 @@ def store_passive_item(item_data):
         print(f"     : {item_data['name']}")
     
     # 모든 패시브 아이템을 리스트에 추가 (중복 체크)
-    if item_data not in passive_item_list:
+    # 이름 기반으로 중복 체크 (chargebag 제외)
+    item_name = item_data["name"]
+    already_has_item = any(item["name"] == item_name for item in passive_item_list)
+    
+    if item_name == "chargebag":
+        # chargebag은 중복 가능
         passive_item_list.append(item_data)
+    elif not already_has_item:
+        # 다른 패시브 아이템은 중복 불가
+        passive_item_list.append(item_data)
+    else:
+        print(f"[WARNING] {item_name} already in passive inventory, skipping duplicate")
     
     # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
     show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
@@ -26835,44 +27089,6 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         "mythic": " 신화리그"
     }
     difficulty_name = difficulty_names.get(difficulty_mode, difficulty_mode)
-    # 난이도 선택 확인 메시지
-    font = get_font(36)  # 36pt 픽셀 폰트
-    message = f"난이도: {difficulty_name}"
-    # 반투명 배경
-    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 150))
-    SCREEN.blit(overlay, (0, 0))
-    # 메시지 박스
-    box_width = 400
-    box_height = 150
-    box_x = (WIDTH - box_width) // 2
-    box_y = (HEIGHT - box_height) // 2
-    draw.rect((30, 35, LARGE_SIZE), (box_x, box_y, box_width, box_height), border_radius=10)
-    draw.rect((100, 150, 255), (box_x, box_y, box_width, box_height), 3, border_radius=10)
-    # 제목
-    title_text = font.render(" 게임 시작!", True, WHITE)
-    title_rect = title_text.get_rect(center=(WIDTH // 2, box_y + 40))
-    SCREEN.blit(title_text, title_rect)
-    # 난이도 표시
-    diff_text = font.render(message, True, (100, 255, 100))
-    diff_rect = diff_text.get_rect(center=(WIDTH // 2, box_y + 80))
-    SCREEN.blit(diff_text, diff_rect)
-    # 안내 메시지
-    help_font = FontStyle.body()  # 24pt 픽셀 폰트
-    help_text = help_font.render("준비되면 아무 키나 누르세요...", True, (200, 200, 200))
-    help_rect = help_text.get_rect(center=(WIDTH // 2, box_y + 110))
-    SCREEN.blit(help_text, help_rect)
-    pygame.display.flip()
-    # 키 입력 대기
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                waiting = False
-                break
     # 게임 시작 (스테이지 1부터)
     print(f"  ! : {character_id}, : {difficulty_mode}")
     main(1)
@@ -42359,11 +42575,15 @@ def show_character_item_manager():
                     selected_character_type = characters[selected_character_index]["id"]
                     play_button_click_sound()
                 elif event.key == pygame.K_RETURN and selected_main_tab == 0:
-                    # 게임 시작 - 스테이지 선택 화면으로 이동
+                    # 게임 시작 - 캐릭터 선택 후 스테이지 선택 순서로 변경
                     play_button_click_sound()
-                    selected_stage = show_stage_selection()
-                    if selected_stage is not None:
-                        main(selected_stage)  # 선택한 스테이지로 게임 시작
+                    # 먼저 캐릭터 선택 화면을 보여줌
+                    character_result = show_character_selection_from_manager()
+                    if character_result is not None:
+                        # 캐릭터 선택이 완료되면 스테이지 선택 화면으로 이동
+                        selected_stage = show_stage_selection()
+                        if selected_stage is not None:
+                            main(selected_stage)  # 선택한 스테이지로 게임 시작
                     return
                 elif event.key == pygame.K_1:
                     selected_main_tab = 0
@@ -42499,6 +42719,141 @@ def show_stage_selection():
                 elif event.key == pygame.K_DOWN:
                     selected_index = (selected_index + cards_per_row) % len(stages)
                     play_button_hover_sound()
+
+def show_character_selection_from_manager():
+    """아이템관리자에서 게임 시작 시 캐릭터 선택 화면"""
+    global selected_character_type
+    
+    # 캐릭터 정보
+    characters = [
+        {
+            "id": "smasher",
+            "name": "스매셔",
+            "desc": "강력한 스매싱 공격",
+            "color": (255, 100, 100)
+        },
+        {
+            "id": "soldier",
+            "name": "군인",
+            "desc": "코만도암 + 수류탄",
+            "color": (100, 200, 100)
+        }
+    ]
+    
+    selected_index = 0
+    font_large = FontStyle.title()  # 36pt
+    font_medium = FontStyle.subtitle()  # 32pt
+    font_small = FontStyle.body()  # 24pt
+    
+    clock = pygame.time.Clock()
+    
+    while True:
+        SCREEN.fill((20, 20, 50))
+        
+        # 제목
+        title_text = font_large.render("캐릭터 선택", True, WHITE)
+        title_rect = title_text.get_rect(center=(WIDTH // 2, 100))
+        SCREEN.blit(title_text, title_rect)
+        
+        # 캐릭터 카드 그리기
+        card_width = 250
+        card_height = 300
+        card_spacing = 50
+        total_width = len(characters) * card_width + (len(characters) - 1) * card_spacing
+        start_x = (WIDTH - total_width) // 2
+        card_y = 200
+        
+        for i, char in enumerate(characters):
+            card_x = start_x + i * (card_width + card_spacing)
+            card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+            
+            # 카드 배경
+            if i == selected_index:
+                # 선택된 카드 - 더 밝게
+                card_color = tuple(min(255, c + 50) for c in char["color"])
+                pygame.draw.rect(SCREEN, card_color, card_rect)
+                pygame.draw.rect(SCREEN, WHITE, card_rect, 5)
+            else:
+                # 비선택 카드 - 어둡게
+                card_color = tuple(c // 2 for c in char["color"])
+                pygame.draw.rect(SCREEN, card_color, card_rect)
+                pygame.draw.rect(SCREEN, (100, 100, 100), card_rect, 2)
+            
+            # 캐릭터 이름
+            name_text = font_medium.render(char["name"], True, WHITE)
+            name_rect = name_text.get_rect(centerx=card_rect.centerx, top=card_rect.top + 20)
+            SCREEN.blit(name_text, name_rect)
+            
+            # 캐릭터 설명
+            desc_text = font_small.render(char["desc"], True, (200, 200, 200))
+            desc_rect = desc_text.get_rect(centerx=card_rect.centerx, bottom=card_rect.bottom - 20)
+            SCREEN.blit(desc_text, desc_rect)
+            
+            # 캐릭터 이미지/아이콘 (나중에 추가 가능)
+            icon_size = 100
+            icon_rect = pygame.Rect(
+                card_rect.centerx - icon_size // 2,
+                card_rect.centery - icon_size // 2,
+                icon_size, icon_size
+            )
+            pygame.draw.circle(SCREEN, WHITE, icon_rect.center, icon_size // 2, 3)
+            
+            # 캐릭터 아이콘 텍스트 (임시)
+            icon_text = font_medium.render(char["name"][0], True, WHITE)
+            icon_text_rect = icon_text.get_rect(center=icon_rect.center)
+            SCREEN.blit(icon_text, icon_text_rect)
+        
+        # 하단 안내 메시지
+        info_text = "좌우 키로 선택, ENTER로 결정, ESC로 돌아가기"
+        info_surface = font_small.render(info_text, True, WHITE)
+        info_rect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+        SCREEN.blit(info_surface, info_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+        
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return None  # 취소
+                elif event.key == pygame.K_LEFT:
+                    selected_index = (selected_index - 1) % len(characters)
+                    play_button_hover_sound()
+                elif event.key == pygame.K_RIGHT:
+                    selected_index = (selected_index + 1) % len(characters)
+                    play_button_hover_sound()
+                elif event.key == pygame.K_RETURN:
+                    # 캐릭터 선택 완료
+                    selected_character_type = characters[selected_index]["id"]
+                    
+                    # 군인 캐릭터일 경우 코만도암 활성화
+                    if selected_character_type == "soldier":
+                        items.commando_arm_obtained = True
+                        print("💪 군인 캐릭터 선택! 코만도암 패시브 아이템 자동 장착!")
+                    
+                    play_button_click_sound()
+                    return selected_character_type
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                # 마우스 클릭으로 캐릭터 선택
+                for i, char in enumerate(characters):
+                    card_x = start_x + i * (card_width + card_spacing)
+                    card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+                    if card_rect.collidepoint(mouse_pos):
+                        selected_index = i
+                        selected_character_type = characters[selected_index]["id"]
+                        
+                        # 군인 캐릭터일 경우 코만도암 활성화
+                        if selected_character_type == "soldier":
+                            items.commando_arm_obtained = True
+                            print("💪 군인 캐릭터 선택! 코만도암 패시브 아이템 자동 장착!")
+                        
+                        play_button_click_sound()
+                        return selected_character_type
 
 def get_character_name(character_id):
     """캐릭터 ID로부터 이름 반환"""
