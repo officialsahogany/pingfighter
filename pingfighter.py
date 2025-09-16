@@ -2883,6 +2883,7 @@ acceleration_flash_particles = []  # 섬광 파티클 [(x, y, vx, vy, life, size
 #  타격 이펙트 관련 변수
 impact_particles = []  # 타격 파티클 리스트 [x, y, vx, vy, size, alpha, color, life]
 last_impact_strength = 0  # 마지막 타격 강도
+blood_particles = []  # 피 파티클 리스트 [x, y, vx, vy, size, alpha, life]
 # === 멘헤라걸 전용 붉어짐 효과 관련 전역 변수 ===
 boss_red_intensity = 0  # 붉은 정도 (0 ~ 255)
 boss_special_gauge = 0  # 보스 필살기 게이지
@@ -6682,6 +6683,42 @@ def update_boss_knockback():
             boss_knockback_offset_y = 0
             boss_knockback_timer = 0
 
+def create_blood_particles(x, y, bullet_vx, bullet_vy):
+    """피 튀기는 파티클 생성 함수"""
+    global blood_particles
+    
+    # 피 파티클 개수 (15~25개)
+    particle_count = random.randint(15, 25)
+    
+    # 총알 방향의 반대 방향으로 주로 튀도록 설정
+    bullet_angle = math.atan2(bullet_vy, bullet_vx)
+    
+    for _ in range(particle_count):
+        # 기본적으로 총알이 날아온 반대 방향으로 튀지만 약간의 랜덤성 추가
+        spread_angle = bullet_angle + math.pi + random.uniform(-math.pi/3, math.pi/3)
+        speed = random.uniform(3, 12)
+        
+        # 중력의 영향을 받을 파티클 속도
+        vx = math.cos(spread_angle) * speed
+        vy = math.sin(spread_angle) * speed - random.uniform(2, 5)  # 위로 살짝 튀는 효과
+        
+        # 파티클 크기 (작은 것부터 큰 것까지)
+        size = random.uniform(2, 5)
+        
+        # 파티클 수명 (20~40 프레임)
+        life = random.randint(20, 40)
+        
+        blood_particles.append({
+            "x": x + random.uniform(-5, 5),
+            "y": y + random.uniform(-5, 5),
+            "vx": vx,
+            "vy": vy,
+            "size": size,
+            "alpha": 255,
+            "life": life,
+            "gravity": random.uniform(0.3, 0.6)  # 중력 효과
+        })
+
 def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     """군인 총알의 보스 패들 넉백 효과 트리거 (라그나로크 해머 방식 참조)"""
     global boss_knockback_timer, boss_knockback_vel
@@ -6759,6 +6796,9 @@ def update_soldier_bullets():
                 # 라그나로크 해머 방식의 넉백 효과 적용
                 trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
                 
+                # 피 튀기는 파티클 효과 추가
+                create_blood_particles(bullet["x"], bullet["y"], bullet["vel_x"], bullet["vel_y"])
+                
                 # 타격 효과음
                 try:
                     hit_sound = pygame.mixer.Sound(resource_path("sounds/bullet_hit.wav"))
@@ -6784,6 +6824,59 @@ def update_soldier_bullets():
                 
                 # 넉백 효과 트리거 - 기존 시스템 사용 (boss_knockback_vel을 설정하는 함수)
                 trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
+
+def update_blood_particles():
+    """피 파티클 업데이트"""
+    global blood_particles
+    
+    particles_to_remove = []
+    
+    for particle in blood_particles:
+        # 중력 적용
+        particle["vy"] += particle["gravity"]
+        
+        # 위치 업데이트
+        particle["x"] += particle["vx"]
+        particle["y"] += particle["vy"]
+        
+        # 수명 감소
+        particle["life"] -= 1
+        
+        # 알파값 감소 (서서히 사라지는 효과)
+        particle["alpha"] = int(255 * (particle["life"] / 40))
+        
+        # 크기도 조금씩 작아지게
+        if particle["life"] < 10:
+            particle["size"] *= 0.95
+        
+        # 수명이 다했거나 화면 밖으로 나가면 제거
+        if particle["life"] <= 0 or particle["y"] > HEIGHT + 50:
+            particles_to_remove.append(particle)
+    
+    # 제거할 파티클들 삭제
+    for particle in particles_to_remove:
+        blood_particles.remove(particle)
+
+def draw_blood_particles(screen):
+    """피 파티클 그리기"""
+    for particle in blood_particles:
+        if particle["alpha"] > 0 and particle["size"] > 0.5:
+            # 피의 색상 (진한 빨간색에서 어두운 빨간색으로 변화)
+            life_ratio = particle["life"] / 40
+            red = int(200 + 55 * life_ratio)  # 200-255
+            green = int(20 * life_ratio)       # 0-20
+            blue = int(20 * life_ratio)        # 0-20
+            
+            # 반투명 효과를 위해 Surface 생성
+            particle_surface = pygame.Surface((int(particle["size"] * 2), int(particle["size"] * 2)), pygame.SRCALPHA)
+            pygame.draw.circle(particle_surface, (red, green, blue, particle["alpha"]), 
+                             (int(particle["size"]), int(particle["size"])), 
+                             int(particle["size"]))
+            
+            # 화면에 그리기
+            screen.blit(particle_surface, 
+                       (int(particle["x"] - particle["size"]), 
+                        int(particle["y"] - particle["size"])))
 
 def draw_soldier_bullets(screen):
     """군인 총알 그리기"""
@@ -16352,6 +16445,10 @@ def draw_objects():
     # === 군인 총알 그리기 ===
     if selected_character_type == "soldier" and soldier_bullets:
         draw_soldier_bullets(SCREEN)
+    
+    # === 피 파티클 그리기 ===
+    if selected_character_type == "soldier":
+        draw_blood_particles(SCREEN)
     
     # === 레그샷 효과 그리기 ===
     if selected_character_type == "soldier":
@@ -36184,6 +36281,10 @@ def main(stage_num, new_boss_mode=False):
     soldier_control_lock_timer = 0
     soldier_gun_drawn = False
     
+    # 피 파티클 초기화
+    global blood_particles
+    blood_particles = []
+    
     # 군인 탄약 시스템 초기화
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
     soldier_ammo_count = 5
@@ -38456,6 +38557,7 @@ def main(stage_num, new_boss_mode=False):
                 if selected_character_type == "soldier":
                     update_soldier_gun_animation()  # 총 발사 애니메이션 업데이트
                     update_soldier_bullets()
+                    update_blood_particles()  # 피 파티클 업데이트
                     # 쿨다운 감소
                     if soldier_gun_cooldown > 0:
                         soldier_gun_cooldown -= 1
