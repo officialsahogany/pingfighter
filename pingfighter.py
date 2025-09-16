@@ -6926,11 +6926,11 @@ def draw_leg_shot_effect(screen):
             # 발광 효과를 위한 배경
             glow_surface = pygame.Surface((text_surface.get_width() + 20, text_surface.get_height() + 20), pygame.SRCALPHA)
             
-            # 빨간색 발광 효과 (여러 겹)
+            # 초록색 발광 효과 (여러 겹)
             for i in range(3):
                 glow_alpha = alpha // (i + 2)
                 glow_size = 5 * (3 - i)
-                pygame.draw.ellipse(glow_surface, (255, 50, 50, glow_alpha), 
+                pygame.draw.ellipse(glow_surface, (50, 255, 50, glow_alpha), 
                                   (10 - glow_size, 10 - glow_size, 
                                    text_surface.get_width() + glow_size * 2, 
                                    text_surface.get_height() + glow_size * 2))
@@ -7000,11 +7000,11 @@ def draw_head_shot_effect(screen):
             # 발광 효과를 위한 배경
             glow_surface = pygame.Surface((text_surface.get_width() + 20, text_surface.get_height() + 20), pygame.SRCALPHA)
             
-            # 노란색 발광 효과 (여러 겹)
+            # 빨간색 발광 효과 (여러 겹)
             for i in range(3):
                 glow_alpha = alpha // (i + 2)
                 glow_size = 5 * (3 - i)
-                pygame.draw.ellipse(glow_surface, (255, 220, 0, glow_alpha), 
+                pygame.draw.ellipse(glow_surface, (255, 50, 50, glow_alpha), 
                                   (10 - glow_size, 10 - glow_size, 
                                    text_surface.get_width() + glow_size * 2, 
                                    text_surface.get_height() + glow_size * 2))
@@ -7021,9 +7021,9 @@ def draw_head_shot_effect(screen):
             # 알파값 적용
             glow_surface.set_alpha(alpha)
             
-            # 화면에 그리기 (보스 패들 오른쪽 상단)
-            text_x = BOSS.right + 30  # 보스 오른쪽에서 30픽셀 오른쪽
-            text_y = BOSS.top + 20  # 보스 상단에서 20픽셀 아래
+            # 화면에 그리기 (보스 패들 왼쪽 하단) - 레그샷과 동일한 위치
+            text_x = BOSS.left - 30  # 보스 왼쪽에서 30픽셀 왼쪽
+            text_y = BOSS.bottom - 20  # 보스 하단에서 20픽셀 위
             final_rect = glow_surface.get_rect(center=(text_x, text_y))
             screen.blit(glow_surface, final_rect)
             
