@@ -35620,6 +35620,8 @@ def main(stage_num, new_boss_mode=False):
     global soldier_swing_active, soldier_swing_timer
     # 군인 걷기 애니메이션 시스템
     global soldier_walking_active, soldier_walking_timer
+    # 군인 레그샷 효과 시스템
+    global leg_shot_active, leg_shot_timer, leg_shot_text_timer
     # 파워스매싱 정지 시간 관리
     global power_smashing_freeze_start_time, power_smashing_freeze_active, power_smashing_freeze_duration
     global power_smashing_parabola_active, power_smashing_start_time
@@ -40161,7 +40163,7 @@ def show_pause_options():
                 pygame.quit()
                 sys.exit()
             
-            elif event.type == pygame.KEYDOWN:
+             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     # 변경사항 저장
                     bgm_volume = current_bgm_volume
@@ -40186,7 +40188,7 @@ def show_pause_options():
                 elif event.key == pygame.K_DOWN:
                     selected_slider = 'sfx'
             
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
                 mouse_x = mouse_pos[0]
                 
@@ -40217,12 +40219,12 @@ def show_pause_options():
                     current_sfx_volume = max(0.0, min(1.0, relative_x / slider_width))
                     set_sfx_volume(current_sfx_volume)
             
-            elif event.type == pygame.MOUSEBUTTONUP:
+             elif event.type == pygame.MOUSEBUTTONUP:
                 dragging = False
                 if selected_slider:
                      play_button_click_sound()  # 슬라이더 조작 완료 사운드
             
-            elif event.type == pygame.MOUSEMOTION and dragging:
+             elif event.type == pygame.MOUSEMOTION and dragging:
                 mouse_x = pygame.mouse.get_pos()[0]
                 
                 if selected_slider == 'bgm':
@@ -40237,7 +40239,7 @@ def show_pause_options():
                     current_sfx_volume = max(0.0, min(1.0, relative_x / slider_width))
                     set_sfx_volume(current_sfx_volume)
             
-            elif event.type == pygame.MOUSEWHEEL:
+             elif event.type == pygame.MOUSEWHEEL:
                 # 마우스 휠로 볼륨 미세 조정
                 mouse_pos = pygame.mouse.get_pos()
                 bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
