@@ -315,27 +315,30 @@ class Bazooka:
         pygame.draw.rect(screen, (60, 80, 40), body_rect)  # 어두운 군복 녹색
         pygame.draw.rect(screen, (40, 60, 20), body_rect, 2)  # 테두리
         
-        # 바주카포 발사기 (거대한 크기)
+        # 바주카포 발사기 (오른쪽 어깨 위 수직 위치)
         bazooka_length = 50
         bazooka_width = 8
-        bazooka_x = center_x - bazooka_length//2 + recoil_offset
-        bazooka_y = center_y - bazooka_width//2
+        # 오른쪽 어깨 위에 수직으로 위치
+        shoulder_x = center_x + 12 + recoil_offset  # 오른쪽 어깨 위치
+        shoulder_y = center_y - 10  # 어깨 높이
+        bazooka_x = shoulder_x - bazooka_width//2  # 수직이므로 width가 x방향
+        bazooka_y = shoulder_y - bazooka_length  # 위쪽으로 길게 뻗음
         
-        # 바주카포 본체 (어두운 금속색)
-        bazooka_rect = pygame.Rect(bazooka_x, bazooka_y, bazooka_length, bazooka_width)
+        # 바주카포 본체 (수직 방향으로 회전, 어두운 금속색)
+        bazooka_rect = pygame.Rect(bazooka_x, bazooka_y, bazooka_width, bazooka_length)
         pygame.draw.rect(screen, (40, 40, 45), bazooka_rect)
         pygame.draw.rect(screen, (30, 30, 35), bazooka_rect, 2)
         
-        # 바주카포 총구 (앞쪽 원형)
-        muzzle_x = bazooka_x + bazooka_length
-        muzzle_y = bazooka_y + bazooka_width//2
+        # 바주카포 총구 (위쪽 원형)
+        muzzle_x = bazooka_x + bazooka_width//2
+        muzzle_y = bazooka_y
         pygame.draw.circle(screen, (30, 30, 35), (muzzle_x, muzzle_y), bazooka_width//2 + 2)
         pygame.draw.circle(screen, (20, 20, 25), (muzzle_x, muzzle_y), bazooka_width//2)
         
-        # 조준경/손잡이
-        sight_x = bazooka_x + bazooka_length//3
-        sight_y = bazooka_y - 4
-        pygame.draw.rect(screen, (50, 50, 55), (sight_x, sight_y, 8, 4))
+        # 조준경/손잡이 (수직 위치에 맞게 조정)
+        sight_x = bazooka_x + bazooka_width + 2
+        sight_y = bazooka_y + bazooka_length//3
+        pygame.draw.rect(screen, (50, 50, 55), (sight_x, sight_y, 4, 8))
         
         # 군인 머리 (헬멧)
         head_size = 8
@@ -345,53 +348,53 @@ class Bazooka:
         pygame.draw.rect(screen, (40, 60, 20), (head_x, head_y, head_size, head_size))  # 헬멧
         pygame.draw.rect(screen, (30, 45, 15), (head_x, head_y, head_size, head_size), 1)
         
-        # 군인 팔 (바주카포를 지지하는 자세)
-        arm_points = [
-            (center_x - 10 + recoil_offset, center_y - 3),  # 어깨
-            (bazooka_x + 10, bazooka_y - 3),  # 앞팔
-            (bazooka_x + 15, bazooka_y + bazooka_width + 2),  # 손목
-            (center_x - 5 + recoil_offset, center_y + 3)   # 몸쪽
+        # 오른쪽 팔 (바주카포를 지지하는 자세)
+        right_arm_points = [
+            (center_x + 8 + recoil_offset, center_y - 3),  # 오른쪽 어깨
+            (shoulder_x, shoulder_y - 5),  # 바주카포 아래쪽 지지점
+            (shoulder_x + 3, shoulder_y),  # 손목
+            (center_x + 12 + recoil_offset, center_y + 3)   # 몸쪽
         ]
-        pygame.draw.polygon(screen, (50, 70, 30), arm_points)
+        pygame.draw.polygon(screen, (50, 70, 30), right_arm_points)
         
-        # 뒷팔 (바주카포 뒤쪽 지지)
-        back_arm_points = [
-            (center_x + 5 + recoil_offset, center_y - 2),
-            (bazooka_x + bazooka_length - 15, bazooka_y - 2),
-            (bazooka_x + bazooka_length - 10, bazooka_y + bazooka_width + 1),
-            (center_x + 10 + recoil_offset, center_y + 2)
+        # 왼쪽 팔 (바주카포 중간 지지)
+        left_arm_points = [
+            (center_x - 8 + recoil_offset, center_y - 2),  # 왼쪽 어깨
+            (bazooka_x - 3, bazooka_y + bazooka_length//2),  # 바주카포 중간 지지점
+            (bazooka_x + 2, bazooka_y + bazooka_length//2 + 3),  # 손목
+            (center_x - 5 + recoil_offset, center_y + 2)   # 몸쪽
         ]
-        pygame.draw.polygon(screen, (50, 70, 30), back_arm_points)
+        pygame.draw.polygon(screen, (50, 70, 30), left_arm_points)
         
-        # 총구 화염 효과 (발사 직후)
+        # 총구 화염 효과 (수직 위쪽으로 발사)
         if self.muzzle_flash_timer > 0:
             flash_length = 20 + random.randint(-3, 3)
             flash_width = 12 + random.randint(-2, 2)
             
-            # 화염 본체 (밝은 주황색)
+            # 화염 본체 (밝은 주황색) - 위쪽 방향
             flash_points = [
-                (muzzle_x, muzzle_y - flash_width//2),
-                (muzzle_x + flash_length, muzzle_y - flash_width//4),
-                (muzzle_x + flash_length + 5, muzzle_y),
-                (muzzle_x + flash_length, muzzle_y + flash_width//4),
-                (muzzle_x, muzzle_y + flash_width//2)
+                (muzzle_x - flash_width//2, muzzle_y),
+                (muzzle_x - flash_width//4, muzzle_y - flash_length),
+                (muzzle_x, muzzle_y - flash_length - 5),
+                (muzzle_x + flash_width//4, muzzle_y - flash_length),
+                (muzzle_x + flash_width//2, muzzle_y)
             ]
             pygame.draw.polygon(screen, (255, 200, 50), flash_points)
             
-            # 내부 화염 (밝은 노란색)
+            # 내부 화염 (밝은 노란색) - 위쪽 방향
             inner_flash_points = [
-                (muzzle_x, muzzle_y - flash_width//3),
-                (muzzle_x + flash_length//2, muzzle_y - flash_width//6),
-                (muzzle_x + flash_length//2 + 3, muzzle_y),
-                (muzzle_x + flash_length//2, muzzle_y + flash_width//6),
-                (muzzle_x, muzzle_y + flash_width//3)
+                (muzzle_x - flash_width//3, muzzle_y),
+                (muzzle_x - flash_width//6, muzzle_y - flash_length//2),
+                (muzzle_x, muzzle_y - flash_length//2 - 3),
+                (muzzle_x + flash_width//6, muzzle_y - flash_length//2),
+                (muzzle_x + flash_width//3, muzzle_y)
             ]
             pygame.draw.polygon(screen, (255, 255, 200), inner_flash_points)
             
-            # 연기 효과
+            # 연기 효과 (위쪽 방향)
             for i in range(3):
-                smoke_x = muzzle_x + flash_length + i * 8 + random.randint(-2, 2)
-                smoke_y = muzzle_y + random.randint(-5, 5)
+                smoke_x = muzzle_x + random.randint(-5, 5)
+                smoke_y = muzzle_y - flash_length - i * 8 + random.randint(-2, 2)
                 smoke_radius = 4 + i
                 smoke_alpha = 100 - i * 25
                 smoke_color = (smoke_alpha, smoke_alpha, smoke_alpha)
