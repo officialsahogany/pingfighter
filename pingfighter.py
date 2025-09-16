@@ -9067,7 +9067,7 @@ def handle_player(keys):
             elif ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
-                base_gauge_gain = 80  # 일반 게임: 게이지 충전 80
+                base_gauge_gain = 60  # 일반 게임: 게이지 충전 60
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
@@ -31482,9 +31482,9 @@ def handle_ball():
                     print(f"[DEBUG 무릎보호대] on_half_dash_hit 결과: {should_charge}")
                     
                     if should_charge:
-                        # 특수 게이지 50% 충전 (기본 충전량 80의 50% = 40)
-                        base_charge = 80  # 기본 충전량
-                        charge_amount = base_charge * 0.5  # 50% = 40
+                        # 특수 게이지 50% 충전 (기본 충전량 60의 50% = 30)
+                        base_charge = 60  # 기본 충전량
+                        charge_amount = base_charge * 0.5  # 50% = 30
                         
                         # 블루투스링 효과 적용 (있을 경우)
                         import items
@@ -31636,7 +31636,7 @@ def handle_ball():
                     
                     # 충전가방 효과
                     if chargebag_obtained and not aipill_active:
-                        base_gauge_gain = 80
+                        base_gauge_gain = 60
                         skill_gauge_boost = skill.apply_gauge_boost(0)
                         total_gauge_gain = base_gauge_gain + skill_gauge_boost
                         
@@ -32074,7 +32074,7 @@ def handle_ball():
         # 충전가방 효과: 공이 벽에 닿을 때마다 플레이어 패들 충전량의 20% 충전
         if chargebag_obtained and not aipill_active:
             # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
-            base_gauge_gain = 80
+            base_gauge_gain = 60
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
@@ -32179,7 +32179,7 @@ def handle_ball():
         # 충전가방 효과: 공이 벽에 닿을 때마다 플레이어 패들 충전량의 20% 충전
         if chargebag_obtained and not aipill_active:
             # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
-            base_gauge_gain = 80
+            base_gauge_gain = 60
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
@@ -32954,7 +32954,7 @@ def handle_ball():
             elif ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
-                base_gauge_gain = 80  # 일반 게임: 게이지 충전 80
+                base_gauge_gain = 60  # 일반 게임: 게이지 충전 60
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
