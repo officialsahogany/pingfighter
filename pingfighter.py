@@ -6423,80 +6423,109 @@ def draw_soldier_weapon_ui(screen):
     slot_margin = 10
     bottom_margin = 80  # 화면 하단에서 여백
     
-    # 권총 아이콘 위치 (액티브 슬롯 위)
-    weapon_size = int(slot_size * 1.5)  # 1.5배 크기
+    # 권총 아이콘 위치 (액티브 슬롯 위) - 크기를 더 줄이고 위치 조정
+    weapon_size = int(slot_size * 1.0)  # 1.0배 크기로 축소 (슬롯과 동일)
     weapon_x = slot_margin
-    weapon_y = HEIGHT - bottom_margin - slot_size - weapon_size - 10
+    weapon_y = HEIGHT - bottom_margin - slot_size - weapon_size + 15  # 위치를 더 아래로 조정
     
-    # 권총 아이콘 그리기 (간단한 도형으로 구현)
+    # 권총 아이콘 배경 (사각형)
     weapon_rect = pygame.Rect(weapon_x, weapon_y, weapon_size, weapon_size)
     
-    # 배경 원
-    pygame.draw.circle(screen, (40, 40, 40), weapon_rect.center, weapon_size // 2)
-    pygame.draw.circle(screen, (100, 100, 100), weapon_rect.center, weapon_size // 2, 3)
+    # 배경 사각형
+    pygame.draw.rect(screen, (40, 40, 40), weapon_rect)
+    pygame.draw.rect(screen, (100, 100, 100), weapon_rect, 3)
     
-    # 권총 모양 그리기
+    # 실제 권총 모양 그리기
     gun_center_x, gun_center_y = weapon_rect.center
-    gun_body_rect = pygame.Rect(gun_center_x - 15, gun_center_y - 8, 20, 16)
-    gun_barrel_rect = pygame.Rect(gun_center_x + 5, gun_center_y - 3, 12, 6)
     
-    # 권총 본체 (회색)
-    pygame.draw.rect(screen, (80, 80, 80), gun_body_rect)
-    pygame.draw.rect(screen, (60, 60, 60), gun_body_rect, 2)
+    # 권총 손잡이 (그립)
+    grip_rect = pygame.Rect(gun_center_x - 12, gun_center_y, 10, 20)
+    pygame.draw.rect(screen, (60, 40, 20), grip_rect)  # 갈색 손잡이
+    pygame.draw.rect(screen, (40, 25, 10), grip_rect, 1)
     
-    # 권총 총열 (어두운 회색)
-    pygame.draw.rect(screen, (50, 50, 50), gun_barrel_rect)
-    pygame.draw.rect(screen, (30, 30, 30), gun_barrel_rect, 1)
+    # 권총 본체
+    body_rect = pygame.Rect(gun_center_x - 15, gun_center_y - 10, 25, 12)
+    pygame.draw.rect(screen, (80, 80, 80), body_rect)  # 회색 본체
+    pygame.draw.rect(screen, (50, 50, 50), body_rect, 2)
     
-    # 총탄 개수 표시 (권총 아이콘 아래)
-    bullet_start_x = weapon_x + 10
-    bullet_y = weapon_y + weapon_size + 5
-    bullet_size = 8
-    bullet_spacing = 12
+    # 권총 총열
+    barrel_rect = pygame.Rect(gun_center_x + 10, gun_center_y - 5, 15, 6)
+    pygame.draw.rect(screen, (40, 40, 40), barrel_rect)  # 어두운 총열
+    
+    # 방아쇠 가드
+    trigger_guard = [(gun_center_x - 8, gun_center_y + 2),
+                     (gun_center_x - 5, gun_center_y + 7),
+                     (gun_center_x - 2, gun_center_y + 7),
+                     (gun_center_x, gun_center_y + 2)]
+    pygame.draw.lines(screen, (60, 60, 60), False, trigger_guard, 2)
+    
+    # 총탄 개수 표시 (권총 아이콘 아래) - 실제 총탄 모양으로
+    bullet_start_x = weapon_x + 5
+    bullet_y = weapon_y + weapon_size + 8
+    bullet_width = 6
+    bullet_height = 12
+    bullet_spacing = 14
+    
+    # 재장전 중일 때 표시할 총탄 수 계산
+    if soldier_reloading:
+        # 재장전 진행도에 따라 총탄이 하나씩 나타남
+        progress_ratio = 1.0 - (soldier_reload_timer / SOLDIER_RELOAD_TIME)
+        bullets_to_show = int(progress_ratio * soldier_max_ammo)
+    else:
+        bullets_to_show = soldier_ammo_count
     
     for i in range(soldier_max_ammo):
         bullet_x = bullet_start_x + i * bullet_spacing
-        bullet_rect = pygame.Rect(bullet_x, bullet_y, bullet_size, bullet_size)
         
-        if i < soldier_ammo_count:
-            # 보유 탄약 (황금색)
-            pygame.draw.circle(screen, SOLDIER_BULLET_COLOR, bullet_rect.center, bullet_size // 2)
-            pygame.draw.circle(screen, (200, 150, 0), bullet_rect.center, bullet_size // 2, 1)
+        if i < bullets_to_show:
+            # 실제 총탄 모양 그리기
+            # 탄두 (위쪽 뾰족한 부분)
+            bullet_tip = [
+                (bullet_x + bullet_width // 2, bullet_y),
+                (bullet_x, bullet_y + 4),
+                (bullet_x + bullet_width, bullet_y + 4)
+            ]
+            pygame.draw.polygon(screen, (180, 140, 0), bullet_tip)  # 구리색 탄두
+            
+            # 탄피 (아래쪽 원통 부분)
+            case_rect = pygame.Rect(bullet_x, bullet_y + 4, bullet_width, bullet_height - 4)
+            pygame.draw.rect(screen, (200, 170, 0), case_rect)  # 황동색 탄피
+            
+            # 하이라이트
+            highlight_rect = pygame.Rect(bullet_x + 1, bullet_y + 4, 2, bullet_height - 6)
+            pygame.draw.rect(screen, (240, 210, 0), highlight_rect)
+            
+            # 테두리
+            pygame.draw.polygon(screen, (140, 110, 0), bullet_tip, 1)
+            pygame.draw.rect(screen, (140, 110, 0), case_rect, 1)
         else:
-            # 소모된 탄약 (회색 테두리만)
-            pygame.draw.circle(screen, (60, 60, 60), bullet_rect.center, bullet_size // 2, 2)
+            # 빈 총탄 자리 (회색 실루엣)
+            # 탄두 실루엣
+            bullet_tip = [
+                (bullet_x + bullet_width // 2, bullet_y),
+                (bullet_x, bullet_y + 4),
+                (bullet_x + bullet_width, bullet_y + 4)
+            ]
+            pygame.draw.polygon(screen, (60, 60, 60), bullet_tip, 1)
+            
+            # 탄피 실루엣
+            case_rect = pygame.Rect(bullet_x, bullet_y + 4, bullet_width, bullet_height - 4)
+            pygame.draw.rect(screen, (60, 60, 60), case_rect, 1)
     
-    # 재장전 중이면 진행도 표시
+    # 재장전 중이면 재장전 텍스트 표시
     if soldier_reloading:
-        # 재장전 진행도 바
-        progress_width = weapon_size
-        progress_height = 6
-        progress_x = weapon_x
-        progress_y = bullet_y + bullet_size + 8
-        
-        # 배경 바
-        progress_bg_rect = pygame.Rect(progress_x, progress_y, progress_width, progress_height)
-        pygame.draw.rect(screen, (40, 40, 40), progress_bg_rect)
-        pygame.draw.rect(screen, (100, 100, 100), progress_bg_rect, 1)
-        
-        # 진행도 바
-        progress_ratio = 1.0 - (soldier_reload_timer / SOLDIER_RELOAD_TIME)
-        progress_fill_width = int(progress_width * progress_ratio)
-        progress_fill_rect = pygame.Rect(progress_x, progress_y, progress_fill_width, progress_height)
-        pygame.draw.rect(screen, (0, 150, 255), progress_fill_rect)
-        
         # 재장전 텍스트
         reload_text = "재장전 중..."
         try:
             # UI 매니저의 폰트 사용
             if hasattr(ui_manager, 'korean_font') and ui_manager.korean_font:
-                reload_surface = ui_manager.korean_font.render(reload_text, True, (255, 255, 255))
+                reload_surface = ui_manager.korean_font.render(reload_text, True, (255, 200, 0))
             else:
                 # 폰트가 없으면 pygame 기본 폰트 사용
                 font = pygame.font.Font(None, 20)
-                reload_surface = font.render(reload_text, True, (255, 255, 255))
-            text_x = progress_x
-            text_y = progress_y + progress_height + 5
+                reload_surface = font.render("Reloading...", True, (255, 200, 0))
+            text_x = weapon_x
+            text_y = bullet_y + bullet_height + 10
             screen.blit(reload_surface, (text_x, text_y))
         except Exception as e:
             print(f"[DEBUG] 재장전 텍스트 렌더링 실패: {e}")
@@ -6609,6 +6638,9 @@ def update_boss_knockback():
     global boss_knockback_active, boss_knockback_offset_x, boss_knockback_offset_y, boss_knockback_timer
     
     if boss_knockback_active:
+        print(f"[DEBUG 넉백] 프레임 {BOSS_KNOCKBACK_DURATION - boss_knockback_timer + 1}/{BOSS_KNOCKBACK_DURATION}")
+        print(f"            오프셋: X={boss_knockback_offset_x}, Y={boss_knockback_offset_y}")
+        
         # 타이머 감소
         boss_knockback_timer -= 1
         
@@ -6705,8 +6737,8 @@ def update_soldier_bullets():
                 
                 print("💥 총알이 보스에게 명중! 보스 스턴!")
                 
-                # 넉백 효과 트리거
-                trigger_boss_knockback(bullet["x"], bullet["y"])
+                # 넉백 효과 트리거 - 기존 시스템 사용 (boss_knockback_vel을 설정하는 함수)
+                trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
 
 def draw_soldier_bullets(screen):
     """군인 총알 그리기"""
