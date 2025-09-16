@@ -7038,39 +7038,6 @@ def draw_head_shot_effect(screen):
         except Exception as e:
             print(f"헤드샷 텍스트 렌더링 오류: {e}")
     
-    # 헤드샷 스턴 중 별 효과
-    if head_shot_active and head_shot_timer > 0:
-        # 별 5개가 머리 위에서 회전 (더 많은 별)
-        rotation_angle = (HEAD_SHOT_DURATION - head_shot_timer) * 4  # 빠른 회전
-        num_stars = 5
-        
-        for i in range(num_stars):
-            angle = math.radians(rotation_angle + (360 / num_stars * i))
-            radius = 40  # 큰 회전 반경
-            
-            star_x = BOSS.centerx + int(math.cos(angle) * radius)
-            star_y = BOSS.top - 30 + int(math.sin(angle) * radius / 2)  # 타원형 회전
-            
-            # 별 그리기 (더 크고 밝게)
-            star_size = 10
-            star_color = (255, 255, 0)  # 노란색
-            
-            # 별 모양 그리기
-            points = []
-            for j in range(10):
-                if j % 2 == 0:
-                    r = star_size
-                else:
-                    r = star_size // 2
-                point_angle = math.radians(rotation_angle + 36 * j)
-                px = star_x + int(math.cos(point_angle) * r)
-                py = star_y + int(math.sin(point_angle) * r)
-                points.append((px, py))
-            
-            pygame.draw.polygon(screen, star_color, points)
-            
-            # 별 발광 효과
-            pygame.draw.circle(screen, (255, 255, 200, 50), (star_x, star_y), star_size + 5)
 
 def draw_soldier_gun_animation(screen, paddle_rect):
     """군인 총 발사 애니메이션 그리기"""
