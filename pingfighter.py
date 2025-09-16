@@ -2630,11 +2630,11 @@ def create_soldier_paddle_animated():
     # 회전된 라켓 면 그리기 (간단한 회전 효과)
     if swing_angle > 0:
         # 회전 효과를 위해 타원의 각도를 조정
-        racket_width = int(24 * math.cos(math.radians(swing_angle)))
-        racket_height = 30
+        racket_width = int(26 * math.cos(math.radians(swing_angle)))
+        racket_height = 26
     else:
-        racket_width = 24
-        racket_height = 30
+        racket_width = 26
+        racket_height = 26
     
     # 라켓 면
     pygame.draw.ellipse(animated_paddle, (75, 95, 55), 
@@ -2645,15 +2645,15 @@ def create_soldier_paddle_animated():
     # 라켓 고무 (빨간색)
     if racket_width > 4:
         pygame.draw.ellipse(animated_paddle, (120, 35, 25), 
-                            (paddle_x - (racket_width-4)//2, paddle_y - 6, racket_width-4, 26))
+                            (paddle_x - (racket_width-4)//2, paddle_y - 6, racket_width-4, racket_height-4))
     # 라켓 중앙 원형 패턴
     if racket_width > 8:
         pygame.draw.ellipse(animated_paddle, (100, 25, 15), 
-                            (paddle_x - (racket_width-8)//2, paddle_y - 2, racket_width-8, 18))
+                            (paddle_x - (racket_width-8)//2, paddle_y - 2, racket_width-8, racket_height-8))
     
     # 군용 별 마크 (회전에 관계없이 표시)
     star_cx = paddle_x
-    star_cy = paddle_y + 4
+    star_cy = paddle_y + 5
     for i in range(5):
         angle = math.radians(i * 72 - 90)
         x = star_cx + int(3 * math.cos(angle))
@@ -6802,7 +6802,7 @@ def draw_leg_shot_effect(screen):
         
         # 텍스트 표면 생성
         try:
-            font_large = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareEB.ttf")), 48)
+            font_large = pygame.freetype.Font(resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")), 48)
             
             # 텍스트 크기 애니메이션 (팝 효과)
             if leg_shot_text_timer > LEG_SHOT_TEXT_DURATION * 0.9:
@@ -6832,7 +6832,7 @@ def draw_leg_shot_effect(screen):
             
             # 작은 부가 텍스트
             if leg_shot_text_timer > LEG_SHOT_TEXT_DURATION * 0.5:
-                small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 24)
+                small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")), 24)
                 sub_text, sub_rect = small_font.render("이동속도 -30%", (255, 150, 150))
                 sub_text.set_alpha(alpha)
                 sub_rect.center = (BOSS.centerx, BOSS.centery - 40)
@@ -10017,7 +10017,6 @@ def handle_wall():
         boss_confused_timer -= 1
     # 화염병 업데이트
     if molotovs and random.random() < 0.1:  # 10% 확률로 디버그 출력
-        import pygame
         print(f"[DEBUG]   : {len(molotovs)}, : {pygame.time.get_ticks()}ms")
     for molotov in molotovs[:]:
         # 중력 적용 (gravity가 0이면 적용 안함)
@@ -28317,6 +28316,10 @@ def reset_round():
     global smoke_grenades, smoke_zones
     smoke_grenades.clear()  # 날아가는 연막탄 제거
     # smoke_zones는 초기화하지 않음 - 라운드가 넘어가도 연막 효과 지속
+    
+    # 💣 수류탄 스턴 효과 초기화 (라운드 넘어갈 때 스턴 해제)
+    global boss_stunned_timer
+    boss_stunned_timer = 0
     # ️ 수평 움직임 타이머 리셋
     horizontal_movement_timer = 0
     #  드라이브 공 상태 리셋
