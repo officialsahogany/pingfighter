@@ -4883,6 +4883,19 @@ def go_to_next_round():
     #  대쉬 스피릿 레이저 초기화
     global dash_spirit_lasers
     dash_spirit_lasers.clear()
+    
+    # 물자보급 시스템 초기화
+    global supply_drop_active, supply_drop_timer, supply_radio_motion, supply_radio_timer
+    global supply_aircraft, supply_drop_items
+    supply_drop_active = False
+    supply_drop_timer = 0
+    supply_radio_motion = False
+    supply_radio_timer = 0
+    if supply_aircraft and hasattr(supply_aircraft, 'stop_sound'):
+        supply_aircraft.stop_sound()
+    supply_aircraft = None
+    supply_drop_items = []
+    
     #  AI 메모리 정리 (라운드 간 성능 최적화)
     optimize_ai_memory_for_round()
     reset_round()
@@ -38646,6 +38659,11 @@ def main(stage_num, new_boss_mode=False):
         BOSS_COLOR = (200, 100, 100)  # 조교 색상
         # 튜토리얼 BGM 재생
         bgm_manager.play_stage_bgm(50)
+    
+    # round_start_time 초기화 (게임 시작 시)
+    global round_start_time
+    round_start_time = pygame.time.get_ticks()
+    
     reset_round()
     
     #  DEBUG: 하늘빛 아지랑이 효과 테스트용 (나중에 제거)
