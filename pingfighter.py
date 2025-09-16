@@ -10254,6 +10254,30 @@ def handle_wall():
                 if boss_distance <= flare_radius:  # 폭발 반경 내에 있으면
                     boss_confused_timer = THREE_SECONDS_FRAMES  # 3초간 보스 혼란
                     print(f"  !  3  !")
+                    
+                    # 군인 캐릭터의 조명탄 보스 명중 시 게이지 100+ 증가
+                    global special_gauge, special_ready
+                    gauge_increase = 100  # 기본 100 증가
+                    
+                    # 코만도암 착용 시 추가 보너스
+                    if items.commando_arm_obtained:
+                        gauge_increase = 120  # 코만도암 착용 시 120 증가
+                        print("🎯 코만도암 보너스! 조명탄 게이지 120 증가!")
+                    else:
+                        print("💡 조명탄 명중! 게이지 100 증가!")
+                    
+                    # 게이지 증가 적용
+                    old_gauge = special_gauge
+                    special_gauge += gauge_increase
+                    current_max = get_max_gauge()
+                    if special_gauge > current_max:
+                        special_gauge = current_max
+                    
+                    # 필살기 준비 상태 업데이트
+                    if special_gauge >= 350:
+                        special_ready = True
+                    
+                    print(f"조명탄 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
                 else:
                     print(f"  ! : {boss_distance:.0f}")
                 flares.remove(flare)
