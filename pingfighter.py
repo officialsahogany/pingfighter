@@ -6794,22 +6794,18 @@ def draw_leg_shot_effect(screen):
             # 애니메이션 진행도 (0.0 ~ 1.0)
             progress = 1.0 - (leg_shot_text_timer / LEG_SHOT_TEXT_DURATION)
             
-            # 다이나믹한 애니메이션 계산
+            # 다이나믹한 애니메이션 계산 (회전 제거)
             if progress < 0.1:  # 0~0.1초: 급격한 확대
                 scale = 0.5 + (progress * 15)  # 0.5에서 2.0까지
-                rotation = progress * 360  # 빠른 회전
                 alpha = 255
             elif progress < 0.3:  # 0.1~0.3초: 안정화
                 scale = 2.0 - ((progress - 0.1) * 5)  # 2.0에서 1.0으로
-                rotation = 36  # 회전 멈춤
                 alpha = 255
             elif progress < 0.7:  # 0.3~0.7초: 유지
                 scale = 1.0
-                rotation = 0
                 alpha = 255
             else:  # 0.7~1.0초: 페이드 아웃
                 scale = 1.0 - ((progress - 0.7) * 1.0)  # 축소하며 사라짐
-                rotation = 0
                 alpha = int(255 * (1.0 - progress) / 0.3)
             
             # 텍스트 렌더링
@@ -6830,9 +6826,11 @@ def draw_leg_shot_effect(screen):
             # 텍스트를 glow surface 중앙에 배치
             glow_surface.blit(text_surface, (10, 10))
             
-            # 스케일 및 회전 적용
-            if scale != 1.0 or rotation != 0:
-                glow_surface = pygame.transform.rotozoom(glow_surface, rotation, scale)
+            # 스케일만 적용 (회전 없이)
+            if scale != 1.0:
+                glow_surface = pygame.transform.scale(glow_surface, 
+                                                    (int(glow_surface.get_width() * scale), 
+                                                     int(glow_surface.get_height() * scale)))
             
             # 알파값 적용
             glow_surface.set_alpha(alpha)
