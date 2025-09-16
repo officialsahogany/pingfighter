@@ -6783,6 +6783,7 @@ def update_soldier_bullets():
                     head_shot_active = True
                     head_shot_timer = HEAD_SHOT_DURATION  # 1.5초간 스턴
                     head_shot_text_timer = HEAD_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
+                    boss_stunned_timer = HEAD_SHOT_DURATION  # 별 효과를 위한 타이머 (1.5초)
                     print("💥 헤드샷! 보스 1.5초간 스턴!")
                 elif shot_roll < HEAD_SHOT_CHANCE + LEG_SHOT_CHANCE:
                     # 레그샷 발동 (헤드샷이 발동하지 않은 경우에만)
