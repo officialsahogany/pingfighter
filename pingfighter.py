@@ -6956,7 +6956,6 @@ def draw_leg_shot_effect(screen):
             if progress < 0.2:
                 line_brightness = int(255 * (1.0 - progress * 5))
                 for angle in range(0, 360, 45):
-                    import math
                     end_x = text_x + math.cos(math.radians(angle)) * 50 * (1 + progress * 2)
                     end_y = text_y + math.sin(math.radians(angle)) * 50 * (1 + progress * 2)
                     pygame.draw.line(screen, (line_brightness, line_brightness // 2, line_brightness // 2), 
@@ -7030,7 +7029,6 @@ def draw_head_shot_effect(screen):
             if progress < 0.2:
                 line_brightness = int(255 * (1.0 - progress * 5))
                 for angle in range(0, 360, 45):
-                    import math
                     end_x = text_x + math.cos(math.radians(angle)) * 50 * (1 + progress * 2)
                     end_y = text_y + math.sin(math.radians(angle)) * 50 * (1 + progress * 2)
                     pygame.draw.line(screen, (line_brightness, line_brightness * 0.8, 0), 
@@ -23978,12 +23976,16 @@ def show_tutorial_dash_completion_dialogue():
 
 def create_soldier_character_card_image(size):
     """캐릭터 선택 카드용 군인 이미지 - 앞모습 사용"""
-    # 앞모습 이미지 생성 후 크기 조정
+    # 앞모습 이미지 생성
     front_view = create_soldier_front_view()
     
     # 목표 크기에 맞게 스케일 조정
     # 원본이 150x170이므로 적절히 맞춤
-    scale_factor = size / 170.0  # 높이 기준으로 맞춤
+    if size < 170:
+        scale_factor = size / 170.0
+    else:
+        scale_factor = min(size / 170.0, 1.5)  # 너무 크게 확대하지 않음
+    
     new_width = int(150 * scale_factor)
     new_height = int(170 * scale_factor)
     
@@ -24085,6 +24087,31 @@ def create_soldier_character_card_image(size):
             if camo_y + camo_size < size:  # 화면을 벗어나지 않도록
                 pygame.draw.ellipse(img, camo_colors[i % 3], 
                                    (camo_x, camo_y, camo_size, camo_size - 1))
+    
+    return img
+
+def create_soldier_character_card_image_new(size):
+    """캐릭터 선택 카드용 군인 이미지 - 앞모습만 사용하는 단순화 버전"""
+    # 앞모습 이미지 생성
+    front_view = create_soldier_front_view()
+    
+    # 목표 크기에 맞게 스케일 조정
+    if size < 170:
+        scale_factor = size / 170.0
+    else:
+        scale_factor = min(size / 170.0, 1.5)
+    
+    new_width = int(150 * scale_factor)
+    new_height = int(170 * scale_factor)
+    
+    # 이미지 크기 조정
+    scaled_img = pygame.transform.smoothscale(front_view, (new_width, new_height))
+    
+    # 최종 이미지를 정사각형 캔버스에 중앙 정렬
+    img = pygame.Surface((size, size), pygame.SRCALPHA)
+    x = (size - new_width) // 2
+    y = (size - new_height) // 2
+    img.blit(scaled_img, (x, y))
     
     return img
 
@@ -24769,8 +24796,8 @@ def show_character_selection():
             # 캐릭터 이미지 영역
             image_size = min(w - 20, h // 3)  # 카드 크기에 비례
             if character["id"] == "soldier":
-                # 군인 캐릭터는 직접 그리기 (아래를 바라보는 모습)
-                soldier_img = create_soldier_character_card_image(image_size)
+                # 군인 캐릭터는 직접 그리기 (앞모습)
+                soldier_img = create_soldier_character_card_image_new(image_size)
                 image_x = (w - image_size) // 2
                 image_y = 30
                 surface.blit(soldier_img, (image_x, image_y))
