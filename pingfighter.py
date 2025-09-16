@@ -3204,68 +3204,84 @@ class SupplyAircraft:
         explosion_center_x = self.x + self.width // 2
         explosion_center_y = self.y + self.height // 2
         
-        # 큰 폭발 효과 - 중심부
-        for _ in range(30):
+        print(f"💥💥💥 비행기 바닥 폭발! 위치: ({explosion_center_x}, {explosion_center_y})")
+        
+        # 💥 대형 붉은 화염 폭발 - 중심부 (강화됨)
+        for _ in range(50):  # 30 → 50개로 증가
             angle = random.uniform(0, 2 * 3.14159)
-            speed = random.uniform(5, 15)
+            speed = random.uniform(8, 25)  # 5-15 → 8-25로 더 빠르게
             self.explosion_particles.append({
                 'x': explosion_center_x,
                 'y': explosion_center_y,
                 'vx': speed * math.cos(angle),
-                'vy': speed * math.sin(angle) - 5,  # 위쪽으로 더 많이
-                'color': random.choice([(255, 50, 0), (255, 150, 0), (255, 255, 0), (255, 200, 50)]),
-                'size': random.randint(8, 20),
-                'life': random.randint(40, 80)
+                'vy': speed * math.sin(angle) - 8,  # 위쪽으로 더 많이
+                'color': random.choice([(255, 0, 0), (255, 50, 0), (255, 100, 0), (255, 150, 0), (255, 200, 0)]),  # 더 붉은 색상
+                'size': random.randint(12, 30),  # 8-20 → 12-30으로 더 크게
+                'life': random.randint(60, 120)  # 40-80 → 60-120으로 더 오래
             })
         
-        # 작은 불꽃 파편들
-        for _ in range(40):
+        # 🔥 작은 불꽃 파편들 (강화됨)
+        for _ in range(60):  # 40 → 60개로 증가
             angle = random.uniform(0, 2 * 3.14159)
-            speed = random.uniform(8, 20)
+            speed = random.uniform(12, 30)  # 8-20 → 12-30으로 더 빠르게
             self.explosion_particles.append({
-                'x': explosion_center_x + random.randint(-20, 20),
-                'y': explosion_center_y + random.randint(-10, 10),
+                'x': explosion_center_x + random.randint(-30, 30),  # 범위 확대
+                'y': explosion_center_y + random.randint(-15, 15),
                 'vx': speed * math.cos(angle),
-                'vy': speed * math.sin(angle) - 8,
-                'color': random.choice([(255, 100, 0), (255, 200, 0), (255, 255, 100)]),
-                'size': random.randint(3, 8),
-                'life': random.randint(20, 40)
+                'vy': speed * math.sin(angle) - 10,
+                'color': random.choice([(255, 0, 0), (255, 80, 0), (255, 120, 0), (255, 200, 50), (255, 255, 100)]),
+                'size': random.randint(5, 15),  # 3-8 → 5-15로 더 크게
+                'life': random.randint(30, 60)  # 20-40 → 30-60으로 더 오래
             })
         
-        # 금속 파편들 생성
-        for _ in range(20):
+        # 🛠️ 금속 파편들 생성 (강화됨)
+        for _ in range(40):  # 20 → 40개로 증가
             angle = random.uniform(0, 2 * 3.14159)
-            speed = random.uniform(10, 25)
+            speed = random.uniform(15, 35)  # 10-25 → 15-35로 더 빠르게
             self.debris_particles.append({
                 'x': explosion_center_x,
                 'y': explosion_center_y,
                 'vx': speed * math.cos(angle),
-                'vy': speed * math.sin(angle) - 10,
-                'width': random.randint(5, 15),
-                'height': random.randint(3, 8),
-                'color': random.choice([(80, 80, 80), (100, 100, 100), (120, 120, 100)]),
+                'vy': speed * math.sin(angle) - 12,
+                'width': random.randint(8, 20),  # 5-15 → 8-20으로 더 크게
+                'height': random.randint(5, 12),  # 3-8 → 5-12로 더 크게
+                'color': random.choice([(60, 60, 60), (80, 80, 80), (100, 100, 100), (120, 120, 100), (140, 140, 120)]),
                 'rotation': random.uniform(0, 360),
-                'rotation_speed': random.uniform(-20, 20),
-                'life': random.randint(60, 120)
+                'rotation_speed': random.uniform(-30, 30),  # 회전 속도 증가
+                'life': random.randint(90, 180)  # 60-120 → 90-180으로 더 오래
             })
         
-        # 연기 폭발
-        for _ in range(25):
+        # 💨 연기 폭발 (강화됨)
+        for _ in range(40):  # 25 → 40개로 증가
             self.smoke_particles.append({
-                'x': explosion_center_x + random.randint(-30, 30),
-                'y': explosion_center_y + random.randint(-20, 20),
-                'vx': random.uniform(-3, 3),
-                'vy': random.uniform(-5, -1),
-                'size': random.randint(20, 40),
-                'color': (60, 60, 60),  # 짙은 회색 연기
-                'alpha': 200,
-                'life': random.randint(60, 100)
+                'x': explosion_center_x + random.randint(-50, 50),  # 범위 확대
+                'y': explosion_center_y + random.randint(-30, 30),
+                'vx': random.uniform(-5, 5),  # 속도 증가
+                'vy': random.uniform(-8, -2),
+                'size': random.randint(30, 60),  # 20-40 → 30-60으로 더 크게
+                'color': (40, 40, 40),  # 더 짙은 회색 연기
+                'alpha': 220,  # 200 → 220으로 더 진하게
+                'life': random.randint(80, 150)  # 60-100 → 80-150으로 더 오래
+            })
+        
+        # 🌋 추가 화염 이펙트 (새로 추가)
+        for _ in range(30):
+            angle = random.uniform(-3.14159/3, 3.14159/3)  # 위쪽 방향으로 주로 분사
+            speed = random.uniform(20, 40)
+            self.explosion_particles.append({
+                'x': explosion_center_x + random.randint(-40, 40),
+                'y': explosion_center_y,
+                'vx': speed * math.cos(angle),
+                'vy': speed * math.sin(angle) - 15,  # 강하게 위로
+                'color': random.choice([(255, 0, 0), (255, 20, 0), (255, 40, 0), (220, 0, 0)]),  # 진한 붉은색
+                'size': random.randint(15, 25),
+                'life': random.randint(40, 80)
             })
         
         # 폭발음 재생 (있다면)
         try:
             explosion_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "explosion.wav")))
-            explosion_sound.set_volume(0.7)
+            explosion_sound.set_volume(0.8)  # 볼륨 증가
             explosion_sound.play()
         except:
             pass
@@ -3894,19 +3910,34 @@ def draw_supply_drop_system(screen):
             pygame.draw.circle(smoke_surf, color, (size, size), size)
             screen.blit(smoke_surf, (particle['x'] - size, particle['y'] - size))
         
-        # 폭발 파티클 그리기
+        # 🔥 폭발 파티클 그리기 (강화됨)
         for particle in supply_aircraft.explosion_particles[:]:
             particle['x'] += particle['vx']
             particle['y'] += particle['vy']
+            particle['vy'] += 0.3  # 중력 효과
             particle['life'] -= 1
             
             if particle['life'] <= 0:
                 supply_aircraft.explosion_particles.remove(particle)
                 continue
                 
+            # 붉은 화염 효과 강화
             color = particle['color']
-            size = particle['size'] * (particle['life'] / 30)
-            pygame.draw.circle(screen, color, (int(particle['x']), int(particle['y'])), max(1, int(size)))
+            life_ratio = particle['life'] / 120.0  # 최대 생명력 기준
+            size = int(particle['size'] * life_ratio)
+            
+            if size > 0:
+                # 외곽 화염 (더 밝은 색)
+                outer_color = (min(255, color[0] + 30), min(255, color[1] + 20), color[2])
+                pygame.draw.circle(screen, outer_color, (int(particle['x']), int(particle['y'])), size + 2)
+                
+                # 내부 화염 (원래 색)
+                pygame.draw.circle(screen, color, (int(particle['x']), int(particle['y'])), size)
+                
+                # 중심부 하이라이트 (매우 밝은 색)
+                if size > 3:
+                    highlight_color = (255, 255, min(255, color[2] + 100))
+                    pygame.draw.circle(screen, highlight_color, (int(particle['x']), int(particle['y'])), size // 3)
         
         # 파편 파티클 그리기
         for particle in supply_aircraft.debris_particles[:]:
