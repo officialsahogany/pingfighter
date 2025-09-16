@@ -9785,6 +9785,7 @@ def handle_wall():
     global boss_confused_timer, flares, flare_zones, last_hit_by
     global boss_current_health, boss_max_health  #  체력형 보스 체력 변수
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
+    global special_gauge, special_ready  # 게이지 관련 변수 추가
     # 설치 중인 경우
     if wall_installing:
         wall_install_timer -= 1
@@ -10256,7 +10257,6 @@ def handle_wall():
                     print(f"  !  3  !")
                     
                     # 군인 캐릭터의 조명탄 보스 명중 시 게이지 100+ 증가
-                    global special_gauge, special_ready
                     gauge_increase = 100  # 기본 100 증가
                     
                     # 코만도암 착용 시 추가 보너스
