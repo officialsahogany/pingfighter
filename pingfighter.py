@@ -3749,11 +3749,11 @@ def update_supply_drop_system():
                 ball_vel[1] *= -0.5  # Y 속도를 반대로
         
         # 패들과 벽돌과의 충돌 체크
-        global PLAYER, BOSS, bricks
+        global PLAYER, BOSS, walls
         player_paddle_rect = pygame.Rect(player_x, player_y, player_width, player_height) if 'player_x' in globals() else None
         boss_paddle_rect = pygame.Rect(boss_x, boss_y, boss_width, boss_height) if 'boss_x' in globals() else None
         
-        if supply_aircraft.check_paddle_brick_collision(player_paddle_rect, boss_paddle_rect, bricks):
+        if supply_aircraft.check_paddle_brick_collision(player_paddle_rect, boss_paddle_rect, walls):
             # 충돌 발생 - 추락 시작됨
             pass
                 
@@ -34808,7 +34808,6 @@ def handle_ball():
             print(f"   !   : {original_speed:.1f}")
             
             # 화면 흔들림 0.2초 추가
-            global screen_shake_timer, screen_shake_intensity
             screen_shake_timer = 12  # 0.2초 (60 FPS)
             screen_shake_intensity = 8  # 중간 강도 흔들림
         
@@ -34844,7 +34843,6 @@ def handle_ball():
                 
                 if horizontal_velocity != 0:
                     # 넉백 시스템 활용
-                    global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
                     boss_knockback_timer = 36  # 0.6초간 넉백 효과 지속
                     
                     # 수평 넉백 속도 설정 (수류탄 방식)
@@ -34852,7 +34850,6 @@ def handle_ball():
                     
                     # 스턴은 넉백이 끝난 후에 적용됨 (여기서는 설정하지 않음)
                     # stun_duration은 hammer에서 반환되었으므로 저장만 해둠
-                    global ragnarok_stun_pending
                     if stun_duration > 0:
                         ragnarok_stun_pending = int(stun_duration * 60)  # 초를 프레임으로 변환 (60 FPS)
                     
