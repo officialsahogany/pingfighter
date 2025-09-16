@@ -4013,8 +4013,8 @@ def draw_supply_drop_system(screen):
             # 바닥에 닿으면 튕기기
             if particle['y'] >= screen.get_height() - 50:
                 particle['y'] = screen.get_height() - 50
-                particle['vel_y'] *= -0.5
-                particle['vel_x'] *= 0.8
+                particle['vy'] *= -0.5
+                particle['vx'] *= 0.8
             
             pygame.draw.rect(screen, particle['color'], 
                            (particle['x'], particle['y'], 
@@ -4242,6 +4242,7 @@ quake_offset_y = 0  # ← 전역 초기화 (draw_objects에서 사용)
 screen_shake_offset_x = 0
 screen_shake_offset_y = 0
 grenade_shake_timer = 0  # 수류탄 폭발 화면 흔들림 타이머
+bazooka_screen_shake_timer = 0  # 바주카포 폭발 화면 흔들림 타이머
 # Stage 2 정글지진 오프셋 변수 (벽돌 동기화용)
 earthquake_offset_x = 0
 earthquake_offset_y = 0
@@ -6538,7 +6539,7 @@ def handle_quake():
             stop_quake_sound()
 def draw_shaking_screen():
     """정글지진 시 화면 흔들림 효과 (더 효율적인 방식)"""
-    global screen_shake_offset_x, screen_shake_offset_y, grenade_shake_timer
+    global screen_shake_offset_x, screen_shake_offset_y, grenade_shake_timer, bazooka_screen_shake_timer
     global earthquake_offset_x, earthquake_offset_y
     global screen_shake_timer, screen_shake_intensity
     
@@ -6566,6 +6567,13 @@ def draw_shaking_screen():
             screen_shake_offset_x = random.randint(-3, 3)
             screen_shake_offset_y = random.randint(-2, 2)
         print(f"   : offset=({screen_shake_offset_x}, {screen_shake_offset_y})")
+    elif bazooka_screen_shake_timer > 0:
+        # 바주카포 폭발 화면 흔들림 (수류탄보다 강력)
+        intensity = bazooka_screen_shake_timer / 25.0  # 25으로 나누어 강도 계산
+        screen_shake_offset_x = random.randint(-int(15 * intensity), int(15 * intensity))
+        screen_shake_offset_y = random.randint(-int(12 * intensity), int(12 * intensity))
+        bazooka_screen_shake_timer -= 1
+        print(f"🚀💥 바주카포 화면 흔들림: timer={bazooka_screen_shake_timer}, offset=({screen_shake_offset_x}, {screen_shake_offset_y})")
     elif grenade_shake_timer > 0:
         #  수류탄 폭발 화면 흔들림
         intensity = grenade_shake_timer / 40.0  # 40으로 나누어 강도 계산
@@ -15259,7 +15267,7 @@ def draw_objects():
     global power_smashing_trails, power_smashing_particles, mega_smashing_meteor_trail  #  파워스매싱 이펙트 변수 추가
     global perfect_timing_active, perfect_timing_frame_count, perfect_timing_window  #  퍼펙트 타이밍 변수 추가
     global special_gauge  #  드라이브 게이지 확인용
-    global grenade_shake_timer  #  수류탄 화면 흔들림
+    global grenade_shake_timer, bazooka_screen_shake_timer  #  수류탄 및 바주카포 화면 흔들림
     global shield_antenna_active, shield_antenna_timer, shield_antenna_cooldown
     global last_shield_time, shield_duration, shield_fade_alpha, shield_position
     global laser_cannon_angle, laser_charging, laser_cannon_active, laser_charge_start
@@ -15381,6 +15389,16 @@ def draw_objects():
         SCREEN.blit(timing_text, text_rect)
     # 화면 흔들림 효과 계산
     quake_offset_y = random.randint(-5, 5) if quake_active else 0
+    # 바주카포 폭발 화면 흔들림
+    bazooka_offset_x = 0
+    bazooka_offset_y = 0
+    if bazooka_screen_shake_timer > 0:
+        # 흔들림 강도 계산 (바주카포는 더 강력)
+        intensity = bazooka_screen_shake_timer / 25.0
+        bazooka_offset_x = random.randint(-int(10 * intensity), int(10 * intensity))
+        bazooka_offset_y = random.randint(-int(8 * intensity), int(8 * intensity))
+        bazooka_screen_shake_timer -= 1
+    
     #  수류탄 폭발 화면 흔들림
     grenade_offset_x = 0
     grenade_offset_y = 0
@@ -15391,8 +15409,8 @@ def draw_objects():
         grenade_offset_y = random.randint(-int(6 * intensity), int(6 * intensity))
         grenade_shake_timer -= 1
     # 최종 화면 흔들림 오프셋
-    total_offset_x = grenade_offset_x
-    total_offset_y = quake_offset_y + grenade_offset_y
+    total_offset_x = bazooka_offset_x + grenade_offset_x
+    total_offset_y = quake_offset_y + bazooka_offset_y + grenade_offset_y
     # 헤르메스의 신발 별가루 파티클 업데이트 및 렌더링
     def update_and_draw_hermes_particles():
         """헤르메스의 신발 별가루 파티클 업데이트 및 렌더링"""
@@ -17655,6 +17673,8 @@ def draw_objects():
     draw_fireball_explosion_particles()
     # 바주카포 폭발 이펙트 그리기
     draw_bazooka_explosion_effects()
+    # 바주카포 폭발 파티클 그리기
+    draw_bazooka_explosion_particles()
     # === Stage 5 화염 용이 소용돌이치며 공을 따라오는 이펙트 ===
     if flame_trail_active:
         # 용의 몸체를 그리기 위한 시간 기반 애니메이션
@@ -31532,16 +31552,40 @@ def draw_fireball_explosion_particles():
 
 # 바주카포 폭발 이펙트 관련 변수
 bazooka_explosion_effects = []  # [(x, y, timer, max_timer), ...]
+bazooka_explosion_particles = []  # [(x, y, vx, vy, life, max_life, color), ...]
+bazooka_screen_shake_timer = 0  # 화면 흔들림 타이머
+
 def create_bazooka_explosion(x, y):
     """바주카포 폭발 이펙트 생성"""
-    global bazooka_explosion_effects
+    global bazooka_explosion_effects, bazooka_explosion_particles, bazooka_screen_shake_timer
     max_timer = 40  # 약 0.67초 (60fps)
     bazooka_explosion_effects.append([x, y, max_timer, max_timer])
-    print(f"💥 바주카포 폭발 이펙트 생성: ({x}, {y})")
+    
+    # 화면 흔들림 효과 (수류탄보다 강력)
+    bazooka_screen_shake_timer = 25  # 약 0.4초
+    
+    # 폭발 파티클 생성 (수류탄보다 더 많이)
+    particle_count = random.randint(60, 80)  # 화염탄보다 많음
+    for _ in range(particle_count):
+        # 폭발 방향 (360도 전방향)
+        angle = random.uniform(0, 2 * math.pi)
+        # 폭발 속도 (바주카포는 더 강력)
+        speed = random.uniform(3.0, 18.0)
+        vx = math.cos(angle) * speed
+        vy = math.sin(angle) * speed
+        # 파티클 생명 시간
+        life = random.randint(20, 45)  # 화염탄보다 조금 길게
+        # 파티클 색상 (바주카포는 더 밝고 다양한 색상)
+        color_type = random.choice(['fire', 'spark', 'debris'])
+        bazooka_explosion_particles.append([x, y, vx, vy, life, life, color_type])
+    
+    print(f"💥 바주카포 폭발 이펙트 생성: ({x}, {y}) - 파티클 {particle_count}개")
 
 def update_bazooka_explosion_effects():
     """바주카포 폭발 이펙트 업데이트"""
-    global bazooka_explosion_effects
+    global bazooka_explosion_effects, bazooka_explosion_particles, bazooka_screen_shake_timer
+    
+    # 메인 폭발 이펙트 업데이트
     new_effects = []
     for effect in bazooka_explosion_effects:
         x, y, timer, max_timer = effect
@@ -31549,80 +31593,187 @@ def update_bazooka_explosion_effects():
         if timer > 0:
             new_effects.append([x, y, timer, max_timer])
     bazooka_explosion_effects = new_effects
+    
+    # 폭발 파티클 업데이트
+    new_particles = []
+    for particle in bazooka_explosion_particles:
+        x, y, vx, vy, life, max_life, color_type = particle
+        # 파티클 이동
+        x += vx
+        y += vy
+        # 물리 효과
+        vy += 0.4  # 중력 (화염탄보다 강함)
+        vx *= 0.94  # 공기 저항
+        vy *= 0.95
+        # 무작위 바람 효과
+        if random.random() < 0.25:
+            vx += random.uniform(-0.8, 0.8)
+            vy += random.uniform(-0.5, 0.2)
+        # 생명력 감소
+        life -= 1
+        # 생명력이 남아있으면 계속 유지
+        if life > 0:
+            new_particles.append([x, y, vx, vy, life, max_life, color_type])
+    bazooka_explosion_particles = new_particles
+    
+    # 화면 흔들림 타이머 업데이트
+    if bazooka_screen_shake_timer > 0:
+        bazooka_screen_shake_timer -= 1
+
+def draw_bazooka_explosion_particles():
+    """바주카포 폭발 파티클 그리기"""
+    for particle in bazooka_explosion_particles:
+        x, y, vx, vy, life, max_life, color_type = particle
+        # 생명력에 따른 알파값 계산
+        life_ratio = life / max_life
+        alpha = int(255 * (life_ratio ** 0.6))  # 부드러운 페이드아웃
+        
+        # 파티클 크기
+        base_size = random.uniform(2.0, 6.0)  # 바주카포는 더 큰 파티클
+        size = max(1, int(base_size * life_ratio + 0.5))
+        
+        # 색상 타입에 따른 색상 결정
+        if color_type == 'fire':
+            # 불꽃 파티클 (더 밝고 다양한 색상)
+            if life_ratio > 0.8:
+                color = (255, 255, 255)  # 밝은 흰색
+            elif life_ratio > 0.6:
+                color = (255, 255, 100)  # 밝은 노란색
+            elif life_ratio > 0.4:
+                color = (255, 180, 50)   # 주황색
+            elif life_ratio > 0.2:
+                color = (255, 120, 30)   # 빨간-주황
+            else:
+                color = (200, 80, 20)    # 어두운 빨강
+        elif color_type == 'spark':
+            # 불꽃 스파크 (밝은 황금색)
+            if life_ratio > 0.5:
+                color = (255, 255, 150)  # 밝은 황금
+            else:
+                color = (255, 200, 100)  # 어두운 황금
+        else:  # debris
+            # 파편 (갈색-회색)
+            gray_val = int(80 + life_ratio * 100)
+            color = (gray_val, gray_val//2, gray_val//4)
+        
+        # 파티클 그리기
+        if alpha > 15 and size >= 1:
+            if size == 1:
+                pygame.draw.rect(SCREEN, color, (int(x), int(y), 1, 1))
+            else:
+                pygame.draw.circle(SCREEN, color, (int(x), int(y)), size)
 
 def draw_bazooka_explosion_effects():
-    """바주카포 폭발 이펙트 그리기"""
+    """바주카포 폭발 이펙트 그리기 (수류탄 스타일)"""
     for effect in bazooka_explosion_effects:
         x, y, timer, max_timer = effect
-        progress = 1.0 - (timer / max_timer)  # 0.0 ~ 1.0
+        duration = timer  # 수류탄과 같은 방식으로 duration 사용
         
         # 바주카포 폭발 반경 75
-        max_radius = 75
+        explosion_radius = 75
         
-        # 충격파 효과 (초기)
-        if progress < 0.3:
-            shockwave_progress = progress / 0.3
-            shockwave_radius = int(max_radius * 1.8 * shockwave_progress)
-            shockwave_alpha = int(150 * (1 - shockwave_progress))
-            if shockwave_alpha > 10:
-                # 충격파 링
-                for thickness in range(4):
-                    pygame.draw.circle(SCREEN, (255, 255, 255), 
-                                     (int(x), int(y)), 
-                                     shockwave_radius - thickness, 1)
+        # 폭발 표면 생성 (SRCALPHA로 투명도 지원)
+        explosion_surface = pygame.Surface((explosion_radius*3, explosion_radius*3), pygame.SRCALPHA)
+        center = explosion_radius * 1.5
         
-        # 메인 폭발 효과
-        if progress < 0.7:
-            explosion_progress = progress / 0.7
-            current_radius = int(max_radius * explosion_progress)
+        # 1. 충격파 효과 (가장 바깥쪽, 수류탄보다 강력)
+        shockwave_radius = explosion_radius + (max_timer - duration) * 12  # 더 빠른 확산
+        if shockwave_radius < explosion_radius * 3:
+            # 이중 충격파 (바주카포는 더 강력)
+            pygame.draw.circle(explosion_surface, (255, 255, 255, 50), 
+                             (int(center), int(center)), int(shockwave_radius), 6)
+            pygame.draw.circle(explosion_surface, (255, 255, 255, 30), 
+                             (int(center), int(center)), int(shockwave_radius + 15), 4)
+        
+        # 2. 폭발 화염 구체 (다층 그라데이션 - 수류탄보다 크고 강력)
+        for i in range(explosion_radius, 0, -2):
+            progress = (max_timer - duration) / max_timer
+            ratio = i / max(explosion_radius, 1)
             
-            # 외부 폭발 (주황-빨강)
-            outer_alpha = int(200 * (1 - explosion_progress))
-            if outer_alpha > 20:
-                explosion_color = (255, int(150 * (1 - explosion_progress)), 0)
-                pygame.draw.circle(SCREEN, explosion_color,
-                                 (int(x), int(y)), current_radius)
+            if duration > max_timer * 0.7:  # 초기 25%: 밝은 흰색-노란색 (더 밝게)
+                r = 255
+                g = 255
+                b = int(255 - (1 - ratio) * 55)  # 200~255
+            elif duration > max_timer * 0.4:  # 중기 30%: 노란색-주황색
+                r = 255
+                g = int(255 - (1 - ratio) * 105)  # 150~255
+                b = int(100 - (1 - ratio) * 100)  # 0~100
+            elif duration > max_timer * 0.2:  # 후기 20%: 주황색-빨간색
+                r = 255
+                g = int(120 - (1 - ratio) * 70)  # 50~120
+                b = int(30 - (1 - ratio) * 30)   # 0~30
+            else:  # 최후 25%: 빨간색-검은색
+                r = int(180 - (1 - ratio) * 80)  # 100~180
+                g = int(40 - (1 - ratio) * 40)   # 0~40
+                b = int(20 - (1 - ratio) * 20)   # 0~20
             
-            # 내부 코어 (밝은 노랑-흰색)
-            core_radius = int(current_radius * 0.6)
-            if core_radius > 0:
-                core_alpha = int(255 * (1 - explosion_progress))
-                if core_alpha > 30:
-                    core_color = (255, 255, int(200 * (1 - explosion_progress * 0.5)))
-                    pygame.draw.circle(SCREEN, core_color,
-                                     (int(x), int(y)), core_radius)
+            # 색상 값 보정
+            r = max(0, min(255, r))
+            g = max(0, min(255, g))
+            b = max(0, min(255, b))
+            alpha = max(0, min(255, int((220 * duration / max_timer) * ratio)))
+            
+            if alpha > 5:
+                color = (r, g, b, alpha)
+                pygame.draw.circle(explosion_surface, color, (int(center), int(center)), i)
         
-        # 파편 효과
-        if progress < 0.8:
-            fragment_progress = progress / 0.8
-            fragment_count = 16
-            for i in range(fragment_count):
-                angle = (math.pi * 2 * i) / fragment_count + (progress * 0.5)  # 회전 효과
-                distance = max_radius * fragment_progress * 1.2
-                frag_x = x + math.cos(angle) * distance
-                frag_y = y + math.sin(angle) * distance
-                frag_size = max(1, int(8 * (1 - fragment_progress)))
-                frag_alpha = int(255 * (1 - fragment_progress))
-                if frag_alpha > 30:
-                    frag_color = (255, int(100 + 100 * (1 - fragment_progress)), 0)
-                    pygame.draw.circle(SCREEN, frag_color, 
-                                     (int(frag_x), int(frag_y)), frag_size)
+        # 3. 섬광 효과 (초기에만, 바주카포는 더 강렬)
+        if duration > max_timer * 0.6:
+            num_sparks = 12  # 수류탄보다 많은 섬광
+            for k in range(num_sparks):
+                angle_deg = (k * 360 / num_sparks) + random.randint(-30, 30)
+                spark_length = explosion_radius * 0.9 + random.randint(-15, 15)
+                spark_end_x = center + spark_length * math.cos(math.radians(angle_deg))
+                spark_end_y = center + spark_length * math.sin(math.radians(angle_deg))
+                
+                # 두 종류의 섬광 (굵은 것과 가는 것)
+                spark_thickness = 3 if k % 2 == 0 else 2
+                spark_alpha = 200 if duration > max_timer * 0.8 else 120
+                
+                pygame.draw.line(explosion_surface, (255, 255, 220, spark_alpha), 
+                               (int(center), int(center)), 
+                               (int(spark_end_x), int(spark_end_y)), spark_thickness)
         
-        # 연기 효과 (후기)
-        if progress > 0.4:
-            smoke_progress = (progress - 0.4) / 0.6
-            smoke_count = 8
-            for i in range(smoke_count):
-                angle = (math.pi * 2 * i) / smoke_count
-                smoke_distance = max_radius * 0.3 * smoke_progress
-                smoke_x = x + math.cos(angle) * smoke_distance
-                smoke_y = y + math.sin(angle) * smoke_distance - (smoke_progress * 20)  # 위로 상승
-                smoke_size = max(1, int(15 * smoke_progress))
-                smoke_alpha = int(100 * (1 - smoke_progress))
-                if smoke_alpha > 10:
-                    smoke_color = (50, 50, 50)
-                    pygame.draw.circle(SCREEN, smoke_color,
-                                     (int(smoke_x), int(smoke_y)), smoke_size)
+        # 4. 연기 효과 (회색 구름들, 더 리얼하게)
+        if duration < max_timer * 0.8:  # 폭발 후반부터
+            smoke_radius = explosion_radius * 0.6 + (max_timer - duration) * 6
+            smoke_alpha = max(0, 120 - (max_timer - duration) * 8)
+            
+            # 여러 개의 연기 구름 (더 많이)
+            for j in range(6):
+                offset_x = random.randint(-30, 30)
+                offset_y = random.randint(-25, 15) - (max_timer - duration) * 3  # 위로 상승
+                smoke_size = int(smoke_radius + random.randint(-15, 15))
+                
+                if smoke_alpha > 10 and smoke_size > 0:
+                    # 연기 색상 다양화
+                    smoke_gray = max(40, min(100, 60 + random.randint(-20, 20)))
+                    smoke_color = (smoke_gray, smoke_gray, smoke_gray, smoke_alpha)
+                    
+                    pygame.draw.circle(explosion_surface, smoke_color, 
+                                     (int(center + offset_x), int(center + offset_y)), 
+                                     smoke_size, 0)
+        
+        # 5. 파편/데브리 효과 (초기에 날아가는 파편들)
+        if duration > max_timer * 0.3:
+            debris_count = 20
+            for d in range(debris_count):
+                angle_deg = random.randint(0, 360)
+                debris_distance = (max_timer - duration) * 8 + random.randint(-10, 20)
+                debris_x = center + debris_distance * math.cos(math.radians(angle_deg))
+                debris_y = center + debris_distance * math.sin(math.radians(angle_deg))
+                
+                debris_size = random.randint(2, 6)
+                debris_alpha = max(0, min(180, int(150 * (duration / max_timer))))
+                
+                if debris_alpha > 20:
+                    # 파편 색상 (오렌지-갈색)
+                    debris_color = (255, random.randint(100, 150), random.randint(0, 50), debris_alpha)
+                    pygame.draw.circle(explosion_surface, debris_color,
+                                     (int(debris_x), int(debris_y)), debris_size)
+        
+        # 폭발 표면을 메인 화면에 블릿
+        SCREEN.blit(explosion_surface, (x - center, y - center))
 
 def handle_ball():
     # 게임 상태 변수들
