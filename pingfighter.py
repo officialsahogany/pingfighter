@@ -7509,11 +7509,11 @@ def fire_soldier_bullet():
     if soldier_reloading:
         return
     
-    # 탄약이 없으면 재장전 시도 (단, UP 키가 눌려있지 않을 때만)
+    # 탄약이 없으면 재장전 시도 (단, UP 키가 눌려있거나 물자보급 중이 아닐 때만)
     if soldier_ammo_count <= 0:
-        # UP 키가 눌려있으면 물자보급 시도 중이므로 재장전하지 않음
+        # UP 키가 눌려있거나 물자보급 스킬 사용 중이면 재장전하지 않음
         keys = pygame.key.get_pressed()
-        if not keys[pygame.K_UP]:
+        if not keys[pygame.K_UP] and not supply_drop_active and not supply_radio_motion:
             start_soldier_reload()
         return
     
@@ -7545,9 +7545,14 @@ def fire_soldier_bullet():
 def start_soldier_reload():
     """군인 탄약 재장전 시작"""
     global soldier_reloading, soldier_reload_timer, special_gauge, soldier_last_reload_bullets
+    global supply_drop_active, supply_radio_motion
     
     # 이미 재장전 중이면 무시
     if soldier_reloading:
+        return
+    
+    # 물자보급 시스템 사용 중이면 재장전 불가
+    if supply_drop_active or supply_radio_motion:
         return
     
     # 게이지가 부족하면 재장전 불가
@@ -10062,7 +10067,8 @@ def handle_player(keys):
         # 군인 캐릭터 총알 발사 처리
         if selected_character_type == "soldier" and keys[pygame.K_SPACE] and soldier_control_lock_timer <= 0:
             # 서브 중이거나 물자보급 스킬 사용 중이 아닐 때만 발사
-            if not is_waiting_for_serve and not is_player_serve and not supply_drop_active:
+            # 물자보급 중에는 모든 화기류 사용 금지 (무전기 사용 중, 비행기 출현 중, 아이템 낙하 중)
+            if not is_waiting_for_serve and not is_player_serve and not supply_drop_active and not supply_radio_motion:
                 # 현재 무기 확인
                 current_weapon = soldier_weapons[current_weapon_index]
                 if current_weapon == "bazooka":
@@ -33491,7 +33497,7 @@ def handle_ball():
         
         # 3. 플레이어와 달 크레이터 파편 충돌 (화상 효과 및 대쉬 반사)
         global player_burn_timer, player_burn_effect, player_knockback_y
-        global rolling_active, boss_stunned_timer, boss_knockback_vel  # 대쉬 및 보스 스턴 변수 추가
+        global boss_stunned_timer, boss_knockback_vel  # 보스 스턴 변수 추가
         moon_fragments = animated_bg_stage4.get_moon_fragments()
         for fragment in moon_fragments:
             # 파편을 원으로 간주하고 패들과 충돌 체크
