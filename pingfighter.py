@@ -2992,7 +2992,7 @@ leg_shot_active = False  # 레그샷 효과 활성화 상태
 leg_shot_timer = 0  # 레그샷 효과 지속 타이머
 leg_shot_text_timer = 0  # '레그샷!' 텍스트 표시 타이머
 LEG_SHOT_DURATION = 180  # 3초간 지속 (60fps * 3)
-LEG_SHOT_CHANCE = 0.2  # 20% 확률
+LEG_SHOT_CHANCE = 0.5  # 50% 확률
 LEG_SHOT_SPEED_REDUCTION = 0.7  # 이동속도 70% (30% 감소)
 LEG_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
 
@@ -6739,7 +6739,7 @@ def update_soldier_bullets():
                 global boss_stunned_timer, leg_shot_active, leg_shot_timer, leg_shot_text_timer
                 boss_stunned_timer = 30  # 0.5초 스턴 (수류탄과 동일한 시각 효과)
                 
-                # 레그샷 효과 발동 (20% 확률)
+                # 레그샷 효과 발동 (50% 확률)
                 if random.random() < LEG_SHOT_CHANCE:
                     leg_shot_active = True
                     leg_shot_timer = LEG_SHOT_DURATION  # 3초간 지속
