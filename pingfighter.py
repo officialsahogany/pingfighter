@@ -6967,51 +6967,51 @@ def draw_leg_shot_effect(screen):
             print(f"레그샷 텍스트 렌더링 오류: {e}")
 
 def draw_head_shot_effect(screen):
-    """헤드샷 텍스트 효과 그리기 - 큰 임팩트와 스턴 이펙트"""
+    """헤드샷 텍스트 효과 그리기 - 레그샷과 동일한 스타일"""
     global head_shot_text_timer, head_shot_timer
     
     # 헤드샷 텍스트 효과
     if head_shot_text_timer > 0:
         try:
-            # 더 큰 폰트 사용 (30pt)
-            font = pygame.freetype.Font(resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")), 30)
+            # 작은 폰트 사용 (20pt) - 레그샷과 동일
+            font = pygame.freetype.Font(resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")), 20)
             
             # 애니메이션 진행도 (0.0 ~ 1.0)
             progress = 1.0 - (head_shot_text_timer / HEAD_SHOT_TEXT_DURATION)
             
-            # 다이나믹한 애니메이션 계산
+            # 다이나믹한 애니메이션 계산 (회전 제거) - 레그샷과 동일
             if progress < 0.1:  # 0~0.1초: 급격한 확대
-                scale = 0.3 + (progress * 20)  # 0.3에서 2.3까지
+                scale = 0.5 + (progress * 15)  # 0.5에서 2.0까지
                 alpha = 255
             elif progress < 0.3:  # 0.1~0.3초: 안정화
-                scale = 2.3 - ((progress - 0.1) * 6.5)  # 2.3에서 1.0으로
+                scale = 2.0 - ((progress - 0.1) * 5)  # 2.0에서 1.0으로
                 alpha = 255
             elif progress < 0.7:  # 0.3~0.7초: 유지
                 scale = 1.0
                 alpha = 255
             else:  # 0.7~1.0초: 페이드 아웃
-                scale = 1.0
+                scale = 1.0 - ((progress - 0.7) * 1.0)  # 축소하며 사라짐
                 alpha = int(255 * (1.0 - progress) / 0.3)
             
             # 텍스트 렌더링
             text_surface, text_rect = font.render("헤드샷!", (255, 255, 255))
             
             # 발광 효과를 위한 배경
-            glow_surface = pygame.Surface((text_surface.get_width() + 40, text_surface.get_height() + 40), pygame.SRCALPHA)
+            glow_surface = pygame.Surface((text_surface.get_width() + 20, text_surface.get_height() + 20), pygame.SRCALPHA)
             
             # 노란색 발광 효과 (여러 겹)
-            for i in range(4):
-                glow_alpha = alpha // (i + 1.5)
-                glow_size = 8 * (4 - i)
+            for i in range(3):
+                glow_alpha = alpha // (i + 2)
+                glow_size = 5 * (3 - i)
                 pygame.draw.ellipse(glow_surface, (255, 220, 0, glow_alpha), 
-                                  (20 - glow_size, 20 - glow_size, 
+                                  (10 - glow_size, 10 - glow_size, 
                                    text_surface.get_width() + glow_size * 2, 
                                    text_surface.get_height() + glow_size * 2))
             
             # 텍스트를 glow surface 중앙에 배치
-            glow_surface.blit(text_surface, (20, 20))
+            glow_surface.blit(text_surface, (10, 10))
             
-            # 스케일 적용
+            # 스케일만 적용 (회전 없이)
             if scale != 1.0:
                 glow_surface = pygame.transform.scale(glow_surface, 
                                                     (int(glow_surface.get_width() * scale), 
@@ -7020,17 +7020,22 @@ def draw_head_shot_effect(screen):
             # 알파값 적용
             glow_surface.set_alpha(alpha)
             
-            # 화면에 그리기 (보스 패들 중앙 위)
-            text_x = BOSS.centerx
-            text_y = BOSS.top - 50
+            # 화면에 그리기 (보스 패들 오른쪽 상단)
+            text_x = BOSS.right + 30  # 보스 오른쪽에서 30픽셀 오른쪽
+            text_y = BOSS.top + 20  # 보스 상단에서 20픽셀 아래
             final_rect = glow_surface.get_rect(center=(text_x, text_y))
             screen.blit(glow_surface, final_rect)
             
-            # 충격파 효과 (초반에만)
-            if progress < 0.15:
-                ring_radius = int(100 * (progress / 0.15))
-                ring_alpha = int(255 * (1.0 - progress / 0.15))
-                pygame.draw.circle(screen, (255, 220, 0), (text_x, text_y), ring_radius, 3)
+            # 임팩트 라인 효과 (초반에만)
+            if progress < 0.2:
+                line_brightness = int(255 * (1.0 - progress * 5))
+                for angle in range(0, 360, 45):
+                    import math
+                    end_x = text_x + math.cos(math.radians(angle)) * 50 * (1 + progress * 2)
+                    end_y = text_y + math.sin(math.radians(angle)) * 50 * (1 + progress * 2)
+                    pygame.draw.line(screen, (line_brightness, line_brightness * 0.8, 0), 
+                                   (text_x, text_y), 
+                                   (end_x, end_y), 2)
             
         except Exception as e:
             print(f"헤드샷 텍스트 렌더링 오류: {e}")
@@ -23972,7 +23977,20 @@ def show_tutorial_dash_completion_dialogue():
     return True
 
 def create_soldier_character_card_image(size):
-    """캐릭터 선택 카드용 군인 이미지 - 아래를 바라보는 모습"""
+    """캐릭터 선택 카드용 군인 이미지 - 앞모습 사용"""
+    # 앞모습 이미지 생성 후 크기 조정
+    front_view = create_soldier_front_view()
+    
+    # 목표 크기에 맞게 스케일 조정
+    # 원본이 150x170이므로 적절히 맞춤
+    scale_factor = size / 170.0  # 높이 기준으로 맞춤
+    new_width = int(150 * scale_factor)
+    new_height = int(170 * scale_factor)
+    
+    # 이미지 크기 조정
+    scaled_img = pygame.transform.smoothscale(front_view, (new_width, new_height))
+    
+    # 최종 이미지를 정사각형 캔버스에 중앙 정렬
     img = pygame.Surface((size, size), pygame.SRCALPHA)
     
     # 크기에 따라 스케일 조정
@@ -24237,36 +24255,36 @@ def create_soldier_front_view():
     pygame.draw.rect(img, (140, 120, 60), 
                     (center_x - 8, waist_y - 1, 16, 7))
     
-    # === 다리 ===
+    # === 다리 (짧게 수정) ===
     leg_y = waist_y + 5
-    # 왼쪽 다리
+    # 왼쪽 다리 (길이를 55에서 30으로 줄임)
     left_leg_points = [
         (center_x - 15, leg_y),
-        (center_x - 18, leg_y + 20),
-        (center_x - 16, leg_y + 40),
-        (center_x - 12, leg_y + 55),
-        (center_x - 8, leg_y + 55),
-        (center_x - 5, leg_y + 40),
-        (center_x - 8, leg_y + 20),
+        (center_x - 17, leg_y + 12),  # 20 -> 12
+        (center_x - 15, leg_y + 22),  # 40 -> 22
+        (center_x - 12, leg_y + 30),  # 55 -> 30
+        (center_x - 8, leg_y + 30),   # 55 -> 30
+        (center_x - 5, leg_y + 22),   # 40 -> 22
+        (center_x - 7, leg_y + 12),   # 20 -> 12
         (center_x - 10, leg_y)
     ]
     pygame.draw.polygon(img, (110, 100, 60), left_leg_points)
     
-    # 오른쪽 다리
+    # 오른쪽 다리 (길이를 55에서 30으로 줄임)
     right_leg_points = [
         (center_x + 10, leg_y),
-        (center_x + 8, leg_y + 20),
-        (center_x + 5, leg_y + 40),
-        (center_x + 8, leg_y + 55),
-        (center_x + 12, leg_y + 55),
-        (center_x + 16, leg_y + 40),
-        (center_x + 18, leg_y + 20),
+        (center_x + 7, leg_y + 12),   # 20 -> 12
+        (center_x + 5, leg_y + 22),   # 40 -> 22
+        (center_x + 8, leg_y + 30),   # 55 -> 30
+        (center_x + 12, leg_y + 30),  # 55 -> 30
+        (center_x + 15, leg_y + 22),  # 40 -> 22
+        (center_x + 17, leg_y + 12),  # 20 -> 12
         (center_x + 15, leg_y)
     ]
     pygame.draw.polygon(img, (110, 100, 60), right_leg_points)
     
     # === 군화 ===
-    boot_y = leg_y + 55
+    boot_y = leg_y + 30  # 55 -> 30
     # 왼쪽 군화
     pygame.draw.polygon(img, (40, 35, 25), [
         (center_x - 12, boot_y),
@@ -24309,16 +24327,16 @@ def create_soldier_front_view():
         pygame.draw.ellipse(img, camo_colors[i % 3], 
                            (camo_x, camo_y, camo_size, camo_size - 1))
     
-    # 다리 위장
-    for i in range(6):
+    # 다리 위장 (짧아진 다리에 맞게 조정)
+    for i in range(4):  # 6 -> 4로 줄임
         # 왼쪽 다리
         camo_x = center_x - 12 + random.randint(-3, 3)
-        camo_y = leg_y + 10 + i * 7 + random.randint(-1, 1)
+        camo_y = leg_y + 5 + i * 5 + random.randint(-1, 1)  # 간격도 조정
         pygame.draw.ellipse(img, camo_colors[i % 3], 
                            (camo_x, camo_y, random.randint(4, 6), random.randint(3, 5)))
         # 오른쪽 다리
         camo_x = center_x + 12 + random.randint(-3, 3)
-        camo_y = leg_y + 10 + i * 7 + random.randint(-1, 1)
+        camo_y = leg_y + 5 + i * 5 + random.randint(-1, 1)  # 간격도 조정
         pygame.draw.ellipse(img, camo_colors[i % 3], 
                            (camo_x, camo_y, random.randint(4, 6), random.randint(3, 5)))
     
