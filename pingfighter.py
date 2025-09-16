@@ -3011,7 +3011,7 @@ boss_knockback_offset_x = 0   # X축 넉백 오프셋
 boss_knockback_offset_y = 0   # Y축 넉백 오프셋
 boss_knockback_timer = 0      # 넉백 지속 시간
 BOSS_KNOCKBACK_DURATION = 18  # 넉백 지속 프레임 (0.3초 - 화염탄과 동일)
-BOSS_KNOCKBACK_STRENGTH = 36  # 넉백 강도 (36픽셀 - 화염탄과 동일)
+BOSS_KNOCKBACK_STRENGTH = 2  # 넉백 강도 (프레임당 2픽셀 = 총 36픽셀)
 BOSS_KNOCKBACK_DECAY = 0.8    # 넉백 감쇠율
 
 psycho_bg_timer = 0
@@ -6612,12 +6612,12 @@ def update_boss_knockback():
         # 타이머 감소
         boss_knockback_timer -= 1
         
-        # X축만 넉백 감쇠 (Y축은 항상 0)
-        boss_knockback_offset_x *= BOSS_KNOCKBACK_DECAY
+        # X축 넉백은 감쇠 없이 일정하게 유지 (Y축은 항상 0)
+        # boss_knockback_offset_x는 초기값 그대로 유지
         boss_knockback_offset_y = 0  # Y축은 항상 0 유지
         
-        # 넉백 종료 조건 (X축만 체크)
-        if boss_knockback_timer <= 0 or abs(boss_knockback_offset_x) < 0.1:
+        # 넉백 종료 조건 (타이머만 체크)
+        if boss_knockback_timer <= 0:
             boss_knockback_active = False
             boss_knockback_offset_x = 0
             boss_knockback_offset_y = 0
