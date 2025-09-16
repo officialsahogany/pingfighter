@@ -2980,11 +2980,21 @@ soldier_reloading = False  # 재장전 중인지
 soldier_reload_timer = 0  # 재장전 타이머 (120프레임 = 2초)
 SOLDIER_RELOAD_TIME = 120  # 2초 재장전 시간
 SOLDIER_RELOAD_GAUGE_COST = 200  # 재장전시 게이지 소모량
+soldier_last_reload_bullets = 0  # 재장전 중 마지막으로 표시된 총알 수
 
 # === 군인 총 발사 애니메이션 관련 변수 ===
 soldier_gun_animation_active = False  # 총 발사 애니메이션 진행 중인지
 soldier_gun_animation_frame = 0  # 현재 애니메이션 프레임
 soldier_gun_animation_timer = 0  # 애니메이션 타이머
+
+# === 군인 레그샷 효과 관련 변수 ===
+leg_shot_active = False  # 레그샷 효과 활성화 상태
+leg_shot_timer = 0  # 레그샷 효과 지속 타이머
+leg_shot_text_timer = 0  # '레그샷!' 텍스트 표시 타이머
+LEG_SHOT_DURATION = 180  # 3초간 지속 (60fps * 3)
+LEG_SHOT_CHANCE = 0.2  # 20% 확률
+LEG_SHOT_SPEED_REDUCTION = 0.7  # 이동속도 70% (30% 감소)
+LEG_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
 
 # 애니메이션 단계별 프레임 수 (60fps 기준)
 SOLDIER_GUN_DRAW_FRAMES = 6     # 총 꺼내기 애니메이션 (0.1초)
@@ -6381,7 +6391,7 @@ def fire_soldier_bullet():
 
 def start_soldier_reload():
     """군인 탄약 재장전 시작"""
-    global soldier_reloading, soldier_reload_timer, special_gauge
+    global soldier_reloading, soldier_reload_timer, special_gauge, soldier_last_reload_bullets
     
     # 이미 재장전 중이면 무시
     if soldier_reloading:
@@ -6397,10 +6407,11 @@ def start_soldier_reload():
     # 재장전 시작
     soldier_reloading = True
     soldier_reload_timer = SOLDIER_RELOAD_TIME
+    soldier_last_reload_bullets = 0  # 재장전 시작시 초기화
 
 def update_soldier_reload():
     """군인 재장전 업데이트"""
-    global soldier_reloading, soldier_reload_timer, soldier_ammo_count
+    global soldier_reloading, soldier_reload_timer, soldier_ammo_count, soldier_last_reload_bullets
     
     if not soldier_reloading:
         return
@@ -6408,11 +6419,26 @@ def update_soldier_reload():
     # 재장전 타이머 감소
     soldier_reload_timer -= 1
     
+    # 재장전 진행도에 따라 표시할 총알 수 계산
+    progress_ratio = 1.0 - (soldier_reload_timer / SOLDIER_RELOAD_TIME)
+    bullets_to_show = int(progress_ratio * soldier_max_ammo)
+    
+    # 새로운 총알이 추가되었을 때 사운드 재생
+    if bullets_to_show > soldier_last_reload_bullets:
+        try:
+            reload_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "pistolreload.wav")))
+            reload_sound.set_volume(0.3)  # 볼륨을 30%로 설정
+            reload_sound.play()
+        except:
+            pass  # 사운드 파일이 없거나 재생 실패시 무시
+        soldier_last_reload_bullets = bullets_to_show
+    
     # 재장전 완료
     if soldier_reload_timer <= 0:
         soldier_reloading = False
         soldier_reload_timer = 0
         soldier_ammo_count = soldier_max_ammo  # 탄약 모두 충전
+        soldier_last_reload_bullets = 0  # 다음 재장전을 위해 초기화
 
 def draw_soldier_weapon_ui(screen):
     """군인 권총 UI 그리기 - 왼쪽 하단 액티브 아이템 슬롯 위에 표시"""
@@ -6709,9 +6735,16 @@ def update_soldier_bullets():
             
             if bullet_rect.colliderect(BOSS):
                 bullet["active"] = False
-                # 보스 스턴 효과 (0.5초)
-                global boss_stun_timer
-                boss_stun_timer = 30  # 0.5초 스턴
+                # 보스 스턴 효과 (0.5초) - 수류탄과 동일한 별 효과 사용
+                global boss_stunned_timer, leg_shot_active, leg_shot_timer, leg_shot_text_timer
+                boss_stunned_timer = 30  # 0.5초 스턴 (수류탄과 동일한 시각 효과)
+                
+                # 레그샷 효과 발동 (20% 확률)
+                if random.random() < LEG_SHOT_CHANCE:
+                    leg_shot_active = True
+                    leg_shot_timer = LEG_SHOT_DURATION  # 3초간 지속
+                    leg_shot_text_timer = LEG_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
+                    print("🎯 레그샷! 보스 이동속도 30% 감소!")
                 
                 # 라그나로크 해머 방식의 넉백 효과 적용
                 trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
@@ -6755,6 +6788,57 @@ def draw_soldier_bullets(screen):
             pygame.draw.circle(screen, (255, 255, 200), 
                              (int(bullet["x"] - 2), int(bullet["y"] - 2)), 
                              SOLDIER_BULLET_SIZE // 2)
+
+def draw_leg_shot_effect(screen):
+    """레그샷 텍스트 효과 그리기"""
+    global leg_shot_text_timer
+    
+    if leg_shot_text_timer > 0:
+        # 텍스트 알파값 계산 (페이드 아웃 효과)
+        if leg_shot_text_timer > LEG_SHOT_TEXT_DURATION * 0.8:  # 처음 80%는 불투명
+            alpha = 255
+        else:  # 마지막 20%는 페이드 아웃
+            alpha = int(255 * (leg_shot_text_timer / (LEG_SHOT_TEXT_DURATION * 0.2)))
+        
+        # 텍스트 표면 생성
+        try:
+            font_large = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareEB.ttf")), 48)
+            
+            # 텍스트 크기 애니메이션 (팝 효과)
+            if leg_shot_text_timer > LEG_SHOT_TEXT_DURATION * 0.9:
+                scale = 1.2
+            else:
+                scale = 1.0
+            
+            # 그림자 효과
+            shadow_text, shadow_rect = font_large.render("레그샷!", (0, 0, 0))
+            shadow_text.set_alpha(alpha // 2)
+            shadow_pos = (BOSS.centerx + 3, BOSS.centery - 80 + 3)
+            shadow_rect.center = shadow_pos
+            screen.blit(shadow_text, shadow_rect)
+            
+            # 메인 텍스트 (빨간색)
+            main_text, main_rect = font_large.render("레그샷!", (255, 50, 50))
+            main_text.set_alpha(alpha)
+            
+            # 스케일 적용
+            if scale != 1.0:
+                scaled_width = int(main_text.get_width() * scale)
+                scaled_height = int(main_text.get_height() * scale)
+                main_text = pygame.transform.scale(main_text, (scaled_width, scaled_height))
+            
+            main_rect = main_text.get_rect(center=(BOSS.centerx, BOSS.centery - 80))
+            screen.blit(main_text, main_rect)
+            
+            # 작은 부가 텍스트
+            if leg_shot_text_timer > LEG_SHOT_TEXT_DURATION * 0.5:
+                small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 24)
+                sub_text, sub_rect = small_font.render("이동속도 -30%", (255, 150, 150))
+                sub_text.set_alpha(alpha)
+                sub_rect.center = (BOSS.centerx, BOSS.centery - 40)
+                screen.blit(sub_text, sub_rect)
+        except Exception as e:
+            print(f"레그샷 텍스트 렌더링 오류: {e}")
 
 def draw_soldier_gun_animation(screen, paddle_rect):
     """군인 총 발사 애니메이션 그리기"""
@@ -16159,6 +16243,10 @@ def draw_objects():
     # === 군인 총알 그리기 ===
     if selected_character_type == "soldier" and soldier_bullets:
         draw_soldier_bullets(SCREEN)
+    
+    # === 레그샷 효과 그리기 ===
+    if selected_character_type == "soldier":
+        draw_leg_shot_effect(SCREEN)
     
     # === 군인 총 발사 애니메이션 그리기 ===
     if selected_character_type == "soldier":
@@ -33010,6 +33098,12 @@ def handle_boss_pro():
         enhanced_acceleration *= 0.5
         enhanced_deceleration *= 0.5
     
+    # 레그샷 효과로 인한 속도 감소 (30% 감소)
+    if leg_shot_active:
+        enhanced_max_speed *= LEG_SHOT_SPEED_REDUCTION  # 70% 유지 (30% 감소)
+        enhanced_acceleration *= LEG_SHOT_SPEED_REDUCTION
+        enhanced_deceleration *= LEG_SHOT_SPEED_REDUCTION
+    
     # 회전 종료 후 통제불능 상태 - 움직임 완전 정지
     if boss_stunned_after_whip:
         return  # AI 비활성화
@@ -33197,6 +33291,12 @@ def handle_boss_champion():
         enhanced_acceleration *= 0.5
         enhanced_deceleration *= 0.5
     
+    # 레그샷 효과로 인한 속도 감소 (30% 감소)
+    if leg_shot_active:
+        enhanced_max_speed *= LEG_SHOT_SPEED_REDUCTION  # 70% 유지 (30% 감소)
+        enhanced_acceleration *= LEG_SHOT_SPEED_REDUCTION
+        enhanced_deceleration *= LEG_SHOT_SPEED_REDUCTION
+    
     # 회전 종료 후 통제불능 상태 - 움직임 완전 정지
     if boss_stunned_after_whip:
         return  # AI 비활성화
@@ -33335,6 +33435,7 @@ def handle_boss_mythic():
     global boss_stunned_timer, boss_knockback_vel, boss_stun_timer
     global stopwatch_active, stopwatch_timer
     global whip_deactivation_active, whip_deactivation_timer, whip_deactivation_duration
+    global leg_shot_active, LEG_SHOT_SPEED_REDUCTION
     
     # ️ 스탑워치로 시간이 멈춘 경우 보스도 정지
     if stopwatch_active and stopwatch_timer > 0:
@@ -33446,6 +33547,15 @@ def handle_boss_mythic():
     enhanced_max_speed = config["max_speed"]
     enhanced_acceleration = config["accel"]
     enhanced_deceleration = config["decel"]
+    
+    # 레그샷 효과로 인한 속도 감소 (30% 감소)
+    if leg_shot_active:
+        enhanced_max_speed *= LEG_SHOT_SPEED_REDUCTION  # 70% 유지 (30% 감소)
+        enhanced_acceleration *= LEG_SHOT_SPEED_REDUCTION
+        enhanced_deceleration *= LEG_SHOT_SPEED_REDUCTION
+        # 현재 속도도 감소
+        boss_current_speed *= LEG_SHOT_SPEED_REDUCTION
+    
     # 관성 보존 상태 체크 (최근 벽 충돌 여부)
     try:
         wall_momentum_active = (pygame.time.get_ticks() - last_wall_collision_time < 800)
@@ -33699,6 +33809,7 @@ def handle_boss_junior():
     global boss_stunned_timer, boss_knockback_vel, boss_stun_timer
     global stopwatch_active, stopwatch_timer
     global whip_deactivation_active, whip_deactivation_timer, whip_deactivation_duration, current_stage
+    global leg_shot_active, LEG_SHOT_SPEED_REDUCTION
     
     # ️ 스탑워치로 시간이 멈춘 경우 보스도 정지
     if stopwatch_active and stopwatch_timer > 0:
@@ -33784,6 +33895,15 @@ def handle_boss_junior():
     enhanced_max_speed = config["max_speed"]
     enhanced_acceleration = config["accel"]
     enhanced_deceleration = config["decel"]
+    
+    # 레그샷 효과로 인한 속도 감소 (30% 감소)
+    if leg_shot_active:
+        enhanced_max_speed *= LEG_SHOT_SPEED_REDUCTION  # 70% 유지 (30% 감소)
+        enhanced_acceleration *= LEG_SHOT_SPEED_REDUCTION
+        enhanced_deceleration *= LEG_SHOT_SPEED_REDUCTION
+        # 현재 속도도 감소
+        boss_current_speed *= LEG_SHOT_SPEED_REDUCTION
+    
     # Disabled에 가까운 예측 프레임
     predict_frame = 10  # Disabled에 더 가까운 예측 프레임
     #  주니어리그용 설정 (초심자 친화적)
@@ -34864,6 +34984,14 @@ def handle_boss():
         enhanced_max_speed *= boss_speed_reduction_factor  # 최대 속도 50% 감소
         # 현재 속도도 즉시 감소
         boss_current_speed *= boss_speed_reduction_factor
+    
+    # 레그샷 효과로 인한 속도 감소 (30% 감소)
+    if leg_shot_active:
+        enhanced_accel *= LEG_SHOT_SPEED_REDUCTION  # 70% 유지 (30% 감소)
+        enhanced_max_speed *= LEG_SHOT_SPEED_REDUCTION
+        enhanced_decel *= LEG_SHOT_SPEED_REDUCTION
+        # 현재 속도도 감소
+        boss_current_speed *= LEG_SHOT_SPEED_REDUCTION
     # 기존 AI 움직임 로직
     if future_x < BOSS.centerx:
         if boss_current_speed > -enhanced_max_speed:
@@ -37828,6 +37956,17 @@ def main(stage_num, new_boss_mode=False):
                         soldier_swing_timer -= 1
                         if soldier_swing_timer <= 0:
                             soldier_swing_active = False
+                    
+                    # 레그샷 효과 타이머 업데이트
+                    if leg_shot_active and leg_shot_timer > 0:
+                        leg_shot_timer -= 1
+                        if leg_shot_timer <= 0:
+                            leg_shot_active = False
+                            print("레그샷 효과 종료 - 보스 이동속도 정상화")
+                    
+                    # 레그샷 텍스트 타이머 업데이트
+                    if leg_shot_text_timer > 0:
+                        leg_shot_text_timer -= 1
                 
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
@@ -40018,7 +40157,7 @@ def show_pause_options():
         clock.tick(60)
         
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             
