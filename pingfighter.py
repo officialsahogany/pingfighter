@@ -1235,6 +1235,7 @@ SOUND_PADDLE = pygame.mixer.Sound(resource_path("sounds/paddle_hit.wav"))
 # 정글지진 효과음 로드
 SOUND_QUAKE = pygame.mixer.Sound(resource_path("sounds/quake_sound.wav"))  # 퀘이크 효과음 파일 로드 (이 경로는 실제 파일에 맞게 수정 필요)
 whip_sound = pygame.mixer.Sound(resource_path("sounds/whip_effect.wav"))
+SOUND_AIRPLANE = pygame.mixer.Sound(resource_path("sounds/airplane.wav"))  # 물자보급 비행기 효과음
 SOUND_DEFENSE_HIT = pygame.mixer.Sound(resource_path("sounds/defense_hit.wav"))  # ← 파일명에 맞게 수정
 SOUND_DEFENSE_START = pygame.mixer.Sound(resource_path("sounds/speed_defense_start.wav"))  # 파일명에 맞게 수정
 SOUND_DEFENSE_BLOCK = pygame.mixer.Sound(resource_path("sounds/defense_hit.wav"))  # 스피드 디펜스 방어 효과음 (defense_hit 재사용)
@@ -1444,7 +1445,7 @@ stage6_barrier_flash_timer = 0  # 장막 깜빡임 타이머
 # 액티브 아이템
 active_item_slot = []                # 리스트로 바꿔서 최대 3개 보관
 selected_item_index = 0              # 현재 선택 중인 아이템 인덱스
-MAX_ITEM_SLOTS = 2                   # 최대 아이템 슬롯 수
+MAX_ITEM_SLOTS = 3                   # 최대 아이템 슬롯 수 (기본값)
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
 last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역 쿨타임용)
 # 패시브 아이템
@@ -2902,7 +2903,9 @@ supply_drop_active = False  # 물자보급 스킬 활성 여부
 supply_aircraft = None  # 군용 비행기 객체
 supply_drop_items = []  # 낙하산으로 떨어지는 아이템들
 supply_drop_timer = 0  # 물자보급 발동 후 타이머
-SUPPLY_DROP_GAUGE_COST = 350  # 물자보급 스킬 게이지 소모량
+supply_radio_motion = False  # 무전기 모션 활성 여부
+supply_radio_timer = 0  # 무전기 모션 타이머 (0.5초)
+SUPPLY_DROP_GAUGE_COST = 400  # 물자보급 스킬 게이지 소모량
 SUPPLY_DROP_ITEMS = ["grenade", "molotov", "flare"]  # 투척 가능한 아이템 목록
 
 # === 군용 비행기 클래스 ===
@@ -2926,51 +2929,147 @@ class SupplyAircraft:
         
         self.y = 50  # 화면 상단에서 50픽셀 아래
         self.active = True
+        
+        # 등장 후 대기 시간 (0.8초)
+        self.spawn_delay = 48  # 48 프레임 = 0.8초
+        self.spawn_timer = 0  # 등장 후 경과 시간
+        
+        # 무적 시간 (1초)
+        self.invulnerable_time = 60  # 60 프레임 = 1초
+        
         self.drop_timer = 0
-        self.drop_interval = 60  # 1초마다 아이템 투척 (60fps 기준)
+        # 더 불규칙한 드랍 타이밍 (0.2~2.5초 사이의 완전 랜덤)
+        self.next_drop_time = random.randint(12, 150)  # 매우 넓은 범위
         self.items_dropped = 0
-        self.max_items = random.randint(2, 3)  # 2~3개 아이템 투척
+        self.max_items = random.randint(1, 3)  # 1~3개 아이템 투척
+        
+        # 드랍 패턴 랜덤화를 위한 추가 변수
+        self.drop_pattern = random.choice(["normal", "burst", "delayed"])  # 드랍 패턴
+        self.burst_count = 0  # 연속 드랍용
+        
+        # 추락 관련 변수
+        self.is_crashing = False
+        self.crash_velocity_y = 0
+        self.crash_rotation = 0
+        self.explosion_particles = []
+        
+        # 사운드 재생
+        self.sound_channel = None
+        try:
+            self.sound_channel = SOUND_AIRPLANE.play(-1)  # 무한 반복 재생
+            self.sound_channel.set_volume(0.7)  # 볼륨 조절
+        except:
+            pass
         
     def update(self):
         """비행기 업데이트"""
         if not self.active:
             return
             
-        # 비행기 이동
-        if self.direction == "left_to_right":
-            self.x += self.speed
-            if self.x > WIDTH + self.width:
+        if self.is_crashing:
+            # 추락 중일 때
+            self.crash_velocity_y += 0.5  # 중력 가속
+            self.y += self.crash_velocity_y
+            self.crash_rotation += 15  # 회전
+            
+            # 바닥에 닿으면 폭발
+            if self.y > HEIGHT - 50:
+                self.explode()
                 self.active = False
-        else:
-            self.x -= self.speed
-            if self.x < -self.width:
-                self.active = False
+                return
+            
+            # 폭발 파티클 업데이트
+            for particle in self.explosion_particles[:]:
+                particle['x'] += particle['vx']
+                particle['y'] += particle['vy']
+                particle['vy'] += 0.3  # 중력
+                particle['life'] -= 1
                 
-        # 아이템 투척 타이머
-        self.drop_timer += 1
-        if self.drop_timer >= self.drop_interval and self.items_dropped < self.max_items:
-            self.drop_item()
-            self.drop_timer = 0
-            self.items_dropped += 1
+                if particle['life'] <= 0:
+                    self.explosion_particles.remove(particle)
+        else:
+            # 정상 비행 중
+            # 등장 타이머 업데이트
+            self.spawn_timer += 1
+            
+            # 비행기 이동
+            if self.direction == "left_to_right":
+                self.x += self.speed
+                if self.x > WIDTH + self.width:
+                    self.stop_sound()  # 사운드 중지
+                    self.active = False
+            else:
+                self.x -= self.speed
+                if self.x < -self.width:
+                    self.stop_sound()  # 사운드 중지
+                    self.active = False
+                    
+            # 등장 후 0.5초가 지났을 때만 아이템 투척 가능
+            if self.spawn_timer >= self.spawn_delay:
+                # 아이템 투척 타이머 (불규칙한 타이밍)
+                self.drop_timer += 1
+                # 드랍 패턴에 따라 다른 로직 적용
+                if self.drop_pattern == "burst" and self.burst_count < 2 and self.items_dropped < self.max_items:
+                    # 연속 드랍 패턴: 짧은 간격으로 2개 연속 드랍
+                    if self.drop_timer >= 10:  # 0.17초마다
+                        self.drop_item()
+                        self.drop_timer = 0
+                        self.burst_count += 1
+                        self.items_dropped += 1
+                        if self.burst_count >= 2:
+                            # 연속 드랍 후 긴 대기
+                            self.next_drop_time = random.randint(90, 180)  # 1.5~3초
+                            self.drop_pattern = "normal"
+                            
+                elif self.drop_timer >= self.next_drop_time and self.items_dropped < self.max_items:
+                    self.drop_item()
+                    self.drop_timer = 0
+                    self.items_dropped += 1
+                    
+                    # 다음 드랍 타이밍을 매우 불규칙하게 설정
+                    if self.drop_pattern == "delayed":
+                        # 지연 패턴: 긴 간격
+                        self.next_drop_time = random.randint(120, 210)  # 2~3.5초
+                    else:
+                        # 일반 패턴: 완전 랜덤
+                        choices = [
+                            random.randint(10, 30),   # 매우 빠른 드랍 (0.17~0.5초)
+                            random.randint(40, 80),   # 중간 속도 (0.67~1.33초)
+                            random.randint(100, 180), # 느린 드랍 (1.67~3초)
+                        ]
+                        self.next_drop_time = random.choice(choices)
+                    
+                    # 마지막 아이템일 때는 패턴 변경
+                    if self.items_dropped == self.max_items - 1:
+                        self.drop_pattern = random.choice(["normal", "delayed"])
             
     def drop_item(self):
         """아이템 투척"""
         global supply_drop_items
         
-        # 랜덤 아이템 선택
-        item_name = random.choice(SUPPLY_DROP_ITEMS)
+        # 랜덤 아이템 선택 (균등 확률)
+        weights = [1, 1, 1]  # 수류탄, 화염병, 조명탄 각각 33.33%
+        item_name = random.choices(SUPPLY_DROP_ITEMS, weights=weights, k=1)[0]
+        print(f"🎁🎁🎁 [물자보급 드롭] {item_name} 드롭! 🎁🎁🎁")
         
-        # 아이템 투척 위치 계산 (비행기 중앙에서)
-        drop_x = self.x + self.width // 2
+        # 아이템 투척 위치를 비행기 위치에서 약간 랜덤하게
+        drop_offset_x = random.randint(-20, 20)  # 좌우로 약간 흔들림
+        drop_x = self.x + self.width // 2 + drop_offset_x
         drop_y = self.y + self.height
+        
+        # 바람 효과를 위한 수평 속도 랜덤
+        wind_effect = random.uniform(-0.5, 0.5)  # 좌우 바람 효과
+        
+        # 낙하 속도도 약간 랜덤화
+        fall_speed = random.uniform(2.0, 3.0)  # 2.0~3.0 사이 랜덤
         
         # 낙하산 아이템 생성
         parachute_item = {
             "name": item_name,
             "x": drop_x,
             "y": drop_y,
-            "vx": 0,  # 수평 속도
-            "vy": 1,  # 낙하 속도
+            "vx": wind_effect,  # 수평 속도 (바람 효과)
+            "vy": fall_speed,  # 낙하 속도 (랜덤)
             "parachute_open": True,
             "rotation": 0,
             "sway": 0,  # 좌우 흔들림
@@ -2979,56 +3078,232 @@ class SupplyAircraft:
         
         supply_drop_items.append(parachute_item)
         
+    def get_rect(self):
+        """비행기의 충돌 박스 반환"""
+        return pygame.Rect(self.x, self.y, self.width, self.height)
+    
+    def check_ball_collision(self, ball_rect, hit_by="player"):
+        """공과의 충돌 체크 - 플레이어가 쏜 공만 격추 가능"""
+        # 무적 시간 동안은 충돌 무시
+        if self.spawn_timer < self.invulnerable_time:
+            return False
+            
+        if not self.is_crashing and self.get_rect().colliderect(ball_rect):
+            # 플레이어가 쏜 공만 격추 가능
+            if hit_by == "player":
+                self.is_crashing = True
+                self.crash_velocity_y = 2
+                # 폭발 파티클 생성
+                self.create_crash_particles()
+                print("💥 비행기가 플레이어의 공에 맞아 추락합니다!")
+                return True
+            else:
+                # 보스가 쏜 공은 통과
+                return False
+        return False
+    
+    def create_crash_particles(self):
+        """추락 시 폭발 파티클 생성"""
+        # 연기와 불꽃 파티클 생성
+        for _ in range(20):
+            self.explosion_particles.append({
+                'x': self.x + self.width // 2,
+                'y': self.y + self.height // 2,
+                'vx': random.uniform(-5, 5),
+                'vy': random.uniform(-5, 3),
+                'color': random.choice([(255, 100, 0), (255, 200, 0), (100, 100, 100)]),  # 불꽃과 연기
+                'size': random.randint(3, 8),
+                'life': random.randint(20, 40)
+            })
+    
+    def explode(self):
+        """바닥에 닿았을 때 큰 폭발"""
+        # 큰 폭발 효과
+        for _ in range(50):
+            self.explosion_particles.append({
+                'x': self.x + self.width // 2,
+                'y': self.y + self.height // 2,
+                'vx': random.uniform(-10, 10),
+                'vy': random.uniform(-15, 5),
+                'color': random.choice([(255, 50, 0), (255, 150, 0), (255, 255, 0), (50, 50, 50)]),
+                'size': random.randint(5, 15),
+                'life': random.randint(30, 60)
+            })
+        
+        # 폭발음 재생 (있다면)
+        try:
+            explosion_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "explosion.wav")))
+            explosion_sound.set_volume(0.5)
+            explosion_sound.play()
+        except:
+            pass
+        
+        # 비행기 사운드 중지
+        self.stop_sound()
+    
+    def stop_sound(self):
+        """비행기 사운드 중지"""
+        if self.sound_channel:
+            self.sound_channel.stop()
+            self.sound_channel = None
+        
     def draw(self, screen):
-        """비행기 그리기"""
+        """비행기 그리기 - Fi 156 Storch 스타일 군용 경비행기"""
         if not self.active:
             return
             
-        # 비행기 몸체 (진한 회색)
-        body_color = (60, 60, 60)
-        pygame.draw.ellipse(screen, body_color, 
-                          (self.x, self.y + 8, self.width, 14))
+        # 무적 상태일 때 깜빡임 효과
+        if self.spawn_timer < self.invulnerable_time:
+            # 4프레임마다 깜빡임
+            if (self.spawn_timer // 4) % 2 == 0:
+                return  # 깜빡임으로 무적 상태 표시
+            
+        # 폭발 파티클 그리기
+        for particle in self.explosion_particles:
+            pygame.draw.circle(screen, particle['color'], 
+                             (int(particle['x']), int(particle['y'])), 
+                             particle['size'])
+            
+        # 추락 중일 때는 회전된 비행기 그리기
+        if self.is_crashing:
+            # 비행기 이미지를 회전시켜 그리기 위해 Surface 생성
+            aircraft_surface = pygame.Surface((self.width + 20, self.height + 20), pygame.SRCALPHA)
+            
+            # 연기 효과 추가
+            smoke_x = self.x + self.width // 2
+            smoke_y = self.y
+            for i in range(5):
+                smoke_size = 10 + i * 3
+                smoke_alpha = 100 - i * 20
+                smoke_color = (80, 80, 80, smoke_alpha)
+                smoke_surf = pygame.Surface((smoke_size * 2, smoke_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(smoke_surf, smoke_color, (smoke_size, smoke_size), smoke_size)
+                screen.blit(smoke_surf, (smoke_x - smoke_size + random.randint(-5, 5), 
+                                       smoke_y - smoke_size - i * 10))
+            
+        # 색상 정의
+        fuselage_color = (120, 120, 100)  # 밝은 카키색 동체
+        dark_green = (60, 80, 60)  # 진한 녹색
+        canopy_color = (180, 200, 220)  # 밝은 청회색 (캐노피)
+        strut_color = (80, 80, 80)  # 회색 (지지대)
+        black = (30, 30, 30)
         
-        # 날개 (회색)
-        wing_color = (100, 100, 100)
         if self.direction == "left_to_right":
-            # 왼쪽에서 오른쪽으로 비행
-            pygame.draw.polygon(screen, wing_color, [
-                (self.x + 20, self.y + 15),
-                (self.x + 60, self.y + 5),
-                (self.x + 60, self.y + 25),
-                (self.x + 20, self.y + 15)
+            # === 왼쪽에서 오른쪽으로 비행 ===
+            
+            # 메인 날개 (높은 위치의 직선형 날개)
+            pygame.draw.polygon(screen, fuselage_color, [
+                (self.x + 15, self.y),
+                (self.x + 65, self.y),
+                (self.x + 65, self.y + 8),
+                (self.x + 15, self.y + 8)
             ])
-            # 꼬리날개
-            pygame.draw.polygon(screen, wing_color, [
-                (self.x + 5, self.y + 10),
-                (self.x + 20, self.y + 5),
-                (self.x + 20, self.y + 25),
+            
+            # 날개 지지대 (특징적인 스트럿)
+            for i in range(2):
+                strut_x = self.x + 25 + i * 20
+                pygame.draw.line(screen, strut_color, 
+                               (strut_x, self.y + 8), 
+                               (strut_x - 3, self.y + 20), 2)
+            
+            # 동체 (가늘고 긴 형태)
+            pygame.draw.polygon(screen, fuselage_color, [
+                (self.x + 5, self.y + 15),
+                (self.x + 75, self.y + 12),
+                (self.x + 75, self.y + 23),
                 (self.x + 5, self.y + 20)
             ])
-        else:
-            # 오른쪽에서 왼쪽으로 비행
-            pygame.draw.polygon(screen, wing_color, [
-                (self.x + 60, self.y + 15),
-                (self.x + 20, self.y + 5),
-                (self.x + 20, self.y + 25),
-                (self.x + 60, self.y + 15)
+            
+            # 조종석 캐노피 (높고 큰 창문)
+            pygame.draw.polygon(screen, canopy_color, [
+                (self.x + 40, self.y + 10),
+                (self.x + 55, self.y + 10),
+                (self.x + 55, self.y + 18),
+                (self.x + 40, self.y + 18)
             ])
-            # 꼬리날개
-            pygame.draw.polygon(screen, wing_color, [
-                (self.x + 75, self.y + 10),
-                (self.x + 60, self.y + 5),
-                (self.x + 60, self.y + 25),
+            
+            # 꼬리날개 (수직/수평 안정판)
+            pygame.draw.polygon(screen, dark_green, [
+                (self.x, self.y + 12),
+                (self.x + 15, self.y + 15),
+                (self.x + 15, self.y + 20),
+                (self.x, self.y + 23)
+            ])
+            
+            # 프로펠러
+            prop_x = self.x + 78
+            prop_y = self.y + 17
+            # 프로펠러 블레이드 (회전 효과)
+            angle = pygame.time.get_ticks() * 0.5
+            for i in range(3):
+                blade_angle = angle + i * 120
+                end_x = prop_x + int(8 * math.cos(math.radians(blade_angle)))
+                end_y = prop_y + int(8 * math.sin(math.radians(blade_angle)))
+                pygame.draw.line(screen, black, (prop_x, prop_y), (end_x, end_y), 2)
+            
+            # 랜딩기어 (고정식)
+            pygame.draw.line(screen, black, (self.x + 35, self.y + 23), (self.x + 35, self.y + 28), 2)
+            pygame.draw.line(screen, black, (self.x + 50, self.y + 23), (self.x + 50, self.y + 28), 2)
+            pygame.draw.circle(screen, black, (self.x + 35, self.y + 29), 2)
+            pygame.draw.circle(screen, black, (self.x + 50, self.y + 29), 2)
+            
+        else:
+            # === 오른쪽에서 왼쪽으로 비행 (좌우 반전) ===
+            
+            # 메인 날개
+            pygame.draw.polygon(screen, fuselage_color, [
+                (self.x + 15, self.y),
+                (self.x + 65, self.y),
+                (self.x + 65, self.y + 8),
+                (self.x + 15, self.y + 8)
+            ])
+            
+            # 날개 지지대
+            for i in range(2):
+                strut_x = self.x + 35 + i * 20
+                pygame.draw.line(screen, strut_color, 
+                               (strut_x, self.y + 8), 
+                               (strut_x + 3, self.y + 20), 2)
+            
+            # 동체
+            pygame.draw.polygon(screen, fuselage_color, [
+                (self.x + 75, self.y + 15),
+                (self.x + 5, self.y + 12),
+                (self.x + 5, self.y + 23),
                 (self.x + 75, self.y + 20)
             ])
-        
-        # 프로펠러 (빠르게 회전하는 효과)
-        prop_color = (150, 150, 150)
-        if self.direction == "left_to_right":
-            prop_x = self.x + self.width - 5
-        else:
-            prop_x = self.x + 5
-        pygame.draw.circle(screen, prop_color, (prop_x, self.y + 15), 3)
+            
+            # 조종석 캐노피
+            pygame.draw.polygon(screen, canopy_color, [
+                (self.x + 25, self.y + 10),
+                (self.x + 40, self.y + 10),
+                (self.x + 40, self.y + 18),
+                (self.x + 25, self.y + 18)
+            ])
+            
+            # 꼬리날개
+            pygame.draw.polygon(screen, dark_green, [
+                (self.x + 80, self.y + 12),
+                (self.x + 65, self.y + 15),
+                (self.x + 65, self.y + 20),
+                (self.x + 80, self.y + 23)
+            ])
+            
+            # 프로펠러
+            prop_x = self.x + 2
+            prop_y = self.y + 17
+            angle = pygame.time.get_ticks() * 0.5
+            for i in range(3):
+                blade_angle = angle + i * 120
+                end_x = prop_x + int(8 * math.cos(math.radians(blade_angle)))
+                end_y = prop_y + int(8 * math.sin(math.radians(blade_angle)))
+                pygame.draw.line(screen, black, (prop_x, prop_y), (end_x, end_y), 2)
+            
+            # 랜딩기어
+            pygame.draw.line(screen, black, (self.x + 30, self.y + 23), (self.x + 30, self.y + 28), 2)
+            pygame.draw.line(screen, black, (self.x + 45, self.y + 23), (self.x + 45, self.y + 28), 2)
+            pygame.draw.circle(screen, black, (self.x + 30, self.y + 29), 2)
+            pygame.draw.circle(screen, black, (self.x + 45, self.y + 29), 2)
 
 # === 낙하산 아이템 시스템 함수 ===
 def update_supply_drop_items():
@@ -3039,9 +3314,13 @@ def update_supply_drop_items():
         if not item["active"]:
             continue
             
-        # 좌우 흔들림 효과
+        # 좌우 흔들림 효과 + 바람 효과 유지
         item["sway"] += 0.1
-        item["vx"] = math.sin(item["sway"]) * 0.5
+        # 기존 바람 효과를 유지하면서 흔들림 추가
+        base_vx = item.get("base_vx", item["vx"])  # 첫 프레임에서 base_vx 저장
+        if "base_vx" not in item:
+            item["base_vx"] = item["vx"]
+        item["vx"] = base_vx + math.sin(item["sway"]) * 0.3
         
         # 위치 업데이트
         item["x"] += item["vx"]
@@ -3055,12 +3334,17 @@ def update_supply_drop_items():
             supply_drop_items.remove(item)
             continue
             
-        # 플레이어와 충돌 검사 (paddle_x, paddle_y 사용)
-        player_rect = pygame.Rect(paddle_x - 25, paddle_y - 25, 50, 50)
-        item_rect = pygame.Rect(item["x"] - 16, item["y"] - 16, 32, 32)
+        # 플레이어와 충돌 검사 (PLAYER 렉트 사용) - 큰 상자에 맞게 조정
+        item_rect = pygame.Rect(item["x"] - 24, item["y"] - 20, 48, 40)
         
-        if player_rect.colliderect(item_rect):
+        # 플레이어 근처에 있는 아이템만 디버깅
+        distance = abs(PLAYER.centerx - item["x"]) + abs(PLAYER.centery - item["y"])
+        if distance < 100:  # 100픽셀 이내에 있을 때만 디버깅
+            print(f"🔍 근접 감지: 플레이어({PLAYER.centerx}, {PLAYER.centery}) vs 아이템({item['x']}, {item['y']}) 거리:{distance}")
+        
+        if PLAYER.colliderect(item_rect):
             # 아이템 획득
+            print(f"💥 물자보급 아이템 충돌 감지! {item['name']} 획득")
             activate_supply_drop_item(item["name"])
             supply_drop_items.remove(item)
 
@@ -3089,54 +3373,84 @@ def draw_supply_drop_items(screen):
         draw_supply_item_icon(screen, item["name"], x, y, item["rotation"])
 
 def draw_supply_item_icon(screen, item_name, x, y, rotation):
-    """물자보급 아이템 아이콘 그리기"""
-    icon_size = 16
+    """물자보급 아이템 아이콘 그리기 - 군용 상자 스타일 (대형)"""
+    box_width = 36  # 24 → 36 (1.5배 확대)
+    box_height = 28  # 18 → 28 (1.5배 확대)
     
-    if item_name == "grenade":
-        # 수류탄 아이콘 (녹색 원형)
-        color = (50, 150, 50)
-        pygame.draw.circle(screen, color, (x, y), icon_size)
-        pygame.draw.circle(screen, (30, 100, 30), (x, y), icon_size, 2)
-        # 핀 그리기
-        pygame.draw.circle(screen, (200, 200, 200), (x - 8, y - 8), 3)
-        
-    elif item_name == "molotov":
-        # 화염병 아이콘 (주황색 병)
-        color = (200, 100, 50)
-        bottle_rect = pygame.Rect(x - icon_size//2, y - icon_size//2, icon_size, icon_size)
-        pygame.draw.ellipse(screen, color, bottle_rect)
-        # 불꽃 효과
-        flame_color = (255, 150, 0)
-        pygame.draw.circle(screen, flame_color, (x, y - 10), 4)
-        
-    elif item_name == "flare":
-        # 조명탄 아이콘 (빨간색 원통)
-        color = (200, 50, 50)
-        flare_rect = pygame.Rect(x - icon_size//2, y - icon_size//2, icon_size, icon_size//2)
-        pygame.draw.ellipse(screen, color, flare_rect)
-        # 빛 효과
-        light_color = (255, 255, 100)
-        pygame.draw.circle(screen, light_color, (x, y), icon_size + 4, 2)
+    # 군용 상자 메인 바디 (올리브 그린)
+    main_color = (85, 90, 65)  # 올리브 그린
+    box_rect = pygame.Rect(x - box_width//2, y - box_height//2, box_width, box_height)
+    pygame.draw.rect(screen, main_color, box_rect)
+    
+    # 상자 테두리 (더 어두운 색)
+    border_color = (60, 65, 45)
+    pygame.draw.rect(screen, border_color, box_rect, 3)  # 테두리도 두껍게
+    
+    # 상자 상단 덮개 (약간 밝은 색)
+    lid_color = (100, 105, 80)
+    lid_rect = pygame.Rect(x - box_width//2, y - box_height//2, box_width, 9)  # 6 → 9
+    pygame.draw.rect(screen, lid_color, lid_rect)
+    
+    # 금속 스트랩 (좌우) - 더 두껍게
+    strap_color = (50, 50, 40)
+    # 왼쪽 스트랩
+    pygame.draw.rect(screen, strap_color, 
+                    (x - box_width//2 - 2, y - box_height//2 + 3, 4, box_height - 6))
+    # 오른쪽 스트랩  
+    pygame.draw.rect(screen, strap_color, 
+                    (x + box_width//2 - 2, y - box_height//2 + 3, 4, box_height - 6))
+    
+    # 중앙 스트랩 (가로) - 더 두껍게
+    pygame.draw.rect(screen, strap_color, 
+                    (x - box_width//2 + 4, y - 2, box_width - 8, 4))
+    
+    # 통일된 별 마크 (모든 아이템 동일)
+    star_size = 10  # 6 → 10 (더 크게)
+    star_x = x + box_width//2 - 12  # 위치 조정
+    star_y = y - box_height//2 + 12
+    
+    # 빨간색 별 모양 (모든 아이템 공통)
+    star_points = []
+    for i in range(5):
+        angle = i * 72 - 90  # 5개 꼭짓점, -90도 회전
+        outer_x = star_x + (star_size//2) * math.cos(math.radians(angle))
+        outer_y = star_y + (star_size//2) * math.sin(math.radians(angle))
+        star_points.append((outer_x, outer_y))
+    
+    # 별 내부 채우기
+    pygame.draw.polygon(screen, (255, 100, 100), star_points)
+    # 별 테두리
+    pygame.draw.polygon(screen, (200, 50, 50), star_points, 2)
 
 def activate_supply_drop_item(item_name):
-    """물자보급 아이템 활성화"""
-    if item_name == "grenade":
-        from item_effects.grenade import get_grenade_instance
-        grenade = get_grenade_instance()
-        if grenade:
-            grenade.activate(None, current_stage)
-            
-    elif item_name == "molotov":
-        from item_effects.molotov import get_molotov_instance
-        molotov = get_molotov_instance()
-        if molotov:
-            molotov.activate(None, current_stage)
-            
-    elif item_name == "flare":
-        from item_effects.flare import get_flare_instance
-        flare = get_flare_instance()
-        if flare:
-            flare.activate(None, current_stage)
+    """물자보급 아이템 획득 및 슬롯에 추가"""
+    import items
+    
+    print(f"🔍 아이템 검색 시작: {item_name}")
+    
+    # 아이템 정보 검색
+    item_data = None
+    for item in items.ITEM_TYPES:
+        if item["name"] == item_name:
+            item_data = item.copy()  # 복사본 생성
+            print(f"✅ 아이템 정보 발견: {item_data}")
+            break
+    
+    if item_data:
+        # 아이템을 액티브 슬롯에 추가
+        store_active_item(item_data)
+        print(f"💎 물자보급 아이템 획득 완료: {item_name}")
+        
+        # 아이템 획득 사운드 재생 (있는 경우)
+        try:
+            if 'SOUND_ITEM_GET' in globals() and SOUND_ITEM_GET:
+                SOUND_ITEM_GET.play()
+        except:
+            pass
+    else:
+        print(f"⚠️ 아이템 정보를 찾을 수 없음: {item_name}")
+        # items.ITEM_TYPES에서 첫 몇 개 아이템 이름 출력해서 디버깅
+        print(f"📋 사용 가능한 아이템들: {[item['name'] for item in items.ITEM_TYPES[:5]]}")
 
 def update_supply_drop_system():
     """물자보급 시스템 전체 업데이트"""
@@ -3154,7 +3468,20 @@ def update_supply_drop_system():
     # 비행기 업데이트
     if supply_aircraft and supply_aircraft.active:
         supply_aircraft.update()
+        
+        # 공과의 충돌 체크 (플레이어가 쏜 공만 격추 가능)
+        global BALL, last_hit_by
+        if supply_aircraft.check_ball_collision(BALL, last_hit_by):
+            # 플레이어가 쏜 공만 격추됨
+            if last_hit_by == "player":
+                # 충돌 시 공의 방향을 약간 변경 (반발)
+                global ball_vel
+                ball_vel[1] *= -0.5  # Y 속도를 반대로
+                
         if not supply_aircraft.active:
+            # 비행기가 비활성화되면 사운드 중지 (혹시 남아있을 경우를 대비)
+            if supply_aircraft and hasattr(supply_aircraft, 'stop_sound'):
+                supply_aircraft.stop_sound()
             supply_aircraft = None
             supply_drop_active = False
             print("물자보급 완료")
@@ -3162,8 +3489,178 @@ def update_supply_drop_system():
     # 낙하산 아이템 업데이트
     update_supply_drop_items()
 
+def draw_supply_radio_motion(screen):
+    """무전기 모션 그리기 - 실제로 귀에 대고 통화하는 모습"""
+    global supply_radio_motion, supply_radio_timer
+    
+    if not supply_radio_motion or supply_radio_timer <= 0:
+        supply_radio_motion = False  # 확실히 비활성화
+        return
+    
+    # 플레이어 위치
+    player_x = PLAYER.centerx
+    player_y = PLAYER.centery
+    
+    # === 캐릭터 상체 그리기 (무전기 들고 있는 자세) ===
+    # 머리 (약간 오른쪽으로 기울임)
+    head_x = player_x + 5
+    head_y = player_y - 25
+    head_color = (255, 220, 190)  # 피부색
+    pygame.draw.circle(screen, head_color, (head_x, head_y), 12)
+    
+    # 헬멧 (군인 캐릭터)
+    helmet_color = (70, 80, 60)  # 카키색
+    pygame.draw.arc(screen, helmet_color, 
+                   pygame.Rect(head_x - 14, head_y - 14, 28, 28), 
+                   math.pi, 0, 8)
+    pygame.draw.line(screen, helmet_color, 
+                    (head_x - 14, head_y), 
+                    (head_x + 14, head_y), 3)
+    
+    # 오른팔 (무전기를 들고 있는 팔)
+    arm_color = (100, 110, 90)  # 군복색
+    # 어깨에서 팔꿈치까지
+    pygame.draw.line(screen, arm_color,
+                    (player_x + 15, player_y - 10),  # 어깨
+                    (player_x + 25, player_y - 5),   # 팔꿈치
+                    5)
+    # 팔꿈치에서 손목까지 (위로 올림)
+    pygame.draw.line(screen, arm_color,
+                    (player_x + 25, player_y - 5),   # 팔꿈치
+                    (head_x + 18, head_y - 5),       # 손목 (귀 근처)
+                    5)
+    
+    # 오른손 (무전기를 잡고 있음)
+    hand_x = head_x + 18
+    hand_y = head_y - 5
+    pygame.draw.circle(screen, head_color, (hand_x, hand_y), 4)
+    
+    # === 무전기 (크고 디테일하게) ===
+    radio_width = 16
+    radio_height = 24
+    radio_x = hand_x
+    radio_y = hand_y
+    
+    # 무전기 본체 (군용 녹색)
+    radio_color = (40, 50, 40)
+    radio_rect = pygame.Rect(radio_x - radio_width//2, radio_y - radio_height//2, 
+                           radio_width, radio_height)
+    pygame.draw.rect(screen, radio_color, radio_rect)
+    pygame.draw.rect(screen, (20, 30, 20), radio_rect, 2)  # 진한 테두리
+    
+    # 무전기 안테나 (길고 굵게)
+    antenna_color = (140, 140, 140)
+    antenna_base_x = radio_x
+    antenna_base_y = radio_y - radio_height//2
+    pygame.draw.line(screen, antenna_color, 
+                    (antenna_base_x, antenna_base_y), 
+                    (antenna_base_x - 2, antenna_base_y - 20), 3)
+    # 안테나 끝 볼
+    pygame.draw.circle(screen, antenna_color, 
+                      (antenna_base_x - 2, antenna_base_y - 20), 2)
+    
+    # 무전기 스피커 그릴 (귀에 대는 부분)
+    speaker_area = pygame.Rect(radio_x - 6, radio_y - radio_height//2 + 2, 12, 8)
+    pygame.draw.rect(screen, (60, 60, 60), speaker_area)
+    for i in range(4):
+        y = radio_y - radio_height//2 + 3 + i * 2
+        pygame.draw.line(screen, (80, 80, 80),
+                        (radio_x - 5, y),
+                        (radio_x + 5, y), 1)
+    
+    # 무전기 버튼과 다이얼
+    # 메인 버튼 (PTT - Push To Talk)
+    pygame.draw.circle(screen, (200, 50, 50), 
+                      (radio_x, radio_y), 3)
+    pygame.draw.circle(screen, (150, 30, 30), 
+                      (radio_x, radio_y), 3, 1)
+    
+    # 볼륨 다이얼
+    pygame.draw.circle(screen, (100, 100, 100), 
+                      (radio_x - 4, radio_y + 6), 2)
+    pygame.draw.circle(screen, (100, 100, 100), 
+                      (radio_x + 4, radio_y + 6), 2)
+    
+    # LED 표시등 (송신 중)
+    led_color = (0, 255, 0) if supply_radio_timer % 10 < 5 else (0, 150, 0)  # 깜빡임
+    pygame.draw.circle(screen, led_color, 
+                      (radio_x, radio_y - 8), 2)
+    
+    # === 무전 신호 효과 (전파) ===
+    signal_alpha = int(255 * (supply_radio_timer / 30))  # 페이드 효과
+    if signal_alpha > 0:
+        # 무전기에서 나오는 전파
+        signal_surface = pygame.Surface((120, 120), pygame.SRCALPHA)
+        for i in range(4):
+            radius = 20 + i * 15
+            alpha = max(0, signal_alpha - i * 50)
+            # 전파 색상 (녹색 계열)
+            signal_color = (100, 255, 100, alpha)
+            pygame.draw.circle(signal_surface, signal_color, (60, 60), radius, 3)
+            
+            # 전파 곡선 효과
+            arc_rect = pygame.Rect(60 - radius, 60 - radius, radius * 2, radius * 2)
+            pygame.draw.arc(signal_surface, signal_color, arc_rect, 
+                          -math.pi/4, math.pi/4, 2)
+        
+        screen.blit(signal_surface, (radio_x - 60, radio_y - 60))
+    
+    # 대사 텍스트 (무전 내용)
+    if supply_radio_timer > 20:
+        text = "지원 요청!"
+    elif supply_radio_timer > 10:
+        text = "물자 투하!"
+    else:
+        text = "알았다!"
+    
+    # 말풍선 효과
+    bubble_x = player_x - 30
+    bubble_y = player_y - 50
+    bubble_width = 60
+    bubble_height = 20
+    
+    # 말풍선 배경
+    bubble_color = (255, 255, 255, 200)
+    bubble_surface = pygame.Surface((bubble_width, bubble_height), pygame.SRCALPHA)
+    pygame.draw.rect(bubble_surface, bubble_color, 
+                    (0, 0, bubble_width, bubble_height), border_radius=5)
+    pygame.draw.rect(bubble_surface, (0, 0, 0), 
+                    (0, 0, bubble_width, bubble_height), 2, border_radius=5)
+    
+    # 말풍선 꼬리
+    tail_points = [
+        (bubble_width//2 - 5, bubble_height),
+        (bubble_width//2 + 5, bubble_height),
+        (bubble_width//2 + 10, bubble_height + 8)
+    ]
+    pygame.draw.polygon(bubble_surface, bubble_color, tail_points)
+    pygame.draw.lines(bubble_surface, (0, 0, 0), False, 
+                     [(tail_points[0]), (tail_points[2]), (tail_points[1])], 2)
+    
+    screen.blit(bubble_surface, (bubble_x, bubble_y))
+    
+    # 텍스트 렌더링
+    try:
+        font = pygame.font.Font(None, 16)
+        text_surface = font.render(text, True, (0, 0, 0))
+        text_rect = text_surface.get_rect(center=(bubble_x + bubble_width//2, bubble_y + bubble_height//2))
+        screen.blit(text_surface, text_rect)
+    except:
+        pass
+    
+    # 타이머 감소 (30프레임 = 0.5초 동안 유지)
+    if supply_radio_timer > 0:
+        supply_radio_timer -= 1
+        if supply_radio_timer <= 0:
+            supply_radio_motion = False
+            print("📻 무전기 모션 완료")
+
 def draw_supply_drop_system(screen):
     """물자보급 시스템 그리기"""
+    # 무전기 모션 그리기 (최우선)
+    if selected_character_type == "soldier":
+        draw_supply_radio_motion(screen)
+    
     # 비행기 그리기
     if supply_aircraft and supply_aircraft.active:
         supply_aircraft.draw(screen)
@@ -3627,6 +4124,7 @@ def go_to_next_round():
     global round_wins, round_losses  #  점수 변수 추가
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
     global animated_bg_stage4  # Stage 4 배경 추가
+    global round_start_time  # 라운드 시작 시간 추가
     
     # Stage 4에서 플레이어가 3점 획득한 후 다음 라운드 시작 시 사원 파괴 애니메이션 시작
     if current_stage == 4 and round_wins == 3:
@@ -3850,6 +4348,9 @@ def go_to_next_round():
     #  드라이브 관련 상태 초기화
     drive_ball_active = False
     drive_hit_boss = False
+    
+    # 라운드 시작 시간 초기화 (화기류 3초 제한용)
+    round_start_time = pygame.time.get_ticks()
     drive_speed_increase = 0.0
     # ️ 스핀 상태 완전히 초기화 (스테이지 전환 시 드라이브 효과 제거)
     global ball_spin_strength, ball_spin_direction
@@ -6828,6 +7329,44 @@ def draw_soldier_weapon_ui(screen):
             case_rect = pygame.Rect(bullet_x, bullet_y + 4, bullet_width, bullet_height - 4)
             pygame.draw.rect(screen, (60, 60, 60), case_rect, 1)
     
+    # 라운드 시작 3초 제한 표시
+    current_time = pygame.time.get_ticks()
+    time_since_round_start = current_time - round_start_time
+    
+    if time_since_round_start < 3000:
+        # 3초 미만일 때 권총 아이콘 위에 카운터 오버레이
+        remaining_time = max(0, 3.0 - time_since_round_start / 1000)
+        
+        # 쿨타임 오버레이 (반투명 검은색)
+        overlay = pygame.Surface((weapon_size, weapon_size), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))  # 반투명 검은색
+        screen.blit(overlay, (weapon_x, weapon_y))
+        
+        # 남은 시간 텍스트 표시
+        try:
+            countdown_font = pygame.font.Font(None, 24)
+            countdown_text = countdown_font.render(f"{remaining_time:.1f}", True, (255, 255, 255))
+            text_rect = countdown_text.get_rect(center=weapon_rect.center)
+            screen.blit(countdown_text, text_rect)
+        except:
+            pass
+        
+        # 원형 쿨타임 표시 (작게)
+        cooldown_ratio = time_since_round_start / 3000
+        center_x, center_y = weapon_rect.center
+        radius = 20
+        
+        # 쿨타임 아크 그리기
+        if cooldown_ratio < 1.0:
+            angle_start = -90  # 12시 방향부터 시작
+            angle_end = -90 + (360 * cooldown_ratio)
+            
+            # 진행된 부분을 밝은 색으로 표시
+            for angle in range(int(angle_start), int(angle_end), 2):
+                x = center_x + int(radius * math.cos(math.radians(angle)))
+                y = center_y + int(radius * math.sin(math.radians(angle)))
+                pygame.draw.line(screen, (100, 200, 100), (center_x, center_y), (x, y), 3)
+    
     # 재장전 중이면 재장전 텍스트 표시
     if soldier_reloading:
         # 재장전 텍스트
@@ -7551,19 +8090,37 @@ def handle_player(keys):
     
     # 물자보급 스킬 처리 (군인 캐릭터 전용)
     global supply_drop_active, supply_aircraft, special_gauge, selected_character_type, supply_drop_timer
+    global supply_radio_motion, supply_radio_timer, player_stunned_timer
     
-    # 물자보급 스킬 발동 조건 확인
+    # 물자보급 스킬 발동 조건 확인 (스페이스 + ↑ 동시 입력)
+    up_pressed = keys[pygame.K_UP]
     
-    if (space_pressed and selected_character_type == "soldier" and 
-        not supply_drop_active and special_gauge >= SUPPLY_DROP_GAUGE_COST):
+    if (space_pressed and up_pressed and selected_character_type == "soldier" and 
+        not supply_drop_active and special_gauge >= SUPPLY_DROP_GAUGE_COST and
+        not is_waiting_for_serve and not is_player_serve):
         # 물자보급 스킬 발동
         supply_drop_active = True
         special_gauge -= SUPPLY_DROP_GAUGE_COST
         supply_drop_timer = 60  # 1초 (60fps 기준)
+        
+        # 무전기 모션 활성화 (0.5초)
+        supply_radio_motion = True
+        supply_radio_timer = 30  # 0.5초 (60fps 기준)
+        
+        # 플레이어 통제불능 상태 (0.5초) - 프레임 단위 정확한 타이밍
+        player_stunned_timer = 30  # 정확히 30프레임 = 0.5초
+        
+        # 무전기 효과음 재생
+        try:
+            radio_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "radio.wav")))
+            radio_sound.set_volume(0.6)
+            radio_sound.play()
+        except Exception as e:
+            print(f"무전기 효과음 재생 실패: {e}")
+        
+        print("📻 물자보급 요청! 무전기 모션 시작")
         print("물자보급 발동! 1초 후 비행기 출현")
     
-    # 물자보급 시스템 업데이트
-    update_supply_drop_system()
     
     # 튜토리얼 대쉬 도우미는 일정 시간 동안 유지 (바로 끄지 않음)
     global tutorial_dash_helper_active, tutorial_dash_helper_start_time
@@ -8881,8 +9438,10 @@ def handle_player(keys):
     # 위치 적용 (감전 상태가 아닐 때만 기본 이동)
     if not player_stunned:
         # 군인 캐릭터 총알 발사 처리
-        if selected_character_type == "soldier" and keys[pygame.K_UP] and soldier_control_lock_timer <= 0:
-            fire_soldier_bullet()
+        if selected_character_type == "soldier" and keys[pygame.K_SPACE] and soldier_control_lock_timer <= 0:
+            # 서브 중이거나 물자보급 스킬 사용 중이 아닐 때만 발사
+            if not is_waiting_for_serve and not is_player_serve and not supply_drop_active:
+                fire_soldier_bullet()
         
         # 통제불능 상태가 아닐 때만 이동 가능
         if soldier_control_lock_timer <= 0:
@@ -9006,6 +9565,10 @@ def handle_player(keys):
         player_collision_handled = True
         last_hit_by = "player"  # 플레이어가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "player"  # game_vars에도 업데이트
+        
+        # 서브 상태 해제 - 플레이어가 공을 받았으므로 서브가 끝났음
+        if is_player_serve:
+            is_player_serve = False
         
         # 군인 캐릭터 휘두르기 애니메이션 활성화
         global soldier_swing_active, soldier_swing_timer
@@ -9357,7 +9920,11 @@ def handle_player(keys):
             elif ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
-                base_gauge_gain = 60  # 일반 게임: 게이지 충전 60
+                # 캐릭터별 기본 게이지 충전량
+                if selected_character_type == "soldier":
+                    base_gauge_gain = 60  # 군인: 게이지 충전 60
+                else:
+                    base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
@@ -9550,8 +10117,8 @@ def store_passive_item(item_data):
     item_icon = item_data.get("icon")
     
     if item_data["name"] == "slot_add":
-        # 최대 슬롯 4개 제한
-        MAX_ITEM_SLOTS = min(4, MAX_ITEM_SLOTS + 1)
+        # 최대 슬롯 5개 제한 (기본 3개 + 배낭 2개)
+        MAX_ITEM_SLOTS = min(5, MAX_ITEM_SLOTS + 1)
         print("+1 !")
         # 획득 개수 카운트 증가
         items.slot_add_obtained += 1
@@ -10143,29 +10710,30 @@ def handle_wall():
                 else:
                     print(f"  !")
                 
-                # 군인 캐릭터의 수류탄 보스 명중 시 게이지 100+ 증가
-                global special_gauge, special_ready
-                gauge_increase = 100  # 기본 100 증가
-                
-                # 코만도암 착용 시 추가 보너스
-                if items.commando_arm_obtained:
-                    gauge_increase = 120  # 코만도암 착용 시 120 증가
-                    print("🎯 코만도암 보너스! 수류탄 게이지 120 증가!")
-                else:
-                    print("💥 수류탄 명중! 게이지 100 증가!")
-                
-                # 게이지 증가 적용
-                old_gauge = special_gauge
-                special_gauge += gauge_increase
-                current_max = get_max_gauge()
-                if special_gauge > current_max:
-                    special_gauge = current_max
-                
-                # 필살기 준비 상태 업데이트
-                if special_gauge >= 350:
-                    special_ready = True
-                
-                print(f"수류탄 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
+                # 군인 캐릭터의 수류탄 보스 명중 시 게이지 50+ 증가
+                global special_gauge, special_ready, current_player
+                if current_player == "soldier":
+                    gauge_increase = 50  # 기본 50 증가
+                    
+                    # 코만도암 착용 시 추가 보너스
+                    if items.commando_arm_obtained:
+                        gauge_increase = 70  # 코만도암 착용 시 70 증가
+                        print("🎯 코만도암 보너스! 수류탄 게이지 70 증가!")
+                    else:
+                        print("💥 수류탄 명중! 게이지 50 증가!")
+                    
+                    # 게이지 증가 적용
+                    old_gauge = special_gauge
+                    special_gauge += gauge_increase
+                    current_max = get_max_gauge()
+                    if special_gauge > current_max:
+                        special_gauge = current_max
+                    
+                    # 필살기 준비 상태 업데이트
+                    if special_gauge >= 350:
+                        special_ready = True
+                    
+                    print(f"수류탄 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
                 
                 #  Stage 5 홍련 수류탄 피격 효과 - 100% 확률
                 if current_stage == 5:
@@ -10546,28 +11114,29 @@ def handle_wall():
                     boss_confused_timer = THREE_SECONDS_FRAMES  # 3초간 보스 혼란
                     print(f"  !  3  !")
                     
-                    # 군인 캐릭터의 조명탄 보스 명중 시 게이지 100+ 증가
-                    gauge_increase = 100  # 기본 100 증가
-                    
-                    # 코만도암 착용 시 추가 보너스
-                    if items.commando_arm_obtained:
-                        gauge_increase = 120  # 코만도암 착용 시 120 증가
-                        print("🎯 코만도암 보너스! 조명탄 게이지 120 증가!")
-                    else:
-                        print("💡 조명탄 명중! 게이지 100 증가!")
-                    
-                    # 게이지 증가 적용
-                    old_gauge = special_gauge
-                    special_gauge += gauge_increase
-                    current_max = get_max_gauge()
-                    if special_gauge > current_max:
-                        special_gauge = current_max
-                    
-                    # 필살기 준비 상태 업데이트
-                    if special_gauge >= 350:
-                        special_ready = True
-                    
-                    print(f"조명탄 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
+                    # 군인 캐릭터의 조명탄 보스 명중 시 게이지 50+ 증가
+                    if current_player == "soldier":
+                        gauge_increase = 50  # 기본 50 증가
+                        
+                        # 코만도암 착용 시 추가 보너스
+                        if items.commando_arm_obtained:
+                            gauge_increase = 70  # 코만도암 착용 시 70 증가
+                            print("🎯 코만도암 보너스! 조명탄 게이지 70 증가!")
+                        else:
+                            print("💡 조명탄 명중! 게이지 50 증가!")
+                        
+                        # 게이지 증가 적용
+                        old_gauge = special_gauge
+                        special_gauge += gauge_increase
+                        current_max = get_max_gauge()
+                        if special_gauge > current_max:
+                            special_gauge = current_max
+                        
+                        # 필살기 준비 상태 업데이트
+                        if special_gauge >= 350:
+                            special_ready = True
+                        
+                        print(f"조명탄 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
                 else:
                     print(f"  ! : {boss_distance:.0f}")
                 flares.remove(flare)
@@ -17997,7 +18566,7 @@ def show_start_screen():
     menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
     menu_system.current_menu = menu_system.create_main_menu()
     # 기존 변수들 (임시 유지)
-    menu_options = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
+    menu_options = ["경기장 입장", "아이템관리", "테스트메뉴", "메달샵", "크레딧"]
     selected = 0
     last_selected = -1  # 호버 사운드용
     locked_message_timer = 0
@@ -18005,7 +18574,7 @@ def show_start_screen():
     item_code = [2]
     input_buffer = []
     developer_unlocked = False
-    item_manager_unlocked = False
+    item_manager_unlocked = True  # 아이템관리를 기본으로 해제
     # 사이버펑크 테마 배경 시스템 (내부 해상도 사용)
     simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
     animation_timer = 0
@@ -18174,27 +18743,43 @@ def show_start_screen():
         # 라인 끝 점
         pygame.draw.circle(SCREEN, (0, 255, 255), (WIDTH // 2 - 200, line_y + 1), 4)
         pygame.draw.circle(SCREEN, (0, 255, 255), (WIDTH // 2 + 200, line_y + 1), 4)
+        # 동적 메뉴 옵션 업데이트
+        # 아이템관리를 2번째 위치에 고정
+        current_menu_options = ["경기장 입장"]
+        if item_manager_unlocked:
+            current_menu_options.append("아이템관리")  # 2번 위치
+        current_menu_options.extend(["테스트메뉴", "메달샵", "크레딧"])
+        if developer_unlocked:
+            if "개발자" not in current_menu_options:
+                current_menu_options.append("개발자")
+        
+        # 선택 인덱스 조정
+        if selected >= len(current_menu_options):
+            selected = len(current_menu_options) - 1
+        
         # 하단 가로 메뉴 시스템
         # 메뉴 아이콘과 텍스트 설정
         menu_icons = {
             "경기장 입장": "▶",
             "테스트메뉴": "★",
             "메달샵": "◆",
-            "크레딧": "●"
+            "크레딧": "●",
+            "개발자": "⚙",
+            "아이템관리": "📦"
         }
         
         # 메뉴 컨테이너 설정 (화면에 맞게 조정)
         menu_y = HEIGHT - 180  # 하단에서 180px 위 (더 위로 이동)
         menu_item_width = 120  # 버튼 너비 줄임 (150 -> 120)
         menu_spacing = 15  # 간격 줄임 (20 -> 15)
-        total_menu_width = len(menu_options) * menu_item_width + (len(menu_options) - 1) * menu_spacing
+        total_menu_width = len(current_menu_options) * menu_item_width + (len(current_menu_options) - 1) * menu_spacing
         menu_start_x = (WIDTH - total_menu_width) // 2
         
         # 메뉴 렌더링
         font_menu = FontStyle.small()  # 20pt 픽셀 폰트
         font_icon = get_font(36)  # 36pt 픽셀 폰트
         
-        for i, option in enumerate(menu_options):
+        for i, option in enumerate(current_menu_options):
             x = menu_start_x + i * (menu_item_width + menu_spacing)
             
             # 메뉴 아이템 컨테이너 (크기 조정)
@@ -18252,16 +18837,25 @@ def show_start_screen():
                 display_text = "경기장"
             elif option == "테스트메뉴":
                 display_text = "테스트"
+            elif option == "아이템관리":
+                display_text = "아이템"
             
             text_surface = font_menu.render(display_text, True, text_color)
             text_rect = text_surface.get_rect(center=(x + menu_item_width // 2, menu_y + 38))
             SCREEN.blit(text_surface, text_rect)
-            #  테스트메뉴 선택 시 추가 설명 표시
-            if i == selected and option == "테스트메뉴":
+            #  선택된 메뉴 설명 표시
+            if i == selected:
                 font_desc = FontStyle.tiny()  # 16pt 픽셀 폰트
-                desc_text = font_desc.render("게임 테스트 및 디버깅 모드", True, (200, 200, 255))
-                desc_rect = desc_text.get_rect(center=(WIDTH // 2, menu_y + 75))
-                SCREEN.blit(desc_text, desc_rect)
+                if option == "테스트메뉴":
+                    desc_text = font_desc.render("게임 테스트 및 디버깅 모드", True, (200, 200, 255))
+                elif option == "아이템관리":
+                    desc_text = font_desc.render("캐릭터 선택 및 아이템 관리", True, (200, 255, 200))
+                else:
+                    desc_text = None
+                    
+                if desc_text:
+                    desc_rect = desc_text.get_rect(center=(WIDTH // 2, menu_y + 75))
+                    SCREEN.blit(desc_text, desc_rect)
         if locked_message_timer > 0:
             # 잠금 메시지 배경
             message_width = 400
@@ -18350,14 +18944,14 @@ def show_start_screen():
                     if input_buffer[-4:] == item_code:
                         item_manager_unlocked = True
                 if event.key in [pygame.K_RIGHT, pygame.K_d]:
-                    selected = (selected + 1) % len(menu_options)
+                    selected = (selected + 1) % len(current_menu_options)
                     play_button_hover_sound()  #  호버 사운드
                 elif event.key in [pygame.K_LEFT, pygame.K_a]:
-                    selected = (selected - 1) % len(menu_options)
+                    selected = (selected - 1) % len(current_menu_options)
                     play_button_hover_sound()  #  호버 사운드
                 elif event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
                     play_button_click_sound()  #  클릭 사운드
-                    choice = menu_options[selected]
+                    choice = current_menu_options[selected]
                     if choice == "경기장 입장":
                         # 튜토리얼 진행 여부 물어보기
                         start_tutorial = show_tutorial_dialog()
@@ -18391,7 +18985,9 @@ def show_start_screen():
                     elif choice == "개발자":
                         show_developer_stage_select()
                     elif choice == "아이템관리":
+                        print("DEBUG: 아이템관리 선택됨 - show_character_item_manager() 호출")
                         show_character_item_manager()
+                        print("DEBUG: show_character_item_manager() 완료")
 def show_tutorial_dialog():
     """튜토리얼 진행 여부를 묻는 다이얼로그"""
     clock = pygame.time.Clock()
@@ -31772,9 +32368,13 @@ def handle_ball():
                     print(f"[DEBUG 무릎보호대] on_half_dash_hit 결과: {should_charge}")
                     
                     if should_charge:
-                        # 특수 게이지 50% 충전 (기본 충전량 60의 50% = 30)
-                        base_charge = 60  # 기본 충전량
-                        charge_amount = base_charge * 0.5  # 50% = 30
+                        # 특수 게이지 50% 충전 (캐릭터별)
+                        if selected_character_type == "soldier":
+                            base_charge = 60  # 군인 기본 충전량
+                            charge_amount = base_charge * 0.5  # 50% = 30
+                        else:
+                            base_charge = 80  # 스매셔 기본 충전량
+                            charge_amount = base_charge * 0.5  # 50% = 40
                         
                         # 블루투스링 효과 적용 (있을 경우)
                         import items
@@ -31926,7 +32526,11 @@ def handle_ball():
                     
                     # 충전가방 효과
                     if chargebag_obtained and not aipill_active:
-                        base_gauge_gain = 60
+                        # 캐릭터별 기본 게이지 충전량
+                        if selected_character_type == "soldier":
+                            base_gauge_gain = 60  # 군인: 게이지 충전 60
+                        else:
+                            base_gauge_gain = 80  # 스매셔: 게이지 충전 80
                         skill_gauge_boost = skill.apply_gauge_boost(0)
                         total_gauge_gain = base_gauge_gain + skill_gauge_boost
                         
@@ -32364,7 +32968,11 @@ def handle_ball():
         # 충전가방 효과: 공이 벽에 닿을 때마다 플레이어 패들 충전량의 20% 충전
         if chargebag_obtained and not aipill_active:
             # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
-            base_gauge_gain = 60
+            # 캐릭터별 기본 게이지 충전량
+            if selected_character_type == "soldier":
+                base_gauge_gain = 60  # 군인: 게이지 충전 60
+            else:
+                base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
@@ -32469,7 +33077,11 @@ def handle_ball():
         # 충전가방 효과: 공이 벽에 닿을 때마다 플레이어 패들 충전량의 20% 충전
         if chargebag_obtained and not aipill_active:
             # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
-            base_gauge_gain = 60
+            # 캐릭터별 기본 게이지 충전량
+            if selected_character_type == "soldier":
+                base_gauge_gain = 60  # 군인: 게이지 충전 60
+            else:
+                base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
@@ -33244,7 +33856,11 @@ def handle_ball():
             elif ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
-                base_gauge_gain = 60  # 일반 게임: 게이지 충전 60
+                # 캐릭터별 기본 게이지 충전량
+                if selected_character_type == "soldier":
+                    base_gauge_gain = 60  # 군인: 게이지 충전 60
+                else:
+                    base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
@@ -33438,6 +34054,8 @@ def handle_ball():
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
+        
+        # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
         
         # 포세이돈의 삼지창 물 궤적 비활성화
         try:
@@ -36104,6 +36722,7 @@ def show_result(won):
     global whip_active, whip_timer, whip_hit_by_player, whip_original_ball_speed  #  상모돌리기 관련 변수 추가
     global emotional_overdrive_active, emotional_overdrive_timer, overdrive_flash_timer, overdrive_trails  #  사이코볼 관련 변수 추가
     global boss_special_gauge, boss_special_ready, boss_special_waiting, boss_red_intensity  #  멘헤라걸 관련 변수 추가
+    global supply_aircraft  # 물자보급 비행기 변수 추가
     # 필살기 초기화 (Aipill 활성화 시 또는 배터리 보유 시에는 게이지 유지)
     if not aipill_active and not battery_obtained:
         special_gauge = 0
@@ -36354,9 +36973,13 @@ def show_result(won):
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
         # 물자보급 스킬 초기화
         supply_drop_active = False
+        if supply_aircraft and hasattr(supply_aircraft, 'stop_sound'):
+            supply_aircraft.stop_sound()
         supply_aircraft = None
         supply_drop_items = []
         supply_drop_timer = 0
+        supply_radio_motion = False
+        supply_radio_timer = 0
         #  튜토리얼 챕터별 최대 게이지 오버라이드 초기화
         tutorial_chapter1_max_gauge = None
         tutorial_chapter2_max_gauge = None
@@ -36637,6 +37260,9 @@ def main(stage_num, new_boss_mode=False):
     global selected_character_type
     # 군인 휘두르기 애니메이션 시스템
     global soldier_swing_active, soldier_swing_timer
+    # 물자보급 시스템
+    global supply_drop_active, supply_aircraft, supply_drop_items, supply_drop_timer
+    global supply_radio_motion, supply_radio_timer
     # 군인 걷기 애니메이션 시스템
     global soldier_walking_active, soldier_walking_timer
     # 군인 레그샷 효과 시스템
@@ -37422,9 +38048,13 @@ def main(stage_num, new_boss_mode=False):
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
             # 물자보급 스킬 초기화
             supply_drop_active = False
+            if supply_aircraft and hasattr(supply_aircraft, 'stop_sound'):
+                supply_aircraft.stop_sound()
             supply_aircraft = None
             supply_drop_items = []
             supply_drop_timer = 0
+            supply_radio_motion = False
+            supply_radio_timer = 0
             #  튜토리얼 드라이브 챕터 최대 게이지 오버라이드 초기화
             tutorial_drive_chapter_max_gauge = None
             #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
@@ -38214,9 +38844,13 @@ def main(stage_num, new_boss_mode=False):
                     acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
                     # 물자보급 스킬 초기화
                     supply_drop_active = False
+                    if supply_aircraft and hasattr(supply_aircraft, 'stop_sound'):
+                        supply_aircraft.stop_sound()
                     supply_aircraft = None
                     supply_drop_items = []
                     supply_drop_timer = 0
+                    supply_radio_motion = False
+                    supply_radio_timer = 0
                     #  튜토리얼 드라이브 챕터 최대 게이지 오버라이드 초기화
                     tutorial_drive_chapter_max_gauge = None
                     #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
@@ -38844,7 +39478,7 @@ def main(stage_num, new_boss_mode=False):
                                     
                                     # 현재 속도 크기 유지하면서 방향만 변경 (끌어당기는 느낌)
                                     ball_current_speed = math.hypot(ball_vel[0], ball_vel[1])
-                                    new_speed = ball_current_speed * 1.3  # 30% 속도 증가
+                                    new_speed = ball_current_speed * 0.85  # 15% 속도 감소
                                     
                                     # 방향을 멘헤라걸 중앙으로 향하도록 설정
                                     ball_vel[0] = direction_x * new_speed
@@ -38951,6 +39585,10 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 아이템 업데이트 (아이템 획득 사운드 전달)
                 items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET)
+                
+                # 물자보급 시스템 업데이트 (군인 캐릭터 전용)
+                if selected_character_type == "soldier":
+                    update_supply_drop_system()
                 
                 # 전설 아이템 매니저 업데이트 (물리 업데이트 전에 실행)
                 try:
@@ -41387,6 +42025,7 @@ def show_surrender_confirm():
                         return i == 0  # 예를 선택했으면 True
 def show_character_item_manager():
     """캐릭터 & 아이템 관리자 메뉴 - 캐릭터 선택과 아이템 관리를 통합"""
+    print("DEBUG: show_character_item_manager() 함수 시작")
     global active_item_slot, passive_item_list, selected_item_index, selected_passive_item
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained, sensor_obtained
@@ -41394,7 +42033,8 @@ def show_character_item_manager():
     global rolling_charges, items, selected_character_type
     
     # 메뉴 탭 선택 상태: 0: 캐릭터, 1: 엑티브, 2: 패시브, 3: 전설
-    selected_main_tab = 0  
+    selected_main_tab = 0
+    print(f"DEBUG: selected_main_tab = {selected_main_tab} (캐릭터 탭)")  
     selected_category = 1  # 아이템 카테고리별 선택 (캐릭터 탭에서는 사용하지 않음)
     selected_item_index = 0
     
