@@ -6698,6 +6698,9 @@ def update_soldier_bullets():
                     })
                 
                 print("💥 총알이 보스에게 명중! 보스 스턴!")
+                
+                # 넉백 효과 트리거
+                trigger_boss_knockback(bullet["x"], bullet["y"])
 
 def draw_soldier_bullets(screen):
     """군인 총알 그리기"""
