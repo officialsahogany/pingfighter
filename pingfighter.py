@@ -6838,6 +6838,33 @@ def update_soldier_bullets():
                 
                 print("💥 총알이 보스에게 명중! 보스 스턴!")
                 
+                # 군인 권총으로 보스 명중 시 게이지 20+ 증가
+                global special_gauge, special_ready
+                gauge_increase = 20  # 기본 20 증가
+                
+                # 헤드샷/레그샷 시 추가 보너스
+                if shot_roll < HEAD_SHOT_CHANCE:
+                    gauge_increase = 30  # 헤드샷 시 30 증가
+                    print("🎯 헤드샷 보너스! 게이지 30 증가!")
+                elif shot_roll < HEAD_SHOT_CHANCE + LEG_SHOT_CHANCE:
+                    gauge_increase = 25  # 레그샷 시 25 증가  
+                    print("🎯 레그샷 보너스! 게이지 25 증가!")
+                else:
+                    print("🎯 군인 권총 명중! 게이지 20 증가!")
+                
+                # 게이지 증가 적용
+                old_gauge = special_gauge
+                special_gauge += gauge_increase
+                current_max = get_max_gauge()
+                if special_gauge > current_max:
+                    special_gauge = current_max
+                
+                # 필살기 준비 상태 업데이트
+                if special_gauge >= 350:
+                    special_ready = True
+                
+                print(f"군인 권총 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
+                
                 # 넉백 효과 트리거 - 기존 시스템 사용 (boss_knockback_vel을 설정하는 함수)
                 trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
 
