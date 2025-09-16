@@ -6773,15 +6773,13 @@ def update_soldier_bullets():
             
             if bullet_rect.colliderect(BOSS):
                 bullet["active"] = False
-                # 보스 스턴 효과 (0.5초) - 수류탄과 동일한 별 효과 사용
                 global boss_stunned_timer, leg_shot_active, leg_shot_timer, leg_shot_text_timer
                 global head_shot_active, head_shot_timer, head_shot_text_timer
-                boss_stunned_timer = 30  # 0.5초 스턴 (수류탄과 동일한 시각 효과)
                 
                 # 헤드샷과 레그샷 중 하나만 발동 (각 50% 확률)
                 shot_roll = random.random()
                 if shot_roll < HEAD_SHOT_CHANCE:
-                    # 헤드샷 발동
+                    # 헤드샷 발동 (1.5초 스턴)
                     head_shot_active = True
                     head_shot_timer = HEAD_SHOT_DURATION  # 1.5초간 스턴
                     head_shot_text_timer = HEAD_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
@@ -6792,6 +6790,9 @@ def update_soldier_bullets():
                     leg_shot_timer = LEG_SHOT_DURATION  # 3초간 지속
                     leg_shot_text_timer = LEG_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
                     print("🎯 레그샷! 보스 이동속도 30% 감소!")
+                else:
+                    # 일반 명중 (0.5초 스턴)
+                    boss_stunned_timer = 30  # 0.5초 스턴 (수류탄과 동일한 시각 효과)
                 
                 # 라그나로크 해머 방식의 넉백 효과 적용
                 trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
