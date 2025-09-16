@@ -6837,8 +6837,11 @@ def draw_leg_shot_effect(screen):
             # 알파값 적용
             glow_surface.set_alpha(alpha)
             
-            # 화면에 그리기 (보스 위 50픽셀)
-            final_rect = glow_surface.get_rect(center=(BOSS.centerx, BOSS.centery - 50))
+            # 화면에 그리기 (보스 패들 왼쪽 하단)
+            # 보스 패들의 왼쪽 하단 위치 계산
+            text_x = BOSS.left - 30  # 보스 왼쪽에서 30픽셀 왼쪽
+            text_y = BOSS.bottom - 20  # 보스 하단에서 20픽셀 위
+            final_rect = glow_surface.get_rect(center=(text_x, text_y))
             screen.blit(glow_surface, final_rect)
             
             # 임팩트 라인 효과 (초반에만)
@@ -6846,10 +6849,10 @@ def draw_leg_shot_effect(screen):
                 line_brightness = int(255 * (1.0 - progress * 5))
                 for angle in range(0, 360, 45):
                     import math
-                    end_x = BOSS.centerx + math.cos(math.radians(angle)) * 50 * (1 + progress * 2)
-                    end_y = BOSS.centery - 50 + math.sin(math.radians(angle)) * 50 * (1 + progress * 2)
+                    end_x = text_x + math.cos(math.radians(angle)) * 50 * (1 + progress * 2)
+                    end_y = text_y + math.sin(math.radians(angle)) * 50 * (1 + progress * 2)
                     pygame.draw.line(screen, (line_brightness, line_brightness // 2, line_brightness // 2), 
-                                   (BOSS.centerx, BOSS.centery - 50), 
+                                   (text_x, text_y), 
                                    (end_x, end_y), 2)
             
         except Exception as e:
