@@ -154,8 +154,18 @@ class Bazooka:
                 projectile["active"] = False
                 print(f"💥 바주카포 보스 패들 명중! 폭발 범위: {self.EXPLOSION_RADIUS}")
                 
-            # 보스 영역 뒷벽과 충돌 체크 (화면 상단 20px 내)
-            elif projectile["y"] <= 20:
+        return explosions
+        
+    def check_wall_collision(self):
+        """벽과의 충돌 체크 (화면 경계)"""
+        explosions = []
+        
+        for projectile in self.projectiles[:]:
+            if not projectile["active"]:
+                continue
+                
+            # 화면 상단 벽과 충돌 체크 (y <= 20)
+            if projectile["y"] <= 20:
                 # 뒷벽 폭발 생성
                 explosion = {
                     "x": projectile["x"],
@@ -168,7 +178,23 @@ class Bazooka:
                 
                 # 발사체 제거
                 projectile["active"] = False
-                print(f"💥 바주카포 뒷벽 충돌! 폭발 범위: {self.EXPLOSION_RADIUS}")
+                print(f"💥 바주카포 벽 충돌! 폭발 범위: {self.EXPLOSION_RADIUS}")
+                
+            # 화면 좌우 벽과 충돌 체크
+            elif projectile["x"] <= 10 or projectile["x"] >= 790:
+                # 측벽 폭발 생성
+                explosion = {
+                    "x": max(10, min(790, projectile["x"])),  # 화면 내 위치로 조정
+                    "y": projectile["y"],
+                    "radius": self.EXPLOSION_RADIUS,
+                    "knockback": self.KNOCKBACK_POWER,
+                    "stun_duration": self.STUN_DURATION
+                }
+                explosions.append(explosion)
+                
+                # 발사체 제거
+                projectile["active"] = False
+                print(f"💥 바주카포 측벽 충돌! 폭발 범위: {self.EXPLOSION_RADIUS}")
                 
         return explosions
         
