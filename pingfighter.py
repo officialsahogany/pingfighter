@@ -9070,10 +9070,6 @@ def handle_player(keys):
             if supply_drop_hold_time % 10 == 0:  # 0.17초마다 출력
                 progress = (supply_drop_hold_time / SUPPLY_DROP_HOLD_REQUIRED) * 100
                 print(f"📻 물자보급 홀드 중: {progress:.1f}% ({supply_drop_hold_time}/{SUPPLY_DROP_HOLD_REQUIRED})")
-        else:
-            # 물자보급 사용 불가 이유 출력
-            if supply_drop_hold_time == 1:  # 처음 시도할 때만
-                print(f"❌ 물자보급 사용 불가: can_use={can_use_supply_drop}, gauge={special_gauge}/{SUPPLY_DROP_GAUGE_COST}, serve_timer={serve_completed_timer}")
             
             # 1초 홀드 완료 시 발동
             if supply_drop_hold_time >= SUPPLY_DROP_HOLD_REQUIRED:
@@ -9103,6 +9099,10 @@ def handle_player(keys):
                 
                 print("📻 물자보급 요청! 무전기 모션 시작")
                 print("물자보급 발동! 1초 후 비행기 출현")
+        else:
+            # 물자보급 사용 불가 이유 출력
+            if supply_drop_hold_time == 1:  # 처음 시도할 때만
+                print(f"❌ 물자보급 사용 불가: can_use={can_use_supply_drop}, gauge={special_gauge}/{SUPPLY_DROP_GAUGE_COST}, serve_timer={serve_completed_timer}")
     else:
         # ↓키를 떼면 홀드 시간 초기화
         if supply_drop_hold_time > 0:
