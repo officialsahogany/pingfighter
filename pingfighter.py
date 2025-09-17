@@ -139,6 +139,8 @@ from item_effects.bluetooth_ring import (
     is_bluetooth_ring_active
 )
 from item_effects.smartphone import get_smartphone_instance
+from item_effects.ammo_box import get_ammo_box_instance
+from item_effects.ak47 import get_ak47_instance
 #  전설 아이템 시스템
 from legendary_items import get_legendary_manager, LegendaryItem
 #  전설 아이템 획득 애니메이션
@@ -1282,6 +1284,7 @@ SOUND_THROW = pygame.mixer.Sound(resource_path("sounds/throw.wav"))  #  투척 �
 SOUND_ITEM_GET = pygame.mixer.Sound(resource_path("sounds/itemget.wav"))  #  아이템 획득 효과음
 SOUND_HONGRYUN_CHARGE = pygame.mixer.Sound(resource_path("sounds/hongcharge.wav"))  #  홍련폭염 차징 효과음
 SOUND_HONGRYUN_SHOOT = pygame.mixer.Sound(resource_path("sounds/hongshoot.wav"))  #  홍련폭염 발사 효과음
+SOUND_BAZOOKA_GOING = pygame.mixer.Sound(resource_path("sounds/bazukagoing.wav"))  # 바주카포 발사 시작 효과음
 # Stage 5 보스 피격 효과음
 #  Stage 5 홍련 피격 효과음들 (3개 중 랜덤)
 SOUND_STAGE5_HURTS = []
@@ -2907,7 +2910,7 @@ supply_drop_timer = 0  # 물자보급 발동 후 타이머
 supply_radio_motion = False  # 무전기 모션 활성 여부
 supply_radio_timer = 0  # 무전기 모션 타이머 (0.5초)
 SUPPLY_DROP_GAUGE_COST = 350  # 물자보급 스킬 게이지 소모량
-SUPPLY_DROP_ITEMS = ["grenade", "molotov", "flare", "bazooka"]  # 투척 가능한 아이템 목록 (바주카포 추가)
+SUPPLY_DROP_ITEMS = ["grenade", "molotov", "flare", "bazooka", "ak47", "ammo_box"]  # 투척 가능한 아이템 목록 (바주카포, AK-47, 탄약상자 추가)
 
 # === 군용 비행기 클래스 ===
 class SupplyAircraft:
@@ -3100,7 +3103,7 @@ class SupplyAircraft:
         global supply_drop_items
         
         # 랜덤 아이템 선택 (균등 확률)
-        weights = [1, 1, 1, 0.5]  # 수류탄, 화염병, 조명탄 각각 30%, 바주카포 15%
+        weights = [1, 1, 1, 0.5, 0.5, 0.8]  # 수류탄, 화염병, 조명탄 각 25%, 바주카포 12.5%, AK-47 12.5%, 탄약상자 20%
         item_name = random.choices(SUPPLY_DROP_ITEMS, weights=weights, k=1)[0]
         print(f"🎁🎁🎁 [물자보급 드롭] {item_name} 드롭! 🎁🎁🎁")
         
@@ -3800,10 +3803,21 @@ def activate_supply_drop_item(item_name):
             # 바주카포 인스턴스 초기화 및 장착
             from item_effects.bazooka import get_bazooka_instance
             bazooka = get_bazooka_instance()
-            bazooka.equip()
             
-            # 무기를 바주카포로 교체
-            current_weapon_index = len(soldier_weapons) - 1  # 방금 추가된 바주카포 선택
+    # AK-47인 경우 특별 처리
+    elif item_name == "ak47":
+        
+        # AK-47을 화기류 리스트에 추가
+        if "ak47" not in soldier_weapons:
+            soldier_weapons.append("ak47")
+            print(f"🔫 AK-47 획득! 현재 화기류: {soldier_weapons}")
+            
+            # AK-47 인스턴스 초기화 및 활성화
+            ak47 = get_ak47_instance()
+            ak47.activate(None, None)  # AK-47 활성화
+            
+            # 무기를 AK-47로 자동 교체
+            current_weapon_index = len(soldier_weapons) - 1  # 방금 추가된 AK-47 선택
             
             # UI 강조 효과 활성화
             weapon_ui_highlight_timer = weapon_ui_highlight_duration
@@ -3816,7 +3830,8 @@ def activate_supply_drop_item(item_name):
             except:
                 pass
         return
-    
+        
+        
     # 일반 투척류 아이템 처리
     # 아이템 정보 검색
     item_data = None
@@ -3850,15 +3865,20 @@ def update_supply_drop_system():
     if supply_drop_active:
         if supply_drop_timer > 0:
             supply_drop_timer -= 1
+            # 디버그: 타이머 상태 출력
+            if supply_drop_timer % 30 == 0:  # 0.5초마다
+                print(f"🎁 [물자보급 타이머] {supply_drop_timer} 프레임 남음 ({supply_drop_timer/60:.1f}초)")
             if supply_drop_timer == 0:
                 # 비행기 생성
                 direction = random.choice(["left_to_right", "right_to_left"])
                 supply_aircraft = SupplyAircraft(direction)
-                print(f"군용 비행기 출현! 방향: {direction}")
-        # 타이머가 끝나고 비행기도 없고 아이템도 모두 사라졌을 때 비활성화
-        elif supply_aircraft is None and len(supply_drop_items) == 0:
+                print(f"✈️ 군용 비행기 출현! 방향: {direction}")
+        # 타이머가 끝나고 비행기가 없어지면 비활성화 (아이템은 남아있어도 OK)
+        elif supply_aircraft is None:
             supply_drop_active = False
-            print("물자보급 완전히 종료")
+            print("물자보급 완전히 종료 (비행기 파괴됨)")
+            if len(supply_drop_items) > 0:
+                print(f"  → 아직 {len(supply_drop_items)}개의 아이템이 필드에 남아있음")
     
     # 비행기 업데이트
     if supply_aircraft and supply_aircraft.active:
@@ -5267,6 +5287,17 @@ def apply_effect(effect_name):
         print(f"   : x{multipliers['active_cooldown']:.1f}")
         print(f"  / : x{multipliers['skill_dash_cost']:.1f}")
         print(f"   : x{multipliers['dash_cooldown']:.1f}")
+    elif effect_name == "ammo_box":  # 📦 탄약상자 아이템 활성화
+        ammo_box = get_ammo_box_instance()
+        if ammo_box:
+            # 권총 재장전
+            global soldier_pistol_ammo, SOLDIER_PISTOL_MAX_AMMO
+            prev_pistol_ammo = soldier_pistol_ammo
+            soldier_pistol_ammo = SOLDIER_PISTOL_MAX_AMMO
+            print(f"   🔫 권총 재장전: {prev_pistol_ammo} → {soldier_pistol_ammo}")
+            
+            # 나머지 무기 재장전 (바주카포, AK-47 등)
+            ammo_box.activate(None, current_stage)
 # === 벌크업 발동 함수 ===
 def activate_long_boost():
     global long_boost_active, long_boost_timer, long_boost_scale, long_boost_target_scale
@@ -7880,6 +7911,56 @@ def draw_soldier_weapon_ui(screen):
                 screen.blit(status_surface, (weapon_x, weapon_y - 20))
         except:
             pass
+    
+    elif current_weapon == "ak47":
+        # AK-47 무기 정보 표시
+        ak47 = get_ak47_instance()
+        if ak47.active:
+            # AK-47 아이콘 그리기 (간단한 소총 형태)
+            gun_center_x, gun_center_y = weapon_rect.center
+            
+            # AK-47 본체 (더 길고 큰 형태)
+            body_rect = pygame.Rect(gun_center_x - 15, gun_center_y - 5, 25, 8)
+            pygame.draw.rect(screen, (80, 60, 40), body_rect)  # 갈색 본체
+            pygame.draw.rect(screen, (50, 40, 30), body_rect, 2)
+            
+            # 총열 (더 긴 총열)
+            barrel_rect = pygame.Rect(gun_center_x + 10, gun_center_y - 3, 15, 4)
+            pygame.draw.rect(screen, (40, 40, 40), barrel_rect)  # 어두운 총열
+            
+            # 탄창 (AK-47 특징적인 곡선 탄창)
+            mag_rect = pygame.Rect(gun_center_x - 5, gun_center_y + 3, 8, 12)
+            pygame.draw.rect(screen, (60, 50, 30), mag_rect)  # 탄창
+            pygame.draw.rect(screen, (40, 30, 20), mag_rect, 1)
+            
+            # 개머리판
+            stock_rect = pygame.Rect(gun_center_x - 20, gun_center_y - 2, 8, 6)
+            pygame.draw.rect(screen, (60, 40, 20), stock_rect)  # 나무 개머리판
+            
+            # AK-47 상태 표시
+            if ak47.reloading:
+                reload_progress = 1 - (ak47.reload_timer / ak47.reload_time)
+                status_text = f"재장전 {int(reload_progress * 100)}%"
+                status_color = (255, 150, 0)
+            else:
+                status_text = f"AK-47: {ak47.current_ammo}/{ak47.max_ammo}"
+                if ak47.current_ammo <= 5:
+                    status_color = (255, 100, 100)  # 탄약 부족 시 빨간색
+                else:
+                    status_color = (100, 255, 100)  # 정상 시 초록색
+            
+            # 상태 텍스트 표시
+            try:
+                if 'font_small' in globals() and font_small:
+                    status_surface = font_small.render(status_text, True, status_color)
+                    screen.blit(status_surface, (weapon_x, weapon_y - 20))
+            except:
+                pass
+        else:
+            # AK-47이 비활성화된 경우 회색 실루엣
+            gun_center_x, gun_center_y = weapon_rect.center
+            body_rect = pygame.Rect(gun_center_x - 15, gun_center_y - 5, 25, 8)
+            pygame.draw.rect(screen, (60, 60, 60), body_rect, 1)
             
     else:
         # 권총 무기 정보 표시 (기존 코드)
@@ -8020,7 +8101,8 @@ def draw_soldier_weapon_ui(screen):
     # 현재 무기 이름 표시 (강조 효과 있을 때 더 크게)
     weapon_names = {
         "pistol": "권총",
-        "bazooka": "바주카포"
+        "bazooka": "바주카포",
+        "ak47": "AK-47"
     }
     
     weapon_name = weapon_names.get(current_weapon, current_weapon)
@@ -8859,6 +8941,17 @@ def handle_player(keys):
                 from item_effects.bazooka import get_bazooka_instance
                 bazooka = get_bazooka_instance()
                 bazooka.unequip()
+            if 'ak47' in soldier_weapons:
+                ak47 = get_ak47_instance()
+                # AK-47은 unequip이 없음, deactivate만 있음
+        elif current_weapon == "ak47":
+            # AK-47로 전환
+            if 'bazooka' in soldier_weapons:
+                from item_effects.bazooka import get_bazooka_instance
+                bazooka = get_bazooka_instance()
+                bazooka.unequip()
+            ak47 = get_ak47_instance()
+            # AK-47은 활성화 유지 (이미 획득한 경우)
         
         print(f"🔄 화기 교체: {current_weapon}")
         
@@ -8894,10 +8987,12 @@ def handle_player(keys):
         not supply_drop_active and special_gauge >= SUPPLY_DROP_GAUGE_COST and
         can_use_supply_drop):
         # 물자보급 스킬 발동
+        timer_value = random.randint(90, 300)  # 1.5초~5초 (60fps 기준)
         print(f"✅ 물자보급 발동 성공! special_gauge: {special_gauge} -> {special_gauge - SUPPLY_DROP_GAUGE_COST}")
+        print(f"🎁 타이머 설정: {timer_value} 프레임 ({timer_value/60:.1f}초 후 비행기 출현)")
         supply_drop_active = True
         special_gauge -= SUPPLY_DROP_GAUGE_COST
-        supply_drop_timer = random.randint(90, 300)  # 1.5초~5초 (60fps 기준)
+        supply_drop_timer = timer_value
         
         # 무전기 모션 활성화 (0.5초)
         supply_radio_motion = True
@@ -8961,8 +9056,8 @@ def handle_player(keys):
         player_knockback_vel *= 0.85
         PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 스턴 중에도 거대화포션 효과 적용
         return  #  스턴 중에는 조작 불가
-    # 스테이지 6 미사일 넉백 처리
-    if current_stage == 6 and player_missile_stunned_timer > 0:
+    # 미사일/폭발 넉백 처리 (물자보급 비행기 폭발 포함)
+    if player_missile_stunned_timer > 0:
         player_missile_stunned_timer -= 1
         # 넉백 적용
         PLAYER.x += player_missile_knockback_vel
@@ -8970,7 +9065,7 @@ def handle_player(keys):
         # 감속 (화염탄과 동일한 0.85)
         player_missile_knockback_vel *= 0.85
         PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 스턴 중에도 거대화포션 효과 적용
-        return  # 미사일 넉백 중에는 조작 불가
+        return  # 넉백 중에는 조작 불가
     #  벽돌 설치 중에는 움직이지 못함
     if wall_installing:
         return
@@ -10247,13 +10342,39 @@ def handle_player(keys):
                     from item_effects.bazooka import get_bazooka_instance
                     bazooka = get_bazooka_instance()
                     if bazooka.can_fire():
+                        # 바주카포 발사 시작 효과음 (발사 준비)
+                        try:
+                            SOUND_BAZOOKA_GOING.set_volume(0.6)
+                            SOUND_BAZOOKA_GOING.play()
+                        except:
+                            pass
+                        
                         if bazooka.fire(PLAYER, pygame.time.get_ticks()):
                             soldier_control_lock_timer = bazooka.control_lock_timer
-                            # 바주카포 발사 사운드
+                            # 바주카포 발사 사운드 (실제 발사)
                             try:
                                 bazooka_sound = pygame.mixer.Sound(resource_path("sounds/rocket_launch.wav"))
                                 bazooka_sound.set_volume(0.5)
                                 bazooka_sound.play()
+                            except:
+                                pass
+                                
+                elif current_weapon == "ak47":
+                    # AK-47 발사
+                    ak47 = get_ak47_instance()
+                    if ak47.can_fire():
+                        # 플레이어와 공의 위치 정보로 발사
+                        player_rect = pygame.Rect(PLAYER['x'], PLAYER['y'], PLAYER['width'], PLAYER['height'])
+                        ball_rect = pygame.Rect(ball_x - 10, ball_y - 10, 20, 20)
+                        
+                        if ak47.fire(player_rect, ball_rect):
+                            # AK-47 발사 사운드 (필요시 추가)
+                            try:
+                                # 총소리 사운드 파일이 있다면
+                                # ak47_sound = pygame.mixer.Sound(resource_path("sounds/ak47_shot.wav"))
+                                # ak47_sound.set_volume(0.3)
+                                # ak47_sound.play()
+                                pass
                             except:
                                 pass
                 else:
@@ -15435,6 +15556,7 @@ def draw_objects():
     global player_missile_invulnerable_time  # 미사일 무적 시간
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
     global frame_count  # 프레임 카운터 추가
+    global player_missile_stunned_timer  # 미사일 스턴 타이머 추가
     new_tear_particles = []  #  함수 시작 시 초기화
     
     # 전설 아이템 물결 효과 그리기 (업데이트는 물리 루프에서 이미 처리됨)
@@ -16604,6 +16726,44 @@ def draw_objects():
         SCREEN.blit(burn_surface, 
                    (PLAYER.centerx - (PADDLE_WIDTH + 40) // 2 + screen_shake_offset_x,
                     PLAYER.centery - (PADDLE_HEIGHT + 40) // 2 + screen_shake_offset_y))
+    
+    # 플레이어 스턴 효과 (물자보급 비행기 폭발, 미사일 등)
+    if player_missile_stunned_timer > 0:
+        # 스턴 중일 때 머리 위에 별 효과
+        stars_y = PLAYER.y - 40
+        rotation_angle = (18 - player_missile_stunned_timer) * 20  # 회전 각도
+        
+        # 별 3개가 머리 위에서 회전
+        for i in range(3):
+            angle = rotation_angle + i * 120  # 120도 간격
+            star_x = PLAYER.centerx + math.cos(math.radians(angle)) * 25
+            star_y = stars_y + math.sin(math.radians(angle)) * 15
+            
+            # 별 그리기 (노란색)
+            points = []
+            for j in range(5):
+                outer_angle = math.radians(j * 72 - 90 + rotation_angle)
+                inner_angle = math.radians(j * 72 + 36 - 90 + rotation_angle)
+                
+                # 바깥쪽 점
+                outer_x = star_x + math.cos(outer_angle) * 12
+                outer_y = star_y + math.sin(outer_angle) * 12
+                points.append((outer_x, outer_y))
+                
+                # 안쪽 점
+                inner_x = star_x + math.cos(inner_angle) * 6
+                inner_y = star_y + math.sin(inner_angle) * 6
+                points.append((inner_x, inner_y))
+            
+            pygame.draw.polygon(SCREEN, (255, 255, 0), points)
+            
+        # 스턴 텍스트 표시
+        if player_missile_stunned_timer % 30 == 0:  # 0.5초마다
+            stun_text = "STUN!"
+            text_surface = FONT.render(stun_text, True, (255, 100, 100))
+            text_x = PLAYER.centerx - text_surface.get_width() // 2
+            text_y = PLAYER.y - 60
+            SCREEN.blit(text_surface, (text_x, text_y))
     #  투척 모션 중 아이템 표시
     if molotov_throwing or grenade_throwing or flare_throwing:
         throw_progress = 0
@@ -17937,7 +18097,6 @@ def draw_objects():
     effects_manager.draw_all_effects(SCREEN)
     # 터렛 미사일 업데이트 및 그리기 (스테이지 6에서만)
     if current_stage == 6:
-        global player_missile_stunned_timer, player_missile_knockback_vel
         current_time = pygame.time.get_ticks()
         # 미사일 업데이트
         new_missiles = []
@@ -18223,6 +18382,11 @@ def draw_objects():
         bazooka = get_bazooka_instance()
         if bazooka.equipped:
             bazooka.draw_projectiles(SCREEN)
+            
+        # === AK-47 총알 그리기 ===
+        ak47 = get_ak47_instance()
+        if ak47.active:
+            ak47.draw_bullets(SCREEN)
     
     # === 피 파티클 그리기 ===
     if selected_character_type == "soldier":
@@ -19783,6 +19947,10 @@ def show_start_screen():
                 elif event.key == pygame.K_1:
                     play_button_click_sound()  #  클릭 사운드
                     show_developer_stage_select()
+                    return
+                elif event.key == pygame.K_2 and item_manager_unlocked:
+                    play_button_click_sound()  #  클릭 사운드
+                    show_item_manager_menu()
                     return
                 if pygame.K_0 <= event.key <= pygame.K_9:
                     num = event.key - pygame.K_0
@@ -28524,6 +28692,41 @@ def get_item_icon(item_name):
         pygame.draw.line(default_icon, (255, 255, 255), (19, 15), (16, 17), 1)
         icon_cache[item_name] = default_icon
         return default_icon
+    
+    elif item_name == "ammo_box":
+        # ammo_box.png 파일 시도
+        try:
+            icon_path = resource_path("items/ammo_box.png")
+            if os.path.exists(icon_path):
+                icon = pygame.image.load(icon_path).convert_alpha()
+                icon = pygame.transform.scale(icon, (ICON_SIZE, ICON_SIZE))
+                icon_cache[item_name] = icon
+                return icon
+        except:
+            pass
+        
+        # 파일이 없을 경우 프로그래밍으로 아이콘 생성
+        default_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        # 탄약상자 아이콘
+        # 상자 본체 (갈색)
+        box_rect = pygame.Rect(4, 8, 24, 20)
+        pygame.draw.rect(default_icon, (139, 69, 19), box_rect)
+        pygame.draw.rect(default_icon, (101, 67, 33), box_rect, 2)
+        # 상자 뚜껑
+        lid_rect = pygame.Rect(3, 6, 26, 4)
+        pygame.draw.rect(default_icon, (160, 82, 45), lid_rect)
+        pygame.draw.rect(default_icon, (101, 67, 33), lid_rect, 1)
+        # 십자 표시
+        pygame.draw.rect(default_icon, (255, 255, 255), (12, 15, 8, 3))
+        pygame.draw.rect(default_icon, (255, 255, 255), (15, 12, 3, 8))
+        # 탄환들
+        pygame.draw.rect(default_icon, (100, 100, 100), (2, 20, 2, 5))
+        pygame.draw.rect(default_icon, (200, 50, 50), (2, 19, 2, 2))
+        pygame.draw.rect(default_icon, (100, 100, 100), (28, 20, 2, 5))
+        pygame.draw.rect(default_icon, (200, 50, 50), (28, 19, 2, 2))
+        icon_cache[item_name] = default_icon
+        return default_icon
+    
     
     # unknown_item.png 시도 (스마트폰이 아닌 경우만)
     try:
@@ -40384,6 +40587,11 @@ def main(stage_num, new_boss_mode=False):
         # 테크니컬조끼 업데이트 (플레이어 패들 위치 전달)
         update_technical_vest(PLAYER)
         
+        # 📦 탄약상자 업데이트
+        ammo_box = get_ammo_box_instance()
+        if ammo_box and ammo_box.active:
+            ammo_box.update(current_stage)
+        
         # 악마의 주사위 굴리는 중인지 확인
         devil_dice_paused = is_devil_dice_rolling()
         
@@ -40799,6 +41007,10 @@ def main(stage_num, new_boss_mode=False):
                 # 물자보급 시스템 업데이트 (군인 캐릭터 전용)
                 if selected_character_type == "soldier":
                     update_supply_drop_system()
+                else:
+                    # 디버그: 군인이 아닐 때 물자보급 활성 상태 확인
+                    if supply_drop_active and frame_count % 60 == 0:
+                        print(f"⚠️ [경고] 물자보급 활성화되었지만 캐릭터가 군인이 아님! (현재: {selected_character_type})")
                 
                 # 전설 아이템 매니저 업데이트 (물리 업데이트 전에 실행)
                 try:
@@ -40838,6 +41050,11 @@ def main(stage_num, new_boss_mode=False):
                     bazooka = get_bazooka_instance()
                     if bazooka.equipped:
                         bazooka.update(0.016)  # 60fps 기준
+                    
+                    # AK-47 시스템 업데이트
+                    ak47 = get_ak47_instance()
+                    if ak47.active:
+                        ak47.update(current_stage)
                     # 쿨다운 감소
                     if soldier_gun_cooldown > 0:
                         soldier_gun_cooldown -= 1
@@ -41087,6 +41304,11 @@ def main(stage_num, new_boss_mode=False):
         from item_effects.devil_dice import draw_devil_dice_effects, is_devil_dice_active
         if is_devil_dice_active():
             draw_devil_dice_effects(SCREEN, PLAYER)  # 패들 효과와 주사위 애니메이션 모두 그리기
+        
+        # 📦 탄약상자 효과 그리기
+        ammo_box = get_ammo_box_instance()
+        if ammo_box and ammo_box.active:
+            ammo_box.draw_effects(SCREEN, player_rect=PLAYER)
         
         if profiler:
             profiler.end_section("Rendering")
@@ -42579,6 +42801,7 @@ def get_item_name_korean(item_name):
         "bluetooth_ring": "블루투스링",
         "smartphone": "스마트폰",
         "knee_pads": "무릎보호대",
+        "ammo_box": "탄약상자",
         "ragnarok_hammer": "라그나로크 해머",
         "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창"
@@ -42622,6 +42845,8 @@ def get_item_description(item_name):
         "bluetooth_ring": "블루투스링: 플레이어가 공을 칠 때 게이지 충전량이 25% 증가합니다.",
         "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
         "knee_pads": "무릎보호대: 하프대쉬로 공을 맞출 때 게이지가 50% 충전됩니다. 하프대쉬 성공 시 노란색 빛나는 이펙트가 나타납니다.",
+        "ammo_box": "탄약상자: 권총을 포함한 모든 보유 화기류의 탄창을 완전히 재장전합니다. 권총, 바주카포, AK-47 등 모든 화기류에 사용 가능합니다.",
+        "ak47": "AK-47: 강력한 자동소총. 30발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!"

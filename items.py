@@ -86,6 +86,7 @@ def load_item_icons():
         "bluetooth_ring": "bluetooth_ring.png",  # 블루투스링 아이콘
         "smartphone": "smartphone.png",  # 스마트폰 아이콘
         "bazooka": "bazooka.png",  # 바주카포 아이콘
+        "ammo_box": "ammo_box.png",  # 탄약상자 아이콘
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
         "hermes_shoes": "legendary/hermes_shoes.png"
@@ -450,6 +451,15 @@ ITEM_TYPES = [
         "chance": 0.005,  # 확률 1.0%
         "duration": 600,
         "unlock_condition": None
+    },
+    {
+        "name": "ammo_box",  # 📦 탄약상자 액티브 아이템 (물자보급 전용)
+        "color": (139, 69, 19),  # 갈색 (탄약상자 색상)
+        "effect": "ammo_box",
+        "icon": None,
+        "chance": 0,  # 확률 0% (물자보급에서만 획득 가능)
+        "duration": 0,  # 즉시 사용형
+        "unlock_condition": None
     }
 ]
 
@@ -534,6 +544,7 @@ unlocked_items = {
     "fuel_pouch": True,
     "bluetooth_ring": True,
     "smartphone": True,
+    "ammo_box": True,
     
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True,
