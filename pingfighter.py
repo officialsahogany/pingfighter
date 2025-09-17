@@ -2911,6 +2911,7 @@ supply_radio_motion = False  # 무전기 모션 활성 여부
 supply_radio_timer = 0  # 무전기 모션 타이머 (0.5초)
 supply_drop_hold_time = 0  # 물자보급 발동을 위한 ↓키 홀드 시간
 SUPPLY_DROP_HOLD_REQUIRED = 60  # 물자보급 발동에 필요한 홀드 시간 (1초, 60fps 기준)
+SUPPLY_DROP_HOLD_THRESHOLD = 18  # 게이지 표시 시작 시간 (0.3초, 60fps 기준)
 SUPPLY_DROP_GAUGE_COST = 350  # 물자보급 스킬 게이지 소모량
 SUPPLY_DROP_ITEMS = ["grenade", "molotov", "flare", "bazooka", "ak47", "ammo_box"]  # 투척 가능한 아이템 목록 (바주카포, AK-47, 탄약상자 추가)
 
@@ -3918,6 +3919,82 @@ def update_supply_drop_system():
     # 낙하산 아이템 업데이트
     update_supply_drop_items()
 
+def draw_supply_drop_gauge(screen):
+    """물자보급 호출 게이지 및 무전기 애니메이션 그리기"""
+    global supply_drop_hold_time, SUPPLY_DROP_HOLD_REQUIRED, SUPPLY_DROP_HOLD_THRESHOLD
+    
+    # 0.3초 이상 누르고 있을 때만 표시
+    if supply_drop_hold_time < SUPPLY_DROP_HOLD_THRESHOLD:
+        return
+    
+    # 플레이어 위치
+    player_x = PLAYER.centerx
+    player_y = PLAYER.top - 40  # 패들 위 40픽셀
+    
+    # 게이지 배경 (반투명 검은색)
+    gauge_width = 80
+    gauge_height = 12
+    gauge_x = player_x - gauge_width // 2
+    gauge_y = player_y
+    
+    # 게이지 배경
+    bg_surface = pygame.Surface((gauge_width + 4, gauge_height + 4), pygame.SRCALPHA)
+    bg_surface.fill((0, 0, 0, 180))
+    screen.blit(bg_surface, (gauge_x - 2, gauge_y - 2))
+    
+    # 게이지 테두리
+    pygame.draw.rect(screen, (255, 255, 255), 
+                    pygame.Rect(gauge_x - 1, gauge_y - 1, gauge_width + 2, gauge_height + 2), 2)
+    
+    # 게이지 채우기 (황록색 그라데이션)
+    progress = (supply_drop_hold_time - SUPPLY_DROP_HOLD_THRESHOLD) / (SUPPLY_DROP_HOLD_REQUIRED - SUPPLY_DROP_HOLD_THRESHOLD)
+    progress = max(0, min(1, progress))  # 0~1 범위로 제한
+    
+    if progress > 0:
+        fill_width = int(gauge_width * progress)
+        # 그라데이션 효과
+        for i in range(fill_width):
+            color_ratio = i / gauge_width
+            r = int(255 * (1 - color_ratio * 0.2))  # 255 -> 204
+            g = int(200 + 55 * color_ratio)  # 200 -> 255
+            b = 0
+            pygame.draw.line(screen, (r, g, b), 
+                           (gauge_x + i, gauge_y), 
+                           (gauge_x + i, gauge_y + gauge_height - 1))
+    
+    # 무전기 애니메이션 (게이지 오른쪽)
+    radio_x = gauge_x + gauge_width + 10
+    radio_y = gauge_y + gauge_height // 2
+    
+    # 무전기 몸체
+    radio_color = (60, 60, 60)
+    pygame.draw.rect(screen, radio_color, 
+                    pygame.Rect(radio_x, radio_y - 8, 12, 16))
+    
+    # 안테나 (애니메이션)
+    antenna_length = 8 + int(math.sin(pygame.time.get_ticks() * 0.01) * 3)
+    pygame.draw.line(screen, (150, 150, 150), 
+                    (radio_x + 6, radio_y - 8), 
+                    (radio_x + 6, radio_y - 8 - antenna_length), 2)
+    
+    # 전파 신호 (애니메이션)
+    if pygame.time.get_ticks() % 500 < 250:  # 0.5초마다 깜빡임
+        for i in range(3):
+            radius = 5 + i * 4
+            alpha = 150 - i * 40
+            wave_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(wave_surface, (255, 255, 0, alpha), 
+                             (radius, radius), radius, 1)
+            screen.blit(wave_surface, 
+                       (radio_x + 6 - radius, radio_y - 8 - antenna_length - radius))
+    
+    # 게이지 퍼센트 표시
+    percent = int(progress * 100)
+    font = pygame.font.Font(None, 16)
+    percent_text = font.render(f"{percent}%", True, (255, 255, 255))
+    text_rect = percent_text.get_rect(center=(player_x, gauge_y + gauge_height // 2))
+    screen.blit(percent_text, text_rect)
+
 def draw_supply_radio_motion(screen):
     """무전기 모션 그리기 - 실제로 귀에 대고 통화하는 모습"""
     global supply_radio_motion, supply_radio_timer
@@ -4086,6 +4163,10 @@ def draw_supply_radio_motion(screen):
 
 def draw_supply_drop_system(screen):
     """물자보급 시스템 그리기"""
+    # 물자보급 호출 게이지 그리기 (↓키 홀드 시)
+    if selected_character_type == "soldier" and supply_drop_hold_time > 0:
+        draw_supply_drop_gauge(screen)
+    
     # 무전기 모션 그리기 (최우선)
     if selected_character_type == "soldier":
         draw_supply_radio_motion(screen)
