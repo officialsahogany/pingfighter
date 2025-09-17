@@ -2909,6 +2909,8 @@ supply_drop_items = []  # 낙하산으로 떨어지는 아이템들
 supply_drop_timer = 0  # 물자보급 발동 후 타이머
 supply_radio_motion = False  # 무전기 모션 활성 여부
 supply_radio_timer = 0  # 무전기 모션 타이머 (0.5초)
+supply_drop_hold_time = 0  # 물자보급 발동을 위한 ↓키 홀드 시간
+SUPPLY_DROP_HOLD_REQUIRED = 60  # 물자보급 발동에 필요한 홀드 시간 (1초, 60fps 기준)
 SUPPLY_DROP_GAUGE_COST = 350  # 물자보급 스킬 게이지 소모량
 SUPPLY_DROP_ITEMS = ["grenade", "molotov", "flare", "bazooka", "ak47", "ammo_box"]  # 투척 가능한 아이템 목록 (바주카포, AK-47, 탄약상자 추가)
 
@@ -8963,7 +8965,10 @@ def handle_player(keys):
         except:
             pass
     
-    # 물자보급 스킬 발동 조건 체크 (대시와 같은 방식으로 서브 상태 처리)
+    # 물자보급 스킬 - ↓키 홀드로 발동 (군인 캐릭터 전용)
+    global supply_drop_hold_time
+    
+    # 물자보급 발동 조건 체크 (대시와 같은 방식으로 서브 상태 처리)
     can_use_supply_drop = False
     # 기본 조건 (일반 상태에서)
     if not is_waiting_for_serve and not is_player_serve:
@@ -8974,43 +8979,49 @@ def handle_player(keys):
         if serve_wait_time >= 6000:  # 6초 이상 대기했을 때만
             can_use_supply_drop = True
     
-    # 디버그: 물자보급 시도 감지
-    if space_pressed and up_pressed and selected_character_type == "soldier":
-        print(f"🎁 [물자보급 시도] gauge={special_gauge}/{SUPPLY_DROP_GAUGE_COST}, active={supply_drop_active}, can_use={can_use_supply_drop}")
-        print(f"  - is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}")
-        print(f"  - space_pressed={space_pressed}, up_pressed={up_pressed}")
-        if is_player_serve and is_waiting_for_serve:
-            serve_wait_time = pygame.time.get_ticks() - waiting_start_time
-            print(f"  서브 대기 중: {serve_wait_time}ms (6000ms 필요)")
-    
-    if (space_pressed and up_pressed and selected_character_type == "soldier" and 
-        not supply_drop_active and special_gauge >= SUPPLY_DROP_GAUGE_COST and
-        can_use_supply_drop):
-        # 물자보급 스킬 발동
-        timer_value = random.randint(90, 300)  # 1.5초~5초 (60fps 기준)
-        print(f"✅ 물자보급 발동 성공! special_gauge: {special_gauge} -> {special_gauge - SUPPLY_DROP_GAUGE_COST}")
-        print(f"🎁 타이머 설정: {timer_value} 프레임 ({timer_value/60:.1f}초 후 비행기 출현)")
-        supply_drop_active = True
-        special_gauge -= SUPPLY_DROP_GAUGE_COST
-        supply_drop_timer = timer_value
-        
-        # 무전기 모션 활성화 (0.5초)
-        supply_radio_motion = True
-        supply_radio_timer = 30  # 0.5초 (60fps 기준)
-        
-        # 플레이어 통제불능 상태 (0.5초) - 프레임 단위 정확한 타이밍
-        player_stunned_timer = 30  # 정확히 30프레임 = 0.5초
-        
-        # 무전기 효과음 재생
-        try:
-            radio_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "radio.wav")))
-            radio_sound.set_volume(0.6)
-            radio_sound.play()
-        except Exception as e:
-            print(f"무전기 효과음 재생 실패: {e}")
-        
-        print("📻 물자보급 요청! 무전기 모션 시작")
-        print("물자보급 발동! 1초 후 비행기 출현")
+    # ↓키 홀드 체크 (군인 캐릭터만)
+    if down_pressed and selected_character_type == "soldier" and not supply_drop_active:
+        if can_use_supply_drop and special_gauge >= SUPPLY_DROP_GAUGE_COST:
+            supply_drop_hold_time += 1
+            
+            # 홀드 진행률 디버그
+            if supply_drop_hold_time % 10 == 0:  # 0.17초마다 출력
+                progress = (supply_drop_hold_time / SUPPLY_DROP_HOLD_REQUIRED) * 100
+                print(f"📻 물자보급 홀드 중: {progress:.1f}% ({supply_drop_hold_time}/{SUPPLY_DROP_HOLD_REQUIRED})")
+            
+            # 1초 홀드 완료 시 발동
+            if supply_drop_hold_time >= SUPPLY_DROP_HOLD_REQUIRED:
+                # 물자보급 스킬 발동
+                timer_value = random.randint(90, 300)  # 1.5초~5초 (60fps 기준)
+                print(f"✅ 물자보급 발동 성공! special_gauge: {special_gauge} -> {special_gauge - SUPPLY_DROP_GAUGE_COST}")
+                print(f"🎁 타이머 설정: {timer_value} 프레임 ({timer_value/60:.1f}초 후 비행기 출현)")
+                supply_drop_active = True
+                special_gauge -= SUPPLY_DROP_GAUGE_COST
+                supply_drop_timer = timer_value
+                supply_drop_hold_time = 0  # 홀드 시간 초기화
+                
+                # 무전기 모션 활성화 (0.5초)
+                supply_radio_motion = True
+                supply_radio_timer = 30  # 0.5초 (60fps 기준)
+                
+                # 플레이어 통제불능 상태 (0.5초) - 프레임 단위 정확한 타이밍
+                player_stunned_timer = 30  # 정확히 30프레임 = 0.5초
+                
+                # 무전기 효과음 재생
+                try:
+                    radio_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "radio.wav")))
+                    radio_sound.set_volume(0.6)
+                    radio_sound.play()
+                except Exception as e:
+                    print(f"무전기 효과음 재생 실패: {e}")
+                
+                print("📻 물자보급 요청! 무전기 모션 시작")
+                print("물자보급 발동! 1초 후 비행기 출현")
+    else:
+        # ↓키를 떼면 홀드 시간 초기화
+        if supply_drop_hold_time > 0:
+            print(f"📻 물자보급 홀드 중단 ({supply_drop_hold_time}/{SUPPLY_DROP_HOLD_REQUIRED})")
+        supply_drop_hold_time = 0
     
     
     # 튜토리얼 대쉬 도우미는 일정 시간 동안 유지 (바로 끄지 않음)
