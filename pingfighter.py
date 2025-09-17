@@ -3797,7 +3797,7 @@ def activate_supply_drop_item(item_name):
     
     # 바주카포인 경우 특별 처리
     if item_name == "bazooka":
-        global soldier_weapons, current_weapon_index, weapon_ui_highlight_timer
+        global soldier_weapons, current_weapon_index, weapon_ui_highlight_timer, weapon_ui_highlight_duration
         
         # 바주카포를 화기류 리스트에 추가
         if "bazooka" not in soldier_weapons:
@@ -3807,6 +3807,22 @@ def activate_supply_drop_item(item_name):
             # 바주카포 인스턴스 초기화 및 장착
             from item_effects.bazooka import get_bazooka_instance
             bazooka = get_bazooka_instance()
+            bazooka.equip()  # 바주카포 장착
+            
+            # 무기를 바주카포로 자동 교체
+            current_weapon_index = len(soldier_weapons) - 1  # 방금 추가된 바주카포 선택
+            
+            # UI 강조 효과 활성화
+            weapon_ui_highlight_timer = weapon_ui_highlight_duration
+            print(f"💫 화기류 UI 강조 효과 활성화! ({weapon_ui_highlight_duration//60}초)")
+            
+            # 아이템 획득 사운드
+            try:
+                if 'SOUND_ITEM_GET' in globals() and SOUND_ITEM_GET:
+                    SOUND_ITEM_GET.play()
+            except:
+                pass
+        return
             
     # AK-47인 경우 특별 처리
     elif item_name == "ak47":
@@ -4345,6 +4361,10 @@ soldier_reload_timer = 0  # 재장전 타이머 (120프레임 = 2초)
 SOLDIER_RELOAD_TIME = 120  # 2초 재장전 시간
 SOLDIER_RELOAD_GAUGE_COST = 150  # 재장전시 게이지 소모량
 soldier_last_reload_bullets = 0  # 재장전 중 마지막으로 표시된 총알 수
+
+# 권총 탄약 관련 변수
+soldier_pistol_ammo = 15  # 권총 현재 탄약
+SOLDIER_PISTOL_MAX_AMMO = 15  # 권총 최대 탄약
 
 # === 군인 총 발사 애니메이션 관련 변수 ===
 soldier_gun_animation_active = False  # 총 발사 애니메이션 진행 중인지
@@ -5376,7 +5396,11 @@ def apply_effect(effect_name):
         if ammo_box:
             # 권총 재장전
             global soldier_pistol_ammo, SOLDIER_PISTOL_MAX_AMMO
-            prev_pistol_ammo = soldier_pistol_ammo
+            # 현재 탄약 수 저장
+            if 'soldier_pistol_ammo' in globals():
+                prev_pistol_ammo = soldier_pistol_ammo
+            else:
+                prev_pistol_ammo = 0
             soldier_pistol_ammo = SOLDIER_PISTOL_MAX_AMMO
             print(f"   🔫 권총 재장전: {prev_pistol_ammo} → {soldier_pistol_ammo}")
             
@@ -9061,6 +9085,10 @@ def handle_player(keys):
         serve_wait_time = pygame.time.get_ticks() - waiting_start_time
         if serve_wait_time >= 6000:  # 6초 이상 대기했을 때만
             can_use_supply_drop = True
+            
+    # 디버그: 물자보급 조건 상태 확인 (↓키를 눌렀을 때만)
+    if down_pressed and selected_character_type == "soldier" and supply_drop_hold_time == 0:
+        print(f"🔍 물자보급 조건: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}, serve_timer={serve_completed_timer}, can_use={can_use_supply_drop}")
     
     # ↓키 홀드 체크 (군인 캐릭터만)
     if down_pressed and selected_character_type == "soldier" and not supply_drop_active:
@@ -9078,6 +9106,7 @@ def handle_player(keys):
                 timer_value = random.randint(90, 300)  # 1.5초~5초 (60fps 기준)
                 print(f"✅ 물자보급 발동 성공! special_gauge: {special_gauge} -> {special_gauge - SUPPLY_DROP_GAUGE_COST}")
                 print(f"🎁 타이머 설정: {timer_value} 프레임 ({timer_value/60:.1f}초 후 비행기 출현)")
+                print(f"⏱️ serve_completed_timer 상태: {serve_completed_timer}")
                 supply_drop_active = True
                 special_gauge -= SUPPLY_DROP_GAUGE_COST
                 supply_drop_timer = timer_value
@@ -9103,7 +9132,14 @@ def handle_player(keys):
         else:
             # 물자보급 사용 불가 이유 출력
             if supply_drop_hold_time == 1:  # 처음 시도할 때만
-                print(f"❌ 물자보급 사용 불가: can_use={can_use_supply_drop}, gauge={special_gauge}/{SUPPLY_DROP_GAUGE_COST}, serve_timer={serve_completed_timer}")
+                reasons = []
+                if not can_use_supply_drop:
+                    reasons.append("can_use=False")
+                    if serve_completed_timer > 0:
+                        reasons.append(f"serve_timer={serve_completed_timer}({serve_completed_timer/60:.1f}초)")
+                if special_gauge < SUPPLY_DROP_GAUGE_COST:
+                    reasons.append(f"gauge부족={special_gauge}/{SUPPLY_DROP_GAUGE_COST}")
+                print(f"❌ 물자보급 사용 불가: {', '.join(reasons)}")
     else:
         # ↓키를 떼면 홀드 시간 초기화
         if supply_drop_hold_time > 0:
@@ -9150,14 +9186,13 @@ def handle_player(keys):
         # 넉백 적용
         PLAYER.x += player_knockback_vel
     
-    # 서브 완료 후 타이머 감소
+    # 서브 완료 후 타이머 감소 (물자보급/대시 금지용)
     if serve_completed_timer > 0:
         serve_completed_timer -= 1
-        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
-        # 감속
-        player_knockback_vel *= 0.85
-        PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 스턴 중에도 거대화포션 효과 적용
-        return  #  스턴 중에는 조작 불가
+        # 디버그 로그 추가
+        if serve_completed_timer % 60 == 0 or serve_completed_timer <= 5:  # 매 초마다 또는 마지막 5프레임
+            print(f"⏱️ serve_completed_timer: {serve_completed_timer} ({serve_completed_timer/60:.1f}초 남음)")
+        # return 제거 - 플레이어는 정상적으로 조작 가능해야 함
     # 미사일/폭발 넉백 처리 (물자보급 비행기 폭발 포함)
     if player_missile_stunned_timer > 0:
         player_missile_stunned_timer -= 1
