@@ -8917,6 +8917,7 @@ def handle_player(keys):
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
     global rolling_consecutive_count, rolling_consecutive_timer  #  연속 대쉬 카운터 및 타이머
     global half_dash_used_flag  #  하프대쉬 사용 플래그
+    global serve_completed_timer  # 서브 완료 후 타이머
     global long_boost_active, long_boost_timer, PADDLE_WIDTH
     global long_boost_animating, long_boost_shrinking, long_boost_growing
     global player_stunned_timer, player_knockback_vel  #  스턴 전역
@@ -9150,7 +9151,6 @@ def handle_player(keys):
         PLAYER.x += player_knockback_vel
     
     # 서브 완료 후 타이머 감소
-    global serve_completed_timer
     if serve_completed_timer > 0:
         serve_completed_timer -= 1
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
