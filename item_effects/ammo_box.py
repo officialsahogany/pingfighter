@@ -1,5 +1,6 @@
 import pygame
 import math
+import sys
 
 class AmmoBox:
     """탄약상자 액티브 아이템 - 활성화된 화기류의 탄창을 재장전"""
@@ -22,44 +23,58 @@ class AmmoBox:
         self.reloaded_weapons = []  # 재장전된 무기들 리스트
         
         # 플레이어가 소지한 화기류 목록 확인
-        try:
-            from pingfighter import soldier_weapons
-            print(f"📦 탄약상자 사용! 소지 화기류: {soldier_weapons}")
-        except:
-            soldier_weapons = []
-        
-        # 권총은 pingfighter.py에서 직접 재장전 처리
-        self.reloaded_weapons.append("pistol")  # 애니메이션 표시용
-        
+        game_module = self._get_game_module()
+        soldier_weapons = getattr(game_module, 'soldier_weapons', []) if game_module else []
+        print(f"📦 탄약상자 사용! 소지 화기류: {soldier_weapons}")
+
+        # 권총 재장전 (잔탄 + 탄실)
+        if game_module:
+            pistol_reloaded = False
+            clip_reloaded = False
+
+            if (hasattr(game_module, 'soldier_pistol_ammo') and
+                    hasattr(game_module, 'SOLDIER_PISTOL_MAX_AMMO')):
+                prev_pistol = game_module.soldier_pistol_ammo
+                if prev_pistol < game_module.SOLDIER_PISTOL_MAX_AMMO:
+                    game_module.soldier_pistol_ammo = game_module.SOLDIER_PISTOL_MAX_AMMO
+                    pistol_reloaded = True
+                    print(f"   🔫 권총 재장전: {prev_pistol} → {game_module.soldier_pistol_ammo}")
+
+            if hasattr(game_module, 'soldier_ammo_count') and hasattr(game_module, 'soldier_max_ammo'):
+                prev_clip = game_module.soldier_ammo_count
+                if prev_clip < game_module.soldier_max_ammo:
+                    game_module.soldier_ammo_count = game_module.soldier_max_ammo
+                    clip_reloaded = True
+                    print(f"   🔫 권총 탄실 충전: {prev_clip} → {game_module.soldier_ammo_count}")
+
+            if pistol_reloaded or clip_reloaded:
+                self.reloaded_weapons.append("pistol")  # 애니메이션 표시용
+
         # 바주카포 재장전
-        if "bazooka" in soldier_weapons:
-            try:
-                from item_effects.bazooka import get_bazooka_instance
-                bazooka = get_bazooka_instance()
-                
-                if bazooka and bazooka.ammo_count < bazooka.max_ammo:
-                    prev_ammo = bazooka.ammo_count
-                    bazooka.ammo_count = bazooka.max_ammo
+        try:
+            from item_effects.bazooka import get_bazooka_instance
+            bazooka = get_bazooka_instance()
+            if bazooka and bazooka.ammo_count < bazooka.max_ammo:
+                prev_ammo = bazooka.ammo_count
+                bazooka.ammo_count = bazooka.max_ammo
+                if "bazooka" not in self.reloaded_weapons:
                     self.reloaded_weapons.append("bazooka")
-                    print(f"   🚀 바주카포 재장전: {prev_ammo} → {bazooka.ammo_count}")
-                    
-            except ImportError:
-                pass
+                print(f"   🚀 바주카포 재장전: {prev_ammo} → {bazooka.ammo_count}")
+        except ImportError:
+            pass
         
         # AK-47 재장전
-        if "ak47" in soldier_weapons:
-            try:
-                from item_effects.ak47 import get_ak47_instance
-                ak47 = get_ak47_instance()
-                
-                if ak47 and ak47.active and ak47.current_ammo < ak47.max_ammo:
-                    prev_ammo = ak47.current_ammo
-                    ak47.current_ammo = ak47.max_ammo
+        try:
+            from item_effects.ak47 import get_ak47_instance
+            ak47 = get_ak47_instance()
+            if ak47 and ak47.current_ammo < ak47.max_ammo:
+                prev_ammo = ak47.current_ammo
+                ak47.current_ammo = ak47.max_ammo
+                if "ak47" not in self.reloaded_weapons:
                     self.reloaded_weapons.append("ak47")
-                    print(f"   🔫 AK-47 재장전: {prev_ammo} → {ak47.current_ammo}")
-                    
-            except ImportError:
-                pass
+                print(f"   🔫 AK-47 재장전: {prev_ammo} → {ak47.current_ammo}")
+        except ImportError:
+            pass
         
         # 재장전된 무기가 있는지 확인
         if self.reloaded_weapons:
@@ -147,7 +162,7 @@ class AmmoBox:
                         pygame.draw.circle(screen, (255, 255, 200), (bullet_x, bullet_y), 8, 1)
                         
         elif self.reloaded_weapon == "ak47":
-            # AK-47 탄약 (30발 - 간단히 표현)
+            # AK-47 탄약 (90발)
             # 탄창 모양으로 올라가는 애니메이션
             mag_progress = self.reload_progress
             if mag_progress > 0:
@@ -173,13 +188,13 @@ class AmmoBox:
         # 재장전 완료 텍스트
         if self.reload_progress > 0.8:
             try:
-                import pygame.freetype
-                font = pygame.freetype.Font(None, 20)
+                from pygame import freetype as pg_freetype
+                font = pg_freetype.Font(None, 20)
                 text = "재장전 완료!"
                 text_surface, text_rect = font.render(text, (255, 255, 100))
                 text_rect.center = (center_x, center_y - 30)
                 screen.blit(text_surface, text_rect)
-            except:
+            except Exception:
                 pass
                 
     def reset(self):
@@ -188,6 +203,13 @@ class AmmoBox:
         self.reload_animation_timer = 0
         self.reload_progress = 0
         self.reloaded_weapon = None
+
+    def _get_game_module(self):
+        for name in ('__main__', 'pingfighter'):
+            module = sys.modules.get(name)
+            if module and hasattr(module, 'soldier_pistol_ammo'):
+                return module
+        return sys.modules.get('__main__') or sys.modules.get('pingfighter')
 
 # 싱글톤 인스턴스
 ammo_box_instance = None

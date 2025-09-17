@@ -1261,6 +1261,7 @@ SOUND_POWER_SMASH_LAUNCH = pygame.mixer.Sound(resource_path("sounds/power_smash_
 SOUND_MISSILE = pygame.mixer.Sound(resource_path("sounds/missle.wav"))  #  미사일 충돌 효과음
 SOUND_PISTOL_RELOAD_START = pygame.mixer.Sound(resource_path("sounds/pistolreloadstart.wav"))  # 군인 권총 재장전 시작 효과음
 SOUND_RAGNAROK_SHOT = pygame.mixer.Sound(resource_path("sounds/ragnarokshot.wav"))  #  라그나로크 스턴공 발사 효과음
+SOUND_AK47 = pygame.mixer.Sound(resource_path("sounds/ak47.wav"))  # AK-47 발사 효과음
 SOUND_RAGNAROK_BOOM = pygame.mixer.Sound(resource_path("sounds/ragnarokboom.wav"))  #  라그나로크 보스 반격 효과음
 SOUND_RAGNAROK_SHOCK = pygame.mixer.Sound(resource_path("sounds/ragnarokshock.wav"))  #  라그나로크 전기 감전 효과음
 SOUND_STAGE6_BOSS_HIT = pygame.mixer.Sound(resource_path("sounds/stage6bosshit.wav"))  #  스테이지 6 보스 피격 효과음
@@ -2904,6 +2905,7 @@ dash_spirit_lasers = []  # [(start_x, start_y, end_x, end_y, remaining_time, dir
 DASH_SPIRIT_LASER_DURATION = 360  # 6초 (60fps 기준)
 
 # === 물자보급 스킬 시스템 ===
+SUPPLY_DROP_PERSIST_ACROSS_ROUNDS = True  # 라운드 넘어가도(프리스폰 상태) 비행기 소환 유지 여부
 supply_drop_active = False  # 물자보급 스킬 활성 여부
 supply_aircraft = None  # 군용 비행기 객체
 supply_drop_items = []  # 낙하산으로 떨어지는 아이템들
@@ -3106,14 +3108,36 @@ class SupplyAircraft:
         """아이템 투척"""
         global supply_drop_items
         
-        # 랜덤 아이템 선택 (균등 확률)
-        weights = [1, 1, 1, 0.5, 0.5, 0.8]  # 수류탄, 화염병, 조명탄 각 25%, 바주카포 12.5%, AK-47 12.5%, 탄약상자 20%
-        item_name = random.choices(SUPPLY_DROP_ITEMS, weights=weights, k=1)[0]
+        # 랜덤 아이템 선택 (이미 보유한 화기류는 제외)
+        weights = [1, 1, 1, 1.0, 2.0, 0.8]  # 수류탄, 화염병, 조명탄 각 20%, 바주카포 20%, AK-47 40%, 탄약상자 16%
+        available_items = list(SUPPLY_DROP_ITEMS)
+        available_weights = list(weights)
+
+        soldier_weapon_list = globals().get("soldier_weapons", [])
+
+        if 'bazooka' in soldier_weapon_list:
+            for idx in reversed(range(len(available_items))):
+                if available_items[idx] == "bazooka":
+                    del available_items[idx]
+                    del available_weights[idx]
+        if 'ak47' in soldier_weapon_list:
+            for idx in reversed(range(len(available_items))):
+                if available_items[idx] == "ak47":
+                    del available_items[idx]
+                    del available_weights[idx]
+
+        if not available_items:
+            available_items = list(SUPPLY_DROP_ITEMS[:3])  # 안전장치: 기본 투척류만 사용
+            available_weights = [1, 1, 1]
+
+        item_name = random.choices(available_items, weights=available_weights, k=1)[0]
         print(f"🎁🎁🎁 [물자보급 드롭] {item_name} 드롭! 🎁🎁🎁")
         
         # 아이템 투척 위치를 비행기 위치에서 약간 랜덤하게
         drop_offset_x = random.randint(-20, 20)  # 좌우로 약간 흔들림
         drop_x = self.x + self.width // 2 + drop_offset_x
+        safe_margin = 32  # 낙하산+상자 그래픽이 화면 밖으로 나가지 않도록 여유를 둔다
+        drop_x = max(safe_margin, min(WIDTH - safe_margin, drop_x))
         drop_y = self.y + self.height
         
         # 바람 효과를 위한 수평 속도 랜덤
@@ -3691,6 +3715,9 @@ def update_supply_drop_items():
         
         # 위치 업데이트
         item["x"] += item["vx"]
+        safe_margin = 32
+        if item["x"] < safe_margin or item["x"] > WIDTH - safe_margin:
+            item["x"] = max(safe_margin, min(WIDTH - safe_margin, item["x"]))
         item["y"] += item["vy"]
         
         # 회전 효과
@@ -3903,7 +3930,7 @@ def update_supply_drop_system():
     # 비행기 업데이트
     if supply_aircraft and supply_aircraft.active:
         supply_aircraft.update()
-        
+
         # 공과의 충돌 체크 (플레이어가 쏜 공만 격추 가능)
         global BALL, last_hit_by
         if supply_aircraft.check_ball_collision(BALL, last_hit_by):
@@ -3912,26 +3939,28 @@ def update_supply_drop_system():
                 # 충돌 시 공의 방향을 약간 변경 (반발)
                 global ball_vel
                 ball_vel[1] *= -0.5  # Y 속도를 반대로
-        
+
         # 패들과 벽돌과의 충돌 체크
         global PLAYER, BOSS, walls
         player_paddle_rect = pygame.Rect(player_x, player_y, player_width, player_height) if 'player_x' in globals() else None
         boss_paddle_rect = pygame.Rect(boss_x, boss_y, boss_width, boss_height) if 'boss_x' in globals() else None
-        
+
         if supply_aircraft.check_paddle_brick_collision(player_paddle_rect, boss_paddle_rect, walls):
             # 충돌 발생 - 추락 시작됨
             pass
-                
-        if not supply_aircraft.active:
-            # 비행기가 비활성화되면 사운드 중지 (혹시 남아있을 경우를 대비)
-            if supply_aircraft and hasattr(supply_aircraft, 'stop_sound'):
-                supply_aircraft.stop_sound()
-            # 모든 파티클이 소진될 때까지 대기
-            if (len(supply_aircraft.explosion_particles) == 0 and 
-                len(supply_aircraft.debris_particles) == 0 and 
-                len(supply_aircraft.smoke_particles) == 0):
-                supply_aircraft = None
-                print(f"비행기 파괴 완료")
+
+    # 비활성화된 비행기 정리 (파티클이 모두 소멸하면 해제)
+    if supply_aircraft and not supply_aircraft.active:
+        # 사운드 중지 안전 처리
+        if hasattr(supply_aircraft, 'stop_sound'):
+            supply_aircraft.stop_sound()
+        # 드로우 루틴에서 파티클이 감소하므로 여기서 소멸 여부만 판단
+        if (len(supply_aircraft.explosion_particles) == 0 and
+            len(supply_aircraft.debris_particles) == 0 and
+            len(supply_aircraft.smoke_particles) == 0):
+            supply_aircraft = None
+            supply_drop_active = False
+            print("비행기 파괴 완료")
     
     # 낙하산 아이템 업데이트
     update_supply_drop_items()
@@ -4379,6 +4408,12 @@ LEG_SHOT_DURATION = 180  # 3초간 지속 (60fps * 3)
 LEG_SHOT_CHANCE = 0.12  # 12% 확률
 LEG_SHOT_SPEED_REDUCTION = 0.7  # 이동속도 70% (30% 감소)
 LEG_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
+
+# === AK-47 연사 효과 설정 ===
+AK47_STUN_FRAMES = 12  # 보스 스턴 지속 시간 (0.2초)
+AK47_KNOCKBACK_FRAMES = 12  # 넉백 유지 프레임 수
+AK47_KNOCKBACK_BASE = 6.0  # 기본 좌우 넉백 세기
+AK47_KNOCKBACK_SCALE = 0.35  # 총알 속도를 넉백 속도로 추가 환산하는 스케일
 
 # === 군인 헤드샷 효과 관련 변수 ===
 head_shot_active = False  # 헤드샷 효과 활성화 상태
@@ -7945,27 +7980,76 @@ def draw_soldier_weapon_ui(screen):
     bazooka = get_bazooka_instance()
     
     if current_weapon == "bazooka" and bazooka.equipped:
-        # 바주카포 무기 정보 표시
-        weapon_center_x, weapon_center_y = weapon_rect.center
-        
-        # 바주카포 본체 (원통형)
-        body_rect = pygame.Rect(weapon_center_x - 15, weapon_center_y - 5, 30, 10)
-        pygame.draw.rect(screen, (60, 80, 40), body_rect)  # 군용 녹색
-        pygame.draw.rect(screen, (40, 60, 20), body_rect, 2)
-        
-        # 바주카포 앞부분 (발사구)
-        front_circle = pygame.Rect(weapon_center_x + 12, weapon_center_y - 8, 16, 16)
-        pygame.draw.ellipse(screen, (40, 40, 40), front_circle)
-        pygame.draw.ellipse(screen, (20, 20, 20), front_circle, 3)
-        
-        # 조준기
-        sight_rect = pygame.Rect(weapon_center_x - 5, weapon_center_y - 12, 3, 8)
-        pygame.draw.rect(screen, (100, 100, 100), sight_rect)
-        
-        # 손잡이
-        grip_rect = pygame.Rect(weapon_center_x - 8, weapon_center_y + 5, 6, 10)
-        pygame.draw.rect(screen, (60, 40, 20), grip_rect)
-        
+        # 바주카포 무기 정보 표시 (슬롯 내부에 맞춘 간결한 디자인)
+        base_x, base_y = weapon_rect.x, weapon_rect.y
+        w, h = weapon_rect.width, weapon_rect.height
+
+        tube_rect = pygame.Rect(
+            base_x + int(w * 0.12),
+            base_y + int(h * 0.45),
+            int(w * 0.76),
+            max(6, int(h * 0.28))
+        )
+        pygame.draw.rect(screen, (92, 96, 64), tube_rect)
+        pygame.draw.rect(screen, (52, 56, 34), tube_rect, 2)
+
+        muzzle_radius = max(5, int(min(w, h) * 0.18))
+        muzzle_center = (tube_rect.right, tube_rect.centery)
+        pygame.draw.circle(screen, (38, 38, 38), muzzle_center, muzzle_radius)
+        pygame.draw.circle(screen, (18, 18, 18), muzzle_center, muzzle_radius - 3)
+
+        rear_radius = max(6, int(min(w, h) * 0.2))
+        rear_center = (tube_rect.left - int(w * 0.05), tube_rect.centery)
+        pygame.draw.circle(screen, (30, 30, 30), rear_center, rear_radius)
+        pygame.draw.circle(screen, (18, 18, 18), rear_center, rear_radius - 4, 2)
+
+        scope_rect = pygame.Rect(
+            tube_rect.left + int(w * 0.25),
+            base_y + int(h * 0.2),
+            int(w * 0.32),
+            max(4, int(h * 0.12))
+        )
+        pygame.draw.rect(screen, (30, 30, 30), scope_rect, 2)
+        scope_body = scope_rect.inflate(-int(w * 0.08), -int(h * 0.04))
+        pygame.draw.rect(screen, (45, 45, 45), scope_body)
+        pygame.draw.circle(screen, (90, 90, 90), (scope_body.left + int(scope_body.width * 0.25), scope_body.centery), max(2, scope_body.height // 2 - 1))
+        pygame.draw.circle(screen, (90, 90, 90), (scope_body.right - int(scope_body.width * 0.25), scope_body.centery), max(2, scope_body.height // 2 - 1))
+
+        front_grip_rect = pygame.Rect(
+            tube_rect.left + int(w * 0.18),
+            tube_rect.bottom - int(h * 0.1),
+            int(w * 0.08),
+            int(h * 0.26)
+        )
+        pygame.draw.rect(screen, (48, 48, 48), front_grip_rect)
+        pygame.draw.rect(screen, (24, 24, 24), front_grip_rect, 2)
+
+        rear_grip_rect = pygame.Rect(
+            tube_rect.left + int(w * 0.38),
+            tube_rect.bottom - int(h * 0.12),
+            int(w * 0.08),
+            int(h * 0.26)
+        )
+        pygame.draw.rect(screen, (48, 48, 48), rear_grip_rect)
+        pygame.draw.rect(screen, (24, 24, 24), rear_grip_rect, 2)
+
+        trigger_guard_rect = pygame.Rect(
+            rear_grip_rect.left - int(w * 0.04),
+            tube_rect.bottom - int(h * 0.1),
+            int(w * 0.14),
+            int(h * 0.12)
+        )
+        pygame.draw.rect(screen, (26, 26, 26), trigger_guard_rect, 2)
+
+        accent_rect = pygame.Rect(
+            tube_rect.left + int(w * 0.52),
+            tube_rect.top + int(h * 0.06),
+            int(w * 0.12),
+            int(h * 0.14)
+        )
+        pygame.draw.rect(screen, (55, 55, 55), accent_rect)
+        pygame.draw.rect(screen, (28, 28, 28), accent_rect, 1)
+
         # 바주카포 로켓 탄약 표시
         ammo_to_show = bazooka.ammo_count
         max_ammo = bazooka.max_ammo
@@ -8023,52 +8107,148 @@ def draw_soldier_weapon_ui(screen):
     elif current_weapon == "ak47":
         # AK-47 무기 정보 표시
         ak47 = get_ak47_instance()
-        if ak47.active:
-            # AK-47 아이콘 그리기 (간단한 소총 형태)
-            gun_center_x, gun_center_y = weapon_rect.center
-            
-            # AK-47 본체 (더 길고 큰 형태)
-            body_rect = pygame.Rect(gun_center_x - 15, gun_center_y - 5, 25, 8)
-            pygame.draw.rect(screen, (80, 60, 40), body_rect)  # 갈색 본체
-            pygame.draw.rect(screen, (50, 40, 30), body_rect, 2)
-            
-            # 총열 (더 긴 총열)
-            barrel_rect = pygame.Rect(gun_center_x + 10, gun_center_y - 3, 15, 4)
-            pygame.draw.rect(screen, (40, 40, 40), barrel_rect)  # 어두운 총열
-            
-            # 탄창 (AK-47 특징적인 곡선 탄창)
-            mag_rect = pygame.Rect(gun_center_x - 5, gun_center_y + 3, 8, 12)
-            pygame.draw.rect(screen, (60, 50, 30), mag_rect)  # 탄창
-            pygame.draw.rect(screen, (40, 30, 20), mag_rect, 1)
-            
-            # 개머리판
-            stock_rect = pygame.Rect(gun_center_x - 20, gun_center_y - 2, 8, 6)
-            pygame.draw.rect(screen, (60, 40, 20), stock_rect)  # 나무 개머리판
-            
-            # AK-47 상태 표시
-            if ak47.reloading:
-                reload_progress = 1 - (ak47.reload_timer / ak47.reload_time)
-                status_text = f"재장전 {int(reload_progress * 100)}%"
-                status_color = (255, 150, 0)
+        base_x, base_y = weapon_rect.x, weapon_rect.y
+        w, h = weapon_rect.width, weapon_rect.height
+        center_x = base_x + w // 2
+        center_y = base_y + h // 2
+
+        def draw_ak47_icon(active: bool):
+            body_color = (78, 58, 38) if active else (70, 70, 70)
+            outline_color = (44, 34, 24) if active else (40, 40, 40)
+            metal_dark = (45, 45, 45) if active else (65, 65, 65)
+            metal_light = (55, 55, 55) if active else (75, 75, 75)
+            wood_color = (84, 58, 30) if active else (80, 80, 80)
+            wood_outline = (50, 35, 18) if active else (60, 60, 60)
+
+            receiver_rect = pygame.Rect(
+                base_x + int(w * 0.2),
+                base_y + int(h * 0.44),
+                int(w * 0.6),
+                max(3, int(h * 0.18))
+            )
+            pygame.draw.rect(screen, body_color, receiver_rect)
+            pygame.draw.rect(screen, outline_color, receiver_rect, 2)
+
+            top_cover_rect = pygame.Rect(
+                base_x + int(w * 0.22),
+                base_y + int(h * 0.3),
+                int(w * 0.56),
+                max(2, int(h * 0.08))
+            )
+            pygame.draw.rect(screen, metal_dark, top_cover_rect)
+
+            handguard_rect = pygame.Rect(
+                base_x + int(w * 0.55),
+                base_y + int(h * 0.4),
+                int(w * 0.35),
+                max(3, int(h * 0.22))
+            )
+            pygame.draw.rect(screen, (96, 70, 40) if active else (70, 70, 70), handguard_rect)
+            pygame.draw.rect(screen, (60, 44, 25) if active else (55, 55, 55), handguard_rect, 1)
+
+            gas_tube_start = (base_x + int(w * 0.55), base_y + int(h * 0.34))
+            gas_tube_end = (base_x + int(w * 0.82), base_y + int(h * 0.34))
+            pygame.draw.line(screen, metal_light, gas_tube_start, gas_tube_end, 2)
+
+            barrel_rect = pygame.Rect(
+                base_x + w - max(3, int(w * 0.22)) - int(w * 0.05),
+                base_y + int(h * 0.46),
+                max(3, int(w * 0.22)),
+                max(2, int(h * 0.07))
+            )
+            pygame.draw.rect(screen, (38, 38, 38) if active else (70, 70, 70), barrel_rect)
+
+            muzzle_rect = pygame.Rect(
+                base_x + w - max(2, int(w * 0.08)) - 2,
+                base_y + int(h * 0.42),
+                max(2, int(w * 0.08)),
+                max(3, int(h * 0.18))
+            )
+            pygame.draw.rect(screen, (25, 25, 25) if active else (60, 60, 60), muzzle_rect)
+
+            front_sight_points = [
+                (base_x + int(w * 0.84), base_y + int(h * 0.35)),
+                (base_x + int(w * 0.88), base_y + int(h * 0.24)),
+                (base_x + int(w * 0.92), base_y + int(h * 0.35))
+            ]
+            pygame.draw.polygon(screen, metal_dark, front_sight_points)
+
+            stock_points = [
+                (base_x + int(w * 0.18), base_y + int(h * 0.44)),
+                (base_x + int(w * 0.05), base_y + int(h * 0.32)),
+                (base_x + int(w * 0.02), base_y + int(h * 0.42)),
+                (base_x + int(w * 0.02), base_y + int(h * 0.55)),
+                (base_x + int(w * 0.18), base_y + int(h * 0.58))
+            ]
+            pygame.draw.polygon(screen, wood_color, stock_points)
+            pygame.draw.polygon(screen, wood_outline, stock_points, 2)
+
+            grip_points = [
+                (center_x - int(w * 0.08), base_y + int(h * 0.6)),
+                (center_x - int(w * 0.04), base_y + int(h * 0.78)),
+                (center_x + int(w * 0.02), base_y + int(h * 0.78)),
+                (center_x - int(w * 0.04), base_y + int(h * 0.6))
+            ]
+            pygame.draw.polygon(screen, (65, 45, 28) if active else (70, 70, 70), grip_points)
+
+            trigger_guard = pygame.Rect(
+                center_x - int(w * 0.12),
+                base_y + int(h * 0.58),
+                int(w * 0.22),
+                max(2, int(h * 0.08))
+            )
+            pygame.draw.rect(screen, (30, 30, 30) if active else (65, 65, 65), trigger_guard, 1)
+
+            mag_points = [
+                (center_x - int(w * 0.06), base_y + int(h * 0.52)),
+                (center_x + int(w * 0.18), base_y + int(h * 0.62)),
+                (center_x + int(w * 0.12), base_y + int(h * 0.85)),
+                (center_x - int(w * 0.12), base_y + int(h * 0.74))
+            ]
+            pygame.draw.polygon(screen, (68, 50, 30) if active else (70, 70, 70), mag_points)
+            pygame.draw.polygon(screen, (42, 30, 18) if active else (60, 60, 60), mag_points, 1)
+
+            for i in range(3):
+                stripe_y = base_y + int(h * 0.48) + i * max(1, int(h * 0.08))
+                pygame.draw.line(
+                    screen,
+                    (110, 85, 55) if active else (80, 80, 80),
+                    (base_x + int(w * 0.58), stripe_y),
+                    (base_x + int(w * 0.88), stripe_y),
+                    1
+                )
+
+        draw_ak47_icon(ak47.active)
+
+        # 탄약 게이지 바 (아이콘 아래 가로형)
+        gauge_width = weapon_rect.width - 10
+        gauge_height = 6
+        gauge_x = weapon_rect.x + (weapon_rect.width - gauge_width) // 2
+        gauge_y = weapon_rect.bottom + 6
+        pygame.draw.rect(screen, (30, 30, 30), (gauge_x, gauge_y, gauge_width, gauge_height))
+
+        ammo_ratio = ak47.ammo_ratio()
+        if ammo_ratio > 0:
+            fill_width = int(gauge_width * ammo_ratio)
+            if ammo_ratio <= 0.2:
+                fill_color = (255, 80, 80)
+            elif ammo_ratio <= 0.5:
+                fill_color = (255, 200, 80)
             else:
-                status_text = f"AK-47: {ak47.current_ammo}/{ak47.max_ammo}"
-                if ak47.current_ammo <= 5:
-                    status_color = (255, 100, 100)  # 탄약 부족 시 빨간색
-                else:
-                    status_color = (100, 255, 100)  # 정상 시 초록색
-            
-            # 상태 텍스트 표시
-            try:
-                if 'font_small' in globals() and font_small:
-                    status_surface = font_small.render(status_text, True, status_color)
-                    screen.blit(status_surface, (weapon_x, weapon_y - 20))
-            except:
-                pass
-        else:
-            # AK-47이 비활성화된 경우 회색 실루엣
-            gun_center_x, gun_center_y = weapon_rect.center
-            body_rect = pygame.Rect(gun_center_x - 15, gun_center_y - 5, 25, 8)
-            pygame.draw.rect(screen, (60, 60, 60), body_rect, 1)
+                fill_color = (120, 255, 140)
+            pygame.draw.rect(screen, fill_color, (gauge_x, gauge_y, fill_width, gauge_height))
+        pygame.draw.rect(screen, (90, 90, 90), (gauge_x, gauge_y, gauge_width, gauge_height), 1)
+
+        # 잔탄 수를 작은 숫자로 표시 (게이지 중앙)
+        try:
+            if 'font_tiny' in globals() and font_tiny:
+                ammo_text = f"{ak47.current_ammo}/{ak47.max_ammo}"
+                text_color = (230, 230, 230) if ak47.active else (150, 150, 150)
+                ammo_surface = font_tiny.render(ammo_text, True, text_color)
+                text_rect = ammo_surface.get_rect(center=(gauge_x + gauge_width // 2, gauge_y + gauge_height // 2))
+                screen.blit(ammo_surface, text_rect)
+        except:
+            pass
             
     else:
         # 권총 무기 정보 표시 (기존 코드)
@@ -8095,8 +8275,13 @@ def draw_soldier_weapon_ui(screen):
                          (gun_center_x, gun_center_y + 2)]
         pygame.draw.lines(screen, (60, 60, 60), False, trigger_guard, 2)
     
-    # 권총 탄약 표시 (권총이 선택된 경우에만)
-    if current_weapon == "pistol" or not bazooka.equipped:
+    # 권총 탄약 표시 (권총이 선택되었거나 화기류가 없는 경우에만)
+    show_pistol_ammo = True
+    if soldier_weapons:
+        if current_weapon != "pistol":
+            show_pistol_ammo = False
+
+    if show_pistol_ammo:
         # 총탄 개수 표시 (권총 아이콘 아래) - 실제 총탄 모양으로 (크기 축소)
         bullet_start_x = weapon_x + 3
         bullet_y = weapon_y + weapon_size + 6
@@ -8292,23 +8477,23 @@ def draw_soldier_weapon_ui(screen):
         
         screen.blit(weapon_surface, (name_x, name_y))
         
-        # 무기 교체 안내 표시 (무기가 2개 이상일 때)
-        if len(soldier_weapons) > 1 and weapon_switch_cooldown <= 0:
-            guide_text = "↑키: 무기 교체"
-            guide_color = (150, 150, 150)
-            
-            try:
-                if hasattr(ui_manager, 'korean_font') and ui_manager.korean_font:
-                    guide_surface = ui_manager.korean_font.render(guide_text, True, guide_color)
-                else:
-                    small_font = pygame.font.Font(None, 16)
-                    guide_surface = small_font.render("UP: Switch", True, guide_color)
-                
-                guide_x = name_x
-                guide_y = name_y + weapon_surface.get_height() + 5
-                screen.blit(guide_surface, (guide_x, guide_y))
-            except:
-                pass
+        # 무기 교체 안내 표시 제거됨 (사용자 요청)
+        # if len(soldier_weapons) > 1 and weapon_switch_cooldown <= 0:
+        #     guide_text = "↑키: 무기 교체"
+        #     guide_color = (150, 150, 150)
+        #     
+        #     try:
+        #         if hasattr(ui_manager, 'korean_font') and ui_manager.korean_font:
+        #             guide_surface = ui_manager.korean_font.render(guide_text, True, guide_color)
+        #         else:
+        #             small_font = pygame.font.Font(None, 16)
+        #             guide_surface = small_font.render("UP: Switch", True, guide_color)
+        #         
+        #         guide_x = name_x
+        #         guide_y = name_y + weapon_surface.get_height() + 5
+        #         screen.blit(guide_surface, (guide_x, guide_y))
+        #     except:
+        #         pass
         
     except Exception as e:
         print(f"[DEBUG] 무기 이름 렌더링 실패: {e}")
@@ -8579,19 +8764,19 @@ def update_soldier_bullets():
                 
                 print("💥 총알이 보스에게 명중! 보스 스턴!")
                 
-                # 군인 권총으로 보스 명중 시 게이지 20+ 증가
+                # 군인 권총으로 보스 명중 시 게이지 25+ 증가
                 global special_gauge, special_ready
-                gauge_increase = 20  # 기본 20 증가
+                gauge_increase = 30  # 기본 30 증가
                 
                 # 헤드샷/레그샷 시 추가 보너스
                 if shot_roll < HEAD_SHOT_CHANCE:
-                    gauge_increase = 30  # 헤드샷 시 30 증가
-                    print("🎯 헤드샷 보너스! 게이지 30 증가!")
+                    gauge_increase = 50  # 헤드샷 시 50 증가
+                    print("🎯 헤드샷 보너스! 게이지 50 증가!")
                 elif shot_roll < HEAD_SHOT_CHANCE + LEG_SHOT_CHANCE:
-                    gauge_increase = 25  # 레그샷 시 25 증가  
-                    print("🎯 레그샷 보너스! 게이지 25 증가!")
+                    gauge_increase = 40  # 레그샷 시 40 증가  
+                    print("🎯 레그샷 보너스! 게이지 40 증가!")
                 else:
-                    print("🎯 군인 권총 명중! 게이지 20 증가!")
+                    print("🎯 군인 권총 명중! 게이지 30 증가!")
                 
                 # 게이지 증가 적용
                 old_gauge = special_gauge
@@ -8608,6 +8793,34 @@ def update_soldier_bullets():
                 
                 # 넉백 효과 트리거 - 기존 시스템 사용 (boss_knockback_vel을 설정하는 함수)
                 trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
+
+
+def apply_ak47_boss_hit_effect(hit_event):
+    """AK-47 탄환이 보스를 적중했을 때의 후속 효과 적용"""
+    global boss_stunned_timer, boss_knockback_timer, boss_knockback_vel, BOSS
+
+    vel_x = hit_event.get("vel_x", 0.0)
+    bullet_x = hit_event.get("bullet_x")
+
+    # 보스에게 짧은 스턴과 좌우 넉백 부여
+    boss_stunned_timer = max(boss_stunned_timer, AK47_STUN_FRAMES)
+    boss_knockback_timer = max(boss_knockback_timer, AK47_KNOCKBACK_FRAMES)
+
+    # 방향 결정: 탄환이 보스의 어느 쪽에서 충돌했는지 기준
+    direction = 1
+    try:
+        boss_center = BOSS.centerx
+        if bullet_x is not None:
+            direction = 1 if bullet_x <= boss_center else -1
+        elif vel_x != 0:
+            direction = 1 if vel_x > 0 else -1
+    except Exception:
+        # BOSS 참조가 불가하면 속도 부호로만 결정
+        direction = 1 if vel_x >= 0 else -1
+
+    knockback_strength = AK47_KNOCKBACK_BASE + abs(vel_x) * AK47_KNOCKBACK_SCALE
+    boss_knockback_vel = knockback_strength * direction
+
 
 def update_blood_particles():
     """피 파티클 업데이트"""
@@ -8940,6 +9153,7 @@ def handle_player(keys):
     global current_speed, player_slow_timer
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
     global rolling_consecutive_count, rolling_consecutive_timer  #  연속 대쉬 카운터 및 타이머
+    global ball_x, ball_y  # AK-47 연사용 공 위치 공유
     global half_dash_used_flag  #  하프대쉬 사용 플래그
     global serve_completed_timer  # 서브 완료 후 타이머
     global long_boost_active, long_boost_timer, PADDLE_WIDTH
@@ -8947,7 +9161,14 @@ def handle_player(keys):
     global player_stunned_timer, player_knockback_vel  #  스턴 전역
     global player_stun_immunity_timer  # ️ 스턴 면역 타이머
     global weapon_switch_cooldown  # 화기 교체 쿨다운
+    global round_start_time
     
+    # 공 위치를 최신으로 유지 (AK-47 조준 등에서 사용)
+    ball_centerx = BALL.centerx
+    ball_centery = BALL.centery
+    ball_x = ball_centerx
+    ball_y = ball_centery
+
     # 화기 교체 쿨다운 감소
     if weapon_switch_cooldown > 0:
         weapon_switch_cooldown -= 1
@@ -9008,6 +9229,14 @@ def handle_player(keys):
     global tutorial_power_count, tutorial_displayed_power_count, tutorial_power_counter_active
     global tutorial_power_reminder_active, tutorial_power_reminder_timer
     global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done
+
+    # 서브 완료 후 타이머는 프레임 초기에 감소시켜, 아래의 조기 return 경로들(화상, 스턴, 설치 등)로 인해
+    # 타이머가 영구히 감소하지 못해 물자보급/대시가 계속 금지되는 상황을 방지한다.
+    if serve_completed_timer > 0:
+        serve_completed_timer -= 1
+        # 디버그 로그: 매 초 또는 마지막 5프레임에만 출력하여 소음 감소
+        if serve_completed_timer % 60 == 0 or serve_completed_timer <= 5:
+            print(f"⏱️ serve_completed_timer: {serve_completed_timer} ({serve_completed_timer/60:.1f}초 남음)")
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
     if new_boss_mode_active:
         if selected_bottom_boss == 1:
@@ -9118,6 +9347,7 @@ def handle_player(keys):
                 
                 # 플레이어 통제불능 상태 (0.5초) - 프레임 단위 정확한 타이밍
                 player_stunned_timer = 30  # 정확히 30프레임 = 0.5초
+                player_knockback_vel = 0  # 넉백 속도 초기화 (물자보급은 넉백 없음)
                 
                 # 무전기 효과음 재생
                 try:
@@ -9185,14 +9415,13 @@ def handle_player(keys):
         player_stunned_timer -= 1
         # 넉백 적용
         PLAYER.x += player_knockback_vel
+        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        # 감속
+        player_knockback_vel *= 0.85
+        PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 스턴 중에도 거대화포션 효과 적용
+        return  #  스턴 중에는 조작 불가
     
-    # 서브 완료 후 타이머 감소 (물자보급/대시 금지용)
-    if serve_completed_timer > 0:
-        serve_completed_timer -= 1
-        # 디버그 로그 추가
-        if serve_completed_timer % 60 == 0 or serve_completed_timer <= 5:  # 매 초마다 또는 마지막 5프레임
-            print(f"⏱️ serve_completed_timer: {serve_completed_timer} ({serve_completed_timer/60:.1f}초 남음)")
-        # return 제거 - 플레이어는 정상적으로 조작 가능해야 함
+    # serve_completed_timer는 프레임 초기에 감소 처리됨
     # 미사일/폭발 넉백 처리 (물자보급 비행기 폭발 포함)
     if player_missile_stunned_timer > 0:
         player_missile_stunned_timer -= 1
@@ -10479,39 +10708,45 @@ def handle_player(keys):
                     from item_effects.bazooka import get_bazooka_instance
                     bazooka = get_bazooka_instance()
                     if bazooka.can_fire():
+                        current_time = pygame.time.get_ticks()
+                        if round_start_time > 0 and current_time - round_start_time < 3000:
+                            remaining_time = (3000 - (current_time - round_start_time)) / 1000
+                            print(f"🔫 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+                        else:
                         # 바주카포 발사 시작 효과음 (발사 준비)
-                        try:
-                            SOUND_BAZOOKA_GOING.set_volume(0.6)
-                            SOUND_BAZOOKA_GOING.play()
-                        except:
-                            pass
-                        
-                        if bazooka.fire(PLAYER, pygame.time.get_ticks()):
-                            soldier_control_lock_timer = bazooka.control_lock_timer
-                            # 바주카포 발사 사운드 (실제 발사)
                             try:
-                                bazooka_sound = pygame.mixer.Sound(resource_path("sounds/rocket_launch.wav"))
-                                bazooka_sound.set_volume(0.5)
-                                bazooka_sound.play()
+                                SOUND_BAZOOKA_GOING.set_volume(0.6)
+                                SOUND_BAZOOKA_GOING.play()
                             except:
                                 pass
+                            
+                            if bazooka.fire(PLAYER, pygame.time.get_ticks()):
+                                soldier_control_lock_timer = bazooka.control_lock_timer
+                                # 바주카포 발사 사운드 (실제 발사)
+                                try:
+                                    bazooka_sound = pygame.mixer.Sound(resource_path("sounds/rocket_launch.wav"))
+                                    bazooka_sound.set_volume(0.5)
+                                    bazooka_sound.play()
+                                except:
+                                    pass
                                 
                 elif current_weapon == "ak47":
-                    # AK-47 발사
+                    # AK-47 발사 (보스 조준)
                     ak47 = get_ak47_instance()
-                    if ak47.can_fire():
-                        # 플레이어와 공의 위치 정보로 발사
-                        player_rect = pygame.Rect(PLAYER['x'], PLAYER['y'], PLAYER['width'], PLAYER['height'])
-                        ball_rect = pygame.Rect(ball_x - 10, ball_y - 10, 20, 20)
+                    
+                    # 스페이스바 입력 상태를 추적
+                    ak47.handle_space_input(keys[pygame.K_SPACE])
+                    
+                    # 발사 여부 확인
+                    if ak47.should_fire():
+                        player_rect = pygame.Rect(PLAYER.x, PLAYER.y, PLAYER.width, PLAYER.height)
+                        boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
                         
-                        if ak47.fire(player_rect, ball_rect):
-                            # AK-47 발사 사운드 (필요시 추가)
+                        if ak47.fire(player_rect, boss_rect):
+                            # AK-47 발사 사운드 재생
                             try:
-                                # 총소리 사운드 파일이 있다면
-                                # ak47_sound = pygame.mixer.Sound(resource_path("sounds/ak47_shot.wav"))
-                                # ak47_sound.set_volume(0.3)
-                                # ak47_sound.play()
-                                pass
+                                SOUND_AK47.set_volume(0.5)
+                                SOUND_AK47.play()
                             except:
                                 pass
                 else:
@@ -30939,6 +31174,56 @@ def reset_round():
     stopwatch_original_ball_vel = None
     stopwatch_forced_upward = False
     stopwatch_upward_lock_timer = 0
+
+    # 물자보급(군인 스킬) 상태 초기화 / 유지 정책
+    global supply_drop_active, supply_aircraft, supply_drop_items, supply_drop_timer
+    global supply_radio_motion, supply_radio_timer, supply_drop_hold_time
+    # 요구사항: 라운드가 바뀌어도 비행기 및 예정된 출현은 유지되어야 함
+    if SUPPLY_DROP_PERSIST_ACROSS_ROUNDS:
+        # 1) 이미 비행기가 떠 있는 경우: 그대로 유지 (사운드/파티클 포함)
+        if supply_aircraft is not None:
+            supply_radio_motion = False
+            supply_radio_timer = 0
+            supply_drop_hold_time = 0
+            # 아이템들도 유지하여 자연스럽게 이어지도록 함
+        # 2) 비행기는 아직 없고, 타이머로 출현 예정인 경우: 타이머 유지
+        elif supply_drop_active and supply_drop_timer > 0:
+            supply_radio_motion = False
+            supply_radio_timer = 0
+            supply_drop_hold_time = 0
+            try:
+                print(f"[물자보급] 라운드 전환 중 대기 상태 유지: {supply_drop_timer}프레임 후 출현 예정")
+            except:
+                pass
+        else:
+            # 물자보급이 비활성화 상태면 컨트롤/사운드만 정리하고,
+            # 라운드 전환 후에도 낙하 아이템은 유지한다.
+            try:
+                if supply_aircraft and hasattr(supply_aircraft, 'stop_sound'):
+                    supply_aircraft.stop_sound()
+            except:
+                pass
+            supply_drop_active = False
+            supply_aircraft = None
+            # supply_drop_items는 유지 (요청 사항)
+            supply_drop_timer = 0
+            supply_radio_motion = False
+            supply_radio_timer = 0
+            supply_drop_hold_time = 0
+    else:
+        # 정책 비활성화 시 항상 정리
+        try:
+            if supply_aircraft and hasattr(supply_aircraft, 'stop_sound'):
+                supply_aircraft.stop_sound()
+        except:
+            pass
+        supply_drop_active = False
+        supply_aircraft = None
+        supply_drop_items = []
+        supply_drop_timer = 0
+        supply_radio_motion = False
+        supply_radio_timer = 0
+        supply_drop_hold_time = 0
     global boss_stun_timer, ragnarok_shock_playing  #  라그나로크 해머 스턴 관련
     global ragnarok_speed_boost_active, ragnarok_stun_pending  #  라그나로크 공속 증가 및 스턴 예약
     global boss_knockback_timer, boss_knockback_vel  #  라그나로크 넉백 관련
@@ -33093,7 +33378,7 @@ def handle_ball():
                     # 연막 밖이면 정상 피해 (스턴 면역 체크)
                     if player_stun_immunity_timer <= 0:
                         player_stunned_timer = int(0.3 * FPS)
-                        player_knockback_vel = random.choice([-18, 18])
+                        player_knockback_vel = random.choice([-12, 12])
                     else:
                         print("!")
                     #  화염탄 폭발 이펙트 생성
@@ -33184,7 +33469,7 @@ def handle_ball():
             # 스턴 면역 체크
             if player_stun_immunity_timer <= 0:
                 player_stunned_timer = int(0.3 * FPS)
-                player_knockback_vel = random.choice([-36, 36])
+                player_knockback_vel = random.choice([-24, 24])
             else:
                 print("!")
             #  대규모 화염 폭발 이벤트
@@ -41201,7 +41486,11 @@ def main(stage_num, new_boss_mode=False):
                     # AK-47 시스템 업데이트
                     ak47 = get_ak47_instance()
                     if ak47.active:
-                        ak47.update(current_stage)
+                        boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
+                        hit_events = ak47.update(boss_rect)
+                        for event in hit_events:
+                            if event.get("type") == "boss_hit":
+                                apply_ak47_boss_hit_effect(event)
                     # 쿨다운 감소
                     if soldier_gun_cooldown > 0:
                         soldier_gun_cooldown -= 1
@@ -42993,7 +43282,7 @@ def get_item_description(item_name):
         "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
         "knee_pads": "무릎보호대: 하프대쉬로 공을 맞출 때 게이지가 50% 충전됩니다. 하프대쉬 성공 시 노란색 빛나는 이펙트가 나타납니다.",
         "ammo_box": "탄약상자: 권총을 포함한 모든 보유 화기류의 탄창을 완전히 재장전합니다. 권총, 바주카포, AK-47 등 모든 화기류에 사용 가능합니다.",
-        "ak47": "AK-47: 강력한 자동소총. 30발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
+        "ak47": "AK-47: 강력한 자동소총. 90발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!"
@@ -43964,7 +44253,7 @@ def show_stage_selection():
     
     # 기본 리그 모드 설정
     ai_mode = "pro"  # 프로리그가 기본
-    
+      
     # 스테이지 정보
     stages = [
         {"num": 1, "name": "스테이지 1", "desc": "UFO 플레이어", "color": (0, 150, 100)},
