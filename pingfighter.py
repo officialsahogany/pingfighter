@@ -2104,6 +2104,7 @@ is_player_serve = True
 is_waiting_for_serve = True
 waiting_start_time = 0
 wait_delay = 0
+serve_completed_timer = 0  # 서브 완료 후 3초간 물자보급/대시 금지용 타이머
 # === 무승부 판정 시스템 ===
 wall_bounce_count = 0  # 좌우 벽 연속 충돌 카운터
 last_wall_hit = None  # 마지막으로 맞은 벽 ('left' or 'right')
@@ -9051,8 +9052,8 @@ def handle_player(keys):
     
     # 물자보급 발동 조건 체크 (대시와 같은 방식으로 서브 상태 처리)
     can_use_supply_drop = False
-    # 기본 조건 (일반 상태에서)
-    if not is_waiting_for_serve and not is_player_serve:
+    # 기본 조건 (일반 상태에서 + 서브 완료 후 3초 경과)
+    if not is_waiting_for_serve and not is_player_serve and serve_completed_timer <= 0:
         can_use_supply_drop = True
     # 플레이어 서브 상태에서는 6초 후에만 사용 가능
     elif is_player_serve and is_waiting_for_serve:
@@ -9069,6 +9070,10 @@ def handle_player(keys):
             if supply_drop_hold_time % 10 == 0:  # 0.17초마다 출력
                 progress = (supply_drop_hold_time / SUPPLY_DROP_HOLD_REQUIRED) * 100
                 print(f"📻 물자보급 홀드 중: {progress:.1f}% ({supply_drop_hold_time}/{SUPPLY_DROP_HOLD_REQUIRED})")
+        else:
+            # 물자보급 사용 불가 이유 출력
+            if supply_drop_hold_time == 1:  # 처음 시도할 때만
+                print(f"❌ 물자보급 사용 불가: can_use={can_use_supply_drop}, gauge={special_gauge}/{SUPPLY_DROP_GAUGE_COST}, serve_timer={serve_completed_timer}")
             
             # 1초 홀드 완료 시 발동
             if supply_drop_hold_time >= SUPPLY_DROP_HOLD_REQUIRED:
@@ -9143,6 +9148,11 @@ def handle_player(keys):
         player_stunned_timer -= 1
         # 넉백 적용
         PLAYER.x += player_knockback_vel
+    
+    # 서브 완료 후 타이머 감소
+    global serve_completed_timer
+    if serve_completed_timer > 0:
+        serve_completed_timer -= 1
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
         # 감속
         player_knockback_vel *= 0.85
@@ -9711,8 +9721,8 @@ def handle_player(keys):
             # 아래키 + 방향키로 대쉬 발동 (무릎보호대 효과 적용)
             # 플레이어 서브 상태일 때 처음 6초 동안은 대쉬 발동 불가
             can_use_rolling = False
-            # 기본 대쉬 조건 (일반 상태에서만)
-            if rolling_charges > 0 and not is_waiting_for_serve and rolling_stun_timer <= 0:
+            # 기본 대쉬 조건 (일반 상태에서만 + 서브 완료 후 3초 경과)
+            if rolling_charges > 0 and not is_waiting_for_serve and rolling_stun_timer <= 0 and serve_completed_timer <= 0:
                 can_use_rolling = True
             # 플레이어 서브 상태에서는 6초 후에만 대쉬 가능
             elif is_player_serve and is_waiting_for_serve and rolling_charges > 0:
@@ -9721,7 +9731,7 @@ def handle_player(keys):
                     can_use_rolling = True
             # 디버깅: 대쉬 조건 확인
             if keys[pygame.K_DOWN]:
-                print(f"  -  : charges={rolling_charges}, stun_timer={rolling_stun_timer}, waiting_serve={is_waiting_for_serve}, player_serve={is_player_serve}, can_use={can_use_rolling}")
+                print(f"  -  : charges={rolling_charges}, stun_timer={rolling_stun_timer}, waiting_serve={is_waiting_for_serve}, player_serve={is_player_serve}, serve_completed_timer={serve_completed_timer}, can_use={can_use_rolling}")
                 if is_player_serve and is_waiting_for_serve:
                     serve_wait_time = pygame.time.get_ticks() - waiting_start_time
                     print(f"  : {serve_wait_time}ms")
@@ -9730,7 +9740,7 @@ def handle_player(keys):
             half_dash_executed = False  # 플래그 초기화
             # 하프 대쉬도 서브 대기 상태를 고려
             can_use_half_dash = False
-            if rolling_charges > 0 and not is_waiting_for_serve and rolling_stun_timer <= 0:
+            if rolling_charges > 0 and not is_waiting_for_serve and rolling_stun_timer <= 0 and serve_completed_timer <= 0:
                 can_use_half_dash = True
             elif is_player_serve and is_waiting_for_serve and rolling_charges > 0 and rolling_stun_timer <= 0:
                 serve_wait_time = pygame.time.get_ticks() - waiting_start_time
@@ -31176,6 +31186,10 @@ def choose_server(show_text=True):
     is_waiting_for_serve = True
     waiting_start_time = pygame.time.get_ticks()
     
+    # 서브 완료 타이머 초기화
+    global serve_completed_timer
+    serve_completed_timer = 0
+    
     # Stage 3 쿠로미 신비로운 궤적 효과 초기화
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
     if current_stage == 3:
@@ -38481,6 +38495,8 @@ def show_result(won):
         #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
         rolling_charges = 1  # 기본 1개로 초기화
         rolling_charge_timer = 0  # 충전 타이머 초기화
+        # 서브 완료 타이머 초기화
+        serve_completed_timer = 0
         #  듀스 시스템 리셋 (게임 오버 시)
         reset_deuce_system()
         
@@ -40421,6 +40437,8 @@ def main(stage_num, new_boss_mode=False):
                     
                     # 서브 완료 - is_player_serve를 False로 설정
                     is_player_serve = False
+                    # 서브 완료 후 3초간 물자보급/대시 금지 타이머 설정
+                    serve_completed_timer = 180  # 3초 * 60fps
                     
                     # 튜토리얼 모드: 플레이어가 서브했음을 표시
                     if current_stage == 50 and 'tutorial_practice_mode' in globals():
@@ -40528,6 +40546,8 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 서브 완료 - is_player_serve를 False로 설정
                 is_player_serve = False
+                # 서브 완료 후 3초간 물자보급/대시 금지 타이머 설정
+                serve_completed_timer = 180  # 3초 * 60fps
         # 판도라의 상자 효과 업데이트
         if pandora_box_active:
             pandora_box_timer -= 1
