@@ -3847,13 +3847,18 @@ def update_supply_drop_system():
     global supply_drop_active, supply_aircraft, supply_drop_timer
     
     # 물자보급 타이머 처리
-    if supply_drop_active and supply_drop_timer > 0:
-        supply_drop_timer -= 1
-        if supply_drop_timer == 0:
-            # 비행기 생성
-            direction = random.choice(["left_to_right", "right_to_left"])
-            supply_aircraft = SupplyAircraft(direction)
-            print(f"군용 비행기 출현! 방향: {direction}")
+    if supply_drop_active:
+        if supply_drop_timer > 0:
+            supply_drop_timer -= 1
+            if supply_drop_timer == 0:
+                # 비행기 생성
+                direction = random.choice(["left_to_right", "right_to_left"])
+                supply_aircraft = SupplyAircraft(direction)
+                print(f"군용 비행기 출현! 방향: {direction}")
+        # 타이머가 끝나고 비행기도 없고 아이템도 모두 사라졌을 때 비활성화
+        elif supply_aircraft is None and len(supply_drop_items) == 0:
+            supply_drop_active = False
+            print("물자보급 완전히 종료")
     
     # 비행기 업데이트
     if supply_aircraft and supply_aircraft.active:
@@ -3886,8 +3891,7 @@ def update_supply_drop_system():
                 len(supply_aircraft.debris_particles) == 0 and 
                 len(supply_aircraft.smoke_particles) == 0):
                 supply_aircraft = None
-                supply_drop_active = False
-                print("물자보급 완료")
+                print(f"비행기 파괴 완료")
     
     # 낙하산 아이템 업데이트
     update_supply_drop_items()
@@ -4884,17 +4888,15 @@ def go_to_next_round():
     global dash_spirit_lasers
     dash_spirit_lasers.clear()
     
-    # 물자보급 시스템 초기화
+    # 물자보급 시스템 초기화 (비행기는 유지)
     global supply_drop_active, supply_drop_timer, supply_radio_motion, supply_radio_timer
     global supply_aircraft, supply_drop_items
-    supply_drop_active = False
-    supply_drop_timer = 0
+    # 물자보급이 완전히 끝났을 때만 초기화
+    if supply_drop_timer <= 0 and supply_aircraft is None:
+        supply_drop_active = False
     supply_radio_motion = False
     supply_radio_timer = 0
-    if supply_aircraft and hasattr(supply_aircraft, 'stop_sound'):
-        supply_aircraft.stop_sound()
-    supply_aircraft = None
-    supply_drop_items = []
+    # 비행기와 아이템은 계속 유지 (라운드가 바뀌어도 계속 진행)
     
     #  AI 메모리 정리 (라운드 간 성능 최적화)
     optimize_ai_memory_for_round()

@@ -17,8 +17,8 @@ class Bazooka:
         # 발사체 관련
         self.projectiles = []  # 발사체 리스트
         self.INITIAL_SPEED = 3  # 초기 속도 (매우 느림)
-        self.ACCELERATION = 0.3  # 가속도
-        self.MAX_SPEED = 25  # 최대 속도
+        self.ACCELERATION = 0.8  # 가속도 (기존 0.3에서 증가)
+        self.MAX_SPEED = 35  # 최대 속도 (기존 25에서 증가)
         self.EXPLOSION_RADIUS = 110  # 폭발 범위 (수류탄 150의 약 73%)
         self.KNOCKBACK_POWER = 40  # 넉백 거리 (수류탄과 동일)
         self.STUN_DURATION = 90  # 스턴 시간 1.5초 (수류탄보다 0.5초 짧음)
