@@ -16422,7 +16422,7 @@ def draw_objects():
         # 원본 보스 패들 크기 표시 (파란색) - 모든 스테이지
         draw.rect(BLUE, BOSS, 2)
     #  라그나로크 스턴 시 전기 감전 효과 (최적화 버전)
-    if boss_stun_timer > 0:
+    if boss_stun_timer > 0 and ragnarok_shock_playing:
         # 전기 감전 효과 - 보스 패들 전체에 전기가 흐르는 효과
         current_frame = pygame.time.get_ticks()
         
@@ -35943,18 +35943,18 @@ def handle_ball():
         if was_stun_ball:
             play_ragnarok_boom_sound()
         
-        #  라그나로크 해머 넉백 효과 (항상 발동)
+        #  라그나로크 해머 넉백 효과 (스턴공일 때만 발동)
         # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         
-        # 라그나로크 해머가 획득되고 활성화되어 있으면 넉백 발동
+        # 라그나로크 해머가 획득되고 활성화되어 있고, 스턴공이었을 때만 넉백 발동
         if not items.ragnarok_hammer_obtained:
             # 라그나로크 해머가 획득되지 않았으면 넉백 없음
             pass
-        elif items.ragnarok_hammer_obtained and legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
+        elif was_stun_ball and items.ragnarok_hammer_obtained and legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
             hammer = legendary_manager.items.get("ragnarok_hammer")
             if hammer and hammer.active:
-                print(f"[라그나로크 해머] 획득 완료 & 활성 상태 - 넉백 효과 적용!")
+                print(f"[라그나로크 해머] 스턴공 효과 발동 - 넉백 효과 적용!")
                 # 공 속도 계산
                 ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                 # 수평 넉백과 스턴 시간 계산
