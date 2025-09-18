@@ -21,6 +21,10 @@ RED = (255, 0, 0)
 BLUE = (0, 100, 255)
 YELLOW = (255, 255, 0)
 
+# 게임 상수 정의
+WINDOW_WIDTH = 800
+PADDLE_WIDTH = 100
+
 # 전설 아이템 매니저
 legendary_manager = get_legendary_manager()
 
@@ -51,6 +55,7 @@ running = True
 dt = 0
 total_knockback = 0
 hit_count = 0
+boss_stun_timer = 0
 
 print("\n=== 라그나로크 해머 테스트 ===")
 print("SPACE: 공 발사 | ESC: 종료")
@@ -87,19 +92,20 @@ while running:
         hammer = legendary_manager.items.get("ragnarok_hammer")
         if hammer and hammer.active:
             ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-            knockback_amount = hammer.calculate_knockback(ball_speed)
+            knockback_velocity, stun_duration = hammer.calculate_knockback(ball_speed, boss_paddle.x)
             
-            if knockback_amount > 0:
-                # 넉백 적용
-                boss_paddle.y = max(20, boss_paddle.y - knockback_amount)
-                boss_knockback_timer = 30
-                boss_knockback_offset = knockback_amount * 0.3
+            if abs(knockback_velocity) > 0:
+                # 넉백 적용 (수평 넉백)
+                boss_paddle.x += knockback_velocity
+                boss_paddle.x = max(0, min(WINDOW_WIDTH - PADDLE_WIDTH, boss_paddle.x))
+                boss_knockback_timer = 36  # 0.6초 (60 FPS)
+                boss_stun_timer = int(stun_duration * 60)  # 스턴도 0.6초
                 
                 # 통계 업데이트
-                total_knockback += knockback_amount
+                total_knockback += abs(knockback_velocity)
                 hit_count += 1
                 
-                print(f"💥 넉백 발생! 거리: {knockback_amount:.1f}px | 공속: {ball_speed:.1f}")
+                print(f"💥 넉백 발생! 속도: {knockback_velocity:.1f} | 공속: {ball_speed:.1f} | 스턴: {stun_duration}초")
     
     # 플레이어 패들 충돌
     if ball.colliderect(player_paddle) and ball_vel[1] > 0:

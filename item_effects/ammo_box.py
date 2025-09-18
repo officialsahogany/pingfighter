@@ -54,12 +54,18 @@ class AmmoBox:
         try:
             from item_effects.bazooka import get_bazooka_instance
             bazooka = get_bazooka_instance()
-            if bazooka and bazooka.ammo_count < bazooka.max_ammo:
+            if bazooka:
                 prev_ammo = bazooka.ammo_count
-                bazooka.ammo_count = bazooka.max_ammo
-                if "bazooka" not in self.reloaded_weapons:
-                    self.reloaded_weapons.append("bazooka")
-                print(f"   🚀 바주카포 재장전: {prev_ammo} → {bazooka.ammo_count}")
+                was_inactive = not getattr(bazooka, "active", False)
+                if prev_ammo < bazooka.max_ammo or was_inactive:
+                    bazooka.ammo_count = bazooka.max_ammo
+                    bazooka.active = True
+                    if "bazooka" not in self.reloaded_weapons:
+                        self.reloaded_weapons.append("bazooka")
+                    if prev_ammo < bazooka.max_ammo:
+                        print(f"   🚀 바주카포 재장전: {prev_ammo} → {bazooka.ammo_count}")
+                    elif was_inactive:
+                        print("   🚀 바주카포 재활성화!")
         except ImportError:
             pass
         

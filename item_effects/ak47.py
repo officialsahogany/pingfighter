@@ -110,6 +110,8 @@ class AK47:
 
         if self.current_ammo == 0:
             print("AK-47 탄약 소진! 추가 발사가 불가합니다.")
+            self.is_firing = False
+            self.burst_shots_fired = 0
         return True
     
     def should_fire(self) -> bool:
@@ -177,7 +179,12 @@ class AK47:
     # ------------------------------------------------------------------
     # 업데이트 & 충돌 처리
     # ------------------------------------------------------------------
-    def update(self, boss_rect: Optional[pygame.Rect] = None) -> List[Dict[str, float]]:
+    def update(
+        self,
+        boss_rect: Optional[pygame.Rect] = None,
+        *,
+        tick_timer: bool = True,
+    ) -> List[Dict[str, float]]:
         """매 프레임 호출. 총알 이동과 쿨다운 갱신.
 
         Returns:
@@ -188,11 +195,12 @@ class AK47:
 
         events: List[Dict[str, float]] = []
 
-        # 지속 시간 감소 (아이템 유지 시간)
-        self.remaining_time -= 1
-        if self.remaining_time <= 0:
-            self.deactivate()
-            return events
+        # 지속 시간은 실제 전투에 관여할 때만 감소시킨다.
+        if tick_timer:
+            self.remaining_time -= 1
+            if self.remaining_time <= 0:
+                self.deactivate()
+                return events
 
         if self.shot_cooldown > 0:
             self.shot_cooldown -= 1
