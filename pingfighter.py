@@ -31875,7 +31875,7 @@ def calculate_bounce(paddle):
                     ragnarok_stun_attempted_this_rally = True
                     # 50% 확률로 스턴공 발동
                     if random.random() < 0.5:
-                        # 스턴공 발동 - 공속 2배 증가 (나중에 적용하기 위해 플래그만 설정)
+                        # 스턴공 발동 - 공속 50% 증가 (나중에 적용하기 위해 플래그만 설정)
                         ragnarok_speed_boost_active = True
                         print(f"⚡ 라그나로크 스턴공 발동 준비! (calculate_bounce)")
                     else:
@@ -32248,11 +32248,11 @@ def calculate_bounce(paddle):
     
     #  라그나로크 스턴공 효과 적용 (플래그가 설정되어 있으면)
     if is_player_paddle and ragnarok_speed_boost_active:
-        # 공속 2배 증가
-        ball_vel[0] *= 2.0
-        ball_vel[1] *= 2.0
+        # 공속 50% 증가
+        ball_vel[0] *= 1.5
+        ball_vel[1] *= 1.5
         new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-        print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (2배 증가)")
+        print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (50% 증가)")
         # 사운드 효과 재생
         try:
             play_ragnarok_shot_sound()
@@ -35586,12 +35586,12 @@ def handle_ball():
             if hammer and hammer.active and not ragnarok_speed_boost_active:
                 # 50% 확률로 스턴공 발동
                 if random.random() < 0.5:
-                    # 스턴공 발동 - 공속 2배 증가
-                    ball_vel[0] *= 2.0
-                    ball_vel[1] *= 2.0
+                    # 스턴공 발동 - 공속 50% 증가
+                    ball_vel[0] *= 1.5
+                    ball_vel[1] *= 1.5
                     ragnarok_speed_boost_active = True
                     new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                    print(f"   ! : {new_ball_speed:.1f} (2 )")
+                    print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (50% 증가)")
                     # 사운드 효과 재생
                     play_ragnarok_shot_sound()
                     # 시각적 효과
@@ -35913,12 +35913,12 @@ def handle_ball():
         was_stun_ball = ragnarok_speed_boost_active  # 스턴공이었는지 저장
         
         if ragnarok_speed_boost_active:
-            # 속도를 절반으로 줄여 원래대로 복구 (보스가 받기 전에)
-            ball_vel[0] /= 2.0
-            ball_vel[1] /= 2.0
+            # 속도를 1.5배에서 원래대로 복구 (보스가 받기 전에)
+            ball_vel[0] /= 1.5
+            ball_vel[1] /= 1.5
             ragnarok_speed_boost_active = False
             original_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-            print(f"   !   : {original_speed:.1f}")
+            print(f"⚡ 라그나로크 스턴공 종료! 원래 속도: {original_speed:.1f}")
             
             # 화면 흔들림 0.2초 추가
             global screen_shake_timer, screen_shake_intensity

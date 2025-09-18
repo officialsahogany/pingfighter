@@ -70,7 +70,7 @@ while running:
             if event.key == pygame.K_SPACE and test_state == "ready":
                 # 공 발사
                 ball_pos = [100, boss_rect.centery]
-                ball_vel = [20, 0]  # 공속 20
+                ball_vel = [20, 0]  # 공속 20 (스턴공이면 30이 됨)
                 test_state = "firing"
             elif event.key == pygame.K_1:
                 ball_vel = [10, 0]  # 느린 공
