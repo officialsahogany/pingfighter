@@ -31855,6 +31855,22 @@ def calculate_bounce(paddle):
                 del smoke_zone["original_speed"]
                 del smoke_zone["affecting_ball"]
                 break
+        
+        #  라그나로크 해머가 활성화되어 있으면 50% 확률로 스턴공 발동
+        try:
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            global ragnarok_speed_boost_active
+            if legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
+                hammer = legendary_manager.items.get("ragnarok_hammer")
+                if hammer and hammer.active and not ragnarok_speed_boost_active:
+                    # 50% 확률로 스턴공 발동
+                    if random.random() < 0.5:
+                        # 스턴공 발동 - 공속 2배 증가 (나중에 적용하기 위해 플래그만 설정)
+                        ragnarok_speed_boost_active = True
+                        print(f"⚡ 라그나로크 스턴공 발동 준비! (calculate_bounce)")
+        except Exception as e:
+            print(f"[ERROR] 라그나로크 해머 효과 처리 실패 (calculate_bounce): {e}")
     
     rel_x = (BALL.centerx - paddle.centerx) / (PADDLE_WIDTH / 2)
     rel_x = max(-1.0, min(1.0, rel_x))
@@ -32218,6 +32234,25 @@ def calculate_bounce(paddle):
         ball_vel[0] = speed * vector.x
         ball_vel[1] = speed * vector.y
         vertical_bounce_count = 0
+    
+    #  라그나로크 스턴공 효과 적용 (플래그가 설정되어 있으면)
+    if is_player_paddle and ragnarok_speed_boost_active:
+        # 공속 2배 증가
+        ball_vel[0] *= 2.0
+        ball_vel[1] *= 2.0
+        new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+        print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (2배 증가)")
+        # 사운드 효과 재생
+        try:
+            play_ragnarok_shot_sound()
+        except:
+            pass
+        # 시각적 효과
+        try:
+            create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+        except:
+            pass
+    
     #  드라이브 발동 여부 반환
     return drive_activated
 #  화염탄 맞았을 때 플레이어 스턴 관련 변수
@@ -35893,13 +35928,18 @@ def handle_ball():
         if was_stun_ball:
             play_ragnarok_boom_sound()
         
-        #  라그나로크 해머 넉백 효과 (스턴공이었을 때만 발동)
+        #  라그나로크 해머 넉백 효과 (항상 발동)
         # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         
-        if was_stun_ball and legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
+        # 라그나로크 해머가 획득되고 활성화되어 있으면 넉백 발동
+        if not items.ragnarok_hammer_obtained:
+            # 라그나로크 해머가 획득되지 않았으면 넉백 없음
+            pass
+        elif items.ragnarok_hammer_obtained and legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
             hammer = legendary_manager.items.get("ragnarok_hammer")
             if hammer and hammer.active:
+                print(f"[라그나로크 해머] 획득 완료 & 활성 상태 - 넉백 효과 적용!")
                 # 공 속도 계산
                 ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                 # 수평 넉백과 스턴 시간 계산
@@ -35907,8 +35947,7 @@ def handle_ball():
                 
                 if horizontal_velocity != 0:
                     # 넉백 시스템 활용
-                    global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
-                    boss_knockback_timer = 36  # 0.6초간 넉백 효과 지속
+                    boss_knockback_timer = 60  # 1초간 넉백 효과 지속 (0.6초 -> 1초 증가)
                     
                     # 수평 넉백 속도 설정 (수류탄 방식)
                     boss_knockback_vel = horizontal_velocity
@@ -35926,7 +35965,11 @@ def handle_ball():
                     hammer.on_boss_hit(BOSS.centerx, BOSS.centery)
                     
                     # 디버그 정보  
-                    print(f"     !")
+                    print(f"[라그나로크 해머] 넉백 발동!")
+                    print(f"  - 공 속도: {ball_speed:.1f}")
+                    print(f"  - 넉백 속도: {horizontal_velocity:.1f}")
+                    print(f"  - 넉백 타이머: {boss_knockback_timer}")
+                    print(f"  - 스턴 예정: {stun_duration:.1f}초")
                     
                     # 번개 이펙트는 calculate_knockback 내부에서 생성됨
         
@@ -38009,13 +38052,13 @@ def handle_boss():
             if boss_knockback_timer <= 18:  # 군인 총알 (18프레임)
                 boss_knockback_vel *= 0.85  # 매 프레임마다 15% 감속
             else:  # 라그나로크 해머 (더 긴 넉백)
-                # 부드러운 감속 (초반엔 빠르게, 후반엔 천천히)
-                if boss_knockback_timer > 18:  # 처음 0.3초는 빠른 감속
-                    boss_knockback_vel *= 0.92
-                elif boss_knockback_timer > 12:  # 중간 0.2초는 중간 감속
-                    boss_knockback_vel *= 0.95
-                else:  # 마지막 0.2초는 느린 감속
-                    boss_knockback_vel *= 0.98
+                # 부드러운 감속 (초반엔 거의 감속 없이, 후반에 천천히)
+                if boss_knockback_timer > 50:  # 처음 0.16초는 감속 없음
+                    boss_knockback_vel *= 1.0  # 감속 없음
+                elif boss_knockback_timer > 30:  # 중간 0.33초는 아주 약간 감속
+                    boss_knockback_vel *= 0.99  # 1% 감속만
+                else:  # 마지막 0.5초는 점진적 감속
+                    boss_knockback_vel *= 0.97  # 3% 감속
             
             print(f"[DEBUG] 보스 넉백 업데이트 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}, pos: {BOSS.x:.2f}")
         
