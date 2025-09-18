@@ -1,4 +1,4 @@
-"""무릎보호대 - 하프대쉬로 공을 맞출 때 게이지 50% 충전"""
+"""킥차져 - 하프대쉬로 공을 맞출 때 게이지 50% 충전"""
 
 import pygame
 import math
@@ -16,18 +16,18 @@ class KneePads:
         self.charge_rings = []  # 충전 링 효과
         
     def activate(self):
-        """무릎보호대 획득 시 활성화"""
+        """킥차져 획득 시 활성화"""
         self.active = True
         self.obtained = True
-        print("무릎보호대 활성화 - 하프대쉬 공 타격 시 게이지 50% 충전")
+        print("킥차져 활성화 - 하프대쉬 공 타격 시 게이지 50% 충전")
     
     def deactivate(self):
-        """무릎보호대 비활성화 (게임오버 시)"""
+        """킥차져 비활성화 (게임오버 시)"""
         self.active = False
         self.obtained = False
         self.flash_timer = 0
         self.flash_pos = None
-        print("무릎보호대 비활성화")
+        print("킥차져 비활성화")
     
     def on_half_dash_hit(self, ball_pos):
         """하프대쉬로 공을 맞췄을 때 호출"""

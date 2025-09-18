@@ -141,6 +141,7 @@ from item_effects.bluetooth_ring import (
 from item_effects.smartphone import get_smartphone_instance
 from item_effects.ammo_box import get_ammo_box_instance
 from item_effects.ak47 import get_ak47_instance
+from item_effects.net_gun import get_net_gun_instance
 from supply_drop import (
     SupplyDropState,
     update_items as supply_update_items,
@@ -978,8 +979,18 @@ physics_manager.init_physics_manager(SCREEN, BALL, PLAYER, BOSS, WIDTH, HEIGHT)
 def get_special_gauge():
     return special_gauge
 def consume_special_gauge(amount):
-    global special_gauge
+    """Deduct special gauge while keeping readiness state in sync."""
+    global special_gauge, special_ready
     special_gauge = max(0, special_gauge - amount)
+    special_ready = special_gauge >= 350
+
+    # GameState-backed UIs expect live values; update when available.
+    try:
+        game_state.special_gauge = special_gauge
+        game_state.special_ready = special_ready
+    except Exception:
+        # During early bootstrap or tests the singleton might be absent.
+        pass
 
 def play_sound_with_volume(sound, volume=None):
     """효과음을 지정된 볼륨으로 재생"""
@@ -1027,6 +1038,11 @@ def play_button_click_sound():
     global sfx_volume
     SOUND_BUTTON_CLICK.set_volume(sfx_volume)
     play_sound_with_volume(SOUND_BUTTON_CLICK)
+
+
+def play_notification_sound():
+    """요청 완료 알림 사운드 재생"""
+    play_sound_with_volume(SOUND_NOTIFICATION)
 
 def play_ragnarok_shot_sound():
     """라그나로크 스턴공 발사 사운드 재생"""
@@ -1174,6 +1190,10 @@ drive_text_timer = 0                 # DRIVE! 텍스트 표시 타이머
 # 파워스매싱 기본
 power_smashing_direction = None      # 파워스매싱 방향 (-1: 왼쪽, 1: 오른쪽, None: 미설정)
 power_smashing_original_speed = 0.0  # 파워스매싱 발동 전 원래 공 속도 (보스 반격 시 감속용)
+# 파워스매싱 좌/우 각도 하한 (패들 중앙 히트 시 수직 발동 방지)
+POWER_SMASH_MIN_TURN_ANGLE_DEG = 25
+POWER_SMASH_MIN_TURN_ANGLE_RAD = math.radians(POWER_SMASH_MIN_TURN_ANGLE_DEG)
+POWER_SMASH_MIN_TURN_RATIO = math.tan(POWER_SMASH_MIN_TURN_ANGLE_RAD)
 # 파워스매싱 포물선 궤적
 power_smashing_parabola_active = False  # 포물선 궤적 활성화 상태
 power_smashing_start_time = 0           # 파워스매싱 시작 시간
@@ -1289,6 +1309,7 @@ SOUND_STAGE1_MACHINE = pygame.mixer.Sound(resource_path("sounds/stage1muchine.wa
 SOUND_BIRDKILL = pygame.mixer.Sound(resource_path("sounds/birdkill.wav"))  #  까마귀 폭발 효과음
 SOUND_THROW = pygame.mixer.Sound(resource_path("sounds/throw.wav"))  #  투척 효과음
 SOUND_ITEM_GET = pygame.mixer.Sound(resource_path("sounds/itemget.wav"))  #  아이템 획득 효과음
+SOUND_NOTIFICATION = pygame.mixer.Sound(resource_path("sounds/item_pickup.wav"))  # 기본 알림 효과음
 SOUND_HONGRYUN_CHARGE = pygame.mixer.Sound(resource_path("sounds/hongcharge.wav"))  #  홍련폭염 차징 효과음
 SOUND_HONGRYUN_SHOOT = pygame.mixer.Sound(resource_path("sounds/hongshoot.wav"))  #  홍련폭염 발사 효과음
 SOUND_BAZOOKA_GOING = pygame.mixer.Sound(resource_path("sounds/bazukagoing.wav"))  # 바주카포 발사 시작 효과음
@@ -1455,6 +1476,7 @@ stage6_barrier_flash_timer = 0  # 장막 깜빡임 타이머
 #  아이템 시스템
 # 액티브 아이템
 active_item_slot = []                # 리스트로 바꿔서 최대 3개 보관
+soldier_initial_grenade_given = False
 selected_item_index = 0              # 현재 선택 중인 아이템 인덱스
 MAX_ITEM_SLOTS = 3                   # 최대 아이템 슬롯 수 (기본값)
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
@@ -3182,11 +3204,18 @@ def draw_supply_radio_motion(screen):
     
     # 텍스트 렌더링
     try:
-        font = pygame.font.Font(None, 16)
+        font = FontStyle.gauge()
+    except Exception:
+        try:
+            font = get_font(16, style="regular")
+        except Exception:
+            font = pygame.font.Font(None, 18)
+
+    try:
         text_surface = font.render(text, True, (0, 0, 0))
         text_rect = text_surface.get_rect(center=(bubble_x + bubble_width//2, bubble_y + bubble_height//2))
         screen.blit(text_surface, text_rect)
-    except:
+    except Exception:
         pass
     
     # 타이머 감소 (30프레임 = 0.5초 동안 유지)
@@ -3347,6 +3376,7 @@ def activate_supply_drop_item(item_name: str) -> None:
     if item_name == "bazooka":
         if "bazooka" not in soldier_weapons:
             soldier_weapons.append("bazooka")
+            reset_weapon_tracking("bazooka")
             print(f"🚀 바주카포 획득! 현재 화기류: {soldier_weapons}")
             from item_effects.bazooka import get_bazooka_instance
             bazooka = get_bazooka_instance()
@@ -3363,10 +3393,28 @@ def activate_supply_drop_item(item_name: str) -> None:
     if item_name == "ak47":
         if "ak47" not in soldier_weapons:
             soldier_weapons.append("ak47")
+            reset_weapon_tracking("ak47")
             print(f"🔫 AK-47 획득! 현재 화기류: {soldier_weapons}")
             ak47 = get_ak47_instance()
             ak47.activate(None, None)
             ak47.active = True  # 활성 상태로 설정
+            current_weapon_index = len(soldier_weapons) - 1
+            weapon_ui_highlight_timer = weapon_ui_highlight_duration
+            try:
+                if SOUND_ITEM_GET:
+                    SOUND_ITEM_GET.play()
+            except Exception:
+                pass
+        return
+
+    if item_name == "net_gun":
+        if "net_gun" not in soldier_weapons:
+            soldier_weapons.append("net_gun")
+            reset_weapon_tracking("net_gun")
+            print(f"🕸️ 그물덫총 획득! 현재 화기류: {soldier_weapons}")
+            net_gun = get_net_gun_instance()
+            net_gun.reload()
+            net_gun.equip()
             current_weapon_index = len(soldier_weapons) - 1
             weapon_ui_highlight_timer = weapon_ui_highlight_duration
             try:
@@ -3555,23 +3603,35 @@ class SupplyAircraft:
         """아이템 투척"""
         
         # 랜덤 아이템 선택 (이미 보유한 화기류는 제외)
-        weights = [1, 1, 1, 1.0, 2.0, 0.8]  # 수류탄, 화염병, 조명탄 각 20%, 바주카포 20%, AK-47 40%, 탄약상자 16%
-        available_items = list(supply_drop_state.config.items)
-        available_weights = list(weights)
+        base_weights = {
+            "grenade": 1.0,
+            "molotov": 1.0,
+            "flare": 1.0,
+            "bazooka": 0.45,
+            "ak47": 0.9,
+            "net_gun": 0.45,
+            "ammo_box": 0.6,
+        }
+        firearm_names = {"bazooka", "ak47", "net_gun"}
 
         soldier_weapon_list = globals().get("soldier_weapons", [])
+        owned_firearm_count = len({w for w in soldier_weapon_list if w in firearm_names})
+        firearm_penalty = max(0.25, 1.0 - 0.25 * owned_firearm_count)  # 0.25씩 감소, 최소 25%
 
-        if 'bazooka' in soldier_weapon_list:
-            for idx in reversed(range(len(available_items))):
-                if available_items[idx] == "bazooka":
-                    del available_items[idx]
-                    del available_weights[idx]
-        if 'ak47' in soldier_weapon_list:
-            for idx in reversed(range(len(available_items))):
-                if available_items[idx] == "ak47":
-                    del available_items[idx]
-                    del available_weights[idx]
+        available_items = []
+        available_weights = []
+        for item_name in supply_drop_state.config.items:
+            if item_name in soldier_weapon_list:
+                continue
 
+            weight = base_weights.get(item_name, 1.0)
+            if item_name in firearm_names:
+                weight *= firearm_penalty
+
+            available_items.append(item_name)
+            available_weights.append(weight)
+
+        # 모든 후보가 제거되면 기본 투척류로 폴백
         if not available_items:
             available_items = list(supply_drop_state.config.items[:3])  # 안전장치: 기본 투척류만 사용
             available_weights = [1, 1, 1]
@@ -4260,10 +4320,73 @@ soldier_weapons = ["pistol"]  # 현재 보유 중인 화기류 리스트
 current_weapon_index = 0  # 현재 선택된 화기 인덱스
 weapon_switch_cooldown = 0  # 화기 교체 쿨타임
 WEAPON_SWITCH_COOLDOWN = 30  # 0.5초 쿨타임 시간
+weapon_reload_counts: dict[str, int] = {}
+weapon_degraded: set[str] = set()
 
 # === 화기류 UI 강조 효과 ===
 weapon_ui_highlight_timer = 0  # UI 강조 효과 타이머
 weapon_ui_highlight_duration = 180  # 3초간 강조 효과 (60fps)
+
+def reset_weapon_tracking(weapon_name: str) -> None:
+    if weapon_name == "pistol":
+        return
+    weapon_reload_counts[weapon_name] = 0
+    weapon_degraded.discard(weapon_name)
+
+
+def register_weapon_reload(weapon_name: str) -> None:
+    if weapon_name == "pistol":
+        return
+    count = weapon_reload_counts.get(weapon_name, 0) + 1
+    weapon_reload_counts[weapon_name] = count
+    if count >= 3:
+        if weapon_name not in weapon_degraded:
+            weapon_degraded.add(weapon_name)
+            print(f"⚠️ {get_item_name_korean(weapon_name)} 노후화!")
+
+
+def remove_weapon_from_inventory(weapon_name: str) -> None:
+    global soldier_weapons, current_weapon_index
+    if weapon_name in soldier_weapons:
+        soldier_weapons.remove(weapon_name)
+        if current_weapon_index >= len(soldier_weapons):
+            current_weapon_index = max(0, len(soldier_weapons) - 1)
+        if not soldier_weapons:
+            soldier_weapons.append("pistol")
+            current_weapon_index = 0
+    weapon_reload_counts.pop(weapon_name, None)
+    weapon_degraded.discard(weapon_name)
+
+
+def check_weapon_degradation() -> None:
+    if selected_character_type != "soldier":
+        return
+
+    from item_effects.bazooka import get_bazooka_instance
+    from item_effects.ak47 import get_ak47_instance
+    from item_effects.net_gun import get_net_gun_instance
+
+    if "bazooka" in weapon_degraded:
+        bazooka = get_bazooka_instance()
+        if bazooka and bazooka.ammo_count <= 0 and not bazooka.projectiles:
+            bazooka.unequip()
+            bazooka.ammo_count = bazooka.max_ammo
+            print("⚠️ 바주카포 노후화로 파괴되었습니다.")
+            remove_weapon_from_inventory("bazooka")
+
+    if "ak47" in weapon_degraded:
+        ak47 = get_ak47_instance()
+        if ak47 and ak47.active and ak47.current_ammo <= 0 and not ak47.bullets:
+            ak47.deactivate()
+            print("⚠️ AK-47 노후화로 파괴되었습니다.")
+            remove_weapon_from_inventory("ak47")
+
+    if "net_gun" in weapon_degraded:
+        net_gun = get_net_gun_instance()
+        if net_gun and net_gun.ammo_count <= 0 and not net_gun.projectiles and not net_gun.nets:
+            net_gun.unequip()
+            print("⚠️ 그물덫총 노후화로 파괴되었습니다.")
+            remove_weapon_from_inventory("net_gun")
 
 # === 바주카포 반동 효과 ===
 bazooka_recoil_timer = 0  # 반동 시각 효과 타이머
@@ -4300,7 +4423,7 @@ LEG_SHOT_SPEED_REDUCTION = 0.7  # 이동속도 70% (30% 감소)
 LEG_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
 
 # === AK-47 연사 효과 설정 ===
-AK47_STUN_FRAMES = 12  # 보스 스턴 지속 시간 (0.2초)
+AK47_STUN_FRAMES = 6  # 보스 스턴 지속 시간 (0.1초)
 AK47_KNOCKBACK_FRAMES = 12  # 넉백 유지 프레임 수
 AK47_KNOCKBACK_BASE = 6.0  # 기본 좌우 넉백 세기
 AK47_KNOCKBACK_SCALE = 0.35  # 총알 속도를 넉백 속도로 추가 환산하는 스케일
@@ -4418,6 +4541,24 @@ bazooka_screen_shake_timer = 0  # 바주카포 폭발 화면 흔들림 타이머
 # Stage 2 정글지진 오프셋 변수 (벽돌 동기화용)
 earthquake_offset_x = 0
 earthquake_offset_y = 0
+
+# Stage 2 정글지진 디버깅 플래그
+DEBUG_STAGE2_QUAKE = True
+
+
+def debug_stage2_quake(tag, **fields):
+    """Stage 2 정글지진 관련 상태를 구조화된 형태로 출력한다."""
+    if not DEBUG_STAGE2_QUAKE:
+        return
+
+    parts = []
+    for key, value in fields.items():
+        if isinstance(value, float):
+            parts.append(f"{key}={value:.2f}")
+        else:
+            parts.append(f"{key}={value}")
+    payload = ", ".join(parts)
+    print(f"[Stage2Quake:{tag}] {payload}")
 # Stage 2 특수 기술: 정글지진
 quake_active = False
 quake_duration = 80
@@ -4699,6 +4840,12 @@ def go_to_next_round():
     stopwatch_original_ball_vel = None
     stopwatch_forced_upward = False
     stopwatch_upward_lock_timer = 0
+
+    # 그물덫총 상태 초기화 (라운드 전환 시 그물 및 투사체 제거)
+    try:
+        get_net_gun_instance().reset()
+    except Exception:
+        pass
 
     #  Stage 1 이벤트 체크 - 타이머 기반으로 변경되어 더 이상 점수 체크하지 않음
     # 기존 코드 주석 처리 (타이머 기반으로 변경)
@@ -6675,36 +6822,85 @@ def activate_quake(animated_bg=None):
         print("Stage 2 trigger_earthquake")
     
     show_speech("정글지진!", duration=90)
+    debug_stage2_quake(
+        "activate",
+        stage=current_stage,
+        quake_timer=quake_timer,
+        ball_speed=math.hypot(ball_vel[0], ball_vel[1]),
+        eq_duration=getattr(animated_bg_stage2, "earthquake_duration", "n/a") if animated_bg_stage2 is not None else "n/a",
+        eq_active=getattr(animated_bg_stage2, "earthquake_active", False) if animated_bg_stage2 is not None else False,
+    )
 # 정글지진 효과음 멈추기
 def stop_quake_sound():
     SOUND_QUAKE.stop()
 def handle_quake():
     global quake_active, quake_timer, PLAYER_SPEED, ball_vel
     if quake_active:
+        pre_velocity = (ball_vel[0], ball_vel[1])
         if quake_timer > 0:
             quake_timer -= 1
-            # 원래 흔들림 효과 (매 프레임 적용)
-            shake_x = random.uniform(-3, 3)
-            shake_y = random.uniform(-2, 2)
-            ball_vel[0] += shake_x
-            ball_vel[1] += shake_y
-            # 원래 플레이어 영향 계산
+            # 흔들림 효과: 벡터를 회전·변조하여 고속에서도 곡선을 유지
+            velocity_vec = pygame.math.Vector2(ball_vel)
+            if velocity_vec.length_squared() < 0.01:
+                # 거의 정지한 상태에서는 기본 방향을 재설정해 흔들림이 보이도록 함
+                base_dir = pygame.math.Vector2(random.uniform(-0.6, 0.6), random.uniform(0.4, 1.0))
+                if base_dir.length_squared() == 0:
+                    base_dir = pygame.math.Vector2(0, 1)
+                base_dir = base_dir.normalize()
+                base_speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 6.0
+                velocity_vec = base_dir * base_speed
+
+            effective_base_speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 1.0
+            speed_ratio = max(1.0, velocity_vec.length() / effective_base_speed)
+            shake_angle = random.uniform(-6 - speed_ratio * 3.0, 6 + speed_ratio * 3.0)
+            velocity_vec = velocity_vec.rotate(shake_angle)
+
+            # 속도 변조 (살짝 가감속) 후 플레이어 쪽 영향 반영
+            speed_jitter = random.uniform(-0.5, 0.5)
+            target_speed = max(1.0, velocity_vec.length() + speed_jitter)
+            max_speed = 8.0
+            if target_speed > max_speed:
+                target_speed = max_speed
+            if velocity_vec.length() > 0:
+                velocity_vec.scale_to_length(target_speed)
+
             dx = PLAYER.centerx - BALL.centerx
             dy = PLAYER.centery - BALL.centery
-            distance = math.sqrt(dx*dx + dy*dy)
+            distance = math.hypot(dx, dy)
             if distance > 10:
                 influence = 0.15 / distance
-                ball_vel[0] += dx * influence * 0.01
-                ball_vel[1] += dy * influence * 0.01
-            # 속도 제한 (벡터 크기 기반)
-            # NOTE: 이전에는 축별(±8) 클램프로 지터가 상쇄되어 공이 일자로 보이는 경우가 있었음.
-            #       크기(벡터) 기준 클램프로 변경하여 흔들림 방향성은 유지하면서 과속만 제한.
-            max_speed = 8.0
-            cur_speed = math.hypot(ball_vel[0], ball_vel[1])
+                velocity_vec.x += dx * influence * 0.01
+                velocity_vec.y += dy * influence * 0.01
+
+            cur_speed = velocity_vec.length()
             if cur_speed > max_speed:
-                scale = max_speed / cur_speed
-                ball_vel[0] *= scale
-                ball_vel[1] *= scale
+                velocity_vec.scale_to_length(max_speed)
+
+            ball_vel[0] = velocity_vec.x
+            ball_vel[1] = velocity_vec.y
+
+            if DEBUG_STAGE2_QUAKE and quake_timer % 5 == 0:
+                eq_timer = "n/a"
+                eq_active = False
+                eq_duration = "n/a"
+                if current_stage == 2 and animated_bg_stage2 is not None:
+                    eq_timer = animated_bg_stage2.earthquake_timer
+                    eq_active = animated_bg_stage2.earthquake_active
+                    eq_duration = animated_bg_stage2.earthquake_duration
+                debug_stage2_quake(
+                    "tick",
+                    timer=quake_timer,
+                    eq_timer=eq_timer,
+                    eq_active=eq_active,
+                    eq_duration=eq_duration,
+                    pre_vel=f"({pre_velocity[0]:.2f},{pre_velocity[1]:.2f})",
+                    new_vel=f"({ball_vel[0]:.2f},{ball_vel[1]:.2f})",
+                    speed=pygame.math.Vector2(ball_vel).length(),
+                    shake_angle=shake_angle,
+                    speed_ratio=speed_ratio,
+                    speed_jitter=speed_jitter,
+                    target_speed=target_speed,
+                )
         else:
             #  효과 종료 시 상태 복원
             quake_active = False
@@ -6712,7 +6908,7 @@ def handle_quake():
             #  원래 속도로 복원하되, 너무 빠르면 제한
             ball_vel[0] = original_ball_speed_quake[0]
             ball_vel[1] = original_ball_speed_quake[1]
-            
+
             # 복원된 속도 체크 및 보정 (속도 증가)
             speed = math.hypot(ball_vel[0], ball_vel[1])
             min_allowed_speed = BALL_BASE_SPEED * 1.1  # 최소 기본 속도의 1.1배
@@ -6730,9 +6926,19 @@ def handle_quake():
                 ball_vel[0] = direction.x * min_allowed_speed
                 ball_vel[1] = direction.y * min_allowed_speed
                 print(f"  :   {speed:.2f} → {min_allowed_speed:.2f}")
-            
+
             # 퀘이크 효과음 종료
             stop_quake_sound()
+            eq_active = False
+            if current_stage == 2 and animated_bg_stage2 is not None:
+                eq_active = animated_bg_stage2.earthquake_active
+            debug_stage2_quake(
+                "restore",
+                stage=current_stage,
+                restored_speed=speed,
+                backup_speed=math.hypot(original_ball_speed_quake[0], original_ball_speed_quake[1]),
+                eq_active=eq_active,
+            )
 def draw_shaking_screen():
     """정글지진 시 화면 흔들림 효과 (더 효율적인 방식)"""
     global screen_shake_offset_x, screen_shake_offset_y, grenade_shake_timer, bazooka_screen_shake_timer
@@ -6758,11 +6964,33 @@ def draw_shaking_screen():
             earthquake_offset_x, earthquake_offset_y = animated_bg_stage2.get_earthquake_offset()
             screen_shake_offset_x = earthquake_offset_x
             screen_shake_offset_y = earthquake_offset_y
+            eq_timer = animated_bg_stage2.earthquake_timer
+            eq_active = animated_bg_stage2.earthquake_active
+            eq_duration = animated_bg_stage2.earthquake_duration
         else:
             # 다른 스테이지에서는 기본 흔들림
             screen_shake_offset_x = random.randint(-3, 3)
             screen_shake_offset_y = random.randint(-2, 2)
-        print(f"   : offset=({screen_shake_offset_x}, {screen_shake_offset_y})")
+            eq_timer = "n/a"
+            eq_active = quake_active
+            eq_duration = "n/a"
+
+        if DEBUG_STAGE2_QUAKE:
+            should_log = quake_active
+            if should_log:
+                if current_stage == 2 and animated_bg_stage2 is not None:
+                    should_log = (animated_bg_stage2.earthquake_timer % 5 == 0)
+                else:
+                    should_log = (quake_timer % 5 == 0)
+            if should_log:
+                debug_stage2_quake(
+                    "screen_offset",
+                    timer=quake_timer,
+                    offset=f"({screen_shake_offset_x},{screen_shake_offset_y})",
+                    eq_timer=eq_timer,
+                    eq_active=eq_active,
+                    eq_duration=eq_duration,
+                )
     elif bazooka_screen_shake_timer > 0:
         # 바주카포 폭발 화면 흔들림 (수류탄보다 강력)
         intensity = bazooka_screen_shake_timer / 25.0  # 25으로 나누어 강도 계산
@@ -7272,7 +7500,7 @@ rolling_direction = 0  # -1: 왼쪽, 1: 오른쪽
 rolling_speed = 30
 rolling_stun_timer = 0  # 구르기 후 통제 불가능 시간
 rolling_dash_available_timer = 0  # 구르기 대쉬 가능 타이머
-is_half_dash_active = False  # 하프대쉬 활성화 플래그 (무릎보호대 효과용)
+is_half_dash_active = False  # 하프대쉬 활성화 플래그 (킥차져 효과용)
 half_dash_effect_timer = 0  # 하프대쉬 효과 지속 시간 (충돌 감지용)
 # 게이지 충전 애니메이션 변수
 gauge_charge_animation_timer = 0  # 애니메이션 타이머
@@ -7820,7 +8048,69 @@ def draw_soldier_weapon_ui(screen):
     import pygame
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
     global soldier_weapons, current_weapon_index, weapon_ui_highlight_timer
-    
+    global weapon_degraded
+
+    def render_weapon_label(text, color, size):
+        surface = None
+
+        if hasattr(ui_manager, 'korean_font') and ui_manager.korean_font:
+            try:
+                surface = ui_manager.korean_font.render(text, True, color)
+            except Exception:
+                surface = None
+
+        if surface is None:
+            try:
+                import pygame.freetype
+
+                font_paths = [
+                    resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")),
+                    resource_path(os.path.join("fonts", "pixel", "네오둥근모.ttf")),
+                    resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf")),
+                    resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "Pretendard-Regular.otf")),
+                    resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                ]
+
+                for font_path in font_paths:
+                    if os.path.exists(font_path):
+                        try:
+                            korean_font = pygame.freetype.Font(font_path, size)
+                            surface, _ = korean_font.render(text, color)
+                            if surface:
+                                break
+                        except Exception:
+                            continue
+            except Exception:
+                surface = None
+
+        if surface is None:
+            try:
+                system_fonts = [
+                    "AppleSDGothicNeo.ttc",
+                    "Arial Unicode MS",
+                    "Malgun Gothic",
+                    "NanumGothic"
+                ]
+
+                for system_font in system_fonts:
+                    try:
+                        font = pygame.font.SysFont(system_font, size)
+                        if font:
+                            rendered = font.render(text, True, color)
+                            if rendered:
+                                surface = rendered
+                                break
+                    except Exception:
+                        continue
+            except Exception:
+                surface = None
+
+        if surface is None:
+            font = pygame.font.Font(None, size)
+            surface = font.render(text, True, color)
+
+        return surface
+
     # 액티브 아이템 슬롯 크기 및 위치 계산
     slot_size = 60
     slot_margin = 10
@@ -8188,7 +8478,157 @@ def draw_soldier_weapon_ui(screen):
                 (weapon_rect.right - 4, weapon_rect.bottom - 4),
                 2
             )
-            
+    elif current_weapon == "net_gun":
+        net_gun = get_net_gun_instance()
+        slot_w, slot_h = weapon_rect.width, weapon_rect.height
+
+        gun_active = net_gun.ammo_count > 0 or net_gun.projectiles or net_gun.nets
+
+        body_color = (54, 102, 180) if gun_active else (78, 90, 110)
+        body_outline = (30, 62, 120) if gun_active else (90, 90, 90)
+        accent_light = (114, 210, 255) if gun_active else (150, 160, 170)
+        accent_dark = (34, 74, 140) if gun_active else (85, 90, 100)
+        grip_color = (36, 62, 110) if gun_active else (70, 80, 95)
+        grip_outline = (20, 40, 80) if gun_active else (100, 110, 120)
+        drum_color = (135, 150, 170, 190) if gun_active else (90, 90, 90, 160)
+
+        weapon_surface = pygame.Surface((slot_w, slot_h), pygame.SRCALPHA)
+
+        slide_rect = pygame.Rect(
+            int(slot_w * 0.08),
+            int(slot_h * 0.18),
+            int(slot_w * 0.74),
+            max(4, int(slot_h * 0.28))
+        )
+        pygame.draw.rect(weapon_surface, body_color, slide_rect, border_radius=4)
+        pygame.draw.rect(weapon_surface, body_outline, slide_rect, 2, border_radius=4)
+
+        barrel_rect = pygame.Rect(
+            slide_rect.right - int(slot_w * 0.14),
+            slide_rect.centery - int(slot_h * 0.08),
+            int(slot_w * 0.14),
+            int(slot_h * 0.16)
+        )
+        pygame.draw.rect(weapon_surface, accent_light, barrel_rect, border_radius=3)
+        pygame.draw.rect(weapon_surface, body_outline, barrel_rect, 2, border_radius=3)
+
+        muzzle_rect = pygame.Rect(
+            barrel_rect.right - int(slot_w * 0.05),
+            barrel_rect.top + int(slot_h * 0.03),
+            int(slot_w * 0.05),
+            int(slot_h * 0.1)
+        )
+        pygame.draw.rect(weapon_surface, (165, 240, 255), muzzle_rect, border_radius=2)
+        pygame.draw.rect(weapon_surface, body_outline, muzzle_rect, 1, border_radius=2)
+
+        stream = [
+            (muzzle_rect.right - int(slot_w * 0.02), muzzle_rect.centery - int(slot_h * 0.07)),
+            (slot_w - int(slot_w * 0.02), muzzle_rect.centery - int(slot_h * 0.02)),
+            (slot_w - int(slot_w * 0.02), muzzle_rect.centery + int(slot_h * 0.02)),
+            (muzzle_rect.right - int(slot_w * 0.02), muzzle_rect.centery + int(slot_h * 0.07)),
+        ]
+        pygame.draw.polygon(weapon_surface, (150, 220, 255, 160), stream)
+
+        body_rect = pygame.Rect(
+            int(slot_w * 0.12),
+            int(slot_h * 0.32),
+            int(slot_w * 0.64),
+            int(slot_h * 0.34)
+        )
+        pygame.draw.rect(weapon_surface, body_color, body_rect, border_radius=3)
+        pygame.draw.rect(weapon_surface, body_outline, body_rect, 2, border_radius=3)
+        pygame.draw.rect(weapon_surface, accent_dark, body_rect.inflate(-int(slot_w * 0.06), -int(slot_h * 0.12)))
+
+        grip_points = [
+            (int(slot_w * 0.58), int(slot_h * 0.4)),
+            (int(slot_w * 0.47), int(slot_h * 0.82)),
+            (int(slot_w * 0.62), int(slot_h * 0.94)),
+            (int(slot_w * 0.74), int(slot_h * 0.84)),
+            (int(slot_w * 0.7), int(slot_h * 0.5)),
+        ]
+        pygame.draw.polygon(weapon_surface, grip_color, grip_points)
+        pygame.draw.polygon(weapon_surface, grip_outline, grip_points, 2)
+
+        trigger_rect = pygame.Rect(
+            int(slot_w * 0.6),
+            int(slot_h * 0.58),
+            int(slot_w * 0.08),
+            int(slot_h * 0.12)
+        )
+        pygame.draw.rect(weapon_surface, accent_dark, trigger_rect, border_radius=2)
+
+        drum_center = (
+            int(slot_w * 0.22),
+            int(slot_h * 0.88)
+        )
+        drum_radius = int(min(slot_w, slot_h) * 0.3)
+        pygame.draw.circle(weapon_surface, drum_color, drum_center, drum_radius)
+        pygame.draw.circle(weapon_surface, (160, 170, 185, 220), drum_center, max(2, drum_radius - 4), 2)
+        pygame.draw.circle(weapon_surface, (90, 100, 120), drum_center, max(2, drum_radius // 3), 2)
+
+        accent_rects = [
+            pygame.Rect(int(slot_w * 0.2), int(slot_h * 0.24), int(slot_w * 0.18), int(slot_h * 0.04)),
+            pygame.Rect(int(slot_w * 0.42), int(slot_h * 0.24), int(slot_w * 0.12), int(slot_h * 0.04)),
+        ]
+        for accent in accent_rects:
+            pygame.draw.rect(weapon_surface, accent_light, accent)
+
+        screen.blit(weapon_surface, weapon_rect.topleft)
+
+        ammo_radius = 8
+        if net_gun.MAX_AMMO > 1:
+            spacing_available = weapon_rect.width - ammo_radius * 2
+            ammo_spacing = max(ammo_radius + 4, spacing_available / (net_gun.MAX_AMMO - 1))
+        else:
+            ammo_spacing = ammo_radius * 2
+        total_width = (net_gun.MAX_AMMO - 1) * ammo_spacing + ammo_radius * 2
+        ammo_start_x = weapon_rect.x + (weapon_rect.width - total_width) / 2 + ammo_radius
+        ammo_base_y = weapon_rect.bottom + ammo_radius + 5
+        for i in range(net_gun.MAX_AMMO):
+            center = (
+                int(ammo_start_x + i * ammo_spacing),
+                int(ammo_base_y)
+            )
+            filled = i < net_gun.ammo_count
+            shell_color = (120, 200, 255) if filled else (90, 100, 120)
+            mesh_color = (70, 120, 160) if filled else (70, 70, 80)
+            pygame.draw.circle(screen, shell_color, center, ammo_radius)
+            pygame.draw.circle(screen, body_outline, center, ammo_radius, 2)
+            pygame.draw.line(screen, mesh_color, (center[0] - ammo_radius + 3, center[1] - 2), (center[0] + ammo_radius - 3, center[1] + 2), 2)
+            pygame.draw.line(screen, mesh_color, (center[0] - ammo_radius + 3, center[1] + 2), (center[0] + ammo_radius - 3, center[1] - 2), 2)
+
+        status_text = "준비완료"
+        status_color = (110, 220, 255)
+        if net_gun.ammo_count <= 0 and not net_gun.projectiles:
+            status_text = "탄약 없음"
+            status_color = (220, 140, 140)
+        elif net_gun.control_lock_timer > 0:
+            status_text = "통제불능"
+            status_color = (255, 170, 80)
+        elif net_gun.cooldown_timer > 0:
+            status_text = f"쿨다운 {net_gun.cooldown_timer/60:.1f}s"
+            status_color = (255, 160, 160)
+
+        try:
+            if 'font_small' in globals() and font_small:
+                status_surface = font_small.render(status_text, True, status_color)
+                screen.blit(status_surface, (weapon_x, weapon_y - 20))
+
+                if net_gun.boss_is_trapped():
+                    trap_time = net_gun.time_until_free() / 60
+                    trap_surface = font_small.render(f"포획 {trap_time:.1f}s", True, (255, 230, 140))
+                    screen.blit(trap_surface, (weapon_x, weapon_y - 44))
+        except Exception:
+            pass
+
+        if not gun_active:
+            pygame.draw.line(
+                screen,
+                (150, 150, 150),
+                (weapon_rect.left + 4, weapon_rect.top + 4),
+                (weapon_rect.right - 4, weapon_rect.bottom - 4),
+                2
+            )
     else:
         # 권총 무기 정보 표시 (활성/비활성 상태에 따라 색상 변경)
         gun_center_x, gun_center_y = weapon_rect.center
@@ -8352,88 +8792,41 @@ def draw_soldier_weapon_ui(screen):
     weapon_names = {
         "pistol": "권총",
         "bazooka": "바주카포",
-        "ak47": "AK-47"
+        "ak47": "AK-47",
+        "net_gun": "그물덫총"
     }
     
     weapon_name = weapon_names.get(current_weapon, current_weapon)
     font_size = 22 if highlight_active else 18
     text_color = (255, 255, 100) if highlight_active else (200, 200, 200)
-    
+
     try:
-        # 한글 폰트 렌더링 개선
-        weapon_surface = None
-        
-        # 1차: UI 매니저 한글 폰트 시도
-        if hasattr(ui_manager, 'korean_font') and ui_manager.korean_font:
-            try:
-                weapon_surface = ui_manager.korean_font.render(weapon_name, True, text_color)
-            except:
-                weapon_surface = None
-        
-        # 2차: pygame.freetype 한글 폰트 시도 (여러 폰트 경로 시도)
-        if weapon_surface is None:
-            try:
-                import pygame.freetype
-                
-                # 한글 폰트 우선순위 목록
-                font_paths = [
-                    resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")),
-                    resource_path(os.path.join("fonts", "pixel", "네오둥근모.ttf")),
-                    resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf")),
-                    resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "Pretendard-Regular.otf")),
-                    resource_path(os.path.join("fonts", "NanumSquareB.ttf"))  # 기존 경로 유지
-                ]
-                
-                for font_path in font_paths:
-                    if os.path.exists(font_path):
-                        try:
-                            korean_font = pygame.freetype.Font(font_path, font_size)
-                            weapon_surface, _ = korean_font.render(weapon_name, text_color)
-                            break
-                        except:
-                            continue
-            except:
-                weapon_surface = None
-        
-        # 3차: 시스템 한글 폰트 시도
-        if weapon_surface is None:
-            try:
-                # macOS/Windows 시스템 한글 폰트 시도
-                system_fonts = [
-                    "AppleSDGothicNeo.ttc",  # macOS 기본 한글 폰트
-                    "Arial Unicode MS",      # 유니코드 지원 폰트
-                    "Malgun Gothic",         # Windows 기본 한글 폰트
-                    "NanumGothic"           # 나눔고딕
-                ]
-                
-                for system_font in system_fonts:
-                    try:
-                        font = pygame.font.SysFont(system_font, font_size)
-                        if font:
-                            weapon_surface = font.render(weapon_name, True, text_color)
-                            break
-                    except:
-                        continue
-            except:
-                pass
-        
-        # 4차: 최종 폴백 - 기본 폰트
-        if weapon_surface is None:
-            font = pygame.font.Font(None, font_size)
-            weapon_surface = font.render(weapon_name, True, text_color)
-        
+        weapon_surface = render_weapon_label(weapon_name, text_color, font_size)
+
         # 무기 이름 위치 (무기 아이콘 위)
         name_x = weapon_x + weapon_size // 2 - weapon_surface.get_width() // 2  # 가운데 정렬
         name_y = weapon_y - weapon_surface.get_height() - 5  # 아이콘 위 5px 여백
-        
+
         # 강조 효과 시 그림자 효과
         if highlight_active:
             shadow_surface = weapon_surface.copy()
             shadow_surface.fill((50, 50, 0))
             screen.blit(shadow_surface, (name_x + 2, name_y + 2))
-        
+
         screen.blit(weapon_surface, (name_x, name_y))
-        
+
+        if current_weapon != "pistol" and current_weapon in weapon_degraded:
+            degrade_color = (220, 50, 50)
+            degrade_font_size = max(16, font_size - 2)
+            degrade_surface = render_weapon_label("노후화", degrade_color, degrade_font_size)
+            degrade_x = weapon_rect.centerx - degrade_surface.get_width() // 2
+            degrade_y = max(4, name_y - degrade_surface.get_height() - 4)
+
+            shadow_surface = degrade_surface.copy()
+            shadow_surface.fill((60, 0, 0))
+            screen.blit(shadow_surface, (degrade_x + 1, degrade_y + 1))
+            screen.blit(degrade_surface, (degrade_x, degrade_y))
+
         # 무기 교체 안내 표시 제거됨 (사용자 요청)
         # if len(soldier_weapons) > 1 and weapon_switch_cooldown <= 0:
         #     guide_text = "↑키: 무기 교체"
@@ -8451,7 +8844,7 @@ def draw_soldier_weapon_ui(screen):
         #         screen.blit(guide_surface, (guide_x, guide_y))
         #     except:
         #         pass
-        
+
     except Exception as e:
         print(f"[DEBUG] 무기 이름 렌더링 실패: {e}")
     
@@ -9229,6 +9622,8 @@ def handle_player(keys):
             from item_effects.bazooka import get_bazooka_instance
             bazooka = get_bazooka_instance()
             bazooka.equip()
+            if 'net_gun' in soldier_weapons:
+                get_net_gun_instance().unequip()
         elif current_weapon == "pistol":
             # 권총으로 전환
             if 'bazooka' in soldier_weapons:
@@ -9237,7 +9632,10 @@ def handle_player(keys):
                 bazooka.unequip()
             if 'ak47' in soldier_weapons:
                 ak47 = get_ak47_instance()
-                # AK-47은 unequip이 없음, deactivate만 있음
+                if ak47.remaining_time > 0:
+                    ak47.active = True
+            if 'net_gun' in soldier_weapons:
+                get_net_gun_instance().unequip()
         elif current_weapon == "ak47":
             # AK-47로 전환
             if 'bazooka' in soldier_weapons:
@@ -9245,9 +9643,21 @@ def handle_player(keys):
                 bazooka = get_bazooka_instance()
                 bazooka.unequip()
             ak47 = get_ak47_instance()
-            # AK-47은 지속 효과 아이템이므로 남은 지속 시간이 있을 때만 활성화 유지
             if ak47.remaining_time > 0:
                 ak47.active = True
+            if 'net_gun' in soldier_weapons:
+                get_net_gun_instance().unequip()
+        elif current_weapon == "net_gun":
+            net_gun = get_net_gun_instance()
+            net_gun.equip()
+            if 'bazooka' in soldier_weapons:
+                from item_effects.bazooka import get_bazooka_instance
+                bazooka = get_bazooka_instance()
+                bazooka.unequip()
+            if 'ak47' in soldier_weapons:
+                ak47 = get_ak47_instance()
+                if ak47.remaining_time > 0:
+                    ak47.active = True
         
         print(f"🔄 화기 교체: {current_weapon}")
         
@@ -9290,11 +9700,13 @@ def handle_player(keys):
             if supply_drop_state.hold_time >= supply_drop_state.config.hold_required:
                 # 물자보급 스킬 발동
                 timer_value = random.randint(90, 300)  # 1.5초~5초 (60fps 기준)
-                print(f"✅ 물자보급 발동 성공! special_gauge: {special_gauge} -> {special_gauge - supply_drop_state.config.gauge_cost}")
+                cost = supply_drop_state.config.gauge_cost
+                next_gauge = max(0, special_gauge - cost)
+                print(f"✅ 물자보급 발동 성공! special_gauge: {special_gauge} -> {next_gauge}")
                 print(f"🎁 타이머 설정: {timer_value} 프레임 ({timer_value/60:.1f}초 후 비행기 출현)")
                 print(f"⏱️ serve_completed_timer 상태: {serve_completed_timer}")
                 supply_drop_state.active = True
-                special_gauge -= supply_drop_state.config.gauge_cost
+                consume_special_gauge(cost)
                 supply_drop_state.timer = timer_value
                 supply_drop_state.hold_time = 0  # 홀드 시간 초기화
                 
@@ -9463,7 +9875,7 @@ def handle_player(keys):
             predictor_active = False
             print("!")
     
-    # === 무릎보호대 게이지 충전 애니메이션 타이머 ===
+    # === 킥차져 게이지 충전 애니메이션 타이머 ===
     global gauge_charge_animation_timer
     if gauge_charge_animation_timer > 0:
         gauge_charge_animation_timer -= 1
@@ -9502,7 +9914,7 @@ def handle_player(keys):
                 rolling_active = False
                 # 하프대쉬 플래그는 충돌 처리가 완료될 때까지 유지
                 # is_half_dash_active = False  # 주석 처리 - 충돌 체크 후에 리셋
-                print(f"[DEBUG 무릎보호대] 대쉬 종료, is_half_dash_active는 유지: {is_half_dash_active}")
+                print(f"[DEBUG 킥차져] 대쉬 종료, is_half_dash_active는 유지: {is_half_dash_active}")
                 
                 # 튜토리얼: 대쉬 종료 시 카운팅 플래그 리셋
                 if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -9941,7 +10353,7 @@ def handle_player(keys):
                     rolling_consecutive_count = dash_consecutive
             #  구르기 더블탭 감지
             current_time = pygame.time.get_ticks()
-            # 아래키 + 방향키로 대쉬 발동 (무릎보호대 효과 적용)
+            # 아래키 + 방향키로 대쉬 발동 (킥차져 효과 적용)
             # 플레이어 서브 상태일 때 처음 6초 동안은 대쉬 발동 불가
             can_use_rolling = False
             # 기본 대쉬 조건 (일반 상태에서만 + 서브 완료 후 3초 경과)
@@ -10012,7 +10424,7 @@ def handle_player(keys):
                         rolling_active = True
                         is_half_dash_active = True  # 하프대쉬 플래그 설정
                         half_dash_effect_timer = 20  # 하프대쉬 효과 지속 시간 (약 0.33초)
-                        print(f"[DEBUG 무릎보호대] 하프대쉬 발동! is_half_dash_active = True, timer = {half_dash_effect_timer}")
+                        print(f"[DEBUG 킥차져] 하프대쉬 발동! is_half_dash_active = True, timer = {half_dash_effect_timer}")
                         # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                         if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
                             tutorial_dash_already_counted = False
@@ -10481,7 +10893,12 @@ def handle_player(keys):
                 # 헤르메스의 신발을 획득했으면 즉시 50% 속도 증가 적용
                 speed_multiplier *= 1.5
                 # print(f"⚡ 헤르메스의 신발 효과 적용! 속도 배율: {speed_multiplier:.1f}x")
-            
+
+            # 그물덫총 포획 시 속도 감소 적용
+            net_gun = get_net_gun_instance()
+            net_speed_multiplier = net_gun.get_player_speed_multiplier()
+            speed_multiplier *= net_speed_multiplier
+
             # 스킬 효과 적용: 패들 속도 증가
             skill_speed_boost = skill.apply_paddle_speed_boost(0)
             effective_max_speed = (MAX_SPEED + skill_speed_boost) * speed_multiplier
@@ -10554,7 +10971,7 @@ def handle_player(keys):
                                 ak47_speed_multiplier = ak47.get_movement_speed_multiplier()
                             
                             # 일반 이동: 가속도와 감속도 적용 (악마의 주사위 배율 + AK-47 연사 감소 적용)
-                            combined_speed_multiplier = devil_dice_speed_multiplier * ak47_speed_multiplier
+                            combined_speed_multiplier = devil_dice_speed_multiplier * ak47_speed_multiplier * net_speed_multiplier
                             adjusted_acceleration = ACCELERATION * combined_speed_multiplier
                             adjusted_deceleration = DECELERATION * combined_speed_multiplier
                             adjusted_max_speed = effective_max_speed * speed_factor * combined_speed_multiplier
@@ -10680,6 +11097,10 @@ def handle_player(keys):
         ak47_instance.handle_space_input(can_attempt_ak47_fire)
         ak47_fire_ready = can_attempt_ak47_fire
 
+    net_gun_instance = None
+    if selected_character_type == "soldier" and 'net_gun' in soldier_weapons:
+        net_gun_instance = get_net_gun_instance()
+
     if not player_stunned:
         # 군인 캐릭터 총알 발사 처리
         if selected_character_type == "soldier" and keys[pygame.K_SPACE] and soldier_control_lock_timer <= 0:
@@ -10743,6 +11164,21 @@ def handle_player(keys):
                                 SOUND_AK47.play()
                             except:
                                 pass
+                elif current_weapon == "net_gun":
+                    net_gun = net_gun_instance or get_net_gun_instance()
+                    if net_gun and net_gun.can_fire():
+                        current_time = pygame.time.get_ticks()
+                        if round_start_time > 0 and current_time - round_start_time < 3000:
+                            remaining_time = (3000 - (current_time - round_start_time)) / 1000
+                            print(f"🕸️ 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+                        else:
+                            boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
+                            if net_gun.fire(PLAYER, boss_rect):
+                                soldier_control_lock_timer = net_gun.CONTROL_LOCK_FRAMES
+                                try:
+                                    SOUND_THROW.play()
+                                except Exception:
+                                    pass
                 else:
                     # 권총 발사
                     fire_soldier_bullet()
@@ -11029,7 +11465,7 @@ def handle_player(keys):
         if recent_half_dash_time > 0 and (current_time - recent_half_dash_time) <= recent_dash_success_window:
             is_dash_success = True
             
-            # 무릎보호대 효과 체크 - 하프대쉬로 공을 맞췄을 때 이펙트만 트리거 (충전은 별도 처리)
+            # 킥차져 효과 체크 - 하프대쉬로 공을 맞췄을 때 이펙트만 트리거 (충전은 별도 처리)
             try:
                 from item_effects.knee_pads import get_knee_pads_instance
                 knee_pads = get_knee_pads_instance()
@@ -11037,9 +11473,9 @@ def handle_player(keys):
                     # 이펙트 트리거만 호출 (실제 충전은 아래 다른 곳에서 처리됨)
                     ball_center = (ball_x, ball_y)
                     knee_pads.on_half_dash_hit(ball_center)
-                    print(f"무릎보호대 이펙트 트리거 (충전은 line 27899에서 처리)")
+                    print(f"킥차져 이펙트 트리거 (충전은 line 27899에서 처리)")
             except Exception as e:
-                print(f"무릎보호대 효과 처리 중 오류: {e}")
+                print(f"킥차져 효과 처리 중 오류: {e}")
         
         if is_dash_success:
             # 대쉬 후 성공적으로 공을 쳤으므로 성공으로 업데이트
@@ -11686,19 +12122,19 @@ def store_passive_item(item_data):
         #                   (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "knee_pads":
-        # 무릎보호대 아이템 획득 (패시브)
+        # 킥차져 아이템 획득 (패시브)
         import items
         items.knee_pads_obtained = True
         from item_effects.knee_pads import get_knee_pads_instance
         knee_pads = get_knee_pads_instance()
         if knee_pads:
             knee_pads.activate()
-            print(f"[DEBUG 무릎보호대] 아이템 획득! knee_pads.active = {knee_pads.active}")
-        print("무릎보호대 획득! 하프대쉬 공 타격 시 게이지 50% 충전!")
+            print(f"[DEBUG 킥차져] 아이템 획득! knee_pads.active = {knee_pads.active}")
+        print("킥차져 획득! 하프대쉬 공 타격 시 게이지 50% 충전!")
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
-        # show_item_acquisition("knee_pads", "무릎보호대", None, False,
+        # show_item_acquisition("knee_pads", "킥차져", None, False,
         #                   (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
     elif item_data["name"] == "gravitybelt":
@@ -14289,7 +14725,7 @@ def draw_player_gauge():
         fill_ratio = displayed_gauge / current_max_gauge
         fill_height = int((gauge_height - 4) * fill_ratio)
         
-        # 무릎보호대 충전 애니메이션 효과
+        # 킥차져 충전 애니메이션 효과
         charge_glow_intensity = 0
         if gauge_charge_animation_timer > 0:
             # 충전 애니메이션 강도 계산 (페이드 아웃 효과)
@@ -14343,7 +14779,7 @@ def draw_player_gauge():
                 )
                 energy_color = (200, 200, 255)
         
-        # 무릎보호대 충전 효과가 활성화되면 황금빛 글로우 추가
+        # 킥차져 충전 효과가 활성화되면 황금빛 글로우 추가
         if charge_glow_intensity > 0:
             # 황금빛으로 색상 보정
             golden_blend = charge_glow_intensity
@@ -14430,7 +14866,7 @@ def draw_player_gauge():
         # 하단 코너
         draw.circle(corner_color, (gauge_x, gauge_y + gauge_height), 3)
         draw.circle(corner_color, (gauge_x + gauge_width, gauge_y + gauge_height), 3)
-    # 무릎보호대 충전 애니메이션 - 황금빛 테두리 효과
+    # 킥차져 충전 애니메이션 - 황금빛 테두리 효과
     if gauge_charge_animation_timer > 0:
         # 충전 효과 강도
         glow_strength = gauge_charge_animation_timer / 30.0
@@ -14491,9 +14927,13 @@ def draw_player_gauge():
     gauge_font = FontStyle.gauge()  # 16pt 픽셀 폰트
     gauge_text_surface = gauge_font.render(gauge_text, True, text_color)
     text_rect = gauge_text_surface.get_rect()
-    # 토큰볼 아래쪽에 중앙 정렬 (token_y는 게이지바 아래 15px, 토큰볼 아래 추가로 15px)
+    # 토큰볼 아래쪽에 중앙 정렬 (센서 토큰이 있으면 그 아래로 내린다)
     text_x = gauge_x + gauge_width // 2 - text_rect.width // 2
-    text_y = gauge_y + gauge_height + 15 + 15  # 게이지바 아래 30픽셀 (토큰볼 아래)
+    text_offset = 15 + 15  # 기본: 게이지 하단 + 토큰 간격 15px 두 번
+    if danger_sensor_obtained:
+        sensor_token_radius = 8  # 위험감지센서 토큰 반지름 (draw block과 동일)
+        text_offset = 15 + 20 + sensor_token_radius + 10  # 토큰 간격 + 센서 토큰 + 여유 10px
+    text_y = gauge_y + gauge_height + text_offset
     # 텍스트 배경 (반투명 검은 배경으로 가독성 향상)
     text_bg_rect = pygame.Rect(text_x - 2, text_y - 1, text_rect.width + 4, text_rect.height + 2)
     pygame.draw.rect(SCREEN, (0, 0, 0, 180), text_bg_rect, border_radius=3)
@@ -15941,7 +16381,7 @@ def draw_objects():
     except:
         pass  # 전설 아이템 매니저 접근 실패 시 무시
     
-    # 무릎보호대 빛나는 이펙트 그리기
+    # 킥차져 빛나는 이펙트 그리기
     try:
         from item_effects.knee_pads import get_knee_pads_instance
         knee_pads = get_knee_pads_instance()
@@ -15950,9 +16390,9 @@ def draw_objects():
             knee_pads.draw_effect(SCREEN)  # 이펙트 그리기
             # 디버그: 이펙트 상태 확인
             if knee_pads.flash_timer > 0:
-                print(f"[DEBUG] 무릎보호대 이펙트 활성: flash_timer={knee_pads.flash_timer}")
+                print(f"[DEBUG] 킥차져 이펙트 활성: flash_timer={knee_pads.flash_timer}")
     except Exception as e:
-        print(f"[ERROR] 무릎보호대 이펙트 그리기 오류: {e}")
+        print(f"[ERROR] 킥차져 이펙트 그리기 오류: {e}")
     #  서브 대기 상태 UI (미니멀 디자인)
     if is_waiting_for_serve:
         # 시간 계산
@@ -16422,19 +16862,19 @@ def draw_objects():
         # 원본 보스 패들 크기 표시 (파란색) - 모든 스테이지
         draw.rect(BLUE, BOSS, 2)
     #  라그나로크 스턴 시 전기 감전 효과 (최적화 버전)
-    if boss_stun_timer > 0 and ragnarok_shock_playing:
+    if boss_stun_timer > 0:
         # 전기 감전 효과 - 보스 패들 전체에 전기가 흐르는 효과
         current_frame = pygame.time.get_ticks()
-        
+
         # 프레임 스킵으로 성능 최적화 (2프레임마다 1번만 업데이트)
         skip_frame = current_frame % 2 == 0
-        
+
         # 1. 전기 아우라 (간소화 - 1개 레이어만)
         if skip_frame:
             electric_surface = pygame.Surface((BOSS.width + 40, BOSS.height + 40), pygame.SRCALPHA)
             electric_alpha = 80
             electric_color = (180, 180, 255, electric_alpha)
-            
+
             # 단순화된 전기장 형태 (포인트 수 감소)
             points = []
             num_points = 8  # 12 -> 8로 감소
@@ -16444,31 +16884,31 @@ def draw_objects():
                 x = BOSS.width // 2 + 20 + radius * math.cos(angle)
                 y = BOSS.height // 2 + 20 + radius * math.sin(angle)
                 points.append((x, y))
-            
+
             if len(points) >= 3:
                 pygame.draw.polygon(electric_surface, electric_color, points)
             SCREEN.blit(electric_surface, (BOSS.x - 20, BOSS.y - 20))
-        
+
         # 2. 전기 스파크 (번개 줄기 - 수량과 복잡도 감소)
         num_bolts = 2 + (current_frame // 100) % 2  # 2-3개로 감소
         for bolt_idx in range(num_bolts):
             # 시작점은 보스 패들의 랜덤 위치
             start_x = BOSS.x + random.randint(10, BOSS.width - 10)
             start_y = BOSS.y + random.randint(10, BOSS.height - 10)
-            
+
             # 번개 경로 생성 (단순화)
             bolt_points = [(start_x, start_y)]
             current_x, current_y = start_x, start_y
             bolt_length = 40 + random.randint(0, 20)  # 길이 감소
             segments = 3  # 세그먼트 수 감소
-            
+
             for seg in range(segments):
                 angle = random.uniform(-math.pi, math.pi)
                 seg_length = bolt_length / segments
                 current_x += seg_length * math.cos(angle)
                 current_y += seg_length * math.sin(angle)
                 bolt_points.append((current_x, current_y))
-            
+
             # 번개 그리기 (단일 라인으로 단순화)
             for i in range(len(bolt_points) - 1):
                 # 메인 번개 (직접 스크린에 그리기)
@@ -16476,20 +16916,20 @@ def draw_objects():
                 # 글로우 효과 (얇은 라인)
                 if skip_frame:  # 글로우는 격프레임만
                     pygame.draw.line(SCREEN, (150, 150, 255), bolt_points[i], bolt_points[i + 1], 1)
-        
+
         # 3. 전기 파티클 (수량 감소, 직접 그리기)
         num_particles = 5 + (current_frame // 50) % 3  # 5-7개로 대폭 감소
         for _ in range(num_particles):
             particle_x = BOSS.x + random.randint(0, BOSS.width)
             particle_y = BOSS.y + random.randint(0, BOSS.height)
             particle_size = random.randint(1, 2)
-            
+
             # 파티클 색상 (밝은 청백색) - 직접 그리기
             particle_color = (220, 220, 255)
             pygame.draw.circle(SCREEN, particle_color, (particle_x, particle_y), particle_size)
-        
+
         # 4. 보스 패들 전기 효과 (테두리 제거 - 오직 번개와 파티클만)
-        
+
         # 5. 전기 충격 텍스트 효과 (빈도 감소)
         if boss_stun_timer % 30 == 0:  # 0.5초마다 한 번
             shock_text = random.choice(["", "ZAP!", "BZZT!"])
@@ -16497,7 +16937,7 @@ def draw_objects():
             text_x = BOSS.centerx - text_surface.get_width() // 2
             text_y = BOSS.top - 40
             SCREEN.blit(text_surface, (text_x, text_y))
-    
+
     #  일반 스턴 및 헤드샷 시 머리 위 빙글빙글 도는 별 효과 (라그나로크가 아닌 경우만)
     elif boss_stunned_timer > 0 or (head_shot_active and head_shot_timer > 0):
         # 별 3개가 머리 위에서 회전
@@ -18770,7 +19210,15 @@ def draw_objects():
         ak47 = get_ak47_instance()
         if ak47.active:
             ak47.draw_bullets(SCREEN)
-    
+
+        # === 그물덫총 발사체 및 그물 그리기 ===
+        net_gun = get_net_gun_instance()
+        if net_gun.projectiles:
+            net_gun.draw_projectiles(SCREEN)
+        if net_gun.nets:
+            net_gun.draw_nets(SCREEN)
+            net_gun.draw_rope(SCREEN, PLAYER)
+
     # === 피 파티클 그리기 ===
     if selected_character_type == "soldier":
         draw_blood_particles(SCREEN)
@@ -18795,6 +19243,14 @@ def draw_objects():
                 bazooka.draw_firing_pose(SCREEN, PLAYER)
         except Exception as e:
             print(f"바주카포 발사 자세 애니메이션 오류: {e}")
+
+        # === 그물덫총 던지는 포즈 그리기 ===
+        try:
+            net_gun = get_net_gun_instance()
+            if net_gun.throw_pose_timer > 0:
+                net_gun.draw_throw_pose(SCREEN, PLAYER)
+        except Exception as e:
+            print(f"그물덫총 포즈 애니메이션 오류: {e}")
     
     # === 쉴드 안테나 시스템 (스테이지 6) ===
     if current_stage == 6:
@@ -19866,6 +20322,10 @@ def show_victory_screen(stage_cleared, reward):
                             
                             # 필드 아이템 초기화 (스테이지 전환 시)
                             items.clear_field_items()
+                            try:
+                                get_net_gun_instance().reset()
+                            except Exception:
+                                pass
                             
                             # 스테이지별 인트로 호출
                             if next_stage == 2:
@@ -20284,12 +20744,17 @@ def show_start_screen():
             SCREEN.blit(locked_surface, message_rect)
             locked_message_timer -= 1
         
+        # 버전 및 해상도 정보 표시
+        font_tiny = FontStyle.tiny()  # 16pt 폰트
+        version_surface = font_tiny.render("1.4v beta", True, (160, 200, 255))
+        version_rect = version_surface.get_rect(bottomleft=(10, HEIGHT - 10))
+        SCREEN.blit(version_surface, version_rect)
+
         # 해상도 정보 표시
-        font_resolution = FontStyle.tiny()  # 16pt 폰트
         current_width, current_height = RESOLUTION_OPTIONS[current_resolution_index]
         resolution_text = f"해상도: {current_width}x{current_height} (F9/F10으로 변경)"
         resolution_color = (150, 200, 255)
-        resolution_surface = font_resolution.render(resolution_text, True, resolution_color)
+        resolution_surface = font_tiny.render(resolution_text, True, resolution_color)
         resolution_rect = resolution_surface.get_rect(bottomright=(WIDTH - 10, HEIGHT - 10))
         SCREEN.blit(resolution_surface, resolution_rect)
         
@@ -27129,15 +27594,55 @@ def show_character_selection():
                            (inner_border, inner_border, w - inner_border*2, h - inner_border*2), 
                            1, border_radius=12)
             # 카드 모서리 장식 (트럼프 카드 스타일)
-            suit_color = border_color
-            suit_size = max(16, min(24, w // 6))  # 카드 크기에 비례한 폰트 크기
-            suit_font = get_font(suit_size)  # 픽셀 폰트
-            suit_text = suit_font.render(character["card_suit"], True, suit_color)
-            # 좌상단
-            surface.blit(suit_text, (8, 8))
-            # 우하단 (회전)
-            rotated_suit = pygame.transform.rotate(suit_text, HALF_ROTATION)
-            surface.blit(rotated_suit, (w - suit_text.get_width() - 8, h - suit_text.get_height() - 8))
+            if character["id"] == "soldier":
+                def draw_soldier_emblem(center, rotation_deg):
+                    size = 11
+                    base_color = (118, 168, 112)
+                    outline_color = (55, 85, 60)
+                    highlight_color = (185, 225, 170)
+                    angle = math.radians(rotation_deg)
+                    shield_points = [
+                        (0, -size),
+                        (size * 0.6, -size * 0.25),
+                        (size * 0.45, size * 0.8),
+                        (0, size),
+                        (-size * 0.45, size * 0.8),
+                        (-size * 0.6, -size * 0.25),
+                    ]
+                    pts = []
+                    for px, py in shield_points:
+                        rx = px * math.cos(angle) - py * math.sin(angle)
+                        ry = px * math.sin(angle) + py * math.cos(angle)
+                        pts.append((center[0] + int(rx), center[1] + int(ry)))
+                    pygame.draw.polygon(surface, outline_color, pts)
+                    pygame.draw.polygon(surface, base_color, pts, 0)
+
+                    inner_pts = []
+                    for px, py in shield_points:
+                        rx = px * 0.7 * math.cos(angle) - py * 0.7 * math.sin(angle)
+                        ry = px * 0.7 * math.sin(angle) + py * 0.7 * math.cos(angle)
+                        inner_pts.append((center[0] + int(rx), center[1] + int(ry)))
+                    pygame.draw.polygon(surface, highlight_color, inner_pts)
+
+                    star_radius_outer = size * 0.35
+                    star_radius_inner = star_radius_outer * 0.45
+                    star_points = []
+                    for i in range(10):
+                        r = star_radius_outer if i % 2 == 0 else star_radius_inner
+                        theta = angle + math.radians(-90) + i * math.pi / 5
+                        star_points.append((center[0] + int(math.cos(theta) * r), center[1] + int(math.sin(theta) * r)))
+                    pygame.draw.polygon(surface, outline_color, star_points)
+
+                draw_soldier_emblem((12, 14), 0)
+                draw_soldier_emblem((w - 12, h - 14), 180)
+            else:
+                suit_color = border_color
+                suit_size = max(16, min(24, w // 6))  # 카드 크기에 비례한 폰트 크기
+                suit_font = get_font(suit_size)  # 픽셀 폰트
+                suit_text = suit_font.render(character["card_suit"], True, suit_color)
+                surface.blit(suit_text, (8, 8))
+                rotated_suit = pygame.transform.rotate(suit_text, HALF_ROTATION)
+                surface.blit(rotated_suit, (w - suit_text.get_width() - 8, h - suit_text.get_height() - 8))
             # 캐릭터 이미지 영역
             image_size = min(w - 20, h // 3)  # 카드 크기에 비례
             if character["id"] == "soldier":
@@ -28201,11 +28706,21 @@ def show_difficulty_selection():
         clock.tick(60)
 def start_game_with_difficulty(character_id, difficulty_mode):
     """선택한 캐릭터와 난이도로 게임 시작"""
-    global ai_mode, ai_enabled, selected_character_type
+    global ai_mode, ai_enabled, selected_character_type, soldier_initial_grenade_given
     # AI 모드 설정
     ai_mode = difficulty_mode
     ai_enabled = True
     # 캐릭터별 설정
+    soldier_initial_grenade_given = False
+    items.knee_pads_obtained = False
+    try:
+        from item_effects.knee_pads import get_knee_pads_instance
+        knee_pads_inst = get_knee_pads_instance()
+        if knee_pads_inst:
+            knee_pads_inst.deactivate()
+    except Exception:
+        knee_pads_inst = None
+
     if character_id == "ufo_player":
         # 스매셔 캐릭터 (기본 캐릭터가 스매셔로 변경됨)
         selected_character_type = "smasher"
@@ -28220,6 +28735,27 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         selected_character_type = "smasher"
     else:
         selected_character_type = "normal"
+
+    if selected_character_type == "smasher":
+        items.knee_pads_obtained = True
+        try:
+            if knee_pads_inst is None:
+                from item_effects.knee_pads import get_knee_pads_instance
+                knee_pads_inst = get_knee_pads_instance()
+            if knee_pads_inst:
+                knee_pads_inst.activate()
+            knee_pads_data = {
+                "name": "knee_pads",
+                "type": "passive",
+                "effect": "knee_pads",
+                "icon": get_item_icon("knee_pads")
+            }
+            if not any(item.get("name") == "knee_pads" for item in passive_item_list):
+                passive_item_list.append(knee_pads_data)
+            print("🦵 스매셔 기본 장비: 킥차져 자동 장착")
+        except Exception as e:
+            print(f"[WARN] 스매셔 킥차져 초기화 실패: {e}")
+
     # 스테이지 1 인트로 표시
     show_stage1_intro()
     # 선택한 난이도 정보 표시
@@ -28300,12 +28836,14 @@ def show_item_manager_menu():
     global dashholder_obtained
     global rolling_charges, items
     # 아이템 선택 상태
-    selected_category = 0  # 0: 엑티브, 1: 패시브
+    selected_category = 0  # 0: 엑티브, 1: 패시브, 2: 화기류, 3: 전설
     selected_item_index = 0  # 현재 선택된 아이템 인덱스 (카테고리별로 공통 사용)
     # 선택된 아이템들을 저장할 리스트
-    selected_active_items = []
+    selected_active_counts: dict[str, int] = {}
+    selected_active_order: list[str] = []
     selected_passive_items = []
     selected_legendary_items = []
+    selected_firearm_items = []
     # 아이템 그리드 설정
     grid_cols = 6
     grid_rows = 4
@@ -28348,7 +28886,45 @@ def show_item_manager_menu():
             pygame.draw.line(flare_icon_new, (180, 80, 20), (14, 21), (18, 21), 1)
             
             return flare_icon_new
-            
+        if item_name == "net_gun":
+            net_icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+
+            body_color = (60, 120, 205)
+            body_outline = (26, 60, 120)
+            accent_light = (130, 220, 255)
+            accent_dark = (40, 80, 150)
+
+            # 본체
+            body_rect = pygame.Rect(4, 9, 24, 12)
+            pygame.draw.rect(net_icon, body_color, body_rect, border_radius=3)
+            pygame.draw.rect(net_icon, body_outline, body_rect, 2, border_radius=3)
+
+            # 슬라이드 장식
+            pygame.draw.rect(net_icon, accent_dark, (6, 11, 10, 3))
+            pygame.draw.rect(net_icon, accent_light, (18, 11, 8, 3))
+
+            # 총구 및 스트림
+            muzzle_rect = pygame.Rect(24, 11, 4, 6)
+            pygame.draw.rect(net_icon, accent_light, muzzle_rect, border_radius=2)
+            pygame.draw.rect(net_icon, body_outline, muzzle_rect, 1, border_radius=2)
+            stream_points = [(muzzle_rect.right, muzzle_rect.top + 1), (30, 12), (30, 16), (muzzle_rect.right, muzzle_rect.bottom - 1)]
+            pygame.draw.polygon(net_icon, (150, 220, 255, 170), stream_points)
+
+            # 그립
+            grip_points = [(18, 17), (14, 27), (20, 29), (23, 24)]
+            pygame.draw.polygon(net_icon, (38, 70, 130), grip_points)
+            pygame.draw.polygon(net_icon, (20, 40, 85), grip_points, 1)
+
+            # 드럼 매거진
+            pygame.draw.circle(net_icon, (150, 165, 185, 200), (10, 24), 7)
+            pygame.draw.circle(net_icon, (90, 100, 120), (10, 24), 7, 2)
+            pygame.draw.circle(net_icon, (120, 140, 160), (10, 24), 3)
+
+            return net_icon
+
+        if item_name == "knee_pads":
+            return create_knee_pads_icon(32)
+
         try:
             # 전역 변수로 아이콘 가져오기 시도
             icon = globals().get(icon_var_name)
@@ -28371,9 +28947,14 @@ def show_item_manager_menu():
         {"name": "flare", "type": "active", "icon": get_icon_safe("flare_icon", "flare")},
         {"name": "predictor", "type": "active", "icon": get_icon_safe("predictor_icon", "predictor")},
         {"name": "smoke_grenade", "type": "active", "icon": get_icon_safe("smoke_grenade_icon", "smoke_grenade")},
+        {"name": "ammo_box", "type": "active", "icon": get_icon_safe("ammo_box_icon", "ammo_box")},
         {"name": "pandora_box", "type": "active", "icon": get_icon_safe("pandora_box_icon", "pandora_box")},
         {"name": "stopwatch", "type": "active", "icon": get_icon_safe("stopwatch_icon", "stopwatch")},
         {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
+        # 화기류 아이템들
+        {"name": "bazooka", "type": "firearm", "icon": get_icon_safe("bazooka_icon", "bazooka")},
+        {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
+        {"name": "net_gun", "type": "firearm", "icon": get_icon_safe("net_gun_icon", "net_gun")},
         {"name": "slot_add", "type": "passive", "icon": get_icon_safe("slot_add_icon", "slot_add")},
         {"name": "revival", "type": "passive", "icon": get_icon_safe("revival_icon", "revival")},
         {"name": "master", "type": "passive", "icon": get_icon_safe("master_icon", "master")},
@@ -28416,14 +28997,78 @@ def show_item_manager_menu():
     # 엑티브/패시브/전설 아이템 분리
     active_items = [item for item in all_items if item["type"] == "active"]
     passive_items = [item for item in all_items if item["type"] == "passive"]
+    firearm_items = [item for item in all_items if item["type"] == "firearm"]
     font_large = FontStyle.subtitle()  # 32pt 픽셀 폰트
     font_medium = FontStyle.body()  # 24pt 픽셀 폰트
     font_small = get_font(18)  # 18pt 픽셀 폰트
     
     # 게임 루프용 Clock
     clock = pygame.time.Clock()
+
+    quantity_selection_mode = False
+    quantity_target_item: str | None = None
+    quantity_current_value = 0
+    quantity_original_value = 0
+    quantity_max_value = 0
+    arrow_up_rect_screen = None
+    arrow_down_rect_screen = None
+
+    def update_quantity_bounds(item_name: str) -> int:
+        other_total = sum(count for name, count in selected_active_counts.items() if name != item_name)
+        return max(0, MAX_ITEM_SLOTS - other_total)
+
+    def flatten_active_selection() -> list[str]:
+        result: list[str] = []
+        for name in selected_active_order:
+            count = selected_active_counts.get(name, 0)
+            if count > 0:
+                result.extend([name] * count)
+        return result
+
+    def enter_quantity_mode(item_name: str) -> None:
+        nonlocal quantity_selection_mode, quantity_target_item
+        nonlocal quantity_current_value, quantity_original_value, quantity_max_value
+
+        quantity_selection_mode = True
+        quantity_target_item = item_name
+        quantity_original_value = selected_active_counts.get(item_name, 0)
+        quantity_max_value = update_quantity_bounds(item_name)
+        quantity_current_value = min(quantity_original_value, quantity_max_value)
+
+    def apply_quantity_selection() -> None:
+        nonlocal quantity_selection_mode, quantity_target_item
+        nonlocal quantity_current_value, quantity_original_value, quantity_max_value
+
+        if quantity_target_item is None:
+            return
+
+        if quantity_current_value > 0:
+            selected_active_counts[quantity_target_item] = quantity_current_value
+            if quantity_target_item not in selected_active_order:
+                selected_active_order.append(quantity_target_item)
+        else:
+            selected_active_counts.pop(quantity_target_item, None)
+            if quantity_target_item in selected_active_order:
+                selected_active_order.remove(quantity_target_item)
+
+        play_notification_sound()
+        quantity_selection_mode = False
+        quantity_target_item = None
+        quantity_original_value = 0
+        quantity_max_value = 0
+
+    def cancel_quantity_selection() -> None:
+        nonlocal quantity_selection_mode, quantity_target_item, quantity_current_value, quantity_original_value, quantity_max_value
+
+        quantity_selection_mode = False
+        quantity_target_item = None
+        quantity_current_value = 0
+        quantity_original_value = 0
+        quantity_max_value = 0
     
     while True:
+        arrow_up_rect_screen = None
+        arrow_down_rect_screen = None
         # 델타 타임 계산
         dt = clock.tick(60)  # 60 FPS
         
@@ -28438,47 +29083,50 @@ def show_item_manager_menu():
         title_text = font_large.render("아이템 관리자", True, WHITE)
         title_rect = title_text.get_rect(center=(WIDTH // 2, 80))
         SCREEN.blit(title_text, title_rect)
-        # 탭 버튼 (3개로 확장)
+        # 탭 버튼 (4개: 엑티브, 패시브, 화기류, 전설)
         tab_width = 120
         tab_height = 40
         tab_y = 120
         tab_spacing = 10
-        total_tab_width = tab_width * 3 + tab_spacing * 2
+        tab_names = ["엑티브", "패시브", "화기류", "전설"]
+        tab_colors = [
+            (100, 150, 255),  # 엑티브 - 파란색
+            (100, 255, 150),  # 패시브 - 초록색
+            (255, 200, 120),  # 화기류 - 주황색
+            (255, 100, 100),  # 전설 - 빨간색
+        ]
+        base_colors = [
+            (60, 60, 80),
+            (60, 60, 80),
+            (70, 40, 20),
+            (80, 40, 40),
+        ]
+        total_tab_width = tab_width * len(tab_names) + tab_spacing * (len(tab_names) - 1)
         start_x = (WIDTH - total_tab_width) // 2
-        
-        # 엑티브 탭
-        active_tab_rect = pygame.Rect(start_x, tab_y, tab_width, tab_height)
-        active_tab_color = (100, 150, 255) if selected_category == 0 else (60, 60, 80)
-        draw.rect(active_tab_color, active_tab_rect)
-        draw.rect(WHITE, active_tab_rect, 2)
-        active_tab_text = font_medium.render("엑티브", True, WHITE)
-        active_tab_text_rect = active_tab_text.get_rect(center=active_tab_rect.center)
-        SCREEN.blit(active_tab_text, active_tab_text_rect)
-        
-        # 패시브 탭
-        passive_tab_rect = pygame.Rect(start_x + tab_width + tab_spacing, tab_y, tab_width, tab_height)
-        passive_tab_color = (100, 150, 255) if selected_category == 1 else (60, 60, 80)
-        draw.rect(passive_tab_color, passive_tab_rect)
-        draw.rect(WHITE, passive_tab_rect, 2)
-        passive_tab_text = font_medium.render("패시브", True, WHITE)
-        passive_tab_text_rect = passive_tab_text.get_rect(center=passive_tab_rect.center)
-        SCREEN.blit(passive_tab_text, passive_tab_text_rect)
-        
-        # 전설 탭
-        legendary_tab_rect = pygame.Rect(start_x + (tab_width + tab_spacing) * 2, tab_y, tab_width, tab_height)
-        legendary_tab_color = (255, 50, 50) if selected_category == 2 else (80, 40, 40)
-        draw.rect(legendary_tab_color, legendary_tab_rect)
-        draw.rect((255, 100, 100), legendary_tab_rect, 2)
-        legendary_tab_text = font_medium.render("전설", True, WHITE)
-        legendary_tab_text_rect = legendary_tab_text.get_rect(center=legendary_tab_rect.center)
-        SCREEN.blit(legendary_tab_text, legendary_tab_text_rect)
+
+        tab_rects = []
+        for idx, name in enumerate(tab_names):
+            tab_x = start_x + idx * (tab_width + tab_spacing)
+            rect = pygame.Rect(tab_x, tab_y, tab_width, tab_height)
+            tab_rects.append(rect)
+            is_active = selected_category == idx
+            fill_color = tab_colors[idx] if is_active else base_colors[idx]
+            border_color = WHITE if idx < 3 else (255, 100, 100)
+
+            draw.rect(fill_color, rect)
+            draw.rect(border_color, rect, 2)
+
+            tab_text = font_medium.render(name, True, WHITE)
+            SCREEN.blit(tab_text, tab_text.get_rect(center=rect.center))
         
         # 현재 선택된 카테고리의 아이템들 표시
         if selected_category == 0:
             current_items = active_items
         elif selected_category == 1:
             current_items = passive_items
-        else:  # selected_category == 2
+        elif selected_category == 2:
+            current_items = firearm_items
+        else:  # selected_category == 3
             current_items = legendary_items
         for i, item in enumerate(current_items):
             row = i // grid_cols
@@ -28490,9 +29138,11 @@ def show_item_manager_menu():
             # 선택된 아이템인지 확인
             is_selected = False
             if selected_category == 0:
-                is_selected = item["name"] in selected_active_items
+                is_selected = selected_active_counts.get(item["name"], 0) > 0
             elif selected_category == 1:
                 is_selected = item["name"] in selected_passive_items
+            elif selected_category == 2:
+                is_selected = item["name"] in selected_firearm_items
             else:  # 전설 탭
                 is_selected = item["name"] in selected_legendary_items
             # 현재 커서 위치인지 확인
@@ -28510,13 +29160,32 @@ def show_item_manager_menu():
             else:
                 draw.rect(WHITE, item_rect, 2)
             # 아이템 아이콘
-            if selected_category == 2 and "item_obj" in item:
+            if selected_category == 3 and "item_obj" in item:
                 # 전설 아이템은 자체 draw_icon 메서드 사용
                 item["item_obj"].draw_icon(SCREEN, x + 5, y + 5, item_size - 10)
             elif item["icon"]:
                 icon_surface = pygame.transform.scale(item["icon"], (item_size - 10, item_size - 10))
                 icon_rect = icon_surface.get_rect(center=item_rect.center)
                 SCREEN.blit(icon_surface, icon_rect)
+            if selected_category == 0:
+                count = selected_active_counts.get(item["name"], 0)
+                if count > 0:
+                    badge_text = font_small.render(str(count), True, WHITE)
+                    padding_x = 6
+                    padding_y = 3
+                    badge_width = badge_text.get_width() + padding_x
+                    badge_height = badge_text.get_height() + padding_y
+                    badge_surface = pygame.Surface((badge_width, badge_height), pygame.SRCALPHA)
+                    pygame.draw.rect(badge_surface, (40, 40, 40, 220), badge_surface.get_rect(), border_radius=6)
+                    pygame.draw.rect(badge_surface, (255, 220, 120), badge_surface.get_rect(), 1, border_radius=6)
+                    badge_rect = badge_surface.get_rect()
+                    badge_rect.right = item_rect.right - 4
+                    badge_rect.bottom = item_rect.bottom - 4
+                    badge_surface.blit(badge_text, (
+                        (badge_width - badge_text.get_width()) // 2,
+                        (badge_height - badge_text.get_height()) // 2,
+                    ))
+                    SCREEN.blit(badge_surface, badge_rect.topleft)
             # 아이템 이름
             item_name = get_item_name_korean(item["name"])
             # 시너지 효과일 때 보라색으로 표시
@@ -28533,9 +29202,23 @@ def show_item_manager_menu():
         SCREEN.blit(info_text, (50, info_y))
         selected_items_text = ""
         if selected_category == 0:
-            selected_items_text = ", ".join([get_item_name_korean(name) for name in selected_active_items]) if selected_active_items else "없음"
+            if selected_active_order:
+                parts = []
+                for name in selected_active_order:
+                    count = selected_active_counts.get(name, 0)
+                    if count <= 0:
+                        continue
+                    label = get_item_name_korean(name)
+                    if count > 1:
+                        label = f"{label} x{count}"
+                    parts.append(label)
+                selected_items_text = ", ".join(parts) if parts else "없음"
+            else:
+                selected_items_text = "없음"
         elif selected_category == 1:
             selected_items_text = ", ".join([get_item_name_korean(name) for name in selected_passive_items]) if selected_passive_items else "없음"
+        elif selected_category == 2:
+            selected_items_text = ", ".join([get_item_name_korean(name) for name in selected_firearm_items]) if selected_firearm_items else "없음"
         else:  # 전설 카테고리
             selected_items_text = ", ".join([item["korean_name"] for item in legendary_items if item["name"] in selected_legendary_items]) if selected_legendary_items else "없음"
         # 시너지 효과가 포함된 경우 보라색으로 표시
@@ -28545,13 +29228,148 @@ def show_item_manager_menu():
         selected_text = font_small.render(selected_items_text, True, text_color)
         SCREEN.blit(selected_text, (50, info_y + 30))
         # 조작법 안내
-        controls_text = font_small.render("방향키: 아이템 선택, SPACE: 아이템 선택/해제, TAB: 탭 전환, ENTER: 관리자 모드로 이동", True, (150, 150, 150))
+        if selected_category == 0:
+            controls_message = "방향키: 아이템 선택, SPACE: 수량 설정, TAB: 탭 전환, ENTER: 스테이지 선택"
+        else:
+            controls_message = "방향키: 아이템 선택, SPACE: 선택/해제, TAB: 탭 전환, ENTER: 스테이지 선택"
+        controls_text = font_small.render(controls_message, True, (150, 150, 150))
         SCREEN.blit(controls_text, (LARGE_SIZE, HEIGHT - LARGE_SIZE))
+
+        if quantity_selection_mode and quantity_target_item:
+            dim_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            dim_surface.fill((0, 0, 0, 160))
+            SCREEN.blit(dim_surface, (0, 0))
+
+            panel_width = 360
+            panel_height = 360
+            panel_rect = pygame.Rect(
+                (WIDTH - panel_width) // 2,
+                (HEIGHT - panel_height) // 2,
+                panel_width,
+                panel_height,
+            )
+
+            panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+            pygame.draw.rect(panel_surface, (28, 32, 60, 235), panel_surface.get_rect(), border_radius=18)
+            pygame.draw.rect(panel_surface, (255, 220, 120), panel_surface.get_rect(), 3, border_radius=18)
+
+            title_surface = font_medium.render("엑티브 아이템 수량", True, WHITE)
+            title_rect = title_surface.get_rect(center=(panel_width // 2, 40))
+            panel_surface.blit(title_surface, title_rect)
+
+            item_label = get_item_name_korean(quantity_target_item)
+            item_surface = font_small.render(item_label, True, (255, 240, 200))
+            item_rect = item_surface.get_rect(center=(panel_width // 2, 82))
+            panel_surface.blit(item_surface, item_rect)
+
+            arrow_button_width = 76
+            arrow_button_height = 54
+            number_box_width = 140
+            number_box_height = 84
+            spacing = 14
+
+            arrow_up_rect = pygame.Rect(
+                panel_width // 2 - arrow_button_width // 2,
+                item_rect.bottom + spacing,
+                arrow_button_width,
+                arrow_button_height,
+            )
+
+            number_rect = pygame.Rect(
+                panel_width // 2 - number_box_width // 2,
+                arrow_up_rect.bottom + spacing,
+                number_box_width,
+                number_box_height,
+            )
+
+            arrow_down_rect = pygame.Rect(
+                panel_width // 2 - arrow_button_width // 2,
+                number_rect.bottom + spacing,
+                arrow_button_width,
+                arrow_button_height,
+            )
+
+            # Up arrow button
+            pygame.draw.rect(panel_surface, (60, 78, 130), arrow_up_rect, border_radius=12)
+            pygame.draw.rect(panel_surface, (255, 220, 120), arrow_up_rect, 2, border_radius=12)
+            up_triangle = [
+                (arrow_up_rect.centerx, arrow_up_rect.top + 12),
+                (arrow_up_rect.left + 12, arrow_up_rect.bottom - 12),
+                (arrow_up_rect.right - 12, arrow_up_rect.bottom - 12),
+            ]
+            pygame.draw.polygon(panel_surface, WHITE, up_triangle)
+
+            # Number box
+            pygame.draw.rect(panel_surface, (20, 24, 40), number_rect, border_radius=14)
+            pygame.draw.rect(panel_surface, (255, 220, 120), number_rect, 3, border_radius=14)
+            count_surface = font_large.render(str(quantity_current_value), True, (255, 255, 140))
+            panel_surface.blit(count_surface, count_surface.get_rect(center=number_rect.center))
+
+            # Down arrow button
+            pygame.draw.rect(panel_surface, (60, 78, 130), arrow_down_rect, border_radius=12)
+            pygame.draw.rect(panel_surface, (255, 220, 120), arrow_down_rect, 2, border_radius=12)
+            down_triangle = [
+                (arrow_down_rect.left + 12, arrow_down_rect.top + 12),
+                (arrow_down_rect.right - 12, arrow_down_rect.top + 12),
+                (arrow_down_rect.centerx, arrow_down_rect.bottom - 12),
+            ]
+            pygame.draw.polygon(panel_surface, WHITE, down_triangle)
+
+            other_total = sum(count for name, count in selected_active_counts.items() if name != quantity_target_item)
+            current_total = other_total + quantity_current_value
+            remaining_slots = max(0, MAX_ITEM_SLOTS - current_total)
+            limit_surface = font_small.render(
+                f"최대 {quantity_max_value}개 | 현재 {current_total}/{MAX_ITEM_SLOTS} 슬롯 (남은 {remaining_slots})",
+                True,
+                (200, 200, 200),
+            )
+            limit_rect = limit_surface.get_rect(center=(panel_width // 2, panel_height - 86))
+            panel_surface.blit(limit_surface, limit_rect)
+
+            guide_surface = font_small.render(
+                "↑↓ 키 또는 화살표 클릭 | Enter 확인 | Esc 취소",
+                True,
+                (185, 185, 185),
+            )
+            guide_rect = guide_surface.get_rect(center=(panel_width // 2, panel_height - 40))
+            panel_surface.blit(guide_surface, guide_rect)
+
+            SCREEN.blit(panel_surface, panel_rect.topleft)
+            arrow_up_rect_screen = arrow_up_rect.move(panel_rect.topleft)
+            arrow_down_rect_screen = arrow_down_rect.move(panel_rect.topleft)
+
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if quantity_selection_mode:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
+                        cancel_quantity_selection()
+                    elif event.key == pygame.K_RETURN:
+                        apply_quantity_selection()
+                    elif event.key in (pygame.K_LEFT, pygame.K_DOWN, pygame.K_MINUS):
+                        quantity_current_value = max(0, quantity_current_value - 1)
+                    elif event.key in (pygame.K_RIGHT, pygame.K_UP, pygame.K_EQUALS, pygame.K_PLUS):
+                        quantity_current_value = min(quantity_max_value, quantity_current_value + 1)
+                    elif pygame.K_0 <= event.key <= pygame.K_9:
+                        digit = event.key - pygame.K_0
+                        quantity_current_value = min(quantity_max_value, digit)
+                    elif event.key == pygame.K_DELETE:
+                        quantity_current_value = 0
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        if arrow_up_rect_screen and arrow_up_rect_screen.collidepoint(event.pos):
+                            quantity_current_value = min(quantity_max_value, quantity_current_value + 1)
+                        elif arrow_down_rect_screen and arrow_down_rect_screen.collidepoint(event.pos):
+                            quantity_current_value = max(0, quantity_current_value - 1)
+                elif event.type == pygame.MOUSEWHEEL:
+                    if event.y > 0:
+                        quantity_current_value = min(quantity_max_value, quantity_current_value + 1)
+                    elif event.y < 0:
+                        quantity_current_value = max(0, quantity_current_value - 1)
+                continue
             if event.type == pygame.KEYDOWN:
                 #  일시정지 토글 (P키 또는 ㅔ키)
                 if event.key == pygame.K_p:  # P키
@@ -28560,16 +29378,28 @@ def show_item_manager_menu():
                     print(f"   : {'ON' if game_paused else 'OFF'}")
                     continue  # 일시정지 토글 후 다른 키 처리 건너뛰기
                 elif event.key == pygame.K_TAB:
-                    # 탭 전환 (3개 카테고리)
-                    selected_category = (selected_category + 1) % 3
+                    # 탭 전환 (4개 카테고리)
+                    selected_category = (selected_category + 1) % 4
                     selected_item_index = 0  # 탭 전환 시 첫 번째 아이템으로 커서 이동
                 elif event.key == pygame.K_ESCAPE:
                     # 취소하고 메인 메뉴로 돌아가기
                     return
                 elif event.key == pygame.K_RETURN:
                     # 선택된 아이템들을 적용하고 관리자 모드로 이동
-                    apply_selected_items(selected_active_items, selected_passive_items, selected_legendary_items)
-                    show_developer_stage_select()
+                    apply_selected_items(
+                        flatten_active_selection(),
+                        selected_passive_items,
+                        selected_legendary_items,
+                        selected_firearm_items,
+                    )
+                    stage_num = show_stage_selection(show_character_hint=False)
+                    if stage_num is None:
+                        continue
+                    character_id = show_quick_character_selection()
+                    if character_id is None:
+                        continue
+                    apply_character_selection(character_id)
+                    main(stage_num)
                     return
                 elif event.key in [pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN]:
                     # 아이템 선택
@@ -28577,7 +29407,9 @@ def show_item_manager_menu():
                         current_items = active_items
                     elif selected_category == 1:
                         current_items = passive_items
-                    else:  # selected_category == 2
+                    elif selected_category == 2:
+                        current_items = firearm_items
+                    else:  # 전설
                         current_items = legendary_items
                     if current_items:
                         current_row = selected_item_index // grid_cols
@@ -28599,22 +29431,26 @@ def show_item_manager_menu():
                         current_items = active_items
                     elif selected_category == 1:
                         current_items = passive_items
-                    else:  # selected_category == 2
+                    elif selected_category == 2:
+                        current_items = firearm_items
+                    else:  # 전설
                         current_items = legendary_items
                     
                     if current_items and selected_item_index < len(current_items):
                         selected_item = current_items[selected_item_index]
                         item_name = selected_item["name"]
                         if selected_category == 0:
-                            if item_name in selected_active_items:
-                                selected_active_items.remove(item_name)
-                            else:
-                                selected_active_items.append(item_name)
+                            enter_quantity_mode(item_name)
                         elif selected_category == 1:
                             if item_name in selected_passive_items:
                                 selected_passive_items.remove(item_name)
                             else:
                                 selected_passive_items.append(item_name)
+                        elif selected_category == 2:
+                            if item_name in selected_firearm_items:
+                                selected_firearm_items.remove(item_name)
+                            else:
+                                selected_firearm_items.append(item_name)
                         else:  # 전설 카테고리
                             if item_name in selected_legendary_items:
                                 selected_legendary_items.remove(item_name)
@@ -28625,18 +29461,19 @@ def show_item_manager_menu():
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
                 # 탭 클릭 처리
-                if active_tab_rect.collidepoint(mx, my):
-                    selected_category = 0
-                elif passive_tab_rect.collidepoint(mx, my):
-                    selected_category = 1
-                elif legendary_tab_rect.collidepoint(mx, my):
-                    selected_category = 2
+                for idx, rect in enumerate(tab_rects):
+                    if rect.collidepoint(mx, my):
+                        selected_category = idx
+                        selected_item_index = 0
+                        break
                 # 아이템 클릭 처리
                 if selected_category == 0:
                     current_items = active_items
                 elif selected_category == 1:
                     current_items = passive_items
-                else:  # selected_category == 2
+                elif selected_category == 2:
+                    current_items = firearm_items
+                else:  # 전설 탭
                     current_items = legendary_items
                 for i, item in enumerate(current_items):
                     row = i // grid_cols
@@ -28647,10 +29484,7 @@ def show_item_manager_menu():
                     if item_rect.collidepoint(mx, my):
                         item_name = item["name"]
                         if selected_category == 0:
-                            if item_name in selected_active_items:
-                                selected_active_items.remove(item_name)
-                            else:
-                                selected_active_items.append(item_name)
+                            enter_quantity_mode(item_name)
                         elif selected_category == 1:
                             if item_name in selected_passive_items:
                                 selected_passive_items.remove(item_name)
@@ -28661,7 +29495,12 @@ def show_item_manager_menu():
                                 selected_legendary_items.remove(item_name)
                             else:
                                 selected_legendary_items.append(item_name)
-def apply_selected_items(selected_active_items, selected_passive_items, selected_legendary_items=None):
+def apply_selected_items(
+    selected_active_items,
+    selected_passive_items,
+    selected_legendary_items=None,
+    selected_firearm_items=None,
+):
     """선택된 아이템들을 게임에 적용"""
     global active_item_slot, passive_item_list
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
@@ -28671,9 +29510,15 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
     global gravitybelt_obtained, items, rolling_charges
     global hermes_shoes_obtained  # 헤르메스의 신발 전역 변수 추가
     
+    if selected_legendary_items is None:
+        selected_legendary_items = []
+    if selected_firearm_items is None:
+        selected_firearm_items = []
+
     print(f"[DEBUG] apply_selected_items !")
     print(f"[DEBUG]   : {selected_passive_items}")
     print(f"[DEBUG]   : {selected_legendary_items}")
+    print(f"[DEBUG]    : {selected_firearm_items}")
     # 아이템 슬롯 초기화
     active_item_slot = []
     passive_item_list = []
@@ -28821,19 +29666,66 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             else:
                 print(f"[DEBUG] 스마트폰이 이미 활성화되어 있습니다.")
         elif item_name == "knee_pads":
-            # 무릎보호대 아이템 적용
+            # 킥차져 아이템 적용
             items.knee_pads_obtained = True
             from item_effects.knee_pads import get_knee_pads_instance
             knee_pads = get_knee_pads_instance()
             if knee_pads:
                 knee_pads.activate()
-            print(f"[DEBUG] 무릎보호대 아이템 활성화!")
+            print(f"[DEBUG] 킥차져 아이템 활성화!")
         elif item_name == "stopwatch":
             # 스탑워치는 액티브 아이템이므로 여기서는 처리하지 않음
             # 액티브 아이템 슬롯에서 처리됨
             pass
     print(f"  : {selected_active_items}")
     print(f"  : {selected_passive_items}")
+    # 화기류 아이템 적용 (군인 전용 무기 시스템)
+    from item_effects.bazooka import get_bazooka_instance
+    from item_effects.ak47 import get_ak47_instance
+    from item_effects.net_gun import get_net_gun_instance
+
+    global soldier_weapons, current_weapon_index
+    soldier_weapons = ["pistol"]
+    weapon_reload_counts.clear()
+    weapon_degraded.clear()
+
+    bazooka = get_bazooka_instance()
+    ak47 = get_ak47_instance()
+    net_gun = get_net_gun_instance()
+
+    if "bazooka" in selected_firearm_items:
+        soldier_weapons.append("bazooka")
+        reset_weapon_tracking("bazooka")
+        if bazooka:
+            bazooka.reload_with_special_ammo()
+            bazooka.equip()
+    else:
+        if bazooka:
+            bazooka.unequip()
+            bazooka.ammo_count = bazooka.max_ammo
+
+    if "ak47" in selected_firearm_items:
+        soldier_weapons.append("ak47")
+        reset_weapon_tracking("ak47")
+        if ak47:
+            ak47.activate(None, None)
+    else:
+        if ak47:
+            ak47.deactivate()
+
+    if "net_gun" in selected_firearm_items:
+        soldier_weapons.append("net_gun")
+        reset_weapon_tracking("net_gun")
+        if net_gun:
+            net_gun.reload()
+            net_gun.equip()
+    else:
+        if net_gun:
+            net_gun.unequip()
+            net_gun.reload()
+
+    current_weapon_index = 0
+
     # 무중력벨트가 선택되어 있으면 강제로 적용
     if "gravitybelt" in selected_passive_items:
         gravitybelt_obtained = True
@@ -28881,12 +29773,55 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
                 'cooldown_multiplier': 1.0
             }
             legendary_manager.activate_item(item_name, legendary_game_state)
-            print(f"  [{item_name}] !")
+        print(f"  [{item_name}] !")
         
         print(f"  : {selected_legendary_items}")
 
+    play_notification_sound()
+
 # 아이콘 캐시 딕셔너리 (성능 향상 및 중복 로드 방지)
 icon_cache = {}
+
+def create_knee_pads_icon(size: int = ICON_SIZE) -> pygame.Surface:
+    """새로운 킥차져 아이콘 Surface 생성"""
+    surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    scale = size / 32.0
+
+    def scaled_rect(x: float, y: float, w: float, h: float) -> pygame.Rect:
+        rect = pygame.Rect(
+            int(round(x * scale)),
+            int(round(y * scale)),
+            max(1, int(round(w * scale))),
+            max(1, int(round(h * scale))),
+        )
+        return rect
+
+    body_color = (220, 185, 60)
+    outline_color = (140, 100, 30)
+    highlight_color = (255, 240, 180)
+
+    base_rect = scaled_rect(6, 8, 20, 14)
+    pygame.draw.rect(surface, body_color, base_rect, border_radius=int(round(8 * scale)))
+    pygame.draw.rect(surface, outline_color, base_rect, 2, border_radius=int(round(8 * scale)))
+
+    core_rect = scaled_rect(10, 11, 12, 8)
+    pygame.draw.rect(surface, (255, 225, 120), core_rect, border_radius=int(round(4 * scale)))
+    pygame.draw.rect(surface, outline_color, core_rect, 2, border_radius=int(round(4 * scale)))
+
+    inner_rect = core_rect.inflate(-max(1, int(round(4 * scale))), -max(1, int(round(2 * scale))))
+    pygame.draw.ellipse(surface, highlight_color, inner_rect)
+
+    upper_band = scaled_rect(6, 6, 20, 3)
+    lower_band = scaled_rect(6, 22, 20, 3)
+    pygame.draw.rect(surface, (170, 130, 40), upper_band, border_radius=int(round(2 * scale)))
+    pygame.draw.rect(surface, (170, 130, 40), lower_band, border_radius=int(round(2 * scale)))
+    pygame.draw.rect(surface, highlight_color, upper_band, 1, border_radius=int(round(2 * scale)))
+    pygame.draw.rect(surface, highlight_color, lower_band, 1, border_radius=int(round(2 * scale)))
+
+    pygame.draw.rect(surface, (255, 255, 255, 160), scaled_rect(9, 9, 7, 3), border_radius=int(round(1 * scale)))
+    pygame.draw.rect(surface, (255, 255, 200, 140), scaled_rect(18, 18, 5, 3), border_radius=int(round(1 * scale)))
+
+    return surface
 
 def get_item_icon(item_name):
     """간단하고 독립적인 아이템 아이콘 로드 함수"""
@@ -28988,7 +29923,12 @@ def get_item_icon(item_name):
         
         icon_cache[item_name] = icon_surface
         return icon_surface
-    
+
+    if item_name == "knee_pads":
+        icon = create_knee_pads_icon(ICON_SIZE)
+        icon_cache[item_name] = icon
+        return icon
+
     # 디버그 로그 (필요시 주석 해제)
     # print(f"Loading icon for: {item_name}")
     
@@ -29026,32 +29966,8 @@ def get_item_icon(item_name):
             # print(f"Error loading {full_path}: {e}")  # 디버그용
             continue
     
-    # 무릎보호대는 unknown_item 대신 직접 아이콘 생성 (파일이 없을 경우)
-    if item_name == "knee_pads":
-        default_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-        # 무릎보호대 아이콘 - 무릎 패드 디자인
-        pad_color = (60, 60, 80)
-        strap_color = (40, 40, 50)
-        highlight_color = (100, 100, 120)
-        
-        # 메인 패드
-        pygame.draw.ellipse(default_icon, pad_color, (8, 6, 16, 20))
-        pygame.draw.ellipse(default_icon, highlight_color, (10, 8, 12, 16))
-        
-        # 스트랩
-        pygame.draw.rect(default_icon, strap_color, (6, 8, 20, 3))
-        pygame.draw.rect(default_icon, strap_color, (6, 21, 20, 3))
-        
-        # 패딩 디테일
-        pygame.draw.line(default_icon, highlight_color, (14, 12), (18, 12), 1)
-        pygame.draw.line(default_icon, highlight_color, (14, 16), (18, 16), 1)
-        pygame.draw.line(default_icon, highlight_color, (14, 20), (18, 20), 1)
-        
-        icon_cache[item_name] = default_icon
-        return default_icon
-    
     # 스마트폰은 unknown_item 대신 직접 아이콘 생성
-    elif item_name == "smartphone":
+    if item_name == "smartphone":
         default_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
         # 스마트폰 아이콘 - 현대적인 스마트폰 디자인
         # 폰 본체 (검은색)
@@ -31875,7 +32791,7 @@ def calculate_bounce(paddle):
                     ragnarok_stun_attempted_this_rally = True
                     # 50% 확률로 스턴공 발동
                     if random.random() < 0.5:
-                        # 스턴공 발동 - 공속 50% 증가 (나중에 적용하기 위해 플래그만 설정)
+                        # 스턴공 발동 - 공속 100% 증가 (나중에 적용하기 위해 플래그만 설정)
                         ragnarok_speed_boost_active = True
                         print(f"⚡ 라그나로크 스턴공 발동 준비! (calculate_bounce)")
                     else:
@@ -32245,12 +33161,25 @@ def calculate_bounce(paddle):
         ball_vel[0] = speed * vector.x
         ball_vel[1] = speed * vector.y
         vertical_bounce_count = 0
+
+    # 최소 발사 각도 보정 (너무 낮은 각도로 뻗어나가지 않도록 제한)
+    min_bounce_angle_deg = 25
+    min_vertical_ratio = math.sin(math.radians(min_bounce_angle_deg))
+    current_speed = math.hypot(ball_vel[0], ball_vel[1])
+    if current_speed > 0:
+        vertical_ratio = abs(ball_vel[1]) / current_speed
+        if vertical_ratio < min_vertical_ratio:
+            horizontal_ratio = math.sqrt(max(0.0, 1.0 - min_vertical_ratio ** 2))
+            ball_vel[1] = math.copysign(current_speed * min_vertical_ratio, ball_vel[1])
+            ball_vel[0] = math.copysign(current_speed * horizontal_ratio, ball_vel[0])
+            print(f"📐 최소 각도 보정 적용: |vy|/speed {vertical_ratio:.2f} → {min_vertical_ratio:.2f}")
     
     #  라그나로크 스턴공 효과 적용 (플래그가 설정되어 있으면)
     if is_player_paddle and ragnarok_speed_boost_active:
         # 공속 50% 증가
-        ball_vel[0] *= 1.5
-        ball_vel[1] *= 1.5
+        speed_boost_multiplier = 1.5
+        ball_vel[0] *= speed_boost_multiplier
+        ball_vel[1] *= speed_boost_multiplier
         new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
         print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (50% 증가)")
         # 사운드 효과 재생
@@ -32643,6 +33572,8 @@ def handle_ball():
     global boss_special_gauge, boss_special_ready, boss_red_intensity
     global boss_special_gauge_stage4, boss_special_ready_stage4
     global boss_current_health  #  체력형 보스 체력 변수
+    global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
+    global ragnarok_stun_pending
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
     # 공 물리 & 움직임
@@ -33226,6 +34157,8 @@ def handle_ball():
     global boss_special_gauge, boss_special_ready, boss_red_intensity
     global boss_special_gauge_stage4, boss_special_ready_stage4
     global boss_current_health  #  체력형 보스 체력 변수
+    global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
+    global ragnarok_stun_pending
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
     # 공 물리 & 움직임
@@ -34122,21 +35055,21 @@ def handle_ball():
                 half_dash_effect_timer -= 1
                 if half_dash_effect_timer == 0:
                     is_half_dash_active = False
-                    print(f"[DEBUG 무릎보호대] 하프대쉬 타이머 만료, is_half_dash_active = False")
+                    print(f"[DEBUG 킥차져] 하프대쉬 타이머 만료, is_half_dash_active = False")
             
-            # 🦵 무릎보호대: 하프대쉬 중 공과 충돌 체크
+            # 🦵 킥차져: 하프대쉬 중 공과 충돌 체크
             # 하프대쉬는 대쉬가 끝난 후에도 짧은 시간 동안 유효함
             if is_half_dash_active and BALL.colliderect(PLAYER) and not ball_in_kuromi:
-                print(f"[DEBUG 무릎보호대] 하프대쉬 충돌 감지! rolling_active={rolling_active}, is_half_dash_active={is_half_dash_active}")
-                # 무릎보호대 효과 발동
+                print(f"[DEBUG 킥차져] 하프대쉬 충돌 감지! rolling_active={rolling_active}, is_half_dash_active={is_half_dash_active}")
+                # 킥차져 효과 발동
                 from item_effects.knee_pads import get_knee_pads_instance
                 knee_pads = get_knee_pads_instance()
-                print(f"[DEBUG 무릎보호대] knee_pads 인스턴스: {knee_pads}, active: {knee_pads.active if knee_pads else 'None'}")
+                print(f"[DEBUG 킥차져] knee_pads 인스턴스: {knee_pads}, active: {knee_pads.active if knee_pads else 'None'}")
                 if knee_pads and knee_pads.active:
                     # 하프대쉬로 공을 맞췄을 때
                     ball_center = (BALL.centerx, BALL.centery)
                     should_charge = knee_pads.on_half_dash_hit(ball_center)
-                    print(f"[DEBUG 무릎보호대] on_half_dash_hit 결과: {should_charge}")
+                    print(f"[DEBUG 킥차져] on_half_dash_hit 결과: {should_charge}")
                     
                     if should_charge:
                         # 특수 게이지 50% 충전 (캐릭터별)
@@ -34151,11 +35084,11 @@ def handle_ball():
                         import items
                         if items.bluetooth_ring_obtained:
                             charge_amount *= 1.25  # 25% 추가 충전
-                            print(f"[DEBUG 무릎보호대] 블루투스링 보너스 적용: 25% 추가")
+                            print(f"[DEBUG 킥차져] 블루투스링 보너스 적용: 25% 추가")
                         
                         old_gauge = special_gauge
                         special_gauge = min(special_gauge + charge_amount, special_gauge_max)
-                        print(f"[무릎보호대] 하프대쉬 공 타격! 게이지 {charge_amount:.0f} 충전 ({old_gauge} → {special_gauge}/{special_gauge_max})")
+                        print(f"[킥차져] 하프대쉬 공 타격! 게이지 {charge_amount:.0f} 충전 ({old_gauge} → {special_gauge}/{special_gauge_max})")
                         
                         # 게이지 충전 애니메이션 트리거
                         global gauge_charge_animation_timer, gauge_charge_animation_amount
@@ -34164,14 +35097,14 @@ def handle_ball():
                         
                         # 사운드 효과
                         play_sound_with_volume(SOUND_ACTIVE_ITEM)  # 특수 게이지 충전 사운드
-                        print(f"[DEBUG 무릎보호대] 아이템 사운드 재생 완료")
+                        print(f"[DEBUG 킥차져] 아이템 사운드 재생 완료")
                         
                         # 하프대쉬 충돌 처리 완료 - 플래그 리셋
                         is_half_dash_active = False
                         half_dash_effect_timer = 0  # 타이머도 리셋
-                        print(f"[DEBUG 무릎보호대] 하프대쉬 효과 완료, is_half_dash_active = False, timer = 0")
+                        print(f"[DEBUG 킥차져] 하프대쉬 효과 완료, is_half_dash_active = False, timer = 0")
                 else:
-                    print(f"[DEBUG 무릎보호대] 효과 미발동 - knee_pads 없거나 비활성")
+                    print(f"[DEBUG 킥차져] 효과 미발동 - knee_pads 없거나 비활성")
             
             #  스테이지 4 몽크 봉 충돌 체크 (매 스텝마다)
             if current_stage == 4 and animated_bg_stage4 is not None:
@@ -35586,12 +36519,12 @@ def handle_ball():
             if hammer and hammer.active and not ragnarok_speed_boost_active:
                 # 50% 확률로 스턴공 발동
                 if random.random() < 0.5:
-                    # 스턴공 발동 - 공속 50% 증가
-                    ball_vel[0] *= 1.5
-                    ball_vel[1] *= 1.5
+                    # 스턴공 발동 - 공속 100% 증가 (2배)
+                    ball_vel[0] *= 2.0
+                    ball_vel[1] *= 2.0
                     ragnarok_speed_boost_active = True
                     new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                    print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (50% 증가)")
+                    print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (100% 증가)")
                     # 사운드 효과 재생
                     play_ragnarok_shot_sound()
                     # 시각적 효과
@@ -35913,10 +36846,19 @@ def handle_ball():
         was_stun_ball = ragnarok_speed_boost_active  # 스턴공이었는지 저장
         
         if ragnarok_speed_boost_active:
-            # 스턴공 플래그만 리셋하고 속도는 유지
+            # 현재 속도를 기반으로 비례하는 완화 계수를 계산
+            boosted_speed = math.hypot(ball_vel[0], ball_vel[1])
+            base_speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 1.0
+            speed_ratio = boosted_speed / base_speed
+            extra_ratio = max(0.0, speed_ratio - 1.5)
+            dynamic_divider = 2.0 + extra_ratio * 0.8  # 속도가 빠를수록 조금 더 감속
+            dynamic_divider = min(dynamic_divider, 3.2)  # 너무 느려지는 것 방지
+            reduction_factor = 1.0 / dynamic_divider
+            ball_vel[0] *= reduction_factor
+            ball_vel[1] *= reduction_factor
             ragnarok_speed_boost_active = False
-            current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-            print(f"⚡ 라그나로크 스턴공 보스 충돌! 현재 속도 유지: {current_speed:.1f}")
+            reduced_speed = math.hypot(ball_vel[0], ball_vel[1])
+            print(f"⚡ 라그나로크 스턴공 속도 완화: {boosted_speed:.1f} → {reduced_speed:.1f} (/{dynamic_divider:.2f})")
             
             # 화면 흔들림 0.2초 추가
             global screen_shake_timer, screen_shake_intensity
@@ -35941,18 +36883,12 @@ def handle_ball():
         if was_stun_ball:
             play_ragnarok_boom_sound()
         
-        #  라그나로크 해머 넉백 효과 (스턴공일 때만 발동)
-        # Import already done globally at line 141
+        #  라그나로크 해머 넉백 효과 (스턴공이었을 때만 발동)
         legendary_manager = get_legendary_manager()
         
-        # 라그나로크 해머가 획득되고 활성화되어 있고, 스턴공이었을 때만 넉백 발동
-        if not items.ragnarok_hammer_obtained:
-            # 라그나로크 해머가 획득되지 않았으면 넉백 없음
-            pass
-        elif was_stun_ball and items.ragnarok_hammer_obtained and legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
+        if was_stun_ball and legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
             hammer = legendary_manager.items.get("ragnarok_hammer")
             if hammer and hammer.active:
-                print(f"[라그나로크 해머] 스턴공 효과 발동 - 넉백 효과 적용!")
                 # 공 속도 계산
                 ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                 # 수평 넉백과 스턴 시간 계산
@@ -35960,7 +36896,7 @@ def handle_ball():
                 
                 if horizontal_velocity != 0:
                     # 넉백 시스템 활용
-                    boss_knockback_timer = 60  # 1초간 넉백 효과 지속 (0.6초 -> 1초 증가)
+                    boss_knockback_timer = 36  # 0.6초간 넉백 효과 지속
                     
                     # 수평 넉백 속도 설정 (수류탄 방식)
                     boss_knockback_vel = horizontal_velocity
@@ -35974,15 +36910,12 @@ def handle_ball():
                     screen_shake_timer = 12  # 0.2초 흔들림
                     screen_shake_intensity = 10  # 강한 흔들림
                     
-                    # 라그나로크 해머 전용 후속 이펙트 트리거
-                    hammer.on_boss_hit(BOSS.centerx, BOSS.centery)
-                    
                     # 디버그 정보  
-                    print(f"[라그나로크 해머] 넉백 발동!")
-                    print(f"  - 공 속도: {ball_speed:.1f}")
-                    print(f"  - 넉백 속도: {horizontal_velocity:.1f}")
-                    print(f"  - 넉백 타이머: {boss_knockback_timer}")
-                    print(f"  - 스턴 예정: {stun_duration:.1f}초")
+                    print(f"     !")
+                    print(f"     : {horizontal_velocity:.1f}")
+                    print(f"    : X={BOSS.x:.0f}")
+                    print(f"   : {ball_speed:.1f}")
+                    print(f"   : 0.6, : 0.6")
                     
                     # 번개 이펙트는 calculate_knockback 내부에서 생성됨
         
@@ -38890,7 +39823,7 @@ def show_result(won):
         # BGM 정지 (게임 오버 시 메인 메뉴로 돌아가기 전)
         bgm_manager.stop_bgm()
         
-        # 무릎보호대 효과 초기화 (게임 오버 시)
+        # 킥차져 효과 초기화 (게임 오버 시)
         try:
             from item_effects.knee_pads import get_knee_pads_instance
             knee_pads = get_knee_pads_instance()
@@ -39892,6 +40825,7 @@ def main(stage_num, new_boss_mode=False):
     
     # 군인 캐릭터 코만도암 패시브 아이템 확인 및 설정
     if selected_character_type == "soldier":
+        global soldier_initial_grenade_given
         items.commando_arm_obtained = True
         # 패시브 아이템 목록에도 추가 (중복 방지)
         commando_arm_data = {
@@ -39904,18 +40838,18 @@ def main(stage_num, new_boss_mode=False):
             passive_item_list.append(commando_arm_data)
         
         # 수류탄 액티브 아이템도 추가
-        grenade_data = {
-            "name": "grenade",
-            "type": "active",
-            "effect": "grenade",
-            "icon": get_item_icon("grenade"),
-            "count": 1
-        }
-        # 액티브 아이템 슬롯에 추가 (중복 방지)
-        if not any(item["name"] == "grenade" for item in active_item_slot):
-            active_item_slot.append(grenade_data)
-        
-        print("💪 군인 캐릭터 게임 시작 - 코만도암 패시브 아이템 + 수류탄 액티브 아이템 활성화!")
+        if not soldier_initial_grenade_given:
+            grenade_data = {
+                "name": "grenade",
+                "type": "active",
+                "effect": "grenade",
+                "icon": get_item_icon("grenade"),
+                "count": 1
+            }
+            if not any(item["name"] == "grenade" for item in active_item_slot):
+                active_item_slot.append(grenade_data)
+            soldier_initial_grenade_given = True
+            print("💪 군인 캐릭터 게임 시작 - 코만도암 + 수류탄 1회 지급")
     
     running = True
     while running:
@@ -39961,7 +40895,7 @@ def main(stage_num, new_boss_mode=False):
             rolling_charges = 1  # 기본 1개로 초기화
             rolling_charge_timer = 0  # 충전 타이머 초기화
             
-            # 무릎보호대 효과 초기화 (ESC 메뉴로 메인 복귀 시)
+            # 킥차져 효과 초기화 (ESC 메뉴로 메인 복귀 시)
             try:
                 from item_effects.knee_pads import get_knee_pads_instance
                 knee_pads = get_knee_pads_instance()
@@ -40433,10 +41367,26 @@ def main(stage_num, new_boss_mode=False):
                         ball_vel[1] = BALL_BASE_SPEED * 0.8
                     # 파워스매싱 방향에 따른 X축 속도 조정 (고스트샷도 동일하게 처리)
                     # 1.64배에 추가로 약 28.05% 부스트하여 총 2.1배 효과
-                    if power_smashing_direction == -1:  # 왼쪽 파워스매싱
-                        ball_vel[0] = -abs(ball_vel[0]) * 1.2805  # 왼쪽으로 강하게 (28.05% 부스트)
-                    elif power_smashing_direction == 1:  # 오른쪽 파워스매싱
-                        ball_vel[0] = abs(ball_vel[0]) * 1.2805  # 오른쪽으로 강하게 (28.05% 부스트)
+                    if power_smashing_direction in (-1, 1):  # 좌/우 파워스매싱
+                        dir_sign = -1 if power_smashing_direction == -1 else 1
+                        ball_vel[0] = dir_sign * abs(ball_vel[0]) * 1.2805  # 좌우 방향 고정 (28.05% 부스트)
+
+                        # 패들 중앙에 가까워도 최소 각도 이상으로 꺾이도록 보정
+                        y_abs = abs(ball_vel[1])
+                        x_abs = abs(ball_vel[0])
+                        if y_abs < 1e-4:
+                            y_abs = 1e-4
+                        if x_abs < y_abs * POWER_SMASH_MIN_TURN_RATIO:
+                            speed = math.hypot(ball_vel[0], ball_vel[1])
+                            if speed == 0:
+                                speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 1.0
+                            target_x = speed * math.sin(POWER_SMASH_MIN_TURN_ANGLE_RAD)
+                            target_y = speed * math.cos(POWER_SMASH_MIN_TURN_ANGLE_RAD)
+                            ball_vel[0] = dir_sign * target_x
+                            y_sign = -1 if ball_vel[1] < 0 else 1
+                            if ball_vel[1] == 0:
+                                y_sign = -1  # 기본적으로 위쪽(보스 방향)으로 발사
+                            ball_vel[1] = y_sign * target_y
                     else:  # 직선 파워스매싱
                         # 중앙 파워스매싱 - 패들 중심에서 공의 위치에 따라 방향 결정
                         x_diff = BALL.centerx - PLAYER.centerx
@@ -40718,9 +41668,9 @@ def main(stage_num, new_boss_mode=False):
                     items.gravitybelt_obtained = False
                     items.sensor_obtained = False
                     items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
-                    items.knee_pads_obtained = False  # 무릎보호대 초기화
+                    items.knee_pads_obtained = False  # 킥차져 초기화
                     
-                    # 무릎보호대 효과 초기화 (강제 종료 시)
+                    # 킥차져 효과 초기화 (강제 종료 시)
                     try:
                         from item_effects.knee_pads import get_knee_pads_instance
                         knee_pads = get_knee_pads_instance()
@@ -41547,7 +42497,7 @@ def main(stage_num, new_boss_mode=False):
                     bazooka = get_bazooka_instance()
                     if bazooka.equipped:
                         bazooka.update(0.016)  # 60fps 기준
-                    
+
                     # AK-47 시스템 업데이트
                     ak47 = get_ak47_instance()
                     if ak47.active:
@@ -41560,6 +42510,12 @@ def main(stage_num, new_boss_mode=False):
                         for event in hit_events:
                             if event.get("type") == "boss_hit":
                                 apply_ak47_boss_hit_effect(event)
+
+                    # 그물덫총 시스템 업데이트
+                    net_gun = get_net_gun_instance()
+                    if net_gun.equipped or net_gun.projectiles or net_gun.nets:
+                        net_gun.update(PLAYER, BOSS, player_is_dashing=rolling_active)
+                    check_weapon_degradation()
                     # 쿨다운 감소
                     if soldier_gun_cooldown > 0:
                         soldier_gun_cooldown -= 1
@@ -43307,8 +44263,11 @@ def get_item_name_korean(item_name):
         "fuel_pouch": "연료파우치",
         "bluetooth_ring": "블루투스링",
         "smartphone": "스마트폰",
-        "knee_pads": "무릎보호대",
+        "knee_pads": "킥차져",
         "ammo_box": "탄약상자",
+        "bazooka": "바주카포",
+        "ak47": "AK-47",
+        "net_gun": "그물덫총",
         "ragnarok_hammer": "라그나로크 해머",
         "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창"
@@ -43351,8 +44310,9 @@ def get_item_description(item_name):
         "fuel_pouch": "연료파우치: 최대 게이지가 영구적으로 100 증가합니다.",
         "bluetooth_ring": "블루투스링: 플레이어가 공을 칠 때 게이지 충전량이 25% 증가합니다.",
         "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
-        "knee_pads": "무릎보호대: 하프대쉬로 공을 맞출 때 게이지가 50% 충전됩니다. 하프대쉬 성공 시 노란색 빛나는 이펙트가 나타납니다.",
+        "knee_pads": "킥차져: 하프대쉬로 공을 맞출 때 게이지가 50% 충전됩니다. 성공 시 황금빛 킥 부스터가 번쩍입니다.",
         "ammo_box": "탄약상자: 권총을 포함한 모든 보유 화기류의 탄창을 완전히 재장전합니다. 권총, 바주카포, AK-47 등 모든 화기류에 사용 가능합니다.",
+        "net_gun": "그물덫총: 작살을 던져 상대 진영에 폭 350px의 그물을 펼칩니다. 전개 순간 범위 안의 보스는 5초 동안 그물 밖으로 이동할 수 없습니다.",
         "ak47": "AK-47: 강력한 자동소총. 90발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
@@ -44318,8 +45278,14 @@ def show_character_item_manager():
                     selected_main_tab = 3
                     play_button_hover_sound()
 
-def show_stage_selection():
-    """스테이지 선택 화면"""
+def show_stage_selection(show_character_hint=True):
+    """스테이지 선택 화면
+
+    Args:
+        show_character_hint (bool): 선택된 캐릭터 정보를 함께 표시할지 여부.
+                                    아이템 관리자 흐름에서는 캐릭터를 나중에
+                                    선택하므로 False로 전달한다.
+    """
     global ai_mode
     
     # 기본 리그 모드 설정
@@ -44353,10 +45319,15 @@ def show_stage_selection():
         title_rect = title_text.get_rect(center=(WIDTH // 2, 80))
         SCREEN.blit(title_text, title_rect)
         
-        # 현재 캐릭터 표시
-        char_text = font_medium.render(f"선택된 캐릭터: {get_character_name(selected_character_type)}", True, WHITE)
-        char_rect = char_text.get_rect(center=(WIDTH // 2, 120))
-        SCREEN.blit(char_text, char_rect)
+        # 현재 캐릭터 표시 또는 안내 텍스트
+        if show_character_hint:
+            char_text = font_medium.render(f"선택된 캐릭터: {get_character_name(selected_character_type)}", True, WHITE)
+            char_rect = char_text.get_rect(center=(WIDTH // 2, 120))
+            SCREEN.blit(char_text, char_rect)
+        else:
+            hint_text = font_medium.render("캐릭터는 다음 단계에서 선택합니다", True, WHITE)
+            hint_rect = hint_text.get_rect(center=(WIDTH // 2, 120))
+            SCREEN.blit(hint_text, hint_rect)
         
         # 스테이지 카드들
         card_width = 200
@@ -44408,7 +45379,10 @@ def show_stage_selection():
             SCREEN.blit(desc_text, desc_rect)
         
         # 안내 메시지
-        info_text = "방향키로 스테이지 선택, ENTER로 시작, ESC로 돌아가기"
+        if show_character_hint:
+            info_text = "방향키로 스테이지 선택, ENTER로 시작, ESC로 돌아가기"
+        else:
+            info_text = "방향키로 스테이지 선택, ENTER로 캐릭터 선택으로 이동, ESC로 돌아가기"
         info_surface = font_small.render(info_text, True, WHITE)
         info_rect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
         SCREEN.blit(info_surface, info_rect)
@@ -44440,6 +45414,129 @@ def show_stage_selection():
                     selected_index = (selected_index + cards_per_row) % len(stages)
                     play_button_hover_sound()
 
+
+
+def show_quick_character_selection():
+    """아이템 관리자 흐름용 간단한 캐릭터 선택 화면"""
+    characters = [
+        {
+            "id": "smasher",
+            "name": "스매셔",
+            "desc": "강력한 스매시와 공격적인 플레이",
+            "color": CYAN,
+            "stats": "속도 4 | 파워 7 | 방어 4",
+        },
+        {
+            "id": "soldier",
+            "name": "군인",
+            "desc": "전술 장비 특화, 균형 잡힌 능력",
+            "color": (100, 140, 60),
+            "stats": "속도 6 | 파워 6 | 방어 6",
+        },
+    ]
+
+    selected_index = 0
+    font_title = FontStyle.subtitle()
+    font_body = FontStyle.body()
+    font_small = get_font(18)
+    clock = pygame.time.Clock()
+
+    card_width = 240
+    card_height = 260
+    card_spacing = 80
+    total_width = len(characters) * card_width + (len(characters) - 1) * card_spacing
+    start_x = (WIDTH - total_width) // 2
+    card_y = 170
+
+    while True:
+        clock.tick(60)
+        SCREEN.fill((10, 10, 40))
+
+        # 제목
+        title_surface = font_title.render("캐릭터 선택", True, WHITE)
+        title_rect = title_surface.get_rect(center=(WIDTH // 2, 90))
+        SCREEN.blit(title_surface, title_rect)
+
+        for idx, char in enumerate(characters):
+            card_x = start_x + idx * (card_width + card_spacing)
+            card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+            is_selected = idx == selected_index
+
+            base_color = char["color"]
+            if is_selected:
+                body_color = tuple(min(255, c + 50) for c in base_color)
+                border_color = WHITE
+                glow_surface = pygame.Surface((card_width + 16, card_height + 16), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surface, (*base_color, 70), (0, 0, card_width + 16, card_height + 16), border_radius=18)
+                SCREEN.blit(glow_surface, (card_rect.x - 8, card_rect.y - 8))
+            else:
+                body_color = tuple(max(0, c - 40) for c in base_color)
+                border_color = (110, 110, 110)
+
+            pygame.draw.rect(SCREEN, body_color, card_rect, border_radius=14)
+            pygame.draw.rect(SCREEN, border_color, card_rect, width=3 if is_selected else 1, border_radius=14)
+
+            # 이름
+            name_surface = font_body.render(char["name"], True, WHITE)
+            name_rect = name_surface.get_rect(center=(card_rect.centerx, card_rect.y + 40))
+            SCREEN.blit(name_surface, name_rect)
+
+            # 설명 (두 줄 처리)
+            desc_lines = char["desc"].split('\n')
+            for line_idx, line in enumerate(desc_lines):
+                desc_surface = font_small.render(line, True, (220, 220, 220))
+                desc_rect = desc_surface.get_rect(center=(card_rect.centerx, card_rect.y + 90 + line_idx * 22))
+                SCREEN.blit(desc_surface, desc_rect)
+
+            # 능력치 요약
+            stat_surface = font_small.render(char["stats"], True, (200, 200, 200))
+            stat_rect = stat_surface.get_rect(center=(card_rect.centerx, card_rect.y + card_height - 40))
+            SCREEN.blit(stat_surface, stat_rect)
+
+        # 안내 문구
+        info_text = "← → : 캐릭터 선택    ENTER/SPACE : 확정    ESC : 돌아가기"
+        info_surface = font_small.render(info_text, True, WHITE)
+        info_rect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 60))
+        SCREEN.blit(info_surface, info_rect)
+
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    play_button_click_sound()
+                    return None
+                elif event.key in (pygame.K_LEFT, pygame.K_a):
+                    selected_index = (selected_index - 1) % len(characters)
+                    play_button_hover_sound()
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    selected_index = (selected_index + 1) % len(characters)
+                    play_button_hover_sound()
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    play_button_click_sound()
+                    return characters[selected_index]["id"]
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mx, my = pygame.mouse.get_pos()
+                for idx in range(len(characters)):
+                    card_x = start_x + idx * (card_width + card_spacing)
+                    card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+                    if card_rect.collidepoint(mx, my):
+                        selected_index = idx
+                        play_button_click_sound()
+                        return characters[selected_index]["id"]
+
+
+def apply_character_selection(character_id):
+    """선택된 캐릭터 ID를 전역 상태에 반영"""
+    global selected_character_type
+    if character_id in ("smasher", "soldier", "normal"):
+        selected_character_type = character_id
+    else:
+        selected_character_type = "normal"
+    return selected_character_type
 
 
 def get_character_name(character_id):

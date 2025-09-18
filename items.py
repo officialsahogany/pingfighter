@@ -87,6 +87,7 @@ def load_item_icons():
         "smartphone": "smartphone.png",  # 스마트폰 아이콘
         "bazooka": "bazooka.png",  # 바주카포 아이콘
         "ammo_box": "ammo_box.png",  # 탄약상자 아이콘
+        "net_gun": "net_gun.png",  # 그물덫총 아이콘
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
         "hermes_shoes": "legendary/hermes_shoes.png"
@@ -444,7 +445,7 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
-        "name": "knee_pads",  # 🦵 무릎보호대 패시브 아이템
+        "name": "knee_pads",  # 킥차져 패시브 아이템
         "color": (80, 80, 100),  # 어두운 회색-파란색
         "effect": "knee_pads",
         "icon": None,

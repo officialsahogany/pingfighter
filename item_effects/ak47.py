@@ -57,11 +57,15 @@ class AK47:
 
     def deactivate(self):
         """AK-47 비활성화"""
+        if not self.active:
+            return
         self.active = False
+        self.is_firing = False
+        self.space_was_released = True
         self.bullets.clear()
-        self.current_ammo = self.max_ammo
         self.shot_cooldown = 0
         self.recoil_accumulation = 0  # 반동 초기화
+        self.remaining_time = 0
         print("AK-47 효과 종료")
 
     # ------------------------------------------------------------------

@@ -91,3 +91,8 @@ Quick Checklist for PR‑Quality Patches
 4) Debug prints are temporary or gated.
 5) Minimal blast radius; rollback is trivial.
 
+
+Workspace Notes
+---------------
+- Primary working directory: /Volumes/T7/윈도우용최신/game/bosspong
+- 답변 언어: 한국어 전용 (추가 요청 전까지)

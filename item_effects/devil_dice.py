@@ -50,7 +50,13 @@ class DevilDice:
         self.roll_animation_timer = 0
         self.roll_animation_duration = 120  # 2초
         self.is_rolling = False
-        self.roll_display_results = {}
+        self.roll_display_results = self.dice_results.copy()
+        self.displayed_face_value = 1
+        self.locked_face_value = None
+        self.final_idle_phase = 0.0
+        self.dice_offset_y = 0.0
+        self.dice_vertical_velocity = 0.0
+        self.dice_gravity = 0.45
         self.waiting_for_confirm = False  # 스페이스바 대기 중
         self.space_pressed = False  # 스페이스바 입력 확인
         
@@ -93,10 +99,15 @@ class DevilDice:
         self.roll_animation_timer = 0
         self.waiting_for_confirm = False
         self.space_pressed = False
+        self.locked_face_value = None
+        self.displayed_face_value = random.randint(1, 6)
+        self.final_idle_phase = 0.0
+        self.dice_offset_y = 0.0
+        self.dice_vertical_velocity = -8.5
         # 초기 표시값은 모두 랜덤으로 시작
         for key in self.roll_display_results:
             self.roll_display_results[key] = random.randint(1, 3)
-        
+
         # 원본 값 저장 (실제 구현시 게임에서 가져와야 함)
         self._save_original_values(game_state)
         
@@ -139,7 +150,16 @@ class DevilDice:
         print(f"    / : {results_text['skill_dash_cost'][self.dice_results['skill_dash_cost']-1]}")
         print(f"     : {results_text['dash_cooldown'][self.dice_results['dash_cooldown']-1]}")
         print(f"     : {results_text['player_speed'][self.dice_results['player_speed']-1]}")
-    
+
+    def _update_dice_face(self):
+        """굴림 애니메이션용 주사위 눈 업데이트"""
+        if self.locked_face_value is not None:
+            self.displayed_face_value = self.locked_face_value
+            return
+
+        if self.roll_animation_timer % 2 == 0:
+            self.displayed_face_value = random.randint(1, 6)
+
     def get_current_multipliers(self) -> Dict[str, float]:
         """현재 적용중인 배율 반환"""
         if not self.active:
@@ -195,29 +215,62 @@ class DevilDice:
         
         # 굴리기 애니메이션 업데이트
         if self.is_rolling:
-            self.roll_animation_timer += 1
+            if not self.waiting_for_confirm:
+                self.roll_animation_timer += 1
+
+            self._update_dice_face()
+
+            if not self.waiting_for_confirm:
+                self.dice_vertical_velocity += self.dice_gravity
+                self.dice_offset_y += self.dice_vertical_velocity
+
+                if self.dice_offset_y > 0:
+                    self.dice_offset_y = 0
+                    self.dice_vertical_velocity *= -0.65
+                    if abs(self.dice_vertical_velocity) < 0.8:
+                        self.dice_vertical_velocity = -2.5
+                elif self.dice_offset_y < -90:
+                    self.dice_offset_y = -90
+                    if self.dice_vertical_velocity < 0:
+                        self.dice_vertical_velocity *= -0.6
+
             if self.roll_animation_timer >= self.roll_animation_duration:
+                if self.locked_face_value is None:
+                    total_score = sum(self.dice_results.values())
+                    self.locked_face_value = (total_score % 6) + 1
+                self.displayed_face_value = self.locked_face_value
+
                 # 애니메이션 완료 - 실제 결과로 표시 변경
                 if not self.waiting_for_confirm:
-                    # 최종 결과로 표시값 설정
                     self.roll_display_results = self.dice_results.copy()
-                    # 결과 출력
                     self._print_results()
-                    # 스페이스바 대기 상태로 전환
                     self.waiting_for_confirm = True
-                # is_rolling은 유지하여 결과 화면 계속 표시
+                    self.dice_vertical_velocity = -4.0
             else:
                 # 애니메이션 중 랜덤 값 표시 (주사위 굴리는 효과)
                 if self.roll_animation_timer % 3 == 0:  # 더 빠르게 변경
                     for key in self.roll_display_results:
                         self.roll_display_results[key] = random.randint(1, 3)
-        
+
         # 스페이스바 대기 중이고 스페이스바가 눌렸으면 화면 닫기
         if self.waiting_for_confirm and self.space_pressed:
             self.is_rolling = False
             self.waiting_for_confirm = False
             self.space_pressed = False
-        
+            self.locked_face_value = None
+            self.displayed_face_value = 1
+            self.final_idle_phase = 0.0
+            self.dice_offset_y = 0.0
+            self.dice_vertical_velocity = 0.0
+
+        if self.waiting_for_confirm:
+            self.final_idle_phase += 0.08
+            hover_base = -12
+            hover_amp = 4
+            self.dice_offset_y = hover_base + math.sin(self.final_idle_phase * 0.8) * hover_amp
+        else:
+            self.final_idle_phase = 0.0
+
         # 주사위 굴리는 중이 아닐 때만 게이지 효과 업데이트
         if not self.is_rolling:
             # 게이지 반짝임 효과
@@ -244,11 +297,16 @@ class DevilDice:
         self.is_rolling = False
         self.waiting_for_confirm = False
         self.space_pressed = False
-        
+        self.locked_face_value = None
+        self.displayed_face_value = 1
+        self.final_idle_phase = 0.0
+        self.dice_offset_y = 0.0
+        self.dice_vertical_velocity = 0.0
+
         # 모든 값을 기본으로 리셋 (2 = 변화없음 = 1.0배율)
         for key in self.dice_results:
             self.dice_results[key] = 2  # 변화없음 (1.0 배율)
-        
+
         # 화염 파티클 초기화
         self.flame_particles.clear()
         
@@ -270,7 +328,7 @@ class DevilDice:
         """
         if not self.active:
             return
-        
+
         # 어두운 화염 파티클 생성
         if random.random() < 0.3:  # 30% 확률로 생성
             particle = {
@@ -334,7 +392,70 @@ class DevilDice:
                     pygame.draw.rect(aura_surface, (139, 0, 0, int(255 * aura_alpha)),
                                    aura_surface.get_rect(), border_radius=5)
                     screen.blit(aura_surface, (paddle_rect.x - aura_size, paddle_rect.y - aura_size))
-    
+
+    def _draw_dice_animation(self, screen: pygame.Surface, center_x: int, center_y: int):
+        """붉은 기운이 도는 주사위 애니메이션을 그린다."""
+        base_size = 140
+        spinning = self.locked_face_value is None
+
+        if spinning:
+            phase = self.roll_animation_timer * 0.25
+            scale_wave = math.sin(phase)
+            scale_amount = 0.16
+        else:
+            phase = self.final_idle_phase
+            scale_wave = math.sin(phase * 0.7)
+            scale_amount = 0.05
+
+        dice_size = int(base_size * (1.0 + scale_wave * scale_amount))
+        dice_size = max(90, dice_size)
+
+        final_center_y = int(center_y + self.dice_offset_y)
+
+        dice_surface = pygame.Surface((dice_size, dice_size), pygame.SRCALPHA)
+        rect = dice_surface.get_rect()
+        outer_radius = int(dice_size * 0.18)
+        inner_radius = max(6, int(dice_size * 0.14))
+
+        pygame.draw.rect(dice_surface, (70, 0, 0, 235), rect, border_radius=outer_radius)
+        inner_rect = rect.inflate(-int(dice_size * 0.18), -int(dice_size * 0.18))
+        pygame.draw.rect(dice_surface, (220, 40, 40, 255), inner_rect, border_radius=inner_radius)
+        pygame.draw.rect(dice_surface, (255, 200, 200, 90), inner_rect, width=3, border_radius=inner_radius)
+
+        highlight_height = max(8, int(inner_rect.height * 0.35))
+        highlight_surface = pygame.Surface((inner_rect.width, highlight_height), pygame.SRCALPHA)
+        pygame.draw.rect(highlight_surface, (255, 180, 180, 90), highlight_surface.get_rect(), border_radius=int(inner_rect.width * 0.08))
+        dice_surface.blit(highlight_surface, (inner_rect.left, inner_rect.top))
+
+        pip_layouts = {
+            1: [(0, 0)],
+            2: [(-1, -1), (1, 1)],
+            3: [(-1, -1), (0, 0), (1, 1)],
+            4: [(-1, -1), (1, -1), (-1, 1), (1, 1)],
+            5: [(-1, -1), (1, -1), (0, 0), (-1, 1), (1, 1)],
+            6: [(-1, -1.2), (1, -1.2), (-1, 0), (1, 0), (-1, 1.2), (1, 1.2)],
+        }
+
+        face_value = max(1, min(6, self.displayed_face_value))
+        pip_offset = dice_size * 0.26
+        pip_radius = max(5, int(dice_size * 0.08))
+
+        for px, py in pip_layouts.get(face_value, [(0, 0)]):
+            cx = int(rect.centerx + px * pip_offset)
+            cy = int(rect.centery + py * pip_offset)
+            pygame.draw.circle(dice_surface, (150, 20, 20, 110), (cx, cy), pip_radius + 3)
+            pygame.draw.circle(dice_surface, (255, 240, 240), (cx, cy), pip_radius)
+            pygame.draw.circle(dice_surface, (255, 80, 80), (cx, cy), max(2, pip_radius - 3))
+
+        if spinning:
+            rotation = (self.roll_animation_timer * 12) % 360 + math.sin(self.roll_animation_timer * 0.3) * 12
+        else:
+            rotation = math.sin(self.final_idle_phase * 0.6) * 5
+
+        rotated = pygame.transform.rotozoom(dice_surface, rotation, 1.0)
+        rotated_rect = rotated.get_rect(center=(center_x, final_center_y))
+        screen.blit(rotated, rotated_rect)
+
     def draw_dice_results(self, screen: pygame.Surface, x: int, y: int):
         """
         주사위 결과 표시 (굴리기 애니메이션 포함)
@@ -350,61 +471,15 @@ class DevilDice:
         full_overlay.fill((0, 0, 0, 150))
         screen.blit(full_overlay, (0, 0))
         
-        # 중앙 패널
         panel_width = 500
-        panel_height = 490  # 패들 게이지 충전량 제거로 원래 높이로
+        panel_height = 490
         panel_x = (screen.get_width() - panel_width) // 2
         panel_y = (screen.get_height() - panel_height) // 2
-        
-        # 패널 배경 (악마스러운 디자인)
-        panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-        pygame.draw.rect(panel, (20, 0, 0, 230), (0, 0, panel_width, panel_height), border_radius=15)
-        pygame.draw.rect(panel, (139, 0, 0), (0, 0, panel_width, panel_height), 3, border_radius=15)
-        
-        # 빛나는 테두리 효과
-        glow_intensity = abs(math.sin(self.gauge_glow_timer)) * 0.5 + 0.5
-        pygame.draw.rect(panel, (int(255 * glow_intensity), 0, 0), 
-                        (0, 0, panel_width, panel_height), 2, border_radius=15)
-        
-        screen.blit(panel, (panel_x, panel_y))
-        
-        # 제목 
-        if self.font:
-            title = "[ 악마의 주사위 ]"
-            title_surface = self.font.render(title, True, (255, 100, 100))
-            title_rect = title_surface.get_rect(centerx=screen.get_width()//2, y=panel_y + 20)
-            screen.blit(title_surface, title_rect)
-        
-        # 주사위 굴리는 애니메이션 상태 표시
-        if self.roll_animation_timer < self.roll_animation_duration - 30:
-            # 주사위 굴리는 중
-            if self.small_font:
-                rolling_text = "주사위를 굴리는 중..."
-                anim_offset = math.sin(self.roll_animation_timer * 0.3) * 5
-                rolling_surface = self.small_font.render(rolling_text, True, (255, 255, 100))
-                rolling_rect = rolling_surface.get_rect(centerx=screen.get_width()//2, 
-                                                       y=panel_y + 60 + anim_offset)
-                screen.blit(rolling_surface, rolling_rect)
-                
-                # 주사위 숫자 애니메이션 (유니코드 대신 숫자 사용)
-                dice_number = ((self.roll_animation_timer // 5) % 6) + 1
-                dice_text = f"[ {dice_number} ]"
-                dice_surface = self.font.render(dice_text, True, (255, 255, 255))
-                dice_rect = dice_surface.get_rect(centerx=screen.get_width()//2, y=panel_y + 90)
-                screen.blit(dice_surface, dice_rect)
-                
-                # 주사위 굴리는 애니메이션 효과
-                for i in range(3):
-                    side_number = random.randint(1, 6)
-                    offset_x = (i - 1) * 80
-                    side_text = str(side_number)
-                    alpha = random.randint(50, 150)
-                    side_color = (alpha, alpha, alpha)
-                    side_surface = self.small_font.render(side_text, True, side_color)
-                    side_rect = side_surface.get_rect(centerx=screen.get_width()//2 + offset_x, 
-                                                     y=panel_y + 115)
-                    screen.blit(side_surface, side_rect)
-        
+
+        dice_center_x = screen.get_width() // 2
+        base_center_y = panel_y + 130
+        self._draw_dice_animation(screen, dice_center_x, base_center_y)
+
         # 각 항목 결과 표시
         items = [
             ('패들 크기', 'paddle_size'),
@@ -417,14 +492,23 @@ class DevilDice:
         ]
         
         results_text = ['50% 감소', '변화없음', '50% 증가']
-        colors = [(255, 100, 100), (200, 200, 200), (100, 255, 100)]
-        
+        colors_default = [(255, 100, 100), (200, 200, 200), (100, 255, 100)]
+        invert_keys = {'active_cooldown', 'skill_dash_cost', 'dash_cooldown'}
+
+        # 결과 영역 반투명 배경 (텍스트 가독성용)
+        text_panel_y = panel_y + 205
+        text_panel_height = len(items) * 40 + 70
+        text_panel = pygame.Surface((panel_width, text_panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(text_panel, (20, 0, 0, 180), (0, 0, panel_width, text_panel_height), border_radius=15)
+        pygame.draw.rect(text_panel, (139, 0, 0, 200), (0, 0, panel_width, text_panel_height), 2, border_radius=15)
+        screen.blit(text_panel, (panel_x, text_panel_y))
+
         # 결과 표시 시작 Y 위치
-        start_y = panel_y + 140
-        
+        start_y = text_panel_y + 35
+
         for i, (name, key) in enumerate(items):
             y_pos = start_y + i * 40
-            
+
             # 항목 이름
             if self.small_font:
                 name_text = self.small_font.render(f"{name}:", True, (255, 255, 255))
@@ -444,7 +528,11 @@ class DevilDice:
                 else:
                     # 실제 결과 표시 (애니메이션 완료 후)
                     result_idx = self.dice_results[key] - 1
-                    result_color = colors[result_idx]
+                    if key in invert_keys:
+                        # 감소가 이득인 항목은 색상을 뒤집는다
+                        result_color = colors_default[2 - result_idx]
+                    else:
+                        result_color = colors_default[result_idx]
                     result_text = results_text[result_idx]
                     
                     # 결과 강조 효과
@@ -465,7 +553,7 @@ class DevilDice:
             if pygame.time.get_ticks() % 1000 < 500:  # 0.5초마다 깜빡임
                 instruction_surface = self.small_font.render(instruction_text, True, instruction_color)
                 instruction_rect = instruction_surface.get_rect(centerx=screen.get_width()//2, 
-                                                              y=panel_y + panel_height - 40)
+                                                              y=text_panel_y + text_panel_height - 30)
                 screen.blit(instruction_surface, instruction_rect)
     
     def handle_spacebar(self):

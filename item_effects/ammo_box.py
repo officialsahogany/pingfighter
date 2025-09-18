@@ -13,7 +13,7 @@ class AmmoBox:
         self.reloaded_weapon = None  # 재장전된 무기 이름
         
         # 지원하는 화기류 목록
-        self.supported_weapons = ["pistol", "bazooka", "ak47"]  # 권총, 바주카포, AK-47 재장전 가능
+        self.supported_weapons = ["pistol", "bazooka", "ak47", "net_gun"]  # 권총, 바주카포, AK-47, 그물덫총 재장전 가능
         
     def activate(self, game_state, current_stage):
         """탄약상자 사용 - 플레이어가 소지한 모든 화기류의 탄약을 100% 충전"""
@@ -25,6 +25,11 @@ class AmmoBox:
         # 플레이어가 소지한 화기류 목록 확인
         game_module = self._get_game_module()
         soldier_weapons = getattr(game_module, 'soldier_weapons', []) if game_module else []
+        register_reload = None
+        if game_module:
+            register_candidate = getattr(game_module, "register_weapon_reload", None)
+            if callable(register_candidate):
+                register_reload = register_candidate
         print(f"📦 탄약상자 사용! 소지 화기류: {soldier_weapons}")
 
         # 권총 재장전 (잔탄 + 탄실)
@@ -57,28 +62,54 @@ class AmmoBox:
             if bazooka:
                 prev_ammo = bazooka.ammo_count
                 was_inactive = not getattr(bazooka, "active", False)
-                if prev_ammo < bazooka.max_ammo or was_inactive:
+                if prev_ammo < bazooka.max_ammo:
                     bazooka.ammo_count = bazooka.max_ammo
+                    bazooka.active = True
+                    if register_reload:
+                        register_reload("bazooka")
+                    if "bazooka" not in self.reloaded_weapons:
+                        self.reloaded_weapons.append("bazooka")
+                    print(f"   🚀 바주카포 재장전: {prev_ammo} → {bazooka.ammo_count}")
+                elif was_inactive:
                     bazooka.active = True
                     if "bazooka" not in self.reloaded_weapons:
                         self.reloaded_weapons.append("bazooka")
-                    if prev_ammo < bazooka.max_ammo:
-                        print(f"   🚀 바주카포 재장전: {prev_ammo} → {bazooka.ammo_count}")
-                    elif was_inactive:
-                        print("   🚀 바주카포 재활성화!")
+                    print("   🚀 바주카포 재활성화!")
         except ImportError:
             pass
-        
+
+        # 그물덫총 재장전
+        try:
+            from item_effects.net_gun import get_net_gun_instance
+            net_gun = get_net_gun_instance()
+            if net_gun and net_gun.ammo_count < net_gun.MAX_AMMO:
+                prev_ammo = net_gun.ammo_count
+                net_gun.ammo_count = net_gun.MAX_AMMO
+                net_gun.active = True
+                if register_reload:
+                    register_reload("net_gun")
+                if "net_gun" not in self.reloaded_weapons:
+                    self.reloaded_weapons.append("net_gun")
+                print(f"   🕸️ 그물덫총 재장전: {prev_ammo} → {net_gun.ammo_count}")
+        except ImportError:
+            pass
+
         # AK-47 재장전
         try:
             from item_effects.ak47 import get_ak47_instance
             ak47 = get_ak47_instance()
-            if ak47 and ak47.current_ammo < ak47.max_ammo:
+            if ak47:
+                was_inactive = not ak47.active
                 prev_ammo = ak47.current_ammo
-                ak47.current_ammo = ak47.max_ammo
+                if ak47.current_ammo < ak47.max_ammo:
+                    ak47.current_ammo = ak47.max_ammo
+                    if register_reload:
+                        register_reload("ak47")
+                    print(f"   🔫 AK-47 재장전: {prev_ammo} → {ak47.current_ammo}")
+                if was_inactive or ak47.current_ammo < ak47.max_ammo:
+                    ak47.activate(None, None)
                 if "ak47" not in self.reloaded_weapons:
                     self.reloaded_weapons.append("ak47")
-                print(f"   🔫 AK-47 재장전: {prev_ammo} → {ak47.current_ammo}")
         except ImportError:
             pass
         
