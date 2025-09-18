@@ -2957,10 +2957,9 @@ def update_supply_drop_system():
     if aircraft and not aircraft.active:
         if hasattr(aircraft, "stop_sound"):
             aircraft.stop_sound()
-        if not aircraft.explosion_particles and not aircraft.debris_particles and not aircraft.smoke_particles:
-            supply_drop_state.aircraft = None
-            supply_drop_state.active = False
-            print("비행기 파괴 완료")
+        supply_drop_state.aircraft = None
+        supply_drop_state.active = False
+        print("비행기 파괴 완료")
 
     supply_update_items(
         supply_drop_state,
@@ -8009,143 +8008,173 @@ def draw_soldier_weapon_ui(screen):
         center_x = base_x + w // 2
         center_y = base_y + h // 2
 
-        if ak47.active:
-            # AK-47 아이콘 (디테일 강화, 박스 내부에 맞춤)
-            receiver_rect = pygame.Rect(
-                base_x + int(w * 0.2),
-                base_y + int(h * 0.44),
-                int(w * 0.6),
-                max(3, int(h * 0.18))
+        ak47_active = ak47.active and ak47.remaining_time > 0
+
+        # 활성/비활성 상태에 따른 색상 팔레트 정의
+        receiver_color = (78, 58, 38) if ak47_active else (78, 78, 78)
+        receiver_outline = (44, 34, 24) if ak47_active else (110, 110, 110)
+        top_cover_color = (45, 45, 45) if ak47_active else (90, 90, 90)
+        handguard_color = (96, 70, 40) if ak47_active else (92, 92, 92)
+        handguard_outline = (60, 44, 25) if ak47_active else (120, 120, 120)
+        metal_dark = (38, 38, 38) if ak47_active else (85, 85, 85)
+        metal_mid = (55, 55, 55) if ak47_active else (110, 110, 110)
+        muzzle_color = (25, 25, 25) if ak47_active else (70, 70, 70)
+        stock_fill = (84, 58, 30) if ak47_active else (90, 90, 90)
+        stock_outline = (50, 35, 18) if ak47_active else (130, 130, 130)
+        grip_color = (65, 45, 28) if ak47_active else (100, 100, 100)
+        trigger_outline = (30, 30, 30) if ak47_active else (100, 100, 100)
+        mag_fill = (68, 50, 30) if ak47_active else (100, 100, 100)
+        mag_outline = (42, 30, 18) if ak47_active else (130, 130, 130)
+        stripe_color = (110, 85, 55) if ak47_active else (140, 140, 140)
+
+        # AK-47 아이콘 (박스 내부에 맞춘 디테일)
+        receiver_rect = pygame.Rect(
+            base_x + int(w * 0.2),
+            base_y + int(h * 0.44),
+            int(w * 0.6),
+            max(3, int(h * 0.18))
+        )
+        pygame.draw.rect(screen, receiver_color, receiver_rect)
+        pygame.draw.rect(screen, receiver_outline, receiver_rect, 2)
+
+        top_cover_rect = pygame.Rect(
+            base_x + int(w * 0.22),
+            base_y + int(h * 0.3),
+            int(w * 0.56),
+            max(2, int(h * 0.08))
+        )
+        pygame.draw.rect(screen, top_cover_color, top_cover_rect)
+
+        handguard_rect = pygame.Rect(
+            base_x + int(w * 0.55),
+            base_y + int(h * 0.4),
+            int(w * 0.35),
+            max(3, int(h * 0.22))
+        )
+        pygame.draw.rect(screen, handguard_color, handguard_rect)
+        pygame.draw.rect(screen, handguard_outline, handguard_rect, 1)
+
+        gas_tube_start = (base_x + int(w * 0.55), base_y + int(h * 0.34))
+        gas_tube_end = (base_x + int(w * 0.82), base_y + int(h * 0.34))
+        pygame.draw.line(screen, metal_mid, gas_tube_start, gas_tube_end, 2)
+
+        barrel_width = max(3, int(w * 0.22))
+        barrel_height = max(2, int(h * 0.07))
+        barrel_rect = pygame.Rect(
+            base_x + w - barrel_width - int(w * 0.05),
+            base_y + int(h * 0.46),
+            barrel_width,
+            barrel_height
+        )
+        pygame.draw.rect(screen, metal_dark, barrel_rect)
+
+        muzzle_width = max(2, int(w * 0.08))
+        muzzle_height = max(3, int(h * 0.18))
+        muzzle_rect = pygame.Rect(
+            base_x + w - muzzle_width - 2,
+            base_y + int(h * 0.42),
+            muzzle_width,
+            muzzle_height
+        )
+        pygame.draw.rect(screen, muzzle_color, muzzle_rect)
+
+        front_sight_points = [
+            (base_x + int(w * 0.84), base_y + int(h * 0.35)),
+            (base_x + int(w * 0.88), base_y + int(h * 0.24)),
+            (base_x + int(w * 0.92), base_y + int(h * 0.35))
+        ]
+        pygame.draw.polygon(screen, metal_dark, front_sight_points)
+
+        stock_points = [
+            (base_x + int(w * 0.18), base_y + int(h * 0.44)),
+            (base_x + int(w * 0.05), base_y + int(h * 0.32)),
+            (base_x + int(w * 0.02), base_y + int(h * 0.42)),
+            (base_x + int(w * 0.02), base_y + int(h * 0.55)),
+            (base_x + int(w * 0.18), base_y + int(h * 0.58))
+        ]
+        pygame.draw.polygon(screen, stock_fill, stock_points)
+        pygame.draw.polygon(screen, stock_outline, stock_points, 2)
+
+        grip_points = [
+            (center_x - int(w * 0.08), base_y + int(h * 0.6)),
+            (center_x - int(w * 0.04), base_y + int(h * 0.78)),
+            (center_x + int(w * 0.02), base_y + int(h * 0.78)),
+            (center_x - int(w * 0.04), base_y + int(h * 0.6))
+        ]
+        pygame.draw.polygon(screen, grip_color, grip_points)
+
+        trigger_guard = pygame.Rect(
+            center_x - int(w * 0.12),
+            base_y + int(h * 0.58),
+            int(w * 0.22),
+            max(2, int(h * 0.08))
+        )
+        pygame.draw.rect(screen, trigger_outline, trigger_guard, 1)
+
+        mag_points = [
+            (center_x - int(w * 0.06), base_y + int(h * 0.52)),
+            (center_x + int(w * 0.18), base_y + int(h * 0.62)),
+            (center_x + int(w * 0.12), base_y + int(h * 0.85)),
+            (center_x - int(w * 0.12), base_y + int(h * 0.74))
+        ]
+        pygame.draw.polygon(screen, mag_fill, mag_points)
+        pygame.draw.polygon(screen, mag_outline, mag_points, 1)
+
+        for i in range(3):
+            stripe_y = base_y + int(h * 0.48) + i * max(1, int(h * 0.08))
+            pygame.draw.line(
+                screen,
+                stripe_color,
+                (base_x + int(w * 0.58), stripe_y),
+                (base_x + int(w * 0.88), stripe_y),
+                1
             )
-            pygame.draw.rect(screen, (78, 58, 38), receiver_rect)
-            pygame.draw.rect(screen, (44, 34, 24), receiver_rect, 2)
 
-            top_cover_rect = pygame.Rect(
-                base_x + int(w * 0.22),
-                base_y + int(h * 0.3),
-                int(w * 0.56),
-                max(2, int(h * 0.08))
-            )
-            pygame.draw.rect(screen, (45, 45, 45), top_cover_rect)
+        # 탄약 게이지 바 (아이콘 아래 가로형)
+        gauge_width = weapon_rect.width - 10
+        gauge_height = 6
+        gauge_x = weapon_rect.x + (weapon_rect.width - gauge_width) // 2
+        gauge_y = weapon_rect.bottom + 6
 
-            handguard_rect = pygame.Rect(
-                base_x + int(w * 0.55),
-                base_y + int(h * 0.4),
-                int(w * 0.35),
-                max(3, int(h * 0.22))
-            )
-            pygame.draw.rect(screen, (96, 70, 40), handguard_rect)
-            pygame.draw.rect(screen, (60, 44, 25), handguard_rect, 1)
+        gauge_bg_color = (30, 30, 30) if ak47_active else (45, 45, 45)
+        pygame.draw.rect(screen, gauge_bg_color, (gauge_x, gauge_y, gauge_width, gauge_height))
 
-            gas_tube_start = (base_x + int(w * 0.55), base_y + int(h * 0.34))
-            gas_tube_end = (base_x + int(w * 0.82), base_y + int(h * 0.34))
-            pygame.draw.line(screen, (55, 55, 55), gas_tube_start, gas_tube_end, 2)
-
-            barrel_width = max(3, int(w * 0.22))
-            barrel_height = max(2, int(h * 0.07))
-            barrel_rect = pygame.Rect(
-                base_x + w - barrel_width - int(w * 0.05),
-                base_y + int(h * 0.46),
-                barrel_width,
-                barrel_height
-            )
-            pygame.draw.rect(screen, (38, 38, 38), barrel_rect)
-
-            muzzle_width = max(2, int(w * 0.08))
-            muzzle_height = max(3, int(h * 0.18))
-            muzzle_rect = pygame.Rect(
-                base_x + w - muzzle_width - 2,
-                base_y + int(h * 0.42),
-                muzzle_width,
-                muzzle_height
-            )
-            pygame.draw.rect(screen, (25, 25, 25), muzzle_rect)
-
-            front_sight_points = [
-                (base_x + int(w * 0.84), base_y + int(h * 0.35)),
-                (base_x + int(w * 0.88), base_y + int(h * 0.24)),
-                (base_x + int(w * 0.92), base_y + int(h * 0.35))
-            ]
-            pygame.draw.polygon(screen, (40, 40, 40), front_sight_points)
-
-            stock_points = [
-                (base_x + int(w * 0.18), base_y + int(h * 0.44)),
-                (base_x + int(w * 0.05), base_y + int(h * 0.32)),
-                (base_x + int(w * 0.02), base_y + int(h * 0.42)),
-                (base_x + int(w * 0.02), base_y + int(h * 0.55)),
-                (base_x + int(w * 0.18), base_y + int(h * 0.58))
-            ]
-            pygame.draw.polygon(screen, (84, 58, 30), stock_points)
-            pygame.draw.polygon(screen, (50, 35, 18), stock_points, 2)
-
-            grip_points = [
-                (center_x - int(w * 0.08), base_y + int(h * 0.6)),
-                (center_x - int(w * 0.04), base_y + int(h * 0.78)),
-                (center_x + int(w * 0.02), base_y + int(h * 0.78)),
-                (center_x - int(w * 0.04), base_y + int(h * 0.6))
-            ]
-            pygame.draw.polygon(screen, (65, 45, 28), grip_points)
-
-            trigger_guard = pygame.Rect(
-                center_x - int(w * 0.12),
-                base_y + int(h * 0.58),
-                int(w * 0.22),
-                max(2, int(h * 0.08))
-            )
-            pygame.draw.rect(screen, (30, 30, 30), trigger_guard, 1)
-
-            mag_points = [
-                (center_x - int(w * 0.06), base_y + int(h * 0.52)),
-                (center_x + int(w * 0.18), base_y + int(h * 0.62)),
-                (center_x + int(w * 0.12), base_y + int(h * 0.85)),
-                (center_x - int(w * 0.12), base_y + int(h * 0.74))
-            ]
-            pygame.draw.polygon(screen, (68, 50, 30), mag_points)
-            pygame.draw.polygon(screen, (42, 30, 18), mag_points, 1)
-
-            for i in range(3):
-                stripe_y = base_y + int(h * 0.48) + i * max(1, int(h * 0.08))
-                pygame.draw.line(
-                    screen,
-                    (110, 85, 55),
-                    (base_x + int(w * 0.58), stripe_y),
-                    (base_x + int(w * 0.88), stripe_y),
-                    1
-                )
-
-            # 탄약 게이지 바 (아이콘 아래 가로형)
-            gauge_width = weapon_rect.width - 10
-            gauge_height = 6
-            gauge_x = weapon_rect.x + (weapon_rect.width - gauge_width) // 2
-            gauge_y = weapon_rect.bottom + 6
-
-            pygame.draw.rect(screen, (30, 30, 30), (gauge_x, gauge_y, gauge_width, gauge_height))
-
-            ammo_ratio = ak47.ammo_ratio()
-            if ammo_ratio > 0:
-                fill_width = int(gauge_width * ammo_ratio)
+        ammo_ratio = ak47.ammo_ratio()
+        if ammo_ratio > 0:
+            fill_width = int(gauge_width * ammo_ratio)
+            if ak47_active:
                 if ammo_ratio <= 0.2:
                     fill_color = (255, 80, 80)
                 elif ammo_ratio <= 0.5:
                     fill_color = (255, 200, 80)
                 else:
                     fill_color = (120, 255, 140)
-                pygame.draw.rect(screen, fill_color, (gauge_x, gauge_y, fill_width, gauge_height))
-            pygame.draw.rect(screen, (90, 90, 90), (gauge_x, gauge_y, gauge_width, gauge_height), 1)
+            else:
+                # 비활성 상태에서는 중립적인 회색으로 표시
+                fill_color = (150, 150, 150)
+            pygame.draw.rect(screen, fill_color, (gauge_x, gauge_y, fill_width, gauge_height))
+        pygame.draw.rect(screen, (90, 90, 90), (gauge_x, gauge_y, gauge_width, gauge_height), 1)
 
-            # 잔탄 수를 작은 숫자로 표시 (게이지 중앙)
-            try:
-                if 'font_tiny' in globals() and font_tiny:
-                    ammo_text = f"{ak47.current_ammo}/{ak47.max_ammo}"
-                    ammo_surface = font_tiny.render(ammo_text, True, (230, 230, 230))
-                    text_rect = ammo_surface.get_rect(center=(gauge_x + gauge_width // 2, gauge_y + gauge_height // 2))
-                    screen.blit(ammo_surface, text_rect)
-            except:
-                pass
-        else:
-            # AK-47이 비활성화된 경우 회색 실루엣
-            body_rect = pygame.Rect(center_x - 15, center_y - 5, 25, 8)
-            pygame.draw.rect(screen, (60, 60, 60), body_rect, 1)
+        # 잔탄 수 텍스트 (비활성 상태에서는 희미한 색상으로)
+        try:
+            if 'font_tiny' in globals() and font_tiny:
+                ammo_text = f"{ak47.current_ammo}/{ak47.max_ammo}"
+                text_color = (230, 230, 230) if ak47_active else (170, 170, 170)
+                ammo_surface = font_tiny.render(ammo_text, True, text_color)
+                text_rect = ammo_surface.get_rect(center=(gauge_x + gauge_width // 2, gauge_y + gauge_height // 2))
+                screen.blit(ammo_surface, text_rect)
+        except:
+            pass
+
+        if not ak47_active:
+            # 비활성 상태임을 나타내는 대각선 표시
+            pygame.draw.line(
+                screen,
+                (140, 140, 140),
+                (weapon_rect.left + 4, weapon_rect.top + 4),
+                (weapon_rect.right - 4, weapon_rect.bottom - 4),
+                2
+            )
             
     else:
         # 권총 무기 정보 표시 (기존 코드)
@@ -9176,7 +9205,6 @@ def handle_player(keys):
                 bazooka = get_bazooka_instance()
                 bazooka.unequip()
             if 'ak47' in soldier_weapons:
-                from item_effects.ak47 import get_ak47_instance
                 ak47 = get_ak47_instance()
                 # AK-47은 unequip이 없음, deactivate만 있음
         elif current_weapon == "ak47":
@@ -9185,10 +9213,10 @@ def handle_player(keys):
                 from item_effects.bazooka import get_bazooka_instance
                 bazooka = get_bazooka_instance()
                 bazooka.unequip()
-            from item_effects.ak47 import get_ak47_instance
             ak47 = get_ak47_instance()
-            # AK-47을 활성화 상태로 설정
-            ak47.active = True
+            # AK-47은 지속 효과 아이템이므로 남은 지속 시간이 있을 때만 활성화 유지
+            if ak47.remaining_time > 0:
+                ak47.active = True
         
         print(f"🔄 화기 교체: {current_weapon}")
         
@@ -10491,7 +10519,6 @@ def handle_player(keys):
                             # AK-47 연사 시 이동속도 감소 배율 가져오기
                             ak47_speed_multiplier = 1.0
                             if selected_character_type == "soldier" and 'ak47' in soldier_weapons:
-                                from item_effects.ak47 import get_ak47_instance
                                 ak47 = get_ak47_instance()
                                 ak47_speed_multiplier = ak47.get_movement_speed_multiplier()
                             
@@ -10601,6 +10628,27 @@ def handle_player(keys):
     
     # 감전 상태일 때도 모든 감속 로직 무시
     # 위치 적용 (감전 상태가 아닐 때만 기본 이동)
+    # AK-47 이동속도 디버프는 발사 입력 상태에 따라 달라지므로 매 프레임 상태를 동기화한다.
+    ak47_fire_ready = False
+    ak47_instance = None
+    if selected_character_type == "soldier" and 'ak47' in soldier_weapons:
+        current_weapon_name = None
+        if 0 <= current_weapon_index < len(soldier_weapons):
+            current_weapon_name = soldier_weapons[current_weapon_index]
+        space_pressed = keys[pygame.K_SPACE]
+        ak47_instance = get_ak47_instance()
+        can_attempt_ak47_fire = (
+            space_pressed
+            and current_weapon_name == "ak47"
+            and soldier_control_lock_timer <= 0
+            and not keys[pygame.K_UP]
+            and not is_waiting_for_serve
+            and not is_player_serve
+            and not player_stunned
+        )
+        ak47_instance.handle_space_input(can_attempt_ak47_fire)
+        ak47_fire_ready = can_attempt_ak47_fire
+
     if not player_stunned:
         # 군인 캐릭터 총알 발사 처리
         if selected_character_type == "soldier" and keys[pygame.K_SPACE] and soldier_control_lock_timer <= 0:
@@ -10664,14 +10712,10 @@ def handle_player(keys):
                                 
                 elif current_weapon == "ak47":
                     # AK-47 발사 (보스 조준)
-                    from item_effects.ak47 import get_ak47_instance
-                    ak47 = get_ak47_instance()
-                    
-                    # 스페이스바 입력 상태를 추적
-                    ak47.handle_space_input(keys[pygame.K_SPACE])
-                    
-                    # 발사 여부 확인
-                    if ak47.should_fire():
+                    ak47 = ak47_instance or get_ak47_instance()
+
+                    # 발사 여부 확인 (입력 상태는 위에서 미리 갱신됨)
+                    if ak47_fire_ready and ak47.should_fire():
                         player_rect = pygame.Rect(PLAYER.x, PLAYER.y, PLAYER.width, PLAYER.height)
                         boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
                         

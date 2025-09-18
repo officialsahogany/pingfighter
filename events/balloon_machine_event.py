@@ -139,8 +139,8 @@ class BalloonMachineEvent:
         self.balloon_shoot_count = 0  # 발사한 풍선 개수 초기화
         self.init_font()
         
-        # 발사할 풍선 개수를 4~6개 사이에서 랜덤하게 결정
-        self.total_balloon_count = random.randint(4, 6)
+        # 발사할 풍선 개수를 2~4개 사이에서 랜덤하게 결정
+        self.total_balloon_count = random.randint(2, 4)
         
         # 랜덤 발사 순서 생성 (발사할 개수만큼의 인덱스를 섞음)
         self.balloon_shoot_order = list(range(self.total_balloon_count))
