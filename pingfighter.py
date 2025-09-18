@@ -31174,6 +31174,7 @@ def reset_round():
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
     global boss_special_gauge, current_stage  #  스테이지 1 보스 게이지 감소용 변수 추가
+    global ragnarok_stun_attempted_this_rally  # 라그나로크 해머 스턴 플래그
     global leg_shot_active, leg_shot_timer, leg_shot_text_timer  # 권총 레그샷 관련 변수
     global head_shot_active, head_shot_timer, head_shot_text_timer, boss_stunned_timer  # 권총 헤드샷 관련 변수
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
@@ -31246,6 +31247,7 @@ def reset_round():
     ragnarok_speed_boost_active = False
     boss_knockback_timer = 0
     boss_knockback_vel = 0
+    ragnarok_stun_attempted_this_rally = False  # 랠리별 스턴 시도 플래그 리셋
     if ragnarok_shock_playing:
         stop_ragnarok_shock_sound()
         ragnarok_shock_playing = False
@@ -31860,15 +31862,24 @@ def calculate_bounce(paddle):
         try:
             from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
-            global ragnarok_speed_boost_active
+            global ragnarok_speed_boost_active, ragnarok_stun_attempted_this_rally
+            # ragnarok_stun_attempted_this_rally가 없으면 생성
+            if 'ragnarok_stun_attempted_this_rally' not in globals():
+                ragnarok_stun_attempted_this_rally = False
+            
             if legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
                 hammer = legendary_manager.items.get("ragnarok_hammer")
-                if hammer and hammer.active and not ragnarok_speed_boost_active:
+                # 이번 랠리에서 아직 스턴공을 시도하지 않았고, 현재 스턴공이 활성화되지 않은 경우에만
+                if hammer and hammer.active and not ragnarok_speed_boost_active and not ragnarok_stun_attempted_this_rally:
+                    # 이번 랠리에서 스턴공 시도함을 표시
+                    ragnarok_stun_attempted_this_rally = True
                     # 50% 확률로 스턴공 발동
                     if random.random() < 0.5:
                         # 스턴공 발동 - 공속 2배 증가 (나중에 적용하기 위해 플래그만 설정)
                         ragnarok_speed_boost_active = True
                         print(f"⚡ 라그나로크 스턴공 발동 준비! (calculate_bounce)")
+                    else:
+                        print(f"[라그나로크] 스턴공 발동 실패 (50% 확률)")
         except Exception as e:
             print(f"[ERROR] 라그나로크 해머 효과 처리 실패 (calculate_bounce): {e}")
     
@@ -35024,6 +35035,8 @@ def handle_ball():
             rolling_direction = 0
             rolling_speed = 0
             rolling_stun_timer = 0
+            # 라그나로크 해머 스턴 플래그 리셋
+            ragnarok_stun_attempted_this_rally = False
             # 키 입력 버퍼 클리어
             pygame.event.clear(pygame.KEYDOWN)
             pygame.event.clear(pygame.KEYUP)
@@ -35396,6 +35409,8 @@ def handle_ball():
             rolling_direction = 0
             rolling_speed = 0
             rolling_stun_timer = 0
+            # 라그나로크 해머 스턴 플래그 리셋
+            ragnarok_stun_attempted_this_rally = False
             # 키 입력 버퍼 클리어
             pygame.event.clear(pygame.KEYDOWN)
             pygame.event.clear(pygame.KEYUP)
