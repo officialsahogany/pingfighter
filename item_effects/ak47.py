@@ -1,4 +1,5 @@
 import math
+import random
 from typing import List, Dict, Optional
 
 import pygame
@@ -25,12 +26,21 @@ class AK47:
         self.bullet_lifetime = 60  # 1초
         self.bullets: List[Dict[str, float]] = []
         
+        # 정확도 관련 설정
+        self.accuracy_spread_angle = 0.15  # 라디안 단위 (약 8.6도)
+        self.recoil_accumulation = 0  # 연속 발사 시 반동 누적
+        self.max_recoil = 0.15  # 최대 반동 각도 (라디안)
+        self.recoil_recovery_rate = 0.02  # 프레임당 반동 회복률
+        
         # 발사 모드 관련
         self.burst_mode = True  # 단발 모드에서는 2발 연사
         self.burst_shots_fired = 0  # 현재 버스트에서 발사한 총알 수
         self.burst_shots_required = 2  # 버스트당 발사할 총알 수
         self.is_firing = False  # 현재 발사 중인지 여부
         self.space_was_released = True  # 스페이스바가 떼어졌는지 추적
+        
+        # 이동속도 감소 관련
+        self.movement_debuff = 0.5  # 연사 시 이동속도 50% 감소 (50%로 감소)
 
     # ------------------------------------------------------------------
     # 상태 관리
@@ -42,6 +52,7 @@ class AK47:
         self.current_ammo = self.max_ammo
         self.shot_cooldown = 0
         self.bullets.clear()
+        self.recoil_accumulation = 0  # 반동 초기화
         print("AK-47 활성화! 90발 연사 가능")
 
     def deactivate(self):
@@ -50,6 +61,7 @@ class AK47:
         self.bullets.clear()
         self.current_ammo = self.max_ammo
         self.shot_cooldown = 0
+        self.recoil_accumulation = 0  # 반동 초기화
         print("AK-47 효과 종료")
 
     # ------------------------------------------------------------------
@@ -92,6 +104,9 @@ class AK47:
         self.bullets.append(bullet)
         self.current_ammo = max(0, self.current_ammo - 1)
         self.shot_cooldown = self.fire_interval
+        
+        # 연속 발사 시 반동 누적
+        self.recoil_accumulation = min(self.recoil_accumulation + 0.03, self.max_recoil)
 
         if self.current_ammo == 0:
             print("AK-47 탄약 소진! 추가 발사가 불가합니다.")
@@ -126,20 +141,36 @@ class AK47:
             target_x = start_x
             target_y = 0
 
+        # 기본 방향 계산
         dx = target_x - start_x
         dy = target_y - start_y
         distance = math.hypot(dx, dy)
         if distance == 0:
             return None
 
+        # 방향 정규화
         dx /= distance
         dy /= distance
+        
+        # 현재 각도 계산
+        base_angle = math.atan2(dy, dx)
+        
+        # 정확도 오차 적용 (기본 분산 + 반동 누적)
+        total_spread = self.accuracy_spread_angle + self.recoil_accumulation
+        angle_offset = random.uniform(-total_spread, total_spread)
+        
+        # 최종 발사 각도
+        final_angle = base_angle + angle_offset
+        
+        # 새로운 방향 벡터 계산
+        final_dx = math.cos(final_angle) * self.bullet_speed
+        final_dy = math.sin(final_angle) * self.bullet_speed
 
         return {
             "x": start_x,
             "y": start_y,
-            "dx": dx * self.bullet_speed,
-            "dy": dy * self.bullet_speed,
+            "dx": final_dx,
+            "dy": final_dy,
             "life": self.bullet_lifetime,
         }
 
@@ -165,6 +196,10 @@ class AK47:
 
         if self.shot_cooldown > 0:
             self.shot_cooldown -= 1
+            
+        # 반동 회복 (발사하지 않을 때)
+        if self.shot_cooldown <= 0 and not self.is_firing:
+            self.recoil_accumulation = max(0, self.recoil_accumulation - self.recoil_recovery_rate)
 
         # 총알 이동 및 충돌 처리
         events.extend(self._update_bullets(boss_rect))
@@ -222,6 +257,22 @@ class AK47:
         if self.max_ammo == 0:
             return 0.0
         return self.current_ammo / self.max_ammo
+    
+    def get_movement_speed_multiplier(self) -> float:
+        """연사 중일 때 이동속도 배율 반환
+        
+        Returns:
+            float: 이동속도 배율 (1.0 = 100%, 0.5 = 50%)
+        """
+        if not self.active:
+            return 1.0
+        
+        # 실제로 발사 중일 때만 이동속도 감소
+        # is_firing이 True일 때만 감속 적용 (shot_cooldown은 제거)
+        if self.is_firing:
+            return self.movement_debuff
+        
+        return 1.0
 
 # 싱글톤 인스턴스
 ak47_instance = None

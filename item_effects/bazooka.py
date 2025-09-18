@@ -23,6 +23,13 @@ class Bazooka:
         self.KNOCKBACK_POWER = 40  # 넉백 거리 (수류탄과 동일)
         self.STUN_DURATION = 90  # 스턴 시간 1.5초 (수류탄보다 0.5초 짧음)
         
+        # 플레이어 반동 관련
+        self.player_knockback = {
+            "direction": 0,  # -1: 왼쪽, 1: 오른쪽
+            "strength": 0,   # 넉백 거리
+            "active": False  # 넉백 활성화 여부
+        }
+        
         # 애니메이션 관련
         self.fire_animation_timer = 0
         self.muzzle_flash_timer = 0
@@ -64,6 +71,17 @@ class Bazooka:
             "smoke_trail": []  # 연기 궤적
         }
         
+        # 플레이어 반동 넉백 방향 결정 (좌/우 랜덤)
+        knockback_direction = random.choice([-1, 1])  # -1: 왼쪽, 1: 오른쪽
+        knockback_strength = 30  # 넉백 거리 (15에서 30으로 증가)
+        
+        # 반동 데이터 저장 (pingfighter.py에서 사용)
+        self.player_knockback = {
+            "direction": knockback_direction,
+            "strength": knockback_strength,
+            "active": True
+        }
+        
         self.projectiles.append(projectile)
         self.ammo_count -= 1
         self.cooldown_timer = self.COOLDOWN_TIME
@@ -72,13 +90,23 @@ class Bazooka:
         self.muzzle_flash_timer = 5  # 총구 화염
         self.firing_pose_timer = self.CONTROL_LOCK_TIME  # 발사 자세 지속 시간
         
-        print(f"🚀 바주카포 발사! 남은 탄약: {self.ammo_count}")
+        direction_text = "왼쪽" if knockback_direction == -1 else "오른쪽"
+        print(f"🚀 바주카포 발사! 플레이어 {direction_text} 넉백! 남은 탄약: {self.ammo_count}")
         return True
         
     def reload_with_special_ammo(self):
         """특수탄약으로 재장전"""
         self.ammo_count = self.max_ammo
         print(f"🚀 바주카포 재장전 완료! 탄약: {self.ammo_count}/{self.max_ammo}")
+        
+    def get_player_knockback(self):
+        """플레이어 넉백 정보 반환"""
+        if self.player_knockback["active"]:
+            # 넉백 정보 반환 후 비활성화
+            knockback_data = self.player_knockback.copy()
+            self.player_knockback["active"] = False
+            return knockback_data
+        return None
         
     def update(self, dt):
         """업데이트"""
