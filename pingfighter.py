@@ -35913,12 +35913,10 @@ def handle_ball():
         was_stun_ball = ragnarok_speed_boost_active  # 스턴공이었는지 저장
         
         if ragnarok_speed_boost_active:
-            # 속도를 1.5배에서 원래대로 복구 (보스가 받기 전에)
-            ball_vel[0] /= 1.5
-            ball_vel[1] /= 1.5
+            # 스턴공 플래그만 리셋하고 속도는 유지
             ragnarok_speed_boost_active = False
-            original_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-            print(f"⚡ 라그나로크 스턴공 종료! 원래 속도: {original_speed:.1f}")
+            current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+            print(f"⚡ 라그나로크 스턴공 보스 충돌! 현재 속도 유지: {current_speed:.1f}")
             
             # 화면 흔들림 0.2초 추가
             global screen_shake_timer, screen_shake_intensity
