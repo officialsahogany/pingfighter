@@ -1,5 +1,5 @@
 """
-Trade Point Star System Module
+Star Point Star System Module
 트레이드 포인트 별 시스템 - 모든 스테이지에서 사용 가능한 통합 모듈
 """
 
@@ -266,7 +266,7 @@ class TradePointSystem:
         text = {
             'x': x,
             'y': y - 20,
-            'text': "+1 Trade Point",
+            'text': "+1 Star Point",
             'alpha': 255,
             'speed': 1.5,
             'fade_speed': 4

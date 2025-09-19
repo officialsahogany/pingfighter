@@ -49,7 +49,7 @@ from game_logic.checkmate_system import get_checkmate_system
 # ============================================================
 def resource_path(relative_path):
     """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환
-    
+
     Args:
         relative_path (str): 상대 파일 경로
         
@@ -68,6 +68,7 @@ def resource_path(relative_path):
     full_path = os.path.join(base_path, relative_path)
     
     return full_path
+ 
 
 def check_ball_speed_safety():
     """공 속도 안전성 확인 및 제한"""
@@ -85,6 +86,24 @@ def check_ball_speed_safety():
         print(f"⚠️ 속도 안전 제한 적용: {current_speed:.2f} → {max_safe_speed:.2f}")
         return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Star Point Helper
+# ---------------------------------------------------------------------------
+
+def draw_small_star(surface, x, y, radius, color=(255, 255, 100)):
+    points = []
+    for i in range(10):
+        angle = -math.pi / 2 + (i * math.pi / 5)
+        r = radius if i % 2 == 0 else radius * 0.5
+        px = x + math.cos(angle) * r
+        py = y + math.sin(angle) * r
+        points.append((px, py))
+    pygame.draw.polygon(surface, color, points)
+    pygame.draw.polygon(surface, (255, 215, 0), points, 2)
+
+
 
 
 # ============================================================
@@ -1367,7 +1386,6 @@ special_active = False
 special_gauge = 0
 rainbow_colors = [RED, (255,165,0), (255,255,0), (0,255,0), (0,127,255), (0,0,255), (139,0,255)]
 rainbow_index = 0
-ball_trail = []
 #  보스 AI & 움직임 시스템
 # 보스 기본 설정
 BOSS_SPEED = 1                       # 기본 보스 속도
@@ -4896,7 +4914,6 @@ def go_to_next_round():
     global whip_deactivation_active, whip_deactivation_timer, whip_rotation_speed  # 상모돌리기 강제 해제 모션
     global boss_stunned_after_whip, boss_stunned_after_whip_timer  # 회전 종료 후 통제불능
     global rolling_consecutive_count  #  연속 대쉬 카운터 추가
-    global ball_trail, ball_vel, ball_angle
     global PLAYER_SPEED
     global balloon_event_delay, balloon_event_reserved_score  #  풍선 이벤트 타이머와 예약 점수
     global round_wins, round_losses  #  점수 변수 추가
@@ -5021,7 +5038,6 @@ def go_to_next_round():
     quake_timer = 0
     PLAYER_SPEED = 1
     ball_angle = 0
-    ball_trail.clear()
     #  홍련폭염 상태 초기화
     flame_trail_active = False
     flame_trail_positions.clear()
@@ -11854,9 +11870,20 @@ trade_point_collected = 0  # 현재 스테이지에서 수집한 트레이드 �
 trade_point_texts = []  # 트레이드 포인트 획득 시 표시할 텍스트 효과
 
 
-def get_trade_point_star_count():
+def get_trade_point_star_count(include_stage_pending=True):
     """현재 보유 중인 트레이드 포인트 별 개수 반환"""
-    return trade_point_collected
+    total_points = 0
+
+    try:
+        import academy
+        total_points += getattr(academy.skill_system, "skill_points", 0)
+    except Exception:
+        pass
+
+    if include_stage_pending:
+        total_points += trade_point_collected
+
+    return total_points
 
 
 def spend_trade_point_stars(amount: int) -> bool:
@@ -11867,19 +11894,34 @@ def spend_trade_point_stars(amount: int) -> bool:
     if amount <= 0:
         return True
 
-    if trade_point_collected < amount:
+    total_available = get_trade_point_star_count()
+    if total_available < amount:
         return False
 
-    trade_point_collected -= amount
+    # 1) 현재 스테이지에서 모은 별 우선 차감
+    stage_consumed = min(trade_point_collected, amount)
+    if stage_consumed > 0:
+        trade_point_collected -= stage_consumed
 
-    if trade_point_system:
-        trade_point_system.set_collected_count(trade_point_collected)
+        if trade_point_system:
+            trade_point_system.set_collected_count(trade_point_collected)
 
-    # 레거시 호환성: 스테이지별 보조 카운터도 동기화
-    if current_stage == 3:
-        stage3_hearts_collected = trade_point_collected
-    elif current_stage == 4:
-        stage4_crows_collected = trade_point_collected
+        # 레거시 호환성: 스테이지별 보조 카운터도 동기화
+        if current_stage == 3:
+            stage3_hearts_collected = trade_point_collected
+        elif current_stage == 4:
+            stage4_crows_collected = trade_point_collected
+
+    remaining = amount - stage_consumed
+
+    if remaining > 0:
+        try:
+            import academy
+            if academy.skill_system.skill_points < remaining:
+                return False
+            academy.skill_system.skill_points -= remaining
+        except Exception:
+            return False
 
     return True
 
@@ -11932,18 +11974,25 @@ def store_active_item(item_data):
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
     if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
         return
-    if len(active_item_slot) < MAX_ITEM_SLOTS:
-        # 모든 액티브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
-        # icon 필드가 없거나 None인 경우 get_item_icon으로 가져오기
-        if "icon" not in item_data or item_data["icon"] is None:
-            item_data["icon"] = get_item_icon(item_data["name"])
-        # 아이템에 last_use 필드 추가 (전역 쿨타임 적용)
-        current_time = pygame.time.get_ticks()
-        item_data["last_use"] = last_item_use_time  # 전역 쿨타임 적용
-        active_item_slot.append(item_data)
-        selected_item_index = len(active_item_slot) - 1  # 자동 선택
-        # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
-        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+    allow_overflow = item_data.pop("allow_overflow", False)
+    is_overflow_pickup = len(active_item_slot) >= MAX_ITEM_SLOTS
+    if is_overflow_pickup and not allow_overflow:
+        return
+
+    # 모든 액티브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
+    if "icon" not in item_data or item_data["icon"] is None:
+        item_data["icon"] = get_item_icon(item_data["name"])
+
+    # 아이템에 last_use 필드 추가 (전역 쿨타임 적용)
+    current_time = pygame.time.get_ticks()
+    item_data["last_use"] = last_item_use_time
+    item_data["temporary_overflow"] = is_overflow_pickup
+
+    active_item_slot.append(item_data)
+    selected_item_index = len(active_item_slot) - 1
+
+    # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
+    show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
 # bosspong.py
 def store_passive_item(item_data):
     global MAX_ITEM_SLOTS, passive_item_list, speedboots_obtained, speedgear_obtained
@@ -12632,10 +12681,10 @@ def handle_wall():
                 
                 # 폭발 범위 내의 모든 바위 파괴
                 for rock in rocks_to_destroy:
-                    # 황금 바위인 경우 Trade Point 별 생성
+                    # 황금 바위인 경우 Star Point 별 생성
                     if rock.get('is_golden', False):
                         trade_point_system.spawn_star(rock['x'], rock['y'], "golden_rock")
-                        print(f"    ! Trade Point  !")
+                        print(f"    ! Star Point  !")
                     
                     animated_bg_stage2.destroy_rock(rock)
                     animated_bg_stage2.crisis_rocks.remove(rock)
@@ -12653,12 +12702,12 @@ def handle_wall():
                     if crow_distance < explosion_zone["radius"]:
                         crows_to_destroy.append(crow_data)
                 
-                # 폭발 범위 내의 모든 까마귀 파괴 및 Trade Point 별 생성
+                # 폭발 범위 내의 모든 까마귀 파괴 및 Star Point 별 생성
                 for crow_data in sorted(crows_to_destroy, key=lambda x: x['index'], reverse=True):  # 역순으로 제거
                     if animated_bg_stage4.catch_crow(crow_data['index']):
-                        # Trade Point 별 생성
+                        # Star Point 별 생성
                         trade_point_system.spawn_star(crow_data['x'], crow_data['y'], "crow")
-                        print(f"    ! Trade Point  !")
+                        print(f"    ! Star Point  !")
                 
                 if crows_to_destroy:
                     print(f"    {len(crows_to_destroy)} !")
@@ -16588,7 +16637,7 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
                           (antenna_right_x, antenna_y - 5), 2)
     return carrier_surface
 def draw_objects():
-    global quake_offset_y, rainbow_index, ball_trail, ball_angle
+    global quake_offset_y, rainbow_index, ball_angle
     global hit_animation_active, hit_animation_timer
     global boss_trail, long_boost_animating, long_boost_animation_step
     global long_boost_growing, long_boost_shrinking, long_boost_active
@@ -18973,14 +19022,6 @@ def draw_objects():
                 tail_surface = pygame.Surface((20, 20), pygame.SRCALPHA)
                 pygame.draw.circle(tail_surface, (255, DEFAULT_ALPHA, 0, tail_alpha), (10, 10), 10 - i)
                 SCREEN.blit(tail_surface, (tail_x - 10, tail_y - 10))
-    #  공 꼬리
-    if special_active:
-        ball_trail.append((BALL.centerx, BALL.centery, 200))
-    ball_trail = [(x, y, a - 10) for x, y, a in ball_trail if a > 10][:10]
-    for x, y, alpha in ball_trail:
-        trail = pygame.transform.scale(ball_img_to_draw, (BALL.width, BALL.height))
-        trail.set_alpha(alpha)
-        SCREEN.blit(trail, (x - BALL.width // 2, y - BALL.height // 2))
     
     # 쿠로미 뱉기 신비로운 궤적 렌더링
     if kuromi_spit_trail_active and kuromi_spit_trail_positions:
@@ -20089,7 +20130,8 @@ def calculate_total_earned_medals(up_to_stage):
         total += stage_medal_rewards.get(stage, 0)
     return total
 def show_victory_screen(stage_cleared, reward):
-    global trade_point_collected
+    global trade_point_collected, trade_point_system
+    global stage3_hearts_collected, stage4_crows_collected
     global final_round_wins, final_round_losses
     # 스테이지 클리어 보상으로 스킬 포인트 추가
     import academy
@@ -20113,6 +20155,32 @@ def show_victory_screen(stage_cleared, reward):
     
     total_trade_points = base_points + bonus_points + score_bonus
     academy.add_skill_points(total_trade_points)
+
+    # 스테이지 클리어 후 스테이지별 별 카운터는 0으로 초기화 (스킬 포인트에 반영됐음)
+    trade_point_collected = 0
+    if trade_point_system:
+        trade_point_system.set_collected_count(0)
+    if stage_cleared == 3:
+        stage3_hearts_collected = 0
+    elif stage_cleared == 4:
+        stage4_crows_collected = 0
+
+    final_star_points = get_trade_point_star_count(include_stage_pending=False)
+    previous_star_points = max(0, final_star_points - total_trade_points)
+    star_points_display = previous_star_points
+    star_points_target = final_star_points
+    star_gain_total = total_trade_points
+    star_animation_state = 'idle'
+    star_animation_timer = 0
+    star_animation_index = 0
+    star_animation_star = None
+    star_trail_particles = []
+    star_badge_glow_duration = 60
+    star_badge_glow_timer = 0
+    star_animation_finished = (star_gain_total == 0)
+    if star_animation_finished:
+        star_points_display = star_points_target
+        star_badge_glow_timer = star_badge_glow_duration
     
     # 애니메이션 관련 변수
     animation_states = {
@@ -20122,13 +20190,15 @@ def show_victory_screen(stage_cleared, reward):
         'total': {'show': False, 'scale': 0.0, 'alpha': 0, 'glow': 0, 'rainbow': 0}
     }
     
+    star_badge_visible = True
+
     # 애니메이션 타임라인 동적 생성 (보너스 여부에 따라 조정)
     animation_timeline = {'base': 30}  # 0.5초 후 기본 보상
     
     next_time = 90  # 다음 애니메이션 시작 시간
     
     # 별 수집 보너스가 있는 경우에만 타임라인에 추가
-    if trade_point_collected > 0:
+    if bonus_points > 0:
         animation_timeline['star'] = next_time
         next_time += 60  # 1초 후
     else:
@@ -20145,6 +20215,45 @@ def show_victory_screen(stage_cleared, reward):
     
     # 최종 결과는 항상 표시
     animation_timeline['total'] = next_time
+
+    def force_show_next_stage():
+        nonlocal star_animation_state, star_animation_timer, star_animation_finished
+        # Base reward
+        base_state = animation_states.get('base')
+        if base_state and not base_state['show']:
+            base_state['show'] = True
+            base_state['scale'] = 1.0
+            base_state['alpha'] = 255
+            return True
+        star_state = animation_states.get('star')
+        if star_state and not star_state['show']:
+            star_state['show'] = True
+            star_state['scale'] = 1.0
+            star_state['alpha'] = 255
+            star_state['glow'] = 0
+            return True
+        score_state = animation_states.get('score')
+        if score_state and not score_state['show']:
+            score_state['show'] = True
+            score_state['scale'] = 1.0
+            score_state['alpha'] = 255
+            score_state['glow'] = 0
+            return True
+        total_state = animation_states.get('total')
+        if total_state and not total_state['show']:
+            total_state['show'] = True
+            total_state['scale'] = 1.0
+            total_state['alpha'] = 255
+            total_state['glow'] = 0
+            total_state['rainbow'] = 0
+            if star_gain_total > 0:
+                star_animation_state = 'text'
+                star_animation_timer = 0
+            else:
+                star_animation_finished = True
+            return True
+        return False
+
     if bonus_points > 0 or score_bonus > 0:
         bonus_text = []
         if bonus_points > 0:
@@ -20162,10 +20271,11 @@ def show_victory_screen(stage_cleared, reward):
     button_width = 280
     button_height = 70
     # 전체를 중앙으로 이동 (y 좌표 조정) - 패널 높이 증가로 버튼 위치 추가 조정
-    next_stage_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 480, button_width, button_height)
-    skill_tree_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 570, button_width, button_height)
-    rest_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 660, button_width, button_height)
-    selected = 0  # 0: 다음 스테이지, 1: 스킬 트리, 2: 복귀
+    next_stage_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 440, button_width, button_height)
+    skill_tree_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 520, button_width, button_height)
+    reroll_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 600, button_width, button_height)
+    rest_rect = pygame.Rect(WIDTH // 2 - button_width // 2, 680, button_width, button_height)
+    selected = 0  # 0: 다음 스테이지, 1: 스킬 트리, 2: 또 뽑기, 3: 복귀
     # 화면 전환 전에 이벤트 큐 비우기
     pygame.event.get()
     # 애니메이션용 변수
@@ -20173,24 +20283,14 @@ def show_victory_screen(stage_cleared, reward):
     glow_intensity = 0
     clock = pygame.time.Clock()
     
-    # 애니메이션 스킵 플래그
-    skip_animation = False
+    reroll_warning_timer = 0
+    reroll_warning_text = ""
     
     while True:
         frame_count += 1
+        if star_badge_glow_timer > 0:
+            star_badge_glow_timer -= 1
         glow_intensity = abs(math.sin(frame_count * 0.05)) * 50  # 부드러운 글로우 효과
-        
-        # 스킵 시 모든 애니메이션 즉시 완료
-        if skip_animation:
-            for key in animation_states:
-                animation_states[key]['show'] = True
-                animation_states[key]['scale'] = 1.0
-                animation_states[key]['alpha'] = 255
-                animation_states[key]['glow'] = 0
-            # 최종 결과 글로우만 유지
-            if 'total' in animation_states:
-                animation_states['total']['glow'] = 30
-                animation_states['total']['rainbow'] = (frame_count * 3) % 360
         
         # 애니메이션 상태 업데이트
         for key in animation_states:
@@ -20303,10 +20403,78 @@ def show_victory_screen(stage_cleared, reward):
         reward_text = font_info.render(f"(+ {reward})", True, (100, 255, 100))
         reward_x = WIDTH // 2 + 15  # 메달 개수 옆
         SCREEN.blit(reward_text, (reward_x, medal_y - 10))
-        # 트레이드포인트 정보 (메달 정보 아래) - 시간차 애니메이션으로 표시
+        # Star Point 표시 (아카데미 UI와 동일 스타일)
+        if star_badge_visible and star_animation_finished:
+            star_x = WIDTH - 80
+            star_y = 30
+            if star_badge_glow_timer > 0:
+                glow_ratio = star_badge_glow_timer / star_badge_glow_duration
+                glow_alpha = int(160 * glow_ratio)
+                glow_radius = int(24 + 20 * glow_ratio)
+                glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surface, (255, 255, 180, glow_alpha), (glow_radius, glow_radius), glow_radius)
+                SCREEN.blit(glow_surface, (star_x - glow_radius, star_y - glow_radius))
+            draw_small_star(SCREEN, star_x, star_y, 12)
+            star_text = FontStyle.menu().render(f"{star_points_display}", True, (255, 255, 100))
+            SCREEN.blit(star_text, star_text.get_rect(midleft=(star_x + 32, star_y)))
+        # Star Point 정보 (메달 정보 아래) - 시간차 애니메이션으로 표시
+        if star_animation_finished and star_points_display != star_points_target:
+            star_points_display = star_points_target
+
+        # Star Point 정보 (메달 정보 아래) - 시간차 애니메이션으로 표시
         skill_point_y = medal_y + 40
-        total_points = 1 + trade_point_collected + score_bonus  # 기본 1점 + 별 보너스 + 점수 보너스
-        
+        total_points = 1 + bonus_points + score_bonus  # 기본 1점 + 별 보너스 + 점수 보너스
+
+        star_spawn_x = WIDTH // 2
+        star_spawn_y = skill_point_y + 30
+        badge_star_x = WIDTH - 80
+        badge_star_y = 30
+
+        if not star_animation_finished and animation_states['total']['show']:
+            if star_animation_state == 'idle':
+                star_animation_state = 'text'
+                star_animation_timer = 0
+            elif star_animation_state == 'text':
+                star_animation_timer += 1
+                if star_animation_timer >= 15:
+                    star_animation_state = 'fly'
+                    star_animation_timer = 0
+                    star_animation_star = {'x': star_spawn_x, 'y': star_spawn_y, 'progress': 0.0}
+            elif star_animation_state == 'fly':
+                star_animation_timer += 1
+                progress = min(1.0, star_animation_timer / 20.0)
+                ease = progress ** 0.6
+                current_x = star_spawn_x + (badge_star_x - star_spawn_x) * ease
+                arc_offset = -80 * math.sin(progress * math.pi)
+                current_y = star_spawn_y + (badge_star_y - star_spawn_y) * progress + arc_offset
+                star_animation_star = {'x': current_x, 'y': current_y, 'progress': progress}
+                star_trail_particles.append({
+                    'x': current_x + random.uniform(-12, 12),
+                    'y': current_y + random.uniform(-12, 12),
+                    'vx': random.uniform(-0.5, 0.5),
+                    'vy': random.uniform(-1.0, -0.3),
+                    'alpha': random.uniform(180, 240),
+                    'radius': random.uniform(6.0, 12.0),
+                    'rotation': random.uniform(0, 360),
+                    'spin': random.uniform(-8, 8),
+                    'color_outer': random.choice([(255, 245, 170), (200, 220, 255), (255, 205, 240)]),
+                    'color_inner': random.choice([(255, 220, 130), (170, 210, 255), (255, 185, 225)])
+                })
+                if progress >= 1.0:
+                    star_points_display += 1
+                    star_animation_index += 1
+                    star_animation_star = None
+                    star_animation_timer = 0
+                    star_badge_glow_timer = star_badge_glow_duration
+                    if star_animation_index >= star_gain_total:
+                        star_animation_finished = True
+                        star_points_display = star_points_target
+                        star_animation_state = 'done'
+                        star_trail_particles.clear()
+                    else:
+                        star_animation_state = 'text'
+                        star_animation_timer = 0
+
         # 애니메이션 렌더링
         detail_y = skill_point_y
         line_height = 30
@@ -20326,7 +20494,7 @@ def show_victory_screen(stage_cleared, reward):
             detail_y += line_height
         
         # 2. 별 수집 보너스 (약간 화려하게)
-        if trade_point_collected > 0 and 'star' in animation_states and animation_states['star']['show']:
+        if bonus_points > 0 and 'star' in animation_states and animation_states['star']['show']:
             alpha = int(animation_states['star']['alpha'])
             scale = animation_states['star']['scale']
             glow = animation_states['star']['glow']
@@ -20334,7 +20502,7 @@ def show_victory_screen(stage_cleared, reward):
             # 텍스트 크기에 맞춘 세련된 글로우 효과
             if glow > 0:
                 # 먼저 텍스트 크기 계산
-                temp_text = font_info.render(f" 별 수집: +{trade_point_collected}", True, (255, 215, 0))
+                temp_text = font_info.render(f" 별 수집: +{bonus_points}", True, (255, 215, 0))
                 text_width = temp_text.get_width()
                 text_height = temp_text.get_height()
                 
@@ -20358,15 +20526,51 @@ def show_victory_screen(stage_cleared, reward):
                     glow_rect = glow_surface.get_rect(center=(WIDTH // 2, detail_y))
                     SCREEN.blit(glow_surface, glow_rect)
             
-            star_text = font_info.render(f" 별 수집: +{trade_point_collected}", True, (255, 215, 0))
+            star_text = font_info.render(f" 별 수집: +{bonus_points}", True, (255, 215, 0))
             if scale != 1.0:
                 star_text = pygame.transform.scale(star_text,
                     (int(star_text.get_width() * scale), int(star_text.get_height() * scale)))
             star_text.set_alpha(alpha)
             star_rect = star_text.get_rect(center=(WIDTH // 2, detail_y))
             SCREEN.blit(star_text, star_rect)
+
+            if not star_animation_finished and star_animation_state in ("text", "fly"):
+                pulse = (math.sin(star_animation_timer * 0.25) + 1) * 0.5
+                highlight_text = font_info.render(f" 별 수집: +{bonus_points}", True, (255, 255, 200))
+                highlight_text.set_alpha(int(100 + 120 * pulse))
+                SCREEN.blit(highlight_text, highlight_text.get_rect(center=star_rect.center))
+
             detail_y += line_height
-        
+
+        if not star_animation_finished:
+            new_trails = []
+            for particle in star_trail_particles:
+                alpha = particle.get('alpha', 0)
+                if alpha > 0:
+                    radius = particle.get('radius', 8.0)
+                    color_outer = particle.get('color_outer', (255, 245, 170))
+                    color_inner = particle.get('color_inner', (255, 220, 130))
+                    surf_size = max(6, int(radius * 3))
+                    star_surface = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+                    center = surf_size // 2
+                    draw_small_star(star_surface, center, center, int(radius), color_outer)
+                    draw_small_star(star_surface, center, center, max(2, int(radius * 0.6)), color_inner)
+                    rotated = pygame.transform.rotate(star_surface, particle.get('rotation', 0))
+                    rotated.set_alpha(int(alpha))
+                    rect = rotated.get_rect(center=(particle.get('x', 0), particle.get('y', 0)))
+                    SCREEN.blit(rotated, rect.topleft)
+                    particle['x'] = particle.get('x', 0) + particle.get('vx', 0)
+                    particle['y'] = particle.get('y', 0) + particle.get('vy', -0.4)
+                    particle['vy'] = particle.get('vy', -0.4) + 0.04
+                    particle['rotation'] = particle.get('rotation', 0) + particle.get('spin', 0)
+                    particle['alpha'] = alpha - 12
+                    if particle['alpha'] > 10:
+                        new_trails.append(particle)
+            star_trail_particles = new_trails
+
+            if star_animation_state == 'fly' and star_animation_star:
+                draw_small_star(SCREEN, star_animation_star['x'], star_animation_star['y'], 12)
+
         # 3. 점수 보너스 (더 화려하게)
         if score_bonus > 0 and 'score' in animation_states and animation_states['score']['show']:
             alpha = int(animation_states['score']['alpha'])
@@ -20427,7 +20631,7 @@ def show_victory_screen(stage_cleared, reward):
             SCREEN.blit(score_text, score_rect)
             detail_y += line_height + 10  # 최종 결과와 간격 띄우기
         
-        # 4. 최종 Trade Point (가장 화려하게)
+        # 4. 최종 Star Point (가장 화려하게)
         if animation_states['total']['show']:
             alpha = int(animation_states['total']['alpha'])
             scale = animation_states['total']['scale']
@@ -20438,7 +20642,7 @@ def show_victory_screen(stage_cleared, reward):
             if glow > 0:
                 # 먼저 텍스트 크기 계산
                 font_final = FontStyle.menu()  # 큰 폰트
-                temp_text = font_final.render(f"Trade Point + {total_points} !", True, (150, 200, 255))
+                temp_text = font_final.render(f"Star Point + {total_points} !", True, (150, 200, 255))
                 text_width = temp_text.get_width()
                 text_height = temp_text.get_height()
                 
@@ -20482,7 +20686,7 @@ def show_victory_screen(stage_cleared, reward):
             
             # 폰트 크기 증가
             font_final = FontStyle.menu()  # 더 큰 폰트 사용
-            total_text = font_final.render(f"Trade Point + {total_points} !", True, (150, 200, 255))
+            total_text = font_final.render(f"Star Point + {total_points} !", True, (150, 200, 255))
             if scale != 1.0:
                 total_text = pygame.transform.scale(total_text,
                     (int(total_text.get_width() * scale), int(total_text.get_height() * scale)))
@@ -20490,13 +20694,13 @@ def show_victory_screen(stage_cleared, reward):
             total_rect = total_text.get_rect(center=(WIDTH // 2, detail_y))
             SCREEN.blit(total_text, total_rect)
         # 애니메이션 완료 여부 확인
-        animation_complete = skip_animation or frame_count >= animation_timeline.get('total', 999999) + 30  # 30프레임(0.5초) 여유
-        
-        # 애니메이션 중에 스킵 안내 표시
-        if not skip_animation and frame_count < animation_timeline.get('total', 999999):
+        all_stages_shown = all(state['show'] for state in animation_states.values())
+        animation_complete = star_animation_finished and all_stages_shown
+
+        if not animation_complete and not animation_states['total']['show']:
             skip_hint_font = FontStyle.tiny()  # 18pt 폰트
             skip_alpha = int(abs(math.sin(frame_count * 0.05)) * 150 + 105)  # 105~255 깜빡임
-            skip_hint = skip_hint_font.render("아무 키나 눌러서 스킵", True, (200, 200, 200))
+            skip_hint = skip_hint_font.render("Space: 다음 정보 보기", True, (200, 200, 200))
             skip_hint.set_alpha(skip_alpha)
             skip_rect = skip_hint.get_rect(center=(WIDTH // 2, HEIGHT - 100))
             SCREEN.blit(skip_hint, skip_rect)
@@ -20505,7 +20709,8 @@ def show_victory_screen(stage_cleared, reward):
         buttons = [
             (next_stage_rect, "다음 스테이지로", 0),
             (skill_tree_rect, "아카데미", 1),
-            (rest_rect, "복귀", 2)
+            (reroll_rect, "또 뽑기", 2),
+            (rest_rect, "복귀", 3)
         ]
         
         # 애니메이션 완료 여부에 따라 버튼 표시 방식 변경
@@ -20553,23 +20758,34 @@ def show_victory_screen(stage_cleared, reward):
                 button_text = font_button.render(text, True, (80, 80, 90))
                 text_rect = button_text.get_rect(center=rect.center)
                 SCREEN.blit(button_text, text_rect)
+
+        if reroll_warning_timer > 0:
+            warning_color = (255, 120, 120) if "부족" in reroll_warning_text else (200, 240, 255)
+            warning_surface = font_info.render(reroll_warning_text, True, warning_color)
+            warning_rect = warning_surface.get_rect(center=(WIDTH // 2, reroll_rect.bottom + 40))
+            SCREEN.blit(warning_surface, warning_rect)
+            reroll_warning_timer -= 1
         # 이벤트 처리를 먼저 수행
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
-                # 애니메이션 스킵 (아무 키나 누르면)
-                if not skip_animation and frame_count < animation_timeline.get('total', 999999):
-                    skip_animation = True
-                    continue  # 스킵만 하고 메뉴 선택은 하지 않음
-                
+                if not animation_complete:
+                    if event.key == pygame.K_SPACE:
+                        advanced = force_show_next_stage()
+                        # total 단계까지 노출되었지만 별 애니메이션이 진행 중이라면 강제 감상
+                        if not advanced and not star_animation_finished:
+                            pass  # 별 애니메이션은 스킵 불가
+                    continue
+
                 # 애니메이션이 완료된 경우에만 메뉴 조작 가능 (animation_complete 플래그 사용)
                 if animation_complete:
+                    button_count = len(buttons)
                     if event.key in [pygame.K_UP, pygame.K_w]:
-                        selected = (selected - 1) % 3
+                        selected = (selected - 1) % button_count
                     elif event.key in [pygame.K_DOWN, pygame.K_s]:
-                        selected = (selected + 1) % 3
+                        selected = (selected + 1) % button_count
                     elif event.key == pygame.K_SPACE:
                         if selected == 0:
                             # 다음 스테이지 번호 결정 (커스텀 진행 순서)
@@ -20609,13 +20825,52 @@ def show_victory_screen(stage_cleared, reward):
                             return
                         elif selected == 1:
                             # 아카데미 화면 표시
+                            star_badge_visible = False
                             import academy
                             result = academy.show_academy_menu(SCREEN, WIDTH, HEIGHT, selected_character_type)
+                            star_badge_visible = True
                             if result == "quit":
                                 pygame.quit()
                                 sys.exit()
                             # 아카데미에서 돌아오면 계속 승리 화면 표시
                         elif selected == 2:
+                            # 트레이드 별로 추가 가챠 실행
+                            available_stars = get_trade_point_star_count()
+                            if available_stars < 2:
+                                reroll_warning_text = "별이 부족합니다!"
+                                reroll_warning_timer = 120
+                                continue
+
+                            template = getattr(gacha, "gacha_available_items_template", None)
+                            if not template:
+                                reroll_warning_text = "가챠 데이터를 찾을 수 없습니다"
+                                reroll_warning_timer = 120
+                                continue
+
+                            if not spend_trade_point_stars(2):
+                                reroll_warning_text = "별이 부족합니다!"
+                                reroll_warning_timer = 120
+                                continue
+
+                            reroll_warning_text = "별 2개 사용!"
+                            reroll_warning_timer = 120
+                            pygame.event.get()
+                            bgm_manager.stop_bgm()
+                            gacha.init_gacha(template)
+                            gacha.run_gacha(
+                                SCREEN,
+                                WIDTH,
+                                HEIGHT,
+                                get_item_name_korean,
+                                store_passive_item,
+                                store_active_item,
+                                get_item_description,
+                                get_trade_point_star_count,
+                                spend_trade_point_stars,
+                                auto_start=True,
+                            )
+                            pygame.event.get()
+                        elif selected == 3:
                             confirm_rest(stage_cleared, reward)
                             return
         
@@ -31003,7 +31258,7 @@ def update_trade_point_stars():
             trade_point_texts.append({
                 'x': star['x'],
                 'y': star['y'] - 20,
-                'text': '+1 Trade Point',
+                'text': '+1 Star Point',
                 'life': 80,
                 'alpha': 255,
                 'scale': 1.0
@@ -31235,11 +31490,11 @@ def update_stage3_hearts():
             stage3_hearts_collected += 1
             print(f"  !   : {stage3_hearts_collected}")
             
-            # Trade Point +1 텍스트 효과 추가 (세련된 버전)
+            # Star Point +1 텍스트 효과 추가 (세련된 버전)
             stage3_trade_point_texts.append({
                 'x': heart['x'],
                 'y': heart['y'] - 20,  # 하트 위에 표시
-                'text': '+1 Trade Point',  # 깔끔한 텍스트
+                'text': '+1 Star Point',  # 깔끔한 텍스트
                 'life': 75,  # 75프레임 (1.25초) 동안 표시
                 'alpha': 255
             })
@@ -31927,11 +32182,11 @@ def draw_score():
             
         # 승리 타입에 따른 메시지
         if victory_bonus_type == "perfect":
-            bonus_text = "5:0 Perfect Victory! +3 Trade Points!"
+            bonus_text = "5:0 Perfect Victory! +3 Star Points!"
         elif victory_bonus_type == "dominant":
-            bonus_text = "5:1 Victory! +2 Trade Points!"
+            bonus_text = "5:1 Victory! +2 Star Points!"
         elif victory_bonus_type == "victory":
-            bonus_text = "5:2 소소한 승리! +1 Trade Point!"
+            bonus_text = "5:2 소소한 승리! +1 Star Point!"
         else:
             bonus_text = "Victory Bonus!"
         
@@ -32331,7 +32586,6 @@ def show_fade_text(message):
 # 물리 관련 함수들은 physics_manager로 이동됨
 def reset_round():
     global special_active, special_ready
-    global ball_trail, ball_vel, PLAYER_SPEED
     global quake_active, quake_timer
     global speed_defense_active, speed_defense_timer
     global horizontal_bounce_count, ball_angle
@@ -32579,7 +32833,6 @@ def reset_round():
     # 필살기 관련 - 게이지는 유지, 발동 상태만 초기화
     special_active = False
     special_ready = (special_gauge >= 350)  # 파워스매시 비용 조정: 400 → 350  #  게이지 상태에 따라 갱신
-    ball_trail.clear()
     ball_angle = 0
     # 기타 상태 초기화
     PLAYER_SPEED = 1
@@ -33137,7 +33390,7 @@ def calculate_bounce(paddle):
                     ragnarok_stun_attempted_this_rally = True
                     # 50% 확률로 스턴공 발동
                     if random.random() < 0.5:
-                        # 스턴공 발동 - 공속 100% 증가 (나중에 적용하기 위해 플래그만 설정)
+                        # 스턴공 발동 - 공속 50% 증가 (나중에 적용하기 위해 플래그만 설정)
                         ragnarok_speed_boost_active = True
                         print(f"⚡ 라그나로크 스턴공 발동 준비! (calculate_bounce)")
                     else:
@@ -35819,7 +36072,7 @@ def handle_ball():
                         
                         # 황금 바위 처리
                         if is_golden:
-                            print(f"🌟 황금 바위 관통! Trade Point 획득!")
+                            print(f"🌟 황금 바위 관통! Star Point 획득!")
                             trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
                             try:
                                 coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
@@ -35940,7 +36193,7 @@ def handle_ball():
                     
                     # 황금 바위 처리
                     if is_golden:
-                        print(f"   ! Trade Point  !")
+                        print(f"   ! Star Point  !")
                         trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
                         try:
                             coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
@@ -36067,7 +36320,7 @@ def handle_ball():
             if distance < crow_data['radius'] + BALL.width // 2:
                 # 까마귀를 맞춤! (시체가 떨어지기 시작)
                 if animated_bg_stage4.catch_crow(crow_data['index']):
-                    # Trade Point 별 즉시 생성 (까마귀가 맞은 위치에)
+                    # Star Point 별 즉시 생성 (까마귀가 맞은 위치에)
                     trade_point_system.spawn_star(crow_data['x'], crow_data['y'], "crow")
                     
                     # 까마귀 폭발 효과음 재생
@@ -36076,7 +36329,7 @@ def handle_ball():
                     except:
                         # 폴백으로 일반 타격 효과음 재생
                         pass  # hit_sound not available in this context
-                    print(f"  ! Trade Point  !")
+                    print(f"  ! Star Point  !")
         
         # 2. 플레이어 패들과 떨어지는 까마귀 시체 충돌 (시체 제거만)
         corpse_positions = animated_bg_stage4.get_crow_corpse_positions()
@@ -36668,9 +36921,9 @@ def handle_ball():
             
             rock_hit = True
             
-            # 황금 바위 파괴시 Trade Point 별 생성
+            # 황금 바위 파괴시 Star Point 별 생성
             if is_golden:
-                print(f"   ! Trade Point  !")
+                print(f"   ! Star Point  !")
                 trade_point_system.spawn_star(rock_x, rock_y, "golden_rock")
                 # 황금 바위 효과음
                 try:
@@ -37070,12 +37323,12 @@ def handle_ball():
             if hammer and hammer.active and not ragnarok_speed_boost_active:
                 # 50% 확률로 스턴공 발동
                 if random.random() < 0.5:
-                    # 스턴공 발동 - 공속 100% 증가 (2배)
-                    ball_vel[0] *= 2.0
-                    ball_vel[1] *= 2.0
+                    # 스턴공 발동 - 공속 50% 증가 (1.5배)
+                    ball_vel[0] *= 1.5
+                    ball_vel[1] *= 1.5
                     ragnarok_speed_boost_active = True
                     new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                    print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (100% 증가)")
+                    print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (50% 증가)")
                     # 사운드 효과 재생
                     play_ragnarok_shot_sound()
                     # 시각적 효과
@@ -37703,7 +37956,6 @@ def handle_ball():
                 ball_vel[1] = BALL_BASE_SPEED * math.copysign(1, ball_vel[1])
             # special_active 리셋
             special_active = False
-            ball_trail.clear()
             power_smashing_original_speed = 0.0  # 원래 속도 정보 초기화
             #  포물선 궤적 시스템 즉시 비활성화
             power_smashing_parabola_active = False
@@ -40762,8 +41014,8 @@ def main(stage_num, new_boss_mode=False):
     if current_stage == 3:
         stage3_hearts_collected = 0  # Stage 3 시작 시 하트 수집 카운터 초기화 (레거시)
     elif current_stage == 4:
-        # Stage 4는 이제 Trade Point System을 사용합니다
-        # 까마귀를 처치하면 Trade Point 별이 생성됩니다
+        # Stage 4는 이제 Star Point System을 사용합니다
+        # 까마귀를 처치하면 Star Point 별이 생성됩니다
         #  Stage 3 눈물샤워 효과 초기화 (Stage 4 진입 시)
         global tear_shower_active, tear_shower_timer, tear_particles
         global tears_active, tears_timer, falling_tears, player_slow_timer
@@ -43273,8 +43525,8 @@ def main(stage_num, new_boss_mode=False):
             update_trade_point_texts()
             draw_trade_point_texts()
             
-            # 레거시 하트 시스템 제거 - Trade Point System으로 완전 대체됨
-            # Stage 3는 이제 벽 충돌 시 7% 확률로 Trade Point System의 별을 생성합니다
+            # 레거시 하트 시스템 제거 - Star Point System으로 완전 대체됨
+            # Stage 3는 이제 벽 충돌 시 7% 확률로 Star Point System의 별을 생성합니다
             # if current_stage == 3 and stage3_hearts:
             #     update_stage3_hearts()
             #     draw_stage3_hearts()
@@ -43957,7 +44209,6 @@ def main(stage_num, new_boss_mode=False):
                     print("튜토리얼: 플레이어 상태 초기화 완료 (롤링, 스턴, 이동속도 리셋)")
                     
                     # 4. 시각 효과 초기화
-                    ball_trail.clear()
                     print("튜토리얼: 시각 효과 초기화 완료")
                     
                     # Chapter 2 설정 완료, 메인 루프 계속 진행
@@ -44928,7 +45179,7 @@ def get_item_description(item_name):
         "ammo_box": "탄약상자: 권총을 포함한 모든 보유 화기류의 탄창을 완전히 재장전합니다. 권총, 바주카포, AK-47 등 모든 화기류에 사용 가능합니다.",
         "net_gun": "그물덫총: 작살을 던져 상대 진영에 폭 350px의 그물을 펼칩니다. 전개 순간 범위 안의 보스는 4초 동안 그물 밖으로 이동할 수 없습니다.",
         "ak47": "AK-47: 강력한 자동소총. 90발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
-        "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
+        "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 1.5배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!"
     }

@@ -71,14 +71,14 @@ def init_gacha(available_items):
     import items
     filtered_items = []
     for item in available_items:
-        # chargebag은 중복 가능
-        if item.get("name") == "chargebag":
-            filtered_items.append(item)
+        item_name = item.get("name", "")
+
+        # chargebag 중복 방지
+        if item_name == "chargebag" and getattr(items, 'chargebag_obtained', False):
             continue
-            
+
         # 이미 획득한 패시브 아이템은 제외
         should_skip = False
-        item_name = item.get("name", "")
         
         # 각 패시브 아이템 체크
         if item_name == "slot_add" and getattr(items, 'slot_add_obtained', 0) >= 2:
@@ -139,8 +139,8 @@ def init_gacha(available_items):
     
     # 캡슐 40개 생성 (전설 아이템은 낮은 확률로)
     for i in range(40):
-        # 1% 확률로 전설 아이템, 99% 확률로 일반 아이템
-        if random.random() < 0.01 and legendary_items:  # 1% 확률로 전설 아이템 (기존 3% → 1%)
+        # 5% 확률로 전설 아이템, 95% 확률로 일반 아이템
+        if random.random() < 0.05 and legendary_items:  # 5% 확률로 전설 아이템
             item = random.choice(legendary_items).copy()
         elif normal_items:
             item = random.choice(normal_items).copy()
@@ -782,14 +782,23 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
 
 
-def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, store_active_item, get_item_description, get_star_count=None, spend_stars=None):
+def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, store_active_item, get_item_description, get_star_count=None, spend_stars=None, auto_start=False):
     """뽑기 시스템 실행 함수"""
     global gacha_phase, gacha_spinning, gacha_result, gacha_start_time, gacha_active, gacha_spin_timer
+
+    auto_start_flag = auto_start
 
     while True:
         clock = pygame.time.Clock()
         running = True
         gacha_start_time = 0  # 초기화
+
+        if auto_start_flag:
+            gacha_phase = 1
+            gacha_spin_timer = 0
+            gacha_start_time = pygame.time.get_ticks()
+            gacha_spinning = True
+            auto_start_flag = False
 
         while running:
             clock.tick(60)
@@ -823,7 +832,7 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
 
         # 뽑기 완료 후 결과 페이지 표시
         if gacha_result:
-            action = show_gacha_result_page(
+            show_gacha_result_page(
                 screen,
                 width,
                 height,
@@ -833,37 +842,18 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
                 store_passive_item,
                 store_active_item,
                 get_star_count,
-                spend_stars,
             )
-
-            if action == "reroll":
-                # 별 차감 후 재도전을 선택한 경우 새롭게 초기화
-                if gacha_available_items_template:
-                    init_gacha(gacha_available_items_template)
-                    continue
-                else:
-                    # 템플릿이 없다면 재도전이 불가능하므로 종료
-                    break
 
         break
 
-def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_korean, get_item_description, store_passive_item, store_active_item, get_star_count=None, spend_stars=None):
+def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_korean, get_item_description, store_passive_item, store_active_item, get_star_count=None):
     """뽑기 결과 전용 페이지 - 화려한 축하 화면"""
     clock = pygame.time.Clock()
     running = True
     animation_timer = 0
-    selected_option = 0
-    menu_options = ["아이템 받기", "한번 더"]
-    confirming_reroll = False
-    confirm_selected = 0
-    reroll_requested = False
-    warning_timer = 0
-    warning_message = ""
 
     # 메뉴/확인용 폰트 및 별 아이콘 준비
     menu_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 36)
-    confirm_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 32)
-    notice_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 26)
     star_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 28)
 
     def create_star_surface(size):
@@ -883,7 +873,6 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
         return surf
 
     star_icon_small = create_star_surface(30)
-    star_icon_large = create_star_surface(38)
 
     # 색종이 파티클 리스트 (대폭 강화!)
     confetti_particles = []
@@ -925,67 +914,31 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
-                if confirming_reroll:
-                    if event.key in (pygame.K_LEFT, pygame.K_a, pygame.K_UP, pygame.K_w):
-                        confirm_selected = (confirm_selected - 1) % 2
-                    elif event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_DOWN, pygame.K_s):
-                        confirm_selected = (confirm_selected + 1) % 2
-                    elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
-                        if confirm_selected == 0:
-                            available_stars = get_star_count() if callable(get_star_count) else 0
-                            if callable(spend_stars) and available_stars >= 2 and spend_stars(2):
-                                reroll_requested = True
-                                confirming_reroll = False
-                                running = False
-                            else:
-                                warning_message = "별이 부족합니다!"
-                                warning_timer = 120
-                                confirming_reroll = False
-                                confirm_selected = 0
-                                selected_option = 0
-                        else:
-                            confirming_reroll = False
-                            confirm_selected = 0
-                    elif event.key == pygame.K_ESCAPE:
-                        confirming_reroll = False
-                        confirm_selected = 0
-                else:
-                    if event.key in (pygame.K_LEFT, pygame.K_a):
-                        selected_option = (selected_option - 1) % len(menu_options)
-                    elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                        selected_option = (selected_option + 1) % len(menu_options)
-                    elif event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s):
-                        selected_option = (selected_option + 1) % len(menu_options)
-                    elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
-                        if selected_option == 0:
-                            print(f"  : {gacha_result['name']} (: {gacha_result['type']})")
-                            if gacha_result["type"] == "passive":
-                                item_data = {
-                                    "name": gacha_result["name"],
-                                    "color": gacha_result["color"],
-                                    "effect": gacha_result["name"],
-                                    "icon": gacha_result.get("icon"),
-                                    "x": width // 2,
-                                    "y": height // 2
-                                }
-                                store_passive_item(item_data)
-                            else:
-                                item_data = {
-                                    "name": gacha_result["name"],
-                                    "color": gacha_result["color"],
-                                    "effect": gacha_result["name"],
-                                    "icon": gacha_result.get("icon"),
-                                    "x": width // 2,
-                                    "y": height // 2
-                                }
-                                store_active_item(item_data)
+                if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    print(f"  : {gacha_result['name']} (: {gacha_result['type']})")
+                    if gacha_result["type"] == "passive":
+                        item_data = {
+                            "name": gacha_result["name"],
+                            "color": gacha_result["color"],
+                            "effect": gacha_result["name"],
+                            "icon": gacha_result.get("icon"),
+                            "x": width // 2,
+                            "y": height // 2
+                        }
+                        store_passive_item(item_data)
+                    else:
+                        item_data = {
+                            "name": gacha_result["name"],
+                            "color": gacha_result["color"],
+                            "effect": gacha_result["name"],
+                            "icon": gacha_result.get("icon"),
+                            "x": width // 2,
+                            "y": height // 2,
+                            "allow_overflow": True
+                        }
+                        store_active_item(item_data)
 
-                            running = False
-                        else:
-                            confirming_reroll = True
-                            confirm_selected = 0
-                    elif event.key == pygame.K_ESCAPE:
-                        selected_option = 0
+                    running = False
         
         # 사이버펑크 그라데이션 배경
         for y in range(height):
@@ -1167,7 +1120,7 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
         
         # 서브타이틀
         subtitle_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
-        subtitle_text = "[ 아이템 획듍 성공 ]"
+        subtitle_text = "[ 아이템 획득 성공 ]"
         subtitle_surf = subtitle_font.render(subtitle_text, True, (0, 200, 200))
         subtitle_rect = subtitle_surf.get_rect(center=(width // 2, container_y + 130))
         screen.blit(subtitle_surf, subtitle_rect)
@@ -1376,94 +1329,17 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
             desc_rect = desc_text.get_rect(center=(width // 2, start_y + i * line_height))
             screen.blit(desc_text, desc_rect)
         
-        button_y = container_y + 560
-        button_height = 70
-        button_gap = 40
-        total_button_width = container_width - 200
-        button_width = (total_button_width - button_gap) // 2
-        base_x = container_x + 100
-        cost_color = (255, 230, 160) if current_stars >= 2 else (170, 140, 130)
+        continue_area = pygame.Rect(container_x + 150, container_y + 560, container_width - 300, 70)
+        pygame.draw.rect(screen, (60, 45, 25), continue_area, border_radius=14)
+        pygame.draw.rect(screen, (255, 215, 0), continue_area, 3, border_radius=14)
 
-        for idx, label in enumerate(menu_options):
-            btn_rect = pygame.Rect(base_x + idx * (button_width + button_gap), button_y, button_width, button_height)
-            is_selected = (selected_option == idx and not confirming_reroll)
-            fill_color = (120, 90, 50) if is_selected else (60, 45, 25)
-            pygame.draw.rect(screen, fill_color, btn_rect, border_radius=12)
-            border_color = (255, 215, 0) if is_selected else (120, 120, 120)
-            pygame.draw.rect(screen, border_color, btn_rect, 3, border_radius=12)
-
-            label_surf = menu_font.render(label, True, (255, 255, 255))
-            label_rect = label_surf.get_rect(center=btn_rect.center)
-            screen.blit(label_surf, label_rect)
-
-            if label == "한번 더":
-                cost_text = notice_font.render("별 2개 필요", True, cost_color)
-                cost_rect = cost_text.get_rect(center=(btn_rect.centerx, btn_rect.bottom + 26))
-                screen.blit(cost_text, cost_rect)
-
-        if warning_timer > 0 and warning_message:
-            warning_surf = notice_font.render(warning_message, True, (255, 120, 120))
-            warning_rect = warning_surf.get_rect(center=(width // 2, button_y + button_height + 70))
-            screen.blit(warning_surf, warning_rect)
-
-        if confirming_reroll:
-            overlay = pygame.Surface((width, height), pygame.SRCALPHA)
-            overlay.fill((0, 0, 0, 160))
-            screen.blit(overlay, (0, 0))
-
-            panel_width = 580
-            panel_height = 260
-            panel_rect = pygame.Rect(width // 2 - panel_width // 2, height // 2 - panel_height // 2, panel_width, panel_height)
-
-            panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-            pygame.draw.rect(panel_surface, (25, 40, 80, 230), (0, 0, panel_width, panel_height), border_radius=16)
-            pygame.draw.rect(panel_surface, (0, 200, 255, 220), (0, 0, panel_width, panel_height), 3, border_radius=16)
-            screen.blit(panel_surface, panel_rect.topleft)
-
-            message_surf = menu_font.render("가챠를 한번 더 하시겠습니까?", True, (255, 255, 255))
-            message_rect = message_surf.get_rect(center=(panel_rect.centerx, panel_rect.y + 70))
-            screen.blit(message_surf, message_rect)
-
-            cost_text = notice_font.render("별 2개가 소모됩니다.", True, (255, 230, 160))
-            cost_rect = cost_text.get_rect(center=(panel_rect.centerx + 24, message_rect.bottom + 45))
-            star_rect = star_icon_large.get_rect(right=cost_rect.left - 10, centery=cost_rect.centery)
-            screen.blit(star_icon_large, star_rect)
-            screen.blit(cost_text, cost_rect)
-
-            current_text = notice_font.render(f"현재 별: {current_stars}", True, (190, 220, 255))
-            current_rect = current_text.get_rect(center=(panel_rect.centerx, cost_rect.bottom + 32))
-            screen.blit(current_text, current_rect)
-
-            confirm_labels = ["예", "아니오"]
-            confirm_button_width = 170
-            confirm_button_height = 60
-            confirm_gap = 50
-            total_confirm_width = confirm_button_width * 2 + confirm_gap
-            confirm_start_x = panel_rect.centerx - total_confirm_width // 2
-            confirm_y = panel_rect.bottom - 90
-
-            for idx, label in enumerate(confirm_labels):
-                rect = pygame.Rect(confirm_start_x + idx * (confirm_button_width + confirm_gap), confirm_y, confirm_button_width, confirm_button_height)
-                is_selected = (confirm_selected == idx)
-                rect_fill = (130, 100, 60) if is_selected else (65, 50, 35)
-                pygame.draw.rect(screen, rect_fill, rect, border_radius=12)
-                rect_border = (255, 215, 0) if is_selected else (140, 140, 140)
-                pygame.draw.rect(screen, rect_border, rect, 3, border_radius=12)
-                label_surface = confirm_font.render(label, True, (255, 255, 255))
-                label_rect = label_surface.get_rect(center=rect.center)
-                screen.blit(label_surface, label_rect)
-
-        if warning_timer > 0:
-            warning_timer -= 1
-            if warning_timer <= 0:
-                warning_timer = 0
-                warning_message = ""
+        continue_text = menu_font.render("아이템 받기", True, (255, 255, 255))
+        continue_rect = continue_text.get_rect(center=continue_area.center)
+        screen.blit(continue_text, continue_rect)
 
         pygame.display.flip()
 
-    if reroll_requested:
-        return "reroll"
-    return "claim"
+    return
 
 def get_gacha_result():
     """뽑기 결과 반환"""

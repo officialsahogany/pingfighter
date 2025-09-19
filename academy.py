@@ -442,6 +442,7 @@ class AcademyUI:
             self.font_large = pygame.font.Font(None, 24)
             self.font_medium = pygame.font.Font(None, 18)
             self.font_small = pygame.font.Font(None, 14)
+
     
     def _create_glow_cache(self):
         """Glow surface들을 미리 생성하여 캐시"""
@@ -457,7 +458,7 @@ class AcademyUI:
                                (radius * 2 - i, radius * 2 - i, 
                                 skill_size + i * 2, skill_size + i * 2), 2)
             self.glow_cache[glow_key] = glow_surface
-    
+
     def handle_mouse_click(self, pos):
         """마우스 클릭 처리"""
         x, y = pos
@@ -1744,62 +1745,45 @@ class AcademyUI:
         self.update_sp_effect()
         self.draw_sp_effect()
         
-        # 트레이드 포인트 별 아이콘 그리기
-        star_x = self.width - 80  # 우측 위치
+        # Star Point UI (오리지널 스타일)
+        star_x = self.width - 80
         star_y = 25
         star_size = 12
-        
-        # 스케일 애니메이션 적용
         display_size = star_size * self.sp_scale_factor
-        
-        # 글로우 효과 (별 뒤에)
+
         if self.sp_glow_alpha > 0:
-            glow_radius = display_size * 2
+            glow_radius = int(display_size * 2)
             for i in range(3):
-                glow_alpha = min(30, self.sp_glow_alpha // (i + 1))
+                glow_alpha = min(30, int(self.sp_glow_alpha) // (i + 1))
                 glow_surf = pygame.Surface((glow_radius * 4, glow_radius * 4), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (255, 255, 100, glow_alpha),  # 원래 노란색
-                                 (glow_radius * 2, glow_radius * 2), glow_radius - i * 3)
+                pygame.draw.circle(glow_surf, (255, 255, 100, glow_alpha),
+                                   (glow_radius * 2, glow_radius * 2), glow_radius - i * 3)
                 self.screen.blit(glow_surf, (star_x - glow_radius * 2, star_y - glow_radius * 2))
-        
-        # 5각 별 그리기
+
         star_points = []
         for i in range(10):
-            angle = -math.pi / 2 + (i * math.pi / 5)  # 위쪽부터 시작
-            if i % 2 == 0:
-                # 외부 꼭지점
-                radius = display_size
-            else:
-                # 내부 꼭지점
-                radius = display_size * 0.5
-            x = star_x + radius * math.cos(angle)
-            y = star_y + radius * math.sin(angle)
-            star_points.append((x, y))
-        
-        # 별 채우기 (원래 노란색)
+            angle = -math.pi / 2 + (i * math.pi / 5)
+            radius = display_size if i % 2 == 0 else display_size * 0.5
+            px = star_x + radius * math.cos(angle)
+            py = star_y + radius * math.sin(angle)
+            star_points.append((px, py))
+
         pygame.draw.polygon(self.screen, (255, 255, 100), star_points)
-        # 별 테두리 (진한 노란색)
         pygame.draw.polygon(self.screen, (255, 215, 0), star_points, 2)
-        
-        # 작은 광택 효과
+
         gloss_points = []
         for i in range(10):
             angle = -math.pi / 2 + (i * math.pi / 5)
-            if i % 2 == 0:
-                radius = display_size * 0.3
-            else:
-                radius = display_size * 0.15
-            x = star_x + radius * math.cos(angle)
-            y = star_y - 2 + radius * math.sin(angle)
-            gloss_points.append((x, y))
+            radius = display_size * 0.3 if i % 2 == 0 else display_size * 0.15
+            px = star_x + radius * math.cos(angle)
+            py = star_y - 2 + radius * math.sin(angle)
+            gloss_points.append((px, py))
         pygame.draw.polygon(self.screen, (255, 255, 200, 180), gloss_points)
-        
-        # 트레이드 포인트 숫자 표시 (별 옆에)
+
         sp_text = self.font_medium.render(f"{self.skill_system.skill_points}", True, (255, 255, 100))
-        sp_rect = sp_text.get_rect(midleft=(star_x + display_size + 10, star_y))
+        sp_rect = sp_text.get_rect(midleft=(star_x + display_size + 20, star_y))
         self.screen.blit(sp_text, sp_rect)
-        
-        # 누적 투자 TP 표시
+
         total_sp_text = self.font_small.render(f"누적 투자 TP: {self.skill_system.total_invested_points}", True, (150, 200, 255))
         total_sp_rect = total_sp_text.get_rect(topright=(self.width - 20, sp_rect.bottom + 5))
         self.screen.blit(total_sp_text, total_sp_rect)
@@ -3461,4 +3445,3 @@ def show_academy_menu(screen, width, height, selected_character="smasher"):  # �
     """아카데미 메뉴 표시"""
     academy_ui = AcademyUI(screen, width, height, selected_character)
     return academy_ui.show_academy()
-
