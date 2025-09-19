@@ -34246,6 +34246,8 @@ def handle_ball():
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
     # 상모돌리기 관련 변수
     global whip_active, whip_angle
+    # 스매셔 쇼트 기술 관련 변수
+    global short_shot_active, short_shot_timer, short_shot_curve_phase
     # 충돌 쿨다운 감소
     if player_collision_cooldown > 0:
         player_collision_cooldown -= 1
