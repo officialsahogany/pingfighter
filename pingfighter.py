@@ -6934,126 +6934,79 @@ def stop_quake_sound():
     SOUND_QUAKE.stop()
 def handle_quake():
     global quake_active, quake_timer, PLAYER_SPEED, ball_vel
-    if quake_active:
-        pre_velocity = (ball_vel[0], ball_vel[1])
-        if quake_timer > 0:
-            quake_timer -= 1
-            # 흔들림 효과: 벡터를 회전·변조하여 고속에서도 곡선을 유지
-            velocity_vec = pygame.math.Vector2(ball_vel)
-            if velocity_vec.length_squared() < 0.01:
-                # 거의 정지한 상태에서는 기본 방향을 재설정해 흔들림이 보이도록 함
-                base_dir = pygame.math.Vector2(random.uniform(-0.6, 0.6), random.uniform(0.4, 1.0))
-                if base_dir.length_squared() == 0:
-                    base_dir = pygame.math.Vector2(0, 1)
-                base_dir = base_dir.normalize()
-                base_speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 6.0
-                velocity_vec = base_dir * base_speed
+    if not quake_active:
+        return
 
-            effective_base_speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 1.0
-            speed_ratio = max(1.0, velocity_vec.length() / effective_base_speed)
-            shake_angle = random.uniform(-6 - speed_ratio * 3.0, 6 + speed_ratio * 3.0)
-            velocity_vec = velocity_vec.rotate(shake_angle)
+    pre_velocity = (ball_vel[0], ball_vel[1])
 
-            # 속도 변조 (살짝 가감속) 후 플레이어 쪽 영향 반영
-            speed_jitter = random.uniform(-0.5, 0.5)
-            target_speed = max(1.0, velocity_vec.length() + speed_jitter)
-            max_speed = 8.0
-            if target_speed > max_speed:
-                target_speed = max_speed
-            if velocity_vec.length() > 0:
-                velocity_vec.scale_to_length(target_speed)
+    if quake_timer > 0:
+        quake_timer -= 1
 
-            dx = PLAYER.centerx - BALL.centerx
-            dy = PLAYER.centery - BALL.centery
-            distance = math.hypot(dx, dy)
-            if distance > 10:
-                influence = 0.15 / distance
-                velocity_vec.x += dx * influence * 0.01
-                velocity_vec.y += dy * influence * 0.01
+        shake_x = random.uniform(-3, 3)
+        shake_y = random.uniform(-2, 2)
+        ball_vel[0] += shake_x
+        ball_vel[1] += shake_y
 
-            cur_speed = velocity_vec.length()
-            if cur_speed > max_speed:
-                velocity_vec.scale_to_length(max_speed)
+        dx = PLAYER.centerx - BALL.centerx
+        dy = PLAYER.centery - BALL.centery
+        distance = math.hypot(dx, dy)
+        if distance > 10:
+            influence = 0.15 / distance
+            ball_vel[0] += dx * influence * 0.01
+            ball_vel[1] += dy * influence * 0.01
 
-            ball_vel[0] = velocity_vec.x
-            ball_vel[1] = velocity_vec.y
+        max_speed = 8.0
+        ball_vel[0] = max(-max_speed, min(max_speed, ball_vel[0]))
+        ball_vel[1] = max(-max_speed, min(max_speed, ball_vel[1]))
 
-            if DEBUG_STAGE2_QUAKE and quake_timer % 5 == 0:
-                eq_timer = "n/a"
-                eq_active = False
-                eq_duration = "n/a"
-                if current_stage == 2 and animated_bg_stage2 is not None:
-                    eq_timer = animated_bg_stage2.earthquake_timer
-                    eq_active = animated_bg_stage2.earthquake_active
-                    eq_duration = animated_bg_stage2.earthquake_duration
-                debug_stage2_quake(
-                    "tick",
-                    timer=quake_timer,
-                    eq_timer=eq_timer,
-                    eq_active=eq_active,
-                    eq_duration=eq_duration,
-                    pre_vel=f"({pre_velocity[0]:.2f},{pre_velocity[1]:.2f})",
-                    new_vel=f"({ball_vel[0]:.2f},{ball_vel[1]:.2f})",
-                    speed=pygame.math.Vector2(ball_vel).length(),
-                    shake_angle=shake_angle,
-                    speed_ratio=speed_ratio,
-                    speed_jitter=speed_jitter,
-                    target_speed=target_speed,
-                )
-        else:
-            #  효과 종료 시 상태 복원
-            quake_active = False
-            PLAYER_SPEED = 1
-            
-            # 현재 방향을 유지하면서 원래 속도로 복원
-            current_direction = pygame.math.Vector2(ball_vel[0], ball_vel[1])
-            if current_direction.length() > 0:
-                current_direction = current_direction.normalize()
-            else:
-                # 만약 현재 속도가 0이면 원래 방향 사용
-                current_direction = pygame.math.Vector2(original_ball_speed_quake[0], original_ball_speed_quake[1])
-                if current_direction.length() > 0:
-                    current_direction = current_direction.normalize()
-                else:
-                    current_direction = pygame.math.Vector2(0, 1)  # 기본 방향 (아래)
-            
-            # 원래 속도의 크기를 가져옴
-            original_speed = math.hypot(original_ball_speed_quake[0], original_ball_speed_quake[1])
-            
-            # 속도 범위 제한
-            min_allowed_speed = BALL_BASE_SPEED * 1.1  # 최소 기본 속도의 1.1배
-            max_allowed_speed = BALL_BASE_SPEED * 1.6  # 최대 기본 속도의 1.6배로 상향
-            
-            # 적절한 속도로 조정
-            if original_speed > max_allowed_speed:
-                target_speed = max_allowed_speed
-                print(f"정글지진 종료:   {original_speed:.2f} → {target_speed:.2f}")
-            elif original_speed < min_allowed_speed:
-                target_speed = min_allowed_speed
-                print(f"정글지진 종료:   {original_speed:.2f} → {target_speed:.2f}")
-            else:
-                target_speed = original_speed
-                print(f"정글지진 종료: 속도 유지 {target_speed:.2f}")
-            
-            # 현재 방향으로 목표 속도 적용
-            ball_vel[0] = current_direction.x * target_speed
-            ball_vel[1] = current_direction.y * target_speed
-            
-            # 복원된 속도 계산
-            speed = math.hypot(ball_vel[0], ball_vel[1])
-
-            # 퀘이크 효과음 종료
-            stop_quake_sound()
+        if DEBUG_STAGE2_QUAKE and quake_timer % 5 == 0:
+            eq_timer = "n/a"
             eq_active = False
+            eq_duration = "n/a"
             if current_stage == 2 and animated_bg_stage2 is not None:
+                eq_timer = animated_bg_stage2.earthquake_timer
                 eq_active = animated_bg_stage2.earthquake_active
+                eq_duration = animated_bg_stage2.earthquake_duration
             debug_stage2_quake(
-                "restore",
-                stage=current_stage,
-                restored_speed=speed,
-                backup_speed=math.hypot(original_ball_speed_quake[0], original_ball_speed_quake[1]),
+                "tick",
+                timer=quake_timer,
+                eq_timer=eq_timer,
                 eq_active=eq_active,
+                eq_duration=eq_duration,
+                pre_vel=f"({pre_velocity[0]:.2f},{pre_velocity[1]:.2f})",
+                new_vel=f"({ball_vel[0]:.2f},{ball_vel[1]:.2f})",
+                shake=f"({shake_x:.2f},{shake_y:.2f})",
             )
+        return
+
+    quake_active = False
+    PLAYER_SPEED = 1
+
+    ball_vel[0] = original_ball_speed_quake[0]
+    ball_vel[1] = original_ball_speed_quake[1]
+
+    speed = math.hypot(ball_vel[0], ball_vel[1])
+    if speed < BALL_BASE_SPEED * 0.85:
+        direction = pygame.math.Vector2(ball_vel)
+        if direction.length_squared() == 0:
+            direction = pygame.math.Vector2(0, 1)
+        else:
+            direction = direction.normalize()
+        ball_vel[0] = direction.x * BALL_BASE_SPEED
+        ball_vel[1] = direction.y * BALL_BASE_SPEED
+
+    stop_quake_sound()
+
+    eq_active = False
+    if current_stage == 2 and animated_bg_stage2 is not None:
+        eq_active = animated_bg_stage2.earthquake_active
+    debug_stage2_quake(
+        "restore",
+        stage=current_stage,
+        restored_speed=math.hypot(ball_vel[0], ball_vel[1]),
+        backup_speed=math.hypot(original_ball_speed_quake[0], original_ball_speed_quake[1]),
+        eq_active=eq_active,
+    )
 def draw_shaking_screen():
     """정글지진 시 화면 흔들림 효과 (더 효율적인 방식)"""
     global screen_shake_offset_x, screen_shake_offset_y, grenade_shake_timer, bazooka_screen_shake_timer
@@ -11899,6 +11852,36 @@ trade_point_stars = []  # 모든 스테이지의 트레이드 포인트 별 리�
 trade_point_particles = []  # 형광가루 파티클 효과 리스트
 trade_point_collected = 0  # 현재 스테이지에서 수집한 트레이드 포인트
 trade_point_texts = []  # 트레이드 포인트 획득 시 표시할 텍스트 효과
+
+
+def get_trade_point_star_count():
+    """현재 보유 중인 트레이드 포인트 별 개수 반환"""
+    return trade_point_collected
+
+
+def spend_trade_point_stars(amount: int) -> bool:
+    """트레이드 포인트 별을 소비하고 성공 여부를 반환"""
+    global trade_point_collected, trade_point_system
+    global stage3_hearts_collected, stage4_crows_collected, current_stage
+
+    if amount <= 0:
+        return True
+
+    if trade_point_collected < amount:
+        return False
+
+    trade_point_collected -= amount
+
+    if trade_point_system:
+        trade_point_system.set_collected_count(trade_point_collected)
+
+    # 레거시 호환성: 스테이지별 보조 카운터도 동기화
+    if current_stage == 3:
+        stage3_hearts_collected = trade_point_collected
+    elif current_stage == 4:
+        stage4_crows_collected = trade_point_collected
+
+    return True
 
 # 레거시 시스템 (호환성 유지)
 stage3_hearts = []  # Stage 3 떨어지는 하트 리스트 (레거시)
@@ -40320,7 +40303,17 @@ def show_result(won):
         # 가차 화면 전환 시 BGM 정지
         bgm_manager.stop_bgm()
         gacha.init_gacha(available_items)
-        gacha.run_gacha(SCREEN, WIDTH, HEIGHT, get_item_name_korean, store_passive_item, store_active_item, get_item_description)
+        gacha.run_gacha(
+            SCREEN,
+            WIDTH,
+            HEIGHT,
+            get_item_name_korean,
+            store_passive_item,
+            store_active_item,
+            get_item_description,
+            get_trade_point_star_count,
+            spend_trade_point_stars,
+        )
         show_victory_screen(stage_cleared=current_stage, reward=reward)
         current_stage += 1
         # 스테이지 전환 시 테크니컬조끼 비활성화
@@ -44933,7 +44926,7 @@ def get_item_description(item_name):
         "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
         "knee_pads": "킥차져: 하프대쉬로 공을 맞출 때 게이지가 50% 충전됩니다. 성공 시 황금빛 킥 부스터가 번쩍입니다.",
         "ammo_box": "탄약상자: 권총을 포함한 모든 보유 화기류의 탄창을 완전히 재장전합니다. 권총, 바주카포, AK-47 등 모든 화기류에 사용 가능합니다.",
-        "net_gun": "그물덫총: 작살을 던져 상대 진영에 폭 350px의 그물을 펼칩니다. 전개 순간 범위 안의 보스는 5초 동안 그물 밖으로 이동할 수 없습니다.",
+        "net_gun": "그물덫총: 작살을 던져 상대 진영에 폭 350px의 그물을 펼칩니다. 전개 순간 범위 안의 보스는 4초 동안 그물 밖으로 이동할 수 없습니다.",
         "ak47": "AK-47: 강력한 자동소총. 90발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",

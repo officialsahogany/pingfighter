@@ -19,7 +19,7 @@ class NetTrapGun:
     COOLDOWN_FRAMES = 120  # 2초 쿨다운
     NET_WIDTH = 280
     NET_HEIGHT = 140
-    NET_DURATION_FRAMES = 300  # 5초 지속 (60fps)
+    NET_DURATION_FRAMES = 240  # 4초 지속 (60fps)
     PROJECTILE_SPEED = -18
 
     def __init__(self) -> None:
