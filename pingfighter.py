@@ -20870,6 +20870,17 @@ def show_victory_screen(stage_cleared, reward):
                                 auto_start=True,
                             )
                             pygame.event.get()
+                            # 가챠로 별을 사용했으므로 승리 화면 우측 상단 별 UI를 즉시 동기화
+                            final_star_points = get_trade_point_star_count(include_stage_pending=False)
+                            star_points_target = final_star_points
+                            star_points_display = final_star_points
+                            star_gain_total = 0
+                            star_animation_index = 0
+                            star_animation_state = 'done'
+                            star_animation_finished = True
+                            star_animation_star = None
+                            star_trail_particles.clear()
+                            star_badge_glow_timer = star_badge_glow_duration
                         elif selected == 3:
                             confirm_rest(stage_cleared, reward)
                             return
@@ -37314,25 +37325,7 @@ def handle_ball():
                     last_tears_cast_time = time_now
         calculate_bounce(PLAYER)  # handle_ball에서는 반환값 사용 안함 (게이지 처리가 handle_player에서 이미 됨)
         
-        #  라그나로크 해머가 활성화되어 있으면 50% 확률로 스턴공 발동
-        # Import already done globally at line 141
-        legendary_manager = get_legendary_manager()
-        global ragnarok_speed_boost_active
-        if legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
-            hammer = legendary_manager.items.get("ragnarok_hammer")
-            if hammer and hammer.active and not ragnarok_speed_boost_active:
-                # 50% 확률로 스턴공 발동
-                if random.random() < 0.5:
-                    # 스턴공 발동 - 공속 50% 증가 (1.5배)
-                    ball_vel[0] *= 1.5
-                    ball_vel[1] *= 1.5
-                    ragnarok_speed_boost_active = True
-                    new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                    print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (50% 증가)")
-                    # 사운드 효과 재생
-                    play_ragnarok_shot_sound()
-                    # 시각적 효과
-                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+        # 라그나로크 효과는 이미 calculate_bounce에서 처리됨
         
         # ️ 스탑워치 회복 중 충돌 시 원래 속도 벡터 업데이트
         if stopwatch_active and stopwatch_recovery_timer > 0 and stopwatch_original_ball_vel:

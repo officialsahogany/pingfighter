@@ -1118,13 +1118,6 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
         main_rect = main_congrats.get_rect(center=(width // 2, container_y + 90))
         screen.blit(main_congrats, main_rect)
         
-        # 서브타이틀
-        subtitle_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
-        subtitle_text = "[ 아이템 획득 성공 ]"
-        subtitle_surf = subtitle_font.render(subtitle_text, True, (0, 200, 200))
-        subtitle_rect = subtitle_surf.get_rect(center=(width // 2, container_y + 130))
-        screen.blit(subtitle_surf, subtitle_rect)
-
         current_stars = get_star_count() if callable(get_star_count) else 0
         star_ui_x = container_x + container_width - 170
         star_ui_y = container_y + 32
@@ -1311,7 +1304,7 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
         
         # 아이템 설명 (줄바꿈 적용) - 설명 영역 내부에 배치
         item_description = get_item_description(gacha_result['name'])
-        desc_font = pygame.font.Font(resource_path("NanumSquareR.ttf"), 24)  # 폰트 크기를 더 줄임
+        desc_font = pygame.font.Font(resource_path("NanumSquareR.ttf"), 20)  # 설명 가독성을 위해 폰트 크기 축소
         
         # 설명 텍스트 최대 너비 (설명 영역 너비에서 여백 제외)
         max_desc_width = container_width - 180  # 양쪽 여백 90px씩
@@ -1320,7 +1313,7 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
         desc_lines = wrap_text(item_description, desc_font, max_desc_width)
         
         # 줄바꿈된 텍스트 그리기 - 설명 영역 중앙에 배치
-        line_height = 28  # 줄 간격을 좀 더 촘촘하게
+        line_height = 24  # 폰트 축소에 맞춰 줄 간격 보정
         desc_area_center_y = container_y + 500  # 설명 영역의 중앙 Y 좌표
         start_y = desc_area_center_y - (len(desc_lines) - 1) * line_height // 2
         
@@ -1330,8 +1323,9 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
             screen.blit(desc_text, desc_rect)
         
         continue_area = pygame.Rect(container_x + 150, container_y + 560, container_width - 300, 70)
-        pygame.draw.rect(screen, (60, 45, 25), continue_area, border_radius=14)
-        pygame.draw.rect(screen, (255, 215, 0), continue_area, 3, border_radius=14)
+        # 버튼을 홀로그램 네온 톤으로 맞춰 전체 UI 컨셉과 통일
+        pygame.draw.rect(screen, (10, 35, 70), continue_area, border_radius=14)
+        pygame.draw.rect(screen, (0, 220, 255), continue_area, 3, border_radius=14)
 
         continue_text = menu_font.render("아이템 받기", True, (255, 255, 255))
         continue_rect = continue_text.get_rect(center=continue_area.center)
