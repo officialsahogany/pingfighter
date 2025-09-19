@@ -369,6 +369,23 @@ QUARTER_ROTATION = 90
 HALF_ROTATION = 180
 FULL_ROTATION = 360
 
+# 스매셔 쇼트 관련 상수
+SMASHER_SHOT_FLASH_DURATION = 12     # 쇼트 성공 시 발동하는 광채 지속 프레임 수
+SMASHER_SHOT_KNOCKBACK_FRAMES = 24   # 보스 넉백 지속 프레임
+SMASHER_SHOT_KNOCKBACK_SPEED = 9.0   # 넉백 속도 (양수 = 오른쪽, 음수 = 왼쪽)
+SMASHER_SHOT_STUN_FRAMES = 30        # 넉백 시 보스 스턴 지속 프레임
+SMASHER_SHOT_VERTICAL_FRAMES = 12    # 수직 비행 프레임 수
+SMASHER_SHOT_TOTAL_FRAMES = 36       # 전체 쇼트 보정 지속 프레임 수
+SMASHER_SHOT_SPEED_MULTIPLIER = 1.3  # 쇼트 발동 시 속도 배율
+SMASHER_SHOT_MAX_ANGLE_DEG = 45      # 곡선 전환 최대 각도(도)
+SMASHER_SHOT_CURVE_TRIGGER_OFFSET = 48            # 곡선 전환 전까지 유지할 목표 높이 오프셋(px)
+SMASHER_SHOT_MAX_EXTRA_VERTICAL_FRAMES = 90       # 추가 수직 유지 허용 프레임 수
+SHORT_SHOT_COUNTER_WINDOW_FRAMES = 720            # 보스 반격 후 드라이브 보너스 지속 프레임
+SHORT_SHOT_DRIVE_SPEED_MULTIPLIER = 1.60          # 보너스 드라이브 추가 속도 배율
+SHORT_SHOT_DRIVE_EXTRA_SPIN = 0.36                # 보너스 드라이브 추가 커브량
+SHORT_SHOT_DASH_SPEED_MULTIPLIER = 1.30           # 보너스 대쉬 추가 속도 배율
+SHORT_SHOT_POWER_SPEED_MULTIPLIER = 1.50          # 보너스 파워스매싱 추가 속도 배율
+
 # UI 관련
 DEFAULT_ALPHA = 150
 GLOW_ALPHA = 50
@@ -1149,6 +1166,7 @@ perfect_timing_window = game_state.perfect_timing_window
 perfect_timing_active = game_state.perfect_timing_active
 perfect_timing_frame_count = game_state.perfect_timing_frame_count
 perfect_direction = game_state.perfect_direction
+perfect_timing_indicator_active = getattr(game_state, "perfect_timing_indicator_active", False)
 # 키 입력 감지 (GameState와 동기화)
 space_just_pressed = game_state.space_just_pressed
 last_space_state = game_state.last_space_state
@@ -1168,6 +1186,11 @@ perfect_timing_input_used = False    # 현재 윈도우에서 이미 입력 사�
 drive_global_cooldown = 0            # 드라이브 전역 쿨다운 (더 강력한 연타 방지)
 drive_global_cooldown_frames = TWO_SECONDS_FRAMES   # 드라이브 전역 쿨다운 시간 (2초) - 선입력 방지 강화 (90 → TWO_SECONDS_FRAMES)
 last_space_press_time = 0            # 마지막 스페이스바 입력 시간 (연타 감지용)
+
+
+def refresh_perfect_timing_indicator():
+    global perfect_timing_indicator_active, perfect_timing_active, short_shot_counter_window
+    perfect_timing_indicator_active = perfect_timing_active or short_shot_counter_window > 0
 
 # 캐릭터 선택 정보 저장
 selected_character_type = "normal"  # 기본값: 일반 캐릭터
@@ -1473,10 +1496,25 @@ stage6_boss_hit_timer = 0  # 보스 피격 타이머 (깜빡임 지속 시간)
 stage6_boss_hit_flash = False  # 보스 피격 깜빡임 상태
 # 스테이지 6 장막 충돌 효과
 stage6_barrier_flash_timer = 0  # 장막 깜빡임 타이머
-# 스테이지 6 쇼트 기술 관련 변수
-short_shot_active = False  # 쇼트 기술 활성화 여부
-short_shot_timer = 0  # 쇼트 기술 지속 시간
-short_shot_curve_phase = 0  # 곡선 단계 (0: 수직, 1: 곡선 시작)
+# 스매셔 쇼트 기술 관련 변수
+short_shot_active = False      # 쇼트 기술 활성화 여부
+short_shot_timer = 0           # 쇼트 기술 남은 프레임
+short_shot_vertical_timer = 0  # 수직 유지 남은 프레임
+short_shot_speed = 0.0         # 쇼트 적용 속도(크기)
+short_shot_target_vx = 0.0     # 곡선 종료 시 목표 X 속도
+short_shot_target_vy = 0.0     # 곡선 종료 시 목표 Y 속도
+short_shot_original_speed = 0.0  # 발동 전 속도 (복구용)
+short_shot_current_angle = 0.0   # 현재 쇼트 각도 (라디안)
+short_shot_target_angle = 0.0    # 목표 쇼트 각도 (라디안)
+short_shot_target_y = 0.0        # 곡선 전환 기준 보스 Y 좌표
+short_shot_extra_vertical_frames = 0  # 추가 수직 유지 누적 프레임
+short_shot_curve_started = False      # 곡선 전환 시작 여부
+short_shot_curve_elapsed_frames = 0   # 곡선 진행 프레임 카운터
+short_shot_counter_window = 0         # 보스 반격 후 드라이브 보너스 타이머
+short_shot_counter_pending = False    # 쇼트 후 보스 반격 대기 상태
+
+# 입력 상태 기본값 (초기 calculate_bounce 호출에서 참조될 수 있음)
+player_up_pressed = False             # ↑키 입력 여부
 #  아이템 시스템
 # 액티브 아이템
 active_item_slot = []                # 리스트로 바꿔서 최대 3개 보관
@@ -2940,10 +2978,67 @@ DASH_SPIRIT_LASER_DURATION = 360  # 6초 (60fps 기준)
 supply_drop_state = SupplyDropState()
 supply_radio_motion = False  # 무전기 모션 활성화 여부
 supply_radio_timer = 0  # 무전기 모션 타이머
+supply_radio_hold_active = False  # ↓키 홀드 여부
+supply_radio_sound = None  # 무전기 사운드 캐시
+supply_radio_channel = None  # 무전기 사운드 채널
 supply_drop_hold_time = 0  # 물자보급 발동을 위한 ↓키 홀드 시간
 SUPPLY_DROP_HOLD_REQUIRED = 60  # 물자보급 발동에 필요한 홀드 시간 (1초, 60fps 기준)
 SUPPLY_DROP_HOLD_THRESHOLD = 18  # 게이지 표시 시작 시간 (0.3초, 60fps 기준)
 SUPPLY_DROP_GAUGE_COST = 350  # 물자보급 스킬 게이지 소모량
+
+
+def ensure_supply_radio_sound():
+    """무전기 효과음을 캐시하여 재사용한다."""
+
+    global supply_radio_sound
+    if supply_radio_sound is None:
+        try:
+            sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "radio.wav")))
+            sound.set_volume(0.6)
+            supply_radio_sound = sound
+        except Exception as e:
+            print(f"무전기 효과음 로드 실패: {e}")
+            supply_radio_sound = False
+    if supply_radio_sound is False:
+        return None
+    return supply_radio_sound
+
+
+def start_supply_radio_loop():
+    """무전기 애니메이션과 루프 사운드를 시작한다."""
+
+    global supply_radio_motion, supply_radio_timer, supply_radio_hold_active, supply_radio_channel
+    supply_radio_motion = True
+    supply_radio_hold_active = True
+    supply_radio_timer = max(supply_radio_timer, 30)
+
+    sound = ensure_supply_radio_sound()
+    if sound is None:
+        return
+
+    try:
+        if supply_radio_channel is None or not supply_radio_channel.get_busy():
+            supply_radio_channel = sound.play(-1)
+    except Exception as e:
+        print(f"무전기 효과음 재생 실패: {e}")
+
+
+def stop_supply_radio_loop(keep_animation: bool = False):
+    """무전기 루프 사운드를 중단하고 상태를 정리한다."""
+
+    global supply_radio_hold_active, supply_radio_motion, supply_radio_timer, supply_radio_channel
+    supply_radio_hold_active = False
+
+    if supply_radio_channel:
+        try:
+            supply_radio_channel.stop()
+        except Exception:
+            pass
+        supply_radio_channel = None
+
+    if not keep_animation:
+        supply_radio_motion = False
+        supply_radio_timer = 0
 
 
 def update_supply_drop_system():
@@ -4989,12 +5084,12 @@ def go_to_next_round():
         # 붉은 정도를 게이지에 비례하여 다시 계산
         boss_red_intensity = (boss_special_gauge / 500) * 220
     else:
-        # 스테이지 1이 아닌 경우만 게이지 초기화
-        if current_stage != 1:
-            boss_special_gauge = 0
-            boss_special_ready = False
-            boss_special_waiting = False
-            boss_red_intensity = 0
+        # 스테이지 1과 3이 아닌 경우 게이지 초기화
+        # 스테이지 2로 넘어갈 때도 보스 게이지를 초기화해야 함
+        boss_special_gauge = 0
+        boss_special_ready = False
+        boss_special_waiting = False
+        boss_red_intensity = 0
     #  멘헤라걸 눈물샤워 초기화
     global tears_active, tears_timer, falling_tears, last_tears_cast_time
     global player_slow_timer  # ← 디버프 초기화용
@@ -6909,27 +7004,43 @@ def handle_quake():
             #  효과 종료 시 상태 복원
             quake_active = False
             PLAYER_SPEED = 1
-            #  원래 속도로 복원하되, 너무 빠르면 제한
-            ball_vel[0] = original_ball_speed_quake[0]
-            ball_vel[1] = original_ball_speed_quake[1]
-
-            # 복원된 속도 체크 및 보정 (속도 증가)
-            speed = math.hypot(ball_vel[0], ball_vel[1])
+            
+            # 현재 방향을 유지하면서 원래 속도로 복원
+            current_direction = pygame.math.Vector2(ball_vel[0], ball_vel[1])
+            if current_direction.length() > 0:
+                current_direction = current_direction.normalize()
+            else:
+                # 만약 현재 속도가 0이면 원래 방향 사용
+                current_direction = pygame.math.Vector2(original_ball_speed_quake[0], original_ball_speed_quake[1])
+                if current_direction.length() > 0:
+                    current_direction = current_direction.normalize()
+                else:
+                    current_direction = pygame.math.Vector2(0, 1)  # 기본 방향 (아래)
+            
+            # 원래 속도의 크기를 가져옴
+            original_speed = math.hypot(original_ball_speed_quake[0], original_ball_speed_quake[1])
+            
+            # 속도 범위 제한
             min_allowed_speed = BALL_BASE_SPEED * 1.1  # 최소 기본 속도의 1.1배
             max_allowed_speed = BALL_BASE_SPEED * 1.6  # 최대 기본 속도의 1.6배로 상향
             
-            if speed > max_allowed_speed:
-                # 너무 빠르면 속도 제한
-                direction = pygame.math.Vector2(ball_vel).normalize()
-                ball_vel[0] = direction.x * max_allowed_speed
-                ball_vel[1] = direction.y * max_allowed_speed
-                print(f"  :   {speed:.2f} → {max_allowed_speed:.2f}")
-            elif speed < min_allowed_speed:
-                # 너무 느리면 최소 속도로 보정 (1.1배로 상향)
-                direction = pygame.math.Vector2(ball_vel).normalize()
-                ball_vel[0] = direction.x * min_allowed_speed
-                ball_vel[1] = direction.y * min_allowed_speed
-                print(f"  :   {speed:.2f} → {min_allowed_speed:.2f}")
+            # 적절한 속도로 조정
+            if original_speed > max_allowed_speed:
+                target_speed = max_allowed_speed
+                print(f"정글지진 종료:   {original_speed:.2f} → {target_speed:.2f}")
+            elif original_speed < min_allowed_speed:
+                target_speed = min_allowed_speed
+                print(f"정글지진 종료:   {original_speed:.2f} → {target_speed:.2f}")
+            else:
+                target_speed = original_speed
+                print(f"정글지진 종료: 속도 유지 {target_speed:.2f}")
+            
+            # 현재 방향으로 목표 속도 적용
+            ball_vel[0] = current_direction.x * target_speed
+            ball_vel[1] = current_direction.y * target_speed
+            
+            # 복원된 속도 계산
+            speed = math.hypot(ball_vel[0], ball_vel[1])
 
             # 퀘이크 효과음 종료
             stop_quake_sound()
@@ -9512,6 +9623,13 @@ def handle_player(keys):
     global serve_completed_timer  # 서브 완료 후 타이머
     global long_boost_active, long_boost_timer, PADDLE_WIDTH
     global long_boost_animating, long_boost_shrinking, long_boost_growing
+    global short_shot_active, short_shot_timer, short_shot_vertical_timer
+    global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
+    global short_shot_current_angle, short_shot_target_angle
+    global short_shot_target_y, short_shot_extra_vertical_frames, short_shot_curve_started
+    global short_shot_curve_elapsed_frames
+    global short_shot_counter_window, short_shot_counter_pending
+    global special_gauge
     global player_stunned_timer, player_knockback_vel  #  스턴 전역
     global player_stun_immunity_timer  # ️ 스턴 면역 타이머
     global weapon_switch_cooldown  # 화기 교체 쿨다운
@@ -9611,6 +9729,8 @@ def handle_player(keys):
     
     # 물자보급 스킬 발동 조건 확인 (스페이스 + ↑ 동시 입력)
     up_pressed = keys[pygame.K_UP]
+    global player_up_pressed
+    player_up_pressed = bool(up_pressed)
     
     # 화기류 교체 처리 (↑키 단독 입력)
     if (up_pressed and not space_pressed and selected_character_type == "soldier" and
@@ -11426,43 +11546,6 @@ def handle_player(keys):
                 chapter4_power_helper_timer = 300  # 5초간 표시
                 print("🎯 Chapter 4: 500 게이지 도달! 파워스매싱 도우미 표시")
         
-        # 스매셔 쇼트 기술 체크
-        global short_shot_active, short_shot_timer, short_shot_curve_phase
-        # 디버그용으로 모든 스테이지에서 테스트 가능하도록 임시 변경
-        if keys[pygame.K_UP]:  # and current_stage == 6:  # 위 방향키를 누른 상태에서
-            print(f"[DEBUG] 쇼트 기술 체크 - UP키: {keys[pygame.K_UP]}, Stage: {current_stage}, 현재 활성화: {short_shot_active}")
-            
-            # 이미 활성화 중이면 스킵
-            if not short_shot_active:
-                # 쇼트 기술 활성화
-                short_shot_active = True
-                short_shot_timer = 120  # 2초간 유지
-                short_shot_curve_phase = 0  # 곡선 단계 초기화
-                
-                # 공의 속도를 수직에 가깝게 변경 (약간의 각도 보정 포함)
-                current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                
-                # 원래 방향의 약간의 영향을 남김 (최대 10도 오차)
-                angle_offset = ball_vel[0] / current_speed * 0.174  # 0.174 라디안 = 약 10도
-                
-                # 수직에 가까운 각도로 설정
-                ball_vel[0] = angle_offset * current_speed * 0.3  # x 속도는 매우 작게
-                ball_vel[1] = -current_speed * 0.95  # y 속도는 대부분 위쪽으로
-                
-                # 빛나는 이펙트 생성
-                for i in range(20):
-                    angle = random.uniform(0, math.pi * 2)
-                    distance = random.uniform(20, 50)
-                    x = PLAYER.centerx + math.cos(angle) * distance
-                    y = PLAYER.centery + math.sin(angle) * distance
-                    create_particle(x, y, (255, 255, 100), lifetime=30)  # 노란색 빛 파티클
-                
-                # 시각 효과 및 사운드
-                play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)  # 쇼트 발동 사운드
-                show_speech("쇼트!", duration=60)
-                
-                print(f"[DEBUG] 스매셔 쇼트 발동! 속도: {current_speed:.1f}, 각도: {math.degrees(math.atan2(ball_vel[1], ball_vel[0])):.1f}°")
-        
         #  가속화 스킬은 이제 패들 사이즈 증가로 변경됨 (공속도 증가 제거)
         drive_activated = calculate_bounce(PLAYER)
         print(f" DEBUG: calculate_bounce  - drive_activated: {drive_activated}")  #  
@@ -11742,7 +11825,7 @@ def handle_player(keys):
             #  필살기 준비 상태 업데이트 (400 이상일 때)
             if special_gauge >= 350:  # 파워스매시 발동 조건
                 special_ready = True
-            
+
             # 충돌 쿨다운 설정하여 중복 충전 방지
             player_collision_cooldown = 15
         elif rolling_active:
@@ -14126,8 +14209,8 @@ def update_gauge_animation():
         # 정확히 목표값에 도달하도록 보정
         if displayed_gauge < special_gauge + 1:
             displayed_gauge = special_gauge
-    # 보스 게이지 애니메이션 (스테이지 1, 3)
-    if current_stage in [1, 3]:
+    # 보스 게이지 애니메이션 (스테이지 1, 2, 3)
+    if current_stage in [1, 2, 3]:
         if displayed_boss_gauge < boss_special_gauge:
             displayed_boss_gauge += (boss_special_gauge - displayed_boss_gauge) * boss_gauge_animation_speed
             # 정확히 목표값에 도달하도록 보정
@@ -14470,6 +14553,147 @@ def draw_stage1_boss_gauge_bar():
     gauge_rect = gauge_surface.get_rect(centerx=bar_x + bar_width // 2, top=bar_y + bar_height + 25)
     SCREEN.blit(gauge_surface, gauge_rect)
     
+
+def draw_stage2_boss_gauge_bar():
+    """Stage 2 보스 스킬 게이지"""
+    global current_stage, boss_special_gauge, displayed_boss_gauge
+
+    if current_stage != 2:
+        return
+
+    max_gauge = 500
+    current_gauge = max(0, displayed_boss_gauge)
+    gauge_x = WIDTH - 45
+    gauge_y = 70
+    gauge_width = 14
+    gauge_height = 100
+    time_now = pygame.time.get_ticks()
+
+    frame_rect = pygame.Rect(gauge_x - 6, gauge_y - 10, gauge_width + 12, gauge_height + 20)
+    pygame.draw.rect(SCREEN, (24, 48, 32), frame_rect, border_radius=7)
+    pygame.draw.rect(SCREEN, (90, 150, 90), frame_rect, 2, border_radius=7)
+
+    vine_phase = time_now * 0.004
+    for side in (-1, 1):
+        vine_points = []
+        for i in range(0, gauge_height + 10, 8):
+            sway = math.sin(vine_phase + i * 0.15 + side * 0.6) * 3.2
+            anchor_x = gauge_x + (0 if side == -1 else gauge_width)
+            vine_points.append((anchor_x + side * 6 + sway, gauge_y + i - 4))
+        pygame.draw.lines(SCREEN, (62, 120, 70), False, vine_points, 2)
+
+        for i in range(0, gauge_height, 22):
+            leaf_angle = vine_phase * 1.3 + i * 0.05 + (0 if side == -1 else math.pi / 2)
+            leaf_length = 7
+            leaf_width = 3
+            cx = gauge_x + (0 if side == -1 else gauge_width) + side * 6 + math.sin(leaf_angle) * 2
+            cy = gauge_y + i + math.cos(leaf_angle) * 2
+            leaf_points = [
+                (cx, cy),
+                (cx + math.cos(leaf_angle) * leaf_length - math.sin(leaf_angle) * leaf_width,
+                 cy + math.sin(leaf_angle) * leaf_length + math.cos(leaf_angle) * leaf_width),
+                (cx + math.cos(leaf_angle) * leaf_length + math.sin(leaf_angle) * leaf_width,
+                 cy + math.sin(leaf_angle) * leaf_length - math.cos(leaf_angle) * leaf_width),
+            ]
+            pygame.draw.polygon(SCREEN, (116, 196, 120), leaf_points)
+
+    inner_rect = pygame.Rect(gauge_x, gauge_y, gauge_width, gauge_height)
+    pygame.draw.rect(SCREEN, (16, 32, 22), inner_rect)
+    pygame.draw.rect(SCREEN, (70, 115, 74), inner_rect, 1)
+
+    gauge_ratio = min(current_gauge / max_gauge, 1.0)
+    filled_height = int(gauge_height * gauge_ratio)
+    if filled_height > 0:
+        for i in range(filled_height):
+            row_ratio = i / max(1, filled_height - 1)
+            r = int(38 + 22 * (1 - row_ratio))
+            g = int(150 + 60 * row_ratio)
+            b = int(84 + 36 * (1 - row_ratio))
+            y_pos = gauge_y + gauge_height - i - 1
+            pygame.draw.line(SCREEN, (r, g, b), (gauge_x + 2, y_pos), (gauge_x + gauge_width - 3, y_pos))
+
+        wave_top = gauge_y + gauge_height - filled_height
+        shimmer = 0.6 + 0.4 * math.sin(time_now * 0.02)
+        wave_color = (int(140 * shimmer), int(220 * shimmer), int(170 * shimmer))
+        pygame.draw.line(SCREEN, wave_color, (gauge_x + 1, wave_top), (gauge_x + gauge_width - 2, wave_top), 1)
+
+        bubble_count = max(1, int(gauge_ratio * 4))
+        for idx in range(bubble_count):
+            t = (time_now * 0.001 + idx * 0.25) % 1.0
+            bubble_y = gauge_y + gauge_height - int(filled_height * t) - 3
+            if gauge_y < bubble_y < gauge_y + gauge_height - 2:
+                bubble_x = gauge_x + gauge_width // 2 + int(math.sin(time_now * 0.005 + idx) * 3)
+                pygame.draw.circle(SCREEN, (210, 255, 220), (bubble_x, bubble_y), 2)
+
+        for offset in (-6, -2, 2):
+            ripple_y = wave_top + offset + int(math.sin(time_now * 0.01 + offset) * 2)
+            if gauge_y < ripple_y < gauge_y + gauge_height:
+                pygame.draw.line(SCREEN, (70, 160, 120), (gauge_x + 2, ripple_y), (gauge_x + gauge_width - 3, ripple_y), 1)
+
+        if boss_special_gauge > current_gauge:
+            gain_ratio = min((boss_special_gauge - current_gauge) / 80, 1.0)
+            pulse_height = wave_top + int((math.sin(time_now * 0.02) * 0.5 + 0.5) * max(1, filled_height - 4))
+            if gauge_y < pulse_height < gauge_y + gauge_height:
+                pulse_color = (
+                    int(90 + 90 * gain_ratio),
+                    int(210 + 40 * gain_ratio),
+                    int(150 + 50 * gain_ratio)
+                )
+                pygame.draw.line(SCREEN, pulse_color, (gauge_x + 2, pulse_height), (gauge_x + gauge_width - 3, pulse_height), 1)
+
+    emblem_x = gauge_x + gauge_width // 2
+    emblem_y = gauge_y - 34
+    pulse = 1.0 + math.sin(time_now * 0.003) * 0.08
+
+    base_radius = 16
+    base_color = (32, 70, 46)
+    border_color = (120, 190, 126)
+    pygame.draw.circle(SCREEN, base_color, (emblem_x, emblem_y), int(base_radius * pulse))
+    pygame.draw.circle(SCREEN, border_color, (emblem_x, emblem_y), int(base_radius * pulse), 3)
+
+    snout_points = [
+        (emblem_x - 9, emblem_y + 3),
+        (emblem_x + 9, emblem_y + 3),
+        (emblem_x + 4, emblem_y + 12),
+        (emblem_x - 4, emblem_y + 12),
+    ]
+    pygame.draw.polygon(SCREEN, (58, 120, 80), snout_points)
+    pygame.draw.lines(SCREEN, (90, 150, 110), False, snout_points + [snout_points[0]], 1)
+
+    for dx in (-4, 4):
+        pygame.draw.circle(SCREEN, (24, 50, 30), (emblem_x + dx, emblem_y + 10), 1)
+
+    eye_offset = 7
+    eye_y = emblem_y - 4
+    pygame.draw.circle(SCREEN, (252, 255, 220), (emblem_x - eye_offset, eye_y), 3)
+    pygame.draw.circle(SCREEN, (252, 255, 220), (emblem_x + eye_offset, eye_y), 3)
+    pupil_offset = int(math.sin(time_now * 0.004) * 1.5)
+    pygame.draw.circle(SCREEN, (20, 60, 40), (emblem_x - eye_offset + pupil_offset, eye_y), 1)
+    pygame.draw.circle(SCREEN, (20, 60, 40), (emblem_x + eye_offset + pupil_offset, eye_y), 1)
+
+    fang_color = (240, 250, 220)
+    left_fang = [(emblem_x - 5, emblem_y + 6), (emblem_x - 2, emblem_y + 12), (emblem_x - 7, emblem_y + 12)]
+    right_fang = [(emblem_x + 5, emblem_y + 6), (emblem_x + 7, emblem_y + 12), (emblem_x + 2, emblem_y + 12)]
+    pygame.draw.polygon(SCREEN, fang_color, left_fang)
+    pygame.draw.polygon(SCREEN, fang_color, right_fang)
+
+    for i in range(6):
+        angle = i * math.pi / 3 + time_now * 0.004
+        scale_radius = base_radius - 3
+        sx = emblem_x + math.cos(angle) * scale_radius
+        sy = emblem_y + math.sin(angle) * scale_radius
+        pygame.draw.circle(SCREEN, (80, 150, 100), (int(sx), int(sy)), 2)
+
+    if current_gauge >= 350:
+        ring_radius = int(base_radius * 1.4 + math.sin(time_now * 0.01) * 2)
+        pygame.draw.circle(SCREEN, (120, 220, 170), (emblem_x, emblem_y), ring_radius, 1)
+
+    gauge_font = FontStyle.tiny()
+    gauge_text = f"{int(current_gauge)}/{max_gauge}"
+    gauge_surface = gauge_font.render(gauge_text, True, (70, 120, 80))
+    gauge_rect = gauge_surface.get_rect(centerx=gauge_x + gauge_width // 2, top=gauge_y + gauge_height + 25)
+    SCREEN.blit(gauge_surface, gauge_rect)
+
 
 def draw_player_gauge():
     """플레이어 게이지바를 오른쪽 하단에 세로로 표시 - 고급스러운 버전"""
@@ -16394,6 +16618,7 @@ def draw_objects():
     global boss_hit_animation_active, boss_hit_animation_timer  #  보스 충돌 애니메이션 변수 추가
     global power_smashing_trails, power_smashing_particles, mega_smashing_meteor_trail  #  파워스매싱 이펙트 변수 추가
     global perfect_timing_active, perfect_timing_frame_count, perfect_timing_window  #  퍼펙트 타이밍 변수 추가
+    global perfect_timing_indicator_active, short_shot_counter_window
     global special_gauge  #  드라이브 게이지 확인용
     global grenade_shake_timer, bazooka_screen_shake_timer  #  수류탄 및 바주카포 화면 흔들림
     global shield_antenna_active, shield_antenna_timer, shield_antenna_cooldown
@@ -16493,10 +16718,10 @@ def draw_objects():
                     status_text = info_font.render("Waiting...", True, (200, 200, 200))
                 status_rect = status_text.get_rect(center=(WIDTH // 2, serve_rect.bottom + 20))
                 SCREEN.blit(status_text, status_rect)
-    #  퍼펙트 타이밍 윈도우 시각적 표시 (게이지 200 이상일 때만, 군인 캐릭터 제외)
-    elif perfect_timing_active and special_gauge >= 200 and selected_character_type != "soldier":
+    #  퍼펙트 타이밍 윈도우 시각적 표시 (드라이브 가능 시 항상 유지)
+    elif perfect_timing_indicator_active and special_gauge >= 150 and selected_character_type != "soldier":
         # 공 주변에 퍼펙트 타이밍 인디케이터 그리기
-        timing_alpha = int(255 * (1.0 - perfect_timing_frame_count / perfect_timing_window))
+        timing_alpha = 255
         timing_radius = 30 + int(5 * math.sin(pygame.time.get_ticks() * 0.2))
         # 반투명 원 그리기 - 파워스매싱 준비 상태에 따라 색상 변경
         timing_surface = pygame.Surface((timing_radius*2, timing_radius*2), pygame.SRCALPHA)
@@ -16509,7 +16734,9 @@ def draw_objects():
         SCREEN.blit(timing_surface, (BALL.centerx - timing_radius, BALL.centery - timing_radius))
         # 텍스트 표시 - 파워스매싱 준비 상태에 따라 다르게 표시
         timing_font = FontStyle.body()  # 24pt 픽셀 폰트
-        if special_ready:
+        if short_shot_counter_window > 0:
+            timing_text = timing_font.render("Combo!", True, YELLOW)
+        elif special_ready:
             # 파워스매싱 준비 상태일 때 - 빨간색 SMASHING
             timing_text = timing_font.render("SMASHING", True, (255, 80, 80))
         else:
@@ -16517,6 +16744,13 @@ def draw_objects():
             timing_text = timing_font.render("Drive!", True, YELLOW)
         text_rect = timing_text.get_rect(center=(BALL.centerx, BALL.centery - 50))
         SCREEN.blit(timing_text, text_rect)
+    elif short_shot_active and short_shot_timer > 0 and not ball_in_kuromi:
+        short_font = FontStyle.body()
+        short_text = short_font.render("Short!", True, (255, 230, 120))
+        player_x = PLAYER.centerx + (PADDLE_WIDTH // 2) + 24
+        player_y = PLAYER.centery - 40
+        short_rect = short_text.get_rect(midleft=(player_x, player_y))
+        SCREEN.blit(short_text, short_rect)
     # 화면 흔들림 효과 계산
     quake_offset_y = random.randint(-5, 5) if quake_active else 0
     # 바주카포 폭발 화면 흔들림
@@ -18672,51 +18906,7 @@ def draw_objects():
             draw_with_shake(rotated_ball, ball_img_rect.topleft)
         ball_already_drawn = True  # 공이 그려졌음을 표시
     
-    # 쇼트 기술 시각 효과
-    if short_shot_active and short_shot_timer > 0 and not ball_in_kuromi:
-        # 빛나는 효과 - 공 주변에 밝은 광채
-        glow_radius = BALL_RADIUS + 10 + math.sin(pygame.time.get_ticks() / 100) * 5
-        glow_surface = pygame.Surface((glow_radius * 4, glow_radius * 4), pygame.SRCALPHA)
-        
-        # 여러 층의 빛으로 부드러운 광채 효과
-        for i in range(5):
-            radius = glow_radius - i * 3
-            alpha = 50 - i * 10
-            if radius > 0 and alpha > 0:
-                pygame.draw.circle(glow_surface, (255, 255, 150, alpha), 
-                                 (glow_radius * 2, glow_radius * 2), radius)
-        
-        SCREEN.blit(glow_surface, (ball_rect.centerx - glow_radius * 2, 
-                                  ball_rect.centery - glow_radius * 2), special_flags=pygame.BLEND_ADD)
-        
-        # 공 주변에 전기 효과
-        for i in range(6):  # 스파크 수 증가
-            angle = (pygame.time.get_ticks() / 30 + i * 60) % 360  # 더 빠른 회전
-            x = ball_rect.centerx + math.cos(math.radians(angle)) * 20
-            y = ball_rect.centery + math.sin(math.radians(angle)) * 20
-            
-            # 전기 스파크
-            spark_color = (150, 200, 255) if i % 2 == 0 else (255, 255, 150)
-            pygame.draw.circle(SCREEN, spark_color, (int(x), int(y)), 4)
-            
-            # 작은 라인 효과
-            end_x = ball_rect.centerx + math.cos(math.radians(angle + 180)) * 10
-            end_y = ball_rect.centery + math.sin(math.radians(angle + 180)) * 10
-            pygame.draw.line(SCREEN, spark_color, (int(x), int(y)), (int(end_x), int(end_y)), 2)
-            
-        # 곡선 단계에서는 잔상 추가
-        if short_shot_curve_phase == 1:
-            # 꼬리 효과
-            trail_length = 8  # 더 긴 잔상
-            for i in range(trail_length):
-                alpha = 200 - (i * 25)
-                if alpha > 0:
-                    trail_x = ball_rect.centerx - ball_vel[0] * i * 2
-                    trail_y = ball_rect.centery - ball_vel[1] * i * 2
-                    trail_surface = pygame.Surface((BALL_RADIUS * 3, BALL_RADIUS * 3), pygame.SRCALPHA)
-                    pygame.draw.circle(trail_surface, (200, 220, 255, alpha), 
-                                     (BALL_RADIUS * 1.5, BALL_RADIUS * 1.5), BALL_RADIUS)
-                    SCREEN.blit(trail_surface, (trail_x - BALL_RADIUS * 1.5, trail_y - BALL_RADIUS * 1.5))
+    # 쇼트 기술 시각 효과 제거 (요청사항)
     
     # 기본 공 그리기 (아직 그려지지 않은 경우에만, 그리고 쿠로미가 먹지 않았을 때)
     if not ball_already_drawn and not ball_in_kuromi:
@@ -32180,7 +32370,8 @@ def reset_round():
     global ragnarok_stun_attempted_this_rally  # 라그나로크 해머 스턴 플래그
     global leg_shot_active, leg_shot_timer, leg_shot_text_timer  # 권총 레그샷 관련 변수
     global head_shot_active, head_shot_timer, head_shot_text_timer, boss_stunned_timer  # 권총 헤드샷 관련 변수
-    global short_shot_active, short_shot_timer, short_shot_curve_phase  # 스매셔 쇼트 기술 관련 변수
+    global short_shot_active, short_shot_timer, short_shot_vertical_timer
+    global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -32190,6 +32381,24 @@ def reset_round():
     stopwatch_original_ball_vel = None
     stopwatch_forced_upward = False
     stopwatch_upward_lock_timer = 0
+
+    short_shot_active = False
+    short_shot_timer = 0
+    short_shot_vertical_timer = 0
+    short_shot_speed = 0.0
+    short_shot_target_vx = 0.0
+    short_shot_target_vy = 0.0
+    short_shot_original_speed = 0.0
+    short_shot_current_angle = 0.0
+    short_shot_target_angle = 0.0
+    short_shot_target_y = 0.0
+    short_shot_extra_vertical_frames = 0
+    short_shot_curve_started = False
+    short_shot_curve_elapsed_frames = 0
+    short_shot_counter_window = 0
+    short_shot_counter_pending = False
+    short_shot_counter_window = 0
+    refresh_perfect_timing_indicator()
 
     # 물자보급(군인 스킬) 상태 초기화 / 유지 정책
     # 요구사항: 라운드가 바뀌어도 비행기 및 예정된 출현은 유지되어야 함
@@ -32448,7 +32657,11 @@ def reset_round():
     # 스매셔 쇼트 기술 상태 초기화 (라운드 시작 시)
     short_shot_active = False
     short_shot_timer = 0
-    short_shot_curve_phase = 0
+    short_shot_vertical_timer = 0
+    short_shot_speed = 0.0
+    short_shot_target_vx = 0.0
+    short_shot_target_vy = 0.0
+    short_shot_original_speed = 0.0
     
     #  상모돌리기 상태 초기화 (라운드 시작 시)
     whip_active = False
@@ -32469,10 +32682,16 @@ def reset_round():
     #  AI 프레임 카운터 초기화 (부드러운 AI 업데이트를 위해)
     ai_frame_counter = 0
     
-    # Stage 1 보스 게이지 감소 (라운드 전환 시)
+    # 보스 게이지 관리 (라운드 전환 시)
     if current_stage == 1:
+        # Stage 1: 라운드간 게이지 유지하되 100씩 감소
         boss_special_gauge = max(0, boss_special_gauge - 100)
         print(f"Stage 1 보스 게이지 감소: -100 (현재: {boss_special_gauge}/500)")
+    elif current_stage == 2:
+        # Stage 2: 매 라운드 시작 시 게이지 초기화
+        boss_special_gauge = 0
+        print(f"Stage 2 보스 게이지 초기화 (현재: {boss_special_gauge}/500)")
+    # Stage 3과 4는 각자의 게이지 관리 시스템이 있으므로 여기서는 처리하지 않음
 def reset_deuce_system():
     """듀스 시스템을 완전히 리셋합니다."""
     global deuce_mode, deuce_wins, deuce_losses, deuce_goal
@@ -32811,9 +33030,17 @@ def draw_impact_particles():
                     draw.circle(color, (int(x), int(y)), 1)
 def calculate_bounce(paddle):
     global vertical_bounce_count, ball_angle, ball_impact_boost
-    global perfect_timing_active, perfect_direction
+    global perfect_timing_active, perfect_direction, perfect_timing_indicator_active
     global drive_speed_increase, smoke_zones, ball_vel
     global speed_defense_active, SPEED_DEFENSE_BLOCK_RATE
+    global short_shot_active, short_shot_timer, short_shot_vertical_timer
+    global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
+    global player_up_pressed, player_collision_handled, player_collision_cooldown
+    global special_gauge, short_shot_counter_window, short_shot_counter_pending
+    global perfect_timing_active, perfect_timing_frame_count, perfect_timing_cooldown
+    global perfect_timing_input_used, perfect_direction, perfect_timing_indicator_active
+    global rolling_active, is_half_dash_active
+    global is_waiting_for_serve, stopwatch_active, stopwatch_timer
     
     # Stage 2 스피드 디펜스 80% 방어 처리
     if paddle == BOSS and current_stage == 2 and speed_defense_active:
@@ -32835,6 +33062,8 @@ def calculate_bounce(paddle):
     is_player_paddle = (paddle == PLAYER)
     # 드라이브 발동 여부를 반환하기 위한 변수
     drive_activated = False
+    counter_bonus_applied = False
+    counter_bonus_speed_gain = 0.0
     
     # 보스가 공을 칠 때 포세이돈 삼지창 회오리 가속 효과 해제
     if not is_player_paddle:  # 보스가 공을 칠 때
@@ -32848,9 +33077,50 @@ def calculate_bounce(paddle):
                     trident.deactivate_water_trail()
         except Exception as e:
             print(f"[ERROR] 포세이돈 효과 처리 실패: {e}")
-    
+        if short_shot_active or short_shot_counter_pending:
+            if short_shot_original_speed > 0:
+                current_mag = math.hypot(ball_vel[0], ball_vel[1])
+                if current_mag > 0:
+                    restore_ratio = short_shot_original_speed / current_mag
+                    ball_vel[0] *= restore_ratio
+                    ball_vel[1] *= restore_ratio
+            if short_shot_counter_pending:
+                short_shot_counter_window = SHORT_SHOT_COUNTER_WINDOW_FRAMES
+                print(f"[SHOT-BONUS] 보스 반격 감지 → 카운터 윈도우 시작 ({short_shot_counter_window}프레임)")
+                # 쇼트 카운터 창이 열리면 퍼펙트 타이밍 윈도우도 강제로 활성화해 드라이브 입력을 보장
+                perfect_timing_active = True
+                perfect_timing_frame_count = 0
+                perfect_timing_cooldown = 0
+                perfect_timing_input_used = False
+                perfect_direction = None
+                refresh_perfect_timing_indicator()
+            short_shot_counter_pending = False
+            short_shot_active = False
+            short_shot_timer = 0
+            short_shot_vertical_timer = 0
+            short_shot_speed = 0.0
+            short_shot_target_vx = 0.0
+            short_shot_target_vy = 0.0
+            short_shot_original_speed = 0.0
+            short_shot_current_angle = 0.0
+            short_shot_target_angle = 0.0
+            short_shot_target_y = 0.0
+            short_shot_extra_vertical_frames = 0
+            short_shot_curve_started = False
+            short_shot_curve_elapsed_frames = 0
+        else:
+            if short_shot_counter_window > 0:
+                print("[SHOT-BONUS] 보스 일반 반격으로 카운터 윈도우 취소")
+                short_shot_counter_window = 0
+                refresh_perfect_timing_indicator()
+            if short_shot_counter_pending:
+                print("[SHOT-BONUS] 보스가 쇼트를 반격하지 않아 대기 상태 해제")
+                short_shot_counter_pending = False
+
     #  플레이어가 공을 칠 때 연막 감속 효과 해제
     if is_player_paddle:
+        # 플레이어가 공을 되받더라도 보스 반격 기회는 유지하고,
+        # 실제 드라이브 판정 후에만 카운터 윈도우 종료 여부를 판단한다.
         # 모든 연막 존에서 속도 복원 정보 확인
         for smoke_zone in smoke_zones:
             if hasattr(smoke_zone, "original_speed") and hasattr(smoke_zone, "affecting_ball"):
@@ -32898,6 +33168,70 @@ def calculate_bounce(paddle):
     angle = rel_x * (math.pi / 3)
     # 기본 속도
     speed = math.hypot(ball_vel[0], ball_vel[1])
+
+    # 스매셔 쇼트 발동 처리 (플레이어 패들 전용)
+    if (
+        is_player_paddle
+        and selected_character_type == "smasher"
+        and player_up_pressed
+        and not short_shot_active
+        and special_gauge >= 100
+    ):
+        # 쇼트는 서브 상태나 스톱워치 정지 중에는 발동되지 않도록 가드
+        if not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0):
+            if speed < BALL_BASE_SPEED * 0.6:
+                speed = BALL_BASE_SPEED * 0.6
+            short_shot_active = True
+            consume_special_gauge(100)
+            short_shot_timer = SMASHER_SHOT_TOTAL_FRAMES
+            short_shot_vertical_timer = SMASHER_SHOT_VERTICAL_FRAMES
+            short_shot_original_speed = speed
+            short_shot_speed = speed * SMASHER_SHOT_SPEED_MULTIPLIER
+            short_shot_counter_pending = True
+
+            vertical_angle = -math.pi / 2
+            max_angle_rad = math.radians(SMASHER_SHOT_MAX_ANGLE_DEG)
+            min_angle_rad = math.radians(25)
+            boss_x = BOSS.centerx if 'BOSS' in globals() else WIDTH // 2
+            boss_y = BOSS.centery if 'BOSS' in globals() else HEIGHT // 4
+            dx = boss_x - BALL.centerx
+            dy = boss_y - BALL.centery
+            if dy >= 0:
+                dy = -abs(dy) if dy != 0 else -BALL_BASE_SPEED
+            raw_target_angle = math.atan2(dy, dx)
+            angle_diff = raw_target_angle - vertical_angle
+            direction_sign = -1 if angle_diff < 0 else 1
+            abs_diff = abs(angle_diff)
+            if abs_diff < min_angle_rad:
+                abs_diff = min_angle_rad
+            elif abs_diff > max_angle_rad:
+                abs_diff = max_angle_rad
+            short_shot_target_angle = vertical_angle + direction_sign * abs_diff
+            short_shot_current_angle = vertical_angle
+            short_shot_target_vx = math.cos(short_shot_target_angle) * short_shot_speed
+            short_shot_target_vy = math.sin(short_shot_target_angle) * short_shot_speed
+            short_shot_target_y = boss_y
+            short_shot_extra_vertical_frames = 0
+            short_shot_curve_started = False
+            short_shot_curve_elapsed_frames = 0
+
+            ball_vel[0] = math.cos(short_shot_current_angle) * short_shot_speed
+            ball_vel[1] = math.sin(short_shot_current_angle) * short_shot_speed
+            ball_angle = 270.0
+            target_deg = math.degrees(short_shot_target_angle)
+            if target_deg < 0:
+                target_deg += FULL_ROTATION
+            print(f"[SHOT] setup target={target_deg:.2f}°")
+
+            player_collision_handled = True
+            player_collision_cooldown = 15
+
+            try:
+                play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+            except Exception:
+                pass
+            print(f"[SHOT] activated speed={short_shot_speed:.2f}, target={target_deg:.1f}°")
+            return False
     #  공속도에 따른 충돌 부스트 조정 (강화된 과속 방지 시스템)
     base_speed_threshold = 10.0  # 기준 속도 (더 낮은 속도부터 감소 시작)
     max_speed_threshold = 18.0   # 최대 속도 (더 낮은 속도에서 최소값 도달)
@@ -32985,7 +33319,6 @@ def calculate_bounce(paddle):
     perfect_shot = False
     if paddle == PLAYER and perfect_timing_active and perfect_direction is not None:
         #  드라이브 발동을 위한 게이지 확인 (150 게이지 필요)
-        global special_gauge
         if special_gauge >= 150:
             perfect_shot = True
             drive_activated = True  #  드라이브 발동 표시
@@ -33117,6 +33450,18 @@ def calculate_bounce(paddle):
                         if tutorial_saved_ball_vel:
                             ball_vel[0] = tutorial_saved_ball_vel[0]
                             ball_vel[1] = tutorial_saved_ball_vel[1]
+            # 보스 반격 직후 보너스 적용 여부 확인
+            if short_shot_counter_window > 0:
+                counter_bonus_applied = True
+                prev_speed = speed
+                speed *= SHORT_SHOT_DRIVE_SPEED_MULTIPLIER
+                counter_bonus_speed_gain = speed - prev_speed
+                short_shot_counter_window = 0
+                refresh_perfect_timing_indicator()
+                print(f"⚡ 쇼트 카운터 보너스 발동! 속도 {prev_speed:.2f} → {speed:.2f} (+{counter_bonus_speed_gain:.2f})")
+                effects_manager.spawn_short_shot_flash(BALL.centerx, BALL.centery)
+                effects_manager.spawn_short_shot_flash(PLAYER.centerx, PLAYER.centery)
+
             # ️ 드라이브 스핀 효과 적용 (기본 커브량 + 공속 비례 추가 커브)
             global ball_spin_strength, ball_spin_direction, drive_ball_active, drive_hit_boss, drive_just_activated
             # 기본 커브량 유지
@@ -33124,9 +33469,13 @@ def calculate_bounce(paddle):
             # 공속에 비례한 추가 커브량 계산
             speed_bonus_multiplier = speed * 0.015  # 공속 1당 0.015 추가 커브
             additional_spin = speed_bonus_multiplier
+            spin_cap = 0.6
+            if counter_bonus_applied:
+                additional_spin += SHORT_SHOT_DRIVE_EXTRA_SPIN
+                spin_cap = 0.68
             ball_spin_strength = base_spin + additional_spin
             # 최대 커브량 제한 (너무 과도하지 않게)
-            ball_spin_strength = min(0.6, ball_spin_strength)
+            ball_spin_strength = min(spin_cap, ball_spin_strength)
             ball_spin_direction = perfect_direction
             print(f"   - : {speed:.2f}, : {base_spin:.3f}, : {additional_spin:.3f},  : {ball_spin_strength:.3f}")
             drive_ball_active = True   # 드라이브 공 상태 활성화 (연두색)
@@ -33157,6 +33506,7 @@ def calculate_bounce(paddle):
         # 퍼펙트 타이밍 상태 리셋
         perfect_timing_active = False
         perfect_direction = None
+        refresh_perfect_timing_indicator()
         # 일반 충돌과 동일한 속도 처리
         #  속도에 관계없이 일정한 가속 적용 (완화된 증가율)
         base_multiplier = random.uniform(1.02, 1.07)  # 기본 가속 (2~7%, 평균 4.5%)
@@ -33189,7 +33539,11 @@ def calculate_bounce(paddle):
             base_spin = 0.25  # 기본 커브량 재선언
             speed_bonus_multiplier = speed * 0.015  # 증가된 공속에 비례한 커브
             ball_spin_strength = base_spin + speed_bonus_multiplier
-            ball_spin_strength = min(0.6, ball_spin_strength)  # 최대치 제한
+            spin_cap = 0.6
+            if counter_bonus_applied:
+                ball_spin_strength += SHORT_SHOT_DRIVE_EXTRA_SPIN * 0.5
+                spin_cap = 0.7
+            ball_spin_strength = min(spin_cap, ball_spin_strength)  # 최대치 제한
             print(f"  +   : +{additional_speed:.2f} ( : {drive_speed_increase:.2f},  : {ball_spin_strength:.3f})")
         elif abs(rel_x) > 0.75:  # 스매시 zone
             additional_multiplier = random.uniform(1.015, 1.05)
@@ -33200,7 +33554,11 @@ def calculate_bounce(paddle):
             base_spin = 0.25  # 기본 커브량 재선언
             speed_bonus_multiplier = speed * 0.015  # 증가된 공속에 비례한 커브
             ball_spin_strength = base_spin + speed_bonus_multiplier
-            ball_spin_strength = min(0.6, ball_spin_strength)  # 최대치 제한
+            spin_cap = 0.6
+            if counter_bonus_applied:
+                ball_spin_strength += SHORT_SHOT_DRIVE_EXTRA_SPIN * 0.5
+                spin_cap = 0.7
+            ball_spin_strength = min(spin_cap, ball_spin_strength)  # 최대치 제한
             print(f"  +   : +{additional_speed:.2f} ( : {drive_speed_increase:.2f},  : {ball_spin_strength:.3f})")
             curve = random.uniform(-5, 5)
             vector = vector.rotate(curve)
@@ -33286,6 +33644,22 @@ def calculate_bounce(paddle):
         except:
             pass
     
+    # 쇼트 카운터 보너스: 대쉬/파워스매싱 확장 처리 및 실패 시 초기화
+    if is_player_paddle and short_shot_counter_window > 0 and not drive_activated:
+        dash_combo_triggered = rolling_active or is_half_dash_active
+        if dash_combo_triggered:
+            prev_speed = math.hypot(ball_vel[0], ball_vel[1])
+            speed_multiplier = SHORT_SHOT_DASH_SPEED_MULTIPLIER
+            ball_vel[0] *= speed_multiplier
+            ball_vel[1] *= speed_multiplier
+            speed = prev_speed * speed_multiplier
+            short_shot_counter_window = 0
+            refresh_perfect_timing_indicator()
+            dash_gain = speed - prev_speed
+            print(f"⚡ 쇼트 카운터 대쉬 보너스! 속도 {prev_speed:.2f} → {speed:.2f} (+{dash_gain:.2f})")
+            effects_manager.spawn_short_shot_flash(BALL.centerx, BALL.centery)
+            effects_manager.spawn_short_shot_flash(PLAYER.centerx, PLAYER.centery)
+
     #  드라이브 발동 여부 반환
     return drive_activated
 #  화염탄 맞았을 때 플레이어 스턴 관련 변수
@@ -33690,6 +34064,12 @@ def handle_ball():
         boss_collision_cooldown -= 1
     if player_sound_cooldown > 0:
         player_sound_cooldown -= 1
+    if short_shot_counter_window > 0:
+        prev_counter = short_shot_counter_window
+        short_shot_counter_window -= 1
+        if short_shot_counter_window == 0 and prev_counter > 0:
+            print("[SHOT-BONUS] 카운터 윈도우 만료")
+        refresh_perfect_timing_indicator()
     # 프레임 시작 시 충돌 플래그 리셋 (매 프레임마다 리셋)
     player_collision_handled = False
     # 드라이브 & 파워스매싱 시스템
@@ -34280,7 +34660,12 @@ def handle_ball():
     # 상모돌리기 관련 변수
     global whip_active, whip_angle
     # 스매셔 쇼트 기술 관련 변수
-    global short_shot_active, short_shot_timer, short_shot_curve_phase
+    global short_shot_active, short_shot_timer, short_shot_vertical_timer
+    global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
+    global short_shot_current_angle, short_shot_target_angle
+    global short_shot_target_y, short_shot_extra_vertical_frames, short_shot_curve_started
+    global short_shot_curve_elapsed_frames
+    global short_shot_counter_window, short_shot_counter_pending
     # 충돌 쿨다운 감소
     if player_collision_cooldown > 0:
         player_collision_cooldown -= 1
@@ -35132,42 +35517,92 @@ def handle_ball():
                 pass
             
             # 쇼트 기술 궤적 처리
-            if short_shot_active and short_shot_timer > 0:
-                short_shot_timer -= 1
-                
-                # 시간에 따른 단계 진행 (전체 지속시간의 40% 이후 곡선 시작)
-                progress = (120 - short_shot_timer) / 120.0  # 0 ~ 1
-                
-                if short_shot_timer % 30 == 0:  # 0.5초마다 디버그
-                    print(f"[DEBUG] 쇼트 진행 중 - Timer: {short_shot_timer}, Progress: {progress:.2f}, Phase: {short_shot_curve_phase}")
-                    print(f"[DEBUG] 공 속도 - X: {ball_vel[0]:.2f}, Y: {ball_vel[1]:.2f}")
-                
-                if progress > 0.4 and short_shot_curve_phase == 0:
-                    # 곡선 단계로 전환
-                    short_shot_curve_phase = 1
-                    print("[DEBUG] 쇼트 기술: 곡선 단계 시작!")
-                
-                if short_shot_curve_phase == 1:
-                    # 곡선 효과 - 부드럽게 수평 방향으로 꺾임
-                    curve_strength = (progress - 0.4) / 0.6  # 0 ~ 1 (곡선 단계에서)
-                    curve_strength = curve_strength ** 2  # 부드러운 가속
-                    
-                    # 원래 수평 방향으로 복귀 (보스 쪽으로)
-                    target_x_vel = 8.0 if BALL.centerx < WIDTH / 2 else -8.0  # 방향에 따라
-                    
-                    # 부드럽게 속도 전환
-                    ball_vel[0] = ball_vel[0] * (1 - curve_strength * 0.03) + target_x_vel * curve_strength * 0.03
-                    ball_vel[1] = ball_vel[1] * (1 - curve_strength * 0.02)  # Y 속도는 천천히 감소
-                    
-                    # 시각 효과 - 잔상
-                    if pygame.time.get_ticks() % 3 == 0:  # 3프레임마다
-                        create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
-                
-                if short_shot_timer == 0:
+            if short_shot_active:
+                if short_shot_timer <= 0 or ball_in_kuromi:
                     short_shot_active = False
-                    short_shot_curve_phase = 0
-                    print("[DEBUG] 쇼트 기술 종료!")
-                    print("쇼트 기술 종료")
+                    short_shot_timer = 0
+                    short_shot_vertical_timer = 0
+                    short_shot_speed = 0.0
+                    short_shot_target_vx = 0.0
+                    short_shot_target_vy = 0.0
+                    short_shot_original_speed = 0.0
+                    short_shot_current_angle = 0.0
+                    short_shot_target_angle = 0.0
+                    short_shot_target_y = 0.0
+                    short_shot_extra_vertical_frames = 0
+                    short_shot_curve_started = False
+                    short_shot_curve_elapsed_frames = 0
+                    short_shot_counter_window = 0
+                    short_shot_counter_pending = False
+                    refresh_perfect_timing_indicator()
+                else:
+                    decrement_timer = True
+                    if short_shot_vertical_timer > 0:
+                        short_shot_vertical_timer -= 1
+                        short_shot_current_angle = -math.pi / 2
+                        ball_vel[0] = math.cos(short_shot_current_angle) * short_shot_speed
+                        ball_vel[1] = math.sin(short_shot_current_angle) * short_shot_speed
+                        ball_angle = 270.0
+                    else:
+                        hold_due_to_position = False
+                        if (not short_shot_curve_started and short_shot_target_y > 0):
+                            trigger_y = short_shot_target_y + SMASHER_SHOT_CURVE_TRIGGER_OFFSET
+                            if (
+                                BALL.centery > trigger_y
+                                and short_shot_extra_vertical_frames < SMASHER_SHOT_MAX_EXTRA_VERTICAL_FRAMES
+                            ):
+                                hold_due_to_position = True
+                                short_shot_extra_vertical_frames += 1
+
+                        if hold_due_to_position:
+                            decrement_timer = False
+                            short_shot_current_angle = -math.pi / 2
+                            ball_vel[0] = math.cos(short_shot_current_angle) * short_shot_speed
+                            ball_vel[1] = math.sin(short_shot_current_angle) * short_shot_speed
+                            ball_angle = 270.0
+                            short_shot_curve_elapsed_frames = 0
+                        else:
+                            if not short_shot_curve_started:
+                                short_shot_curve_started = True
+
+                            curve_frames = max(1, SMASHER_SHOT_TOTAL_FRAMES - SMASHER_SHOT_VERTICAL_FRAMES)
+                            if short_shot_curve_elapsed_frames < curve_frames:
+                                short_shot_curve_elapsed_frames += 1
+                            blend = short_shot_curve_elapsed_frames / curve_frames
+                            eased = (blend ** 2) * (3 - 2 * blend)
+
+                            vertical_angle = -math.pi / 2
+                            target_angle = short_shot_target_angle
+                            if short_shot_target_vx != 0.0 or short_shot_target_vy != 0.0:
+                                target_angle = math.atan2(short_shot_target_vy, short_shot_target_vx)
+                                short_shot_target_angle = target_angle
+
+                            short_shot_current_angle = vertical_angle + (target_angle - vertical_angle) * eased
+                            ball_vel[0] = math.cos(short_shot_current_angle) * short_shot_speed
+                            ball_vel[1] = math.sin(short_shot_current_angle) * short_shot_speed
+                            ball_angle = math.degrees(short_shot_current_angle)
+                            if ball_angle < 0:
+                                ball_angle += FULL_ROTATION
+                            target_deg = math.degrees(target_angle)
+                            if target_deg < 0:
+                                target_deg += FULL_ROTATION
+                            print(f"[SHOT] curve progress ang={ball_angle:.2f}°, target={target_deg:.2f}°, blend={blend:.2f}")
+                    if decrement_timer:
+                        short_shot_timer -= 1
+                    if short_shot_timer <= 0:
+                        short_shot_active = False
+                        short_shot_vertical_timer = 0
+                        short_shot_speed = 0.0
+                        short_shot_target_vx = 0.0
+                        short_shot_target_vy = 0.0
+                        short_shot_original_speed = 0.0
+                        short_shot_current_angle = 0.0
+                        short_shot_target_angle = 0.0
+                        short_shot_target_y = 0.0
+                        short_shot_extra_vertical_frames = 0
+                        short_shot_curve_started = False
+                        short_shot_curve_elapsed_frames = 0
+                        print("[SHOT] completed")
             
             # 한 스텝 이동
             BALL.x += actual_vel_x
@@ -36873,8 +37308,12 @@ def handle_ball():
         if current_stage == 1:
             boss_special_gauge = min(boss_special_gauge + 50, 500)
             print(f"스테이지1 보스 게이지 충전: +50 (현재: {boss_special_gauge}/500)")
+        # 스테이지 2 악어장군 게이지 충전 (+70)
+        elif current_stage == 2:
+            boss_special_gauge = min(boss_special_gauge + 70, 500)
+            print(f"스테이지2 악어장군 게이지 충전: +70 (현재: {boss_special_gauge}/500)")
         
-        # 쿠로미 뱉기 궤적 비활성화 (보스 패들 충돌)
+        # 쿠로미 뱃기 궤적 비활성화 (보스 패들 충돌)
         if kuromi_spit_trail_active:
             kuromi_spit_trail_active = False
             kuromi_spit_trail_positions.clear()
@@ -40404,6 +40843,10 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 2:
         CURRENT_BG = STAGE2_BG
         BOSS_COLOR = (100, 255, 100)
+        # Stage 2 시작 시 보스 게이지 초기화
+        boss_special_gauge = 0
+        boss_special_ready = False
+        boss_special_waiting = False
     elif stage_num == 3:
         CURRENT_BG = STAGE3_BG
         BOSS_COLOR = YELLOW
@@ -41286,6 +41729,7 @@ def main(stage_num, new_boss_mode=False):
         
         #  퍼펙트 타이밍 시스템: 스페이스바 + 방향키 프레임 단위 입력 감지
         global space_just_pressed, last_space_state, perfect_timing_active, perfect_timing_frame_count, perfect_direction
+        global perfect_timing_indicator_active, short_shot_counter_window
         global left_just_pressed, last_left_state, right_just_pressed, last_right_state
         global left_press_frame, right_press_frame, space_press_frame, frame_counter
         global perfect_timing_cooldown, perfect_timing_cooldown_frames, perfect_timing_input_used
@@ -41383,6 +41827,7 @@ def main(stage_num, new_boss_mode=False):
                 perfect_timing_active = True
                 perfect_timing_frame_count = 0
                 perfect_timing_input_used = False  #  새로운 윈도우 시작 시 플래그 초기화
+                refresh_perfect_timing_indicator()
                 x_distance = abs(BALL.centerx - PLAYER.centerx)
                 print(f"    ! (Y: {ball_to_paddle_distance:.1f}, X: {x_distance:.1f})")
         # 퍼펙트 타이밍 윈도우 관리
@@ -41394,8 +41839,8 @@ def main(stage_num, new_boss_mode=False):
                 perfect_timing_cooldown == 0 and not perfect_timing_input_used and 
                 drive_global_cooldown == 0):
                 #  개선된 동시 입력 감지 (2프레임 허용 범위) - 선입력 방지
-                max_frame_gap = 2  # 최대 2프레임(0.033초) 차이까지 동시 입력으로 인정 (3 → 2)
-                max_input_age = 8  # 최대 8프레임(약 0.13초) 전까지의 입력만 유효
+                max_frame_gap = 3  # 최대 3프레임(0.05초) 차이까지 동시 입력으로 인정 (조금 더 관대하게)
+                max_input_age = 12  # 최대 12프레임(약 0.2초) 전까지의 입력만 유효
                                     #  파워스매싱/고스트샷 발동: 게이지가 준비되었고 스페이스를 홀드하고 있다면
                 if special_gauge >= 350 and keys[pygame.K_SPACE] and selected_character_type != "soldier":  # 파워스매시 발동 조건: 350 이상 (군인 캐릭터는 사용 불가)
                     # 파워스매싱 발동 (고스트샷 제거됨)
@@ -41562,6 +42007,20 @@ def main(stage_num, new_boss_mode=False):
                         power_smashing_initial_boost = True
                         boost_percent = int((initial_boost_multiplier - 1) * 100 + 100)
                         print(f"🚀 파워스매싱 초기 부스트 적용! 방향: {'직선' if power_smashing_direction == 0 else '좌/우'}, 부스트: {boost_percent}%, 목표속도: {power_smashing_target_speed:.1f}, 부스트속도: {final_speed * initial_boost_multiplier:.1f}")
+                        final_speed = math.hypot(ball_vel[0], ball_vel[1])
+                    if short_shot_counter_window > 0:
+                        prev_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        power_multiplier = SHORT_SHOT_POWER_SPEED_MULTIPLIER
+                        ball_vel[0] *= power_multiplier
+                        ball_vel[1] *= power_multiplier
+                        boosted_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        short_shot_counter_window = 0
+                        refresh_perfect_timing_indicator()
+                        power_gain = boosted_speed - prev_speed
+                        print(f"⚡ 쇼트 카운터 파워스매싱 보너스! 속도 {prev_speed:.2f} → {boosted_speed:.2f} (+{power_gain:.2f})")
+                        final_speed = boosted_speed
+                        effects_manager.spawn_short_shot_flash(BALL.centerx, BALL.centery)
+                        effects_manager.spawn_short_shot_flash(PLAYER.centerx, PLAYER.centery)
                     
                     # Chapter 4 튜토리얼: 파워스매싱 방향별 카운트 증가
                     if current_stage == 50 and tutorial_current_chapter == 4 and tutorial_power_counter_active:
@@ -41622,11 +42081,14 @@ def main(stage_num, new_boss_mode=False):
                     # 홀드 방식이므로 프레임 초기화 불필요
                 # 왼쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
                 # 추가 조건: 키 입력이 최근(8프레임 이내)에 이루어졌어야 함
-                elif (left_press_frame >= 0 and space_press_frame >= 0 and 
-                    abs(left_press_frame - space_press_frame) <= max_frame_gap and
-                    (frame_counter - left_press_frame) <= max_input_age and  # 왼쪽 키가 최근에 눌렸는지
-                    (frame_counter - space_press_frame) <= max_input_age and  # 스페이스 키가 최근에 눌렸는지
-                    selected_character_type != "soldier"):   # 군인 캐릭터는 드라이브 사용 불가
+                elif (
+                    left_press_frame >= 0
+                    and space_press_frame >= 0
+                    and abs(left_press_frame - space_press_frame) <= max_frame_gap
+                    and (frame_counter - left_press_frame) <= max_input_age  # 왼쪽 키가 최근에 눌렸는지
+                    and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
+                    and selected_character_type != "soldier"
+                ):   # 군인 캐릭터는 드라이브 사용 불가
                     perfect_direction = -1  # 왼쪽 드라이브
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
                     drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
@@ -41638,11 +42100,14 @@ def main(stage_num, new_boss_mode=False):
                     left_press_frame = -1
                     space_press_frame = -1
                 # 오른쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
-                elif (right_press_frame >= 0 and space_press_frame >= 0 and 
-                      abs(right_press_frame - space_press_frame) <= max_frame_gap and
-                      (frame_counter - right_press_frame) <= max_input_age and  # 오른쪽 키가 최근에 눌렸는지
-                      (frame_counter - space_press_frame) <= max_input_age and  # 스페이스 키가 최근에 눌렸는지
-                      selected_character_type != "soldier"):    # 군인 캐릭터는 드라이브 사용 불가
+                elif (
+                    right_press_frame >= 0
+                    and space_press_frame >= 0
+                    and abs(right_press_frame - space_press_frame) <= max_frame_gap
+                    and (frame_counter - right_press_frame) <= max_input_age  # 오른쪽 키가 최근에 눌렸는지
+                    and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
+                    and selected_character_type != "soldier"
+                ):    # 군인 캐릭터는 드라이브 사용 불가
                     perfect_direction = 1   # 오른쪽 드라이브
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
                     drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
@@ -41653,6 +42118,25 @@ def main(stage_num, new_boss_mode=False):
                     # 사용된 프레임 초기화
                     right_press_frame = -1
                     space_press_frame = -1
+                # 한쪽 방향키를 미리 누른 상태에서 스페이스를 누른 경우도 허용 (연타 방지 조건 유지)
+                elif (
+                    space_just_pressed
+                    and selected_character_type != "soldier"
+                    and ((keys[pygame.K_LEFT] and drive_global_cooldown == 0)
+                         or (keys[pygame.K_RIGHT] and drive_global_cooldown == 0))
+                ):
+                    perfect_direction = -1 if keys[pygame.K_LEFT] else 1
+                    perfect_timing_cooldown = perfect_timing_cooldown_frames
+                    drive_global_cooldown = drive_global_cooldown_frames
+                    perfect_timing_input_used = True
+                    frame_gap = 0
+                    input_age = 0
+                    print(f"  ! ({'←' if keys[pygame.K_LEFT] else '→'} 홀드 +   ,   )")
+                    if keys[pygame.K_LEFT]:
+                        left_press_frame = frame_counter
+                    else:
+                        right_press_frame = frame_counter
+                    space_press_frame = frame_counter
                 #  스페이스바만 누르거나 방향키만 누른 경우
                 elif space_just_pressed or left_just_pressed or right_just_pressed:
                     perfect_timing_input_used = True  # 입력은 사용됨으로 표시 (연타 방지)
@@ -41675,6 +42159,7 @@ def main(stage_num, new_boss_mode=False):
                 perfect_timing_frame_count = 0
                 perfect_direction = None
                 perfect_timing_input_used = False  #  플래그 리셋
+                refresh_perfect_timing_indicator()
                 # 오래된 키 입력 기록 초기화 (선입력 방지)
                 left_press_frame = -1
                 right_press_frame = -1
@@ -41693,6 +42178,7 @@ def main(stage_num, new_boss_mode=False):
                     print(f"    :     (X: {x_distance:.1f})")
                 perfect_direction = None
                 perfect_timing_input_used = False  #  플래그 리셋
+                refresh_perfect_timing_indicator()
                 # 오래된 키 입력 기록 초기화 (선입력 방지)
                 left_press_frame = -1
                 right_press_frame = -1
@@ -42704,6 +43190,7 @@ def main(stage_num, new_boss_mode=False):
             draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_stage1_boss_gauge_bar()  # 스테이지 1 보스 게이지바 그리기
+            draw_stage2_boss_gauge_bar()  # 스테이지 2 게이지바
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 원래 화면으로 복원하고 흔들림 적용
             SCREEN = temp_screen
@@ -42774,6 +43261,7 @@ def main(stage_num, new_boss_mode=False):
             draw_tutorial_success_feedback()  # 실시간 성공 피드백 표시
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_stage1_boss_gauge_bar()  # 스테이지 1 보스 게이지바 그리기
+            draw_stage2_boss_gauge_bar()  # 스테이지 2 게이지바
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 스테이지별 테두리 효과를 UI 전에 그리기
             if current_stage == 1:
@@ -45646,7 +46134,7 @@ def show_quick_character_selection():
                     selected_index = (selected_index - 1) % len(characters)
                     play_button_hover_sound()
                 elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                    selected_index = (selected_index + 1) % len(characters)
+                    sㅇelected_index = (selected_index + 1) % len(characters)
                     play_button_hover_sound()
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     play_button_click_sound()

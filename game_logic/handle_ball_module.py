@@ -1262,6 +1262,10 @@ def handle_ball():
             # 🔧 필살기 준비 상태 업데이트 (400 이상일 때)
             if special_gauge >= 350:  # 파워스매시 발동 조건
                 special_ready = True
+            if current_stage == 2:
+                boss_special_gauge = min(500, boss_special_gauge + 70)
+                if boss_special_gauge >= 500:
+                    boss_special_ready = True
             # 충돌 쿨다운 설정
             player_collision_cooldown = 15
         else:
@@ -1301,17 +1305,17 @@ def handle_ball():
         # 다른 스테이지는 원래 크기 사용
         boss_hitbox_expanded = BOSS
     
-    if boss_hitbox_expanded.colliderect(BALL) and boss_collision_cooldown <= 0 and not is_waiting_for_serve:
-        pass
-        # 🎆 파워스매싱 상태 확인 (보스 충돌 직전에)
-        was_power_smashing = power_smashing_parabola_active
-        
-        # 💥 고스트샷 공과 충돌 시 처리
-        if mega_smashing_active:
+        if boss_hitbox_expanded.colliderect(BALL) and boss_collision_cooldown <= 0 and not is_waiting_for_serve:
             pass
-            # 보스 방어 횟수 증가
-            mega_smashing_boss_defense_count += 1
-            print(f"🐉 고스트샷 보스 방어! 고스트샷 종료!")
+            # 🎆 파워스매싱 상태 확인 (보스 충돌 직전에)
+            was_power_smashing = power_smashing_parabola_active
+
+            # 💥 고스트샷 공과 충돌 시 처리
+            if mega_smashing_active:
+                pass
+                # 보스 방어 횟수 증가
+                mega_smashing_boss_defense_count += 1
+                print(f"🐉 고스트샷 보스 방어! 고스트샷 종료!")
             
             # 🎯 고스트샷 방어 시 공속도 50% 감소
             ball_vel[0] *= 0.5
@@ -1563,15 +1567,21 @@ def handle_ball():
             
         boss_hit_animation_timer = base_duration
         
-        # 충돌 강도에 따른 애니메이션 강화 (공 속도 기반)
-        ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-        if ball_speed > 8:  # 빠른 공일 때 더 강한 애니메이션
-            boss_hit_animation_timer = base_duration + 2
+            # 충돌 강도에 따른 애니메이션 강화 (공 속도 기반)
+            ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+            if ball_speed > 8:  # 빠른 공일 때 더 강한 애니메이션
+                boss_hit_animation_timer = base_duration + 2
 
-        if current_stage == 5 and hongryun_ready:
-            flame_trail_active = True
-            flame_trail_timer = 120
-            flame_trail_phase = 0
+            # 스테이지 2: 보스 패들이 공을 맞출 때 게이지 70 충전
+            if current_stage == 2:
+                boss_special_gauge = min(500, boss_special_gauge + 70)
+                if boss_special_gauge >= 500:
+                    boss_special_ready = True
+
+            if current_stage == 5 and hongryun_ready:
+                flame_trail_active = True
+                flame_trail_timer = 120
+                flame_trail_phase = 0
             flame_trail_positions.clear()
             
             show_hongryun_explosion()  # ⬅ 추가된 장면 연출
@@ -1678,4 +1688,3 @@ def handle_ball():
                 if boss_special_gauge_stage4 >= 300:
                     boss_special_gauge_stage4 = 300
                     boss_special_ready_stage4 = True
-

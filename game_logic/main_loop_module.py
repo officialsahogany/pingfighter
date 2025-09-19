@@ -7,7 +7,18 @@ import pygame
 import math
 import random
 import sys
+import effects_manager
 from .stage2_effects import update_stage2_leaves, draw_stage2_leaves, stage2_leaves
+
+
+def refresh_perfect_timing_indicator():
+    global perfect_timing_indicator_active, perfect_timing_active
+    counter_window = globals().get("short_shot_counter_window", 0)
+    perfect_timing_indicator_active = perfect_timing_active or counter_window > 0
+
+
+SHORT_SHOT_DASH_SPEED_MULTIPLIER = 1.30
+SHORT_SHOT_POWER_SPEED_MULTIPLIER = 1.50
 
 def main(stage_num, new_boss_mode=False):
     # 🏆 실시간 평가 시스템으로 변경됨
@@ -28,6 +39,7 @@ def main(stage_num, new_boss_mode=False):
     # 게임 진행 & 타이밍
     global is_waiting_for_serve, last_item_spawn_time, next_item_spawn_delay
     global boss_fail_timer, session_medal_earned, medal_score
+    global perfect_timing_window
     
     # 아이템 시스템
     global selected_item_index, last_item_use_time
@@ -57,6 +69,10 @@ def main(stage_num, new_boss_mode=False):
     global stage2_border_flash_duration, stage2_vines, stage2_leaves
     
     boss_fail_timer = 0  # 보스 실수 타이머 초기화
+
+    # 퍼펙트 타이밍 윈도우 최소 보장 (구버전 세이브 호환)
+    if perfect_timing_window < 12:
+        perfect_timing_window = 12
 
     current_stage = stage_num
     round_wins = 0
@@ -165,12 +181,14 @@ def main(stage_num, new_boss_mode=False):
         
         # 🎯 퍼펙트 타이밍 시스템: 스페이스바 + 방향키 프레임 단위 입력 감지
         global space_just_pressed, last_space_state, perfect_timing_active, perfect_timing_frame_count, perfect_direction
+        global perfect_timing_indicator_active
         global left_just_pressed, last_left_state, right_just_pressed, last_right_state
         global left_press_frame, right_press_frame, space_press_frame, frame_counter
         global perfect_timing_cooldown, perfect_timing_cooldown_frames, perfect_timing_input_used
         global drive_global_cooldown, drive_global_cooldown_frames, last_space_press_time
         global special_ready, special_active, special_gauge  # 🚀 파워스매싱 관련 변수들
         global power_smashing_direction, power_smashing_original_speed, ball_vel  # 🚀 파워스매싱 관련 변수
+        global short_shot_counter_window
         
         # 프레임 카운터 증가
         frame_counter += 1
@@ -264,8 +282,8 @@ def main(stage_num, new_boss_mode=False):
         # 공이 패들과 실제로 충돌할 수 있는 범위 내에서만 활성화
         # 드라이브 선입력 방지: 거리를 더 짧게 설정
         ball_will_hit_paddle = (
-            ball_to_paddle_distance <= 20 and  # 더 정확한 거리 (30 → 20) - 선입력 방지
-            ball_to_paddle_distance > -10 and  # 약간의 여유 (0 → -10)
+        ball_to_paddle_distance <= 24 and  # Y범위 약간 확대 (30 → 24)
+        ball_to_paddle_distance > -12 and  # 약간의 여유 확대 (0 → -12)
             ball_vel[1] > 0 and
             # 🎯 추가 조건: 공의 X좌표가 패들 범위 내 또는 근처에 있는지 확인
             abs(BALL.centerx - PLAYER.centerx) <= (PADDLE_WIDTH / 2 + BALL_RADIUS + 15)  # 패들 범위 + 약간의 여유 (20 → 15)
@@ -276,6 +294,7 @@ def main(stage_num, new_boss_mode=False):
                 perfect_timing_active = True
                 perfect_timing_frame_count = 0
                 perfect_timing_input_used = False  # 🆕 새로운 윈도우 시작 시 플래그 초기화
+                refresh_perfect_timing_indicator()
                 x_distance = abs(BALL.centerx - PLAYER.centerx)
                 print(f"🎯 퍼펙트 타이밍 윈도우 활성화! (Y거리: {ball_to_paddle_distance:.1f}, X거리: {x_distance:.1f})")
         
@@ -290,8 +309,8 @@ def main(stage_num, new_boss_mode=False):
                 drive_global_cooldown == 0):
                 
                 # 🆕 개선된 동시 입력 감지 (2프레임 허용 범위) - 선입력 방지
-                max_frame_gap = 2  # 최대 2프레임(0.033초) 차이까지 동시 입력으로 인정 (3 → 2)
-                max_input_age = 8  # 최대 8프레임(약 0.13초) 전까지의 입력만 유효
+                max_frame_gap = 3  # 최대 3프레임(0.05초) 차이까지 동시 입력으로 인정
+                max_input_age = 12  # 최대 12프레임(약 0.2초) 전까지의 입력만 유효
                 
                                     # 🚀 파워스매싱/고스트샷 발동: 게이지가 준비되었고 스페이스를 홀드하고 있다면
                 if special_gauge >= 350 and keys[pygame.K_SPACE]:  # 파워스매시 발동 조건: 350 이상
@@ -479,6 +498,19 @@ def main(stage_num, new_boss_mode=False):
                     
                     final_speed = math.hypot(ball_vel[0], ball_vel[1])
                     print(f"🚀 파워스매싱! 이전속도: {current_speed:.2f}, 증가량: {actual_boost:.2f}, 최종속도: {final_speed:.2f}")
+                    if short_shot_counter_window > 0:
+                        prev_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        power_multiplier = SHORT_SHOT_POWER_SPEED_MULTIPLIER
+                        ball_vel[0] *= power_multiplier
+                        ball_vel[1] *= power_multiplier
+                        boosted_speed = math.hypot(ball_vel[0], ball_vel[1])
+                        short_shot_counter_window = 0
+                        refresh_perfect_timing_indicator()
+                        power_gain = boosted_speed - prev_speed
+                        print(f"⚡ 쇼트 카운터 파워스매싱 보너스! 속도 {prev_speed:.2f} → {boosted_speed:.2f} (+{power_gain:.2f})")
+                        final_speed = boosted_speed
+                        effects_manager.spawn_short_shot_flash(BALL.centerx, BALL.centery)
+                        effects_manager.spawn_short_shot_flash(PLAYER.centerx, PLAYER.centery)
                     # 고스트샷이 아닐 때만 POWER SMASHING 표시
                     if not mega_smashing_active:
                         show_fade_text("POWER SMASHING")
@@ -522,11 +554,14 @@ def main(stage_num, new_boss_mode=False):
                     # 홀드 방식이므로 프레임 초기화 불필요
                 
                 # 왼쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
-                # 추가 조건: 키 입력이 최근(8프레임 이내)에 이루어졌어야 함
-                elif (left_press_frame >= 0 and space_press_frame >= 0 and 
-                    abs(left_press_frame - space_press_frame) <= max_frame_gap and
-                    (frame_counter - left_press_frame) <= max_input_age and  # 왼쪽 키가 최근에 눌렸는지
-                    (frame_counter - space_press_frame) <= max_input_age):   # 스페이스 키가 최근에 눌렸는지
+                # 추가 조건: 키 입력이 최근(12프레임 이내)에 이루어졌어야 함
+                elif (
+                    left_press_frame >= 0
+                    and space_press_frame >= 0
+                    and abs(left_press_frame - space_press_frame) <= max_frame_gap
+                    and (frame_counter - left_press_frame) <= max_input_age  # 왼쪽 키가 최근에 눌렸는지
+                    and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
+                ):
                     perfect_direction = -1  # 왼쪽 드라이브
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
                     drive_global_cooldown = drive_global_cooldown_frames      # 🆕 전역 쿨다운 시작
@@ -539,10 +574,13 @@ def main(stage_num, new_boss_mode=False):
                     space_press_frame = -1
                 
                 # 오른쪽 방향키 + 스페이스키 동시 입력 (드라이브 - 파워스매싱이 준비되지 않은 경우)
-                elif (right_press_frame >= 0 and space_press_frame >= 0 and 
-                      abs(right_press_frame - space_press_frame) <= max_frame_gap and
-                      (frame_counter - right_press_frame) <= max_input_age and  # 오른쪽 키가 최근에 눌렸는지
-                      (frame_counter - space_press_frame) <= max_input_age):    # 스페이스 키가 최근에 눌렸는지
+                elif (
+                    right_press_frame >= 0
+                    and space_press_frame >= 0
+                    and abs(right_press_frame - space_press_frame) <= max_frame_gap
+                    and (frame_counter - right_press_frame) <= max_input_age  # 오른쪽 키가 최근에 눌렸는지
+                    and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
+                ):
                     perfect_direction = 1   # 오른쪽 드라이브
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
                     drive_global_cooldown = drive_global_cooldown_frames      # 🆕 전역 쿨다운 시작
@@ -553,6 +591,28 @@ def main(stage_num, new_boss_mode=False):
                     # 사용된 프레임 초기화
                     right_press_frame = -1
                     space_press_frame = -1
+
+                # 한쪽 방향키를 미리 홀드한 상태에서 스페이스바를 누른 경우도 허용 (연타 방지 조건은 동일)
+                elif (
+                    space_just_pressed
+                    and drive_global_cooldown == 0
+                    and (keys[pygame.K_LEFT] or keys[pygame.K_RIGHT])
+                    and selected_character_type != "soldier"
+                ):
+                    perfect_direction = -1 if keys[pygame.K_LEFT] else 1
+                    perfect_timing_cooldown = perfect_timing_cooldown_frames
+                    drive_global_cooldown = drive_global_cooldown_frames
+                    perfect_timing_input_used = True
+                    frame_gap = 0
+                    input_age = 0
+                    print(f"🎯 드라이브 입력 감지! ({'←' if keys[pygame.K_LEFT] else '→'} 홀드 + 스페이스)")
+                    if keys[pygame.K_LEFT]:
+                        left_press_frame = frame_counter
+                        right_press_frame = -1
+                    else:
+                        right_press_frame = frame_counter
+                        left_press_frame = -1
+                    space_press_frame = frame_counter
                 
                 # 🚫 스페이스바만 누르거나 방향키만 누른 경우
                 elif space_just_pressed or left_just_pressed or right_just_pressed:
@@ -582,6 +642,7 @@ def main(stage_num, new_boss_mode=False):
                 perfect_timing_frame_count = 0
                 perfect_direction = None
                 perfect_timing_input_used = False  # 🆕 플래그 리셋
+                refresh_perfect_timing_indicator()
                 # 오래된 키 입력 기록 초기화 (선입력 방지)
                 left_press_frame = -1
                 right_press_frame = -1
@@ -601,6 +662,7 @@ def main(stage_num, new_boss_mode=False):
                     print(f"🎯 퍼펙트 타이밍 윈도우 비활성화: 공이 패들 범위를 벗어남 (X거리: {x_distance:.1f})")
                 perfect_direction = None
                 perfect_timing_input_used = False  # 🆕 플래그 리셋
+                refresh_perfect_timing_indicator()
                 # 오래된 키 입력 기록 초기화 (선입력 방지)
                 left_press_frame = -1
                 right_press_frame = -1
@@ -1114,4 +1176,3 @@ def main(stage_num, new_boss_mode=False):
             
             show_result(False)
             return
-

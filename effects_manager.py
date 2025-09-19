@@ -22,6 +22,7 @@ star_particles = []
 balloon_pop_effects = []
 item_obtained_effects = []
 impact_particles = []
+short_shot_flash_effects = []
 drive_particles = []  # 드라이브 별빛가루 파티클
 dash_smoke_particles = []  # 하프대시 연기 파티클
 
@@ -458,6 +459,71 @@ def update_impact_particles():
     impact_particles = new_particles
 
 
+def spawn_short_shot_flash(x, y, radius=32, duration=10):
+    """쇼트 카운터 시 눈꽃 결정 느낌의 보라빛 섬광 생성"""
+    global short_shot_flash_effects
+    short_shot_flash_effects.append({
+        'x': x,
+        'y': y,
+        'radius': radius,
+        'timer': duration,
+        'duration': duration,
+        'angle': random.uniform(0, math.pi / 3)
+    })
+
+
+def update_short_shot_flash_effects():
+    """쇼트 카운터 섬광 갱신"""
+    global short_shot_flash_effects
+    updated = []
+    for flash in short_shot_flash_effects:
+        flash['timer'] -= 1
+        if flash['timer'] > 0:
+            flash['radius'] *= 1.05
+            flash['angle'] += 0.08
+            updated.append(flash)
+    short_shot_flash_effects = updated
+
+
+def draw_short_shot_flash_effects(surface):
+    """쇼트 카운터 섬광 그리기"""
+    for flash in short_shot_flash_effects:
+        progress = flash['timer'] / flash['duration']
+        alpha = int(170 * progress)
+        radius = max(8, int(flash['radius']))
+        size = radius * 2
+        flash_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        core_color = (205, 175, 255, int(alpha * 0.6))
+        halo_color = (245, 235, 255, int(alpha * 0.35))
+        pygame.draw.circle(flash_surface, halo_color, (radius, radius), radius)
+        pygame.draw.circle(flash_surface, core_color, (radius, radius), max(4, radius // 3))
+
+        spoke_length = radius - 4
+        spoke_color = (255, 255, 255, int(alpha * 0.8))
+        for i in range(3):
+            angle = flash['angle'] + i * math.pi / 3
+            dx = math.cos(angle) * spoke_length
+            dy = math.sin(angle) * spoke_length
+            start_pos = (radius - dx, radius - dy)
+            end_pos = (radius + dx, radius + dy)
+            pygame.draw.line(flash_surface, spoke_color, start_pos, end_pos, 2)
+            # 작은 가지
+            branch_angle = angle + math.pi / 6
+            branch_dx = math.cos(branch_angle) * (spoke_length * 0.35)
+            branch_dy = math.sin(branch_angle) * (spoke_length * 0.35)
+            mid_pos = (radius + dx * 0.6, radius + dy * 0.6)
+            pygame.draw.line(flash_surface, spoke_color,
+                             mid_pos,
+                             (mid_pos[0] + branch_dx, mid_pos[1] + branch_dy), 1)
+            branch_angle = angle - math.pi / 6
+            branch_dx = math.cos(branch_angle) * (spoke_length * 0.35)
+            branch_dy = math.sin(branch_angle) * (spoke_length * 0.35)
+            pygame.draw.line(flash_surface, spoke_color,
+                             mid_pos,
+                             (mid_pos[0] + branch_dx, mid_pos[1] + branch_dy), 1)
+        surface.blit(flash_surface, (flash['x'] - radius, flash['y'] - radius))
+
+
 def draw_impact_particles():
     """임팩트 파티클 그리기"""
     for particle in impact_particles:
@@ -678,6 +744,7 @@ def update_all_effects():
     update_balloon_pop_effect()
     update_item_obtained_effect()
     update_impact_particles()
+    update_short_shot_flash_effects()
 
 
 def draw_all_effects(surface):
@@ -687,6 +754,7 @@ def draw_all_effects(surface):
     draw_balloon_pop_effect()
     draw_item_obtained_effect()
     draw_impact_particles()
+    draw_short_shot_flash_effects(surface)
 
 
 def clear_all_effects():

@@ -154,10 +154,11 @@ class GameState:
         self.music_volume = 0.5
         
         # ========== 퍼펙트 타이밍 시스템 ==========
-        self.perfect_timing_window = 6
+        self.perfect_timing_window = 12
         self.perfect_timing_active = False
         self.perfect_timing_frame_count = 0
         self.perfect_direction = None
+        self.perfect_timing_indicator_active = False
         
         # ========== 입력 상태 ==========
         self.space_just_pressed = False

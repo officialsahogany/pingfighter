@@ -20,6 +20,7 @@ def draw_objects():
     global boss_hit_animation_active, boss_hit_animation_timer  # 🆕 보스 충돌 애니메이션 변수 추가
     global power_smashing_trails, power_smashing_particles, mega_smashing_meteor_trail  # 🔥 파워스매싱 이펙트 변수 추가
     global perfect_timing_active, perfect_timing_frame_count, perfect_timing_window  # 🎯 퍼펙트 타이밍 변수 추가
+    global perfect_timing_indicator_active, short_shot_counter_window
     global special_gauge  # 🆕 드라이브 게이지 확인용
     global grenade_shake_timer  # 💣 수류탄 화면 흔들림
     global shield_antenna_active, shield_antenna_timer, shield_antenna_cooldown
@@ -107,11 +108,11 @@ def draw_objects():
             status_rect = status_text.get_rect(center=(WIDTH // 2, serve_rect.bottom + 20))
             SCREEN.blit(status_text, status_rect)
 
-    # 🎯 퍼펙트 타이밍 윈도우 시각적 표시 (게이지 200 이상일 때만)
-    elif perfect_timing_active and special_gauge >= 200:
+    # 🎯 퍼펙트 타이밍 윈도우 시각적 표시 (드라이브 가능 시 항상 유지)
+    elif perfect_timing_indicator_active and special_gauge >= 150:
         pass
         # 공 주변에 퍼펙트 타이밍 인디케이터 그리기
-        timing_alpha = int(255 * (1.0 - perfect_timing_frame_count / perfect_timing_window))
+        timing_alpha = 255
         timing_radius = 30 + int(5 * math.sin(pygame.time.get_ticks() * 0.2))
         
         # 반투명 원 그리기 - 파워스매싱 준비 상태에 따라 색상 변경
@@ -128,7 +129,9 @@ def draw_objects():
         
         # 텍스트 표시 - 파워스매싱 준비 상태에 따라 다르게 표시
         timing_font = pygame.font.Font("NanumSquareR.ttf", 24)
-        if special_ready:
+        if short_shot_counter_window > 0:
+            timing_text = timing_font.render("Combo!", True, (255, 255, 0))
+        elif special_ready:
             pass
             # 파워스매싱 준비 상태일 때 - 빨간색 SMASHING
             timing_text = timing_font.render("SMASHING", True, (255, 80, 80))
@@ -2891,4 +2894,3 @@ def draw_objects():
                     draw.line((255, 255, 200), 
                                    (orb_x + tooth_x, start_y + orb_radius + 2),
                                    (orb_x + tooth_x, start_y + orb_radius + 4), 1)
-

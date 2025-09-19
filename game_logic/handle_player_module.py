@@ -10,6 +10,7 @@ import random
 def handle_player(keys):
     global ball_angle, special_gauge, special_ready, special_active, recent_dash_time, recent_dash_success_window
     global power_smashing_direction, mega_smashing_bonus_applied
+    global boss_special_gauge, boss_special_ready
     global current_speed, player_slow_timer
     global rolling_consecutive_count, rolling_consecutive_timer  # 🎯 연속 대쉬 카운터 및 타이머
     global long_boost_active, long_boost_timer, PADDLE_WIDTH
@@ -1121,6 +1122,11 @@ def handle_player(keys):
             # 🔧 필살기 준비 상태 업데이트 (400 이상일 때)
             if special_gauge >= 350:  # 파워스매시 발동 조건
                 special_ready = True
+
+            if current_stage == 2:
+                boss_special_gauge = min(500, boss_special_gauge + 70)
+                if boss_special_gauge >= 500:
+                    boss_special_ready = True
             # 충돌 쿨다운 설정하여 중복 충전 방지
             player_collision_cooldown = 15
         elif rolling_active:
@@ -1226,4 +1232,3 @@ stage_medal_rewards = {
 session_medal_earned = 0  # main 함수 외부에 선언
 
 final_wave_direction = [0, 0]  # 공의 마지막 이동 방향 (X, Y)
-
