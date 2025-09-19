@@ -1473,6 +1473,10 @@ stage6_boss_hit_timer = 0  # 보스 피격 타이머 (깜빡임 지속 시간)
 stage6_boss_hit_flash = False  # 보스 피격 깜빡임 상태
 # 스테이지 6 장막 충돌 효과
 stage6_barrier_flash_timer = 0  # 장막 깜빡임 타이머
+# 스테이지 6 쇼트 기술 관련 변수
+short_shot_active = False  # 쇼트 기술 활성화 여부
+short_shot_timer = 0  # 쇼트 기술 지속 시간
+short_shot_curve_phase = 0  # 곡선 단계 (0: 수직, 1: 곡선 시작)
 #  아이템 시스템
 # 액티브 아이템
 active_item_slot = []                # 리스트로 바꿔서 최대 3개 보관
@@ -11422,6 +11426,30 @@ def handle_player(keys):
                 chapter4_power_helper_timer = 300  # 5초간 표시
                 print("🎯 Chapter 4: 500 게이지 도달! 파워스매싱 도우미 표시")
         
+        # 스매셔 쇼트 기술 체크
+        global short_shot_active, short_shot_timer, short_shot_curve_phase
+        if keys[pygame.K_UP] and current_stage == 6:  # 위 방향키를 누른 상태이고 스테이지 6일 때
+            # 쇼트 기술 활성화
+            short_shot_active = True
+            short_shot_timer = 120  # 2초간 유지
+            short_shot_curve_phase = 0  # 곡선 단계 초기화
+            
+            # 공의 속도를 수직에 가깝게 변경 (약간의 각도 보정 포함)
+            current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+            
+            # 원래 방향의 약간의 영향을 남김 (최대 10도 오차)
+            angle_offset = ball_vel[0] / current_speed * 0.174  # 0.174 라디안 = 약 10도
+            
+            # 수직에 가까운 각도로 설정
+            ball_vel[0] = angle_offset * current_speed * 0.3  # x 속도는 매우 작게
+            ball_vel[1] = -current_speed * 0.95  # y 속도는 대부분 위쪽으로
+            
+            # 시각 효과 및 사운드
+            play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)  # 쇼트 발동 사운드
+            show_speech("쇼트!", duration=60)
+            
+            print(f"스매셔 쇼트 발동! 각도: {math.degrees(math.atan2(ball_vel[1], ball_vel[0])):.1f}°")
+        
         #  가속화 스킬은 이제 패들 사이즈 증가로 변경됨 (공속도 증가 제거)
         drive_activated = calculate_bounce(PLAYER)
         print(f" DEBUG: calculate_bounce  - drive_activated: {drive_activated}")  #  
@@ -18630,6 +18658,32 @@ def draw_objects():
         if not ball_in_kuromi:  # 쿠로미가 먹지 않았을 때만 그리기
             draw_with_shake(rotated_ball, ball_img_rect.topleft)
         ball_already_drawn = True  # 공이 그려졌음을 표시
+    
+    # 쇼트 기술 시각 효과
+    if short_shot_active and short_shot_timer > 0 and not ball_in_kuromi:
+        # 공 주변에 전기 효과
+        for i in range(3):
+            angle = (pygame.time.get_ticks() / 50 + i * 120) % 360
+            x = ball_rect.centerx + math.cos(math.radians(angle)) * 15
+            y = ball_rect.centery + math.sin(math.radians(angle)) * 15
+            
+            # 전기 스파크
+            spark_color = (100, 200, 255) if i % 2 == 0 else (255, 255, 100)
+            pygame.draw.circle(SCREEN, spark_color, (int(x), int(y)), 3)
+            
+        # 곡선 단계에서는 잔상 추가
+        if short_shot_curve_phase == 1:
+            # 꼬리 효과
+            trail_length = 5
+            for i in range(trail_length):
+                alpha = 255 - (i * 50)
+                if alpha > 0:
+                    trail_x = ball_rect.centerx - ball_vel[0] * i * 2
+                    trail_y = ball_rect.centery - ball_vel[1] * i * 2
+                    trail_surface = pygame.Surface((BALL_RADIUS * 2, BALL_RADIUS * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(trail_surface, (150, 200, 255, alpha), 
+                                     (BALL_RADIUS, BALL_RADIUS), BALL_RADIUS)
+                    SCREEN.blit(trail_surface, (trail_x - BALL_RADIUS, trail_y - BALL_RADIUS))
     
     # 기본 공 그리기 (아직 그려지지 않은 경우에만, 그리고 쿠로미가 먹지 않았을 때)
     if not ball_already_drawn and not ball_in_kuromi:
@@ -32093,6 +32147,7 @@ def reset_round():
     global ragnarok_stun_attempted_this_rally  # 라그나로크 해머 스턴 플래그
     global leg_shot_active, leg_shot_timer, leg_shot_text_timer  # 권총 레그샷 관련 변수
     global head_shot_active, head_shot_timer, head_shot_text_timer, boss_stunned_timer  # 권총 헤드샷 관련 변수
+    global short_shot_active, short_shot_timer, short_shot_curve_phase  # 스매셔 쇼트 기술 관련 변수
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -32356,6 +32411,11 @@ def reset_round():
     # 헤드샷으로 인한 boss_stunned_timer도 초기화
     if boss_stunned_timer > 0 and head_shot_active:
         boss_stunned_timer = 0
+    
+    # 스매셔 쇼트 기술 상태 초기화 (라운드 시작 시)
+    short_shot_active = False
+    short_shot_timer = 0
+    short_shot_curve_phase = 0
     
     #  상모돌리기 상태 초기화 (라운드 시작 시)
     whip_active = False
@@ -35035,6 +35095,39 @@ def handle_ball():
                 # 전설 아이템 매니저 접근 실패 시 기본 속도 사용
                 print(f"[ERROR] Legendary manager error: {e}")
                 pass
+            
+            # 쇼트 기술 궤적 처리
+            if short_shot_active and short_shot_timer > 0:
+                short_shot_timer -= 1
+                
+                # 시간에 따른 단계 진행 (전체 지속시간의 40% 이후 곡선 시작)
+                progress = (120 - short_shot_timer) / 120.0  # 0 ~ 1
+                
+                if progress > 0.4 and short_shot_curve_phase == 0:
+                    # 곡선 단계로 전환
+                    short_shot_curve_phase = 1
+                    print("쇼트 기술: 곡선 단계 시작")
+                
+                if short_shot_curve_phase == 1:
+                    # 곡선 효과 - 부드럽게 수평 방향으로 꺾임
+                    curve_strength = (progress - 0.4) / 0.6  # 0 ~ 1 (곡선 단계에서)
+                    curve_strength = curve_strength ** 2  # 부드러운 가속
+                    
+                    # 원래 수평 방향으로 복귀 (보스 쪽으로)
+                    target_x_vel = 8.0 if BALL.centerx < WIDTH / 2 else -8.0  # 방향에 따라
+                    
+                    # 부드럽게 속도 전환
+                    ball_vel[0] = ball_vel[0] * (1 - curve_strength * 0.03) + target_x_vel * curve_strength * 0.03
+                    ball_vel[1] = ball_vel[1] * (1 - curve_strength * 0.02)  # Y 속도는 천천히 감소
+                    
+                    # 시각 효과 - 잔상
+                    if pygame.time.get_ticks() % 3 == 0:  # 3프레임마다
+                        create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
+                
+                if short_shot_timer == 0:
+                    short_shot_active = False
+                    short_shot_curve_phase = 0
+                    print("쇼트 기술 종료")
             
             # 한 스텝 이동
             BALL.x += actual_vel_x
