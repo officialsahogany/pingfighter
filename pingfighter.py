@@ -11429,26 +11429,38 @@ def handle_player(keys):
         # 스매셔 쇼트 기술 체크
         global short_shot_active, short_shot_timer, short_shot_curve_phase
         if keys[pygame.K_UP] and current_stage == 6:  # 위 방향키를 누른 상태이고 스테이지 6일 때
-            # 쇼트 기술 활성화
-            short_shot_active = True
-            short_shot_timer = 120  # 2초간 유지
-            short_shot_curve_phase = 0  # 곡선 단계 초기화
+            print(f"[DEBUG] 쇼트 기술 체크 - UP키: {keys[pygame.K_UP]}, Stage: {current_stage}, 현재 활성화: {short_shot_active}")
             
-            # 공의 속도를 수직에 가깝게 변경 (약간의 각도 보정 포함)
-            current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-            
-            # 원래 방향의 약간의 영향을 남김 (최대 10도 오차)
-            angle_offset = ball_vel[0] / current_speed * 0.174  # 0.174 라디안 = 약 10도
-            
-            # 수직에 가까운 각도로 설정
-            ball_vel[0] = angle_offset * current_speed * 0.3  # x 속도는 매우 작게
-            ball_vel[1] = -current_speed * 0.95  # y 속도는 대부분 위쪽으로
-            
-            # 시각 효과 및 사운드
-            play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)  # 쇼트 발동 사운드
-            show_speech("쇼트!", duration=60)
-            
-            print(f"스매셔 쇼트 발동! 각도: {math.degrees(math.atan2(ball_vel[1], ball_vel[0])):.1f}°")
+            # 이미 활성화 중이면 스킵
+            if not short_shot_active:
+                # 쇼트 기술 활성화
+                short_shot_active = True
+                short_shot_timer = 120  # 2초간 유지
+                short_shot_curve_phase = 0  # 곡선 단계 초기화
+                
+                # 공의 속도를 수직에 가깝게 변경 (약간의 각도 보정 포함)
+                current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                
+                # 원래 방향의 약간의 영향을 남김 (최대 10도 오차)
+                angle_offset = ball_vel[0] / current_speed * 0.174  # 0.174 라디안 = 약 10도
+                
+                # 수직에 가까운 각도로 설정
+                ball_vel[0] = angle_offset * current_speed * 0.3  # x 속도는 매우 작게
+                ball_vel[1] = -current_speed * 0.95  # y 속도는 대부분 위쪽으로
+                
+                # 빛나는 이펙트 생성
+                for i in range(20):
+                    angle = random.uniform(0, math.pi * 2)
+                    distance = random.uniform(20, 50)
+                    x = PLAYER.centerx + math.cos(angle) * distance
+                    y = PLAYER.centery + math.sin(angle) * distance
+                    create_particle(x, y, (255, 255, 100), lifetime=30)  # 노란색 빛 파티클
+                
+                # 시각 효과 및 사운드
+                play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)  # 쇼트 발동 사운드
+                show_speech("쇼트!", duration=60)
+                
+                print(f"[DEBUG] 스매셔 쇼트 발동! 속도: {current_speed:.1f}, 각도: {math.degrees(math.atan2(ball_vel[1], ball_vel[0])):.1f}°")
         
         #  가속화 스킬은 이제 패들 사이즈 증가로 변경됨 (공속도 증가 제거)
         drive_activated = calculate_bounce(PLAYER)
@@ -18661,29 +18673,49 @@ def draw_objects():
     
     # 쇼트 기술 시각 효과
     if short_shot_active and short_shot_timer > 0 and not ball_in_kuromi:
+        # 빛나는 효과 - 공 주변에 밝은 광채
+        glow_radius = BALL_RADIUS + 10 + math.sin(pygame.time.get_ticks() / 100) * 5
+        glow_surface = pygame.Surface((glow_radius * 4, glow_radius * 4), pygame.SRCALPHA)
+        
+        # 여러 층의 빛으로 부드러운 광채 효과
+        for i in range(5):
+            radius = glow_radius - i * 3
+            alpha = 50 - i * 10
+            if radius > 0 and alpha > 0:
+                pygame.draw.circle(glow_surface, (255, 255, 150, alpha), 
+                                 (glow_radius * 2, glow_radius * 2), radius)
+        
+        SCREEN.blit(glow_surface, (ball_rect.centerx - glow_radius * 2, 
+                                  ball_rect.centery - glow_radius * 2), special_flags=pygame.BLEND_ADD)
+        
         # 공 주변에 전기 효과
-        for i in range(3):
-            angle = (pygame.time.get_ticks() / 50 + i * 120) % 360
-            x = ball_rect.centerx + math.cos(math.radians(angle)) * 15
-            y = ball_rect.centery + math.sin(math.radians(angle)) * 15
+        for i in range(6):  # 스파크 수 증가
+            angle = (pygame.time.get_ticks() / 30 + i * 60) % 360  # 더 빠른 회전
+            x = ball_rect.centerx + math.cos(math.radians(angle)) * 20
+            y = ball_rect.centery + math.sin(math.radians(angle)) * 20
             
             # 전기 스파크
-            spark_color = (100, 200, 255) if i % 2 == 0 else (255, 255, 100)
-            pygame.draw.circle(SCREEN, spark_color, (int(x), int(y)), 3)
+            spark_color = (150, 200, 255) if i % 2 == 0 else (255, 255, 150)
+            pygame.draw.circle(SCREEN, spark_color, (int(x), int(y)), 4)
+            
+            # 작은 라인 효과
+            end_x = ball_rect.centerx + math.cos(math.radians(angle + 180)) * 10
+            end_y = ball_rect.centery + math.sin(math.radians(angle + 180)) * 10
+            pygame.draw.line(SCREEN, spark_color, (int(x), int(y)), (int(end_x), int(end_y)), 2)
             
         # 곡선 단계에서는 잔상 추가
         if short_shot_curve_phase == 1:
             # 꼬리 효과
-            trail_length = 5
+            trail_length = 8  # 더 긴 잔상
             for i in range(trail_length):
-                alpha = 255 - (i * 50)
+                alpha = 200 - (i * 25)
                 if alpha > 0:
                     trail_x = ball_rect.centerx - ball_vel[0] * i * 2
                     trail_y = ball_rect.centery - ball_vel[1] * i * 2
-                    trail_surface = pygame.Surface((BALL_RADIUS * 2, BALL_RADIUS * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(trail_surface, (150, 200, 255, alpha), 
-                                     (BALL_RADIUS, BALL_RADIUS), BALL_RADIUS)
-                    SCREEN.blit(trail_surface, (trail_x - BALL_RADIUS, trail_y - BALL_RADIUS))
+                    trail_surface = pygame.Surface((BALL_RADIUS * 3, BALL_RADIUS * 3), pygame.SRCALPHA)
+                    pygame.draw.circle(trail_surface, (200, 220, 255, alpha), 
+                                     (BALL_RADIUS * 1.5, BALL_RADIUS * 1.5), BALL_RADIUS)
+                    SCREEN.blit(trail_surface, (trail_x - BALL_RADIUS * 1.5, trail_y - BALL_RADIUS * 1.5))
     
     # 기본 공 그리기 (아직 그려지지 않은 경우에만, 그리고 쿠로미가 먹지 않았을 때)
     if not ball_already_drawn and not ball_in_kuromi:
@@ -35105,10 +35137,14 @@ def handle_ball():
                 # 시간에 따른 단계 진행 (전체 지속시간의 40% 이후 곡선 시작)
                 progress = (120 - short_shot_timer) / 120.0  # 0 ~ 1
                 
+                if short_shot_timer % 30 == 0:  # 0.5초마다 디버그
+                    print(f"[DEBUG] 쇼트 진행 중 - Timer: {short_shot_timer}, Progress: {progress:.2f}, Phase: {short_shot_curve_phase}")
+                    print(f"[DEBUG] 공 속도 - X: {ball_vel[0]:.2f}, Y: {ball_vel[1]:.2f}")
+                
                 if progress > 0.4 and short_shot_curve_phase == 0:
                     # 곡선 단계로 전환
                     short_shot_curve_phase = 1
-                    print("쇼트 기술: 곡선 단계 시작")
+                    print("[DEBUG] 쇼트 기술: 곡선 단계 시작!")
                 
                 if short_shot_curve_phase == 1:
                     # 곡선 효과 - 부드럽게 수평 방향으로 꺾임
@@ -35129,6 +35165,7 @@ def handle_ball():
                 if short_shot_timer == 0:
                     short_shot_active = False
                     short_shot_curve_phase = 0
+                    print("[DEBUG] 쇼트 기술 종료!")
                     print("쇼트 기술 종료")
             
             # 한 스텝 이동
