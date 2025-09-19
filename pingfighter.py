@@ -11428,7 +11428,8 @@ def handle_player(keys):
         
         # 스매셔 쇼트 기술 체크
         global short_shot_active, short_shot_timer, short_shot_curve_phase
-        if keys[pygame.K_UP] and current_stage == 6:  # 위 방향키를 누른 상태이고 스테이지 6일 때
+        # 디버그용으로 모든 스테이지에서 테스트 가능하도록 임시 변경
+        if keys[pygame.K_UP]:  # and current_stage == 6:  # 위 방향키를 누른 상태에서
             print(f"[DEBUG] 쇼트 기술 체크 - UP키: {keys[pygame.K_UP]}, Stage: {current_stage}, 현재 활성화: {short_shot_active}")
             
             # 이미 활성화 중이면 스킵
