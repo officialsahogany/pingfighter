@@ -162,11 +162,16 @@ from item_effects.ammo_box import get_ammo_box_instance
 from item_effects.ak47 import get_ak47_instance
 from item_effects.net_gun import get_net_gun_instance
 from supply_drop import (
+    SupplyDropRuntime,
     SupplyDropState,
     update_items as supply_update_items,
     draw_items as supply_draw_items,
-    draw_radio_motion as supply_draw_radio_motion,
+    update_system as supply_update_system,
+    start_radio_loop as supply_start_radio_loop,
+    stop_radio_loop as supply_stop_radio_loop,
+    update_radio_animation as supply_update_radio_animation,
 )
+from soldier import SoldierWeaponController
 #  전설 아이템 시스템
 from legendary_items import get_legendary_manager, LegendaryItem
 #  전설 아이템 획득 애니메이션
@@ -2999,120 +3004,48 @@ dash_spirit_lasers = []  # [(start_x, start_y, end_x, end_y, remaining_time, dir
 DASH_SPIRIT_LASER_DURATION = 360  # 6초 (60fps 기준)
 
 # === 물자보급 스킬 시스템 ===
-supply_drop_state = SupplyDropState()
-supply_radio_motion = False  # 무전기 모션 활성화 여부
-supply_radio_timer = 0  # 무전기 모션 타이머
-supply_radio_hold_active = False  # ↓키 홀드 여부
-supply_radio_sound = None  # 무전기 사운드 캐시
-supply_radio_channel = None  # 무전기 사운드 채널
-supply_drop_hold_time = 0  # 물자보급 발동을 위한 ↓키 홀드 시간
-SUPPLY_DROP_HOLD_REQUIRED = 60  # 물자보급 발동에 필요한 홀드 시간 (1초, 60fps 기준)
-SUPPLY_DROP_HOLD_THRESHOLD = 18  # 게이지 표시 시작 시간 (0.3초, 60fps 기준)
-SUPPLY_DROP_GAUGE_COST = 350  # 물자보급 스킬 게이지 소모량
+supply_runtime = SupplyDropRuntime()
+supply_drop_state = supply_runtime.state
+SUPPLY_DROP_HOLD_REQUIRED = supply_drop_state.config.hold_required
+SUPPLY_DROP_HOLD_THRESHOLD = supply_drop_state.config.hold_threshold
+SUPPLY_DROP_GAUGE_COST = supply_drop_state.config.gauge_cost
 
 
-def ensure_supply_radio_sound():
-    """무전기 효과음을 캐시하여 재사용한다."""
+def start_supply_radio_loop() -> None:
+    """무전기 애니메이션과 사운드를 시작한다."""
 
-    global supply_radio_sound
-    if supply_radio_sound is None:
-        try:
-            sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "radio.wav")))
-            sound.set_volume(0.6)
-            supply_radio_sound = sound
-        except Exception as e:
-            print(f"무전기 효과음 로드 실패: {e}")
-            supply_radio_sound = False
-    if supply_radio_sound is False:
-        return None
-    return supply_radio_sound
+    supply_start_radio_loop(supply_runtime, resource_path)
 
 
-def start_supply_radio_loop():
-    """무전기 애니메이션과 루프 사운드를 시작한다."""
-
-    global supply_radio_motion, supply_radio_timer, supply_radio_hold_active, supply_radio_channel
-    supply_radio_motion = True
-    supply_radio_hold_active = True
-    supply_radio_timer = max(supply_radio_timer, 30)
-
-    sound = ensure_supply_radio_sound()
-    if sound is None:
-        return
-
-    try:
-        if supply_radio_channel is None or not supply_radio_channel.get_busy():
-            supply_radio_channel = sound.play(-1)
-    except Exception as e:
-        print(f"무전기 효과음 재생 실패: {e}")
-
-
-def stop_supply_radio_loop(keep_animation: bool = False):
+def stop_supply_radio_loop(keep_animation: bool = False, *, force: bool = False) -> None:
     """무전기 루프 사운드를 중단하고 상태를 정리한다."""
 
-    global supply_radio_hold_active, supply_radio_motion, supply_radio_timer, supply_radio_channel
-    supply_radio_hold_active = False
-
-    if supply_radio_channel:
-        try:
-            supply_radio_channel.stop()
-        except Exception:
-            pass
-        supply_radio_channel = None
-
-    if not keep_animation:
-        supply_radio_motion = False
-        supply_radio_timer = 0
+    supply_stop_radio_loop(supply_runtime, keep_animation=keep_animation, force=force)
 
 
-def update_supply_drop_system():
+def update_supply_drop_system() -> None:
     """물자보급 시스템 전체 업데이트"""
 
-    if supply_drop_state.active:
-        if supply_drop_state.timer > 0:
-            supply_drop_state.timer -= 1
-            if supply_drop_state.timer % 30 == 0:
-                print(
-                    f"🎁 [물자보급 타이머] {supply_drop_state.timer} 프레임 남음 "
-                    f"({supply_drop_state.timer/60:.1f}초)"
-                )
-            if supply_drop_state.timer == 0:
-                direction = random.choice(["left_to_right", "right_to_left"])
-                supply_drop_state.aircraft = SupplyAircraft(direction)
-                print(f"✈️ 군용 비행기 출현! 방향: {direction}")
-        elif supply_drop_state.aircraft is None:
-            supply_drop_state.active = False
-            print("물자보급 완전히 종료 (비행기 파괴됨)")
-            if supply_drop_state.items:
-                print(f"  → 아직 {len(supply_drop_state.items)}개의 아이템이 필드에 남아있음")
+    player_rect = PLAYER.copy()
+    boss_rect = BOSS.copy()
 
-    aircraft = supply_drop_state.aircraft
-    if aircraft and aircraft.active:
-        aircraft.update()
-
-        global BALL, last_hit_by, ball_vel
-        if aircraft.check_ball_collision(BALL, last_hit_by) and last_hit_by == "player":
-            ball_vel[1] *= -0.5
-
-        global PLAYER, BOSS, walls
-        player_rect = pygame.Rect(PLAYER.x, PLAYER.y, PLAYER.width, PLAYER.height)
-        boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
-        aircraft.check_paddle_brick_collision(player_rect, boss_rect, walls)
-
-    if aircraft and not aircraft.active:
-        if hasattr(aircraft, "stop_sound"):
-            aircraft.stop_sound()
-        supply_drop_state.aircraft = None
-        supply_drop_state.active = False
-        print("비행기 파괴 완료")
-
-    supply_update_items(
-        supply_drop_state,
-        player_rect=PLAYER,
+    supply_update_system(
+        supply_runtime,
         width=WIDTH,
         height=HEIGHT,
+        ball_rect=BALL,
+        last_hit_by=last_hit_by,
+        ball_velocity=ball_vel,
+        player_rect=player_rect,
+        boss_rect=boss_rect,
+        bricks=walls,
         activate_item=activate_supply_drop_item,
-        proximity_debug=False,
+        create_aircraft=lambda direction: SupplyAircraft(
+            direction,
+            screen_width=WIDTH,
+            screen_height=HEIGHT,
+            engine_sound=SOUND_AIRPLANE,
+        ),
     )
 
 
@@ -3177,10 +3110,10 @@ def draw_supply_drop_gauge(screen: pygame.Surface) -> None:
 
 def draw_supply_radio_motion(screen):
     """무전기 모션 그리기 - 실제로 귀에 대고 통화하는 모습"""
-    global supply_radio_motion, supply_radio_timer
-    
-    if not supply_radio_motion or supply_radio_timer <= 0:
-        supply_radio_motion = False  # 확실히 비활성화
+
+    state = supply_drop_state
+    if not state.radio_motion or state.radio_timer <= 0:
+        state.radio_motion = False  # 확실히 비활성화
         return
     
     # 플레이어 위치
@@ -3268,12 +3201,12 @@ def draw_supply_radio_motion(screen):
                       (radio_x + 4, radio_y + 6), 2)
     
     # LED 표시등 (송신 중)
-    led_color = (0, 255, 0) if supply_radio_timer % 10 < 5 else (0, 150, 0)  # 깜빡임
+    led_color = (0, 255, 0) if state.radio_timer % 10 < 5 else (0, 150, 0)  # 깜빡임
     pygame.draw.circle(screen, led_color, 
                       (radio_x, radio_y - 8), 2)
     
     # === 무전 신호 효과 (전파) ===
-    signal_alpha = int(255 * (supply_radio_timer / 30))  # 페이드 효과
+    signal_alpha = int(255 * (state.radio_timer / 30))  # 페이드 효과
     if signal_alpha > 0:
         # 무전기에서 나오는 전파
         signal_surface = pygame.Surface((120, 120), pygame.SRCALPHA)
@@ -3292,9 +3225,9 @@ def draw_supply_radio_motion(screen):
         screen.blit(signal_surface, (radio_x - 60, radio_y - 60))
     
     # 대사 텍스트 (무전 내용)
-    if supply_radio_timer > 20:
+    if state.radio_timer > 20:
         text = "지원 요청!"
-    elif supply_radio_timer > 10:
+    elif state.radio_timer > 10:
         text = "물자 투하!"
     else:
         text = "알았다!"
@@ -3342,11 +3275,10 @@ def draw_supply_radio_motion(screen):
         pass
     
     # 타이머 감소 (30프레임 = 0.5초 동안 유지)
-    if supply_radio_timer > 0:
-        supply_radio_timer -= 1
-        if supply_radio_timer <= 0:
-            supply_radio_motion = False
-            print("📻 무전기 모션 완료")
+    previous_timer = state.radio_timer
+    supply_update_radio_animation(supply_runtime)
+    if previous_timer > 0 and state.radio_timer <= 0:
+        print("📻 무전기 모션 완료")
 
 
 def draw_supply_drop_system(screen: pygame.Surface) -> None:
@@ -3491,21 +3423,16 @@ def activate_supply_drop_item(item_name: str) -> None:
     """Handle collection of a supply-drop item."""
 
     import items
-    global soldier_weapons, current_weapon_index, weapon_ui_highlight_timer, weapon_ui_highlight_duration
 
     print(f"🔍 아이템 검색 시작: {item_name}")
 
     # 화기류 특수 처리
     if item_name == "bazooka":
-        if "bazooka" not in soldier_weapons:
-            soldier_weapons.append("bazooka")
-            reset_weapon_tracking("bazooka")
-            print(f"🚀 바주카포 획득! 현재 화기류: {soldier_weapons}")
+        if soldier_controller.add_weapon("bazooka"):
+            print(f"🚀 바주카포 획득! 현재 화기류: {soldier_controller.weapons}")
             from item_effects.bazooka import get_bazooka_instance
             bazooka = get_bazooka_instance()
             bazooka.equip()
-            current_weapon_index = len(soldier_weapons) - 1
-            weapon_ui_highlight_timer = weapon_ui_highlight_duration
             try:
                 if SOUND_ITEM_GET:
                     SOUND_ITEM_GET.play()
@@ -3514,15 +3441,11 @@ def activate_supply_drop_item(item_name: str) -> None:
         return
 
     if item_name == "ak47":
-        if "ak47" not in soldier_weapons:
-            soldier_weapons.append("ak47")
-            reset_weapon_tracking("ak47")
-            print(f"🔫 AK-47 획득! 현재 화기류: {soldier_weapons}")
+        if soldier_controller.add_weapon("ak47"):
+            print(f"🔫 AK-47 획득! 현재 화기류: {soldier_controller.weapons}")
             ak47 = get_ak47_instance()
             ak47.activate(None, None)
             ak47.active = True  # 활성 상태로 설정
-            current_weapon_index = len(soldier_weapons) - 1
-            weapon_ui_highlight_timer = weapon_ui_highlight_duration
             try:
                 if SOUND_ITEM_GET:
                     SOUND_ITEM_GET.play()
@@ -3531,15 +3454,11 @@ def activate_supply_drop_item(item_name: str) -> None:
         return
 
     if item_name == "net_gun":
-        if "net_gun" not in soldier_weapons:
-            soldier_weapons.append("net_gun")
-            reset_weapon_tracking("net_gun")
-            print(f"🕸️ 그물덫총 획득! 현재 화기류: {soldier_weapons}")
+        if soldier_controller.add_weapon("net_gun"):
+            print(f"🕸️ 그물덫총 획득! 현재 화기류: {soldier_controller.weapons}")
             net_gun = get_net_gun_instance()
             net_gun.reload()
             net_gun.equip()
-            current_weapon_index = len(soldier_weapons) - 1
-            weapon_ui_highlight_timer = weapon_ui_highlight_duration
             try:
                 if SOUND_ITEM_GET:
                     SOUND_ITEM_GET.play()
@@ -3568,7 +3487,14 @@ def activate_supply_drop_item(item_name: str) -> None:
 
 # === 군용 비행기 클래스 ===
 class SupplyAircraft:
-    def __init__(self, direction="left_to_right"):
+    def __init__(
+        self,
+        direction="left_to_right",
+        *,
+        screen_width: int | None = None,
+        screen_height: int | None = None,
+        engine_sound: pygame.mixer.Sound | None = None,
+    ):
         """
         군용 비행기 초기화
         Args:
@@ -3578,12 +3504,16 @@ class SupplyAircraft:
         self.width = 80
         self.height = 30
         self.speed = 2
+
+        self.screen_width = screen_width if screen_width is not None else WIDTH
+        self.screen_height = screen_height if screen_height is not None else HEIGHT
+        self.engine_sound = engine_sound
         
         # 위치 초기화
         if direction == "left_to_right":
             self.x = -self.width
         else:
-            self.x = WIDTH + self.width
+            self.x = self.screen_width + self.width
         
         self.y = 50  # 화면 상단에서 50픽셀 아래
         self.active = True
@@ -3618,11 +3548,12 @@ class SupplyAircraft:
         
         # 사운드 재생
         self.sound_channel = None
-        try:
-            self.sound_channel = SOUND_AIRPLANE.play(-1)  # 무한 반복 재생
-            self.sound_channel.set_volume(0.7)  # 볼륨 조절
-        except:
-            pass
+        if self.engine_sound is not None:
+            try:
+                self.sound_channel = self.engine_sound.play(-1)  # 무한 반복 재생
+                self.sound_channel.set_volume(0.7)  # 볼륨 조절
+            except Exception:  # noqa: BLE001
+                self.sound_channel = None
         
     def update(self):
         """비행기 업데이트"""
@@ -3661,7 +3592,7 @@ class SupplyAircraft:
                 self.create_smoke_particle()
             
             # 바닥에 닿으면 폭발
-            if self.y > HEIGHT - 80:  # 플레이어 패들 근처
+            if self.y > self.screen_height - 80:  # 플레이어 패들 근처
                 self.explode()
                 return
         else:
@@ -3672,7 +3603,7 @@ class SupplyAircraft:
             # 비행기 이동
             if self.direction == "left_to_right":
                 self.x += self.speed
-                if self.x > WIDTH + self.width:
+                if self.x > self.screen_width + self.width:
                     self.stop_sound()  # 사운드 중지
                     self.active = False
             else:
@@ -3737,7 +3668,7 @@ class SupplyAircraft:
         }
         firearm_names = {"bazooka", "ak47", "net_gun"}
 
-        soldier_weapon_list = globals().get("soldier_weapons", [])
+        soldier_weapon_list = globals().get("soldier_controller.weapons", [])
         owned_firearm_count = len({w for w in soldier_weapon_list if w in firearm_names})
         firearm_penalty = max(0.25, 1.0 - 0.25 * owned_firearm_count)  # 0.25씩 감소, 최소 25%
 
@@ -3766,7 +3697,7 @@ class SupplyAircraft:
         drop_offset_x = random.randint(-20, 20)  # 좌우로 약간 흔들림
         drop_x = self.x + self.width // 2 + drop_offset_x
         safe_margin = 32  # 낙하산+상자 그래픽이 화면 밖으로 나가지 않도록 여유를 둔다
-        drop_x = max(safe_margin, min(WIDTH - safe_margin, drop_x))
+        drop_x = max(safe_margin, min(self.screen_width - safe_margin, drop_x))
         drop_y = self.y + self.height
         
         # 바람 효과를 위한 수평 속도 랜덤
@@ -4078,7 +4009,7 @@ class SupplyAircraft:
             particle['life'] -= 1
 
             # 바닥에 닿으면 튀어오름
-            if particle['y'] > HEIGHT - 60 and particle['vy'] > 0:
+            if particle['y'] > self.screen_height - 60 and particle['vy'] > 0:
                 particle['vy'] *= -0.6  # 에너지 손실과 함께 튀어오름
                 particle['vx'] *= 0.8
 
@@ -4438,47 +4369,21 @@ SOLDIER_BULLET_SPEED = 25  # 총알 속도
 SOLDIER_GUN_COOLDOWN = 60  # 1초 쿨타임
 SOLDIER_CONTROL_LOCK_TIME = 18  # 0.3초 통제불능
 
-# === 군인 화기류 시스템 ===
-soldier_weapons = ["pistol"]  # 현재 보유 중인 화기류 리스트
-current_weapon_index = 0  # 현재 선택된 화기 인덱스
-weapon_switch_cooldown = 0  # 화기 교체 쿨타임
-WEAPON_SWITCH_COOLDOWN = 30  # 0.5초 쿨타임 시간
-weapon_reload_counts: dict[str, int] = {}
-weapon_degraded: set[str] = set()
+# === 군인 화기류 컨트롤러 ===
+soldier_controller = SoldierWeaponController()
 
-# === 화기류 UI 강조 효과 ===
-weapon_ui_highlight_timer = 0  # UI 강조 효과 타이머
-weapon_ui_highlight_duration = 180  # 3초간 강조 효과 (60fps)
 
 def reset_weapon_tracking(weapon_name: str) -> None:
-    if weapon_name == "pistol":
-        return
-    weapon_reload_counts[weapon_name] = 0
-    weapon_degraded.discard(weapon_name)
+    soldier_controller.reset_tracking(weapon_name)
 
 
 def register_weapon_reload(weapon_name: str) -> None:
-    if weapon_name == "pistol":
-        return
-    count = weapon_reload_counts.get(weapon_name, 0) + 1
-    weapon_reload_counts[weapon_name] = count
-    if count >= 3:
-        if weapon_name not in weapon_degraded:
-            weapon_degraded.add(weapon_name)
-            print(f"⚠️ {get_item_name_korean(weapon_name)} 노후화!")
+    if soldier_controller.register_reload(weapon_name):
+        print(f"⚠️ {get_item_name_korean(weapon_name)} 노후화!")
 
 
 def remove_weapon_from_inventory(weapon_name: str) -> None:
-    global soldier_weapons, current_weapon_index
-    if weapon_name in soldier_weapons:
-        soldier_weapons.remove(weapon_name)
-        if current_weapon_index >= len(soldier_weapons):
-            current_weapon_index = max(0, len(soldier_weapons) - 1)
-        if not soldier_weapons:
-            soldier_weapons.append("pistol")
-            current_weapon_index = 0
-    weapon_reload_counts.pop(weapon_name, None)
-    weapon_degraded.discard(weapon_name)
+    soldier_controller.remove_weapon(weapon_name)
 
 
 def check_weapon_degradation() -> None:
@@ -4489,27 +4394,11 @@ def check_weapon_degradation() -> None:
     from item_effects.ak47 import get_ak47_instance
     from item_effects.net_gun import get_net_gun_instance
 
-    if "bazooka" in weapon_degraded:
-        bazooka = get_bazooka_instance()
-        if bazooka and bazooka.ammo_count <= 0 and not bazooka.projectiles:
-            bazooka.unequip()
-            bazooka.ammo_count = bazooka.max_ammo
-            print("⚠️ 바주카포 노후화로 파괴되었습니다.")
-            remove_weapon_from_inventory("bazooka")
-
-    if "ak47" in weapon_degraded:
-        ak47 = get_ak47_instance()
-        if ak47 and ak47.active and ak47.current_ammo <= 0 and not ak47.bullets:
-            ak47.deactivate()
-            print("⚠️ AK-47 노후화로 파괴되었습니다.")
-            remove_weapon_from_inventory("ak47")
-
-    if "net_gun" in weapon_degraded:
-        net_gun = get_net_gun_instance()
-        if net_gun and net_gun.ammo_count <= 0 and not net_gun.projectiles and not net_gun.nets:
-            net_gun.unequip()
-            print("⚠️ 그물덫총 노후화로 파괴되었습니다.")
-            remove_weapon_from_inventory("net_gun")
+    soldier_controller.check_degradation(
+        get_bazooka_instance=get_bazooka_instance,
+        get_ak47_instance=get_ak47_instance,
+        get_net_gun_instance=get_net_gun_instance,
+    )
 
 # === 바주카포 반동 효과 ===
 bazooka_recoil_timer = 0  # 반동 시각 효과 타이머
@@ -5209,8 +5098,7 @@ def go_to_next_round():
     # 물자보급이 완전히 끝났을 때만 초기화
     if supply_drop_state.timer <= 0 and supply_drop_state.aircraft is None:
         supply_drop_state.active = False
-    supply_drop_state.radio_motion = False
-    supply_drop_state.radio_timer = 0
+    stop_supply_radio_loop(force=True)
     # 비행기와 아이템은 계속 유지 (라운드가 바뀌어도 계속 진행)
     
     #  AI 메모리 정리 (라운드 간 성능 최적화)
@@ -8137,8 +8025,6 @@ def draw_soldier_weapon_ui(screen):
     import math
     import pygame
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
-    global soldier_weapons, current_weapon_index, weapon_ui_highlight_timer
-    global weapon_degraded
 
     def render_weapon_label(text, color, size):
         surface = None
@@ -8215,10 +8101,10 @@ def draw_soldier_weapon_ui(screen):
     weapon_rect = pygame.Rect(weapon_x, weapon_y, weapon_size, weapon_size)
     
     # 강조 효과 처리
-    highlight_active = weapon_ui_highlight_timer > 0
+    highlight_active = soldier_controller.ui_highlight_timer > 0
     if highlight_active:
         # 강조 효과 - 반짝거리는 테두리
-        pulse = int(128 + 127 * math.sin(weapon_ui_highlight_timer * 0.3))  # 반짝거림
+        pulse = int(128 + 127 * math.sin(soldier_controller.ui_highlight_timer * 0.3))  # 반짝거림
         glow_color = (255, pulse, 0)  # 황금색 반짝임
         
         # 외부 글로우 효과
@@ -8234,14 +8120,14 @@ def draw_soldier_weapon_ui(screen):
         pygame.draw.rect(screen, glow_color, weapon_rect, 4)
         
         # 타이머 감소
-        weapon_ui_highlight_timer -= 1
+        soldier_controller.ui_highlight_timer -= 1
     else:
         # 일반 배경 사각형
         pygame.draw.rect(screen, (40, 40, 40), weapon_rect)
         pygame.draw.rect(screen, (100, 100, 100), weapon_rect, 3)
     
     # 현재 장착된 무기 확인
-    current_weapon = soldier_weapons[current_weapon_index] if soldier_weapons else "pistol"
+    current_weapon = soldier_controller.weapons[soldier_controller.current_index] if soldier_controller.weapons else "pistol"
     
     # 바주카포가 장착된 경우 바주카포 정보 표시
     from item_effects.bazooka import get_bazooka_instance
@@ -8764,7 +8650,7 @@ def draw_soldier_weapon_ui(screen):
     
     # 권총 탄약 표시 (권총이 선택되었거나 화기류가 없는 경우에만)
     show_pistol_ammo = True
-    if soldier_weapons:
+    if soldier_controller.weapons:
         if current_weapon != "pistol":
             show_pistol_ammo = False
 
@@ -8905,7 +8791,7 @@ def draw_soldier_weapon_ui(screen):
 
         screen.blit(weapon_surface, (name_x, name_y))
 
-        if current_weapon != "pistol" and current_weapon in weapon_degraded:
+        if current_weapon != "pistol" and current_weapon in soldier_controller.degraded:
             degrade_color = (220, 50, 50)
             degrade_font_size = max(16, font_size - 2)
             degrade_surface = render_weapon_label("노후화", degrade_color, degrade_font_size)
@@ -8918,7 +8804,7 @@ def draw_soldier_weapon_ui(screen):
             screen.blit(degrade_surface, (degrade_x, degrade_y))
 
         # 무기 교체 안내 표시 제거됨 (사용자 요청)
-        # if len(soldier_weapons) > 1 and weapon_switch_cooldown <= 0:
+        # if len(soldier_controller.weapons) > 1 and soldier_controller.switch_cooldown <= 0:
         #     guide_text = "↑키: 무기 교체"
         #     guide_color = (150, 150, 150)
         #     
@@ -9607,7 +9493,6 @@ def handle_player(keys):
     global special_gauge
     global player_stunned_timer, player_knockback_vel  #  스턴 전역
     global player_stun_immunity_timer  # ️ 스턴 면역 타이머
-    global weapon_switch_cooldown  # 화기 교체 쿨다운
     global bazooka_recoil_timer, bazooka_recoil_direction, bazooka_recoil_strength  # 바주카포 반동
     global round_start_time
     
@@ -9618,8 +9503,8 @@ def handle_player(keys):
     ball_y = ball_centery
 
     # 화기 교체 쿨다운 감소
-    if weapon_switch_cooldown > 0:
-        weapon_switch_cooldown -= 1
+    if soldier_controller.switch_cooldown > 0:
+        soldier_controller.switch_cooldown -= 1
     global long_boost_scale, long_boost_target_scale, LONG_BOOST_TRANSITION_TIME, LONG_BOOST_DURATION
     global player_flame_zone_knockback_vel, player_flame_zone_knockback_cooldown, player_in_flame_zone  #  Stage 5 화염 넉백
     global PLAYER, speedboots_obtained, speedgear_obtained
@@ -9659,7 +9544,6 @@ def handle_player(keys):
     global soldier_control_lock_timer, soldier_gun_cooldown, soldier_gun_drawn  # 군인 총알 시스템 변수
     global selected_character_type  # 선택된 캐릭터 타입
     global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
-    global soldier_weapons, current_weapon_index  # 화기류 시스템
     global tutorial_drive_count, tutorial_displayed_drive_count
     global tutorial_left_drive_count, tutorial_right_drive_count
     global tutorial_displayed_left_drive_count, tutorial_displayed_right_drive_count
@@ -9709,51 +9593,51 @@ def handle_player(keys):
     
     # 화기류 교체 처리 (↑키 단독 입력)
     if (up_pressed and not space_pressed and selected_character_type == "soldier" and
-        weapon_switch_cooldown <= 0 and len(soldier_weapons) > 1 and
+        soldier_controller.switch_cooldown <= 0 and len(soldier_controller.weapons) > 1 and
         not is_waiting_for_serve and not is_player_serve):
         # 다음 화기로 교체
-        current_weapon_index = (current_weapon_index + 1) % len(soldier_weapons)
-        weapon_switch_cooldown = WEAPON_SWITCH_COOLDOWN
+        soldier_controller.current_index = (soldier_controller.current_index + 1) % len(soldier_controller.weapons)
+        soldier_controller.switch_cooldown = soldier_controller.switch_cooldown_frames
         
         # 현재 화기에 따른 처리
-        current_weapon = soldier_weapons[current_weapon_index]
+        current_weapon = soldier_controller.weapons[soldier_controller.current_index]
         if current_weapon == "bazooka":
             from item_effects.bazooka import get_bazooka_instance
             bazooka = get_bazooka_instance()
             bazooka.equip()
-            if 'net_gun' in soldier_weapons:
+            if 'net_gun' in soldier_controller.weapons:
                 get_net_gun_instance().unequip()
         elif current_weapon == "pistol":
             # 권총으로 전환
-            if 'bazooka' in soldier_weapons:
+            if 'bazooka' in soldier_controller.weapons:
                 from item_effects.bazooka import get_bazooka_instance
                 bazooka = get_bazooka_instance()
                 bazooka.unequip()
-            if 'ak47' in soldier_weapons:
+            if 'ak47' in soldier_controller.weapons:
                 ak47 = get_ak47_instance()
                 if ak47.remaining_time > 0:
                     ak47.active = True
-            if 'net_gun' in soldier_weapons:
+            if 'net_gun' in soldier_controller.weapons:
                 get_net_gun_instance().unequip()
         elif current_weapon == "ak47":
             # AK-47로 전환
-            if 'bazooka' in soldier_weapons:
+            if 'bazooka' in soldier_controller.weapons:
                 from item_effects.bazooka import get_bazooka_instance
                 bazooka = get_bazooka_instance()
                 bazooka.unequip()
             ak47 = get_ak47_instance()
             if ak47.remaining_time > 0:
                 ak47.active = True
-            if 'net_gun' in soldier_weapons:
+            if 'net_gun' in soldier_controller.weapons:
                 get_net_gun_instance().unequip()
         elif current_weapon == "net_gun":
             net_gun = get_net_gun_instance()
             net_gun.equip()
-            if 'bazooka' in soldier_weapons:
+            if 'bazooka' in soldier_controller.weapons:
                 from item_effects.bazooka import get_bazooka_instance
                 bazooka = get_bazooka_instance()
                 bazooka.unequip()
-            if 'ak47' in soldier_weapons:
+            if 'ak47' in soldier_controller.weapons:
                 ak47 = get_ak47_instance()
                 if ak47.remaining_time > 0:
                     ak47.active = True
@@ -9789,13 +9673,19 @@ def handle_player(keys):
     if down_pressed and selected_character_type == "soldier" and not supply_drop_state.active:
         if can_use_supply_drop and special_gauge >= supply_drop_state.config.gauge_cost:
             supply_drop_state.hold_time += 1
-            
+
             # 홀드 진행률 디버그
             if supply_drop_state.hold_time % 10 == 0:  # 0.17초마다 출력
                 progress = (supply_drop_state.hold_time / supply_drop_state.config.hold_required) * 100
                 print(f"📻 물자보급 홀드 중: {progress:.1f}% ({supply_drop_state.hold_time}/{supply_drop_state.config.hold_required})")
-            
-            # 1초 홀드 완료 시 발동
+
+            if (
+                supply_drop_state.hold_time == supply_drop_state.config.hold_threshold
+                and not supply_runtime.hold_active
+            ):
+                start_supply_radio_loop()
+
+            # 1.5초 홀드 완료 시 발동
             if supply_drop_state.hold_time >= supply_drop_state.config.hold_required:
                 # 물자보급 스킬 발동
                 timer_value = random.randint(90, 300)  # 1.5초~5초 (60fps 기준)
@@ -9808,26 +9698,16 @@ def handle_player(keys):
                 consume_special_gauge(cost)
                 supply_drop_state.timer = timer_value
                 supply_drop_state.hold_time = 0  # 홀드 시간 초기화
-                
+
                 # 무전기 모션 활성화 (0.5초)
-                global supply_radio_motion, supply_radio_timer
-                supply_radio_motion = True
-                supply_radio_timer = 30  # 0.5초 (60fps 기준)
-                
+                start_supply_radio_loop()
+
                 # 플레이어 통제불능 상태 (0.5초) - 프레임 단위 정확한 타이밍
                 player_stunned_timer = 30  # 정확히 30프레임 = 0.5초
                 player_knockback_vel = 0  # 넉백 속도 초기화 (물자보급은 넉백 없음)
-                
-                # 무전기 효과음 재생
-                try:
-                    radio_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "radio.wav")))
-                    radio_sound.set_volume(0.6)
-                    radio_sound.play()
-                except Exception as e:
-                    print(f"무전기 효과음 재생 실패: {e}")
-                
+
                 print("📻 물자보급 요청! 무전기 모션 시작")
-                print("물자보급 발동! 1초 후 비행기 출현")
+                print(f"물자보급 발동! {timer_value/60:.1f}초 후 비행기 출현")
         else:
             # 물자보급 사용 불가 이유 출력
             if supply_drop_state.hold_time == 1:  # 처음 시도할 때만
@@ -9844,7 +9724,8 @@ def handle_player(keys):
         if supply_drop_state.hold_time > 0:
             print(f"📻 물자보급 홀드 중단: {supply_drop_state.hold_time}/{supply_drop_state.config.hold_required}")
         supply_drop_state.hold_time = 0
-        supply_drop_hold_time = 0
+        if supply_runtime.hold_active or supply_drop_state.radio_motion:
+            stop_supply_radio_loop(force=True)
     
     
     # 튜토리얼 대쉬 도우미는 일정 시간 동안 유지 (바로 끄지 않음)
@@ -11065,7 +10946,7 @@ def handle_player(keys):
                             
                             # AK-47 연사 시 이동속도 감소 배율 가져오기
                             ak47_speed_multiplier = 1.0
-                            if selected_character_type == "soldier" and 'ak47' in soldier_weapons:
+                            if selected_character_type == "soldier" and 'ak47' in soldier_controller.weapons:
                                 ak47 = get_ak47_instance()
                                 ak47_speed_multiplier = ak47.get_movement_speed_multiplier()
                             
@@ -11178,10 +11059,10 @@ def handle_player(keys):
     # AK-47 이동속도 디버프는 발사 입력 상태에 따라 달라지므로 매 프레임 상태를 동기화한다.
     ak47_fire_ready = False
     ak47_instance = None
-    if selected_character_type == "soldier" and 'ak47' in soldier_weapons:
+    if selected_character_type == "soldier" and 'ak47' in soldier_controller.weapons:
         current_weapon_name = None
-        if 0 <= current_weapon_index < len(soldier_weapons):
-            current_weapon_name = soldier_weapons[current_weapon_index]
+        if 0 <= soldier_controller.current_index < len(soldier_controller.weapons):
+            current_weapon_name = soldier_controller.weapons[soldier_controller.current_index]
         space_pressed = keys[pygame.K_SPACE]
         ak47_instance = get_ak47_instance()
         can_attempt_ak47_fire = (
@@ -11197,7 +11078,7 @@ def handle_player(keys):
         ak47_fire_ready = can_attempt_ak47_fire
 
     net_gun_instance = None
-    if selected_character_type == "soldier" and 'net_gun' in soldier_weapons:
+    if selected_character_type == "soldier" and 'net_gun' in soldier_controller.weapons:
         net_gun_instance = get_net_gun_instance()
 
     if not player_stunned:
@@ -11209,7 +11090,7 @@ def handle_player(keys):
             # 서브 중이 아닐 때만 발사
             elif not is_waiting_for_serve and not is_player_serve:
                 # 현재 무기 확인
-                current_weapon = soldier_weapons[current_weapon_index]
+                current_weapon = soldier_controller.weapons[soldier_controller.current_index]
                 if current_weapon == "bazooka":
                     # 바주카포 발사
                     from item_effects.bazooka import get_bazooka_instance
@@ -29956,7 +29837,7 @@ def show_item_manager_menu():
             panel_surface.blit(limit_surface, limit_rect)
 
             guide_surface = font_small.render(
-                "↑↓ 키 또는 화살표 클릭 | Enter 확인 | Esc 취소",
+                "↑↓ 키 또는 화살표 클릭 | Space 확인 | Esc 취소",
                 True,
                 (185, 185, 185),
             )
@@ -29976,7 +29857,7 @@ def show_item_manager_menu():
                 if event.type == pygame.KEYDOWN:
                     if event.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE):
                         cancel_quantity_selection()
-                    elif event.key == pygame.K_RETURN:
+                    elif event.key == pygame.K_SPACE:
                         apply_quantity_selection()
                     elif event.key in (pygame.K_LEFT, pygame.K_DOWN, pygame.K_MINUS):
                         quantity_current_value = max(0, quantity_current_value - 1)
@@ -30313,18 +30194,14 @@ def apply_selected_items(
     from item_effects.ak47 import get_ak47_instance
     from item_effects.net_gun import get_net_gun_instance
 
-    global soldier_weapons, current_weapon_index
-    soldier_weapons = ["pistol"]
-    weapon_reload_counts.clear()
-    weapon_degraded.clear()
+    soldier_controller.reset()
 
     bazooka = get_bazooka_instance()
     ak47 = get_ak47_instance()
     net_gun = get_net_gun_instance()
 
     if "bazooka" in selected_firearm_items:
-        soldier_weapons.append("bazooka")
-        reset_weapon_tracking("bazooka")
+        soldier_controller.add_weapon("bazooka", set_active=False)
         if bazooka:
             bazooka.reload_with_special_ammo()
             bazooka.equip()
@@ -30334,8 +30211,7 @@ def apply_selected_items(
             bazooka.ammo_count = bazooka.max_ammo
 
     if "ak47" in selected_firearm_items:
-        soldier_weapons.append("ak47")
-        reset_weapon_tracking("ak47")
+        soldier_controller.add_weapon("ak47", set_active=False)
         if ak47:
             ak47.activate(None, None)
     else:
@@ -30343,8 +30219,7 @@ def apply_selected_items(
             ak47.deactivate()
 
     if "net_gun" in selected_firearm_items:
-        soldier_weapons.append("net_gun")
-        reset_weapon_tracking("net_gun")
+        soldier_controller.add_weapon("net_gun", set_active=False)
         if net_gun:
             net_gun.reload()
             net_gun.equip()
@@ -30353,7 +30228,7 @@ def apply_selected_items(
             net_gun.unequip()
             net_gun.reload()
 
-    current_weapon_index = 0
+    soldier_controller.current_index = 0
 
     # 무중력벨트가 선택되어 있으면 강제로 적용
     if "gravitybelt" in selected_passive_items:
@@ -32756,14 +32631,12 @@ def reset_round():
     if supply_drop_state.config.persist_across_rounds:
         # 1) 이미 비행기가 떠 있는 경우: 그대로 유지 (사운드/파티클 포함)
         if supply_drop_state.aircraft is not None:
-            supply_drop_state.radio_motion = False
-            supply_drop_state.radio_timer = 0
+            stop_supply_radio_loop(force=True)
             supply_drop_state.hold_time = 0
             # 아이템들도 유지하여 자연스럽게 이어지도록 함
         # 2) 비행기는 아직 없고, 타이머로 출현 예정인 경우: 타이머 유지
         elif supply_drop_state.active and supply_drop_state.timer > 0:
-            supply_drop_state.radio_motion = False
-            supply_drop_state.radio_timer = 0
+            stop_supply_radio_loop(force=True)
             supply_drop_state.hold_time = 0
             try:
                 print(f"[물자보급] 라운드 전환 중 대기 상태 유지: {supply_drop_state.timer}프레임 후 출현 예정")
@@ -32781,8 +32654,7 @@ def reset_round():
             supply_drop_state.aircraft = None
             # supply_drop_state.items는 유지 (요청 사항)
             supply_drop_state.timer = 0
-            supply_drop_state.radio_motion = False
-            supply_drop_state.radio_timer = 0
+            stop_supply_radio_loop(force=True)
             supply_drop_state.hold_time = 0
     else:
         # 정책 비활성화 시 항상 정리
@@ -32795,8 +32667,7 @@ def reset_round():
         supply_drop_state.aircraft = None
         supply_drop_state.items.clear()
         supply_drop_state.timer = 0
-        supply_drop_state.radio_motion = False
-        supply_drop_state.radio_timer = 0
+        stop_supply_radio_loop(force=True)
         supply_drop_state.hold_time = 0
     global boss_stun_timer, ragnarok_shock_playing  #  라그나로크 해머 스턴 관련
     global ragnarok_speed_boost_active, ragnarok_stun_pending  #  라그나로크 공속 증가 및 스턴 예약
@@ -40722,8 +40593,7 @@ def show_result(won):
         supply_drop_state.aircraft = None
         supply_drop_state.items.clear()
         supply_drop_state.timer = 0
-        supply_drop_state.radio_motion = False
-        supply_drop_state.radio_timer = 0
+        stop_supply_radio_loop(force=True)
         #  튜토리얼 챕터별 최대 게이지 오버라이드 초기화
         tutorial_chapter1_max_gauge = None
         tutorial_chapter2_max_gauge = None
@@ -41807,8 +41677,7 @@ def main(stage_num, new_boss_mode=False):
             supply_drop_state.aircraft = None
             supply_drop_state.items.clear()
             supply_drop_state.timer = 0
-            supply_drop_state.radio_motion = False
-            supply_drop_state.radio_timer = 0
+            stop_supply_radio_loop(force=True)
             #  튜토리얼 드라이브 챕터 최대 게이지 오버라이드 초기화
             tutorial_drive_chapter_max_gauge = None
             #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
@@ -42662,8 +42531,7 @@ def main(stage_num, new_boss_mode=False):
                     supply_drop_state.aircraft = None
                     supply_drop_state.items.clear()
                     supply_drop_state.timer = 0
-                    supply_drop_state.radio_motion = False
-                    supply_drop_state.radio_timer = 0
+                    stop_supply_radio_loop(force=True)
                     #  튜토리얼 드라이브 챕터 최대 게이지 오버라이드 초기화
                     tutorial_drive_chapter_max_gauge = None
                     #  대쉬 토큰 초기화 (아카데미 스킬 없이 기본값으로)
@@ -46252,8 +46120,8 @@ def show_stage_selection(show_character_hint=True):
     """
     global ai_mode
     
-    # 기본 리그 모드 설정
-    ai_mode = "pro"  # 프로리그가 기본
+    # 기본 리그 모드 설정 (아이템 관리자 진입 시 신화 난이도 고정)
+    ai_mode = "pro" if show_character_hint else "mythic"
       
     # 스테이지 정보
     stages = [
@@ -46344,9 +46212,9 @@ def show_stage_selection(show_character_hint=True):
         
         # 안내 메시지
         if show_character_hint:
-            info_text = "방향키로 스테이지 선택, ENTER로 시작, ESC로 돌아가기"
+            info_text = "방향키로 스테이지 선택, SPACE로 시작, ESC로 돌아가기"
         else:
-            info_text = "방향키로 스테이지 선택, ENTER로 캐릭터 선택으로 이동, ESC로 돌아가기"
+            info_text = "방향키로 스테이지 선택, SPACE로 캐릭터 선택으로 이동, ESC로 돌아가기"
         info_surface = font_small.render(info_text, True, WHITE)
         info_rect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
         SCREEN.blit(info_surface, info_rect)
@@ -46361,7 +46229,7 @@ def show_stage_selection(show_character_hint=True):
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return None  # 취소
-                elif event.key == pygame.K_RETURN:
+                elif event.key == pygame.K_SPACE:
                     # 선택된 스테이지 반환
                     play_button_click_sound()
                     return stages[selected_index]["num"]
@@ -46457,9 +46325,65 @@ def show_quick_character_selection():
             stat_rect = stat_surface.get_rect(center=(card_rect.centerx, card_rect.y + card_height - 40))
             SCREEN.blit(stat_surface, stat_rect)
 
+        # 방향키 안내 아이콘
+        keys = pygame.key.get_pressed()
+        arrow_y = card_y + card_height // 2
+        left_center_x = start_x - 70
+        right_center_x = start_x + (len(characters) - 1) * (card_width + card_spacing) + card_width + 70
+
+        def draw_direction_indicator(center_x: int, direction: str, *, enabled: bool, pressed: bool) -> None:
+            center = (center_x, arrow_y)
+            base_radius = 26
+            pulse = 0
+            if enabled:
+                pulse = 3 * (0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 200.0))
+            radius = int(base_radius + pulse + (3 if pressed else 0))
+
+            bg_color = (25, 30, 55)
+            accent_base = (255, 220, 120) if enabled else (120, 120, 150)
+            accent = (255, 255, 190) if pressed else accent_base
+
+            pygame.draw.circle(SCREEN, bg_color, center, radius + 8)
+            pygame.draw.circle(SCREEN, accent, center, radius, 3 if enabled else 1)
+
+            arrow_size = max(10, radius - 12)
+            if direction == "left":
+                points = [
+                    (center[0] - arrow_size, center[1]),
+                    (center[0] + arrow_size, center[1] - arrow_size),
+                    (center[0] + arrow_size, center[1] + arrow_size),
+                ]
+            else:
+                points = [
+                    (center[0] + arrow_size, center[1]),
+                    (center[0] - arrow_size, center[1] - arrow_size),
+                    (center[0] - arrow_size, center[1] + arrow_size),
+                ]
+            pygame.draw.polygon(SCREEN, accent, points)
+
+            label_text = "왼쪽" if direction == "left" else "오른쪽"
+            label_surface = font_small.render(label_text, True, accent)
+            label_rect = label_surface.get_rect(center=(center[0], center[1] + radius + 18))
+            SCREEN.blit(label_surface, label_rect)
+
+        left_enabled = selected_index > 0
+        right_enabled = selected_index < len(characters) - 1
+        draw_direction_indicator(
+            left_center_x,
+            "left",
+            enabled=left_enabled,
+            pressed=keys[pygame.K_LEFT] or keys[pygame.K_a],
+        )
+        draw_direction_indicator(
+            right_center_x,
+            "right",
+            enabled=right_enabled,
+            pressed=keys[pygame.K_RIGHT] or keys[pygame.K_d],
+        )
+
         # 안내 문구
-        info_text = "← → : 캐릭터 선택    ENTER/SPACE : 확정    ESC : 돌아가기"
-        info_surface = font_small.render(info_text, True, WHITE)
+        info_text = "방향키 ← → 로 캐릭터 이동 / ENTER·SPACE 로 확정 / ESC 로 돌아가기"
+        info_surface = font_small.render(info_text, True, (220, 220, 240))
         info_rect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 60))
         SCREEN.blit(info_surface, info_rect)
 
@@ -46477,7 +46401,7 @@ def show_quick_character_selection():
                     selected_index = (selected_index - 1) % len(characters)
                     play_button_hover_sound()
                 elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                    sㅇelected_index = (selected_index + 1) % len(characters)
+                    selected_index = (selected_index + 1) % len(characters)
                     play_button_hover_sound()
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     play_button_click_sound()

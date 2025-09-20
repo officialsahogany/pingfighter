@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import math
+import os
 import random
 from dataclasses import dataclass, field
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 
 import pygame
 
@@ -13,7 +14,7 @@ class SupplyDropConfig:
     """Configuration values for the supply drop system."""
 
     persist_across_rounds: bool = True
-    hold_required: int = 60
+    hold_required: int = 90
     hold_threshold: int = 18
     gauge_cost: int = 350
     items: Sequence[str] = (
@@ -49,6 +50,124 @@ class SupplyDropState:
         self.radio_motion = False
         self.radio_timer = 0
         self.hold_time = 0
+
+
+class SupplyDropRuntime:
+    """Encapsulates runtime data and audio handles for the supply-drop system."""
+
+    def __init__(self) -> None:
+        self.state: SupplyDropState = SupplyDropState()
+        self.hold_active: bool = False
+        self._radio_sound: Optional[pygame.mixer.Sound | bool] = None
+        self._radio_channel: Optional[pygame.mixer.Channel] = None
+
+    def ensure_radio_sound(
+        self,
+        resource_path: Callable[[str], str],
+        *,
+        volume: float = 0.6,
+    ) -> Optional[pygame.mixer.Sound]:
+        """Ensure the radio loop audio is loaded and configured."""
+
+        if self._radio_sound is None:
+            try:
+                sound_path = resource_path(os.path.join("sounds", "radio.wav"))
+                sound = pygame.mixer.Sound(sound_path)
+                sound.set_volume(volume)
+                self._radio_sound = sound
+            except Exception as exc:  # noqa: BLE001
+                print(f"무전기 효과음 로드 실패: {exc}")
+                self._radio_sound = False
+
+        if self._radio_sound is False:
+            return None
+        return self._radio_sound
+
+    def start_radio_loop(
+        self,
+        resource_path: Callable[[str], str],
+        *,
+        volume: float = 0.6,
+    ) -> None:
+        """Activate walkie-talkie animation and start looped audio."""
+
+        state = self.state
+        state.radio_motion = True
+        state.radio_timer = max(state.radio_timer, 30)
+        self.hold_active = True
+
+        sound = self.ensure_radio_sound(resource_path, volume=volume)
+        if sound is None:
+            return
+
+        try:
+            if self._radio_channel is None or not self._radio_channel.get_busy():
+                self._radio_channel = sound.play()
+        except Exception as exc:  # noqa: BLE001
+            print(f"무전기 효과음 재생 실패: {exc}")
+
+    def stop_radio_loop(self, *, keep_animation: bool = False, force: bool = False) -> None:
+        """Stop looped audio and optionally clear the animation."""
+
+        self.hold_active = False
+
+        if self._radio_channel and (force or not self._radio_channel.get_busy()):
+            try:
+                self._radio_channel.stop()
+            except Exception:  # noqa: BLE001
+                pass
+            self._radio_channel = None
+
+        if not keep_animation:
+            state = self.state
+            state.radio_motion = False
+            state.radio_timer = 0
+
+    def tick_radio_animation(self) -> None:
+        """Advance the radio animation timer by one frame."""
+
+        state = self.state
+        if state.radio_timer > 0:
+            state.radio_timer -= 1
+            if state.radio_timer <= 0:
+                state.radio_motion = False
+        if self._radio_channel and not self._radio_channel.get_busy():
+            self._radio_channel = None
+
+    def reset(self) -> None:
+        """Clear runtime state and audio handles."""
+
+        self.stop_radio_loop(keep_animation=False, force=True)
+        self.state.reset()
+        self.hold_active = False
+
+
+def start_radio_loop(
+    runtime: SupplyDropRuntime,
+    resource_path: Callable[[str], str],
+    *,
+    volume: float = 0.6,
+) -> None:
+    """Public helper mirroring SupplyDropRuntime.start_radio_loop."""
+
+    runtime.start_radio_loop(resource_path, volume=volume)
+
+
+def stop_radio_loop(
+    runtime: SupplyDropRuntime,
+    *,
+    keep_animation: bool = False,
+    force: bool = False,
+) -> None:
+    """Public helper mirroring SupplyDropRuntime.stop_radio_loop."""
+
+    runtime.stop_radio_loop(keep_animation=keep_animation, force=force)
+
+
+def update_radio_animation(runtime: SupplyDropRuntime) -> None:
+    """Advance radio animation timers for the given runtime."""
+
+    runtime.tick_radio_animation()
 
 
 def update_items(
@@ -332,3 +451,68 @@ def draw_radio_motion(screen, state: SupplyDropState) -> None:
         pygame.draw.circle(overlay, (0, 255, 0, signal_alpha), (WIDTH // 2, HEIGHT // 2 - 140), radius, 2)
 
     screen.blit(overlay, (0, 0))
+
+
+def update_system(
+    runtime: SupplyDropRuntime,
+    *,
+    width: int,
+    height: int,
+    ball_rect: Optional[pygame.Rect],
+    last_hit_by: Optional[str],
+    ball_velocity: Optional[list],
+    player_rect: Optional[pygame.Rect],
+    boss_rect: Optional[pygame.Rect],
+    bricks,
+    activate_item: Callable[[str], None],
+    create_aircraft: Callable[[str], object],
+) -> None:
+    """Update the overall supply-drop system."""
+
+    state = runtime.state
+
+    if state.active:
+        if state.timer > 0:
+            state.timer -= 1
+            if state.timer % 30 == 0:
+                print(
+                    f"🎁 [물자보급 타이머] {state.timer} 프레임 남음 "
+                    f"({state.timer/60:.1f}초)"
+                )
+            if state.timer == 0:
+                direction = random.choice(["left_to_right", "right_to_left"])
+                state.aircraft = create_aircraft(direction)
+                print(f"✈️ 군용 비행기 출현! 방향: {direction}")
+        elif state.aircraft is None:
+            state.active = False
+            print("물자보급 완전히 종료 (비행기 파괴됨)")
+            if state.items:
+                print(f"  → 아직 {len(state.items)}개의 아이템이 필드에 남아있음")
+
+    aircraft = state.aircraft
+    if aircraft and getattr(aircraft, "active", False):
+        aircraft.update()
+
+        if ball_rect is not None and last_hit_by is not None and hasattr(aircraft, "check_ball_collision"):
+            if aircraft.check_ball_collision(ball_rect, last_hit_by) and last_hit_by == "player":
+                if ball_velocity is not None and len(ball_velocity) > 1:
+                    ball_velocity[1] *= -0.5
+
+        if player_rect is not None and boss_rect is not None and hasattr(aircraft, "check_paddle_brick_collision"):
+            aircraft.check_paddle_brick_collision(player_rect, boss_rect, bricks)
+
+    if aircraft and not getattr(aircraft, "active", False):
+        if hasattr(aircraft, "stop_sound"):
+            aircraft.stop_sound()
+        state.aircraft = None
+        state.active = False
+        print("비행기 파괴 완료")
+
+    update_items(
+        state,
+        player_rect=player_rect or pygame.Rect(0, height - 60, 0, 0),
+        width=width,
+        height=height,
+        activate_item=activate_item,
+        proximity_debug=False,
+    )
