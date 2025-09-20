@@ -24,6 +24,7 @@ gacha_result = None
 gacha_animation = 0
 gacha_items = []
 gacha_available_items_template = []
+gacha_legendary_bonus = 0.0  # 추가 전설 등장 확률 (0.05 = +5%)
 
 # 캡슐 애니메이션 변수
 falling_capsule = None
@@ -38,19 +39,20 @@ GACHA_MACHINE_HEIGHT = 400
 GACHA_GLOBE_RADIUS = 120
 GACHA_BASE_HEIGHT = 80
 
-def init_gacha(available_items):
+def init_gacha(available_items, legendary_bonus=0.0):
     """뽑기 시스템 초기화 함수"""
     global gacha_active, gacha_phase, gacha_items, gacha_spinning
     global gacha_result, gacha_animation, gacha_spin_timer
     global falling_capsule, capsule_fall_speed, capsule_fall_y, capsule_bounce_count, capsule_bounce_height
-    global gacha_available_items_template
-    
+    global gacha_available_items_template, gacha_legendary_bonus
+
     gacha_active = True
     gacha_phase = 0
     gacha_spinning = False
     gacha_spin_timer = 0
     gacha_result = None
     gacha_animation = 0
+    gacha_legendary_bonus = max(0.0, min(0.20, legendary_bonus))
     
     # 뽑기 통 안의 아이템들 (40개로 증가, 다양한 색상)
     gacha_items = []
@@ -139,8 +141,9 @@ def init_gacha(available_items):
     
     # 캡슐 40개 생성 (전설 아이템은 낮은 확률로)
     for i in range(40):
-        # 5% 확률로 전설 아이템, 95% 확률로 일반 아이템
-        if random.random() < 0.05 and legendary_items:  # 5% 확률로 전설 아이템
+        # 기본 5% + 추가 보너스로 전설 아이템 등장 확률 상승
+        legendary_chance = min(0.25, 0.05 + gacha_legendary_bonus)
+        if random.random() < legendary_chance and legendary_items:
             item = random.choice(legendary_items).copy()
         elif normal_items:
             item = random.choice(normal_items).copy()
@@ -527,7 +530,7 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
     
 
 
-def draw_gacha(screen, width, height, get_item_name_korean, get_item_description):
+def draw_gacha(screen, width, height, get_item_name_korean, get_item_description, legendary_bonus=0.0):
     """뽑기 시스템 그리기 함수 - 사이버펑크 테마"""
     if not gacha_active:
         return
@@ -627,8 +630,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
     # 사이버펑크 스타일 타이틀
     title_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 56)
-    title_text = "◈ LOOT EXTRACTION ◈"
-    subtitle_text = "[ 아이템 획듍 프로토콜 ]"
+    title_text = "◈ CYBER GATHA ◈"
     
     # 타이틀 네온 글로우 효과
     for i in range(3):
@@ -643,12 +645,14 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     title_rect = main_title.get_rect(center=(container_x + container_width // 2, container_y + 75))
     screen.blit(main_title, title_rect)
     
-    # 서브타이틀
-    subtitle_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
-    subtitle_surf = subtitle_font.render(subtitle_text, True, (0, 200, 200))
-    subtitle_rect = subtitle_surf.get_rect(center=(container_x + container_width // 2, container_y + 105))
-    screen.blit(subtitle_surf, subtitle_rect)
-    
+    # 전설 아이템 확률 보너스 표시
+    if legendary_bonus > 0:
+        bonus_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
+        bonus_percent = int(legendary_bonus * 100)
+        bonus_text = bonus_font.render(f"전설 아이템 확률 +{bonus_percent}%", True, (120, 240, 255))
+        bonus_rect = bonus_text.get_rect(center=(container_x + container_width // 2, container_y + 115))
+        screen.blit(bonus_text, bonus_rect)
+
     # 홀로그램 뽑기통 그리기
     gacha_center_x = container_x + container_width // 2
     gacha_center_y = container_y + 320
@@ -782,11 +786,14 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
 
 
-def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, store_active_item, get_item_description, get_star_count=None, spend_stars=None, auto_start=False):
+def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, store_active_item, get_item_description, get_star_count=None, spend_stars=None, auto_start=False, legendary_bonus=None):
     """뽑기 시스템 실행 함수"""
     global gacha_phase, gacha_spinning, gacha_result, gacha_start_time, gacha_active, gacha_spin_timer
 
     auto_start_flag = auto_start
+
+    if legendary_bonus is None:
+        legendary_bonus = gacha_legendary_bonus
 
     while True:
         clock = pygame.time.Clock()
@@ -826,7 +833,7 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
             gacha_animation += 1
 
             # 뽑기 그리기
-            draw_gacha(screen, width, height, get_item_name_korean, get_item_description)
+            draw_gacha(screen, width, height, get_item_name_korean, get_item_description, legendary_bonus)
 
             pygame.display.flip()
 
@@ -842,11 +849,12 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
                 store_passive_item,
                 store_active_item,
                 get_star_count,
+                legendary_bonus=legendary_bonus,
             )
 
         break
 
-def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_korean, get_item_description, store_passive_item, store_active_item, get_star_count=None):
+def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_korean, get_item_description, store_passive_item, store_active_item, get_star_count=None, legendary_bonus=0.0):
     """뽑기 결과 전용 페이지 - 화려한 축하 화면"""
     clock = pygame.time.Clock()
     running = True
@@ -1117,18 +1125,14 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
         main_congrats = congrats_font.render(congrats_text, True, (255, 255, 255))
         main_rect = main_congrats.get_rect(center=(width // 2, container_y + 90))
         screen.blit(main_congrats, main_rect)
-        
-        current_stars = get_star_count() if callable(get_star_count) else 0
-        star_ui_x = container_x + container_width - 170
-        star_ui_y = container_y + 32
-        star_bg_surf = pygame.Surface((150, 54), pygame.SRCALPHA)
-        pygame.draw.rect(star_bg_surf, (20, 40, 70, 180), (0, 0, 150, 54), border_radius=14)
-        pygame.draw.rect(star_bg_surf, (0, 200, 255, 220), (0, 0, 150, 54), 2, border_radius=14)
-        screen.blit(star_bg_surf, (star_ui_x - 20, star_ui_y - 10))
-        screen.blit(star_icon_small, (star_ui_x, star_ui_y))
-        star_text = star_font.render(f"x {current_stars}", True, (255, 240, 180))
-        screen.blit(star_text, (star_ui_x + 40, star_ui_y + 6))
-        
+
+        if legendary_bonus > 0:
+            bonus_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 24)
+            bonus_percent = int(legendary_bonus * 100)
+            bonus_text = bonus_font.render(f"전설 아이템 확률 +{bonus_percent}%", True, (120, 240, 255))
+            bonus_rect = bonus_text.get_rect(center=(width // 2, container_y + 130))
+            screen.blit(bonus_text, bonus_rect)
+
         # 아이템 아이콘 (매우 크게 + 빛나는 효과 + 위아래 떠다니는 모션)
         if "icon" in gacha_result and gacha_result["icon"]:
             icon_center_x = width // 2

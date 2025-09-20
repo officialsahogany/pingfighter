@@ -889,5 +889,4 @@ def get_smartphone_instance():
         print("[DEBUG] 스마트폰 인스턴스 최초 생성")
         smartphone_instance = Smartphone()
     else:
-        print(f"[DEBUG] 기존 스마트폰 인스턴스 반환 - active: {smartphone_instance.active}")
-    return smartphone_instance
+        return smartphone_instance

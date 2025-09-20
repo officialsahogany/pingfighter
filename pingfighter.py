@@ -1081,10 +1081,13 @@ def play_notification_sound():
     play_sound_with_volume(SOUND_NOTIFICATION)
 
 def play_ragnarok_shot_sound():
-    """라그나로크 스턴공 발사 사운드 재생"""
+    """라그나로크 스턴공 발사 사운드 재생 (중첩 방지)"""
+    global ragnarok_shot_channel
     try:
-        SOUND_RAGNAROK_SHOT.play()
-    except:
+        if ragnarok_shot_channel and ragnarok_shot_channel.get_busy():
+            ragnarok_shot_channel.stop()
+        ragnarok_shot_channel = SOUND_RAGNAROK_SHOT.play()
+    except Exception:
         pass  # 사운드 파일이 없으면 무시
 
 def play_ragnarok_boom_sound():
@@ -1332,6 +1335,9 @@ SOUND_RAGNAROK_SHOT = pygame.mixer.Sound(resource_path("sounds/ragnarokshot.wav"
 SOUND_AK47 = pygame.mixer.Sound(resource_path("sounds/ak47.wav"))  # AK-47 발사 효과음
 SOUND_RAGNAROK_BOOM = pygame.mixer.Sound(resource_path("sounds/ragnarokboom.wav"))  #  라그나로크 보스 반격 효과음
 SOUND_RAGNAROK_SHOCK = pygame.mixer.Sound(resource_path("sounds/ragnarokshock.wav"))  #  라그나로크 전기 감전 효과음
+
+# 라그나로크 해머 사운드 채널 (중첩 재생 방지)
+ragnarok_shot_channel = None
 SOUND_STAGE6_BOSS_HIT = pygame.mixer.Sound(resource_path("sounds/stage6bosshit.wav"))  #  스테이지 6 보스 피격 효과음
 SOUND_STAGE6_BEAM = pygame.mixer.Sound(resource_path("sounds/stage6beam.wav"))  #  스테이지 6 보스 레이저 빔 효과음
 SOUND_STAGE6_BEAM_CHARGE = pygame.mixer.Sound(resource_path("sounds/stage6beamcharge.wav"))  #  스테이지 6 보스 레이저 충전 효과음
@@ -11869,6 +11875,10 @@ trade_point_particles = []  # 형광가루 파티클 효과 리스트
 trade_point_collected = 0  # 현재 스테이지에서 수집한 트레이드 포인트
 trade_point_texts = []  # 트레이드 포인트 획득 시 표시할 텍스트 효과
 
+# 승리 화면 가챠 연속 사용 보너스 추적
+gacha_reroll_stage = None  # 최근 가챠 보너스를 적용한 스테이지 번호
+gacha_reroll_streak = 0    # 현재 스테이지에서 연속으로 수행한 추가 가챠 횟수
+
 
 def get_trade_point_star_count(include_stage_pending=True):
     """현재 보유 중인 트레이드 포인트 별 개수 반환"""
@@ -20133,6 +20143,11 @@ def show_victory_screen(stage_cleared, reward):
     global trade_point_collected, trade_point_system
     global stage3_hearts_collected, stage4_crows_collected
     global final_round_wins, final_round_losses
+    global gacha_reroll_stage, gacha_reroll_streak
+
+    if gacha_reroll_stage != stage_cleared:
+        gacha_reroll_stage = stage_cleared
+        gacha_reroll_streak = 0
     # 스테이지 클리어 보상으로 스킬 포인트 추가
     import academy
     base_points = 1
@@ -20285,13 +20300,89 @@ def show_victory_screen(stage_cleared, reward):
     
     reroll_warning_timer = 0
     reroll_warning_text = ""
-    
+
+    def show_reroll_confirmation_dialog(bonus_percent: int) -> bool:
+        """연속 가챠 확인 창을 표시하고 선택 여부를 반환"""
+        confirmation_clock = pygame.time.Clock()
+        base_surface = SCREEN.copy()
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        panel_rect = pygame.Rect(WIDTH // 2 - 260, HEIGHT // 2 - 140, 520, 240)
+        yes_rect = pygame.Rect(panel_rect.centerx - 140, panel_rect.bottom - 80, 120, 56)
+        no_rect = pygame.Rect(panel_rect.centerx + 20, panel_rect.bottom - 80, 120, 56)
+        selection = 0  # 0: 네, 1: 아니오
+
+        title_font = FontStyle.menu()
+        body_font = FontStyle.body()
+        info_font = FontStyle.small()
+
+        while True:
+            SCREEN.blit(base_surface, (0, 0))
+            overlay.fill((0, 0, 0, 200))
+            SCREEN.blit(overlay, (0, 0))
+
+            pygame.draw.rect(SCREEN, (20, 35, 70), panel_rect, border_radius=18)
+            pygame.draw.rect(SCREEN, (0, 220, 255), panel_rect, 3, border_radius=18)
+
+            title_surface = title_font.render("또 뽑기를 진행할까요?", True, (255, 255, 255))
+            title_rect = title_surface.get_rect(center=(panel_rect.centerx, panel_rect.top + 60))
+            SCREEN.blit(title_surface, title_rect)
+
+            message_surface = body_font.render("뽑기를 한 번 더 진행하면 2 별포인트가 차감됩니다.", True, (180, 220, 255))
+            message_rect = message_surface.get_rect(center=(panel_rect.centerx, panel_rect.top + 110))
+            SCREEN.blit(message_surface, message_rect)
+
+            if bonus_percent > 0:
+                bonus_surface = info_font.render(f"전설 아이템 확률 +{bonus_percent}% 보너스", True, (255, 210, 120))
+                bonus_rect = bonus_surface.get_rect(center=(panel_rect.centerx, panel_rect.top + 150))
+                SCREEN.blit(bonus_surface, bonus_rect)
+
+            # 버튼 렌더링
+            yes_color = (0, 220, 255) if selection == 0 else (60, 80, 110)
+            no_color = (255, 120, 120) if selection == 1 else (60, 80, 110)
+            pygame.draw.rect(SCREEN, yes_color, yes_rect, border_radius=12)
+            pygame.draw.rect(SCREEN, no_color, no_rect, border_radius=12)
+            pygame.draw.rect(SCREEN, (255, 255, 255), yes_rect, 2, border_radius=12)
+            pygame.draw.rect(SCREEN, (255, 255, 255), no_rect, 2, border_radius=12)
+
+            yes_text = body_font.render("네", True, (0, 0, 20))
+            no_text = body_font.render("아니오", True, (0, 0, 20))
+            SCREEN.blit(yes_text, yes_text.get_rect(center=yes_rect.center))
+            SCREEN.blit(no_text, no_text.get_rect(center=no_rect.center))
+
+            pygame.display.flip()
+            confirmation_clock.tick(60)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key in [pygame.K_LEFT, pygame.K_a, pygame.K_RIGHT, pygame.K_d]:
+                        selection = 1 - selection
+                    elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
+                        return selection == 0
+                    elif event.key == pygame.K_ESCAPE:
+                        return False
+
     while True:
         frame_count += 1
         if star_badge_glow_timer > 0:
             star_badge_glow_timer -= 1
         glow_intensity = abs(math.sin(frame_count * 0.05)) * 50  # 부드러운 글로우 효과
-        
+
+        # 외부 메뉴(가챠/아카데미 등)에서 별이 소비되면 즉시 UI와 동기화
+        if star_animation_finished:
+            actual_star_points = get_trade_point_star_count(include_stage_pending=False)
+            if actual_star_points != star_points_target:
+                star_points_target = actual_star_points
+                star_points_display = actual_star_points
+                star_gain_total = 0
+                star_animation_index = 0
+                star_animation_state = 'done'
+                star_animation_star = None
+                star_trail_particles.clear()
+                star_badge_glow_timer = star_badge_glow_duration
+
         # 애니메이션 상태 업데이트
         for key in animation_states:
             if key in animation_timeline and frame_count >= animation_timeline[key] and not animation_states[key]['show']:
@@ -20847,16 +20938,27 @@ def show_victory_screen(stage_cleared, reward):
                                 reroll_warning_timer = 120
                                 continue
 
+                            bonus_percent = min((gacha_reroll_streak + 1) * 5, 20)
+                            confirmation_surface = SCREEN.copy()
+                            if not show_reroll_confirmation_dialog(bonus_percent):
+                                SCREEN.blit(confirmation_surface, (0, 0))  # 확인창 이전 화면 복원
+                                pygame.display.flip()
+                                pygame.event.get()
+                                continue
+
                             if not spend_trade_point_stars(2):
                                 reroll_warning_text = "별이 부족합니다!"
                                 reroll_warning_timer = 120
                                 continue
 
-                            reroll_warning_text = "별 2개 사용!"
+                            gacha_reroll_streak += 1
+                            legendary_bonus_ratio = min(gacha_reroll_streak * 0.05, 0.20)
+
+                            reroll_warning_text = f"별 2개 사용! 전설 확률 +{int(legendary_bonus_ratio * 100)}%"
                             reroll_warning_timer = 120
                             pygame.event.get()
                             bgm_manager.stop_bgm()
-                            gacha.init_gacha(template)
+                            gacha.init_gacha(template, legendary_bonus=legendary_bonus_ratio)
                             gacha.run_gacha(
                                 SCREEN,
                                 WIDTH,
@@ -20868,6 +20970,7 @@ def show_victory_screen(stage_cleared, reward):
                                 get_trade_point_star_count,
                                 spend_trade_point_stars,
                                 auto_start=True,
+                                legendary_bonus=legendary_bonus_ratio,
                             )
                             pygame.event.get()
                             # 가챠로 별을 사용했으므로 승리 화면 우측 상단 별 UI를 즉시 동기화
@@ -33874,8 +33977,8 @@ def calculate_bounce(paddle):
     
     #  라그나로크 스턴공 효과 적용 (플래그가 설정되어 있으면)
     if is_player_paddle and ragnarok_speed_boost_active:
-        # 공속 50% 증가
-        speed_boost_multiplier = 1.5
+        # 공속 30% 증가
+        speed_boost_multiplier = 1.3
         ball_vel[0] *= speed_boost_multiplier
         ball_vel[1] *= speed_boost_multiplier
         new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
@@ -34878,7 +34981,7 @@ def handle_ball():
     global boss_special_gauge_stage4, boss_special_ready_stage4
     global boss_current_health  #  체력형 보스 체력 변수
     global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
-    global ragnarok_stun_pending
+    global ragnarok_stun_pending, ragnarok_speed_boost_active, ragnarok_stun_attempted_this_rally
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
     # 공 물리 & 움직임
@@ -37679,6 +37782,9 @@ def handle_ball():
             print("상모돌리기 종료 - 보스 패들 충돌")
             
         calculate_bounce(BOSS)
+
+        # 보스가 공을 되받은 이후에는 다시 스턴공 시도를 허용
+        ragnarok_stun_attempted_this_rally = False
         
         #  라그나로크 보스 반격 사운드 (스턴공이었을 때만)
         if was_stun_ball:
