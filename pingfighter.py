@@ -6898,6 +6898,7 @@ hit_animation_active = False
 hit_animation_timer = 0
 HIT_ANIMATION_DURATION = 6  # 프레임 수
 player_slow_timer = 0  # 눈물 디버프 지속 시간 (프레임 단위)
+player_slow_timer_max = 0  # 느려짐 이펙트 강도 계산용
 quake_offset_y = 0  # ← 전역 초기화 (draw_objects에서 사용)
 # 화면 흔들림 오프셋 변수들
 screen_shake_offset_x = 0
