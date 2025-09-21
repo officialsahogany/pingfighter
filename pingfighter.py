@@ -9015,13 +9015,13 @@ def activate_wall():
         wall_x = PLAYER.centerx - wall_width // 2
         wall_y = PLAYER.bottom + 10  # 패들 아래 10픽셀로 복원
         wall_rect = pygame.Rect(wall_x, wall_y, wall_width, wall_height)
-        # 새로운 벽돌 추가
+        # 설치 완료 시 추가할 벽돌 정보 저장
         new_wall = {
             "rect": wall_rect,
             "hit_count": 0,
             "crack_level": 0
         }
-        walls.append(new_wall)
+        pending_wall = new_wall
 # === Stage 4 명상타임 관련 전역 변수 ===
 meditation_active = False
 meditation_timer = 0
@@ -15001,7 +15001,7 @@ def is_player_in_smoke():
     return False
 def handle_wall():
     """벽돌 설치 및 관리 함수"""
-    global walls, wall_installing, wall_install_timer, wall_install_gauge_visible
+    global walls, pending_wall, wall_installing, wall_install_timer, wall_install_gauge_visible
     global boss_stunned_timer, boss_knockback_vel, explosion_zones, grenades
     global boss_confused_timer, flares, flare_zones, last_hit_by
     global boss_current_health, boss_max_health  #  체력형 보스 체력 변수
@@ -15011,8 +15011,12 @@ def handle_wall():
     if wall_installing:
         wall_install_timer -= 1
         if wall_install_timer <= 0:
+            wall_install_timer = 0
             wall_installing = False
             wall_install_gauge_visible = False  # 설치 게이지 숨기기
+            if pending_wall is not None:
+                walls.append(pending_wall)
+                pending_wall = None
             print("!    .")
     # 파괴된 벽돌들 제거 (부서지는 이펙트 생성)
     destroyed_walls = [wall for wall in walls if wall["hit_count"] >= 2]
