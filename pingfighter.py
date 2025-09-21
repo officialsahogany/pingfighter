@@ -10641,7 +10641,7 @@ def draw_soldier_weapon_ui(screen):
         center_x = base_x + w // 2
         center_y = base_y + h // 2
 
-            ak47_active = ak47.active and (ak47.current_ammo > 0 or ak47.bullets)
+        ak47_active = ak47.active and (ak47.current_ammo > 0 or ak47.bullets)
 
         # 활성/비활성 상태에 따른 색상 팔레트 정의
         receiver_color = (78, 58, 38) if ak47_active else (78, 78, 78)
