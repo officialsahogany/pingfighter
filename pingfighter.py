@@ -43370,7 +43370,7 @@ def show_result(won):
     global bulkup_obtained, dashholder_obtained, gravitybelt_obtained  #  벌크업, 대쉬홀더, 무중력벨트 변수 추가
     global danger_sensor_obtained, sensor_obtained  #  센서 관련 변수 추가
     global rolling_charges  #  대쉬 토큰 수, 시너지 효과 변수 추가
-    global walls, passive_item_list, round_losses  #  벽돌 변수 추가
+    global walls, pending_wall, wall_installing, wall_install_timer, wall_install_gauge_visible, passive_item_list, round_losses  #  벽돌 변수 추가
     global deuce_mode, deuce_wins, deuce_losses, deuce_goal  #  듀스 시스템 변수 추가
     global whip_sound  #  상모돌리기 사운드 추가
     # global balloon_active, balloon_timer, balloons, balloon_used_this_round  # Stage 1 보스 풍선파티 스킬 제거됨
@@ -43385,8 +43385,10 @@ def show_result(won):
         special_active = False
     #  벽돌 초기화 (다음 스테이지로 넘어가면 벽돌 사라짐)
     walls.clear()
-    global pending_wall
     pending_wall = None
+    wall_installing = False
+    wall_install_timer = 0
+    wall_install_gauge_visible = False
     #  Aipill 초기화 (다음 라운드로 넘어가면 Aipill 효과 종료)
     if aipill_active:
         print("Aipill  .")
