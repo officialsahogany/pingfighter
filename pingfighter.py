@@ -8999,11 +8999,11 @@ def activate_wall():
         wall_installing = True
         #  엑티브 아이템 사용 효과음 재생
         play_active_item_sound()
-        # 장인 아이템이 있으면 쿨타임과 벽돌 크기 조정
+        # 장인 아이템이 있으면 벽돌 길이만 증가 (설치 시간은 동일하게 유지)
         if master_obtained:
-            wall_install_timer = 48  # 0.8초 (48프레임)
+            wall_install_timer = HALF_SECOND_FRAMES  # 0.5초 (30프레임)
             wall_width = int(80 * 1.3)  # 1.3배 길이 (30% 증가)
-            print(f"  !   1.3,  0.8 ( {len(walls)})")
+            print(f"  !   1.3,  0.5 ( {len(walls)})")
         else:
             wall_install_timer = HALF_SECOND_FRAMES  # 0.5초 (30프레임)
             wall_width = 80  # 기본 길이
