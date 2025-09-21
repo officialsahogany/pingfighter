@@ -17801,7 +17801,7 @@ def draw_player_gauge():
         phase = (time_now // 150) % 4
         prefix_cycle = ["|", "/", "-", "\\"]
         prefix = prefix_cycle[phase]
-        display_text = f"{prefix} AI SYSTEM OPERATING .."
+        display_text = f"{prefix} AI OPERATING .."
         # 텍스트 표면 생성
         flicker = int((math.sin(time_now * 0.012) + 1) * 0.5 * 45)
         text_color = (120 + flicker, 240, 255)
