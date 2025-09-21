@@ -20612,7 +20612,7 @@ def draw_objects():
         phase = (time_now // 150) % 4
         prefix_cycle = ["|", "/", "-", "\\"]
         prefix = prefix_cycle[phase]
-        display_text = f"{prefix} AI SYSTEM"
+        display_text = f"{prefix} AI SYSTEM OPERATING.."
         flicker = int((math.sin(time_now * 0.012) + 1) * 0.5 * 45)
         text_color = (120 + flicker, 240, 255)
         ai_surface = ai_font.render(display_text, True, text_color)
