@@ -8371,98 +8371,272 @@ def calculate_trajectory():
         
         # 최대 500프레임 예측 (충분한 시간)
         max_steps = 500
-        meditation_angle = 0  # 명상타임용 각도
-        magnetic_curve = 0    # 자기장 휘어짐 각도
-        
-        for step in range(max_steps):
-            #  보스 기술 효과 적용
-            if skill_type and step > 30:  # 약간의 딜레이 후 기술 발동
-                if skill_type == "quake" and step < 110:  # 정글지진 (약 1.3초)
-                    # 랜덤 흔들림 효과
-                    shake_x = random.uniform(-3, 3)
-                    shake_y = random.uniform(-2, 2)
-                    sim_vel_x += shake_x * 0.3  # 시뮬레이션에서는 약간 약하게
-                    sim_vel_y += shake_y * 0.3
-                    
-                    # 플레이어 방향으로 약간 끌어당김
-                    dx = PLAYER.centerx - sim_x
-                    dy = PLAYER.centery - sim_y
-                    distance = math.hypot(dx, dy)
-                    if distance > 10:
-                        influence = 0.15 / distance
-                        sim_vel_x += dx * influence * 0.005
-                        sim_vel_y += dy * influence * 0.005
-                    
-                    # 속도 제한
-                    max_speed = 8
-                    sim_vel_x = max(-max_speed, min(max_speed, sim_vel_x))
-                    sim_vel_y = max(-max_speed, min(max_speed, sim_vel_y))
-                    
-                elif skill_type == "tears":
-                    # 눈물샤워는 플레이어가 느려지는 효과만 있음
-                    # 공의 궤적은 변하지 않지만 경고 표시를 위해 확률 유지
-                    pass  # 시각적 표시만 하면 됨
-                    
-                elif skill_type == "meditation" and step < 108:  # 1.8초간 명상
-                    # 보스 주위를 8자 모양으로 회전
-                    # 108프레임 동안 1.5바퀴(540도) 회전
-                    meditation_angle += (540.0 / 108.0)  # 5도/프레임
-                    radian_angle = math.radians(meditation_angle)
-                    # 8자 궤도 공식
-                    scale = 80 * 1.5
-                    denominator = 1 + math.sin(radian_angle) ** 2
-                    sim_x = BOSS.centerx + scale * math.cos(radian_angle) / denominator
-                    sim_y = BOSS.centery + scale * math.sin(radian_angle) * math.cos(radian_angle) / denominator
-                    if step == 107:  # 명상 끝나면 랜덤 방향으로
-                        angle = random.uniform(-60, 60)
-                        # 예측 시스템에서도 속도 제한 (기본 속도의 1.0~1.2배)
-                        base_speed = math.hypot(sim_vel_x, sim_vel_y)
-                        speed = min(base_speed * 1.1, BALL_BASE_SPEED * 1.2)
-                        sim_vel_x = speed * math.sin(math.radians(angle))
-                        sim_vel_y = speed * math.cos(math.radians(angle))
-                    continue
-                    
-                elif skill_type == "magnetic" and step < 150:  # 2.5초간 자기장
-                    # 플레이어 쪽으로 휘어짐
-                    direction_to_player_x = PLAYER.centerx - sim_x
-                    direction_to_player_y = PLAYER.centery - sim_y
-                    distance = math.hypot(direction_to_player_x, direction_to_player_y)
-                    if distance > 0:
-                        direction_to_player_x /= distance
-                        direction_to_player_y /= distance
-                        magnetic_curve += 4.1
-                        curve_x = direction_to_player_x * math.cos(math.radians(magnetic_curve)) * 1.8
-                        curve_y = direction_to_player_y * math.sin(math.radians(magnetic_curve)) * 1.8
-                        sim_vel_x += curve_x * 0.1
-                        sim_vel_y += curve_y * 0.1
-                        # 속도 증가
-                        sim_vel_x *= 1.02
-                        sim_vel_y *= 1.02
-                        
-                elif skill_type == "flame_trail" and step < 120:  # 2초간 화염궤적
-                    # S자 곡선 궤적
-                    wave_amplitude = 50
-                    wave_frequency = 0.05
-                    sim_vel_x += math.sin(step * wave_frequency) * 2
-                    
-                elif skill_type == "power_smashing":
-                    # 포물선 궤적
-                    if step < 60:  # 1초간 포물선
-                        arc_strength = 0.3
-                        sim_vel_y += arc_strength
-            
-            # 현재 위치 저장 (매 3프레임마다 더 세밀하게)
-            if step % 3 == 0:
-                # 스킬 발동 확률에 따라 저장 (확률이 높으면 더 선명하게)
-                if skill_probability > 0.3:
-                    predicted_trajectory.append((int(sim_x), int(sim_y), skill_probability))
-                else:
+        random_state = random.getstate()
+        base_ticks = pygame.time.get_ticks()
+        sim_meditation_timer = meditation_timer if meditation_active else meditation_duration
+        sim_meditation_angle = meditation_angle if meditation_active else 0
+        sim_magnetic_curve = magnet_curve_angle if stage4_magnetic_active else 0
+        sim_magnetic_timer = stage4_magnetic_timer if stage4_magnetic_active else 200
+        base_flame_vec = globals().get("flame_trail_base_vel")
+        if isinstance(base_flame_vec, pygame.math.Vector2):
+            sim_flame_base_vel = (base_flame_vec.x, base_flame_vec.y)
+        elif isinstance(base_flame_vec, (list, tuple)):
+            sim_flame_base_vel = (base_flame_vec[0], base_flame_vec[1])
+        else:
+            sim_flame_base_vel = None
+        flame_start_time_snapshot = globals().get("flame_trail_start_time", base_ticks)
+        sim_flame_phase = flame_trail_phase if flame_trail_active else 0
+        sim_flame_timer = flame_trail_timer if flame_trail_active else TWO_SECONDS_FRAMES
+        sim_quake_timer = quake_timer if quake_active else quake_duration
+        sim_quake_restore_speed = original_ball_speed_quake[:] if quake_active else None
+        sim_power_smashing_initial_boost = power_smashing_initial_boost
+        sim_power_smashing_start = power_smashing_start_time
+        sim_power_smashing_direction = power_smashing_direction
+        sim_power_smashing_target_speed = power_smashing_target_speed
+        frame_time_ms = 1000.0 / FPS if FPS else 16.6667
+
+        try:
+            for step in range(max_steps):
+                skill_active_now = False
+                if skill_type == "quake" and quake_active:
+                    skill_active_now = True
+                elif skill_type == "meditation" and meditation_active:
+                    skill_active_now = True
+                elif skill_type == "magnetic" and stage4_magnetic_active:
+                    skill_active_now = True
+                elif skill_type == "flame_trail" and flame_trail_active:
+                    skill_active_now = True
+                elif skill_type == "power_smashing" and power_smashing_parabola_active:
+                    skill_active_now = True
+
+                if skill_type and (skill_active_now or step > 30):
+                    if skill_type == "quake":
+                        if skill_active_now:
+                            if sim_quake_timer > 0:
+                                sim_quake_timer -= 1
+                                shake_x = random.uniform(-3, 3)
+                                shake_y = random.uniform(-2, 2)
+                                sim_vel_x += shake_x
+                                sim_vel_y += shake_y
+                                dx = PLAYER.centerx - sim_x
+                                dy = PLAYER.centery - sim_y
+                                distance = math.hypot(dx, dy)
+                                if distance > 10:
+                                    influence = 0.15 / distance
+                                    sim_vel_x += dx * influence * 0.01
+                                    sim_vel_y += dy * influence * 0.01
+                                max_speed = 8.0
+                                sim_vel_x = max(-max_speed, min(max_speed, sim_vel_x))
+                                sim_vel_y = max(-max_speed, min(max_speed, sim_vel_y))
+                            elif sim_quake_restore_speed:
+                                sim_vel_x = sim_quake_restore_speed[0]
+                                sim_vel_y = sim_quake_restore_speed[1]
+                        elif step - 30 < quake_duration:
+                            shake_x = random.uniform(-3, 3)
+                            shake_y = random.uniform(-2, 2)
+                            sim_vel_x += shake_x * 0.3
+                            sim_vel_y += shake_y * 0.3
+                            dx = PLAYER.centerx - sim_x
+                            dy = PLAYER.centery - sim_y
+                            distance = math.hypot(dx, dy)
+                            if distance > 10:
+                                influence = 0.15 / distance
+                                sim_vel_x += dx * influence * 0.005
+                                sim_vel_y += dy * influence * 0.005
+                            max_speed = 8
+                            sim_vel_x = max(-max_speed, min(max_speed, sim_vel_x))
+                            sim_vel_y = max(-max_speed, min(max_speed, sim_vel_y))
+
+                    elif skill_type == "tears":
+                        pass
+
+                    elif skill_type == "meditation":
+                        if skill_active_now:
+                            if sim_meditation_timer > 0:
+                                sim_meditation_timer -= 1
+                                prev_x, prev_y = sim_x, sim_y
+                                sim_meditation_angle += (720.0 / meditation_duration)
+                                radian_angle = math.radians(sim_meditation_angle)
+                                scale = meditation_orbit_radius * 1.5
+                                denominator = 1 + math.sin(radian_angle) ** 2
+                                sim_x = BOSS.centerx + scale * math.cos(radian_angle) / denominator
+                                sim_y = BOSS.centery + scale * math.sin(radian_angle) * math.cos(radian_angle) / denominator
+                                sim_vel_x = sim_x - prev_x
+                                sim_vel_y = sim_y - prev_y
+                                continue
+                            else:
+                                angle = random.randint(-45, 45)
+                                speed = BALL_BASE_SPEED * random.uniform(1.3, 1.6)
+                                sim_vel_x = speed * math.sin(math.radians(angle))
+                                sim_vel_y = abs(speed * math.cos(math.radians(angle)))
+                        elif step < 108:
+                            sim_meditation_angle += (540.0 / 108.0)
+                            radian_angle = math.radians(sim_meditation_angle)
+                            scale = 80 * 1.5
+                            denominator = 1 + math.sin(radian_angle) ** 2
+                            sim_x = BOSS.centerx + scale * math.cos(radian_angle) / denominator
+                            sim_y = BOSS.centery + scale * math.sin(radian_angle) * math.cos(radian_angle) / denominator
+                            if step == 107:
+                                angle = random.uniform(-60, 60)
+                                base_speed = math.hypot(sim_vel_x, sim_vel_y)
+                                speed = min(base_speed * 1.1, BALL_BASE_SPEED * 1.2)
+                                sim_vel_x = speed * math.sin(math.radians(angle))
+                                sim_vel_y = speed * math.cos(math.radians(angle))
+                            continue
+
+                    elif skill_type == "magnetic":
+                        if skill_active_now:
+                            if sim_magnetic_timer > 0:
+                                sim_magnetic_timer -= 1
+                                direction_to_player_x = PLAYER.centerx - sim_x
+                                direction_to_player_y = PLAYER.centery - sim_y
+                                distance = math.hypot(direction_to_player_x, direction_to_player_y)
+                                if distance > 0:
+                                    direction_to_player_x /= distance
+                                    direction_to_player_y /= distance
+                                    sim_magnetic_curve += 4.1
+                                    theta = math.radians(sim_magnetic_curve)
+                                    rotated_x = direction_to_player_x * math.cos(theta) - direction_to_player_y * math.sin(theta)
+                                    rotated_y = direction_to_player_x * math.sin(theta) + direction_to_player_y * math.cos(theta)
+                                    sim_vel_x += rotated_x * 1.8
+                                    sim_vel_y += rotated_y * 1.8
+                                    sim_vel_x *= 1.04
+                                    sim_vel_y *= 1.04
+                                    current_speed = math.hypot(sim_vel_x, sim_vel_y)
+                                    max_speed = BALL_BASE_SPEED * 2.2
+                                    if current_speed > max_speed:
+                                        scale_factor = max_speed / current_speed
+                                        sim_vel_x *= scale_factor
+                                        sim_vel_y *= scale_factor
+                            else:
+                                recover_speed = max(player_last_shot_speed, BALL_BASE_SPEED)
+                                direction_length = math.hypot(sim_vel_x, sim_vel_y)
+                                if direction_length == 0:
+                                    sim_vel_x, sim_vel_y = 0.0, recover_speed
+                                else:
+                                    sim_vel_x = (sim_vel_x / direction_length) * recover_speed
+                                    sim_vel_y = (sim_vel_y / direction_length) * recover_speed
+                                sim_magnetic_curve = 0
+                        elif step < 150:
+                            direction_to_player_x = PLAYER.centerx - sim_x
+                            direction_to_player_y = PLAYER.centery - sim_y
+                            distance = math.hypot(direction_to_player_x, direction_to_player_y)
+                            if distance > 0:
+                                direction_to_player_x /= distance
+                                direction_to_player_y /= distance
+                                sim_magnetic_curve += 4.1
+                                curve_x = direction_to_player_x * math.cos(math.radians(sim_magnetic_curve)) * 1.8
+                                curve_y = direction_to_player_y * math.sin(math.radians(sim_magnetic_curve)) * 1.8
+                                sim_vel_x += curve_x * 0.1
+                                sim_vel_y += curve_y * 0.1
+                                sim_vel_x *= 1.02
+                                sim_vel_y *= 1.02
+
+                    elif skill_type == "flame_trail":
+                        if skill_active_now:
+                            sim_flame_timer = max(0, sim_flame_timer - 1)
+                            sim_time_ms = base_ticks + step * frame_time_ms
+                            if sim_flame_phase == 0:
+                                sim_flame_phase = 1
+                                flame_start_time_snapshot = sim_time_ms
+                                dir_x = PLAYER.centerx - sim_x
+                                dir_y = PLAYER.centery - sim_y
+                                length = math.hypot(dir_x, dir_y)
+                                if length != 0:
+                                    sim_flame_base_vel = (dir_x / length, dir_y / length)
+                                else:
+                                    sim_flame_base_vel = (0.0, 1.0)
+                            elapsed = max(0.0, (sim_time_ms - flame_start_time_snapshot) / 1000.0)
+                            prev_x, prev_y = sim_x, sim_y
+                            if elapsed < 1.0:
+                                sim_x += math.sin(elapsed * 25) * 2
+                                sim_y += math.cos(elapsed * 30) * 1
+                                sim_vel_x = sim_x - prev_x
+                                sim_vel_y = sim_y - prev_y
+                                continue
+                            if sim_flame_phase == 1:
+                                sim_flame_phase = 2
+                            accel_elapsed = elapsed - 1.0
+                            max_speed = 6.0
+                            accel_time = 6.0
+                            current_speed = max_speed * min(1.0, accel_elapsed / accel_time)
+                            current_speed = max(0.001, current_speed ** 1.2)
+                            amplitude_x = min(40, 10 + accel_elapsed * 6)
+                            amplitude_y = min(20, 5 + accel_elapsed * 3)
+                            noise_x = random.uniform(-2, 2)
+                            noise_y = random.uniform(-1, 1)
+                            base_vx = sim_flame_base_vel[0] if sim_flame_base_vel else 0.0
+                            base_vy = sim_flame_base_vel[1] if sim_flame_base_vel else 1.0
+                            sim_x += base_vx * current_speed + math.sin(accel_elapsed * 6) * amplitude_x + noise_x
+                            sim_y += base_vy * current_speed + math.cos(accel_elapsed * 3) * amplitude_y + noise_y
+                            sim_vel_x = sim_x - prev_x
+                            sim_vel_y = sim_y - prev_y
+                            continue
+                        elif step < 120:
+                            wave_amplitude = 50
+                            wave_frequency = 0.05
+                            sim_vel_x += math.sin(step * wave_frequency) * 2
+
+                    elif skill_type == "power_smashing":
+                        if skill_active_now:
+                            sim_time_ms = base_ticks + step * frame_time_ms
+                            elapsed_time = max(0.0, (sim_time_ms - sim_power_smashing_start) / 1000.0)
+                            if sim_power_smashing_initial_boost and power_smashing_boost_duration > 0:
+                                current_speed = math.hypot(sim_vel_x, sim_vel_y)
+                                boost_duration = power_smashing_boost_duration / 1000.0
+                                boost_progress = min(1.0, elapsed_time / boost_duration) if boost_duration else 1.0
+                                if sim_power_smashing_direction == 0:
+                                    initial_boosted_speed = power_smashing_target_speed * 1.8
+                                else:
+                                    initial_boosted_speed = power_smashing_target_speed * 2.0
+                                interpolated_speed = initial_boosted_speed - (initial_boosted_speed - power_smashing_target_speed) * boost_progress
+                                if current_speed > 0:
+                                    speed_ratio = interpolated_speed / current_speed
+                                    sim_vel_x *= speed_ratio
+                                    sim_vel_y *= speed_ratio
+                                if boost_progress >= 1.0:
+                                    sim_power_smashing_initial_boost = False
+                            horizontal_decay = max(0.8, 1.0 - elapsed_time * 0.05)
+                            chaos_factor = math.sin(elapsed_time * 5.0) * 0.05 + random.uniform(-0.04, 0.04)
+                            horizontal_force = power_smashing_arc_strength * horizontal_decay * (0.5 + chaos_factor * 0.2)
+                            sim_vel_x += horizontal_force
+                            if elapsed_time < 1.8:
+                                base_lift = power_smashing_gravity_effect * 1.5 * (1.8 - elapsed_time) / 1.8
+                                vertical_chaos = math.cos(elapsed_time * 5.0) * 0.015
+                                vertical_lift = base_lift + vertical_chaos
+                                sim_vel_y -= vertical_lift
+                            else:
+                                base_pull = power_smashing_gravity_effect * 1.2 * (elapsed_time - 1.8)
+                                descent_chaos = math.sin(elapsed_time * 7.0) * 0.015
+                                vertical_pull = base_pull + descent_chaos
+                                sim_vel_y += vertical_pull
+                        else:
+                            if step < 60:
+                                arc_strength = 0.3
+                                sim_vel_y += arc_strength
+
+                if step % 3 == 0:
+                    if skill_probability > 0.3:
+                        predicted_trajectory.append((int(sim_x), int(sim_y), skill_probability))
+                    else:
+                        predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
+
+                sim_x += sim_vel_x
+                sim_y += sim_vel_y
+
+                if sim_x <= BALL.width // 2 or sim_x >= WIDTH - BALL.width // 2:
+                    sim_vel_x = -sim_vel_x
+                    sim_x = max(BALL.width // 2, min(WIDTH - BALL.width // 2, sim_x))
+
+                if sim_y >= HEIGHT - 40:
                     predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
-            
-            # 다음 위치 계산
-            sim_x += sim_vel_x
-            sim_y += sim_vel_y
-            
+                    break
+
+                if sim_y > HEIGHT + LARGE_SIZE:
+                    break
+        finally:
+            random.setstate(random_state)
+
             # 벽 충돌 체크
             if sim_x <= BALL.width // 2 or sim_x >= WIDTH - BALL.width // 2:
                 sim_vel_x = -sim_vel_x
