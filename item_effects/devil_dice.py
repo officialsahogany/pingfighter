@@ -25,7 +25,7 @@ class DevilDice:
             'paddle_size': 2,      # 1: 50% 감소, 2: 변화없음, 3: 50% 증가
             'skill_gauge': 2,      # 1: 50% 감소, 2: 변화없음, 3: 50% 증가
             'item_spawn': 2,       # 1: 50% 감소, 2: 변화없음, 3: 50% 증가
-            'active_cooldown': 2,  # 1: 50% 감소, 2: 변화없음, 3: 50% 증가
+            'item_cooldown': 2,  # 1: 50% 감소, 2: 변화없음, 3: 50% 증가
             'skill_dash_cost': 2,  # 1: 50% 감소, 2: 변화없음, 3: 50% 증가
             'dash_cooldown': 2,    # 1: 50% 감소, 2: 변화없음, 3: 50% 증가
             'player_speed': 2,     # 1: 50% 감소, 2: 변화없음, 3: 50% 증가
@@ -136,7 +136,7 @@ class DevilDice:
             'paddle_size': ['50% 감소', '변화없음', '50% 증가'],
             'skill_gauge': ['50% 감소', '변화없음', '50% 증가'],
             'item_spawn': ['50% 감소', '변화없음', '50% 증가'],
-            'active_cooldown': ['50% 감소', '변화없음', '50% 증가'],
+            'item_cooldown': ['50% 감소', '변화없음', '50% 증가'],
             'skill_dash_cost': ['50% 감소', '변화없음', '50% 증가'],
             'dash_cooldown': ['50% 감소', '변화없음', '50% 증가'],
             'player_speed': ['50% 감소', '변화없음', '50% 증가'],
@@ -146,7 +146,7 @@ class DevilDice:
         print(f"     : {results_text['paddle_size'][self.dice_results['paddle_size']-1]}")
         print(f"     : {results_text['skill_gauge'][self.dice_results['skill_gauge']-1]}")
         print(f"     : {results_text['item_spawn'][self.dice_results['item_spawn']-1]}")
-        print(f"     : {results_text['active_cooldown'][self.dice_results['active_cooldown']-1]}")
+        print(f"     : {results_text['item_cooldown'][self.dice_results['item_cooldown']-1]}")
         print(f"    / : {results_text['skill_dash_cost'][self.dice_results['skill_dash_cost']-1]}")
         print(f"     : {results_text['dash_cooldown'][self.dice_results['dash_cooldown']-1]}")
         print(f"     : {results_text['player_speed'][self.dice_results['player_speed']-1]}")
@@ -167,7 +167,7 @@ class DevilDice:
                 'paddle_size': 1.0,
                 'skill_gauge': 1.0,
                 'item_spawn': 1.0,
-                'active_cooldown': 1.0,
+                'item_cooldown': 1.0,
                 'skill_dash_cost': 1.0,
                 'dash_cooldown': 1.0,
                 'player_speed': 1.0,
@@ -177,7 +177,7 @@ class DevilDice:
             'paddle_size': self.effect_multipliers[self.dice_results['paddle_size']],
             'skill_gauge': self.effect_multipliers[self.dice_results['skill_gauge']],
             'item_spawn': self.effect_multipliers[self.dice_results['item_spawn']],
-            'active_cooldown': self.effect_multipliers[self.dice_results['active_cooldown']],
+            'item_cooldown': self.effect_multipliers[self.dice_results['item_cooldown']],
             'skill_dash_cost': self.effect_multipliers[self.dice_results['skill_dash_cost']],
             'dash_cooldown': self.effect_multipliers[self.dice_results['dash_cooldown']],
             'player_speed': self.effect_multipliers[self.dice_results['player_speed']],
@@ -485,7 +485,7 @@ class DevilDice:
             ('패들 크기', 'paddle_size'),
             ('스킬 게이지', 'skill_gauge'),
             ('아이템 스폰률', 'item_spawn'),
-            ('액티브 쿨타임', 'active_cooldown'),
+            ('액티브 쿨타임', 'item_cooldown'),
             ('스킬/대쉬 비용', 'skill_dash_cost'),
             ('대쉬 쿨타임', 'dash_cooldown'),
             ('플레이어 속도', 'player_speed'),
@@ -493,7 +493,7 @@ class DevilDice:
         
         results_text = ['50% 감소', '변화없음', '50% 증가']
         colors_default = [(255, 100, 100), (200, 200, 200), (100, 255, 100)]
-        invert_keys = {'active_cooldown', 'skill_dash_cost', 'dash_cooldown'}
+        invert_keys = {'item_cooldown', 'skill_dash_cost', 'dash_cooldown'}
 
         # 결과 영역 반투명 배경 (텍스트 가독성용)
         text_panel_y = panel_y + 205

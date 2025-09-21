@@ -7825,7 +7825,7 @@ def apply_effect(effect_name):
         print(f"   : x{multipliers['paddle_size']:.1f}")
         print(f"   : x{multipliers['skill_gauge']:.1f}")
         print(f"   : x{multipliers['item_spawn']:.1f}")
-        print(f"   : x{multipliers['active_cooldown']:.1f}")
+        print(f"   : x{multipliers['item_cooldown']:.1f}")
         print(f"  / : x{multipliers['skill_dash_cost']:.1f}")
         print(f"   : x{multipliers['dash_cooldown']:.1f}")
     elif effect_name == "ammo_box":  # 📦 탄약상자 아이템 활성화
@@ -45619,7 +45619,7 @@ def main(stage_num, new_boss_mode=False):
         active_item_cooldown_ms = max(0, 8000 - cooldown_reduction)
         if is_devil_dice_active():
             multipliers = get_devil_dice_multipliers()
-            active_item_cooldown_ms = max(0, int(active_item_cooldown_ms * multipliers['active_cooldown']))
+            active_item_cooldown_ms = max(0, int(active_item_cooldown_ms * multipliers['item_cooldown']))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
