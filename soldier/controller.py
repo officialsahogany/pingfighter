@@ -111,6 +111,7 @@ class SoldierWeaponController:
         if "ak47" in self.degraded:
             ak47 = get_ak47_instance()
             if ak47 and getattr(ak47, "active", False) and getattr(ak47, "current_ammo", 0) <= 0 and not getattr(ak47, "bullets", []):
+                print("⚠️ AK-47 노후화 파괴 트리거", f"(bullets={len(getattr(ak47, 'bullets', []))}, remaining={getattr(ak47, 'remaining_time', 'N/A')})")
                 if hasattr(ak47, "deactivate"):
                     ak47.deactivate()
                 self.remove_weapon("ak47")
