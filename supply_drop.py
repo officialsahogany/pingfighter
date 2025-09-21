@@ -14,7 +14,7 @@ class SupplyDropConfig:
     """Configuration values for the supply drop system."""
 
     persist_across_rounds: bool = True
-    hold_required: int = 90
+    hold_required: int = 60
     hold_threshold: int = 18
     gauge_cost: int = 350
     items: Sequence[str] = (

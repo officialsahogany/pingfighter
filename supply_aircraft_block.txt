@@ -39088,7 +39088,7 @@ def show_player_info():
             content_height = main_panel_height - 120
             # === 섹션 1: 등급 정보 ===
             rank_section_rect = pygame.Rect(main_panel_x + 20, content_y, main_panel_width - 40, 120)
-            draw_section_container(SCREEN, rank_section_rect, "현재 등급", "️")
+            draw_section_container(SCREEN, rank_section_rect, "현재 등급", "🏅")
             # 등급 정보 표시
             rank_color = rank_info["color"]
             rank_text = f"{rank_info['icon']} {rank_info['name']}"
@@ -39108,7 +39108,7 @@ def show_player_info():
             # === 섹션 2: 능력 통계 ===
             stats_section_y = content_y + 140
             stats_section_rect = pygame.Rect(main_panel_x + 20, stats_section_y, main_panel_width - 40, 200)
-            draw_section_container(SCREEN, stats_section_rect, "능력 분석", "")
+            draw_section_container(SCREEN, stats_section_rect, "능력 분석", "📊")
             stats = detailed_stats["stats"]
             # 왼쪽: 텍스트 통계, 오른쪽: 레이더 차트
             left_stats_x = stats_section_rect.x + 20
@@ -39145,7 +39145,7 @@ def show_player_info():
             if achievements:
                 achievement_section_width = (main_panel_width - 60) // 2
                 achievement_rect = pygame.Rect(main_panel_x + 20, bottom_section_y, achievement_section_width, bottom_section_height)
-                draw_section_container(SCREEN, achievement_rect, "업적", "")
+                draw_section_container(SCREEN, achievement_rect, "업적", "🏆")
                 # 업적 표시 (최근 3개)
                 for i, achievement in enumerate(achievements[-3:]):
                     if i < 3:  # 공간 제한
@@ -39158,7 +39158,7 @@ def show_player_info():
                 feedback_section_width = (main_panel_width - 60) // 2
                 feedback_x = main_panel_x + 30 + achievement_section_width if achievements else main_panel_x + 20
                 feedback_rect = pygame.Rect(feedback_x, bottom_section_y, feedback_section_width, bottom_section_height)
-                draw_section_container(SCREEN, feedback_rect, "개선 피드백", "")
+                draw_section_container(SCREEN, feedback_rect, "개선 피드백", "💡")
                 # 피드백 표시 (최대 2개)
                 for i, tip in enumerate(tips[:2]):
                     # 텍스트 길이 제한

@@ -2964,10 +2964,10 @@ except Exception as e:
 
 
 def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float = 0.0) -> pygame.Surface:
-    surface = pygame.Surface((300, 110), pygame.SRCALPHA)
+    surface = pygame.Surface((320, 108), pygame.SRCALPHA)
     block = 7
     center_x = surface.get_width() // 2
-    torso_base_y = 52
+    torso_base_y = 48
 
     # 내부 헬퍼 함수 정의
     def rotate_point(origin: tuple[float, float], point: tuple[float, float], degrees: float) -> tuple[float, float]:
@@ -3039,8 +3039,9 @@ def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float
     upper_camo = [(94, 118, 78), (82, 102, 68), (120, 142, 92)]
     lower_camo = [(88, 110, 74), (74, 92, 62), (104, 128, 84)]
 
-    def draw_camo_rect(rect: pygame.Rect, base_color, overlays, density=0.32):
-        pygame.draw.rect(surface, base_color, rect, border_radius=rect.width if rect.height < 4 else 0)
+    def draw_camo_rect(rect: pygame.Rect, base_color, overlays, density=0.32, target=None):
+        target_surface = surface if target is None else target
+        pygame.draw.rect(target_surface, base_color, rect, border_radius=rect.width if rect.height < 4 else 0)
         if rect.width < 3 or rect.height < 2:
             return
         patches = max(1, int(rect.width * rect.height * density / 90))
@@ -3049,10 +3050,32 @@ def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float
             patch_h = random.randint(2, min(5, rect.height))
             x = random.randint(rect.left, rect.right - patch_w)
             y = random.randint(rect.top, rect.bottom - patch_h)
-            pygame.draw.rect(surface, random.choice(overlays), pygame.Rect(x, y, patch_w, patch_h))
+            pygame.draw.rect(target_surface, random.choice(overlays), pygame.Rect(x, y, patch_w, patch_h))
 
     def to_int_point(point: tuple[float, float]) -> tuple[int, int]:
         return int(round(point[0])), int(round(point[1]))
+
+    def draw_tapered_camo(rect: pygame.Rect, base_color, overlays, taper_top: int, taper_bottom: int, density=0.32):
+        """Draw a trapezoidal camo block to keep the waist silhouette natural."""
+        local = pygame.Surface(rect.size, pygame.SRCALPHA)
+        draw_camo_rect(pygame.Rect(0, 0, rect.width, rect.height), base_color, overlays, density=density, target=local)
+        mask = pygame.Surface(rect.size, pygame.SRCALPHA)
+        polygon = [
+            (taper_top, 0),
+            (rect.width - taper_top, 0),
+            (rect.width - taper_bottom, rect.height),
+            (taper_bottom, rect.height),
+        ]
+        pygame.draw.polygon(mask, (255, 255, 255, 255), polygon)
+        local.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        surface.blit(local, rect.topleft)
+        outline = [
+            (rect.left + taper_top, rect.top),
+            (rect.right - taper_top, rect.top),
+            (rect.right - taper_bottom, rect.bottom),
+            (rect.left + taper_bottom, rect.bottom),
+        ]
+        pygame.draw.lines(surface, palette["trim"], True, outline, 1)
 
     helmet_rect = pygame.Rect(center_x - int(2.6 * block), torso_y - int(3.5 * block), int(5.4 * block), int(2.8 * block))
     pygame.draw.ellipse(surface, palette["helmet_shadow"], helmet_rect)
@@ -3073,40 +3096,52 @@ def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float
     pygame.draw.rect(surface, palette["pack_light"], flap_rect, border_radius=4)
     pygame.draw.line(surface, palette["trim"], (flap_rect.left + 3, flap_rect.bottom - 2), (flap_rect.right - 3, flap_rect.bottom - 2), 1)
 
-    torso_width = int(5.4 * block)
-    torso_height = int(3.2 * block)
-    torso_rect = pygame.Rect(center_x - torso_width // 2, torso_y - int(0.5 * block), torso_width, torso_height)
-    draw_camo_rect(torso_rect, palette["uniform_mid"], upper_camo)
-    pygame.draw.rect(surface, palette["trim"], torso_rect, 1, border_radius=7)
+    torso_width = int(6.0 * block)
+    torso_height = int(2.6 * block)
+    torso_rect = pygame.Rect(center_x - torso_width // 2, torso_y - int(0.4 * block), torso_width, torso_height)
+    top_taper = int(0.4 * block)
+    waist_taper = int(1.1 * block)
+    draw_tapered_camo(torso_rect, palette["uniform_mid"], upper_camo, top_taper, waist_taper)
 
-    plate_rect = pygame.Rect(center_x - int(2.6 * block), torso_rect.top + int(0.5 * block), int(5.2 * block), int(1.6 * block))
-    pygame.draw.rect(surface, palette["plate"], plate_rect, border_radius=4)
-    pygame.draw.rect(surface, palette["plate_high"], plate_rect.inflate(-int(0.4 * block), -int(0.3 * block)), 1, border_radius=4)
+    plate_rect = pygame.Rect(center_x - int(2.8 * block), torso_rect.top + int(0.45 * block), int(5.6 * block), int(1.3 * block))
+    pygame.draw.rect(surface, palette["plate"], plate_rect, border_radius=6)
+    pygame.draw.rect(surface, palette["plate_high"], plate_rect.inflate(-int(0.45 * block), -int(0.25 * block)), 1, border_radius=5)
 
-    pocket_size = (int(1.5 * block), int(0.75 * block))
-    for offset in (-int(1.95 * block), int(0.5 * block)):
-        pocket = pygame.Rect(center_x + offset, torso_rect.top + int(0.7 * block), *pocket_size)
+    molle_spacing = int(0.75 * block)
+    for row in range(2):
+        strap_y = plate_rect.top + int(0.35 * block) + row * molle_spacing
+        pygame.draw.line(surface, palette["strap_high"], (plate_rect.left + int(0.6 * block), strap_y), (plate_rect.right - int(0.6 * block), strap_y), 2)
+
+    pocket_size = (int(1.6 * block), int(0.7 * block))
+    for offset in (-int(2.15 * block), int(0.55 * block)):
+        pocket = pygame.Rect(center_x + offset, torso_rect.top + int(0.85 * block), *pocket_size)
         draw_camo_rect(pocket, palette["uniform_mid"], upper_camo, density=0.25)
         pygame.draw.rect(surface, palette["accent"], pocket, 1, border_radius=3)
 
-    strap_width = int(0.75 * block)
-    for offset in (-int(2.6 * block), int(1.95 * block)):
-        strap = pygame.Rect(center_x + offset, torso_rect.top + int(0.05 * block), strap_width, torso_height - int(0.2 * block))
-        pygame.draw.rect(surface, palette["strap"], strap, border_radius=3)
-        pygame.draw.rect(surface, palette["strap_high"], strap.inflate(-int(0.2 * block), -int(0.3 * block)), 1, border_radius=2)
+    strap_width = int(0.7 * block)
+    for offset in (-int(3.0 * block), int(2.4 * block)):
+        strap = pygame.Rect(center_x + offset, torso_rect.top + int(0.05 * block), strap_width, torso_height - int(0.1 * block))
+        pygame.draw.rect(surface, palette["strap"], strap, border_radius=4)
+        pygame.draw.rect(surface, palette["strap_high"], strap.inflate(-int(0.25 * block), -int(0.3 * block)), 1, border_radius=3)
 
-    rank_patch = pygame.Rect(center_x + int(2.4 * block), torso_rect.top + int(0.2 * block), int(1.0 * block), int(1.0 * block))
+    rank_patch = pygame.Rect(center_x + int(2.8 * block), torso_rect.top + int(0.1 * block), int(1.0 * block), int(1.0 * block))
     pygame.draw.rect(surface, palette["uniform_light"], rank_patch, border_radius=2)
     pygame.draw.line(surface, palette["trim"], rank_patch.midleft, rank_patch.midright, 1)
 
-    belt_rect = pygame.Rect(center_x - int(3.2 * block), torso_rect.bottom - int(0.2 * block), int(6.4 * block), int(0.8 * block))
+    belt_rect = pygame.Rect(center_x - int(3.4 * block), torso_rect.bottom - int(0.15 * block), int(6.8 * block), int(0.7 * block))
     pygame.draw.rect(surface, palette["belt"], belt_rect, border_radius=4)
-    pygame.draw.rect(surface, palette["belt_high"], belt_rect.inflate(-int(0.5 * block), -int(0.2 * block)), border_radius=3)
+    pygame.draw.rect(surface, palette["belt_high"], belt_rect.inflate(-int(0.6 * block), -int(0.2 * block)), border_radius=3)
 
-    left_shoulder = (center_x - int(2.4 * block), torso_y + shoulder_shift)
-    left_elbow_point = (left_shoulder[0] - int(1.7 * block) - arm_sway, torso_y + int(0.15 * block) - arm_sway // 2)
-    left_wrist_point = (left_elbow_point[0] - int(1.35 * block), torso_y - int(0.42 * block) - arm_sway)
-    upper_arm_rect = pygame.Rect(left_shoulder[0] - int(0.9 * block), torso_y - int(0.2 * block), int(1.5 * block), int(1.6 * block))
+    left_shoulder = (center_x - int(3.0 * block), torso_y + shoulder_shift - 1)
+    left_elbow_point = (
+        left_shoulder[0] - int(1.85 * block) - arm_sway,
+        torso_y - int(0.15 * block) - arm_sway // 3,
+    )
+    left_wrist_point = (
+        left_elbow_point[0] - int(1.65 * block),
+        torso_y - int(0.68 * block) - arm_sway,
+    )
+    upper_arm_rect = pygame.Rect(left_shoulder[0] - int(1.0 * block), torso_y - int(0.25 * block), int(1.8 * block), int(1.7 * block))
     draw_camo_rect(upper_arm_rect, palette["uniform_mid"], upper_camo, density=0.22)
     if swing_strength > 0:
         elbow_target = rotate_point(left_shoulder, left_elbow_point, -58.0)
@@ -3124,32 +3159,45 @@ def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float
     pygame.draw.circle(surface, palette["glove"], left_wrist, max(2, block // 2))
     pygame.draw.circle(surface, palette["glove_shadow"], left_wrist, max(1, block // 2 - 1), 1)
 
-    paddle_rect = pygame.Rect(left_wrist[0] - int(1.9 * block), left_wrist[1] - int(1.9 * block), int(3.3 * block), int(2.6 * block))
+    paddle_rect = pygame.Rect(left_wrist[0] - int(2.1 * block), left_wrist[1] - int(1.9 * block), int(3.6 * block), int(2.6 * block))
     pygame.draw.ellipse(surface, palette["paddle_face"], paddle_rect)
     pygame.draw.ellipse(surface, palette["paddle_core"], paddle_rect.inflate(-int(0.4 * block), -int(0.4 * block)))
     grip_rect = pygame.Rect(left_wrist[0] - int(0.4 * block), left_wrist[1] - int(0.12 * block), int(0.8 * block), int(1.35 * block))
     pygame.draw.rect(surface, palette["paddle_grip"], grip_rect, border_radius=2)
 
-    right_shoulder = (center_x + int(2.4 * block), torso_y - shoulder_shift)
-    right_elbow_point = (right_shoulder[0] + int(1.6 * block) + arm_sway, torso_y + int(0.25 * block) + arm_sway // 2)
-    right_wrist_point = (right_elbow_point[0] + int(1.25 * block), torso_y + int(1.1 * block) + right_leg_lift // 2)
-    sleeve_rect = pygame.Rect(right_shoulder[0] - int(0.6 * block), torso_y - int(0.2 * block), int(1.5 * block), int(1.5 * block))
+    right_shoulder = (center_x + int(3.05 * block), torso_y - shoulder_shift - 1)
+    right_elbow_point = (
+        right_shoulder[0] + int(2.55 * block) + arm_sway // 2,
+        torso_y - int(0.32 * block) - arm_sway // 3,
+    )
+    right_wrist_point = (
+        right_elbow_point[0] - int(1.45 * block),
+        right_elbow_point[1] - int(1.65 * block),
+    )
+    sleeve_rect = pygame.Rect(right_shoulder[0] - int(0.65 * block), torso_y - int(0.25 * block), int(1.6 * block), int(1.5 * block))
     draw_camo_rect(sleeve_rect, palette["uniform_mid"], upper_camo, density=0.22)
     right_elbow = to_int_point(right_elbow_point)
     right_wrist = to_int_point(right_wrist_point)
-    pygame.draw.line(surface, palette["arm_shadow"], right_shoulder, right_elbow, block)
-    pygame.draw.line(surface, palette["arm"], right_shoulder, right_elbow, block - 2)
-    pygame.draw.line(surface, palette["arm_shadow"], right_elbow, right_wrist, block - 1)
-    pygame.draw.line(surface, palette["arm"], right_elbow, right_wrist, block - 3)
-    pygame.draw.circle(surface, palette["glove"], right_wrist, max(2, block // 2))
+    pygame.draw.line(surface, palette["arm_shadow"], right_shoulder, right_elbow, block + 1)
+    pygame.draw.line(surface, palette["arm"], right_shoulder, right_elbow, block - 1)
+    pygame.draw.line(surface, palette["arm_shadow"], right_elbow, right_wrist, block)
+    pygame.draw.line(surface, palette["arm"], right_elbow, right_wrist, block - 2)
+    forearm_guard = pygame.Rect(min(right_elbow[0], right_wrist[0]) - int(0.5 * block), right_wrist[1] - int(0.4 * block), int(1.1 * block), int(2.2 * block))
+    pygame.draw.rect(surface, palette["strap"], forearm_guard, border_radius=4)
+    pygame.draw.rect(surface, palette["strap_high"], forearm_guard.inflate(-2, -3), 1, border_radius=3)
+    pygame.draw.circle(surface, palette["glove"], right_wrist, max(3, block // 2 + 1))
+    pygame.draw.circle(surface, palette["glove_shadow"], right_wrist, max(2, block // 2), 1)
+    knuckle_rect = pygame.Rect(right_wrist[0] - int(0.5 * block), right_wrist[1] - int(0.35 * block), int(1.0 * block), int(0.6 * block))
+    pygame.draw.rect(surface, palette["strap_high"], knuckle_rect, border_radius=3)
 
-    hip_y = torso_y + int(2.35 * block)
-    hip_rect = pygame.Rect(center_x - int(3.3 * block) + hip_sway, hip_y, int(6.6 * block), int(1.2 * block))
-    draw_camo_rect(hip_rect, palette["pants"], lower_camo, density=0.28)
+    hip_y = torso_y + int(2.15 * block)
+    hip_rect = pygame.Rect(center_x - int(3.2 * block) + hip_sway, hip_y, int(6.4 * block), int(0.85 * block))
+    draw_tapered_camo(hip_rect, palette["pants"], lower_camo, int(0.5 * block), int(0.9 * block), density=0.3)
+    pygame.draw.ellipse(surface, palette["pants_shadow"], hip_rect.inflate(-int(1.4 * block), int(0.6 * block)))
 
-    thigh_width = int(1.4 * block)
-    thigh_height = int(2.7 * block)
-    leg_spacing = int(1.9 * block)
+    thigh_width = int(1.5 * block)
+    thigh_height = int(2.4 * block)
+    leg_spacing = int(2.1 * block)
     left_leg_x = center_x - leg_spacing + hip_sway
     right_leg_x = center_x + leg_spacing + hip_sway
 
@@ -3158,7 +3206,7 @@ def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float
     draw_camo_rect(left_thigh, palette["pants"], lower_camo, density=0.3)
     draw_camo_rect(right_thigh, palette["pants"], lower_camo, density=0.3)
 
-    calf_height = int(1.3 * block)
+    calf_height = int(1.15 * block)
     left_calf = pygame.Rect(left_thigh.left + int(0.1 * block), left_thigh.bottom - 1, left_thigh.width - int(0.2 * block), calf_height)
     right_calf = pygame.Rect(right_thigh.left + int(0.1 * block), right_thigh.bottom - 1, right_thigh.width - int(0.2 * block), calf_height)
     draw_camo_rect(left_calf, palette["pants"], lower_camo, density=0.28)
@@ -3170,7 +3218,7 @@ def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float
         pygame.draw.rect(surface, palette["kneepad"], pad_rect, border_radius=3)
         pygame.draw.rect(surface, palette["kneepad_trim"], pad_rect.inflate(-2, -2), 1, border_radius=3)
 
-    boot_height = int(1.2 * block)
+    boot_height = int(1.1 * block)
     left_boot = pygame.Rect(left_calf.left, left_calf.bottom - 1, left_calf.width, boot_height)
     right_boot = pygame.Rect(right_calf.left, right_calf.bottom - 1, right_calf.width, boot_height)
     pygame.draw.rect(surface, palette["boot"], left_boot, border_radius=2)
@@ -3431,10 +3479,9 @@ def _draw_blacksmith_shield(surface, shield_center, angle_deg=-4):
     rotated = pygame.transform.rotate(shield_surface, angle_deg)
     surface.blit(rotated, rotated.get_rect(center=shield_center))
 
-def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0):
+def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wave=0.0, walk_bob=0.0, walk_lean=0.0):
     cx = BLACKSMITH_CENTER_X
     cy = BLACKSMITH_CENTER_Y
-    head_top = cy - 26
     shield_amount = max(0.0, min(1.0, shield_swing))
     lift_curve = shield_amount ** 1.1  # 0~1 범위, 후반부에서 더 많이 들어 올리기
 
@@ -3447,6 +3494,23 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0):
     # 방패를 들며 몸 쪽으로 끌어당기는 느낌을 위해 팔 좌표 보정
     arm_dx = int(round(-3 * lift_curve))
     arm_dy = int(round(-4 * lift_curve))
+
+    walk_wave = max(-1.0, min(1.0, walk_wave))
+    walk_bob = max(-1.0, min(1.0, walk_bob))
+    walk_lean = max(-1.0, min(1.0, walk_lean))
+    body_bob = int(round(walk_bob * 3))
+    lean_push = int(round(walk_lean * 2))
+    shoulder_roll = int(round(walk_wave * 2))
+    left_arm_offset_x = int(round(-walk_wave * 6)) + lean_push
+    right_arm_offset_x = int(round(walk_wave * 6)) + lean_push
+    left_arm_offset_y = int(round(-walk_wave * 2))
+    right_arm_offset_y = int(round(walk_wave * 2))
+    elbow_sway = int(round(-walk_wave))
+    wrist_pitch = int(round(walk_wave * 3))
+
+    head_top = cy - 26 + body_bob
+    torso_y = cy - 2 + body_bob
+    shoulder_span = 46
 
     # 뒤통수 머리와 헬멧 베이스
     pygame.draw.ellipse(surface, (70, 48, 28), (cx - 20, head_top + 6, 40, 32))
@@ -3481,37 +3545,39 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0):
     pygame.draw.line(surface, (70, 45, 25), (cx - 8, head_top + 32), (cx - 6, head_top + 38), 2)
     pygame.draw.line(surface, (70, 45, 25), (cx + 8, head_top + 32), (cx + 6, head_top + 38), 2)
 
-    torso_y = cy - 2
-    shoulder_span = 46
     pygame.draw.polygon(surface, (96, 74, 52), [
-        (cx - shoulder_span, torso_y + 6), (cx - 22, torso_y - 10), (cx + 22, torso_y - 10), (cx + shoulder_span, torso_y + 6),
-        (cx + 30, torso_y + 28), (cx - 30, torso_y + 28)
+        (cx - shoulder_span, torso_y + 6 - shoulder_roll),
+        (cx - 22 + lean_push // 2, torso_y - 10 - shoulder_roll),
+        (cx + 22 + lean_push // 2, torso_y - 10 + shoulder_roll),
+        (cx + shoulder_span, torso_y + 6 + shoulder_roll),
+        (cx + 30 + lean_push, torso_y + 28),
+        (cx - 30 + lean_push, torso_y + 28)
     ])
 
     # 겹겹이 입은 갑옷과 앞치마
-    pygame.draw.rect(surface, (140, 145, 155), (cx - 18, torso_y - 2, 36, 26), border_radius=6)
-    pygame.draw.rect(surface, (85, 62, 42), (cx - 24, torso_y + 12, 48, 22), border_radius=6)
-    pygame.draw.rect(surface, (55, 40, 28), (cx - 20, torso_y + 18, 40, 18), border_radius=4)
-    pygame.draw.arc(surface, (215, 200, 150), (cx - 22, torso_y + 10, 44, 22), math.pi, 2 * math.pi, 2)
-    pygame.draw.line(surface, (70, 48, 32), (cx, torso_y + 18), (cx, torso_y + 32), 2)
-    pygame.draw.circle(surface, (180, 180, 170), (cx - 26, torso_y + 6), 6)
-    pygame.draw.circle(surface, (180, 180, 170), (cx + 26, torso_y + 6), 6)
+    pygame.draw.rect(surface, (140, 145, 155), (cx - 18 + lean_push, torso_y - 2, 36, 26), border_radius=6)
+    pygame.draw.rect(surface, (85, 62, 42), (cx - 24 + lean_push, torso_y + 12, 48, 22), border_radius=6)
+    pygame.draw.rect(surface, (55, 40, 28), (cx - 20 + lean_push, torso_y + 18, 40, 18), border_radius=4)
+    pygame.draw.arc(surface, (215, 200, 150), (cx - 22 + lean_push, torso_y + 10, 44, 22), math.pi, 2 * math.pi, 2)
+    pygame.draw.line(surface, (70, 48, 32), (cx + lean_push, torso_y + 18), (cx + lean_push, torso_y + 32), 2)
+    pygame.draw.circle(surface, (180, 180, 170), (cx - 26 + lean_push - shoulder_roll, torso_y + 6 - shoulder_roll), 6)
+    pygame.draw.circle(surface, (180, 180, 170), (cx + 26 + lean_push + shoulder_roll, torso_y + 6 + shoulder_roll), 6)
 
     # === 왼팔과 방패 ===
-    left_arm_x = cx - 20 + BLACKSMITH_SHIELD_SHIFT_X + arm_dx
-    left_arm_y = torso_y - 10 + arm_dy
-    elbow_x = left_arm_x - 8
-    elbow_y = left_arm_y - 4
+    left_arm_x = cx - 20 + BLACKSMITH_SHIELD_SHIFT_X + arm_dx + left_arm_offset_x
+    left_arm_y = torso_y - 10 + arm_dy + left_arm_offset_y
+    elbow_x = left_arm_x - 8 + elbow_sway
+    elbow_y = left_arm_y - 4 - elbow_sway
 
     arm_points = [
-        (cx - 34 + arm_dx, torso_y - 4 + arm_dy),
-        (cx - 36 + arm_dx, torso_y + 2 + arm_dy),
+        (cx - 34 + arm_dx + left_arm_offset_x, torso_y - 4 + arm_dy + left_arm_offset_y),
+        (cx - 36 + arm_dx + left_arm_offset_x, torso_y + 2 + arm_dy + left_arm_offset_y),
         (elbow_x - 4, elbow_y + 4),
         (elbow_x - 1, elbow_y - 4),
         (left_arm_x - 2, left_arm_y - 10),
         (left_arm_x + 4, left_arm_y - 14),
         (left_arm_x + 6, left_arm_y - 4),
-        (cx - 24 + arm_dx, torso_y - 10 + arm_dy)
+        (cx - 24 + arm_dx + left_arm_offset_x, torso_y - 10 + arm_dy + left_arm_offset_y)
     ]
     pygame.draw.polygon(surface, (132, 108, 82), arm_points)
 
@@ -3522,7 +3588,7 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0):
         (left_arm_x + 4, left_arm_y - 2),
         (elbow_x + 3, elbow_y + 4)
     ])
-    
+
     # 손 (더 정교하게)
     hand_rect = pygame.Rect(left_arm_x - 6, left_arm_y - 12, 14, 10)
     pygame.draw.ellipse(surface, (205, 185, 155), hand_rect)
@@ -3532,21 +3598,30 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0):
     shield_lift = int(round(12 * lift_curve))
     shield_diagonal_shift = int(round(8 * lift_curve))
     shield_center = (
-        left_arm_x - 20 + shield_forward + shield_diagonal_shift,
-        left_arm_y + 22 - shield_lift - shield_diagonal_shift
+        left_arm_x - 20 + shield_forward + shield_diagonal_shift + int(round(left_arm_offset_x * 0.3)),
+        left_arm_y + 22 - shield_lift - shield_diagonal_shift + int(round(-walk_wave * 4))
     )
-    swing_angle = -12 - 80 * lift_curve
+    swing_angle = -12 - 80 * lift_curve + walk_wave * 8 + lean_push * 2
     _draw_blacksmith_shield(surface, shield_center, angle_deg=swing_angle)
 
-    # 오른팔과 망치 - 보다 장식적인 디자인
+    # 오른팔과 망치 - 이동 시 자연스러운 기합 자세 유지
     hammer_arm_backward = int(round(6 * hammer_raise))
     hammer_arm_forward_hit = int(round(14 * hammer_drop))
     hammer_arm_forward = hammer_arm_forward_hit - hammer_arm_backward
     hammer_arm_drop = int(round(4 * hammer_raise)) + int(round(18 * hammer_drop))
 
-    right_shoulder = (cx + 24 - hammer_arm_forward + int(round(2 * hammer_drop)), torso_y + hammer_arm_drop // 4)
-    right_elbow = (cx + 42 - hammer_arm_forward, torso_y + 12 + hammer_arm_drop // 2)
-    right_wrist = (cx + 48 - hammer_arm_forward // 2, torso_y + 26 + hammer_arm_drop)
+    right_shoulder = (
+        cx + 24 - hammer_arm_forward + int(round(2 * hammer_drop)) + right_arm_offset_x,
+        torso_y + hammer_arm_drop // 4 + right_arm_offset_y // 2 - shoulder_roll
+    )
+    right_elbow = (
+        cx + 42 - hammer_arm_forward + right_arm_offset_x,
+        torso_y + 12 + hammer_arm_drop // 2 + right_arm_offset_y // 2
+    )
+    right_wrist = (
+        cx + 48 - hammer_arm_forward // 2 + right_arm_offset_x,
+        torso_y + 26 + hammer_arm_drop + right_arm_offset_y + wrist_pitch
+    )
     pygame.draw.polygon(surface, (132, 108, 82), [
         (right_shoulder[0] - 6, right_shoulder[1] + 2),
         (right_elbow[0] - 10, right_elbow[1] - 2),
@@ -3562,14 +3637,14 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0):
     pygame.draw.circle(surface, (205, 185, 155), (right_wrist[0] + 6, right_wrist[1] + 4), 6)
 
     hammer_ax = right_wrist[0] + 6 - int(round(8 * hammer_raise)) + int(round(10 * hammer_drop))
-    hammer_ay = torso_y - 6 - int(round(22 * hammer_raise)) + int(round(36 * hammer_drop))
+    hammer_ay = torso_y - 6 - int(round(22 * hammer_raise)) + int(round(36 * hammer_drop)) + right_arm_offset_y + wrist_pitch
 
     hammer_head = pygame.Rect(0, 0, 40, 22)
     hammer_head.center = (hammer_ax, hammer_ay)
 
     handle = pygame.Rect(0, 0, 10, 46)
     handle.centerx = hammer_ax
-    handle.top = hammer_head.centery - 2 - int(round(10 * hammer_raise)) + int(round(12 * hammer_drop))
+    handle.top = hammer_head.centery - 2 - int(round(10 * hammer_raise)) + int(round(12 * hammer_drop)) + right_arm_offset_y // 2
     pygame.draw.rect(surface, (90, 60, 36), handle, border_radius=3)
     handle_cap = pygame.Rect(0, 0, 6, 10)
     handle_cap.centerx = hammer_ax
@@ -3590,10 +3665,12 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0):
     pygame.draw.line(surface, (240, 160, 60), (hammer_head.centerx - 6, hammer_head.centery - 6), (hammer_head.centerx + 6, hammer_head.centery + 4), 2)
 
     # 어깨 장식
-    pygame.draw.circle(surface, (195, 200, 210), (cx - 32, torso_y + 8), 7)
-    pygame.draw.circle(surface, (195, 200, 210), (cx + 32, torso_y + 8), 7)
-    pygame.draw.circle(surface, (110, 120, 135), (cx - 32, torso_y + 8), 3)
-    pygame.draw.circle(surface, (110, 120, 135), (cx + 32, torso_y + 8), 3)
+    left_shoulder_center = (cx - 32 + lean_push - shoulder_roll, torso_y + 8 - shoulder_roll)
+    right_shoulder_center = (cx + 32 + lean_push + shoulder_roll, torso_y + 8 + shoulder_roll)
+    pygame.draw.circle(surface, (195, 200, 210), left_shoulder_center, 7)
+    pygame.draw.circle(surface, (195, 200, 210), right_shoulder_center, 7)
+    pygame.draw.circle(surface, (110, 120, 135), left_shoulder_center, 3)
+    pygame.draw.circle(surface, (110, 120, 135), right_shoulder_center, 3)
 
 def _draw_blacksmith_legs(surface, step=0):
     hip_y = BLACKSMITH_HIP_Y
@@ -3688,11 +3765,21 @@ def create_blacksmith_paddle_base():
     return scaled_surface
 
 def create_blacksmith_paddle_walking():
-    global blacksmith_walking_timer
+    global blacksmith_walking_timer, blacksmith_walk_direction
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
-    _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0)
     progress = (blacksmith_walking_timer % BLACKSMITH_WALKING_CYCLE) / BLACKSMITH_WALKING_CYCLE
-    step = int(math.sin(progress * 2 * math.pi) * 8)
+    walk_wave = math.sin(progress * 2 * math.pi)
+    walk_bob = math.sin(progress * 2 * math.pi + math.pi / 2)
+    walk_lean = blacksmith_walk_direction * 0.6
+    _draw_blacksmith_upper(
+        surface,
+        shield_swing=0.0,
+        hammer_swing=0.0,
+        walk_wave=walk_wave,
+        walk_bob=walk_bob,
+        walk_lean=walk_lean,
+    )
+    step = int(walk_wave * 8)
     _draw_blacksmith_legs(surface, step)
     scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
     return scaled_surface
@@ -4928,6 +5015,7 @@ SOLDIER_WALKING_CYCLE = 30  # 0.5초 (60fps * 0.5)
 # === 발토르 걷기 애니메이션 변수 ===
 blacksmith_walking_active = False
 blacksmith_walking_timer = 0
+blacksmith_walk_direction = 0  # -1: 왼쪽 이동, 1: 오른쪽 이동
 BLACKSMITH_WALKING_CYCLE = 30
 
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
@@ -5776,7 +5864,12 @@ class SupplyAircraft:
         }
         firearm_names = {"bazooka", "ak47", "net_gun"}
 
-        soldier_weapon_list = globals().get("soldier_controller.weapons", [])
+        # 정확한 화기 인벤토리를 읽어 중복 드랍을 방지
+        controller = globals().get("soldier_controller")
+        if controller is not None and hasattr(controller, "weapons"):
+            soldier_weapon_list = list(controller.weapons)
+        else:
+            soldier_weapon_list = globals().get("soldier_weapons", [])
         owned_firearm_count = len({w for w in soldier_weapon_list if w in firearm_names})
         firearm_penalty = max(0.25, 1.0 - 0.25 * owned_firearm_count)  # 0.25씩 감소, 최소 25%
 
@@ -6569,6 +6662,8 @@ SOLDIER_GUN_STAGE_FIRE = 2
 
 soldier_gun_target_x = 0  # 조준 대상 X 좌표
 soldier_gun_target_y = 0  # 조준 대상 Y 좌표
+soldier_gun_muzzle_x = 0  # 마지막으로 계산된 총구 X 좌표
+soldier_gun_muzzle_y = 0  # 마지막으로 계산된 총구 Y 좌표
 stopwatch_forced_upward = False  # 스마트폰 발동 시 복구 후 위쪽으로 강제
 stopwatch_upward_lock_timer = 0  # 복구 직후 N프레임 동안 위 방향 고정
 # 스톱워치 복구 후 위 방향 락 튜닝
@@ -10934,7 +11029,7 @@ def draw_soldier_weapon_ui(screen):
     
 def create_soldier_bullet():
     """실제 총알을 생성하는 함수 (애니메이션 완료 후 호출)"""
-    global soldier_bullets
+    global soldier_bullets, soldier_gun_muzzle_x, soldier_gun_muzzle_y
     
     # 플레이어 위치에서 보스 방향으로 총알 발사
     player_center_x = PLAYER.centerx
@@ -10953,9 +11048,15 @@ def create_soldier_bullet():
         dy_norm = dy / distance
         
         # 총알 생성
+        if soldier_gun_muzzle_x == 0 and soldier_gun_muzzle_y == 0:
+            bullet_start_x = player_center_x
+            bullet_start_y = player_center_y - 20
+        else:
+            bullet_start_x = soldier_gun_muzzle_x
+            bullet_start_y = soldier_gun_muzzle_y
         bullet = {
-            "x": player_center_x,
-            "y": player_center_y - 20,  # 패들 위쪽에서 발사
+            "x": bullet_start_x,
+            "y": bullet_start_y,
             "vel_x": dx_norm * SOLDIER_BULLET_SPEED,
             "vel_y": dy_norm * SOLDIER_BULLET_SPEED,
             "active": True
@@ -11474,112 +11575,180 @@ def draw_soldier_gun_animation(screen, paddle_rect):
     """코만도 총 발사 애니메이션 그리기"""
     global soldier_gun_animation_active, soldier_gun_animation_frame
     global soldier_gun_target_x, soldier_gun_target_y
-    
+    global soldier_gun_muzzle_x, soldier_gun_muzzle_y
+
     if not soldier_gun_animation_active:
         return
-    
+
+    Vector2 = pygame.math.Vector2
+
+    def clamp(value: float, minimum: float, maximum: float) -> float:
+        return max(minimum, min(maximum, value))
+
+    def ease_out_cubic(t: float) -> float:
+        t = clamp(t, 0.0, 1.0)
+        return 1.0 - (1.0 - t) ** 3
+
+    def smooth_step(t: float) -> float:
+        t = clamp(t, 0.0, 1.0)
+        return t * t * (3.0 - 2.0 * t)
+
+    def solve_two_bone(shoulder: Vector2, desired_hand: Vector2, upper_len: float, lower_len: float,
+                       bend_hint: tuple[float, float]) -> tuple[Vector2, Vector2]:
+        """간단한 2-본 IK로 팔꿈치 위치를 계산한다."""
+        shoulder_vec = Vector2(shoulder)
+        hand_vec = Vector2(desired_hand)
+        to_hand = hand_vec - shoulder_vec
+        dist = to_hand.length()
+        max_reach = max(upper_len + lower_len - 0.001, 0.001)
+        min_reach = max(abs(upper_len - lower_len) + 0.001, 0.001)
+
+        if dist < 1e-4:
+            base_dir = Vector2(1, 0)
+            dist = min_reach
+            to_hand = base_dir * dist
+            hand_vec = shoulder_vec + to_hand
+        else:
+            base_dir = to_hand.normalize()
+
+        clamped_dist = clamp(dist, min_reach, max_reach)
+        if abs(clamped_dist - dist) > 1e-4:
+            to_hand = base_dir * clamped_dist
+            hand_vec = shoulder_vec + to_hand
+
+        bend_vec = Vector2(bend_hint)
+        if bend_vec.length_squared() < 1e-4:
+            bend_vec = Vector2(-base_dir.y, base_dir.x)
+        else:
+            bend_vec = bend_vec.normalize()
+
+        perp = Vector2(-base_dir.y, base_dir.x)
+        if perp.dot(bend_vec) < 0:
+            perp = -perp
+
+        cos_angle = (upper_len ** 2 + clamped_dist ** 2 - lower_len ** 2) / (2 * upper_len * clamped_dist)
+        cos_angle = clamp(cos_angle, -1.0, 1.0)
+        angle = math.acos(cos_angle)
+        elbow_dir = base_dir * math.cos(angle) + perp * math.sin(angle)
+        elbow_vec = shoulder_vec + elbow_dir * upper_len
+        return elbow_vec, hand_vec
+
+    def to_int_pair(vec: Vector2) -> tuple[int, int]:
+        return int(round(vec.x)), int(round(vec.y))
+
+    # 기본 좌표 및 타깃 계산
+    paddle_center_x = paddle_rect.centerx
+    paddle_center_y = paddle_rect.centery
+
+    shoulder = Vector2(paddle_center_x + 34, paddle_center_y - 18)
+    pocket = Vector2(paddle_center_x + 22, paddle_center_y + 20)
+    ready = Vector2(paddle_center_x + 40, paddle_center_y - 6)
+
+    target_vec = Vector2(soldier_gun_target_x, soldier_gun_target_y)
+    if abs(soldier_gun_target_x) < 0.1 and abs(soldier_gun_target_y) < 0.1:
+        target_vec = Vector2(paddle_center_x + 220, paddle_center_y - 40)
+
+    aim_dir = target_vec - shoulder
+    if aim_dir.length_squared() < 1e-4:
+        aim_dir = Vector2(1, -0.2)
+    aim_dir = aim_dir.normalize()
+
+    upper_len = 26.0
+    lower_len = 22.0
+    arm_reach = upper_len + lower_len - 2.0
+    aim_hand = shoulder + aim_dir * arm_reach
+    target_angle = math.atan2(aim_dir.y, aim_dir.x)
+
     # 현재 애니메이션 단계 확인
     current_stage = SOLDIER_GUN_STAGE_DRAW
     if soldier_gun_animation_frame >= SOLDIER_GUN_DRAW_FRAMES:
         current_stage = SOLDIER_GUN_STAGE_AIM
     if soldier_gun_animation_frame >= SOLDIER_GUN_DRAW_FRAMES + SOLDIER_GUN_AIM_FRAMES:
         current_stage = SOLDIER_GUN_STAGE_FIRE
-    
-    # 패들 중심점에서 오른손 위치 계산
-    paddle_center_x = paddle_rect.centerx
-    paddle_center_y = paddle_rect.centery
-    hand_offset_x = 35  # 오른손 위치 (패들 오른쪽)
-    hand_offset_y = -10  # 손 높이 조정
-    
-    hand_x = paddle_center_x + hand_offset_x
-    hand_y = paddle_center_y + hand_offset_y
-    
-    # 단계별 애니메이션 그리기
+
+    hand = ready
+    pistol_angle = target_angle
+    barrel_visibility = 1.0
+
     if current_stage == SOLDIER_GUN_STAGE_DRAW:
-        # 1단계: 총 꺼내기 애니메이션
-        frame_progress = (soldier_gun_animation_frame % SOLDIER_GUN_DRAW_FRAMES) / SOLDIER_GUN_DRAW_FRAMES
-        
-        # 총이 아래에서 위로 올라오는 애니메이션
-        gun_offset = int(20 * (1 - frame_progress))  # 20픽셀에서 시작해서 0으로
-        gun_x = hand_x
-        gun_y = hand_y + gun_offset
-        
-        # 총 그리기 (간단한 직사각형)
-        gun_width = 8
-        gun_height = 3
-        gun_rect = pygame.Rect(gun_x - gun_width//2, gun_y - gun_height//2, gun_width, gun_height)
-        pygame.draw.rect(screen, (50, 50, 50), gun_rect)  # 총 본체 (회색)
-        pygame.draw.rect(screen, (100, 100, 100), gun_rect, 1)  # 테두리
-        
+        frame_progress = soldier_gun_animation_frame / max(1, SOLDIER_GUN_DRAW_FRAMES - 1)
+        lift_progress = ease_out_cubic(frame_progress)
+        hand = pocket + (ready - pocket) * lift_progress
+        hand += Vector2(6.0 * lift_progress, -8.0 * math.sin(lift_progress * math.pi))
+
+        holster_angle = math.pi / 2  # 하강 방향
+        ready_angle = math.radians(-12)
+        pistol_angle = holster_angle + (ready_angle - holster_angle) * lift_progress
+        barrel_visibility = 0.55 + 0.45 * lift_progress
+
     elif current_stage == SOLDIER_GUN_STAGE_AIM:
-        # 2단계: 조준 애니메이션
-        frame_progress = ((soldier_gun_animation_frame - SOLDIER_GUN_DRAW_FRAMES) % SOLDIER_GUN_AIM_FRAMES) / SOLDIER_GUN_AIM_FRAMES
-        
-        # 총이 목표를 향해 회전하는 애니메이션
-        dx = soldier_gun_target_x - hand_x
-        dy = soldier_gun_target_y - hand_y
-        target_angle = math.atan2(dy, dx)
-        
-        # 초기 각도에서 목표 각도로 보간
-        initial_angle = 0  # 수평 방향
-        current_angle = initial_angle + (target_angle - initial_angle) * frame_progress
-        
-        # 총 길이와 위치 계산
-        gun_length = 12
-        gun_end_x = hand_x + math.cos(current_angle) * gun_length
-        gun_end_y = hand_y + math.sin(current_angle) * gun_length
-        
-        # 총 그리기 (선으로)
-        pygame.draw.line(screen, (50, 50, 50), (hand_x, hand_y), (gun_end_x, gun_end_y), 4)
-        pygame.draw.line(screen, (100, 100, 100), (hand_x, hand_y), (gun_end_x, gun_end_y), 2)
-        
-        # 조준선 그리기 (점선)
-        if frame_progress > 0.5:  # 조준 후반에만 조준선 표시
-            aim_distance = 100
-            aim_end_x = gun_end_x + math.cos(current_angle) * aim_distance
-            aim_end_y = gun_end_y + math.sin(current_angle) * aim_distance
-            
-            # 점선으로 조준선 그리기
-            for i in range(0, int(aim_distance), 10):
-                if i % 20 < 10:  # 점선 효과
-                    point_x = gun_end_x + math.cos(current_angle) * i
-                    point_y = gun_end_y + math.sin(current_angle) * i
-                    pygame.draw.circle(screen, (255, 0, 0), (int(point_x), int(point_y)), 1)
-        
-    elif current_stage == SOLDIER_GUN_STAGE_FIRE:
-        # 3단계: 발사 애니메이션
-        frame_progress = ((soldier_gun_animation_frame - SOLDIER_GUN_DRAW_FRAMES - SOLDIER_GUN_AIM_FRAMES) % SOLDIER_GUN_FIRE_FRAMES) / SOLDIER_GUN_FIRE_FRAMES
-        
-        # 목표 방향으로 총 그리기
-        dx = soldier_gun_target_x - hand_x
-        dy = soldier_gun_target_y - hand_y
-        fire_angle = math.atan2(dy, dx)
-        
-        # 발사 반동 효과
-        recoil_offset = int(5 * (1 - frame_progress))  # 발사 시 뒤로 밀리는 효과
-        gun_length = 12
-        gun_end_x = hand_x + math.cos(fire_angle) * (gun_length - recoil_offset)
-        gun_end_y = hand_y + math.sin(fire_angle) * (gun_length - recoil_offset)
-        
-        # 총 그리기
-        pygame.draw.line(screen, (50, 50, 50), (hand_x, hand_y), (gun_end_x, gun_end_y), 4)
-        pygame.draw.line(screen, (100, 100, 100), (hand_x, hand_y), (gun_end_x, gun_end_y), 2)
-        
-        # 총구 화염 효과
-        if frame_progress < 0.5:  # 발사 초반에만 화염 효과
-            flame_length = int(15 * (1 - frame_progress * 2))
-            flame_end_x = gun_end_x + math.cos(fire_angle) * flame_length
-            flame_end_y = gun_end_y + math.sin(fire_angle) * flame_length
-            
-            # 화염 색상 (노란색에서 빨간색으로)
-            flame_color = (255, int(255 * (1 - frame_progress * 2)), 0)
-            pygame.draw.line(screen, flame_color, (gun_end_x, gun_end_y), (flame_end_x, flame_end_y), 6)
-            
-            # 화염 중심부 (흰색)
-            center_length = flame_length // 2
-            center_end_x = gun_end_x + math.cos(fire_angle) * center_length
-            center_end_y = gun_end_y + math.sin(fire_angle) * center_length
-            pygame.draw.line(screen, (255, 255, 255), (gun_end_x, gun_end_y), (center_end_x, center_end_y), 3)
+        frame_progress = (soldier_gun_animation_frame - SOLDIER_GUN_DRAW_FRAMES) / max(1, SOLDIER_GUN_AIM_FRAMES - 1)
+        aim_progress = smooth_step(frame_progress)
+        hand = ready + (aim_hand - ready) * aim_progress
+        ready_angle = math.radians(-12)
+        pistol_angle = ready_angle + (target_angle - ready_angle) * aim_progress
+
+    else:  # SOLDIER_GUN_STAGE_FIRE
+        frame_progress = (soldier_gun_animation_frame - (SOLDIER_GUN_DRAW_FRAMES + SOLDIER_GUN_AIM_FRAMES)) / max(1, SOLDIER_GUN_FIRE_FRAMES - 1)
+        recoil_factor = math.sin(frame_progress * math.pi)
+        hand = aim_hand - aim_dir * (4.0 * (1.0 - frame_progress))
+        pistol_angle = target_angle - math.radians(4) * recoil_factor
+
+    elbow, solved_hand = solve_two_bone(shoulder, hand, upper_len, lower_len, (-0.15, -1.0))
+    hand = solved_hand
+
+    shoulder_pt = to_int_pair(shoulder)
+    elbow_pt = to_int_pair(elbow)
+    hand_pt = to_int_pair(hand)
+
+    arm_mid_color = (92, 112, 78)
+    arm_shadow_color = (70, 86, 60)
+    glove_color = (206, 182, 150)
+    glove_outline = (172, 144, 118)
+
+    pygame.draw.line(screen, arm_shadow_color, shoulder_pt, elbow_pt, 10)
+    pygame.draw.line(screen, arm_mid_color, shoulder_pt, elbow_pt, 6)
+    pygame.draw.line(screen, arm_shadow_color, elbow_pt, hand_pt, 9)
+    pygame.draw.line(screen, arm_mid_color, elbow_pt, hand_pt, 5)
+
+    pygame.draw.circle(screen, glove_color, hand_pt, 6)
+    pygame.draw.circle(screen, glove_outline, hand_pt, 6, 2)
+
+    # 권총 렌더링
+    dir_vec = Vector2(math.cos(pistol_angle), math.sin(pistol_angle))
+    barrel_start_offset = 2.0 + 3.0 * barrel_visibility
+    barrel_length = 14.0 * barrel_visibility + 8.0
+    barrel_start = hand + dir_vec * barrel_start_offset
+    muzzle = barrel_start + dir_vec * barrel_length
+    slide_top = barrel_start + dir_vec * (barrel_length * 0.65)
+    grip_angle = pistol_angle + math.radians(115)
+    grip_vec = Vector2(math.cos(grip_angle), math.sin(grip_angle))
+    grip_end = barrel_start + grip_vec * (8.0 + 2.0 * barrel_visibility)
+
+    body_color = (46, 46, 48)
+    highlight_color = (120, 120, 126)
+
+    pygame.draw.line(screen, body_color, to_int_pair(barrel_start), to_int_pair(muzzle), 6)
+    pygame.draw.line(screen, highlight_color, to_int_pair(barrel_start), to_int_pair(slide_top), 2)
+    pygame.draw.line(screen, body_color, to_int_pair(barrel_start), to_int_pair(grip_end), 4)
+
+    soldier_gun_muzzle_x, soldier_gun_muzzle_y = to_int_pair(muzzle)
+
+    if current_stage == SOLDIER_GUN_STAGE_FIRE:
+        frame_progress = clamp(frame_progress, 0.0, 1.0)
+        if frame_progress < 0.45:
+            flash_strength = 1.0 - frame_progress / 0.45
+            flame_length = 22.0 * flash_strength
+            flame_end = muzzle + dir_vec * flame_length
+            core_end = muzzle + dir_vec * (flame_length * 0.55)
+
+            flame_color = (
+                255,
+                int(200 + 55 * flash_strength),
+                int(40 * flash_strength),
+            )
+            pygame.draw.line(screen, flame_color, to_int_pair(muzzle), to_int_pair(flame_end), 6)
+            pygame.draw.line(screen, (255, 255, 255), to_int_pair(muzzle), to_int_pair(core_end), 3)
 
 def handle_player(keys):
     global ball_angle, special_gauge, special_gauge_max, special_ready, special_active, recent_dash_time, recent_half_dash_time, recent_dash_success_window
@@ -11641,7 +11810,7 @@ def handle_player(keys):
     global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel  # 스탑워치 관련 변수
     global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
     global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
-    global blacksmith_walking_active, blacksmith_walking_timer  # 발토르 걷기 애니메이션 변수
+    global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction  # 발토르 걷기 애니메이션 변수
     global smasher_walking_active, smasher_walking_timer  # 스매셔 걷기 애니메이션 변수
     global optimus_walking_active, optimus_walking_timer  # 옵티머스 걷기 애니메이션 변수
     global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
@@ -11802,7 +11971,7 @@ def handle_player(keys):
             ):
                 start_supply_radio_loop()
 
-            # 1.5초 홀드 완료 시 발동
+            # 1.0초 홀드 완료 시 발동
             if supply_drop_state.hold_time >= supply_drop_state.config.hold_required:
                 # 물자보급 스킬 발동
                 timer_value = random.randint(90, 300)  # 1.5초~5초 (60fps 기준)
@@ -13354,9 +13523,11 @@ def handle_player(keys):
                 blacksmith_walking_active = True
                 blacksmith_walking_timer = 0
             blacksmith_walking_timer += 1
+            blacksmith_walk_direction = 1 if current_speed > 0 else -1
         else:
             blacksmith_walking_active = False
             blacksmith_walking_timer = 0
+            blacksmith_walk_direction = 0
     elif selected_character_type in ("smasher", "optimus"):
         walking = abs(current_speed) > 1.0
         if selected_character_type == "smasher":
@@ -43601,12 +43772,14 @@ def main(stage_num, new_boss_mode=False):
     
     # 코만도 총 발사 애니메이션 초기화
     global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
-    global soldier_gun_target_x, soldier_gun_target_y
+    global soldier_gun_target_x, soldier_gun_target_y, soldier_gun_muzzle_x, soldier_gun_muzzle_y
     soldier_gun_animation_active = False
     soldier_gun_animation_frame = 0
     soldier_gun_animation_timer = 0
     soldier_gun_target_x = 0
     soldier_gun_target_y = 0
+    soldier_gun_muzzle_x = 0
+    soldier_gun_muzzle_y = 0
     
     # 보스 넉백 효과 초기화
     global boss_knockback_active, boss_knockback_offset_x, boss_knockback_offset_y, boss_knockback_timer
@@ -46073,8 +46246,8 @@ def main(stage_num, new_boss_mode=False):
                     if ak47.active:
                         boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
 
-                        # AK-47 지속시간은 실제 전투에 사용될 때만 소모되도록 타이머 조정
-                        tick_timer = ak47.is_firing or bool(ak47.bullets)
+                        # AK-47 지속시간은 실제 발사 입력이 유지될 때만 소모되도록 조정
+                        tick_timer = ak47.is_firing
 
                         hit_events = ak47.update(boss_rect, tick_timer=tick_timer)
                         for event in hit_events:
@@ -47227,7 +47400,7 @@ def show_player_info():
             content_height = main_panel_height - 120
             # === 섹션 1: 등급 정보 ===
             rank_section_rect = pygame.Rect(main_panel_x + 20, content_y, main_panel_width - 40, 120)
-            draw_section_container(SCREEN, rank_section_rect, "현재 등급", "️")
+            draw_section_container(SCREEN, rank_section_rect, "현재 등급", "🏅")
             # 등급 정보 표시
             rank_color = rank_info["color"]
             rank_text = f"{rank_info['icon']} {rank_info['name']}"
@@ -47247,7 +47420,7 @@ def show_player_info():
             # === 섹션 2: 능력 통계 ===
             stats_section_y = content_y + 140
             stats_section_rect = pygame.Rect(main_panel_x + 20, stats_section_y, main_panel_width - 40, 200)
-            draw_section_container(SCREEN, stats_section_rect, "능력 분석", "")
+            draw_section_container(SCREEN, stats_section_rect, "능력 분석", "📊")
             stats = detailed_stats["stats"]
             # 왼쪽: 텍스트 통계, 오른쪽: 레이더 차트
             left_stats_x = stats_section_rect.x + 20
@@ -47284,7 +47457,7 @@ def show_player_info():
             if achievements:
                 achievement_section_width = (main_panel_width - 60) // 2
                 achievement_rect = pygame.Rect(main_panel_x + 20, bottom_section_y, achievement_section_width, bottom_section_height)
-                draw_section_container(SCREEN, achievement_rect, "업적", "")
+                draw_section_container(SCREEN, achievement_rect, "업적", "🏆")
                 # 업적 표시 (최근 3개)
                 for i, achievement in enumerate(achievements[-3:]):
                     if i < 3:  # 공간 제한
@@ -47297,7 +47470,7 @@ def show_player_info():
                 feedback_section_width = (main_panel_width - 60) // 2
                 feedback_x = main_panel_x + 30 + achievement_section_width if achievements else main_panel_x + 20
                 feedback_rect = pygame.Rect(feedback_x, bottom_section_y, feedback_section_width, bottom_section_height)
-                draw_section_container(SCREEN, feedback_rect, "개선 피드백", "")
+                draw_section_container(SCREEN, feedback_rect, "개선 피드백", "💡")
                 # 피드백 표시 (최대 2개)
                 for i, tip in enumerate(tips[:2]):
                     # 텍스트 길이 제한
