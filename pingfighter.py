@@ -7297,6 +7297,8 @@ def go_to_next_round():
     flame_trail_positions.clear()
     flame_trail_timer = 0
     flame_trail_phase = 0
+    global flame_trail_rng
+    flame_trail_rng = None
     #  홍련탄 초기화
     fireballs.clear()
     boss_throwing = False
@@ -38421,8 +38423,12 @@ def handle_ball():
         current_speed = max(0.001, current_speed ** 1.2)
         amplitude_x = min(40, 10 + accel_elapsed * 6)
         amplitude_y = min(20, 5 + accel_elapsed * 3)
-        noise_x = random.uniform(-2, 2)
-        noise_y = random.uniform(-1, 1)
+        if flame_trail_rng:
+            noise_x = flame_trail_rng.uniform(-2, 2)
+            noise_y = flame_trail_rng.uniform(-1, 1)
+        else:
+            noise_x = random.uniform(-2, 2)
+            noise_y = random.uniform(-1, 1)
         BALL.x += flame_trail_base_vel.x * current_speed + math.sin(accel_elapsed * 6) * amplitude_x + noise_x
         BALL.y += flame_trail_base_vel.y * current_speed + math.cos(accel_elapsed * 3) * amplitude_y + noise_y
         #  플레이어 충돌 처리 - 화려한 폭발 이벤트
@@ -38434,6 +38440,7 @@ def handle_ball():
         if BALL.colliderect(player_collision_rect) and not ball_in_kuromi:
             flame_trail_active = False
             flame_trail_positions.clear()
+            flame_trail_rng = None
             
             # Stage 5 나선 효과 - 홍련폭염 모드 해제
             if animated_bg_stage5 is not None and hasattr(animated_bg_stage5, 'set_inferno_mode'):
