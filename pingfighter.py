@@ -8358,6 +8358,46 @@ def calculate_trajectory():
                 # 쿨타임 80% 지났으면 중간 확률
                 skill_probability = 0.3
                 skill_type = "quake"
+        elif current_stage == 3:
+            # 멘헤라걸 - 눈물샤워 (플레이어 속도 감소)
+            if boss_special_ready:
+                skill_probability = 0.8
+                skill_type = "tears"
+            elif boss_special_gauge > 70:
+                skill_probability = 0.3
+                skill_type = "tears"
+        elif current_stage == 4:
+            # 대쉬스피릿 - 자기장 또는 명상타임
+            if boss_special_ready_stage4:
+                skill_probability = 0.7
+                if meditation_active:
+                    skill_type = "meditation"
+                elif stage4_magnetic_active:
+                    skill_type = "magnetic"
+                else:
+                    skill_type = "magnetic" if random.random() < 0.6 else "meditation"
+            elif boss_special_gauge_stage4 > 80:
+                skill_probability = 0.4
+                skill_type = "magnetic"
+        elif current_stage == 5:
+            # 홍련봄버 - 화염궤적
+            if boss_special_ready:
+                skill_probability = 0.6
+                skill_type = "flame_trail"
+            elif boss_special_gauge > 60:
+                skill_probability = 0.2
+                skill_type = "flame_trail"
+
+        # 파워스매싱 예측 (모든 스테이지)
+        if boss_special_gauge > 90:
+            skill_probability = max(skill_probability, 0.5)
+            if not skill_type:
+                skill_type = "power_smashing"
+        elif boss_special_gauge > 70:
+            skill_probability = max(skill_probability, 0.2)
+            if not skill_type:
+                skill_type = "power_smashing"
+
         # 최대 500프레임 예측 (충분한 시간)
         max_steps = 500
         random_state = random.getstate()
