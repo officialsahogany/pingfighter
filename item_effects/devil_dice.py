@@ -485,7 +485,7 @@ class DevilDice:
             ('패들 크기', 'paddle_size'),
             ('스킬 게이지', 'skill_gauge'),
             ('아이템 스폰률', 'item_spawn'),
-            ('액티브 쿨타임', 'item_cooldown'),
+            ('아이템 쿨타임', 'item_cooldown'),
             ('스킬/대쉬 비용', 'skill_dash_cost'),
             ('대쉬 쿨타임', 'dash_cooldown'),
             ('플레이어 속도', 'player_speed'),

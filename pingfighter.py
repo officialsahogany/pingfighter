@@ -45613,7 +45613,7 @@ def main(stage_num, new_boss_mode=False):
             profiler.end_section("Input")
             profiler.start_section("Events")
 
-        # 악마의 주사위 배율을 포함한 액티브 아이템 쿨타임 계산
+        # 악마의 주사위 배율을 포함한 아이템 쿨타임 계산
         cooldown_reduction = 800 if master_obtained else 0
         cooldown_reduction += 2400 if cooltime_obtained else 0
         active_item_cooldown_ms = max(0, 8000 - cooldown_reduction)
