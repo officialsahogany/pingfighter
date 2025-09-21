@@ -11589,7 +11589,7 @@ def create_slow_wave_surface(width, height, base_color=(170, 120, 255), intensit
     # 파형은 최대 3개까지만 사용해 단순한 레이어 유지
     effective_waves = max(1, min(3, wave_count))
     time_value = pygame.time.get_ticks() * 0.006
-    base_y = height * 0.74
+    base_y = height * 0.62
 
     for wave_index in range(effective_waves):
         layer_strength = intensity * (1.0 - wave_index * 0.35)
@@ -11606,7 +11606,7 @@ def create_slow_wave_surface(width, height, base_color=(170, 120, 255), intensit
         amplitude = 2.4 * layer_strength
         frequency = 1.4 + wave_index * 0.3
         phase_offset = wave_index * 0.9
-        y_offset = base_y - wave_index * 4
+        y_offset = base_y - wave_index * 5
 
         points = []
         for x in range(0, width + 1, 3):
@@ -20612,12 +20612,12 @@ def draw_objects():
         phase = (time_now // 150) % 4
         prefix_cycle = ["|", "/", "-", "\\"]
         prefix = prefix_cycle[phase]
-        display_text = f"{prefix} AI SYSTEM OPERATING.."
+        display_text = f"{prefix} AI SYSTEM"
         flicker = int((math.sin(time_now * 0.012) + 1) * 0.5 * 45)
         text_color = (120 + flicker, 240, 255)
         ai_surface = ai_font.render(display_text, True, text_color)
         ai_rect = ai_surface.get_rect()
-        ai_rect.midbottom = (player_rect.centerx, player_rect.top - 2)
+        ai_rect.midbottom = (player_rect.centerx, player_rect.top - 10)
         draw_with_shake(ai_surface, ai_rect.topleft)
 
     if player_slow_timer > 0:
