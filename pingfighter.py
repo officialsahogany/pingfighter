@@ -8283,7 +8283,7 @@ def calculate_trajectory():
     global last_prediction_skill_signature
     global current_stage, boss_special_ready, boss_special_gauge, boss_special_ready_stage4, boss_special_gauge_stage4
     global meditation_active, meditation_timer, stage4_magnetic_active, stage4_magnetic_timer
-    global flame_trail_active, flame_trail_phase, power_smashing_parabola_active, power_smashing_start_time
+    global flame_trail_active, flame_trail_phase, flame_trail_rng, power_smashing_parabola_active, power_smashing_start_time
     global quake_active, quake_timer, tears_active, tears_timer, quake_last_used_time, last_tears_cast_time
     global QUAKE_COOLDOWN, TEARS_COOLDOWN
 
@@ -8429,6 +8429,10 @@ def calculate_trajectory():
         flame_start_time_snapshot = globals().get("flame_trail_start_time", base_ticks)
         sim_flame_phase = flame_trail_phase if flame_trail_active else 0
         sim_flame_timer = flame_trail_timer if flame_trail_active else TWO_SECONDS_FRAMES
+        sim_flame_rng = None
+        if flame_trail_rng is not None:
+            sim_flame_rng = random.Random()
+            sim_flame_rng.setstate(flame_trail_rng.getstate())
         sim_quake_timer = quake_timer if quake_active else quake_duration
         sim_quake_restore_speed = original_ball_speed_quake[:] if quake_active else None
         sim_quake_rng = None
@@ -8613,8 +8617,12 @@ def calculate_trajectory():
                             current_speed = max(0.001, current_speed ** 1.2)
                             amplitude_x = min(40, 10 + accel_elapsed * 6)
                             amplitude_y = min(20, 5 + accel_elapsed * 3)
-                            noise_x = random.uniform(-2, 2)
-                            noise_y = random.uniform(-1, 1)
+                            if sim_flame_rng:
+                                noise_x = sim_flame_rng.uniform(-2, 2)
+                                noise_y = sim_flame_rng.uniform(-1, 1)
+                            else:
+                                noise_x = random.uniform(-2, 2)
+                                noise_y = random.uniform(-1, 1)
                             base_vx = sim_flame_base_vel[0] if sim_flame_base_vel else 0.0
                             base_vy = sim_flame_base_vel[1] if sim_flame_base_vel else 1.0
                             sim_x += base_vx * current_speed + math.sin(accel_elapsed * 6) * amplitude_x + noise_x
