@@ -20607,6 +20607,19 @@ def draw_objects():
         
         draw_with_shake(player_to_draw, player_rect.topleft)
 
+    if aipill_active:
+        ai_font = FontStyle.tiny()
+        phase = (time_now // 150) % 4
+        prefix_cycle = ["|", "/", "-", "\\"]
+        prefix = prefix_cycle[phase]
+        display_text = f"{prefix} AI SYSTEM"
+        flicker = int((math.sin(time_now * 0.012) + 1) * 0.5 * 45)
+        text_color = (120 + flicker, 240, 255)
+        ai_surface = ai_font.render(display_text, True, text_color)
+        ai_rect = ai_surface.get_rect()
+        ai_rect.midbottom = (player_rect.centerx, player_rect.top - 10)
+        draw_with_shake(ai_surface, ai_rect.topleft)
+
     if player_slow_timer > 0:
         slow_max = player_slow_timer_max if player_slow_timer_max > 0 else player_slow_timer
         ratio = player_slow_timer / max(1, slow_max)
