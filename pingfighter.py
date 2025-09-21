@@ -8309,9 +8309,6 @@ def calculate_trajectory():
     last_prediction_ball_y = BALL.centery
     last_prediction_skill_signature = current_skill_signature
 
-    if ball_vel[1] <= 0:
-        return
-
     # 시뮬레이션용 변수
     sim_x = BALL.centerx
     sim_y = BALL.centery
@@ -8398,7 +8395,10 @@ def calculate_trajectory():
             if not skill_type:
                 skill_type = "power_smashing"
 
-        # 최대 500프레임 예측 (충분한 시간)
+    if ball_vel[1] <= 0 and not skill_type:
+        return
+
+    # 최대 500프레임 예측 (충분한 시간)
         max_steps = 500
         random_state = random.getstate()
         base_ticks = pygame.time.get_ticks()
