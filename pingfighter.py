@@ -8668,10 +8668,18 @@ def calculate_trajectory():
 def draw_predicted_trajectory():
     """레이저스코프 활성화 시 저장된 궤적을 그리는 함수"""
     global predicted_trajectory, predictor_active, ball_vel
+    global quake_active, meditation_active, stage4_magnetic_active, flame_trail_active, power_smashing_parabola_active
     if not predictor_active:
         return
     # 공이 위로 향하고 있으면 궤적 지우기 (플레이어가 친 경우)
-    if ball_vel[1] <= 0:
+    skill_active_now = (
+        quake_active
+        or meditation_active
+        or stage4_magnetic_active
+        or flame_trail_active
+        or power_smashing_parabola_active
+    )
+    if ball_vel[1] <= 0 and not skill_active_now:
         predicted_trajectory = []
         return
     # 궤적 계산 (보스가 방금 친 경우)
