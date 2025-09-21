@@ -8429,6 +8429,10 @@ def calculate_trajectory():
         sim_flame_timer = flame_trail_timer if flame_trail_active else TWO_SECONDS_FRAMES
         sim_quake_timer = quake_timer if quake_active else quake_duration
         sim_quake_restore_speed = original_ball_speed_quake[:] if quake_active else None
+        sim_quake_rng = None
+        if quake_rng is not None:
+            sim_quake_rng = random.Random()
+            sim_quake_rng.setstate(quake_rng.getstate())
         sim_power_smashing_initial_boost = power_smashing_initial_boost
         sim_power_smashing_start = power_smashing_start_time
         sim_power_smashing_direction = power_smashing_direction
@@ -8454,8 +8458,12 @@ def calculate_trajectory():
                         if skill_active_now:
                             if sim_quake_timer > 0:
                                 sim_quake_timer -= 1
-                                shake_x = random.uniform(-3, 3)
-                                shake_y = random.uniform(-2, 2)
+                                if sim_quake_rng:
+                                    shake_x = sim_quake_rng.uniform(-3, 3)
+                                    shake_y = sim_quake_rng.uniform(-2, 2)
+                                else:
+                                    shake_x = random.uniform(-3, 3)
+                                    shake_y = random.uniform(-2, 2)
                                 sim_vel_x += shake_x
                                 sim_vel_y += shake_y
                                 dx = PLAYER.centerx - sim_x
