@@ -7647,7 +7647,7 @@ def check_tear_collisions():
             else:
                 # 연막 밖에서는 정상적으로 데미지 받음
                 player_slow_timer = 130  # 2초간 느려짐 (60fps 기준)
-                player_slow_timer_max = max(player_slow_timer_max, player_slow_timer)
+                player_slow_timer_max = player_slow_timer
                 
                 # 눈물 맞았을 때 사운드 재생
                 try:
@@ -20565,6 +20565,14 @@ def draw_objects():
             player_to_draw.set_alpha(100)
         
         draw_with_shake(player_to_draw, player_rect.topleft)
+
+    if player_slow_timer > 0:
+        slow_max = player_slow_timer_max if player_slow_timer_max > 0 else player_slow_timer
+        ratio = player_slow_timer / max(1, slow_max)
+        wave_intensity = 0.45 + 0.55 * max(0.0, min(1.0, ratio))
+        wave_surface = create_slow_wave_surface(90, 48, (170, 130, 255), intensity=wave_intensity)
+        wave_rect = wave_surface.get_rect(midbottom=(player_rect.centerx, player_rect.top - 6))
+        draw_with_shake(wave_surface, wave_rect.topleft)
     
     # Stage 4 화상 효과 그리기
     if player_burn_effect and player_burn_timer > 0:
