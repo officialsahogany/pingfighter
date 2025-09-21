@@ -1252,6 +1252,7 @@ power_smashing_parabola_active = False  # 포물선 궤적 활성화 상태
 power_smashing_start_time = 0           # 파워스매싱 시작 시간
 power_smashing_arc_strength = 0.0       # 포물선 강도 (방향에 따라 ± 값)
 power_smashing_gravity_effect = 0.035    # 중력 효과 강도 (완만한 곡선으로 조정)
+power_smashing_rng = None               # 파워스매싱 전용 난수 발생기 (예측 동기화)
 # 파워스매싱 초기 부스트
 power_smashing_initial_boost = False    # 초기 부스트 활성화 상태
 power_smashing_boost_duration = 500     # 부스트 지속 시간 (밀리초, 0.5초)
