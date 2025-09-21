@@ -7358,12 +7358,13 @@ def go_to_next_round():
         boss_red_intensity = 0
     #  멘헤라걸 눈물샤워 초기화
     global tears_active, tears_timer, falling_tears, last_tears_cast_time
-    global player_slow_timer  # ← 디버프 초기화용
+    global player_slow_timer, player_slow_timer_max  # ← 디버프 초기화용
     tears_active = False
     tears_timer = 0
     falling_tears.clear()
     last_tears_cast_time = -9999
     player_slow_timer = 0  # ← 다음 라운드로 넘어가면 느려짐 해제
+    player_slow_timer_max = 0
     #  Stage 4 자기장 강제 종료
     stage4_magnetic_active = False
     stage4_magnetic_timer = 0
@@ -7615,7 +7616,7 @@ def check_collision_wrapper(obj1, obj2):
     return False
 
 def check_tear_collisions():
-    global falling_tears, player_slow_timer
+    global falling_tears, player_slow_timer, player_slow_timer_max
     new_tears = []
     
     # 연막 안에 있으면 눈물샤워에 면역
@@ -7646,6 +7647,7 @@ def check_tear_collisions():
             else:
                 # 연막 밖에서는 정상적으로 데미지 받음
                 player_slow_timer = 130  # 2초간 느려짐 (60fps 기준)
+                player_slow_timer_max = max(player_slow_timer_max, player_slow_timer)
                 
                 # 눈물 맞았을 때 사운드 재생
                 try:
@@ -43995,7 +43997,7 @@ def main(stage_num, new_boss_mode=False):
         # 까마귀를 처치하면 Star Point 별이 생성됩니다
         #  Stage 3 눈물샤워 효과 초기화 (Stage 4 진입 시)
         global tear_shower_active, tear_shower_timer, tear_particles
-        global tears_active, tears_timer, falling_tears, player_slow_timer
+        global tears_active, tears_timer, falling_tears, player_slow_timer, player_slow_timer_max
         tear_shower_active = False
         tear_shower_timer = 0
         tear_particles = []
@@ -44003,6 +44005,7 @@ def main(stage_num, new_boss_mode=False):
         tears_timer = 0
         falling_tears = []
         player_slow_timer = 0  # 플레이어 속도 저하 디버프 초기화
+        player_slow_timer_max = 0
         print("Stage 4 :")
     
     #  Stage 2 위기 상황 바위 트리거 리셋
