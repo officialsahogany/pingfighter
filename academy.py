@@ -295,12 +295,8 @@ class SkillSystem:
         if current_level >= skill_data["max_level"]:
             return False
         
-        # 스킬 포인트 확인 (레벨 4부터 비용 증가: 1→2, 2→3)
+        # 스킬 포인트 확인 (레벨과 상관없이 정의된 코스트 사용)
         actual_cost = skill_data["cost"]
-        if skill_data["cost"] == 1 and current_level >= 3:
-            actual_cost = 2
-        elif skill_data["cost"] == 2 and current_level >= 3:
-            actual_cost = 3
         if self.skill_points < actual_cost:
             return False
         
@@ -353,15 +349,9 @@ class SkillSystem:
         if skill_data:
             old_level = self.skill_levels.get(skill_id, 0)
             
-            # 실제 비용 계산 (레벨 4부터 비용 증가: 1→2, 2→3)
+            # 실제 비용은 스킬 정의에 고정된 값을 사용
             actual_cost = skill_data["cost"]
-            if skill_data["cost"] == 1 and old_level >= 3:
-                actual_cost = 2
-                print(f"    : {skill_id} Lv{old_level+1} →  2TP")
-            elif skill_data["cost"] == 2 and old_level >= 3:
-                actual_cost = 3
-                print(f"    : {skill_id} Lv{old_level+1} →  3TP")
-            
+
             self.skill_points -= actual_cost
             self.skill_levels[skill_id] = self.skill_levels.get(skill_id, 0) + 1
             self.total_invested_points += actual_cost  # 실제 투자한 포인트만 누적
