@@ -11586,44 +11586,44 @@ def create_slow_wave_surface(width, height, base_color=(170, 120, 255), intensit
     if intensity <= 0:
         return surface
 
-    time_value = pygame.time.get_ticks() * 0.004
-    for wave_index in range(wave_count):
-        layer_strength = intensity * (1.0 - wave_index * 0.25)
+    # 파형은 최대 3개까지만 사용해 단순한 레이어 유지
+    effective_waves = max(1, min(3, wave_count))
+    time_value = pygame.time.get_ticks() * 0.006
+    base_y = height * 0.65
+
+    for wave_index in range(effective_waves):
+        layer_strength = intensity * (1.0 - wave_index * 0.35)
         if layer_strength <= 0:
             continue
 
-        alpha = max(0, min(255, int(150 * layer_strength)))
+        alpha = max(0, min(255, int(120 * layer_strength)))
         color = (
-            min(255, int(base_color[0] + wave_index * 12)),
-            max(0, int(base_color[1] - wave_index * 8)),
-            min(255, int(base_color[2] + wave_index * 10)),
+            min(255, int(base_color[0] + wave_index * 8)),
+            max(0, int(base_color[1] - wave_index * 6)),
+            min(255, int(base_color[2] + wave_index * 6)),
             alpha,
         )
-        amplitude = 3 + wave_index * 2.5
-        frequency = 1.6 + wave_index * 0.45
-        vertical_offset = height * (0.35 + wave_index * 0.18)
+        amplitude = 4.0 * layer_strength
+        frequency = 1.4 + wave_index * 0.3
+        phase_offset = wave_index * 0.9
+        y_offset = base_y - wave_index * 6
+
         points = []
-        for x in range(0, width, 2):
-            phase = time_value * (1.1 + wave_index * 0.3) + (x / max(1, width)) * math.tau * frequency
-            y = vertical_offset + math.sin(phase) * amplitude
+        for x in range(0, width + 1, 3):
+            progress = x / max(1, width)
+            angle = time_value + phase_offset + progress * math.tau * frequency
+            y = y_offset + math.sin(angle) * amplitude
             points.append((x, y))
+
         if len(points) > 1:
-            pygame.draw.aalines(surface, color, False, points)
+            pygame.draw.lines(surface, color, False, points, 2)
 
-    droplet_count = max(1, wave_count - 1)
-    for i in range(droplet_count):
-        t = i / max(1, droplet_count - 1) if droplet_count > 1 else 0.5
-        droplet_phase = time_value * 1.8 + i * 0.9
-        droplet_x = int(10 + t * (width - 20))
-        droplet_y = int(height * 0.22 + math.sin(droplet_phase) * 4)
-        droplet_alpha = int(90 * intensity * (0.6 + 0.4 * math.sin(time_value * 2.0 + i)))
-        if droplet_alpha > 0:
-            pygame.draw.circle(surface, (200, 150, 255, droplet_alpha), (droplet_x, droplet_y), 4)
-
-    base_alpha = int(70 * intensity)
-    if base_alpha > 0:
-        pygame.draw.ellipse(surface, (120, 60, 190, base_alpha), (8, height - 14, width - 16, 12), 2)
-        pygame.draw.ellipse(surface, (160, 90, 220, base_alpha // 2), (14, height - 11, width - 28, 8))
+    # 간단한 하이라이트 타원으로 중심 강조
+    glow_alpha = int(50 * intensity)
+    if glow_alpha > 0:
+        glow_rect = pygame.Rect(0, 0, width, int(height * 0.45))
+        glow_rect.center = (width // 2, int(height * 0.45))
+        pygame.draw.ellipse(surface, (base_color[0], base_color[1], base_color[2], glow_alpha), glow_rect, 1)
 
     return surface
 
@@ -43385,6 +43385,8 @@ def show_result(won):
         special_active = False
     #  벽돌 초기화 (다음 스테이지로 넘어가면 벽돌 사라짐)
     walls.clear()
+    global pending_wall
+    pending_wall = None
     #  Aipill 초기화 (다음 라운드로 넘어가면 Aipill 효과 종료)
     if aipill_active:
         print("Aipill  .")
