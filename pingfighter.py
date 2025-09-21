@@ -13776,7 +13776,7 @@ def handle_player(keys):
         global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
         global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
         if selected_character_type == "soldier":
-            hit_on_right = collision_x > 0
+            hit_on_right = collision_x >= 0
             if hit_on_right:
                 if not soldier_right_hook_active or soldier_right_hook_timer <= 0:
                     soldier_right_hook_active = True
@@ -40290,7 +40290,7 @@ def handle_ball():
         if selected_character_type == "soldier" and not player_collision_handled:
             global soldier_swing_active, soldier_swing_timer
             global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
-            hit_on_right = BALL.centerx > PLAYER.centerx
+            hit_on_right = BALL.centerx >= PLAYER.centerx
             if hit_on_right:
                 if not soldier_right_hook_active or soldier_right_hook_timer <= 0:
                     soldier_right_hook_active = True
