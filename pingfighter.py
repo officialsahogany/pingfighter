@@ -11589,7 +11589,7 @@ def create_slow_wave_surface(width, height, base_color=(170, 120, 255), intensit
     # 파형은 최대 3개까지만 사용해 단순한 레이어 유지
     effective_waves = max(1, min(3, wave_count))
     time_value = pygame.time.get_ticks() * 0.006
-    base_y = height * 0.62
+    base_y = height * 0.82
 
     for wave_index in range(effective_waves):
         layer_strength = intensity * (1.0 - wave_index * 0.35)
