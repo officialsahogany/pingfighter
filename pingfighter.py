@@ -40584,19 +40584,12 @@ def handle_ball():
         was_stun_ball = ragnarok_speed_boost_active  # 스턴공이었는지 저장
         
         if ragnarok_speed_boost_active:
-            # 현재 속도를 기반으로 비례하는 완화 계수를 계산
-            boosted_speed = math.hypot(ball_vel[0], ball_vel[1])
-            base_speed = BALL_BASE_SPEED if BALL_BASE_SPEED else 1.0
-            speed_ratio = boosted_speed / base_speed
-            extra_ratio = max(0.0, speed_ratio - 1.5)
-            dynamic_divider = 2.0 + extra_ratio * 0.8  # 속도가 빠를수록 조금 더 감속
-            dynamic_divider = min(dynamic_divider, 3.2)  # 너무 느려지는 것 방지
-            reduction_factor = 1.0 / dynamic_divider
-            ball_vel[0] *= reduction_factor
-            ball_vel[1] *= reduction_factor
+            # 보스가 스턴공을 받으면 속도를 절반으로 감속시켜 원래 흐름으로 복귀
+            ball_vel[0] /= 2.0
+            ball_vel[1] /= 2.0
             ragnarok_speed_boost_active = False
             reduced_speed = math.hypot(ball_vel[0], ball_vel[1])
-            print(f"⚡ 라그나로크 스턴공 속도 완화: {boosted_speed:.1f} → {reduced_speed:.1f} (/{dynamic_divider:.2f})")
+            print(f"   !   : {reduced_speed:.1f}")
             
             # 화면 흔들림 0.2초 추가
             global screen_shake_timer, screen_shake_intensity
