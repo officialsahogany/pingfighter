@@ -17798,10 +17798,10 @@ def draw_player_gauge():
     # AI 필 활성화 시 게이지 상단에 시스템 상태 오버레이 표시
     if aipill_active:
         ai_font = FontStyle.tiny()  # 메카닉 스타일의 작은 픽셀 폰트
-        phase = (time_now // 180) % 4
-        suffix = "." * phase
-        core_text = "AI SYSTEM OPERATING" + suffix
-        display_text = f">> {core_text}"
+        phase = (time_now // 150) % 4
+        prefix_cycle = ["|", "/", "-", "\\"]
+        prefix = prefix_cycle[phase]
+        display_text = f"{prefix} AI SYSTEM OPERATING .."
         # 텍스트 표면 생성
         flicker = int((math.sin(time_now * 0.012) + 1) * 0.5 * 45)
         text_color = (120 + flicker, 240, 255)
