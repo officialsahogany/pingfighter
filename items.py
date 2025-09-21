@@ -295,7 +295,7 @@ ITEM_TYPES = [
         "color": (255, 0, 255),  # 무지개색 (마젠타로 표현)
         "effect": "pandora_box",
         "icon": None,
-        "chance": 0.005,  # 확률 0.8%
+        "chance": 0.003,  # 확률 0.8%
         "duration": 180,  # 3초간 지속
         "unlock_condition": None
     },
@@ -331,7 +331,7 @@ ITEM_TYPES = [
         "color": (100, 200, 255),  # 하늘색
         "effect": "predictor",
         "icon": None,
-        "chance": 0.015,  # 확률 1.5% (밸런스 조정: 2.5% → 1.5%)
+        "chance": 0.007,  # 확률 1.5% (밸런스 조정: 2.5% → 1.5%)
         "duration": 600,
         "unlock_condition": None
     },
@@ -367,7 +367,7 @@ ITEM_TYPES = [
         "color": (180, 140, 90),  # 갈색 (시계 색상)
         "effect": "stopwatch",
         "icon": None,
-        "chance": 0.005,  # 확률 1.5%
+        "chance": 0.006,  # 확률 1.5%
         "duration": 600,
         "unlock_condition": None
     },
