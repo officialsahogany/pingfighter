@@ -16448,6 +16448,45 @@ def apply_blue_overlay(surface, intensity):
     overlay.fill((red_factor, green_factor, blue_factor, 80))  # 투명도 80
     #  블렌드 모드를 사용하여 효율적으로 색상 적용
     surface.blit(overlay, (0, 0), special_flags=pygame.BLEND_MULT)
+
+
+def apply_ai_glitch_effect(surface: pygame.Surface, time_now: int) -> pygame.Surface:
+    """AI 필 활성화 동안 패들에 사이버 글리치 효과를 적용."""
+    width, height = surface.get_size()
+    if width == 0 or height == 0:
+        return surface
+
+    glitched = surface.copy()
+    slice_height = max(4, height // 9)
+    base_phase = time_now * 0.015
+
+    for idx, y in enumerate(range(0, height, slice_height)):
+        rect = pygame.Rect(0, y, width, min(slice_height, height - y))
+        segment = surface.subsurface(rect).copy()
+        horizontal_shift = int(math.sin(base_phase + idx * 0.6) * 5)
+
+        tint_alpha = 50 + (idx % 3) * 25
+        tint_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        tint_surface.fill((40, 220, 255, min(180, tint_alpha)))
+        segment.blit(tint_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+
+        glitched.blit(segment, (horizontal_shift, y), special_flags=pygame.BLEND_RGBA_ADD)
+
+    if (time_now // 90) % 2 == 0:
+        noise_overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+        noise_overlay.fill((0, 40, 60, 28))
+        glitched.blit(noise_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+    scan_y = (time_now // 12) % max(1, height)
+    scanline = pygame.Surface((width, 2), pygame.SRCALPHA)
+    scanline.fill((120, 255, 255, 110))
+    glitched.blit(scanline, (0, scan_y))
+
+    original_alpha = surface.get_alpha()
+    if original_alpha is not None:
+        glitched.set_alpha(original_alpha)
+
+    return glitched
 def update_water_trail():
     """물자국 업데이트 함수"""
     global water_trail_positions, water_trail_timer
@@ -20570,6 +20609,8 @@ def draw_objects():
             bright_overlay.fill((100, 100, 100, 128))  # 밝기 오버레이
             # 블렌딩 모드로 효율적으로 밝기 적용
             bright_ufo.blit(bright_overlay, (0, 0), special_flags=pygame.BLEND_ADD)
+            if aipill_active:
+                bright_ufo = apply_ai_glitch_effect(bright_ufo, time_now)
             # 미사일 무적 시간이면 반투명 처리
             if is_missile_invulnerable and (time_now // 100) % 2 == 0:
                 bright_ufo.set_alpha(100)
@@ -20579,6 +20620,8 @@ def draw_objects():
             # 미사일 무적 시간이면 반투명 처리
             if is_missile_invulnerable and (time_now // 100) % 2 == 0:
                 player_to_draw.set_alpha(100)
+            if aipill_active:
+                player_to_draw = apply_ai_glitch_effect(player_to_draw, time_now)
             draw_with_shake(player_to_draw, player_rect.topleft)
     else:
         player_to_draw = rotated_player.copy()
@@ -20599,11 +20642,14 @@ def draw_objects():
             else:
                 # 약간 약한 붉은색
                 red_tint.fill((255, 100, 100, 255))
-                player_to_draw.blit(red_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            player_to_draw.blit(red_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
         
         # 미사일 무적 시간이면 반투명 처리
         elif is_missile_invulnerable and (time_now // 100) % 2 == 0:
             player_to_draw.set_alpha(100)
+
+        if aipill_active:
+            player_to_draw = apply_ai_glitch_effect(player_to_draw, time_now)
         
         draw_with_shake(player_to_draw, player_rect.topleft)
 
