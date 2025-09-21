@@ -11578,9 +11578,65 @@ def draw_soldier_bullets(screen):
                              (int(bullet["x"] - 2), int(bullet["y"] - 2)), 
                              SOLDIER_BULLET_SIZE // 2)
 
+
+def create_slow_wave_surface(width, height, base_color=(170, 120, 255), intensity=1.0, wave_count=3):
+    """보라색 물결형 이동 저하 이펙트 서피스 생성"""
+    surface = pygame.Surface((width, height), pygame.SRCALPHA)
+    if intensity <= 0:
+        return surface
+
+    time_value = pygame.time.get_ticks() * 0.004
+    for wave_index in range(wave_count):
+        layer_strength = intensity * (1.0 - wave_index * 0.25)
+        if layer_strength <= 0:
+            continue
+
+        alpha = max(0, min(255, int(150 * layer_strength)))
+        color = (
+            min(255, int(base_color[0] + wave_index * 12)),
+            max(0, int(base_color[1] - wave_index * 8)),
+            min(255, int(base_color[2] + wave_index * 10)),
+            alpha,
+        )
+        amplitude = 3 + wave_index * 2.5
+        frequency = 1.6 + wave_index * 0.45
+        vertical_offset = height * (0.35 + wave_index * 0.18)
+        points = []
+        for x in range(0, width, 2):
+            phase = time_value * (1.1 + wave_index * 0.3) + (x / max(1, width)) * math.tau * frequency
+            y = vertical_offset + math.sin(phase) * amplitude
+            points.append((x, y))
+        if len(points) > 1:
+            pygame.draw.aalines(surface, color, False, points)
+
+    droplet_count = max(1, wave_count - 1)
+    for i in range(droplet_count):
+        t = i / max(1, droplet_count - 1) if droplet_count > 1 else 0.5
+        droplet_phase = time_value * 1.8 + i * 0.9
+        droplet_x = int(10 + t * (width - 20))
+        droplet_y = int(height * 0.22 + math.sin(droplet_phase) * 4)
+        droplet_alpha = int(90 * intensity * (0.6 + 0.4 * math.sin(time_value * 2.0 + i)))
+        if droplet_alpha > 0:
+            pygame.draw.circle(surface, (200, 150, 255, droplet_alpha), (droplet_x, droplet_y), 4)
+
+    base_alpha = int(70 * intensity)
+    if base_alpha > 0:
+        pygame.draw.ellipse(surface, (120, 60, 190, base_alpha), (8, height - 14, width - 16, 12), 2)
+        pygame.draw.ellipse(surface, (160, 90, 220, base_alpha // 2), (14, height - 11, width - 28, 8))
+
+    return surface
+
+
 def draw_leg_shot_effect(screen):
     """레그샷 텍스트 효과 그리기 - 작고 임팩트 있는 애니메이션"""
-    global leg_shot_text_timer
+    global leg_shot_text_timer, leg_shot_active, leg_shot_timer
+
+    if leg_shot_active or leg_shot_timer > 0:
+        remaining_ratio = leg_shot_timer / LEG_SHOT_DURATION if LEG_SHOT_DURATION else 1.0
+        wave_intensity = 0.5 + 0.5 * max(0.0, min(1.0, remaining_ratio))
+        wave_surface = create_slow_wave_surface(120, 56, (180, 110, 255), intensity=wave_intensity)
+        wave_rect = wave_surface.get_rect(midbottom=(BOSS.centerx, BOSS.top - 12))
+        screen.blit(wave_surface, wave_rect)
     
     if leg_shot_text_timer > 0:
         try:
