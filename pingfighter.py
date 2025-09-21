@@ -8297,10 +8297,19 @@ def calculate_trajectory():
         power_smashing_start_time if power_smashing_parabola_active else 0,
     )
 
+    skill_active_now = (
+        quake_active
+        or tears_active
+        or meditation_active
+        or stage4_magnetic_active
+        or flame_trail_active
+        or power_smashing_parabola_active
+    )
+
     recalc_needed = False
     if BALL.centery < 100 and ball_vel[1] > 0 and BALL.centery != last_prediction_ball_y:
         recalc_needed = True
-    elif ball_vel[1] > 0 and current_skill_signature != last_prediction_skill_signature:
+    elif current_skill_signature != last_prediction_skill_signature and (ball_vel[1] > 0 or skill_active_now):
         recalc_needed = True
 
     if not recalc_needed:
