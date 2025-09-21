@@ -2092,6 +2092,7 @@ tutorial_power_right_done = False  # 오른쪽 파워스매싱 완료 여부
 predictor_timer = 0  # 레이저스코프 남은 시간
 predicted_trajectory = []  # 예측된 궤적 저장
 last_prediction_ball_y = 0  # 마지막 예측 시 공의 Y 위치
+last_prediction_skill_signature = None  # 마지막으로 예측에 사용한 보스 스킬 상태 스냅샷
 # === 쿨타임 관련 ===
 cooltime_obtained = False  # 쿨타임 아이템 획득 여부
 # === 충전가방 관련 ===
