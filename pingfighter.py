@@ -8276,14 +8276,89 @@ def activate_predictor():
 def calculate_trajectory():
     """공이 보스 패들에서 출발할 때 한 번만 궤적을 계산하는 함수 (보스 기술 예측 포함)"""
     global ball_vel, BALL, WIDTH, HEIGHT, PLAYER, BOSS, predicted_trajectory, last_prediction_ball_y
+    global last_prediction_skill_signature
     global current_stage, boss_special_ready, boss_special_gauge, boss_special_ready_stage4, boss_special_gauge_stage4
-    global meditation_active, stage4_magnetic_active, flame_trail_active, power_smashing_parabola_active
+    global meditation_active, meditation_timer, stage4_magnetic_active, stage4_magnetic_timer
+    global flame_trail_active, flame_trail_phase, power_smashing_parabola_active, power_smashing_start_time
     global quake_active, quake_timer, tears_active, tears_timer, quake_last_used_time, last_tears_cast_time
     global QUAKE_COOLDOWN, TEARS_COOLDOWN
-    
-    # 공이 보스 패들 근처에서 아래로 향하기 시작할 때만 계산
+
+    current_skill_signature = (
+        quake_active,
+        quake_timer if quake_active else 0,
+        tears_active,
+        meditation_active,
+        meditation_timer if meditation_active else 0,
+        stage4_magnetic_active,
+        stage4_magnetic_timer if stage4_magnetic_active else 0,
+        flame_trail_active,
+        flame_trail_phase if flame_trail_active else 0,
+        power_smashing_parabola_active,
+        power_smashing_start_time if power_smashing_parabola_active else 0,
+    )
+
+    recalc_needed = False
     if BALL.centery < 100 and ball_vel[1] > 0 and BALL.centery != last_prediction_ball_y:
-        last_prediction_ball_y = BALL.centery
+        recalc_needed = True
+    elif ball_vel[1] > 0 and current_skill_signature != last_prediction_skill_signature:
+        recalc_needed = True
+
+    if not recalc_needed:
+        return
+
+    last_prediction_ball_y = BALL.centery
+    last_prediction_skill_signature = current_skill_signature
+
+    if ball_vel[1] <= 0:
+        return
+
+    # 시뮬레이션용 변수
+    sim_x = BALL.centerx
+    sim_y = BALL.centery
+    sim_vel_x = ball_vel[0]
+    sim_vel_y = ball_vel[1]
+    # 새로운 궤적 계산
+    predicted_trajectory = []
+
+    #  보스 기술 발동 예측 및 현재 활성 기술 감지
+    skill_probability = 0.0
+    skill_type = None
+
+    # 현재 활성화된 기술 확인 (100% 확률)
+    if quake_active:
+        skill_probability = 1.0
+        skill_type = "quake"
+    elif tears_active:
+        skill_probability = 1.0
+        skill_type = "tears"
+    elif meditation_active:
+        skill_probability = 1.0
+        skill_type = "meditation"
+    elif stage4_magnetic_active:
+        skill_probability = 1.0
+        skill_type = "magnetic"
+    elif flame_trail_active:
+        skill_probability = 1.0
+        skill_type = "flame_trail"
+    elif power_smashing_parabola_active:
+        skill_probability = 1.0
+        skill_type = "power_smashing"
+    else:
+        # 기술이 활성화되지 않은 경우 예측
+        # Stage별 보스 기술 예측
+        if current_stage == 2:
+            # 정글맨 - 정글지진
+            current_time = pygame.time.get_ticks()
+            time_since_last_quake = current_time - quake_last_used_time
+            if time_since_last_quake >= QUAKE_COOLDOWN:
+                # 쿨타임이 끝났으면 높은 확률로 발동 예측
+                skill_probability = 0.6
+                skill_type = "quake"
+            elif time_since_last_quake >= QUAKE_COOLDOWN * 0.8:
+                # 쿨타임 80% 지났으면 중간 확률
+                skill_probability = 0.3
+                skill_type = "quake"
+        elif current_stage == 3:
         # 시뮬레이션용 변수
         sim_x = BALL.centerx
         sim_y = BALL.centery
