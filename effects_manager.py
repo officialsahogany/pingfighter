@@ -25,6 +25,7 @@ impact_particles = []
 short_shot_flash_effects = []
 drive_particles = []  # 드라이브 별빛가루 파티클
 dash_smoke_particles = []  # 하프대시 연기 파티클
+construction_smoke_particles = []  # 포탑 건설 연기 파티클
 
 # 색상 정의
 WHITE = (255, 255, 255)
@@ -673,6 +674,74 @@ def draw_dash_smoke(surface=None):
         # 블렌드 모드로 자연스럽게
         screen.blit(s, (int(particle['x']-size), int(particle['y']-size)), special_flags=pygame.BLEND_PREMULTIPLIED)
 
+
+# ================================================================================
+# 🛠️ CONSTRUCTION SMOKE EFFECTS (포탑 건설 연기 효과)
+# ================================================================================
+
+def spawn_construction_smoke(x, y, *, count=3, spread=10):
+    """포탑 건설 진행 중 발생하는 금속 연기 파티클 생성"""
+    global construction_smoke_particles
+
+    for _ in range(count):
+        offset_x = random.uniform(-spread, spread)
+        offset_y = random.uniform(-spread * 0.3, spread * 0.15)
+        particle = {
+            'x': x + offset_x,
+            'y': y + offset_y,
+            'vx': random.uniform(-0.35, 0.35),
+            'vy': random.uniform(-1.1, -0.3),
+            'size': random.uniform(8.0, 13.0),
+            'alpha': random.randint(150, 230),
+            'life': random.randint(22, 32),
+            'growth': random.uniform(1.01, 1.05)
+        }
+        construction_smoke_particles.append(particle)
+
+
+def update_construction_smoke():
+    """포탑 건설 연기 파티클 업데이트"""
+    global construction_smoke_particles
+    new_particles = []
+
+    for particle in construction_smoke_particles:
+        particle['x'] += particle['vx']
+        particle['y'] += particle['vy']
+        particle['vx'] *= 0.88
+        particle['vy'] *= 0.93
+        particle['size'] *= particle.get('growth', 1.02)
+        particle['alpha'] -= 7
+        particle['life'] -= 1
+
+        if particle['alpha'] > 0 and particle['life'] > 0:
+            new_particles.append(particle)
+
+    construction_smoke_particles = new_particles
+
+
+def draw_construction_smoke(surface=None):
+    """포탑 건설 연기 파티클 렌더링"""
+    screen = surface if surface else SCREEN
+
+    if not screen:
+        return
+
+    for particle in construction_smoke_particles:
+        alpha = max(0, min(255, int(particle.get('alpha', 0))))
+        if alpha <= 0:
+            continue
+
+        size = max(1, int(particle.get('size', 1)))
+        smoke_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+
+        core_color = (200, 190, 180, int(alpha * 0.6))
+        outer_color = (120, 110, 105, alpha)
+
+        pygame.draw.circle(smoke_surface, outer_color, (size, size), size)
+        pygame.draw.circle(smoke_surface, core_color, (size, size), max(1, int(size * 0.6)))
+
+        screen.blit(smoke_surface, (particle['x'] - size, particle['y'] - size))
+
 # ================================================================================
 # 💫 EXPLOSION EFFECTS (폭발 효과)
 # ================================================================================
@@ -744,6 +813,7 @@ def update_all_effects():
     update_balloon_pop_effect()
     update_item_obtained_effect()
     update_impact_particles()
+    update_construction_smoke()
     update_short_shot_flash_effects()
 
 
@@ -754,19 +824,21 @@ def draw_all_effects(surface):
     draw_balloon_pop_effect()
     draw_item_obtained_effect()
     draw_impact_particles()
+    draw_construction_smoke(surface)
     draw_short_shot_flash_effects(surface)
 
 
 def clear_all_effects():
     """모든 이펙트 초기화"""
     global flame_particles, star_particles, balloon_pop_effects
-    global item_obtained_effects, impact_particles
+    global item_obtained_effects, impact_particles, construction_smoke_particles
     
     flame_particles = []
     star_particles = []
     balloon_pop_effects = []
     item_obtained_effects = []
     impact_particles = []
+    construction_smoke_particles = []
 
 
 # ================================================================================

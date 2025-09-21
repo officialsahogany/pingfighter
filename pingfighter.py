@@ -1201,10 +1201,13 @@ left_just_pressed = game_state.left_just_pressed
 last_left_state = game_state.last_left_state
 right_just_pressed = game_state.right_just_pressed
 last_right_state = game_state.last_right_state
+down_just_pressed = getattr(game_state, "down_just_pressed", False)
+last_down_state = getattr(game_state, "last_down_state", False)
 # 동시 입력 감지 (프레임 기반)
 left_press_frame = -1                # 왼쪽 방향키 눌린 프레임
 right_press_frame = -1               # 오른쪽 방향키 눌린 프레임
 space_press_frame = -1               # 스페이스키 눌린 프레임
+down_press_frame = -1                # 아래 방향키 눌린 프레임
 frame_counter = 0                    # 프레임 카운터
 # 쿨다운 시스템
 perfect_timing_cooldown = 0          # 퍼펙트 타이밍 쿨다운 (연타 방지용)
@@ -1335,11 +1338,15 @@ SOUND_BALLOON_BOOM = pygame.mixer.Sound(resource_path("sounds/balloonboom.wav"))
 SOUND_POWER_SMASH = pygame.mixer.Sound(resource_path("sounds/power_smash.wav"))  #  파워스매싱 발동 효과음
 SOUND_POWER_SMASH_LAUNCH = pygame.mixer.Sound(resource_path("sounds/power_smash_launch.wav"))  #  파워스매싱 공 발사 효과음  #  풍선 터지는 효과음
 SOUND_MISSILE = pygame.mixer.Sound(resource_path("sounds/missle.wav"))  #  미사일 충돌 효과음
-SOUND_PISTOL_RELOAD_START = pygame.mixer.Sound(resource_path("sounds/pistolreloadstart.wav"))  # 군인 권총 재장전 시작 효과음
+SOUND_PISTOL_RELOAD_START = pygame.mixer.Sound(resource_path("sounds/pistolreloadstart.wav"))  # 코만도 권총 재장전 시작 효과음
 SOUND_RAGNAROK_SHOT = pygame.mixer.Sound(resource_path("sounds/ragnarokshot.wav"))  #  라그나로크 스턴공 발사 효과음
 SOUND_AK47 = pygame.mixer.Sound(resource_path("sounds/ak47.wav"))  # AK-47 발사 효과음
 SOUND_RAGNAROK_BOOM = pygame.mixer.Sound(resource_path("sounds/ragnarokboom.wav"))  #  라그나로크 보스 반격 효과음
 SOUND_RAGNAROK_SHOCK = pygame.mixer.Sound(resource_path("sounds/ragnarokshock.wav"))  #  라그나로크 전기 감전 효과음
+try:
+    SOUND_CONSTRUCTION = pygame.mixer.Sound(resource_path("sounds/construction.wav"))
+except Exception:
+    SOUND_CONSTRUCTION = None
 
 # 라그나로크 해머 사운드 채널 (중첩 재생 방지)
 ragnarok_shot_channel = None
@@ -2231,7 +2238,186 @@ SERVE_GRACE_DURATION = 180  # 3초간 Speed Defense/지진 방지 (60 FPS * 3초
 original_speed = [0, 0]  # 암행트위스트 발동 전 속도 백업용
 last_hit_time = 0  # 플레이어 마지막으로 맞은 시간
 final_wave_direction = [0, 0]  # 공의 마지막 이동 방향 (X, Y)
-# UFO 플레이어 이미지 로드
+# 스매셔 패들 이미지 생성 (에반게리온 스타일 - 항공샷)
+SMASHER_PADDLE_IMG = pygame.Surface((250, 120), pygame.SRCALPHA)
+
+# 중심점 설정 (항공샷 뷰)
+eva_center_x = 125
+eva_center_y = 60
+
+# === EVA 파일럿 슈트 몸체 (상체, 정수리 뷰) ===
+# 플러그슈트 본체 (보라색-검은색 계열)
+body_color = (75, 50, 110)  # 어두운 보라색
+pygame.draw.ellipse(SMASHER_PADDLE_IMG, body_color, 
+                    (eva_center_x - 35, eva_center_y - 25, 70, 50))
+
+# 플러그슈트 중앙 장식 라인
+accent_color = (150, 100, 200)  # 밝은 보라색
+pygame.draw.line(SMASHER_PADDLE_IMG, accent_color,
+                (eva_center_x, eva_center_y - 20), 
+                (eva_center_x, eva_center_y + 15), 3)
+
+# 좌우 대칭 장식 라인
+for offset in [-15, 15]:
+    pygame.draw.arc(SMASHER_PADDLE_IMG, accent_color,
+                   (eva_center_x + offset - 10, eva_center_y - 15, 20, 30),
+                   math.radians(60), math.radians(120), 2)
+
+# === 헤드 부분 (헬멧/머리) ===
+# 헬멧 본체 (약간 각진 원형)
+helmet_color = (50, 35, 70)  # 어두운 보라색
+pygame.draw.ellipse(SMASHER_PADDLE_IMG, helmet_color,
+                   (eva_center_x - 20, eva_center_y - 18, 40, 36))
+
+# 헬멧 내부 (정수리 중앙)
+pygame.draw.ellipse(SMASHER_PADDLE_IMG, (30, 20, 50),
+                   (eva_center_x - 15, eva_center_y - 13, 30, 26))
+
+# EVA 특유의 바이저 (빨간색 렌즈)
+visor_color = (200, 30, 50)
+pygame.draw.ellipse(SMASHER_PADDLE_IMG, visor_color,
+                   (eva_center_x - 12, eva_center_y - 10, 24, 20))
+
+# 바이저 하이라이트
+pygame.draw.arc(SMASHER_PADDLE_IMG, (255, 100, 120),
+               (eva_center_x - 10, eva_center_y - 8, 20, 16),
+               math.radians(200), math.radians(340), 2)
+
+# 사이드 이어 커버 (EVA 헬멧 특징)
+for side in [-1, 1]:
+    ear_x = eva_center_x + side * 18
+    pygame.draw.circle(SMASHER_PADDLE_IMG, helmet_color,
+                      (ear_x, eva_center_y), 8)
+    pygame.draw.circle(SMASHER_PADDLE_IMG, (100, 80, 120),
+                      (ear_x, eva_center_y), 6)
+
+# === 왼팔 (탁구채 들고 있는 팔) ===
+# 어깨부터 팔꿈치까지
+left_shoulder_x = eva_center_x - 30
+left_shoulder_y = eva_center_y + 5
+left_elbow_x = eva_center_x - 45
+left_elbow_y = eva_center_y + 20
+
+# 플러그슈트 팔 (보라색)
+pygame.draw.line(SMASHER_PADDLE_IMG, body_color,
+                (left_shoulder_x, left_shoulder_y),
+                (left_elbow_x, left_elbow_y), 12)
+
+# 팔꿈치부터 손목까지
+left_wrist_x = eva_center_x - 50
+left_wrist_y = eva_center_y + 40
+
+pygame.draw.line(SMASHER_PADDLE_IMG, body_color,
+                (left_elbow_x, left_elbow_y),
+                (left_wrist_x, left_wrist_y), 10)
+
+# 팔 장식 라인 (EVA 특유의 형광 라인)
+pygame.draw.line(SMASHER_PADDLE_IMG, (100, 255, 200),
+                (left_shoulder_x, left_shoulder_y),
+                (left_elbow_x, left_elbow_y), 2)
+pygame.draw.line(SMASHER_PADDLE_IMG, (100, 255, 200),
+                (left_elbow_x, left_elbow_y),
+                (left_wrist_x, left_wrist_y), 2)
+
+# === 탁구채 (하이테크 디자인) ===
+paddle_x = left_wrist_x - 5
+paddle_y = left_wrist_y + 10
+
+# 그립 (손잡이)
+grip_color = (40, 40, 60)
+pygame.draw.rect(SMASHER_PADDLE_IMG, grip_color,
+                (paddle_x - 2, paddle_y - 10, 8, 20))
+
+# 형광 그립 라인
+pygame.draw.line(SMASHER_PADDLE_IMG, (100, 255, 200),
+                (paddle_x, paddle_y - 10),
+                (paddle_x, paddle_y + 8), 1)
+
+# 라켓 헤드 (육각형 모양 - 미래적 디자인)
+paddle_head_x = paddle_x + 2
+paddle_head_y = paddle_y + 12
+
+# 육각형 라켓 헤드
+hex_points = []
+for i in range(6):
+    angle = i * 60 + 30  # 30도 회전
+    rad = math.radians(angle)
+    x = paddle_head_x + int(math.cos(rad) * 18)
+    y = paddle_head_y + int(math.sin(rad) * 18)
+    hex_points.append((x, y))
+
+# 라켓 베이스 (어두운 색)
+pygame.draw.polygon(SMASHER_PADDLE_IMG, (30, 30, 50), hex_points)
+
+# 라켓 테두리 (네온 효과)
+pygame.draw.polygon(SMASHER_PADDLE_IMG, (0, 200, 255), hex_points, 3)
+
+# 라켓 중앙 에너지 코어
+pygame.draw.circle(SMASHER_PADDLE_IMG, (100, 200, 255),
+                  (paddle_head_x, paddle_head_y), 8)
+pygame.draw.circle(SMASHER_PADDLE_IMG, (200, 240, 255),
+                  (paddle_head_x, paddle_head_y), 5)
+
+# === 오른팔 (자연스럽게) ===
+right_shoulder_x = eva_center_x + 30
+right_shoulder_y = eva_center_y + 5
+right_elbow_x = eva_center_x + 40
+right_elbow_y = eva_center_y + 25
+right_wrist_x = eva_center_x + 35
+right_wrist_y = eva_center_y + 45
+
+# 오른팔 그리기
+pygame.draw.line(SMASHER_PADDLE_IMG, body_color,
+                (right_shoulder_x, right_shoulder_y),
+                (right_elbow_x, right_elbow_y), 12)
+pygame.draw.line(SMASHER_PADDLE_IMG, body_color,
+                (right_elbow_x, right_elbow_y),
+                (right_wrist_x, right_wrist_y), 10)
+
+# 오른팔 장식 라인
+pygame.draw.line(SMASHER_PADDLE_IMG, (255, 100, 150),
+                (right_shoulder_x, right_shoulder_y),
+                (right_elbow_x, right_elbow_y), 2)
+pygame.draw.line(SMASHER_PADDLE_IMG, (255, 100, 150),
+                (right_elbow_x, right_elbow_y),
+                (right_wrist_x, right_wrist_y), 2)
+
+# === 손 디테일 ===
+# 왼손 (탁구채 잡은 손)
+pygame.draw.circle(SMASHER_PADDLE_IMG, (220, 180, 160),
+                  (left_wrist_x, left_wrist_y), 6)
+# 오른손
+pygame.draw.circle(SMASHER_PADDLE_IMG, (220, 180, 160),
+                  (right_wrist_x, right_wrist_y), 6)
+
+# === 네온 효과 (EVA 특유의 형광 효과) ===
+# 플러그슈트 엣지 라이트
+for i in range(3):
+    radius = 38 + i * 3
+    alpha = 80 - i * 20
+    edge_surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    pygame.draw.ellipse(edge_surface, (100, 200, 255, alpha),
+                       (eva_center_x - radius, eva_center_y - radius//1.4, 
+                        radius * 2, radius * 1.4), 2)
+    SMASHER_PADDLE_IMG.blit(edge_surface, (0, 0))
+
+# === AT 필드 효과 (은은한 육각형 패턴) ===
+for i in range(2):
+    at_field_radius = 55 + i * 10
+    at_alpha = 30 - i * 10
+    at_points = []
+    for j in range(6):
+        angle = j * 60
+        rad = math.radians(angle)
+        x = eva_center_x + int(math.cos(rad) * at_field_radius)
+        y = eva_center_y + int(math.sin(rad) * at_field_radius * 0.7)
+        at_points.append((x, y))
+    
+    at_surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    pygame.draw.polygon(at_surface, (150, 100, 255, at_alpha), at_points, 1)
+    SMASHER_PADDLE_IMG.blit(at_surface, (0, 0))
+
+# UFO 플레이어 이미지 로드 (기본 이미지)
 try:
     # 먼저 절대 경로로 시도
     ufo_path = "/Volumes/T7/윈도우용최신/game/bosspong/ufo_player.png"
@@ -2250,7 +2436,7 @@ except Exception as e:
     PLAYER_IMG = pygame.Surface((250, 100), pygame.SRCALPHA)
     pygame.draw.rect(PLAYER_IMG, (0, 255, 0), (0, 0, 250, 100))
 
-# 군인 패들 이미지 생성 (고퀄리티 개선 버전)
+# 코만도 패들 이미지 생성 (고퀄리티 개선 버전)
 SOLDIER_PADDLE_IMG = pygame.Surface((250, 120), pygame.SRCALPHA)
 
 # 중심점 설정
@@ -2534,16 +2720,1723 @@ pygame.draw.line(SOLDIER_PADDLE_IMG, (25, 20, 15),
 
 # 다리 위장 패턴 (정교하게)
 for i in range(4):
-    # 왼쪽 다리
     camo_x = left_leg_x - 3 + random.randint(-2, 4)
     camo_y = hip_y + 4 + i * 3
     pygame.draw.ellipse(SOLDIER_PADDLE_IMG, camo_colors[i % 3], 
-                        (camo_x, camo_y, random.randint(3, 6), random.randint(2, 4)))
-    # 오른쪽 다리
+                        (camo_x, cam_y := camo_y, random.randint(3, 6), random.randint(2, 4)))
     camo_x = right_leg_x - 3 + random.randint(-2, 4)
-    camo_y = hip_y + 4 + i * 3
     pygame.draw.ellipse(SOLDIER_PADDLE_IMG, camo_colors[i % 3], 
-                        (camo_x, camo_y, random.randint(3, 6), random.randint(2, 4)))
+                        (camo_x, cam_y, random.randint(3, 6), random.randint(2, 4)))
+
+BLACKSMITH_CENTER_X = 122
+BLACKSMITH_CENTER_Y = 44
+BLACKSMITH_SCALE = 0.8
+BLACKSMITH_LEFT_LEG_X = BLACKSMITH_CENTER_X - 12
+BLACKSMITH_RIGHT_LEG_X = BLACKSMITH_CENTER_X + 12
+BLACKSMITH_HIP_Y = BLACKSMITH_CENTER_Y + 20
+BLACKSMITH_LEG_LENGTH = 15
+BLACKSMITH_BASELINE_Y = BLACKSMITH_HIP_Y + BLACKSMITH_LEG_LENGTH + 6
+BLACKSMITH_BASELINE_OFFSET = 10  # 스케일 후 추가로 내려 붙일 픽셀 오프셋
+BLACKSMITH_SHIELD_SHIFT_X = -6  # 팔을 더 뻗어 자연스럽게 방패를 잡도록 하는 오프셋
+BLACKSMITH_EMBLEM_RADIUS = 17    # 발토르 엠블럼 표준 반경 (게이지/카드 공유)
+
+
+def get_blacksmith_emblem_state(time_now=None):
+    """발토르 엠블럼 애니메이션 파라미터를 공유한다."""
+    if time_now is None:
+        time_now = pygame.time.get_ticks()
+    pulse_scale = 1.0 + math.sin(time_now * 0.003) * 0.1
+    rotation_angle = time_now * 0.001
+    glow_intensity = abs(math.sin(time_now * 0.002))
+    swing_phase = (math.sin(time_now * 0.004) + 1.0) * 0.5  # 0(복귀)~1(상승)
+    rune_pulse = abs(math.sin(time_now * 0.01))
+    hammer_angle = -1.05 + swing_phase * 0.45
+    return {
+        "time": time_now,
+        "pulse_scale": pulse_scale,
+        "rotation_angle": rotation_angle,
+        "glow_intensity": glow_intensity,
+        "swing_phase": swing_phase,
+        "rune_pulse": rune_pulse,
+        "hammer_angle": hammer_angle,
+        "hammer_cos": math.cos(hammer_angle),
+        "hammer_sin": math.sin(hammer_angle),
+    }
+
+
+def draw_blacksmith_emblem(surface, center_x, center_y, state, *,
+                           radius=BLACKSMITH_EMBLEM_RADIUS,
+                           gauge_value=None, gauge_max=None,
+                           show_gauge_fx=False):
+    """발토르 엠블럼 공통 렌더링 (게이지/카드 공용)."""
+    pulse_scale = state["pulse_scale"]
+    rotation_angle = state["rotation_angle"]
+    glow_intensity = state["glow_intensity"]
+    swing_phase = state["swing_phase"]
+    rune_pulse = state["rune_pulse"]
+    cos_a = state["hammer_cos"]
+    sin_a = state["hammer_sin"]
+    time_now = state["time"]
+
+    scaled_radius = max(1, int(radius * pulse_scale))
+    outer_radius = scaled_radius + 2
+    outer_color = (230, 170, 110)
+    base_color = (70, 45, 35)
+    border_color = (200, 130, 75)
+    pygame.draw.circle(surface, outer_color, (center_x, center_y), outer_radius)
+    pygame.draw.circle(surface, base_color, (center_x, center_y), scaled_radius)
+    pygame.draw.circle(surface, border_color, (center_x, center_y), scaled_radius, 3)
+
+    ring_radius = max(4, int((radius - 4) * pulse_scale))
+    pygame.draw.circle(surface, (115, 80, 55), (center_x, center_y), ring_radius, 1)
+
+    gear_outer = (radius - 1) * pulse_scale
+    gear_inner = gear_outer * 0.72
+    tooth_count = 8
+    gear_points = []
+    for idx in range(tooth_count * 2):
+        angle = rotation_angle + idx * math.pi / tooth_count
+        length = gear_outer if idx % 2 == 0 else gear_inner
+        gear_points.append(
+            (
+                center_x + math.cos(angle) * length,
+                center_y + math.sin(angle) * length
+            )
+        )
+    if gear_points:
+        pygame.draw.polygon(surface, (150, 95, 60), gear_points)
+        pygame.draw.polygon(surface, (230, 170, 110), gear_points, 2)
+
+    hub_radius = max(2, int(gear_inner * 0.55))
+    pygame.draw.circle(surface, (90, 55, 35), (center_x, center_y), hub_radius)
+    pygame.draw.circle(surface, (200, 150, 90), (center_x, center_y), hub_radius, 2)
+
+    hammer_pivot = (center_x - 4, center_y + 2)
+    handle_length = 13
+    handle_end = (
+        hammer_pivot[0] + cos_a * handle_length,
+        hammer_pivot[1] + sin_a * handle_length,
+    )
+    pygame.draw.line(surface, (150, 105, 70), hammer_pivot, handle_end, 3)
+    pygame.draw.line(surface, (200, 160, 110), hammer_pivot, handle_end, 1)
+
+    wrap_offset = 4
+    wrap_center = (
+        hammer_pivot[0] + cos_a * wrap_offset,
+        hammer_pivot[1] + sin_a * wrap_offset,
+    )
+    pygame.draw.circle(surface, (195, 150, 95), (int(wrap_center[0]), int(wrap_center[1])), 3)
+
+    head_length = 4
+    head_half = 4
+    head_center = (
+        handle_end[0] + cos_a * head_length * 0.35,
+        handle_end[1] + sin_a * head_length * 0.35,
+    )
+    perp_x = -sin_a
+    perp_y = cos_a
+    hammer_head_points = [
+        (head_center[0] + perp_x * head_half, head_center[1] + perp_y * head_half),
+        (head_center[0] - perp_x * head_half, head_center[1] - perp_y * head_half),
+        (head_center[0] - perp_x * head_half + cos_a * head_length,
+         head_center[1] - perp_y * head_half + sin_a * head_length),
+        (head_center[0] + perp_x * head_half + cos_a * head_length,
+         head_center[1] + perp_y * head_half + sin_a * head_length),
+    ]
+    pygame.draw.polygon(surface, (220, 185, 130), hammer_head_points)
+    pygame.draw.polygon(surface, (130, 100, 70), hammer_head_points, 1)
+
+    rune_start = (
+        head_center[0] + perp_x * (head_half - 0.8),
+        head_center[1] + perp_y * (head_half - 0.8),
+    )
+    rune_end = (
+        head_center[0] - perp_x * (head_half - 0.8) + cos_a * (head_length * 0.7),
+        head_center[1] - perp_y * (head_half - 0.8) + sin_a * (head_length * 0.7),
+    )
+    rune_color = (
+        int(255 - rune_pulse * 30),
+        int(205 - rune_pulse * 50),
+        int(125 + rune_pulse * 30),
+    )
+    pygame.draw.line(surface, rune_color, rune_start, rune_end, 2)
+
+    impact_strength = max(0.0, 0.35 - swing_phase) / 0.35
+    if impact_strength > 0:
+        impact_point = (center_x + 1, center_y + 4)
+        spark_color = (255, 210, 140)
+        for i in range(4):
+            angle = time_now * 0.02 + i * (math.pi / 2)
+            length = 3 + impact_strength * 5
+            end_x = impact_point[0] + math.cos(angle) * length
+            end_y = impact_point[1] + math.sin(angle) * length
+            pygame.draw.line(surface, spark_color, impact_point, (end_x, end_y), 2)
+        pygame.draw.circle(surface, (255, 240, 180), (int(impact_point[0]), int(impact_point[1])), 2 + int(impact_strength * 2))
+
+    if show_gauge_fx and gauge_value is not None and gauge_max:
+        if gauge_value > gauge_max * 0.5:
+            spark_count = 3 if gauge_value < gauge_max else 5
+            for i in range(spark_count):
+                spark_angle = time_now * 0.015 + i * (math.tau / spark_count)
+                spark_radius = radius + 6 + math.sin(time_now * 0.02 + i) * 2
+                spark_x = center_x + math.cos(spark_angle) * spark_radius
+                spark_y = center_y + math.sin(spark_angle) * spark_radius
+                pygame.draw.circle(surface, (255, 200, 120), (int(spark_x), int(spark_y)), 2)
+
+        if gauge_value >= 350:
+            forge_ring = int(radius * 1.35 + math.sin(time_now * 0.01) * 2)
+            pygame.draw.circle(surface, (255, 210, 140), (center_x, center_y), forge_ring, 1)
+
+
+def _scale_blacksmith_point(point, scale=BLACKSMITH_SCALE):
+    """중심 기준으로 좌표를 축소."""
+    cx, cy = BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y
+    px, py = point
+    return (
+        int(round(cx + (px - cx) * scale)),
+        int(round(cy + (py - cy) * scale))
+    )
+
+
+def _scale_blacksmith_sprite(surface, anchor, scale=BLACKSMITH_SCALE):
+    if abs(scale - 1.0) < 1e-3:
+        return surface.copy(), anchor
+
+    scaled_size = (
+        max(1, int(round(surface.get_width() * scale))),
+        max(1, int(round(surface.get_height() * scale)))
+    )
+    scaled_surface = pygame.transform.smoothscale(surface, scaled_size)
+    result_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    placement_rect = scaled_surface.get_rect(center=(BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
+
+    scaled_baseline_point = _scale_blacksmith_point(
+        (BLACKSMITH_CENTER_X, BLACKSMITH_BASELINE_Y), scale
+    )
+    baseline_delta = BLACKSMITH_BASELINE_Y - (
+        scaled_baseline_point[1] + (placement_rect.centery - BLACKSMITH_CENTER_Y)
+    )
+    baseline_delta += BLACKSMITH_BASELINE_OFFSET
+    placement_rect.y += baseline_delta
+    result_surface.blit(scaled_surface, placement_rect)
+
+    scaled_anchor = _scale_blacksmith_point(anchor, scale)
+    offset_x = placement_rect.centerx - BLACKSMITH_CENTER_X
+    offset_y = placement_rect.centery - BLACKSMITH_CENTER_Y
+    scaled_anchor = (scaled_anchor[0] + offset_x, scaled_anchor[1] + offset_y)
+    return result_surface, scaled_anchor
+
+
+def _crop_surface_alpha(surface):
+    """알파 채널 기준으로 내용 영역만 잘라 반환."""
+    rect = surface.get_bounding_rect(min_alpha=1)
+    if rect.width == 0 or rect.height == 0:
+        return surface.copy()
+    return surface.subsurface(rect).copy()
+
+
+def _draw_blacksmith_shield(surface, shield_center, angle_deg=-4):
+    """발토르 방패를 별도 서피스로 생성해 손에 붙인다."""
+
+    shield_surface = pygame.Surface((88, 110), pygame.SRCALPHA)
+    pivot_x = shield_surface.get_width() // 2
+    pivot_y = 22
+
+    outer_rect = pygame.Rect(pivot_x - 22, pivot_y - 20, 44, 96)
+    pygame.draw.ellipse(shield_surface, (66, 70, 78), outer_rect)
+    pygame.draw.ellipse(shield_surface, (140, 148, 160), outer_rect, width=4)
+
+    middle_rect = outer_rect.inflate(-6, -12)
+    pygame.draw.ellipse(shield_surface, (95, 102, 120), middle_rect)
+    pygame.draw.ellipse(shield_surface, (55, 60, 74), middle_rect, width=3)
+
+    boss_rect = middle_rect.inflate(-10, -26)
+    pygame.draw.ellipse(shield_surface, (210, 170, 80), boss_rect)
+    pygame.draw.ellipse(shield_surface, (120, 90, 40), boss_rect.inflate(-6, -10))
+
+    pygame.draw.line(shield_surface, (225, 200, 120), (pivot_x, middle_rect.top + 6), (pivot_x, middle_rect.bottom - 8), 2)
+    pygame.draw.line(shield_surface, (225, 200, 120), (middle_rect.left + 8, pivot_y + 2), (middle_rect.right - 8, pivot_y + 2), 2)
+
+    rivet_rx = (outer_rect.width // 2) - 4
+    rivet_ry = (outer_rect.height // 2) - 10
+    for i in range(6):
+        rad = i * (math.pi / 3)
+        rx = pivot_x + int(math.cos(rad) * rivet_rx)
+        ry = pivot_y + int(math.sin(rad) * rivet_ry)
+        pygame.draw.circle(shield_surface, (180, 186, 198), (rx, ry), 3)
+        pygame.draw.circle(shield_surface, (120, 130, 142), (rx, ry), 1)
+
+    strap_rect = pygame.Rect(pivot_x - 6, pivot_y - 18, 12, 36)
+    pygame.draw.rect(shield_surface, (70, 42, 28), strap_rect, border_radius=4)
+    pygame.draw.rect(shield_surface, (110, 72, 48), strap_rect.inflate(-4, -10), border_radius=3)
+
+    rotated = pygame.transform.rotate(shield_surface, angle_deg)
+    surface.blit(rotated, rotated.get_rect(center=shield_center))
+
+def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0):
+    cx = BLACKSMITH_CENTER_X
+    cy = BLACKSMITH_CENTER_Y
+    head_top = cy - 26
+    shield_amount = max(0.0, min(1.0, shield_swing))
+    lift_curve = shield_amount ** 1.1  # 0~1 범위, 후반부에서 더 많이 들어 올리기
+
+    hammer_amount = max(0.0, min(1.0, hammer_swing))
+    hammer_raise = min(1.0, hammer_amount * 1.25)
+    hammer_drop = max(0.0, (hammer_amount - 0.45) * 1.9)
+    hammer_raise = max(0.0, min(1.0, hammer_raise))
+    hammer_drop = max(0.0, min(1.0, hammer_drop))
+
+    # 방패를 들며 몸 쪽으로 끌어당기는 느낌을 위해 팔 좌표 보정
+    arm_dx = int(round(-3 * lift_curve))
+    arm_dy = int(round(-4 * lift_curve))
+
+    # 뒤통수 머리와 헬멧 베이스
+    pygame.draw.ellipse(surface, (70, 48, 28), (cx - 20, head_top + 6, 40, 32))
+    pygame.draw.ellipse(surface, (148, 158, 170), (cx - 16, head_top, 32, 24))
+
+    # 바이킹 헬멧 장식
+    pygame.draw.rect(surface, (110, 120, 135), (cx - 18, head_top + 12, 36, 8), border_radius=3)
+    for i in range(4):
+        pygame.draw.circle(surface, (210, 210, 215), (cx - 12 + i * 8, head_top + 16), 2)
+    left_horn = [(cx - 14, head_top + 6), (cx - 26, head_top + 2), (cx - 32, head_top - 10), (cx - 20, head_top - 14), (cx - 10, head_top - 4)]
+    right_horn = [(cx + 14, head_top + 6), (cx + 26, head_top + 2), (cx + 32, head_top - 10), (cx + 20, head_top - 14), (cx + 10, head_top - 4)]
+    pygame.draw.polygon(surface, (220, 216, 205), left_horn)
+    pygame.draw.polygon(surface, (150, 130, 110), left_horn, 2)
+    pygame.draw.polygon(surface, (220, 216, 205), right_horn)
+    pygame.draw.polygon(surface, (150, 130, 110), right_horn, 2)
+
+    # 얼굴과 수염
+    face_rect = pygame.Rect(cx - 11, head_top + 10, 22, 16)
+    pygame.draw.ellipse(surface, (212, 192, 162), face_rect)
+    pygame.draw.arc(surface, (90, 70, 55), (cx - 10, head_top + 12, 20, 10), math.pi, 2 * math.pi, 2)
+    nose = [(cx - 2, head_top + 16), (cx, head_top + 10), (cx + 2, head_top + 16)]
+    pygame.draw.polygon(surface, (198, 168, 138), nose)
+    beard_poly = [
+        (cx - 18, head_top + 20), (cx - 16, head_top + 32), (cx - 10, head_top + 40),
+        (cx, head_top + 46), (cx + 10, head_top + 40), (cx + 16, head_top + 32), (cx + 18, head_top + 20)
+    ]
+    pygame.draw.polygon(surface, (120, 70, 35), beard_poly)
+    for braid_offset in (-8, 8):
+        braid_top = head_top + 28
+        pygame.draw.ellipse(surface, (105, 60, 30), (cx + braid_offset - 3, braid_top, 6, 10))
+        pygame.draw.ellipse(surface, (150, 95, 55), (cx + braid_offset - 2, braid_top + 6, 4, 8))
+    pygame.draw.line(surface, (70, 45, 25), (cx - 8, head_top + 32), (cx - 6, head_top + 38), 2)
+    pygame.draw.line(surface, (70, 45, 25), (cx + 8, head_top + 32), (cx + 6, head_top + 38), 2)
+
+    torso_y = cy - 2
+    shoulder_span = 46
+    pygame.draw.polygon(surface, (96, 74, 52), [
+        (cx - shoulder_span, torso_y + 6), (cx - 22, torso_y - 10), (cx + 22, torso_y - 10), (cx + shoulder_span, torso_y + 6),
+        (cx + 30, torso_y + 28), (cx - 30, torso_y + 28)
+    ])
+
+    # 겹겹이 입은 갑옷과 앞치마
+    pygame.draw.rect(surface, (140, 145, 155), (cx - 18, torso_y - 2, 36, 26), border_radius=6)
+    pygame.draw.rect(surface, (85, 62, 42), (cx - 24, torso_y + 12, 48, 22), border_radius=6)
+    pygame.draw.rect(surface, (55, 40, 28), (cx - 20, torso_y + 18, 40, 18), border_radius=4)
+    pygame.draw.arc(surface, (215, 200, 150), (cx - 22, torso_y + 10, 44, 22), math.pi, 2 * math.pi, 2)
+    pygame.draw.line(surface, (70, 48, 32), (cx, torso_y + 18), (cx, torso_y + 32), 2)
+    pygame.draw.circle(surface, (180, 180, 170), (cx - 26, torso_y + 6), 6)
+    pygame.draw.circle(surface, (180, 180, 170), (cx + 26, torso_y + 6), 6)
+
+    # === 왼팔과 방패 ===
+    left_arm_x = cx - 20 + BLACKSMITH_SHIELD_SHIFT_X + arm_dx
+    left_arm_y = torso_y - 10 + arm_dy
+    elbow_x = left_arm_x - 8
+    elbow_y = left_arm_y - 4
+
+    arm_points = [
+        (cx - 34 + arm_dx, torso_y - 4 + arm_dy),
+        (cx - 36 + arm_dx, torso_y + 2 + arm_dy),
+        (elbow_x - 4, elbow_y + 4),
+        (elbow_x - 1, elbow_y - 4),
+        (left_arm_x - 2, left_arm_y - 10),
+        (left_arm_x + 4, left_arm_y - 14),
+        (left_arm_x + 6, left_arm_y - 4),
+        (cx - 24 + arm_dx, torso_y - 10 + arm_dy)
+    ]
+    pygame.draw.polygon(surface, (132, 108, 82), arm_points)
+
+    # 팔 음영
+    pygame.draw.polygon(surface, (115, 95, 65), [
+        (elbow_x - 2, elbow_y - 2),
+        (left_arm_x - 1, left_arm_y - 8),
+        (left_arm_x + 4, left_arm_y - 2),
+        (elbow_x + 3, elbow_y + 4)
+    ])
+    
+    # 손 (더 정교하게)
+    hand_rect = pygame.Rect(left_arm_x - 6, left_arm_y - 12, 14, 10)
+    pygame.draw.ellipse(surface, (205, 185, 155), hand_rect)
+    pygame.draw.ellipse(surface, (188, 168, 138), hand_rect.inflate(-2, -2))
+
+    shield_forward = int(round(20 * lift_curve))
+    shield_lift = int(round(12 * lift_curve))
+    shield_diagonal_shift = int(round(8 * lift_curve))
+    shield_center = (
+        left_arm_x - 20 + shield_forward + shield_diagonal_shift,
+        left_arm_y + 22 - shield_lift - shield_diagonal_shift
+    )
+    swing_angle = -12 - 80 * lift_curve
+    _draw_blacksmith_shield(surface, shield_center, angle_deg=swing_angle)
+
+    # 오른팔과 망치 - 보다 장식적인 디자인
+    hammer_arm_backward = int(round(6 * hammer_raise))
+    hammer_arm_forward_hit = int(round(14 * hammer_drop))
+    hammer_arm_forward = hammer_arm_forward_hit - hammer_arm_backward
+    hammer_arm_drop = int(round(4 * hammer_raise)) + int(round(18 * hammer_drop))
+
+    right_shoulder = (cx + 24 - hammer_arm_forward + int(round(2 * hammer_drop)), torso_y + hammer_arm_drop // 4)
+    right_elbow = (cx + 42 - hammer_arm_forward, torso_y + 12 + hammer_arm_drop // 2)
+    right_wrist = (cx + 48 - hammer_arm_forward // 2, torso_y + 26 + hammer_arm_drop)
+    pygame.draw.polygon(surface, (132, 108, 82), [
+        (right_shoulder[0] - 6, right_shoulder[1] + 2),
+        (right_elbow[0] - 10, right_elbow[1] - 2),
+        (right_elbow[0] - 2, right_elbow[1] + 6),
+        (right_shoulder[0] + 6, right_shoulder[1] + 8)
+    ])
+    pygame.draw.polygon(surface, (122, 98, 72), [
+        (right_elbow[0] - 2, right_elbow[1] + 4),
+        (right_wrist[0] - 6, right_wrist[1] + 2),
+        (right_wrist[0] + 12, right_wrist[1] + 6),
+        (right_elbow[0] + 4, right_elbow[1])
+    ])
+    pygame.draw.circle(surface, (205, 185, 155), (right_wrist[0] + 6, right_wrist[1] + 4), 6)
+
+    hammer_ax = right_wrist[0] + 6 - int(round(8 * hammer_raise)) + int(round(10 * hammer_drop))
+    hammer_ay = torso_y - 6 - int(round(22 * hammer_raise)) + int(round(36 * hammer_drop))
+
+    hammer_head = pygame.Rect(0, 0, 40, 22)
+    hammer_head.center = (hammer_ax, hammer_ay)
+
+    handle = pygame.Rect(0, 0, 10, 46)
+    handle.centerx = hammer_ax
+    handle.top = hammer_head.centery - 2 - int(round(10 * hammer_raise)) + int(round(12 * hammer_drop))
+    pygame.draw.rect(surface, (90, 60, 36), handle, border_radius=3)
+    handle_cap = pygame.Rect(0, 0, 6, 10)
+    handle_cap.centerx = hammer_ax
+    handle_cap.bottom = hammer_head.top + 6
+    pygame.draw.rect(surface, (90, 60, 36), handle_cap, border_radius=2)
+    for stripe_y in range(handle.top + 4, handle.bottom, 6):
+        pygame.draw.line(surface, (60, 35, 18), (handle.left + 2, stripe_y), (handle.right - 2, stripe_y + 2), 2)
+
+    pygame.draw.rect(surface, (176, 182, 196), hammer_head, border_radius=6)
+    pygame.draw.rect(surface, (210, 215, 228), hammer_head.inflate(-6, -6), border_radius=4)
+    pygame.draw.line(surface, (120, 130, 142), (hammer_head.left + 6, hammer_head.top + 4), (hammer_head.right - 6, hammer_head.top + 4), 2)
+    pygame.draw.polygon(surface, (140, 155, 168), [
+        (hammer_head.left - 4, hammer_head.centery),
+        (hammer_head.left + 2, hammer_head.top + 4),
+        (hammer_head.left + 2, hammer_head.bottom - 4)
+    ])
+    pygame.draw.circle(surface, (230, 215, 130), (hammer_head.centerx, hammer_head.centery), 5)
+    pygame.draw.line(surface, (240, 160, 60), (hammer_head.centerx - 6, hammer_head.centery - 6), (hammer_head.centerx + 6, hammer_head.centery + 4), 2)
+
+    # 어깨 장식
+    pygame.draw.circle(surface, (195, 200, 210), (cx - 32, torso_y + 8), 7)
+    pygame.draw.circle(surface, (195, 200, 210), (cx + 32, torso_y + 8), 7)
+    pygame.draw.circle(surface, (110, 120, 135), (cx - 32, torso_y + 8), 3)
+    pygame.draw.circle(surface, (110, 120, 135), (cx + 32, torso_y + 8), 3)
+
+def _draw_blacksmith_legs(surface, step=0):
+    hip_y = BLACKSMITH_HIP_Y
+    leg_len = BLACKSMITH_LEG_LENGTH
+    knee_y = hip_y + 7
+    base_boot_y = hip_y + leg_len + 2
+
+    left_base = BLACKSMITH_LEFT_LEG_X
+    right_base = BLACKSMITH_RIGHT_LEG_X
+
+    sway = max(-8, min(8, step))
+    left_sway = -sway
+    right_sway = sway
+
+    left_thigh_x = left_base + left_sway // 3
+    left_shin_x = left_base + left_sway
+    right_thigh_x = right_base + right_sway // 3
+    right_shin_x = right_base + right_sway
+
+    left_boot_lift = max(0, left_sway) // 2
+    right_boot_lift = max(0, right_sway) // 2
+    left_boot_y = base_boot_y - left_boot_lift
+    right_boot_y = base_boot_y - right_boot_lift
+
+    # 왼쪽 다리 (앞뒤로 움직임)
+    left_thigh = [
+        (left_thigh_x - 5, hip_y),
+        (left_thigh_x - 6, hip_y + 4),
+        (left_thigh_x - 5, knee_y),
+        (left_thigh_x + 5, knee_y),
+        (left_thigh_x + 6, hip_y + 4),
+        (left_thigh_x + 5, hip_y)
+    ]
+    pygame.draw.polygon(surface, (108, 88, 64), left_thigh)
+
+    left_shin = [
+        (left_shin_x - 4, knee_y + 1),
+        (left_shin_x - 5, hip_y + leg_len),
+        (left_shin_x - 2, left_boot_y + 2),
+        (left_shin_x + 2, left_boot_y + 2),
+        (left_shin_x + 5, hip_y + leg_len),
+        (left_thigh_x + 4, knee_y + 1)
+    ]
+    pygame.draw.polygon(surface, (108, 88, 64), left_shin)
+
+    pygame.draw.polygon(surface, (68, 52, 36), [
+        (left_shin_x - 6, left_boot_y),
+        (left_shin_x - 6, left_boot_y + 6),
+        (left_shin_x + 6, left_boot_y + 6),
+        (left_shin_x + 6, left_boot_y)
+    ])
+
+    # 오른쪽 다리 (반대 방향 스윙)
+    right_thigh = [
+        (right_thigh_x - 5, hip_y),
+        (right_thigh_x - 6, hip_y + 4),
+        (right_thigh_x - 5, knee_y),
+        (right_thigh_x + 5, knee_y),
+        (right_thigh_x + 6, hip_y + 4),
+        (right_thigh_x + 5, hip_y)
+    ]
+    pygame.draw.polygon(surface, (108, 88, 64), right_thigh)
+
+    right_shin = [
+        (right_shin_x - 4, knee_y + 1),
+        (right_shin_x - 5, hip_y + leg_len),
+        (right_shin_x - 2, right_boot_y + 2),
+        (right_shin_x + 2, right_boot_y + 2),
+        (right_shin_x + 5, hip_y + leg_len),
+        (right_thigh_x + 4, knee_y + 1)
+    ]
+    pygame.draw.polygon(surface, (108, 88, 64), right_shin)
+
+    pygame.draw.polygon(surface, (68, 52, 36), [
+        (right_shin_x - 6, right_boot_y),
+        (right_shin_x - 6, right_boot_y + 6),
+        (right_shin_x + 6, right_boot_y + 6),
+        (right_shin_x + 6, right_boot_y)
+    ])
+
+    # 무릎 보호대와 스타드
+    pygame.draw.circle(surface, (150, 130, 110), (left_thigh_x, knee_y + 1), 5)
+    pygame.draw.circle(surface, (95, 80, 62), (left_thigh_x, knee_y + 1), 3)
+    pygame.draw.circle(surface, (150, 130, 110), (right_thigh_x, knee_y + 1), 5)
+    pygame.draw.circle(surface, (95, 80, 62), (right_thigh_x, knee_y + 1), 3)
+
+def create_blacksmith_paddle_base():
+    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0)
+    _draw_blacksmith_legs(surface, 0)
+    scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
+    return scaled_surface
+
+def create_blacksmith_paddle_walking():
+    global blacksmith_walking_timer
+    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0)
+    progress = (blacksmith_walking_timer % BLACKSMITH_WALKING_CYCLE) / BLACKSMITH_WALKING_CYCLE
+    step = int(math.sin(progress * 2 * math.pi) * 8)
+    _draw_blacksmith_legs(surface, step)
+    scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
+    return scaled_surface
+
+def create_blacksmith_paddle_swinging():
+    global blacksmith_shield_swing_timer
+
+    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+
+    if BLACKSMITH_SHIELD_SWING_DURATION > 0:
+        progress = 1.0 - (blacksmith_shield_swing_timer / BLACKSMITH_SHIELD_SWING_DURATION)
+        progress = max(0.0, min(1.0, progress))
+    else:
+        progress = 0.0
+    swing_amount = math.sin(progress * math.pi)
+
+    _draw_blacksmith_upper(surface, shield_swing=swing_amount, hammer_swing=0.0)
+    _draw_blacksmith_legs(surface, 0)
+    scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
+    return scaled_surface
+
+
+def create_blacksmith_paddle_hammering():
+    global blacksmith_hammer_swing_phase
+
+    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+
+    if BLACKSMITH_HAMMER_SWING_DURATION > 0:
+        phase_ratio = blacksmith_hammer_swing_phase / BLACKSMITH_HAMMER_SWING_DURATION
+    else:
+        phase_ratio = 0.0
+    phase_ratio = max(0.0, min(1.0, phase_ratio))
+    _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=phase_ratio)
+    _draw_blacksmith_legs(surface, 0)
+    scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
+    return scaled_surface
+
+
+def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_blueprint=False):
+    """발토르 포탑 설치/건설 입력을 처리한다."""
+    global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
+    global blacksmith_turret_build_progress, blacksmith_turret_active
+    global blacksmith_turret_state, special_gauge, special_ready
+    global is_waiting_for_serve, is_player_serve
+    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
+    global blacksmith_turret_partial_drain, blacksmith_turret_xp_partial_drain
+    global frame_counter
+    global blacksmith_build_menu_active
+
+    construction_active = False
+    hammer_engaged_this_frame = False
+
+    if selected_character_type != "blacksmith":
+        stop_blacksmith_construction_sound()
+        return down_just_pressed
+
+    if is_waiting_for_serve or is_player_serve:
+        stop_blacksmith_construction_sound()
+        return down_just_pressed
+
+    if blacksmith_build_menu_active:
+        stop_blacksmith_construction_sound()
+        return down_just_pressed
+
+    # 포탑/청사진이 모두 없는 상태에서 ↓ 입력 시 청사진 생성
+    if (
+        force_blueprint
+        and not blacksmith_turret_blueprint_active
+        and not blacksmith_turret_active
+    ):
+        blueprint_width = BLACKSMITH_TURRET_BLUEPRINT_WIDTH
+        blueprint_height = BLACKSMITH_TURRET_BLUEPRINT_HEIGHT
+        blueprint_rect = pygame.Rect(0, 0, blueprint_width, blueprint_height)
+        base_x = max(blueprint_width // 2, min(WIDTH - blueprint_width // 2, PLAYER.centerx))
+        base_y = HEIGHT - 5
+        blueprint_rect.midbottom = (base_x, base_y)
+        blacksmith_turret_blueprint_rect = blueprint_rect
+        print(f"[DEBUG] Blueprint created: player_bottom={PLAYER.bottom}, blueprint_bottom={blueprint_rect.bottom}, top={blueprint_rect.top}")
+        blacksmith_turret_build_progress = 0
+        blacksmith_turret_blueprint_active = True
+        blacksmith_turret_partial_drain = 0.0
+        try:
+            play_sound_with_volume(SOUND_ITEM_GET)
+        except Exception:
+            pass
+        down_just_pressed = False
+        blacksmith_hammer_swing_active = False
+        blacksmith_hammer_swing_phase = 0
+    elif (
+        down_just_pressed
+        and not blacksmith_turret_blueprint_active
+        and not blacksmith_turret_active
+    ):
+        stop_blacksmith_construction_sound()
+        return down_just_pressed
+
+    # 청사진이 설치된 상태에서 ↓키를 유지하면 건설 진행 (누적)
+    if (
+        blacksmith_turret_blueprint_active
+        and not blacksmith_turret_active
+        and blacksmith_turret_blueprint_rect is not None
+    ):
+        if down_pressed:
+            distance = abs(PLAYER.centerx - blacksmith_turret_blueprint_rect.centerx)
+            if distance <= BLACKSMITH_TURRET_BUILD_RADIUS:
+                if not blacksmith_hammer_swing_active:
+                    blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_active = True
+                blacksmith_hammer_swing_phase = (blacksmith_hammer_swing_phase + 1) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
+                hammer_engaged_this_frame = True
+                drain_per_frame = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS
+                gauge_spent = False
+                if special_gauge > 0:
+                    construction_active = True
+                    blacksmith_turret_partial_drain += drain_per_frame
+                    gauge_spent = True
+                    drain_units = int(blacksmith_turret_partial_drain)
+                    if drain_units > 0:
+                        actual_drain = min(drain_units, special_gauge)
+                        if actual_drain > 0:
+                            special_gauge -= actual_drain
+                            blacksmith_turret_partial_drain -= actual_drain
+                            special_ready = special_gauge >= 350
+                            construction_active = True
+                        else:
+                            gauge_spent = False
+                else:
+                    gauge_spent = False
+                if gauge_spent:
+                    blacksmith_turret_build_progress = min(
+                        BLACKSMITH_TURRET_BUILD_TIME,
+                        blacksmith_turret_build_progress + 1
+                    )
+                    if frame_counter % 4 == 0 and blacksmith_turret_blueprint_rect:
+                        smoke_x = blacksmith_turret_blueprint_rect.centerx + random.uniform(-8, 8)
+                        smoke_y = blacksmith_turret_blueprint_rect.top + random.uniform(-6, 4)
+                        effects_manager.spawn_construction_smoke(smoke_x, smoke_y, count=2)
+                    if blacksmith_turret_build_progress >= BLACKSMITH_TURRET_BUILD_TIME:
+                        turret_rect = pygame.Rect(0, 0, BLACKSMITH_TURRET_BASE_WIDTH, BLACKSMITH_TURRET_BASE_HEIGHT)
+                        turret_rect.midbottom = blacksmith_turret_blueprint_rect.midbottom
+                        blacksmith_turret_state = {
+                            "rect": turret_rect,
+                            "fire_timer": BLACKSMITH_TURRET_FIRE_INTERVAL,
+                            "fire_interval": BLACKSMITH_TURRET_FIRE_INTERVAL,
+                            "hp": BLACKSMITH_TURRET_BASE_HP,
+                            "max_hp": BLACKSMITH_TURRET_BASE_HP,
+                            "level": BLACKSMITH_TURRET_BASE_LEVEL,
+                            "xp": 0.0,
+                            "xp_max": float(BLACKSMITH_TURRET_XP_REQUIRED),
+                            "aim_angle": -math.pi / 2,
+                            "display_angle": -math.pi / 2,
+                            "recoil_timer": 0,
+                            "recoil_offset": 0.0,
+                        }
+                        blacksmith_turret_active = True
+                        blacksmith_turret_blueprint_active = False
+                        blacksmith_turret_blueprint_rect = None
+                        blacksmith_turret_build_progress = 0
+                        blacksmith_turret_partial_drain = 0.0
+                        try:
+                            play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+                        except Exception:
+                            pass
+                        blacksmith_hammer_swing_active = False
+                        blacksmith_hammer_swing_phase = 0
+                    elif frame_counter % 30 == 0:
+                        print(f"[DEBUG] Turret build: {blacksmith_turret_build_progress}/{BLACKSMITH_TURRET_BUILD_TIME}, gauge={special_gauge}, phase={blacksmith_hammer_swing_phase}")
+                else:
+                    if frame_counter % 45 == 0:
+                        print(f"[DEBUG] Turret build paused (gauge={special_gauge}, partial={blacksmith_turret_partial_drain:.2f})")
+        # ↓키를 누르지 않아도 진행도는 유지 (누적 빌드)
+    else:
+        if (
+            blacksmith_turret_active
+            and blacksmith_turret_state
+            and down_pressed
+            and blacksmith_turret_state.get("rect") is not None
+        ):
+            distance = abs(PLAYER.centerx - blacksmith_turret_state["rect"].centerx)
+            if distance <= BLACKSMITH_TURRET_BUILD_RADIUS:
+                hammer_engaged_this_frame = True
+
+    # 포탑이 완성된 후 ↓키를 눌러 경험치를 충전
+    if blacksmith_turret_active and blacksmith_turret_state:
+        level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
+        turret_rect = blacksmith_turret_state.get("rect")
+        xp_max = max(1.0, blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)))
+        if level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            blacksmith_turret_state["xp"] = min(blacksmith_turret_state.get("xp", xp_max), xp_max)
+            blacksmith_turret_xp_partial_drain = 0.0
+        elif down_pressed and turret_rect is not None:
+            distance = abs(PLAYER.centerx - turret_rect.centerx)
+            engaged_for_upgrade = distance <= BLACKSMITH_TURRET_BUILD_RADIUS
+            if engaged_for_upgrade:
+                if not blacksmith_hammer_swing_active:
+                    blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_active = True
+                blacksmith_hammer_swing_phase = (blacksmith_hammer_swing_phase + 1) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
+                hammer_engaged_this_frame = True
+                drain_per_frame = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS
+                xp_gain_units = 0
+                if special_gauge > 0:
+                    construction_active = True
+                    blacksmith_turret_xp_partial_drain += drain_per_frame
+                    drain_units = int(blacksmith_turret_xp_partial_drain)
+                    if drain_units > 0:
+                        actual_drain = min(drain_units, special_gauge)
+                        if actual_drain > 0:
+                            special_gauge -= actual_drain
+                            blacksmith_turret_xp_partial_drain -= actual_drain
+                            special_ready = special_gauge >= 350
+                            xp_gain_units = actual_drain
+                if xp_gain_units > 0:
+                    current_xp = blacksmith_turret_state.get("xp", 0.0) + xp_gain_units
+                    if current_xp >= xp_max:
+                        blacksmith_turret_state["xp"] = xp_max
+                        upgraded = upgrade_blacksmith_turret()
+                        if upgraded:
+                            blacksmith_turret_xp_partial_drain = 0.0
+                    else:
+                        blacksmith_turret_state["xp"] = current_xp
+                        if frame_counter % 45 == 0:
+                            print(f"[DEBUG] Turret XP: {current_xp:.1f}/{xp_max:.1f}")
+                if xp_gain_units > 0:
+                    construction_active = True
+            else:
+                blacksmith_turret_xp_partial_drain = 0.0
+        else:
+            blacksmith_turret_xp_partial_drain = 0.0
+    else:
+        blacksmith_turret_xp_partial_drain = 0.0
+
+    if not hammer_engaged_this_frame and blacksmith_hammer_swing_active:
+        if blacksmith_hammer_swing_phase > 0:
+            blacksmith_hammer_swing_phase = max(0, blacksmith_hammer_swing_phase - 2)
+        if blacksmith_hammer_swing_phase <= 0:
+            blacksmith_hammer_swing_active = False
+
+    if construction_active:
+        start_blacksmith_construction_sound()
+    else:
+        if blacksmith_turret_blueprint_active or (
+            blacksmith_turret_active
+            and blacksmith_turret_state
+            and blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL) < BLACKSMITH_TURRET_MAX_LEVEL
+            and blacksmith_turret_state.get("xp", 0.0) < blacksmith_turret_state.get(
+                "xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)
+            )
+        ):
+            pause_blacksmith_construction_sound()
+        else:
+            stop_blacksmith_construction_sound()
+
+    return down_just_pressed
+
+
+def update_blacksmith_divine_stone():
+    """디바인 스톤 상태 및 충돌 업데이트"""
+    global blacksmith_divine_stone_state, ball_vel
+    if blacksmith_divine_stone_state is None:
+        return
+    state = blacksmith_divine_stone_state
+    rect = state["rect"]
+    state["pulse"] = (state.get("pulse", 0) + 1) % 240
+    cooldown = state.get("cooldown", 0)
+    if cooldown > 0:
+        state["cooldown"] = cooldown - 1
+    if 'BALL' in globals() and BALL is not None:
+        if rect.colliderect(BALL) and state.get("cooldown", 0) == 0:
+            BALL.bottom = min(BALL.bottom, rect.top - 2)
+            ball_vel[1] = -abs(ball_vel[1]) - 4
+            ball_vel[0] *= 0.6
+            state["hp"] = max(0, state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)
+            state["cooldown"] = int(0.25 * FPS)
+            effects_manager.spawn_star_particles(rect.centerx, rect.top, count=5)
+            effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=4)
+            if state["hp"] <= 0:
+                effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
+                blacksmith_divine_stone_state = None
+
+def update_blacksmith_turret():
+    """발토르 포탑의 발사 및 투사체 동작을 업데이트한다."""
+    global blacksmith_turret_active, blacksmith_turret_state
+    global blacksmith_turret_projectiles, player_collision_handled, last_hit_by
+    global blacksmith_turret_blueprint_active, blacksmith_turret_partial_drain
+    global blacksmith_turret_manual_cooldown, blacksmith_turret_xp_partial_drain
+    global ball_vel, stopwatch_active, stopwatch_timer, game_vars, SCREEN
+
+    update_blacksmith_divine_stone()
+
+    if blacksmith_turret_manual_cooldown > 0:
+        blacksmith_turret_manual_cooldown -= 1
+
+    if not blacksmith_turret_active or not blacksmith_turret_state:
+        blacksmith_turret_projectiles.clear()
+        blacksmith_turret_manual_cooldown = 0
+        blacksmith_turret_xp_partial_drain = 0.0
+        if not blacksmith_turret_blueprint_active:
+            stop_blacksmith_construction_sound()
+        return
+
+    turret_rect = blacksmith_turret_state.get("rect")
+    if turret_rect is None:
+        blacksmith_turret_active = False
+        blacksmith_turret_projectiles.clear()
+        blacksmith_turret_manual_cooldown = 0
+        blacksmith_turret_xp_partial_drain = 0.0
+        if not blacksmith_turret_blueprint_active:
+            stop_blacksmith_construction_sound()
+        return
+
+    scale_factor = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
+    boss_rect = BOSS if 'BOSS' in globals() else None
+    target_angle = -math.pi / 2
+    if boss_rect:
+        target_angle = math.atan2(boss_rect.centery - turret_rect.centery,
+                                  boss_rect.centerx - turret_rect.centerx)
+    current_angle = blacksmith_turret_state.get("display_angle", target_angle)
+    delta_angle = ((target_angle - current_angle + math.pi) % (2 * math.pi)) - math.pi
+    current_angle += delta_angle * BLACKSMITH_TURRET_AIM_LERP
+    blacksmith_turret_state["display_angle"] = current_angle
+    blacksmith_turret_state["aim_angle"] = target_angle
+
+    recoil_timer = blacksmith_turret_state.get("recoil_timer", 0)
+    if recoil_timer > 0:
+        recoil_timer -= 1
+    blacksmith_turret_state["recoil_timer"] = recoil_timer
+    if BLACKSMITH_TURRET_RECOIL_FRAMES > 0:
+        blacksmith_turret_state["recoil_offset"] = (
+            recoil_timer / BLACKSMITH_TURRET_RECOIL_FRAMES
+        ) * BLACKSMITH_TURRET_RECOIL_DISTANCE * scale_factor
+    else:
+        blacksmith_turret_state["recoil_offset"] = 0.0
+
+    if not (stopwatch_active and stopwatch_timer > 0) and turret_rect.colliderect(BALL):
+        ball_rect = pygame.Rect(BALL)
+        ball_owner = getattr(game_vars.ball, "last_hit_by", "player")
+        if ball_owner != "player":
+            if blacksmith_turret_state.get("hp", 0) > 0:
+                blacksmith_turret_state["hp"] -= 1
+                BALL.bottom = min(BALL.bottom, turret_rect.top - 4)
+                speed_mag = max(7.0, math.hypot(ball_vel[0], ball_vel[1]))
+                ball_vel[1] = -abs(speed_mag)
+                ball_vel[0] *= 0.6
+                last_hit_by = "player"
+                game_vars.ball.last_hit_by = "player"
+                player_collision_handled = True
+                effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=6)
+                try:
+                    play_paddle_sound()
+                except Exception:
+                    pass
+
+    if stopwatch_active and stopwatch_timer > 0:
+        # 스톱워치 정지 중에는 포탑 발사도 중단
+        pass
+    else:
+        blacksmith_turret_state["fire_timer"] -= 1
+        if blacksmith_turret_state["fire_timer"] <= 0:
+            display_angle = blacksmith_turret_state.get("display_angle", -math.pi / 2)
+            direction = pygame.math.Vector2(math.cos(display_angle), math.sin(display_angle))
+            if direction.length() == 0:
+                direction = pygame.math.Vector2(0, -1)
+            else:
+                direction = direction.normalize()
+
+            scale_x = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
+            scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
+            blacksmith_turret_state["recoil_timer"] = BLACKSMITH_TURRET_RECOIL_FRAMES
+            blacksmith_turret_state["recoil_offset"] = BLACKSMITH_TURRET_RECOIL_DISTANCE * scale_x
+            pivot_point = pygame.math.Vector2(
+                turret_rect.centerx,
+                turret_rect.top + scale_y * BLACKSMITH_TURRET_HEAD_PIVOT_OFFSET,
+            )
+            recoil_offset = blacksmith_turret_state.get("recoil_offset", 0.0)
+            pivot_point -= direction * recoil_offset
+            muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
+            spawn_point = pivot_point + direction * (muzzle_distance + BLACKSMITH_TURRET_PROJECTILE_RADIUS + 2)
+
+            projectile_speed = BLACKSMITH_TURRET_MISSILE_SPEED
+            projectile = {
+                "x": float(spawn_point.x),
+                "y": float(spawn_point.y),
+                "vx": direction.x * projectile_speed,
+                "vy": direction.y * projectile_speed,
+                "speed": projectile_speed,
+                "life": BLACKSMITH_TURRET_MISSILE_LIFE,
+                "radius": BLACKSMITH_TURRET_PROJECTILE_RADIUS,
+                "grace_frames": 6,
+            }
+            blacksmith_turret_projectiles.append(projectile)
+            blacksmith_turret_state["fire_timer"] = blacksmith_turret_state["fire_interval"]
+            try:
+                play_sound_with_volume(SOUND_THROW)
+            except Exception:
+                pass
+
+    boss_rect = BOSS if 'BOSS' in globals() else None
+    boss_target_x = boss_rect.centerx if boss_rect else WIDTH // 2
+    boss_target_y = boss_rect.centery if boss_rect else HEIGHT // 3
+
+    if blacksmith_turret_projectiles and not (stopwatch_active and stopwatch_timer > 0):
+        new_projectiles = []
+        for proj in blacksmith_turret_projectiles:
+            speed = proj.get("speed", BLACKSMITH_TURRET_MISSILE_SPEED)
+            turn_rate = BLACKSMITH_TURRET_MISSILE_TURN_RATE
+
+            if boss_rect:
+                to_target = pygame.math.Vector2(boss_target_x - proj["x"], boss_target_y - proj["y"])
+                if to_target.length() > 0:
+                    desired_dir = to_target.normalize()
+                    desired_vx = desired_dir.x * speed
+                    desired_vy = desired_dir.y * speed
+                    proj["vx"] = (1 - turn_rate) * proj["vx"] + turn_rate * desired_vx
+                    proj["vy"] = (1 - turn_rate) * proj["vy"] + turn_rate * desired_vy
+
+            speed = min(BLACKSMITH_TURRET_MISSILE_MAX_SPEED, speed * (1 + BLACKSMITH_TURRET_MISSILE_ACCEL))
+            proj["speed"] = speed
+            current_speed = math.hypot(proj["vx"], proj["vy"])
+            if current_speed > 0:
+                scale = speed / current_speed
+                proj["vx"] *= scale
+                proj["vy"] *= scale
+
+            proj["x"] += proj["vx"]
+            proj["y"] += proj["vy"]
+            proj["life"] -= 1
+
+            radius = int(proj.get("radius", BLACKSMITH_TURRET_PROJECTILE_RADIUS))
+            grace_frames = proj.get("grace_frames", 0)
+            if grace_frames > 0:
+                proj["grace_frames"] = grace_frames - 1
+                grace_frames = proj["grace_frames"]
+
+            if proj["life"] <= 0:
+                continue
+
+            if (
+                proj["x"] < -radius * 2
+                or proj["x"] > WIDTH + radius * 2
+                or proj["y"] < -radius * 2
+                or proj["y"] > HEIGHT + radius * 2
+            ):
+                continue
+
+            projectile_rect = pygame.Rect(0, 0, radius * 2, radius * 2)
+            projectile_rect.center = (proj["x"], proj["y"])
+
+            if 'PLAYER' in globals() and PLAYER is not None:
+                try:
+                    if projectile_rect.colliderect(PLAYER):
+                        new_projectiles.append(proj)
+                        continue
+                except Exception:
+                    pass
+
+            if boss_rect and projectile_rect.colliderect(boss_rect):
+                try:
+                    current_star_timer = globals().get("boss_stunned_timer", 0)
+                    current_star_timer = max(current_star_timer, BLACKSMITH_TURRET_STUN_DURATION)
+                    globals()["boss_stunned_timer"] = current_star_timer
+                    globals()["boss_stun_timer"] = 0
+                except Exception:
+                    pass
+                try:
+                    edge_margin = max(10, boss_rect.width // 2)
+                    if boss_rect.left <= edge_margin:
+                        knockback_direction = 1
+                    elif boss_rect.right >= WIDTH - edge_margin:
+                        knockback_direction = -1
+                    else:
+                        knockback_direction = 1 if proj["x"] < boss_rect.centerx else -1
+                    globals()["boss_knockback_timer"] = BLACKSMITH_TURRET_STUN_DURATION
+                    globals()["boss_knockback_vel"] = knockback_direction * BLACKSMITH_TURRET_KNOCKBACK_SPEED
+                    globals()["boss_knockback_active"] = False
+                    globals()["boss_knockback_offset_x"] = 0
+                    globals()["boss_knockback_offset_y"] = 0
+                except Exception:
+                    pass
+                cx, cy = int(proj["x"]), int(proj["y"])
+                try:
+                    effects_manager.create_impact_effect(cx, cy, radius * 2.0, is_player=False)
+                except Exception:
+                    pass
+                try:
+                    effects_manager.spawn_star_particles(cx, cy, count=8)
+                    effects_manager.spawn_flame_particles(cx, cy, count=7)
+                    effects_manager.spawn_construction_smoke(cx, cy, count=5, spread=20)
+                except Exception:
+                    pass
+                continue
+
+            current_turret_rect = blacksmith_turret_state.get("rect") if blacksmith_turret_state else None
+            if grace_frames <= 0 and current_turret_rect and current_turret_rect.colliderect(projectile_rect):
+                if blacksmith_turret_state.get("hp", 0) > 0:
+                    blacksmith_turret_state["hp"] -= 1
+                    spark_surface = pygame.Surface((14, 14), pygame.SRCALPHA)
+                    pygame.draw.circle(spark_surface, (255, 200, 100, 200), (7, 7), 6)
+                    surface_target = pygame.Surface((14, 14), pygame.SRCALPHA)
+                    pygame.draw.circle(surface_target, (255, 255, 255, 240), (7, 7), 3)
+                    spark_surface.blit(surface_target, (0, 0))
+                    SCREEN.blit(spark_surface, (projectile_rect.centerx - 7, projectile_rect.centery - 7))
+                    try:
+                        play_sound_with_volume(SOUND_DEFENSE_BLOCK)
+                    except Exception:
+                        pass
+                continue
+
+            new_projectiles.append(proj)
+
+        blacksmith_turret_projectiles = new_projectiles
+
+    if blacksmith_turret_active and blacksmith_turret_state and blacksmith_turret_state.get("hp", 0) <= 0:
+        effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.centery, count=12)
+        try:
+            play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
+        except Exception:
+            pass
+        blacksmith_turret_active = False
+        blacksmith_turret_state = None
+        blacksmith_turret_blueprint_active = False
+        blacksmith_turret_projectiles.clear()
+        blacksmith_turret_partial_drain = 0.0
+        blacksmith_turret_xp_partial_drain = 0.0
+        blacksmith_turret_manual_cooldown = 0
+        stop_blacksmith_construction_sound()
+
+
+def upgrade_blacksmith_turret():
+    """포탑 레벨 상승과 능력치를 갱신한다."""
+    global blacksmith_turret_state
+    if not blacksmith_turret_active or not blacksmith_turret_state:
+        return False
+
+    level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
+    if level >= BLACKSMITH_TURRET_MAX_LEVEL:
+        blacksmith_turret_state["xp"] = blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED))
+        return False
+
+    new_level = level + 1
+    blacksmith_turret_state["level"] = new_level
+
+    current_max_hp = blacksmith_turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP)
+    upgraded_max_hp = max(current_max_hp + 1, int(math.ceil(current_max_hp * BLACKSMITH_TURRET_LEVEL_HP_MULTIPLIER)))
+    blacksmith_turret_state["max_hp"] = upgraded_max_hp
+    blacksmith_turret_state["hp"] = upgraded_max_hp
+
+    current_interval = blacksmith_turret_state.get("fire_interval", BLACKSMITH_TURRET_FIRE_INTERVAL)
+    upgraded_interval = max(int(current_interval * BLACKSMITH_TURRET_LEVEL_FIRE_RATE_MULTIPLIER), int(2 * FPS))
+    blacksmith_turret_state["fire_interval"] = upgraded_interval
+    blacksmith_turret_state["fire_timer"] = min(blacksmith_turret_state.get("fire_timer", upgraded_interval), upgraded_interval)
+
+    if new_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+        blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED)
+        blacksmith_turret_state["xp"] = blacksmith_turret_state["xp_max"]
+    else:
+        scaling = 1.5 ** (new_level - 1)
+        blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED * scaling)
+        blacksmith_turret_state["xp"] = 0.0
+
+    try:
+        rect = blacksmith_turret_state.get("rect")
+        if rect:
+            effects_manager.spawn_star_particles(rect.centerx, rect.top - 10, count=18)
+            effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=14)
+    except Exception:
+        pass
+    try:
+        play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+    except Exception:
+        pass
+
+    print(f"[DEBUG] Turret upgraded to Lv {new_level} (HP {upgraded_max_hp}, fire {upgraded_interval}f)")
+    return True
+
+
+def draw_blacksmith_turret_elements(surface):
+    """발토르 포탑과 청사진, 투사체를 그린다."""
+    draw_blacksmith_divine_stone(surface)
+    if blacksmith_turret_blueprint_active and blacksmith_turret_blueprint_rect:
+        blueprint_rect = blacksmith_turret_blueprint_rect
+        progress_ratio = 0.0
+        if BLACKSMITH_TURRET_BUILD_TIME > 0:
+            progress_ratio = blacksmith_turret_build_progress / BLACKSMITH_TURRET_BUILD_TIME
+        progress_ratio = max(0.0, min(1.0, progress_ratio))
+
+        stage_float = progress_ratio * 3.0
+        stage_index = min(2, int(stage_float))
+        stage_alpha = stage_float - stage_index
+
+        width = blueprint_rect.width
+        height = blueprint_rect.height
+        base_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+        ground_rect = pygame.Rect(2, height - 10, width - 4, 10)
+        pygame.draw.rect(base_surface, (90, 70, 55), ground_rect, border_radius=3)
+        pygame.draw.rect(base_surface, (70, 55, 40), ground_rect.inflate(4, 2), 2, border_radius=4)
+
+        stake_color = (110, 85, 65)
+        rope_color = (160, 130, 95)
+
+        if stage_index >= 0:
+            # Stage 1: stake perimeter and dirt patch
+            dirt_color = (120, 95, 70, 200)
+            dirt_rect = pygame.Rect(6, height - 14, width - 12, 12)
+            pygame.draw.rect(base_surface, dirt_color, dirt_rect, border_radius=3)
+            for x in (6, width - 8):
+                for y in (height - 12, height - 6):
+                    pygame.draw.rect(base_surface, stake_color, (x, y, 4, 8))
+            pygame.draw.line(base_surface, rope_color, (8, height - 8), (width - 8, height - 8), 2)
+
+        if stage_index >= 1:
+            # Stage 2: wooden frame
+            frame_height = height - 16
+            post_positions = [8, width // 2, width - 8]
+            for px in post_positions:
+                pygame.draw.rect(base_surface, (120, 100, 80), (px - 2, 4, 4, frame_height))
+            pygame.draw.rect(base_surface, (150, 120, 90), (10, 8, width - 20, 6))
+            pygame.draw.rect(base_surface, (135, 105, 80), (14, 20, width - 28, 4))
+            for beam_y in (20, 28 + int(8 * stage_alpha)):
+                pygame.draw.line(base_surface, (160, 125, 90), (10, beam_y), (width - 10, beam_y), 3)
+
+        if stage_index >= 2:
+            # Stage 3: partial walls and scaffolding
+            wall_height = max(8, int(18 * (0.4 + 0.6 * stage_alpha)))
+            wall_rect = pygame.Rect(12, height - 18 - wall_height, width - 24, wall_height)
+            pygame.draw.rect(base_surface, (165, 140, 110), wall_rect)
+            pygame.draw.rect(base_surface, (200, 180, 150), wall_rect, 2)
+            # roof beams
+            roof_y = wall_rect.top - 4
+            pygame.draw.rect(base_surface, (145, 115, 85), (16, roof_y, width - 32, 4))
+            for idx in range(3):
+                beam_x = 18 + idx * ((width - 36) // 2)
+                pygame.draw.line(base_surface, (110, 90, 70), (beam_x, roof_y), (beam_x - 6, roof_y - 10), 2)
+                pygame.draw.line(base_surface, (110, 90, 70), (beam_x + (width - 36) // 2, roof_y), (beam_x + (width - 36) // 2 + 6, roof_y - 10), 2)
+
+        surface.blit(base_surface, blueprint_rect.topleft)
+
+        gauge_width = blueprint_rect.width
+        gauge_height = 6
+        gauge_rect = pygame.Rect(blueprint_rect.left, blueprint_rect.top - gauge_height - 6, gauge_width, gauge_height)
+        pygame.draw.rect(surface, (40, 50, 70), gauge_rect.inflate(4, 4), border_radius=3)
+        if progress_ratio > 0:
+            filled_rect = pygame.Rect(gauge_rect.left, gauge_rect.top, int(gauge_width * progress_ratio), gauge_height)
+            pygame.draw.rect(surface, (220, 180, 80), filled_rect, border_radius=3)
+        pygame.draw.rect(surface, (110, 120, 140), gauge_rect, 1, border_radius=3)
+
+    if blacksmith_turret_active and blacksmith_turret_state and blacksmith_turret_state.get("rect"):
+        turret_rect = blacksmith_turret_state["rect"]
+        cx = turret_rect.centerx
+        top = turret_rect.top
+        bottom = turret_rect.bottom
+        left = turret_rect.left
+        right = turret_rect.right
+        width = turret_rect.width
+        height = turret_rect.height
+
+        scale_x = width / BLACKSMITH_TURRET_DESIGN_WIDTH
+        scale_y = height / BLACKSMITH_TURRET_DESIGN_HEIGHT
+
+        def sx_val(value):
+            return value * scale_x
+
+        def sy_val(value):
+            return value * scale_y
+
+        base_points = [
+            (cx - sx_val(36), bottom - sy_val(6)),
+            (cx + sx_val(36), bottom - sy_val(6)),
+            (cx + sx_val(24), bottom + sy_val(8)),
+            (cx - sx_val(24), bottom + sy_val(8))
+        ]
+        pygame.draw.polygon(surface, (66, 60, 92), [(int(x), int(y)) for x, y in base_points])
+        pygame.draw.lines(surface, (130, 122, 170), True, [(int(x), int(y)) for x, y in base_points], max(1, int(sx_val(2))))
+
+        left_leg = [
+            (left + sx_val(2), bottom - sy_val(12)),
+            (left - sx_val(12), bottom - sy_val(42)),
+            (left - sx_val(6), bottom - sy_val(60)),
+            (left + sx_val(10), bottom - sy_val(34))
+        ]
+        right_leg = [
+            (right - sx_val(2), bottom - sy_val(12)),
+            (right + sx_val(12), bottom - sy_val(42)),
+            (right + sx_val(6), bottom - sy_val(60)),
+            (right - sx_val(10), bottom - sy_val(34))
+        ]
+        pygame.draw.polygon(surface, (178, 182, 206), [(int(x), int(y)) for x, y in left_leg])
+        pygame.draw.polygon(surface, (178, 182, 206), [(int(x), int(y)) for x, y in right_leg])
+        pygame.draw.lines(surface, (82, 86, 120), False, [(int(x), int(y)) for x, y in left_leg], max(1, int(sx_val(2))))
+        pygame.draw.lines(surface, (82, 86, 120), False, [(int(x), int(y)) for x, y in right_leg], max(1, int(sx_val(2))))
+
+        left_claw = [
+            (cx - sx_val(18), bottom - sy_val(26)),
+            (cx - sx_val(40), bottom - sy_val(8)),
+            (cx - sx_val(26), bottom + sy_val(4)),
+            (cx - sx_val(10), bottom - sy_val(14))
+        ]
+        right_claw = [
+            (cx + sx_val(18), bottom - sy_val(26)),
+            (cx + sx_val(40), bottom - sy_val(8)),
+            (cx + sx_val(26), bottom + sy_val(4)),
+            (cx + sx_val(10), bottom - sy_val(14))
+        ]
+        pygame.draw.polygon(surface, (204, 68, 76), [(int(x), int(y)) for x, y in left_claw])
+        pygame.draw.polygon(surface, (204, 68, 76), [(int(x), int(y)) for x, y in right_claw])
+        pygame.draw.lines(surface, (255, 220, 130), True, [(int(x), int(y)) for x, y in left_claw], max(1, int(sx_val(2))))
+        pygame.draw.lines(surface, (255, 220, 130), True, [(int(x), int(y)) for x, y in right_claw], max(1, int(sx_val(2))))
+
+        torso_points = [
+            (cx - sx_val(18), bottom - sy_val(46)),
+            (cx - sx_val(28), top + sy_val(48)),
+            (cx - sx_val(14), top + sy_val(22)),
+            (cx - sx_val(6), top + sy_val(12)),
+            (cx + sx_val(6), top + sy_val(12)),
+            (cx + sx_val(14), top + sy_val(22)),
+            (cx + sx_val(28), top + sy_val(48)),
+            (cx + sx_val(18), bottom - sy_val(46))
+        ]
+        pygame.draw.polygon(surface, (228, 238, 255), [(int(x), int(y)) for x, y in torso_points])
+        inner_torso = [
+            (cx - sx_val(12), bottom - sy_val(44)),
+            (cx - sx_val(20), top + sy_val(46)),
+            (cx - sx_val(10), top + sy_val(26)),
+            (cx - sx_val(2), top + sy_val(16)),
+            (cx + sx_val(2), top + sy_val(16)),
+            (cx + sx_val(10), top + sy_val(26)),
+            (cx + sx_val(20), top + sy_val(46)),
+            (cx + sx_val(12), bottom - sy_val(44))
+        ]
+        pygame.draw.polygon(surface, (210, 70, 78), [(int(x), int(y)) for x, y in inner_torso])
+        pygame.draw.lines(surface, (70, 40, 60), True, [(int(x), int(y)) for x, y in torso_points], max(1, int(sx_val(2))))
+
+        column_width = max(4, int(sx_val(14)))
+        column_height = max(18, int(sy_val(24)))
+        center_column = pygame.Rect(int(cx - column_width / 2), int(top + sy_val(26)), column_width, column_height)
+        pygame.draw.rect(surface, (86, 96, 138), center_column, border_radius=int(max(2, sx_val(4))))
+        inner_column = center_column.inflate(-max(2, int(sx_val(6))), -max(2, int(sy_val(8))))
+        if inner_column.width > 0 and inner_column.height > 0:
+            pygame.draw.rect(surface, (158, 198, 255), inner_column, border_radius=int(max(1, sx_val(3))))
+
+        angle = blacksmith_turret_state.get("display_angle", -math.pi / 2)
+        forward_vec = pygame.math.Vector2(math.cos(angle), math.sin(angle))
+        if forward_vec.length() == 0:
+            forward_vec = pygame.math.Vector2(0, -1)
+        else:
+            forward_vec = forward_vec.normalize()
+        recoil_offset = blacksmith_turret_state.get("recoil_offset", 0.0)
+        pivot_point = pygame.math.Vector2(
+            cx,
+            top + sy_val(BLACKSMITH_TURRET_HEAD_PIVOT_OFFSET)
+        ) - forward_vec * recoil_offset
+
+        head_width = max(24, int(sx_val(84)))
+        head_height = max(24, int(sy_val(84)))
+        head_surface = pygame.Surface((head_width, head_height), pygame.SRCALPHA)
+        pivot_local = pygame.math.Vector2(head_width / 2, head_height * 0.7)
+
+        def head_point(dx, dy):
+            return (int(pivot_local.x + dx), int(pivot_local.y + dy))
+
+        body_poly = [
+            head_point(-sx_val(12), sy_val(12)),
+            head_point(-sx_val(24), -sy_val(10)),
+            head_point(-sx_val(10), -sy_val(34)),
+            head_point(-sx_val(4), -sy_val(48)),
+            head_point(0, -sy_val(54)),
+            head_point(sx_val(4), -sy_val(48)),
+            head_point(sx_val(10), -sy_val(34)),
+            head_point(sx_val(24), -sy_val(10)),
+            head_point(sx_val(12), sy_val(12)),
+        ]
+        pygame.draw.polygon(head_surface, (228, 238, 255), body_poly)
+        pygame.draw.polygon(head_surface, (210, 70, 78), [
+            head_point(-sx_val(10), sy_val(10)),
+            head_point(-sx_val(18), -sy_val(8)),
+            head_point(-sx_val(6), -sy_val(30)),
+            head_point(0, -sy_val(40)),
+            head_point(sx_val(6), -sy_val(30)),
+            head_point(sx_val(18), -sy_val(8)),
+            head_point(sx_val(10), sy_val(10)),
+        ])
+        pygame.draw.lines(head_surface, (70, 40, 60), True, body_poly, max(1, int(sx_val(2))))
+
+        claw_left = [
+            head_point(-sx_val(18), sy_val(8)),
+            head_point(-sx_val(36), sy_val(18)),
+            head_point(-sx_val(28), sy_val(30)),
+            head_point(-sx_val(12), sy_val(20)),
+        ]
+        claw_right = [
+            head_point(sx_val(18), sy_val(8)),
+            head_point(sx_val(36), sy_val(18)),
+            head_point(sx_val(28), sy_val(30)),
+            head_point(sx_val(12), sy_val(20)),
+        ]
+        pygame.draw.polygon(head_surface, (204, 68, 76), claw_left)
+        pygame.draw.polygon(head_surface, (204, 68, 76), claw_right)
+        pygame.draw.lines(head_surface, (255, 220, 130), True, claw_left, max(1, int(sx_val(2))))
+        pygame.draw.lines(head_surface, (255, 220, 130), True, claw_right, max(1, int(sx_val(2))))
+
+        cannon_left = [
+            head_point(-sx_val(16), -sy_val(14)),
+            head_point(-sx_val(32), -sy_val(32)),
+            head_point(-sx_val(26), -sy_val(48)),
+            head_point(-sx_val(10), -sy_val(30)),
+        ]
+        cannon_right = [
+            head_point(sx_val(16), -sy_val(14)),
+            head_point(sx_val(32), -sy_val(32)),
+            head_point(sx_val(26), -sy_val(48)),
+            head_point(sx_val(10), -sy_val(30)),
+        ]
+        pygame.draw.polygon(head_surface, (242, 182, 62), cannon_left)
+        pygame.draw.polygon(head_surface, (242, 182, 62), cannon_right)
+        pygame.draw.lines(head_surface, (70, 40, 8), True, cannon_left, max(1, int(sx_val(2))))
+        pygame.draw.lines(head_surface, (70, 40, 8), True, cannon_right, max(1, int(sx_val(2))))
+
+        core_radius = max(3, int(sx_val(9)))
+        pygame.draw.circle(head_surface, (40, 200, 255, 180), (int(pivot_local.x), int(pivot_local.y - sy_val(12))), core_radius)
+        pygame.draw.circle(head_surface, (255, 255, 255, 200), (int(pivot_local.x), int(pivot_local.y - sy_val(12))), max(1, core_radius // 2))
+
+        muzzle_rect = pygame.Rect(0, 0, max(3, int(sx_val(6))), max(4, int(sy_val(16))))
+        muzzle_rect.center = head_point(0, -sy_val(54))
+        pygame.draw.rect(head_surface, (94, 206, 255), muzzle_rect, border_radius=max(1, int(sx_val(2))))
+        pygame.draw.rect(head_surface, (16, 36, 64), muzzle_rect, max(1, int(sx_val(1))), border_radius=max(1, int(sx_val(2))))
+
+        heat_vent = pygame.Rect(0, 0, max(6, int(sx_val(18))), max(4, int(sy_val(10))))
+        heat_vent.center = head_point(0, sy_val(2))
+        pygame.draw.rect(head_surface, (150, 150, 168, 190), heat_vent, border_radius=max(1, int(sx_val(3))))
+
+        angle_degrees = math.degrees(angle)
+        rotated_head = pygame.transform.rotozoom(head_surface, -angle_degrees + 90, 1.0)
+        rotated_rect = rotated_head.get_rect(center=(pivot_point.x, pivot_point.y))
+        surface.blit(rotated_head, rotated_rect.topleft)
+
+        muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
+        muzzle_world = pivot_point + forward_vec * muzzle_distance
+        muzzle_tip = muzzle_world + forward_vec * max(4, sx_val(6))
+        pygame.draw.line(surface, (180, 240, 255), (int(muzzle_world.x), int(muzzle_world.y)), (int(muzzle_tip.x), int(muzzle_tip.y)), max(1, int(sx_val(2))))
+
+        glow_size = max(12, int(sx_val(32)))
+        muzzle_glow = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        pygame.draw.circle(muzzle_glow, (24, 160, 220, 80), (glow_size // 2, glow_size // 2), glow_size // 2)
+        pygame.draw.circle(muzzle_glow, (255, 255, 255, 120), (glow_size // 2, glow_size // 2), max(2, glow_size // 4))
+        surface.blit(
+            muzzle_glow,
+            (int(muzzle_world.x - glow_size / 2), int(muzzle_world.y - glow_size / 2)),
+            special_flags=pygame.BLEND_ADD,
+        )
+
+    for proj in blacksmith_turret_projectiles:
+        proj_pos = (int(proj["x"]), int(proj["y"]))
+        radius = int(proj.get("radius", BLACKSMITH_TURRET_PROJECTILE_RADIUS))
+        if 'BLACKSMITH_MISSILE_IMG' in globals() and BLACKSMITH_MISSILE_IMG:
+            velocity_angle = math.degrees(math.atan2(proj["vy"], proj["vx"])) - 180
+            scale = max(0.6, radius / 12)
+            missile_img = pygame.transform.rotozoom(BLACKSMITH_MISSILE_IMG, -velocity_angle, scale)
+            missile_rect = missile_img.get_rect(center=proj_pos)
+            surface.blit(missile_img, missile_rect.topleft)
+        else:
+            pygame.draw.circle(surface, (240, 210, 120), proj_pos, radius)
+            pygame.draw.circle(surface, (110, 90, 60), proj_pos, int(radius * 1.5), 2)
+    draw_blacksmith_build_menu(surface)
+
+
+def draw_blacksmith_divine_stone(surface):
+    if blacksmith_divine_stone_state is None:
+        return
+    rect = blacksmith_divine_stone_state["rect"]
+    pulse = blacksmith_divine_stone_state.get("pulse", 0)
+    hp = blacksmith_divine_stone_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
+    overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
+    cx, cy = rect.width // 2, rect.height // 2
+    for radius, alpha in ((rect.width // 2, 40), (rect.width // 2 - 6, 70), (rect.width // 2 - 10, 120)):
+        pygame.draw.circle(overlay, (120, 180, 255, alpha), (cx, cy), radius)
+    glow_intensity = 80 + int(70 * math.sin(pulse * 0.1))
+    pygame.draw.circle(overlay, (180, 220, 255, glow_intensity), (cx, cy), rect.width // 2 - 4)
+    pygame.draw.circle(overlay, (255, 255, 255, 220), (cx, cy - 6), rect.width // 2 - 14)
+    pygame.draw.circle(overlay, (200, 240, 255, 180), (cx, cy + 4), rect.width // 2 - 16)
+    surface.blit(overlay, rect.topleft)
+    font = FontStyle.tiny()
+    hp_text = font.render(f"HP {hp}", True, (230, 240, 255))
+    surface.blit(hp_text, hp_text.get_rect(center=(rect.centerx, rect.bottom + 10)))
+
+
+def draw_blacksmith_build_menu(surface):
+    if not blacksmith_build_menu_active or 'PLAYER' not in globals() or PLAYER is None:
+        return
+    if not blacksmith_has_available_buildings():
+        return
+    spacing = BLACKSMITH_BUILD_ICON_SIZE[0] + 16
+    base_x = PLAYER.centerx
+    base_y = max(60, PLAYER.top - 60)
+    for idx, option in enumerate(BLACKSMITH_BUILD_OPTIONS):
+        available = blacksmith_can_build(option)
+        icon = BLACKSMITH_TURRET_ICON if option == "turret" else BLACKSMITH_DIVINE_ICON
+        icon_surface = icon.copy()
+        if not available:
+            dim = pygame.Surface(icon_surface.get_size(), pygame.SRCALPHA)
+            dim.fill((0, 0, 0, 140))
+            icon_surface.blit(dim, (0, 0))
+        offset_x = (idx - (len(BLACKSMITH_BUILD_OPTIONS) - 1) / 2) * spacing
+        dest_rect = icon_surface.get_rect(center=(base_x + offset_x, base_y))
+        pygame.draw.rect(surface, (15, 20, 30, 180), dest_rect.inflate(18, 18), border_radius=12)
+        border_color = (90, 150, 240, 220) if available else (90, 90, 90, 160)
+        pygame.draw.rect(surface, border_color, dest_rect.inflate(22, 22), width=2, border_radius=14)
+        surface.blit(icon_surface, dest_rect)
+        font = FontStyle.tiny()
+        text_color = (255, 255, 255) if available else (150, 150, 150)
+        name = "포탑" if option == "turret" else "디바인스톤"
+        label = font.render(name, True, text_color)
+        surface.blit(label, label.get_rect(center=(dest_rect.centerx, dest_rect.bottom + 16)))
+
+
+def draw_blacksmith_turret_ui(surface):
+    if selected_character_type != "blacksmith":
+        return
+
+    if not blacksmith_turret_blueprint_active and not blacksmith_turret_active:
+        return
+
+    slot_size = 60
+    slot_margin = 10
+    bottom_margin = 80
+    icon_size = int(slot_size * 0.8)
+    icon_x = slot_margin
+    icon_y = HEIGHT - bottom_margin - slot_size - icon_size + 15
+    icon_rect = pygame.Rect(icon_x, icon_y, icon_size, icon_size)
+
+    panel_color = (52, 44, 38)
+    border_color = (132, 110, 80)
+    accent_color = (210, 170, 90)
+
+    pygame.draw.rect(surface, panel_color, icon_rect, border_radius=6)
+    pygame.draw.rect(surface, border_color, icon_rect, width=2, border_radius=6)
+
+    base_points = [
+        (icon_rect.centerx - icon_rect.width * 0.38, icon_rect.bottom - 6),
+        (icon_rect.centerx + icon_rect.width * 0.38, icon_rect.bottom - 6),
+        (icon_rect.centerx + icon_rect.width * 0.28, icon_rect.bottom + 4),
+        (icon_rect.centerx - icon_rect.width * 0.28, icon_rect.bottom + 4)
+    ]
+    pygame.draw.polygon(surface, (66, 60, 92), [(int(x), int(y)) for x, y in base_points])
+    pygame.draw.lines(surface, (118, 110, 160), True, [(int(x), int(y)) for x, y in base_points], 2)
+
+    leg_left = [
+        (icon_rect.centerx - icon_rect.width * 0.22, icon_rect.bottom - 12),
+        (icon_rect.centerx - icon_rect.width * 0.36, icon_rect.bottom - 30),
+        (icon_rect.centerx - icon_rect.width * 0.28, icon_rect.bottom - 44),
+        (icon_rect.centerx - icon_rect.width * 0.14, icon_rect.bottom - 24)
+    ]
+    leg_right = [
+        (icon_rect.centerx + icon_rect.width * 0.22, icon_rect.bottom - 12),
+        (icon_rect.centerx + icon_rect.width * 0.36, icon_rect.bottom - 30),
+        (icon_rect.centerx + icon_rect.width * 0.28, icon_rect.bottom - 44),
+        (icon_rect.centerx + icon_rect.width * 0.14, icon_rect.bottom - 24)
+    ]
+    pygame.draw.polygon(surface, (181, 186, 210), [(int(x), int(y)) for x, y in leg_left])
+    pygame.draw.polygon(surface, (181, 186, 210), [(int(x), int(y)) for x, y in leg_right])
+    pygame.draw.lines(surface, (82, 86, 120), False, [(int(x), int(y)) for x, y in leg_left], 2)
+    pygame.draw.lines(surface, (82, 86, 120), False, [(int(x), int(y)) for x, y in leg_right], 2)
+
+    torso_outer = [
+        (icon_rect.centerx - icon_rect.width * 0.28, icon_rect.bottom - 36),
+        (icon_rect.centerx - icon_rect.width * 0.34, icon_rect.y + icon_rect.height * 0.72),
+        (icon_rect.centerx - icon_rect.width * 0.16, icon_rect.y + icon_rect.height * 0.38),
+        (icon_rect.centerx - icon_rect.width * 0.08, icon_rect.y + icon_rect.height * 0.24),
+        (icon_rect.centerx + icon_rect.width * 0.08, icon_rect.y + icon_rect.height * 0.24),
+        (icon_rect.centerx + icon_rect.width * 0.16, icon_rect.y + icon_rect.height * 0.38),
+        (icon_rect.centerx + icon_rect.width * 0.34, icon_rect.y + icon_rect.height * 0.72),
+        (icon_rect.centerx + icon_rect.width * 0.28, icon_rect.bottom - 36)
+    ]
+    pygame.draw.polygon(surface, (228, 238, 255), [(int(x), int(y)) for x, y in torso_outer])
+    torso_inner = [
+        (icon_rect.centerx - icon_rect.width * 0.18, icon_rect.bottom - 34),
+        (icon_rect.centerx - icon_rect.width * 0.26, icon_rect.y + icon_rect.height * 0.7),
+        (icon_rect.centerx - icon_rect.width * 0.12, icon_rect.y + icon_rect.height * 0.42),
+        (icon_rect.centerx - icon_rect.width * 0.04, icon_rect.y + icon_rect.height * 0.3),
+        (icon_rect.centerx + icon_rect.width * 0.04, icon_rect.y + icon_rect.height * 0.3),
+        (icon_rect.centerx + icon_rect.width * 0.12, icon_rect.y + icon_rect.height * 0.42),
+        (icon_rect.centerx + icon_rect.width * 0.26, icon_rect.y + icon_rect.height * 0.7),
+        (icon_rect.centerx + icon_rect.width * 0.18, icon_rect.bottom - 34)
+    ]
+    pygame.draw.polygon(surface, (210, 70, 78), [(int(x), int(y)) for x, y in torso_inner])
+    pygame.draw.lines(surface, (72, 44, 66), True, [(int(x), int(y)) for x, y in torso_outer], 2)
+
+    shoulder_rect = pygame.Rect(icon_rect.centerx - icon_rect.width * 0.34, icon_rect.y + 6,
+                                int(icon_rect.width * 0.68), int(icon_rect.height * 0.18))
+    pygame.draw.rect(surface, (212, 64, 68), shoulder_rect, border_radius=6)
+    pygame.draw.rect(surface, (245, 199, 88), shoulder_rect.inflate(-int(icon_rect.width * 0.26), -int(icon_rect.height * 0.12)), border_radius=4)
+
+    cannon_left = [
+        (icon_rect.centerx - icon_rect.width * 0.5, icon_rect.y + icon_rect.height * 0.42),
+        (icon_rect.centerx - icon_rect.width * 0.24, icon_rect.y + icon_rect.height * 0.38),
+        (icon_rect.centerx - icon_rect.width * 0.2, icon_rect.y + icon_rect.height * 0.28),
+        (icon_rect.centerx - icon_rect.width * 0.46, icon_rect.y + icon_rect.height * 0.32)
+    ]
+    cannon_right = [
+        (icon_rect.centerx + icon_rect.width * 0.5, icon_rect.y + icon_rect.height * 0.42),
+        (icon_rect.centerx + icon_rect.width * 0.24, icon_rect.y + icon_rect.height * 0.38),
+        (icon_rect.centerx + icon_rect.width * 0.2, icon_rect.y + icon_rect.height * 0.28),
+        (icon_rect.centerx + icon_rect.width * 0.46, icon_rect.y + icon_rect.height * 0.32)
+    ]
+    pygame.draw.polygon(surface, (242, 182, 62), [(int(x), int(y)) for x, y in cannon_left])
+    pygame.draw.polygon(surface, (242, 182, 62), [(int(x), int(y)) for x, y in cannon_right])
+    pygame.draw.lines(surface, (70, 40, 8), True, [(int(x), int(y)) for x, y in cannon_left], 2)
+    pygame.draw.lines(surface, (70, 40, 8), True, [(int(x), int(y)) for x, y in cannon_right], 2)
+
+    core_center = (icon_rect.centerx, icon_rect.y + int(icon_rect.height * 0.36))
+    pygame.draw.circle(surface, (24, 160, 220), core_center, int(icon_rect.width * 0.18), 2)
+    core_surface = pygame.Surface((int(icon_rect.width * 0.4), int(icon_rect.width * 0.4)), pygame.SRCALPHA)
+    core_radius = core_surface.get_width() // 2
+    pygame.draw.circle(core_surface, (18, 150, 240, 120), (core_radius, core_radius), core_radius)
+    pygame.draw.circle(core_surface, (255, 255, 255, 210), (core_radius, core_radius), max(2, core_radius // 2))
+    surface.blit(core_surface, (core_center[0] - core_radius, core_center[1] - core_radius))
+
+    emitter_rect = pygame.Rect(icon_rect.centerx - icon_rect.width * 0.06, icon_rect.y - icon_rect.height * 0.05,
+                                int(icon_rect.width * 0.12), int(icon_rect.height * 0.24))
+    pygame.draw.rect(surface, (235, 242, 255), emitter_rect, border_radius=4)
+    muzzle_rect = pygame.Rect(icon_rect.centerx - icon_rect.width * 0.05, icon_rect.y - icon_rect.height * 0.22,
+                               int(icon_rect.width * 0.1), int(icon_rect.height * 0.18))
+    pygame.draw.rect(surface, (94, 206, 255), muzzle_rect, border_radius=3)
+    pygame.draw.rect(surface, (16, 36, 64), muzzle_rect, 2, border_radius=3)
+
+    bar_height = 8
+    bar_rect = pygame.Rect(icon_rect.x, icon_rect.bottom + 6, icon_rect.width, bar_height)
+    xp_rect = pygame.Rect(icon_rect.x, bar_rect.bottom + 6, icon_rect.width, bar_height)
+    pygame.draw.rect(surface, (35, 35, 45), bar_rect.inflate(4, 4), border_radius=3)
+
+    level_text = None
+    status_text = None
+    xp_text = None
+    level_anchor_rect = bar_rect
+
+    if blacksmith_turret_active and blacksmith_turret_state:
+        hp = blacksmith_turret_state.get("hp", BLACKSMITH_TURRET_BASE_HP)
+        max_hp = blacksmith_turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP)
+        level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
+        max_hp = max(1, max_hp)
+        ratio = max(0.0, min(1.0, hp / max_hp))
+        filled_rect = pygame.Rect(bar_rect.x, bar_rect.y, int(bar_rect.width * ratio), bar_rect.height)
+        pygame.draw.rect(surface, (108, 198, 128), filled_rect, border_radius=3)
+        pygame.draw.rect(surface, (90, 100, 110), bar_rect, 1, border_radius=3)
+        level_text = FontStyle.tiny().render(f"Lv {level}", True, WHITE)
+        status_text = FontStyle.tiny().render(f"{hp}/{max_hp}", True, (220, 230, 235))
+
+        xp = blacksmith_turret_state.get("xp", 0.0)
+        xp_max = max(1.0, blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)))
+        xp_ratio = max(0.0, min(1.0, xp / xp_max))
+        pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
+        xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, int(xp_rect.width * xp_ratio), xp_rect.height)
+        fill_color = (242, 188, 96) if xp_ratio < 1.0 else (255, 226, 120)
+        pygame.draw.rect(surface, fill_color, xp_fill_rect, border_radius=3)
+        pygame.draw.rect(surface, (120, 96, 64), xp_rect, 1, border_radius=3)
+        if level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            xp_text = FontStyle.tiny().render("MAX", True, (250, 240, 210))
+        else:
+            xp_text = FontStyle.tiny().render(f"EXP {int(xp_ratio * 100)}%", True, (250, 240, 210))
+        level_anchor_rect = xp_rect
+    elif blacksmith_turret_blueprint_active:
+        ratio = 0.0
+        if BLACKSMITH_TURRET_BUILD_TIME > 0:
+            ratio = blacksmith_turret_build_progress / BLACKSMITH_TURRET_BUILD_TIME
+            ratio = max(0.0, min(1.0, ratio))
+        filled_rect = pygame.Rect(bar_rect.x, bar_rect.y, int(bar_rect.width * ratio), bar_rect.height)
+        pygame.draw.rect(surface, (90, 150, 220), filled_rect, border_radius=3)
+        pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
+        level_text = FontStyle.tiny().render("건설중", True, (210, 220, 240))
+        status_text = FontStyle.tiny().render(f"{int(ratio * 100)}%", True, (210, 220, 240))
+
+    if status_text:
+        status_rect = status_text.get_rect(center=bar_rect.center)
+        surface.blit(status_text, status_rect)
+
+    if xp_text:
+        xp_rect_center = xp_rect.center
+        surface.blit(xp_text, xp_text.get_rect(center=xp_rect_center))
+
+    if level_text:
+        level_rect = level_text.get_rect(midtop=(icon_rect.centerx, level_anchor_rect.bottom + 6))
+        surface.blit(level_text, level_rect)
+
+    upgrade_hint = FontStyle.tiny().render("⚒", True, accent_color)
+    hint_rect = upgrade_hint.get_rect(center=(icon_rect.right - 10, icon_rect.top + 12))
+    surface.blit(upgrade_hint, hint_rect)
+BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
+try:
+    BLACKSMITH_MISSILE_IMG = pygame.image.load(resource_path("ui/blacksmith_missile.png")).convert_alpha()
+except Exception:
+    BLACKSMITH_MISSILE_IMG = None
+
+def _create_blacksmith_build_icon(label: str, base_color: tuple[int, int, int], glyph_surface: pygame.Surface | None = None) -> pygame.Surface:
+    icon = pygame.Surface(BLACKSMITH_BUILD_ICON_SIZE, pygame.SRCALPHA)
+    w, h = BLACKSMITH_BUILD_ICON_SIZE
+    pygame.draw.rect(icon, (30, 30, 40, 220), (0, 0, w, h), border_radius=8)
+    pygame.draw.rect(icon, (*base_color, 70), (2, 2, w - 4, h - 4), border_radius=6)
+    pygame.draw.rect(icon, (*base_color, 160), (4, 4, w - 8, h - 8), width=2, border_radius=6)
+    if glyph_surface is not None:
+        glyph_rect = glyph_surface.get_rect(center=(w // 2, h // 2))
+        icon.blit(glyph_surface, glyph_rect)
+    else:
+        font = FontStyle.tiny()
+        text = font.render(label, True, (245, 245, 255))
+        icon.blit(text, text.get_rect(center=(w // 2, h // 2)))
+    return icon
+
+def _create_divine_stone_icon() -> pygame.Surface:
+    icon = pygame.Surface(BLACKSMITH_BUILD_ICON_SIZE, pygame.SRCALPHA)
+    cx, cy = BLACKSMITH_BUILD_ICON_SIZE[0] // 2, BLACKSMITH_BUILD_ICON_SIZE[1] // 2
+    for radius, alpha in ((18, 50), (14, 80), (11, 120)):
+        pygame.draw.circle(icon, (120, 200, 255, alpha), (cx, cy), radius)
+    pygame.draw.circle(icon, (180, 220, 255), (cx, cy), 8)
+    pygame.draw.circle(icon, (255, 255, 255), (cx, cy), 4)
+    font = FontStyle.tiny()
+    label = font.render("2", True, (255, 255, 255))
+    icon.blit(label, label.get_rect(center=(cx, cy - 16)))
+    return icon
+
+def _create_turret_icon() -> pygame.Surface:
+    icon = pygame.Surface(BLACKSMITH_BUILD_ICON_SIZE, pygame.SRCALPHA)
+    cx, cy = BLACKSMITH_BUILD_ICON_SIZE[0] // 2, BLACKSMITH_BUILD_ICON_SIZE[1] // 2 + 4
+    pygame.draw.rect(icon, (70, 55, 35), (cx - 12, cy + 4, 24, 8), border_radius=4)
+    pygame.draw.rect(icon, (130, 120, 110), (cx - 10, cy - 14, 20, 24), border_radius=6)
+    pygame.draw.rect(icon, (90, 80, 70), (cx - 6, cy - 10, 12, 16), border_radius=4)
+    pygame.draw.line(icon, (210, 180, 90), (cx, cy - 20), (cx, cy - 36), 5)
+    pygame.draw.circle(icon, (235, 205, 120), (cx, cy - 36), 6)
+    font = FontStyle.tiny()
+    label = font.render("1", True, (255, 255, 255))
+    icon.blit(label, label.get_rect(center=(cx, cy - 24)))
+    return icon
+
+def blacksmith_has_available_buildings() -> bool:
+    if selected_character_type != "blacksmith":
+        return False
+    turret_available = not blacksmith_turret_active and not blacksmith_turret_blueprint_active
+    divine_available = blacksmith_divine_stone_state is None
+    return turret_available or divine_available
+
+
+def blacksmith_open_build_menu():
+    global blacksmith_build_menu_active, blacksmith_down_hold_frames
+    if not blacksmith_has_available_buildings():
+        return
+    if 'PLAYER' not in globals() or PLAYER is None:
+        return
+    blacksmith_build_menu_active = True
+    blacksmith_down_hold_frames = 0
+
+
+def blacksmith_close_build_menu():
+    global blacksmith_build_menu_active, blacksmith_down_hold_frames
+    blacksmith_build_menu_active = False
+    blacksmith_down_hold_frames = 0
+
+
+def blacksmith_can_build(option: str) -> bool:
+    if option == "turret":
+        return not blacksmith_turret_active and not blacksmith_turret_blueprint_active
+    if option == "divine_stone":
+        return blacksmith_divine_stone_state is None
+    return False
+
+
+def blacksmith_start_divine_stone():
+    global blacksmith_divine_stone_state
+    if blacksmith_divine_stone_state is not None or 'PLAYER' not in globals():
+        return False
+    stone_width, stone_height = BLACKSMITH_DIVINE_STONE_SIZE
+    rect = pygame.Rect(0, 0, stone_width, stone_height)
+    base_x = max(stone_width // 2, min(WIDTH - stone_width // 2, PLAYER.centerx))
+    base_y = PLAYER.top - 30
+    if base_y < stone_height:
+        base_y = stone_height
+    rect.midbottom = (base_x, base_y)
+    blacksmith_divine_stone_state = {
+        "rect": rect,
+        "hp": BLACKSMITH_DIVINE_STONE_MAX_HP,
+        "pulse": 0,
+        "cooldown": 0,
+    }
+    try:
+        play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+    except Exception:
+        pass
+    effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=10)
+    return True
+
+
+def blacksmith_select_build_option(option: str):
+    global blacksmith_build_menu_active
+    if selected_character_type != "blacksmith":
+        return
+    if option not in BLACKSMITH_BUILD_OPTIONS:
+        return
+    if not blacksmith_can_build(option):
+        return
+    blacksmith_close_build_menu()
+    if option == "turret":
+        handle_blacksmith_turret_input(False, True, True)
+    elif option == "divine_stone":
+        blacksmith_start_divine_stone()
 
 boss_special_waiting = False
 boss_special_timer = 0  # 이 변수도 같이 쓰이므로!
@@ -2564,18 +4457,141 @@ whip_wave_phase = 0
 whip_angle = 0  # 상모돌리기 각도
 whip_wave_particles = []  # 상모돌리기 파동 파티클 [(x, y, radius, alpha)]
 
-# === 군인 패들 휘두르기 애니메이션 변수 ===
+# === 코만도 패들 휘두르기 애니메이션 변수 ===
 soldier_swing_active = False
 soldier_swing_timer = 0
 SOLDIER_SWING_DURATION = 15  # 0.25초 (60fps * 0.25)
 
-# === 군인 걷기 애니메이션 변수 ===
+# === 코만도 걷기 애니메이션 변수 ===
 soldier_walking_active = False
 soldier_walking_timer = 0
 SOLDIER_WALKING_CYCLE = 30  # 0.5초 (60fps * 0.5)
 
+# === 발토르 걷기 애니메이션 변수 ===
+blacksmith_walking_active = False
+blacksmith_walking_timer = 0
+BLACKSMITH_WALKING_CYCLE = 30
+
+# === 발토르 방패 스윙 애니메이션 변수 ===
+blacksmith_shield_swing_active = False
+blacksmith_shield_swing_timer = 0
+BLACKSMITH_SHIELD_SWING_DURATION = 12  # 약 0.2초 동안 방패 스윙 연출
+
+# === 발토르 망치 스윙 애니메이션 변수 ===
+blacksmith_hammer_swing_active = False
+blacksmith_hammer_swing_phase = 0
+BLACKSMITH_HAMMER_SWING_DURATION = 18
+
+# === 발토르 포탑 설치 시스템 ===
+BLACKSMITH_TURRET_COST = 150
+BLACKSMITH_TURRET_BUILD_TIME = int(8 * FPS)
+BLACKSMITH_TURRET_BUILD_RADIUS = 70
+BLACKSMITH_TURRET_FIRE_INTERVAL = int(5 * FPS)  # 미사일 발사 주기 5초 고정
+BLACKSMITH_TURRET_BASE_HP = 5
+BLACKSMITH_TURRET_BASE_LEVEL = 1
+BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC = 30
+BLACKSMITH_TURRET_PROJECTILE_RADIUS = 12
+BLACKSMITH_TURRET_MISSILE_SPEED = 8.5
+BLACKSMITH_TURRET_MISSILE_TURN_RATE = 0.12
+BLACKSMITH_TURRET_MISSILE_LIFE = int(6 * FPS)
+BLACKSMITH_TURRET_STUN_DURATION = int(0.1 * FPS)
+BLACKSMITH_TURRET_KNOCKBACK_DISTANCE = 200
+BLACKSMITH_TURRET_KNOCKBACK_SPEED = BLACKSMITH_TURRET_KNOCKBACK_DISTANCE / max(1, BLACKSMITH_TURRET_STUN_DURATION)
+BLACKSMITH_TURRET_MISSILE_ACCEL = 0.12
+BLACKSMITH_TURRET_MISSILE_MAX_SPEED = 24.0
+BLACKSMITH_TURRET_MANUAL_COST = 80
+BLACKSMITH_TURRET_MANUAL_COOLDOWN = int(0.4 * FPS)
+BLACKSMITH_TURRET_MAX_LEVEL = 2
+BLACKSMITH_TURRET_UPGRADE_TIME = 10  # seconds of charge to upgrade
+BLACKSMITH_TURRET_XP_REQUIRED = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC * BLACKSMITH_TURRET_UPGRADE_TIME
+BLACKSMITH_TURRET_LEVEL_HP_MULTIPLIER = 1.5
+BLACKSMITH_TURRET_LEVEL_FIRE_RATE_MULTIPLIER = 0.75
+BLACKSMITH_BUILD_MENU_HOLD_FRAMES = int(0.5 * FPS)
+
+BLACKSMITH_BUILD_OPTIONS = ("turret", "divine_stone")
+BLACKSMITH_BUILD_ICON_SIZE = (42, 42)
+BLACKSMITH_DIVINE_STONE_SIZE = (64, 56)
+BLACKSMITH_DIVINE_STONE_MAX_HP = 3
+BLACKSMITH_TURRET_DESIGN_WIDTH = 46
+BLACKSMITH_TURRET_DESIGN_HEIGHT = 54
+BLACKSMITH_TURRET_BASE_WIDTH = int(BLACKSMITH_TURRET_DESIGN_WIDTH * 1.2)
+BLACKSMITH_TURRET_BASE_HEIGHT = int(BLACKSMITH_TURRET_DESIGN_HEIGHT * 1.2)
+BLACKSMITH_TURRET_BLUEPRINT_WIDTH = int(48 * 1.2)
+BLACKSMITH_TURRET_BLUEPRINT_HEIGHT = int(28 * 1.2)
+BLACKSMITH_TURRET_AIM_LERP = 0.18
+BLACKSMITH_TURRET_RECOIL_FRAMES = 12
+BLACKSMITH_TURRET_RECOIL_DISTANCE = 6.0
+BLACKSMITH_TURRET_MUZZLE_LENGTH = 26
+BLACKSMITH_TURRET_HEAD_PIVOT_OFFSET = 28
+blacksmith_turret_blueprint_active = False
+blacksmith_turret_blueprint_rect = None
+blacksmith_turret_build_progress = 0
+blacksmith_turret_active = False
+blacksmith_turret_state = None
+blacksmith_turret_projectiles = []
+blacksmith_turret_partial_drain = 0.0
+blacksmith_turret_xp_partial_drain = 0.0
+blacksmith_turret_manual_cooldown = 0
+
+blacksmith_down_hold_frames = 0
+blacksmith_build_menu_active = False
+blacksmith_divine_stone_state = None
+
+BLACKSMITH_TURRET_ICON = _create_turret_icon()
+BLACKSMITH_DIVINE_ICON = _create_divine_stone_icon()
+BLACKSMITH_CARD_IMG = _crop_surface_alpha(BLACKSMITH_PADDLE_IMG)
+
+blacksmith_construction_sound_playing = False
+blacksmith_construction_channel = None
+
+
+def start_blacksmith_construction_sound():
+    global blacksmith_construction_sound_playing, blacksmith_construction_channel
+    if SOUND_CONSTRUCTION is None:
+        return
+    if not blacksmith_construction_sound_playing:
+        if blacksmith_construction_channel:
+            try:
+                blacksmith_construction_channel.unpause()
+                blacksmith_construction_sound_playing = True
+                return
+            except Exception:
+                pass
+        try:
+            blacksmith_construction_channel = SOUND_CONSTRUCTION.play(-1)
+        except Exception:
+            blacksmith_construction_channel = None
+        blacksmith_construction_sound_playing = True
+
+
+def stop_blacksmith_construction_sound():
+    global blacksmith_construction_sound_playing, blacksmith_construction_channel
+    if not blacksmith_construction_sound_playing:
+        return
+    try:
+        if blacksmith_construction_channel:
+            blacksmith_construction_channel.stop()
+        elif SOUND_CONSTRUCTION:
+            SOUND_CONSTRUCTION.stop()
+    except Exception:
+        pass
+    blacksmith_construction_channel = None
+    blacksmith_construction_sound_playing = False
+
+
+def pause_blacksmith_construction_sound():
+    global blacksmith_construction_sound_playing, blacksmith_construction_channel
+    if SOUND_CONSTRUCTION is None:
+        return
+    if blacksmith_construction_channel:
+        try:
+            blacksmith_construction_channel.pause()
+        except Exception:
+            pass
+    blacksmith_construction_sound_playing = False
+
 def create_soldier_paddle_animated():
-    """휘두르기 애니메이션이 적용된 군인 패들 이미지 생성"""
+    """휘두르기 애니메이션이 적용된 코만도 패들 이미지 생성"""
     global soldier_swing_timer
     
     # 애니메이션 진행도 계산 (0.0 ~ 1.0)
@@ -2902,10 +4918,10 @@ def create_soldier_paddle_animated():
     return animated_paddle
 
 def create_soldier_paddle_walking():
-    """걷기 애니메이션이 적용된 군인 패들 이미지 생성"""
+    """걷기 애니메이션이 적용된 코만도 패들 이미지 생성"""
     global soldier_walking_timer
     
-    # 기본 군인 패들 이미지 복사
+    # 기본 코만도 패들 이미지 복사
     walking_paddle = SOLDIER_PADDLE_IMG.copy()
     
     # 기본 설정 - 실제 캐릭터 비례에 맞게 조정
@@ -3127,7 +5143,7 @@ def draw_supply_radio_motion(screen):
     head_color = (255, 220, 190)  # 피부색
     pygame.draw.circle(screen, head_color, (head_x, head_y), 12)
     
-    # 헬멧 (군인 캐릭터)
+    # 헬멧 (코만도 캐릭터)
     helmet_color = (70, 80, 60)  # 카키색
     pygame.draw.arc(screen, helmet_color, 
                    pygame.Rect(head_x - 14, head_y - 14, 28, 28), 
@@ -3323,7 +5339,7 @@ def draw_bazooka_recoil_effect(screen: pygame.Surface) -> None:
             afterimage_surface = pygame.Surface((PLAYER.width, PLAYER.height), pygame.SRCALPHA)
             afterimage_surface.set_alpha(alpha)
             
-            # 군인 캐릭터 실루엣
+            # 코만도 캐릭터 실루엣
             pygame.draw.rect(afterimage_surface, (100, 100, 100), 
                            (0, 0, PLAYER.width, PLAYER.height))
             
@@ -4360,7 +6376,7 @@ STOPWATCH_DURATION = 120  # 2초 (60fps * 2)
 STOPWATCH_RECOVERY_TIME = 60  # 1초 (60fps * 1)
 stopwatch_recovery_timer = 0  # 속도 회복 타이머
 
-# === 군인 총알 시스템 관련 변수 ===
+# === 코만도 총알 시스템 관련 변수 ===
 soldier_bullets = []  # 총알 리스트 [{x, y, vel_x, vel_y, active}]
 soldier_gun_cooldown = 0  # 총 쿨타임 (60프레임 = 1초)
 soldier_control_lock_timer = 0  # 통제불능 타이머 (18프레임 = 0.3초)
@@ -4369,7 +6385,7 @@ SOLDIER_BULLET_SPEED = 25  # 총알 속도
 SOLDIER_GUN_COOLDOWN = 60  # 1초 쿨타임
 SOLDIER_CONTROL_LOCK_TIME = 18  # 0.3초 통제불능
 
-# === 군인 화기류 컨트롤러 ===
+# === 코만도 화기류 컨트롤러 ===
 soldier_controller = SoldierWeaponController()
 
 
@@ -4407,7 +6423,7 @@ bazooka_recoil_strength = 0  # 반동 강도
 SOLDIER_BULLET_SIZE = 5  # 총알 크기
 SOLDIER_BULLET_COLOR = (255, 215, 0)  # 황금색 총알
 
-# === 군인 탄약 시스템 관련 변수 ===
+# === 코만도 탄약 시스템 관련 변수 ===
 soldier_ammo_count = 5  # 현재 탄약 개수 (최대 5개)
 soldier_max_ammo = 5  # 최대 탄약 개수
 soldier_reloading = False  # 재장전 중인지
@@ -4420,12 +6436,12 @@ soldier_last_reload_bullets = 0  # 재장전 중 마지막으로 표시된 총�
 soldier_pistol_ammo = 15  # 권총 현재 탄약
 SOLDIER_PISTOL_MAX_AMMO = 15  # 권총 최대 탄약
 
-# === 군인 총 발사 애니메이션 관련 변수 ===
+# === 코만도 총 발사 애니메이션 관련 변수 ===
 soldier_gun_animation_active = False  # 총 발사 애니메이션 진행 중인지
 soldier_gun_animation_frame = 0  # 현재 애니메이션 프레임
 soldier_gun_animation_timer = 0  # 애니메이션 타이머
 
-# === 군인 레그샷 효과 관련 변수 ===
+# === 코만도 레그샷 효과 관련 변수 ===
 leg_shot_active = False  # 레그샷 효과 활성화 상태
 leg_shot_timer = 0  # 레그샷 효과 지속 타이머
 leg_shot_text_timer = 0  # '레그샷!' 텍스트 표시 타이머
@@ -4440,7 +6456,7 @@ AK47_KNOCKBACK_FRAMES = 12  # 넉백 유지 프레임 수
 AK47_KNOCKBACK_BASE = 6.0  # 기본 좌우 넉백 세기
 AK47_KNOCKBACK_SCALE = 0.35  # 총알 속도를 넉백 속도로 추가 환산하는 스케일
 
-# === 군인 헤드샷 효과 관련 변수 ===
+# === 코만도 헤드샷 효과 관련 변수 ===
 head_shot_active = False  # 헤드샷 효과 활성화 상태
 head_shot_timer = 0  # 헤드샷 스턴 지속 타이머
 head_shot_text_timer = 0  # '헤드샷!' 텍스트 표시 타이머
@@ -6275,7 +8291,7 @@ def render_throwing_item_cooldown():
     firearm_items = ["molotov", "grenade", "flare", "smoke_grenade"]
     has_firearm_item = False
     
-    # 군인 캐릭터 권총 확인
+    # 코만도 캐릭터 권총 확인
     global selected_character_type
     if selected_character_type == "soldier":
         has_firearm_item = True
@@ -7903,7 +9919,7 @@ def handle_new_boss_skills_timer():
             print("!")
 
 def fire_soldier_bullet():
-    """군인 캐릭터가 총알을 발사하는 함수"""
+    """코만도 캐릭터가 총알을 발사하는 함수"""
     global soldier_bullets, soldier_gun_cooldown, soldier_control_lock_timer, soldier_gun_drawn
     global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
     global soldier_gun_target_x, soldier_gun_target_y
@@ -7959,7 +9975,7 @@ def fire_soldier_bullet():
         pass
 
 def start_soldier_reload():
-    """군인 탄약 재장전 시작"""
+    """코만도 탄약 재장전 시작"""
     global soldier_reloading, soldier_reload_timer, special_gauge, soldier_last_reload_bullets
     
     # 이미 재장전 중이면 무시
@@ -7990,7 +10006,7 @@ def start_soldier_reload():
         pass  # 사운드 재생 실패시 무시
 
 def update_soldier_reload():
-    """군인 재장전 업데이트"""
+    """코만도 재장전 업데이트"""
     global soldier_reloading, soldier_reload_timer, soldier_ammo_count, soldier_last_reload_bullets
     
     if not soldier_reloading:
@@ -8021,7 +10037,7 @@ def update_soldier_reload():
         soldier_last_reload_bullets = 0  # 다음 재장전을 위해 초기화
 
 def draw_soldier_weapon_ui(screen):
-    """군인 화기류 UI 그리기 - 현재 장착된 무기 표시"""
+    """코만도 화기류 UI 그리기 - 현재 장착된 무기 표시"""
     import math
     import pygame
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
@@ -8865,7 +10881,7 @@ def create_soldier_bullet():
         print(f"🔫 총알 발사! 방향: ({dx_norm:.2f}, {dy_norm:.2f})")
 
 def update_soldier_gun_animation():
-    """군인 총 발사 애니메이션 업데이트"""
+    """코만도 총 발사 애니메이션 업데이트"""
     global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
     
     if not soldier_gun_animation_active:
@@ -8918,7 +10934,7 @@ def trigger_boss_knockback(bullet_x, bullet_y):
     boss_knockback_offset_y = 0  # Y축 넉백 없음
     
     # 디버그 정보 출력
-    print(f"🔫 군인 총알 넉백 발동!")
+    print(f"🔫 코만도 총알 넉백 발동!")
     print(f"   총알 위치: X={bullet_x}, Y={bullet_y}")
     print(f"   보스 중심: X={boss_center_x}")
     print(f"   상대 위치: {bullet_relative_to_boss}")
@@ -8986,7 +11002,7 @@ def create_blood_particles(x, y, bullet_vx, bullet_vy):
         })
 
 def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
-    """군인 총알의 보스 패들 넉백 효과 트리거 (라그나로크 해머 방식 참조)"""
+    """코만도 총알의 보스 패들 넉백 효과 트리거 (라그나로크 해머 방식 참조)"""
     global boss_knockback_timer, boss_knockback_vel
     
     # 라그나로크 해머 방식의 넉백 곈4산 (홍련 화염탄 수준)
@@ -9010,10 +11026,10 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     boss_knockback_timer = 18  # 0.3초간 넉백 효과 지속 (화염탄과 동일한 거리)
     boss_knockback_vel = horizontal_velocity
     
-    print(f"[DEBUG] 군인 총알 넉백 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}")
+    print(f"[DEBUG] 코만도 총알 넉백 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}")
 
 def update_soldier_bullets():
-    """군인 총알 업데이트"""
+    """코만도 총알 업데이트"""
     global soldier_bullets
     
     # 비활성 총알 제거
@@ -9090,7 +11106,7 @@ def update_soldier_bullets():
                 
                 print("💥 총알이 보스에게 명중! 보스 스턴!")
                 
-                # 군인 권총으로 보스 명중 시 게이지 25+ 증가
+                # 코만도 권총으로 보스 명중 시 게이지 25+ 증가
                 global special_gauge, special_ready
                 gauge_increase = 30  # 기본 30 증가
                 
@@ -9102,7 +11118,7 @@ def update_soldier_bullets():
                     gauge_increase = 40  # 레그샷 시 40 증가  
                     print("🎯 레그샷 보너스! 게이지 40 증가!")
                 else:
-                    print("🎯 군인 권총 명중! 게이지 30 증가!")
+                    print("🎯 코만도 권총 명중! 게이지 30 증가!")
                 
                 # 게이지 증가 적용
                 old_gauge = special_gauge
@@ -9115,7 +11131,7 @@ def update_soldier_bullets():
                 if special_gauge >= 350:
                     special_ready = True
                 
-                print(f"군인 권총 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
+                print(f"코만도 권총 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
                 
                 # 넉백 효과 트리거 - 기존 시스템 사용 (boss_knockback_vel을 설정하는 함수)
                 trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
@@ -9202,7 +11218,7 @@ def draw_blood_particles(screen):
                         int(particle["y"] - particle["size"])))
 
 def draw_soldier_bullets(screen):
-    """군인 총알 그리기"""
+    """코만도 총알 그리기"""
     for bullet in soldier_bullets:
         if bullet["active"]:
             # 총알 본체
@@ -9363,7 +11379,7 @@ def draw_head_shot_effect(screen):
     
 
 def draw_soldier_gun_animation(screen, paddle_rect):
-    """군인 총 발사 애니메이션 그리기"""
+    """코만도 총 발사 애니메이션 그리기"""
     global soldier_gun_animation_active, soldier_gun_animation_frame
     global soldier_gun_target_x, soldier_gun_target_y
     
@@ -9474,7 +11490,7 @@ def draw_soldier_gun_animation(screen, paddle_rect):
             pygame.draw.line(screen, (255, 255, 255), (gun_end_x, gun_end_y), (center_end_x, center_end_y), 3)
 
 def handle_player(keys):
-    global ball_angle, special_gauge, special_ready, special_active, recent_dash_time, recent_half_dash_time, recent_dash_success_window
+    global ball_angle, special_gauge, special_gauge_max, special_ready, special_active, recent_dash_time, recent_half_dash_time, recent_dash_success_window
     global power_smashing_direction, mega_smashing_bonus_applied
     global current_speed, player_slow_timer
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
@@ -9486,6 +11502,11 @@ def handle_player(keys):
     global long_boost_animating, long_boost_shrinking, long_boost_growing
     global short_shot_active, short_shot_timer, short_shot_vertical_timer
     global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
+    global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
+    global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
+    global blacksmith_turret_build_progress, blacksmith_turret_active
+    global blacksmith_turret_state, blacksmith_turret_projectiles, blacksmith_turret_partial_drain
+    global blacksmith_turret_manual_cooldown
     global short_shot_current_angle, short_shot_target_angle
     global short_shot_target_y, short_shot_extra_vertical_frames, short_shot_curve_started
     global short_shot_curve_elapsed_frames
@@ -9527,7 +11548,8 @@ def handle_player(keys):
     global flare_throwing, flare_throw_timer  # 조명탄 투척 모션
     global stopwatch_active, stopwatch_recovery_timer, stopwatch_original_ball_vel  # 스탑워치 관련 변수
     global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
-    global soldier_walking_active, soldier_walking_timer  # 군인 걷기 애니메이션 변수
+    global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
+    global blacksmith_walking_active, blacksmith_walking_timer  # 발토르 걷기 애니메이션 변수
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
     global tutorial_drive_completion_dialogue_shown, tutorial_drive_count  # Chapter 3 완료 체크
     global chapter4_dialogue_completed, chapter4_serve_reminder_active, chapter4_serve_reminder_timer  # Chapter 4 대화 및 서브 알림 변수
@@ -9541,7 +11563,7 @@ def handle_player(keys):
     global tutorial_serve_reminder_active  # 서브/파워스매싱 알림창용
     # Chapter 3 드라이브 관련 변수 추가 (160 게이지 도우미 대화를 위해 필수)
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown
-    global soldier_control_lock_timer, soldier_gun_cooldown, soldier_gun_drawn  # 군인 총알 시스템 변수
+    global soldier_control_lock_timer, soldier_gun_cooldown, soldier_gun_drawn  # 코만도 총알 시스템 변수
     global selected_character_type  # 선택된 캐릭터 타입
     global tutorial_drive_helper_dialogue_shown, tutorial_drive_counter_active
     global tutorial_drive_count, tutorial_displayed_drive_count
@@ -9584,7 +11606,7 @@ def handle_player(keys):
     space_pressed = keys[pygame.K_SPACE]
     down_pressed = keys[pygame.K_DOWN]
     
-    # 물자보급 스킬 처리 (군인 캐릭터 전용)
+    # 물자보급 스킬 처리 (코만도 캐릭터 전용)
     
     # 물자보급 스킬 발동 조건 확인 (스페이스 + ↑ 동시 입력)
     up_pressed = keys[pygame.K_UP]
@@ -9652,7 +11674,7 @@ def handle_player(keys):
         except:
             pass
     
-    # 물자보급 스킬 - ↓키 홀드로 발동 (군인 캐릭터 전용)
+    # 물자보급 스킬 - ↓키 홀드로 발동 (코만도 캐릭터 전용)
     
     # 물자보급 발동 조건 체크 (대시와 같은 방식으로 서브 상태 처리)
     can_use_supply_drop = False
@@ -9669,7 +11691,7 @@ def handle_player(keys):
     if down_pressed and selected_character_type == "soldier" and supply_drop_state.hold_time == 0:
         print(f"🔍 물자보급 조건: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}, serve_timer={serve_completed_timer}, can_use={can_use_supply_drop}")
     
-    # ↓키 홀드 체크 (군인 캐릭터만)
+    # ↓키 홀드 체크 (코만도 캐릭터만)
     if down_pressed and selected_character_type == "soldier" and not supply_drop_state.active:
         if can_use_supply_drop and special_gauge >= supply_drop_state.config.gauge_cost:
             supply_drop_state.hold_time += 1
@@ -9724,7 +11746,8 @@ def handle_player(keys):
         if supply_drop_state.hold_time > 0:
             print(f"📻 물자보급 홀드 중단: {supply_drop_state.hold_time}/{supply_drop_state.config.hold_required}")
         supply_drop_state.hold_time = 0
-        if supply_runtime.hold_active or supply_drop_state.radio_motion:
+        supply_runtime.hold_active = False
+        if (supply_runtime.hold_active or supply_drop_state.radio_motion) and not supply_drop_state.active:
             stop_supply_radio_loop(force=True)
     
     
@@ -9992,7 +12015,19 @@ def handle_player(keys):
                     discounted_cost = int(discounted_cost * 0.8)  # 대쉬기어 20% 할인
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
-                if keys[pygame.K_LEFT] and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
+                left_before_down = (
+                    keys[pygame.K_LEFT]
+                    and left_press_frame >= 0
+                    and down_press_frame >= 0
+                    and left_press_frame < down_press_frame
+                )
+                right_before_down = (
+                    keys[pygame.K_RIGHT]
+                    and right_press_frame >= 0
+                    and down_press_frame >= 0
+                    and right_press_frame < down_press_frame
+                )
+                if left_before_down and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
                     # 통제불능 상태에서 왼쪽 대쉬 실행 (아래키 + 왼쪽키 필요)
                     rolling_active = True
                     is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
@@ -10138,7 +12173,7 @@ def handle_player(keys):
                     if special_gauge < special_gauge_max:
                         special_ready = False
                     print(f"    ! ( {rolling_consecutive_count},  : {final_gauge_cost},  : {rolling_charges}, : {special_gauge})")
-                elif keys[pygame.K_RIGHT] and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
+                elif right_before_down and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
                     # 통제불능 상태에서 오른쪽 대쉬 실행 (아래키 + 오른쪽키 필요)
                     rolling_active = True
                     is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
@@ -10363,181 +12398,194 @@ def handle_player(keys):
                     can_use_half_dash = True
             
             if HALF_DASH_ENABLED and down_pressed and can_use_half_dash and not rolling_active:
-                # 게이지 계산
-                base_gauge_cost = 140
-                
-                #  악마의 주사위 스킬/대쉬 비용 배율 적용
-                from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
-                if is_devil_dice_active():
-                    multipliers = get_devil_dice_multipliers()
-                    base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
-                
-                next_consecutive_count = rolling_consecutive_count + 1
-                consecutive_discount = 0.5 ** (next_consecutive_count - 1)
-                discounted_cost = int(base_gauge_cost * consecutive_discount)
-                if dashgear_obtained:
-                    discounted_cost = int(discounted_cost * 0.8)
-                battery_bonus = academy.get_skill_bonus("dash_battery_pack") if 'academy' in globals() else 0
-                required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))
-                
-                # 게이지가 부족한 경우 하프 대쉬 체크
-                if special_gauge < required_gauge:
-                    #  아카데미 스킬 효과 계산: 도약 스킬 보너스
-                    jump_bonus = academy.get_skill_bonus("dash_jump") if 'academy' in globals() else 0
-                    
-                    half_dash_state = {
-                        'special_gauge': special_gauge,
-                        'required_gauge': required_gauge,
-                        'rolling_charges': rolling_charges,
-                        'rolling_active': rolling_active,
-                        'rolling_stun_timer': rolling_stun_timer,
-                        'down_pressed': down_pressed,
-                        'keys': keys,
-                        'jump_bonus': jump_bonus,  # 도약 스킬 보너스 전달
-                        'dashgear_obtained': dashgear_obtained  # 대쉬기어 상태 전달
-                    }
-                    
-                    half_dash_activated, half_dash_direction, half_dash_timer, half_dash_token_cost = check_and_activate_half_dash(half_dash_state)
-                    
-                    if half_dash_activated:
+                left_before_down_half = (
+                    keys[pygame.K_LEFT]
+                    and left_press_frame >= 0
+                    and down_press_frame >= 0
+                    and left_press_frame < down_press_frame
+                )
+                right_before_down_half = (
+                    keys[pygame.K_RIGHT]
+                    and right_press_frame >= 0
+                    and down_press_frame >= 0
+                    and right_press_frame < down_press_frame
+                )
+                if left_before_down_half or right_before_down_half:
+                    # 게이지 계산
+                    base_gauge_cost = 140
+
+                    #  악마의 주사위 스킬/대쉬 비용 배율 적용
+                    from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
+                    if is_devil_dice_active():
+                        multipliers = get_devil_dice_multipliers()
+                        base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
+
+                    next_consecutive_count = rolling_consecutive_count + 1
+                    consecutive_discount = 0.5 ** (next_consecutive_count - 1)
+                    discounted_cost = int(base_gauge_cost * consecutive_discount)
+                    if dashgear_obtained:
+                        discounted_cost = int(discounted_cost * 0.8)
+                    battery_bonus = academy.get_skill_bonus("dash_battery_pack") if 'academy' in globals() else 0
+                    required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))
+
+                    # 게이지가 부족한 경우 하프 대쉬 체크
+                    if special_gauge < required_gauge:
+                        #  아카데미 스킬 효과 계산: 도약 스킬 보너스
+                        jump_bonus = academy.get_skill_bonus("dash_jump") if 'academy' in globals() else 0
+
+                        half_dash_state = {
+                            'special_gauge': special_gauge,
+                            'required_gauge': required_gauge,
+                            'rolling_charges': rolling_charges,
+                            'rolling_active': rolling_active,
+                            'rolling_stun_timer': rolling_stun_timer,
+                            'down_pressed': down_pressed,
+                            'keys': keys,
+                            'jump_bonus': jump_bonus,  # 도약 스킬 보너스 전달
+                            'dashgear_obtained': dashgear_obtained  # 대쉬기어 상태 전달
+                        }
+
+                        half_dash_activated, half_dash_direction, half_dash_timer, half_dash_token_cost = check_and_activate_half_dash(half_dash_state)
+
+                        if half_dash_activated:
                         # 하프 대쉬 발동
-                        rolling_active = True
-                        is_half_dash_active = True  # 하프대쉬 플래그 설정
-                        half_dash_effect_timer = 20  # 하프대쉬 효과 지속 시간 (약 0.33초)
-                        print(f"[DEBUG 킥차져] 하프대쉬 발동! is_half_dash_active = True, timer = {half_dash_effect_timer}")
-                        # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
-                        if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
-                            tutorial_dash_already_counted = False
-                        # 포세이돈의 삼지창 물결 효과 발동 (하프 대쉬)
-                        try:
-                            legendary_manager = get_legendary_manager()
-                            if legendary_manager:
-                                trident = legendary_manager.get_item("poseidon_trident")
-                                if trident and trident.active:
-                                    # 대쉬 시에는 바로 발동하지 않고 플래그만 설정
-                                    poseidon_dash_pending = True
-                                    poseidon_dash_x = PLAYER.centerx
-                                    poseidon_dash_y = PLAYER.centery
-                        except:
-                            pass  # 전설 아이템 접근 실패 시 무시
-                        rolling_direction = half_dash_direction
-                        rolling_timer = half_dash_timer
-                        
-                        # 하프대쉬 시간 기록 (튜토리얼 카운터용)
-                        global recent_half_dash_time
-                        recent_half_dash_time = pygame.time.get_ticks()
-                        
-                        #  가속화 스킬: 대쉬 시작 시 패들 세로 타격 범위만 증가 및 섬광 효과
-                        acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
-                        if acceleration_bonus > 0:
-                            acceleration_skill_level = int(acceleration_bonus * 10 / 6)  # 레벨 계산 (0.6 -> 1레벨)
-                            acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
-                            # PADDLE_WIDTH와 PLAYER.width는 수정하지 않음 (이미지 크기 유지)
-                            acceleration_active = True
-                            # 섬광 파티클 생성 (레벨에 따라 개수와 화려함 증가)
-                            for i in range(10 + acceleration_skill_level * 5):  # 레벨당 5개씩 추가
-                                angle = (i / (10 + acceleration_skill_level * 5)) * 2 * math.pi
-                                speed = random.uniform(6, 10 + acceleration_skill_level)
-                                acceleration_flash_particles.append([
-                                    PLAYER.centerx, PLAYER.centery,
-                                    math.cos(angle) * speed, math.sin(angle) * speed,
-                                    30 + acceleration_skill_level * 5,  # 생명력
-                                    random.randint(3, 6 + acceleration_skill_level),  # 크기
-                                    (255, 255, 240),  # 밝은 흰색
-                                    'energy'  # 타입
-                                ])
-                            # 전기 스파크 추가 (레벨이 높을수록 많이)
-                            for _ in range(5 + acceleration_skill_level * 3):
-                                angle = random.uniform(0, 2 * math.pi)
-                                speed = random.uniform(8, 15)
-                                acceleration_flash_particles.append([
-                                    PLAYER.centerx, PLAYER.centery,
-                                    math.cos(angle) * speed, math.sin(angle) * speed,
-                                    20 + acceleration_skill_level * 3,
-                                    random.randint(2, 4),
-                                    (200, 220, 255),  # 전기 푸른색
-                                    'electric'
-                                ])
-                        
-                        #  하프대쉬 사용 플래그 설정 (연속 대쉬 방지)
-                        half_dash_used_flag = True
-                        
-                        # 하프대쉬는 연속 대쉬 카운터를 리셋 (연속 대쉬에 포함되지 않음)
-                        if rolling_consecutive_count > 0:
-                            print(f"[DEBUG] 하프대쉬 사용으로 연속대쉬 카운트 리셋: {rolling_consecutive_count} → 0")
-                        rolling_consecutive_count = 0  # 하프대쉬는 연속 대쉬를 끊음
-                        # 스턴 타이머 기반으로 연속대쉬 관리됨
-                        print(f"[DEBUG] 하프대쉬 사용 - 연속대쉬 불가")
-                        
-                        # Mark that half-dash was used, wait for ball hit to count
-                        if current_stage == 50 and tutorial_dash_counter_active:
-                            tutorial_half_dash_pending = True
-                            print(f"튜토리얼: 하프대쉬 발동 - 공 충돌 대기 중")
-                        
-                        # 하프 대쉬도 토큰 소모 (게이지는 소모 없음)
-                        rolling_charges -= half_dash_token_cost
-                        
-                        #  토큰 상태 UI 업데이트 (하프대쉬도 토큰 소모 반영)
-                        if 'token_states' in globals():
-                            # 오른쪽부터 토큰 소모 (가장 마지막 활성 토큰을 비활성화)
-                            for idx in range(len(token_states) - 1, -1, -1):
-                                if idx < len(token_states) and token_states[idx]:
-                                    token_states[idx] = False
-                                    break
-                        else:
-                            # token_states가 없으면 초기화
+                            rolling_active = True
+                            is_half_dash_active = True  # 하프대쉬 플래그 설정
+                            half_dash_effect_timer = 20  # 하프대쉬 효과 지속 시간 (약 0.33초)
+                            print(f"[DEBUG 킥차져] 하프대쉬 발동! is_half_dash_active = True, timer = {half_dash_effect_timer}")
+                            # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
+                            if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
+                                tutorial_dash_already_counted = False
+                            # 포세이돈의 삼지창 물결 효과 발동 (하프 대쉬)
+                            try:
+                                legendary_manager = get_legendary_manager()
+                                if legendary_manager:
+                                    trident = legendary_manager.get_item("poseidon_trident")
+                                    if trident and trident.active:
+                                        # 대쉬 시에는 바로 발동하지 않고 플래그만 설정
+                                        poseidon_dash_pending = True
+                                        poseidon_dash_x = PLAYER.centerx
+                                        poseidon_dash_y = PLAYER.centery
+                            except:
+                                pass  # 전설 아이템 접근 실패 시 무시
+                            rolling_direction = half_dash_direction
+                            rolling_timer = half_dash_timer
+                            
+                            # 하프대쉬 시간 기록 (튜토리얼 카운터용)
+                            global recent_half_dash_time
+                            recent_half_dash_time = pygame.time.get_ticks()
+                            
+                            #  가속화 스킬: 대쉬 시작 시 패들 세로 타격 범위만 증가 및 섬광 효과
+                            acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
+                            if acceleration_bonus > 0:
+                                acceleration_skill_level = int(acceleration_bonus * 10 / 6)  # 레벨 계산 (0.6 -> 1레벨)
+                                acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
+                                # PADDLE_WIDTH와 PLAYER.width는 수정하지 않음 (이미지 크기 유지)
+                                acceleration_active = True
+                                # 섬광 파티클 생성 (레벨에 따라 개수와 화려함 증가)
+                                for i in range(10 + acceleration_skill_level * 5):  # 레벨당 5개씩 추가
+                                    angle = (i / (10 + acceleration_skill_level * 5)) * 2 * math.pi
+                                    speed = random.uniform(6, 10 + acceleration_skill_level)
+                                    acceleration_flash_particles.append([
+                                        PLAYER.centerx, PLAYER.centery,
+                                        math.cos(angle) * speed, math.sin(angle) * speed,
+                                        30 + acceleration_skill_level * 5,  # 생명력
+                                        random.randint(3, 6 + acceleration_skill_level),  # 크기
+                                        (255, 255, 240),  # 밝은 흰색
+                                        'energy'  # 타입
+                                    ])
+                                # 전기 스파크 추가 (레벨이 높을수록 많이)
+                                for _ in range(5 + acceleration_skill_level * 3):
+                                    angle = random.uniform(0, 2 * math.pi)
+                                    speed = random.uniform(8, 15)
+                                    acceleration_flash_particles.append([
+                                        PLAYER.centerx, PLAYER.centery,
+                                        math.cos(angle) * speed, math.sin(angle) * speed,
+                                        20 + acceleration_skill_level * 3,
+                                        random.randint(2, 4),
+                                        (200, 220, 255),  # 전기 푸른색
+                                        'electric'
+                                    ])
+                            
+                            #  하프대쉬 사용 플래그 설정 (연속 대쉬 방지)
+                            half_dash_used_flag = True
+                            
+                            # 하프대쉬는 연속 대쉬 카운터를 리셋 (연속 대쉬에 포함되지 않음)
+                            if rolling_consecutive_count > 0:
+                                print(f"[DEBUG] 하프대쉬 사용으로 연속대쉬 카운트 리셋: {rolling_consecutive_count} → 0")
+                            rolling_consecutive_count = 0  # 하프대쉬는 연속 대쉬를 끊음
+                            # 스턴 타이머 기반으로 연속대쉬 관리됨
+                            print(f"[DEBUG] 하프대쉬 사용 - 연속대쉬 불가")
+                            
+                            # Mark that half-dash was used, wait for ball hit to count
+                            if current_stage == 50 and tutorial_dash_counter_active:
+                                tutorial_half_dash_pending = True
+                                print(f"튜토리얼: 하프대쉬 발동 - 공 충돌 대기 중")
+                            
+                            # 하프 대쉬도 토큰 소모 (게이지는 소모 없음)
+                            rolling_charges -= half_dash_token_cost
+                            
+                            #  토큰 상태 UI 업데이트 (하프대쉬도 토큰 소모 반영)
+                            if 'token_states' in globals():
+                                # 오른쪽부터 토큰 소모 (가장 마지막 활성 토큰을 비활성화)
+                                for idx in range(len(token_states) - 1, -1, -1):
+                                    if idx < len(token_states) and token_states[idx]:
+                                        token_states[idx] = False
+                                        break
+                            else:
+                                # token_states가 없으면 초기화
+                                base_charges = 1
+                                holder_bonus = 1 if dashholder_obtained else 0
+                                amplification_bonus = academy.get_skill_bonus("dash_amplification") if 'academy' in globals() else 0
+                                max_charges = int(base_charges + holder_bonus + amplification_bonus)
+                                token_states = [True] * rolling_charges + [False] * (max_charges - rolling_charges)
+                            
+                            # 대쉬 후 스턴 타이머 설정 (일반 대쉬와 동일)
+                            rolling_stun_timer = 20  # 일반 대쉬와 동일한 쿨다운
+                            
+                            #  하프대쉬 후 토큰 충전 타이머 설정 (중요!)
                             base_charges = 1
                             holder_bonus = 1 if dashholder_obtained else 0
                             amplification_bonus = academy.get_skill_bonus("dash_amplification") if 'academy' in globals() else 0
                             max_charges = int(base_charges + holder_bonus + amplification_bonus)
-                            token_states = [True] * rolling_charges + [False] * (max_charges - rolling_charges)
-                        
-                        # 대쉬 후 스턴 타이머 설정 (일반 대쉬와 동일)
-                        rolling_stun_timer = 20  # 일반 대쉬와 동일한 쿨다운
-                        
-                        #  하프대쉬 후 토큰 충전 타이머 설정 (중요!)
-                        base_charges = 1
-                        holder_bonus = 1 if dashholder_obtained else 0
-                        amplification_bonus = academy.get_skill_bonus("dash_amplification") if 'academy' in globals() else 0
-                        max_charges = int(base_charges + holder_bonus + amplification_bonus)
-                        
-                        if rolling_charges < max_charges:
-                            # 경량화 스킬 효과 적용
-                            lightweight_bonus = academy.get_skill_bonus("dash_lightweight") if 'academy' in globals() else 0
-                            charge_time_reduction = lightweight_bonus
-                            base_charge_time = 90  # 1.5초
-                            base_timer = int(base_charge_time * (1 - charge_time_reduction))
                             
-                            #  악마의 주사위 대쉬 쿨타임 배율 적용 (하프대쉬)
-                            from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
-                            if is_devil_dice_active():
-                                multipliers = get_devil_dice_multipliers()
-                                base_timer = int(base_timer * multipliers['dash_cooldown'])
-                                print(f"[DEBUG]  -     : x{multipliers['dash_cooldown']:.1f}")
+                            if rolling_charges < max_charges:
+                                # 경량화 스킬 효과 적용
+                                lightweight_bonus = academy.get_skill_bonus("dash_lightweight") if 'academy' in globals() else 0
+                                charge_time_reduction = lightweight_bonus
+                                base_charge_time = 90  # 1.5초
+                                base_timer = int(base_charge_time * (1 - charge_time_reduction))
+                                
+                                #  악마의 주사위 대쉬 쿨타임 배율 적용 (하프대쉬)
+                                from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
+                                if is_devil_dice_active():
+                                    multipliers = get_devil_dice_multipliers()
+                                    base_timer = int(base_timer * multipliers['dash_cooldown'])
+                                    print(f"[DEBUG]  -     : x{multipliers['dash_cooldown']:.1f}")
+                                
+                                rolling_charge_timer = base_timer
                             
-                            rolling_charge_timer = base_timer
-                        
-                        # 하프대쉬 전용 효과음
-                        if 'SOUND_HALF_DASH' in globals():
-                            play_sound_with_volume(SOUND_HALF_DASH)
-                        else:
-                            play_dash_sound()  # 폴백: 일반 대쉬 사운드
-                        
-                        # 하프 대쉬 메시지 표시
-                        message_text = "하프 대쉬!"
-                        message_color = (150, 150, 255)
-                        try:
-                            message_font = pygame.font.Font(resource_path("NeoDGM.ttf"), 32)
-                        except:
-                            message_font = pygame.font.Font(None, 32)
-                        
-                        # 일반 대쉬 코드 건너뛰기
-                        # continue 대신 플래그 사용
-                        half_dash_executed = True
-            
-            # 일반 대쉬 처리 (하프 대쉬가 실행되지 않은 경우만)
-            if 'half_dash_executed' not in locals() or not half_dash_executed:
-                pass  # 일반 대쉬 처리 계속
+                            # 하프대쉬 전용 효과음
+                            if 'SOUND_HALF_DASH' in globals():
+                                play_sound_with_volume(SOUND_HALF_DASH)
+                            else:
+                                play_dash_sound()  # 폴백: 일반 대쉬 사운드
+                            
+                            # 하프 대쉬 메시지 표시
+                            message_text = "하프 대쉬!"
+                            message_color = (150, 150, 255)
+                            try:
+                                message_font = pygame.font.Font(resource_path("NeoDGM.ttf"), 32)
+                            except:
+                                message_font = pygame.font.Font(None, 32)
+                            
+                            # 일반 대쉬 코드 건너뛰기
+                            # continue 대신 플래그 사용
+                            half_dash_executed = True
+                
+                # 일반 대쉬 처리 (하프 대쉬가 실행되지 않은 경우만)
+                if 'half_dash_executed' not in locals() or not half_dash_executed:
+                    pass  # 일반 대쉬 처리 계속
             
             if down_pressed and can_use_rolling and rolling_charges > 0 and not rolling_active:
                 #  연속 대쉬 할인을 고려한 실제 게이지 요구량 계산  
@@ -10557,7 +12605,19 @@ def handle_player(keys):
                     discounted_cost = int(discounted_cost * 0.8)  # 대쉬기어 20% 할인
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
-                if keys[pygame.K_LEFT] and keys[pygame.K_DOWN] and special_gauge >= required_gauge:
+                left_before_down = (
+                    keys[pygame.K_LEFT]
+                    and left_press_frame >= 0
+                    and down_press_frame >= 0
+                    and left_press_frame < down_press_frame
+                )
+                right_before_down = (
+                    keys[pygame.K_RIGHT]
+                    and right_press_frame >= 0
+                    and down_press_frame >= 0
+                    and right_press_frame < down_press_frame
+                )
+                if left_before_down and keys[pygame.K_DOWN] and special_gauge >= required_gauge:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     rolling_active = True
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
@@ -10710,7 +12770,7 @@ def handle_player(keys):
                 #  대쉬 매니저와 4번째 대쉬 위치 동기화
                 if dash is not None and rolling_charge_timer > 0:
                     dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
-                elif keys[pygame.K_RIGHT] and keys[pygame.K_DOWN] and special_gauge >= required_gauge:
+                elif right_before_down and keys[pygame.K_DOWN] and special_gauge >= required_gauge:
                     # 아래키 + 오른쪽 - 대쉬 실행
                     rolling_active = True
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
@@ -11082,7 +13142,7 @@ def handle_player(keys):
         net_gun_instance = get_net_gun_instance()
 
     if not player_stunned:
-        # 군인 캐릭터 총알 발사 처리
+        # 코만도 캐릭터 총알 발사 처리
         if selected_character_type == "soldier" and keys[pygame.K_SPACE] and soldier_control_lock_timer <= 0:
             # UP 키가 동시에 눌려있으면 물자보급 발동 시도 중이므로 화기류 발사 불가
             if keys[pygame.K_UP]:
@@ -11179,7 +13239,7 @@ def handle_player(keys):
     # 화염 지대 넉백은 감전/스턴 상태와 무관하게 항상 적용
     PLAYER.x += player_flame_zone_knockback_vel
     
-    # === 군인 캐릭터 걷기 애니메이션 처리 ===
+    # === 코만도 캐릭터 걷기 애니메이션 처리 ===
     if selected_character_type == "soldier":
         # 플레이어가 움직이고 있는지 확인 (속도가 충분히 클 때)
         if abs(current_speed) > 1.0:
@@ -11193,6 +13253,15 @@ def handle_player(keys):
             # 멈춤 상태 - 걷기 애니메이션 비활성화
             soldier_walking_active = False
             soldier_walking_timer = 0
+    elif selected_character_type == "blacksmith":
+        if abs(current_speed) > 1.0:
+            if not blacksmith_walking_active:
+                blacksmith_walking_active = True
+                blacksmith_walking_timer = 0
+            blacksmith_walking_timer += 1
+        else:
+            blacksmith_walking_active = False
+            blacksmith_walking_timer = 0
     
     # 헤르메스의 신발 별가루 파티클 생성
     global last_paddle_x, hermes_star_particles
@@ -11294,11 +13363,15 @@ def handle_player(keys):
         if is_player_serve:
             is_player_serve = False
         
-        # 군인 캐릭터 휘두르기 애니메이션 활성화
+        # 코만도 캐릭터 휘두르기 애니메이션 활성화
         global soldier_swing_active, soldier_swing_timer
+        global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
         if selected_character_type == "soldier":
             soldier_swing_active = True
             soldier_swing_timer = SOLDIER_SWING_DURATION
+        elif selected_character_type == "blacksmith":
+            blacksmith_shield_swing_active = True
+            blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
         
         # Chapter 2 튜토리얼: 대쉬 상태에서 충돌 시 첫 대쉬 이벤트 처리
         if current_stage == 50 and tutorial_current_chapter == 2 and rolling_active:
@@ -11646,7 +13719,7 @@ def handle_player(keys):
             else:
                 # 캐릭터별 기본 게이지 충전량
                 if selected_character_type == "soldier":
-                    base_gauge_gain = 50  # 군인: 게이지 충전 50
+                    base_gauge_gain = 50  # 코만도: 게이지 충전 50
                 else:
                     base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -12515,7 +14588,7 @@ def handle_wall():
                 else:
                     print(f"  !")
                 
-                # 군인 캐릭터의 수류탄 보스 명중 시 게이지 50+ 증가
+                # 코만도 캐릭터의 수류탄 보스 명중 시 게이지 50+ 증가
                 global special_gauge, special_ready, selected_character_type
                 if selected_character_type == "soldier":
                     gauge_increase = 50  # 기본 50 증가
@@ -12919,7 +14992,7 @@ def handle_wall():
                     boss_confused_timer = THREE_SECONDS_FRAMES  # 3초간 보스 혼란
                     print(f"  !  3  !")
                     
-                    # 군인 캐릭터의 조명탄 보스 명중 시 게이지 50+ 증가
+                    # 코만도 캐릭터의 조명탄 보스 명중 시 게이지 50+ 증가
                     if selected_character_type == "soldier":
                         gauge_increase = 50  # 기본 50 증가
                         
@@ -14632,9 +16705,14 @@ def draw_player_gauge():
     gauge_width = 14  # 더 얇게
     gauge_height = 100  # 높이
     time_now = pygame.time.get_ticks()
+    emblem_state = get_blacksmith_emblem_state(time_now)
+    pulse_scale = emblem_state["pulse_scale"]
+    rotation_angle = emblem_state["rotation_angle"]
+    glow_intensity = emblem_state["glow_intensity"]
+    emblem_radius = BLACKSMITH_EMBLEM_RADIUS
     # 동적으로 최대 게이지 가져오기 (악마의 주사위 효과 포함)
     current_max_gauge = get_max_gauge()
-    
+
     #  전기 효과 강도 (게이지가 높을수록 강해짐)
     electric_intensity = displayed_gauge / current_max_gauge if displayed_gauge > 0 else 0
     # 캐릭터별 프레임 디자인
@@ -14647,15 +16725,42 @@ def draw_player_gauge():
             (gauge_x + gauge_width + 4, gauge_y + 10),
             (gauge_x + gauge_width + 4, gauge_y - 2),
         ]
-        # 군복 올리브 그린 색상
-        draw.polygon((60, 80, 40), hex_top)  # 어두운 올리브
-        draw.polygon((120, 140, 80), hex_top, 3)  # 밝은 올리브 테두리
-        
-        # 군인 엠블럼 애니메이션 상단
+        draw.polygon((60, 80, 40), hex_top)
+        draw.polygon((120, 140, 80), hex_top, 3)
+
         emblem_x = gauge_x + gauge_width // 2
-        emblem_y = gauge_y - 35  # 좀 더 위에 배치
+        emblem_y = gauge_y - 35
+    elif selected_character_type == "blacksmith":
+        # 발토르 전용 단조 프레임 (망치질된 금속 디테일)
+        frame_outer = pygame.Rect(gauge_x - 6, gauge_y - 8, gauge_width + 12, gauge_height + 16)
+        draw.rect((45, 32, 26), frame_outer, border_radius=6)
+        draw.rect((125, 86, 54), frame_outer, 3, border_radius=6)
+
+        frame_inner = pygame.Rect(gauge_x - 2, gauge_y - 2, gauge_width + 4, gauge_height + 4)
+        draw.rect((30, 22, 18), frame_inner, border_radius=4)
+        draw.rect((150, 110, 70), frame_inner, 1, border_radius=4)
+
+        rivet_color = (205, 160, 95)
+        rivet_shadow = (120, 85, 55)
+        rivet_positions = [
+            (frame_outer.left + 6, frame_outer.top + 6),
+            (frame_outer.right - 6, frame_outer.top + 6),
+            (frame_outer.left + 6, frame_outer.bottom - 6),
+            (frame_outer.right - 6, frame_outer.bottom - 6),
+            (frame_outer.left + 6, gauge_y + gauge_height // 2),
+            (frame_outer.right - 6, gauge_y + gauge_height // 2),
+        ]
+        for rx, ry in rivet_positions:
+            pygame.draw.circle(SCREEN, rivet_shadow, (rx, ry), 3)
+            pygame.draw.circle(SCREEN, rivet_color, (rx, ry), 2)
+
+        brace_y_offsets = (gauge_y + gauge_height // 3, gauge_y + (gauge_height * 2) // 3)
+        for brace_y in brace_y_offsets:
+            draw.line((150, 105, 70), (frame_outer.left + 4, brace_y), (frame_outer.right - 4, brace_y), 2)
+
+        emblem_x = gauge_x + gauge_width // 2
+        emblem_y = gauge_y - 38
     else:
-        # 기존 스매셔 프레임
         hex_top = [
             (gauge_x + gauge_width // 2, gauge_y - 10),
             (gauge_x - 3, gauge_y),
@@ -14665,22 +16770,13 @@ def draw_player_gauge():
         ]
         draw.polygon((80, 90, 100), hex_top)
         draw.polygon((180, 190, 200), hex_top, 2)
-        
-        # 스매셔 엠블럼 애니메이션 상단
+
         emblem_x = gauge_x + gauge_width // 2
         emblem_y = gauge_y - 30
     
-    # 애니메이션 효과
-    pulse_scale = 1.0 + math.sin(time_now * 0.003) * 0.1  # 펄스 효과
-    rotation_angle = time_now * 0.001  # 천천히 회전
-    glow_intensity = abs(math.sin(time_now * 0.002))  # 빛나는 효과
-    
-    # 엠블럼 크기
-    emblem_radius = 15
-    
     # 캐릭터별 엠블럼 디자인
     if selected_character_type == "soldier":
-        # === 군인 엠블럼 디자인 ===
+        # === 코만도 엠블럼 디자인 ===
         # 배경 원형 글로우 효과 (올리브 그린)
         for i in range(3):
             glow_radius = emblem_radius + (i + 1) * 2
@@ -14694,7 +16790,7 @@ def draw_player_gauge():
         pygame.draw.circle(SCREEN, base_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale))
         pygame.draw.circle(SCREEN, border_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale), 3)
         
-        # 군인 심볼 - 별과 독수리 날개 모양
+        # 코만도 심볼 - 별과 독수리 날개 모양
         # 중앙 별 그리기
         star_points = []
         star_radius = 8
@@ -14758,6 +16854,18 @@ def draw_player_gauge():
                 point_y = emblem_y + math.sin(point_angle) * point_radius
                 pygame.draw.circle(SCREEN, (100, 255, 100), (int(point_x), int(point_y)), 1)
                 
+    elif selected_character_type == "blacksmith":
+        draw_blacksmith_emblem(
+            SCREEN,
+            emblem_x,
+            emblem_y,
+            emblem_state,
+            radius=BLACKSMITH_EMBLEM_RADIUS,
+            gauge_value=displayed_gauge,
+            gauge_max=current_max_gauge,
+            show_gauge_fx=True,
+        )
+
     else:
         # === 기존 스매셔 엠블럼 디자인 ===
         # 배경 원형 글로우 효과
@@ -14854,7 +16962,7 @@ def draw_player_gauge():
         # 군복 올리브 그린 색상
         draw.polygon((60, 80, 40), hex_bottom)  # 어두운 올리브
         draw.polygon((120, 140, 80), hex_bottom, 3)  # 밝은 올리브 테두리
-        
+
         # 군사용 메인 프레임 배경 (올리브 톤)
         main_rect = pygame.Rect(gauge_x - 2, gauge_y, gauge_width + 4, gauge_height)
         draw.rect((35, 45, 25), main_rect)  # 올리브 배경
@@ -14871,11 +16979,44 @@ def draw_player_gauge():
             # 오른쪽 라인
             draw.line((140, 120, 80), 
                             (gauge_x + gauge_width + 2, line_y), (gauge_x + gauge_width + 5, line_y), 1)
-        
+
         # 센터 라인 (세로 중앙선) - 군사용 골드
         center_x = gauge_x + gauge_width // 2
         draw.line((100, 80, 50), 
                         (center_x, gauge_y + 5), (center_x, gauge_y + gauge_height - 5), 1)
+    elif selected_character_type == "blacksmith":
+        # 발토르 전용 프레임 하단 (철제 지지대 형상)
+        base_plate = pygame.Rect(gauge_x - 4, gauge_y + gauge_height - 12, gauge_width + 8, 16)
+        draw.rect((55, 38, 28), base_plate, border_radius=4)
+        draw.rect((140, 100, 60), base_plate, 2, border_radius=4)
+
+        # 메인 바디는 단조된 금속 톤으로 표현
+        main_rect = pygame.Rect(gauge_x - 2, gauge_y, gauge_width + 4, gauge_height)
+        draw.rect((34, 26, 22), main_rect)
+        inner_rect = pygame.Rect(gauge_x, gauge_y + 2, gauge_width, gauge_height - 4)
+        draw.rect((22, 17, 14), inner_rect)
+
+        # 보강 리벳과 띠
+        accent_color = (170, 120, 70)
+        for i in range(4):
+            line_y = gauge_y + 18 + i * 22
+            draw.line(accent_color, (gauge_x - 5, line_y), (gauge_x - 2, line_y), 1)
+            draw.line(accent_color, (gauge_x + gauge_width + 2, line_y), (gauge_x + gauge_width + 5, line_y), 1)
+
+        center_x = gauge_x + gauge_width // 2
+        draw.line((120, 85, 55), (center_x, gauge_y + 6), (center_x, gauge_y + gauge_height - 6), 1)
+
+        bolt_color = (205, 160, 95)
+        bolt_shadow = (120, 85, 55)
+        bolt_positions = [
+            (gauge_x - 5, gauge_y + 8),
+            (gauge_x + gauge_width + 5, gauge_y + 8),
+            (gauge_x - 5, gauge_y + gauge_height - 8),
+            (gauge_x + gauge_width + 5, gauge_y + gauge_height - 8),
+        ]
+        for bx, by in bolt_positions:
+            pygame.draw.circle(SCREEN, bolt_shadow, (bx, by), 3)
+            pygame.draw.circle(SCREEN, bolt_color, (bx, by), 2)
     else:
         # 기존 스매셔 프레임 하단
         hex_bottom = [
@@ -14921,7 +17062,7 @@ def draw_player_gauge():
             
         # 캐릭터별 게이지 색상
         if selected_character_type == "soldier":
-            # === 군인 전용 게이지 색상 (올리브/골드 계열) ===
+            # === 코만도 전용 게이지 색상 (올리브/골드 계열) ===
             if displayed_gauge < 150:
                 # 레벨 1: 어두운 올리브
                 base_color = (120, 140, 80)
@@ -14943,6 +17084,25 @@ def draw_player_gauge():
                     int(80 + pulse * 20)
                 )
                 energy_color = (255, 215, 100)
+        elif selected_character_type == "blacksmith":
+            # === 발토르 전용 게이지 색상 (용광로 계열) ===
+            if displayed_gauge < 150:
+                base_color = (120, 90, 70)
+                energy_color = (150, 110, 80)
+            elif displayed_gauge < 250:
+                base_color = (170, 115, 70)
+                energy_color = (210, 150, 95)
+            elif displayed_gauge < 350:
+                base_color = (210, 130, 60)
+                energy_color = (240, 175, 100)
+            else:
+                pulse = abs(math.sin(time_now * 0.005))
+                base_color = (
+                    int(210 + pulse * 45),
+                    int(135 + pulse * 30),
+                    int(70 + pulse * 20)
+                )
+                energy_color = (255, 205, 130)
         else:
             # === 기존 스매셔 게이지 색상 (전기/플라즈마 계열) ===
             if displayed_gauge < 150:
@@ -15001,26 +17161,39 @@ def draw_player_gauge():
                     final_color = tuple(min(255, int(c + pulse_offset * 20)) for c in color)
                     draw.line(final_color, (gauge_x + 2 + layer, fill_y + i),
                                    (gauge_x + 2 + layer_width, fill_y + i))
-        #  전기 스파크 효과 (350 이상일 때)
+        # 캐릭터별 발광 효과 (350 이상일 때)
         if displayed_gauge >= 350:
-            spark_count = 2 if displayed_gauge < special_gauge_max else 4
-            for _ in range(spark_count):
-                spark_y = fill_y + random.randint(0, fill_height - 1)
-                spark_x = gauge_x + random.randint(2, gauge_width - 2)
-                spark_length = random.randint(3, 7)
-                # 번개 모양
-                points = []
-                current_x = spark_x
-                current_y = spark_y
-                for i in range(3):
-                    next_x = current_x + random.randint(-3, 3)
-                    next_y = current_y + spark_length // 3
-                    points.append((current_x, current_y))
-                    points.append((next_x, next_y))
-                    current_x = next_x
-                    current_y = next_y
-                if len(points) > 1:
-                    pygame.draw.lines(SCREEN, WHITE, False, points, 1)
+            if selected_character_type == "blacksmith":
+                ember_count = 3 if displayed_gauge < special_gauge_max else 5
+                for _ in range(ember_count):
+                    ember_y = fill_y + random.randint(0, max(1, fill_height) - 1)
+                    ember_x = gauge_x + random.randint(2, gauge_width - 2)
+                    ember_color = (255, 200, 120)
+                    pygame.draw.circle(SCREEN, ember_color, (ember_x, ember_y), 2)
+                    if random.random() < 0.5:
+                        trail_height = random.randint(2, 5)
+                        pygame.draw.line(SCREEN, (255, 160, 80),
+                                         (ember_x, ember_y),
+                                         (ember_x, max(gauge_y + 2, ember_y - trail_height)))
+            else:
+                spark_count = 2 if displayed_gauge < special_gauge_max else 4
+                spark_color = (220, 200, 120) if selected_character_type == "soldier" else WHITE
+                for _ in range(spark_count):
+                    spark_y = fill_y + random.randint(0, max(1, fill_height) - 1)
+                    spark_x = gauge_x + random.randint(2, gauge_width - 2)
+                    spark_length = random.randint(3, 7)
+                    points = []
+                    current_x = spark_x
+                    current_y = spark_y
+                    for i in range(3):
+                        next_x = current_x + random.randint(-3, 3)
+                        next_y = current_y + spark_length // 3
+                        points.append((current_x, current_y))
+                        points.append((next_x, next_y))
+                        current_x = next_x
+                        current_y = next_y
+                    if len(points) > 1:
+                        pygame.draw.lines(SCREEN, spark_color, False, points, 1)
         # 상단 에너지 글로우
         if fill_ratio > 0.5:
             glow_height = 5
@@ -15029,31 +17202,55 @@ def draw_player_gauge():
                 glow_color = tuple(min(255, c + 50) for c in energy_color)
                 draw.line(glow_color, (gauge_x + 2, fill_y - i),
                                (gauge_x + gauge_width - 2, fill_y - i))
-    #  파워 준비 상태 표시 (전기 효과)
+    #  파워 준비 상태 표시 (캐릭터별 연출)
     if displayed_gauge >= 350:
-        # 외곽 전기 아크
-        if (time_now // 100) % 3 == 0:  # 간헐적으로
-            # 상단 아크
-            arc_start = (gauge_x - 5, gauge_y - 5)
-            arc_end = (gauge_x + gauge_width + 5, gauge_y - 5)
-            arc_mid = (gauge_x + gauge_width // 2, gauge_y - 8)
-            pygame.draw.lines(SCREEN, (150, 200, 255), False, 
-                            [arc_start, arc_mid, arc_end], 1)
-            # 하단 아크
-            arc_start = (gauge_x - 5, gauge_y + gauge_height + 5)
-            arc_end = (gauge_x + gauge_width + 5, gauge_y + gauge_height + 5)
-            arc_mid = (gauge_x + gauge_width // 2, gauge_y + gauge_height + 8)
-            pygame.draw.lines(SCREEN, (150, 200, 255), False, 
-                            [arc_start, arc_mid, arc_end], 1)
-        # 코너 발광
-        corner_glow = int(abs(math.sin(time_now * 0.004)) * 100 + 155)
-        corner_color = (corner_glow, corner_glow, 255)
-        # 상단 코너
-        draw.circle(corner_color, (gauge_x, gauge_y), 3)
-        draw.circle(corner_color, (gauge_x + gauge_width, gauge_y), 3)
-        # 하단 코너
-        draw.circle(corner_color, (gauge_x, gauge_y + gauge_height), 3)
-        draw.circle(corner_color, (gauge_x + gauge_width, gauge_y + gauge_height), 3)
+        if selected_character_type == "blacksmith":
+            forge_pulse = abs(math.sin(time_now * 0.01))
+            glow_color = (
+                int(240 + forge_pulse * 15),
+                int(170 + forge_pulse * 35),
+                int(100 + forge_pulse * 25),
+            )
+            # 상단/하단 용광로 발광선
+            pygame.draw.line(SCREEN, glow_color,
+                             (gauge_x - 5, gauge_y - 6),
+                             (gauge_x + gauge_width + 5, gauge_y - 6), 2)
+            pygame.draw.line(SCREEN, glow_color,
+                             (gauge_x - 5, gauge_y + gauge_height + 6),
+                             (gauge_x + gauge_width + 5, gauge_y + gauge_height + 6), 2)
+
+            ember_color = (255, 200, 120)
+            # 양측 기둥을 따라 상승하는 불똥
+            for side in (-1, 1):
+                base_x = gauge_x - 6 if side == -1 else gauge_x + gauge_width + 6
+                for i in range(3):
+                    ember_phase = (time_now * 0.002 + i * 0.3 + (0.15 if side > 0 else 0.0)) % 1.0
+                    ember_y = gauge_y + gauge_height - int(ember_phase * (gauge_height - 12)) - 4
+                    ember_y = max(gauge_y + 4, ember_y)
+                    pygame.draw.circle(SCREEN, ember_color, (int(base_x), int(ember_y)), 2)
+        else:
+            arc_color = (200, 190, 120) if selected_character_type == "soldier" else (150, 200, 255)
+            if (time_now // 100) % 3 == 0:
+                arc_start = (gauge_x - 5, gauge_y - 5)
+                arc_end = (gauge_x + gauge_width + 5, gauge_y - 5)
+                arc_mid = (gauge_x + gauge_width // 2, gauge_y - 8)
+                pygame.draw.lines(SCREEN, arc_color, False,
+                                  [arc_start, arc_mid, arc_end], 1)
+                arc_start = (gauge_x - 5, gauge_y + gauge_height + 5)
+                arc_end = (gauge_x + gauge_width + 5, gauge_y + gauge_height + 5)
+                arc_mid = (gauge_x + gauge_width // 2, gauge_y + gauge_height + 8)
+                pygame.draw.lines(SCREEN, arc_color, False,
+                                  [arc_start, arc_mid, arc_end], 1)
+
+            corner_glow = int(abs(math.sin(time_now * 0.004)) * 100 + 155)
+            if selected_character_type == "soldier":
+                corner_color = (corner_glow, int(corner_glow * 0.85), 120)
+            else:
+                corner_color = (corner_glow, corner_glow, 255)
+            draw.circle(corner_color, (gauge_x, gauge_y), 3)
+            draw.circle(corner_color, (gauge_x + gauge_width, gauge_y), 3)
+            draw.circle(corner_color, (gauge_x, gauge_y + gauge_height), 3)
+            draw.circle(corner_color, (gauge_x + gauge_width, gauge_y + gauge_height), 3)
     # 킥차져 충전 애니메이션 - 황금빛 테두리 효과
     if gauge_charge_animation_timer > 0:
         # 충전 효과 강도
@@ -16556,6 +18753,12 @@ def draw_objects():
     global stage5_boss_hurt_active, stage5_boss_hurt_timer  #  Stage 5 보스 피격 효과
     global frame_count  # 프레임 카운터 추가
     global player_missile_stunned_timer  # 미사일 스턴 타이머 추가
+    global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
+    global blacksmith_turret_build_progress, blacksmith_turret_active
+    global blacksmith_turret_state, blacksmith_turret_projectiles
+    global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
+    global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
+    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     new_tear_particles = []  #  함수 시작 시 초기화
     
     # 전설 아이템 물결 효과 그리기 (업데이트는 물리 루프에서 이미 처리됨)
@@ -16569,7 +18772,9 @@ def draw_objects():
                 trident.draw_effects(SCREEN)  # 물결 파티클 그리기
     except:
         pass  # 전설 아이템 매니저 접근 실패 시 무시
-    
+
+    draw_blacksmith_turret_elements(SCREEN)
+
     # 킥차져 빛나는 이펙트 그리기
     try:
         from item_effects.knee_pads import get_knee_pads_instance
@@ -16642,7 +18847,11 @@ def draw_objects():
                 status_rect = status_text.get_rect(center=(WIDTH // 2, serve_rect.bottom + 20))
                 SCREEN.blit(status_text, status_rect)
     #  퍼펙트 타이밍 윈도우 시각적 표시 (드라이브 가능 시 항상 유지)
-    elif perfect_timing_indicator_active and special_gauge >= 150 and selected_character_type != "soldier":
+    elif (
+        perfect_timing_indicator_active
+        and special_gauge >= 150
+        and selected_character_type == "smasher"
+    ):
         # 공 주변에 퍼펙트 타이밍 인디케이터 그리기
         timing_alpha = 255
         timing_radius = 30 + int(5 * math.sin(pygame.time.get_ticks() * 0.2))
@@ -17251,13 +19460,25 @@ def draw_objects():
     else:
         # 일반 모드에서는 캐릭터 타입에 따라 다른 이미지 사용
         if selected_character_type == "soldier":
-            # 군인 캐릭터 애니메이션 처리 (우선순위: 휘두르기 > 걷기 > 기본)
+            # 코만도 캐릭터 애니메이션 처리 (우선순위: 휘두르기 > 걷기 > 기본)
             if soldier_swing_active:
                 base_ufo_img = create_soldier_paddle_animated()
             elif soldier_walking_active:
                 base_ufo_img = create_soldier_paddle_walking()
             else:
                 base_ufo_img = SOLDIER_PADDLE_IMG
+        elif selected_character_type == "blacksmith":
+            if blacksmith_shield_swing_active:
+                base_ufo_img = create_blacksmith_paddle_swinging()
+            elif blacksmith_hammer_swing_active:
+                base_ufo_img = create_blacksmith_paddle_hammering()
+            elif blacksmith_walking_active:
+                base_ufo_img = create_blacksmith_paddle_walking()
+            else:
+                base_ufo_img = BLACKSMITH_PADDLE_IMG
+        elif selected_character_type == "smasher":
+            # 스매셔 캐릭터는 에반게리온 스타일 패들 사용
+            base_ufo_img = SMASHER_PADDLE_IMG
         else:
             # 기본 UFO 플레이어 이미지 사용
             base_ufo_img = PLAYER_IMG
@@ -18770,8 +20991,12 @@ def draw_objects():
     # 공 이미지 결정
     ball_img_to_draw = BALL_IMG  #  예전 파워스매싱(공이 붉게 되는 것) 제거
     ball_already_drawn = False  # 공이 이미 그려졌는지 추적
-    #  새로운 보스전에서는 드라이브 모니터(연두색 공) 제거, 군인 캐릭터도 제외
-    if not new_boss_mode_active and drive_ball_active and selected_character_type != "soldier":
+    #  새로운 보스전에서는 드라이브 모니터(연두색 공) 제거, 코만도 캐릭터도 제외
+    if (
+        not new_boss_mode_active
+        and drive_ball_active
+        and selected_character_type == "smasher"
+    ):
         # 프리즘 구체 효과를 위한 시간 기반 변화
         prism_time = pygame.time.get_ticks() * 0.003
         # 기본 공 이미지 복사
@@ -18837,8 +21062,8 @@ def draw_objects():
         ball_img_rect = rotated_ball.get_rect(center=ball_rect.center)
         draw_with_shake(rotated_ball, ball_img_rect.topleft)
     
-    #  드라이브 별빛가루 파티클 그리기 (공 뒤에 그려서 은은하게, 군인 캐릭터 제외)
-    if drive_ball_active and selected_character_type != "soldier":
+    #  드라이브 별빛가루 파티클 그리기 (공 뒤에 그려서 은은하게, 코만도 캐릭터 제외)
+    if drive_ball_active and selected_character_type == "smasher":
         # 드라이브 활성화 중 계속 파티클 생성 (적은 양으로)
         if random.random() < 0.3:  # 30% 확률로 파티클 추가 생성
             spawn_drive_particles(BALL.centerx, BALL.centery, count=1)
@@ -19387,7 +21612,7 @@ def draw_objects():
                     spark_size = random.randint(3, 8)
                     draw.circle((150, 200, 255), (spark_x, spark_y), spark_size)
                     draw.circle(WHITE, (spark_x, spark_y), spark_size - 2)
-    # === 군인 총알 그리기 ===
+    # === 코만도 총알 그리기 ===
     if selected_character_type == "soldier" and soldier_bullets:
         draw_soldier_bullets(SCREEN)
     
@@ -19423,7 +21648,7 @@ def draw_objects():
     if selected_character_type == "soldier":
         draw_head_shot_effect(SCREEN)
     
-    # === 군인 총 발사 애니메이션 그리기 ===
+    # === 코만도 총 발사 애니메이션 그리기 ===
     if selected_character_type == "soldier":
         draw_soldier_gun_animation(SCREEN, PLAYER)
         
@@ -20916,9 +23141,13 @@ def show_start_screen():
     global game_should_exit  #  게임 종료 플래그
     global smoke_zones  #  연막 지역 초기화
     global frame_count  # frame_count 변수 추가
+    global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
     game_should_exit = False  # 메인 메뉴 진입 시 플래그 리셋
     frame_count = 0  # frame_count 초기화
     smoke_zones = []  # 메인 메뉴 복귀 시 연막 효과 초기화
+    blacksmith_build_menu_active = False
+    blacksmith_down_hold_frames = 0
+    blacksmith_divine_stone_state = None
     
     # 메인 메뉴 BGM 재생 (이미 재생 중이 아닌 경우에만)
     bgm_manager.play_menu_bgm()
@@ -23823,11 +26052,12 @@ def show_tutorial_power_demonstration():
         # 플레이어 패들 그리기
         try:
             if 'PLAYER_IMG' in globals() and PLAYER_IMG:
-                # 캐릭터 타입에 따라 다른 이미지 사용
-                if selected_character_type == "soldier" and 'SOLDIER_PADDLE_IMG' in globals():
-                    player_demo_img = pygame.transform.scale(SOLDIER_PADDLE_IMG, (80, 32))
-                else:
-                    player_demo_img = pygame.transform.scale(PLAYER_IMG, (80, 32))
+                preview_key = selected_character_type if selected_character_type else "normal"
+                player_demo_img = build_character_preview_surface(
+                    preview_key,
+                    max_width=200,
+                    max_height=110,
+                )
                 player_rect = player_demo_img.get_rect(center=(player_x, player_y))
                 SCREEN.blit(player_demo_img, player_rect)
             else:
@@ -25212,14 +27442,13 @@ def show_tutorial_dash_dialogue():
                 try:
                     # 실제 플레이어 이미지 사용
                     if 'PLAYER_IMG' in globals() and PLAYER_IMG:
-                        # 캐릭터 타입에 따라 다른 이미지 사용
-                        if selected_character_type == "soldier" and 'SOLDIER_PADDLE_IMG' in globals():
-                            player_demo_img = pygame.transform.scale(SOLDIER_PADDLE_IMG, (80, 32))
-                        else:
-                            # 플레이어 이미지 크기 조절 (원본이 250x100이므로 축소)
-                            player_demo_img = pygame.transform.scale(PLAYER_IMG, (80, 32))
-                        player_rect = player_demo_img.get_rect(center=demo_player.center)
-                        SCREEN.blit(player_demo_img, player_rect)
+                        preview_img = build_character_preview_surface(
+                            selected_character_type if selected_character_type else "normal",
+                            max_width=200,
+                            max_height=110,
+                        )
+                        player_rect = preview_img.get_rect(center=demo_player.center)
+                        SCREEN.blit(preview_img, player_rect)
                     else:
                         # 이미지가 없을 경우 기본 사각형
                         pygame.draw.rect(SCREEN, (100, 150, 255), demo_player, 0, 5)
@@ -27295,7 +29524,7 @@ def show_tutorial_dash_completion_dialogue():
     return True
 
 def create_soldier_character_card_image(size):
-    """캐릭터 선택 카드용 군인 이미지 - 앞모습 사용"""
+    """캐릭터 선택 카드용 코만도 이미지 - 앞모습 사용"""
     # 앞모습 이미지 생성
     front_view = create_soldier_front_view()
     
@@ -27411,7 +29640,7 @@ def create_soldier_character_card_image(size):
     return img
 
 def create_soldier_character_card_image_new(size):
-    """캐릭터 선택 카드용 군인 이미지 - 앞모습만 사용하는 단순화 버전"""
+    """캐릭터 선택 카드용 코만도 이미지 - 앞모습만 사용하는 단순화 버전"""
     # 앞모습 이미지 생성
     front_view = create_soldier_front_view()
     
@@ -27436,7 +29665,7 @@ def create_soldier_character_card_image_new(size):
     return img
 
 def create_soldier_front_view():
-    """군인 캐릭터 앞모습 - 전신 (다리 짧은 버전)"""
+    """코만도 캐릭터 앞모습 - 전신 (다리 짧은 버전)"""
     img = pygame.Surface((150, 170), pygame.SRCALPHA)  # 높이를 200에서 170으로 줄임
     
     # 중심점 설정
@@ -27708,7 +29937,7 @@ def show_character_selection():
         },
         {
             "id": "soldier",
-            "name": "군인",
+            "name": "코만도",
             "description": "전술적 플레이와 강인한 정신력",
             "image": "soldier.png",
             "stats": {"속도": 6, "파워": 6, "방어": 6},
@@ -27717,6 +29946,18 @@ def show_character_selection():
             "card_color": (80, 120, 40),  # 군복 녹색
             "glow_color": (100, 150, 50),
             "card_suit": ""
+        },
+        {
+            "id": "blacksmith",
+            "name": "발토르",
+            "description": "강철 장비 제작 전문가",
+            "image": "blacksmith.png",
+            "stats": {"속도": 5, "파워": 7, "방어": 5},
+            "special": " 전용 스킬 준비 중",
+            "unlocked": True,
+            "card_color": (150, 110, 60),
+            "glow_color": (220, 170, 90),
+            "card_suit": "◆"
         },
         {
             "id": "speed_player",
@@ -28156,11 +30397,26 @@ def show_character_selection():
             # 캐릭터 이미지 영역
             image_size = min(w - 20, h // 3)  # 카드 크기에 비례
             if character["id"] == "soldier":
-                # 군인 캐릭터는 직접 그리기 (앞모습)
+                # 코만도 캐릭터는 직접 그리기 (앞모습)
                 soldier_img = create_soldier_character_card_image_new(image_size)
                 image_x = (w - image_size) // 2
                 image_y = 30
                 surface.blit(soldier_img, (image_x, image_y))
+            elif character["id"] == "blacksmith":
+                source_img = BLACKSMITH_CARD_IMG if 'BLACKSMITH_CARD_IMG' in globals() else BLACKSMITH_PADDLE_IMG
+                src_w, src_h = source_img.get_size()
+                max_width = max(20, w - 24)
+                max_height = max(20, int(h * 0.65))
+                scale = min(max_width / src_w, max_height / src_h)
+                scale = max(scale, 0.1)
+                target_size = (
+                    max(1, int(src_w * scale)),
+                    max(1, int(src_h * scale))
+                )
+                blacksmith_img = pygame.transform.smoothscale(source_img, target_size)
+                image_x = (w - blacksmith_img.get_width()) // 2
+                image_y = 28
+                surface.blit(blacksmith_img, (image_x, image_y))
             else:
                 try:
                     char_image = pygame.image.load(character["image"])
@@ -28554,9 +30810,23 @@ def show_character_selection():
                     pygame.draw.lines(SCREEN, (200, 220, 255), False, 
                                     [(start_x, start_y), (mid_x, mid_y), (end_x, end_y)], 1)
             
-            # 군인 캐릭터인 경우 엠블럼 애니메이션 추가
-            elif current_char["id"] == "soldier":  # 군인 캐릭터
-                # 군인 엠블럼 애니메이션 (캐릭터 이름 옆)
+            # 발토르 캐릭터인 경우 엠블럼 애니메이션 추가
+            elif current_char["id"] == "blacksmith":
+                emblem_x = detail_x + detail_card_width//2 + name_rect.width//2 + 40
+                emblem_y = name_y
+                state = get_blacksmith_emblem_state()
+                draw_blacksmith_emblem(
+                    SCREEN,
+                    emblem_x,
+                    emblem_y,
+                    state,
+                    radius=BLACKSMITH_EMBLEM_RADIUS,
+                    show_gauge_fx=False,
+                )
+
+            # 코만도 캐릭터인 경우 엠블럼 애니메이션 추가
+            elif current_char["id"] == "soldier":  # 코만도 캐릭터
+                # 코만도 엠블럼 애니메이션 (캐릭터 이름 옆)
                 emblem_x = detail_x + detail_card_width//2 + name_rect.width//2 + 40
                 emblem_y = name_y
                 
@@ -28570,7 +30840,7 @@ def show_character_selection():
                 # 엠블럼 크기
                 emblem_radius = 15
                 
-                # === 군인 엠블럼 디자인 ===
+                # === 코만도 엠블럼 디자인 ===
                 # 배경 원형 글로우 효과 (올리브 그린)
                 for i in range(3):
                     glow_radius = emblem_radius + (i + 1) * 2
@@ -28584,7 +30854,7 @@ def show_character_selection():
                 pygame.draw.circle(SCREEN, base_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale))
                 pygame.draw.circle(SCREEN, border_color, (emblem_x, emblem_y), int(emblem_radius * pulse_scale), 3)
                 
-                # 군인 심볼 - 별과 독수리 날개 모양
+                # 코만도 심볼 - 별과 독수리 날개 모양
                 # 중앙 별 그리기
                 star_points = []
                 star_radius = 8
@@ -29217,6 +31487,8 @@ def show_difficulty_selection():
 def start_game_with_difficulty(character_id, difficulty_mode):
     """선택한 캐릭터와 난이도로 게임 시작"""
     global ai_mode, ai_enabled, selected_character_type, soldier_initial_grenade_given
+    global active_item_slot, selected_item_index, master_obtained, last_item_use_time
+    global passive_item_list
     # AI 모드 설정
     ai_mode = difficulty_mode
     ai_enabled = True
@@ -29235,11 +31507,39 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         # 스매셔 캐릭터 (기본 캐릭터가 스매셔로 변경됨)
         selected_character_type = "smasher"
     elif character_id == "soldier":
-        # 군인 캐릭터 설정
+        # 코만도 캐릭터 설정
         selected_character_type = "soldier"
-        # 군인 캐릭터는 기본적으로 코만도암 패시브 아이템 소지
+        # 코만도 캐릭터는 기본적으로 코만도암 패시브 아이템 소지
         items.commando_arm_obtained = True
-        print("💪 군인 캐릭터 선택! 코만도암 패시브 아이템 자동 장착!")
+        print("💪 코만도 캐릭터 선택! 코만도암 패시브 아이템 자동 장착!")
+    elif character_id == "blacksmith":
+        selected_character_type = "blacksmith"
+        # 발토르 캐릭터는 기본적으로 장인의 망치 패시브 아이템 소지
+        master_obtained = True
+        items.master_obtained = True
+        print("🔨 발토르 캐릭터 선택! 장인의 망치 패시브 아이템 자동 장착!")
+        if passive_item_list is None:
+            passive_item_list = []
+        if not any(item.get("name") == "master" for item in passive_item_list):
+            passive_item_list.append({
+                "name": "master",
+                "type": "passive",
+                "icon": get_item_icon("master")
+            })
+        # 발토르는 경기 시작 시 방어용 벽돌을 한 개 기본 보유한다
+        if active_item_slot is None:
+            active_item_slot = []
+        if not any(item.get("name") == "wall" for item in active_item_slot):
+            wall_item = {
+                "name": "wall",
+                "type": "active",
+                "effect": "wall",
+                "icon": get_item_icon("wall"),
+                "last_use": last_item_use_time,
+                "temporary_overflow": False
+            }
+            active_item_slot.append(wall_item)
+            selected_item_index = len(active_item_slot) - 1
     elif character_id == "smasher":
         # 스매셔 캐릭터 설정
         selected_character_type = "smasher"
@@ -30189,7 +32489,7 @@ def apply_selected_items(
             pass
     print(f"  : {selected_active_items}")
     print(f"  : {selected_passive_items}")
-    # 화기류 아이템 적용 (군인 전용 무기 시스템)
+    # 화기류 아이템 적용 (코만도 전용 무기 시스템)
     from item_effects.bazooka import get_bazooka_instance
     from item_effects.ak47 import get_ak47_instance
     from item_effects.net_gun import get_net_gun_instance
@@ -32626,7 +34926,20 @@ def reset_round():
     short_shot_counter_window = 0
     refresh_perfect_timing_indicator()
 
-    # 물자보급(군인 스킬) 상태 초기화 / 유지 정책
+    blacksmith_shield_swing_active = False
+    blacksmith_shield_swing_timer = 0
+
+    global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
+    global blacksmith_turret_build_progress, blacksmith_turret_active
+    global blacksmith_turret_state, blacksmith_turret_projectiles
+    if 'blacksmith_turret_projectiles' in globals():
+        blacksmith_turret_projectiles.clear()
+    if 'blacksmith_hammer_swing_active' in globals():
+        blacksmith_hammer_swing_active = False
+    if 'blacksmith_hammer_swing_phase' in globals():
+        blacksmith_hammer_swing_phase = 0
+
+    # 물자보급(코만도 스킬) 상태 초기화 / 유지 정책
     # 요구사항: 라운드가 바뀌어도 비행기 및 예정된 출현은 유지되어야 함
     if supply_drop_state.config.persist_across_rounds:
         # 1) 이미 비행기가 떠 있는 경우: 그대로 유지 (사운드/파티클 포함)
@@ -33538,7 +35851,12 @@ def calculate_bounce(paddle):
     ball_min_boost = dynamic_min_boost
     #  퍼펙트 타이밍 체크 (플레이어 패들만)
     perfect_shot = False
-    if paddle == PLAYER and perfect_timing_active and perfect_direction is not None:
+    if (
+        paddle == PLAYER
+        and perfect_timing_active
+        and perfect_direction is not None
+        and selected_character_type == "smasher"
+    ):
         #  드라이브 발동을 위한 게이지 확인 (150 게이지 필요)
         if special_gauge >= 150:
             perfect_shot = True
@@ -34268,6 +36586,8 @@ def handle_ball():
     global ball_vel, ball_angle, slow_ball_timer, horizontal_bounce_count
     global ball_impact_boost, ball_boost_decay_rate, ball_min_boost
     global player_last_shot_speed
+    global soldier_swing_active, soldier_swing_timer
+    global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     # 스톱워치 보정/락 상태 (스마트폰)
     global stopwatch_forced_upward, stopwatch_upward_lock_timer
     # 스톱워치 보정/락 상태 (스마트폰)
@@ -35863,7 +38183,7 @@ def handle_ball():
                     if should_charge:
                         # 특수 게이지 50% 충전 (캐릭터별)
                         if selected_character_type == "soldier":
-                            base_charge = 60  # 군인 기본 충전량
+                            base_charge = 60  # 코만도 기본 충전량
                             charge_amount = base_charge * 0.5  # 50% = 30
                         else:
                             base_charge = 80  # 스매셔 기본 충전량
@@ -36021,7 +38341,7 @@ def handle_ball():
                     if chargebag_obtained and not aipill_active:
                         # 캐릭터별 기본 게이지 충전량
                         if selected_character_type == "soldier":
-                            base_gauge_gain = 50  # 군인: 게이지 충전 50
+                            base_gauge_gain = 50  # 코만도: 게이지 충전 50
                         else:
                             base_gauge_gain = 80  # 스매셔: 게이지 충전 80
                         skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -36530,7 +38850,7 @@ def handle_ball():
             # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
             # 캐릭터별 기본 게이지 충전량
             if selected_character_type == "soldier":
-                base_gauge_gain = 50  # 군인: 게이지 충전 50
+                base_gauge_gain = 50  # 코만도: 게이지 충전 50
             else:
                 base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -36639,7 +38959,7 @@ def handle_ball():
             # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
             # 캐릭터별 기본 게이지 충전량
             if selected_character_type == "soldier":
-                base_gauge_gain = 50  # 군인: 게이지 충전 50
+                base_gauge_gain = 50  # 코만도: 게이지 충전 50
             else:
                 base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -36725,9 +39045,11 @@ def handle_ball():
             print(f" [ ]  ! deuce_wins: {deuce_wins}, round_wins: {round_wins}")
             show_winner_text("플레이어")
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects)
-            # 군인 권총 UI 표시
+            # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
+            elif selected_character_type == "blacksmith":
+                draw_blacksmith_turret_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
             
             #  Stage 1 듀스 모드 - 타이머 기반으로 변경되어 더 이상 점수 체크하지 않음
@@ -36777,9 +39099,11 @@ def handle_ball():
             
             show_winner_text("플레이어")
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects)
-            # 군인 권총 UI 표시
+            # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
+            elif selected_character_type == "blacksmith":
+                draw_blacksmith_turret_ui(SCREEN)
             
             # 3:0 완승 보너스 메시지 표시
             draw_score()
@@ -36816,9 +39140,11 @@ def handle_ball():
         elif result == "deuce_started" or result == "deuce_restart":
             # 듀스 시작/재시작 시 점수 표시 업데이트
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects)
-            # 군인 권총 UI 표시
+            # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
+            elif selected_character_type == "blacksmith":
+                draw_blacksmith_turret_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
         go_to_next_round()
         return
@@ -37116,7 +39442,7 @@ def handle_ball():
             boss_name = boss_names.get(current_stage, "보스")
             show_winner_text(boss_name)
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects)
-            # 군인 권총 UI 표시
+            # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
@@ -37143,7 +39469,7 @@ def handle_ball():
             boss_name = boss_names.get(current_stage, "보스")
             show_winner_text(boss_name)
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects)
-            # 군인 권총 UI 표시
+            # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
             # 스테이지 2에서 보스가 라운드 이길 때마다 악어 짧은 웃음
@@ -37166,7 +39492,7 @@ def handle_ball():
         elif result == "deuce_started" or result == "deuce_restart":
             # 듀스 시작/재시작 시 점수 표시 업데이트
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects)
-            # 군인 권총 UI 표시
+            # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
@@ -37342,10 +39668,13 @@ def handle_ball():
         hit_animation_active = True
         hit_animation_timer = HIT_ANIMATION_DURATION
         
-        # 군인 캐릭터 휘두르기 애니메이션 활성화 (handle_ball에서 놓친 충돌)
+        # 코만도 캐릭터 휘두르기 애니메이션 활성화 (handle_ball에서 놓친 충돌)
         if selected_character_type == "soldier" and not player_collision_handled:
             soldier_swing_active = True
             soldier_swing_timer = SOLDIER_SWING_DURATION
+        elif selected_character_type == "blacksmith" and not player_collision_handled:
+            blacksmith_shield_swing_active = True
+            blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
         if ball_vel[0] != 0:
             direction = math.copysign(1, ball_vel[0])
             ball_angle += direction * 10
@@ -37404,7 +39733,7 @@ def handle_ball():
             else:
                 # 캐릭터별 기본 게이지 충전량
                 if selected_character_type == "soldier":
-                    base_gauge_gain = 50  # 군인: 게이지 충전 50
+                    base_gauge_gain = 50  # 코만도: 게이지 충전 50
                 else:
                     base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
@@ -39757,7 +42086,7 @@ def handle_boss():
     global head_shot_active, head_shot_timer  # 헤드샷 스턴 관련 변수
     
     
-    #  수평 넉백 처리 (라그나로크 해머 + 군인 총알)
+    #  수평 넉백 처리 (라그나로크 해머 + 코만도 총알)
     if boss_knockback_timer > 0:
         boss_knockback_timer -= 1
         
@@ -39766,13 +42095,13 @@ def handle_boss():
         legendary_manager = get_legendary_manager()
         is_ragnarok_knockback = "ragnarok_hammer" in legendary_manager.active_items
         
-        # 수평 넉백 속도 적용 (라그나로크 해머 또는 군인 총알)
+        # 수평 넉백 속도 적용 (라그나로크 해머 또는 코만도 총알)
         if abs(boss_knockback_vel) > 0.1:
             BOSS.x += boss_knockback_vel
             BOSS.x = max(0, min(WIDTH - PADDLE_WIDTH, BOSS.x))
             
-            # 군인 총알 넉백을 위한 감속 처리
-            if boss_knockback_timer <= 18:  # 군인 총알 (18프레임)
+            # 코만도 총알 넉백을 위한 감속 처리
+            if boss_knockback_timer <= 18:  # 코만도 총알 (18프레임)
                 boss_knockback_vel *= 0.85  # 매 프레임마다 15% 감속
             else:  # 라그나로크 해머 (더 긴 넉백)
                 # 부드러운 감속 (초반엔 거의 감속 없이, 후반에 천천히)
@@ -40801,6 +43130,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_power_helper_dialogue_shown, tutorial_power_completion_dialogue_shown  # Chapter 4 대화 플래그
     global tutorial_power_count, tutorial_displayed_power_count  # Chapter 4 카운터
     global tutorial_power_counter_active, tutorial_power_reminder_active, tutorial_power_reminder_timer  # Chapter 4 알림
+    global blacksmith_down_hold_frames, blacksmith_build_menu_active, blacksmith_divine_stone_state
     # 스톱워치 복구 방향 보정 관련 전역
     global stopwatch_forced_upward, stopwatch_upward_lock_timer
     global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done  # Chapter 4 방향별 완료
@@ -40871,23 +43201,25 @@ def main(stage_num, new_boss_mode=False):
     global hit_animation_active, hit_animation_timer
     # 일시정지 시스템
     global game_paused
-    # 군인 총알 시스템
+    # 코만도 총알 시스템
     global soldier_bullets, soldier_gun_cooldown, soldier_control_lock_timer, soldier_gun_drawn
     global selected_character_type
-    # 군인 휘두르기 애니메이션 시스템
+    # 코만도 휘두르기 애니메이션 시스템
     global soldier_swing_active, soldier_swing_timer
+    global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
+    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     # 물자보급 시스템
-    # 군인 걷기 애니메이션 시스템
+    # 코만도 걷기 애니메이션 시스템
     global soldier_walking_active, soldier_walking_timer
-    # 군인 레그샷 효과 시스템
+    # 코만도 레그샷 효과 시스템
     global leg_shot_active, leg_shot_timer, leg_shot_text_timer
-    # 군인 헤드샷 효과 시스템
+    # 코만도 헤드샷 효과 시스템
     global head_shot_active, head_shot_timer, head_shot_text_timer
     # 파워스매싱 정지 시간 관리
     global power_smashing_freeze_start_time, power_smashing_freeze_active, power_smashing_freeze_duration
     global power_smashing_parabola_active, power_smashing_start_time
     # 스페셜 게이지 시스템
-    global special_gauge, displayed_gauge, special_ready, special_active
+    global special_gauge, special_gauge_max, displayed_gauge, special_ready, special_active
     # 대쉬 및 아이템 관련 전역 변수
     global dashholder_obtained, rolling_charge_timer, rolling_charges
     # 스테이지 2 정글 테두리 효과
@@ -40906,7 +43238,26 @@ def main(stage_num, new_boss_mode=False):
     current_stage = stage_num
     round_wins = 0
     round_losses = 0
-    
+    blacksmith_shield_swing_active = False
+    blacksmith_shield_swing_timer = 0
+    blacksmith_hammer_swing_active = False
+    blacksmith_hammer_swing_phase = 0
+    global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
+    global blacksmith_turret_build_progress, blacksmith_turret_active
+    global blacksmith_turret_state, blacksmith_turret_projectiles
+    blacksmith_turret_blueprint_active = False
+    blacksmith_turret_blueprint_rect = None
+    blacksmith_turret_build_progress = 0
+    blacksmith_turret_active = False
+    blacksmith_turret_state = None
+    blacksmith_turret_projectiles.clear()
+    blacksmith_turret_partial_drain = 0.0
+    global blacksmith_turret_manual_cooldown
+    blacksmith_turret_manual_cooldown = 0
+    blacksmith_build_menu_active = False
+    blacksmith_down_hold_frames = 0
+    blacksmith_divine_stone_state = None
+
     # 🔧 스테이지 시작 시 플레이어 움직임 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
     global player_missile_stunned_timer, player_stunned, player_stun_end_time
@@ -40931,7 +43282,7 @@ def main(stage_num, new_boss_mode=False):
     rolling_speed = 0
     rolling_stun_timer = 0
     
-    # 군인 총알 시스템 초기화
+    # 코만도 총알 시스템 초기화
     soldier_bullets = []
     soldier_gun_cooldown = 0
     soldier_control_lock_timer = 0
@@ -40941,14 +43292,14 @@ def main(stage_num, new_boss_mode=False):
     global blood_particles
     blood_particles = []
     
-    # 군인 탄약 시스템 초기화
+    # 코만도 탄약 시스템 초기화
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
     soldier_ammo_count = 5
     soldier_max_ammo = 5
     soldier_reloading = False
     soldier_reload_timer = 0
     
-    # 군인 총 발사 애니메이션 초기화
+    # 코만도 총 발사 애니메이션 초기화
     global soldier_gun_animation_active, soldier_gun_animation_frame, soldier_gun_animation_timer
     global soldier_gun_target_x, soldier_gun_target_y
     soldier_gun_animation_active = False
@@ -41613,7 +43964,7 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_serve_reminder_active = True
                 print("튜토리얼: 서브 알림창 활성화")
     
-    # 군인 캐릭터 코만도암 패시브 아이템 확인 및 설정
+    # 코만도 캐릭터 코만도암 패시브 아이템 확인 및 설정
     if selected_character_type == "soldier":
         global soldier_initial_grenade_given
         items.commando_arm_obtained = True
@@ -41639,7 +43990,7 @@ def main(stage_num, new_boss_mode=False):
             if not any(item["name"] == "grenade" for item in active_item_slot):
                 active_item_slot.append(grenade_data)
             soldier_initial_grenade_given = True
-            print("💪 군인 캐릭터 게임 시작 - 코만도암 + 수류탄 1회 지급")
+            print("💪 코만도 캐릭터 게임 시작 - 코만도암 + 수류탄 1회 지급")
     
     running = True
     while running:
@@ -41943,8 +44294,8 @@ def main(stage_num, new_boss_mode=False):
         #  퍼펙트 타이밍 시스템: 스페이스바 + 방향키 프레임 단위 입력 감지
         global space_just_pressed, last_space_state, perfect_timing_active, perfect_timing_frame_count, perfect_direction
         global perfect_timing_indicator_active, short_shot_counter_window
-        global left_just_pressed, last_left_state, right_just_pressed, last_right_state
-        global left_press_frame, right_press_frame, space_press_frame, frame_counter
+        global left_just_pressed, last_left_state, right_just_pressed, last_right_state, down_just_pressed, last_down_state
+        global left_press_frame, right_press_frame, space_press_frame, down_press_frame, frame_counter
         global perfect_timing_cooldown, perfect_timing_cooldown_frames, perfect_timing_input_used
         global drive_global_cooldown, drive_global_cooldown_frames, last_space_press_time
         # special_gauge, special_ready, special_active는 이미 함수 시작 부분에서 global 선언됨
@@ -41985,6 +44336,32 @@ def main(stage_num, new_boss_mode=False):
                 if is_devil_dice_waiting_confirm():
                     handle_devil_dice_spacebar()
             last_space_state = current_space_state
+            if selected_character_type == "blacksmith":
+                if (
+                    space_just_pressed
+                    and blacksmith_turret_active
+                    and blacksmith_turret_state
+                    and blacksmith_turret_state.get("hp", 0) > 0
+                ):
+                    turret_rect = blacksmith_turret_state.get("rect")
+                    if turret_rect is not None:
+                        if PLAYER.colliderect(turret_rect):
+                            if blacksmith_turret_manual_cooldown <= 0:
+                                if special_gauge >= BLACKSMITH_TURRET_MANUAL_COST:
+                                    special_gauge = max(0, special_gauge - BLACKSMITH_TURRET_MANUAL_COST)
+                                    if special_gauge < special_gauge_max:
+                                        special_ready = False
+                                    blacksmith_shield_swing_active = True
+                                    blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
+                                    blacksmith_turret_manual_cooldown = BLACKSMITH_TURRET_MANUAL_COOLDOWN
+                                    blacksmith_turret_state["fire_timer"] = 1
+                                    space_just_pressed = False
+                                    space_press_frame = -1
+                                    print("[DEBUG 발토르] 포탑 수동 발사! 게이지 -100, 쿨다운 1초")
+                                else:
+                                    print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
+                            else:
+                                print("[DEBUG 발토르] 포탑 수동 발사 대기중 - 쿨다운")
         else:
             space_just_pressed = False
             current_space_state = False
@@ -42001,12 +44378,59 @@ def main(stage_num, new_boss_mode=False):
             if right_just_pressed:
                 right_press_frame = frame_counter
             last_right_state = current_right_state
+            current_down_state = keys[pygame.K_DOWN]
+            down_just_pressed = current_down_state and not last_down_state
+            if selected_character_type == "blacksmith":
+                if current_down_state:
+                    if blacksmith_build_menu_active:
+                        blacksmith_down_hold_frames = 0
+                    elif (
+                        blacksmith_turret_active
+                        and blacksmith_turret_state
+                        and blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL) < BLACKSMITH_TURRET_MAX_LEVEL
+                        and blacksmith_turret_state.get("xp", 0.0) < blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED))
+                    ):
+                        turret_rect = blacksmith_turret_state.get("rect")
+                        if turret_rect and abs(PLAYER.centerx - turret_rect.centerx) <= BLACKSMITH_TURRET_BUILD_RADIUS:
+                            blacksmith_down_hold_frames = 0
+                        else:
+                            blacksmith_down_hold_frames += 1
+                    elif not blacksmith_turret_blueprint_active:
+                        blacksmith_down_hold_frames += 1
+                        if (
+                            blacksmith_down_hold_frames >= BLACKSMITH_BUILD_MENU_HOLD_FRAMES
+                            and blacksmith_has_available_buildings()
+                        ):
+                            blacksmith_open_build_menu()
+                            down_just_pressed = False
+                    else:
+                        blacksmith_down_hold_frames = 0
+                else:
+                    blacksmith_down_hold_frames = 0
+                    down_press_frame = -1
+            if not blacksmith_build_menu_active:
+                down_just_pressed = handle_blacksmith_turret_input(
+                    current_down_state,
+                    down_just_pressed,
+                    False,
+                )
+            else:
+                handle_blacksmith_turret_input(False, False)
+            if down_just_pressed:
+                down_press_frame = frame_counter
+            elif not current_down_state:
+                down_press_frame = -1
+            last_down_state = current_down_state
         else:
             # 감전 상태일 때는 모든 입력을 False로
             left_just_pressed = False
             right_just_pressed = False
             last_left_state = False
             last_right_state = False
+            down_just_pressed = False
+            last_down_state = False
+            blacksmith_down_hold_frames = 0
+            down_press_frame = -1
         #  퍼펙트 타이밍 쿨다운 관리 (연타 방지)
         if perfect_timing_cooldown > 0:
             perfect_timing_cooldown -= 1
@@ -42035,7 +44459,7 @@ def main(stage_num, new_boss_mode=False):
             #  추가 조건: 공의 X좌표가 패들 범위 내 또는 근처에 있는지 확인
             abs(BALL.centerx - PLAYER.centerx) <= (PADDLE_WIDTH / 2 + BALL_RADIUS + 15)  # 패들 범위 + 약간의 여유 (DEFAULT_RADIUS → 15)
         )
-        if ball_will_hit_paddle:
+        if ball_will_hit_paddle and selected_character_type == "smasher":
             if not perfect_timing_active:
                 perfect_timing_active = True
                 perfect_timing_frame_count = 0
@@ -42044,7 +44468,7 @@ def main(stage_num, new_boss_mode=False):
                 x_distance = abs(BALL.centerx - PLAYER.centerx)
                 print(f"    ! (Y: {ball_to_paddle_distance:.1f}, X: {x_distance:.1f})")
         # 퍼펙트 타이밍 윈도우 관리
-        if perfect_timing_active:
+        if perfect_timing_active and selected_character_type == "smasher":
             perfect_timing_frame_count += 1
             #  퍼펙트 타이밍 입력 체크 (방향키 + 스페이스 동시 입력 필요)
             #  드라이브와 파워스매싱을 동일한 타이밍 윈도우에서 처리
@@ -42055,7 +44479,11 @@ def main(stage_num, new_boss_mode=False):
                 max_frame_gap = 3  # 최대 3프레임(0.05초) 차이까지 동시 입력으로 인정 (조금 더 관대하게)
                 max_input_age = 12  # 최대 12프레임(약 0.2초) 전까지의 입력만 유효
                                     #  파워스매싱/고스트샷 발동: 게이지가 준비되었고 스페이스를 홀드하고 있다면
-                if special_gauge >= 350 and keys[pygame.K_SPACE] and selected_character_type != "soldier":  # 파워스매시 발동 조건: 350 이상 (군인 캐릭터는 사용 불가)
+                if (
+                    special_gauge >= 350
+                    and keys[pygame.K_SPACE]
+                    and selected_character_type == "smasher"
+                ):  # 파워스매싱은 스매셔 전용
                     # 파워스매싱 발동 (고스트샷 제거됨)
                     global power_smashing_parabola_active
                     # 파워스매싱 방향 설정
@@ -42300,8 +44728,8 @@ def main(stage_num, new_boss_mode=False):
                     and abs(left_press_frame - space_press_frame) <= max_frame_gap
                     and (frame_counter - left_press_frame) <= max_input_age  # 왼쪽 키가 최근에 눌렸는지
                     and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
-                    and selected_character_type != "soldier"
-                ):   # 군인 캐릭터는 드라이브 사용 불가
+                    and selected_character_type == "smasher"
+                ):   # 스매셔 전용 드라이브
                     perfect_direction = -1  # 왼쪽 드라이브
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
                     drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
@@ -42319,8 +44747,8 @@ def main(stage_num, new_boss_mode=False):
                     and abs(right_press_frame - space_press_frame) <= max_frame_gap
                     and (frame_counter - right_press_frame) <= max_input_age  # 오른쪽 키가 최근에 눌렸는지
                     and (frame_counter - space_press_frame) <= max_input_age  # 스페이스 키가 최근에 눌렸는지
-                    and selected_character_type != "soldier"
-                ):    # 군인 캐릭터는 드라이브 사용 불가
+                    and selected_character_type == "smasher"
+                ):    # 스매셔 전용 드라이브
                     perfect_direction = 1   # 오른쪽 드라이브
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
                     drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
@@ -42334,7 +44762,7 @@ def main(stage_num, new_boss_mode=False):
                 # 한쪽 방향키를 미리 누른 상태에서 스페이스를 누른 경우도 허용 (연타 방지 조건 유지)
                 elif (
                     space_just_pressed
-                    and selected_character_type != "soldier"
+                    and selected_character_type == "smasher"
                     and ((keys[pygame.K_LEFT] and drive_global_cooldown == 0)
                          or (keys[pygame.K_RIGHT] and drive_global_cooldown == 0))
                 ):
@@ -42377,6 +44805,7 @@ def main(stage_num, new_boss_mode=False):
                 left_press_frame = -1
                 right_press_frame = -1
                 space_press_frame = -1
+                down_press_frame = -1
                 print("")
             #  개선된 윈도우 비활성화 조건: X축 범위도 체크
             ball_x_out_of_range = abs(BALL.centerx - PLAYER.centerx) > (PADDLE_WIDTH / 2 + BALL_RADIUS + 30)
@@ -42396,6 +44825,7 @@ def main(stage_num, new_boss_mode=False):
                 left_press_frame = -1
                 right_press_frame = -1
                 space_press_frame = -1
+                down_press_frame = -1
                 print(f"     (: {ball_to_paddle_distance:.1f}, vel_y: {ball_vel[1]:.1f})")
                 # 나쁜 타이밍 감지 - 기회를 놓쳤거나 부정확한 타이밍
                 if ball_to_paddle_distance > 50 and abs(ball_vel[1]) > 8:  # 거리가 멀고 빠른 공 놓침
@@ -42545,6 +44975,14 @@ def main(stage_num, new_boss_mode=False):
                     items.fuel_pouch_obtained = False
                     items.bluetooth_ring_obtained = False
                     return "main_menu"  # 메인 메뉴로 돌아감
+            if blacksmith_build_menu_active and event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_1, pygame.K_KP1):
+                    blacksmith_select_build_option("turret")
+                elif event.key in (pygame.K_2, pygame.K_KP2):
+                    blacksmith_select_build_option("divine_stone")
+                elif event.key in (pygame.K_ESCAPE, pygame.K_DOWN):
+                    blacksmith_close_build_menu()
+                continue
             # Tab 키로 정보창 패시브 탭으로 이동
             if event.type == pygame.KEYDOWN and event.key == pygame.K_TAB:
                 show_game_info()
@@ -42621,10 +45059,10 @@ def main(stage_num, new_boss_mode=False):
             direct_item_index = -1  # 숫자키로 직접 선택된 아이템 인덱스
             # 키보드 조작
             if event.type == pygame.KEYDOWN:
-                if event.key in [pygame.K_s, 0x73, 0x6D]:  # 영어 S, 한글 ㅁ
+                if event.key in [pygame.K_s, 0x73, 0x6D] and not blacksmith_build_menu_active:  # 영어 S, 한글 ㅁ
                     item_use_pressed = True
                 #  숫자키로 아이템 직접 사용 (1~6)
-                elif event.key >= pygame.K_1 and event.key <= pygame.K_6:
+                elif event.key >= pygame.K_1 and event.key <= pygame.K_6 and not blacksmith_build_menu_active:
                     number_key = event.key - pygame.K_1  # 0~5로 변환
                     if active_item_slot and number_key < len(active_item_slot):
                         direct_item_index = number_key
@@ -42639,7 +45077,7 @@ def main(stage_num, new_boss_mode=False):
             #     if mouse_controls.get("item_use", False):
             #         item_use_pressed = True
             #  아이템 사용 처리 (S키 또는 숫자키)
-            if not aipill_active and active_item_slot:
+            if not aipill_active and active_item_slot and not blacksmith_build_menu_active:
                 use_item = False
                 target_index = -1
                 # S키로 현재 선택된 아이템 사용
@@ -43282,13 +45720,13 @@ def main(stage_num, new_boss_mode=False):
                 # 아이템 업데이트 (아이템 획득 사운드 전달)
                 items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET)
                 
-                # 물자보급 시스템 업데이트 (군인 캐릭터 전용)
+                # 물자보급 시스템 업데이트 (코만도 캐릭터 전용)
                 if selected_character_type == "soldier":
                     update_supply_drop_system()
                 else:
-                    # 디버그: 군인이 아닐 때 물자보급 활성 상태 확인
+                    # 디버그: 코만도이 아닐 때 물자보급 활성 상태 확인
                     if supply_drop_state.active and frame_count % 60 == 0:
-                        print(f"⚠️ [경고] 물자보급 활성화되었지만 캐릭터가 군인이 아님! (현재: {selected_character_type})")
+                        print(f"⚠️ [경고] 물자보급 활성화되었지만 캐릭터가 코만도이 아님! (현재: {selected_character_type})")
                 
                 # 전설 아이템 매니저 업데이트 (물리 업데이트 전에 실행)
                 try:
@@ -43314,10 +45752,11 @@ def main(stage_num, new_boss_mode=False):
                     traceback.print_exc()
                 
                 handle_player(keys)
+                update_blacksmith_turret()
                 handle_ball()
                 handle_boss()
                 
-                # 군인 총알 시스템 업데이트
+                # 코만도 총알 시스템 업데이트
                 if selected_character_type == "soldier":
                     update_soldier_gun_animation()  # 총 발사 애니메이션 업데이트
                     update_soldier_bullets()
@@ -43372,6 +45811,12 @@ def main(stage_num, new_boss_mode=False):
                     # 헤드샷 텍스트 타이머 업데이트
                     if head_shot_text_timer > 0:
                         head_shot_text_timer -= 1
+                else:
+                    # 발토르 캐릭터 방패 스윙 애니메이션 타이머
+                    if blacksmith_shield_swing_timer > 0:
+                        blacksmith_shield_swing_timer -= 1
+                        if blacksmith_shield_swing_timer <= 0:
+                            blacksmith_shield_swing_active = False
                 
                 #  대쉬 스피릿 레이저 시스템 업데이트
                 update_dash_spirit_lasers()
@@ -43443,7 +45888,7 @@ def main(stage_num, new_boss_mode=False):
                 items.draw_active_item(SCREEN, active_item_slot, active_item_icon_size, selected_item_index, 8000 - cooldown_reduction, round_start_time)
                 items.draw_items(SCREEN)
                 
-                # 물자보급 시스템 그리기 (군인 캐릭터 전용)
+                # 물자보급 시스템 그리기 (코만도 캐릭터 전용)
                 if selected_character_type == "soldier":
                     draw_supply_drop_system(SCREEN)
                     # draw_bazooka_recoil_effect(SCREEN)  # 바주카포 반동 효과 비활성화
@@ -43452,7 +45897,7 @@ def main(stage_num, new_boss_mode=False):
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
                 draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
                 
-                # 군인 권총 UI 표시
+                # 코만도 권총 UI 표시
                 if selected_character_type == "soldier":
                     draw_soldier_weapon_ui(SCREEN)
                 
@@ -43462,6 +45907,8 @@ def main(stage_num, new_boss_mode=False):
                                                       boss_special_gauge_stage4, 
                                                       boss_special_ready_stage4,
                                                       stage4_magnetic_active)
+            if selected_character_type == "blacksmith":
+                draw_blacksmith_turret_ui(SCREEN)
         else:
             # 흔들림이 없을 때는 직접 그리기
             draw_field()
@@ -43508,7 +45955,7 @@ def main(stage_num, new_boss_mode=False):
                 items.draw_active_item(SCREEN, active_item_slot, active_item_icon_size, selected_item_index, 8000 - cooldown_reduction, round_start_time)
                 items.draw_items(SCREEN)
                 
-                # 물자보급 시스템 그리기 (군인 캐릭터 전용)
+                # 물자보급 시스템 그리기 (코만도 캐릭터 전용)
                 if selected_character_type == "soldier":
                     draw_supply_drop_system(SCREEN)
                     # draw_bazooka_recoil_effect(SCREEN)  # 바주카포 반동 효과 비활성화
@@ -43517,7 +45964,7 @@ def main(stage_num, new_boss_mode=False):
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
                 draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
                 
-                # 군인 권총 UI 표시
+                # 코만도 권총 UI 표시
                 if selected_character_type == "soldier":
                     draw_soldier_weapon_ui(SCREEN)
                 
@@ -43527,6 +45974,8 @@ def main(stage_num, new_boss_mode=False):
                                                       boss_special_gauge_stage4, 
                                                       boss_special_ready_stage4,
                                                       stage4_magnetic_active)
+            if selected_character_type == "blacksmith":
+                draw_blacksmith_turret_ui(SCREEN)
         
         draw_water_trail()  #  물자국 그리기
         # draw_balloons()  # Stage 1 보스 풍선파티 스킬 제거됨
@@ -45135,7 +47584,7 @@ def get_item_description(item_name):
         "predictor": "레이저스코프: 공의 궤적을 예측하여 표시합니다. 정확도가 항상 100%는 아니지만 꽤 유용할 때가 있습니다",
         "smoke_grenade": "연막탄: 플레이어 근처에 연막을 생성합니다. 연막은 빠른 공의 속도를 감소시켜주며, 각종 보스들의 스킬 공격을 방어해줍니다",
         "pandora_box": "판도라의 상자: 무지개 블랙홀을 발생시켜 아이템이 쏟아집니다!",
-        "commando_arm": "코만도암: 숙련된 군인의 유품, 투척류 아이템 사용시 준비동작이 사라지며 투척 속도 30% 증가, 폭발 범위 10% 증가, 연막탄 지속시간 50%가 증가합니다",
+        "commando_arm": "코만도암: 숙련된 코만도의 유품, 투척류 아이템 사용시 준비동작이 사라지며 투척 속도 30% 증가, 폭발 범위 10% 증가, 연막탄 지속시간 50%가 증가합니다",
         "stopwatch": "스탑워치: 시간을 왜곡시켜 공의 움직임을 일정시간 정지시킵니다 .",
         "devil_dice": "악마의 주사위: 모든 능력치를 랜덤하게 변화시키는 주사위. 결과는 하늘의 뜻에 달려있습니다",
         "technical_vest": "테크니컬조끼: 플레이어가 공을 칠 때 일정 확률로 플레이어 주변에 연막을 생성합니다. 각종 보스들의 스킬 공격을 방어해줍니다",
@@ -45804,7 +48253,7 @@ def show_character_item_manager():
         },
         {
             "id": "soldier",
-            "name": "군인",
+            "name": "코만도",
             "description": "전술적 플레이와 강인한 정신력\n화기류 아이템 전문",
             "stats": {"속도": 6, "파워": 6, "방어": 6},
             "special": "전투 경험과 전술적 우위",
@@ -46247,6 +48696,48 @@ def show_stage_selection(show_character_hint=True):
                     play_button_hover_sound()
 
 
+def _get_character_base_surface(character_id: str) -> pygame.Surface:
+    if character_id == "soldier" and 'SOLDIER_PADDLE_IMG' in globals():
+        return SOLDIER_PADDLE_IMG
+    if character_id == "blacksmith" and 'BLACKSMITH_PADDLE_IMG' in globals():
+        return BLACKSMITH_PADDLE_IMG
+    return PLAYER_IMG
+
+
+def build_character_preview_surface(
+    character_id: str,
+    *,
+    scale: float = 1.0,
+    max_width: int | None = None,
+    max_height: int | None = None,
+) -> pygame.Surface:
+    base_surface = _get_character_base_surface(character_id)
+    if not base_surface:
+        return pygame.Surface((0, 0), pygame.SRCALPHA)
+
+    orig_w, orig_h = base_surface.get_size()
+    target_w = int(PADDLE_WIDTH * scale)
+    if max_width is not None:
+        target_w = min(target_w, max_width)
+    if target_w <= 0 or orig_w == 0:
+        return base_surface.copy()
+
+    ratio = target_w / orig_w
+    target_h = int(orig_h * ratio)
+
+    if max_height is not None and target_h > max_height:
+        ratio = max_height / orig_h
+        target_w = int(orig_w * ratio)
+        target_h = max_height
+
+    target_w = max(1, target_w)
+    target_h = max(1, target_h)
+
+    if ratio == 1.0:
+        return base_surface.copy()
+
+    return pygame.transform.smoothscale(base_surface, (target_w, target_h))
+
 
 def show_quick_character_selection():
     """아이템 관리자 흐름용 간단한 캐릭터 선택 화면"""
@@ -46260,10 +48751,17 @@ def show_quick_character_selection():
         },
         {
             "id": "soldier",
-            "name": "군인",
+            "name": "코만도",
             "desc": "전술 장비 특화, 균형 잡힌 능력",
             "color": (100, 140, 60),
             "stats": "속도 6 | 파워 6 | 방어 6",
+        },
+        {
+            "id": "blacksmith",
+            "name": "발토르",
+            "desc": "강철 장비로 묵직한 공격",
+            "color": (150, 110, 60),
+            "stats": "속도 5 | 파워 7 | 방어 5",
         },
     ]
 
@@ -46308,16 +48806,30 @@ def show_quick_character_selection():
             pygame.draw.rect(SCREEN, body_color, card_rect, border_radius=14)
             pygame.draw.rect(SCREEN, border_color, card_rect, width=3 if is_selected else 1, border_radius=14)
 
+            # 캐릭터 프리뷰 이미지 (인게임 크기 기준)
+            preview_img = build_character_preview_surface(
+                char["id"],
+                scale=1.0,
+                max_width=card_width - 60,
+                max_height=110,
+            )
+            if preview_img.get_width() > 0:
+                preview_rect = preview_img.get_rect(midtop=(card_rect.centerx, card_rect.y + 24))
+                SCREEN.blit(preview_img, preview_rect)
+            else:
+                preview_rect = pygame.Rect(card_rect.centerx, card_rect.y + 24, 0, 0)
+
             # 이름
             name_surface = font_body.render(char["name"], True, WHITE)
-            name_rect = name_surface.get_rect(center=(card_rect.centerx, card_rect.y + 40))
+            name_rect = name_surface.get_rect(center=(card_rect.centerx, preview_rect.bottom + 20))
             SCREEN.blit(name_surface, name_rect)
 
             # 설명 (두 줄 처리)
             desc_lines = char["desc"].split('\n')
+            desc_start_y = name_rect.bottom + 18
             for line_idx, line in enumerate(desc_lines):
                 desc_surface = font_small.render(line, True, (220, 220, 220))
-                desc_rect = desc_surface.get_rect(center=(card_rect.centerx, card_rect.y + 90 + line_idx * 22))
+                desc_rect = desc_surface.get_rect(center=(card_rect.centerx, desc_start_y + line_idx * 22))
                 SCREEN.blit(desc_surface, desc_rect)
 
             # 능력치 요약
@@ -46432,7 +48944,8 @@ def get_character_name(character_id):
     char_names = {
         "normal": "일반 플레이어",
         "smasher": "스매셔",
-        "soldier": "군인"
+        "soldier": "코만도",
+        "blacksmith": "발토르"
     }
     return char_names.get(character_id, "알 수 없음")
 
