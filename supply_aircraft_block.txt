@@ -34003,18 +34003,31 @@ def draw_player_skill_display():
         font_small = FontStyle.tiny()  # 16pt 픽셀 폰트
         # 등급 표시
         rank_color = rank_info["color"]
-        rank_text = f"{rank_info['icon']} {rank_info['name']} ({rank_info['score']}점)"
+        badge_surface = get_rank_badge_surface(rank_info.get("name"))
+        text_x = start_x + 10
+        text_y = start_y + 10
+        if badge_surface:
+            badge_rect = badge_surface.get_rect()
+            badge_rect.left = start_x + 10
+            badge_rect.top = start_y + 10
+            SCREEN.blit(badge_surface, badge_rect)
+            text_x = badge_rect.right + 8
+            text_y = badge_rect.top + 2
+        rank_text = f"{rank_info['name']} ({rank_info['score']}점)"
         rank_surface = font_title.render(rank_text, True, rank_color)
-        SCREEN.blit(rank_surface, (start_x + 10, start_y + 10))
+        SCREEN.blit(rank_surface, (text_x, text_y))
         # 등급 설명 표시
+        info_y = text_y + 25
         if 'details' in rank_info:
             detail_surface = font_small.render(rank_info['details'], True, (200, 200, 200))
-            SCREEN.blit(detail_surface, (start_x + 10, start_y + 35))
+            SCREEN.blit(detail_surface, (text_x, info_y))
+            info_y += 18
         # 다음 등급까지 진행률
         progress = rank_info["progress_to_next"]
         progress_text = f"다음 등급까지: {progress:.1f}%"
         progress_surface = font_small.render(progress_text, True, (200, 200, 200))
-        SCREEN.blit(progress_surface, (start_x + 10, start_y + 35))
+        SCREEN.blit(progress_surface, (text_x, info_y))
+        info_y += 15
         # 진행률 바
         bar_x = start_x + 10
         bar_y = start_y + 50
@@ -34039,9 +34052,18 @@ def draw_player_skill_display():
         # 실시간 업적 알림 (최근 업적이 있으면)
         achievements = detailed_stats["achievements"]
         if achievements:
-            latest_achievement = achievements[-1]
-            achievement_surface = font_small.render(f" {latest_achievement}", True, (255, 215, 0))
-            SCREEN.blit(achievement_surface, (start_x + 10, start_y + 100))
+            latest_text = achievements[-1][:45] + "..." if len(achievements[-1]) > 45 else achievements[-1]
+            achievement_surface = font_small.render(latest_text, True, (255, 215, 0))
+            icon = get_list_icon_surface("achievement", 16)
+            base_x = start_x + 10
+            base_y = start_y + 95
+            if icon:
+                icon_rect = icon.get_rect(left=base_x, centery=base_y + achievement_surface.get_height() // 2)
+                SCREEN.blit(icon, icon_rect)
+                text_rect = achievement_surface.get_rect(left=icon_rect.right + 6, top=base_y)
+            else:
+                text_rect = achievement_surface.get_rect(left=base_x, top=base_y)
+            SCREEN.blit(achievement_surface, text_rect)
     except Exception as e:
         # 조용히 실패 처리 (성능 우선)
         pass
@@ -38974,25 +38996,197 @@ def draw_modern_panel(surface, rect, title="", title_color=(255, 215, 0)):
         title_surface = font_title.render(title, True, title_color)
         title_rect = title_surface.get_rect(center=get_center_pos(header_rect))
         surface.blit(title_surface, title_rect)
+SECTION_ICON_CACHE: dict[str, pygame.Surface] = {}
+RANK_BADGE_CACHE: dict[str, pygame.Surface] = {}
+
+def get_section_icon_surface(name: str) -> pygame.Surface | None:
+    """Create or fetch a small decorative icon for section headers."""
+    key = (name or "").lower()
+    if not key:
+        return None
+    cached = SECTION_ICON_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    size = 28
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+
+    if key == "medal":
+        pygame.draw.circle(surf, (255, 210, 70), (size // 2, size // 2 - 3), 10)
+        pygame.draw.circle(surf, (255, 238, 170), (size // 2, size // 2 - 5), 6)
+        pygame.draw.circle(surf, (228, 170, 40), (size // 2, size // 2 - 3), 10, 2)
+        pygame.draw.polygon(surf, (200, 50, 60), [(size // 2 - 6, size - 6), (size // 2 - 1, size - 2), (size // 2 + 3, size - 6)])
+        pygame.draw.polygon(surf, (200, 50, 60), [(size // 2 + 6, size - 6), (size // 2 + 1, size - 2), (size // 2 - 3, size - 6)])
+    elif key == "analysis":
+        pygame.draw.rect(surf, (32, 60, 120), (0, 0, size, size), border_radius=6)
+        base_y = size - 6
+        bar_width = 4
+        spacing = 3
+        padding = 3
+        heights = [12, 18, 9, 20]
+        colors = [
+            (120, 200, 255),
+            (140, 235, 180),
+            (255, 210, 130),
+            (255, 160, 190),
+        ]
+        for idx, height in enumerate(heights):
+            x = padding + idx * (bar_width + spacing)
+            pygame.draw.rect(
+                surf,
+                colors[idx % len(colors)],
+                (x, base_y - height, bar_width, height),
+                border_radius=2,
+            )
+        pygame.draw.rect(surf, (22, 40, 90), (padding, base_y, size - padding * 2, 3), border_radius=2)
+    elif key == "trophy":
+        cup_top = size // 2 - 6
+        pygame.draw.polygon(
+            surf,
+            (240, 190, 70),
+            [
+                (size // 2 - 9, cup_top),
+                (size // 2 + 9, cup_top),
+                (size // 2 + 6, cup_top + 12),
+                (size // 2 - 6, cup_top + 12),
+            ],
+        )
+        pygame.draw.rect(surf, (220, 170, 60), (size // 2 - 4, cup_top + 12, 8, 7), border_radius=2)
+        pygame.draw.rect(surf, (200, 150, 50), (size // 2 - 8, size - 10, 16, 5), border_radius=2)
+        pygame.draw.rect(surf, (170, 120, 40), (size // 2 - 10, size - 12, 20, 3), border_radius=2)
+        pygame.draw.arc(surf, (240, 190, 70), (size // 2 - 16, cup_top + 2, 10, 14), 3.6, 6.1, 2)
+        pygame.draw.arc(surf, (240, 190, 70), (size // 2 + 6, cup_top + 2, 10, 14), 3.9, 6.3, 2)
+    elif key == "idea":
+        center_x, center_y = size // 2, size // 2
+        pygame.draw.circle(surf, (255, 225, 140), (center_x, center_y - 1), 9)
+        pygame.draw.circle(surf, (255, 245, 200), (center_x, center_y - 3), 6)
+        pygame.draw.rect(surf, (230, 170, 70), (center_x - 3, center_y + 5, 6, 6), border_radius=2)
+        pygame.draw.rect(surf, (190, 130, 60), (center_x - 5, center_y + 10, 10, 3), border_radius=1)
+        top_y = center_y - 11
+        pygame.draw.line(surf, (255, 235, 170), (center_x, top_y), (center_x, top_y - 4), 2)
+        pygame.draw.line(surf, (255, 235, 170), (center_x - 6, top_y + 2), (center_x - 10, top_y - 1), 2)
+        pygame.draw.line(surf, (255, 235, 170), (center_x + 6, top_y + 2), (center_x + 10, top_y - 1), 2)
+    else:
+        pygame.draw.circle(surf, (120, 160, 220), (size // 2, size // 2), size // 2)
+        pygame.draw.circle(surf, (255, 255, 255), (size // 2, size // 2), size // 2 - 4, 2)
+
+    SECTION_ICON_CACHE[key] = surf
+    return surf
+
+def get_rank_badge_surface(rank_name: str) -> pygame.Surface | None:
+    key = (rank_name or "").strip()
+    if not key:
+        return None
+    cached = RANK_BADGE_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    size = 36
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = size // 2
+
+    def glow_circle(color_inner, color_outer):
+        pygame.draw.circle(surf, color_outer, (center, center), center)
+        pygame.draw.circle(surf, color_inner, (center, center), center - 4)
+
+    if key in ("초보", "Beginner"):
+        glow_circle((180, 180, 180), (90, 90, 90))
+        pygame.draw.circle(surf, (240, 240, 240), (center, center), 6)
+        pygame.draw.circle(surf, (120, 120, 120), (center, center), 6, 2)
+    elif key in ("주니어", "Junior"):
+        glow_circle((170, 120, 70), (100, 70, 40))
+        pygame.draw.polygon(surf, (230, 180, 120), [(center, center - 9), (center + 12, center + 8), (center - 12, center + 8)])
+        pygame.draw.polygon(surf, (120, 70, 30), [(center, center - 9), (center + 12, center + 8), (center - 12, center + 8)], 2)
+    elif key in ("세미프로", "Semi-Pro"):
+        glow_circle((255, 215, 120), (180, 120, 40))
+        pygame.draw.circle(surf, (255, 255, 200), (center, center), 7)
+        pygame.draw.circle(surf, (200, 160, 60), (center, center), 7, 2)
+        pygame.draw.circle(surf, (255, 255, 255), (center, center), 3)
+    elif key in ("프로", "Pro"):
+        glow_circle((120, 210, 255), (30, 120, 180))
+        pygame.draw.rect(surf, (200, 240, 255), (center - 6, center - 10, 12, 20), border_radius=4)
+        pygame.draw.rect(surf, (60, 140, 180), (center - 6, center - 10, 12, 20), 2, border_radius=4)
+        pygame.draw.line(surf, (255, 255, 255), (center - 4, center), (center + 4, center), 2)
+    elif key in ("챔피언", "Champion"):
+        glow_circle((255, 140, 200), (150, 40, 120))
+        pygame.draw.polygon(surf, (255, 220, 250), [(center, center - 10), (center + 10, center + 6), (center, center + 12), (center - 10, center + 6)])
+        pygame.draw.polygon(surf, (200, 80, 150), [(center, center - 10), (center + 10, center + 6), (center, center + 12), (center - 10, center + 6)], 2)
+        pygame.draw.circle(surf, (255, 255, 255), (center, center), 3)
+    elif key in ("신", "God"):
+        glow_circle((255, 230, 120), (220, 170, 40))
+        for angle in range(0, 360, 45):
+            rad = math.radians(angle)
+            outer = (center + int(math.cos(rad) * 14), center + int(math.sin(rad) * 14))
+            pygame.draw.line(surf, (255, 250, 200), (center, center), outer, 3)
+        pygame.draw.circle(surf, (255, 255, 255), (center, center), 8)
+        pygame.draw.circle(surf, (230, 200, 80), (center, center), 8, 2)
+    else:
+        glow_circle((180, 200, 255), (90, 110, 150))
+        pygame.draw.circle(surf, (255, 255, 255), (center, center), 5)
+
+    RANK_BADGE_CACHE[key] = surf
+    return surf
+
+LIST_ICON_CACHE: dict[tuple[str, int], pygame.Surface] = {}
+
+def get_list_icon_surface(name: str, size: int = 18) -> pygame.Surface | None:
+    key = ((name or "").lower(), size)
+    if not key[0]:
+        return None
+    cached = LIST_ICON_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = size // 2
+
+    if key[0] in ("trophy", "achievement"):
+        pygame.draw.circle(surf, (255, 215, 120), (center, center), size // 2)
+        pygame.draw.circle(surf, (220, 170, 60), (center, center), size // 2 - 2, 2)
+        pygame.draw.polygon(
+            surf,
+            (255, 245, 200),
+            [
+                (center, center - size // 3),
+                (center + size // 4, center + size // 4),
+                (center - size // 4, center + size // 4),
+            ],
+        )
+    elif key[0] in ("idea", "tip"):
+        pygame.draw.circle(surf, (255, 235, 160), (center, center - size // 6), size // 3)
+        pygame.draw.rect(surf, (230, 180, 70), (center - size // 6, center, size // 3, size // 3), border_radius=2)
+        pygame.draw.rect(surf, (200, 150, 60), (center - size // 5, center + size // 3, size // 2, size // 5), border_radius=1)
+    else:
+        pygame.draw.circle(surf, (150, 200, 255), (center, center), size // 2)
+        pygame.draw.circle(surf, (255, 255, 255), (center, center), size // 2 - 2, 2)
+
+    LIST_ICON_CACHE[key] = surf
+    return surf
+
 def draw_section_container(surface, rect, title, icon=""):
     """섹션 컨테이너 그리기"""
-    # 섹션 배경
     section_bg = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
     draw_gradient_background(section_bg, pygame.Rect(0, 0, rect.width, rect.height), 
                            (35, 35, 45, 200), (55, 55, 65, 200))
     surface.blit(section_bg, rect)
-    # 섹션 테두리
     pygame.draw.rect(surface, (100, 150, 200, 150), rect, 2)
-    # 섹션 제목
-    font_section = get_font(18)  # 18pt 픽셀 폰트
-    title_text = f"{icon} {title}" if icon else title
-    title_surface = font_section.render(title_text, True, (200, 220, 255))
-    title_rect = title_surface.get_rect(left=rect.x + 15, top=rect.y + 10)
+    font_section = get_font(18)
+    icon_surface = get_section_icon_surface(icon) if icon else None
+    text_left = rect.x + 15
+    text_center_y = rect.y + 22
+    if icon_surface:
+        icon_rect = icon_surface.get_rect()
+        icon_rect.left = rect.x + 15
+        icon_rect.centery = text_center_y
+        surface.blit(icon_surface, icon_rect)
+        text_left = icon_rect.right + 8
+    title_surface = font_section.render(title, True, (200, 220, 255))
+    title_rect = title_surface.get_rect(left=text_left, centery=text_center_y)
     surface.blit(title_surface, title_rect)
-    # 제목 밑줄
     pygame.draw.line(surface, (150, 180, 220), 
                     (rect.x + 15, rect.y + 35), 
                     (rect.x + rect.width - 15, rect.y + 35), 2)
+
 def show_player_info():
     """플레이어 실력 정보 화면 - 현대적인 디자인"""
     global player_analyzer, current_stage
@@ -39088,27 +39282,32 @@ def show_player_info():
             content_height = main_panel_height - 120
             # === 섹션 1: 등급 정보 ===
             rank_section_rect = pygame.Rect(main_panel_x + 20, content_y, main_panel_width - 40, 120)
-            draw_section_container(SCREEN, rank_section_rect, "현재 등급", "🏅")
+            draw_section_container(SCREEN, rank_section_rect, "현재 등급", "medal")
+            badge_surface = get_rank_badge_surface(rank_info.get("name"))
+            if badge_surface:
+                badge_rect = badge_surface.get_rect(center=(rank_section_rect.centerx, rank_section_rect.y + 40))
+                SCREEN.blit(badge_surface, badge_rect)
+                text_y = badge_rect.bottom + 6
+            else:
+                text_y = rank_section_rect.y + 50
             # 등급 정보 표시
             rank_color = rank_info["color"]
-            rank_text = f"{rank_info['icon']} {rank_info['name']}"
+            rank_text = f"{rank_info['name']}"
             rank_surface = font_medium.render(rank_text, True, rank_color)
-            rank_rect = rank_surface.get_rect(center=(rank_section_rect.centerx, rank_section_rect.y + 60))
+            rank_rect = rank_surface.get_rect(center=(rank_section_rect.centerx, text_y))
             SCREEN.blit(rank_surface, rank_rect)
             # 점수
-            score_text = f"점수: {rank_info['score']:,}점"
-            score_surface = font_small.render(score_text, True, WHITE)
-            score_rect = score_surface.get_rect(center=(rank_section_rect.centerx, rank_section_rect.y + 85))
+            score_surface = font_small.render(f"점수: {rank_info['score']:,}점", True, WHITE)
+            score_rect = score_surface.get_rect(center=(rank_section_rect.centerx, rank_rect.bottom + 18))
             SCREEN.blit(score_surface, score_rect)
             # 등급 설명
-            desc_text = rank_info["description"]
-            desc_surface = font_tiny.render(desc_text, True, (200, 200, 200))
-            desc_rect = desc_surface.get_rect(center=(rank_section_rect.centerx, rank_section_rect.y + 105))
+            desc_surface = font_tiny.render(rank_info["description"], True, (200, 200, 200))
+            desc_rect = desc_surface.get_rect(center=(rank_section_rect.centerx, score_rect.bottom + 16))
             SCREEN.blit(desc_surface, desc_rect)
             # === 섹션 2: 능력 통계 ===
             stats_section_y = content_y + 140
             stats_section_rect = pygame.Rect(main_panel_x + 20, stats_section_y, main_panel_width - 40, 200)
-            draw_section_container(SCREEN, stats_section_rect, "능력 분석", "📊")
+            draw_section_container(SCREEN, stats_section_rect, "능력 분석", "analysis")
             stats = detailed_stats["stats"]
             # 왼쪽: 텍스트 통계, 오른쪽: 레이더 차트
             left_stats_x = stats_section_rect.x + 20
@@ -39145,12 +39344,22 @@ def show_player_info():
             if achievements:
                 achievement_section_width = (main_panel_width - 60) // 2
                 achievement_rect = pygame.Rect(main_panel_x + 20, bottom_section_y, achievement_section_width, bottom_section_height)
-                draw_section_container(SCREEN, achievement_rect, "업적", "🏆")
+                draw_section_container(SCREEN, achievement_rect, "업적", "trophy")
+                achievement_icon = get_list_icon_surface("achievement", 18)
                 # 업적 표시 (최근 3개)
                 for i, achievement in enumerate(achievements[-3:]):
                     if i < 3:  # 공간 제한
-                        achievement_surface = font_tiny.render(achievement[:30] + "..." if len(achievement) > 30 else achievement, True, (255, 215, 0))
-                        achievement_rect_text = achievement_surface.get_rect(left=achievement_rect.x + 15, top=achievement_rect.y + 50 + i * 25)
+                        display_text = achievement[:30] + "..." if len(achievement) > 30 else achievement
+                        achievement_surface = font_tiny.render(display_text, True, (255, 215, 0))
+                        line_y = achievement_rect.y + 50 + i * 25
+                        text_left = achievement_rect.x + 15
+                        if achievement_icon:
+                            icon_rect = achievement_icon.get_rect()
+                            icon_rect.left = text_left
+                            icon_rect.centery = line_y + achievement_surface.get_height() // 2
+                            SCREEN.blit(achievement_icon, icon_rect)
+                            text_left = icon_rect.right + 6
+                        achievement_rect_text = achievement_surface.get_rect(left=text_left, top=line_y)
                         SCREEN.blit(achievement_surface, achievement_rect_text)
             # 오른쪽: 피드백
             tips = detailed_stats["improvement_tips"]
@@ -39158,13 +39367,21 @@ def show_player_info():
                 feedback_section_width = (main_panel_width - 60) // 2
                 feedback_x = main_panel_x + 30 + achievement_section_width if achievements else main_panel_x + 20
                 feedback_rect = pygame.Rect(feedback_x, bottom_section_y, feedback_section_width, bottom_section_height)
-                draw_section_container(SCREEN, feedback_rect, "개선 피드백", "💡")
+                draw_section_container(SCREEN, feedback_rect, "개선 피드백", "idea")
+                tip_icon = get_list_icon_surface("tip", 18)
                 # 피드백 표시 (최대 2개)
                 for i, tip in enumerate(tips[:2]):
-                    # 텍스트 길이 제한
                     display_tip = tip[:35] + "..." if len(tip) > 35 else tip
                     tip_surface = font_tiny.render(display_tip, True, (150, 255, 150))
-                    tip_rect_text = tip_surface.get_rect(left=feedback_rect.x + 15, top=feedback_rect.y + 50 + i * 30)
+                    line_y = feedback_rect.y + 50 + i * 30
+                    text_left = feedback_rect.x + 15
+                    if tip_icon:
+                        icon_rect = tip_icon.get_rect()
+                        icon_rect.left = text_left
+                        icon_rect.centery = line_y + tip_surface.get_height() // 2
+                        SCREEN.blit(tip_icon, icon_rect)
+                        text_left = icon_rect.right + 6
+                    tip_rect_text = tip_surface.get_rect(left=text_left, top=line_y)
                     SCREEN.blit(tip_surface, tip_rect_text)
             # 상세 피드백 오버레이 (F키로 토글)
             if show_feedback:

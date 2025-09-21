@@ -2963,7 +2963,13 @@ except Exception as e:
 # 코만도 패들 이미지 생성 (고퀄리티 개선 버전)
 
 
-def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float = 0.0) -> pygame.Surface:
+def create_soldier_paddle_surface(
+    step_phase: float = 0.0,
+    swing_strength: float = 0.0,
+    right_hook_strength: float = 0.0,
+    *,
+    include_right_arm: bool = True,
+) -> pygame.Surface:
     surface = pygame.Surface((320, 108), pygame.SRCALPHA)
     block = 7
     center_x = surface.get_width() // 2
@@ -3000,6 +3006,7 @@ def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float
 
     torso_y = torso_base_y + torso_bob
     swing_strength = max(0.0, min(1.0, swing_strength))
+    right_hook_strength = max(0.0, min(1.0, right_hook_strength))
 
     palette = {
         "helmet_base": (78, 108, 68),
@@ -3165,30 +3172,126 @@ def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float
     grip_rect = pygame.Rect(left_wrist[0] - int(0.4 * block), left_wrist[1] - int(0.12 * block), int(0.8 * block), int(1.35 * block))
     pygame.draw.rect(surface, palette["paddle_grip"], grip_rect, border_radius=2)
 
-    right_shoulder = (center_x + int(3.05 * block), torso_y - shoulder_shift - 1)
-    right_elbow_point = (
-        right_shoulder[0] + int(2.55 * block) + arm_sway // 2,
-        torso_y - int(0.32 * block) - arm_sway // 3,
-    )
-    right_wrist_point = (
-        right_elbow_point[0] - int(1.45 * block),
-        right_elbow_point[1] - int(1.65 * block),
-    )
-    sleeve_rect = pygame.Rect(right_shoulder[0] - int(0.65 * block), torso_y - int(0.25 * block), int(1.6 * block), int(1.5 * block))
-    draw_camo_rect(sleeve_rect, palette["uniform_mid"], upper_camo, density=0.22)
-    right_elbow = to_int_point(right_elbow_point)
-    right_wrist = to_int_point(right_wrist_point)
-    pygame.draw.line(surface, palette["arm_shadow"], right_shoulder, right_elbow, block + 1)
-    pygame.draw.line(surface, palette["arm"], right_shoulder, right_elbow, block - 1)
-    pygame.draw.line(surface, palette["arm_shadow"], right_elbow, right_wrist, block)
-    pygame.draw.line(surface, palette["arm"], right_elbow, right_wrist, block - 2)
-    forearm_guard = pygame.Rect(min(right_elbow[0], right_wrist[0]) - int(0.5 * block), right_wrist[1] - int(0.4 * block), int(1.1 * block), int(2.2 * block))
-    pygame.draw.rect(surface, palette["strap"], forearm_guard, border_radius=4)
-    pygame.draw.rect(surface, palette["strap_high"], forearm_guard.inflate(-2, -3), 1, border_radius=3)
-    pygame.draw.circle(surface, palette["glove"], right_wrist, max(3, block // 2 + 1))
-    pygame.draw.circle(surface, palette["glove_shadow"], right_wrist, max(2, block // 2), 1)
-    knuckle_rect = pygame.Rect(right_wrist[0] - int(0.5 * block), right_wrist[1] - int(0.35 * block), int(1.0 * block), int(0.6 * block))
-    pygame.draw.rect(surface, palette["strap_high"], knuckle_rect, border_radius=3)
+    if include_right_arm:
+        right_shoulder = (center_x + int(3.05 * block), torso_y - shoulder_shift - 1)
+        right_elbow_point: list[float] = [
+            right_shoulder[0] + int(2.55 * block) + arm_sway // 2,
+            torso_y - int(0.32 * block) - arm_sway // 3,
+        ]
+        right_wrist_point: list[float] = [
+            right_elbow_point[0] - int(1.45 * block),
+            right_elbow_point[1] - int(1.65 * block),
+        ]
+
+        if right_hook_strength > 0.0:
+            if soldier_right_hook_phase == 0.0:
+                print("[DEBUG] Soldier hook frame start")
+            progress = soldier_right_hook_phase
+            hook = right_hook_strength
+
+            windup = max(0.0, min(1.0, progress / 0.45))
+            release = max(0.0, min(1.0, (progress - 0.45) / 0.55))
+            extension = pow(min(1.0, progress * 1.6), 0.8)
+
+            windup_elbow = (
+                right_shoulder[0] - (1.2 + 0.5 * windup) * block,
+                torso_y - (0.6 + 1.3 * windup) * block,
+            )
+            windup_wrist = (
+                right_shoulder[0] - (1.8 + 1.0 * windup) * block,
+                torso_y - (0.9 + 1.6 * windup) * block,
+            )
+
+            release_elbow = (
+                right_shoulder[0] + (2.2 + 1.1 * release) * block,
+                torso_y - (0.05 + 0.4 * release) * block,
+            )
+            release_wrist = (
+                right_shoulder[0] + (4.2 + 1.6 * release) * block,
+                torso_y - (0.3 + 0.2 * release) * block,
+            )
+
+            elbow_target = (
+                windup_elbow[0] * (1.0 - release) + release_elbow[0] * release,
+                windup_elbow[1] * (1.0 - release) + release_elbow[1] * release,
+            )
+            wrist_target = (
+                windup_wrist[0] * (1.0 - release) + release_wrist[0] * release,
+                windup_wrist[1] * (1.0 - release) + release_wrist[1] * release,
+            )
+
+            elbow_target = (
+                elbow_target[0] + (right_shoulder[0] - elbow_target[0]) * (1.0 - extension) * 0.15,
+                elbow_target[1] - extension * 0.35 * block,
+            )
+            wrist_target = (
+                wrist_target[0] + (right_shoulder[0] - wrist_target[0]) * (1.0 - extension) * 0.2,
+                wrist_target[1] - extension * 0.25 * block,
+            )
+
+            blend = min(1.0, progress * 2.0)
+            right_elbow_point[0] += (elbow_target[0] - right_elbow_point[0]) * blend
+            right_elbow_point[1] += (elbow_target[1] - right_elbow_point[1]) * blend
+            right_wrist_point[0] += (wrist_target[0] - right_wrist_point[0]) * blend
+            right_wrist_point[1] += (wrist_target[1] - right_wrist_point[1]) * blend
+
+            swing_angle = -(28.0 * windup) + (34.0 * release)
+            rotated_elbow = rotate_point(right_shoulder, tuple(right_elbow_point), swing_angle)
+            right_elbow_point[0], right_elbow_point[1] = rotated_elbow
+
+            wrist_angle = swing_angle + 22.0 * release - 10.0 * windup
+            rotated_wrist = rotate_point(tuple(right_elbow_point), tuple(right_wrist_point), wrist_angle)
+            right_wrist_point[0], right_wrist_point[1] = rotated_wrist
+
+            if hook > 0.08:
+                swoosh_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+                sweep_tail = rotate_point(
+                    right_shoulder,
+                    (
+                        right_shoulder[0] + 3.6 * block,
+                        torso_y - 0.1 * block,
+                    ),
+                    -(65.0 * release + 20.0 * windup),
+                )
+                sweep_mid = (
+                    (right_elbow_point[0] + sweep_tail[0]) / 2,
+                    (right_elbow_point[1] + sweep_tail[1]) / 2,
+                )
+                trail_points = [
+                    to_int_point(right_shoulder),
+                    to_int_point(sweep_tail),
+                    to_int_point(tuple(right_wrist_point)),
+                    to_int_point(sweep_mid),
+                ]
+                swoosh_alpha = int(135 * min(1.0, extension * 1.4))
+                pygame.draw.polygon(
+                    swoosh_surface,
+                    (210, 180, 130, swoosh_alpha),
+                    trail_points,
+                )
+                pygame.draw.polygon(
+                    swoosh_surface,
+                    (245, 225, 190, max(60, swoosh_alpha // 2)),
+                    trail_points,
+                    width=2,
+                )
+                surface.blit(swoosh_surface, (0, 0))
+
+        sleeve_rect = pygame.Rect(right_shoulder[0] - int(0.65 * block), torso_y - int(0.25 * block), int(1.6 * block), int(1.5 * block))
+        draw_camo_rect(sleeve_rect, palette["uniform_mid"], upper_camo, density=0.22)
+        right_elbow = to_int_point(tuple(right_elbow_point))
+        right_wrist = to_int_point(tuple(right_wrist_point))
+        pygame.draw.line(surface, palette["arm_shadow"], right_shoulder, right_elbow, block + 1)
+        pygame.draw.line(surface, palette["arm"], right_shoulder, right_elbow, block - 1)
+        pygame.draw.line(surface, palette["arm_shadow"], right_elbow, right_wrist, block)
+        pygame.draw.line(surface, palette["arm"], right_elbow, right_wrist, block - 2)
+        forearm_guard = pygame.Rect(min(right_elbow[0], right_wrist[0]) - int(0.5 * block), right_wrist[1] - int(0.4 * block), int(1.1 * block), int(2.2 * block))
+        pygame.draw.rect(surface, palette["strap"], forearm_guard, border_radius=4)
+        pygame.draw.rect(surface, palette["strap_high"], forearm_guard.inflate(-2, -3), 1, border_radius=3)
+        pygame.draw.circle(surface, palette["glove"], right_wrist, max(3, block // 2 + 1))
+        pygame.draw.circle(surface, palette["glove_shadow"], right_wrist, max(2, block // 2), 1)
+        knuckle_rect = pygame.Rect(right_wrist[0] - int(0.5 * block), right_wrist[1] - int(0.35 * block), int(1.0 * block), int(0.6 * block))
+        pygame.draw.rect(surface, palette["strap_high"], knuckle_rect, border_radius=3)
 
     hip_y = torso_y + int(2.15 * block)
     hip_rect = pygame.Rect(center_x - int(3.2 * block) + hip_sway, hip_y, int(6.4 * block), int(0.85 * block))
@@ -3232,6 +3335,22 @@ def create_soldier_paddle_surface(step_phase: float = 0.0, swing_strength: float
 
 
 SOLDIER_PADDLE_IMG = create_soldier_paddle_surface()
+SOLDIER_PADDLE_IMG_NO_RIGHT_ARM = create_soldier_paddle_surface(include_right_arm=False)
+
+
+def get_soldier_right_hook_strength() -> float:
+    global soldier_right_hook_phase
+    if not soldier_right_hook_active or SOLDIER_RIGHT_HOOK_DURATION <= 0 or soldier_right_hook_timer <= 0:
+        soldier_right_hook_phase = 0.0
+        return 0.0
+    progress = 1.0 - (soldier_right_hook_timer / SOLDIER_RIGHT_HOOK_DURATION)
+    progress = max(0.0, min(1.0, progress))
+    soldier_right_hook_phase = progress
+    base = math.sin(progress * math.pi)
+    strength = max(0.0, min(1.0, base ** 0.75))
+    if strength > 0:
+        print(f"[DEBUG] Soldier hook strength: progress={progress:.2f}, strength={strength:.2f}, timer={soldier_right_hook_timer}")
+    return strength
 
 
 BLACKSMITH_CENTER_X = 122
@@ -5007,6 +5126,12 @@ soldier_swing_active = False
 soldier_swing_timer = 0
 SOLDIER_SWING_DURATION = 15  # 0.25초 (60fps * 0.25)
 
+# 오른팔 훅 애니메이션 (오른쪽 타격시 팔을 머리쪽으로 휘두름)
+soldier_right_hook_active = False
+soldier_right_hook_timer = 0
+SOLDIER_RIGHT_HOOK_DURATION = 18  # 0.3초 동안 훅 모션 유지
+soldier_right_hook_phase = 0.0
+
 # === 코만도 걷기 애니메이션 변수 ===
 soldier_walking_active = False
 soldier_walking_timer = 0
@@ -5031,6 +5156,22 @@ smasher_shield_raise_timer = 0
 
 SMASHER_LEFT_RAISE_DURATION = 18  # 왼쪽 타격 시 왼팔 들어올리기 연출 시간
 smasher_left_raise_timer = 0
+
+smasher_pending_contact_offset = None  # 파워스매싱 발사 시점용 애니메이션 보류 오프셋
+
+
+def trigger_smasher_contact_animation(offset_x: float) -> None:
+    """공이 맞은 위치에 따라 스매셔의 팔/방패 애니메이션을 트리거한다."""
+    global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
+    global smasher_pending_contact_offset
+    smasher_pending_contact_offset = None
+    smasher_hit_pose_timer = SMASHER_HIT_POSE_DURATION
+    if offset_x >= 0:
+        smasher_shield_raise_timer = SMASHER_SHIELD_RAISE_DURATION
+        smasher_left_raise_timer = 0
+    else:
+        smasher_left_raise_timer = SMASHER_LEFT_RAISE_DURATION
+        smasher_shield_raise_timer = 0
 
 optimus_walking_active = False
 optimus_walking_timer = 0
@@ -5154,7 +5295,7 @@ def pause_blacksmith_construction_sound():
             pass
     blacksmith_construction_sound_playing = False
 
-def create_soldier_paddle_animated() -> pygame.Surface:
+def create_soldier_paddle_animated(*, include_right_arm: bool = True) -> pygame.Surface:
     """휘두르기 애니메이션이 적용된 코만도 패들 이미지 생성"""
     global soldier_swing_timer
 
@@ -5163,10 +5304,15 @@ def create_soldier_paddle_animated() -> pygame.Surface:
 
     swing_progress = 1.0 - (soldier_swing_timer / SOLDIER_SWING_DURATION)
     swing_strength = math.sin(max(0.0, min(1.0, swing_progress)) * math.pi)
-    return create_soldier_paddle_surface(swing_strength=swing_strength)
+    right_hook_strength = get_soldier_right_hook_strength()
+    return create_soldier_paddle_surface(
+        swing_strength=swing_strength,
+        right_hook_strength=right_hook_strength,
+        include_right_arm=include_right_arm,
+    )
 
 
-def create_soldier_paddle_walking() -> pygame.Surface:
+def create_soldier_paddle_walking(*, include_right_arm: bool = True) -> pygame.Surface:
     """걷기 애니메이션이 적용된 코만도 패들 이미지 생성"""
     global soldier_walking_timer
 
@@ -5174,7 +5320,12 @@ def create_soldier_paddle_walking() -> pygame.Surface:
         return create_soldier_paddle_surface()
 
     phase = (soldier_walking_timer % SOLDIER_WALKING_CYCLE) / SOLDIER_WALKING_CYCLE
-    return create_soldier_paddle_surface(step_phase=phase)
+    right_hook_strength = get_soldier_right_hook_strength()
+    return create_soldier_paddle_surface(
+        step_phase=phase,
+        right_hook_strength=right_hook_strength,
+        include_right_arm=include_right_arm,
+    )
 
 
 #  버스트업 스킬 관련 변수 (대쉬 중 패들 세로 타격 범위만 증가 + 섬광 효과)
@@ -11589,60 +11740,26 @@ def draw_soldier_gun_animation(screen, paddle_rect):
         t = clamp(t, 0.0, 1.0)
         return 1.0 - (1.0 - t) ** 3
 
-    def smooth_step(t: float) -> float:
+    def ease_in_out(t: float) -> float:
         t = clamp(t, 0.0, 1.0)
         return t * t * (3.0 - 2.0 * t)
 
-    def solve_two_bone(shoulder: Vector2, desired_hand: Vector2, upper_len: float, lower_len: float,
-                       bend_hint: tuple[float, float]) -> tuple[Vector2, Vector2]:
-        """간단한 2-본 IK로 팔꿈치 위치를 계산한다."""
-        shoulder_vec = Vector2(shoulder)
-        hand_vec = Vector2(desired_hand)
-        to_hand = hand_vec - shoulder_vec
-        dist = to_hand.length()
-        max_reach = max(upper_len + lower_len - 0.001, 0.001)
-        min_reach = max(abs(upper_len - lower_len) + 0.001, 0.001)
-
-        if dist < 1e-4:
-            base_dir = Vector2(1, 0)
-            dist = min_reach
-            to_hand = base_dir * dist
-            hand_vec = shoulder_vec + to_hand
-        else:
-            base_dir = to_hand.normalize()
-
-        clamped_dist = clamp(dist, min_reach, max_reach)
-        if abs(clamped_dist - dist) > 1e-4:
-            to_hand = base_dir * clamped_dist
-            hand_vec = shoulder_vec + to_hand
-
-        bend_vec = Vector2(bend_hint)
-        if bend_vec.length_squared() < 1e-4:
-            bend_vec = Vector2(-base_dir.y, base_dir.x)
-        else:
-            bend_vec = bend_vec.normalize()
-
-        perp = Vector2(-base_dir.y, base_dir.x)
-        if perp.dot(bend_vec) < 0:
-            perp = -perp
-
-        cos_angle = (upper_len ** 2 + clamped_dist ** 2 - lower_len ** 2) / (2 * upper_len * clamped_dist)
-        cos_angle = clamp(cos_angle, -1.0, 1.0)
-        angle = math.acos(cos_angle)
-        elbow_dir = base_dir * math.cos(angle) + perp * math.sin(angle)
-        elbow_vec = shoulder_vec + elbow_dir * upper_len
-        return elbow_vec, hand_vec
+    def lerp_vec(a: Vector2, b: Vector2, t: float) -> Vector2:
+        return a + (b - a) * clamp(t, 0.0, 1.0)
 
     def to_int_pair(vec: Vector2) -> tuple[int, int]:
         return int(round(vec.x)), int(round(vec.y))
 
-    # 기본 좌표 및 타깃 계산
+    # 기본 좌표 세팅
     paddle_center_x = paddle_rect.centerx
     paddle_center_y = paddle_rect.centery
 
-    shoulder = Vector2(paddle_center_x + 34, paddle_center_y - 18)
-    pocket = Vector2(paddle_center_x + 22, paddle_center_y + 20)
-    ready = Vector2(paddle_center_x + 40, paddle_center_y - 6)
+    shoulder = Vector2(paddle_center_x + 28, paddle_center_y - 18)
+    pocket_hand = shoulder + Vector2(-6, 18)
+    ready_hand = shoulder + Vector2(4, 14)
+
+    pocket_elbow = shoulder + Vector2(2, 14)
+    ready_elbow = shoulder + Vector2(6, 12)
 
     target_vec = Vector2(soldier_gun_target_x, soldier_gun_target_y)
     if abs(soldier_gun_target_x) < 0.1 and abs(soldier_gun_target_y) < 0.1:
@@ -11650,13 +11767,14 @@ def draw_soldier_gun_animation(screen, paddle_rect):
 
     aim_dir = target_vec - shoulder
     if aim_dir.length_squared() < 1e-4:
-        aim_dir = Vector2(1, -0.2)
+        aim_dir = Vector2(1, -0.25)
     aim_dir = aim_dir.normalize()
 
-    upper_len = 26.0
-    lower_len = 22.0
-    arm_reach = upper_len + lower_len - 2.0
+    arm_reach = 20.0
     aim_hand = shoulder + aim_dir * arm_reach
+    perp = Vector2(-aim_dir.y, aim_dir.x)
+    aim_elbow = shoulder + aim_dir * 9.0 + perp * -5.0 + Vector2(0, 8)
+
     target_angle = math.atan2(aim_dir.y, aim_dir.x)
 
     # 현재 애니메이션 단계 확인
@@ -11666,89 +11784,93 @@ def draw_soldier_gun_animation(screen, paddle_rect):
     if soldier_gun_animation_frame >= SOLDIER_GUN_DRAW_FRAMES + SOLDIER_GUN_AIM_FRAMES:
         current_stage = SOLDIER_GUN_STAGE_FIRE
 
-    hand = ready
+    hand = ready_hand
+    elbow = ready_elbow
     pistol_angle = target_angle
     barrel_visibility = 1.0
+    fire_flash_progress = None
 
     if current_stage == SOLDIER_GUN_STAGE_DRAW:
         frame_progress = soldier_gun_animation_frame / max(1, SOLDIER_GUN_DRAW_FRAMES - 1)
         lift_progress = ease_out_cubic(frame_progress)
-        hand = pocket + (ready - pocket) * lift_progress
-        hand += Vector2(6.0 * lift_progress, -8.0 * math.sin(lift_progress * math.pi))
+        hand = lerp_vec(pocket_hand, ready_hand, lift_progress)
+        elbow = lerp_vec(pocket_elbow, ready_elbow, lift_progress)
 
-        holster_angle = math.pi / 2  # 하강 방향
-        ready_angle = math.radians(-12)
+        holster_angle = math.radians(95)
+        ready_angle = math.radians(-16)
         pistol_angle = holster_angle + (ready_angle - holster_angle) * lift_progress
         barrel_visibility = 0.55 + 0.45 * lift_progress
 
     elif current_stage == SOLDIER_GUN_STAGE_AIM:
         frame_progress = (soldier_gun_animation_frame - SOLDIER_GUN_DRAW_FRAMES) / max(1, SOLDIER_GUN_AIM_FRAMES - 1)
-        aim_progress = smooth_step(frame_progress)
-        hand = ready + (aim_hand - ready) * aim_progress
-        ready_angle = math.radians(-12)
+        aim_progress = ease_in_out(frame_progress)
+        hand = lerp_vec(ready_hand, aim_hand, aim_progress)
+        elbow = lerp_vec(ready_elbow, aim_elbow, aim_progress)
+
+        ready_angle = math.radians(-16)
         pistol_angle = ready_angle + (target_angle - ready_angle) * aim_progress
 
     else:  # SOLDIER_GUN_STAGE_FIRE
         frame_progress = (soldier_gun_animation_frame - (SOLDIER_GUN_DRAW_FRAMES + SOLDIER_GUN_AIM_FRAMES)) / max(1, SOLDIER_GUN_FIRE_FRAMES - 1)
-        recoil_factor = math.sin(frame_progress * math.pi)
-        hand = aim_hand - aim_dir * (4.0 * (1.0 - frame_progress))
-        pistol_angle = target_angle - math.radians(4) * recoil_factor
+        fire_progress = clamp(frame_progress, 0.0, 1.0)
+        recoil = math.sin(fire_progress * math.pi)
 
-    elbow, solved_hand = solve_two_bone(shoulder, hand, upper_len, lower_len, (-0.15, -1.0))
-    hand = solved_hand
+        hand = lerp_vec(aim_hand, aim_hand - aim_dir * 5.0, 0.35 * recoil)
+        elbow = lerp_vec(aim_elbow, aim_elbow - aim_dir * 3.0 + Vector2(2.0, -4.0), 0.5 * recoil)
+        pistol_angle = target_angle - math.radians(6.0) * recoil
+        fire_flash_progress = fire_progress
 
     shoulder_pt = to_int_pair(shoulder)
     elbow_pt = to_int_pair(elbow)
     hand_pt = to_int_pair(hand)
 
-    arm_mid_color = (92, 112, 78)
-    arm_shadow_color = (70, 86, 60)
+    # 기본 스프라이트의 팔색과 맞추기 위해 갈색 톤 사용
+    arm_mid_color = (124, 108, 74)
+    arm_shadow_color = (96, 84, 54)
     glove_color = (206, 182, 150)
     glove_outline = (172, 144, 118)
 
-    pygame.draw.line(screen, arm_shadow_color, shoulder_pt, elbow_pt, 10)
+    pygame.draw.line(screen, arm_shadow_color, shoulder_pt, elbow_pt, 9)
     pygame.draw.line(screen, arm_mid_color, shoulder_pt, elbow_pt, 6)
-    pygame.draw.line(screen, arm_shadow_color, elbow_pt, hand_pt, 9)
+    pygame.draw.line(screen, arm_shadow_color, elbow_pt, hand_pt, 8)
     pygame.draw.line(screen, arm_mid_color, elbow_pt, hand_pt, 5)
 
     pygame.draw.circle(screen, glove_color, hand_pt, 6)
     pygame.draw.circle(screen, glove_outline, hand_pt, 6, 2)
 
-    # 권총 렌더링
+    # 권총 렌더링 (손바닥 중심에서 자연스러운 각도로 배치)
     dir_vec = Vector2(math.cos(pistol_angle), math.sin(pistol_angle))
-    barrel_start_offset = 2.0 + 3.0 * barrel_visibility
-    barrel_length = 14.0 * barrel_visibility + 8.0
-    barrel_start = hand + dir_vec * barrel_start_offset
+    normal_vec = Vector2(-dir_vec.y, dir_vec.x)
+
+    grip_base = hand - dir_vec * 2.0 + normal_vec * 2.5
+    barrel_start = hand + dir_vec * (6.0 + 4.0 * barrel_visibility) + normal_vec * -2.5
+    barrel_length = 16.0 + 6.0 * barrel_visibility
     muzzle = barrel_start + dir_vec * barrel_length
     slide_top = barrel_start + dir_vec * (barrel_length * 0.65)
-    grip_angle = pistol_angle + math.radians(115)
-    grip_vec = Vector2(math.cos(grip_angle), math.sin(grip_angle))
-    grip_end = barrel_start + grip_vec * (8.0 + 2.0 * barrel_visibility)
+    grip_end = grip_base + normal_vec * 6.0 + dir_vec * -4.0
 
     body_color = (46, 46, 48)
-    highlight_color = (120, 120, 126)
+    highlight_color = (126, 126, 132)
 
     pygame.draw.line(screen, body_color, to_int_pair(barrel_start), to_int_pair(muzzle), 6)
     pygame.draw.line(screen, highlight_color, to_int_pair(barrel_start), to_int_pair(slide_top), 2)
-    pygame.draw.line(screen, body_color, to_int_pair(barrel_start), to_int_pair(grip_end), 4)
+    pygame.draw.line(screen, body_color, to_int_pair(grip_base), to_int_pair(grip_end), 4)
 
     soldier_gun_muzzle_x, soldier_gun_muzzle_y = to_int_pair(muzzle)
 
-    if current_stage == SOLDIER_GUN_STAGE_FIRE:
-        frame_progress = clamp(frame_progress, 0.0, 1.0)
-        if frame_progress < 0.45:
-            flash_strength = 1.0 - frame_progress / 0.45
-            flame_length = 22.0 * flash_strength
-            flame_end = muzzle + dir_vec * flame_length
-            core_end = muzzle + dir_vec * (flame_length * 0.55)
+    if fire_flash_progress is not None and fire_flash_progress < 0.5:
+        flash_strength = 1.0 - fire_flash_progress * 2.0
+        flame_length = 22.0 * flash_strength
+        flame_end = muzzle + dir_vec * flame_length
+        core_end = muzzle + dir_vec * (flame_length * 0.55)
 
-            flame_color = (
-                255,
-                int(200 + 55 * flash_strength),
-                int(40 * flash_strength),
-            )
-            pygame.draw.line(screen, flame_color, to_int_pair(muzzle), to_int_pair(flame_end), 6)
-            pygame.draw.line(screen, (255, 255, 255), to_int_pair(muzzle), to_int_pair(core_end), 3)
+        flame_color = (
+            255,
+            int(210 + 45 * flash_strength),
+            int(64 * flash_strength),
+        )
+        pygame.draw.line(screen, flame_color, to_int_pair(muzzle), to_int_pair(flame_end), 6)
+        pygame.draw.line(screen, (255, 255, 255), to_int_pair(muzzle), to_int_pair(core_end), 3)
 
 def handle_player(keys):
     global ball_angle, special_gauge, special_gauge_max, special_ready, special_active, recent_dash_time, recent_half_dash_time, recent_dash_success_window
@@ -13651,10 +13773,26 @@ def handle_player(keys):
         
         # 코만도 캐릭터 휘두르기 애니메이션 활성화
         global soldier_swing_active, soldier_swing_timer
+        global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
         global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
         if selected_character_type == "soldier":
-            soldier_swing_active = True
-            soldier_swing_timer = SOLDIER_SWING_DURATION
+            hit_on_right = collision_x > 0
+            if hit_on_right:
+                if not soldier_right_hook_active or soldier_right_hook_timer <= 0:
+                    soldier_right_hook_active = True
+                    soldier_right_hook_timer = SOLDIER_RIGHT_HOOK_DURATION
+                    soldier_right_hook_phase = 0.0
+                    print(f"[DEBUG] Soldier hook start: collision_x={collision_x:.1f}, timer={soldier_right_hook_timer}")
+                soldier_swing_active = False
+                soldier_swing_timer = 0
+            else:
+                if not soldier_swing_active or soldier_swing_timer <= 0:
+                    soldier_swing_active = True
+                    soldier_swing_timer = SOLDIER_SWING_DURATION
+                    print(f"[DEBUG] Soldier paddle swing (left hit): collision_x={collision_x:.1f}")
+                soldier_right_hook_active = False
+                soldier_right_hook_timer = 0
+                soldier_right_hook_phase = 0.0
         elif selected_character_type == "blacksmith":
             blacksmith_shield_swing_active = True
             blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
@@ -13967,13 +14105,7 @@ def handle_player(keys):
         hit_animation_active = True
         hit_animation_timer = HIT_ANIMATION_DURATION
         if selected_character_type == "smasher":
-            smasher_hit_pose_timer = SMASHER_HIT_POSE_DURATION
-            if collision_x >= 0:
-                smasher_shield_raise_timer = SMASHER_SHIELD_RAISE_DURATION
-                smasher_left_raise_timer = 0
-            else:
-                smasher_left_raise_timer = SMASHER_LEFT_RAISE_DURATION
-                smasher_shield_raise_timer = 0
+            trigger_smasher_contact_animation(collision_x)
         #  게이지 처리 - Aipill 활성화 시에는 게이지 감소만, 비활성화 시에는 게이지 증가
         print(f"   aipill_active: {aipill_active}")  # 
         # Aipill 활성화 시 게이지 감소만
@@ -19053,6 +19185,7 @@ def draw_objects():
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
     global smasher_left_raise_timer
     global smasher_hit_pose_timer, smasher_shield_raise_timer
+    global smasher_pending_contact_offset
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     new_tear_particles = []  #  함수 시작 시 초기화
@@ -19757,12 +19890,19 @@ def draw_objects():
         # 일반 모드에서는 캐릭터 타입에 따라 다른 이미지 사용
         if selected_character_type == "soldier":
             # 코만도 캐릭터 애니메이션 처리 (우선순위: 휘두르기 > 걷기 > 기본)
+            include_right_arm = not soldier_gun_animation_active
+            right_hook_strength = get_soldier_right_hook_strength() if include_right_arm else 0.0
             if soldier_swing_active:
-                base_ufo_img = create_soldier_paddle_animated()
+                base_ufo_img = create_soldier_paddle_animated(include_right_arm=include_right_arm)
             elif soldier_walking_active:
-                base_ufo_img = create_soldier_paddle_walking()
+                base_ufo_img = create_soldier_paddle_walking(include_right_arm=include_right_arm)
+            elif right_hook_strength > 0:
+                base_ufo_img = create_soldier_paddle_surface(
+                    right_hook_strength=right_hook_strength,
+                    include_right_arm=True,
+                )
             else:
-                base_ufo_img = SOLDIER_PADDLE_IMG
+                base_ufo_img = SOLDIER_PADDLE_IMG if include_right_arm else SOLDIER_PADDLE_IMG_NO_RIGHT_ARM
         elif selected_character_type == "blacksmith":
             if blacksmith_shield_swing_active:
                 base_ufo_img = create_blacksmith_paddle_swinging()
@@ -19825,6 +19965,7 @@ def draw_objects():
         smasher_hit_pose_timer = 0
         smasher_shield_raise_timer = 0
         smasher_left_raise_timer = 0
+        smasher_pending_contact_offset = None
     #  투척 모션 중일 때 특별한 회전 각도 적용
     if molotov_throwing or grenade_throwing or flare_throwing:
         throw_progress = 0
@@ -35356,6 +35497,7 @@ def reset_round():
     global fire_zones, molotovs  #  화염병 관련 변수 추가
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
+    global smasher_pending_contact_offset
     global boss_special_gauge, current_stage  #  스테이지 1 보스 게이지 감소용 변수 추가
     global ragnarok_stun_attempted_this_rally  # 라그나로크 해머 스턴 플래그
     global leg_shot_active, leg_shot_timer, leg_shot_text_timer  # 권총 레그샷 관련 변수
@@ -35572,6 +35714,7 @@ def reset_round():
     global power_smashing_freeze_start_time, power_smashing_freeze_active
     power_smashing_freeze_start_time = 0
     power_smashing_freeze_active = False
+    smasher_pending_contact_offset = None
     mega_smashing_meteor_trail.clear()  # 고스트샷 유성 효과 리셋
     mega_smashing_active = False  # 고스트샷 비활성화
     mega_smashing_start_time = 0  # 고스트샷 시작 시간 리셋
@@ -35715,6 +35858,7 @@ def choose_server(show_text=True):
     global rolling_active, rolling_timer, rolling_direction, rolling_stun_timer
     global last_hit_by  # 서브하는 사람에 따라 초기화
     global tutorial_needs_dash_practice  # 튜토리얼 대쉬 연습 플래그
+    global smasher_pending_contact_offset
     # 고스트샷 및 파워스매싱 상태 초기화 (라운드 시작 시)
     mega_smashing_active = False
     mega_smashing_start_time = 0
@@ -35722,6 +35866,7 @@ def choose_server(show_text=True):
     mega_smashing_boss_defense_count = 0  # 보스 방어 카운터 리셋
     power_smashing_freeze_active = False
     power_smashing_freeze_start_time = 0
+    smasher_pending_contact_offset = None
     # 고스트샷 관련 코드 제거됨
     # 스테이지 6과 튜토리얼(스테이지 50)에서는 항상 플레이어가 먼저 서브
     # 단, 튜토리얼 대쉬 연습 모드에서는 보스가 서브
@@ -36332,6 +36477,7 @@ def calculate_bounce(paddle):
         if special_gauge >= 150:
             perfect_shot = True
             drive_activated = True  #  드라이브 발동 표시
+            trigger_smasher_contact_animation(BALL.centerx - paddle.centerx)
             special_gauge -= 150  #  드라이브 발동 시 150 게이지 소모
             print(f"   !  ! ( 150 ,  : {special_gauge})")
             play_sound_with_volume(SOUND_DRIVE)  # 플레이어 드라이브 발동 효과음
@@ -37058,6 +37204,7 @@ def handle_ball():
     global ball_impact_boost, ball_boost_decay_rate, ball_min_boost
     global player_last_shot_speed
     global soldier_swing_active, soldier_swing_timer
+    global soldier_right_hook_active, soldier_right_hook_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     # 스톱워치 보정/락 상태 (스마트폰)
     global stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -40141,8 +40288,24 @@ def handle_ball():
         
         # 코만도 캐릭터 휘두르기 애니메이션 활성화 (handle_ball에서 놓친 충돌)
         if selected_character_type == "soldier" and not player_collision_handled:
-            soldier_swing_active = True
-            soldier_swing_timer = SOLDIER_SWING_DURATION
+            global soldier_swing_active, soldier_swing_timer
+            global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
+            hit_on_right = BALL.centerx > PLAYER.centerx
+            if hit_on_right:
+                if not soldier_right_hook_active or soldier_right_hook_timer <= 0:
+                    soldier_right_hook_active = True
+                    soldier_right_hook_timer = SOLDIER_RIGHT_HOOK_DURATION
+                    soldier_right_hook_phase = 0.0
+                    print(f"[DEBUG] Soldier hook start (handle_ball backup): ball_x={BALL.centerx:.1f}, paddle_center={PLAYER.centerx:.1f}")
+                soldier_swing_active = False
+                soldier_swing_timer = 0
+            else:
+                if not soldier_swing_active or soldier_swing_timer <= 0:
+                    soldier_swing_active = True
+                    soldier_swing_timer = SOLDIER_SWING_DURATION
+                soldier_right_hook_active = False
+                soldier_right_hook_timer = 0
+                soldier_right_hook_phase = 0.0
         elif selected_character_type == "blacksmith" and not player_collision_handled:
             blacksmith_shield_swing_active = True
             blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
@@ -42109,18 +42272,31 @@ def draw_player_skill_display():
         font_small = FontStyle.tiny()  # 16pt 픽셀 폰트
         # 등급 표시
         rank_color = rank_info["color"]
-        rank_text = f"{rank_info['icon']} {rank_info['name']} ({rank_info['score']}점)"
+        badge_surface = get_rank_badge_surface(rank_info.get("name"))
+        text_x = start_x + 10
+        text_y = start_y + 10
+        if badge_surface:
+            badge_rect = badge_surface.get_rect()
+            badge_rect.left = start_x + 10
+            badge_rect.top = start_y + 10
+            SCREEN.blit(badge_surface, badge_rect)
+            text_x = badge_rect.right + 8
+            text_y = badge_rect.top + 2
+        rank_text = f"{rank_info['name']} ({rank_info['score']}점)"
         rank_surface = font_title.render(rank_text, True, rank_color)
-        SCREEN.blit(rank_surface, (start_x + 10, start_y + 10))
+        SCREEN.blit(rank_surface, (text_x, text_y))
         # 등급 설명 표시
+        info_y = text_y + 25
         if 'details' in rank_info:
             detail_surface = font_small.render(rank_info['details'], True, (200, 200, 200))
-            SCREEN.blit(detail_surface, (start_x + 10, start_y + 35))
+            SCREEN.blit(detail_surface, (text_x, info_y))
+            info_y += 18
         # 다음 등급까지 진행률
         progress = rank_info["progress_to_next"]
         progress_text = f"다음 등급까지: {progress:.1f}%"
         progress_surface = font_small.render(progress_text, True, (200, 200, 200))
-        SCREEN.blit(progress_surface, (start_x + 10, start_y + 35))
+        SCREEN.blit(progress_surface, (text_x, info_y))
+        info_y += 15
         # 진행률 바
         bar_x = start_x + 10
         bar_y = start_y + 50
@@ -42145,9 +42321,18 @@ def draw_player_skill_display():
         # 실시간 업적 알림 (최근 업적이 있으면)
         achievements = detailed_stats["achievements"]
         if achievements:
-            latest_achievement = achievements[-1]
-            achievement_surface = font_small.render(f" {latest_achievement}", True, (255, 215, 0))
-            SCREEN.blit(achievement_surface, (start_x + 10, start_y + 100))
+            latest_achievement = achievements[-1][:45] + "..." if len(achievements[-1]) > 45 else achievements[-1]
+            achievement_surface = font_small.render(latest_achievement, True, (255, 215, 0))
+            icon = get_list_icon_surface("achievement", 16)
+            base_x = start_x + 10
+            base_y = start_y + 95
+            if icon:
+                icon_rect = icon.get_rect(left=base_x, centery=base_y + achievement_surface.get_height() // 2)
+                SCREEN.blit(icon, icon_rect)
+                text_rect = achievement_surface.get_rect(left=icon_rect.right + 6, top=base_y)
+            else:
+                text_rect = achievement_surface.get_rect(left=base_x, top=base_y)
+            SCREEN.blit(achievement_surface, text_rect)
     except Exception as e:
         # 조용히 실패 처리 (성능 우선)
         pass
@@ -43652,6 +43837,7 @@ def main(stage_num, new_boss_mode=False):
     global game_should_exit  #  게임 종료 플래그
     global game_session_active  #  게임 세션 활성화 여부
     global rolling_charges, rolling_charge_timer, acceleration_skill_level, acceleration_height_bonus  #  대쉬 & 스킬 관련
+    global smasher_pending_contact_offset
     # 보스 AI 설정
     global BOSS_ACCELERATION, BOSS_DECELERATION, BOSS_MAX_SPEED, BOSS_INSTANT_STOP_DECELERATION
     global BOSS_ACCELERATION_DEFAULT, BOSS_DECELERATION_DEFAULT, BOSS_MAX_SPEED_DEFAULT, BOSS_INSTANT_STOP_DECELERATION_DEFAULT
@@ -43758,6 +43944,10 @@ def main(stage_num, new_boss_mode=False):
     soldier_gun_cooldown = 0
     soldier_control_lock_timer = 0
     soldier_gun_drawn = False
+    soldier_right_hook_active = False
+    soldier_right_hook_timer = 0
+    global soldier_right_hook_phase
+    soldier_right_hook_phase = 0.0
     
     # 피 파티클 초기화
     global blood_particles
@@ -43780,7 +43970,7 @@ def main(stage_num, new_boss_mode=False):
     soldier_gun_target_y = 0
     soldier_gun_muzzle_x = 0
     soldier_gun_muzzle_y = 0
-    
+
     # 보스 넉백 효과 초기화
     global boss_knockback_active, boss_knockback_offset_x, boss_knockback_offset_y, boss_knockback_timer
     boss_knockback_active = False
@@ -44978,6 +45168,7 @@ def main(stage_num, new_boss_mode=False):
                         power_smashing_direction = 0   # 직선
                         # 직선이므로 포물선 효과 없음
                         power_smashing_arc_strength = 0.0
+                    smasher_pending_contact_offset = BALL.centerx - PLAYER.centerx
                     # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
                     if not mega_smashing_active:
                         special_active = True
@@ -45031,6 +45222,8 @@ def main(stage_num, new_boss_mode=False):
                         # 충돌 애니메이션
                         hit_animation_active = True
                         hit_animation_timer = HIT_ANIMATION_DURATION
+                    if not power_smashing_freeze_active and smasher_pending_contact_offset is not None:
+                        trigger_smasher_contact_animation(smasher_pending_contact_offset)
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
                     drive_global_cooldown = drive_global_cooldown_frames      #  전역 쿨다운 시작
                     perfect_timing_input_used = True  #  이 윈도우에서 입력 사용됨 표시
@@ -45874,6 +46067,8 @@ def main(stage_num, new_boss_mode=False):
                     power_smashing_start_time = current_time
                     # 파워스매시 발사 후 special_active를 False로 설정하여 게이지 충전 허용
                     special_active = False
+                    if smasher_pending_contact_offset is not None:
+                        trigger_smasher_contact_animation(smasher_pending_contact_offset)
                     #  파워스매싱 공 발사 효과음 재생
                     play_sound_with_volume(SOUND_POWER_SMASH_LAUNCH)
                     print("!    !")
@@ -46269,6 +46464,13 @@ def main(stage_num, new_boss_mode=False):
                         soldier_swing_timer -= 1
                         if soldier_swing_timer <= 0:
                             soldier_swing_active = False
+                    if soldier_right_hook_timer > 0:
+                        soldier_right_hook_timer -= 1
+                        print(f"[DEBUG] Soldier hook ticking: timer={soldier_right_hook_timer}")
+                        if soldier_right_hook_timer <= 0:
+                            soldier_right_hook_active = False
+                            soldier_right_hook_phase = 0.0
+                            print("[DEBUG] Soldier hook end")
                     
                     # 레그샷 효과 타이머 업데이트
                     if leg_shot_active and leg_shot_timer > 0:
@@ -47286,22 +47488,193 @@ def draw_modern_panel(surface, rect, title="", title_color=(255, 215, 0)):
         title_surface = font_title.render(title, True, title_color)
         title_rect = title_surface.get_rect(center=get_center_pos(header_rect))
         surface.blit(title_surface, title_rect)
+SECTION_ICON_CACHE: dict[str, pygame.Surface] = {}
+RANK_BADGE_CACHE: dict[str, pygame.Surface] = {}
+
+def get_section_icon_surface(name: str) -> pygame.Surface | None:
+    """Create or fetch a small decorative icon for section headers."""
+    key = (name or "").lower()
+    if not key:
+        return None
+    cached = SECTION_ICON_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    size = 28
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+
+    if key == "medal":
+        pygame.draw.circle(surf, (255, 210, 70), (size // 2, size // 2 - 3), 10)
+        pygame.draw.circle(surf, (255, 238, 170), (size // 2, size // 2 - 5), 6)
+        pygame.draw.circle(surf, (228, 170, 40), (size // 2, size // 2 - 3), 10, 2)
+        pygame.draw.polygon(surf, (200, 50, 60), [(size // 2 - 6, size - 6), (size // 2 - 1, size - 2), (size // 2 + 3, size - 6)])
+        pygame.draw.polygon(surf, (200, 50, 60), [(size // 2 + 6, size - 6), (size // 2 + 1, size - 2), (size // 2 - 3, size - 6)])
+    elif key == "analysis":
+        pygame.draw.rect(surf, (32, 60, 120), (0, 0, size, size), border_radius=6)
+        base_y = size - 6
+        bar_width = 4
+        spacing = 3
+        padding = 3
+        heights = [12, 18, 9, 20]
+        colors = [
+            (120, 200, 255),
+            (140, 235, 180),
+            (255, 210, 130),
+            (255, 160, 190),
+        ]
+        for idx, height in enumerate(heights):
+            x = padding + idx * (bar_width + spacing)
+            pygame.draw.rect(
+                surf,
+                colors[idx % len(colors)],
+                (x, base_y - height, bar_width, height),
+                border_radius=2,
+            )
+        pygame.draw.rect(surf, (22, 40, 90), (padding, base_y, size - padding * 2, 3), border_radius=2)
+    elif key == "trophy":
+        cup_top = size // 2 - 6
+        pygame.draw.polygon(
+            surf,
+            (240, 190, 70),
+            [
+                (size // 2 - 9, cup_top),
+                (size // 2 + 9, cup_top),
+                (size // 2 + 6, cup_top + 12),
+                (size // 2 - 6, cup_top + 12),
+            ],
+        )
+        pygame.draw.rect(surf, (220, 170, 60), (size // 2 - 4, cup_top + 12, 8, 7), border_radius=2)
+        pygame.draw.rect(surf, (200, 150, 50), (size // 2 - 8, size - 10, 16, 5), border_radius=2)
+        pygame.draw.rect(surf, (170, 120, 40), (size // 2 - 10, size - 12, 20, 3), border_radius=2)
+        pygame.draw.arc(surf, (240, 190, 70), (size // 2 - 16, cup_top + 2, 10, 14), 3.6, 6.1, 2)
+        pygame.draw.arc(surf, (240, 190, 70), (size // 2 + 6, cup_top + 2, 10, 14), 3.9, 6.3, 2)
+    elif key == "idea":
+        center_x, center_y = size // 2, size // 2
+        pygame.draw.circle(surf, (255, 225, 140), (center_x, center_y - 1), 9)
+        pygame.draw.circle(surf, (255, 245, 200), (center_x, center_y - 3), 6)
+        pygame.draw.rect(surf, (230, 170, 70), (center_x - 3, center_y + 5, 6, 6), border_radius=2)
+        pygame.draw.rect(surf, (190, 130, 60), (center_x - 5, center_y + 10, 10, 3), border_radius=1)
+        top_y = center_y - 11
+        pygame.draw.line(surf, (255, 235, 170), (center_x, top_y), (center_x, top_y - 4), 2)
+        pygame.draw.line(surf, (255, 235, 170), (center_x - 6, top_y + 2), (center_x - 10, top_y - 1), 2)
+        pygame.draw.line(surf, (255, 235, 170), (center_x + 6, top_y + 2), (center_x + 10, top_y - 1), 2)
+    else:
+        pygame.draw.circle(surf, (120, 160, 220), (size // 2, size // 2), size // 2)
+        pygame.draw.circle(surf, (255, 255, 255), (size // 2, size // 2), size // 2 - 4, 2)
+
+    SECTION_ICON_CACHE[key] = surf
+    return surf
+
+def get_rank_badge_surface(rank_name: str) -> pygame.Surface | None:
+    key = (rank_name or "").strip()
+    if not key:
+        return None
+    cached = RANK_BADGE_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    size = 36
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = size // 2
+
+    def glow_circle(color_inner, color_outer):
+        pygame.draw.circle(surf, color_outer, (center, center), center)
+        pygame.draw.circle(surf, color_inner, (center, center), center - 4)
+
+    if key in ("초보", "Beginner"):
+        glow_circle((180, 180, 180), (90, 90, 90))
+        pygame.draw.circle(surf, (240, 240, 240), (center, center), 6)
+        pygame.draw.circle(surf, (120, 120, 120), (center, center), 6, 2)
+    elif key in ("주니어", "Junior"):
+        glow_circle((170, 120, 70), (100, 70, 40))
+        pygame.draw.polygon(surf, (230, 180, 120), [(center, center - 9), (center + 12, center + 8), (center - 12, center + 8)])
+        pygame.draw.polygon(surf, (120, 70, 30), [(center, center - 9), (center + 12, center + 8), (center - 12, center + 8)], 2)
+    elif key in ("세미프로", "Semi-Pro"):
+        glow_circle((255, 215, 120), (180, 120, 40))
+        pygame.draw.circle(surf, (255, 255, 200), (center, center), 7)
+        pygame.draw.circle(surf, (200, 160, 60), (center, center), 7, 2)
+        pygame.draw.circle(surf, (255, 255, 255), (center, center), 3)
+    elif key in ("프로", "Pro"):
+        glow_circle((120, 210, 255), (30, 120, 180))
+        pygame.draw.rect(surf, (200, 240, 255), (center - 6, center - 10, 12, 20), border_radius=4)
+        pygame.draw.rect(surf, (60, 140, 180), (center - 6, center - 10, 12, 20), 2, border_radius=4)
+        pygame.draw.line(surf, (255, 255, 255), (center - 4, center), (center + 4, center), 2)
+    elif key in ("챔피언", "Champion"):
+        glow_circle((255, 140, 200), (150, 40, 120))
+        pygame.draw.polygon(surf, (255, 220, 250), [(center, center - 10), (center + 10, center + 6), (center, center + 12), (center - 10, center + 6)])
+        pygame.draw.polygon(surf, (200, 80, 150), [(center, center - 10), (center + 10, center + 6), (center, center + 12), (center - 10, center + 6)], 2)
+        pygame.draw.circle(surf, (255, 255, 255), (center, center), 3)
+    elif key in ("신", "God"):
+        glow_circle((255, 230, 120), (220, 170, 40))
+        for angle in range(0, 360, 45):
+            rad = math.radians(angle)
+            outer = (center + int(math.cos(rad) * 14), center + int(math.sin(rad) * 14))
+            pygame.draw.line(surf, (255, 250, 200), (center, center), outer, 3)
+        pygame.draw.circle(surf, (255, 255, 255), (center, center), 8)
+        pygame.draw.circle(surf, (230, 200, 80), (center, center), 8, 2)
+    else:
+        glow_circle((180, 200, 255), (90, 110, 150))
+        pygame.draw.circle(surf, (255, 255, 255), (center, center), 5)
+
+    RANK_BADGE_CACHE[key] = surf
+    return surf
+
+LIST_ICON_CACHE: dict[tuple[str, int], pygame.Surface] = {}
+
+def get_list_icon_surface(name: str, size: int = 18) -> pygame.Surface | None:
+    key = ((name or "").lower(), size)
+    if not key[0]:
+        return None
+    cached = LIST_ICON_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = size // 2
+
+    if key[0] in ("trophy", "achievement"):
+        pygame.draw.circle(surf, (255, 215, 120), (center, center), size // 2)
+        pygame.draw.circle(surf, (220, 170, 60), (center, center), size // 2 - 2, 2)
+        pygame.draw.polygon(
+            surf,
+            (255, 245, 200),
+            [
+                (center, center - size // 3),
+                (center + size // 4, center + size // 4),
+                (center - size // 4, center + size // 4),
+            ],
+        )
+    elif key[0] in ("idea", "tip"):
+        pygame.draw.circle(surf, (255, 235, 160), (center, center - size // 6), size // 3)
+        pygame.draw.rect(surf, (230, 180, 70), (center - size // 6, center, size // 3, size // 3), border_radius=2)
+        pygame.draw.rect(surf, (200, 150, 60), (center - size // 5, center + size // 3, size // 2, size // 5), border_radius=1)
+    else:
+        pygame.draw.circle(surf, (150, 200, 255), (center, center), size // 2)
+        pygame.draw.circle(surf, (255, 255, 255), (center, center), size // 2 - 2, 2)
+
+    LIST_ICON_CACHE[key] = surf
+    return surf
+
 def draw_section_container(surface, rect, title, icon=""):
     """섹션 컨테이너 그리기"""
-    # 섹션 배경
     section_bg = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
     draw_gradient_background(section_bg, pygame.Rect(0, 0, rect.width, rect.height), 
                            (35, 35, 45, 200), (55, 55, 65, 200))
     surface.blit(section_bg, rect)
-    # 섹션 테두리
     pygame.draw.rect(surface, (100, 150, 200, 150), rect, 2)
-    # 섹션 제목
-    font_section = get_font(18)  # 18pt 픽셀 폰트
-    title_text = f"{icon} {title}" if icon else title
-    title_surface = font_section.render(title_text, True, (200, 220, 255))
-    title_rect = title_surface.get_rect(left=rect.x + 15, top=rect.y + 10)
+    font_section = get_font(18)
+    icon_surface = get_section_icon_surface(icon) if icon else None
+    text_left = rect.x + 15
+    text_center_y = rect.y + 22
+    if icon_surface:
+        icon_rect = icon_surface.get_rect()
+        icon_rect.left = rect.x + 15
+        icon_rect.centery = text_center_y
+        surface.blit(icon_surface, icon_rect)
+        text_left = icon_rect.right + 8
+    title_surface = font_section.render(title, True, (200, 220, 255))
+    title_rect = title_surface.get_rect(left=text_left, centery=text_center_y)
     surface.blit(title_surface, title_rect)
-    # 제목 밑줄
     pygame.draw.line(surface, (150, 180, 220), 
                     (rect.x + 15, rect.y + 35), 
                     (rect.x + rect.width - 15, rect.y + 35), 2)
@@ -47400,27 +47773,33 @@ def show_player_info():
             content_height = main_panel_height - 120
             # === 섹션 1: 등급 정보 ===
             rank_section_rect = pygame.Rect(main_panel_x + 20, content_y, main_panel_width - 40, 120)
-            draw_section_container(SCREEN, rank_section_rect, "현재 등급", "🏅")
+            draw_section_container(SCREEN, rank_section_rect, "현재 등급", "medal")
+            badge_surface = get_rank_badge_surface(rank_info.get("name"))
+            badge_bottom = rank_section_rect.y + 45
+            if badge_surface:
+                badge_rect = badge_surface.get_rect(center=(rank_section_rect.centerx, rank_section_rect.y + 40))
+                SCREEN.blit(badge_surface, badge_rect)
+                text_y = badge_rect.bottom + 6
+            else:
+                text_y = rank_section_rect.y + 50
             # 등급 정보 표시
             rank_color = rank_info["color"]
-            rank_text = f"{rank_info['icon']} {rank_info['name']}"
+            rank_text = f"{rank_info['name']}"
             rank_surface = font_medium.render(rank_text, True, rank_color)
-            rank_rect = rank_surface.get_rect(center=(rank_section_rect.centerx, rank_section_rect.y + 60))
+            rank_rect = rank_surface.get_rect(center=(rank_section_rect.centerx, text_y))
             SCREEN.blit(rank_surface, rank_rect)
             # 점수
-            score_text = f"점수: {rank_info['score']:,}점"
-            score_surface = font_small.render(score_text, True, WHITE)
-            score_rect = score_surface.get_rect(center=(rank_section_rect.centerx, rank_section_rect.y + 85))
+            score_surface = font_small.render(f"점수: {rank_info['score']:,}점", True, WHITE)
+            score_rect = score_surface.get_rect(center=(rank_section_rect.centerx, rank_rect.bottom + 18))
             SCREEN.blit(score_surface, score_rect)
             # 등급 설명
-            desc_text = rank_info["description"]
-            desc_surface = font_tiny.render(desc_text, True, (200, 200, 200))
-            desc_rect = desc_surface.get_rect(center=(rank_section_rect.centerx, rank_section_rect.y + 105))
+            desc_surface = font_tiny.render(rank_info["description"], True, (200, 200, 200))
+            desc_rect = desc_surface.get_rect(center=(rank_section_rect.centerx, score_rect.bottom + 16))
             SCREEN.blit(desc_surface, desc_rect)
             # === 섹션 2: 능력 통계 ===
             stats_section_y = content_y + 140
             stats_section_rect = pygame.Rect(main_panel_x + 20, stats_section_y, main_panel_width - 40, 200)
-            draw_section_container(SCREEN, stats_section_rect, "능력 분석", "📊")
+            draw_section_container(SCREEN, stats_section_rect, "능력 분석", "analysis")
             stats = detailed_stats["stats"]
             # 왼쪽: 텍스트 통계, 오른쪽: 레이더 차트
             left_stats_x = stats_section_rect.x + 20
@@ -47457,12 +47836,22 @@ def show_player_info():
             if achievements:
                 achievement_section_width = (main_panel_width - 60) // 2
                 achievement_rect = pygame.Rect(main_panel_x + 20, bottom_section_y, achievement_section_width, bottom_section_height)
-                draw_section_container(SCREEN, achievement_rect, "업적", "🏆")
+                draw_section_container(SCREEN, achievement_rect, "업적", "trophy")
                 # 업적 표시 (최근 3개)
+                achievement_icon = get_list_icon_surface("achievement", 18)
                 for i, achievement in enumerate(achievements[-3:]):
                     if i < 3:  # 공간 제한
-                        achievement_surface = font_tiny.render(achievement[:30] + "..." if len(achievement) > 30 else achievement, True, (255, 215, 0))
-                        achievement_rect_text = achievement_surface.get_rect(left=achievement_rect.x + 15, top=achievement_rect.y + 50 + i * 25)
+                        display_text = achievement[:30] + "..." if len(achievement) > 30 else achievement
+                        achievement_surface = font_tiny.render(display_text, True, (255, 215, 0))
+                        line_y = achievement_rect.y + 50 + i * 25
+                        text_left = achievement_rect.x + 15
+                        if achievement_icon:
+                            icon_rect = achievement_icon.get_rect()
+                            icon_rect.left = text_left
+                            icon_rect.centery = line_y + achievement_surface.get_height() // 2
+                            SCREEN.blit(achievement_icon, icon_rect)
+                            text_left = icon_rect.right + 6
+                        achievement_rect_text = achievement_surface.get_rect(left=text_left, top=line_y)
                         SCREEN.blit(achievement_surface, achievement_rect_text)
             # 오른쪽: 피드백
             tips = detailed_stats["improvement_tips"]
@@ -47470,13 +47859,21 @@ def show_player_info():
                 feedback_section_width = (main_panel_width - 60) // 2
                 feedback_x = main_panel_x + 30 + achievement_section_width if achievements else main_panel_x + 20
                 feedback_rect = pygame.Rect(feedback_x, bottom_section_y, feedback_section_width, bottom_section_height)
-                draw_section_container(SCREEN, feedback_rect, "개선 피드백", "💡")
+                draw_section_container(SCREEN, feedback_rect, "개선 피드백", "idea")
                 # 피드백 표시 (최대 2개)
+                tip_icon = get_list_icon_surface("tip", 18)
                 for i, tip in enumerate(tips[:2]):
-                    # 텍스트 길이 제한
                     display_tip = tip[:35] + "..." if len(tip) > 35 else tip
                     tip_surface = font_tiny.render(display_tip, True, (150, 255, 150))
-                    tip_rect_text = tip_surface.get_rect(left=feedback_rect.x + 15, top=feedback_rect.y + 50 + i * 30)
+                    line_y = feedback_rect.y + 50 + i * 30
+                    text_left = feedback_rect.x + 15
+                    if tip_icon:
+                        icon_rect = tip_icon.get_rect()
+                        icon_rect.left = text_left
+                        icon_rect.centery = line_y + tip_surface.get_height() // 2
+                        SCREEN.blit(tip_icon, icon_rect)
+                        text_left = icon_rect.right + 6
+                    tip_rect_text = tip_surface.get_rect(left=text_left, top=line_y)
                     SCREEN.blit(tip_surface, tip_rect_text)
             # 상세 피드백 오버레이 (F키로 토글)
             if show_feedback:
@@ -49244,11 +49641,36 @@ def show_quick_character_selection():
     font_small = get_font(18)
     clock = pygame.time.Clock()
 
-    card_width = 240
-    card_height = 260
-    card_spacing = 80
-    total_width = len(characters) * card_width + (len(characters) - 1) * card_spacing
-    start_x = (WIDTH - total_width) // 2
+    layout_margin = 80
+    min_card_width = 150
+    max_card_width = 210
+    desired_card_spacing = 48
+    min_card_spacing = 24
+
+    card_count = len(characters)
+    card_width = max_card_width
+    card_spacing = desired_card_spacing if card_count > 1 else 0
+
+    available_width = WIDTH - layout_margin * 2
+    total_width = card_count * card_width + (card_count - 1) * card_spacing
+
+    while total_width > available_width and (card_width > min_card_width or (card_spacing > min_card_spacing and card_count > 1)):
+        if card_width > min_card_width:
+            card_width -= 5
+        elif card_count > 1 and card_spacing > min_card_spacing:
+            card_spacing -= 2
+        total_width = card_count * card_width + (card_count - 1) * card_spacing
+
+    if card_count > 1:
+        remaining_width = available_width - (card_count * card_width)
+        if remaining_width > 0:
+            card_spacing = max(min_card_spacing, min(desired_card_spacing, remaining_width // (card_count - 1)))
+    else:
+        card_spacing = 0
+
+    total_width = card_count * card_width + (card_count - 1) * card_spacing
+    start_x = max(layout_margin, (WIDTH - total_width) // 2)
+    card_height = max(220, int(card_width * 1.05))
     card_y = 170
 
     while True:
@@ -49269,9 +49691,10 @@ def show_quick_character_selection():
             if is_selected:
                 body_color = tuple(min(255, c + 50) for c in base_color)
                 border_color = WHITE
-                glow_surface = pygame.Surface((card_width + 16, card_height + 16), pygame.SRCALPHA)
-                pygame.draw.rect(glow_surface, (*base_color, 70), (0, 0, card_width + 16, card_height + 16), border_radius=18)
-                SCREEN.blit(glow_surface, (card_rect.x - 8, card_rect.y - 8))
+                glow_padding = 12
+                glow_surface = pygame.Surface((card_width + glow_padding * 2, card_height + glow_padding * 2), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surface, (*base_color, 70), (0, 0, card_width + glow_padding * 2, card_height + glow_padding * 2), border_radius=18)
+                SCREEN.blit(glow_surface, (card_rect.x - glow_padding, card_rect.y - glow_padding))
             else:
                 body_color = tuple(max(0, c - 40) for c in base_color)
                 border_color = (110, 110, 110)
@@ -49283,8 +49706,8 @@ def show_quick_character_selection():
             preview_img = build_character_preview_surface(
                 char["id"],
                 scale=1.0,
-                max_width=card_width - 60,
-                max_height=110,
+                max_width=card_width - 48,
+                max_height=int(card_height * 0.42),
             )
             if preview_img.get_width() > 0:
                 preview_rect = preview_img.get_rect(midtop=(card_rect.centerx, card_rect.y + 24))
@@ -49299,7 +49722,7 @@ def show_quick_character_selection():
 
             # 설명 (두 줄 처리)
             desc_lines = char["desc"].split('\n')
-            desc_start_y = name_rect.bottom + 18
+            desc_start_y = name_rect.bottom + 16
             for line_idx, line in enumerate(desc_lines):
                 desc_surface = font_small.render(line, True, (220, 220, 220))
                 desc_rect = desc_surface.get_rect(center=(card_rect.centerx, desc_start_y + line_idx * 22))
@@ -49307,14 +49730,14 @@ def show_quick_character_selection():
 
             # 능력치 요약
             stat_surface = font_small.render(char["stats"], True, (200, 200, 200))
-            stat_rect = stat_surface.get_rect(center=(card_rect.centerx, card_rect.y + card_height - 40))
+            stat_rect = stat_surface.get_rect(center=(card_rect.centerx, card_rect.bottom - 32))
             SCREEN.blit(stat_surface, stat_rect)
 
         # 방향키 안내 아이콘
         keys = pygame.key.get_pressed()
         arrow_y = card_y + card_height // 2
-        left_center_x = start_x - 70
-        right_center_x = start_x + (len(characters) - 1) * (card_width + card_spacing) + card_width + 70
+        left_center_x = max(70, start_x - 60)
+        right_center_x = min(WIDTH - 70, start_x + total_width + 60)
 
         def draw_direction_indicator(center_x: int, direction: str, *, enabled: bool, pressed: bool) -> None:
             center = (center_x, arrow_y)
