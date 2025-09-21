@@ -16472,16 +16472,6 @@ def apply_ai_glitch_effect(surface: pygame.Surface, time_now: int) -> pygame.Sur
 
         glitched.blit(segment, (horizontal_shift, y), special_flags=pygame.BLEND_RGBA_ADD)
 
-    if (time_now // 90) % 2 == 0:
-        noise_overlay = pygame.Surface((width, height), pygame.SRCALPHA)
-        noise_overlay.fill((0, 40, 60, 28))
-        glitched.blit(noise_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
-
-    scan_y = (time_now // 12) % max(1, height)
-    scanline = pygame.Surface((width, 2), pygame.SRCALPHA)
-    scanline.fill((120, 255, 255, 110))
-    glitched.blit(scanline, (0, scan_y))
-
     original_alpha = surface.get_alpha()
     if original_alpha is not None:
         glitched.set_alpha(original_alpha)
