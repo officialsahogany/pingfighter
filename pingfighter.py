@@ -11636,7 +11636,7 @@ def draw_leg_shot_effect(screen):
         remaining_ratio = leg_shot_timer / LEG_SHOT_DURATION if LEG_SHOT_DURATION else 1.0
         wave_intensity = 0.5 + 0.5 * max(0.0, min(1.0, remaining_ratio))
         wave_surface = create_slow_wave_surface(120, 56, (180, 110, 255), intensity=wave_intensity)
-        wave_rect = wave_surface.get_rect(midbottom=(BOSS.centerx, BOSS.top - 12))
+        wave_rect = wave_surface.get_rect(midbottom=(BOSS.centerx, BOSS.top + 6))
         screen.blit(wave_surface, wave_rect)
     
     if leg_shot_text_timer > 0:
@@ -20576,7 +20576,7 @@ def draw_objects():
         ratio = player_slow_timer / max(1, slow_max)
         wave_intensity = 0.45 + 0.55 * max(0.0, min(1.0, ratio))
         wave_surface = create_slow_wave_surface(90, 48, (170, 130, 255), intensity=wave_intensity)
-        wave_rect = wave_surface.get_rect(midbottom=(player_rect.centerx, player_rect.top - 6))
+        wave_rect = wave_surface.get_rect(midbottom=(player_rect.centerx, player_rect.top + 10))
         draw_with_shake(wave_surface, wave_rect.topleft)
     
     # Stage 4 화상 효과 그리기
