@@ -37587,7 +37587,7 @@ def handle_ball():
     global boss_stunned_after_whip, boss_stunned_after_whip_timer  # 회전 종료 후 통제불능
     global meditation_active, meditation_timer, meditation_angle
     global stage4_magnetic_active, stage4_magnetic_timer, stage4_magnetic_radius, magnet_curve_angle
-    global flame_trail_active, flame_trail_timer, flame_trail_phase
+    global flame_trail_active, flame_trail_timer, flame_trail_phase, flame_trail_rng
     global flame_trail_positions, flame_trail_start_time, flame_trail_base_vel
     global fireballs, fireball_cooldown, fireball_last_cast, fireball_speed
     global boss_throwing, boss_throw_timer
@@ -38192,7 +38192,7 @@ def handle_ball():
     global boss_stunned_after_whip, boss_stunned_after_whip_timer  # 회전 종료 후 통제불능
     global meditation_active, meditation_timer, meditation_angle
     global stage4_magnetic_active, stage4_magnetic_timer, stage4_magnetic_radius, magnet_curve_angle
-    global flame_trail_active, flame_trail_timer, flame_trail_phase
+    global flame_trail_active, flame_trail_timer, flame_trail_phase, flame_trail_rng
     global flame_trail_positions, flame_trail_start_time, flame_trail_base_vel
     global fireballs, fireball_cooldown, fireball_last_cast, fireball_speed
     global boss_throwing, boss_throw_timer
@@ -41190,6 +41190,7 @@ def handle_ball():
             flame_trail_active = True
             flame_trail_timer = TWO_SECONDS_FRAMES
             flame_trail_phase = 0
+            flame_trail_rng = random.Random(random.randrange(1 << 30))
             flame_trail_positions.clear()
             show_hongryun_explosion()  #  추가된 장면 연출
             #  발동 후 게이지 초기화
