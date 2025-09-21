@@ -69,7 +69,7 @@ class AK47:
         self.recoil_accumulation = 0  # 반동 초기화
         self.remaining_time = 0
         self._durability_warned = False
-        print("AK-47 효과 종료")
+        print(f"AK-47 효과 종료 (잔탄 {self.current_ammo}, 남은시간 {self.remaining_time}, 탄수 {len(self.bullets)})")
 
     # ------------------------------------------------------------------
     # 발사 로직
