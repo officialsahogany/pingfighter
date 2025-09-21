@@ -20625,7 +20625,7 @@ def draw_objects():
         ratio = player_slow_timer / max(1, slow_max)
         wave_intensity = 0.45 + 0.55 * max(0.0, min(1.0, ratio))
         wave_surface = create_slow_wave_surface(90, 48, (170, 130, 255), intensity=wave_intensity)
-        wave_rect = wave_surface.get_rect(midbottom=(player_rect.centerx, player_rect.top + 10))
+        wave_rect = wave_surface.get_rect(midbottom=(PLAYER.centerx, PLAYER.top + 20))
         draw_with_shake(wave_surface, wave_rect.topleft)
     
     # Stage 4 화상 효과 그리기
