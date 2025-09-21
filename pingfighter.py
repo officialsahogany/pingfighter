@@ -17794,7 +17794,42 @@ def draw_player_gauge():
                 pygame.draw.line(SCREEN, beam_color,
                                (gauge_x, gauge_y + gauge_height + i),
                                (gauge_x + gauge_width, gauge_y + gauge_height + i), 1)
-    
+
+    # AI 필 활성화 시 게이지 상단에 시스템 상태 오버레이 표시
+    if aipill_active:
+        ai_font = FontStyle.tiny()  # 메카닉 스타일의 작은 픽셀 폰트
+        phase = (time_now // 180) % 4
+        suffix = "." * phase
+        core_text = "AI SYSTEM OPERATING" + suffix
+        display_text = f">> {core_text}"
+        # 텍스트 표면 생성
+        flicker = int((math.sin(time_now * 0.012) + 1) * 0.5 * 45)
+        text_color = (120 + flicker, 240, 255)
+        ai_surface = ai_font.render(display_text, True, text_color)
+        ai_rect = ai_surface.get_rect()
+        ai_rect.centerx = gauge_x + gauge_width // 2
+        ai_rect.bottom = gauge_y - 8
+        # 배경 HUD 패널
+        panel_rect = ai_rect.inflate(18, 10)
+        pygame.draw.rect(SCREEN, (12, 24, 38, 210), panel_rect, border_radius=4)
+        border_color = (80 + flicker, 200, 255)
+        draw.rect(border_color, panel_rect, 1, border_radius=4)
+        # 스캔 라인 애니메이션
+        scan_height = max(1, ai_rect.height)
+        scan_offset = (time_now // 60) % scan_height
+        pygame.draw.line(
+            SCREEN,
+            (border_color[0], 255, 255),
+            (panel_rect.left + 3, ai_rect.top + scan_offset),
+            (panel_rect.right - 3, ai_rect.top + scan_offset),
+            1
+        )
+        # 좌우 포트 표시로 메카닉 느낌 강화
+        port_y = panel_rect.centery
+        pygame.draw.circle(SCREEN, (40, 120, 180), (panel_rect.left - 4, port_y), 2)
+        pygame.draw.circle(SCREEN, (40, 120, 180), (panel_rect.right + 4, port_y), 2)
+        SCREEN.blit(ai_surface, ai_rect)
+
     #  게이지바 수치 표시 (토큰볼 아래에 배치)
     gauge_text = f"{int(displayed_gauge)}/{current_max_gauge}"
     text_color = WHITE if displayed_gauge < current_max_gauge else (255, 255, 100)  # 만렙일 때는 노란색
