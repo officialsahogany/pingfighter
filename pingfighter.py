@@ -6662,6 +6662,7 @@ long_boost_last_width = 166  # 기본 패들 크기
 long_boost_scaled_img = PLAYER_IMG.copy()  # 나중에 캐릭터 타입에 따라 업데이트됨
 # === Stage 5 화염 궤적 스킬 관련 전역 ===
 flame_trail_active = False
+flame_trail_rng = None  # 홍련폭염 전용 난수 발생기 (예측 일관성 보장)
 
 # === Stage 3 꼬리 채찍 시스템 관련 전역 변수 ===
 stage3_tail_whip_active = False
@@ -6932,6 +6933,7 @@ def debug_stage2_quake(tag, **fields):
 quake_active = False
 quake_duration = 80
 quake_timer = 0
+quake_rng = None  # 정글지진 전용 난수 발생기 (예측 정확도 향상용)
 # 화면 흔들림 효과 (라그나로크 해머 등)
 screen_shake_timer = 0
 screen_shake_intensity = 0
