@@ -9359,7 +9359,7 @@ def handle_meditation():
         # 항상 아래 방향(플레이어 쪽)으로 발사
         ball_vel = [speed * math.sin(rad), abs(speed * math.cos(rad))]
 def activate_quake(animated_bg=None):
-    global quake_active, quake_timer, PLAYER_SPEED, original_ball_speed_quake
+    global quake_active, quake_timer, PLAYER_SPEED, original_ball_speed_quake, quake_rng
     global serve_grace_period, current_stage  # 난이도 하향
     
     # Stage 2에서 서브 유예 기간 중에는 정글지진 발동 방지 (난이도 하향)
@@ -9370,6 +9370,7 @@ def activate_quake(animated_bg=None):
     print(f" activate_quake ! quake_duration={quake_duration}, animated_bg={animated_bg is not None}")
     quake_active = True
     quake_timer = quake_duration
+    quake_rng = random.Random(random.randrange(1 << 30))
     PLAYER_SPEED = 1
     #  현재 공 속도 백업 (너무 빠른 속도는 미리 제한)
     current_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -9409,7 +9410,7 @@ def activate_quake(animated_bg=None):
 def stop_quake_sound():
     SOUND_QUAKE.stop()
 def handle_quake():
-    global quake_active, quake_timer, PLAYER_SPEED, ball_vel
+    global quake_active, quake_timer, PLAYER_SPEED, ball_vel, quake_rng
     if not quake_active:
         return
 
@@ -9418,8 +9419,12 @@ def handle_quake():
     if quake_timer > 0:
         quake_timer -= 1
 
-        shake_x = random.uniform(-3, 3)
-        shake_y = random.uniform(-2, 2)
+        if quake_rng:
+            shake_x = quake_rng.uniform(-3, 3)
+            shake_y = quake_rng.uniform(-2, 2)
+        else:
+            shake_x = random.uniform(-3, 3)
+            shake_y = random.uniform(-2, 2)
         ball_vel[0] += shake_x
         ball_vel[1] += shake_y
 
@@ -9456,6 +9461,7 @@ def handle_quake():
         return
 
     quake_active = False
+    quake_rng = None
     PLAYER_SPEED = 1
 
     ball_vel[0] = original_ball_speed_quake[0]
