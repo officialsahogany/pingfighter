@@ -2380,13 +2380,39 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     center_x = surface.get_width() // 2
     torso_base_y = 56
 
-    global smasher_hit_pose_timer
+    global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
 
     hit_pose_duration = globals().get("SMASHER_HIT_POSE_DURATION", 0)
     hit_pose_timer_value = globals().get("smasher_hit_pose_timer", 0)
     hit_pose_ratio = 0.0
     if hit_pose_duration > 0:
         hit_pose_ratio = max(0.0, min(1.0, hit_pose_timer_value / hit_pose_duration))
+
+    shield_raise_duration = globals().get("SMASHER_SHIELD_RAISE_DURATION", 0)
+    shield_raise_timer_value = globals().get("smasher_shield_raise_timer", 0)
+    shield_raise_strength = 0.0
+    if shield_raise_duration > 0 and shield_raise_timer_value > 0:
+        normalized = 1.0 - (shield_raise_timer_value / shield_raise_duration)
+        normalized = max(0.0, min(1.0, normalized))
+        if normalized < 0.5:
+            shield_raise_strength = normalized * 2.0
+        else:
+            shield_raise_strength = (1.0 - normalized) * 2.0
+        shield_raise_strength = max(0.0, min(1.0, shield_raise_strength))
+        shield_raise_strength = shield_raise_strength ** 0.7
+
+    left_raise_duration = globals().get("SMASHER_LEFT_RAISE_DURATION", 0)
+    left_raise_timer_value = globals().get("smasher_left_raise_timer", 0)
+    left_raise_strength = 0.0
+    if left_raise_duration > 0 and left_raise_timer_value > 0:
+        normalized = 1.0 - (left_raise_timer_value / left_raise_duration)
+        normalized = max(0.0, min(1.0, normalized))
+        if normalized < 0.5:
+            left_raise_strength = normalized * 2.0
+        else:
+            left_raise_strength = (1.0 - normalized) * 2.0
+        left_raise_strength = max(0.0, min(1.0, left_raise_strength))
+        left_raise_strength = left_raise_strength ** 0.7
 
     def rotate_point(origin: tuple[float, float], point: tuple[float, float], degrees: float) -> tuple[float, float]:
         """주어진 점을 화면 좌표계 기준으로 시계 방향 회전"""
@@ -2558,14 +2584,14 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     pygame.draw.line(surface, palette["arm_light"], right_pauldron[1], right_pauldron[2], 1)
 
     left_shoulder = (center_x - int(1.8 * block), torso_y + shoulder_shift)
-    left_arm_swing = int(arm_swing * (1 - 0.6 * hit_pose_ratio))
+    left_arm_swing = int(arm_swing * (1 - 0.55 * hit_pose_ratio) * (1 - 0.7 * left_raise_strength))
     default_left_elbow = (
-        left_shoulder[0] - int(1.6 * block) - left_arm_swing,
-        torso_y + int(0.2 * block) - left_arm_swing // 2,
+        left_shoulder[0] - int(1.05 * block) - left_arm_swing + int(left_raise_strength * 0.35 * block),
+        torso_y + int(0.05 * block) - left_arm_swing // 2 - int(left_raise_strength * 0.4 * block),
     )
     default_left_wrist = (
-        default_left_elbow[0] - int(1.5 * block),
-        torso_y - int(0.8 * block) - left_arm_swing,
+        default_left_elbow[0] - int(0.9 * block) + int(left_raise_strength * 0.45 * block),
+        torso_y - int(0.45 * block) - int(left_arm_swing * 0.5) - int(left_raise_strength * 1.2 * block),
     )
 
     left_elbow_point = (float(default_left_elbow[0]), float(default_left_elbow[1]))
@@ -2584,6 +2610,20 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
         )
         left_elbow_point = lerp_point(left_elbow_point, rotated_elbow, hit_pose_ratio)
         left_wrist_point = lerp_point(left_wrist_point, rotated_wrist, hit_pose_ratio)
+
+    if left_raise_strength > 0:
+        lifted_elbow = rotate_point(left_shoulder, left_elbow_point, 78.0)
+        lifted_elbow = (
+            lifted_elbow[0] + left_raise_strength * 0.55 * block,
+            lifted_elbow[1] - left_raise_strength * 1.3 * block,
+        )
+        lifted_wrist_base = rotate_point(left_elbow_point, left_wrist_point, 92.0)
+        lifted_wrist = (
+            lifted_wrist_base[0] + left_raise_strength * 0.65 * block,
+            lifted_wrist_base[1] - left_raise_strength * 1.8 * block,
+        )
+        left_elbow_point = lerp_point(left_elbow_point, lifted_elbow, left_raise_strength)
+        left_wrist_point = lerp_point(left_wrist_point, lifted_wrist, left_raise_strength)
 
     left_elbow = to_int_point(left_elbow_point)
     left_wrist = to_int_point(left_wrist_point)
@@ -2617,9 +2657,36 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     surface.blit(paddle_glow, (paddle_box.left, paddle_box.top), special_flags=pygame.BLEND_RGBA_ADD)
 
     right_shoulder = (center_x + int(1.8 * block), torso_y - shoulder_shift)
-    right_elbow = (right_shoulder[0] + int(1.3 * block) + arm_swing,
-                   torso_y + int(0.4 * block) + arm_swing // 2)
-    right_wrist = (right_elbow[0] + int(1.1 * block), torso_y + int(1.2 * block) + right_leg_lift // 2)
+    right_arm_swing = int(arm_swing * (1 - 0.7 * shield_raise_strength))
+    base_right_elbow = (
+        right_shoulder[0] + int(1.2 * block) + right_arm_swing,
+        torso_y + int(0.35 * block) + right_arm_swing // 2 - int(shield_raise_strength * 0.4 * block),
+    )
+    base_right_wrist = (
+        base_right_elbow[0] + int(1.0 * block),
+        torso_y + int(1.05 * block) + right_leg_lift // 2 - int(shield_raise_strength * 1.1 * block),
+    )
+
+    right_elbow_point = (float(base_right_elbow[0]), float(base_right_elbow[1]))
+    right_wrist_point = (float(base_right_wrist[0]), float(base_right_wrist[1]))
+
+    if shield_raise_strength > 0:
+        lifted_elbow = rotate_point(right_shoulder, right_elbow_point, -62.0)
+        lifted_elbow = (
+            lifted_elbow[0] - shield_raise_strength * 0.2 * block,
+            lifted_elbow[1] - shield_raise_strength * 0.8 * block,
+        )
+        lifted_wrist_base = rotate_point(right_elbow_point, right_wrist_point, -85.0)
+        lifted_wrist = (
+            lifted_wrist_base[0] - shield_raise_strength * 0.15 * block,
+            lifted_wrist_base[1] - shield_raise_strength * 1.7 * block,
+        )
+        right_elbow_point = lerp_point(right_elbow_point, lifted_elbow, shield_raise_strength)
+        right_wrist_point = lerp_point(right_wrist_point, lifted_wrist, shield_raise_strength)
+
+    right_elbow = to_int_point(right_elbow_point)
+    right_wrist = to_int_point(right_wrist_point)
+
     pygame.draw.line(surface, palette["arm_light"], right_shoulder, right_elbow, block)
     pygame.draw.line(surface, palette["armor_mid"], right_shoulder, right_elbow, block - 2)
     pygame.draw.line(surface, palette["arm_light"], right_elbow, right_wrist, block - 1)
@@ -2688,7 +2755,10 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
         1,
     )
 
-    shield_offset = (int(0.45 * block), -int(0.15 * block))
+    shield_offset = (
+        int((0.45 + 0.25 * shield_raise_strength) * block),
+        -int((0.15 + 1.05 * shield_raise_strength) * block),
+    )
     shield_pos = (
         right_wrist[0] - shield_radius + shield_offset[0],
         right_wrist[1] - shield_radius + shield_offset[1],
@@ -4933,6 +5003,12 @@ SMASHER_WALKING_CYCLE = 30
 
 SMASHER_HIT_POSE_DURATION = 8  # 공을 칠 때 왼팔 히트 포즈 유지 프레임 수
 smasher_hit_pose_timer = 0
+
+SMASHER_SHIELD_RAISE_DURATION = 18  # 오른쪽 타격 시 방패 들어올리기 연출 시간
+smasher_shield_raise_timer = 0
+
+SMASHER_LEFT_RAISE_DURATION = 18  # 왼쪽 타격 시 왼팔 들어올리기 연출 시간
+smasher_left_raise_timer = 0
 
 optimus_walking_active = False
 optimus_walking_timer = 0
@@ -12018,7 +12094,7 @@ def handle_player(keys):
     global blacksmith_walking_active, blacksmith_walking_timer  # 발토르 걷기 애니메이션 변수
     global smasher_walking_active, smasher_walking_timer  # 스매셔 걷기 애니메이션 변수
     global optimus_walking_active, optimus_walking_timer  # 옵티머스 걷기 애니메이션 변수
-    global smasher_hit_pose_timer
+    global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
     global tutorial_drive_completion_dialogue_shown, tutorial_drive_count  # Chapter 3 완료 체크
     global chapter4_dialogue_completed, chapter4_serve_reminder_active, chapter4_serve_reminder_timer  # Chapter 4 대화 및 서브 알림 변수
@@ -14171,6 +14247,12 @@ def handle_player(keys):
         hit_animation_timer = HIT_ANIMATION_DURATION
         if selected_character_type == "smasher":
             smasher_hit_pose_timer = SMASHER_HIT_POSE_DURATION
+            if collision_x >= 0:
+                smasher_shield_raise_timer = SMASHER_SHIELD_RAISE_DURATION
+                smasher_left_raise_timer = 0
+            else:
+                smasher_left_raise_timer = SMASHER_LEFT_RAISE_DURATION
+                smasher_shield_raise_timer = 0
         #  게이지 처리 - Aipill 활성화 시에는 게이지 감소만, 비활성화 시에는 게이지 증가
         print(f"   aipill_active: {aipill_active}")  # 
         # Aipill 활성화 시 게이지 감소만
@@ -19248,7 +19330,8 @@ def draw_objects():
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, blacksmith_turret_projectiles
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
-    global smasher_hit_pose_timer
+    global smasher_left_raise_timer
+    global smasher_hit_pose_timer, smasher_shield_raise_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     new_tear_particles = []  #  함수 시작 시 초기화
@@ -20013,8 +20096,14 @@ def draw_objects():
     if selected_character_type == "smasher":
         if smasher_hit_pose_timer > 0:
             smasher_hit_pose_timer -= 1
+        if smasher_shield_raise_timer > 0:
+            smasher_shield_raise_timer -= 1
+        if smasher_left_raise_timer > 0:
+            smasher_left_raise_timer -= 1
     else:
         smasher_hit_pose_timer = 0
+        smasher_shield_raise_timer = 0
+        smasher_left_raise_timer = 0
     #  투척 모션 중일 때 특별한 회전 각도 적용
     if molotov_throwing or grenade_throwing or flare_throwing:
         throw_progress = 0
@@ -20496,7 +20585,7 @@ def draw_objects():
                 flame_surface = pygame.transform.rotate(flame_surface, tilt_angle * 0.5)
 
             offset_x = player_rect.width * 0.3
-            offset_y = player_rect.height * 0.26
+            offset_y = player_rect.height * 0.22
             bobbing = math.sin(pygame.time.get_ticks() * 0.028) * (player_rect.height * 0.02) * speed_ratio
             attach_point = (
                 int(player_rect.centerx + thruster_side * offset_x),
