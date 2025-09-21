@@ -20638,7 +20638,6 @@ def draw_objects():
             if (time_now // 100) % 2 == 0:
                 # 더 강한 붉은색
                 red_tint.fill((255, 60, 60, 255))
-                player_to_draw.blit(red_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
             else:
                 # 약간 약한 붉은색
                 red_tint.fill((255, 100, 100, 255))
