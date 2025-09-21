@@ -2238,185 +2238,639 @@ SERVE_GRACE_DURATION = 180  # 3초간 Speed Defense/지진 방지 (60 FPS * 3초
 original_speed = [0, 0]  # 암행트위스트 발동 전 속도 백업용
 last_hit_time = 0  # 플레이어 마지막으로 맞은 시간
 final_wave_direction = [0, 0]  # 공의 마지막 이동 방향 (X, Y)
-# 스매셔 패들 이미지 생성 (에반게리온 스타일 - 항공샷)
-SMASHER_PADDLE_IMG = pygame.Surface((250, 120), pygame.SRCALPHA)
+# 스매셔 – 엔터 더 건전 해병 스타일 (정면 픽셀 아트)
+MARINE_SPRITE_SIZE = (120, 120)
+MARINE_CENTER_X = MARINE_SPRITE_SIZE[0] // 2
+MARINE_BASE_Y = 30
 
-# 중심점 설정 (항공샷 뷰)
-eva_center_x = 125
-eva_center_y = 60
+MARINE_COLORS = {
+    "helmet": (50, 64, 110),
+    "visor": (210, 70, 50),
+    "face": (230, 175, 70),
+    "armor": (45, 58, 100),
+    "armor_shadow": (35, 46, 80),
+    "glove": (40, 32, 50),
+    "boot": (55, 45, 60),
+    "highlight": (110, 140, 210),
+}
 
-# === EVA 파일럿 슈트 몸체 (상체, 정수리 뷰) ===
-# 플러그슈트 본체 (보라색-검은색 계열)
-body_color = (75, 50, 110)  # 어두운 보라색
-pygame.draw.ellipse(SMASHER_PADDLE_IMG, body_color, 
-                    (eva_center_x - 35, eva_center_y - 25, 70, 50))
+# 옵티머스 – 테슬라 기어 감성 메카닉 스타일
+MECHA_SPRITE_SIZE = (250, 120)
+MECHA_CENTER_X = 125
+MECHA_CENTER_Y = 60
 
-# 플러그슈트 중앙 장식 라인
-accent_color = (150, 100, 200)  # 밝은 보라색
-pygame.draw.line(SMASHER_PADDLE_IMG, accent_color,
-                (eva_center_x, eva_center_y - 20), 
-                (eva_center_x, eva_center_y + 15), 3)
+OPTIMUS_MECHA_PALETTE = {
+    "body": (180, 195, 230),
+    "accent": (255, 180, 120),
+    "helmet": (72, 86, 142),
+    "helmet_inner": (44, 60, 108),
+    "visor": (255, 190, 130),
+    "visor_highlight": (255, 230, 190),
+    "ear_inner": (110, 120, 175),
+    "line": (255, 190, 130),
+    "grip": (90, 70, 120),
+    "grip_line": (255, 200, 140),
+    "hex_base": (60, 60, 110),
+    "hex_border": (255, 190, 140),
+    "hex_core": (255, 200, 150),
+    "hex_core_inner": (255, 235, 200),
+    "arm_line": (255, 190, 140),
+    "hand": (210, 205, 220),
+    "glow": (255, 190, 140),
+    "at_field": (200, 150, 255),
+}
 
-# 좌우 대칭 장식 라인
-for offset in [-15, 15]:
-    pygame.draw.arc(SMASHER_PADDLE_IMG, accent_color,
-                   (eva_center_x + offset - 10, eva_center_y - 15, 20, 30),
-                   math.radians(60), math.radians(120), 2)
 
-# === 헤드 부분 (헬멧/머리) ===
-# 헬멧 본체 (약간 각진 원형)
-helmet_color = (50, 35, 70)  # 어두운 보라색
-pygame.draw.ellipse(SMASHER_PADDLE_IMG, helmet_color,
-                   (eva_center_x - 20, eva_center_y - 18, 40, 36))
+def _resolve_mecha_phase(step_phase: float | None) -> float:
+    phase = 0.0 if step_phase is None else float(step_phase)
+    return phase % 1.0
 
-# 헬멧 내부 (정수리 중앙)
-pygame.draw.ellipse(SMASHER_PADDLE_IMG, (30, 20, 50),
-                   (eva_center_x - 15, eva_center_y - 13, 30, 26))
 
-# EVA 특유의 바이저 (빨간색 렌즈)
-visor_color = (200, 30, 50)
-pygame.draw.ellipse(SMASHER_PADDLE_IMG, visor_color,
-                   (eva_center_x - 12, eva_center_y - 10, 24, 20))
+def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pygame.Surface:
+    surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
+    center_x = MECHA_CENTER_X
+    base_center_y = MECHA_CENTER_Y
 
-# 바이저 하이라이트
-pygame.draw.arc(SMASHER_PADDLE_IMG, (255, 100, 120),
-               (eva_center_x - 10, eva_center_y - 8, 20, 16),
-               math.radians(200), math.radians(340), 2)
+    phase = _resolve_mecha_phase(step_phase)
+    wave = math.sin(phase * math.tau)
+    torso_bob = int(math.sin(phase * math.tau) * 2)
+    left_leg_lift = -int(max(0.0, wave) * 4)
+    right_leg_lift = -int(max(0.0, -wave) * 4)
+    arm_swing = int(wave * 4)
 
-# 사이드 이어 커버 (EVA 헬멧 특징)
-for side in [-1, 1]:
-    ear_x = eva_center_x + side * 18
-    pygame.draw.circle(SMASHER_PADDLE_IMG, helmet_color,
-                      (ear_x, eva_center_y), 8)
-    pygame.draw.circle(SMASHER_PADDLE_IMG, (100, 80, 120),
-                      (ear_x, eva_center_y), 6)
+    center_y = base_center_y + torso_bob
 
-# === 왼팔 (탁구채 들고 있는 팔) ===
-# 어깨부터 팔꿈치까지
-left_shoulder_x = eva_center_x - 30
-left_shoulder_y = eva_center_y + 5
-left_elbow_x = eva_center_x - 45
-left_elbow_y = eva_center_y + 20
+    pygame.draw.ellipse(surface, palette["body"], (center_x - 35, center_y - 25, 70, 50))
+    pygame.draw.line(surface, palette["accent"], (center_x, center_y - 20), (center_x, center_y + 15), 3)
+    for offset in (-15, 15):
+        pygame.draw.arc(surface, palette["accent"], (center_x + offset - 10, center_y - 15, 20, 30),
+                        math.radians(60), math.radians(120), 2)
 
-# 플러그슈트 팔 (보라색)
-pygame.draw.line(SMASHER_PADDLE_IMG, body_color,
-                (left_shoulder_x, left_shoulder_y),
-                (left_elbow_x, left_elbow_y), 12)
+    helmet_rect = pygame.Rect(center_x - 20, center_y - 18, 40, 36)
+    pygame.draw.ellipse(surface, palette["helmet"], helmet_rect)
+    pygame.draw.ellipse(surface, palette["helmet_inner"], helmet_rect.inflate(-10, -10))
+    visor_rect = helmet_rect.inflate(-8, -6)
+    pygame.draw.ellipse(surface, palette["visor"], visor_rect)
+    pygame.draw.arc(surface, palette["visor_highlight"], visor_rect.inflate(-4, -4), math.radians(200), math.radians(340), 2)
+    for side in (-1, 1):
+        ear_center = (center_x + side * 18, center_y)
+        pygame.draw.circle(surface, palette["helmet"], ear_center, 8)
+        pygame.draw.circle(surface, palette["ear_inner"], ear_center, 6)
 
-# 팔꿈치부터 손목까지
-left_wrist_x = eva_center_x - 50
-left_wrist_y = eva_center_y + 40
+    left_shoulder = (center_x - 30, center_y + 5)
+    left_elbow = (center_x - 45 - arm_swing // 2, center_y + 20 + arm_swing)
+    left_wrist = (center_x - 50 - arm_swing, center_y + 40 + left_leg_lift)
+    pygame.draw.line(surface, palette["body"], left_shoulder, left_elbow, 12)
+    pygame.draw.line(surface, palette["body"], left_elbow, left_wrist, 10)
+    pygame.draw.line(surface, palette["line"], left_shoulder, left_elbow, 2)
+    pygame.draw.line(surface, palette["line"], left_elbow, left_wrist, 2)
 
-pygame.draw.line(SMASHER_PADDLE_IMG, body_color,
-                (left_elbow_x, left_elbow_y),
-                (left_wrist_x, left_wrist_y), 10)
+    paddle_x = left_wrist[0] - 5
+    paddle_y = left_wrist[1] + 10
+    pygame.draw.rect(surface, palette["grip"], (paddle_x - 2, paddle_y - 10, 8, 20))
+    pygame.draw.line(surface, palette["grip_line"], (paddle_x, paddle_y - 10), (paddle_x, paddle_y + 8), 1)
+    paddle_head_x = paddle_x + 2
+    paddle_head_y = paddle_y + 12
+    hex_points = []
+    for i in range(6):
+        angle = math.radians(i * 60 + 30)
+        hex_points.append((paddle_head_x + int(math.cos(angle) * 18), paddle_head_y + int(math.sin(angle) * 18)))
+    pygame.draw.polygon(surface, palette["hex_base"], hex_points)
+    pygame.draw.polygon(surface, palette["hex_border"], hex_points, 3)
+    pygame.draw.circle(surface, palette["hex_core"], (paddle_head_x, paddle_head_y), 8)
+    pygame.draw.circle(surface, palette["hex_core_inner"], (paddle_head_x, paddle_head_y), 5)
 
-# 팔 장식 라인 (EVA 특유의 형광 라인)
-pygame.draw.line(SMASHER_PADDLE_IMG, (100, 255, 200),
-                (left_shoulder_x, left_shoulder_y),
-                (left_elbow_x, left_elbow_y), 2)
-pygame.draw.line(SMASHER_PADDLE_IMG, (100, 255, 200),
-                (left_elbow_x, left_elbow_y),
-                (left_wrist_x, left_wrist_y), 2)
+    right_shoulder = (center_x + 30, center_y + 5)
+    right_elbow = (center_x + 40 - arm_swing // 2, center_y + 25 - arm_swing)
+    right_wrist = (center_x + 35 - arm_swing, center_y + 45 + right_leg_lift)
+    pygame.draw.line(surface, palette["body"], right_shoulder, right_elbow, 12)
+    pygame.draw.line(surface, palette["body"], right_elbow, right_wrist, 10)
+    pygame.draw.line(surface, palette["arm_line"], right_shoulder, right_elbow, 2)
+    pygame.draw.line(surface, palette["arm_line"], right_elbow, right_wrist, 2)
 
-# === 탁구채 (하이테크 디자인) ===
-paddle_x = left_wrist_x - 5
-paddle_y = left_wrist_y + 10
+    pygame.draw.circle(surface, palette["hand"], left_wrist, 6)
+    pygame.draw.circle(surface, palette["hand"], right_wrist, 6)
 
-# 그립 (손잡이)
-grip_color = (40, 40, 60)
-pygame.draw.rect(SMASHER_PADDLE_IMG, grip_color,
-                (paddle_x - 2, paddle_y - 10, 8, 20))
+    for i in range(3):
+        radius = 38 + i * 3
+        alpha = max(0, 80 - i * 20)
+        edge_surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
+        pygame.draw.ellipse(edge_surface, (*palette["glow"], alpha),
+                            (center_x - radius, center_y - radius / 1.4, radius * 2, radius * 1.4), 2)
+        surface.blit(edge_surface, (0, 0))
 
-# 형광 그립 라인
-pygame.draw.line(SMASHER_PADDLE_IMG, (100, 255, 200),
-                (paddle_x, paddle_y - 10),
-                (paddle_x, paddle_y + 8), 1)
+    for i in range(2):
+        at_field_radius = 55 + i * 10
+        at_alpha = max(0, 30 - i * 10)
+        at_points = []
+        for j in range(6):
+            angle = math.radians(j * 60)
+            at_points.append((center_x + int(math.cos(angle) * at_field_radius),
+                              center_y + int(math.sin(angle) * at_field_radius * 0.7)))
+        at_surface = pygame.Surface(MECHA_SPRITE_SIZE, pygame.SRCALPHA)
+        pygame.draw.polygon(at_surface, (*palette["at_field"], at_alpha), at_points, 1)
+        surface.blit(at_surface, (0, 0))
 
-# 라켓 헤드 (육각형 모양 - 미래적 디자인)
-paddle_head_x = paddle_x + 2
-paddle_head_y = paddle_y + 12
+    return surface
 
-# 육각형 라켓 헤드
-hex_points = []
-for i in range(6):
-    angle = i * 60 + 30  # 30도 회전
-    rad = math.radians(angle)
-    x = paddle_head_x + int(math.cos(rad) * 18)
-    y = paddle_head_y + int(math.sin(rad) * 18)
-    hex_points.append((x, y))
 
-# 라켓 베이스 (어두운 색)
-pygame.draw.polygon(SMASHER_PADDLE_IMG, (30, 30, 50), hex_points)
+def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
+    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+    block = 9
+    center_x = surface.get_width() // 2
+    torso_base_y = 56
 
-# 라켓 테두리 (네온 효과)
-pygame.draw.polygon(SMASHER_PADDLE_IMG, (0, 200, 255), hex_points, 3)
+    global smasher_hit_pose_timer
 
-# 라켓 중앙 에너지 코어
-pygame.draw.circle(SMASHER_PADDLE_IMG, (100, 200, 255),
-                  (paddle_head_x, paddle_head_y), 8)
-pygame.draw.circle(SMASHER_PADDLE_IMG, (200, 240, 255),
-                  (paddle_head_x, paddle_head_y), 5)
+    hit_pose_duration = globals().get("SMASHER_HIT_POSE_DURATION", 0)
+    hit_pose_timer_value = globals().get("smasher_hit_pose_timer", 0)
+    hit_pose_ratio = 0.0
+    if hit_pose_duration > 0:
+        hit_pose_ratio = max(0.0, min(1.0, hit_pose_timer_value / hit_pose_duration))
 
-# === 오른팔 (자연스럽게) ===
-right_shoulder_x = eva_center_x + 30
-right_shoulder_y = eva_center_y + 5
-right_elbow_x = eva_center_x + 40
-right_elbow_y = eva_center_y + 25
-right_wrist_x = eva_center_x + 35
-right_wrist_y = eva_center_y + 45
+    def rotate_point(origin: tuple[float, float], point: tuple[float, float], degrees: float) -> tuple[float, float]:
+        """주어진 점을 화면 좌표계 기준으로 시계 방향 회전"""
+        radians = math.radians(degrees)
+        cos_v = math.cos(radians)
+        sin_v = math.sin(radians)
+        ox, oy = origin
+        px, py = point
+        translated_x = px - ox
+        translated_y = py - oy
+        rotated_x = translated_x * cos_v - translated_y * sin_v
+        rotated_y = translated_x * sin_v + translated_y * cos_v
+        return ox + rotated_x, oy + rotated_y
 
-# 오른팔 그리기
-pygame.draw.line(SMASHER_PADDLE_IMG, body_color,
-                (right_shoulder_x, right_shoulder_y),
-                (right_elbow_x, right_elbow_y), 12)
-pygame.draw.line(SMASHER_PADDLE_IMG, body_color,
-                (right_elbow_x, right_elbow_y),
-                (right_wrist_x, right_wrist_y), 10)
+    def lerp_point(start: tuple[float, float], end: tuple[float, float], t: float) -> tuple[float, float]:
+        return start[0] + (end[0] - start[0]) * t, start[1] + (end[1] - start[1]) * t
 
-# 오른팔 장식 라인
-pygame.draw.line(SMASHER_PADDLE_IMG, (255, 100, 150),
-                (right_shoulder_x, right_shoulder_y),
-                (right_elbow_x, right_elbow_y), 2)
-pygame.draw.line(SMASHER_PADDLE_IMG, (255, 100, 150),
-                (right_elbow_x, right_elbow_y),
-                (right_wrist_x, right_wrist_y), 2)
+    def to_int_point(point: tuple[float, float]) -> tuple[int, int]:
+        return int(round(point[0])), int(round(point[1]))
 
-# === 손 디테일 ===
-# 왼손 (탁구채 잡은 손)
-pygame.draw.circle(SMASHER_PADDLE_IMG, (220, 180, 160),
-                  (left_wrist_x, left_wrist_y), 6)
-# 오른손
-pygame.draw.circle(SMASHER_PADDLE_IMG, (220, 180, 160),
-                  (right_wrist_x, right_wrist_y), 6)
+    def regular_polygon_points(center: tuple[float, float], radius: float, *, sides: int = 5, rotation_deg: float = -90.0) -> list[tuple[float, float]]:
+        rotation = math.radians(rotation_deg)
+        return [
+            (
+                center[0] + radius * math.cos(rotation + i * math.tau / sides),
+                center[1] + radius * math.sin(rotation + i * math.tau / sides),
+            )
+            for i in range(sides)
+        ]
 
-# === 네온 효과 (EVA 특유의 형광 효과) ===
-# 플러그슈트 엣지 라이트
-for i in range(3):
-    radius = 38 + i * 3
-    alpha = 80 - i * 20
-    edge_surface = pygame.Surface((250, 120), pygame.SRCALPHA)
-    pygame.draw.ellipse(edge_surface, (100, 200, 255, alpha),
-                       (eva_center_x - radius, eva_center_y - radius//1.4, 
-                        radius * 2, radius * 1.4), 2)
-    SMASHER_PADDLE_IMG.blit(edge_surface, (0, 0))
+    phase = _resolve_mecha_phase(step_phase)
+    wave = math.sin(phase * math.tau)
+    torso_bob = int(math.sin(phase * math.tau) * 2)
+    arm_swing = int(wave * 5)
+    shoulder_shift = int(wave * 2)
+    hip_sway = int(wave * 2)
+    left_leg_lift = -int(max(0.0, wave) * 4)
+    right_leg_lift = -int(max(0.0, -wave) * 4)
 
-# === AT 필드 효과 (은은한 육각형 패턴) ===
-for i in range(2):
-    at_field_radius = 55 + i * 10
-    at_alpha = 30 - i * 10
-    at_points = []
-    for j in range(6):
-        angle = j * 60
-        rad = math.radians(angle)
-        x = eva_center_x + int(math.cos(rad) * at_field_radius)
-        y = eva_center_y + int(math.sin(rad) * at_field_radius * 0.7)
-        at_points.append((x, y))
-    
-    at_surface = pygame.Surface((250, 120), pygame.SRCALPHA)
-    pygame.draw.polygon(at_surface, (150, 100, 255, at_alpha), at_points, 1)
-    SMASHER_PADDLE_IMG.blit(at_surface, (0, 0))
+    torso_y = torso_base_y + torso_bob
 
+    palette = {
+        "shadow": (0, 0, 0, 64),
+        "helmet": (70, 102, 162),
+        "helmet_side": (58, 82, 136),
+        "helmet_high": (148, 182, 236),
+        "face": (212, 196, 176),
+        "visor": (170, 224, 255),
+        "visor_core": (126, 192, 246),
+        "armor_outer": (80, 96, 150),
+        "armor_mid": (60, 76, 120),
+        "armor_inner": (46, 58, 92),
+        "trim": (190, 206, 236),
+        "accent": (118, 214, 255),
+        "accent_core": (82, 178, 248),
+        "undersuit": (36, 40, 58),
+        "undersuit_dark": (22, 26, 40),
+        "arm_light": (132, 152, 204),
+        "glove": (198, 182, 164),
+        "glove_detail": (156, 134, 110),
+        "paddle": (220, 56, 74),
+        "paddle_core": (244, 116, 132),
+        "paddle_shadow": (154, 42, 58),
+        "handle": (174, 132, 98),
+        "handle_core": (206, 166, 128),
+        "belt": (88, 78, 108),
+        "belt_glint": (158, 140, 196),
+        "boot": (64, 74, 110),
+        "boot_high": (128, 146, 190),
+        "knee": (96, 118, 176),
+        "outline": (20, 24, 36),
+        "board_base": (58, 72, 118),
+        "board_shadow": (34, 40, 68),
+        "board_highlight": (142, 182, 242),
+        "board_glow": (100, 198, 255),
+        "thruster_core": (255, 234, 170),
+        "thruster_glow": (118, 214, 255),
+        "thruster_heat": (254, 156, 94),
+        "shield_core": (200, 252, 255),
+        "shield_ring": (120, 210, 255),
+        "shield_glow": (70, 160, 255),
+    }
+
+    helmet_w = int(2.7 * block)
+    helmet_h = int(2.2 * block)
+    helmet_rect = pygame.Rect(center_x - helmet_w // 2, torso_y - int(3.1 * block), helmet_w, helmet_h)
+    pygame.draw.ellipse(surface, palette["helmet"], helmet_rect)
+
+    side_mod = pygame.Rect(helmet_rect.left - int(0.6 * block), helmet_rect.centery - int(0.6 * block),
+                           int(0.8 * block), int(1.4 * block))
+    pygame.draw.ellipse(surface, palette["helmet_side"], side_mod)
+    side_mod_right = side_mod.move(helmet_rect.width + int(0.4 * block), shoulder_shift // 2)
+    pygame.draw.ellipse(surface, palette["helmet_side"], side_mod_right)
+
+    face_rect = helmet_rect.inflate(-int(0.95 * block), -int(0.85 * block))
+    face_rect.move_ip(0, int(0.65 * block))
+    pygame.draw.ellipse(surface, palette["face"], face_rect)
+
+    visor_rect = face_rect.inflate(int(0.2 * block), int(-0.35 * block))
+    pygame.draw.ellipse(surface, palette["visor"], visor_rect)
+    pygame.draw.ellipse(surface, palette["visor_core"], visor_rect.inflate(-int(0.55 * block), -int(0.4 * block)))
+    pygame.draw.line(surface, palette["helmet_high"],
+                     (visor_rect.left + 1, visor_rect.centery - 1),
+                     (visor_rect.right - 1, visor_rect.centery - 1), 1)
+
+    helmet_high = helmet_rect.inflate(-int(1.3 * block), -int(1.2 * block))
+    helmet_high.move_ip(-1, -1)
+    pygame.draw.ellipse(surface, palette["helmet_high"], helmet_high, 1)
+
+    ridge_rect = pygame.Rect(center_x - int(0.25 * block), helmet_rect.top + int(0.2 * block),
+                             int(0.5 * block), helmet_rect.height - int(0.5 * block))
+    pygame.draw.rect(surface, palette["helmet_high"], ridge_rect, border_radius=2)
+
+    torso_width = int(3.4 * block)
+    chest_height = int(2.2 * block)
+    chest_rect = pygame.Rect(center_x - torso_width // 2, torso_y - int(0.4 * block), torso_width, chest_height)
+    pygame.draw.rect(surface, palette["armor_outer"], chest_rect, border_radius=7)
+
+    mid_rect = chest_rect.inflate(-int(0.6 * block), -int(0.5 * block))
+    pygame.draw.rect(surface, palette["armor_mid"], mid_rect, border_radius=6)
+
+    inner_panel = mid_rect.inflate(-int(0.7 * block), -int(0.45 * block))
+    pygame.draw.rect(surface, palette["armor_inner"], inner_panel, border_radius=4)
+
+    pygame.draw.rect(surface, palette["trim"], chest_rect, 1, border_radius=7)
+    pygame.draw.rect(surface, palette["trim"], mid_rect, 1, border_radius=6)
+
+    core_line_top = (center_x, inner_panel.top + int(0.25 * block))
+    core_line_bottom = (center_x, inner_panel.bottom - int(0.25 * block))
+    pygame.draw.line(surface, palette["accent"], core_line_top, core_line_bottom, 2)
+    pygame.draw.line(surface, palette["accent_core"],
+                     (center_x - int(0.5 * block), inner_panel.centery),
+                     (center_x + int(0.5 * block), inner_panel.centery), 1)
+
+    abs_width = int(2.4 * block)
+    abs_height = int(1.4 * block)
+    abs_rect = pygame.Rect(center_x - abs_width // 2, inner_panel.bottom - int(0.2 * block), abs_width, abs_height)
+    pygame.draw.rect(surface, palette["undersuit"], abs_rect, border_radius=3)
+    pygame.draw.rect(surface, palette["trim"], abs_rect, 1, border_radius=3)
+    pygame.draw.line(surface, palette["accent_core"],
+                     (abs_rect.left + 2, abs_rect.centery), (abs_rect.right - 2, abs_rect.centery), 1)
+
+    belt_rect = pygame.Rect(center_x - int(2.0 * block), abs_rect.bottom - int(0.1 * block), int(4.0 * block), int(0.8 * block))
+    pygame.draw.rect(surface, palette["belt"], belt_rect, border_radius=2)
+    pygame.draw.line(surface, palette["belt_glint"],
+                     (belt_rect.left + 4, belt_rect.centery - 1),
+                     (belt_rect.right - 4, belt_rect.centery - 1), 1)
+    buckle_rect = pygame.Rect(center_x - int(0.6 * block), belt_rect.top + 1, int(1.2 * block), belt_rect.height - 2)
+    pygame.draw.rect(surface, palette["trim"], buckle_rect, border_radius=1)
+
+    left_pauldron = [
+        (center_x - int(2.2 * block) - 4, torso_y + shoulder_shift - int(0.5 * block)),
+        (center_x - int(1.2 * block), torso_y - int(0.9 * block)),
+        (center_x - int(0.9 * block), torso_y + int(0.8 * block)),
+        (center_x - int(2.1 * block) - 3, torso_y + int(0.9 * block)),
+    ]
+    pygame.draw.polygon(surface, palette["armor_mid"], left_pauldron)
+    pygame.draw.line(surface, palette["trim"], left_pauldron[0], left_pauldron[1], 2)
+    pygame.draw.line(surface, palette["arm_light"], left_pauldron[1], left_pauldron[2], 1)
+
+    right_pauldron = [
+        (center_x + int(2.2 * block) + 4, torso_y - shoulder_shift - int(0.5 * block)),
+        (center_x + int(1.2 * block), torso_y - int(0.9 * block)),
+        (center_x + int(0.9 * block), torso_y + int(0.8 * block)),
+        (center_x + int(2.1 * block) + 3, torso_y + int(0.9 * block)),
+    ]
+    pygame.draw.polygon(surface, palette["armor_mid"], right_pauldron)
+    pygame.draw.line(surface, palette["trim"], right_pauldron[0], right_pauldron[1], 2)
+    pygame.draw.line(surface, palette["arm_light"], right_pauldron[1], right_pauldron[2], 1)
+
+    left_shoulder = (center_x - int(1.8 * block), torso_y + shoulder_shift)
+    left_arm_swing = int(arm_swing * (1 - 0.6 * hit_pose_ratio))
+    default_left_elbow = (
+        left_shoulder[0] - int(1.6 * block) - left_arm_swing,
+        torso_y + int(0.2 * block) - left_arm_swing // 2,
+    )
+    default_left_wrist = (
+        default_left_elbow[0] - int(1.5 * block),
+        torso_y - int(0.8 * block) - left_arm_swing,
+    )
+
+    left_elbow_point = (float(default_left_elbow[0]), float(default_left_elbow[1]))
+    left_wrist_point = (float(default_left_wrist[0]), float(default_left_wrist[1]))
+
+    if hit_pose_ratio > 0:
+        rotated_elbow = rotate_point(left_shoulder, left_elbow_point, 55.0)
+        rotated_wrist_base = rotate_point(left_elbow_point, left_wrist_point, 38.0)
+        elbow_delta = (
+            rotated_elbow[0] - left_elbow_point[0],
+            rotated_elbow[1] - left_elbow_point[1],
+        )
+        rotated_wrist = (
+            rotated_wrist_base[0] + elbow_delta[0],
+            rotated_wrist_base[1] + elbow_delta[1] + block * 0.15,
+        )
+        left_elbow_point = lerp_point(left_elbow_point, rotated_elbow, hit_pose_ratio)
+        left_wrist_point = lerp_point(left_wrist_point, rotated_wrist, hit_pose_ratio)
+
+    left_elbow = to_int_point(left_elbow_point)
+    left_wrist = to_int_point(left_wrist_point)
+
+    pygame.draw.line(surface, palette["arm_light"], left_shoulder, left_elbow, block)
+    pygame.draw.line(surface, palette["armor_mid"], left_shoulder, left_elbow, block - 2)
+    pygame.draw.line(surface, palette["arm_light"], left_elbow, left_wrist, block - 1)
+    pygame.draw.line(surface, palette["armor_mid"], left_elbow, left_wrist, block - 3)
+    pygame.draw.circle(surface, palette["glove"], left_wrist, max(2, block // 2 + 1))
+    pygame.draw.line(surface, palette["glove_detail"],
+                     (left_wrist[0] - 2, left_wrist[1] - 1),
+                     (left_wrist[0] + 2, left_wrist[1] + 2), 1)
+
+    handle_rect = pygame.Rect(left_wrist[0] - block // 2,
+                              left_wrist[1] - int(1.3 * block),
+                              int(0.9 * block), int(1.6 * block))
+    pygame.draw.rect(surface, palette["handle"], handle_rect)
+    pygame.draw.rect(surface, palette["handle_core"], handle_rect.inflate(-max(1, block // 3), -max(1, block // 3)))
+
+    paddle_center = (handle_rect.centerx - int(1.2 * block), handle_rect.top - int(0.4 * block))
+    paddle_radius = int(1.7 * block)
+    pygame.draw.circle(surface, palette["paddle"], paddle_center, paddle_radius)
+    pygame.draw.circle(surface, palette["paddle_core"], paddle_center, max(2, paddle_radius - 3))
+    paddle_box = pygame.Rect(paddle_center[0] - paddle_radius, paddle_center[1] - paddle_radius,
+                             paddle_radius * 2, paddle_radius * 2)
+    pygame.draw.arc(surface, palette["paddle_shadow"], paddle_box, math.radians(200), math.radians(320), 3)
+
+    paddle_glow = pygame.Surface((paddle_radius * 2, paddle_radius * 2), pygame.SRCALPHA)
+    pygame.draw.circle(paddle_glow, (*palette["paddle_core"], 40),
+                       (paddle_radius, paddle_radius), paddle_radius)
+    surface.blit(paddle_glow, (paddle_box.left, paddle_box.top), special_flags=pygame.BLEND_RGBA_ADD)
+
+    right_shoulder = (center_x + int(1.8 * block), torso_y - shoulder_shift)
+    right_elbow = (right_shoulder[0] + int(1.3 * block) + arm_swing,
+                   torso_y + int(0.4 * block) + arm_swing // 2)
+    right_wrist = (right_elbow[0] + int(1.1 * block), torso_y + int(1.2 * block) + right_leg_lift // 2)
+    pygame.draw.line(surface, palette["arm_light"], right_shoulder, right_elbow, block)
+    pygame.draw.line(surface, palette["armor_mid"], right_shoulder, right_elbow, block - 2)
+    pygame.draw.line(surface, palette["arm_light"], right_elbow, right_wrist, block - 1)
+    pygame.draw.line(surface, palette["armor_mid"], right_elbow, right_wrist, block - 3)
+    pygame.draw.circle(surface, palette["glove"], right_wrist, max(2, block // 2 + 1))
+    pygame.draw.line(surface, palette["glove_detail"],
+                     (right_wrist[0] - 2, right_wrist[1]),
+                     (right_wrist[0] + 2, right_wrist[1] + 2), 1)
+
+    shield_radius = max(9, int(1.7 * block))
+    shield_surface = pygame.Surface((shield_radius * 2, shield_radius * 2), pygame.SRCALPHA)
+    shield_center = (shield_radius, shield_radius)
+
+    layer_specs = (
+        (1.05, 70),
+        (0.85, 110),
+        (0.65, 150),
+        (0.45, 190),
+    )
+    for scale, alpha in layer_specs:
+        points = [to_int_point(p) for p in regular_polygon_points(shield_center, shield_radius * scale)]
+        glow_color = (
+            palette["shield_glow"][0],
+            palette["shield_glow"][1],
+            palette["shield_glow"][2],
+            min(255, alpha),
+        )
+        pygame.draw.polygon(shield_surface, glow_color, points)
+
+    outline_points = [to_int_point(p) for p in regular_polygon_points(shield_center, shield_radius * 1.05)]
+    pygame.draw.polygon(
+        shield_surface,
+        (
+            palette["shield_ring"][0],
+            palette["shield_ring"][1],
+            palette["shield_ring"][2],
+            230,
+        ),
+        outline_points,
+        width=3,
+    )
+
+    core_points = [to_int_point(p) for p in regular_polygon_points(shield_center, shield_radius * 0.38)]
+    pygame.draw.polygon(
+        shield_surface,
+        (
+            palette["shield_core"][0],
+            palette["shield_core"][1],
+            palette["shield_core"][2],
+            240,
+        ),
+        core_points,
+    )
+
+    highlight_points = [to_int_point(p) for p in regular_polygon_points(shield_center, shield_radius * 0.9)]
+    pygame.draw.lines(
+        shield_surface,
+        (
+            palette["shield_core"][0],
+            palette["shield_core"][1],
+            palette["shield_core"][2],
+            120,
+        ),
+        True,
+        highlight_points,
+        1,
+    )
+
+    shield_offset = (int(0.45 * block), -int(0.15 * block))
+    shield_pos = (
+        right_wrist[0] - shield_radius + shield_offset[0],
+        right_wrist[1] - shield_radius + shield_offset[1],
+    )
+    surface.blit(shield_surface, shield_pos)
+    surface.blit(shield_surface, shield_pos, special_flags=pygame.BLEND_ADD)
+
+    hip_y = torso_y + int(1.1 * block)
+    pelvis = pygame.Rect(center_x - int(1.5 * block) + hip_sway // 2, hip_y - int(0.4 * block), int(3.0 * block), int(1.0 * block))
+    pygame.draw.rect(surface, palette["armor_mid"], pelvis, border_radius=3)
+    pygame.draw.rect(surface, palette["trim"], pelvis, 1, border_radius=3)
+
+    thigh_height = int(2.2 * block)
+    thigh_width = int(0.9 * block)
+    left_thigh = pygame.Rect(center_x - int(1.2 * block) - thigh_width, hip_y + left_leg_lift, thigh_width, thigh_height)
+    right_thigh = pygame.Rect(center_x + int(0.25 * block), hip_y + right_leg_lift, thigh_width, thigh_height)
+    pygame.draw.rect(surface, palette["undersuit"], left_thigh, border_radius=3)
+    pygame.draw.rect(surface, palette["undersuit"], right_thigh, border_radius=3)
+    pygame.draw.rect(surface, palette["undersuit_dark"], left_thigh.inflate(-2, -2), border_radius=3)
+    pygame.draw.rect(surface, palette["undersuit_dark"], right_thigh.inflate(-2, -2), border_radius=3)
+
+    knee_pad_left = pygame.Rect(left_thigh.left - 2, left_thigh.top + int(1.2 * block), thigh_width + 4, int(0.8 * block))
+    knee_pad_right = pygame.Rect(right_thigh.left - 2, right_thigh.top + int(1.2 * block), thigh_width + 4, int(0.8 * block))
+    pygame.draw.rect(surface, palette["knee"], knee_pad_left, border_radius=2)
+    pygame.draw.rect(surface, palette["knee"], knee_pad_right, border_radius=2)
+    pygame.draw.line(surface, palette["trim"],
+                     (knee_pad_left.left + 1, knee_pad_left.centery),
+                     (knee_pad_left.right - 1, knee_pad_left.centery), 1)
+    pygame.draw.line(surface, palette["trim"],
+                     (knee_pad_right.left + 1, knee_pad_right.centery),
+                     (knee_pad_right.right - 1, knee_pad_right.centery), 1)
+
+    calf_height = int(1.1 * block)
+    left_calf = pygame.Rect(left_thigh.left - 2, left_thigh.bottom - 4, left_thigh.width + 4, calf_height)
+    right_calf = pygame.Rect(right_thigh.left - 2, right_thigh.bottom - 4, right_thigh.width + 4, calf_height)
+    pygame.draw.rect(surface, palette["boot"], left_calf, border_radius=2)
+    pygame.draw.rect(surface, palette["boot"], right_calf, border_radius=2)
+    pygame.draw.line(surface, palette["boot_high"],
+                     (left_calf.left + 2, left_calf.centery - 1),
+                     (left_calf.right - 2, left_calf.centery - 1), 1)
+    pygame.draw.line(surface, palette["boot_high"],
+                     (right_calf.left + 2, right_calf.centery - 1),
+                     (right_calf.right - 2, right_calf.centery - 1), 1)
+
+    thruster_height = int(1.5 * block)
+    thruster_width = int(1.6 * block)
+    sway_offset = int(hip_sway * 0.3)
+
+    board_length = int(7.6 * block)
+    board_thickness = max(4, int(0.62 * block))
+    board_y = max(left_calf.bottom, right_calf.bottom) - int(0.25 * block)
+    board_rect = pygame.Rect(center_x - board_length // 2 - sway_offset, board_y, board_length, board_thickness)
+
+    nose_length = int(1.4 * block)
+    tail_length = int(1.4 * block)
+
+    board_shadow_poly = [
+        (board_rect.left - nose_length // 2, board_rect.bottom + 2),
+        (board_rect.left + nose_length, board_rect.top - 1),
+        (board_rect.right - tail_length, board_rect.top - 1),
+        (board_rect.right + tail_length // 2, board_rect.bottom + 2),
+    ]
+    pygame.draw.polygon(surface, (*palette["board_shadow"], 110), board_shadow_poly)
+
+    board_poly = [
+        (board_rect.left - nose_length, board_rect.centery + board_thickness // 2),
+        (board_rect.left + nose_length // 2, board_rect.top),
+        (board_rect.right - tail_length // 2, board_rect.top),
+        (board_rect.right + tail_length, board_rect.centery + board_thickness // 2),
+        (board_rect.right - tail_length // 2, board_rect.bottom),
+        (board_rect.left + nose_length // 2, board_rect.bottom),
+    ]
+    pygame.draw.polygon(surface, palette["board_base"], board_poly)
+
+    deck_poly = [
+        (board_rect.left - nose_length // 2, board_rect.centery + board_thickness // 3),
+        (board_rect.left + nose_length // 2, board_rect.top + board_thickness // 4),
+        (board_rect.right - tail_length // 2, board_rect.top + board_thickness // 4),
+        (board_rect.right + tail_length // 2, board_rect.centery + board_thickness // 3),
+        (board_rect.right - tail_length // 2, board_rect.bottom - board_thickness // 4),
+        (board_rect.left + nose_length // 2, board_rect.bottom - board_thickness // 4),
+    ]
+    pygame.draw.polygon(surface, palette["board_highlight"], deck_poly)
+
+    routing_length = board_rect.width - nose_length - tail_length
+    routing_start = board_rect.left + nose_length
+    for offset, color in ((0, palette["board_highlight"]), (board_thickness // 2, palette["board_shadow"])):
+        pygame.draw.line(surface, color,
+                         (routing_start, board_rect.top + board_thickness // 2 - offset),
+                         (routing_start + routing_length, board_rect.top + board_thickness // 2 - offset), 2)
+
+    board_glow_surface = pygame.Surface((board_length + int(1.6 * block), thruster_height * 2), pygame.SRCALPHA)
+    pygame.draw.ellipse(board_glow_surface, (*palette["board_glow"], 60), board_glow_surface.get_rect())
+    surface.blit(board_glow_surface,
+                 (board_rect.left - int(0.8 * block) - nose_length // 2,
+                  board_rect.bottom - board_glow_surface.get_height() // 2),
+                 special_flags=pygame.BLEND_ADD)
+
+    def draw_thruster(column_rect: pygame.Rect, strength: float, horizontal_bias: int, phase_offset: float):
+        base_x = column_rect.centerx + horizontal_bias
+        base_y = board_rect.bottom
+        flicker = 0.6 + 0.4 * math.sin(phase * math.tau * 2.0 + phase_offset)
+        intensity = max(0.25, min(1.0, strength * 0.6 + flicker * 0.4))
+
+        flame_length = int(thruster_height * (1.6 + intensity))
+        flame_width = int(thruster_width * (0.9 + 0.3 * intensity))
+        flame_surface = pygame.Surface((flame_width * 2, flame_length + thruster_height), pygame.SRCALPHA)
+
+        nozzle_center_x = flame_width
+        nozzle_center_y = thruster_height // 2
+        nozzle_rect = pygame.Rect(nozzle_center_x - thruster_width // 2,
+                                  nozzle_center_y - thruster_height // 2,
+                                  thruster_width,
+                                  thruster_height)
+
+        pygame.draw.ellipse(flame_surface, (*palette["board_glow"], int(120 * intensity)),
+                            nozzle_rect.inflate(int(0.5 * block), int(0.3 * block)))
+        pygame.draw.ellipse(flame_surface, (*palette["thruster_heat"], int(160 * intensity)), nozzle_rect)
+        pygame.draw.ellipse(flame_surface, palette["thruster_core"],
+                            nozzle_rect.inflate(-max(1, thruster_width // 3), -max(1, thruster_height // 3)))
+
+        crest = int(math.sin(phase * math.tau * 4.0 + phase_offset) * flame_width * 0.25)
+        outer_points = [
+            (nozzle_center_x - flame_width + 2, nozzle_rect.bottom - 1),
+            (nozzle_center_x + crest, nozzle_rect.bottom - 1 + flame_length),
+            (nozzle_center_x + flame_width - 2, nozzle_rect.bottom - 1),
+        ]
+        pygame.draw.polygon(flame_surface, (*palette["thruster_heat"], int(180 * intensity)), outer_points)
+
+        inner_points = [
+            (nozzle_center_x - flame_width // 2, nozzle_rect.bottom + flame_length // 3),
+            (nozzle_center_x + crest // 2, nozzle_rect.bottom - 1 + flame_length - flame_length // 4),
+            (nozzle_center_x + flame_width // 2, nozzle_rect.bottom + flame_length // 3),
+        ]
+        pygame.draw.polygon(flame_surface, (*palette["thruster_glow"], int(160 * intensity)), inner_points)
+
+        surface.blit(flame_surface, (base_x - flame_width, base_y - thruster_height // 2), special_flags=pygame.BLEND_ADD)
+
+    movement = min(1.0, abs(wave))
+    base_strength = 0.25 + 0.35 * movement
+    left_strength = min(1.0, base_strength + 0.4 * max(0.0, -wave))
+    right_strength = min(1.0, base_strength + 0.4 * max(0.0, wave))
+
+    draw_thruster(left_calf, left_strength, -sway_offset - int(0.4 * block), 0.0)
+    draw_thruster(right_calf, right_strength, -sway_offset + int(0.4 * block), math.pi)
+
+    outline = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    pygame.draw.ellipse(outline, palette["outline"], helmet_rect, 1)
+    pygame.draw.rect(outline, palette["outline"], chest_rect.inflate(2, 2), 1, border_radius=7)
+    pygame.draw.rect(outline, palette["outline"], pelvis.inflate(2, 2), 1, border_radius=3)
+    pygame.draw.rect(
+        outline,
+        palette["outline"],
+        board_rect.inflate(2, 2),
+        1,
+        border_radius=board_thickness,
+    )
+    surface.blit(outline, (0, 0))
+
+    return surface
+
+
+def create_smasher_paddle_walking() -> pygame.Surface:
+    if SMASHER_WALKING_CYCLE <= 0:
+        return create_smasher_paddle_surface()
+    phase = (smasher_walking_timer % SMASHER_WALKING_CYCLE) / SMASHER_WALKING_CYCLE
+    return create_smasher_paddle_surface(phase)
+
+
+def create_optimus_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
+    return _create_mecha_paddle_surface(OPTIMUS_MECHA_PALETTE, step_phase)
+
+
+def create_optimus_paddle_walking() -> pygame.Surface:
+    if OPTIMUS_WALKING_CYCLE <= 0:
+        return create_optimus_paddle_surface()
+    phase = (optimus_walking_timer % OPTIMUS_WALKING_CYCLE) / OPTIMUS_WALKING_CYCLE
+    return create_optimus_paddle_surface(phase)
+
+
+SMASHER_PADDLE_IMG = create_smasher_paddle_surface()
+OPTIMUS_PADDLE_IMG = create_optimus_paddle_surface()
 # UFO 플레이어 이미지 로드 (기본 이미지)
 try:
     # 먼저 절대 경로로 시도
@@ -4471,6 +4925,18 @@ SOLDIER_WALKING_CYCLE = 30  # 0.5초 (60fps * 0.5)
 blacksmith_walking_active = False
 blacksmith_walking_timer = 0
 BLACKSMITH_WALKING_CYCLE = 30
+
+# === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
+smasher_walking_active = False
+smasher_walking_timer = 0
+SMASHER_WALKING_CYCLE = 30
+
+SMASHER_HIT_POSE_DURATION = 8  # 공을 칠 때 왼팔 히트 포즈 유지 프레임 수
+smasher_hit_pose_timer = 0
+
+optimus_walking_active = False
+optimus_walking_timer = 0
+OPTIMUS_WALKING_CYCLE = 30
 
 # === 발토르 방패 스윙 애니메이션 변수 ===
 blacksmith_shield_swing_active = False
@@ -11550,6 +12016,9 @@ def handle_player(keys):
     global tutorial_current_chapter  # 튜토리얼 현재 챕터 - Chapter 4 전환을 위해 필요
     global soldier_walking_active, soldier_walking_timer  # 코만도 걷기 애니메이션 변수
     global blacksmith_walking_active, blacksmith_walking_timer  # 발토르 걷기 애니메이션 변수
+    global smasher_walking_active, smasher_walking_timer  # 스매셔 걷기 애니메이션 변수
+    global optimus_walking_active, optimus_walking_timer  # 옵티머스 걷기 애니메이션 변수
+    global smasher_hit_pose_timer
     global tutorial_chapter1_max_gauge, tutorial_chapter2_max_gauge, tutorial_drive_chapter_max_gauge  # 챕터별 게이지 오버라이드
     global tutorial_drive_completion_dialogue_shown, tutorial_drive_count  # Chapter 3 완료 체크
     global chapter4_dialogue_completed, chapter4_serve_reminder_active, chapter4_serve_reminder_timer  # Chapter 4 대화 및 서브 알림 변수
@@ -13262,7 +13731,27 @@ def handle_player(keys):
         else:
             blacksmith_walking_active = False
             blacksmith_walking_timer = 0
-    
+    elif selected_character_type in ("smasher", "optimus"):
+        walking = abs(current_speed) > 1.0
+        if selected_character_type == "smasher":
+            if walking:
+                if not smasher_walking_active:
+                    smasher_walking_active = True
+                    smasher_walking_timer = 0
+                smasher_walking_timer += 1
+            else:
+                smasher_walking_active = False
+                smasher_walking_timer = 0
+        else:
+            if walking:
+                if not optimus_walking_active:
+                    optimus_walking_active = True
+                    optimus_walking_timer = 0
+                optimus_walking_timer += 1
+            else:
+                optimus_walking_active = False
+                optimus_walking_timer = 0
+
     # 헤르메스의 신발 별가루 파티클 생성
     global last_paddle_x, hermes_star_particles
     if hermes_shoes_obtained and abs(PLAYER.x - last_paddle_x) > 2:  # 2픽셀 이상 움직였을 때만
@@ -13680,6 +14169,8 @@ def handle_player(keys):
         global hit_animation_active, hit_animation_timer
         hit_animation_active = True
         hit_animation_timer = HIT_ANIMATION_DURATION
+        if selected_character_type == "smasher":
+            smasher_hit_pose_timer = SMASHER_HIT_POSE_DURATION
         #  게이지 처리 - Aipill 활성화 시에는 게이지 감소만, 비활성화 시에는 게이지 증가
         print(f"   aipill_active: {aipill_active}")  # 
         # Aipill 활성화 시 게이지 감소만
@@ -18757,6 +19248,7 @@ def draw_objects():
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, blacksmith_turret_projectiles
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
+    global smasher_hit_pose_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     new_tear_particles = []  #  함수 시작 시 초기화
@@ -19478,7 +19970,12 @@ def draw_objects():
                 base_ufo_img = BLACKSMITH_PADDLE_IMG
         elif selected_character_type == "smasher":
             # 스매셔 캐릭터는 에반게리온 스타일 패들 사용
-            base_ufo_img = SMASHER_PADDLE_IMG
+            if smasher_walking_active:
+                base_ufo_img = create_smasher_paddle_walking()
+            elif smasher_hit_pose_timer > 0:
+                base_ufo_img = create_smasher_paddle_surface()
+            else:
+                base_ufo_img = SMASHER_PADDLE_IMG
         else:
             # 기본 UFO 플레이어 이미지 사용
             base_ufo_img = PLAYER_IMG
@@ -19512,6 +20009,12 @@ def draw_objects():
             tilt_angle = 10
         elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             tilt_angle = -10
+
+    if selected_character_type == "smasher":
+        if smasher_hit_pose_timer > 0:
+            smasher_hit_pose_timer -= 1
+    else:
+        smasher_hit_pose_timer = 0
     #  투척 모션 중일 때 특별한 회전 각도 적용
     if molotov_throwing or grenade_throwing or flare_throwing:
         throw_progress = 0
@@ -19898,7 +20401,114 @@ def draw_objects():
     # 헤르메스의 신발 별가루 파티클 그리기 (패들 뒤에 그려짐)
     if hermes_shoes_obtained:
         update_and_draw_hermes_particles()
-    
+
+    # 호버보드 이동 방향에 따른 파란 글로우 연출
+    if (not new_boss_mode_active
+            and selected_character_type not in ("soldier", "blacksmith")
+            and isinstance(current_speed, (int, float))):
+        abs_speed = abs(current_speed)
+        speed_threshold = 0.25
+        if abs_speed >= speed_threshold:
+            max_speed_value = max(1.0, float(MAX_SPEED))
+            speed_ratio = min(1.0, abs_speed / max_speed_value)
+            pulse = 0.55 + 0.45 * math.sin(pygame.time.get_ticks() * 0.03)
+            intensity = max(0.2, speed_ratio) * pulse
+
+            flame_length = max(12, int(player_rect.width * (0.12 + speed_ratio * 0.22)))
+            flame_height = max(5, int(player_rect.height * (0.12 + speed_ratio * 0.12)))
+            flame_surface = pygame.Surface((flame_length, flame_height), pygame.SRCALPHA)
+
+            nozzle_width = max(4, flame_height // 2)
+            nozzle_height = max(4, int(flame_height * 0.7))
+            nozzle_rect = pygame.Rect(
+                flame_length - nozzle_width - 2,
+                (flame_height - nozzle_height) // 2,
+                nozzle_width,
+                nozzle_height,
+            )
+            pygame.draw.ellipse(
+                flame_surface,
+                (120, 205, 255, int(140 * intensity)),
+                nozzle_rect,
+            )
+            inner_nozzle = nozzle_rect.inflate(-max(2, nozzle_width // 3), -max(2, nozzle_height // 3))
+            pygame.draw.ellipse(
+                flame_surface,
+                (215, 240, 255, int(150 * intensity)),
+                inner_nozzle,
+            )
+
+            base_x = flame_length - nozzle_width
+            for layer in range(3):
+                layer_ratio = layer / 2
+                tail_length = max(4, int(flame_length * (0.6 + speed_ratio * 0.25) * (1 - layer_ratio * 0.5)))
+                tail_height = max(3, int(flame_height * (0.75 - layer_ratio * 0.3)))
+                tip_x = max(2, base_x - tail_length)
+                top_y = max(0, flame_height // 2 - tail_height // 2)
+                bottom_y = min(flame_height, top_y + tail_height)
+                layer_alpha = int(110 * intensity * (1 - layer_ratio * 0.45))
+                if layer_alpha <= 0:
+                    continue
+                color = (
+                    int(80 + (1 - layer_ratio) * 70),
+                    int(160 + (1 - layer_ratio) * 60),
+                    255,
+                    layer_alpha,
+                )
+                tail_points = [
+                    (base_x, top_y),
+                    (base_x, bottom_y),
+                    (tip_x, flame_height // 2 + int(math.sin(pygame.time.get_ticks() * 0.04 + layer * 1.2) * 2)),
+                ]
+                pygame.draw.polygon(flame_surface, color, tail_points)
+
+            core_tail_length = max(3, int(flame_length * (0.35 + speed_ratio * 0.3)))
+            core_tip_x = max(1, base_x - core_tail_length)
+            core_half_height = max(1, max(2, flame_height // 4))
+            core_points = [
+                (base_x + 1, flame_height // 2 - core_half_height),
+                (base_x + 1, flame_height // 2 + core_half_height),
+                (core_tip_x, flame_height // 2),
+            ]
+            pygame.draw.polygon(
+                flame_surface,
+                (255, 240, 220, int(130 * intensity)),
+                core_points,
+            )
+
+            spark_count = 1 + int(speed_ratio * 2)
+            for _ in range(spark_count):
+                spark_x = random.randint(core_tip_x, base_x - 1)
+                spark_y = flame_height // 2 + random.randint(-flame_height // 3, flame_height // 3)
+                spark_alpha = int(120 * intensity * random.uniform(0.4, 1.0))
+                pygame.draw.circle(
+                    flame_surface,
+                    (220, 245, 255, spark_alpha),
+                    (spark_x, spark_y),
+                    1,
+                )
+
+            thruster_side = -1 if current_speed > 0 else 1
+            if thruster_side == 1:
+                flame_surface = pygame.transform.flip(flame_surface, True, False)
+
+            if abs(tilt_angle) > 0.01:
+                flame_surface = pygame.transform.rotate(flame_surface, tilt_angle * 0.5)
+
+            offset_x = player_rect.width * 0.3
+            offset_y = player_rect.height * 0.26
+            bobbing = math.sin(pygame.time.get_ticks() * 0.028) * (player_rect.height * 0.02) * speed_ratio
+            attach_point = (
+                int(player_rect.centerx + thruster_side * offset_x),
+                int(player_rect.centery + offset_y + bobbing),
+            )
+            flame_rect = flame_surface.get_rect()
+            if thruster_side == -1:
+                flame_rect.midright = attach_point
+            else:
+                flame_rect.midleft = attach_point
+            draw_with_shake(flame_surface, flame_rect.topleft)
+
     # UFO 이미지 그리기 (화면 흔들림 효과 적용 - 최적화 버전)
     if special_ready:
         if (time_now // 250) % 2 == 0:
@@ -29960,6 +30570,18 @@ def show_character_selection():
             "card_suit": "◆"
         },
         {
+            "id": "optimus",
+            "name": "옵티머스",
+            "description": "테슬라 기어를 장착한 네온 전사",
+            "image": "optimus.png",
+            "stats": {"속도": 5, "파워": 7, "방어": 5},
+            "special": " 스매셔 계열 전용 장비",
+            "unlocked": True,
+            "card_color": (120, 200, 255),
+            "glow_color": (150, 220, 255),
+            "card_suit": "◆"
+        },
+        {
             "id": "speed_player",
             "name": "스피드 레이서",
             "description": "빠른 속도로 승부하는 캐릭터",
@@ -30417,6 +31039,36 @@ def show_character_selection():
                 image_x = (w - blacksmith_img.get_width()) // 2
                 image_y = 28
                 surface.blit(blacksmith_img, (image_x, image_y))
+            elif character["id"] in ("smasher", "ufo_player"):
+                source_img = SMASHER_PADDLE_IMG
+                src_w, src_h = source_img.get_size()
+                max_width = max(20, w - 24)
+                max_height = max(20, int(h * 0.65))
+                scale = min(max_width / src_w, max_height / src_h)
+                scale = max(scale, 0.1)
+                target_size = (
+                    max(1, int(src_w * scale)),
+                    max(1, int(src_h * scale))
+                )
+                smasher_img = pygame.transform.smoothscale(source_img, target_size)
+                image_x = (w - smasher_img.get_width()) // 2
+                image_y = 28
+                surface.blit(smasher_img, (image_x, image_y))
+            elif character["id"] == "optimus":
+                source_img = OPTIMUS_PADDLE_IMG
+                src_w, src_h = source_img.get_size()
+                max_width = max(20, w - 24)
+                max_height = max(20, int(h * 0.65))
+                scale = min(max_width / src_w, max_height / src_h)
+                scale = max(scale, 0.1)
+                target_size = (
+                    max(1, int(src_w * scale)),
+                    max(1, int(src_h * scale))
+                )
+                optimus_img = pygame.transform.smoothscale(source_img, target_size)
+                image_x = (w - optimus_img.get_width()) // 2
+                image_y = 28
+                surface.blit(optimus_img, (image_x, image_y))
             else:
                 try:
                     char_image = pygame.image.load(character["image"])
@@ -31504,7 +32156,6 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         knee_pads_inst = None
 
     if character_id == "ufo_player":
-        # 스매셔 캐릭터 (기본 캐릭터가 스매셔로 변경됨)
         selected_character_type = "smasher"
     elif character_id == "soldier":
         # 코만도 캐릭터 설정
@@ -31541,12 +32192,13 @@ def start_game_with_difficulty(character_id, difficulty_mode):
             active_item_slot.append(wall_item)
             selected_item_index = len(active_item_slot) - 1
     elif character_id == "smasher":
-        # 스매셔 캐릭터 설정
         selected_character_type = "smasher"
+    elif character_id == "optimus":
+        selected_character_type = "optimus"
     else:
         selected_character_type = "normal"
 
-    if selected_character_type == "smasher":
+    if selected_character_type in ("smasher", "optimus"):
         items.knee_pads_obtained = True
         try:
             if knee_pads_inst is None:
@@ -31560,9 +32212,11 @@ def start_game_with_difficulty(character_id, difficulty_mode):
                 "effect": "knee_pads",
                 "icon": get_item_icon("knee_pads")
             }
+            if passive_item_list is None:
+                passive_item_list = []
             if not any(item.get("name") == "knee_pads" for item in passive_item_list):
                 passive_item_list.append(knee_pads_data)
-            print("🦵 스매셔 기본 장비: 킥차져 자동 장착")
+            print("🦵 메카닉 패들 기본 장비: 킥차져 자동 장착")
         except Exception as e:
             print(f"[WARN] 스매셔 킥차져 초기화 실패: {e}")
 
@@ -34938,6 +35592,13 @@ def reset_round():
         blacksmith_hammer_swing_active = False
     if 'blacksmith_hammer_swing_phase' in globals():
         blacksmith_hammer_swing_phase = 0
+
+    global smasher_walking_active, smasher_walking_timer
+    global optimus_walking_active, optimus_walking_timer
+    smasher_walking_active = False
+    smasher_walking_timer = 0
+    optimus_walking_active = False
+    optimus_walking_timer = 0
 
     # 물자보급(코만도 스킬) 상태 초기화 / 유지 정책
     # 요구사항: 라운드가 바뀌어도 비행기 및 예정된 출현은 유지되어야 함
@@ -48932,7 +49593,9 @@ def show_quick_character_selection():
 def apply_character_selection(character_id):
     """선택된 캐릭터 ID를 전역 상태에 반영"""
     global selected_character_type
-    if character_id in ("smasher", "soldier", "normal"):
+    if character_id == "ufo_player":
+        selected_character_type = "smasher"
+    elif character_id in ("smasher", "soldier", "normal", "blacksmith", "optimus"):
         selected_character_type = character_id
     else:
         selected_character_type = "normal"
@@ -48943,9 +49606,11 @@ def get_character_name(character_id):
     """캐릭터 ID로부터 이름 반환"""
     char_names = {
         "normal": "일반 플레이어",
+        "ufo_player": "스매셔",
         "smasher": "스매셔",
         "soldier": "코만도",
-        "blacksmith": "발토르"
+        "blacksmith": "발토르",
+        "optimus": "옵티머스"
     }
     return char_names.get(character_id, "알 수 없음")
 
