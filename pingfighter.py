@@ -37591,7 +37591,7 @@ def handle_ball():
     global power_smashing_original_speed, power_smashing_parabola_active
     global power_smashing_start_time, power_smashing_arc_strength
     global power_smashing_direction, power_smashing_initial_boost, power_smashing_boost_duration
-    global power_smashing_target_speed
+    global power_smashing_target_speed, power_smashing_rng
     # 보스별 특수 스킬들
     global whip_hit_by_player, whip_active, original_speed, whip_original_ball_speed
     global whip_deactivation_active, whip_deactivation_timer, whip_rotation_speed  # 상모돌리기 강제 해제 모션
@@ -46426,6 +46426,7 @@ def main(stage_num, new_boss_mode=False):
                     # 고스트샷이 아닐 때만 파워스매싱 포물선 활성화
                     if not mega_smashing_active:
                         power_smashing_parabola_active = True
+                        power_smashing_rng = random.Random(random.randrange(1 << 30))
                     else:
                         print(f"    ! mega_smashing_active={mega_smashing_active}")
                     power_smashing_start_time = current_time
