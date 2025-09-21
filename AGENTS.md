@@ -27,6 +27,7 @@ Critical Invariants
 - Round/Stage transitions must reset transient state:
   - Stopwatch/Smartphone flags, timers, and locks (e.g., `stopwatch_forced_upward`, `stopwatch_upward_lock_timer`).
   - Dash, stun, knockback, temporary FX/particles that should not leak across rounds.
+- Any gameplay slow/slowdown effect must reuse the shared slow-wave visual (`create_slow_wave_surface`) so movement debuffs stay consistent.
 
 Resource & Packaging
 --------------------
