@@ -45842,12 +45842,9 @@ def main(stage_num, new_boss_mode=False):
                     #  숫자키 사용 시 선택 인덱스도 업데이트
                     if direct_item_index >= 0:
                         selected_item_index = target_index
-                    # 쿨타임 체크 (개별 아이템 쿨타임 + 전역 쿨타임)
-                    # 장인 아이템이 있으면 쿨타임 10% 감소 (0.8초), 쿨타임 아이템이 있으면 2.4초 추가 감소
-                    cooldown_reduction = 800 if master_obtained else 0  # 10% of 8000ms
-                    cooldown_reduction += 2400 if cooltime_obtained else 0  # HALF_SECOND_FRAMES% of 8000ms
-                    individual_cooldown_ok = "last_use" not in item or current_time - item["last_use"] >= (8000 - cooldown_reduction)
-                    global_cooldown_ok = current_time - last_item_use_time >= (8000 - cooldown_reduction)
+                    # 쿨타임 체크 (장인/쿨타임 아이템 + 악마의 주사위 배율까지 반영)
+                    individual_cooldown_ok = "last_use" not in item or current_time - item["last_use"] >= active_item_cooldown_ms
+                    global_cooldown_ok = current_time - last_item_use_time >= active_item_cooldown_ms
                     if individual_cooldown_ok and global_cooldown_ok:  # 둘 다 만족해야 사용 가능
                         # apply_effect가 False를 반환하면 아이템 사용 실패 (투척 아이템 5초 제한 등)
                         effect_result = apply_effect(item["effect"])
@@ -45870,7 +45867,7 @@ def main(stage_num, new_boss_mode=False):
                         if not individual_cooldown_ok:
                             print("...")
                         if not global_cooldown_ok:
-                            remaining_time = ((8000 - cooldown_reduction) - (current_time - last_item_use_time)) / MILLISECONDS_PER_SECOND
+                            remaining_time = (active_item_cooldown_ms - (current_time - last_item_use_time)) / MILLISECONDS_PER_SECOND
                             print(f"  ... {remaining_time:.1f}")
         #  플레이어 서브 자동 발사 (3초 이상 대기하면 자동으로 serve)
         # 튜토리얼 모드에서는 자동 서브 비활성화
@@ -46637,9 +46634,14 @@ def main(stage_num, new_boss_mode=False):
             # UI 요소들은 화면 흔들림과 별도로 그리기 (게이지, 아이템 등) - 맵 효과 위에
             if not new_boss_mode_active:
                 # 아이템과 게이지는 흔들리지 않도록 별도로 그리기
-                cooldown_reduction = 800 if master_obtained else 0
-                cooldown_reduction += 2400 if cooltime_obtained else 0
-                items.draw_active_item(SCREEN, active_item_slot, active_item_icon_size, selected_item_index, 8000 - cooldown_reduction, round_start_time)
+                items.draw_active_item(
+                    SCREEN,
+                    active_item_slot,
+                    active_item_icon_size,
+                    selected_item_index,
+                    active_item_cooldown_ms,
+                    round_start_time,
+                )
                 items.draw_items(SCREEN)
                 
                 # 물자보급 시스템 그리기 (코만도 캐릭터 전용)
@@ -46704,9 +46706,14 @@ def main(stage_num, new_boss_mode=False):
             # UI 요소들 그리기 (화면 흔들림이 없을 때도 그려야 함) - 맵 효과 위에 그리기
             if not new_boss_mode_active:
                 # 장인 아이템이 있으면 쿨타임 10% 감소 (0.8초), 쿨타임 아이템이 있으면 2.4초 추가 감소
-                cooldown_reduction = 800 if master_obtained else 0
-                cooldown_reduction += 2400 if cooltime_obtained else 0
-                items.draw_active_item(SCREEN, active_item_slot, active_item_icon_size, selected_item_index, 8000 - cooldown_reduction, round_start_time)
+                items.draw_active_item(
+                    SCREEN,
+                    active_item_slot,
+                    active_item_icon_size,
+                    selected_item_index,
+                    active_item_cooldown_ms,
+                    round_start_time,
+                )
                 items.draw_items(SCREEN)
                 
                 # 물자보급 시스템 그리기 (코만도 캐릭터 전용)
