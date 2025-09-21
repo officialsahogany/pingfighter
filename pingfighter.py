@@ -8636,20 +8636,6 @@ def calculate_trajectory():
                     break
         finally:
             random.setstate(random_state)
-
-            # 벽 충돌 체크
-            if sim_x <= BALL.width // 2 or sim_x >= WIDTH - BALL.width // 2:
-                sim_vel_x = -sim_vel_x
-                sim_x = max(BALL.width // 2, min(WIDTH - BALL.width // 2, sim_x))
-            
-            # 플레이어 패들 높이에 도달하면 중단
-            if sim_y >= HEIGHT - 40:
-                predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))  # 최종 위치 추가
-                break
-            
-            # 화면 밖으로 나가면 중단
-            if sim_y > HEIGHT + LARGE_SIZE:
-                break
 def draw_predicted_trajectory():
     """레이저스코프 활성화 시 저장된 궤적을 그리는 함수"""
     global predicted_trajectory, predictor_active, ball_vel
