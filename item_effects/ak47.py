@@ -41,6 +41,7 @@ class AK47:
         
         # 이동속도 감소 관련
         self.movement_debuff = 0.5  # 연사 시 이동속도 50% 감소 (50%로 감소)
+        self._durability_warned = False  # 내구도 소진 경고 발송 여부
 
     # ------------------------------------------------------------------
     # 상태 관리
@@ -53,6 +54,7 @@ class AK47:
         self.shot_cooldown = 0
         self.bullets.clear()
         self.recoil_accumulation = 0  # 반동 초기화
+        self._durability_warned = False
         print("AK-47 활성화! 90발 연사 가능")
 
     def deactivate(self):
@@ -66,6 +68,7 @@ class AK47:
         self.shot_cooldown = 0
         self.recoil_accumulation = 0  # 반동 초기화
         self.remaining_time = 0
+        self._durability_warned = False
         print("AK-47 효과 종료")
 
     # ------------------------------------------------------------------
@@ -199,10 +202,17 @@ class AK47:
 
         events: List[Dict[str, float]] = []
 
-        # 지속 시간은 실제 전투에 관여할 때만 감소시킨다.
-        if tick_timer:
+        # 지속 시간은 실제 전투에 관여할 때만 감소시키고, 내구도 소진 후에도 잔탄이 있으면 계속 사용 가능
+        if tick_timer and self.remaining_time > 0:
             self.remaining_time -= 1
-            if self.remaining_time <= 0:
+
+        if self.remaining_time <= 0:
+            if self.remaining_time < 0:
+                self.remaining_time = 0
+            if not self._durability_warned and (self.current_ammo > 0 or self.bullets):
+                print("⚠️ AK-47 내구도 소진! 남은 탄환만 사용 가능합니다.")
+                self._durability_warned = True
+            if self.current_ammo <= 0 and not self.bullets:
                 self.deactivate()
                 return events
 

@@ -10641,7 +10641,7 @@ def draw_soldier_weapon_ui(screen):
         center_x = base_x + w // 2
         center_y = base_y + h // 2
 
-        ak47_active = ak47.active and ak47.remaining_time > 0 and ak47.current_ammo > 0
+            ak47_active = ak47.active and (ak47.current_ammo > 0 or ak47.bullets)
 
         # 활성/비활성 상태에 따른 색상 팔레트 정의
         receiver_color = (78, 58, 38) if ak47_active else (78, 78, 78)
@@ -12023,7 +12023,7 @@ def handle_player(keys):
                 bazooka.unequip()
             if 'ak47' in soldier_controller.weapons:
                 ak47 = get_ak47_instance()
-                if ak47.remaining_time > 0:
+                if ak47.remaining_time > 0 or ak47.current_ammo > 0 or ak47.bullets:
                     ak47.active = True
             if 'net_gun' in soldier_controller.weapons:
                 get_net_gun_instance().unequip()
@@ -12034,7 +12034,7 @@ def handle_player(keys):
                 bazooka = get_bazooka_instance()
                 bazooka.unequip()
             ak47 = get_ak47_instance()
-            if ak47.remaining_time > 0:
+            if ak47.remaining_time > 0 or ak47.current_ammo > 0 or ak47.bullets:
                 ak47.active = True
             if 'net_gun' in soldier_controller.weapons:
                 get_net_gun_instance().unequip()
@@ -12047,7 +12047,7 @@ def handle_player(keys):
                 bazooka.unequip()
             if 'ak47' in soldier_controller.weapons:
                 ak47 = get_ak47_instance()
-                if ak47.remaining_time > 0:
+                if ak47.remaining_time > 0 or ak47.current_ammo > 0 or ak47.bullets:
                     ak47.active = True
         
         print(f"🔄 화기 교체: {current_weapon}")
