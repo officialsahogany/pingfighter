@@ -38651,8 +38651,9 @@ def handle_ball():
                 vertical_variation = math.sin(elapsed_time * 5) * 1.0
             vertical_force = base_upward_force + vertical_variation
             # 가끔 부스트 (10% 확률)
-            if random.random() < 0.1:
-                vertical_force -= random.uniform(0.2, 0.5)  # 더 빠르게 위로 (90% 감소)
+            rng = power_smashing_rng or random
+            if rng.random() < 0.1:
+                vertical_force -= rng.uniform(0.2, 0.5)  # 더 빠르게 위로 (90% 감소)
             ball_vel[1] += vertical_force
             # 속도 리미터 (너무 빨라지는 것 방지하되 여전히 빠름)
             max_speed = 4.5  # 고스트샷 속도 90% 감소 (45 -> 4.5)
@@ -38666,7 +38667,8 @@ def handle_ball():
             # 수평 이동: 최소한의 방향성 + 매우 작은 랜덤 변화
             horizontal_decay = max(0.8, 1.0 - elapsed_time * 0.05)  # 매우 천천히 감소, 최소 80% 유지
             # 매우 작은 랜덤 요소 추가
-            chaos_factor = math.sin(elapsed_time * 5.0) * 0.05 + random.uniform(-0.04, 0.04)
+            chaos_random = (power_smashing_rng or random).uniform(-0.04, 0.04)
+            chaos_factor = math.sin(elapsed_time * 5.0) * 0.05 + chaos_random
             horizontal_force = power_smashing_arc_strength * horizontal_decay * (0.5 + chaos_factor * 0.2)
             ball_vel[0] += horizontal_force
             # 수직 이동: 뚜렷한 중력 효과로 명확한 포물선

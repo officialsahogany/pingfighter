@@ -88,6 +88,7 @@ def load_item_icons():
         "bazooka": "bazooka.png",  # 바주카포 아이콘
         "ammo_box": "ammo_box.png",  # 탄약상자 아이콘
         "net_gun": "net_gun.png",  # 그물덫총 아이콘
+        "spider_mine": "spider_mine.png",  # 스파이더지뢰 아이콘
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
         "hermes_shoes": "legendary/hermes_shoes.png"
