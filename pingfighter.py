@@ -11589,7 +11589,7 @@ def create_slow_wave_surface(width, height, base_color=(170, 120, 255), intensit
     # 파형은 최대 3개까지만 사용해 단순한 레이어 유지
     effective_waves = max(1, min(3, wave_count))
     time_value = pygame.time.get_ticks() * 0.006
-    base_y = height * 0.65
+    base_y = height * 0.62
 
     for wave_index in range(effective_waves):
         layer_strength = intensity * (1.0 - wave_index * 0.35)
@@ -11603,16 +11603,17 @@ def create_slow_wave_surface(width, height, base_color=(170, 120, 255), intensit
             min(255, int(base_color[2] + wave_index * 6)),
             alpha,
         )
-        amplitude = 4.0 * layer_strength
+        amplitude = 2.4 * layer_strength
         frequency = 1.4 + wave_index * 0.3
         phase_offset = wave_index * 0.9
-        y_offset = base_y - wave_index * 6
+        y_offset = base_y - wave_index * 5
 
         points = []
         for x in range(0, width + 1, 3):
             progress = x / max(1, width)
             angle = time_value + phase_offset + progress * math.tau * frequency
-            y = y_offset + math.sin(angle) * amplitude
+            wave_offset = abs(math.sin(angle)) * amplitude
+            y = min(height - 2, y_offset + wave_offset)
             points.append((x, y))
 
         if len(points) > 1:
@@ -46705,7 +46706,7 @@ def main(stage_num, new_boss_mode=False):
             
             # UI 요소들 그리기 (화면 흔들림이 없을 때도 그려야 함) - 맵 효과 위에 그리기
             if not new_boss_mode_active:
-                # 장인 아이템이 있으면 쿨타임 10% 감소 (0.8초), 쿨타임 아이템이 있으면 2.4초 추가 감소
+                # 장인/쿨타임 보정 + 악마의 주사위 배율까지 반영한 쿨타임 표시
                 items.draw_active_item(
                     SCREEN,
                     active_item_slot,
