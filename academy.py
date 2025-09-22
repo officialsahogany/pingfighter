@@ -2206,6 +2206,9 @@ class AcademyUI:
             self.draw_tree_skill_tree(tree_data)
         else:
             self.draw_linear_skill_tree(tree_data)
+
+        if self.selected_tree in {"dash", "item", "paddle"}:
+            self.draw_skill_description(tree_data)
     
 
     def draw_tree_skill_tree(self, tree_data):
