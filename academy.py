@@ -2284,8 +2284,10 @@ class AcademyUI:
 
         for skill in tree_data["skills"]:
             current_pos = skill_positions[skill["id"]]
+            tree_id_for_skill = self.skill_system.get_tree_id_for_skill(skill["id"]) or self.selected_tree
+            tree_tp_total = self.skill_system.get_tree_total(tree_id_for_skill)
             tp_requirement = skill.get("total_tp_required", 0)
-            tp_met = self.skill_system.total_invested_points >= tp_requirement
+            tp_met = tree_tp_total >= tp_requirement
 
             requires = skill.get("requires")
             if requires:
