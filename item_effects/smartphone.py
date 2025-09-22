@@ -802,12 +802,13 @@ class Smartphone:
                                     if main_module.selected_item_index >= len(active_item_slot):
                                         main_module.selected_item_index = max(0, len(active_item_slot) - 1)
                                 break
-                # Also remove from local game_state for consistency
-                active_items = game_state.get('active_items', [])
-                for i in range(len(active_items) - 1, -1, -1):
-                    if active_items[i] and active_items[i].get('name') == 'stopwatch':
-                        del active_items[i]
-                        break
+                # Also remove from local game_state for consistency (when it isn't the same list)
+                active_items = game_state.get('active_items', []) if isinstance(game_state, dict) else []
+                if isinstance(active_items, list) and active_items is not getattr(main_module, 'active_item_slot', None):
+                    for i in range(len(active_items) - 1, -1, -1):
+                        if active_items[i] and active_items[i].get('name') == 'stopwatch':
+                            del active_items[i]
+                            break
         else:
             print("스탑워치 함수를 찾을 수 없습니다")
             
@@ -836,12 +837,13 @@ class Smartphone:
                                     if main_module.selected_item_index >= len(active_item_slot):
                                         main_module.selected_item_index = max(0, len(active_item_slot) - 1)
                                 break
-                # Also remove from local game_state for consistency
-                active_items = game_state.get('active_items', [])
-                for i in range(len(active_items) - 1, -1, -1):
-                    if active_items[i] and active_items[i].get('name') == 'aipill':
-                        del active_items[i]
-                        break
+                # Also remove from local game_state for consistency (when it isn't the same list)
+                active_items = game_state.get('active_items', []) if isinstance(game_state, dict) else []
+                if isinstance(active_items, list) and active_items is not getattr(main_module, 'active_item_slot', None):
+                    for i in range(len(active_items) - 1, -1, -1):
+                        if active_items[i] and active_items[i].get('name') == 'aipill':
+                            del active_items[i]
+                            break
         else:
             print("AI알약 함수를 찾을 수 없습니다")
             
