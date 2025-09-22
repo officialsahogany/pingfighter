@@ -27,6 +27,8 @@ class PauseOptionsContext:
     store_bgm_volume: Callable[[float], float]
     get_sfx_volume: Callable[[], float]
     set_sfx_volume: Callable[[float], float]
+    get_modern_loop_enabled: Callable[[], bool]
+    set_modern_loop_enabled: Callable[[bool], None]
     clock_factory: Callable[[], pygame.time.Clock] = pygame.time.Clock
 
 
