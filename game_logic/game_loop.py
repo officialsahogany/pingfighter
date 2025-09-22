@@ -9,6 +9,8 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Dict, Any, Optional, Tuple
 
+from core.game_variables import get_game_vars
+
 
 @dataclass
 class RuntimeAdapters:
