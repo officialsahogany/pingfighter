@@ -8693,8 +8693,14 @@ def calculate_trajectory():
         or power_smashing_parabola_active
     )
 
+    boss_launch_threshold = 120
+    if BOSS is not None:
+        boss_launch_threshold = max(80, min(160, BOSS.bottom + 30))
+
     recalc_needed = False
-    if BALL.centery < 100 and ball_vel[1] > 0 and BALL.centery != last_prediction_ball_y:
+    if ball_vel[1] > 0 and BALL.centery <= boss_launch_threshold and BALL.centery != last_prediction_ball_y:
+        recalc_needed = True
+    elif not predicted_trajectory and ball_vel[1] > 0:
         recalc_needed = True
     elif current_skill_signature != last_prediction_skill_signature and (ball_vel[1] > 0 or skill_active_now):
         recalc_needed = True
