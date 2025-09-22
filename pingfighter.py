@@ -9003,7 +9003,7 @@ def calculate_trajectory():
                 "power_smashing": 2,
                 "magnetic": 2,
                 "meditation": 1,
-                "quake": 4,
+                "quake": 5,
             }
             smoothing_radius = smoothing_radius_map.get(skill_type, 2)
             smoothed_trajectory = []
