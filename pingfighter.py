@@ -22857,7 +22857,10 @@ def draw_objects():
     # === 레그샷 효과 그리기 ===
     if selected_character_type == "soldier":
         draw_leg_shot_effect(SCREEN)
-    
+
+    # === 스파이더지뢰 둔화 효과 그리기 ===
+    draw_spider_mine_slow_effect(SCREEN)
+
     # === 헤드샷 효과 그리기 ===
     if selected_character_type == "soldier":
         draw_head_shot_effect(SCREEN)
