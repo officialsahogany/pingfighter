@@ -63,7 +63,7 @@ from background_manager import (
 )
 from sound_effects import load_sound_effects
 from item_state_manager import reset_runtime_items
-from start_menu import MenuContext, MenuState, reset_menu_state, show_start_menu
+from start_menu import MenuContext, reset_menu_state, show_start_menu
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
@@ -24601,9 +24601,7 @@ def show_start_screen():
         idle_cinematic=lambda screen, w, h: cinematic.show_cinematic_scenes(screen, w, h),
     )
 
-    state: MenuState | None = getattr(show_start_screen, "_menu_state", None)
-    state = run_start_menu(ctx, state)
-    show_start_screen._menu_state = state
+    show_start_menu(ctx)
 def show_tutorial_dialog():
     """튜토리얼 진행 여부를 묻는 다이얼로그"""
     clock = pygame.time.Clock()
