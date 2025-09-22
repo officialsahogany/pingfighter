@@ -14,6 +14,7 @@ from start_menu_decorations import (
     draw_scan_lines,
     draw_star_field,
 )
+from start_menu_config import ENABLE_SCAN_LINES, IDLE_CINEMATIC_DELAY_MS
 
 BASE_MENU_OPTIONS = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
 MENU_ICONS = {
@@ -26,9 +27,6 @@ MENU_ICONS = {
 VERSION_TEXT = "1.4v beta"
 DEV_CODE = [1]
 ITEM_CODE = [2]
-ENABLE_SCAN_LINES = False
-
-
 def _run_idle_cinematic_if_needed(
     ctx: MenuContext,
     state: MenuState,
@@ -37,7 +35,7 @@ def _run_idle_cinematic_if_needed(
     height: int,
     current_time: int,
 ) -> None:
-    if current_time - state.idle_start_time >= 15000:
+    if current_time - state.idle_start_time >= IDLE_CINEMATIC_DELAY_MS:
         ctx.idle_cinematic(screen, width, height)
         state.idle_start_time = pygame.time.get_ticks()
 
