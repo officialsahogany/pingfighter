@@ -1,70 +1,113 @@
-"""아이템 슬롯 및 선택 상태를 관리하는 런타임 스토리지."""
+"""기존 pingfighter 전역 아이템 상태를 느슨하게 참조하는 어댑터."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from dataclasses import dataclass
+from typing import Callable, Iterable, MutableSequence, Optional
 
 __all__ = [
-    "ItemState",
+    "ItemStateAdapter",
     "item_state",
-    "reset_item_state",
-    "append_active_item",
-    "remove_active_item",
-    "append_passive_item",
-    "remove_passive_item",
+    "bind_item_state",
+    "unbind_item_state",
 ]
 
 
-@dataclass(slots=True)
-class ItemState:
-    """게임 전역에서 참조하는 아이템 상태."""
-
-    active_item_slot: List[Dict[str, Any]] = field(default_factory=list)
-    passive_item_list: List[Dict[str, Any]] = field(default_factory=list)
-    selected_item_index: int = 0
-    selected_passive_item: int = -1
-    max_item_slots: int = 3
-
-    def clear_active(self) -> None:
-        self.active_item_slot.clear()
-
-    def clear_passive(self) -> None:
-        self.passive_item_list.clear()
-
-    def reset_selection(self) -> None:
-        self.selected_item_index = 0
-        self.selected_passive_item = -1
+@dataclass
+class _Hooks:
+    get_active: Callable[[], MutableSequence]
+    get_passive: Callable[[], MutableSequence]
+    get_selected_active: Callable[[], int]
+    set_selected_active: Callable[[int], None]
+    get_selected_passive: Callable[[], int]
+    set_selected_passive: Callable[[int], None]
+    get_max_slots: Callable[[], int]
+    set_max_slots: Callable[[int], None]
 
 
-item_state = ItemState()
+class ItemStateAdapter:
+    """PingFighter 전역 아이템 상태에 대한 안전한 조회/수정 래퍼."""
+
+    def __init__(self) -> None:
+        self._hooks: Optional[_Hooks] = None
+
+    def bind(
+        self,
+        *,
+        get_active: Callable[[], MutableSequence],
+        get_passive: Callable[[], MutableSequence],
+        get_selected_active: Callable[[], int],
+        set_selected_active: Callable[[int], None],
+        get_selected_passive: Callable[[], int],
+        set_selected_passive: Callable[[int], None],
+        get_max_slots: Callable[[], int],
+        set_max_slots: Callable[[int], None],
+    ) -> None:
+        self._hooks = _Hooks(
+            get_active,
+            get_passive,
+            get_selected_active,
+            set_selected_active,
+            get_selected_passive,
+            set_selected_passive,
+            get_max_slots,
+            set_max_slots,
+        )
+
+    def unbind(self) -> None:
+        self._hooks = None
+
+    # 조회 계열 ---------------------------------------------------------------
+    def active_items(self) -> MutableSequence:
+        return self._require().get_active()
+
+    def passive_items(self) -> MutableSequence:
+        return self._require().get_passive()
+
+    def selected_active_index(self) -> int:
+        return self._require().get_selected_active()
+
+    def selected_passive_index(self) -> int:
+        return self._require().get_selected_passive()
+
+    def max_slots(self) -> int:
+        return self._require().get_max_slots()
+
+    # 갱신 계열 ---------------------------------------------------------------
+    def set_selected_active_index(self, value: int) -> None:
+        self._require().set_selected_active(value)
+
+    def set_selected_passive_index(self, value: int) -> None:
+        self._require().set_selected_passive(value)
+
+    def set_max_slots(self, value: int) -> None:
+        self._require().set_max_slots(value)
+
+    def replace_active_items(self, items: Iterable) -> None:
+        target = self.active_items()
+        target.clear()
+        target.extend(items)
+
+    def replace_passive_items(self, items: Iterable) -> None:
+        target = self.passive_items()
+        target.clear()
+        target.extend(items)
+
+    # 내부 --------------------------------------------------------------------
+    def _require(self) -> _Hooks:
+        if self._hooks is None:
+            raise RuntimeError("ItemStateAdapter is not bound to pingfighter state")
+        return self._hooks
 
 
-def reset_item_state() -> ItemState:
-    """아이템 목록과 선택 상태를 초기화."""
-
-    item_state.clear_active()
-    item_state.clear_passive()
-    item_state.reset_selection()
-    item_state.max_item_slots = 3
-    return item_state
+item_state = ItemStateAdapter()
 
 
-def append_active_item(item: Dict[str, Any]) -> None:
-    item_state.active_item_slot.append(item)
+def bind_item_state(**hooks) -> None:
+    """pingfighter 초기화 시 호출되어 전역 상태 후크를 등록."""
+
+    item_state.bind(**hooks)
 
 
-def remove_active_item(predicate) -> None:
-    item_state.active_item_slot[:] = [
-        itm for itm in item_state.active_item_slot if not predicate(itm)
-    ]
-
-
-def append_passive_item(item: Dict[str, Any]) -> None:
-    item_state.passive_item_list.append(item)
-
-
-def remove_passive_item(predicate) -> None:
-    item_state.passive_item_list[:] = [
-        itm for itm in item_state.passive_item_list if not predicate(itm)
-    ]
+def unbind_item_state() -> None:
+    item_state.unbind()
