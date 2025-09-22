@@ -585,7 +585,13 @@ class AcademyUI:
 
         if ACADEMY_UI_DEBUG:
             print(f"[AcademyUI] render_info tree={self.selected_tree} skill={self.selected_skill}")
-            
+
+        current_tree_id = self._get_current_tree_id()
+        tree_tp_total = 0
+        if current_tree_id and hasattr(self.academy_mode, 'get_tree_total_tp'):
+            tree_tp_total = self.academy_mode.get_tree_total_tp(current_tree_id)
+        total_tp_required = skill.get('total_tp_required', 0)
+
         # 정보 박스
         info_x = self.width - 250
         info_y = 200
@@ -615,7 +621,13 @@ class AcademyUI:
             desc_surface = self.font_small.render(line, True, (180, 180, 180))
             self.screen.blit(desc_surface, (info_x + 10, info_y + y_offset))
             y_offset += 20
-            
+
+        tp_info_text = f"누적 TP: {tree_tp_total}"
+        if total_tp_required:
+            tp_info_text = f"누적 TP: {tree_tp_total}/{total_tp_required}"
+        tp_surface = self.font_small.render(tp_info_text, True, (150, 200, 255))
+        self.screen.blit(tp_surface, (info_x + 10, info_y + info_height - 60))
+
         # 비용
         cost_text = f"비용: {skill['cost']} TP"
         cost_surface = self.font_small.render(cost_text, True, (0, 255, 255))
