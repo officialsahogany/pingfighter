@@ -24549,11 +24549,11 @@ def show_start_screen():
     # 아이템 초기화 (items.py 내부 변수 초기화)
     items.reset_items()
     # bosspong.py 내부 변수들도 초기화
-    passive_item_list = []  # 패시브 아이템 초기화
-    active_item_slot = []  # 엑티브 아이템 초기화
+    item_state_adapter.clear_passive_items()
+    item_state_adapter.clear_active_items()
     clear_alchemy_notices()
-    selected_item_index = 0  # 선택 인덱스 초기화
-    MAX_ITEM_SLOTS = 3  # 아이템 슬롯 기본값으로 초기화
+    _set_selected_item_index(0)
+    _set_max_item_slots(3)
     #  패시브 아이템 효과 초기화
     chargebag_obtained = False
     spikeboots_obtained = False
