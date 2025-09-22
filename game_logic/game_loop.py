@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, Any, Optional, Tuple
 
 from core.game_variables import get_game_vars
+from core.game_state import GameState as CoreGameState
 
 
 @dataclass
@@ -345,6 +346,7 @@ class UpdateSystem:
             delta_time: 프레임 시간
         """
         _sync_state_from_game_vars(state)
+        _sync_state_from_core_game_state(state)
 
         # 플레이어 입력 처리
         if self.adapters.update_player_input is not None:
@@ -382,6 +384,7 @@ class UpdateSystem:
             state.timer += 1
 
         _sync_game_vars_from_state(state)
+        _sync_core_game_state_from_state(state)
     
     def _update_player_input_default(self, state: GameState, input_handler: InputHandler):
         """플레이어 입력 처리"""
@@ -662,3 +665,73 @@ def create_game_vars_adapters() -> RuntimeAdapters:
 def create_game_loop(screen: pygame.Surface) -> GameLoop:
     """game_vars 연동 어댑터가 적용된 GameLoop 생성 헬퍼."""
     return GameLoop(screen, adapters=create_game_vars_adapters())
+
+
+def _sync_state_from_core_game_state(state: GameState) -> None:
+    """core.game_state.GameState 내용을 GameLoop 상태에 반영."""
+    try:
+        core_state = CoreGameState.get_instance()
+    except Exception:
+        return
+
+    state.stage = getattr(core_state, "current_stage", state.stage)
+    state.score['player'] = getattr(core_state, "player_score", state.score['player'])
+    state.score['boss'] = getattr(core_state, "ai_score", state.score['boss'])
+    state.round_wins = getattr(core_state, "round_wins", state.round_wins)
+    state.round_losses = getattr(core_state, "round_losses", state.round_losses)
+
+    state.player.rect.width = getattr(core_state, "player_width", state.player.rect.width)
+    state.player.rect.height = getattr(core_state, "player_height", state.player.rect.height)
+    state.player.rect.centerx = getattr(core_state, "player_x", state.player.rect.centerx)
+    state.player.rect.centery = getattr(core_state, "player_y", state.player.rect.centery)
+    state.player.speed = getattr(core_state, "player_speed", state.player.speed)
+
+    state.boss.rect.width = getattr(core_state, "boss_width", state.boss.rect.width)
+    state.boss.rect.height = getattr(core_state, "boss_height", state.boss.rect.height)
+    state.boss.rect.centerx = getattr(core_state, "boss_x", state.boss.rect.centerx)
+    state.boss.rect.centery = getattr(core_state, "boss_y", state.boss.rect.centery)
+    state.boss.speed = getattr(core_state, "boss_speed", state.boss.speed)
+
+    state.ball.pos = [
+        float(getattr(core_state, "ball_x", state.ball.pos[0])),
+        float(getattr(core_state, "ball_y", state.ball.pos[1]))
+    ]
+    velocity = getattr(core_state, "ball_vel", state.ball.velocity)
+    if isinstance(velocity, (list, tuple)) and len(velocity) >= 2:
+        state.ball.velocity = [float(velocity[0]), float(velocity[1])]
+    state.ball.radius = getattr(core_state, "ball_radius", state.ball.radius)
+
+
+def _sync_core_game_state_from_state(state: GameState) -> None:
+    """GameLoop 상태를 core.game_state.GameState에 반영."""
+    try:
+        core_state = CoreGameState.get_instance()
+    except Exception:
+        return
+
+    core_state.current_stage = state.stage
+    core_state.player_score = state.score['player']
+    core_state.ai_score = state.score['boss']
+    core_state.round_wins = state.round_wins
+    core_state.round_losses = state.round_losses
+
+    core_state.player_width = state.player.rect.width
+    core_state.player_height = state.player.rect.height
+    core_state.player_x = state.player.rect.centerx
+    core_state.player_y = state.player.rect.centery
+    core_state.player_speed = state.player.speed
+
+    core_state.boss_width = state.boss.rect.width
+    core_state.boss_height = state.boss.rect.height
+    core_state.boss_x = state.boss.rect.centerx
+    core_state.boss_y = state.boss.rect.centery
+    core_state.boss_speed = state.boss.speed
+
+    core_state.ball_radius = int(state.ball.radius)
+    core_state.ball_x = float(state.ball.pos[0])
+    core_state.ball_y = float(state.ball.pos[1])
+    if isinstance(core_state.ball_vel, list) and len(core_state.ball_vel) >= 2:
+        core_state.ball_vel[0] = float(state.ball.velocity[0])
+        core_state.ball_vel[1] = float(state.ball.velocity[1])
+    else:
+        core_state.ball_vel = [float(state.ball.velocity[0]), float(state.ball.velocity[1])]
