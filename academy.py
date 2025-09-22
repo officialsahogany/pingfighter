@@ -3299,7 +3299,7 @@ class AcademyUI:
                 if self.skill_system.skill_points < actual_cost:
                     cost_text += "\n(포인트 부족)"
                 elif selected_skill.get("total_tp_required", 0) > tree_tp_total:
-                    cost_text += f"\n(누적 TP {selected_skill['total_tp_required']} 필요)"
+                    cost_text += f"\n(누적 SP {selected_skill['total_tp_required']} 필요)"
                 elif selected_skill.get("requires") or selected_skill.get("requires_or"):
                     cost_text += "\n(선행스킬 필요)"
 
