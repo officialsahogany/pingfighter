@@ -8989,6 +8989,30 @@ def calculate_trajectory():
                     break
         finally:
             random.setstate(random_state)
+
+        if skill_type in high_detail_skills and len(predicted_trajectory) > 2:
+            smoothed_trajectory = []
+            for idx, point in enumerate(predicted_trajectory):
+                start = max(0, idx - 1)
+                end = min(len(predicted_trajectory) - 1, idx + 1)
+                window = end - start + 1
+
+                sum_x = 0.0
+                sum_y = 0.0
+                for j in range(start, end + 1):
+                    neighbor = predicted_trajectory[j]
+                    sum_x += neighbor[0]
+                    sum_y += neighbor[1]
+
+                avg_x = int(sum_x / window)
+                avg_y = int(sum_y / window)
+
+                if len(point) == 3:
+                    smoothed_trajectory.append((avg_x, avg_y, point[2]))
+                else:
+                    smoothed_trajectory.append((avg_x, avg_y))
+
+            predicted_trajectory = smoothed_trajectory
 def draw_predicted_trajectory():
     """레이저스코프 활성화 시 저장된 궤적을 그리는 함수"""
     global predicted_trajectory, predictor_active, ball_vel
@@ -41873,11 +41897,16 @@ def handle_boss_pro():
         enhanced_acceleration *= 0.5
         enhanced_deceleration *= 0.5
     
-    # 레그샷 효과로 인한 속도 감소 (30% 감소)
+    # 이동 속도 감소 효과 적용 (레그샷/스파이더지뢰 등)
+    slow_multiplier = 1.0
     if leg_shot_active:
-        enhanced_max_speed *= LEG_SHOT_SPEED_REDUCTION  # 70% 유지 (30% 감소)
-        enhanced_acceleration *= LEG_SHOT_SPEED_REDUCTION
-        enhanced_deceleration *= LEG_SHOT_SPEED_REDUCTION
+        slow_multiplier *= LEG_SHOT_SPEED_REDUCTION
+    if spider_mine_slow_active:
+        slow_multiplier *= SPIDER_MINE_SLOW_FACTOR
+    if slow_multiplier != 1.0:
+        enhanced_max_speed *= slow_multiplier
+        enhanced_acceleration *= slow_multiplier
+        enhanced_deceleration *= slow_multiplier
     
     # 회전 종료 후 통제불능 상태 - 움직임 완전 정지
     if boss_stunned_after_whip:
@@ -42075,11 +42104,16 @@ def handle_boss_champion():
         enhanced_acceleration *= 0.5
         enhanced_deceleration *= 0.5
     
-    # 레그샷 효과로 인한 속도 감소 (30% 감소)
+    # 이동 속도 감소 효과 적용
+    slow_multiplier = 1.0
     if leg_shot_active:
-        enhanced_max_speed *= LEG_SHOT_SPEED_REDUCTION  # 70% 유지 (30% 감소)
-        enhanced_acceleration *= LEG_SHOT_SPEED_REDUCTION
-        enhanced_deceleration *= LEG_SHOT_SPEED_REDUCTION
+        slow_multiplier *= LEG_SHOT_SPEED_REDUCTION
+    if spider_mine_slow_active:
+        slow_multiplier *= SPIDER_MINE_SLOW_FACTOR
+    if slow_multiplier != 1.0:
+        enhanced_max_speed *= slow_multiplier
+        enhanced_acceleration *= slow_multiplier
+        enhanced_deceleration *= slow_multiplier
     
     # 회전 종료 후 통제불능 상태 - 움직임 완전 정지
     if boss_stunned_after_whip:
