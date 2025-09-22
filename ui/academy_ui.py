@@ -89,11 +89,19 @@ class SkillNode:
         name_rect = name_surface.get_rect(center=(self.x, self.y + self.radius + 20))
         screen.blit(name_surface, name_rect)
 
+        label_y = self.y + self.radius + 36
         if current_level >= max_level:
             master_surface = font.render("★ MASTER ★", True, (255, 215, 0))
-            master_rect = master_surface.get_rect(center=(self.x, self.y + self.radius + 38))
+            master_rect = master_surface.get_rect(center=(self.x, label_y))
             screen.blit(master_surface, master_rect)
-        
+        else:
+            cost = self.data.get('cost', 0)
+            if cost > 0:
+                cost_color = (0, 255, 255) if can_upgrade else (255, 120, 120)
+                cost_surface = font.render(f"비용: {cost} SP", True, cost_color)
+                cost_rect = cost_surface.get_rect(center=(self.x, label_y))
+                screen.blit(cost_surface, cost_rect)
+
         # 선택 표시
         if self.selected:
             pygame.draw.circle(screen, (255, 255, 0), (self.x, self.y), radius + 5, 2)
