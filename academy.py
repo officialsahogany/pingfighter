@@ -2934,7 +2934,7 @@ class AcademyUI:
                 cost_color = (100, 255, 100) if self.skill_system.can_upgrade_skill(skill["id"]) else (255, 100, 100)
 
                 actual_cost = skill['cost']
-                cost_text = self.font_small.render(f"비용: {actual_cost} SP", True, cost_color)
+                cost_text = self.font_small.render(f"비용: ★{actual_cost}", True, cost_color)
                 cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(cost_text, cost_rect)
             else:
