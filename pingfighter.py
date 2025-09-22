@@ -1573,7 +1573,7 @@ short_shot_counter_pending = False    # 쇼트 후 보스 반격 대기 상태
 player_up_pressed = False             # ↑키 입력 여부
 #  아이템 시스템
 # 액티브 아이템
-item_state.active_item_slot = []                # 리스트로 바꿔서 최대 3개 보관
+item_state.clear_active()                # 리스트로 바꿔서 최대 3개 보관
 soldier_initial_grenade_given = False
 item_state.selected_item_index = 0              # 현재 선택 중인 아이템 인덱스
 item_state.max_item_slots = 3                   # 최대 아이템 슬롯 수 (기본값)
@@ -1626,7 +1626,12 @@ def clear_alchemy_notices():
     alchemy_notices.clear()
 
 # 패시브 아이템
+item_state.clear_passive()
 item_state.selected_passive_item = -1           # 패시브 아이템 선택 인덱스
+
+# 기존 외부 모듈 호환을 위한 레거시 별칭 유지
+active_item_slot = item_state.active_item_slot
+passive_item_list = item_state.passive_item_list
 # 전역변수
 speech_text = ""
 speech_timer = 0  # 말풍선 표시 시간 (타이머)
@@ -15275,6 +15280,9 @@ def store_active_item(item_data):
     global aipill_active, last_item_use_time, long_boost_active
     if item_state.active_item_slot is None:
         item_state.active_item_slot = []  # 혹시 None이면 초기화
+        # 레거시 별칭과의 동기화
+        global active_item_slot
+        active_item_slot = item_state.active_item_slot
     # Aipill 활성화 시에는 아이템 획득 불가
     if aipill_active:
         return
