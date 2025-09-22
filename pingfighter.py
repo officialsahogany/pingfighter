@@ -7780,6 +7780,14 @@ def apply_effect(effect_name):
             return False
         activate_grenade()
         print("!    !")
+    elif effect_name == "spider_mine":  #  스파이더지뢰 설치
+        current_time = pygame.time.get_ticks()
+        if current_time - round_start_time < 3000:
+            remaining_time = (3000 - (current_time - round_start_time)) / 1000
+            print(f"🕷️ 설치형 무기 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+            return False
+        activate_spider_mine()
+        print("🕷️ 스파이더지뢰 전개! 보스 진영으로 이동합니다.")
     elif effect_name == "flare":  #  조명탄 아이템 활성화
         # 라운드 시작 3초 제한 체크
         current_time = pygame.time.get_ticks()
@@ -8224,6 +8232,200 @@ def throw_grenade():
         print(f"[DEBUG]  !")
     
     print(f"  !  : X={grenade_target_x:.1f}, Y={grenade_target_y:.1f}")
+
+
+def activate_spider_mine():
+    """스파이더지뢰 배치 시작"""
+    global spider_mines
+
+    side = "left" if PLAYER.centerx <= WIDTH / 2 else "right"
+    floor_base = min(HEIGHT - 28, PLAYER.bottom + 6)
+
+    spawn_offset = 26
+    start_x = PLAYER.left - spawn_offset if side == "left" else PLAYER.right + spawn_offset
+    start_x = max(32, min(WIDTH - 32, start_x))
+
+    # 보스가 이동하는 범위의 모서리에 설치되도록 목표 지점 계산
+    boss_margin = max(40, BOSS.width // 2)
+    if side == "left":
+        target_floor_x = boss_margin
+    else:
+        target_floor_x = min(WIDTH - boss_margin, WIDTH - 40)
+
+    mine = {
+        "x": float(start_x),
+        "y": float(floor_base),
+        "target_x": float(target_floor_x),
+        "target_y": float(floor_base),
+        "state": "floor",
+        "side": side,
+        "size": 26,
+        "glow_phase": 0.0,
+        "armed_elapsed": 0.0,
+    }
+
+    spider_mines.append(mine)
+    print("🕷️ 스파이더지뢰 전개! 경로 확보 중...")
+
+
+def _move_spider_mine_towards(mine, target_x, target_y, speed):
+    dx = target_x - mine["x"]
+    dy = target_y - mine["y"]
+    distance = math.hypot(dx, dy)
+    if distance <= speed or distance == 0:
+        mine["x"] = target_x
+        mine["y"] = target_y
+        return True
+    mine["x"] += (dx / distance) * speed
+    mine["y"] += (dy / distance) * speed
+    return False
+
+
+def get_spider_mine_rect(mine):
+    size = mine.get("size", 26)
+    return pygame.Rect(int(mine["x"] - size / 2), int(mine["y"] - size / 2), size, size)
+
+
+def apply_spider_mine_slow():
+    """보스 이동속도 감소 효과 적용"""
+    global spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
+    spider_mine_slow_active = True
+    spider_mine_slow_timer = SPIDER_MINE_SLOW_DURATION
+    spider_mine_slow_text_timer = SPIDER_MINE_TEXT_DURATION
+    print("🕷️ 거미지뢰 폭발! 보스 이동속도가 30% 감소합니다.")
+
+
+def trigger_spider_mine_explosion(mine):
+    """지뢰 폭발 처리"""
+    if mine.get("state") == "exploding":
+        return
+
+    mine["state"] = "exploding"
+    mine["explosion_timer"] = SPIDER_MINE_EXPLOSION_DURATION
+    try:
+        play_sound_with_volume(SOUND_GRENADE)
+    except Exception:
+        pass
+
+    trigger_boss_knockback(mine["x"], mine["y"])
+    apply_spider_mine_slow()
+
+
+def update_spider_mines():
+    """스파이더지뢰 이동 및 상태 업데이트"""
+    global spider_mines, spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
+
+    updated = []
+    corner_y = BOSS.bottom + 6
+
+    for mine in spider_mines:
+        state = mine["state"]
+
+        if state == "floor":
+            reached = _move_spider_mine_towards(mine, mine["target_x"], mine["target_y"], SPIDER_MINE_TRAVEL_SPEED)
+            if reached:
+                mine["state"] = "wall"
+                mine["target_y"] = corner_y
+        elif state == "wall":
+            reached = _move_spider_mine_towards(mine, mine["target_x"], mine["target_y"], SPIDER_MINE_CLIMB_SPEED)
+            if reached:
+                mine["state"] = "armed"
+                mine["armed_elapsed"] = 0.0
+        elif state == "armed":
+            mine["armed_elapsed"] = mine.get("armed_elapsed", 0.0) + 1
+            if BOSS.colliderect(get_spider_mine_rect(mine)):
+                trigger_spider_mine_explosion(mine)
+        elif state == "exploding":
+            mine["explosion_timer"] -= 1
+            if mine["explosion_timer"] <= 0:
+                continue
+
+        mine["glow_phase"] = mine.get("glow_phase", 0.0) + 0.08
+        updated.append(mine)
+
+    spider_mines = updated
+
+    if spider_mine_slow_active:
+        if spider_mine_slow_timer > 0:
+            spider_mine_slow_timer -= 1
+        if spider_mine_slow_timer <= 0:
+            spider_mine_slow_active = False
+            spider_mine_slow_timer = 0
+
+    if spider_mine_slow_text_timer > 0:
+        spider_mine_slow_text_timer -= 1
+
+
+def draw_spider_mines(screen):
+    """스파이더지뢰 렌더링"""
+    for mine in spider_mines:
+        x = mine["x"]
+        y = mine["y"]
+        size = mine.get("size", 26)
+
+        if mine["state"] == "exploding":
+            progress = 1.0 - (mine["explosion_timer"] / SPIDER_MINE_EXPLOSION_DURATION)
+            max_radius = size + 30
+            radius = int(size + progress * (max_radius - size))
+            alpha = max(0, int(200 * (1.0 - progress)))
+            explosion_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(explosion_surface, (255, 160, 90, alpha), (radius, radius), radius)
+            pygame.draw.circle(explosion_surface, (255, 230, 180, alpha // 2), (radius, radius), max(4, radius // 2))
+            screen.blit(explosion_surface, (x - radius, y - radius))
+            continue
+
+        body_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        body_color = (58, 64, 90)
+        glow_strength = 0.4 + 0.4 * math.sin(mine.get("glow_phase", 0.0))
+        accent_color = (
+            int(80 + glow_strength * 120),
+            int(40 + glow_strength * 60),
+            int(120 + glow_strength * 100),
+        )
+
+        # 다리
+        for dx in (-size // 2 + 4, -size // 2 + 8, size // 2 - 4, size // 2 - 8):
+            pygame.draw.line(body_surface, (30, 35, 55), (size // 2, size // 2 + 4), (size // 2 + dx, size - 4), 3)
+            pygame.draw.line(body_surface, (150, 170, 220), (size // 2, size // 2 + 2), (size // 2 + dx, size - 6), 1)
+
+        pygame.draw.circle(body_surface, body_color, (size // 2, size // 2), size // 2 - 2)
+        pygame.draw.circle(body_surface, accent_color, (size // 2, size // 2 - 1), size // 2 - 5)
+
+        if mine["state"] == "armed":
+            pulsing = 0.6 + 0.4 * math.sin(mine.get("armed_elapsed", 0.0) * 0.2)
+            core_radius = max(3, int((size // 2 - 7) * pulsing))
+            pygame.draw.circle(body_surface, (255, 110, 140), (size // 2, size // 2 - 2), core_radius)
+        else:
+            pygame.draw.circle(body_surface, (200, 90, 130), (size // 2, size // 2 - 2), max(3, size // 2 - 8))
+
+        rect = body_surface.get_rect(center=(int(x), int(y)))
+        screen.blit(body_surface, rect.topleft)
+
+
+def draw_spider_mine_slow_effect(screen):
+    """스파이더지뢰 둔화 시각 효과"""
+    if spider_mine_slow_active or spider_mine_slow_timer > 0:
+        remaining_ratio = spider_mine_slow_timer / SPIDER_MINE_SLOW_DURATION if SPIDER_MINE_SLOW_DURATION else 1.0
+        intensity = 0.45 + 0.55 * max(0.0, min(1.0, remaining_ratio))
+        wave_surface = create_slow_wave_surface(132, 56, (110, 170, 255), intensity=intensity)
+        wave_rect = wave_surface.get_rect(midbottom=(BOSS.centerx, BOSS.top + 8))
+        screen.blit(wave_surface, wave_rect)
+
+    if spider_mine_slow_text_timer > 0:
+        try:
+            font = pygame.freetype.Font(resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")), 20)
+        except Exception:
+            font = pygame.freetype.SysFont(None, 20)
+
+        progress = 1.0 - (spider_mine_slow_text_timer / SPIDER_MINE_TEXT_DURATION)
+        scale = 1.0 + 0.5 * math.sin(progress * math.pi)
+        alpha = max(0, min(255, int(255 * (1.0 - progress))))
+        text_surface, _ = font.render("거미지뢰!", (200, 220, 255))
+        text_surface = pygame.transform.scale(text_surface, (int(text_surface.get_width() * scale), int(text_surface.get_height() * scale)))
+        if alpha < 255:
+            text_surface.set_alpha(alpha)
+        text_rect = text_surface.get_rect(midbottom=(BOSS.centerx, BOSS.top - 6))
+        screen.blit(text_surface, text_rect)
 def install_smoke_grenade():
     """연막탄 즉시 설치 (설치류 아이템)"""
     global smoke_grenades, PLAYER, smoke_grenade_target_x, smoke_grenade_target_y
@@ -8454,6 +8656,9 @@ def calculate_trajectory():
             if not skill_type:
                 skill_type = "power_smashing"
 
+    high_detail_skills = {"flame_trail", "power_smashing", "magnetic", "meditation", "quake"}
+    sampling_interval = 1 if skill_type in high_detail_skills else 3
+
     if ball_vel[1] <= 0 and not skill_type:
         return
 
@@ -8503,7 +8708,7 @@ def calculate_trajectory():
                         sim_vel_x = resume_velocity[0]
                         sim_vel_y = resume_velocity[1]
                         resume_pending = False
-                    if step % 3 == 0:
+                    if step % sampling_interval == 0:
                         predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
                     continue
 
@@ -8763,7 +8968,7 @@ def calculate_trajectory():
                                 arc_strength = 0.3
                                 sim_vel_y += arc_strength
 
-                if step % 3 == 0:
+                if step % sampling_interval == 0:
                     if skill_probability > 0.3:
                         predicted_trajectory.append((int(sim_x), int(sim_y), skill_probability))
                     else:
