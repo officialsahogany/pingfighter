@@ -8445,6 +8445,10 @@ def calculate_trajectory():
         sim_power_smashing_direction = power_smashing_direction
         sim_power_smashing_target_speed = power_smashing_target_speed
         frame_time_ms = 1000.0 / FPS if FPS else 16.6667
+        sim_power_smashing_rng = None
+        if power_smashing_rng is not None:
+            sim_power_smashing_rng = random.Random()
+            sim_power_smashing_rng.setstate(power_smashing_rng.getstate())
 
         try:
             for step in range(max_steps):
@@ -8640,7 +8644,7 @@ def calculate_trajectory():
                         if skill_active_now:
                             sim_time_ms = base_ticks + step * frame_time_ms
                             elapsed_time = max(0.0, (sim_time_ms - sim_power_smashing_start) / 1000.0)
-                            if sim_power_smashing_initial_boost and power_smashing_boost_duration > 0:
+                        if sim_power_smashing_initial_boost and power_smashing_boost_duration > 0:
                                 current_speed = math.hypot(sim_vel_x, sim_vel_y)
                                 boost_duration = power_smashing_boost_duration / 1000.0
                                 boost_progress = min(1.0, elapsed_time / boost_duration) if boost_duration else 1.0
@@ -8656,7 +8660,8 @@ def calculate_trajectory():
                                 if boost_progress >= 1.0:
                                     sim_power_smashing_initial_boost = False
                             horizontal_decay = max(0.8, 1.0 - elapsed_time * 0.05)
-                            chaos_factor = math.sin(elapsed_time * 5.0) * 0.05 + random.uniform(-0.04, 0.04)
+                            chaos_source = sim_power_smashing_rng or random
+                            chaos_factor = math.sin(elapsed_time * 5.0) * 0.05 + chaos_source.uniform(-0.04, 0.04)
                             horizontal_force = power_smashing_arc_strength * horizontal_decay * (0.5 + chaos_factor * 0.2)
                             sim_vel_x += horizontal_force
                             if elapsed_time < 1.8:
