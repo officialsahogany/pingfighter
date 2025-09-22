@@ -8329,7 +8329,7 @@ def trigger_spider_mine_explosion(mine):
     except Exception:
         pass
 
-    trigger_boss_knockback(mine["x"], mine["y"])
+    trigger_boss_knockback(mine["x"], mine["y"] + mine.get("embed_depth", 0.0))
     apply_spider_mine_slow()
 
 
