@@ -52,7 +52,7 @@ SKILL_TREES = {
             {
                 "id": "dash_jump",
                 "name": "도약",
-                "description": "대쉬 거리 4% 증가\n(누적 TP 4+ 필요)",
+                "description": "대쉬 거리 4% 증가\n(누적 SP 4+ 필요)",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (150, 200, 255),
@@ -64,7 +64,7 @@ SKILL_TREES = {
             {
                 "id": "dash_battery_pack",
                 "name": "배터리팩",
-                "description": "게이지 소모량 8% 감소\n(누적 TP 4+ 필요)",
+                "description": "게이지 소모량 8% 감소\n(누적 SP 4+ 필요)",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (150, 200, 255),
