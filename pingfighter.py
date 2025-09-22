@@ -8986,7 +8986,8 @@ def calculate_trajectory():
                     sim_vel_x = -sim_vel_x
                     sim_x = max(BALL.width // 2, min(WIDTH - BALL.width // 2, sim_x))
 
-                if sim_y >= HEIGHT - 40:
+                player_collision_y = PLAYER.top - BALL.height / 2
+                if sim_y >= player_collision_y:
                     predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
                     break
 
