@@ -6961,6 +6961,7 @@ earthquake_offset_y = 0
 
 # Stage 2 정글지진 디버깅 플래그
 DEBUG_STAGE2_QUAKE = True
+DEBUG_PREDICTOR = True
 
 
 def debug_stage2_quake(tag, **fields):
@@ -8707,10 +8708,18 @@ def calculate_trajectory():
     recalc_needed = False
     if ball_vel[1] > 0 and BALL.centery <= boss_launch_threshold and BALL.centery != last_prediction_ball_y:
         recalc_needed = True
+        recalc_reason = "ball_launch_window"
     elif not predicted_trajectory and ball_vel[1] > 0:
         recalc_needed = True
+        recalc_reason = "trajectory_empty"
     elif current_skill_signature != last_prediction_skill_signature and (ball_vel[1] > 0 or skill_active_now):
         recalc_needed = True
+        recalc_reason = "skill_signature_changed"
+    else:
+        recalc_reason = "no_trigger"
+
+    if DEBUG_PREDICTOR:
+        print(f"[Predictor] check stage={current_stage} ball_y={BALL.centery:.1f} vy={ball_vel[1]:.2f} threshold={boss_launch_threshold} needed={recalc_needed} reason={recalc_reason} skill={skill_type}")
 
     if not recalc_needed:
         return
@@ -9209,6 +9218,10 @@ def calculate_trajectory():
                 predicted_trajectory = smoothed_trajectory
             else:
                 predicted_trajectory = raw_trajectory
+
+        if DEBUG_PREDICTOR:
+            preview = predicted_trajectory[:5]
+            print(f"[Predictor] calculated len={len(predicted_trajectory)} skill={skill_type} freeze={freeze_frames} recovery={recovery_frames} first_points={preview}")
 def draw_predicted_trajectory():
     """레이저스코프 활성화 시 저장된 궤적을 그리는 함수"""
     global predicted_trajectory, predictor_active, ball_vel
