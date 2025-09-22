@@ -256,26 +256,33 @@ class AcademyUI:
         }
         self._on_tab_changed()
 
-    def _create_max_badge_surface(self, text_color):
-        """최대 상태 배지를 생성 (텍스트 + 별 아이콘)"""
-        label_surface = self.font_small.render("최대", True, text_color)
+    def _create_master_badge_surface(self, text_color):
+        """STAR + MASTER + STAR 형태의 배지 생성"""
+        label_surface = self.font_small.render("MASTER", True, text_color)
         star_size = max(4, label_surface.get_height() // 2)
         spacing = 6
-        width = label_surface.get_width() + spacing + star_size * 2
+        width = star_size * 2 + spacing * 2 + label_surface.get_width()
         height = max(label_surface.get_height(), star_size * 2)
         badge_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-        badge_surface.blit(label_surface, (0, (height - label_surface.get_height()) // 2))
 
-        center_x = label_surface.get_width() + spacing + star_size
         center_y = height // 2
-        points = []
-        for i in range(10):
-            angle = math.pi / 5 * i - math.pi / 2
-            radius = star_size if i % 2 == 0 else star_size * 0.45
-            px = center_x + radius * math.cos(angle)
-            py = center_y + radius * math.sin(angle)
-            points.append((px, py))
-        pygame.draw.polygon(badge_surface, text_color, points)
+
+        def draw_star(cx):
+            points = []
+            for i in range(10):
+                angle = math.pi / 5 * i - math.pi / 2
+                radius = star_size if i % 2 == 0 else star_size * 0.45
+                px = cx + radius * math.cos(angle)
+                py = center_y + radius * math.sin(angle)
+                points.append((px, py))
+            pygame.draw.polygon(badge_surface, text_color, points)
+
+        draw_star(star_size)
+        draw_star(width - star_size)
+
+        text_x = star_size * 2 + spacing
+        text_y = (height - label_surface.get_height()) // 2
+        badge_surface.blit(label_surface, (text_x, text_y))
         return badge_surface
 
     def _create_skill_tree_uis(self):
