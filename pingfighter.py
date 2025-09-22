@@ -43,6 +43,13 @@ import dash_manager
 from trade_point_system import TradePointSystem
 from events.stage1_event_integration import Stage1EventManager
 from game_logic.checkmate_system import get_checkmate_system
+from game_state.audio import (
+    audio_settings,
+    get_bgm_volume,
+    get_sfx_volume,
+    set_bgm_volume as set_bgm_volume_state,
+    set_sfx_volume as set_sfx_volume_state,
+)
 
 # ============================================================
 # 4. 리소스 경로 헬퍼 함수
