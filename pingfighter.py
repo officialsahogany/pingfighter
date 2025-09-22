@@ -8441,7 +8441,7 @@ def draw_spider_mines(screen):
         pygame.draw.circle(body_surface, body_color, (size // 2, size // 2), size // 2 - 2)
 
         step_phase = mine.get("step_phase", 0.0)
-        leg_amp = 3.2 if state in ("floor", "wall") else 1.35
+        leg_amp = 4.4 if state in ("floor", "wall") else 1.6
         leg_offsets = [
             (-11, 9, 0.0),
             (-13, 3, 0.9),
@@ -8453,22 +8453,34 @@ def draw_spider_mines(screen):
         leg_color_outer = (30, 35, 55)
         leg_color_inner = (150, 170, 220)
         contact_dir = -1 if mine["side"] == "left" else 1
+        leg_visibility = 1.0
+        if state == "embedding":
+            embed_progress = 1.0 - (mine.get("embed_timer", 0) / max(1, SPIDER_MINE_EMBED_DELAY_FRAMES))
+            leg_visibility = max(0.0, 1.0 - embed_progress)
+        elif state == "armed":
+            leg_visibility = 0.0
+        leg_outer_width = max(1, int(round(5 * leg_visibility))) if leg_visibility > 0 else 0
+        leg_inner_width = max(1, int(round(2 * leg_visibility))) if leg_visibility > 0 else 0
         for index, (dx, dy, phase_shift) in enumerate(leg_offsets):
+            if leg_visibility <= 0.01:
+                continue
             swing = math.sin(step_phase + phase_shift) * leg_amp
             if state in ("wall", "embedding", "armed"):
                 base_x = size // 2 + dx * 0.2
                 base_y = size // 2 + dy * 0.15 + 2
                 tip_x = size // 2 + contact_dir * (size // 2 - 3)
-                tip_y = size // 2 + dy * 0.5 + math.cos(step_phase * 0.5 + phase_shift) * 1.4
+                tip_y = size // 2 + dy * 0.6 + math.cos(step_phase * 0.45 + phase_shift) * 1.6
             else:
                 base_x = size // 2 + dx * 0.35
                 base_y = size // 2 + 3
-                tip_x = size // 2 + dx + swing
-                tip_y = size - 4 + math.cos(step_phase * 0.5 + phase_shift) * 1.5
+                tip_x = size // 2 + (dx * 1.4 + swing) * leg_visibility
+                tip_y = size - 4 + math.cos(step_phase * 0.5 + phase_shift) * (2.4 * leg_visibility)
             base_pos = (int(base_x), int(base_y))
             tip_pos = (int(tip_x), int(tip_y))
-            pygame.draw.line(body_surface, leg_color_outer, base_pos, tip_pos, 3)
-            pygame.draw.line(body_surface, leg_color_inner, (base_pos[0], base_pos[1] - 2), (tip_pos[0], tip_pos[1] - 2), 1)
+            if leg_outer_width > 0:
+                pygame.draw.line(body_surface, leg_color_outer, base_pos, tip_pos, leg_outer_width)
+            if leg_inner_width > 0:
+                pygame.draw.line(body_surface, leg_color_inner, (base_pos[0], base_pos[1] - 2), (tip_pos[0], tip_pos[1] - 2), leg_inner_width)
 
         # 상부 장갑과 고정 링은 다리를 그린 후 얹는다
         pygame.draw.circle(body_surface, accent_color, (size // 2, size // 2 - 1), size // 2 - 5)
