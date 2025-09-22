@@ -8,6 +8,7 @@ import math
 import random
 import sys
 import effects_manager
+import academy
 from .stage2_effects import update_stage2_leaves, draw_stage2_leaves, stage2_leaves
 
 
@@ -149,6 +150,10 @@ def main(stage_num, new_boss_mode=False):
     # 아이템 첫 스폰 시간 설정 (첫스폰))
     last_item_spawn_time = pygame.time.get_ticks()
     next_item_spawn_delay = random.randint(10000, 20000)  # 첫 스폰 빠르게
+    try:
+        next_item_spawn_delay = int(next_item_spawn_delay * academy.get_item_spawn_delay_multiplier())
+    except Exception:
+        pass
     
     # selected_item_index 초기화 (active_item_slot이 비어있으면 0으로 설정)
     if not active_item_slot:
@@ -866,22 +871,50 @@ def main(stage_num, new_boss_mode=False):
                     # 장인 아이템이 있으면 쿨타임 10% 감소 (0.8초), 쿨타임 아이템이 있으면 2.4초 추가 감소
                     cooldown_reduction = 800 if master_obtained else 0  # 10% of 8000ms
                     cooldown_reduction += 2400 if cooltime_obtained else 0  # 30% of 8000ms
-                    individual_cooldown_ok = "last_use" not in item or current_time - item["last_use"] >= (8000 - cooldown_reduction)
-                    global_cooldown_ok = current_time - last_item_use_time >= (8000 - cooldown_reduction)
+                    base_cooldown = max(0, 8000 - cooldown_reduction)
+                    try:
+                        base_cooldown = int(base_cooldown * academy.get_active_item_cooldown_multiplier())
+                    except Exception:
+                        pass
+                    individual_cooldown_ok = "last_use" not in item or current_time - item["last_use"] >= base_cooldown
+                    global_cooldown_ok = current_time - last_item_use_time >= base_cooldown
                     if individual_cooldown_ok and global_cooldown_ok:  # 둘 다 만족해야 사용 가능
-                        apply_effect(item["effect"])
-                        
-                        # 사용한 아이템 제거
-                        del active_item_slot[target_index]
-                        
-                        # 선택 인덱스 조정
-                        if selected_item_index >= len(active_item_slot):
-                            pass
-                            selected_item_index = max(0, len(active_item_slot) - 1)
-                        elif target_index <= selected_item_index and selected_item_index > 0:
-                            pass
-                            # 선택된 아이템보다 앞의 아이템이 삭제되면 인덱스 조정
-                            selected_item_index -= 1
+                        effect_result = apply_effect(item["effect"])
+                        if effect_result == False:
+                            continue
+
+                        recycle_triggered = False
+                        recycle_chance = 0.0
+                        gauge_bonus = 0
+                        try:
+                            recycle_chance = academy.get_item_recycle_chance()
+                            gauge_bonus = academy.get_active_item_gauge_bonus()
+                        except Exception:
+                            recycle_chance = 0.0
+                            gauge_bonus = 0
+                        if recycle_chance > 0 and random.random() < recycle_chance:
+                            recycle_triggered = True
+                            print("⚗️ 연금술 발동! 아이템이 유지됩니다.")
+
+                        if gauge_bonus:
+                            current_max = get_max_gauge() if 'get_max_gauge' in globals() else special_gauge_max
+                            special_gauge = min(current_max, special_gauge + gauge_bonus)
+                            if special_gauge >= 350:
+                                special_ready = True
+
+                        if not recycle_triggered:
+                            # 사용한 아이템 제거
+                            del active_item_slot[target_index]
+
+                        if not recycle_triggered:
+                            # 선택 인덱스 조정
+                            if selected_item_index >= len(active_item_slot):
+                                pass
+                                selected_item_index = max(0, len(active_item_slot) - 1)
+                            elif target_index <= selected_item_index and selected_item_index > 0:
+                                pass
+                                # 선택된 아이템보다 앞의 아이템이 삭제되면 인덱스 조정
+                                selected_item_index -= 1
                         
                         # 전역 쿨타임 업데이트
                         last_item_use_time = current_time
@@ -921,6 +954,10 @@ def main(stage_num, new_boss_mode=False):
             items.spawn_random_item()
             last_item_spawn_time = pygame.time.get_ticks()
             next_item_spawn_delay = random.randint(15000, 25000)
+            try:
+                next_item_spawn_delay = int(next_item_spawn_delay * academy.get_item_spawn_delay_multiplier())
+            except Exception:
+                pass
 
         if profiler:
             profiler.end_section("Events")

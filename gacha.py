@@ -3,6 +3,7 @@ import random
 import math
 import sys
 import os
+import academy
 
 # 리소스 경로 헬퍼 (PyInstaller 호환)
 def resource_path(relative_path):
@@ -25,6 +26,29 @@ gacha_animation = 0
 gacha_items = []
 gacha_available_items_template = []
 gacha_legendary_bonus = 0.0  # 추가 전설 등장 확률 (0.05 = +5%)
+
+# 가챠 추가 실행 알림
+EXTRA_GACHA_NOTICE_DURATION = 90  # 약 1.5초간 표시
+extra_gacha_notice = None  # {'timer': int, 'duration': int}
+
+def trigger_extra_gacha_notice():
+    global extra_gacha_notice
+    extra_gacha_notice = {
+        "timer": EXTRA_GACHA_NOTICE_DURATION,
+        "duration": EXTRA_GACHA_NOTICE_DURATION,
+    }
+
+def clear_extra_gacha_notice():
+    global extra_gacha_notice
+    extra_gacha_notice = None
+
+def update_extra_gacha_notice():
+    global extra_gacha_notice
+    if extra_gacha_notice:
+        extra_gacha_notice["timer"] -= 1
+        if extra_gacha_notice["timer"] <= 0:
+            extra_gacha_notice = None
+
 
 # 캡슐 애니메이션 변수
 falling_capsule = None
@@ -52,7 +76,7 @@ def init_gacha(available_items, legendary_bonus=0.0):
     gacha_spin_timer = 0
     gacha_result = None
     gacha_animation = 0
-    gacha_legendary_bonus = max(0.0, min(0.20, legendary_bonus))
+    gacha_legendary_bonus = max(0.0, min(0.45, legendary_bonus))
     
     # 뽑기 통 안의 아이템들 (40개로 증가, 다양한 색상)
     gacha_items = []
@@ -142,7 +166,7 @@ def init_gacha(available_items, legendary_bonus=0.0):
     # 캡슐 40개 생성 (전설 아이템은 낮은 확률로)
     for i in range(40):
         # 기본 5% + 추가 보너스로 전설 아이템 등장 확률 상승
-        legendary_chance = min(0.25, 0.05 + gacha_legendary_bonus)
+        legendary_chance = min(0.45, 0.05 + gacha_legendary_bonus)
         if random.random() < legendary_chance and legendary_items:
             item = random.choice(legendary_items).copy()
         elif normal_items:
@@ -757,6 +781,47 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
         screen.blit(shadow_text, shadow_rect)
         screen.blit(text, text_rect)
     
+    if extra_gacha_notice:
+        notice = extra_gacha_notice
+        remaining = max(0, notice.get("timer", 0))
+        duration = max(1, notice.get("duration", 1))
+        if remaining > 0:
+            ratio = remaining / duration
+            progress = 1.0 - ratio
+            if not hasattr(draw_gacha, "extra_notice_font"):
+                draw_gacha.extra_notice_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 72)
+                draw_gacha.extra_notice_shadow = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 72)
+            font = draw_gacha.extra_notice_font
+            text = "한번 더!"
+            base_surface = font.render(text, True, (255, 240, 200))
+            scale = 1.0 + 0.25 * math.sin(progress * math.pi * 1.3)
+            if abs(scale - 1.0) > 0.01:
+                w = max(1, int(base_surface.get_width() * scale))
+                h = max(1, int(base_surface.get_height() * scale))
+                text_surface = pygame.transform.smoothscale(base_surface, (w, h))
+            else:
+                text_surface = base_surface.copy()
+            alpha = int(255 * (ratio ** 0.4))
+            text_surface.set_alpha(alpha)
+            center_x = container_x + container_width // 2
+            center_y = container_y + 210
+            text_rect = text_surface.get_rect(center=(center_x, center_y))
+            glow_surface = pygame.Surface((text_rect.width + 40, text_rect.height + 30), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surface, (255, 180, 80, int(alpha * 0.35)), glow_surface.get_rect())
+            screen.blit(glow_surface, (text_rect.x - 20, text_rect.y - 15))
+            shadow_surface = draw_gacha.extra_notice_shadow.render(text, True, (30, 0, 60))
+            if abs(scale - 1.0) > 0.01:
+                shadow_surface = pygame.transform.smoothscale(shadow_surface, text_surface.get_size())
+            shadow_surface.set_alpha(int(alpha * 0.6))
+            screen.blit(shadow_surface, (text_rect.x + 4, text_rect.y + 4))
+            screen.blit(text_surface, text_rect)
+            sparkle_radius = max(8, text_rect.width // 12)
+            sparkle_surface = pygame.Surface((sparkle_radius * 2, sparkle_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(sparkle_surface, (255, 230, 140, int(alpha * 0.4)), (sparkle_radius, sparkle_radius), sparkle_radius)
+            sparkle_offset = int(12 + 8 * math.sin(progress * math.pi * 2.0))
+            screen.blit(sparkle_surface, (text_rect.centerx - sparkle_radius - sparkle_offset, text_rect.centery - sparkle_radius - 12))
+            screen.blit(sparkle_surface, (text_rect.centerx - sparkle_radius + sparkle_offset, text_rect.centery - sparkle_radius + 8))
+
     # 캡슐 아이콘 항상 그리기 (모든 phase에서)
     text_center_y = container_y + container_height - 80
     
@@ -790,10 +855,14 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
     """뽑기 시스템 실행 함수"""
     global gacha_phase, gacha_spinning, gacha_result, gacha_start_time, gacha_active, gacha_spin_timer
 
+    clear_extra_gacha_notice()
     auto_start_flag = auto_start
 
     if legendary_bonus is None:
         legendary_bonus = gacha_legendary_bonus
+
+    gamble_chance, max_extra_runs = academy.get_item_gamble_settings()
+    extra_runs_used = 0
 
     while True:
         clock = pygame.time.Clock()
@@ -825,6 +894,7 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
                             gacha_active = False
                             running = False
 
+            update_extra_gacha_notice()
             # 뽑기 업데이트
             update_gacha()
 
@@ -852,6 +922,23 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
                 legendary_bonus=legendary_bonus,
             )
 
+        if (
+            gamble_chance > 0
+            and extra_runs_used < max_extra_runs
+            and random.random() < gamble_chance
+        ):
+            extra_runs_used += 1
+            print(f"🎲 도박 스킬 발동! 추가 가챠 {extra_runs_used}/{max_extra_runs}")
+            trigger_extra_gacha_notice()
+            template = gacha_available_items_template if gacha_available_items_template else []
+            if not template:
+                break
+            init_gacha([item.copy() for item in template], legendary_bonus=legendary_bonus)
+            auto_start_flag = True
+            gacha_result = None
+            continue
+
+        clear_extra_gacha_notice()
         break
 
 def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_korean, get_item_description, store_passive_item, store_active_item, get_star_count=None, legendary_bonus=0.0):

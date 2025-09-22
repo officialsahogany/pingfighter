@@ -118,59 +118,86 @@ SKILL_TREES = {
         "color": (255, 150, 100),  # 주황색
         "skills": [
             {
-                "id": "item_spawn",
-                "name": "아이템 스폰 확률",
-                "description": "아이템 스폰 확률 10% 증가",
+                "id": "item_luck",
+                "name": "행운",
+                "description": "아이템 스폰 대기시간 5% 감소\n(Lv5: 추가 -5%)",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (255, 150, 100),
                 "requires": None,
                 "row": 0,
-                "col": 0.5  # 중앙 배치
+                "col": 0
             },
             {
-                "id": "item_cooldown",
-                "name": "아이템 쿨타임 감소",
-                "description": "엑티브 아이템 쿨타임 0.6초 감소",
+                "id": "item_cooldown_mastery",
+                "name": "숙련",
+                "description": "엑티브 아이템 쿨타임 8% 감소\n(레벨당 추가 감소)",
                 "max_level": 5,
                 "cost": 1,
-                "icon_color": (255, 150, 100),
-                "requires": "item_spawn",
+                "icon_color": (255, 150, 120),
+                "requires": None,
+                "row": 0,
+                "col": 1
+            },
+            {
+                "id": "item_gauge_mastery",
+                "name": "숙달",
+                "description": "엑티브 아이템 사용 시 게이지 +10\n(레벨당 +10)\n(누적 TP 4+ 필요)",
+                "max_level": 5,
+                "cost": 1,
+                "icon_color": (255, 180, 140),
+                "requires": "item_luck",
+                "total_tp_required": 4,
                 "row": 1,
-                "col": 0.5  # 중앙 배치
+                "col": 0
             },
             {
-                "id": "item_slot",
-                "name": "아이템 슬롯 증가",
-                "description": "엑티브 아이템 슬롯 1칸 증가",
-                "max_level": 2,
+                "id": "item_bag_expansion",
+                "name": "가방 확장",
+                "description": "엑티브 아이템 슬롯 1칸 증가\n(레벨당 +1칸)\n(누적 TP 4+ 필요)",
+                "max_level": 3,
                 "cost": 2,
-                "icon_color": (255, 150, 100),
-                "requires": "item_cooldown",
-                "row": 2,
-                "col": 0.5  # 중앙 배치
+                "icon_color": (255, 180, 150),
+                "requires": "item_cooldown_mastery",
+                "total_tp_required": 4,
+                "row": 1,
+                "col": 1
             },
             {
-                "id": "item_pachinko",
-                "name": "빠칭코 보너스",
-                "description": "스테이지 클리어 시 5% 확률로 빠칭코 2회",
-                "max_level": 2,
-                "cost": 2,
-                "icon_color": (255, 150, 100),
-                "requires": "item_slot",
-                "row": 3,
-                "col": 0  # 왼쪽 분기
-            },
-            {
-                "id": "item_legendary",
-                "name": "전설 아이템 해금",
-                "description": "전설 아이템 드랍 활성화",
-                "max_level": 1,
+                "id": "item_gamble",
+                "name": "도박",
+                "description": "가챠 후 25% 확률로 추가 1회 자동 실행\n(레벨당 +15%, 3레벨: 최대 2회)\n(누적 TP 8+ 필요)",
+                "max_level": 3,
                 "cost": 3,
-                "icon_color": (255, 200, 100),
-                "requires": "item_slot",
+                "icon_color": (255, 205, 160),
+                "requires": "item_gauge_mastery",
+                "total_tp_required": 8,
+                "row": 2,
+                "col": 0
+            },
+            {
+                "id": "item_recycle",
+                "name": "연금술",
+                "description": "연금술로 사용한 아이템이 유지될 확률 20%\n(레벨당 +10% 추가)\n(누적 TP 8+ 필요)",
+                "max_level": 3,
+                "cost": 3,
+                "icon_color": (255, 205, 170),
+                "requires": "item_bag_expansion",
+                "total_tp_required": 8,
+                "row": 2,
+                "col": 1
+            },
+            {
+                "id": "item_treasure_map",
+                "name": "보물지도",
+                "description": "전설 필드 확률 +300%, 가챠 전설 +5%\n(레벨당 동일 증가)\n(누적 TP 12+ 필요)",
+                "max_level": 3,
+                "cost": 4,
+                "icon_color": (255, 220, 120),
+                "requires_or": ["item_gamble", "item_recycle"],
+                "total_tp_required": 12,
                 "row": 3,
-                "col": 1  # 오른쪽 분기
+                "col": 0.5
             }
         ]
     },
@@ -1276,8 +1303,12 @@ class AcademyUI:
     
     def draw_skill_symbol(self, surface, skill_id, size, unlocked):
         """스킬별 심볼 그리기"""
+        import math
         center_x, center_y = size // 2, size // 2
         color = (255, 255, 255) if unlocked else (150, 150, 150)
+        skill_data = self.skill_system.get_skill_data(skill_id)
+        current_level = self.skill_system.get_skill_level(skill_id)
+        max_level = skill_data.get("max_level", 1) if skill_data else 1
         
         # 스매셔 스킬트리는 아이콘을 그리지 않음 (빈 상태로 유지)
         if skill_id in ["heavy_impact", "speed_charge", "burst_wave", "power_break", 
@@ -1391,8 +1422,110 @@ class AcademyUI:
                 pygame.draw.polygon(surface, color, [(center_x - 8, center_y + 3), 
                                                    (center_x, center_y + 10), (center_x + 8, center_y + 3)])
         
+        elif skill_id == "item_luck":
+            # 🍀 행운 - 네잎클로버 (단색 라인 스타일)
+            # 중앙 줄기
+            pygame.draw.line(surface, color, (center_x, center_y + 2), (center_x, center_y + 10), 2)
+            # 네 개의 잎 (심플한 원형)
+            for angle in [45, 135, 225, 315]:
+                rad = math.radians(angle)
+                lx = center_x + int(8 * math.cos(rad))
+                ly = center_y - 2 + int(8 * math.sin(rad))
+                # 원형 잎 윤곽선만
+                pygame.draw.circle(surface, color, (lx, ly), 4, 2)
+
+        elif skill_id == "item_cooldown_mastery":
+            # ⏱️ 숙련 - 스톱워치 (단색 라인 스타일)
+            # 시계 본체
+            pygame.draw.circle(surface, color, (center_x, center_y), 10, 2)
+            # 상단 버튼
+            pygame.draw.rect(surface, color, (center_x - 4, center_y - 14, 8, 4), 2)
+            # 시침과 분침
+            pygame.draw.line(surface, color, (center_x, center_y), (center_x, center_y - 7), 2)
+            pygame.draw.line(surface, color, (center_x, center_y), (center_x + 6, center_y + 3), 2)
+
+        elif skill_id == "item_gauge_mastery":
+            # 📊 숙달 - 게이지/배터리 (단색 라인 스타일)
+            # 배터리 본체
+            pygame.draw.rect(surface, color, (center_x - 8, center_y - 9, 16, 18), 2)
+            # 배터리 상단 단자
+            pygame.draw.rect(surface, color, (center_x - 3, center_y - 12, 6, 3), 2)
+            # 게이지 표시 라인 (3개)
+            for i in range(3):
+                y_pos = center_y - 5 + i * 6
+                pygame.draw.line(surface, color, (center_x - 5, y_pos), (center_x + 5, y_pos), 1)
+
+        elif skill_id == "item_bag_expansion":
+            # 🎒 가방확장 - 백팩 (단색 라인 스타일)
+            # 가방 본체
+            pygame.draw.rect(surface, color, (center_x - 9, center_y - 5, 18, 14), 2)
+            # 가방 뚜껑 (반원)
+            pygame.draw.arc(surface, color, (center_x - 9, center_y - 11, 18, 12), math.pi, 2 * math.pi, 2)
+            # 가방 주머니 선
+            pygame.draw.line(surface, color, (center_x - 6, center_y + 1), (center_x + 6, center_y + 1), 1)
+            # 가방 끈 (손잡이)
+            pygame.draw.arc(surface, color, (center_x - 5, center_y - 16, 10, 8), 0, math.pi, 2)
+
+        elif skill_id == "item_gamble":
+            # 🎲 도박 - 주사위 (단색 라인 스타일)
+            # 첫 번째 주사위
+            pygame.draw.rect(surface, color, (center_x - 11, center_y - 7, 10, 10), 2)
+            # 첫 번째 주사위 점 (3)
+            pygame.draw.circle(surface, color, (center_x - 8, center_y - 4), 1)
+            pygame.draw.circle(surface, color, (center_x - 6, center_y - 2), 1)
+            pygame.draw.circle(surface, color, (center_x - 4, center_y), 1)
+            # 두 번째 주사위
+            pygame.draw.rect(surface, color, (center_x + 1, center_y - 3, 10, 10), 2)
+            # 두 번째 주사위 점 (4)
+            pygame.draw.circle(surface, color, (center_x + 3, center_y - 1), 1)
+            pygame.draw.circle(surface, color, (center_x + 9, center_y - 1), 1)
+            pygame.draw.circle(surface, color, (center_x + 3, center_y + 5), 1)
+            pygame.draw.circle(surface, color, (center_x + 9, center_y + 5), 1)
+
+        elif skill_id == "item_recycle":
+            # ⚗️ 연금술 - 연금 플라스크 (단색 라인 스타일)
+            # 플라스크 몸체 (삼각형 형태)
+            base_y = center_y + 9
+            neck_height = 6
+            body_top = center_y - 2
+            flask_points = [
+                (center_x - 9, base_y),
+                (center_x + 9, base_y),
+                (center_x + 5, body_top),
+                (center_x - 5, body_top)
+            ]
+            pygame.draw.polygon(surface, color, flask_points, 2)
+            # 목 부분과 코르크
+            neck_rect = pygame.Rect(center_x - 4, body_top - neck_height, 8, neck_height)
+            pygame.draw.rect(surface, color, neck_rect, 2)
+            cork_rect = pygame.Rect(center_x - 6, body_top - neck_height - 4, 12, 4)
+            pygame.draw.rect(surface, color, cork_rect, 2)
+            # 플라스크 내부 연금 물질 (수평 라인)
+            liquid_y = base_y - 5
+            pygame.draw.line(surface, color, (center_x - 7, liquid_y), (center_x + 7, liquid_y), 2)
+            # 별빛 효과
+            star_y = body_top - neck_height - 6
+            pygame.draw.line(surface, color, (center_x, star_y - 2), (center_x, star_y + 2), 2)
+            pygame.draw.line(surface, color, (center_x - 2, star_y), (center_x + 2, star_y), 2)
+            pygame.draw.circle(surface, color, (center_x + 6, star_y + 3), 1)
+
+        elif skill_id == "item_treasure_map":
+            # 🗺️ 보물지도 - 지도와 X표시 (단색 라인 스타일)
+            # 지도 본체 (펼쳐진 두루마리 형태)
+            pygame.draw.rect(surface, color, (center_x - 10, center_y - 7, 20, 14), 2)
+            # 지도 롤 (양쪽 끝)
+            pygame.draw.line(surface, color, (center_x - 10, center_y - 7), (center_x - 10, center_y + 7), 3)
+            pygame.draw.line(surface, color, (center_x + 10, center_y - 7), (center_x + 10, center_y + 7), 3)
+            # X 표시 (보물 위치)
+            pygame.draw.line(surface, color, (center_x - 3, center_y - 3), (center_x + 3, center_y + 3), 2)
+            pygame.draw.line(surface, color, (center_x - 3, center_y + 3), (center_x + 3, center_y - 3), 2)
+            # 점선 경로 (보물까지의 길)
+            for i in range(3):
+                dot_y = center_y - 4 + i * 4
+                pygame.draw.circle(surface, color, (center_x - 6, dot_y), 1)
+
         elif "item" in skill_id:
-            # 아이템 스킬은 아이콘을 그리지 않고 빈 상태로 둠
+            # 기타 아이템 스킬은 아직 전용 아이콘이 없음
             return
         
         elif "paddle" in skill_id:
@@ -2002,169 +2135,247 @@ class AcademyUI:
         else:
             self.draw_linear_skill_tree(tree_data)
     
+
     def draw_tree_skill_tree(self, tree_data):
-        """아이템/패들 스킬트리를 트리 구조로 그리기 - 아이콘과 화살표를 모두 제거하고 설명 패널만 표시"""
-        # 우측 설명 패널만 그리기
-        self.draw_tree_skill_description_panel(tree_data)
-        return  # 아이콘과 화살표를 그리지 않고 바로 리턴
-        
-        # 스킬 위치 매핑 (row, col에 따라)
-        skill_positions = {}
+        """아이템/패들 스킬트리를 대쉬와 동일한 스타일로 렌더링"""
+        self._draw_branch_skill_tree(tree_data, cost_scaling=False)
+
+    def draw_dash_skill_tree(self, tree_data):
+        """대쉬 스킬트리를 트리 구조로 그리기"""
+        self._draw_branch_skill_tree(tree_data, cost_scaling=True)
+
+    def _draw_branch_skill_tree(self, tree_data, cost_scaling):
+        skill_size = 60
+        row_spacing = 140
+        col_spacing = 200
+
+        tree_width = col_spacing * 2
+        available_width = self.width - 190
+        start_x = (available_width - tree_width) // 2 + 30
+        start_y = 160
+
+        skill_positions: dict[str, tuple[int, int]] = {}
         for skill in tree_data["skills"]:
             row = skill["row"]
             col = skill["col"]
-            
-            # col이 0.5인 경우 중앙 배치
             if col == 0.5:
                 x = start_x + col_spacing // 2
             else:
                 x = start_x + int(col) * col_spacing
-            
             y = start_y + row * row_spacing
             skill_positions[skill["id"]] = (x, y)
-        
-        # 연결선 먼저 그리기
+
         for skill in tree_data["skills"]:
-            if skill.get("requires"):
-                current_pos = skill_positions[skill["id"]]
-                required_skill = skill.get("requires")
-                if required_skill in skill_positions:
-                    required_pos = skill_positions[required_skill]
-                    required_level = self.skill_system.get_skill_level(required_skill)
-                    # 화살표는 선행 스킬이 해금되고 조건을 만족하면 초록색
-                    # 선행 스킬이 해금되었고, 누적 TP 조건도 만족하는지 확인
-                    prereq_met = required_level > 0
-                    tp_requirement = skill.get("total_tp_required", 0)
-                    tp_met = self.skill_system.total_invested_points >= tp_requirement
-                    line_color = (100, 255, 100) if (prereq_met and tp_met) else (100, 100, 100)
-                    
-                    # 화살표 선 그리기
-                    pygame.draw.line(self.screen, line_color, 
-                                   (required_pos[0] + skill_size//2, required_pos[1] + skill_size),
-                                   (current_pos[0] + skill_size//2, current_pos[1]), 3)
-                    
-                    # 화살표 머리 그리기
-                    arrow_head_x = current_pos[0] + skill_size//2
-                    arrow_head_y = current_pos[1]
-                    pygame.draw.polygon(self.screen, line_color, [
-                        (arrow_head_x, arrow_head_y),
-                        (arrow_head_x - 8, arrow_head_y - 15),
-                        (arrow_head_x + 8, arrow_head_y - 15)
-                    ])
-                    
-                    # 레이저 애니메이션 오버레이
-                    self.draw_arrow_animation(required_skill, skill["id"])
-            
-            # OR 조건 선행 스킬 연결선 그리기
-            if skill.get("requires_or"):
-                current_pos = skill_positions[skill["id"]]
-                for required_skill in skill.get("requires_or"):
+            current_pos = skill_positions[skill["id"]]
+            tp_requirement = skill.get("total_tp_required", 0)
+            tp_met = self.skill_system.total_invested_points >= tp_requirement
+
+            requires = skill.get("requires")
+            if requires:
+                if isinstance(requires, list):
+                    for required_skill in requires:
+                        if required_skill in skill_positions:
+                            required_pos = skill_positions[required_skill]
+                            required_level = self.skill_system.get_skill_level(required_skill)
+                            line_color = (100, 255, 100) if (required_level > 0 and tp_met) else (100, 100, 100)
+                            pygame.draw.line(
+                                self.screen,
+                                line_color,
+                                (required_pos[0] + skill_size // 2, required_pos[1] + skill_size),
+                                (current_pos[0] + skill_size // 2, current_pos[1]),
+                                3,
+                            )
+                            pygame.draw.polygon(
+                                self.screen,
+                                line_color,
+                                [
+                                    (current_pos[0] + skill_size // 2, current_pos[1]),
+                                    (current_pos[0] + skill_size // 2 - 8, current_pos[1] - 15),
+                                    (current_pos[0] + skill_size // 2 + 8, current_pos[1] - 15),
+                                ],
+                            )
+                            self.draw_arrow_animation(required_skill, skill["id"])
+                else:
+                    if requires in skill_positions:
+                        required_pos = skill_positions[requires]
+                        required_level = self.skill_system.get_skill_level(requires)
+                        line_color = (100, 255, 100) if (required_level > 0 and tp_met) else (100, 100, 100)
+                        pygame.draw.line(
+                            self.screen,
+                            line_color,
+                            (required_pos[0] + skill_size // 2, required_pos[1] + skill_size),
+                            (current_pos[0] + skill_size // 2, current_pos[1]),
+                            3,
+                        )
+                        pygame.draw.polygon(
+                            self.screen,
+                            line_color,
+                            [
+                                (current_pos[0] + skill_size // 2, current_pos[1]),
+                                (current_pos[0] + skill_size // 2 - 8, current_pos[1] - 15),
+                                (current_pos[0] + skill_size // 2 + 8, current_pos[1] - 15),
+                            ],
+                        )
+                        self.draw_arrow_animation(requires, skill["id"])
+
+            requires_or = skill.get("requires_or")
+            if requires_or:
+                for required_skill in requires_or:
                     if required_skill in skill_positions:
                         required_pos = skill_positions[required_skill]
                         required_level = self.skill_system.get_skill_level(required_skill)
-                        # OR 조건에서는 현재 연결된 선행 스킬이 해금되면 초록색
-                        # 추가로 누적 TP 조건도 확인
-                        tp_requirement = skill.get("total_tp_required", 0)
-                        tp_met = self.skill_system.total_invested_points >= tp_requirement
                         line_color = (100, 255, 100) if (required_level > 0 and tp_met) else (100, 100, 100)
-                        
-                        # 화살표 선 그리기
-                        pygame.draw.line(self.screen, line_color, 
-                                       (required_pos[0] + skill_size//2, required_pos[1] + skill_size),
-                                       (current_pos[0] + skill_size//2, current_pos[1]), 3)
-                        
-                        # 화살표 머리 그리기
-                        arrow_head_x = current_pos[0] + skill_size//2
-                        arrow_head_y = current_pos[1]
-                        pygame.draw.polygon(self.screen, line_color, [
-                            (arrow_head_x, arrow_head_y),
-                            (arrow_head_x - 8, arrow_head_y - 15),
-                            (arrow_head_x + 8, arrow_head_y - 15)
-                        ])
-                        
-                        # 레이저 애니메이션 오버레이
+                        pygame.draw.line(
+                            self.screen,
+                            line_color,
+                            (required_pos[0] + skill_size // 2, required_pos[1] + skill_size),
+                            (current_pos[0] + skill_size // 2, current_pos[1]),
+                            3,
+                        )
+                        pygame.draw.polygon(
+                            self.screen,
+                            line_color,
+                            [
+                                (current_pos[0] + skill_size // 2, current_pos[1]),
+                                (current_pos[0] + skill_size // 2 - 8, current_pos[1] - 15),
+                                (current_pos[0] + skill_size // 2 + 8, current_pos[1] - 15),
+                            ],
+                        )
                         self.draw_arrow_animation(required_skill, skill["id"])
-        
-        # 스킬 아이콘 및 정보 그리기
+
         for i, skill in enumerate(tree_data["skills"]):
             skill_x, skill_y = skill_positions[skill["id"]]
-            
-            # 선택된 스킬 하이라이트 (탭 선택 모드가 아닐 때만)
+
             if i == self.selected_skill_index and not self.tab_selection_mode:
                 highlight_rect = pygame.Rect(skill_x - 5, skill_y - 5, skill_size + 10, skill_size + 10)
                 pygame.draw.rect(self.screen, (100, 100, 150, 50), highlight_rect)
                 pygame.draw.rect(self.screen, (255, 255, 255), highlight_rect, 2)
-            
-            # 스킬 아이콘 - 사이버펑크 스타일
+
             current_level = self.skill_system.get_skill_level(skill["id"])
-            is_available = self.skill_system.can_upgrade_skill(skill["id"])
-            is_unlocked = current_level > 0
-            
-            # 홀로그램 글로우 효과 제거 (배경 원 제거)
-            if is_unlocked:
-                bg_color = (0, 100, 100)
-            else:
-                bg_color = (40, 40, 40)
-            
-            # 선택된 스킬 펄스 효과
+
             if i == self.selected_skill_index and not self.tab_selection_mode:
-                import math
                 pulse = abs(math.sin(pygame.time.get_ticks() * 0.005)) * 0.5 + 0.5
                 select_size = skill_size + int(8 + pulse * 5)
-                pygame.draw.circle(self.screen, (0, 255, 255), (skill_x + skill_size//2, skill_y + skill_size//2), select_size, 3)
-                
-                # 회전하는 육각형 효과
+                pygame.draw.circle(
+                    self.screen,
+                    (0, 255, 255),
+                    (skill_x + skill_size // 2, skill_y + skill_size // 2),
+                    select_size,
+                    3,
+                )
                 angle = pygame.time.get_ticks() * 0.002
                 hex_points = []
                 for j in range(6):
                     hex_angle = angle + j * math.pi / 3
-                    hx = skill_x + skill_size//2 + (skill_size + 12) * math.cos(hex_angle)
-                    hy = skill_y + skill_size//2 + (skill_size + 12) * math.sin(hex_angle)
+                    hx = skill_x + skill_size // 2 + (skill_size + 12) * math.cos(hex_angle)
+                    hy = skill_y + skill_size // 2 + (skill_size + 12) * math.sin(hex_angle)
                     hex_points.append((hx, hy))
                 pygame.draw.polygon(self.screen, (0, 255, 255, 100), hex_points, 2)
-            
-            # 스킬 아이콘 생성 및 그리기
+
             icon = self.create_skill_icon(skill, current_level, skill["max_level"], skill_size)
             self.screen.blit(icon, (skill_x, skill_y))
-            
-            # 레벨업 반짝임 애니메이션
+
             if skill["id"] in self.skill_levelup_animations:
                 anim_data = self.skill_levelup_animations[skill["id"]]
                 current_time = pygame.time.get_ticks()
                 elapsed = current_time - anim_data["start_time"]
-                
                 if elapsed < anim_data["duration"]:
-                    import math
                     progress = elapsed / anim_data["duration"]
                     center_x = skill_x + skill_size // 2
                     center_y = skill_y + skill_size // 2
-                    
-                    # 초기 플래시 효과
                     if elapsed < 50:
                         flash_alpha = int(120 * (1 - elapsed / 50))
                         flash_surface = pygame.Surface((skill_size + 20, skill_size + 20), pygame.SRCALPHA)
-                        pygame.draw.circle(flash_surface, (255, 255, 255, flash_alpha),
-                                         (flash_surface.get_width()//2, flash_surface.get_height()//2),
-                                         skill_size//2 + 10)
+                        pygame.draw.circle(
+                            flash_surface,
+                            (255, 255, 255, flash_alpha),
+                            (flash_surface.get_width() // 2, flash_surface.get_height() // 2),
+                            skill_size // 2 + 10,
+                        )
                         self.screen.blit(flash_surface, (skill_x - 10, skill_y - 10))
-            
-            # 스킬 이름 표시
-            name_color = (255, 255, 255) if is_unlocked else (150, 150, 150)
-            name_surf = self.font_medium.render(skill["name"], True, name_color)
-            name_rect = name_surf.get_rect(center=(skill_x + skill_size//2, skill_y + skill_size + 15))
-            self.screen.blit(name_surf, name_rect)
-            
-            # 레벨 게이지 (아이콘 아래에 표시)
+                    for particle in anim_data["starburst"]:
+                        if progress < 0.5:
+                            movement_progress = 4 * progress * progress * progress
+                        else:
+                            p = 2 * progress - 2
+                            movement_progress = 1 + p * p * p / 2
+                        current_distance = particle["max_distance"] * movement_progress
+                        px = center_x + math.cos(particle["angle"]) * current_distance
+                        py = center_y + math.sin(particle["angle"]) * current_distance
+                        twinkle = abs(math.sin(particle["sparkle_phase"] + elapsed * 0.01)) * 0.5 + 0.5
+                        if progress < 0.85:
+                            fade = 1.0
+                        else:
+                            fade = 1 - ((progress - 0.85) / 0.15)
+                        brightness = int(particle["brightness"] * fade * twinkle)
+                        if brightness > 0:
+                            star_surface = pygame.Surface((12, 12), pygame.SRCALPHA)
+                            star_center = 6
+                            pygame.draw.line(star_surface, (255, 255, 200, brightness), (star_center, 2), (star_center, 10), 2)
+                            pygame.draw.line(star_surface, (255, 255, 200, brightness), (2, star_center), (10, star_center), 2)
+                            pygame.draw.line(star_surface, (255, 255, 230, brightness // 2), (3, 3), (9, 9), 1)
+                            pygame.draw.line(star_surface, (255, 255, 230, brightness // 2), (9, 3), (3, 9), 1)
+                            pygame.draw.circle(star_surface, (255, 255, 255, min(255, brightness + 50)), (star_center, star_center), int(particle["size"] / 2))
+                            self.screen.blit(star_surface, (px - 6, py - 6))
+                    for glitter in anim_data["glitter"]:
+                        if elapsed > glitter["delay"]:
+                            glitter["phase"] += glitter["speed"]
+                            sparkle = (math.sin(glitter["phase"]) + 1) / 2
+                            glitter_alpha = int(255 * sparkle)
+                            glitter_surface = pygame.Surface((6, 6), pygame.SRCALPHA)
+                            pygame.draw.circle(glitter_surface, (255, 255, 255, glitter_alpha), (3, 3), 2)
+                            self.screen.blit(glitter_surface, (skill_x + skill_size // 2 + glitter["x"], skill_y + skill_size // 2 + glitter["y"]))
+                    pulse = abs(math.sin(elapsed * 0.01)) * 0.5 + 0.5
+                    glow_radius = int(skill_size // 2 + 15 * pulse)
+                    glow_surf = pygame.Surface((glow_radius * 4, glow_radius * 4), pygame.SRCALPHA)
+                    glow_alpha = int(60 * (1 - elapsed / anim_data["duration"]))
+                    for j in range(3):
+                        alpha = glow_alpha // (j + 1)
+                        radius = glow_radius + j * 5
+                        pygame.draw.circle(glow_surf, (255, 255, 100, alpha), (glow_radius * 2, glow_radius * 2), radius, 2)
+                    self.screen.blit(glow_surf, (skill_x + skill_size // 2 - glow_radius * 2, skill_y + skill_size // 2 - glow_radius * 2))
+                else:
+                    del self.skill_levelup_animations[skill["id"]]
+
+            name_text = self.font_small.render(skill["name"], True, (255, 255, 255))
+            name_rect = name_text.get_rect(centerx=skill_x + skill_size // 2, top=skill_y + skill_size + 5)
+            self.screen.blit(name_text, name_rect)
+
             gauge_width = skill_size + 20
-            gauge_height = 12
+            gauge_height = 10
             gauge_x = skill_x - 10
-            gauge_y = skill_y + skill_size + 35
+            gauge_y = name_rect.bottom + 5
             self.draw_skill_level_gauge(skill, gauge_x, gauge_y, gauge_width, gauge_height)
-        
-        # 우측 설명 패널 그리기 (대쉬/스매셔와 동일한 스타일)
-        self.draw_tree_skill_description_panel(tree_data)
-    
-    def draw_skill_level_gauge(self, skill, x, y, width=120, height=25):
+
+        if current_level < skill["max_level"]:
+            can_upgrade = self.skill_system.can_upgrade_skill(skill["id"])
+            actual_cost = skill['cost']
+            if cost_scaling and skill['cost'] in (1, 2) and current_level >= 3:
+                actual_cost = skill['cost'] + 1
+            cost_color = (100, 255, 100) if can_upgrade else (255, 100, 100)
+            cost_text = f"비용: {actual_cost}TP"
+            if not can_upgrade:
+                if self.skill_system.skill_points < actual_cost:
+                    cost_text += '\n(포인트 부족)'
+                elif selected_skill.get('total_tp_required') and self.skill_system.total_invested_points < selected_skill.get('total_tp_required', 0):
+                    cost_text += f"\n(누적 TP {selected_skill.get('total_tp_required', 0)} 필요)"
+                elif selected_skill.get('requires') or selected_skill.get('requires_or'):
+                    cost_text += '\n(선행스킬 필요)'
+            cost_lines = cost_text.split('\n')
+            for idx, line in enumerate(cost_lines):
+                cost_info = self.font_small.render(line, True, cost_color)
+                self.screen.blit(cost_info, (desc_x + 8, cost_y + idx * 16))
+            next_start_y = cost_y + len(cost_lines) * 16 + 10
+        else:
+            max_info = self.font_small.render('✅ 최대!', True, (255, 255, 100))
+            self.screen.blit(max_info, (desc_x + 8, cost_y))
+            next_start_y = cost_y + 26
+
+    for idx, line in enumerate(next_lines):
+        next_surf = self.font_small.render(line, True, (150, 150, 255))
+        self.screen.blit(next_surf, (desc_x + 8, next_start_y + idx * 16))
+
+def draw_skill_level_gauge(self, skill, x, y, width=120, height=25):
         """스킬 레벨 게이지를 그리기 - 네모 단계 게이지 시스템"""
         current_level = self.skill_system.get_skill_level(skill["id"])
         max_level = skill["max_level"]
@@ -2197,159 +2408,6 @@ class AcademyUI:
                 gloss_surface = pygame.Surface((box_width - 4, box_height // 3), pygame.SRCALPHA)
                 gloss_surface.fill((255, 255, 255, 30))
                 self.screen.blit(gloss_surface, (box_x + 2, y + 2))
-    
-    def draw_tree_skill_description_panel(self, tree_data):
-        """아이템/패들 스킬 설명 패널 그리기 - 대쉬/스매셔와 동일한 스타일"""
-        if not self.tab_selection_mode and self.selected_skill_index < len(tree_data["skills"]):
-            selected_skill = tree_data["skills"][self.selected_skill_index]
-            
-            # 우측 패널 영역
-            panel_x = self.width - 180
-            panel_y = 150
-            panel_width = 160
-            panel_height = 400
-            
-            # 패널 배경 (사이버펑크 스타일)
-            panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-            pygame.draw.rect(panel_surface, (0, 20, 40, 200), (0, 0, panel_width, panel_height))
-            pygame.draw.rect(panel_surface, (0, 255, 255, 100), (0, 0, panel_width, panel_height), 2)
-            
-            # 코너 장식
-            corner_size = 10
-            corners = [
-                (0, 0), (panel_width - corner_size, 0),
-                (0, panel_height - corner_size), (panel_width - corner_size, panel_height - corner_size)
-            ]
-            for cx, cy in corners:
-                pygame.draw.lines(panel_surface, (0, 255, 255), False, 
-                                [(cx, cy + corner_size), (cx, cy), (cx + corner_size, cy)], 2)
-            
-            self.screen.blit(panel_surface, (panel_x, panel_y))
-            
-            # 스킬 이름
-            name_color = selected_skill["icon_color"]
-            name_surf = self.font_large.render(selected_skill["name"], True, name_color)
-            name_rect = name_surf.get_rect(centerx=panel_x + panel_width//2, y=panel_y + 20)
-            self.screen.blit(name_surf, name_rect)
-            
-            # 레벨 게이지 표시 (이름 아래)
-            gauge_y = panel_y + 55
-            gauge_x = panel_x + (panel_width - 120) // 2  # 중앙 정렬
-            self.draw_skill_level_gauge(selected_skill, gauge_x, gauge_y, 120, 20)
-            
-            # 구분선 (게이지 아래로 이동)
-            pygame.draw.line(self.screen, (0, 255, 255, 100), 
-                           (panel_x + 10, panel_y + 85), 
-                           (panel_x + panel_width - 10, panel_y + 85), 1)
-            
-            # 스킬 설명
-            desc_y = panel_y + 105
-            desc_lines = selected_skill["description"].split("\n")
-            for line in desc_lines:
-                # 줄 바꿈 처리
-                words = line.split()
-                current_line = ""
-                for word in words:
-                    test_line = current_line + " " + word if current_line else word
-                    if self.font_small.size(test_line)[0] <= panel_width - 20:
-                        current_line = test_line
-                    else:
-                        if current_line:
-                            desc_surf = self.font_small.render(current_line, True, (230, 230, 230))
-                            self.screen.blit(desc_surf, (panel_x + 10, desc_y))
-                            desc_y += 20
-                        current_line = word
-                
-                if current_line:
-                    desc_surf = self.font_small.render(current_line, True, (230, 230, 230))
-                    self.screen.blit(desc_surf, (panel_x + 10, desc_y))
-                    desc_y += 25
-            
-            # 현재 효과
-            current_level = self.skill_system.get_skill_level(selected_skill["id"])
-            if current_level > 0:
-                pygame.draw.line(self.screen, (0, 255, 255, 100), 
-                               (panel_x + 10, desc_y + 10), 
-                               (panel_x + panel_width - 10, desc_y + 10), 1)
-                
-                # 스킬별 효과 표시
-                effect_text = ""
-                if selected_skill["id"] == "item_spawn":
-                    effect_text = f"현재: +{current_level * 10}%"
-                elif selected_skill["id"] == "item_cooldown":
-                    effect_text = f"현재: -{current_level * 0.6:.1f}초"
-                elif selected_skill["id"] == "item_slot":
-                    effect_text = f"현재: +{current_level}칸"
-                elif selected_skill["id"] == "item_pachinko":
-                    effect_text = f"현재: {current_level * 5}% 확률"
-                elif selected_skill["id"] == "item_legendary":
-                    effect_text = "현재: 활성화"
-                elif selected_skill["id"] == "paddle_gauge":
-                    effect_text = f"현재: +{current_level * 5}"
-                elif selected_skill["id"] == "paddle_speed":
-                    effect_text = f"현재: +{current_level * 0.5:.1f}"
-                elif selected_skill["id"] == "paddle_size":
-                    effect_text = f"현재: +{current_level * 2}%"
-                elif selected_skill["id"] == "paddle_max_gauge":
-                    effect_text = f"현재: +{current_level * 30}"
-                elif selected_skill["id"] == "paddle_bio":
-                    effect_text = "현재: 활성화"
-                
-                if effect_text:
-                    effect_surf = self.font_medium.render(effect_text, True, (100, 255, 100))
-                    self.screen.blit(effect_surf, (panel_x + 10, desc_y + 25))
-            
-            # 업그레이드 정보
-            if current_level < selected_skill["max_level"]:
-                cost_y = panel_y + panel_height - 80
-                
-                # 비용
-                cost_text = f"비용: {selected_skill['cost']} TP"
-                can_upgrade = self.skill_system.can_upgrade_skill(selected_skill["id"])
-                cost_color = (255, 255, 100) if can_upgrade else (150, 150, 150)
-                cost_surf = self.font_medium.render(cost_text, True, cost_color)
-                self.screen.blit(cost_surf, (panel_x + 10, cost_y))
-                
-                # 다음 레벨 효과
-                next_text = ""
-                if selected_skill["id"] == "item_spawn":
-                    next_text = f"다음: +{(current_level + 1) * 10}%"
-                elif selected_skill["id"] == "item_cooldown":
-                    next_text = f"다음: -{(current_level + 1) * 0.6:.1f}초"
-                elif selected_skill["id"] == "item_slot":
-                    next_text = f"다음: +{current_level + 1}칸"
-                elif selected_skill["id"] == "item_pachinko":
-                    next_text = f"다음: {(current_level + 1) * 5}% 확률"
-                elif selected_skill["id"] == "item_legendary":
-                    next_text = "다음: 활성화"
-                elif selected_skill["id"] == "paddle_gauge":
-                    next_text = f"다음: +{(current_level + 1) * 5}"
-                elif selected_skill["id"] == "paddle_speed":
-                    next_text = f"다음: +{(current_level + 1) * 0.5:.1f}"
-                elif selected_skill["id"] == "paddle_size":
-                    next_text = f"다음: +{(current_level + 1) * 2}%"
-                elif selected_skill["id"] == "paddle_max_gauge":
-                    next_text = f"다음: +{(current_level + 1) * 30}"
-                elif selected_skill["id"] == "paddle_bio":
-                    next_text = "다음: 활성화"
-                
-                if next_text:
-                    next_surf = self.font_small.render(next_text, True, (150, 150, 255))
-                    self.screen.blit(next_surf, (panel_x + 10, cost_y + 25))
-                
-                # Space 키 안내
-                if can_upgrade:
-                    space_text = "[SPACE] 업그레이드"
-                    space_surf = self.font_small.render(space_text, True, (255, 255, 100))
-                    space_rect = space_surf.get_rect(centerx=panel_x + panel_width//2, y=cost_y + 50)
-                    self.screen.blit(space_surf, space_rect)
-            else:
-                # MAX 레벨 표시
-                max_text = "MAX LEVEL"
-                max_color = (255, 215, 0) if selected_skill["max_level"] == 5 else (220, 220, 220)
-                max_surf = self.font_large.render(max_text, True, max_color)
-                max_rect = max_surf.get_rect(centerx=panel_x + panel_width//2, y=panel_y + panel_height - 50)
-                self.screen.blit(max_surf, max_rect)
     
     def draw_dash_skill_tree(self, tree_data):
         """대쉬 스킬트리를 트리 구조로 그리기"""
@@ -3157,180 +3215,6 @@ class AcademyUI:
                                        (skill_size, i), (i, skill_size), 1)
                     self.screen.blit(lock_surface, (skill_x, skill_y))
     
-    def draw_skill_description(self, tree_data):
-        """선택된 스킬의 상세 설명 표시 (우측 배치)"""
-        if self.selected_skill_index >= len(tree_data["skills"]):
-            return
-            
-        selected_skill = tree_data["skills"][self.selected_skill_index]
-        
-        # 설명 박스를 우측으로 배치 (가로 길이 절반으로 축소)
-        desc_width = 150  # 패널 너비 축소 (300 → 150)
-        desc_height = 350  # 패널 높이
-        desc_x = self.width - desc_width - 20  # 우측 여백 20px
-        desc_y = 200  # 스킬트리와 같은 높이에서 시작
-        
-        # 홀로그램 패널 배경
-        desc_surface = pygame.Surface((desc_width, desc_height), pygame.SRCALPHA)
-        
-        # 향상된 배경 그라데이션 (상단에서 하단으로 어두워짐)
-        for y in range(desc_height):
-            ratio = y / desc_height
-            # 더 부드러운 그라데이션
-            alpha = int(200 - ratio * 80)
-            color_intensity = int(50 + ratio * 30)
-            pygame.draw.line(desc_surface, (0, color_intensity, color_intensity * 2, alpha), (0, y), (desc_width, y))
-        
-        # 내부 그림자 효과 (depth 추가)
-        shadow_width = 3
-        for i in range(shadow_width):
-            alpha = 50 - i * 15
-            pygame.draw.rect(desc_surface, (0, 0, 0, alpha), 
-                           (i, i, desc_width - i*2, desc_height - i*2), 1, border_radius=10)
-        
-        # 네온 테두리
-        pygame.draw.rect(desc_surface, (0, 255, 255), (0, 0, desc_width, desc_height), 2, border_radius=10)
-        
-        # 모서리 장식
-        corner_size = 10
-        corners = [(0, 0), (desc_width - corner_size, 0), 
-                  (0, desc_height - corner_size), (desc_width - corner_size, desc_height - corner_size)]
-        for cx, cy in corners:
-            pygame.draw.lines(desc_surface, (0, 255, 255), False, 
-                            [(cx + (corner_size if cx == 0 else 0), cy),
-                             (cx, cy), 
-                             (cx, cy + (corner_size if cy == 0 else 0))], 2)
-        
-        self.screen.blit(desc_surface, (desc_x, desc_y))
-        
-        # 테두리 강조
-        pygame.draw.rect(self.screen, (0, 255, 255), (desc_x, desc_y, desc_width, desc_height), 2)
-        
-        # 패널 제목 아이콘 그리기
-        icon_size = 16
-        icon_x = desc_x + 8
-        icon_y = desc_y + 8
-        
-        # 스킬 아이콘 그리기 (육각형 모양)
-        icon_surface = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
-        center_x = icon_size // 2
-        center_y = icon_size // 2
-        
-        # 육각형 점들 계산
-        hex_points = []
-        for i in range(6):
-            angle = i * math.pi / 3
-            x = center_x + 7 * math.cos(angle)
-            y = center_y + 7 * math.sin(angle)
-            hex_points.append((x, y))
-        
-        # 육각형 채우기
-        pygame.draw.polygon(icon_surface, (100, 200, 255), hex_points)
-        pygame.draw.polygon(icon_surface, (255, 255, 255), hex_points, 1)
-        
-        # 중앙에 작은 원 그리기
-        pygame.draw.circle(icon_surface, (255, 255, 255), (center_x, center_y), 2)
-        
-        self.screen.blit(icon_surface, (icon_x, icon_y))
-        
-        # 패널 제목 텍스트 (아이콘 옆에)
-        title_text = self.font_small.render("정보", True, (255, 255, 100))
-        self.screen.blit(title_text, (desc_x + 28, desc_y + 8))
-        
-        # 스킬 이름 (작은 폰트 사용)
-        skill_name = self.font_small.render(selected_skill['name'], True, (255, 255, 255))
-        self.screen.blit(skill_name, (desc_x + 8, desc_y + 30))
-        
-        # 스킬 설명 (줄바꿈 처리) - 축소된 박스에 맞게 조정
-        desc_lines = []
-        desc_text = selected_skill["description"]
-        max_chars = 12  # 한 줄에 들어갈 최대 문자 수 (150px 박스에 맞게 축소)
-        
-        # 긴 설명을 여러 줄로 나누기
-        if len(desc_text) > max_chars:
-            words = desc_text.split(' ')
-            current_line = ""
-            for word in words:
-                if len(current_line + word) <= max_chars:
-                    current_line += word + " "
-                else:
-                    if current_line:
-                        desc_lines.append(current_line.strip())
-                    current_line = word + " "
-            if current_line:
-                desc_lines.append(current_line.strip())
-        else:
-            desc_lines.append(desc_text)
-        
-        # 설명 텍스트 출력 (작은 폰트와 간격 조정)
-        for i, line in enumerate(desc_lines):
-            line_y = desc_y + 50 + (i * 18)  # 간격 축소 (25 → 18)
-            if line_y < desc_y + desc_height - 80:  # 패널 범위 내에서만 출력
-                skill_desc = self.font_small.render(line, True, (220, 220, 220))
-                self.screen.blit(skill_desc, (desc_x + 8, line_y))
-        
-        # 스킬 레벨 정보 (축소된 텍스트)
-        current_level = self.skill_system.get_skill_level(selected_skill["id"])
-        level_y = desc_y + 50 + (len(desc_lines) * 18) + 15  # 간격 조정
-        
-        # 마스터 상태 확인
-        is_master = (selected_skill['max_level'] == 5 and current_level == 5)  # 레벨 6 보너스 받는 마스터
-        is_maxed = (current_level == selected_skill['max_level'])  # 최대 레벨 도달 (모든 스킬)
-        
-        if is_master:
-            # 마스터 표시 (황금색 - 레벨 6 보너스)
-            level_info = self.font_small.render("★ MASTER ★", True, (255, 215, 0))  # 황금색
-            self.screen.blit(level_info, (desc_x + 8, level_y))
-            
-            # 마스터 보너스 설명
-            bonus_y = level_y + 20
-            bonus_text = self.font_small.render("보너스: Lv.6 효과 적용", True, (255, 200, 100))
-            self.screen.blit(bonus_text, (desc_x + 8, bonus_y))
-            level_y = bonus_y  # 다음 텍스트 위치 조정
-        elif is_maxed:
-            # 일반 MAX 표시 (은색 - 보너스 없음)
-            level_info = self.font_small.render("[ MAX LEVEL ]", True, (220, 220, 220))  # 은색
-            self.screen.blit(level_info, (desc_x + 8, level_y))
-        else:
-            level_info = self.font_small.render(f"Lv: {current_level}/{selected_skill['max_level']}", True, (150, 255, 150))
-            self.screen.blit(level_info, (desc_x + 8, level_y))
-        
-        # 업그레이드 비용/상태
-        cost_y = level_y + 20  # 간격 축소 (30 → 20)
-        if current_level < selected_skill["max_level"]:
-            can_upgrade = self.skill_system.can_upgrade_skill(selected_skill["id"])
-            cost_color = (100, 255, 100) if can_upgrade else (255, 100, 100)
-            
-            # 실제 비용 계산 (레벨 4부터 비용 증가: 1→2, 2→3)
-            actual_cost = selected_skill['cost']
-            if selected_skill['cost'] == 1 and current_level >= 3:
-                actual_cost = 2
-            elif selected_skill['cost'] == 2 and current_level >= 3:
-                actual_cost = 3
-            
-            cost_text = f"비용: {actual_cost}TP"  # 축소된 텍스트
-            if not can_upgrade:
-                # 조건 확인
-                if self.skill_system.skill_points < actual_cost:
-                    cost_text += "\n(포인트 부족)"
-                elif selected_skill.get("total_tp_required") and self.skill_system.total_invested_points < selected_skill.get("total_tp_required", 0):
-                    cost_text += f"\n(누적 TP {selected_skill.get('total_tp_required', 0)} 필요)"
-                else:
-                    cost_text += "\n(선행스킬 필요)"
-            
-            # 여러 줄 텍스트 처리 (여백 축소)
-            cost_lines = cost_text.split('\n')
-            for i, cost_line in enumerate(cost_lines):
-                cost_info = self.font_small.render(cost_line, True, cost_color)
-                self.screen.blit(cost_info, (desc_x + 8, cost_y + (i * 16)))  # 간격 축소 (20 → 16)
-        else:
-            max_info = self.font_small.render("✅ 최대!", True, (255, 255, 100))  # 축소된 텍스트
-            self.screen.blit(max_info, (desc_x + 8, cost_y))
-
-# 전역 스킬 시스템 인스턴스
-skill_system = SkillSystem()
-# 처음 생성 시 스킬 초기화
-skill_system.init_fresh_skills()
 
 def get_skill_bonus(skill_id):
     """스킬 보너스 값 반환"""
@@ -3357,11 +3241,13 @@ def get_skill_bonus(skill_id):
         "dash_stun": level * 0.05,      # 0.05초 per level (구 버전)
         "dash_gauge": level * 10,       # 10 per level (구 버전)
         
-        "item_spawn": level * 0.1,      # 10% per level
-        "item_cooldown": level * 0.6,   # 0.6초 per level
-        "item_slot": level,             # 1 per level
-        "item_pachinko": level * 0.05,  # 5% per level
-        "item_legendary": level,        # 0 or 1
+        "item_luck": level,                 # 레벨 정보 (별도 헬퍼에서 사용)
+        "item_cooldown_mastery": level,
+        "item_gauge_mastery": level * 10,   # 게이지 +10 per level
+        "item_bag_expansion": level,        # 슬롯 +1 per level
+        "item_gamble": level,               # 레벨 정보 (도박 설정용)
+        "item_recycle": level,              # 레벨 정보 (연금술 확률용)
+        "item_treasure_map": level,         # 레벨 정보 (전설 확률용)
         
         "paddle_gauge": level * 5,      # 5 per level
         "paddle_speed": level * 0.5,    # 0.5 per level
@@ -3371,6 +3257,90 @@ def get_skill_bonus(skill_id):
     }
     
     return bonuses.get(skill_id, 0)
+
+
+def get_skill_level(skill_id):
+    """특정 스킬 레벨 조회"""
+    return skill_system.get_skill_level(skill_id)
+
+
+def compute_item_spawn_delay_multiplier(level):
+    """행운 스킬 레벨을 받아 실제 딜레이 배율 계산"""
+    base = max(0.05, 1.0 - 0.05 * level)
+    if level >= 5:
+        base = max(0.05, base - 0.05)
+    return base
+
+
+
+def compute_item_cooldown_multiplier(level: int) -> float:
+    base = max(0.1, 1.0 - 0.08 * level)
+    if level >= 5:
+        base = max(0.1, base - 0.08)
+    return base
+
+
+def compute_item_gauge_bonus(level: int) -> int:
+    bonus = level * 10
+    if level >= 5:
+        bonus += 10
+    return bonus
+
+
+def get_item_spawn_delay_multiplier():
+    """행운 스킬에 따른 아이템 스폰 대기시간 배율"""
+    level = get_skill_level("item_luck")
+    return compute_item_spawn_delay_multiplier(level)
+
+
+def get_active_item_cooldown_multiplier():
+    """숙련 스킬에 따른 엑티브 아이템 쿨타임 배율"""
+    level = get_skill_level("item_cooldown_mastery")
+    return compute_item_cooldown_multiplier(level)
+
+
+def get_active_item_gauge_bonus():
+    """숙달 스킬에 따른 게이지 보너스"""
+    level = get_skill_level("item_gauge_mastery")
+    bonus = level * 10
+    if level >= 5:
+        bonus += 10
+    return bonus
+
+
+def get_item_slot_bonus():
+    """가방 확장 스킬에 따른 추가 슬롯 수"""
+    return get_skill_level("item_bag_expansion")
+
+
+def get_item_recycle_chance():
+    """연금술 스킬 확률"""
+    level = get_skill_level("item_recycle")
+    if level <= 0:
+        return 0.0
+    return min(0.9, 0.2 + 0.1 * (level - 1))
+
+
+def get_item_gamble_settings():
+    """도박 스킬 확률과 최대 추가 횟수"""
+    level = get_skill_level("item_gamble")
+    if level <= 0:
+        return 0.0, 0
+    chance = min(0.95, 0.25 + 0.15 * (level - 1))
+    max_extra = 1 if level < 3 else 2
+    return chance, max_extra
+
+
+def get_treasure_map_field_multiplier():
+    """보물지도 스킬이 전설 필드 확률에 주는 배율"""
+    level = get_skill_level("item_treasure_map")
+    return 1.0 + 3.0 * level
+
+
+def get_treasure_map_gacha_bonus():
+    """보물지도 스킬이 가챠 전설 확률에 주는 추가치"""
+    level = get_skill_level("item_treasure_map")
+    return 0.05 * level
 
 def add_skill_points(points):
     """스킬 포인트 추가 (스테이지 클리어 시 호출)"""

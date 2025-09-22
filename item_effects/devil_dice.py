@@ -4,10 +4,21 @@
 지속시간: 30초 (다음 라운드 유지, 스테이지 전환시 종료)
 """
 
+import os
+import sys
 import pygame
 import random
 import math
 from typing import Dict, Any, Optional, Tuple
+
+
+def resource_path(relative_path: str) -> str:
+    """PyInstaller 호환 리소스 경로"""
+    try:
+        base_path = sys._MEIPASS  # type: ignore[attr-defined]
+    except Exception:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
 
 class DevilDice:
     """악마의 주사위 액티브 아이템"""
@@ -67,10 +78,24 @@ class DevilDice:
         
     def init_fonts(self):
         """폰트 초기화"""
-        try:
-            self.font = pygame.font.Font("NeoDGM.ttf", 24)
-            self.small_font = pygame.font.Font("NeoDGM.ttf", 16)
-        except:
+        font_candidates = [
+            "NeoDunggeunmoPro.ttf",
+            "NeoDGM.ttf",
+            "NanumSquareB.ttf",
+            "NanumSquareR.ttf",
+        ]
+
+        for candidate in font_candidates:
+            try:
+                path = resource_path(candidate)
+                self.font = pygame.font.Font(path, 24)
+                self.small_font = pygame.font.Font(path, 16)
+                break
+            except Exception:
+                self.font = None
+                self.small_font = None
+
+        if self.font is None or self.small_font is None:
             self.font = pygame.font.Font(None, 24)
             self.small_font = pygame.font.Font(None, 16)
     

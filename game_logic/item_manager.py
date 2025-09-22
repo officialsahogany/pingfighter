@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Any
 from core.global_manager import GlobalManager
 from core.events import EventType, emit_event
 import items  # 기존 items.py 활용
+import academy
 
 
 class ItemManager:
@@ -49,10 +50,17 @@ class ItemManager:
         # 아이템 쿨다운
         self.item_cooldowns = {}
         self.default_cooldown = 8000  # 8초
-        
+
+    def get_effective_max_slots(self) -> int:
+        try:
+            bonus = int(academy.get_item_slot_bonus())
+        except Exception:
+            bonus = 0
+        return self.max_item_slots + bonus
+
     def spawn_item(self) -> bool:
         """랜덤 아이템 스폰
-        
+
         Returns:
             스폰 성공 여부
         """
@@ -63,14 +71,28 @@ class ItemManager:
             return False
             
         # 확률 계산
-        total_chance = sum(item['chance'] for item in available_items)
+        legendary_names = {'ragnarok_hammer', 'hermes_shoes', 'poseidon_trident'}
+        try:
+            legendary_multiplier = academy.get_treasure_map_field_multiplier()
+        except Exception:
+            legendary_multiplier = 1.0
+
+        total_chance = 0.0
+        for item in available_items:
+            chance = item['chance']
+            if item['name'] in legendary_names:
+                chance *= legendary_multiplier
+            total_chance += chance
         random_value = random.random() * total_chance
-        
+
         current_chance = 0
         selected_item = None
-        
+
         for item in available_items:
-            current_chance += item['chance']
+            chance = item['chance']
+            if item['name'] in legendary_names:
+                chance *= legendary_multiplier
+            current_chance += chance
             if random_value <= current_chance:
                 selected_item = item
                 break
@@ -247,7 +269,7 @@ class ItemManager:
         
     def _collect_active_item(self, item: Dict):
         """액티브 아이템 획득"""
-        if len(self.active_item_slots) >= self.max_item_slots:
+        if len(self.active_item_slots) >= self.get_effective_max_slots():
             # 현재 선택된 슬롯 교체
             self.active_item_slots[self.selected_slot_index] = {
                 'name': item['type']['name'],
@@ -318,12 +340,29 @@ class ItemManager:
         
         # 쿨다운 체크
         now = pygame.time.get_ticks()
-        if now - item.get('last_use', 0) < self.default_cooldown:
+        try:
+            cooldown = int(self.default_cooldown * academy.get_active_item_cooldown_multiplier())
+        except Exception:
+            cooldown = self.default_cooldown
+
+        if now - item.get('last_use', 0) < cooldown:
             return False
-            
+
         # 아이템 효과 발동
         self._activate_item_effect(item['name'])
-        
+
+        try:
+            gauge_bonus = academy.get_active_item_gauge_bonus()
+        except Exception:
+            gauge_bonus = 0
+        if gauge_bonus:
+            current_max = self.global_manager.get('special_gauge_max', 1000)
+            gauge = self.global_manager.get('special_gauge', 0)
+            gauge = min(current_max, gauge + gauge_bonus)
+            self.global_manager.set('special_gauge', gauge)
+            if gauge >= 350:
+                self.global_manager.set('special_ready', True)
+
         # 쿨다운 설정
         item['last_use'] = now
         

@@ -1,5 +1,6 @@
 import os
 import sys
+import academy
 
 def resource_path(relative_path):
     """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환"""
@@ -31,6 +32,23 @@ except ImportError:
 ACTIVE_COOLDOWN_MS = 8000  # 8초 쿨타임
 
 WIDTH, HEIGHT = 600, 750  # 화면 크기
+
+# 연금술 텍스트 이펙트 폰트 캐시
+_alchemy_font = None
+
+
+def get_alchemy_font():
+    global _alchemy_font
+    if _alchemy_font is None:
+        for candidate in ["NeoDunggeunmoPro.ttf", "NeoDGM.ttf", "NanumSquareB.ttf", "NanumSquareR.ttf"]:
+            try:
+                _alchemy_font = pygame.font.Font(resource_path(candidate), 18)
+                break
+            except Exception:
+                _alchemy_font = None
+        if _alchemy_font is None:
+            _alchemy_font = pygame.font.Font(None, 18)
+    return _alchemy_font
 
 # 사운드 로드
 try:
@@ -96,7 +114,8 @@ def load_item_icons():
     
     for item_name, icon_file in icon_files.items():
         try:
-            icon = pygame.image.load(f"items/{icon_file}")
+            icon_path = resource_path(os.path.join("items", icon_file))
+            icon = pygame.image.load(icon_path)
             icon = pygame.transform.scale(icon, (32, 32))  # 표준 크기로 조정
             ITEM_ICONS[item_name] = icon
             
@@ -341,7 +360,7 @@ ITEM_TYPES = [
         "color": (100, 200, 255),  # 하늘색
         "effect": "predictor",
         "icon": None,
-        "chance": 0.007,  # 확률 1.5% (밸런스 조정: 2.5% → 1.5%)
+        "chance": 0.003,  # 확률 1.5% (밸런스 조정: 2.5% → 1.5%)
         "duration": 600,
         "unlock_condition": None
     },
@@ -774,15 +793,29 @@ def spawn_random_item():
     # 스킬 효과 적용: 아이템 스폰 확률 증가
     import skill
     skill_spawn_boost = skill.apply_item_spawn_boost(1.0)  # 기본 확률 1.0에 스킬 효과 적용
-    
-    total_chance = sum(item["chance"] * skill_spawn_boost for item in available_items)
+
+    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
+    try:
+        legendary_multiplier = academy.get_treasure_map_field_multiplier()
+    except Exception:
+        legendary_multiplier = 1.0
+
+    total_chance = 0.0
+    for item in available_items:
+        adjusted_chance = item["chance"] * skill_spawn_boost
+        if item["name"] in legendary_names:
+            adjusted_chance *= legendary_multiplier
+        total_chance += adjusted_chance
     random_value = random.random() * total_chance
-    
+
     current_chance = 0
     selected_item = None
-    
+
     for item in available_items:
-        current_chance += item["chance"] * skill_spawn_boost  # 스킬 부스트 적용 수정
+        adjusted_chance = item["chance"] * skill_spawn_boost
+        if item["name"] in legendary_names:
+            adjusted_chance *= legendary_multiplier
+        current_chance += adjusted_chance  # 스킬 부스트 적용 수정
         if random_value <= current_chance:
             selected_item = item
             break
@@ -1047,7 +1080,7 @@ def draw_cooldown_overlay(screen, x, y, size, last_use_time, cooldown_ms):
     screen.blit(overlay, (x, y))
 
 
-def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cooldown_ms=10000, round_start_time=None):
+def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cooldown_ms=10000, round_start_time=None, alchemy_notices=None):
     """엑티브 아이템 슬롯 + 쿨타임 표시 통합"""
     if not active_item_slot:
         return
@@ -1069,6 +1102,8 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
         time_since_round_start = current_time - round_start_time
 
     # 리스트 형태(다중 슬롯)
+    notice_font = get_alchemy_font() if alchemy_notices else None
+
     if isinstance(active_item_slot, list):
         for i, item in enumerate(active_item_slot):
             x = slot_x + i * (SLOT_W + 10)
@@ -1153,6 +1188,37 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                     number_font = pygame.font.Font(None, 16)
                     number_text = number_font.render(str(i + 1), True, (255, 255, 255))
                     screen.blit(number_text, (x + 2, y + 2))
+
+            if alchemy_notices and notice_font:
+                for notice in alchemy_notices:
+                    if notice.get("slot_index") != i:
+                        continue
+                    duration = max(1, notice.get("duration", 1))
+                    remaining = max(0, notice.get("timer", 0))
+                    if remaining <= 0:
+                        continue
+                    ratio = remaining / duration
+                    progress = 1.0 - ratio
+                    alpha = int(220 * (ratio ** 0.9))
+                    y_offset = -12 - progress * 18
+                    text = "연금술!"
+                    text_surface = notice_font.render(text, True, (190, 170, 255))
+                    scale = 1.0 + 0.08 * math.sin(progress * math.pi)
+                    if abs(scale - 1.0) > 0.01:
+                        w = max(1, int(text_surface.get_width() * scale))
+                        h = max(1, int(text_surface.get_height() * scale))
+                        text_surface = pygame.transform.smoothscale(text_surface, (w, h))
+                    text_surface.set_alpha(alpha)
+                    text_rect = text_surface.get_rect(center=(x + SLOT_W // 2, y - 10 + y_offset))
+                    glow_surface = pygame.Surface((text_rect.width + 10, text_rect.height + 6), pygame.SRCALPHA)
+                    pygame.draw.ellipse(glow_surface, (190, 170, 255, int(alpha * 0.25)), glow_surface.get_rect())
+                    screen.blit(glow_surface, (text_rect.x - 5, text_rect.y - 3))
+                    shadow = notice_font.render(text, True, (0, 0, 0))
+                    shadow = pygame.transform.smoothscale(shadow, text_surface.get_size())
+                    shadow.set_alpha(int(alpha * 0.5))
+                    screen.blit(shadow, (text_rect.x + 2, text_rect.y + 2))
+                    screen.blit(text_surface, text_rect)
+                    break
     else:
         # 단일 슬롯 처리
         x, y = slot_x, slot_y
@@ -1183,7 +1249,36 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                          (x - border_margin, y - border_margin,
                           SLOT_W + border_margin * 2, SLOT_H + border_margin * 2), 3)
 
-
+        if alchemy_notices and notice_font:
+            for notice in alchemy_notices:
+                if notice.get("slot_index") != 0:
+                    continue
+                duration = max(1, notice.get("duration", 1))
+                remaining = max(0, notice.get("timer", 0))
+                if remaining <= 0:
+                    continue
+                ratio = remaining / duration
+                progress = 1.0 - ratio
+                alpha = int(220 * (ratio ** 0.9))
+                y_offset = -12 - progress * 18
+                text = "연금술!"
+                text_surface = notice_font.render(text, True, (190, 170, 255))
+                scale = 1.0 + 0.08 * math.sin(progress * math.pi)
+                if abs(scale - 1.0) > 0.01:
+                    w = max(1, int(text_surface.get_width() * scale))
+                    h = max(1, int(text_surface.get_height() * scale))
+                    text_surface = pygame.transform.smoothscale(text_surface, (w, h))
+                text_surface.set_alpha(alpha)
+                text_rect = text_surface.get_rect(center=(x + SLOT_W // 2, y - 10 + y_offset))
+                glow_surface = pygame.Surface((text_rect.width + 10, text_rect.height + 6), pygame.SRCALPHA)
+                pygame.draw.ellipse(glow_surface, (190, 170, 255, int(alpha * 0.25)), glow_surface.get_rect())
+                screen.blit(glow_surface, (text_rect.x - 5, text_rect.y - 3))
+                shadow = notice_font.render(text, True, (0, 0, 0))
+                shadow = pygame.transform.smoothscale(shadow, text_surface.get_size())
+                shadow.set_alpha(int(alpha * 0.5))
+                screen.blit(shadow, (text_rect.x + 2, text_rect.y + 2))
+                screen.blit(text_surface, text_rect)
+                break
 
 
 

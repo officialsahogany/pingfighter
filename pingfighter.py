@@ -799,11 +799,12 @@ try:
 except:
     # 사이버펑크 스타일 슬롯 추가 아이콘
     slot_add_icon = pygame.Surface((20, 20), pygame.SRCALPHA)
-    # + 모양
-    pygame.draw.rect(slot_add_icon, (0, 255, 200), (8, 2, 4, 16))
-    pygame.draw.rect(slot_add_icon, (0, 255, 200), (2, 8, 16, 4))
-    # 글로우
-    pygame.draw.rect(slot_add_icon, (0, 200, 150, 100), (0, 0, 20, 20), 1)
+    pygame.draw.rect(slot_add_icon, (255, 200, 0), (4, 6, 12, 8), 2)
+    pygame.draw.circle(slot_add_icon, (0, 40, 80), (10, 10), 10, 2)
+
+# 연금술 텍스트 이펙트 설정
+ALCHEMY_NOTICE_DURATION = 72  # 1.2초 동안 유지
+
 for item in items.ITEM_TYPES:
     if item["name"] == "slot_add":
         item["icon"] = slot_add_icon
@@ -1560,6 +1561,52 @@ selected_item_index = 0              # 현재 선택 중인 아이템 인덱스
 MAX_ITEM_SLOTS = 3                   # 최대 아이템 슬롯 수 (기본값)
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
 last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역 쿨타임용)
+
+# 연금술 텍스트 이펙트
+
+alchemy_notices = []  # [{'slot_index': int, 'timer': int, 'duration': int}]
+
+
+def get_effective_max_item_slots():
+    """스킬 보너스를 포함한 실제 아이템 슬롯 수"""
+    bonus = 0
+    if 'academy' in globals():
+        try:
+            bonus = int(academy.get_item_slot_bonus())
+        except Exception:
+            bonus = 0
+    return MAX_ITEM_SLOTS + bonus
+
+
+def create_alchemy_notice(slot_index: int):
+    """연금술 텍스트 이펙트를 생성"""
+    for notice in alchemy_notices:
+        if notice["slot_index"] == slot_index:
+            notice["timer"] = ALCHEMY_NOTICE_DURATION
+            notice["duration"] = ALCHEMY_NOTICE_DURATION
+            return
+    alchemy_notices.append({
+        "slot_index": slot_index,
+        "timer": ALCHEMY_NOTICE_DURATION,
+        "duration": ALCHEMY_NOTICE_DURATION,
+    })
+
+
+def update_alchemy_notices():
+    """연금술 텍스트 이펙트를 갱신"""
+    for notice in alchemy_notices:
+        notice["timer"] -= 1
+    alchemy_notices[:] = [
+        n for n in alchemy_notices
+        if n["timer"] > 0 and n["slot_index"] < len(active_item_slot)
+    ]
+
+
+
+def clear_alchemy_notices():
+    """연금술 텍스트 이펙트를 즉시 비움"""
+    alchemy_notices.clear()
+
 # 패시브 아이템
 selected_passive_item = -1           # 패시브 아이템 선택 인덱스
 # 전역변수
@@ -1963,7 +2010,10 @@ except Exception as e:
             (center[0] + dx * 0.3, center[1] + dy * 0.3 + 2),
             (center[0] + dx, center[1] + dy),
             3,
-        )
+                                                       )
+
+# 연금술 텍스트 이펙트 설정
+
 
 # 조명탄 아이콘 로드
 flare_icon = None  # 전역 변수로 선언
@@ -15218,7 +15268,7 @@ def store_active_item(item_data):
     if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
-    is_overflow_pickup = len(active_item_slot) >= MAX_ITEM_SLOTS
+    is_overflow_pickup = len(active_item_slot) >= get_effective_max_item_slots()
     if is_overflow_pickup and not allow_overflow:
         return
 
@@ -24541,12 +24591,19 @@ def show_victory_screen(stage_cleared, reward):
 
                             gacha_reroll_streak += 1
                             legendary_bonus_ratio = min(gacha_reroll_streak * 0.05, 0.20)
+                            skill_legendary_bonus = 0.0
+                            if 'academy' in globals():
+                                try:
+                                    skill_legendary_bonus = academy.get_treasure_map_gacha_bonus()
+                                except Exception:
+                                    skill_legendary_bonus = 0.0
+                            total_legendary_bonus = min(0.45, legendary_bonus_ratio + skill_legendary_bonus)
 
-                            reroll_warning_text = f"별 2개 사용! 전설 확률 +{int(legendary_bonus_ratio * 100)}%"
+                            reroll_warning_text = f"별 2개 사용! 전설 확률 +{int(total_legendary_bonus * 100)}%"
                             reroll_warning_timer = 120
                             pygame.event.get()
                             bgm_manager.stop_bgm()
-                            gacha.init_gacha(template, legendary_bonus=legendary_bonus_ratio)
+                            gacha.init_gacha(template, legendary_bonus=total_legendary_bonus)
                             gacha.run_gacha(
                                 SCREEN,
                                 WIDTH,
@@ -24558,7 +24615,7 @@ def show_victory_screen(stage_cleared, reward):
                                 get_trade_point_star_count,
                                 spend_trade_point_stars,
                                 auto_start=True,
-                                legendary_bonus=legendary_bonus_ratio,
+                                legendary_bonus=total_legendary_bonus,
                             )
                             pygame.event.get()
                             # 가챠로 별을 사용했으므로 승리 화면 우측 상단 별 UI를 즉시 동기화
@@ -24643,6 +24700,7 @@ def show_start_screen():
     # bosspong.py 내부 변수들도 초기화
     passive_item_list = []  # 패시브 아이템 초기화
     active_item_slot = []  # 엑티브 아이템 초기화
+    clear_alchemy_notices()
     selected_item_index = 0  # 선택 인덱스 초기화
     MAX_ITEM_SLOTS = 3  # 아이템 슬롯 기본값으로 초기화
     #  패시브 아이템 효과 초기화
@@ -33352,7 +33410,7 @@ def show_item_manager_menu():
 
     def update_quantity_bounds(item_name: str) -> int:
         other_total = sum(count for name, count in selected_active_counts.items() if name != item_name)
-        return max(0, MAX_ITEM_SLOTS - other_total)
+        return max(0, get_effective_max_item_slots() - other_total)
 
     def flatten_active_selection() -> list[str]:
         result: list[str] = []
@@ -33654,9 +33712,10 @@ def show_item_manager_menu():
 
             other_total = sum(count for name, count in selected_active_counts.items() if name != quantity_target_item)
             current_total = other_total + quantity_current_value
-            remaining_slots = max(0, MAX_ITEM_SLOTS - current_total)
+            effective_slots = get_effective_max_item_slots()
+            remaining_slots = max(0, effective_slots - current_total)
             limit_surface = font_small.render(
-                f"최대 {quantity_max_value}개 | 현재 {current_total}/{MAX_ITEM_SLOTS} 슬롯 (남은 {remaining_slots})",
+                f"최대 {quantity_max_value}개 | 현재 {current_total}/{effective_slots} 슬롯 (남은 {remaining_slots})",
                 True,
                 (200, 200, 200),
             )
@@ -33858,6 +33917,7 @@ def apply_selected_items(
     print(f"[DEBUG]    : {selected_firearm_items}")
     # 아이템 슬롯 초기화
     active_item_slot = []
+    clear_alchemy_notices()
     passive_item_list = []
     # 선택된 엑티브 아이템들을 슬롯에 추가
     for item_name in selected_active_items:
@@ -44470,7 +44530,13 @@ def show_result(won):
             available_items = [{"name": "long_boost", "color": (100, 200, 255), "type": "active", "icon": long_boost_icon}]
         # 가차 화면 전환 시 BGM 정지
         bgm_manager.stop_bgm()
-        gacha.init_gacha(available_items)
+        skill_legendary_bonus = 0.0
+        if 'academy' in globals():
+            try:
+                skill_legendary_bonus = academy.get_treasure_map_gacha_bonus()
+            except Exception:
+                skill_legendary_bonus = 0.0
+        gacha.init_gacha(available_items, legendary_bonus=skill_legendary_bonus)
         gacha.run_gacha(
             SCREEN,
             WIDTH,
@@ -44481,6 +44547,7 @@ def show_result(won):
             get_item_description,
             get_trade_point_star_count,
             spend_trade_point_stars,
+            legendary_bonus=skill_legendary_bonus,
         )
         show_victory_screen(stage_cleared=current_stage, reward=reward)
         current_stage += 1
@@ -45150,7 +45217,13 @@ def main(stage_num, new_boss_mode=False):
     if is_devil_dice_active():
         multipliers = get_devil_dice_multipliers()
         base_first_spawn = int(base_first_spawn / multipliers['item_spawn'])
-    
+
+    if 'academy' in globals():
+        try:
+            base_first_spawn = int(base_first_spawn * academy.get_item_spawn_delay_multiplier())
+        except Exception:
+            pass
+
     next_item_spawn_delay = base_first_spawn
     # selected_item_index 초기화 (active_item_slot이 비어있으면 0으로 설정)
     if not active_item_slot:
@@ -46475,6 +46548,11 @@ def main(stage_num, new_boss_mode=False):
         cooldown_reduction = 800 if master_obtained else 0
         cooldown_reduction += 2400 if cooltime_obtained else 0
         active_item_cooldown_ms = max(0, 8000 - cooldown_reduction)
+        if 'academy' in globals():
+            try:
+                active_item_cooldown_ms = int(active_item_cooldown_ms * academy.get_active_item_cooldown_multiplier())
+            except Exception:
+                pass
         if is_devil_dice_active():
             multipliers = get_devil_dice_multipliers()
             active_item_cooldown_ms = max(0, int(active_item_cooldown_ms * multipliers['item_cooldown']))
@@ -46743,14 +46821,38 @@ def main(stage_num, new_boss_mode=False):
                         # apply_effect가 False를 반환하면 아이템 사용 실패 (투척 아이템 5초 제한 등)
                         effect_result = apply_effect(item["effect"])
                         if effect_result != False:  # 효과가 성공적으로 적용된 경우에만 아이템 제거
-                            # 사용한 아이템 제거
-                            del active_item_slot[target_index]
-                            # 선택 인덱스 조정
-                            if selected_item_index >= len(active_item_slot):
-                                selected_item_index = max(0, len(active_item_slot) - 1)
-                            elif target_index <= selected_item_index and selected_item_index > 0:
-                                # 선택된 아이템보다 앞의 아이템이 삭제되면 인덱스 조정
-                                selected_item_index -= 1
+                            recycle_triggered = False
+                            recycle_chance = 0.0
+                            gauge_bonus = 0
+                            if 'academy' in globals():
+                                try:
+                                    recycle_chance = academy.get_item_recycle_chance()
+                                    gauge_bonus = academy.get_active_item_gauge_bonus()
+                                except Exception:
+                                    recycle_chance = 0.0
+                                    gauge_bonus = 0
+                            if recycle_chance > 0 and random.random() < recycle_chance:
+                                recycle_triggered = True
+                                create_alchemy_notice(target_index)
+
+                            if gauge_bonus:
+                                current_max = get_max_gauge() if 'get_max_gauge' in globals() else special_gauge_max
+                                special_gauge = min(current_max, special_gauge + gauge_bonus)
+                                if special_gauge >= 350:
+                                    special_ready = True
+
+                            if not recycle_triggered:
+                                # 사용한 아이템 제거
+                                del active_item_slot[target_index]
+                                # 선택 인덱스 조정
+                                if selected_item_index >= len(active_item_slot):
+                                    selected_item_index = max(0, len(active_item_slot) - 1)
+                                elif target_index <= selected_item_index and selected_item_index > 0:
+                                    # 선택된 아이템보다 앞의 아이템이 삭제되면 인덱스 조정
+                                    selected_item_index -= 1
+                            else:
+                                # 유지된 아이템의 마지막 사용 시간만 업데이트
+                                active_item_slot[target_index]["last_use"] = current_time
                             # 전역 쿨타임 업데이트
                             last_item_use_time = current_time
                             # 남은 다른 아이템들에만 쿨타임 적용 (사용한 아이템은 제거되었으므로)
@@ -47013,6 +47115,12 @@ def main(stage_num, new_boss_mode=False):
                         # item_spawn이 0.5면 스폰 주기가 길어짐 (딜레이를 배율로 나눔)
                         base_delay = int(base_delay / multipliers['item_spawn'])
                     
+                    if 'academy' in globals():
+                        try:
+                            base_delay = int(base_delay * academy.get_item_spawn_delay_multiplier())
+                        except Exception:
+                            pass
+
                     next_item_spawn_delay = base_delay
             
             #  파워스매싱 정지 시간 체크 및 처리
@@ -47529,6 +47637,7 @@ def main(stage_num, new_boss_mode=False):
             # UI 요소들은 화면 흔들림과 별도로 그리기 (게이지, 아이템 등) - 맵 효과 위에
             if not new_boss_mode_active:
                 # 아이템과 게이지는 흔들리지 않도록 별도로 그리기
+                update_alchemy_notices()
                 items.draw_active_item(
                     SCREEN,
                     active_item_slot,
@@ -47536,6 +47645,7 @@ def main(stage_num, new_boss_mode=False):
                     selected_item_index,
                     active_item_cooldown_ms,
                     round_start_time,
+                    alchemy_notices,
                 )
                 items.draw_items(SCREEN)
                 
@@ -47601,6 +47711,7 @@ def main(stage_num, new_boss_mode=False):
             # UI 요소들 그리기 (화면 흔들림이 없을 때도 그려야 함) - 맵 효과 위에 그리기
             if not new_boss_mode_active:
                 # 장인/쿨타임 보정 + 악마의 주사위 배율까지 반영한 쿨타임 표시
+                update_alchemy_notices()
                 items.draw_active_item(
                     SCREEN,
                     active_item_slot,
@@ -47608,6 +47719,7 @@ def main(stage_num, new_boss_mode=False):
                     selected_item_index,
                     active_item_cooldown_ms,
                     round_start_time,
+                    alchemy_notices,
                 )
                 items.draw_items(SCREEN)
                 
