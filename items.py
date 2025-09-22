@@ -305,7 +305,7 @@ ITEM_TYPES = [
         "color": (255, 100, 0),  # 주황색
         "effect": "molotov",
         "icon": None,
-        "chance": 0.020,  # 확률 조정 (2.0%)
+        "chance": 0.015,  # 확률 조정 (2.0%)
         "duration": 600,
         "unlock_condition": None
     },
@@ -323,7 +323,7 @@ ITEM_TYPES = [
         "color": (120, 90, 160),  # 보랏빛 금속톤
         "effect": "spider_mine",
         "icon": None,
-        "chance": 0.999,  # 확률 1.2%
+        "chance": 0.007,  # 확률 1.2%
         "duration": 600,
         "unlock_condition": None
     },
