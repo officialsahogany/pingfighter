@@ -66,7 +66,7 @@ class MenuContext:
 class MenuState:
     selected: int = 0
     developer_unlocked: bool = False
-    item_manager_unlocked: bool = True
+    item_manager_unlocked: bool = False
     idle_start_time: int = 0
     animation_timer: float = 0.0
     star_field: StarField = field(default_factory=StarField)
@@ -152,13 +152,6 @@ def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuStat
         simple_bg = ctx.simple_bg_factory(iw, ih)
     ctx.menu_system = menu_system
     ctx.simple_bg = simple_bg
-
-    try:
-        medal_icon = pygame.image.load(ctx.resource_path("medal.png")).convert_alpha()
-        medal_icon = pygame.transform.scale(medal_icon, (ctx.default_alpha, ctx.default_alpha))
-    except Exception:
-        medal_icon = pygame.Surface((ctx.default_alpha, ctx.default_alpha), pygame.SRCALPHA)
-        pygame.draw.circle(medal_icon, (255, 215, 0), medal_icon.get_rect().center, ctx.default_alpha // 2)
 
     while True:
         screen = ctx.get_screen()
