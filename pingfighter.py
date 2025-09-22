@@ -8816,15 +8816,15 @@ def calculate_trajectory():
 
     skill_type_debug = skill_type
 
-        # 파워스매싱 예측 (모든 스테이지)
-        if boss_special_gauge > 90:
-            skill_probability = max(skill_probability, 0.5)
-            if not skill_type:
-                skill_type = "power_smashing"
-        elif boss_special_gauge > 70:
-            skill_probability = max(skill_probability, 0.2)
-            if not skill_type:
-                skill_type = "power_smashing"
+    # 파워스매싱 예측 (모든 스테이지)
+    if boss_special_gauge > 90:
+        skill_probability = max(skill_probability, 0.5)
+        if not skill_type:
+            skill_type = "power_smashing"
+    elif boss_special_gauge > 70:
+        skill_probability = max(skill_probability, 0.2)
+        if not skill_type:
+            skill_type = "power_smashing"
 
     high_detail_skills = {"flame_trail", "power_smashing", "magnetic", "meditation", "quake"}
     sampling_interval = 1 if skill_type in high_detail_skills else 3
@@ -9250,6 +9250,12 @@ def draw_predicted_trajectory():
     else:
         # 플레이어가 친 경우 궤적 지우기
         predicted_trajectory = []
+        if DEBUG_PREDICTOR:
+            print(f"[Predictor] draw cleared because ball heading up: vy={ball_vel[1]:.2f}")
+        return
+
+    if DEBUG_PREDICTOR:
+        print(f"[Predictor] draw render len={len(predicted_trajectory)} first_points={predicted_trajectory[:5]}")
     # 저장된 궤적 그리기
     if len(predicted_trajectory) > 1:
         # 전체 궤적을 하나의 Surface에 그리기
