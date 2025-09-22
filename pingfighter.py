@@ -45177,6 +45177,13 @@ def main(stage_num, new_boss_mode=False):
             print("💪 코만도 캐릭터 게임 시작 - 코만도암 + 수류탄 1회 지급")
     
     running = True
+
+    if USE_MODERN_GAME_LOOP:
+        print("[INFO] Experimental GameLoop 활성화")
+        loop = create_game_loop(SCREEN, get_legacy_game_loop_hooks())
+        loop.run()
+        return
+
     while running:
         # ========== 마이그레이션 모드: 프레임 시작 동기화 ==========
         if MIGRATION_MODE and migration_bridge:
