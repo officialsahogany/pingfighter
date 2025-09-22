@@ -8329,7 +8329,40 @@ def trigger_spider_mine_explosion(mine):
     except Exception:
         pass
 
-    trigger_boss_knockback(mine["x"], mine["y"] + mine.get("embed_depth", 0.0))
+    global boss_knockback_timer, boss_knockback_vel, boss_knockback_active
+    global boss_knockback_offset_x, boss_knockback_offset_y, boss_stunned_timer
+    global grenade_shake_timer
+
+    impact_x = mine["x"]
+    impact_y = mine["y"] + mine.get("embed_depth", 0.0)
+
+    boss_rect = BOSS if 'BOSS' in globals() else None
+    if boss_rect:
+        edge_margin = max(10, boss_rect.width // 2)
+        if boss_rect.left <= edge_margin:
+            knockback_direction = 1
+        elif boss_rect.right >= WIDTH - edge_margin:
+            knockback_direction = -1
+        else:
+            knockback_direction = 1 if impact_x < boss_rect.centerx else -1
+
+        boss_knockback_timer = BLACKSMITH_TURRET_STUN_DURATION
+        boss_knockback_vel = knockback_direction * BLACKSMITH_TURRET_KNOCKBACK_SPEED
+        boss_knockback_active = False
+        boss_knockback_offset_x = 0
+        boss_knockback_offset_y = 0
+        boss_stunned_timer = max(boss_stunned_timer, BLACKSMITH_TURRET_STUN_DURATION)
+
+    grenade_shake_timer = max(grenade_shake_timer, 25)
+
+    try:
+        effects_manager.create_impact_effect(int(impact_x), int(impact_y), 90, is_player=False)
+        effects_manager.spawn_star_particles(int(impact_x), int(impact_y), count=10)
+        effects_manager.spawn_flame_particles(int(impact_x), int(impact_y), count=8)
+        effects_manager.spawn_construction_smoke(int(impact_x), int(impact_y), count=6, spread=18)
+    except Exception:
+        pass
+
     apply_spider_mine_slow()
 
 
