@@ -453,7 +453,8 @@ class AcademyUI:
         
         # 탭 렌더링
         self._render_tabs()
-        
+        self._render_tab_summary()
+
         # 현재 탭의 스킬 트리 렌더링
         tree_ids = ['dash', 'item', 'special']
         if self.current_tab < len(tree_ids):
