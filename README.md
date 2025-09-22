@@ -57,6 +57,12 @@ python3 pingfighter.py
   export PINGFIGHTER_MODERN_LOOP=1
   python3 pingfighter.py
   ```
+- CI/자동 검증용 간단 스모크 테스트는 다음과 같이 실행할 수 있습니다.
+  ```bash
+  python3 pingfighter.py --smoke-test
+  # 또는 환경 변수 사용
+  PINGFIGHTER_SMOKE_TEST=1 python3 pingfighter.py --modern-loop
+  ```
 
 #### 2. 플레이 가능한 모듈화 버전
 ```bash

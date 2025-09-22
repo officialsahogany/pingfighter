@@ -422,6 +422,8 @@ BORDER_WIDTH = 4
 
 # 실험용 모던 게임 루프 사용 여부
 USE_MODERN_GAME_LOOP = False
+SMOKE_TEST_ENABLED = False
+SMOKE_TEST_FRAMES = 300
 
 if "--modern-loop" in sys.argv:
     USE_MODERN_GAME_LOOP = True
@@ -431,6 +433,17 @@ env_modern_loop = os.getenv("PINGFIGHTER_MODERN_LOOP", "").strip().lower()
 if env_modern_loop in {"1", "true", "on", "yes"}:
     USE_MODERN_GAME_LOOP = True
     print("[INFO] PINGFIGHTER_MODERN_LOOP 환경 변수 활성화: Experimental GameLoop 사용")
+
+if "--smoke-test" in sys.argv:
+    USE_MODERN_GAME_LOOP = True
+    SMOKE_TEST_ENABLED = True
+    print("[INFO] --smoke-test 플래그 감지: 모던 루프 스모크 테스트 모드")
+
+env_smoke_test = os.getenv("PINGFIGHTER_SMOKE_TEST", "").strip().lower()
+if env_smoke_test in {"1", "true", "on", "yes"}:
+    USE_MODERN_GAME_LOOP = True
+    SMOKE_TEST_ENABLED = True
+    print("[INFO] PINGFIGHTER_SMOKE_TEST 환경 변수 활성화: 모던 루프 스모크 테스트 모드")
 
 def draw_glow_circle(pos, radius, color, glow_intensity=3):
     """광채 효과가 있는 원 그리기 - Phase 101: unified_renderer 사용"""
@@ -45189,7 +45202,13 @@ def main(stage_num, new_boss_mode=False):
 
     if USE_MODERN_GAME_LOOP:
         print("[INFO] Experimental GameLoop 활성화")
-        loop = create_game_loop(SCREEN, get_legacy_game_loop_hooks())
+        if SMOKE_TEST_ENABLED:
+            print(f"[INFO] Smoke test 모드: {SMOKE_TEST_FRAMES} 프레임만 실행")
+        loop = create_game_loop(
+            SCREEN,
+            get_legacy_game_loop_hooks(),
+            max_frames=SMOKE_TEST_FRAMES if SMOKE_TEST_ENABLED else None,
+        )
         loop.run()
         return
 
