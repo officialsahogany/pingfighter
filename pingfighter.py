@@ -8652,15 +8652,16 @@ def throw_flare():
     print(f"  !  : X={flare_target_x:.1f}, Y={flare_target_y:.1f}")
 def activate_predictor():
     """레이저스코프 활성화 함수 - 10초간 공의 궤적 예측"""
-    global predictor_active, predictor_timer
+    global predictor_active, predictor_timer, predicted_trajectory
     predictor_active = True
     predictor_timer = 600  # 10초 지속 (60fps * 10초 = 600)
+    predicted_trajectory = []  # 초기화
     # 효과음 재생
     try:
         play_active_item_sound()
     except:
         pass
-    print("!   !")
+    print("! 레이저스코프 활성화 - 10초간 궤적 예측 !")
 def calculate_trajectory():
     """공이 보스 패들에서 출발할 때 한 번만 궤적을 계산하는 함수 (보스 기술 예측 포함)"""
     global ball_vel, BALL, WIDTH, HEIGHT, PLAYER, BOSS, predicted_trajectory, last_prediction_ball_y
