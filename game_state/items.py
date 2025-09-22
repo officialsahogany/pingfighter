@@ -93,6 +93,18 @@ class ItemStateAdapter:
         target.clear()
         target.extend(items)
 
+    def append_active_item(self, item) -> None:
+        self.active_items().append(item)
+
+    def append_passive_item(self, item) -> None:
+        self.passive_items().append(item)
+
+    def clear_active_items(self) -> None:
+        self.active_items().clear()
+
+    def clear_passive_items(self) -> None:
+        self.passive_items().clear()
+
     # 내부 --------------------------------------------------------------------
     def _require(self) -> _Hooks:
         if self._hooks is None:
