@@ -492,8 +492,19 @@ class AcademyUI:
             
     def _render_skill_info(self):
         """선택된 스킬 정보 렌더링"""
-        if not self.selected_tree or not self.selected_skill:
+        if not self.selected_tree:
+            self._on_tab_changed()
+        if not self.selected_tree:
             return
+
+        if not self.selected_skill:
+            tree_data = self.academy_mode.skill_tree_data.get(self.selected_tree, {})
+            skills = tree_data.get('skills', [])
+            fallback_id = skills[0]['id'] if skills else None
+            if fallback_id:
+                self._set_selected_skill(self.selected_tree, fallback_id)
+            else:
+                return
             
         tree = self.academy_mode.skill_trees.get(self.selected_tree)
         if not tree:
