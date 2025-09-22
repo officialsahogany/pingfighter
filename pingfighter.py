@@ -8706,6 +8706,7 @@ def calculate_trajectory():
         boss_launch_threshold = max(120, BOSS.bottom + 40)
 
     recalc_needed = False
+    skill_type_debug = "unknown"
     if ball_vel[1] > 0 and BALL.centery <= boss_launch_threshold and BALL.centery != last_prediction_ball_y:
         recalc_needed = True
         recalc_reason = "ball_launch_window"
@@ -8719,7 +8720,7 @@ def calculate_trajectory():
         recalc_reason = "no_trigger"
 
     if DEBUG_PREDICTOR:
-        print(f"[Predictor] check stage={current_stage} ball_y={BALL.centery:.1f} vy={ball_vel[1]:.2f} threshold={boss_launch_threshold} needed={recalc_needed} reason={recalc_reason} skill={skill_type}")
+        print(f"[Predictor] check stage={current_stage} ball_y={BALL.centery:.1f} vy={ball_vel[1]:.2f} threshold={boss_launch_threshold} needed={recalc_needed} reason={recalc_reason}")
 
     if not recalc_needed:
         return
@@ -8812,6 +8813,8 @@ def calculate_trajectory():
             elif boss_special_gauge > 60:
                 skill_probability = 0.2
                 skill_type = "flame_trail"
+
+    skill_type_debug = skill_type
 
         # 파워스매싱 예측 (모든 스테이지)
         if boss_special_gauge > 90:
@@ -9221,7 +9224,7 @@ def calculate_trajectory():
 
         if DEBUG_PREDICTOR:
             preview = predicted_trajectory[:5]
-            print(f"[Predictor] calculated len={len(predicted_trajectory)} skill={skill_type} freeze={freeze_frames} recovery={recovery_frames} first_points={preview}")
+            print(f"[Predictor] calculated len={len(predicted_trajectory)} skill={skill_type_debug} freeze={freeze_frames} recovery={recovery_frames} first_points={preview}")
 def draw_predicted_trajectory():
     """레이저스코프 활성화 시 저장된 궤적을 그리는 함수"""
     global predicted_trajectory, predictor_active, ball_vel
