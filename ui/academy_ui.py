@@ -103,7 +103,8 @@ class SkillNode:
 class SkillTreeUI:
     """스킬 트리 UI"""
     
-    def __init__(self, tree_data: Dict, x: int, y: int, width: int, height: int):
+    def __init__(self, tree_id: str, tree_data: Dict, x: int, y: int, width: int, height: int):
+        self.tree_id = tree_id
         self.tree_data = tree_data
         self.x = x
         self.y = y
@@ -142,7 +143,7 @@ class SkillTreeUI:
                     
     def update(self, dt: float, academy_mode):
         """스킬 트리 업데이트"""
-        tree = academy_mode.skill_trees.get(self.tree_data['name'])
+        tree = academy_mode.skill_trees.get(self.tree_id)
         if not tree:
             return
             
@@ -167,7 +168,7 @@ class SkillTreeUI:
         screen.blit(title_surface, title_rect)
         
         # 연결선 그리기
-        tree = academy_mode.skill_trees.get(self.tree_data['name'])
+        tree = academy_mode.skill_trees.get(self.tree_id)
         if tree:
             for req_id, skill_id in self.connections:
                 if req_id in self.nodes and skill_id in self.nodes:
@@ -259,7 +260,7 @@ class AcademyUI:
         y_offset = 150
         for tree_id, data in tree_data.items():
             self.skill_tree_uis[tree_id] = SkillTreeUI(
-                data, 50, y_offset, self.width - 100, 400
+                tree_id, data, 50, y_offset, self.width - 100, 400
             )
             
     def _create_tabs(self):
