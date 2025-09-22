@@ -8438,21 +8438,30 @@ def draw_spider_mines(screen):
         )
 
         step_phase = mine.get("step_phase", 0.0)
-        leg_amp = 3.0 if state in ("floor", "wall") else 1.2
+        leg_amp = 3.2 if state in ("floor", "wall") else 1.35
         leg_offsets = [
-            (-9, 8, 0.0),
-            (-11, 3, 1.2),
-            (9, 8, 2.4),
-            (11, 3, 3.6),
+            (-11, 9, 0.0),
+            (-13, 3, 0.9),
+            (-9, -3, 1.8),
+            (11, 9, 3.0),
+            (13, 3, 3.9),
+            (9, -3, 4.8),
         ]
         leg_color_outer = (30, 35, 55)
         leg_color_inner = (150, 170, 220)
+        contact_dir = -1 if mine["side"] == "left" else 1
         for index, (dx, dy, phase_shift) in enumerate(leg_offsets):
             swing = math.sin(step_phase + phase_shift) * leg_amp
-            tip_x = size // 2 + dx + swing
-            tip_y = size - 4 + math.cos(step_phase * 0.5 + phase_shift) * (1.5 if state in ("floor", "wall") else 0.5)
-            base_x = size // 2 + dx * 0.35
-            base_y = size // 2 + 3
+            if state in ("wall", "embedding", "armed"):
+                base_x = size // 2 + dx * 0.2
+                base_y = size // 2 + dy * 0.15 + 2
+                tip_x = size // 2 + contact_dir * (size // 2 - 3)
+                tip_y = size // 2 + dy * 0.5 + math.cos(step_phase * 0.5 + phase_shift) * 1.4
+            else:
+                base_x = size // 2 + dx * 0.35
+                base_y = size // 2 + 3
+                tip_x = size // 2 + dx + swing
+                tip_y = size - 4 + math.cos(step_phase * 0.5 + phase_shift) * 1.5
             base_pos = (int(base_x), int(base_y))
             tip_pos = (int(tip_x), int(tip_y))
             pygame.draw.line(body_surface, leg_color_outer, base_pos, tip_pos, 3)
