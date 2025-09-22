@@ -180,7 +180,7 @@ SKILL_TREES = {
             {
                 "id": "item_recycle",
                 "name": "연금술",
-                "description": "연금술로 사용한 아이템이 유지될 확률 20%\n(누적 TP 8+ 필요)",
+                "description": "연금술로 사용한 아이템이 유지될 확률 20%\n(누적 SP 8+ 필요)",
                 "max_level": 3,
                 "cost": 3,
                 "icon_color": (255, 205, 170),
@@ -192,7 +192,7 @@ SKILL_TREES = {
             {
                 "id": "item_treasure_map",
                 "name": "보물지도",
-                "description": "전설 필드 확률 +300%, 가챠 전설 +5%\n(누적 TP 12+ 필요)",
+                "description": "전설 필드 확률 +300%, 가챠 전설 +5%\n(누적 SP 12+ 필요)",
                 "max_level": 3,
                 "cost": 4,
                 "icon_color": (255, 220, 120),
