@@ -321,6 +321,12 @@ class SkillSystem:
     def get_tree_id_for_skill(self, skill_id):
         return self.skill_to_tree.get(skill_id)
 
+    def register_manual_investment(self, tree_id, amount):
+        if amount <= 0:
+            return
+        self.total_invested_points += amount
+        self._add_tree_points(tree_id, amount)
+
     def add_skill_points(self, points):
         """스킬 포인트 추가 (저장하지 않음)"""
         self.skill_points += points
@@ -793,7 +799,8 @@ class AcademyUI:
 
     def check_and_animate_unlocked_skills(self, recently_upgraded_skill_id):
         """누적 TP 업데이트 후 새로 해금된 스킬들에 대한 화살표 애니메이션 실행"""
-        print(f"  TP    : {recently_upgraded_skill_id} ( TP: {self.skill_system.total_invested_points})")
+        tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
+        print(f"  TP    : {recently_upgraded_skill_id} (tree TP: {tree_tp_total}, total TP: {self.skill_system.total_invested_points})")
         
         # 애니메이션 생성 전에 기존 입력 차단 해제
         animation_created = False
@@ -830,7 +837,7 @@ class AcademyUI:
                 prereq_satisfied = True
             
             # 누적 TP 조건도 확인
-            tp_satisfied = self.skill_system.total_invested_points >= total_tp_required
+            tp_satisfied = tree_tp_total >= total_tp_required
             
             # 모든 조건을 만족할 때만 애니메이션
             if prereq_satisfied and tp_satisfied:
@@ -848,14 +855,14 @@ class AcademyUI:
                     }
                     self.played_arrow_animations.add(arrow_id)  # 재생 기록
                     animation_created = True
-                    print(f"   : {recently_upgraded_skill_id} → {skill['id']} ( TP: {self.skill_system.total_invested_points})")
+                    print(f"   : {recently_upgraded_skill_id} → {skill['id']} (tree TP: {tree_tp_total})")
                 else:
                     print(f"   ( ): {recently_upgraded_skill_id} → {skill['id']}")
             else:
                 if not prereq_satisfied:
                     print(f" {skill['id']}")
                 if not tp_satisfied:
-                    print(f" {skill['id']}  TP : {self.skill_system.total_invested_points}/{total_tp_required}")
+                    print(f" {skill['id']}  TP : {tree_tp_total}/{total_tp_required}")
         
         # 실제로 화살표 애니메이션이 생성된 경우에만 입력 차단
         if animation_created:
@@ -908,11 +915,12 @@ class AcademyUI:
             
             # 2. 누적 TP 조건 확인
             if total_tp_required > 0:
-                if self.skill_system.total_invested_points < total_tp_required:
-                    print(f" {skill['id']}  TP : {self.skill_system.total_invested_points}/{total_tp_required}")
+                tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
+                if tree_tp_total < total_tp_required:
+                    print(f" {skill['id']}  TP : {tree_tp_total}/{total_tp_required}")
                     can_unlock = False
                 else:
-                    print(f" {skill['id']}  TP : {self.skill_system.total_invested_points}/{total_tp_required}")
+                    print(f" {skill['id']}  TP : {tree_tp_total}/{total_tp_required}")
             
             # 모든 조건을 만족하면 애니메이션 실행 (방금 투자한 스킬과 관련된 경우)
             if can_unlock:
@@ -945,7 +953,7 @@ class AcademyUI:
                         prereq_satisfied = True  # 선행 조건이 없는 경우
                     
                     # 선행 조건이 만족되어 있고, 이번 투자로 누적 TP 조건이 달성된 경우
-                    if prereq_satisfied and self.skill_system.total_invested_points >= total_tp_required:
+                    if prereq_satisfied and tree_tp_total >= total_tp_required:
                         should_animate = True
                 
                 if should_animate:
@@ -954,7 +962,7 @@ class AcademyUI:
                     if arrow_id not in self.played_arrow_animations:
                         self.arrow_animations[arrow_id] = {"start_time": current_time, "duration": 1000, "from_skill": unlocked_skill_id, "to_skill": skill["id"]}
                         self.played_arrow_animations.add(arrow_id)  # 재생 기록
-                        print(f"   : {unlocked_skill_id} → {skill['id']} ( TP: {self.skill_system.total_invested_points})")
+                        print(f"   : {unlocked_skill_id} → {skill['id']} (tree TP: {tree_tp_total})")
                     else:
                         print(f"   ( ): {unlocked_skill_id} → {skill['id']}")
 
