@@ -8303,7 +8303,9 @@ def _move_spider_mine_towards(mine, target_x, target_y, speed):
 
 def get_spider_mine_rect(mine):
     size = mine.get("size", 26)
-    return pygame.Rect(int(mine["x"] - size / 2), int(mine["y"] - size / 2), size, size)
+    center_x = mine["x"]
+    center_y = mine["y"] + mine.get("embed_depth", 0.0)
+    return pygame.Rect(int(center_x - size / 2), int(center_y - size / 2), size, size)
 
 
 def apply_spider_mine_slow():
