@@ -627,9 +627,9 @@ class AcademyUI:
             self.screen.blit(desc_surface, (info_x + 10, info_y + y_offset))
             y_offset += 20
 
-        tp_info_text = f"누적 TP: {tree_tp_total}"
+        tp_info_text = f"누적 SP: {tree_tp_total}"
         if total_tp_required:
-            tp_info_text = f"누적 TP: {tree_tp_total}/{total_tp_required}"
+            tp_info_text = f"누적 SP: {tree_tp_total}/{total_tp_required}"
         tp_surface = self.font_small.render(tp_info_text, True, (150, 200, 255))
         self.screen.blit(tp_surface, (info_x + 10, info_y + info_height - 60))
 
