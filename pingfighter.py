@@ -9196,6 +9196,7 @@ def draw_predicted_trajectory():
         return
     
     # 공이 위로 향하고 있으면 궤적 지우기 (플레이어가 친 경우)
+    # 하지만 공이 아래로 향하면 궤적 계산 (보스가 친 경우)
     skill_active_now = (
         quake_active
         or meditation_active
@@ -9203,11 +9204,14 @@ def draw_predicted_trajectory():
         or flame_trail_active
         or power_smashing_parabola_active
     )
-    if ball_vel[1] < 0 and not skill_active_now:  # 수정: <= 를 < 로 변경
+    
+    # 공이 아래로 향하고 있을 때만 궤적 계산 (ball_vel[1] > 0)
+    if ball_vel[1] > 0 or skill_active_now:
+        # 궤적 계산 (보스가 방금 친 공의 경우)
+        calculate_trajectory()
+    else:
+        # 플레이어가 친 경우 궤적 지우기
         predicted_trajectory = []
-        return
-    # 궤적 계산 (보스가 방금 친 공의 경우)
-    calculate_trajectory()
     # 저장된 궤적 그리기
     if len(predicted_trajectory) > 1:
         # 전체 궤적을 하나의 Surface에 그리기
