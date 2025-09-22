@@ -2934,6 +2934,9 @@ class AcademyUI:
             name_rect = name_text.get_rect(centerx=skill_x + skill_size//2, top=skill_y + skill_size + 5)
             self.screen.blit(name_text, name_rect)
             
+            current_level = self.skill_system.get_skill_level(skill["id"])
+            max_level = skill["max_level"]
+
             # 레벨 게이지 표시 (이름 아래)
             gauge_width = skill_size + 20
             gauge_height = 10
