@@ -1,0 +1,4 @@
+"""시작 메뉴 전용 설정 값."""
+
+IDLE_CINEMATIC_DELAY_MS = 15_000
+ENABLE_SCAN_LINES = False
