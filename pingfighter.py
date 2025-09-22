@@ -8992,9 +8992,10 @@ def calculate_trajectory():
 
         if skill_type in high_detail_skills and len(predicted_trajectory) > 2:
             smoothed_trajectory = []
+            smoothing_radius = 2
             for idx, point in enumerate(predicted_trajectory):
-                start = max(0, idx - 1)
-                end = min(len(predicted_trajectory) - 1, idx + 1)
+                start = max(0, idx - smoothing_radius)
+                end = min(len(predicted_trajectory) - 1, idx + smoothing_radius)
                 window = end - start + 1
 
                 sum_x = 0.0
@@ -43913,13 +43914,17 @@ def handle_boss():
         # 현재 속도도 즉시 감소
         boss_current_speed *= boss_speed_reduction_factor
     
-    # 레그샷 효과로 인한 속도 감소 (30% 감소)
+    # 이동 속도 감소 효과 적용
+    slow_multiplier = 1.0
     if leg_shot_active:
-        enhanced_accel *= LEG_SHOT_SPEED_REDUCTION  # 70% 유지 (30% 감소)
-        enhanced_max_speed *= LEG_SHOT_SPEED_REDUCTION
-        enhanced_decel *= LEG_SHOT_SPEED_REDUCTION
-        # 현재 속도도 감소
-        boss_current_speed *= LEG_SHOT_SPEED_REDUCTION
+        slow_multiplier *= LEG_SHOT_SPEED_REDUCTION
+    if spider_mine_slow_active:
+        slow_multiplier *= SPIDER_MINE_SLOW_FACTOR
+    if slow_multiplier != 1.0:
+        enhanced_accel *= slow_multiplier
+        enhanced_max_speed *= slow_multiplier
+        enhanced_decel *= slow_multiplier
+        boss_current_speed *= slow_multiplier
     # 기존 AI 움직임 로직
     if future_x < BOSS.centerx:
         if boss_current_speed > -enhanced_max_speed:
