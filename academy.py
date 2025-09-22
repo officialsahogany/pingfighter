@@ -78,7 +78,7 @@ SKILL_TREES = {
             {
                 "id": "dash_acceleration",
                 "name": "버스트업",
-                "description": "대쉬 사용시 패들 세로 크기 60% 증가\n(누적 TP 8+ 필요)",
+                "description": "대쉬 사용시 패들 세로 크기 60% 증가\n(누적 SP 8+ 필요)",
                 "max_level": 5,
                 "cost": 2,
                 "icon_color": (200, 220, 255),
@@ -90,7 +90,7 @@ SKILL_TREES = {
             {
                 "id": "dash_amplification",
                 "name": "증폭",
-                "description": "대쉬토큰 1개 증가\n(누적 TP 8+ 필요)",
+                "description": "대쉬토큰 1개 증가\n(누적 SP 8+ 필요)",
                 "max_level": 2,
                 "cost": 3,
                 "icon_color": (200, 220, 255),
@@ -104,7 +104,7 @@ SKILL_TREES = {
             {
                 "id": "dash_spirit",
                 "name": "대쉬 스피릿",
-                "description": "대쉬 시전시 30% 확률로 하늘색 레이저 잔상 생성\n(레벨2: 50% 확률)\n(누적 TP 12+ 필요)",
+                "description": "대쉬 시전시 30% 확률로 하늘색 레이저 잔상 생성\n(레벨2: 50% 확률)\n(누적 SP 12+ 필요)",
                 "max_level": 2,
                 "cost": 4,
                 "icon_color": (255, 200, 100),
@@ -144,7 +144,7 @@ SKILL_TREES = {
             {
                 "id": "item_gauge_mastery",
                 "name": "숙달",
-                "description": "엑티브 아이템 사용 시 게이지 +10\n(누적 TP 4+ 필요)",
+                "description": "엑티브 아이템 사용 시 게이지 +10\n(누적 SP 4+ 필요)",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (255, 180, 140),
@@ -156,7 +156,7 @@ SKILL_TREES = {
             {
                 "id": "item_bag_expansion",
                 "name": "가방 확장",
-                "description": "엑티브 아이템 슬롯 1칸 증가\n(누적 TP 4+ 필요)",
+                "description": "엑티브 아이템 슬롯 1칸 증가\n(누적 SP 4+ 필요)",
                 "max_level": 3,
                 "cost": 2,
                 "icon_color": (255, 180, 150),
@@ -168,7 +168,7 @@ SKILL_TREES = {
             {
                 "id": "item_gamble",
                 "name": "도박",
-                "description": "가챠 후 25% 확률로 추가 1회 자동 실행\n(누적 TP 8+ 필요)",
+                "description": "가챠 후 25% 확률로 추가 1회 자동 실행\n(누적 SP 8+ 필요)",
                 "max_level": 3,
                 "cost": 3,
                 "icon_color": (255, 205, 160),
