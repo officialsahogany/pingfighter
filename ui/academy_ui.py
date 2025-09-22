@@ -513,7 +513,7 @@ class AcademyUI:
         if current_tree_id:
             tree_tp = getattr(self.academy_mode, 'get_tree_total_tp', lambda _: 0)(current_tree_id)
             tab_name = self.tabs[self.current_tab]['name'] if self.current_tab < len(self.tabs) else ""
-            tree_text = f"{tab_name} 누적 SP: {tree_tp}"
+            tree_text = f"{tab_name} 누적 ★{tree_tp}"
             tree_surface = self.font_small.render(tree_text, True, (150, 200, 255))
             self.screen.blit(tree_surface, (50, info_y + 30))
         
@@ -627,9 +627,9 @@ class AcademyUI:
             self.screen.blit(desc_surface, (info_x + 10, info_y + y_offset))
             y_offset += 20
 
-        tp_info_text = f"누적 SP: {tree_tp_total}"
+        tp_info_text = f"누적 ★{tree_tp_total}"
         if total_tp_required:
-            tp_info_text = f"누적 SP: {tree_tp_total}/{total_tp_required}"
+            tp_info_text = f"누적 ★{tree_tp_total}/{total_tp_required} 필요"
         tp_surface = self.font_small.render(tp_info_text, True, (150, 200, 255))
         self.screen.blit(tp_surface, (info_x + 10, info_y + info_height - 60))
 

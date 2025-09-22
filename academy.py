@@ -2051,7 +2051,7 @@ class AcademyUI:
 
         tree_label = SKILL_TREES.get(self.selected_tree, {}).get("name", self.selected_tree)
         tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
-        tree_sp_text = self.font_small.render(f"{tree_label} 누적 SP: {tree_tp_total}", True, (150, 200, 255))
+        tree_sp_text = self.font_small.render(f"{tree_label} 누적 ★{tree_tp_total}", True, (150, 200, 255))
         tree_sp_rect = tree_sp_text.get_rect(topright=(self.width - 20, total_sp_rect.bottom + 5))
         self.screen.blit(tree_sp_text, tree_sp_rect)
         
@@ -3299,7 +3299,7 @@ class AcademyUI:
                 if self.skill_system.skill_points < actual_cost:
                     cost_text += "\n(포인트 부족)"
                 elif selected_skill.get("total_tp_required", 0) > tree_tp_total:
-                    cost_text += f"\n(누적 SP {selected_skill['total_tp_required']} 필요)"
+                    cost_text += f"\n(누적 ★{selected_skill['total_tp_required']} 필요)"
                 elif selected_skill.get("requires") or selected_skill.get("requires_or"):
                     cost_text += "\n(선행스킬 필요)"
 
