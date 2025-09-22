@@ -294,6 +294,7 @@ class AcademyUI:
             elif event.key == pygame.K_TAB:
                 # 탭 전환
                 self.current_tab = (self.current_tab + 1) % len(self.tabs)
+                self._on_tab_changed()
                 self._update_tabs()
                 return True
                 
@@ -303,6 +304,7 @@ class AcademyUI:
                 for i, tab in enumerate(self.tabs):
                     if tab['rect'].collidepoint(event.pos):
                         self.current_tab = i
+                        self._on_tab_changed()
                         self._update_tabs()
                         return True
                         
@@ -332,12 +334,50 @@ class AcademyUI:
         """탭 상태 업데이트"""
         for i, tab in enumerate(self.tabs):
             tab['active'] = (i == self.current_tab)
-            
-    def _handle_skill_click(self, tree_id: str, skill_id: str):
-        """스킬 클릭 처리"""
+
+    def _set_selected_skill(self, tree_id: Optional[str], skill_id: Optional[str]):
+        """선택된 스킬 상태를 갱신하고 노드 하이라이트 반영"""
         self.selected_tree = tree_id
         self.selected_skill = skill_id
-        
+
+        if tree_id is None:
+            return
+
+        if skill_id:
+            self.selected_skills_by_tree[tree_id] = skill_id
+
+        tree_ui = self.skill_tree_uis.get(tree_id)
+        if not tree_ui:
+            return
+
+        tree_ui.selected_node = skill_id
+        for node_id, node in tree_ui.nodes.items():
+            node.selected = (skill_id is not None and node_id == skill_id)
+
+    def _on_tab_changed(self):
+        """탭 전환 시 기본 선택 스킬 설정"""
+        tree_ids = ['dash', 'item', 'special']
+        if self.current_tab >= len(tree_ids):
+            self._set_selected_skill(None, None)
+            return
+
+        tree_id = tree_ids[self.current_tab]
+        tree_data = self.academy_mode.skill_tree_data.get(tree_id, {})
+        skills = tree_data.get('skills', [])
+        saved_skill = self.selected_skills_by_tree.get(tree_id)
+
+        valid_ids = {skill['id'] for skill in skills}
+        if saved_skill not in valid_ids:
+            selected_id = skills[0]['id'] if skills else None
+        else:
+            selected_id = saved_skill
+
+        self._set_selected_skill(tree_id, selected_id)
+
+    def _handle_skill_click(self, tree_id: str, skill_id: str):
+        """스킬 클릭 처리"""
+        self._set_selected_skill(tree_id, skill_id)
+
         # 업그레이드 시도
         if self.academy_mode.upgrade_skill(tree_id, skill_id):
             emit_event(EventType.PLAY_SOUND, {'sound': 'skill_upgrade'})
