@@ -2931,31 +2931,29 @@ class AcademyUI:
             
             # 스킬 이름 (아이콘 아래)
             name_text = self.font_small.render(skill["name"], True, (255, 255, 255))
-            name_rect = name_text.get_rect(centerx=skill_x + skill_size//2, top=skill_y + skill_size + 5)
+            name_rect = name_text.get_rect(centerx=skill_x + skill_size // 2, top=skill_y + skill_size + 5)
             self.screen.blit(name_text, name_rect)
-            
+
             current_level = self.skill_system.get_skill_level(skill["id"])
             max_level = skill["max_level"]
 
-            # 레벨 게이지 표시 (이름 아래)
             gauge_width = skill_size + 20
             gauge_height = 10
             gauge_x = skill_x - 10
             gauge_y = name_rect.bottom + 5
             self.draw_skill_level_gauge(skill, gauge_x, gauge_y, gauge_width, gauge_height)
-            
-            # 비용 표시 (게이지 아래)
-            if current_level < skill["max_level"]:
-                cost_color = (100, 255, 100) if self.skill_system.can_upgrade_skill(skill["id"]) else (255, 100, 100)
 
-                actual_cost = skill['cost']
-                cost_text = self.font_small.render(f"비용: ★{actual_cost}", True, cost_color)
-                cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
-                self.screen.blit(cost_text, cost_rect)
-            else:
+            label_y = gauge_y + gauge_height + 5
+            if current_level >= max_level:
                 badge_surface = self._create_master_badge_surface((255, 215, 0))
-                badge_rect = badge_surface.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
+                badge_rect = badge_surface.get_rect(centerx=skill_x + skill_size // 2, top=label_y)
                 self.screen.blit(badge_surface, badge_rect)
+            else:
+                cost_color = (100, 255, 100) if self.skill_system.can_upgrade_skill(skill["id"]) else (255, 100, 100)
+                actual_cost = skill['cost']
+                cost_surface = self.font_small.render(f"비용: ★{actual_cost}", True, cost_color)
+                cost_rect = cost_surface.get_rect(centerx=skill_x + skill_size // 2, top=label_y)
+                self.screen.blit(cost_surface, cost_rect)
             
             # 잠금 상태 표시
             is_locked = False
