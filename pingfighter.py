@@ -8870,8 +8870,8 @@ def calculate_trajectory():
         sim_power_smashing_rng = random.Random()
         sim_power_smashing_rng.setstate(power_smashing_rng.getstate())
 
-        try:
-            for step in range(max_steps):
+    try:
+        for step in range(max_steps):
                 if DEBUG_PREDICTOR and step < 5:
                     print(f"[Predictor] step={step} sim=({sim_x:.1f},{sim_y:.1f}) vel=({sim_vel_x:.2f},{sim_vel_y:.2f}) freeze={freeze_frames} recov={recovery_frames}")
                 if freeze_frames > 0:
@@ -9164,8 +9164,8 @@ def calculate_trajectory():
 
                 if sim_y > HEIGHT + LARGE_SIZE:
                     break
-        finally:
-            random.setstate(random_state)
+    finally:
+        random.setstate(random_state)
 
         if DEBUG_PREDICTOR:
             print(f"[Predictor] post-sim len={len(predicted_trajectory)} first={predicted_trajectory[:5] if predicted_trajectory else []}")
