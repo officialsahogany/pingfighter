@@ -14,9 +14,12 @@ class DrawHelper:
         """원 그리기"""
         pygame.draw.circle(self.screen, color, pos, radius, width)
         
-    def rect(self, color, rect, width=0):
+    def rect(self, color, rect, width=0, border_radius=0):
         """사각형 그리기"""
-        pygame.draw.rect(self.screen, color, rect, width)
+        if border_radius and hasattr(pygame.draw, "rect"):
+            pygame.draw.rect(self.screen, color, rect, width, border_radius=border_radius)
+        else:
+            pygame.draw.rect(self.screen, color, rect, width)
         
     def line(self, color, start_pos, end_pos, width=1):
         """선 그리기"""
