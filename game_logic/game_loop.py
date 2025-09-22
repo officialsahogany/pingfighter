@@ -38,7 +38,7 @@ class LegacyHooks:
 class GameLoop:
     """게임 루프를 관리하는 메인 클래스"""
     
-    def __init__(self, screen: pygame.Surface, adapters: Optional[RuntimeAdapters] = None):
+    def __init__(self, screen: pygame.Surface, adapters: Optional[RuntimeAdapters] = None, max_frames: Optional[int] = None):
         """게임 루프 초기화
         
         Args:
@@ -48,6 +48,7 @@ class GameLoop:
         self.clock = pygame.time.Clock()
         self.running = False
         self.paused = False
+        self.max_frames = max_frames
         
         # 상태 관리
         self.state = GameState()
@@ -101,6 +102,8 @@ class GameLoop:
             # 프레임 레이트 제한
             self.clock.tick(self.target_fps)
             self.frame_count += 1
+            if self.max_frames is not None and self.frame_count >= self.max_frames:
+                self.running = False
     
     def _handle_events(self):
         """이벤트 처리"""
@@ -721,9 +724,9 @@ def create_game_vars_adapters(hooks: Optional[LegacyHooks] = None) -> RuntimeAda
     return adapters
 
 
-def create_game_loop(screen: pygame.Surface, hooks: Optional[LegacyHooks] = None) -> GameLoop:
+def create_game_loop(screen: pygame.Surface, hooks: Optional[LegacyHooks] = None, *, max_frames: Optional[int] = None) -> GameLoop:
     """game_vars 연동 어댑터가 적용된 GameLoop 생성 헬퍼."""
-    return GameLoop(screen, adapters=create_game_vars_adapters(hooks))
+    return GameLoop(screen, adapters=create_game_vars_adapters(hooks), max_frames=max_frames)
 
 
 def _sync_state_from_core_game_state(state: GameState) -> None:
