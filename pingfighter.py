@@ -432,6 +432,17 @@ def _bool_from_env(name: str, default: bool = False) -> bool:
         return default
     return value.strip().lower() in {"1", "true", "on", "yes"}
 
+
+def get_modern_loop_flag() -> bool:
+    return USE_MODERN_GAME_LOOP
+
+
+def set_modern_loop_flag(value: bool) -> None:
+    global USE_MODERN_GAME_LOOP
+    USE_MODERN_GAME_LOOP = bool(value)
+    status = "ON" if USE_MODERN_GAME_LOOP else "OFF"
+    print(f"[INFO] 모던 루프 설정이 {status}으로 변경되었습니다 (옵션 메뉴)")
+
 CLI_PARSER = argparse.ArgumentParser(add_help=False)
 CLI_PARSER.add_argument("--modern-loop", action="store_true", dest="modern_loop")
 CLI_PARSER.add_argument("--smoke-test", action="store_true", dest="smoke_test")
@@ -49463,6 +49474,8 @@ def show_pause_options():
         store_bgm_volume=store_bgm_volume,
         get_sfx_volume=lambda: sfx_volume,
         set_sfx_volume=set_sfx_volume,
+        get_modern_loop_enabled=get_modern_loop_flag,
+        set_modern_loop_enabled=set_modern_loop_flag,
         clock_factory=pygame.time.Clock,
     )
     show_pause_options_ui(context)

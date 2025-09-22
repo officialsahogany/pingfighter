@@ -223,8 +223,12 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     selected_slider = "bgm"
                 elif event.key == pygame.K_DOWN:
                     selected_slider = "sfx"
-                elif event.key in (pygame.K_m, pygame.K_SPACE, pygame.K_RETURN):
-                    if toggle_rect.collidepoint(pygame.mouse.get_pos()) or selected_slider is None:
+                elif event.key == pygame.K_m:
+                    ctx.play_button_click_sound()
+                    modern_loop_enabled = not modern_loop_enabled
+                    ctx.set_modern_loop_enabled(modern_loop_enabled)
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    if toggle_rect.collidepoint(pygame.mouse.get_pos()):
                         ctx.play_button_click_sound()
                         modern_loop_enabled = not modern_loop_enabled
                         ctx.set_modern_loop_enabled(modern_loop_enabled)
