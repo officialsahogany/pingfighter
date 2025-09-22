@@ -1539,18 +1539,18 @@ class AcademyUI:
         elif skill_id == "item_gauge_mastery":
             # 📊 숙달 - 반원 게이지 미터
             radius = 10
-            # 반원 테두리
-            pygame.draw.arc(surface, color, (center_x - radius, center_y - radius, radius * 2, radius * 2), math.pi, 2 * math.pi, 2)
+            # 반원 테두리 (위쪽 반원 형태)
+            pygame.draw.arc(surface, color, (center_x - radius, center_y - radius, radius * 2, radius * 2), 0, math.pi, 2)
             # 게이지 바닥
             pygame.draw.line(surface, color, (center_x - radius, center_y), (center_x + radius, center_y), 2)
             # 눈금 표시
             for angle_deg in (-60, -30, 0, 30, 60):
-                angle_rad = math.radians(180 + angle_deg)
+                angle_rad = math.radians(angle_deg + 90)
                 inner = (center_x + (radius - 3) * math.cos(angle_rad), center_y + (radius - 3) * math.sin(angle_rad))
                 outer = (center_x + radius * math.cos(angle_rad), center_y + radius * math.sin(angle_rad))
                 pygame.draw.line(surface, color, inner, outer, 2)
             # 지침 (포인터)
-            pointer_angle = math.radians(210)  # 기본 각도 (약간 왼쪽 위)
+            pointer_angle = math.radians(150)
             pointer_end = (center_x + (radius - 4) * math.cos(pointer_angle), center_y + (radius - 4) * math.sin(pointer_angle))
             pygame.draw.line(surface, color, (center_x, center_y), pointer_end, 3)
             # 중심 캡
