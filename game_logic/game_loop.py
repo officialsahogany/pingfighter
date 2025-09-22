@@ -740,3 +740,6 @@ def _sync_core_game_state_from_state(state: GameState) -> None:
         core_state.ball_vel[1] = float(state.ball.velocity[1])
     else:
         core_state.ball_vel = [float(state.ball.velocity[0]), float(state.ball.velocity[1])]
+
+    core_state.special_gauge = state.special_status.get('gauge', getattr(core_state, 'special_gauge', 0))
+    core_state.special_ready = state.special_status.get('ready', getattr(core_state, 'special_ready', False))
