@@ -44693,7 +44693,7 @@ def main(stage_num, new_boss_mode=False):
     global head_shot_active, head_shot_timer, head_shot_text_timer
     # 파워스매싱 정지 시간 관리
     global power_smashing_freeze_start_time, power_smashing_freeze_active, power_smashing_freeze_duration
-    global power_smashing_parabola_active, power_smashing_start_time
+    global power_smashing_parabola_active, power_smashing_start_time, power_smashing_rng
     # 스페셜 게이지 시스템
     global special_gauge, special_gauge_max, displayed_gauge, special_ready, special_active
     # 대쉬 및 아이템 관련 전역 변수
