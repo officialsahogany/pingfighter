@@ -2933,9 +2933,9 @@ class AcademyUI:
                 cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(cost_text, cost_rect)
             else:
-                badge_surface = self._create_max_badge_surface((255, 255, 100))
-                badge_rect = badge_surface.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
-                self.screen.blit(badge_surface, badge_rect)
+                master_surface = self.font_small.render("마스터", True, (255, 215, 0))
+                master_rect = master_surface.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
+                self.screen.blit(master_surface, master_rect)
             
             # 잠금 상태 표시
             is_locked = False
@@ -3309,8 +3309,8 @@ class AcademyUI:
                 self.screen.blit(next_surface, (desc_x + 10, next_y))
                 next_y += 18
         else:
-            badge_surface = self._create_max_badge_surface((255, 255, 120))
-            self.screen.blit(badge_surface, (desc_x + 10, cost_y))
+            master_surface = self.font_small.render("마스터", True, (255, 215, 0))
+            self.screen.blit(master_surface, (desc_x + 10, cost_y))
 
     def draw_linear_skill_tree(self, tree_data):
         """기존 방식의 선형 스킬트리 그리기 (item, paddle용)"""
@@ -3609,9 +3609,9 @@ class AcademyUI:
                 cost_rect = cost_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
                 self.screen.blit(cost_text, cost_rect)
             else:
-                badge_surface = self._create_max_badge_surface((255, 255, 100))
-                badge_rect = badge_surface.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
-                self.screen.blit(badge_surface, badge_rect)
+                master_surface = self.font_small.render("마스터", True, (255, 215, 0))
+                master_rect = master_surface.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
+                self.screen.blit(master_surface, master_rect)
             
             # 잠금 상태 표시
             is_locked = False
