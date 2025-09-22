@@ -24528,432 +24528,82 @@ def confirm_rest(stage_cleared, reward):
                         show_victory_screen(stage_cleared, reward)
                         return
 def show_start_screen():
-    global passive_item_list, active_item_slot, selected_item_index, MAX_ITEM_SLOTS  # bosspong.py 내부 전역변수 초기화 선언
-    global chargebag_obtained, spikeboots_obtained, dashgear_obtained  #  패시브 아이템 변수 초기화
-    global game_should_exit  #  게임 종료 플래그
-    global smoke_zones  #  연막 지역 초기화
-    global frame_count  # frame_count 변수 추가
+    global passive_item_list, active_item_slot, selected_item_index, MAX_ITEM_SLOTS
+    global chargebag_obtained, spikeboots_obtained, dashgear_obtained
+    global game_should_exit, smoke_zones, frame_count
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
-    game_should_exit = False  # 메인 메뉴 진입 시 플래그 리셋
-    frame_count = 0  # frame_count 초기화
-    smoke_zones = []  # 메인 메뉴 복귀 시 연막 효과 초기화
+
+    game_should_exit = False
+    frame_count = 0
+    smoke_zones = []
     blacksmith_build_menu_active = False
     blacksmith_down_hold_frames = 0
     blacksmith_divine_stone_state = None
-    
-    # 메인 메뉴 BGM 재생 (이미 재생 중이 아닌 경우에만)
+
     bgm_manager.play_menu_bgm()
-    
-    #  악마의 주사위 효과 강제 종료 (메인 메뉴 복귀 시)
+
     from item_effects.devil_dice import deactivate_devil_dice
+
     deactivate_devil_dice()
-    
-    # 아이템 초기화 (items.py 내부 변수 초기화)
+
     items.reset_items()
-    # bosspong.py 내부 변수들도 초기화
     reset_runtime_items(
         item_state_adapter,
         clear_notices=clear_alchemy_notices,
         set_selected_index=_set_selected_item_index,
         set_max_slots=_set_max_item_slots,
     )
-    #  패시브 아이템 효과 초기화
+
     chargebag_obtained = False
     spikeboots_obtained = False
     dashgear_obtained = False
-    #  아카데미 스킬 포인트 초기화 (게임 시작시 0포인트)
     academy.reset_skill_points()
-    #  새로운 메뉴 시스템 초기화
-    menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    menu_system.current_menu = menu_system.create_main_menu()
-    # 기존 변수들 (임시 유지)
-    menu_options = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
-    selected = 0
-    last_selected = -1  # 호버 사운드용
-    locked_message_timer = 0
-    dev_code = [1]
-    item_code = [2]
-    input_buffer = []
-    developer_unlocked = False
-    item_manager_unlocked = True  # 아이템관리를 기본으로 해제
-    # 사이버펑크 테마 배경 시스템 (내부 해상도 사용)
-    simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    animation_timer = 0
-    clock = pygame.time.Clock()
-    # 호환성을 위한 빈 리스트 초기화 (기존 코드에서 참조하는 부분이 있음)
-    neon_particles = []
-    scan_lines = []
-    #  시네마틱 영상 관련 변수들 (메인메뉴 진입 기준)
-    idle_start_time = pygame.time.get_ticks()  # 대기 시작 시간 (실제 시간 기반)
-    cinematic_trigger_time = 15000  # 15초 (밀리초)
-    try:
-        medal_icon = pygame.image.load(resource_path("medal.png"))
-        medal_icon = pygame.transform.scale(medal_icon, (ICON_SIZE, ICON_SIZE))
-    except:
-        medal_icon = pygame.Surface((ICON_SIZE, ICON_SIZE))
-        medal_icon.fill((255, 215, 0))
-    while True:
-        dt = clock.tick(60) / 1000.0  # Delta time in seconds
-        animation_timer += dt
-        current_time = pygame.time.get_ticks()
-        #  15초 대기 후 시네마틱 영상 재생 (실제 시간 기반)
-        if current_time - idle_start_time >= cinematic_trigger_time:
-            cinematic.show_cinematic_scenes(SCREEN, WIDTH, HEIGHT)
-            idle_start_time = pygame.time.get_ticks()  # 시네마틱 종료 후 타이머 리셋
-        
-        # 사이버펑크 테마 배경 업데이트 및 그리기
-        simple_bg.update(dt)
-        simple_bg.draw(SCREEN)
-        # 기존 행성 및 장식 코드는 새로운 사이버펑크 배경 시스템으로 대체됨
-        # 홀로그램 별 효과
-        star_field = getattr(show_start_screen, "_star_field", None)
-        show_start_screen._star_field = draw_star_field(
-            SCREEN,
-            WIDTH,
-            HEIGHT,
-            animation_timer,
-            star_field,
-        )
-        neon_particles = draw_neon_particles(
-            SCREEN,
-            WIDTH,
-            HEIGHT,
-            animation_timer,
-            neon_particles,
-        )
-        scan_lines = draw_scan_lines(
-            SCREEN,
-            WIDTH,
-            HEIGHT,
-            scan_lines,
-        )
-        # 홀로그램 메달 표시
-        medal_panel = pygame.Surface((DEFAULT_ALPHA, 50), pygame.SRCALPHA)
-        medal_panel.fill((10, 15, 25, 180))
-        pygame.draw.rect(medal_panel, (255, 215, 0), (0, 0, 150, 50), 2, border_radius=8)
-        SCREEN.blit(medal_panel, (WIDTH - 170, 10))
-        # 메달 아이콘과 텍스트
-        font_medal = FontStyle.body()  # 24pt 픽셀 폰트
-        # 전역 변수 medal_score 사용
-        global medal_score
-        medal_text = font_medal.render(f" {medal_score}", True, (255, 215, 0))
-        medal_rect = medal_text.get_rect(center=(WIDTH - 95, 35))
-        SCREEN.blit(medal_text, medal_rect)
-        # 메뉴 제목 (우아하게)
-        # PINGFIGHTER 타이틀 - 사이버펑크 스타일
-        font_title = FontStyle.title_large()  # 72pt 픽셀 폰트
-        font_subtitle = FontStyle.tiny()  # 18pt 픽셀 폰트
-        
-        # 네온 글로우 효과를 위한 여러 레이어
-        title_y = 100
-        
-        # 1. 외부 글로우 (큰 번짐)
-        for offset in range(15, 0, -3):
-            glow_alpha = int(30 * (1 - offset / 15))
-            glow_color = (0, 255, 255, glow_alpha)  # 사이버펑크 청록색
-            glow_surf = font_title.render("PINGFIGHTER", True, glow_color)
-            glow_rect = glow_surf.get_rect(center=(WIDTH // 2, title_y))
-            
-            # 블러 효과를 위해 여러 위치에 그리기
-            for dx in [-offset, 0, offset]:
-                for dy in [-offset, 0, offset]:
-                    if dx != 0 or dy != 0:
-                        temp_rect = glow_rect.copy()
-                        temp_rect.x += dx
-                        temp_rect.y += dy
-                        SCREEN.blit(glow_surf, temp_rect)
-        
-        # 2. 중간 글로우 (네온 효과)
-        neon_color = (0, 200, 255)  # 밝은 청록색
-        neon_surf = font_title.render("PINGFIGHTER", True, neon_color)
-        neon_rect = neon_surf.get_rect(center=(WIDTH // 2, title_y))
-        for i in range(3):
-            SCREEN.blit(neon_surf, neon_rect)
-        
-        # 3. 내부 하이라이트
-        highlight_color = (150, 255, 255)  # 매우 밝은 청록색
-        highlight_surf = font_title.render("PINGFIGHTER", True, highlight_color)
-        highlight_rect = highlight_surf.get_rect(center=(WIDTH // 2 - 1, title_y - 1))
-        SCREEN.blit(highlight_surf, highlight_rect)
-        
-        # 4. 메인 텍스트
-        main_color = (255, 255, 255)  # 흰색
-        title_text = font_title.render("PINGFIGHTER", True, main_color)
-        title_rect = title_text.get_rect(center=(WIDTH // 2, title_y))
-        SCREEN.blit(title_text, title_rect)
-        
-        # 5. 서브타이틀 (작은 텍스트)
-        subtitle_text = "탁구로 보스를 이겨라!"
-        subtitle_color = (0, 255, 200)
-        subtitle_surf = font_subtitle.render(subtitle_text, True, subtitle_color)
-        subtitle_rect = subtitle_surf.get_rect(center=(WIDTH // 2, title_y + 45))
-        
-        # 서브타이틀 글로우
-        for i in range(3):
-            sub_glow = font_subtitle.render(subtitle_text, True, (0, 100, 150))
-            sub_glow_rect = subtitle_rect.copy()
-            sub_glow_rect.x += i - 1
-            sub_glow_rect.y += i - 1
-            SCREEN.blit(sub_glow, sub_glow_rect)
-        
-        SCREEN.blit(subtitle_surf, subtitle_rect)
-        
-        # 6. 장식 라인 (사이버펑크 스타일)
-        line_y = title_y + 65
-        line_color = (0, 150, 200)
-        # 왼쪽 라인
-        for i in range(3):
-            pygame.draw.line(SCREEN, line_color, 
-                           (WIDTH // 2 - 200, line_y + i), 
-                           (WIDTH // 2 - 50, line_y + i), 2)
-        # 오른쪽 라인
-        for i in range(3):
-            pygame.draw.line(SCREEN, line_color, 
-                           (WIDTH // 2 + 50, line_y + i), 
-                           (WIDTH // 2 + 200, line_y + i), 2)
-        
-        # 라인 끝 점
-        pygame.draw.circle(SCREEN, (0, 255, 255), (WIDTH // 2 - 200, line_y + 1), 4)
-        pygame.draw.circle(SCREEN, (0, 255, 255), (WIDTH // 2 + 200, line_y + 1), 4)
-        # 동적 메뉴 옵션 업데이트
-        current_menu_options = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
-        if developer_unlocked:
-            if "개발자" not in current_menu_options:
-                current_menu_options.append("개발자")
-        
-        # 선택 인덱스 조정
-        if selected >= len(current_menu_options):
-            selected = len(current_menu_options) - 1
-        
-        # 하단 가로 메뉴 시스템
-        # 메뉴 아이콘과 텍스트 설정
-        menu_icons = {
-            "경기장 입장": "▶",
-            "테스트메뉴": "★",
-            "메달샵": "◆",
-            "크레딧": "●",
-            "개발자": "⚙",
-        }
-        
-        # 메뉴 컨테이너 설정 (화면에 맞게 조정)
-        menu_y = HEIGHT - 180  # 하단에서 180px 위 (더 위로 이동)
-        menu_item_width = 120  # 버튼 너비 줄임 (150 -> 120)
-        menu_spacing = 15  # 간격 줄임 (20 -> 15)
-        total_menu_width = len(current_menu_options) * menu_item_width + (len(current_menu_options) - 1) * menu_spacing
-        menu_start_x = (WIDTH - total_menu_width) // 2
-        
-        # 메뉴 렌더링
-        font_menu = FontStyle.small()  # 20pt 픽셀 폰트
-        font_icon = get_font(36)  # 36pt 픽셀 폰트
-        
-        for i, option in enumerate(current_menu_options):
-            x = menu_start_x + i * (menu_item_width + menu_spacing)
-            
-            # 메뉴 아이템 컨테이너 (크기 조정)
-            if i == selected:
-                # 선택된 항목 - 네온 효과
-                # 글로우 효과
-                glow_surf = pygame.Surface((menu_item_width + 16, 70), pygame.SRCALPHA)
-                pygame.draw.rect(glow_surf, (0, 255, 255, 30), 
-                               (0, 0, menu_item_width + 16, 70), 
-                               border_radius=12)
-                SCREEN.blit(glow_surf, (x - 8, menu_y - 8))
-                
-                # 메인 컨테이너
-                container_surf = pygame.Surface((menu_item_width, 54), pygame.SRCALPHA)
-                pygame.draw.rect(container_surf, (0, 50, 80, 180), 
-                               (0, 0, menu_item_width, 54), 
-                               border_radius=8)
-                pygame.draw.rect(container_surf, (0, 255, 255, 255), 
-                               (0, 0, menu_item_width, 54), 
-                               width=2, border_radius=8)
-                SCREEN.blit(container_surf, (x, menu_y))
-                
-                # 애니메이션 효과 (작은 점들)
-                for j in range(3):
-                    dot_x = x + menu_item_width // 2 + (j - 1) * 12
-                    dot_y = menu_y + 62
-                    dot_size = 2 + abs(math.sin(animation_timer * 3 + j)) * 1.5
-                    pygame.draw.circle(SCREEN, (0, 255, 255), 
-                                     (int(dot_x), int(dot_y)), int(dot_size))
-            else:
-                # 일반 항목
-                container_surf = pygame.Surface((menu_item_width, 54), pygame.SRCALPHA)
-                pygame.draw.rect(container_surf, (20, 30, 50, 120), 
-                               (0, 0, menu_item_width, 54), 
-                               border_radius=8)
-                pygame.draw.rect(container_surf, (100, 150, 200, 100), 
-                               (0, 0, menu_item_width, 54), 
-                               width=1, border_radius=8)
-                SCREEN.blit(container_surf, (x, menu_y))
-            
-            # 아이콘 그리기
-            icon = menu_icons.get(option, "")
-            if icon:
-                icon_surface = font_icon.render(icon, True, 
-                                               (0, 255, 255) if i == selected else (200, 200, 200))
-                icon_rect = icon_surface.get_rect(center=(x + menu_item_width // 2, menu_y + 18))
-                SCREEN.blit(icon_surface, icon_rect)
-            
-            # 텍스트 그리기
-            text_color = (255, 255, 255) if i == selected else (180, 180, 180)
-            
-            # 텍스트를 짧게 표시
-            display_text = option
-            if option == "경기장 입장":
-                display_text = "경기장"
-            elif option == "테스트메뉴":
-                display_text = "테스트"
-            
-            text_surface = font_menu.render(display_text, True, text_color)
-            text_rect = text_surface.get_rect(center=(x + menu_item_width // 2, menu_y + 38))
-            SCREEN.blit(text_surface, text_rect)
-            #  선택된 메뉴 설명 표시
-            if i == selected:
-                font_desc = FontStyle.tiny()  # 16pt 픽셀 폰트
-                if option == "테스트메뉴":
-                    desc_text = font_desc.render("게임 테스트 및 디버깅 모드", True, (200, 200, 255))
-                else:
-                    desc_text = None
-                    
-                if desc_text:
-                    desc_rect = desc_text.get_rect(center=(WIDTH // 2, menu_y + 75))
-                    SCREEN.blit(desc_text, desc_rect)
-        if locked_message_timer > 0:
-            # 잠금 메시지 배경
-            message_width = 400
-            message_height = 40
-            message_x = WIDTH // 2 - message_width // 2
-            message_y = menu_y + 100  # 메뉴 아래에 위치하도록 수정
-            # 배경 글로우
-            for j in range(10, 0, -2):
-                alpha = int(60 * (1 - j / 10))
-                glow_surface = pygame.Surface((message_width + j*2, message_height + j*2), pygame.SRCALPHA)
-                pygame.draw.rect(glow_surface, (255, 100, 100, alpha), (0, 0, message_width + j*2, message_height + j*2), border_radius=DEFAULT_RADIUS)
-                SCREEN.blit(glow_surface, (message_x - j, message_y - j))
-            # 메인 배경
-            message_bg = pygame.Surface((message_width, message_height), pygame.SRCALPHA)
-            pygame.draw.rect(message_bg, (255, 100, 100, 40), (0, 0, message_width, message_height), border_radius=DEFAULT_RADIUS)
-            pygame.draw.rect(message_bg, (255, 100, 100, 120), (0, 0, message_width, message_height), width=2, border_radius=DEFAULT_RADIUS)
-            SCREEN.blit(message_bg, (message_x, message_y))
-            # 메시지 텍스트
-            font_message = FontStyle.body()  # 24pt 픽셀 폰트
-            # 텍스트 그림자
-            message_shadow = font_message.render("모든 보스를 클리어시 해금됩니다", True, (100, 50, 50))
-            message_rect = message_shadow.get_rect(center=(WIDTH // 2 + 1, 600 + 1))
-            SCREEN.blit(message_shadow, message_rect)
-            # 메인 텍스트
-            locked_surface = font_message.render("모든 보스를 클리어시 해금됩니다", True, (255, 150, 150))
-            message_rect = locked_surface.get_rect(center=(WIDTH // 2, 600))
-            SCREEN.blit(locked_surface, message_rect)
-            locked_message_timer -= 1
-        
-        # 버전 및 해상도 정보 표시
-        font_tiny = FontStyle.tiny()  # 16pt 폰트
-        version_surface = font_tiny.render("1.4v beta", True, (160, 200, 255))
-        version_rect = version_surface.get_rect(bottomleft=(10, HEIGHT - 10))
-        SCREEN.blit(version_surface, version_rect)
 
-        # 해상도 정보 표시
-        current_width, current_height = RESOLUTION_OPTIONS[current_resolution_index]
-        resolution_text = f"해상도: {current_width}x{current_height} (F9/F10으로 변경)"
-        resolution_color = (150, 200, 255)
-        resolution_surface = font_tiny.render(resolution_text, True, resolution_color)
-        resolution_rect = resolution_surface.get_rect(bottomright=(WIDTH - 10, HEIGHT - 10))
-        SCREEN.blit(resolution_surface, resolution_rect)
-        
-        pygame.display.flip()
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN or event.type == pygame.MOUSEMOTION:
-                idle_start_time = pygame.time.get_ticks()  #  마우스 활동 시 대기 타이머 리셋
-            elif event.type == pygame.KEYDOWN:
-                idle_start_time = pygame.time.get_ticks()  #  키 입력 시 대기 타이머 리셋
-                
-                # ESC 키로 게임 종료
-                if event.key == pygame.K_ESCAPE:
-                    pygame.quit()
-                    sys.exit()
-                
-                # F9/F10 키로 해상도 변경
-                elif event.key == pygame.K_F9:
-                    change_resolution(-1)  # 이전 해상도
-                    # 메뉴 시스템 재초기화
-                    menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
-                    menu_system.current_menu = menu_system.create_main_menu()
-                    simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
-                    show_start_screen._star_field = StarField()
-                    neon_particles = []
-                    scan_lines = []
-                elif event.key == pygame.K_F10:
-                    change_resolution(1)  # 다음 해상도
-                    # 메뉴 시스템 재초기화
-                    menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
-                    menu_system.current_menu = menu_system.create_main_menu()
-                    simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
-                    show_start_screen._star_field = StarField()
-                    neon_particles = []
-                    scan_lines = []
-                
-                # 숫자 키 바로 이동
-                elif event.key == pygame.K_1:
-                    play_button_click_sound()  #  클릭 사운드
-                    show_developer_stage_select()
-                    return
-                elif event.key == pygame.K_2 and item_manager_unlocked:
-                    play_button_click_sound()  #  클릭 사운드
-                    show_item_manager_menu()
-                    return
-                if pygame.K_0 <= event.key <= pygame.K_9:
-                    num = event.key - pygame.K_0
-                    input_buffer.append(num)
-                    if input_buffer[-4:] == dev_code:
-                        developer_unlocked = True
-                    if input_buffer[-4:] == item_code:
-                        item_manager_unlocked = True
-                if event.key in [pygame.K_RIGHT, pygame.K_d]:
-                    selected = (selected + 1) % len(current_menu_options)
-                    play_button_hover_sound()  #  호버 사운드
-                elif event.key in [pygame.K_LEFT, pygame.K_a]:
-                    selected = (selected - 1) % len(current_menu_options)
-                    play_button_hover_sound()  #  호버 사운드
-                elif event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
-                    play_button_click_sound()  #  클릭 사운드
-                    choice = current_menu_options[selected]
-                    if choice == "경기장 입장":
-                        # 튜토리얼 진행 여부 물어보기
-                        start_tutorial = show_tutorial_dialog()
-                        
-                        if start_tutorial:
-                            # 튜토리얼 시작 - 스테이지 50으로 이동
-                            print("튜토리얼 시작 - Stage 50")
-                            # 스테이지 50으로 게임 시작
-                            main(50)  # 스테이지 50 (튜토리얼)
-                        else:
-                            # 아니오 선택 - 캐릭터 선택 화면으로 이동
-                            selected_character = show_character_selection()
-                            if selected_character is not None:
-                                # 캐릭터 선택 후 난이도 선택
-                                selected_difficulty = show_difficulty_selection()
-                                if selected_difficulty is not None:
-                                    # 선택한 난이도로 게임 시작
-                                    start_game_with_difficulty(selected_character, selected_difficulty)
-                        return
-# 헬모드 제거됨
-                    elif choice == "테스트메뉴":
-                        #  테스트 모드 시작 (기존 NEW BOSS BATTLE 기능)
-                        main(1, new_boss_mode=True)
-                        return
-                    elif choice == "메달샵":
-                        # 메달샵 기능 (아직 구현되지 않음)
-                        locked_message_timer = TWO_SECONDS_FRAMES
-                    elif choice == "크레딧":
-                        show_credits_screen()
-                        return
-                    elif choice == "개발자":
-                        show_developer_stage_select()
+    def _set_menu_system(instance: object) -> None:
+        global menu_system
+        menu_system = instance
+
+    menu_system_instance = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
+    menu_system_instance.current_menu = menu_system_instance.create_main_menu()
+    _set_menu_system(menu_system_instance)
+    simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
+
+    ctx = MenuContext(
+        get_screen=lambda: SCREEN,
+        get_dimensions=lambda: (WIDTH, HEIGHT),
+        get_internal_dimensions=lambda: (INTERNAL_WIDTH, INTERNAL_HEIGHT),
+        menu_system=menu_system_instance,
+        set_menu_system=_set_menu_system,
+        menu_system_factory=lambda screen, iw, ih: MenuSystem(screen, iw, ih),
+        simple_bg=simple_bg,
+        simple_bg_factory=lambda iw, ih: SimpleMenuBackground(iw, ih),
+        play_hover_sound=play_button_hover_sound,
+        play_click_sound=play_button_click_sound,
+        change_resolution=change_resolution,
+        show_tutorial_dialog=show_tutorial_dialog,
+        show_character_selection=show_character_selection,
+        show_difficulty_selection=show_difficulty_selection,
+        start_game_with_difficulty=start_game_with_difficulty,
+        start_tutorial_game=lambda: main(50),
+        start_test_mode=lambda: main(1, new_boss_mode=True),
+        show_item_manager_menu=show_item_manager_menu,
+        show_developer_stage_select=show_developer_stage_select,
+        show_credits_screen=show_credits_screen,
+        medal_score_getter=lambda: medal_score,
+        get_font=get_font,
+        FontStyle=FontStyle,
+        resource_path=resource_path,
+        default_alpha=DEFAULT_ALPHA,
+        default_radius=DEFAULT_RADIUS,
+        resolution_options=RESOLUTION_OPTIONS,
+        get_current_resolution_index=lambda: current_resolution_index,
+        two_seconds_frames=TWO_SECONDS_FRAMES,
+        idle_cinematic=lambda screen, w, h: cinematic.show_cinematic_scenes(screen, w, h),
+    )
+
+    state: MenuState | None = getattr(show_start_screen, "_menu_state", None)
+    state = run_start_menu(ctx, state)
+    show_start_screen._menu_state = state
 def show_tutorial_dialog():
     """튜토리얼 진행 여부를 묻는 다이얼로그"""
     clock = pygame.time.Clock()
