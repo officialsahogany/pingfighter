@@ -11,6 +11,7 @@ Windows와 macOS 모두 지원.
 # ============================================================
 # 1. 표준 라이브러리 Import
 # ============================================================
+import argparse
 import os
 import sys
 import math
@@ -431,7 +432,12 @@ def _bool_from_env(name: str, default: bool = False) -> bool:
         return default
     return value.strip().lower() in {"1", "true", "on", "yes"}
 
-if "--modern-loop" in sys.argv:
+CLI_PARSER = argparse.ArgumentParser(add_help=False)
+CLI_PARSER.add_argument("--modern-loop", action="store_true", dest="modern_loop")
+CLI_PARSER.add_argument("--smoke-test", action="store_true", dest="smoke_test")
+_CLI_ARGS, _CLI_UNUSED = CLI_PARSER.parse_known_args()
+
+if _CLI_ARGS.modern_loop:
     USE_MODERN_GAME_LOOP = True
     print("[INFO] --modern-loop 플래그 감지: Experimental GameLoop 활성화")
 
@@ -439,7 +445,7 @@ if _bool_from_env("PINGFIGHTER_MODERN_LOOP"):
     USE_MODERN_GAME_LOOP = True
     print("[INFO] PINGFIGHTER_MODERN_LOOP 환경 변수 활성화: Experimental GameLoop 사용")
 
-if "--smoke-test" in sys.argv or _bool_from_env("PINGFIGHTER_SMOKE_TEST"):
+if _CLI_ARGS.smoke_test or _bool_from_env("PINGFIGHTER_SMOKE_TEST"):
     USE_MODERN_GAME_LOOP = True
     SMOKE_TEST_ENABLED = True
     print("[INFO] 모던 루프 스모크 테스트 모드 활성화")
