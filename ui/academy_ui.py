@@ -634,7 +634,7 @@ class AcademyUI:
         self.screen.blit(tp_surface, (info_x + 10, info_y + info_height - 60))
 
         # 비용
-        cost_text = f"비용: {skill['cost']} TP"
+        cost_text = f"비용: {skill['cost']} SP"
         cost_surface = self.font_small.render(cost_text, True, (0, 255, 255))
         cost_pos_y = info_y + info_height - 40
         self.screen.blit(cost_surface, (info_x + 10, cost_pos_y))
