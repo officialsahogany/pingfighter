@@ -7273,6 +7273,7 @@ def go_to_next_round():
     global water_trail_positions, water_trail_timer  #  물자국 초기화
     global aipill_active  #  AI 필 변수 추가
     global rolling_active, rolling_timer, rolling_direction, rolling_speed  #  대시 관련 변수 추가
+    global spider_mines, spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
     # global balloon_active, balloon_timer, balloons, balloon_used_this_round  # Stage 1 보스 풍선파티 스킬 제거됨
     global boss_hit_animation_active, boss_hit_animation_timer  #  보스 충돌 애니메이션 변수 추가
     global drive_ball_active, drive_hit_boss, drive_speed_increase  #  드라이브 관련 변수 추가
@@ -7294,6 +7295,10 @@ def go_to_next_round():
     #  수류탄 관련 초기화
     grenades.clear()  # 날아가는 수류탄 제거
     explosion_zones.clear()  # 폭발 지역 제거
+    spider_mines.clear()  # 설치된 스파이더지뢰 제거
+    spider_mine_slow_active = False
+    spider_mine_slow_timer = 0
+    spider_mine_slow_text_timer = 0
     # 필살기 상태 리셋 (게이지는 유지)
     special_active = False
     #  게이지가 400 기준이면 준비 상태로, 아니면 False
@@ -8996,17 +9001,20 @@ def calculate_trajectory():
             for idx, point in enumerate(predicted_trajectory):
                 start = max(0, idx - smoothing_radius)
                 end = min(len(predicted_trajectory) - 1, idx + smoothing_radius)
-                window = end - start + 1
 
-                sum_x = 0.0
-                sum_y = 0.0
+                weighted_sum_x = 0.0
+                weighted_sum_y = 0.0
+                weight_total = 0.0
                 for j in range(start, end + 1):
                     neighbor = predicted_trajectory[j]
-                    sum_x += neighbor[0]
-                    sum_y += neighbor[1]
+                    distance = abs(j - idx)
+                    weight = smoothing_radius - distance + 1
+                    weighted_sum_x += neighbor[0] * weight
+                    weighted_sum_y += neighbor[1] * weight
+                    weight_total += weight
 
-                avg_x = int(sum_x / window)
-                avg_y = int(sum_y / window)
+                avg_x = int(weighted_sum_x / weight_total)
+                avg_y = int(weighted_sum_y / weight_total)
 
                 if len(point) == 3:
                     smoothed_trajectory.append((avg_x, avg_y, point[2]))
@@ -36280,6 +36288,7 @@ def reset_round():
     global boss_stun_timer, ragnarok_shock_playing  #  라그나로크 해머 스턴 관련
     global ragnarok_speed_boost_active, ragnarok_stun_pending  #  라그나로크 공속 증가 및 스턴 예약
     global boss_knockback_timer, boss_knockback_vel  #  라그나로크 넉백 관련
+    global spider_mines, spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
     # 스테이지 2 효과 초기화
     stage2_border_flash_timer = 0
     stage2_leaves = []
@@ -36350,6 +36359,10 @@ def reset_round():
     #  수류탄 관련 초기화
     grenades.clear()  # 날아가는 수류탄 제거
     explosion_zones.clear()  # 폭발 지역 제거
+    spider_mines.clear()
+    spider_mine_slow_active = False
+    spider_mine_slow_timer = 0
+    spider_mine_slow_text_timer = 0
     #  조명탄(섬광탄) 관련 초기화
     global boss_confused_timer, flares, flare_zones
     boss_confused_timer = 0  # 보스 혼란 상태 초기화
