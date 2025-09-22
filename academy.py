@@ -552,19 +552,24 @@ class AcademyUI:
             points.append((px, py))
         pygame.draw.polygon(target_surface, color, points)
 
-    def _create_max_badge_surface(self, color):
-        """'최대' 텍스트와 별 아이콘이 포함된 배지를 만든다"""
-        text_surface = self.font_small.render("최대", True, color)
-        star_size = max(4, text_surface.get_height() // 2)
+    def _create_master_badge_surface(self, color):
+        """STAR + MASTER + STAR 배지 생성"""
+        label_surface = self.font_small.render("MASTER", True, color)
+        star_size = max(4, label_surface.get_height() // 2)
         spacing = 6
-        width = text_surface.get_width() + spacing + star_size * 2
-        height = max(text_surface.get_height(), star_size * 2)
+        width = star_size * 2 + spacing * 2 + label_surface.get_width()
+        height = max(label_surface.get_height(), star_size * 2)
         badge_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-        text_y = (height - text_surface.get_height()) // 2
-        badge_surface.blit(text_surface, (0, text_y))
-        star_center_x = text_surface.get_width() + spacing + star_size
-        star_center_y = height // 2
-        self._draw_star_icon(badge_surface, star_center_x, star_center_y, star_size, color)
+
+        center_y = height // 2
+        # 왼쪽 별
+        self._draw_star_icon(badge_surface, star_size, center_y, star_size, color)
+        # 오른쪽 별
+        self._draw_star_icon(badge_surface, width - star_size, center_y, star_size, color)
+
+        text_x = star_size * 2 + spacing
+        text_y = (height - label_surface.get_height()) // 2
+        badge_surface.blit(label_surface, (text_x, text_y))
         return badge_surface
 
     def handle_mouse_click(self, pos):
