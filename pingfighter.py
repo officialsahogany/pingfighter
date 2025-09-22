@@ -6960,7 +6960,7 @@ tears_timer = 0
 falling_tears = []  # [(x, y, speed)] 리스트
 last_tears_cast_time = -9999  # 마지막 눈물샤워 발동 시간
 TEARS_COOLDOWN = 7000        # 쿨타임 (밀리초 단위 = 5초)
-item_state.passive_item_list = []
+item_state.clear_passive()
 try:
     BOSS_IMG_STAGE1 = pygame.image.load(resource_path("boss_stage1.png")).convert_alpha()
     BOSS_IMG_STAGE1 = pygame.transform.scale(BOSS_IMG_STAGE1, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
@@ -15325,6 +15325,7 @@ def store_passive_item(item_data):
         return
     if item_state.passive_item_list is None:
         item_state.passive_item_list = []
+        passive_item_list = item_state.passive_item_list
         passive_item_list = item_state.passive_item_list
     
     # 모든 패시브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
