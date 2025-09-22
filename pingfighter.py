@@ -2184,6 +2184,9 @@ SPIDER_MINE_EMBED_DELAY_FRAMES = 60
 SPIDER_MINE_TRAVEL_SPEED = 11.0
 SPIDER_MINE_CLIMB_SPEED = 8.4
 SPIDER_MINE_EXPLOSION_DURATION = 22
+SPIDER_MINE_SELF_DESTRUCT_WARNING = 240  # 4초 후부터 경고
+SPIDER_MINE_SELF_DESTRUCT_FAST = 300     # 5초 후 빠른 깜빡임
+SPIDER_MINE_SELF_DESTRUCT_TIME = 360     # 6초 후 자폭
 SPIDER_MINE_SLOW_DURATION = 180  # 3초 지속
 SPIDER_MINE_SLOW_FACTOR = 0.7  # 이동속도 30% 감소
 SPIDER_MINE_TEXT_DURATION = 60  # 효과 텍스트 표시 시간
@@ -8417,7 +8420,9 @@ def update_spider_mines():
                 mine["embed_depth"] = SPIDER_MINE_MAX_EMBED_DEPTH * easing
             else:
                 mine["embed_depth"] = max(2.5, mine.get("embed_depth", 0.0) * 0.9)
-            if BOSS.colliderect(get_spider_mine_rect(mine)):
+            if mine["armed_elapsed"] >= SPIDER_MINE_SELF_DESTRUCT_TIME:
+                trigger_spider_mine_explosion(mine)
+            elif BOSS.colliderect(get_spider_mine_rect(mine)):
                 trigger_spider_mine_explosion(mine)
         elif state == "exploding":
             mine["explosion_timer"] -= 1
@@ -8533,7 +8538,16 @@ def draw_spider_mines(screen):
             pygame.draw.circle(halo_surface, (220, 160, 255, halo_alpha), (size, size), size)
             screen.blit(halo_surface, (center_x - size, center_y - size))
 
-        if mine.get("flash_timer", 0) > 0 and (mine["flash_timer"] // SPIDER_MINE_FLASH_INTERVAL) % 2 == 0:
+        flash_timer = mine.get("flash_timer", 0)
+        armed_time = mine.get("armed_elapsed", 0.0)
+        flash_interval = SPIDER_MINE_FLASH_INTERVAL
+        if state == "armed":
+            if armed_time >= SPIDER_MINE_SELF_DESTRUCT_FAST:
+                flash_interval = max(1, SPIDER_MINE_FLASH_INTERVAL // 3)
+            elif armed_time >= SPIDER_MINE_SELF_DESTRUCT_WARNING:
+                flash_interval = max(2, SPIDER_MINE_FLASH_INTERVAL // 2)
+
+        if flash_timer > 0 and (flash_timer // flash_interval) % 2 == 0:
             pygame.draw.circle(body_surface, (255, 200, 120, 170), (size // 2, size // 2 - 2), size // 2 - 4)
 
         render_x = int(center_x - size / 2)
