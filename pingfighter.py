@@ -15277,11 +15277,9 @@ stage_medal_rewards = {
 session_medal_earned = 0  # main 함수 외부에 선언
 final_wave_direction = [0, 0]  # 공의 마지막 이동 방향 (X, Y)
 def store_active_item(item_data):
-    global aipill_active, last_item_use_time, long_boost_active
+    global aipill_active, last_item_use_time, long_boost_active, active_item_slot
     if item_state.active_item_slot is None:
         item_state.active_item_slot = []  # 혹시 None이면 초기화
-        # 레거시 별칭과의 동기화
-        global active_item_slot
         active_item_slot = item_state.active_item_slot
     # Aipill 활성화 시에는 아이템 획득 불가
     if aipill_active:
@@ -15314,7 +15312,7 @@ def store_active_item(item_data):
     show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
 # bosspong.py
 def store_passive_item(item_data):
-    global speedboots_obtained, speedgear_obtained
+    global speedboots_obtained, speedgear_obtained, passive_item_list
     global items, aipill_active, battery_obtained, revival_obtained, master_obtained, cooltime_obtained, chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained
     global danger_sensor_obtained, sensor_obtained, danger_sensor_enabled, sensor_enabled  # 센서 관련 변수들
     global dashholder_obtained  # 대쉬홀더 관련 변수
@@ -15327,6 +15325,7 @@ def store_passive_item(item_data):
         return
     if item_state.passive_item_list is None:
         item_state.passive_item_list = []
+        passive_item_list = item_state.passive_item_list
     
     # 모든 패시브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
     if "icon" not in item_data or item_data["icon"] is None:
@@ -24707,6 +24706,7 @@ def show_start_screen():
     global smoke_zones  #  연막 지역 초기화
     global frame_count  # frame_count 변수 추가
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
+    global passive_item_list, active_item_slot
     game_should_exit = False  # 메인 메뉴 진입 시 플래그 리셋
     frame_count = 0  # frame_count 초기화
     smoke_zones = []  # 메인 메뉴 복귀 시 연막 효과 초기화
@@ -24724,8 +24724,10 @@ def show_start_screen():
     # 아이템 초기화 (items.py 내부 변수 초기화)
     items.reset_items()
     # bosspong.py 내부 변수들도 초기화
-    item_state.passive_item_list = []  # 패시브 아이템 초기화
-    item_state.active_item_slot = []  # 엑티브 아이템 초기화
+    item_state.clear_passive()
+    item_state.clear_active()
+    passive_item_list = item_state.passive_item_list
+    active_item_slot = item_state.active_item_slot
     clear_alchemy_notices()
     item_state.selected_item_index = 0  # 선택 인덱스 초기화
     item_state.max_item_slots = 3  # 아이템 슬롯 기본값으로 초기화
