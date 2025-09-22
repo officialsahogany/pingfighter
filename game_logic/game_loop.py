@@ -170,6 +170,7 @@ class GameState:
         # UI
         self.messages = []
         self.combo = {'count': 0, 'multiplier': 1.0}
+        self.special_status = {'gauge': 0, 'ready': False}
         
     def update(self, data: Dict[str, Any]):
         """상태 업데이트
@@ -193,7 +194,8 @@ class GameState:
             'active_powerups': self.active_powerups,
             'combo': self.combo,
             'timer': self.timer,
-            'message': self.messages[0] if self.messages else None
+            'message': self.messages[0] if self.messages else None,
+            'special_status': self.special_status
         }
 
 class PlayerState:
@@ -700,6 +702,9 @@ def _sync_state_from_core_game_state(state: GameState) -> None:
     if isinstance(velocity, (list, tuple)) and len(velocity) >= 2:
         state.ball.velocity = [float(velocity[0]), float(velocity[1])]
     state.ball.radius = getattr(core_state, "ball_radius", state.ball.radius)
+
+    state.special_status['gauge'] = getattr(core_state, "special_gauge", state.special_status['gauge'])
+    state.special_status['ready'] = getattr(core_state, "special_ready", state.special_status['ready'])
 
 
 def _sync_core_game_state_from_state(state: GameState) -> None:
