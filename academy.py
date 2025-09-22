@@ -3665,13 +3665,7 @@ class AcademyUI:
                     pygame.draw.rect(self.screen, lock_color, (center_x - 6, center_y - 2, 12, 8), 2)
                     pygame.draw.arc(self.screen, lock_color, (center_x - 8, center_y - 8, 16, 12), 0, 3.14, 2)
                     
-                    # 대각선 패턴 추가 (색맹 사용자를 위한 시각적 구분)
-                    for i in range(0, skill_size, 8):
-                        pygame.draw.line(lock_surface, (255, 255, 255, 40), 
-                                       (i, 0), (0, i), 1)
-                        pygame.draw.line(lock_surface, (255, 255, 255, 40),
-                                       (skill_size, i), (i, skill_size), 1)
-                    self.screen.blit(lock_surface, (skill_x, skill_y))
+                    # 추가 패턴 없이 잠금 오버레이 유지
 
 
 skill_system = SkillSystem()
