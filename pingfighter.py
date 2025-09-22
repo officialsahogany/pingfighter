@@ -33174,6 +33174,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
             }
             if item_state.passive_item_list is None:
                 item_state.passive_item_list = []
+                passive_item_list = item_state.passive_item_list
             if not any(item.get("name") == "knee_pads" for item in item_state.passive_item_list):
                 item_state.passive_item_list.append(knee_pads_data)
             print("🦵 메카닉 패들 기본 장비: 킥차져 자동 장착")
