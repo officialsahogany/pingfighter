@@ -2175,7 +2175,21 @@ class AcademyUI:
                 max_surf = self.font_large.render(max_text, True, max_color)
                 max_rect = max_surf.get_rect(centerx=panel_x + panel_width//2, y=panel_y + panel_height - 50)
                 self.screen.blit(max_surf, max_rect)
-    
+
+    def draw_tree_summary_text(self, tree_id: str):
+        """현재 선택된 탭에 대한 요약 문구 표시"""
+        summary = TREE_SUMMARIES.get(tree_id)
+        if not summary:
+            return
+
+        lines = self._wrap_text_lines(summary, self.font_small, 420)
+        base_x = 50
+        base_y = 110
+        for line in lines:
+            text_surf = self.font_small.render(line, True, (160, 200, 255))
+            self.screen.blit(text_surf, (base_x, base_y))
+            base_y += 18
+
     def draw_skill_tree(self):
         """선택된 스킬트리 그리기"""
         if self.selected_tree == "smasher":
@@ -2183,7 +2197,8 @@ class AcademyUI:
             self.selected_tree = "dash"
             self._clamp_selection_to_current_tree()
         tree_data = SKILL_TREES[self.selected_tree]
-        
+        self.draw_tree_summary_text(self.selected_tree)
+
         # 모든 스킬트리를 트리 구조로 표시 (아이템과 패들도 포함)
         if self.selected_tree == "dash":
             self.draw_dash_skill_tree(tree_data)
