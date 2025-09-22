@@ -8833,42 +8833,42 @@ def calculate_trajectory():
         return
 
     # 최대 500프레임 예측 (충분한 시간)
-        max_steps = 500
-        random_state = random.getstate()
-        base_ticks = pygame.time.get_ticks()
-        sim_meditation_timer = meditation_timer if meditation_active else meditation_duration
-        sim_meditation_angle = meditation_angle if meditation_active else 0
-        sim_magnetic_curve = magnet_curve_angle if stage4_magnetic_active else 0
-        sim_magnetic_timer = stage4_magnetic_timer if stage4_magnetic_active else 200
-        base_flame_vec = globals().get("flame_trail_base_vel")
-        if isinstance(base_flame_vec, pygame.math.Vector2):
-            sim_flame_base_vel = (base_flame_vec.x, base_flame_vec.y)
-        elif isinstance(base_flame_vec, (list, tuple)):
-            sim_flame_base_vel = (base_flame_vec[0], base_flame_vec[1])
-        else:
-            sim_flame_base_vel = None
-        flame_start_time_snapshot = globals().get("flame_trail_start_time", base_ticks)
-        sim_flame_phase = flame_trail_phase if flame_trail_active else 0
-        sim_flame_timer = flame_trail_timer if flame_trail_active else TWO_SECONDS_FRAMES
-        sim_flame_rng = None
-        if flame_trail_rng is not None:
-            sim_flame_rng = random.Random()
-            sim_flame_rng.setstate(flame_trail_rng.getstate())
-        sim_quake_timer = quake_timer if quake_active else quake_duration
-        sim_quake_restore_speed = original_ball_speed_quake[:] if quake_active else None
-        sim_quake_rng = None
-        if quake_rng is not None:
-            sim_quake_rng = random.Random()
-            sim_quake_rng.setstate(quake_rng.getstate())
-        sim_power_smashing_initial_boost = power_smashing_initial_boost
-        sim_power_smashing_start = power_smashing_start_time
-        sim_power_smashing_direction = power_smashing_direction
-        sim_power_smashing_target_speed = power_smashing_target_speed
-        frame_time_ms = 1000.0 / FPS if FPS else 16.6667
-        sim_power_smashing_rng = None
-        if power_smashing_rng is not None:
-            sim_power_smashing_rng = random.Random()
-            sim_power_smashing_rng.setstate(power_smashing_rng.getstate())
+    max_steps = 500
+    random_state = random.getstate()
+    base_ticks = pygame.time.get_ticks()
+    sim_meditation_timer = meditation_timer if meditation_active else meditation_duration
+    sim_meditation_angle = meditation_angle if meditation_active else 0
+    sim_magnetic_curve = magnet_curve_angle if stage4_magnetic_active else 0
+    sim_magnetic_timer = stage4_magnetic_timer if stage4_magnetic_active else 200
+    base_flame_vec = globals().get("flame_trail_base_vel")
+    if isinstance(base_flame_vec, pygame.math.Vector2):
+        sim_flame_base_vel = (base_flame_vec.x, base_flame_vec.y)
+    elif isinstance(base_flame_vec, (list, tuple)):
+        sim_flame_base_vel = (base_flame_vec[0], base_flame_vec[1])
+    else:
+        sim_flame_base_vel = None
+    flame_start_time_snapshot = globals().get("flame_trail_start_time", base_ticks)
+    sim_flame_phase = flame_trail_phase if flame_trail_active else 0
+    sim_flame_timer = flame_trail_timer if flame_trail_active else TWO_SECONDS_FRAMES
+    sim_flame_rng = None
+    if flame_trail_rng is not None:
+        sim_flame_rng = random.Random()
+        sim_flame_rng.setstate(flame_trail_rng.getstate())
+    sim_quake_timer = quake_timer if quake_active else quake_duration
+    sim_quake_restore_speed = original_ball_speed_quake[:] if quake_active else None
+    sim_quake_rng = None
+    if quake_rng is not None:
+        sim_quake_rng = random.Random()
+        sim_quake_rng.setstate(quake_rng.getstate())
+    sim_power_smashing_initial_boost = power_smashing_initial_boost
+    sim_power_smashing_start = power_smashing_start_time
+    sim_power_smashing_direction = power_smashing_direction
+    sim_power_smashing_target_speed = power_smashing_target_speed
+    frame_time_ms = 1000.0 / FPS if FPS else 16.6667
+    sim_power_smashing_rng = None
+    if power_smashing_rng is not None:
+        sim_power_smashing_rng = random.Random()
+        sim_power_smashing_rng.setstate(power_smashing_rng.getstate())
 
         try:
             for step in range(max_steps):
