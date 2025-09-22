@@ -2420,9 +2420,6 @@ class AcademyUI:
             self.draw_skill_level_gauge(skill, gauge_x, gauge_y, gauge_width, gauge_height)
 
 
-        # 트리형 스킬트리에서도 우측 설명 패널을 표시
-        self.draw_skill_description(tree_data)
-
     def draw_skill_level_gauge(self, skill, x, y, width=120, height=25):
         """스킬 레벨 게이지를 그리기 - 네모 단계 게이지 시스템"""
         current_level = self.skill_system.get_skill_level(skill["id"])
