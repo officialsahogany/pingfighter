@@ -344,6 +344,8 @@ class UpdateSystem:
             input_handler: 입력 처리기
             delta_time: 프레임 시간
         """
+        _sync_state_from_game_vars(state)
+
         # 플레이어 입력 처리
         if self.adapters.update_player_input is not None:
             self.adapters.update_player_input(state, input_handler)
@@ -373,11 +375,13 @@ class UpdateSystem:
             self.adapters.update_items(state, delta_time)
         else:
             self.item_manager.update(state, delta_time)
-        
+
         # 타이머 업데이트
         state.frame_count += 1
         if state.frame_count % 60 == 0:
             state.timer += 1
+
+        _sync_game_vars_from_state(state)
     
     def _update_player_input_default(self, state: GameState, input_handler: InputHandler):
         """플레이어 입력 처리"""
