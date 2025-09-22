@@ -8900,7 +8900,7 @@ def render_throwing_item_cooldown():
         return
     
     # 화기류 아이템이 있는지 확인 (투척류 + 권총)
-    firearm_items = ["molotov", "grenade", "flare", "smoke_grenade"]
+    firearm_items = ["molotov", "grenade", "flare", "smoke_grenade", "spider_mine"]
     has_firearm_item = False
     
     # 코만도 캐릭터 권총 확인
@@ -32756,6 +32756,7 @@ def show_item_manager_menu():
         {"name": "wall", "type": "active", "icon": get_icon_safe("wall_icon", "wall")},
         {"name": "molotov", "type": "active", "icon": get_icon_safe("molotov_icon", "molotov")},
         {"name": "grenade", "type": "active", "icon": get_icon_safe("grenade_icon", "grenade")},
+        {"name": "spider_mine", "type": "active", "icon": get_icon_safe("spider_mine_icon", "spider_mine")},
         {"name": "flare", "type": "active", "icon": get_icon_safe("flare_icon", "flare")},
         {"name": "predictor", "type": "active", "icon": get_icon_safe("predictor_icon", "predictor")},
         {"name": "smoke_grenade", "type": "active", "icon": get_icon_safe("smoke_grenade_icon", "smoke_grenade")},
@@ -43894,6 +43895,8 @@ def show_result(won):
         # 수류탄 아이콘 추가 - get_item_icon 함수 사용하여 통일
         grenade_icon = get_item_icon("grenade")
         available_items.append({"name": "grenade", "color": (80, 100, 80), "type": "active", "icon": grenade_icon})
+        spider_mine_icon_for_gacha = get_item_icon("spider_mine")
+        available_items.append({"name": "spider_mine", "color": (120, 90, 160), "type": "active", "icon": spider_mine_icon_for_gacha})
         # 조명탄 아이콘 추가 - 전역 flare_icon 사용 (이미 원통형 디자인 포함)
         available_items.append({"name": "flare", "color": (255, 255, 200), "type": "active", "icon": flare_icon})
         # 연막탄 아이콘 추가 - get_item_icon 함수 사용하여 통일
@@ -49598,6 +49601,7 @@ def show_character_item_manager():
         {"name": "wall", "type": "active", "icon": get_icon_safe("wall_icon", "wall")},
         {"name": "molotov", "type": "active", "icon": get_icon_safe("molotov_icon", "molotov")},
         {"name": "grenade", "type": "active", "icon": get_icon_safe("grenade_icon", "grenade")},
+        {"name": "spider_mine", "type": "active", "icon": get_icon_safe("spider_mine_icon", "spider_mine")},
         {"name": "flare", "type": "active", "icon": get_icon_safe("flare_icon", "flare")},
         {"name": "predictor", "type": "active", "icon": get_icon_safe("predictor_icon", "predictor")},
         {"name": "smoke_grenade", "type": "active", "icon": get_icon_safe("smoke_grenade_icon", "smoke_grenade")},
