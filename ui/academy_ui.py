@@ -503,6 +503,14 @@ class AcademyUI:
         medal_text = f"메달: {medals}"
         medal_surface = self.font_normal.render(medal_text, True, (255, 215, 0))
         self.screen.blit(medal_surface, (400, info_y))
+
+        current_tree_id = self._get_current_tree_id()
+        if current_tree_id:
+            tree_tp = getattr(self.academy_mode, 'get_tree_total_tp', lambda _: 0)(current_tree_id)
+            tab_name = self.tabs[self.current_tab]['name'] if self.current_tab < len(self.tabs) else ""
+            tree_text = f"{tab_name} 누적 TP: {tree_tp}"
+            tree_surface = self.font_small.render(tree_text, True, (150, 200, 255))
+            self.screen.blit(tree_surface, (50, info_y + 30))
         
     def _render_tabs(self):
         """탭 렌더링"""
