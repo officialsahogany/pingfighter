@@ -244,6 +244,11 @@ class AcademyUI:
         self._create_tabs()
         self.current_tab = 0
         self.selected_skills_by_tree: Dict[str, str] = {}
+        self.tab_summaries = {
+            'dash': "대쉬 가속, 통제력, 토큰 수 등을 향상시켜 전투 템포를 높입니다.",
+            'item': "필드 드랍률과 아이템 쿨타임, 슬롯을 조정해 서포트 능력을 강화합니다.",
+            'special': "필살기의 충전 속도와 지속 시간을 늘려 위기 돌파력을 확보합니다."
+        }
         self._on_tab_changed()
         
     def _create_skill_tree_uis(self):
@@ -334,6 +339,24 @@ class AcademyUI:
         """탭 상태 업데이트"""
         for i, tab in enumerate(self.tabs):
             tab['active'] = (i == self.current_tab)
+
+    def _render_tab_summary(self):
+        """현재 탭 요약 문구 표시"""
+        tree_ids = ['dash', 'item', 'special']
+        if self.current_tab >= len(tree_ids):
+            return
+
+        tree_id = tree_ids[self.current_tab]
+        summary = self.tab_summaries.get(tree_id)
+        if not summary:
+            return
+
+        lines = self._wrap_text(summary, 36)
+        y = 150
+        for line in lines:
+            text_surface = self.font_small.render(line, True, (170, 200, 255))
+            self.screen.blit(text_surface, (60, y))
+            y += 18
 
     def _set_selected_skill(self, tree_id: Optional[str], skill_id: Optional[str]):
         """선택된 스킬 상태를 갱신하고 노드 하이라이트 반영"""
