@@ -287,6 +287,12 @@ class AcademyUI:
         self.active = True
         emit_event(EventType.MENU_OPENED, {'type': 'academy'})
         
+    def _get_current_tree_id(self) -> Optional[str]:
+        tree_ids = ['dash', 'item', 'special']
+        if self.current_tab < len(tree_ids):
+            return tree_ids[self.current_tab]
+        return None
+
     def close(self):
         """아카데미 UI 닫기"""
         self.active = False

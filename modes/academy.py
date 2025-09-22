@@ -558,6 +558,13 @@ class AcademyMode:
             )
         }
 
+    def get_tree_total_tp(self, tree_id: str) -> int:
+        """특정 스킬 탭에 투자된 누적 TP 반환"""
+        tree = self.skill_trees.get(tree_id)
+        if not tree:
+            return 0
+        return tree.total_tp_spent
+
 
 # 싱글톤 인스턴스
 _academy_mode = None
