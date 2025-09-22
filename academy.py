@@ -2898,7 +2898,7 @@ class AcademyUI:
                 cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(cost_text, cost_rect)
             else:
-                max_text = self.font_small.render("최대 레벨", True, (255, 255, 100))
+                max_text = self.font_small.render("최대 🌟", True, (255, 255, 100))
                 max_rect = max_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(max_text, max_rect)
             
@@ -3274,7 +3274,7 @@ class AcademyUI:
                 self.screen.blit(next_surface, (desc_x + 10, next_y))
                 next_y += 18
         else:
-            max_info = self.font_small.render("✅ 최대!", True, (255, 255, 120))
+            max_info = self.font_small.render("최대 🌟", True, (255, 255, 120))
             self.screen.blit(max_info, (desc_x + 10, cost_y))
 
     def draw_linear_skill_tree(self, tree_data):
@@ -3574,7 +3574,7 @@ class AcademyUI:
                 cost_rect = cost_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
                 self.screen.blit(cost_text, cost_rect)
             else:
-                max_text = self.font_small.render("최대 레벨", True, (255, 255, 100))
+                max_text = self.font_small.render("최대 🌟", True, (255, 255, 100))
                 max_rect = max_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
                 self.screen.blit(max_text, max_rect)
             
