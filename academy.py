@@ -2896,9 +2896,6 @@ class AcademyUI:
                     lock_surface.fill((0, 0, 0, 128))
                     self.screen.blit(lock_surface, (skill_x, skill_y))
         
-        # 선택된 스킬의 상세 정보 표시
-        self.draw_skill_description(tree_data)
-
     def _collect_current_effect_lines(self, skill_id: str, current_level: int) -> list[str]:
         """현재 레벨 기준 효과 설명 문자열 집계"""
         if current_level <= 0:
