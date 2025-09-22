@@ -3609,9 +3609,9 @@ class AcademyUI:
                 cost_rect = cost_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
                 self.screen.blit(cost_text, cost_rect)
             else:
-                max_text = self.font_small.render("최대 🌟", True, (255, 255, 100))
-                max_rect = max_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
-                self.screen.blit(max_text, max_rect)
+                badge_surface = self._create_max_badge_surface((255, 255, 100))
+                badge_rect = badge_surface.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
+                self.screen.blit(badge_surface, badge_rect)
             
             # 잠금 상태 표시
             is_locked = False
