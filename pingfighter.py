@@ -8872,6 +8872,8 @@ def calculate_trajectory():
 
         try:
             for step in range(max_steps):
+                if DEBUG_PREDICTOR and step < 5:
+                    print(f"[Predictor] step={step} sim=({sim_x:.1f},{sim_y:.1f}) vel=({sim_vel_x:.2f},{sim_vel_y:.2f}) freeze={freeze_frames} recov={recovery_frames}")
                 if freeze_frames > 0:
                     freeze_frames -= 1
                     if freeze_frames == 0 and resume_pending:
@@ -9194,6 +9196,9 @@ def calculate_trajectory():
             else:
                 if DEBUG_PREDICTOR:
                     print(f"[Predictor] fallback insufficient points len={len(fallback_points)}")
+        else:
+            if DEBUG_PREDICTOR:
+                print(f"[Predictor] primary len={len(predicted_trajectory)} first={predicted_trajectory[:5]}")
 
         if skill_type in high_detail_skills and len(predicted_trajectory) > 2:
             raw_trajectory = predicted_trajectory[:]
