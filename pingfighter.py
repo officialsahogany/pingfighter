@@ -42375,13 +42375,17 @@ def handle_boss_mythic():
     enhanced_acceleration = config["accel"]
     enhanced_deceleration = config["decel"]
     
-    # 레그샷 효과로 인한 속도 감소 (30% 감소)
+    # 이동 속도 감소 효과 적용
+    slow_multiplier = 1.0
     if leg_shot_active:
-        enhanced_max_speed *= LEG_SHOT_SPEED_REDUCTION  # 70% 유지 (30% 감소)
-        enhanced_acceleration *= LEG_SHOT_SPEED_REDUCTION
-        enhanced_deceleration *= LEG_SHOT_SPEED_REDUCTION
-        # 현재 속도도 감소
-        boss_current_speed *= LEG_SHOT_SPEED_REDUCTION
+        slow_multiplier *= LEG_SHOT_SPEED_REDUCTION
+    if spider_mine_slow_active:
+        slow_multiplier *= SPIDER_MINE_SLOW_FACTOR
+    if slow_multiplier != 1.0:
+        enhanced_max_speed *= slow_multiplier
+        enhanced_acceleration *= slow_multiplier
+        enhanced_deceleration *= slow_multiplier
+        boss_current_speed *= slow_multiplier
     
     # 관성 보존 상태 체크 (최근 벽 충돌 여부)
     try:
@@ -42732,13 +42736,17 @@ def handle_boss_junior():
     enhanced_acceleration = config["accel"]
     enhanced_deceleration = config["decel"]
     
-    # 레그샷 효과로 인한 속도 감소 (30% 감소)
+    # 이동 속도 감소 효과 적용
+    slow_multiplier = 1.0
     if leg_shot_active:
-        enhanced_max_speed *= LEG_SHOT_SPEED_REDUCTION  # 70% 유지 (30% 감소)
-        enhanced_acceleration *= LEG_SHOT_SPEED_REDUCTION
-        enhanced_deceleration *= LEG_SHOT_SPEED_REDUCTION
-        # 현재 속도도 감소
-        boss_current_speed *= LEG_SHOT_SPEED_REDUCTION
+        slow_multiplier *= LEG_SHOT_SPEED_REDUCTION
+    if spider_mine_slow_active:
+        slow_multiplier *= SPIDER_MINE_SLOW_FACTOR
+    if slow_multiplier != 1.0:
+        enhanced_max_speed *= slow_multiplier
+        enhanced_acceleration *= slow_multiplier
+        enhanced_deceleration *= slow_multiplier
+        boss_current_speed *= slow_multiplier
     
     # Disabled에 가까운 예측 프레임
     predict_frame = 10  # Disabled에 더 가까운 예측 프레임
