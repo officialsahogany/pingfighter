@@ -516,6 +516,24 @@ class AcademyUI:
             
     def _render_skill_info(self):
         """선택된 스킬 정보 렌더링"""
+        tree_ids = ['dash', 'item', 'special']
+        if self.current_tab < len(tree_ids):
+            current_tree_id = tree_ids[self.current_tab]
+            if self.selected_tree != current_tree_id:
+                tree_data = self.academy_mode.skill_tree_data.get(current_tree_id, {})
+                skills = tree_data.get('skills', [])
+                saved_skill = self.selected_skills_by_tree.get(current_tree_id)
+                valid_ids = {skill['id'] for skill in skills}
+                if saved_skill not in valid_ids:
+                    fallback_id = skills[0]['id'] if skills else None
+                else:
+                    fallback_id = saved_skill
+                self._set_selected_skill(current_tree_id, fallback_id)
+        else:
+            # 존재하지 않는 탭은 정보 패널을 표시하지 않고 종료
+            self._set_selected_skill(None, None)
+            return
+
         if not self.selected_tree:
             self._on_tab_changed()
         if not self.selected_tree:
