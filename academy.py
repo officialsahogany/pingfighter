@@ -2938,9 +2938,9 @@ class AcademyUI:
                 cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(cost_text, cost_rect)
             else:
-                master_surface = self.font_small.render("MASTER", True, (255, 215, 0))
-                master_rect = master_surface.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
-                self.screen.blit(master_surface, master_rect)
+                badge_surface = self._create_master_badge_surface((255, 215, 0))
+                badge_rect = badge_surface.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
+                self.screen.blit(badge_surface, badge_rect)
             
             # 잠금 상태 표시
             is_locked = False

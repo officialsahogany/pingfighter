@@ -256,35 +256,6 @@ class AcademyUI:
         }
         self._on_tab_changed()
 
-    def _create_master_badge_surface(self, text_color):
-        """STAR + MASTER + STAR 형태의 배지 생성"""
-        label_surface = self.font_small.render("MASTER", True, text_color)
-        star_size = max(4, label_surface.get_height() // 2)
-        spacing = 6
-        width = star_size * 2 + spacing * 2 + label_surface.get_width()
-        height = max(label_surface.get_height(), star_size * 2)
-        badge_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-
-        center_y = height // 2
-
-        def draw_star(cx):
-            points = []
-            for i in range(10):
-                angle = math.pi / 5 * i - math.pi / 2
-                radius = star_size if i % 2 == 0 else star_size * 0.45
-                px = cx + radius * math.cos(angle)
-                py = center_y + radius * math.sin(angle)
-                points.append((px, py))
-            pygame.draw.polygon(badge_surface, text_color, points)
-
-        draw_star(star_size)
-        draw_star(width - star_size)
-
-        text_x = star_size * 2 + spacing
-        text_y = (height - label_surface.get_height()) // 2
-        badge_surface.blit(label_surface, (text_x, text_y))
-        return badge_surface
-
     def _create_skill_tree_uis(self):
         """스킬 트리 UI 생성"""
         tree_data = self.academy_mode.skill_tree_data
@@ -667,8 +638,8 @@ class AcademyUI:
         can_upgrade = tree.can_upgrade(self.selected_skill, self.academy_mode.player_data['tp'])
         status_pos_y = info_y + info_height - 20
         if current_level >= max_level:
-            badge = self._create_master_badge_surface((255, 215, 0))
-            self.screen.blit(badge, (info_x + 10, status_pos_y))
+            master_surface = self.font_small.render("MASTER", True, (255, 215, 0))
+            self.screen.blit(master_surface, (info_x + 10, status_pos_y))
         elif can_upgrade:
             upgrade_surface = self.font_small.render("클릭하여 업그레이드", True, (100, 255, 100))
             self.screen.blit(upgrade_surface, (info_x + 10, status_pos_y))
