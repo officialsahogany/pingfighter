@@ -564,3 +564,68 @@ class AIManager:
                     predicted_x = 600 - abs(predicted_x) if predicted_x > 600 else abs(predicted_x)
                 
                 target_x = predicted_x
+
+
+def _sync_state_from_game_vars(state: GameState) -> None:
+    """core.game_variables와 GameState를 동기화."""
+    try:
+        game_vars = get_game_vars()
+    except Exception:
+        return
+
+    try:
+        player_rect = game_vars.player.rect
+        boss_rect = game_vars.boss.rect
+        ball_rect = game_vars.ball.rect
+        ball_vel = game_vars.ball.vel
+    except AttributeError:
+        return
+
+    state.player.rect = player_rect.copy()
+    state.player.speed = getattr(game_vars.player, "speed", state.player.speed)
+
+    state.boss.rect = boss_rect.copy()
+    state.boss.speed = getattr(game_vars.boss, "speed", state.boss.speed)
+
+    state.ball.pos = [float(ball_rect.centerx), float(ball_rect.centery)]
+    if len(ball_vel) >= 2:
+        state.ball.velocity = [float(ball_vel[0]), float(ball_vel[1])]
+    state.ball.radius = getattr(game_vars.ball, "radius", state.ball.radius)
+
+
+def _sync_game_vars_from_state(state: GameState) -> None:
+    """GameState 변화 내용을 core.game_variables에 반영."""
+    try:
+        game_vars = get_game_vars()
+    except Exception:
+        return
+
+    try:
+        player_rect = game_vars.player.rect
+        boss_rect = game_vars.boss.rect
+        ball_rect = game_vars.ball.rect
+        ball_vel = game_vars.ball.vel
+    except AttributeError:
+        return
+
+    player_rect.x = state.player.rect.x
+    player_rect.y = state.player.rect.y
+    player_rect.width = state.player.rect.width
+    player_rect.height = state.player.rect.height
+    if hasattr(game_vars.player, "speed"):
+        game_vars.player.speed = state.player.speed
+
+    boss_rect.x = state.boss.rect.x
+    boss_rect.y = state.boss.rect.y
+    boss_rect.width = state.boss.rect.width
+    boss_rect.height = state.boss.rect.height
+    if hasattr(game_vars.boss, "speed"):
+        game_vars.boss.speed = state.boss.speed
+
+    ball_rect.centerx = int(state.ball.pos[0])
+    ball_rect.centery = int(state.ball.pos[1])
+    if len(ball_vel) >= 2:
+        ball_vel[0] = float(state.ball.velocity[0])
+        ball_vel[1] = float(state.ball.velocity[1])
+    if hasattr(game_vars.ball, "radius"):
+        game_vars.ball.radius = int(state.ball.radius)
