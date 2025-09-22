@@ -8252,33 +8252,40 @@ def activate_spider_mine():
     global spider_mines
 
     side = "left" if PLAYER.centerx <= WIDTH / 2 else "right"
-    floor_base = min(HEIGHT - 28, PLAYER.bottom + 6)
+    size = 26
 
-    spawn_offset = 26
+    floor_center_y = min(PLAYER.bottom - size // 2 + 2, HEIGHT - size // 2 - SPIDER_MINE_FLOOR_CLEARANCE)
+    wall_center_x = size // 2 + SPIDER_MINE_WALL_OFFSET if side == "left" else WIDTH - (size // 2 + SPIDER_MINE_WALL_OFFSET)
+    corner_center_y = max(BOSS.top + size // 2 + SPIDER_MINE_CORNER_OFFSET_Y, size // 2 + 12)
+    corner_center_y = min(corner_center_y, BOSS.bottom + size)
+
+    spawn_offset = size + 10
     start_x = PLAYER.left - spawn_offset if side == "left" else PLAYER.right + spawn_offset
-    start_x = max(32, min(WIDTH - 32, start_x))
-
-    # 보스가 이동하는 범위의 모서리에 설치되도록 목표 지점 계산
-    boss_margin = max(40, BOSS.width // 2)
-    if side == "left":
-        target_floor_x = boss_margin
-    else:
-        target_floor_x = min(WIDTH - boss_margin, WIDTH - 40)
+    start_x = max(size // 2 + 4, min(WIDTH - size // 2 - 4, start_x))
 
     mine = {
         "x": float(start_x),
-        "y": float(floor_base),
-        "target_x": float(target_floor_x),
-        "target_y": float(floor_base),
-        "state": "floor",
+        "y": float(floor_center_y),
+        "target_x": float(start_x),
+        "target_y": float(floor_center_y),
+        "wall_x": float(wall_center_x),
+        "floor_y": float(floor_center_y),
+        "corner_y": float(corner_center_y),
+        "state": "spawn",
+        "delay_timer": SPIDER_MINE_START_DELAY_FRAMES,
+        "flash_timer": SPIDER_MINE_START_DELAY_FRAMES,
         "side": side,
-        "size": 26,
+        "size": size,
         "glow_phase": 0.0,
         "armed_elapsed": 0.0,
+        "step_phase": 0.0,
+        "embed_timer": 0,
+        "embed_depth": 0.0,
+        "embed_slam_timer": 0,
     }
 
     spider_mines.append(mine)
-    print("🕷️ 스파이더지뢰 전개! 경로 확보 중...")
+    print("🕷️ 스파이더지뢰 전개 준비! 1초 후 돌입합니다.")
 
 
 def _move_spider_mine_towards(mine, target_x, target_y, speed):
