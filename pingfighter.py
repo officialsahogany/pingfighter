@@ -44,6 +44,7 @@ from trade_point_system import TradePointSystem
 from events.stage1_event_integration import Stage1EventManager
 from game_logic.checkmate_system import get_checkmate_system
 from resource_path import resource_path
+from rendering.draw_helper import DrawHelper
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
@@ -398,61 +399,6 @@ SHORT_SHOT_POWER_SPEED_MULTIPLIER = 1.50          # 보너스 파워스매싱 �
 DEFAULT_ALPHA = 150
 GLOW_ALPHA = 50
 BORDER_WIDTH = 4
-
-# ============================================================
-# 11. 헬퍼 클래스
-# ============================================================
-
-class DrawHelper:
-    """pygame.draw 호출을 간소화하느 헬퍼 클래스
-    
-    반복적인 그리기 코드를 줄이고 가독성을 향상시킴.
-    """
-    
-    def __init__(self, surface):
-        """DrawHelper 초기화
-        
-        Args:
-            surface: pygame Surface 객체
-        """
-        self.surface = surface
-    
-    def circle(self, color, pos, radius, width=0):
-        """원 그리기
-        
-        Args:
-            color: RGB 튀플
-            pos: 중심 좌표 (x, y)
-            radius: 반지름
-            width: 선 두께 (0이면 채워진 원)
-        """
-        pygame.draw.circle(self.surface, color, pos, radius, width)
-    
-    def rect(self, color, rect, width=0, border_radius=0):
-        """사각형 그리기
-        
-        Args:
-            color: RGB 튀플
-            rect: pygame.Rect 객체
-            width: 선 두께 (0이면 채워진 사각형)
-            border_radius: 모서리 둥글기
-        """
-        if border_radius > 0:
-            pygame.draw.rect(self.surface, color, rect, width, border_radius=border_radius)
-        else:
-            pygame.draw.rect(self.surface, color, rect, width)
-    
-    def line(self, color, start_pos, end_pos, width=1):
-        """선 그리기"""
-        pygame.draw.line(self.surface, color, start_pos, end_pos, width)
-    
-    def polygon(self, color, points, width=0):
-        """다각형 그리기"""
-        pygame.draw.polygon(self.surface, color, points, width)
-    
-    def ellipse(self, color, rect, width=0):
-        """타원 그리기"""
-        pygame.draw.ellipse(self.surface, color, rect, width)
 
 # === 유용한 헬퍼 함수들 ===
 def get_stage_color(stage):
