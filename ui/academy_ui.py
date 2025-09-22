@@ -88,6 +88,11 @@ class SkillNode:
         name_surface = font.render(self.data['name'], True, (255, 255, 255))
         name_rect = name_surface.get_rect(center=(self.x, self.y + self.radius + 20))
         screen.blit(name_surface, name_rect)
+
+        if current_level >= max_level:
+            master_surface = font.render("★ MASTER ★", True, (255, 215, 0))
+            master_rect = master_surface.get_rect(center=(self.x, self.y + self.radius + 38))
+            screen.blit(master_surface, master_rect)
         
         # 선택 표시
         if self.selected:
