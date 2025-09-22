@@ -2417,6 +2417,7 @@ class AcademyUI:
                 pygame.draw.rect(self.screen, (255, 255, 255), highlight_rect, 2)
 
             current_level = self.skill_system.get_skill_level(skill["id"])
+            max_level = skill["max_level"]
             tree_id_for_skill = self.skill_system.get_tree_id_for_skill(skill["id"]) or self.selected_tree
             tree_tp_total = self.skill_system.get_tree_total(tree_id_for_skill)
 
