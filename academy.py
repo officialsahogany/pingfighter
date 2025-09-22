@@ -2371,6 +2371,8 @@ class AcademyUI:
                 pygame.draw.rect(self.screen, (255, 255, 255), highlight_rect, 2)
 
             current_level = self.skill_system.get_skill_level(skill["id"])
+            tree_id_for_skill = self.skill_system.get_tree_id_for_skill(skill["id"]) or self.selected_tree
+            tree_tp_total = self.skill_system.get_tree_total(tree_id_for_skill)
 
             if i == self.selected_skill_index and not self.tab_selection_mode:
                 pulse = abs(math.sin(pygame.time.get_ticks() * 0.005)) * 0.5 + 0.5
@@ -2926,7 +2928,7 @@ class AcademyUI:
             
             # 누적 TP 조건 확인
             if skill.get("total_tp_required") and not is_locked:
-                if self.skill_system.total_invested_points < skill.get("total_tp_required", 0):
+                if tree_tp_total < skill.get("total_tp_required", 0):
                     is_locked = True
             
             if skill.get("requires") or skill.get("requires_or") or skill.get("total_tp_required"):
