@@ -57,6 +57,10 @@ from display_manager import (
     change_resolution as dm_change_resolution,
     change_internal_resolution as dm_change_internal_resolution,
 )
+from background_manager import (
+    BackgroundFactory,
+    load_stage_backgrounds,
+)
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
