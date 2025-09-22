@@ -9161,6 +9161,9 @@ def calculate_trajectory():
         finally:
             random.setstate(random_state)
 
+        if DEBUG_PREDICTOR:
+            print(f"[Predictor] post-sim len={len(predicted_trajectory)} first={predicted_trajectory[:5] if predicted_trajectory else []}")
+
         if len(predicted_trajectory) < 2:
             fallback_points = []
             fallback_x = BALL.centerx
