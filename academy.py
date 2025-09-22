@@ -284,20 +284,43 @@ class SkillSystem:
         self.skill_points = 0
         self.skill_levels = {}
         self.total_invested_points = 0  # 누적으로 투자한 총 TP
+        self.total_invested_points_by_tree = {}
+        self.skill_to_tree = {}
+        self._initialize_tree_trackers()
         # 스킬 레벨 초기화는 reset_all()을 통해서만 수행
         # 게임 세션 동안 스킬 레벨 유지를 위해 자동 초기화 제거
-    
+
     def init_fresh_skills(self):
         """스킬을 항상 초기화 (저장/로드 없음)"""
         self.skill_points = 0
         self.skill_levels = {}
         self.total_invested_points = 0
+        self._initialize_tree_trackers()
         # 모든 스킬 레벨을 0으로 초기화
         for tree_id, tree_data in SKILL_TREES.items():
             for skill in tree_data["skills"]:
                 self.skill_levels[skill["id"]] = 0
         print("(   0)")
-    
+
+    def _initialize_tree_trackers(self):
+        """트리별 누적 TP와 스킬-트리 매핑 초기화"""
+        self.total_invested_points_by_tree = {tree_id: 0 for tree_id in SKILL_TREES.keys()}
+        self.skill_to_tree = {}
+        for tree_id, tree_data in SKILL_TREES.items():
+            for skill in tree_data["skills"]:
+                self.skill_to_tree[skill["id"]] = tree_id
+
+    def _add_tree_points(self, tree_id, amount):
+        if tree_id is None or amount <= 0:
+            return
+        self.total_invested_points_by_tree[tree_id] = self.total_invested_points_by_tree.get(tree_id, 0) + amount
+
+    def get_tree_total(self, tree_id):
+        return self.total_invested_points_by_tree.get(tree_id, 0)
+
+    def get_tree_id_for_skill(self, skill_id):
+        return self.skill_to_tree.get(skill_id)
+
     def add_skill_points(self, points):
         """스킬 포인트 추가 (저장하지 않음)"""
         self.skill_points += points
@@ -364,9 +387,11 @@ class SkillSystem:
         
         # 누적 TP 조건 확인
         if skill_data.get("total_tp_required"):
-            if self.total_invested_points < skill_data["total_tp_required"]:
+            tree_id = self.skill_to_tree.get(skill_id)
+            tree_total = self.get_tree_total(tree_id)
+            if tree_total < skill_data["total_tp_required"]:
                 return False
-        
+
         return True
     
     def upgrade_skill(self, skill_id):
@@ -391,6 +416,8 @@ class SkillSystem:
             self.skill_points -= actual_cost
             self.skill_levels[skill_id] = self.skill_levels.get(skill_id, 0) + 1
             self.total_invested_points += actual_cost  # 실제 투자한 포인트만 누적
+            tree_id = self.skill_to_tree.get(skill_id)
+            self._add_tree_points(tree_id, actual_cost)
             print(f"  : {skill_id} (: {actual_cost}) →   TP: {self.total_invested_points}")
             
             # 0→1 전환시에만 애니메이션 (누적 TP 업데이트 후 체크)
