@@ -50032,14 +50032,14 @@ def show_pause_options():
                         bgm_manager.set_bgm_volume(current_bgm_volume)
                     elif selected_slider == 'sfx':
                         current_sfx_volume = max(0.0, current_sfx_volume - 0.05)
-                        set_sfx_volume(current_sfx_volume)
+                        current_sfx_volume = set_sfx_volume(current_sfx_volume)
                 elif event.key == pygame.K_RIGHT:
                     if selected_slider == 'bgm':
                         current_bgm_volume = min(1.0, current_bgm_volume + 0.05)
                         bgm_manager.set_bgm_volume(current_bgm_volume)
                     elif selected_slider == 'sfx':
                         current_sfx_volume = min(1.0, current_sfx_volume + 0.05)
-                        set_sfx_volume(current_sfx_volume)
+                        current_sfx_volume = set_sfx_volume(current_sfx_volume)
                 elif event.key == pygame.K_UP:
                     selected_slider = 'bgm'
                 elif event.key == pygame.K_DOWN:
@@ -50052,8 +50052,8 @@ def show_pause_options():
                 # 뒤로가기 버튼 클릭
                 if back_button_rect.collidepoint(mouse_pos):
                     play_button_click_sound()
-                    bgm_volume = current_bgm_volume
-                    sfx_volume = current_sfx_volume
+                    current_bgm_volume = store_bgm_volume(current_bgm_volume)
+                    current_sfx_volume = set_sfx_volume(current_sfx_volume)
                     return
                 
                 # BGM 슬라이더 클릭 - 클릭한 위치로 즉시 이동
@@ -50074,7 +50074,7 @@ def show_pause_options():
                     # 클릭한 위치로 즉시 볼륨 설정
                     relative_x = mouse_x - sfx_slider_x
                     current_sfx_volume = max(0.0, min(1.0, relative_x / slider_width))
-                    set_sfx_volume(current_sfx_volume)
+                    current_sfx_volume = set_sfx_volume(current_sfx_volume)
             
              elif event.type == pygame.MOUSEBUTTONUP:
                 dragging = False
@@ -50094,7 +50094,7 @@ def show_pause_options():
                     # 효과음 볼륨 조절
                     relative_x = mouse_x - sfx_slider_x
                     current_sfx_volume = max(0.0, min(1.0, relative_x / slider_width))
-                    set_sfx_volume(current_sfx_volume)
+                    current_sfx_volume = set_sfx_volume(current_sfx_volume)
             
              elif event.type == pygame.MOUSEWHEEL:
                 # 마우스 휠로 볼륨 미세 조정
@@ -50111,21 +50111,22 @@ def show_pause_options():
                 # 마우스가 효과음 슬라이더 위에 있을 때
                 elif sfx_slider_rect.collidepoint(mouse_pos) or selected_slider == 'sfx':
                     current_sfx_volume = max(0.0, min(1.0, current_sfx_volume + event.y * 0.02))
-                    set_sfx_volume(current_sfx_volume)
+                    current_sfx_volume = set_sfx_volume(current_sfx_volume)
                     selected_slider = 'sfx'
     
     # 변경사항 저장
-    bgm_volume = current_bgm_volume
-    sfx_volume = current_sfx_volume
+    store_bgm_volume(current_bgm_volume)
+    set_sfx_volume(current_sfx_volume)
 
 def set_sfx_volume(volume):
     """효과음 볼륨 설정 함수"""
     global sfx_volume
-    sfx_volume = max(0.0, min(1.0, volume))
+    sfx_volume = set_sfx_volume_state(volume)
     # 모든 효과음 채널의 볼륨 조절
     for i in range(pygame.mixer.get_num_channels()):
         channel = pygame.mixer.Channel(i)
         channel.set_volume(sfx_volume)
+    return sfx_volume
 
 def show_surrender_confirm():
     """기권 확인 메뉴"""
