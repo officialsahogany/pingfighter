@@ -23,6 +23,16 @@ class RuntimeAdapters:
     check_collisions: Optional[Callable[["GameState"], None]] = None
     update_items: Optional[Callable[["GameState", float], None]] = None
 
+
+@dataclass
+class LegacyHooks:
+    """레거시 업데이트 함수 집합."""
+
+    player_update: Optional[Callable[["GameState", "InputHandler"], None]] = None
+    physics_update: Optional[Callable[["GameState", float], None]] = None
+    ai_update: Optional[Callable[["GameState", float], None]] = None
+    items_update: Optional[Callable[["GameState", float], None]] = None
+
 class GameLoop:
     """게임 루프를 관리하는 메인 클래스"""
     
@@ -659,14 +669,50 @@ def _game_vars_update_player_input(state: GameState, input_handler: InputHandler
     _sync_game_vars_from_state(state)
 
 
-def create_game_vars_adapters() -> RuntimeAdapters:
+def create_game_vars_adapters(hooks: Optional[LegacyHooks] = None) -> RuntimeAdapters:
     """core.game_variables와 동기화되는 RuntimeAdapters 생성."""
-    return RuntimeAdapters(update_player_input=_game_vars_update_player_input)
+
+    adapters = RuntimeAdapters(update_player_input=_game_vars_update_player_input)
+
+    if hooks:
+        if hooks.player_update is not None:
+            def _legacy_player(state: GameState, input_handler: InputHandler) -> None:
+                hooks.player_update(state, input_handler)
+                _sync_state_from_game_vars(state)
+                _sync_state_from_core_game_state(state)
+
+            adapters.update_player_input = _legacy_player
+
+        if hooks.physics_update is not None:
+            def _legacy_physics(state: GameState, delta_time: float) -> None:
+                hooks.physics_update(state, delta_time)
+                _sync_state_from_game_vars(state)
+                _sync_state_from_core_game_state(state)
+
+            adapters.update_physics = _legacy_physics
+
+        if hooks.ai_update is not None:
+            def _legacy_ai(state: GameState, delta_time: float) -> None:
+                hooks.ai_update(state, delta_time)
+                _sync_state_from_game_vars(state)
+                _sync_state_from_core_game_state(state)
+
+            adapters.update_ai = _legacy_ai
+
+        if hooks.items_update is not None:
+            def _legacy_items(state: GameState, delta_time: float) -> None:
+                hooks.items_update(state, delta_time)
+                _sync_state_from_game_vars(state)
+                _sync_state_from_core_game_state(state)
+
+            adapters.update_items = _legacy_items
+
+    return adapters
 
 
-def create_game_loop(screen: pygame.Surface) -> GameLoop:
+def create_game_loop(screen: pygame.Surface, hooks: Optional[LegacyHooks] = None) -> GameLoop:
     """game_vars 연동 어댑터가 적용된 GameLoop 생성 헬퍼."""
-    return GameLoop(screen, adapters=create_game_vars_adapters())
+    return GameLoop(screen, adapters=create_game_vars_adapters(hooks))
 
 
 def _sync_state_from_core_game_state(state: GameState) -> None:
