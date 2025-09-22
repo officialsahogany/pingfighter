@@ -188,7 +188,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         back_text_rect = back_text.get_rect(center=back_button_rect.center)
         ctx.screen.blit(back_text, back_text_rect)
 
-        hint_text = font_small.render("마우스 클릭/드래그/휠로 조절, ESC로 돌아가기", True, (150, 150, 150))
+        hint_text = font_small.render("마우스 클릭/드래그/휠로 조절, M키로 모던 루프 토글, ESC로 돌아가기", True, (150, 150, 150))
         hint_rect = hint_text.get_rect(center=(ctx.width // 2, panel_y + panel_height - 30))
         ctx.screen.blit(hint_text, hint_rect)
 
