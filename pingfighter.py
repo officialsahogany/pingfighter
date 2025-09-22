@@ -425,25 +425,24 @@ USE_MODERN_GAME_LOOP = False
 SMOKE_TEST_ENABLED = False
 SMOKE_TEST_FRAMES = 300
 
+def _bool_from_env(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "on", "yes"}
+
 if "--modern-loop" in sys.argv:
     USE_MODERN_GAME_LOOP = True
     print("[INFO] --modern-loop 플래그 감지: Experimental GameLoop 활성화")
 
-env_modern_loop = os.getenv("PINGFIGHTER_MODERN_LOOP", "").strip().lower()
-if env_modern_loop in {"1", "true", "on", "yes"}:
+if _bool_from_env("PINGFIGHTER_MODERN_LOOP"):
     USE_MODERN_GAME_LOOP = True
     print("[INFO] PINGFIGHTER_MODERN_LOOP 환경 변수 활성화: Experimental GameLoop 사용")
 
-if "--smoke-test" in sys.argv:
+if "--smoke-test" in sys.argv or _bool_from_env("PINGFIGHTER_SMOKE_TEST"):
     USE_MODERN_GAME_LOOP = True
     SMOKE_TEST_ENABLED = True
-    print("[INFO] --smoke-test 플래그 감지: 모던 루프 스모크 테스트 모드")
-
-env_smoke_test = os.getenv("PINGFIGHTER_SMOKE_TEST", "").strip().lower()
-if env_smoke_test in {"1", "true", "on", "yes"}:
-    USE_MODERN_GAME_LOOP = True
-    SMOKE_TEST_ENABLED = True
-    print("[INFO] PINGFIGHTER_SMOKE_TEST 환경 변수 활성화: 모던 루프 스모크 테스트 모드")
+    print("[INFO] 모던 루프 스모크 테스트 모드 활성화")
 
 def draw_glow_circle(pos, radius, color, glow_intensity=3):
     """광채 효과가 있는 원 그리기 - Phase 101: unified_renderer 사용"""
