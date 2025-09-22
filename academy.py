@@ -2370,33 +2370,6 @@ class AcademyUI:
             gauge_y = name_rect.bottom + 5
             self.draw_skill_level_gauge(skill, gauge_x, gauge_y, gauge_width, gauge_height)
 
-        if current_level < skill["max_level"]:
-            can_upgrade = self.skill_system.can_upgrade_skill(skill["id"])
-            actual_cost = skill['cost']
-            if cost_scaling and skill['cost'] in (1, 2) and current_level >= 3:
-                actual_cost = skill['cost'] + 1
-            cost_color = (100, 255, 100) if can_upgrade else (255, 100, 100)
-            cost_text = f"비용: {actual_cost}TP"
-            if not can_upgrade:
-                if self.skill_system.skill_points < actual_cost:
-                    cost_text += '\n(포인트 부족)'
-                elif selected_skill.get('total_tp_required') and self.skill_system.total_invested_points < selected_skill.get('total_tp_required', 0):
-                    cost_text += f"\n(누적 TP {selected_skill.get('total_tp_required', 0)} 필요)"
-                elif selected_skill.get('requires') or selected_skill.get('requires_or'):
-                    cost_text += '\n(선행스킬 필요)'
-            cost_lines = cost_text.split('\n')
-            for idx, line in enumerate(cost_lines):
-                cost_info = self.font_small.render(line, True, cost_color)
-                self.screen.blit(cost_info, (desc_x + 8, cost_y + idx * 16))
-            next_start_y = cost_y + len(cost_lines) * 16 + 10
-        else:
-            max_info = self.font_small.render('✅ 최대!', True, (255, 255, 100))
-            self.screen.blit(max_info, (desc_x + 8, cost_y))
-            next_start_y = cost_y + 26
-
-    for idx, line in enumerate(next_lines):
-        next_surf = self.font_small.render(line, True, (150, 150, 255))
-        self.screen.blit(next_surf, (desc_x + 8, next_start_y + idx * 16))
 
     def draw_skill_level_gauge(self, skill, x, y, width=120, height=25):
         """스킬 레벨 게이지를 그리기 - 네모 단계 게이지 시스템"""
