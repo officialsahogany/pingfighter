@@ -3,41 +3,63 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, List
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import math
-import random
 import pygame
 
-from start_menu_decorations import draw_star_field, StarField
+from start_menu_decorations import (
+    StarField,
+    draw_neon_particles,
+    draw_scan_lines,
+    draw_star_field,
+)
+
+BASE_MENU_OPTIONS = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
+MENU_ICONS = {
+    "경기장 입장": "▶",
+    "테스트메뉴": "★",
+    "메달샵": "◆",
+    "크레딧": "●",
+    "개발자": "⚙",
+}
+VERSION_TEXT = "1.4v beta"
+DEV_CODE = [1]
+ITEM_CODE = [2]
 
 
 @dataclass
 class MenuContext:
-    screen: pygame.Surface
-    width: int
-    height: int
-    internal_width: int
-    internal_height: int
-    font: object
-    icon_size: int
-    default_alpha: int
+    get_screen: Callable[[], pygame.Surface]
+    get_dimensions: Callable[[], Tuple[int, int]]
+    get_internal_dimensions: Callable[[], Tuple[int, int]]
     menu_system: object
+    set_menu_system: Callable[[object], None]
+    menu_system_factory: Callable[[pygame.Surface, int, int], object]
+    simple_bg: object
     simple_bg_factory: Callable[[int, int], object]
     play_hover_sound: Callable[[], None]
     play_click_sound: Callable[[], None]
     change_resolution: Callable[[int], None]
-    start_game: Callable[[int], None]
-    show_developer_stage_select: Callable[[], None]
+    show_tutorial_dialog: Callable[[], bool]
+    show_character_selection: Callable[[], Optional[str]]
+    show_difficulty_selection: Callable[[], Optional[str]]
+    start_game_with_difficulty: Callable[[str, str], None]
+    start_tutorial_game: Callable[[], None]
+    start_test_mode: Callable[[], None]
     show_item_manager_menu: Callable[[], None]
-    show_character_selection: Callable[[], None]
-    show_tutorial_dialog: Callable[[], None]
+    show_developer_stage_select: Callable[[], None]
     show_credits_screen: Callable[[], None]
-    reset_runtime_items: Callable[[], None]
-    idle_cinematic: Callable[[pygame.Surface, int, int], None]
     medal_score_getter: Callable[[], int]
-    academy_reset: Callable[[], None]
-    items_reset: Callable[[], None]
+    get_font: Callable[[int], pygame.font.Font]
+    FontStyle: object
+    resource_path: Callable[[str], str]
+    default_alpha: int
+    default_radius: int
+    resolution_options: Sequence[Tuple[int, int]]
+    get_current_resolution_index: Callable[[], int]
+    two_seconds_frames: int
+    idle_cinematic: Callable[[pygame.Surface, int, int], None]
 
 
 @dataclass
@@ -46,122 +68,218 @@ class MenuState:
     developer_unlocked: bool = False
     item_manager_unlocked: bool = True
     idle_start_time: int = 0
-    cinematic_trigger_time: int = 15000
     animation_timer: float = 0.0
     star_field: StarField = field(default_factory=StarField)
     neon_particles: List[dict] = field(default_factory=list)
     scan_lines: List[dict] = field(default_factory=list)
+    input_buffer: List[int] = field(default_factory=list)
+    locked_message_timer: int = 0
 
 
-def _ensure_neon_particles(state: MenuState, width: int, height: int) -> None:
-    if state.neon_particles:
-        return
-    for _ in range(50):
-        state.neon_particles.append(
-            {
-                "x": random.randint(0, width),
-                "y": random.randint(0, height),
-                "vx": random.uniform(-0.5, 0.5),
-                "vy": random.uniform(-0.5, 0.5),
-                "alpha": random.randint(60, 120),
-                "size": random.randint(4, 8),
-                "color": (0, 200, 255),
-                "pulse_speed": random.uniform(1.0, 3.0),
-            }
-        )
+def _draw_titles(ctx: MenuContext, screen: pygame.Surface, width: int, animation_timer: float) -> None:
+    FontStyle = ctx.FontStyle
+    font_title = FontStyle.title_large()
+    font_subtitle = FontStyle.tiny()
+    title_y = 100
+
+    for offset in range(15, 0, -3):
+        glow_alpha = int(30 * (1 - offset / 15))
+        glow_color = (0, 255, 255, glow_alpha)
+        glow_surf = font_title.render("PINGFIGHTER", True, glow_color)
+        glow_rect = glow_surf.get_rect(center=(width // 2, title_y))
+        for dx in [-offset, 0, offset]:
+            for dy in [-offset, 0, offset]:
+                if dx == 0 and dy == 0:
+                    continue
+                temp_rect = glow_rect.copy()
+                temp_rect.x += dx
+                temp_rect.y += dy
+                screen.blit(glow_surf, temp_rect)
+
+    neon_color = (0, 200, 255)
+    neon_surf = font_title.render("PINGFIGHTER", True, neon_color)
+    neon_rect = neon_surf.get_rect(center=(width // 2, title_y))
+    for _ in range(3):
+        screen.blit(neon_surf, neon_rect)
+
+    highlight_color = (150, 255, 255)
+    highlight_surf = font_title.render("PINGFIGHTER", True, highlight_color)
+    highlight_rect = highlight_surf.get_rect(center=(width // 2 - 1, title_y - 1))
+    screen.blit(highlight_surf, highlight_rect)
+
+    main_color = (255, 255, 255)
+    title_text = font_title.render("PINGFIGHTER", True, main_color)
+    title_rect = title_text.get_rect(center=(width // 2, title_y))
+    screen.blit(title_text, title_rect)
+
+    subtitle_text = "탁구로 보스를 이겨라!"
+    subtitle_color = (0, 255, 200)
+    subtitle_surf = font_subtitle.render(subtitle_text, True, subtitle_color)
+    subtitle_rect = subtitle_surf.get_rect(center=(width // 2, title_y + 45))
+    for i in range(3):
+        sub_glow = font_subtitle.render(subtitle_text, True, (0, 100, 150))
+        sub_glow_rect = subtitle_rect.copy()
+        sub_glow_rect.x += i - 1
+        sub_glow_rect.y += i - 1
+        screen.blit(sub_glow, sub_glow_rect)
+    screen.blit(subtitle_surf, subtitle_rect)
+
+    line_y = title_y + 65
+    line_color = (0, 150, 200)
+    for i in range(3):
+        pygame.draw.line(screen, line_color, (width // 2 - 200, line_y + i), (width // 2 - 50, line_y + i), 2)
+        pygame.draw.line(screen, line_color, (width // 2 + 50, line_y + i), (width // 2 + 200, line_y + i), 2)
+    pygame.draw.circle(screen, (0, 255, 255), (width // 2 - 200, line_y + 1), 4)
+    pygame.draw.circle(screen, (0, 255, 255), (width // 2 + 200, line_y + 1), 4)
 
 
-def _draw_neon_particles(state: MenuState, surface: pygame.Surface, animation_timer: float, width: int, height: int) -> None:
-    _ensure_neon_particles(state, width, height)
-    for particle in state.neon_particles:
-        particle["x"] += particle["vx"]
-        particle["y"] += particle["vy"]
-        if particle["x"] < 0 or particle["x"] > width:
-            particle["vx"] *= -1
-        if particle["y"] < 0 or particle["y"] > height:
-            particle["vy"] *= -1
-        pulse = abs(math.sin(animation_timer * particle["pulse_speed"]))
-        current_alpha = int(particle["alpha"] * (0.5 + pulse * 0.5))
-        for i in range(2):
-            glow_size = particle["size"] + i * 2
-            glow_alpha = current_alpha // (i + 1)
-            glow_surf = pygame.Surface((glow_size * 4, glow_size * 4), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*particle["color"], glow_alpha), (glow_size * 2, glow_size * 2), glow_size)
-            surface.blit(glow_surf, (particle["x"] - glow_size * 2, particle["y"] - glow_size * 2))
-
-
-def _ensure_scan_lines(state: MenuState, width: int) -> None:
-    if state.scan_lines:
-        return
-    for _ in range(10):
-        state.scan_lines.append(
-            {
-                "y": random.randint(0, 750),
-                "speed": random.uniform(1.0, 3.0),
-                "alpha": random.randint(40, 80),
-            }
-        )
-
-
-def _draw_scan_lines(state: MenuState, surface: pygame.Surface, width: int, height: int) -> None:
-    _ensure_scan_lines(state, width)
-    for scan_line in state.scan_lines:
-        scan_line["y"] += scan_line["speed"]
-        if scan_line["y"] > height:
-            scan_line["y"] = -10
-        for i in range(3):
-            scan_alpha = scan_line["alpha"] - i * 10
-            if scan_alpha > 0:
-                scan_surf = pygame.Surface((width, max(1, 2 - i)), pygame.SRCALPHA)
-                scan_surf.fill((0, 255, 255, scan_alpha))
-                surface.blit(scan_surf, (0, scan_line["y"] + i))
-
-
-def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> None:
+def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuState:
     if state is None:
         state = MenuState()
 
-    ctx.reset_runtime_items()
-    ctx.items_reset()
-    ctx.academy_reset()
-
-    menu_system = ctx.menu_system
-    menu_system.current_menu = menu_system.create_main_menu()
-    simple_bg = ctx.simple_bg_factory(ctx.internal_width, ctx.internal_height)
-
     clock = pygame.time.Clock()
-    medal_icon = pygame.Surface((ctx.icon_size, ctx.icon_size), pygame.SRCALPHA)
-    pygame.draw.circle(medal_icon, (255, 215, 0), medal_icon.get_rect().center, ctx.icon_size // 2)
-
     state.idle_start_time = pygame.time.get_ticks()
 
-    running = True
-    while running:
+    menu_system = ctx.menu_system
+    if menu_system is None:
+        screen = ctx.get_screen()
+        iw, ih = ctx.get_internal_dimensions()
+        menu_system = ctx.menu_system_factory(screen, iw, ih)
+        ctx.set_menu_system(menu_system)
+    simple_bg = ctx.simple_bg
+    if simple_bg is None:
+        iw, ih = ctx.get_internal_dimensions()
+        simple_bg = ctx.simple_bg_factory(iw, ih)
+    ctx.menu_system = menu_system
+    ctx.simple_bg = simple_bg
+
+    try:
+        medal_icon = pygame.image.load(ctx.resource_path("medal.png")).convert_alpha()
+        medal_icon = pygame.transform.scale(medal_icon, (ctx.default_alpha, ctx.default_alpha))
+    except Exception:
+        medal_icon = pygame.Surface((ctx.default_alpha, ctx.default_alpha), pygame.SRCALPHA)
+        pygame.draw.circle(medal_icon, (255, 215, 0), medal_icon.get_rect().center, ctx.default_alpha // 2)
+
+    while True:
+        screen = ctx.get_screen()
+        width, height = ctx.get_dimensions()
         dt = clock.tick(60) / 1000.0
         state.animation_timer += dt
         current_time = pygame.time.get_ticks()
 
-        if current_time - state.idle_start_time >= state.cinematic_trigger_time:
-            ctx.idle_cinematic(ctx.screen, ctx.width, ctx.height)
+        if current_time - state.idle_start_time >= 15000:
+            ctx.idle_cinematic(screen, width, height)
             state.idle_start_time = pygame.time.get_ticks()
 
         simple_bg.update(dt)
-        simple_bg.draw(ctx.screen)
-        state.star_field = draw_star_field(ctx.screen, ctx.width, ctx.height, state.animation_timer, state.star_field)
-        _draw_neon_particles(state, ctx.screen, state.animation_timer, ctx.width, ctx.height)
-        _draw_scan_lines(state, ctx.screen, ctx.width, ctx.height)
+        simple_bg.draw(screen)
 
-        medal_panel = pygame.Surface((ctx.default_alpha, 50), pygame.SRCALPHA)
-        medal_panel.fill((10, 15, 25, 180))
-        pygame.draw.rect(medal_panel, (255, 215, 0), (0, 0, 150, 50), 2, border_radius=8)
-        ctx.screen.blit(medal_panel, (ctx.width - 170, 10))
-        font_medal = ctx.font  # reuse provided font
+        state.star_field = draw_star_field(screen, width, height, state.animation_timer, state.star_field)
+        state.neon_particles = draw_neon_particles(screen, width, height, state.animation_timer, state.neon_particles)
+        state.scan_lines = draw_scan_lines(screen, width, height, state.scan_lines)
+
+        panel = pygame.Surface((ctx.default_alpha, 50), pygame.SRCALPHA)
+        panel.fill((10, 15, 25, 180))
+        pygame.draw.rect(panel, (255, 215, 0), (0, 0, 150, 50), 2, border_radius=8)
+        screen.blit(panel, (width - 170, 10))
+
+        font_medal = ctx.FontStyle.body()
         medal_text = font_medal.render(f" {ctx.medal_score_getter()}", True, (255, 215, 0))
-        medal_rect = medal_text.get_rect(center=(ctx.width - 95, 35))
-        ctx.screen.blit(medal_text, medal_rect)
+        medal_rect = medal_text.get_rect(center=(width - 95, 35))
+        screen.blit(medal_text, medal_rect)
 
-        # 여기서부터 메뉴 렌더링/입력 처리 지속...
-        # (햇갈리는 부분이 많으므로 1차 분리는 장식/배경만 이관)
+        _draw_titles(ctx, screen, width, state.animation_timer)
+
+        current_menu_options = list(BASE_MENU_OPTIONS)
+        if state.developer_unlocked and "개발자" not in current_menu_options:
+            current_menu_options.append("개발자")
+        if state.selected >= len(current_menu_options):
+            state.selected = max(0, len(current_menu_options) - 1)
+
+        menu_y = height - 180
+        menu_item_width = 120
+        menu_spacing = 15
+        total_width = len(current_menu_options) * menu_item_width + (len(current_menu_options) - 1) * menu_spacing
+        menu_start_x = (width - total_width) // 2
+        font_menu = ctx.FontStyle.small()
+        font_icon = ctx.get_font(36)
+
+        for idx, option in enumerate(current_menu_options):
+            x = menu_start_x + idx * (menu_item_width + menu_spacing)
+            if idx == state.selected:
+                glow_surf = pygame.Surface((menu_item_width + 16, 70), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (0, 255, 255, 30), (0, 0, menu_item_width + 16, 70), border_radius=12)
+                screen.blit(glow_surf, (x - 8, menu_y - 8))
+                container = pygame.Surface((menu_item_width, 54), pygame.SRCALPHA)
+                pygame.draw.rect(container, (0, 50, 80, 180), (0, 0, menu_item_width, 54), border_radius=8)
+                pygame.draw.rect(container, (0, 255, 255, 255), (0, 0, menu_item_width, 54), 2, border_radius=8)
+                screen.blit(container, (x, menu_y))
+                for j in range(3):
+                    dot_x = x + menu_item_width // 2 + (j - 1) * 12
+                    dot_y = menu_y + 62
+                    dot_size = 2 + abs(math.sin(state.animation_timer * 3 + j)) * 1.5
+                    pygame.draw.circle(screen, (0, 255, 255), (int(dot_x), int(dot_y)), int(dot_size))
+            else:
+                container = pygame.Surface((menu_item_width, 54), pygame.SRCALPHA)
+                pygame.draw.rect(container, (20, 30, 50, 120), (0, 0, menu_item_width, 54), border_radius=8)
+                pygame.draw.rect(container, (100, 150, 200, 100), (0, 0, menu_item_width, 54), 1, border_radius=8)
+                screen.blit(container, (x, menu_y))
+
+            icon = MENU_ICONS.get(option, "")
+            if icon:
+                icon_surface = font_icon.render(icon, True, (0, 255, 255))
+                icon_rect = icon_surface.get_rect(center=(x + menu_item_width // 2, menu_y + 18))
+                screen.blit(icon_surface, icon_rect)
+
+            display_text = option
+            if option == "경기장 입장":
+                display_text = "경기장"
+            elif option == "테스트메뉴":
+                display_text = "테스트"
+            text_surface = font_menu.render(display_text, True, (255, 255, 255))
+            text_rect = text_surface.get_rect(center=(x + menu_item_width // 2, menu_y + 38))
+            screen.blit(text_surface, text_rect)
+
+            if idx == state.selected and option == "테스트메뉴":
+                font_desc = ctx.FontStyle.tiny()
+                desc = font_desc.render("게임 테스트 및 디버깅 모드", True, (200, 200, 255))
+                desc_rect = desc.get_rect(center=(width // 2, menu_y + 75))
+                screen.blit(desc, desc_rect)
+
+        if state.locked_message_timer > 0:
+            message_width = 400
+            message_height = 40
+            message_x = width // 2 - message_width // 2
+            message_y = menu_y + 100
+            for j in range(10, 0, -2):
+                alpha = int(60 * (1 - j / 10))
+                glow_surface = pygame.Surface((message_width + j * 2, message_height + j * 2), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surface, (255, 100, 100, alpha), (0, 0, message_width + j * 2, message_height + j * 2), border_radius=ctx.default_radius)
+                screen.blit(glow_surface, (message_x - j, message_y - j))
+            message_bg = pygame.Surface((message_width, message_height), pygame.SRCALPHA)
+            pygame.draw.rect(message_bg, (255, 100, 100, 40), (0, 0, message_width, message_height), border_radius=ctx.default_radius)
+            pygame.draw.rect(message_bg, (255, 100, 100, 120), (0, 0, message_width, message_height), 2, border_radius=ctx.default_radius)
+            screen.blit(message_bg, (message_x, message_y))
+            font_message = ctx.FontStyle.body()
+            shadow = font_message.render("모든 보스를 클리어시 해금됩니다", True, (100, 50, 50))
+            shadow_rect = shadow.get_rect(center=(width // 2 + 1, 600 + 1))
+            screen.blit(shadow, shadow_rect)
+            text = font_message.render("모든 보스를 클리어시 해금됩니다", True, (255, 150, 150))
+            text_rect = text.get_rect(center=(width // 2, 600))
+            screen.blit(text, text_rect)
+            state.locked_message_timer -= 1
+
+        font_tiny = ctx.FontStyle.tiny()
+        version_surface = font_tiny.render(VERSION_TEXT, True, (160, 200, 255))
+        version_rect = version_surface.get_rect(bottomleft=(10, height - 10))
+        screen.blit(version_surface, version_rect)
+
+        res_index = ctx.get_current_resolution_index()
+        res_width, res_height = ctx.resolution_options[res_index]
+        resolution_text = f"해상도: {res_width}x{res_height} (F9/F10으로 변경)"
+        resolution_surface = font_tiny.render(resolution_text, True, (150, 200, 255))
+        resolution_rect = resolution_surface.get_rect(bottomright=(width - 10, height - 10))
+        screen.blit(resolution_surface, resolution_rect)
 
         pygame.display.flip()
 
@@ -169,3 +287,80 @@ def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> None:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 raise SystemExit
+            if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.KEYDOWN):
+                state.idle_start_time = pygame.time.get_ticks()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    raise SystemExit
+                if event.key == pygame.K_F9:
+                    ctx.change_resolution(-1)
+                    screen = ctx.get_screen()
+                    iw, ih = ctx.get_internal_dimensions()
+                    menu_system = ctx.menu_system_factory(screen, iw, ih)
+                    ctx.set_menu_system(menu_system)
+                    simple_bg = ctx.simple_bg_factory(iw, ih)
+                    ctx.simple_bg = simple_bg
+                    state.star_field = StarField()
+                    state.neon_particles = []
+                    state.scan_lines = []
+                    continue
+                if event.key == pygame.K_F10:
+                    ctx.change_resolution(1)
+                    screen = ctx.get_screen()
+                    iw, ih = ctx.get_internal_dimensions()
+                    menu_system = ctx.menu_system_factory(screen, iw, ih)
+                    ctx.set_menu_system(menu_system)
+                    simple_bg = ctx.simple_bg_factory(iw, ih)
+                    ctx.simple_bg = simple_bg
+                    state.star_field = StarField()
+                    state.neon_particles = []
+                    state.scan_lines = []
+                    continue
+                if event.key == pygame.K_1:
+                    ctx.play_click_sound()
+                    ctx.show_developer_stage_select()
+                    return state
+                if event.key == pygame.K_2 and state.item_manager_unlocked:
+                    ctx.play_click_sound()
+                    ctx.show_item_manager_menu()
+                    return state
+                if pygame.K_0 <= event.key <= pygame.K_9:
+                    num = event.key - pygame.K_0
+                    state.input_buffer.append(num)
+                    state.input_buffer = state.input_buffer[-4:]
+                    if state.input_buffer[-len(DEV_CODE):] == DEV_CODE:
+                        state.developer_unlocked = True
+                    if state.input_buffer[-len(ITEM_CODE):] == ITEM_CODE:
+                        state.item_manager_unlocked = True
+                if event.key in (pygame.K_RIGHT, pygame.K_d):
+                    ctx.play_hover_sound()
+                    state.selected = (state.selected + 1) % len(current_menu_options)
+                elif event.key in (pygame.K_LEFT, pygame.K_a):
+                    ctx.play_hover_sound()
+                    state.selected = (state.selected - 1) % len(current_menu_options)
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    ctx.play_click_sound()
+                    choice = current_menu_options[state.selected]
+                    if choice == "경기장 입장":
+                        if ctx.show_tutorial_dialog():
+                            ctx.start_tutorial_game()
+                        else:
+                            character = ctx.show_character_selection()
+                            if character is not None:
+                                difficulty = ctx.show_difficulty_selection()
+                                if difficulty is not None:
+                                    ctx.start_game_with_difficulty(character, difficulty)
+                        return state
+                    if choice == "테스트메뉴":
+                        ctx.start_test_mode()
+                        return state
+                    if choice == "메달샵":
+                        state.locked_message_timer = ctx.two_seconds_frames
+                    if choice == "크레딧":
+                        ctx.show_credits_screen()
+                        return state
+                    if choice == "개발자":
+                        ctx.show_developer_stage_select()
+                        return state
+    return state
