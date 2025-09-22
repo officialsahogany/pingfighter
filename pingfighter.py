@@ -8338,23 +8338,52 @@ def update_spider_mines():
     global spider_mines, spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
 
     updated = []
-    corner_y = BOSS.bottom + 6
-
     for mine in spider_mines:
         state = mine["state"]
 
-        if state == "floor":
-            reached = _move_spider_mine_towards(mine, mine["target_x"], mine["target_y"], SPIDER_MINE_TRAVEL_SPEED)
-            if reached:
+        if state == "spawn":
+            mine["delay_timer"] -= 1
+            if mine["delay_timer"] <= 0:
+                mine["state"] = "floor"
+                mine["target_x"] = mine["wall_x"]
+                mine["target_y"] = mine["floor_y"]
+                mine["flash_timer"] = 30
+        elif state == "floor":
+            mine["step_phase"] = mine.get("step_phase", 0.0) + 0.42
+            mine["y"] = mine["floor_y"]
+            if _move_spider_mine_towards(mine, mine["wall_x"], mine["floor_y"], SPIDER_MINE_TRAVEL_SPEED):
                 mine["state"] = "wall"
-                mine["target_y"] = corner_y
+                mine["target_y"] = mine["corner_y"]
+                mine["x"] = mine["wall_x"]
         elif state == "wall":
-            reached = _move_spider_mine_towards(mine, mine["target_x"], mine["target_y"], SPIDER_MINE_CLIMB_SPEED)
-            if reached:
+            mine["step_phase"] = mine.get("step_phase", 0.0) + 0.38
+            mine["x"] = mine["wall_x"]
+            if _move_spider_mine_towards(mine, mine["wall_x"], mine["corner_y"], SPIDER_MINE_CLIMB_SPEED):
+                mine["state"] = "embedding"
+                mine["embed_timer"] = SPIDER_MINE_EMBED_DELAY_FRAMES
+                mine["x"] = mine["wall_x"]
+                mine["y"] = mine["corner_y"]
+        elif state == "embedding":
+            mine["x"] = mine["wall_x"]
+            mine["y"] = mine["corner_y"]
+            mine["step_phase"] = mine.get("step_phase", 0.0) + 0.12
+            mine["embed_timer"] -= 1
+            if mine["embed_timer"] <= 0:
                 mine["state"] = "armed"
-                mine["armed_elapsed"] = 0.0
+                mine["embed_slam_timer"] = 10
+                mine["embed_depth"] = SPIDER_MINE_MAX_EMBED_DEPTH
+                mine["step_phase"] = 0.0
         elif state == "armed":
+            mine["x"] = mine["wall_x"]
+            mine["y"] = mine["corner_y"]
             mine["armed_elapsed"] = mine.get("armed_elapsed", 0.0) + 1
+            mine["step_phase"] = mine.get("step_phase", 0.0) + 0.05
+            if mine.get("embed_slam_timer", 0) > 0:
+                mine["embed_slam_timer"] -= 1
+                easing = mine["embed_slam_timer"] / 10.0
+                mine["embed_depth"] = SPIDER_MINE_MAX_EMBED_DEPTH * easing
+            else:
+                mine["embed_depth"] = max(2.5, mine.get("embed_depth", 0.0) * 0.9)
             if BOSS.colliderect(get_spider_mine_rect(mine)):
                 trigger_spider_mine_explosion(mine)
         elif state == "exploding":
@@ -8363,6 +8392,8 @@ def update_spider_mines():
                 continue
 
         mine["glow_phase"] = mine.get("glow_phase", 0.0) + 0.08
+        if mine.get("flash_timer", 0) > 0:
+            mine["flash_timer"] -= 1
         updated.append(mine)
 
     spider_mines = updated
@@ -8381,11 +8412,12 @@ def update_spider_mines():
 def draw_spider_mines(screen):
     """스파이더지뢰 렌더링"""
     for mine in spider_mines:
-        x = mine["x"]
-        y = mine["y"]
         size = mine.get("size", 26)
+        state = mine["state"]
+        center_x = mine["x"]
+        center_y = mine["y"] + mine.get("embed_depth", 0.0)
 
-        if mine["state"] == "exploding":
+        if state == "exploding":
             progress = 1.0 - (mine["explosion_timer"] / SPIDER_MINE_EXPLOSION_DURATION)
             max_radius = size + 30
             radius = int(size + progress * (max_radius - size))
@@ -8393,7 +8425,7 @@ def draw_spider_mines(screen):
             explosion_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
             pygame.draw.circle(explosion_surface, (255, 160, 90, alpha), (radius, radius), radius)
             pygame.draw.circle(explosion_surface, (255, 230, 180, alpha // 2), (radius, radius), max(4, radius // 2))
-            screen.blit(explosion_surface, (x - radius, y - radius))
+            screen.blit(explosion_surface, (center_x - radius, center_y - radius))
             continue
 
         body_surface = pygame.Surface((size, size), pygame.SRCALPHA)
@@ -8405,23 +8437,54 @@ def draw_spider_mines(screen):
             int(120 + glow_strength * 100),
         )
 
-        # 다리
-        for dx in (-size // 2 + 4, -size // 2 + 8, size // 2 - 4, size // 2 - 8):
-            pygame.draw.line(body_surface, (30, 35, 55), (size // 2, size // 2 + 4), (size // 2 + dx, size - 4), 3)
-            pygame.draw.line(body_surface, (150, 170, 220), (size // 2, size // 2 + 2), (size // 2 + dx, size - 6), 1)
+        step_phase = mine.get("step_phase", 0.0)
+        leg_amp = 3.0 if state in ("floor", "wall") else 1.2
+        leg_offsets = [
+            (-9, 8, 0.0),
+            (-11, 3, 1.2),
+            (9, 8, 2.4),
+            (11, 3, 3.6),
+        ]
+        leg_color_outer = (30, 35, 55)
+        leg_color_inner = (150, 170, 220)
+        for index, (dx, dy, phase_shift) in enumerate(leg_offsets):
+            swing = math.sin(step_phase + phase_shift) * leg_amp
+            tip_x = size // 2 + dx + swing
+            tip_y = size - 4 + math.cos(step_phase * 0.5 + phase_shift) * (1.5 if state in ("floor", "wall") else 0.5)
+            base_x = size // 2 + dx * 0.35
+            base_y = size // 2 + 3
+            pygame.draw.line(body_surface, leg_color_outer, (base_x, base_y), (tip_x, tip_y), 3)
+            pygame.draw.line(body_surface, leg_color_inner, (base_x, base_y - 2), (tip_x, tip_y - 2), 1)
 
         pygame.draw.circle(body_surface, body_color, (size // 2, size // 2), size // 2 - 2)
         pygame.draw.circle(body_surface, accent_color, (size // 2, size // 2 - 1), size // 2 - 5)
 
-        if mine["state"] == "armed":
-            pulsing = 0.6 + 0.4 * math.sin(mine.get("armed_elapsed", 0.0) * 0.2)
-            core_radius = max(3, int((size // 2 - 7) * pulsing))
+        if state == "armed":
+            pulse = 0.6 + 0.4 * math.sin(mine.get("armed_elapsed", 0.0) * 0.18)
+            core_radius = max(3, int((size // 2 - 7) * pulse))
             pygame.draw.circle(body_surface, (255, 110, 140), (size // 2, size // 2 - 2), core_radius)
         else:
             pygame.draw.circle(body_surface, (200, 90, 130), (size // 2, size // 2 - 2), max(3, size // 2 - 8))
 
-        rect = body_surface.get_rect(center=(int(x), int(y)))
-        screen.blit(body_surface, rect.topleft)
+        # 설치 대기 중/임베딩 효과
+        if state == "embedding":
+            embed_progress = 1.0 - (mine.get("embed_timer", 0) / max(1, SPIDER_MINE_EMBED_DELAY_FRAMES))
+            halo_alpha = int(120 * embed_progress)
+            halo_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(halo_surface, (220, 160, 255, halo_alpha), (size, size), size)
+            screen.blit(halo_surface, (center_x - size, center_y - size))
+
+        if mine.get("flash_timer", 0) > 0 and (mine["flash_timer"] // SPIDER_MINE_FLASH_INTERVAL) % 2 == 0:
+            pygame.draw.circle(body_surface, (255, 200, 120, 170), (size // 2, size // 2 - 2), size // 2 - 4)
+
+        render_x = int(center_x - size / 2)
+        render_y = int(center_y - size / 2)
+        if mine["side"] == "left":
+            render_x -= 2
+        else:
+            render_x += 2
+
+        screen.blit(body_surface, (render_x, render_y))
 
 
 def draw_spider_mine_slow_effect(screen):
