@@ -8437,6 +8437,9 @@ def draw_spider_mines(screen):
             int(120 + glow_strength * 100),
         )
 
+        # 몸체 기본 원을 먼저 그린다
+        pygame.draw.circle(body_surface, body_color, (size // 2, size // 2), size // 2 - 2)
+
         step_phase = mine.get("step_phase", 0.0)
         leg_amp = 3.2 if state in ("floor", "wall") else 1.35
         leg_offsets = [
@@ -8467,7 +8470,7 @@ def draw_spider_mines(screen):
             pygame.draw.line(body_surface, leg_color_outer, base_pos, tip_pos, 3)
             pygame.draw.line(body_surface, leg_color_inner, (base_pos[0], base_pos[1] - 2), (tip_pos[0], tip_pos[1] - 2), 1)
 
-        pygame.draw.circle(body_surface, body_color, (size // 2, size // 2), size // 2 - 2)
+        # 상부 장갑과 고정 링은 다리를 그린 후 얹는다
         pygame.draw.circle(body_surface, accent_color, (size // 2, size // 2 - 1), size // 2 - 5)
 
         if state == "armed":
