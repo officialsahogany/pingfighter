@@ -423,6 +423,10 @@ BORDER_WIDTH = 4
 # 실험용 모던 게임 루프 사용 여부
 USE_MODERN_GAME_LOOP = False
 
+if "--modern-loop" in sys.argv:
+    USE_MODERN_GAME_LOOP = True
+    print("[INFO] --modern-loop 플래그 감지: Experimental GameLoop 활성화")
+
 def draw_glow_circle(pos, radius, color, glow_intensity=3):
     """광채 효과가 있는 원 그리기 - Phase 101: unified_renderer 사용"""
     unified_renderer.draw_glow_circle(pos, radius, color, glow_intensity)
