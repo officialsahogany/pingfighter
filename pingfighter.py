@@ -63,7 +63,7 @@ from background_manager import (
 )
 from sound_effects import load_sound_effects
 from item_state_manager import reset_runtime_items
-from start_menu import MenuContext, reset_menu_state, show_start_menu
+from start_menu import MenuContext, show_start_menu
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
