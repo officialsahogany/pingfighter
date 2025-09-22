@@ -3269,7 +3269,7 @@ class AcademyUI:
         if is_master:
             master_text = self.font_small.render("★ MASTER ★", True, (255, 215, 0))
             self.screen.blit(master_text, (desc_x + 10, level_y))
-            bonus_text = self.font_small.render("보너스: Lv.6 효과 적용", True, (255, 200, 120))
+            bonus_text = self.font_small.render("보너스: 추가 Lv.1 효과 적용", True, (255, 200, 120))
             self.screen.blit(bonus_text, (desc_x + 10, level_y + 18))
             level_y += 18
         elif is_maxed:
