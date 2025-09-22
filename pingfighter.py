@@ -1135,72 +1135,67 @@ pygame.mixer.pre_init(
 )
 pygame.mixer.init()
 pygame.mixer.set_num_channels(8)  # 동시 재생 가능한 채널 수
-# 사운드 파일 로드
-SOUND_SERVE = pygame.mixer.Sound(resource_path("sounds/serve.wav"))
-SOUND_WALL = pygame.mixer.Sound(resource_path("sounds/wall_hit.wav"))
-# SOUND_ROCK_BREAK removed - file no longer exists
-SOUND_BRICK_DESTROY = pygame.mixer.Sound(resource_path("sounds/stonebreak2.wav"))  # 벽돌 완전 파괴 소리
-SOUND_PADDLE = pygame.mixer.Sound(resource_path("sounds/paddle_hit.wav"))
-# 정글지진 효과음 로드
-SOUND_QUAKE = pygame.mixer.Sound(resource_path("sounds/quake_sound.wav"))  # 퀘이크 효과음 파일 로드 (이 경로는 실제 파일에 맞게 수정 필요)
-whip_sound = pygame.mixer.Sound(resource_path("sounds/whip_effect.wav"))
-SOUND_AIRPLANE = pygame.mixer.Sound(resource_path("sounds/airplane.wav"))  # 물자보급 비행기 효과음
-SOUND_DEFENSE_HIT = pygame.mixer.Sound(resource_path("sounds/defense_hit.wav"))  # ← 파일명에 맞게 수정
-SOUND_DEFENSE_START = pygame.mixer.Sound(resource_path("sounds/speed_defense_start.wav"))  # 파일명에 맞게 수정
-SOUND_DEFENSE_BLOCK = pygame.mixer.Sound(resource_path("sounds/defense_hit.wav"))  # 스피드 디펜스 방어 효과음 (defense_hit 재사용)
-SOUND_FIREBALL = pygame.mixer.Sound(resource_path("sounds/fireball.wav"))  #  화염탄 발사 효과음
-SOUND_DASH = pygame.mixer.Sound(resource_path("sounds/dash.wav"))  #  대쉬 효과음
-SOUND_BURST_UP = pygame.mixer.Sound(resource_path("sounds/bustup.wav"))  #  버스트업 대쉬 효과음
-SOUND_DRIVE = pygame.mixer.Sound(resource_path("sounds/drive.wav"))  #  드라이브 발동 효과음
-SOUND_MEDITATION_AFTER = pygame.mixer.Sound(resource_path("sounds/meditationafter.wav"))  #  명상 후 드라이브 효과음
-SOUND_HALF_DASH = pygame.mixer.Sound(resource_path("sounds/halfdash.wav"))  #  하프대쉬 효과음
-SOUND_DASH_SPIRIT_DELETE = pygame.mixer.Sound(resource_path("sounds/dashspiritdelete.wav"))  #  대쉬 스피릿 소멸 효과음
-SOUND_ACTIVE_ITEM = pygame.mixer.Sound(resource_path("sounds/activeitem.wav"))  #  엑티브 아이템 사용 효과음
-#  스테이지 2 바위 파괴 효과음
-SOUND_STONEBREAK_SMALL = pygame.mixer.Sound(resource_path("sounds/stonebreak1.wav"))  # 작은 바위 (25-45)
-SOUND_STONEBREAK_MEDIUM = pygame.mixer.Sound(resource_path("sounds/stonebreak2.wav"))  # 중간 바위 (45-65)
-SOUND_STONEBREAK_LARGE = pygame.mixer.Sound(resource_path("sounds/stonebreak3.wav"))  # 큰 바위 (65-90)
-#  스테이지 6 바리어 사운드
-SOUND_BARRIER = pygame.mixer.Sound(resource_path("sounds/barrior.wav"))  # 항공모함 장막 충돌음
-SOUND_BALLOON_BOOM = pygame.mixer.Sound(resource_path("sounds/balloonboom.wav"))
-SOUND_POWER_SMASH = pygame.mixer.Sound(resource_path("sounds/power_smash.wav"))  #  파워스매싱 발동 효과음
-SOUND_POWER_SMASH_LAUNCH = pygame.mixer.Sound(resource_path("sounds/power_smash_launch.wav"))  #  파워스매싱 공 발사 효과음  #  풍선 터지는 효과음
-SOUND_MISSILE = pygame.mixer.Sound(resource_path("sounds/missle.wav"))  #  미사일 충돌 효과음
-SOUND_PISTOL_RELOAD_START = pygame.mixer.Sound(resource_path("sounds/pistolreloadstart.wav"))  # 코만도 권총 재장전 시작 효과음
-SOUND_RAGNAROK_SHOT = pygame.mixer.Sound(resource_path("sounds/ragnarokshot.wav"))  #  라그나로크 스턴공 발사 효과음
-SOUND_AK47 = pygame.mixer.Sound(resource_path("sounds/ak47.wav"))  # AK-47 발사 효과음
-SOUND_RAGNAROK_BOOM = pygame.mixer.Sound(resource_path("sounds/ragnarokboom.wav"))  #  라그나로크 보스 반격 효과음
-SOUND_RAGNAROK_SHOCK = pygame.mixer.Sound(resource_path("sounds/ragnarokshock.wav"))  #  라그나로크 전기 감전 효과음
-try:
-    SOUND_CONSTRUCTION = pygame.mixer.Sound(resource_path("sounds/construction.wav"))
-except Exception:
-    SOUND_CONSTRUCTION = None
+
+sound_effects = load_sound_effects(resource_path)
+
+SOUND_SERVE = sound_effects['SERVE']
+SOUND_WALL = sound_effects['WALL']
+SOUND_BRICK_DESTROY = sound_effects['BRICK_DESTROY']
+SOUND_PADDLE = sound_effects['PADDLE']
+SOUND_QUAKE = sound_effects['QUAKE']
+whip_sound = sound_effects['WHIP']
+SOUND_AIRPLANE = sound_effects['AIRPLANE']
+SOUND_DEFENSE_HIT = sound_effects['DEFENSE_HIT']
+SOUND_DEFENSE_START = sound_effects['DEFENSE_START']
+SOUND_DEFENSE_BLOCK = sound_effects['DEFENSE_BLOCK']
+SOUND_FIREBALL = sound_effects['FIREBALL']
+SOUND_DASH = sound_effects['DASH']
+SOUND_BURST_UP = sound_effects['BURST_UP']
+SOUND_DRIVE = sound_effects['DRIVE']
+SOUND_MEDITATION_AFTER = sound_effects['MEDITATION_AFTER']
+SOUND_HALF_DASH = sound_effects['HALF_DASH']
+SOUND_DASH_SPIRIT_DELETE = sound_effects['DASH_SPIRIT_DELETE']
+SOUND_ACTIVE_ITEM = sound_effects['ACTIVE_ITEM']
+SOUND_STONEBREAK_SMALL = sound_effects['STONEBREAK_SMALL']
+SOUND_STONEBREAK_MEDIUM = sound_effects['STONEBREAK_MEDIUM']
+SOUND_STONEBREAK_LARGE = sound_effects['STONEBREAK_LARGE']
+SOUND_BARRIER = sound_effects['BARRIER']
+SOUND_BALLOON_BOOM = sound_effects['BALLOON_BOOM']
+SOUND_POWER_SMASH = sound_effects['POWER_SMASH']
+SOUND_POWER_SMASH_LAUNCH = sound_effects['POWER_SMASH_LAUNCH']
+SOUND_MISSILE = sound_effects['MISSILE']
+SOUND_PISTOL_RELOAD_START = sound_effects['PISTOL_RELOAD_START']
+SOUND_RAGNAROK_SHOT = sound_effects['RAGNAROK_SHOT']
+SOUND_AK47 = sound_effects['AK47']
+SOUND_RAGNAROK_BOOM = sound_effects['RAGNAROK_BOOM']
+SOUND_RAGNAROK_SHOCK = sound_effects['RAGNAROK_SHOCK']
+SOUND_CONSTRUCTION = sound_effects['CONSTRUCTION']
 
 # 라그나로크 해머 사운드 채널 (중첩 재생 방지)
 ragnarok_shot_channel = None
-SOUND_STAGE6_BOSS_HIT = pygame.mixer.Sound(resource_path("sounds/stage6bosshit.wav"))  #  스테이지 6 보스 피격 효과음
-SOUND_STAGE6_BEAM = pygame.mixer.Sound(resource_path("sounds/stage6beam.wav"))  #  스테이지 6 보스 레이저 빔 효과음
-SOUND_STAGE6_BEAM_CHARGE = pygame.mixer.Sound(resource_path("sounds/stage6beamcharge.wav"))  #  스테이지 6 보스 레이저 충전 효과음
-SOUND_STAGE6_INTERCEPTOR_HIT = pygame.mixer.Sound(resource_path("sounds/stage6carrior.wav"))  #  스테이지 6 인터셉터 충돌 효과음
-SOUND_CRY = pygame.mixer.Sound(resource_path("sounds/cry.wav"))  #  Stage 2 보스 울음소리
-SOUND_THROW_BEFORE = pygame.mixer.Sound(resource_path("sounds/throwbefore.wav"))  #  투척 준비 효과음
-SOUND_GRENADE = pygame.mixer.Sound(resource_path("sounds/grenade.wav"))  #  수류탄 폭발 효과음
-SOUND_FIREBOMB = pygame.mixer.Sound(resource_path("sounds/firebomb.wav"))  #  화염병 폭발 효과음
-SOUND_FLAME = pygame.mixer.Sound(resource_path("sounds/flame.wav"))  #  화염 지속 효과음
-SOUND_SMOKEBOMB = pygame.mixer.Sound(resource_path("sounds/smokebomb.wav"))  #  연막탄 연막 분출 효과음
-SOUND_FLASHBOMB = pygame.mixer.Sound(resource_path("sounds/flashbomb.wav"))  #  조명탄 폭발 효과음
-SOUND_TIMEWATCH = pygame.mixer.Sound(resource_path("sounds/timewatch.wav"))  # ️ 타임워치 발동 효과음
-SOUND_PANDORA = pygame.mixer.Sound(resource_path("sounds/pandora.wav"))  #  판도라의 상자 효과음
-SOUND_DRINK = pygame.mixer.Sound(resource_path("sounds/drink.wav"))  #  물약 마시는 효과음
-SOUND_STAGE1_DOOR = pygame.mixer.Sound(resource_path("sounds/stage1door.wav"))  #  Stage 1 바닥 열림/닫힘 효과음
-SOUND_STAGE1_MACHINE = pygame.mixer.Sound(resource_path("sounds/stage1muchine.wav"))  #  Stage 1 기계 상승/하강 효과음
-SOUND_BIRDKILL = pygame.mixer.Sound(resource_path("sounds/birdkill.wav"))  #  까마귀 폭발 효과음
-SOUND_THROW = pygame.mixer.Sound(resource_path("sounds/throw.wav"))  #  투척 효과음
-SOUND_ITEM_GET = pygame.mixer.Sound(resource_path("sounds/itemget.wav"))  #  아이템 획득 효과음
-SOUND_NOTIFICATION = pygame.mixer.Sound(resource_path("sounds/item_pickup.wav"))  # 기본 알림 효과음
-SOUND_HONGRYUN_CHARGE = pygame.mixer.Sound(resource_path("sounds/hongcharge.wav"))  #  홍련폭염 차징 효과음
-SOUND_HONGRYUN_SHOOT = pygame.mixer.Sound(resource_path("sounds/hongshoot.wav"))  #  홍련폭염 발사 효과음
-SOUND_BAZOOKA_GOING = pygame.mixer.Sound(resource_path("sounds/bazukagoing.wav"))  # 바주카포 발사 시작 효과음
+SOUND_STAGE6_BOSS_HIT = sound_effects['STAGE6_BOSS_HIT']
+SOUND_STAGE6_BEAM = sound_effects['STAGE6_BEAM']
+SOUND_STAGE6_BEAM_CHARGE = sound_effects['STAGE6_BEAM_CHARGE']
+SOUND_STAGE6_INTERCEPTOR_HIT = sound_effects['STAGE6_INTERCEPTOR_HIT']
+SOUND_CRY = sound_effects['CRY']
+SOUND_THROW_BEFORE = sound_effects['THROW_BEFORE']
+SOUND_GRENADE = sound_effects['GRENADE']
+SOUND_FIREBOMB = sound_effects['FIREBOMB']
+SOUND_FLAME = sound_effects['FLAME']
+SOUND_SMOKEBOMB = sound_effects['SMOKEBOMB']
+SOUND_FLASHBOMB = sound_effects['FLASHBOMB']
+SOUND_TIMEWATCH = sound_effects['TIMEWATCH']
+SOUND_PANDORA = sound_effects['PANDORA']
+SOUND_DRINK = sound_effects['DRINK']
+SOUND_STAGE1_DOOR = sound_effects['STAGE1_DOOR']
+SOUND_STAGE1_MACHINE = sound_effects['STAGE1_MACHINE']
+SOUND_BIRDKILL = sound_effects['BIRDKILL']
+SOUND_THROW = sound_effects['THROW']
+SOUND_ITEM_GET = sound_effects['ITEM_GET']
+SOUND_NOTIFICATION = sound_effects['NOTIFICATION']
+SOUND_HONGRYUN_CHARGE = sound_effects['HONGRYUN_CHARGE']
+SOUND_HONGRYUN_SHOOT = sound_effects['HONGRYUN_SHOOT']
+SOUND_BAZOOKA_GOING = sound_effects['BAZOOKA_GOING']
 # Stage 5 보스 피격 효과음
 #  Stage 5 홍련 피격 효과음들 (3개 중 랜덤)
 SOUND_STAGE5_HURTS = []
