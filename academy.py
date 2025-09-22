@@ -2846,14 +2846,8 @@ class AcademyUI:
             # 비용 표시 (게이지 아래)
             if current_level < skill["max_level"]:
                 cost_color = (100, 255, 100) if self.skill_system.can_upgrade_skill(skill["id"]) else (255, 100, 100)
-                
-                # 실제 비용 계산 (레벨 4부터 비용 증가: 1→2, 2→3)
+
                 actual_cost = skill['cost']
-                if skill['cost'] == 1 and current_level >= 3:
-                    actual_cost = 2
-                elif skill['cost'] == 2 and current_level >= 3:
-                    actual_cost = 3
-                
                 cost_text = self.font_small.render(f"비용: {actual_cost}TP", True, cost_color)
                 cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(cost_text, cost_rect)
@@ -3208,12 +3202,6 @@ class AcademyUI:
             )
 
             actual_cost = selected_skill["cost"]
-            if (
-                selected_skill["id"].startswith("dash_")
-                and selected_skill["cost"] in (1, 2)
-                and current_level >= 3
-            ):
-                actual_cost += 1
 
             can_upgrade = self.skill_system.can_upgrade_skill(selected_skill["id"])
             cost_color = (100, 255, 100) if can_upgrade else (255, 120, 120)
