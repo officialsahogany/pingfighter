@@ -8711,8 +8711,6 @@ def calculate_trajectory():
     if not recalc_needed:
         return
     
-    # 디버깅 출력 추가
-    print(f"[궤적 계산] 시작! ball_y={BALL.centery}, ball_vel={ball_vel}")
 
     last_prediction_ball_y = BALL.centery
     last_prediction_skill_signature = current_skill_signature
@@ -9190,12 +9188,13 @@ def draw_predicted_trajectory():
     global predicted_trajectory, predictor_active, ball_vel
     global quake_active, meditation_active, stage4_magnetic_active, flame_trail_active, power_smashing_parabola_active
     
-    # 디버깅 출력 추가
-    if predictor_active:
-        print(f"[레이저스코프] active={predictor_active}, trajectory_len={len(predicted_trajectory)}, ball_vel_y={ball_vel[1]}")
-    
     if not predictor_active:
         return
+    
+    # 테스트: 레이저스코프가 활성화되면 항상 무언가 그리기
+    if predictor_active and len(predicted_trajectory) == 0:
+        # 간단한 테스트 표시
+        pygame.draw.circle(SCREEN, (255, 0, 0), (WIDTH // 2, HEIGHT // 2), 20, 3)
     # 공이 위로 향하고 있으면 궤적 지우기 (플레이어가 친 경우)
     skill_active_now = (
         quake_active
