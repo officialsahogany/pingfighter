@@ -765,14 +765,9 @@ class Smartphone:
                         
                         print(f"에너지드링크 사용! 게이지: {current_gauge} → {new_gauge}")
                     
-                    # 아이템을 슬롯에서 제거 (스탑워치와 동일한 방식)
-                    del active_items[healing_item_index]
-                    
-                    # selected_item_index 조정
-                    if hasattr(main_module, 'selected_item_index'):
-                        if main_module.selected_item_index >= len(active_items):
-                            main_module.selected_item_index = max(0, len(active_items) - 1)
-                    
+                    # 연금술/연동 처리 후 필요 시 제거
+                    self._handle_item_consumption(healing_item_name, main_module, game_state, slot_index_hint=healing_item_index)
+
                     # 쿨타임 설정 (자동 치유 후에도 짧은 쿨타임)
                     self.last_activation_time = 60  # 1초 쿨타임
             
