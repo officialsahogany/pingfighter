@@ -1943,6 +1943,28 @@ except Exception as e:
     pygame.draw.circle(grenade_icon, (80, 100, 80), (16, 16), 12)
     pygame.draw.rect(grenade_icon, (60, 60, 60), (14, 8, 4, 6))
 
+# 스파이더지뢰 아이콘 로드
+spider_mine_icon = None  # 전역 변수로 선언
+try:
+    spider_mine_icon = pygame.image.load(resource_path("items/spider_mine.png")).convert_alpha()
+    spider_mine_icon = pygame.transform.scale(spider_mine_icon, (ICON_SIZE, ICON_SIZE))
+    print("Spider mine icon loaded successfully")
+except Exception as e:
+    print(f"Failed to load spider mine icon: {e}")
+    spider_mine_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+    center = (16, 18)
+    pygame.draw.circle(spider_mine_icon, (42, 48, 70), center, 10)
+    pygame.draw.circle(spider_mine_icon, (90, 30, 120), center, 12, 2)
+    pygame.draw.circle(spider_mine_icon, (235, 80, 110), (center[0], center[1] - 2), 4)
+    for dx, dy in [(-9, 6), (-11, 2), (9, 6), (11, 2)]:
+        pygame.draw.line(
+            spider_mine_icon,
+            (140, 150, 210),
+            (center[0] + dx * 0.3, center[1] + dy * 0.3 + 2),
+            (center[0] + dx, center[1] + dy),
+            3,
+        )
+
 # 조명탄 아이콘 로드
 flare_icon = None  # 전역 변수로 선언
 try:
@@ -2040,6 +2062,8 @@ for item in items.ITEM_TYPES:
         item["icon"] = molotov_icon
     elif item["name"] == "grenade":
         item["icon"] = grenade_icon
+    elif item["name"] == "spider_mine":
+        item["icon"] = spider_mine_icon
     elif item["name"] == "predictor":
         item["icon"] = predictor_icon
     elif item["name"] == "flare":
@@ -8295,7 +8319,7 @@ def calculate_trajectory():
     global last_prediction_skill_signature
     global current_stage, boss_special_ready, boss_special_gauge, boss_special_ready_stage4, boss_special_gauge_stage4
     global meditation_active, meditation_timer, stage4_magnetic_active, stage4_magnetic_timer
-    global flame_trail_active, flame_trail_phase, flame_trail_rng, power_smashing_parabola_active, power_smashing_start_time
+    global flame_trail_active, flame_trail_phase, flame_trail_rng, power_smashing_parabola_active, power_smashing_start_time, power_smashing_rng
     global quake_active, quake_timer, tears_active, tears_timer, quake_last_used_time, last_tears_cast_time
     global QUAKE_COOLDOWN, TEARS_COOLDOWN
 
@@ -45540,13 +45564,15 @@ def main(stage_num, new_boss_mode=False):
                         power_smashing_direction = -1  # 왼쪽
                         # 수직에 가까운 곡선 효과 적용
                         base_strength = -0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
-                        random_variation = random.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
+                        rng = power_smashing_rng or random
+                        random_variation = rng.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
                         power_smashing_arc_strength = base_strength + random_variation  # 왼쪽 방향으로 수직에 가까운 곡선
                     elif keys[pygame.K_RIGHT]:
                         power_smashing_direction = 1   # 오른쪽
                         # 수직에 가까운 곡선 효과 적용
                         base_strength = 0.8  # 기본 강도 대폭 감소 (1.6 → 0.8)
-                        random_variation = random.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
+                        rng = power_smashing_rng or random
+                        random_variation = rng.uniform(-0.1, 0.1)  # 랜덤 변화량도 최소화
                         power_smashing_arc_strength = base_strength + random_variation  # 오른쪽 방향으로 수직에 가까운 곡선
                     else:
                         power_smashing_direction = 0   # 직선
