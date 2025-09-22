@@ -22,6 +22,7 @@ class RuntimeAdapters:
     update_physics: Optional[Callable[["GameState", float], None]] = None
     check_collisions: Optional[Callable[["GameState"], None]] = None
     update_items: Optional[Callable[["GameState", float], None]] = None
+    render_frame: Optional[Callable[["GameState"], None]] = None
 
 
 @dataclass
@@ -32,6 +33,7 @@ class LegacyHooks:
     physics_update: Optional[Callable[["GameState", float], None]] = None
     ai_update: Optional[Callable[["GameState", float], None]] = None
     items_update: Optional[Callable[["GameState", float], None]] = None
+    render_frame: Optional[Callable[["GameState"], None]] = None
 
 class GameLoop:
     """게임 루프를 관리하는 메인 클래스"""
@@ -131,9 +133,12 @@ class GameLoop:
     def _render(self):
         """렌더링"""
         # 게임 상태를 렌더 매니저에 전달
-        game_state_dict = self.state.to_dict()
-        self.render_manager.render_frame(game_state_dict)
-        
+        if self.adapters.render_frame is not None:
+            self.adapters.render_frame(self.state)
+        else:
+            game_state_dict = self.state.to_dict()
+            self.render_manager.render_frame(game_state_dict)
+
         # 화면 갱신
         pygame.display.flip()
     
@@ -706,6 +711,12 @@ def create_game_vars_adapters(hooks: Optional[LegacyHooks] = None) -> RuntimeAda
                 _sync_state_from_core_game_state(state)
 
             adapters.update_items = _legacy_items
+
+        if hooks.render_frame is not None:
+            def _legacy_render(state: GameState) -> None:
+                hooks.render_frame(state)
+
+            adapters.render_frame = _legacy_render
 
     return adapters
 
