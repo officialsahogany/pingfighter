@@ -133,6 +133,7 @@ from ui.hud_display import show_score, draw_dash_spirit_lasers
 from ui.menu_system import MenuSystem
 from ui.dialog_system import DialogSystem
 from ui.simple_menu_background import SimpleMenuBackground
+from ui.pause_menu import PauseOptionsContext, show_pause_options as show_pause_options_ui
 from core.profiler import init_profiler
 from item_effects.dowsing_pendulum import dowsing_pendulum_effect
 from item_effects.devil_dice import (
