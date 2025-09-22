@@ -8364,6 +8364,8 @@ def calculate_trajectory():
     resume_velocity = None
     if stopwatch_original_ball_vel:
         resume_velocity = [stopwatch_original_ball_vel[0], stopwatch_original_ball_vel[1]]
+    else:
+        recovery_frames = 0
     resume_pending = freeze_frames > 0 and resume_velocity is not None
 
     # 시뮬레이션용 변수
@@ -8495,6 +8497,42 @@ def calculate_trajectory():
 
         try:
             for step in range(max_steps):
+                if freeze_frames > 0:
+                    freeze_frames -= 1
+                    if freeze_frames == 0 and resume_pending:
+                        sim_vel_x = resume_velocity[0]
+                        sim_vel_y = resume_velocity[1]
+                        resume_pending = False
+                    if step % 3 == 0:
+                        predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
+                    continue
+
+                if resume_pending and resume_velocity:
+                    sim_vel_x = resume_velocity[0]
+                    sim_vel_y = resume_velocity[1]
+                    resume_pending = False
+
+                if recovery_frames > 0 and resume_velocity:
+                    recovery_ratio = 1 - (recovery_frames / STOPWATCH_RECOVERY_TIME)
+                    effective_ratio = max(0.3, recovery_ratio)
+                    original_speed = math.hypot(resume_velocity[0], resume_velocity[1])
+                    target_speed = original_speed * effective_ratio
+                    dir_x, dir_y = resume_velocity
+                    direction_norm = math.hypot(dir_x, dir_y)
+                    if direction_norm > 0:
+                        direction_x = dir_x / direction_norm
+                        direction_y = dir_y / direction_norm
+                    else:
+                        direction_x, direction_y = 0.0, -1.0
+                    if stopwatch_forced_upward and direction_y >= 0:
+                        direction_y = -abs(direction_y if abs(direction_y) > 1e-3 else 0.5)
+                    sim_vel_x = direction_x * target_speed
+                    sim_vel_y = direction_y * target_speed
+                    recovery_frames -= 1
+                    if recovery_frames == 0:
+                        sim_vel_x = resume_velocity[0]
+                        sim_vel_y = resume_velocity[1]
+
                 skill_active_now = False
                 if skill_type == "quake" and quake_active:
                     skill_active_now = True
