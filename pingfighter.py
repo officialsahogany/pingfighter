@@ -48,6 +48,7 @@ from game_state.audio import (
     get_sfx_volume,
     set_bgm_volume as set_bgm_volume_state,
     set_sfx_volume as set_sfx_volume_state,
+    resolve_runtime_bgm_volume,
 )
 
 # ============================================================
@@ -49879,14 +49880,6 @@ def show_item_management_menu(item_list, selected_index, item_type):
                             return
                         else:  # 취소
                             return
-def _get_bgm_runtime_volume() -> float:
-    manager = getattr(bgm_manager, "bgm_manager", None)
-    volume = getattr(manager, "volume", None) if manager is not None else None
-    if isinstance(volume, (int, float)):
-        return volume
-    return bgm_volume
-
-
 def show_pause_options():
     """일시정지 옵션 메뉴 - 볼륨 조절 UI"""
 
@@ -49899,7 +49892,10 @@ def show_pause_options():
         draw_objects=draw_objects,
         draw_water_trail=draw_water_trail,
         play_button_click_sound=play_button_click_sound,
-        get_bgm_runtime_volume=_get_bgm_runtime_volume,
+        get_bgm_runtime_volume=lambda: resolve_runtime_bgm_volume(
+            getattr(bgm_manager, "bgm_manager", None),
+            bgm_volume,
+        ),
         apply_bgm_volume=bgm_manager.set_bgm_volume,
         store_bgm_volume=store_bgm_volume,
         get_sfx_volume=lambda: sfx_volume,

@@ -7,7 +7,7 @@ pingfighter.py에서 전역으로 관리하던 BGM/SFX 볼륨 값을
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Any, Dict
 
 __all__ = [
     "AudioSettings",
@@ -19,6 +19,7 @@ __all__ = [
     "set_sfx_volume",
     "export_audio_state",
     "load_audio_state",
+    "resolve_runtime_bgm_volume",
 ]
 
 
@@ -92,3 +93,12 @@ def load_audio_state(data: Dict[str, float]) -> AudioSettings:
     if "sfx_volume" in data:
         audio_settings.set_sfx(data["sfx_volume"])
     return audio_settings
+
+
+def resolve_runtime_bgm_volume(manager: Any, fallback: float) -> float:
+    """BGM 매니저 객체가 보유한 실시간 볼륨을 안전하게 추출."""
+
+    volume = getattr(manager, "volume", None)
+    if isinstance(volume, (int, float)):
+        return clamp_volume(volume)
+    return clamp_volume(fallback)
