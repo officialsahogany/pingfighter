@@ -243,6 +243,8 @@ class AcademyUI:
         self.tabs = []
         self._create_tabs()
         self.current_tab = 0
+        self.selected_skills_by_tree: Dict[str, str] = {}
+        self._on_tab_changed()
         
     def _create_skill_tree_uis(self):
         """스킬 트리 UI 생성"""
