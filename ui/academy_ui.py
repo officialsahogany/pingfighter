@@ -89,7 +89,7 @@ class SkillNode:
         name_rect = name_surface.get_rect(center=(self.x, self.y + self.radius + 20))
         screen.blit(name_surface, name_rect)
 
-        label_y = self.y + self.radius + 36
+        label_y = name_rect.bottom + 12
         if current_level >= max_level:
             master_surface = font.render("★ MASTER ★", True, (255, 215, 0))
             master_rect = master_surface.get_rect(center=(self.x, label_y))
