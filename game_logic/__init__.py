@@ -10,6 +10,7 @@ from .physics_manager import PhysicsManager
 from .boss_ai import BossAI
 from .skill_system import SkillSystem
 from .item_system import ItemSystem
+from .game_loop import GameLoop, create_game_loop, create_game_vars_adapters
 
 __all__ = [
     'CollisionManager', 
@@ -18,5 +19,8 @@ __all__ = [
     'PhysicsManager', 
     'BossAI',
     'SkillSystem',
-    'ItemSystem'
+    'ItemSystem',
+    'GameLoop',
+    'create_game_loop',
+    'create_game_vars_adapters'
 ]

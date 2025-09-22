@@ -657,3 +657,8 @@ def _game_vars_update_player_input(state: GameState, input_handler: InputHandler
 def create_game_vars_adapters() -> RuntimeAdapters:
     """core.game_variables와 동기화되는 RuntimeAdapters 생성."""
     return RuntimeAdapters(update_player_input=_game_vars_update_player_input)
+
+
+def create_game_loop(screen: pygame.Surface) -> GameLoop:
+    """game_vars 연동 어댑터가 적용된 GameLoop 생성 헬퍼."""
+    return GameLoop(screen, adapters=create_game_vars_adapters())
