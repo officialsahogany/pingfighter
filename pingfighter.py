@@ -558,149 +558,36 @@ profiler = init_profiler(SCREEN, enabled=True)
 profiler.visible = False  # 7번키로 토글
 # 입력 관련 변수들은 input_manager에서 관리
 # 입력 관련 함수들은 input_manager로 이동됨
-try:
-    STAGE1_BG = pygame.image.load(resource_path("stage1_field.png")).convert()
-    STAGE1_BG = pygame.transform.scale(STAGE1_BG, (WIDTH, HEIGHT))
-    # Stage 1 테두리 제거 - 기존 맵 타일 패턴으로 채우기
-    border_thickness = 10  # 테두리 두께 (Stage 2/3과 동일하게 얇게)
-    
-    # 테두리 안쪽의 맵 타일을 복사하여 테두리 영역에 채우기
-    # 상단 테두리 - 바로 아래 타일 복사
-    top_tile = STAGE1_BG.subsurface((0, border_thickness, WIDTH, border_thickness)).copy()
-    STAGE1_BG.blit(top_tile, (0, 0))
-    
-    # 하단 테두리 - 바로 위 타일 복사
-    bottom_tile = STAGE1_BG.subsurface((0, HEIGHT - border_thickness * 2, WIDTH, border_thickness)).copy()
-    STAGE1_BG.blit(bottom_tile, (0, HEIGHT - border_thickness))
-    
-    # 좌측 테두리 - 바로 오른쪽 타일 복사
-    left_tile = STAGE1_BG.subsurface((border_thickness, 0, border_thickness, HEIGHT)).copy()
-    STAGE1_BG.blit(left_tile, (0, 0))
-    
-    # 우측 테두리 - 바로 왼쪽 타일 복사  
-    right_tile = STAGE1_BG.subsurface((WIDTH - border_thickness * 2, 0, border_thickness, HEIGHT)).copy()
-    STAGE1_BG.blit(right_tile, (WIDTH - border_thickness, 0))
-    animated_bg = AnimatedBackground("stage1_field.png")
-except:
-    # 사이버펑크 스타일 Stage 1 배경
-    STAGE1_BG = pygame.Surface((WIDTH, HEIGHT))
-    for y in range(HEIGHT):
-        ratio = y / HEIGHT
-        r = int(10 + ratio * 20)
-        g = int(50 + ratio * 50)
-        b = int(20 + ratio * 30)
-        pygame.draw.line(STAGE1_BG, (r, g, b), (0, y), (WIDTH, y))
-    # 격자 패턴
-    for x in range(0, WIDTH, TILE_SIZE):
-        pygame.draw.line(STAGE1_BG, (0, 150, 100, LARGE_SIZE), (x, 0), (x, HEIGHT))
-    animated_bg = None
-    for y in range(0, HEIGHT, TILE_SIZE):
-        pygame.draw.line(STAGE1_BG, (0, 150, 100, LARGE_SIZE), (0, y), (WIDTH, y))
-try:
-    STAGE2_BG = pygame.image.load(resource_path("stage2_field.png")).convert()
-    STAGE2_BG = pygame.transform.scale(STAGE2_BG, (WIDTH, HEIGHT))
-    animated_bg_stage2 = AnimatedBackgroundStage2("stage2_field.png")
-except:
-    # 사이버펑크 스타일 Stage 2 배경 (심해 테마)
-    STAGE2_BG = pygame.Surface((WIDTH, HEIGHT))
-    animated_bg_stage2 = None
-    for y in range(HEIGHT):
-        ratio = y / HEIGHT
-        r = int(5 + ratio * 15)
-        g = int(10 + ratio * 30)
-        b = int(40 + ratio * 60)
-        pygame.draw.line(STAGE2_BG, (r, g, b), (0, y), (WIDTH, y))
-    # 물결 패턴
-    for y in range(0, HEIGHT, 30):
-        wave_color = (0, 100, 200, 40)
-        for x in range(WIDTH):
-            wave_y = y + math.sin(x * 0.02) * 10
-            if 0 <= wave_y < HEIGHT:
-                pygame.draw.circle(STAGE2_BG, wave_color, (x, int(wave_y)), 2)
-try:
-    STAGE3_BG = pygame.image.load(resource_path("stage3_field.png")).convert()
-    STAGE3_BG = pygame.transform.scale(STAGE3_BG, (WIDTH, HEIGHT))
-    animated_bg_stage3 = Stage3MenheraWorld()  #  멘헤라 월드 맵 사용
-except:
-    # 사이버펑크 스타일 Stage 3 배경 (네온 핑크)
-    STAGE3_BG = pygame.Surface((WIDTH, HEIGHT))
-    animated_bg_stage3 = None
-    for y in range(HEIGHT):
-        ratio = y / HEIGHT
-        r = int(80 + ratio * 40)
-        g = int(10 + ratio * 30)
-        b = int(80 + ratio * 40)
-        pygame.draw.line(STAGE3_BG, (r, g, b), (0, y), (WIDTH, y))
-    # 네온 그리드
-    for x in range(0, WIDTH, LARGE_SIZE):
-        for y in range(0, HEIGHT, LARGE_SIZE):
-            pygame.draw.rect(STAGE3_BG, (255, 0, 128, 30), (x, y, 45, 45), 1)
-try:
-    # ️ Stage 4: 소림사 사원 맵 사용
-    animated_bg_stage4 = ShaolinTempleBackground()
-    STAGE4_BG = pygame.Surface((WIDTH, HEIGHT))
-    animated_bg_stage4.draw(STAGE4_BG)  # 초기 렌더링
-except:
-    # 폴백: 사이버펑크 스타일 Stage 4 배경 (황금 테마)
-    STAGE4_BG = pygame.Surface((WIDTH, HEIGHT))
-    for y in range(HEIGHT):
-        ratio = y / HEIGHT
-        r = int(60 + ratio * 60)
-        g = int(50 + ratio * 40)
-        b = int(20 + ratio * 20)
-        pygame.draw.line(STAGE4_BG, (r, g, b), (0, y), (WIDTH, y))
-    # 육각형 패턴
-    for x in range(0, WIDTH, 60):
-        for y in range(0, HEIGHT, 52):
-            points = []
-            for i in range(6):
-                angle = math.radians(60 * i)
-                px = x + 25 * math.cos(angle)
-                py = y + 25 * math.sin(angle)
-                points.append((px, py))
-            pygame.draw.polygon(STAGE4_BG, (255, 215, 0, 20), points, 1)
-    animated_bg_stage4 = None
-try:
-    STAGE5_BG = pygame.image.load(resource_path("stage5_field.png")).convert()
-    STAGE5_BG = pygame.transform.scale(STAGE5_BG, (WIDTH, HEIGHT))
-    animated_bg_stage5 = Stage5ChineseMarket()  #  중국 전통시장 맵 사용
-except:
-    # 사이버펑크 스타일 Stage 5 배경 (용암 테마)
-    STAGE5_BG = pygame.Surface((WIDTH, HEIGHT))
-    for y in range(HEIGHT):
-        ratio = y / HEIGHT
-        r = int(100 + ratio * 55)
-        g = int(20 + ratio * 20)
-        b = int(0 + ratio * 10)
-        pygame.draw.line(STAGE5_BG, (r, g, b), (0, y), (WIDTH, y))
-    # 화염 효과
-    for _ in range(30):
-        flame_x = random.randint(0, WIDTH)
-        flame_y = random.randint(HEIGHT//2, HEIGHT)
-        flame_size = random.randint(20, 40)
-        for i in range(flame_size, 0, -5):
-            alpha = 50 - i
-            color = (255, 100 - i*2, 0)
-            pygame.draw.circle(STAGE5_BG, color, (flame_x, flame_y), i)
-    animated_bg_stage5 = None
-# Stage 6 배경 로드 (세기말 사이버펑크 우주전함 해상기지)
-try:
-    STAGE6_BG = pygame.image.load(resource_path("stage6_field.png")).convert()
-    STAGE6_BG = pygame.transform.scale(STAGE6_BG, (WIDTH, HEIGHT))
-    animated_bg_stage6 = AnimatedBackgroundStage6(WIDTH, HEIGHT)
-except:
-    # 폴백: 언더워터 사이버펑크 스타디움
-    STAGE6_BG = pygame.Surface((WIDTH, HEIGHT))
-    for y in range(HEIGHT):
-        # 깊은 바다 그라데이션 (폴백 배경)
-        depth_factor = y / HEIGHT
-        red = int(0 + 30 * depth_factor)
-        green = int(10 + 20 * depth_factor)
-        blue = int(25 + 35 * depth_factor)
-        pygame.draw.line(STAGE6_BG, (red, green, blue), (0, y), (WIDTH, y))
-    
-    # 애니메이션 배경 생성
-    animated_bg_stage6 = AnimatedBackgroundStage6(WIDTH, HEIGHT)
+background_factories = BackgroundFactory(
+    resource_path=resource_path,
+    animated_stage1=lambda path: AnimatedBackground(path),
+    animated_stage2=lambda path: AnimatedBackgroundStage2(path),
+    animated_stage3=lambda: Stage3MenheraWorld(),
+    animated_stage4=lambda: ShaolinTempleBackground(),
+    animated_stage5=lambda: Stage5ChineseMarket(),
+    animated_stage6=lambda width, height: AnimatedBackgroundStage6(width, height),
+)
+
+stage_backgrounds = load_stage_backgrounds(
+    width=WIDTH,
+    height=HEIGHT,
+    tile_size=TILE_SIZE,
+    factories=background_factories,
+)
+
+STAGE1_BG = stage_backgrounds.stage1
+STAGE2_BG = stage_backgrounds.stage2
+STAGE3_BG = stage_backgrounds.stage3
+STAGE4_BG = stage_backgrounds.stage4
+STAGE5_BG = stage_backgrounds.stage5
+STAGE6_BG = stage_backgrounds.stage6
+
+animated_bg = stage_backgrounds.animated_bg
+animated_bg_stage2 = stage_backgrounds.animated_bg_stage2
+animated_bg_stage3 = stage_backgrounds.animated_bg_stage3
+animated_bg_stage4 = stage_backgrounds.animated_bg_stage4
+animated_bg_stage5 = stage_backgrounds.animated_bg_stage5
+animated_bg_stage6 = stage_backgrounds.animated_bg_stage6
 # 빠칭코 기계 이미지 로드
 try:
     pachinko_machine_img = pygame.image.load(resource_path("itemmachine.png")).convert_alpha()
