@@ -15110,8 +15110,6 @@ session_medal_earned = 0  # main 함수 외부에 선언
 final_wave_direction = [0, 0]  # 공의 마지막 이동 방향 (X, Y)
 def store_active_item(item_data):
     global active_item_slot, selected_item_index, aipill_active, last_item_use_time, long_boost_active
-    if active_item_slot is None:
-        active_item_slot = []  # 혹시 None이면 초기화
     # Aipill 활성화 시에는 아이템 획득 불가
     if aipill_active:
         return
@@ -15123,7 +15121,7 @@ def store_active_item(item_data):
     if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
-    is_overflow_pickup = len(active_item_slot) >= get_effective_max_item_slots()
+    is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
     if is_overflow_pickup and not allow_overflow:
         return
 
@@ -15136,8 +15134,8 @@ def store_active_item(item_data):
     item_data["last_use"] = last_item_use_time
     item_data["temporary_overflow"] = is_overflow_pickup
 
-    active_item_slot.append(item_data)
-    selected_item_index = len(active_item_slot) - 1
+    item_state_adapter.append_active_item(item_data)
+    _set_selected_item_index(len(item_state_adapter.active_items()) - 1)
 
     # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
     show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
@@ -15154,8 +15152,6 @@ def store_passive_item(item_data):
     if aipill_active:
         print("Aipill     .")
         return
-    if passive_item_list is None:
-        passive_item_list = []
     
     # 모든 패시브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
     if "icon" not in item_data or item_data["icon"] is None:
@@ -15166,7 +15162,7 @@ def store_passive_item(item_data):
     
     if item_data["name"] == "slot_add":
         # 최대 슬롯 5개 제한 (기본 3개 + 배낭 2개)
-        MAX_ITEM_SLOTS = min(5, MAX_ITEM_SLOTS + 1)
+        _set_max_item_slots(min(5, MAX_ITEM_SLOTS + 1))
         print("+1 !")
         # 획득 개수 카운트 증가
         items.slot_add_obtained += 1
@@ -15417,7 +15413,7 @@ def store_passive_item(item_data):
         print("스마트폰 획득! 위험 시 자동 아이템 사용!")
         
         # 패시브 아이템 리스트에 추가 (중요!)
-        passive_item_list.append(item_data)
+    item_state_adapter.append_passive_item(item_data)
         
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
