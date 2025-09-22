@@ -1795,6 +1795,8 @@ class AcademyUI:
             tab_rect = pygame.Rect(tab_x, tab_y, tab_width, tab_height)
             if tab_rect.collidepoint(pos):
                 self.selected_tree = tree_id
+                self._clamp_selection_to_current_tree()
+                self.update_skill_positions()
                 return None
         
         # 스킬 아이콘 클릭 확인
@@ -2172,6 +2174,7 @@ class AcademyUI:
         if self.selected_tree == "smasher":
             # 스매셔 탭이 선택되었지만 스매셔 캐릭터가 아닌 경우 대시 탭으로 변경
             self.selected_tree = "dash"
+            self._clamp_selection_to_current_tree()
         tree_data = SKILL_TREES[self.selected_tree]
         
         # 모든 스킬트리를 트리 구조로 표시 (아이템과 패들도 포함)
