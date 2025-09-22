@@ -511,6 +511,7 @@ class AcademyUI:
         # 대쉬 탭
         if 200 <= x <= 200 + tab_width and tab_y <= y <= tab_y + tab_height:
             self.selected_tree = "dash"
+            self._clamp_selection_to_current_tree()
             self.tab_selection_mode = False
             self.update_skill_positions()
             return None
@@ -518,6 +519,7 @@ class AcademyUI:
         # 아이템 탭
         if 300 <= x <= 300 + tab_width and tab_y <= y <= tab_y + tab_height:
             self.selected_tree = "item"
+            self._clamp_selection_to_current_tree()
             self.tab_selection_mode = False
             self.update_skill_positions()
             return None
@@ -525,6 +527,7 @@ class AcademyUI:
         # 패들 탭
         if 400 <= x <= 400 + tab_width and tab_y <= y <= tab_y + tab_height:
             self.selected_tree = "paddle"
+            self._clamp_selection_to_current_tree()
             self.tab_selection_mode = False
             self.update_skill_positions()
             return None
@@ -1246,6 +1249,23 @@ class AcademyUI:
                 return True
         return False
 
+    def _clamp_selection_to_current_tree(self):
+        """현재 선택된 스킬 인덱스를 해당 탭 범위로 보정"""
+        if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
+            skill_count = len(self.smasher_skills.skills)
+        else:
+            tree_data = SKILL_TREES.get(self.selected_tree)
+            skill_count = len(tree_data["skills"]) if tree_data else 0
+
+        if skill_count == 0:
+            self.selected_skill_index = 0
+            return
+
+        if self.selected_skill_index >= skill_count:
+            self.selected_skill_index = skill_count - 1
+        elif self.selected_skill_index < 0:
+            self.selected_skill_index = 0
+
     def create_skill_icon(self, skill_data, level, max_level, size=60):
         """스킬 아이콘 생성"""
         icon = pygame.Surface((size, size), pygame.SRCALPHA)
@@ -1615,6 +1635,8 @@ class AcademyUI:
                                         self.selected_tree = "item"
                                     else:  # dash
                                         self.selected_tree = "paddle"
+                                self._clamp_selection_to_current_tree()
+                                self.update_skill_positions()
                             elif event.key == pygame.K_RIGHT:
                                 # 오른쪽 탭으로 이동
                                 # 스매셔 캐릭터일 때는 스매셔 탭도 포함
@@ -1635,6 +1657,8 @@ class AcademyUI:
                                         self.selected_tree = "paddle"
                                     else:  # paddle
                                         self.selected_tree = "dash"
+                                self._clamp_selection_to_current_tree()
+                                self.update_skill_positions()
                             elif event.key == pygame.K_DOWN:
                                 # 탭 선택 모드 종료하고 스킬로 이동
                                 self.tab_selection_mode = False
