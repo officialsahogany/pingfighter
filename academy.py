@@ -2950,7 +2950,7 @@ class AcademyUI:
                 badge_rect = badge_surface.get_rect(centerx=skill_x + skill_size // 2, top=label_y)
                 self.screen.blit(badge_surface, badge_rect)
             else:
-                cost_color = (100, 255, 100) if self.skill_system.can_upgrade_skill(skill["id"]) else (255, 100, 100)
+                cost_color = (0, 255, 150) if self.skill_system.can_upgrade_skill(skill["id"]) else (180, 80, 80)
                 actual_cost = skill['cost']
                 cost_surface = self.font_small.render(f"비용: ★{actual_cost}", True, cost_color)
                 cost_rect = cost_surface.get_rect(centerx=skill_x + skill_size // 2, top=label_y)
