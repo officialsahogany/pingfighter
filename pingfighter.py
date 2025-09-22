@@ -49879,244 +49879,34 @@ def show_item_management_menu(item_list, selected_index, item_type):
                             return
                         else:  # 취소
                             return
+def _get_bgm_runtime_volume() -> float:
+    manager = getattr(bgm_manager, "bgm_manager", None)
+    volume = getattr(manager, "volume", None) if manager is not None else None
+    if isinstance(volume, (int, float)):
+        return volume
+    return bgm_volume
+
+
 def show_pause_options():
     """일시정지 옵션 메뉴 - 볼륨 조절 UI"""
-    
-    font_large = FontStyle.subtitle()  # 32pt 제목용
-    font_medium = FontStyle.body()  # 24pt 텍스트용
-    font_small = FontStyle.small()  # 20pt 설명용
-    
-    # 현재 볼륨 값 가져오기
-    import bgm_manager
-    current_bgm_volume = bgm_manager.bgm_manager.volume if hasattr(bgm_manager, 'bgm_manager') else bgm_volume
-    current_sfx_volume = sfx_volume
-    
-    # 슬라이더 설정
-    slider_width = 400
-    slider_height = 10
-    handle_size = 20
-    
-    # 패널 설정
-    panel_width = 600
-    panel_height = 400
-    panel_x = (WIDTH - panel_width) // 2
-    panel_y = (HEIGHT - panel_height) // 2
-    
-    # 슬라이더 위치
-    bgm_slider_x = panel_x + (panel_width - slider_width) // 2
-    bgm_slider_y = panel_y + 120
-    sfx_slider_x = panel_x + (panel_width - slider_width) // 2
-    sfx_slider_y = panel_y + 220
-    
-    # 뒤로가기 버튼
-    back_button_width = 150
-    back_button_height = 50
-    back_button_x = panel_x + (panel_width - back_button_width) // 2
-    back_button_y = panel_y + 320
-    back_button_rect = pygame.Rect(back_button_x, back_button_y, back_button_width, back_button_height)
-    
-    selected_slider = None  # None, 'bgm', 'sfx'
-    dragging = False
-    
-    clock = pygame.time.Clock()
-    running = True
-    
-    while running:
-        # 현재 게임 화면을 배경으로
-        draw_field()
-        draw_shaking_screen()
-        draw_objects()
-        draw_water_trail()
-        
-        # 반투명 오버레이
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
-        SCREEN.blit(overlay, (0, 0))
-        
-        # 옵션 패널 배경
-        panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-        panel.fill((30, 30, 40, 240))
-        pygame.draw.rect(panel, CYAN, (0, 0, panel_width, panel_height), 3, border_radius=10)
-        SCREEN.blit(panel, (panel_x, panel_y))
-        
-        # 제목
-        title_text = font_large.render("음악 설정", True, WHITE)
-        title_rect = title_text.get_rect(center=(WIDTH // 2, panel_y + 40))
-        SCREEN.blit(title_text, title_rect)
-        
-        # BGM 볼륨 슬라이더
-        bgm_label = font_medium.render("BGM 볼륨", True, WHITE)
-        bgm_label_rect = bgm_label.get_rect(left=bgm_slider_x, bottom=bgm_slider_y - 10)
-        SCREEN.blit(bgm_label, bgm_label_rect)
-        
-        # BGM 슬라이더 트랙
-        pygame.draw.rect(SCREEN, (60, 60, 60), 
-                        (bgm_slider_x, bgm_slider_y, slider_width, slider_height), 
-                        border_radius=5)
-        pygame.draw.rect(SCREEN, (0, 200, 255), 
-                        (bgm_slider_x, bgm_slider_y, int(slider_width * current_bgm_volume), slider_height), 
-                        border_radius=5)
-        
-        # BGM 슬라이더 핸들
-        bgm_handle_x = bgm_slider_x + int(slider_width * current_bgm_volume)
-        bgm_handle_rect = pygame.Rect(bgm_handle_x - handle_size // 2, 
-                                      bgm_slider_y - (handle_size - slider_height) // 2,
-                                      handle_size, handle_size)
-        pygame.draw.circle(SCREEN, WHITE if selected_slider == 'bgm' else (200, 200, 200),
-                          (bgm_handle_x, bgm_slider_y + slider_height // 2), handle_size // 2)
-        
-        # BGM 퍼센트 표시
-        bgm_percent = font_small.render(f"{int(current_bgm_volume * 100)}%", True, CYAN)
-        bgm_percent_rect = bgm_percent.get_rect(left=bgm_slider_x + slider_width + 20, 
-                                                centery=bgm_slider_y + slider_height // 2)
-        SCREEN.blit(bgm_percent, bgm_percent_rect)
-        
-        # 효과음 볼륨 슬라이더
-        sfx_label = font_medium.render("효과음 볼륨", True, WHITE)
-        sfx_label_rect = sfx_label.get_rect(left=sfx_slider_x, bottom=sfx_slider_y - 10)
-        SCREEN.blit(sfx_label, sfx_label_rect)
-        
-        # 효과음 슬라이더 트랙
-        pygame.draw.rect(SCREEN, (60, 60, 60), 
-                        (sfx_slider_x, sfx_slider_y, slider_width, slider_height), 
-                        border_radius=5)
-        pygame.draw.rect(SCREEN, (0, 255, 100), 
-                        (sfx_slider_x, sfx_slider_y, int(slider_width * current_sfx_volume), slider_height), 
-                        border_radius=5)
-        
-        # 효과음 슬라이더 핸들
-        sfx_handle_x = sfx_slider_x + int(slider_width * current_sfx_volume)
-        sfx_handle_rect = pygame.Rect(sfx_handle_x - handle_size // 2, 
-                                      sfx_slider_y - (handle_size - slider_height) // 2,
-                                      handle_size, handle_size)
-        pygame.draw.circle(SCREEN, WHITE if selected_slider == 'sfx' else (200, 200, 200),
-                          (sfx_handle_x, sfx_slider_y + slider_height // 2), handle_size // 2)
-        
-        # 효과음 퍼센트 표시
-        sfx_percent = font_small.render(f"{int(current_sfx_volume * 100)}%", True, (0, 255, 100))
-        sfx_percent_rect = sfx_percent.get_rect(left=sfx_slider_x + slider_width + 20, 
-                                                centery=sfx_slider_y + slider_height // 2)
-        SCREEN.blit(sfx_percent, sfx_percent_rect)
-        
-        # 뒤로가기 버튼
-        button_color = (100, 150, 255) if back_button_rect.collidepoint(pygame.mouse.get_pos()) else (50, 50, 50)
-        pygame.draw.rect(SCREEN, button_color, back_button_rect, border_radius=5)
-        pygame.draw.rect(SCREEN, WHITE, back_button_rect, 2, border_radius=5)
-        
-        back_text = font_medium.render("뒤로가기", True, WHITE)
-        back_text_rect = back_text.get_rect(center=back_button_rect.center)
-        SCREEN.blit(back_text, back_text_rect)
-        
-        # 안내 텍스트
-        hint_text = font_small.render("마우스 클릭/드래그/휠로 조절, ESC로 돌아가기", True, (150, 150, 150))
-        hint_rect = hint_text.get_rect(center=(WIDTH // 2, panel_y + panel_height - 30))
-        SCREEN.blit(hint_text, hint_rect)
-        
-        pygame.display.flip()
-        clock.tick(60)
-        
-        for event in pygame.event.get():
-             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            
-             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    # 변경사항 저장
-                    current_bgm_volume = store_bgm_volume(current_bgm_volume)
-                    current_sfx_volume = set_sfx_volume(current_sfx_volume)
-                    return
-                elif event.key == pygame.K_LEFT:
-                    if selected_slider == 'bgm':
-                        current_bgm_volume = max(0.0, current_bgm_volume - 0.05)
-                        bgm_manager.set_bgm_volume(current_bgm_volume)
-                    elif selected_slider == 'sfx':
-                        current_sfx_volume = max(0.0, current_sfx_volume - 0.05)
-                        current_sfx_volume = set_sfx_volume(current_sfx_volume)
-                elif event.key == pygame.K_RIGHT:
-                    if selected_slider == 'bgm':
-                        current_bgm_volume = min(1.0, current_bgm_volume + 0.05)
-                        bgm_manager.set_bgm_volume(current_bgm_volume)
-                    elif selected_slider == 'sfx':
-                        current_sfx_volume = min(1.0, current_sfx_volume + 0.05)
-                        current_sfx_volume = set_sfx_volume(current_sfx_volume)
-                elif event.key == pygame.K_UP:
-                    selected_slider = 'bgm'
-                elif event.key == pygame.K_DOWN:
-                    selected_slider = 'sfx'
-            
-             elif event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = pygame.mouse.get_pos()
-                mouse_x = mouse_pos[0]
-                
-                # 뒤로가기 버튼 클릭
-                if back_button_rect.collidepoint(mouse_pos):
-                    play_button_click_sound()
-                    current_bgm_volume = store_bgm_volume(current_bgm_volume)
-                    current_sfx_volume = set_sfx_volume(current_sfx_volume)
-                    return
-                
-                # BGM 슬라이더 클릭 - 클릭한 위치로 즉시 이동
-                bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
-                if bgm_slider_rect.collidepoint(mouse_pos) or bgm_handle_rect.collidepoint(mouse_pos):
-                    selected_slider = 'bgm'
-                    dragging = True
-                    # 클릭한 위치로 즉시 볼륨 설정
-                    relative_x = mouse_x - bgm_slider_x
-                    current_bgm_volume = max(0.0, min(1.0, relative_x / slider_width))
-                    bgm_manager.set_bgm_volume(current_bgm_volume)
-                
-                # 효과음 슬라이더 클릭 - 클릭한 위치로 즉시 이동
-                sfx_slider_rect = pygame.Rect(sfx_slider_x, sfx_slider_y - 10, slider_width, slider_height + 20)
-                if sfx_slider_rect.collidepoint(mouse_pos) or sfx_handle_rect.collidepoint(mouse_pos):
-                    selected_slider = 'sfx'
-                    dragging = True
-                    # 클릭한 위치로 즉시 볼륨 설정
-                    relative_x = mouse_x - sfx_slider_x
-                    current_sfx_volume = max(0.0, min(1.0, relative_x / slider_width))
-                    current_sfx_volume = set_sfx_volume(current_sfx_volume)
-            
-             elif event.type == pygame.MOUSEBUTTONUP:
-                dragging = False
-                if selected_slider:
-                     play_button_click_sound()  # 슬라이더 조작 완료 사운드
-            
-             elif event.type == pygame.MOUSEMOTION and dragging:
-                mouse_x = pygame.mouse.get_pos()[0]
-                
-                if selected_slider == 'bgm':
-                    # BGM 볼륨 조절
-                    relative_x = mouse_x - bgm_slider_x
-                    current_bgm_volume = max(0.0, min(1.0, relative_x / slider_width))
-                    bgm_manager.set_bgm_volume(current_bgm_volume)
-                    
-                elif selected_slider == 'sfx':
-                    # 효과음 볼륨 조절
-                    relative_x = mouse_x - sfx_slider_x
-                    current_sfx_volume = max(0.0, min(1.0, relative_x / slider_width))
-                    current_sfx_volume = set_sfx_volume(current_sfx_volume)
-            
-             elif event.type == pygame.MOUSEWHEEL:
-                # 마우스 휠로 볼륨 미세 조정
-                mouse_pos = pygame.mouse.get_pos()
-                bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
-                sfx_slider_rect = pygame.Rect(sfx_slider_x, sfx_slider_y - 10, slider_width, slider_height + 20)
-                
-                # 마우스가 BGM 슬라이더 위에 있을 때
-                if bgm_slider_rect.collidepoint(mouse_pos) or selected_slider == 'bgm':
-                    current_bgm_volume = max(0.0, min(1.0, current_bgm_volume + event.y * 0.02))
-                    bgm_manager.set_bgm_volume(current_bgm_volume)
-                    selected_slider = 'bgm'
-                    
-                # 마우스가 효과음 슬라이더 위에 있을 때
-                elif sfx_slider_rect.collidepoint(mouse_pos) or selected_slider == 'sfx':
-                    current_sfx_volume = max(0.0, min(1.0, current_sfx_volume + event.y * 0.02))
-                    current_sfx_volume = set_sfx_volume(current_sfx_volume)
-                    selected_slider = 'sfx'
-    
-    # 변경사항 저장
-    store_bgm_volume(current_bgm_volume)
-    set_sfx_volume(current_sfx_volume)
+
+    context = PauseOptionsContext(
+        screen=SCREEN,
+        width=WIDTH,
+        height=HEIGHT,
+        draw_field=draw_field,
+        draw_shaking_screen=draw_shaking_screen,
+        draw_objects=draw_objects,
+        draw_water_trail=draw_water_trail,
+        play_button_click_sound=play_button_click_sound,
+        get_bgm_runtime_volume=_get_bgm_runtime_volume,
+        apply_bgm_volume=bgm_manager.set_bgm_volume,
+        store_bgm_volume=store_bgm_volume,
+        get_sfx_volume=lambda: sfx_volume,
+        set_sfx_volume=set_sfx_volume,
+        clock_factory=pygame.time.Clock,
+    )
+    show_pause_options_ui(context)
 
 def set_sfx_volume(volume):
     """효과음 볼륨 설정 함수"""
