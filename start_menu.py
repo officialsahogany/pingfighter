@@ -26,6 +26,7 @@ MENU_ICONS = {
 VERSION_TEXT = "1.4v beta"
 DEV_CODE = [1]
 ITEM_CODE = [2]
+ENABLE_SCAN_LINES = False
 
 
 @dataclass
@@ -183,7 +184,8 @@ def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuStat
 
         state.star_field = draw_star_field(screen, width, height, state.animation_timer, state.star_field)
         state.neon_particles = draw_neon_particles(screen, width, height, state.animation_timer, state.neon_particles)
-        state.scan_lines = draw_scan_lines(screen, width, height, state.scan_lines)
+        if ENABLE_SCAN_LINES:
+            state.scan_lines = draw_scan_lines(screen, width, height, state.scan_lines)
 
         panel = pygame.Surface((ctx.default_alpha, 50), pygame.SRCALPHA)
         panel.fill((10, 15, 25, 180))
