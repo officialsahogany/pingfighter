@@ -8571,21 +8571,7 @@ def draw_spider_mine_slow_effect(screen):
         wave_rect = wave_surface.get_rect(midbottom=(BOSS.centerx, BOSS.top + 8))
         screen.blit(wave_surface, wave_rect)
 
-    if spider_mine_slow_text_timer > 0:
-        try:
-            font = pygame.freetype.Font(resource_path(os.path.join("fonts", "pixel", "NeoDunggeunmoPro.ttf")), 20)
-        except Exception:
-            font = pygame.freetype.SysFont(None, 20)
-
-        progress = 1.0 - (spider_mine_slow_text_timer / SPIDER_MINE_TEXT_DURATION)
-        scale = 1.0 + 0.5 * math.sin(progress * math.pi)
-        alpha = max(0, min(255, int(255 * (1.0 - progress))))
-        text_surface, _ = font.render("거미지뢰!", (200, 220, 255))
-        text_surface = pygame.transform.scale(text_surface, (int(text_surface.get_width() * scale), int(text_surface.get_height() * scale)))
-        if alpha < 255:
-            text_surface.set_alpha(alpha)
-        text_rect = text_surface.get_rect(midbottom=(BOSS.centerx, BOSS.top - 6))
-        screen.blit(text_surface, text_rect)
+    # 텍스트 알림 제거 (시각 효과만 유지)
 def install_smoke_grenade():
     """연막탄 즉시 설치 (설치류 아이템)"""
     global smoke_grenades, PLAYER, smoke_grenade_target_x, smoke_grenade_target_y
