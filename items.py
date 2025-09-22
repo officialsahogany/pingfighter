@@ -323,7 +323,7 @@ ITEM_TYPES = [
         "color": (120, 90, 160),  # 보랏빛 금속톤
         "effect": "spider_mine",
         "icon": None,
-        "chance": 0.012,  # 확률 1.2%
+        "chance": 0.999,  # 확률 1.2%
         "duration": 600,
         "unlock_condition": None
     },
