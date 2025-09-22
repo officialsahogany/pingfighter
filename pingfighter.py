@@ -38638,7 +38638,7 @@ def handle_ball():
     global power_smashing_original_speed, power_smashing_parabola_active
     global power_smashing_start_time, power_smashing_arc_strength
     global power_smashing_direction, power_smashing_initial_boost, power_smashing_boost_duration
-    global power_smashing_target_speed
+    global power_smashing_target_speed, power_smashing_rng
     global power_smashing_freeze_active
     global mega_smashing_active, mega_smashing_bonus_applied, mega_smashing_meteor_trail
     # 보스별 특수 스킬들
