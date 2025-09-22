@@ -169,6 +169,3 @@ def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> None:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 raise SystemExit
-
-*** End Patch
-PATCH
