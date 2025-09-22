@@ -541,6 +541,32 @@ class AcademyUI:
 
         return lines if lines else [text]
 
+    def _draw_star_icon(self, target_surface, center_x: int, center_y: int, size: int, color):
+        """단순 5각 별을 그린다"""
+        points = []
+        for i in range(10):
+            angle = math.pi / 5 * i - math.pi / 2
+            radius = size if i % 2 == 0 else size * 0.45
+            px = center_x + radius * math.cos(angle)
+            py = center_y + radius * math.sin(angle)
+            points.append((px, py))
+        pygame.draw.polygon(target_surface, color, points)
+
+    def _create_max_badge_surface(self, color):
+        """'최대' 텍스트와 별 아이콘이 포함된 배지를 만든다"""
+        text_surface = self.font_small.render("최대", True, color)
+        star_size = max(4, text_surface.get_height() // 2)
+        spacing = 6
+        width = text_surface.get_width() + spacing + star_size * 2
+        height = max(text_surface.get_height(), star_size * 2)
+        badge_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        text_y = (height - text_surface.get_height()) // 2
+        badge_surface.blit(text_surface, (0, text_y))
+        star_center_x = text_surface.get_width() + spacing + star_size
+        star_center_y = height // 2
+        self._draw_star_icon(badge_surface, star_center_x, star_center_y, star_size, color)
+        return badge_surface
+
     def handle_mouse_click(self, pos):
         """마우스 클릭 처리"""
         x, y = pos
@@ -2907,9 +2933,9 @@ class AcademyUI:
                 cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(cost_text, cost_rect)
             else:
-                max_text = self.font_small.render("최대 🌟", True, (255, 255, 100))
-                max_rect = max_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
-                self.screen.blit(max_text, max_rect)
+                badge_surface = self._create_max_badge_surface((255, 255, 100))
+                badge_rect = badge_surface.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
+                self.screen.blit(badge_surface, badge_rect)
             
             # 잠금 상태 표시
             is_locked = False
@@ -3283,8 +3309,8 @@ class AcademyUI:
                 self.screen.blit(next_surface, (desc_x + 10, next_y))
                 next_y += 18
         else:
-            max_info = self.font_small.render("최대 🌟", True, (255, 255, 120))
-            self.screen.blit(max_info, (desc_x + 10, cost_y))
+            badge_surface = self._create_max_badge_surface((255, 255, 120))
+            self.screen.blit(badge_surface, (desc_x + 10, cost_y))
 
     def draw_linear_skill_tree(self, tree_data):
         """기존 방식의 선형 스킬트리 그리기 (item, paddle용)"""
