@@ -332,7 +332,7 @@ ITEM_TYPES = [
         "color": (100, 150, 200),  # 스마트폰 블루
         "effect": "smartphone",
         "icon": None,
-        "chance": 0.005,  # 확률 0.5%
+        "chance": 0.004,  # 확률 0.5%
         "duration": 600,
         "unlock_condition": None
     },
