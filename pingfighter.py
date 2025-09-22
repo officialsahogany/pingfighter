@@ -52,6 +52,11 @@ from utils.game_helpers import (
     calculate_distance,
 )
 from rendering.draw_helper import DrawHelper
+from display_manager import (
+    DisplayFactories,
+    change_resolution as dm_change_resolution,
+    change_internal_resolution as dm_change_internal_resolution,
+)
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
