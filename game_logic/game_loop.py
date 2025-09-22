@@ -2,14 +2,28 @@
 게임 루프 매니저 - 메인 게임 루프를 관리하는 통합 시스템
 점진적 리팩토링을 위한 게임 루프 분리
 """
+from __future__ import annotations
+
 import pygame
 import time
-from typing import Dict, Any, Optional, Tuple
+from dataclasses import dataclass
+from typing import Callable, Dict, Any, Optional, Tuple
+
+
+@dataclass
+class RuntimeAdapters:
+    """외부 시스템과의 연동을 위한 어댑터 모음."""
+
+    update_player_input: Optional[Callable[["GameState", "InputHandler"], None]] = None
+    update_ai: Optional[Callable[["GameState", float], None]] = None
+    update_physics: Optional[Callable[["GameState", float], None]] = None
+    check_collisions: Optional[Callable[["GameState"], None]] = None
+    update_items: Optional[Callable[["GameState", float], None]] = None
 
 class GameLoop:
     """게임 루프를 관리하는 메인 클래스"""
     
-    def __init__(self, screen: pygame.Surface):
+    def __init__(self, screen: pygame.Surface, adapters: Optional[RuntimeAdapters] = None):
         """게임 루프 초기화
         
         Args:
@@ -27,8 +41,8 @@ class GameLoop:
         self.input_handler = InputHandler()
         
         # 업데이트 시스템
-        self.update_system = UpdateSystem()
-        
+        self.update_system = UpdateSystem(adapters)
+
         # 렌더링 시스템 (render_manager 사용)
         from rendering.render_manager import RenderManager
         self.render_manager = RenderManager(screen)
