@@ -176,6 +176,32 @@ def _render_menu(
     screen.blit(resolution_surface, resolution_rect)
 
 
+def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bool:
+    if choice == "경기장 입장":
+        if ctx.show_tutorial_dialog():
+            ctx.start_tutorial_game()
+        else:
+            character = ctx.show_character_selection()
+            if character is not None:
+                difficulty = ctx.show_difficulty_selection()
+                if difficulty is not None:
+                    ctx.start_game_with_difficulty(character, difficulty)
+        return True
+    if choice == "테스트메뉴":
+        ctx.start_test_mode()
+        return True
+    if choice == "메달샵":
+        state.locked_message_timer = ctx.two_seconds_frames
+        return False
+    if choice == "크레딧":
+        ctx.show_credits_screen()
+        return True
+    if choice == "개발자":
+        ctx.show_developer_stage_select()
+        return True
+    return False
+
+
 def _handle_menu_events(
     ctx: MenuContext,
     state: MenuState,
@@ -222,26 +248,7 @@ def _handle_menu_events(
             elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                 ctx.play_click_sound()
                 choice = current_menu_options[state.selected]
-                if choice == "경기장 입장":
-                    if ctx.show_tutorial_dialog():
-                        ctx.start_tutorial_game()
-                    else:
-                        character = ctx.show_character_selection()
-                        if character is not None:
-                            difficulty = ctx.show_difficulty_selection()
-                            if difficulty is not None:
-                                ctx.start_game_with_difficulty(character, difficulty)
-                    return False
-                if choice == "테스트메뉴":
-                    ctx.start_test_mode()
-                    return False
-                if choice == "메달샵":
-                    state.locked_message_timer = ctx.two_seconds_frames
-                if choice == "크레딧":
-                    ctx.show_credits_screen()
-                    return False
-                if choice == "개발자":
-                    ctx.show_developer_stage_select()
+                if _activate_menu_choice(ctx, state, choice):
                     return False
         if event.type == pygame.MOUSEMOTION:
             mouse_pos = event.pos
@@ -264,7 +271,8 @@ def _handle_menu_events(
                     if option_rect.collidepoint(mouse_pos):
                         state.selected = idx
                         ctx.play_click_sound()
-                        pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
+                        if _activate_menu_choice(ctx, state, option):
+                            return False
                         break
     return True
 
@@ -401,12 +409,11 @@ def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuStat
         iw, ih = ctx.get_internal_dimensions()
         menu_system = ctx.menu_system_factory(screen, iw, ih)
         ctx.set_menu_system(menu_system)
-    simple_bg = ctx.simple_bg
-    if simple_bg is None:
-        iw, ih = ctx.get_internal_dimensions()
-        simple_bg = ctx.simple_bg_factory(iw, ih)
     ctx.menu_system = menu_system
-    ctx.simple_bg = simple_bg
+
+    if ctx.simple_bg is None:
+        iw, ih = ctx.get_internal_dimensions()
+        ctx.simple_bg = ctx.simple_bg_factory(iw, ih)
 
     while True:
         screen = ctx.get_screen()
