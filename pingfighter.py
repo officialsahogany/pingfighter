@@ -421,37 +421,52 @@ def draw_gradient_rect(rect, color1, color2, vertical=True):
     unified_renderer.draw_gradient_rect(rect, color1, color2, vertical)
 
 # 해상도 변경 함수
+def _build_display_factories() -> DisplayFactories:
+    return DisplayFactories(
+        draw=DrawHelper,
+        unified_renderer=lambda screen, iw, ih: UnifiedRenderer(screen, iw, ih),
+        dialog_system=lambda screen, iw, ih: DialogSystem(screen, iw, ih),
+        menu_system=lambda screen, iw, ih: MenuSystem(screen, iw, ih),
+        trade_point_with_size=lambda screen, iw, ih: TradePointSystem(screen, iw, ih),
+        trade_point_simple=lambda screen: TradePointSystem(screen),
+        ui_manager_init=lambda screen, font, iw, ih: ui_manager.init_ui_manager(screen, font or FONT, iw, ih),
+        effects_manager_init=lambda screen, iw, ih: effects_manager.init_effects_manager(screen, iw, ih),
+        physics_manager_init=lambda screen, ball, player, boss, iw, ih: physics_manager.init_physics_manager(screen, ball, player, boss, iw, ih),
+        initialize_legendary_effects=initialize_legendary_effects,
+        initialize_item_effects=initialize_item_effects,
+    )
+
+
 def change_resolution(direction=1):
     """화면 해상도 변경 (direction: 1=다음, -1=이전)"""
     global SCREEN, current_resolution_index, unified_renderer, draw
-    global dialog_system, menu_system, trade_point_system
-    
-    # 현재 해상도 인덱스 변경
-    current_resolution_index = (current_resolution_index + direction) % len(RESOLUTION_OPTIONS)
-    
-    # 새 해상도 가져오기
-    new_width, new_height = RESOLUTION_OPTIONS[current_resolution_index]
-    
-    # 화면 재생성 (pygame.SCALED 플래그 사용)
-    SCREEN = pygame.display.set_mode((new_width, new_height), pygame.SCALED)
-    
-    # 시스템 재초기화 (내부 해상도 유지)
-    draw = DrawHelper(SCREEN)
-    unified_renderer = UnifiedRenderer(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    dialog_system = DialogSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    trade_point_system = TradePointSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    
-    # UI 매니저 재초기화
-    ui_manager.init_ui_manager(SCREEN, FONT, INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    effects_manager.init_effects_manager(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    physics_manager.init_physics_manager(SCREEN, BALL, PLAYER, BOSS, INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    
-    # 전설 아이템 효과 시스템 재초기화
-    initialize_legendary_effects(INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    initialize_item_effects(INTERNAL_WIDTH, INTERNAL_HEIGHT)
-    
-    print(f"해상도 변경: {new_width}x{new_height} (스케일: {new_width/INTERNAL_WIDTH:.1f}x)")
+    global dialog_system, menu_system, trade_point_system, WIDTH, HEIGHT
+
+    factories = _build_display_factories()
+    result = dm_change_resolution(
+        direction=direction,
+        current_resolution_index=current_resolution_index,
+        resolution_options=RESOLUTION_OPTIONS,
+        internal_width=INTERNAL_WIDTH,
+        internal_height=INTERNAL_HEIGHT,
+        factories=factories,
+        font=FONT,
+        ball=BALL,
+        player=PLAYER,
+        boss=BOSS,
+    )
+
+    current_resolution_index = result.index
+    SCREEN = result.screen
+    WIDTH = result.width
+    HEIGHT = result.height
+    draw = result.draw
+    unified_renderer = result.unified_renderer
+    dialog_system = result.dialog_system
+    menu_system = result.menu_system
+    trade_point_system = result.trade_point_system
+
+    print(f"해상도 변경: {WIDTH}x{HEIGHT} (스케일: {WIDTH / INTERNAL_WIDTH:.1f}x)")
 
 # 화면 생성 (통합)
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
