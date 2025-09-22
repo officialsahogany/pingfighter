@@ -429,3 +429,19 @@ def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuStat
 
         if not _handle_menu_events(ctx, state, current_menu_options):
             return state
+
+
+_MENU_STATE_CACHE: MenuState | None = None
+
+
+def show_start_menu(ctx: MenuContext) -> MenuState:
+    """캐시된 상태를 활용해 시작 메뉴를 실행."""
+    global _MENU_STATE_CACHE
+    _MENU_STATE_CACHE = run_start_menu(ctx, _MENU_STATE_CACHE)
+    return _MENU_STATE_CACHE
+
+
+def reset_menu_state() -> None:
+    """메뉴 상태 캐시를 초기화."""
+    global _MENU_STATE_CACHE
+    _MENU_STATE_CACHE = None
