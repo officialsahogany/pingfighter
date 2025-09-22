@@ -3293,7 +3293,7 @@ class AcademyUI:
 
             can_upgrade = self.skill_system.can_upgrade_skill(selected_skill["id"])
             cost_color = (100, 255, 100) if can_upgrade else (255, 120, 120)
-            cost_text = f"비용: {actual_cost} SP"
+            cost_text = f"비용: ★{actual_cost}"
 
             if not can_upgrade:
                 if self.skill_system.skill_points < actual_cost:
@@ -3609,7 +3609,7 @@ class AcademyUI:
             if current_level < skill["max_level"]:
                 actual_cost = skill['cost']
                 
-                cost_text = self.font_small.render(f"비용: {actual_cost} SP", True, cost_color)
+                cost_text = self.font_small.render(f"비용: ★{actual_cost}", True, cost_color)
                 cost_rect = cost_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
                 self.screen.blit(cost_text, cost_rect)
             
