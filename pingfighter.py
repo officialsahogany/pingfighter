@@ -1658,8 +1658,6 @@ def clear_alchemy_notices():
     """연금술 텍스트 이펙트를 즉시 비움"""
     alchemy_notices.clear()
 
-# 패시브 아이템
-selected_passive_item = -1           # 패시브 아이템 선택 인덱스
 # 전역변수
 speech_text = ""
 speech_timer = 0  # 말풍선 표시 시간 (타이머)
