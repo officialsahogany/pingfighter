@@ -2153,6 +2153,17 @@ smoke_grenades = []  # 던져진 연막탄 리스트
 smoke_zones = []  # 연막 지역 리스트
 smoke_grenade_target_x = 0  # 연막탄 목표 X 좌표
 smoke_grenade_target_y = 0  # 연막탄 목표 Y 좌표
+# === 스파이더지뢰 관련 ===
+spider_mines = []  # 이동 중 또는 설치된 스파이더지뢰 리스트
+SPIDER_MINE_TRAVEL_SPEED = 5.5
+SPIDER_MINE_CLIMB_SPEED = 4.2
+SPIDER_MINE_EXPLOSION_DURATION = 22
+SPIDER_MINE_SLOW_DURATION = 180  # 3초 지속
+SPIDER_MINE_SLOW_FACTOR = 0.7  # 이동속도 30% 감소
+SPIDER_MINE_TEXT_DURATION = 60  # 효과 텍스트 표시 시간
+spider_mine_slow_active = False
+spider_mine_slow_timer = 0
+spider_mine_slow_text_timer = 0
 # 보스별 스피드 및 예측 설정 - config에서 가져온 값에 추가 설정
 # BOSS_CONFIGS에서 기본값을 가져오고 추가 속성만 정의
 boss_speed_config = {}
@@ -8644,7 +8655,8 @@ def calculate_trajectory():
                         if skill_active_now:
                             sim_time_ms = base_ticks + step * frame_time_ms
                             elapsed_time = max(0.0, (sim_time_ms - sim_power_smashing_start) / 1000.0)
-                        if sim_power_smashing_initial_boost and power_smashing_boost_duration > 0:
+
+                            if sim_power_smashing_initial_boost and power_smashing_boost_duration > 0:
                                 current_speed = math.hypot(sim_vel_x, sim_vel_y)
                                 boost_duration = power_smashing_boost_duration / 1000.0
                                 boost_progress = min(1.0, elapsed_time / boost_duration) if boost_duration else 1.0
@@ -8659,11 +8671,13 @@ def calculate_trajectory():
                                     sim_vel_y *= speed_ratio
                                 if boost_progress >= 1.0:
                                     sim_power_smashing_initial_boost = False
+
                             horizontal_decay = max(0.8, 1.0 - elapsed_time * 0.05)
                             chaos_source = sim_power_smashing_rng or random
                             chaos_factor = math.sin(elapsed_time * 5.0) * 0.05 + chaos_source.uniform(-0.04, 0.04)
                             horizontal_force = power_smashing_arc_strength * horizontal_decay * (0.5 + chaos_factor * 0.2)
                             sim_vel_x += horizontal_force
+
                             if elapsed_time < 1.8:
                                 base_lift = power_smashing_gravity_effect * 1.5 * (1.8 - elapsed_time) / 1.8
                                 vertical_chaos = math.cos(elapsed_time * 5.0) * 0.015
