@@ -9185,6 +9185,11 @@ def draw_predicted_trajectory():
     """레이저스코프 활성화 시 저장된 궤적을 그리는 함수"""
     global predicted_trajectory, predictor_active, ball_vel
     global quake_active, meditation_active, stage4_magnetic_active, flame_trail_active, power_smashing_parabola_active
+    
+    # 디버깅 출력 추가
+    if predictor_active:
+        print(f"[레이저스코프] active={predictor_active}, trajectory_len={len(predicted_trajectory)}, ball_vel_y={ball_vel[1]}")
+    
     if not predictor_active:
         return
     # 공이 위로 향하고 있으면 궤적 지우기 (플레이어가 친 경우)
