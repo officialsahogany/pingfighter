@@ -52,6 +52,11 @@ python3 pingfighter.py
   ```bash
   python3 pingfighter.py --modern-loop
   ```
+- 환경 변수로도 활성화할 수 있습니다.
+  ```bash
+  export PINGFIGHTER_MODERN_LOOP=1
+  python3 pingfighter.py
+  ```
 
 #### 2. 플레이 가능한 모듈화 버전
 ```bash

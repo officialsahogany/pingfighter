@@ -427,6 +427,11 @@ if "--modern-loop" in sys.argv:
     USE_MODERN_GAME_LOOP = True
     print("[INFO] --modern-loop 플래그 감지: Experimental GameLoop 활성화")
 
+env_modern_loop = os.getenv("PINGFIGHTER_MODERN_LOOP", "").strip().lower()
+if env_modern_loop in {"1", "true", "on", "yes"}:
+    USE_MODERN_GAME_LOOP = True
+    print("[INFO] PINGFIGHTER_MODERN_LOOP 환경 변수 활성화: Experimental GameLoop 사용")
+
 def draw_glow_circle(pos, radius, color, glow_intensity=3):
     """광채 효과가 있는 원 그리기 - Phase 101: unified_renderer 사용"""
     unified_renderer.draw_glow_circle(pos, radius, color, glow_intensity)
