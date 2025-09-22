@@ -15325,8 +15325,7 @@ def store_passive_item(item_data):
         return
     if item_state.passive_item_list is None:
         item_state.passive_item_list = []
-        passive_item_list = item_state.passive_item_list
-        passive_item_list = item_state.passive_item_list
+    passive_item_list = item_state.passive_item_list
     
     # 모든 패시브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
     if "icon" not in item_data or item_data["icon"] is None:
@@ -33098,7 +33097,7 @@ def show_difficulty_selection():
 def start_game_with_difficulty(character_id, difficulty_mode):
     """선택한 캐릭터와 난이도로 게임 시작"""
     global ai_mode, ai_enabled, selected_character_type, soldier_initial_grenade_given
-    global master_obtained, last_item_use_time
+    global master_obtained, last_item_use_time, passive_item_list, active_item_slot
 
     # AI 모드 설정
     ai_mode = difficulty_mode
@@ -33130,6 +33129,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         print("🔨 발토르 캐릭터 선택! 장인의 망치 패시브 아이템 자동 장착!")
         if item_state.passive_item_list is None:
             item_state.passive_item_list = []
+            passive_item_list = item_state.passive_item_list
         if not any(item.get("name") == "master" for item in item_state.passive_item_list):
             item_state.passive_item_list.append({
                 "name": "master",
@@ -33139,6 +33139,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         # 발토르는 경기 시작 시 방어용 벽돌을 한 개 기본 보유한다
         if item_state.active_item_slot is None:
             item_state.active_item_slot = []
+            active_item_slot = item_state.active_item_slot
         if not any(item.get("name") == "wall" for item in item_state.active_item_slot):
             wall_item = {
                 "name": "wall",
