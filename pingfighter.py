@@ -47910,6 +47910,44 @@ def main(stage_num, new_boss_mode=False):
             record_stage_result(current_stage, cleared=False)
             show_result(False)
             return
+def get_legacy_game_loop_hooks() -> LegacyHooks:
+    """GameLoop과 레거시 업데이트 루프를 연결하기 위한 훅 생성."""
+
+    def _player_hook(state, input_handler):
+        keys = pygame.key.get_pressed()
+        handle_player(keys)
+
+    def _physics_hook(state, delta_time):
+        handle_ball()
+
+    def _ai_hook(state, delta_time):
+        handle_boss()
+
+    def _items_hook(state, delta_time):
+        try:
+            items.update_items(PLAYER, apply_effect, store_passive_item, store_active_item, SOUND_ITEM_GET)
+        except Exception:
+            pass
+
+        try:
+            if selected_character_type == "soldier":
+                update_supply_drop_system()
+        except Exception:
+            pass
+
+        try:
+            update_blacksmith_turret()
+        except Exception:
+            pass
+
+    return LegacyHooks(
+        player_update=_player_hook,
+        physics_update=_physics_hook,
+        ai_update=_ai_hook,
+        items_update=_items_hook,
+    )
+
+
 def game_loop():
     while True:
         show_start_screen()
