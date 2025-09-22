@@ -319,6 +319,15 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
+        "name": "spider_mine",  # 🕷️ 스파이더지뢰 액티브 아이템
+        "color": (120, 90, 160),  # 보랏빛 금속톤
+        "effect": "spider_mine",
+        "icon": None,
+        "chance": 0.012,  # 확률 1.2%
+        "duration": 600,
+        "unlock_condition": None
+    },
+    {
         "name": "smartphone",  # 📱 스마트폰 패시브 아이템
         "color": (100, 150, 200),  # 스마트폰 블루
         "effect": "smartphone",
@@ -534,6 +543,7 @@ unlocked_items = {
     "dowsing_pendulum": True,
     "molotov": True,
     "grenade": True,
+    "spider_mine": True,
     "predictor": True,
     "flare": True,
     "smoke_grenade": True,
@@ -1087,7 +1097,7 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                 draw_cooldown_overlay(screen, x, y, SLOT_W, item["last_use"], cooldown_ms)
             
             # 🎯 투척류 아이템 5초 카운트다운 표시
-            throwing_items = ["molotov", "grenade", "flare"]
+            throwing_items = ["molotov", "grenade", "flare", "spider_mine"]
             item_name = item.get("name", item.get("effect", ""))
             if item_name in throwing_items and time_since_round_start < 5000:
                 remaining_seconds = int((5000 - time_since_round_start) / 1000) + 1  # 5, 4, 3, 2, 1

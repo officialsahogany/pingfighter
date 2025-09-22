@@ -36052,10 +36052,11 @@ def reset_round():
     #  파워스매싱 상태 리셋
     global power_smashing_direction, power_smashing_original_speed
     global power_smashing_parabola_active, power_smashing_start_time, power_smashing_arc_strength
-    global power_smashing_trails, power_smashing_particles
+    global power_smashing_trails, power_smashing_particles, power_smashing_rng
     power_smashing_direction = None  # 파워스매싱 방향 리셋
     power_smashing_original_speed = 0.0  # 파워스매싱 원래 속도 리셋
     power_smashing_parabola_active = False  # 포물선 궤적 리셋
+    power_smashing_rng = None
     power_smashing_start_time = 0
     power_smashing_arc_strength = 0.0
     power_smashing_trails.clear()  # 잔상 효과 리셋
@@ -39391,6 +39392,7 @@ def handle_ball():
                     #  파워스매싱 중 바위 충돌 시 파워스매싱 종료
                     if power_smashing_parabola_active:
                         power_smashing_parabola_active = False
+                        power_smashing_rng = None
                         power_smashing_direction = None
                         power_smashing_trails.clear()
                         power_smashing_particles.clear()
@@ -39991,6 +39993,7 @@ def handle_ball():
                 # 파워스매싱 종료
                 if power_smashing_parabola_active:
                     power_smashing_parabola_active = False
+                    power_smashing_rng = None
                     power_smashing_direction = None
                     power_smashing_trails.clear()
                     power_smashing_particles.clear()
