@@ -2937,6 +2937,10 @@ class AcademyUI:
                 cost_text = self.font_small.render(f"비용: {actual_cost}TP", True, cost_color)
                 cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(cost_text, cost_rect)
+            else:
+                badge_surface = self._create_master_badge_surface((255, 215, 0))
+                badge_rect = badge_surface.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
+                self.screen.blit(badge_surface, badge_rect)
             
             # 잠금 상태 표시
             is_locked = False
