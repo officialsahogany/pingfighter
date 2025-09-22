@@ -72,6 +72,10 @@ def load_sound_effects(resource_path) -> Dict[str, pygame.mixer.Sound]:
 
     sounds: Dict[str, pygame.mixer.Sound] = {}
     for key, rel_path in SOUND_PATHS.items():
-        full_path = resource_path(rel_path)
-        sounds[key] = pygame.mixer.Sound(full_path)
+        try:
+            full_path = resource_path(rel_path)
+            sounds[key] = pygame.mixer.Sound(full_path)
+        except Exception as exc:  # pragma: no cover
+            print(f"[WARN] Failed to load sound {rel_path}: {exc}")
+            sounds[key] = None
     return sounds

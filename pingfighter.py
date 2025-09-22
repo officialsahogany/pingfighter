@@ -61,6 +61,7 @@ from background_manager import (
     BackgroundFactory,
     load_stage_backgrounds,
 )
+from sound_effects import load_sound_effects
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
