@@ -63,7 +63,7 @@ from background_manager import (
 )
 from sound_effects import load_sound_effects
 from item_state_manager import reset_runtime_items
-from start_menu_decorations import draw_star_field, StarField
+from start_menu_decorations import draw_star_field, draw_neon_particles, draw_scan_lines, StarField
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
@@ -24614,39 +24614,19 @@ def show_start_screen():
             animation_timer,
             star_field,
         )
-        # 네온 파티클 업데이트 및 그리기 - 캐릭터 선택 화면과 동일
-        for particle in neon_particles:
-            particle["x"] += particle["vx"]
-            particle["y"] += particle["vy"]
-            # 화면 경계 처리
-            if particle["x"] < 0 or particle["x"] > WIDTH:
-                particle["vx"] *= -1
-            if particle["y"] < 0 or particle["y"] > HEIGHT:
-                particle["vy"] *= -1
-            # 펄스 효과
-            pulse = abs(math.sin(animation_timer * particle["pulse_speed"]))
-            current_alpha = int(particle["alpha"] * (0.5 + pulse * 0.5))
-            # 네온 글로우 파티클
-            for i in range(2):
-                glow_size = particle["size"] + i * 2
-                glow_alpha = current_alpha // (i + 1)
-                glow_surf = pygame.Surface((glow_size * 4, glow_size * 4), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (*particle["color"], glow_alpha),
-                                 (glow_size * 2, glow_size * 2), glow_size)
-                SCREEN.blit(glow_surf, (particle["x"] - glow_size * 2, 
-                                       particle["y"] - glow_size * 2))
-        # 스캔라인 효과 - 캐릭터 선택 화면과 동일
-        for scan_line in scan_lines:
-            scan_line["y"] += scan_line["speed"]
-            if scan_line["y"] > HEIGHT:
-                scan_line["y"] = -10
-            # 더 화려한 스캔라인
-            for i in range(3):
-                scan_alpha = scan_line["alpha"] - i * 10
-                if scan_alpha > 0:
-                    scan_surf = pygame.Surface((WIDTH, 2 - i), pygame.SRCALPHA)
-                    scan_surf.fill((0, 255, 255, scan_alpha))
-                    SCREEN.blit(scan_surf, (0, scan_line["y"] + i))
+        neon_particles = draw_neon_particles(
+            SCREEN,
+            WIDTH,
+            HEIGHT,
+            animation_timer,
+            neon_particles,
+        )
+        scan_lines = draw_scan_lines(
+            SCREEN,
+            WIDTH,
+            HEIGHT,
+            scan_lines,
+        )
         # 홀로그램 메달 표시
         medal_panel = pygame.Surface((DEFAULT_ALPHA, 50), pygame.SRCALPHA)
         medal_panel.fill((10, 15, 25, 180))
