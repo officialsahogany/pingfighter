@@ -984,8 +984,8 @@ HONGRYUN_MAX_HITS = game_state.HONGRYUN_MAX_HITS
 CURRENT_BG = STAGE1_BG  # 현재 배경 기본값은 Stage 1
 
 # 볼륨 설정 (0.0 ~ 1.0)
-bgm_volume = 0.4  # BGM 볼륨 기본값 40%
-sfx_volume = 0.7  # 효과음 볼륨 기본값 70%
+bgm_volume = get_bgm_volume()  # 오디오 상태 모듈 기본값 반영
+sfx_volume = get_sfx_volume()  # 오디오 상태 모듈 기본값 반영
 
 boss_names = {
     1: "풍악보이",
@@ -1040,6 +1040,15 @@ def consume_special_gauge(amount):
     except Exception:
         # During early bootstrap or tests the singleton might be absent.
         pass
+
+
+def store_bgm_volume(value: float) -> float:
+    """오디오 상태 모듈과 전역 변수 모두에 BGM 볼륨을 반영."""
+
+    global bgm_volume
+    bgm_volume = set_bgm_volume_state(value)
+    return bgm_volume
+
 
 def play_sound_with_volume(sound, volume=None):
     """효과음을 지정된 볼륨으로 재생"""
