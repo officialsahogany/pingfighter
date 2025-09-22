@@ -133,7 +133,7 @@ SKILL_TREES = {
             {
                 "id": "item_cooldown_mastery",
                 "name": "숙련",
-                "description": "엑티브 아이템 쿨타임 8% 감소\n(레벨당 추가 감소)",
+                "description": "엑티브 아이템 쿨타임 8% 감소",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (255, 150, 120),
@@ -144,7 +144,7 @@ SKILL_TREES = {
             {
                 "id": "item_gauge_mastery",
                 "name": "숙달",
-                "description": "엑티브 아이템 사용 시 게이지 +10\n(레벨당 +10)\n(누적 TP 4+ 필요)",
+                "description": "엑티브 아이템 사용 시 게이지 +10\n(누적 TP 4+ 필요)",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (255, 180, 140),
@@ -156,7 +156,7 @@ SKILL_TREES = {
             {
                 "id": "item_bag_expansion",
                 "name": "가방 확장",
-                "description": "엑티브 아이템 슬롯 1칸 증가\n(레벨당 +1칸)\n(누적 TP 4+ 필요)",
+                "description": "엑티브 아이템 슬롯 1칸 증가\n(누적 TP 4+ 필요)",
                 "max_level": 3,
                 "cost": 2,
                 "icon_color": (255, 180, 150),
@@ -168,7 +168,7 @@ SKILL_TREES = {
             {
                 "id": "item_gamble",
                 "name": "도박",
-                "description": "가챠 후 25% 확률로 추가 1회 자동 실행\n(레벨당 +15%, 3레벨: 최대 2회)\n(누적 TP 8+ 필요)",
+                "description": "가챠 후 25% 확률로 추가 1회 자동 실행\n(누적 TP 8+ 필요)",
                 "max_level": 3,
                 "cost": 3,
                 "icon_color": (255, 205, 160),
@@ -180,7 +180,7 @@ SKILL_TREES = {
             {
                 "id": "item_recycle",
                 "name": "연금술",
-                "description": "연금술로 사용한 아이템이 유지될 확률 20%\n(레벨당 +10% 추가)\n(누적 TP 8+ 필요)",
+                "description": "연금술로 사용한 아이템이 유지될 확률 20%\n(누적 TP 8+ 필요)",
                 "max_level": 3,
                 "cost": 3,
                 "icon_color": (255, 205, 170),
@@ -192,7 +192,7 @@ SKILL_TREES = {
             {
                 "id": "item_treasure_map",
                 "name": "보물지도",
-                "description": "전설 필드 확률 +300%, 가챠 전설 +5%\n(레벨당 동일 증가)\n(누적 TP 12+ 필요)",
+                "description": "전설 필드 확률 +300%, 가챠 전설 +5%\n(누적 TP 12+ 필요)",
                 "max_level": 3,
                 "cost": 4,
                 "icon_color": (255, 220, 120),
