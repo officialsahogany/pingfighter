@@ -8667,6 +8667,10 @@ def calculate_trajectory():
     global ball_vel, BALL, WIDTH, HEIGHT, PLAYER, BOSS, predicted_trajectory, last_prediction_ball_y
     global last_prediction_skill_signature
     global current_stage, boss_special_ready, boss_special_gauge, boss_special_ready_stage4, boss_special_gauge_stage4
+    
+    # BALL이 None인지 확인
+    if BALL is None:
+        return
     global meditation_active, meditation_timer, stage4_magnetic_active, stage4_magnetic_timer
     global flame_trail_active, flame_trail_phase, flame_trail_rng, power_smashing_parabola_active, power_smashing_start_time, power_smashing_rng
     global quake_active, quake_timer, tears_active, tears_timer, quake_last_used_time, last_tears_cast_time
