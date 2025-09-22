@@ -2504,9 +2504,21 @@ class AcademyUI:
                 else:
                     del self.skill_levelup_animations[skill["id"]]
 
-            name_text = self.font_small.render(skill["name"], True, (255, 255, 255))
-            name_rect = name_text.get_rect(centerx=skill_x + skill_size // 2, top=skill_y + skill_size + 5)
-            self.screen.blit(name_text, name_rect)
+        name_text = self.font_small.render(skill["name"], True, (255, 255, 255))
+        name_rect = name_text.get_rect(centerx=skill_x + skill_size // 2, top=skill_y + skill_size + 5)
+        self.screen.blit(name_text, name_rect)
+
+        label_y = name_rect.bottom + 12
+        if current_level >= max_level:
+            master_surface = self.font_small.render("★ MASTER ★", True, (255, 215, 0))
+            master_rect = master_surface.get_rect(centerx=skill_x + skill_size // 2, top=label_y)
+            self.screen.blit(master_surface, master_rect)
+        else:
+            actual_cost = skill['cost']
+            cost_color = (0, 255, 255) if self.skill_system.can_upgrade_skill(skill["id"]) else (255, 120, 120)
+            cost_surface = self.font_small.render(f"비용: ★{actual_cost}", True, cost_color)
+            cost_rect = cost_surface.get_rect(centerx=skill_x + skill_size // 2, top=label_y)
+            self.screen.blit(cost_surface, cost_rect)
 
             gauge_width = skill_size + 20
             gauge_height = 10
