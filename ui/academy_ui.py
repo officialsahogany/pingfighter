@@ -463,9 +463,8 @@ class AcademyUI:
             if tree_ui:
                 tree_ui.render(self.screen, self.font_small, self.academy_mode)
                 
-        # 선택된 스킬 정보
-        if self.selected_skill:
-            self._render_skill_info()
+        # 선택된 스킬 정보 (탭 전환 직후 selection이 비어도 기본 설명을 강제로 표시)
+        self._render_skill_info()
             
         # ESC 안내
         esc_text = self.font_small.render("ESC: 닫기", True, (150, 150, 150))
