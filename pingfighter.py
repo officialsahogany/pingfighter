@@ -63,6 +63,7 @@ from background_manager import (
 )
 from sound_effects import load_sound_effects
 from item_state_manager import reset_runtime_items
+from start_menu_decorations import draw_star_field, StarField
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
@@ -24605,23 +24606,14 @@ def show_start_screen():
         simple_bg.draw(SCREEN)
         # 기존 행성 및 장식 코드는 새로운 사이버펑크 배경 시스템으로 대체됨
         # 홀로그램 별 효과
-        if not hasattr(show_start_screen, 'stars'):
-            show_start_screen.stars = []
-            for _ in range(100):
-                show_start_screen.stars.append({
-                    'x': random.randint(0, WIDTH),
-                    'y': random.randint(0, HEIGHT),
-                    'size': random.uniform(0.5, 2),
-                    'twinkle': random.uniform(0, math.pi * 2)
-                })
-        for star in show_start_screen.stars:
-            twinkle = abs(math.sin(star['twinkle'] + animation_timer * 0.05))
-            star_alpha = int(twinkle * 100)
-            star_color = (255, 255, 255, star_alpha)
-            star_surf = pygame.Surface((int(star['size'] * 4), int(star['size'] * 4)), pygame.SRCALPHA)
-            pygame.draw.circle(star_surf, star_color, 
-                             (int(star['size'] * 2), int(star['size'] * 2)), int(star['size']))
-            SCREEN.blit(star_surf, (star['x'] - star['size'] * 2, star['y'] - star['size'] * 2))
+        star_field = getattr(show_start_screen, "_star_field", None)
+        show_start_screen._star_field = draw_star_field(
+            SCREEN,
+            WIDTH,
+            HEIGHT,
+            animation_timer,
+            star_field,
+        )
         # 네온 파티클 업데이트 및 그리기 - 캐릭터 선택 화면과 동일
         for particle in neon_particles:
             particle["x"] += particle["vx"]
