@@ -9144,6 +9144,7 @@ def calculate_trajectory():
             random.setstate(random_state)
 
         if skill_type in high_detail_skills and len(predicted_trajectory) > 2:
+            raw_trajectory = predicted_trajectory[:]
             smoothing_radius_map = {
                 "flame_trail": 2,
                 "power_smashing": 2,
@@ -9176,7 +9177,10 @@ def calculate_trajectory():
                 else:
                     smoothed_trajectory.append((avg_x, avg_y))
 
-            predicted_trajectory = smoothed_trajectory
+            if len(smoothed_trajectory) >= 2:
+                predicted_trajectory = smoothed_trajectory
+            else:
+                predicted_trajectory = raw_trajectory
 def draw_predicted_trajectory():
     """레이저스코프 활성화 시 저장된 궤적을 그리는 함수"""
     global predicted_trajectory, predictor_active, ball_vel
