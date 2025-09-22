@@ -1537,15 +1537,24 @@ class AcademyUI:
             pygame.draw.line(surface, color, (center_x, center_y), (center_x + 6, center_y + 3), 2)
 
         elif skill_id == "item_gauge_mastery":
-            # 📊 숙달 - 게이지/배터리 (단색 라인 스타일)
-            # 배터리 본체
-            pygame.draw.rect(surface, color, (center_x - 8, center_y - 9, 16, 18), 2)
-            # 배터리 상단 단자
-            pygame.draw.rect(surface, color, (center_x - 3, center_y - 12, 6, 3), 2)
-            # 게이지 표시 라인 (3개)
-            for i in range(3):
-                y_pos = center_y - 5 + i * 6
-                pygame.draw.line(surface, color, (center_x - 5, y_pos), (center_x + 5, y_pos), 1)
+            # 📊 숙달 - 반원 게이지 미터
+            radius = 10
+            # 반원 테두리
+            pygame.draw.arc(surface, color, (center_x - radius, center_y - radius, radius * 2, radius * 2), math.pi, 2 * math.pi, 2)
+            # 게이지 바닥
+            pygame.draw.line(surface, color, (center_x - radius, center_y), (center_x + radius, center_y), 2)
+            # 눈금 표시
+            for angle_deg in (-60, -30, 0, 30, 60):
+                angle_rad = math.radians(180 + angle_deg)
+                inner = (center_x + (radius - 3) * math.cos(angle_rad), center_y + (radius - 3) * math.sin(angle_rad))
+                outer = (center_x + radius * math.cos(angle_rad), center_y + radius * math.sin(angle_rad))
+                pygame.draw.line(surface, color, inner, outer, 2)
+            # 지침 (포인터)
+            pointer_angle = math.radians(210)  # 기본 각도 (약간 왼쪽 위)
+            pointer_end = (center_x + (radius - 4) * math.cos(pointer_angle), center_y + (radius - 4) * math.sin(pointer_angle))
+            pygame.draw.line(surface, color, (center_x, center_y), pointer_end, 3)
+            # 중심 캡
+            pygame.draw.circle(surface, color, (center_x, center_y), 2)
 
         elif skill_id == "item_bag_expansion":
             # 🎒 가방확장 - 백팩 (단색 라인 스타일)
