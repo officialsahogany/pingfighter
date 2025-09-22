@@ -47950,11 +47950,27 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
         except Exception:
             pass
 
+    def _render_hook(state):
+        try:
+            draw_field()
+            draw_shaking_screen()
+            draw_objects()
+            draw_water_trail()
+            draw_item_obtained_effect()
+            draw_dash_spirit_lasers(SCREEN, PLAYER, dash_spirit_lasers)
+            draw_laser_evaporation_particles(SCREEN)
+            draw_neutralize_particles(SCREEN)
+            draw_score()
+        except Exception as render_err:
+            if __debug__:
+                print(f"[WARN] legacy render hook error: {render_err}")
+
     return LegacyHooks(
         player_update=_player_hook,
         physics_update=_physics_hook,
         ai_update=_ai_hook,
         items_update=_items_hook,
+        render_frame=_render_hook,
     )
 
 
