@@ -133,6 +133,20 @@ def _draw_titles(ctx: MenuContext, screen: pygame.Surface, width: int, animation
     pygame.draw.circle(screen, (0, 255, 255), (width // 2 + 200, line_y + 1), 4)
 
 
+def _handle_resolution_change(ctx: MenuContext, state: MenuState, direction: int) -> None:
+    ctx.change_resolution(direction)
+    screen = ctx.get_screen()
+    iw, ih = ctx.get_internal_dimensions()
+    menu_system = ctx.menu_system_factory(screen, iw, ih)
+    ctx.set_menu_system(menu_system)
+    ctx.menu_system = menu_system
+    simple_bg = ctx.simple_bg_factory(iw, ih)
+    ctx.simple_bg = simple_bg
+    state.star_field = StarField()
+    state.neon_particles.clear()
+    state.scan_lines.clear()
+
+
 def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuState:
     if state is None:
         state = MenuState()
@@ -287,28 +301,10 @@ def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuStat
                     pygame.quit()
                     raise SystemExit
                 if event.key == pygame.K_F9:
-                    ctx.change_resolution(-1)
-                    screen = ctx.get_screen()
-                    iw, ih = ctx.get_internal_dimensions()
-                    menu_system = ctx.menu_system_factory(screen, iw, ih)
-                    ctx.set_menu_system(menu_system)
-                    simple_bg = ctx.simple_bg_factory(iw, ih)
-                    ctx.simple_bg = simple_bg
-                    state.star_field = StarField()
-                    state.neon_particles = []
-                    state.scan_lines = []
+                    _handle_resolution_change(ctx, state, -1)
                     continue
                 if event.key == pygame.K_F10:
-                    ctx.change_resolution(1)
-                    screen = ctx.get_screen()
-                    iw, ih = ctx.get_internal_dimensions()
-                    menu_system = ctx.menu_system_factory(screen, iw, ih)
-                    ctx.set_menu_system(menu_system)
-                    simple_bg = ctx.simple_bg_factory(iw, ih)
-                    ctx.simple_bg = simple_bg
-                    state.star_field = StarField()
-                    state.neon_particles = []
-                    state.scan_lines = []
+                    _handle_resolution_change(ctx, state, 1)
                     continue
                 if event.key == pygame.K_1:
                     ctx.play_click_sound()
