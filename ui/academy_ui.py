@@ -255,7 +255,29 @@ class AcademyUI:
             'special': "필살기의 충전 속도와 지속 시간을 늘려 위기 돌파력을 확보합니다."
         }
         self._on_tab_changed()
-        
+
+    def _create_max_badge_surface(self, text_color):
+        """최대 상태 배지를 생성 (텍스트 + 별 아이콘)"""
+        label_surface = self.font_small.render("최대", True, text_color)
+        star_size = max(4, label_surface.get_height() // 2)
+        spacing = 6
+        width = label_surface.get_width() + spacing + star_size * 2
+        height = max(label_surface.get_height(), star_size * 2)
+        badge_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        badge_surface.blit(label_surface, (0, (height - label_surface.get_height()) // 2))
+
+        center_x = label_surface.get_width() + spacing + star_size
+        center_y = height // 2
+        points = []
+        for i in range(10):
+            angle = math.pi / 5 * i - math.pi / 2
+            radius = star_size if i % 2 == 0 else star_size * 0.45
+            px = center_x + radius * math.cos(angle)
+            py = center_y + radius * math.sin(angle)
+            points.append((px, py))
+        pygame.draw.polygon(badge_surface, text_color, points)
+        return badge_surface
+
     def _create_skill_tree_uis(self):
         """스킬 트리 UI 생성"""
         tree_data = self.academy_mode.skill_tree_data
@@ -631,22 +653,21 @@ class AcademyUI:
         # 비용
         cost_text = f"비용: {skill['cost']} TP"
         cost_surface = self.font_small.render(cost_text, True, (0, 255, 255))
-        self.screen.blit(cost_surface, (info_x + 10, info_y + info_height - 40))
-        
+        cost_pos_y = info_y + info_height - 40
+        self.screen.blit(cost_surface, (info_x + 10, cost_pos_y))
+
         # 업그레이드 가능 여부
         can_upgrade = tree.can_upgrade(self.selected_skill, self.academy_mode.player_data['tp'])
-        if can_upgrade and current_level < max_level:
-            upgrade_text = "클릭하여 업그레이드"
-            color = (100, 255, 100)
-        elif current_level >= max_level:
-            upgrade_text = "마스터"
-            color = (255, 215, 0)
+        status_pos_y = info_y + info_height - 20
+        if current_level >= max_level:
+            badge = self._create_max_badge_surface((255, 215, 0))
+            self.screen.blit(badge, (info_x + 10, status_pos_y - (badge.get_height() // 2)))
+        elif can_upgrade:
+            upgrade_surface = self.font_small.render("클릭하여 업그레이드", True, (100, 255, 100))
+            self.screen.blit(upgrade_surface, (info_x + 10, status_pos_y))
         else:
-            upgrade_text = "업그레이드 불가"
-            color = (255, 100, 100)
-            
-        upgrade_surface = self.font_small.render(upgrade_text, True, color)
-        self.screen.blit(upgrade_surface, (info_x + 10, info_y + info_height - 20))
+            upgrade_surface = self.font_small.render("업그레이드 불가", True, (255, 100, 100))
+            self.screen.blit(upgrade_surface, (info_x + 10, status_pos_y))
         
     def _wrap_text(self, text: str, max_chars: int) -> List[str]:
         """텍스트 줄바꿈"""
