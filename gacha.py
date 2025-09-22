@@ -151,6 +151,8 @@ def init_gacha(available_items, legendary_bonus=0.0):
             should_skip = True  # 라그나로크 해머도 중복 방지
         elif item_name == "hermes_shoes" and getattr(items, 'hermes_shoes_obtained', False):
             should_skip = True  # 헤르메스의 신발도 중복 방지
+        elif item_name == "poseidon_trident" and getattr(items, 'poseidon_trident_obtained', False):
+            should_skip = True  # 포세이돈의 삼지창도 중복 방지
         
         if not should_skip:
             filtered_items.append(item)
