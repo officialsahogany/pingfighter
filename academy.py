@@ -3042,7 +3042,13 @@ class AcademyUI:
     def draw_skill_description(self, tree_data):
         """선택된 스킬 상세 설명 패널"""
         if self.selected_skill_index >= len(tree_data["skills"]):
-            return
+            if tree_data["skills"]:
+                self.selected_skill_index = 0
+            else:
+                return
+
+        if self.selected_skill_index < 0:
+            self.selected_skill_index = 0
 
         selected_skill = tree_data["skills"][self.selected_skill_index]
 

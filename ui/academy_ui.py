@@ -501,7 +501,14 @@ class AcademyUI:
             
         skill = tree.get_skill(self.selected_skill)
         if not skill:
-            return
+            tree_data = self.academy_mode.skill_tree_data.get(self.selected_tree, {})
+            skills = tree_data.get('skills', [])
+            fallback_id = skills[0]['id'] if skills else None
+            if fallback_id:
+                self._set_selected_skill(self.selected_tree, fallback_id)
+                skill = tree.get_skill(fallback_id)
+            if not skill:
+                return
             
         # 정보 박스
         info_x = self.width - 250
