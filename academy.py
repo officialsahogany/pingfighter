@@ -3537,7 +3537,7 @@ class AcademyUI:
                         pygame.draw.line(lock_surface, (255, 255, 255, 40),
                                        (skill_size, i), (i, skill_size), 1)
                     self.screen.blit(lock_surface, (skill_x, skill_y))
-    
+
 
 def get_skill_bonus(skill_id):
     """스킬 보너스 값 반환"""
