@@ -98,7 +98,7 @@ class SkillNode:
             cost = self.data.get('cost', 0)
             if cost > 0:
                 cost_color = (0, 255, 255) if can_upgrade else (255, 120, 120)
-            cost_surface = font.render(f"비용: ★{cost}", True, cost_color)
+                cost_surface = font.render(f"비용: ★{cost}", True, cost_color)
                 cost_rect = cost_surface.get_rect(center=(self.x, label_y))
                 screen.blit(cost_surface, cost_rect)
 
