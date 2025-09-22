@@ -2398,7 +2398,7 @@ class AcademyUI:
         next_surf = self.font_small.render(line, True, (150, 150, 255))
         self.screen.blit(next_surf, (desc_x + 8, next_start_y + idx * 16))
 
-def draw_skill_level_gauge(self, skill, x, y, width=120, height=25):
+    def draw_skill_level_gauge(self, skill, x, y, width=120, height=25):
         """스킬 레벨 게이지를 그리기 - 네모 단계 게이지 시스템"""
         current_level = self.skill_system.get_skill_level(skill["id"])
         max_level = skill["max_level"]
