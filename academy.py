@@ -3562,12 +3562,7 @@ class AcademyUI:
             # 비용 및 상태 표시
             cost_color = (100, 255, 100) if self.skill_system.can_upgrade_skill(skill["id"]) else (255, 100, 100)
             if current_level < skill["max_level"]:
-                # 실제 비용 계산 (레벨 4부터 비용 증가: 1→2, 2→3)
                 actual_cost = skill['cost']
-                if skill['cost'] == 1 and current_level >= 3:
-                    actual_cost = 2
-                elif skill['cost'] == 2 and current_level >= 3:
-                    actual_cost = 3
                 
                 cost_text = self.font_small.render(f"비용: {actual_cost}TP", True, cost_color)
                 cost_rect = cost_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
