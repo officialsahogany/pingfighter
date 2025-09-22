@@ -41059,6 +41059,7 @@ def handle_ball():
                 #  스테이지 6에서는 파워스매싱 종료
                 if current_stage == 6:
                     power_smashing_parabola_active = False
+                    power_smashing_rng = None
                     power_smashing_direction = None
                     power_smashing_trails.clear()
                     power_smashing_particles.clear()
@@ -41250,6 +41251,7 @@ def handle_ball():
             power_smashing_original_speed = 0.0  # 원래 속도 정보 초기화
             #  포물선 궤적 시스템 즉시 비활성화
             power_smashing_parabola_active = False
+            power_smashing_rng = None
             power_smashing_start_time = 0
             power_smashing_arc_strength = 0.0
             #  파워스매싱 이펙트 즉시 정리
