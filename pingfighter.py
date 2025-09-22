@@ -8872,17 +8872,17 @@ def calculate_trajectory():
 
         try:
             for step in range(max_steps):
-               if freeze_frames > 0:
-                   freeze_frames -= 1
-                   if freeze_frames == 0 and resume_pending:
-                       sim_vel_x = resume_velocity[0]
-                       sim_vel_y = resume_velocity[1]
-                       resume_pending = False
-                   if step % sampling_interval == 0:
-                       predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
+                if freeze_frames > 0:
+                    freeze_frames -= 1
+                    if freeze_frames == 0 and resume_pending:
+                        sim_vel_x = resume_velocity[0]
+                        sim_vel_y = resume_velocity[1]
+                        resume_pending = False
+                    if step % sampling_interval == 0:
+                        predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
                         if DEBUG_PREDICTOR and len(predicted_trajectory) <= 5:
                             print(f"[Predictor] append(freeze) step={step} point={(int(sim_x), int(sim_y))}")
-                   continue
+                    continue
 
                 if resume_pending and resume_velocity:
                     sim_vel_x = resume_velocity[0]
@@ -9140,11 +9140,11 @@ def calculate_trajectory():
                                 arc_strength = 0.3
                                 sim_vel_y += arc_strength
 
-               if step % sampling_interval == 0:
-                   if skill_probability > 0.3:
-                       predicted_trajectory.append((int(sim_x), int(sim_y), skill_probability))
-                   else:
-                       predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
+                if step % sampling_interval == 0:
+                    if skill_probability > 0.3:
+                        predicted_trajectory.append((int(sim_x), int(sim_y), skill_probability))
+                    else:
+                        predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
                     if DEBUG_PREDICTOR and len(predicted_trajectory) <= 5:
                         print(f"[Predictor] append step={step} point={(int(sim_x), int(sim_y))} prob={skill_probability:.2f}")
 
