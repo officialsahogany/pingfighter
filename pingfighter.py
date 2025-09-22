@@ -9203,10 +9203,10 @@ def draw_predicted_trajectory():
         or flame_trail_active
         or power_smashing_parabola_active
     )
-    if ball_vel[1] <= 0 and not skill_active_now:
+    if ball_vel[1] < 0 and not skill_active_now:  # 수정: <= 를 < 로 변경
         predicted_trajectory = []
         return
-    # 궤적 계산 (보스가 방금 친 경우)
+    # 궤적 계산 (보스가 방금 친 공의 경우)
     calculate_trajectory()
     # 저장된 궤적 그리기
     if len(predicted_trajectory) > 1:
