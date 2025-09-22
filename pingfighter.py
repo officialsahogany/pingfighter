@@ -8709,6 +8709,9 @@ def calculate_trajectory():
 
     if not recalc_needed:
         return
+    
+    # 디버깅 출력 추가
+    print(f"[궤적 계산] 시작! ball_y={BALL.centery}, ball_vel={ball_vel}")
 
     last_prediction_ball_y = BALL.centery
     last_prediction_skill_signature = current_skill_signature
