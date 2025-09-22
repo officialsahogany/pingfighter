@@ -15413,7 +15413,7 @@ def store_passive_item(item_data):
         print("스마트폰 획득! 위험 시 자동 아이템 사용!")
         
         # 패시브 아이템 리스트에 추가 (중요!)
-    item_state_adapter.append_passive_item(item_data)
+        item_state_adapter.append_passive_item(item_data)
         
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
