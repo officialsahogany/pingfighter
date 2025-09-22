@@ -1858,7 +1858,7 @@ class AcademyUI:
                     cost = self.smasher_skills.upgrade_skill(clicked_skill)
                     if cost > 0:
                         self.skill_system.skill_points -= cost
-                        self.skill_system.total_invested_points += cost
+                        self.skill_system.register_manual_investment("smasher", cost)
                     return None
         elif self.selected_tree in SKILL_TREES:
             tree_data = SKILL_TREES[self.selected_tree]
