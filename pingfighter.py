@@ -24884,16 +24884,18 @@ def show_start_screen():
                     menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
                     menu_system.current_menu = menu_system.create_main_menu()
                     simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
-                    # 스타 리셋 (새 해상도에 맞게)
-                    show_start_screen.stars = []
+                    show_start_screen._star_field = StarField()
+                    neon_particles = []
+                    scan_lines = []
                 elif event.key == pygame.K_F10:
                     change_resolution(1)  # 다음 해상도
                     # 메뉴 시스템 재초기화
                     menu_system = MenuSystem(SCREEN, INTERNAL_WIDTH, INTERNAL_HEIGHT)
                     menu_system.current_menu = menu_system.create_main_menu()
                     simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
-                    # 스타 리셋 (새 해상도에 맞게)
-                    show_start_screen.stars = []
+                    show_start_screen._star_field = StarField()
+                    neon_particles = []
+                    scan_lines = []
                 
                 # 숫자 키 바로 이동
                 elif event.key == pygame.K_1:
