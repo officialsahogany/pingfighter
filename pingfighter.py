@@ -8453,8 +8453,10 @@ def draw_spider_mines(screen):
             tip_y = size - 4 + math.cos(step_phase * 0.5 + phase_shift) * (1.5 if state in ("floor", "wall") else 0.5)
             base_x = size // 2 + dx * 0.35
             base_y = size // 2 + 3
-            pygame.draw.line(body_surface, leg_color_outer, (base_x, base_y), (tip_x, tip_y), 3)
-            pygame.draw.line(body_surface, leg_color_inner, (base_x, base_y - 2), (tip_x, tip_y - 2), 1)
+            base_pos = (int(base_x), int(base_y))
+            tip_pos = (int(tip_x), int(tip_y))
+            pygame.draw.line(body_surface, leg_color_outer, base_pos, tip_pos, 3)
+            pygame.draw.line(body_surface, leg_color_inner, (base_pos[0], base_pos[1] - 2), (tip_pos[0], tip_pos[1] - 2), 1)
 
         pygame.draw.circle(body_surface, body_color, (size // 2, size // 2), size // 2 - 2)
         pygame.draw.circle(body_surface, accent_color, (size // 2, size // 2 - 1), size // 2 - 5)

@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### ✨ Added
-- **Active Item – 스파이더지뢰**: Deploys along the arena edge, anchors at the boss-side corner, explodes on contact to cause knockback and a 3초, 30% boss speed reduction (slow visuals match 눈물샤워/레그샷) and is now available from the 군인 물자보급 supply drop.
+- **Active Item – 스파이더지뢰**: Charges for 1초, flashes, then scuttles twice as fast along the ground and wall (with multi-leg animation) before embedding at the boss-side corner; detonation causes knockback and a 3초, 30% boss speed reduction (slow visuals match 눈물샤워/레그샷). Now appears in 가챠, 필드 드롭, 아이템 관리자, 그리고 군인 물자보급에서 획득 가능.
 
 ## [2.0.0] - 2025-01-20
 
