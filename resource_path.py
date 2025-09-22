@@ -10,9 +10,13 @@ def resource_path(relative_path):
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    
+    except AttributeError:
+        # 개발 환경에서는 현재 파일 위치를 기준으로 경로 계산
+        base_path = os.path.dirname(os.path.abspath(__file__))
+
+    # Windows/맥 모두에서 경로 구분자 통일
+    relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
+
     return os.path.join(base_path, relative_path)
 
 # 폰트 파일 경로 헬퍼
