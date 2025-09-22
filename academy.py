@@ -3588,10 +3588,6 @@ class AcademyUI:
                 cost_text = self.font_small.render(f"비용: {actual_cost}TP", True, cost_color)
                 cost_rect = cost_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
                 self.screen.blit(cost_text, cost_rect)
-            else:
-                master_surface = self.font_small.render("MASTER", True, (255, 215, 0))
-                master_rect = master_surface.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
-                self.screen.blit(master_surface, master_rect)
             
             # 잠금 상태 표시
             is_locked = False
