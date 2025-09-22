@@ -50,7 +50,6 @@ from game_state.audio import (
     set_sfx_volume as set_sfx_volume_state,
     resolve_runtime_bgm_volume,
 )
-from game_state.items import item_state, reset_item_state
 
 # ============================================================
 # 4. 리소스 경로 헬퍼 함수
@@ -1573,10 +1572,10 @@ short_shot_counter_pending = False    # 쇼트 후 보스 반격 대기 상태
 player_up_pressed = False             # ↑키 입력 여부
 #  아이템 시스템
 # 액티브 아이템
-item_state.clear_active()                # 리스트로 바꿔서 최대 3개 보관
+active_item_slot = []                # 리스트로 바꿔서 최대 3개 보관
 soldier_initial_grenade_given = False
-item_state.selected_item_index = 0              # 현재 선택 중인 아이템 인덱스
-item_state.max_item_slots = 3                   # 최대 아이템 슬롯 수 (기본값)
+selected_item_index = 0              # 현재 선택 중인 아이템 인덱스
+MAX_ITEM_SLOTS = 3                   # 최대 아이템 슬롯 수 (기본값)
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
 last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역 쿨타임용)
 
@@ -1593,7 +1592,7 @@ def get_effective_max_item_slots():
             bonus = int(academy.get_item_slot_bonus())
         except Exception:
             bonus = 0
-    return item_state.max_item_slots + bonus
+    return MAX_ITEM_SLOTS + bonus
 
 
 def create_alchemy_notice(slot_index: int):
@@ -1616,7 +1615,7 @@ def update_alchemy_notices():
         notice["timer"] -= 1
     alchemy_notices[:] = [
         n for n in alchemy_notices
-        if n["timer"] > 0 and n["slot_index"] < len(item_state.active_item_slot)
+        if n["timer"] > 0 and n["slot_index"] < len(active_item_slot)
     ]
 
 
@@ -1626,12 +1625,7 @@ def clear_alchemy_notices():
     alchemy_notices.clear()
 
 # 패시브 아이템
-item_state.clear_passive()
-item_state.selected_passive_item = -1           # 패시브 아이템 선택 인덱스
-
-# 기존 외부 모듈 호환을 위한 레거시 별칭 유지
-active_item_slot = item_state.active_item_slot
-passive_item_list = item_state.passive_item_list
+selected_passive_item = -1           # 패시브 아이템 선택 인덱스
 # 전역변수
 speech_text = ""
 speech_timer = 0  # 말풍선 표시 시간 (타이머)
@@ -6960,7 +6954,7 @@ tears_timer = 0
 falling_tears = []  # [(x, y, speed)] 리스트
 last_tears_cast_time = -9999  # 마지막 눈물샤워 발동 시간
 TEARS_COOLDOWN = 7000        # 쿨타임 (밀리초 단위 = 5초)
-item_state.clear_passive()
+passive_item_list = []
 try:
     BOSS_IMG_STAGE1 = pygame.image.load(resource_path("boss_stage1.png")).convert_alpha()
     BOSS_IMG_STAGE1 = pygame.transform.scale(BOSS_IMG_STAGE1, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
@@ -9479,7 +9473,7 @@ def draw_predicted_trajectory():
 
 def render_throwing_item_cooldown():
     """화기류 아이템 라운드 시작 3초 제한 표시"""
-    global round_start_time
+    global round_start_time, active_item_slot
     
     current_time = pygame.time.get_ticks()
     time_since_round_start = current_time - round_start_time
@@ -9498,7 +9492,7 @@ def render_throwing_item_cooldown():
         has_firearm_item = True
     
     # 투척류 아이템 확인
-    for item in item_state.active_item_slot:
+    for item in active_item_slot:
         if item.get("name") in firearm_items or item.get("effect") in firearm_items:
             has_firearm_item = True
             break
@@ -12913,7 +12907,7 @@ def handle_player(keys):
     # 마우스 조작 처리 (비활성화됨)
     mouse_controls = {}
     # if input_manager.get_control_mode() == "마우스":
-    #     mouse_controls = input_manager.handle_mouse_controls(item_state.selected_item_index, item_state.active_item_slot)
+    #     mouse_controls = input_manager.handle_mouse_controls(selected_item_index, active_item_slot)
     # 키 입력 변수 초기화
     space_pressed = keys[pygame.K_SPACE]
     down_pressed = keys[pygame.K_DOWN]
@@ -15277,10 +15271,9 @@ stage_medal_rewards = {
 session_medal_earned = 0  # main 함수 외부에 선언
 final_wave_direction = [0, 0]  # 공의 마지막 이동 방향 (X, Y)
 def store_active_item(item_data):
-    global aipill_active, last_item_use_time, long_boost_active, active_item_slot
-    if item_state.active_item_slot is None:
-        item_state.active_item_slot = []  # 혹시 None이면 초기화
-        active_item_slot = item_state.active_item_slot
+    global active_item_slot, selected_item_index, aipill_active, last_item_use_time, long_boost_active
+    if active_item_slot is None:
+        active_item_slot = []  # 혹시 None이면 초기화
     # Aipill 활성화 시에는 아이템 획득 불가
     if aipill_active:
         return
@@ -15292,7 +15285,7 @@ def store_active_item(item_data):
     if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
-    is_overflow_pickup = len(item_state.active_item_slot) >= get_effective_max_item_slots()
+    is_overflow_pickup = len(active_item_slot) >= get_effective_max_item_slots()
     if is_overflow_pickup and not allow_overflow:
         return
 
@@ -15305,14 +15298,14 @@ def store_active_item(item_data):
     item_data["last_use"] = last_item_use_time
     item_data["temporary_overflow"] = is_overflow_pickup
 
-    item_state.active_item_slot.append(item_data)
-    item_state.selected_item_index = len(item_state.active_item_slot) - 1
+    active_item_slot.append(item_data)
+    selected_item_index = len(active_item_slot) - 1
 
     # 아이템 획득 효과 표시 (아이템 위치에서) - 옛날 버전 활성화
     show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
 # bosspong.py
 def store_passive_item(item_data):
-    global speedboots_obtained, speedgear_obtained, passive_item_list
+    global MAX_ITEM_SLOTS, passive_item_list, speedboots_obtained, speedgear_obtained
     global items, aipill_active, battery_obtained, revival_obtained, master_obtained, cooltime_obtained, chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained
     global danger_sensor_obtained, sensor_obtained, danger_sensor_enabled, sensor_enabled  # 센서 관련 변수들
     global dashholder_obtained  # 대쉬홀더 관련 변수
@@ -15323,9 +15316,8 @@ def store_passive_item(item_data):
     if aipill_active:
         print("Aipill     .")
         return
-    if item_state.passive_item_list is None:
-        item_state.passive_item_list = []
-    passive_item_list = item_state.passive_item_list
+    if passive_item_list is None:
+        passive_item_list = []
     
     # 모든 패시브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
     if "icon" not in item_data or item_data["icon"] is None:
@@ -15336,7 +15328,7 @@ def store_passive_item(item_data):
     
     if item_data["name"] == "slot_add":
         # 최대 슬롯 5개 제한 (기본 3개 + 배낭 2개)
-        item_state.max_item_slots = min(5, item_state.max_item_slots + 1)
+        MAX_ITEM_SLOTS = min(5, MAX_ITEM_SLOTS + 1)
         print("+1 !")
         # 획득 개수 카운트 증가
         items.slot_add_obtained += 1
@@ -15580,14 +15572,14 @@ def store_passive_item(item_data):
         if smartphone:
             phone_state = {
                 'current_stage': current_stage,
-                'active_items': item_state.active_item_slot
+                'active_items': active_item_slot
             }
             smartphone.activate(phone_state, current_stage)
             print(f"[DEBUG] 스마트폰 활성화 상태: {smartphone.active}")
         print("스마트폰 획득! 위험 시 자동 아이템 사용!")
         
         # 패시브 아이템 리스트에 추가 (중요!)
-        item_state.passive_item_list.append(item_data)
+        passive_item_list.append(item_data)
         
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
@@ -15676,7 +15668,7 @@ def store_passive_item(item_data):
             # 전설 아이템 타입 설정
             item_data["type"] = "legendary"
             # 패시브 아이템 리스트에 추가
-            item_state.passive_item_list.append(item_data)
+            passive_item_list.append(item_data)
             legendary_manager = get_legendary_manager()
             legendary_manager.activate_item("poseidon_trident", {})
             # 전설 아이템 획득 애니메이션 트리거
@@ -15692,14 +15684,14 @@ def store_passive_item(item_data):
     # 모든 패시브 아이템을 리스트에 추가 (중복 체크)
     # 이름 기반으로 중복 체크 (chargebag 제외)
     item_name = item_data["name"]
-    already_has_item = any(item["name"] == item_name for item in item_state.passive_item_list)
+    already_has_item = any(item["name"] == item_name for item in passive_item_list)
     
     if item_name == "chargebag":
         # chargebag은 중복 가능
-        item_state.passive_item_list.append(item_data)
+        passive_item_list.append(item_data)
     elif not already_has_item:
         # 다른 패시브 아이템은 중복 불가
-        item_state.passive_item_list.append(item_data)
+        passive_item_list.append(item_data)
     else:
         print(f"[WARNING] {item_name} already in passive inventory, skipping duplicate")
     
@@ -24700,13 +24692,12 @@ def confirm_rest(stage_cleared, reward):
                         show_victory_screen(stage_cleared, reward)
                         return
 def show_start_screen():
-
+    global passive_item_list, active_item_slot, selected_item_index, MAX_ITEM_SLOTS  # bosspong.py 내부 전역변수 초기화 선언
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained  #  패시브 아이템 변수 초기화
     global game_should_exit  #  게임 종료 플래그
     global smoke_zones  #  연막 지역 초기화
     global frame_count  # frame_count 변수 추가
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
-    global passive_item_list, active_item_slot
     game_should_exit = False  # 메인 메뉴 진입 시 플래그 리셋
     frame_count = 0  # frame_count 초기화
     smoke_zones = []  # 메인 메뉴 복귀 시 연막 효과 초기화
@@ -24724,13 +24715,11 @@ def show_start_screen():
     # 아이템 초기화 (items.py 내부 변수 초기화)
     items.reset_items()
     # bosspong.py 내부 변수들도 초기화
-    item_state.clear_passive()
-    item_state.clear_active()
-    passive_item_list = item_state.passive_item_list
-    active_item_slot = item_state.active_item_slot
+    passive_item_list = []  # 패시브 아이템 초기화
+    active_item_slot = []  # 엑티브 아이템 초기화
     clear_alchemy_notices()
-    item_state.selected_item_index = 0  # 선택 인덱스 초기화
-    item_state.max_item_slots = 3  # 아이템 슬롯 기본값으로 초기화
+    selected_item_index = 0  # 선택 인덱스 초기화
+    MAX_ITEM_SLOTS = 3  # 아이템 슬롯 기본값으로 초기화
     #  패시브 아이템 효과 초기화
     chargebag_obtained = False
     spikeboots_obtained = False
@@ -33097,8 +33086,8 @@ def show_difficulty_selection():
 def start_game_with_difficulty(character_id, difficulty_mode):
     """선택한 캐릭터와 난이도로 게임 시작"""
     global ai_mode, ai_enabled, selected_character_type, soldier_initial_grenade_given
-    global master_obtained, last_item_use_time, passive_item_list, active_item_slot
-
+    global active_item_slot, selected_item_index, master_obtained, last_item_use_time
+    global passive_item_list
     # AI 모드 설정
     ai_mode = difficulty_mode
     ai_enabled = True
@@ -33127,20 +33116,18 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         master_obtained = True
         items.master_obtained = True
         print("🔨 발토르 캐릭터 선택! 장인의 망치 패시브 아이템 자동 장착!")
-        if item_state.passive_item_list is None:
-            item_state.passive_item_list = []
-            passive_item_list = item_state.passive_item_list
-        if not any(item.get("name") == "master" for item in item_state.passive_item_list):
-            item_state.passive_item_list.append({
+        if passive_item_list is None:
+            passive_item_list = []
+        if not any(item.get("name") == "master" for item in passive_item_list):
+            passive_item_list.append({
                 "name": "master",
                 "type": "passive",
                 "icon": get_item_icon("master")
             })
         # 발토르는 경기 시작 시 방어용 벽돌을 한 개 기본 보유한다
-        if item_state.active_item_slot is None:
-            item_state.active_item_slot = []
-            active_item_slot = item_state.active_item_slot
-        if not any(item.get("name") == "wall" for item in item_state.active_item_slot):
+        if active_item_slot is None:
+            active_item_slot = []
+        if not any(item.get("name") == "wall" for item in active_item_slot):
             wall_item = {
                 "name": "wall",
                 "type": "active",
@@ -33149,8 +33136,8 @@ def start_game_with_difficulty(character_id, difficulty_mode):
                 "last_use": last_item_use_time,
                 "temporary_overflow": False
             }
-            item_state.active_item_slot.append(wall_item)
-            item_state.selected_item_index = len(item_state.active_item_slot) - 1
+            active_item_slot.append(wall_item)
+            selected_item_index = len(active_item_slot) - 1
     elif character_id == "smasher":
         selected_character_type = "smasher"
     elif character_id == "optimus":
@@ -33172,11 +33159,10 @@ def start_game_with_difficulty(character_id, difficulty_mode):
                 "effect": "knee_pads",
                 "icon": get_item_icon("knee_pads")
             }
-            if item_state.passive_item_list is None:
-                item_state.passive_item_list = []
-                passive_item_list = item_state.passive_item_list
-            if not any(item.get("name") == "knee_pads" for item in item_state.passive_item_list):
-                item_state.passive_item_list.append(knee_pads_data)
+            if passive_item_list is None:
+                passive_item_list = []
+            if not any(item.get("name") == "knee_pads" for item in passive_item_list):
+                passive_item_list.append(knee_pads_data)
             print("🦵 메카닉 패들 기본 장비: 킥차져 자동 장착")
         except Exception as e:
             print(f"[WARN] 스매셔 킥차져 초기화 실패: {e}")
@@ -33255,18 +33241,18 @@ def show_developer_stage_select():
                         return
 def show_item_manager_menu():
     """아이템 관리자 메뉴 - 탭키 아이템창과 동일한 UI"""
-
+    global active_item_slot, passive_item_list, selected_item_index, selected_passive_item
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained, sensor_obtained
     global dashholder_obtained
     global rolling_charges, items
     # 아이템 선택 상태
     selected_category = 0  # 0: 엑티브, 1: 패시브, 2: 화기류, 3: 전설
-    item_state.selected_item_index = 0  # 현재 선택된 아이템 인덱스 (카테고리별로 공통 사용)
+    selected_item_index = 0  # 현재 선택된 아이템 인덱스 (카테고리별로 공통 사용)
     # 선택된 아이템들을 저장할 리스트
     selected_active_counts: dict[str, int] = {}
     selected_active_order: list[str] = []
-    item_state.selected_passive_items = []
+    selected_passive_items = []
     selected_legendary_items = []
     selected_firearm_items = []
     # 아이템 그리드 설정
@@ -33566,13 +33552,13 @@ def show_item_manager_menu():
             if selected_category == 0:
                 is_selected = selected_active_counts.get(item["name"], 0) > 0
             elif selected_category == 1:
-                is_selected = item["name"] in item_state.selected_passive_items
+                is_selected = item["name"] in selected_passive_items
             elif selected_category == 2:
                 is_selected = item["name"] in selected_firearm_items
             else:  # 전설 탭
                 is_selected = item["name"] in selected_legendary_items
             # 현재 커서 위치인지 확인
-            is_cursor = (i == item_state.selected_item_index)
+            is_cursor = (i == selected_item_index)
             # 배경 색상
             if is_selected:
                 draw.rect(YELLOW, item_rect)  # 선택된 아이템은 노란색
@@ -33642,14 +33628,14 @@ def show_item_manager_menu():
             else:
                 selected_items_text = "없음"
         elif selected_category == 1:
-            selected_items_text = ", ".join([get_item_name_korean(name) for name in item_state.selected_passive_items]) if item_state.selected_passive_items else "없음"
+            selected_items_text = ", ".join([get_item_name_korean(name) for name in selected_passive_items]) if selected_passive_items else "없음"
         elif selected_category == 2:
             selected_items_text = ", ".join([get_item_name_korean(name) for name in selected_firearm_items]) if selected_firearm_items else "없음"
         else:  # 전설 카테고리
             selected_items_text = ", ".join([item["korean_name"] for item in legendary_items if item["name"] in selected_legendary_items]) if selected_legendary_items else "없음"
         # 시너지 효과가 포함된 경우 보라색으로 표시
         text_color = (200, 200, 200)  # 기본 색상
-        if "gravitybelt" in item_state.selected_passive_items:
+        if "gravitybelt" in selected_passive_items:
             text_color = (128, 0, 128)  # 보라색
         selected_text = font_small.render(selected_items_text, True, text_color)
         SCREEN.blit(selected_text, (50, info_y + 30))
@@ -33807,7 +33793,7 @@ def show_item_manager_menu():
                 elif event.key == pygame.K_TAB:
                     # 탭 전환 (4개 카테고리)
                     selected_category = (selected_category + 1) % 4
-                    item_state.selected_item_index = 0  # 탭 전환 시 첫 번째 아이템으로 커서 이동
+                    selected_item_index = 0  # 탭 전환 시 첫 번째 아이템으로 커서 이동
                 elif event.key == pygame.K_ESCAPE:
                     # 취소하고 메인 메뉴로 돌아가기
                     return
@@ -33815,7 +33801,7 @@ def show_item_manager_menu():
                     # 선택된 아이템들을 적용하고 관리자 모드로 이동
                     apply_selected_items(
                         flatten_active_selection(),
-                        item_state.selected_passive_items,
+                        selected_passive_items,
                         selected_legendary_items,
                         selected_firearm_items,
                     )
@@ -33839,8 +33825,8 @@ def show_item_manager_menu():
                     else:  # 전설
                         current_items = legendary_items
                     if current_items:
-                        current_row = item_state.selected_item_index // grid_cols
-                        current_col = item_state.selected_item_index % grid_cols
+                        current_row = selected_item_index // grid_cols
+                        current_col = selected_item_index % grid_cols
                         if event.key == pygame.K_RIGHT:
                             current_col = (current_col + 1) % grid_cols
                         elif event.key == pygame.K_LEFT:
@@ -33851,7 +33837,7 @@ def show_item_manager_menu():
                             current_row = (current_row - 1) % ((len(current_items) + grid_cols - 1) // grid_cols)
                         new_index = current_row * grid_cols + current_col
                         if new_index < len(current_items):
-                            item_state.selected_item_index = new_index
+                            selected_item_index = new_index
                 elif event.key == pygame.K_SPACE:
                     # 아이템 선택/해제
                     if selected_category == 0:
@@ -33863,16 +33849,16 @@ def show_item_manager_menu():
                     else:  # 전설
                         current_items = legendary_items
                     
-                    if current_items and item_state.selected_item_index < len(current_items):
-                        selected_item = current_items[item_state.selected_item_index]
+                    if current_items and selected_item_index < len(current_items):
+                        selected_item = current_items[selected_item_index]
                         item_name = selected_item["name"]
                         if selected_category == 0:
                             enter_quantity_mode(item_name)
                         elif selected_category == 1:
-                            if item_name in item_state.selected_passive_items:
-                                item_state.selected_passive_items.remove(item_name)
+                            if item_name in selected_passive_items:
+                                selected_passive_items.remove(item_name)
                             else:
-                                item_state.selected_passive_items.append(item_name)
+                                selected_passive_items.append(item_name)
                         elif selected_category == 2:
                             if item_name in selected_firearm_items:
                                 selected_firearm_items.remove(item_name)
@@ -33891,7 +33877,7 @@ def show_item_manager_menu():
                 for idx, rect in enumerate(tab_rects):
                     if rect.collidepoint(mx, my):
                         selected_category = idx
-                        item_state.selected_item_index = 0
+                        selected_item_index = 0
                         break
                 # 아이템 클릭 처리
                 if selected_category == 0:
@@ -33913,10 +33899,10 @@ def show_item_manager_menu():
                         if selected_category == 0:
                             enter_quantity_mode(item_name)
                         elif selected_category == 1:
-                            if item_name in item_state.selected_passive_items:
-                                item_state.selected_passive_items.remove(item_name)
+                            if item_name in selected_passive_items:
+                                selected_passive_items.remove(item_name)
                             else:
-                                item_state.selected_passive_items.append(item_name)
+                                selected_passive_items.append(item_name)
                         else:  # selected_category == 2 - 전설
                             if item_name in selected_legendary_items:
                                 selected_legendary_items.remove(item_name)
@@ -33924,12 +33910,12 @@ def show_item_manager_menu():
                                 selected_legendary_items.append(item_name)
 def apply_selected_items(
     selected_active_items,
-    item_state.selected_passive_items,
+    selected_passive_items,
     selected_legendary_items=None,
     selected_firearm_items=None,
 ):
     """선택된 아이템들을 게임에 적용"""
-
+    global active_item_slot, passive_item_list
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained, sensor_obtained
     global danger_sensor_obtained, danger_sensor_enabled
@@ -33943,13 +33929,13 @@ def apply_selected_items(
         selected_firearm_items = []
 
     print(f"[DEBUG] apply_selected_items !")
-    print(f"[DEBUG]   : {item_state.selected_passive_items}")
+    print(f"[DEBUG]   : {selected_passive_items}")
     print(f"[DEBUG]   : {selected_legendary_items}")
     print(f"[DEBUG]    : {selected_firearm_items}")
     # 아이템 슬롯 초기화
-    item_state.active_item_slot = []
+    active_item_slot = []
     clear_alchemy_notices()
-    item_state.passive_item_list = []
+    passive_item_list = []
     # 선택된 엑티브 아이템들을 슬롯에 추가
     for item_name in selected_active_items:
         # 아이템 데이터 생성
@@ -33959,10 +33945,10 @@ def apply_selected_items(
             "last_use": 0,
             "effect": item_name  # effect 키 추가
         }
-        item_state.active_item_slot.append(item_data)
+        active_item_slot.append(item_data)
     # 선택된 패시브 아이템들을 적용
-    for item_name in item_state.selected_passive_items:
-        # 패시브 아이템을 item_state.passive_item_list에 추가
+    for item_name in selected_passive_items:
+        # 패시브 아이템을 passive_item_list에 추가
         item_data = {
             "name": item_name,
             "icon": get_item_icon(item_name),
@@ -33970,7 +33956,7 @@ def apply_selected_items(
         }
         # 전설 아이템(포세이돈 삼지창, 라그나로크 해머, 헤르메스 신발)은 store_passive_item에서 추가하므로 여기서는 추가하지 않음
         if item_name not in ["poseidon_trident", "ragnarok_hammer", "hermes_shoes"]:
-            item_state.passive_item_list.append(item_data)
+            passive_item_list.append(item_data)
         # 아이템 효과 적용
         if item_name == "speedboots":
             speedboots_obtained = True
@@ -34033,7 +34019,7 @@ def apply_selected_items(
             items.gravitybelt_obtained = True
             print(f" : {gravitybelt_obtained}")
             # 무중력벨트가 선택되었을 때 즉시 적용
-            if "gravitybelt" in item_state.selected_passive_items:
+            if "gravitybelt" in selected_passive_items:
                 gravitybelt_obtained = True
                 items.gravitybelt_obtained = True
                 print(f"  : {gravitybelt_obtained}")
@@ -34087,7 +34073,7 @@ def apply_selected_items(
                 if smartphone:
                     smartphone_game_state = {
                         'current_stage': 1,
-                        'active_items': item_state.active_item_slot
+                        'active_items': active_item_slot
                     }
                     smartphone.activate(smartphone_game_state, 1)
                 print(f"[DEBUG] 스마트폰 아이템 활성화!")
@@ -34106,7 +34092,7 @@ def apply_selected_items(
             # 액티브 아이템 슬롯에서 처리됨
             pass
     print(f"  : {selected_active_items}")
-    print(f"  : {item_state.selected_passive_items}")
+    print(f"  : {selected_passive_items}")
     # 화기류 아이템 적용 (코만도 전용 무기 시스템)
     from item_effects.bazooka import get_bazooka_instance
     from item_effects.ak47 import get_ak47_instance
@@ -34149,7 +34135,7 @@ def apply_selected_items(
     soldier_controller.current_index = 0
 
     # 무중력벨트가 선택되어 있으면 강제로 적용
-    if "gravitybelt" in item_state.selected_passive_items:
+    if "gravitybelt" in selected_passive_items:
         gravitybelt_obtained = True
         items.gravitybelt_obtained = True
         print(f"  : {gravitybelt_obtained}")
@@ -34186,7 +34172,7 @@ def apply_selected_items(
                     "korean_name": legendary_item.korean_name,
                     "description": legendary_item.description
                 }
-                item_state.passive_item_list.append(item_data)
+                passive_item_list.append(item_data)
                 print(f"  [{legendary_item.korean_name}]   !")
             
             # 전설 아이템 활성화
@@ -39447,14 +39433,14 @@ def handle_ball():
         if smartphone:
             # 패시브 아이템이므로 obtained이면 자동으로 activate
             if not smartphone.active:
-                temp_state = {'current_stage': current_stage, 'active_items': item_state.active_item_slot}
+                temp_state = {'current_stage': current_stage, 'active_items': active_item_slot}
                 smartphone.activate(temp_state, current_stage)
                 print(f"[DEBUG] 스마트폰 재활성화! active={smartphone.active}")
             
             # 스마트폰용 임시 game_state 구성 (전역 game_state를 덮어쓰지 않음)
             smartphone_state = {
                 'current_stage': current_stage,
-                'active_items': item_state.active_item_slot
+                'active_items': active_item_slot
             }
             # current_stage 대신 필요한 정보를 직접 전달
             class StageInfo:
@@ -40995,13 +40981,13 @@ def handle_ball():
             import items as _items_mod
             if hasattr(_items_mod, 'smartphone_obtained') and _items_mod.smartphone_obtained:
                 smartphone = get_smartphone_instance()
-                has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (item_state.active_item_slot or []))
+                has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (active_item_slot or []))
                 if has_stopwatch:
                     PRE_ACTIVATE_MARGIN = 16  # 바닥까지 16px 남았을 때
                     MIN_PLAYABLE_MARGIN = 28  # 공 중심이 바닥에서 최소 28px 위 (민감도 상향)
                     dist_to_floor = HEIGHT - BALL.bottom
                     if 0 <= dist_to_floor <= PRE_ACTIVATE_MARGIN and BALL.centery <= HEIGHT - MIN_PLAYABLE_MARGIN:
-                        phone_state = {'current_stage': current_stage, 'active_items': item_state.active_item_slot}
+                        phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
                         try:
                             smartphone.last_activation_time = 0
                             smartphone.urgent_override = True
@@ -41020,7 +41006,7 @@ def handle_ball():
             import items as _items_mod
             if hasattr(_items_mod, 'smartphone_obtained') and _items_mod.smartphone_obtained:
                 smartphone = get_smartphone_instance()
-                has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (item_state.active_item_slot or []))
+                has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (active_item_slot or []))
                 # 바닥에 거의 닿았지만 아직 약간의 여유가 있을 때만 강제 발동
                 # 너무 아래(플레이어가 닿기 힘든 위치)에서는 강제 발동하지 않음
                 SAFE_MARGIN_FROM_FLOOR = 28  # px (민감도 상향)
@@ -41038,7 +41024,7 @@ def handle_ball():
                 
                 if (not stopwatch_active) and has_stopwatch and (BALL.centery <= HEIGHT - SAFE_MARGIN_FROM_FLOOR) and activation_height_ok and safe_distance_ok:
                     # 쿨타임과 무관하게 즉시 발동하도록 플래그 설정 후 발동
-                    phone_state = {'current_stage': current_stage, 'active_items': item_state.active_item_slot}
+                    phone_state = {'current_stage': current_stage, 'active_items': active_item_slot}
                     try:
                         smartphone.last_activation_time = 0
                         smartphone.urgent_override = True
@@ -44351,7 +44337,7 @@ def show_result(won):
     global bulkup_obtained, dashholder_obtained, gravitybelt_obtained  #  벌크업, 대쉬홀더, 무중력벨트 변수 추가
     global danger_sensor_obtained, sensor_obtained  #  센서 관련 변수 추가
     global rolling_charges  #  대쉬 토큰 수, 시너지 효과 변수 추가
-    global walls, pending_wall, wall_installing, wall_install_timer, wall_install_gauge_visible, round_losses  #  벽돌 변수 추가
+    global walls, pending_wall, wall_installing, wall_install_timer, wall_install_gauge_visible, passive_item_list, round_losses  #  벽돌 변수 추가
     global deuce_mode, deuce_wins, deuce_losses, deuce_goal  #  듀스 시스템 변수 추가
     global whip_sound  #  상모돌리기 사운드 추가
     # global balloon_active, balloon_timer, balloons, balloon_used_this_round  # Stage 1 보스 풍선파티 스킬 제거됨
@@ -44597,7 +44583,7 @@ def show_result(won):
             items.revival_obtained = False  # items.py에서도 제거
             revival_obtained = False  # 로컬에서도 제거
             # 패시브 아이템 리스트에서 revival 제거
-            item_state.passive_item_list = [item for item in item_state.passive_item_list if item["name"] != "revival"]
+            passive_item_list = [item for item in passive_item_list if item["name"] != "revival"]
             # 라운드 점수를 이전 상태로 되돌림 (부활)
             round_losses -= 1  # 패배 점수를 1 감소시켜 이전 라운드로 되돌림
             # 듀스 시스템 리셋 (부활 시 듀스 모드 해제)
@@ -44906,7 +44892,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown  # 드라이브 튜토리얼 플래그
     global boss_fail_timer, session_medal_earned, medal_score
     # 아이템 시스템
-    global last_item_use_time
+    global selected_item_index, last_item_use_time
     global master_obtained, cooltime_obtained
     global pandora_box_active, pandora_box_timer, pandora_box_original_spawn_delay, pandora_box_rainbow_animation
     global stopwatch_active, stopwatch_timer, stopwatch_flash_timer, stopwatch_clock_angle
@@ -45167,12 +45153,12 @@ def main(stage_num, new_boss_mode=False):
     #  아이템 효과 초기화 (게임 시작 시 한 번만)
     # 아이템 관리창에서 선택한 아이템은 초기화하지 않음
     if stage_num == 1 and (round_wins == 0 and round_losses == 0):
-        # item_state.passive_item_list를 확인하여 선택된 아이템이 아닌 경우에만 초기화
+        # passive_item_list를 확인하여 선택된 아이템이 아닌 경우에만 초기화
         from item_effects.fuel_pouch import deactivate_fuel_pouch, get_fuel_pouch_instance
         from item_effects.bluetooth_ring import deactivate_bluetooth_ring, get_bluetooth_ring_instance
         
-        # 연료파우치: item_state.passive_item_list에 없으면 초기화
-        fuel_pouch_in_list = any(item.get("name") == "fuel_pouch" for item in item_state.passive_item_list)
+        # 연료파우치: passive_item_list에 없으면 초기화
+        fuel_pouch_in_list = any(item.get("name") == "fuel_pouch" for item in passive_item_list)
         if not fuel_pouch_in_list:
             deactivate_fuel_pouch()
             items.fuel_pouch_obtained = False
@@ -45180,8 +45166,8 @@ def main(stage_num, new_boss_mode=False):
         else:
             print("(  )")
             
-        # 블루투스링: item_state.passive_item_list에 없으면 초기화  
-        bluetooth_ring_in_list = any(item.get("name") == "bluetooth_ring" for item in item_state.passive_item_list)
+        # 블루투스링: passive_item_list에 없으면 초기화  
+        bluetooth_ring_in_list = any(item.get("name") == "bluetooth_ring" for item in passive_item_list)
         if not bluetooth_ring_in_list:
             deactivate_bluetooth_ring()
             items.bluetooth_ring_obtained = False
@@ -45256,11 +45242,11 @@ def main(stage_num, new_boss_mode=False):
             pass
 
     next_item_spawn_delay = base_first_spawn
-    # item_state.selected_item_index 초기화 (item_state.active_item_slot이 비어있으면 0으로 설정)
-    if not item_state.active_item_slot:
-        item_state.selected_item_index = 0
+    # selected_item_index 초기화 (active_item_slot이 비어있으면 0으로 설정)
+    if not active_item_slot:
+        selected_item_index = 0
     else:
-        item_state.selected_item_index = min(item_state.selected_item_index, len(item_state.active_item_slot) - 1)
+        selected_item_index = min(selected_item_index, len(active_item_slot) - 1)
     
     # 스테이지 3 꼬리 채찍 시스템 초기화
     global stage3_tail_whip_active, stage3_tail_whip_timer, stage3_tail_whip_cooldown, stage3_tail_whip_animation_timer
@@ -45704,8 +45690,8 @@ def main(stage_num, new_boss_mode=False):
             "icon": get_item_icon("commando_arm")
         }
         # 이미 목록에 없을 때만 추가
-        if not any(item["name"] == "commando_arm" for item in item_state.passive_item_list):
-            item_state.passive_item_list.append(commando_arm_data)
+        if not any(item["name"] == "commando_arm" for item in passive_item_list):
+            passive_item_list.append(commando_arm_data)
         
         # 수류탄 액티브 아이템도 추가
         if not soldier_initial_grenade_given:
@@ -45716,8 +45702,8 @@ def main(stage_num, new_boss_mode=False):
                 "icon": get_item_icon("grenade"),
                 "count": 1
             }
-            if not any(item["name"] == "grenade" for item in item_state.active_item_slot):
-                item_state.active_item_slot.append(grenade_data)
+            if not any(item["name"] == "grenade" for item in active_item_slot):
+                active_item_slot.append(grenade_data)
             soldier_initial_grenade_given = True
             print("💪 코만도 캐릭터 게임 시작 - 코만도암 + 수류탄 1회 지급")
     
@@ -46615,11 +46601,11 @@ def main(stage_num, new_boss_mode=False):
             #     # 마우스 이벤트는 input_manager에서 처리
             #     input_manager.handle_mouse_event(event)
             #     # 마우스 휠로 아이템 선택 (조작 모드가 마우스일 때)
-            #     if event.type == pygame.MOUSEWHEEL and input_manager.get_control_mode() == "마우스" and item_state.active_item_slot:
+            #     if event.type == pygame.MOUSEWHEEL and input_manager.get_control_mode() == "마우스" and active_item_slot:
             #         if event.y > 0:  # 휠 위로
-            #             item_state.selected_item_index = (item_state.selected_item_index - 1) % len(item_state.active_item_slot)
+            #             selected_item_index = (selected_item_index - 1) % len(active_item_slot)
             #         elif event.y < 0:  # 휠 아래로
-            #             item_state.selected_item_index = (item_state.selected_item_index + 1) % len(item_state.active_item_slot)
+            #             selected_item_index = (selected_item_index + 1) % len(active_item_slot)
             # ESC 키로 일시정지 메뉴
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 result = show_pause_menu()
@@ -46812,39 +46798,39 @@ def main(stage_num, new_boss_mode=False):
                 #  숫자키로 아이템 직접 사용 (1~6)
                 elif event.key >= pygame.K_1 and event.key <= pygame.K_6 and not blacksmith_build_menu_active:
                     number_key = event.key - pygame.K_1  # 0~5로 변환
-                    if item_state.active_item_slot and number_key < len(item_state.active_item_slot):
+                    if active_item_slot and number_key < len(active_item_slot):
                         direct_item_index = number_key
                         print(f"  {number_key + 1}   !")
                 # 아이템 선택 - Aipill 활성화 시에도 선택은 가능 (시각적 피드백용)
-                if event.key in [pygame.K_a, 0x61, 0x6E] and item_state.active_item_slot:  # 영어 A, 한글 ㄴ
-                    item_state.selected_item_index = (item_state.selected_item_index - 1) % len(item_state.active_item_slot)
-                elif event.key in [pygame.K_d, 0x64, 0x6F] and item_state.active_item_slot:  # 영어 D, 한글 ㅇ
-                    item_state.selected_item_index = (item_state.selected_item_index + 1) % len(item_state.active_item_slot)
+                if event.key in [pygame.K_a, 0x61, 0x6E] and active_item_slot:  # 영어 A, 한글 ㄴ
+                    selected_item_index = (selected_item_index - 1) % len(active_item_slot)
+                elif event.key in [pygame.K_d, 0x64, 0x6F] and active_item_slot:  # 영어 D, 한글 ㅇ
+                    selected_item_index = (selected_item_index + 1) % len(active_item_slot)
             # 마우스 조작 (비활성화됨)
             # if input_manager.get_control_mode() == "마우스":
             #     if mouse_controls.get("item_use", False):
             #         item_use_pressed = True
             #  아이템 사용 처리 (S키 또는 숫자키)
-            if not aipill_active and item_state.active_item_slot and not blacksmith_build_menu_active:
+            if not aipill_active and active_item_slot and not blacksmith_build_menu_active:
                 use_item = False
                 target_index = -1
                 # S키로 현재 선택된 아이템 사용
-                if item_use_pressed and item_state.selected_item_index < len(item_state.active_item_slot):
+                if item_use_pressed and selected_item_index < len(active_item_slot):
                     use_item = True
-                    target_index = item_state.selected_item_index
+                    target_index = selected_item_index
                 # 숫자키로 직접 아이템 사용
                 elif direct_item_index >= 0:
                     use_item = True
                     target_index = direct_item_index
                 if use_item:
-                    item = item_state.active_item_slot[target_index]
+                    item = active_item_slot[target_index]
                     # 스마트폰이 아이템을 제거한 경우 None 체크
                     if item is None:
                         continue  # 아이템이 없으면 건너뛰기
                     current_time = pygame.time.get_ticks()
                     #  숫자키 사용 시 선택 인덱스도 업데이트
                     if direct_item_index >= 0:
-                        item_state.selected_item_index = target_index
+                        selected_item_index = target_index
                     # 쿨타임 체크 (장인/쿨타임 아이템 + 악마의 주사위 배율까지 반영)
                     individual_cooldown_ok = "last_use" not in item or current_time - item["last_use"] >= active_item_cooldown_ms
                     global_cooldown_ok = current_time - last_item_use_time >= active_item_cooldown_ms
@@ -46874,20 +46860,20 @@ def main(stage_num, new_boss_mode=False):
 
                             if not recycle_triggered:
                                 # 사용한 아이템 제거
-                                del item_state.active_item_slot[target_index]
+                                del active_item_slot[target_index]
                                 # 선택 인덱스 조정
-                                if item_state.selected_item_index >= len(item_state.active_item_slot):
-                                    item_state.selected_item_index = max(0, len(item_state.active_item_slot) - 1)
-                                elif target_index <= item_state.selected_item_index and item_state.selected_item_index > 0:
+                                if selected_item_index >= len(active_item_slot):
+                                    selected_item_index = max(0, len(active_item_slot) - 1)
+                                elif target_index <= selected_item_index and selected_item_index > 0:
                                     # 선택된 아이템보다 앞의 아이템이 삭제되면 인덱스 조정
-                                    item_state.selected_item_index -= 1
+                                    selected_item_index -= 1
                             else:
                                 # 유지된 아이템의 마지막 사용 시간만 업데이트
-                                item_state.active_item_slot[target_index]["last_use"] = current_time
+                                active_item_slot[target_index]["last_use"] = current_time
                             # 전역 쿨타임 업데이트
                             last_item_use_time = current_time
                             # 남은 다른 아이템들에만 쿨타임 적용 (사용한 아이템은 제거되었으므로)
-                            for other_item in item_state.active_item_slot:
+                            for other_item in active_item_slot:
                                 other_item["last_use"] = current_time
                     else:
                         # 쿨타임 중일 때 피드백
@@ -47671,9 +47657,9 @@ def main(stage_num, new_boss_mode=False):
                 update_alchemy_notices()
                 items.draw_active_item(
                     SCREEN,
-                    item_state.active_item_slot,
+                    active_item_slot,
                     active_item_icon_size,
-                    item_state.selected_item_index,
+                    selected_item_index,
                     active_item_cooldown_ms,
                     round_start_time,
                     alchemy_notices,
@@ -47745,9 +47731,9 @@ def main(stage_num, new_boss_mode=False):
                 update_alchemy_notices()
                 items.draw_active_item(
                     SCREEN,
-                    item_state.active_item_slot,
+                    active_item_slot,
                     active_item_icon_size,
-                    item_state.selected_item_index,
+                    selected_item_index,
                     active_item_cooldown_ms,
                     round_start_time,
                     alchemy_notices,
@@ -49074,7 +49060,7 @@ def show_game_info():
     in_tab_selection = True  # True: 탭 선택 중, False: 아이템 선택 중
     selected_category = 0  # 0: 엑티브, 1: 패시브
     selected_active_item = -1  # -1: 선택되지 않음, 0 이상: 선택된 아이템 인덱스
-    item_state.selected_passive_item = -1
+    selected_passive_item = -1
     # Tab 키 상태
     tab_count = 0  # Tab 키 누른 횟수 추적
     
@@ -49212,7 +49198,7 @@ def show_game_info():
             total_width = icons_per_row * icon_size + (icons_per_row - 1) * icon_spacing
             start_x = panel_x + (panel_width - total_width) // 2
             if selected_category == 0:  # 엑티브 아이템
-                items_to_show = item_state.active_item_slot if item_state.active_item_slot else []
+                items_to_show = active_item_slot if active_item_slot else []
                 selected_index = selected_active_item
                 if not items_to_show:
                     no_item_text = font_medium.render("소지한 엑티브 아이템이 없습니다", True, (150, 150, 150))
@@ -49261,8 +49247,8 @@ def show_game_info():
                                 # 기본 아이콘 (원형)
                                 draw.circle((100, 100, 100), (icon_x + icon_size // 2, icon_y + icon_size // 2), icon_size // 2)
             else:  # 패시브 아이템
-                items_to_show = item_state.passive_item_list if item_state.passive_item_list else []
-                selected_index = item_state.selected_passive_item
+                items_to_show = passive_item_list if passive_item_list else []
+                selected_index = selected_passive_item
                 if not items_to_show:
                     no_item_text = font_medium.render("소지한 패시브 아이템이 없습니다", True, (150, 150, 150))
                     no_item_rect = no_item_text.get_rect(center=(panel_x + panel_width // 2, item_list_y + 100))
@@ -49318,11 +49304,11 @@ def show_game_info():
             draw.rect((20, 20, 40), (desc_panel_x, desc_panel_y, desc_panel_width, desc_panel_height))
             draw.rect((80, 120, 200), (desc_panel_x, desc_panel_y, desc_panel_width, desc_panel_height), 2)
             # 선택된 아이템의 설명 표시
-            if selected_category == 0 and selected_active_item >= 0 and item_state.active_item_slot:
-                selected_item = item_state.active_item_slot[selected_active_item]
+            if selected_category == 0 and selected_active_item >= 0 and active_item_slot:
+                selected_item = active_item_slot[selected_active_item]
                 description = get_item_description(selected_item["name"])
-            elif selected_category == 1 and item_state.selected_passive_item >= 0 and item_state.selected_passive_item < len(item_state.passive_item_list) and item_state.passive_item_list:
-                selected_item = item_state.passive_item_list[item_state.selected_passive_item]
+            elif selected_category == 1 and selected_passive_item >= 0 and selected_passive_item < len(passive_item_list) and passive_item_list:
+                selected_item = passive_item_list[selected_passive_item]
                 description = get_item_description(selected_item["name"])
             else:
                 description = "아이템을 선택하면 설명이 표시됩니다."
@@ -49411,16 +49397,16 @@ def show_game_info():
                         elif event.key == pygame.K_DOWN:
                             # 탭에서 아이템 선택 모드로 이동
                             in_tab_selection = False
-                            current_items = item_state.active_item_slot if selected_category == 0 else item_state.passive_item_list
+                            current_items = active_item_slot if selected_category == 0 else passive_item_list
                             if current_items:
                                 if selected_category == 0:
                                     selected_active_item = 0  # 첫 번째 아이템 선택
                                 else:
-                                    item_state.selected_passive_item = 0  # 첫 번째 아이템 선택
+                                    selected_passive_item = 0  # 첫 번째 아이템 선택
                     else:  # 아이템 선택 모드
-                        current_items = item_state.active_item_slot if selected_category == 0 else item_state.passive_item_list
+                        current_items = active_item_slot if selected_category == 0 else passive_item_list
                         if current_items and event.key in [pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN]:
-                            current_index = selected_active_item if selected_category == 0 else item_state.selected_passive_item
+                            current_index = selected_active_item if selected_category == 0 else selected_passive_item
                             if event.key == pygame.K_RIGHT:
                                 # 오른쪽: 같은 줄에서 다음 아이템으로 (줄 끝에서 줄 처음으로 순환)
                                 grid_cols = 8
@@ -49472,7 +49458,7 @@ def show_game_info():
                                     # 첫 번째 줄에서 위로 가면 탭 선택 모드로 복귀
                                     in_tab_selection = True
                                     selected_active_item = -1
-                                    item_state.selected_passive_item = -1
+                                    selected_passive_item = -1
                                     continue
                                 else:
                                     # 위 줄로 이동
@@ -49485,15 +49471,15 @@ def show_game_info():
                             if selected_category == 0:
                                 selected_active_item = new_index
                             else:
-                                item_state.selected_passive_item = new_index
+                                selected_passive_item = new_index
                     if event.key == pygame.K_TAB:
                         # Tab 키로 필드 복귀
                         return
                     elif event.key == pygame.K_SPACE:
-                        if selected_category == 0 and item_state.active_item_slot and selected_active_item >= 0:
-                            show_item_management_menu(item_state.active_item_slot, selected_active_item, "active")
-                        elif selected_category == 1 and item_state.passive_item_list and item_state.selected_passive_item >= 0:
-                            show_item_management_menu(item_state.passive_item_list, item_state.selected_passive_item, "passive")
+                        if selected_category == 0 and active_item_slot and selected_active_item >= 0:
+                            show_item_management_menu(active_item_slot, selected_active_item, "active")
+                        elif selected_category == 1 and passive_item_list and selected_passive_item >= 0:
+                            show_item_management_menu(passive_item_list, selected_passive_item, "passive")
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
                 if current_page == 0:
@@ -49598,7 +49584,7 @@ def get_item_description(item_name):
     return descriptions.get(item_name, "설명이 없습니다.")
 def show_item_management_menu(item_list, selected_index, item_type):
     """아이템 관리자 메뉴 (버리기/취소)"""
-
+    global active_item_slot, passive_item_list, selected_item_index, selected_passive_item
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained
     global rolling_charges, sensor_enabled, sensor_obtained
@@ -49753,12 +49739,12 @@ def show_item_management_menu(item_list, selected_index, item_type):
                          # 아이템 타입에 따른 효과 제거
                         if item_type == "active":
                             # 엑티브 아이템 제거 시 선택 인덱스 조정
-                            if item_state.selected_item_index >= len(item_state.active_item_slot):
-                                item_state.selected_item_index = max(0, len(item_state.active_item_slot) - 1)
+                            if selected_item_index >= len(active_item_slot):
+                                selected_item_index = max(0, len(active_item_slot) - 1)
                         else:  # passive
                             # 패시브 아이템 제거 시 선택 인덱스 조정
-                            if item_state.selected_passive_item >= len(item_state.passive_item_list):
-                                item_state.selected_passive_item = max(0, len(item_state.passive_item_list) - 1)
+                            if selected_passive_item >= len(passive_item_list):
+                                selected_passive_item = max(0, len(passive_item_list) - 1)
                             # 패시브 아이템 효과 제거
                             if removed_item["name"] == "speedboots":
                                 speedboots_obtained = False
@@ -49821,12 +49807,12 @@ def show_item_management_menu(item_list, selected_index, item_type):
                             # 아이템 타입에 따른 효과 제거
                             if item_type == "active":
                                 # 엑티브 아이템 제거 시 선택 인덱스 조정
-                                if item_state.selected_item_index >= len(item_state.active_item_slot):
-                                    item_state.selected_item_index = max(0, len(item_state.active_item_slot) - 1)
+                                if selected_item_index >= len(active_item_slot):
+                                    selected_item_index = max(0, len(active_item_slot) - 1)
                             else:  # passive
                                 # 패시브 아이템 제거 시 선택 인덱스 조정
-                                if item_state.selected_passive_item >= len(item_state.passive_item_list):
-                                    item_state.selected_passive_item = max(0, len(item_state.passive_item_list) - 1)
+                                if selected_passive_item >= len(passive_item_list):
+                                    selected_passive_item = max(0, len(passive_item_list) - 1)
                                 # 패시브 아이템 효과 제거
                                 if removed_item["name"] == "speedboots":
                                     speedboots_obtained = False
@@ -49995,7 +49981,7 @@ def show_surrender_confirm():
                         return i == 0  # 예를 선택했으면 True
 def show_character_item_manager():
     """캐릭터 & 아이템 관리자 메뉴 - 캐릭터 선택과 아이템 관리를 통합"""
-
+    global active_item_slot, passive_item_list, selected_item_index, selected_passive_item
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained, sensor_obtained
     global dashholder_obtained
@@ -50005,7 +49991,7 @@ def show_character_item_manager():
     selected_main_tab = 0
   
     selected_category = 1  # 아이템 카테고리별 선택 (캐릭터 탭에서는 사용하지 않음)
-    item_state.selected_item_index = 0
+    selected_item_index = 0
     
     # 캐릭터 선택 관련 변수
     selected_character_index = 0
@@ -50052,7 +50038,7 @@ def show_character_item_manager():
     
     # 선택된 아이템들을 저장할 리스트
     selected_active_items = []
-    item_state.selected_passive_items = []
+    selected_passive_items = []
     selected_legendary_items = []
     
     # 아이템 그리드 설정
