@@ -326,8 +326,9 @@ class InputHandler:
 class UpdateSystem:
     """업데이트 시스템"""
     
-    def __init__(self):
+    def __init__(self, adapters: Optional[RuntimeAdapters] = None):
         """업데이트 시스템 초기화"""
+        self.adapters = adapters or RuntimeAdapters()
         self.physics = PhysicsSystem()
         self.collision = CollisionSystem()
         self.item_manager = ItemManager()
@@ -342,26 +343,41 @@ class UpdateSystem:
             delta_time: 프레임 시간
         """
         # 플레이어 입력 처리
-        self._update_player_input(state, input_handler)
-        
+        if self.adapters.update_player_input is not None:
+            self.adapters.update_player_input(state, input_handler)
+        else:
+            self._update_player_input_default(state, input_handler)
+
         # AI 업데이트
-        self.ai_manager.update(state, delta_time)
-        
+        if self.adapters.update_ai is not None:
+            self.adapters.update_ai(state, delta_time)
+        else:
+            self.ai_manager.update(state, delta_time)
+
         # 물리 업데이트
-        self.physics.update(state, delta_time)
-        
+        if self.adapters.update_physics is not None:
+            self.adapters.update_physics(state, delta_time)
+        else:
+            self.physics.update(state, delta_time)
+
         # 충돌 검사
-        self.collision.check_collisions(state)
-        
+        if self.adapters.check_collisions is not None:
+            self.adapters.check_collisions(state)
+        else:
+            self.collision.check_collisions(state)
+
         # 아이템 업데이트
-        self.item_manager.update(state, delta_time)
+        if self.adapters.update_items is not None:
+            self.adapters.update_items(state, delta_time)
+        else:
+            self.item_manager.update(state, delta_time)
         
         # 타이머 업데이트
         state.frame_count += 1
         if state.frame_count % 60 == 0:
             state.timer += 1
     
-    def _update_player_input(self, state: GameState, input_handler: InputHandler):
+    def _update_player_input_default(self, state: GameState, input_handler: InputHandler):
         """플레이어 입력 처리"""
         # 마우스로 패들 이동
         state.player.rect.centerx = input_handler.mouse_pos[0]
