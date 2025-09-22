@@ -3539,6 +3539,9 @@ class AcademyUI:
                     self.screen.blit(lock_surface, (skill_x, skill_y))
 
 
+skill_system = SkillSystem()
+
+
 def get_skill_bonus(skill_id):
     """스킬 보너스 값 반환"""
     level = skill_system.get_skill_level(skill_id)
