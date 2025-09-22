@@ -494,46 +494,50 @@ def change_internal_resolution(new_width, new_height):
     global INTERNAL_WIDTH, INTERNAL_HEIGHT, WIDTH, HEIGHT
     global SCREEN, unified_renderer, draw, dialog_system, menu_system, trade_point_system
     global PLAYER, BOSS, BALL
-    
-    # 스케일 비율 계산
+
     scale_x = new_width / INTERNAL_WIDTH
     scale_y = new_height / INTERNAL_HEIGHT
-    
-    # 내부 해상도 업데이트
+
     INTERNAL_WIDTH = new_width
     INTERNAL_HEIGHT = new_height
     WIDTH = new_width
     HEIGHT = new_height
-    
-    # Pygame 화면 재생성
-    SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
-    
-    # UI 시스템 재초기화
-    draw = DrawHelper(SCREEN)
-    unified_renderer = UnifiedRenderer(SCREEN, WIDTH, HEIGHT)
-    dialog_system = DialogSystem(SCREEN, WIDTH, HEIGHT)
-    menu_system = MenuSystem(SCREEN, WIDTH, HEIGHT)
-    trade_point_system = TradePointSystem(SCREEN)
-    
-    # 게임 오브젝트 위치 스케일링
-    if 'PLAYER' in globals() and PLAYER is not None:
+
+    factories = _build_display_factories()
+    result = dm_change_internal_resolution(
+        new_width=new_width,
+        new_height=new_height,
+        factories=factories,
+        ball=BALL,
+        player=PLAYER,
+        boss=BOSS,
+    )
+
+    SCREEN = result.screen
+    draw = result.draw
+    unified_renderer = result.unified_renderer
+    dialog_system = result.dialog_system
+    menu_system = result.menu_system
+    trade_point_system = result.trade_point_system
+
+    if PLAYER is not None:
         PLAYER.x = int(PLAYER.x * scale_x)
         PLAYER.y = int(PLAYER.y * scale_y)
         PLAYER.width = int(PLAYER.width * scale_x)
         PLAYER.height = int(PLAYER.height * scale_y)
-    
-    if 'BOSS' in globals() and BOSS is not None:
+
+    if BOSS is not None:
         BOSS.x = int(BOSS.x * scale_x)
         BOSS.y = int(BOSS.y * scale_y)
         BOSS.width = int(BOSS.width * scale_x)
         BOSS.height = int(BOSS.height * scale_y)
-    
-    if 'BALL' in globals() and BALL is not None:
+
+    if BALL is not None:
         BALL.x = int(BALL.x * scale_x)
         BALL.y = int(BALL.y * scale_y)
         BALL.width = int(BALL.width * scale_x)
         BALL.height = int(BALL.height * scale_y)
-    
+
     print(f"✅ 내부 해상도 변경 완료: {new_width}x{new_height}")
 
 # Phase 101: UnifiedRenderer 초기화
