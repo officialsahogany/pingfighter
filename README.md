@@ -48,6 +48,10 @@ python3 pingfighter.py
 - 오리지널 22,000줄 코드
 - 모든 기능이 하나의 파일에 포함
 - 즉시 게임 실행
+- 실험적 모던 루프를 사용하려면 `--modern-loop` 플래그를 추가하세요.
+  ```bash
+  python3 pingfighter.py --modern-loop
+  ```
 
 #### 2. 플레이 가능한 모듈화 버전
 ```bash
