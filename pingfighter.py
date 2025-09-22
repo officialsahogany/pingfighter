@@ -43,6 +43,7 @@ import dash_manager
 from trade_point_system import TradePointSystem
 from events.stage1_event_integration import Stage1EventManager
 from game_logic.checkmate_system import get_checkmate_system
+from resource_path import resource_path
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
@@ -51,32 +52,6 @@ from game_state.audio import (
     resolve_runtime_bgm_volume,
 )
 from game_state.items import bind_item_state, item_state as item_state_adapter
-
-# ============================================================
-# 4. 리소스 경로 헬퍼 함수
-# ============================================================
-def resource_path(relative_path):
-    """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환
-
-    Args:
-        relative_path (str): 상대 파일 경로
-        
-    Returns:
-        str: 절대 경로 (PyInstaller 번들 및 일반 실행 모두 지원)
-    """
-    try:
-        # PyInstaller 번들인 경우
-        base_path = sys._MEIPASS
-    except Exception:
-        # 일반 Python 실행인 경우
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    
-    # Windows에서 경로 구분자 통일
-    relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
-    full_path = os.path.join(base_path, relative_path)
-    
-    return full_path
- 
 
 def check_ball_speed_safety():
     """공 속도 안전성 확인 및 제한"""
