@@ -9182,6 +9182,11 @@ def calculate_trajectory():
                     break
             if len(fallback_points) >= 2:
                 predicted_trajectory = fallback_points
+                if DEBUG_PREDICTOR:
+                    print(f"[Predictor] fallback len={len(fallback_points)} first_points={fallback_points[:5]}")
+            else:
+                if DEBUG_PREDICTOR:
+                    print(f"[Predictor] fallback insufficient points len={len(fallback_points)}")
 
         if skill_type in high_detail_skills and len(predicted_trajectory) > 2:
             raw_trajectory = predicted_trajectory[:]
