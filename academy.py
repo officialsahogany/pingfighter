@@ -552,6 +552,26 @@ class AcademyUI:
             points.append((px, py))
         pygame.draw.polygon(target_surface, color, points)
 
+    def _create_master_badge_surface(self, color):
+        """★ MASTER ★ 배지를 생성"""
+        label_surface = self.font_small.render("MASTER", True, color)
+        star_size = max(4, label_surface.get_height() // 2)
+        spacing = 6
+        width = star_size * 2 + spacing * 2 + label_surface.get_width()
+        height = max(label_surface.get_height(), star_size * 2)
+        surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+        center_y = height // 2
+        # 왼쪽 별
+        self._draw_star_icon(surface, star_size, center_y, star_size, color)
+        # 오른쪽 별
+        self._draw_star_icon(surface, width - star_size, center_y, star_size, color)
+
+        text_x = star_size + spacing
+        text_y = (height - label_surface.get_height()) // 2
+        surface.blit(label_surface, (text_x, text_y))
+        return surface
+
     def handle_mouse_click(self, pos):
         """마우스 클릭 처리"""
         x, y = pos
