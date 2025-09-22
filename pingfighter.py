@@ -50,6 +50,7 @@ from game_state.audio import (
     set_sfx_volume as set_sfx_volume_state,
     resolve_runtime_bgm_volume,
 )
+from game_state.items import bind_item_state, item_state as item_state_adapter
 
 # ============================================================
 # 4. 리소스 경로 헬퍼 함수
@@ -1584,6 +1585,37 @@ last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역
 alchemy_notices = []  # [{'slot_index': int, 'timer': int, 'duration': int}]
 
 
+def _set_selected_item_index(value: int) -> None:
+    global selected_item_index
+    selected_item_index = value
+
+
+def _set_selected_passive_item(value: int) -> None:
+    global selected_passive_item
+    selected_passive_item = value
+
+
+def _set_max_item_slots(value: int) -> None:
+    global MAX_ITEM_SLOTS
+    MAX_ITEM_SLOTS = value
+
+
+def _bind_item_state_adapter() -> None:
+    bind_item_state(
+        get_active=lambda: active_item_slot,
+        get_passive=lambda: passive_item_list,
+        get_selected_active=lambda: selected_item_index,
+        set_selected_active=_set_selected_item_index,
+        get_selected_passive=lambda: selected_passive_item,
+        set_selected_passive=_set_selected_passive_item,
+        get_max_slots=lambda: MAX_ITEM_SLOTS,
+        set_max_slots=_set_max_item_slots,
+    )
+
+
+_bind_item_state_adapter()
+
+
 def get_effective_max_item_slots():
     """스킬 보너스를 포함한 실제 아이템 슬롯 수"""
     bonus = 0
@@ -1592,7 +1624,7 @@ def get_effective_max_item_slots():
             bonus = int(academy.get_item_slot_bonus())
         except Exception:
             bonus = 0
-    return MAX_ITEM_SLOTS + bonus
+    return item_state_adapter.max_slots() + bonus
 
 
 def create_alchemy_notice(slot_index: int):
