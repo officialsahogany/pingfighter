@@ -23,7 +23,7 @@ class Smartphone:
         self.closing_streak = 0
         self.closing_streak = 0
         
-    def _apply_academy_effects(self, main_module):
+    def _apply_academy_effects(self, main_module, slot_index_hint=None):
         """연금술/게이지 보너스 처리를 공통화"""
         recycle_triggered = False
         gauge_bonus = 0
@@ -54,6 +54,18 @@ class Smartphone:
         if recycle_chance > 0 and random.random() < recycle_chance:
             recycle_triggered = True
             print("⚗️ 연금술 발동! 아이템이 유지됩니다.")
+            # 연금술 연출
+            if slot_index_hint is not None and hasattr(main_module, 'create_alchemy_notice'):
+                try:
+                    main_module.create_alchemy_notice(slot_index_hint)
+                except Exception:
+                    pass
+            # 재활용된 아이템은 마지막 사용 시간 갱신
+            active_slot = getattr(main_module, 'active_item_slot', None)
+            if isinstance(active_slot, list) and slot_index_hint is not None and 0 <= slot_index_hint < len(active_slot):
+                target_item = active_slot[slot_index_hint]
+                if isinstance(target_item, dict):
+                    target_item['last_use'] = pygame.time.get_ticks()
 
         return recycle_triggered
 
@@ -103,7 +115,7 @@ class Smartphone:
 
     def _handle_item_consumption(self, item_name, main_module, game_state, slot_index_hint=None):
         """연금술 처리 후 필요 시 아이템 제거"""
-        recycle_triggered = self._apply_academy_effects(main_module)
+        recycle_triggered = self._apply_academy_effects(main_module, slot_index_hint=slot_index_hint)
         if not recycle_triggered:
             self._remove_item_from_slots(item_name, main_module, game_state, slot_index_hint=slot_index_hint)
         return recycle_triggered
