@@ -62,6 +62,7 @@ from background_manager import (
     load_stage_backgrounds,
 )
 from sound_effects import load_sound_effects
+from item_state_manager import reset_runtime_items
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
@@ -24549,11 +24550,12 @@ def show_start_screen():
     # 아이템 초기화 (items.py 내부 변수 초기화)
     items.reset_items()
     # bosspong.py 내부 변수들도 초기화
-    item_state_adapter.clear_passive_items()
-    item_state_adapter.clear_active_items()
-    clear_alchemy_notices()
-    _set_selected_item_index(0)
-    _set_max_item_slots(3)
+    reset_runtime_items(
+        item_state_adapter,
+        clear_notices=clear_alchemy_notices,
+        set_selected_index=_set_selected_item_index,
+        set_max_slots=_set_max_item_slots,
+    )
     #  패시브 아이템 효과 초기화
     chargebag_obtained = False
     spikeboots_obtained = False
