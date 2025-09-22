@@ -629,3 +629,31 @@ def _sync_game_vars_from_state(state: GameState) -> None:
         ball_vel[1] = float(state.ball.velocity[1])
     if hasattr(game_vars.ball, "radius"):
         game_vars.ball.radius = int(state.ball.radius)
+
+
+def _game_vars_update_player_input(state: GameState, input_handler: InputHandler) -> None:
+    """game_vars와 연동되는 입력 업데이트 어댑터."""
+    # 마우스로 패들 이동
+    state.player.rect.centerx = input_handler.mouse_pos[0]
+
+    # 패들 경계 체크
+    if state.player.rect.left < 0:
+        state.player.rect.left = 0
+    elif state.player.rect.right > 600:
+        state.player.rect.right = 600
+
+    # 스페이스바로 서브
+    if input_handler.is_key_just_pressed(pygame.K_SPACE):
+        if state.is_waiting_for_serve:
+            state.is_waiting_for_serve = False
+            state.ball.velocity = [5, 5]
+
+    # Shift로 대시
+    state.player.is_dashing = input_handler.is_key_pressed(pygame.K_LSHIFT)
+
+    _sync_game_vars_from_state(state)
+
+
+def create_game_vars_adapters() -> RuntimeAdapters:
+    """core.game_variables와 동기화되는 RuntimeAdapters 생성."""
+    return RuntimeAdapters(update_player_input=_game_vars_update_player_input)
