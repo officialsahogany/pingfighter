@@ -32991,10 +32991,9 @@ def start_game_with_difficulty(character_id, difficulty_mode):
                 "effect": "knee_pads",
                 "icon": get_item_icon("knee_pads")
             }
-            if passive_item_list is None:
-                passive_item_list = []
-            if not any(item.get("name") == "knee_pads" for item in passive_item_list):
-                passive_item_list.append(knee_pads_data)
+            passive_items = item_state_adapter.passive_items()
+            if not any(item.get("name") == "knee_pads" for item in passive_items):
+                item_state_adapter.append_passive_item(knee_pads_data)
             print("🦵 메카닉 패들 기본 장비: 킥차져 자동 장착")
         except Exception as e:
             print(f"[WARN] 스매셔 킥차져 초기화 실패: {e}")
@@ -33765,9 +33764,9 @@ def apply_selected_items(
     print(f"[DEBUG]   : {selected_legendary_items}")
     print(f"[DEBUG]    : {selected_firearm_items}")
     # 아이템 슬롯 초기화
-    active_item_slot = []
+    item_state_adapter.clear_active_items()
     clear_alchemy_notices()
-    passive_item_list = []
+    item_state_adapter.clear_passive_items()
     # 선택된 엑티브 아이템들을 슬롯에 추가
     for item_name in selected_active_items:
         # 아이템 데이터 생성
@@ -33777,7 +33776,9 @@ def apply_selected_items(
             "last_use": 0,
             "effect": item_name  # effect 키 추가
         }
-        active_item_slot.append(item_data)
+        item_state_adapter.append_active_item(item_data)
+    _set_selected_item_index(0)
+
     # 선택된 패시브 아이템들을 적용
     for item_name in selected_passive_items:
         # 패시브 아이템을 passive_item_list에 추가
@@ -33788,7 +33789,7 @@ def apply_selected_items(
         }
         # 전설 아이템(포세이돈 삼지창, 라그나로크 해머, 헤르메스 신발)은 store_passive_item에서 추가하므로 여기서는 추가하지 않음
         if item_name not in ["poseidon_trident", "ragnarok_hammer", "hermes_shoes"]:
-            passive_item_list.append(item_data)
+            item_state_adapter.append_passive_item(item_data)
         # 아이템 효과 적용
         if item_name == "speedboots":
             speedboots_obtained = True
