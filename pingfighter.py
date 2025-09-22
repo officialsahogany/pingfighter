@@ -9149,6 +9149,28 @@ def calculate_trajectory():
         finally:
             random.setstate(random_state)
 
+        if len(predicted_trajectory) < 2:
+            fallback_points = []
+            fallback_x = BALL.centerx
+            fallback_y = BALL.centery
+            fallback_vx = ball_vel[0]
+            fallback_vy = ball_vel[1]
+            for step in range(200):
+                if step % 3 == 0:
+                    fallback_points.append((int(fallback_x), int(fallback_y)))
+                fallback_x += fallback_vx
+                fallback_y += fallback_vy
+                if fallback_x <= BALL.width // 2 or fallback_x >= WIDTH - BALL.width // 2:
+                    fallback_vx = -fallback_vx
+                    fallback_x = max(BALL.width // 2, min(WIDTH - BALL.width // 2, fallback_x))
+                if fallback_y >= HEIGHT - 40:
+                    fallback_points.append((int(fallback_x), int(fallback_y)))
+                    break
+                if fallback_y > HEIGHT + LARGE_SIZE:
+                    break
+            if len(fallback_points) >= 2:
+                predicted_trajectory = fallback_points
+
         if skill_type in high_detail_skills and len(predicted_trajectory) > 2:
             raw_trajectory = predicted_trajectory[:]
             smoothing_radius_map = {
