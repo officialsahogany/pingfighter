@@ -2005,9 +2005,15 @@ class AcademyUI:
         sp_rect = sp_text.get_rect(midleft=(star_x + display_size + 20, star_y))
         self.screen.blit(sp_text, sp_rect)
 
-        total_sp_text = self.font_small.render(f"누적 투자 TP: {self.skill_system.total_invested_points}", True, (150, 200, 255))
+        total_sp_text = self.font_small.render(f"누적 투자 TP (전체): {self.skill_system.total_invested_points}", True, (150, 200, 255))
         total_sp_rect = total_sp_text.get_rect(topright=(self.width - 20, sp_rect.bottom + 5))
         self.screen.blit(total_sp_text, total_sp_rect)
+
+        tree_label = SKILL_TREES.get(self.selected_tree, {}).get("name", self.selected_tree)
+        tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
+        tree_sp_text = self.font_small.render(f"{tree_label} 누적 TP: {tree_tp_total}", True, (150, 200, 255))
+        tree_sp_rect = tree_sp_text.get_rect(topright=(self.width - 20, total_sp_rect.bottom + 5))
+        self.screen.blit(tree_sp_text, tree_sp_rect)
         
         # 조작 안내
         control_text = self.font_small.render("←→: 탭 전환 | ↑↓: 스킬 선택 | Space: 업그레이드 | ESC: 닫기", True, (150, 150, 150))
