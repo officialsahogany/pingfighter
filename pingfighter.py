@@ -43,7 +43,7 @@ import dash_manager
 from trade_point_system import TradePointSystem
 from events.stage1_event_integration import Stage1EventManager
 from game_logic.checkmate_system import get_checkmate_system
-from game_logic.game_loop import LegacyHooks
+from game_logic.game_loop import LegacyHooks, create_game_loop
 from resource_path import resource_path
 from utils.game_helpers import (
     get_stage_color,
@@ -419,6 +419,9 @@ SHORT_SHOT_POWER_SPEED_MULTIPLIER = 1.50          # 보너스 파워스매싱 �
 DEFAULT_ALPHA = 150
 GLOW_ALPHA = 50
 BORDER_WIDTH = 4
+
+# 실험용 모던 게임 루프 사용 여부
+USE_MODERN_GAME_LOOP = False
 
 def draw_glow_circle(pos, radius, color, glow_intensity=3):
     """광채 효과가 있는 원 그리기 - Phase 101: unified_renderer 사용"""
