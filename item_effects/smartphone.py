@@ -824,6 +824,8 @@ class Smartphone:
                 print(f"[DEBUG] 위험 감지됨! active_items 개수: {len(active_items)}")
                 
                 # More detailed debugging
+                stopwatch_slot_index = None
+                aipill_slot_index = None
                 for i, item in enumerate(active_items):
                     if item is None:
                         print(f"[DEBUG] 슬롯 {i}: None (빈 슬롯)")
@@ -844,28 +846,32 @@ class Smartphone:
                         # Case-insensitive comparison for safety
                         if item_name.lower() == 'stopwatch':
                             stopwatch_available = True
+                            if stopwatch_slot_index is None:
+                                stopwatch_slot_index = i
                             print(f"[DEBUG] ✅ 스탑워치 발견! (슬롯 {i})")
                         elif item_name.lower() in ['aipill', 'ai_pill']:
                             ai_pill_available = True
+                            if aipill_slot_index is None:
+                                aipill_slot_index = i
                             print(f"[DEBUG] ✅ AI알약 발견! (슬롯 {i})")
                             
                 # Auto-activate appropriate item (스톱워치 우선)
                 can_fire = ((self.last_activation_time <= 0) and allow_persistent) or self.urgent_override
                 if stopwatch_available and can_fire:
                     print("🚨 스마트폰: 위험 감지! 스탑워치 자동 사용!")
-                    self.activate_stopwatch(game_state, current_stage)
+                    self.activate_stopwatch(game_state, current_stage, slot_index_hint=stopwatch_slot_index)
                     self.auto_activated = True
                     # 긴급 발동 후에도 기본 쿨타임 설정
                     self.last_activation_time = self.activation_cooldown
                     self.urgent_override = False
                 elif ai_pill_available and can_fire:
                     print("🚨 스마트폰: 위험 감지! AI알약 자동 사용!")
-                    self.activate_ai_pill(game_state, current_stage)
+                    self.activate_ai_pill(game_state, current_stage, slot_index_hint=aipill_slot_index)
                     self.auto_activated = True
                     self.last_activation_time = self.activation_cooldown
                     self.urgent_override = False
                     
-    def activate_stopwatch(self, game_state, current_stage):
+    def activate_stopwatch(self, game_state, current_stage, slot_index_hint=None):
         """스탑워치 자동 활성화"""
         # Call the global activate_stopwatch function from pingfighter.py
         import sys
@@ -880,11 +886,11 @@ class Smartphone:
                     setattr(main_module, 'stopwatch_forced_upward', True)
                 except Exception:
                     pass
-                self._handle_item_consumption('stopwatch', main_module, game_state)
+                self._handle_item_consumption('stopwatch', main_module, game_state, slot_index_hint=slot_index_hint)
         else:
             print("스탑워치 함수를 찾을 수 없습니다")
             
-    def activate_ai_pill(self, game_state, current_stage):
+    def activate_ai_pill(self, game_state, current_stage, slot_index_hint=None):
         """AI알약 자동 활성화"""
         # Call the global activate_aipill function from pingfighter.py
         import sys
@@ -894,7 +900,7 @@ class Smartphone:
             # Check if aipill is not already active
             if not getattr(main_module, 'aipill_active', False):
                 main_module.activate_aipill()
-                self._handle_item_consumption('aipill', main_module, game_state)
+                self._handle_item_consumption('aipill', main_module, game_state, slot_index_hint=slot_index_hint)
         else:
             print("AI알약 함수를 찾을 수 없습니다")
             

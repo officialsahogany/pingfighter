@@ -40790,7 +40790,11 @@ def handle_ball():
             import items as _items_mod
             if hasattr(_items_mod, 'smartphone_obtained') and _items_mod.smartphone_obtained:
                 smartphone = get_smartphone_instance()
-                has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (active_item_slot or []))
+                stopwatch_slot_index = next(
+                    (idx for idx, it in enumerate(active_item_slot or []) if it and isinstance(it, dict) and it.get('name') == 'stopwatch'),
+                    None,
+                )
+                has_stopwatch = stopwatch_slot_index is not None
                 if has_stopwatch:
                     PRE_ACTIVATE_MARGIN = 16  # 바닥까지 16px 남았을 때
                     MIN_PLAYABLE_MARGIN = 28  # 공 중심이 바닥에서 최소 28px 위 (민감도 상향)
@@ -40802,7 +40806,7 @@ def handle_ball():
                             smartphone.urgent_override = True
                         except Exception:
                             pass
-                        smartphone.activate_stopwatch(phone_state, current_stage)
+                        smartphone.activate_stopwatch(phone_state, current_stage, slot_index_hint=stopwatch_slot_index)
                         return
         except Exception as e:
             print(f"⚠️ 스마트폰 사전 발동(거리) 실패: {e}")
@@ -40815,7 +40819,11 @@ def handle_ball():
             import items as _items_mod
             if hasattr(_items_mod, 'smartphone_obtained') and _items_mod.smartphone_obtained:
                 smartphone = get_smartphone_instance()
-                has_stopwatch = any(it and isinstance(it, dict) and it.get('name') == 'stopwatch' for it in (active_item_slot or []))
+                stopwatch_slot_index = next(
+                    (idx for idx, it in enumerate(active_item_slot or []) if it and isinstance(it, dict) and it.get('name') == 'stopwatch'),
+                    None,
+                )
+                has_stopwatch = stopwatch_slot_index is not None
                 # 바닥에 거의 닿았지만 아직 약간의 여유가 있을 때만 강제 발동
                 # 너무 아래(플레이어가 닿기 힘든 위치)에서는 강제 발동하지 않음
                 SAFE_MARGIN_FROM_FLOOR = 28  # px (민감도 상향)
@@ -40839,7 +40847,7 @@ def handle_ball():
                         smartphone.urgent_override = True
                     except Exception:
                         pass
-                    smartphone.activate_stopwatch(phone_state, current_stage)
+                    smartphone.activate_stopwatch(phone_state, current_stage, slot_index_hint=stopwatch_slot_index)
                     # 스톱워치 발동 후에는 패배 처리를 중단하고 한 프레임 유예
                     return
         except Exception as e:
