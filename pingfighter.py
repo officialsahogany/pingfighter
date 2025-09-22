@@ -49881,7 +49881,6 @@ def show_item_management_menu(item_list, selected_index, item_type):
                             return
 def show_pause_options():
     """일시정지 옵션 메뉴 - 볼륨 조절 UI"""
-    global bgm_volume, sfx_volume
     
     font_large = FontStyle.subtitle()  # 32pt 제목용
     font_medium = FontStyle.body()  # 24pt 텍스트용
@@ -50024,8 +50023,8 @@ def show_pause_options():
              elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     # 변경사항 저장
-                    bgm_volume = current_bgm_volume
-                    sfx_volume = current_sfx_volume
+                    current_bgm_volume = store_bgm_volume(current_bgm_volume)
+                    current_sfx_volume = set_sfx_volume(current_sfx_volume)
                     return
                 elif event.key == pygame.K_LEFT:
                     if selected_slider == 'bgm':
