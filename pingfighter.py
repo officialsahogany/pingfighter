@@ -44,6 +44,13 @@ from trade_point_system import TradePointSystem
 from events.stage1_event_integration import Stage1EventManager
 from game_logic.checkmate_system import get_checkmate_system
 from resource_path import resource_path
+from utils.game_helpers import (
+    get_stage_color,
+    fade_color,
+    blend_colors,
+    get_center_pos,
+    calculate_distance,
+)
 from rendering.draw_helper import DrawHelper
 from game_state.audio import (
     get_bgm_volume,
@@ -399,42 +406,6 @@ SHORT_SHOT_POWER_SPEED_MULTIPLIER = 1.50          # 보너스 파워스매싱 �
 DEFAULT_ALPHA = 150
 GLOW_ALPHA = 50
 BORDER_WIDTH = 4
-
-# === 유용한 헬퍼 함수들 ===
-def get_stage_color(stage):
-    """스테이지별 대표 색상 반환"""
-    stage_colors = {
-        1: (0, 150, 100),  # 사이버펑크 청록
-        2: (0, 100, 200),  # 심해 파랑
-        3: (255, 0, 128),  # 네온 핑크
-        4: (255, 215, 0),  # 황금
-        5: (255, 100, 0),  # 용암 주황
-        6: (128, 0, 255),  # 보라
-    }
-    return stage_colors.get(stage, WHITE)
-
-def fade_color(color, alpha):
-    """색상에 알파값 적용"""
-    if len(color) == 3:
-        return (*color, alpha)
-    return color
-
-def blend_colors(color1, color2, ratio):
-    """두 색상을 비율에 따라 블렌딩"""
-    r1, g1, b1 = color1[:3]
-    r2, g2, b2 = color2[:3]
-    r = int(r1 * (1 - ratio) + r2 * ratio)
-    g = int(g1 * (1 - ratio) + g2 * ratio)
-    b = int(b1 * (1 - ratio) + b2 * ratio)
-    return (r, g, b)
-
-def get_center_pos(rect):
-    """Rect의 중심 좌표 반환"""
-    return (rect.centerx, rect.centery)
-
-def calculate_distance(pos1, pos2):
-    """두 점 사이의 거리 계산"""
-    return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
 
 def draw_glow_circle(pos, radius, color, glow_intensity=3):
     """광채 효과가 있는 원 그리기 - Phase 101: unified_renderer 사용"""
