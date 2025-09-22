@@ -4,6 +4,8 @@ import os
 import math
 import sys
 
+ACADEMY_DEBUG = os.getenv("ACADEMY_DEBUG") == "1"
+
 # PyInstaller 실행 파일에서 리소스 경로를 찾기 위한 함수
 def resource_path(relative_path):
     """PyInstaller로 패키징된 실행 파일에서 리소스 경로를 찾는 함수"""
@@ -529,6 +531,8 @@ class AcademyUI:
             self._clamp_selection_to_current_tree()
             self.tab_selection_mode = False
             self.update_skill_positions()
+            if ACADEMY_DEBUG:
+                print("[AcademyUI] mouse tab -> item")
             return None
             
         # 패들 탭
@@ -1253,6 +1257,8 @@ class AcademyUI:
         for i, skill in enumerate(tree_data["skills"]):
             if skill["id"] == skill_id:
                 self.selected_skill_index = i
+                if ACADEMY_DEBUG:
+                    print(f"[AcademyUI] select tree={self.selected_tree} idx={i} skill={skill_id}")
                 return True
         return False
 
@@ -3073,6 +3079,9 @@ class AcademyUI:
             self.selected_skill_index = 0
 
         selected_skill = tree_data["skills"][self.selected_skill_index]
+
+        if ACADEMY_DEBUG and self.selected_tree == "item":
+            print(f"[AcademyUI] tree=item idx={self.selected_skill_index} skill={selected_skill['id']}")
 
         desc_width = 220
         desc_height = 360
