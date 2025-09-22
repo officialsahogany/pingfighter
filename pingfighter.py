@@ -9474,7 +9474,7 @@ def draw_predicted_trajectory():
 
 def render_throwing_item_cooldown():
     """화기류 아이템 라운드 시작 3초 제한 표시"""
-    global round_start_time, item_state.active_item_slot
+    global round_start_time
     
     current_time = pygame.time.get_ticks()
     time_since_round_start = current_time - round_start_time
@@ -15272,7 +15272,7 @@ stage_medal_rewards = {
 session_medal_earned = 0  # main 함수 외부에 선언
 final_wave_direction = [0, 0]  # 공의 마지막 이동 방향 (X, Y)
 def store_active_item(item_data):
-    global item_state.active_item_slot, item_state.selected_item_index, aipill_active, last_item_use_time, long_boost_active
+    global aipill_active, last_item_use_time, long_boost_active
     if item_state.active_item_slot is None:
         item_state.active_item_slot = []  # 혹시 None이면 초기화
     # Aipill 활성화 시에는 아이템 획득 불가
@@ -15306,7 +15306,7 @@ def store_active_item(item_data):
     show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
 # bosspong.py
 def store_passive_item(item_data):
-    global item_state.max_item_slots, item_state.passive_item_list, speedboots_obtained, speedgear_obtained
+    global speedboots_obtained, speedgear_obtained
     global items, aipill_active, battery_obtained, revival_obtained, master_obtained, cooltime_obtained, chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained
     global danger_sensor_obtained, sensor_obtained, danger_sensor_enabled, sensor_enabled  # 센서 관련 변수들
     global dashholder_obtained  # 대쉬홀더 관련 변수
@@ -24693,7 +24693,7 @@ def confirm_rest(stage_cleared, reward):
                         show_victory_screen(stage_cleared, reward)
                         return
 def show_start_screen():
-    global item_state.passive_item_list, item_state.active_item_slot, item_state.selected_item_index, item_state.max_item_slots  # bosspong.py 내부 전역변수 초기화 선언
+
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained  #  패시브 아이템 변수 초기화
     global game_should_exit  #  게임 종료 플래그
     global smoke_zones  #  연막 지역 초기화
@@ -33087,8 +33087,8 @@ def show_difficulty_selection():
 def start_game_with_difficulty(character_id, difficulty_mode):
     """선택한 캐릭터와 난이도로 게임 시작"""
     global ai_mode, ai_enabled, selected_character_type, soldier_initial_grenade_given
-    global item_state.active_item_slot, item_state.selected_item_index, master_obtained, last_item_use_time
-    global item_state.passive_item_list
+    global master_obtained, last_item_use_time
+
     # AI 모드 설정
     ai_mode = difficulty_mode
     ai_enabled = True
@@ -33242,7 +33242,7 @@ def show_developer_stage_select():
                         return
 def show_item_manager_menu():
     """아이템 관리자 메뉴 - 탭키 아이템창과 동일한 UI"""
-    global item_state.active_item_slot, item_state.passive_item_list, item_state.selected_item_index, item_state.selected_passive_item
+
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained, sensor_obtained
     global dashholder_obtained
@@ -33916,7 +33916,7 @@ def apply_selected_items(
     selected_firearm_items=None,
 ):
     """선택된 아이템들을 게임에 적용"""
-    global item_state.active_item_slot, item_state.passive_item_list
+
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained, sensor_obtained
     global danger_sensor_obtained, danger_sensor_enabled
@@ -44338,7 +44338,7 @@ def show_result(won):
     global bulkup_obtained, dashholder_obtained, gravitybelt_obtained  #  벌크업, 대쉬홀더, 무중력벨트 변수 추가
     global danger_sensor_obtained, sensor_obtained  #  센서 관련 변수 추가
     global rolling_charges  #  대쉬 토큰 수, 시너지 효과 변수 추가
-    global walls, pending_wall, wall_installing, wall_install_timer, wall_install_gauge_visible, item_state.passive_item_list, round_losses  #  벽돌 변수 추가
+    global walls, pending_wall, wall_installing, wall_install_timer, wall_install_gauge_visible, round_losses  #  벽돌 변수 추가
     global deuce_mode, deuce_wins, deuce_losses, deuce_goal  #  듀스 시스템 변수 추가
     global whip_sound  #  상모돌리기 사운드 추가
     # global balloon_active, balloon_timer, balloons, balloon_used_this_round  # Stage 1 보스 풍선파티 스킬 제거됨
@@ -44893,7 +44893,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown  # 드라이브 튜토리얼 플래그
     global boss_fail_timer, session_medal_earned, medal_score
     # 아이템 시스템
-    global item_state.selected_item_index, last_item_use_time
+    global last_item_use_time
     global master_obtained, cooltime_obtained
     global pandora_box_active, pandora_box_timer, pandora_box_original_spawn_delay, pandora_box_rainbow_animation
     global stopwatch_active, stopwatch_timer, stopwatch_flash_timer, stopwatch_clock_angle
@@ -49585,7 +49585,7 @@ def get_item_description(item_name):
     return descriptions.get(item_name, "설명이 없습니다.")
 def show_item_management_menu(item_list, selected_index, item_type):
     """아이템 관리자 메뉴 (버리기/취소)"""
-    global item_state.active_item_slot, item_state.passive_item_list, item_state.selected_item_index, item_state.selected_passive_item
+
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained
     global rolling_charges, sensor_enabled, sensor_obtained
@@ -49982,7 +49982,7 @@ def show_surrender_confirm():
                         return i == 0  # 예를 선택했으면 True
 def show_character_item_manager():
     """캐릭터 & 아이템 관리자 메뉴 - 캐릭터 선택과 아이템 관리를 통합"""
-    global item_state.active_item_slot, item_state.passive_item_list, item_state.selected_item_index, item_state.selected_passive_item
+
     global speedboots_obtained, speedgear_obtained, battery_obtained, revival_obtained, master_obtained, cooltime_obtained
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained, bulkup_obtained, sensor_obtained
     global dashholder_obtained
