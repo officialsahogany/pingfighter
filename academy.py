@@ -875,6 +875,7 @@ class AcademyUI:
         tree_data = SKILL_TREES[self.selected_tree]
         # 위치 최신화 (좌표 사용)
         self.update_skill_positions()
+        tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
         
         for skill in tree_data["skills"]:
             requires = skill.get("requires")
@@ -915,7 +916,6 @@ class AcademyUI:
             
             # 2. 누적 TP 조건 확인
             if total_tp_required > 0:
-                tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
                 if tree_tp_total < total_tp_required:
                     print(f" {skill['id']}  TP : {tree_tp_total}/{total_tp_required}")
                     can_unlock = False
@@ -1182,7 +1182,8 @@ class AcademyUI:
         
         # 기존 스킬트리 처리
         tree_data = SKILL_TREES[self.selected_tree]
-        
+        tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
+
         for skill in tree_data["skills"]:
             is_available = False
             
@@ -1210,7 +1211,7 @@ class AcademyUI:
             
             # 누적 TP 조건 확인
             if is_available and skill.get("total_tp_required"):
-                if self.skill_system.total_invested_points < skill.get("total_tp_required", 0):
+                if tree_tp_total < skill.get("total_tp_required", 0):
                     is_available = False
             
             if is_available:
