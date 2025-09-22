@@ -552,26 +552,6 @@ class AcademyUI:
             points.append((px, py))
         pygame.draw.polygon(target_surface, color, points)
 
-    def _create_master_badge_surface(self, color):
-        """STAR + MASTER + STAR 배지 생성"""
-        label_surface = self.font_small.render("MASTER", True, color)
-        star_size = max(4, label_surface.get_height() // 2)
-        spacing = 6
-        width = star_size * 2 + spacing * 2 + label_surface.get_width()
-        height = max(label_surface.get_height(), star_size * 2)
-        badge_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-
-        center_y = height // 2
-        # 왼쪽 별
-        self._draw_star_icon(badge_surface, star_size, center_y, star_size, color)
-        # 오른쪽 별
-        self._draw_star_icon(badge_surface, width - star_size, center_y, star_size, color)
-
-        text_x = star_size * 2 + spacing
-        text_y = (height - label_surface.get_height()) // 2
-        badge_surface.blit(label_surface, (text_x, text_y))
-        return badge_surface
-
     def handle_mouse_click(self, pos):
         """마우스 클릭 처리"""
         x, y = pos
@@ -2937,10 +2917,6 @@ class AcademyUI:
                 cost_text = self.font_small.render(f"비용: {actual_cost}TP", True, cost_color)
                 cost_rect = cost_text.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
                 self.screen.blit(cost_text, cost_rect)
-            else:
-                badge_surface = self._create_master_badge_surface((255, 215, 0))
-                badge_rect = badge_surface.get_rect(centerx=skill_x + skill_size//2, top=gauge_y + gauge_height + 5)
-                self.screen.blit(badge_surface, badge_rect)
             
             # 잠금 상태 표시
             is_locked = False
@@ -3314,8 +3290,7 @@ class AcademyUI:
                 self.screen.blit(next_surface, (desc_x + 10, next_y))
                 next_y += 18
         else:
-            master_surface = self.font_small.render("MASTER", True, (255, 215, 0))
-            self.screen.blit(master_surface, (desc_x + 10, cost_y))
+            pass
 
     def draw_linear_skill_tree(self, tree_data):
         """기존 방식의 선형 스킬트리 그리기 (item, paddle용)"""
