@@ -41,6 +41,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
     current_bgm_volume = clamp_volume(ctx.get_bgm_runtime_volume())
     current_sfx_volume = clamp_volume(ctx.get_sfx_volume())
+    modern_loop_enabled = ctx.get_modern_loop_enabled()
 
     slider_width = 400
     slider_height = 10
@@ -61,6 +62,15 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     back_button_x = panel_x + (panel_width - back_button_width) // 2
     back_button_y = panel_y + 320
     back_button_rect = pygame.Rect(back_button_x, back_button_y, back_button_width, back_button_height)
+
+    toggle_width = 300
+    toggle_height = 40
+    toggle_rect = pygame.Rect(
+        panel_x + (panel_width - toggle_width) // 2,
+        panel_y + 260,
+        toggle_width,
+        toggle_height,
+    )
 
     selected_slider: str | None = None
     dragging = False
@@ -147,6 +157,29 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         sfx_percent_rect = sfx_percent.get_rect(left=sfx_slider_x + slider_width + 20, centery=sfx_slider_y + slider_height // 2)
         ctx.screen.blit(sfx_percent, sfx_percent_rect)
 
+        toggle_hover = toggle_rect.collidepoint(pygame.mouse.get_pos())
+        toggle_color = (70, 110, 170) if toggle_hover else (45, 55, 70)
+        pygame.draw.rect(ctx.screen, toggle_color, toggle_rect, border_radius=6)
+        pygame.draw.rect(ctx.screen, const.WHITE, toggle_rect, 2, border_radius=6)
+        toggle_text = font_medium.render("모던 루프 사용", True, const.WHITE)
+        toggle_text_rect = toggle_text.get_rect(left=toggle_rect.x + 50, centery=toggle_rect.centery)
+        ctx.screen.blit(toggle_text, toggle_text_rect)
+
+        checkbox_size = 22
+        checkbox_rect = pygame.Rect(
+            toggle_rect.x + 15,
+            toggle_rect.centery - checkbox_size // 2,
+            checkbox_size,
+            checkbox_size,
+        )
+        pygame.draw.rect(ctx.screen, const.WHITE, checkbox_rect, 2, border_radius=4)
+        if modern_loop_enabled:
+            pygame.draw.rect(ctx.screen, (0, 220, 180), checkbox_rect.inflate(-6, -6), border_radius=3)
+
+        note_text = font_small.render("다음 게임부터 적용", True, (160, 160, 160))
+        note_rect = note_text.get_rect(left=toggle_rect.x, top=toggle_rect.bottom + 4)
+        ctx.screen.blit(note_text, note_rect)
+
         button_color = (100, 150, 255) if back_button_rect.collidepoint(pygame.mouse.get_pos()) else (50, 50, 50)
         pygame.draw.rect(ctx.screen, button_color, back_button_rect, border_radius=5)
         pygame.draw.rect(ctx.screen, const.WHITE, back_button_rect, 2, border_radius=5)
@@ -170,6 +203,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 if event.key == pygame.K_ESCAPE:
                     current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
                     current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                    ctx.set_modern_loop_enabled(modern_loop_enabled)
                     return
                 if event.key == pygame.K_LEFT:
                     if selected_slider == "bgm":
@@ -189,6 +223,11 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     selected_slider = "bgm"
                 elif event.key == pygame.K_DOWN:
                     selected_slider = "sfx"
+                elif event.key in (pygame.K_m, pygame.K_SPACE, pygame.K_RETURN):
+                    if toggle_rect.collidepoint(pygame.mouse.get_pos()) or selected_slider is None:
+                        ctx.play_button_click_sound()
+                        modern_loop_enabled = not modern_loop_enabled
+                        ctx.set_modern_loop_enabled(modern_loop_enabled)
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
@@ -198,7 +237,13 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     ctx.play_button_click_sound()
                     current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
                     current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                    ctx.set_modern_loop_enabled(modern_loop_enabled)
                     return
+                if toggle_rect.collidepoint(mouse_pos):
+                    ctx.play_button_click_sound()
+                    modern_loop_enabled = not modern_loop_enabled
+                    ctx.set_modern_loop_enabled(modern_loop_enabled)
+                    continue
 
                 bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
                 if bgm_slider_rect.collidepoint(mouse_pos) or bgm_handle_rect.collidepoint(mouse_pos):
@@ -248,3 +293,4 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
     ctx.store_bgm_volume(current_bgm_volume)
     ctx.set_sfx_volume(current_sfx_volume)
+    ctx.set_modern_loop_enabled(modern_loop_enabled)
