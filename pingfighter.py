@@ -8320,7 +8320,7 @@ def apply_spider_mine_slow():
     print("🕷️ 거미지뢰 폭발! 보스 이동속도가 30% 감소합니다.")
 
 
-def trigger_spider_mine_explosion(mine):
+def trigger_spider_mine_explosion(mine, reason="boss"):
     """지뢰 폭발 처리"""
     if mine.get("state") == "exploding":
         return
@@ -8332,31 +8332,32 @@ def trigger_spider_mine_explosion(mine):
     except Exception:
         pass
 
-    global boss_knockback_timer, boss_knockback_vel, boss_knockback_active
-    global boss_knockback_offset_x, boss_knockback_offset_y, boss_stunned_timer
-    global grenade_shake_timer
-
     impact_x = mine["x"]
     impact_y = mine["y"] + mine.get("embed_depth", 0.0)
 
-    boss_rect = BOSS if 'BOSS' in globals() else None
-    if boss_rect:
-        edge_margin = max(10, boss_rect.width // 2)
-        if boss_rect.left <= edge_margin:
-            knockback_direction = 1
-        elif boss_rect.right >= WIDTH - edge_margin:
-            knockback_direction = -1
-        else:
-            knockback_direction = 1 if impact_x < boss_rect.centerx else -1
+    if reason == "boss":
+        global boss_knockback_timer, boss_knockback_vel, boss_knockback_active
+        global boss_knockback_offset_x, boss_knockback_offset_y, boss_stunned_timer
+        global grenade_shake_timer
 
-        boss_knockback_timer = BLACKSMITH_TURRET_STUN_DURATION
-        boss_knockback_vel = knockback_direction * BLACKSMITH_TURRET_KNOCKBACK_SPEED
-        boss_knockback_active = False
-        boss_knockback_offset_x = 0
-        boss_knockback_offset_y = 0
-        boss_stunned_timer = max(boss_stunned_timer, BLACKSMITH_TURRET_STUN_DURATION)
+        boss_rect = BOSS if 'BOSS' in globals() else None
+        if boss_rect:
+            edge_margin = max(10, boss_rect.width // 2)
+            if boss_rect.left <= edge_margin:
+                knockback_direction = 1
+            elif boss_rect.right >= WIDTH - edge_margin:
+                knockback_direction = -1
+            else:
+                knockback_direction = 1 if impact_x < boss_rect.centerx else -1
 
-    grenade_shake_timer = max(grenade_shake_timer, 25)
+            boss_knockback_timer = BLACKSMITH_TURRET_STUN_DURATION
+            boss_knockback_vel = knockback_direction * BLACKSMITH_TURRET_KNOCKBACK_SPEED
+            boss_knockback_active = False
+            boss_knockback_offset_x = 0
+            boss_knockback_offset_y = 0
+            boss_stunned_timer = max(boss_stunned_timer, BLACKSMITH_TURRET_STUN_DURATION)
+
+        grenade_shake_timer = max(grenade_shake_timer, 25)
 
     try:
         effects_manager.create_impact_effect(int(impact_x), int(impact_y), 90, is_player=False)
@@ -8366,7 +8367,8 @@ def trigger_spider_mine_explosion(mine):
     except Exception:
         pass
 
-    apply_spider_mine_slow()
+    if reason == "boss":
+        apply_spider_mine_slow()
 
 
 def update_spider_mines():
@@ -8421,7 +8423,7 @@ def update_spider_mines():
             else:
                 mine["embed_depth"] = max(2.5, mine.get("embed_depth", 0.0) * 0.9)
             if mine["armed_elapsed"] >= SPIDER_MINE_SELF_DESTRUCT_TIME:
-                trigger_spider_mine_explosion(mine)
+                trigger_spider_mine_explosion(mine, reason="timer")
             elif BOSS.colliderect(get_spider_mine_rect(mine)):
                 trigger_spider_mine_explosion(mine)
         elif state == "exploding":
