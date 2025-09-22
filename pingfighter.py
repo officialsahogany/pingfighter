@@ -1577,6 +1577,8 @@ active_item_slot = []                # 리스트로 바꿔서 최대 3개 보관
 soldier_initial_grenade_given = False
 selected_item_index = 0              # 현재 선택 중인 아이템 인덱스
 MAX_ITEM_SLOTS = 3                   # 최대 아이템 슬롯 수 (기본값)
+passive_item_list = []               # 패시브 아이템 목록 (어댑터 호환용)
+selected_passive_item = -1           # 패시브 아이템 선택 인덱스 (어댑터 호환용)
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
 last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역 쿨타임용)
 
