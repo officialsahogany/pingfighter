@@ -63,7 +63,7 @@ from background_manager import (
 )
 from sound_effects import load_sound_effects
 from item_state_manager import reset_runtime_items
-from start_menu_decorations import draw_star_field, draw_neon_particles, draw_scan_lines, StarField
+from start_menu import MenuContext, MenuState, run_start_menu
 from game_state.audio import (
     get_bgm_volume,
     get_sfx_volume,
