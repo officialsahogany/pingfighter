@@ -21,6 +21,7 @@ class SupplyDropConfig:
         "grenade",
         "molotov",
         "flare",
+        "spider_mine",
         "bazooka",
         "ak47",
         "net_gun",
