@@ -50948,5 +50948,5 @@ def get_character_name(character_id):
 if __name__ == "__main__":
     # 무조건 오프닝 애니메이션 표시
     opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
-    g여전히 ame_loop()            
+    game_loop()            
 1
