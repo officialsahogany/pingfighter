@@ -8322,6 +8322,7 @@ def calculate_trajectory():
     global flame_trail_active, flame_trail_phase, flame_trail_rng, power_smashing_parabola_active, power_smashing_start_time, power_smashing_rng
     global quake_active, quake_timer, tears_active, tears_timer, quake_last_used_time, last_tears_cast_time
     global QUAKE_COOLDOWN, TEARS_COOLDOWN
+    global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer, stopwatch_original_ball_vel, stopwatch_forced_upward
 
     current_skill_signature = (
         quake_active,
@@ -8357,6 +8358,13 @@ def calculate_trajectory():
 
     last_prediction_ball_y = BALL.centery
     last_prediction_skill_signature = current_skill_signature
+
+    freeze_frames = stopwatch_timer if stopwatch_active and stopwatch_timer > 0 else 0
+    recovery_frames = stopwatch_recovery_timer if stopwatch_active and stopwatch_recovery_timer > 0 else 0
+    resume_velocity = None
+    if stopwatch_original_ball_vel:
+        resume_velocity = [stopwatch_original_ball_vel[0], stopwatch_original_ball_vel[1]]
+    resume_pending = freeze_frames > 0 and resume_velocity is not None
 
     # 시뮬레이션용 변수
     sim_x = BALL.centerx
