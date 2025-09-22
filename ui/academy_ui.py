@@ -3,12 +3,16 @@ Academy UI - 아카데미 모드 UI 화면
 스킬 트리 시각화, TP 관리, 업그레이드 인터페이스
 """
 
+import os
 import pygame
 import math
 from typing import Dict, List, Optional, Tuple
 from core.global_manager import GlobalManager
 from core.events import EventType, emit_event
 from modes.academy import get_academy_mode
+
+
+ACADEMY_UI_DEBUG = os.getenv("ACADEMY_UI_DEBUG") == "1"
 
 
 class SkillNode:
@@ -528,6 +532,8 @@ class AcademyUI:
                     fallback_id = skills[0]['id'] if skills else None
                 else:
                     fallback_id = saved_skill
+                if ACADEMY_UI_DEBUG:
+                    print(f"[AcademyUI] sync tab={current_tree_id} saved={saved_skill} -> fallback={fallback_id}")
                 self._set_selected_skill(current_tree_id, fallback_id)
         else:
             # 존재하지 않는 탭은 정보 패널을 표시하지 않고 종료
@@ -562,6 +568,9 @@ class AcademyUI:
                 skill = tree.get_skill(fallback_id)
             if not skill:
                 return
+
+        if ACADEMY_UI_DEBUG:
+            print(f"[AcademyUI] render_info tree={self.selected_tree} skill={self.selected_skill}")
             
         # 정보 박스
         info_x = self.width - 250
