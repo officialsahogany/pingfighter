@@ -660,8 +660,8 @@ class AcademyUI:
         can_upgrade = tree.can_upgrade(self.selected_skill, self.academy_mode.player_data['tp'])
         status_pos_y = info_y + info_height - 20
         if current_level >= max_level:
-            badge = self._create_max_badge_surface((255, 215, 0))
-            self.screen.blit(badge, (info_x + 10, status_pos_y))
+            master_surface = self.font_small.render("마스터", True, (255, 215, 0))
+            self.screen.blit(master_surface, (info_x + 10, status_pos_y))
         elif can_upgrade:
             upgrade_surface = self.font_small.render("클릭하여 업그레이드", True, (100, 255, 100))
             self.screen.blit(upgrade_surface, (info_x + 10, status_pos_y))
