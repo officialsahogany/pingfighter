@@ -6,6 +6,7 @@
 
 import pygame
 import math
+import random
 
 class Smartphone:
     def __init__(self):
@@ -22,6 +23,91 @@ class Smartphone:
         self.closing_streak = 0
         self.closing_streak = 0
         
+    def _apply_academy_effects(self, main_module):
+        """연금술/게이지 보너스 처리를 공통화"""
+        recycle_triggered = False
+        gauge_bonus = 0
+        recycle_chance = 0.0
+        try:
+            import academy
+            recycle_chance = academy.get_item_recycle_chance()
+            gauge_bonus = academy.get_active_item_gauge_bonus()
+        except Exception:
+            recycle_chance = 0.0
+            gauge_bonus = 0
+
+        # 게이지 보너스 적용 (자동 사용도 동일한 혜택)
+        if gauge_bonus:
+            current_gauge = getattr(main_module, 'special_gauge', 0)
+            get_max_gauge = getattr(main_module, 'get_max_gauge', None)
+            if callable(get_max_gauge):
+                current_max = get_max_gauge()
+            else:
+                current_max = getattr(main_module, 'special_gauge_max', None)
+                if current_max is None:
+                    current_max = max(550, current_gauge)
+            new_gauge = min(current_max, current_gauge + gauge_bonus)
+            setattr(main_module, 'special_gauge', new_gauge)
+            if new_gauge >= 350:
+                setattr(main_module, 'special_ready', True)
+
+        if recycle_chance > 0 and random.random() < recycle_chance:
+            recycle_triggered = True
+            print("⚗️ 연금술 발동! 아이템이 유지됩니다.")
+
+        return recycle_triggered
+
+    def _remove_item_from_slots(self, item_name, main_module, game_state, slot_index_hint=None):
+        """스마트폰이 사용한 아이템을 슬롯에서 제거"""
+        removed_index = None
+
+        active_slot = getattr(main_module, 'active_item_slot', None)
+        if isinstance(active_slot, list) and active_slot:
+            if slot_index_hint is not None and 0 <= slot_index_hint < len(active_slot):
+                candidate = active_slot[slot_index_hint]
+                if candidate and candidate.get('name') == item_name:
+                    del active_slot[slot_index_hint]
+                    removed_index = slot_index_hint
+            if removed_index is None:
+                for idx in range(len(active_slot) - 1, -1, -1):
+                    item = active_slot[idx]
+                    if item and item.get('name') == item_name:
+                        del active_slot[idx]
+                        removed_index = idx
+                        break
+
+            if removed_index is not None and hasattr(main_module, 'selected_item_index'):
+                selected = main_module.selected_item_index
+                if selected >= len(active_slot):
+                    main_module.selected_item_index = max(0, len(active_slot) - 1)
+                elif removed_index <= selected and selected > 0:
+                    main_module.selected_item_index -= 1
+
+        # game_state가 별도 리스트를 가지고 있다면 동일하게 제거
+        if isinstance(game_state, dict):
+            active_items = game_state.get('active_items')
+            if (
+                isinstance(active_items, list)
+                and active_items is not getattr(main_module, 'active_item_slot', None)
+            ):
+                if slot_index_hint is not None and 0 <= slot_index_hint < len(active_items):
+                    candidate = active_items[slot_index_hint]
+                    if candidate and candidate.get('name') == item_name:
+                        del active_items[slot_index_hint]
+                        return
+                for idx in range(len(active_items) - 1, -1, -1):
+                    item = active_items[idx]
+                    if item and item.get('name') == item_name:
+                        del active_items[idx]
+                        break
+
+    def _handle_item_consumption(self, item_name, main_module, game_state, slot_index_hint=None):
+        """연금술 처리 후 필요 시 아이템 제거"""
+        recycle_triggered = self._apply_academy_effects(main_module)
+        if not recycle_triggered:
+            self._remove_item_from_slots(item_name, main_module, game_state, slot_index_hint=slot_index_hint)
+        return recycle_triggered
+
     def activate(self, game_state, current_stage):
         """패시브 아이템 활성화"""
         self.active = True
@@ -787,28 +873,7 @@ class Smartphone:
                     setattr(main_module, 'stopwatch_forced_upward', True)
                 except Exception:
                     pass
-                # Remove stopwatch from active items in the actual game slot
-                if hasattr(main_module, 'active_item_slot'):
-                    active_item_slot = main_module.active_item_slot
-                    if active_item_slot:
-                        # Find and delete the stopwatch item (like normal usage)
-                        for i in range(len(active_item_slot) - 1, -1, -1):  # Iterate backwards to avoid index issues
-                            item = active_item_slot[i]
-                            if item and item.get('name') == 'stopwatch':
-                                del active_item_slot[i]  # Completely remove from list
-                                print(f"[DEBUG] 스마트폰이 스탑워치를 슬롯 {i}에서 완전히 제거 (del 사용)")
-                                # Adjust selected index if needed
-                                if hasattr(main_module, 'selected_item_index'):
-                                    if main_module.selected_item_index >= len(active_item_slot):
-                                        main_module.selected_item_index = max(0, len(active_item_slot) - 1)
-                                break
-                # Also remove from local game_state for consistency (when it isn't the same list)
-                active_items = game_state.get('active_items', []) if isinstance(game_state, dict) else []
-                if isinstance(active_items, list) and active_items is not getattr(main_module, 'active_item_slot', None):
-                    for i in range(len(active_items) - 1, -1, -1):
-                        if active_items[i] and active_items[i].get('name') == 'stopwatch':
-                            del active_items[i]
-                            break
+                self._handle_item_consumption('stopwatch', main_module, game_state)
         else:
             print("스탑워치 함수를 찾을 수 없습니다")
             
@@ -822,28 +887,7 @@ class Smartphone:
             # Check if aipill is not already active
             if not getattr(main_module, 'aipill_active', False):
                 main_module.activate_aipill()
-                # Remove aipill from active items in the actual game slot
-                if hasattr(main_module, 'active_item_slot'):
-                    active_item_slot = main_module.active_item_slot
-                    if active_item_slot:
-                        # Find and delete the aipill item (like normal usage)
-                        for i in range(len(active_item_slot) - 1, -1, -1):  # Iterate backwards to avoid index issues
-                            item = active_item_slot[i]
-                            if item and item.get('name') == 'aipill':
-                                del active_item_slot[i]  # Completely remove from list
-                                print(f"[DEBUG] 스마트폰이 AI알약을 슬롯 {i}에서 완전히 제거 (del 사용)")
-                                # Adjust selected index if needed
-                                if hasattr(main_module, 'selected_item_index'):
-                                    if main_module.selected_item_index >= len(active_item_slot):
-                                        main_module.selected_item_index = max(0, len(active_item_slot) - 1)
-                                break
-                # Also remove from local game_state for consistency (when it isn't the same list)
-                active_items = game_state.get('active_items', []) if isinstance(game_state, dict) else []
-                if isinstance(active_items, list) and active_items is not getattr(main_module, 'active_item_slot', None):
-                    for i in range(len(active_items) - 1, -1, -1):
-                        if active_items[i] and active_items[i].get('name') == 'aipill':
-                            del active_items[i]
-                            break
+                self._handle_item_consumption('aipill', main_module, game_state)
         else:
             print("AI알약 함수를 찾을 수 없습니다")
             
