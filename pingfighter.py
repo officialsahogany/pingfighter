@@ -9195,10 +9195,6 @@ def draw_predicted_trajectory():
     if not predictor_active:
         return
     
-    # 테스트: 레이저스코프가 활성화되면 항상 무언가 그리기
-    if predictor_active and len(predicted_trajectory) == 0:
-        # 간단한 테스트 표시
-        pygame.draw.circle(SCREEN, (255, 0, 0), (WIDTH // 2, HEIGHT // 2), 20, 3)
     # 공이 위로 향하고 있으면 궤적 지우기 (플레이어가 친 경우)
     skill_active_now = (
         quake_active
