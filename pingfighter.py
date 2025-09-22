@@ -8996,8 +8996,15 @@ def calculate_trajectory():
             random.setstate(random_state)
 
         if skill_type in high_detail_skills and len(predicted_trajectory) > 2:
+            smoothing_radius_map = {
+                "flame_trail": 2,
+                "power_smashing": 3,
+                "magnetic": 2,
+                "meditation": 1,
+                "quake": 3,
+            }
+            smoothing_radius = smoothing_radius_map.get(skill_type, 2)
             smoothed_trajectory = []
-            smoothing_radius = 2
             for idx, point in enumerate(predicted_trajectory):
                 start = max(0, idx - smoothing_radius)
                 end = min(len(predicted_trajectory) - 1, idx + smoothing_radius)
