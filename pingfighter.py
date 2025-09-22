@@ -15532,6 +15532,7 @@ def handle_wall():
     global walls, pending_wall, wall_installing, wall_install_timer, wall_install_gauge_visible
     global boss_stunned_timer, boss_knockback_vel, explosion_zones, grenades
     global boss_confused_timer, flares, flare_zones, last_hit_by
+    global spider_mines, spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
     global boss_current_health, boss_max_health  #  체력형 보스 체력 변수
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
     global special_gauge, special_ready  # 게이지 관련 변수 추가
@@ -15552,6 +15553,8 @@ def handle_wall():
         # 벽돌 부서지는 파티클 이펙트 생성
         create_brick_destruction_effect(wall["rect"])
     walls = [wall for wall in walls if wall["hit_count"] < 2]
+    # 스파이더지뢰 이동 업데이트
+    update_spider_mines()
     # 수류탄 업데이트
     global grenade_shake_timer, boss_stunned_timer, boss_knockback_vel, explosion_zones
     for grenade in grenades[:]:
@@ -21277,6 +21280,8 @@ def draw_objects():
         except:
             # 기본 원형 그리기
             draw.circle((80, 100, 80), (int(grenade["x"]), int(grenade["y"])), 12)
+    # 스파이더지뢰 그리기
+    draw_spider_mines(SCREEN)
     # 현실감 있는 수류탄 폭발 효과 그리기
     for zone in explosion_zones:
         if zone["active"]:
