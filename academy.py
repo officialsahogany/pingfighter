@@ -2532,16 +2532,20 @@ class AcademyUI:
         
         # 연결선 먼저 그리기
         for skill in tree_data["skills"]:
+            tree_id_for_skill = self.skill_system.get_tree_id_for_skill(skill["id"]) or self.selected_tree
+            tree_tp_total = self.skill_system.get_tree_total(tree_id_for_skill)
+            tp_requirement = skill.get("total_tp_required", 0)
             if skill.get("requires"):
                 current_pos = skill_positions[skill["id"]]
-                
+
                 if isinstance(skill.get("requires"), list):
                     # 여러 선행 스킬이 있는 경우 (대쉬 스피릿)
                     for required_skill in skill.get("requires"):
                         if required_skill in skill_positions:
                             required_pos = skill_positions[required_skill]
                             required_level = self.skill_system.get_skill_level(required_skill)
-                            line_color = (100, 255, 100) if required_level > 0 else (100, 100, 100)
+                            tp_met = tree_tp_total >= tp_requirement
+                            line_color = (100, 255, 100) if required_level > 0 and tp_met else (100, 100, 100)
                             
                             # 화살표 선 그리기
                             pygame.draw.line(self.screen, line_color, 
@@ -2565,9 +2569,7 @@ class AcademyUI:
                     if required_skill in skill_positions:
                         required_pos = skill_positions[required_skill]
                         required_level = self.skill_system.get_skill_level(required_skill)
-                        # 화살표는 선행 스킬이 해금되고 조건을 만족하면 초록색
-                        tp_requirement = skill.get("total_tp_required", 0)
-                        tp_met = self.skill_system.total_invested_points >= tp_requirement
+                        tp_met = tree_tp_total >= tp_requirement
                         line_color = (100, 255, 100) if (required_level > 0 and tp_met) else (100, 100, 100)
                         
                         # 화살표 선 그리기
@@ -2594,9 +2596,7 @@ class AcademyUI:
                     if required_skill in skill_positions:
                         required_pos = skill_positions[required_skill]
                         required_level = self.skill_system.get_skill_level(required_skill)
-                        # OR 조건에서는 현재 연결된 선행 스킬이 해금되면 초록색
-                        tp_requirement = skill.get("total_tp_required", 0)
-                        tp_met = self.skill_system.total_invested_points >= tp_requirement
+                        tp_met = tree_tp_total >= tp_requirement
                         line_color = (100, 255, 100) if (required_level > 0 and tp_met) else (100, 100, 100)
                         
                         # 화살표 선 그리기
@@ -3111,6 +3111,8 @@ class AcademyUI:
             self.selected_skill_index = 0
 
         selected_skill = tree_data["skills"][self.selected_skill_index]
+        tree_id_for_skill = self.skill_system.get_tree_id_for_skill(selected_skill["id"]) or self.selected_tree
+        tree_tp_total = self.skill_system.get_tree_total(tree_id_for_skill)
 
         if ACADEMY_DEBUG and self.selected_tree == "item":
             print(f"[AcademyUI] tree=item idx={self.selected_skill_index} skill={selected_skill['id']}")
@@ -3248,7 +3250,7 @@ class AcademyUI:
             if not can_upgrade:
                 if self.skill_system.skill_points < actual_cost:
                     cost_text += "\n(포인트 부족)"
-                elif selected_skill.get("total_tp_required", 0) > self.skill_system.total_invested_points:
+                elif selected_skill.get("total_tp_required", 0) > tree_tp_total:
                     cost_text += f"\n(누적 TP {selected_skill['total_tp_required']} 필요)"
                 elif selected_skill.get("requires") or selected_skill.get("requires_or"):
                     cost_text += "\n(선행스킬 필요)"
@@ -3605,7 +3607,7 @@ class AcademyUI:
             
             # 누적 TP 조건 확인
             if skill.get("total_tp_required") and not is_locked:
-                if self.skill_system.total_invested_points < skill.get("total_tp_required", 0):
+                if tree_tp_total < skill.get("total_tp_required", 0):
                     is_locked = True
                         
             if (skill.get("requires") or skill.get("requires_or") or skill.get("total_tp_required")) and is_locked:
