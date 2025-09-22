@@ -6792,7 +6792,7 @@ tears_timer = 0
 falling_tears = []  # [(x, y, speed)] 리스트
 last_tears_cast_time = -9999  # 마지막 눈물샤워 발동 시간
 TEARS_COOLDOWN = 7000        # 쿨타임 (밀리초 단위 = 5초)
-passive_item_list = []
+item_state_adapter.clear_passive_items()
 try:
     BOSS_IMG_STAGE1 = pygame.image.load(resource_path("boss_stage1.png")).convert_alpha()
     BOSS_IMG_STAGE1 = pygame.transform.scale(BOSS_IMG_STAGE1, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
@@ -32950,18 +32950,16 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         master_obtained = True
         items.master_obtained = True
         print("🔨 발토르 캐릭터 선택! 장인의 망치 패시브 아이템 자동 장착!")
-        if passive_item_list is None:
-            passive_item_list = []
-        if not any(item.get("name") == "master" for item in passive_item_list):
-            passive_item_list.append({
+        passive_items = item_state_adapter.passive_items()
+        if not any(item.get("name") == "master" for item in passive_items):
+            item_state_adapter.append_passive_item({
                 "name": "master",
                 "type": "passive",
                 "icon": get_item_icon("master")
             })
         # 발토르는 경기 시작 시 방어용 벽돌을 한 개 기본 보유한다
-        if active_item_slot is None:
-            active_item_slot = []
-        if not any(item.get("name") == "wall" for item in active_item_slot):
+        active_items = item_state_adapter.active_items()
+        if not any(item.get("name") == "wall" for item in active_items):
             wall_item = {
                 "name": "wall",
                 "type": "active",
@@ -32970,8 +32968,8 @@ def start_game_with_difficulty(character_id, difficulty_mode):
                 "last_use": last_item_use_time,
                 "temporary_overflow": False
             }
-            active_item_slot.append(wall_item)
-            selected_item_index = len(active_item_slot) - 1
+            item_state_adapter.append_active_item(wall_item)
+            _set_selected_item_index(len(active_items) - 1)
     elif character_id == "smasher":
         selected_character_type = "smasher"
     elif character_id == "optimus":
