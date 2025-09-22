@@ -1170,6 +1170,14 @@ SOUND_AK47 = sound_effects['AK47']
 SOUND_RAGNAROK_BOOM = sound_effects['RAGNAROK_BOOM']
 SOUND_RAGNAROK_SHOCK = sound_effects['RAGNAROK_SHOCK']
 SOUND_CONSTRUCTION = sound_effects['CONSTRUCTION']
+if SOUND_CONSTRUCTION is None:
+    try:
+        SOUND_CONSTRUCTION = pygame.mixer.Sound(resource_path("sounds/construction.wav"))
+    except Exception:
+        SOUND_CONSTRUCTION = None
+
+if whip_sound is None:
+    whip_sound = SOUND_DASH
 
 # 라그나로크 해머 사운드 채널 (중첩 재생 방지)
 ragnarok_shot_channel = None
@@ -1214,13 +1222,8 @@ for i in range(1, 4):
 if not SOUND_STAGE5_HURTS:
     print("No Stage 5 hurt sounds available")
 # 메뉴 사운드 (자동 생성된 파일들)
-try:
-    SOUND_BUTTON_CLICK = pygame.mixer.Sound(resource_path("sounds/button_click.wav"))  #  버튼 클릭 사운드
-    SOUND_BUTTON_HOVER = pygame.mixer.Sound(resource_path("sounds/button_hover.wav"))  #  버튼 호버 사운드
-except:
-    # 사운드 파일이 없으면 기본 사운드 사용
-    SOUND_BUTTON_CLICK = SOUND_ACTIVE_ITEM
-    SOUND_BUTTON_HOVER = SOUND_ACTIVE_ITEM
+SOUND_BUTTON_CLICK = sound_effects['BUTTON_CLICK'] or SOUND_ACTIVE_ITEM
+SOUND_BUTTON_HOVER = sound_effects['BUTTON_HOVER'] or SOUND_ACTIVE_ITEM
 # === 추가된 필살기 관련 전역 변수 ===
 special_ready = False
 special_active = False
