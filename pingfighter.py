@@ -12817,6 +12817,17 @@ def handle_player(keys):
         set_roll("rolling_direction", direction)
         return charges
 
+    def _start_dash(direction: int, *, tutorial_reset: bool = True) -> int:
+        """공통 대쉬 시작 준비. 사용 가능한 토큰 수를 반환한다."""
+        charges = get_roll("rolling_charges")
+        if charges <= 0:
+            return 0
+        if tutorial_reset and current_stage == 50 and 'tutorial_dash_already_counted' in globals():
+            globals()["tutorial_dash_already_counted"] = False
+        set_roll("rolling_active", True)
+        set_roll("rolling_direction", direction)
+        return charges
+
     # 서브 완료 후 타이머는 프레임 초기에 감소시켜, 아래의 조기 return 경로들(화상, 스턴, 설치 등)로 인해
     # 타이머가 영구히 감소하지 못해 물자보급/대시가 계속 금지되는 상황을 방지한다.
     if serve_completed_timer > 0:
