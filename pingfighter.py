@@ -3968,6 +3968,11 @@ def _draw_blacksmith_legs(surface, step=0):
     pygame.draw.circle(surface, (95, 80, 62), (right_thigh_x, knee_y + 1), 3)
 
 def create_blacksmith_paddle_base():
+    global blacksmith_hammer_available, blacksmith_hammer_shock_charging
+    if 'blacksmith_hammer_available' not in globals():
+        blacksmith_hammer_available = True
+    if 'blacksmith_hammer_shock_charging' not in globals():
+        blacksmith_hammer_shock_charging = False
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0)
     _draw_blacksmith_legs(surface, 0)
