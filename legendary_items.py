@@ -1878,7 +1878,7 @@ class SacredLaurel(LegendaryItem):
         self.reappear_timer = self.reappear_duration
         self.hit_flash_duration = 350
         self.hit_flash_timer = 0
-        self.rotation_speed = 0.18  # 도/밀리초 기준 회전 속도
+        self.rotation_speed = 0.28  # 도/밀리초 기준 회전 속도
         self.rotation_angle = 0.0
         self.tilt_ratio = 0.38
         self.absorption_threshold = 0.82  # 완전히 재생된 후에만 보호막 발동
@@ -1893,10 +1893,11 @@ class SacredLaurel(LegendaryItem):
         self.base_ring_surface, self.base_highlight_surface = self._create_base_ring_surfaces()
         self._last_ring_geometry: Optional[Tuple[float, float, float, float]] = None
         self._generate_animation_frames()
-        self.segment_count = 16
-        self.segment_radius_scale = 0.92
-        self.segment_wave_speed = 0.28
+        self.segment_count = 18
+        self.segment_radius_scale = 0.95
+        self.segment_wave_speed = 0.35
         self.segment_color_phase = random.uniform(0, math.tau)
+        self.segment_secondary_phase = random.uniform(0, math.tau)
 
     def can_absorb(self) -> bool:
         """현재 보호막이 충격을 흡수할 수 있는지 확인"""
@@ -2063,7 +2064,9 @@ class SacredLaurel(LegendaryItem):
             return
 
         self.rotation_angle = (self.rotation_angle + self.rotation_speed * dt) % 360.0
-        self.segment_color_phase = (self.segment_color_phase + self.segment_wave_speed * dt * 0.001) % (2 * math.pi)
+        advance = self.segment_wave_speed * dt * 0.001
+        self.segment_color_phase = (self.segment_color_phase + advance) % (2 * math.pi)
+        self.segment_secondary_phase = (self.segment_secondary_phase + advance * 1.5) % (2 * math.pi)
 
         if self.fade_amount < 1.0:
             self.reappear_timer = min(self.reappear_timer + dt, self.reappear_duration)
