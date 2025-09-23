@@ -3674,7 +3674,7 @@ def get_skill_level(skill_id):
 
 def compute_item_spawn_delay_multiplier(level):
     """행운 스킬 레벨을 받아 실제 딜레이 배율 계산"""
-    base = max(0.05, 1.0 - 0.05 * level)
+    base = max(0.05, 1.0 - 0.06 * level)
     if level >= 5:
         base = max(0.05, base - 0.05)
     return base
