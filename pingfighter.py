@@ -3776,6 +3776,9 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     forward_vec = direction_vec.normalize()
     perp_vec = pygame.math.Vector2(-forward_vec.y, forward_vec.x)
 
+    def _vec_to_int_pair(vec: pygame.math.Vector2) -> tuple[int, int]:
+        return (int(round(vec.x)), int(round(vec.y)))
+
     handle_length = 46
     handle_half_width = 5
     top_offset = handle_length * (1.0 - grip_ratio)
@@ -3788,34 +3791,34 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     handle_dir = handle_dir.normalize()
 
     handle_poly = [
-        tuple(handle_top + perp_vec * handle_half_width),
-        tuple(handle_top - perp_vec * handle_half_width),
-        tuple(handle_bottom_point - perp_vec * handle_half_width),
-        tuple(handle_bottom_point + perp_vec * handle_half_width),
+        _vec_to_int_pair(handle_top + perp_vec * handle_half_width),
+        _vec_to_int_pair(handle_top - perp_vec * handle_half_width),
+        _vec_to_int_pair(handle_bottom_point - perp_vec * handle_half_width),
+        _vec_to_int_pair(handle_bottom_point + perp_vec * handle_half_width),
     ]
     pygame.draw.polygon(surface, (90, 60, 36), handle_poly)
 
     detail_poly = [
-        tuple(handle_top + perp_vec * (handle_half_width - 2)),
-        tuple(handle_top - perp_vec * (handle_half_width - 2)),
-        tuple(handle_bottom_point - perp_vec * (handle_half_width - 2)),
-        tuple(handle_bottom_point + perp_vec * (handle_half_width - 2)),
+        _vec_to_int_pair(handle_top + perp_vec * (handle_half_width - 2)),
+        _vec_to_int_pair(handle_top - perp_vec * (handle_half_width - 2)),
+        _vec_to_int_pair(handle_bottom_point - perp_vec * (handle_half_width - 2)),
+        _vec_to_int_pair(handle_bottom_point + perp_vec * (handle_half_width - 2)),
     ]
     pygame.draw.polygon(surface, (60, 35, 18), detail_poly, width=0)
 
     for stripe_pos in range(6, int(handle_length), 6):
         stripe_center = handle_top + handle_dir * stripe_pos
-        stripe_start = tuple(stripe_center - perp_vec * (handle_half_width - 2))
-        stripe_end = tuple(stripe_center + perp_vec * (handle_half_width - 2))
+        stripe_start = _vec_to_int_pair(stripe_center - perp_vec * (handle_half_width - 2))
+        stripe_end = _vec_to_int_pair(stripe_center + perp_vec * (handle_half_width - 2))
         pygame.draw.line(surface, (110, 82, 52), stripe_start, stripe_end, 2)
 
     cap_length = 10
     cap_vec = forward_vec * cap_length
     cap_poly = [
-        tuple(handle_top + perp_vec * handle_half_width),
-        tuple(handle_top - perp_vec * handle_half_width),
-        tuple(handle_top + cap_vec - perp_vec * handle_half_width),
-        tuple(handle_top + cap_vec + perp_vec * handle_half_width),
+        _vec_to_int_pair(handle_top + perp_vec * handle_half_width),
+        _vec_to_int_pair(handle_top - perp_vec * handle_half_width),
+        _vec_to_int_pair(handle_top + cap_vec - perp_vec * handle_half_width),
+        _vec_to_int_pair(handle_top + cap_vec + perp_vec * handle_half_width),
     ]
     pygame.draw.polygon(surface, (112, 76, 48), cap_poly)
 
@@ -3826,10 +3829,10 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     head_long_vec = perp_vec * head_half_long
     head_short_vec = forward_vec * head_half_short
     head_corners = [
-        tuple(head_center + head_long_vec + head_short_vec),
-        tuple(head_center - head_long_vec + head_short_vec),
-        tuple(head_center - head_long_vec - head_short_vec),
-        tuple(head_center + head_long_vec - head_short_vec),
+        _vec_to_int_pair(head_center + head_long_vec + head_short_vec),
+        _vec_to_int_pair(head_center - head_long_vec + head_short_vec),
+        _vec_to_int_pair(head_center - head_long_vec - head_short_vec),
+        _vec_to_int_pair(head_center + head_long_vec - head_short_vec),
     ]
     pygame.draw.polygon(surface, (176, 182, 196), head_corners)
 
@@ -3838,22 +3841,22 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     inner_long_vec = head_long_vec * inner_scale
     inner_short_vec = head_short_vec * inner_scale
     inner_corners = [
-        tuple(inner_center + inner_long_vec + inner_short_vec),
-        tuple(inner_center - inner_long_vec + inner_short_vec),
-        tuple(inner_center - inner_long_vec - inner_short_vec),
-        tuple(inner_center + inner_long_vec - inner_short_vec),
+        _vec_to_int_pair(inner_center + inner_long_vec + inner_short_vec),
+        _vec_to_int_pair(inner_center - inner_long_vec + inner_short_vec),
+        _vec_to_int_pair(inner_center - inner_long_vec - inner_short_vec),
+        _vec_to_int_pair(inner_center + inner_long_vec - inner_short_vec),
     ]
     pygame.draw.polygon(surface, (210, 215, 228), inner_corners)
 
-    ridge_start = tuple(head_center - head_long_vec * 0.7 + head_short_vec * 0.6)
-    ridge_end = tuple(head_center + head_long_vec * 0.7 + head_short_vec * 0.6)
+    ridge_start = _vec_to_int_pair(head_center - head_long_vec * 0.7 + head_short_vec * 0.6)
+    ridge_end = _vec_to_int_pair(head_center + head_long_vec * 0.7 + head_short_vec * 0.6)
     pygame.draw.line(surface, (120, 130, 142), ridge_start, ridge_end, 2)
 
     spike_tip = head_center + head_long_vec + head_short_vec * 0.1
     spike_poly = [
-        tuple(spike_tip),
-        tuple(spike_tip - head_long_vec * 0.3 + head_short_vec * 0.3),
-        tuple(spike_tip - head_long_vec * 0.3 - head_short_vec * 0.3),
+        _vec_to_int_pair(spike_tip),
+        _vec_to_int_pair(spike_tip - head_long_vec * 0.3 + head_short_vec * 0.3),
+        _vec_to_int_pair(spike_tip - head_long_vec * 0.3 - head_short_vec * 0.3),
     ]
     pygame.draw.polygon(surface, (140, 155, 168), spike_poly)
 
@@ -3862,8 +3865,8 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     pygame.draw.line(
         surface,
         (240, 160, 60),
-        tuple(emblem_center - head_long_vec * 0.3 - head_short_vec * 0.2),
-        tuple(emblem_center + head_long_vec * 0.3 + head_short_vec * 0.2),
+        _vec_to_int_pair(emblem_center - head_long_vec * 0.3 - head_short_vec * 0.2),
+        _vec_to_int_pair(emblem_center + head_long_vec * 0.3 + head_short_vec * 0.2),
         2,
     )
 
