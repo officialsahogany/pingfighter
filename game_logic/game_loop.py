@@ -899,3 +899,5 @@ def _sync_core_game_state_from_state(state: GameState) -> None:
         legacy_store.update(state.legacy_globals)
     else:
         core_state.legacy_globals = dict(state.legacy_globals)
+    if not hasattr(core_state, "legacy") or getattr(core_state.legacy, "store", None) is not getattr(core_state, "legacy_globals", None):
+        core_state._bind_legacy_accessor()

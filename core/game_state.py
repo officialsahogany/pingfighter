@@ -6,6 +6,8 @@ GameState - 전역 상태 관리 클래스
 import json
 from typing import Dict, List, Any
 
+from core.legacy_state_accessor import bind_legacy_accessor
+
 
 class GameState:
     """게임의 전역 상태를 관리하는 싱글톤 클래스
@@ -182,7 +184,8 @@ class GameState:
         # ========== 상태 딕셔너리 (추가적인 동적 상태 저장용) ==========
         self.state = {}
         self.legacy_globals: Dict[str, Any] = {}
-        
+        self._bind_legacy_accessor()
+
     def get(self, key: str, default: Any = None) -> Any:
         """상태 값 가져오기
         
@@ -214,6 +217,10 @@ class GameState:
         else:
             # 없으면 state 딕셔너리에 설정
             self.state[key] = value
+
+    def _bind_legacy_accessor(self) -> None:
+        """레거시 상태 접근자를 현재 딕셔너리에 맞게 재바인딩."""
+        self.legacy = bind_legacy_accessor(self.legacy_globals)
         
     def reset_round(self):
         """라운드 초기화"""
