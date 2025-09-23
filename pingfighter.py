@@ -21637,6 +21637,7 @@ def draw_objects():
         pass
 
     draw_blacksmith_turret_elements(SCREEN)
+    draw_blacksmith_hammer_shock(SCREEN)
 
     # 킥차져 빛나는 이펙트 그리기
     try:
@@ -49889,6 +49890,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
     def _player_hook(state, input_handler):
         keys = pygame.key.get_pressed()
         handle_player(keys)
+        update_blacksmith_hammer_shock(keys)
 
     def _physics_hook(state, delta_time):
         handle_ball()
