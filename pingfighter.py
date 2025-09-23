@@ -4357,6 +4357,10 @@ _blacksmith_hammer_charge_surface_cache: dict[int, pygame.Surface] = {}
 _blacksmith_hammer_charge_spark_cache: dict[int, pygame.Surface] = {}
 
 
+def _clamp_color(color: tuple[int, ...]) -> tuple[int, ...]:
+    return tuple(max(0, min(255, int(component))) for component in color)
+
+
 def _get_blacksmith_hammer_charge_surface(stage: int) -> pygame.Surface:
     clamped_stage = max(0, min(int(stage), BLACKSMITH_HAMMER_SHOCK_MAX_STAGE))
     cached = _blacksmith_hammer_charge_surface_cache.get(clamped_stage)
@@ -4376,11 +4380,11 @@ def _get_blacksmith_hammer_charge_surface(stage: int) -> pygame.Surface:
         (radius + 2, (110, 200, 255, 110 + clamped_stage * 25)),
     )
     for band_radius, color in outer_bands:
-        pygame.draw.circle(surface, color, (center, center), max(0, band_radius))
+        pygame.draw.circle(surface, _clamp_color(color), (center, center), max(0, band_radius))
 
     # 중심부 코어와 윤곽선
-    pygame.draw.circle(surface, (200, 235, 255, 200), (center, center), max(2, radius - 4))
-    pygame.draw.circle(surface, (150, 215, 255, 240), (center, center), radius, width=3)
+    pygame.draw.circle(surface, _clamp_color((200, 235, 255, 200)), (center, center), max(2, radius - 4))
+    pygame.draw.circle(surface, _clamp_color((150, 215, 255, 240)), (center, center), radius, width=3)
 
     _blacksmith_hammer_charge_surface_cache[clamped_stage] = surface
     return surface
