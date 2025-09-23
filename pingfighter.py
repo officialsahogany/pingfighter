@@ -34581,6 +34581,8 @@ def apply_selected_items(
                 items.ragnarok_hammer_obtained = True
             elif item_name == "hermes_shoes":
                 items.hermes_shoes_obtained = True
+            elif item_name == "sacred_laurel":
+                items.sacred_laurel_obtained = True
             
             # 전설 아이템을 패시브 아이템 리스트에 추가 (TAB 키로 볼 수 있도록)
             legendary_item = legendary_manager.get_item(item_name)
@@ -37741,8 +37743,14 @@ def calculate_bounce(paddle):
                         print(f"⚡ 라그나로크 스턴공 발동 준비! (calculate_bounce)")
                     else:
                         print(f"[라그나로크] 스턴공 발동 실패 (50% 확률)")
+
+            if legendary_manager and "sacred_laurel" in legendary_manager.active_items:
+                laurel = legendary_manager.items.get("sacred_laurel")
+                if laurel:
+                    impact_pos = (BALL.centerx, BALL.centery)
+                    laurel.on_player_contact(impact_pos)
         except Exception as e:
-            print(f"[ERROR] 라그나로크 해머 효과 처리 실패 (calculate_bounce): {e}")
+            print(f"[ERROR] 전설 아이템 효과 처리 실패 (calculate_bounce): {e}")
     
     rel_x = (BALL.centerx - paddle.centerx) / (PADDLE_WIDTH / 2)
     rel_x = max(-1.0, min(1.0, rel_x))
