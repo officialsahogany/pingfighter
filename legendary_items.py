@@ -483,6 +483,7 @@ class PoseidonTrident(LegendaryItem):
                 overlay = _extract_ring_overlay(background)
                 composite = overlay
                 composite.blit(foreground, (0, 0))
+                _clear_poseidon_background(composite)
 
                 self.icon_frames.append(composite)
                 self.animation_frames.append(composite)  # legendary_acquisition에서 사용
