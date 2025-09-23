@@ -128,9 +128,18 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
         int(10 + 25 * inner_pulse)
     )
 
-    inner_rect_outer = pygame.Rect(x + 1, frame_y + 1, size - 2, size - 2)
-    inner_rect_inner = pygame.Rect(x + 3, frame_y + 3, size - 6, size - 6)
-    pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 2)
+    inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
+    inner_rect_mid = inner_rect_outer.inflate(-2, -2)
+    inner_rect_inner = inner_rect_outer.inflate(-4, -4)
+
+    mid_inner_color = (
+        (outer_inner_color[0] + inner_inner_color[0]) // 2,
+        (outer_inner_color[1] + inner_inner_color[1]) // 2,
+        (outer_inner_color[2] + inner_inner_color[2]) // 2,
+    )
+
+    pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 1)
+    pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 1)
     pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
 
     # 공통 테두리와 코너 장식
