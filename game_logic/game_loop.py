@@ -860,7 +860,6 @@ def _sync_state_from_core_game_state(state: GameState) -> None:
     if isinstance(legacy_store, dict):
         state.legacy_globals.update(legacy_store)
         state.rolling = RollingState(state.legacy)
-        state.legacy_globals.update(legacy_store)
 
 
 def _sync_core_game_state_from_state(state: GameState) -> None:
