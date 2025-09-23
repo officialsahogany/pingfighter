@@ -42145,25 +42145,6 @@ def handle_ball():
                         print(f"   : {ball_speed:.1f}")
                         print(f"   : 0.6, : 0.6")
 
-            if "sacred_laurel_removed" in legendary_manager.active_items:
-                laurel = legendary_manager.items.get("sacred_laurel_removed")
-                if laurel and laurel.active:
-                    ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                    horizontal_velocity, stun_duration = laurel.calculate_knockback(ball_speed, BOSS.x)
-
-                    if horizontal_velocity != 0:
-                        boss_knockback_timer = 36
-                        boss_knockback_vel = horizontal_velocity
-                        if stun_duration > 0:
-                            ragnarok_stun_pending = int(stun_duration * 60)
-
-                        screen_shake_timer = 12
-                        screen_shake_intensity = 10
-                        print(f"     !")
-                        print(f"     : {horizontal_velocity:.1f}")
-                        print(f"    : X={BOSS.x:.0f}")
-                        print(f"   : {ball_speed:.1f}")
-                        print(f"   : 0.6, : 0.6")
         
         #  Stage 5 홍련 피격 효과 - 드라이브/파워스매싱에 따라 확률 변경
         if current_stage == 5:
@@ -50442,15 +50423,6 @@ def show_item_management_menu(item_list, selected_index, item_type):
                                 elif removed_item["name"] == "hermes_shoes":
                                     hermes_shoes_obtained = False
                                     items.hermes_shoes_obtained = False
-                                elif removed_item["name"] == "sacred_laurel_removed":
-                                    sacred_laurel_obtained = False
-                                    items.sacred_laurel_obtained = False
-                                    try:
-                                        legendary_manager = get_legendary_manager()
-                                        if legendary_manager:
-                                            legendary_manager.deactivate_item("sacred_laurel_removed")
-                                    except Exception:
-                                        pass
                             # 아이템 이름을 한글로 표시
                             item_name_korean = get_item_name_korean(removed_item['name'])
                             print(f"{item_name_korean}  .")
