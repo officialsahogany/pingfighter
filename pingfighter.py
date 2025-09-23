@@ -46129,6 +46129,9 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_shock_stage = 0
     blacksmith_hammer_shock_cooldown_timer = 0
     blacksmith_hammer_shock_projectiles.clear()
+    global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
+    blacksmith_hammer_shock_anchor_x = PLAYER.centerx if 'PLAYER' in globals() and PLAYER else 0
+    blacksmith_hammer_shock_anchor_y = PLAYER.centery if 'PLAYER' in globals() and PLAYER else 0
 
     # 🔧 스테이지 시작 시 플레이어 움직임 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
@@ -47279,6 +47282,8 @@ def main(stage_num, new_boss_mode=False):
                     blacksmith_hammer_shock_stage = 0
                     blacksmith_hammer_swing_active = False
                     blacksmith_hammer_swing_phase = 0
+                    blacksmith_hammer_shock_anchor_x = PLAYER.centerx
+                    blacksmith_hammer_shock_anchor_y = PLAYER.centery
                     play_sound_safely = globals().get('play_sound_with_volume')
                     if callable(play_sound_safely):
                         try:
