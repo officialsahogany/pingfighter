@@ -36,8 +36,8 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
                                  y: int,
                                  size: int,
                                  animation_time: float,
-                                 border_color: Tuple[int, int, int] = (180, 200, 255),
-                                 corner_color: Tuple[int, int, int] = (255, 215, 0)) -> int:
+                                 border_color: Tuple[int, int, int] = COMMON_LEGENDARY_BORDER_COLOR,
+                                 corner_color: Tuple[int, int, int] = COMMON_LEGENDARY_CORNER_COLOR) -> int:
     """전설 아이콘의 공통 배경 프레임을 그린다.
 
     Returns:
@@ -1719,7 +1719,9 @@ class HermesShoes(LegendaryItem):
         import pygame
         
         # 공통 배경 프레임 연출 (라그나로크 해머와 동일 스타일)
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time, border_color=(180, 200, 255))
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time,
+                                                    border_color=COMMON_LEGENDARY_BORDER_COLOR,
+                                                    corner_color=COMMON_LEGENDARY_CORNER_COLOR)
         
         # 애니메이션 프레임 그리기
         if self.animation_frames and len(self.animation_frames) > 0:
