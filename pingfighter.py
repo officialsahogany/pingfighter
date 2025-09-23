@@ -34628,6 +34628,9 @@ def apply_selected_items(
         
         # 선택된 전설 아이템 활성화 및 패시브 아이템 리스트에 추가
         for item_name in selected_legendary_items:
+            if item_name == "holy_laurel":
+                # 신성 월계수는 전시용 프리뷰이므로 실제 효과를 적용하지 않는다.
+                continue
             # 전설 아이템 획득 플래그 설정 (중복 스폰 방지)
             if item_name == "poseidon_trident":
                 print(f"[DEBUG] TAB에서 포세이돈 삼지창 선택 - 획득 플래그 설정")
@@ -50123,7 +50126,8 @@ def get_item_name_korean(item_name):
         "net_gun": "그물덫총",
         "ragnarok_hammer": "라그나로크 해머",
         "hermes_shoes": "헤르메스의 신발",
-        "poseidon_trident": "포세이돈의 삼지창"
+        "poseidon_trident": "포세이돈의 삼지창",
+        "holy_laurel": "신성 월계수"
     }
     return korean_names.get(item_name, item_name)
 def get_item_description(item_name):
@@ -50172,6 +50176,7 @@ def get_item_description(item_name):
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 1.5배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
+        "holy_laurel": "신성 월계수: 포세이돈의 삼지창을 장식하던 월계관을 그대로 재현한 전설 아이콘. 아이템 관리자에서만 감상할 수 있는 특별 전시품입니다.",
     }
     return descriptions.get(item_name, "설명이 없습니다.")
 def show_item_management_menu(item_list, selected_index, item_type):
@@ -50695,6 +50700,15 @@ def show_character_item_manager():
                     "korean_name": item.korean_name,
                     "description": item.description
                 })
+
+    holy_laurel_icon = get_item_icon("holy_laurel") or get_item_icon("poseidon_trident")
+    legendary_items.append({
+        "name": "holy_laurel",
+        "type": "legendary",
+        "icon": holy_laurel_icon,
+        "korean_name": "신성 월계수",
+        "description": "아이템 관리자에서만 확인 가능한 전설 장식 아이콘입니다."
+    })
     
     # 엑티브/패시브/전설 아이템 분리
     active_items = [item for item in all_items if item["type"] == "active"]
