@@ -37758,19 +37758,7 @@ def calculate_bounce(paddle):
                         print(f"[라그나로크] 스턴공 발동 실패 (50% 확률)")
 
             if legendary_manager and "sacred_laurel" in legendary_manager.active_items:
-                laurel = legendary_manager.items.get("sacred_laurel")
-                if laurel:
-                    try:
-                        laurel_absorbed = laurel.absorb_velocity(ball_vel)
-                    except Exception:
-                        laurel_absorbed = False
-                    impact_pos = (BALL.centerx, BALL.centery)
-                    laurel.on_player_contact(impact_pos)
-                    if laurel_absorbed:
-                        try:
-                            special_gauge = min(get_max_gauge(), special_gauge + 8)
-                        except Exception:
-                            special_gauge = min(500, special_gauge + 8)
+                pass
         except Exception as e:
             print(f"[ERROR] 전설 아이템 효과 처리 실패 (calculate_bounce): {e}")
 
@@ -38131,8 +38119,6 @@ def calculate_bounce(paddle):
         speed *= base_multiplier
         #  임팩트 부스트 적용 (이제 최소 1.5배 보장)
         ball_impact_boost = dynamic_boost
-        if laurel_absorbed:
-            ball_impact_boost = min(ball_impact_boost, 1.12)
         print(f"  :   {base_multiplier:.2f}x,  {dynamic_boost:.2f}x,  : {speed:.1f}")
     else:
         # 일반 충돌 시 동일한 가속 (완화된 증가율)
@@ -38140,8 +38126,6 @@ def calculate_bounce(paddle):
         speed *= base_multiplier
         #  임팩트 부스트 적용
         ball_impact_boost = dynamic_boost
-        if laurel_absorbed:
-            ball_impact_boost = min(ball_impact_boost, 1.12)
     #  보스 충돌 처리 (플레이어가 아닌 경우)
     if not is_player_paddle:
         # 보스 충돌 시 추가 가속 (속도에 관계없이 일정, 크게 완화)
@@ -47317,7 +47301,12 @@ def main(stage_num, new_boss_mode=False):
                 if event.key in [pygame.K_s, 0x73, 0x6D] and not blacksmith_build_menu_active:  # 영어 S, 한글 ㅁ
                     item_use_pressed = True
                 #  숫자키로 아이템 직접 사용 (1~6)
-                elif event.key >= pygame.K_1 and event.key <= pygame.K_6 and not blacksmith_build_menu_active:
+                elif (
+                    event.key >= pygame.K_1
+                    and event.key <= pygame.K_6
+                    and not blacksmith_build_menu_active
+                    and not (selected_character_type == "soldier" and soldier_weapon_menu_active)
+                ):
                     number_key = event.key - pygame.K_1  # 0~5로 변환
                     if active_item_slot and number_key < len(active_item_slot):
                         direct_item_index = number_key
