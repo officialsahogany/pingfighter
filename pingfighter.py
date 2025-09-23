@@ -17567,6 +17567,60 @@ def draw_item_obtained_effect():
     obtain_text.set_alpha(item_obtained_effect["alpha"])
     obtain_rect = obtain_text.get_rect(center=(effect_x, effect_y + 65))  # 130 -> 65
     SCREEN.blit(obtain_text, obtain_rect)
+
+
+def draw_overlay_ui():
+    global current_stage, selected_character_type, new_boss_mode_active
+
+    if current_stage == 50:
+        draw_tutorial_ui()
+        draw_tutorial_dash_counter()
+        draw_tutorial_drive_counter()
+        draw_tutorial_power_counter()
+        draw_tutorial_success_feedback()
+
+    draw_boss_health_bar()
+    draw_stage1_boss_gauge_bar()
+    draw_stage2_boss_gauge_bar()
+    draw_laser_cannon_gauge()
+    draw_spinning_top(SCREEN)
+
+    update_trade_point_stars()
+    draw_trade_point_stars()
+    update_trade_point_texts()
+    draw_trade_point_texts()
+
+    if not new_boss_mode_active:
+        update_alchemy_notices()
+        items.draw_active_item(
+            SCREEN,
+            active_item_slot,
+            active_item_icon_size,
+            selected_item_index,
+            active_item_cooldown_ms,
+            round_start_time,
+            alchemy_notices,
+        )
+        items.draw_items(SCREEN)
+
+        if selected_character_type == "soldier":
+            draw_supply_drop_system(SCREEN)
+            draw_soldier_weapon_ui(SCREEN)
+
+        draw_pandora_box_effect()
+        draw_stopwatch_effect()
+        draw_player_gauge()
+
+        if current_stage == 4 and animated_bg_stage4 is not None:
+            animated_bg_stage4.draw_ponk_gauge(
+                SCREEN,
+                boss_special_gauge_stage4,
+                boss_special_ready_stage4,
+                stage4_magnetic_active,
+            )
+
+    if selected_character_type == "blacksmith":
+        draw_blacksmith_turret_ui(SCREEN)
 def apply_white_glow(surface, intensity=60):
     """
     픽셀 단위로 반짝임 효과를 입히는 함수 (최적화 버전)
