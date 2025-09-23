@@ -13299,14 +13299,10 @@ def handle_player(keys):
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
                     dash_spirit_level = academy.get_skill_bonus("dash_spirit")
                     if dash_spirit_level > 0:
-                        # 확률 계산: 레벨1=30%, 레벨2=50%
                         dash_spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
                         if random.random() < dash_spirit_chance:
-                            #  플레이어를 따라오다가 대쉬 거리의 50% 지점에서 스피릿 생성 종료
-                            # 대쉬 중 속도는 40, 첫 20프레임은 최대 속도, 이후 감속
-                            # 평균적으로 rolling_timer의 약 70% 정도가 효과적인 이동 시간
-                            actual_dash_distance = int(rolling_timer * 40 * 0.7)  # 실제 대쉬 거리
-                            dash_distance = int(actual_dash_distance * 0.5)  # 대쉬 거리의 50% 지점에서 종료
+                            actual_dash_distance = int(get_roll("rolling_timer") * 40 * 0.7)
+                            dash_distance = int(actual_dash_distance * 0.5)
                             create_dash_spirit_laser(PLAYER.centerx, PLAYER.centery, -1, dash_distance)
                     #  토큰 사용 - 대쉬 매니저와 동기화
                     current_charges = max(0, current_charges - 1)
