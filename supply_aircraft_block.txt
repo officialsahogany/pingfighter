@@ -7863,7 +7863,7 @@ def store_active_item(item_data):
         print("!")
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel"]:
         return
     if len(active_item_slot) < MAX_ITEM_SLOTS:
         # 모든 액티브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
