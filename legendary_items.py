@@ -2137,6 +2137,32 @@ class SacredLaurel(RagnarokHammer):
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         return game_stats.get("highest_stage_cleared", 0) >= 8
 
+    def _load_animation_frames(self):
+        self.animation_frames.clear()
+        size = 60
+        for i in range(24):
+            frame_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+            _draw_common_legendary_frame(frame_surface, 0, 0, size, i * 120)
+            inner_rect = pygame.Rect(6, size // 2 - 8, size - 12, 16)
+            pygame.draw.ellipse(frame_surface, (185, 215, 255, 170), inner_rect, 6)
+            self.animation_frames.append(frame_surface)
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+
+        if self.animation_frames:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+            icon_y = y + frame_offset + int(self.animation_offset)
+            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
+        else:
+            screen.blit(self._generate_placeholder_icon(size), (x, y + frame_offset + int(self.animation_offset)))
+
 
 # 전설 아이템 관리자
 class LegendaryItemManager:
