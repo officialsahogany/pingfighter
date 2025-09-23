@@ -7142,6 +7142,13 @@ SOLDIER_WEAPON_MENU_HOLD_FRAMES = int(0.2 * 60)  # 0.2초 유지 시 활성화
 soldier_weapon_hold_frames = 0
 soldier_weapon_menu_active = False
 soldier_weapon_number_prev = [False] * 9
+SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST = 500
+SOLDIER_EMERGENCY_SUPPLY_TAP_WINDOW = int(0.25 * 60)
+soldier_down_tap_timer = 0
+soldier_down_tap_count = 0
+soldier_down_tap_suppress_timer = 0
+soldier_emergency_supply_used = False
+soldier_emergency_supply_stage = None
 
 
 def _get_global_manager() -> GlobalManager:
