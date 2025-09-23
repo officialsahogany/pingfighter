@@ -7208,6 +7208,8 @@ def trigger_soldier_emergency_supply() -> bool:
             bazooka.reload_with_special_ammo()
             bazooka.equip()
             success = True
+        else:
+            print("⚠️ 바주카포 상태를 확인할 수 없어 비상보급에 실패했습니다.")
     elif weapon_name == "ak47":
         from item_effects.ak47 import get_ak47_instance
 
@@ -7218,6 +7220,8 @@ def trigger_soldier_emergency_supply() -> bool:
             if was_active:
                 ak47.active = True
             success = True
+        else:
+            print("⚠️ AK-47 상태를 확인할 수 없어 비상보급에 실패했습니다.")
     elif weapon_name == "net_gun":
         from item_effects.net_gun import get_net_gun_instance
 
@@ -7226,6 +7230,8 @@ def trigger_soldier_emergency_supply() -> bool:
             net_gun.reload()
             net_gun.equip()
             success = True
+        else:
+            print("⚠️ 그물덫총 상태를 확인할 수 없어 비상보급에 실패했습니다.")
     elif weapon_name == "pistol":
         soldier_ammo_count = soldier_max_ammo
         soldier_reloading = False
@@ -32789,9 +32795,7 @@ def show_character_selection():
                 surface.blit(scaled, (image_x, image_y))
 
             if character["id"] == "soldier":
-                base_size = max(64, int(min(max_width, max_height)))
-                soldier_img = create_soldier_character_card_image_new(base_size)
-                blit_scaled_surface(soldier_img)
+                blit_scaled_surface(SOLDIER_CARD_IMG)
             elif character["id"] == "blacksmith":
                 source_img = BLACKSMITH_CARD_IMG if 'BLACKSMITH_CARD_IMG' in globals() else BLACKSMITH_PADDLE_IMG
                 blit_scaled_surface(source_img)
