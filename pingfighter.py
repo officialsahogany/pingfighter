@@ -3348,6 +3348,9 @@ def _crop_surface_alpha(surface: pygame.Surface) -> pygame.Surface:
     return surface.subsurface(rect).copy()
 
 
+SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(220))
+
+
 def get_soldier_right_hook_strength() -> float:
     global soldier_right_hook_phase
     if not soldier_right_hook_active or SOLDIER_RIGHT_HOOK_DURATION <= 0 or soldier_right_hook_timer <= 0:
@@ -48951,6 +48954,7 @@ def main(stage_num, new_boss_mode=False):
                     traceback.print_exc()
                 
                 handle_player(keys)
+                update_blacksmith_hammer_shock(keys)
                 update_blacksmith_turret()
                 handle_ball()
                 handle_boss()
