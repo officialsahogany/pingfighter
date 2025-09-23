@@ -43,6 +43,7 @@ Item Integration
 - 효과 구현 시 `pingfighter.store_passive_item()` 또는 `store_active_item()`에 분기와 리셋 로직을 추가하고, `game_logic/item_system.ItemSystem.item_definitions`(UI/툴팁)·`effects/item_acquisition.py`(획득 연출)·관련 사용 함수에 동일한 네이밍으로 연결한다. 게임 복귀·사망·스테이지 리셋 시 `items.reset_items()`과 `ItemManager.reset()`이 모든 버프/슬롯/보유 목록을 비우도록 신규 상태 값을 반드시 초기화한다.
 - 메인 메뉴 단축키 2번으로 진입하는 아이템 관리자 화면은 `passive_item_list`·`active_item_slot`과 `ItemManager` 데이터를 그대로 참조하므로, 신규 아이템이 해당 리스트에 들어오면 UI 탭(패시브/액티브)과 슬롯에도 자동 노출되게 동일한 자료구조를 사용한다. 별도 표시 규칙이 필요하면 `pingfighter` 아이템 관리자 렌더 함수에서만 최소 수정으로 처리한다.
 - 새 아이템 추가 후에는 필드 드롭 → 획득 이펙트 → 탭/슬롯 반영 → 가챠 등장/제외 → 사망 또는 메인 메뉴 복귀 시 초기화 순서를 직접 확인해 중복 스폰, 잔여 버프, UI 싱크 미스가 없는지 테스트한다.
+- 전설 아이템은 `legendary_items._draw_common_legendary_frame()` 기반 템플릿을 사용해 사각 프레임·파란 원형 펄싱·금색 코너 장식을 공유하고, 개별 아이콘/주요 이펙트만 서브클래스에서 오버레이한다.
 
 Coding Standards
 ----------------

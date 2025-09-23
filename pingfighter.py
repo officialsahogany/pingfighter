@@ -6856,11 +6856,12 @@ def get_soldier_shot_probabilities() -> tuple[float, float]:
 
 def activate_doping_potion(duration_frames: int | None = None, *, play_sound: bool = True) -> None:
     """도핑물약 효과 활성화"""
-    global doping_potion_active, doping_potion_timer
+    global doping_potion_active, doping_potion_timer, doping_potion_toast_timer
     frames = duration_frames if duration_frames is not None else DOPING_POTION_DURATION_FRAMES
     frames = max(0, frames)
     doping_potion_active = True
     doping_potion_timer = frames
+    doping_potion_toast_timer = 120
 
     gm = _get_global_manager()
     gm.set('doping_potion_active', True)
@@ -13421,7 +13422,7 @@ def handle_player(keys):
             predictor_active = False
             print("!")
 
-    global doping_potion_active, doping_potion_timer
+    global doping_potion_active, doping_potion_timer, doping_potion_toast_timer
     sync_doping_potion_from_global_manager()
     if doping_potion_active:
         if doping_potion_timer > 0:
@@ -13430,6 +13431,8 @@ def handle_player(keys):
                 deactivate_doping_potion()
         else:
             deactivate_doping_potion()
+    if doping_potion_toast_timer > 0:
+        doping_potion_toast_timer -= 1
     if doping_potion_active:
         _get_global_manager().set('doping_potion_timer_frames', doping_potion_timer)
     

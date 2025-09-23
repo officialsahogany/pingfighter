@@ -11,7 +11,7 @@ import math
 import random
 import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable
 
 # 리소스 경로 헬퍼 (PyInstaller 호환)
 def resource_path(relative_path):
@@ -82,7 +82,7 @@ def _strip_legendary_red_ring(frame: pygame.Surface,
                               red_threshold: int = 150,
                               green_threshold: int = 100,
                               blue_threshold: int = 100,
-                              background_rules: Optional[List] = None) -> pygame.Surface:
+                              background_rules: Optional[List[Callable[[pygame.Color], bool]]] = None) -> pygame.Surface:
     """전설 아이콘 PNG에 포함된 붉은 배경 링을 투명화한다."""
     cleaned_frame = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
     width, height = frame.get_size()
