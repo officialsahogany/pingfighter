@@ -25708,6 +25708,10 @@ def show_start_screen():
     blacksmith_build_menu_active = False
     blacksmith_down_hold_frames = 0
     blacksmith_divine_stone_state = None
+    blacksmith_divine_blueprint_active = False
+    blacksmith_divine_blueprint_rect = None
+    blacksmith_divine_build_progress = 0
+    blacksmith_divine_partial_drain = 0.0
 
     bgm_manager.play_menu_bgm()
 
