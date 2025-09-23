@@ -62,9 +62,9 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
 
         glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
         center = (size // 2, size // 2)
-        pygame.draw.circle(glow_surface, (40, 120, 255, 90), center, outer_radius)
-        pygame.draw.circle(glow_surface, (90, 190, 255, 160), center, int(outer_radius * 0.85))
-        pygame.draw.circle(glow_surface, (170, 230, 255, 200), center, inner_radius)
+        pygame.draw.circle(glow_surface, (30, 90, 170, 80), center, outer_radius)
+        pygame.draw.circle(glow_surface, (70, 140, 200, 150), center, int(outer_radius * 0.85))
+        pygame.draw.circle(glow_surface, (140, 190, 220, 190), center, inner_radius)
         _COMMON_LEGENDARY_BG_CACHE[cache_key] = glow_surface
 
     screen.blit(glow_surface, (x, frame_y))
