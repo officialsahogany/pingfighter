@@ -110,7 +110,9 @@ def load_item_icons():
         "spider_mine": "spider_mine.png",  # 스파이더지뢰 아이콘
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
-        "hermes_shoes": "legendary/hermes_shoes.png"
+        "hermes_shoes": "legendary/hermes_shoes.png",
+        "poseidon_trident": "legendary/poseidon_trident.png",
+        "holy_laurel": "legendary/holy_laurel.png"
     }
     
     for item_name, icon_file in icon_files.items():
