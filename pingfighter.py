@@ -8480,6 +8480,8 @@ def go_to_next_round():
     #  스피드 아이템 효과는 유지 (라운드가 바뀌어도 효과 지속)
     # speedboots_obtained = False  # 제거 - 패시브 아이템은 라운드가 바뀌어도 유지
     #  Aipill 초기화 (라운드가 바뀌면 Aipill 효과 종료)
+    draw_blacksmith_hammer_shock(SCREEN, total_offset_x, total_offset_y)
+
     if aipill_active:
         print("Aipill  .")
         aipill_active = False
@@ -21774,7 +21776,6 @@ def draw_objects():
         pass
 
     draw_blacksmith_turret_elements(SCREEN)
-    draw_blacksmith_hammer_shock(SCREEN)
 
     # 킥차져 빛나는 이펙트 그리기
     try:
