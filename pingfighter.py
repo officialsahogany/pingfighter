@@ -4030,6 +4030,9 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_manual_hammer_timer
     global blacksmith_turret_partial_drain, blacksmith_turret_xp_partial_drain
+    global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
+    global blacksmith_divine_build_progress, blacksmith_divine_partial_drain
+    global blacksmith_divine_stone_state
     global frame_counter
     global blacksmith_build_menu_active
 
