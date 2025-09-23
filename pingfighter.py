@@ -13128,12 +13128,13 @@ def handle_player(keys):
             current_speed = 0
     else:
         #  구르기 상태 처리
-        if rolling_active:
+        if _rolling_get("rolling_active"):
             # 구르기 중일 때
-            rolling_timer -= 1
-            if rolling_timer <= 0:
+            rolling_timer_value = _rolling_get("rolling_timer") - 1
+            _rolling_set("rolling_timer", rolling_timer_value)
+            if rolling_timer_value <= 0:
                 # 구르기 종료, 통제 불가능 상태 시작
-                rolling_active = False
+                _rolling_set("rolling_active", False)
                 # 하프대쉬 플래그는 충돌 처리가 완료될 때까지 유지
                 # is_half_dash_active = False  # 주석 처리 - 충돌 체크 후에 리셋
                 print(f"[DEBUG 킥차져] 대쉬 종료, is_half_dash_active는 유지: {is_half_dash_active}")
@@ -13152,8 +13153,8 @@ def handle_player(keys):
                     acceleration_flash_particles.clear()  # 섬광 파티클 제거
                 #  위험감지센서 자동 대쉬는 통제불능시간 없음
                 if is_danger_sensor_dash:
-                    rolling_stun_timer = 0
-                    rolling_dash_available_timer = 0
+                    _rolling_set("rolling_stun_timer", 0)
+                    _rolling_set("rolling_dash_available_timer", 0)
                     is_danger_sensor_dash = False  # 플래그 리셋
                 else:
                     # 일반 대쉬의 경우 기존 로직 적용
@@ -13165,37 +13166,37 @@ def handle_player(keys):
                     if spikeboots_obtained:
                         base_stun_time = int(base_stun_time * 0.7)  # 30% 감소 (70%로 단축)
                     final_stun_time = max(1, base_stun_time - stun_reduction)  # 최소 1프레임
-                    rolling_stun_timer = final_stun_time
-                    rolling_dash_available_timer = final_stun_time
+                    _rolling_set("rolling_stun_timer", final_stun_time)
+                    _rolling_set("rolling_dash_available_timer", final_stun_time)
                     
                     # 포세이돈 삼지창 효과: 통제불능 상태 진입시 양쪽에 회오리 생성
                     if poseidon_dash_pending and legendary_manager:
                         trident = legendary_manager.get_item("poseidon_trident")
                         if trident and trident.active:
                             # 대쉬가 완료되고 통제불능 상태에 진입할 때 현재 플레이어 위치 양쪽에 회오리 생성
-                            trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, rolling_direction)
+                            trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, _rolling_get("rolling_direction"))
                             poseidon_dash_pending = False  # 플래그 리셋
                 current_speed = 0
             else:
                 # 구르기 중에는 순간적으로 매우 빠르게 이동 후 빠르게 감속
-                if rolling_timer > 20:  # 처음 10프레임은 매우 빠르게
-                    current_speed = rolling_direction * 40  # 매우 빠른 속도 (50에서 40으로 20% 감소)
+                if rolling_timer_value > 20:  # 처음 10프레임은 매우 빠르게
+                    current_speed = _rolling_get("rolling_direction") * 40  # 매우 빠른 속도 (50에서 40으로 20% 감소)
                 else:  # 나머지는 빠르게 감속
-                    decel_factor = rolling_timer / 20.0
-                    current_speed = rolling_direction * 40 * decel_factor
-        elif rolling_stun_timer > 0:
+                    decel_factor = rolling_timer_value / 20.0
+                    current_speed = _rolling_get("rolling_direction") * 40 * decel_factor
+        elif _rolling_get("rolling_stun_timer") > 0:
             # 구르기 후 통제 불가능 상태
-            rolling_stun_timer -= 1
-            if rolling_dash_available_timer > 0:
-                rolling_dash_available_timer -= 1
+            _rolling_set("rolling_stun_timer", _rolling_get("rolling_stun_timer") - 1)
+            if _rolling_get("rolling_dash_available_timer") > 0:
+                _rolling_set("rolling_dash_available_timer", _rolling_get("rolling_dash_available_timer") - 1)
             #  스턴이 끝나면 하프대쉬 플래그 리셋 및 연속 대쉬 카운터 리셋
-            if rolling_stun_timer == 0:
+            if _rolling_get("rolling_stun_timer") == 0:
                 if 'half_dash_used_flag' in globals():
                     half_dash_used_flag = False
                 # 스턴이 끝나면 연속 대쉬 카운터도 리셋 (통제불능 시간 내에만 연속 대쉬 가능)
-                if rolling_consecutive_count > 0:
-                    print(f"[DEBUG] 통제불능 시간 종료로 연속대쉬 카운트 리셋: {rolling_consecutive_count} → 0")
-                    rolling_consecutive_count = 0
+                if _rolling_get("rolling_consecutive_count") > 0:
+                    print(f"[DEBUG] 통제불능 시간 종료로 연속대쉬 카운트 리셋: {_rolling_get('rolling_consecutive_count')} → 0")
+                    _rolling_set("rolling_consecutive_count", 0)
                 # 튜토리얼: 하프대쉬 스턴 종료 시 pending 리셋
                 if current_stage == 50 and tutorial_dash_counter_active:
                     if tutorial_half_dash_pending:
@@ -13216,7 +13217,8 @@ def handle_player(keys):
             max_charges = int(base_charges + holder_bonus + amplification_bonus)
             # 하프대쉬를 사용한 경우 연속 대쉬를 차단
             half_dash_used_in_sequence = 'half_dash_used_flag' in globals() and half_dash_used_flag
-            if max_charges > 1 and rolling_charges > 0 and not half_dash_used_in_sequence:
+            rolling_charges_value = _rolling_get("rolling_charges")
+            if max_charges > 1 and rolling_charges_value > 0 and not half_dash_used_in_sequence:
                 #  연속 대쉬 할인을 고려한 실제 게이지 요구량 계산
                 base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                 
