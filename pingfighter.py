@@ -44458,6 +44458,7 @@ def show_result(won):
     if aipill_active:
         print("Aipill  .")
         aipill_active = False
+    deactivate_doping_potion()
     #  상모돌리기 완전 초기화 (스테이지 종료 시)
     whip_active = False
     whip_timer = 0
