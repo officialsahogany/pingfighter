@@ -35,15 +35,31 @@ _COMMON_LEGENDARY_BG_CACHE: Dict[Tuple[int, int], pygame.Surface] = {}
 def _clear_poseidon_background(surface: pygame.Surface) -> None:
     """포세이돈 아이콘에 남아있는 청색 사각 배경을 제거한다."""
     width, height = surface.get_size()
-    center_x = width // 2
+    original = surface.copy()
     for y in range(height):
         for x in range(width):
-            color = surface.get_at((x, y))
+            color = original.get_at((x, y))
             if color.a == 0:
                 continue
-            if color.a < 210 and color.r < 160 and color.g > 150 and color.b > 180:
-                if abs(x - center_x) > 4 or y < 2:
-                    surface.set_at((x, y), (0, 0, 0, 0))
+            is_turquoise = color.r < 170 and color.g > 140 and color.b > 180
+            low_alpha = color.a < 210
+            if not (is_turquoise or low_alpha):
+                continue
+
+            significant_neighbor = False
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < width and 0 <= ny < height:
+                    neighbor = original.get_at((nx, ny))
+                else:
+                    neighbor = color
+                diff = abs(color.r - neighbor.r) + abs(color.g - neighbor.g) + abs(color.b - neighbor.b)
+                if diff >= 80:
+                    significant_neighbor = True
+                    break
+
+            if not significant_neighbor:
+                surface.set_at((x, y), (0, 0, 0, 0))
 
 
 def _extract_ring_overlay(surface: pygame.Surface) -> pygame.Surface:
