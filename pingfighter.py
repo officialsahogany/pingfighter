@@ -6832,6 +6832,7 @@ DOPING_POTION_DURATION_FRAMES = 480  # 8초 (60fps * 8)
 DOPING_POTION_MULTIPLIER = 2.0  # 헤드샷/레그샷 확률 배수
 doping_potion_active = False
 doping_potion_timer = 0
+doping_potion_toast_timer = 0
 
 
 def _get_global_manager() -> GlobalManager:
