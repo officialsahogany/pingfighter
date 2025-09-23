@@ -27,6 +27,8 @@ def resource_path(relative_path):
 LEGENDARY_TIER = "legendary"
 LEGENDARY_COLOR = (255, 50, 50)  # 붉은색
 LEGENDARY_GLOW_COLOR = (255, 100, 100, 128)  # 반투명 붉은색 글로우
+COMMON_LEGENDARY_BORDER_COLOR = (180, 200, 255)
+COMMON_LEGENDARY_CORNER_COLOR = (255, 215, 0)
 
 
 def _draw_common_legendary_frame(screen: pygame.Surface,

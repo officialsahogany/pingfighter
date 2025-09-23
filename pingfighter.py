@@ -36616,6 +36616,7 @@ def reset_round():
     global ragnarok_stun_attempted_this_rally  # 라그나로크 해머 스턴 플래그
     global leg_shot_active, leg_shot_timer, leg_shot_text_timer  # 권총 레그샷 관련 변수
     global head_shot_active, head_shot_timer, head_shot_text_timer, boss_stunned_timer  # 권총 헤드샷 관련 변수
+    global doping_potion_use_count
     global short_shot_active, short_shot_timer, short_shot_vertical_timer
     global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
