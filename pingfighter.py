@@ -7207,10 +7207,10 @@ def trigger_soldier_emergency_supply() -> bool:
 
         ak47 = get_ak47_instance()
         if ak47:
+            was_active = getattr(ak47, "active", False)
             ak47.current_ammo = ak47.max_ammo
-            if ak47.remaining_time <= 0 and ak47.duration > 0:
-                ak47.remaining_time = ak47.duration
-            ak47.active = True
+            if was_active:
+                ak47.active = True
             success = True
     elif weapon_name == "net_gun":
         from item_effects.net_gun import get_net_gun_instance
@@ -13719,7 +13719,33 @@ def handle_player(keys):
         and len(soldier_controller.weapons) > 1
     )
 
+    global soldier_down_tap_timer, soldier_down_tap_count, soldier_down_tap_suppress_timer
+    global soldier_emergency_supply_used, soldier_emergency_supply_stage
+
     if selected_character_type == "soldier":
+        if soldier_emergency_supply_stage != current_stage:
+            soldier_emergency_supply_stage = current_stage
+            soldier_emergency_supply_used = False
+
+        if soldier_down_tap_timer > 0:
+            soldier_down_tap_timer -= 1
+            if soldier_down_tap_timer == 0:
+                soldier_down_tap_count = 0
+        if soldier_down_tap_suppress_timer > 0:
+            soldier_down_tap_suppress_timer -= 1
+
+        if down_just_pressed:
+            if soldier_down_tap_timer > 0 and soldier_down_tap_count == 1:
+                if trigger_soldier_emergency_supply():
+                    soldier_down_tap_suppress_timer = int(0.3 * 60)
+                    supply_drop_state.hold_time = 0
+                    supply_runtime.hold_active = False
+                soldier_down_tap_timer = 0
+                soldier_down_tap_count = 0
+            else:
+                soldier_down_tap_count = 1
+                soldier_down_tap_timer = SOLDIER_EMERGENCY_SUPPLY_TAP_WINDOW
+
         if up_pressed and not space_pressed and allow_weapon_switch:
             soldier_weapon_hold_frames += 1
             if soldier_weapon_hold_frames >= SOLDIER_WEAPON_MENU_HOLD_FRAMES:
@@ -13762,9 +13788,12 @@ def handle_player(keys):
         soldier_weapon_hold_frames = 0
         soldier_weapon_menu_active = False
         soldier_weapon_number_prev = [False] * len(soldier_weapon_number_prev)
+        soldier_down_tap_timer = 0
+        soldier_down_tap_count = 0
+        soldier_down_tap_suppress_timer = 0
 
     # 물자보급 스킬 - ↓키 홀드로 발동 (코만도 캐릭터 전용)
-    
+
     # 물자보급 발동 조건 체크 (대시와 같은 방식으로 서브 상태 처리)
     can_use_supply_drop = False
     # 기본 조건 (일반 상태에서 + 서브 완료 후 3초 경과)
@@ -13781,7 +13810,12 @@ def handle_player(keys):
         print(f"🔍 물자보급 조건: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}, serve_timer={serve_completed_timer}, can_use={can_use_supply_drop}")
     
     # ↓키 홀드 체크 (코만도 캐릭터만)
-    if down_pressed and selected_character_type == "soldier" and not supply_drop_state.active:
+    if (
+        down_pressed
+        and selected_character_type == "soldier"
+        and not supply_drop_state.active
+        and soldier_down_tap_suppress_timer == 0
+    ):
         if can_use_supply_drop and special_gauge >= supply_drop_state.config.gauge_cost:
             supply_drop_state.hold_time += 1
 
