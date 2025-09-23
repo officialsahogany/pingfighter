@@ -3348,9 +3348,6 @@ def _crop_surface_alpha(surface: pygame.Surface) -> pygame.Surface:
     return surface.subsurface(rect).copy()
 
 
-SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(220))
-
-
 def get_soldier_right_hook_strength() -> float:
     global soldier_right_hook_phase
     if not soldier_right_hook_active or SOLDIER_RIGHT_HOOK_DURATION <= 0 or soldier_right_hook_timer <= 0:
@@ -32312,30 +32309,245 @@ def create_soldier_character_card_image(size):
     
     return img
 
-def create_soldier_character_card_image_new(size):
-    """캐릭터 선택 카드용 코만도 이미지 - 앞모습만 사용하는 단순화 버전"""
-    # 앞모습 이미지 생성
-    front_view = create_soldier_front_view()
-    
-    # 목표 크기에 맞게 스케일 조정
-    if size < 170:
-        scale_factor = size / 170.0
-    else:
-        scale_factor = min(size / 170.0, 1.5)
-    
-    new_width = int(150 * scale_factor)
-    new_height = int(170 * scale_factor)
-    
-    # 이미지 크기 조정
-    scaled_img = pygame.transform.smoothscale(front_view, (new_width, new_height))
-    
-    # 최종 이미지를 정사각형 캔버스에 중앙 정렬
-    img = pygame.Surface((size, size), pygame.SRCALPHA)
-    x = (size - new_width) // 2
-    y = (size - new_height) // 2
-    img.blit(scaled_img, (x, y))
-    
+def create_soldier_character_card_image_new(size: int) -> pygame.Surface:
+    """최신 코만도(군인) 캐릭터 아트 - 카드 전용 네온 아머 버전"""
+    base_width = 200
+    base_height = 260
+    scale = size / base_width
+    width = int(base_width * scale)
+    height = int(base_height * scale)
+    img = pygame.Surface((width, height), pygame.SRCALPHA)
+    center_x = width // 2
+
+    def s(value: float) -> int:
+        return max(1, int(round(value * scale)))
+
+    # 사이버펑크 배경 그radient
+    for y in range(height):
+        ratio = y / max(1, height - 1)
+        r = int(18 + 38 * ratio)
+        g = int(28 + 58 * ratio)
+        b = int(46 + 92 * ratio)
+        pygame.draw.line(img, (r, g, b), (0, y), (width, y))
+
+    glow_radius = s(110)
+    glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surface, (40, 120, 255, 95), (glow_radius, glow_radius), glow_radius)
+    pygame.draw.circle(glow_surface, (120, 255, 255, 110), (glow_radius, glow_radius), max(1, glow_radius // 2))
+    img.blit(glow_surface, (center_x - glow_radius, s(70) - glow_radius), special_flags=pygame.BLEND_RGBA_ADD)
+
+    neon_overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+    for offset in (-s(46), 0, s(46)):
+        pygame.draw.line(neon_overlay, (36, 200, 255, 60), (center_x + offset, 0), (center_x + offset, height), max(2, s(3)))
+    img.blit(neon_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+    palette = {
+        "helmet": (70, 102, 162),
+        "helmet_side": (58, 82, 136),
+        "helmet_high": (148, 182, 236),
+        "visor": (170, 224, 255),
+        "visor_core": (126, 192, 246),
+        "armor_outer": (80, 96, 150),
+        "armor_mid": (60, 76, 120),
+        "armor_inner": (46, 58, 92),
+        "trim": (190, 206, 236),
+        "accent": (118, 214, 255),
+        "accent_core": (82, 178, 248),
+        "undersuit": (36, 40, 58),
+        "arm_light": (132, 152, 204),
+        "glove": (198, 182, 164),
+        "glove_detail": (156, 134, 110),
+        "paddle": (220, 56, 74),
+        "paddle_core": (244, 116, 132),
+        "paddle_shadow": (154, 42, 58),
+        "belt": (72, 64, 96),
+        "belt_glint": (158, 140, 196),
+        "boot": (64, 74, 110),
+        "boot_high": (128, 146, 190),
+        "shield_glow": (70, 160, 255),
+        "shield_ring": (120, 210, 255),
+        "shield_core": (210, 252, 255),
+        "thruster_glow": (118, 214, 255),
+        "thruster_heat": (254, 156, 94),
+    }
+
+    # 헬멧 & 비저
+    helmet_width = s(90)
+    helmet_height = s(82)
+    helmet_rect = pygame.Rect(center_x - helmet_width // 2, s(28), helmet_width, helmet_height)
+    pygame.draw.ellipse(img, palette["helmet"], helmet_rect)
+
+    side_width = s(26)
+    side_height = s(48)
+    left_side = pygame.Rect(helmet_rect.left - side_width + s(8), helmet_rect.top + s(16), side_width, side_height)
+    pygame.draw.ellipse(img, palette["helmet_side"], left_side)
+    right_side = left_side.move(helmet_rect.width + side_width - s(16), 0)
+    pygame.draw.ellipse(img, palette["helmet_side"], right_side)
+
+    visor_rect = helmet_rect.inflate(-s(28), -s(26))
+    pygame.draw.ellipse(img, palette["visor"], visor_rect)
+    visor_core_rect = visor_rect.inflate(-s(10), -s(8))
+    pygame.draw.ellipse(img, palette["visor_core"], visor_core_rect)
+    pygame.draw.line(img, palette["helmet_high"],
+                     (visor_core_rect.left + s(4), visor_core_rect.top + visor_core_rect.height // 3),
+                     (visor_core_rect.right - s(4), visor_core_rect.top + visor_core_rect.height // 3),
+                     max(1, s(2)))
+    pygame.draw.arc(img, palette["helmet_high"], helmet_rect.inflate(-s(10), -s(6)), math.radians(200), math.radians(320), max(1, s(2)))
+
+    neck_rect = pygame.Rect(center_x - s(18), helmet_rect.bottom - s(6), s(36), s(18))
+    pygame.draw.rect(img, palette["undersuit"], neck_rect, border_radius=s(4))
+
+    # 상체 아머 레이어
+    chest_width = s(124)
+    chest_height = s(112)
+    chest_rect = pygame.Rect(center_x - chest_width // 2, helmet_rect.bottom - s(6), chest_width, chest_height)
+    pygame.draw.rect(img, palette["armor_outer"], chest_rect, border_radius=s(22))
+
+    mid_rect = chest_rect.inflate(-s(22), -s(20))
+    pygame.draw.rect(img, palette["armor_mid"], mid_rect, border_radius=s(18))
+
+    inner_rect = mid_rect.inflate(-s(22), -s(18))
+    pygame.draw.rect(img, palette["armor_inner"], inner_rect, border_radius=s(12))
+
+    pygame.draw.rect(img, palette["trim"], chest_rect, max(1, s(2)), border_radius=s(22))
+    pygame.draw.rect(img, palette["trim"], mid_rect, max(1, s(2)), border_radius=s(18))
+    pygame.draw.line(img, palette["accent"],
+                     (center_x, inner_rect.top + s(12)), (center_x, inner_rect.bottom - s(12)), max(1, s(3)))
+    pygame.draw.line(img, palette["accent_core"],
+                     (inner_rect.left + s(10), inner_rect.centery), (inner_rect.right - s(10), inner_rect.centery), max(1, s(2)))
+
+    # 어깨 장갑
+    shoulder_top = chest_rect.top + s(14)
+    left_pauldron = [
+        (center_x - s(76), shoulder_top - s(10)),
+        (center_x - s(54), chest_rect.top - s(6)),
+        (center_x - s(36), chest_rect.top + s(34)),
+        (center_x - s(72), chest_rect.top + s(42)),
+    ]
+    right_pauldron = [
+        (center_x + s(76), shoulder_top - s(10)),
+        (center_x + s(54), chest_rect.top - s(6)),
+        (center_x + s(36), chest_rect.top + s(34)),
+        (center_x + s(72), chest_rect.top + s(42)),
+    ]
+    pygame.draw.polygon(img, palette["armor_mid"], left_pauldron)
+    pygame.draw.polygon(img, palette["armor_mid"], right_pauldron)
+    pygame.draw.lines(img, palette["trim"], True, left_pauldron, max(1, s(2)))
+    pygame.draw.lines(img, palette["trim"], True, right_pauldron, max(1, s(2)))
+
+    # 팔과 장비
+    left_shoulder = (center_x - s(48), chest_rect.top + s(36))
+    left_elbow = (center_x - s(88), chest_rect.top + s(78))
+    left_wrist = (center_x - s(96), chest_rect.top + s(124))
+    pygame.draw.line(img, palette["arm_light"], left_shoulder, left_elbow, max(2, s(18)))
+    pygame.draw.line(img, palette["armor_mid"], left_shoulder, left_elbow, max(2, s(12)))
+    pygame.draw.line(img, palette["arm_light"], left_elbow, left_wrist, max(2, s(16)))
+    pygame.draw.line(img, palette["armor_mid"], left_elbow, left_wrist, max(2, s(10)))
+
+    left_hand_radius = max(2, s(9))
+    pygame.draw.circle(img, palette["glove"], left_wrist, left_hand_radius)
+    pygame.draw.line(img, palette["glove_detail"],
+                     (left_wrist[0] - left_hand_radius, left_wrist[1] + 1),
+                     (left_wrist[0] + left_hand_radius, left_wrist[1] - 1), max(1, s(2)))
+
+    paddle_radius = s(30)
+    paddle_center = (left_wrist[0] - s(6), left_wrist[1] + s(36))
+    paddle_surface = pygame.Surface((paddle_radius * 2, paddle_radius * 2), pygame.SRCALPHA)
+    pygame.draw.circle(paddle_surface, palette["paddle"], (paddle_radius, paddle_radius), paddle_radius)
+    pygame.draw.circle(paddle_surface, palette["paddle_core"], (paddle_radius, paddle_radius), max(2, paddle_radius - s(4)))
+    pygame.draw.arc(paddle_surface, palette["paddle_shadow"], paddle_surface.get_rect(), math.radians(210), math.radians(320), max(1, s(3)))
+    img.blit(paddle_surface, (paddle_center[0] - paddle_radius, paddle_center[1] - paddle_radius))
+
+    right_shoulder = (center_x + s(48), chest_rect.top + s(34))
+    right_elbow = (center_x + s(90), chest_rect.top + s(72))
+    right_wrist = (center_x + s(104), chest_rect.top + s(108))
+    pygame.draw.line(img, palette["arm_light"], right_shoulder, right_elbow, max(2, s(18)))
+    pygame.draw.line(img, palette["armor_mid"], right_shoulder, right_elbow, max(2, s(12)))
+    pygame.draw.line(img, palette["arm_light"], right_elbow, right_wrist, max(2, s(18)))
+    pygame.draw.line(img, palette["armor_mid"], right_elbow, right_wrist, max(2, s(10)))
+
+    right_hand_radius = max(2, s(9))
+    pygame.draw.circle(img, palette["glove"], right_wrist, right_hand_radius)
+
+    shield_radius = s(44)
+    shield_surface = pygame.Surface((shield_radius * 2, shield_radius * 2), pygame.SRCALPHA)
+    for ratio, alpha in ((1.05, 60), (0.82, 110), (0.58, 170), (0.38, 220)):
+        pygame.draw.circle(shield_surface,
+                           (palette["shield_glow"][0], palette["shield_glow"][1], palette["shield_glow"][2], alpha),
+                           (shield_radius, shield_radius),
+                           max(1, int(shield_radius * ratio)))
+    pygame.draw.circle(shield_surface, palette["shield_ring"], (shield_radius, shield_radius), shield_radius - s(4), max(2, s(4)))
+    pygame.draw.circle(shield_surface, palette["shield_core"], (shield_radius, shield_radius), max(1, int(shield_radius * 0.36)))
+    img.blit(shield_surface, (right_wrist[0] - shield_radius, right_wrist[1] - shield_radius), special_flags=pygame.BLEND_RGBA_ADD)
+
+    # 허리와 하체
+    belt_rect = pygame.Rect(center_x - s(70), chest_rect.bottom - s(12), s(140), s(26))
+    pygame.draw.rect(img, palette["belt"], belt_rect, border_radius=s(10))
+    pygame.draw.line(img, palette["belt_glint"],
+                     (belt_rect.left + s(6), belt_rect.top + s(6)),
+                     (belt_rect.right - s(6), belt_rect.top + s(6)), max(1, s(2)))
+    buckle_rect = pygame.Rect(center_x - s(18), belt_rect.top + s(2), s(36), belt_rect.height - s(4))
+    pygame.draw.rect(img, palette["trim"], buckle_rect, border_radius=s(4))
+
+    hip_line = belt_rect.bottom - s(2)
+    thigh_width = s(46)
+    thigh_height = s(84)
+    left_thigh_rect = pygame.Rect(center_x - s(54), hip_line, thigh_width, thigh_height)
+    right_thigh_rect = pygame.Rect(center_x + s(8), hip_line, thigh_width, thigh_height)
+    for rect in (left_thigh_rect, right_thigh_rect):
+        pygame.draw.rect(img, palette["armor_mid"], rect, border_radius=s(12))
+        inner = rect.inflate(-s(12), -s(10))
+        pygame.draw.rect(img, palette["armor_inner"], inner, border_radius=s(8))
+        pygame.draw.rect(img, palette["trim"], rect, max(1, s(2)), border_radius=s(12))
+        knee_rect = pygame.Rect(rect.left + s(4), rect.top + s(46), rect.width - s(8), s(20))
+        pygame.draw.rect(img, palette["arm_light"], knee_rect, border_radius=s(6))
+
+    calf_height = s(70)
+    calf_width = s(38)
+    left_calf_rect = pygame.Rect(left_thigh_rect.left + s(4), left_thigh_rect.bottom - s(12), calf_width, calf_height)
+    right_calf_rect = pygame.Rect(right_thigh_rect.left + s(4), right_thigh_rect.bottom - s(12), calf_width, calf_height)
+    for rect in (left_calf_rect, right_calf_rect):
+        pygame.draw.rect(img, palette["undersuit"], rect, border_radius=s(8))
+        panel = rect.inflate(-s(10), -s(16))
+        pygame.draw.rect(img, palette["armor_mid"], panel, border_radius=s(6))
+        pygame.draw.line(img, palette["accent_core"],
+                         (panel.left, panel.centery), (panel.right, panel.centery), max(1, s(2)))
+
+    boot_height = s(26)
+    boot_expand = s(4)
+    left_boot_rect = pygame.Rect(left_calf_rect.left - boot_expand, left_calf_rect.bottom - s(6), left_calf_rect.width + boot_expand * 2, boot_height)
+    right_boot_rect = pygame.Rect(right_calf_rect.left - boot_expand, right_calf_rect.bottom - s(6), right_calf_rect.width + boot_expand * 2, boot_height)
+    for rect in (left_boot_rect, right_boot_rect):
+        pygame.draw.rect(img, palette["boot"], rect, border_radius=s(8))
+        pygame.draw.rect(img, palette["boot_high"], rect.inflate(-s(6), -s(8)), border_radius=s(6))
+        pygame.draw.line(img, palette["boot_high"],
+                         (rect.left + s(4), rect.bottom - s(4)),
+                         (rect.right - s(4), rect.bottom - s(4)), max(1, s(2)))
+
+    # 부츠 써스터 효과
+    thruster_height = s(42)
+    thruster_surface = pygame.Surface((s(20), thruster_height), pygame.SRCALPHA)
+    pygame.draw.polygon(thruster_surface, (palette["thruster_heat"][0], palette["thruster_heat"][1], palette["thruster_heat"][2], 180),
+                        [(thruster_surface.get_width() // 2, 0), (thruster_surface.get_width(), thruster_height), (0, thruster_height)])
+    pygame.draw.polygon(thruster_surface, (palette["thruster_glow"][0], palette["thruster_glow"][1], palette["thruster_glow"][2], 160),
+                        [(thruster_surface.get_width() // 2, s(6)), (thruster_surface.get_width() - s(4), thruster_height - s(6)), (s(4), thruster_height - s(6))])
+    img.blit(thruster_surface, (left_boot_rect.centerx - thruster_surface.get_width() // 2, left_boot_rect.bottom - s(4)), special_flags=pygame.BLEND_RGBA_ADD)
+    img.blit(thruster_surface, (right_boot_rect.centerx - thruster_surface.get_width() // 2, right_boot_rect.bottom - s(4)), special_flags=pygame.BLEND_RGBA_ADD)
+
+    # 디테일: 흉부 표시등, 소형 나사 등
+    for dx in (-s(28), s(28)):
+        pygame.draw.circle(img, palette["accent"], (center_x + dx, mid_rect.top + s(18)), s(4))
+        pygame.draw.circle(img, palette["accent_core"], (center_x + dx, mid_rect.top + s(18)), s(2))
+
+    collar_rect = pygame.Rect(center_x - s(38), helmet_rect.bottom - s(4), s(76), s(18))
+    pygame.draw.rect(img, palette["armor_mid"], collar_rect, border_radius=s(8))
+    pygame.draw.line(img, palette["trim"], (collar_rect.left + s(6), collar_rect.bottom - s(4)), (collar_rect.right - s(6), collar_rect.bottom - s(4)), max(1, s(2)))
+
     return img
+
+
+SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(220))
+SOLDIER_CARD_IMG_SMALL = _crop_surface_alpha(create_soldier_character_card_image_new(180))
 
 def create_soldier_front_view():
     """코만도 캐릭터 앞모습 - 전신 (다리 짧은 버전)"""
