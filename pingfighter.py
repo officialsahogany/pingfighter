@@ -13537,54 +13537,67 @@ def handle_player(keys):
                     print(f"    ! ( {rolling_consecutive_count},  : {final_gauge_cost},  : {rolling_charges}, : {special_gauge})")
         else:
             #  구르기 쿨타임 감소
-            if rolling_cooldown > 0:
-                rolling_cooldown -= 1
+            rolling_cooldown_value = _rolling_get("rolling_cooldown")
+            if rolling_cooldown_value > 0:
+                rolling_cooldown_value -= 1
+                _rolling_set("rolling_cooldown", rolling_cooldown_value)
             #  구르기 충전 타이머 감소
-            if rolling_charge_timer > 0:
-                old_timer = rolling_charge_timer
-                rolling_charge_timer -= 1
-                if rolling_charge_timer % HALF_SECOND_FRAMES == 0 or rolling_charge_timer <= 5:
-                    print(f"[DEBUG]   : {old_timer} → {rolling_charge_timer}")
-                if rolling_charge_timer <= 0:
+            rolling_charge_timer_value = _rolling_get("rolling_charge_timer")
+            if rolling_charge_timer_value > 0:
+                old_timer = rolling_charge_timer_value
+                rolling_charge_timer_value -= 1
+                _rolling_set("rolling_charge_timer", rolling_charge_timer_value)
+                if rolling_charge_timer_value % HALF_SECOND_FRAMES == 0 or rolling_charge_timer_value <= 5:
+                    print(f"[DEBUG]   : {old_timer} → {rolling_charge_timer_value}")
+                if rolling_charge_timer_value <= 0:
                     # 토큰 충전
                     base_charges = 1
                     holder_bonus = 1 if dashholder_obtained else 0
                     amplification_bonus = academy.get_skill_bonus("dash_amplification")
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
-                    old_charges = rolling_charges
-                    rolling_charges = min(rolling_charges + 1, max_charges)
+                    rolling_charges_value = _rolling_get("rolling_charges")
+                    old_charges = rolling_charges_value
+                    rolling_charges_value = min(rolling_charges_value + 1, max_charges)
+                    _rolling_set("rolling_charges", rolling_charges_value)
                     # 왼쪽부터 토큰 충전 (token_states가 있을 때만)
                     if 'token_states' in globals() and len(token_states) > 0:
                         # 첫 번째 비어있는 토큰을 찾아서 충전
-                        for idx in range(min(len(token_states), max_charges)):
-                            if idx < len(token_states) and not token_states[idx]:
-                                token_states[idx] = True
+                        token_states_local = list(token_states)
+                        for idx in range(min(len(token_states_local), max_charges)):
+                            if idx < len(token_states_local) and not token_states_local[idx]:
+                                token_states_local[idx] = True
                                 break
+                        token_states[:] = token_states_local
+                        if rolling_state is not None:
+                            rolling_state.token_states = list(token_states_local)
                     else:
                         # token_states가 없으면 초기화
-                        token_states = [True] * rolling_charges + [False] * (max_charges - rolling_charges)
+                        token_states = [True] * rolling_charges_value + [False] * (max_charges - rolling_charges_value)
+                        if rolling_state is not None:
+                            rolling_state.token_states = list(token_states)
                     # 아직 최대 토큰이 아니면 다음 충전 타이머 설정
-                    if rolling_charges < max_charges:
+                    if rolling_charges_value < max_charges:
                         # 경량화 스킬 효과 적용
                         lightweight_bonus = academy.get_skill_bonus("dash_lightweight")
                         charge_time_reduction = lightweight_bonus
                         base_charge_time = 90  # 1.5초
-                        rolling_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
-                        print(f"[DEBUG]     : {rolling_charge_timer}")
+                        rolling_charge_timer_value = int(base_charge_time * (1 - charge_time_reduction))
+                        _rolling_set("rolling_charge_timer", rolling_charge_timer_value)
+                        print(f"[DEBUG]     : {rolling_charge_timer_value}")
                     else:
-                        rolling_consecutive_count = 0  # 모든 토큰 충전 시 연속 카운터 리셋
-                    print(f"   ! : {rolling_charges}/{max_charges}")
-                    print(f"[DEBUG]   : {rolling_charge_timer}")
+                        _rolling_set("rolling_consecutive_count", 0)  # 모든 토큰 충전 시 연속 카운터 리셋
+                    print(f"   ! : {rolling_charges_value}/{max_charges}")
+                    print(f"[DEBUG]   : {_rolling_get('rolling_charge_timer')}")
             #  구르기 충전 - 대쉬 매니저에게 위임 (비활성화 - 고스트샷 버그 때문에)
             # 대쉬 매니저와의 동기화를 일시적으로 비활성화
             # TODO: 대쉬 매니저와 고스트샷 시스템 통합 필요
             if False and dash is not None:
                 # 대쉬 매니저의 상태를 가져와서 레거시 시스템과 동기화
                 dash_tokens, dash_timer, dash_consecutive, dash_max = dash.get_legacy_sync_data()
-                if rolling_charges != dash_tokens or rolling_charge_timer != dash_timer:
-                    rolling_charges = dash_tokens
-                    rolling_charge_timer = dash_timer
-                    rolling_consecutive_count = dash_consecutive
+                if _rolling_get("rolling_charges") != dash_tokens or _rolling_get("rolling_charge_timer") != dash_timer:
+                    _rolling_set("rolling_charges", dash_tokens)
+                    _rolling_set("rolling_charge_timer", dash_timer)
+                    _rolling_set("rolling_consecutive_count", dash_consecutive)
             #  구르기 더블탭 감지
             current_time = pygame.time.get_ticks()
             # 아래키 + 방향키로 대쉬 발동 (킥차져 효과 적용)
