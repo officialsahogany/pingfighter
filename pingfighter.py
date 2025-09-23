@@ -12808,14 +12808,11 @@ def handle_player(keys):
 
     def _start_dash(direction: int, *, tutorial_reset: bool = True) -> int:
         """공통 대쉬 시작 준비. 사용 가능한 토큰 수를 반환한다."""
-
         charges = get_roll("rolling_charges")
         if charges <= 0:
             return 0
-
         if tutorial_reset and current_stage == 50 and 'tutorial_dash_already_counted' in globals():
             globals()["tutorial_dash_already_counted"] = False
-
         set_roll("rolling_active", True)
         set_roll("rolling_direction", direction)
         return charges
