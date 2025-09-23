@@ -19093,6 +19093,57 @@ def draw_player_gauge():
     draw.rect((100, 100, 100), text_bg_rect, 1, border_radius=3)
     # 텍스트 렌더링
     SCREEN.blit(gauge_text_surface, (text_x, text_y))
+    doping_active = doping_potion_active and doping_potion_timer > 0
+    if doping_active:
+        gauge_x = WIDTH - 110
+        gauge_y = HEIGHT - 200
+        gauge_width = 14
+        gauge_height = 100
+        remaining_ratio = doping_potion_timer / max(1, DOPING_POTION_DURATION_FRAMES)
+
+        frame_outer = pygame.Rect(gauge_x - 4, gauge_y - 6, gauge_width + 8, gauge_height + 12)
+        draw.rect((30, 45, 35), frame_outer, border_radius=5)
+        draw.rect((90, 140, 100), frame_outer, 2, border_radius=5)
+
+        inner_rect = pygame.Rect(gauge_x, gauge_y, gauge_width, gauge_height)
+        draw.rect((18, 26, 20), inner_rect)
+
+        fill_height = int((gauge_height - 4) * remaining_ratio)
+        if fill_height > 0:
+            fill_y = gauge_y + gauge_height - fill_height - 2
+            base_color = (80, 210, 140)
+            highlight_color = (140, 255, 190)
+            for layer in range(3):
+                layer_width = gauge_width - 4 - layer * 2
+                if layer_width <= 0:
+                    continue
+                layer_rect = pygame.Rect(gauge_x + 2 + layer, fill_y, layer_width, fill_height)
+                layer_color = (
+                    min(255, base_color[0] + layer * 25),
+                    min(255, base_color[1] + layer * 25),
+                    min(255, base_color[2] + layer * 25)
+                )
+                draw.rect(layer_color, layer_rect)
+
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.01))
+            glow_color = (
+                int(highlight_color[0] * (0.6 + 0.4 * pulse)),
+                int(highlight_color[1] * (0.6 + 0.4 * pulse)),
+                int(highlight_color[2] * (0.6 + 0.4 * pulse))
+            )
+            draw.rect(glow_color, (gauge_x + 2, fill_y, gauge_width - 4, 3))
+
+        icon = get_item_icon("doping_potion")
+        if icon:
+            icon_rect = icon.get_rect()
+            icon_rect.center = (gauge_x + gauge_width // 2, gauge_y - 22)
+            SCREEN.blit(icon, icon_rect)
+        percent = int(remaining_ratio * 100)
+        percent_text = FontStyle.gauge().render(f"{percent}%", True, (180, 255, 210))
+        percent_rect = percent_text.get_rect()
+        percent_rect.center = (gauge_x + gauge_width // 2, gauge_y + gauge_height + 10)
+        SCREEN.blit(percent_text, percent_rect)
+
     #  통합 아이템 지속시간 게이지바 (거대화포션 & 레이저스코프)
     item_gauge_active = (long_boost_active and long_boost_timer > 0) or (predictor_active and predictor_timer > 0)
     if item_gauge_active:
@@ -36817,6 +36868,7 @@ def reset_round():
     # 헤드샷으로 인한 boss_stunned_timer도 초기화
     if boss_stunned_timer > 0 and head_shot_active:
         boss_stunned_timer = 0
+    deactivate_doping_potion()
     
     # 스매셔 쇼트 기술 상태 초기화 (라운드 시작 시)
     short_shot_active = False
