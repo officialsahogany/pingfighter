@@ -13322,70 +13322,59 @@ def handle_player(keys):
     
     # 물자보급 스킬 발동 조건 확인 (스페이스 + ↑ 동시 입력)
     up_pressed = keys[pygame.K_UP]
-    global player_up_pressed
+    global player_up_pressed, player_up_pressed_prev
+    player_up_pressed_prev = player_up_pressed
     player_up_pressed = bool(up_pressed)
-    
-    # 화기류 교체 처리 (↑키 단독 입력)
-    if (up_pressed and not space_pressed and selected_character_type == "soldier" and
-        soldier_controller.switch_cooldown <= 0 and len(soldier_controller.weapons) > 1 and
-        not is_waiting_for_serve and not is_player_serve):
-        # 다음 화기로 교체
-        soldier_controller.current_index = (soldier_controller.current_index + 1) % len(soldier_controller.weapons)
-        soldier_controller.switch_cooldown = soldier_controller.switch_cooldown_frames
-        
-        # 현재 화기에 따른 처리
-        current_weapon = soldier_controller.weapons[soldier_controller.current_index]
-        if current_weapon == "bazooka":
-            from item_effects.bazooka import get_bazooka_instance
-            bazooka = get_bazooka_instance()
-            bazooka.equip()
-            if 'net_gun' in soldier_controller.weapons:
-                get_net_gun_instance().unequip()
-        elif current_weapon == "pistol":
-            # 권총으로 전환
-            if 'bazooka' in soldier_controller.weapons:
-                from item_effects.bazooka import get_bazooka_instance
-                bazooka = get_bazooka_instance()
-                bazooka.unequip()
-            if 'ak47' in soldier_controller.weapons:
-                ak47 = get_ak47_instance()
-                if ak47.remaining_time > 0 or ak47.current_ammo > 0 or ak47.bullets:
-                    ak47.active = True
-            if 'net_gun' in soldier_controller.weapons:
-                get_net_gun_instance().unequip()
-        elif current_weapon == "ak47":
-            # AK-47로 전환
-            if 'bazooka' in soldier_controller.weapons:
-                from item_effects.bazooka import get_bazooka_instance
-                bazooka = get_bazooka_instance()
-                bazooka.unequip()
-            ak47 = get_ak47_instance()
-            if ak47.remaining_time > 0 or ak47.current_ammo > 0 or ak47.bullets:
-                ak47.active = True
-            if 'net_gun' in soldier_controller.weapons:
-                get_net_gun_instance().unequip()
-        elif current_weapon == "net_gun":
-            net_gun = get_net_gun_instance()
-            net_gun.equip()
-            if 'bazooka' in soldier_controller.weapons:
-                from item_effects.bazooka import get_bazooka_instance
-                bazooka = get_bazooka_instance()
-                bazooka.unequip()
-            if 'ak47' in soldier_controller.weapons:
-                ak47 = get_ak47_instance()
-                if ak47.remaining_time > 0 or ak47.current_ammo > 0 or ak47.bullets:
-                    ak47.active = True
-        
-        print(f"🔄 화기 교체: {current_weapon}")
-        
-        # 화기 교체 사운드
-        try:
-            switch_sound = pygame.mixer.Sound(resource_path("sounds/weapon_switch.wav"))
-            switch_sound.set_volume(0.3)
-            switch_sound.play()
-        except:
-            pass
-    
+
+    global soldier_weapon_hold_frames, soldier_weapon_menu_active, soldier_weapon_number_prev
+    allow_weapon_switch = (
+        selected_character_type == "soldier"
+        and len(soldier_controller.weapons) > 1
+        and not is_waiting_for_serve
+        and not is_player_serve
+    )
+
+    if selected_character_type == "soldier":
+        if up_pressed and not space_pressed and allow_weapon_switch:
+            soldier_weapon_hold_frames += 1
+            if soldier_weapon_hold_frames >= SOLDIER_WEAPON_MENU_HOLD_FRAMES:
+                soldier_weapon_menu_active = True
+        else:
+            if not up_pressed:
+                soldier_weapon_hold_frames = 0
+                if soldier_weapon_menu_active:
+                    soldier_weapon_menu_active = False
+            elif space_pressed or not allow_weapon_switch:
+                soldier_weapon_hold_frames = 0
+                if soldier_weapon_menu_active:
+                    soldier_weapon_menu_active = False
+
+        max_slots = min(len(soldier_controller.weapons), len(soldier_weapon_number_prev))
+        for idx in range(max_slots):
+            key_const = getattr(pygame, f'K_{idx + 1}')
+            pressed = keys[key_const]
+            if soldier_weapon_menu_active and allow_weapon_switch and pressed and not soldier_weapon_number_prev[idx]:
+                soldier_switch_weapon(idx)
+                soldier_weapon_menu_active = False
+                soldier_weapon_hold_frames = 0
+            soldier_weapon_number_prev[idx] = pressed
+        for idx in range(max_slots, len(soldier_weapon_number_prev)):
+            soldier_weapon_number_prev[idx] = False
+
+        if player_up_pressed_prev and not up_pressed:
+            held_frames = soldier_weapon_hold_frames
+            if soldier_weapon_menu_active:
+                soldier_weapon_menu_active = False
+            elif (held_frames > 0 and held_frames < SOLDIER_WEAPON_MENU_HOLD_FRAMES and
+                  allow_weapon_switch and not space_pressed and soldier_controller.switch_cooldown <= 0):
+                next_index = (soldier_controller.current_index + 1) % len(soldier_controller.weapons)
+                soldier_switch_weapon(next_index)
+            soldier_weapon_hold_frames = 0
+    else:
+        soldier_weapon_hold_frames = 0
+        soldier_weapon_menu_active = False
+        soldier_weapon_number_prev = [False] * len(soldier_weapon_number_prev)
+
     # 물자보급 스킬 - ↓키 홀드로 발동 (코만도 캐릭터 전용)
     
     # 물자보급 발동 조건 체크 (대시와 같은 방식으로 서브 상태 처리)
