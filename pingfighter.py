@@ -19349,6 +19349,50 @@ def draw_player_gauge():
             count_text = FontStyle.tiny().render(f"누적 {doping_potion_use_count}회", True, (150, 220, 180))
             SCREEN.blit(count_text, (gauge_x - 2, gauge_y + gauge_height + 42))
 
+        if soldier_weapon_menu_active and selected_character_type == "soldier" and soldier_controller.weapons:
+            player_rect = PLAYER if 'PLAYER' in globals() else None
+            if player_rect:
+                slot_count = len(soldier_controller.weapons)
+                slot_width = 48
+                slot_height = 52
+                slot_spacing = 8
+                total_width = slot_count * slot_width + (slot_count - 1) * slot_spacing
+                base_x = player_rect.centerx - total_width / 2
+                base_y = max(40, player_rect.top - slot_height - 28)
+
+                hint_surface = FontStyle.tiny().render("숫자키로 선택", True, (180, 220, 200))
+                hint_rect = hint_surface.get_rect(center=(player_rect.centerx, base_y - 18))
+                SCREEN.blit(hint_surface, hint_rect)
+
+                for idx, weapon in enumerate(soldier_controller.weapons):
+                    slot_rect = pygame.Rect(
+                        int(base_x + idx * (slot_width + slot_spacing)),
+                        int(base_y),
+                        slot_width,
+                        slot_height,
+                    )
+
+                    backdrop = pygame.Surface((slot_width, slot_height), pygame.SRCALPHA)
+                    pygame.draw.rect(backdrop, (18, 24, 28, 210), backdrop.get_rect(), border_radius=8)
+                    SCREEN.blit(backdrop, slot_rect.topleft)
+
+                    border_color = (130, 220, 160) if idx == soldier_controller.current_index else (90, 110, 120)
+                    pygame.draw.rect(SCREEN, border_color, slot_rect, 2, border_radius=8)
+
+                    icon = get_item_icon(weapon)
+                    if icon:
+                        icon_rect = icon.get_rect(center=(slot_rect.centerx, slot_rect.centery - 10))
+                        SCREEN.blit(icon, icon_rect)
+
+                    label_surface = FontStyle.tiny().render(str(idx + 1), True, border_color)
+                    label_rect = label_surface.get_rect(center=(slot_rect.centerx, slot_rect.bottom - 10))
+                    SCREEN.blit(label_surface, label_rect)
+
+                    weapon_label = weapon_names.get(weapon, weapon.upper())
+                    name_surface = FontStyle.tiny().render(weapon_label, True, (220, 230, 235))
+                    name_rect = name_surface.get_rect(center=(slot_rect.centerx, slot_rect.top - 8))
+                    SCREEN.blit(name_surface, name_rect)
+
     #  통합 아이템 지속시간 게이지바 (거대화포션 & 레이저스코프)
     item_gauge_active = (long_boost_active and long_boost_timer > 0) or (predictor_active and predictor_timer > 0)
     if item_gauge_active:
