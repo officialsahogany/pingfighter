@@ -19472,6 +19472,28 @@ def draw_player_gauge():
                 "net_gun": "그물덫총",
             }
 
+            bazooka_instance = None
+            ak47_instance = None
+            net_gun_instance = None
+            weapon_list = soldier_controller.weapons
+            if "bazooka" in weapon_list:
+                try:
+                    from item_effects.bazooka import get_bazooka_instance
+
+                    bazooka_instance = get_bazooka_instance()
+                except Exception:
+                    bazooka_instance = None
+            if "ak47" in weapon_list:
+                try:
+                    ak47_instance = get_ak47_instance()
+                except Exception:
+                    ak47_instance = None
+            if "net_gun" in weapon_list:
+                try:
+                    net_gun_instance = get_net_gun_instance()
+                except Exception:
+                    net_gun_instance = None
+
             for idx, weapon in enumerate(soldier_controller.weapons):
                 slot_rect = pygame.Rect(
                     int(base_x + idx * (slot_width + slot_spacing)),
@@ -19484,19 +19506,41 @@ def draw_player_gauge():
                 pygame.draw.rect(backdrop, (18, 24, 28, 210), backdrop.get_rect(), border_radius=8)
                 SCREEN.blit(backdrop, slot_rect.topleft)
 
+                weapon_available = True
+                if weapon == "bazooka":
+                    weapon_available = bool(bazooka_instance and getattr(bazooka_instance, "ammo_count", 0) > 0)
+                elif weapon == "ak47":
+                    weapon_available = bool(
+                        ak47_instance
+                        and getattr(ak47_instance, "current_ammo", 0) > 0
+                        and (getattr(ak47_instance, "remaining_time", 0) > 0 or getattr(ak47_instance, "active", False))
+                    )
+                elif weapon == "net_gun":
+                    weapon_available = bool(net_gun_instance and getattr(net_gun_instance, "ammo_count", 0) > 0)
+
                 border_color = (130, 220, 160) if idx == soldier_controller.current_index else (90, 110, 120)
+                if not weapon_available:
+                    border_color = (80, 90, 95)
                 pygame.draw.rect(SCREEN, border_color, slot_rect, 2, border_radius=8)
 
                 icon = get_weapon_menu_icon(weapon)
+                if not weapon_available:
+                    icon = icon.copy()
+                    dim_surface = pygame.Surface(icon.get_size(), pygame.SRCALPHA)
+                    dim_surface.fill((20, 26, 28, 160))
+                    icon.blit(dim_surface, (0, 0))
+                    pygame.draw.line(icon, (110, 120, 120, 190), (4, icon.get_height() - 4), (icon.get_width() - 4, 4), 2)
                 icon_rect = icon.get_rect(center=(slot_rect.centerx, slot_rect.centery - 10))
                 SCREEN.blit(icon, icon_rect)
 
-                label_surface = FontStyle.tiny().render(str(idx + 1), True, border_color)
+                label_color = border_color if weapon_available else (120, 130, 135)
+                label_surface = FontStyle.tiny().render(str(idx + 1), True, label_color)
                 label_rect = label_surface.get_rect(center=(slot_rect.centerx, slot_rect.bottom - 10))
                 SCREEN.blit(label_surface, label_rect)
 
                 weapon_label = weapon_display_names.get(weapon, weapon.upper())
-                name_surface = FontStyle.tiny().render(weapon_label, True, (220, 230, 235))
+                name_color = (220, 230, 235) if weapon_available else (150, 160, 165)
+                name_surface = FontStyle.tiny().render(weapon_label, True, name_color)
                 name_rect = name_surface.get_rect(center=(slot_rect.centerx, slot_rect.top - 8))
                 SCREEN.blit(name_surface, name_rect)
 
