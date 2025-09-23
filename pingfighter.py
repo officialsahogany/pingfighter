@@ -13251,9 +13251,11 @@ def handle_player(keys):
                     and down_press_frame >= 0
                     and right_press_frame < down_press_frame
                 )
-                if left_before_down and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
+                current_charges = get_roll("rolling_charges")
+
+                if left_before_down and down_pressed and special_gauge >= required_gauge and current_charges > 0:
                     # 통제불능 상태에서 왼쪽 대쉬 실행 (아래키 + 왼쪽키 필요)
-                    rolling_active = True
+                    set_roll("rolling_active", True)
                     is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
                     half_dash_effect_timer = 0  # 타이머도 리셋
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
@@ -13292,8 +13294,8 @@ def handle_player(keys):
                     base_rolling_timer = int(base_rolling_timer * (1 + total_distance_bonus))
                     # 스킬 효과 적용: 대쉬 거리 증가
                     skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
-                    rolling_timer = int(skill_distance_boost)
-                    rolling_direction = -1
+                    set_roll("rolling_timer", int(skill_distance_boost))
+                    set_roll("rolling_direction", -1)
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
                     dash_spirit_level = academy.get_skill_bonus("dash_spirit")
                     if dash_spirit_level > 0:
@@ -13307,7 +13309,8 @@ def handle_player(keys):
                             dash_distance = int(actual_dash_distance * 0.5)  # 대쉬 거리의 50% 지점에서 종료
                             create_dash_spirit_laser(PLAYER.centerx, PLAYER.centery, -1, dash_distance)
                     #  토큰 사용 - 대쉬 매니저와 동기화
-                    rolling_charges = max(0, rolling_charges - 1)
+                    current_charges = max(0, current_charges - 1)
+                    set_roll("rolling_charges", current_charges)
                     # 최대 토큰 수 계산 (먼저 계산해야 함)
                     base_charges = 1  # 기본 1개
                     holder_bonus = 1 if dashholder_obtained else 0  # 대쉬홀더 +1개
@@ -13316,19 +13319,25 @@ def handle_player(keys):
                     # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
                     if 'token_states' in globals() and len(token_states) > 0:
                         # 오른쪽부터 검색하여 소진
-                        for idx in range(min(len(token_states), max_charges) - 1, -1, -1):
-                            if idx < len(token_states) and token_states[idx]:
-                                token_states[idx] = False
+                        token_states_local = list(token_states)
+                        for idx in range(min(len(token_states_local), max_charges) - 1, -1, -1):
+                            if idx < len(token_states_local) and token_states_local[idx]:
+                                token_states_local[idx] = False
                                 break
+                        token_states[:] = token_states_local
+                        if rolling_state is not None:
+                            rolling_state.token_states = list(token_states_local)
                     else:
                         # token_states가 없으면 초기화
-                        token_states = [True] * rolling_charges + [False] * (max_charges - rolling_charges)
+                        token_states = [True] * current_charges + [False] * (max_charges - current_charges)
+                        if rolling_state is not None:
+                            rolling_state.token_states = list(token_states)
                     # 아카데미 스킬 효과: 쿨타임 감소
                     dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
                     cooldown_reduction = int(dash_cooldown_bonus * FPS)  # 초 단위를 프레임으로 변환
                     # 다중 토큰 시스템 로직 (대쉬홀더 또는 증폭 스킬)
                     if max_charges > 1:
-                        if rolling_charges >= 1:  # 아직 1개 이상 남아있으면 (2개에서 1개 사용)
+                        if current_charges >= 1:  # 아직 1개 이상 남아있으면 (2개에서 1개 사용)
                             base_timer = max(6, 60 - cooldown_reduction)   # 1초 (최소 0.1초)
                         else:  # 마지막 대쉬 사용 (1개에서 0개)
                             base_timer = max(6, 90 - cooldown_reduction)   # 1.5초 (최소 0.1초)
@@ -13346,7 +13355,7 @@ def handle_player(keys):
                         multipliers = get_devil_dice_multipliers()
                         base_timer = int(base_timer * multipliers['dash_cooldown'])
                         print(f"[DEBUG]     : x{multipliers['dash_cooldown']:.1f}")
-                    
+
                     _rolling_set("rolling_cooldown", base_timer)
                     _rolling_set("rolling_charge_timer", base_timer)
                     print(f"[DEBUG]      : {_rolling_get('rolling_charge_timer')} (: {_rolling_get('rolling_charges')})")
