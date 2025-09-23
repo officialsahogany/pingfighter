@@ -53,7 +53,7 @@ def _clear_poseidon_background(surface: pygame.Surface) -> None:
             dx = x - center_x
             dy = y - center_y
             dist_sq = dx * dx + dy * dy
-            if y < 2 or dist_sq > radius_limit_sq:
+            if color.a < 120 or y < 2 or dist_sq > radius_limit_sq:
                 surface.set_at((x, y), (0, 0, 0, 0))
 
 
