@@ -1890,6 +1890,28 @@ class SacredLaurel(LegendaryItem):
         self.frame_counter = 0
         self.animation_speed = 6
         self._generate_animation_frames()
+        self.absorption_threshold = 0.82  # 완전히 재생된 후에만 보호막 발동
+        self.absorption_multiplier = 0.7   # 충격 흡수 시 속도 감소 비율
+
+    def can_absorb(self) -> bool:
+        """현재 보호막이 충격을 흡수할 수 있는지 확인"""
+        return self.active and self.fade_amount >= self.absorption_threshold
+
+    def absorb_velocity(self, velocity: List[float]) -> bool:
+        """공의 속도를 흡수하여 완화한다.
+
+        Args:
+            velocity: x, y 성분으로 구성된 속도 리스트
+
+        Returns:
+            흡수가 수행되었는지 여부
+        """
+        if not self.can_absorb():
+            return False
+        if len(velocity) >= 2:
+            velocity[0] *= self.absorption_multiplier
+            velocity[1] *= self.absorption_multiplier
+        return True
 
     def _create_ring_surface(self) -> pygame.Surface:
         surface = pygame.Surface((32, 32), pygame.SRCALPHA)
