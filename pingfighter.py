@@ -45763,9 +45763,16 @@ def main(stage_num, new_boss_mode=False):
     
     # Stage 5 보스 피격 효과
     global stage5_boss_hurt_active, stage5_boss_hurt_timer
-    
+
     boss_fail_timer = 0  # 보스 실수 타이머 초기화
     current_stage = stage_num
+    global soldier_emergency_supply_stage, soldier_emergency_supply_used
+    global soldier_down_tap_timer, soldier_down_tap_count, soldier_down_tap_suppress_timer
+    soldier_emergency_supply_stage = stage_num
+    soldier_emergency_supply_used = False
+    soldier_down_tap_timer = 0
+    soldier_down_tap_count = 0
+    soldier_down_tap_suppress_timer = 0
     round_wins = 0
     round_losses = 0
     blacksmith_shield_swing_active = False
