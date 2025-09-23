@@ -4505,8 +4505,8 @@ def release_blacksmith_hammer_shock():
     projectile = {
         "x": float(origin_x),
         "y": float(origin_y),
-        "vx": BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED,
-        "vy": 0.0,
+        "vx": 0.0,
+        "vy": -BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED,
         "stage": stage,
         "life": int(1.5 * FPS),
         "rotation": 0.0,
