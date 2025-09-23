@@ -3815,7 +3815,7 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     ]
     pygame.draw.polygon(surface, (112, 76, 48), cap_poly)
 
-    head_offset_along = 26
+    head_offset_along = 20
     head_center = handle_top - direction_vec * head_offset_along
     head_half_long = 20
     head_half_short = 11
