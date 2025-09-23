@@ -7219,6 +7219,7 @@ soldier_down_tap_count = 0
 soldier_down_tap_suppress_timer = 0
 soldier_emergency_supply_used = False
 soldier_emergency_supply_stage = None
+soldier_emergency_supply_toast_timer = 0
 
 
 def _get_global_manager() -> GlobalManager:
