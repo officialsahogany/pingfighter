@@ -3348,11 +3348,7 @@ def _crop_surface_alpha(surface: pygame.Surface) -> pygame.Surface:
     return surface.subsurface(rect).copy()
 
 
-try:
-    _soldier_card_raw = pygame.image.load(resource_path("soldier_paddle_new.png")).convert_alpha()
-    SOLDIER_CARD_IMG = _crop_surface_alpha(_soldier_card_raw)
-except Exception:
-    SOLDIER_CARD_IMG = _crop_surface_alpha(SOLDIER_PADDLE_IMG)
+SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(220))
 
 
 def get_soldier_right_hook_strength() -> float:
