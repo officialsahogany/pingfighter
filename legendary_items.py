@@ -403,7 +403,10 @@ class PoseidonTrident(LegendaryItem):
             frame_path = resource_path(f"items/legendary/poseidon_trident_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
-                cleaned_frame = _strip_legendary_red_ring(frame)
+                background_rules = [
+                    lambda c: abs(c.r - c.g) < 10 and abs(c.g - c.b) < 10 and 60 <= c.r <= 120
+                ]
+                cleaned_frame = _strip_legendary_red_ring(frame, background_rules=background_rules)
 
                 self.icon_frames.append(cleaned_frame)
                 self.animation_frames.append(cleaned_frame)  # legendary_acquisition에서 사용
@@ -1291,7 +1294,7 @@ class PoseidonTrident(LegendaryItem):
         import pygame
         
         # 공통 전설 프레임 (라그나로크/헤르메스와 동일 배경)
-        _draw_common_legendary_frame(screen, x, y, size)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
         
         # 애니메이션 프레임 그리기 (라그나로크 해머와 동일한 프레임 사용)
         if self.icon_frames and len(self.icon_frames) > 0:
@@ -1301,7 +1304,7 @@ class PoseidonTrident(LegendaryItem):
                 self.frame_counter = 0
                 self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
 
-            icon_y = y + int(self.animation_offset)
+            icon_y = y + frame_offset + int(self.animation_offset)
             current_icon = self.icon_frames[self.current_frame % len(self.icon_frames)]
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
@@ -1714,7 +1717,7 @@ class HermesShoes(LegendaryItem):
         import pygame
         
         # 공통 배경 프레임 연출 (라그나로크 해머와 동일 스타일)
-        _draw_common_legendary_frame(screen, x, y, size, border_color=(180, 200, 255))
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time, border_color=(180, 200, 255))
         
         # 애니메이션 프레임 그리기
         if self.animation_frames and len(self.animation_frames) > 0:
@@ -1725,7 +1728,7 @@ class HermesShoes(LegendaryItem):
                 self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
             
             # 현재 프레임 그리기 (위아래 움직임 효과 포함)
-            icon_y = y + int(self.animation_offset)
+            icon_y = y + frame_offset + int(self.animation_offset)
             current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
@@ -1733,7 +1736,7 @@ class HermesShoes(LegendaryItem):
             # 헤르메스 특수 효과 없음 (번개 효과 대신)
         else:
             # 프레임이 없으면 기본 신발 아이콘 그리기
-            icon_y = y + int(self.animation_offset)
+            icon_y = y + frame_offset + int(self.animation_offset)
             shoe_color = (100, 200, 255)  # 하늘색
             wing_color = (255, 255, 255)  # 흰색
             
@@ -1984,11 +1987,11 @@ class RagnarokHammer(LegendaryItem):
                 # 작은 번개 이펙트
                 bolt_color = (255, 255, 150)
                 pygame.draw.line(screen, bolt_color, 
-                               (x + size//4, y - 5), 
-                               (x + size//3, y + size//4), 2)
+                               (x + size//4, y + frame_offset - 5), 
+                               (x + size//3, y + frame_offset + size//4), 2)
                 pygame.draw.line(screen, bolt_color,
-                               (x + size*3//4, y - 5),
-                               (x + size*2//3, y + size//4), 2)
+                               (x + size*3//4, y + frame_offset - 5),
+                               (x + size*2//3, y + frame_offset + size//4), 2)
         
         # 파티클 효과
         if self.particle_timer > 1000:
