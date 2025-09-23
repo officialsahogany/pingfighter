@@ -1253,70 +1253,22 @@ class PoseidonTrident(LegendaryItem):
         import pygame
         import math
         
-        # 포세이돈의 삼지창은 글로우 효과 제거 (사용자 요청)
-        # 부모 클래스의 draw_icon을 호출하지 않음 - 완전히 오버라이드
-        
-        # 외부 테두리 - 붉은색 (펄싱 효과)
-        border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
-        border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
-        pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)
-        
-        # 꼭지점 디테일 (코너 장식)
-        corner_size = 8  # 더 큰 코너
-        corner_color = (255, 215, 0)  # 황금색 (신의 무기)
-        # 왼쪽 위
-        pygame.draw.lines(screen, corner_color, False, 
-                         [(x-2, y+corner_size), (x-2, y-2), (x+corner_size, y-2)], 2)
-        # 오른쪽 위
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x+size-corner_size+2, y-2), (x+size+2, y-2), (x+size+2, y+corner_size)], 2)
-        # 왼쪽 아래
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x-2, y+size-corner_size+2), (x-2, y+size+2), (x+corner_size, y+size+2)], 2)
-        # 오른쪽 아래
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x+size-corner_size+2, y+size+2), (x+size+2, y+size+2), (x+size+2, y+size-corner_size+2)], 2)
-        
-        # 포세이돈의 삼지창은 코너 점 장식 제거 (사용자 요청)
+        # 공통 전설 프레임 (라그나로크/헤르메스와 동일 배경)
+        _draw_common_legendary_frame(screen, x, y, size)
         
         # 애니메이션 프레임 그리기 (라그나로크 해머와 동일한 프레임 사용)
         if self.icon_frames and len(self.icon_frames) > 0:
             # 현재 프레임 그리기 (위아래 움직임 효과 포함)
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
+
             icon_y = y + int(self.animation_offset)
             current_icon = self.icon_frames[self.current_frame % len(self.icon_frames)]
-            # 이미 로드 시점에 빨간색 배경을 제거했으므로 그대로 사용
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
-            
-            # PNG에 없는 내부 디자인 추가 (라그나로크/헤르메스 스타일)
-            # 1. 내부 빨간색 테두리 (프레임별 그라데이션)
-            frame_gradient = self.current_frame / 8.0  # 0.0 ~ 1.0
-            inner_red = int(200 + 55 * math.sin(frame_gradient * math.pi * 2))  # 200-255 사이 변화
-            inner_border_color = (inner_red, 0, 0)
-            inner_border_rect = pygame.Rect(x, icon_y, size, size)  # 아이콘 전체 크기와 동일하게
-            pygame.draw.rect(screen, inner_border_color, inner_border_rect, 3)
-            
-            # 2. 꼭지점 (프레임별 색상 변화 - 라그나로크 스타일)
-            # 프레임에 따라 색상 변화 (스크린샷 기반)
-            if self.current_frame == 0 or self.current_frame == 4:
-                corner_color_inner = (0, 150, 255)  # 파란색
-            elif self.current_frame == 1 or self.current_frame == 5:
-                corner_color_inner = (255, 200, 0)  # 주황색/노란색
-            elif self.current_frame == 2 or self.current_frame == 6:
-                corner_color_inner = (255, 50, 50)  # 빨간색
-            else:  # 3, 7
-                corner_color_inner = (255, 255, 200)  # 밝은 노란색/흰색
-                
-            corner_positions = [
-                (x, icon_y),  # 왼쪽 위
-                (x+size, icon_y),  # 오른쪽 위  
-                (x, icon_y+size),  # 왼쪽 아래
-                (x+size, icon_y+size)  # 오른쪽 아래
-            ]
-            for cx, cy in corner_positions:
-                # 사각형 꼭지점 (라그나로크 스타일)
-                pygame.draw.rect(screen, corner_color_inner, (cx-3, cy-3, 6, 6))
-            
+
             # 번개 효과 추가 (프레임 0, 4에서) - 라그나로크와 동일
             if self.current_frame in [0, 4]:
                 # 작은 번개 이펙트
@@ -1974,30 +1926,10 @@ class RagnarokHammer(LegendaryItem):
         import pygame
         import math
         
-        # 원형 붉은 글로우는 제거하고 메탈릭 톤의 프레임만 유지한다.
-        border_rect = pygame.Rect(x-1, y-1, size+2, size+2)
-        pygame.draw.rect(screen, (200, 200, 220), border_rect, 2)
-        
-        # 꼭지점 디테일 (코너 장식)
-        corner_size = 8  # 더 큰 코너
-        corner_color = (255, 215, 0)  # 황금색 (신의 무기)
-        # 왼쪽 위
-        pygame.draw.lines(screen, corner_color, False, 
-                         [(x-2, y+corner_size), (x-2, y-2), (x+corner_size, y-2)], 2)
-        # 오른쪽 위
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x+size-corner_size+2, y-2), (x+size+2, y-2), (x+size+2, y+corner_size)], 2)
-        # 왼쪽 아래
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x-2, y+size-corner_size+2), (x-2, y+size+2), (x+corner_size, y+size+2)], 2)
-        # 오른쪽 아래
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x+size-corner_size+2, y+size+2), (x+size+2, y+size+2), (x+size+2, y+size-corner_size+2)], 2)
-        
-        # 코너 점 장식 (더 화려하게)
-        for cx, cy in [(x, y), (x+size, y), (x, y+size), (x+size, y+size)]:
-            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
-        
+        # 공통 배경 프레임 연출
+       
+        _draw_common_legendary_frame(screen, x, y, size)
+
         # 애니메이션 프레임 그리기
         if self.animation_frames and len(self.animation_frames) > 0:
             # 프레임 업데이트 (항상 진행)
