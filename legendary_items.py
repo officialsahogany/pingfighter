@@ -1965,8 +1965,7 @@ class RagnarokHammer(LegendaryItem):
         import math
         
         # 공통 배경 프레임 연출
-       
-        _draw_common_legendary_frame(screen, x, y, size)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
         # 애니메이션 프레임 그리기
         if self.animation_frames and len(self.animation_frames) > 0:
@@ -1977,7 +1976,7 @@ class RagnarokHammer(LegendaryItem):
                 self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
             
             # 현재 프레임 그리기 (위아래 움직임 효과 포함)
-            icon_y = y + int(self.animation_offset)
+            icon_y = y + frame_offset + int(self.animation_offset)
             current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
