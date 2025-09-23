@@ -7243,7 +7243,7 @@ def get_soldier_shot_probabilities() -> tuple[float, float]:
 
 def trigger_soldier_emergency_supply() -> bool:
     """코만도 비상보급: 현재 장비한 화기류를 즉시 완전 장전"""
-    global special_gauge, soldier_emergency_supply_used
+    global special_gauge, soldier_emergency_supply_used, soldier_emergency_supply_toast_timer
     global soldier_ammo_count, soldier_reloading, soldier_reload_timer, soldier_last_reload_bullets
     global soldier_pistol_ammo
 
@@ -7311,6 +7311,7 @@ def trigger_soldier_emergency_supply() -> bool:
     soldier_emergency_supply_used = True
     register_weapon_reload(weapon_name)
     soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
+    soldier_emergency_supply_toast_timer = 90
     print(f"🪖 비상보급 완료! {get_item_name_korean(weapon_name)} 탄약을 모두 장전했습니다.")
     return True
 
