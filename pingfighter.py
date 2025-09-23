@@ -3348,9 +3348,6 @@ def _crop_surface_alpha(surface: pygame.Surface) -> pygame.Surface:
     return surface.subsurface(rect).copy()
 
 
-SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(220))
-
-
 def get_soldier_right_hook_strength() -> float:
     global soldier_right_hook_phase
     if not soldier_right_hook_active or SOLDIER_RIGHT_HOOK_DURATION <= 0 or soldier_right_hook_timer <= 0:
@@ -32324,6 +32321,8 @@ def create_soldier_character_card_image(size):
 
 def create_soldier_character_card_image_new(size: int) -> pygame.Surface:
     """최신 코만도(군인) 캐릭터 아트 - 카드 전용 네온 아머 버전"""
+    # 실제 인게임 코만도 일러스트와 맞추기 위해 기존 전면 일러스트 기반 생성으로 되돌립니다.
+    return create_soldier_character_card_image(size)
     base_width = 200
     base_height = 260
     scale = size / base_width
@@ -32557,6 +32556,9 @@ def create_soldier_character_card_image_new(size: int) -> pygame.Surface:
     pygame.draw.line(img, palette["trim"], (collar_rect.left + s(6), collar_rect.bottom - s(4)), (collar_rect.right - s(6), collar_rect.bottom - s(4)), max(1, s(2)))
 
     return img
+
+
+SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(220))
 
 
 def create_soldier_front_view():
