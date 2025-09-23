@@ -1951,10 +1951,23 @@ class SacredLaurel(LegendaryItem):
             current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
+
+            if self.current_frame in [0, 4]:
+                bolt_color = (255, 255, 150)
+                pygame.draw.line(screen, bolt_color,
+                                 (x + size//4, y + frame_offset - 5),
+                                 (x + size//3, y + frame_offset + size//4), 2)
+                pygame.draw.line(screen, bolt_color,
+                                 (x + size*3//4, y + frame_offset - 5),
+                                 (x + size*2//3, y + frame_offset + size//4), 2)
         else:
             icon_surface = pygame.Surface((size, size), pygame.SRCALPHA)
             pygame.draw.circle(icon_surface, (200, 220, 255, 180), (size // 2, size // 2), size // 2 - 4, 3)
             screen.blit(icon_surface, (x, y + frame_offset + int(self.animation_offset)))
+
+        if self.particle_timer > 1000:
+            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
+            self.particle_timer = 0
 
 
 class RagnarokHammer(LegendaryItem):
