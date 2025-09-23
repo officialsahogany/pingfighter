@@ -4493,26 +4493,11 @@ def release_blacksmith_hammer_shock():
     origin_x = PLAYER.right + 18
     origin_y = PLAYER.centery - 20
 
-    vx = BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
-    vy = 0.0
-    if 'BOSS' in globals() and BOSS is not None:
-        target_cx = BOSS.centerx
-        target_cy = BOSS.centery
-        dx = target_cx - origin_x
-        dy = target_cy - origin_y
-        distance = math.hypot(dx, dy)
-        if distance > 1e-3:
-            vx = (dx / distance) * BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
-            vy = (dy / distance) * BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
-        else:
-            vx = 0.0
-            vy = -BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
-
     projectile = {
         "x": float(origin_x),
         "y": float(origin_y),
-        "vx": vx,
-        "vy": vy,
+        "vx": BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED,
+        "vy": 0.0,
         "stage": stage,
         "life": int(1.5 * FPS),
         "rotation": 0.0,
@@ -4595,8 +4580,8 @@ def update_blacksmith_hammer_shock(keys):
 
     if blacksmith_hammer_shock_charging:
         if 'PLAYER' in globals() and PLAYER is not None:
-            blacksmith_hammer_shock_anchor_x = PLAYER.centerx
-            blacksmith_hammer_shock_anchor_y = PLAYER.centery
+            PLAYER.centerx = int(blacksmith_hammer_shock_anchor_x)
+            PLAYER.centery = int(blacksmith_hammer_shock_anchor_y)
         blacksmith_hammer_shock_charge_frames += 1
         blacksmith_hammer_shock_stage = _blacksmith_hammer_shock_stage_for_frames(blacksmith_hammer_shock_charge_frames)
 
@@ -4618,7 +4603,7 @@ def update_blacksmith_hammer_shock(keys):
 
     new_projectiles = []
     for proj in blacksmith_hammer_shock_projectiles:
-        proj["x"] += proj.get("vx", 0.0)
+        proj["x"] += proj["vx"]
         proj["y"] += proj.get("vy", 0.0)
         proj["rotation"] = (proj.get("rotation", 0.0) + 18.0) % 360
         proj["life"] -= 1
@@ -4632,16 +4617,8 @@ def update_blacksmith_hammer_shock(keys):
                 exploded = True
 
         if not exploded:
-            off_screen = (
-                proj["x"] <= 0
-                or proj["x"] >= WIDTH
-                or proj["y"] <= 0
-                or proj["y"] >= HEIGHT
-            )
-            if off_screen or proj["life"] <= 0:
-                clamped_x = max(10, min(WIDTH - 10, proj["x"]))
-                clamped_y = max(10, min(HEIGHT - 10, proj["y"]))
-                _trigger_blacksmith_hammer_shock_explosion(proj["stage"], clamped_x, clamped_y)
+            if proj["x"] >= WIDTH - 10 or proj["life"] <= 0:
+                _trigger_blacksmith_hammer_shock_explosion(proj["stage"], min(proj["x"], WIDTH - 10), proj["y"])
                 exploded = True
 
         if not exploded:
@@ -5962,7 +5939,6 @@ BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK = 16.0
 BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK = 22.0
 BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK = 28.0
 BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION = int(10 * FPS)
-BLACKSMITH_HAMMER_SHOCK_MOVEMENT_SLOW = 0.7  # 충전 중 이동 속도 배율 (-30%)
 BLACKSMITH_TURRET_DESIGN_WIDTH = 46
 BLACKSMITH_TURRET_DESIGN_HEIGHT = 54
 BLACKSMITH_TURRET_BASE_WIDTH = int(BLACKSMITH_TURRET_DESIGN_WIDTH * 1.2)
@@ -14429,9 +14405,6 @@ def handle_player(keys):
         player_slow_timer -= 1
     else:
         speed_factor = 1.0
-
-    if selected_character_type == "blacksmith" and blacksmith_hammer_shock_charging:
-        speed_factor *= BLACKSMITH_HAMMER_SHOCK_MOVEMENT_SLOW
     # === 롱부스트 타이머 체크 및 점진적 크기 변화 ===
     if long_boost_active:
         if long_boost_timer > 0:
