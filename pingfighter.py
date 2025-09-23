@@ -1425,6 +1425,7 @@ short_shot_counter_pending = False    # 쇼트 후 보스 반격 대기 상태
 
 # 입력 상태 기본값 (초기 calculate_bounce 호출에서 참조될 수 있음)
 player_up_pressed = False             # ↑키 입력 여부
+player_up_pressed_prev = False        # 이전 프레임의 ↑키 입력 여부
 #  아이템 시스템
 # 액티브 아이템
 active_item_slot = []                # 리스트로 바꿔서 최대 3개 보관
@@ -6905,6 +6906,12 @@ doping_potion_active = False
 doping_potion_timer = 0
 doping_potion_toast_timer = 0
 doping_potion_use_count = 0
+
+# 병기 단축 선택 UI 설정
+SOLDIER_WEAPON_MENU_HOLD_FRAMES = int(0.4 * 60)  # 0.4초 유지 시 활성화
+soldier_weapon_hold_frames = 0
+soldier_weapon_menu_active = False
+soldier_weapon_number_prev = [False] * 9
 
 
 def _get_global_manager() -> GlobalManager:
