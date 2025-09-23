@@ -680,6 +680,7 @@ def _get_pingfighter_module():
 def _prime_legacy_state(state: GameState, namespace: Any) -> None:
     if namespace is None:
         return
+    setattr(namespace, "LEGACY_STATE", getattr(state, "legacy", None))
     if getattr(state, '_legacy_bridge_primed', False):
         return
     prime_store_from_namespace(state, namespace)
