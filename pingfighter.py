@@ -45642,6 +45642,12 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_build_menu_active = False
     blacksmith_down_hold_frames = 0
     blacksmith_divine_stone_state = None
+    global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
+    global blacksmith_divine_build_progress, blacksmith_divine_partial_drain
+    blacksmith_divine_blueprint_active = False
+    blacksmith_divine_blueprint_rect = None
+    blacksmith_divine_build_progress = 0
+    blacksmith_divine_partial_drain = 0.0
 
     # 🔧 스테이지 시작 시 플레이어 움직임 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
