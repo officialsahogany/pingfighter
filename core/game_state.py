@@ -181,6 +181,7 @@ class GameState:
         
         # ========== 상태 딕셔너리 (추가적인 동적 상태 저장용) ==========
         self.state = {}
+        self.legacy_globals: Dict[str, Any] = {}
         
     def get(self, key: str, default: Any = None) -> Any:
         """상태 값 가져오기
