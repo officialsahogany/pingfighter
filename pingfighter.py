@@ -34788,8 +34788,14 @@ def get_item_icon(item_name):
             # print(f"Trying path: {full_path}")  # 디버그용
             if os.path.exists(full_path):
                 # print(f"File exists: {full_path}")  # 디버그용
-                icon = pygame.image.load(full_path).convert_alpha()
-                icon = pygame.transform.scale(icon, (ICON_SIZE, ICON_SIZE))
+                loaded_icon = pygame.image.load(full_path)
+                # pygame.display 초기화 이전에는 convert_alpha가 실패하므로 안전하게 처리
+                if pygame.display.get_init() and pygame.display.get_surface():
+                    try:
+                        loaded_icon = loaded_icon.convert_alpha()
+                    except Exception:
+                        pass
+                icon = pygame.transform.scale(loaded_icon, (ICON_SIZE, ICON_SIZE))
                 icon_cache[item_name] = icon
                 return icon
             # else:
