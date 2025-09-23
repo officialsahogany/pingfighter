@@ -13368,7 +13368,11 @@ def handle_player(keys):
                             check_tutorial_dash_missions_complete()
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
-                        dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
+                        dash.sync_with_legacy_system(
+                            _rolling_get("rolling_charges"),
+                            _rolling_get("rolling_charge_timer"),
+                            _rolling_get("rolling_consecutive_count"),
+                        )
                     # 기본 게이지 소모량
                     base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                     
@@ -14001,7 +14005,11 @@ def handle_player(keys):
                     record_dash_usage(success=False)  # 일단 사용만 기록, 성공은 공 충돌 시 체크
                 #  대쉬 매니저와 4번째 대쉬 위치 동기화
                 if dash is not None and rolling_charge_timer > 0:
-                    dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
+                    dash.sync_with_legacy_system(
+                        _rolling_get("rolling_charges"),
+                        _rolling_get("rolling_charge_timer"),
+                        _rolling_get("rolling_consecutive_count"),
+                    )
                 elif right_before_down and keys[pygame.K_DOWN] and special_gauge >= required_gauge:
                     # 아래키 + 오른쪽 - 대쉬 실행
                     rolling_active = True
