@@ -9,6 +9,8 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Dict, Any, Optional, Tuple
 
+import sys
+
 from core.game_variables import get_game_vars
 from core.game_state import GameState as CoreGameState
 
@@ -655,6 +657,46 @@ def _sync_game_vars_from_state(state: GameState) -> None:
         ball_vel[1] = float(state.ball.velocity[1])
     if hasattr(game_vars.ball, "radius"):
         game_vars.ball.radius = int(state.ball.radius)
+
+
+def _get_pingfighter_module():
+    return sys.modules.get('pingfighter')
+
+
+def _sync_state_from_globals(state: GameState) -> None:
+    ping = _get_pingfighter_module()
+    if ping is None:
+        return
+
+    try:
+        player_rect = ping.PLAYER
+        boss_rect = ping.BOSS
+        ball_rect = ping.BALL
+        ball_vel = ping.ball_vel
+    except AttributeError:
+        return
+
+    state.player.rect = player_rect.copy()
+    state.player.speed = getattr(ping.PLAYER, 'speed', state.player.speed)
+
+    state.boss.rect = boss_rect.copy()
+    state.boss.speed = getattr(ping.BOSS, 'speed', state.boss.speed)
+
+    state.ball.pos = [float(ball_rect.centerx), float(ball_rect.centery)]
+    if len(ball_vel) >= 2:
+        state.ball.velocity = [float(ball_vel[0]), float(ball_vel[1])]
+    state.ball.radius = getattr(ping, 'BALL_RADIUS', state.ball.radius)
+
+    state.stage = getattr(ping, 'current_stage', state.stage)
+    state.score['player'] = getattr(ping, 'player_score', state.score['player'])
+    state.score['boss'] = getattr(ping, 'boss_score', state.score['boss'])
+
+    special_gauge = getattr(ping, 'special_gauge', None)
+    special_ready = getattr(ping, 'special_ready', None)
+    if special_gauge is not None:
+        state.special_status['gauge'] = special_gauge
+    if special_ready is not None:
+        state.special_status['ready'] = special_ready
 
 
 def _game_vars_update_player_input(state: GameState, input_handler: InputHandler) -> None:
