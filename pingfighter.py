@@ -4363,7 +4363,9 @@ def release_blacksmith_hammer_shock():
     global blacksmith_hammer_shock_charging, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_projectiles
     global blacksmith_hammer_available, blacksmith_hammer_shock_cooldown_timer
+    global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     global special_gauge, special_ready, special_gauge_max
+    global PLAYER, SOUND_GRENADE
 
     if not blacksmith_hammer_shock_charging:
         return
@@ -4418,6 +4420,7 @@ def release_blacksmith_hammer_shock():
 
 
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
+    global BOSS
     radius = BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS
     if stage == 2:
         radius *= BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE
@@ -4466,6 +4469,8 @@ def update_blacksmith_hammer_shock(keys):
     global blacksmith_hammer_shock_charging, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_projectiles
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_available
+    global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
+    global PLAYER, special_gauge, special_ready, special_gauge_max
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
         blacksmith_hammer_shock_cooldown_timer -= 1
