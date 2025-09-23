@@ -475,15 +475,6 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
-        "name": "sacred_laurel_removed",  # 신성 월계수 전설 아이템
-        "color": (255, 220, 150),  # 황금빛 전설 색상
-        "effect": "sacred_laurel_removed",
-        "icon": None,
-        "chance": 0.0008,
-        "duration": 600,
-        "unlock_condition": None
-    },
-    {
         "name": "knee_pads",  # 킥차져 패시브 아이템
         "color": (80, 80, 100),  # 어두운 회색-파란색
         "effect": "knee_pads",
