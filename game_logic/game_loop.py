@@ -19,11 +19,6 @@ from game_logic.legacy_state_bridge import (
     legacy_player_sync,
     legacy_sync,
     prime_store_from_namespace,
-    sync_namespace_ball_state,
-    sync_namespace_draw_state,
-    sync_namespace_player_state,
-    sync_namespace_to_state,
-    sync_state_to_namespace,
 )
 
 
@@ -757,9 +752,8 @@ def create_game_vars_adapters(hooks: Optional[LegacyHooks] = None) -> RuntimeAda
             def _legacy_player(state: GameState, input_handler: InputHandler) -> None:
                 module = _get_pingfighter_module()
                 _prime_legacy_state(state, module)
-                sync_player_state_to_namespace(state, module)
-                hooks.player_update(state, input_handler)
-                sync_namespace_player_state(state, module)
+                with legacy_player_sync(state, module):
+                    hooks.player_update(state, input_handler)
                 _sync_state_from_globals(state)
                 _sync_state_from_core_game_state(state)
                 _sync_game_vars_from_state(state)
@@ -770,9 +764,8 @@ def create_game_vars_adapters(hooks: Optional[LegacyHooks] = None) -> RuntimeAda
             def _legacy_physics(state: GameState, delta_time: float) -> None:
                 module = _get_pingfighter_module()
                 _prime_legacy_state(state, module)
-                sync_ball_state_to_namespace(state, module)
-                hooks.physics_update(state, delta_time)
-                sync_namespace_ball_state(state, module)
+                with legacy_ball_sync(state, module):
+                    hooks.physics_update(state, delta_time)
                 _sync_state_from_globals(state)
                 _sync_state_from_core_game_state(state)
                 _sync_game_vars_from_state(state)
@@ -783,9 +776,8 @@ def create_game_vars_adapters(hooks: Optional[LegacyHooks] = None) -> RuntimeAda
             def _legacy_ai(state: GameState, delta_time: float) -> None:
                 module = _get_pingfighter_module()
                 _prime_legacy_state(state, module)
-                sync_state_to_namespace(state, module)
-                hooks.ai_update(state, delta_time)
-                sync_namespace_to_state(state, module)
+                with legacy_sync(state, module):
+                    hooks.ai_update(state, delta_time)
                 _sync_state_from_globals(state)
                 _sync_state_from_core_game_state(state)
                 _sync_game_vars_from_state(state)
@@ -796,9 +788,8 @@ def create_game_vars_adapters(hooks: Optional[LegacyHooks] = None) -> RuntimeAda
             def _legacy_items(state: GameState, delta_time: float) -> None:
                 module = _get_pingfighter_module()
                 _prime_legacy_state(state, module)
-                sync_state_to_namespace(state, module)
-                hooks.items_update(state, delta_time)
-                sync_namespace_to_state(state, module)
+                with legacy_sync(state, module):
+                    hooks.items_update(state, delta_time)
                 _sync_state_from_globals(state)
                 _sync_state_from_core_game_state(state)
                 _sync_game_vars_from_state(state)
@@ -809,9 +800,8 @@ def create_game_vars_adapters(hooks: Optional[LegacyHooks] = None) -> RuntimeAda
             def _legacy_render(state: GameState) -> None:
                 module = _get_pingfighter_module()
                 _prime_legacy_state(state, module)
-                sync_draw_state_to_namespace(state, module)
-                hooks.render_frame(state)
-                sync_namespace_draw_state(state, module)
+                with legacy_draw_sync(state, module):
+                    hooks.render_frame(state)
 
             adapters.render_frame = _legacy_render
 
