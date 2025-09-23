@@ -13330,8 +13330,6 @@ def handle_player(keys):
     allow_weapon_switch = (
         selected_character_type == "soldier"
         and len(soldier_controller.weapons) > 1
-        and not is_waiting_for_serve
-        and not is_player_serve
     )
 
     if selected_character_type == "soldier":
@@ -19363,6 +19361,13 @@ def draw_player_gauge():
             hint_surface = FontStyle.tiny().render("숫자키로 선택", True, (180, 220, 200))
             hint_rect = hint_surface.get_rect(center=(player_rect.centerx, base_y - 18))
             SCREEN.blit(hint_surface, hint_rect)
+
+            weapon_display_names = {
+                "pistol": "권총",
+                "bazooka": "바주카포",
+                "ak47": "AK-47",
+                "net_gun": "그물덫총",
+            }
 
             for idx, weapon in enumerate(soldier_controller.weapons):
                 slot_rect = pygame.Rect(
