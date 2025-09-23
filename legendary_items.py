@@ -1873,25 +1873,26 @@ class SacredLaurel(LegendaryItem):
             unlock_condition="스테이지 8 클리어",
             icon_path=None,
         )
-        self.ring_count = 8
-        self.base_angles = [i * (2 * math.pi / self.ring_count) for i in range(self.ring_count)]
-        self.rotation_speed = 0.003  # 라디안/밀리초
-        self.orbit_radius = 78
         self.fade_amount = 1.0
         self.reappear_duration = 5000
         self.reappear_timer = self.reappear_duration
         self.hit_flash_duration = 350
         self.hit_flash_timer = 0
+        self.rotation_speed = 0.09  # 도/밀리초 기준 회전 속도
+        self.rotation_angle = 0.0
+        self.tilt_ratio = 0.38
+        self.absorption_threshold = 0.82  # 완전히 재생된 후에만 보호막 발동
+        self.absorption_multiplier = 0.7   # 충격 흡수 시 속도 감소 비율
         self.spark_particles: List[Dict] = []
-        self.current_angle = 0.0
-        self.ring_surface = self._create_ring_surface()
+        self.contact_flash = 0.0
         self.animation_frames: List[pygame.Surface] = []
         self.current_frame = 0
         self.frame_counter = 0
         self.animation_speed = 6
+        self._ring_cache: Dict[int, Tuple[pygame.Surface, pygame.Surface]] = {}
+        self.base_ring_surface, self.base_highlight_surface = self._create_base_ring_surfaces()
+        self._last_ring_geometry: Optional[Tuple[float, float, float, float]] = None
         self._generate_animation_frames()
-        self.absorption_threshold = 0.82  # 완전히 재생된 후에만 보호막 발동
-        self.absorption_multiplier = 0.7   # 충격 흡수 시 속도 감소 비율
 
     def can_absorb(self) -> bool:
         """현재 보호막이 충격을 흡수할 수 있는지 확인"""
