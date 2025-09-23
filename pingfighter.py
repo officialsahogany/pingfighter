@@ -5610,6 +5610,19 @@ BLACKSMITH_DIVINE_BUILD_TIME = int(4 * FPS)
 BLACKSMITH_DIVINE_GAUGE_DRAIN_PER_SEC = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC
 BLACKSMITH_DIVINE_BUILD_RADIUS = BLACKSMITH_TURRET_BUILD_RADIUS
 BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT = 18
+BLACKSMITH_HAMMER_SHOCK_COST = 300
+BLACKSMITH_HAMMER_SHOCK_STAGE1_FRAMES = int(1 * FPS)
+BLACKSMITH_HAMMER_SHOCK_STAGE2_FRAMES = int(2 * FPS)
+BLACKSMITH_HAMMER_SHOCK_STAGE3_FRAMES = int(3 * FPS)
+BLACKSMITH_HAMMER_SHOCK_MAX_STAGE = 3
+BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED = 26.0
+BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS = 90
+BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE = 1.1
+BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE = 1.2
+BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK = 16.0
+BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK = 22.0
+BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK = 28.0
+BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION = int(10 * FPS)
 BLACKSMITH_TURRET_DESIGN_WIDTH = 46
 BLACKSMITH_TURRET_DESIGN_HEIGHT = 54
 BLACKSMITH_TURRET_BASE_WIDTH = int(BLACKSMITH_TURRET_DESIGN_WIDTH * 1.2)
@@ -5638,6 +5651,12 @@ blacksmith_divine_blueprint_active = False
 blacksmith_divine_blueprint_rect = None
 blacksmith_divine_build_progress = 0
 blacksmith_divine_partial_drain = 0.0
+blacksmith_hammer_available = True
+blacksmith_hammer_shock_charging = False
+blacksmith_hammer_shock_charge_frames = 0
+blacksmith_hammer_shock_stage = 0
+blacksmith_hammer_shock_cooldown_timer = 0
+blacksmith_hammer_shock_projectiles = []
 
 BLACKSMITH_TURRET_ICON = _create_turret_icon()
 BLACKSMITH_DIVINE_ICON = _create_divine_stone_icon()
@@ -25951,6 +25970,15 @@ def show_start_screen():
     blacksmith_divine_blueprint_rect = None
     blacksmith_divine_build_progress = 0
     blacksmith_divine_partial_drain = 0.0
+    global blacksmith_hammer_available, blacksmith_hammer_shock_charging
+    global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
+    global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
+    blacksmith_hammer_available = True
+    blacksmith_hammer_shock_charging = False
+    blacksmith_hammer_shock_charge_frames = 0
+    blacksmith_hammer_shock_stage = 0
+    blacksmith_hammer_shock_cooldown_timer = 0
+    blacksmith_hammer_shock_projectiles.clear()
 
     bgm_manager.play_menu_bgm()
 
