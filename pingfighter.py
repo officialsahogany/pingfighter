@@ -5278,14 +5278,52 @@ def _create_blacksmith_build_icon(label: str, base_color: tuple[int, int, int], 
 
 def _create_divine_stone_icon() -> pygame.Surface:
     icon = pygame.Surface(BLACKSMITH_BUILD_ICON_SIZE, pygame.SRCALPHA)
-    cx, cy = BLACKSMITH_BUILD_ICON_SIZE[0] // 2, BLACKSMITH_BUILD_ICON_SIZE[1] // 2
-    for radius, alpha in ((18, 50), (14, 80), (11, 120)):
-        pygame.draw.circle(icon, (120, 200, 255, alpha), (cx, cy), radius)
-    pygame.draw.circle(icon, (180, 220, 255), (cx, cy), 8)
-    pygame.draw.circle(icon, (255, 255, 255), (cx, cy), 4)
+    w, h = BLACKSMITH_BUILD_ICON_SIZE
+    cx, cy = w // 2, h // 2 + 4
+    base_rect = pygame.Rect(cx - 16, cy + 6, 32, 10)
+    pygame.draw.ellipse(icon, (55, 45, 35, 230), base_rect)
+    pygame.draw.ellipse(icon, (120, 100, 70, 200), base_rect.inflate(-6, -2))
+
+    stone_surface = pygame.Surface((26, 34), pygame.SRCALPHA)
+    pygame.draw.polygon(
+        stone_surface,
+        (210, 220, 240),
+        [
+            (13, 2),
+            (22, 10),
+            (20, 26),
+            (13, 32),
+            (6, 26),
+            (4, 10),
+        ],
+    )
+    pygame.draw.polygon(
+        stone_surface,
+        (120, 180, 255),
+        [
+            (13, 6),
+            (18, 12),
+            (16, 24),
+            (13, 28),
+            (10, 24),
+            (8, 12),
+        ],
+    )
+    pygame.draw.polygon(
+        stone_surface,
+        (255, 255, 255),
+        [(13, 8), (16, 14), (13, 20), (10, 14)],
+        width=2,
+    )
+    icon.blit(stone_surface, stone_surface.get_rect(center=(cx, cy - 6)))
+
+    glow_surface = pygame.Surface((w, h), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surface, (90, 180, 255, 80), (cx, cy - 12), 20)
+    icon.blit(glow_surface, (0, 0))
+
     font = FontStyle.tiny()
     label = font.render("2", True, (255, 255, 255))
-    icon.blit(label, label.get_rect(center=(cx, cy - 16)))
+    icon.blit(label, label.get_rect(center=(cx, cy - 22)))
     return icon
 
 def _create_turret_icon() -> pygame.Surface:
