@@ -3790,6 +3790,8 @@ PERMANENT_SPEED_BOOST = 0.06  # 영구 속도 증가량 (6% 증가)
 # 헤르메스의 신발 관련 변수
 hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
 hermes_star_particles = []  # 헤르메스 별가루 파티클 리스트
+# 신성 월계수 관련 변수
+sacred_laurel_obtained = False  # 신성 월계수 획득 여부
 last_paddle_x = 0  # 이전 패들 X 위치 (파티클 생성용)
 #  관성 보존 시스템 변수
 last_wall_collision_time = 0  # 마지막 벽 충돌 시간
