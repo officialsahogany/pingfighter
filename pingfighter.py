@@ -16208,20 +16208,6 @@ def store_passive_item(item_data):
             print("🌊 포세이돈의 삼지창 획득! 바다의 힘이 깃들었습니다!")
         else:
             print("이미 포세이돈의 삼지창을 보유 중입니다.")
-    elif item_data["name"] == "sacred_laurel_removed":
-        if not items.sacred_laurel_obtained:
-            items.sacred_laurel_obtained = True
-            sacred_laurel_obtained = True
-            item_data["type"] = "legendary"
-            passive_item_list.append(item_data)
-            legendary_manager = get_legendary_manager()
-            context = {"player_rect": PLAYER.copy() if 'PLAYER' in globals() and PLAYER else None}
-            legendary_manager.activate_item("sacred_laurel_removed", context)
-            trigger_legendary_acquisition("sacred_laurel_removed", "신성 월계수", item_icon,
-                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("🌟 신성 월계수 획득! 신성한 보호가 당신을 감쌉니다!")
-        else:
-            print("이미 신성 월계수를 보유 중입니다.")
     else:
         # 알 수 없는 패시브 아이템 처리
         print(f"     : {item_data['name']}")
@@ -16237,7 +16223,7 @@ def store_passive_item(item_data):
     elif not already_has_item:
         # 다른 패시브 아이템은 중복 불가
         passive_item_list.append(item_data)
-    elif item_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel_removed"):
+    elif item_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident"):
         pass
     else:
         print(f"[WARNING] {item_name} already in passive inventory, skipping duplicate")
