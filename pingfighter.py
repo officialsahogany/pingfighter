@@ -45136,6 +45136,7 @@ def show_result(won):
         sensor_obtained = False  # 센서 아이템 제거
         hermes_shoes_obtained = False  # 헤르메스의 신발 아이템 제거
         hermes_star_particles.clear()  # 헤르메스 별가루 파티클 초기화
+        sacred_laurel_obtained = False  # 신성 월계수 아이템 제거
         #  연료파우치와 블루투스링 효과 초기화
         from item_effects.fuel_pouch import deactivate_fuel_pouch
         from item_effects.bluetooth_ring import deactivate_bluetooth_ring
@@ -45158,6 +45159,7 @@ def show_result(won):
         items.gravitybelt_obtained = False
         items.sensor_obtained = False
         items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
+        items.sacred_laurel_obtained = False  # 신성 월계수 초기화
         # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
         rolling_charges = 1
         # 대쉬 매니저 완전 리셋
