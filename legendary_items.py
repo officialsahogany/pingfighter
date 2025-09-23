@@ -32,6 +32,27 @@ COMMON_LEGENDARY_CORNER_COLOR = (255, 215, 0)
 _COMMON_LEGENDARY_BG_CACHE: Dict[Tuple[int, int], pygame.Surface] = {}
 
 
+def _extract_ring_overlay(surface: pygame.Surface) -> pygame.Surface:
+    """라그나로크 해머 프레임에서 붉은 링/코너 하이라이트만 추출한다."""
+    overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    width, height = surface.get_size()
+
+    for y in range(height):
+        for x in range(width):
+            color = surface.get_at((x, y))
+            if color.a == 0:
+                continue
+
+            near_edge = x < 6 or x >= width - 6 or y < 6 or y >= height - 6
+            red_dominant = color.r > 170 and color.r > color.g + 20 and color.r > color.b + 20
+            warm_highlight = color.r > 200 and color.g > 120 and color.b > 80
+
+            if near_edge or red_dominant or warm_highlight:
+                overlay.set_at((x, y), color)
+
+    return overlay
+
+
 def _draw_common_legendary_frame(screen: pygame.Surface,
                                  x: int,
                                  y: int,
@@ -447,11 +468,7 @@ class PoseidonTrident(LegendaryItem):
                 if foreground.get_size() != target_size:
                     foreground = pygame.transform.smoothscale(foreground, target_size)
 
-                overlay = background.copy()
-                if target_size[0] > 8 and target_size[1] > 8:
-                    inner_rect = pygame.Rect(4, 4, target_size[0] - 8, target_size[1] - 8)
-                    overlay.fill((0, 0, 0, 0), inner_rect)
-
+                overlay = _extract_ring_overlay(background)
                 composite = overlay
                 composite.blit(foreground, (0, 0))
 
