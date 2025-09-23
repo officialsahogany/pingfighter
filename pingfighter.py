@@ -5847,6 +5847,8 @@ blacksmith_hammer_shock_charge_frames = 0
 blacksmith_hammer_shock_stage = 0
 blacksmith_hammer_shock_cooldown_timer = 0
 blacksmith_hammer_shock_projectiles = []
+blacksmith_hammer_shock_anchor_x = 0
+blacksmith_hammer_shock_anchor_y = 0
 
 BLACKSMITH_TURRET_ICON = _create_turret_icon()
 BLACKSMITH_DIVINE_ICON = _create_divine_stone_icon()
@@ -26192,6 +26194,9 @@ def show_start_screen():
     blacksmith_hammer_shock_stage = 0
     blacksmith_hammer_shock_cooldown_timer = 0
     blacksmith_hammer_shock_projectiles.clear()
+    global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
+    blacksmith_hammer_shock_anchor_x = 0
+    blacksmith_hammer_shock_anchor_y = 0
 
     bgm_manager.play_menu_bgm()
 
