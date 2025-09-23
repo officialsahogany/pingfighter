@@ -2203,6 +2203,7 @@ class LegendaryItemManager:
         self.items["ragnarok_hammer"] = RagnarokHammer()
         self.items["hermes_shoes"] = HermesShoes()
         self.items["poseidon_trident"] = PoseidonTrident()
+        self.items["holy_laurel"] = HolyLaurel()
         
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
@@ -2216,6 +2217,10 @@ class LegendaryItemManager:
         self.items["poseidon_trident"].unlocked = True
         if "poseidon_trident" not in self.unlocked_items:
             self.unlocked_items.append("poseidon_trident")
+
+        self.items["holy_laurel"].unlocked = True
+        if "holy_laurel" not in self.unlocked_items:
+            self.unlocked_items.append("holy_laurel")
         
     
     def _init_legendary_items(self):
@@ -2229,6 +2234,8 @@ class LegendaryItemManager:
         # 포세이돈의 삼지창 초기화
         if "poseidon_trident" not in self.items:
             self.items["poseidon_trident"] = PoseidonTrident()
+        if "holy_laurel" not in self.items:
+            self.items["holy_laurel"] = HolyLaurel()
         
     def check_unlocks(self, game_stats: Dict):
         """해금 조건 체크"""

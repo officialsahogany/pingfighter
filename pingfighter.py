@@ -34047,14 +34047,15 @@ def show_item_manager_menu():
                 })
 
     # 아이템 관리자 전용 프리뷰: 신성 월계수 (포세이돈 아이콘 복제)
-    holy_laurel_icon = get_item_icon("holy_laurel") or get_item_icon("poseidon_trident")
-    legendary_items.append({
-        "name": "holy_laurel",
-        "type": "legendary",
-        "icon": holy_laurel_icon,
-        "korean_name": "신성 월계수",
-        "description": "아이템 관리자에서만 확인 가능한 전설 장식 아이콘입니다."
-    })
+    if not any(item["name"] == "holy_laurel" for item in legendary_items):
+        holy_laurel_icon = get_item_icon("holy_laurel") or get_item_icon("poseidon_trident")
+        legendary_items.append({
+            "name": "holy_laurel",
+            "type": "legendary",
+            "icon": holy_laurel_icon,
+            "korean_name": "신성 월계수",
+            "description": "아이템 관리자에서만 확인 가능한 전설 장식 아이콘입니다."
+        })
     
     # 엑티브/패시브/전설 아이템 분리
     active_items = [item for item in all_items if item["type"] == "active"]
@@ -50884,14 +50885,15 @@ def show_character_item_manager():
                     "description": item.description
                 })
 
-    holy_laurel_icon = get_item_icon("holy_laurel") or get_item_icon("poseidon_trident")
-    legendary_items.append({
-        "name": "holy_laurel",
-        "type": "legendary",
-        "icon": holy_laurel_icon,
-        "korean_name": "신성 월계수",
-        "description": "아이템 관리자에서만 확인 가능한 전설 장식 아이콘입니다."
-    })
+    if not any(item["name"] == "holy_laurel" for item in legendary_items):
+        holy_laurel_icon = get_item_icon("holy_laurel") or get_item_icon("poseidon_trident")
+        legendary_items.append({
+            "name": "holy_laurel",
+            "type": "legendary",
+            "icon": holy_laurel_icon,
+            "korean_name": "신성 월계수",
+            "description": "아이템 관리자에서만 확인 가능한 전설 장식 아이콘입니다."
+        })
     
     # 엑티브/패시브/전설 아이템 분리
     active_items = [item for item in all_items if item["type"] == "active"]
