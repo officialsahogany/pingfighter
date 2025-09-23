@@ -658,7 +658,7 @@ def reset_items():
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained, poseidon_trident_obtained, sacred_laurel_obtained
+    global ragnarok_hammer_obtained, poseidon_trident_obtained
     
     # 디버그: 포세이돈 플래그 상태 출력
     print(f"[DEBUG spawn_random_item] poseidon_trident_obtained = {poseidon_trident_obtained}")
