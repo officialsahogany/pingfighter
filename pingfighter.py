@@ -3568,15 +3568,6 @@ def _scale_blacksmith_sprite(surface, anchor, scale=BLACKSMITH_SCALE):
     scaled_anchor = (scaled_anchor[0] + offset_x, scaled_anchor[1] + offset_y)
     return result_surface, scaled_anchor
 
-
-def _crop_surface_alpha(surface):
-    """알파 채널 기준으로 내용 영역만 잘라 반환."""
-    rect = surface.get_bounding_rect(min_alpha=1)
-    if rect.width == 0 or rect.height == 0:
-        return surface.copy()
-    return surface.subsurface(rect).copy()
-
-
 SMASHER_CARD_IMG = _crop_surface_alpha(SMASHER_PADDLE_IMG)
 
 
