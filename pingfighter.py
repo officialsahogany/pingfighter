@@ -4651,6 +4651,96 @@ def upgrade_blacksmith_turret():
 def draw_blacksmith_turret_elements(surface):
     """발토르 포탑과 청사진, 투사체를 그린다."""
     draw_blacksmith_divine_stone(surface)
+    if blacksmith_divine_blueprint_active and blacksmith_divine_blueprint_rect:
+        blueprint_rect = blacksmith_divine_blueprint_rect
+        progress_ratio = 0.0
+        if BLACKSMITH_DIVINE_BUILD_TIME > 0:
+            progress_ratio = blacksmith_divine_build_progress / BLACKSMITH_DIVINE_BUILD_TIME
+        progress_ratio = max(0.0, min(1.0, progress_ratio))
+
+        width = blueprint_rect.width
+        height = blueprint_rect.height
+        base_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+        base_center = pygame.math.Vector2(width / 2, height - BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT / 2)
+        base_radius_x = max(18, width // 3)
+        base_radius_y = max(12, BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT // 2)
+        pygame.draw.ellipse(
+            base_surface,
+            (90, 70, 55, 220),
+            pygame.Rect(
+                base_center.x - base_radius_x,
+                base_center.y - base_radius_y,
+                base_radius_x * 2,
+                base_radius_y * 2,
+            ),
+        )
+        pygame.draw.ellipse(
+            base_surface,
+            (160, 130, 95, 160),
+            pygame.Rect(
+                base_center.x - base_radius_x + 6,
+                base_center.y - base_radius_y + 6,
+                (base_radius_x - 6) * 2,
+                (base_radius_y - 6) * 2,
+            ),
+            2,
+        )
+
+        stage_float = progress_ratio * 3.0
+        stage_index = min(2, int(stage_float))
+        stage_alpha = stage_float - stage_index
+
+        stone_width, stone_height = BLACKSMITH_DIVINE_STONE_SIZE
+        stone_surface = pygame.Surface((stone_width, stone_height), pygame.SRCALPHA)
+        stone_color = (200, 210, 220)
+        if stage_index >= 0:
+            outline_alpha = int(110 + 100 * progress_ratio)
+            pygame.draw.rect(
+                stone_surface,
+                (*stone_color, outline_alpha),
+                pygame.Rect(8, 6, stone_width - 16, stone_height - 12),
+                2,
+                border_radius=10,
+            )
+            glyph_alpha = int(80 + 120 * stage_alpha) if stage_index >= 1 else int(70 * progress_ratio)
+            for offset, radius in ((0, 10), (12, 6), (-12, 6)):
+                pygame.draw.circle(
+                    stone_surface,
+                    (120, 160, 255, glyph_alpha),
+                    (stone_width // 2 + offset, stone_height // 2),
+                    radius,
+                    1,
+                )
+        if stage_index >= 2:
+            fill_alpha = int(190 * progress_ratio)
+            pygame.draw.rect(
+                stone_surface,
+                (220, 230, 240, fill_alpha),
+                pygame.Rect(10, 8, stone_width - 20, stone_height - 16),
+                border_radius=8,
+            )
+            glow_surface = pygame.Surface((stone_width, stone_height), pygame.SRCALPHA)
+            pygame.draw.ellipse(
+                glow_surface,
+                (120, 200, 255, int(130 * stage_alpha)),
+                pygame.Rect(14, stone_height - 26, stone_width - 28, 18),
+            )
+            stone_surface.blit(glow_surface, (0, 0))
+
+        placement_y = height - (BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT + stone_height)
+        base_surface.blit(stone_surface, ((width - stone_width) // 2, placement_y))
+
+        surface.blit(base_surface, blueprint_rect.topleft)
+
+        gauge_width = blueprint_rect.width
+        gauge_height = 6
+        gauge_rect = pygame.Rect(blueprint_rect.left, blueprint_rect.top - gauge_height - 6, gauge_width, gauge_height)
+        pygame.draw.rect(surface, (40, 50, 70), gauge_rect.inflate(4, 4), border_radius=3)
+        if progress_ratio > 0:
+            filled_rect = pygame.Rect(gauge_rect.left, gauge_rect.top, int(gauge_width * progress_ratio), gauge_height)
+            pygame.draw.rect(surface, (110, 200, 255), filled_rect, border_radius=3)
+        pygame.draw.rect(surface, (150, 200, 255), gauge_rect, 1, border_radius=3)
     if blacksmith_turret_blueprint_active and blacksmith_turret_blueprint_rect:
         blueprint_rect = blacksmith_turret_blueprint_rect
         progress_ratio = 0.0
