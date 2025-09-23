@@ -1664,7 +1664,7 @@ class PoseidonTrident(LegendaryItem):
 class HolyLaurel(LegendaryItem):
     """신성 월계수 - 아이템 관리자 전용 전설 아이콘"""
 
-    def __init__(self):
+    def __init__(self, poseidon_ref: Optional[LegendaryItem] = None):
         super().__init__(
             name="holy_laurel",
             korean_name="신성 월계수",
@@ -1677,21 +1677,29 @@ class HolyLaurel(LegendaryItem):
         self.current_frame = 0
         self.frame_counter = 0
         self.animation_speed = 8  # 기본값 (포세이돈 삼지창과 동일 속도로 덮어씀)
+        self._poseidon_ref: Optional[LegendaryItem] = poseidon_ref
         self._prepare_frames()
 
+    def _ensure_poseidon_ref(self) -> Optional[LegendaryItem]:
+        if self._poseidon_ref and hasattr(self._poseidon_ref, "icon_frames"):
+            return self._poseidon_ref
+
+        manager = globals().get("_legendary_manager")
+        if manager:
+            poseidon = manager.get_item("poseidon_trident")
+            if poseidon:
+                self._poseidon_ref = poseidon
+                return poseidon
+        return None
+
     def _prepare_frames(self) -> None:
-        """포세이돈 삼지창 아이콘 프레임을 복제하여 동일한 연출을 구성한다."""
-        try:
-            poseidon_preview = PoseidonTrident()
-            if poseidon_preview.icon_frames:
-                self.icon_frames = [frame.copy() for frame in poseidon_preview.icon_frames]
-            if poseidon_preview.animation_frames:
-                self.animation_frames = [frame.copy() for frame in poseidon_preview.animation_frames]
-            self.animation_speed = getattr(poseidon_preview, "animation_speed", self.animation_speed)
-            self.frame_counter = getattr(poseidon_preview, "frame_counter", 0)
-        except Exception:
-            self.icon_frames = []
-            self.animation_frames = []
+        """포세이돈 삼지창 애니메이션을 그대로 참조하여 동기화한다."""
+        poseidon = self._ensure_poseidon_ref()
+        if poseidon and hasattr(poseidon, "icon_frames"):
+            self.icon_frames = poseidon.icon_frames
+            self.animation_frames = getattr(poseidon, "animation_frames", poseidon.icon_frames)
+            self.animation_speed = getattr(poseidon, "animation_speed", self.animation_speed)
+            return
 
         if not self.icon_frames:
             try:
@@ -1708,6 +1716,14 @@ class HolyLaurel(LegendaryItem):
 
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
+        poseidon = self._ensure_poseidon_ref()
+        if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
+            self.icon_frames = poseidon.icon_frames
+            self.animation_frames = getattr(poseidon, "animation_frames", poseidon.icon_frames)
+            self.animation_speed = getattr(poseidon, "animation_speed", self.animation_speed)
+            self.current_frame = getattr(poseidon, "current_frame", 0)
+            return
+
         if self.icon_frames and len(self.icon_frames) > 1:
             self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
@@ -1716,6 +1732,15 @@ class HolyLaurel(LegendaryItem):
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        poseidon = self._ensure_poseidon_ref()
+        if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
+            ref_frames = poseidon.icon_frames
+            frame_index = getattr(poseidon, "current_frame", 0) % len(ref_frames)
+            frame = ref_frames[frame_index]
+            scaled = pygame.transform.scale(frame, (size, size))
+            screen.blit(scaled, (x, y + frame_offset))
+            return
+
         if self.icon_frames:
             frame = self.icon_frames[self.current_frame % len(self.icon_frames)]
             scaled = pygame.transform.smoothscale(frame, (size, size))
@@ -2204,8 +2229,9 @@ class LegendaryItemManager:
         self.items["excalibur_blade"] = ExcaliburBlade()
         self.items["ragnarok_hammer"] = RagnarokHammer()
         self.items["hermes_shoes"] = HermesShoes()
-        self.items["poseidon_trident"] = PoseidonTrident()
-        self.items["holy_laurel"] = HolyLaurel()
+        poseidon_item = PoseidonTrident()
+        self.items["poseidon_trident"] = poseidon_item
+        self.items["holy_laurel"] = HolyLaurel(poseidon_item)
         
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
@@ -2236,8 +2262,14 @@ class LegendaryItemManager:
         # 포세이돈의 삼지창 초기화
         if "poseidon_trident" not in self.items:
             self.items["poseidon_trident"] = PoseidonTrident()
+        poseidon_ref = self.items.get("poseidon_trident")
         if "holy_laurel" not in self.items:
-            self.items["holy_laurel"] = HolyLaurel()
+            self.items["holy_laurel"] = HolyLaurel(poseidon_ref)
+        else:
+            holy_item = self.items.get("holy_laurel")
+            if isinstance(holy_item, HolyLaurel):
+                holy_item._poseidon_ref = poseidon_ref
+                holy_item._prepare_frames()
         
     def check_unlocks(self, game_stats: Dict):
         """해금 조건 체크"""
