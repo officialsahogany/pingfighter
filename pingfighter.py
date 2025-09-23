@@ -12817,6 +12817,195 @@ def handle_player(keys):
         set_roll("rolling_direction", direction)
         return charges
 
+    def _execute_dash(
+        direction: int,
+        *,
+        style: str = "full",
+        tutorial_reset: bool = True,
+    ) -> bool:
+        """좌·우 대쉬 실행을 공용 처리한다. 실행 성공 여부를 반환."""
+
+        if style != "full":
+            # 하프 대쉬 등 다른 스타일은 후속 단계에서 통합한다.
+            raise NotImplementedError(f"Unsupported dash style: {style}")
+
+        charges_available = get_roll("rolling_charges")
+        if charges_available <= 0:
+            return False
+
+        # 게이지 요구량 계산 (연속 대쉬 할인 및 장비/스킬 반영)
+        base_gauge_cost = 140
+        try:
+            from item_effects.devil_dice import (
+                get_devil_dice_multipliers,
+                is_devil_dice_active,
+            )
+        except Exception:  # pragma: no cover - 안전 가드
+            def is_devil_dice_active():
+                return False
+
+            def get_devil_dice_multipliers():
+                return {}
+
+        if is_devil_dice_active():
+            multipliers = get_devil_dice_multipliers()
+            base_gauge_cost = int(base_gauge_cost * multipliers.get("skill_dash_cost", 1.0))
+
+        next_consecutive = get_roll("rolling_consecutive_count") + 1
+        consecutive_discount = 0.5 ** max(0, next_consecutive - 1)
+        discounted_cost = int(base_gauge_cost * consecutive_discount)
+        if dashgear_obtained:
+            discounted_cost = int(discounted_cost * 0.8)
+        battery_bonus = academy.get_skill_bonus("dash_battery_pack")
+        required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))
+        if special_gauge < required_gauge:
+            return False
+
+        # 본격적인 대쉬 시작: RollingState 및 전역 상태 갱신
+        if _start_dash(direction, tutorial_reset=tutorial_reset) <= 0:
+            return False
+
+        global is_half_dash_active, half_dash_effect_timer
+        global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y
+        global acceleration_active, acceleration_height_bonus, acceleration_skill_level
+        global recent_dash_time, mega_smashing_bonus_applied
+
+        is_half_dash_active = False
+        half_dash_effect_timer = 0
+
+        # 포세이돈 삼지창 효과는 예외를 방지하면서 시도한다.
+        try:
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                trident = legendary_manager.get_item("poseidon_trident")
+                if trident and trident.active:
+                    poseidon_dash_pending = True
+                    poseidon_dash_x = PLAYER.centerx
+                    poseidon_dash_y = PLAYER.centery
+        except Exception:
+            pass
+
+        # 버스트업(가속화) 스킬 처리
+        acceleration_bonus = academy.get_skill_bonus("dash_acceleration")
+        if acceleration_bonus > 0:
+            acceleration_skill_level = int(acceleration_bonus * 10 / 3)
+            acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)
+            acceleration_active = True
+            acceleration_flash_particles.clear()
+
+        play_dash_sound()
+
+        # 대쉬 진행 시간 및 거리 계산
+        base_rolling_timer = 15
+        if dashgear_obtained:
+            base_rolling_timer = 16
+        jump_bonus = academy.get_skill_bonus("dash_jump")
+        base_rolling_timer = int(base_rolling_timer * (1 + jump_bonus))
+        skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
+        set_roll("rolling_timer", int(skill_distance_boost))
+
+        dash_spirit_level = academy.get_skill_bonus("dash_spirit")
+        if dash_spirit_level > 0:
+            spirit_chance = 0.3 if dash_spirit_level == 1 else 0.5
+            if random.random() < spirit_chance:
+                actual_dash_distance = int(get_roll("rolling_timer") * 40 * 0.7)
+                dash_distance = int(actual_dash_distance * 0.5)
+                create_dash_spirit_laser(PLAYER.centerx, PLAYER.centery, direction, dash_distance)
+
+        # 토큰 차감 및 UI 동기화
+        base_charges = 1
+        holder_bonus = 1 if dashholder_obtained else 0
+        amplification_bonus = academy.get_skill_bonus("dash_amplification")
+        max_charges = int(base_charges + holder_bonus + amplification_bonus)
+
+        current_charges = max(0, charges_available - 1)
+        set_roll("rolling_charges", current_charges)
+
+        token_states_local = list(globals().get("token_states", []))
+        if token_states_local and len(token_states_local) > 0:
+            for idx in range(min(len(token_states_local), max_charges) - 1, -1, -1):
+                if token_states_local[idx]:
+                    token_states_local[idx] = False
+                    break
+        else:
+            token_states_local = [True] * current_charges + [False] * max(0, max_charges - current_charges)
+        set_roll("token_states", token_states_local)
+
+        # 쿨타임 및 충전 타이머 계산
+        dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
+        cooldown_reduction = int(dash_cooldown_bonus * FPS)
+        if max_charges > 1:
+            if current_charges >= 1:
+                base_timer = max(6, 60 - cooldown_reduction)
+            else:
+                base_timer = max(6, 90 - cooldown_reduction)
+        else:
+            base_cooldown = 90
+            if spikeboots_obtained:
+                base_cooldown = int(base_cooldown * 0.85)
+            base_timer = max(6, base_cooldown - cooldown_reduction)
+
+        if is_devil_dice_active():
+            multipliers = get_devil_dice_multipliers()
+            if multipliers:
+                base_timer = int(base_timer * multipliers.get("dash_cooldown", 1.0))
+                print(f"[DEBUG]     : x{multipliers.get('dash_cooldown', 1.0):.1f}")
+
+        set_roll("rolling_cooldown", base_timer)
+        set_roll("rolling_charge_timer", base_timer)
+        print(f"[DEBUG]      : {get_roll('rolling_charge_timer')} (: {get_roll('rolling_charges')})")
+
+        # 연속 대쉬 카운트 및 튜토리얼 진행
+        if globals().get("half_dash_used_flag"):
+            set_roll("rolling_consecutive_count", 1)
+            globals()["half_dash_used_flag"] = False
+            print("[DEBUG] 하프대쉬 후 첫 정규 대쉬: count=1")
+        else:
+            set_roll("rolling_consecutive_count", get_roll("rolling_consecutive_count") + 1)
+
+        print(
+            f"[DEBUG] 연속대쉬 카운트 증가: {get_roll('rolling_consecutive_count')}, 통제불능시간: {get_roll('rolling_stun_timer')}"
+        )
+
+        if (
+            current_stage == 50
+            and globals().get("tutorial_current_chapter") == 2
+            and globals().get("tutorial_consecutive_dash_count", 0) < 1
+            and get_roll("rolling_consecutive_count") >= 2
+        ):
+            globals()["tutorial_consecutive_dash_count"] = (
+                globals().get("tutorial_consecutive_dash_count", 0) + 1
+            )
+            print(
+                f"튜토리얼: 연속대쉬 성공! {globals()['tutorial_consecutive_dash_count']}/1"
+            )
+            show_tutorial_success_feedback("연속대쉬 성공!", "great")
+            check_tutorial_dash_missions_complete()
+
+        if dash is not None:
+            dash.sync_with_legacy_system(
+                get_roll("rolling_charges"),
+                get_roll("rolling_charge_timer"),
+                get_roll("rolling_consecutive_count"),
+            )
+
+        # 게이지 소모 적용 (consume_special_gauge가 준비 상태도 갱신)
+        consecutive_discount = 0.5 ** max(0, get_roll("rolling_consecutive_count") - 1)
+        discounted_cost = int(base_gauge_cost * consecutive_discount)
+        if dashgear_obtained:
+            discounted_cost = int(discounted_cost * 0.8)
+        final_gauge_cost = max(10, int(discounted_cost * (1 - battery_bonus)))
+        consume_special_gauge(final_gauge_cost)
+        print(
+            f"    ! ( {get_roll('rolling_consecutive_count')},  : {final_gauge_cost},  : {get_roll('rolling_charges')}, : {special_gauge})"
+        )
+
+        recent_dash_time = pygame.time.get_ticks()
+        mega_smashing_bonus_applied = False
+        record_dash_usage(success=False)
+
+        return True
+
     # 서브 완료 후 타이머는 프레임 초기에 감소시켜, 아래의 조기 return 경로들(화상, 스턴, 설치 등)로 인해
     # 타이머가 영구히 감소하지 못해 물자보급/대시가 계속 금지되는 상황을 방지한다.
     if serve_completed_timer > 0:
