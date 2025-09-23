@@ -34604,8 +34604,6 @@ def apply_selected_items(
                 items.ragnarok_hammer_obtained = True
             elif item_name == "hermes_shoes":
                 items.hermes_shoes_obtained = True
-            elif item_name == "sacred_laurel_removed":
-                items.sacred_laurel_obtained = True
             
             # 전설 아이템을 패시브 아이템 리스트에 추가 (TAB 키로 볼 수 있도록)
             legendary_item = legendary_manager.get_item(item_name)
