@@ -1876,9 +1876,6 @@ class SacredLaurel(LegendaryItem):
         self.knockback_multiplier = 5.0
         self.max_knockback = 250
         self.stun_duration = 0.6
-        self.animation_frames: List[pygame.Surface] = []
-        self.current_frame = 0
-        self.frame_counter = 0
         self.animation_speed = 8
 
     def check_unlock_condition(self, game_stats: Dict) -> bool:
@@ -1921,9 +1918,24 @@ class SacredLaurel(LegendaryItem):
         return
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        _draw_common_legendary_frame(screen, x, y, size, self.animation_time,
-                                     border_color=COMMON_LEGENDARY_BORDER_COLOR,
-                                     corner_color=COMMON_LEGENDARY_CORNER_COLOR)
+        import pygame
+
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time,
+                                                    border_color=COMMON_LEGENDARY_BORDER_COLOR,
+                                                    corner_color=COMMON_LEGENDARY_CORNER_COLOR)
+
+        icon_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        center = (size // 2, size // 2)
+        pulsate = 0.5 + 0.5 * math.sin(self.animation_time * 0.004)
+        inner_radius = int(size * 0.28 + pulsate * 3)
+        outer_radius = int(inner_radius * 1.4)
+
+        pygame.draw.circle(icon_surface, (240, 250, 255, 160), center, outer_radius, 3)
+        pygame.draw.circle(icon_surface, (200, 220, 255, 120), center, inner_radius, 0)
+        pygame.draw.circle(icon_surface, (120, 180, 255, 120), center, max(2, inner_radius - 4), 2)
+
+        offset_y = y + frame_offset + int(self.animation_offset)
+        screen.blit(icon_surface, (x, offset_y))
 
 
 class RagnarokHammer(LegendaryItem):
