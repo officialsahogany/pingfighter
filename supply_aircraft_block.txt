@@ -37206,6 +37206,12 @@ def main(stage_num, new_boss_mode=False):
                     items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
                     items.sacred_laurel_obtained = False  # 신성 월계수 초기화
                     items.knee_pads_obtained = False  # 무릎보호대 초기화
+                    try:
+                        legendary_manager = get_legendary_manager()
+                        if legendary_manager:
+                            legendary_manager.deactivate_item("sacred_laurel")
+                    except Exception:
+                        pass
                     
                     # 무릎보호대 효과 초기화 (강제 종료 시)
                     try:
