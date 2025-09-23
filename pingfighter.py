@@ -23084,6 +23084,8 @@ def draw_objects():
         
         draw_with_shake(player_to_draw, player_rect.topleft)
 
+    draw_blacksmith_hammer_shock(SCREEN, total_offset_x, total_offset_y)
+
     if aipill_active:
         ai_font = FontStyle.tiny()
         phase = (time_now // 150) % 4
