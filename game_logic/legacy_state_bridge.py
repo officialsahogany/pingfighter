@@ -1,6 +1,7 @@
 """레거시 전역 상태를 GameLoop 상태에 동기화하기 위한 브릿지."""
 from __future__ import annotations
 
+from contextlib import contextmanager
 from types import ModuleType
 from typing import Any, Iterable, MutableMapping, Sequence, Set
 
@@ -215,3 +216,30 @@ def sync_draw_state_to_namespace(state: Any, namespace: Any) -> None:
 
 def sync_namespace_draw_state(state: Any, namespace: Any) -> None:
     sync_namespace_to_state(state, namespace, DRAW_KEYS)
+
+
+@contextmanager
+def legacy_sync(state: Any, namespace: Any, keys: Sequence[str] | None = None):
+    sync_state_to_namespace(state, namespace, keys)
+    try:
+        yield
+    finally:
+        sync_namespace_to_state(state, namespace, keys)
+
+
+@contextmanager
+def legacy_player_sync(state: Any, namespace: Any):
+    with legacy_sync(state, namespace, PLAYER_KEYS):
+        yield
+
+
+@contextmanager
+def legacy_ball_sync(state: Any, namespace: Any):
+    with legacy_sync(state, namespace, BALL_KEYS):
+        yield
+
+
+@contextmanager
+def legacy_draw_sync(state: Any, namespace: Any):
+    with legacy_sync(state, namespace, DRAW_KEYS):
+        yield
