@@ -19462,7 +19462,7 @@ def draw_player_gauge():
             base_y = max(40, player_rect.top - slot_height - 28)
 
             hint_surface = FontStyle.tiny().render("숫자키로 선택", True, (180, 220, 200))
-            hint_rect = hint_surface.get_rect(center=(player_rect.centerx, base_y - 18))
+            hint_rect = hint_surface.get_rect(center=(player_rect.centerx, base_y - 20))
             SCREEN.blit(hint_surface, hint_rect)
 
             weapon_display_names = {
