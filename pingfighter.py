@@ -1171,14 +1171,17 @@ speech_timer = 0
 speech_text = ""
 tear_particles = []  # 눈물 파티클 리스트
 # 사운드 초기화 (macOS 호환성 개선)
-pygame.mixer.pre_init(
-    frequency=44100,  # 샘플레이트
-    size=-16,         # 16비트 사운드
-    channels=2,       # 스테레오
-    buffer=512        # 작은 버퍼 (낮은 지연시간)
-)
-pygame.mixer.init()
-pygame.mixer.set_num_channels(8)  # 동시 재생 가능한 채널 수
+if not SMOKE_TEST_ENABLED:
+    pygame.mixer.pre_init(
+        frequency=44100,  # 샘플레이트
+        size=-16,         # 16비트 사운드
+        channels=2,       # 스테레오
+        buffer=512        # 작은 버퍼 (낮은 지연시간)
+    )
+    pygame.mixer.init()
+    pygame.mixer.set_num_channels(8)  # 동시 재생 가능한 채널 수
+else:
+    print("[INFO] 오디오 초기화 생략 (스모크 테스트 모드)")
 
 sound_effects = load_sound_effects(resource_path)
 
