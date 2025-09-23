@@ -1675,8 +1675,8 @@ class HolyLaurel(LegendaryItem):
         self.icon_frames: List[pygame.Surface] = []
         self.animation_frames: List[pygame.Surface] = []
         self.current_frame = 0
-        self.frame_timer = 0
-        self.animation_speed = 8
+        self.frame_counter = 0
+        self.animation_speed = 8  # 포세이돈 삼지창과 동일한 프레임 속도 유지
         self._prepare_frames()
 
     def _prepare_frames(self) -> None:
@@ -1707,9 +1707,9 @@ class HolyLaurel(LegendaryItem):
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
         if self.icon_frames and len(self.icon_frames) > 1:
-            self.frame_timer += dt
-            if self.frame_timer >= self.animation_speed:
-                self.frame_timer = 0
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
                 self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
