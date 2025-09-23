@@ -853,6 +853,10 @@ def _sync_state_from_core_game_state(state: GameState) -> None:
     state.special_status['gauge'] = getattr(core_state, "special_gauge", state.special_status['gauge'])
     state.special_status['ready'] = getattr(core_state, "special_ready", state.special_status['ready'])
 
+    legacy_store = getattr(core_state, "legacy_globals", None)
+    if isinstance(legacy_store, dict):
+        state.legacy_globals.update(legacy_store)
+
 
 def _sync_core_game_state_from_state(state: GameState) -> None:
     """GameLoop 상태를 core.game_state.GameState에 반영."""
@@ -890,3 +894,9 @@ def _sync_core_game_state_from_state(state: GameState) -> None:
 
     core_state.special_gauge = state.special_status.get('gauge', getattr(core_state, 'special_gauge', 0))
     core_state.special_ready = state.special_status.get('ready', getattr(core_state, 'special_ready', False))
+
+    legacy_store = getattr(core_state, "legacy_globals", None)
+    if isinstance(legacy_store, dict):
+        legacy_store.update(state.legacy_globals)
+    else:
+        core_state.legacy_globals = dict(state.legacy_globals)
