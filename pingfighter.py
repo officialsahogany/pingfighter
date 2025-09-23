@@ -4348,6 +4348,108 @@ def _vec_to_int_pair(vec: pygame.math.Vector2 | tuple[float, float]) -> tuple[in
     return (int(round(vec[0])), int(round(vec[1])))
 
 
+_blacksmith_hammer_charge_surface_cache: dict[int, pygame.Surface] = {}
+_blacksmith_hammer_charge_spark_cache: dict[int, pygame.Surface] = {}
+
+
+def _get_blacksmith_hammer_charge_surface(stage: int) -> pygame.Surface:
+    clamped_stage = max(0, min(int(stage), BLACKSMITH_HAMMER_SHOCK_MAX_STAGE))
+    cached = _blacksmith_hammer_charge_surface_cache.get(clamped_stage)
+    if cached is not None:
+        return cached
+
+    radius = 18 + clamped_stage * 6
+    padding = 24
+    size = radius * 2 + padding
+    surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = size // 2
+
+    # 부드러운 외곽 그라데이션 3단계
+    outer_bands = (
+        (radius + 12, (40, 90 + clamped_stage * 24, 180 + clamped_stage * 30, 40 + clamped_stage * 10)),
+        (radius + 6, (60, 140 + clamped_stage * 22, 230, 70 + clamped_stage * 20)),
+        (radius + 2, (110, 200, 255, 110 + clamped_stage * 25)),
+    )
+    for band_radius, color in outer_bands:
+        pygame.draw.circle(surface, color, (center, center), max(0, band_radius))
+
+    # 중심부 코어와 윤곽선
+    pygame.draw.circle(surface, (200, 235, 255, 200), (center, center), max(2, radius - 4))
+    pygame.draw.circle(surface, (150, 215, 255, 240), (center, center), radius, width=3)
+
+    _blacksmith_hammer_charge_surface_cache[clamped_stage] = surface
+    return surface
+
+
+def _get_blacksmith_hammer_charge_spark(stage: int) -> pygame.Surface:
+    clamped_stage = max(0, min(int(stage), BLACKSMITH_HAMMER_SHOCK_MAX_STAGE))
+    cached = _blacksmith_hammer_charge_spark_cache.get(clamped_stage)
+    if cached is not None:
+        return cached
+
+    size = 10 + clamped_stage * 2
+    surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = size // 2
+    pygame.draw.circle(surface, (230, 250, 255, 180), (center, center), max(1, center - 1))
+    pygame.draw.circle(surface, (255, 255, 255, 230), (center, center), max(1, center - 3))
+    pygame.draw.circle(surface, (180, 220, 255, 140), (center, center), max(1, center - 5))
+
+    _blacksmith_hammer_charge_spark_cache[clamped_stage] = surface
+    return surface
+
+
+def _draw_blacksmith_hammer_charge_effect(
+    surface: pygame.Surface,
+    center_x: int,
+    center_y: int,
+    stage: int,
+    frame: int,
+) -> None:
+    base_surface = _get_blacksmith_hammer_charge_surface(stage)
+    if base_surface:
+        rect = base_surface.get_rect(center=(center_x, center_y))
+        surface.blit(base_surface, rect)
+
+    radius = 18 + max(0, stage) * 6
+    spark_surface = _get_blacksmith_hammer_charge_spark(stage)
+    spark_radius = radius * 0.45
+    spark_count = 2 + max(0, stage)
+
+    # 번개 줄기 - 프레임 기반 시드로 깜빡임을 유지
+    line_seed = (frame // 2) + stage * 97
+    rng = random.Random(line_seed)
+    arc_count = 3 + max(0, stage)
+    thickness = 2 if stage > 0 else 1
+
+    for arc_index in range(arc_count):
+        start_angle = rng.uniform(0.0, math.tau)
+        angle_span = rng.uniform(0.6, 1.1)
+        segments = 5 + max(0, stage)
+        points: list[tuple[int, int]] = []
+        for segment in range(segments):
+            t = segment / max(1, segments - 1)
+            wobble = math.sin(frame * 0.18 + arc_index * 1.9 + t * 3.6) * 0.18
+            radial_wave = math.sin(frame * 0.22 + arc_index * 2.1 + t * 4.2) * (3.0 + stage * 2.0)
+            angle = start_angle + angle_span * t + wobble
+            current_radius = radius * (0.55 + t * 0.55) + radial_wave
+            px = int(round(center_x + math.cos(angle) * current_radius))
+            py = int(round(center_y + math.sin(angle) * current_radius))
+            points.append((px, py))
+        outer_color = (80, 160 + stage * 30, 255)
+        inner_color = (210, 245, 255)
+        pygame.draw.lines(surface, outer_color, False, points, thickness + 1)
+        pygame.draw.lines(surface, inner_color, False, points, max(1, thickness - 1))
+
+    for idx in range(spark_count):
+        angle = (frame * 0.3 + idx * 2.2) % math.tau
+        pulse = math.sin(frame * 0.4 + idx) * (4 + stage * 2)
+        radius_offset = spark_radius + pulse
+        sx = int(round(center_x + math.cos(angle) * radius_offset))
+        sy = int(round(center_y + math.sin(angle) * radius_offset * 0.82))
+        spark_rect = spark_surface.get_rect(center=(sx, sy))
+        surface.blit(spark_surface, spark_rect)
+
+
 def _blacksmith_hammer_shock_stage_for_frames(frames: int) -> int:
     if frames >= BLACKSMITH_HAMMER_SHOCK_STAGE3_FRAMES:
         return 3
