@@ -134,6 +134,7 @@ from ui.dialog_system import DialogSystem
 from ui.simple_menu_background import SimpleMenuBackground
 from ui.pause_menu import PauseOptionsContext, show_pause_options as show_pause_options_ui
 from core.profiler import init_profiler
+from core.global_manager import GlobalManager
 from item_effects.dowsing_pendulum import dowsing_pendulum_effect
 from item_effects.devil_dice import (
     activate_devil_dice,
@@ -6801,6 +6802,12 @@ head_shot_text_timer = 0  # '헤드샷!' 텍스트 표시 타이머
 HEAD_SHOT_DURATION = 90  # 1.5초간 스턴 (60fps * 1.5)
 HEAD_SHOT_CHANCE = 0.1  # 10% 확률
 HEAD_SHOT_TEXT_DURATION = 60  # 텍스트 1초간 표시
+
+# 도핑물약 효과 관련 상수 및 상태
+DOPING_POTION_DURATION_FRAMES = 480  # 8초 (60fps * 8)
+DOPING_POTION_MULTIPLIER = 2.0  # 헤드샷/레그샷 확률 배수
+doping_potion_active = False
+doping_potion_timer = 0
 
 # 애니메이션 단계별 프레임 수 (60fps 기준)
 SOLDIER_GUN_DRAW_FRAMES = 6     # 총 꺼내기 애니메이션 (0.1초)
