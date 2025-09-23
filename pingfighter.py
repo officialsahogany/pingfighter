@@ -6993,6 +6993,87 @@ def sync_doping_potion_from_global_manager() -> None:
     elif not gm_active and doping_potion_active:
         deactivate_doping_potion()
 
+
+def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
+    """코만도 화기 인덱스 변경 및 관련 장비 상태 정리"""
+    global soldier_controller
+
+    if not soldier_controller.weapons:
+        return "pistol"
+
+    safe_index = max(0, min(index, len(soldier_controller.weapons) - 1))
+    soldier_controller.set_current_weapon(safe_index)
+    soldier_controller.switch_cooldown = soldier_controller.switch_cooldown_frames
+    soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
+
+    current_weapon = soldier_controller.weapons[soldier_controller.current_index]
+
+    if current_weapon == "bazooka":
+        from item_effects.bazooka import get_bazooka_instance
+
+        bazooka = get_bazooka_instance()
+        if bazooka:
+            bazooka.equip()
+        if "net_gun" in soldier_controller.weapons:
+            net = get_net_gun_instance()
+            if hasattr(net, "unequip"):
+                net.unequip()
+    elif current_weapon == "pistol":
+        if "bazooka" in soldier_controller.weapons:
+            from item_effects.bazooka import get_bazooka_instance
+
+            bazooka = get_bazooka_instance()
+            if bazooka and hasattr(bazooka, "unequip"):
+                bazooka.unequip()
+        if "ak47" in soldier_controller.weapons:
+            ak47 = get_ak47_instance()
+            if ak47 and (ak47.remaining_time > 0 or ak47.current_ammo > 0 or ak47.bullets):
+                ak47.active = True
+        if "net_gun" in soldier_controller.weapons:
+            net = get_net_gun_instance()
+            if hasattr(net, "unequip"):
+                net.unequip()
+    elif current_weapon == "ak47":
+        if "bazooka" in soldier_controller.weapons:
+            from item_effects.bazooka import get_bazooka_instance
+
+            bazooka = get_bazooka_instance()
+            if bazooka and hasattr(bazooka, "unequip"):
+                bazooka.unequip()
+        ak47 = get_ak47_instance()
+        if ak47 and (ak47.remaining_time > 0 or ak47.current_ammo > 0 or ak47.bullets):
+            ak47.active = True
+        if "net_gun" in soldier_controller.weapons:
+            net = get_net_gun_instance()
+            if hasattr(net, "unequip"):
+                net.unequip()
+    elif current_weapon == "net_gun":
+        net = get_net_gun_instance()
+        if net and hasattr(net, "equip"):
+            net.equip()
+        if "bazooka" in soldier_controller.weapons:
+            from item_effects.bazooka import get_bazooka_instance
+
+            bazooka = get_bazooka_instance()
+            if bazooka and hasattr(bazooka, "unequip"):
+                bazooka.unequip()
+        if "ak47" in soldier_controller.weapons:
+            ak47 = get_ak47_instance()
+            if ak47 and (ak47.remaining_time > 0 or ak47.current_ammo > 0 or ak47.bullets):
+                ak47.active = True
+
+    print(f"🔄 화기 교체: {current_weapon}")
+
+    if play_sound:
+        try:
+            switch_sound = pygame.mixer.Sound(resource_path("sounds/weapon_switch.wav"))
+            switch_sound.set_volume(0.3)
+            switch_sound.play()
+        except Exception:
+            pass
+
+    return current_weapon
+
 # 애니메이션 단계별 프레임 수 (60fps 기준)
 SOLDIER_GUN_DRAW_FRAMES = 6     # 총 꺼내기 애니메이션 (0.1초)
 SOLDIER_GUN_AIM_FRAMES = 6      # 조준 애니메이션 (0.1초)  
