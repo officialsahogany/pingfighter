@@ -122,7 +122,7 @@ SKILL_TREES = {
             {
                 "id": "item_luck",
                 "name": "행운",
-                "description": "아이템 스폰 대기시간 5% 감소\n(Lv5: 추가 -5%)",
+                "description": "아이템 스폰 대기시간 6% 감소\n(Lv5: 추가 -5%)",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (255, 150, 100),
