@@ -919,6 +919,15 @@ def spawn_random_item():
                     # 인스턴스가 없으면 초기화만 함 (activate 호출 안 함)
                     legendary_manager._init_legendary_items()
 
+        # 신성 월계수도 동일하게 초기화만 수행해 아이콘 애니메이션이 가능하도록 함
+        if selected_item["name"] == "sacred_laurel":
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                laurel = legendary_manager.get_item("sacred_laurel")
+                if not laurel:
+                    legendary_manager._init_legendary_items()
+
 
 def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None):
     global item_list
