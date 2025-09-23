@@ -7082,11 +7082,16 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
 def get_weapon_menu_icon(weapon_name: str, size: int = 40) -> pygame.Surface:
     """병기 선택 HUD에서 사용할 소형 아이콘 Surface 반환"""
     icon_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-
-    # 먼저 기존 아이템 아이콘이 있다면 그대로 사용 (예: 바주카포 등)
-    existing_icon = get_item_icon(weapon_name)
-    if existing_icon:
-        return pygame.transform.smoothscale(existing_icon, (size, size))
+    custom_only_weapons = {"pistol", "net_gun"}
+    if weapon_name not in custom_only_weapons:
+        candidate_paths = (
+            resource_path(f"items/{weapon_name}.png"),
+            resource_path(f"items/legendary/{weapon_name}.png"),
+        )
+        if any(os.path.exists(path) for path in candidate_paths):
+            existing_icon = get_item_icon(weapon_name)
+            if existing_icon:
+                return pygame.transform.smoothscale(existing_icon, (size, size))
 
     center = (size // 2, size // 2)
 
