@@ -192,8 +192,8 @@ SKILL_TREES = {
             {
                 "id": "item_treasure_map",
                 "name": "보물지도",
-                "description": "전설 필드 확률 +300%, 가챠 전설 +5%\n(누적 ★12 필요)",
-                "max_level": 3,
+                "description": "전설 필드 확률 +350%, 가챠 전설 +7%\n(누적 ★12 필요)",
+                "max_level": 2,
                 "cost": 4,
                 "icon_color": (255, 220, 120),
                 "requires_or": ["item_gamble", "item_recycle"],
@@ -2999,8 +2999,8 @@ class AcademyUI:
             recycle_chance = min(0.9, 0.2 + 0.1 * (current_level - 1))
             lines.append(f"현재: 연금술 {int(recycle_chance * 100)}%")
         elif skill_id == "item_treasure_map":
-            lines.append(f"현재: 필드 전설 +{current_level * 300}%")
-            lines.append(f"현재: 가챠 전설 +{current_level * 5}%")
+            lines.append(f"현재: 필드 전설 +{current_level * 350}%")
+            lines.append(f"현재: 가챠 전설 +{current_level * 7}%")
         elif skill_id == "item_spawn":
             lines.append(f"현재: 확률 +{current_level * 10}%")
         elif skill_id == "item_cooldown":
@@ -3080,8 +3080,8 @@ class AcademyUI:
             recycle_chance = min(0.9, 0.2 + 0.1 * (next_level - 1))
             lines.append(f"다음: 연금술 {int(recycle_chance * 100)}%")
         elif skill_id == "item_treasure_map":
-            lines.append(f"다음: 필드 전설 +{next_level * 300}%")
-            lines.append(f"다음: 가챠 전설 +{next_level * 5}%")
+            lines.append(f"다음: 필드 전설 +{next_level * 350}%")
+            lines.append(f"다음: 가챠 전설 +{next_level * 7}%")
         elif skill_id == "item_spawn":
             lines.append(f"다음: 확률 +{next_level * 10}%")
         elif skill_id == "item_cooldown":
@@ -3742,13 +3742,13 @@ def get_item_gamble_settings():
 def get_treasure_map_field_multiplier():
     """보물지도 스킬이 전설 필드 확률에 주는 배율"""
     level = get_skill_level("item_treasure_map")
-    return 1.0 + 3.0 * level
+    return 1.0 + 3.5 * level
 
 
 def get_treasure_map_gacha_bonus():
     """보물지도 스킬이 가챠 전설 확률에 주는 추가치"""
     level = get_skill_level("item_treasure_map")
-    return 0.05 * level
+    return 0.07 * level
 
 def add_skill_points(points):
     """스킬 포인트 추가 (스테이지 클리어 시 호출)"""

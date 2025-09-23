@@ -1862,112 +1862,19 @@ class HermesShoes(LegendaryItem):
             self.particle_timer = 0
 
 
-class SacredLaurel(LegendaryItem):
-    """신성 월계수 - 라그나로크와 동일한 넉백 효과를 부여하는 전설의 수호"""
+class SacredLaurel(RagnarokHammer):
+    """신성 월계수 - 라그나로크 해머와 동일한 전설 아이콘/연출"""
 
     def __init__(self):
-        super().__init__(
-            name="sacred_laurel",
-            korean_name="신성 월계수",
-            description="충격을 맞은 보스를 강하게 밀쳐내며 0.6초간 기절시킵니다.",
-            unlock_condition="스테이지 8 클리어",
-            icon_path=None,
-        )
-        self.knockback_multiplier = 5.0
-        self.max_knockback = 250
-        self.stun_duration = 0.6
-        self.hammer_glow_multiplier = 1.8
-        self.animation_frames: List[pygame.Surface] = []
-        self.current_frame = 0
-        self.frame_counter = 0
-        self.animation_speed = 8
-        self._load_animation_frames()
+        super().__init__()
+        self.name = "sacred_laurel"
+        self.korean_name = "신성 월계수"
+        self.description = "충격을 맞은 보스를 강하게 밀쳐내며 0.6초간 기절시킵니다."
+        self.icon_path = "items/legendary/ragnarok_hammer.png"
+        self.unlock_condition = "스테이지 8 클리어"
 
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         return game_stats.get("highest_stage_cleared", 0) >= 8
-
-    def calculate_knockback(self, ball_speed: float, boss_x: float = 300) -> tuple:
-        if not self.active:
-            return 0, 0
-
-        import random
-
-        horizontal_power = 10
-        horizontal_power += abs(ball_speed) * 0.5
-
-        center_x = 300
-        if boss_x + 50 < center_x:
-            horizontal_velocity = horizontal_power
-        else:
-            horizontal_velocity = -horizontal_power
-
-        if abs(ball_speed) >= 25:
-            horizontal_velocity *= 1.15
-        elif abs(ball_speed) >= 20:
-            horizontal_velocity *= 1.1
-        elif abs(ball_speed) >= 15:
-            horizontal_velocity *= 1.05
-
-        horizontal_velocity *= 1.0 + random.uniform(0.1, 0.3)
-
-        horizontal_velocity = max(-self.max_knockback, min(self.max_knockback, horizontal_velocity))
-
-        print("[신성 월계수 calculate_knockback]")
-        print(f"  - 입력 공속: {ball_speed:.1f}")
-        print(f"  - 최종 넉백 속도: {horizontal_velocity:.1f}")
-        print(f"  - 스턴 시간: {self.stun_duration:.1f}초")
-
-        return horizontal_velocity, self.stun_duration
-
-    def _load_animation_frames(self):
-        import pygame
-        frames_loaded = 0
-        for i in range(8):
-            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
-            try:
-                frame = pygame.image.load(frame_path).convert_alpha()
-                cleaned = _strip_legendary_red_ring(frame)
-                self.animation_frames.append(cleaned)
-                frames_loaded += 1
-            except Exception as e:
-                print(f"[ERROR] SacredLaurel frame {i} load failed: {frame_path} - {e}")
-        print(f"신성 월계수: 전설 프레임 {frames_loaded}/8개 로드")
-
-    def draw_special_effects(self, screen, boss_x: int, boss_y: int):
-        return
-
-    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        import pygame
-
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
-
-        if self.animation_frames:
-            self.frame_counter += 1
-            if self.frame_counter >= self.animation_speed:
-                self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
-
-            icon_y = y + frame_offset + int(self.animation_offset)
-            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
-            scaled_icon = pygame.transform.scale(current_icon, (size, size))
-            screen.blit(scaled_icon, (x, icon_y))
-
-            if self.current_frame in [0, 4]:
-                bolt_color = (255, 255, 150)
-                pygame.draw.line(screen, bolt_color,
-                                 (x + size//4, y + frame_offset - 5),
-                                 (x + size//3, y + frame_offset + size//4), 2)
-                pygame.draw.line(screen, bolt_color,
-                                 (x + size*3//4, y + frame_offset - 5),
-                                 (x + size*2//3, y + frame_offset + size//4), 2)
-        else:
-            icon_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-            pygame.draw.circle(icon_surface, (200, 220, 255, 180), (size // 2, size // 2), size // 2 - 4, 3)
-            screen.blit(icon_surface, (x, y + frame_offset + int(self.animation_offset)))
-
-        if self.particle_timer > 1000:
-            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
-            self.particle_timer = 0
 
 
 class RagnarokHammer(LegendaryItem):
