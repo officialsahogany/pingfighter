@@ -50415,22 +50415,16 @@ def show_item_management_menu(item_list, selected_index, item_type):
                                     gravitybelt_obtained = False
                                     items.gravitybelt_obtained = False
                                 elif removed_item["name"] == "hermes_shoes":
-                    hermes_shoes_obtained = False
-                    items.hermes_shoes_obtained = False
-                    sacred_laurel_obtained = False
-                    items.sacred_laurel_obtained = False
-                    try:
-                        legendary_manager = get_legendary_manager()
-                        if legendary_manager:
-                            legendary_manager.deactivate_item("sacred_laurel")
-                    except Exception:
-                        pass
-                                elif removed_item["name"] == "gravitybelt":
-                                    gravitybelt_obtained = False
-                                    items.gravitybelt_obtained = False
-                                elif removed_item["name"] == "hermes_shoes":
                                     hermes_shoes_obtained = False
                                     items.hermes_shoes_obtained = False
+                                    sacred_laurel_obtained = False
+                                    items.sacred_laurel_obtained = False
+                                    try:
+                                        legendary_manager = get_legendary_manager()
+                                        if legendary_manager:
+                                            legendary_manager.deactivate_item("sacred_laurel")
+                                    except Exception:
+                                        pass
                             # 아이템 이름을 한글로 표시
                             item_name_korean = get_item_name_korean(removed_item['name'])
                             print(f"{item_name_korean}  .")
