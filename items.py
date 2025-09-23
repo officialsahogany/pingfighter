@@ -111,7 +111,7 @@ def load_item_icons():
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
         "hermes_shoes": "legendary/hermes_shoes.png",
-        "sacred_laurel": "legendary/sacred_laurel.png"
+        "sacred_laurel_removed": "legendary/sacred_laurel.png"
     }
     
     for item_name, icon_file in icon_files.items():
@@ -137,7 +137,7 @@ def load_item_icons():
             item_type["icon"] = ITEM_ICONS[item_name]
 
     # 신성 월계수 아이콘이 실제 파일이 없을 경우 절차적으로 생성
-    if "sacred_laurel" not in ITEM_ICONS or ITEM_ICONS["sacred_laurel"] is None:
+    if "sacred_laurel_removed" not in ITEM_ICONS or ITEM_ICONS["sacred_laurel_removed"] is None:
         laurel_icon = pygame.Surface((32, 32), pygame.SRCALPHA)
         center = 16
         base_radius = 10
@@ -149,7 +149,7 @@ def load_item_icons():
             pygame.draw.circle(laurel_icon, (255, 255, 210, 255), (x, y), 2)
         pygame.draw.circle(laurel_icon, (120, 200, 170, 200), (center, center), 6)
         pygame.draw.circle(laurel_icon, (200, 240, 220, 230), (center, center), 4)
-        ITEM_ICONS["sacred_laurel"] = laurel_icon
+        ITEM_ICONS["sacred_laurel_removed"] = laurel_icon
 
     print(f"Item icons loaded")
 
@@ -491,9 +491,9 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
-        "name": "sacred_laurel",  # 신성 월계수 전설 아이템
+        "name": "sacred_laurel_removed",  # 신성 월계수 전설 아이템
         "color": (255, 220, 150),  # 황금빛 전설 색상
-        "effect": "sacred_laurel",
+        "effect": "sacred_laurel_removed",
         "icon": None,
         "chance": 0.0008,
         "duration": 600,
@@ -618,7 +618,7 @@ unlocked_items = {
     "ragnarok_hammer": True,
     "hermes_shoes": True,
     "poseidon_trident": True,
-    "sacred_laurel": True,
+    "sacred_laurel_removed": True,
     
     # 패시브 아이템
     "knee_pads": True
@@ -805,7 +805,7 @@ def spawn_random_item():
                 continue
             else:
                 print(f"[DEBUG] poseidon_trident can spawn (not obtained yet)")
-        if item["name"] == "sacred_laurel":
+        if item["name"] == "sacred_laurel_removed":
             print(f"[DEBUG] Checking sacred_laurel: obtained = {sacred_laurel_obtained}")
             if sacred_laurel_obtained:
                 print(f"[DEBUG] Skipping sacred_laurel spawn (already obtained)")
@@ -837,7 +837,7 @@ def spawn_random_item():
     import skill
     skill_spawn_boost = skill.apply_item_spawn_boost(1.0)  # 기본 확률 1.0에 스킬 효과 적용
 
-    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel"}
+    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel_removed"}
     try:
         legendary_multiplier = academy.get_treasure_map_field_multiplier()
     except Exception:
@@ -920,11 +920,11 @@ def spawn_random_item():
                     legendary_manager._init_legendary_items()
 
         # 신성 월계수도 동일하게 초기화만 수행해 아이콘 애니메이션이 가능하도록 함
-        if selected_item["name"] == "sacred_laurel":
+        if selected_item["name"] == "sacred_laurel_removed":
             from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             if legendary_manager:
-                laurel = legendary_manager.get_item("sacred_laurel")
+                laurel = legendary_manager.get_item("sacred_laurel_removed")
                 if not laurel:
                     legendary_manager._init_legendary_items()
 
@@ -973,7 +973,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             item_name = item["type"]["name"]
             print(f"🔍 DEBUG: 아이템 획득 감지: {item_name}")
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel_removed"]:
                 # 패시브 아이템 처리
                 print(f"🔍 DEBUG: {item_name}을(를) 패시브 아이템으로 처리 중...")
                 if store_passive_func:
@@ -1059,11 +1059,11 @@ def draw_items(screen):
                         # 애니메이션 아이콘 그리기 (회전 없이)
                         trident.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
                         continue
-            elif item_name == "sacred_laurel":
+            elif item_name == "sacred_laurel_removed":
                 from legendary_items import get_legendary_manager
                 legendary_manager = get_legendary_manager()
                 if legendary_manager:
-                    laurel = legendary_manager.get_item("sacred_laurel")
+                    laurel = legendary_manager.get_item("sacred_laurel_removed")
                     if laurel:
                         laurel.update(16)
                         laurel.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)

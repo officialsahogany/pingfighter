@@ -16208,7 +16208,7 @@ def store_passive_item(item_data):
             print("🌊 포세이돈의 삼지창 획득! 바다의 힘이 깃들었습니다!")
         else:
             print("이미 포세이돈의 삼지창을 보유 중입니다.")
-    elif item_data["name"] == "sacred_laurel":
+    elif item_data["name"] == "sacred_laurel_removed":
         if not items.sacred_laurel_obtained:
             items.sacred_laurel_obtained = True
             sacred_laurel_obtained = True
@@ -16216,8 +16216,8 @@ def store_passive_item(item_data):
             passive_item_list.append(item_data)
             legendary_manager = get_legendary_manager()
             context = {"player_rect": PLAYER.copy() if 'PLAYER' in globals() and PLAYER else None}
-            legendary_manager.activate_item("sacred_laurel", context)
-            trigger_legendary_acquisition("sacred_laurel", "신성 월계수", item_icon,
+            legendary_manager.activate_item("sacred_laurel_removed", context)
+            trigger_legendary_acquisition("sacred_laurel_removed", "신성 월계수", item_icon,
                                           (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             print("🌟 신성 월계수 획득! 신성한 보호가 당신을 감쌉니다!")
         else:
@@ -16237,7 +16237,7 @@ def store_passive_item(item_data):
     elif not already_has_item:
         # 다른 패시브 아이템은 중복 불가
         passive_item_list.append(item_data)
-    elif item_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel"):
+    elif item_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel_removed"):
         pass
     else:
         print(f"[WARNING] {item_name} already in passive inventory, skipping duplicate")
@@ -20993,7 +20993,7 @@ def draw_objects():
             if trident and trident.active:
                 trident.draw_effects(SCREEN)  # 물결 파티클 그리기
 
-            sacred = legendary_manager.get_item("sacred_laurel")
+            sacred = legendary_manager.get_item("sacred_laurel_removed")
             if sacred and sacred.active and 'PLAYER' in globals() and PLAYER:
                 try:
                     sacred.draw_aura(SCREEN, PLAYER)
@@ -34423,7 +34423,7 @@ def apply_selected_items(
             "type": "passive"
         }
         # 전설 아이템(포세이돈 삼지창, 라그나로크 해머, 헤르메스 신발)은 store_passive_item에서 추가하므로 여기서는 추가하지 않음
-        if item_name not in ["poseidon_trident", "ragnarok_hammer", "hermes_shoes", "sacred_laurel"]:
+        if item_name not in ["poseidon_trident", "ragnarok_hammer", "hermes_shoes", "sacred_laurel_removed"]:
             item_state_adapter.append_passive_item(item_data)
         # 아이템 효과 적용
         if item_name == "speedboots":
@@ -34441,7 +34441,7 @@ def apply_selected_items(
             print(f"[DEBUG apply_selected_items] After: items.poseidon_trident_obtained = {items.poseidon_trident_obtained}")
             # store_passive_item을 호출하여 일관된 처리
             store_passive_item(item_data)
-        elif item_name == "sacred_laurel":
+        elif item_name == "sacred_laurel_removed":
             items.sacred_laurel_obtained = True
             store_passive_item(item_data)
         elif item_name == "speedgear":
@@ -34632,7 +34632,7 @@ def apply_selected_items(
                 items.ragnarok_hammer_obtained = True
             elif item_name == "hermes_shoes":
                 items.hermes_shoes_obtained = True
-            elif item_name == "sacred_laurel":
+            elif item_name == "sacred_laurel_removed":
                 items.sacred_laurel_obtained = True
             
             # 전설 아이템을 패시브 아이템 리스트에 추가 (TAB 키로 볼 수 있도록)
@@ -37801,7 +37801,7 @@ def calculate_bounce(paddle):
                     else:
                         print(f"[라그나로크] 스턴공 발동 실패 (50% 확률)")
 
-            if legendary_manager and "sacred_laurel" in legendary_manager.active_items:
+            if legendary_manager and "sacred_laurel_removed" in legendary_manager.active_items:
                 pass
         except Exception as e:
             print(f"[ERROR] 전설 아이템 효과 처리 실패 (calculate_bounce): {e}")
@@ -42177,8 +42177,8 @@ def handle_ball():
                         print(f"   : {ball_speed:.1f}")
                         print(f"   : 0.6, : 0.6")
 
-            if "sacred_laurel" in legendary_manager.active_items:
-                laurel = legendary_manager.items.get("sacred_laurel")
+            if "sacred_laurel_removed" in legendary_manager.active_items:
+                laurel = legendary_manager.items.get("sacred_laurel_removed")
                 if laurel and laurel.active:
                     ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                     horizontal_velocity, stun_duration = laurel.calculate_knockback(ball_speed, BOSS.x)
@@ -45225,7 +45225,7 @@ def show_result(won):
         try:
             legendary_manager = get_legendary_manager()
             if legendary_manager:
-                legendary_manager.deactivate_item("sacred_laurel")
+                legendary_manager.deactivate_item("sacred_laurel_removed")
         except Exception:
             pass
         # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
@@ -50199,7 +50199,7 @@ def get_item_description(item_name):
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 1.5배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
-        "sacred_laurel": "신성 월계수: 바로크 양식의 팔중 고리가 패들을 감싸 충격을 흡수합니다. 공을 맞으면 빛의 잔상을 남기고 사라졌다가 5초간 서서히 되살아납니다."
+        "sacred_laurel_removed": "신성 월계수: 바로크 양식의 팔중 고리가 패들을 감싸 충격을 흡수합니다. 공을 맞으면 빛의 잔상을 남기고 사라졌다가 5초간 서서히 되살아납니다."
     }
     return descriptions.get(item_name, "설명이 없습니다.")
 def show_item_management_menu(item_list, selected_index, item_type):
@@ -50482,13 +50482,13 @@ def show_item_management_menu(item_list, selected_index, item_type):
                                 elif removed_item["name"] == "hermes_shoes":
                                     hermes_shoes_obtained = False
                                     items.hermes_shoes_obtained = False
-                                elif removed_item["name"] == "sacred_laurel":
+                                elif removed_item["name"] == "sacred_laurel_removed":
                                     sacred_laurel_obtained = False
                                     items.sacred_laurel_obtained = False
                                     try:
                                         legendary_manager = get_legendary_manager()
                                         if legendary_manager:
-                                            legendary_manager.deactivate_item("sacred_laurel")
+                                            legendary_manager.deactivate_item("sacred_laurel_removed")
                                     except Exception:
                                         pass
                             # 아이템 이름을 한글로 표시

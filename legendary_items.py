@@ -2128,7 +2128,7 @@ class SacredLaurel(RagnarokHammer):
 
     def __init__(self):
         super().__init__()
-        self.name = "sacred_laurel"
+        self.name = "sacred_laurel_removed"
         self.korean_name = "신성 월계수"
         self.description = "충격을 맞은 보스를 강하게 밀쳐내며 0.6초간 기절시킵니다."
         self.icon_path = "items/legendary/ragnarok_hammer.png"
@@ -2183,7 +2183,7 @@ class LegendaryItemManager:
         self.items["ragnarok_hammer"] = RagnarokHammer()
         self.items["hermes_shoes"] = HermesShoes()
         self.items["poseidon_trident"] = PoseidonTrident()
-        self.items["sacred_laurel"] = SacredLaurel()
+        self.items["sacred_laurel_removed"] = SacredLaurel()
         
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
@@ -2198,9 +2198,9 @@ class LegendaryItemManager:
         if "poseidon_trident" not in self.unlocked_items:
             self.unlocked_items.append("poseidon_trident")
         
-        self.items["sacred_laurel"].unlocked = True
-        if "sacred_laurel" not in self.unlocked_items:
-            self.unlocked_items.append("sacred_laurel")
+        self.items["sacred_laurel_removed"].unlocked = True
+        if "sacred_laurel_removed" not in self.unlocked_items:
+            self.unlocked_items.append("sacred_laurel_removed")
     
     def _init_legendary_items(self):
         """전설 아이템 초기화 (애니메이션용)"""
@@ -2213,8 +2213,8 @@ class LegendaryItemManager:
         # 포세이돈의 삼지창 초기화
         if "poseidon_trident" not in self.items:
             self.items["poseidon_trident"] = PoseidonTrident()
-        if "sacred_laurel" not in self.items:
-            self.items["sacred_laurel"] = SacredLaurel()
+        if "sacred_laurel_removed" not in self.items:
+            self.items["sacred_laurel_removed"] = SacredLaurel()
         
     def check_unlocks(self, game_stats: Dict):
         """해금 조건 체크"""
