@@ -48,7 +48,8 @@ class SkillManager:
             'predictor': self.activate_predictor,
             'long_boost': self.activate_long_boost,
             'balloon': self.activate_balloon,
-            'whip': self.activate_whip
+            'whip': self.activate_whip,
+            'doping_potion': self.activate_doping_potion
         }
         
         # 특수 스킬 상태
@@ -177,9 +178,32 @@ class SkillManager:
         """채찍 스킬"""
         self.global_manager.set('whip_active', True)
         self.global_manager.set('whip_timer', 0)
-        
+
         # 강한 타격 효과
         self.physics.apply_power_shot(2.0)
+
+    def activate_doping_potion(self):
+        """도핑물약 발동"""
+        fps = max(1, self.global_manager.get('FPS', 60))
+        duration_frames = int(8 * fps)
+        self.global_manager.set('doping_potion_active', True)
+        self.global_manager.set('doping_potion_timer_frames', duration_frames)
+        self.global_manager.set('doping_potion_duration_frames', duration_frames)
+        self.global_manager.set('doping_potion_refresh', True)
+
+        drink_sound = self.global_manager.get('SOUND_DRINK')
+        if drink_sound:
+            try:
+                drink_sound.play()
+            except Exception:  # noqa: BLE001
+                pass
+        else:
+            active_sound = self.global_manager.get('SOUND_ACTIVE_ITEM')
+            if active_sound:
+                try:
+                    active_sound.play()
+                except Exception:  # noqa: BLE001
+                    pass
         
     def activate_tears_of_pain(self):
         """눈물의 비 발동 (Stage 3)"""
