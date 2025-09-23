@@ -6911,6 +6911,8 @@ def sync_doping_potion_from_global_manager() -> None:
         gm.set('doping_potion_refresh', False)
     elif not gm_active and doping_potion_active:
         deactivate_doping_potion()
+    global doping_potion_use_count
+    doping_potion_use_count = 0
 
 # 애니메이션 단계별 프레임 수 (60fps 기준)
 SOLDIER_GUN_DRAW_FRAMES = 6     # 총 꺼내기 애니메이션 (0.1초)
