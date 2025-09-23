@@ -15253,8 +15253,7 @@ def handle_player(keys):
             if hit_on_right:
                 blacksmith_shield_swing_active = False
                 blacksmith_shield_swing_timer = 0
-                if not blacksmith_hammer_swing_active or blacksmith_hammer_swing_phase <= 0:
-                    blacksmith_hammer_swing_phase = BLACKSMITH_HAMMER_SWING_DURATION
+                blacksmith_hammer_swing_phase = BLACKSMITH_HAMMER_SWING_DURATION
                 blacksmith_hammer_swing_active = True
             else:
                 blacksmith_hammer_swing_active = False
