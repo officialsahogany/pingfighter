@@ -1863,373 +1863,45 @@ class HermesShoes(LegendaryItem):
 
 
 class SacredLaurel(LegendaryItem):
-    """신성 월계수 - 플레이어를 수호하는 신성한 고리"""
+    """신성 월계수 - 일시적으로 비활성화된 전설 아이템"""
 
     def __init__(self):
         super().__init__(
             name="sacred_laurel",
             korean_name="신성 월계수",
-            description="패들을 감싸는 8개의 신성한 고리가 공의 충격을 흡수합니다.",
+            description="(효과 비활성화)",
             unlock_condition="스테이지 8 클리어",
             icon_path=None,
         )
-        self.fade_amount = 1.0
-        self.reappear_duration = 5000
-        self.reappear_timer = self.reappear_duration
-        self.hit_flash_duration = 350
-        self.hit_flash_timer = 0
-        self.rotation_speed = 0.28  # 도/밀리초 기준 회전 속도
-        self.rotation_angle = 0.0
-        self.tilt_ratio = 0.38
-        self.absorption_threshold = 0.82  # 완전히 재생된 후에만 보호막 발동
-        self.absorption_multiplier = 0.7   # 충격 흡수 시 속도 감소 비율
-        self.spark_particles: List[Dict] = []
-        self.contact_flash = 0.0
-        self.animation_frames: List[pygame.Surface] = []
-        self.current_frame = 0
-        self.frame_counter = 0
-        self.animation_speed = 6
-        self._ring_cache: Dict[int, Tuple[pygame.Surface, pygame.Surface]] = {}
-        self.base_ring_surface, self.base_highlight_surface = self._create_base_ring_surfaces()
-        self._last_ring_geometry: Optional[Tuple[float, float, float, float]] = None
-        self._generate_animation_frames()
-        self.segment_count = 18
-        self.segment_radius_scale = 0.95
-        self.segment_wave_speed = 0.35
-        self.segment_color_phase = random.uniform(0, math.tau)
-        self.segment_secondary_phase = random.uniform(0, math.tau)
 
     def can_absorb(self) -> bool:
-        """현재 보호막이 충격을 흡수할 수 있는지 확인"""
-        return self.active and self.fade_amount >= self.absorption_threshold
+        return False
 
     def absorb_velocity(self, velocity: List[float]) -> bool:
-        """공의 속도를 흡수하여 완화한다.
-
-        Args:
-            velocity: x, y 성분으로 구성된 속도 리스트
-
-        Returns:
-            흡수가 수행되었는지 여부
-        """
-        if not self.can_absorb():
-            return False
-        if len(velocity) >= 2:
-            velocity[0] *= self.absorption_multiplier
-            velocity[1] *= self.absorption_multiplier
-        return True
-
-    def _create_base_ring_surfaces(self) -> Tuple[pygame.Surface, pygame.Surface]:
-        width = 256
-        height = max(72, int(width * self.tilt_ratio))
-        base_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-        highlight_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-
-        outer_rect = pygame.Rect(0, 0, width, height)
-        ring_thickness = max(8, height // 4)
-
-        # 기본 링 – 다층 하이라이트와 그라데이션
-        for i in range(2):
-            alpha = 110 - i * 24
-            if alpha <= 0:
-                continue
-            pygame.draw.ellipse(
-                base_surface,
-                (205 + i * 15, 235, 255, alpha),
-                outer_rect.inflate(-i * 6, -i * 3),
-                max(2, ring_thickness - i * 3)
-            )
-
-        inner_rect = outer_rect.inflate(-ring_thickness * 0.65, -ring_thickness * 0.45)
-        pygame.draw.ellipse(base_surface, (180, 220, 255, 96), inner_rect, max(1, ring_thickness // 3))
-
-        # 하이라이트는 별도 서피스에 두고 회전시켜 사용
-        highlight_span = math.radians(55)
-        start_angle = -highlight_span / 2
-        pygame.draw.arc(
-            highlight_surface,
-            (255, 245, 220, 190),
-            outer_rect.inflate(-2, -2),
-            start_angle,
-            start_angle + highlight_span,
-            ring_thickness
-        )
-        pygame.draw.arc(
-            highlight_surface,
-            (255, 215, 170, 140),
-            outer_rect.inflate(-6, -4),
-            start_angle + highlight_span * 0.18,
-            start_angle + highlight_span * 0.85,
-            max(2, ring_thickness - 4)
-        )
-        glint_rect = outer_rect.inflate(-16, -8)
-        pygame.draw.arc(
-            highlight_surface,
-            (255, 255, 255, 180),
-            glint_rect,
-            start_angle + highlight_span * 0.35,
-            start_angle + highlight_span * 0.55,
-            max(1, ring_thickness - 6)
-        )
-
-        return base_surface, highlight_surface
-
-    def _get_scaled_ring_surfaces(self, radius: int) -> Tuple[pygame.Surface, pygame.Surface]:
-        key = max(16, int(radius))
-        cached = self._ring_cache.get(key)
-        if cached:
-            return cached
-
-        ring_width = key * 2
-        ring_height = max(26, int(ring_width * self.tilt_ratio))
-        base_scaled = pygame.transform.smoothscale(self.base_ring_surface, (ring_width, ring_height))
-        highlight_scaled = pygame.transform.smoothscale(self.base_highlight_surface, (ring_width, ring_height))
-        self._ring_cache[key] = (base_scaled, highlight_scaled)
-        return self._ring_cache[key]
-
-    def _spawn_ring_glints(self):
-        self.spark_particles.clear()
-        base_angle = math.radians(self.rotation_angle)
-        for offset in [-0.35, -0.1, 0.18, 0.42, 0.65, 0.9]:
-            self.spark_particles.append({
-                'angle': (base_angle + offset) % (2 * math.pi),
-                'life': 380.0,
-                'max_life': 380.0,
-                'angular_velocity': 0.00085,
-                'radius_multiplier': 1.0 + random.uniform(-0.06, 0.06)
-            })
-
-    def _generate_animation_frames(self):
-        self.animation_frames.clear()
-        size = 60
-        base_rect = pygame.Rect(6, size // 2 - 8, size - 12, 16)
-        ring_thickness = 6
-
-        for i in range(24):
-            frame_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-            _draw_common_legendary_frame(frame_surface, 0, 0, size, i * 120)
-            pygame.draw.ellipse(frame_surface, (185, 215, 255, 170), base_rect, ring_thickness)
-            inner_rect = base_rect.inflate(-10, -4)
-            pygame.draw.ellipse(frame_surface, (90, 140, 210, 70), inner_rect, 1)
-
-            highlight_start = math.radians((360 / 24) * i)
-            highlight_span = math.radians(55)
-            pygame.draw.arc(
-                frame_surface,
-                (255, 245, 220, 200),
-                base_rect.inflate(2, 2),
-                highlight_start,
-                highlight_start + highlight_span,
-                ring_thickness
-            )
-            pygame.draw.arc(
-                frame_surface,
-                (255, 255, 255, 160),
-                base_rect.inflate(-4, -2),
-                highlight_start + highlight_span * 0.3,
-                highlight_start + highlight_span * 0.6,
-                max(2, ring_thickness - 2)
-            )
-
-            self.animation_frames.append(frame_surface)
-
-    def check_unlock_condition(self, game_stats: Dict) -> bool:
-        return game_stats.get("highest_stage_cleared", 0) >= 8
+        return False
 
     def activate(self, game_state: Dict):
         super().activate(game_state)
-        self.fade_amount = 1.0
-        self.reappear_timer = self.reappear_duration
-        self.hit_flash_timer = 0
-        self.spark_particles.clear()
-        self.rotation_angle = 0.0
-        self.contact_flash = 0.0
 
     def deactivate(self):
         self.active = False
-        self.spark_particles.clear()
 
     def on_player_contact(self, impact_pos: Optional[Tuple[float, float]] = None):
-        if not self.active:
-            return
-        self.fade_amount = 0.0
-        self.reappear_timer = 0.0
-        self.hit_flash_timer = self.hit_flash_duration
-        self.contact_flash = 1.0
-        self._spawn_ring_glints()
+        return
 
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
-        if not self.active and not ui_mode:
-            return
-
-        self.rotation_angle = (self.rotation_angle + self.rotation_speed * dt) % 360.0
-        advance = self.segment_wave_speed * dt * 0.001
-        self.segment_color_phase = (self.segment_color_phase + advance) % (2 * math.pi)
-        self.segment_secondary_phase = (self.segment_secondary_phase + advance * 1.5) % (2 * math.pi)
-
-        if self.fade_amount < 1.0:
-            self.reappear_timer = min(self.reappear_timer + dt, self.reappear_duration)
-            self.fade_amount = min(1.0, self.reappear_timer / self.reappear_duration)
-
-        if self.hit_flash_timer > 0:
-            self.hit_flash_timer = max(0.0, self.hit_flash_timer - dt)
-            self.contact_flash = max(self.contact_flash, self.hit_flash_timer / self.hit_flash_duration)
-
-        if self.contact_flash > 0.0:
-            self.contact_flash = max(0.0, self.contact_flash - dt / (self.hit_flash_duration * 1.8))
-
-        for sparkle in self.spark_particles[:]:
-            sparkle['life'] -= dt
-            if sparkle['life'] <= 0:
-                self.spark_particles.remove(sparkle)
-                continue
-            sparkle['angle'] = (sparkle['angle'] + sparkle['angular_velocity'] * dt) % (2 * math.pi)
 
     def draw_aura(self, screen: pygame.Surface, paddle_rect: pygame.Rect):
-        if not self.active:
-            return
-        self._last_ring_geometry = None
-        fade = self.fade_amount
-        if fade <= 0 and not self.spark_particles:
-            return
-
-        center_x = paddle_rect.centerx
-        center_y = paddle_rect.centery
-        breathing = math.sin(self.animation_time * 0.002) * 4
-        target_radius = max(paddle_rect.width * 0.72 + breathing, 120)
-        base_ring, highlight_ring = self._get_scaled_ring_surfaces(int(target_radius))
-
-        highlight_rotated = pygame.transform.rotate(highlight_ring, self.rotation_angle)
-        canvas_width, canvas_height = highlight_rotated.get_size()
-        ring_surface = pygame.Surface((canvas_width, canvas_height), pygame.SRCALPHA)
-        center_pos = (canvas_width // 2, canvas_height // 2)
-        ring_surface.blit(base_ring, base_ring.get_rect(center=center_pos))
-        ring_surface.blit(
-            highlight_rotated,
-            highlight_rotated.get_rect(center=center_pos),
-            special_flags=pygame.BLEND_ADD
-        )
-
-        radius_x = base_ring.get_width() / 2
-        radius_y = base_ring.get_height() / 2
-        segment_surface = pygame.Surface((canvas_width, canvas_height), pygame.SRCALPHA)
-        color_phase = self.segment_color_phase
-        secondary_phase = self.segment_secondary_phase
-        segment_spacing = 360 / self.segment_count
-        time_wave = self.animation_time * 0.09
-
-        for layer_idx, radius_scale in enumerate((self.segment_radius_scale, self.segment_radius_scale * 0.82)):
-            layer_phase = color_phase if layer_idx == 0 else secondary_phase
-            layer_offset = 0 if layer_idx == 0 else segment_spacing * 0.5
-            for i in range(self.segment_count):
-                segment_angle = self.rotation_angle + layer_offset + segment_spacing * i
-                rad = math.radians(segment_angle)
-                wave = math.sin(math.radians(segment_angle * 4) + layer_phase)
-                pulse = 0.6 + 0.4 * math.sin(math.radians(segment_angle * 3) + time_wave)
-                size = max(2, int(3 + wave * 1.8 + layer_idx))
-                alpha = int(120 * fade * pulse)
-                if alpha <= 0:
-                    continue
-
-                orbit_x = center_pos[0] + math.cos(rad) * radius_x * radius_scale
-                orbit_y = center_pos[1] + math.sin(rad) * radius_y * radius_scale
-
-                base_color = (
-                    min(255, 225 + int(wave * 25)),
-                    min(255, 235 + int(pulse * 18)),
-                    160 + int(wave * 28)
-                ) if layer_idx == 0 else (
-                    min(255, 200 + int(wave * 20)),
-                    min(255, 210 + int(pulse * 22)),
-                    245
-                )
-                glow_color = (
-                    min(255, base_color[0] + 25),
-                    min(255, base_color[1] + 35),
-                    min(255, base_color[2] + 45)
-                )
-
-                pygame.draw.circle(segment_surface, (*base_color, alpha), (int(orbit_x), int(orbit_y)), size)
-                pygame.draw.circle(segment_surface, (*glow_color, min(255, alpha + 70)), (int(orbit_x), int(orbit_y)), max(1, size // 2))
-
-        ring_surface.blit(segment_surface, (0, 0), special_flags=pygame.BLEND_ADD)
-
-        if self.contact_flash > 0:
-            flash_alpha = int(170 * min(1.0, self.contact_flash) * fade)
-            if flash_alpha > 0:
-                flash_surface = pygame.Surface((canvas_width, canvas_height), pygame.SRCALPHA)
-                flash_rect = flash_surface.get_rect().inflate(-int(canvas_width * 0.14), -int(canvas_height * 0.32))
-                pygame.draw.ellipse(
-                    flash_surface,
-                    (255, 255, 255, flash_alpha),
-                    flash_rect,
-                    max(2, flash_rect.height // 6)
-                )
-                ring_surface.blit(flash_surface, (0, 0), special_flags=pygame.BLEND_ADD)
-
-        ring_surface.set_alpha(int(220 * fade))
-
-        vertical_offset = paddle_rect.height * 0.08
-        ring_rect = ring_surface.get_rect(center=(center_x, center_y + vertical_offset))
-        screen.blit(ring_surface, ring_rect)
-
-        self._last_ring_geometry = (
-            center_x,
-            center_y + vertical_offset,
-            base_ring.get_width() / 2,
-            base_ring.get_height() / 2
-        )
+        return
 
     def draw_particles(self, screen: pygame.Surface):
-        if not self.spark_particles or not self._last_ring_geometry:
-            return
-
-        center_x, center_y, radius_x, radius_y = self._last_ring_geometry
-        fade = self.fade_amount
-
-        for sparkle in self.spark_particles:
-            life_ratio = sparkle['life'] / sparkle['max_life'] if sparkle['max_life'] > 0 else 0
-            if life_ratio <= 0:
-                continue
-
-            alpha = int(220 * life_ratio * fade)
-            if alpha <= 0:
-                continue
-
-            angle = sparkle['angle']
-            radius_multiplier = sparkle.get('radius_multiplier', 1.0)
-            ring_x = center_x + math.cos(angle) * radius_x * radius_multiplier
-            ring_y = center_y + math.sin(angle) * radius_y * radius_multiplier
-
-            size = max(1, int(5 * life_ratio))
-            pygame.draw.circle(screen, (255, 240, 210, alpha), (int(ring_x), int(ring_y)), size)
-            if size > 1:
-                pygame.draw.circle(
-                    screen,
-                    (255, 255, 255, min(255, alpha + 40)),
-                    (int(ring_x), int(ring_y)),
-                    size,
-                    1
-                )
+        return
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        import pygame
-
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time,
-                                                    border_color=COMMON_LEGENDARY_BORDER_COLOR,
-                                                    corner_color=COMMON_LEGENDARY_CORNER_COLOR)
-
-        if self.animation_frames:
-            self.frame_counter += 1
-            if self.frame_counter >= self.animation_speed:
-                self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
-
-            icon_y = y + frame_offset + int(self.animation_offset)
-            current_icon = self.animation_frames[self.current_frame]
-            scaled_icon = pygame.transform.scale(current_icon, (size, size))
-            screen.blit(scaled_icon, (x, icon_y))
+        _draw_common_legendary_frame(screen, x, y, size, self.animation_time,
+                                     border_color=COMMON_LEGENDARY_BORDER_COLOR,
+                                     corner_color=COMMON_LEGENDARY_CORNER_COLOR)
 
 
 class RagnarokHammer(LegendaryItem):

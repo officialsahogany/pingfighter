@@ -37661,7 +37661,6 @@ def calculate_bounce(paddle):
     drive_activated = False
     counter_bonus_applied = False
     counter_bonus_speed_gain = 0.0
-    laurel_absorbed = False
     
     # 보스가 공을 칠 때 포세이돈 삼지창 회오리 가속 효과 해제
     if not is_player_paddle:  # 보스가 공을 칠 때
