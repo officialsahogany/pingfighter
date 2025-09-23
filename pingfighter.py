@@ -3339,6 +3339,12 @@ def create_soldier_paddle_surface(
 SOLDIER_PADDLE_IMG = create_soldier_paddle_surface()
 SOLDIER_PADDLE_IMG_NO_RIGHT_ARM = create_soldier_paddle_surface(include_right_arm=False)
 
+try:
+    _soldier_card_raw = pygame.image.load(resource_path("soldier_paddle_new.png")).convert_alpha()
+    SOLDIER_CARD_IMG = _crop_surface_alpha(_soldier_card_raw)
+except Exception:
+    SOLDIER_CARD_IMG = _crop_surface_alpha(SOLDIER_PADDLE_IMG)
+
 
 def get_soldier_right_hook_strength() -> float:
     global soldier_right_hook_phase
