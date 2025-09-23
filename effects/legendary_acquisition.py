@@ -158,7 +158,7 @@ class LegendaryAcquisitionEffect:
         self.animation_complete = False
         
         # 전설 아이템 애니메이션 설정
-        if item_name in ["hermes_shoes", "ragnarok_hammer"]:
+        if item_name in ["hermes_shoes", "ragnarok_hammer", "sacred_laurel"]:
             from legendary_items import get_legendary_manager
             self.legendary_manager = get_legendary_manager()
             if self.legendary_manager:
