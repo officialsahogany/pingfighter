@@ -1299,15 +1299,15 @@ class PoseidonTrident(LegendaryItem):
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
         
         # 애니메이션 프레임 그리기 (라그나로크 해머와 동일한 프레임 사용)
-        if self.icon_frames and len(self.icon_frames) > 0:
+        if self.animation_frames and len(self.animation_frames) > 0:
             # 현재 프레임 그리기 (위아래 움직임 효과 포함)
             self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
                 self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
 
             icon_y = y + frame_offset + int(self.animation_offset)
-            current_icon = self.icon_frames[self.current_frame % len(self.icon_frames)]
+            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
@@ -1337,11 +1337,11 @@ class PoseidonTrident(LegendaryItem):
         super().update(dt, ui_mode)  # 부모 클래스의 update 호출 (animation_offset 등 업데이트)
         
         # 애니메이션 프레임 카운터 업데이트
-        if self.icon_frames and len(self.icon_frames) > 1:
+        if self.animation_frames and len(self.animation_frames) > 1:
             self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
                 self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
         
         # 회오리 애니메이션 업데이트 (ui_mode가 아닐 때만)
         if not ui_mode and self.vortex_active:
