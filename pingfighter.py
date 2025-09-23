@@ -3534,8 +3534,17 @@ def _scale_blacksmith_point(point, scale=BLACKSMITH_SCALE):
 
 
 def _scale_blacksmith_sprite(surface, anchor, scale=BLACKSMITH_SCALE):
+    global blacksmith_hammer_head_surface_point, blacksmith_hammer_head_local_point
     if abs(scale - 1.0) < 1e-3:
-        return surface.copy(), anchor
+        result_surface = surface.copy()
+        if blacksmith_hammer_head_local_point is not None:
+            blacksmith_hammer_head_surface_point = (
+                float(blacksmith_hammer_head_local_point[0]),
+                float(blacksmith_hammer_head_local_point[1])
+            )
+        else:
+            blacksmith_hammer_head_surface_point = None
+        return result_surface, anchor
 
     scaled_size = (
         max(1, int(round(surface.get_width() * scale))),
@@ -3559,6 +3568,20 @@ def _scale_blacksmith_sprite(surface, anchor, scale=BLACKSMITH_SCALE):
     offset_x = placement_rect.centerx - BLACKSMITH_CENTER_X
     offset_y = placement_rect.centery - BLACKSMITH_CENTER_Y
     scaled_anchor = (scaled_anchor[0] + offset_x, scaled_anchor[1] + offset_y)
+    if blacksmith_hammer_head_local_point is not None:
+        scaled_head = _scale_blacksmith_point(
+            (
+                int(round(blacksmith_hammer_head_local_point[0])),
+                int(round(blacksmith_hammer_head_local_point[1]))
+            ),
+            scale,
+        )
+        blacksmith_hammer_head_surface_point = (
+            float(scaled_head[0] + offset_x),
+            float(scaled_head[1] + offset_y)
+        )
+    else:
+        blacksmith_hammer_head_surface_point = None
     return result_surface, scaled_anchor
 
 SMASHER_CARD_IMG = _crop_surface_alpha(SMASHER_PADDLE_IMG)
@@ -3603,6 +3626,7 @@ def _draw_blacksmith_shield(surface, shield_center, angle_deg=-4):
     surface.blit(rotated, rotated.get_rect(center=shield_center))
 
 def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wave=0.0, walk_bob=0.0, walk_lean=0.0):
+    global blacksmith_hammer_head_local_point
     cx = BLACKSMITH_CENTER_X
     cy = BLACKSMITH_CENTER_Y
     shield_amount = max(0.0, min(1.0, shield_swing))
@@ -3874,10 +3898,13 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
             _vec_to_int_pair(emblem_center + head_long_vec * 0.3 + head_short_vec * 0.2),
             2,
         )
+
+        blacksmith_hammer_head_local_point = (float(head_center.x), float(head_center.y))
     else:
         empty_hand = pygame.Rect(0, 0, 10, 18)
         empty_hand.center = (right_wrist[0] + 6, right_wrist[1])
         pygame.draw.ellipse(surface, (205, 185, 155), empty_hand)
+        blacksmith_hammer_head_local_point = None
 
     # 어깨 장식
     left_shoulder_center = (cx - 32 + lean_push - shoulder_roll, torso_y + 8 - shoulder_roll)
