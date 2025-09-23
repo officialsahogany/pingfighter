@@ -45318,6 +45318,7 @@ def main(stage_num, new_boss_mode=False):
     if aipill_active:
         aipill_active = False
         print("AI")
+    deactivate_doping_potion()
     
     print("/")
     
