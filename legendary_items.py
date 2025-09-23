@@ -1251,7 +1251,6 @@ class PoseidonTrident(LegendaryItem):
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """애니메이션 아이콘 그리기 - 라그나로크 해머와 완전 동일"""
         import pygame
-        import math
         
         # 공통 전설 프레임 (라그나로크/헤르메스와 동일 배경)
         _draw_common_legendary_frame(screen, x, y, size)
@@ -1597,7 +1596,6 @@ class HermesShoes(LegendaryItem):
             return
             
         import pygame
-        import math
         import time
         
         current_time = time.time()
@@ -1676,7 +1674,6 @@ class HermesShoes(LegendaryItem):
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """애니메이션 아이콘 그리기"""
         import pygame
-        import math
         
         # 공통 배경 프레임 연출 (라그나로크 해머와 동일 스타일)
         _draw_common_legendary_frame(screen, x, y, size, border_color=(180, 200, 255))
