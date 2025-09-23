@@ -52224,21 +52224,7 @@ def show_quick_character_selection():
         pygame.display.flip()
 
         for event in pygame.event.get():
-   Traceback (most recent call last):
-  File "/Volumes/T7/윈도우용최신/game/bosspong/pingfighter.py", line 30, in <module>
-    import items
-  File "/Volumes/T7/윈도우용최신/game/bosspong/items.py", line 23, in <module>
-    from pingfighter import get_item_icon
-  File "/Volumes/T7/윈도우용최신/game/bosspong/pingfighter.py", line 5526, in <module>
-    BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
-                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Volumes/T7/윈도우용최신/game/bosspong/pingfighter.py", line 3972, in create_blacksmith_paddle_base
-    _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0)
-  File "/Volumes/T7/윈도우용최신/game/bosspong/pingfighter.py", line 3792, in _draw_blacksmith_upper
-    if blacksmith_hammer_available or blacksmith_hammer_shock_charging:
-       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-NameError: name 'blacksmith_hammer_available' is not defined
-pika@pikaui-Macmini bosspong %          if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
@@ -52263,7 +52249,6 @@ pika@pikaui-Macmini bosspong %          if event.type == pygame.QUIT:
                         selected_index = idx
                         play_button_click_sound()
                         return characters[selected_index]["id"]
-
 
 def apply_character_selection(character_id):
     """선택된 캐릭터 ID를 전역 상태에 반영"""
