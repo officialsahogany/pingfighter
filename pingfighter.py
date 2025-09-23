@@ -3562,6 +3562,9 @@ def _crop_surface_alpha(surface):
     return surface.subsurface(rect).copy()
 
 
+SMASHER_CARD_IMG = _crop_surface_alpha(SMASHER_PADDLE_IMG)
+
+
 def _draw_blacksmith_shield(surface, shield_center, angle_deg=-4):
     """발토르 방패를 별도 서피스로 생성해 손에 붙인다."""
 
@@ -7168,6 +7171,74 @@ def get_soldier_shot_probabilities() -> tuple[float, float]:
         head *= scale
         leg *= scale
     return head, leg
+
+
+def trigger_soldier_emergency_supply() -> bool:
+    """코만도 비상보급: 현재 장비한 화기류를 즉시 완전 장전"""
+    global special_gauge, soldier_emergency_supply_used
+    global soldier_ammo_count, soldier_reloading, soldier_reload_timer, soldier_last_reload_bullets
+    global soldier_pistol_ammo
+
+    if soldier_emergency_supply_used:
+        print("⚠️ 비상보급은 스테이지당 1회만 사용할 수 있습니다.")
+        return False
+
+    if special_gauge < SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST:
+        print(f"⚠️ 게이지 부족으로 비상보급을 사용할 수 없습니다. ({special_gauge}/{SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST})")
+        return False
+
+    if not soldier_controller.weapons:
+        print("⚠️ 장비된 화기류가 없습니다.")
+        return False
+
+    weapon_name = soldier_controller.weapons[soldier_controller.current_index]
+    success = False
+
+    if weapon_name == "bazooka":
+        from item_effects.bazooka import get_bazooka_instance
+
+        bazooka = get_bazooka_instance()
+        if bazooka:
+            bazooka.reload_with_special_ammo()
+            bazooka.equip()
+            success = True
+    elif weapon_name == "ak47":
+        from item_effects.ak47 import get_ak47_instance
+
+        ak47 = get_ak47_instance()
+        if ak47:
+            ak47.current_ammo = ak47.max_ammo
+            if ak47.remaining_time <= 0 and ak47.duration > 0:
+                ak47.remaining_time = ak47.duration
+            ak47.active = True
+            success = True
+    elif weapon_name == "net_gun":
+        from item_effects.net_gun import get_net_gun_instance
+
+        net_gun = get_net_gun_instance()
+        if net_gun:
+            net_gun.reload()
+            net_gun.equip()
+            success = True
+    elif weapon_name == "pistol":
+        soldier_ammo_count = soldier_max_ammo
+        soldier_reloading = False
+        soldier_reload_timer = 0
+        soldier_last_reload_bullets = soldier_ammo_count
+        soldier_pistol_ammo = SOLDIER_PISTOL_MAX_AMMO
+        success = True
+    else:
+        print(f"⚠️ 지원하지 않는 화기류({weapon_name})에는 비상보급을 적용할 수 없습니다.")
+
+    if not success:
+        return False
+
+    consume_special_gauge(SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST)
+    soldier_emergency_supply_used = True
+    register_weapon_reload(weapon_name)
+    soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
+    print(f"🪖 비상보급 완료! {get_item_name_korean(weapon_name)} 탄약을 모두 장전했습니다.")
+    return True
 
 
 def activate_doping_potion(duration_frames: int | None = None, *, play_sound: bool = True) -> None:
@@ -32685,7 +32756,8 @@ def show_character_selection():
                 source_img = BLACKSMITH_CARD_IMG if 'BLACKSMITH_CARD_IMG' in globals() else BLACKSMITH_PADDLE_IMG
                 blit_scaled_surface(source_img)
             elif character["id"] in ("smasher", "ufo_player"):
-                blit_scaled_surface(SMASHER_PADDLE_IMG)
+                source_img = SMASHER_CARD_IMG if 'SMASHER_CARD_IMG' in globals() else SMASHER_PADDLE_IMG
+                blit_scaled_surface(source_img)
             elif character["id"] == "optimus":
                 blit_scaled_surface(OPTIMUS_PADDLE_IMG)
             else:
