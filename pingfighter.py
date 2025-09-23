@@ -4419,7 +4419,7 @@ def _draw_blacksmith_hammer_charge_effect(
         rect = base_surface.get_rect(center=(center_x, center_y))
         surface.blit(base_surface, rect)
 
-    radius = 18 + max(0, stage) * 6
+    radius = 12 + max(0, stage) * 4
     spark_surface = _get_blacksmith_hammer_charge_spark(stage)
     spark_radius = radius * 0.55
     spark_count = 3 + max(0, stage)
