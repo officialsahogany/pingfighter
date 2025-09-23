@@ -2106,33 +2106,53 @@ class SacredLaurel(LegendaryItem):
 
         center_x = paddle_rect.centerx
         center_y = paddle_rect.centery
-        base_radius = max(paddle_rect.width, paddle_rect.height) * 0.55 + 28
-        breathing = math.sin(self.animation_time * 0.002) * 6
-        radius = base_radius + breathing
+        breathing = math.sin(self.animation_time * 0.002) * 4
+        target_radius = max(paddle_rect.width * 0.72 + breathing, 120)
+        base_ring, highlight_ring = self._get_scaled_ring_surfaces(int(target_radius))
 
-        aura_surface = pygame.Surface((int(radius * 2) + 8, int(radius * 2) + 8), pygame.SRCALPHA)
-        aura_center = (aura_surface.get_width() // 2, aura_surface.get_height() // 2)
-        pygame.draw.circle(aura_surface, (255, 220, 150, int(70 * fade)), aura_center, int(radius))
-        pygame.draw.circle(aura_surface, (255, 240, 210, int(120 * fade)), aura_center, int(radius), 2)
-        screen.blit(aura_surface, aura_surface.get_rect(center=(center_x, center_y)))
+        highlight_rotated = pygame.transform.rotate(highlight_ring, self.rotation_angle)
+        canvas_width, canvas_height = highlight_rotated.get_size()
+        ring_surface = pygame.Surface((canvas_width, canvas_height), pygame.SRCALPHA)
+        ring_surface.blit(base_ring, base_ring.get_rect(center=(canvas_width // 2, canvas_height // 2)))
+        ring_surface.blit(
+            highlight_rotated,
+            highlight_rotated.get_rect(center=(canvas_width // 2, canvas_height // 2)),
+            special_flags=pygame.BLEND_ADD
+        )
 
-        for base_angle in self.base_angles:
-            angle = base_angle + self.current_angle
-            orbit = radius + math.sin(self.animation_time * 0.003 + angle) * 6
-            ring_x = center_x + math.cos(angle) * orbit
-            ring_y = center_y + math.sin(angle) * orbit
-            ring_sprite = self.ring_surface.copy()
-            ring_sprite.set_alpha(int(190 * fade))
-            screen.blit(ring_sprite, ring_sprite.get_rect(center=(ring_x, ring_y)))
+        if self.contact_flash > 0:
+            flash_alpha = int(170 * min(1.0, self.contact_flash) * fade)
+            if flash_alpha > 0:
+                flash_surface = pygame.Surface((canvas_width, canvas_height), pygame.SRCALPHA)
+                flash_rect = flash_surface.get_rect().inflate(-int(canvas_width * 0.14), -int(canvas_height * 0.32))
+                pygame.draw.ellipse(
+                    flash_surface,
+                    (255, 255, 255, flash_alpha),
+                    flash_rect,
+                    max(2, flash_rect.height // 6)
+                )
+                ring_surface.blit(flash_surface, (0, 0), special_flags=pygame.BLEND_ADD)
 
-        if self.hit_flash_timer > 0:
-            alpha = int(220 * (self.hit_flash_timer / self.hit_flash_duration))
-            flash_radius = radius + 18
-            flash_surface = pygame.Surface((int(flash_radius * 2) + 6, int(flash_radius * 2) + 6), pygame.SRCALPHA)
-            flash_center = (flash_surface.get_width() // 2, flash_surface.get_height() // 2)
-            pygame.draw.circle(flash_surface, (255, 255, 255, alpha), flash_center, int(flash_radius), 3)
-            pygame.draw.circle(flash_surface, (255, 235, 200, alpha // 2), flash_center, int(flash_radius * 0.6), 0)
-            screen.blit(flash_surface, flash_surface.get_rect(center=(center_x, center_y)))
+        ring_surface.set_alpha(int(185 * fade))
+
+        # 부드러운 바닥 글로우
+        glow_size = (int(target_radius * 2.4), int(target_radius * self.tilt_ratio * 2.6))
+        glow_surface = pygame.Surface(glow_size, pygame.SRCALPHA)
+        glow_alpha = int(48 * fade)
+        if glow_alpha > 0:
+            pygame.draw.ellipse(glow_surface, (90, 135, 210, glow_alpha), glow_surface.get_rect(), 0)
+            screen.blit(glow_surface, glow_surface.get_rect(center=(center_x, center_y + paddle_rect.height * 0.12)))
+
+        vertical_offset = paddle_rect.height * 0.08
+        ring_rect = ring_surface.get_rect(center=(center_x, center_y + vertical_offset))
+        screen.blit(ring_surface, ring_rect)
+
+        self._last_ring_geometry = (
+            center_x,
+            center_y + vertical_offset,
+            base_ring.get_width() / 2,
+            base_ring.get_height() / 2
+        )
 
     def draw_particles(self, screen: pygame.Surface):
         for particle in self.spark_particles:
