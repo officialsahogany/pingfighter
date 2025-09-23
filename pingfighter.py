@@ -3968,11 +3968,6 @@ def _draw_blacksmith_legs(surface, step=0):
     pygame.draw.circle(surface, (95, 80, 62), (right_thigh_x, knee_y + 1), 3)
 
 def create_blacksmith_paddle_base():
-    global blacksmith_hammer_available, blacksmith_hammer_shock_charging
-    if 'blacksmith_hammer_available' not in globals():
-        blacksmith_hammer_available = True
-    if 'blacksmith_hammer_shock_charging' not in globals():
-        blacksmith_hammer_shock_charging = False
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0)
     _draw_blacksmith_legs(surface, 0)
@@ -52229,7 +52224,21 @@ def show_quick_character_selection():
         pygame.display.flip()
 
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+   Traceback (most recent call last):
+  File "/Volumes/T7/윈도우용최신/game/bosspong/pingfighter.py", line 30, in <module>
+    import items
+  File "/Volumes/T7/윈도우용최신/game/bosspong/items.py", line 23, in <module>
+    from pingfighter import get_item_icon
+  File "/Volumes/T7/윈도우용최신/game/bosspong/pingfighter.py", line 5526, in <module>
+    BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Volumes/T7/윈도우용최신/game/bosspong/pingfighter.py", line 3972, in create_blacksmith_paddle_base
+    _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0)
+  File "/Volumes/T7/윈도우용최신/game/bosspong/pingfighter.py", line 3792, in _draw_blacksmith_upper
+    if blacksmith_hammer_available or blacksmith_hammer_shock_charging:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+NameError: name 'blacksmith_hammer_available' is not defined
+pika@pikaui-Macmini bosspong %          if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
