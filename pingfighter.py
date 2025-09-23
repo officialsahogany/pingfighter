@@ -5851,14 +5851,6 @@ blacksmith_divine_blueprint_active = False
 blacksmith_divine_blueprint_rect = None
 blacksmith_divine_build_progress = 0
 blacksmith_divine_partial_drain = 0.0
-blacksmith_hammer_available = True
-blacksmith_hammer_shock_charging = False
-blacksmith_hammer_shock_charge_frames = 0
-blacksmith_hammer_shock_stage = 0
-blacksmith_hammer_shock_cooldown_timer = 0
-blacksmith_hammer_shock_projectiles = []
-blacksmith_hammer_shock_anchor_x = 0
-blacksmith_hammer_shock_anchor_y = 0
 
 BLACKSMITH_TURRET_ICON = _create_turret_icon()
 BLACKSMITH_DIVINE_ICON = _create_divine_stone_icon()
