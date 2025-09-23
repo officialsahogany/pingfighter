@@ -37756,6 +37756,11 @@ def calculate_bounce(paddle):
                         laurel_absorbed = False
                     impact_pos = (BALL.centerx, BALL.centery)
                     laurel.on_player_contact(impact_pos)
+                    if laurel_absorbed:
+                        try:
+                            special_gauge = min(get_max_gauge(), special_gauge + 8)
+                        except Exception:
+                            special_gauge = min(500, special_gauge + 8)
         except Exception as e:
             print(f"[ERROR] 전설 아이템 효과 처리 실패 (calculate_bounce): {e}")
 
