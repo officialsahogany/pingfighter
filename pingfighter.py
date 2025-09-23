@@ -7078,6 +7078,80 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
 
     return current_weapon
 
+
+def get_weapon_menu_icon(weapon_name: str, size: int = 40) -> pygame.Surface:
+    """병기 선택 HUD에서 사용할 소형 아이콘 Surface 반환"""
+    icon_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+
+    # 먼저 기존 아이템 아이콘이 있다면 그대로 사용 (예: 바주카포 등)
+    existing_icon = get_item_icon(weapon_name)
+    if existing_icon:
+        return pygame.transform.smoothscale(existing_icon, (size, size))
+
+    center = (size // 2, size // 2)
+
+    if weapon_name == "pistol":
+        body_rect = pygame.Rect(0, 0, int(size * 0.55), int(size * 0.28))
+        body_rect.center = (center[0], center[1] - 4)
+        pygame.draw.rect(icon_surface, (70, 70, 70), body_rect, border_radius=3)
+        pygame.draw.rect(icon_surface, (110, 110, 110), body_rect, 2, border_radius=3)
+        grip_rect = pygame.Rect(0, 0, int(size * 0.18), int(size * 0.35))
+        grip_rect.midtop = (body_rect.left + grip_rect.width // 2 + 2, body_rect.bottom - 2)
+        pygame.draw.rect(icon_surface, (60, 45, 35), grip_rect, border_radius=2)
+        pygame.draw.rect(icon_surface, (30, 25, 20), grip_rect, 1, border_radius=2)
+        barrel = pygame.Rect(body_rect.right - 2, body_rect.top + 4, int(size * 0.18), body_rect.height - 8)
+        pygame.draw.rect(icon_surface, (120, 120, 120), barrel)
+
+    elif weapon_name == "bazooka":
+        tube_rect = pygame.Rect(int(size * 0.08), center[1] - int(size * 0.14), int(size * 0.84), int(size * 0.28))
+        pygame.draw.rect(icon_surface, (82, 86, 66), tube_rect, border_radius=4)
+        pygame.draw.rect(icon_surface, (52, 56, 44), tube_rect, 2, border_radius=4)
+        muzzle_radius = int(size * 0.16)
+        muzzle_center = (tube_rect.right, center[1])
+        pygame.draw.circle(icon_surface, (40, 40, 40), muzzle_center, muzzle_radius)
+        pygame.draw.circle(icon_surface, (18, 18, 18), muzzle_center, muzzle_radius - 3)
+        grip_rect = pygame.Rect(int(size * 0.35), center[1] + 2, int(size * 0.16), int(size * 0.18))
+        pygame.draw.rect(icon_surface, (55, 55, 55), grip_rect)
+
+    elif weapon_name == "ak47":
+        body_rect = pygame.Rect(int(size * 0.1), center[1] - int(size * 0.10), int(size * 0.7), int(size * 0.2))
+        pygame.draw.rect(icon_surface, (90, 70, 50), body_rect, border_radius=3)
+        pygame.draw.rect(icon_surface, (40, 30, 20), body_rect, 1, border_radius=3)
+        barrel_rect = pygame.Rect(body_rect.right, center[1] - 3, int(size * 0.2), 6)
+        pygame.draw.rect(icon_surface, (45, 45, 45), barrel_rect)
+        stock_points = [
+            (body_rect.left - int(size * 0.12), center[1] - int(size * 0.08)),
+            (body_rect.left - int(size * 0.22), center[1]),
+            (body_rect.left - int(size * 0.12), center[1] + int(size * 0.12)),
+            (body_rect.left - int(size * 0.04), center[1] + int(size * 0.10)),
+        ]
+        pygame.draw.polygon(icon_surface, (82, 60, 32), stock_points)
+        mag_points = [
+            (body_rect.centerx - 2, center[1] + int(size * 0.02)),
+            (body_rect.centerx + int(size * 0.2), center[1] + int(size * 0.18)),
+            (body_rect.centerx + int(size * 0.12), center[1] + int(size * 0.26)),
+            (body_rect.centerx - int(size * 0.12), center[1] + int(size * 0.16)),
+        ]
+        pygame.draw.polygon(icon_surface, (60, 45, 30), mag_points)
+
+    elif weapon_name == "net_gun":
+        body_rect = pygame.Rect(int(size * 0.15), center[1] - int(size * 0.12), int(size * 0.55), int(size * 0.24))
+        pygame.draw.rect(icon_surface, (80, 90, 120), body_rect, border_radius=4)
+        pygame.draw.rect(icon_surface, (40, 50, 70), body_rect, 2, border_radius=4)
+        net_rect = pygame.Rect(body_rect.right - 4, center[1] - int(size * 0.20), int(size * 0.30), int(size * 0.40))
+        pygame.draw.rect(icon_surface, (120, 180, 200, 180), net_rect, border_radius=6)
+        for i in range(4):
+            pygame.draw.line(icon_surface, (200, 220, 230), (net_rect.left, net_rect.top + i * net_rect.height // 3), (net_rect.right, net_rect.top + i * net_rect.height // 3), 1)
+            pygame.draw.line(icon_surface, (200, 220, 230), (net_rect.left + i * net_rect.width // 3, net_rect.top), (net_rect.left + i * net_rect.width // 3, net_rect.bottom), 1)
+        grip = pygame.Rect(body_rect.centerx - int(size * 0.06), body_rect.bottom - 2, int(size * 0.12), int(size * 0.18))
+        pygame.draw.rect(icon_surface, (55, 55, 70), grip)
+
+    else:
+        fallback_rect = pygame.Rect(int(size * 0.2), int(size * 0.2), int(size * 0.6), int(size * 0.6))
+        pygame.draw.rect(icon_surface, (90, 100, 110), fallback_rect, border_radius=6)
+        pygame.draw.rect(icon_surface, (50, 60, 70), fallback_rect, 2, border_radius=6)
+
+    return icon_surface
 # 애니메이션 단계별 프레임 수 (60fps 기준)
 SOLDIER_GUN_DRAW_FRAMES = 6     # 총 꺼내기 애니메이션 (0.1초)
 SOLDIER_GUN_AIM_FRAMES = 6      # 조준 애니메이션 (0.1초)  
@@ -19392,10 +19466,9 @@ def draw_player_gauge():
                 border_color = (130, 220, 160) if idx == soldier_controller.current_index else (90, 110, 120)
                 pygame.draw.rect(SCREEN, border_color, slot_rect, 2, border_radius=8)
 
-                icon = get_item_icon(weapon)
-                if icon:
-                    icon_rect = icon.get_rect(center=(slot_rect.centerx, slot_rect.centery - 10))
-                    SCREEN.blit(icon, icon_rect)
+                icon = get_weapon_menu_icon(weapon)
+                icon_rect = icon.get_rect(center=(slot_rect.centerx, slot_rect.centery - 10))
+                SCREEN.blit(icon, icon_rect)
 
                 label_surface = FontStyle.tiny().render(str(idx + 1), True, border_color)
                 label_rect = label_surface.get_rect(center=(slot_rect.centerx, slot_rect.bottom - 10))
