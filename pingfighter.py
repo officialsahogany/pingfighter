@@ -3778,9 +3778,6 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     forward_vec = direction_vec.normalize()
     perp_vec = pygame.math.Vector2(-forward_vec.y, forward_vec.x)
 
-    def _vec_to_int_pair(vec: pygame.math.Vector2) -> tuple[int, int]:
-        return (int(round(vec.x)), int(round(vec.y)))
-
     handle_length = 46
     handle_half_width = 5
     top_offset = handle_length * (1.0 - grip_ratio)
@@ -3792,85 +3789,90 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
         handle_dir = pygame.math.Vector2(0, 1)
     handle_dir = handle_dir.normalize()
 
-    handle_poly = [
-        _vec_to_int_pair(handle_top + perp_vec * handle_half_width),
-        _vec_to_int_pair(handle_top - perp_vec * handle_half_width),
-        _vec_to_int_pair(handle_bottom_point - perp_vec * handle_half_width),
-        _vec_to_int_pair(handle_bottom_point + perp_vec * handle_half_width),
-    ]
-    pygame.draw.polygon(surface, (90, 60, 36), handle_poly)
+    if blacksmith_hammer_available or blacksmith_hammer_shock_charging:
+        handle_poly = [
+            _vec_to_int_pair(handle_top + perp_vec * handle_half_width),
+            _vec_to_int_pair(handle_top - perp_vec * handle_half_width),
+            _vec_to_int_pair(handle_bottom_point - perp_vec * handle_half_width),
+            _vec_to_int_pair(handle_bottom_point + perp_vec * handle_half_width),
+        ]
+        pygame.draw.polygon(surface, (90, 60, 36), handle_poly)
 
-    detail_poly = [
-        _vec_to_int_pair(handle_top + perp_vec * (handle_half_width - 2)),
-        _vec_to_int_pair(handle_top - perp_vec * (handle_half_width - 2)),
-        _vec_to_int_pair(handle_bottom_point - perp_vec * (handle_half_width - 2)),
-        _vec_to_int_pair(handle_bottom_point + perp_vec * (handle_half_width - 2)),
-    ]
-    pygame.draw.polygon(surface, (60, 35, 18), detail_poly, width=0)
+        detail_poly = [
+            _vec_to_int_pair(handle_top + perp_vec * (handle_half_width - 2)),
+            _vec_to_int_pair(handle_top - perp_vec * (handle_half_width - 2)),
+            _vec_to_int_pair(handle_bottom_point - perp_vec * (handle_half_width - 2)),
+            _vec_to_int_pair(handle_bottom_point + perp_vec * (handle_half_width - 2)),
+        ]
+        pygame.draw.polygon(surface, (60, 35, 18), detail_poly, width=0)
 
-    for stripe_pos in range(6, int(handle_length), 6):
-        stripe_center = handle_top + handle_dir * stripe_pos
-        stripe_start = _vec_to_int_pair(stripe_center - perp_vec * (handle_half_width - 2))
-        stripe_end = _vec_to_int_pair(stripe_center + perp_vec * (handle_half_width - 2))
-        pygame.draw.line(surface, (110, 82, 52), stripe_start, stripe_end, 2)
+        for stripe_pos in range(6, int(handle_length), 6):
+            stripe_center = handle_top + handle_dir * stripe_pos
+            stripe_start = _vec_to_int_pair(stripe_center - perp_vec * (handle_half_width - 2))
+            stripe_end = _vec_to_int_pair(stripe_center + perp_vec * (handle_half_width - 2))
+            pygame.draw.line(surface, (110, 82, 52), stripe_start, stripe_end, 2)
 
-    cap_length = 10
-    cap_vec = forward_vec * cap_length
-    cap_poly = [
-        _vec_to_int_pair(handle_top + perp_vec * handle_half_width),
-        _vec_to_int_pair(handle_top - perp_vec * handle_half_width),
-        _vec_to_int_pair(handle_top + cap_vec - perp_vec * handle_half_width),
-        _vec_to_int_pair(handle_top + cap_vec + perp_vec * handle_half_width),
-    ]
-    pygame.draw.polygon(surface, (112, 76, 48), cap_poly)
+        cap_length = 10
+        cap_vec = forward_vec * cap_length
+        cap_poly = [
+            _vec_to_int_pair(handle_top + perp_vec * handle_half_width),
+            _vec_to_int_pair(handle_top - perp_vec * handle_half_width),
+            _vec_to_int_pair(handle_top + cap_vec - perp_vec * handle_half_width),
+            _vec_to_int_pair(handle_top + cap_vec + perp_vec * handle_half_width),
+        ]
+        pygame.draw.polygon(surface, (112, 76, 48), cap_poly)
 
-    head_offset_along = 20
-    head_center = handle_top + forward_vec * head_offset_along
-    head_half_long = 20
-    head_half_short = 11
-    head_long_vec = perp_vec * head_half_long
-    head_short_vec = forward_vec * head_half_short
-    head_corners = [
-        _vec_to_int_pair(head_center + head_long_vec + head_short_vec),
-        _vec_to_int_pair(head_center - head_long_vec + head_short_vec),
-        _vec_to_int_pair(head_center - head_long_vec - head_short_vec),
-        _vec_to_int_pair(head_center + head_long_vec - head_short_vec),
-    ]
-    pygame.draw.polygon(surface, (176, 182, 196), head_corners)
+        head_offset_along = 20
+        head_center = handle_top + forward_vec * head_offset_along
+        head_half_long = 20
+        head_half_short = 11
+        head_long_vec = perp_vec * head_half_long
+        head_short_vec = forward_vec * head_half_short
+        head_corners = [
+            _vec_to_int_pair(head_center + head_long_vec + head_short_vec),
+            _vec_to_int_pair(head_center - head_long_vec + head_short_vec),
+            _vec_to_int_pair(head_center - head_long_vec - head_short_vec),
+            _vec_to_int_pair(head_center + head_long_vec - head_short_vec),
+        ]
+        pygame.draw.polygon(surface, (176, 182, 196), head_corners)
 
-    inner_scale = 0.7
-    inner_center = head_center - forward_vec * 2
-    inner_long_vec = head_long_vec * inner_scale
-    inner_short_vec = head_short_vec * inner_scale
-    inner_corners = [
-        _vec_to_int_pair(inner_center + inner_long_vec + inner_short_vec),
-        _vec_to_int_pair(inner_center - inner_long_vec + inner_short_vec),
-        _vec_to_int_pair(inner_center - inner_long_vec - inner_short_vec),
-        _vec_to_int_pair(inner_center + inner_long_vec - inner_short_vec),
-    ]
-    pygame.draw.polygon(surface, (210, 215, 228), inner_corners)
+        inner_scale = 0.7
+        inner_center = head_center - forward_vec * 2
+        inner_long_vec = head_long_vec * inner_scale
+        inner_short_vec = head_short_vec * inner_scale
+        inner_corners = [
+            _vec_to_int_pair(inner_center + inner_long_vec + inner_short_vec),
+            _vec_to_int_pair(inner_center - inner_long_vec + inner_short_vec),
+            _vec_to_int_pair(inner_center - inner_long_vec - inner_short_vec),
+            _vec_to_int_pair(inner_center + inner_long_vec - inner_short_vec),
+        ]
+        pygame.draw.polygon(surface, (210, 215, 228), inner_corners)
 
-    ridge_start = _vec_to_int_pair(head_center - head_long_vec * 0.7 + head_short_vec * 0.6)
-    ridge_end = _vec_to_int_pair(head_center + head_long_vec * 0.7 + head_short_vec * 0.6)
-    pygame.draw.line(surface, (120, 130, 142), ridge_start, ridge_end, 2)
+        ridge_start = _vec_to_int_pair(head_center - head_long_vec * 0.7 + head_short_vec * 0.6)
+        ridge_end = _vec_to_int_pair(head_center + head_long_vec * 0.7 + head_short_vec * 0.6)
+        pygame.draw.line(surface, (120, 130, 142), ridge_start, ridge_end, 2)
 
-    spike_tip = head_center + head_long_vec + head_short_vec * 0.1
-    spike_poly = [
-        _vec_to_int_pair(spike_tip),
-        _vec_to_int_pair(spike_tip - head_long_vec * 0.3 + head_short_vec * 0.3),
-        _vec_to_int_pair(spike_tip - head_long_vec * 0.3 - head_short_vec * 0.3),
-    ]
-    pygame.draw.polygon(surface, (140, 155, 168), spike_poly)
+        spike_tip = head_center + head_long_vec + head_short_vec * 0.1
+        spike_poly = [
+            _vec_to_int_pair(spike_tip),
+            _vec_to_int_pair(spike_tip - head_long_vec * 0.3 + head_short_vec * 0.3),
+            _vec_to_int_pair(spike_tip - head_long_vec * 0.3 - head_short_vec * 0.3),
+        ]
+        pygame.draw.polygon(surface, (140, 155, 168), spike_poly)
 
-    emblem_center = head_center + head_short_vec * 0.1
-    pygame.draw.circle(surface, (230, 215, 130), (int(emblem_center.x), int(emblem_center.y)), 5)
-    pygame.draw.line(
-        surface,
-        (240, 160, 60),
-        _vec_to_int_pair(emblem_center - head_long_vec * 0.3 - head_short_vec * 0.2),
-        _vec_to_int_pair(emblem_center + head_long_vec * 0.3 + head_short_vec * 0.2),
-        2,
-    )
+        emblem_center = head_center + head_short_vec * 0.1
+        pygame.draw.circle(surface, (230, 215, 130), (int(emblem_center.x), int(emblem_center.y)), 5)
+        pygame.draw.line(
+            surface,
+            (240, 160, 60),
+            _vec_to_int_pair(emblem_center - head_long_vec * 0.3 - head_short_vec * 0.2),
+            _vec_to_int_pair(emblem_center + head_long_vec * 0.3 + head_short_vec * 0.2),
+            2,
+        )
+    else:
+        empty_hand = pygame.Rect(0, 0, 10, 18)
+        empty_hand.center = (right_wrist[0] + 6, right_wrist[1])
+        pygame.draw.ellipse(surface, (205, 185, 155), empty_hand)
 
     # 어깨 장식
     left_shoulder_center = (cx - 32 + lean_push - shoulder_roll, torso_y + 8 - shoulder_roll)
@@ -12189,18 +12191,19 @@ def draw_soldier_weapon_ui(screen):
         toast_ratio = soldier_emergency_supply_toast_timer / 90
         toast_alpha = max(0, min(255, int(255 * toast_ratio)))
         bounce_offset = int(4 * math.sin(pygame.time.get_ticks() * 0.03))
-        text_y = weapon_rect.top - 20 + bounce_offset
+        text_x = weapon_rect.right + 16
+        text_y = weapon_rect.centery + bounce_offset
         glow_surface = render_weapon_label("비상보급!", (255, 195, 90), 26)
         if glow_surface:
             glow_surface = glow_surface.copy()
             glow_surface.set_alpha(int(toast_alpha * 0.4))
-            glow_rect = glow_surface.get_rect(center=(weapon_rect.centerx, text_y))
+            glow_rect = glow_surface.get_rect(midleft=(text_x, text_y))
             screen.blit(glow_surface, glow_rect)
         text_surface = render_weapon_label("비상보급!", (255, 255, 210), 26)
         if text_surface:
             text_surface = text_surface.copy()
             text_surface.set_alpha(toast_alpha)
-            text_rect = text_surface.get_rect(center=(weapon_rect.centerx, text_y))
+            text_rect = text_surface.get_rect(midleft=(text_x, text_y))
             screen.blit(text_surface, text_rect)
 
     # 현재 장착된 무기 확인
