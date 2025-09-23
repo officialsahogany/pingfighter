@@ -35258,6 +35258,9 @@ def show_result(won):
         if not items.poseidon_trident_obtained:
             poseidon_icon = get_item_icon("poseidon_trident")
             available_items.append({"name": "poseidon_trident", "color": (50, 150, 255), "type": "passive", "icon": poseidon_icon})
+        if not items.sacred_laurel_obtained:
+            laurel_icon = get_item_icon("sacred_laurel")
+            available_items.append({"name": "sacred_laurel", "color": (255, 220, 150), "type": "passive", "icon": laurel_icon})
         # 엑티브 아이템들 추가
         available_items.append({"name": "long_boost", "color": (255, 100, 100), "type": "active", "icon": long_boost_icon})
         available_items.append({"name": "gauge_charge", "color": (100, 255, 100), "type": "active", "icon": gauge_charge_icon})
@@ -40321,6 +40324,15 @@ def show_item_management_menu(item_list, selected_index, item_type):
                                 elif removed_item["name"] == "hermes_shoes":
                                     hermes_shoes_obtained = False
                                     items.hermes_shoes_obtained = False
+                                elif removed_item["name"] == "sacred_laurel":
+                                    sacred_laurel_obtained = False
+                                    items.sacred_laurel_obtained = False
+                                    try:
+                                        legendary_manager = get_legendary_manager()
+                                        if legendary_manager:
+                                            legendary_manager.deactivate_item("sacred_laurel")
+                                    except Exception:
+                                        pass
                                 elif removed_item["name"] == "gravitybelt":
                                     gravitybelt_obtained = False
                                     items.gravitybelt_obtained = False
