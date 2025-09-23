@@ -3609,6 +3609,11 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     lift_curve = shield_amount ** 1.1  # 0~1 범위, 후반부에서 더 많이 들어 올리기
 
     hammer_amount = max(0.0, min(1.0, hammer_swing))
+    try:
+        if not (blacksmith_hammer_available or blacksmith_hammer_shock_charging):
+            hammer_amount = 0.0
+    except NameError:
+        pass
     hammer_prepare_phase = min(1.0, hammer_amount * 1.35)
     hammer_prepare_curve = math.sin(hammer_prepare_phase * (math.pi / 2)) if hammer_prepare_phase > 0 else 0.0
     hammer_release_phase = 0.0
