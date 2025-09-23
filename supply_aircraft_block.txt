@@ -28298,6 +28298,7 @@ def calculate_bounce(paddle):
     global perfect_timing_active, perfect_direction
     global drive_speed_increase, smoke_zones, ball_vel
     global speed_defense_active, SPEED_DEFENSE_BLOCK_RATE
+    global special_gauge
     
     # Stage 2 스피드 디펜스 80% 방어 처리
     if paddle == BOSS and current_stage == 2 and speed_defense_active:
@@ -28319,6 +28320,7 @@ def calculate_bounce(paddle):
     is_player_paddle = (paddle == PLAYER)
     # 드라이브 발동 여부를 반환하기 위한 변수
     drive_activated = False
+    laurel_absorbed = False
     
     # 보스가 공을 칠 때 포세이돈 삼지창 회오리 가속 효과 해제
     if not is_player_paddle:  # 보스가 공을 칠 때
