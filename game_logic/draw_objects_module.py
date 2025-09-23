@@ -650,10 +650,19 @@ def draw_objects():
     
     # 🏃 대쉬 잔상 효과 그리기
     global dash_afterimages, rolling_active, rolling_timer, rolling_direction
-    
+
+    legacy_state = globals().get("LEGACY_STATE")
+    rolling_state = getattr(legacy_state, "rolling", None) if legacy_state else None
+
+    if rolling_state is not None:
+        rolling_active_flag = rolling_state.active
+        rolling_timer_value = rolling_state.timer
+    else:
+        rolling_active_flag = rolling_active
+        rolling_timer_value = rolling_timer
+
     # 대쉬 중일 때 잔상 추가
-    if rolling_active and rolling_timer > 0:
-        pass
+    if rolling_active_flag and rolling_timer_value > 0:
         # 대쉬 방향에 따른 잔상 생성 위치
         afterimage_x = PLAYER.centerx
         afterimage_y = PLAYER.centery
@@ -662,7 +671,7 @@ def draw_objects():
         afterimage = rotated_player.copy()
         
         # 잔상 투명도 설정 (대쉬 진행도에 따라 조절)
-        alpha = min(180, int(180 * (rolling_timer / 15)))  # 최대 180 투명도
+        alpha = min(180, int(180 * (rolling_timer_value / 15)))  # 최대 180 투명도
         
         # 잔상 리스트에 추가 (최대 5개 유지)
         dash_afterimages.append({
