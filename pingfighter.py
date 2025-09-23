@@ -17572,6 +17572,74 @@ def draw_item_obtained_effect():
     SCREEN.blit(obtain_text, obtain_rect)
 
 
+def _draw_tutorial_overlay() -> None:
+    draw_tutorial_ui()
+    draw_tutorial_dash_counter()
+    draw_tutorial_drive_counter()
+    draw_tutorial_power_counter()
+    draw_tutorial_success_feedback()
+
+
+def _draw_stage_specific_elements() -> None:
+    draw_boss_health_bar()
+    draw_stage1_boss_gauge_bar()
+    draw_stage2_boss_gauge_bar()
+    draw_laser_cannon_gauge()
+    draw_spinning_top(SCREEN)
+
+
+def _draw_trade_point_system() -> None:
+    update_trade_point_stars()
+    draw_trade_point_stars()
+    update_trade_point_texts()
+    draw_trade_point_texts()
+
+
+def _draw_common_hud() -> None:
+    update_alchemy_notices()
+    items.draw_active_item(
+        SCREEN,
+        active_item_slot,
+        active_item_icon_size,
+        selected_item_index,
+        active_item_cooldown_ms,
+        round_start_time,
+        alchemy_notices,
+    )
+    items.draw_items(SCREEN)
+
+    draw_pandora_box_effect()
+    draw_stopwatch_effect()
+    draw_player_gauge()
+
+
+def draw_overlay_ui() -> None:
+    global current_stage, selected_character_type, new_boss_mode_active
+
+    if current_stage == 50:
+        _draw_tutorial_overlay()
+
+    _draw_stage_specific_elements()
+    _draw_trade_point_system()
+
+    if not new_boss_mode_active:
+        _draw_common_hud()
+
+        if selected_character_type == "soldier":
+            draw_supply_drop_system(SCREEN)
+            draw_soldier_weapon_ui(SCREEN)
+
+        if current_stage == 4 and animated_bg_stage4 is not None:
+            animated_bg_stage4.draw_ponk_gauge(
+                SCREEN,
+                boss_special_gauge_stage4,
+                boss_special_ready_stage4,
+                stage4_magnetic_active,
+            )
+
+    if selected_character_type == "blacksmith":
+        draw_blacksmith_turret_ui(SCREEN)
+
 def draw_overlay_ui():
     global current_stage, selected_character_type, new_boss_mode_active
 
