@@ -685,7 +685,7 @@ def reset_items():
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained, poseidon_trident_obtained
+    global ragnarok_hammer_obtained, poseidon_trident_obtained, sacred_laurel_obtained
     
     # 디버그: 포세이돈 플래그 상태 출력
     print(f"[DEBUG spawn_random_item] poseidon_trident_obtained = {poseidon_trident_obtained}")
@@ -805,6 +805,11 @@ def spawn_random_item():
                 continue
             else:
                 print(f"[DEBUG] poseidon_trident can spawn (not obtained yet)")
+        if item["name"] == "sacred_laurel":
+            print(f"[DEBUG] Checking sacred_laurel: obtained = {sacred_laurel_obtained}")
+            if sacred_laurel_obtained:
+                print(f"[DEBUG] Skipping sacred_laurel spawn (already obtained)")
+                continue
         
         # 🚫 패시브 아이템 중복 방지 (chargebag 제외)
         # 이미 소지한 패시브 아이템은 더 이상 스폰하지 않음
@@ -1044,6 +1049,15 @@ def draw_items(screen):
                         trident.update(16)  # 60fps 기준 16ms
                         # 애니메이션 아이콘 그리기 (회전 없이)
                         trident.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
+                        continue
+            elif item_name == "sacred_laurel":
+                from legendary_items import get_legendary_manager
+                legendary_manager = get_legendary_manager()
+                if legendary_manager:
+                    laurel = legendary_manager.get_item("sacred_laurel")
+                    if laurel:
+                        laurel.update(16)
+                        laurel.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
                         continue
             
             # 일반 아이템은 기존 방식대로 처리
