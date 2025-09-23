@@ -28,6 +28,31 @@ LEGENDARY_TIER = "legendary"
 LEGENDARY_COLOR = (255, 50, 50)  # 붉은색
 LEGENDARY_GLOW_COLOR = (255, 100, 100, 128)  # 반투명 붉은색 글로우
 
+
+def _draw_common_legendary_frame(screen: pygame.Surface,
+                                 x: int,
+                                 y: int,
+                                 size: int,
+                                 border_color: Tuple[int, int, int] = (200, 200, 220),
+                                 corner_color: Tuple[int, int, int] = (255, 215, 0)) -> None:
+    """전설 아이콘의 공통 배경 프레임을 그린다."""
+    border_rect = pygame.Rect(x - 1, y - 1, size + 2, size + 2)
+    pygame.draw.rect(screen, border_color, border_rect, 2)
+
+    corner_size = 8
+    pygame.draw.lines(screen, corner_color, False,
+                      [(x - 2, y + corner_size), (x - 2, y - 2), (x + corner_size, y - 2)], 2)
+    pygame.draw.lines(screen, corner_color, False,
+                      [(x + size - corner_size + 2, y - 2), (x + size + 2, y - 2), (x + size + 2, y + corner_size)], 2)
+    pygame.draw.lines(screen, corner_color, False,
+                      [(x - 2, y + size - corner_size + 2), (x - 2, y + size + 2), (x + corner_size, y + size + 2)], 2)
+    pygame.draw.lines(screen, corner_color, False,
+                      [(x + size - corner_size + 2, y + size + 2), (x + size + 2, y + size + 2), (x + size + 2, y + size - corner_size + 2)], 2)
+
+    for cx, cy in [(x, y), (x + size, y), (x, y + size), (x + size, y + size)]:
+        pygame.draw.circle(screen, corner_color, (cx, cy), 2)
+
+
 def _strip_legendary_red_ring(frame: pygame.Surface,
                               red_threshold: int = 150,
                               green_threshold: int = 100,
@@ -1701,30 +1726,8 @@ class HermesShoes(LegendaryItem):
         import pygame
         import math
         
-        # 기존 붉은 원형 글로우는 제거하여 아이콘만 깔끔하게 노출한다.
-        border_thickness = 2  # 최소한의 테두리만 유지
-        border_rect = pygame.Rect(x-1, y-1, size+2, size+2)
-        pygame.draw.rect(screen, (180, 200, 255), border_rect, border_thickness)
-        
-        # 꼭지점 디테일 (코너 장식)
-        corner_size = 8  # 더 큰 코너
-        corner_color = (255, 215, 0)  # 황금색 (신의 무기)
-        # 왼쪽 위
-        pygame.draw.lines(screen, corner_color, False, 
-                         [(x-2, y+corner_size), (x-2, y-2), (x+corner_size, y-2)], 2)
-        # 오른쪽 위
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x+size-corner_size+2, y-2), (x+size+2, y-2), (x+size+2, y+corner_size)], 2)
-        # 왼쪽 아래
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x-2, y+size-corner_size+2), (x-2, y+size+2), (x+corner_size, y+size+2)], 2)
-        # 오른쪽 아래
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x+size-corner_size+2, y+size+2), (x+size+2, y+size+2), (x+size+2, y+size-corner_size+2)], 2)
-        
-        # 코너 점 장식 (더 화려하게)
-        for cx, cy in [(x, y), (x+size, y), (x, y+size), (x+size, y+size)]:
-            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
+        # 공통 배경 프레임 연출 (라그나로크 해머와 동일 스타일)
+        _draw_common_legendary_frame(screen, x, y, size, border_color=(180, 200, 255))
         
         # 애니메이션 프레임 그리기
         if self.animation_frames and len(self.animation_frames) > 0:
