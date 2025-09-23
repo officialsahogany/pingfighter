@@ -13365,10 +13365,10 @@ def handle_player(keys):
 
         if player_up_pressed_prev and not up_pressed:
             held_frames = soldier_weapon_hold_frames
+            short_press = held_frames and held_frames < SOLDIER_WEAPON_MENU_HOLD_FRAMES
             if soldier_weapon_menu_active:
                 soldier_weapon_menu_active = False
-            elif (held_frames > 0 and held_frames < SOLDIER_WEAPON_MENU_HOLD_FRAMES and
-                  allow_weapon_switch and not space_pressed and soldier_controller.switch_cooldown <= 0):
+            elif short_press and allow_weapon_switch and soldier_controller.switch_cooldown <= 0:
                 next_index = (soldier_controller.current_index + 1) % len(soldier_controller.weapons)
                 soldier_switch_weapon(next_index)
             soldier_weapon_hold_frames = 0
