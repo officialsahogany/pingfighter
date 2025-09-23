@@ -12,6 +12,18 @@ def draw_player_gauge():
     global long_boost_active, long_boost_timer
     global wall_installing, wall_install_timer, wall_install_gauge_visible
     global rolling_charges, rolling_cooldown  # 🔴 대쉬 토큰 표시용
+
+    legacy_state = globals().get("LEGACY_STATE")
+    rolling_state = getattr(legacy_state, "rolling", None) if legacy_state else None
+
+    if rolling_state is not None:
+        current_rolling_charges = rolling_state.charges
+        current_rolling_cooldown = rolling_state.cooldown
+        current_rolling_charge_timer = rolling_state.charge_timer
+    else:
+        current_rolling_charges = rolling_charges
+        current_rolling_cooldown = rolling_cooldown
+        current_rolling_charge_timer = globals().get("rolling_charge_timer", 0)
     
     # 필살기 게이지바 위치와 크기 - 엣지있는 주인공 스타일
     gauge_x = WIDTH - 40  # 오른쪽에서 40px
@@ -417,7 +429,7 @@ def draw_player_gauge():
     # 최종 해결: token_states 리스트로 각 토큰 개별 추적
     global token_states
     if 'token_states' not in globals():
-        token_states = [True] * rolling_charges + [False] * (max_tokens - rolling_charges)
+        token_states = [True] * current_rolling_charges + [False] * (max_tokens - current_rolling_charges)
     
     # 토큰 상태 배열 크기 조정
     if len(token_states) != max_tokens:
@@ -425,10 +437,10 @@ def draw_player_gauge():
         # 현재 충전된 토큰 수 계산
         current_charged = sum(1 for state in token_states if state)
         # 새로운 토큰 상태 배열 생성
-        if rolling_charges > 0:
+        if current_rolling_charges > 0:
             pass
             # 실제 충전된 토큰 수에 맞춰 재구성
-            token_states = [True] * min(rolling_charges, max_tokens) + [False] * max(0, max_tokens - rolling_charges)
+            token_states = [True] * min(current_rolling_charges, max_tokens) + [False] * max(0, max_tokens - current_rolling_charges)
         else:
             pass
             # 토큰이 없으면 모두 비어있음
@@ -454,7 +466,7 @@ def draw_player_gauge():
                 dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
                 cooldown_reduction = int(dash_cooldown_bonus * 60)
                 
-                if dashholder_obtained and rolling_charges >= 1:
+                if dashholder_obtained and current_rolling_charges >= 1:
                     pass
                     max_charge_time = max(6, 60 - cooldown_reduction)  # 1초
                 else:
@@ -581,4 +593,3 @@ def draw_player_gauge():
                 highlight_y = token_y - token_radius // 3
                 draw.circle((255, 255, 255), 
                                  (int(highlight_x), int(highlight_y)), token_radius // 4)
-
