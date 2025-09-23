@@ -157,6 +157,7 @@ def check_and_trigger_legendary_on_pickup(item_type: str, item_data: Dict[str, A
         'chronos_clock': '크로노스의 시계',
         'excalibur_blade': '엑스칼리버',
         'ragnarok_hammer': '라그나로크 해머',
+        'sacred_laurel': '신성 월계수',
         '전설의벨트': '전설의 벨트'  # 특수 시너지 아이템
     }
     
