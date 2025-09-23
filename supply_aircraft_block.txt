@@ -24883,18 +24883,28 @@ def show_item_manager_menu():
     # 전설 아이템 추가
     legendary_manager = get_legendary_manager()
     legendary_items = []
-    for item_name, item in legendary_manager.items.items():
-        if item.unlocked:  # 해금된 전설 아이템만 표시
-            # 전설 아이템 아이콘 가져오기
-            legendary_icon = get_item_icon(item.name)
-            legendary_items.append({
-                "name": item.name,
-                "type": "legendary",
-                "icon": legendary_icon,  # get_item_icon으로 아이콘 로드
-                "item_obj": item,
-                "korean_name": item.korean_name,
-                "description": item.description
-            })
+    if legendary_manager:
+        for item_name, item in legendary_manager.items.items():
+            if item.unlocked:  # 해금된 전설 아이템만 표시
+                # 전설 아이템 아이콘 가져오기
+                legendary_icon = get_item_icon(item.name)
+                legendary_items.append({
+                    "name": item.name,
+                    "type": "legendary",
+                    "icon": legendary_icon,  # get_item_icon으로 아이콘 로드
+                    "item_obj": item,
+                    "korean_name": item.korean_name,
+                    "description": item.description
+                })
+
+    holy_laurel_icon = get_item_icon("holy_laurel") or get_item_icon("poseidon_trident")
+    legendary_items.append({
+        "name": "holy_laurel",
+        "type": "legendary",
+        "icon": holy_laurel_icon,
+        "korean_name": "신성 월계수",
+        "description": "아이템 관리자에서만 확인 가능한 전설 장식 아이콘입니다."
+    })
     
     # 엑티브/패시브/전설 아이템 분리
     active_items = [item for item in all_items if item["type"] == "active"]
