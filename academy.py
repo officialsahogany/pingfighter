@@ -3005,7 +3005,7 @@ class AcademyUI:
             if current_level >= 5:
                 lines.append("보너스: 추가 +10 적용")
         elif skill_id == "item_bag_expansion":
-            lines.append(f"현재: 슬롯 +{current_level}칸")
+            lines.append(f"현재: 슬롯 +{display_level}칸")
         elif skill_id == "item_gamble":
             chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
             max_extra = 1 if display_level < 3 else 2

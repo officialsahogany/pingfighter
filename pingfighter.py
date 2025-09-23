@@ -37771,8 +37771,6 @@ def calculate_bounce(paddle):
                     else:
                         print(f"[라그나로크] 스턴공 발동 실패 (50% 확률)")
 
-            if legendary_manager and "sacred_laurel_removed" in legendary_manager.active_items:
-                pass
         except Exception as e:
             print(f"[ERROR] 전설 아이템 효과 처리 실패 (calculate_bounce): {e}")
 
