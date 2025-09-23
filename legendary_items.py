@@ -2154,15 +2154,7 @@ class SacredLaurel(LegendaryItem):
                 )
                 ring_surface.blit(flash_surface, (0, 0), special_flags=pygame.BLEND_ADD)
 
-        ring_surface.set_alpha(int(185 * fade))
-
-        # 부드러운 바닥 글로우
-        glow_size = (int(target_radius * 2.4), int(target_radius * self.tilt_ratio * 2.6))
-        glow_surface = pygame.Surface(glow_size, pygame.SRCALPHA)
-        glow_alpha = int(48 * fade)
-        if glow_alpha > 0:
-            pygame.draw.ellipse(glow_surface, (90, 135, 210, glow_alpha), glow_surface.get_rect(), 0)
-            screen.blit(glow_surface, glow_surface.get_rect(center=(center_x, center_y + paddle_rect.height * 0.12)))
+        ring_surface.set_alpha(int(220 * fade))
 
         vertical_offset = paddle_rect.height * 0.08
         ring_rect = ring_surface.get_rect(center=(center_x, center_y + vertical_offset))
