@@ -16232,6 +16232,8 @@ def store_passive_item(item_data):
     elif not already_has_item:
         # 다른 패시브 아이템은 중복 불가
         passive_item_list.append(item_data)
+    elif item_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel"):
+        pass
     else:
         print(f"[WARNING] {item_name} already in passive inventory, skipping duplicate")
     
