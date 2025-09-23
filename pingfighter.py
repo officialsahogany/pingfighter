@@ -12775,6 +12775,34 @@ def handle_player(keys):
     global tutorial_power_reminder_active, tutorial_power_reminder_timer
     global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done
 
+    legacy_state = globals().get("LEGACY_STATE")
+    rolling_state = getattr(legacy_state, "rolling", None) if legacy_state else None
+
+    _rolling_attr_map = {
+        "rolling_active": "active",
+        "rolling_timer": "timer",
+        "rolling_direction": "direction",
+        "rolling_speed": "speed",
+        "rolling_stun_timer": "stun_timer",
+        "rolling_dash_available_timer": "available_timer",
+        "rolling_cooldown": "cooldown",
+        "rolling_charges": "charges",
+        "rolling_charge_timer": "charge_timer",
+        "rolling_consecutive_count": "consecutive_count",
+        "rolling_consecutive_timer": "consecutive_timer",
+        "token_states": "token_states",
+    }
+
+    def _rolling_get(name):
+        if rolling_state is not None:
+            return getattr(rolling_state, _rolling_attr_map[name])
+        return globals()[name]
+
+    def _rolling_set(name, value):
+        globals()[name] = value
+        if rolling_state is not None:
+            setattr(rolling_state, _rolling_attr_map[name], value)
+
     # 서브 완료 후 타이머는 프레임 초기에 감소시켜, 아래의 조기 return 경로들(화상, 스턴, 설치 등)로 인해
     # 타이머가 영구히 감소하지 못해 물자보급/대시가 계속 금지되는 상황을 방지한다.
     if serve_completed_timer > 0:
