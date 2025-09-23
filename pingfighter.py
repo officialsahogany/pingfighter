@@ -12806,6 +12806,20 @@ def handle_player(keys):
     get_roll = _rolling_get
     set_roll = _rolling_set
 
+    def _start_dash(direction: int, *, tutorial_reset: bool = True) -> int:
+        """공통 대쉬 시작 준비. 사용 가능한 토큰 수를 반환한다."""
+
+        charges = get_roll("rolling_charges")
+        if charges <= 0:
+            return 0
+
+        if tutorial_reset and current_stage == 50 and 'tutorial_dash_already_counted' in globals():
+            globals()["tutorial_dash_already_counted"] = False
+
+        set_roll("rolling_active", True)
+        set_roll("rolling_direction", direction)
+        return charges
+
     # 서브 완료 후 타이머는 프레임 초기에 감소시켜, 아래의 조기 return 경로들(화상, 스턴, 설치 등)로 인해
     # 타이머가 영구히 감소하지 못해 물자보급/대시가 계속 금지되는 상황을 방지한다.
     if serve_completed_timer > 0:
@@ -13251,11 +13265,10 @@ def handle_player(keys):
                     and down_press_frame >= 0
                     and right_press_frame < down_press_frame
                 )
-                current_charges = get_roll("rolling_charges")
+                current_charges = _start_dash(-1)
 
                 if left_before_down and down_pressed and special_gauge >= required_gauge and current_charges > 0:
                     # 통제불능 상태에서 왼쪽 대쉬 실행 (아래키 + 왼쪽키 필요)
-                    set_roll("rolling_active", True)
                     is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
                     half_dash_effect_timer = 0  # 타이머도 리셋
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
@@ -13295,7 +13308,6 @@ def handle_player(keys):
                     # 스킬 효과 적용: 대쉬 거리 증가
                     skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
                     set_roll("rolling_timer", int(skill_distance_boost))
-                    set_roll("rolling_direction", -1)
                     #  대쉬 스피릿 스킬: 확률적 레이저 생성
                     dash_spirit_level = academy.get_skill_bonus("dash_spirit")
                     if dash_spirit_level > 0:
