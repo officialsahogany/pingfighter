@@ -5939,6 +5939,7 @@ BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK = 16.0
 BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK = 22.0
 BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK = 28.0
 BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION = int(10 * FPS)
+BLACKSMITH_HAMMER_SHOCK_MOVEMENT_SLOW = 0.7  # 충전 중 이동 속도 배율 (-30%)
 BLACKSMITH_TURRET_DESIGN_WIDTH = 46
 BLACKSMITH_TURRET_DESIGN_HEIGHT = 54
 BLACKSMITH_TURRET_BASE_WIDTH = int(BLACKSMITH_TURRET_DESIGN_WIDTH * 1.2)
@@ -14405,6 +14406,9 @@ def handle_player(keys):
         player_slow_timer -= 1
     else:
         speed_factor = 1.0
+
+    if selected_character_type == "blacksmith" and blacksmith_hammer_shock_charging:
+        speed_factor *= BLACKSMITH_HAMMER_SHOCK_MOVEMENT_SLOW
     # === 롱부스트 타이머 체크 및 점진적 크기 변화 ===
     if long_boost_active:
         if long_boost_timer > 0:
