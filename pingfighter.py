@@ -3766,14 +3766,14 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     hammer_ax = right_wrist[0] + 6 - int(round(10 * hammer_raise)) + int(round(16 * hammer_drop))
 
     handle_height = 46
-    handle_bottom = right_wrist[1] + 6 - int(round(4 * hammer_raise)) + int(round(6 * hammer_drop))
+    handle_bottom = right_wrist[1] + 2 - int(round(4 * hammer_raise)) + int(round(4 * hammer_drop))
     handle = pygame.Rect(0, 0, 10, handle_height)
     handle.centerx = hammer_ax
     handle.bottom = handle_bottom
     pygame.draw.rect(surface, (90, 60, 36), handle, border_radius=3)
     handle_cap = pygame.Rect(0, 0, 6, 10)
     handle_cap.centerx = hammer_ax
-    handle_cap.bottom = handle.top + 6
+    handle_cap.bottom = handle.top + 4
     pygame.draw.rect(surface, (90, 60, 36), handle_cap, border_radius=2)
     for stripe_y in range(handle.top + 4, handle.bottom, 6):
         pygame.draw.line(surface, (60, 35, 18), (handle.left + 2, stripe_y), (handle.right - 2, stripe_y + 2), 2)
@@ -3781,7 +3781,7 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     hammer_head = pygame.Rect(0, 0, 40, 22)
     hammer_head.center = (
         hammer_ax + int(round(4 * hammer_drop)),
-        handle.top - 8 - int(round(6 * hammer_raise)) + int(round(10 * hammer_drop)),
+        handle.top - 6 - int(round(4 * hammer_raise)) + int(round(8 * hammer_drop)),
     )
     pygame.draw.rect(surface, (176, 182, 196), hammer_head, border_radius=6)
     pygame.draw.rect(surface, (210, 215, 228), hammer_head.inflate(-6, -6), border_radius=4)
