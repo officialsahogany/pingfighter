@@ -36,6 +36,10 @@ def _clear_poseidon_background(surface: pygame.Surface) -> None:
     """포세이돈 아이콘에 남아있는 청색 사각 배경을 제거한다."""
     width, height = surface.get_size()
     original = surface.copy()
+    center_x = width / 2
+    center_y = height / 2
+    radius_limit = (min(width, height) / 2) - 5
+    radius_limit_sq = radius_limit * radius_limit
     for y in range(height):
         for x in range(width):
             color = original.get_at((x, y))
@@ -46,19 +50,10 @@ def _clear_poseidon_background(surface: pygame.Surface) -> None:
             if not (is_turquoise or low_alpha):
                 continue
 
-            significant_neighbor = False
-            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                nx, ny = x + dx, y + dy
-                if 0 <= nx < width and 0 <= ny < height:
-                    neighbor = original.get_at((nx, ny))
-                else:
-                    neighbor = color
-                diff = abs(color.r - neighbor.r) + abs(color.g - neighbor.g) + abs(color.b - neighbor.b)
-                if diff >= 80:
-                    significant_neighbor = True
-                    break
-
-            if not significant_neighbor:
+            dx = x - center_x
+            dy = y - center_y
+            dist_sq = dx * dx + dy * dy
+            if y < 2 or dist_sq > radius_limit_sq:
                 surface.set_at((x, y), (0, 0, 0, 0))
 
 
