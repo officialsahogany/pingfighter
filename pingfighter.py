@@ -13392,6 +13392,18 @@ def handle_player(keys):
         if predictor_timer == 0:
             predictor_active = False
             print("!")
+
+    global doping_potion_active, doping_potion_timer
+    sync_doping_potion_from_global_manager()
+    if doping_potion_active:
+        if doping_potion_timer > 0:
+            doping_potion_timer -= 1
+            if doping_potion_timer <= 0:
+                deactivate_doping_potion()
+        else:
+            deactivate_doping_potion()
+    if doping_potion_active:
+        _get_global_manager().set('doping_potion_timer_frames', doping_potion_timer)
     
     # === 킥차져 게이지 충전 애니메이션 타이머 ===
     global gauge_charge_animation_timer
@@ -36532,6 +36544,8 @@ def reset_round():
         blacksmith_hammer_swing_active = False
     if 'blacksmith_hammer_swing_phase' in globals():
         blacksmith_hammer_swing_phase = 0
+    if 'blacksmith_manual_hammer_timer' in globals():
+        blacksmith_manual_hammer_timer = 0
 
     global smasher_walking_active, smasher_walking_timer
     global optimus_walking_active, optimus_walking_timer
@@ -44966,6 +44980,7 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_shield_swing_timer = 0
     blacksmith_hammer_swing_active = False
     blacksmith_hammer_swing_phase = 0
+    blacksmith_manual_hammer_timer = 0
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, blacksmith_turret_projectiles
