@@ -13378,8 +13378,9 @@ def handle_player(keys):
                     # Count consecutive dash immediately when 2 dashes are used consecutively
                     # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
                     if current_stage == 50 and tutorial_current_chapter == 2:
-                        print(f"[DEBUG] 챕터2 연속대쉬 체크: count={rolling_consecutive_count}, 이미 완료={tutorial_consecutive_dash_count}")
-                        if rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
+                        current_consecutive = get_roll("rolling_consecutive_count")
+                        print(f"[DEBUG] 챕터2 연속대쉬 체크: count={current_consecutive}, 이미 완료={tutorial_consecutive_dash_count}")
+                        if current_consecutive >= 2 and tutorial_consecutive_dash_count < 1:
                             tutorial_consecutive_dash_count += 1
                             print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
                             show_tutorial_success_feedback("연속대쉬 성공!", "great")
