@@ -5523,6 +5523,10 @@ def draw_blacksmith_turret_ui(surface):
     upgrade_hint = FontStyle.tiny().render("⚒", True, accent_color)
     hint_rect = upgrade_hint.get_rect(center=(icon_rect.right - 10, icon_rect.top + 12))
     surface.blit(upgrade_hint, hint_rect)
+
+# 발토르 프리렌더링 시 망치 보유 상태가 필요하므로 기본값을 먼저 지정
+blacksmith_hammer_available = True
+blacksmith_hammer_shock_charging = False
 BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
 try:
     BLACKSMITH_MISSILE_IMG = pygame.image.load(resource_path("ui/blacksmith_missile.png")).convert_alpha()
