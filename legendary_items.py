@@ -69,6 +69,24 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
 
     screen.blit(glow_surface, (x, frame_y))
 
+    # 내부 붉은색 테두리 (프레임별 그라데이션)
+    inner_pulse = (math.sin(animation_time * 0.006) + 1) / 2
+    outer_inner_color = (
+        int(150 + 70 * inner_pulse),
+        int(30 + 35 * inner_pulse),
+        int(30 + 35 * inner_pulse)
+    )
+    inner_inner_color = (
+        int(120 + 60 * inner_pulse),
+        int(10 + 25 * inner_pulse),
+        int(10 + 25 * inner_pulse)
+    )
+
+    inner_rect_outer = pygame.Rect(x + 1, frame_y + 1, size - 2, size - 2)
+    inner_rect_inner = pygame.Rect(x + 3, frame_y + 3, size - 6, size - 6)
+    pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 2)
+    pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
+
     # 공통 테두리와 코너 장식
     border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
     pygame.draw.rect(screen, border_color, border_rect, 2)
