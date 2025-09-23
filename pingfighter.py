@@ -4367,24 +4367,24 @@ def _get_blacksmith_hammer_charge_surface(stage: int) -> pygame.Surface:
     if cached is not None:
         return cached
 
-    radius = 18 + clamped_stage * 6
-    padding = 24
+    radius = 12 + clamped_stage * 4
+    padding = 20
     size = radius * 2 + padding
     surface = pygame.Surface((size, size), pygame.SRCALPHA)
     center = size // 2
 
     # 부드러운 외곽 그라데이션 3단계
     outer_bands = (
-        (radius + 12, (40, 90 + clamped_stage * 24, 180 + clamped_stage * 30, 40 + clamped_stage * 10)),
-        (radius + 6, (60, 140 + clamped_stage * 22, 230, 70 + clamped_stage * 20)),
-        (radius + 2, (110, 200, 255, 110 + clamped_stage * 25)),
+        (radius + 8, (40, 90 + clamped_stage * 24, 200 + clamped_stage * 30, 55 + clamped_stage * 18)),
+        (radius + 4, (70, 150 + clamped_stage * 22, 240, 90 + clamped_stage * 25)),
+        (radius + 1, (120, 210, 255, 140 + clamped_stage * 30)),
     )
     for band_radius, color in outer_bands:
         pygame.draw.circle(surface, _clamp_color(color), (center, center), max(0, band_radius))
 
     # 중심부 코어와 윤곽선
-    pygame.draw.circle(surface, _clamp_color((200, 235, 255, 200)), (center, center), max(2, radius - 4))
-    pygame.draw.circle(surface, _clamp_color((150, 215, 255, 240)), (center, center), radius, width=3)
+    pygame.draw.circle(surface, _clamp_color((205, 240, 255, 210)), (center, center), max(2, radius - 3))
+    pygame.draw.circle(surface, _clamp_color((160, 225, 255, 250)), (center, center), radius, width=2)
 
     _blacksmith_hammer_charge_surface_cache[clamped_stage] = surface
     return surface
@@ -4421,8 +4421,8 @@ def _draw_blacksmith_hammer_charge_effect(
 
     radius = 18 + max(0, stage) * 6
     spark_surface = _get_blacksmith_hammer_charge_spark(stage)
-    spark_radius = radius * 0.45
-    spark_count = 2 + max(0, stage)
+    spark_radius = radius * 0.55
+    spark_count = 3 + max(0, stage)
 
     # 번개 줄기 - 프레임 기반 시드로 깜빡임을 유지
     line_seed = (frame // 2) + stage * 97
@@ -4444,10 +4444,10 @@ def _draw_blacksmith_hammer_charge_effect(
             px = int(round(center_x + math.cos(angle) * current_radius))
             py = int(round(center_y + math.sin(angle) * current_radius))
             points.append((px, py))
-        outer_color = (80, 160 + stage * 30, 255)
-        inner_color = (210, 245, 255)
+        outer_color = _clamp_color((80, 170 + stage * 28, 255, 160))
+        inner_color = _clamp_color((210, 245, 255, 220))
         pygame.draw.lines(surface, outer_color, False, points, thickness + 1)
-        pygame.draw.lines(surface, inner_color, False, points, max(1, thickness - 1))
+        pygame.draw.lines(surface, inner_color, False, points, max(1, thickness))
 
     for idx in range(spark_count):
         angle = (frame * 0.3 + idx * 2.2) % math.tau
@@ -4636,13 +4636,13 @@ def update_blacksmith_hammer_shock(keys):
     blacksmith_hammer_shock_projectiles = new_projectiles
 
 
-def draw_blacksmith_hammer_shock(surface):
+def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float = 0.0):
     if selected_character_type != "blacksmith":
         return
 
     if blacksmith_hammer_shock_charging and 'PLAYER' in globals() and PLAYER is not None:
-        cx = PLAYER.right + 20
-        cy = PLAYER.centery - 24
+        cx = PLAYER.right + 18 + offset_x
+        cy = PLAYER.centery - 20 + offset_y
         _draw_blacksmith_hammer_charge_effect(
             surface,
             cx,
@@ -4657,7 +4657,7 @@ def draw_blacksmith_hammer_shock(surface):
         pygame.draw.rect(hammer_surface, (210, 220, 240), (12, 0, 20, 14), border_radius=4)
         pygame.draw.rect(hammer_surface, (255, 255, 255), (16, 4, 12, 6), border_radius=2)
         rotated = pygame.transform.rotate(hammer_surface, proj.get("rotation", 0.0))
-        rect = rotated.get_rect(center=(int(proj["x"]), int(proj["y"])))
+        rect = rotated.get_rect(center=(int(proj["x"] + offset_x), int(proj["y"] + offset_y)))
         surface.blit(rotated, rect)
 
 def update_blacksmith_divine_stone():
