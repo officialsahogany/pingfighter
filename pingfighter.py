@@ -20941,6 +20941,14 @@ def draw_objects():
             trident = legendary_manager.get_item("poseidon_trident")
             if trident and trident.active:
                 trident.draw_effects(SCREEN)  # 물결 파티클 그리기
+
+            sacred = legendary_manager.get_item("sacred_laurel")
+            if sacred and sacred.active and 'PLAYER' in globals() and PLAYER:
+                try:
+                    sacred.draw_aura(SCREEN, PLAYER)
+                    sacred.draw_particles(SCREEN)
+                except Exception as aura_error:
+                    print(f"[ERROR] Sacred Laurel effect draw failed: {aura_error}")
     except:
         pass  # 전설 아이템 매니저 접근 실패 시 무시
 
