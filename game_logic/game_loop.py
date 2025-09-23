@@ -16,6 +16,7 @@ from core.game_state import GameState as CoreGameState
 from core.legacy_state_accessor import bind_legacy_accessor
 from game_logic.legacy_state_bridge import (
     legacy_ball_sync,
+    legacy_boss_sync,
     legacy_draw_sync,
     legacy_player_sync,
     legacy_sync,
@@ -778,7 +779,7 @@ def create_game_vars_adapters(hooks: Optional[LegacyHooks] = None) -> RuntimeAda
             def _legacy_ai(state: GameState, delta_time: float) -> None:
                 module = _get_pingfighter_module()
                 _prime_legacy_state(state, module)
-                with legacy_sync(state, module):
+                with legacy_boss_sync(state, module):
                     hooks.ai_update(state, delta_time)
                 _sync_state_from_globals(state)
                 _sync_state_from_core_game_state(state)
