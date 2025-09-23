@@ -1862,21 +1862,6 @@ class HermesShoes(LegendaryItem):
             self.particle_timer = 0
 
 
-class SacredLaurel(RagnarokHammer):
-    """신성 월계수 - 라그나로크 해머와 동일한 전설 아이콘/연출"""
-
-    def __init__(self):
-        super().__init__()
-        self.name = "sacred_laurel"
-        self.korean_name = "신성 월계수"
-        self.description = "충격을 맞은 보스를 강하게 밀쳐내며 0.6초간 기절시킵니다."
-        self.icon_path = "items/legendary/ragnarok_hammer.png"
-        self.unlock_condition = "스테이지 8 클리어"
-
-    def check_unlock_condition(self, game_stats: Dict) -> bool:
-        return game_stats.get("highest_stage_cleared", 0) >= 8
-
-
 class RagnarokHammer(LegendaryItem):
     """라그나로크 해머 - 강력한 넉백 효과"""
     def __init__(self):
