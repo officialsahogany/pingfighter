@@ -4493,11 +4493,26 @@ def release_blacksmith_hammer_shock():
     origin_x = PLAYER.right + 18
     origin_y = PLAYER.centery - 20
 
+    vx = BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
+    vy = 0.0
+    if 'BOSS' in globals() and BOSS is not None:
+        target_cx = BOSS.centerx
+        target_cy = BOSS.centery
+        dx = target_cx - origin_x
+        dy = target_cy - origin_y
+        distance = math.hypot(dx, dy)
+        if distance > 1e-3:
+            vx = (dx / distance) * BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
+            vy = (dy / distance) * BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
+        else:
+            vx = 0.0
+            vy = -BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
+
     projectile = {
         "x": float(origin_x),
         "y": float(origin_y),
-        "vx": BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED,
-        "vy": 0.0,
+        "vx": vx,
+        "vy": vy,
         "stage": stage,
         "life": int(1.5 * FPS),
         "rotation": 0.0,
@@ -4603,7 +4618,7 @@ def update_blacksmith_hammer_shock(keys):
 
     new_projectiles = []
     for proj in blacksmith_hammer_shock_projectiles:
-        proj["x"] += proj["vx"]
+        proj["x"] += proj.get("vx", 0.0)
         proj["y"] += proj.get("vy", 0.0)
         proj["rotation"] = (proj.get("rotation", 0.0) + 18.0) % 360
         proj["life"] -= 1
@@ -4617,8 +4632,16 @@ def update_blacksmith_hammer_shock(keys):
                 exploded = True
 
         if not exploded:
-            if proj["x"] >= WIDTH - 10 or proj["life"] <= 0:
-                _trigger_blacksmith_hammer_shock_explosion(proj["stage"], min(proj["x"], WIDTH - 10), proj["y"])
+            off_screen = (
+                proj["x"] <= 0
+                or proj["x"] >= WIDTH
+                or proj["y"] <= 0
+                or proj["y"] >= HEIGHT
+            )
+            if off_screen or proj["life"] <= 0:
+                clamped_x = max(10, min(WIDTH - 10, proj["x"]))
+                clamped_y = max(10, min(HEIGHT - 10, proj["y"]))
+                _trigger_blacksmith_hammer_shock_explosion(proj["stage"], clamped_x, clamped_y)
                 exploded = True
 
         if not exploded:
