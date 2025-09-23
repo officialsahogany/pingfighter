@@ -13,6 +13,7 @@ import sys
 
 from core.game_variables import get_game_vars
 from core.game_state import GameState as CoreGameState
+from core.player_state import RollingState
 from core.legacy_state_accessor import bind_legacy_accessor
 from game_logic.legacy_state_bridge import (
     legacy_ball_sync,
@@ -208,6 +209,7 @@ class GameState:
         self.legacy_globals = {}
         self._legacy_bridge_primed = False
         self.legacy = bind_legacy_accessor(self.legacy_globals)
+        self.rolling = RollingState(self.legacy)
         
     def update(self, data: Dict[str, Any]):
         """상태 업데이트
@@ -856,6 +858,8 @@ def _sync_state_from_core_game_state(state: GameState) -> None:
 
     legacy_store = getattr(core_state, "legacy_globals", None)
     if isinstance(legacy_store, dict):
+        state.legacy_globals.update(legacy_store)
+        state.rolling = RollingState(state.legacy)
         state.legacy_globals.update(legacy_store)
 
 

@@ -7,6 +7,7 @@ import json
 from typing import Dict, List, Any
 
 from core.legacy_state_accessor import bind_legacy_accessor
+from core.player_state import RollingState
 
 
 class GameState:
@@ -185,6 +186,7 @@ class GameState:
         self.state = {}
         self.legacy_globals: Dict[str, Any] = {}
         self._bind_legacy_accessor()
+        self.rolling = RollingState(self.legacy)
 
     def get(self, key: str, default: Any = None) -> Any:
         """상태 값 가져오기
@@ -221,6 +223,7 @@ class GameState:
     def _bind_legacy_accessor(self) -> None:
         """레거시 상태 접근자를 현재 딕셔너리에 맞게 재바인딩."""
         self.legacy = bind_legacy_accessor(self.legacy_globals)
+        self.rolling = RollingState(self.legacy)
         
     def reset_round(self):
         """라운드 초기화"""
