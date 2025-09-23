@@ -13318,7 +13318,6 @@ def handle_player(keys):
                     max_charges = int(base_charges + holder_bonus + amplification_bonus)
                     # 오른쪽부터 토큰 소진 (token_states가 있을 때만)
                     if 'token_states' in globals() and len(token_states) > 0:
-                        # 오른쪽부터 검색하여 소진
                         token_states_local = list(token_states)
                         for idx in range(min(len(token_states_local), max_charges) - 1, -1, -1):
                             if idx < len(token_states_local) and token_states_local[idx]:
@@ -13328,7 +13327,6 @@ def handle_player(keys):
                         if rolling_state is not None:
                             rolling_state.token_states = list(token_states_local)
                     else:
-                        # token_states가 없으면 초기화
                         token_states = [True] * current_charges + [False] * (max_charges - current_charges)
                         if rolling_state is not None:
                             rolling_state.token_states = list(token_states)
