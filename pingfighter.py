@@ -4634,11 +4634,13 @@ def draw_blacksmith_hammer_shock(surface):
     if blacksmith_hammer_shock_charging and 'PLAYER' in globals() and PLAYER is not None:
         cx = PLAYER.right + 20
         cy = PLAYER.centery - 24
-        radius = 18 + blacksmith_hammer_shock_stage * 6
-        color_inner = (140, 200, 255, 160)
-        color_outer = (80, 140, 255, 100)
-        pygame.draw.circle(surface, color_outer, (cx, cy), radius + 4)
-        pygame.draw.circle(surface, color_inner, (cx, cy), radius, width=3)
+        _draw_blacksmith_hammer_charge_effect(
+            surface,
+            cx,
+            cy,
+            blacksmith_hammer_shock_stage,
+            blacksmith_hammer_shock_charge_frames,
+        )
 
     for proj in blacksmith_hammer_shock_projectiles:
         hammer_surface = pygame.Surface((32, 14), pygame.SRCALPHA)
