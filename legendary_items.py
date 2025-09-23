@@ -1314,11 +1314,11 @@ class PoseidonTrident(LegendaryItem):
                 # 작은 번개 이펙트
                 bolt_color = (255, 255, 150)
                 pygame.draw.line(screen, bolt_color, 
-                               (x + size//4, y - 5), 
-                               (x + size//3, y + size//4), 2)
+                               (x + size//4, y + frame_offset - 5), 
+                               (x + size//3, y + frame_offset + size//4), 2)
                 pygame.draw.line(screen, bolt_color,
-                               (x + size*3//4, y - 5),
-                               (x + size*2//3, y + size//4), 2)
+                               (x + size*3//4, y + frame_offset - 5),
+                               (x + size*2//3, y + frame_offset + size//4), 2)
         
         # 파티클 효과
         if self.particle_timer > 1000:

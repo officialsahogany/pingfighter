@@ -19172,6 +19172,12 @@ def draw_player_gauge():
         timer_rect = timer_text.get_rect(center=(gauge_x + gauge_width // 2, gauge_y + gauge_height + 10))
         SCREEN.blit(timer_text, timer_rect)
 
+        head_chance, leg_chance = get_soldier_shot_probabilities()
+        head_text = FontStyle.tiny().render(f"H {head_chance * 100:0.0f}%", True, (185, 250, 215))
+        leg_text = FontStyle.tiny().render(f"L {leg_chance * 100:0.0f}%", True, (170, 240, 205))
+        SCREEN.blit(head_text, (gauge_x - 6, gauge_y + gauge_height + 18))
+        SCREEN.blit(leg_text, (gauge_x - 6, gauge_y + gauge_height + 30))
+
     #  통합 아이템 지속시간 게이지바 (거대화포션 & 레이저스코프)
     item_gauge_active = (long_boost_active and long_boost_timer > 0) or (predictor_active and predictor_timer > 0)
     if item_gauge_active:
