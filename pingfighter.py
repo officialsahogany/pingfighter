@@ -42112,38 +42112,46 @@ def handle_ball():
         #  라그나로크 해머 넉백 효과 (스턴공이었을 때만 발동)
         legendary_manager = get_legendary_manager()
         
-        if was_stun_ball and legendary_manager and "ragnarok_hammer" in legendary_manager.active_items:
-            hammer = legendary_manager.items.get("ragnarok_hammer")
-            if hammer and hammer.active:
-                # 공 속도 계산
-                ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                # 수평 넉백과 스턴 시간 계산
-                horizontal_velocity, stun_duration = hammer.calculate_knockback(ball_speed, BOSS.x)
-                
-                if horizontal_velocity != 0:
-                    # 넉백 시스템 활용
-                    boss_knockback_timer = 36  # 0.6초간 넉백 효과 지속
-                    
-                    # 수평 넉백 속도 설정 (수류탄 방식)
-                    boss_knockback_vel = horizontal_velocity
-                    
-                    # 스턴은 넉백이 끝난 후에 적용됨 (여기서는 설정하지 않음)
-                    # stun_duration은 hammer에서 반환되었으므로 저장만 해둠
-                    if stun_duration > 0:
-                        ragnarok_stun_pending = int(stun_duration * 60)  # 초를 프레임으로 변환 (60 FPS)
+        if was_stun_ball and legendary_manager:
+            if "ragnarok_hammer" in legendary_manager.active_items:
+                hammer = legendary_manager.items.get("ragnarok_hammer")
+                if hammer and hammer.active:
+                    ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                    horizontal_velocity, stun_duration = hammer.calculate_knockback(ball_speed, BOSS.x)
 
-                    # 시각적 효과를 위한 화면 흔들림 추가 (이미 위에서 global 선언됨)
-                    screen_shake_timer = 12  # 0.2초 흔들림
-                    screen_shake_intensity = 10  # 강한 흔들림
-                    
-                    # 디버그 정보  
-                    print(f"     !")
-                    print(f"     : {horizontal_velocity:.1f}")
-                    print(f"    : X={BOSS.x:.0f}")
-                    print(f"   : {ball_speed:.1f}")
-                    print(f"   : 0.6, : 0.6")
-                    
-                    # 번개 이펙트는 calculate_knockback 내부에서 생성됨
+                    if horizontal_velocity != 0:
+                        boss_knockback_timer = 36
+                        boss_knockback_vel = horizontal_velocity
+                        if stun_duration > 0:
+                            ragnarok_stun_pending = int(stun_duration * 60)
+
+                        screen_shake_timer = 12
+                        screen_shake_intensity = 10
+                        print(f"     !")
+                        print(f"     : {horizontal_velocity:.1f}")
+                        print(f"    : X={BOSS.x:.0f}")
+                        print(f"   : {ball_speed:.1f}")
+                        print(f"   : 0.6, : 0.6")
+
+            if "sacred_laurel" in legendary_manager.active_items:
+                laurel = legendary_manager.items.get("sacred_laurel")
+                if laurel and laurel.active:
+                    ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                    horizontal_velocity, stun_duration = laurel.calculate_knockback(ball_speed, BOSS.x)
+
+                    if horizontal_velocity != 0:
+                        boss_knockback_timer = 36
+                        boss_knockback_vel = horizontal_velocity
+                        if stun_duration > 0:
+                            ragnarok_stun_pending = int(stun_duration * 60)
+
+                        screen_shake_timer = 12
+                        screen_shake_intensity = 10
+                        print(f"     !")
+                        print(f"     : {horizontal_velocity:.1f}")
+                        print(f"    : X={BOSS.x:.0f}")
+                        print(f"   : {ball_speed:.1f}")
+                        print(f"   : 0.6, : 0.6")
         
         #  Stage 5 홍련 피격 효과 - 드라이브/파워스매싱에 따라 확률 변경
         if current_stage == 5:
