@@ -4669,20 +4669,20 @@ def draw_blacksmith_turret_elements(surface):
             base_surface,
             (90, 70, 55, 220),
             pygame.Rect(
-                base_center.x - base_radius_x,
-                base_center.y - base_radius_y,
-                base_radius_x * 2,
-                base_radius_y * 2,
+                int(base_center.x - base_radius_x),
+                int(base_center.y - base_radius_y),
+                int(base_radius_x * 2),
+                int(base_radius_y * 2),
             ),
         )
         pygame.draw.ellipse(
             base_surface,
             (160, 130, 95, 160),
             pygame.Rect(
-                base_center.x - base_radius_x + 6,
-                base_center.y - base_radius_y + 6,
-                (base_radius_x - 6) * 2,
-                (base_radius_y - 6) * 2,
+                int(base_center.x - base_radius_x + 6),
+                int(base_center.y - base_radius_y + 6),
+                int((base_radius_x - 6) * 2),
+                int((base_radius_y - 6) * 2),
             ),
             2,
         )
