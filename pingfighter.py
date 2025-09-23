@@ -3339,6 +3339,15 @@ def create_soldier_paddle_surface(
 SOLDIER_PADDLE_IMG = create_soldier_paddle_surface()
 SOLDIER_PADDLE_IMG_NO_RIGHT_ARM = create_soldier_paddle_surface(include_right_arm=False)
 
+
+def _crop_surface_alpha(surface: pygame.Surface) -> pygame.Surface:
+    """알파 채널 기준으로 내용 영역만 잘라 반환."""
+    rect = surface.get_bounding_rect(min_alpha=1)
+    if rect.width == 0 or rect.height == 0:
+        return surface.copy()
+    return surface.subsurface(rect).copy()
+
+
 try:
     _soldier_card_raw = pygame.image.load(resource_path("soldier_paddle_new.png")).convert_alpha()
     SOLDIER_CARD_IMG = _crop_surface_alpha(_soldier_card_raw)
