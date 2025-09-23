@@ -201,6 +201,7 @@ class GlobalManager:
             'doping_potion_timer_frames': 0,
             'doping_potion_duration_frames': 480,
             'doping_potion_refresh': False,
+            'doping_potion_use_count': 0,
             
             # 메뉴/UI 관련
             'menu_selected': 0,
