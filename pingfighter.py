@@ -48058,6 +48058,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_dash_spirit_lasers(SCREEN, PLAYER, dash_spirit_lasers)
             draw_laser_evaporation_particles(SCREEN)
             draw_neutralize_particles(SCREEN)
+            draw_overlay_ui()
             draw_score()
         except Exception as render_err:
             if __debug__:
