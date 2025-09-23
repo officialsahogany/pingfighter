@@ -32,6 +32,18 @@ COMMON_LEGENDARY_CORNER_COLOR = (255, 215, 0)
 _COMMON_LEGENDARY_BG_CACHE: Dict[Tuple[int, int], pygame.Surface] = {}
 
 
+def _clear_poseidon_background(surface: pygame.Surface) -> None:
+    """포세이돈 아이콘에 남아있는 청색 사각 배경을 제거한다."""
+    width, height = surface.get_size()
+    for y in range(height):
+        for x in range(width):
+            color = surface.get_at((x, y))
+            if color.a == 0:
+                continue
+            if color.a < 210 and color.r < 160 and color.g > 150 and color.b > 180:
+                surface.set_at((x, y), (0, 0, 0, 0))
+
+
 def _extract_ring_overlay(surface: pygame.Surface) -> pygame.Surface:
     """라그나로크 해머 프레임에서 붉은 링/코너 하이라이트만 추출한다."""
     overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
