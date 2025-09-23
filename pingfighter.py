@@ -10868,7 +10868,6 @@ speedboots_obtained = False  # 스피드부츠 획득 여부
 PERMANENT_SPEED_BOOST = 0.06  # 영구 속도 증가량 (6% 증가)
 # 헤르메스의 신발 관련 변수
 hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
-sacred_laurel_obtained = False  # 신성 월계수 획득 여부
 hermes_star_particles = []  # 헤르메스 별가루 파티클 리스트
 last_paddle_x = 0  # 이전 패들 X 위치 (파티클 생성용)
 #  관성 보존 시스템 변수
@@ -20974,20 +20973,11 @@ def draw_objects():
     try:
         legendary_manager = get_legendary_manager()
         if legendary_manager:
-            # 포세이돈의 삼지창 물결 효과 그리기
             trident = legendary_manager.get_item("poseidon_trident")
             if trident and trident.active:
-                trident.draw_effects(SCREEN)  # 물결 파티클 그리기
-
-            sacred = legendary_manager.get_item("sacred_laurel_removed")
-            if sacred and sacred.active and 'PLAYER' in globals() and PLAYER:
-                try:
-                    sacred.draw_aura(SCREEN, PLAYER)
-                    sacred.draw_particles(SCREEN)
-                except Exception as aura_error:
-                    print(f"[ERROR] Sacred Laurel effect draw failed: {aura_error}")
+                trident.draw_effects(SCREEN)
     except:
-        pass  # 전설 아이템 매니저 접근 실패 시 무시
+        pass
 
     draw_blacksmith_turret_elements(SCREEN)
 
