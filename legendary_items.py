@@ -2040,7 +2040,8 @@ class SacredLaurel(LegendaryItem):
         self.reappear_timer = self.reappear_duration
         self.hit_flash_timer = 0
         self.spark_particles.clear()
-        self.current_angle = 0.0
+        self.rotation_angle = 0.0
+        self.contact_flash = 0.0
 
     def deactivate(self):
         self.active = False
