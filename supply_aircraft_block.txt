@@ -28320,7 +28320,6 @@ def calculate_bounce(paddle):
     is_player_paddle = (paddle == PLAYER)
     # 드라이브 발동 여부를 반환하기 위한 변수
     drive_activated = False
-    laurel_absorbed = False
     
     # 보스가 공을 칠 때 포세이돈 삼지창 회오리 가속 효과 해제
     if not is_player_paddle:  # 보스가 공을 칠 때
@@ -28357,19 +28356,7 @@ def calculate_bounce(paddle):
             from legendary_items import get_legendary_manager
             legendary_manager = get_legendary_manager()
             if legendary_manager and "sacred_laurel" in legendary_manager.active_items:
-                laurel = legendary_manager.items.get("sacred_laurel")
-                if laurel:
-                    try:
-                        laurel_absorbed = laurel.absorb_velocity(ball_vel)
-                    except Exception:
-                        laurel_absorbed = False
-                    impact_pos = (BALL.centerx, BALL.centery)
-                    laurel.on_player_contact(impact_pos)
-                    if laurel_absorbed:
-                        try:
-                            special_gauge = min(get_max_gauge(), special_gauge + 8)
-                        except Exception:
-                            special_gauge = min(500, special_gauge + 8)
+                pass
         except Exception as e:
             print(f"[ERROR] 전설 아이템 효과 처리 실패 (calculate_bounce): {e}")
 
