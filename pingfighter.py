@@ -3765,34 +3765,102 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
 
     hammer_ax = right_wrist[0] + 6 - int(round(10 * hammer_raise)) + int(round(16 * hammer_drop))
 
-    handle_height = 46
-    handle_bottom = right_wrist[1] + 2 - int(round(4 * hammer_raise)) + int(round(4 * hammer_drop))
-    handle = pygame.Rect(0, 0, 10, handle_height)
-    handle.centerx = hammer_ax
-    handle.bottom = handle_bottom
-    pygame.draw.rect(surface, (90, 60, 36), handle, border_radius=3)
-    handle_cap = pygame.Rect(0, 0, 6, 10)
-    handle_cap.centerx = hammer_ax
-    handle_cap.bottom = handle.top + 4
-    pygame.draw.rect(surface, (90, 60, 36), handle_cap, border_radius=2)
-    for stripe_y in range(handle.top + 4, handle.bottom, 6):
-        pygame.draw.line(surface, (60, 35, 18), (handle.left + 2, stripe_y), (handle.right - 2, stripe_y + 2), 2)
+    grip_ratio = 1.0 / 3.0
+    pivot = pygame.math.Vector2(right_wrist[0] + 6, right_wrist[1] + 4)
+    swing_angle = -math.radians(110) + hammer_drop * math.radians(150)
+    swing_angle += hammer_raise * math.radians(10)
+    direction_vec = pygame.math.Vector2(math.cos(swing_angle), math.sin(swing_angle))
+    if direction_vec.length_squared() == 0:
+        direction_vec = pygame.math.Vector2(0, -1)
+    direction_vec = direction_vec.normalize()
+    perp_vec = pygame.math.Vector2(-direction_vec.y, direction_vec.x)
 
-    hammer_head = pygame.Rect(0, 0, 40, 22)
-    hammer_head.center = (
-        hammer_ax + int(round(4 * hammer_drop)),
-        handle.top - 6 - int(round(4 * hammer_raise)) + int(round(8 * hammer_drop)),
+    handle_length = 46
+    handle_half_width = 5
+    top_offset = handle_length * (1.0 - grip_ratio)
+    bottom_offset = handle_length * grip_ratio
+    handle_top = pivot - direction_vec * top_offset
+    handle_bottom_point = pivot + direction_vec * bottom_offset
+
+    handle_poly = [
+        tuple(handle_top + perp_vec * handle_half_width),
+        tuple(handle_top - perp_vec * handle_half_width),
+        tuple(handle_bottom_point - perp_vec * handle_half_width),
+        tuple(handle_bottom_point + perp_vec * handle_half_width),
+    ]
+    pygame.draw.polygon(surface, (90, 60, 36), handle_poly)
+
+    detail_poly = [
+        tuple(handle_top + perp_vec * (handle_half_width - 2)),
+        tuple(handle_top - perp_vec * (handle_half_width - 2)),
+        tuple(handle_bottom_point - perp_vec * (handle_half_width - 2)),
+        tuple(handle_bottom_point + perp_vec * (handle_half_width - 2)),
+    ]
+    pygame.draw.polygon(surface, (60, 35, 18), detail_poly, width=0)
+
+    for stripe_pos in range(6, int(handle_length), 6):
+        stripe_center = handle_top + direction_vec * stripe_pos
+        stripe_start = tuple(stripe_center - perp_vec * (handle_half_width - 2))
+        stripe_end = tuple(stripe_center + perp_vec * (handle_half_width - 2))
+        pygame.draw.line(surface, (110, 82, 52), stripe_start, stripe_end, 2)
+
+    cap_length = 10
+    cap_offset = direction_vec * cap_length
+    cap_poly = [
+        tuple(handle_top + perp_vec * handle_half_width),
+        tuple(handle_top - perp_vec * handle_half_width),
+        tuple(handle_top - cap_offset - perp_vec * handle_half_width),
+        tuple(handle_top - cap_offset + perp_vec * handle_half_width),
+    ]
+    pygame.draw.polygon(surface, (112, 76, 48), cap_poly)
+
+    head_offset_along = 14
+    head_center = handle_top - direction_vec * head_offset_along
+    head_half_long = 20
+    head_half_short = 11
+    head_long_vec = perp_vec * head_half_long
+    head_short_vec = direction_vec * head_half_short
+    head_corners = [
+        tuple(head_center + head_long_vec + head_short_vec),
+        tuple(head_center - head_long_vec + head_short_vec),
+        tuple(head_center - head_long_vec - head_short_vec),
+        tuple(head_center + head_long_vec - head_short_vec),
+    ]
+    pygame.draw.polygon(surface, (176, 182, 196), head_corners)
+
+    inner_scale = 0.7
+    inner_center = head_center - direction_vec * 2
+    inner_long_vec = head_long_vec * inner_scale
+    inner_short_vec = head_short_vec * inner_scale
+    inner_corners = [
+        tuple(inner_center + inner_long_vec + inner_short_vec),
+        tuple(inner_center - inner_long_vec + inner_short_vec),
+        tuple(inner_center - inner_long_vec - inner_short_vec),
+        tuple(inner_center + inner_long_vec - inner_short_vec),
+    ]
+    pygame.draw.polygon(surface, (210, 215, 228), inner_corners)
+
+    ridge_start = tuple(head_center - head_long_vec * 0.7 + head_short_vec * 0.6)
+    ridge_end = tuple(head_center + head_long_vec * 0.7 + head_short_vec * 0.6)
+    pygame.draw.line(surface, (120, 130, 142), ridge_start, ridge_end, 2)
+
+    spike_tip = head_center - head_long_vec - head_short_vec * 0.1
+    spike_poly = [
+        tuple(spike_tip),
+        tuple(spike_tip + head_long_vec * 0.3 + head_short_vec * 0.3),
+        tuple(spike_tip + head_long_vec * 0.3 - head_short_vec * 0.3),
+    ]
+    pygame.draw.polygon(surface, (140, 155, 168), spike_poly)
+
+    emblem_center = head_center + head_short_vec * 0.1
+    pygame.draw.circle(surface, (230, 215, 130), (int(emblem_center.x), int(emblem_center.y)), 5)
+    pygame.draw.line(
+        surface,
+        (240, 160, 60),
+        tuple(emblem_center - head_long_vec * 0.3 - head_short_vec * 0.2),
+        tuple(emblem_center + head_long_vec * 0.3 + head_short_vec * 0.2),
+        2,
     )
-    pygame.draw.rect(surface, (176, 182, 196), hammer_head, border_radius=6)
-    pygame.draw.rect(surface, (210, 215, 228), hammer_head.inflate(-6, -6), border_radius=4)
-    pygame.draw.line(surface, (120, 130, 142), (hammer_head.left + 6, hammer_head.top + 4), (hammer_head.right - 6, hammer_head.top + 4), 2)
-    pygame.draw.polygon(surface, (140, 155, 168), [
-        (hammer_head.left - 4, hammer_head.centery),
-        (hammer_head.left + 2, hammer_head.top + 4),
-        (hammer_head.left + 2, hammer_head.bottom - 4)
-    ])
-    pygame.draw.circle(surface, (230, 215, 130), (hammer_head.centerx, hammer_head.centery), 5)
-    pygame.draw.line(surface, (240, 160, 60), (hammer_head.centerx - 6, hammer_head.centery - 6), (hammer_head.centerx + 6, hammer_head.centery + 4), 2)
 
     # 어깨 장식
     left_shoulder_center = (cx - 32 + lean_push - shoulder_roll, torso_y + 8 - shoulder_roll)

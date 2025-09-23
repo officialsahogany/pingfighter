@@ -433,14 +433,32 @@ class PoseidonTrident(LegendaryItem):
         ]
         for i in range(8):
             frame_path = resource_path(f"items/legendary/poseidon_trident_frame_{i}.png")
+            background_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
-                cleaned_frame = _strip_legendary_red_ring(frame, background_rules=background_rules)
+                foreground = _strip_legendary_red_ring(frame, background_rules=background_rules)
 
-                self.icon_frames.append(cleaned_frame)
-                self.animation_frames.append(cleaned_frame)  # legendary_acquisition에서 사용
+                try:
+                    background = pygame.image.load(background_path).convert_alpha()
+                except Exception:
+                    background = pygame.Surface(foreground.get_size(), pygame.SRCALPHA)
+
+                target_size = background.get_size()
+                if foreground.get_size() != target_size:
+                    foreground = pygame.transform.smoothscale(foreground, target_size)
+
+                overlay = background.copy()
+                if target_size[0] > 8 and target_size[1] > 8:
+                    inner_rect = pygame.Rect(4, 4, target_size[0] - 8, target_size[1] - 8)
+                    overlay.fill((0, 0, 0, 0), inner_rect)
+
+                composite = overlay
+                composite.blit(foreground, (0, 0))
+
+                self.icon_frames.append(composite)
+                self.animation_frames.append(composite)  # legendary_acquisition에서 사용
                 frames_loaded += 1
-                print(f"✓ 포세이돈 삼지창 프레임 {i} 로드 성공 (빨간색 배경 제거)")
+                print(f"✓ 포세이돈 삼지창 프레임 {i} 동기화 완료")
             except Exception as e:
                 print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")
         
