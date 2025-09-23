@@ -41339,6 +41339,31 @@ def handle_ball():
             
         calculate_bounce(BOSS)
 
+        if was_stun_ball:
+            current_speed = math.hypot(ball_vel[0], ball_vel[1])
+            softened_speed = current_speed
+            if current_speed > 0:
+                softened_speed = max(BALL_BASE_SPEED * 0.85, current_speed * 0.75)
+                if current_speed > softened_speed:
+                    speed_scale = softened_speed / current_speed
+                    ball_vel[0] *= speed_scale
+                    ball_vel[1] *= speed_scale
+            else:
+                softened_speed = BALL_BASE_SPEED * 0.9
+
+            max_horizontal = softened_speed * 0.55
+            if abs(ball_vel[0]) > max_horizontal:
+                ball_vel[0] = math.copysign(max_horizontal, ball_vel[0])
+                vertical_sq = max(softened_speed**2 - max_horizontal**2, 0.0)
+                desired_vertical = math.sqrt(vertical_sq) if vertical_sq > 0 else softened_speed * 0.45
+                vertical_sign = 1 if ball_vel[1] >= 0 else -1
+                ball_vel[1] = desired_vertical * vertical_sign
+
+            # 라그나로크 반격 시 플레이어 대응 시간을 확보하기 위한 완충
+            if ball_vel[1] > 0:
+                ball_vel[1] = min(ball_vel[1], softened_speed * 0.85)
+
+
         # 보스가 공을 되받은 이후에는 다시 스턴공 시도를 허용
         ragnarok_stun_attempted_this_rally = False
         
