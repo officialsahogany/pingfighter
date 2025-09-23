@@ -14173,6 +14173,8 @@ def handle_player(keys):
         if serve_completed_timer % 60 == 0 or serve_completed_timer <= 5:
             print(f"⏱️ serve_completed_timer: {serve_completed_timer} ({serve_completed_timer/60:.1f}초 남음)")
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
+    blacksmith_hammer_charge_position = None
+
     if new_boss_mode_active:
         if selected_bottom_boss == 1:
             handle_fire_knight_as_bottom()  # 파이어 나이트
@@ -21800,6 +21802,7 @@ def draw_objects():
     global smasher_pending_contact_offset
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
+    global blacksmith_hammer_charge_position, blacksmith_hammer_head_surface_point
     new_tear_particles = []  #  함수 시작 시 초기화
     
     # 전설 아이템 물결 효과 그리기 (업데이트는 물리 루프에서 이미 처리됨)
@@ -22499,6 +22502,7 @@ def draw_objects():
             base_ufo_img = PLAYER_IMG
     else:
         # 일반 모드에서는 캐릭터 타입에 따라 다른 이미지 사용
+        blacksmith_hammer_charge_position = None
         if selected_character_type == "soldier":
             # 코만도 캐릭터 애니메이션 처리 (우선순위: 휘두르기 > 걷기 > 기본)
             include_right_arm = not soldier_gun_animation_active
