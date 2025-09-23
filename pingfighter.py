@@ -5187,6 +5187,7 @@ BLACKSMITH_SHIELD_SWING_DURATION = 12  # 약 0.2초 동안 방패 스윙 연출
 blacksmith_hammer_swing_active = False
 blacksmith_hammer_swing_phase = 0
 BLACKSMITH_HAMMER_SWING_DURATION = 18
+blacksmith_manual_hammer_timer = 0
 
 # === 발토르 포탑 설치 시스템 ===
 BLACKSMITH_TURRET_COST = 150
@@ -6808,6 +6809,80 @@ DOPING_POTION_DURATION_FRAMES = 480  # 8초 (60fps * 8)
 DOPING_POTION_MULTIPLIER = 2.0  # 헤드샷/레그샷 확률 배수
 doping_potion_active = False
 doping_potion_timer = 0
+
+
+def _get_global_manager() -> GlobalManager:
+    """전역 매니저 인스턴스를 캐시 없이 반환"""
+    return GlobalManager.get_instance()
+
+
+def get_soldier_shot_probabilities() -> tuple[float, float]:
+    """현재 도핑 상태를 고려한 헤드샷/레그샷 확률 반환"""
+    multiplier = DOPING_POTION_MULTIPLIER if doping_potion_active and doping_potion_timer > 0 else 1.0
+    head = HEAD_SHOT_CHANCE * multiplier
+    leg = LEG_SHOT_CHANCE * multiplier
+    max_total = 0.95
+    total = head + leg
+    if total > max_total and total > 0:
+        scale = max_total / total
+        head *= scale
+        leg *= scale
+    return head, leg
+
+
+def activate_doping_potion(duration_frames: int | None = None, *, play_sound: bool = True) -> None:
+    """도핑물약 효과 활성화"""
+    global doping_potion_active, doping_potion_timer
+    frames = duration_frames if duration_frames is not None else DOPING_POTION_DURATION_FRAMES
+    frames = max(0, frames)
+    doping_potion_active = True
+    doping_potion_timer = frames
+
+    gm = _get_global_manager()
+    gm.set('doping_potion_active', True)
+    gm.set('doping_potion_timer_frames', frames)
+    gm.set('doping_potion_duration_frames', DOPING_POTION_DURATION_FRAMES)
+    gm.set('doping_potion_refresh', False)
+
+    if play_sound:
+        try:
+            play_sound_with_volume(SOUND_DRINK)
+        except Exception:  # noqa: BLE001
+            fallback_sound = gm.get('SOUND_ACTIVE_ITEM')
+            if fallback_sound:
+                try:
+                    fallback_sound.play()
+                except Exception:  # noqa: BLE001
+                    pass
+
+
+def deactivate_doping_potion() -> None:
+    """도핑물약 효과 비활성화"""
+    global doping_potion_active, doping_potion_timer
+    if not doping_potion_active and doping_potion_timer == 0:
+        return
+    doping_potion_active = False
+    doping_potion_timer = 0
+    gm = _get_global_manager()
+    gm.set('doping_potion_active', False)
+    gm.set('doping_potion_timer_frames', 0)
+
+
+def sync_doping_potion_from_global_manager() -> None:
+    """SkillManager 등 외부 시스템과 도핑 상태 동기화"""
+    gm = _get_global_manager()
+    refresh_requested = gm.get('doping_potion_refresh', False)
+    gm_active = gm.get('doping_potion_active', False)
+    gm_timer = gm.get('doping_potion_timer_frames', 0)
+
+    if refresh_requested or (gm_active and not doping_potion_active):
+        activate_doping_potion(gm_timer if gm_timer else DOPING_POTION_DURATION_FRAMES, play_sound=False)
+        gm.set('doping_potion_refresh', False)
+    elif not gm_active and doping_potion_active:
+        deactivate_doping_potion()
+
+    if doping_potion_active:
+        gm.set('doping_potion_timer_frames', doping_potion_timer)
 
 # 애니메이션 단계별 프레임 수 (60fps 기준)
 SOLDIER_GUN_DRAW_FRAMES = 6     # 총 꺼내기 애니메이션 (0.1초)
