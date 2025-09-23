@@ -37650,6 +37650,7 @@ def calculate_bounce(paddle):
     drive_activated = False
     counter_bonus_applied = False
     counter_bonus_speed_gain = 0.0
+    laurel_absorbed = False
     
     # 보스가 공을 칠 때 포세이돈 삼지창 회오리 가속 효과 해제
     if not is_player_paddle:  # 보스가 공을 칠 때
@@ -37749,16 +37750,20 @@ def calculate_bounce(paddle):
             if legendary_manager and "sacred_laurel" in legendary_manager.active_items:
                 laurel = legendary_manager.items.get("sacred_laurel")
                 if laurel:
+                    try:
+                        laurel_absorbed = laurel.absorb_velocity(ball_vel)
+                    except Exception:
+                        laurel_absorbed = False
                     impact_pos = (BALL.centerx, BALL.centery)
                     laurel.on_player_contact(impact_pos)
         except Exception as e:
             print(f"[ERROR] 전설 아이템 효과 처리 실패 (calculate_bounce): {e}")
-    
+
     rel_x = (BALL.centerx - paddle.centerx) / (PADDLE_WIDTH / 2)
     rel_x = max(-1.0, min(1.0, rel_x))
     # 기본 각도
     angle = rel_x * (math.pi / 3)
-    # 기본 속도
+    # 기본 속도 (신성 월계수 효과 적용 후 재계산)
     speed = math.hypot(ball_vel[0], ball_vel[1])
 
     # 스매셔 쇼트 발동 처리 (플레이어 패들 전용)
@@ -38111,6 +38116,8 @@ def calculate_bounce(paddle):
         speed *= base_multiplier
         #  임팩트 부스트 적용 (이제 최소 1.5배 보장)
         ball_impact_boost = dynamic_boost
+        if laurel_absorbed:
+            ball_impact_boost = min(ball_impact_boost, 1.12)
         print(f"  :   {base_multiplier:.2f}x,  {dynamic_boost:.2f}x,  : {speed:.1f}")
     else:
         # 일반 충돌 시 동일한 가속 (완화된 증가율)
@@ -38118,6 +38125,8 @@ def calculate_bounce(paddle):
         speed *= base_multiplier
         #  임팩트 부스트 적용
         ball_impact_boost = dynamic_boost
+        if laurel_absorbed:
+            ball_impact_boost = min(ball_impact_boost, 1.12)
     #  보스 충돌 처리 (플레이어가 아닌 경우)
     if not is_player_paddle:
         # 보스 충돌 시 추가 가속 (속도에 관계없이 일정, 크게 완화)
