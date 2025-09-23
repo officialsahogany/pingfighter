@@ -5298,7 +5298,10 @@ def blacksmith_has_available_buildings() -> bool:
     if selected_character_type != "blacksmith":
         return False
     turret_available = not blacksmith_turret_active and not blacksmith_turret_blueprint_active
-    divine_available = blacksmith_divine_stone_state is None
+    divine_available = (
+        blacksmith_divine_stone_state is None
+        and not blacksmith_divine_blueprint_active
+    )
     return turret_available or divine_available
 
 
@@ -5350,6 +5353,10 @@ def blacksmith_start_divine_stone():
     blacksmith_divine_build_progress = 0
     blacksmith_divine_partial_drain = 0.0
     blacksmith_divine_blueprint_active = True
+    try:
+        play_sound_with_volume(SOUND_ITEM_GET)
+    except Exception:
+        pass
     effects_manager.spawn_construction_smoke(rect.centerx, rect.bottom - 12, count=6, spread=24)
     return True
 
