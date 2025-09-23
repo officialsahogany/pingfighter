@@ -13243,7 +13243,8 @@ def handle_player(keys):
                     base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
                 
                 # 대시 실행 시 rolling_consecutive_count가 1 증가하므로 미리 계산
-                next_consecutive_count = rolling_consecutive_count + 1
+                current_consecutive = get_roll("rolling_consecutive_count")
+                next_consecutive_count = current_consecutive + 1
                 consecutive_discount = 0.5 ** (next_consecutive_count - 1)  # 실제 대시에서 사용할 할인율
                 discounted_cost = int(base_gauge_cost * consecutive_discount)
                 if dashgear_obtained:
