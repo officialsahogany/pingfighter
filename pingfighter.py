@@ -4478,6 +4478,9 @@ def update_blacksmith_hammer_shock(keys):
             blacksmith_hammer_available = True
 
     if blacksmith_hammer_shock_charging:
+        if 'PLAYER' in globals() and PLAYER is not None:
+            PLAYER.centerx = int(blacksmith_hammer_shock_anchor_x)
+            PLAYER.centery = int(blacksmith_hammer_shock_anchor_y)
         blacksmith_hammer_shock_charge_frames += 1
         blacksmith_hammer_shock_stage = _blacksmith_hammer_shock_stage_for_frames(blacksmith_hammer_shock_charge_frames)
 
