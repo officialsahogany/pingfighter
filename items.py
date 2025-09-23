@@ -933,7 +933,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             item_name = item["type"]["name"]
             print(f"🔍 DEBUG: 아이템 획득 감지: {item_name}")
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel_removed"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
                 # 패시브 아이템 처리
                 print(f"🔍 DEBUG: {item_name}을(를) 패시브 아이템으로 처리 중...")
                 if store_passive_func:
@@ -1018,15 +1018,6 @@ def draw_items(screen):
                         trident.update(16)  # 60fps 기준 16ms
                         # 애니메이션 아이콘 그리기 (회전 없이)
                         trident.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
-                        continue
-            elif item_name == "sacred_laurel_removed":
-                from legendary_items import get_legendary_manager
-                legendary_manager = get_legendary_manager()
-                if legendary_manager:
-                    laurel = legendary_manager.get_item("sacred_laurel_removed")
-                    if laurel:
-                        laurel.update(16)
-                        laurel.draw_icon(screen, int(item["x"]) - 30, int(item["y"]) - 30, 60)
                         continue
             
             # 일반 아이템은 기존 방식대로 처리
