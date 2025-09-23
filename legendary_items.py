@@ -1661,6 +1661,67 @@ class PoseidonTrident(LegendaryItem):
                            int(droplet['y'] - droplet['size'])))
 
 
+class HolyLaurel(LegendaryItem):
+    """신성 월계수 - 아이템 관리자 전용 전설 아이콘"""
+
+    def __init__(self):
+        super().__init__(
+            name="holy_laurel",
+            korean_name="신성 월계수",
+            description="포세이돈의 삼지창을 장식하던 월계관을 그대로 재현한 전설 아이콘 (전시용).",
+            unlock_condition="아이템 관리자 전시용",
+            icon_path="items/legendary/holy_laurel.png",
+        )
+        self.icon_frames: List[pygame.Surface] = []
+        self.animation_frames: List[pygame.Surface] = []
+        self.current_frame = 0
+        self.frame_timer = 0
+        self.animation_speed = 8
+        self._prepare_frames()
+
+    def _prepare_frames(self) -> None:
+        """포세이돈 삼지창 아이콘 프레임을 복제하여 동일한 연출을 구성한다."""
+        try:
+            poseidon_preview = PoseidonTrident()
+            if poseidon_preview.icon_frames:
+                self.icon_frames = [frame.copy() for frame in poseidon_preview.icon_frames]
+            if poseidon_preview.animation_frames:
+                self.animation_frames = [frame.copy() for frame in poseidon_preview.animation_frames]
+        except Exception:
+            self.icon_frames = []
+            self.animation_frames = []
+
+        if not self.icon_frames:
+            try:
+                fallback = pygame.image.load(resource_path("items/legendary/holy_laurel.png")).convert_alpha()
+            except Exception:
+                fallback = pygame.Surface((60, 60), pygame.SRCALPHA)
+                pygame.draw.circle(fallback, (200, 200, 255), (30, 30), 28, 2)
+            self.icon_frames = [fallback]
+            self.animation_frames = [fallback]
+
+    def activate(self, game_state: Dict):
+        """전시용 아이콘은 실제 효과가 없다."""
+        self.active = False
+
+    def update(self, dt: float, ui_mode: bool = False):
+        super().update(dt, ui_mode)
+        if self.icon_frames and len(self.icon_frames) > 1:
+            self.frame_timer += dt
+            if self.frame_timer >= self.animation_speed:
+                self.frame_timer = 0
+                self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        if self.icon_frames:
+            frame = self.icon_frames[self.current_frame % len(self.icon_frames)]
+            scaled = pygame.transform.smoothscale(frame, (size, size))
+            screen.blit(scaled, (x, y + frame_offset))
+        else:
+            super().draw_icon(screen, x, y, size)
+
+
 class HermesShoes(LegendaryItem):
     """헤르메스의 신발 - 이동속도 50% 증가"""
     def __init__(self):
