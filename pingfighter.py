@@ -33418,6 +33418,7 @@ def show_item_manager_menu():
         {"name": "predictor", "type": "active", "icon": get_icon_safe("predictor_icon", "predictor")},
         {"name": "smoke_grenade", "type": "active", "icon": get_icon_safe("smoke_grenade_icon", "smoke_grenade")},
         {"name": "ammo_box", "type": "active", "icon": get_icon_safe("ammo_box_icon", "ammo_box")},
+        {"name": "doping_potion", "type": "active", "icon": get_icon_safe("doping_potion_icon", "doping_potion")},
         {"name": "pandora_box", "type": "active", "icon": get_icon_safe("pandora_box_icon", "pandora_box")},
         {"name": "stopwatch", "type": "active", "icon": get_icon_safe("stopwatch_icon", "stopwatch")},
         {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
