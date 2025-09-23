@@ -1863,39 +1863,61 @@ class HermesShoes(LegendaryItem):
 
 
 class SacredLaurel(LegendaryItem):
-    """신성 월계수 - 일시적으로 비활성화된 전설 아이템"""
+    """신성 월계수 - 라그나로크와 동일한 넉백 효과를 부여하는 전설의 수호"""
 
     def __init__(self):
         super().__init__(
             name="sacred_laurel",
             korean_name="신성 월계수",
-            description="(효과 비활성화)",
+            description="충격을 맞은 보스를 강하게 밀쳐내며 0.6초간 기절시킵니다.",
             unlock_condition="스테이지 8 클리어",
             icon_path=None,
         )
+        self.knockback_multiplier = 5.0
+        self.max_knockback = 250
+        self.stun_duration = 0.6
+        self.animation_frames: List[pygame.Surface] = []
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8
 
-    def can_absorb(self) -> bool:
-        return False
+    def check_unlock_condition(self, game_stats: Dict) -> bool:
+        return game_stats.get("highest_stage_cleared", 0) >= 8
 
-    def absorb_velocity(self, velocity: List[float]) -> bool:
-        return False
+    def calculate_knockback(self, ball_speed: float, boss_x: float = 300) -> tuple:
+        if not self.active:
+            return 0, 0
 
-    def activate(self, game_state: Dict):
-        super().activate(game_state)
+        import random
 
-    def deactivate(self):
-        self.active = False
+        horizontal_power = 10
+        horizontal_power += abs(ball_speed) * 0.5
 
-    def on_player_contact(self, impact_pos: Optional[Tuple[float, float]] = None):
-        return
+        center_x = 300
+        if boss_x + 50 < center_x:
+            horizontal_velocity = horizontal_power
+        else:
+            horizontal_velocity = -horizontal_power
 
-    def update(self, dt: float, ui_mode: bool = False):
-        super().update(dt, ui_mode)
+        if abs(ball_speed) >= 25:
+            horizontal_velocity *= 1.15
+        elif abs(ball_speed) >= 20:
+            horizontal_velocity *= 1.1
+        elif abs(ball_speed) >= 15:
+            horizontal_velocity *= 1.05
 
-    def draw_aura(self, screen: pygame.Surface, paddle_rect: pygame.Rect):
-        return
+        horizontal_velocity *= 1.0 + random.uniform(0.1, 0.3)
 
-    def draw_particles(self, screen: pygame.Surface):
+        horizontal_velocity = max(-self.max_knockback, min(self.max_knockback, horizontal_velocity))
+
+        print("[신성 월계수 calculate_knockback]")
+        print(f"  - 입력 공속: {ball_speed:.1f}")
+        print(f"  - 최종 넉백 속도: {horizontal_velocity:.1f}")
+        print(f"  - 스턴 시간: {self.stun_duration:.1f}초")
+
+        return horizontal_velocity, self.stun_duration
+
+    def draw_special_effects(self, screen, boss_x: int, boss_y: int):
         return
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
