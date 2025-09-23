@@ -2103,12 +2103,46 @@ class SacredLaurel(LegendaryItem):
         highlight_rotated = pygame.transform.rotate(highlight_ring, self.rotation_angle)
         canvas_width, canvas_height = highlight_rotated.get_size()
         ring_surface = pygame.Surface((canvas_width, canvas_height), pygame.SRCALPHA)
-        ring_surface.blit(base_ring, base_ring.get_rect(center=(canvas_width // 2, canvas_height // 2)))
+        center_pos = (canvas_width // 2, canvas_height // 2)
+        ring_surface.blit(base_ring, base_ring.get_rect(center=center_pos))
         ring_surface.blit(
             highlight_rotated,
-            highlight_rotated.get_rect(center=(canvas_width // 2, canvas_height // 2)),
+            highlight_rotated.get_rect(center=center_pos),
             special_flags=pygame.BLEND_ADD
         )
+
+        radius_x = base_ring.get_width() / 2
+        radius_y = base_ring.get_height() / 2
+        segment_surface = pygame.Surface((canvas_width, canvas_height), pygame.SRCALPHA)
+        color_phase = self.segment_color_phase
+        for i in range(self.segment_count):
+            segment_angle = self.rotation_angle + (360 / self.segment_count) * i
+            rad = math.radians(segment_angle)
+            wave = math.sin(math.radians(segment_angle * 3) + color_phase)
+            size = max(2, int(3 + wave * 1.4))
+            alpha = int(110 * fade * (0.7 + 0.3 * math.sin(math.radians(segment_angle * 2 + self.animation_time * 0.08))))
+            if alpha <= 0:
+                continue
+
+            orbit_x = center_pos[0] + math.cos(rad) * radius_x * self.segment_radius_scale
+            orbit_y = center_pos[1] + math.sin(rad) * radius_y * self.segment_radius_scale
+
+            base_color = (
+                min(255, 230 + int(wave * 20)),
+                min(255, 225 + int(wave * 18)),
+                170 + int(wave * 22)
+            )
+            glow_color = (
+                min(255, base_color[0] + 20),
+                min(255, base_color[1] + 30),
+                min(255, base_color[2] + 40)
+            )
+
+            pygame.draw.circle(segment_surface, (*base_color, alpha), (int(orbit_x), int(orbit_y)), size)
+            center_alpha = min(255, alpha + 60)
+            pygame.draw.circle(segment_surface, (*glow_color, center_alpha), (int(orbit_x), int(orbit_y)), max(1, size // 2))
+
+        ring_surface.blit(segment_surface, (0, 0), special_flags=pygame.BLEND_ADD)
 
         if self.contact_flash > 0:
             flash_alpha = int(170 * min(1.0, self.contact_flash) * fade)
