@@ -5159,32 +5159,35 @@ def blacksmith_can_build(option: str) -> bool:
     if option == "turret":
         return not blacksmith_turret_active and not blacksmith_turret_blueprint_active
     if option == "divine_stone":
-        return blacksmith_divine_stone_state is None
+        return (
+            blacksmith_divine_stone_state is None
+            and not blacksmith_divine_blueprint_active
+        )
     return False
 
 
 def blacksmith_start_divine_stone():
-    global blacksmith_divine_stone_state
-    if blacksmith_divine_stone_state is not None or 'PLAYER' not in globals():
+    global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
+    global blacksmith_divine_build_progress, blacksmith_divine_partial_drain
+    if (
+        blacksmith_divine_stone_state is not None
+        or blacksmith_divine_blueprint_active
+        or 'PLAYER' not in globals()
+    ):
         return False
-    stone_width, stone_height = BLACKSMITH_DIVINE_STONE_SIZE
-    rect = pygame.Rect(0, 0, stone_width, stone_height)
-    base_x = max(stone_width // 2, min(WIDTH - stone_width // 2, PLAYER.centerx))
-    base_y = PLAYER.top - 30
-    if base_y < stone_height:
-        base_y = stone_height
+    blueprint_width = BLACKSMITH_DIVINE_STONE_SIZE[0]
+    blueprint_height = BLACKSMITH_DIVINE_STONE_SIZE[1] + BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT
+    rect = pygame.Rect(0, 0, blueprint_width, blueprint_height)
+    base_x = max(blueprint_width // 2, min(WIDTH - blueprint_width // 2, PLAYER.centerx))
+    base_y = PLAYER.top - 12
+    if base_y < blueprint_height:
+        base_y = blueprint_height
     rect.midbottom = (base_x, base_y)
-    blacksmith_divine_stone_state = {
-        "rect": rect,
-        "hp": BLACKSMITH_DIVINE_STONE_MAX_HP,
-        "pulse": 0,
-        "cooldown": 0,
-    }
-    try:
-        play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
-    except Exception:
-        pass
-    effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=10)
+    blacksmith_divine_blueprint_rect = rect
+    blacksmith_divine_build_progress = 0
+    blacksmith_divine_partial_drain = 0.0
+    blacksmith_divine_blueprint_active = True
+    effects_manager.spawn_construction_smoke(rect.centerx, rect.bottom - 12, count=6, spread=24)
     return True
 
 
