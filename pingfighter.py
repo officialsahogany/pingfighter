@@ -49699,6 +49699,7 @@ def get_item_name_korean(item_name):
         "bluetooth_ring": "블루투스링",
         "smartphone": "스마트폰",
         "knee_pads": "킥차져",
+        "doping_potion": "도핑물약",
         "ammo_box": "탄약상자",
         "bazooka": "바주카포",
         "ak47": "AK-47",
