@@ -460,7 +460,7 @@ def draw_player_gauge():
             pass
             # 사용된 토큰 - 충전 중
             # 충전 진행률 계산
-            if rolling_charge_timer > 0:
+            if current_rolling_charge_timer > 0:
                 pass
                 # 최대 충전 시간 계산
                 dash_cooldown_bonus = academy.get_skill_bonus("dash_cooldown")
@@ -473,7 +473,7 @@ def draw_player_gauge():
                     max_charge_time = max(6, 90 - cooldown_reduction)  # 1.5초
                 
                 # 충전 진행률 (0.0 ~ 1.0)
-                charge_progress = 1.0 - (rolling_charge_timer / max_charge_time)
+                charge_progress = 1.0 - (current_rolling_charge_timer / max_charge_time)
                 charge_progress = max(0, min(1, charge_progress))
                 
                 # 충전 중인 토큰 확인 (왼쪽부터 충전)
