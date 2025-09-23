@@ -3764,22 +3764,25 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     pygame.draw.circle(surface, (205, 185, 155), (right_wrist[0] + 6, right_wrist[1] + 4), 6)
 
     hammer_ax = right_wrist[0] + 6 - int(round(10 * hammer_raise)) + int(round(16 * hammer_drop))
-    hammer_ay = torso_y - 4 - int(round(24 * hammer_raise)) + int(round(34 * hammer_drop)) + right_arm_offset_y + wrist_pitch
 
-    hammer_head = pygame.Rect(0, 0, 40, 22)
-    hammer_head.center = (hammer_ax, hammer_ay)
-
-    handle = pygame.Rect(0, 0, 10, 46)
+    handle_height = 46
+    handle_bottom = right_wrist[1] + 6 - int(round(4 * hammer_raise)) + int(round(6 * hammer_drop))
+    handle = pygame.Rect(0, 0, 10, handle_height)
     handle.centerx = hammer_ax
-    handle.top = hammer_head.centery - 2 - int(round(10 * hammer_raise)) + int(round(12 * hammer_drop)) + right_arm_offset_y // 2
+    handle.bottom = handle_bottom
     pygame.draw.rect(surface, (90, 60, 36), handle, border_radius=3)
     handle_cap = pygame.Rect(0, 0, 6, 10)
     handle_cap.centerx = hammer_ax
-    handle_cap.bottom = hammer_head.top + 6
+    handle_cap.bottom = handle.top + 6
     pygame.draw.rect(surface, (90, 60, 36), handle_cap, border_radius=2)
     for stripe_y in range(handle.top + 4, handle.bottom, 6):
         pygame.draw.line(surface, (60, 35, 18), (handle.left + 2, stripe_y), (handle.right - 2, stripe_y + 2), 2)
 
+    hammer_head = pygame.Rect(0, 0, 40, 22)
+    hammer_head.center = (
+        hammer_ax + int(round(4 * hammer_drop)),
+        handle.top - 8 - int(round(6 * hammer_raise)) + int(round(10 * hammer_drop)),
+    )
     pygame.draw.rect(surface, (176, 182, 196), hammer_head, border_radius=6)
     pygame.draw.rect(surface, (210, 215, 228), hammer_head.inflate(-6, -6), border_radius=4)
     pygame.draw.line(surface, (120, 130, 142), (hammer_head.left + 6, hammer_head.top + 4), (hammer_head.right - 6, hammer_head.top + 4), 2)
@@ -6857,12 +6860,13 @@ def get_soldier_shot_probabilities() -> tuple[float, float]:
 
 def activate_doping_potion(duration_frames: int | None = None, *, play_sound: bool = True) -> None:
     """도핑물약 효과 활성화"""
-    global doping_potion_active, doping_potion_timer, doping_potion_toast_timer
+    global doping_potion_active, doping_potion_timer, doping_potion_toast_timer, doping_potion_use_count
     frames = duration_frames if duration_frames is not None else DOPING_POTION_DURATION_FRAMES
     frames = max(0, frames)
     doping_potion_active = True
     doping_potion_timer = frames
     doping_potion_toast_timer = 120
+    doping_potion_use_count += 1
 
     gm = _get_global_manager()
     gm.set('doping_potion_active', True)
@@ -12006,7 +12010,7 @@ def draw_soldier_weapon_ui(screen):
 
         if selected_character_type == "soldier" and doping_potion_active and doping_potion_timer > 0:
             doping_ratio = doping_potion_timer / max(1, DOPING_POTION_DURATION_FRAMES)
-            buff_text = FontStyle.tiny().render("도핑 x2", True, (190, 255, 210))
+            buff_text = FontStyle.tiny().render(f"도핑 x2 ({doping_potion_use_count})", True, (190, 255, 210))
             buff_rect = buff_text.get_rect(center=(weapon_rect.centerx, weapon_rect.bottom + 12))
             screen.blit(buff_text, buff_rect)
             bar_width = weapon_rect.width
@@ -19190,6 +19194,9 @@ def draw_player_gauge():
         leg_text = FontStyle.tiny().render(f"L {leg_chance * 100:0.0f}%", True, (170, 240, 205))
         SCREEN.blit(head_text, (gauge_x - 6, gauge_y + gauge_height + 18))
         SCREEN.blit(leg_text, (gauge_x - 6, gauge_y + gauge_height + 30))
+        if doping_potion_use_count > 0:
+            count_text = FontStyle.tiny().render(f"누적 {doping_potion_use_count}회", True, (150, 220, 180))
+            SCREEN.blit(count_text, (gauge_x - 2, gauge_y + gauge_height + 42))
 
     #  통합 아이템 지속시간 게이지바 (거대화포션 & 레이저스코프)
     item_gauge_active = (long_boost_active and long_boost_timer > 0) or (predictor_active and predictor_timer > 0)
