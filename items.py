@@ -105,6 +105,7 @@ def load_item_icons():
         "smartphone": "smartphone.png",  # 스마트폰 아이콘
         "bazooka": "bazooka.png",  # 바주카포 아이콘
         "ammo_box": "ammo_box.png",  # 탄약상자 아이콘
+        "doping_potion": "doping_potion.png",  # 도핑물약 아이콘
         "net_gun": "net_gun.png",  # 그물덫총 아이콘
         "spider_mine": "spider_mine.png",  # 스파이더지뢰 아이콘
         # 전설 아이템(아이콘)
@@ -1279,7 +1280,6 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                 screen.blit(shadow, (text_rect.x + 2, text_rect.y + 2))
                 screen.blit(text_surface, text_rect)
                 break
-
 
 
 

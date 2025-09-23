@@ -1682,7 +1682,8 @@ class HermesShoes(LegendaryItem):
             frame_path = resource_path(f"items/legendary/hermes_shoes_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
-                self.animation_frames.append(frame)
+                cleaned_frame = _strip_legendary_red_ring(frame)
+                self.animation_frames.append(cleaned_frame)
                 frames_loaded += 1
                 print(f"✓ 헤르메스 신발 프레임 {i} 로드 성공")
             except Exception as e:
@@ -1963,7 +1964,8 @@ class RagnarokHammer(LegendaryItem):
             frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
-                self.animation_frames.append(frame)
+                cleaned_frame = _strip_legendary_red_ring(frame)
+                self.animation_frames.append(cleaned_frame)
                 frames_loaded += 1
                 print(f"✓ 프레임 {i} 로드 성공: {frame_path}")
             except Exception as e:
