@@ -399,13 +399,13 @@ class PoseidonTrident(LegendaryItem):
         
         # 포세이돈 삼지창 PNG 파일 로드
         frames_loaded = 0
+        background_rules = [
+            lambda c: abs(c.r - c.g) < 10 and abs(c.g - c.b) < 10 and 60 <= c.r <= 120
+        ]
         for i in range(8):
             frame_path = resource_path(f"items/legendary/poseidon_trident_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
-                background_rules = [
-                    lambda c: abs(c.r - c.g) < 10 and abs(c.g - c.b) < 10 and 60 <= c.r <= 120
-                ]
                 cleaned_frame = _strip_legendary_red_ring(frame, background_rules=background_rules)
 
                 self.icon_frames.append(cleaned_frame)

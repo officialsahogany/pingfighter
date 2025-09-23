@@ -6883,11 +6883,12 @@ def activate_doping_potion(duration_frames: int | None = None, *, play_sound: bo
 
 def deactivate_doping_potion() -> None:
     """도핑물약 효과 비활성화"""
-    global doping_potion_active, doping_potion_timer
+    global doping_potion_active, doping_potion_timer, doping_potion_toast_timer
     if not doping_potion_active and doping_potion_timer == 0:
         return
     doping_potion_active = False
     doping_potion_timer = 0
+    doping_potion_toast_timer = 0
     gm = _get_global_manager()
     gm.set('doping_potion_active', False)
     gm.set('doping_potion_timer_frames', 0)
@@ -19118,6 +19119,13 @@ def draw_player_gauge():
     draw.rect((100, 100, 100), text_bg_rect, 1, border_radius=3)
     # 텍스트 렌더링
     SCREEN.blit(gauge_text_surface, (text_x, text_y))
+    if doping_potion_toast_timer > 0:
+        toast_ratio = doping_potion_toast_timer / 120
+        toast_color = (int(120 + 80 * toast_ratio), 255, int(190 + 40 * toast_ratio))
+        toast_text = FontStyle.menu().render("도핑 효과 활성화", True, toast_color)
+        toast_rect = toast_text.get_rect(center=(WIDTH - 40, gauge_y - 60))
+        SCREEN.blit(toast_text, toast_rect)
+
     doping_active = doping_potion_active and doping_potion_timer > 0
     if doping_active:
         gauge_x = WIDTH - 110
