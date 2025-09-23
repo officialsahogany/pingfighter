@@ -11885,6 +11885,7 @@ def draw_soldier_weapon_ui(screen):
     import math
     import pygame
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
+    global soldier_emergency_supply_toast_timer
 
     def render_weapon_label(text, color, size):
         surface = None
@@ -11985,7 +11986,25 @@ def draw_soldier_weapon_ui(screen):
         # 일반 배경 사각형
         pygame.draw.rect(screen, (40, 40, 40), weapon_rect)
         pygame.draw.rect(screen, (100, 100, 100), weapon_rect, 3)
-    
+
+    if soldier_emergency_supply_toast_timer > 0:
+        toast_ratio = soldier_emergency_supply_toast_timer / 90
+        toast_alpha = max(0, min(255, int(255 * toast_ratio)))
+        bounce_offset = int(4 * math.sin(pygame.time.get_ticks() * 0.03))
+        text_y = weapon_rect.top - 20 + bounce_offset
+        glow_surface = render_weapon_label("비상보급!", (255, 195, 90), 26)
+        if glow_surface:
+            glow_surface = glow_surface.copy()
+            glow_surface.set_alpha(int(toast_alpha * 0.4))
+            glow_rect = glow_surface.get_rect(center=(weapon_rect.centerx, text_y))
+            screen.blit(glow_surface, glow_rect)
+        text_surface = render_weapon_label("비상보급!", (255, 255, 210), 26)
+        if text_surface:
+            text_surface = text_surface.copy()
+            text_surface.set_alpha(toast_alpha)
+            text_rect = text_surface.get_rect(center=(weapon_rect.centerx, text_y))
+            screen.blit(text_surface, text_rect)
+
     # 현재 장착된 무기 확인
     current_weapon = soldier_controller.weapons[soldier_controller.current_index] if soldier_controller.weapons else "pistol"
     
@@ -19970,6 +19989,9 @@ def draw_player_gauge():
                 name_surface = FontStyle.tiny().render(weapon_label, True, name_color)
                 name_rect = name_surface.get_rect(center=(slot_rect.centerx, slot_rect.top - 8))
                 SCREEN.blit(name_surface, name_rect)
+
+    if soldier_emergency_supply_toast_timer > 0:
+        soldier_emergency_supply_toast_timer -= 1
 
     #  통합 아이템 지속시간 게이지바 (거대화포션 & 레이저스코프)
     item_gauge_active = (long_boost_active and long_boost_timer > 0) or (predictor_active and predictor_timer > 0)
@@ -45902,6 +45924,15 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_divine_blueprint_rect = None
     blacksmith_divine_build_progress = 0
     blacksmith_divine_partial_drain = 0.0
+    global blacksmith_hammer_available, blacksmith_hammer_shock_charging
+    global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
+    global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
+    blacksmith_hammer_available = True
+    blacksmith_hammer_shock_charging = False
+    blacksmith_hammer_shock_charge_frames = 0
+    blacksmith_hammer_shock_stage = 0
+    blacksmith_hammer_shock_cooldown_timer = 0
+    blacksmith_hammer_shock_projectiles.clear()
 
     # 🔧 스테이지 시작 시 플레이어 움직임 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
