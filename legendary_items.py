@@ -1878,7 +1878,7 @@ class SacredLaurel(LegendaryItem):
         self.reappear_timer = self.reappear_duration
         self.hit_flash_duration = 350
         self.hit_flash_timer = 0
-        self.rotation_speed = 0.09  # 도/밀리초 기준 회전 속도
+        self.rotation_speed = 0.18  # 도/밀리초 기준 회전 속도
         self.rotation_angle = 0.0
         self.tilt_ratio = 0.38
         self.absorption_threshold = 0.82  # 완전히 재생된 후에만 보호막 발동
@@ -1893,9 +1893,9 @@ class SacredLaurel(LegendaryItem):
         self.base_ring_surface, self.base_highlight_surface = self._create_base_ring_surfaces()
         self._last_ring_geometry: Optional[Tuple[float, float, float, float]] = None
         self._generate_animation_frames()
-        self.segment_count = 28
-        self.segment_radius_scale = 0.9
-        self.segment_wave_speed = 0.16
+        self.segment_count = 16
+        self.segment_radius_scale = 0.92
+        self.segment_wave_speed = 0.28
         self.segment_color_phase = random.uniform(0, math.tau)
 
     def can_absorb(self) -> bool:
@@ -1928,22 +1928,19 @@ class SacredLaurel(LegendaryItem):
         ring_thickness = max(8, height // 4)
 
         # 기본 링 – 다층 하이라이트와 그라데이션
-        for i in range(3):
-            alpha = 68 - i * 16
+        for i in range(2):
+            alpha = 110 - i * 24
             if alpha <= 0:
                 continue
             pygame.draw.ellipse(
                 base_surface,
-                (185 + i * 10, 215, 255, alpha),
-                outer_rect.inflate(-i * 4, -i * 2),
-                max(2, ring_thickness - i * 2)
+                (205 + i * 15, 235, 255, alpha),
+                outer_rect.inflate(-i * 6, -i * 3),
+                max(2, ring_thickness - i * 3)
             )
 
-        inner_rect = outer_rect.inflate(-ring_thickness * 0.8, -ring_thickness * 0.6)
-        pygame.draw.ellipse(base_surface, (90, 140, 210, 42), inner_rect, max(1, ring_thickness // 4))
-
-        haze_rect = outer_rect.inflate(0, 6)
-        pygame.draw.ellipse(base_surface, (120, 160, 220, 32), haze_rect, 0)
+        inner_rect = outer_rect.inflate(-ring_thickness * 0.65, -ring_thickness * 0.45)
+        pygame.draw.ellipse(base_surface, (180, 220, 255, 96), inner_rect, max(1, ring_thickness // 3))
 
         # 하이라이트는 별도 서피스에 두고 회전시켜 사용
         highlight_span = math.radians(55)
