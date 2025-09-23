@@ -13377,10 +13377,11 @@ def handle_player(keys):
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
                         dash.sync_with_legacy_system(
-                            _rolling_get("rolling_charges"),
-                            _rolling_get("rolling_charge_timer"),
-                            _rolling_get("rolling_consecutive_count"),
+                            get_roll("rolling_charges"),
+                            get_roll("rolling_charge_timer"),
+                            get_roll("rolling_consecutive_count"),
                         )
+                    current_charges = get_roll("rolling_charges")
                     # 기본 게이지 소모량
                     base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                     
@@ -13404,9 +13405,9 @@ def handle_player(keys):
                     if special_gauge < special_gauge_max:
                         special_ready = False
                     print(f"    ! ( {_rolling_get('rolling_consecutive_count')},  : {final_gauge_cost},  : {_rolling_get('rolling_charges')}, : {special_gauge})")
-                elif right_before_down and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
+                elif right_before_down and down_pressed and special_gauge >= required_gauge and current_charges > 0:
                     # 통제불능 상태에서 오른쪽 대쉬 실행 (아래키 + 오른쪽키 필요)
-                    rolling_active = True
+                    set_roll("rolling_active", True)
                     is_half_dash_active = False  # 일반 대쉬이므로 하프대쉬 플래그 해제
                     half_dash_effect_timer = 0  # 타이머도 리셋
                     # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
