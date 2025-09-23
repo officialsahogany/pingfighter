@@ -1860,7 +1860,194 @@ class HermesShoes(LegendaryItem):
         if self.particle_timer > 1000:
             self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
             self.particle_timer = 0
-    
+
+
+class SacredLaurel(LegendaryItem):
+    """신성 월계수 - 플레이어를 수호하는 신성한 고리"""
+
+    def __init__(self):
+        super().__init__(
+            name="sacred_laurel",
+            korean_name="신성 월계수",
+            description="패들을 감싸는 8개의 신성한 고리가 공의 충격을 흡수합니다.",
+            unlock_condition="스테이지 8 클리어",
+            icon_path=None,
+        )
+        self.ring_count = 8
+        self.base_angles = [i * (2 * math.pi / self.ring_count) for i in range(self.ring_count)]
+        self.rotation_speed = 0.003  # 라디안/밀리초
+        self.orbit_radius = 78
+        self.fade_amount = 1.0
+        self.reappear_duration = 5000
+        self.reappear_timer = self.reappear_duration
+        self.hit_flash_duration = 350
+        self.hit_flash_timer = 0
+        self.spark_particles: List[Dict] = []
+        self.current_angle = 0.0
+        self.ring_surface = self._create_ring_surface()
+        self.animation_frames: List[pygame.Surface] = []
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 6
+        self._generate_animation_frames()
+
+    def _create_ring_surface(self) -> pygame.Surface:
+        surface = pygame.Surface((32, 32), pygame.SRCALPHA)
+        center = 16
+        pygame.draw.circle(surface, (255, 220, 160, 200), (center, center), 14, 3)
+        pygame.draw.circle(surface, (255, 200, 120, 140), (center, center), 10, 2)
+        pygame.draw.circle(surface, (255, 245, 210, 220), (center, center), 6)
+        pygame.draw.circle(surface, (255, 255, 220, 240), (center, center), 3)
+        return surface
+
+    def _generate_animation_frames(self):
+        self.animation_frames.clear()
+        size = 60
+        for i in range(8):
+            frame_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+            _draw_common_legendary_frame(frame_surface, 0, 0, size, i * 160)
+            self._draw_icon_motif(frame_surface, size, i)
+            self.animation_frames.append(frame_surface)
+
+    def _draw_icon_motif(self, surface: pygame.Surface, size: int, frame_index: int):
+        center = size // 2
+        icon_radius = size * 0.32
+        rotation = frame_index * 0.25
+        for base_angle in self.base_angles:
+            angle = base_angle + rotation
+            x = center + math.cos(angle) * icon_radius
+            y = center + math.sin(angle) * icon_radius
+            pygame.draw.circle(surface, (255, 230, 150, 220), (int(x), int(y)), 5)
+            pygame.draw.circle(surface, (255, 255, 220, 255), (int(x), int(y)), 3)
+
+        pygame.draw.ellipse(surface, (180, 240, 210, 220), (center - 12, center - 4, 24, 8))
+        pygame.draw.ellipse(surface, (120, 200, 180, 160), (center - 10, center - 2, 20, 4))
+
+    def check_unlock_condition(self, game_stats: Dict) -> bool:
+        return game_stats.get("highest_stage_cleared", 0) >= 8
+
+    def activate(self, game_state: Dict):
+        super().activate(game_state)
+        self.fade_amount = 1.0
+        self.reappear_timer = self.reappear_duration
+        self.hit_flash_timer = 0
+        self.spark_particles.clear()
+        self.current_angle = 0.0
+
+    def deactivate(self):
+        self.active = False
+        self.spark_particles.clear()
+
+    def on_player_contact(self, impact_pos: Optional[Tuple[float, float]] = None):
+        if not self.active:
+            return
+        self.fade_amount = 0.0
+        self.reappear_timer = 0.0
+        self.hit_flash_timer = self.hit_flash_duration
+        self._spawn_hit_particles(impact_pos)
+
+    def _spawn_hit_particles(self, impact_pos: Optional[Tuple[float, float]]):
+        if impact_pos is None:
+            impact_pos = (0.0, 0.0)
+        cx, cy = impact_pos
+        for _ in range(18):
+            angle = random.uniform(0, math.tau)
+            speed = random.uniform(40, 120)
+            particle = {
+                'x': cx,
+                'y': cy,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'life': 400,
+                'max_life': 400,
+            }
+            self.spark_particles.append(particle)
+
+    def update(self, dt: float, ui_mode: bool = False):
+        super().update(dt, ui_mode)
+        if not self.active and not ui_mode:
+            return
+
+        self.current_angle = (self.current_angle + self.rotation_speed * dt) % (2 * math.pi)
+
+        if self.fade_amount < 1.0:
+            self.reappear_timer = min(self.reappear_timer + dt, self.reappear_duration)
+            self.fade_amount = min(1.0, self.reappear_timer / self.reappear_duration)
+
+        if self.hit_flash_timer > 0:
+            self.hit_flash_timer = max(0.0, self.hit_flash_timer - dt)
+
+        for particle in self.spark_particles[:]:
+            particle['life'] -= dt
+            if particle['life'] <= 0:
+                self.spark_particles.remove(particle)
+                continue
+            particle['x'] += particle['vx'] * (dt / 1000)
+            particle['y'] += particle['vy'] * (dt / 1000)
+            particle['vx'] *= 0.96
+            particle['vy'] *= 0.96
+
+    def draw_aura(self, screen: pygame.Surface, paddle_rect: pygame.Rect):
+        if not self.active:
+            return
+        fade = self.fade_amount
+        if fade <= 0 and not self.spark_particles:
+            return
+
+        center_x = paddle_rect.centerx
+        center_y = paddle_rect.centery
+        base_radius = max(paddle_rect.width, paddle_rect.height) * 0.55 + 28
+        breathing = math.sin(self.animation_time * 0.002) * 6
+        radius = base_radius + breathing
+
+        aura_surface = pygame.Surface((int(radius * 2) + 8, int(radius * 2) + 8), pygame.SRCALPHA)
+        aura_center = (aura_surface.get_width() // 2, aura_surface.get_height() // 2)
+        pygame.draw.circle(aura_surface, (255, 220, 150, int(70 * fade)), aura_center, int(radius))
+        pygame.draw.circle(aura_surface, (255, 240, 210, int(120 * fade)), aura_center, int(radius), 2)
+        screen.blit(aura_surface, aura_surface.get_rect(center=(center_x, center_y)))
+
+        for base_angle in self.base_angles:
+            angle = base_angle + self.current_angle
+            orbit = radius + math.sin(self.animation_time * 0.003 + angle) * 6
+            ring_x = center_x + math.cos(angle) * orbit
+            ring_y = center_y + math.sin(angle) * orbit
+            ring_sprite = self.ring_surface.copy()
+            ring_sprite.set_alpha(int(190 * fade))
+            screen.blit(ring_sprite, ring_sprite.get_rect(center=(ring_x, ring_y)))
+
+        if self.hit_flash_timer > 0:
+            alpha = int(220 * (self.hit_flash_timer / self.hit_flash_duration))
+            flash_radius = radius + 18
+            flash_surface = pygame.Surface((int(flash_radius * 2) + 6, int(flash_radius * 2) + 6), pygame.SRCALPHA)
+            flash_center = (flash_surface.get_width() // 2, flash_surface.get_height() // 2)
+            pygame.draw.circle(flash_surface, (255, 255, 255, alpha), flash_center, int(flash_radius), 3)
+            pygame.draw.circle(flash_surface, (255, 235, 200, alpha // 2), flash_center, int(flash_radius * 0.6), 0)
+            screen.blit(flash_surface, flash_surface.get_rect(center=(center_x, center_y)))
+
+    def draw_particles(self, screen: pygame.Surface):
+        for particle in self.spark_particles:
+            life_ratio = particle['life'] / particle['max_life'] if particle['max_life'] > 0 else 0
+            alpha = int(255 * life_ratio)
+            size = max(1, int(4 * life_ratio))
+            pygame.draw.circle(screen, (255, 240, 200, alpha), (int(particle['x']), int(particle['y'])), size)
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        import pygame
+
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time,
+                                                    border_color=COMMON_LEGENDARY_BORDER_COLOR,
+                                                    corner_color=COMMON_LEGENDARY_CORNER_COLOR)
+
+        if self.animation_frames:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+            icon_y = y + frame_offset + int(self.animation_offset)
+            current_icon = self.animation_frames[self.current_frame]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
 
 
 class RagnarokHammer(LegendaryItem):
