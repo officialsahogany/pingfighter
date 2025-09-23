@@ -19196,6 +19196,7 @@ def draw_player_gauge():
     global rolling_charges, rolling_cooldown  #  대쉬 토큰 표시용
     global gauge_charge_animation_timer, gauge_charge_animation_amount  # 충전 애니메이션
     global selected_character_type  # 캐릭터 타입 확인용
+    global soldier_emergency_supply_toast_timer
     # 필살기 게이지바 위치와 크기 - 엣지있는 주인공 스타일
     gauge_x = WIDTH - 40  # 오른쪽에서 40px
     gauge_y = HEIGHT - 200  # 하단에서 200px 위 (살짝 조정)
