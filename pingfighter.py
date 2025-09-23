@@ -13975,7 +13975,11 @@ def handle_player(keys):
                             check_tutorial_dash_missions_complete()
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
-                        dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
+                        dash.sync_with_legacy_system(
+                            _rolling_get("rolling_charges"),
+                            _rolling_get("rolling_charge_timer"),
+                            _rolling_get("rolling_consecutive_count"),
+                        )
                     # 기본 게이지 소모량
                     base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                     
@@ -14132,7 +14136,11 @@ def handle_player(keys):
                             check_tutorial_dash_missions_complete()
                     #  대쉬 매니저와 동기화 - 토큰 소모 및 충전 타이머 설정
                     if dash is not None:
-                        dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
+                        dash.sync_with_legacy_system(
+                            _rolling_get("rolling_charges"),
+                            _rolling_get("rolling_charge_timer"),
+                            _rolling_get("rolling_consecutive_count"),
+                        )
                     # 기본 게이지 소모량
                     base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
                     
