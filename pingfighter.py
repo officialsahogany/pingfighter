@@ -34241,6 +34241,7 @@ def apply_selected_items(
     global dashholder_obtained
     global gravitybelt_obtained, items, rolling_charges
     global hermes_shoes_obtained  # 헤르메스의 신발 전역 변수 추가
+    global sacred_laurel_obtained  # 신성 월계수 전역 변수
     
     if selected_legendary_items is None:
         selected_legendary_items = []
