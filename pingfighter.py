@@ -4641,8 +4641,8 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         return
 
     if blacksmith_hammer_shock_charging and 'PLAYER' in globals() and PLAYER is not None:
-        cx = PLAYER.right + 18 + offset_x
-        cy = PLAYER.centery - 20 + offset_y
+        cx = int(round(PLAYER.right + 18 + offset_x))
+        cy = int(round(PLAYER.centery - 20 + offset_y))
         _draw_blacksmith_hammer_charge_effect(
             surface,
             cx,
