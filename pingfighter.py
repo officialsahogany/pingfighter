@@ -34363,7 +34363,6 @@ def apply_selected_items(
     global dashholder_obtained
     global gravitybelt_obtained, items, rolling_charges
     global hermes_shoes_obtained  # 헤르메스의 신발 전역 변수 추가
-    global sacred_laurel_obtained  # 신성 월계수 전역 변수
     
     if selected_legendary_items is None:
         selected_legendary_items = []
@@ -34399,7 +34398,7 @@ def apply_selected_items(
             "type": "passive"
         }
         # 전설 아이템(포세이돈 삼지창, 라그나로크 해머, 헤르메스 신발)은 store_passive_item에서 추가하므로 여기서는 추가하지 않음
-        if item_name not in ["poseidon_trident", "ragnarok_hammer", "hermes_shoes", "sacred_laurel_removed"]:
+        if item_name not in ["poseidon_trident", "ragnarok_hammer", "hermes_shoes"]:
             item_state_adapter.append_passive_item(item_data)
         # 아이템 효과 적용
         if item_name == "speedboots":
@@ -34416,9 +34415,6 @@ def apply_selected_items(
             items.poseidon_trident_obtained = True
             print(f"[DEBUG apply_selected_items] After: items.poseidon_trident_obtained = {items.poseidon_trident_obtained}")
             # store_passive_item을 호출하여 일관된 처리
-            store_passive_item(item_data)
-        elif item_name == "sacred_laurel_removed":
-            items.sacred_laurel_obtained = True
             store_passive_item(item_data)
         elif item_name == "speedgear":
             speedgear_obtained = True
