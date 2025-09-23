@@ -28631,8 +28631,6 @@ def calculate_bounce(paddle):
         speed *= base_multiplier
         #  임팩트 부스트 적용 (이제 최소 1.5배 보장)
         ball_impact_boost = dynamic_boost
-        if laurel_absorbed:
-            ball_impact_boost = min(ball_impact_boost, 1.12)
         print(f"  :   {base_multiplier:.2f}x,  {dynamic_boost:.2f}x,  : {speed:.1f}")
     else:
         # 일반 충돌 시 동일한 가속 (완화된 증가율)
@@ -28640,8 +28638,6 @@ def calculate_bounce(paddle):
         speed *= base_multiplier
         #  임팩트 부스트 적용
         ball_impact_boost = dynamic_boost
-        if laurel_absorbed:
-            ball_impact_boost = min(ball_impact_boost, 1.12)
     #  보스 충돌 처리 (플레이어가 아닌 경우)
     if not is_player_paddle:
         # 보스 충돌 시 추가 가속 (속도에 관계없이 일정, 크게 완화)
