@@ -805,7 +805,7 @@ def spawn_random_item():
     import skill
     skill_spawn_boost = skill.apply_item_spawn_boost(1.0)  # 기본 확률 1.0에 스킬 효과 적용
 
-    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel_removed"}
+    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
     try:
         legendary_multiplier = academy.get_treasure_map_field_multiplier()
     except Exception:
@@ -888,14 +888,6 @@ def spawn_random_item():
                     legendary_manager._init_legendary_items()
 
         # 신성 월계수도 동일하게 초기화만 수행해 아이콘 애니메이션이 가능하도록 함
-        if selected_item["name"] == "sacred_laurel_removed":
-            from legendary_items import get_legendary_manager
-            legendary_manager = get_legendary_manager()
-            if legendary_manager:
-                laurel = legendary_manager.get_item("sacred_laurel_removed")
-                if not laurel:
-                    legendary_manager._init_legendary_items()
-
 
 def update_items(player_rect, apply_effect_func, store_passive_func=None, store_active_func=None, sound_item_get=None):
     global item_list
