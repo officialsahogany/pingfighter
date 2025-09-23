@@ -2,6 +2,7 @@ import types
 import unittest
 
 from game_logic.legacy_state_bridge import (
+    BALL_KEYS,
     LEGACY_STATE_KEYS,
     PLAYER_KEYS,
     legacy_ball_sync,
