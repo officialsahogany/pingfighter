@@ -71,7 +71,7 @@ class ItemManager:
             return False
             
         # 확률 계산
-        legendary_names = {'ragnarok_hammer', 'hermes_shoes', 'poseidon_trident'}
+        legendary_names = {'ragnarok_hammer', 'hermes_shoes', 'poseidon_trident', 'sacred_laurel'}
         try:
             legendary_multiplier = academy.get_treasure_map_field_multiplier()
         except Exception:
