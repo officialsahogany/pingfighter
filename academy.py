@@ -122,7 +122,7 @@ SKILL_TREES = {
             {
                 "id": "item_luck",
                 "name": "행운",
-                "description": "아이템 스폰 대기시간 6% 감소\n(Lv5: 추가 -5%)",
+                "description": "아이템 스폰 대기시간 6% 감소\nLv5 달성 시 보너스: 딜레이 -6% 추가 보너스",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (255, 150, 100),
@@ -2977,7 +2977,7 @@ class AcademyUI:
             multiplier = compute_item_spawn_delay_multiplier(current_level)
             lines.append(f"현재: 딜레이 {multiplier * 100:.1f}%")
             if current_level >= 5:
-                lines.append("보너스: 추가 -5% 적용")
+                lines.append("보너스: 추가 -6% 적용")
         elif skill_id == "item_cooldown_mastery":
             multiplier = compute_item_cooldown_multiplier(current_level)
             lines.append(f"현재: 쿨타임 {multiplier * 100:.1f}%")
@@ -3058,7 +3058,7 @@ class AcademyUI:
             multiplier = compute_item_spawn_delay_multiplier(next_level)
             lines.append(f"다음: 딜레이 {multiplier * 100:.1f}%")
             if next_level >= 5:
-                lines.append("보너스: 추가 -5% 적용")
+                lines.append("보너스: 추가 -6% 적용")
         elif skill_id == "item_cooldown_mastery":
             multiplier = compute_item_cooldown_multiplier(next_level)
             lines.append(f"다음: 쿨타임 {multiplier * 100:.1f}%")
@@ -3676,7 +3676,7 @@ def compute_item_spawn_delay_multiplier(level):
     """행운 스킬 레벨을 받아 실제 딜레이 배율 계산"""
     base = max(0.05, 1.0 - 0.06 * level)
     if level >= 5:
-        base = max(0.05, base - 0.05)
+        base = max(0.05, base - 0.06)
     return base
 
 
