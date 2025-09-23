@@ -1914,37 +1914,122 @@ class SacredLaurel(LegendaryItem):
             velocity[1] *= self.absorption_multiplier
         return True
 
-    def _create_ring_surface(self) -> pygame.Surface:
-        surface = pygame.Surface((32, 32), pygame.SRCALPHA)
-        center = 16
-        pygame.draw.circle(surface, (255, 220, 160, 200), (center, center), 14, 3)
-        pygame.draw.circle(surface, (255, 200, 120, 140), (center, center), 10, 2)
-        pygame.draw.circle(surface, (255, 245, 210, 220), (center, center), 6)
-        pygame.draw.circle(surface, (255, 255, 220, 240), (center, center), 3)
-        return surface
+    def _create_base_ring_surfaces(self) -> Tuple[pygame.Surface, pygame.Surface]:
+        width = 256
+        height = max(72, int(width * self.tilt_ratio))
+        base_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        highlight_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+        outer_rect = pygame.Rect(0, 0, width, height)
+        ring_thickness = max(8, height // 4)
+
+        # 기본 링 – 다층 하이라이트와 그라데이션
+        for i in range(3):
+            alpha = 68 - i * 16
+            if alpha <= 0:
+                continue
+            pygame.draw.ellipse(
+                base_surface,
+                (185 + i * 10, 215, 255, alpha),
+                outer_rect.inflate(-i * 4, -i * 2),
+                max(2, ring_thickness - i * 2)
+            )
+
+        inner_rect = outer_rect.inflate(-ring_thickness * 0.8, -ring_thickness * 0.6)
+        pygame.draw.ellipse(base_surface, (90, 140, 210, 42), inner_rect, max(1, ring_thickness // 4))
+
+        haze_rect = outer_rect.inflate(0, 6)
+        pygame.draw.ellipse(base_surface, (120, 160, 220, 32), haze_rect, 0)
+
+        # 하이라이트는 별도 서피스에 두고 회전시켜 사용
+        highlight_span = math.radians(55)
+        start_angle = -highlight_span / 2
+        pygame.draw.arc(
+            highlight_surface,
+            (255, 245, 220, 190),
+            outer_rect.inflate(-2, -2),
+            start_angle,
+            start_angle + highlight_span,
+            ring_thickness
+        )
+        pygame.draw.arc(
+            highlight_surface,
+            (255, 215, 170, 140),
+            outer_rect.inflate(-6, -4),
+            start_angle + highlight_span * 0.18,
+            start_angle + highlight_span * 0.85,
+            max(2, ring_thickness - 4)
+        )
+        glint_rect = outer_rect.inflate(-16, -8)
+        pygame.draw.arc(
+            highlight_surface,
+            (255, 255, 255, 180),
+            glint_rect,
+            start_angle + highlight_span * 0.35,
+            start_angle + highlight_span * 0.55,
+            max(1, ring_thickness - 6)
+        )
+
+        return base_surface, highlight_surface
+
+    def _get_scaled_ring_surfaces(self, radius: int) -> Tuple[pygame.Surface, pygame.Surface]:
+        key = max(16, int(radius))
+        cached = self._ring_cache.get(key)
+        if cached:
+            return cached
+
+        ring_width = key * 2
+        ring_height = max(26, int(ring_width * self.tilt_ratio))
+        base_scaled = pygame.transform.smoothscale(self.base_ring_surface, (ring_width, ring_height))
+        highlight_scaled = pygame.transform.smoothscale(self.base_highlight_surface, (ring_width, ring_height))
+        self._ring_cache[key] = (base_scaled, highlight_scaled)
+        return self._ring_cache[key]
+
+    def _spawn_ring_glints(self):
+        self.spark_particles.clear()
+        base_angle = math.radians(self.rotation_angle)
+        for offset in [-0.35, -0.1, 0.18, 0.42, 0.65, 0.9]:
+            self.spark_particles.append({
+                'angle': (base_angle + offset) % (2 * math.pi),
+                'life': 380.0,
+                'max_life': 380.0,
+                'angular_velocity': 0.00085,
+                'radius_multiplier': 1.0 + random.uniform(-0.06, 0.06)
+            })
 
     def _generate_animation_frames(self):
         self.animation_frames.clear()
         size = 60
-        for i in range(8):
+        base_rect = pygame.Rect(6, size // 2 - 8, size - 12, 16)
+        ring_thickness = 6
+
+        for i in range(24):
             frame_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-            _draw_common_legendary_frame(frame_surface, 0, 0, size, i * 160)
-            self._draw_icon_motif(frame_surface, size, i)
+            _draw_common_legendary_frame(frame_surface, 0, 0, size, i * 120)
+            pygame.draw.ellipse(frame_surface, (185, 215, 255, 170), base_rect, ring_thickness)
+            inner_rect = base_rect.inflate(-10, -4)
+            pygame.draw.ellipse(frame_surface, (90, 140, 210, 70), inner_rect, 1)
+
+            highlight_start = math.radians((360 / 24) * i)
+            highlight_span = math.radians(55)
+            pygame.draw.arc(
+                frame_surface,
+                (255, 245, 220, 200),
+                base_rect.inflate(2, 2),
+                highlight_start,
+                highlight_start + highlight_span,
+                ring_thickness
+            )
+            pygame.draw.arc(
+                frame_surface,
+                (255, 255, 255, 160),
+                base_rect.inflate(-4, -2),
+                highlight_start + highlight_span * 0.3,
+                highlight_start + highlight_span * 0.6,
+                max(2, ring_thickness - 2)
+            )
+
             self.animation_frames.append(frame_surface)
-
-    def _draw_icon_motif(self, surface: pygame.Surface, size: int, frame_index: int):
-        center = size // 2
-        icon_radius = size * 0.32
-        rotation = frame_index * 0.25
-        for base_angle in self.base_angles:
-            angle = base_angle + rotation
-            x = center + math.cos(angle) * icon_radius
-            y = center + math.sin(angle) * icon_radius
-            pygame.draw.circle(surface, (255, 230, 150, 220), (int(x), int(y)), 5)
-            pygame.draw.circle(surface, (255, 255, 220, 255), (int(x), int(y)), 3)
-
-        pygame.draw.ellipse(surface, (180, 240, 210, 220), (center - 12, center - 4, 24, 8))
-        pygame.draw.ellipse(surface, (120, 200, 180, 160), (center - 10, center - 2, 20, 4))
 
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         return game_stats.get("highest_stage_cleared", 0) >= 8
