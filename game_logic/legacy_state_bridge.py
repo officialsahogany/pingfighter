@@ -1,4 +1,4 @@
-"레거시 전역 상태를 GameLoop 상태에 동기화하기 위한 브릿지.
+"""레거시 전역 상태를 GameLoop 상태에 동기화하기 위한 브릿지."""
 from __future__ import annotations
 
 from types import ModuleType

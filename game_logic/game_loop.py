@@ -15,7 +15,13 @@ from core.game_variables import get_game_vars
 from core.game_state import GameState as CoreGameState
 from game_logic.legacy_state_bridge import (
     prime_store_from_namespace,
+    sync_ball_state_to_namespace,
+    sync_draw_state_to_namespace,
+    sync_namespace_ball_state,
+    sync_namespace_draw_state,
+    sync_namespace_player_state,
     sync_namespace_to_state,
+    sync_player_state_to_namespace,
     sync_state_to_namespace,
 )
 
