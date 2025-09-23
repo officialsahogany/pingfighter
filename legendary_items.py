@@ -49,15 +49,23 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
 
     # 파란색 원형 배경 애니메이션 (외곽/중앙 두 겹으로 펄싱)
     pulse = (math.sin(animation_time * 0.004) + 1) / 2  # 0~1
-    base_radius = max(6, int(size * 0.42))
-    outer_radius = min(size // 2, int(base_radius + size * 0.05 * pulse))
-    inner_radius = max(4, int(outer_radius * 0.65))
+    pulse_bucket = int(pulse * 20)  # 캐시 양자화 단계 (0~20)
+    cache_key = (size, pulse_bucket)
 
-    glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-    center = (size // 2, size // 2)
-    pygame.draw.circle(glow_surface, (40, 120, 255, 90), center, outer_radius)
-    pygame.draw.circle(glow_surface, (90, 190, 255, 160), center, int(outer_radius * 0.85))
-    pygame.draw.circle(glow_surface, (170, 230, 255, 200), center, inner_radius)
+    glow_surface = _COMMON_LEGENDARY_BG_CACHE.get(cache_key)
+    if glow_surface is None:
+        pulse_ratio = pulse_bucket / 20 if pulse_bucket else 0
+        base_radius = max(6, int(size * 0.42))
+        outer_radius = min(size // 2, int(base_radius + size * 0.05 * pulse_ratio))
+        inner_radius = max(4, int(outer_radius * 0.65))
+
+        glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        center = (size // 2, size // 2)
+        pygame.draw.circle(glow_surface, (40, 120, 255, 90), center, outer_radius)
+        pygame.draw.circle(glow_surface, (90, 190, 255, 160), center, int(outer_radius * 0.85))
+        pygame.draw.circle(glow_surface, (170, 230, 255, 200), center, inner_radius)
+        _COMMON_LEGENDARY_BG_CACHE[cache_key] = glow_surface
+
     screen.blit(glow_surface, (x, frame_y))
 
     # 공통 테두리와 코너 장식
