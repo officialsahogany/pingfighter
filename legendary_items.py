@@ -2056,23 +2056,6 @@ class SacredLaurel(LegendaryItem):
         self.contact_flash = 1.0
         self._spawn_ring_glints()
 
-    def _spawn_hit_particles(self, impact_pos: Optional[Tuple[float, float]]):
-        if impact_pos is None:
-            impact_pos = (0.0, 0.0)
-        cx, cy = impact_pos
-        for _ in range(18):
-            angle = random.uniform(0, math.tau)
-            speed = random.uniform(40, 120)
-            particle = {
-                'x': cx,
-                'y': cy,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
-                'life': 400,
-                'max_life': 400,
-            }
-            self.spark_particles.append(particle)
-
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
         if not self.active and not ui_mode:
