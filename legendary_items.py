@@ -33,30 +33,56 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
                                  x: int,
                                  y: int,
                                  size: int,
-                                 border_color: Tuple[int, int, int] = (200, 200, 220),
-                                 corner_color: Tuple[int, int, int] = (255, 215, 0)) -> None:
-    """전설 아이콘의 공통 배경 프레임을 그린다."""
-    border_rect = pygame.Rect(x - 1, y - 1, size + 2, size + 2)
+                                 animation_time: float,
+                                 border_color: Tuple[int, int, int] = (180, 200, 255),
+                                 corner_color: Tuple[int, int, int] = (255, 215, 0)) -> int:
+    """전설 아이콘의 공통 배경 프레임을 그린다.
+
+    Returns:
+        int: 프레임과 아이콘에 적용할 Y 오프셋 (살짝 위아래로 흔들리는 효과).
+    """
+    # 테두리와 배경이 부드럽게 흔들리도록 오프셋 계산
+    frame_offset = int(math.sin(animation_time * 0.0025) * 2)
+    frame_y = y + frame_offset
+
+    # 파란색 원형 배경 애니메이션 (외곽/중앙 두 겹으로 펄싱)
+    pulse = (math.sin(animation_time * 0.004) + 1) / 2  # 0~1
+    base_radius = max(6, int(size * 0.42))
+    outer_radius = min(size // 2, int(base_radius + size * 0.05 * pulse))
+    inner_radius = max(4, int(outer_radius * 0.65))
+
+    glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = (size // 2, size // 2)
+    pygame.draw.circle(glow_surface, (40, 120, 255, 90), center, outer_radius)
+    pygame.draw.circle(glow_surface, (90, 190, 255, 160), center, int(outer_radius * 0.85))
+    pygame.draw.circle(glow_surface, (170, 230, 255, 200), center, inner_radius)
+    screen.blit(glow_surface, (x, frame_y))
+
+    # 공통 테두리와 코너 장식
+    border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
     pygame.draw.rect(screen, border_color, border_rect, 2)
 
     corner_size = 8
     pygame.draw.lines(screen, corner_color, False,
-                      [(x - 2, y + corner_size), (x - 2, y - 2), (x + corner_size, y - 2)], 2)
+                      [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
     pygame.draw.lines(screen, corner_color, False,
-                      [(x + size - corner_size + 2, y - 2), (x + size + 2, y - 2), (x + size + 2, y + corner_size)], 2)
+                      [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
     pygame.draw.lines(screen, corner_color, False,
-                      [(x - 2, y + size - corner_size + 2), (x - 2, y + size + 2), (x + corner_size, y + size + 2)], 2)
+                      [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
     pygame.draw.lines(screen, corner_color, False,
-                      [(x + size - corner_size + 2, y + size + 2), (x + size + 2, y + size + 2), (x + size + 2, y + size - corner_size + 2)], 2)
+                      [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
 
-    for cx, cy in [(x, y), (x + size, y), (x, y + size), (x + size, y + size)]:
+    for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
         pygame.draw.circle(screen, corner_color, (cx, cy), 2)
+
+    return frame_offset
 
 
 def _strip_legendary_red_ring(frame: pygame.Surface,
                               red_threshold: int = 150,
                               green_threshold: int = 100,
-                              blue_threshold: int = 100) -> pygame.Surface:
+                              blue_threshold: int = 100,
+                              background_rules: Optional[List] = None) -> pygame.Surface:
     """전설 아이콘 PNG에 포함된 붉은 배경 링을 투명화한다."""
     cleaned_frame = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
     width, height = frame.get_size()
@@ -66,8 +92,20 @@ def _strip_legendary_red_ring(frame: pygame.Surface,
             color = frame.get_at((px, py))
             if color.a == 0:
                 continue
+
+            remove = False
             if color.r > red_threshold and color.g < green_threshold and color.b < blue_threshold:
+                remove = True
+
+            if not remove and background_rules:
+                for rule in background_rules:
+                    if rule(color):
+                        remove = True
+                        break
+
+            if remove:
                 continue
+
             cleaned_frame.set_at((px, py), color)
 
     return cleaned_frame
