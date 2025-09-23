@@ -5612,6 +5612,8 @@ def blacksmith_has_available_buildings() -> bool:
         return False
     if blacksmith_turret_blueprint_active or blacksmith_divine_blueprint_active:
         return False
+    if blacksmith_hammer_shock_charging or not blacksmith_hammer_available:
+        return False
     turret_available = not blacksmith_turret_active and not blacksmith_turret_blueprint_active
     divine_available = (
         blacksmith_divine_stone_state is None
