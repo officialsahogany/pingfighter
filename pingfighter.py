@@ -7405,6 +7405,7 @@ def go_to_next_round():
     boss_throw_timer = 0
     #  AI 알약 상태 초기화
     aipill_active = False
+    deactivate_doping_potion()
     #  대시 상태 초기화
     rolling_active = False
     rolling_timer = 0

@@ -197,6 +197,10 @@ class GlobalManager:
             'long_boost_timer': 0,
             'LONG_BOOST_DURATION': 360,
             'LONG_BOOST_TRANSITION_TIME': 60,
+            'doping_potion_active': False,
+            'doping_potion_timer_frames': 0,
+            'doping_potion_duration_frames': 480,
+            'doping_potion_refresh': False,
             
             # 메뉴/UI 관련
             'menu_selected': 0,
