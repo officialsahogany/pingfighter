@@ -1893,6 +1893,10 @@ class SacredLaurel(LegendaryItem):
         self.base_ring_surface, self.base_highlight_surface = self._create_base_ring_surfaces()
         self._last_ring_geometry: Optional[Tuple[float, float, float, float]] = None
         self._generate_animation_frames()
+        self.segment_count = 28
+        self.segment_radius_scale = 0.9
+        self.segment_wave_speed = 0.16
+        self.segment_color_phase = random.uniform(0, math.tau)
 
     def can_absorb(self) -> bool:
         """현재 보호막이 충격을 흡수할 수 있는지 확인"""
@@ -2062,6 +2066,7 @@ class SacredLaurel(LegendaryItem):
             return
 
         self.rotation_angle = (self.rotation_angle + self.rotation_speed * dt) % 360.0
+        self.segment_color_phase = (self.segment_color_phase + self.segment_wave_speed * dt * 0.001) % (2 * math.pi)
 
         if self.fade_amount < 1.0:
             self.reappear_timer = min(self.reappear_timer + dt, self.reappear_duration)
