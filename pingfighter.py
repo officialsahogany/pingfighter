@@ -3606,10 +3606,14 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     lift_curve = shield_amount ** 1.1  # 0~1 범위, 후반부에서 더 많이 들어 올리기
 
     hammer_amount = max(0.0, min(1.0, hammer_swing))
-    hammer_raise = min(1.0, hammer_amount * 1.25)
-    hammer_drop = max(0.0, (hammer_amount - 0.45) * 1.9)
-    hammer_raise = max(0.0, min(1.0, hammer_raise))
-    hammer_drop = max(0.0, min(1.0, hammer_drop))
+    hammer_prepare_phase = min(1.0, hammer_amount * 1.35)
+    hammer_prepare_curve = math.sin(hammer_prepare_phase * (math.pi / 2)) if hammer_prepare_phase > 0 else 0.0
+    hammer_release_phase = 0.0
+    if hammer_amount > 0.3:
+        hammer_release_phase = min(1.0, (hammer_amount - 0.3) / 0.7)
+    hammer_release_curve = math.sin(hammer_release_phase * (math.pi / 2)) if hammer_release_phase > 0 else 0.0
+    hammer_raise = max(0.0, min(1.0, hammer_prepare_curve))
+    hammer_drop = max(0.0, min(1.0, hammer_release_curve))
 
     # 방패를 들며 몸 쪽으로 끌어당기는 느낌을 위해 팔 좌표 보정
     arm_dx = int(round(-3 * lift_curve))
@@ -3725,22 +3729,25 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     _draw_blacksmith_shield(surface, shield_center, angle_deg=swing_angle)
 
     # 오른팔과 망치 - 이동 시 자연스러운 기합 자세 유지
-    hammer_arm_backward = int(round(6 * hammer_raise))
-    hammer_arm_forward_hit = int(round(14 * hammer_drop))
+    hammer_arm_backward = int(round(18 * hammer_raise))
+    hammer_arm_forward_hit = int(round(46 * hammer_drop))
     hammer_arm_forward = hammer_arm_forward_hit - hammer_arm_backward
-    hammer_arm_drop = int(round(4 * hammer_raise)) + int(round(18 * hammer_drop))
+    hammer_arm_drop = int(round(10 * hammer_raise)) + int(round(56 * hammer_drop))
+    hammer_shoulder_lift = int(round(12 * hammer_raise))
+    hammer_shoulder_dip = int(round(6 * hammer_drop))
+    hammer_forward_twist = int(round(12 * hammer_drop))
 
     right_shoulder = (
-        cx + 24 - hammer_arm_forward + int(round(2 * hammer_drop)) + right_arm_offset_x,
-        torso_y + hammer_arm_drop // 4 + right_arm_offset_y // 2 - shoulder_roll
+        cx + 28 + hammer_forward_twist - hammer_arm_forward + right_arm_offset_x + lean_push,
+        torso_y - hammer_shoulder_lift + hammer_shoulder_dip + right_arm_offset_y // 2 - shoulder_roll
     )
     right_elbow = (
-        cx + 42 - hammer_arm_forward + right_arm_offset_x,
-        torso_y + 12 + hammer_arm_drop // 2 + right_arm_offset_y // 2
+        cx + 46 + hammer_forward_twist - hammer_arm_forward + right_arm_offset_x + lean_push,
+        torso_y + 12 - int(round(8 * hammer_raise)) + hammer_arm_drop // 2 + right_arm_offset_y // 2
     )
     right_wrist = (
-        cx + 48 - hammer_arm_forward // 2 + right_arm_offset_x,
-        torso_y + 26 + hammer_arm_drop + right_arm_offset_y + wrist_pitch
+        cx + 56 + hammer_forward_twist - hammer_arm_forward // 2 + right_arm_offset_x + lean_push,
+        torso_y + 24 - int(round(10 * hammer_raise)) + hammer_arm_drop + right_arm_offset_y + wrist_pitch + int(round(18 * hammer_drop))
     )
     pygame.draw.polygon(surface, (132, 108, 82), [
         (right_shoulder[0] - 6, right_shoulder[1] + 2),
@@ -3756,19 +3763,19 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     ])
     pygame.draw.circle(surface, (205, 185, 155), (right_wrist[0] + 6, right_wrist[1] + 4), 6)
 
-    hammer_ax = right_wrist[0] + 6 - int(round(8 * hammer_raise)) + int(round(10 * hammer_drop))
-    hammer_ay = torso_y - 6 - int(round(22 * hammer_raise)) + int(round(36 * hammer_drop)) + right_arm_offset_y + wrist_pitch
+    hammer_ax = right_wrist[0] + int(round(20 * hammer_drop)) - int(round(12 * hammer_raise))
+    hammer_ay = right_wrist[1] - int(round(30 * hammer_raise)) + int(round(38 * hammer_drop))
 
     hammer_head = pygame.Rect(0, 0, 40, 22)
     hammer_head.center = (hammer_ax, hammer_ay)
 
     handle = pygame.Rect(0, 0, 10, 46)
-    handle.centerx = hammer_ax
-    handle.top = hammer_head.centery - 2 - int(round(10 * hammer_raise)) + int(round(12 * hammer_drop)) + right_arm_offset_y // 2
+    handle.centerx = hammer_ax - int(round(4 * hammer_drop))
+    handle.top = hammer_head.centery - 4 - int(round(18 * hammer_raise)) + int(round(32 * hammer_drop)) + right_arm_offset_y // 2
     pygame.draw.rect(surface, (90, 60, 36), handle, border_radius=3)
     handle_cap = pygame.Rect(0, 0, 6, 10)
     handle_cap.centerx = hammer_ax
-    handle_cap.bottom = hammer_head.top + 6
+    handle_cap.bottom = hammer_head.top + 4 - int(round(4 * hammer_drop))
     pygame.draw.rect(surface, (90, 60, 36), handle_cap, border_radius=2)
     for stripe_y in range(handle.top + 4, handle.bottom, 6):
         pygame.draw.line(surface, (60, 35, 18), (handle.left + 2, stripe_y), (handle.right - 2, stripe_y + 2), 2)
