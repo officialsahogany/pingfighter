@@ -1676,7 +1676,7 @@ class HolyLaurel(LegendaryItem):
         self.animation_frames: List[pygame.Surface] = []
         self.current_frame = 0
         self.frame_counter = 0
-        self.animation_speed = 8  # 포세이돈 삼지창과 동일한 프레임 속도 유지
+        self.animation_speed = 8  # 기본값 (포세이돈 삼지창과 동일 속도로 덮어씀)
         self._prepare_frames()
 
     def _prepare_frames(self) -> None:
@@ -1687,6 +1687,8 @@ class HolyLaurel(LegendaryItem):
                 self.icon_frames = [frame.copy() for frame in poseidon_preview.icon_frames]
             if poseidon_preview.animation_frames:
                 self.animation_frames = [frame.copy() for frame in poseidon_preview.animation_frames]
+            self.animation_speed = getattr(poseidon_preview, "animation_speed", self.animation_speed)
+            self.frame_counter = getattr(poseidon_preview, "frame_counter", 0)
         except Exception:
             self.icon_frames = []
             self.animation_frames = []
