@@ -12000,6 +12000,18 @@ def draw_soldier_weapon_ui(screen):
 
         screen.blit(weapon_surface, (name_x, name_y))
 
+        if selected_character_type == "soldier" and doping_potion_active and doping_potion_timer > 0:
+            doping_ratio = doping_potion_timer / max(1, DOPING_POTION_DURATION_FRAMES)
+            buff_text = FontStyle.tiny().render("도핑 x2", True, (190, 255, 210))
+            buff_rect = buff_text.get_rect(center=(weapon_rect.centerx, weapon_rect.bottom + 12))
+            screen.blit(buff_text, buff_rect)
+            bar_width = weapon_rect.width
+            bar_height = 4
+            bar_x = weapon_rect.left
+            bar_y = weapon_rect.bottom + 16
+            pygame.draw.rect(screen, (40, 70, 50), (bar_x, bar_y, bar_width, bar_height))
+            pygame.draw.rect(screen, (120, 220, 160), (bar_x, bar_y, int(bar_width * doping_ratio), bar_height))
+
         if current_weapon != "pistol" and current_weapon in soldier_controller.degraded:
             degrade_color = (220, 50, 50)
             degrade_font_size = max(16, font_size - 2)
