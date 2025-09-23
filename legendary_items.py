@@ -2052,7 +2052,8 @@ class SacredLaurel(LegendaryItem):
         self.fade_amount = 0.0
         self.reappear_timer = 0.0
         self.hit_flash_timer = self.hit_flash_duration
-        self._spawn_hit_particles(impact_pos)
+        self.contact_flash = 1.0
+        self._spawn_ring_glints()
 
     def _spawn_hit_particles(self, impact_pos: Optional[Tuple[float, float]]):
         if impact_pos is None:
@@ -2076,7 +2077,7 @@ class SacredLaurel(LegendaryItem):
         if not self.active and not ui_mode:
             return
 
-        self.current_angle = (self.current_angle + self.rotation_speed * dt) % (2 * math.pi)
+        self.rotation_angle = (self.rotation_angle + self.rotation_speed * dt) % 360.0
 
         if self.fade_amount < 1.0:
             self.reappear_timer = min(self.reappear_timer + dt, self.reappear_duration)
@@ -2084,16 +2085,17 @@ class SacredLaurel(LegendaryItem):
 
         if self.hit_flash_timer > 0:
             self.hit_flash_timer = max(0.0, self.hit_flash_timer - dt)
+            self.contact_flash = max(self.contact_flash, self.hit_flash_timer / self.hit_flash_duration)
 
-        for particle in self.spark_particles[:]:
-            particle['life'] -= dt
-            if particle['life'] <= 0:
-                self.spark_particles.remove(particle)
+        if self.contact_flash > 0.0:
+            self.contact_flash = max(0.0, self.contact_flash - dt / (self.hit_flash_duration * 1.8))
+
+        for sparkle in self.spark_particles[:]:
+            sparkle['life'] -= dt
+            if sparkle['life'] <= 0:
+                self.spark_particles.remove(sparkle)
                 continue
-            particle['x'] += particle['vx'] * (dt / 1000)
-            particle['y'] += particle['vy'] * (dt / 1000)
-            particle['vx'] *= 0.96
-            particle['vy'] *= 0.96
+            sparkle['angle'] = (sparkle['angle'] + sparkle['angular_velocity'] * dt) % (2 * math.pi)
 
     def draw_aura(self, screen: pygame.Surface, paddle_rect: pygame.Rect):
         if not self.active:
