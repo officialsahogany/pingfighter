@@ -4171,6 +4171,76 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             if distance <= BLACKSMITH_TURRET_BUILD_RADIUS:
                 hammer_engaged_this_frame = True
 
+    if (
+        blacksmith_divine_blueprint_active
+        and blacksmith_divine_blueprint_rect is not None
+        and blacksmith_divine_stone_state is None
+    ):
+        if down_pressed:
+            distance = abs(PLAYER.centerx - blacksmith_divine_blueprint_rect.centerx)
+            if distance <= BLACKSMITH_DIVINE_BUILD_RADIUS:
+                if not blacksmith_hammer_swing_active:
+                    blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_active = True
+                blacksmith_hammer_swing_phase = (
+                    blacksmith_hammer_swing_phase + 1
+                ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
+                hammer_engaged_this_frame = True
+                drain_per_frame = BLACKSMITH_DIVINE_GAUGE_DRAIN_PER_SEC / FPS
+                gauge_spent = False
+                if special_gauge > 0:
+                    construction_active = True
+                    blacksmith_divine_partial_drain += drain_per_frame
+                    drain_units = int(blacksmith_divine_partial_drain)
+                    if drain_units > 0:
+                        actual_drain = min(drain_units, special_gauge)
+                        if actual_drain > 0:
+                            special_gauge -= actual_drain
+                            blacksmith_divine_partial_drain -= actual_drain
+                            special_ready = special_gauge >= 350
+                            gauge_spent = True
+                if gauge_spent:
+                    blacksmith_divine_build_progress = min(
+                        BLACKSMITH_DIVINE_BUILD_TIME,
+                        blacksmith_divine_build_progress + 1,
+                    )
+                    if frame_counter % 6 == 0:
+                        smoke_x = blacksmith_divine_blueprint_rect.centerx + random.uniform(-6, 6)
+                        smoke_y = blacksmith_divine_blueprint_rect.bottom - BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT + random.uniform(-6, 4)
+                        effects_manager.spawn_construction_smoke(smoke_x, smoke_y, count=2)
+                    if blacksmith_divine_build_progress >= BLACKSMITH_DIVINE_BUILD_TIME:
+                        stone_width, stone_height = BLACKSMITH_DIVINE_STONE_SIZE
+                        stone_rect = pygame.Rect(0, 0, stone_width, stone_height)
+                        anchor_y = blacksmith_divine_blueprint_rect.bottom - BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT
+                        stone_rect.midbottom = (blacksmith_divine_blueprint_rect.centerx, anchor_y)
+                        blacksmith_divine_stone_state = {
+                            "rect": stone_rect,
+                            "hp": BLACKSMITH_DIVINE_STONE_MAX_HP,
+                            "pulse": 0,
+                            "cooldown": 0,
+                        }
+                        effects_manager.spawn_star_particles(stone_rect.centerx, stone_rect.centery, count=12)
+                        effects_manager.spawn_construction_smoke(stone_rect.centerx, stone_rect.bottom - 10, count=6, spread=18)
+                        try:
+                            play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+                        except Exception:
+                            pass
+                        blacksmith_divine_blueprint_active = False
+                        blacksmith_divine_blueprint_rect = None
+                        blacksmith_divine_build_progress = 0
+                        blacksmith_divine_partial_drain = 0.0
+                        blacksmith_hammer_swing_active = False
+                        blacksmith_hammer_swing_phase = 0
+                else:
+                    if frame_counter % 45 == 0:
+                        print(
+                            f"[DEBUG] Divine build paused (gauge={special_gauge}, partial={blacksmith_divine_partial_drain:.2f})"
+                        )
+        else:
+            blacksmith_divine_partial_drain = 0.0
+    elif not blacksmith_divine_blueprint_active:
+        blacksmith_divine_partial_drain = 0.0
+
     # 포탑이 완성된 후 ↓키를 눌러 경험치를 충전
     if blacksmith_turret_active and blacksmith_turret_state:
         level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
