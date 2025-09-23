@@ -39996,7 +39996,8 @@ def get_item_name_korean(item_name):
         "ammo_box": "탄약상자",
         "ragnarok_hammer": "라그나로크 해머",
         "hermes_shoes": "헤르메스의 신발",
-        "poseidon_trident": "포세이돈의 삼지창"
+        "poseidon_trident": "포세이돈의 삼지창",
+        "sacred_laurel": "신성 월계수"
     }
     return korean_names.get(item_name, item_name)
 def get_item_description(item_name):
@@ -40041,7 +40042,8 @@ def get_item_description(item_name):
         "ak47": "AK-47: 강력한 자동소총. 90발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
-        "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!"
+        "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
+        "sacred_laurel": "신성 월계수: 바로크 양식의 팔중 고리가 패들을 감싸 충격을 흡수합니다. 공을 맞으면 빛의 잔상을 남기고 사라졌다가 5초간 서서히 되살아납니다."
     }
     return descriptions.get(item_name, "설명이 없습니다.")
 def show_item_management_menu(item_list, selected_index, item_type):
