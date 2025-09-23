@@ -15229,6 +15229,7 @@ def handle_player(keys):
         global soldier_swing_active, soldier_swing_timer
         global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
         global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
+        global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
         if selected_character_type == "soldier":
             hit_on_right = collision_x >= 0
             if hit_on_right:
