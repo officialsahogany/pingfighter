@@ -12803,6 +12803,9 @@ def handle_player(keys):
         if rolling_state is not None:
             setattr(rolling_state, _rolling_attr_map[name], value)
 
+    get_roll = _rolling_get
+    set_roll = _rolling_set
+
     # 서브 완료 후 타이머는 프레임 초기에 감소시켜, 아래의 조기 return 경로들(화상, 스턴, 설치 등)로 인해
     # 타이머가 영구히 감소하지 못해 물자보급/대시가 계속 금지되는 상황을 방지한다.
     if serve_completed_timer > 0:
