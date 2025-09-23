@@ -185,7 +185,7 @@ class LegendaryItem:
             
         # 파티클 효과 (가끔씩)
         if self.particle_timer > 1000:  # 1초마다
-            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
+            self._spawn_particle(screen, x + size//2, y + size//2)
             self.particle_timer = 0
             
         
@@ -1994,7 +1994,7 @@ class RagnarokHammer(LegendaryItem):
         
         # 파티클 효과
         if self.particle_timer > 1000:
-            self._spawn_particle(screen, x + size//2, y + size//2)
+            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
             self.particle_timer = 0
     
     def update(self, dt: float, ui_mode: bool = False):
