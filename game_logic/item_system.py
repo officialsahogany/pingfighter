@@ -115,6 +115,17 @@ class ItemSystem:
                 'type': 'passive',
                 'effect': {'danger_detection': True},
                 'permanent': True
+            },
+            'doping_potion': {
+                'name': '도핑물약',
+                'description': '8초간 권총 헤드샷/레그샷 확률 2배',
+                'type': 'active',
+                'effect': {
+                    'headshot_multiplier': 2.0,
+                    'legshot_multiplier': 2.0,
+                    'duration_seconds': 8
+                },
+                'permanent': False
             }
         }
         
