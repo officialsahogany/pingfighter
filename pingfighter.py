@@ -47032,6 +47032,7 @@ def main(stage_num, new_boss_mode=False):
         if not player_stunned:
             current_space_state = keys[pygame.K_SPACE]
             space_just_pressed = current_space_state and not last_space_state
+            space_just_released = (not current_space_state) and last_space_state
             if space_just_pressed:
                 space_press_frame = frame_counter
                 #  악마의 주사위 결과 화면 닫기
@@ -47045,6 +47046,8 @@ def main(stage_num, new_boss_mode=False):
                     and blacksmith_turret_active
                     and blacksmith_turret_state
                     and blacksmith_turret_state.get("hp", 0) > 0
+                    and blacksmith_hammer_available
+                    and not blacksmith_hammer_shock_charging
                 ):
                     turret_rect = blacksmith_turret_state.get("rect")
                     if turret_rect is not None:
@@ -47068,6 +47071,29 @@ def main(stage_num, new_boss_mode=False):
                                     print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
                             else:
                                 print("[DEBUG 발토르] 포탑 수동 발사 대기중 - 쿨다운")
+                elif (
+                    space_just_pressed
+                    and blacksmith_hammer_available
+                    and not blacksmith_hammer_shock_charging
+                    and blacksmith_hammer_shock_cooldown_timer <= 0
+                    and special_gauge >= BLACKSMITH_HAMMER_SHOCK_COST
+                ):
+                    blacksmith_hammer_shock_charging = True
+                    blacksmith_hammer_shock_charge_frames = 0
+                    blacksmith_hammer_shock_stage = 0
+                    blacksmith_hammer_swing_active = False
+                    blacksmith_hammer_swing_phase = 0
+                    play_sound_safely = globals().get('play_sound_with_volume')
+                    if callable(play_sound_safely):
+                        try:
+                            play_sound_safely(SOUND_STAGE6_BEAM_CHARGE)
+                        except Exception:
+                            pass
+                if (
+                    space_just_released
+                    and blacksmith_hammer_shock_charging
+                ):
+                    release_blacksmith_hammer_shock()
         else:
             space_just_pressed = False
             current_space_state = False
