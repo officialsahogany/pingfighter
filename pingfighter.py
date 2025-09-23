@@ -6872,6 +6872,7 @@ def activate_doping_potion(duration_frames: int | None = None, *, play_sound: bo
     gm.set('doping_potion_active', True)
     gm.set('doping_potion_timer_frames', frames)
     gm.set('doping_potion_duration_frames', DOPING_POTION_DURATION_FRAMES)
+    gm.set('doping_potion_use_count', doping_potion_use_count)
     gm.set('doping_potion_refresh', False)
 
     if play_sound:
@@ -6897,6 +6898,7 @@ def deactivate_doping_potion() -> None:
     gm = _get_global_manager()
     gm.set('doping_potion_active', False)
     gm.set('doping_potion_timer_frames', 0)
+    gm.set('doping_potion_use_count', doping_potion_use_count)
 
 
 def sync_doping_potion_from_global_manager() -> None:
@@ -6911,6 +6913,8 @@ def sync_doping_potion_from_global_manager() -> None:
         gm.set('doping_potion_refresh', False)
     elif not gm_active and doping_potion_active:
         deactivate_doping_potion()
+    global doping_potion_use_count
+    doping_potion_use_count = 0
 
 # 애니메이션 단계별 프레임 수 (60fps 기준)
 SOLDIER_GUN_DRAW_FRAMES = 6     # 총 꺼내기 애니메이션 (0.1초)
@@ -36925,7 +36929,8 @@ def reset_round():
     if boss_stunned_timer > 0 and head_shot_active:
         boss_stunned_timer = 0
     deactivate_doping_potion()
-    
+    doping_potion_use_count = 0
+
     # 스매셔 쇼트 기술 상태 초기화 (라운드 시작 시)
     short_shot_active = False
     short_shot_timer = 0
