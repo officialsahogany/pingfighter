@@ -15248,8 +15248,18 @@ def handle_player(keys):
                 soldier_right_hook_timer = 0
                 soldier_right_hook_phase = 0.0
         elif selected_character_type == "blacksmith":
-            blacksmith_shield_swing_active = True
-            blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
+            hit_on_right = collision_x >= 0
+            if hit_on_right:
+                blacksmith_shield_swing_active = False
+                blacksmith_shield_swing_timer = 0
+                if not blacksmith_hammer_swing_active or blacksmith_hammer_swing_phase <= 0:
+                    blacksmith_hammer_swing_phase = BLACKSMITH_HAMMER_SWING_DURATION
+                blacksmith_hammer_swing_active = True
+            else:
+                blacksmith_hammer_swing_active = False
+                blacksmith_hammer_swing_phase = 0
+                blacksmith_shield_swing_active = True
+                blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
         
         # Chapter 2 튜토리얼: 대쉬 상태에서 충돌 시 첫 대쉬 이벤트 처리
         if current_stage == 50 and tutorial_current_chapter == 2 and rolling_active:
