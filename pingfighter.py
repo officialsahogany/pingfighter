@@ -4343,6 +4343,12 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     return down_just_pressed
 
 
+def _vec_to_int_pair(vec: pygame.math.Vector2 | tuple[float, float]) -> tuple[int, int]:
+    if isinstance(vec, pygame.math.Vector2):
+        return (int(round(vec.x)), int(round(vec.y)))
+    return (int(round(vec[0])), int(round(vec[1])))
+
+
 def _blacksmith_hammer_shock_stage_for_frames(frames: int) -> int:
     if frames >= BLACKSMITH_HAMMER_SHOCK_STAGE3_FRAMES:
         return 3
@@ -5243,11 +5249,6 @@ def draw_blacksmith_divine_stone(surface):
     tower_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
     width, height = rect.size
     cx, cy = width // 2, height // 2
-
-    def _vec_to_int_pair(vec: pygame.math.Vector2 | tuple[float, float]) -> tuple[int, int]:
-        if isinstance(vec, pygame.math.Vector2):
-            return (int(round(vec.x)), int(round(vec.y)))
-        return (int(round(vec[0])), int(round(vec[1])))
 
     base_height = max(12, height // 5)
     base_rect = pygame.Rect(6, height - base_height - 2, width - 12, base_height)
@@ -32549,9 +32550,6 @@ def create_soldier_character_card_image_new(size: int) -> pygame.Surface:
 
     return img
 
-
-SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(220))
-SOLDIER_CARD_IMG_SMALL = _crop_surface_alpha(create_soldier_character_card_image_new(180))
 
 def create_soldier_front_view():
     """코만도 캐릭터 앞모습 - 전신 (다리 짧은 버전)"""
