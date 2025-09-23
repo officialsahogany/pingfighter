@@ -3945,6 +3945,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global blacksmith_turret_state, special_gauge, special_ready
     global is_waiting_for_serve, is_player_serve
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
+    global blacksmith_manual_hammer_timer
     global blacksmith_turret_partial_drain, blacksmith_turret_xp_partial_drain
     global frame_counter
     global blacksmith_build_menu_active
@@ -4131,6 +4132,19 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             blacksmith_turret_xp_partial_drain = 0.0
     else:
         blacksmith_turret_xp_partial_drain = 0.0
+
+    if blacksmith_manual_hammer_timer > 0:
+        if not hammer_engaged_this_frame:
+            if not blacksmith_hammer_swing_active:
+                blacksmith_hammer_swing_phase = 0
+            blacksmith_hammer_swing_active = True
+            if BLACKSMITH_HAMMER_SWING_DURATION > 0:
+                blacksmith_hammer_swing_phase = min(
+                    BLACKSMITH_HAMMER_SWING_DURATION,
+                    blacksmith_hammer_swing_phase + 1,
+                )
+        blacksmith_manual_hammer_timer -= 1
+        hammer_engaged_this_frame = True
 
     if not hammer_engaged_this_frame and blacksmith_hammer_swing_active:
         if blacksmith_hammer_swing_phase > 0:
@@ -6880,9 +6894,6 @@ def sync_doping_potion_from_global_manager() -> None:
         gm.set('doping_potion_refresh', False)
     elif not gm_active and doping_potion_active:
         deactivate_doping_potion()
-
-    if doping_potion_active:
-        gm.set('doping_potion_timer_frames', doping_potion_timer)
 
 # 애니메이션 단계별 프레임 수 (60fps 기준)
 SOLDIER_GUN_DRAW_FRAMES = 6     # 총 꺼내기 애니메이션 (0.1초)
@@ -44920,7 +44931,7 @@ def main(stage_num, new_boss_mode=False):
     # 코만도 휘두르기 애니메이션 시스템
     global soldier_swing_active, soldier_swing_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
-    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
+    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase, blacksmith_manual_hammer_timer
     # 물자보급 시스템
     # 코만도 걷기 애니메이션 시스템
     global soldier_walking_active, soldier_walking_timer
@@ -46090,8 +46101,11 @@ def main(stage_num, new_boss_mode=False):
                                     special_gauge = max(0, special_gauge - BLACKSMITH_TURRET_MANUAL_COST)
                                     if special_gauge < special_gauge_max:
                                         special_ready = False
-                                    blacksmith_shield_swing_active = True
-                                    blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
+                                    blacksmith_shield_swing_active = False
+                                    blacksmith_shield_swing_timer = 0
+                                    blacksmith_hammer_swing_active = True
+                                    blacksmith_hammer_swing_phase = 0
+                                    blacksmith_manual_hammer_timer = BLACKSMITH_HAMMER_SWING_DURATION
                                     blacksmith_turret_manual_cooldown = BLACKSMITH_TURRET_MANUAL_COOLDOWN
                                     blacksmith_turret_state["fire_timer"] = 1
                                     space_just_pressed = False
