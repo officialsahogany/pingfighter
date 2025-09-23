@@ -13342,19 +13342,19 @@ def handle_player(keys):
                         base_timer = int(base_timer * multipliers['dash_cooldown'])
                         print(f"[DEBUG]     : x{multipliers['dash_cooldown']:.1f}")
                     
-                    rolling_cooldown = base_timer
-                    rolling_charge_timer = base_timer
-                    print(f"[DEBUG]      : {rolling_charge_timer} (: {rolling_charges})")
+                    _rolling_set("rolling_cooldown", base_timer)
+                    _rolling_set("rolling_charge_timer", base_timer)
+                    print(f"[DEBUG]      : {_rolling_get('rolling_charge_timer')} (: {_rolling_get('rolling_charges')})")
                     #  연속 대쉬 할인 시스템: 연속 사용 시 50%씩 할인
                     # 하프대쉬 후에는 연속 대쉬 카운트를 증가시키지 않음
                     if half_dash_used_flag:
-                        rolling_consecutive_count = 1  # 하프대쉬 후 첫 정규 대쉬는 1로 시작
+                        _rolling_set("rolling_consecutive_count", 1)  # 하프대쉬 후 첫 정규 대쉬는 1로 시작
                         half_dash_used_flag = False  # 플래그 리셋
                         print(f"[DEBUG] 하프대쉬 후 첫 정규 대쉬: count=1")
                     else:
-                        rolling_consecutive_count += 1
+                        _rolling_set("rolling_consecutive_count", _rolling_get("rolling_consecutive_count") + 1)
                     # 연속대쉬는 통제불능시간(stun timer) 내에서만 유효
-                    print(f"[DEBUG] 연속대쉬 카운트 증가: {rolling_consecutive_count}, 통제불능시간: {rolling_stun_timer}")
+                    print(f"[DEBUG] 연속대쉬 카운트 증가: {_rolling_get('rolling_consecutive_count')}, 통제불능시간: {_rolling_get('rolling_stun_timer')}")
                     
                     # Count consecutive dash immediately when 2 dashes are used consecutively
                     # Check if in tutorial stage 50 and Chapter 2 (dash chapter)
@@ -13379,7 +13379,7 @@ def handle_player(keys):
                         base_gauge_cost = int(base_gauge_cost * multipliers['skill_dash_cost'])
                     
                     # 연속 대쉬 할인 계산 (첫 번째: 160, 두 번째: 80, 세 번째: 40...)
-                    consecutive_discount = 0.5 ** (rolling_consecutive_count - 1)  # 0.5^0=1, 0.5^1=0.5, 0.5^2=0.25...
+                    consecutive_discount = 0.5 ** (_rolling_get("rolling_consecutive_count") - 1)  # 0.5^0=1, 0.5^1=0.5, 0.5^2=0.25...
                     discounted_cost = int(base_gauge_cost * consecutive_discount)
                     # 대쉬기어 효과: 게이지 소모 20% 감소
                     if dashgear_obtained:
@@ -13391,7 +13391,7 @@ def handle_player(keys):
                     #  게이지 감소 시 special_ready 상태 업데이트
                     if special_gauge < special_gauge_max:
                         special_ready = False
-                    print(f"    ! ( {rolling_consecutive_count},  : {final_gauge_cost},  : {rolling_charges}, : {special_gauge})")
+                    print(f"    ! ( {_rolling_get('rolling_consecutive_count')},  : {final_gauge_cost},  : {_rolling_get('rolling_charges')}, : {special_gauge})")
                 elif right_before_down and down_pressed and special_gauge >= required_gauge and rolling_charges > 0:
                     # 통제불능 상태에서 오른쪽 대쉬 실행 (아래키 + 오른쪽키 필요)
                     rolling_active = True
