@@ -3765,7 +3765,7 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
 
     hammer_ax = right_wrist[0] + 6 - int(round(10 * hammer_raise)) + int(round(16 * hammer_drop))
 
-    grip_ratio = 0.5
+    grip_ratio = 0.15
     pivot = pygame.math.Vector2(right_wrist[0] + 6, right_wrist[1] + 4)
     swing_angle = -math.radians(110) + hammer_drop * math.radians(150)
     swing_angle += hammer_raise * math.radians(10)
@@ -3814,7 +3814,7 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
     ]
     pygame.draw.polygon(surface, (112, 76, 48), cap_poly)
 
-    head_offset_along = 22
+    head_offset_along = 9
     head_center = handle_top - direction_vec * head_offset_along
     head_half_long = 20
     head_half_short = 11
