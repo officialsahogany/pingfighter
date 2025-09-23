@@ -491,6 +491,15 @@ ITEM_TYPES = [
         "chance": 0,  # 확률 0% (물자보급에서만 획득 가능)
         "duration": 0,  # 즉시 사용형
         "unlock_condition": None
+    },
+    {
+        "name": "doping_potion",  # 도핑물약 액티브 아이템 (물자보급 전용)
+        "color": (120, 220, 160),  # 연두색 계열 강화약
+        "effect": "doping_potion",
+        "icon": None,
+        "chance": 0,
+        "duration": 0,
+        "unlock_condition": None
     }
 ]
 
@@ -577,6 +586,7 @@ unlocked_items = {
     "bluetooth_ring": True,
     "smartphone": True,
     "ammo_box": True,
+    "doping_potion": True,
     
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True,
@@ -1280,6 +1290,4 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                 screen.blit(shadow, (text_rect.x + 2, text_rect.y + 2))
                 screen.blit(text_surface, text_rect)
                 break
-
-
 
