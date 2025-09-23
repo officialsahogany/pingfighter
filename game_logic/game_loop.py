@@ -13,6 +13,11 @@ import sys
 
 from core.game_variables import get_game_vars
 from core.game_state import GameState as CoreGameState
+from game_logic.legacy_state_bridge import (
+    prime_store_from_namespace,
+    sync_namespace_to_state,
+    sync_state_to_namespace,
+)
 
 
 @dataclass
@@ -189,11 +194,15 @@ class GameState:
         
         # 이펙트
         self.effects = []
-        
+
         # UI
         self.messages = []
         self.combo = {'count': 0, 'multiplier': 1.0}
         self.special_status = {'gauge': 0, 'ready': False}
+
+        # 레거시 전역 동기화 스토어
+        self.legacy_globals = {}
+        self._legacy_bridge_primed = False
         
     def update(self, data: Dict[str, Any]):
         """상태 업데이트
@@ -661,6 +670,15 @@ def _sync_game_vars_from_state(state: GameState) -> None:
 
 def _get_pingfighter_module():
     return sys.modules.get('pingfighter')
+
+
+def _prime_legacy_state(state: GameState, namespace: Any) -> None:
+    if namespace is None:
+        return
+    if getattr(state, '_legacy_bridge_primed', False):
+        return
+    prime_store_from_namespace(state, namespace)
+    state._legacy_bridge_primed = True
 
 
 def _sync_state_from_globals(state: GameState) -> None:
