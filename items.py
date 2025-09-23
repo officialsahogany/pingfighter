@@ -110,8 +110,7 @@ def load_item_icons():
         "spider_mine": "spider_mine.png",  # 스파이더지뢰 아이콘
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
-        "hermes_shoes": "legendary/hermes_shoes.png",
-        "sacred_laurel_removed": "legendary/sacred_laurel.png"
+        "hermes_shoes": "legendary/hermes_shoes.png"
     }
     
     for item_name, icon_file in icon_files.items():
@@ -135,21 +134,6 @@ def load_item_icons():
         item_name = item_type["name"]
         if item_name in ITEM_ICONS:
             item_type["icon"] = ITEM_ICONS[item_name]
-
-    # 신성 월계수 아이콘이 실제 파일이 없을 경우 절차적으로 생성
-    if "sacred_laurel_removed" not in ITEM_ICONS or ITEM_ICONS["sacred_laurel_removed"] is None:
-        laurel_icon = pygame.Surface((32, 32), pygame.SRCALPHA)
-        center = 16
-        base_radius = 10
-        for idx in range(8):
-            angle = (math.tau / 8) * idx
-            x = int(center + math.cos(angle) * base_radius)
-            y = int(center + math.sin(angle) * base_radius)
-            pygame.draw.circle(laurel_icon, (255, 230, 160, 220), (x, y), 4)
-            pygame.draw.circle(laurel_icon, (255, 255, 210, 255), (x, y), 2)
-        pygame.draw.circle(laurel_icon, (120, 200, 170, 200), (center, center), 6)
-        pygame.draw.circle(laurel_icon, (200, 240, 220, 230), (center, center), 4)
-        ITEM_ICONS["sacred_laurel_removed"] = laurel_icon
 
     print(f"Item icons loaded")
 
