@@ -7865,7 +7865,7 @@ def store_active_item(item_data):
         print("!")
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel_removed"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
         return
     if len(active_item_slot) < MAX_ITEM_SLOTS:
         # 모든 액티브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
@@ -8262,8 +8262,8 @@ def store_passive_item(item_data):
             passive_item_list.append(item_data)
             legendary_manager = get_legendary_manager()
             context = {"player_rect": PLAYER.copy() if 'PLAYER' in globals() and PLAYER else None}
-            legendary_manager.activate_item("sacred_laurel_removed", context)
-            trigger_legendary_acquisition("sacred_laurel_removed", "신성 월계수", item_icon,
+            legendary_manager.activate_item(context)
+            trigger_legendary_acquisition("신성 월계수", item_icon,
                                           (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
             print("🌟 신성 월계수 획득! 신성한 보호가 당신을 감쌉니다!")
         else:
@@ -8283,7 +8283,7 @@ def store_passive_item(item_data):
     elif not already_has_item:
         # 다른 패시브 아이템은 중복 불가
         passive_item_list.append(item_data)
-    elif item_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel_removed"):
+    elif item_name in ("ragnarok_hammer", "hermes_shoes", "poseidon_trident"):
         pass
     else:
         print(f"[WARNING] {item_name} already in passive inventory, skipping duplicate")
@@ -25187,7 +25187,7 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
             "type": "passive"
         }
         # 전설 아이템(포세이돈 삼지창, 라그나로크 해머, 헤르메스 신발, 신성 월계수)은 store_passive_item에서 추가하므로 여기서는 추가하지 않음
-        if item_name not in ["poseidon_trident", "ragnarok_hammer", "hermes_shoes", "sacred_laurel_removed"]:
+        if item_name not in ["poseidon_trident", "ragnarok_hammer", "hermes_shoes"]:
             passive_item_list.append(item_data)
         # 아이템 효과 적용
         if item_name == "speedboots":
@@ -35266,7 +35266,7 @@ def show_result(won):
             available_items.append({"name": "poseidon_trident", "color": (50, 150, 255), "type": "passive", "icon": poseidon_icon})
         if not items.sacred_laurel_obtained:
             laurel_icon = get_item_icon("sacred_laurel_removed")
-            available_items.append({"name": "sacred_laurel_removed", "color": (255, 220, 150), "type": "passive", "icon": laurel_icon})
+            available_items.append({"name": "color": (255, 220, 150), "type": "passive", "icon": laurel_icon})
         # 엑티브 아이템들 추가
         available_items.append({"name": "long_boost", "color": (255, 100, 100), "type": "active", "icon": long_boost_icon})
         available_items.append({"name": "gauge_charge", "color": (100, 255, 100), "type": "active", "icon": gauge_charge_icon})
