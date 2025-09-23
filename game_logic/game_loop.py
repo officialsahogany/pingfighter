@@ -13,6 +13,7 @@ import sys
 
 from core.game_variables import get_game_vars
 from core.game_state import GameState as CoreGameState
+from core.legacy_state_accessor import bind_legacy_accessor
 from game_logic.legacy_state_bridge import (
     legacy_ball_sync,
     legacy_draw_sync,
@@ -205,6 +206,7 @@ class GameState:
         # 레거시 전역 동기화 스토어
         self.legacy_globals = {}
         self._legacy_bridge_primed = False
+        self.legacy = bind_legacy_accessor(self.legacy_globals)
         
     def update(self, data: Dict[str, Any]):
         """상태 업데이트
