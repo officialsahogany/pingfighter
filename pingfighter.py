@@ -4600,10 +4600,12 @@ def update_blacksmith_hammer_shock(keys):
             blacksmith_hammer_shock_stage = 0
         else:
             try:
+                origin_x = PLAYER.right + 18
+                origin_y = PLAYER.centery - 20
                 if blacksmith_hammer_shock_stage >= 1 and blacksmith_hammer_shock_charge_frames % 6 == 0:
-                    effects_manager.spawn_star_particles(PLAYER.centerx + 20, PLAYER.centery - 24, count=3 + blacksmith_hammer_shock_stage)
+                    effects_manager.spawn_star_particles(int(origin_x), int(origin_y), count=3 + blacksmith_hammer_shock_stage)
                 if blacksmith_hammer_shock_stage >= 2 and blacksmith_hammer_shock_charge_frames % 10 == 0:
-                    effects_manager.spawn_flame_particles(PLAYER.centerx + 16, PLAYER.centery - 30, count=2 + blacksmith_hammer_shock_stage)
+                    effects_manager.spawn_flame_particles(int(origin_x - 4), int(origin_y + 6), count=2 + blacksmith_hammer_shock_stage)
             except Exception:
                 pass
     else:
