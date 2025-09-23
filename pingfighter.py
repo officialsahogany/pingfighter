@@ -36510,6 +36510,8 @@ def reset_round():
     global head_shot_active, head_shot_timer, head_shot_text_timer, boss_stunned_timer  # 권총 헤드샷 관련 변수
     global short_shot_active, short_shot_timer, short_shot_vertical_timer
     global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
+    global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
+    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase, blacksmith_manual_hammer_timer
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
