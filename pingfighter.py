@@ -4328,13 +4328,13 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             blacksmith_turret_blueprint_active
             or blacksmith_divine_blueprint_active
             or (
-            blacksmith_turret_active
-            and blacksmith_turret_state
-            and blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL) < BLACKSMITH_TURRET_MAX_LEVEL
-            and blacksmith_turret_state.get("xp", 0.0) < blacksmith_turret_state.get(
-                "xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)
+                blacksmith_turret_active
+                and blacksmith_turret_state
+                and blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL) < BLACKSMITH_TURRET_MAX_LEVEL
+                and blacksmith_turret_state.get("xp", 0.0) < blacksmith_turret_state.get(
+                    "xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)
+                )
             )
-        )
         ):
             pause_blacksmith_construction_sound()
         else:
@@ -4342,6 +4342,197 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
 
     return down_just_pressed
 
+
+def _blacksmith_hammer_shock_stage_for_frames(frames: int) -> int:
+    if frames >= BLACKSMITH_HAMMER_SHOCK_STAGE3_FRAMES:
+        return 3
+    if frames >= BLACKSMITH_HAMMER_SHOCK_STAGE2_FRAMES:
+        return 2
+    if frames >= BLACKSMITH_HAMMER_SHOCK_STAGE1_FRAMES:
+        return 1
+    return 0
+
+
+def release_blacksmith_hammer_shock():
+    global blacksmith_hammer_shock_charging, blacksmith_hammer_shock_charge_frames
+    global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_projectiles
+    global blacksmith_hammer_available, blacksmith_hammer_shock_cooldown_timer
+    global special_gauge, special_ready, special_gauge_max
+
+    if not blacksmith_hammer_shock_charging:
+        return
+
+    stage = _blacksmith_hammer_shock_stage_for_frames(blacksmith_hammer_shock_charge_frames)
+    if stage == 0:
+        blacksmith_hammer_shock_charging = False
+        blacksmith_hammer_shock_charge_frames = 0
+        blacksmith_hammer_shock_stage = 0
+        return
+
+    if special_gauge < BLACKSMITH_HAMMER_SHOCK_COST:
+        blacksmith_hammer_shock_charging = False
+        blacksmith_hammer_shock_charge_frames = 0
+        blacksmith_hammer_shock_stage = 0
+        return
+
+    if 'PLAYER' not in globals() or PLAYER is None:
+        blacksmith_hammer_shock_charging = False
+        blacksmith_hammer_shock_charge_frames = 0
+        blacksmith_hammer_shock_stage = 0
+        return
+
+    origin_x = PLAYER.right + 18
+    origin_y = PLAYER.centery - 20
+
+    projectile = {
+        "x": float(origin_x),
+        "y": float(origin_y),
+        "vx": BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED,
+        "vy": 0.0,
+        "stage": stage,
+        "life": int(1.5 * FPS),
+        "rotation": 0.0,
+    }
+    blacksmith_hammer_shock_projectiles.append(projectile)
+
+    special_gauge = max(0, special_gauge - BLACKSMITH_HAMMER_SHOCK_COST)
+    special_ready = special_gauge >= special_gauge_max
+
+    blacksmith_hammer_available = False
+    blacksmith_hammer_shock_cooldown_timer = BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION
+
+    blacksmith_hammer_shock_charging = False
+    blacksmith_hammer_shock_charge_frames = 0
+    blacksmith_hammer_shock_stage = 0
+
+    try:
+        play_sound_with_volume(SOUND_GRENADE)
+    except Exception:
+        pass
+
+
+def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
+    radius = BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS
+    if stage == 2:
+        radius *= BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE
+    elif stage >= 3:
+        radius *= BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE
+
+    try:
+        effects_manager.create_impact_effect(int(centerx), int(centery), radius, is_player=False)
+        effects_manager.spawn_star_particles(int(centerx), int(centery), count=12 + stage * 4)
+        effects_manager.spawn_flame_particles(int(centerx), int(centery), count=6 + stage * 3)
+    except Exception:
+        pass
+
+    knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK
+    if stage == 2:
+        knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK
+    elif stage >= 3:
+        knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK
+
+    if 'BOSS' in globals() and BOSS is not None:
+        boss_rect = BOSS
+        distance = abs(boss_rect.centerx - centerx)
+        effective_radius = radius + boss_rect.width // 2
+        if distance <= effective_radius:
+            try:
+                globals()["boss_knockback_timer"] = int(0.4 * FPS)
+                globals()["boss_knockback_vel"] = knockback_speed
+                globals()["boss_knockback_active"] = False
+                globals()["boss_knockback_offset_x"] = 0
+                globals()["boss_knockback_offset_y"] = 0
+            except Exception:
+                pass
+            if stage >= 3:
+                try:
+                    globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), int(3 * FPS))
+                except Exception:
+                    pass
+            else:
+                try:
+                    globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), int(2.0 * FPS))
+                except Exception:
+                    pass
+
+
+def update_blacksmith_hammer_shock(keys):
+    global blacksmith_hammer_shock_charging, blacksmith_hammer_shock_charge_frames
+    global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_projectiles
+    global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_available
+
+    if blacksmith_hammer_shock_cooldown_timer > 0:
+        blacksmith_hammer_shock_cooldown_timer -= 1
+        if blacksmith_hammer_shock_cooldown_timer <= 0 and not blacksmith_hammer_shock_projectiles:
+            blacksmith_hammer_available = True
+
+    if blacksmith_hammer_shock_charging:
+        blacksmith_hammer_shock_charge_frames += 1
+        blacksmith_hammer_shock_stage = _blacksmith_hammer_shock_stage_for_frames(blacksmith_hammer_shock_charge_frames)
+
+        if special_gauge < BLACKSMITH_HAMMER_SHOCK_COST:
+            blacksmith_hammer_shock_charging = False
+            blacksmith_hammer_shock_charge_frames = 0
+            blacksmith_hammer_shock_stage = 0
+        else:
+            try:
+                if blacksmith_hammer_shock_stage >= 1 and blacksmith_hammer_shock_charge_frames % 6 == 0:
+                    effects_manager.spawn_star_particles(PLAYER.centerx + 20, PLAYER.centery - 24, count=3 + blacksmith_hammer_shock_stage)
+                if blacksmith_hammer_shock_stage >= 2 and blacksmith_hammer_shock_charge_frames % 10 == 0:
+                    effects_manager.spawn_flame_particles(PLAYER.centerx + 16, PLAYER.centery - 30, count=2 + blacksmith_hammer_shock_stage)
+            except Exception:
+                pass
+    else:
+        blacksmith_hammer_shock_stage = 0
+        blacksmith_hammer_shock_charge_frames = 0
+
+    new_projectiles = []
+    for proj in blacksmith_hammer_shock_projectiles:
+        proj["x"] += proj["vx"]
+        proj["y"] += proj.get("vy", 0.0)
+        proj["rotation"] = (proj.get("rotation", 0.0) + 18.0) % 360
+        proj["life"] -= 1
+
+        exploded = False
+
+        if 'BOSS' in globals() and BOSS is not None:
+            boss_rect = BOSS
+            if boss_rect.collidepoint(int(proj["x"]), int(proj["y"])):
+                _trigger_blacksmith_hammer_shock_explosion(proj["stage"], proj["x"], proj["y"])
+                exploded = True
+
+        if not exploded:
+            if proj["x"] >= WIDTH - 10 or proj["life"] <= 0:
+                _trigger_blacksmith_hammer_shock_explosion(proj["stage"], min(proj["x"], WIDTH - 10), proj["y"])
+                exploded = True
+
+        if not exploded:
+            new_projectiles.append(proj)
+
+    blacksmith_hammer_shock_projectiles = new_projectiles
+
+
+def draw_blacksmith_hammer_shock(surface):
+    if selected_character_type != "blacksmith":
+        return
+
+    if blacksmith_hammer_shock_charging and 'PLAYER' in globals() and PLAYER is not None:
+        cx = PLAYER.right + 20
+        cy = PLAYER.centery - 24
+        radius = 18 + blacksmith_hammer_shock_stage * 6
+        color_inner = (140, 200, 255, 160)
+        color_outer = (80, 140, 255, 100)
+        pygame.draw.circle(surface, color_outer, (cx, cy), radius + 4)
+        pygame.draw.circle(surface, color_inner, (cx, cy), radius, width=3)
+
+    for proj in blacksmith_hammer_shock_projectiles:
+        hammer_surface = pygame.Surface((32, 14), pygame.SRCALPHA)
+        pygame.draw.rect(hammer_surface, (80, 60, 40), (0, 4, 12, 6))
+        pygame.draw.rect(hammer_surface, (210, 220, 240), (12, 0, 20, 14), border_radius=4)
+        pygame.draw.rect(hammer_surface, (255, 255, 255), (16, 4, 12, 6), border_radius=2)
+        rotated = pygame.transform.rotate(hammer_surface, proj.get("rotation", 0.0))
+        rect = rotated.get_rect(center=(int(proj["x"]), int(proj["y"])))
+        surface.blit(rotated, rect)
 
 def update_blacksmith_divine_stone():
     """디바인 스톤 상태 및 충돌 업데이트"""
