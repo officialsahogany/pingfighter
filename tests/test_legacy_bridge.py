@@ -25,7 +25,9 @@ class LegacyBridgeTests(unittest.TestCase):
         self.namespace = types.SimpleNamespace()
 
     def test_prime_store_from_namespace(self):
-        sample_key = next(iter(LEGACY_STATE_KEYS))
+        # PLAYER_KEYS와 겹치지 않는 키를 사용해 컨텍스트 영향 범위를 확인한다.
+        candidate_keys = [k for k in LEGACY_STATE_KEYS if k not in BALL_KEYS]
+        sample_key = candidate_keys[0]
         setattr(self.namespace, sample_key, 42)
         prime_store_from_namespace(self.state, self.namespace)
         self.assertIn(sample_key, self.state.legacy_globals)
