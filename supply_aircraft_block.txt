@@ -7887,6 +7887,7 @@ def store_passive_item(item_data):
     global dashholder_obtained  # 대쉬홀더 관련 변수
     global gravitybelt_obtained  # 무중력벨트 관련 변수
     global hermes_shoes_obtained  # 헤르메스의 신발 관련 변수
+    global sacred_laurel_obtained  # 신성 월계수 전역 변수
     print(f"store_passive_item : {item_data['name']}")
     # Aipill 활성화 시에는 아이템 획득 불가
     if aipill_active:
@@ -12431,6 +12432,14 @@ def draw_objects():
             trident = legendary_manager.get_item("poseidon_trident")
             if trident and trident.active:
                 trident.draw_effects(SCREEN)  # 물결 파티클 그리기
+
+            sacred = legendary_manager.get_item("sacred_laurel")
+            if sacred and sacred.active and 'PLAYER' in globals() and PLAYER:
+                try:
+                    sacred.draw_aura(SCREEN, PLAYER)
+                    sacred.draw_particles(SCREEN)
+                except Exception as aura_error:
+                    print(f"[ERROR] Sacred Laurel effect draw failed: {aura_error}")
     except:
         pass  # 전설 아이템 매니저 접근 실패 시 무시
     
@@ -25151,6 +25160,8 @@ def apply_selected_items(selected_active_items, selected_passive_items, selected
     global dashholder_obtained
     global gravitybelt_obtained, items, rolling_charges
     global hermes_shoes_obtained  # 헤르메스의 신발 전역 변수 추가
+    global sacred_laurel_obtained  # 신성 월계수 전역 변수
+    global sacred_laurel_obtained  # 신성 월계수 전역 변수
     
     print(f"[DEBUG] apply_selected_items !")
     print(f"[DEBUG]   : {selected_passive_items}")
