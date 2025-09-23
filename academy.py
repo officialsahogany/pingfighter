@@ -2958,6 +2958,20 @@ class AcademyUI:
 
         return level
 
+    def _get_master_bonus_line(self, skill_id: str) -> str | None:
+        """스킬별 마스터 보너스 문구 반환"""
+        master_bonus_map = {
+            "dash_lightweight": "보너스: 추가 -7% 효과 적용",
+            "dash_module_control": "보너스: 추가 -10% 효과 적용",
+            "dash_jump": "보너스: 추가 +4% 효과 적용",
+            "dash_battery_pack": "보너스: 추가 -8% 효과 적용",
+            "dash_acceleration": "보너스: 추가 +60% 효과 적용",
+            "item_luck": "보너스: 추가 -6% 효과 적용",
+            "item_cooldown_mastery": "보너스: 추가 -8% 효과 적용",
+            "item_gauge_mastery": "보너스: 추가 +10 게이지 효과 적용",
+        }
+        return master_bonus_map.get(skill_id)
+
     def _collect_current_effect_lines(self, skill_id: str, current_level: int) -> list[str]:
         """현재 레벨 기준 효과 설명 문자열 집계"""
         if current_level <= 0:
@@ -2992,18 +3006,12 @@ class AcademyUI:
         elif skill_id == "item_luck":
             multiplier = compute_item_spawn_delay_multiplier(current_level)
             lines.append(f"현재: 딜레이 {multiplier * 100:.1f}%")
-            if current_level >= 5:
-                lines.append("보너스: 추가 -6% 적용")
         elif skill_id == "item_cooldown_mastery":
             multiplier = compute_item_cooldown_multiplier(current_level)
             lines.append(f"현재: 쿨타임 {multiplier * 100:.1f}%")
-            if current_level >= 5:
-                lines.append("보너스: 추가 -8% 적용")
         elif skill_id == "item_gauge_mastery":
             bonus = compute_item_gauge_bonus(current_level)
             lines.append(f"현재: 게이지 +{bonus}")
-            if current_level >= 5:
-                lines.append("보너스: 추가 +10 적용")
         elif skill_id == "item_bag_expansion":
             lines.append(f"현재: 슬롯 +{display_level}칸")
         elif skill_id == "item_gamble":
@@ -3074,18 +3082,12 @@ class AcademyUI:
         elif skill_id == "item_luck":
             multiplier = compute_item_spawn_delay_multiplier(next_level)
             lines.append(f"다음: 딜레이 {multiplier * 100:.1f}%")
-            if next_level >= 5:
-                lines.append("보너스: 추가 -6% 적용")
         elif skill_id == "item_cooldown_mastery":
             multiplier = compute_item_cooldown_multiplier(next_level)
             lines.append(f"다음: 쿨타임 {multiplier * 100:.1f}%")
-            if next_level >= 5:
-                lines.append("보너스: 추가 -8% 적용")
         elif skill_id == "item_gauge_mastery":
             bonus = compute_item_gauge_bonus(next_level)
             lines.append(f"다음: 게이지 +{bonus}")
-            if next_level >= 5:
-                lines.append("보너스: 추가 +10 적용")
         elif skill_id == "item_bag_expansion":
             lines.append(f"다음: 슬롯 +{display_level}칸")
         elif skill_id == "item_gamble":

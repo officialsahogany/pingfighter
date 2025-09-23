@@ -153,8 +153,6 @@ def init_gacha(available_items, legendary_bonus=0.0):
             should_skip = True  # 헤르메스의 신발도 중복 방지
         elif item_name == "poseidon_trident" and getattr(items, 'poseidon_trident_obtained', False):
             should_skip = True  # 포세이돈의 삼지창도 중복 방지
-        elif item_name == "sacred_laurel_removed" and getattr(items, 'sacred_laurel_obtained', False):
-            should_skip = True  # 신성 월계수 중복 방지
         
         if not should_skip:
             filtered_items.append(item)
@@ -164,7 +162,7 @@ def init_gacha(available_items, legendary_bonus=0.0):
         filtered_items = available_items
     
     # 전설 아이템과 일반 아이템 분리
-    legendary_pool = ["ragnarok_hammer", "hermes_shoes", "poseidon_trident", "sacred_laurel_removed"]
+    legendary_pool = ["ragnarok_hammer", "hermes_shoes", "poseidon_trident"]
     legendary_items = [item for item in filtered_items if item.get("name", "") in legendary_pool]
     normal_items = [item for item in filtered_items if item.get("name", "") not in legendary_pool]
     
