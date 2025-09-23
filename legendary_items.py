@@ -2100,6 +2100,7 @@ class SacredLaurel(LegendaryItem):
     def draw_aura(self, screen: pygame.Surface, paddle_rect: pygame.Rect):
         if not self.active:
             return
+        self._last_ring_geometry = None
         fade = self.fade_amount
         if fade <= 0 and not self.spark_particles:
             return
@@ -2155,11 +2156,36 @@ class SacredLaurel(LegendaryItem):
         )
 
     def draw_particles(self, screen: pygame.Surface):
-        for particle in self.spark_particles:
-            life_ratio = particle['life'] / particle['max_life'] if particle['max_life'] > 0 else 0
-            alpha = int(255 * life_ratio)
-            size = max(1, int(4 * life_ratio))
-            pygame.draw.circle(screen, (255, 240, 200, alpha), (int(particle['x']), int(particle['y'])), size)
+        if not self.spark_particles or not self._last_ring_geometry:
+            return
+
+        center_x, center_y, radius_x, radius_y = self._last_ring_geometry
+        fade = self.fade_amount
+
+        for sparkle in self.spark_particles:
+            life_ratio = sparkle['life'] / sparkle['max_life'] if sparkle['max_life'] > 0 else 0
+            if life_ratio <= 0:
+                continue
+
+            alpha = int(220 * life_ratio * fade)
+            if alpha <= 0:
+                continue
+
+            angle = sparkle['angle']
+            radius_multiplier = sparkle.get('radius_multiplier', 1.0)
+            ring_x = center_x + math.cos(angle) * radius_x * radius_multiplier
+            ring_y = center_y + math.sin(angle) * radius_y * radius_multiplier
+
+            size = max(1, int(5 * life_ratio))
+            pygame.draw.circle(screen, (255, 240, 210, alpha), (int(ring_x), int(ring_y)), size)
+            if size > 1:
+                pygame.draw.circle(
+                    screen,
+                    (255, 255, 255, min(255, alpha + 40)),
+                    (int(ring_x), int(ring_y)),
+                    size,
+                    1
+                )
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         import pygame
