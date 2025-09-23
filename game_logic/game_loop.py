@@ -50,6 +50,9 @@ class GameLoop:
         self.paused = False
         self.max_frames = max_frames
         
+        # 어댑터 저장
+        self.adapters = adapters or RuntimeAdapters()
+
         # 상태 관리
         self.state = GameState()
         
@@ -57,7 +60,7 @@ class GameLoop:
         self.input_handler = InputHandler()
         
         # 업데이트 시스템
-        self.update_system = UpdateSystem(adapters)
+        self.update_system = UpdateSystem(self.adapters)
 
         # 렌더링 시스템 (render_manager 사용)
         from rendering.render_manager import RenderManager
