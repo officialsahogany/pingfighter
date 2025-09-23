@@ -1876,7 +1876,12 @@ class SacredLaurel(LegendaryItem):
         self.knockback_multiplier = 5.0
         self.max_knockback = 250
         self.stun_duration = 0.6
+        self.hammer_glow_multiplier = 1.8
+        self.animation_frames: List[pygame.Surface] = []
+        self.current_frame = 0
+        self.frame_counter = 0
         self.animation_speed = 8
+        self._load_animation_frames()
 
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         return game_stats.get("highest_stage_cleared", 0) >= 8
@@ -1914,28 +1919,42 @@ class SacredLaurel(LegendaryItem):
 
         return horizontal_velocity, self.stun_duration
 
+    def _load_animation_frames(self):
+        import pygame
+        frames_loaded = 0
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                frame = pygame.image.load(frame_path).convert_alpha()
+                cleaned = _strip_legendary_red_ring(frame)
+                self.animation_frames.append(cleaned)
+                frames_loaded += 1
+            except Exception as e:
+                print(f"[ERROR] SacredLaurel frame {i} load failed: {frame_path} - {e}")
+        print(f"신성 월계수: 전설 프레임 {frames_loaded}/8개 로드")
+
     def draw_special_effects(self, screen, boss_x: int, boss_y: int):
         return
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         import pygame
 
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time,
-                                                    border_color=COMMON_LEGENDARY_BORDER_COLOR,
-                                                    corner_color=COMMON_LEGENDARY_CORNER_COLOR)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
-        icon_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-        center = (size // 2, size // 2)
-        pulsate = 0.5 + 0.5 * math.sin(self.animation_time * 0.004)
-        inner_radius = int(size * 0.28 + pulsate * 3)
-        outer_radius = int(inner_radius * 1.4)
+        if self.animation_frames:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
 
-        pygame.draw.circle(icon_surface, (240, 250, 255, 160), center, outer_radius, 3)
-        pygame.draw.circle(icon_surface, (200, 220, 255, 120), center, inner_radius, 0)
-        pygame.draw.circle(icon_surface, (120, 180, 255, 120), center, max(2, inner_radius - 4), 2)
-
-        offset_y = y + frame_offset + int(self.animation_offset)
-        screen.blit(icon_surface, (x, offset_y))
+            icon_y = y + frame_offset + int(self.animation_offset)
+            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
+        else:
+            icon_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+            pygame.draw.circle(icon_surface, (200, 220, 255, 180), (size // 2, size // 2), size // 2 - 4, 3)
+            screen.blit(icon_surface, (x, y + frame_offset + int(self.animation_offset)))
 
 
 class RagnarokHammer(LegendaryItem):

@@ -206,63 +206,7 @@ SKILL_TREES = {
     "paddle": {
         "name": "패들 스킬",
         "color": (100, 255, 150),  # 초록색
-        "skills": [
-            {
-                "id": "paddle_gauge",
-                "name": "게이지 충전량 증가",
-                "description": "패들 충돌 시 게이지 +5 증가",
-                "max_level": 5,
-                "cost": 1,
-                "icon_color": (100, 255, 150),
-                "requires": None,
-                "row": 0,
-                "col": 0  # 왼쪽 시작
-            },
-            {
-                "id": "paddle_speed",
-                "name": "패들 속도 증가",
-                "description": "패들 최대 속도 0.5 증가",
-                "max_level": 5,
-                "cost": 1,
-                "icon_color": (100, 255, 150),
-                "requires": None,
-                "row": 0,
-                "col": 1  # 오른쪽 시작
-            },
-            {
-                "id": "paddle_size",
-                "name": "패들 크기 증가",
-                "description": "패들 크기 2% 증가",
-                "max_level": 5,
-                "cost": 1,
-                "icon_color": (100, 255, 150),
-                "requires": "paddle_gauge",
-                "row": 1,
-                "col": 0  # 게이지에서 이어짐
-            },
-            {
-                "id": "paddle_max_gauge",
-                "name": "최대 게이지 증가",
-                "description": "게이지 최대치 30 증가",
-                "max_level": 5,
-                "cost": 1,
-                "icon_color": (100, 255, 150),
-                "requires": "paddle_speed",
-                "row": 1,
-                "col": 1  # 속도에서 이어짐
-            },
-            {
-                "id": "paddle_bio",
-                "name": "바이오 패들",
-                "description": "공이 하단으로 떨어질 때 자력 효과",
-                "max_level": 1,
-                "cost": 3,
-                "icon_color": (255, 200, 100),
-                "requires_or": ["paddle_size", "paddle_max_gauge"],  # 둘 중 하나만 있어도 해금
-                "row": 2,
-                "col": 0.5  # 중앙에서 합쳐짐
-            }
-        ]
+        "skills": []  # 재구성 준비를 위해 일시적으로 비워둠
     },
     "smasher": {
         "name": "스매셔 스킬",
@@ -274,7 +218,7 @@ SKILL_TREES = {
 TREE_SUMMARIES = {
     "dash": "대쉬 속도와 통제력을 끌어올려 공격 템포를 높이는 스킬입니다.",
     "item": "필드 드랍률과 가챠, 아이템 쿨타임을 다뤄 보조 능력을 강화합니다.",
-    "paddle": "패들의 크기·속도·게이지를 조정해 안정적인 운영을 도와줍니다.",
+    "paddle": "패들 스킬 트리는 재구성 준비 중입니다.",
     "smasher": "스매셔 전용 스킬로 특수 공격 루프를 확장합니다."
 }
 
