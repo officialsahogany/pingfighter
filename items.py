@@ -541,7 +541,6 @@ technical_vest_obtained = False  # 테크니컬조끼 아이템 획득 여부
 ragnarok_hammer_obtained = False  # 라그나로크 해머 획득 여부
 hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
 poseidon_trident_obtained = False  # 포세이돈의 삼지창 획득 여부
-sacred_laurel_obtained = False  # 신성 월계수 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 
@@ -593,7 +592,6 @@ unlocked_items = {
     "ragnarok_hammer": True,
     "hermes_shoes": True,
     "poseidon_trident": True,
-    "sacred_laurel_removed": True,
     
     # 패시브 아이템
     "knee_pads": True
@@ -780,11 +778,6 @@ def spawn_random_item():
                 continue
             else:
                 print(f"[DEBUG] poseidon_trident can spawn (not obtained yet)")
-        if item["name"] == "sacred_laurel_removed":
-            print(f"[DEBUG] Checking sacred_laurel: obtained = {sacred_laurel_obtained}")
-            if sacred_laurel_obtained:
-                print(f"[DEBUG] Skipping sacred_laurel spawn (already obtained)")
-                continue
         
         # 🚫 패시브 아이템 중복 방지 (chargebag 제외)
         # 이미 소지한 패시브 아이템은 더 이상 스폰하지 않음
