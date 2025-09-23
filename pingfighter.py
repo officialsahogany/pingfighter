@@ -19393,7 +19393,7 @@ def draw_player_gauge():
                 label_rect = label_surface.get_rect(center=(slot_rect.centerx, slot_rect.bottom - 10))
                 SCREEN.blit(label_surface, label_rect)
 
-                weapon_label = weapon_names.get(weapon, weapon.upper())
+                weapon_label = weapon_display_names.get(weapon, weapon.upper())
                 name_surface = FontStyle.tiny().render(weapon_label, True, (220, 230, 235))
                 name_rect = name_surface.get_rect(center=(slot_rect.centerx, slot_rect.top - 8))
                 SCREEN.blit(name_surface, name_rect)
