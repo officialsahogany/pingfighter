@@ -4316,13 +4316,17 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     if construction_active:
         start_blacksmith_construction_sound()
     else:
-        if blacksmith_turret_blueprint_active or (
+        if (
+            blacksmith_turret_blueprint_active
+            or blacksmith_divine_blueprint_active
+            or (
             blacksmith_turret_active
             and blacksmith_turret_state
             and blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL) < BLACKSMITH_TURRET_MAX_LEVEL
             and blacksmith_turret_state.get("xp", 0.0) < blacksmith_turret_state.get(
                 "xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)
             )
+        )
         ):
             pause_blacksmith_construction_sound()
         else:
@@ -5300,6 +5304,8 @@ def _create_turret_icon() -> pygame.Surface:
 def blacksmith_has_available_buildings() -> bool:
     if selected_character_type != "blacksmith":
         return False
+    if blacksmith_turret_blueprint_active or blacksmith_divine_blueprint_active:
+        return False
     turret_available = not blacksmith_turret_active and not blacksmith_turret_blueprint_active
     divine_available = (
         blacksmith_divine_stone_state is None
@@ -5348,9 +5354,7 @@ def blacksmith_start_divine_stone():
     blueprint_height = BLACKSMITH_DIVINE_STONE_SIZE[1] + BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT
     rect = pygame.Rect(0, 0, blueprint_width, blueprint_height)
     base_x = max(blueprint_width // 2, min(WIDTH - blueprint_width // 2, PLAYER.centerx))
-    base_y = PLAYER.top - 12
-    if base_y < blueprint_height:
-        base_y = blueprint_height
+    base_y = HEIGHT - 5
     rect.midbottom = (base_x, base_y)
     blacksmith_divine_blueprint_rect = rect
     blacksmith_divine_build_progress = 0
