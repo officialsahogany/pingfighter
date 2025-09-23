@@ -3989,6 +3989,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         down_just_pressed = False
         blacksmith_hammer_swing_active = False
         blacksmith_hammer_swing_phase = 0
+        blacksmith_manual_hammer_timer = 0
     elif (
         down_just_pressed
         and not blacksmith_turret_blueprint_active
@@ -4066,6 +4067,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             pass
                         blacksmith_hammer_swing_active = False
                         blacksmith_hammer_swing_phase = 0
+                        blacksmith_manual_hammer_timer = 0
                     elif frame_counter % 30 == 0:
                         print(f"[DEBUG] Turret build: {blacksmith_turret_build_progress}/{BLACKSMITH_TURRET_BUILD_TIME}, gauge={special_gauge}, phase={blacksmith_hammer_swing_phase}")
                 else:
@@ -7914,6 +7916,9 @@ def apply_effect(effect_name):
                 GREEN, (0, 127, 255), (0, 0, 255), (127, 0, 255)
             ])
             # 파티클 효과는 나중에 추가 가능
+    elif effect_name == "doping_potion":  # 도핑물약 액티브 아이템
+        activate_doping_potion()
+        print("도핑물약 발동! 8초간 헤드/레그샷 확률 2배")
     elif effect_name == "chargebag":  #  충전가방 아이템 (패시브 아이템이므로 apply_effect에서 처리하지 않음)
         # 충전가방은 store_passive_item에서 처리됨
         pass
@@ -12243,16 +12248,17 @@ def update_soldier_bullets():
                 global boss_stunned_timer, leg_shot_active, leg_shot_timer, leg_shot_text_timer
                 global head_shot_active, head_shot_timer, head_shot_text_timer
                 
-                # 헤드샷과 레그샷 중 하나만 발동 (각 50% 확률)
+                # 헤드샷과 레그샷 중 하나만 발동 (도핑 효과 반영)
                 shot_roll = random.random()
-                if shot_roll < HEAD_SHOT_CHANCE:
+                head_chance, leg_chance = get_soldier_shot_probabilities()
+                if shot_roll < head_chance:
                     # 헤드샷 발동 (1.5초 스턴)
                     head_shot_active = True
                     head_shot_timer = HEAD_SHOT_DURATION  # 1.5초간 스턴
                     head_shot_text_timer = HEAD_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
                     boss_stunned_timer = HEAD_SHOT_DURATION  # 별 효과를 위한 타이머 (1.5초)
                     print("💥 헤드샷! 보스 1.5초간 스턴!")
-                elif shot_roll < HEAD_SHOT_CHANCE + LEG_SHOT_CHANCE:
+                elif shot_roll < head_chance + leg_chance:
                     # 레그샷 발동 (헤드샷이 발동하지 않은 경우에만)
                     leg_shot_active = True
                     leg_shot_timer = LEG_SHOT_DURATION  # 3초간 지속
@@ -12296,10 +12302,10 @@ def update_soldier_bullets():
                 gauge_increase = 30  # 기본 30 증가
                 
                 # 헤드샷/레그샷 시 추가 보너스
-                if shot_roll < HEAD_SHOT_CHANCE:
+                if shot_roll < head_chance:
                     gauge_increase = 50  # 헤드샷 시 50 증가
                     print("🎯 헤드샷 보너스! 게이지 50 증가!")
-                elif shot_roll < HEAD_SHOT_CHANCE + LEG_SHOT_CHANCE:
+                elif shot_roll < head_chance + leg_chance:
                     gauge_increase = 40  # 레그샷 시 40 증가  
                     print("🎯 레그샷 보너스! 게이지 40 증가!")
                 else:

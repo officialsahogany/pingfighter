@@ -1701,20 +1701,10 @@ class HermesShoes(LegendaryItem):
         import pygame
         import math
         
-        # 글로우 효과 (라그나로크 해머와 완전히 동일하게)
-        glow_size = int(size * (self.hermes_glow_multiplier + self.glow_intensity * 0.15))
-        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-        for i in range(5):  # 더 많은 레이어로 강렬한 효과
-            alpha = 80 - i * 12  # 더 진한 글로우
-            pygame.draw.circle(glow_surf, (*LEGENDARY_COLOR, alpha), 
-                             (glow_size//2, glow_size//2), 
-                             glow_size//2 - i * 4)  # 더 촘촘한 간격
-        screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
-        
-        # 붉은색 테두리 (펄싱 효과 - 더 두껍게)
-        border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
-        border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
-        pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)
+        # 기존 붉은 원형 글로우는 제거하여 아이콘만 깔끔하게 노출한다.
+        border_thickness = 2  # 최소한의 테두리만 유지
+        border_rect = pygame.Rect(x-1, y-1, size+2, size+2)
+        pygame.draw.rect(screen, (180, 200, 255), border_rect, border_thickness)
         
         # 꼭지점 디테일 (코너 장식)
         corner_size = 8  # 더 큰 코너
@@ -1734,7 +1724,6 @@ class HermesShoes(LegendaryItem):
         
         # 코너 점 장식 (더 화려하게)
         for cx, cy in [(x, y), (x+size, y), (x, y+size), (x+size, y+size)]:
-            pygame.draw.circle(screen, LEGENDARY_COLOR, (cx, cy), 3)
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
         
         # 애니메이션 프레임 그리기
@@ -1982,20 +1971,9 @@ class RagnarokHammer(LegendaryItem):
         import pygame
         import math
         
-        # 글로우 효과 (라그나로크 해머는 더 크고 강렬하게)
-        glow_size = int(size * (self.hammer_glow_multiplier + self.glow_intensity * 0.15))
-        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-        for i in range(5):  # 더 많은 레이어로 강렬한 효과
-            alpha = 80 - i * 12  # 더 진한 글로우
-            pygame.draw.circle(glow_surf, (*LEGENDARY_COLOR, alpha), 
-                             (glow_size//2, glow_size//2), 
-                             glow_size//2 - i * 4)  # 더 촘촘한 간격
-        screen.blit(glow_surf, (x - (glow_size - size)//2, y - (glow_size - size)//2))
-        
-        # 붉은색 테두리 (펄싱 효과 - 더 두껍게)
-        border_thickness = 3 + int(self.glow_intensity * 3)  # 더 두꺼운 테두리
-        border_rect = pygame.Rect(x-2, y-2, size+4, size+4)
-        pygame.draw.rect(screen, LEGENDARY_COLOR, border_rect, border_thickness)
+        # 원형 붉은 글로우는 제거하고 메탈릭 톤의 프레임만 유지한다.
+        border_rect = pygame.Rect(x-1, y-1, size+2, size+2)
+        pygame.draw.rect(screen, (200, 200, 220), border_rect, 2)
         
         # 꼭지점 디테일 (코너 장식)
         corner_size = 8  # 더 큰 코너
@@ -2015,7 +1993,6 @@ class RagnarokHammer(LegendaryItem):
         
         # 코너 점 장식 (더 화려하게)
         for cx, cy in [(x, y), (x+size, y), (x, y+size), (x+size, y+size)]:
-            pygame.draw.circle(screen, LEGENDARY_COLOR, (cx, cy), 3)
             pygame.draw.circle(screen, corner_color, (cx, cy), 2)
         
         # 애니메이션 프레임 그리기
