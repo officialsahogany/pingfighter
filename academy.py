@@ -2943,36 +2943,52 @@ class AcademyUI:
                     lock_surface.fill((0, 0, 0, 128))
                     self.screen.blit(lock_surface, (skill_x, skill_y))
         
+    def _get_display_level_with_master_bonus(self, skill_id: str, level: int) -> int:
+        """UI 표시용 레벨 (마스터 보너스 포함)"""
+        if level <= 0:
+            return level
+
+        skill_data = self.skill_system.get_skill_data(skill_id)
+        if not skill_data:
+            return level
+
+        max_level = skill_data.get("max_level", 0)
+        if max_level == 5 and level >= max_level:
+            return level + 1
+
+        return level
+
     def _collect_current_effect_lines(self, skill_id: str, current_level: int) -> list[str]:
         """현재 레벨 기준 효과 설명 문자열 집계"""
         if current_level <= 0:
             return []
 
         lines: list[str] = []
+        display_level = self._get_display_level_with_master_bonus(skill_id, current_level)
 
         if skill_id == "dash_lightweight":
-            lines.append(f"현재: 충전시간 -{current_level * 7:.0f}%")
+            lines.append(f"현재: 충전시간 -{display_level * 7:.0f}%")
         elif skill_id == "dash_module_control":
-            lines.append(f"현재: 통제불능 -{current_level * 10:.0f}%")
+            lines.append(f"현재: 통제불능 -{display_level * 10:.0f}%")
         elif skill_id == "dash_jump":
-            lines.append(f"현재: 대쉬 거리 +{current_level * 4:.0f}%")
+            lines.append(f"현재: 대쉬 거리 +{display_level * 4:.0f}%")
         elif skill_id == "dash_battery_pack":
-            lines.append(f"현재: 게이지 소모 -{current_level * 8:.0f}%")
+            lines.append(f"현재: 게이지 소모 -{display_level * 8:.0f}%")
         elif skill_id == "dash_acceleration":
-            lines.append(f"현재: 패들 높이 +{current_level * 60:.0f}%")
+            lines.append(f"현재: 패들 높이 +{display_level * 60:.0f}%")
         elif skill_id == "dash_amplification":
-            lines.append(f"현재: 대쉬 토큰 +{current_level}")
+            lines.append(f"현재: 대쉬 토큰 +{display_level}")
         elif skill_id == "dash_spirit":
-            chance = 35 + max(0, current_level - 1) * 15
+            chance = 35 + max(0, display_level - 1) * 15
             lines.append(f"현재: 잔상 확률 {chance:.0f}%")
         elif skill_id == "dash_distance":
-            lines.append(f"현재: 대쉬 거리 +{current_level * 3:.0f}%")
+            lines.append(f"현재: 대쉬 거리 +{display_level * 3:.0f}%")
         elif skill_id == "dash_cooldown":
-            lines.append(f"현재: 쿨타임 -{current_level * 0.2:.1f}초")
+            lines.append(f"현재: 쿨타임 -{display_level * 0.2:.1f}초")
         elif skill_id == "dash_stun":
-            lines.append(f"현재: 통제불능 -{current_level * 0.05:.2f}초")
+            lines.append(f"현재: 통제불능 -{display_level * 0.05:.2f}초")
         elif skill_id == "dash_gauge":
-            lines.append(f"현재: 게이지 +{current_level * 10}")
+            lines.append(f"현재: 게이지 +{display_level * 10}")
         elif skill_id == "item_luck":
             multiplier = compute_item_spawn_delay_multiplier(current_level)
             lines.append(f"현재: 딜레이 {multiplier * 100:.1f}%")
@@ -2991,34 +3007,34 @@ class AcademyUI:
         elif skill_id == "item_bag_expansion":
             lines.append(f"현재: 슬롯 +{current_level}칸")
         elif skill_id == "item_gamble":
-            chance = min(0.95, 0.25 + 0.15 * (current_level - 1))
-            max_extra = 1 if current_level < 3 else 2
+            chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
+            max_extra = 1 if display_level < 3 else 2
             lines.append(f"현재: 추가 가챠 {int(chance * 100)}%")
             lines.append(f"현재: 최대 {max_extra}회")
         elif skill_id == "item_recycle":
-            recycle_chance = min(0.9, 0.2 + 0.1 * (current_level - 1))
+            recycle_chance = min(0.9, 0.2 + 0.1 * (display_level - 1))
             lines.append(f"현재: 연금술 {int(recycle_chance * 100)}%")
         elif skill_id == "item_treasure_map":
-            lines.append(f"현재: 필드 전설 +{current_level * 350}%")
-            lines.append(f"현재: 가챠 전설 +{current_level * 7}%")
+            lines.append(f"현재: 필드 전설 +{display_level * 350}%")
+            lines.append(f"현재: 가챠 전설 +{display_level * 7}%")
         elif skill_id == "item_spawn":
-            lines.append(f"현재: 확률 +{current_level * 10}%")
+            lines.append(f"현재: 확률 +{display_level * 10}%")
         elif skill_id == "item_cooldown":
-            lines.append(f"현재: 쿨타임 -{current_level * 0.6:.1f}초")
+            lines.append(f"현재: 쿨타임 -{display_level * 0.6:.1f}초")
         elif skill_id == "item_slot":
-            lines.append(f"현재: 슬롯 +{current_level}칸")
+            lines.append(f"현재: 슬롯 +{display_level}칸")
         elif skill_id == "item_pachinko":
-            lines.append(f"현재: {current_level * 5}% 확률")
+            lines.append(f"현재: {display_level * 5}% 확률")
         elif skill_id == "item_legendary":
             lines.append("현재: 활성화")
         elif skill_id == "paddle_gauge":
-            lines.append(f"현재: 게이지 +{current_level * 5}")
+            lines.append(f"현재: 게이지 +{display_level * 5}")
         elif skill_id == "paddle_speed":
-            lines.append(f"현재: 속도 +{current_level * 0.5:.1f}")
+            lines.append(f"현재: 속도 +{display_level * 0.5:.1f}")
         elif skill_id == "paddle_size":
-            lines.append(f"현재: 크기 +{current_level * 2}%")
+            lines.append(f"현재: 크기 +{display_level * 2}%")
         elif skill_id == "paddle_max_gauge":
-            lines.append(f"현재: 최대치 +{current_level * 30}")
+            lines.append(f"현재: 최대치 +{display_level * 30}")
         elif skill_id == "paddle_bio":
             lines.append("현재: 활성화")
 
@@ -3030,30 +3046,31 @@ class AcademyUI:
             return []
 
         lines: list[str] = []
+        display_level = self._get_display_level_with_master_bonus(skill_id, next_level)
 
         if skill_id == "dash_lightweight":
-            lines.append(f"다음: 충전시간 -{next_level * 7:.0f}%")
+            lines.append(f"다음: 충전시간 -{display_level * 7:.0f}%")
         elif skill_id == "dash_module_control":
-            lines.append(f"다음: 통제불능 -{next_level * 10:.0f}%")
+            lines.append(f"다음: 통제불능 -{display_level * 10:.0f}%")
         elif skill_id == "dash_jump":
-            lines.append(f"다음: 대쉬 거리 +{next_level * 4:.0f}%")
+            lines.append(f"다음: 대쉬 거리 +{display_level * 4:.0f}%")
         elif skill_id == "dash_battery_pack":
-            lines.append(f"다음: 게이지 소모 -{next_level * 8:.0f}%")
+            lines.append(f"다음: 게이지 소모 -{display_level * 8:.0f}%")
         elif skill_id == "dash_acceleration":
-            lines.append(f"다음: 패들 높이 +{next_level * 60:.0f}%")
+            lines.append(f"다음: 패들 높이 +{display_level * 60:.0f}%")
         elif skill_id == "dash_amplification":
-            lines.append(f"다음: 대쉬 토큰 +{next_level}")
+            lines.append(f"다음: 대쉬 토큰 +{display_level}")
         elif skill_id == "dash_spirit":
-            chance = 35 + max(0, next_level - 1) * 15
+            chance = 35 + max(0, display_level - 1) * 15
             lines.append(f"다음: 잔상 확률 {chance:.0f}%")
         elif skill_id == "dash_distance":
-            lines.append(f"다음: 대쉬 거리 +{next_level * 3:.0f}%")
+            lines.append(f"다음: 대쉬 거리 +{display_level * 3:.0f}%")
         elif skill_id == "dash_cooldown":
-            lines.append(f"다음: 쿨타임 -{next_level * 0.2:.1f}초")
+            lines.append(f"다음: 쿨타임 -{display_level * 0.2:.1f}초")
         elif skill_id == "dash_stun":
-            lines.append(f"다음: 통제불능 -{next_level * 0.05:.2f}초")
+            lines.append(f"다음: 통제불능 -{display_level * 0.05:.2f}초")
         elif skill_id == "dash_gauge":
-            lines.append(f"다음: 게이지 +{next_level * 10}")
+            lines.append(f"다음: 게이지 +{display_level * 10}")
         elif skill_id == "item_luck":
             multiplier = compute_item_spawn_delay_multiplier(next_level)
             lines.append(f"다음: 딜레이 {multiplier * 100:.1f}%")
@@ -3070,36 +3087,36 @@ class AcademyUI:
             if next_level >= 5:
                 lines.append("보너스: 추가 +10 적용")
         elif skill_id == "item_bag_expansion":
-            lines.append(f"다음: 슬롯 +{next_level}칸")
+            lines.append(f"다음: 슬롯 +{display_level}칸")
         elif skill_id == "item_gamble":
-            chance = min(0.95, 0.25 + 0.15 * (next_level - 1))
-            max_extra = 1 if next_level < 3 else 2
+            chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
+            max_extra = 1 if display_level < 3 else 2
             lines.append(f"다음: 추가 가챠 {int(chance * 100)}%")
             lines.append(f"다음: 최대 {max_extra}회")
         elif skill_id == "item_recycle":
-            recycle_chance = min(0.9, 0.2 + 0.1 * (next_level - 1))
+            recycle_chance = min(0.9, 0.2 + 0.1 * (display_level - 1))
             lines.append(f"다음: 연금술 {int(recycle_chance * 100)}%")
         elif skill_id == "item_treasure_map":
-            lines.append(f"다음: 필드 전설 +{next_level * 350}%")
-            lines.append(f"다음: 가챠 전설 +{next_level * 7}%")
+            lines.append(f"다음: 필드 전설 +{display_level * 350}%")
+            lines.append(f"다음: 가챠 전설 +{display_level * 7}%")
         elif skill_id == "item_spawn":
-            lines.append(f"다음: 확률 +{next_level * 10}%")
+            lines.append(f"다음: 확률 +{display_level * 10}%")
         elif skill_id == "item_cooldown":
-            lines.append(f"다음: 쿨타임 -{next_level * 0.6:.1f}초")
+            lines.append(f"다음: 쿨타임 -{display_level * 0.6:.1f}초")
         elif skill_id == "item_slot":
-            lines.append(f"다음: 슬롯 +{next_level}칸")
+            lines.append(f"다음: 슬롯 +{display_level}칸")
         elif skill_id == "item_pachinko":
-            lines.append(f"다음: {next_level * 5}% 확률")
+            lines.append(f"다음: {display_level * 5}% 확률")
         elif skill_id == "item_legendary":
             lines.append("다음: 활성화")
         elif skill_id == "paddle_gauge":
-            lines.append(f"다음: 게이지 +{next_level * 5}")
+            lines.append(f"다음: 게이지 +{display_level * 5}")
         elif skill_id == "paddle_speed":
-            lines.append(f"다음: 속도 +{next_level * 0.5:.1f}")
+            lines.append(f"다음: 속도 +{display_level * 0.5:.1f}")
         elif skill_id == "paddle_size":
-            lines.append(f"다음: 크기 +{next_level * 2}%")
+            lines.append(f"다음: 크기 +{display_level * 2}%")
         elif skill_id == "paddle_max_gauge":
-            lines.append(f"다음: 최대치 +{next_level * 30}")
+            lines.append(f"다음: 최대치 +{display_level * 30}")
         elif skill_id == "paddle_bio":
             lines.append("다음: 활성화")
 
