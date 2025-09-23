@@ -5050,15 +5050,76 @@ def draw_blacksmith_divine_stone(surface):
     rect = blacksmith_divine_stone_state["rect"]
     pulse = blacksmith_divine_stone_state.get("pulse", 0)
     hp = blacksmith_divine_stone_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
-    overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
-    cx, cy = rect.width // 2, rect.height // 2
-    for radius, alpha in ((rect.width // 2, 40), (rect.width // 2 - 6, 70), (rect.width // 2 - 10, 120)):
-        pygame.draw.circle(overlay, (120, 180, 255, alpha), (cx, cy), radius)
-    glow_intensity = 80 + int(70 * math.sin(pulse * 0.1))
-    pygame.draw.circle(overlay, (180, 220, 255, glow_intensity), (cx, cy), rect.width // 2 - 4)
-    pygame.draw.circle(overlay, (255, 255, 255, 220), (cx, cy - 6), rect.width // 2 - 14)
-    pygame.draw.circle(overlay, (200, 240, 255, 180), (cx, cy + 4), rect.width // 2 - 16)
-    surface.blit(overlay, rect.topleft)
+    tower_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+    width, height = rect.size
+    cx, cy = width // 2, height // 2
+
+    def _vec_to_int_pair(vec: pygame.math.Vector2 | tuple[float, float]) -> tuple[int, int]:
+        if isinstance(vec, pygame.math.Vector2):
+            return (int(round(vec.x)), int(round(vec.y)))
+        return (int(round(vec[0])), int(round(vec[1])))
+
+    base_height = max(12, height // 5)
+    base_rect = pygame.Rect(6, height - base_height - 2, width - 12, base_height)
+    pygame.draw.rect(tower_surface, (70, 60, 85), base_rect, border_radius=6)
+    pygame.draw.rect(tower_surface, (140, 120, 170), base_rect.inflate(-6, -4), border_radius=4)
+    pygame.draw.rect(tower_surface, (220, 200, 255), base_rect.inflate(-10, -8), border_radius=3, width=2)
+
+    pillar_width = max(6, width // 6)
+    pillar_height = height - base_height - 18
+    left_pillar = pygame.Rect(8, height - base_height - pillar_height, pillar_width, pillar_height)
+    right_pillar = pygame.Rect(width - pillar_width - 8, height - base_height - pillar_height, pillar_width, pillar_height)
+    pygame.draw.rect(tower_surface, (120, 115, 150), left_pillar, border_radius=4)
+    pygame.draw.rect(tower_surface, (120, 115, 150), right_pillar, border_radius=4)
+    pygame.draw.rect(tower_surface, (200, 190, 240), left_pillar.inflate(-4, -4), border_radius=3, width=2)
+    pygame.draw.rect(tower_surface, (200, 190, 240), right_pillar.inflate(-4, -4), border_radius=3, width=2)
+
+    cap_height = max(10, height // 6)
+    cap_rect = pygame.Rect(left_pillar.left - 6, left_pillar.top - cap_height + 4, right_pillar.right - left_pillar.left + 12, cap_height)
+    pygame.draw.rect(tower_surface, (90, 80, 120), cap_rect, border_radius=6)
+    pygame.draw.rect(tower_surface, (150, 140, 200), cap_rect.inflate(-6, -4), border_radius=5)
+    pygame.draw.rect(tower_surface, (210, 200, 255), cap_rect.inflate(-10, -6), border_radius=4, width=2)
+
+    arch_rect = pygame.Rect(left_pillar.left - 4, left_pillar.top - cap_height - 4, right_pillar.right - left_pillar.left + 8, cap_height + 12)
+    pygame.draw.arc(tower_surface, (130, 120, 200), arch_rect, math.pi, 2 * math.pi, 3)
+
+    float_height = left_pillar.top + (left_pillar.height // 2)
+    orbital_radius = max(6, width // 5)
+    float_offset = math.sin(pulse * 0.08) * 3
+    mana_center = pygame.math.Vector2(cx, float_height + float_offset)
+    core_radius = max(8, width // 6)
+    glow_radius = core_radius + 6
+    pygame.draw.circle(tower_surface, (110, 170, 255, 90), (int(mana_center.x), int(mana_center.y)), glow_radius + 6)
+    pygame.draw.circle(tower_surface, (160, 200, 255, 140), (int(mana_center.x), int(mana_center.y)), glow_radius)
+    pygame.draw.circle(tower_surface, (255, 255, 255, 220), (int(mana_center.x), int(mana_center.y)), core_radius)
+    rune_progress = (pulse % 180) / 180.0
+    for angle_deg in range(0, 360, 60):
+        angle = math.radians(angle_deg + rune_progress * 120)
+        orb_pos = mana_center + pygame.math.Vector2(math.cos(angle), math.sin(angle)) * orbital_radius
+        pygame.draw.circle(tower_surface, (120, 200, 255, 180), _vec_to_int_pair(orb_pos), 3)
+
+    spark_count = 4
+    for idx in range(spark_count):
+        spark_angle = math.radians((360 / spark_count) * idx + pulse * 4)
+        outer = mana_center + pygame.math.Vector2(math.cos(spark_angle), math.sin(spark_angle)) * (orbital_radius + 10)
+        inner = mana_center + pygame.math.Vector2(math.cos(spark_angle), math.sin(spark_angle)) * (orbital_radius - 2)
+        pygame.draw.line(tower_surface, (150, 220, 255, 180), _vec_to_int_pair(inner), _vec_to_int_pair(outer), 2)
+
+    chain_y = mana_center.y - core_radius - 6
+    pygame.draw.line(tower_surface, (180, 190, 240), (left_pillar.centerx, int(chain_y)), (right_pillar.centerx, int(chain_y)), 2)
+
+    halo_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+    halo_radius = max(width // 2, height // 2)
+    halo_alpha = 40 + int(30 * math.sin(pulse * 0.04))
+    pygame.draw.circle(halo_surface, (90, 140, 240, halo_alpha), (cx, cy), halo_radius)
+    tower_surface.blit(halo_surface, (0, 0))
+
+    surface.blit(tower_surface, rect.topleft)
+
+    hp_font = FontStyle.tiny()
+    hp_text = hp_font.render(f"HP {hp}", True, (230, 240, 255))
+    surface.blit(hp_text, hp_text.get_rect(center=(rect.centerx, rect.bottom + 10)))
+
     font = FontStyle.tiny()
     hp_text = font.render(f"HP {hp}", True, (230, 240, 255))
     surface.blit(hp_text, hp_text.get_rect(center=(rect.centerx, rect.bottom + 10)))
