@@ -13343,8 +13343,7 @@ def handle_player(keys):
                 soldier_weapon_menu_active = True
         else:
             if not up_pressed:
-                soldier_weapon_hold_frames = 0
-                if soldier_weapon_menu_active:
+                if soldier_weapon_menu_active and not allow_weapon_switch:
                     soldier_weapon_menu_active = False
             elif space_pressed or not allow_weapon_switch:
                 soldier_weapon_hold_frames = 0
