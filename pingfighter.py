@@ -32576,8 +32576,6 @@ def create_soldier_character_card_image_new(size: int) -> pygame.Surface:
     return img
 
 
-SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(220))
-
 
 def create_soldier_front_view():
     """코만도 캐릭터 앞모습 - 전신 (다리 짧은 버전)"""
@@ -32833,6 +32831,7 @@ def create_soldier_front_view():
     
     return img
 
+SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(220))
 def show_character_selection():
     """사이버펑크 스타일 홀로그램 캐릭터 선택 화면"""
     clock = pygame.time.Clock()
