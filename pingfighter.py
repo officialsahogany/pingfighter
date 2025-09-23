@@ -32647,70 +32647,50 @@ def show_character_selection():
                 rotated_suit = pygame.transform.rotate(suit_text, HALF_ROTATION)
                 surface.blit(rotated_suit, (w - suit_text.get_width() - 8, h - suit_text.get_height() - 8))
             # 캐릭터 이미지 영역
-            image_size = min(w - 20, h // 3)  # 카드 크기에 비례
+            image_margin_side = 24
+            image_margin_top = 28
+            name_reserved_space = 72  # 카드 하단 텍스트 영역 확보
+            max_width = max(48, w - image_margin_side * 2)
+            max_height = max(48, h - image_margin_top - name_reserved_space)
+
+            def blit_scaled_surface(source_surface):
+                """주어진 이미지를 카드 내 공통 영역에 맞춰 스케일링"""
+                if source_surface is None:
+                    return
+                src_w, src_h = source_surface.get_size()
+                if src_w == 0 or src_h == 0:
+                    return
+                scale = min(max_width / src_w, max_height / src_h)
+                target_size = (
+                    max(1, int(src_w * scale)),
+                    max(1, int(src_h * scale))
+                )
+                scaled = pygame.transform.smoothscale(source_surface, target_size)
+                image_x = (w - scaled.get_width()) // 2
+                image_y = image_margin_top + (max_height - scaled.get_height()) // 2
+                surface.blit(scaled, (image_x, image_y))
+
             if character["id"] == "soldier":
-                # 코만도 캐릭터는 직접 그리기 (앞모습)
-                soldier_img = create_soldier_character_card_image_new(image_size)
-                image_x = (w - image_size) // 2
-                image_y = 30
-                surface.blit(soldier_img, (image_x, image_y))
+                base_size = max(64, int(min(max_width, max_height)))
+                soldier_img = create_soldier_character_card_image_new(base_size)
+                blit_scaled_surface(soldier_img)
             elif character["id"] == "blacksmith":
                 source_img = BLACKSMITH_CARD_IMG if 'BLACKSMITH_CARD_IMG' in globals() else BLACKSMITH_PADDLE_IMG
-                src_w, src_h = source_img.get_size()
-                max_width = max(20, w - 24)
-                max_height = max(20, int(h * 0.65))
-                scale = min(max_width / src_w, max_height / src_h)
-                scale = max(scale, 0.1)
-                target_size = (
-                    max(1, int(src_w * scale)),
-                    max(1, int(src_h * scale))
-                )
-                blacksmith_img = pygame.transform.smoothscale(source_img, target_size)
-                image_x = (w - blacksmith_img.get_width()) // 2
-                image_y = 28
-                surface.blit(blacksmith_img, (image_x, image_y))
+                blit_scaled_surface(source_img)
             elif character["id"] in ("smasher", "ufo_player"):
-                source_img = SMASHER_PADDLE_IMG
-                src_w, src_h = source_img.get_size()
-                max_width = max(20, w - 24)
-                max_height = max(20, int(h * 0.65))
-                scale = min(max_width / src_w, max_height / src_h)
-                scale = max(scale, 0.1)
-                target_size = (
-                    max(1, int(src_w * scale)),
-                    max(1, int(src_h * scale))
-                )
-                smasher_img = pygame.transform.smoothscale(source_img, target_size)
-                image_x = (w - smasher_img.get_width()) // 2
-                image_y = 28
-                surface.blit(smasher_img, (image_x, image_y))
+                blit_scaled_surface(SMASHER_PADDLE_IMG)
             elif character["id"] == "optimus":
-                source_img = OPTIMUS_PADDLE_IMG
-                src_w, src_h = source_img.get_size()
-                max_width = max(20, w - 24)
-                max_height = max(20, int(h * 0.65))
-                scale = min(max_width / src_w, max_height / src_h)
-                scale = max(scale, 0.1)
-                target_size = (
-                    max(1, int(src_w * scale)),
-                    max(1, int(src_h * scale))
-                )
-                optimus_img = pygame.transform.smoothscale(source_img, target_size)
-                image_x = (w - optimus_img.get_width()) // 2
-                image_y = 28
-                surface.blit(optimus_img, (image_x, image_y))
+                blit_scaled_surface(OPTIMUS_PADDLE_IMG)
             else:
                 try:
-                    char_image = pygame.image.load(character["image"])
-                    char_image = pygame.transform.scale(char_image, (image_size, image_size))
-                    image_x = (w - image_size) // 2
-                    image_y = 30
-                    surface.blit(char_image, (image_x, image_y))
-                except:
+                    char_image = pygame.image.load(resource_path(character["image"]))
+                    blit_scaled_surface(char_image.convert_alpha())
+                except Exception:
                     # 이미지 로드 실패 시 대체 그래픽
-                    radius = image_size // 2
-                    pygame.draw.circle(surface, border_color, (w//2, 30 + radius), radius)
-                    pygame.draw.circle(surface, WHITE, (w//2, 30 + radius), radius - 5, 3)
+                    fallback_radius = max(20, min(max_width, max_height) // 2)
+                    center_y = image_margin_top + max_height // 2
+                    pygame.draw.circle(surface, border_color, (w//2, center_y), fallback_radius)
+                    pygame.draw.circle(surface, WHITE, (w//2, center_y), max(1, fallback_radius - 5), 3)
             # 캐릭터 이름 (카드가 클 때만) - 중앙 정렬 및 색상 개선
             if is_selected and w > 120:
                 name_text = font_card.render(character["name"], True, WHITE)  # 흰색으로 변경하여 가독성 향상
