@@ -731,32 +731,36 @@ def create_game_vars_adapters(hooks: Optional[LegacyHooks] = None) -> RuntimeAda
         if hooks.player_update is not None:
             def _legacy_player(state: GameState, input_handler: InputHandler) -> None:
                 hooks.player_update(state, input_handler)
-                _sync_state_from_game_vars(state)
+                _sync_state_from_globals(state)
                 _sync_state_from_core_game_state(state)
+                _sync_game_vars_from_state(state)
 
             adapters.update_player_input = _legacy_player
 
         if hooks.physics_update is not None:
             def _legacy_physics(state: GameState, delta_time: float) -> None:
                 hooks.physics_update(state, delta_time)
-                _sync_state_from_game_vars(state)
+                _sync_state_from_globals(state)
                 _sync_state_from_core_game_state(state)
+                _sync_game_vars_from_state(state)
 
             adapters.update_physics = _legacy_physics
 
         if hooks.ai_update is not None:
             def _legacy_ai(state: GameState, delta_time: float) -> None:
                 hooks.ai_update(state, delta_time)
-                _sync_state_from_game_vars(state)
+                _sync_state_from_globals(state)
                 _sync_state_from_core_game_state(state)
+                _sync_game_vars_from_state(state)
 
             adapters.update_ai = _legacy_ai
 
         if hooks.items_update is not None:
             def _legacy_items(state: GameState, delta_time: float) -> None:
                 hooks.items_update(state, delta_time)
-                _sync_state_from_game_vars(state)
+                _sync_state_from_globals(state)
                 _sync_state_from_core_game_state(state)
+                _sync_game_vars_from_state(state)
 
             adapters.update_items = _legacy_items
 
