@@ -4051,6 +4051,9 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         stop_blacksmith_construction_sound()
         return down_just_pressed
 
+    if not blacksmith_hammer_available and not blacksmith_hammer_shock_charging:
+        return down_just_pressed
+
     if is_waiting_for_serve or is_player_serve:
         stop_blacksmith_construction_sound()
         return down_just_pressed
