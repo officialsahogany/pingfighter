@@ -28,6 +28,25 @@ LEGENDARY_TIER = "legendary"
 LEGENDARY_COLOR = (255, 50, 50)  # 붉은색
 LEGENDARY_GLOW_COLOR = (255, 100, 100, 128)  # 반투명 붉은색 글로우
 
+def _strip_legendary_red_ring(frame: pygame.Surface,
+                              red_threshold: int = 150,
+                              green_threshold: int = 100,
+                              blue_threshold: int = 100) -> pygame.Surface:
+    """전설 아이콘 PNG에 포함된 붉은 배경 링을 투명화한다."""
+    cleaned_frame = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
+    width, height = frame.get_size()
+
+    for py in range(height):
+        for px in range(width):
+            color = frame.get_at((px, py))
+            if color.a == 0:
+                continue
+            if color.r > red_threshold and color.g < green_threshold and color.b < blue_threshold:
+                continue
+            cleaned_frame.set_at((px, py), color)
+
+    return cleaned_frame
+
 class LegendaryItem:
     """전설 아이템 베이스 클래스"""
     def __init__(self, name: str, korean_name: str, description: str, 
@@ -321,25 +340,8 @@ class PoseidonTrident(LegendaryItem):
             frame_path = resource_path(f"items/legendary/poseidon_trident_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
-                
-                # PNG의 빨간색 배경 원 제거
-                cleaned_frame = pygame.Surface((frame.get_width(), frame.get_height()), pygame.SRCALPHA)
-                
-                # PNG의 각 픽셀을 확인하여 빨간색 원 부분을 투명하게 만들기
-                for py in range(frame.get_height()):
-                    for px in range(frame.get_width()):
-                        color = frame.get_at((px, py))
-                        # 빨간색 계열이면서 삼지창이 아닌 부분 (배경) 제거
-                        # 삼지창은 파란색/하늘색 계열이므로 빨간색만 제거
-                        if color.a > 0:  # 투명하지 않은 픽셀만 처리
-                            # 빨간색이 강하고 파란색이 약한 픽셀은 배경으로 간주
-                            if color.r > 150 and color.g < 100 and color.b < 100:
-                                # 빨간색 배경을 투명하게
-                                cleaned_frame.set_at((px, py), (0, 0, 0, 0))
-                            else:
-                                # 삼지창 부분은 그대로 유지
-                                cleaned_frame.set_at((px, py), color)
-                
+                cleaned_frame = _strip_legendary_red_ring(frame)
+
                 self.icon_frames.append(cleaned_frame)
                 self.animation_frames.append(cleaned_frame)  # legendary_acquisition에서 사용
                 frames_loaded += 1
