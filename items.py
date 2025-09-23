@@ -110,7 +110,8 @@ def load_item_icons():
         "spider_mine": "spider_mine.png",  # 스파이더지뢰 아이콘
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
-        "hermes_shoes": "legendary/hermes_shoes.png"
+        "hermes_shoes": "legendary/hermes_shoes.png",
+        "sacred_laurel": "legendary/sacred_laurel.png"
     }
     
     for item_name, icon_file in icon_files.items():
@@ -134,7 +135,22 @@ def load_item_icons():
         item_name = item_type["name"]
         if item_name in ITEM_ICONS:
             item_type["icon"] = ITEM_ICONS[item_name]
-    
+
+    # 신성 월계수 아이콘이 실제 파일이 없을 경우 절차적으로 생성
+    if "sacred_laurel" not in ITEM_ICONS or ITEM_ICONS["sacred_laurel"] is None:
+        laurel_icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+        center = 16
+        base_radius = 10
+        for idx in range(8):
+            angle = (math.tau / 8) * idx
+            x = int(center + math.cos(angle) * base_radius)
+            y = int(center + math.sin(angle) * base_radius)
+            pygame.draw.circle(laurel_icon, (255, 230, 160, 220), (x, y), 4)
+            pygame.draw.circle(laurel_icon, (255, 255, 210, 255), (x, y), 2)
+        pygame.draw.circle(laurel_icon, (120, 200, 170, 200), (center, center), 6)
+        pygame.draw.circle(laurel_icon, (200, 240, 220, 230), (center, center), 4)
+        ITEM_ICONS["sacred_laurel"] = laurel_icon
+
     print(f"Item icons loaded")
 
 
@@ -475,6 +491,15 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
+        "name": "sacred_laurel",  # 신성 월계수 전설 아이템
+        "color": (255, 220, 150),  # 황금빛 전설 색상
+        "effect": "sacred_laurel",
+        "icon": None,
+        "chance": 0.0008,
+        "duration": 600,
+        "unlock_condition": None
+    },
+    {
         "name": "knee_pads",  # 킥차져 패시브 아이템
         "color": (80, 80, 100),  # 어두운 회색-파란색
         "effect": "knee_pads",
@@ -541,6 +566,7 @@ technical_vest_obtained = False  # 테크니컬조끼 아이템 획득 여부
 ragnarok_hammer_obtained = False  # 라그나로크 해머 획득 여부
 hermes_shoes_obtained = False  # 헤르메스의 신발 획득 여부
 poseidon_trident_obtained = False  # 포세이돈의 삼지창 획득 여부
+sacred_laurel_obtained = False  # 신성 월계수 획득 여부
 smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 
@@ -1290,4 +1316,3 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                 screen.blit(shadow, (text_rect.x + 2, text_rect.y + 2))
                 screen.blit(text_surface, text_rect)
                 break
-
