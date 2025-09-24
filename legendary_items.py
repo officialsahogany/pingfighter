@@ -150,10 +150,10 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
     pygame.draw.rect(screen, border_color, border_rect, 2)
 
     if corner_style == "block":
-        block_size = max(6, size // 9)
+        block_size = max(8, size // 6)
         for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
             block_rect = pygame.Rect(cx - block_size // 2, cy - block_size // 2, block_size, block_size)
-            pygame.draw.rect(screen, corner_color, block_rect, border_radius=2)
+            pygame.draw.rect(screen, corner_color, block_rect, border_radius=0)
     else:
         corner_size = 8
         pygame.draw.lines(screen, corner_color, False,
