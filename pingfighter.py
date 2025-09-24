@@ -5009,6 +5009,10 @@ def update_blacksmith_hammer_shock(keys):
 
     new_projectiles = []
     for proj in blacksmith_hammer_shock_projectiles:
+        # Store previous position for trail
+        prev_x = proj["x"]
+        prev_y = proj["y"]
+        
         proj["x"] += proj.get("vx", 0.0)
         proj["y"] += proj.get("vy", 0.0)
         if abs(proj.get("vx", 0.0)) < 1e-3 and proj.get("vy", 0.0) != 0.0:
@@ -5016,6 +5020,20 @@ def update_blacksmith_hammer_shock(keys):
         else:
             proj["rotation"] = (proj.get("rotation", 0.0) + 18.0) % 360
         proj["life"] -= 1
+
+        # Add trail effect
+        trail_entry = {
+            "x": prev_x,
+            "y": prev_y,
+            "alpha": 1.0,
+            "stage": proj["stage"],
+            "rotation": proj.get("rotation", 0.0) - 18.0  # 이전 회전 각도
+        }
+        blacksmith_hammer_trails.append(trail_entry)
+        
+        # Limit trail length
+        if len(blacksmith_hammer_trails) > BLACKSMITH_HAMMER_TRAIL_LENGTH * len(blacksmith_hammer_shock_projectiles):
+            blacksmith_hammer_trails = blacksmith_hammer_trails[-(BLACKSMITH_HAMMER_TRAIL_LENGTH * len(blacksmith_hammer_shock_projectiles)):]
 
         exploded = False
 
@@ -5042,6 +5060,24 @@ def update_blacksmith_hammer_shock(keys):
             new_projectiles.append(proj)
 
     blacksmith_hammer_shock_projectiles = new_projectiles
+
+    # Update trail effects
+    global blacksmith_hammer_trails
+    updated_trails = []
+    for trail in blacksmith_hammer_trails:
+        trail["alpha"] -= BLACKSMITH_HAMMER_TRAIL_FADE_SPEED
+        if trail["alpha"] > 0:
+            updated_trails.append(trail)
+    blacksmith_hammer_trails = updated_trails
+
+    # Update ground cracks
+    global blacksmith_ground_cracks
+    updated_cracks = []
+    for crack in blacksmith_ground_cracks:
+        crack["life"] -= 1
+        if crack["life"] > 0:
+            updated_cracks.append(crack)
+    blacksmith_ground_cracks = updated_cracks
 
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions = [
