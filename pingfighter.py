@@ -22626,7 +22626,11 @@ def draw_objects():
             elif blacksmith_walking_active:
                 base_ufo_img = create_blacksmith_paddle_walking()
             else:
-                base_ufo_img = BLACKSMITH_PADDLE_IMG
+                if blacksmith_hammer_available or blacksmith_hammer_shock_charging:
+                    base_ufo_img = BLACKSMITH_PADDLE_IMG
+                else:
+                    base_ufo_img = BLACKSMITH_PADDLE_NO_HAMMER_IMG
+                    blacksmith_hammer_head_surface_point = None
         elif selected_character_type == "smasher":
             # 스매셔 캐릭터는 에반게리온 스타일 패들 사용
             if smasher_walking_active:
