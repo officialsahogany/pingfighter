@@ -2246,7 +2246,9 @@ class LegendaryItemManager:
         poseidon_item = PoseidonTrident()
         self.items["poseidon_trident"] = poseidon_item
         self.items["holy_laurel"] = HolyLaurel(poseidon_item)
-        
+        # 전시 전용 아이콘은 아이템 관리자에서 항상 보이도록 기본 해금 상태로 둔다.
+        self.items["holy_laurel"].unlocked = True
+
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
         if "ragnarok_hammer" not in self.unlocked_items:
