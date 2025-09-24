@@ -44919,6 +44919,10 @@ def handle_boss_pro():
                 BOSS.x = proposed_x
                 # 화면 경계 제한 (스턴이 없을 때만)
                 BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+            else:
+                # 크랙에 막혀서 움직일 수 없음
+                if random.random() < 0.1:  # 10% chance to print
+                    print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
 def handle_boss_champion():
     """ 챔피언리그: 고급 AI (8% 실수율)"""
     global boss_current_speed, boss_fail_timer
@@ -45212,6 +45216,10 @@ def handle_boss_champion():
                 BOSS.x = proposed_x
                 # 화면 경계 제한 (스턴이 없을 때만)
                 BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+            else:
+                # 크랙에 막혀서 움직일 수 없음
+                if random.random() < 0.1:  # 10% chance to print
+                    print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
 def handle_boss_mythic():
     """ 신화리그: 최강 AI (2% 실수율) - 거의 완벽한 플레이"""
     global boss_current_speed, boss_fail_timer
@@ -45349,6 +45357,10 @@ def handle_boss_mythic():
         if can_move:
             BOSS.x = proposed_x
             BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+        else:
+            # 크랙에 막혀서 움직일 수 없음 (혼란 상태)
+            if random.random() < 0.1:  # 10% chance to print
+                print(f"[CRACK BLOCKED - Confused] Boss cannot move from x={BOSS.x} to x={proposed_x}")
         return  # 혼란 상태에서는 나머지 AI 로직 무시
     # 1️⃣ 현재 공 상태 분석 (최신 시스템)
     current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
@@ -45879,6 +45891,10 @@ def handle_boss_junior():
                 BOSS.x = proposed_x
                 # 화면 경계 제한 (스턴이 없을 때만)
                 BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+            else:
+                # 크랙에 막혀서 움직일 수 없음
+                if random.random() < 0.1:  # 10% chance to print
+                    print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
 def optimize_ai_memory_for_round():
     """라운드 간 AI 메모리 최적화 (가벼운 정리)"""
     global enhanced_ai, ai_decisions_history, ai_performance_stats
