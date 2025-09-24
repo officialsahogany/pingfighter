@@ -594,6 +594,7 @@ unlocked_items = {
     "ragnarok_hammer": True,
     "hermes_shoes": True,
     "poseidon_trident": True,
+    "holy_laurel": True,
     
     # 패시브 아이템
     "knee_pads": True
