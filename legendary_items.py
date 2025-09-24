@@ -1217,7 +1217,7 @@ class PoseidonTrident(LegendaryItem):
         
         # 라그나로크 해머와 동일한 애니메이션 프레임 카운터 업데이트
         if self.icon_frames and len(self.icon_frames) > 1:
-            self.frame_counter += self._animation_rate_scale
+            self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
                 self.frame_counter = 0
                 self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
