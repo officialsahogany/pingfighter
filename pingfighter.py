@@ -5766,6 +5766,8 @@ def update_blacksmith_hammer_shock(keys):
         else:
             proj["rotation"] = (proj.get("rotation", 0.0) + 18.0) % 360
         proj["life"] -= 1
+        if proj.get("ball_hit_cooldown", 0) > 0:
+            proj["ball_hit_cooldown"] -= 1
 
         exploded = False
 
@@ -5786,9 +5788,9 @@ def update_blacksmith_hammer_shock(keys):
             dy = float(ball_centery) - float(proj.get("y", ball_centery))
             ball_radius = max(BALL.width, BALL.height) * 0.5
             collision_radius = ball_radius + BLACKSMITH_HAMMER_SHOCK_PROJECTILE_HITBOX_RADIUS
-            if dx * dx + dy * dy <= collision_radius * collision_radius:
-                _handle_blacksmith_hammer_ball_hit(proj)
-                exploded = True
+            if dx * dx + dy * dy <= collision_radius * collision_radius and proj.get("ball_hit_cooldown", 0) <= 0:
+                _handle_blacksmith_hammer_ball_hit(proj, dx, dy)
+                proj["ball_hit_cooldown"] = BLACKSMITH_HAMMER_SHOCK_BALL_HIT_COOLDOWN_FRAMES
 
         if not exploded:
             off_screen = (
@@ -7530,6 +7532,7 @@ BLACKSMITH_HAMMER_SHOCK_BALL_HORIZONTAL_DECAY = 0.45
 BLACKSMITH_HAMMER_SHOCK_BALL_HORIZONTAL_BOOST = 7.2
 BLACKSMITH_HAMMER_SHOCK_BALL_VERTICAL_DECAY = 0.55
 BLACKSMITH_HAMMER_SHOCK_BALL_VERTICAL_MIN_SPEED = 11.0
+BLACKSMITH_HAMMER_SHOCK_BALL_HIT_COOLDOWN_FRAMES = 6
 BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS = 90
 BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE = 1.1
 BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE = 1.2
