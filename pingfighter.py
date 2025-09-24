@@ -34637,7 +34637,6 @@ def create_soldier_front_view():
     
     return img
 
-SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(220))
 def show_character_selection():
     """사이버펑크 스타일 홀로그램 캐릭터 선택 화면"""
     clock = pygame.time.Clock()
