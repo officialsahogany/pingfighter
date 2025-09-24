@@ -4902,6 +4902,12 @@ def _check_boss_crack_collision(boss_rect, crack):
 
     bounding_rect = _get_crack_bounding_rect(crack)
 
+    def _flag_crack_collision_state():
+        try:
+            _update_boss_crack_stuck_state(False, boss_rect)
+        except Exception:
+            pass
+
     min_projection_x = min(line_start_x, line_end_x)
     max_projection_x = max(line_start_x, line_end_x)
 
@@ -4965,6 +4971,7 @@ def _check_boss_crack_collision(boss_rect, crack):
         distance = point_to_line_distance(corner_x, corner_y, line_start_x, line_start_y, line_end_x, line_end_y)
         if distance < thickness:
             print(f"[COLLISION] Boss corner at ({corner_x}, {corner_y}) hit crack! Distance: {distance}, Threshold: {thickness}")
+            _flag_crack_collision_state()
             return True
     
     # Check if the crack line intersects with any edge of the rectangle
@@ -5001,6 +5008,7 @@ def _check_boss_crack_collision(boss_rect, crack):
             if line_length > 0 and distance > line_length + BLACKSMITH_GROUND_CRACK_EDGE_TOLERANCE:
                 continue
             print(f"[COLLISION] Crack line intersects boss edge!")
+            _flag_crack_collision_state()
             return True
     
     # Check if the crack is entirely inside the rectangle
@@ -5009,6 +5017,7 @@ def _check_boss_crack_collision(boss_rect, crack):
         boss_rect.left <= line_end_x <= boss_rect.right and
         boss_rect.top <= line_end_y <= boss_rect.bottom):
         print(f"[COLLISION] Crack is inside boss rect!")
+        _flag_crack_collision_state()
         return True
     
     return False
