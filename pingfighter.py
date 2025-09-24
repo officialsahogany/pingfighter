@@ -5769,7 +5769,7 @@ def update_blacksmith_hammer_shock(keys):
                 crack,
                 segments=1,
                 spawn_particles=True,
-                play_sound=True,
+                play_sound=False,
             )
 
             if crack not in blacksmith_ground_cracks:
