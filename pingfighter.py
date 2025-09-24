@@ -5293,13 +5293,25 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     if cooldown > 0:
         return
 
+    line_start_x = crack.get("x", boss_rect.centerx)
+    current_length = crack.get("length", 0.0)
+    angle = crack.get("angle", 0.0)
+    line_end_x = line_start_x + math.cos(angle) * current_length
+    crack_center_x = (line_start_x + line_end_x) * 0.5
+
     segments_total = max(1, crack.get("segments_total") or 1)
     segments_remaining = crack.get("segments_remaining", segments_total)
 
     if segments_remaining <= 0:
         return
 
-    segments_break = segments_remaining
+    break_min = min(segments_remaining, 3)
+    break_max = min(segments_remaining, 4)
+    if break_min <= 0:
+        return
+    if break_max < break_min:
+        break_max = break_min
+    segments_break = random.randint(break_min, break_max)
     new_remaining = max(0, segments_remaining - segments_break)
     crack["segments_remaining"] = new_remaining
 
@@ -5352,8 +5364,11 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     try:
         current_timer = globals().get("boss_knockback_timer", 0)
         globals()["boss_knockback_timer"] = max(current_timer, BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES)
-        crack_x = crack.get("x", boss_rect.centerx)
-        direction = 1 if crack_x >= boss_rect.centerx else -1
+        delta_x = boss_rect.centerx - crack_center_x
+        if abs(delta_x) < 1.0:
+            direction = random.choice([-1, 1])
+        else:
+            direction = 1 if delta_x > 0 else -1
         globals()["boss_knockback_vel"] = direction * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED
         globals()["boss_knockback_active"] = False
         globals()["boss_knockback_offset_x"] = 0
