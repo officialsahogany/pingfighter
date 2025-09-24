@@ -5000,7 +5000,7 @@ def update_blacksmith_hammer_shock(keys):
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_projectiles
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_available
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
-    global blacksmith_hammer_trails, blacksmith_ground_cracks
+    global blacksmith_ground_cracks
     global PLAYER, special_gauge, special_ready, special_gauge_max
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
@@ -5043,10 +5043,6 @@ def update_blacksmith_hammer_shock(keys):
 
     new_projectiles = []
     for proj in blacksmith_hammer_shock_projectiles:
-        # Store previous position for trail
-        prev_x = proj["x"]
-        prev_y = proj["y"]
-        
         proj["x"] += proj.get("vx", 0.0)
         proj["y"] += proj.get("vy", 0.0)
         if abs(proj.get("vx", 0.0)) < 1e-3 and proj.get("vy", 0.0) != 0.0:
@@ -5054,20 +5050,6 @@ def update_blacksmith_hammer_shock(keys):
         else:
             proj["rotation"] = (proj.get("rotation", 0.0) + 18.0) % 360
         proj["life"] -= 1
-
-        # Add trail effect
-        trail_entry = {
-            "x": prev_x,
-            "y": prev_y,
-            "alpha": 1.0,
-            "stage": proj["stage"],
-            "rotation": proj.get("rotation", 0.0) - 18.0  # 이전 회전 각도
-        }
-        blacksmith_hammer_trails.append(trail_entry)
-        
-        # Limit trail length
-        if len(blacksmith_hammer_trails) > BLACKSMITH_HAMMER_TRAIL_LENGTH * len(blacksmith_hammer_shock_projectiles):
-            blacksmith_hammer_trails = blacksmith_hammer_trails[-(BLACKSMITH_HAMMER_TRAIL_LENGTH * len(blacksmith_hammer_shock_projectiles)):]
 
         exploded = False
 
@@ -6769,8 +6751,7 @@ blacksmith_hammer_shock_projectiles = []
 blacksmith_hammer_shock_anchor_x = 0
 blacksmith_hammer_shock_anchor_y = 0
 
-# Hammer trail and crack effects initialization
-blacksmith_hammer_trails = []
+# Ground crack effects initialization
 blacksmith_ground_cracks = []
 
 blacksmith_construction_sound_playing = False
