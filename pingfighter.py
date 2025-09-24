@@ -5011,16 +5011,46 @@ def _check_path_blocked_by_cracks(current_x, target_x, boss_width, boss_y, boss_
     if not relevant_cracks:
         return False
 
+    movement_distance = abs(target_x - current_x)
+    if movement_distance < 1e-3:
+        return False
+
+    contact_margin = max(12, int(boss_width * 0.6))
+    max_sample_gap = max(10.0, contact_margin * 0.5)
+    steps = max(5, int(math.ceil(movement_distance / max_sample_gap)))
+    direction = 1 if target_x >= current_x else -1
+
     # Check multiple points along the path against relevant cracks only
-    steps = 5
-    for i in range(steps + 1):
+    for i in range(1, steps + 1):
         t = i / steps
         check_x = current_x + (target_x - current_x) * t
         test_rect = pygame.Rect(check_x, boss_y, boss_width, boss_height)
 
+        blocked_here = False
         for crack in relevant_cracks:
             if _check_boss_crack_collision(test_rect, crack):
-                return True
+                bounding_rect = _get_crack_bounding_rect(crack)
+                if direction > 0:
+                    boss_front = check_x + boss_width
+                    crack_front = bounding_rect.left
+                    distance_to_crack_front = crack_front - boss_front
+                else:
+                    boss_front = check_x
+                    crack_front = bounding_rect.right
+                    distance_to_crack_front = boss_front - crack_front
+
+                distance_to_crack_front = max(0.0, distance_to_crack_front)
+                distance_to_target = abs(target_x - check_x)
+
+                # Allow the boss to close in and actually collide when the crack is already near the target
+                if distance_to_crack_front <= contact_margin or distance_to_target <= contact_margin:
+                    continue
+
+                blocked_here = True
+                break
+
+        if blocked_here:
+            return True
 
     return False
 
