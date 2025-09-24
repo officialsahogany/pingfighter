@@ -4479,6 +4479,181 @@ def _clamp_color(color: tuple[int, ...]) -> tuple[int, ...]:
     return tuple(max(0, min(255, int(component))) for component in color)
 
 
+def _get_blacksmith_hammer_explosion_palette(stage: int) -> dict[str, object]:
+    stage_index = max(1, min(stage, BLACKSMITH_HAMMER_SHOCK_MAX_STAGE))
+    return _BLACKSMITH_HAMMER_EXPLOSION_PALETTES.get(stage_index, _BLACKSMITH_HAMMER_EXPLOSION_PALETTES[1])
+
+
+def _get_blacksmith_hammer_explosion_surface(stage: int) -> pygame.Surface:
+    stage_index = max(1, min(stage, BLACKSMITH_HAMMER_SHOCK_MAX_STAGE))
+    cached = _blacksmith_hammer_explosion_surface_cache.get(stage_index)
+    if cached is not None:
+        return cached
+
+    palette = _get_blacksmith_hammer_explosion_palette(stage_index)
+    radius = BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS
+    if stage_index == 2:
+        radius *= BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE
+    elif stage_index >= 3:
+        radius *= BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE
+
+    visual_radius = radius * (0.58 + 0.06 * (stage_index - 1))
+    size = int(visual_radius * 2) + 12
+    surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = size // 2
+
+    gradient_steps = 28
+    core_color = palette.get("core", (255, 248, 230))
+    mid_color = palette.get("mid", (210, 180, 120))
+    edge_color = palette.get("edge", (160, 110, 70))
+
+    for step in range(gradient_steps):
+        ratio = step / max(1, gradient_steps - 1)
+        radius_step = max(1, int(visual_radius * (1.0 - ratio ** 1.22)))
+        if radius_step <= 0:
+            continue
+
+        blend_mid = tuple(int(lerp(edge_color[i], mid_color[i], ratio ** 0.75)) for i in range(3))
+        color_rgb = tuple(int(lerp(blend_mid[i], core_color[i], ratio ** 1.1)) for i in range(3))
+        alpha = int(lerp(70, 255, ratio ** 1.2))
+        pygame.draw.circle(
+            surface,
+            _clamp_color((*color_rgb, alpha)),
+            (center, center),
+            radius_step,
+        )
+
+    pygame.draw.circle(
+        surface,
+        _clamp_color((*core_color, 255)),
+        (center, center),
+        max(2, int(visual_radius * 0.18)),
+    )
+
+    glyph_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    glyph_color = palette.get("glyph", (255, 220, 180))
+    ring_count = 3 + stage_index
+    for ring_idx in range(ring_count):
+        ring_ratio = ring_idx / max(1, ring_count - 1)
+        ring_radius = visual_radius * (0.32 + 0.4 * ring_ratio)
+        ring_alpha = int(80 + 40 * (1.0 - ring_ratio))
+        pygame.draw.circle(
+            glyph_surface,
+            _clamp_color((*glyph_color, ring_alpha)),
+            (center, center),
+            max(1, int(ring_radius)),
+            1 + (ring_idx % 2),
+        )
+
+    spoke_count = 6 + stage_index * 2
+    for idx in range(spoke_count):
+        angle = (math.tau * idx) / spoke_count
+        inner = visual_radius * 0.26
+        outer = visual_radius * 0.88
+        start_x = center + math.cos(angle) * inner
+        start_y = center + math.sin(angle) * inner
+        end_x = center + math.cos(angle) * outer
+        end_y = center + math.sin(angle) * outer
+        pygame.draw.line(
+            glyph_surface,
+            _clamp_color((*glyph_color, 120)),
+            (int(start_x), int(start_y)),
+            (int(end_x), int(end_y)),
+            2,
+        )
+        notch_angle = angle + (math.pi / 2 if idx % 2 == 0 else -math.pi / 2)
+        notch_base = (inner + outer) * 0.5
+        notch_length = visual_radius * 0.22
+        notch_start_x = center + math.cos(angle) * notch_base
+        notch_start_y = center + math.sin(angle) * notch_base
+        notch_end_x = notch_start_x + math.cos(notch_angle) * notch_length * 0.35
+        notch_end_y = notch_start_y + math.sin(notch_angle) * notch_length * 0.35
+        pygame.draw.line(
+            glyph_surface,
+            _clamp_color((*glyph_color, 90)),
+            (int(notch_start_x), int(notch_start_y)),
+            (int(notch_end_x), int(notch_end_y)),
+            2,
+        )
+
+    surface.blit(glyph_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+    _blacksmith_hammer_explosion_surface_cache[stage_index] = surface
+    return surface
+
+
+def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: float, radius: float) -> dict[str, object]:
+    stage_index = max(1, min(stage, BLACKSMITH_HAMMER_SHOCK_MAX_STAGE))
+    palette = _get_blacksmith_hammer_explosion_palette(stage_index)
+    base_surface = _get_blacksmith_hammer_explosion_surface(stage_index)
+
+    life_frames = int((0.5 + 0.12 * (stage_index - 1)) * FPS)
+    glyph_branches = 6 + stage_index * 2
+    inner_base = radius * (0.18 + 0.02 * stage_index)
+    outer_base = radius * (0.74 + 0.1 * stage_index)
+
+    offsets: list[tuple[float, float, float]] = []
+    for idx in range(glyph_branches):
+        angle = (math.tau * idx) / glyph_branches + random.uniform(-0.05, 0.05)
+        start = inner_base * (0.9 + random.uniform(-0.05, 0.05))
+        end = outer_base * (0.9 + random.uniform(-0.08, 0.08))
+        offsets.append((angle, start, end))
+
+    sparks: list[tuple[float, float, float]] = []
+    spark_color = palette.get("sparks", (215, 240, 255))
+    spark_count = 14 + stage_index * 4
+    for _ in range(spark_count):
+        angle = random.uniform(0, math.tau)
+        distance = radius * random.uniform(0.32, 0.95)
+        size = radius * 0.035 * random.uniform(0.8, 1.2)
+        sparks.append((angle, distance, size))
+
+    shard_count = 12 + stage_index * 6
+    shards: list[dict[str, float | int]] = []
+    shard_alpha = 200 if stage_index >= 2 else 170
+    for idx in range(shard_count):
+        angle = random.uniform(0, math.tau)
+        start_offset = radius * random.uniform(0.2, 0.45)
+        length = radius * random.uniform(0.2, 0.36)
+        speed = radius * random.uniform(0.06, 0.12)
+        thickness = 2 + (1 if stage_index >= 2 and random.random() < 0.55 else 0)
+        notch_angle = angle + (math.pi / 2 if idx % 2 == 0 else -math.pi / 2)
+        notch_length = length * random.uniform(0.25, 0.45)
+        notch_offset = start_offset + length * random.uniform(0.35, 0.7)
+        shards.append(
+            {
+                "angle": angle,
+                "offset": start_offset,
+                "length": length,
+                "speed": speed,
+                "thickness": thickness,
+                "color": palette.get("shard", (255, 255, 255)),
+                "alpha": shard_alpha,
+                "notch_angle": notch_angle,
+                "notch_length": notch_length,
+                "notch_offset": notch_offset,
+            }
+        )
+
+    return {
+        "surface": base_surface,
+        "center": (centerx, centery),
+        "radius": radius,
+        "stage": stage_index,
+        "life": life_frames,
+        "max_life": life_frames,
+        "offsets": offsets,
+        "sparks": sparks,
+        "shards": shards,
+        "first_frame": True,
+        "ring_palette": palette.get("rings"),
+        "glyph_color": palette.get("glyph"),
+        "spark_color": spark_color,
+        "shard_color": palette.get("shard"),
+        "shard_alpha": shard_alpha,
+        "halo_color": palette.get("halo"),
+    }
+
+
 def _get_blacksmith_hammer_charge_surface(stage: int) -> pygame.Surface:
     clamped_stage = max(0, min(int(stage), BLACKSMITH_HAMMER_SHOCK_MAX_STAGE))
     cached = _blacksmith_hammer_charge_surface_cache.get(clamped_stage)
