@@ -5401,14 +5401,14 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
             direction = 1
 
         knockback_speed = BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED + segments_break * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED_STEP
-        globals()["boss_knockback_vel"] = direction * knockback_speed
+        _apply_boss_knockback_velocity(direction * knockback_speed)
         globals()["boss_knockback_active"] = False
         globals()["boss_knockback_offset_x"] = 0
         globals()["boss_knockback_offset_y"] = 0
 
         boss_obj = globals().get("BOSS")
         if boss_obj is not None:
-            push_distance = BLACKSMITH_GROUND_CRACK_BOSS_IMMEDIATE_PUSH
+            push_distance = BLACKSMITH_GROUND_CRACK_BOSS_IMMEDIATE_PUSH * GAME_KNOCKBACK_DISTANCE_REDUCTION
             if direction > 0:
                 push_distance = min(push_distance, max(0, WIDTH - boss_obj.right))
             else:
@@ -5524,7 +5524,7 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         if distance <= effective_radius:
             try:
                 globals()["boss_knockback_timer"] = int(0.4 * FPS)
-                globals()["boss_knockback_vel"] = knockback_speed
+                _apply_boss_knockback_velocity(knockback_speed)
                 globals()["boss_knockback_active"] = False
                 globals()["boss_knockback_offset_x"] = 0
                 globals()["boss_knockback_offset_y"] = 0
@@ -6232,7 +6232,7 @@ def update_blacksmith_turret():
                     else:
                         knockback_direction = 1 if proj["x"] < boss_rect.centerx else -1
                     globals()["boss_knockback_timer"] = BLACKSMITH_TURRET_STUN_DURATION
-                    globals()["boss_knockback_vel"] = knockback_direction * BLACKSMITH_TURRET_KNOCKBACK_SPEED
+                    _apply_boss_knockback_velocity(knockback_direction * BLACKSMITH_TURRET_KNOCKBACK_SPEED)
                     globals()["boss_knockback_active"] = False
                     globals()["boss_knockback_offset_x"] = 0
                     globals()["boss_knockback_offset_y"] = 0
