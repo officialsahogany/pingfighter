@@ -4953,12 +4953,7 @@ def _check_boss_crack_collision(boss_rect, crack):
             now_ms = pygame.time.get_ticks()
             remaining = crack.get('segments_remaining', 0)
             print(f"[CRACK DEBUG] collide t={now_ms} boss=({boss_rect.x},{boss_rect.y}) seg={remaining} len={crack.get('length', 0):.1f}")
-        else:
-            print(f"[COLLISION] Boss collides with crack!")
-            print(f"  Boss: ({boss_rect.x}, {boss_rect.y}, {boss_rect.width}x{boss_rect.height})")
-            print(f"  Crack: length={crack.get('length', 0):.1f}, segments={crack.get('segments_remaining', 0)}")
         return True
-    
     # 충돌이 없으면 False 반환
     return False
 
