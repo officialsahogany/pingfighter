@@ -45848,22 +45848,24 @@ def handle_boss_mythic():
         # 위치 업데이트 with ground crack collision check
         proposed_x = BOSS.x + boss_current_speed
         proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
-        can_move = True
-        
-        # Check collision with ground cracks
-        if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
-            can_move = False
-            boss_current_speed = 0  # Stop the boss
-            _update_boss_crack_stuck_state(False, proposed_boss_rect)
 
-        if can_move:
+        collision_crack = _boss_get_crack_collision(proposed_boss_rect, apply_response=True)
+        if collision_crack:
+            boss_current_speed = 0
+            contact_x = _slide_boss_toward_crack_edge(BOSS.x, proposed_x, collision_crack, BOSS.width)
+            moved_to_contact = abs(contact_x - BOSS.x) > 0.01
+            if moved_to_contact:
+                BOSS.x = contact_x
+                BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+                _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
+            else:
+                _update_boss_crack_stuck_state(False, proposed_boss_rect)
+            if random.random() < 0.1:
+                print(f"[CRACK BLOCKED - Confused] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+        else:
             BOSS.x = proposed_x
             BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
             _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
-        else:
-            # 크랙에 막혀서 움직일 수 없음 (혼란 상태)
-            if random.random() < 0.1:  # 10% chance to print
-                print(f"[CRACK BLOCKED - Confused] Boss cannot move from x={BOSS.x} to x={proposed_x}")
         return  # 혼란 상태에서는 나머지 AI 로직 무시
     # 1️⃣ 현재 공 상태 분석 (최신 시스템)
     current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
