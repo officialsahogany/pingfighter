@@ -4931,6 +4931,24 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
 
     stage = resolved_stage
 
+    # Add ground crack effect at explosion point
+    global blacksmith_ground_cracks
+    num_cracks = 5 + stage * 2  # 5-11 cracks depending on stage
+    for i in range(num_cracks):
+        angle = (math.pi * 2 * i / num_cracks) + random.uniform(-0.2, 0.2)
+        length = radius * random.uniform(0.8, 1.3)
+        crack = {
+            "x": centerx,
+            "y": centery,
+            "angle": angle,
+            "length": length,
+            "life": BLACKSMITH_GROUND_CRACK_DURATION,
+            "max_life": BLACKSMITH_GROUND_CRACK_DURATION,
+            "stage": stage,
+            "thickness": 2 + stage,
+        }
+        blacksmith_ground_cracks.append(crack)
+
     knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK
     if stage == 2:
         knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK
@@ -5105,7 +5123,78 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             blacksmith_hammer_shock_charge_frames,
         )
 
+    # Draw ground cracks first (below everything)
+    for crack in blacksmith_ground_cracks:
+        life_ratio = crack["life"] / crack["max_life"]
+        alpha = int(200 * life_ratio)
+        
+        # Calculate crack color based on stage
+        stage = crack.get("stage", 1)
+        if stage >= 3:
+            crack_color = (120, 140, 160, alpha)  # Blue-gray
+        elif stage >= 2:
+            crack_color = (100, 110, 130, alpha)  # Dark blue-gray
+        else:
+            crack_color = (80, 90, 100, alpha)  # Dark gray
+        
+        # Draw main crack line
+        end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
+        end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
+        
+        # Draw with thickness
+        for i in range(-crack["thickness"]//2, crack["thickness"]//2 + 1):
+            offset_x_crack = math.sin(crack["angle"]) * i
+            offset_y_crack = -math.cos(crack["angle"]) * i
+            pygame.draw.line(
+                surface, 
+                crack_color[:3], 
+                (int(crack["x"] + offset_x_crack + offset_x), int(crack["y"] + offset_y_crack + offset_y)),
+                (int(end_x + offset_x_crack + offset_x), int(end_y + offset_y_crack + offset_y)),
+                1
+            )
+        
+        # Draw sub-cracks
+        num_sub_cracks = 2 + stage
+        for j in range(num_sub_cracks):
+            sub_pos = 0.3 + (j * 0.4 / num_sub_cracks)
+            sub_x = crack["x"] + math.cos(crack["angle"]) * crack["length"] * sub_pos
+            sub_y = crack["y"] + math.sin(crack["angle"]) * crack["length"] * sub_pos
+            sub_angle = crack["angle"] + random.choice([-0.5, 0.5])
+            sub_length = crack["length"] * 0.3
+            sub_end_x = sub_x + math.cos(sub_angle) * sub_length
+            sub_end_y = sub_y + math.sin(sub_angle) * sub_length
+            pygame.draw.line(
+                surface,
+                crack_color[:3],
+                (int(sub_x + offset_x), int(sub_y + offset_y)),
+                (int(sub_end_x + offset_x), int(sub_end_y + offset_y)),
+                max(1, crack["thickness"] // 2)
+            )
+
+    # Draw hammer trails
     hammer_surface = _get_blacksmith_thrown_hammer_surface()
+    for trail in blacksmith_hammer_trails:
+        alpha = int(255 * trail["alpha"])
+        if alpha > 0:
+            # Create faded hammer surface
+            trail_surface = hammer_surface.copy()
+            trail_surface.fill((255, 255, 255, alpha), special_flags=pygame.BLEND_RGBA_MULT)
+            
+            # Apply stage-based tinting
+            stage = trail.get("stage", 1)
+            if stage >= 3:
+                tint_color = (200, 220, 255, alpha)  # Blue tint
+            elif stage >= 2:
+                tint_color = (220, 235, 255, alpha)  # Light blue tint
+            else:
+                tint_color = (255, 255, 255, alpha)  # White (no tint)
+            
+            # Rotate and draw
+            rotated = pygame.transform.rotate(trail_surface, trail.get("rotation", 0.0))
+            rect = rotated.get_rect(center=(int(trail["x"] + offset_x), int(trail["y"] + offset_y)))
+            surface.blit(rotated, rect, special_flags=pygame.BLEND_ADD)
+
+    # Draw actual hammers
     for proj in blacksmith_hammer_shock_projectiles:
         rotated = pygame.transform.rotate(hammer_surface, proj.get("rotation", 0.0))
         rect = rotated.get_rect(center=(int(proj["x"] + offset_x), int(proj["y"] + offset_y)))
