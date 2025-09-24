@@ -5308,14 +5308,23 @@ def _handle_blacksmith_hammer_ball_hit(projectile: dict):
         return
 
     stage = max(1, int(projectile.get("stage", 1) or 1))
+    projectile_x = float(projectile.get("x", BALL.centerx))
+    projectile_y = float(projectile.get("y", BALL.centery))
     impact_x = float(BALL.centerx)
     impact_y = float(BALL.centery)
 
     _trigger_blacksmith_hammer_shock_explosion(stage, impact_x, impact_y)
 
-    # Compute horizontal push direction (away from explosion center)
-    dx = BALL.centerx - impact_x
-    horizontal_dir = 1 if dx >= 0 else -1
+    # Determine push direction relative to the incoming projectile
+    dx = impact_x - projectile_x
+    if abs(dx) < 1e-3:
+        try:
+            player_x = PLAYER.centerx  # type: ignore[name-defined]
+        except Exception:
+            player_x = projectile_x
+        horizontal_dir = 1 if impact_x >= player_x else -1
+    else:
+        horizontal_dir = 1 if dx >= 0 else -1
 
     # Apply horizontal and vertical velocity adjustments
     try:
@@ -5773,10 +5782,12 @@ def update_blacksmith_hammer_shock(keys):
             and 'BALL' in globals()
             and BALL is not None
         ):
-            hitbox_size = int(BLACKSMITH_HAMMER_SHOCK_PROJECTILE_HITBOX_RADIUS * 2)
-            hammer_hitbox = pygame.Rect(0, 0, hitbox_size, hitbox_size)
-            hammer_hitbox.center = (int(proj["x"]), int(proj["y"]))
-            if hammer_hitbox.colliderect(BALL):
+            ball_centerx, ball_centery = BALL.center
+            dx = float(ball_centerx) - float(proj.get("x", ball_centerx))
+            dy = float(ball_centery) - float(proj.get("y", ball_centery))
+            ball_radius = max(BALL.width, BALL.height) * 0.5
+            collision_radius = ball_radius + BLACKSMITH_HAMMER_SHOCK_PROJECTILE_HITBOX_RADIUS
+            if dx * dx + dy * dy <= collision_radius * collision_radius:
                 _handle_blacksmith_hammer_ball_hit(proj)
                 exploded = True
 
