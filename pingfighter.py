@@ -5953,12 +5953,8 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             # Draw semi-transparent red polygon for collision area
             collision_surface = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
             if is_colliding:
-                # Bright yellow/orange when colliding
-                pygame.draw.polygon(collision_surface, (255, 200, 0, 120), collision_points)
-                # Also draw thick border
-                pygame.draw.polygon(surface, (255, 255, 0), collision_points, 3)
+                pygame.draw.polygon(collision_surface, (200, 80, 80, 110), collision_points)
             else:
-                # Normal red when not colliding
                 pygame.draw.polygon(collision_surface, (255, 0, 0, 80), collision_points)
             surface.blit(collision_surface, (0, 0))
         
