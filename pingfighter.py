@@ -4435,6 +4435,53 @@ def _get_blacksmith_hammer_charge_spark(stage: int) -> pygame.Surface:
     return surface
 
 
+def _get_blacksmith_thrown_hammer_surface() -> pygame.Surface:
+    global _blacksmith_thrown_hammer_surface
+    if _blacksmith_thrown_hammer_surface is not None:
+        return _blacksmith_thrown_hammer_surface
+
+    width = 44
+    height = 78
+    surface = pygame.Surface((width, height), pygame.SRCALPHA)
+    center_x = width // 2
+
+    handle_width = 10
+    handle_height = 48
+    handle_rect = pygame.Rect(center_x - handle_width // 2, height - handle_height - 4, handle_width, handle_height)
+    pygame.draw.rect(surface, (90, 60, 36), handle_rect)
+
+    grip_segments = 5
+    segment_height = handle_height // grip_segments
+    for i in range(grip_segments):
+        segment_rect = pygame.Rect(handle_rect.left, handle_rect.top + i * segment_height, handle_width, segment_height - 2)
+        pygame.draw.rect(surface, (60, 35, 18), segment_rect)
+
+    pommel_rect = pygame.Rect(center_x - (handle_width + 4) // 2, height - 10, handle_width + 4, 8)
+    pygame.draw.rect(surface, (112, 76, 48), pommel_rect, border_radius=2)
+
+    head_height = 28
+    head_width = 42
+    head_rect = pygame.Rect(center_x - head_width // 2, handle_rect.top - head_height + 6, head_width, head_height)
+    pygame.draw.rect(surface, (176, 182, 196), head_rect, border_radius=4)
+
+    inset_rect = head_rect.inflate(-10, -8)
+    pygame.draw.rect(surface, (210, 215, 228), inset_rect, border_radius=3)
+
+    ridge_start = (center_x - head_width // 2 + 6, inset_rect.centery)
+    ridge_end = (center_x + head_width // 2 - 6, inset_rect.centery)
+    pygame.draw.line(surface, (120, 130, 142), ridge_start, ridge_end, 3)
+
+    emblem_center = (center_x, inset_rect.centery)
+    pygame.draw.circle(surface, (230, 215, 130), emblem_center, 6)
+    pygame.draw.circle(surface, (240, 160, 60), emblem_center, 3)
+
+    flare_rect = pygame.Rect(center_x - head_width // 2 + 4, head_rect.top - 6, head_width - 8, 12)
+    pygame.draw.ellipse(surface, (200, 235, 255, 100), flare_rect)
+
+    _blacksmith_thrown_hammer_surface = surface
+    return surface
+
+
 def _draw_blacksmith_hammer_charge_effect(
     surface: pygame.Surface,
     center_x: int,
@@ -4700,11 +4747,8 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             blacksmith_hammer_shock_charge_frames,
         )
 
+    hammer_surface = _get_blacksmith_thrown_hammer_surface()
     for proj in blacksmith_hammer_shock_projectiles:
-        hammer_surface = pygame.Surface((32, 14), pygame.SRCALPHA)
-        pygame.draw.rect(hammer_surface, (80, 60, 40), (0, 4, 12, 6))
-        pygame.draw.rect(hammer_surface, (210, 220, 240), (12, 0, 20, 14), border_radius=4)
-        pygame.draw.rect(hammer_surface, (255, 255, 255), (16, 4, 12, 6), border_radius=2)
         rotated = pygame.transform.rotate(hammer_surface, proj.get("rotation", 0.0))
         rect = rotated.get_rect(center=(int(proj["x"] + offset_x), int(proj["y"] + offset_y)))
         surface.blit(rotated, rect)
