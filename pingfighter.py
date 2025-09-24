@@ -46774,6 +46774,10 @@ def handle_boss():
         if can_move:
             BOSS.x = proposed_x
             BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+        else:
+            # 크랙에 막혀서 움직일 수 없음 (튜토리얼)
+            if random.random() < 0.1:  # 10% chance to print
+                print(f"[CRACK BLOCKED - Tutorial] Boss cannot move from x={BOSS.x} to x={proposed_x}")
         return  # 튜토리얼 AI 완료
     
     # Stage 1 상모돌리기 강제 해제 모션 중 통제불능 상태
