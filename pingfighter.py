@@ -4591,6 +4591,7 @@ def release_blacksmith_hammer_shock():
         "rotation": 0.0,
     }
     blacksmith_hammer_shock_projectiles.append(projectile)
+    blacksmith_hammer_charge_position = None
 
     special_gauge = max(0, special_gauge - BLACKSMITH_HAMMER_SHOCK_COST)
     special_ready = special_gauge >= special_gauge_max
