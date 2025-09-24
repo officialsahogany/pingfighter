@@ -4929,108 +4929,28 @@ def _check_boss_crack_collision(boss_rect, crack):
     if abs(boss_rect.centery - (crack_min_y + crack_max_y) / 2) > vertical_margin:
         return False
 
-    def _flag_crack_collision_state():
+    # 간단하고 확실한 충돌 감지
+    # 크랙을 두꺼운 사각형으로 취급하여 충돌 검사
+    thickness = 25  # 충돌 감지용 두께를 고정값으로 설정
+    
+    # 크랙의 바운딩 박스 생성 (두께 포함)
+    crack_rect = pygame.Rect(
+        crack_min_x - thickness // 2,
+        crack_min_y - thickness // 2,  
+        crack_max_x - crack_min_x + thickness,
+        crack_max_y - crack_min_y + thickness
+    )
+    
+    # 보스와 크랙 바운딩 박스의 직접 충돌 검사
+    if boss_rect.colliderect(crack_rect):
+        print(f"[COLLISION] Boss collides with crack! Boss: ({boss_rect.x}, {boss_rect.y}, {boss_rect.width}x{boss_rect.height}) Crack: ({crack_rect.x}, {crack_rect.y}, {crack_rect.width}x{crack_rect.height})")
         try:
             _update_boss_crack_stuck_state(False, boss_rect)
         except Exception:
             pass
-
-    if not boss_rect.colliderect(bounding_rect):
-        return False
-
-    # Debug print to verify collision detection is being called
-    if random.random() < 0.10:  # Print more frequently (10% chance)
-        print(f"\n[DEBUG] Boss collision check - Total cracks: {len(blacksmith_ground_cracks) if 'blacksmith_ground_cracks' in globals() else 0}")
-        print(f"  Boss: x={boss_rect.x}, y={boss_rect.y}, w={boss_rect.width}, h={boss_rect.height}")
-        print(f"  Boss center: ({boss_rect.centerx}, {boss_rect.centery})")
-        print(f"  Crack: start({line_start_x:.0f},{line_start_y:.0f}) end({line_end_x:.0f},{line_end_y:.0f})")
-        print(f"  Crack thickness: {thickness} (padding: {boss_padding})")
-    
-    # Function to check if a point is within distance of a line segment
-    def point_to_line_distance(px, py, x1, y1, x2, y2):
-        # Calculate the distance from point (px, py) to line segment (x1,y1)-(x2,y2)
-        line_length_sq = (x2 - x1) ** 2 + (y2 - y1) ** 2
-        
-        if line_length_sq == 0:
-            # The line segment is a point
-            return math.hypot(px - x1, py - y1)
-        
-        # Calculate the parameter t that represents the closest point on the line segment
-        t = max(0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / line_length_sq))
-        
-        # Calculate the coordinates of the closest point on the line segment
-        closest_x = x1 + t * (x2 - x1)
-        closest_y = y1 + t * (y2 - y1)
-        
-        # Return the distance from the point to the closest point on the line segment
-        return math.hypot(px - closest_x, py - closest_y)
-    
-    # Check if any corner of the boss rect is close to the crack line
-    corners = [
-        (boss_rect.left, boss_rect.top),
-        (boss_rect.right, boss_rect.top),
-        (boss_rect.left, boss_rect.bottom),
-        (boss_rect.right, boss_rect.bottom),
-        # Also check center points of edges for better collision detection
-        (boss_rect.centerx, boss_rect.top),
-        (boss_rect.centerx, boss_rect.bottom),
-        (boss_rect.left, boss_rect.centery),
-        (boss_rect.right, boss_rect.centery)
-    ]
-    
-    for corner_x, corner_y in corners:
-        distance = point_to_line_distance(corner_x, corner_y, line_start_x, line_start_y, line_end_x, line_end_y)
-        if distance < thickness:
-            print(f"[COLLISION] Boss corner at ({corner_x}, {corner_y}) hit crack! Distance: {distance}, Threshold: {thickness}")
-            _flag_crack_collision_state()
-            return True
-    
-    # Check if the crack line intersects with any edge of the rectangle
-    # Using line-line intersection tests for each edge of the rectangle
-    rect_edges = [
-        ((boss_rect.left, boss_rect.top), (boss_rect.right, boss_rect.top)),  # Top edge
-        ((boss_rect.right, boss_rect.top), (boss_rect.right, boss_rect.bottom)),  # Right edge
-        ((boss_rect.right, boss_rect.bottom), (boss_rect.left, boss_rect.bottom)),  # Bottom edge
-        ((boss_rect.left, boss_rect.bottom), (boss_rect.left, boss_rect.top))  # Left edge
-    ]
-    
-    def lines_intersect(p1, p2, p3, p4):
-        # Check if line segment p1-p2 intersects with line segment p3-p4
-        x1, y1 = p1
-        x2, y2 = p2
-        x3, y3 = p3
-        x4, y4 = p4
-        
-        denom = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4)
-        if abs(denom) < 0.0001:
-            return False  # Lines are parallel
-        
-        t = ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / denom
-        u = -((x1-x2)*(y1-y3) - (y1-y2)*(x1-x3)) / denom
-        
-        return 0 <= t <= 1 and 0 <= u <= 1
-    
-    crack_line = ((line_start_x, line_start_y), (line_end_x, line_end_y))
-    for edge in rect_edges:
-        if lines_intersect(crack_line[0], crack_line[1], edge[0], edge[1]):
-            closest_x, closest_y = edge[0]
-            line_length = math.sqrt((line_end_x - line_start_x) ** 2 + (line_end_y - line_start_y) ** 2)
-            distance = math.hypot(closest_x - line_start_x, closest_y - line_start_y)
-            if line_length > 0 and distance > line_length + BLACKSMITH_GROUND_CRACK_EDGE_TOLERANCE:
-                continue
-            print(f"[COLLISION] Crack line intersects boss edge!")
-            _flag_crack_collision_state()
-            return True
-    
-    # Check if the crack is entirely inside the rectangle
-    if (boss_rect.left <= line_start_x <= boss_rect.right and
-        boss_rect.top <= line_start_y <= boss_rect.bottom and
-        boss_rect.left <= line_end_x <= boss_rect.right and
-        boss_rect.top <= line_end_y <= boss_rect.bottom):
-        print(f"[COLLISION] Crack is inside boss rect!")
-        _flag_crack_collision_state()
         return True
     
+    # 충돌이 없으면 False 반환
     return False
 
 
