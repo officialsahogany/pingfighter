@@ -36232,6 +36232,11 @@ def get_item_icon(item_name):
                         pygame.draw.line(icon_surface, ocean_color,
                                        (center_x + 10, 15), (center_x, 10), 3)
                 
+                if item_name == "holy_laurel":
+                    laurel_item = legendary_manager.get_item("holy_laurel")
+                    if laurel_item and hasattr(laurel_item, "_remove_trident_from_surface"):
+                        icon_surface = laurel_item._remove_trident_from_surface(icon_surface)
+
                 icon_cache[item_name] = icon_surface
                 if item_name == "holy_laurel":
                     icon_cache[lookup_name] = icon_surface
@@ -36272,6 +36277,12 @@ def get_item_icon(item_name):
                              (center_x - 10, 15), (center_x, 10), 3)
             pygame.draw.line(icon_surface, ocean_color,
                              (center_x + 10, 15), (center_x, 10), 3)
+
+        if item_name == "holy_laurel":
+            legendary_manager = get_legendary_manager()
+            laurel_item = legendary_manager.get_item("holy_laurel") if legendary_manager else None
+            if laurel_item and hasattr(laurel_item, "_remove_trident_from_surface"):
+                icon_surface = laurel_item._remove_trident_from_surface(icon_surface)
 
         icon_cache[item_name] = icon_surface
         if item_name == "holy_laurel":
