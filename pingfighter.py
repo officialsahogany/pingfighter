@@ -5314,6 +5314,13 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     segments_total = max(1, crack.get("segments_total") or 1)
     segments_remaining = crack.get("segments_remaining", segments_total)
 
+    debug_enabled = ENABLE_CRACK_TIMING_DEBUG
+    now_ms = pygame.time.get_ticks() if debug_enabled else 0
+    if debug_enabled:
+        last_hit = globals().get("boss_crack_recent_hit_time", 0)
+        delta_ms = now_ms - last_hit if last_hit else None
+        print(f"[CRACK DEBUG] hit_start t={now_ms}Δ{delta_ms} seg={segments_remaining}/{segments_total} len={current_length:.1f}")
+
     if segments_remaining <= 0:
         return
 
@@ -5333,6 +5340,9 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
         base_ratio = new_remaining / float(segments_total)
         ratio = max(0.0, base_ratio - BLACKSMITH_GROUND_CRACK_RATIO_OFFSET)
     crack["length"] = max(0.0, base_length * ratio)
+
+    if debug_enabled:
+        print(f"[CRACK DEBUG] break={segments_break} remaining={new_remaining} ratio={ratio:.2f} len->{crack['length']:.1f}")
 
     base_thickness = crack.get("base_thickness", crack.get("thickness", 1))
     initial_thickness = max(1, int(round(base_thickness * BLACKSMITH_GROUND_CRACK_RANGE_SCALE)))
