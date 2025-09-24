@@ -4935,6 +4935,20 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         rect = fade_surface.get_rect(center=(int(center_x + offset_x), int(center_y + offset_y)))
         surface.blit(fade_surface, rect, special_flags=pygame.BLEND_ADD)
 
+        halo_radius = explosion.get("radius", radius) * (1.05 + 0.25 * (1 - remaining_ratio))
+        halo_surface = pygame.Surface((int(halo_radius * 2) + 6, int(halo_radius * 2) + 6), pygame.SRCALPHA)
+        pygame.draw.circle(
+            halo_surface,
+            (160, 205 + stage * 10, 255, int(120 * remaining_ratio)),
+            (halo_surface.get_width() // 2, halo_surface.get_height() // 2),
+            int(halo_radius),
+        )
+        surface.blit(
+            halo_surface,
+            halo_surface.get_rect(center=(int(center_x + offset_x), int(center_y + offset_y))),
+            special_flags=pygame.BLEND_ADD,
+        )
+
         offsets = explosion.get("offsets", [])
         stage = explosion.get("stage", 1)
         for angle, start, end in offsets:
@@ -4969,6 +4983,26 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
                 (int(sx), int(sy)),
                 max(1, int(size * scale * 0.8)),
             )
+
+        shards = explosion.get("shards", [])
+        shard_color = (255, 255, 255, int(180 * remaining_ratio))
+        for shard in shards:
+            angle = shard["angle"]
+            start_offset = shard["offset"] * scale
+            length = shard["length"] * scale
+            start_x = center_x + math.cos(angle) * start_offset + offset_x
+            start_y = center_y + math.sin(angle) * start_offset + offset_y
+            end_x = center_x + math.cos(angle) * (start_offset + length) + offset_x
+            end_y = center_y + math.sin(angle) * (start_offset + length) + offset_y
+            pygame.draw.line(
+                surface,
+                shard_color,
+                (int(start_x), int(start_y)),
+                (int(end_x), int(end_y)),
+                shard.get("thickness", 2),
+            )
+            shard["offset"] += shard.get("speed", 0.0) * (0.6 + 0.4 * remaining_ratio)
+            shard["speed"] *= 0.88
 
         explosion["life"] = life - 1
         if explosion["life"] > 0:
