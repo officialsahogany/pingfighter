@@ -4900,7 +4900,23 @@ def _check_boss_crack_collision(boss_rect, crack):
     # Add thickness to the crack - padding now configurable for boss collisions
     boss_padding = crack.get("boss_padding", BLACKSMITH_GROUND_CRACK_BOSS_PADDING)
     thickness = crack.get("thickness", 2) + boss_padding
-    
+
+    # Quick reject using expanded bounding box
+    min_x = min(line_start_x, line_end_x) - thickness
+    max_x = max(line_start_x, line_end_x) + thickness
+    min_y = min(line_start_y, line_end_y) - thickness
+    max_y = max(line_start_y, line_end_y) + thickness
+
+    bounding_rect = pygame.Rect(
+        int(min_x),
+        int(min_y),
+        int(max(1, max_x - min_x)),
+        int(max(1, max_y - min_y)),
+    )
+
+    if not boss_rect.colliderect(bounding_rect):
+        return False
+
     # Debug print to verify collision detection is being called
     if random.random() < 0.10:  # Print more frequently (10% chance)
         print(f"\n[DEBUG] Boss collision check - Total cracks: {len(blacksmith_ground_cracks) if 'blacksmith_ground_cracks' in globals() else 0}")
