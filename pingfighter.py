@@ -4937,6 +4937,20 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
     for i in range(num_cracks):
         angle = (math.pi * 2 * i / num_cracks) + random.uniform(-0.2, 0.2)
         length = radius * random.uniform(0.8, 1.3)
+        
+        # Generate sub-cracks data
+        sub_cracks = []
+        num_sub_cracks = 2 + stage
+        for j in range(num_sub_cracks):
+            sub_pos = 0.3 + (j * 0.4 / num_sub_cracks) + random.uniform(-0.1, 0.1)
+            sub_angle_offset = random.choice([-0.5, 0.5]) + random.uniform(-0.2, 0.2)
+            sub_length_ratio = 0.3 + random.uniform(-0.1, 0.1)
+            sub_cracks.append({
+                "pos": sub_pos,
+                "angle_offset": sub_angle_offset,
+                "length_ratio": sub_length_ratio
+            })
+        
         crack = {
             "x": centerx,
             "y": centery,
@@ -4946,6 +4960,7 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             "max_life": BLACKSMITH_GROUND_CRACK_DURATION,
             "stage": stage,
             "thickness": 2 + stage,
+            "sub_cracks": sub_cracks
         }
         blacksmith_ground_cracks.append(crack)
 
@@ -5154,13 +5169,11 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             )
         
         # Draw sub-cracks
-        num_sub_cracks = 2 + stage
-        for j in range(num_sub_cracks):
-            sub_pos = 0.3 + (j * 0.4 / num_sub_cracks)
-            sub_x = crack["x"] + math.cos(crack["angle"]) * crack["length"] * sub_pos
-            sub_y = crack["y"] + math.sin(crack["angle"]) * crack["length"] * sub_pos
-            sub_angle = crack["angle"] + random.choice([-0.5, 0.5])
-            sub_length = crack["length"] * 0.3
+        for sub_crack in crack.get("sub_cracks", []):
+            sub_x = crack["x"] + math.cos(crack["angle"]) * crack["length"] * sub_crack["pos"]
+            sub_y = crack["y"] + math.sin(crack["angle"]) * crack["length"] * sub_crack["pos"]
+            sub_angle = crack["angle"] + sub_crack["angle_offset"]
+            sub_length = crack["length"] * sub_crack["length_ratio"]
             sub_end_x = sub_x + math.cos(sub_angle) * sub_length
             sub_end_y = sub_y + math.sin(sub_angle) * sub_length
             pygame.draw.line(
