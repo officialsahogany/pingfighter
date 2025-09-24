@@ -26706,9 +26706,6 @@ def show_start_screen():
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions.clear()
     
-    # 발토르 해머쇼크 폭발 이펙트 초기화
-    explosion_manager = get_hammer_explosion_manager()
-    explosion_manager.clear()
 
     bgm_manager.play_menu_bgm()
 
@@ -46886,9 +46883,6 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions.clear()
     
-    # 발토르 해머쇼크 폭발 이펙트 초기화
-    explosion_manager = get_hammer_explosion_manager()
-    explosion_manager.clear()
 
     # 🔧 스테이지 시작 시 플레이어 움직임 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
