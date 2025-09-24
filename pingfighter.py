@@ -45684,10 +45684,12 @@ def handle_boss_mythic():
         if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
             can_move = False
             boss_current_speed = 0  # Stop the boss
-        
+            _update_boss_crack_stuck_state(False, proposed_boss_rect)
+
         if can_move:
             BOSS.x = proposed_x
             BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+            _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
         else:
             # 크랙에 막혀서 움직일 수 없음 (혼란 상태)
             if random.random() < 0.1:  # 10% chance to print
@@ -45948,7 +45950,8 @@ def handle_boss_mythic():
         if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
             can_move = False
             boss_current_speed = 0  # Stop the boss
-        
+            _update_boss_crack_stuck_state(False, proposed_boss_rect)
+
         if can_move:
             BOSS.x = proposed_x
             # 벽 근처에서 특수 움직임 (신화리그 전용)
@@ -45962,6 +45965,7 @@ def handle_boss_mythic():
                 BOSS.x = WIDTH - BOSS.width - 5
             else:
                 BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+            _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
     # 9️⃣ 디버그 정보 (가끔씩만)
     if random.random() < 0.02:  # 2% 확률
         print(f"  AI: ={current_speed:.1f}, =[{predictions[0]:.0f},{predictions[1]:.0f},{predictions[2]:.0f}], ={predicted_x:.0f}, ={target_distance:.0f}")
