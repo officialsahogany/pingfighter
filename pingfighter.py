@@ -4650,6 +4650,26 @@ def _get_blacksmith_hammer_explosion_surface(stage: int, radius: int) -> pygame.
     return surface
 
 
+def _clamp_blacksmith_hammer_explosion_center(cx: float, cy: float, radius: float) -> tuple[float, float]:
+    """HUD와 화면 경계에 가려지는 것을 방지하기 위해 폭발 렌더링 중심을 보정한다."""
+    min_visible_y = max(
+        BLACKSMITH_HAMMER_EFFECT_TOP_CLEARANCE,
+        radius * BLACKSMITH_HAMMER_EFFECT_RADIUS_VISIBILITY,
+    )
+    max_visible_y = min(
+        HEIGHT - BLACKSMITH_HAMMER_EFFECT_BOTTOM_CLEARANCE,
+        HEIGHT - radius * 0.35,
+    )
+
+    min_visible_x = BLACKSMITH_HAMMER_EFFECT_SIDE_CLEARANCE
+    max_visible_x = WIDTH - BLACKSMITH_HAMMER_EFFECT_SIDE_CLEARANCE
+
+    clamped_y = max(min_visible_y, min(max_visible_y, cy))
+    clamped_x = max(min_visible_x, min(max_visible_x, cx))
+
+    return clamped_x, clamped_y
+
+
 def _draw_blacksmith_hammer_charge_effect(
     surface: pygame.Surface,
     center_x: int,
