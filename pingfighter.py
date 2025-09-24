@@ -48092,6 +48092,9 @@ def main(stage_num, new_boss_mode=False):
                     handle_devil_dice_spacebar()
             last_space_state = current_space_state
             if selected_character_type == "blacksmith":
+                down_current_state = keys[pygame.K_DOWN]
+                turret_rect = None
+                manual_candidate = False
                 if (
                     space_just_pressed
                     and blacksmith_turret_active
@@ -48101,34 +48104,39 @@ def main(stage_num, new_boss_mode=False):
                     and not blacksmith_hammer_shock_charging
                 ):
                     turret_rect = blacksmith_turret_state.get("rect")
-                    if turret_rect is not None:
-                        if PLAYER.colliderect(turret_rect):
-                            if blacksmith_turret_manual_cooldown <= 0:
-                                if special_gauge >= BLACKSMITH_TURRET_MANUAL_COST:
-                                    special_gauge = max(0, special_gauge - BLACKSMITH_TURRET_MANUAL_COST)
-                                    if special_gauge < special_gauge_max:
-                                        special_ready = False
-                                    blacksmith_shield_swing_active = False
-                                    blacksmith_shield_swing_timer = 0
-                                    blacksmith_hammer_swing_active = True
-                                    blacksmith_hammer_swing_phase = 0
-                                    blacksmith_manual_hammer_timer = BLACKSMITH_HAMMER_SWING_DURATION
-                                    blacksmith_turret_manual_cooldown = BLACKSMITH_TURRET_MANUAL_COOLDOWN
-                                    blacksmith_turret_state["fire_timer"] = 1
-                                    space_just_pressed = False
-                                    space_press_frame = -1
-                                    print("[DEBUG 발토르] 포탑 수동 발사! 게이지 -100, 쿨다운 1초")
-                                else:
-                                    print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
-                            else:
-                                print("[DEBUG 발토르] 포탑 수동 발사 대기중 - 쿨다운")
-                elif (
+                    if turret_rect is not None and PLAYER.colliderect(turret_rect):
+                        manual_candidate = True
+
+                hammer_ready = (
                     space_just_pressed
                     and blacksmith_hammer_available
                     and not blacksmith_hammer_shock_charging
                     and blacksmith_hammer_shock_cooldown_timer <= 0
                     and special_gauge >= BLACKSMITH_HAMMER_SHOCK_COST
-                ):
+                )
+                manual_preferred = manual_candidate and (down_current_state or not hammer_ready)
+
+                if manual_preferred and turret_rect is not None:
+                    if blacksmith_turret_manual_cooldown <= 0:
+                        if special_gauge >= BLACKSMITH_TURRET_MANUAL_COST:
+                            special_gauge = max(0, special_gauge - BLACKSMITH_TURRET_MANUAL_COST)
+                            if special_gauge < special_gauge_max:
+                                special_ready = False
+                            blacksmith_shield_swing_active = False
+                            blacksmith_shield_swing_timer = 0
+                            blacksmith_hammer_swing_active = True
+                            blacksmith_hammer_swing_phase = 0
+                            blacksmith_manual_hammer_timer = BLACKSMITH_HAMMER_SWING_DURATION
+                            blacksmith_turret_manual_cooldown = BLACKSMITH_TURRET_MANUAL_COOLDOWN
+                            blacksmith_turret_state["fire_timer"] = 1
+                            space_just_pressed = False
+                            space_press_frame = -1
+                            print("[DEBUG 발토르] 포탑 수동 발사! 게이지 -100, 쿨다운 1초")
+                        else:
+                            print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
+                    else:
+                        print("[DEBUG 발토르] 포탑 수동 발사 대기중 - 쿨다운")
+                elif hammer_ready:
                     blacksmith_hammer_shock_charging = True
                     blacksmith_hammer_shock_charge_frames = 0
                     blacksmith_hammer_shock_stage = 0
