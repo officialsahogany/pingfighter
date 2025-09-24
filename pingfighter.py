@@ -35024,6 +35024,8 @@ def show_item_manager_menu():
     legendary_items = []
     if legendary_manager:
         for item_name, item in legendary_manager.items.items():
+            if item_name == "holy_laurel":
+                continue
             if item.unlocked:  # 해금된 전설 아이템만 표시
                 # 전설 아이템 아이콘 가져오기
                 legendary_icon = get_item_icon(item.name)
@@ -51906,6 +51908,8 @@ def show_character_item_manager():
     legendary_items = []
     if legendary_manager:
         for item_name, item in legendary_manager.items.items():
+            if item_name == "holy_laurel":
+                continue
             if item.unlocked:
                 legendary_icon = get_item_icon(item.name)
                 legendary_items.append({
