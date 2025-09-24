@@ -24,57 +24,85 @@ BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE = 1.2
 _blacksmith_hammer_explosion_cache = {}
 
 def _get_blacksmith_hammer_explosion_surface(stage, radius):
-    """Create explosion surface without lightning effects"""
+    """Create new explosion surface with energy wave effects"""
     cache_key = (stage, radius)
     cached = _blacksmith_hammer_explosion_cache.get(cache_key)
     if cached is not None:
         return cached
     
-    size = radius * 2
+    size = radius * 5  # 큰 캔버스로 화려한 효과 구현
     surface = pygame.Surface((size, size), pygame.SRCALPHA)
-    center = radius
+    center = size // 2
     
-    # 1. 중심부 흰색 코어
-    core_radius = radius // 3
-    for i in range(core_radius, 0, -2):
-        alpha = int(255 * (i / core_radius))
-        pygame.draw.circle(surface, (255, 255, 255, alpha), (center, center), i)
+    # 1. 에너지 파동 - 원형 파문 효과
+    wave_count = 4 + stage
+    for wave in range(wave_count):
+        wave_progress = wave / wave_count
+        wave_radius = int(radius * (0.3 + wave_progress * 1.7))
+        wave_thickness = max(1, 5 - wave)
+        
+        # 파동 색상 - 안쪽부터 밝게
+        for thickness in range(wave_thickness):
+            alpha = int(255 * (1 - wave_progress) * 0.7)
+            t_ratio = thickness / max(1, wave_thickness)
+            
+            if stage >= 3:
+                # Stage 3: 황금 에너지 파동
+                color = (255, int(220 - 40 * t_ratio), int(100 + 50 * wave_progress), alpha)
+            elif stage >= 2:
+                # Stage 2: 보라색 에너지 파동
+                color = (int(200 + 55 * t_ratio), int(150 + 50 * t_ratio), 255, alpha)
+            else:
+                # Stage 1: 청록색 에너지 파동
+                color = (int(100 + 100 * t_ratio), int(200 + 55 * t_ratio), 255, alpha)
+            
+            pygame.draw.circle(surface, color, (center, center), wave_radius - thickness, 2)
     
-    # 2. 중간층 - 스테이지별 색상
-    mid_radius = int(radius * 0.7)
-    for i in range(mid_radius, core_radius, -3):
-        ratio = (i - core_radius) / (mid_radius - core_radius)
-        alpha = int(200 * ratio)
+    # 2. 에너지 기둥 - 방사형 빔 효과
+    beam_count = 8 + stage * 4
+    for i in range(beam_count):
+        angle = (i / beam_count) * 2 * math.pi
+        
+        # 빔 길이는 랜덤하게
+        beam_length = radius * random.uniform(1.2, 2.0)
+        beam_width = random.randint(2, 5)
+        
+        # 빔의 끝점 계산
+        end_x = center + math.cos(angle) * beam_length
+        end_y = center + math.sin(angle) * beam_length
+        
+        # 빔 색상
+        if stage >= 3:
+            beam_color = (255, random.randint(200, 255), random.randint(50, 150))
+        elif stage >= 2:
+            beam_color = (random.randint(180, 220), random.randint(150, 200), 255)
+        else:
+            beam_color = (random.randint(150, 200), random.randint(220, 255), 255)
+        
+        # 빔 그리기 - 여러 층으로
+        for layer in range(3):
+            layer_alpha = int(200 * (1 - layer / 3))
+            layer_width = beam_width + layer * 2
+            layer_color = (*beam_color, layer_alpha)
+            
+            # 빔 그리기
+            pygame.draw.line(surface, layer_color, (center, center), 
+                           (int(end_x), int(end_y)), layer_width)
+    
+    # 3. 중심 플라즈마 구체 (간단한 버전)
+    plasma_radius = int(radius * 0.35)
+    for i in range(plasma_radius, 0, -2):
+        ratio = i / plasma_radius
+        alpha = int(255 * (1 - ratio * 0.3))
         
         if stage >= 3:
-            color = (255, 220, 100, alpha)  # 금빛
+            color = (255, 230, 150, alpha)
         elif stage >= 2:
-            color = (220, 180, 255, alpha)  # 보라색
+            color = (220, 200, 255, alpha)
         else:
-            color = (150, 220, 255, alpha)  # 하늘색
+            color = (200, 240, 255, alpha)
         
         pygame.draw.circle(surface, color, (center, center), i)
-    
-    # 3. 외곽층 그라데이션
-    outer_radius = radius
-    for i in range(outer_radius, mid_radius, -4):
-        ratio = (i - mid_radius) / (outer_radius - mid_radius) 
-        alpha = int(150 * ratio)
-        color = (70 + stage * 10, 120 + stage * 15, 200 + stage * 20, alpha)
-        pygame.draw.circle(surface, color, (center, center), i)
-    
-    # 4. 에너지 파편과 디테일한 효과는 메인 파일에서 구현
-    
-    # 5. 스파크 효과
-    spark_count = 20 + stage * 10
-    for _ in range(spark_count):
-        angle = random.uniform(0, 2 * math.pi)
-        dist = random.uniform(radius * 0.5, radius * 1.2)
-        x = center + math.cos(angle) * dist
-        y = center + math.sin(angle) * dist
-        size_spark = random.randint(2, 5)
-        spark_color = (255, 255, 255, random.randint(150, 255))
-        pygame.draw.circle(surface, spark_color, (int(x), int(y)), size_spark)
     
     _blacksmith_hammer_explosion_cache[cache_key] = surface
     return surface
