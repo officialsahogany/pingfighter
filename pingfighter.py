@@ -4420,13 +4420,59 @@ _blacksmith_thrown_hammer_surface: pygame.Surface | None = None
 blacksmith_hammer_head_local_point: pygame.math.Vector2 | tuple[float, float] | None = None
 blacksmith_hammer_head_surface_point: pygame.math.Vector2 | tuple[float, float] | None = None
 blacksmith_hammer_charge_position: tuple[float, float] | None = None
-# 폭발 이펙트 캐시 제거됨
+_blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
+_BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
+    1: {
+        "core": (255, 244, 212),
+        "mid": (255, 198, 128),
+        "edge": (205, 118, 64),
+        "glyph": (255, 214, 170),
+        "shard": (255, 236, 200),
+        "halo": (255, 205, 150),
+        "rings": [
+            (255, 240, 210),
+            (255, 214, 150),
+            (255, 188, 120),
+        ],
+        "sparks": (255, 226, 190),
+    },
+    2: {
+        "core": (236, 248, 255),
+        "mid": (138, 210, 255),
+        "edge": (52, 100, 204),
+        "glyph": (184, 228, 255),
+        "shard": (180, 220, 255),
+        "halo": (150, 215, 255),
+        "rings": [
+            (150, 225, 255),
+            (120, 205, 255),
+            (90, 175, 255),
+        ],
+        "sparks": (190, 230, 255),
+    },
+    3: {
+        "core": (250, 246, 255),
+        "mid": (212, 180, 255),
+        "edge": (94, 52, 210),
+        "glyph": (240, 200, 255),
+        "shard": (238, 220, 255),
+        "halo": (228, 204, 255),
+        "rings": [
+            (255, 240, 220),
+            (245, 210, 255),
+            (200, 160, 255),
+        ],
+        "sparks": (235, 215, 255),
+    },
+}
 blacksmith_hammer_explosions: list[dict[str, object]] = []
 
 
 def init_blacksmith_globals():
     """Blacksmith 관련 전역 변수 초기화"""
-    # 폭발 이펙트 캐시 제거됨
+    global blacksmith_hammer_explosions, _blacksmith_hammer_explosion_surface_cache
+    _blacksmith_hammer_explosion_surface_cache.clear()
+    blacksmith_hammer_explosions.clear()
     print("Blacksmith hammer globals initialized")
 
 def _clamp_color(color: tuple[int, ...]) -> tuple[int, ...]:
