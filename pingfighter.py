@@ -4898,7 +4898,7 @@ def _check_boss_crack_collision(boss_rect, crack):
     line_end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
     
     # Add thickness to the crack
-    thickness = crack.get("thickness", 2) + 10  # Increased padding for better collision
+    thickness = crack.get("thickness", 2) + 20  # Further increased padding for better collision
     
     # Function to check if a point is within distance of a line segment
     def point_to_line_distance(px, py, x1, y1, x2, y2):
