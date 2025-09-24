@@ -1746,20 +1746,56 @@ class HolyLaurel(LegendaryItem):
                 self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        animation_time = self.animation_time
+        poseidon = None
         if self._sync_with_poseidon:
             poseidon = self._ensure_poseidon_ref()
-            if poseidon and hasattr(poseidon, "draw_icon"):
-                poseidon.draw_icon(screen, x, y, size)
-                return
+            if poseidon:
+                animation_time = getattr(poseidon, "animation_time", animation_time)
 
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, animation_time)
+
+        if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
+            ref_frames = poseidon.icon_frames
+            frame_index = getattr(poseidon, "current_frame", 0) % len(ref_frames)
+            frame = ref_frames[frame_index]
+            scaled = pygame.transform.smoothscale(frame, (size, size))
+            trimmed = self._remove_trident_from_surface(scaled)
+            screen.blit(trimmed, (x, y + frame_offset))
+            return
 
         if self.icon_frames:
             frame = self.icon_frames[self.current_frame % len(self.icon_frames)]
             scaled = pygame.transform.smoothscale(frame, (size, size))
-            screen.blit(scaled, (x, y + frame_offset))
+            trimmed = self._remove_trident_from_surface(scaled)
+            screen.blit(trimmed, (x, y + frame_offset))
         else:
             super().draw_icon(screen, x, y, size)
+
+    def _remove_trident_from_surface(self, surface: pygame.Surface) -> pygame.Surface:
+        """중앙 삼지창 픽셀만 투명화한 사본을 반환한다."""
+        trimmed = surface.copy()
+        width, height = trimmed.get_size()
+        center_x = width / 2
+
+        for y in range(height):
+            for x in range(width):
+                color = trimmed.get_at((x, y))
+                if color.a == 0:
+                    continue
+
+                is_trident_color = (
+                    color.b > 180 and
+                    color.g > 140 and
+                    color.r < 220
+                )
+
+                near_center_column = abs(x - center_x) <= width * 0.2
+                near_top_prongs = y <= height * 0.4 and abs(x - center_x) <= width * 0.3
+                if is_trident_color and (near_center_column or near_top_prongs):
+                    trimmed.set_at((x, y), (0, 0, 0, 0))
+
+        return trimmed
 
 
 class HermesShoes(LegendaryItem):
