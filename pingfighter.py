@@ -46157,21 +46157,23 @@ def handle_boss_junior():
             can_move = True
             
             # Check collision with ground cracks
-            collision_crack = _boss_get_crack_collision(proposed_boss_rect, apply_response=True)
-            if collision_crack:
-                can_move = False
-                boss_current_speed = 0  # Stop the boss
-                print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
-                print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
-            
-            if can_move:
-                BOSS.x = new_position
-                boss_current_speed = new_velocity
-            else:
-                # Boss cannot move due to crack collision
-                # Keep boss at current position
-                print(f"Boss movement blocked, staying at x={BOSS.x}")
-            
+        collision_crack = _boss_get_crack_collision(proposed_boss_rect, apply_response=True)
+        if collision_crack:
+            can_move = False
+            boss_current_speed = 0  # Stop the boss
+            print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
+            print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
+            _update_boss_crack_stuck_state(False, proposed_boss_rect)
+
+        if can_move:
+            BOSS.x = new_position
+            boss_current_speed = new_velocity
+            _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
+        else:
+            # Boss cannot move due to crack collision
+            # Keep boss at current position
+            print(f"Boss movement blocked, staying at x={BOSS.x}")
+
         #  일반 스무딩 시스템 (fallback)
         elif SMOOTH_MOVEMENT_AVAILABLE:
             # 기존 스무딩 시스템 사용
@@ -46193,32 +46195,36 @@ def handle_boss_junior():
             can_move = True
             
             # Check collision with ground cracks
-            if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
-                can_move = False
-                boss_current_speed = 0  # Stop the boss
-            
-            if can_move:
-                BOSS.x = new_position
-                boss_current_speed = new_speed
+        if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
+            can_move = False
+            boss_current_speed = 0  # Stop the boss
+            _update_boss_crack_stuck_state(False, proposed_boss_rect)
+
+        if can_move:
+            BOSS.x = new_position
+            boss_current_speed = new_speed
+            _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
+    else:
+        # 기존 위치 업데이트 로직 with ground crack collision check
+        proposed_x = BOSS.x + boss_current_speed
+        proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
+        can_move = True
+
+        # Check collision with ground cracks
+        if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
+            can_move = False
+            boss_current_speed = 0  # Stop the boss
+            _update_boss_crack_stuck_state(False, proposed_boss_rect)
+
+        if can_move:
+            BOSS.x = proposed_x
+            # 화면 경계 제한 (스턴이 없을 때만)
+            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+            _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
         else:
-            # 기존 위치 업데이트 로직 with ground crack collision check
-            proposed_x = BOSS.x + boss_current_speed
-            proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
-            can_move = True
-            
-            # Check collision with ground cracks
-            if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
-                can_move = False
-                boss_current_speed = 0  # Stop the boss
-            
-            if can_move:
-                BOSS.x = proposed_x
-                # 화면 경계 제한 (스턴이 없을 때만)
-                BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
-            else:
-                # 크랙에 막혀서 움직일 수 없음
-                if random.random() < 0.1:  # 10% chance to print
-                    print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+            # 크랙에 막혀서 움직일 수 없음
+            if random.random() < 0.1:  # 10% chance to print
+                print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
 def optimize_ai_memory_for_round():
     """라운드 간 AI 메모리 최적화 (가벼운 정리)"""
     global enhanced_ai, ai_decisions_history, ai_performance_stats
