@@ -5256,6 +5256,13 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             x4 = end_x + math.cos(angle_perp) * collision_thickness
             y4 = end_y + math.sin(angle_perp) * collision_thickness
             
+            # Check if boss is currently colliding with this crack
+            is_colliding = False
+            if 'BOSS' in globals() and BOSS is not None:
+                boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
+                if _check_boss_crack_collision(boss_rect, crack):
+                    is_colliding = True
+            
             # Draw the collision polygon with offset applied
             collision_points = [
                 (x1 + offset_x, y1 + offset_y),
