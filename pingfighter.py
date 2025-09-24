@@ -5077,14 +5077,6 @@ def update_blacksmith_hammer_shock(keys):
 
     blacksmith_hammer_shock_projectiles = new_projectiles
 
-    # Update trail effects
-    updated_trails = []
-    for trail in blacksmith_hammer_trails:
-        trail["alpha"] -= BLACKSMITH_HAMMER_TRAIL_FADE_SPEED
-        if trail["alpha"] > 0:
-            updated_trails.append(trail)
-    blacksmith_hammer_trails = updated_trails
-
     # Update ground cracks
     updated_cracks = []
     for crack in blacksmith_ground_cracks:
@@ -5165,30 +5157,8 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
                 max(1, crack["thickness"] // 2)
             )
 
-    # Draw hammer trails
-    hammer_surface = _get_blacksmith_thrown_hammer_surface()
-    for trail in blacksmith_hammer_trails:
-        alpha = int(255 * trail["alpha"])
-        if alpha > 0:
-            # Create faded hammer surface
-            trail_surface = hammer_surface.copy()
-            trail_surface.fill((255, 255, 255, alpha), special_flags=pygame.BLEND_RGBA_MULT)
-            
-            # Apply stage-based tinting
-            stage = trail.get("stage", 1)
-            if stage >= 3:
-                tint_color = (200, 220, 255, alpha)  # Blue tint
-            elif stage >= 2:
-                tint_color = (220, 235, 255, alpha)  # Light blue tint
-            else:
-                tint_color = (255, 255, 255, alpha)  # White (no tint)
-            
-            # Rotate and draw
-            rotated = pygame.transform.rotate(trail_surface, trail.get("rotation", 0.0))
-            rect = rotated.get_rect(center=(int(trail["x"] + offset_x), int(trail["y"] + offset_y)))
-            surface.blit(rotated, rect, special_flags=pygame.BLEND_ADD)
-
     # Draw actual hammers
+    hammer_surface = _get_blacksmith_thrown_hammer_surface()
     for proj in blacksmith_hammer_shock_projectiles:
         rotated = pygame.transform.rotate(hammer_surface, proj.get("rotation", 0.0))
         rect = rotated.get_rect(center=(int(proj["x"] + offset_x), int(proj["y"] + offset_y)))
@@ -27140,8 +27110,7 @@ def show_start_screen():
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     blacksmith_hammer_shock_anchor_x = 0
     blacksmith_hammer_shock_anchor_y = 0
-    global blacksmith_hammer_trails, blacksmith_ground_cracks
-    blacksmith_hammer_trails.clear()
+    global blacksmith_ground_cracks
     blacksmith_ground_cracks.clear()
     global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
     blacksmith_hammer_head_surface_point = None
@@ -47320,8 +47289,7 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     blacksmith_hammer_shock_anchor_x = PLAYER.centerx if 'PLAYER' in globals() and PLAYER else 0
     blacksmith_hammer_shock_anchor_y = PLAYER.centery if 'PLAYER' in globals() and PLAYER else 0
-    global blacksmith_hammer_trails, blacksmith_ground_cracks
-    blacksmith_hammer_trails.clear()
+    global blacksmith_ground_cracks
     blacksmith_ground_cracks.clear()
     global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
     blacksmith_hammer_head_surface_point = None
