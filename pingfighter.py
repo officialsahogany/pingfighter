@@ -25775,6 +25775,11 @@ def draw_objects():
     if is_devil_dice_active():
         instance = get_devil_dice_instance()
         instance.draw_gauge(SCREEN, WIDTH - 10, 60)  # 게이지만 그리기
+    
+    # 발토르 해머쇼크 폭발 이펙트 업데이트 및 그리기
+    explosion_manager = get_hammer_explosion_manager()
+    explosion_manager.update()
+    explosion_manager.draw(SCREEN)
 def calculate_total_earned_medals(up_to_stage):
     total = 0
     for stage in range(1, up_to_stage + 1):
@@ -26710,6 +26715,10 @@ def show_start_screen():
     blacksmith_hammer_charge_position = None
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions.clear()
+    
+    # 발토르 해머쇼크 폭발 이펙트 초기화
+    explosion_manager = get_hammer_explosion_manager()
+    explosion_manager.clear()
 
     bgm_manager.play_menu_bgm()
 
@@ -46886,6 +46895,10 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_charge_position = None
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions.clear()
+    
+    # 발토르 해머쇼크 폭발 이펙트 초기화
+    explosion_manager = get_hammer_explosion_manager()
+    explosion_manager.clear()
 
     # 🔧 스테이지 시작 시 플레이어 움직임 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
