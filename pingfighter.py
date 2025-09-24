@@ -4901,10 +4901,10 @@ def _check_boss_crack_collision(boss_rect, crack):
     thickness = crack.get("thickness", 2) + 30  # Increased padding from 20 to 30
     
     # Debug print to verify collision detection is being called
-    if random.random() < 0.05:  # Print more frequently (5% chance)
-        print(f"[DEBUG] Boss collision check:")
+    if random.random() < 0.10:  # Print more frequently (10% chance)
+        print(f"\n[DEBUG] Boss collision check - Total cracks: {len(blacksmith_ground_cracks) if 'blacksmith_ground_cracks' in globals() else 0}")
         print(f"  Boss: x={boss_rect.x}, y={boss_rect.y}, w={boss_rect.width}, h={boss_rect.height}")
-        print(f"  Boss corners: TL({boss_rect.left},{boss_rect.top}) TR({boss_rect.right},{boss_rect.top}) BL({boss_rect.left},{boss_rect.bottom}) BR({boss_rect.right},{boss_rect.bottom})")
+        print(f"  Boss center: ({boss_rect.centerx}, {boss_rect.centery})")
         print(f"  Crack: start({line_start_x:.0f},{line_start_y:.0f}) end({line_end_x:.0f},{line_end_y:.0f})")
         print(f"  Crack thickness: {thickness}")
     
@@ -5062,6 +5062,7 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             "sub_cracks": sub_cracks
         }
         blacksmith_ground_cracks.append(crack)
+        print(f"[DEBUG] Created ground crack #{len(blacksmith_ground_cracks)}: x={crack['x']:.0f}, y={crack['y']:.0f}, angle={crack['angle']:.2f}, length={crack['length']:.0f}")
 
     knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK
     if stage == 2:
