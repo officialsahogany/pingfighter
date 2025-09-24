@@ -4421,6 +4421,7 @@ blacksmith_hammer_head_local_point: pygame.math.Vector2 | tuple[float, float] | 
 blacksmith_hammer_head_surface_point: pygame.math.Vector2 | tuple[float, float] | None = None
 blacksmith_hammer_charge_position: tuple[float, float] | None = None
 _blacksmith_hammer_explosion_cache: dict[tuple[int, int], pygame.Surface] = {}
+blacksmith_hammer_explosions: list[dict[str, object]] = []
 
 
 def _clamp_color(color: tuple[int, ...]) -> tuple[int, ...]:
