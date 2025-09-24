@@ -5153,6 +5153,11 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         arc_count = max(4, int(explosion.get("arc_count", 6 + stage_value * 2)))
         arc_rng = random.Random(arc_seed + frame // 2)
         base_arc_radius = base_radius * (0.36 + 0.28 * (1.0 - remaining_ratio))
+        glyph_rgb = (
+            int(glyph_color_rgb[0]),
+            int(glyph_color_rgb[1]),
+            int(glyph_color_rgb[2]),
+        ) if isinstance(glyph_color_rgb, (list, tuple)) and len(glyph_color_rgb) >= 3 else (200, 230, 255)
         for arc_idx in range(arc_count):
             start_angle = arc_rng.uniform(0.0, math.tau)
             angle_span = arc_rng.uniform(0.55, 1.05) * max(0.35, 1.0 - 0.45 * progress)
@@ -5167,8 +5172,13 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
                 py = center_y + math.sin(angle) * radial * 0.96 + offset_y
                 points.append((int(px), int(py)))
             if len(points) >= 2:
-                outer_arc = _clamp_color((80, 170 + stage_value * 28, 255, int(120 * remaining_ratio)))
-                inner_arc = _clamp_color((210, 245, 255, int(200 * remaining_ratio)))
+                outer_arc = _clamp_color((*glyph_rgb, int(120 * remaining_ratio)))
+                inner_arc = _clamp_color((
+                    min(255, glyph_rgb[0] + 30),
+                    min(255, glyph_rgb[1] + 35),
+                    min(255, glyph_rgb[2] + 35),
+                    int(200 * remaining_ratio),
+                ))
                 pygame.draw.lines(surface, outer_arc, False, points, 3)
                 pygame.draw.lines(surface, inner_arc, False, points, 2)
 
