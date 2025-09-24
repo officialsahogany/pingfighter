@@ -4485,6 +4485,21 @@ def _clamp_color(color: tuple[int, ...]) -> tuple[int, ...]:
     return tuple(max(0, min(255, int(component))) for component in color)
 
 
+def _get_blacksmith_hammer_effect_center() -> tuple[float, float]:
+    global blacksmith_hammer_charge_position
+    if blacksmith_hammer_charge_position is not None:
+        return (
+            float(blacksmith_hammer_charge_position[0]),
+            float(blacksmith_hammer_charge_position[1]),
+        )
+    if 'PLAYER' in globals() and PLAYER is not None:
+        return (
+            float(PLAYER.centerx + 6),
+            float(PLAYER.centery - 18),
+        )
+    return float(WIDTH // 2), float(HEIGHT // 2)
+
+
 def _get_blacksmith_hammer_explosion_palette(stage: int) -> dict[str, object]:
     stage_index = max(1, min(stage, BLACKSMITH_HAMMER_SHOCK_MAX_STAGE))
     return _BLACKSMITH_HAMMER_EXPLOSION_PALETTES.get(stage_index, _BLACKSMITH_HAMMER_EXPLOSION_PALETTES[1])
@@ -4959,14 +4974,7 @@ def update_blacksmith_hammer_shock(keys):
         if blacksmith_hammer_shock_cooldown_timer <= 0 and not blacksmith_hammer_shock_projectiles:
             blacksmith_hammer_available = True
             blacksmith_hammer_shock_cooldown_timer = 0
-            fx_x: float
-            fx_y: float
-            if 'PLAYER' in globals() and PLAYER is not None:
-                fx_x = float(PLAYER.right + 16)
-                fx_y = float(PLAYER.centery - 18)
-            else:
-                fx_x = float(WIDTH // 2)
-                fx_y = float(HEIGHT // 2)
+            fx_x, fx_y = _get_blacksmith_hammer_effect_center()
             _spawn_blacksmith_hammer_return_fx(fx_x, fx_y)
 
     if blacksmith_hammer_shock_charging:
