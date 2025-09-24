@@ -34641,6 +34641,7 @@ SOLDIER_CARD_IMG = _crop_surface_alpha(create_soldier_character_card_image_new(2
 def show_character_selection():
     """사이버펑크 스타일 홀로그램 캐릭터 선택 화면"""
     clock = pygame.time.Clock()
+    soldier_card_preview: pygame.Surface | None = None
     # 6개 캐릭터 정의 (해금 시스템 포함)
     characters = [
         {
@@ -35151,7 +35152,18 @@ def show_character_selection():
                 surface.blit(scaled, (image_x, image_y))
 
             if character["id"] == "soldier":
-                blit_scaled_surface(SOLDIER_CARD_IMG)
+                nonlocal soldier_card_preview
+                if soldier_card_preview is None:
+                    base_surface = _get_character_base_surface("soldier")
+                    if base_surface is not None:
+                        soldier_card_preview = _crop_surface_alpha(base_surface)
+                    else:
+                        # 기본 프리뷰를 확보하지 못한 경우 기존 카드 일러스트를 사용한다.
+                        fallback_size = max(max_width, max_height, 1)
+                        soldier_card_preview = _crop_surface_alpha(
+                            create_soldier_character_card_image_new(fallback_size)
+                        )
+                blit_scaled_surface(soldier_card_preview)
             elif character["id"] == "blacksmith":
                 source_img = BLACKSMITH_CARD_IMG if 'BLACKSMITH_CARD_IMG' in globals() else BLACKSMITH_PADDLE_IMG
                 blit_scaled_surface(source_img)
