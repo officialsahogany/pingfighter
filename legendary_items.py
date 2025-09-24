@@ -269,7 +269,7 @@ class LegendaryItem:
             pass
             
         # 파티클 효과 (가끔씩)
-        if self.particle_timer > 1000:  # 1초마다
+        if self.particle_timer > 1.0:  # 1초마다
             self._spawn_particle(screen, x + size//2, y + size//2)
             self.particle_timer = 0
             
@@ -1421,7 +1421,7 @@ class PoseidonTrident(LegendaryItem):
                                (x + size*2//3, y + frame_offset + size//4), 2)
         
         # 파티클 효과
-        if self.particle_timer > 1000:
+        if self.particle_timer > 1.0:
             self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
             self.particle_timer = 0
     
@@ -1994,7 +1994,7 @@ class HermesShoes(LegendaryItem):
             pygame.draw.polygon(screen, shoe_color, wing_points, 1)
         
         # 파티클 효과
-        if self.particle_timer > 1000:
+        if self.particle_timer > 1.0:
             self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
             self.particle_timer = 0
 
@@ -2221,7 +2221,7 @@ class RagnarokHammer(LegendaryItem):
                                (x + size*2//3, y + frame_offset + size//4), 2)
         
         # 파티클 효과
-        if self.particle_timer > 1000:
+        if self.particle_timer > 1.0:
             self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
             self.particle_timer = 0
     
