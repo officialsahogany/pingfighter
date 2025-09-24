@@ -4629,6 +4629,7 @@ def update_blacksmith_hammer_shock(keys):
             blacksmith_hammer_shock_charging = False
             blacksmith_hammer_shock_charge_frames = 0
             blacksmith_hammer_shock_stage = 0
+            blacksmith_hammer_charge_position = None
         else:
             try:
                 origin_x = PLAYER.right + 18
@@ -4642,6 +4643,7 @@ def update_blacksmith_hammer_shock(keys):
     else:
         blacksmith_hammer_shock_stage = 0
         blacksmith_hammer_shock_charge_frames = 0
+        blacksmith_hammer_charge_position = None
 
     new_projectiles = []
     for proj in blacksmith_hammer_shock_projectiles:
