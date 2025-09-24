@@ -4419,6 +4419,7 @@ _blacksmith_hammer_charge_spark_cache: dict[int, pygame.Surface] = {}
 _blacksmith_thrown_hammer_surface: pygame.Surface | None = None
 blacksmith_hammer_head_local_point: pygame.math.Vector2 | tuple[float, float] | None = None
 blacksmith_hammer_head_surface_point: pygame.math.Vector2 | tuple[float, float] | None = None
+blacksmith_hammer_idle_position: tuple[float, float] | None = None
 blacksmith_hammer_charge_position: tuple[float, float] | None = None
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
 _BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
@@ -4486,11 +4487,16 @@ def _clamp_color(color: tuple[int, ...]) -> tuple[int, ...]:
 
 
 def _get_blacksmith_hammer_effect_center() -> tuple[float, float]:
-    global blacksmith_hammer_charge_position
+    global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
     if blacksmith_hammer_charge_position is not None:
         return (
             float(blacksmith_hammer_charge_position[0]),
             float(blacksmith_hammer_charge_position[1]),
+        )
+    if blacksmith_hammer_idle_position is not None:
+        return (
+            float(blacksmith_hammer_idle_position[0]),
+            float(blacksmith_hammer_idle_position[1]),
         )
     if 'PLAYER' in globals() and PLAYER is not None:
         return (
