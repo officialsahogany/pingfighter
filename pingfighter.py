@@ -36089,15 +36089,16 @@ def get_item_icon(item_name):
         return icon_cache[item_name]
     
     # 전설 아이템들은 정적 스냅샷 생성
-    if item_name in ["hermes_shoes", "ragnarok_hammer"]:
+    if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "holy_laurel"]:
         # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         if legendary_manager:
             # 아이템이 없으면 초기화
-            legendary_item = legendary_manager.get_item(item_name)
+            lookup_name = "poseidon_trident" if item_name == "holy_laurel" else item_name
+            legendary_item = legendary_manager.get_item(lookup_name)
             if not legendary_item:
                 legendary_manager._init_legendary_items()
-                legendary_item = legendary_manager.get_item(item_name)
+                legendary_item = legendary_manager.get_item(lookup_name)
             
             if legendary_item:
                 # 정적 아이콘 스냅샷 생성
@@ -36105,7 +36106,7 @@ def get_item_icon(item_name):
                 icon_surface.fill((0, 0, 0, 0))  # 투명 배경
                 
                 # 전설 아이템의 현재 프레임을 정적 아이콘으로 그리기
-                if item_name == "hermes_shoes":
+                if lookup_name == "hermes_shoes":
                     # 헤르메스의 신발 - 애니메이션 프레임 사용 (라그나로크 해머와 동일한 방식)
                     if not legendary_item.animation_frames:
                         legendary_item._create_default_animation()
@@ -36117,7 +36118,7 @@ def get_item_icon(item_name):
                     else:
                         # 폴백: 기본 아이콘 그리기
                         legendary_item._draw_hermes_default_icon(icon_surface, 0, 0, ICON_SIZE)
-                elif item_name == "ragnarok_hammer":
+                elif lookup_name == "ragnarok_hammer":
                     # 라그나로크 해머 정적 아이콘 (현재 프레임 사용)
                     if legendary_item.animation_frames:
                         frame = legendary_item.animation_frames[0]  # 첫 프레임 사용
@@ -36133,7 +36134,7 @@ def get_item_icon(item_name):
                         # 해머 손잡이
                         pygame.draw.rect(icon_surface, hammer_color,
                                        (ICON_SIZE*2//5, ICON_SIZE//3, ICON_SIZE//5, ICON_SIZE*2//3))
-                elif item_name == "poseidon_trident":
+                elif lookup_name == "poseidon_trident":
                     # 포세이돈의 삼지창 정적 아이콘 (현재 프레임 사용)
                     if hasattr(legendary_item, 'icon_frames') and legendary_item.icon_frames:
                         frame = legendary_item.icon_frames[0]  # 첫 프레임 사용
@@ -36155,13 +36156,20 @@ def get_item_icon(item_name):
                                        (center_x + 10, 15), (center_x, 10), 3)
                 
                 icon_cache[item_name] = icon_surface
+                if item_name == "holy_laurel":
+                    icon_cache[lookup_name] = icon_surface
                 return icon_surface
-        
+
         # LegendaryManager를 사용할 수 없는 경우 기본 아이콘 생성
         icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
         icon_surface.fill((0, 0, 0, 0))
         
-        if item_name == "hermes_shoes":
+        if item_name == "holy_laurel":
+            lookup_name = "poseidon_trident"
+        else:
+            lookup_name = item_name
+
+        if lookup_name == "hermes_shoes":
             # 헤르메스 기본 아이콘 (황금 신발)
             shoe_color = (255, 215, 0)  # 황금색
             wing_color = (255, 255, 255)  # 흰색 날개
@@ -36172,14 +36180,25 @@ def get_item_icon(item_name):
             pygame.draw.polygon(icon_surface, wing_color, 
                               [(ICON_SIZE//8, ICON_SIZE//2), (0, ICON_SIZE//2+5), 
                                (ICON_SIZE//8, ICON_SIZE//2+10), (ICON_SIZE//4, ICON_SIZE//2+5)])
-        else:  # ragnarok_hammer
+        elif lookup_name == "ragnarok_hammer":
             # 해머 기본 아이콘
             pygame.draw.rect(icon_surface, (200, 200, 200),  # 은색 헤드
                            (ICON_SIZE//4, ICON_SIZE//6, ICON_SIZE//2, ICON_SIZE//3))
             pygame.draw.rect(icon_surface, (150, 75, 0),  # 갈색 손잡이
-                           (ICON_SIZE*2//5, ICON_SIZE//3, ICON_SIZE//5, ICON_SIZE*2//3))
-        
+                           (ICON_SIZE*2//5, ICON_SIZE//3, ICON_SIZE*2//5, ICON_SIZE*2//3))
+        else:  # poseidon_trident 및 holy_laurel 기본 아이콘
+            ocean_color = (0, 150, 255)  # 바다색
+            center_x = ICON_SIZE // 2
+            pygame.draw.line(icon_surface, ocean_color,
+                             (center_x, ICON_SIZE - 10), (center_x, 10), 3)
+            pygame.draw.line(icon_surface, ocean_color,
+                             (center_x - 10, 15), (center_x, 10), 3)
+            pygame.draw.line(icon_surface, ocean_color,
+                             (center_x + 10, 15), (center_x, 10), 3)
+
         icon_cache[item_name] = icon_surface
+        if item_name == "holy_laurel":
+            icon_cache[lookup_name] = icon_surface
         return icon_surface
 
     if item_name == "knee_pads":
