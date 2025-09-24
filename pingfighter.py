@@ -4875,8 +4875,12 @@ def release_blacksmith_hammer_shock():
         "rotation": 0.0,
     }
     blacksmith_hammer_shock_projectiles.append(projectile)
+    if blacksmith_hammer_charge_position is not None:
+        blacksmith_hammer_idle_position = (
+            float(blacksmith_hammer_charge_position[0]),
+            float(blacksmith_hammer_charge_position[1]),
+        )
     blacksmith_hammer_charge_position = None
-    blacksmith_hammer_idle_position = None
     if selected_character_type != "blacksmith":
         blacksmith_hammer_head_surface_point = None
 
