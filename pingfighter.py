@@ -5595,6 +5595,7 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         radius *= BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE
     elif resolved_stage >= 3:
         radius *= BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE
+    stage_multiplier = 1.0 + BLACKSMITH_HAMMER_SHOCK_CRACK_SCALE_STEP * max(0, resolved_stage - 1)
 
     render_centerx, render_centery = _clamp_blacksmith_hammer_explosion_center(centerx, centery, radius)
     visual_centery = max(12.0, render_centery - BLACKSMITH_HAMMER_SHOCK_EXPLOSION_VISUAL_OFFSET)
@@ -5631,10 +5632,11 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
 
     # Add ground crack effect at explosion point
     global blacksmith_ground_cracks
-    num_cracks = 5 + stage * 2  # 5-11 cracks depending on stage
+    base_crack_count = BLACKSMITH_HAMMER_SHOCK_BASE_CRACK_COUNT
+    num_cracks = max(1, int(round(base_crack_count * stage_multiplier)))
     for i in range(num_cracks):
         angle = (math.pi * 2 * i / num_cracks) + random.uniform(-0.2, 0.2)
-        base_length = radius * random.uniform(0.8, 1.3)
+        base_length = radius * random.uniform(0.8, 1.3) * stage_multiplier
         length = base_length * BLACKSMITH_GROUND_CRACK_RANGE_SCALE
         
         # Generate sub-cracks data
@@ -5702,10 +5704,13 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
                 globals()["boss_knockback_offset_y"] = 0
             except Exception:
                 pass
-            stun_duration = max(1, int(0.3 * FPS))  # 해머 쇼크 스턴 시간 0.3초 고정
+            stun_frames = BLACKSMITH_HAMMER_SHOCK_STUN_DURATION_FRAMES.get(
+                stage,
+                BLACKSMITH_HAMMER_SHOCK_STUN_DURATION_FRAMES[max(BLACKSMITH_HAMMER_SHOCK_STUN_DURATION_FRAMES)],
+            )
 
             try:
-                globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), stun_duration)
+                globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), stun_frames)
             except Exception:
                 pass
 
