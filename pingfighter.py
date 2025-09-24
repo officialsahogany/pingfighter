@@ -4890,30 +4890,82 @@ def release_blacksmith_hammer_shock():
 
 
 def _check_boss_crack_collision(boss_rect, crack):
-    """Check if boss paddle collides with a ground crack"""
+    """Check if boss paddle collides with a ground crack using line-rectangle collision"""
     # Create a line segment for the crack
-    end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
-    end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
+    line_start_x = crack["x"]
+    line_start_y = crack["y"]
+    line_end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
+    line_end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
     
-    # Check if the crack line intersects with boss rect
-    # Using simple bounding box check first
-    crack_min_x = min(crack["x"], end_x)
-    crack_max_x = max(crack["x"], end_x)
-    crack_min_y = min(crack["y"], end_y)
-    crack_max_y = max(crack["y"], end_y)
+    # Add thickness to the crack
+    thickness = crack.get("thickness", 2) + 10  # Increased padding for better collision
     
-    # Add some thickness to the crack for collision
-    thickness = crack.get("thickness", 2) + 5  # Extra padding for collision
+    # Function to check if a point is within distance of a line segment
+    def point_to_line_distance(px, py, x1, y1, x2, y2):
+        # Calculate the distance from point (px, py) to line segment (x1,y1)-(x2,y2)
+        line_length_sq = (x2 - x1) ** 2 + (y2 - y1) ** 2
+        
+        if line_length_sq == 0:
+            # The line segment is a point
+            return math.hypot(px - x1, py - y1)
+        
+        # Calculate the parameter t that represents the closest point on the line segment
+        t = max(0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / line_length_sq))
+        
+        # Calculate the coordinates of the closest point on the line segment
+        closest_x = x1 + t * (x2 - x1)
+        closest_y = y1 + t * (y2 - y1)
+        
+        # Return the distance from the point to the closest point on the line segment
+        return math.hypot(px - closest_x, py - closest_y)
     
-    # Expand crack bounds by thickness
-    crack_min_x -= thickness
-    crack_max_x += thickness
-    crack_min_y -= thickness
-    crack_max_y += thickness
+    # Check if any corner of the boss rect is close to the crack line
+    corners = [
+        (boss_rect.left, boss_rect.top),
+        (boss_rect.right, boss_rect.top),
+        (boss_rect.left, boss_rect.bottom),
+        (boss_rect.right, boss_rect.bottom)
+    ]
     
-    # Check if boss rect overlaps with crack bounds
-    if (boss_rect.left < crack_max_x and boss_rect.right > crack_min_x and
-        boss_rect.top < crack_max_y and boss_rect.bottom > crack_min_y):
+    for corner_x, corner_y in corners:
+        if point_to_line_distance(corner_x, corner_y, line_start_x, line_start_y, line_end_x, line_end_y) < thickness:
+            return True
+    
+    # Check if the crack line intersects with any edge of the rectangle
+    # Using line-line intersection tests for each edge of the rectangle
+    rect_edges = [
+        ((boss_rect.left, boss_rect.top), (boss_rect.right, boss_rect.top)),  # Top edge
+        ((boss_rect.right, boss_rect.top), (boss_rect.right, boss_rect.bottom)),  # Right edge
+        ((boss_rect.right, boss_rect.bottom), (boss_rect.left, boss_rect.bottom)),  # Bottom edge
+        ((boss_rect.left, boss_rect.bottom), (boss_rect.left, boss_rect.top))  # Left edge
+    ]
+    
+    def lines_intersect(p1, p2, p3, p4):
+        # Check if line segment p1-p2 intersects with line segment p3-p4
+        x1, y1 = p1
+        x2, y2 = p2
+        x3, y3 = p3
+        x4, y4 = p4
+        
+        denom = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4)
+        if abs(denom) < 0.0001:
+            return False  # Lines are parallel
+        
+        t = ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / denom
+        u = -((x1-x2)*(y1-y3) - (y1-y2)*(x1-x3)) / denom
+        
+        return 0 <= t <= 1 and 0 <= u <= 1
+    
+    crack_line = ((line_start_x, line_start_y), (line_end_x, line_end_y))
+    for edge in rect_edges:
+        if lines_intersect(crack_line[0], crack_line[1], edge[0], edge[1]):
+            return True
+    
+    # Check if the crack is entirely inside the rectangle
+    if (boss_rect.left <= line_start_x <= boss_rect.right and
+        boss_rect.top <= line_start_y <= boss_rect.bottom and
+        boss_rect.left <= line_end_x <= boss_rect.right and
+        boss_rect.top <= line_end_y <= boss_rect.bottom):
         return True
     
     return False
