@@ -23145,6 +23145,14 @@ def draw_objects():
             draw.rect(RED, boss_hitbox_expanded, 2)
         # 원본 보스 패들 크기 표시 (파란색) - 모든 스테이지
         draw.rect(BLUE, BOSS, 2)
+        
+        # Debug: Show boss collision area for ground cracks
+        if blacksmith_ground_cracks:
+            debug_boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
+            pygame.draw.rect(SCREEN, (0, 255, 0, 50), debug_boss_rect, 3)
+            # Draw text showing boss position
+            debug_text = font_small.render(f"Boss: x={BOSS.x}, y={BOSS.y}", True, (255, 255, 0))
+            SCREEN.blit(debug_text, (BOSS.x, BOSS.y - 20))
     #  라그나로크 스턴 시 전기 감전 효과 (최적화 버전)
     if boss_stun_timer > 0:
         # 전기 감전 효과 - 보스 패들 전체에 전기가 흐르는 효과
