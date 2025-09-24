@@ -4520,6 +4520,64 @@ def _get_blacksmith_thrown_hammer_surface() -> pygame.Surface:
     return surface
 
 
+def _get_blacksmith_hammer_explosion_surface(stage: int, radius: int) -> pygame.Surface:
+    cache_key = (stage, radius)
+    cached = _blacksmith_hammer_explosion_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    size = radius * 2 + 40
+    surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    center = size // 2
+
+    core_radius = int(radius * 0.55)
+    shock_radius = radius + 6
+    ring_radius = min(radius + 10, center - 2)
+
+    color_core = (255, 245 - stage * 8, 210 - stage * 12, 220)
+    color_mid = (255, 180 + stage * 15, 80 + stage * 12, 180)
+    color_outer = (90, 180 + stage * 18, 255, 160)
+    ring_color = (180, 220, 255, 130)
+    spikes_color = (255, 255, 255, 160)
+
+    pygame.draw.circle(surface, color_outer, (center, center), shock_radius)
+
+    for i in range(8 + stage * 3):
+        angle = (math.tau / (8 + stage * 3)) * i
+        wave_radius = ring_radius + 6
+        wave_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        for j in range(6):
+            alpha = max(0, color_outer[3] - j * 20)
+            pygame.draw.circle(
+                wave_surface,
+                (color_outer[0], color_outer[1], color_outer[2], alpha),
+                (center, center),
+                wave_radius - j * 3,
+                width=3,
+            )
+        rotated = pygame.transform.rotate(wave_surface, math.degrees(angle) + 5)
+        surface.blit(rotated, rotated.get_rect(center=(center, center)), special_flags=pygame.BLEND_ADD)
+
+    pygame.draw.circle(surface, color_mid, (center, center), max(2, int(radius * 0.75)))
+    pygame.draw.circle(surface, color_core, (center, center), max(2, core_radius))
+
+    pygame.draw.circle(surface, ring_color, (center, center), ring_radius, width=3)
+
+    spike_count = 14 + stage * 4
+    spike_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    for i in range(spike_count):
+        angle = (math.tau / spike_count) * i + random.uniform(-0.06, 0.06)
+        length = radius * (1.1 + random.uniform(0.1, 0.3))
+        thickness = max(2, int(3 + stage * 0.6))
+        end_x = center + int(math.cos(angle) * length)
+        end_y = center + int(math.sin(angle) * length)
+        pygame.draw.line(spike_surface, spikes_color, (center, center), (end_x, end_y), thickness)
+    surface.blit(spike_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+
+    _blacksmith_hammer_explosion_cache[cache_key] = surface
+    return surface
+
+
 def _draw_blacksmith_hammer_charge_effect(
     surface: pygame.Surface,
     center_x: int,
@@ -4658,9 +4716,33 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         radius *= BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE
 
     try:
-        effects_manager.create_impact_effect(int(centerx), int(centery), radius, is_player=False)
-        effects_manager.spawn_star_particles(int(centerx), int(centery), count=12 + stage * 4)
-        effects_manager.spawn_flame_particles(int(centerx), int(centery), count=6 + stage * 3)
+        explosion_surface = _get_blacksmith_hammer_explosion_surface(stage, int(radius))
+        rect = explosion_surface.get_rect(center=(int(centerx), int(centery)))
+        SCREEN.blit(explosion_surface, rect, special_flags=pygame.BLEND_ADD)
+
+        for _ in range(5 + stage * 2):
+            offset_angle = random.uniform(0, math.tau)
+            offset_radius = math.sqrt(random.random()) * radius * 0.6
+            fx = centerx + math.cos(offset_angle) * offset_radius
+            fy = centery + math.sin(offset_angle) * offset_radius
+            try:
+                effects_manager.spawn_star_particles(int(fx), int(fy), count=2)
+            except Exception:
+                pass
+
+        trail_count = 18 + stage * 6
+        for i in range(trail_count):
+            angle = (math.tau / trail_count) * i + random.uniform(-0.08, 0.08)
+            length = radius * (0.6 + random.uniform(0.1, 0.2))
+            end_x = centerx + math.cos(angle) * length
+            end_y = centery + math.sin(angle) * length
+            pygame.draw.line(
+                SCREEN,
+                (255, 240 - stage * 10, 120 + stage * 8, 120),
+                (int(centerx), int(centery)),
+                (int(end_x), int(end_y)),
+                2,
+            )
     except Exception:
         pass
 
