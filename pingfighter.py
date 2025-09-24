@@ -4503,6 +4503,7 @@ def release_blacksmith_hammer_shock():
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     global special_gauge, special_ready, special_gauge_max
     global PLAYER, SOUND_GRENADE
+    global blacksmith_hammer_charge_position
 
     if not blacksmith_hammer_shock_charging:
         return
@@ -4528,6 +4529,9 @@ def release_blacksmith_hammer_shock():
 
     origin_x = PLAYER.right + 18
     origin_y = PLAYER.centery - 20
+    if blacksmith_hammer_charge_position is not None:
+        origin_x = float(blacksmith_hammer_charge_position[0])
+        origin_y = float(blacksmith_hammer_charge_position[1])
 
     projectile = {
         "x": float(origin_x),
@@ -4674,12 +4678,17 @@ def update_blacksmith_hammer_shock(keys):
 
 
 def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float = 0.0):
+    global blacksmith_hammer_charge_position
     if selected_character_type != "blacksmith":
         return
 
     if blacksmith_hammer_shock_charging and 'PLAYER' in globals() and PLAYER is not None:
-        cx = int(round(PLAYER.right + 18 + offset_x))
-        cy = int(round(PLAYER.centery - 20 + offset_y))
+        if blacksmith_hammer_charge_position is not None:
+            cx = int(round(blacksmith_hammer_charge_position[0] + offset_x))
+            cy = int(round(blacksmith_hammer_charge_position[1] + offset_y))
+        else:
+            cx = int(round(PLAYER.right + 18 + offset_x))
+            cy = int(round(PLAYER.centery - 20 + offset_y))
         _draw_blacksmith_hammer_charge_effect(
             surface,
             cx,
