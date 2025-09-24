@@ -5274,11 +5274,16 @@ def _update_boss_crack_stuck_state(can_move: bool, boss_rect: pygame.Rect):
         boss_crack_stuck_timer = 0
         return
 
+    recent_hit_time = globals().get("boss_crack_recent_hit_time", 0)
+    if current_time - recent_hit_time < BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_DELAY_MS:
+        boss_crack_stuck_timer = 0
+        return
+
     boss_crack_stuck_timer += 1
 
     if (
         boss_crack_stuck_timer >= BLACKSMITH_GROUND_CRACK_STUCK_FREE_FRAMES
-        and current_time - boss_crack_last_release > 250
+        and current_time - boss_crack_last_release > BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_COOLDOWN_MS
     ):
         if boss_crack_stuck_timer == BLACKSMITH_GROUND_CRACK_STUCK_FREE_FRAMES:
             print(f"[CRACK STUCK] timer={boss_crack_stuck_timer}, rect={boss_rect}")
@@ -5401,7 +5406,9 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
                 push_distance = min(push_distance, max(0, boss_obj.left))
             boss_obj.x += direction * push_distance
             boss_obj.x = max(0, min(WIDTH - boss_obj.width, boss_obj.x))
-        boss_crack_ignore_until = pygame.time.get_ticks() + BLACKSMITH_GROUND_CRACK_BOSS_IGNORE_MS
+        current_ticks = pygame.time.get_ticks()
+        boss_crack_ignore_until = current_ticks + BLACKSMITH_GROUND_CRACK_BOSS_IGNORE_MS
+        globals()["boss_crack_recent_hit_time"] = current_ticks
     except Exception:
         pass
 
