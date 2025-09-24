@@ -5022,9 +5022,16 @@ def _check_path_blocked_by_cracks(current_x, target_x, boss_width, boss_y, boss_
 
         for crack in blacksmith_ground_cracks:
             crack_bounds = _get_crack_bounding_rect(crack)
+            line_start_x = crack.get("x", 0.0)
+            length = crack.get("length", 0.0)
+            angle = crack.get("angle", 0.0)
+            line_end_x = line_start_x + math.cos(angle) * length
+            min_projection_x = min(line_start_x, line_end_x)
+            max_projection_x = max(line_start_x, line_end_x)
+
             path_min_x = min(current_x, target_x) - boss_width
             path_max_x = max(current_x + boss_width, target_x + boss_width)
-            if crack_bounds.right < path_min_x or crack_bounds.left > path_max_x:
+            if max_projection_x < path_min_x - BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN or min_projection_x > path_max_x + BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
                 continue
             if crack_bounds.left - test_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
                 continue
