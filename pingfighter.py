@@ -5128,6 +5128,7 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         max_life = explosion.get("max_life", 1)
         remaining_ratio = max(0.0, min(1.0, life / max_life))
         progress = 1.0 - remaining_ratio  # 진행도 (0에서 1로)
+        frame = max(0, int(explosion.get("max_life", 0)) - life)
         scale = 1.0 + 0.35 * (1.0 - remaining_ratio)
         base_surface: pygame.Surface = explosion["surface"]  # type: ignore[index]
         center_x, center_y = explosion["center"]  # type: ignore[index]
@@ -5232,6 +5233,32 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             special_flags=pygame.BLEND_ADD,
         )
 
+        arc_seed = explosion.get("arc_seed")
+        if arc_seed is None:
+            arc_seed = random.randint(0, 999_999)
+            explosion["arc_seed"] = arc_seed
+        arc_count = max(4, int(explosion.get("arc_count", 6 + stage_value * 2)))
+        arc_rng = random.Random(arc_seed + frame // 2)
+        base_arc_radius = base_radius * (0.36 + 0.28 * (1.0 - remaining_ratio))
+        for arc_idx in range(arc_count):
+            start_angle = arc_rng.uniform(0.0, math.tau)
+            angle_span = arc_rng.uniform(0.55, 1.05) * max(0.35, 1.0 - 0.45 * progress)
+            segments = 6 + stage_value
+            points: list[tuple[int, int]] = []
+            for seg in range(segments):
+                t = seg / max(1, segments - 1)
+                wobble = math.sin(frame * 0.24 + arc_idx * 1.9 + t * 3.6) * (base_radius * 0.05 + stage_value * 1.2)
+                radial = base_arc_radius * (0.7 + t * 1.15) + wobble
+                angle = start_angle + angle_span * t + math.sin(frame * 0.2 + arc_idx * 2.0 + t * 4.1) * 0.08
+                px = center_x + math.cos(angle) * radial + offset_x
+                py = center_y + math.sin(angle) * radial * 0.96 + offset_y
+                points.append((int(px), int(py)))
+            if len(points) >= 2:
+                outer_arc = _clamp_color((80, 170 + stage_value * 28, 255, int(120 * remaining_ratio)))
+                inner_arc = _clamp_color((210, 245, 255, int(200 * remaining_ratio)))
+                pygame.draw.lines(surface, outer_arc, False, points, 3)
+                pygame.draw.lines(surface, inner_arc, False, points, 2)
+
         offsets = explosion.get("offsets", [])
         for angle, start, end in offsets:
             start_scaled = start * scale
@@ -5285,35 +5312,25 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             if spark_alpha <= 0:
                 continue
             spark_radius = max(1, int(size * scale * 0.9))
-            glow_radius = spark_radius * 2
-            surface_size = glow_radius * 2 + 4
-            spark_surface = pygame.Surface((surface_size, surface_size), pygame.SRCALPHA)
-            center_idx = surface_size // 2
-            glow_alpha = max(18, int(spark_alpha * 0.45))
-            core_alpha = min(255, int(spark_alpha * 0.9))
+            glow_radius = max(spark_radius + 1, int(spark_radius * 2.2))
             antimatter_color = antimatter_rgb or base_spark_rgb
             pygame.draw.circle(
-                spark_surface,
-                (*antimatter_color, glow_alpha),
-                (center_idx, center_idx),
+                surface,
+                (*antimatter_color, max(16, int(spark_alpha * 0.45))),
+                (int(sx), int(sy)),
                 glow_radius,
             )
             pygame.draw.circle(
-                spark_surface,
-                (*base_spark_rgb, core_alpha),
-                (center_idx, center_idx),
+                surface,
+                (*base_spark_rgb, spark_alpha),
+                (int(sx), int(sy)),
                 spark_radius,
             )
             pygame.draw.circle(
-                spark_surface,
-                (255, 255, 255, max(20, int(core_alpha * 0.6))),
-                (center_idx, center_idx),
+                surface,
+                (255, 255, 255, max(20, int(spark_alpha * 0.55))),
+                (int(sx), int(sy)),
                 max(1, spark_radius // 2),
-            )
-            surface.blit(
-                spark_surface,
-                (int(sx - surface_size // 2), int(sy - surface_size // 2)),
-                special_flags=pygame.BLEND_ADD,
             )
 
         shards = explosion.get("shards", [])
