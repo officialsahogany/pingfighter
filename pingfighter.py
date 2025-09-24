@@ -5143,7 +5143,7 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     if segments_remaining <= 0:
         return
 
-    segments_break = min(segments_remaining, random.randint(3, 4))
+    segments_break = segments_remaining
     new_remaining = max(0, segments_remaining - segments_break)
     crack["segments_remaining"] = new_remaining
 
@@ -7098,7 +7098,7 @@ blacksmith_ground_cracks = []  # 지면 크랙 효과
 BLACKSMITH_GROUND_CRACK_DURATION = int(3 * FPS)  # 크랙 지속시간 3초
 BLACKSMITH_GROUND_CRACK_RANGE_SCALE = 0.5
 BLACKSMITH_GROUND_CRACK_RATIO_OFFSET = 0.2
-BLACKSMITH_GROUND_CRACK_BOSS_PADDING = 8
+BLACKSMITH_GROUND_CRACK_BOSS_PADDING = 4
 BLACKSMITH_GROUND_CRACK_MIN_PADDING = 2
 BLACKSMITH_GROUND_CRACK_BOSS_SEGMENTS_MIN = 3
 BLACKSMITH_GROUND_CRACK_BOSS_HIT_COOLDOWN = int(0.2 * FPS)
