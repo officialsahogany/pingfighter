@@ -4897,8 +4897,12 @@ def _check_boss_crack_collision(boss_rect, crack):
     line_end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
     line_end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
     
-    # Add thickness to the crack
-    thickness = crack.get("thickness", 2) + 20  # Further increased padding for better collision
+    # Add thickness to the crack - increased significantly for better collision
+    thickness = crack.get("thickness", 2) + 30  # Increased padding from 20 to 30
+    
+    # Debug print to verify collision detection is being called
+    if random.random() < 0.01:  # Print occasionally to avoid spam
+        print(f"[DEBUG] Checking boss collision: Boss at ({boss_rect.x}, {boss_rect.y}), Crack at ({crack['x']}, {crack['y']})")
     
     # Function to check if a point is within distance of a line segment
     def point_to_line_distance(px, py, x1, y1, x2, y2):
@@ -4924,11 +4928,18 @@ def _check_boss_crack_collision(boss_rect, crack):
         (boss_rect.left, boss_rect.top),
         (boss_rect.right, boss_rect.top),
         (boss_rect.left, boss_rect.bottom),
-        (boss_rect.right, boss_rect.bottom)
+        (boss_rect.right, boss_rect.bottom),
+        # Also check center points of edges for better collision detection
+        (boss_rect.centerx, boss_rect.top),
+        (boss_rect.centerx, boss_rect.bottom),
+        (boss_rect.left, boss_rect.centery),
+        (boss_rect.right, boss_rect.centery)
     ]
     
     for corner_x, corner_y in corners:
-        if point_to_line_distance(corner_x, corner_y, line_start_x, line_start_y, line_end_x, line_end_y) < thickness:
+        distance = point_to_line_distance(corner_x, corner_y, line_start_x, line_start_y, line_end_x, line_end_y)
+        if distance < thickness:
+            print(f"[COLLISION] Boss corner at ({corner_x}, {corner_y}) hit crack! Distance: {distance}, Threshold: {thickness}")
             return True
     
     # Check if the crack line intersects with any edge of the rectangle
@@ -4959,6 +4970,7 @@ def _check_boss_crack_collision(boss_rect, crack):
     crack_line = ((line_start_x, line_start_y), (line_end_x, line_end_y))
     for edge in rect_edges:
         if lines_intersect(crack_line[0], crack_line[1], edge[0], edge[1]):
+            print(f"[COLLISION] Crack line intersects boss edge!")
             return True
     
     # Check if the crack is entirely inside the rectangle
@@ -4966,6 +4978,7 @@ def _check_boss_crack_collision(boss_rect, crack):
         boss_rect.top <= line_start_y <= boss_rect.bottom and
         boss_rect.left <= line_end_x <= boss_rect.right and
         boss_rect.top <= line_end_y <= boss_rect.bottom):
+        print(f"[COLLISION] Crack is inside boss rect!")
         return True
     
     return False
