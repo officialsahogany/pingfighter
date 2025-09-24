@@ -5172,7 +5172,8 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     try:
         current_timer = globals().get("boss_knockback_timer", 0)
         globals()["boss_knockback_timer"] = max(current_timer, BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES)
-        direction = 1 if boss_rect.centerx >= crack.get("x", boss_rect.centerx) else -1
+        crack_x = crack.get("x", boss_rect.centerx)
+        direction = 1 if crack_x >= boss_rect.centerx else -1
         globals()["boss_knockback_vel"] = direction * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED
         globals()["boss_knockback_active"] = False
         globals()["boss_knockback_offset_x"] = 0
@@ -7076,8 +7077,8 @@ BLACKSMITH_GROUND_CRACK_RANGE_SCALE = 0.5
 BLACKSMITH_GROUND_CRACK_BOSS_PADDING = 15
 BLACKSMITH_GROUND_CRACK_BOSS_SEGMENTS_MIN = 3
 BLACKSMITH_GROUND_CRACK_BOSS_HIT_COOLDOWN = int(0.2 * FPS)
-BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES = int(0.25 * FPS)
-BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED = 10.0
+BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES = int(0.1 * FPS)
+BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED = 3.0
 BLACKSMITH_TURRET_DESIGN_WIDTH = 46
 BLACKSMITH_TURRET_DESIGN_HEIGHT = 54
 BLACKSMITH_TURRET_BASE_WIDTH = int(BLACKSMITH_TURRET_DESIGN_WIDTH * 1.2)
