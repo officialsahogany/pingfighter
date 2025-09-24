@@ -5043,6 +5043,58 @@ def _boss_get_crack_collision(boss_rect: pygame.Rect, apply_response: bool = Fal
     return None
 
 
+def _shatter_blacksmith_crack(crack: dict, play_sound: bool = True):
+    """Fully destroy a crack, spawning final fragments and optionally playing sound."""
+    global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
+
+    if crack not in blacksmith_ground_cracks:
+        return
+
+    segments_total = max(1, crack.get("segments_total") or 1)
+    origin_x = crack.get("x", 0.0)
+    origin_y = crack.get("y", 0.0)
+
+    try:
+        fragment_count = 12 + segments_total * 2
+        for _ in range(fragment_count):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(3, 7)
+            fragment = {
+                "x": origin_x,
+                "y": origin_y,
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed,
+                "life": random.randint(20, 40),
+                "color": (150, 150, 160),
+                "size": random.randint(2, 5)
+            }
+            blacksmith_hammer_shock_particles.append(fragment)
+    except Exception:
+        pass
+
+    if play_sound:
+        try:
+            play_sound_with_volume(SOUND_STONEBREAK_SMALL)
+        except Exception:
+            pass
+
+    try:
+        blacksmith_ground_cracks.remove(crack)
+    except ValueError:
+        pass
+
+
+def _clear_blacksmith_cracks_with_shatter(play_sound: bool = True):
+    """Destroy every remaining crack with shatter effects."""
+    if 'blacksmith_ground_cracks' not in globals() or not blacksmith_ground_cracks:
+        return
+
+    sound_available = play_sound
+    for crack in list(blacksmith_ground_cracks):
+        _shatter_blacksmith_crack(crack, play_sound=sound_available)
+        sound_available = False  # 한 번만 사운드 재생
+
+
 def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     """Apply breakage and knockback when the boss collides with a crack."""
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
@@ -5113,26 +5165,7 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
 
     # Remove the crack when no segment remains
     if new_remaining <= 0 or crack["length"] <= 1.0:
-        try:
-            for _ in range(12 + segments_total * 2):
-                angle = random.uniform(0, math.pi * 2)
-                speed = random.uniform(3, 7)
-                fragment = {
-                    "x": crack.get("x", boss_rect.centerx),
-                    "y": crack.get("y", boss_rect.centery),
-                    "vx": math.cos(angle) * speed,
-                    "vy": math.sin(angle) * speed,
-                    "life": random.randint(20, 40),
-                    "color": (150, 150, 160),
-                    "size": random.randint(2, 5)
-                }
-                blacksmith_hammer_shock_particles.append(fragment)
-        except Exception:
-            pass
-        try:
-            blacksmith_ground_cracks.remove(crack)
-        except ValueError:
-            pass
+        _shatter_blacksmith_crack(crack, play_sound=False)
 
 
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
