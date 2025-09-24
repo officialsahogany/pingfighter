@@ -4942,8 +4942,19 @@ def _check_boss_crack_collision(boss_rect, crack):
     )
     
     # 보스와 크랙 바운딩 박스의 직접 충돌 검사
-    if boss_rect.colliderect(crack_rect):
-        print(f"[COLLISION] Boss collides with crack! Boss: ({boss_rect.x}, {boss_rect.y}, {boss_rect.width}x{boss_rect.height}) Crack: ({crack_rect.x}, {crack_rect.y}, {crack_rect.width}x{crack_rect.height})")
+    collision_detected = boss_rect.colliderect(crack_rect)
+    
+    # 항상 디버그 정보 출력 (충돌 여부 관계없이)
+    print(f"\n[DEBUG CRACK COLLISION]")
+    print(f"  Boss: ({boss_rect.x}, {boss_rect.y}, {boss_rect.width}x{boss_rect.height})")
+    print(f"  Boss center: ({boss_rect.centerx}, {boss_rect.centery})")
+    print(f"  Crack line: ({line_start_x:.1f}, {line_start_y:.1f}) -> ({line_end_x:.1f}, {line_end_y:.1f})")
+    print(f"  Crack rect: ({crack_rect.x}, {crack_rect.y}, {crack_rect.width}x{crack_rect.height})")
+    print(f"  Collision: {'YES' if collision_detected else 'NO'}")
+    print(f"  Distance check: margin={margin}, vertical_margin={vertical_margin}")
+    
+    if collision_detected:
+        print(f"[COLLISION DETECTED] Boss collides with crack!")
         try:
             _update_boss_crack_stuck_state(False, boss_rect)
         except Exception:
