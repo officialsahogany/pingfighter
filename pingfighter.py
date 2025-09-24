@@ -41138,6 +41138,8 @@ def handle_ball():
     global short_shot_target_y, short_shot_extra_vertical_frames, short_shot_curve_started
     global short_shot_curve_elapsed_frames
     global short_shot_counter_window, short_shot_counter_pending
+    # 블랙스미스 해머쇼크 관련
+    global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
     # 충돌 쿨다운 감소
     if player_collision_cooldown > 0:
         player_collision_cooldown -= 1
