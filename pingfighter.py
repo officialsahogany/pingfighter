@@ -4459,24 +4459,24 @@ def _get_blacksmith_thrown_hammer_surface() -> pygame.Surface:
     pommel_rect = pygame.Rect(center_x - (handle_width + 4) // 2, height - 10, handle_width + 4, 8)
     pygame.draw.rect(surface, (112, 76, 48), pommel_rect, border_radius=2)
 
-    head_height = 28
-    head_width = 42
-    head_rect = pygame.Rect(center_x - head_width // 2, handle_rect.top - head_height + 6, head_width, head_height)
+    head_height = 26
+    head_width = 40
+    head_top = handle_rect.top - head_height + 6
+    head_rect = pygame.Rect(center_x - head_width // 2, head_top, head_width, head_height)
     pygame.draw.rect(surface, (176, 182, 196), head_rect, border_radius=4)
 
-    inset_rect = head_rect.inflate(-10, -8)
+    inset_rect = head_rect.inflate(-8, -6)
     pygame.draw.rect(surface, (210, 215, 228), inset_rect, border_radius=3)
 
-    ridge_start = (center_x - head_width // 2 + 6, inset_rect.centery)
-    ridge_end = (center_x + head_width // 2 - 6, inset_rect.centery)
-    pygame.draw.line(surface, (120, 130, 142), ridge_start, ridge_end, 3)
+    ridge_y = inset_rect.centery
+    pygame.draw.line(surface, (120, 130, 142), (inset_rect.left, ridge_y), (inset_rect.right, ridge_y), 3)
 
-    emblem_center = (center_x, inset_rect.centery)
+    emblem_center = (center_x, ridge_y)
     pygame.draw.circle(surface, (230, 215, 130), emblem_center, 6)
     pygame.draw.circle(surface, (240, 160, 60), emblem_center, 3)
 
     flare_rect = pygame.Rect(center_x - head_width // 2 + 4, head_rect.top - 6, head_width - 8, 12)
-    pygame.draw.ellipse(surface, (200, 235, 255, 100), flare_rect)
+    pygame.draw.ellipse(surface, (200, 235, 255, 90), flare_rect)
 
     _blacksmith_thrown_hammer_surface = surface
     return surface
