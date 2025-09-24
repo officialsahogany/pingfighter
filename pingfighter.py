@@ -4882,6 +4882,64 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         rect = rotated.get_rect(center=(int(proj["x"] + offset_x), int(proj["y"] + offset_y)))
         surface.blit(rotated, rect)
 
+    global blacksmith_hammer_explosions
+    updated_explosions: list[dict[str, object]] = []
+    for explosion in blacksmith_hammer_explosions:
+        life = int(explosion.get("life", 0))
+        if life <= 0:
+            continue
+        max_life = explosion.get("max_life", 1)
+        remaining_ratio = max(0.0, min(1.0, life / max_life))
+        scale = 1.0 + 0.35 * (1.0 - remaining_ratio)
+        base_surface: pygame.Surface = explosion["surface"]  # type: ignore[index]
+        center_x, center_y = explosion["center"]  # type: ignore[index]
+
+        scaled_size = (
+            max(1, int(base_surface.get_width() * scale)),
+            max(1, int(base_surface.get_height() * scale)),
+        )
+        scaled_surface = pygame.transform.smoothscale(base_surface, scaled_size)
+        fade_surface = scaled_surface.copy()
+        fade_alpha = int(220 * remaining_ratio)
+        fade_surface.fill((255, 255, 255, fade_alpha), special_flags=pygame.BLEND_RGBA_MULT)
+        rect = fade_surface.get_rect(center=(int(center_x + offset_x), int(center_y + offset_y)))
+        surface.blit(fade_surface, rect, special_flags=pygame.BLEND_ADD)
+
+        offsets = explosion.get("offsets", [])
+        stage = explosion.get("stage", 1)
+        for angle, start, end in offsets:
+            start_scaled = start * scale
+            end_scaled = end * scale
+            start_x = center_x + math.cos(angle) * start_scaled + offset_x
+            start_y = center_y + math.sin(angle) * start_scaled + offset_y
+            end_x = center_x + math.cos(angle) * end_scaled + offset_x
+            end_y = center_y + math.sin(angle) * end_scaled + offset_y
+            color = (255, 230 - stage * 8, 150 + stage * 10, int(140 * remaining_ratio))
+            pygame.draw.line(
+                surface,
+                color,
+                (int(start_x), int(start_y)),
+                (int(end_x), int(end_y)),
+                2,
+            )
+
+        sparks = explosion.get("sparks", [])
+        for angle, dist, size in sparks:
+            dist_scaled = dist * scale
+            sx = center_x + math.cos(angle) * dist_scaled + offset_x
+            sy = center_y + math.sin(angle) * dist_scaled + offset_y
+            pygame.draw.circle(
+                surface,
+                (255, 240, 200, int(140 * remaining_ratio)),
+                (int(sx), int(sy)),
+                max(1, int(size * scale * 0.8)),
+            )
+
+        explosion["life"] = life - 1
+        if explosion["life"] > 0:
+            updated_explosions.append(explosion)
+    blacksmith_hammer_explosions = updated_explosions
+
 def update_blacksmith_divine_stone():
     """디바인 스톤 상태 및 충돌 업데이트"""
     global blacksmith_divine_stone_state, ball_vel
@@ -35107,8 +35165,6 @@ def show_item_manager_menu():
     legendary_items = []
     if legendary_manager:
         for item_name, item in legendary_manager.items.items():
-            if item_name == "holy_laurel":
-                continue
             if item.unlocked:  # 해금된 전설 아이템만 표시
                 # 전설 아이템 아이콘 가져오기
                 legendary_icon = get_item_icon(item.name)
@@ -51991,8 +52047,6 @@ def show_character_item_manager():
     legendary_items = []
     if legendary_manager:
         for item_name, item in legendary_manager.items.items():
-            if item_name == "holy_laurel":
-                continue
             if item.unlocked:
                 legendary_icon = get_item_icon(item.name)
                 legendary_items.append({
