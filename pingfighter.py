@@ -5772,6 +5772,7 @@ def update_blacksmith_hammer_shock(keys):
         blacksmith_hammer_shock_stage = 0
         blacksmith_hammer_shock_charge_frames = 0
         blacksmith_hammer_charge_position = None
+        blacksmith_hammer_idle_position = None
 
     new_projectiles = []
     for proj in blacksmith_hammer_shock_projectiles:
@@ -28054,6 +28055,8 @@ def show_start_screen():
     global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
     blacksmith_hammer_head_surface_point = None
     blacksmith_hammer_charge_position = None
+    blacksmith_hammer_idle_position = None
+    blacksmith_hammer_idle_position = None
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions.clear()
     
