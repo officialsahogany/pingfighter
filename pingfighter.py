@@ -43410,9 +43410,9 @@ def handle_ball():
                         # 보스 넉백 (파편 방향의 반대로)
                         fragment_dx = fragment['x'] - BOSS.centerx
                         if abs(fragment_dx) > 5:  # 충분한 거리가 있을 때만 넉백 방향 결정
-                            boss_knockback_vel = 8 if fragment_dx > 0 else -8
+                            boss_knockback_vel = _apply_boss_knockback_velocity(8 if fragment_dx > 0 else -8)
                         else:
-                            boss_knockback_vel = random.choice([-8, 8])  # 랜덤 방향
+                            boss_knockback_vel = _apply_boss_knockback_velocity(random.choice([-8, 8]))  # 랜덤 방향
                         
                         # 보스 게이지 감소 (Stage 4 전용)
                         if 'boss_special_gauge_stage4' in globals():
@@ -44720,7 +44720,7 @@ def handle_ball():
 
                     if horizontal_velocity != 0:
                         boss_knockback_timer = 36
-                        boss_knockback_vel = horizontal_velocity
+                        boss_knockback_vel = _apply_boss_knockback_velocity(horizontal_velocity)
                         if stun_duration > 0:
                             ragnarok_stun_pending = int(stun_duration * 60)
 
