@@ -45961,13 +45961,12 @@ def handle_boss_junior():
             can_move = True
             
             # Check collision with ground cracks
-            for crack in blacksmith_ground_cracks:
-                if _check_boss_crack_collision(proposed_boss_rect, crack):
-                    can_move = False
-                    boss_current_speed = 0  # Stop the boss
-                    print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
-                    print(f"Crack: x={crack['x']}, y={crack['y']}, angle={crack['angle']}, length={crack['length']}")
-                    break
+            collision_crack = _boss_get_crack_collision(proposed_boss_rect, apply_response=True)
+            if collision_crack:
+                can_move = False
+                boss_current_speed = 0  # Stop the boss
+                print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
+                print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
             
             if can_move:
                 BOSS.x = new_position
@@ -45998,11 +45997,9 @@ def handle_boss_junior():
             can_move = True
             
             # Check collision with ground cracks
-            for crack in blacksmith_ground_cracks:
-                if _check_boss_crack_collision(proposed_boss_rect, crack):
-                    can_move = False
-                    boss_current_speed = 0  # Stop the boss
-                    break
+            if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
+                can_move = False
+                boss_current_speed = 0  # Stop the boss
             
             if can_move:
                 BOSS.x = new_position
@@ -46014,11 +46011,9 @@ def handle_boss_junior():
             can_move = True
             
             # Check collision with ground cracks
-            for crack in blacksmith_ground_cracks:
-                if _check_boss_crack_collision(proposed_boss_rect, crack):
-                    can_move = False
-                    boss_current_speed = 0  # Stop the boss
-                    break
+            if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
+                can_move = False
+                boss_current_speed = 0  # Stop the boss
             
             if can_move:
                 BOSS.x = proposed_x
@@ -46898,11 +46893,9 @@ def handle_boss():
         can_move = True
         
         # Check collision with ground cracks
-        for crack in blacksmith_ground_cracks:
-            if _check_boss_crack_collision(proposed_boss_rect, crack):
-                can_move = False
-                boss_current_speed = 0  # Stop the boss
-                break
+        if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
+            can_move = False
+            boss_current_speed = 0  # Stop the boss
         
         if can_move:
             BOSS.x = proposed_x
