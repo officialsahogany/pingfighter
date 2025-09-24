@@ -44802,7 +44802,8 @@ def handle_boss_pro():
                 if _check_boss_crack_collision(proposed_boss_rect, crack):
                     can_move = False
                     boss_current_speed = 0  # Stop the boss
-                    print(f"Boss collision detected at x={new_position}, crack at x={crack['x']}")
+                    print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
+                    print(f"Crack: x={crack['x']}, y={crack['y']}, angle={crack['angle']}, length={crack['length']}")
                     break
             
             if can_move:
@@ -45095,7 +45096,8 @@ def handle_boss_champion():
                 if _check_boss_crack_collision(proposed_boss_rect, crack):
                     can_move = False
                     boss_current_speed = 0  # Stop the boss
-                    print(f"Boss collision detected at x={new_position}, crack at x={crack['x']}")
+                    print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
+                    print(f"Crack: x={crack['x']}, y={crack['y']}, angle={crack['angle']}, length={crack['length']}")
                     break
             
             if can_move:
@@ -45762,7 +45764,8 @@ def handle_boss_junior():
                 if _check_boss_crack_collision(proposed_boss_rect, crack):
                     can_move = False
                     boss_current_speed = 0  # Stop the boss
-                    print(f"Boss collision detected at x={new_position}, crack at x={crack['x']}")
+                    print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
+                    print(f"Crack: x={crack['x']}, y={crack['y']}, angle={crack['angle']}, length={crack['length']}")
                     break
             
             if can_move:
