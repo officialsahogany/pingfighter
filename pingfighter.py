@@ -5356,6 +5356,8 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
 
     if new_remaining <= max(1, segments_total // 2):
         crack["boss_contact_disabled_until"] = pygame.time.get_ticks() + BLACKSMITH_GROUND_CRACK_PASS_THROUGH_MS
+        if debug_enabled:
+            print(f"[CRACK DEBUG] disable_until={crack['boss_contact_disabled_until']} remaining={new_remaining}")
     
     # If crack is completely destroyed, mark it for removal
     if new_remaining <= 0 or crack["length"] <= 0:
