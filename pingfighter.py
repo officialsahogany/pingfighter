@@ -4835,23 +4835,6 @@ def release_blacksmith_hammer_shock():
         return
 
     stage = _blacksmith_hammer_shock_stage_for_frames(blacksmith_hammer_shock_charge_frames)
-    if ENABLE_HAMMER_STAGE_DEBUG:
-        charge_seconds = blacksmith_hammer_shock_charge_frames / FPS if FPS else 0.0
-        if stage == 0:
-            print(f"[HAMMER DEBUG] charge={charge_seconds:.2f}s -> stage 0 (cancelled)")
-        else:
-            radius = BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS
-            if stage == 2:
-                radius *= BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE
-            elif stage >= 3:
-                radius *= BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE
-            if stage == 1:
-                knockback = BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK
-            elif stage == 2:
-                knockback = BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK
-            else:
-                knockback = BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK
-            print(f"[HAMMER DEBUG] charge={charge_seconds:.2f}s -> stage {stage}, radius={radius:.1f}, knockback={knockback:.1f}")
     if stage == 0:
         blacksmith_hammer_shock_charging = False
         blacksmith_hammer_shock_charge_frames = 0
@@ -4970,7 +4953,12 @@ def _check_boss_crack_collision(boss_rect, crack):
             now_ms = pygame.time.get_ticks()
             remaining = crack.get('segments_remaining', 0)
             print(f"[CRACK DEBUG] collide t={now_ms} boss=({boss_rect.x},{boss_rect.y}) seg={remaining} len={crack.get('length', 0):.1f}")
+        else:
+            print(f"[COLLISION] Boss collides with crack!")
+            print(f"  Boss: ({boss_rect.x}, {boss_rect.y}, {boss_rect.width}x{boss_rect.height})")
+            print(f"  Crack: length={crack.get('length', 0):.1f}, segments={crack.get('segments_remaining', 0)}")
         return True
+    
     # 충돌이 없으면 False 반환
     return False
 
@@ -7365,9 +7353,7 @@ BLACKSMITH_GROUND_CRACK_IGNORE_DURATION_MS = 180
 BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_DELAY_MS = 300  # Reduced from 480 to 300
 BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_COOLDOWN_MS = 300  # Reduced from 450 to 300
 BLACKSMITH_GROUND_CRACK_PASS_THROUGH_MS = 80  # 넉백 후 0.08초 만에 재충돌 가능하도록 추가 단축
-ENABLE_CRACK_TIMING_DEBUG = False  # 디버그 로그 기본 비활성화
-ENABLE_BOSS_KNOCKBACK_DEBUG = False
-ENABLE_HAMMER_STAGE_DEBUG = True
+ENABLE_CRACK_TIMING_DEBUG = True
 BLACKSMITH_GROUND_CRACK_APPROACH_DISTANCE = 220
 BLACKSMITH_GROUND_CRACK_APPROACH_VERTICAL_MARGIN = 160
 BLACKSMITH_TURRET_DESIGN_WIDTH = 46
@@ -47079,8 +47065,7 @@ def handle_boss():
                 else:  # 마지막 0.5초는 점진적 감속
                     boss_knockback_vel *= 0.97  # 3% 감속
             
-            if ENABLE_BOSS_KNOCKBACK_DEBUG:
-                print(f"[DEBUG] 보스 넉백 업데이트 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}, pos: {BOSS.x:.2f}")
+            print(f"[DEBUG] 보스 넉백 업데이트 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}, pos: {BOSS.x:.2f}")
         
         # 라그나로크 해머만의 추가 효과
         if is_ragnarok_knockback:
