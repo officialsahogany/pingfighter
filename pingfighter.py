@@ -4948,7 +4948,7 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         rect = rotated.get_rect(center=(int(proj["x"] + offset_x), int(proj["y"] + offset_y)))
         surface.blit(rotated, rect)
 
-    global blacksmith_hammer_explosions
+    global blacksmith_hammer_explosions, screen_shake_timer, screen_shake_intensity
     updated_explosions: list[dict[str, object]] = []
     for explosion in blacksmith_hammer_explosions:
         life = int(explosion.get("life", 0))
@@ -4961,6 +4961,21 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         base_surface: pygame.Surface = explosion["surface"]  # type: ignore[index]
         center_x, center_y = explosion["center"]  # type: ignore[index]
         base_radius = float(explosion.get("radius", max(base_surface.get_width(), base_surface.get_height()) * 0.25))
+        
+        # 폭발 시작 시 화면 흔들림 효과 추가 (첫 프레임에만)
+        if explosion.get("first_frame", True):
+            explosion["first_frame"] = False
+            stage = explosion.get("stage", 1)
+            # Stage별 화면 흔들림 강도
+            if stage >= 3:
+                screen_shake_timer = 30  # 0.5초
+                screen_shake_intensity = 20  # 매우 강한 흔들림
+            elif stage >= 2:
+                screen_shake_timer = 20  # 0.33초
+                screen_shake_intensity = 12  # 중간 흔들림
+            else:
+                screen_shake_timer = 15  # 0.25초
+                screen_shake_intensity = 8   # 약한 흔들림
         
         # 충격파 링 효과 추가
         stage = explosion.get("stage", 1)
