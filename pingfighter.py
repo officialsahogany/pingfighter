@@ -4469,13 +4469,16 @@ _BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
     },
 }
 blacksmith_hammer_explosions: list[dict[str, object]] = []
+blacksmith_hammer_return_fx: list[dict[str, object]] = []
 
 
 def init_blacksmith_globals():
     """Blacksmith 관련 전역 변수 초기화"""
     global blacksmith_hammer_explosions, _blacksmith_hammer_explosion_surface_cache
+    global blacksmith_hammer_return_fx
     _blacksmith_hammer_explosion_surface_cache.clear()
     blacksmith_hammer_explosions.clear()
+    blacksmith_hammer_return_fx.clear()
     print("Blacksmith hammer globals initialized")
 
 def _clamp_color(color: tuple[int, ...]) -> tuple[int, ...]:
@@ -4606,6 +4609,23 @@ def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: flo
         "halo_color": palette.get("halo"),
         "antimatter_color": antimatter_color,
     }
+
+
+def _spawn_blacksmith_hammer_return_fx(centerx: float, centery: float) -> None:
+    global blacksmith_hammer_return_fx
+    effect_life = max(6, int(0.45 * FPS))
+    entry = {
+        "center": (float(centerx), float(centery)),
+        "life": effect_life,
+        "max_life": effect_life,
+        "stage": 3,
+        "phase": random.uniform(0.0, math.tau),
+    }
+    blacksmith_hammer_return_fx.append(entry)
+    try:
+        effects_manager.create_impact_effect(int(centerx), int(centery), 36, is_player=False)
+    except Exception:
+        pass
 
 
 def _get_blacksmith_hammer_charge_surface(stage: int) -> pygame.Surface:
@@ -4933,6 +4953,16 @@ def update_blacksmith_hammer_shock(keys):
         blacksmith_hammer_shock_cooldown_timer -= 1
         if blacksmith_hammer_shock_cooldown_timer <= 0 and not blacksmith_hammer_shock_projectiles:
             blacksmith_hammer_available = True
+            blacksmith_hammer_shock_cooldown_timer = 0
+            fx_x: float
+            fx_y: float
+            if 'PLAYER' in globals() and PLAYER is not None:
+                fx_x = float(PLAYER.right + 16)
+                fx_y = float(PLAYER.centery - 18)
+            else:
+                fx_x = float(WIDTH // 2)
+                fx_y = float(HEIGHT // 2)
+            _spawn_blacksmith_hammer_return_fx(fx_x, fx_y)
 
     if blacksmith_hammer_shock_charging:
         if 'PLAYER' in globals() and PLAYER is not None:
