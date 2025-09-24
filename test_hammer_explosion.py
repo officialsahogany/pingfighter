@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import the functions we need to test
 from pingfighter import (
-    _get_blacksmith_hammer_explosion_surface,
+    # _get_blacksmith_hammer_explosion_surface,  # 삭제됨 - deleted
     draw_blacksmith_hammer_shock,
     blacksmith_hammer_explosions,
     screen_shake_timer,
@@ -55,24 +55,8 @@ while running:
             running = False
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
-                # Create a new explosion
-                stage = test_stages[current_stage_idx]
-                explosion_surface = _get_blacksmith_hammer_explosion_surface(
-                    BLACKSMITH_HAMMER_SHOCK_EXPLOSION_SIZE[stage-1], 
-                    stage
-                )
-                blacksmith_hammer_explosions.append({
-                    "surface": explosion_surface,
-                    "center": (WIDTH // 2, HEIGHT // 2),
-                    "life": 40,  # 40 frames
-                    "max_life": 40,
-                    "stage": stage,
-                    "offsets": [],
-                    "sparks": [],
-                    "shards": [],
-                    "radius": BLACKSMITH_HAMMER_SHOCK_EXPLOSION_SIZE[stage-1],
-                    "first_frame": True,
-                })
+                # 폭발 이펙트 삭제됨 - explosion effects deleted
+                print("Explosion effects have been removed")
                 print(f"Created Stage {stage} explosion!")
             elif event.key == pygame.K_1:
                 current_stage_idx = 0
