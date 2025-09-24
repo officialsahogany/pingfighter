@@ -47285,20 +47285,19 @@ def handle_boss():
         # 위치 업데이트 with ground crack collision check
         proposed_x = BOSS.x + boss_current_speed
         proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
-        can_move = True
-        
-        # Check collision with ground cracks
-        if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
-            can_move = False
+
+        collision_crack = _boss_get_crack_collision(proposed_boss_rect, apply_response=True)
+        if collision_crack:
             boss_current_speed = 0  # Stop the boss
-        
-        if can_move:
-            BOSS.x = proposed_x
-            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
-        else:
-            # 크랙에 막혀서 움직일 수 없음 (튜토리얼)
+            contact_x = _slide_boss_toward_crack_edge(BOSS.x, proposed_x, collision_crack, BOSS.width)
+            if abs(contact_x - BOSS.x) > 0.01:
+                BOSS.x = contact_x
+                BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
             if random.random() < 0.1:  # 10% chance to print
                 print(f"[CRACK BLOCKED - Tutorial] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+        else:
+            BOSS.x = proposed_x
+            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
         return  # 튜토리얼 AI 완료
     
     # Stage 1 상모돌리기 강제 해제 모션 중 통제불능 상태
