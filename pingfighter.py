@@ -5125,7 +5125,8 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     if segments_remaining <= 0:
         return
 
-    new_remaining = segments_remaining - 1
+    segments_break = min(segments_remaining, random.randint(3, 4))
+    new_remaining = max(0, segments_remaining - segments_break)
     crack["segments_remaining"] = new_remaining
 
     base_length = crack.get("initial_length", crack.get("length", 0))
@@ -5145,7 +5146,7 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
 
     # Spawn fragment particles to visualize damage
     try:
-        fragment_base = 6 + (segments_total - new_remaining) * 2
+        fragment_base = 8 + segments_break * 4
         for _ in range(fragment_base):
             angle = random.uniform(0, math.pi * 2)
             speed = random.uniform(2, 6)
