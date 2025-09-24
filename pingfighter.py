@@ -5096,6 +5096,38 @@ def _get_crack_bounding_rect(crack: dict) -> pygame.Rect:
     return pygame.Rect(int(math.floor(min_x)), int(math.floor(min_y)), width, height)
 
 
+def _force_clear_nearest_crack(boss_rect: pygame.Rect) -> bool:
+    """Force remove the nearest crack around the boss to prevent stuck."""
+    if 'blacksmith_ground_cracks' not in globals() or not blacksmith_ground_cracks:
+        return False
+
+    nearest_crack = None
+    nearest_distance = None
+
+    for crack in list(blacksmith_ground_cracks):
+        bounding_rect = _get_crack_bounding_rect(crack)
+
+        if bounding_rect.left - boss_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
+            continue
+        if boss_rect.left - bounding_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
+            continue
+
+        if boss_rect.centerx <= bounding_rect.centerx:
+            distance = max(0, bounding_rect.left - boss_rect.right)
+        else:
+            distance = max(0, boss_rect.left - bounding_rect.right)
+
+        if nearest_distance is None or distance < nearest_distance:
+            nearest_distance = distance
+            nearest_crack = crack
+
+    if nearest_crack is not None:
+        _shatter_blacksmith_crack(nearest_crack, play_sound=False)
+        return True
+
+    return False
+
+
 def _shatter_blacksmith_crack(crack: dict, play_sound: bool = True):
     """Fully destroy a crack, spawning final fragments and optionally playing sound."""
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
@@ -5146,6 +5178,25 @@ def _clear_blacksmith_cracks_with_shatter(play_sound: bool = True):
     for crack in list(blacksmith_ground_cracks):
         _shatter_blacksmith_crack(crack, play_sound=sound_available)
         sound_available = False  # 한 번만 사운드 재생
+
+
+def _update_boss_crack_stuck_state(can_move: bool, boss_rect: pygame.Rect):
+    global boss_crack_stuck_timer, boss_crack_last_release
+
+    if can_move:
+        boss_crack_stuck_timer = 0
+        return
+
+    boss_crack_stuck_timer += 1
+    current_time = pygame.time.get_ticks()
+
+    if (
+        boss_crack_stuck_timer >= BLACKSMITH_GROUND_CRACK_STUCK_FREE_FRAMES
+        and current_time - boss_crack_last_release > 250
+    ):
+        if _force_clear_nearest_crack(boss_rect):
+            boss_crack_stuck_timer = 0
+            boss_crack_last_release = current_time
 
 
 def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
