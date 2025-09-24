@@ -4527,62 +4527,98 @@ def _get_blacksmith_hammer_explosion_surface(stage: int, radius: int) -> pygame.
     if cached is not None:
         return cached
 
-    size = radius * 2 + 40
+    size = radius * 3  # 더 큰 표면으로 폭발 효과 확대
     surface = pygame.Surface((size, size), pygame.SRCALPHA)
     center = size // 2
 
-    core_radius = int(radius * 0.55)
-    shock_radius = radius + 6
-    ring_radius = min(radius + 10, center - 2)
-
-    color_core = (248, 252, 255, 235)
-    color_mid = (170, 220 + stage * 12, 255, 195)
-    color_outer = (70, 150 + stage * 20, 255, 150)
-    ring_color = (200, 232, 255, 150)
-    spikes_color = (255, 255, 255, 180)
-
-    pygame.draw.circle(surface, color_outer, (center, center), shock_radius)
-
-    petals = pygame.Surface((size, size), pygame.SRCALPHA)
-    petal_count = 6 + stage * 2
-    for i in range(petal_count):
-        angle = (math.tau / petal_count) * i
-        petal_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-        for r in range(0, ring_radius + 12, 4):
-            alpha = max(0, int(color_outer[3] - r * 2.5))
-            pygame.draw.circle(
-                petal_surface,
-                (110, 180 + stage * 18, 255, alpha),
-                (center, center),
-                ring_radius + 12 - r,
-                width=2,
-            )
-        rotated = pygame.transform.rotate(petal_surface, math.degrees(angle))
-        petals.blit(rotated, rotated.get_rect(center=(center, center)), special_flags=pygame.BLEND_ADD)
-    surface.blit(petals, (0, 0), special_flags=pygame.BLEND_ADD)
-
-    pygame.draw.circle(surface, color_mid, (center, center), max(2, int(radius * 0.75)))
-    pygame.draw.circle(surface, color_core, (center, center), max(2, core_radius))
-
-    for thickness, alpha_scale in [(3, 1.0), (6, 0.65)]:
-        pygame.draw.circle(
-            surface,
-            (ring_color[0], ring_color[1], ring_color[2], int(ring_color[3] * alpha_scale)),
-            (center, center),
-            ring_radius + thickness,
-            width=2,
-        )
-
-    spike_count = 14 + stage * 4
-    spike_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-    for i in range(spike_count):
-        angle = (math.tau / spike_count) * i
-        length = radius * (1.1 + random.uniform(0.08, 0.18))
-        thickness = max(1, int(2 + stage * 0.4))
-        end_x = center + int(math.cos(angle) * length)
-        end_y = center + int(math.sin(angle) * length)
-        pygame.draw.line(spike_surface, spikes_color, (center, center), (end_x, end_y), thickness)
-    surface.blit(spike_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+    # 1. 중심부 밝은 코어 (흰색 → 밝은 파란색 그라데이션)
+    core_radius = int(radius * 0.4)
+    for i in range(core_radius, 0, -2):
+        ratio = i / core_radius
+        alpha = int(255 * ratio)
+        if stage >= 3:
+            # Stage 3: 금빛 코어
+            color = (255, 240 + int(15 * ratio), 180 + int(75 * ratio), alpha)
+        elif stage >= 2:
+            # Stage 2: 밝은 파란빛
+            color = (220 + int(35 * ratio), 240 + int(15 * ratio), 255, alpha)
+        else:
+            # Stage 1: 순수한 흰색
+            color = (255, 255, 255, alpha)
+        pygame.draw.circle(surface, color, (center, center), i)
+    
+    # 2. 중간층 전기 에너지 (전기 블루 그라데이션)
+    mid_radius = int(radius * 0.8)
+    for i in range(mid_radius, core_radius, -3):
+        ratio = (i - core_radius) / (mid_radius - core_radius)
+        alpha = int(220 * ratio)
+        if stage >= 3:
+            color = (150 + int(50 * ratio), 180 + int(40 * ratio), 255, alpha)
+        elif stage >= 2:
+            color = (120 + int(60 * ratio), 160 + int(60 * ratio), 255, alpha)
+        else:
+            color = (100 + int(80 * ratio), 150 + int(70 * ratio), 255, alpha)
+        pygame.draw.circle(surface, color, (center, center), i)
+    
+    # 3. 외곽 충격파 층
+    outer_radius = radius
+    for i in range(outer_radius, mid_radius, -4):
+        ratio = (i - mid_radius) / (outer_radius - mid_radius) 
+        alpha = int(150 * ratio)
+        color = (70 + stage * 10, 120 + stage * 15, 200 + stage * 20, alpha)
+        pygame.draw.circle(surface, color, (center, center), i)
+    
+    # 4. 전기 방전 효과 (번개 모양)
+    lightning_count = 8 + stage * 2
+    for i in range(lightning_count):
+        angle = (i / lightning_count) * 2 * math.pi
+        
+        # 주 번개 줄기
+        end_x = center + math.cos(angle) * radius
+        end_y = center + math.sin(angle) * radius
+        
+        # 번개 경로 생성 (지그재그)
+        points = [(center, center)]
+        segments = 3 + stage
+        for seg in range(1, segments + 1):
+            progress = seg / segments
+            base_x = center + (end_x - center) * progress
+            base_y = center + (end_y - center) * progress
+            
+            # 랜덤 오프셋 추가
+            offset_angle = angle + random.uniform(-0.3, 0.3)
+            offset_dist = random.uniform(-radius * 0.1, radius * 0.1)
+            point_x = base_x + math.cos(offset_angle) * offset_dist
+            point_y = base_y + math.sin(offset_angle) * offset_dist
+            points.append((int(point_x), int(point_y)))
+        
+        # 번개 그리기
+        for j in range(len(points) - 1):
+            thickness = max(1, 4 - j)
+            if stage >= 3:
+                color = (255, 240, 200)  # 금빛 번개
+            elif stage >= 2:
+                color = (200, 220, 255)  # 밝은 파란 번개
+            else:
+                color = (180, 200, 255)  # 기본 전기색
+                
+            pygame.draw.line(surface, color, points[j], points[j + 1], thickness)
+            
+            # 번개 광채
+            glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            pygame.draw.line(glow_surf, (*color, 50), points[j], points[j + 1], thickness + 4)
+            surface.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+    
+    # 5. 스파크 효과
+    spark_count = 20 + stage * 10
+    for _ in range(spark_count):
+        angle = random.uniform(0, 2 * math.pi)
+        dist = random.uniform(radius * 0.5, radius * 1.2)
+        x = center + math.cos(angle) * dist
+        y = center + math.sin(angle) * dist
+        size_spark = random.randint(2, 5)
+        spark_color = (255, 255, 255, random.randint(150, 255))
+        pygame.draw.circle(surface, spark_color, (int(x), int(y)), size_spark)
 
     _blacksmith_hammer_explosion_cache[cache_key] = surface
     return surface
