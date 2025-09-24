@@ -5242,9 +5242,12 @@ def _update_boss_crack_stuck_state(can_move: bool, boss_rect: pygame.Rect):
         boss_crack_stuck_timer >= BLACKSMITH_GROUND_CRACK_STUCK_FREE_FRAMES
         and current_time - boss_crack_last_release > 250
     ):
+        if boss_crack_stuck_timer == BLACKSMITH_GROUND_CRACK_STUCK_FREE_FRAMES:
+            print(f"[CRACK STUCK] timer={boss_crack_stuck_timer}, rect={boss_rect}")
         if _force_clear_nearest_crack(boss_rect):
             boss_crack_stuck_timer = 0
             boss_crack_last_release = current_time
+            print("[CRACK STUCK] Force-cleared nearest crack")
 
 
 def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
