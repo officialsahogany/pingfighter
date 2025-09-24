@@ -4920,10 +4920,35 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             continue
         max_life = explosion.get("max_life", 1)
         remaining_ratio = max(0.0, min(1.0, life / max_life))
+        progress = 1.0 - remaining_ratio  # 진행도 (0에서 1로)
         scale = 1.0 + 0.35 * (1.0 - remaining_ratio)
         base_surface: pygame.Surface = explosion["surface"]  # type: ignore[index]
         center_x, center_y = explosion["center"]  # type: ignore[index]
         base_radius = float(explosion.get("radius", max(base_surface.get_width(), base_surface.get_height()) * 0.25))
+        
+        # 충격파 링 효과 추가
+        stage = explosion.get("stage", 1)
+        num_rings = 2 + (stage - 1)  # Stage별 링 개수
+        for ring_idx in range(num_rings):
+            ring_delay = ring_idx * 0.15  # 각 링의 지연 시간
+            if progress > ring_delay:
+                ring_progress = (progress - ring_delay) / (1.0 - ring_delay)
+                ring_radius = base_radius + ring_progress * base_radius * 2
+                ring_alpha = int(100 * (1.0 - ring_progress) * remaining_ratio)
+                ring_thickness = max(1, int(4 - ring_progress * 3))
+                
+                if ring_alpha > 10 and ring_radius < base_radius * 4:
+                    # 충격파 색상: Stage별로 다르게
+                    if stage >= 3:
+                        ring_color = (255, 240, 200, ring_alpha)  # 금색 충격파
+                    elif stage >= 2:
+                        ring_color = (200, 220, 255, ring_alpha)  # 파란 충격파
+                    else:
+                        ring_color = (255, 255, 255, ring_alpha)  # 흰색 충격파
+                    
+                    pygame.draw.circle(surface, ring_color, 
+                                     (int(center_x + offset_x), int(center_y + offset_y)), 
+                                     int(ring_radius), ring_thickness)
 
         scaled_size = (
             max(1, int(base_surface.get_width() * scale)),
