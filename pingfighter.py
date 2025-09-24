@@ -4902,6 +4902,11 @@ def _check_boss_crack_collision(boss_rect, crack):
 
     bounding_rect = _get_crack_bounding_rect(crack)
 
+    if bounding_rect.left - boss_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
+        return False
+    if boss_rect.left - bounding_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
+        return False
+
     if not boss_rect.colliderect(bounding_rect):
         return False
 
@@ -5012,6 +5017,10 @@ def _check_path_blocked_by_cracks(current_x, target_x, boss_width, boss_y, boss_
             path_min_x = min(current_x, target_x) - boss_width
             path_max_x = max(current_x + boss_width, target_x + boss_width)
             if crack_bounds.right < path_min_x or crack_bounds.left > path_max_x:
+                continue
+            if crack_bounds.left - test_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
+                continue
+            if test_rect.left - crack_bounds.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
                 continue
             if _check_boss_crack_collision(test_rect, crack):
                 return True
