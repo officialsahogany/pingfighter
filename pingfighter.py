@@ -5368,7 +5368,10 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
     for crack in blacksmith_ground_cracks:
         # Cracks are now permanent, full opacity
         alpha = 200
-        
+
+        if crack.get("boss_touch_cooldown", 0) > 0:
+            crack["boss_touch_cooldown"] -= 1
+
         # Calculate crack color based on stage
         stage = crack.get("stage", 1)
         if stage >= 3:
@@ -5377,10 +5380,11 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             crack_color = (100, 110, 130, alpha)  # Dark blue-gray
         else:
             crack_color = (80, 90, 100, alpha)  # Dark gray
-        
+
         # Draw collision bounds for debugging (semi-transparent red)
         if True:  # Always show collision bounds
-            collision_thickness = crack.get("thickness", 2) + 30  # Match the collision detection thickness
+            collision_padding = crack.get("boss_padding", BLACKSMITH_GROUND_CRACK_BOSS_PADDING)
+            collision_thickness = crack.get("thickness", 2) + collision_padding  # Match the collision detection thickness
             
             # Draw the actual collision area that boss checks against
             # Create a thick line by drawing a polygon
@@ -47208,10 +47212,8 @@ def handle_boss():
     
     # 지면 크랙과의 충돌 체크
     if 'blacksmith_ground_cracks' in globals() and blacksmith_ground_cracks:
-        for crack in blacksmith_ground_cracks:
-            if _check_boss_crack_collision(proposed_boss_rect, crack):
-                can_move = False
-                break
+        if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
+            can_move = False
     
     if can_move:
         BOSS.centerx += boss_current_speed
