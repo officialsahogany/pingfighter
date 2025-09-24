@@ -5027,6 +5027,98 @@ def _is_boss_movement_valid(new_x):
     return True
 
 
+def _boss_get_crack_collision(boss_rect: pygame.Rect, apply_response: bool = False):
+    """Return the first crack colliding with the boss rect. Optionally apply contact response."""
+    global blacksmith_ground_cracks
+
+    if 'blacksmith_ground_cracks' not in globals() or not blacksmith_ground_cracks:
+        return None
+
+    for crack in list(blacksmith_ground_cracks):
+        if _check_boss_crack_collision(boss_rect, crack):
+            if apply_response:
+                _handle_boss_crack_hit(crack, boss_rect)
+            return crack
+
+    return None
+
+
+def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
+    """Apply breakage and knockback when the boss collides with a crack."""
+    global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
+
+    cooldown = crack.get("boss_touch_cooldown", 0)
+    if cooldown > 0:
+        return
+
+    segments_total = max(1, crack.get("segments_total") or 1)
+    segments_remaining = crack.get("segments_remaining", segments_total)
+
+    if segments_remaining <= 0:
+        return
+
+    new_remaining = segments_remaining - 1
+    crack["segments_remaining"] = new_remaining
+
+    base_length = crack.get("initial_length", crack.get("length", 0))
+    ratio = 0.0 if segments_total <= 0 else max(0.0, new_remaining / float(segments_total))
+    crack["length"] = max(0.0, base_length * ratio)
+
+    base_thickness = crack.get("base_thickness", crack.get("thickness", 1))
+    initial_thickness = max(1, int(round(base_thickness * BLACKSMITH_GROUND_CRACK_RANGE_SCALE)))
+    thickness_ratio = max(0.25, ratio)
+    crack["thickness"] = max(1, int(round(initial_thickness * thickness_ratio)))
+    crack["boss_padding"] = max(4, int(BLACKSMITH_GROUND_CRACK_BOSS_PADDING * thickness_ratio))
+    crack["boss_touch_cooldown"] = BLACKSMITH_GROUND_CRACK_BOSS_HIT_COOLDOWN
+
+    if "sub_cracks" in crack:
+        max_pos = min(1.0, ratio + 0.05)
+        crack["sub_cracks"] = [sub for sub in crack["sub_cracks"] if sub.get("pos", 0.0) <= max_pos]
+
+    # Spawn fragment particles to visualize damage
+    try:
+        fragment_base = 6 + (segments_total - new_remaining) * 2
+        for _ in range(fragment_base):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(2, 6)
+            fragment = {
+                "x": boss_rect.centerx,
+                "y": boss_rect.bottom,
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed,
+                "life": random.randint(15, 30),
+                "color": (120, 120, 130),
+                "size": random.randint(2, 4)
+            }
+            blacksmith_hammer_shock_particles.append(fragment)
+    except Exception:
+        pass
+
+    try:
+        play_sound_with_volume(SOUND_STONEBREAK_SMALL)
+    except Exception:
+        pass
+
+    # Apply knockback to the boss
+    try:
+        current_timer = globals().get("boss_knockback_timer", 0)
+        globals()["boss_knockback_timer"] = max(current_timer, BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES)
+        direction = 1 if boss_rect.centerx >= crack.get("x", boss_rect.centerx) else -1
+        globals()["boss_knockback_vel"] = direction * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED
+        globals()["boss_knockback_active"] = False
+        globals()["boss_knockback_offset_x"] = 0
+        globals()["boss_knockback_offset_y"] = 0
+    except Exception:
+        pass
+
+    # Remove the crack when no segment remains
+    if new_remaining <= 0 or crack["length"] <= 1.0:
+        try:
+            blacksmith_ground_cracks.remove(crack)
+        except ValueError:
+            pass
+
+
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
     global BOSS, blacksmith_hammer_explosions
     resolved_stage = max(1, stage)
