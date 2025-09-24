@@ -8627,10 +8627,10 @@ class SupplyAircraft:
                 # 스테이지5 홍련의 화염탄 수준의 넉백 (기본 9, 방향에 따라)
                 if player_center_x < explosion_center_x:
                     # 플레이어가 폭발 왼쪽에 있으면 왼쪽으로 넉백
-                    player_missile_knockback_vel = -12  # 화염탄(9)보다 약간 강하게
+                    player_missile_knockback_vel = _scale_knockback(-12)  # 화염탄(9)보다 약간 강하게
                 else:
                     # 플레이어가 폭발 오른쪽에 있으면 오른쪽으로 넉백
-                    player_missile_knockback_vel = 12
+                    player_missile_knockback_vel = _scale_knockback(12)
                 
                 # 거리에 따른 넉백 강도 조정 (가까울수록 강함)
                 knockback_multiplier = 1.0 - (distance / 100)  # 0~1 사이 값
@@ -17381,7 +17381,7 @@ def handle_player(keys):
             # 화염 지대 진입 감지 및 넉백 쿨다운 체크
             if not player_in_flame_zone or player_flame_zone_knockback_cooldown <= 0:
                 # 즉시 강한 넉백 속도 적용 (화염탄과 유사한 강도)
-                player_flame_zone_knockback_vel = push_direction * 25  # 강한 초기 넉백 (증가: 20->25)
+                player_flame_zone_knockback_vel = _scale_knockback(push_direction * 25)  # 강한 초기 넉백 (증가: 20->25)
                 player_flame_zone_knockback_cooldown = 30  # 0.5초 쿨다운 (재진입 시 다시 넉백)
                 
                 # 넉백 받으면 0.4초간 스턴 면역
@@ -26261,7 +26261,7 @@ def draw_objects():
                     if missile_speed > 0:
                         # 미사일 진행 방향으로 넉백 (화염탄의 25% 강도)
                         knockback_direction = missile['vx'] / abs(missile['vx']) if missile['vx'] != 0 else random.choice([-1, 1])
-                        player_missile_knockback_vel = knockback_direction * 9  # 화염탄의 25% 강도 (36 -> 18 -> 9)
+                        player_missile_knockback_vel = _scale_knockback(knockback_direction * 9)  # 화염탄의 25% 강도 (36 -> 18 -> 9)
                         player_missile_stunned_timer = int(0.3 * FPS)  # 화염탄과 동일한 스턴 시간 (0.3초)
                     # 충돌 효과 표시
                     effects_manager.create_impact_effect(missile['x'], missile['y'], 10, is_player=False)
@@ -42282,7 +42282,7 @@ def handle_ball():
                     # 연막 밖이면 정상 피해 (스턴 면역 체크)
                     if player_stun_immunity_timer <= 0:
                         player_stunned_timer = int(0.3 * FPS)
-                        player_knockback_vel = random.choice([-12, 12])
+                        player_knockback_vel = _scale_knockback(random.choice([-12, 12]))
                     else:
                         print("!")
                     #  화염탄 폭발 이펙트 생성
@@ -42378,7 +42378,7 @@ def handle_ball():
             # 스턴 면역 체크
             if player_stun_immunity_timer <= 0:
                 player_stunned_timer = int(0.3 * FPS)
-                player_knockback_vel = random.choice([-24, 24])
+                player_knockback_vel = _scale_knockback(random.choice([-24, 24]))
             else:
                 print("!")
             #  대규모 화염 폭발 이벤트
@@ -43660,7 +43660,7 @@ def handle_ball():
                     player_burn_effect = True
                     
                     # 넉백 효과 - 부드러운 넉백을 위한 오프셋 설정
-                    player_knockback_y = -20  # 20픽셀 위로 넉백
+                    player_knockback_y = _scale_knockback(-20)  # 20픽셀 위로 넉백
                     
                     # 게이지 감소
                     special_gauge = max(0, special_gauge - 50)
@@ -44505,7 +44505,7 @@ def handle_ball():
         # 스턴 면역 체크
         if player_stun_immunity_timer <= 0:
             player_stunned_timer = int(0.3 * FPS)
-            player_knockback_vel = random.choice([-12, 12])
+            player_knockback_vel = _scale_knockback(random.choice([-12, 12]))
         else:
             print("!")
         #  성능 최적화: 파티클 개수를 절반으로 줄임 (12 → 6)
