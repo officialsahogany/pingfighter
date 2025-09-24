@@ -6749,6 +6749,7 @@ blacksmith_hammer_shock_anchor_y = 0
 
 # Ground crack effects initialization
 blacksmith_ground_cracks = []
+blacksmith_hammer_shock_particles = []  # Particles for crack shatter effects
 
 blacksmith_construction_sound_playing = False
 blacksmith_construction_channel = None
