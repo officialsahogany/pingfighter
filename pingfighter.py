@@ -5632,7 +5632,11 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
 
     # Add ground crack effect at explosion point
     global blacksmith_ground_cracks
-    num_cracks = max(1, int(round(BLACKSMITH_HAMMER_SHOCK_BASE_CRACK_COUNT * stage_multiplier)))
+    crack_count_multiplier = BLACKSMITH_HAMMER_SHOCK_CRACK_COUNT_MULTIPLIER.get(
+        stage,
+        BLACKSMITH_HAMMER_SHOCK_CRACK_COUNT_MULTIPLIER[max(BLACKSMITH_HAMMER_SHOCK_CRACK_COUNT_MULTIPLIER)],
+    )
+    num_cracks = max(1, int(round(BLACKSMITH_HAMMER_SHOCK_BASE_CRACK_COUNT * crack_count_multiplier)))
     for i in range(num_cracks):
         angle = (math.pi * 2 * i / num_cracks) + random.uniform(-0.2, 0.2)
         base_length = radius * stage_multiplier * random.uniform(0.8, 1.3)
