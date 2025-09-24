@@ -45549,6 +45549,7 @@ def handle_boss_champion():
             # 화면 경계 제한 (스턴이 없을 때만)
             BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
             _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
+            _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
         else:
             # 크랙에 막혀서 움직일 수 없음
             if random.random() < 0.1:  # 10% chance to print
