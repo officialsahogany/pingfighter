@@ -5260,6 +5260,10 @@ def _update_boss_crack_stuck_state(can_move: bool, boss_rect: pygame.Rect):
         if _force_clear_nearest_crack(boss_rect):
             boss_crack_stuck_timer = 0
             boss_crack_last_release = current_time
+            if 'BOSS' in globals() and BOSS is not None:
+                direction = 1 if boss_rect.centerx >= BOSS.centerx else -1
+                BOSS.x += direction * 8
+                BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
             print("[CRACK STUCK] Force-cleared nearest crack")
 
 
@@ -7240,8 +7244,8 @@ BLACKSMITH_GROUND_CRACK_BOSS_HIT_COOLDOWN = int(0.2 * FPS)
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES = int(0.1 * FPS)
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED = 4.5
 BLACKSMITH_GROUND_CRACK_REMOVE_LENGTH = 16.0
-BLACKSMITH_GROUND_CRACK_DETECTION_RANGE = 200
-BLACKSMITH_GROUND_CRACK_STUCK_FREE_FRAMES = int(0.15 * FPS)
+BLACKSMITH_GROUND_CRACK_DETECTION_RANGE = 120
+BLACKSMITH_GROUND_CRACK_STUCK_FREE_FRAMES = max(1, int(0.05 * FPS))
 BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_DISTANCE = 12
 BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN = 180
 BLACKSMITH_GROUND_CRACK_VERTICAL_MARGIN = 140
