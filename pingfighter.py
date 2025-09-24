@@ -4835,6 +4835,23 @@ def release_blacksmith_hammer_shock():
         return
 
     stage = _blacksmith_hammer_shock_stage_for_frames(blacksmith_hammer_shock_charge_frames)
+    if ENABLE_HAMMER_STAGE_DEBUG:
+        charge_seconds = blacksmith_hammer_shock_charge_frames / FPS if FPS else 0.0
+        if stage == 0:
+            print(f"[HAMMER DEBUG] charge={charge_seconds:.2f}s -> stage 0 (cancelled)")
+        else:
+            radius = BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS
+            if stage == 2:
+                radius *= BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE
+            elif stage >= 3:
+                radius *= BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE
+            if stage == 1:
+                knockback = BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK
+            elif stage == 2:
+                knockback = BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK
+            else:
+                knockback = BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK
+            print(f"[HAMMER DEBUG] charge={charge_seconds:.2f}s -> stage {stage}, radius={radius:.1f}, knockback={knockback:.1f}")
     if stage == 0:
         blacksmith_hammer_shock_charging = False
         blacksmith_hammer_shock_charge_frames = 0
