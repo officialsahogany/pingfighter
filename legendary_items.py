@@ -91,11 +91,11 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
         int: 프레임과 아이콘에 적용할 Y 오프셋 (살짝 위아래로 흔들리는 효과).
     """
     # 테두리와 배경이 부드럽게 흔들리도록 오프셋 계산
-    frame_offset = int(math.sin(animation_time * 0.0025) * 2)
+    frame_offset = int(math.sin(animation_time * 2.5) * 2)
     frame_y = y + frame_offset
 
     # 파란색 원형 배경 애니메이션 (외곽/중앙 두 겹으로 펄싱)
-    pulse = (math.sin(animation_time * 0.004) + 1) / 2  # 0~1
+    pulse = (math.sin(animation_time * 4.0) + 1) / 2  # 0~1
     pulse_bucket = int(pulse * 20)  # 캐시 양자화 단계 (0~20)
     cache_key = (size, pulse_bucket)
 
@@ -116,7 +116,7 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
     screen.blit(glow_surface, (x, frame_y))
 
     # 내부 붉은색 테두리 (프레임별 그라데이션)
-    inner_pulse = (math.sin(animation_time * 0.006) + 1) / 2
+    inner_pulse = (math.sin(animation_time * 6.0) + 1) / 2
     outer_inner_color = (
         int(150 + 70 * inner_pulse),
         int(30 + 35 * inner_pulse),
@@ -229,13 +229,14 @@ class LegendaryItem:
             dt: 델타 타임
             ui_mode: UI 모드 여부 (True면 게임플레이 효과 비활성화)
         """
-        self.animation_time += dt
+        dt_seconds = dt / 1000.0 if dt > 1.5 else dt
+        self.animation_time += dt_seconds
         # 아이콘 흔들림 효과
-        self.animation_offset = math.sin(self.animation_time * 0.003) * 2
+        self.animation_offset = math.sin(self.animation_time * 3.0) * 2
         # 글로우 펄싱 효과
-        self.glow_intensity = (math.sin(self.animation_time * 0.002) + 1) / 2
-        # 파티클 타이머
-        self.particle_timer += dt
+        self.glow_intensity = (math.sin(self.animation_time * 2.0) + 1) / 2
+        # 파티클 타이머 (초 단위)
+        self.particle_timer += dt_seconds
         
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """아이콘 그리기 with 전설 효과"""
