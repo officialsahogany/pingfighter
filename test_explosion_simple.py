@@ -63,7 +63,7 @@ def _get_blacksmith_hammer_explosion_surface(stage, radius):
         color = (70 + stage * 10, 120 + stage * 15, 200 + stage * 20, alpha)
         pygame.draw.circle(surface, color, (center, center), i)
     
-    # 4. 전기 방전 효과 제거 (검은색 선 문제로 인해 삭제)
+    # 4. 에너지 파편과 디테일한 효과는 메인 파일에서 구현
     
     # 5. 스파크 효과
     spark_count = 20 + stage * 10
