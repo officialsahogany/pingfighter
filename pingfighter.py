@@ -4423,46 +4423,46 @@ blacksmith_hammer_charge_position: tuple[float, float] | None = None
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
 _BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
     1: {
-        "core": (255, 244, 212),
-        "mid": (255, 198, 128),
-        "edge": (205, 118, 64),
-        "glyph": (255, 214, 170),
-        "shard": (255, 236, 200),
-        "halo": (255, 205, 150),
+        "core": (248, 252, 255),
+        "mid": (186, 214, 255),
+        "edge": (86, 132, 210),
+        "glyph": (210, 240, 255),
+        "shard": (230, 245, 255),
+        "halo": (200, 235, 255),
         "rings": [
-            (255, 240, 210),
-            (255, 214, 150),
-            (255, 188, 120),
+            (234, 244, 255),
+            (206, 228, 255),
+            (176, 210, 255),
         ],
-        "sparks": (255, 226, 190),
+        "sparks": (215, 235, 255),
     },
     2: {
         "core": (236, 248, 255),
-        "mid": (138, 210, 255),
-        "edge": (52, 100, 204),
-        "glyph": (184, 228, 255),
-        "shard": (180, 220, 255),
-        "halo": (150, 215, 255),
+        "mid": (160, 216, 255),
+        "edge": (68, 124, 232),
+        "glyph": (194, 234, 255),
+        "shard": (198, 232, 255),
+        "halo": (176, 230, 255),
         "rings": [
-            (150, 225, 255),
-            (120, 205, 255),
-            (90, 175, 255),
+            (190, 232, 255),
+            (150, 210, 255),
+            (118, 184, 255),
         ],
-        "sparks": (190, 230, 255),
+        "sparks": (196, 236, 255),
     },
     3: {
-        "core": (250, 246, 255),
-        "mid": (212, 180, 255),
-        "edge": (94, 52, 210),
-        "glyph": (240, 200, 255),
-        "shard": (238, 220, 255),
-        "halo": (228, 204, 255),
+        "core": (242, 250, 255),
+        "mid": (178, 220, 255),
+        "edge": (70, 148, 240),
+        "glyph": (210, 240, 255),
+        "shard": (210, 236, 255),
+        "halo": (188, 236, 255),
         "rings": [
-            (255, 240, 220),
-            (245, 210, 255),
-            (200, 160, 255),
+            (206, 238, 255),
+            (170, 224, 255),
+            (138, 202, 255),
         ],
-        "sparks": (235, 215, 255),
+        "sparks": (204, 242, 255),
     },
 }
 blacksmith_hammer_explosions: list[dict[str, object]] = []
@@ -5141,11 +5141,11 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
                             ring_color = (255, 255, 255, ring_alpha)
                     else:
                         if stage_value >= 3:
-                            ring_color = (255, 240, 200, ring_alpha)  # 금색 충격파
+                            ring_color = (210, 245, 255, ring_alpha)
                         elif stage_value >= 2:
-                            ring_color = (200, 220, 255, ring_alpha)  # 파란 충격파
+                            ring_color = (200, 224, 255, ring_alpha)
                         else:
-                            ring_color = (255, 255, 255, ring_alpha)  # 흰색 충격파
+                            ring_color = (245, 250, 255, ring_alpha)
                     
                     pygame.draw.circle(surface, ring_color, 
                                      (int(center_x + offset_x), int(center_y + offset_y)), 
