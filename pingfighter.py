@@ -4592,22 +4592,42 @@ def _get_blacksmith_hammer_explosion_surface(stage: int, radius: int) -> pygame.
             point_y = base_y + math.sin(offset_angle) * offset_dist
             points.append((int(point_x), int(point_y)))
         
-        # 번개 그리기
+        # 번개 그리기 - 밝고 화려한 효과
         for j in range(len(points) - 1):
             thickness = max(1, 4 - j)
-            if stage >= 3:
-                color = (255, 240, 200)  # 금빛 번개
-            elif stage >= 2:
-                color = (200, 220, 255)  # 밝은 파란 번개
-            else:
-                color = (180, 200, 255)  # 기본 전기색
-                
-            pygame.draw.line(surface, color, points[j], points[j + 1], thickness)
             
-            # 번개 광채
+            # 스테이지별 번개 색상 (더 밝고 선명하게)
+            if stage >= 3:
+                core_color = (255, 255, 255)  # 순백색 코어
+                outer_color = (255, 220, 100)  # 금빛 외곽
+                glow_color = (255, 200, 50)  # 황금 광채
+            elif stage >= 2:
+                core_color = (255, 255, 255)  # 순백색 코어
+                outer_color = (220, 180, 255)  # 보라빛 외곽
+                glow_color = (180, 120, 255)  # 보라색 광채
+            else:
+                core_color = (255, 255, 255)  # 순백색 코어
+                outer_color = (150, 220, 255)  # 하늘색 외곽
+                glow_color = (100, 180, 255)  # 파란색 광채
+            
+            # 다층 번개 효과
+            # 1. 광채 레이어 (가장 바깥쪽)
             glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
-            pygame.draw.line(glow_surf, (*color, 50), points[j], points[j + 1], thickness + 4)
+            pygame.draw.line(glow_surf, (*glow_color, 40), points[j], points[j + 1], thickness + 8)
             surface.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+            
+            # 2. 중간 광채 레이어
+            mid_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            pygame.draw.line(mid_surf, (*outer_color, 80), points[j], points[j + 1], thickness + 4)
+            surface.blit(mid_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+            
+            # 3. 밝은 외곽 레이어
+            outer_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            pygame.draw.line(outer_surf, (*outer_color, 200), points[j], points[j + 1], thickness + 2)
+            surface.blit(outer_surf, (0, 0), special_flags=pygame.BLEND_ADD)
+            
+            # 4. 핵심 번개 (가장 밝은 중심)
+            pygame.draw.line(surface, core_color, points[j], points[j + 1], thickness)
     
     # 5. 스파크 효과
     spark_count = 20 + stage * 10
