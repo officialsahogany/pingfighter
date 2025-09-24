@@ -14540,7 +14540,7 @@ def trigger_boss_knockback(bullet_x, bullet_y):
         knockback_direction_x = random.choice([-1, 1])
     
     # X축으로만 넉백 오프셋 설정, Y축은 0
-    boss_knockback_offset_x = knockback_direction_x * BOSS_KNOCKBACK_STRENGTH
+    boss_knockback_offset_x = knockback_direction_x * BOSS_KNOCKBACK_STRENGTH * GAME_KNOCKBACK_DISTANCE_REDUCTION
     boss_knockback_offset_y = 0  # Y축 넉백 없음
     
     # 디버그 정보 출력
