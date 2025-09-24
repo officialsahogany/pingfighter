@@ -4897,8 +4897,9 @@ def _check_boss_crack_collision(boss_rect, crack):
     line_end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
     line_end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
     
-    # Add thickness to the crack - increased significantly for better collision
-    thickness = crack.get("thickness", 2) + 30  # Increased padding from 20 to 30
+    # Add thickness to the crack - padding now configurable for boss collisions
+    boss_padding = crack.get("boss_padding", BLACKSMITH_GROUND_CRACK_BOSS_PADDING)
+    thickness = crack.get("thickness", 2) + boss_padding
     
     # Debug print to verify collision detection is being called
     if random.random() < 0.10:  # Print more frequently (10% chance)
@@ -4906,7 +4907,7 @@ def _check_boss_crack_collision(boss_rect, crack):
         print(f"  Boss: x={boss_rect.x}, y={boss_rect.y}, w={boss_rect.width}, h={boss_rect.height}")
         print(f"  Boss center: ({boss_rect.centerx}, {boss_rect.centery})")
         print(f"  Crack: start({line_start_x:.0f},{line_start_y:.0f}) end({line_end_x:.0f},{line_end_y:.0f})")
-        print(f"  Crack thickness: {thickness}")
+        print(f"  Crack thickness: {thickness} (padding: {boss_padding})")
     
     # Function to check if a point is within distance of a line segment
     def point_to_line_distance(px, py, x1, y1, x2, y2):
