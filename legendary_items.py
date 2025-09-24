@@ -2083,8 +2083,8 @@ class RagnarokHammer(LegendaryItem):
         elif abs(ball_speed) >= 15:
             horizontal_velocity *= 1.05  # 5% 추가
             
-        # 랜덤 추가 넉백 (10-30%)
-        random_factor = 1.0 + random.uniform(0.1, 0.3)
+        # 랜덤 추가 넉백 (5-20%)
+        random_factor = 1.0 + random.uniform(0.05, 0.2)  # 10-30% -> 5-20%로 감소
         horizontal_velocity *= random_factor
             
         # 번개 효과 추가
