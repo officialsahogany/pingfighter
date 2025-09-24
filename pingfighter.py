@@ -5054,6 +5054,27 @@ def _check_path_blocked_by_cracks(current_x, target_x, boss_width, boss_y, boss_
 
     return False
 
+
+def _slide_boss_toward_crack_edge(current_x: float, target_x: float, crack: dict, boss_width: int) -> float:
+    """Clamp boss movement so it stops right against the crack edge based on travel direction."""
+
+    bounding_rect = _get_crack_bounding_rect(crack)
+    contact_padding = max(2, boss_width // 8)
+
+    if target_x >= current_x:
+        desired = bounding_rect.left - boss_width + contact_padding
+        desired = min(desired, target_x)
+        desired = max(desired, current_x)
+    else:
+        desired = bounding_rect.right - contact_padding
+        desired = max(desired, target_x)
+        desired = min(desired, current_x)
+
+    # Clamp within arena bounds
+    desired = max(0, min(WIDTH - boss_width, desired))
+    return desired
+
+
 def _is_boss_movement_valid(new_x):
     """Check if the boss can move to the new X position (considers cracks)"""
     global BOSS, blacksmith_ground_cracks
