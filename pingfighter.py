@@ -4835,7 +4835,7 @@ def release_blacksmith_hammer_shock():
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     global special_gauge, special_ready, special_gauge_max
     global PLAYER, SOUND_GRENADE
-    global blacksmith_hammer_charge_position
+    global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
 
     if not blacksmith_hammer_shock_charging:
         return
@@ -5891,7 +5891,7 @@ def update_blacksmith_hammer_shock(keys):
 
 
 def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float = 0.0):
-    global blacksmith_hammer_charge_position
+    global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
     if selected_character_type != "blacksmith":
         return
 
