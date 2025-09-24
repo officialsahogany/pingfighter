@@ -6586,6 +6586,13 @@ BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK = 16.0
 BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK = 22.0
 BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK = 28.0
 BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION = int(10 * FPS)
+
+# Hammer trail and crack effects
+blacksmith_hammer_trails = []  # 해머 트레일 효과
+blacksmith_ground_cracks = []  # 지면 크랙 효과
+BLACKSMITH_HAMMER_TRAIL_LENGTH = 8  # 트레일 길이
+BLACKSMITH_HAMMER_TRAIL_FADE_SPEED = 0.15  # 페이드 속도
+BLACKSMITH_GROUND_CRACK_DURATION = int(3 * FPS)  # 크랙 지속시간 3초
 BLACKSMITH_TURRET_DESIGN_WIDTH = 46
 BLACKSMITH_TURRET_DESIGN_HEIGHT = 54
 BLACKSMITH_TURRET_BASE_WIDTH = int(BLACKSMITH_TURRET_DESIGN_WIDTH * 1.2)
@@ -6627,6 +6634,10 @@ blacksmith_hammer_shock_cooldown_timer = 0
 blacksmith_hammer_shock_projectiles = []
 blacksmith_hammer_shock_anchor_x = 0
 blacksmith_hammer_shock_anchor_y = 0
+
+# Hammer trail and crack effects initialization
+blacksmith_hammer_trails = []
+blacksmith_ground_cracks = []
 
 blacksmith_construction_sound_playing = False
 blacksmith_construction_channel = None
