@@ -4535,41 +4535,50 @@ def _get_blacksmith_hammer_explosion_surface(stage: int, radius: int) -> pygame.
     shock_radius = radius + 6
     ring_radius = min(radius + 10, center - 2)
 
-    color_core = (255, 245 - stage * 8, 210 - stage * 12, 220)
-    color_mid = (255, 180 + stage * 15, 80 + stage * 12, 180)
-    color_outer = (90, 180 + stage * 18, 255, 160)
-    ring_color = (180, 220, 255, 130)
-    spikes_color = (255, 255, 255, 160)
+    color_core = (248, 252, 255, 235)
+    color_mid = (170, 220 + stage * 12, 255, 195)
+    color_outer = (70, 150 + stage * 20, 255, 150)
+    ring_color = (200, 232, 255, 150)
+    spikes_color = (255, 255, 255, 180)
 
     pygame.draw.circle(surface, color_outer, (center, center), shock_radius)
 
-    for i in range(8 + stage * 3):
-        angle = (math.tau / (8 + stage * 3)) * i
-        wave_radius = ring_radius + 6
-        wave_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-        for j in range(6):
-            alpha = max(0, color_outer[3] - j * 20)
+    petals = pygame.Surface((size, size), pygame.SRCALPHA)
+    petal_count = 6 + stage * 2
+    for i in range(petal_count):
+        angle = (math.tau / petal_count) * i
+        petal_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        for r in range(0, ring_radius + 12, 4):
+            alpha = max(0, int(color_outer[3] - r * 2.5))
             pygame.draw.circle(
-                wave_surface,
-                (color_outer[0], color_outer[1], color_outer[2], alpha),
+                petal_surface,
+                (110, 180 + stage * 18, 255, alpha),
                 (center, center),
-                wave_radius - j * 3,
-                width=3,
+                ring_radius + 12 - r,
+                width=2,
             )
-        rotated = pygame.transform.rotate(wave_surface, math.degrees(angle) + 5)
-        surface.blit(rotated, rotated.get_rect(center=(center, center)), special_flags=pygame.BLEND_ADD)
+        rotated = pygame.transform.rotate(petal_surface, math.degrees(angle))
+        petals.blit(rotated, rotated.get_rect(center=(center, center)), special_flags=pygame.BLEND_ADD)
+    surface.blit(petals, (0, 0), special_flags=pygame.BLEND_ADD)
 
     pygame.draw.circle(surface, color_mid, (center, center), max(2, int(radius * 0.75)))
     pygame.draw.circle(surface, color_core, (center, center), max(2, core_radius))
 
-    pygame.draw.circle(surface, ring_color, (center, center), ring_radius, width=3)
+    for thickness, alpha_scale in [(3, 1.0), (6, 0.65)]:
+        pygame.draw.circle(
+            surface,
+            (ring_color[0], ring_color[1], ring_color[2], int(ring_color[3] * alpha_scale)),
+            (center, center),
+            ring_radius + thickness,
+            width=2,
+        )
 
     spike_count = 14 + stage * 4
     spike_surface = pygame.Surface((size, size), pygame.SRCALPHA)
     for i in range(spike_count):
-        angle = (math.tau / spike_count) * i + random.uniform(-0.06, 0.06)
-        length = radius * (1.1 + random.uniform(0.1, 0.3))
-        thickness = max(2, int(3 + stage * 0.6))
+        angle = (math.tau / spike_count) * i
+        length = radius * (1.1 + random.uniform(0.08, 0.18))
+        thickness = max(1, int(2 + stage * 0.4))
         end_x = center + int(math.cos(angle) * length)
         end_y = center + int(math.sin(angle) * length)
         pygame.draw.line(spike_surface, spikes_color, (center, center), (end_x, end_y), thickness)

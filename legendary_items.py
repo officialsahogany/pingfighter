@@ -2248,6 +2248,8 @@ class LegendaryItemManager:
         self.items["holy_laurel"] = HolyLaurel(poseidon_item)
         # 전시 전용 아이콘은 아이템 관리자에서 항상 보이도록 기본 해금 상태로 둔다.
         self.items["holy_laurel"].unlocked = True
+        if "holy_laurel" not in self.unlocked_items:
+            self.unlocked_items.append("holy_laurel")
 
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
@@ -2288,6 +2290,8 @@ class LegendaryItemManager:
         holy_item = self.items.get("holy_laurel")
         if holy_item:
             holy_item.unlocked = True
+            if "holy_laurel" not in self.unlocked_items:
+                self.unlocked_items.append("holy_laurel")
         
     def check_unlocks(self, game_stats: Dict):
         """해금 조건 체크"""
