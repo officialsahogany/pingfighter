@@ -85,7 +85,8 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
                                  animation_time: float,
                                  border_color: Tuple[int, int, int] = COMMON_LEGENDARY_BORDER_COLOR,
                                  corner_color: Tuple[int, int, int] = COMMON_LEGENDARY_CORNER_COLOR,
-                                 offset_animation_time: Optional[float] = None) -> int:
+                                 offset_animation_time: Optional[float] = None,
+                                 corner_style: str = "default") -> int:
     """전설 아이콘의 공통 배경 프레임을 그린다.
 
     Returns:
@@ -148,18 +149,30 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
     border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
     pygame.draw.rect(screen, border_color, border_rect, 2)
 
-    corner_size = 8
-    pygame.draw.lines(screen, corner_color, False,
-                      [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
-    pygame.draw.lines(screen, corner_color, False,
-                      [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
-    pygame.draw.lines(screen, corner_color, False,
-                      [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
-    pygame.draw.lines(screen, corner_color, False,
-                      [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
+    if corner_style == "block":
+        block_size = max(6, size // 10)
+        offset = block_size // 2
+        for corner_x, corner_y in [
+            (x - offset, frame_y - offset),
+            (x + size - block_size + offset, frame_y - offset),
+            (x - offset, frame_y + size - block_size + offset),
+            (x + size - block_size + offset, frame_y + size - block_size + offset),
+        ]:
+            block_rect = pygame.Rect(corner_x, corner_y, block_size, block_size)
+            pygame.draw.rect(screen, corner_color, block_rect, border_radius=2)
+    else:
+        corner_size = 8
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x - 2, frame_y + corner_size), (x - 2, frame_y - 2), (x + corner_size, frame_y - 2)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x + size - corner_size + 2, frame_y - 2), (x + size + 2, frame_y - 2), (x + size + 2, frame_y + corner_size)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x - 2, frame_y + size - corner_size + 2), (x - 2, frame_y + size + 2), (x + corner_size, frame_y + size + 2)], 2)
+        pygame.draw.lines(screen, corner_color, False,
+                          [(x + size - corner_size + 2, frame_y + size + 2), (x + size + 2, frame_y + size + 2), (x + size + 2, frame_y + size - corner_size + 2)], 2)
 
-    for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
-        pygame.draw.circle(screen, corner_color, (cx, cy), 2)
+        for cx, cy in [(x, frame_y), (x + size, frame_y), (x, frame_y + size), (x + size, frame_y + size)]:
+            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
 
     return frame_offset
 
