@@ -1734,9 +1734,6 @@ class HolyLaurel(LegendaryItem):
                 self.icon_frames = poseidon.icon_frames
                 self.animation_frames = getattr(poseidon, "animation_frames", poseidon.icon_frames)
                 self.animation_speed = getattr(poseidon, "animation_speed", self.animation_speed)
-                self.current_frame = getattr(poseidon, "current_frame", 0)
-                self.animation_time = getattr(poseidon, "animation_time", self.animation_time)
-                self.frame_counter = getattr(poseidon, "frame_counter", self.frame_counter)
                 return
 
         if self.icon_frames and len(self.icon_frames) > 1:
@@ -1746,12 +1743,10 @@ class HolyLaurel(LegendaryItem):
                 self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        animation_time = self.animation_time
         poseidon = None
+        animation_time = self.animation_time
         if self._sync_with_poseidon:
             poseidon = self._ensure_poseidon_ref()
-            if poseidon:
-                animation_time = getattr(poseidon, "animation_time", animation_time)
 
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, animation_time)
 
