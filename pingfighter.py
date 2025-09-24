@@ -5008,6 +5008,23 @@ def _check_path_blocked_by_cracks(current_x, target_x, boss_width, boss_y, boss_
     
     return False
 
+def _is_boss_movement_valid(new_x):
+    """Check if the boss can move to the new X position (considers cracks)"""
+    global BOSS, blacksmith_ground_cracks
+    
+    if 'blacksmith_ground_cracks' not in globals() or not blacksmith_ground_cracks:
+        return True
+    
+    # Create rect for proposed position
+    proposed_rect = pygame.Rect(new_x, BOSS.y, BOSS.width, BOSS.height)
+    
+    # Check collision with each crack
+    for crack in blacksmith_ground_cracks:
+        if _check_boss_crack_collision(proposed_rect, crack):
+            return False
+    
+    return True
+
 
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
     global BOSS, blacksmith_hammer_explosions
@@ -46950,6 +46967,32 @@ def handle_boss():
     enhanced_predict_chance = config["predict_chance"]
     enhanced_predict_error = config["predict_error"]
     enhanced_fail_error = config["fail_error"]
+    
+    # Check if current position is blocked by cracks (stuck detection)
+    if 'blacksmith_ground_cracks' in globals() and blacksmith_ground_cracks:
+        # If boss has been trying to move but stuck for too long, try alternative direction
+        if not hasattr(handle_boss, 'stuck_timer'):
+            handle_boss.stuck_timer = 0
+            handle_boss.last_x = BOSS.x
+        
+        # Check if boss hasn't moved much
+        if abs(BOSS.x - handle_boss.last_x) < 2:  # Less than 2 pixels movement
+            handle_boss.stuck_timer += 1
+        else:
+            handle_boss.stuck_timer = 0
+            handle_boss.last_x = BOSS.x
+        
+        # If stuck for more than 30 frames, try to find alternative path
+        if handle_boss.stuck_timer > 30:
+            # Try to move to nearest free space
+            for offset in [30, -30, 60, -60, 90, -90]:
+                test_x = BOSS.x + offset
+                if 0 <= test_x <= WIDTH - BOSS.width and _is_boss_movement_valid(test_x):
+                    # Found a free space, set as temporary target
+                    enhanced_predict_error = abs(offset) * 2
+                    handle_boss.stuck_timer = 0
+                    break
+    
     # 조명탄 혼란 효과 체크 (최우선)
     if boss_confused_timer > 0:
         # 혼란 상태일 때는 완전히 랜덤하게 움직임 (공을 무시)
