@@ -5299,8 +5299,8 @@ def _decay_blacksmith_crack_segment(
     return crack in blacksmith_ground_cracks
 
 
-def _handle_blacksmith_hammer_ball_hit(projectile: dict):
-    """Trigger explosion effects and knock the ball when a hammer projectile connects."""
+def _handle_blacksmith_hammer_ball_hit(projectile: dict, dx: float, _dy: float):
+    """Push the ball when the hammer projectile passes through without detonating."""
 
     global BALL, ball_vel, last_hit_by, player_collision_handled, game_vars
 
@@ -5308,19 +5308,15 @@ def _handle_blacksmith_hammer_ball_hit(projectile: dict):
         return
 
     stage = max(1, int(projectile.get("stage", 1) or 1))
-    projectile_x = float(projectile.get("x", BALL.centerx))
     impact_x = float(BALL.centerx)
     impact_y = float(BALL.centery)
 
-    _trigger_blacksmith_hammer_shock_explosion(stage, impact_x, impact_y)
-
-    # Determine push direction relative to the incoming projectile
-    dx = impact_x - projectile_x
+    # Determine push direction relative to projectile travel or fallback to player position
     if abs(dx) < 1e-3:
         try:
             player_x = PLAYER.centerx  # type: ignore[name-defined]
         except Exception:
-            player_x = projectile_x
+            player_x = impact_x
         horizontal_dir = 1 if impact_x >= player_x else -1
     else:
         horizontal_dir = 1 if dx >= 0 else -1
@@ -5333,8 +5329,12 @@ def _handle_blacksmith_hammer_ball_hit(projectile: dict):
         current_vx = 0.0
         current_vy = 0.0
 
-    boosted_vx = current_vx * BLACKSMITH_HAMMER_SHOCK_BALL_HORIZONTAL_DECAY + horizontal_dir * BLACKSMITH_HAMMER_SHOCK_BALL_HORIZONTAL_BOOST
-    speed_upward = max(BLACKSMITH_HAMMER_SHOCK_BALL_VERTICAL_MIN_SPEED, abs(current_vy) * BLACKSMITH_HAMMER_SHOCK_BALL_VERTICAL_DECAY)
+    stage_scale = 1.0 + 0.25 * max(0, stage - 1)
+    boosted_vx = current_vx * BLACKSMITH_HAMMER_SHOCK_BALL_HORIZONTAL_DECAY + horizontal_dir * BLACKSMITH_HAMMER_SHOCK_BALL_HORIZONTAL_BOOST * stage_scale
+    speed_upward = max(
+        BLACKSMITH_HAMMER_SHOCK_BALL_VERTICAL_MIN_SPEED * stage_scale,
+        abs(current_vy) * BLACKSMITH_HAMMER_SHOCK_BALL_VERTICAL_DECAY,
+    )
 
     ball_vel[0] = boosted_vx
     ball_vel[1] = -speed_upward
