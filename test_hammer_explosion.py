@@ -40,9 +40,10 @@ print("- 1/2/3: Select stage")
 print("- R: Reset cache (reload effects)")
 print("")
 print("Explosion effects now feature:")
-print("- Bright white lightning core")
-print("- Multi-layer glow effects")
+print("- Multi-layer gradient system")
+print("- Particle and spark effects")
 print("- Stage-specific colors")
+print("- NO lightning effects (removed due to rendering issues)")
 
 # Main loop
 running = True

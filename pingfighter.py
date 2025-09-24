@@ -4574,66 +4574,7 @@ def _get_blacksmith_hammer_explosion_surface(stage: int, radius: int) -> pygame.
         color = (70 + stage * 10, 120 + stage * 15, 200 + stage * 20, alpha)
         pygame.draw.circle(surface, color, (center, center), i)
     
-    # 4. 전기 방전 효과 (번개 모양)
-    lightning_count = 8 + stage * 2
-    for i in range(lightning_count):
-        angle = (i / lightning_count) * 2 * math.pi
-        
-        # 주 번개 줄기
-        end_x = center + math.cos(angle) * radius
-        end_y = center + math.sin(angle) * radius
-        
-        # 번개 경로 생성 (지그재그)
-        points = [(center, center)]
-        segments = 3 + stage
-        for seg in range(1, segments + 1):
-            progress = seg / segments
-            base_x = center + (end_x - center) * progress
-            base_y = center + (end_y - center) * progress
-            
-            # 랜덤 오프셋 추가
-            offset_angle = angle + random.uniform(-0.3, 0.3)
-            offset_dist = random.uniform(-radius * 0.1, radius * 0.1)
-            point_x = base_x + math.cos(offset_angle) * offset_dist
-            point_y = base_y + math.sin(offset_angle) * offset_dist
-            points.append((int(point_x), int(point_y)))
-        
-        # 번개 그리기 - 밝고 화려한 효과
-        for j in range(len(points) - 1):
-            thickness = max(1, 4 - j)
-            
-            # 스테이지별 번개 색상 (더 밝고 선명하게)
-            if stage >= 3:
-                core_color = (255, 255, 255)  # 순백색 코어
-                outer_color = (255, 220, 100)  # 금빛 외곽
-                glow_color = (255, 200, 50)  # 황금 광채
-            elif stage >= 2:
-                core_color = (255, 255, 255)  # 순백색 코어
-                outer_color = (220, 180, 255)  # 보라빛 외곽
-                glow_color = (180, 120, 255)  # 보라색 광채
-            else:
-                core_color = (255, 255, 255)  # 순백색 코어
-                outer_color = (150, 220, 255)  # 하늘색 외곽
-                glow_color = (100, 180, 255)  # 파란색 광채
-            
-            # 다층 번개 효과
-            # 1. 광채 레이어 (가장 바깥쪽)
-            glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
-            pygame.draw.line(glow_surf, (*glow_color, 40), points[j], points[j + 1], thickness + 8)
-            surface.blit(glow_surf, (0, 0), special_flags=pygame.BLEND_ADD)
-            
-            # 2. 중간 광채 레이어
-            mid_surf = pygame.Surface((size, size), pygame.SRCALPHA)
-            pygame.draw.line(mid_surf, (*outer_color, 80), points[j], points[j + 1], thickness + 4)
-            surface.blit(mid_surf, (0, 0), special_flags=pygame.BLEND_ADD)
-            
-            # 3. 밝은 외곽 레이어
-            outer_surf = pygame.Surface((size, size), pygame.SRCALPHA)
-            pygame.draw.line(outer_surf, (*outer_color, 200), points[j], points[j + 1], thickness + 2)
-            surface.blit(outer_surf, (0, 0), special_flags=pygame.BLEND_ADD)
-            
-            # 4. 핵심 번개 (가장 밝은 중심)
-            pygame.draw.line(surface, core_color, points[j], points[j + 1], thickness)
+    # 4. 전기 방전 효과 제거 (검은색 선 문제로 인해 삭제)
     
     # 5. 스파크 효과
     spark_count = 20 + stage * 10
