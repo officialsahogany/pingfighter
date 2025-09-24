@@ -4996,8 +4996,9 @@ def _check_boss_crack_collision(boss_rect, crack):
     for edge in rect_edges:
         if lines_intersect(crack_line[0], crack_line[1], edge[0], edge[1]):
             closest_x, closest_y = edge[0]
+            line_length = math.sqrt((line_end_x - line_start_x) ** 2 + (line_end_y - line_start_y) ** 2)
             distance = math.hypot(closest_x - line_start_x, closest_y - line_start_y)
-            if distance > line_length_sq ** 0.5 + BLACKSMITH_GROUND_CRACK_EDGE_TOLERANCE:
+            if line_length > 0 and distance > line_length + BLACKSMITH_GROUND_CRACK_EDGE_TOLERANCE:
                 continue
             print(f"[COLLISION] Crack line intersects boss edge!")
             return True
