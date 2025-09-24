@@ -4904,6 +4904,10 @@ def _check_boss_crack_collision(boss_rect, crack):
     if current_ticks < boss_crack_ignore_until:
         return False
         
+    # Check if crack has any length left (completely broken cracks should not collide)
+    if crack.get("length", 0) <= 0 or crack.get("segments_remaining", 0) <= 0:
+        return False
+        
     # Create a line segment for the crack
     line_start_x = crack.get("x", 0.0)
     line_start_y = crack.get("y", 0.0)
@@ -4916,7 +4920,7 @@ def _check_boss_crack_collision(boss_rect, crack):
     crack_max_x = max(line_start_x, line_end_x)
     
     # 보스와 크랙의 X 범위 겹침 검사 (여유를 조금만 둠)
-    margin = 20  # 기존 180에서 20으로 대폭 줄임
+    margin = 15  # 기존 20에서 15로 더 줄임
     if boss_rect.right < crack_min_x - margin or boss_rect.left > crack_max_x + margin:
         return False
     
@@ -4925,13 +4929,13 @@ def _check_boss_crack_collision(boss_rect, crack):
     crack_max_y = max(line_start_y, line_end_y)
     
     # 보스 패들과 크랙의 Y 범위가 합리적인 거리 내에 있는지 확인
-    vertical_margin = 30  # 기존 80에서 30으로 줄임
+    vertical_margin = 25  # 기존 30에서 25로 줄임
     if abs(boss_rect.centery - (crack_min_y + crack_max_y) / 2) > vertical_margin:
         return False
 
     # 간단하고 확실한 충돌 감지
     # 크랙을 두꺼운 사각형으로 취급하여 충돌 검사
-    thickness = 25  # 충돌 감지용 두께를 고정값으로 설정
+    thickness = 20  # 충돌 감지용 두께를 줄임
     
     # 크랙의 바운딩 박스 생성 (두께 포함)
     crack_rect = pygame.Rect(
@@ -4944,21 +4948,11 @@ def _check_boss_crack_collision(boss_rect, crack):
     # 보스와 크랙 바운딩 박스의 직접 충돌 검사
     collision_detected = boss_rect.colliderect(crack_rect)
     
-    # 항상 디버그 정보 출력 (충돌 여부 관계없이)
-    print(f"\n[DEBUG CRACK COLLISION]")
-    print(f"  Boss: ({boss_rect.x}, {boss_rect.y}, {boss_rect.width}x{boss_rect.height})")
-    print(f"  Boss center: ({boss_rect.centerx}, {boss_rect.centery})")
-    print(f"  Crack line: ({line_start_x:.1f}, {line_start_y:.1f}) -> ({line_end_x:.1f}, {line_end_y:.1f})")
-    print(f"  Crack rect: ({crack_rect.x}, {crack_rect.y}, {crack_rect.width}x{crack_rect.height})")
-    print(f"  Collision: {'YES' if collision_detected else 'NO'}")
-    print(f"  Distance check: margin={margin}, vertical_margin={vertical_margin}")
-    
+    # Only print debug info when collision is actually detected to reduce spam
     if collision_detected:
-        print(f"[COLLISION DETECTED] Boss collides with crack!")
-        try:
-            _update_boss_crack_stuck_state(False, boss_rect)
-        except Exception:
-            pass
+        print(f"[COLLISION] Boss collides with crack!")
+        print(f"  Boss: ({boss_rect.x}, {boss_rect.y}, {boss_rect.width}x{boss_rect.height})")
+        print(f"  Crack: length={crack.get('length', 0):.1f}, segments={crack.get('segments_remaining', 0)}")
         return True
     
     # 충돌이 없으면 False 반환
@@ -5101,9 +5095,9 @@ def _boss_get_crack_collision(boss_rect: pygame.Rect, apply_response: bool = Fal
         if _check_boss_crack_collision(boss_rect, crack):
             if apply_response:
                 _handle_boss_crack_hit(crack, boss_rect)
+                # After handling crack hit, don't immediately recheck collision
+                # Let the boss movement system handle the resolution
                 if crack not in blacksmith_ground_cracks:
-                    continue
-                if not _check_boss_crack_collision(boss_rect, crack):
                     continue
             return crack
 
