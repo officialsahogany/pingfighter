@@ -4017,6 +4017,7 @@ def create_blacksmith_paddle_base(include_hammer: bool = True) -> pygame.Surface
     prev_local = blacksmith_hammer_head_local_point
     prev_surface = blacksmith_hammer_head_surface_point
     prev_charge = blacksmith_hammer_charge_position
+    surface: pygame.Surface | None = None
     result_surface: pygame.Surface | None = None
     try:
         surface = pygame.Surface((250, 120), pygame.SRCALPHA)
@@ -4033,7 +4034,11 @@ def create_blacksmith_paddle_base(include_hammer: bool = True) -> pygame.Surface
         blacksmith_hammer_head_local_point = prev_local
         blacksmith_hammer_head_surface_point = prev_surface
         blacksmith_hammer_charge_position = prev_charge
-    return result_surface if result_surface is not None else surface
+    if result_surface is not None:
+        return result_surface
+    if surface is not None:
+        return surface
+    raise RuntimeError("Failed to create blacksmith paddle surface")
 
 def create_blacksmith_paddle_walking():
     global blacksmith_walking_timer, blacksmith_walk_direction
@@ -5772,6 +5777,7 @@ def draw_blacksmith_turret_ui(surface):
 blacksmith_hammer_available = True
 blacksmith_hammer_shock_charging = False
 BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
+BLACKSMITH_PADDLE_NO_HAMMER_IMG = create_blacksmith_paddle_base(include_hammer=False)
 try:
     BLACKSMITH_MISSILE_IMG = pygame.image.load(resource_path("ui/blacksmith_missile.png")).convert_alpha()
 except Exception:
