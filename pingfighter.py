@@ -35404,12 +35404,12 @@ def show_item_manager_menu():
         arrow_up_rect_screen = None
         arrow_down_rect_screen = None
         # 델타 타임 계산
-        dt = clock.tick(60)  # 60 FPS
-        
+        dt_seconds = clock.tick(60) / 1000.0  # 60 FPS 기준 델타(초)
+
         # 전설 아이템 애니메이션 업데이트
         for item in legendary_items:
             if "item_obj" in item:
-                item["item_obj"].update(dt)
+                item["item_obj"].update(dt_seconds)
         
         # 배경 그리기
         SCREEN.fill((10, 10, 40))
