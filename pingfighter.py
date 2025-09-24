@@ -6033,6 +6033,9 @@ blacksmith_hammer_shock_cooldown_timer = 0
 blacksmith_hammer_shock_projectiles = []
 blacksmith_hammer_shock_anchor_x = 0
 blacksmith_hammer_shock_anchor_y = 0
+blacksmith_hammer_head_local_point = None
+blacksmith_hammer_head_surface_point = None
+blacksmith_hammer_charge_position = None
 blacksmith_hammer_head_local_point: pygame.math.Vector2 | tuple[float, float] | None = None
 blacksmith_hammer_head_surface_point: pygame.math.Vector2 | tuple[float, float] | None = None
 blacksmith_hammer_charge_position: tuple[float, float] | None = None
@@ -26470,6 +26473,9 @@ def show_start_screen():
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     blacksmith_hammer_shock_anchor_x = 0
     blacksmith_hammer_shock_anchor_y = 0
+    global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
+    blacksmith_hammer_head_surface_point = None
+    blacksmith_hammer_charge_position = None
 
     bgm_manager.play_menu_bgm()
 
