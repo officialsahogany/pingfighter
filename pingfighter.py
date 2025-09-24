@@ -4892,27 +4892,15 @@ def release_blacksmith_hammer_shock():
 def _check_boss_crack_collision(boss_rect, crack):
     """Check if boss paddle collides with a ground crack using line-rectangle collision"""
     # Create a line segment for the crack
-    line_start_x = crack["x"]
-    line_start_y = crack["y"]
-    line_end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
-    line_end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
-    
-    # Add thickness to the crack - padding now configurable for boss collisions
+    line_start_x = crack.get("x", 0.0)
+    line_start_y = crack.get("y", 0.0)
+    line_end_x = line_start_x + math.cos(crack.get("angle", 0.0)) * crack.get("length", 0.0)
+    line_end_y = line_start_y + math.sin(crack.get("angle", 0.0)) * crack.get("length", 0.0)
+
     boss_padding = crack.get("boss_padding", BLACKSMITH_GROUND_CRACK_BOSS_PADDING)
     thickness = crack.get("thickness", 2) + boss_padding
 
-    # Quick reject using expanded bounding box
-    min_x = min(line_start_x, line_end_x) - thickness
-    max_x = max(line_start_x, line_end_x) + thickness
-    min_y = min(line_start_y, line_end_y) - thickness
-    max_y = max(line_start_y, line_end_y) + thickness
-
-    bounding_rect = pygame.Rect(
-        int(min_x),
-        int(min_y),
-        int(max(1, max_x - min_x)),
-        int(max(1, max_y - min_y)),
-    )
+    bounding_rect = _get_crack_bounding_rect(crack)
 
     if not boss_rect.colliderect(bounding_rect):
         return False
@@ -5011,18 +4999,23 @@ def _check_path_blocked_by_cracks(current_x, target_x, boss_width, boss_y, boss_
     
     if 'blacksmith_ground_cracks' not in globals() or not blacksmith_ground_cracks:
         return False
-    
+
     # Check multiple points along the path
     steps = 5
     for i in range(steps + 1):
         t = i / steps
         check_x = current_x + (target_x - current_x) * t
         test_rect = pygame.Rect(check_x, boss_y, boss_width, boss_height)
-        
+
         for crack in blacksmith_ground_cracks:
+            crack_bounds = _get_crack_bounding_rect(crack)
+            path_min_x = min(current_x, target_x) - boss_width
+            path_max_x = max(current_x + boss_width, target_x + boss_width)
+            if crack_bounds.right < path_min_x or crack_bounds.left > path_max_x:
+                continue
             if _check_boss_crack_collision(test_rect, crack):
                 return True
-    
+
     return False
 
 def _is_boss_movement_valid(new_x):
@@ -5061,6 +5054,27 @@ def _boss_get_crack_collision(boss_rect: pygame.Rect, apply_response: bool = Fal
             return crack
 
     return None
+
+
+def _get_crack_bounding_rect(crack: dict) -> pygame.Rect:
+    line_start_x = crack.get("x", 0.0)
+    line_start_y = crack.get("y", 0.0)
+    length = crack.get("length", 0.0)
+    angle = crack.get("angle", 0.0)
+    line_end_x = line_start_x + math.cos(angle) * length
+    line_end_y = line_start_y + math.sin(angle) * length
+    boss_padding = crack.get("boss_padding", BLACKSMITH_GROUND_CRACK_BOSS_PADDING)
+    thickness = crack.get("thickness", 2) + boss_padding
+
+    min_x = min(line_start_x, line_end_x) - thickness
+    max_x = max(line_start_x, line_end_x) + thickness
+    min_y = min(line_start_y, line_end_y) - thickness
+    max_y = max(line_start_y, line_end_y) + thickness
+
+    width = max(1, int(math.ceil(max_x - min_x)))
+    height = max(1, int(math.ceil(max_y - min_y)))
+
+    return pygame.Rect(int(math.floor(min_x)), int(math.floor(min_y)), width, height)
 
 
 def _shatter_blacksmith_crack(crack: dict, play_sound: bool = True):
