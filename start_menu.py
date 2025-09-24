@@ -14,7 +14,11 @@ from start_menu_decorations import (
     draw_scan_lines,
     draw_star_field,
 )
-from start_menu_config import ENABLE_SCAN_LINES, IDLE_CINEMATIC_DELAY_MS
+from start_menu_config import (
+    ENABLE_NEON_PARTICLES,
+    ENABLE_SCAN_LINES,
+    IDLE_CINEMATIC_DELAY_MS,
+)
 
 BASE_MENU_OPTIONS = ["경기장 입장", "테스트메뉴", "메달샵", "크레딧"]
 MENU_ICONS = {
@@ -54,7 +58,16 @@ def _update_background_layers(
         simple_bg.draw(screen)
 
     state.star_field = draw_star_field(screen, width, height, state.animation_timer, state.star_field)
-    state.neon_particles = draw_neon_particles(screen, width, height, state.animation_timer, state.neon_particles)
+    if ENABLE_NEON_PARTICLES:
+        state.neon_particles = draw_neon_particles(
+            screen,
+            width,
+            height,
+            state.animation_timer,
+            state.neon_particles,
+        )
+    elif state.neon_particles:
+        state.neon_particles.clear()
     if ENABLE_SCAN_LINES:
         state.scan_lines = draw_scan_lines(screen, width, height, state.scan_lines)
 
