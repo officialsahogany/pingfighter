@@ -5234,28 +5234,36 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         
         # Draw collision bounds for debugging (semi-transparent red)
         if True:  # Always show collision bounds
-            collision_thickness = crack.get("thickness", 2) + 20
-            # Draw the actual collision rect that boss checks against
-            # This matches the collision detection logic
-            crack_min_x = min(crack["x"], crack["x"] + math.cos(crack["angle"]) * crack["length"])
-            crack_max_x = max(crack["x"], crack["x"] + math.cos(crack["angle"]) * crack["length"])
-            crack_min_y = min(crack["y"], crack["y"] + math.sin(crack["angle"]) * crack["length"])
-            crack_max_y = max(crack["y"], crack["y"] + math.sin(crack["angle"]) * crack["length"])
+            collision_thickness = crack.get("thickness", 2) + 30  # Match the collision detection thickness
             
-            # Expand bounds by collision thickness
-            crack_min_x -= collision_thickness
-            crack_max_x += collision_thickness
-            crack_min_y -= collision_thickness
-            crack_max_y += collision_thickness
+            # Draw the actual collision area that boss checks against
+            # Create a thick line by drawing a polygon
+            angle_perp = crack["angle"] + math.pi / 2
+            x1 = crack["x"] + math.cos(angle_perp) * collision_thickness
+            y1 = crack["y"] + math.sin(angle_perp) * collision_thickness
+            x2 = crack["x"] - math.cos(angle_perp) * collision_thickness
+            y2 = crack["y"] - math.sin(angle_perp) * collision_thickness
             
-            # Draw the collision rect
-            collision_rect = pygame.Rect(
-                int(crack_min_x + offset_x),
-                int(crack_min_y + offset_y),
-                int(crack_max_x - crack_min_x),
-                int(crack_max_y - crack_min_y)
-            )
-            pygame.draw.rect(surface, (255, 0, 0, 50), collision_rect, 2)
+            end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
+            end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
+            
+            x3 = end_x - math.cos(angle_perp) * collision_thickness
+            y3 = end_y - math.sin(angle_perp) * collision_thickness
+            x4 = end_x + math.cos(angle_perp) * collision_thickness
+            y4 = end_y + math.sin(angle_perp) * collision_thickness
+            
+            # Draw the collision polygon with offset applied
+            collision_points = [
+                (x1 + offset_x, y1 + offset_y),
+                (x2 + offset_x, y2 + offset_y),
+                (x3 + offset_x, y3 + offset_y),
+                (x4 + offset_x, y4 + offset_y)
+            ]
+            
+            # Draw semi-transparent red polygon for collision area
+            collision_surface = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
+            pygame.draw.polygon(collision_surface, (255, 0, 0, 80), collision_points)
+            surface.blit(collision_surface, (0, 0))
         
         # Draw main crack line
         end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
