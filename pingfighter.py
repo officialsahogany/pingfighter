@@ -4928,7 +4928,12 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             start_y = center_y + math.sin(angle) * start_scaled + offset_y
             end_x = center_x + math.cos(angle) * end_scaled + offset_x
             end_y = center_y + math.sin(angle) * end_scaled + offset_y
-            color = (255, 230 - stage * 8, 150 + stage * 10, int(140 * remaining_ratio))
+            color = (
+                190,
+                220 + stage * 10,
+                255,
+                int(150 * remaining_ratio),
+            )
             pygame.draw.line(
                 surface,
                 color,
@@ -4944,7 +4949,7 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             sy = center_y + math.sin(angle) * dist_scaled + offset_y
             pygame.draw.circle(
                 surface,
-                (255, 240, 200, int(140 * remaining_ratio)),
+                (215, 240, 255, int(160 * remaining_ratio)),
                 (int(sx), int(sy)),
                 max(1, int(size * scale * 0.8)),
             )

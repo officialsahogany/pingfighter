@@ -2264,7 +2264,7 @@ class LegendaryItemManager:
         if "poseidon_trident" not in self.unlocked_items:
             self.unlocked_items.append("poseidon_trident")
 
-        # 신성 월계수는 전시용 아이콘이므로 기본 해금 목록에서 제외한다.
+        # 신성 월계수는 전시용 아이콘이므로 기본 해금 상태로 유지한다.
         
     
     def _init_legendary_items(self):
