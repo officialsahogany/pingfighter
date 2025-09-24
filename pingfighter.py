@@ -4698,7 +4698,10 @@ def update_blacksmith_hammer_shock(keys):
     for proj in blacksmith_hammer_shock_projectiles:
         proj["x"] += proj.get("vx", 0.0)
         proj["y"] += proj.get("vy", 0.0)
-        proj["rotation"] = (proj.get("rotation", 0.0) + 18.0) % 360
+        if abs(proj.get("vx", 0.0)) < 1e-3 and proj.get("vy", 0.0) != 0.0:
+            proj["rotation"] = 0.0
+        else:
+            proj["rotation"] = (proj.get("rotation", 0.0) + 18.0) % 360
         proj["life"] -= 1
 
         exploded = False
