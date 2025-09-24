@@ -5109,8 +5109,8 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
 
     # Draw ground cracks first (below everything)
     for crack in blacksmith_ground_cracks:
-        life_ratio = crack["life"] / crack["max_life"]
-        alpha = int(200 * life_ratio)
+        # Cracks are now permanent, full opacity
+        alpha = 200
         
         # Calculate crack color based on stage
         stage = crack.get("stage", 1)
