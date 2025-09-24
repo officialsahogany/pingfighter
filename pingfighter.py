@@ -4613,17 +4613,22 @@ def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: flo
 
 def _spawn_blacksmith_hammer_return_fx(centerx: float, centery: float) -> None:
     global blacksmith_hammer_return_fx
-    effect_life = max(6, int(0.45 * FPS))
+    effect_life = max(6, int(0.28 * FPS))
+    anchor_offset: tuple[float, float] | None = None
+    if 'PLAYER' in globals() and PLAYER is not None:
+        anchor_offset = (
+            float(centerx - PLAYER.centerx),
+            float(centery - PLAYER.centery),
+        )
     entry = {
         "center": (float(centerx), float(centery)),
+        "anchor_offset": anchor_offset,
         "life": effect_life,
         "max_life": effect_life,
-        "stage": 3,
-        "phase": random.uniform(0.0, math.tau),
     }
     blacksmith_hammer_return_fx.append(entry)
     try:
-        effects_manager.create_impact_effect(int(centerx), int(centery), 36, is_player=False)
+        effects_manager.spawn_star_particles(int(centerx), int(centery), count=6)
     except Exception:
         pass
 
@@ -5231,25 +5236,49 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             continue
         max_life = max(1, int(fx.get("max_life", 1)))
         remaining_ratio = max(0.0, min(1.0, life / max_life))
-        stage = int(fx.get("stage", 3))
-        center_x, center_y = fx.get("center", (0.0, 0.0))
-        base_surface = _get_blacksmith_hammer_charge_surface(stage)
-        base_width = base_surface.get_width()
-        scale = 1.15 + 0.45 * (1.0 - remaining_ratio)
-        scaled_size = (
-            max(1, int(base_width * scale)),
-            max(1, int(base_width * scale)),
+        anchor_offset = fx.get("anchor_offset")
+        base_center = fx.get("center", (0.0, 0.0))
+        if anchor_offset is not None and 'PLAYER' in globals() and PLAYER is not None:
+            center_x = PLAYER.centerx + float(anchor_offset[0])
+            center_y = PLAYER.centery + float(anchor_offset[1])
+        else:
+            center_x, center_y = base_center
+
+        size = int(24 + 14 * (1.0 - remaining_ratio))
+        size = max(12, size)
+        flash_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        radius = size // 2
+        intensity = int(220 * remaining_ratio)
+        pygame.draw.circle(
+            flash_surface,
+            (210, 240, 255, intensity),
+            (radius, radius),
+            max(3, radius // 2),
         )
-        scaled_surface = pygame.transform.smoothscale(base_surface, scaled_size)
-        fade_surface = scaled_surface.copy()
-        fade_surface.fill(
-            (255, 255, 255, int(200 * remaining_ratio)),
-            special_flags=pygame.BLEND_RGBA_MULT,
+        pygame.draw.circle(
+            flash_surface,
+            (255, 255, 255, min(255, intensity + 20)),
+            (radius, radius),
+            max(2, radius // 3),
         )
-        rect = fade_surface.get_rect(
+
+        spoke_length = radius
+        spoke_alpha = int(200 * remaining_ratio)
+        spoke_color = (180, 225, 255, spoke_alpha)
+        for angle in (0, math.pi / 2, math.pi / 4, -math.pi / 4):
+            dx = math.cos(angle) * spoke_length
+            dy = math.sin(angle) * spoke_length
+            pygame.draw.aaline(
+                flash_surface,
+                spoke_color,
+                (radius - dx, radius - dy),
+                (radius + dx, radius + dy),
+            )
+
+        rect = flash_surface.get_rect(
             center=(int(center_x + offset_x), int(center_y + offset_y))
         )
-        surface.blit(fade_surface, rect, special_flags=pygame.BLEND_ADD)
+        surface.blit(flash_surface, rect, special_flags=pygame.BLEND_ADD)
 
         fx["life"] = life - 1
         updated_return_fx.append(fx)
