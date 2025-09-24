@@ -46,6 +46,7 @@ from events.stage1_event_integration import Stage1EventManager
 from game_logic.checkmate_system import get_checkmate_system
 from game_logic.game_loop import LegacyHooks, create_game_loop
 from resource_path import resource_path
+from hammer_explosion import get_hammer_explosion_manager
 from utils.game_helpers import (
     get_stage_color,
     fade_color,
