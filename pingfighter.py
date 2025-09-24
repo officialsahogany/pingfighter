@@ -4424,6 +4424,12 @@ _blacksmith_hammer_explosion_cache: dict[tuple[int, int], pygame.Surface] = {}
 blacksmith_hammer_explosions: list[dict[str, object]] = []
 
 
+def init_blacksmith_globals():
+    """Blacksmith 관련 전역 변수 초기화 및 캐시 클리어"""
+    global _blacksmith_hammer_explosion_cache
+    _blacksmith_hammer_explosion_cache.clear()
+    print("Blacksmith hammer explosion cache cleared")
+
 def _clamp_color(color: tuple[int, ...]) -> tuple[int, ...]:
     return tuple(max(0, min(255, int(component))) for component in color)
 

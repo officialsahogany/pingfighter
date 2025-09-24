@@ -32,6 +32,18 @@ test_stages = [1, 2, 3]
 current_stage_idx = 0
 explosion_timer = 0
 
+# Instructions
+print("=== Hammer Shock Explosion Test ===")
+print("Controls:")
+print("- SPACE: Create explosion")
+print("- 1/2/3: Select stage")
+print("- R: Reset cache (reload effects)")
+print("")
+print("Explosion effects now feature:")
+print("- Bright white lightning core")
+print("- Multi-layer glow effects")
+print("- Stage-specific colors")
+
 # Main loop
 running = True
 font = pygame.font.Font(None, 36)
@@ -67,6 +79,10 @@ while running:
                 current_stage_idx = 1
             elif event.key == pygame.K_3:
                 current_stage_idx = 2
+            elif event.key == pygame.K_r:
+                # Reset cache to reload effects
+                init_blacksmith_globals()
+                print("Cache reset - effects reloaded!")
     
     # Clear screen
     screen.fill((20, 20, 30))
