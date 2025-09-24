@@ -169,15 +169,15 @@ class HammerExplosion:
                 particle_surface = pygame.Surface((particle['size'] * 2, particle['size'] * 2), pygame.SRCALPHA)
                 color_with_alpha = (*particle['color'], alpha)
                 
-                # 글로우 효과
+                # 글로우 효과 (RGB만 사용)
                 glow_size = particle['size'] + 4
                 glow_alpha = alpha // 3
-                glow_color = (*particle['color'], glow_alpha)
+                glow_color = particle['color']  # RGB만 사용
                 pygame.draw.circle(particle_surface, glow_color, 
                                  (particle['size'], particle['size']), glow_size)
                 
-                # 메인 파티클
-                pygame.draw.circle(particle_surface, color_with_alpha, 
+                # 메인 파티클 (RGB만 사용)
+                pygame.draw.circle(particle_surface, particle['color'], 
                                  (particle['size'], particle['size']), int(particle['size']))
                 
                 screen.blit(particle_surface, 
