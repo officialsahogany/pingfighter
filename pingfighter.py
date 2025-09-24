@@ -42086,6 +42086,75 @@ def handle_ball():
             BALL.x += actual_vel_x
             BALL.y += actual_vel_y
             
+            # Check ball collision with ground cracks
+            cracks_to_remove = []
+            for i, crack in enumerate(blacksmith_ground_cracks):
+                # Create a line segment for the crack
+                end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
+                end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
+                
+                # Check if ball collides with crack line (simple distance check)
+                # Using point-to-line-segment distance
+                crack_thickness = crack.get("thickness", 2) + 5
+                
+                # Simple bounding box check first
+                crack_min_x = min(crack["x"], end_x) - crack_thickness
+                crack_max_x = max(crack["x"], end_x) + crack_thickness
+                crack_min_y = min(crack["y"], end_y) - crack_thickness
+                crack_max_y = max(crack["y"], end_y) + crack_thickness
+                
+                ball_rect = pygame.Rect(BALL.centerx - BALL_RADIUS, BALL.centery - BALL_RADIUS, 
+                                       BALL_RADIUS * 2, BALL_RADIUS * 2)
+                
+                # If ball is within crack bounds
+                if (ball_rect.right >= crack_min_x and ball_rect.left <= crack_max_x and
+                    ball_rect.bottom >= crack_min_y and ball_rect.top <= crack_max_y):
+                    # More precise line-circle collision
+                    # Calculate distance from ball center to line segment
+                    line_dx = end_x - crack["x"]
+                    line_dy = end_y - crack["y"]
+                    line_length_sq = line_dx * line_dx + line_dy * line_dy
+                    
+                    if line_length_sq > 0:
+                        t = max(0, min(1, ((BALL.centerx - crack["x"]) * line_dx + 
+                                          (BALL.centery - crack["y"]) * line_dy) / line_length_sq))
+                        closest_x = crack["x"] + t * line_dx
+                        closest_y = crack["y"] + t * line_dy
+                        
+                        distance = math.sqrt((BALL.centerx - closest_x) ** 2 + (BALL.centery - closest_y) ** 2)
+                        
+                        if distance <= BALL_RADIUS + crack_thickness:
+                            # Ball hit the crack! Create shatter effect
+                            cracks_to_remove.append(i)
+                            
+                            # Create shatter particles
+                            num_fragments = 15 + crack.get("stage", 1) * 5  # More fragments for higher stages
+                            for j in range(num_fragments):
+                                angle = random.uniform(0, math.pi * 2)
+                                speed = random.uniform(3, 8)
+                                fragment = {
+                                    "x": closest_x,
+                                    "y": closest_y,
+                                    "vx": math.cos(angle) * speed,
+                                    "vy": math.sin(angle) * speed,
+                                    "life": random.randint(20, 40),
+                                    "color": (100, 100, 100),  # Gray fragments
+                                    "size": random.randint(2, 5)
+                                }
+                                blacksmith_hammer_shock_particles.append(fragment)
+                            
+                            # Play crack shatter sound if available
+                            try:
+                                play_sound_with_volume(SOUND_STONEBREAK_SMALL)
+                            except:
+                                pass
+                            
+                            print(f"💥 Ground crack shattered by ball! Crack {i} at ({closest_x:.0f}, {closest_y:.0f})")
+            
+            # Remove shattered cracks
+            for i in reversed(cracks_to_remove):
+                blacksmith_ground_cracks.pop(i)
+            
             # 속도 안전 제한 (너무 빠른 속도 방지)
             current_total_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
             if current_total_speed > MAX_BALL_SPEED * 0.85:  # 최대 속도의 85% 이상이면
