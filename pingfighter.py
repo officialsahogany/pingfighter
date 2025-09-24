@@ -5957,10 +5957,6 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
                 pygame.draw.polygon(collision_surface, (255, 200, 0, 120), collision_points)
                 # Also draw thick border
                 pygame.draw.polygon(surface, (255, 255, 0), collision_points, 3)
-                # Draw collision indicator text
-                font = pygame.font.Font(None, 24)
-                text = font.render("COLLISION!", True, (255, 255, 0))
-                surface.blit(text, (crack["x"] + offset_x, crack["y"] + offset_y - 30))
             else:
                 # Normal red when not colliding
                 pygame.draw.polygon(collision_surface, (255, 0, 0, 80), collision_points)
