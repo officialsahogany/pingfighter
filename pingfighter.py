@@ -5073,7 +5073,8 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
     num_cracks = 5 + stage * 2  # 5-11 cracks depending on stage
     for i in range(num_cracks):
         angle = (math.pi * 2 * i / num_cracks) + random.uniform(-0.2, 0.2)
-        length = radius * random.uniform(0.8, 1.3)
+        base_length = radius * random.uniform(0.8, 1.3)
+        length = base_length * BLACKSMITH_GROUND_CRACK_RANGE_SCALE
         
         # Generate sub-cracks data
         sub_cracks = []
@@ -5088,15 +5089,24 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
                 "length_ratio": sub_length_ratio
             })
         
+        base_thickness = 2 + stage
+        segment_count = max(BLACKSMITH_GROUND_CRACK_BOSS_SEGMENTS_MIN, 3 + stage)
+
         crack = {
             "x": centerx,
             "y": centery,
             "angle": angle,
             "length": length,
+            "initial_length": length,
+            "segments_total": segment_count,
+            "segments_remaining": segment_count,
             "life": BLACKSMITH_GROUND_CRACK_DURATION,
             "max_life": BLACKSMITH_GROUND_CRACK_DURATION,
             "stage": stage,
-            "thickness": 2 + stage,
+            "base_thickness": base_thickness,
+            "thickness": max(1, int(round(base_thickness * BLACKSMITH_GROUND_CRACK_RANGE_SCALE))),
+            "boss_padding": BLACKSMITH_GROUND_CRACK_BOSS_PADDING,
+            "boss_touch_cooldown": 0,
             "sub_cracks": sub_cracks
         }
         blacksmith_ground_cracks.append(crack)
@@ -6899,6 +6909,12 @@ BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION = int(10 * FPS)
 # Ground crack effects
 blacksmith_ground_cracks = []  # 지면 크랙 효과
 BLACKSMITH_GROUND_CRACK_DURATION = int(3 * FPS)  # 크랙 지속시간 3초
+BLACKSMITH_GROUND_CRACK_RANGE_SCALE = 0.5
+BLACKSMITH_GROUND_CRACK_BOSS_PADDING = 15
+BLACKSMITH_GROUND_CRACK_BOSS_SEGMENTS_MIN = 3
+BLACKSMITH_GROUND_CRACK_BOSS_HIT_COOLDOWN = int(0.2 * FPS)
+BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES = int(0.25 * FPS)
+BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED = 10.0
 BLACKSMITH_TURRET_DESIGN_WIDTH = 46
 BLACKSMITH_TURRET_DESIGN_HEIGHT = 54
 BLACKSMITH_TURRET_BASE_WIDTH = int(BLACKSMITH_TURRET_DESIGN_WIDTH * 1.2)
