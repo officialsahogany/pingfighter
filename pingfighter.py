@@ -4802,6 +4802,7 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
                 "sparks": sparks,
                 "shards": shards,
                 "radius": radius,
+                "first_frame": True,  # 화면 흔들림 트리거용
             }
         )
     except Exception:
