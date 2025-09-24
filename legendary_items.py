@@ -2284,6 +2284,10 @@ class LegendaryItemManager:
             if isinstance(holy_item, HolyLaurel):
                 holy_item._poseidon_ref = poseidon_ref
                 holy_item._prepare_frames()
+        # 전시용 아이콘은 재초기화 시에도 항상 해금 상태를 유지한다.
+        holy_item = self.items.get("holy_laurel")
+        if holy_item:
+            holy_item.unlocked = True
         
     def check_unlocks(self, game_stats: Dict):
         """해금 조건 체크"""
