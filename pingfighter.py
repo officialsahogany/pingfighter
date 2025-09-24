@@ -4893,6 +4893,10 @@ def _check_boss_crack_collision(boss_rect, crack):
     """Check if boss paddle collides with a ground crack using line-rectangle collision"""
     global boss_crack_ignore_until
 
+    disabled_until = crack.get("boss_contact_disabled_until", 0)
+    if disabled_until and pygame.time.get_ticks() < disabled_until:
+        return False
+
     if pygame.time.get_ticks() < boss_crack_ignore_until:
         return False
     # Create a line segment for the crack
@@ -5344,6 +5348,9 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
         int(BLACKSMITH_GROUND_CRACK_BOSS_PADDING * max(0.15, thickness_ratio)),
     )
     crack["boss_touch_cooldown"] = BLACKSMITH_GROUND_CRACK_BOSS_HIT_COOLDOWN
+
+    if new_remaining <= max(1, segments_total // 2):
+        crack["boss_contact_disabled_until"] = pygame.time.get_ticks() + BLACKSMITH_GROUND_CRACK_PASS_THROUGH_MS
 
     if "sub_cracks" in crack:
         max_pos = min(1.0, ratio + 0.05)
@@ -7331,6 +7338,7 @@ BLACKSMITH_GROUND_CRACK_FEEDBACK_SPEED = 6.0
 BLACKSMITH_GROUND_CRACK_IGNORE_DURATION_MS = 180
 BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_DELAY_MS = 480
 BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_COOLDOWN_MS = 450
+BLACKSMITH_GROUND_CRACK_PASS_THROUGH_MS = 420
 BLACKSMITH_TURRET_DESIGN_WIDTH = 46
 BLACKSMITH_TURRET_DESIGN_HEIGHT = 54
 BLACKSMITH_TURRET_BASE_WIDTH = int(BLACKSMITH_TURRET_DESIGN_WIDTH * 1.2)
