@@ -5063,6 +5063,7 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         surface.blit(rotated, rect)
 
     global blacksmith_hammer_explosions, screen_shake_timer, screen_shake_intensity
+    global blacksmith_hammer_return_fx
     updated_explosions: list[dict[str, object]] = []
     for explosion in blacksmith_hammer_explosions:
         life = int(explosion.get("life", 0))
@@ -5222,6 +5223,49 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         if explosion["life"] > 0:
             updated_explosions.append(explosion)
     blacksmith_hammer_explosions = updated_explosions
+
+    updated_return_fx: list[dict[str, object]] = []
+    for fx in blacksmith_hammer_return_fx:
+        life = int(fx.get("life", 0))
+        if life <= 0:
+            continue
+        max_life = max(1, int(fx.get("max_life", 1)))
+        remaining_ratio = max(0.0, min(1.0, life / max_life))
+        stage = int(fx.get("stage", 3))
+        center_x, center_y = fx.get("center", (0.0, 0.0))
+        base_surface = _get_blacksmith_hammer_charge_surface(stage)
+        base_width = base_surface.get_width()
+        scale = 1.15 + 0.45 * (1.0 - remaining_ratio)
+        scaled_size = (
+            max(1, int(base_width * scale)),
+            max(1, int(base_width * scale)),
+        )
+        scaled_surface = pygame.transform.smoothscale(base_surface, scaled_size)
+        fade_surface = scaled_surface.copy()
+        fade_surface.fill(
+            (255, 255, 255, int(200 * remaining_ratio)),
+            special_flags=pygame.BLEND_RGBA_MULT,
+        )
+        rect = fade_surface.get_rect(
+            center=(int(center_x + offset_x), int(center_y + offset_y))
+        )
+        surface.blit(fade_surface, rect, special_flags=pygame.BLEND_ADD)
+
+        ring_radius = max(2, int((scaled_size[0] / 2) * (1.0 + 0.25 * (1.0 - remaining_ratio))))
+        ring_alpha = int(150 * remaining_ratio)
+        if ring_alpha > 0:
+            pygame.draw.circle(
+                surface,
+                (180, 228, 255, ring_alpha),
+                (int(center_x + offset_x), int(center_y + offset_y)),
+                ring_radius,
+                width=2,
+            )
+
+        fx["life"] = life - 1
+        updated_return_fx.append(fx)
+
+    blacksmith_hammer_return_fx = updated_return_fx
 
 def update_blacksmith_divine_stone():
     """디바인 스톤 상태 및 충돌 업데이트"""
