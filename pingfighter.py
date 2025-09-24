@@ -7349,6 +7349,7 @@ BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_DELAY_MS = 300  # Reduced from 480 to 300
 BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_COOLDOWN_MS = 300  # Reduced from 450 to 300
 BLACKSMITH_GROUND_CRACK_PASS_THROUGH_MS = 80  # 넉백 후 0.08초 만에 재충돌 가능하도록 추가 단축
 ENABLE_CRACK_TIMING_DEBUG = False  # 디버그 로그 기본 비활성화
+ENABLE_BOSS_KNOCKBACK_DEBUG = False
 BLACKSMITH_GROUND_CRACK_APPROACH_DISTANCE = 220
 BLACKSMITH_GROUND_CRACK_APPROACH_VERTICAL_MARGIN = 160
 BLACKSMITH_TURRET_DESIGN_WIDTH = 46
@@ -47060,7 +47061,8 @@ def handle_boss():
                 else:  # 마지막 0.5초는 점진적 감속
                     boss_knockback_vel *= 0.97  # 3% 감속
             
-            print(f"[DEBUG] 보스 넉백 업데이트 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}, pos: {BOSS.x:.2f}")
+            if ENABLE_BOSS_KNOCKBACK_DEBUG:
+                print(f"[DEBUG] 보스 넉백 업데이트 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}, pos: {BOSS.x:.2f}")
         
         # 라그나로크 해머만의 추가 효과
         if is_ragnarok_knockback:
