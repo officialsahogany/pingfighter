@@ -45485,11 +45485,9 @@ def handle_boss_mythic():
         can_move = True
         
         # Check collision with ground cracks
-        for crack in blacksmith_ground_cracks:
-            if _check_boss_crack_collision(proposed_boss_rect, crack):
-                can_move = False
-                boss_current_speed = 0  # Stop the boss
-                break
+        if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
+            can_move = False
+            boss_current_speed = 0  # Stop the boss
         
         if can_move:
             BOSS.x = proposed_x
@@ -45751,11 +45749,9 @@ def handle_boss_mythic():
         can_move = True
         
         # Check collision with ground cracks
-        for crack in blacksmith_ground_cracks:
-            if _check_boss_crack_collision(proposed_boss_rect, crack):
-                can_move = False
-                boss_current_speed = 0  # Stop the boss
-                break
+        if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
+            can_move = False
+            boss_current_speed = 0  # Stop the boss
         
         if can_move:
             BOSS.x = proposed_x
