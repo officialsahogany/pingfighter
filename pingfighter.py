@@ -47029,9 +47029,26 @@ def handle_boss():
         boss_current_speed -= enhanced_instant_stop
     elif future_x > BOSS.centerx and boss_current_speed < 0:
         boss_current_speed += enhanced_instant_stop
-    # 이동 적용
-    BOSS.centerx += boss_current_speed
-    BOSS.centerx = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, BOSS.centerx))
+    # 이동 적용 with ground crack collision check
+    proposed_x = BOSS.x + boss_current_speed
+    proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
+    can_move = True
+    
+    # 지면 크랙과의 충돌 체크
+    if 'blacksmith_ground_cracks' in globals() and blacksmith_ground_cracks:
+        for crack in blacksmith_ground_cracks:
+            if _check_boss_crack_collision(proposed_boss_rect, crack):
+                can_move = False
+                break
+    
+    if can_move:
+        BOSS.centerx += boss_current_speed
+        BOSS.centerx = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, BOSS.centerx))
+    else:
+        # 크랙에 막혀서 움직일 수 없음
+        boss_current_speed = 0  # 속도도 0으로 리셋
+        if random.random() < 0.1:  # 10% chance to print debug
+            print(f"[CRACK BLOCKED - Main AI] Boss cannot move from x={BOSS.x} to x={proposed_x}")
     # --- Stage 2 보스 스피드 디펜스 (위험감지센서 역할) ---
     if current_stage == 2:
         # 서브 유예 기간 카운트다운 (난이도 하향)
