@@ -1687,6 +1687,8 @@ class HolyLaurel(LegendaryItem):
         self.frame_counter = 0
         self.animation_speed = 8  # 기본값 (포세이돈 삼지창과 동일 속도로 덮어씀)
         self._poseidon_ref: Optional[LegendaryItem] = poseidon_ref
+        # 아이템 관리자 전용 프리뷰에서는 독립된 프레임만 사용한다.
+        self._sync_with_poseidon = False
         self._prepare_frames()
 
     def _ensure_poseidon_ref(self) -> Optional[LegendaryItem]:
@@ -1703,21 +1705,22 @@ class HolyLaurel(LegendaryItem):
 
     def _prepare_frames(self) -> None:
         """포세이돈 삼지창 애니메이션을 그대로 참조하여 동기화한다."""
-        poseidon = self._ensure_poseidon_ref()
-        if poseidon and hasattr(poseidon, "icon_frames"):
-            self.icon_frames = poseidon.icon_frames
-            self.animation_frames = getattr(poseidon, "animation_frames", poseidon.icon_frames)
-            self.animation_speed = getattr(poseidon, "animation_speed", self.animation_speed)
-            return
+        if self._sync_with_poseidon:
+            poseidon = self._ensure_poseidon_ref()
+            if poseidon and hasattr(poseidon, "icon_frames"):
+                self.icon_frames = poseidon.icon_frames
+                self.animation_frames = getattr(poseidon, "animation_frames", poseidon.icon_frames)
+                self.animation_speed = getattr(poseidon, "animation_speed", self.animation_speed)
+                return
 
-        if not self.icon_frames:
-            try:
-                fallback = pygame.image.load(resource_path("items/legendary/holy_laurel.png")).convert_alpha()
-            except Exception:
-                fallback = pygame.Surface((60, 60), pygame.SRCALPHA)
-                pygame.draw.circle(fallback, (200, 200, 255), (30, 30), 28, 2)
-            self.icon_frames = [fallback]
-            self.animation_frames = [fallback]
+        try:
+            laurel = pygame.image.load(resource_path("items/legendary/holy_laurel.png")).convert_alpha()
+        except Exception:
+            laurel = pygame.Surface((60, 60), pygame.SRCALPHA)
+            pygame.draw.circle(laurel, (200, 200, 255), (30, 30), 28, 2)
+
+        self.icon_frames = [laurel]
+        self.animation_frames = [laurel]
 
     def activate(self, game_state: Dict):
         """전시용 아이콘은 실제 효과가 없다."""
@@ -1725,13 +1728,14 @@ class HolyLaurel(LegendaryItem):
 
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
-        poseidon = self._ensure_poseidon_ref()
-        if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
-            self.icon_frames = poseidon.icon_frames
-            self.animation_frames = getattr(poseidon, "animation_frames", poseidon.icon_frames)
-            self.animation_speed = getattr(poseidon, "animation_speed", self.animation_speed)
-            self.current_frame = getattr(poseidon, "current_frame", 0)
-            return
+        if self._sync_with_poseidon:
+            poseidon = self._ensure_poseidon_ref()
+            if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
+                self.icon_frames = poseidon.icon_frames
+                self.animation_frames = getattr(poseidon, "animation_frames", poseidon.icon_frames)
+                self.animation_speed = getattr(poseidon, "animation_speed", self.animation_speed)
+                self.current_frame = getattr(poseidon, "current_frame", 0)
+                return
 
         if self.icon_frames and len(self.icon_frames) > 1:
             self.frame_counter += 1
@@ -1741,14 +1745,15 @@ class HolyLaurel(LegendaryItem):
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
-        poseidon = self._ensure_poseidon_ref()
-        if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
-            ref_frames = poseidon.icon_frames
-            frame_index = getattr(poseidon, "current_frame", 0) % len(ref_frames)
-            frame = ref_frames[frame_index]
-            scaled = pygame.transform.scale(frame, (size, size))
-            screen.blit(scaled, (x, y + frame_offset))
-            return
+        if self._sync_with_poseidon:
+            poseidon = self._ensure_poseidon_ref()
+            if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
+                ref_frames = poseidon.icon_frames
+                frame_index = getattr(poseidon, "current_frame", 0) % len(ref_frames)
+                frame = ref_frames[frame_index]
+                scaled = pygame.transform.scale(frame, (size, size))
+                screen.blit(scaled, (x, y + frame_offset))
+                return
 
         if self.icon_frames:
             frame = self.icon_frames[self.current_frame % len(self.icon_frames)]
