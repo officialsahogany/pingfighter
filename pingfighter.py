@@ -47143,10 +47143,10 @@ def handle_boss():
                     knockback_power = 40  # 수류탄과 동일한 넉백 강도
                     if explosion["x"] < WIDTH / 2:
                         # 폭발이 왼쪽에서 터지면 보스를 오른쪽으로 넉백
-                        boss_knockback_vel = knockback_power
+                        boss_knockback_vel = _apply_boss_knockback_velocity(knockback_power)
                     else:
                         # 폭발이 오른쪽에서 터지면 보스를 왼쪽으로 넉백
-                        boss_knockback_vel = -knockback_power
+                        boss_knockback_vel = _apply_boss_knockback_velocity(-knockback_power)
                     
                     print(f"🚀💥 바주카포 폭발! 보스 스턴 1.5초, 넉백: {boss_knockback_vel}")
 
