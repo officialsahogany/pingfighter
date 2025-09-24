@@ -45485,22 +45485,22 @@ def handle_boss_champion():
             can_move = True
             
             # Check collision with ground cracks
-        collision_crack = _boss_get_crack_collision(proposed_boss_rect, apply_response=True)
-        if collision_crack:
-            can_move = False
-            boss_current_speed = 0  # Stop the boss
-            print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
-            print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
-            _update_boss_crack_stuck_state(False, proposed_boss_rect)
+            collision_crack = _boss_get_crack_collision(proposed_boss_rect, apply_response=True)
+            if collision_crack:
+                can_move = False
+                boss_current_speed = 0  # Stop the boss
+                print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
+                print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
+                _update_boss_crack_stuck_state(False, proposed_boss_rect)
 
-        if can_move:
-            BOSS.x = new_position
-            boss_current_speed = new_velocity
-            _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
-        else:
-            # Boss cannot move due to crack collision
-            # Keep boss at current position
-            print(f"Boss movement blocked, staying at x={BOSS.x}")
+            if can_move:
+                BOSS.x = new_position
+                boss_current_speed = new_velocity
+                _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
+            else:
+                # Boss cannot move due to crack collision
+                # Keep boss at current position
+                print(f"Boss movement blocked, staying at x={BOSS.x}")
             
         #  일반 스무딩 시스템 (fallback)
         elif SMOOTH_MOVEMENT_AVAILABLE:
@@ -45523,15 +45523,15 @@ def handle_boss_champion():
             can_move = True
             
             # Check collision with ground cracks
-        if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
-            can_move = False
-            boss_current_speed = 0  # Stop the boss
-            _update_boss_crack_stuck_state(False, proposed_boss_rect)
+            if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
+                can_move = False
+                boss_current_speed = 0  # Stop the boss
+                _update_boss_crack_stuck_state(False, proposed_boss_rect)
 
-        if can_move:
-            BOSS.x = new_position
-            boss_current_speed = new_speed
-            _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
+            if can_move:
+                BOSS.x = new_position
+                boss_current_speed = new_speed
+                _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
     else:
         # 기존 위치 업데이트 로직 with ground crack collision check
         proposed_x = BOSS.x + boss_current_speed
