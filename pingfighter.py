@@ -5732,6 +5732,7 @@ def update_blacksmith_hammer_shock(keys):
     global PLAYER, special_gauge, special_ready, special_gauge_max
     global BALL, ball_vel, last_hit_by, player_collision_handled
     global stopwatch_active, stopwatch_timer
+    global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
         blacksmith_hammer_shock_cooldown_timer -= 1
