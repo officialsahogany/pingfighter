@@ -4893,11 +4893,15 @@ def _check_boss_crack_collision(boss_rect, crack):
     """Check if boss paddle collides with a ground crack using line-rectangle collision"""
     global boss_crack_ignore_until
 
-    disabled_until = crack.get("boss_contact_disabled_until", 0)
-    if disabled_until and pygame.time.get_ticks() < disabled_until:
-        return False
+    current_ticks = pygame.time.get_ticks()
 
-    if pygame.time.get_ticks() < boss_crack_ignore_until:
+    disabled_until = crack.get("boss_contact_disabled_until", 0)
+    if disabled_until and current_ticks < disabled_until:
+        return False
+    if disabled_until and current_ticks >= disabled_until:
+        crack.pop("boss_contact_disabled_until", None)
+
+    if current_ticks < boss_crack_ignore_until:
         return False
     # Create a line segment for the crack
     line_start_x = crack.get("x", 0.0)
@@ -5210,6 +5214,9 @@ def _force_clear_nearest_crack(boss_rect: pygame.Rect) -> bool:
 
     for crack in list(blacksmith_ground_cracks):
         bounding_rect = _get_crack_bounding_rect(crack)
+
+        if _should_skip_crack_for_rect(crack, boss_rect, bounding_rect):
+            continue
 
         line_start_x = crack.get("x", 0.0)
         line_start_y = crack.get("y", 0.0)
