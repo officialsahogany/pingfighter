@@ -5110,6 +5110,22 @@ def update_blacksmith_hammer_shock(keys):
     # Update ground cracks (now permanent - no life decay)
     # Ground cracks remain until shattered by ball impact
     pass
+    
+    # Update hammer shock particles (for shatter effects)
+    global blacksmith_hammer_shock_particles
+    updated_particles = []
+    for particle in blacksmith_hammer_shock_particles:
+        # Update particle position
+        particle["x"] += particle["vx"]
+        particle["y"] += particle["vy"]
+        # Apply gravity
+        particle["vy"] += 0.5
+        # Reduce life
+        particle["life"] -= 1
+        # Keep particle if still alive
+        if particle["life"] > 0:
+            updated_particles.append(particle)
+    blacksmith_hammer_shock_particles = updated_particles
 
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions = [
