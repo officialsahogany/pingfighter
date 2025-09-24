@@ -4505,7 +4505,7 @@ def _get_blacksmith_hammer_explosion_surface(stage: int) -> pygame.Surface:
     surface = pygame.Surface((size, size), pygame.SRCALPHA)
     center = size // 2
 
-    gradient_steps = 28
+    gradient_steps = 32
     core_color = palette.get("core", (255, 248, 230))
     mid_color = palette.get("mid", (210, 180, 120))
     edge_color = palette.get("edge", (160, 110, 70))
@@ -4516,9 +4516,16 @@ def _get_blacksmith_hammer_explosion_surface(stage: int) -> pygame.Surface:
         if radius_step <= 0:
             continue
 
-        blend_mid = tuple(int(lerp(edge_color[i], mid_color[i], ratio ** 0.75)) for i in range(3))
-        color_rgb = tuple(int(lerp(blend_mid[i], core_color[i], ratio ** 1.1)) for i in range(3))
-        alpha = int(lerp(70, 255, ratio ** 1.2))
+        outer_mix_threshold = 0.68
+        if ratio <= outer_mix_threshold:
+            mix = ratio / max(outer_mix_threshold, 1e-6)
+            color_rgb = tuple(int(lerp(edge_color[i], mid_color[i], mix ** 1.05)) for i in range(3))
+        else:
+            mix = (ratio - outer_mix_threshold) / max(1.0 - outer_mix_threshold, 1e-6)
+            color_rgb = tuple(int(lerp(mid_color[i], core_color[i], mix ** 0.85)) for i in range(3))
+
+        falloff = 1.0 - ratio
+        alpha = int(lerp(60, 255, falloff ** 0.8))
         pygame.draw.circle(
             surface,
             _clamp_color((*color_rgb, alpha)),
@@ -4531,6 +4538,14 @@ def _get_blacksmith_hammer_explosion_surface(stage: int) -> pygame.Surface:
         _clamp_color((*core_color, 255)),
         (center, center),
         max(2, int(visual_radius * 0.18)),
+    )
+
+    pygame.draw.circle(
+        surface,
+        _clamp_color((*mid_color, 140)),
+        (center, center),
+        max(2, int(visual_radius * 0.42)),
+        width=2,
     )
 
     glyph_surface = pygame.Surface((size, size), pygame.SRCALPHA)
@@ -4548,7 +4563,7 @@ def _get_blacksmith_hammer_explosion_surface(stage: int) -> pygame.Surface:
             1 + (ring_idx % 2),
         )
 
-    spoke_count = 6 + stage_index * 2
+    spoke_count = 10
     for idx in range(spoke_count):
         angle = (math.tau * idx) / spoke_count
         inner = visual_radius * 0.26
@@ -4557,9 +4572,18 @@ def _get_blacksmith_hammer_explosion_surface(stage: int) -> pygame.Surface:
         start_y = center + math.sin(angle) * inner
         end_x = center + math.cos(angle) * outer
         end_y = center + math.sin(angle) * outer
+        outer_alpha = 90 if stage_index == 1 else 110
+        core_alpha = 170 if stage_index >= 2 else 150
         pygame.draw.line(
             glyph_surface,
-            _clamp_color((*glyph_color, 120)),
+            _clamp_color((*glyph_color, outer_alpha)),
+            (int(start_x), int(start_y)),
+            (int(end_x), int(end_y)),
+            5,
+        )
+        pygame.draw.line(
+            glyph_surface,
+            _clamp_color((*glyph_color, core_alpha)),
             (int(start_x), int(start_y)),
             (int(end_x), int(end_y)),
             2,
@@ -4579,6 +4603,14 @@ def _get_blacksmith_hammer_explosion_surface(stage: int) -> pygame.Surface:
             2,
         )
 
+    pygame.draw.circle(
+        glyph_surface,
+        _clamp_color((*glyph_color, 120)),
+        (center, center),
+        max(2, int(visual_radius * 0.24)),
+        width=1,
+    )
+
     surface.blit(glyph_surface, (0, 0), special_flags=pygame.BLEND_ADD)
     _blacksmith_hammer_explosion_surface_cache[stage_index] = surface
     return surface
@@ -4590,7 +4622,7 @@ def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: flo
     base_surface = _get_blacksmith_hammer_explosion_surface(stage_index)
 
     life_frames = int((0.5 + 0.12 * (stage_index - 1)) * FPS)
-    glyph_branches = 6 + stage_index * 2
+    glyph_branches = 10
     inner_base = radius * (0.18 + 0.02 * stage_index)
     outer_base = radius * (0.74 + 0.1 * stage_index)
 
@@ -4603,7 +4635,7 @@ def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: flo
 
     sparks: list[tuple[float, float, float]] = []
     spark_color = palette.get("sparks", (215, 240, 255))
-    spark_count = 14 + stage_index * 4
+    spark_count = 18 + stage_index * 4
     for _ in range(spark_count):
         angle = random.uniform(0, math.tau)
         distance = radius * random.uniform(0.32, 0.95)
@@ -4613,6 +4645,7 @@ def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: flo
     shard_count = 12 + stage_index * 6
     shards: list[dict[str, float | int]] = []
     shard_alpha = 200 if stage_index >= 2 else 170
+    shard_color = palette.get("shard", (220, 240, 255))
     for idx in range(shard_count):
         angle = random.uniform(0, math.tau)
         start_offset = radius * random.uniform(0.2, 0.45)
@@ -4629,13 +4662,15 @@ def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: flo
                 "length": length,
                 "speed": speed,
                 "thickness": thickness,
-                "color": palette.get("shard", (255, 255, 255)),
+                "color": shard_color,
                 "alpha": shard_alpha,
                 "notch_angle": notch_angle,
                 "notch_length": notch_length,
                 "notch_offset": notch_offset,
             }
         )
+
+    antimatter_color = palette.get("antimatter", (150, 220, 255, 170))
 
     return {
         "surface": base_surface,
@@ -4654,6 +4689,7 @@ def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: flo
         "shard_color": palette.get("shard"),
         "shard_alpha": shard_alpha,
         "halo_color": palette.get("halo"),
+        "antimatter_color": antimatter_color,
     }
 
 
