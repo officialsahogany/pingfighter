@@ -4988,6 +4988,27 @@ def _check_boss_crack_collision(boss_rect, crack):
     return False
 
 
+def _check_path_blocked_by_cracks(current_x, target_x, boss_width, boss_y, boss_height):
+    """Check if the path from current position to target position is blocked by any crack"""
+    global blacksmith_ground_cracks
+    
+    if 'blacksmith_ground_cracks' not in globals() or not blacksmith_ground_cracks:
+        return False
+    
+    # Check multiple points along the path
+    steps = 5
+    for i in range(steps + 1):
+        t = i / steps
+        check_x = current_x + (target_x - current_x) * t
+        test_rect = pygame.Rect(check_x, boss_y, boss_width, boss_height)
+        
+        for crack in blacksmith_ground_cracks:
+            if _check_boss_crack_collision(test_rect, crack):
+                return True
+    
+    return False
+
+
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
     global BOSS, blacksmith_hammer_explosions
     resolved_stage = max(1, stage)
