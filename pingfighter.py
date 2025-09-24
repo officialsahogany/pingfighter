@@ -44917,9 +44917,8 @@ def handle_boss_pro():
             
             if can_move:
                 BOSS.x = proposed_x
-        
-        # 화면 경계 제한 (스턴이 없을 때만)
-        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+                # 화면 경계 제한 (스턴이 없을 때만)
+                BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
 def handle_boss_champion():
     """ 챔피언리그: 고급 AI (8% 실수율)"""
     global boss_current_speed, boss_fail_timer
@@ -45211,9 +45210,8 @@ def handle_boss_champion():
             
             if can_move:
                 BOSS.x = proposed_x
-        
-        # 화면 경계 제한 (스턴이 없을 때만)
-        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+                # 화면 경계 제한 (스턴이 없을 때만)
+                BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
 def handle_boss_mythic():
     """ 신화리그: 최강 AI (2% 실수율) - 거의 완벽한 플레이"""
     global boss_current_speed, boss_fail_timer
@@ -45350,7 +45348,7 @@ def handle_boss_mythic():
         
         if can_move:
             BOSS.x = proposed_x
-        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
         return  # 혼란 상태에서는 나머지 AI 로직 무시
     # 1️⃣ 현재 공 상태 분석 (최신 시스템)
     current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
@@ -45879,9 +45877,8 @@ def handle_boss_junior():
             
             if can_move:
                 BOSS.x = proposed_x
-        
-        # 화면 경계 제한 (스턴이 없을 때만)
-        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+                # 화면 경계 제한 (스턴이 없을 때만)
+                BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
 def optimize_ai_memory_for_round():
     """라운드 간 AI 메모리 최적화 (가벼운 정리)"""
     global enhanced_ai, ai_decisions_history, ai_performance_stats
@@ -46760,7 +46757,7 @@ def handle_boss():
         
         if can_move:
             BOSS.x = proposed_x
-        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
         return  # 튜토리얼 AI 완료
     
     # Stage 1 상모돌리기 강제 해제 모션 중 통제불능 상태
