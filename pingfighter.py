@@ -5054,6 +5054,10 @@ def _boss_get_crack_collision(boss_rect: pygame.Rect, apply_response: bool = Fal
         if _check_boss_crack_collision(boss_rect, crack):
             if apply_response:
                 _handle_boss_crack_hit(crack, boss_rect)
+                if crack not in blacksmith_ground_cracks:
+                    continue
+                if not _check_boss_crack_collision(boss_rect, crack):
+                    continue
             return crack
 
     return None
