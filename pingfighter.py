@@ -5309,7 +5309,6 @@ def _handle_blacksmith_hammer_ball_hit(projectile: dict):
 
     stage = max(1, int(projectile.get("stage", 1) or 1))
     projectile_x = float(projectile.get("x", BALL.centerx))
-    projectile_y = float(projectile.get("y", BALL.centery))
     impact_x = float(BALL.centerx)
     impact_y = float(BALL.centery)
 
