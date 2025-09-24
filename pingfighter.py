@@ -45345,18 +45345,30 @@ def handle_boss_mythic():
     #  라그나로크 해머 스턴 체크 - 스턴 중이면 모든 움직임 업데이트 차단
     if boss_stun_timer <= 0:
         # 12️⃣ 위치 업데이트 및 벽 바운스 활용
-        BOSS.x += boss_current_speed
-        # 벽 근처에서 특수 움직임 (신화리그 전용)
-        if BOSS.x <= 5:
-            # 왼쪽 벽: 빠른 반사
-            boss_current_speed = abs(boss_current_speed) * 0.8
-            BOSS.x = 5
-        elif BOSS.x >= WIDTH - BOSS.width - 5:
-            # 오른쪽 벽: 빠른 반사
-            boss_current_speed = -abs(boss_current_speed) * 0.8
-            BOSS.x = WIDTH - BOSS.width - 5
-        else:
-            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+        proposed_x = BOSS.x + boss_current_speed
+        proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
+        can_move = True
+        
+        # Check collision with ground cracks
+        for crack in blacksmith_ground_cracks:
+            if _check_boss_crack_collision(proposed_boss_rect, crack):
+                can_move = False
+                boss_current_speed = 0  # Stop the boss
+                break
+        
+        if can_move:
+            BOSS.x = proposed_x
+            # 벽 근처에서 특수 움직임 (신화리그 전용)
+            if BOSS.x <= 5:
+                # 왼쪽 벽: 빠른 반사
+                boss_current_speed = abs(boss_current_speed) * 0.8
+                BOSS.x = 5
+            elif BOSS.x >= WIDTH - BOSS.width - 5:
+                # 오른쪽 벽: 빠른 반사
+                boss_current_speed = -abs(boss_current_speed) * 0.8
+                BOSS.x = WIDTH - BOSS.width - 5
+            else:
+                BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
     # 9️⃣ 디버그 정보 (가끔씩만)
     if random.random() < 0.02:  # 2% 확률
         print(f"  AI: ={current_speed:.1f}, =[{predictions[0]:.0f},{predictions[1]:.0f},{predictions[2]:.0f}], ={predicted_x:.0f}, ={target_distance:.0f}")
