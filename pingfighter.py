@@ -16362,6 +16362,12 @@ def handle_player(keys):
                 blacksmith_shield_swing_timer = 0
                 blacksmith_hammer_swing_phase = BLACKSMITH_HAMMER_SWING_DURATION
                 blacksmith_hammer_swing_active = True
+                
+                # 해머쇼크 폭발 이펙트 생성
+                explosion_manager = get_hammer_explosion_manager()
+                explosion_x = PLAYER.centerx + (20 if PLAYER.centerx < ball_x else -20)
+                explosion_y = ball_y
+                explosion_manager.add_explosion(explosion_x, explosion_y)
             else:
                 blacksmith_hammer_swing_active = False
                 blacksmith_hammer_swing_phase = 0
