@@ -4900,6 +4900,11 @@ def _check_boss_crack_collision(boss_rect, crack):
     boss_padding = crack.get("boss_padding", BLACKSMITH_GROUND_CRACK_BOSS_PADDING)
     thickness = crack.get("thickness", 2) + boss_padding
 
+    if boss_rect.right < crack.get("x", 0.0) - BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
+        return False
+    if boss_rect.left > crack.get("x", 0.0) + BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
+        return False
+
     bounding_rect = _get_crack_bounding_rect(crack)
 
     if bounding_rect.left - boss_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
