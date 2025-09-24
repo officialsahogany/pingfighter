@@ -5148,14 +5148,20 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     crack["segments_remaining"] = new_remaining
 
     base_length = crack.get("initial_length", crack.get("length", 0))
-    ratio = 0.0 if segments_total <= 0 else max(0.0, new_remaining / float(segments_total))
+    ratio = 0.0
+    if segments_total > 0:
+        base_ratio = new_remaining / float(segments_total)
+        ratio = max(0.0, base_ratio - BLACKSMITH_GROUND_CRACK_RATIO_OFFSET)
     crack["length"] = max(0.0, base_length * ratio)
 
     base_thickness = crack.get("base_thickness", crack.get("thickness", 1))
     initial_thickness = max(1, int(round(base_thickness * BLACKSMITH_GROUND_CRACK_RANGE_SCALE)))
     thickness_ratio = max(0.25, ratio)
     crack["thickness"] = max(1, int(round(initial_thickness * thickness_ratio)))
-    crack["boss_padding"] = max(4, int(BLACKSMITH_GROUND_CRACK_BOSS_PADDING * thickness_ratio))
+    crack["boss_padding"] = max(
+        BLACKSMITH_GROUND_CRACK_MIN_PADDING,
+        int(BLACKSMITH_GROUND_CRACK_BOSS_PADDING * max(0.15, thickness_ratio)),
+    )
     crack["boss_touch_cooldown"] = BLACKSMITH_GROUND_CRACK_BOSS_HIT_COOLDOWN
 
     if "sub_cracks" in crack:
@@ -5199,7 +5205,7 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     except Exception:
         pass
 
-    if new_remaining <= 1 or crack["length"] <= 8.0:
+    if new_remaining <= 1 or crack["length"] <= BLACKSMITH_GROUND_CRACK_REMOVE_LENGTH:
         _shatter_blacksmith_crack(crack, play_sound=False)
 
 
