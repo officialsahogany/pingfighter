@@ -44777,11 +44777,16 @@ def handle_boss_pro():
                 if _check_boss_crack_collision(proposed_boss_rect, crack):
                     can_move = False
                     boss_current_speed = 0  # Stop the boss
+                    print(f"Boss collision detected at x={new_position}, crack at x={crack['x']}")
                     break
             
             if can_move:
                 BOSS.x = new_position
                 boss_current_speed = new_velocity
+            else:
+                # Boss cannot move due to crack collision
+                # Keep boss at current position
+                print(f"Boss movement blocked, staying at x={BOSS.x}")
             
         #  일반 스무딩 시스템 (fallback)
         elif SMOOTH_MOVEMENT_AVAILABLE:
@@ -45065,11 +45070,16 @@ def handle_boss_champion():
                 if _check_boss_crack_collision(proposed_boss_rect, crack):
                     can_move = False
                     boss_current_speed = 0  # Stop the boss
+                    print(f"Boss collision detected at x={new_position}, crack at x={crack['x']}")
                     break
             
             if can_move:
                 BOSS.x = new_position
                 boss_current_speed = new_velocity
+            else:
+                # Boss cannot move due to crack collision
+                # Keep boss at current position
+                print(f"Boss movement blocked, staying at x={BOSS.x}")
             
         #  일반 스무딩 시스템 (fallback)
         elif SMOOTH_MOVEMENT_AVAILABLE:
@@ -45727,11 +45737,16 @@ def handle_boss_junior():
                 if _check_boss_crack_collision(proposed_boss_rect, crack):
                     can_move = False
                     boss_current_speed = 0  # Stop the boss
+                    print(f"Boss collision detected at x={new_position}, crack at x={crack['x']}")
                     break
             
             if can_move:
                 BOSS.x = new_position
                 boss_current_speed = new_velocity
+            else:
+                # Boss cannot move due to crack collision
+                # Keep boss at current position
+                print(f"Boss movement blocked, staying at x={BOSS.x}")
             
         #  일반 스무딩 시스템 (fallback)
         elif SMOOTH_MOVEMENT_AVAILABLE:
