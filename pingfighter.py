@@ -4527,19 +4527,7 @@ def _get_blacksmith_thrown_hammer_surface() -> pygame.Surface:
     return surface
 
 
-def _get_blacksmith_hammer_explosion_surface(stage: int, radius: int) -> pygame.Surface:
-    cache_key = (stage, radius)
-    cached = _blacksmith_hammer_explosion_cache.get(cache_key)
-    if cached is not None:
-        return cached
-
-    size = radius * 5  # 큰 캔버스
-    surface = pygame.Surface((size, size), pygame.SRCALPHA)
-    
-    # 빈 surface만 반환 (이펙트 제거)
-    
-    _blacksmith_hammer_explosion_cache[cache_key] = surface
-    return surface
+# Explosion effects removed - 이펙트 삭제됨
 
 
 def _clamp_blacksmith_hammer_explosion_center(cx: float, cy: float, radius: float) -> tuple[float, float]:
@@ -4709,52 +4697,8 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         except Exception:
             pass
 
-    try:
-        explosion_surface = _get_blacksmith_hammer_explosion_surface(stage, int(radius))
-        life_frames = int(0.35 * FPS)
-        trail_count = 24 + stage * 8
-        offsets = []
-        for idx in range(trail_count):
-            angle = (math.tau / trail_count) * idx + random.uniform(-0.05, 0.05)
-            start = radius * (0.25 + random.uniform(-0.05, 0.05))
-            end = radius * (0.9 + random.uniform(-0.08, 0.12))
-            offsets.append((angle, start, end))
-        sparks = []
-        for _ in range(12 + stage * 4):
-            angle = random.uniform(0, math.tau)
-            dist = math.sqrt(random.random()) * radius * 0.75
-            size = random.randint(2, 4)
-            sparks.append((angle, dist, size))
-        shards = []
-        shard_count = 10 + stage * 4
-        for _ in range(shard_count):
-            angle = random.uniform(0, math.tau)
-            speed = radius * (0.08 + random.uniform(0.02, 0.05))
-            length = radius * (0.18 + random.uniform(0.04, 0.12))
-            thickness = max(1, int(1 + stage * 0.3))
-            shards.append({
-                "angle": angle,
-                "offset": 0.0,
-                "speed": speed,
-                "length": length,
-                "thickness": thickness,
-            })
-        blacksmith_hammer_explosions.append(
-            {
-                "surface": explosion_surface,
-                "center": (float(render_centerx), float(render_centery)),
-                "life": life_frames,
-                "max_life": life_frames,
-                "stage": stage,
-                "offsets": offsets,
-                "sparks": sparks,
-                "shards": shards,
-                "radius": radius,
-                "first_frame": True,  # 화면 흔들림 트리거용
-            }
-        )
-    except Exception:
-        pass
+    # Explosion effects removed - 폭발 이펙트 제거됨
+    pass
 
     knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK
     if stage == 2:
