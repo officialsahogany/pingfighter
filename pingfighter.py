@@ -4592,6 +4592,8 @@ def release_blacksmith_hammer_shock():
     }
     blacksmith_hammer_shock_projectiles.append(projectile)
     blacksmith_hammer_charge_position = None
+    if selected_character_type != "blacksmith":
+        blacksmith_hammer_head_surface_point = None
 
     special_gauge = max(0, special_gauge - BLACKSMITH_HAMMER_SHOCK_COST)
     special_ready = special_gauge >= special_gauge_max
@@ -46627,6 +46629,9 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     blacksmith_hammer_shock_anchor_x = PLAYER.centerx if 'PLAYER' in globals() and PLAYER else 0
     blacksmith_hammer_shock_anchor_y = PLAYER.centery if 'PLAYER' in globals() and PLAYER else 0
+    global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
+    blacksmith_hammer_head_surface_point = None
+    blacksmith_hammer_charge_position = None
 
     # 🔧 스테이지 시작 시 플레이어 움직임 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
