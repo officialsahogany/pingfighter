@@ -14772,7 +14772,7 @@ def apply_ak47_boss_hit_effect(hit_event):
         direction = 1 if vel_x >= 0 else -1
 
     knockback_strength = AK47_KNOCKBACK_BASE + abs(vel_x) * AK47_KNOCKBACK_SCALE
-    boss_knockback_vel = knockback_strength * direction
+    boss_knockback_vel = _apply_boss_knockback_velocity(knockback_strength * direction)
 
 
 def update_blood_particles():
@@ -18655,10 +18655,10 @@ def handle_wall():
                 knockback_power = 40  # 넉백 강도 조정
                 if grenade["x"] < WIDTH / 2:
                     # 수류탄이 왼쪽에서 터지면 보스를 오른쪽으로 넉백
-                    boss_knockback_vel = knockback_power
+                    boss_knockback_vel = _apply_boss_knockback_velocity(knockback_power)
                 else:
                     # 수류탄이 오른쪽에서 터지면 보스를 왼쪽으로 넉백
-                    boss_knockback_vel = -knockback_power
+                    boss_knockback_vel = _apply_boss_knockback_velocity(-knockback_power)
                 #  체력형 보스 수류탄 데미지 적용
                 if current_stage in boss_health_stages:
                     boss_current_health = max(0, boss_current_health - 3)  # 수류탄 데미지 3
