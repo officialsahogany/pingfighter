@@ -84,14 +84,16 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
                                  size: int,
                                  animation_time: float,
                                  border_color: Tuple[int, int, int] = COMMON_LEGENDARY_BORDER_COLOR,
-                                 corner_color: Tuple[int, int, int] = COMMON_LEGENDARY_CORNER_COLOR) -> int:
+                                 corner_color: Tuple[int, int, int] = COMMON_LEGENDARY_CORNER_COLOR,
+                                 offset_animation_time: Optional[float] = None) -> int:
     """전설 아이콘의 공통 배경 프레임을 그린다.
 
     Returns:
         int: 프레임과 아이콘에 적용할 Y 오프셋 (살짝 위아래로 흔들리는 효과).
     """
     # 테두리와 배경이 부드럽게 흔들리도록 오프셋 계산
-    frame_offset = int(math.sin(animation_time * 2.5) * 2)
+    offset_source = animation_time if offset_animation_time is None else offset_animation_time
+    frame_offset = int(math.sin(offset_source * 2.5) * 2)
     frame_y = y + frame_offset
 
     # 파란색 원형 배경 애니메이션 (외곽/중앙 두 겹으로 펄싱)
@@ -1692,6 +1694,7 @@ class HolyLaurel(LegendaryItem):
         self._sync_with_poseidon = True
         # 아이콘 프레임은 그대로 유지하되, 공통 프레임 연출만 더 과감하게 가속한다.
         self._animation_rate_scale = 3.2
+        self._frame_animation_time = 0.0
         self._prepare_frames()
 
     def _ensure_poseidon_ref(self) -> Optional[LegendaryItem]:
@@ -1731,7 +1734,8 @@ class HolyLaurel(LegendaryItem):
 
     def update(self, dt: float, ui_mode: bool = False):
         dt_seconds = dt / 1000.0 if dt > 1.5 else dt
-        super().update(dt_seconds * self._animation_rate_scale, ui_mode)
+        super().update(dt_seconds, ui_mode)
+        self._frame_animation_time += dt_seconds * self._animation_rate_scale
         if self._sync_with_poseidon:
             poseidon = self._ensure_poseidon_ref()
             if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
@@ -1752,7 +1756,14 @@ class HolyLaurel(LegendaryItem):
         if self._sync_with_poseidon:
             poseidon = self._ensure_poseidon_ref()
 
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, animation_time)
+        frame_offset = _draw_common_legendary_frame(
+            screen,
+            x,
+            y,
+            size,
+            self._frame_animation_time,
+            offset_animation_time=animation_time,
+        )
 
         if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
             ref_frames = poseidon.icon_frames
