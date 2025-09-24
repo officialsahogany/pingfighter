@@ -4948,12 +4948,15 @@ def _check_boss_crack_collision(boss_rect, crack):
     # 보스와 크랙 바운딩 박스의 직접 충돌 검사
     collision_detected = boss_rect.colliderect(crack_rect)
     
-    # Only print debug info when collision is actually detected to reduce spam
     if collision_detected:
-        print(f"[COLLISION] Boss collides with crack!")
-        print(f"  Boss: ({boss_rect.x}, {boss_rect.y}, {boss_rect.width}x{boss_rect.height})")
-        print(f"  Crack: length={crack.get('length', 0):.1f}, segments={crack.get('segments_remaining', 0)}")
-        # Don't call stuck state update here to avoid frequent calls
+        if ENABLE_CRACK_TIMING_DEBUG:
+            now_ms = pygame.time.get_ticks()
+            remaining = crack.get('segments_remaining', 0)
+            print(f"[CRACK DEBUG] collide t={now_ms} boss=({boss_rect.x},{boss_rect.y}) seg={remaining} len={crack.get('length', 0):.1f}")
+        else:
+            print(f"[COLLISION] Boss collides with crack!")
+            print(f"  Boss: ({boss_rect.x}, {boss_rect.y}, {boss_rect.width}x{boss_rect.height})")
+            print(f"  Crack: length={crack.get('length', 0):.1f}, segments={crack.get('segments_remaining', 0)}")
         return True
     
     # 충돌이 없으면 False 반환
