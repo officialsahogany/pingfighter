@@ -4533,59 +4533,166 @@ def _get_blacksmith_hammer_explosion_surface(stage: int, radius: int) -> pygame.
     if cached is not None:
         return cached
 
-    size = radius * 3  # 더 큰 표면으로 폭발 효과 확대
+    size = radius * 4  # 더 큰 표면으로 에너지 파편까지 포함
     surface = pygame.Surface((size, size), pygame.SRCALPHA)
     center = size // 2
 
-    # 1. 중심부 밝은 코어 (흰색 → 밝은 파란색 그라데이션)
-    core_radius = int(radius * 0.4)
-    for i in range(core_radius, 0, -2):
+    # 1. 극초고온 플라즈마 코어 - 눈부신 백색광
+    core_radius = int(radius * 0.25)
+    for i in range(core_radius, 0, -1):
         ratio = i / core_radius
-        alpha = int(255 * ratio)
+        # 중심으로 갈수록 더 밝게
+        brightness = 1.0 + (1.0 - ratio) * 0.5
+        alpha = min(255, int(255 * brightness))
+        
         if stage >= 3:
-            # Stage 3: 금빛 코어
-            color = (255, 240 + int(15 * ratio), 180 + int(75 * ratio), alpha)
+            # Stage 3: 황금빛 플라즈마
+            r = min(255, int(255 * brightness))
+            g = min(255, int(245 * brightness))
+            b = min(255, int(200 * brightness * ratio))
         elif stage >= 2:
-            # Stage 2: 밝은 파란빛
-            color = (220 + int(35 * ratio), 240 + int(15 * ratio), 255, alpha)
+            # Stage 2: 청백색 플라즈마
+            r = min(255, int(240 * brightness))
+            g = min(255, int(248 * brightness))
+            b = min(255, int(255 * brightness))
         else:
-            # Stage 1: 순수한 흰색
-            color = (255, 255, 255, alpha)
+            # Stage 1: 순백색 플라즈마
+            r = g = b = min(255, int(255 * brightness))
+        
+        color = (r, g, b, alpha)
         pygame.draw.circle(surface, color, (center, center), i)
     
-    # 2. 중간층 전기 에너지 (전기 블루 그라데이션)
-    mid_radius = int(radius * 0.8)
-    for i in range(mid_radius, core_radius, -3):
-        ratio = (i - core_radius) / (mid_radius - core_radius)
-        alpha = int(220 * ratio)
-        if stage >= 3:
-            color = (150 + int(50 * ratio), 180 + int(40 * ratio), 255, alpha)
-        elif stage >= 2:
-            color = (120 + int(60 * ratio), 160 + int(60 * ratio), 255, alpha)
-        else:
-            color = (100 + int(80 * ratio), 150 + int(70 * ratio), 255, alpha)
-        pygame.draw.circle(surface, color, (center, center), i)
+    # 2. 에너지 방출층 - 다층 그라데이션 에너지 링
+    energy_layers = 3 + stage
+    for layer in range(energy_layers):
+        layer_start = core_radius + layer * (radius - core_radius) // energy_layers
+        layer_end = core_radius + (layer + 1) * (radius - core_radius) // energy_layers
+        
+        for i in range(layer_end, layer_start, -2):
+            ratio = (i - layer_start) / (layer_end - layer_start)
+            layer_ratio = layer / energy_layers
+            
+            # 각 층마다 다른 색상 변화
+            alpha = int(255 * (1 - layer_ratio) * ratio * 0.8)
+            
+            if stage >= 3:
+                # 무지개빛 에너지
+                hue_shift = layer * 60
+                r = min(255, int(255 * (1 - layer_ratio) + hue_shift % 255))
+                g = min(255, int(200 * (1 - layer_ratio * 0.5) + (hue_shift * 0.7) % 255))
+                b = min(255, int(150 + 105 * ratio))
+            elif stage >= 2:
+                # 전기 블루 에너지
+                r = int(120 + 100 * (1 - layer_ratio))
+                g = int(180 + 75 * ratio)
+                b = 255
+            else:
+                # 차가운 백색 에너지
+                intensity = int(255 * (1 - layer_ratio * 0.3))
+                r = g = intensity
+                b = min(255, intensity + 50)
+            
+            color = (r, g, b, alpha)
+            pygame.draw.circle(surface, color, (center, center), i)
     
-    # 3. 외곽 충격파 층
-    outer_radius = radius
-    for i in range(outer_radius, mid_radius, -4):
-        ratio = (i - mid_radius) / (outer_radius - mid_radius) 
-        alpha = int(150 * ratio)
-        color = (70 + stage * 10, 120 + stage * 15, 200 + stage * 20, alpha)
-        pygame.draw.circle(surface, color, (center, center), i)
+    # 3. 충격파 잔상 - 외곽 에너지 링
+    shock_rings = 2 + stage
+    for ring in range(shock_rings):
+        ring_radius = radius + ring * 15
+        ring_thickness = 3 + stage
+        
+        for t in range(ring_thickness):
+            alpha = int(100 * (1 - ring / shock_rings) * (1 - t / ring_thickness))
+            if stage >= 3:
+                color = (255, 200, 100, alpha)
+            elif stage >= 2:
+                color = (150, 200, 255, alpha)
+            else:
+                color = (200, 220, 255, alpha)
+            
+            pygame.draw.circle(surface, color, (center, center), ring_radius + t, 1)
     
-    # 4. 전기 방전 효과 제거 (검은색 선 문제로 인해 삭제)
-    
-    # 5. 스파크 효과
-    spark_count = 20 + stage * 10
-    for _ in range(spark_count):
+    # 4. 에너지 파편 - 디테일한 입자 효과
+    fragment_count = 30 + stage * 20
+    for _ in range(fragment_count):
         angle = random.uniform(0, 2 * math.pi)
-        dist = random.uniform(radius * 0.5, radius * 1.2)
+        
+        # 파편 거리 분포 - 대부분은 가까이, 일부는 멀리
+        dist_factor = random.random() ** 0.5  # 제곱근으로 분포 조정
+        min_dist = radius * 0.6
+        max_dist = radius * 2.0
+        dist = min_dist + (max_dist - min_dist) * dist_factor
+        
         x = center + math.cos(angle) * dist
         y = center + math.sin(angle) * dist
-        size_spark = random.randint(2, 5)
-        spark_color = (255, 255, 255, random.randint(150, 255))
-        pygame.draw.circle(surface, spark_color, (int(x), int(y)), size_spark)
+        
+        # 거리에 따른 크기와 밝기 조정
+        size_base = 1 + random.randint(0, 3)
+        size_factor = 1.0 - (dist - min_dist) / (max_dist - min_dist)
+        fragment_size = int(size_base + size_factor * 3)
+        
+        # 파편 타입에 따른 색상
+        fragment_type = random.random()
+        if fragment_type < 0.3:
+            # 밝은 백색 파편
+            brightness = random.randint(200, 255)
+            alpha = int(255 * size_factor)
+            color = (brightness, brightness, brightness, alpha)
+        elif fragment_type < 0.6:
+            # 스테이지별 색상 파편
+            alpha = int(200 * size_factor)
+            if stage >= 3:
+                color = (255, random.randint(180, 220), random.randint(100, 150), alpha)
+            elif stage >= 2:
+                color = (random.randint(150, 200), random.randint(180, 220), 255, alpha)
+            else:
+                color = (random.randint(180, 220), random.randint(200, 240), 255, alpha)
+        else:
+            # 희미한 잔광 파편
+            alpha = int(150 * size_factor)
+            intensity = random.randint(100, 180)
+            color = (intensity, intensity + 20, intensity + 40, alpha)
+        
+        # 파편 그리기 - 작은 것은 원, 큰 것은 별 모양
+        if fragment_size <= 2:
+            pygame.draw.circle(surface, color, (int(x), int(y)), fragment_size)
+        else:
+            # 별 모양 파편
+            points = []
+            for i in range(4):
+                star_angle = angle + i * math.pi / 2
+                px = x + math.cos(star_angle) * fragment_size
+                py = y + math.sin(star_angle) * fragment_size
+                points.append((int(px), int(py)))
+            if len(points) >= 3:
+                pygame.draw.polygon(surface, color, points)
+    
+    # 5. 중심 강조 효과 - 밝은 십자 빛
+    cross_length = core_radius * 2
+    cross_width = 2 + stage
+    cross_color = (255, 255, 255, 180)
+    
+    # 가로 십자
+    pygame.draw.rect(surface, cross_color, 
+                    (center - cross_length, center - cross_width // 2, 
+                     cross_length * 2, cross_width))
+    # 세로 십자
+    pygame.draw.rect(surface, cross_color,
+                    (center - cross_width // 2, center - cross_length,
+                     cross_width, cross_length * 2))
+    
+    # 6. 최종 광원 효과 - 부드러운 발광
+    glow_radius = int(radius * 1.5)
+    for i in range(glow_radius, radius, -5):
+        ratio = (i - radius) / (glow_radius - radius)
+        alpha = int(50 * ratio)
+        if stage >= 3:
+            glow_color = (255, 220, 150, alpha)
+        elif stage >= 2:
+            glow_color = (180, 200, 255, alpha)
+        else:
+            glow_color = (220, 230, 255, alpha)
+        pygame.draw.circle(surface, glow_color, (center, center), i)
 
     _blacksmith_hammer_explosion_cache[cache_key] = surface
     return surface
