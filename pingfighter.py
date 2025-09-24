@@ -27150,6 +27150,9 @@ def show_start_screen():
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     blacksmith_hammer_shock_anchor_x = 0
     blacksmith_hammer_shock_anchor_y = 0
+    global blacksmith_hammer_trails, blacksmith_ground_cracks
+    blacksmith_hammer_trails.clear()
+    blacksmith_ground_cracks.clear()
     global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
     blacksmith_hammer_head_surface_point = None
     blacksmith_hammer_charge_position = None
@@ -47327,6 +47330,9 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     blacksmith_hammer_shock_anchor_x = PLAYER.centerx if 'PLAYER' in globals() and PLAYER else 0
     blacksmith_hammer_shock_anchor_y = PLAYER.centery if 'PLAYER' in globals() and PLAYER else 0
+    global blacksmith_hammer_trails, blacksmith_ground_cracks
+    blacksmith_hammer_trails.clear()
+    blacksmith_ground_cracks.clear()
     global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
     blacksmith_hammer_head_surface_point = None
     blacksmith_hammer_charge_position = None
