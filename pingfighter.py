@@ -5205,6 +5205,25 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         rotated = pygame.transform.rotate(hammer_surface, proj.get("rotation", 0.0))
         rect = rotated.get_rect(center=(int(proj["x"] + offset_x), int(proj["y"] + offset_y)))
         surface.blit(rotated, rect)
+    
+    # Draw shatter particles
+    for particle in blacksmith_hammer_shock_particles:
+        # Calculate alpha based on life
+        alpha = min(255, particle["life"] * 10)
+        color = (*particle["color"], alpha)
+        
+        # Draw particle as a small rectangle
+        particle_rect = pygame.Rect(
+            int(particle["x"] - particle["size"] / 2 + offset_x),
+            int(particle["y"] - particle["size"] / 2 + offset_y),
+            particle["size"],
+            particle["size"]
+        )
+        
+        # Create surface with per-pixel alpha
+        particle_surface = pygame.Surface((particle["size"], particle["size"]), pygame.SRCALPHA)
+        particle_surface.fill(color)
+        surface.blit(particle_surface, particle_rect)
 
     global blacksmith_hammer_explosions, screen_shake_timer, screen_shake_intensity
     global blacksmith_hammer_return_fx
