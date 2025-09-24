@@ -2062,10 +2062,10 @@ class RagnarokHammer(LegendaryItem):
         import random
         
         # 수평 넉백 속도 계산 (수류탄 방식)
-        horizontal_power = 10  # 기본 넉백 파워
+        horizontal_power = 7  # 기본 넉백 파워 (10 -> 7로 감소)
         
         # 공속에 비례하여 수평 넉백 강화
-        speed_bonus = abs(ball_speed) * 0.5  # 공속의 50%를 보너스로 추가
+        speed_bonus = abs(ball_speed) * 0.35  # 공속의 35%를 보너스로 추가 (50% -> 35%로 감소)
         horizontal_power += speed_bonus
         
         # 보스 위치에 따라 방향 결정
