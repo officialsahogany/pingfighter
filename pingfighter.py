@@ -7323,6 +7323,7 @@ BLACKSMITH_GROUND_CRACK_BOSS_BREAK_MAX = 4
 BLACKSMITH_GROUND_CRACK_BOSS_HIT_COOLDOWN = int(0.2 * FPS)
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES = int(0.28 * FPS)
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAME_BONUS = 6
+GAME_KNOCKBACK_DISTANCE_REDUCTION = 0.2  # 전체 넉백 이동 거리를 20%로 축소
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED = 7.2
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED_STEP = 1.6
 BLACKSMITH_GROUND_CRACK_BOSS_IMMEDIATE_PUSH = 16.0
@@ -40810,6 +40811,11 @@ boss_crack_stuck_timer = 0
 boss_crack_last_release = 0
 boss_crack_ignore_until = 0
 boss_crack_recent_hit_time = 0
+
+def _apply_boss_knockback_velocity(raw_velocity: float) -> float:
+    global boss_knockback_vel
+    boss_knockback_vel = raw_velocity * GAME_KNOCKBACK_DISTANCE_REDUCTION
+    return boss_knockback_vel
 
 #  Stage 5 화염 지대 넉백 관련 변수
 player_flame_zone_knockback_vel = 0  # 화염 지대 넉백 속도
