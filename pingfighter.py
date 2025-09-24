@@ -23419,7 +23419,7 @@ def draw_objects():
     global smasher_pending_contact_offset
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
-    global blacksmith_hammer_charge_position, blacksmith_hammer_head_surface_point
+    global blacksmith_hammer_charge_position, blacksmith_hammer_head_surface_point, blacksmith_hammer_idle_position
     new_tear_particles = []  #  함수 시작 시 초기화
     
     # 전설 아이템 물결 효과 그리기 (업데이트는 물리 루프에서 이미 처리됨)
