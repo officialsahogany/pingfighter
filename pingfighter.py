@@ -22670,6 +22670,28 @@ def draw_objects():
     # UFO 이미지 그리기 (화면 흔들림 오프셋 및 넉백 효과 적용)
     player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x, 
                                                   PLAYER.centery + screen_shake_offset_y + player_knockback_y))
+    if selected_character_type == "blacksmith" and blacksmith_hammer_head_surface_point is not None:
+        orig_rect = base_ufo_img.get_rect()
+        center_vec = pygame.math.Vector2(orig_rect.center)
+        head_vec = pygame.math.Vector2(
+            float(blacksmith_hammer_head_surface_point[0]),
+            float(blacksmith_hammer_head_surface_point[1]),
+        )
+        rel_vec = head_vec - center_vec
+        rad = math.radians(tilt_angle)
+        cos_a = math.cos(rad)
+        sin_a = math.sin(rad)
+        rotated_rel = pygame.math.Vector2(
+            rel_vec.x * cos_a - rel_vec.y * sin_a,
+            rel_vec.x * sin_a + rel_vec.y * cos_a,
+        )
+        rotated_rect = rotated_player.get_rect(center=orig_rect.center)
+        rotated_point = center_vec + rotated_rel
+        local_point = rotated_point - pygame.math.Vector2(rotated_rect.topleft)
+        blacksmith_hammer_charge_position = (
+            player_rect.left + float(local_point.x),
+            player_rect.top + float(local_point.y),
+        )
     # 디버깅: player_rect 위치 확인
     if frame_count % 60 == 0:  # 1초마다 한 번씩만 출력
         pass  # print(f"📍 player_rect 위치: {player_rect.topleft}, 크기: {player_rect.size}")
