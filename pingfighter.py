@@ -28069,7 +28069,6 @@ def show_start_screen():
     blacksmith_hammer_head_surface_point = None
     blacksmith_hammer_charge_position = None
     blacksmith_hammer_idle_position = None
-    blacksmith_hammer_idle_position = None
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions.clear()
     
