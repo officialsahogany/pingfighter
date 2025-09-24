@@ -5219,6 +5219,31 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         else:
             crack_color = (80, 90, 100, alpha)  # Dark gray
         
+        # Draw collision bounds for debugging (semi-transparent red)
+        if True:  # Always show collision bounds
+            collision_thickness = crack.get("thickness", 2) + 20
+            # Draw the actual collision rect that boss checks against
+            # This matches the collision detection logic
+            crack_min_x = min(crack["x"], crack["x"] + math.cos(crack["angle"]) * crack["length"])
+            crack_max_x = max(crack["x"], crack["x"] + math.cos(crack["angle"]) * crack["length"])
+            crack_min_y = min(crack["y"], crack["y"] + math.sin(crack["angle"]) * crack["length"])
+            crack_max_y = max(crack["y"], crack["y"] + math.sin(crack["angle"]) * crack["length"])
+            
+            # Expand bounds by collision thickness
+            crack_min_x -= collision_thickness
+            crack_max_x += collision_thickness
+            crack_min_y -= collision_thickness
+            crack_max_y += collision_thickness
+            
+            # Draw the collision rect
+            collision_rect = pygame.Rect(
+                int(crack_min_x + offset_x),
+                int(crack_min_y + offset_y),
+                int(crack_max_x - crack_min_x),
+                int(crack_max_y - crack_min_y)
+            )
+            pygame.draw.rect(surface, (255, 0, 0, 50), collision_rect, 2)
+        
         # Draw main crack line
         end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
         end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
