@@ -22555,6 +22555,14 @@ def draw_objects():
         new_width = int(base_ufo_img.get_width() * scale_ratio)
         new_height = int(base_ufo_img.get_height() * scale_ratio)
         base_ufo_img = pygame.transform.scale(base_ufo_img, (new_width, new_height))
+        if (
+            selected_character_type == "blacksmith"
+            and blacksmith_hammer_head_surface_point is not None
+        ):
+            blacksmith_hammer_head_surface_point = (
+                blacksmith_hammer_head_surface_point[0] * scale_ratio,
+                blacksmith_hammer_head_surface_point[1] * scale_ratio,
+            )
     keys = pygame.key.get_pressed()
     tilt_angle = 0
     if hit_animation_active:
