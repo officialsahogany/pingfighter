@@ -40725,6 +40725,7 @@ ragnarok_shock_playing = False  # 전기 감전 사운드 재생 중인지
 ragnarok_speed_boost_active = False  # 라그나로크 해머로 인한 공속 증가 상태
 boss_crack_stuck_timer = 0
 boss_crack_last_release = 0
+boss_crack_ignore_until = 0
 
 #  Stage 5 화염 지대 넉백 관련 변수
 player_flame_zone_knockback_vel = 0  # 화염 지대 넉백 속도
