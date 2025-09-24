@@ -4685,6 +4685,9 @@ def update_blacksmith_hammer_shock(keys):
             try:
                 origin_x = PLAYER.right + 18
                 origin_y = PLAYER.centery - 20
+                if blacksmith_hammer_charge_position is not None:
+                    origin_x = float(blacksmith_hammer_charge_position[0])
+                    origin_y = float(blacksmith_hammer_charge_position[1])
                 if blacksmith_hammer_shock_stage >= 1 and blacksmith_hammer_shock_charge_frames % 6 == 0:
                     effects_manager.spawn_star_particles(int(origin_x), int(origin_y), count=3 + blacksmith_hammer_shock_stage)
                 if blacksmith_hammer_shock_stage >= 2 and blacksmith_hammer_shock_charge_frames % 10 == 0:
