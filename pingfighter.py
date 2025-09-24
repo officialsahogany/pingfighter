@@ -4855,6 +4855,11 @@ def update_blacksmith_hammer_shock(keys):
 
     blacksmith_hammer_shock_projectiles = new_projectiles
 
+    global blacksmith_hammer_explosions
+    blacksmith_hammer_explosions = [
+        exp for exp in blacksmith_hammer_explosions if exp.get("life", 0) > 0
+    ]
+
 
 def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float = 0.0):
     global blacksmith_hammer_charge_position
@@ -26658,6 +26663,8 @@ def show_start_screen():
     global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
     blacksmith_hammer_head_surface_point = None
     blacksmith_hammer_charge_position = None
+    global blacksmith_hammer_explosions
+    blacksmith_hammer_explosions.clear()
 
     bgm_manager.play_menu_bgm()
 
@@ -46802,6 +46809,8 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
     blacksmith_hammer_head_surface_point = None
     blacksmith_hammer_charge_position = None
+    global blacksmith_hammer_explosions
+    blacksmith_hammer_explosions.clear()
 
     # 🔧 스테이지 시작 시 플레이어 움직임 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
