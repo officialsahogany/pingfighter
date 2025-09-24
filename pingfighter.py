@@ -47025,6 +47025,47 @@ def handle_boss():
             else:
                 future_x = BALL.centerx
             future_x += random.randint(-enhanced_predict_error, enhanced_predict_error)
+    # Check if target is blocked by cracks and adjust if needed
+    target_x = future_x
+    if 'blacksmith_ground_cracks' in globals() and blacksmith_ground_cracks:
+        # Check if the path to target is blocked
+        if _check_path_blocked_by_cracks(BOSS.x, target_x, BOSS.width, BOSS.y, BOSS.height):
+            # Target is blocked, find alternative target
+            # Check both sides of the crack
+            left_clear = False
+            right_clear = False
+            left_target = BOSS.x
+            right_target = BOSS.x
+            
+            # Check left side
+            for test_x in range(int(BOSS.x) - 10, 0, -10):
+                if not _check_path_blocked_by_cracks(BOSS.x, test_x, BOSS.width, BOSS.y, BOSS.height):
+                    left_target = test_x
+                    left_clear = True
+                    break
+            
+            # Check right side  
+            for test_x in range(int(BOSS.x) + 10, WIDTH - BOSS.width, 10):
+                if not _check_path_blocked_by_cracks(BOSS.x, test_x, BOSS.width, BOSS.y, BOSS.height):
+                    right_target = test_x
+                    right_clear = True
+                    break
+            
+            # Choose the side that's closer to the original target but not blocked
+            if left_clear and right_clear:
+                if abs(left_target - target_x) < abs(right_target - target_x):
+                    future_x = left_target
+                else:
+                    future_x = right_target
+            elif left_clear:
+                future_x = left_target
+            elif right_clear:
+                future_x = right_target
+            else:
+                # Both sides blocked, stop moving
+                future_x = BOSS.centerx
+                boss_current_speed = 0
+    
     # --- 가속/감속 로직: 통합 설정 기반 ---
     # 스피드디펜스 활성화 시 전역 변수 사용, 아니면 config 사용
     if current_stage == 2 and speed_defense_active:
