@@ -5632,11 +5632,10 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
 
     # Add ground crack effect at explosion point
     global blacksmith_ground_cracks
-    crack_count_multiplier = BLACKSMITH_HAMMER_SHOCK_CRACK_COUNT_MULTIPLIER.get(
+    num_cracks = BLACKSMITH_HAMMER_SHOCK_CRACK_COUNTS.get(
         stage,
-        BLACKSMITH_HAMMER_SHOCK_CRACK_COUNT_MULTIPLIER[max(BLACKSMITH_HAMMER_SHOCK_CRACK_COUNT_MULTIPLIER)],
+        BLACKSMITH_HAMMER_SHOCK_CRACK_COUNTS[max(BLACKSMITH_HAMMER_SHOCK_CRACK_COUNTS)],
     )
-    num_cracks = max(1, int(round(BLACKSMITH_HAMMER_SHOCK_BASE_CRACK_COUNT * crack_count_multiplier)))
     for i in range(num_cracks):
         angle = (math.pi * 2 * i / num_cracks) + random.uniform(-0.2, 0.2)
         base_length = radius * stage_multiplier * random.uniform(0.8, 1.3)
@@ -7549,13 +7548,12 @@ BLACKSMITH_HAMMER_SHOCK_STUN_DURATION_FRAMES = {
     2: max(1, int(1.0 * FPS)),
     3: max(1, int(1.5 * FPS)),
 }
-BLACKSMITH_HAMMER_SHOCK_BASE_CRACK_COUNT = 7
-BLACKSMITH_HAMMER_SHOCK_CRACK_SCALE_STEP = 0.3
-BLACKSMITH_HAMMER_SHOCK_CRACK_COUNT_MULTIPLIER = {
-    1: 1.0,
-    2: 2.0,
-    3: 3.0,
+BLACKSMITH_HAMMER_SHOCK_CRACK_COUNTS = {
+    1: 12,
+    2: 19,
+    3: 28,
 }
+BLACKSMITH_HAMMER_SHOCK_CRACK_SCALE_STEP = 0.3
 
 # Ground crack effects
 blacksmith_ground_cracks = []  # 지면 크랙 효과
