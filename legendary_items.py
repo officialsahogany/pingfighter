@@ -1776,6 +1776,7 @@ class HolyLaurel(LegendaryItem):
             size,
             self._frame_animation_time,
             offset_animation_time=animation_time,
+            corner_style="block",
         )
 
         if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
