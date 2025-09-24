@@ -9278,6 +9278,11 @@ def trigger_soldier_emergency_supply() -> bool:
         return False
 
     weapon_name = soldier_controller.weapons[soldier_controller.current_index]
+
+    if weapon_name != "pistol" and weapon_name in soldier_controller.degraded:
+        print(f"⚠️ 노후화된 {get_item_name_korean(weapon_name)}에는 비상보급을 사용할 수 없습니다.")
+        return False
+
     success = False
 
     if weapon_name == "bazooka":
