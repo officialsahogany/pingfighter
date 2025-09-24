@@ -5287,7 +5287,7 @@ def _update_boss_crack_stuck_state(can_move: bool, boss_rect: pygame.Rect):
 
 def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     """Apply breakage and knockback when the boss collides with a crack."""
-    global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
+    global blacksmith_ground_cracks, blacksmith_hammer_shock_particles, boss_crack_ignore_until
 
     cooldown = crack.get("boss_touch_cooldown", 0)
     if cooldown > 0:
@@ -5363,16 +5363,24 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     # Apply knockback to the boss
     try:
         current_timer = globals().get("boss_knockback_timer", 0)
-        globals()["boss_knockback_timer"] = max(current_timer, BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES)
+        knockback_frames = BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES + segments_break * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAME_BONUS
+        globals()["boss_knockback_timer"] = max(current_timer, knockback_frames)
         delta_x = boss_rect.centerx - crack_center_x
         if abs(delta_x) < 1.0:
             direction = random.choice([-1, 1])
         else:
             direction = 1 if delta_x > 0 else -1
-        globals()["boss_knockback_vel"] = direction * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED
+        knockback_speed = BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED + segments_break * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED_STEP
+        globals()["boss_knockback_vel"] = direction * knockback_speed
         globals()["boss_knockback_active"] = False
         globals()["boss_knockback_offset_x"] = 0
         globals()["boss_knockback_offset_y"] = 0
+
+        boss_obj = globals().get("BOSS")
+        if boss_obj is not None:
+            boss_obj.x += direction * BLACKSMITH_GROUND_CRACK_BOSS_IMMEDIATE_PUSH
+            boss_obj.x = max(0, min(WIDTH - boss_obj.width, boss_obj.x))
+        boss_crack_ignore_until = pygame.time.get_ticks() + BLACKSMITH_GROUND_CRACK_BOSS_IGNORE_MS
     except Exception:
         pass
 
