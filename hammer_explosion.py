@@ -129,12 +129,12 @@ class HammerExplosion:
         if self.shockwave_radius > 0 and self.shockwave_alpha > 0:
             shockwave_surface = pygame.Surface((self.shockwave_radius * 2, self.shockwave_radius * 2), pygame.SRCALPHA)
             
-            # 다중 링 충격파
+            # 다중 링 충격파 (RGB만 사용)
             for i in range(3):
                 ring_radius = self.shockwave_radius - (i * 15)
                 if ring_radius > 0:
                     alpha = self.shockwave_alpha // (i + 1)
-                    color = (255, 200, 100, alpha)
+                    color = (255, 200, 100)  # RGB만 사용
                     pygame.draw.circle(shockwave_surface, color, 
                                      (self.shockwave_radius, self.shockwave_radius), 
                                      ring_radius, 3)
@@ -205,7 +205,7 @@ class HammerExplosion:
                         glow_surface = pygame.Surface((shard['size'] * 4, shard['size'] * 4), pygame.SRCALPHA)
                         adjusted_glow_points = [(p[0] - shard['x'] + shard['size'] * 2, 
                                                p[1] - shard['y'] + shard['size'] * 2) for p in glow_points]
-                        pygame.draw.polygon(glow_surface, (*shard_color[:3], alpha // 4), adjusted_glow_points)
+                        pygame.draw.polygon(glow_surface, shard_color[:3], adjusted_glow_points)
                         screen.blit(glow_surface, (shard['x'] - shard['size'] * 2, shard['y'] - shard['size'] * 2))
                     
                     # 메인 파편
