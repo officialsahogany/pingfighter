@@ -1784,16 +1784,18 @@ class HolyLaurel(LegendaryItem):
                 if color.a == 0:
                     continue
 
-                is_trident_color = (
-                    color.b > 180 and
-                    color.g > 140 and
-                    color.r < 220
-                )
+                abs_dx = abs(x - center_x)
+                near_center_column = abs_dx <= width * 0.23
+                near_top_fan = y <= height * 0.55 and abs_dx <= width * 0.32
+                inner_core = abs_dx <= width * 0.18 and height * 0.15 <= y <= height * 0.85
 
-                near_center_column = abs(x - center_x) <= width * 0.2
-                near_top_prongs = y <= height * 0.4 and abs(x - center_x) <= width * 0.3
-                if is_trident_color and (near_center_column or near_top_prongs):
-                    trimmed.set_at((x, y), (0, 0, 0, 0))
+                is_aqua = color.b > 170 and color.g > 130 and color.r < 210
+                is_whitish = color.r > 215 and color.g > 215 and color.b > 215
+                is_dark_outline = color.r < 130 and color.g < 130 and color.b < 130
+
+                if (near_center_column or near_top_fan or inner_core):
+                    if is_aqua or is_whitish or is_dark_outline:
+                        trimmed.set_at((x, y), (0, 0, 0, 0))
 
         return trimmed
 
