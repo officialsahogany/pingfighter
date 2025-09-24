@@ -1778,10 +1778,9 @@ class HolyLaurel(LegendaryItem):
         width, height = trimmed.get_size()
         center_x = width / 2
         center_y = height / 2
-        core_radius_x = width * 0.22
-        core_radius_y = height * 0.48
-        small_core_radius_x = width * 0.12
-        small_core_radius_y = height * 0.35
+        major_radius_x = width * 0.45
+        major_radius_y = height * 0.58
+        prong_top_y = height * 0.4
 
         for y in range(height):
             for x in range(width):
@@ -1789,32 +1788,16 @@ class HolyLaurel(LegendaryItem):
                 if color.a == 0:
                     continue
 
-                abs_dx = abs(x - center_x)
-                abs_dy = abs(y - center_y)
-                near_center_column = abs_dx <= width * 0.23
-                near_top_fan = y <= height * 0.58 and abs_dx <= width * 0.35
-                inner_core_rect = abs_dx <= width * 0.2 and height * 0.1 <= y <= height * 0.92
-
-                # 타원형 영역(삼지창 몸통) 판정
-                norm_core = ((x - center_x) ** 2) / (core_radius_x ** 2) + ((y - center_y) ** 2) / (core_radius_y ** 2)
-                norm_small_core = ((x - center_x) ** 2) / (small_core_radius_x ** 2) + ((y - center_y) ** 2) / (small_core_radius_y ** 2)
-                in_large_core = norm_core <= 1.0
-                in_small_core = norm_small_core <= 1.0
-
-                is_aqua = color.b >= 140 and color.g >= 110 and color.r <= 210
-                is_whitish = color.r >= 215 and color.g >= 215 and color.b >= 215
-                is_dark_outline = color.r <= 140 and color.g <= 140 and color.b <= 140
-
-                remove_pixel = False
-                if in_small_core:
-                    remove_pixel = True
-                elif in_large_core and (is_aqua or is_dark_outline or is_whitish):
-                    remove_pixel = True
-                elif (near_center_column or near_top_fan or inner_core_rect) and (is_aqua or is_dark_outline or is_whitish):
-                    remove_pixel = True
-
-                if remove_pixel:
+                # 중앙 타원(삼지창 본체 + 잔여 파편 영역) 제거
+                norm = ((x - center_x) ** 2) / (major_radius_x ** 2) + ((y - center_y) ** 2) / (major_radius_y ** 2)
+                if norm <= 1.0:
                     trimmed.set_at((x, y), (0, 0, 0, 0))
+                    continue
+
+                # 윗부분 갈래 영역도 회오리 파편이 남을 수 있으므로 추가 제거
+                if y <= prong_top_y and abs(x - center_x) <= width * 0.4:
+                    trimmed.set_at((x, y), (0, 0, 0, 0))
+                    continue
 
         return trimmed
 
