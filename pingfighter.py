@@ -44921,6 +44921,8 @@ def handle_boss_pro():
     global waiting_start_time, wait_delay
     global ball_vel
     global boss_stunned_timer, boss_knockback_vel, boss_stun_timer
+    global boss_crack_stuck_timer, boss_crack_last_release
+    global boss_crack_stuck_timer, boss_crack_last_release
     global stopwatch_active, stopwatch_timer
     global whip_deactivation_active, whip_deactivation_timer, whip_deactivation_duration, current_stage
     
