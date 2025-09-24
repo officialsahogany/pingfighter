@@ -5207,6 +5207,98 @@ def _force_clear_nearest_crack(boss_rect: pygame.Rect) -> bool:
     return False
 
 
+def _schedule_next_crack_auto_break(crack: dict, base_time_ms: int | None = None):
+    """Schedule when this crack should naturally lose another segment."""
+
+    if base_time_ms is None:
+        base_time_ms = pygame.time.get_ticks()
+
+    interval_min = BLACKSMITH_GROUND_CRACK_AUTO_BREAK_INTERVAL_MIN_MS
+    interval_max = BLACKSMITH_GROUND_CRACK_AUTO_BREAK_INTERVAL_MAX_MS
+    if interval_max < interval_min:
+        interval_max = interval_min
+
+    next_ms = base_time_ms + random.randint(interval_min, interval_max)
+    crack["auto_break_next_ms"] = next_ms
+
+
+def _decay_blacksmith_crack_segment(
+    crack: dict,
+    segments: int = 1,
+    *,
+    spawn_particles: bool = True,
+    play_sound: bool = False,
+) -> bool:
+    """Reduce the crack segment count and update its visuals. Returns True if still exists."""
+
+    if crack not in blacksmith_ground_cracks:
+        return False
+
+    if segments <= 0:
+        return crack in blacksmith_ground_cracks
+
+    segments_total = max(1, crack.get("segments_total") or 1)
+    remaining = crack.get("segments_remaining", segments_total)
+    if remaining <= 0:
+        return False
+
+    new_remaining = max(0, remaining - segments)
+    crack["segments_remaining"] = new_remaining
+
+    base_length = crack.get("initial_length", crack.get("length", 0.0))
+    ratio = 0.0
+    if segments_total > 0:
+        ratio = max(0.0, (new_remaining / float(segments_total)) - BLACKSMITH_GROUND_CRACK_RATIO_OFFSET)
+    crack["length"] = max(0.0, base_length * ratio)
+
+    base_thickness = crack.get("base_thickness", crack.get("thickness", 1))
+    initial_thickness = max(1, int(round(base_thickness * BLACKSMITH_GROUND_CRACK_RANGE_SCALE)))
+    thickness_ratio = max(0.1, ratio)
+    crack["thickness"] = max(1, int(round(initial_thickness * thickness_ratio)))
+    crack["boss_padding"] = max(
+        BLACKSMITH_GROUND_CRACK_MIN_PADDING,
+        int(BLACKSMITH_GROUND_CRACK_BOSS_PADDING * max(0.15, thickness_ratio)),
+    )
+
+    if "sub_cracks" in crack:
+        max_pos = min(1.0, ratio + 0.05)
+        crack["sub_cracks"] = [sub for sub in crack["sub_cracks"] if sub.get("pos", 0.0) <= max_pos]
+
+    if spawn_particles:
+        try:
+            fragment_base = 4 + segments * 2
+            origin_x = crack.get("x", 0.0)
+            origin_y = crack.get("y", 0.0)
+            for _ in range(fragment_base):
+                angle = random.uniform(0, math.pi * 2)
+                speed = random.uniform(1.5, 4.0)
+                fragment = {
+                    "x": origin_x,
+                    "y": origin_y,
+                    "vx": math.cos(angle) * speed,
+                    "vy": math.sin(angle) * speed,
+                    "life": random.randint(12, 24),
+                    "color": (120, 120, 130),
+                    "size": random.randint(1, 3),
+                }
+                blacksmith_hammer_shock_particles.append(fragment)
+        except Exception:
+            pass
+
+    # Avoid double-playing the shatter sound: only play decay audio if crack remains.
+    if play_sound and new_remaining > 0 and crack.get("length", 0.0) > BLACKSMITH_GROUND_CRACK_REMOVE_LENGTH:
+        try:
+            play_sound_with_volume(SOUND_STONEBREAK_SMALL)
+        except Exception:
+            pass
+
+    if new_remaining <= 0 or crack.get("length", 0.0) <= BLACKSMITH_GROUND_CRACK_REMOVE_LENGTH:
+        _shatter_blacksmith_crack(crack, play_sound=play_sound)
+        return False
+
+    return crack in blacksmith_ground_cracks
+
+
 def _shatter_blacksmith_crack(crack: dict, play_sound: bool = True):
     """Fully destroy a crack, spawning final fragments and optionally playing sound."""
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
@@ -5523,6 +5615,16 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             "boss_touch_cooldown": 0,
             "sub_cracks": sub_cracks
         }
+        try:
+            base_time = pygame.time.get_ticks()
+        except Exception:
+            base_time = 0
+        start_ms = base_time + BLACKSMITH_GROUND_CRACK_AUTO_BREAK_DELAY_MS
+        crack["auto_break_enabled"] = True
+        crack["auto_break_start_ms"] = start_ms
+        crack["auto_break_next_ms"] = start_ms
+        _schedule_next_crack_auto_break(crack, base_time_ms=start_ms)
+
         blacksmith_ground_cracks.append(crack)
         print(f"[DEBUG] Created ground crack #{len(blacksmith_ground_cracks)}: x={crack['x']:.0f}, y={crack['y']:.0f}, angle={crack['angle']:.2f}, length={crack['length']:.0f}")
 
