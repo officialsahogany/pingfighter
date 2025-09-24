@@ -4741,6 +4741,20 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             dist = math.sqrt(random.random()) * radius * 0.75
             size = random.randint(2, 4)
             sparks.append((angle, dist, size))
+        shards = []
+        shard_count = 10 + stage * 4
+        for _ in range(shard_count):
+            angle = random.uniform(0, math.tau)
+            speed = radius * (0.08 + random.uniform(0.02, 0.05))
+            length = radius * (0.18 + random.uniform(0.04, 0.12))
+            thickness = max(1, int(1 + stage * 0.3))
+            shards.append({
+                "angle": angle,
+                "offset": 0.0,
+                "speed": speed,
+                "length": length,
+                "thickness": thickness,
+            })
         blacksmith_hammer_explosions.append(
             {
                 "surface": explosion_surface,
@@ -4750,6 +4764,8 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
                 "stage": stage,
                 "offsets": offsets,
                 "sparks": sparks,
+                "shards": shards,
+                "radius": radius,
             }
         )
     except Exception:
