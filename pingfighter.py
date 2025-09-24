@@ -46116,15 +46116,27 @@ def handle_boss_mythic():
         # 12️⃣ 위치 업데이트 및 벽 바운스 활용
         proposed_x = BOSS.x + boss_current_speed
         proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
-        can_move = True
-        
-        # Check collision with ground cracks
-        if _boss_get_crack_collision(proposed_boss_rect, apply_response=True):
-            can_move = False
-            boss_current_speed = 0  # Stop the boss
-            _update_boss_crack_stuck_state(False, proposed_boss_rect)
 
-        if can_move:
+        collision_crack = _boss_get_crack_collision(proposed_boss_rect, apply_response=True)
+        if collision_crack:
+            boss_current_speed = 0
+            contact_x = _slide_boss_toward_crack_edge(BOSS.x, proposed_x, collision_crack, BOSS.width)
+            moved_to_contact = abs(contact_x - BOSS.x) > 0.01
+            if moved_to_contact:
+                BOSS.x = contact_x
+                # 벽 근처에서 특수 움직임 (신화리그 전용)
+                if BOSS.x <= 5:
+                    boss_current_speed = abs(boss_current_speed) * 0.8
+                    BOSS.x = 5
+                elif BOSS.x >= WIDTH - BOSS.width - 5:
+                    boss_current_speed = -abs(boss_current_speed) * 0.8
+                    BOSS.x = WIDTH - BOSS.width - 5
+                else:
+                    BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+                _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
+            else:
+                _update_boss_crack_stuck_state(False, proposed_boss_rect)
+        else:
             BOSS.x = proposed_x
             # 벽 근처에서 특수 움직임 (신화리그 전용)
             if BOSS.x <= 5:
