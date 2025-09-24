@@ -5080,6 +5080,7 @@ def _is_boss_movement_valid(new_x):
     for crack in blacksmith_ground_cracks:
         bounding_rect = _get_crack_bounding_rect(crack)
         line_start_x = crack.get("x", 0.0)
+        line_start_y = crack.get("y", 0.0)
         length = crack.get("length", 0.0)
         angle = crack.get("angle", 0.0)
         line_end_x = line_start_x + math.cos(angle) * length
