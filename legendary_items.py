@@ -1687,8 +1687,8 @@ class HolyLaurel(LegendaryItem):
         self.frame_counter = 0
         self.animation_speed = 8  # 기본값 (포세이돈 삼지창과 동일 속도로 덮어씀)
         self._poseidon_ref: Optional[LegendaryItem] = poseidon_ref
-        # 아이템 관리자 전용 프리뷰에서는 독립된 프레임만 사용한다.
-        self._sync_with_poseidon = False
+        # 전시 전용 아이콘은 포세이돈의 삼지창과 완전히 동일한 애니메이션을 사용한다.
+        self._sync_with_poseidon = True
         self._prepare_frames()
 
     def _ensure_poseidon_ref(self) -> Optional[LegendaryItem]:
@@ -1735,6 +1735,8 @@ class HolyLaurel(LegendaryItem):
                 self.animation_frames = getattr(poseidon, "animation_frames", poseidon.icon_frames)
                 self.animation_speed = getattr(poseidon, "animation_speed", self.animation_speed)
                 self.current_frame = getattr(poseidon, "current_frame", 0)
+                self.animation_time = getattr(poseidon, "animation_time", self.animation_time)
+                self.frame_counter = getattr(poseidon, "frame_counter", self.frame_counter)
                 return
 
         if self.icon_frames and len(self.icon_frames) > 1:
@@ -1744,16 +1746,13 @@ class HolyLaurel(LegendaryItem):
                 self.current_frame = (self.current_frame + 1) % len(self.icon_frames)
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
         if self._sync_with_poseidon:
             poseidon = self._ensure_poseidon_ref()
-            if poseidon and hasattr(poseidon, "icon_frames") and poseidon.icon_frames:
-                ref_frames = poseidon.icon_frames
-                frame_index = getattr(poseidon, "current_frame", 0) % len(ref_frames)
-                frame = ref_frames[frame_index]
-                scaled = pygame.transform.scale(frame, (size, size))
-                screen.blit(scaled, (x, y + frame_offset))
+            if poseidon and hasattr(poseidon, "draw_icon"):
+                poseidon.draw_icon(screen, x, y, size)
                 return
+
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
         if self.icon_frames:
             frame = self.icon_frames[self.current_frame % len(self.icon_frames)]
