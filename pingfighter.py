@@ -3625,19 +3625,32 @@ def _draw_blacksmith_shield(surface, shield_center, angle_deg=-4):
     rotated = pygame.transform.rotate(shield_surface, angle_deg)
     surface.blit(rotated, rotated.get_rect(center=shield_center))
 
-def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wave=0.0, walk_bob=0.0, walk_lean=0.0):
+def _draw_blacksmith_upper(
+    surface,
+    shield_swing=0.0,
+    hammer_swing=0.0,
+    walk_wave=0.0,
+    walk_bob=0.0,
+    walk_lean=0.0,
+    force_hammer_visibility: bool | None = None,
+):
     global blacksmith_hammer_head_local_point
     cx = BLACKSMITH_CENTER_X
     cy = BLACKSMITH_CENTER_Y
     shield_amount = max(0.0, min(1.0, shield_swing))
     lift_curve = shield_amount ** 1.1  # 0~1 범위, 후반부에서 더 많이 들어 올리기
 
+    if force_hammer_visibility is not None:
+        show_hammer = force_hammer_visibility
+    else:
+        try:
+            show_hammer = blacksmith_hammer_available or blacksmith_hammer_shock_charging
+        except NameError:
+            show_hammer = True
+
     hammer_amount = max(0.0, min(1.0, hammer_swing))
-    try:
-        if not (blacksmith_hammer_available or blacksmith_hammer_shock_charging):
-            hammer_amount = 0.0
-    except NameError:
-        pass
+    if not show_hammer:
+        hammer_amount = 0.0
     hammer_prepare_phase = min(1.0, hammer_amount * 1.35)
     hammer_prepare_curve = math.sin(hammer_prepare_phase * (math.pi / 2)) if hammer_prepare_phase > 0 else 0.0
     hammer_release_phase = 0.0
@@ -3818,7 +3831,7 @@ def _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0, walk_wav
         handle_dir = pygame.math.Vector2(0, 1)
     handle_dir = handle_dir.normalize()
 
-    if blacksmith_hammer_available or blacksmith_hammer_shock_charging:
+    if show_hammer:
         handle_poly = [
             _vec_to_int_pair(handle_top + perp_vec * handle_half_width),
             _vec_to_int_pair(handle_top - perp_vec * handle_half_width),
@@ -3999,12 +4012,28 @@ def _draw_blacksmith_legs(surface, step=0):
     pygame.draw.circle(surface, (150, 130, 110), (right_thigh_x, knee_y + 1), 5)
     pygame.draw.circle(surface, (95, 80, 62), (right_thigh_x, knee_y + 1), 3)
 
-def create_blacksmith_paddle_base():
-    surface = pygame.Surface((250, 120), pygame.SRCALPHA)
-    _draw_blacksmith_upper(surface, shield_swing=0.0, hammer_swing=0.0)
-    _draw_blacksmith_legs(surface, 0)
-    scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
-    return scaled_surface
+def create_blacksmith_paddle_base(include_hammer: bool = True) -> pygame.Surface:
+    global blacksmith_hammer_head_local_point, blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
+    prev_local = blacksmith_hammer_head_local_point
+    prev_surface = blacksmith_hammer_head_surface_point
+    prev_charge = blacksmith_hammer_charge_position
+    result_surface: pygame.Surface | None = None
+    try:
+        surface = pygame.Surface((250, 120), pygame.SRCALPHA)
+        _draw_blacksmith_upper(
+            surface,
+            shield_swing=0.0,
+            hammer_swing=0.0,
+            force_hammer_visibility=include_hammer,
+        )
+        _draw_blacksmith_legs(surface, 0)
+        scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
+        result_surface = scaled_surface
+    finally:
+        blacksmith_hammer_head_local_point = prev_local
+        blacksmith_hammer_head_surface_point = prev_surface
+        blacksmith_hammer_charge_position = prev_charge
+    return result_surface if result_surface is not None else surface
 
 def create_blacksmith_paddle_walking():
     global blacksmith_walking_timer, blacksmith_walk_direction
@@ -34997,16 +35026,6 @@ def show_item_manager_menu():
                     "description": item.description
                 })
 
-    # 아이템 관리자 전용 프리뷰: 신성 월계수 (포세이돈 아이콘 복제)
-    if not any(item["name"] == "holy_laurel" for item in legendary_items):
-        holy_laurel_icon = get_item_icon("holy_laurel") or get_item_icon("poseidon_trident")
-        legendary_items.append({
-            "name": "holy_laurel",
-            "type": "legendary",
-            "icon": holy_laurel_icon,
-            "korean_name": "신성 월계수",
-            "description": "아이템 관리자에서만 확인 가능한 전설 장식 아이콘입니다."
-        })
     
     # 엑티브/패시브/전설 아이템 분리
     active_items = [item for item in all_items if item["type"] == "active"]
@@ -51888,15 +51907,6 @@ def show_character_item_manager():
                     "description": item.description
                 })
 
-    if not any(item["name"] == "holy_laurel" for item in legendary_items):
-        holy_laurel_icon = get_item_icon("holy_laurel") or get_item_icon("poseidon_trident")
-        legendary_items.append({
-            "name": "holy_laurel",
-            "type": "legendary",
-            "icon": holy_laurel_icon,
-            "korean_name": "신성 월계수",
-            "description": "아이템 관리자에서만 확인 가능한 전설 장식 아이콘입니다."
-        })
     
     # 엑티브/패시브/전설 아이템 분리
     active_items = [item for item in all_items if item["type"] == "active"]
