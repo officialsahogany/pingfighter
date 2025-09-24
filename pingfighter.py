@@ -5000,6 +5000,7 @@ def update_blacksmith_hammer_shock(keys):
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_projectiles
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_available
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
+    global blacksmith_hammer_trails, blacksmith_ground_cracks
     global PLAYER, special_gauge, special_ready, special_gauge_max
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
@@ -5095,7 +5096,6 @@ def update_blacksmith_hammer_shock(keys):
     blacksmith_hammer_shock_projectiles = new_projectiles
 
     # Update trail effects
-    global blacksmith_hammer_trails
     updated_trails = []
     for trail in blacksmith_hammer_trails:
         trail["alpha"] -= BLACKSMITH_HAMMER_TRAIL_FADE_SPEED
@@ -5104,7 +5104,6 @@ def update_blacksmith_hammer_shock(keys):
     blacksmith_hammer_trails = updated_trails
 
     # Update ground cracks
-    global blacksmith_ground_cracks
     updated_cracks = []
     for crack in blacksmith_ground_cracks:
         crack["life"] -= 1
