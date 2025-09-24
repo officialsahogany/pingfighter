@@ -24322,10 +24322,12 @@ def draw_objects():
         rotated_rect = rotated_player.get_rect(center=orig_rect.center)
         rotated_point = center_vec + rotated_rel
         local_point = rotated_point - pygame.math.Vector2(rotated_rect.topleft)
-        blacksmith_hammer_charge_position = (
+        new_hammer_pos = (
             player_rect.left + float(local_point.x),
             player_rect.top + float(local_point.y),
         )
+        blacksmith_hammer_charge_position = new_hammer_pos
+        blacksmith_hammer_idle_position = new_hammer_pos
     # 디버깅: player_rect 위치 확인
     if frame_count % 60 == 0:  # 1초마다 한 번씩만 출력
         pass  # print(f"📍 player_rect 위치: {player_rect.topleft}, 크기: {player_rect.size}")
