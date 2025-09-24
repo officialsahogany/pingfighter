@@ -4891,6 +4891,10 @@ def release_blacksmith_hammer_shock():
 
 def _check_boss_crack_collision(boss_rect, crack):
     """Check if boss paddle collides with a ground crack using line-rectangle collision"""
+    global boss_crack_ignore_until
+
+    if pygame.time.get_ticks() < boss_crack_ignore_until:
+        return False
     # Create a line segment for the crack
     line_start_x = crack.get("x", 0.0)
     line_start_y = crack.get("y", 0.0)
@@ -5252,6 +5256,7 @@ def _clear_blacksmith_cracks_with_shatter(play_sound: bool = True):
 
 def _update_boss_crack_stuck_state(can_move: bool, boss_rect: pygame.Rect):
     global boss_crack_stuck_timer, boss_crack_last_release
+    global boss_crack_ignore_until
 
     if can_move:
         boss_crack_stuck_timer = 0
@@ -5273,6 +5278,7 @@ def _update_boss_crack_stuck_state(can_move: bool, boss_rect: pygame.Rect):
                 direction = 1 if boss_rect.centerx >= BOSS.centerx else -1
                 BOSS.x += direction * 8
                 BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+            boss_crack_ignore_until = current_time + 350
             print("[CRACK STUCK] Force-cleared nearest crack")
 
 
