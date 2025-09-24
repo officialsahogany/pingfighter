@@ -44609,9 +44609,20 @@ def handle_boss_pro():
                 BOSS.x, future_x, ball_vel[0] if 'ball_vel' in globals() else 0
             )
             
-            # 위치 업데이트
-            BOSS.x = new_position
-            boss_current_speed = new_velocity
+            # 위치 업데이트 with ground crack collision check
+            proposed_boss_rect = pygame.Rect(new_position, BOSS.y, BOSS.width, BOSS.height)
+            can_move = True
+            
+            # Check collision with ground cracks
+            for crack in blacksmith_ground_cracks:
+                if _check_boss_crack_collision(proposed_boss_rect, crack):
+                    can_move = False
+                    boss_current_speed = 0  # Stop the boss
+                    break
+            
+            if can_move:
+                BOSS.x = new_position
+                boss_current_speed = new_velocity
             
         #  일반 스무딩 시스템 (fallback)
         elif SMOOTH_MOVEMENT_AVAILABLE:
@@ -44629,12 +44640,35 @@ def handle_boss_pro():
                 BOSS.x, future_x, boss_current_speed
             )
             
-            # 위치 업데이트
-            BOSS.x = new_position
-            boss_current_speed = new_speed
+            # 위치 업데이트 with ground crack collision check
+            proposed_boss_rect = pygame.Rect(new_position, BOSS.y, BOSS.width, BOSS.height)
+            can_move = True
+            
+            # Check collision with ground cracks
+            for crack in blacksmith_ground_cracks:
+                if _check_boss_crack_collision(proposed_boss_rect, crack):
+                    can_move = False
+                    boss_current_speed = 0  # Stop the boss
+                    break
+            
+            if can_move:
+                BOSS.x = new_position
+                boss_current_speed = new_speed
         else:
-            # 기존 위치 업데이트 로직
-            BOSS.x += boss_current_speed
+            # 기존 위치 업데이트 로직 with ground crack collision check
+            proposed_x = BOSS.x + boss_current_speed
+            proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
+            can_move = True
+            
+            # Check collision with ground cracks
+            for crack in blacksmith_ground_cracks:
+                if _check_boss_crack_collision(proposed_boss_rect, crack):
+                    can_move = False
+                    boss_current_speed = 0  # Stop the boss
+                    break
+            
+            if can_move:
+                BOSS.x = proposed_x
         
         # 화면 경계 제한 (스턴이 없을 때만)
         BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
@@ -44863,9 +44897,20 @@ def handle_boss_champion():
                 BOSS.x, future_x, ball_vel[0] if 'ball_vel' in globals() else 0
             )
             
-            # 위치 업데이트
-            BOSS.x = new_position
-            boss_current_speed = new_velocity
+            # 위치 업데이트 with ground crack collision check
+            proposed_boss_rect = pygame.Rect(new_position, BOSS.y, BOSS.width, BOSS.height)
+            can_move = True
+            
+            # Check collision with ground cracks
+            for crack in blacksmith_ground_cracks:
+                if _check_boss_crack_collision(proposed_boss_rect, crack):
+                    can_move = False
+                    boss_current_speed = 0  # Stop the boss
+                    break
+            
+            if can_move:
+                BOSS.x = new_position
+                boss_current_speed = new_velocity
             
         #  일반 스무딩 시스템 (fallback)
         elif SMOOTH_MOVEMENT_AVAILABLE:
@@ -44883,12 +44928,35 @@ def handle_boss_champion():
                 BOSS.x, future_x, boss_current_speed
             )
             
-            # 위치 업데이트
-            BOSS.x = new_position
-            boss_current_speed = new_speed
+            # 위치 업데이트 with ground crack collision check
+            proposed_boss_rect = pygame.Rect(new_position, BOSS.y, BOSS.width, BOSS.height)
+            can_move = True
+            
+            # Check collision with ground cracks
+            for crack in blacksmith_ground_cracks:
+                if _check_boss_crack_collision(proposed_boss_rect, crack):
+                    can_move = False
+                    boss_current_speed = 0  # Stop the boss
+                    break
+            
+            if can_move:
+                BOSS.x = new_position
+                boss_current_speed = new_speed
         else:
-            # 기존 위치 업데이트 로직
-            BOSS.x += boss_current_speed
+            # 기존 위치 업데이트 로직 with ground crack collision check
+            proposed_x = BOSS.x + boss_current_speed
+            proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
+            can_move = True
+            
+            # Check collision with ground cracks
+            for crack in blacksmith_ground_cracks:
+                if _check_boss_crack_collision(proposed_boss_rect, crack):
+                    can_move = False
+                    boss_current_speed = 0  # Stop the boss
+                    break
+            
+            if can_move:
+                BOSS.x = proposed_x
         
         # 화면 경계 제한 (스턴이 없을 때만)
         BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
@@ -45467,9 +45535,20 @@ def handle_boss_junior():
                 BOSS.x, future_x, ball_vel[0] if 'ball_vel' in globals() else 0
             )
             
-            # 위치 업데이트
-            BOSS.x = new_position
-            boss_current_speed = new_velocity
+            # 위치 업데이트 with ground crack collision check
+            proposed_boss_rect = pygame.Rect(new_position, BOSS.y, BOSS.width, BOSS.height)
+            can_move = True
+            
+            # Check collision with ground cracks
+            for crack in blacksmith_ground_cracks:
+                if _check_boss_crack_collision(proposed_boss_rect, crack):
+                    can_move = False
+                    boss_current_speed = 0  # Stop the boss
+                    break
+            
+            if can_move:
+                BOSS.x = new_position
+                boss_current_speed = new_velocity
             
         #  일반 스무딩 시스템 (fallback)
         elif SMOOTH_MOVEMENT_AVAILABLE:
@@ -45487,12 +45566,35 @@ def handle_boss_junior():
                 BOSS.x, future_x, boss_current_speed
             )
             
-            # 위치 업데이트
-            BOSS.x = new_position
-            boss_current_speed = new_speed
+            # 위치 업데이트 with ground crack collision check
+            proposed_boss_rect = pygame.Rect(new_position, BOSS.y, BOSS.width, BOSS.height)
+            can_move = True
+            
+            # Check collision with ground cracks
+            for crack in blacksmith_ground_cracks:
+                if _check_boss_crack_collision(proposed_boss_rect, crack):
+                    can_move = False
+                    boss_current_speed = 0  # Stop the boss
+                    break
+            
+            if can_move:
+                BOSS.x = new_position
+                boss_current_speed = new_speed
         else:
-            # 기존 위치 업데이트 로직
-            BOSS.x += boss_current_speed
+            # 기존 위치 업데이트 로직 with ground crack collision check
+            proposed_x = BOSS.x + boss_current_speed
+            proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
+            can_move = True
+            
+            # Check collision with ground cracks
+            for crack in blacksmith_ground_cracks:
+                if _check_boss_crack_collision(proposed_boss_rect, crack):
+                    can_move = False
+                    boss_current_speed = 0  # Stop the boss
+                    break
+            
+            if can_move:
+                BOSS.x = proposed_x
         
         # 화면 경계 제한 (스턴이 없을 때만)
         BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
