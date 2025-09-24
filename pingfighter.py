@@ -5595,7 +5595,6 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         radius *= BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE
     elif resolved_stage >= 3:
         radius *= BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE
-    stage_multiplier = 1.0 + BLACKSMITH_HAMMER_SHOCK_CRACK_SCALE_STEP * max(0, resolved_stage - 1)
 
     render_centerx, render_centery = _clamp_blacksmith_hammer_explosion_center(centerx, centery, radius)
     visual_centery = max(12.0, render_centery - BLACKSMITH_HAMMER_SHOCK_EXPLOSION_VISUAL_OFFSET)
@@ -5632,11 +5631,10 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
 
     # Add ground crack effect at explosion point
     global blacksmith_ground_cracks
-    base_crack_count = BLACKSMITH_HAMMER_SHOCK_BASE_CRACK_COUNT
-    num_cracks = max(1, int(round(base_crack_count * stage_multiplier)))
+    num_cracks = 5 + stage * 2  # 5-11 cracks depending on stage
     for i in range(num_cracks):
         angle = (math.pi * 2 * i / num_cracks) + random.uniform(-0.2, 0.2)
-        base_length = radius * random.uniform(0.8, 1.3) * stage_multiplier
+        base_length = radius * random.uniform(0.8, 1.3)
         length = base_length * BLACKSMITH_GROUND_CRACK_RANGE_SCALE
         
         # Generate sub-cracks data
@@ -5704,13 +5702,10 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
                 globals()["boss_knockback_offset_y"] = 0
             except Exception:
                 pass
-            stun_frames = BLACKSMITH_HAMMER_SHOCK_STUN_DURATION_FRAMES.get(
-                stage,
-                BLACKSMITH_HAMMER_SHOCK_STUN_DURATION_FRAMES[max(BLACKSMITH_HAMMER_SHOCK_STUN_DURATION_FRAMES)],
-            )
+            stun_duration = max(1, int(0.3 * FPS))  # 해머 쇼크 스턴 시간 0.3초 고정
 
             try:
-                globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), stun_frames)
+                globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), stun_duration)
             except Exception:
                 pass
 
@@ -7532,21 +7527,14 @@ BLACKSMITH_HAMMER_SHOCK_BALL_VERTICAL_DECAY = 0.55
 BLACKSMITH_HAMMER_SHOCK_BALL_VERTICAL_MIN_SPEED = 11.0
 BLACKSMITH_HAMMER_SHOCK_BALL_HIT_COOLDOWN_FRAMES = 6
 BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS = 90
-BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE = 1.3
-BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE = 1.7
+BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE = 1.1
+BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE = 1.2
 BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK = 16.0
 BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK = 22.0
 BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK = 28.0
 BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION = int(10 * FPS)
 BLACKSMITH_HAMMER_SHOCK_STUN_SCALE = 0.3
 BLACKSMITH_HAMMER_SHOCK_EXPLOSION_VISUAL_OFFSET = 28.0
-BLACKSMITH_HAMMER_SHOCK_STUN_DURATION_FRAMES = {
-    1: max(1, int(0.5 * FPS)),
-    2: max(1, int(0.9 * FPS)),
-    3: max(1, int(1.5 * FPS)),
-}
-BLACKSMITH_HAMMER_SHOCK_BASE_CRACK_COUNT = 7
-BLACKSMITH_HAMMER_SHOCK_CRACK_SCALE_STEP = 0.3
 
 # Ground crack effects
 blacksmith_ground_cracks = []  # 지면 크랙 효과
@@ -54512,4 +54500,3 @@ if __name__ == "__main__":
     # 무조건 오프닝 애니메이션 표시
     opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
     game_loop()            
-1
