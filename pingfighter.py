@@ -4746,10 +4746,6 @@ def _get_blacksmith_thrown_hammer_surface() -> pygame.Surface:
     _blacksmith_thrown_hammer_surface = surface
     return surface
 
-
-# Explosion effects removed - 이펙트 삭제됨
-
-
 def _clamp_blacksmith_hammer_explosion_center(cx: float, cy: float, radius: float) -> tuple[float, float]:
     """HUD와 화면 경계에 가려지는 것을 방지하기 위해 폭발 렌더링 중심을 보정한다."""
     min_visible_y = max(
@@ -4900,11 +4896,13 @@ def release_blacksmith_hammer_shock():
 
 
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
-    global BOSS
+    global BOSS, blacksmith_hammer_explosions
+    resolved_stage = max(1, stage)
+
     radius = BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS
-    if stage == 2:
+    if resolved_stage == 2:
         radius *= BLACKSMITH_HAMMER_SHOCK_STAGE2_RADIUS_SCALE
-    elif stage >= 3:
+    elif resolved_stage >= 3:
         radius *= BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE
 
     render_centerx, render_centery = _clamp_blacksmith_hammer_explosion_center(centerx, centery, radius)
@@ -4912,13 +4910,32 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
     if contact_adjustment > 1.0:
         impact_y = max(12.0, min(render_centery - radius * 0.55, render_centery - 18.0))
         try:
-            effects_manager.spawn_star_particles(int(centerx), int(impact_y), count=6 + stage * 2)
-            effects_manager.spawn_flame_particles(int(centerx), int(impact_y + 12), count=2 + stage)
+            effects_manager.spawn_star_particles(int(centerx), int(impact_y), count=6 + resolved_stage * 2)
+            effects_manager.spawn_star_particles(int(centerx), int(impact_y + 6), count=3 + resolved_stage)
         except Exception:
             pass
 
-    # Explosion effects removed - 폭발 이펙트 제거됨
-    pass
+    try:
+        explosion_entry = _create_blacksmith_hammer_explosion(
+            resolved_stage,
+            render_centerx,
+            render_centery,
+            radius,
+        )
+        blacksmith_hammer_explosions.append(explosion_entry)
+    except Exception:
+        pass
+
+    try:
+        effects_manager.spawn_star_particles(
+            int(render_centerx),
+            int(render_centery),
+            count=10 + resolved_stage * 3,
+        )
+    except Exception:
+        pass
+
+    stage = resolved_stage
 
     knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK
     if stage == 2:
