@@ -5265,8 +5265,16 @@ def _update_boss_crack_stuck_state(can_move: bool, boss_rect: pygame.Rect):
         boss_crack_stuck_timer = 0
         return
 
-    boss_crack_stuck_timer += 1
     current_time = pygame.time.get_ticks()
+    if current_time < boss_crack_ignore_until:
+        boss_crack_stuck_timer = 0
+        return
+
+    if globals().get("boss_knockback_timer", 0) > 0:
+        boss_crack_stuck_timer = 0
+        return
+
+    boss_crack_stuck_timer += 1
 
     if (
         boss_crack_stuck_timer >= BLACKSMITH_GROUND_CRACK_STUCK_FREE_FRAMES
@@ -5281,7 +5289,7 @@ def _update_boss_crack_stuck_state(can_move: bool, boss_rect: pygame.Rect):
                 direction = 1 if boss_rect.centerx >= BOSS.centerx else -1
                 BOSS.x += direction * 8
                 BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
-            boss_crack_ignore_until = current_time + 350
+            boss_crack_ignore_until = current_time + BLACKSMITH_GROUND_CRACK_BOSS_IGNORE_MS
             print("[CRACK STUCK] Force-cleared nearest crack")
 
 
@@ -5370,6 +5378,14 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
             direction = random.choice([-1, 1])
         else:
             direction = 1 if delta_x > 0 else -1
+
+        space_left = boss_rect.left
+        space_right = WIDTH - boss_rect.right
+        if direction > 0 and space_right <= BLACKSMITH_GROUND_CRACK_BOUNDARY_MARGIN:
+            direction = -1
+        elif direction < 0 and space_left <= BLACKSMITH_GROUND_CRACK_BOUNDARY_MARGIN:
+            direction = 1
+
         knockback_speed = BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED + segments_break * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED_STEP
         globals()["boss_knockback_vel"] = direction * knockback_speed
         globals()["boss_knockback_active"] = False
@@ -5378,7 +5394,12 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
 
         boss_obj = globals().get("BOSS")
         if boss_obj is not None:
-            boss_obj.x += direction * BLACKSMITH_GROUND_CRACK_BOSS_IMMEDIATE_PUSH
+            push_distance = BLACKSMITH_GROUND_CRACK_BOSS_IMMEDIATE_PUSH
+            if direction > 0:
+                push_distance = min(push_distance, max(0, WIDTH - boss_obj.right))
+            else:
+                push_distance = min(push_distance, max(0, boss_obj.left))
+            boss_obj.x += direction * push_distance
             boss_obj.x = max(0, min(WIDTH - boss_obj.width, boss_obj.x))
         boss_crack_ignore_until = pygame.time.get_ticks() + BLACKSMITH_GROUND_CRACK_BOSS_IGNORE_MS
     except Exception:
