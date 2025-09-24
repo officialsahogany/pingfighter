@@ -5152,45 +5152,41 @@ def _force_clear_nearest_crack(boss_rect: pygame.Rect) -> bool:
     if 'blacksmith_ground_cracks' not in globals() or not blacksmith_ground_cracks:
         return False
 
-    nearest_crack = None
-    nearest_distance = None
+    # First try to find cracks that are directly colliding with the boss
+    colliding_cracks = []
+    nearby_cracks = []
 
     for crack in list(blacksmith_ground_cracks):
-        bounding_rect = _get_crack_bounding_rect(crack)
-
-        if _should_skip_crack_for_rect(crack, boss_rect, bounding_rect):
-            continue
-
-        line_start_x = crack.get("x", 0.0)
-        line_start_y = crack.get("y", 0.0)
-        length = crack.get("length", 0.0)
-        angle = crack.get("angle", 0.0)
-        line_end_x = line_start_x + math.cos(angle) * length
-
-        min_projection_x = min(line_start_x, line_end_x)
-        max_projection_x = max(line_start_x, line_end_x)
-
-        if boss_rect.right < min_projection_x - BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
-            continue
-        if boss_rect.left > max_projection_x + BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
-            continue
-
-        if bounding_rect.left - boss_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
-            continue
-        if boss_rect.left - bounding_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
-            continue
-
-        if boss_rect.centerx <= bounding_rect.centerx:
-            distance = max(0, bounding_rect.left - boss_rect.right)
+        # Check if this crack is actually colliding with the boss
+        if _check_boss_crack_collision(boss_rect, crack):
+            colliding_cracks.append(crack)
         else:
-            distance = max(0, boss_rect.left - bounding_rect.right)
+            # Check if crack is nearby (within a larger margin)
+            bounding_rect = _get_crack_bounding_rect(crack)
+            distance_x = min(abs(boss_rect.left - bounding_rect.right), abs(boss_rect.right - bounding_rect.left))
+            distance_y = min(abs(boss_rect.top - bounding_rect.bottom), abs(boss_rect.bottom - bounding_rect.top))
+            total_distance = distance_x + distance_y
+            
+            if total_distance <= 60:  # Close proximity threshold
+                nearby_cracks.append((crack, total_distance))
 
-        if nearest_distance is None or distance < nearest_distance:
-            nearest_distance = distance
-            nearest_crack = crack
-
-    if nearest_crack is not None:
+    removed_count = 0
+    
+    # Remove all directly colliding cracks first
+    for crack in colliding_cracks:
+        _shatter_blacksmith_crack(crack, play_sound=False)
+        removed_count += 1
+    
+    # If no colliding cracks but boss is still stuck, remove nearest cracks
+    if removed_count == 0 and nearby_cracks:
+        # Sort by distance and remove the closest one
+        nearby_cracks.sort(key=lambda x: x[1])
+        nearest_crack, _ = nearby_cracks[0]
         _shatter_blacksmith_crack(nearest_crack, play_sound=False)
+        removed_count += 1
+    
+    if removed_count > 0:
+        print(f"[CRACK STUCK] Removed {removed_count} crack(s) to free boss")
         return True
 
     return False
@@ -5338,6 +5334,13 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
 
     if new_remaining <= max(1, segments_total // 2):
         crack["boss_contact_disabled_until"] = pygame.time.get_ticks() + BLACKSMITH_GROUND_CRACK_PASS_THROUGH_MS
+    
+    # If crack is completely destroyed, mark it for removal
+    if new_remaining <= 0 or crack["length"] <= 0:
+        # Ensure boss can pass through completely broken cracks
+        crack["boss_contact_disabled_until"] = pygame.time.get_ticks() + 5000  # 5 seconds
+        crack["segments_remaining"] = 0
+        crack["length"] = 0
 
     if "sub_cracks" in crack:
         max_pos = min(1.0, ratio + 0.05)
