@@ -45344,25 +45344,26 @@ def handle_boss_pro():
             
             # 위치 업데이트 with ground crack collision check
             proposed_boss_rect = pygame.Rect(new_position, BOSS.y, BOSS.width, BOSS.height)
-            can_move = True
-            
+
             # Check collision with ground cracks
             collision_crack = _boss_get_crack_collision(proposed_boss_rect, apply_response=True)
             if collision_crack:
-                can_move = False
-                boss_current_speed = 0  # Stop the boss
+                boss_current_speed = 0  # Stop forward velocity after collision
+                contact_x = _slide_boss_toward_crack_edge(BOSS.x, new_position, collision_crack, BOSS.width)
+                moved_to_contact = abs(contact_x - BOSS.x) > 0.01
+                if moved_to_contact:
+                    BOSS.x = contact_x
+                    _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
+                else:
+                    _update_boss_crack_stuck_state(False, proposed_boss_rect)
                 print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
                 print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
-                _update_boss_crack_stuck_state(False, proposed_boss_rect)
-            
-            if can_move:
+                if not moved_to_contact:
+                    print(f"Boss movement blocked, staying at x={BOSS.x}")
+            else:
                 BOSS.x = new_position
                 boss_current_speed = new_velocity
                 _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
-            else:
-                # Boss cannot move due to crack collision
-                # Keep boss at current position
-                print(f"Boss movement blocked, staying at x={BOSS.x}")
 
         #  일반 스무딩 시스템 (fallback)
         elif SMOOTH_MOVEMENT_AVAILABLE:
