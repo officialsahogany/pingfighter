@@ -5299,6 +5299,52 @@ def _decay_blacksmith_crack_segment(
     return crack in blacksmith_ground_cracks
 
 
+def _handle_blacksmith_hammer_ball_hit(projectile: dict):
+    """Trigger explosion effects and knock the ball when a hammer projectile connects."""
+
+    global BALL, ball_vel, last_hit_by, player_collision_handled, game_vars
+
+    if 'BALL' not in globals() or BALL is None:
+        return
+
+    stage = max(1, int(projectile.get("stage", 1) or 1))
+    impact_x = float(BALL.centerx)
+    impact_y = float(BALL.centery)
+
+    _trigger_blacksmith_hammer_shock_explosion(stage, impact_x, impact_y)
+
+    # Compute horizontal push direction (away from explosion center)
+    dx = BALL.centerx - impact_x
+    horizontal_dir = 1 if dx >= 0 else -1
+
+    # Apply horizontal and vertical velocity adjustments
+    try:
+        current_vx = float(ball_vel[0])
+        current_vy = float(ball_vel[1])
+    except Exception:
+        current_vx = 0.0
+        current_vy = 0.0
+
+    boosted_vx = current_vx * BLACKSMITH_HAMMER_SHOCK_BALL_HORIZONTAL_DECAY + horizontal_dir * BLACKSMITH_HAMMER_SHOCK_BALL_HORIZONTAL_BOOST
+    speed_upward = max(BLACKSMITH_HAMMER_SHOCK_BALL_VERTICAL_MIN_SPEED, abs(current_vy) * BLACKSMITH_HAMMER_SHOCK_BALL_VERTICAL_DECAY)
+
+    ball_vel[0] = boosted_vx
+    ball_vel[1] = -speed_upward
+
+    # Mark the player as the last hitter so scoring/AI respond correctly
+    last_hit_by = "player"
+    try:
+        game_vars.ball.last_hit_by = "player"
+    except Exception:
+        pass
+    player_collision_handled = True
+
+    # Impact particles to emphasize the hit
+    try:
+        effects_manager.spawn_star_particles(int(impact_x), int(impact_y), count=8 + stage * 4)
+    except Exception:
+        pass
+
 def _shatter_blacksmith_crack(crack: dict, play_sound: bool = True):
     """Fully destroy a crack, spawning final fragments and optionally playing sound."""
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
@@ -5662,6 +5708,8 @@ def update_blacksmith_hammer_shock(keys):
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     global blacksmith_ground_cracks
     global PLAYER, special_gauge, special_ready, special_gauge_max
+    global BALL, ball_vel, last_hit_by, player_collision_handled
+    global stopwatch_active, stopwatch_timer
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
         blacksmith_hammer_shock_cooldown_timer -= 1
@@ -5717,6 +5765,19 @@ def update_blacksmith_hammer_shock(keys):
             boss_rect = BOSS
             if boss_rect.collidepoint(int(proj["x"]), int(proj["y"])):
                 _trigger_blacksmith_hammer_shock_explosion(proj["stage"], proj["x"], proj["y"])
+                exploded = True
+
+        if (
+            not exploded
+            and not (stopwatch_active and stopwatch_timer > 0)
+            and 'BALL' in globals()
+            and BALL is not None
+        ):
+            hitbox_size = int(BLACKSMITH_HAMMER_SHOCK_PROJECTILE_HITBOX_RADIUS * 2)
+            hammer_hitbox = pygame.Rect(0, 0, hitbox_size, hitbox_size)
+            hammer_hitbox.center = (int(proj["x"]), int(proj["y"]))
+            if hammer_hitbox.colliderect(BALL):
+                _handle_blacksmith_hammer_ball_hit(proj)
                 exploded = True
 
         if not exploded:
