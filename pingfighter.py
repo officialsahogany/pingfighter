@@ -5400,8 +5400,8 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     # Apply knockback to the boss
     try:
         current_timer = globals().get("boss_knockback_timer", 0)
-        knockback_frames = BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES + segments_break * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAME_BONUS
-        globals()["boss_knockback_timer"] = max(current_timer, knockback_frames)
+        knockback_frames = max(1, BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES + segments_break * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAME_BONUS)
+        globals()["boss_knockback_timer"] = knockback_frames
         delta_x = boss_rect.centerx - crack_center_x
         if abs(delta_x) < 1.0:
             direction = random.choice([-1, 1])
