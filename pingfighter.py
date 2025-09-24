@@ -27508,7 +27508,7 @@ def show_start_screen():
     blacksmith_hammer_shock_anchor_x = 0
     blacksmith_hammer_shock_anchor_y = 0
     global blacksmith_ground_cracks
-    blacksmith_ground_cracks.clear()
+    _clear_blacksmith_cracks_with_shatter(play_sound=False)
     global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
     blacksmith_hammer_head_surface_point = None
     blacksmith_hammer_charge_position = None
@@ -39179,6 +39179,9 @@ def reset_round():
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
+
+    _clear_blacksmith_cracks_with_shatter(play_sound=True)
+
     stopwatch_active = False
     stopwatch_timer = 0
     stopwatch_recovery_timer = 0
@@ -47992,7 +47995,7 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_shock_anchor_x = PLAYER.centerx if 'PLAYER' in globals() and PLAYER else 0
     blacksmith_hammer_shock_anchor_y = PLAYER.centery if 'PLAYER' in globals() and PLAYER else 0
     global blacksmith_ground_cracks
-    blacksmith_ground_cracks.clear()
+    _clear_blacksmith_cracks_with_shatter(play_sound=False)
     global blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
     blacksmith_hammer_head_surface_point = None
     blacksmith_hammer_charge_position = None
