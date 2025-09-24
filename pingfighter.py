@@ -4720,29 +4720,46 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         rect = explosion_surface.get_rect(center=(int(centerx), int(centery)))
         SCREEN.blit(explosion_surface, rect, special_flags=pygame.BLEND_ADD)
 
-        for _ in range(5 + stage * 2):
-            offset_angle = random.uniform(0, math.tau)
-            offset_radius = math.sqrt(random.random()) * radius * 0.6
-            fx = centerx + math.cos(offset_angle) * offset_radius
-            fy = centery + math.sin(offset_angle) * offset_radius
+        offsets = [0.75, 0.45, 0.2]
+        alphas = [160, 110, 70]
+        colors = [
+            (255, 240 - stage * 10, 140 + stage * 10),
+            (200, 210 + stage * 8, 255),
+            (140, 200 + stage * 6, 255),
+        ]
+        for idx, factor in enumerate(offsets):
+            trail_count = 20 + stage * 6
+            for i in range(trail_count):
+                angle = (math.tau / trail_count) * i + random.uniform(-0.04, 0.04)
+                length = radius * (factor + random.uniform(-0.05, 0.08))
+                start_x = centerx + math.cos(angle) * (length * 0.25)
+                start_y = centery + math.sin(angle) * (length * 0.25)
+                end_x = centerx + math.cos(angle) * length
+                end_y = centery + math.sin(angle) * length
+                color = (*colors[idx], alphas[idx]) if len(colors[idx]) == 3 else colors[idx]
+                pygame.draw.line(
+                    SCREEN,
+                    color,
+                    (int(start_x), int(start_y)),
+                    (int(end_x), int(end_y)),
+                    2,
+                )
+
+        for _ in range(8 + stage * 3):
+            angle = random.uniform(0, math.tau)
+            offset = math.sqrt(random.random()) * radius * 0.7
+            fx = centerx + math.cos(angle) * offset
+            fy = centery + math.sin(angle) * offset
+            pygame.draw.circle(
+                SCREEN,
+                (255, 235, 200, 120),
+                (int(fx), int(fy)),
+                random.randint(2, 4),
+            )
             try:
-                effects_manager.spawn_star_particles(int(fx), int(fy), count=2)
+                effects_manager.spawn_star_particles(int(fx), int(fy), count=1)
             except Exception:
                 pass
-
-        trail_count = 18 + stage * 6
-        for i in range(trail_count):
-            angle = (math.tau / trail_count) * i + random.uniform(-0.08, 0.08)
-            length = radius * (0.6 + random.uniform(0.1, 0.2))
-            end_x = centerx + math.cos(angle) * length
-            end_y = centery + math.sin(angle) * length
-            pygame.draw.line(
-                SCREEN,
-                (255, 240 - stage * 10, 120 + stage * 8, 120),
-                (int(centerx), int(centery)),
-                (int(end_x), int(end_y)),
-                2,
-            )
     except Exception:
         pass
 
