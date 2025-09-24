@@ -5580,7 +5580,7 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
 
         boss_obj = globals().get("BOSS")
         if boss_obj is not None:
-            push_distance = BLACKSMITH_GROUND_CRACK_BOSS_IMMEDIATE_PUSH * GAME_KNOCKBACK_DISTANCE_REDUCTION
+            push_distance = _scale_knockback(BLACKSMITH_GROUND_CRACK_BOSS_IMMEDIATE_PUSH)
             if direction > 0:
                 push_distance = min(push_distance, max(0, WIDTH - boss_obj.right))
             else:
@@ -7591,6 +7591,11 @@ BLACKSMITH_GROUND_CRACK_BOSS_HIT_COOLDOWN = int(0.2 * FPS)
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES = max(1, int(0.08 * FPS))  # 0.08초(약 5프레임)로 단축
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAME_BONUS = 1  # 세그먼트당 추가 넉백 시간을 1프레임으로 축소
 GAME_KNOCKBACK_DISTANCE_REDUCTION = 1.0  # 전역 넉백 이동 거리 스케일 (1.0 = 기존 수치 유지)
+
+def _scale_knockback(value: float) -> float:
+    """Apply global knockback scaling to maintain consistent tuning."""
+    return value * GAME_KNOCKBACK_DISTANCE_REDUCTION
+
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED = 7.2
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED_STEP = 1.6
 BLACKSMITH_GROUND_CRACK_BOSS_IMMEDIATE_PUSH = 16.0
@@ -14816,7 +14821,7 @@ def trigger_boss_knockback(bullet_x, bullet_y):
         knockback_direction_x = random.choice([-1, 1])
     
     # X축으로만 넉백 오프셋 설정, Y축은 0
-    boss_knockback_offset_x = knockback_direction_x * BOSS_KNOCKBACK_STRENGTH * GAME_KNOCKBACK_DISTANCE_REDUCTION
+    boss_knockback_offset_x = _scale_knockback(knockback_direction_x * BOSS_KNOCKBACK_STRENGTH)
     boss_knockback_offset_y = 0  # Y축 넉백 없음
     
     # 디버그 정보 출력
@@ -41104,7 +41109,7 @@ boss_crack_recent_hit_time = 0
 
 def _apply_boss_knockback_velocity(raw_velocity: float) -> float:
     global boss_knockback_vel
-    boss_knockback_vel = raw_velocity * GAME_KNOCKBACK_DISTANCE_REDUCTION
+    boss_knockback_vel = _scale_knockback(raw_velocity)
     return boss_knockback_vel
 
 #  Stage 5 화염 지대 넉백 관련 변수
