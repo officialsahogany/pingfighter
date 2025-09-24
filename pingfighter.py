@@ -4605,8 +4605,6 @@ def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: flo
         "spark_color": spark_color,
         "halo_color": palette.get("halo"),
         "antimatter_color": antimatter_color,
-        "arc_seed": random.randint(0, 999_999),
-        "arc_count": 6 + stage_index * 2,
     }
 
 
@@ -5145,42 +5143,6 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             halo_surface.get_rect(center=(int(center_x + offset_x), int(center_y + offset_y))),
             special_flags=pygame.BLEND_ADD,
         )
-
-        arc_seed = explosion.get("arc_seed")
-        if arc_seed is None:
-            arc_seed = random.randint(0, 999_999)
-            explosion["arc_seed"] = arc_seed
-        arc_count = max(4, int(explosion.get("arc_count", 6 + stage_value * 2)))
-        arc_rng = random.Random(arc_seed + frame // 2)
-        base_arc_radius = base_radius * (0.36 + 0.28 * (1.0 - remaining_ratio))
-        glyph_rgb = (
-            int(glyph_color_rgb[0]),
-            int(glyph_color_rgb[1]),
-            int(glyph_color_rgb[2]),
-        ) if isinstance(glyph_color_rgb, (list, tuple)) and len(glyph_color_rgb) >= 3 else (200, 230, 255)
-        for arc_idx in range(arc_count):
-            start_angle = arc_rng.uniform(0.0, math.tau)
-            angle_span = arc_rng.uniform(0.55, 1.05) * max(0.35, 1.0 - 0.45 * progress)
-            segments = 6 + stage_value
-            points: list[tuple[int, int]] = []
-            for seg in range(segments):
-                t = seg / max(1, segments - 1)
-                wobble = math.sin(frame * 0.24 + arc_idx * 1.9 + t * 3.6) * (base_radius * 0.05 + stage_value * 1.2)
-                radial = base_arc_radius * (0.7 + t * 1.15) + wobble
-                angle = start_angle + angle_span * t + math.sin(frame * 0.2 + arc_idx * 2.0 + t * 4.1) * 0.08
-                px = center_x + math.cos(angle) * radial + offset_x
-                py = center_y + math.sin(angle) * radial * 0.96 + offset_y
-                points.append((int(px), int(py)))
-            if len(points) >= 2:
-                outer_arc = _clamp_color((*glyph_rgb, int(120 * remaining_ratio)))
-                inner_arc = _clamp_color((
-                    min(255, glyph_rgb[0] + 30),
-                    min(255, glyph_rgb[1] + 35),
-                    min(255, glyph_rgb[2] + 35),
-                    int(200 * remaining_ratio),
-                ))
-                pygame.draw.lines(surface, outer_arc, False, points, 3)
-                pygame.draw.lines(surface, inner_arc, False, points, 2)
 
         sparks = explosion.get("sparks", [])
         antimatter_rgb = None
