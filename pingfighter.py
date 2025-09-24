@@ -5391,16 +5391,16 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
                 globals()["boss_knockback_offset_y"] = 0
             except Exception:
                 pass
+            stun_duration = 2.0 * FPS
             if stage >= 3:
-                try:
-                    globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), int(3 * FPS))
-                except Exception:
-                    pass
-            else:
-                try:
-                    globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), int(2.0 * FPS))
-                except Exception:
-                    pass
+                stun_duration = 3 * FPS
+
+            stun_duration = max(1, int(stun_duration * BLACKSMITH_HAMMER_SHOCK_STUN_SCALE))
+
+            try:
+                globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), stun_duration)
+            except Exception:
+                pass
 
 
 def update_blacksmith_hammer_shock(keys):
@@ -7169,6 +7169,7 @@ BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK = 16.0
 BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK = 22.0
 BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK = 28.0
 BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION = int(10 * FPS)
+BLACKSMITH_HAMMER_SHOCK_STUN_SCALE = 0.3
 
 # Ground crack effects
 blacksmith_ground_cracks = []  # 지면 크랙 효과
