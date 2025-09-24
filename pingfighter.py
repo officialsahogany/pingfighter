@@ -5251,17 +5251,6 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         )
         surface.blit(fade_surface, rect, special_flags=pygame.BLEND_ADD)
 
-        ring_radius = max(2, int((scaled_size[0] / 2) * (1.0 + 0.25 * (1.0 - remaining_ratio))))
-        ring_alpha = int(150 * remaining_ratio)
-        if ring_alpha > 0:
-            pygame.draw.circle(
-                surface,
-                (180, 228, 255, ring_alpha),
-                (int(center_x + offset_x), int(center_y + offset_y)),
-                ring_radius,
-                width=2,
-            )
-
         fx["life"] = life - 1
         updated_return_fx.append(fx)
 
