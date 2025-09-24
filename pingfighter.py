@@ -4494,8 +4494,8 @@ def _get_blacksmith_hammer_effect_center() -> tuple[float, float]:
         )
     if 'PLAYER' in globals() and PLAYER is not None:
         return (
-            float(PLAYER.centerx + 6),
-            float(PLAYER.centery - 18),
+            float(PLAYER.right + 18),
+            float(PLAYER.centery - 20),
         )
     return float(WIDTH // 2), float(HEIGHT // 2)
 
