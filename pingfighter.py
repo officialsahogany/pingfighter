@@ -5545,11 +5545,7 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
                 globals()["boss_knockback_offset_y"] = 0
             except Exception:
                 pass
-            stun_duration = 2.0 * FPS
-            if stage >= 3:
-                stun_duration = 3 * FPS
-
-            stun_duration = max(1, int(stun_duration * BLACKSMITH_HAMMER_SHOCK_STUN_SCALE))
+            stun_duration = max(1, int(0.3 * FPS))  # 해머 쇼크 스턴 시간 0.3초 고정
 
             try:
                 globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), stun_duration)
