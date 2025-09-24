@@ -5045,36 +5045,58 @@ def _check_path_blocked_by_cracks(current_x, target_x, boss_width, boss_y, boss_
     if 'blacksmith_ground_cracks' not in globals() or not blacksmith_ground_cracks:
         return False
 
-    # Check multiple points along the path
+    # Only check cracks that are reasonably close to the movement path
+    path_min_x = min(current_x, target_x) - boss_width // 2
+    path_max_x = max(current_x + boss_width, target_x + boss_width) + boss_width // 2
+    movement_distance = abs(target_x - current_x)
+    
+    # If movement distance is very large, only check cracks near the current position
+    # This prevents distant cracks from affecting the AI
+    proximity_threshold = 200  # Only check cracks within 200 pixels of the path
+    
+    relevant_cracks = []
+    for crack in blacksmith_ground_cracks:
+        crack_x = crack.get("x", 0.0)
+        crack_length = crack.get("length", 0.0)
+        crack_angle = crack.get("angle", 0.0)
+        crack_end_x = crack_x + math.cos(crack_angle) * crack_length
+        
+        # Get crack's X range
+        crack_min_x = min(crack_x, crack_end_x)
+        crack_max_x = max(crack_x, crack_end_x)
+        
+        # Only consider cracks that are:
+        # 1. Within the path's X range (with some margin)
+        # 2. Close to the boss's current position (for large movements)
+        crack_in_path_range = not (crack_max_x < path_min_x - 50 or crack_min_x > path_max_x + 50)
+        
+        if movement_distance > proximity_threshold:
+            # For long movements, only check cracks close to current position
+            crack_distance_from_boss = min(
+                abs(crack_min_x - current_x),
+                abs(crack_max_x - current_x),
+                abs((crack_min_x + crack_max_x) / 2 - current_x)
+            )
+            crack_close_to_boss = crack_distance_from_boss <= proximity_threshold
+        else:
+            # For short movements, check all cracks in path range
+            crack_close_to_boss = True
+        
+        if crack_in_path_range and crack_close_to_boss:
+            relevant_cracks.append(crack)
+
+    # If no relevant cracks, path is clear
+    if not relevant_cracks:
+        return False
+
+    # Check multiple points along the path against relevant cracks only
     steps = 5
     for i in range(steps + 1):
         t = i / steps
         check_x = current_x + (target_x - current_x) * t
         test_rect = pygame.Rect(check_x, boss_y, boss_width, boss_height)
 
-        for crack in blacksmith_ground_cracks:
-            crack_bounds = _get_crack_bounding_rect(crack)
-
-            if _should_skip_crack_for_rect(crack, test_rect, crack_bounds):
-                continue
-
-            line_start_x = crack.get("x", 0.0)
-            line_start_y = crack.get("y", 0.0)
-            length = crack.get("length", 0.0)
-            angle = crack.get("angle", 0.0)
-            line_end_x = line_start_x + math.cos(angle) * length
-            line_end_y = line_start_y + math.sin(angle) * length
-            min_projection_x = min(line_start_x, line_end_x)
-            max_projection_x = max(line_start_x, line_end_x)
-
-            path_min_x = min(current_x, target_x) - boss_width
-            path_max_x = max(current_x + boss_width, target_x + boss_width)
-            if max_projection_x < path_min_x - BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN or min_projection_x > path_max_x + BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
-                continue
-            if crack_bounds.left - test_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
-                continue
-            if test_rect.left - crack_bounds.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
-                continue
+        for crack in relevant_cracks:
             if _check_boss_crack_collision(test_rect, crack):
                 return True
 
