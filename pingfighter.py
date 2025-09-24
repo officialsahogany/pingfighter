@@ -4807,6 +4807,8 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
     elif stage >= 3:
         radius *= BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE
 
+    render_centerx, render_centery = _clamp_blacksmith_hammer_explosion_center(centerx, centery, radius)
+
     try:
         explosion_surface = _get_blacksmith_hammer_explosion_surface(stage, int(radius))
         life_frames = int(0.35 * FPS)
@@ -4840,7 +4842,7 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         blacksmith_hammer_explosions.append(
             {
                 "surface": explosion_surface,
-                "center": (float(centerx), float(centery)),
+                "center": (float(render_centerx), float(render_centery)),
                 "life": life_frames,
                 "max_life": life_frames,
                 "stage": stage,
