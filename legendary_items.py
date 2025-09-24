@@ -2260,9 +2260,7 @@ class LegendaryItemManager:
         if "poseidon_trident" not in self.unlocked_items:
             self.unlocked_items.append("poseidon_trident")
 
-        self.items["holy_laurel"].unlocked = True
-        if "holy_laurel" not in self.unlocked_items:
-            self.unlocked_items.append("holy_laurel")
+        # 신성 월계수는 전시용 아이콘이므로 기본 해금 목록에서 제외한다.
         
     
     def _init_legendary_items(self):
