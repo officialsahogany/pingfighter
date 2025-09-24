@@ -4550,67 +4550,26 @@ def _get_blacksmith_hammer_explosion_surface(stage: int) -> pygame.Surface:
 
     glyph_surface = pygame.Surface((size, size), pygame.SRCALPHA)
     glyph_color = palette.get("glyph", (255, 220, 180))
-    ring_count = 3 + stage_index
-    for ring_idx in range(ring_count):
-        ring_ratio = ring_idx / max(1, ring_count - 1)
-        ring_radius = visual_radius * (0.32 + 0.4 * ring_ratio)
-        ring_alpha = int(80 + 40 * (1.0 - ring_ratio))
-        pygame.draw.circle(
-            glyph_surface,
-            _clamp_color((*glyph_color, ring_alpha)),
-            (center, center),
-            max(1, int(ring_radius)),
-            1 + (ring_idx % 2),
-        )
-
-    spoke_count = 10
-    for idx in range(spoke_count):
-        angle = (math.tau * idx) / spoke_count
-        inner = visual_radius * 0.26
-        outer = visual_radius * 0.88
-        start_x = center + math.cos(angle) * inner
-        start_y = center + math.sin(angle) * inner
-        end_x = center + math.cos(angle) * outer
-        end_y = center + math.sin(angle) * outer
-        outer_alpha = 90 if stage_index == 1 else 110
-        core_alpha = 170 if stage_index >= 2 else 150
-        pygame.draw.line(
-            glyph_surface,
-            _clamp_color((*glyph_color, outer_alpha)),
-            (int(start_x), int(start_y)),
-            (int(end_x), int(end_y)),
-            5,
-        )
-        pygame.draw.line(
-            glyph_surface,
-            _clamp_color((*glyph_color, core_alpha)),
-            (int(start_x), int(start_y)),
-            (int(end_x), int(end_y)),
-            2,
-        )
-        notch_angle = angle + (math.pi / 2 if idx % 2 == 0 else -math.pi / 2)
-        notch_base = (inner + outer) * 0.5
-        notch_length = visual_radius * 0.22
-        notch_start_x = center + math.cos(angle) * notch_base
-        notch_start_y = center + math.sin(angle) * notch_base
-        notch_end_x = notch_start_x + math.cos(notch_angle) * notch_length * 0.35
-        notch_end_y = notch_start_y + math.sin(notch_angle) * notch_length * 0.35
-        pygame.draw.line(
-            glyph_surface,
-            _clamp_color((*glyph_color, 90)),
-            (int(notch_start_x), int(notch_start_y)),
-            (int(notch_end_x), int(notch_end_y)),
-            2,
-        )
-
+    # 중심부 하이라이트를 부드러운 오라로 추가
     pygame.draw.circle(
         glyph_surface,
-        _clamp_color((*glyph_color, 120)),
+        _clamp_color((*glyph_color, 90)),
         (center, center),
-        max(2, int(visual_radius * 0.24)),
+        max(2, int(visual_radius * 0.28)),
         width=1,
     )
-
+    inner_glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    pygame.draw.circle(
+        inner_glow_surface,
+        _clamp_color((*glyph_color, 70)),
+        (center, center),
+        max(1, int(visual_radius * 0.6)),
+    )
+    inner_glow_surface = pygame.transform.smoothscale(
+        inner_glow_surface,
+        (int(inner_glow_surface.get_width() * 0.96), int(inner_glow_surface.get_height() * 0.96)),
+    )
+    surface.blit(inner_glow_surface, inner_glow_surface.get_rect(center=(center, center)), special_flags=pygame.BLEND_ADD)
     surface.blit(glyph_surface, (0, 0), special_flags=pygame.BLEND_ADD)
     _blacksmith_hammer_explosion_surface_cache[stage_index] = surface
     return surface
