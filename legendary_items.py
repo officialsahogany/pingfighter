@@ -1690,8 +1690,8 @@ class HolyLaurel(LegendaryItem):
         self._poseidon_ref: Optional[LegendaryItem] = poseidon_ref
         # 전시 전용 아이콘은 포세이돈의 삼지창과 완전히 동일한 애니메이션을 사용한다.
         self._sync_with_poseidon = True
-        # 아이콘 프레임은 그대로 유지하되, 공통 프레임 연출만 좀 더 경쾌하게 가속한다.
-        self._animation_rate_scale = 2.6
+        # 아이콘 프레임은 그대로 유지하되, 공통 프레임 연출만 더 과감하게 가속한다.
+        self._animation_rate_scale = 3.2
         self._prepare_frames()
 
     def _ensure_poseidon_ref(self) -> Optional[LegendaryItem]:
