@@ -4417,6 +4417,9 @@ def _vec_to_int_pair(vec: pygame.math.Vector2 | tuple[float, float]) -> tuple[in
 _blacksmith_hammer_charge_surface_cache: dict[int, pygame.Surface] = {}
 _blacksmith_hammer_charge_spark_cache: dict[int, pygame.Surface] = {}
 _blacksmith_thrown_hammer_surface: pygame.Surface | None = None
+blacksmith_hammer_head_local_point: pygame.math.Vector2 | tuple[float, float] | None = None
+blacksmith_hammer_head_surface_point: pygame.math.Vector2 | tuple[float, float] | None = None
+blacksmith_hammer_charge_position: tuple[float, float] | None = None
 
 
 def _clamp_color(color: tuple[int, ...]) -> tuple[int, ...]:
