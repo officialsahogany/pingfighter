@@ -4808,6 +4808,14 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         radius *= BLACKSMITH_HAMMER_SHOCK_STAGE3_RADIUS_SCALE
 
     render_centerx, render_centery = _clamp_blacksmith_hammer_explosion_center(centerx, centery, radius)
+    contact_adjustment = render_centery - centery
+    if contact_adjustment > 1.0:
+        impact_y = max(12.0, min(render_centery - radius * 0.55, render_centery - 18.0))
+        try:
+            effects_manager.spawn_star_particles(int(centerx), int(impact_y), count=6 + stage * 2)
+            effects_manager.spawn_flame_particles(int(centerx), int(impact_y + 12), count=2 + stage)
+        except Exception:
+            pass
 
     try:
         explosion_surface = _get_blacksmith_hammer_explosion_surface(stage, int(radius))
