@@ -5030,6 +5030,11 @@ def _is_boss_movement_valid(new_x):
     
     # Check collision with each crack
     for crack in blacksmith_ground_cracks:
+        bounding_rect = _get_crack_bounding_rect(crack)
+        if bounding_rect.left - proposed_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
+            continue
+        if proposed_rect.left - bounding_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
+            continue
         if _check_boss_crack_collision(proposed_rect, crack):
             return False
     
@@ -5044,6 +5049,11 @@ def _boss_get_crack_collision(boss_rect: pygame.Rect, apply_response: bool = Fal
         return None
 
     for crack in list(blacksmith_ground_cracks):
+        bounding_rect = _get_crack_bounding_rect(crack)
+        if bounding_rect.left - boss_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
+            continue
+        if boss_rect.left - bounding_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
+            continue
         if _check_boss_crack_collision(boss_rect, crack):
             if apply_response:
                 _handle_boss_crack_hit(crack, boss_rect)
