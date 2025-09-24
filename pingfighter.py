@@ -5031,48 +5031,8 @@ def _is_boss_movement_valid(new_x):
     if 'blacksmith_ground_cracks' not in globals() or not blacksmith_ground_cracks:
         return True
     
-    # Create rect for proposed position
-    proposed_rect = pygame.Rect(new_x, BOSS.y, BOSS.width, BOSS.height)
-    
-    # Check collision with each crack
-    collision_detected = False
-    for crack in blacksmith_ground_cracks:
-        bounding_rect = _get_crack_bounding_rect(crack)
-
-        if _should_skip_crack_for_rect(crack, proposed_rect, bounding_rect):
-            continue
-
-        line_start_x = crack.get("x", 0.0)
-        line_start_y = crack.get("y", 0.0)
-        length = crack.get("length", 0.0)
-        angle = crack.get("angle", 0.0)
-        line_end_x = line_start_x + math.cos(angle) * length
-        line_end_y = line_start_y + math.sin(angle) * length
-        min_projection_x = min(line_start_x, line_end_x)
-        max_projection_x = max(line_start_x, line_end_x)
-
-        if proposed_rect.right < min_projection_x - BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
-            continue
-        if proposed_rect.left > max_projection_x + BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
-            continue
-
-        crack_center_y = (line_start_y + line_end_y) / 2
-        if abs(proposed_rect.centery - crack_center_y) > BLACKSMITH_GROUND_CRACK_VERTICAL_MARGIN:
-            continue
-
-        if bounding_rect.left - proposed_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
-            continue
-        if proposed_rect.left - bounding_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
-            continue
-        if _check_boss_crack_collision(proposed_rect, crack):
-            collision_detected = True
-            break
-
-    if collision_detected:
-        _update_boss_crack_stuck_state(False, proposed_rect)
-        return False
-
-    _update_boss_crack_stuck_state(True, proposed_rect)
+    # 보스는 크랙을 자유롭게 지나갈 수 있어야 함 - 이동 제한을 제거
+    # 크랙 충돌은 시각적 효과와 디버그 로그만 출력하고 이동을 막지 않음
     return True
 
 
