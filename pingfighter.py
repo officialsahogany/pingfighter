@@ -5758,6 +5758,11 @@ def update_blacksmith_hammer_shock(keys):
             blacksmith_hammer_shock_charging = False
             blacksmith_hammer_shock_charge_frames = 0
             blacksmith_hammer_shock_stage = 0
+            if blacksmith_hammer_charge_position is not None:
+                blacksmith_hammer_idle_position = (
+                    float(blacksmith_hammer_charge_position[0]),
+                    float(blacksmith_hammer_charge_position[1]),
+                )
             blacksmith_hammer_charge_position = None
         else:
             try:
@@ -5775,8 +5780,12 @@ def update_blacksmith_hammer_shock(keys):
     else:
         blacksmith_hammer_shock_stage = 0
         blacksmith_hammer_shock_charge_frames = 0
+        if blacksmith_hammer_charge_position is not None:
+            blacksmith_hammer_idle_position = (
+                float(blacksmith_hammer_charge_position[0]),
+                float(blacksmith_hammer_charge_position[1]),
+            )
         blacksmith_hammer_charge_position = None
-        blacksmith_hammer_idle_position = None
 
     new_projectiles = []
     for proj in blacksmith_hammer_shock_projectiles:
