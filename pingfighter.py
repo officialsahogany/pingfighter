@@ -4889,6 +4889,36 @@ def release_blacksmith_hammer_shock():
         pass
 
 
+def _check_boss_crack_collision(boss_rect, crack):
+    """Check if boss paddle collides with a ground crack"""
+    # Create a line segment for the crack
+    end_x = crack["x"] + math.cos(crack["angle"]) * crack["length"]
+    end_y = crack["y"] + math.sin(crack["angle"]) * crack["length"]
+    
+    # Check if the crack line intersects with boss rect
+    # Using simple bounding box check first
+    crack_min_x = min(crack["x"], end_x)
+    crack_max_x = max(crack["x"], end_x)
+    crack_min_y = min(crack["y"], end_y)
+    crack_max_y = max(crack["y"], end_y)
+    
+    # Add some thickness to the crack for collision
+    thickness = crack.get("thickness", 2) + 5  # Extra padding for collision
+    
+    # Expand crack bounds by thickness
+    crack_min_x -= thickness
+    crack_max_x += thickness
+    crack_min_y -= thickness
+    crack_max_y += thickness
+    
+    # Check if boss rect overlaps with crack bounds
+    if (boss_rect.left < crack_max_x and boss_rect.right > crack_min_x and
+        boss_rect.top < crack_max_y and boss_rect.bottom > crack_min_y):
+        return True
+    
+    return False
+
+
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
     global BOSS, blacksmith_hammer_explosions
     resolved_stage = max(1, stage)
