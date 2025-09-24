@@ -25,6 +25,12 @@ class AmmoBox:
         # 플레이어가 소지한 화기류 목록 확인
         game_module = self._get_game_module()
         soldier_weapons = getattr(game_module, 'soldier_weapons', []) if game_module else []
+        soldier_controller = getattr(game_module, 'soldier_controller', None) if game_module else None
+        degraded_weapons = set(getattr(soldier_controller, 'degraded', ())) if soldier_controller else set()
+
+        def is_degraded(weapon_name: str) -> bool:
+            return weapon_name != "pistol" and weapon_name in degraded_weapons
+
         register_reload = None
         if game_module:
             register_candidate = getattr(game_module, "register_weapon_reload", None)
@@ -60,21 +66,24 @@ class AmmoBox:
             from item_effects.bazooka import get_bazooka_instance
             bazooka = get_bazooka_instance()
             if bazooka:
-                prev_ammo = bazooka.ammo_count
-                was_inactive = not getattr(bazooka, "active", False)
-                if prev_ammo < bazooka.max_ammo:
-                    bazooka.ammo_count = bazooka.max_ammo
-                    bazooka.active = True
-                    if register_reload:
-                        register_reload("bazooka")
-                    if "bazooka" not in self.reloaded_weapons:
-                        self.reloaded_weapons.append("bazooka")
-                    print(f"   🚀 바주카포 재장전: {prev_ammo} → {bazooka.ammo_count}")
-                elif was_inactive:
-                    bazooka.active = True
-                    if "bazooka" not in self.reloaded_weapons:
-                        self.reloaded_weapons.append("bazooka")
-                    print("   🚀 바주카포 재활성화!")
+                if is_degraded("bazooka"):
+                    print("   🚫 바주카포는 노후화되어 재장전되지 않습니다.")
+                else:
+                    prev_ammo = bazooka.ammo_count
+                    was_inactive = not getattr(bazooka, "active", False)
+                    if prev_ammo < bazooka.max_ammo:
+                        bazooka.ammo_count = bazooka.max_ammo
+                        bazooka.active = True
+                        if register_reload:
+                            register_reload("bazooka")
+                        if "bazooka" not in self.reloaded_weapons:
+                            self.reloaded_weapons.append("bazooka")
+                        print(f"   🚀 바주카포 재장전: {prev_ammo} → {bazooka.ammo_count}")
+                    elif was_inactive:
+                        bazooka.active = True
+                        if "bazooka" not in self.reloaded_weapons:
+                            self.reloaded_weapons.append("bazooka")
+                        print("   🚀 바주카포 재활성화!")
         except ImportError:
             pass
 
@@ -82,15 +91,18 @@ class AmmoBox:
         try:
             from item_effects.net_gun import get_net_gun_instance
             net_gun = get_net_gun_instance()
-            if net_gun and net_gun.ammo_count < net_gun.MAX_AMMO:
-                prev_ammo = net_gun.ammo_count
-                net_gun.ammo_count = net_gun.MAX_AMMO
-                net_gun.active = True
-                if register_reload:
-                    register_reload("net_gun")
-                if "net_gun" not in self.reloaded_weapons:
-                    self.reloaded_weapons.append("net_gun")
-                print(f"   🕸️ 그물덫총 재장전: {prev_ammo} → {net_gun.ammo_count}")
+            if net_gun:
+                if is_degraded("net_gun"):
+                    print("   🚫 그물덫총은 노후화되어 재장전되지 않습니다.")
+                elif net_gun.ammo_count < net_gun.MAX_AMMO:
+                    prev_ammo = net_gun.ammo_count
+                    net_gun.ammo_count = net_gun.MAX_AMMO
+                    net_gun.active = True
+                    if register_reload:
+                        register_reload("net_gun")
+                    if "net_gun" not in self.reloaded_weapons:
+                        self.reloaded_weapons.append("net_gun")
+                    print(f"   🕸️ 그물덫총 재장전: {prev_ammo} → {net_gun.ammo_count}")
         except ImportError:
             pass
 
@@ -99,17 +111,20 @@ class AmmoBox:
             from item_effects.ak47 import get_ak47_instance
             ak47 = get_ak47_instance()
             if ak47:
-                was_inactive = not ak47.active
-                prev_ammo = ak47.current_ammo
-                if ak47.current_ammo < ak47.max_ammo:
-                    ak47.current_ammo = ak47.max_ammo
-                    if register_reload:
-                        register_reload("ak47")
-                    print(f"   🔫 AK-47 재장전: {prev_ammo} → {ak47.current_ammo}")
-                if was_inactive or ak47.current_ammo < ak47.max_ammo:
-                    ak47.activate(None, None)
-                if "ak47" not in self.reloaded_weapons:
-                    self.reloaded_weapons.append("ak47")
+                if is_degraded("ak47"):
+                    print("   🚫 AK-47은 노후화되어 재장전되지 않습니다.")
+                else:
+                    was_inactive = not ak47.active
+                    prev_ammo = ak47.current_ammo
+                    if ak47.current_ammo < ak47.max_ammo:
+                        ak47.current_ammo = ak47.max_ammo
+                        if register_reload:
+                            register_reload("ak47")
+                        print(f"   🔫 AK-47 재장전: {prev_ammo} → {ak47.current_ammo}")
+                    if was_inactive or ak47.current_ammo < ak47.max_ammo:
+                        ak47.activate(None, None)
+                    if "ak47" not in self.reloaded_weapons:
+                        self.reloaded_weapons.append("ak47")
         except ImportError:
             pass
         
