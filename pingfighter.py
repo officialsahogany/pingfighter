@@ -5077,13 +5077,9 @@ def update_blacksmith_hammer_shock(keys):
 
     blacksmith_hammer_shock_projectiles = new_projectiles
 
-    # Update ground cracks
-    updated_cracks = []
-    for crack in blacksmith_ground_cracks:
-        crack["life"] -= 1
-        if crack["life"] > 0:
-            updated_cracks.append(crack)
-    blacksmith_ground_cracks = updated_cracks
+    # Update ground cracks (now permanent - no life decay)
+    # Ground cracks remain until shattered by ball impact
+    pass
 
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions = [
