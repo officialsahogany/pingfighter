@@ -48114,7 +48114,11 @@ def main(stage_num, new_boss_mode=False):
                     and blacksmith_hammer_shock_cooldown_timer <= 0
                     and special_gauge >= BLACKSMITH_HAMMER_SHOCK_COST
                 )
-                manual_preferred = manual_candidate and (down_current_state or not hammer_ready)
+                if manual_candidate:
+                    # 기본값은 수동 발사 우선, 단 ↓키를 누른 채 해머 게이지가 충분하면 해머 쇼크를 선택할 수 있게 한다.
+                    manual_preferred = (not down_current_state) or (not hammer_ready)
+                else:
+                    manual_preferred = False
 
                 if manual_preferred and turret_rect is not None:
                     if blacksmith_turret_manual_cooldown <= 0:
