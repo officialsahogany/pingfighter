@@ -4900,12 +4900,15 @@ def _check_boss_crack_collision(boss_rect, crack):
     boss_padding = crack.get("boss_padding", BLACKSMITH_GROUND_CRACK_BOSS_PADDING)
     thickness = crack.get("thickness", 2) + boss_padding
 
-    if boss_rect.right < crack.get("x", 0.0) - BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
-        return False
-    if boss_rect.left > crack.get("x", 0.0) + BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
-        return False
-
     bounding_rect = _get_crack_bounding_rect(crack)
+
+    min_projection_x = min(line_start_x, line_end_x)
+    max_projection_x = max(line_start_x, line_end_x)
+
+    if boss_rect.right < min_projection_x - BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
+        return False
+    if boss_rect.left > max_projection_x + BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
+        return False
 
     if bounding_rect.left - boss_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
         return False
@@ -5118,6 +5121,20 @@ def _force_clear_nearest_crack(boss_rect: pygame.Rect) -> bool:
 
     for crack in list(blacksmith_ground_cracks):
         bounding_rect = _get_crack_bounding_rect(crack)
+
+        line_start_x = crack.get("x", 0.0)
+        line_start_y = crack.get("y", 0.0)
+        length = crack.get("length", 0.0)
+        angle = crack.get("angle", 0.0)
+        line_end_x = line_start_x + math.cos(angle) * length
+
+        min_projection_x = min(line_start_x, line_end_x)
+        max_projection_x = max(line_start_x, line_end_x)
+
+        if boss_rect.right < min_projection_x - BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
+            continue
+        if boss_rect.left > max_projection_x + BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
+            continue
 
         if bounding_rect.left - boss_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
             continue
