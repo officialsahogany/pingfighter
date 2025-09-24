@@ -5114,6 +5114,22 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     # Remove the crack when no segment remains
     if new_remaining <= 0 or crack["length"] <= 1.0:
         try:
+            for _ in range(12 + segments_total * 2):
+                angle = random.uniform(0, math.pi * 2)
+                speed = random.uniform(3, 7)
+                fragment = {
+                    "x": crack.get("x", boss_rect.centerx),
+                    "y": crack.get("y", boss_rect.centery),
+                    "vx": math.cos(angle) * speed,
+                    "vy": math.sin(angle) * speed,
+                    "life": random.randint(20, 40),
+                    "color": (150, 150, 160),
+                    "size": random.randint(2, 5)
+                }
+                blacksmith_hammer_shock_particles.append(fragment)
+        except Exception:
+            pass
+        try:
             blacksmith_ground_cracks.remove(crack)
         except ValueError:
             pass
