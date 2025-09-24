@@ -4910,6 +4910,9 @@ def _check_boss_crack_collision(boss_rect, crack):
 
     bounding_rect = _get_crack_bounding_rect(crack)
 
+    if _should_skip_crack_for_rect(crack, boss_rect, bounding_rect):
+        return False
+
     def _flag_crack_collision_state():
         try:
             _update_boss_crack_stuck_state(False, boss_rect)
@@ -5161,6 +5164,28 @@ def _get_crack_bounding_rect(crack: dict) -> pygame.Rect:
     height = max(1, int(math.ceil(max_y - min_y)))
 
     return pygame.Rect(int(math.floor(min_x)), int(math.floor(min_y)), width, height)
+
+
+def _should_skip_crack_for_rect(crack: dict, rect: pygame.Rect, bounding_rect: pygame.Rect | None = None) -> bool:
+    """Return True if the crack is sufficiently far from rect to ignore for pathing/collision."""
+
+    if bounding_rect is None:
+        bounding_rect = _get_crack_bounding_rect(crack)
+
+    horizontal_gap = 0
+    if rect.right < bounding_rect.left:
+        horizontal_gap = bounding_rect.left - rect.right
+    elif rect.left > bounding_rect.right:
+        horizontal_gap = rect.left - bounding_rect.right
+
+    if horizontal_gap > BLACKSMITH_GROUND_CRACK_APPROACH_DISTANCE:
+        return True
+
+    vertical_gap = abs(rect.centery - bounding_rect.centery)
+    if vertical_gap > BLACKSMITH_GROUND_CRACK_APPROACH_VERTICAL_MARGIN:
+        return True
+
+    return False
 
 
 def _force_clear_nearest_crack(boss_rect: pygame.Rect) -> bool:
@@ -7339,6 +7364,8 @@ BLACKSMITH_GROUND_CRACK_IGNORE_DURATION_MS = 180
 BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_DELAY_MS = 480
 BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_COOLDOWN_MS = 450
 BLACKSMITH_GROUND_CRACK_PASS_THROUGH_MS = 420
+BLACKSMITH_GROUND_CRACK_APPROACH_DISTANCE = 220
+BLACKSMITH_GROUND_CRACK_APPROACH_VERTICAL_MARGIN = 160
 BLACKSMITH_TURRET_DESIGN_WIDTH = 46
 BLACKSMITH_TURRET_DESIGN_HEIGHT = 54
 BLACKSMITH_TURRET_BASE_WIDTH = int(BLACKSMITH_TURRET_DESIGN_WIDTH * 1.2)
