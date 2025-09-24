@@ -45082,8 +45082,20 @@ def handle_boss_mythic():
             boss_current_speed = max(-BOSS_MAX_SPEED * 0.5, boss_current_speed - BOSS_ACCELERATION)
         else:
             boss_current_speed = min(BOSS_MAX_SPEED * 0.5, boss_current_speed + BOSS_ACCELERATION)
-        # 위치 업데이트
-        BOSS.x += boss_current_speed
+        # 위치 업데이트 with ground crack collision check
+        proposed_x = BOSS.x + boss_current_speed
+        proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
+        can_move = True
+        
+        # Check collision with ground cracks
+        for crack in blacksmith_ground_cracks:
+            if _check_boss_crack_collision(proposed_boss_rect, crack):
+                can_move = False
+                boss_current_speed = 0  # Stop the boss
+                break
+        
+        if can_move:
+            BOSS.x = proposed_x
         BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
         return  # 혼란 상태에서는 나머지 AI 로직 무시
     # 1️⃣ 현재 공 상태 분석 (최신 시스템)
@@ -46462,8 +46474,20 @@ def handle_boss():
         else:
             boss_current_speed = min(max_speed, boss_current_speed + accel)
         
-        # 위치 업데이트
-        BOSS.x += boss_current_speed
+        # 위치 업데이트 with ground crack collision check
+        proposed_x = BOSS.x + boss_current_speed
+        proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
+        can_move = True
+        
+        # Check collision with ground cracks
+        for crack in blacksmith_ground_cracks:
+            if _check_boss_crack_collision(proposed_boss_rect, crack):
+                can_move = False
+                boss_current_speed = 0  # Stop the boss
+                break
+        
+        if can_move:
+            BOSS.x = proposed_x
         BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
         return  # 튜토리얼 AI 완료
     
