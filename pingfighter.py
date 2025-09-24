@@ -4581,54 +4581,14 @@ def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: flo
     base_surface = _get_blacksmith_hammer_explosion_surface(stage_index)
 
     life_frames = int((0.5 + 0.12 * (stage_index - 1)) * FPS)
-    glyph_branches = 10
-    inner_base = radius * (0.18 + 0.02 * stage_index)
-    outer_base = radius * (0.74 + 0.1 * stage_index)
-
-    offsets: list[tuple[float, float, float]] = []
-    for idx in range(glyph_branches):
-        angle = (math.tau * idx) / glyph_branches + random.uniform(-0.05, 0.05)
-        start = inner_base * (0.9 + random.uniform(-0.05, 0.05))
-        end = outer_base * (0.9 + random.uniform(-0.08, 0.08))
-        offsets.append((angle, start, end))
-
     sparks: list[tuple[float, float, float]] = []
     spark_color = palette.get("sparks", (215, 240, 255))
-    spark_count = 18 + stage_index * 4
+    spark_count = 16 + stage_index * 3
     for _ in range(spark_count):
         angle = random.uniform(0, math.tau)
-        distance = radius * random.uniform(0.32, 0.95)
-        size = radius * 0.035 * random.uniform(0.8, 1.2)
+        distance = radius * random.uniform(0.9, 1.35)
+        size = radius * 0.028 * random.uniform(0.9, 1.3)
         sparks.append((angle, distance, size))
-
-    shard_count = 12 + stage_index * 6
-    shards: list[dict[str, float | int]] = []
-    shard_alpha = 200 if stage_index >= 2 else 170
-    shard_color = palette.get("shard", (220, 240, 255))
-    for idx in range(shard_count):
-        angle = random.uniform(0, math.tau)
-        start_offset = radius * random.uniform(0.2, 0.45)
-        length = radius * random.uniform(0.2, 0.36)
-        speed = radius * random.uniform(0.06, 0.12)
-        thickness = 2 + (1 if stage_index >= 2 and random.random() < 0.55 else 0)
-        notch_angle = angle + (math.pi / 2 if idx % 2 == 0 else -math.pi / 2)
-        notch_length = length * random.uniform(0.25, 0.45)
-        notch_offset = start_offset + length * random.uniform(0.35, 0.7)
-        shards.append(
-            {
-                "angle": angle,
-                "offset": start_offset,
-                "length": length,
-                "speed": speed,
-                "thickness": thickness,
-                "color": shard_color,
-                "alpha": shard_alpha,
-                "notch_angle": notch_angle,
-                "notch_length": notch_length,
-                "notch_offset": notch_offset,
-            }
-        )
-
     antimatter_color = palette.get("antimatter", (150, 220, 255, 170))
 
     return {
@@ -4638,15 +4598,11 @@ def _create_blacksmith_hammer_explosion(stage: int, centerx: float, centery: flo
         "stage": stage_index,
         "life": life_frames,
         "max_life": life_frames,
-        "offsets": offsets,
         "sparks": sparks,
-        "shards": shards,
         "first_frame": True,
         "ring_palette": palette.get("rings"),
         "glyph_color": palette.get("glyph"),
         "spark_color": spark_color,
-        "shard_color": palette.get("shard"),
-        "shard_alpha": shard_alpha,
         "halo_color": palette.get("halo"),
         "antimatter_color": antimatter_color,
         "arc_seed": random.randint(0, 999_999),
@@ -5113,8 +5069,6 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         ring_palette = explosion.get("ring_palette")
         glyph_color_rgb = explosion.get("glyph_color")
         spark_color_rgb = explosion.get("spark_color")
-        shard_color_rgb = explosion.get("shard_color")
-        shard_alpha_base = int(explosion.get("shard_alpha", 180))
         halo_color_rgb = explosion.get("halo_color")
         antimatter_rgba = explosion.get("antimatter_color")
 
@@ -5218,36 +5172,6 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
                 pygame.draw.lines(surface, outer_arc, False, points, 3)
                 pygame.draw.lines(surface, inner_arc, False, points, 2)
 
-        offsets = explosion.get("offsets", [])
-        for angle, start, end in offsets:
-            start_scaled = start * scale
-            end_scaled = end * scale
-            start_x = center_x + math.cos(angle) * start_scaled + offset_x
-            start_y = center_y + math.sin(angle) * start_scaled + offset_y
-            end_x = center_x + math.cos(angle) * end_scaled + offset_x
-            end_y = center_y + math.sin(angle) * end_scaled + offset_y
-            if isinstance(glyph_color_rgb, (list, tuple)) and len(glyph_color_rgb) >= 3:
-                color = (
-                    int(glyph_color_rgb[0]),
-                    int(glyph_color_rgb[1]),
-                    int(glyph_color_rgb[2]),
-                    int(150 * remaining_ratio),
-                )
-            else:
-                color = (
-                    190,
-                    220 + stage_value * 10,
-                    255,
-                    int(150 * remaining_ratio),
-                )
-            pygame.draw.line(
-                surface,
-                color,
-                (int(start_x), int(start_y)),
-                (int(end_x), int(end_y)),
-                2,
-            )
-
         sparks = explosion.get("sparks", [])
         antimatter_rgb = None
         antimatter_alpha = 0
@@ -5291,72 +5215,6 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
                 (int(sx), int(sy)),
                 max(1, spark_radius // 2),
             )
-
-        shards = explosion.get("shards", [])
-        fallback_shard_rgb = (
-            tuple(int(c) for c in shard_color_rgb[:3])
-            if isinstance(shard_color_rgb, (list, tuple)) and len(shard_color_rgb) >= 3
-            else (220, 240, 255)
-        )
-        for shard in shards:
-            angle = shard["angle"]
-            start_offset = shard["offset"] * scale
-            length = shard["length"] * scale
-            start_x = center_x + math.cos(angle) * start_offset + offset_x
-            start_y = center_y + math.sin(angle) * start_offset + offset_y
-            end_x = center_x + math.cos(angle) * (start_offset + length) + offset_x
-            end_y = center_y + math.sin(angle) * (start_offset + length) + offset_y
-            shard_rgb = shard.get("color", fallback_shard_rgb)
-            if not (isinstance(shard_rgb, (list, tuple)) and len(shard_rgb) >= 3):
-                shard_rgb = fallback_shard_rgb
-            shard_rgb = (
-                int(shard_rgb[0]),
-                int(shard_rgb[1]),
-                int(shard_rgb[2]),
-            )
-            shard_alpha = int(shard.get("alpha", shard_alpha_base) * remaining_ratio)
-            thickness = shard.get("thickness", 2)
-            if shard_alpha > 0 and length > 0:
-                pygame.draw.line(
-                    surface,
-                    (*shard_rgb, int(shard_alpha * 0.65)),
-                    (int(start_x), int(start_y)),
-                    (int(end_x), int(end_y)),
-                    max(1, thickness + 1),
-                )
-                pygame.draw.line(
-                    surface,
-                    (*shard_rgb, shard_alpha),
-                    (int(start_x), int(start_y)),
-                    (int(end_x), int(end_y)),
-                    thickness,
-                )
-                tip_alpha = min(255, shard_alpha + 40)
-                pygame.draw.circle(
-                    surface,
-                    (*shard_rgb, tip_alpha),
-                    (int(end_x), int(end_y)),
-                    max(1, thickness // 2 + 1),
-                )
-                notch_length = shard.get("notch_length")
-                if notch_length:
-                    notch_offset = shard.get("notch_offset", shard.get("offset", 0.0) + shard.get("length", 0.0) * 0.5)
-                    notch_offset_scaled = notch_offset * scale
-                    notch_angle = shard.get("notch_angle", angle + math.pi / 2)
-                    notch_start_x = center_x + math.cos(angle) * notch_offset_scaled + offset_x
-                    notch_start_y = center_y + math.sin(angle) * notch_offset_scaled + offset_y
-                    notch_end_x = notch_start_x + math.cos(notch_angle) * notch_length * scale
-                    notch_end_y = notch_start_y + math.sin(notch_angle) * notch_length * scale
-                    notch_alpha = max(20, int(shard_alpha * 0.6))
-                    pygame.draw.line(
-                        surface,
-                        (*shard_rgb, notch_alpha),
-                        (int(notch_start_x), int(notch_start_y)),
-                        (int(notch_end_x), int(notch_end_y)),
-                        max(1, thickness - 1),
-                    )
-            shard["offset"] += shard.get("speed", 0.0) * (0.6 + 0.4 * remaining_ratio)
-            shard["speed"] *= 0.88
 
         explosion["life"] = life - 1
         if explosion["life"] > 0:
