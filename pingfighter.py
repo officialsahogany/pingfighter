@@ -10790,7 +10790,7 @@ def trigger_spider_mine_explosion(mine, reason="boss"):
                 knockback_direction = 1 if impact_x < boss_rect.centerx else -1
 
             boss_knockback_timer = BLACKSMITH_TURRET_STUN_DURATION
-            boss_knockback_vel = knockback_direction * BLACKSMITH_TURRET_KNOCKBACK_SPEED
+            boss_knockback_vel = _apply_boss_knockback_velocity(knockback_direction * BLACKSMITH_TURRET_KNOCKBACK_SPEED)
             boss_knockback_active = False
             boss_knockback_offset_x = 0
             boss_knockback_offset_y = 0
@@ -14634,7 +14634,7 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     
     # 라그나로크 해머 넉백 시스템 활용
     boss_knockback_timer = 18  # 0.3초간 넉백 효과 지속 (화염탄과 동일한 거리)
-    boss_knockback_vel = horizontal_velocity
+    boss_knockback_vel = _apply_boss_knockback_velocity(horizontal_velocity)
     
     print(f"[DEBUG] 코만도 총알 넉백 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}")
 
