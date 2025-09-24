@@ -5737,10 +5737,50 @@ def update_blacksmith_hammer_shock(keys):
 
     blacksmith_hammer_shock_projectiles = new_projectiles
 
-    # Update ground cracks (now permanent - no life decay)
-    # Ground cracks remain until shattered by ball impact
-    pass
-    
+    # Update ground cracks auto-decay (natural shatter over time)
+    try:
+        current_ticks = pygame.time.get_ticks()
+    except Exception:
+        current_ticks = 0
+
+    if 'blacksmith_ground_cracks' in globals() and blacksmith_ground_cracks:
+        for crack in list(blacksmith_ground_cracks):
+            if not crack.get("auto_break_enabled"):
+                continue
+
+            start_ms = crack.get("auto_break_start_ms", 0)
+            if current_ticks < start_ms:
+                continue
+
+            next_ms = crack.get("auto_break_next_ms")
+            if next_ms is None:
+                _schedule_next_crack_auto_break(crack, base_time_ms=current_ticks)
+                next_ms = crack.get("auto_break_next_ms")
+
+            if next_ms is None or current_ticks < next_ms:
+                continue
+
+            if ENABLE_CRACK_TIMING_DEBUG:
+                remaining = crack.get("segments_remaining", 0)
+                total = crack.get("segments_total", remaining)
+                print(f"[CRACK AUTO] t={current_ticks} seg={remaining}/{total}")
+
+            still_exists = _decay_blacksmith_crack_segment(
+                crack,
+                segments=1,
+                spawn_particles=True,
+                play_sound=True,
+            )
+
+            if crack not in blacksmith_ground_cracks:
+                continue
+
+            if not still_exists:
+                crack["auto_break_enabled"] = False
+                continue
+
+            _schedule_next_crack_auto_break(crack, base_time_ms=current_ticks)
+
     # Update hammer shock particles (for shatter effects)
     global blacksmith_hammer_shock_particles
     updated_particles = []
