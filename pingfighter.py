@@ -4923,6 +4923,7 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         scale = 1.0 + 0.35 * (1.0 - remaining_ratio)
         base_surface: pygame.Surface = explosion["surface"]  # type: ignore[index]
         center_x, center_y = explosion["center"]  # type: ignore[index]
+        base_radius = float(explosion.get("radius", max(base_surface.get_width(), base_surface.get_height()) * 0.25))
 
         scaled_size = (
             max(1, int(base_surface.get_width() * scale)),
@@ -4935,7 +4936,7 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
         rect = fade_surface.get_rect(center=(int(center_x + offset_x), int(center_y + offset_y)))
         surface.blit(fade_surface, rect, special_flags=pygame.BLEND_ADD)
 
-        halo_radius = explosion.get("radius", radius) * (1.05 + 0.25 * (1 - remaining_ratio))
+        halo_radius = base_radius * (1.05 + 0.25 * (1 - remaining_ratio))
         halo_surface = pygame.Surface((int(halo_radius * 2) + 6, int(halo_radius * 2) + 6), pygame.SRCALPHA)
         pygame.draw.circle(
             halo_surface,
