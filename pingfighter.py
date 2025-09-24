@@ -4910,6 +4910,9 @@ def _check_boss_crack_collision(boss_rect, crack):
     if boss_rect.left > max_projection_x + BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
         return False
 
+    if abs(boss_rect.centery - bounding_rect.centery) > BLACKSMITH_GROUND_CRACK_VERTICAL_MARGIN:
+        return False
+
     if bounding_rect.left - boss_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
         return False
     if boss_rect.left - bounding_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
@@ -4992,6 +4995,10 @@ def _check_boss_crack_collision(boss_rect, crack):
     crack_line = ((line_start_x, line_start_y), (line_end_x, line_end_y))
     for edge in rect_edges:
         if lines_intersect(crack_line[0], crack_line[1], edge[0], edge[1]):
+            closest_x, closest_y = edge[0]
+            distance = math.hypot(closest_x - line_start_x, closest_y - line_start_y)
+            if distance > line_length_sq ** 0.5 + BLACKSMITH_GROUND_CRACK_EDGE_TOLERANCE:
+                continue
             print(f"[COLLISION] Crack line intersects boss edge!")
             return True
     
@@ -5060,12 +5067,17 @@ def _is_boss_movement_valid(new_x):
         length = crack.get("length", 0.0)
         angle = crack.get("angle", 0.0)
         line_end_x = line_start_x + math.cos(angle) * length
+        line_end_y = line_start_y + math.sin(angle) * length
         min_projection_x = min(line_start_x, line_end_x)
         max_projection_x = max(line_start_x, line_end_x)
 
         if proposed_rect.right < min_projection_x - BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
             continue
         if proposed_rect.left > max_projection_x + BLACKSMITH_GROUND_CRACK_PROJECTION_MARGIN:
+            continue
+
+        crack_center_y = (line_start_y + line_end_y) / 2
+        if abs(proposed_rect.centery - crack_center_y) > BLACKSMITH_GROUND_CRACK_VERTICAL_MARGIN:
             continue
 
         if bounding_rect.left - proposed_rect.right > BLACKSMITH_GROUND_CRACK_DETECTION_RANGE:
