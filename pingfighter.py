@@ -16267,7 +16267,9 @@ def handle_player(keys):
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_shield_impact_timer
     global blacksmith_umbrella_retracting, blacksmith_umbrella_anim_direction
-    global blacksmith_umbrella_hitbox_extents
+    global blacksmith_umbrella_hitbox_extents, blacksmith_umbrella_hitbox_vertical
+    global blacksmith_umbrella_hitbox_center_offset, blacksmith_umbrella_hitbox_direction
+    global blacksmith_umbrella_hitbox_raw
     global blacksmith_umbrella_swing_active, blacksmith_umbrella_swing_timer
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
