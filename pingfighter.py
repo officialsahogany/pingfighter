@@ -4041,29 +4041,64 @@ def _draw_blacksmith_umbrella_overlay(
     inner_int = [_vec_to_int_pair(p) for p in inner_world]
     pygame.draw.polygon(surface, (188, 174, 158), inner_int, width=2)
 
-    # 상하 금속 판재 층
+    # 상하 금속 판재 층 (메탈릭 효과 강화)
     band_thickness = shield_height * 0.35
-    upper_band = [_vec_to_int_pair(to_world(x, y)) for x, y in [
+    
+    # 상단 밴드 - 다층 그라데이션
+    upper_band_base = [
         (-half_w_mid, -band_thickness * 0.5),
         (-half_w_mid * 0.1, -band_thickness),
         (half_w_mid * 0.1, -band_thickness),
         (half_w_mid, -band_thickness * 0.5),
         (half_w_mid * 0.7, -band_thickness * 0.15),
         (-half_w_mid * 0.7, -band_thickness * 0.15),
-    ]]
-    pygame.draw.polygon(surface, (174, 150, 110), upper_band)
+    ]
+    
+    # 상단 밴드 그라데이션 레이어
+    for layer in range(2):
+        layer_color = (
+            194 - layer * 10,
+            170 - layer * 10, 
+            130 - layer * 10
+        )
+        band_points = []
+        for x, y in upper_band_base:
+            band_points.append(_vec_to_int_pair(to_world(x, y + layer * 1.5)))
+        pygame.draw.polygon(surface, layer_color, band_points)
+    
+    upper_band = [_vec_to_int_pair(to_world(x, y)) for x, y in upper_band_base]
     pygame.draw.polygon(surface, (80, 68, 48), upper_band, width=2)
+    # 상단 하이라이트 라인
+    highlight_line = [_vec_to_int_pair(to_world(x, y - band_thickness * 0.15)) for x, y in upper_band_base[:4]]
+    pygame.draw.lines(surface, (210, 196, 160), False, highlight_line, 2)
 
-    lower_band = [_vec_to_int_pair(to_world(x, y)) for x, y in [
+    # 하단 밴드 - 다층 그라데이션
+    lower_band_base = [
         (-half_w_bottom * 0.9, band_thickness * 0.3),
         (-half_w_bottom * 0.4, band_thickness * 0.95),
         (half_w_bottom * 0.4, band_thickness * 0.95),
         (half_w_bottom * 0.9, band_thickness * 0.3),
         (half_w_bottom * 0.6, band_thickness * 0.05),
         (-half_w_bottom * 0.6, band_thickness * 0.05),
-    ]]
-    pygame.draw.polygon(surface, (144, 120, 90), lower_band)
+    ]
+    
+    # 하단 밴드 그라데이션 레이어
+    for layer in range(2):
+        layer_color = (
+            164 - layer * 10,
+            140 - layer * 10,
+            110 - layer * 10
+        )
+        band_points = []
+        for x, y in lower_band_base:
+            band_points.append(_vec_to_int_pair(to_world(x, y - layer * 1.5)))
+        pygame.draw.polygon(surface, layer_color, band_points)
+    
+    lower_band = [_vec_to_int_pair(to_world(x, y)) for x, y in lower_band_base]
     pygame.draw.polygon(surface, (70, 58, 40), lower_band, width=2)
+    # 하단 하이라이트 라인
+    highlight_line_lower = [_vec_to_int_pair(to_world(x, y + band_thickness * 0.1)) for x, y in lower_band_base[2:5]]
+    pygame.draw.lines(surface, (200, 186, 150), False, highlight_line_lower, 2)
 
     # 중앙 룬 라인
     rune_color = (210, 188, 130)
