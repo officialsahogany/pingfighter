@@ -24572,12 +24572,46 @@ def draw_objects():
             # 투척 단계: 앞으로 던지기
             tilt_angle = 30 - 50 * ((throw_progress - 0.7) / 0.3)
     rotated_player = pygame.transform.rotate(base_ufo_img, tilt_angle).copy()
+    orig_rect = base_ufo_img.get_rect()
+    rotated_rect = rotated_player.get_rect(center=orig_rect.center)
+    center_vec = pygame.math.Vector2(orig_rect.center)
+    rad = math.radians(tilt_angle)
+    cos_a = math.cos(rad)
+    sin_a = math.sin(rad)
+
+    if selected_character_type == "blacksmith":
+        pivot_vec = pygame.math.Vector2(BLACKSMITH_CENTER_X, BLACKSMITH_BASELINE_Y)
+        pivot_rel = pivot_vec - center_vec
+        rotated_pivot = pygame.math.Vector2(
+            pivot_rel.x * cos_a - pivot_rel.y * sin_a,
+            pivot_rel.x * sin_a + pivot_rel.y * cos_a,
+        )
+        pivot_point = center_vec + rotated_pivot
+        player_rect = rotated_player.get_rect()
+        player_rect.topleft = (
+            int(round(PLAYER.centerx + screen_shake_offset_x - pivot_point.x)),
+            int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y - pivot_point.y)),
+        )
+    else:
+        player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x,
+                                                      PLAYER.centery + screen_shake_offset_y + player_knockback_y))
+
     # 디버깅: rotated_player 확인 (frame_count가 정의되어 있을 때만)
     try:
         if frame_count % 60 == 0:  # 1초마다 한 번씩만 출력
             pass  # print(f"🔄 rotated_player 크기: {rotated_player.get_size()}, 틸트 각도: {tilt_angle}")
     except NameError:
         pass  # frame_count가 정의되지 않았으면 무시
+
+    if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
+        try:
+            print(
+                f"[DEBUG umbrella rect] player_bottom={PLAYER.bottom} rect_top={player_rect.top} rect_bottom={player_rect.bottom} "
+                f"img_size={base_ufo_img.get_size()} rotated_size={rotated_player.get_size()}"
+            )
+        except Exception:
+            pass
+
     #  보스 vs 보스전과  새로운 보스전에서는 빨간 효과 제거 (게이지를 사용하지 않음)
     if not new_boss_mode_active:
         if not special_active and red_intensity > 0:
@@ -24631,33 +24665,16 @@ def draw_objects():
             new_afterimages.append(afterimage)
     dash_afterimages = new_afterimages
     # UFO 이미지 그리기 (화면 흔들림 오프셋 및 넉백 효과 적용)
-    player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x, 
-                                                  PLAYER.centery + screen_shake_offset_y + player_knockback_y))
-    if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
-        player_rect.bottom = PLAYER.bottom + screen_shake_offset_y + player_knockback_y
-        try:
-            print(
-                f"[DEBUG umbrella rect] player_bottom={PLAYER.bottom} rect_top={player_rect.top} rect_bottom={player_rect.bottom} "
-                f"img_size={base_ufo_img.get_size()} rotated_size={rotated_player.get_size()}"
-            )
-        except Exception:
-            pass
     if selected_character_type == "blacksmith" and blacksmith_hammer_head_surface_point is not None:
-        orig_rect = base_ufo_img.get_rect()
-        center_vec = pygame.math.Vector2(orig_rect.center)
         head_vec = pygame.math.Vector2(
             float(blacksmith_hammer_head_surface_point[0]),
             float(blacksmith_hammer_head_surface_point[1]),
         )
         rel_vec = head_vec - center_vec
-        rad = math.radians(tilt_angle)
-        cos_a = math.cos(rad)
-        sin_a = math.sin(rad)
         rotated_rel = pygame.math.Vector2(
             rel_vec.x * cos_a - rel_vec.y * sin_a,
             rel_vec.x * sin_a + rel_vec.y * cos_a,
         )
-        rotated_rect = rotated_player.get_rect(center=orig_rect.center)
         rotated_point = center_vec + rotated_rel
         local_point = rotated_point - pygame.math.Vector2(rotated_rect.topleft)
         new_hammer_pos = (
