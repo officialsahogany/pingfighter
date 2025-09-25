@@ -16032,6 +16032,7 @@ def handle_player(keys):
     if umbrella_lock_active:
         space_pressed = False
         down_pressed = False
+        current_speed = 0
 
     global soldier_weapon_hold_frames, soldier_weapon_menu_active, soldier_weapon_number_prev
     allow_weapon_switch = (
@@ -24369,7 +24370,14 @@ def draw_objects():
             else:
                 base_ufo_img = SOLDIER_PADDLE_IMG if include_right_arm else SOLDIER_PADDLE_IMG_NO_RIGHT_ARM
         elif selected_character_type == "blacksmith":
-            if blacksmith_shield_swing_active:
+            if blacksmith_umbrella_active:
+                if BLACKSMITH_UMBRELLA_DURATION > 0:
+                    progress = 1.0 - (blacksmith_umbrella_timer / BLACKSMITH_UMBRELLA_DURATION)
+                else:
+                    progress = 1.0
+                progress = max(0.0, min(1.0, progress))
+                base_ufo_img = create_blacksmith_paddle_umbrella(progress)
+            elif blacksmith_shield_swing_active:
                 base_ufo_img = create_blacksmith_paddle_swinging()
             elif blacksmith_hammer_swing_active:
                 base_ufo_img = create_blacksmith_paddle_hammering()
