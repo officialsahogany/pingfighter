@@ -9318,7 +9318,7 @@ def trigger_soldier_emergency_supply() -> bool:
         ak47 = get_ak47_instance()
         if ak47:
             was_active = getattr(ak47, "active", False)
-            ak47.current_ammo = ak47.max_ammo
+            ak47.refill_magazine(track_reload=True)
             if was_active:
                 ak47.active = True
             success = True
@@ -9349,7 +9349,7 @@ def trigger_soldier_emergency_supply() -> bool:
 
     consume_special_gauge(SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST)
     soldier_emergency_supply_used = True
-    if weapon_name not in {"bazooka", "net_gun"}:
+    if weapon_name not in {"bazooka", "net_gun", "ak47"}:
         register_weapon_reload(weapon_name)
     soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
     soldier_emergency_supply_toast_timer = 90

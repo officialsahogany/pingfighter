@@ -31,11 +31,6 @@ class AmmoBox:
         def is_degraded(weapon_name: str) -> bool:
             return weapon_name != "pistol" and weapon_name in degraded_weapons
 
-        register_reload = None
-        if game_module:
-            register_candidate = getattr(game_module, "register_weapon_reload", None)
-            if callable(register_candidate):
-                register_reload = register_candidate
         print(f"📦 탄약상자 사용! 소지 화기류: {soldier_weapons}")
 
         # 권총 재장전 (잔탄 + 탄실)
@@ -112,9 +107,7 @@ class AmmoBox:
                     was_inactive = not ak47.active
                     prev_ammo = ak47.current_ammo
                     if ak47.current_ammo < ak47.max_ammo:
-                        ak47.current_ammo = ak47.max_ammo
-                        if register_reload:
-                            register_reload("ak47")
+                        ak47.refill_magazine(track_reload=True)
                         print(f"   🔫 AK-47 재장전: {prev_ammo} → {ak47.current_ammo}")
                     if was_inactive or ak47.current_ammo < ak47.max_ammo:
                         ak47.activate(None, None)
