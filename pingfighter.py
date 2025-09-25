@@ -4206,7 +4206,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         pivot_raw = pose.get("pivot")
         head_raw = pose.get("head")
         if pivot_raw and head_raw:
-            pivot_point = (pivot_raw[0] + body_offset_x, pivot_raw[1] + body_offset_y)
+        pivot_point = (pivot_raw[0] + body_offset_x, pivot_raw[1] + body_offset_y)
             head_point = (head_raw[0] + body_offset_x, head_raw[1] + body_offset_y)
 
     prev_head_local = blacksmith_hammer_head_local_point
@@ -4220,13 +4220,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     if pivot_point and head_point:
         _draw_blacksmith_umbrella_overlay(surface, pivot_point, head_point, raise_amount, open_amount)
 
-    try:
-        print(
-            f"[DEBUG umbrella frame] progress={progress:.2f} raise={raise_amount:.2f} open={open_amount:.2f} "
-            f"offset_x={body_offset_x} offset_y={body_offset_y} surface_size={surface.get_size()}"
-        )
-    except Exception:
-        pass
+    debug_pivot = pivot_point
 
     anchor_point = (
         BLACKSMITH_CENTER_X + body_offset_x,
@@ -4243,9 +4237,26 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
 
-        pivot_surface_x = scaled_anchor[0]
-        left_extent = ((pivot_surface_x - bounds.left) / scale_value) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
-        right_extent = ((bounds.right - pivot_surface_x) / scale_value) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
+        left_extent = right_extent = PADDLE_WIDTH / 2
+        if debug_pivot is not None:
+            pivot_x = int(round(debug_pivot[0]))
+            top_limit = max(0, min(surface.get_height(), int(round(debug_pivot[1]))))
+            min_x = surface.get_width()
+            max_x = 0
+            surf_lock = surface.lock()
+            for y in range(top_limit):
+                for x in range(surface.get_width()):
+                    if surface.get_at((x, y))[3] > 0:
+                        if x < min_x:
+                            min_x = x
+                        if x > max_x:
+                            max_x = x
+            if min_x < surface.get_width():
+                left_pixels = max(0, pivot_x - min_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
+                right_pixels = max(0, max_x - pivot_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
+                left_extent = left_pixels * scale_value
+                right_extent = right_pixels * scale_value
+            surface.unlock()
 
         blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
     else:
