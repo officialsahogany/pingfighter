@@ -3814,15 +3814,15 @@ def _draw_blacksmith_upper(
 
         target_shoulder = (
             right_shoulder[0] + 2,
-            right_shoulder[1] - 4,
+            right_shoulder[1] - 6,
         )
         target_elbow = (
             right_elbow[0] + 6,
-            right_elbow[1] - 22,
+            right_elbow[1] - 26,
         )
         target_wrist = (
             right_wrist[0] + 4,
-            right_wrist[1] - 36,
+            right_wrist[1] - 42,
         )
         right_shoulder = _blend_point(right_shoulder, target_shoulder)
         right_elbow = _blend_point(right_elbow, target_elbow)
@@ -4476,7 +4476,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         )
 
     if pivot_point and head_point:
-        vertical_offset = 92 - 26 * raise_amount
+        vertical_offset = 82 - 24 * raise_amount
         pivot_point = (pivot_point[0], pivot_point[1] + vertical_offset)
         head_point = (head_point[0], head_point[1] + vertical_offset)
         _draw_blacksmith_umbrella_overlay(surface, pivot_point, head_point, raise_amount, open_amount)
