@@ -17988,8 +17988,10 @@ def handle_player(keys):
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
         effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
-        umbrella_half_left = max(umbrella_half_left, left_extent)
-        umbrella_half_right = max(umbrella_half_right, right_extent)
+        left_extent_scaled = left_extent * scale_applied
+        right_extent_scaled = right_extent * scale_applied
+        umbrella_half_left = max(umbrella_half_left, left_extent_scaled)
+        umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
 
         expanded_width = int(math.ceil(umbrella_half_left + umbrella_half_right) * 2)
         if expanded_width > player_collision_rect.width:
@@ -41016,8 +41018,10 @@ def calculate_bounce(paddle):
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
         effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
-        umbrella_half_left = max(umbrella_half_left, left_extent)
-        umbrella_half_right = max(umbrella_half_right, right_extent)
+        left_extent_scaled = left_extent * scale_applied
+        right_extent_scaled = right_extent * scale_applied
+        umbrella_half_left = max(umbrella_half_left, left_extent_scaled)
+        umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
 
     base_centerx = paddle.centerx if 'paddle' in locals() else PLAYER.centerx
     paddle_centerx = effective_centerx if selected_character_type == "blacksmith" else base_centerx
