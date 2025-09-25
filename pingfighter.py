@@ -4090,6 +4090,38 @@ def _draw_blacksmith_umbrella_overlay(
         direction = pygame.math.Vector2(0, -1)
     else:
         direction = direction.normalize()
+
+    swing_pre_blend = 0.0
+    swing_main_blend = 0.0
+    try:
+        swing_active = blacksmith_umbrella_swing_active
+        swing_stage = blacksmith_umbrella_swing_stage
+        swing_progress_value = blacksmith_umbrella_swing_progress
+    except NameError:
+        swing_active = False
+        swing_stage = 0
+        swing_progress_value = 0.0
+
+    if swing_active:
+        swing_progress_value = max(0.0, min(1.0, swing_progress_value))
+        if swing_stage == 0:
+            swing_pre_blend = 1.0 - pow(1.0 - swing_progress_value, 3)
+        else:
+            swing_pre_blend = 1.0
+            swing_main_blend = swing_progress_value
+
+    if swing_pre_blend > 0:
+        ready_dir = pygame.math.Vector2(-0.55, -0.9).normalize()
+        direction = direction.lerp(ready_dir, swing_pre_blend * 0.75)
+    if swing_main_blend > 0:
+        sweep_curve = math.sin(swing_main_blend * math.pi)
+        sweep_dir = pygame.math.Vector2(-0.25 - 0.6 * swing_main_blend, -0.85 + 0.28 * sweep_curve)
+        if sweep_dir.length_squared() > 1e-6:
+            direction = direction.lerp(sweep_dir.normalize(), 0.9)
+    if direction.length_squared() <= 1e-4:
+        direction = pygame.math.Vector2(0, -1)
+    else:
+        direction = direction.normalize()
     target_dir = pygame.math.Vector2(0, -1)
     mix = max(0.0, min(1.0, raise_amount))
     direction = direction.lerp(target_dir, mix)
@@ -4104,6 +4136,9 @@ def _draw_blacksmith_umbrella_overlay(
     close_factor = 1.0 - open_amount
     tilt_strength = close_factor ** 0.6
     tilt_angle = tilt_strength * math.radians(75)
+    if swing_pre_blend > 0 or swing_main_blend > 0:
+        swing_tilt = swing_pre_blend * 0.45 + swing_main_blend * 0.85
+        tilt_angle += swing_tilt * math.radians(55)
     if abs(tilt_angle) > 1e-4:
         cos_t = math.cos(tilt_angle)
         sin_t = math.sin(tilt_angle)
