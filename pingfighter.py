@@ -4236,12 +4236,11 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     bounding_rect = scaled_surface.get_bounding_rect(min_alpha=1)
     if scaled_anchor is not None and bounding_rect.height > 0:
-        anchor_offset_x = int(round(scaled_anchor[0] - BLACKSMITH_CENTER_X))
         baseline_offset_y = bounding_rect.bottom - BLACKSMITH_BASELINE_Y - BLACKSMITH_BASELINE_GAP
         if baseline_offset_y < 0:
             baseline_offset_y = 0
-        # 우산을 펼칠 때에도 기본 패들과 동일한 발 간격을 유지해 떠오르는 듯한 인상을 제거한다.
-        blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
+        # X 피벗은 몸통 중앙 오프셋(body_offset_x)을 그대로 유지해 좌우 이동/틸트 시 높이가 요동치는 문제를 방지한다.
+        blacksmith_umbrella_body_offset = (body_offset_x, baseline_offset_y)
     else:
         blacksmith_umbrella_body_offset = (0, 0)
 
