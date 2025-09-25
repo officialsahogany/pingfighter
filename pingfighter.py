@@ -18560,7 +18560,8 @@ def handle_player(keys):
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
             left_extent_scaled = left_extent * scale_applied
             right_extent_scaled = right_extent * scale_applied
-            umbrella_half_left = max(umbrella_half_left, left_extent_scaled)
+            sweep_bias = 1.35  # left side extends further during swing
+            umbrella_half_left = max(umbrella_half_left, left_extent_scaled * sweep_bias)
             umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
 
             up_extent, down_extent = blacksmith_umbrella_hitbox_vertical
@@ -18574,7 +18575,7 @@ def handle_player(keys):
             if desired_height > player_collision_rect.height:
                 player_collision_rect.height = desired_height
 
-            center_offset_x_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[0] * scale_applied))
+            center_offset_x_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[0] * scale_applied * sweep_bias))
             center_offset_y_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[1] * scale_applied))
         else:
             length_multiplier = 0.85 * 1.8
