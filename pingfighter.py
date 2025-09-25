@@ -4236,20 +4236,9 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     if scaled_anchor is not None:
         bounds = scaled_surface.get_bounding_rect(min_alpha=1)
-        vertical_shift = BLACKSMITH_BASELINE_Y - bounds.bottom
-        if vertical_shift != 0:
-            shifted_surface = pygame.Surface(scaled_surface.get_size(), pygame.SRCALPHA)
-            shifted_surface.blit(scaled_surface, (0, vertical_shift))
-            scaled_surface = shifted_surface
-            if blacksmith_hammer_head_surface_point is not None:
-                blacksmith_hammer_head_surface_point = (
-                    blacksmith_hammer_head_surface_point[0],
-                    blacksmith_hammer_head_surface_point[1] + vertical_shift,
-                )
-            bounds = bounds.move(0, vertical_shift)
-
         anchor_offset_x = int(round(scaled_anchor[0] - BLACKSMITH_CENTER_X))
-        blacksmith_umbrella_body_offset = (anchor_offset_x, 0)
+        baseline_offset_y = int(round(bounds.bottom - (BLACKSMITH_BASELINE_Y + BLACKSMITH_BASELINE_GAP)))
+        blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
     else:
         blacksmith_umbrella_body_offset = (0, 0)
 
