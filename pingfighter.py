@@ -3988,14 +3988,20 @@ def _draw_blacksmith_upper(
             )
     else:
         empty_hand = pygame.Rect(0, 0, 10, 18)
-        empty_hand.center = (right_wrist[0] + 6, right_wrist[1])
+        empty_hand.center = hand_center
         pygame.draw.ellipse(surface, (205, 185, 155), empty_hand)
         blacksmith_hammer_head_local_point = None
         if pose_data is not None:
-            pose_data["head"] = (
-                float((handle_top + handle_bottom_point).x / 2),
-                float((handle_top + handle_bottom_point).y / 2),
-            )
+            if umbrella_pose_active:
+                pose_data["head"] = (
+                    float(handle_top.x),
+                    float(handle_top.y),
+                )
+            else:
+                pose_data["head"] = (
+                    float((handle_top + handle_bottom_point).x / 2),
+                    float((handle_top + handle_bottom_point).y / 2),
+                )
 
     # 어깨 장식
     left_shoulder_center = (cx - 32 + lean_push - shoulder_roll, torso_y + 8 - shoulder_roll)
@@ -4435,12 +4441,14 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     pose = _draw_blacksmith_upper(
         body_surface,
         shield_swing=0.0,
-        hammer_swing=0.1 + 0.2 * raise_amount,
+        hammer_swing=0.0,
         walk_wave=0.0,
         walk_bob=0.0,
         walk_lean=0.0,
-        force_hammer_visibility=True,
+        force_hammer_visibility=False,
         request_pose=True,
+        umbrella_pose=True,
+        umbrella_raise=raise_amount,
     )
     _draw_blacksmith_legs(body_surface, 0)
 
