@@ -4175,7 +4175,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     open_amount = max(0.0, (progress - 0.35) / 0.65)
 
     global blacksmith_hammer_head_local_point, blacksmith_hammer_head_surface_point
-    global blacksmith_umbrella_body_offset, blacksmith_umbrella_hitbox_extents
+    global blacksmith_umbrella_body_offset, blacksmith_umbrella_center_offset, blacksmith_umbrella_hitbox_extents
 
     base_width = 250
     body_height = 120
@@ -4244,15 +4244,17 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
 
         pivot_surface_x = center_x + anchor_offset_x * scale_value
-        left_extent = max(0.0, pivot_surface_x - bounds.left)
-        right_extent = max(0.0, bounds.right - pivot_surface_x)
-        scale_inverse = 1.0 / scale_value if abs(scale_value) > 1e-5 else 1.0
-        blacksmith_umbrella_hitbox_extents = (
-            left_extent * scale_inverse,
-            right_extent * scale_inverse,
-        )
+        bounds_center_x = bounds.centerx
+        center_offset = (bounds_center_x - center_x) / scale_value
+
+        left_extent = max(0.0, (bounds_center_x - bounds.left) / scale_value)
+        right_extent = max(0.0, (bounds.right - bounds_center_x) / scale_value)
+
+        blacksmith_umbrella_center_offset = center_offset
+        blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
     else:
         blacksmith_umbrella_body_offset = (0, 0)
+        blacksmith_umbrella_center_offset = 0.0
         blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
 
     blacksmith_hammer_head_local_point = prev_head_local
@@ -4683,6 +4685,7 @@ blacksmith_hammer_charge_position: tuple[float, float] | None = None
 blacksmith_hammer_pivot_local_point: tuple[float, float] | None = None
 blacksmith_hammer_forward_vector: tuple[float, float] = (0.0, -1.0)
 blacksmith_umbrella_body_offset: tuple[int, int] = (0, 0)
+blacksmith_umbrella_center_offset: float = 0.0
 blacksmith_umbrella_hitbox_extents: tuple[float, float] = (0.0, 0.0)
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 paddle_scale_ratio: float = 1.0
