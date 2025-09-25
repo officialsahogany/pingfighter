@@ -42064,8 +42064,9 @@ def handle_ball():
         if is_player_serve:
             serve_center_x = PLAYER.centerx
             if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
-                scale_applied = scale_ratio if scale_ratio > 0 else 1.0
-                serve_center_x += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
+                scale_applied = paddle_scale_ratio if paddle_scale_ratio > 0 else 1.0
+                total_offset_x = blacksmith_umbrella_body_offset[0] + blacksmith_umbrella_center_offset
+                serve_center_x += int(round(total_offset_x * scale_applied))
             BALL.centerx = serve_center_x
             BALL.bottom = PLAYER.top - 5
         else:
