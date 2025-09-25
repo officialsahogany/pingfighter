@@ -3987,33 +3987,93 @@ def _draw_blacksmith_umbrella_overlay(
     pygame.draw.line(surface, shaft_shadow, _vec_to_int_pair(pivot_vec), _vec_to_int_pair(head_vec), 6)
     pygame.draw.line(surface, shaft_color, _vec_to_int_pair(pivot_vec), _vec_to_int_pair(head_vec), 3)
 
-    canopy_radius = 6 + open_amount * 34
-    canopy_height = 4 + open_amount * 18
-    canopy_center = head_vec + direction * (6 + open_amount * 6)
-    canopy_points: list[tuple[int, int]] = []
-    segments = 6
+    # 넓은 탑뷰 우산: 보스 패들보다 좌우가 넓도록 반경 확장
+    max_radius = 96.0  # 풀 오픈시 약 192px 폭
+    canopy_radius = 18.0 + open_amount * max_radius
+    canopy_height = 10.0 + open_amount * 52.0
+    canopy_center = head_vec + direction * (10 + open_amount * 10)
+
+    canopy_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+
+    # 외곽 반원 형태	subdivide for smooth curve
+    rim_points: list[tuple[int, int]] = []
+    segments = 12
     for idx in range(segments + 1):
         theta = math.pi * (idx / segments)
         offset_perp = math.cos(theta) * canopy_radius
         offset_along = math.sin(theta) * canopy_height
         point_vec = canopy_center + perp * offset_perp - direction * offset_along
-        canopy_points.append(_vec_to_int_pair(point_vec))
-    tip_vec = head_vec + direction * (8 + open_amount * 6)
-    canopy_points.append(_vec_to_int_pair(tip_vec))
+        rim_points.append(_vec_to_int_pair(point_vec))
 
-    canopy_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-    pygame.draw.polygon(canopy_surface, (172, 214, 245, 232), canopy_points)
-    pygame.draw.lines(canopy_surface, (112, 156, 206), False, canopy_points[:-1], 2)
-    for t in (0.0, 0.25, 0.5, 0.75, 1.0):
-        rim_vec = canopy_center + perp * ((t - 0.5) * 2 * canopy_radius * 0.96) - direction * (math.sin(math.pi * t) * canopy_height * 0.92)
+    tip_vec = canopy_center + direction * (canopy_height * 0.2)
+    handle_cap = head_vec + direction * 10
+
+    # 메인 캐노피
+    pygame.draw.polygon(canopy_surface, (184, 228, 255, 235), rim_points + [_vec_to_int_pair(handle_cap)])
+    pygame.draw.lines(canopy_surface, (88, 142, 205, 255), False, rim_points, max(2, int(2 + open_amount * 2)))
+
+    # 반사 하이라이트 (좌우 비대칭으로 깊이감)
+    highlight_perp = perp * 0.55
+    highlight_points: list[tuple[int, int]] = []
+    for idx in range(segments + 1):
+        theta = math.pi * (idx / segments)
+        offset_perp = math.cos(theta) * (canopy_radius * 0.72)
+        offset_along = math.sin(theta) * (canopy_height * 0.65)
+        point_vec = canopy_center + highlight_perp * 20 + perp * offset_perp * 0.85 - direction * offset_along
+        highlight_points.append(_vec_to_int_pair(point_vec))
+    pygame.draw.polygon(canopy_surface, (236, 250, 255, int(110 * open_amount)), highlight_points)
+
+    # 스트럿(살대) 표현
+    spoke_count = 6
+    for idx in range(spoke_count):
+        t = idx / (spoke_count - 1)
+        rim_vec = rim_points[idx * (segments // (spoke_count - 1))]
+        rim_vec2 = rim_points[min(len(rim_points) - 1, idx * (segments // (spoke_count - 1)) + 1)]
+        rim_mix = ((rim_vec[0] + rim_vec2[0]) / 2, (rim_vec[1] + rim_vec2[1]) / 2)
         pygame.draw.line(
             canopy_surface,
-            (148, 188, 230),
+            (140, 188, 235, 220),
             _vec_to_int_pair(tip_vec),
-            _vec_to_int_pair(rim_vec),
-            1,
+            (int(rim_mix[0]), int(rim_mix[1])),
+            2,
         )
-    pygame.draw.circle(canopy_surface, (230, 240, 255), _vec_to_int_pair(tip_vec), max(2, int(3 + open_amount * 1.5)))
+
+    # 외곽 그라데이션 (다층)으로 둥근 형태 강조
+    for band in range(3):
+        alpha = int(90 * open_amount * (1 - band / 3))
+        if alpha <= 0:
+            continue
+        band_radius = canopy_radius * (1.0 + band * 0.1)
+        arc_rect = pygame.Rect(
+            int(round(canopy_center.x - band_radius)),
+            int(round(canopy_center.y - canopy_height)),
+            int(round(band_radius * 2)),
+            int(round(canopy_height * 2)),
+        )
+        pygame.draw.arc(
+            canopy_surface,
+            (110, 158, 215, alpha),
+            arc_rect,
+            math.pi,
+            math.pi * 2,
+            width=2,
+        )
+
+    # 중앙 캡 & 손잡이 상단 꾸미기
+    pygame.draw.circle(
+        canopy_surface,
+        (255, 255, 255, 240),
+        _vec_to_int_pair(tip_vec),
+        max(3, int(4 + open_amount * 2)),
+    )
+    pygame.draw.circle(
+        canopy_surface,
+        (150, 200, 250, 255),
+        _vec_to_int_pair(tip_vec),
+        max(2, int(3 + open_amount)),
+        width=1,
+    )
+
     surface.blit(canopy_surface, (0, 0))
 
 
