@@ -8372,7 +8372,7 @@ blacksmith_umbrella_swing_stage = 0  # 0=준비, 1=스윙
 blacksmith_umbrella_swing_progress = 0.0
 blacksmith_umbrella_swing_recover_pre = 0.0
 blacksmith_umbrella_swing_recover_main = 0.0
-BLACKSMITH_UMBRELLA_VISUAL_OFFSET_Y = 16  # 우산 그래픽과 판정이 패들과 겹치도록 추가 하강치
+BLACKSMITH_UMBRELLA_VISUAL_OFFSET_Y = 28  # 우산 그래픽과 판정이 패들과 겹치도록 추가 하강치
 blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
