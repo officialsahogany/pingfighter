@@ -4206,7 +4206,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         pivot_raw = pose.get("pivot")
         head_raw = pose.get("head")
         if pivot_raw and head_raw:
-        pivot_point = (pivot_raw[0] + body_offset_x, pivot_raw[1] + body_offset_y)
+            pivot_point = (pivot_raw[0] + body_offset_x, pivot_raw[1] + body_offset_y)
             head_point = (head_raw[0] + body_offset_x, head_raw[1] + body_offset_y)
 
     prev_head_local = blacksmith_hammer_head_local_point
