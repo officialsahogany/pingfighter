@@ -5594,7 +5594,10 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     except Exception:
         pass
 
-    if new_remaining <= 1 or crack["length"] <= BLACKSMITH_GROUND_CRACK_REMOVE_LENGTH:
+    break_amount = random.randint(1, 3)
+    crack["segments_remaining"] = max(0, crack.get("segments_remaining", 0) - break_amount)
+
+    if crack["segments_remaining"] <= 0 or crack["length"] <= BLACKSMITH_GROUND_CRACK_REMOVE_LENGTH:
         _shatter_blacksmith_crack(crack, play_sound=False)
 
 

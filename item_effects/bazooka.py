@@ -1,6 +1,9 @@
-import pygame
 import math
 import random
+import sys
+from typing import Callable
+
+import pygame
 
 class Bazooka:
     """바주카포 화기류 아이템"""
@@ -97,12 +100,17 @@ class Bazooka:
         print(f"🚀 바주카포 발사! 남은 탄약: {self.ammo_count}")
         return True
         
-    def reload_with_special_ammo(self):
+    def reload_with_special_ammo(self, *, track_reload: bool = False):
         """특수탄약으로 재장전"""
         self.ammo_count = self.max_ammo
         self.active = True
         print(f"🚀 바주카포 재장전 완료! 탄약: {self.ammo_count}/{self.max_ammo}")
-        
+
+        if track_reload:
+            register = self._get_reload_tracker()
+            if register:
+                register("bazooka")
+
     def get_player_knockback(self):
         """플레이어 넉백 정보 반환"""
         if self.player_knockback["active"]:
@@ -187,6 +195,16 @@ class Bazooka:
                 print(f"💥 바주카포 보스 패들 명중! 폭발 범위: {self.EXPLOSION_RADIUS}px")
                 
         return explosions
+
+    def _get_reload_tracker(self) -> Callable[[str], None] | None:
+        for module_name in ("__main__", "pingfighter"):
+            module = sys.modules.get(module_name)
+            if not module:
+                continue
+            candidate = getattr(module, "register_weapon_reload", None)
+            if callable(candidate):
+                return candidate
+        return None
         
     def check_wall_collision(self):
         """벽과의 충돌 체크 (화면 경계)"""
