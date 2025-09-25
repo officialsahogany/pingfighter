@@ -4659,6 +4659,7 @@ blacksmith_hammer_idle_position: tuple[float, float] | None = None
 blacksmith_hammer_charge_position: tuple[float, float] | None = None
 blacksmith_hammer_pivot_local_point: tuple[float, float] | None = None
 blacksmith_hammer_forward_vector: tuple[float, float] = (0.0, -1.0)
+blacksmith_umbrella_body_offset: tuple[int, int] = (0, 0)
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
 _BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
     1: {
