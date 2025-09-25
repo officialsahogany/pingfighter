@@ -7516,9 +7516,10 @@ BLACKSMITH_BASELINE_GAP = max(
     BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1).bottom - BLACKSMITH_BASELINE_Y,
 )
 _blacksmith_base_bounds = BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1)
+BLACKSMITH_CONTACT_EXTRA_Y = 12
 blacksmith_idle_body_offset: tuple[int, int] = (
     0,
-    _blacksmith_base_bounds.bottom - BLACKSMITH_BASELINE_Y,
+    _blacksmith_base_bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y,
 )
 try:
     BLACKSMITH_MISSILE_IMG = pygame.image.load(resource_path("ui/blacksmith_missile.png")).convert_alpha()
