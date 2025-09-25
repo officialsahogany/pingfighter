@@ -4218,6 +4218,14 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     if pivot_point and head_point:
         _draw_blacksmith_umbrella_overlay(surface, pivot_point, head_point, raise_amount, open_amount)
 
+    try:
+        print(
+            f"[DEBUG umbrella frame] progress={progress:.2f} raise={raise_amount:.2f} open={open_amount:.2f} "
+            f"offset_x={body_offset_x} offset_y={body_offset_y} surface_size={surface.get_size()}"
+        )
+    except Exception:
+        pass
+
     scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
 
     blacksmith_hammer_head_local_point = prev_head_local
@@ -24623,6 +24631,13 @@ def draw_objects():
                                                   PLAYER.centery + screen_shake_offset_y + player_knockback_y))
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
         player_rect.bottom = PLAYER.bottom + screen_shake_offset_y + player_knockback_y
+        try:
+            print(
+                f"[DEBUG umbrella rect] player_bottom={PLAYER.bottom} rect_top={player_rect.top} rect_bottom={player_rect.bottom} "
+                f"img_size={base_ufo_img.get_size()} rotated_size={rotated_player.get_size()}"
+            )
+        except Exception:
+            pass
     if selected_character_type == "blacksmith" and blacksmith_hammer_head_surface_point is not None:
         orig_rect = base_ufo_img.get_rect()
         center_vec = pygame.math.Vector2(orig_rect.center)
