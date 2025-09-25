@@ -4102,11 +4102,44 @@ def _draw_blacksmith_legs(surface, step=0):
     pygame.draw.circle(surface, (150, 130, 110), (right_thigh_x, knee_y + 1), 5)
     pygame.draw.circle(surface, (95, 80, 62), (right_thigh_x, knee_y + 1), 3)
 
+def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
+    progress = max(0.0, min(1.0, progress))
+    raise_amount = min(1.0, progress / 0.45)
+    open_amount = max(0.0, (progress - 0.35) / 0.65)
+
+    surface = pygame.Surface((250, 140), pygame.SRCALPHA)
+    pose = _draw_blacksmith_upper(
+        surface,
+        shield_swing=0.0,
+        hammer_swing=0.1 + 0.2 * raise_amount,
+        walk_wave=0.0,
+        walk_bob=0.0,
+        walk_lean=0.0,
+        force_hammer_visibility=True,
+        request_pose=True,
+    )
+    _draw_blacksmith_legs(surface, 0)
+
+    pivot_point: tuple[float, float] | None = None
+    head_point: tuple[float, float] | None = None
+    if isinstance(pose, dict):
+        pivot_point = pose.get("pivot")
+        head_point = pose.get("head")
+    if pivot_point and head_point:
+        _draw_blacksmith_umbrella_overlay(surface, pivot_point, head_point, raise_amount, open_amount)
+
+    scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
+    return scaled_surface
+
+
 def create_blacksmith_paddle_base(include_hammer: bool = True) -> pygame.Surface:
     global blacksmith_hammer_head_local_point, blacksmith_hammer_head_surface_point, blacksmith_hammer_charge_position
+    global blacksmith_hammer_pivot_local_point, blacksmith_hammer_forward_vector
     prev_local = blacksmith_hammer_head_local_point
     prev_surface = blacksmith_hammer_head_surface_point
     prev_charge = blacksmith_hammer_charge_position
+    prev_pivot = blacksmith_hammer_pivot_local_point
+    prev_forward = blacksmith_hammer_forward_vector
     surface: pygame.Surface | None = None
     result_surface: pygame.Surface | None = None
     try:
@@ -4124,6 +4157,8 @@ def create_blacksmith_paddle_base(include_hammer: bool = True) -> pygame.Surface
         blacksmith_hammer_head_local_point = prev_local
         blacksmith_hammer_head_surface_point = prev_surface
         blacksmith_hammer_charge_position = prev_charge
+        blacksmith_hammer_pivot_local_point = prev_pivot
+        blacksmith_hammer_forward_vector = prev_forward
     if result_surface is not None:
         return result_surface
     if surface is not None:
@@ -4511,6 +4546,8 @@ blacksmith_hammer_head_local_point: pygame.math.Vector2 | tuple[float, float] | 
 blacksmith_hammer_head_surface_point: pygame.math.Vector2 | tuple[float, float] | None = None
 blacksmith_hammer_idle_position: tuple[float, float] | None = None
 blacksmith_hammer_charge_position: tuple[float, float] | None = None
+blacksmith_hammer_pivot_local_point: tuple[float, float] | None = None
+blacksmith_hammer_forward_vector: tuple[float, float] = (0.0, -1.0)
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
 _BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
     1: {
