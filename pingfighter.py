@@ -4685,6 +4685,7 @@ blacksmith_hammer_forward_vector: tuple[float, float] = (0.0, -1.0)
 blacksmith_umbrella_body_offset: tuple[int, int] = (0, 0)
 blacksmith_umbrella_hitbox_extents: tuple[float, float] = (0.0, 0.0)
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
+paddle_scale_ratio: float = 1.0
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
 _BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
     1: {
@@ -25231,6 +25232,13 @@ def draw_objects():
             player_to_draw = apply_ai_glitch_effect(player_to_draw, time_now)
         
         draw_with_shake(player_to_draw, player_rect.topleft)
+
+    if (
+        DEBUG_DRAW_UMBRELLA_HITBOX
+        and selected_character_type == "blacksmith"
+        and debug_umbrella_hitbox_rect is not None
+    ):
+        draw_rect_with_shake((255, 80, 200), debug_umbrella_hitbox_rect, width=2)
 
     draw_blacksmith_hammer_shock(SCREEN, total_offset_x, total_offset_y)
 
