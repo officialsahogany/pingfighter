@@ -3864,9 +3864,9 @@ def _draw_blacksmith_upper(
 
         if swing_main_blend > 0:
             swing_curve = math.sin(swing_main_blend * math.pi)
-            lateral_shift = int(round(26 * swing_main_blend))
-            upward_shift = int(round(32 * swing_curve))
-            forward_drop = int(round(8 * swing_main_blend))
+            lateral_shift = int(round(34 * swing_main_blend))
+            upward_shift = int(round(36 * swing_curve))
+            forward_drop = int(round(10 * swing_main_blend))
             right_shoulder = (
                 right_shoulder[0] - lateral_shift // 2,
                 right_shoulder[1] - upward_shift // 3,
@@ -18560,7 +18560,7 @@ def handle_player(keys):
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
             left_extent_scaled = left_extent * scale_applied
             right_extent_scaled = right_extent * scale_applied
-            sweep_bias = 1.35  # left side extends further during swing
+            sweep_bias = 1.5  # left side extends further during swing
             umbrella_half_left = max(umbrella_half_left, left_extent_scaled * sweep_bias)
             umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
 
