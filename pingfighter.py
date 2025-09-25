@@ -4089,15 +4089,18 @@ def _draw_blacksmith_umbrella_overlay(
     highlight_line = [_vec_to_int_pair(to_world(x, y - band_thickness * 0.15)) for x, y in upper_band_base[:4]]
     pygame.draw.lines(surface, (210, 196, 160), False, highlight_line, 2)
 
-    # 하단 밴드 - 다층 그라데이션
-    lower_band_base = [
-        (-half_w_bottom * 0.9, band_thickness * 0.3),
-        (-half_w_bottom * 0.4, band_thickness * 0.95),
-        (half_w_bottom * 0.4, band_thickness * 0.95),
-        (half_w_bottom * 0.9, band_thickness * 0.3),
-        (half_w_bottom * 0.6, band_thickness * 0.05),
-        (-half_w_bottom * 0.6, band_thickness * 0.05),
-    ]
+    # 하단 밴드 - 초승달 곡선을 따라가는 밴드  
+    lower_band_base = []
+    for i in range(band_points):
+        t = i / (band_points - 1)
+        x = (t - 0.5) * shield_width * 0.95
+        
+        # 초승달 모양에 맞춘 하단 밴드 곡선
+        # 위쪽 곡선과 반대로 아래쪽이 오목한 형태
+        base_y = -math.sin(t * math.pi) * shield_height * 0.5 + shield_height * 0.2
+        band_y = base_y + band_thickness * (0.3 + 0.4 * (1 - math.sin(t * math.pi)))
+        
+        lower_band_base.append((x, band_y))
     
     # 하단 밴드 그라데이션 레이어
     for layer in range(2):
@@ -4117,11 +4120,10 @@ def _draw_blacksmith_umbrella_overlay(
     highlight_line_lower = [_vec_to_int_pair(to_world(x, y + band_thickness * 0.1)) for x, y in lower_band_base[2:5]]
     pygame.draw.lines(surface, (200, 186, 150), False, highlight_line_lower, 2)
 
-    # 중앙 룬 라인 (발광 애니메이션 효과)
+    # 중앙 룬 라인 (발광 애니메이션 효과) - 초승달 곡선 따라 배치
     current_time = pygame.time.get_ticks() / 1000.0  # 초 단위로 변환
     rune_base_color = (210, 188, 130)
     rune_glow_color = (255, 235, 180)
-    rune_row_y = -shield_height * 0.05
     
     for i in range(-2, 3):
         # 각 룬마다 다른 위상으로 펄스 효과
@@ -4135,9 +4137,17 @@ def _draw_blacksmith_umbrella_overlay(
             int(rune_base_color[2] + (rune_glow_color[2] - rune_base_color[2]) * pulse_intensity)
         )
         
+        # 룬의 x 위치에 따른 t 값 계산
         rune_x = i * shield_width * 0.16
-        top = to_world(rune_x, rune_row_y - shield_height * 0.35)
-        bottom = to_world(rune_x, rune_row_y + shield_height * 0.35)
+        t = (rune_x / shield_width) + 0.5  # 0~1 범위로 정규화
+        
+        # 초승달 곡선에 맞춰 룬의 상하 위치 계산
+        curve_y = -math.sin(t * math.pi) * shield_height * 0.4
+        top_y = curve_y - shield_height * 0.25
+        bottom_y = curve_y + shield_height * 0.25
+        
+        top = to_world(rune_x, top_y)
+        bottom = to_world(rune_x, bottom_y)
         
         # 글로우 효과 (여러 겹으로 그리기)
         if pulse_intensity > 0.5:
