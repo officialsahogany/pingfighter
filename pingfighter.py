@@ -24856,9 +24856,6 @@ def draw_objects():
             # 투척 단계: 앞으로 던지기
             tilt_angle = 30 - 50 * ((throw_progress - 0.7) / 0.3)
 
-    if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
-        tilt_angle = 0
-
     rotated_player = pygame.transform.rotate(base_ufo_img, tilt_angle).copy()
     orig_rect = base_ufo_img.get_rect()
     rotated_rect = rotated_player.get_rect(center=orig_rect.center)
