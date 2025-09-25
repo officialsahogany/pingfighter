@@ -25387,10 +25387,8 @@ def draw_objects():
     tilt_angle = 0
     if hit_animation_active:
         if umbrella_guarding:
-            if hit_animation_timer > 0:
-                hit_animation_timer -= 1
-            if hit_animation_timer <= 0:
-                hit_animation_active = False
+            hit_animation_active = False
+            hit_animation_timer = 0
         else:
             progress = HIT_ANIMATION_DURATION - hit_animation_timer
             tilt_angle = -20 + (progress * 7)
