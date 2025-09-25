@@ -4137,8 +4137,6 @@ def _draw_blacksmith_umbrella_overlay(
     axis_right = pygame.math.Vector2(-direction.y, direction.x)
     axis_up = (-direction).normalize()
 
-    pivot_anchor = to_world(-shield_width * 0.48, shield_height * 0.15)
-
     close_factor = 1.0 - open_amount
     tilt_strength = close_factor ** 0.6
     tilt_angle = tilt_strength * math.radians(75)
@@ -4158,7 +4156,7 @@ def _draw_blacksmith_umbrella_overlay(
             axis_up = rotated_up.normalize()
 
     forward_offset = 24 + open_amount * 48 - close_factor * 6
-    base_center = pivot_vec + (pivot_vec - pivot_anchor)
+    base_anchor = pivot_vec + axis_right * (-shield_width * 0.48) + axis_up * (shield_height * 0.15)
     if swing_main_blend > 0:
         swing_bias = -52 * swing_pre_blend - 108 * swing_main_blend
         vertical_bias = -18 * swing_pre_blend + 36 * swing_main_blend
