@@ -16635,6 +16635,7 @@ def handle_player(keys):
 
     umbrella_lock_active = False
     umbrella_action_block = False
+    umbrella_swinging_main = False
     if selected_character_type == "blacksmith":
         if blacksmith_umbrella_open:
             if blacksmith_umbrella_anim_timer > 0:
@@ -16713,10 +16714,14 @@ def handle_player(keys):
             if blacksmith_umbrella_swing_timer > 0:
                 blacksmith_umbrella_swing_timer -= 1
             if blacksmith_umbrella_swing_timer <= 0 or blacksmith_umbrella_retracting:
-                blacksmith_umbrella_swing_active = False
-                blacksmith_umbrella_swing_timer = 0
-                blacksmith_umbrella_swing_stage = 0
-                blacksmith_umbrella_swing_progress = 0.0
+            blacksmith_umbrella_swing_active = False
+            blacksmith_umbrella_swing_timer = 0
+            blacksmith_umbrella_swing_stage = 0
+            blacksmith_umbrella_swing_progress = 0.0
+
+        umbrella_swinging_main = (
+            blacksmith_umbrella_swing_active and blacksmith_umbrella_swing_stage == 1
+        )
 
         if (
             blacksmith_umbrella_open
