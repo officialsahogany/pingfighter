@@ -4175,7 +4175,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     open_amount = max(0.0, (progress - 0.35) / 0.65)
 
     global blacksmith_hammer_head_local_point, blacksmith_hammer_head_surface_point
-    global blacksmith_umbrella_body_offset, blacksmith_umbrella_center_offset, blacksmith_umbrella_hitbox_extents
+    global blacksmith_umbrella_body_offset, blacksmith_umbrella_hitbox_extents
 
     base_width = 250
     body_height = 120
@@ -4243,15 +4243,13 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
 
-        bounds_center_x = bounds.centerx
-        center_offset = (bounds_center_x - center_x) / scale_value
-        half_span = (bounds.width / 2) / scale_value + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
+        pivot_surface_x = scaled_anchor[0]
+        left_extent = ((pivot_surface_x - bounds.left) / scale_value) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
+        right_extent = ((bounds.right - pivot_surface_x) / scale_value) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
 
-        blacksmith_umbrella_center_offset = center_offset
-        blacksmith_umbrella_hitbox_extents = (half_span, half_span)
+        blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
     else:
         blacksmith_umbrella_body_offset = (0, 0)
-        blacksmith_umbrella_center_offset = 0.0
         blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
 
     blacksmith_hammer_head_local_point = prev_head_local
@@ -4682,7 +4680,6 @@ blacksmith_hammer_charge_position: tuple[float, float] | None = None
 blacksmith_hammer_pivot_local_point: tuple[float, float] | None = None
 blacksmith_hammer_forward_vector: tuple[float, float] = (0.0, -1.0)
 blacksmith_umbrella_body_offset: tuple[int, int] = (0, 0)
-blacksmith_umbrella_center_offset: float = 0.0
 blacksmith_umbrella_hitbox_extents: tuple[float, float] = (0.0, 0.0)
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 paddle_scale_ratio: float = 1.0
@@ -17978,8 +17975,7 @@ def handle_player(keys):
 
     global debug_umbrella_hitbox_rect
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
-        total_offset_x = blacksmith_umbrella_body_offset[0] + blacksmith_umbrella_center_offset
-        effective_centerx += int(round(total_offset_x * scale_applied))
+        effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
         umbrella_half_left = max(umbrella_half_left, left_extent)
         umbrella_half_right = max(umbrella_half_right, right_extent)
