@@ -15705,7 +15705,7 @@ def handle_player(keys):
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
-    global blacksmith_umbrella_active, blacksmith_umbrella_timer
+    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_charge_position, blacksmith_build_menu_active
@@ -16061,12 +16061,9 @@ def handle_player(keys):
 
     umbrella_lock_active = False
     if selected_character_type == "blacksmith":
-        if blacksmith_umbrella_active:
-            if blacksmith_umbrella_timer > 0:
-                blacksmith_umbrella_timer -= 1
-            if blacksmith_umbrella_timer <= 0:
-                blacksmith_umbrella_active = False
-                blacksmith_umbrella_timer = 0
+        if blacksmith_umbrella_open:
+            if blacksmith_umbrella_anim_timer > 0:
+                blacksmith_umbrella_anim_timer -= 1
         elif up_just_pressed and player_stunned_timer <= 0:
             if (
                 not blacksmith_build_menu_active
@@ -16074,8 +16071,8 @@ def handle_player(keys):
                 and not blacksmith_hammer_shock_charging
                 and blacksmith_hammer_available
             ):
-                blacksmith_umbrella_active = True
-                blacksmith_umbrella_timer = BLACKSMITH_UMBRELLA_DURATION
+                blacksmith_umbrella_open = True
+                blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
                 blacksmith_walking_active = False
                 blacksmith_walking_timer = 0
                 blacksmith_walk_direction = 0
@@ -16088,7 +16085,7 @@ def handle_player(keys):
                 blacksmith_hammer_shock_charge_frames = 0
                 blacksmith_hammer_charge_position = None
                 blacksmith_build_menu_active = False
-        if blacksmith_umbrella_active:
+        if blacksmith_umbrella_open and blacksmith_umbrella_anim_timer > 0:
             umbrella_lock_active = True
 
     if umbrella_lock_active:
@@ -24428,9 +24425,9 @@ def draw_objects():
             else:
                 base_ufo_img = SOLDIER_PADDLE_IMG if include_right_arm else SOLDIER_PADDLE_IMG_NO_RIGHT_ARM
         elif selected_character_type == "blacksmith":
-            if blacksmith_umbrella_active:
-                if BLACKSMITH_UMBRELLA_DURATION > 0:
-                    progress = 1.0 - (blacksmith_umbrella_timer / BLACKSMITH_UMBRELLA_DURATION)
+            if blacksmith_umbrella_open:
+                if BLACKSMITH_UMBRELLA_ANIM_FRAMES > 0:
+                    progress = 1.0 - (max(0, blacksmith_umbrella_anim_timer) / BLACKSMITH_UMBRELLA_ANIM_FRAMES)
                 else:
                     progress = 1.0
                 progress = max(0.0, min(1.0, progress))
