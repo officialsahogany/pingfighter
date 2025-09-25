@@ -7515,7 +7515,7 @@ BLACKSMITH_BASELINE_GAP = max(
     0,
     BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1).bottom - BLACKSMITH_BASELINE_Y,
 )
-blacksmith_idle_body_offset: tuple[int, int] = (0, BLACKSMITH_BASELINE_GAP)
+blacksmith_idle_body_offset: tuple[int, int] = (0, BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1).bottom - BLACKSMITH_BASELINE_Y)
 try:
     BLACKSMITH_MISSILE_IMG = pygame.image.load(resource_path("ui/blacksmith_missile.png")).convert_alpha()
 except Exception:
@@ -24597,11 +24597,11 @@ def draw_objects():
     sin_a = math.sin(rad)
 
     pivot_offset = (0, 0)
-    if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
-        pivot_offset = blacksmith_umbrella_body_offset
+    if selected_character_type == "blacksmith":
+        pivot_offset = blacksmith_umbrella_body_offset if blacksmith_umbrella_open else blacksmith_idle_body_offset
 
     if selected_character_type == "blacksmith":
-        offset_x, offset_y = pivot_offset if blacksmith_umbrella_open else (0, 0)
+        offset_x, offset_y = pivot_offset
         pivot_vec = pygame.math.Vector2(
             BLACKSMITH_CENTER_X + offset_x,
             BLACKSMITH_BASELINE_Y + offset_y,
