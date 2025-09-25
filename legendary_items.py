@@ -69,26 +69,12 @@ KNOCKBACK_PROFILES: Dict[str, KnockbackProfile] = {
         random_bonus=(0.02, 0.06),
         max_power=25.823,
     ),
-    "hammer_shock_stage1": KnockbackProfile(
-        base_power=16.0,
-        speed_weight=0.0,
-        speed_thresholds=(),
-        random_bonus=(0.0, 0.01),
-        max_power=16.8,
-    ),
-    "hammer_shock_stage2": KnockbackProfile(
+    "hammer_shock_base": KnockbackProfile(
         base_power=22.0,
         speed_weight=0.0,
         speed_thresholds=(),
-        random_bonus=(0.0, 0.015),
-        max_power=23.5,
-    ),
-    "hammer_shock_stage3": KnockbackProfile(
-        base_power=28.0,
-        speed_weight=0.0,
-        speed_thresholds=(),
-        random_bonus=(0.005, 0.02),
-        max_power=29.5,
+        random_bonus=(0.0, 0.012),
+        max_power=23.0,
     ),
 }
 
