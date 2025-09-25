@@ -24606,8 +24606,6 @@ def draw_objects():
     else:
         player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x,
                                                       PLAYER.centery + screen_shake_offset_y + player_knockback_y))
-        if selected_character_type == "blacksmith":
-            player_rect.bottom = PLAYER.bottom + screen_shake_offset_y + player_knockback_y
 
     # 디버깅: rotated_player 확인 (frame_count가 정의되어 있을 때만)
     try:
