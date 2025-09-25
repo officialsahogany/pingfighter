@@ -4657,13 +4657,13 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global blacksmith_divine_stone_state
     global frame_counter
     global blacksmith_build_menu_active
-    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
+    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
     global blacksmith_umbrella_retracting, blacksmith_umbrella_anim_direction
 
     construction_active = False
     hammer_engaged_this_frame = False
 
-    if blacksmith_umbrella_open and blacksmith_umbrella_anim_timer > 0:
+    if blacksmith_umbrella_open and not blacksmith_umbrella_retracting:
         stop_blacksmith_construction_sound()
         return down_just_pressed
 
@@ -16451,6 +16451,7 @@ def handle_player(keys):
     up_just_pressed = up_pressed and not player_up_pressed_prev
 
     umbrella_lock_active = False
+    umbrella_action_block = False
     if selected_character_type == "blacksmith":
         if blacksmith_umbrella_open:
             if blacksmith_umbrella_anim_timer > 0:
@@ -16502,10 +16503,17 @@ def handle_player(keys):
         if blacksmith_umbrella_open and blacksmith_umbrella_anim_timer > 0:
             umbrella_lock_active = True
 
+        if blacksmith_umbrella_open and not blacksmith_umbrella_retracting:
+            umbrella_action_block = True
+
     if umbrella_lock_active:
         space_pressed = False
         down_pressed = False
         current_speed = 0
+
+    if umbrella_action_block:
+        space_pressed = False
+        down_pressed = False
 
     global soldier_weapon_hold_frames, soldier_weapon_menu_active, soldier_weapon_number_prev
     allow_weapon_switch = (
