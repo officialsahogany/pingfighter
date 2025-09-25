@@ -4162,17 +4162,27 @@ def _draw_blacksmith_umbrella_overlay(
         
         # 메인 룬 라인
         pygame.draw.line(surface, rune_color, _vec_to_int_pair(top), _vec_to_int_pair(bottom), 4)
-        left_tick = to_world(rune_x - shield_width * 0.05, rune_row_y)
-        right_tick = to_world(rune_x + shield_width * 0.05, rune_row_y)
+        # 초승달 곡선에 맞춘 가로 틱
+        left_tick = to_world(rune_x - shield_width * 0.05, curve_y)
+        right_tick = to_world(rune_x + shield_width * 0.05, curve_y)
         pygame.draw.line(surface, rune_color, _vec_to_int_pair(left_tick), _vec_to_int_pair(right_tick), 3)
 
-    # 리벳 (메탈릭 효과 강화)
-    rivet_y_positions = [-shield_height * 0.45, 0, shield_height * 0.38]
-    for y in rivet_y_positions:
-        count = 7 if abs(y) < shield_height * 0.2 else 6
+    # 리벳 (메탈릭 효과 강화) - 초승달 곡선 따라 배치
+    # 3개의 곡선 라인을 따라 리벳 배치
+    for row in range(3):
+        row_factor = row / 2  # 0, 0.5, 1
+        count = 7 if row == 1 else 6  # 중앙 줄은 더 많이
+        
         for j in range(count):
             t = j / (count - 1) if count > 1 else 0.5
             x = (t - 0.5) * shield_width * 0.86
+            
+            # 초승달 곡선에 맞춘 y 위치
+            base_curve_y = -math.sin(t * math.pi) * shield_height * 0.5
+            # 각 줄마다 다른 오프셋 적용
+            y_offset = (row_factor - 0.5) * shield_height * 0.8
+            y = base_curve_y + y_offset
+            
             pos = to_world(x, y)
             # 리벳 그림자
             pygame.draw.circle(surface, (64, 50, 34), _vec_to_int_pair(pos), 5)
