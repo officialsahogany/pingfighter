@@ -24621,16 +24621,8 @@ def draw_objects():
     # UFO 이미지 그리기 (화면 흔들림 오프셋 및 넉백 효과 적용)
     player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x, 
                                                   PLAYER.centery + screen_shake_offset_y + player_knockback_y))
-    if (
-        selected_character_type == "blacksmith"
-        and globals().get("BLACKSMITH_PADDLE_IMG") is not None
-        and blacksmith_umbrella_open
-    ):
-        reference_height = BLACKSMITH_PADDLE_IMG.get_height()
-        current_height = base_ufo_img.get_height()
-        height_diff = current_height - reference_height
-        if height_diff > 0:
-            player_rect.y -= height_diff // 2
+    if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
+        player_rect.bottom = PLAYER.bottom + screen_shake_offset_y + player_knockback_y
     if selected_character_type == "blacksmith" and blacksmith_hammer_head_surface_point is not None:
         orig_rect = base_ufo_img.get_rect()
         center_vec = pygame.math.Vector2(orig_rect.center)
