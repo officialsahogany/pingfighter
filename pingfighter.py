@@ -3634,6 +3634,8 @@ def _draw_blacksmith_upper(
     walk_lean=0.0,
     force_hammer_visibility: bool | None = None,
     request_pose: bool = False,
+    umbrella_pose: bool = False,
+    umbrella_raise: float = 0.0,
 ):
     global blacksmith_hammer_head_local_point
     global blacksmith_hammer_pivot_local_point, blacksmith_hammer_forward_vector
@@ -3642,6 +3644,8 @@ def _draw_blacksmith_upper(
     cy = BLACKSMITH_CENTER_Y
     shield_amount = max(0.0, min(1.0, shield_swing))
     lift_curve = shield_amount ** 1.1  # 0~1 범위, 후반부에서 더 많이 들어 올리기
+    umbrella_raise = max(0.0, min(1.0, umbrella_raise))
+    umbrella_pose_active = umbrella_pose
 
     if force_hammer_visibility is not None:
         show_hammer = force_hammer_visibility
@@ -3650,8 +3654,12 @@ def _draw_blacksmith_upper(
             show_hammer = blacksmith_hammer_available or blacksmith_hammer_shock_charging
         except NameError:
             show_hammer = True
+    if umbrella_pose_active:
+        show_hammer = False
 
     hammer_amount = max(0.0, min(1.0, hammer_swing))
+    if umbrella_pose_active:
+        hammer_amount = 0.0
     if not show_hammer:
         hammer_amount = 0.0
     hammer_prepare_phase = min(1.0, hammer_amount * 1.35)
