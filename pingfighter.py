@@ -24605,6 +24605,7 @@ def draw_objects():
             int(round(PLAYER.centerx + screen_shake_offset_x - pivot_point.x)),
             int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y - pivot_point.y)),
         )
+        player_rect.bottom = PLAYER.bottom + screen_shake_offset_y + player_knockback_y
     else:
         player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x,
                                                       PLAYER.centery + screen_shake_offset_y + player_knockback_y))
