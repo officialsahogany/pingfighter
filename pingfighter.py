@@ -4236,10 +4236,11 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     bounding_rect = scaled_surface.get_bounding_rect(min_alpha=1)
     if scaled_anchor is not None and bounding_rect.height > 0:
-        center_x, center_y = scaled_surface.get_rect().center
-        anchor_offset_x = int(round(center_x + BLACKSMITH_BASE_PIVOT_REL_X - BLACKSMITH_CENTER_X))
-        anchor_offset_y = int(round(center_y + BLACKSMITH_BASE_PIVOT_REL_Y - BLACKSMITH_BASELINE_Y))
-        blacksmith_umbrella_body_offset = (anchor_offset_x, anchor_offset_y)
+        anchor_offset_x = body_offset_x
+        baseline_offset_y = bounding_rect.bottom - BLACKSMITH_BASELINE_GAP - BLACKSMITH_BASELINE_Y
+        if baseline_offset_y < 0:
+            baseline_offset_y = 0
+        blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
     else:
         blacksmith_umbrella_body_offset = (0, 0)
 
@@ -7516,9 +7517,6 @@ BLACKSMITH_BASELINE_GAP = max(
     0,
     BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1).bottom - BLACKSMITH_BASELINE_Y,
 )
-base_center_rect = BLACKSMITH_PADDLE_IMG.get_rect()
-BLACKSMITH_BASE_PIVOT_REL_X = BLACKSMITH_CENTER_X - base_center_rect.centerx
-BLACKSMITH_BASE_PIVOT_REL_Y = BLACKSMITH_BASELINE_Y - base_center_rect.centery
 try:
     BLACKSMITH_MISSILE_IMG = pygame.image.load(resource_path("ui/blacksmith_missile.png")).convert_alpha()
 except Exception:
