@@ -8054,6 +8054,12 @@ blacksmith_umbrella_open = False
 blacksmith_umbrella_anim_timer = 0
 blacksmith_umbrella_retracting = False
 blacksmith_umbrella_anim_direction = 1  # 1: 펼치는 중/완료, -1: 접는 중
+BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES = int(0.5 * FPS)
+BLACKSMITH_UMBRELLA_SWING_SWING_FRAMES = int(0.5 * FPS)
+blacksmith_umbrella_swing_active = False
+blacksmith_umbrella_swing_timer = 0
+blacksmith_umbrella_swing_stage = 0  # 0=준비, 1=스윙
+blacksmith_umbrella_swing_progress = 0.0
 blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
