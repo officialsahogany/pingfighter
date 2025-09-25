@@ -180,7 +180,7 @@ from supply_drop import (
 )
 from soldier import SoldierWeaponController
 #  전설 아이템 시스템
-from legendary_items import get_legendary_manager, LegendaryItem
+from legendary_items import compute_knockback_magnitude, get_legendary_manager, LegendaryItem
 #  전설 아이템 획득 애니메이션
 from effects.legendary_integration import (
     initialize_legendary_effects,
@@ -18933,13 +18933,9 @@ def handle_wall():
                 # 보스 스턴 및 넉백 효과
                 boss_stunned_timer = 120  # 2초 스턴
                 # 화염병처럼 넉백 효과 (튕겨나가는 느낌)
-                knockback_power = 40  # 넉백 강도 조정
-                if grenade["x"] < WIDTH / 2:
-                    # 수류탄이 왼쪽에서 터지면 보스를 오른쪽으로 넉백
-                    boss_knockback_vel = _apply_boss_knockback_velocity(knockback_power)
-                else:
-                    # 수류탄이 오른쪽에서 터지면 보스를 왼쪽으로 넉백
-                    boss_knockback_vel = _apply_boss_knockback_velocity(-knockback_power)
+                direction = 1 if grenade["x"] < WIDTH / 2 else -1
+                knockback_power = compute_knockback_magnitude("grenade")
+                boss_knockback_vel = _apply_boss_knockback_velocity(direction * knockback_power)
                 #  체력형 보스 수류탄 데미지 적용
                 if current_stage in boss_health_stages:
                     boss_current_health = max(0, boss_current_health - 3)  # 수류탄 데미지 3

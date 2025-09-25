@@ -2123,38 +2123,20 @@ class RagnarokHammer(LegendaryItem):
             
         import random
         
-        # 수평 넉백 속도 계산 (수류탄 방식)
-        horizontal_power = 3  # 기본 넉백 파워 (7 -> 3로 대폭 감소)
-        
-        # 공속에 비례하여 수평 넉백 강화
-        speed_bonus = abs(ball_speed) * 0.15  # 공속의 15%를 보너스로 추가 (35% -> 15%로 대폭 감소)
-        horizontal_power += speed_bonus
-        
+        magnitude = compute_knockback_magnitude("ragnarok", ball_speed=ball_speed)
+
         # 보스 위치에 따라 방향 결정
         center_x = 300  # 화면 중앙
         if boss_x + 50 < center_x:  # 보스가 왼쪽에 있으면
-            horizontal_velocity = horizontal_power  # 오른쪽으로 넉백
+            horizontal_velocity = magnitude  # 오른쪽으로 넉백
         else:  # 보스가 오른쪽에 있으면
-            horizontal_velocity = -horizontal_power  # 왼쪽으로 넉백
-        
-        # 공속별 추가 배율 (대폭 감소)
-        if abs(ball_speed) >= 25:
-            horizontal_velocity *= 1.05  # 5% 추가 (15% -> 5%로 감소)
-        elif abs(ball_speed) >= 20:
-            horizontal_velocity *= 1.03  # 3% 추가 (10% -> 3%로 감소)
-        elif abs(ball_speed) >= 15:
-            horizontal_velocity *= 1.01  # 1% 추가 (5% -> 1%로 감소)
-            
-        # 랜덤 추가 넉백 (0-5%)
-        random_factor = 1.0 + random.uniform(0.0, 0.05)  # 5-20% -> 0-5%로 대폭 감소
-        horizontal_velocity *= random_factor
-            
+            horizontal_velocity = -magnitude  # 왼쪽으로 넉백
+
         # 번개 효과 추가
         self._spawn_thunder_effect()
         
         print(f"[라그나로크 해머 calculate_knockback]")
         print(f"  - 입력 공속: {ball_speed:.1f}")
-        print(f"  - 기본 파워: {horizontal_power:.1f}")
         print(f"  - 최종 넉백 속도: {horizontal_velocity:.1f}")
         print(f"  - 스턴 시간: {self.stun_duration:.1f}초")
         
