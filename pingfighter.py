@@ -24637,6 +24637,12 @@ def draw_objects():
             int(round((PLAYER.bottom + screen_shake_offset_y + player_knockback_y) - pivot_point.y)),
         )
 
+        target_bottom = int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y))
+        delta_y = target_bottom - player_rect.bottom
+        if delta_y != 0:
+            player_rect.y += delta_y
+            pivot_point.y += delta_y
+
         try:
             screen_pivot_x = pivot_point.x + player_rect.x
             screen_pivot_y = pivot_point.y + player_rect.y
