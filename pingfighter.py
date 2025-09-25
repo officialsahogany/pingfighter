@@ -48895,10 +48895,10 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_charge_position = None
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions.clear()
-    global blacksmith_umbrella_active, blacksmith_umbrella_timer
+    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
-    blacksmith_umbrella_active = False
-    blacksmith_umbrella_timer = 0
+    blacksmith_umbrella_open = False
+    blacksmith_umbrella_anim_timer = 0
     blacksmith_walking_active = False
     blacksmith_walking_timer = 0
     blacksmith_walk_direction = 0
