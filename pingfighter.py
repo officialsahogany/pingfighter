@@ -24587,13 +24587,11 @@ def draw_objects():
         pivot_offset = blacksmith_umbrella_body_offset
 
     if selected_character_type == "blacksmith":
-        if blacksmith_umbrella_open:
-            pivot_vec = pygame.math.Vector2(
-                BLACKSMITH_CENTER_X + pivot_offset[0],
-                BLACKSMITH_BASELINE_Y + pivot_offset[1],
-            )
-        else:
-            pivot_vec = pygame.math.Vector2(BLACKSMITH_CENTER_X, BLACKSMITH_BASELINE_Y)
+        offset_x, offset_y = pivot_offset if blacksmith_umbrella_open else (0, 0)
+        pivot_vec = pygame.math.Vector2(
+            BLACKSMITH_CENTER_X + offset_x,
+            BLACKSMITH_BASELINE_Y + offset_y,
+        )
         pivot_rel = pivot_vec - center_vec
         rotated_pivot = pygame.math.Vector2(
             pivot_rel.x * cos_a - pivot_rel.y * sin_a,
@@ -24603,19 +24601,13 @@ def draw_objects():
         player_rect = rotated_player.get_rect()
         player_rect.topleft = (
             int(round(PLAYER.centerx + screen_shake_offset_x - pivot_point.x)),
-            int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y - pivot_point.y)),
+            int(round((PLAYER.bottom + screen_shake_offset_y + player_knockback_y) - pivot_point.y)),
         )
-        player_rect.bottom = PLAYER.bottom + screen_shake_offset_y + player_knockback_y
-        try:
-            print(
-                f"[DEBUG umbrella rect] player_bottom={PLAYER.bottom} rect_top={player_rect.top} rect_bottom={player_rect.bottom} "
-                f"img_size={base_ufo_img.get_size()} rotated_size={rotated_player.get_size()}"
-            )
-        except Exception:
-            pass
     else:
         player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x,
                                                       PLAYER.centery + screen_shake_offset_y + player_knockback_y))
+        if selected_character_type == "blacksmith":
+            player_rect.bottom = PLAYER.bottom + screen_shake_offset_y + player_knockback_y
 
     # 디버깅: rotated_player 확인 (frame_count가 정의되어 있을 때만)
     try:
