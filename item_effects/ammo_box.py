@@ -94,10 +94,7 @@ class AmmoBox:
                     print("   🚫 그물덫총은 노후화되어 재장전되지 않습니다.")
                 elif net_gun.ammo_count < net_gun.MAX_AMMO:
                     prev_ammo = net_gun.ammo_count
-                    net_gun.ammo_count = net_gun.MAX_AMMO
-                    net_gun.active = True
-                    if register_reload:
-                        register_reload("net_gun")
+                    net_gun.reload(track_reload=True)
                     if "net_gun" not in self.reloaded_weapons:
                         self.reloaded_weapons.append("net_gun")
                     print(f"   🕸️ 그물덫총 재장전: {prev_ammo} → {net_gun.ammo_count}")

@@ -5572,7 +5572,6 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
         elif direction < 0 and space_left <= BLACKSMITH_GROUND_CRACK_BOUNDARY_MARGIN:
             direction = 1
 
-        knockback_speed = BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED + segments_break * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED_STEP
         crack_knockback = compute_knockback_magnitude("hammer_shock_crack")
         _apply_boss_knockback_velocity(direction * crack_knockback)
         globals()["boss_knockback_active"] = False
@@ -5594,11 +5593,16 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     except Exception:
         pass
 
-    break_amount = random.randint(2, 5)
-    crack["segments_remaining"] = max(0, crack.get("segments_remaining", 0) - break_amount)
-
-    if crack["segments_remaining"] <= 0 or crack["length"] <= BLACKSMITH_GROUND_CRACK_REMOVE_LENGTH:
-        _shatter_blacksmith_crack(crack, play_sound=False)
+    impact_x = crack.get("x", crack_center_x)
+    impact_y = crack.get("y", boss_rect.centery)
+    neighbor_radius_sq = (BLACKSMITH_GROUND_CRACK_REMOVE_LENGTH * 4) ** 2
+    for other in list(blacksmith_ground_cracks):
+        if other is crack:
+            continue
+        dx = impact_x - other.get("x", impact_x)
+        dy = impact_y - other.get("y", impact_y)
+        if dx * dx + dy * dy <= neighbor_radius_sq:
+            _decay_blacksmith_crack_segment(other, segments=random.randint(1, 2), spawn_particles=False, play_sound=False)
 
 
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
