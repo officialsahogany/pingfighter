@@ -3805,6 +3805,28 @@ def _draw_blacksmith_upper(
         cx + 56 + hammer_forward_twist - hammer_arm_forward // 2 + right_arm_offset_x + lean_push,
         torso_y + 24 - int(round(8 * hammer_raise)) + hammer_arm_drop + right_arm_offset_y + wrist_pitch + int(round(12 * hammer_drop))
     )
+    if umbrella_pose_active:
+        def _blend_point(p0: tuple[int, int], p1: tuple[int, int]) -> tuple[int, int]:
+            return (
+                int(round(p0[0] + (p1[0] - p0[0]) * umbrella_raise)),
+                int(round(p0[1] + (p1[1] - p0[1]) * umbrella_raise)),
+            )
+
+        target_shoulder = (
+            right_shoulder[0] + 2,
+            right_shoulder[1] - 20,
+        )
+        target_elbow = (
+            right_elbow[0] + 6,
+            right_elbow[1] - 58,
+        )
+        target_wrist = (
+            right_wrist[0] + 4,
+            right_wrist[1] - 94,
+        )
+        right_shoulder = _blend_point(right_shoulder, target_shoulder)
+        right_elbow = _blend_point(right_elbow, target_elbow)
+        right_wrist = _blend_point(right_wrist, target_wrist)
     pygame.draw.polygon(surface, (132, 108, 82), [
         (right_shoulder[0] - 6, right_shoulder[1] + 2),
         (right_elbow[0] - 10, right_elbow[1] - 2),
