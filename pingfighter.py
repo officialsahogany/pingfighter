@@ -4078,10 +4078,10 @@ def _draw_blacksmith_umbrella_overlay(
             170 - layer * 10, 
             130 - layer * 10
         )
-        band_points = []
+        layer_band_points = []
         for x, y in upper_band_base:
-            band_points.append(_vec_to_int_pair(to_world(x, y + layer * 1.5)))
-        pygame.draw.polygon(surface, layer_color, band_points)
+            layer_band_points.append(_vec_to_int_pair(to_world(x, y + layer * 1.5)))
+        pygame.draw.polygon(surface, layer_color, layer_band_points)
     
     upper_band = [_vec_to_int_pair(to_world(x, y)) for x, y in upper_band_base]
     pygame.draw.polygon(surface, (80, 68, 48), upper_band, width=2)
@@ -4109,10 +4109,10 @@ def _draw_blacksmith_umbrella_overlay(
             140 - layer * 10,
             110 - layer * 10
         )
-        band_points = []
+        layer_band_points = []
         for x, y in lower_band_base:
-            band_points.append(_vec_to_int_pair(to_world(x, y - layer * 1.5)))
-        pygame.draw.polygon(surface, layer_color, band_points)
+            layer_band_points.append(_vec_to_int_pair(to_world(x, y - layer * 1.5)))
+        pygame.draw.polygon(surface, layer_color, layer_band_points)
     
     lower_band = [_vec_to_int_pair(to_world(x, y)) for x, y in lower_band_base]
     pygame.draw.polygon(surface, (70, 58, 40), lower_band, width=2)
