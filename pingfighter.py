@@ -18186,8 +18186,8 @@ def handle_player(keys):
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
         effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
-        left_extent_scaled = left_extent * scale_applied
-        right_extent_scaled = right_extent * scale_applied
+        left_extent_scaled = left_extent * scale_applied * 0.85
+        right_extent_scaled = right_extent * scale_applied * 0.85
         umbrella_half_left = max(umbrella_half_left, left_extent_scaled)
         umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
 
