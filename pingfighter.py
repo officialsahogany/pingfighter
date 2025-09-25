@@ -4204,18 +4204,21 @@ def _draw_blacksmith_umbrella_overlay(
         min_y = min(ys)
         max_y = max(ys)
         blacksmith_umbrella_overlay_bounds = (min_x, max_x)
-        blacksmith_umbrella_hitbox_raw = {
-            "pivot_x": float(pivot_vec.x),
-            "pivot_y": float(pivot_vec.y),
-            "center_x": float(shield_center.x),
-            "center_y": float(shield_center.y),
-            "min_x": float(min_x),
-            "max_x": float(max_x),
-            "min_y": float(min_y),
-            "max_y": float(max_y),
-            "dir_x": float(direction.x),
-            "dir_y": float(direction.y),
-        }
+        if swing_main_blend > 0:
+            blacksmith_umbrella_hitbox_raw = {
+                "pivot_x": float(pivot_vec.x),
+                "pivot_y": float(pivot_vec.y),
+                "center_x": float(shield_center.x),
+                "center_y": float(shield_center.y),
+                "min_x": float(min_x),
+                "max_x": float(max_x),
+                "min_y": float(min_y),
+                "max_y": float(max_y),
+                "dir_x": float(direction.x),
+                "dir_y": float(direction.y),
+            }
+        else:
+            blacksmith_umbrella_hitbox_raw = None
     else:
         blacksmith_umbrella_overlay_bounds = None
         blacksmith_umbrella_hitbox_raw = None
