@@ -16301,6 +16301,9 @@ def handle_player(keys):
         if blacksmith_umbrella_open:
             if blacksmith_umbrella_anim_timer > 0:
                 blacksmith_umbrella_anim_timer -= 1
+            # 방패 충격 효과 타이머 업데이트
+            if 'blacksmith_shield_impact_timer' in globals() and blacksmith_shield_impact_timer > 0:
+                blacksmith_shield_impact_timer -= 1
         elif up_just_pressed and player_stunned_timer <= 0:
             if (
                 not blacksmith_build_menu_active
