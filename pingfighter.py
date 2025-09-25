@@ -4007,8 +4007,39 @@ def _draw_blacksmith_umbrella_overlay(
     outline_world = [to_world(x, y) for x, y in outline_local]
     outline_int = [_vec_to_int_pair(p) for p in outline_world]
 
-    pygame.draw.polygon(surface, (118, 104, 88), outline_int)
-    pygame.draw.polygon(surface, (60, 52, 44), outline_int, width=3)
+    # 베이스 금속판 (그라데이션 효과를 위한 다층 구조)
+    base_color = (138, 124, 108)  # 밝은 브론즈
+    shadow_color = (88, 74, 58)   # 어두운 브론즈
+    highlight_color = (168, 154, 138)  # 하이라이트
+    
+    # 메인 방패 본체 (그라데이션 레이어)
+    for i in range(3):
+        offset = i * 2
+        grad_color = (
+            base_color[0] + (highlight_color[0] - base_color[0]) * (i / 3),
+            base_color[1] + (highlight_color[1] - base_color[1]) * (i / 3),
+            base_color[2] + (highlight_color[2] - base_color[2]) * (i / 3)
+        )
+        offset_outline = []
+        for point in outline_local:
+            offset_x = point[0] * (1 - offset * 0.005)
+            offset_y = point[1] * (1 - offset * 0.01) 
+            offset_outline.append((offset_x, offset_y))
+        offset_world = [to_world(x, y) for x, y in offset_outline]
+        offset_int = [_vec_to_int_pair(p) for p in offset_world]
+        pygame.draw.polygon(surface, grad_color, offset_int)
+    
+    # 메인 테두리
+    pygame.draw.polygon(surface, shadow_color, outline_int, width=4)
+    # 내부 하이라이트 테두리
+    inner_outline = []
+    for point in outline_local:
+        inner_x = point[0] * 0.95
+        inner_y = point[1] * 0.9
+        inner_outline.append((inner_x, inner_y))
+    inner_world = [to_world(x, y) for x, y in inner_outline]
+    inner_int = [_vec_to_int_pair(p) for p in inner_world]
+    pygame.draw.polygon(surface, (188, 174, 158), inner_int, width=2)
 
     # 상하 금속 판재 층
     band_thickness = shield_height * 0.35
