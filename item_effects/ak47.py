@@ -1,6 +1,7 @@
 import math
 import random
-from typing import List, Dict, Optional
+import sys
+from typing import Callable, Dict, List, Optional
 
 import pygame
 
