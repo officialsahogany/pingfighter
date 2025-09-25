@@ -4044,6 +4044,18 @@ def _draw_blacksmith_umbrella_overlay(
     axis_up = (-direction).normalize()
 
     close_factor = 1.0 - open_amount
+    tilt_strength = close_factor ** 0.6
+    tilt_angle = tilt_strength * math.radians(75)
+    if abs(tilt_angle) > 1e-4:
+        cos_t = math.cos(tilt_angle)
+        sin_t = math.sin(tilt_angle)
+        rotated_right = axis_right * cos_t - axis_up * sin_t
+        rotated_up = axis_right * sin_t + axis_up * cos_t
+        if rotated_right.length_squared() > 1e-6:
+            axis_right = rotated_right.normalize()
+        if rotated_up.length_squared() > 1e-6:
+            axis_up = rotated_up.normalize()
+
     forward_offset = 32 + open_amount * 54 - close_factor * 6
     shield_center = pivot_vec + direction * forward_offset + axis_right * (close_factor * 18)
     shield_width = 80 + open_amount * 260
