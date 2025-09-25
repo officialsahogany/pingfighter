@@ -7517,6 +7517,7 @@ BLACKSMITH_BASELINE_GAP = max(
 )
 _blacksmith_base_bounds = BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1)
 BLACKSMITH_CONTACT_EXTRA_Y = 12
+BLACKSMITH_SCREEN_GROUND_OFFSET = 20
 blacksmith_idle_body_offset: tuple[int, int] = (
     0,
     _blacksmith_base_bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y,
@@ -24638,7 +24639,14 @@ def draw_objects():
             int(round((PLAYER.bottom + screen_shake_offset_y + player_knockback_y) - pivot_point.y)),
         )
 
-        target_bottom = int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y))
+        target_bottom = int(
+            round(
+                PLAYER.bottom
+                + screen_shake_offset_y
+                + player_knockback_y
+                + BLACKSMITH_SCREEN_GROUND_OFFSET
+            )
+        )
         rotated_bounds = rotated_player.get_bounding_rect(min_alpha=1)
         content_bottom = player_rect.y + rotated_bounds.bottom
         delta_y = target_bottom - content_bottom
