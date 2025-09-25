@@ -17721,6 +17721,9 @@ def handle_player(keys):
                     # 권총 발사
                     fire_soldier_bullet()
         
+        if umbrella_lock_active:
+            current_speed = 0
+
         # 통제불능 상태가 아닐 때만 이동 가능
         if soldier_control_lock_timer <= 0:
             PLAYER.x += current_speed
