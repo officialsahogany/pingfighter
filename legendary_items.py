@@ -11,7 +11,7 @@ import math
 import random
 import os
 import sys
-from typing import Dict, List, Optional, Tuple, Callable
+from typing import Dict, List, Optional, Tuple, Callable, NamedTuple
 
 # 리소스 경로 헬퍼 (PyInstaller 호환)
 def resource_path(relative_path):
@@ -30,6 +30,68 @@ LEGENDARY_GLOW_COLOR = (255, 100, 100, 128)  # 반투명 붉은색 글로우
 COMMON_LEGENDARY_BORDER_COLOR = (180, 200, 255)
 COMMON_LEGENDARY_CORNER_COLOR = (255, 215, 0)
 _COMMON_LEGENDARY_BG_CACHE: Dict[Tuple[int, int], pygame.Surface] = {}
+
+
+class KnockbackProfile(NamedTuple):
+    base_power: float
+    speed_weight: float
+    speed_thresholds: Tuple[Tuple[float, float], ...]
+    random_bonus: Tuple[float, float]
+    max_power: Optional[float]
+
+
+_STANDARD_KNOCKBACK_THRESHOLDS: Tuple[Tuple[float, float], ...] = (
+    (25.0, 1.05),
+    (20.0, 1.03),
+    (15.0, 1.01),
+)
+
+KNOCKBACK_PROFILES: Dict[str, KnockbackProfile] = {
+    "grenade": KnockbackProfile(
+        base_power=36.0,
+        speed_weight=0.0,
+        speed_thresholds=_STANDARD_KNOCKBACK_THRESHOLDS,
+        random_bonus=(0.0, 0.03),
+        max_power=46.0,
+    ),
+    "bazooka": KnockbackProfile(
+        base_power=39.0,
+        speed_weight=0.0,
+        speed_thresholds=_STANDARD_KNOCKBACK_THRESHOLDS,
+        random_bonus=(0.01, 0.04),
+        max_power=50.0,
+    ),
+    "ragnarok": KnockbackProfile(
+        base_power=44.0,
+        speed_weight=0.18,
+        speed_thresholds=_STANDARD_KNOCKBACK_THRESHOLDS,
+        random_bonus=(0.02, 0.06),
+        max_power=62.0,
+    ),
+}
+
+
+def compute_knockback_magnitude(profile_key: str, ball_speed: float = 0.0) -> float:
+    """Return a positive knockback magnitude using a shared algorithm."""
+    if profile_key not in KNOCKBACK_PROFILES:
+        raise KeyError(f"Unknown knockback profile: {profile_key}")
+
+    profile = KNOCKBACK_PROFILES[profile_key]
+    power = profile.base_power + abs(ball_speed) * profile.speed_weight
+
+    for threshold, multiplier in profile.speed_thresholds:
+        if abs(ball_speed) >= threshold:
+            power *= multiplier
+
+    min_bonus, max_bonus = profile.random_bonus
+    if max_bonus > 0:
+        bonus = random.uniform(1.0 + min_bonus, 1.0 + max_bonus)
+        power *= bonus
+
+    if profile.max_power is not None:
+        power = min(power, profile.max_power)
+
+    return power
 
 
 def _clear_poseidon_background(surface: pygame.Surface) -> None:
