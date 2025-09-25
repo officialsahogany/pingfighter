@@ -25378,14 +25378,26 @@ def draw_objects():
                 blacksmith_hammer_head_surface_point[1] * scale_ratio,
             )
     keys = pygame.key.get_pressed()
+    umbrella_guarding = (
+        selected_character_type == "blacksmith"
+        and blacksmith_umbrella_open
+        and not blacksmith_umbrella_retracting
+    )
+
     tilt_angle = 0
     if hit_animation_active:
-        progress = HIT_ANIMATION_DURATION - hit_animation_timer
-        tilt_angle = -20 + (progress * 7)
-        hit_animation_timer -= 1
-        if hit_animation_timer <= 0:
-            hit_animation_active = False
-    else:
+        if umbrella_guarding:
+            if hit_animation_timer > 0:
+                hit_animation_timer -= 1
+            if hit_animation_timer <= 0:
+                hit_animation_active = False
+        else:
+            progress = HIT_ANIMATION_DURATION - hit_animation_timer
+            tilt_angle = -20 + (progress * 7)
+            hit_animation_timer -= 1
+            if hit_animation_timer <= 0:
+                hit_animation_active = False
+    elif not umbrella_guarding:
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             tilt_angle = 10
         elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
