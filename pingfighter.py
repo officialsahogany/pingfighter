@@ -4582,14 +4582,9 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     open_amount = max(0.0, (progress - 0.35) / 0.65)
 
     global blacksmith_hammer_head_local_point, blacksmith_hammer_head_surface_point
-    global (
-        blacksmith_umbrella_body_offset,
-        blacksmith_umbrella_hitbox_extents,
-        blacksmith_umbrella_hitbox_vertical,
-        blacksmith_umbrella_hitbox_center_offset,
-        blacksmith_umbrella_hitbox_direction,
-        blacksmith_umbrella_hitbox_raw,
-    )
+    global blacksmith_umbrella_body_offset, blacksmith_umbrella_hitbox_extents
+    global blacksmith_umbrella_hitbox_vertical, blacksmith_umbrella_hitbox_center_offset
+    global blacksmith_umbrella_hitbox_direction, blacksmith_umbrella_hitbox_raw
 
     base_width = 250
     body_height = 120
