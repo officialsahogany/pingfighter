@@ -4237,24 +4237,26 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
 
-        left_extent = right_extent = PADDLE_WIDTH / 2
         if debug_pivot is not None:
             pivot_x = int(round(debug_pivot[0]))
-            top_limit = max(0, min(surface.get_height(), int(round(debug_pivot[1]))))
+            pivot_y = int(round(debug_pivot[1]))
             min_x = surface.get_width()
             max_x = 0
-            for y in range(top_limit):
+            top = max(0, pivot_y - BLACKSMITH_UMBRELLA_TOP_SCAN_HEIGHT)
+            for y in range(top, pivot_y + 1):
                 for x in range(surface.get_width()):
                     if surface.get_at((x, y))[3] > 0:
-                        if x < min_x:
-                            min_x = x
-                        if x > max_x:
-                            max_x = x
+                        min_x = min(min_x, x)
+                        max_x = max(max_x, x)
             if min_x < surface.get_width():
                 left_pixels = max(0, pivot_x - min_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
                 right_pixels = max(0, max_x - pivot_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
                 left_extent = left_pixels * scale_value
                 right_extent = right_pixels * scale_value
+            else:
+                left_extent = right_extent = PADDLE_WIDTH / 2
+        else:
+            left_extent = right_extent = PADDLE_WIDTH / 2
 
         blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
     else:
