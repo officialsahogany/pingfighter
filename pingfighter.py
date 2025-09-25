@@ -3978,8 +3978,8 @@ def _draw_blacksmith_umbrella_overlay(
     direction = direction.normalize()
 
     # 보스 방향(위쪽)으로 고정된 우산 연출
-    length = max(30.0, (head_vec - pivot_vec).length())
-    head_vec = pivot_vec + direction * length
+    shaft_length = max(70.0, 70.0 + open_amount * 110.0)
+    head_vec = pivot_vec + direction * shaft_length
     perp = pygame.math.Vector2(-direction.y, direction.x)
 
     shaft_color = (190, 210, 230)
@@ -3988,10 +3988,10 @@ def _draw_blacksmith_umbrella_overlay(
     pygame.draw.line(surface, shaft_color, _vec_to_int_pair(pivot_vec), _vec_to_int_pair(head_vec), 3)
 
     # 넓은 탑뷰 우산: 보스 패들보다 좌우가 넓도록 반경 확장
-    max_radius = 96.0  # 풀 오픈시 약 192px 폭
-    canopy_radius = 18.0 + open_amount * max_radius
-    canopy_height = 10.0 + open_amount * 52.0
-    canopy_center = head_vec + direction * (10 + open_amount * 10)
+    max_radius = 120.0  # 풀 오픈시 약 240px 폭
+    canopy_radius = 32.0 + open_amount * max_radius
+    canopy_height = 42.0 + open_amount * 66.0
+    canopy_center = head_vec + direction * (48.0 + open_amount * 44.0)
 
     canopy_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 
@@ -4005,15 +4005,15 @@ def _draw_blacksmith_umbrella_overlay(
         point_vec = canopy_center + perp * offset_perp - direction * offset_along
         rim_points.append(_vec_to_int_pair(point_vec))
 
-    tip_vec = canopy_center + direction * (canopy_height * 0.2)
-    handle_cap = head_vec + direction * 10
+    tip_vec = canopy_center + direction * (canopy_height * 0.45 + 24.0)
+    handle_cap = head_vec
 
     # 메인 캐노피
     pygame.draw.polygon(canopy_surface, (184, 228, 255, 235), rim_points + [_vec_to_int_pair(handle_cap)])
     pygame.draw.lines(canopy_surface, (88, 142, 205, 255), False, rim_points, max(2, int(2 + open_amount * 2)))
 
     # 반사 하이라이트 (좌우 비대칭으로 깊이감)
-    highlight_perp = perp * 0.55
+    highlight_perp = perp * 0.48
     highlight_points: list[tuple[int, int]] = []
     for idx in range(segments + 1):
         theta = math.pi * (idx / segments)
@@ -4027,8 +4027,9 @@ def _draw_blacksmith_umbrella_overlay(
     spoke_count = 6
     for idx in range(spoke_count):
         t = idx / (spoke_count - 1)
-        rim_vec = rim_points[idx * (segments // (spoke_count - 1))]
-        rim_vec2 = rim_points[min(len(rim_points) - 1, idx * (segments // (spoke_count - 1)) + 1)]
+        rim_index = min(len(rim_points) - 1, idx * (segments // (spoke_count - 1)))
+        rim_vec = rim_points[rim_index]
+        rim_vec2 = rim_points[min(len(rim_points) - 1, rim_index + 1)]
         rim_mix = ((rim_vec[0] + rim_vec2[0]) / 2, (rim_vec[1] + rim_vec2[1]) / 2)
         pygame.draw.line(
             canopy_surface,
@@ -4060,18 +4061,23 @@ def _draw_blacksmith_umbrella_overlay(
         )
 
     # 중앙 캡 & 손잡이 상단 꾸미기
+    cap_radius = max(3, int(4 + open_amount * 2))
+    pygame.draw.circle(canopy_surface, (255, 255, 255, 240), _vec_to_int_pair(tip_vec), cap_radius)
+    pygame.draw.circle(canopy_surface, (150, 200, 250, 255), _vec_to_int_pair(tip_vec), cap_radius, width=1)
+
+    connector_radius = max(4, int(5 + open_amount * 3))
     pygame.draw.circle(
         canopy_surface,
-        (255, 255, 255, 240),
-        _vec_to_int_pair(tip_vec),
-        max(3, int(4 + open_amount * 2)),
+        (160, 195, 240, 220),
+        _vec_to_int_pair(handle_cap),
+        connector_radius,
+        width=3,
     )
     pygame.draw.circle(
         canopy_surface,
-        (150, 200, 250, 255),
-        _vec_to_int_pair(tip_vec),
-        max(2, int(3 + open_amount)),
-        width=1,
+        (245, 250, 255, 180),
+        _vec_to_int_pair(handle_cap),
+        max(2, connector_radius - 2),
     )
 
     surface.blit(canopy_surface, (0, 0))
