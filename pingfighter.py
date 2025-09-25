@@ -24608,10 +24608,13 @@ def draw_objects():
             else blacksmith_idle_body_offset
         )
         scale_applied = scale_ratio if scale_ratio > 0 else 1.0
-        pivot_vec = pygame.math.Vector2(
-            (BLACKSMITH_CENTER_X + offset_x) * scale_applied,
-            (BLACKSMITH_BASELINE_Y + offset_y) * scale_applied,
+        base_center_vec = pygame.math.Vector2(BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y)
+        base_pivot_vec = pygame.math.Vector2(
+            BLACKSMITH_CENTER_X + offset_x,
+            BLACKSMITH_BASELINE_Y + offset_y,
         )
+        scaled_rel = (base_pivot_vec - base_center_vec) * scale_applied
+        pivot_vec = center_vec + scaled_rel
         pivot_rel = pivot_vec - center_vec
         rotated_pivot = pygame.math.Vector2(
             pivot_rel.x * cos_a - pivot_rel.y * sin_a,
@@ -24623,6 +24626,9 @@ def draw_objects():
             int(round(PLAYER.centerx + screen_shake_offset_x - pivot_point.x)),
             int(round((PLAYER.bottom + screen_shake_offset_y + player_knockback_y) - pivot_point.y)),
         )
+
+        target_bottom = int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y))
+        player_rect.y += target_bottom - player_rect.bottom
     else:
         player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x,
                                                       PLAYER.centery + screen_shake_offset_y + player_knockback_y))
