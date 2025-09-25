@@ -4476,6 +4476,9 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         )
 
     if pivot_point and head_point:
+        vertical_offset = 28 - 8 * raise_amount
+        pivot_point = (pivot_point[0], pivot_point[1] + vertical_offset)
+        head_point = (head_point[0], head_point[1] + vertical_offset)
         _draw_blacksmith_umbrella_overlay(surface, pivot_point, head_point, raise_amount, open_amount)
 
     debug_pivot = pivot_point
