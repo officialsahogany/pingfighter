@@ -4178,7 +4178,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     base_width = 250
     body_height = 120
-    final_width = 380
+    final_width = 320
     final_height = 280
     body_surface = pygame.Surface((base_width, body_height), pygame.SRCALPHA)
     pose = _draw_blacksmith_upper(
