@@ -4592,7 +4592,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     base_width = 250
     body_height = 120
     final_width = 520
-    final_height = 360
+    final_height = 420
     body_surface = pygame.Surface((base_width, body_height), pygame.SRCALPHA)
     pose = _draw_blacksmith_upper(
         body_surface,
@@ -4610,8 +4610,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     surface = pygame.Surface((final_width, final_height), pygame.SRCALPHA)
     body_offset_x = (final_width - base_width) // 2
-    extra_top_margin = 140
-    body_offset_y = max(0, final_height - body_height - extra_top_margin)
+    body_offset_y = final_height - body_height
     surface.blit(body_surface, (body_offset_x, body_offset_y))
     blacksmith_umbrella_body_offset = (body_offset_x, body_offset_y)
 
