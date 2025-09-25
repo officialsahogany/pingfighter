@@ -3986,7 +3986,7 @@ def _draw_blacksmith_umbrella_overlay(
     forward_offset = 46 + open_amount * 48
     shield_center = pivot_vec + direction * forward_offset
     shield_width = 220 + open_amount * 140
-    shield_height = 42 + open_amount * 28
+    shield_height = (42 + open_amount * 28) * 0.65  # Y축 두께 35% 감소
 
     def to_world(dx: float, dy: float) -> pygame.math.Vector2:
         return shield_center + axis_right * dx + axis_up * dy
