@@ -16766,6 +16766,13 @@ def handle_player(keys):
         player_slow_timer -= 1
     else:
         speed_factor = 1.0
+
+    if (
+        selected_character_type == "blacksmith"
+        and blacksmith_umbrella_open
+        and not blacksmith_umbrella_retracting
+    ):
+        speed_factor *= 0.6
     # === 롱부스트 타이머 체크 및 점진적 크기 변화 ===
     if long_boost_active:
         if long_boost_timer > 0:
