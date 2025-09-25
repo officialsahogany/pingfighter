@@ -6314,9 +6314,13 @@ def update_blacksmith_hammer_shock(keys):
     global BALL, ball_vel, last_hit_by, player_collision_handled
     global stopwatch_active, stopwatch_timer
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
-    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
+    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
 
-    if blacksmith_umbrella_open and blacksmith_umbrella_anim_timer > 0:
+    if blacksmith_umbrella_open and not blacksmith_umbrella_retracting:
+        if blacksmith_hammer_shock_charging:
+            blacksmith_hammer_shock_charging = False
+            blacksmith_hammer_shock_charge_frames = 0
+            blacksmith_hammer_shock_stage = 0
         return
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
