@@ -3814,15 +3814,15 @@ def _draw_blacksmith_upper(
 
         target_shoulder = (
             right_shoulder[0] + 2,
-            right_shoulder[1] - 20,
+            right_shoulder[1] - 14,
         )
         target_elbow = (
             right_elbow[0] + 6,
-            right_elbow[1] - 58,
+            right_elbow[1] - 44,
         )
         target_wrist = (
             right_wrist[0] + 4,
-            right_wrist[1] - 94,
+            right_wrist[1] - 72,
         )
         right_shoulder = _blend_point(right_shoulder, target_shoulder)
         right_elbow = _blend_point(right_elbow, target_elbow)
@@ -3843,7 +3843,7 @@ def _draw_blacksmith_upper(
     if umbrella_pose_active:
         hand_center = (
             right_wrist[0] + 2,
-            right_wrist[1] - int(round(6 + 18 * umbrella_raise)),
+            right_wrist[1] - int(round(4 + 12 * umbrella_raise)),
         )
     pygame.draw.circle(surface, (205, 185, 155), hand_center, 6)
     if umbrella_pose_active:
@@ -3862,7 +3862,7 @@ def _draw_blacksmith_upper(
         grip_ratio = 0.35
     pivot = pygame.math.Vector2(hand_center[0], hand_center[1])
     if umbrella_pose_active:
-        pivot = pygame.math.Vector2(hand_center[0], hand_center[1] - 8)
+        pivot = pygame.math.Vector2(hand_center[0], hand_center[1] - 4)
     swing_angle = -math.radians(110) + hammer_drop * math.radians(150)
     swing_angle += hammer_raise * math.radians(10)
     if umbrella_pose_active:
@@ -3875,7 +3875,7 @@ def _draw_blacksmith_upper(
 
     handle_length = 46
     if umbrella_pose_active:
-        handle_length = 96
+        handle_length = 78
     handle_half_width = 5
     if umbrella_pose_active:
         handle_half_width = 4
