@@ -7659,9 +7659,9 @@ blacksmith_walking_active = False
 blacksmith_walking_timer = 0
 blacksmith_walk_direction = 0  # -1: 왼쪽 이동, 1: 오른쪽 이동
 BLACKSMITH_WALKING_CYCLE = 30
-BLACKSMITH_UMBRELLA_DURATION = int(0.7 * FPS)
-blacksmith_umbrella_active = False
-blacksmith_umbrella_timer = 0
+BLACKSMITH_UMBRELLA_ANIM_FRAMES = int(0.7 * FPS)
+blacksmith_umbrella_open = False
+blacksmith_umbrella_anim_timer = 0
 
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
 smasher_walking_active = False
