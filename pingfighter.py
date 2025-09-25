@@ -16643,6 +16643,9 @@ def handle_player(keys):
                     blacksmith_umbrella_retracting = False
                     blacksmith_umbrella_anim_direction = 1
                     blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
+                    blacksmith_umbrella_hitbox_vertical = (0.0, 0.0)
+                    blacksmith_umbrella_hitbox_center_offset = (0.0, 0.0)
+                    blacksmith_umbrella_hitbox_direction = (0.0, -1.0)
                 else:
                     blacksmith_umbrella_anim_direction = 1
 
