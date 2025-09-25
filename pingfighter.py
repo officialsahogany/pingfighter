@@ -18000,13 +18000,9 @@ def handle_player(keys):
         umbrella_half_left = max(umbrella_half_left, left_extent_scaled)
         umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
 
-        extra_height = int(round((left_extent_scaled + right_extent_scaled) * 0.2))
-        if extra_height > 0:
-            player_collision_rect.inflate_ip(0, extra_height)
-
-        extra_height = int(round((left_extent_scaled + right_extent_scaled) * 0.2))
-        if extra_height > 0:
-            player_collision_rect.inflate_ip(0, extra_height)
+        vertical_shift = int(round((left_extent_scaled + right_extent_scaled) * 0.2))
+        if vertical_shift > 0:
+            player_collision_rect.y -= vertical_shift
 
         expanded_width = int(math.ceil(umbrella_half_left + umbrella_half_right) * 2)
         if expanded_width > player_collision_rect.width:
