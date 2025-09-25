@@ -4115,7 +4115,7 @@ def _draw_blacksmith_umbrella_overlay(
         direction = direction.lerp(ready_dir, swing_pre_blend * 0.75)
     if swing_main_blend > 0:
         sweep_curve = math.sin(swing_main_blend * math.pi)
-        sweep_dir = pygame.math.Vector2(-0.25 - 0.6 * swing_main_blend, -0.85 + 0.28 * sweep_curve)
+        sweep_dir = pygame.math.Vector2(-0.35 - 0.95 * swing_main_blend, -0.78 + 0.35 * sweep_curve)
         if sweep_dir.length_squared() > 1e-6:
             direction = direction.lerp(sweep_dir.normalize(), 0.9)
     if direction.length_squared() <= 1e-4:
@@ -4137,8 +4137,8 @@ def _draw_blacksmith_umbrella_overlay(
     tilt_strength = close_factor ** 0.6
     tilt_angle = tilt_strength * math.radians(75)
     if swing_pre_blend > 0 or swing_main_blend > 0:
-        swing_tilt = swing_pre_blend * 0.45 + swing_main_blend * 0.85
-        tilt_angle += swing_tilt * math.radians(55)
+        swing_tilt = swing_pre_blend * 0.5 + swing_main_blend * 0.95
+        tilt_angle += swing_tilt * math.radians(70)
     if abs(tilt_angle) > 1e-4:
         cos_t = math.cos(tilt_angle)
         sin_t = math.sin(tilt_angle)
@@ -4150,9 +4150,9 @@ def _draw_blacksmith_umbrella_overlay(
             axis_up = rotated_up.normalize()
 
     forward_offset = 32 + open_amount * 54 - close_factor * 6
-    forward_offset += -8 * swing_pre_blend + 18 * swing_main_blend
-    lateral_bias = close_factor * 18 - (20 * swing_pre_blend + 34 * swing_main_blend)
-    vertical_bias = -6 * swing_pre_blend + 24 * swing_main_blend
+    forward_offset += -10 * swing_pre_blend + 26 * swing_main_blend
+    lateral_bias = close_factor * 18 - (28 * swing_pre_blend + 58 * swing_main_blend)
+    vertical_bias = -8 * swing_pre_blend + 28 * swing_main_blend
     shield_center = pivot_vec + direction * forward_offset + axis_right * lateral_bias + axis_up * vertical_bias
     shield_width = (80 + open_amount * 260) * (1.0 + 0.18 * swing_main_blend)
     shield_height = (18 + open_amount * 40) * (1.0 + 0.22 * swing_pre_blend + 0.35 * swing_main_blend)
