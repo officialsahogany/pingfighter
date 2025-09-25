@@ -48840,7 +48840,14 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_charge_position = None
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions.clear()
-    
+    global blacksmith_umbrella_active, blacksmith_umbrella_timer
+    global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
+    blacksmith_umbrella_active = False
+    blacksmith_umbrella_timer = 0
+    blacksmith_walking_active = False
+    blacksmith_walking_timer = 0
+    blacksmith_walk_direction = 0
+
 
     # 🔧 스테이지 시작 시 플레이어 움직임 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
