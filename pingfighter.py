@@ -24539,20 +24539,6 @@ def draw_objects():
         new_width = int(base_ufo_img.get_width() * scale_ratio)
         new_height = int(base_ufo_img.get_height() * scale_ratio)
         base_ufo_img = pygame.transform.scale(base_ufo_img, (new_width, new_height))
-
-    blacksmith_effective_idle_offset = blacksmith_idle_body_offset
-    blacksmith_effective_umbrella_offset = blacksmith_umbrella_body_offset
-    if selected_character_type == "blacksmith":
-        offset_scale = scale_ratio if scale_ratio > 0 else 1.0
-        blacksmith_effective_idle_offset = (
-            int(round(blacksmith_idle_body_offset[0] * offset_scale)),
-            int(round(blacksmith_idle_body_offset[1] * offset_scale)),
-        )
-        umbrella_raw = blacksmith_umbrella_body_offset
-        blacksmith_effective_umbrella_offset = (
-            int(round(umbrella_raw[0] * offset_scale)),
-            int(round(umbrella_raw[1] * offset_scale)),
-        )
         if (
             selected_character_type == "blacksmith"
             and blacksmith_hammer_head_surface_point is not None
@@ -24616,17 +24602,15 @@ def draw_objects():
 
     pivot_offset = (0, 0)
     if selected_character_type == "blacksmith":
-        pivot_offset = (
-            blacksmith_effective_umbrella_offset
+        offset_x, offset_y = (
+            blacksmith_umbrella_body_offset
             if blacksmith_umbrella_open
-            else blacksmith_effective_idle_offset
+            else blacksmith_idle_body_offset
         )
-
-    if selected_character_type == "blacksmith":
-        offset_x, offset_y = pivot_offset
+        scale_applied = scale_ratio if scale_ratio > 0 else 1.0
         pivot_vec = pygame.math.Vector2(
-            BLACKSMITH_CENTER_X + offset_x,
-            BLACKSMITH_BASELINE_Y + offset_y,
+            (BLACKSMITH_CENTER_X + offset_x) * scale_applied,
+            (BLACKSMITH_BASELINE_Y + offset_y) * scale_applied,
         )
         pivot_rel = pivot_vec - center_vec
         rotated_pivot = pygame.math.Vector2(
