@@ -83,6 +83,14 @@ class AK47:
             and self.shot_cooldown <= 0
         )
 
+    def refill_magazine(self, *, track_reload: bool = False) -> None:
+        """탄창을 최대 탄약으로 채운다."""
+        self.current_ammo = self.max_ammo
+        if track_reload:
+            tracker = self._get_reload_tracker()
+            if tracker:
+                tracker("ak47")
+
     def handle_space_input(self, space_pressed: bool) -> None:
         """스페이스바 입력 상태를 추적하고 버스트 모드를 관리한다."""
         if space_pressed:
@@ -283,19 +291,29 @@ class AK47:
     
     def get_movement_speed_multiplier(self) -> float:
         """연사 중일 때 이동속도 배율 반환
-        
+
         Returns:
             float: 이동속도 배율 (1.0 = 100%, 0.5 = 50%)
         """
         if not self.active:
             return 1.0
-        
+
         # 실제로 발사 중일 때만 이동속도 감소
         # is_firing이 True일 때만 감속 적용 (shot_cooldown은 제거)
         if self.is_firing:
             return self.movement_debuff
-        
+
         return 1.0
+
+    def _get_reload_tracker(self) -> Callable[[str], None] | None:
+        for module_name in ("__main__", "pingfighter"):
+            module = sys.modules.get(module_name)
+            if not module:
+                continue
+            candidate = getattr(module, "register_weapon_reload", None)
+            if callable(candidate):
+                return candidate
+        return None
 
 # 싱글톤 인스턴스
 ak47_instance = None

@@ -5595,14 +5595,14 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
 
     impact_x = crack.get("x", crack_center_x)
     impact_y = crack.get("y", boss_rect.centery)
-    neighbor_radius_sq = (BLACKSMITH_GROUND_CRACK_REMOVE_LENGTH * 4) ** 2
+    neighbor_radius_sq = (BLACKSMITH_GROUND_CRACK_REMOVE_LENGTH * 2) ** 2
     for other in list(blacksmith_ground_cracks):
         if other is crack:
             continue
         dx = impact_x - other.get("x", impact_x)
         dy = impact_y - other.get("y", impact_y)
         if dx * dx + dy * dy <= neighbor_radius_sq:
-            _decay_blacksmith_crack_segment(other, segments=random.randint(1, 2), spawn_particles=False, play_sound=False)
+            _decay_blacksmith_crack_segment(other, segments=1, spawn_particles=False, play_sound=False)
 
 
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
