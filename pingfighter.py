@@ -3978,7 +3978,8 @@ def _draw_blacksmith_umbrella_overlay(
     direction = direction.normalize()
 
     # 보스 방향(위쪽)으로 고정된 우산 연출
-    shaft_length = max(70.0, 70.0 + open_amount * 110.0)
+    base_shaft = 70.0 + open_amount * 110.0
+    shaft_length = max(35.0, base_shaft * 0.5)
     head_vec = pivot_vec + direction * shaft_length
     perp = pygame.math.Vector2(-direction.y, direction.x)
 
@@ -3990,8 +3991,8 @@ def _draw_blacksmith_umbrella_overlay(
     # 넓은 탑뷰 우산: 보스 패들보다 좌우가 넓도록 반경 확장
     max_radius = 120.0  # 풀 오픈시 약 240px 폭
     canopy_radius = 32.0 + open_amount * max_radius
-    canopy_height = 42.0 + open_amount * 66.0
-    canopy_center = head_vec + direction * (48.0 + open_amount * 44.0)
+    canopy_height = 21.0 + open_amount * 33.0
+    canopy_center = head_vec + direction * (24.0 + open_amount * 22.0)
 
     canopy_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 
@@ -4005,7 +4006,7 @@ def _draw_blacksmith_umbrella_overlay(
         point_vec = canopy_center + perp * offset_perp - direction * offset_along
         rim_points.append(_vec_to_int_pair(point_vec))
 
-    tip_vec = canopy_center + direction * (canopy_height * 0.45 + 24.0)
+    tip_vec = canopy_center + direction * (canopy_height * 0.45 + 12.0)
     handle_cap = head_vec
 
     # 메인 캐노피
