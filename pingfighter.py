@@ -18152,6 +18152,11 @@ def handle_player(keys):
     
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     if BALL.colliderect(player_collision_rect) and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
+        # 발토르 우산 방패 충격 효과
+        global blacksmith_shield_impact_timer
+        if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
+            blacksmith_shield_impact_timer = 30  # 0.5초간 충격파 효과
+        
         # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
         if kuromi_spit_trail_active:
             kuromi_spit_trail_active = False
