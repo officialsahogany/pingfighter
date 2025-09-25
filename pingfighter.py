@@ -4234,13 +4234,14 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     )
     scaled_surface, scaled_anchor = _scale_blacksmith_sprite(surface, anchor_point)
 
-    if scaled_anchor is not None:
-        anchor_offset = (
-            int(round(scaled_anchor[0] - BLACKSMITH_CENTER_X)),
-            int(round(scaled_anchor[1] - BLACKSMITH_CENTER_Y)),
-        )
-        # 우산 전용 대형 캔버스에서도 피벗이 기본 발 위치를 유지하도록 재보정한다.
-        blacksmith_umbrella_body_offset = anchor_offset
+    bounding_rect = scaled_surface.get_bounding_rect(min_alpha=1)
+    if scaled_anchor is not None and bounding_rect.height > 0:
+        anchor_offset_x = int(round(scaled_anchor[0] - BLACKSMITH_CENTER_X))
+        baseline_offset_y = bounding_rect.bottom - BLACKSMITH_BASELINE_Y - BLACKSMITH_BASELINE_GAP
+        if baseline_offset_y < 0:
+            baseline_offset_y = 0
+        # 우산을 펼칠 때에도 기본 패들과 동일한 발 간격을 유지해 떠오르는 듯한 인상을 제거한다.
+        blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
     else:
         blacksmith_umbrella_body_offset = (0, 0)
 
@@ -7512,6 +7513,11 @@ blacksmith_hammer_available = True
 blacksmith_hammer_shock_charging = False
 BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
 BLACKSMITH_PADDLE_NO_HAMMER_IMG = create_blacksmith_paddle_base(include_hammer=False)
+# 기본 패들 렌더링에서 발 위치가 기준선보다 얼마나 아래에 있는지 기록해 우산 포즈에서도 동일한 간격을 유지한다.
+BLACKSMITH_BASELINE_GAP = max(
+    0,
+    BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1).bottom - BLACKSMITH_BASELINE_Y,
+)
 try:
     BLACKSMITH_MISSILE_IMG = pygame.image.load(resource_path("ui/blacksmith_missile.png")).convert_alpha()
 except Exception:
