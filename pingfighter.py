@@ -3979,131 +3979,106 @@ def _draw_blacksmith_umbrella_overlay(
         direction = target_dir
     direction = direction.normalize()
 
-    # 드워프식 망치 방패 컨셉: 금속 판재와 룬 장식
-    # 축 벡터 설정
-    axis_right = pygame.math.Vector2(-direction.y, direction.x)  # 수평
-    axis_up = (-direction).normalize()  # 화면 위쪽이 방패 윗면
+    # 드워프 양산 방패: 얇고 가로로 긴 금속 플레이트
+    axis_right = pygame.math.Vector2(-direction.y, direction.x)
+    axis_up = (-direction).normalize()
 
-    # 방패 중심과 크기 결정
-    shield_forward = 48 + open_amount * 60
-    shield_center = pivot_vec + direction * shield_forward
-    shield_width = 160 + open_amount * 110
-    shield_height = 110 + open_amount * 85
+    forward_offset = 46 + open_amount * 48
+    shield_center = pivot_vec + direction * forward_offset
+    shield_width = 220 + open_amount * 140
+    shield_height = 42 + open_amount * 28
 
     def to_world(dx: float, dy: float) -> pygame.math.Vector2:
         return shield_center + axis_right * dx + axis_up * dy
 
-    # 육각형에 가까운 방패 외곽 좌표 (상단이 좁은 형태)
-    top_width = shield_width * 0.35
-    mid_width = shield_width * 0.55
-    bottom_width = shield_width * 0.75
-    half_height = shield_height * 0.5
+    half_w_top = shield_width * 0.45
+    half_w_mid = shield_width * 0.5
+    half_w_bottom = shield_width * 0.55
+    half_h = shield_height * 0.5
 
-    points_local = [
-        (-mid_width, -half_height * 0.2),
-        (-top_width, -half_height),
-        (top_width, -half_height),
-        (mid_width, -half_height * 0.2),
-        (bottom_width, half_height * 0.8),
-        (-bottom_width, half_height * 0.8),
+    outline_local = [
+        (-half_w_bottom, half_h * 0.85),
+        (-half_w_mid, half_h * 0.2),
+        (-half_w_top, -half_h * 0.7),
+        (half_w_top, -half_h * 0.7),
+        (half_w_mid, half_h * 0.2),
+        (half_w_bottom, half_h * 0.85),
     ]
+    outline_world = [to_world(x, y) for x, y in outline_local]
+    outline_int = [_vec_to_int_pair(p) for p in outline_world]
 
-    world_points = [to_world(x, y) for x, y in points_local]
-    int_points = [_vec_to_int_pair(p) for p in world_points]
+    pygame.draw.polygon(surface, (118, 104, 88), outline_int)
+    pygame.draw.polygon(surface, (60, 52, 44), outline_int, width=3)
 
-    # 금속 바탕
-    pygame.draw.polygon(surface, (110, 92, 72), int_points)
-    pygame.draw.polygon(surface, (48, 40, 32), int_points, width=4)
+    # 상하 금속 판재 층
+    band_thickness = shield_height * 0.35
+    upper_band = [_vec_to_int_pair(to_world(x, y)) for x, y in [
+        (-half_w_mid, -band_thickness * 0.5),
+        (-half_w_mid * 0.1, -band_thickness),
+        (half_w_mid * 0.1, -band_thickness),
+        (half_w_mid, -band_thickness * 0.5),
+        (half_w_mid * 0.7, -band_thickness * 0.15),
+        (-half_w_mid * 0.7, -band_thickness * 0.15),
+    ]]
+    pygame.draw.polygon(surface, (174, 150, 110), upper_band)
+    pygame.draw.polygon(surface, (80, 68, 48), upper_band, width=2)
 
-    # 중앙 보강 플레이트
-    plate_width = shield_width * 0.32
-    plate_height = shield_height * 0.8
-    plate_points = [
-        (-plate_width, -plate_height * 0.5),
-        (-plate_width * 0.6, -plate_height * 0.9),
-        (plate_width * 0.6, -plate_height * 0.9),
-        (plate_width, -plate_height * 0.5),
-        (plate_width * 0.7, plate_height * 0.9),
-        (-plate_width * 0.7, plate_height * 0.9),
-    ]
-    plate_world = [to_world(x, y) for x, y in plate_points]
-    pygame.draw.polygon(surface, (156, 134, 96), [_vec_to_int_pair(p) for p in plate_world])
-    pygame.draw.polygon(surface, (68, 52, 36), [_vec_to_int_pair(p) for p in plate_world], width=3)
+    lower_band = [_vec_to_int_pair(to_world(x, y)) for x, y in [
+        (-half_w_bottom * 0.9, band_thickness * 0.3),
+        (-half_w_bottom * 0.4, band_thickness * 0.95),
+        (half_w_bottom * 0.4, band_thickness * 0.95),
+        (half_w_bottom * 0.9, band_thickness * 0.3),
+        (half_w_bottom * 0.6, band_thickness * 0.05),
+        (-half_w_bottom * 0.6, band_thickness * 0.05),
+    ]]
+    pygame.draw.polygon(surface, (144, 120, 90), lower_band)
+    pygame.draw.polygon(surface, (70, 58, 40), lower_band, width=2)
 
-    # 세로 리브(보강)
-    rib_count = 4
-    rib_spacing = shield_width * 0.22
-    for idx in range(-rib_count, rib_count + 1):
-        if idx == 0:
-            rib_color = (200, 182, 130)
-            rib_width = 4
-        else:
-            rib_color = (140, 120, 90)
-            rib_width = 3
-        offset = idx * rib_spacing * 0.3
-        start = to_world(offset, -half_height * 0.95)
-        end = to_world(offset, half_height * 0.95)
-        pygame.draw.line(surface, rib_color, _vec_to_int_pair(start), _vec_to_int_pair(end), rib_width)
+    # 중앙 룬 라인
+    rune_color = (210, 188, 130)
+    rune_row_y = -shield_height * 0.05
+    for i in range(-2, 3):
+        rune_x = i * shield_width * 0.16
+        top = to_world(rune_x, rune_row_y - shield_height * 0.35)
+        bottom = to_world(rune_x, rune_row_y + shield_height * 0.35)
+        pygame.draw.line(surface, rune_color, _vec_to_int_pair(top), _vec_to_int_pair(bottom), 3)
+        left_tick = to_world(rune_x - shield_width * 0.05, rune_row_y)
+        right_tick = to_world(rune_x + shield_width * 0.05, rune_row_y)
+        pygame.draw.line(surface, rune_color, _vec_to_int_pair(left_tick), _vec_to_int_pair(right_tick), 2)
 
-    # 가로 띠
-    band_count = 3
-    for i in range(band_count):
-        t = (i + 1) / (band_count + 1)
-        y = (t - 0.5) * shield_height * 1.1
-        start = to_world(-shield_width * 0.75, y)
-        end = to_world(shield_width * 0.75, y)
-        pygame.draw.line(surface, (86, 72, 60), _vec_to_int_pair(start), _vec_to_int_pair(end), 3)
+    # 리벳
+    rivet_y_positions = [-shield_height * 0.45, 0, shield_height * 0.38]
+    for y in rivet_y_positions:
+        count = 7 if abs(y) < shield_height * 0.2 else 6
+        for j in range(count):
+            t = j / (count - 1) if count > 1 else 0.5
+            x = (t - 0.5) * shield_width * 0.86
+            pos = to_world(x, y)
+            pygame.draw.circle(surface, (84, 70, 54), _vec_to_int_pair(pos), 4)
+            pygame.draw.circle(surface, (162, 140, 110), _vec_to_int_pair(pos), 2)
 
-    # 리벳 배치
-    rivet_rows = [(-half_height * 0.85, 6), (-half_height * 0.15, 6), (half_height * 0.55, 8)]
-    for row_y, count in rivet_rows:
-        for i in range(count):
-            t = i / (count - 1) if count > 1 else 0.5
-            x = (t - 0.5) * shield_width * 0.85
-            pos = to_world(x, row_y)
-            pygame.draw.circle(surface, (90, 70, 50), _vec_to_int_pair(pos), 5)
-            pygame.draw.circle(surface, (170, 150, 120), _vec_to_int_pair(pos), 3)
-
-    # 룬 패턴 (심볼 라이팅)
-    rune_color = (210, 190, 130)
-    rune_thickness = 3
-    rune_rows = [-half_height * 0.6, 0, half_height * 0.5]
-    for y in rune_rows:
-        start = to_world(-shield_width * 0.28, y)
-        mid = to_world(0, y - shield_height * 0.12)
-        end = to_world(shield_width * 0.28, y)
-        pygame.draw.line(surface, rune_color, _vec_to_int_pair(start), _vec_to_int_pair(mid), rune_thickness)
-        pygame.draw.line(surface, rune_color, _vec_to_int_pair(mid), _vec_to_int_pair(end), rune_thickness)
-        mid2 = to_world(0, y + shield_height * 0.18)
-        pygame.draw.line(surface, rune_color, _vec_to_int_pair(mid), _vec_to_int_pair(mid2), rune_thickness)
-
-    # 상단 철재 스파이크 장식
-    spike_count = 5
-    spike_span = shield_width * 0.6
-    for i in range(spike_count):
-        t = i / (spike_count - 1) if spike_count > 1 else 0.5
-        x = (t - 0.5) * spike_span
-        base = to_world(x, -half_height * 0.95)
-        tip = to_world(x, -half_height * 1.25)
-        pygame.draw.line(surface, (220, 200, 150), _vec_to_int_pair(base), _vec_to_int_pair(tip), 3)
-        pygame.draw.circle(surface, (70, 60, 48), _vec_to_int_pair(base), 5)
-
-    # 좌우 측면 보호판
-    side_width = shield_width * 0.18
-    side_height = shield_height * 0.7
+    # 가장자리 보강 스트랩
+    strap_offset = shield_height * 0.48
     for side in (-1, 1):
-        side_pts = [
-            to_world(side * (shield_width * 0.6), -side_height * 0.6),
-            to_world(side * (shield_width * 0.9), -side_height * 0.35),
-            to_world(side * (shield_width * 0.85), side_height * 0.75),
-            to_world(side * (shield_width * 0.55), side_height * 0.55),
-        ]
-        pygame.draw.polygon(surface, (96, 80, 58), [_vec_to_int_pair(p) for p in side_pts])
-        pygame.draw.polygon(surface, (52, 44, 32), [_vec_to_int_pair(p) for p in side_pts], width=3)
+        strap_start = to_world(-shield_width * 0.42 * side, strap_offset)
+        strap_end = to_world(-shield_width * 0.68 * side, -strap_offset * 0.4)
+        pygame.draw.line(surface, (96, 78, 60), _vec_to_int_pair(strap_start), _vec_to_int_pair(strap_end), 5)
 
-    # 최종 좌우 범위 기록
-    xs = [p.x for p in world_points]
-    xs += [p.x for p in plate_world]
+    # 중심부 망치 장식
+    hammer_length = shield_width * 0.45
+    hammer_thickness = shield_height * 0.18
+    hammer_pts = [
+        to_world(-hammer_length * 0.5, -hammer_thickness * 0.5),
+        to_world(-hammer_length * 0.15, -hammer_thickness * 0.5),
+        to_world(hammer_length * 0.15, -hammer_thickness * 0.5),
+        to_world(hammer_length * 0.5, hammer_thickness * 0.1),
+        to_world(hammer_length * 0.15, hammer_thickness * 0.5),
+        to_world(-hammer_length * 0.15, hammer_thickness * 0.5),
+    ]
+    pygame.draw.polygon(surface, (198, 180, 132), [_vec_to_int_pair(p) for p in hammer_pts])
+    pygame.draw.polygon(surface, (90, 76, 56), [_vec_to_int_pair(p) for p in hammer_pts], width=2)
+
+    xs = [p.x for p in outline_world]
     blacksmith_umbrella_overlay_bounds = (min(xs), max(xs)) if xs else None
 
 
