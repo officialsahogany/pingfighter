@@ -8017,6 +8017,8 @@ BLACKSMITH_WALKING_CYCLE = 30
 BLACKSMITH_UMBRELLA_ANIM_FRAMES = int(0.7 * FPS)
 blacksmith_umbrella_open = False
 blacksmith_umbrella_anim_timer = 0
+blacksmith_umbrella_retracting = False
+blacksmith_umbrella_anim_direction = 1  # 1: 펼치는 중/완료, -1: 접는 중
 blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
