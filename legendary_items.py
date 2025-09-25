@@ -48,15 +48,15 @@ _STANDARD_KNOCKBACK_THRESHOLDS: Tuple[Tuple[float, float], ...] = (
 
 # 공통 넉백 알고리즘 파라미터 (라그나로크 해머가 최장 거리 유지)
 KNOCKBACK_PROFILES: Dict[str, KnockbackProfile] = {
-    "grenade": KnockbackProfile(
-        base_power=36.0,
+    "bazooka": KnockbackProfile(
+        base_power=34.0,
         speed_weight=0.0,
         speed_thresholds=_STANDARD_KNOCKBACK_THRESHOLDS,
         random_bonus=(0.0, 0.03),
-        max_power=46.0,
+        max_power=44.0,
     ),
-    "bazooka": KnockbackProfile(
-        base_power=39.0,
+    "grenade": KnockbackProfile(
+        base_power=38.0,
         speed_weight=0.0,
         speed_thresholds=_STANDARD_KNOCKBACK_THRESHOLDS,
         random_bonus=(0.01, 0.04),
