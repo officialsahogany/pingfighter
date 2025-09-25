@@ -18544,19 +18544,31 @@ def handle_player(keys):
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
         effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
-        left_extent_scaled = left_extent * scale_applied * 0.85
-        right_extent_scaled = right_extent * scale_applied * 0.85
+        left_extent_scaled = left_extent * scale_applied
+        right_extent_scaled = right_extent * scale_applied
         umbrella_half_left = max(umbrella_half_left, left_extent_scaled)
         umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
 
-        vertical_shift = int(round((left_extent_scaled + right_extent_scaled) * 0.4))
+        up_extent, down_extent = blacksmith_umbrella_hitbox_vertical
+        up_scaled = up_extent * scale_applied
+        down_scaled = down_extent * scale_applied
+        vertical_shift = int(round(up_scaled))
         if vertical_shift > 0:
             player_collision_rect.y -= vertical_shift
 
-        expanded_width = int(math.ceil(umbrella_half_left + umbrella_half_right) * 2)
+        desired_height = int(round(up_scaled + down_scaled))
+        if desired_height > player_collision_rect.height:
+            player_collision_rect.height = desired_height
+
+        expanded_width = int(math.ceil(umbrella_half_left + umbrella_half_right))
         if expanded_width > player_collision_rect.width:
             player_collision_rect.width = expanded_width
-        player_collision_rect.centerx = effective_centerx
+
+        center_offset_x_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[0] * scale_applied))
+        center_offset_y_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[1] * scale_applied))
+
+        player_collision_rect.centerx = effective_centerx + center_offset_x_scaled
+        player_collision_rect.y += center_offset_y_scaled
         if DEBUG_DRAW_UMBRELLA_HITBOX:
             debug_umbrella_hitbox_rect = player_collision_rect.copy()
     else:
