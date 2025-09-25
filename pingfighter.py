@@ -15643,6 +15643,12 @@ def handle_player(keys):
     global short_shot_active, short_shot_timer, short_shot_vertical_timer
     global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
+    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
+    global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
+    global blacksmith_umbrella_active, blacksmith_umbrella_timer
+    global blacksmith_hammer_available, blacksmith_hammer_shock_charging
+    global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
+    global blacksmith_hammer_charge_position, blacksmith_build_menu_active
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, blacksmith_turret_projectiles, blacksmith_turret_partial_drain
