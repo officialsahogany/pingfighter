@@ -4771,7 +4771,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         )
 
     if pivot_point and head_point:
-        vertical_offset = 76 - 20 * raise_amount
+        vertical_offset = 76 - 20 * raise_amount + BLACKSMITH_UMBRELLA_VISUAL_OFFSET_Y
         pivot_point = (pivot_point[0], pivot_point[1] + vertical_offset)
         head_point = (head_point[0], head_point[1] + vertical_offset)
         _draw_blacksmith_umbrella_overlay(surface, pivot_point, head_point, raise_amount, open_amount)
@@ -8372,6 +8372,7 @@ blacksmith_umbrella_swing_stage = 0  # 0=준비, 1=스윙
 blacksmith_umbrella_swing_progress = 0.0
 blacksmith_umbrella_swing_recover_pre = 0.0
 blacksmith_umbrella_swing_recover_main = 0.0
+BLACKSMITH_UMBRELLA_VISUAL_OFFSET_Y = 16  # 우산 그래픽과 판정이 패들과 겹치도록 추가 하강치
 blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
