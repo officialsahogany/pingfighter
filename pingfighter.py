@@ -16063,13 +16063,8 @@ def handle_player(keys):
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
-    global (
-        blacksmith_umbrella_open,
-        blacksmith_umbrella_anim_timer,
-        blacksmith_shield_impact_timer,
-        blacksmith_umbrella_retracting,
-        blacksmith_umbrella_anim_direction,
-    )
+    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_shield_impact_timer
+    global blacksmith_umbrella_retracting, blacksmith_umbrella_anim_direction
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_charge_position, blacksmith_build_menu_active
@@ -24848,9 +24843,13 @@ def draw_objects():
         elif selected_character_type == "blacksmith":
             if blacksmith_umbrella_open:
                 if BLACKSMITH_UMBRELLA_ANIM_FRAMES > 0:
-                    progress = 1.0 - (max(0, blacksmith_umbrella_anim_timer) / BLACKSMITH_UMBRELLA_ANIM_FRAMES)
+                    anim_fraction = max(0.0, min(1.0, blacksmith_umbrella_anim_timer / BLACKSMITH_UMBRELLA_ANIM_FRAMES))
+                    if blacksmith_umbrella_anim_direction < 0:
+                        progress = anim_fraction
+                    else:
+                        progress = 1.0 - anim_fraction
                 else:
-                    progress = 1.0
+                    progress = 1.0 if blacksmith_umbrella_anim_direction >= 0 else 0.0
                 progress = max(0.0, min(1.0, progress))
                 base_ufo_img = create_blacksmith_paddle_umbrella(progress)
             elif blacksmith_shield_swing_active:
