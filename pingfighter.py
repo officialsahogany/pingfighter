@@ -5698,11 +5698,16 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         blacksmith_ground_cracks.append(crack)
         print(f"[DEBUG] Created ground crack #{len(blacksmith_ground_cracks)}: x={crack['x']:.0f}, y={crack['y']:.0f}, angle={crack['angle']:.2f}, length={crack['length']:.0f}")
 
-    knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK
-    if stage == 2:
-        knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK
-    elif stage >= 3:
-        knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK
+    if stage >= 3:
+        profile_key = "hammer_shock_stage3"
+    else:
+        profile_key = f"hammer_shock_stage{stage}"
+    try:
+        knockback_speed = compute_knockback_magnitude(profile_key)
+    except KeyError:
+        knockback_speed = BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK if stage >= 3 else (
+            BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK if stage == 2 else BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK
+        )
 
     if 'BOSS' in globals() and BOSS is not None:
         boss_rect = BOSS
