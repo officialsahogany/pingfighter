@@ -4232,7 +4232,17 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         BLACKSMITH_CENTER_X + body_offset_x,
         BLACKSMITH_CENTER_Y + body_offset_y,
     )
-    scaled_surface, _ = _scale_blacksmith_sprite(surface, anchor_point)
+    scaled_surface, scaled_anchor = _scale_blacksmith_sprite(surface, anchor_point)
+
+    if scaled_anchor is not None:
+        anchor_offset = (
+            int(round(scaled_anchor[0] - BLACKSMITH_CENTER_X)),
+            int(round(scaled_anchor[1] - BLACKSMITH_CENTER_Y)),
+        )
+        # 우산 전용 대형 캔버스에서도 피벗이 기본 발 위치를 유지하도록 재보정한다.
+        blacksmith_umbrella_body_offset = anchor_offset
+    else:
+        blacksmith_umbrella_body_offset = (0, 0)
 
     blacksmith_hammer_head_local_point = prev_head_local
     blacksmith_hammer_head_surface_point = prev_head_surface
