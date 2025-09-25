@@ -16711,9 +16711,9 @@ def handle_player(keys):
                 blacksmith_umbrella_swing_stage = 1
             blacksmith_umbrella_swing_progress = max(0.0, min(1.0, stage_progress))
 
-            if blacksmith_umbrella_swing_timer > 0:
-                blacksmith_umbrella_swing_timer -= 1
-            if blacksmith_umbrella_swing_timer <= 0 or blacksmith_umbrella_retracting:
+        if blacksmith_umbrella_swing_timer > 0:
+            blacksmith_umbrella_swing_timer -= 1
+        if blacksmith_umbrella_swing_timer <= 0 or blacksmith_umbrella_retracting:
             blacksmith_umbrella_swing_active = False
             blacksmith_umbrella_swing_timer = 0
             blacksmith_umbrella_swing_stage = 0
