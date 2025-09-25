@@ -24605,7 +24605,6 @@ def draw_objects():
     except NameError:
         pass  # frame_count가 정의되지 않았으면 무시
 
-    if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
     #  보스 vs 보스전과  새로운 보스전에서는 빨간 효과 제거 (게이지를 사용하지 않음)
     if not new_boss_mode_active:
         if not special_active and red_intensity > 0:
