@@ -4105,14 +4105,14 @@ def _draw_blacksmith_umbrella_overlay(
     if swing_active:
         swing_progress_value = max(0.0, min(1.0, swing_progress_value))
         if swing_stage == 0:
-            swing_pre_blend = 1.0 - pow(1.0 - swing_progress_value, 3)
-        else:
-            swing_pre_blend = 1.0
-            swing_main_blend = swing_progress_value
+        swing_pre_blend = 1.0 - pow(1.0 - swing_progress_value, 3)
+    else:
+        swing_pre_blend = 1.0
+        swing_main_blend = swing_progress_value
 
     if swing_pre_blend > 0:
-        ready_dir = pygame.math.Vector2(-0.55, -0.9).normalize()
-        direction = direction.lerp(ready_dir, swing_pre_blend * 0.75)
+        ready_dir = pygame.math.Vector2(0.3, -1.0).normalize()
+        direction = direction.lerp(ready_dir, swing_pre_blend * 0.85)
     if swing_main_blend > 0:
         sweep_curve = math.sin(swing_main_blend * math.pi)
         sweep_dir = pygame.math.Vector2(-0.35 - 0.95 * swing_main_blend, -0.78 + 0.35 * sweep_curve)
