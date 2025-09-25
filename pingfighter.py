@@ -16522,6 +16522,47 @@ def handle_player(keys):
 
         if blacksmith_umbrella_open and not blacksmith_umbrella_retracting:
             umbrella_action_block = True
+        else:
+            if blacksmith_umbrella_swing_active:
+                blacksmith_umbrella_swing_active = False
+                blacksmith_umbrella_swing_timer = 0
+                blacksmith_umbrella_swing_stage = 0
+                blacksmith_umbrella_swing_progress = 0.0
+
+        if blacksmith_umbrella_swing_active:
+            total_swing_frames = BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES + BLACKSMITH_UMBRELLA_SWING_SWING_FRAMES
+            current_elapsed = total_swing_frames - blacksmith_umbrella_swing_timer
+            if current_elapsed < BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES:
+                stage_progress = current_elapsed / max(1, BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES)
+                blacksmith_umbrella_swing_stage = 0
+            else:
+                swing_elapsed = current_elapsed - BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES
+                stage_progress = swing_elapsed / max(1, BLACKSMITH_UMBRELLA_SWING_SWING_FRAMES)
+                blacksmith_umbrella_swing_stage = 1
+            blacksmith_umbrella_swing_progress = max(0.0, min(1.0, stage_progress))
+
+            if blacksmith_umbrella_swing_timer > 0:
+                blacksmith_umbrella_swing_timer -= 1
+            if blacksmith_umbrella_swing_timer <= 0 or blacksmith_umbrella_retracting:
+                blacksmith_umbrella_swing_active = False
+                blacksmith_umbrella_swing_timer = 0
+                blacksmith_umbrella_swing_stage = 0
+                blacksmith_umbrella_swing_progress = 0.0
+
+        if (
+            blacksmith_umbrella_open
+            and not blacksmith_umbrella_retracting
+            and blacksmith_umbrella_anim_timer == 0
+            and not blacksmith_umbrella_swing_active
+            and space_pressed_raw
+            and left_pressed_raw
+            and not player_stunned
+        ):
+            total_frames = BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES + BLACKSMITH_UMBRELLA_SWING_SWING_FRAMES
+            blacksmith_umbrella_swing_active = True
+            blacksmith_umbrella_swing_timer = total_frames
+            blacksmith_umbrella_swing_stage = 0
+            blacksmith_umbrella_swing_progress = 0.0
 
     if umbrella_lock_active:
         space_pressed = False
