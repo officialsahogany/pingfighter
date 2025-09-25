@@ -3996,14 +3996,28 @@ def _draw_blacksmith_umbrella_overlay(
     half_w_bottom = shield_width * 0.55
     half_h = shield_height * 0.5
 
-    outline_local = [
-        (-half_w_bottom, half_h * 0.85),
-        (-half_w_mid, half_h * 0.2),
-        (-half_w_top, -half_h * 0.7),
-        (half_w_top, -half_h * 0.7),
-        (half_w_mid, half_h * 0.2),
-        (half_w_bottom, half_h * 0.85),
-    ]
+    # 초승달 모양의 곡선 방패를 위한 포인트 생성
+    num_points = 20  # 부드러운 곡선을 위한 포인트 수
+    outline_local = []
+    
+    # 초승달 곡선을 생성 (위쪽이 볼록하고 아래쪽이 오목한 형태)
+    for i in range(num_points + 1):
+        t = i / num_points  # 0에서 1까지
+        x = (t - 0.5) * shield_width
+        
+        # 초승달 모양을 위한 y 계산
+        # 위쪽 곡선 (볼록한 부분)
+        upper_curve = -math.sin(t * math.pi) * shield_height * 0.7
+        # 아래쪽 곡선 (오목한 부분)
+        lower_curve = math.sin(t * math.pi) * shield_height * 0.3
+        
+        # 초승달의 특징적인 얇은 중앙과 두꺼운 끝부분
+        thickness_factor = 0.3 + 0.7 * math.sin(t * math.pi)  # 중앙이 얇고 끝이 두꺼움
+        
+        # 최종 y 위치 (위쪽으로 치우친 초승달)
+        y = upper_curve * thickness_factor + lower_curve * (1 - thickness_factor) * 0.5
+        
+        outline_local.append((x, y))
     outline_world = [to_world(x, y) for x, y in outline_local]
     outline_int = [_vec_to_int_pair(p) for p in outline_world]
 
@@ -4044,15 +4058,18 @@ def _draw_blacksmith_umbrella_overlay(
     # 상하 금속 판재 층 (메탈릭 효과 강화)
     band_thickness = shield_height * 0.35
     
-    # 상단 밴드 - 다층 그라데이션
-    upper_band_base = [
-        (-half_w_mid, -band_thickness * 0.5),
-        (-half_w_mid * 0.1, -band_thickness),
-        (half_w_mid * 0.1, -band_thickness),
-        (half_w_mid, -band_thickness * 0.5),
-        (half_w_mid * 0.7, -band_thickness * 0.15),
-        (-half_w_mid * 0.7, -band_thickness * 0.15),
-    ]
+    # 상단 밴드 - 초승달 곡선을 따라가는 밴드
+    upper_band_base = []
+    band_points = 12
+    for i in range(band_points):
+        t = i / (band_points - 1)
+        x = (t - 0.5) * shield_width * 0.9
+        
+        # 초승달 모양에 맞춘 상단 밴드 곡선
+        base_y = -math.sin(t * math.pi) * shield_height * 0.6
+        band_y = base_y - band_thickness * (0.5 + 0.3 * math.sin(t * math.pi))
+        
+        upper_band_base.append((x, band_y))
     
     # 상단 밴드 그라데이션 레이어
     for layer in range(2):
