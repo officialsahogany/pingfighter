@@ -19169,8 +19169,13 @@ def handle_player(keys):
         #  타격 이펙트 생성 (공 속도에 따라 강도 조절)
         create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
         global hit_animation_active, hit_animation_timer
-        hit_animation_active = True
-        hit_animation_timer = HIT_ANIMATION_DURATION
+        if not (
+            selected_character_type == "blacksmith"
+            and blacksmith_umbrella_open
+            and not blacksmith_umbrella_retracting
+        ):
+            hit_animation_active = True
+            hit_animation_timer = HIT_ANIMATION_DURATION
         if selected_character_type == "smasher":
             trigger_smasher_contact_animation(collision_x)
         #  게이지 처리 - Aipill 활성화 시에는 게이지 감소만, 비활성화 시에는 게이지 증가
@@ -45868,8 +45873,13 @@ def handle_ball():
             play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
             print("handle_ball   (handle_player  )")
-        hit_animation_active = True
-        hit_animation_timer = HIT_ANIMATION_DURATION
+        if not (
+            selected_character_type == "blacksmith"
+            and blacksmith_umbrella_open
+            and not blacksmith_umbrella_retracting
+        ):
+            hit_animation_active = True
+            hit_animation_timer = HIT_ANIMATION_DURATION
         
         # 코만도 캐릭터 휘두르기 애니메이션 활성화 (handle_ball에서 놓친 충돌)
         if selected_character_type == "soldier" and not player_collision_handled:
@@ -51260,8 +51270,13 @@ def main(stage_num, new_boss_mode=False):
                         # 타격 이펙트 생성
                         create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
                         # 충돌 애니메이션
-                        hit_animation_active = True
-                        hit_animation_timer = HIT_ANIMATION_DURATION
+                        if not (
+                            selected_character_type == "blacksmith"
+                            and blacksmith_umbrella_open
+                            and not blacksmith_umbrella_retracting
+                        ):
+                            hit_animation_active = True
+                            hit_animation_timer = HIT_ANIMATION_DURATION
                     if not power_smashing_freeze_active and smasher_pending_contact_offset is not None:
                         trigger_smasher_contact_animation(smasher_pending_contact_offset)
                     perfect_timing_cooldown = perfect_timing_cooldown_frames  # 쿨다운 시작
