@@ -5573,7 +5573,8 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
             direction = 1
 
         knockback_speed = BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED + segments_break * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_SPEED_STEP
-        _apply_boss_knockback_velocity(direction * knockback_speed)
+        crack_knockback = compute_knockback_magnitude("hammer_shock_crack")
+        _apply_boss_knockback_velocity(direction * crack_knockback)
         globals()["boss_knockback_active"] = False
         globals()["boss_knockback_offset_x"] = 0
         globals()["boss_knockback_offset_y"] = 0
