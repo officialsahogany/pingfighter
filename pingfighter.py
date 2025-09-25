@@ -4243,7 +4243,6 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
             top_limit = max(0, min(surface.get_height(), int(round(debug_pivot[1]))))
             min_x = surface.get_width()
             max_x = 0
-            surf_lock = surface.lock()
             for y in range(top_limit):
                 for x in range(surface.get_width()):
                     if surface.get_at((x, y))[3] > 0:
@@ -4256,7 +4255,6 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
                 right_pixels = max(0, max_x - pivot_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
                 left_extent = left_pixels * scale_value
                 right_extent = right_pixels * scale_value
-            surface.unlock()
 
         blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
     else:
