@@ -100,11 +100,12 @@ class Bazooka:
         print(f"🚀 바주카포 발사! 남은 탄약: {self.ammo_count}")
         return True
         
-    def reload_with_special_ammo(self, *, track_reload: bool = False):
+    def reload_with_special_ammo(self, *, track_reload: bool = False, announce: bool = True):
         """특수탄약으로 재장전"""
         self.ammo_count = self.max_ammo
         self.active = True
-        print(f"🚀 바주카포 재장전 완료! 탄약: {self.ammo_count}/{self.max_ammo}")
+        if announce:
+            print(f"🚀 바주카포 재장전 완료! 탄약: {self.ammo_count}/{self.max_ammo}")
 
         if track_reload:
             register = self._get_reload_tracker()

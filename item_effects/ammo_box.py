@@ -72,10 +72,8 @@ class AmmoBox:
                     prev_ammo = bazooka.ammo_count
                     was_inactive = not getattr(bazooka, "active", False)
                     if prev_ammo < bazooka.max_ammo:
-                        bazooka.ammo_count = bazooka.max_ammo
+                        bazooka.reload_with_special_ammo(track_reload=True, announce=False)
                         bazooka.active = True
-                        if register_reload:
-                            register_reload("bazooka")
                         if "bazooka" not in self.reloaded_weapons:
                             self.reloaded_weapons.append("bazooka")
                         print(f"   🚀 바주카포 재장전: {prev_ammo} → {bazooka.ammo_count}")
