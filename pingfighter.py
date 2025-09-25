@@ -4114,8 +4114,8 @@ def _draw_blacksmith_umbrella_overlay(
         swing_main_blend = 0.0
 
     if swing_pre_blend > 0:
-        ready_dir = pygame.math.Vector2(0.72, -0.45).normalize()
-        direction = direction.lerp(ready_dir, min(1.0, swing_pre_blend))
+        ready_dir = pygame.math.Vector2(0.3, -1.0).normalize()
+        direction = direction.lerp(ready_dir, swing_pre_blend * 0.8)
     if swing_main_blend > 0:
         sweep_curve = math.sin(swing_main_blend * math.pi)
         sweep_dir = pygame.math.Vector2(-0.9, -0.45 + 0.2 * sweep_curve)
@@ -4143,7 +4143,7 @@ def _draw_blacksmith_umbrella_overlay(
     if swing_pre_blend > 0 and swing_main_blend <= 0:
         tilt_angle -= swing_pre_blend * math.radians(70)
     if swing_main_blend > 0:
-        swing_tilt = (swing_pre_blend * 0.2 + swing_main_blend) * math.radians(100)
+        swing_tilt = (swing_pre_blend * 0.5 + swing_main_blend * 1.0) * math.radians(80)
         tilt_angle += swing_tilt
     if abs(tilt_angle) > 1e-4:
         cos_t = math.cos(tilt_angle)
@@ -4155,20 +4155,19 @@ def _draw_blacksmith_umbrella_overlay(
         if rotated_up.length_squared() > 1e-6:
             axis_up = rotated_up.normalize()
 
-    forward_offset = 24 + open_amount * 48 - close_factor * 6
+    forward_offset = 32 + open_amount * 54 - close_factor * 6
     if swing_main_blend > 0:
-        swing_bias = -52 * swing_pre_blend - 108 * swing_main_blend
-        vertical_bias = -18 * swing_pre_blend + 36 * swing_main_blend
+        swing_bias = close_factor * 18 - (28 * swing_pre_blend + 58 * swing_main_blend)
+        vertical_bias = -8 * swing_pre_blend + 28 * swing_main_blend
     elif swing_pre_blend > 0:
-        swing_bias = 60 * swing_pre_blend
-        vertical_bias = -40 * swing_pre_blend
+        swing_bias = close_factor * 18 + 20 * swing_pre_blend
+        vertical_bias = -12 * swing_pre_blend
     else:
         swing_bias = close_factor * 18
         vertical_bias = 0
     shield_width = (80 + open_amount * 260) * (1.0 + 0.18 * swing_main_blend)
     shield_height = (18 + open_amount * 40) * (1.0 + 0.22 * swing_pre_blend + 0.35 * swing_main_blend)
-    base_anchor = pivot_vec + axis_right * (-shield_width * 0.48) + axis_up * (shield_height * 0.15)
-    shield_center = base_anchor + direction * forward_offset + axis_right * swing_bias + axis_up * vertical_bias
+    shield_center = pivot_vec + direction * forward_offset + axis_right * swing_bias + axis_up * vertical_bias
 
     def to_world(dx: float, dy: float) -> pygame.math.Vector2:
         return shield_center + axis_right * dx + axis_up * dy
