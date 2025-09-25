@@ -4728,7 +4728,9 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     base_width = 250
     body_height = 120
-    final_width = 520
+    left_padding = 210  # 우산이 왼쪽으로 크게 펼쳐질 때 잘리지 않도록 여유 공간 확보
+    right_padding = 60
+    final_width = base_width + left_padding + right_padding
     final_height = 620
     body_surface = pygame.Surface((base_width, body_height), pygame.SRCALPHA)
     pose = _draw_blacksmith_upper(
@@ -4746,7 +4748,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     _draw_blacksmith_legs(body_surface, 0)
 
     surface = pygame.Surface((final_width, final_height), pygame.SRCALPHA)
-    body_offset_x = (final_width - base_width) // 2
+    body_offset_x = left_padding
     body_offset_y = final_height - body_height
     surface.blit(body_surface, (body_offset_x, body_offset_y))
     blacksmith_umbrella_body_offset = (body_offset_x, body_offset_y)
