@@ -49687,8 +49687,14 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_anim_timer = 0
     blacksmith_umbrella_retracting = False
     blacksmith_umbrella_anim_direction = 1
-    global blacksmith_umbrella_hitbox_extents
+    global blacksmith_umbrella_hitbox_extents, blacksmith_umbrella_hitbox_vertical
+    global blacksmith_umbrella_hitbox_center_offset, blacksmith_umbrella_hitbox_direction
+    global blacksmith_umbrella_hitbox_raw
     blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
+    blacksmith_umbrella_hitbox_vertical = (0.0, 0.0)
+    blacksmith_umbrella_hitbox_center_offset = (0.0, 0.0)
+    blacksmith_umbrella_hitbox_direction = (0.0, -1.0)
+    blacksmith_umbrella_hitbox_raw = None
     blacksmith_umbrella_swing_active = False
     blacksmith_umbrella_swing_timer = 0
     blacksmith_umbrella_swing_stage = 0
