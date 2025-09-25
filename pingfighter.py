@@ -3954,6 +3954,69 @@ def _draw_blacksmith_upper(
     if request_pose:
         return pose_data
 
+
+def _draw_blacksmith_umbrella_overlay(
+    surface: pygame.Surface,
+    pivot_point: tuple[float, float],
+    head_point: tuple[float, float],
+    raise_amount: float,
+    open_amount: float,
+):
+    """발토르 망치를 우산으로 연출하기 위한 오버레이."""
+    pivot_vec = pygame.math.Vector2(pivot_point)
+    head_vec = pygame.math.Vector2(head_point)
+    direction = head_vec - pivot_vec
+    if direction.length_squared() <= 1e-4:
+        direction = pygame.math.Vector2(0, -1)
+    else:
+        direction = direction.normalize()
+    target_dir = pygame.math.Vector2(0, -1)
+    mix = max(0.0, min(1.0, raise_amount))
+    direction = direction.lerp(target_dir, mix)
+    if direction.length_squared() <= 1e-4:
+        direction = target_dir
+    direction = direction.normalize()
+
+    # 보스 방향(위쪽)으로 고정된 우산 연출
+    length = max(30.0, (head_vec - pivot_vec).length())
+    head_vec = pivot_vec + direction * length
+    perp = pygame.math.Vector2(-direction.y, direction.x)
+
+    shaft_color = (190, 210, 230)
+    shaft_shadow = (90, 110, 140)
+    pygame.draw.line(surface, shaft_shadow, _vec_to_int_pair(pivot_vec), _vec_to_int_pair(head_vec), 6)
+    pygame.draw.line(surface, shaft_color, _vec_to_int_pair(pivot_vec), _vec_to_int_pair(head_vec), 3)
+
+    canopy_radius = 6 + open_amount * 34
+    canopy_height = 4 + open_amount * 18
+    canopy_center = head_vec + direction * (6 + open_amount * 6)
+    canopy_points: list[tuple[int, int]] = []
+    segments = 6
+    for idx in range(segments + 1):
+        theta = math.pi * (idx / segments)
+        offset_perp = math.cos(theta) * canopy_radius
+        offset_along = math.sin(theta) * canopy_height
+        point_vec = canopy_center + perp * offset_perp - direction * offset_along
+        canopy_points.append(_vec_to_int_pair(point_vec))
+    tip_vec = head_vec + direction * (8 + open_amount * 6)
+    canopy_points.append(_vec_to_int_pair(tip_vec))
+
+    canopy_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    pygame.draw.polygon(canopy_surface, (172, 214, 245, 232), canopy_points)
+    pygame.draw.lines(canopy_surface, (112, 156, 206), False, canopy_points[:-1], 2)
+    for t in (0.0, 0.25, 0.5, 0.75, 1.0):
+        rim_vec = canopy_center + perp * ((t - 0.5) * 2 * canopy_radius * 0.96) - direction * (math.sin(math.pi * t) * canopy_height * 0.92)
+        pygame.draw.line(
+            canopy_surface,
+            (148, 188, 230),
+            _vec_to_int_pair(tip_vec),
+            _vec_to_int_pair(rim_vec),
+            1,
+        )
+    pygame.draw.circle(canopy_surface, (230, 240, 255), _vec_to_int_pair(tip_vec), max(2, int(3 + open_amount * 1.5)))
+    surface.blit(canopy_surface, (0, 0))
+
+
 def _draw_blacksmith_legs(surface, step=0):
     hip_y = BLACKSMITH_HIP_Y
     leg_len = BLACKSMITH_LEG_LENGTH
