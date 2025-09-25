@@ -4165,10 +4165,10 @@ def _draw_blacksmith_umbrella_overlay(
     else:
         swing_bias = close_factor * 18
         vertical_bias = 0
-    shield_center = pivot_anchor + direction * forward_offset + axis_right * swing_bias + axis_up * vertical_bias
     shield_width = (80 + open_amount * 260) * (1.0 + 0.18 * swing_main_blend)
     shield_height = (18 + open_amount * 40) * (1.0 + 0.22 * swing_pre_blend + 0.35 * swing_main_blend)
     base_anchor = pivot_vec + axis_right * (-shield_width * 0.48) + axis_up * (shield_height * 0.15)
+    shield_center = base_anchor + direction * forward_offset + axis_right * swing_bias + axis_up * vertical_bias
 
     def to_world(dx: float, dy: float) -> pygame.math.Vector2:
         return shield_center + axis_right * dx + axis_up * dy
