@@ -4684,6 +4684,7 @@ blacksmith_hammer_pivot_local_point: tuple[float, float] | None = None
 blacksmith_hammer_forward_vector: tuple[float, float] = (0.0, -1.0)
 blacksmith_umbrella_body_offset: tuple[int, int] = (0, 0)
 blacksmith_umbrella_hitbox_extents: tuple[float, float] = (0.0, 0.0)
+debug_umbrella_hitbox_rect: pygame.Rect | None = None
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
 _BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
     1: {
@@ -7532,6 +7533,7 @@ BLACKSMITH_BASELINE_GAP = max(
 _blacksmith_base_bounds = BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1)
 BLACKSMITH_CONTACT_EXTRA_Y = 12
 BLACKSMITH_SCREEN_GROUND_OFFSET = 30
+DEBUG_DRAW_UMBRELLA_HITBOX = True
 blacksmith_idle_body_offset: tuple[int, int] = (
     0,
     _blacksmith_base_bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y,
@@ -17972,6 +17974,7 @@ def handle_player(keys):
     umbrella_half_left = PADDLE_WIDTH / 2
     umbrella_half_right = PADDLE_WIDTH / 2
 
+    global debug_umbrella_hitbox_rect
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
         effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
@@ -17982,8 +17985,12 @@ def handle_player(keys):
         if expanded_width > player_collision_rect.width:
             player_collision_rect.width = expanded_width
         player_collision_rect.centerx = effective_centerx
+        if DEBUG_DRAW_UMBRELLA_HITBOX:
+            debug_umbrella_hitbox_rect = player_collision_rect.copy()
     else:
         player_collision_rect.centerx = effective_centerx
+        if DEBUG_DRAW_UMBRELLA_HITBOX:
+            debug_umbrella_hitbox_rect = None
     
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     if BALL.colliderect(player_collision_rect) and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
