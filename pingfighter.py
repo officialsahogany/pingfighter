@@ -49037,6 +49037,8 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     blacksmith_umbrella_open = False
     blacksmith_umbrella_anim_timer = 0
+    global blacksmith_umbrella_hitbox_extents
+    blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
     blacksmith_walking_active = False
     blacksmith_walking_timer = 0
     blacksmith_walk_direction = 0
