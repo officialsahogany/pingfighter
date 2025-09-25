@@ -3647,6 +3647,37 @@ def _draw_blacksmith_upper(
     umbrella_raise = max(0.0, min(1.0, umbrella_raise))
     umbrella_pose_active = umbrella_pose
 
+    swing_pre_blend = 0.0
+    swing_main_blend = 0.0
+    recover_pre_blend = 0.0
+    recover_main_blend = 0.0
+    umbrella_swing_active = False
+    umbrella_swing_stage = 0
+    umbrella_swing_progress_value = 0.0
+    if umbrella_pose_active:
+        try:
+            umbrella_swing_active = blacksmith_umbrella_swing_active
+            umbrella_swing_stage = blacksmith_umbrella_swing_stage
+            umbrella_swing_progress_value = blacksmith_umbrella_swing_progress
+            recover_pre_blend = blacksmith_umbrella_swing_recover_pre
+            recover_main_blend = blacksmith_umbrella_swing_recover_main
+        except NameError:
+            umbrella_swing_active = False
+            umbrella_swing_stage = 0
+            umbrella_swing_progress_value = 0.0
+            recover_pre_blend = 0.0
+            recover_main_blend = 0.0
+        umbrella_swing_progress_value = max(0.0, min(1.0, umbrella_swing_progress_value))
+        if umbrella_swing_active:
+            if umbrella_swing_stage == 0:
+                swing_pre_blend = 1.0 - pow(1.0 - umbrella_swing_progress_value, 3)
+            else:
+                swing_pre_blend = 1.0
+                swing_main_blend = max(0.0, min(1.0, umbrella_swing_progress_value))
+        else:
+            swing_pre_blend = 0.0
+            swing_main_blend = 0.0
+
     if force_hammer_visibility is not None:
         show_hammer = force_hammer_visibility
     else:
