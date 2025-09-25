@@ -4173,6 +4173,8 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     raise_amount = min(1.0, progress / 0.45)
     open_amount = max(0.0, (progress - 0.35) / 0.65)
 
+    global blacksmith_hammer_head_local_point, blacksmith_hammer_head_surface_point
+
     base_width = 250
     body_height = 120
     final_height = 240
