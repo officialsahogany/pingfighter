@@ -4243,15 +4243,12 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
 
-        pivot_surface_x = center_x + anchor_offset_x * scale_value
         bounds_center_x = bounds.centerx
         center_offset = (bounds_center_x - center_x) / scale_value
-
-        left_extent = max(0.0, (bounds_center_x - bounds.left) / scale_value)
-        right_extent = max(0.0, (bounds.right - bounds_center_x) / scale_value)
+        half_span = (bounds.width / 2) / scale_value + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
 
         blacksmith_umbrella_center_offset = center_offset
-        blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
+        blacksmith_umbrella_hitbox_extents = (half_span, half_span)
     else:
         blacksmith_umbrella_body_offset = (0, 0)
         blacksmith_umbrella_center_offset = 0.0
