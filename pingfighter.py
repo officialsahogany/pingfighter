@@ -3633,8 +3633,11 @@ def _draw_blacksmith_upper(
     walk_bob=0.0,
     walk_lean=0.0,
     force_hammer_visibility: bool | None = None,
+    request_pose: bool = False,
 ):
     global blacksmith_hammer_head_local_point
+    global blacksmith_hammer_pivot_local_point, blacksmith_hammer_forward_vector
+    pose_data: dict[str, tuple[float, float]] | None = {} if request_pose else None
     cx = BLACKSMITH_CENTER_X
     cy = BLACKSMITH_CENTER_Y
     shield_amount = max(0.0, min(1.0, shield_swing))
@@ -3831,6 +3834,17 @@ def _draw_blacksmith_upper(
         handle_dir = pygame.math.Vector2(0, 1)
     handle_dir = handle_dir.normalize()
 
+    normalized_forward = forward_vec.normalize() if forward_vec.length_squared() else pygame.math.Vector2(0, -1)
+    blacksmith_hammer_pivot_local_point = (float(pivot.x), float(pivot.y))
+    blacksmith_hammer_forward_vector = (float(normalized_forward.x), float(normalized_forward.y))
+    if pose_data is not None:
+        pose_data["pivot"] = (float(pivot.x), float(pivot.y))
+        pose_data["forward"] = (
+            float(normalized_forward.x),
+            float(normalized_forward.y),
+        )
+        pose_data["wrist"] = (float(right_wrist[0]), float(right_wrist[1]))
+
     if show_hammer:
         handle_poly = [
             _vec_to_int_pair(handle_top + perp_vec * handle_half_width),
@@ -3913,11 +3927,21 @@ def _draw_blacksmith_upper(
         )
 
         blacksmith_hammer_head_local_point = (float(head_center.x), float(head_center.y))
+        if pose_data is not None:
+            pose_data["head"] = (
+                float(head_center.x),
+                float(head_center.y),
+            )
     else:
         empty_hand = pygame.Rect(0, 0, 10, 18)
         empty_hand.center = (right_wrist[0] + 6, right_wrist[1])
         pygame.draw.ellipse(surface, (205, 185, 155), empty_hand)
         blacksmith_hammer_head_local_point = None
+        if pose_data is not None:
+            pose_data["head"] = (
+                float((handle_top + handle_bottom_point).x / 2),
+                float((handle_top + handle_bottom_point).y / 2),
+            )
 
     # 어깨 장식
     left_shoulder_center = (cx - 32 + lean_push - shoulder_roll, torso_y + 8 - shoulder_roll)
@@ -3926,6 +3950,9 @@ def _draw_blacksmith_upper(
     pygame.draw.circle(surface, (195, 200, 210), right_shoulder_center, 7)
     pygame.draw.circle(surface, (110, 120, 135), left_shoulder_center, 3)
     pygame.draw.circle(surface, (110, 120, 135), right_shoulder_center, 3)
+
+    if request_pose:
+        return pose_data
 
 def _draw_blacksmith_legs(surface, step=0):
     hip_y = BLACKSMITH_HIP_Y
