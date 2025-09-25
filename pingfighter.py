@@ -4628,6 +4628,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global frame_counter
     global blacksmith_build_menu_active
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
+    global blacksmith_umbrella_retracting, blacksmith_umbrella_anim_direction
 
     construction_active = False
     hammer_engaged_this_frame = False
@@ -49398,6 +49399,8 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     blacksmith_umbrella_open = False
     blacksmith_umbrella_anim_timer = 0
+    blacksmith_umbrella_retracting = False
+    blacksmith_umbrella_anim_direction = 1
     global blacksmith_umbrella_hitbox_extents
     blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
     blacksmith_walking_active = False
