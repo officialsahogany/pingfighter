@@ -17967,14 +17967,23 @@ def handle_player(keys):
         # 세로 방향으로만 충돌 범위 확장 (위아래로 균등하게)
         player_collision_rect.inflate_ip(0, acceleration_height_bonus)
 
+    scale_applied = scale_ratio if scale_ratio > 0 else 1.0
+    effective_centerx = PLAYER.centerx
+    umbrella_half_left = PADDLE_WIDTH / 2
+    umbrella_half_right = PADDLE_WIDTH / 2
+
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
+        effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
-        half_width = PLAYER.width * 0.5
-        left_extra = int(max(0.0, math.ceil(left_extent - half_width)))
-        right_extra = int(max(0.0, math.ceil(right_extent - half_width)))
-        if left_extra or right_extra:
-            player_collision_rect.x -= left_extra
-            player_collision_rect.width += left_extra + right_extra
+        umbrella_half_left = max(umbrella_half_left, left_extent)
+        umbrella_half_right = max(umbrella_half_right, right_extent)
+
+        expanded_width = int(math.ceil(umbrella_half_left + umbrella_half_right) * 2)
+        if expanded_width > player_collision_rect.width:
+            player_collision_rect.width = expanded_width
+        player_collision_rect.centerx = effective_centerx
+    else:
+        player_collision_rect.centerx = effective_centerx
     
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     if BALL.colliderect(player_collision_rect) and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
@@ -17990,9 +17999,10 @@ def handle_player(keys):
         last_wall_hit = None
         
         # 디버그: 충돌 위치 정보
-        collision_x = BALL.centerx - PLAYER.centerx
+        collision_x = BALL.centerx - effective_centerx
         collision_side = "LEFT" if collision_x < 0 else "RIGHT"
-        edge_distance = abs(collision_x) - (PADDLE_WIDTH / 2)
+        max_half = umbrella_half_right if collision_x >= 0 else umbrella_half_left
+        edge_distance = abs(collision_x) - max_half
         print(f" handle_player ! : {collision_side}, : {collision_x:.1f}, : {edge_distance:.1f}, Y: {ball_vel[1]:.1f}")
         #  고스트샷 종료 (플레이어 패들에 돌아왔을 때)
         # 고스트샷 첫 2초 동안은 패들 충돌을 무시하고 계속 진행
@@ -40971,7 +40981,10 @@ def calculate_bounce(paddle):
         except Exception as e:
             print(f"[ERROR] 전설 아이템 효과 처리 실패 (calculate_bounce): {e}")
 
-    rel_x = (BALL.centerx - paddle.centerx) / (PADDLE_WIDTH / 2)
+    paddle_centerx = effective_centerx if selected_character_type == "blacksmith" else paddle.centerx
+    half_width_pos = umbrella_half_right if BALL.centerx >= paddle_centerx else umbrella_half_left
+    half_width_pos = max(half_width_pos, 1.0)
+    rel_x = (BALL.centerx - paddle_centerx) / half_width_pos
     rel_x = max(-1.0, min(1.0, rel_x))
     # 기본 각도
     angle = rel_x * (math.pi / 3)
