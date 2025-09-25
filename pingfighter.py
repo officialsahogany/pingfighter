@@ -3842,15 +3842,21 @@ def _draw_blacksmith_upper(
 
     swing_pre_blend = 0.0
     swing_main_blend = 0.0
+    recover_pre_blend = 0.0
+    recover_main_blend = 0.0
     if umbrella_pose_active:
         try:
             umbrella_swing_active = blacksmith_umbrella_swing_active
             umbrella_swing_stage = blacksmith_umbrella_swing_stage
             umbrella_swing_progress_value = blacksmith_umbrella_swing_progress
+            recover_pre_blend = blacksmith_umbrella_swing_recover_pre
+            recover_main_blend = blacksmith_umbrella_swing_recover_main
         except NameError:
             umbrella_swing_active = False
             umbrella_swing_stage = 0
             umbrella_swing_progress_value = 0.0
+            recover_pre_blend = 0.0
+            recover_main_blend = 0.0
         if umbrella_swing_active:
             if umbrella_swing_stage == 0:
                 swing_pre_blend = 1.0 - pow(1.0 - max(0.0, min(1.0, umbrella_swing_progress_value)), 3)
@@ -3860,25 +3866,30 @@ def _draw_blacksmith_upper(
         else:
             swing_pre_blend = 0.0
 
-        if swing_pre_blend > 0:
+        effective_pre = swing_pre_blend if swing_pre_blend > 0 else recover_pre_blend
+        effective_main = swing_main_blend if swing_main_blend > 0 else recover_main_blend
+        effective_pre = max(0.0, min(1.0, effective_pre))
+        effective_main = max(0.0, min(1.0, effective_main))
+
+        if effective_pre > 0:
             right_shoulder = (
-                right_shoulder[0] - 4.0 * swing_pre_blend,
-                right_shoulder[1] - 12.0 * swing_pre_blend,
+                right_shoulder[0] - 4.0 * effective_pre,
+                right_shoulder[1] - 12.0 * effective_pre,
             )
             right_elbow = (
-                right_elbow[0] - 12.0 * swing_pre_blend,
-                right_elbow[1] - 28.0 * swing_pre_blend,
+                right_elbow[0] - 12.0 * effective_pre,
+                right_elbow[1] - 28.0 * effective_pre,
             )
             right_wrist = (
-                right_wrist[0] - 20.0 * swing_pre_blend,
-                right_wrist[1] - 36.0 * swing_pre_blend,
+                right_wrist[0] - 20.0 * effective_pre,
+                right_wrist[1] - 36.0 * effective_pre,
             )
 
-        if swing_main_blend > 0:
-            swing_curve = math.sin(swing_main_blend * math.pi)
-            lateral_shift = 34.0 * swing_main_blend
+        if effective_main > 0:
+            swing_curve = math.sin(effective_main * math.pi)
+            lateral_shift = 34.0 * effective_main
             upward_shift = 36.0 * swing_curve
-            forward_drop = 10.0 * swing_main_blend
+            forward_drop = 10.0 * effective_main
             right_shoulder = (
                 right_shoulder[0] - lateral_shift * 0.5,
                 right_shoulder[1] - upward_shift / 3.0,
@@ -8249,10 +8260,13 @@ blacksmith_umbrella_retracting = False
 blacksmith_umbrella_anim_direction = 1  # 1: 펼치는 중/완료, -1: 접는 중
 BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES = int(0.5 * FPS)
 BLACKSMITH_UMBRELLA_SWING_SWING_FRAMES = int(0.5 * FPS)
+BLACKSMITH_UMBRELLA_SWING_RECOVER_DAMP = 0.72
 blacksmith_umbrella_swing_active = False
 blacksmith_umbrella_swing_timer = 0
 blacksmith_umbrella_swing_stage = 0  # 0=준비, 1=스윙
 blacksmith_umbrella_swing_progress = 0.0
+blacksmith_umbrella_swing_recover_pre = 0.0
+blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
@@ -16304,6 +16318,7 @@ def handle_player(keys):
     global blacksmith_umbrella_hitbox_raw
     global blacksmith_umbrella_swing_active, blacksmith_umbrella_swing_timer
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
+    global blacksmith_umbrella_swing_recover_pre, blacksmith_umbrella_swing_recover_main
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_charge_position, blacksmith_build_menu_active
@@ -16734,10 +16749,15 @@ def handle_player(keys):
             if current_elapsed < BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES:
                 stage_progress = current_elapsed / max(1, BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES)
                 blacksmith_umbrella_swing_stage = 0
+                blend_pre = 1.0 - pow(1.0 - stage_progress, 3)
+                blacksmith_umbrella_swing_recover_pre = blend_pre
+                blacksmith_umbrella_swing_recover_main = 0.0
             else:
                 swing_elapsed = current_elapsed - BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES
                 stage_progress = swing_elapsed / max(1, BLACKSMITH_UMBRELLA_SWING_SWING_FRAMES)
                 blacksmith_umbrella_swing_stage = 1
+                blacksmith_umbrella_swing_recover_pre = 1.0
+                blacksmith_umbrella_swing_recover_main = stage_progress
             blacksmith_umbrella_swing_progress = max(0.0, min(1.0, stage_progress))
 
         if blacksmith_umbrella_swing_timer > 0:
@@ -16747,6 +16767,14 @@ def handle_player(keys):
             blacksmith_umbrella_swing_timer = 0
             blacksmith_umbrella_swing_stage = 0
             blacksmith_umbrella_swing_progress = 0.0
+        if not blacksmith_umbrella_swing_active:
+            if blacksmith_umbrella_swing_recover_pre > 0.0 or blacksmith_umbrella_swing_recover_main > 0.0:
+                blacksmith_umbrella_swing_recover_pre *= BLACKSMITH_UMBRELLA_SWING_RECOVER_DAMP
+                blacksmith_umbrella_swing_recover_main *= BLACKSMITH_UMBRELLA_SWING_RECOVER_DAMP
+                if blacksmith_umbrella_swing_recover_pre < 0.01:
+                    blacksmith_umbrella_swing_recover_pre = 0.0
+                if blacksmith_umbrella_swing_recover_main < 0.01:
+                    blacksmith_umbrella_swing_recover_main = 0.0
 
         umbrella_swinging_main = (
             blacksmith_umbrella_swing_active and blacksmith_umbrella_swing_stage == 1
