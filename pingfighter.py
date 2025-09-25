@@ -4233,9 +4233,14 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global blacksmith_divine_stone_state
     global frame_counter
     global blacksmith_build_menu_active
+    global blacksmith_umbrella_active
 
     construction_active = False
     hammer_engaged_this_frame = False
+
+    if blacksmith_umbrella_active:
+        stop_blacksmith_construction_sound()
+        return down_just_pressed
 
     if selected_character_type != "blacksmith":
         stop_blacksmith_construction_sound()
@@ -5877,6 +5882,10 @@ def update_blacksmith_hammer_shock(keys):
     global BALL, ball_vel, last_hit_by, player_collision_handled
     global stopwatch_active, stopwatch_timer
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
+    global blacksmith_umbrella_active
+
+    if blacksmith_umbrella_active:
+        return
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
         blacksmith_hammer_shock_cooldown_timer -= 1
@@ -7590,6 +7599,9 @@ blacksmith_walking_active = False
 blacksmith_walking_timer = 0
 blacksmith_walk_direction = 0  # -1: 왼쪽 이동, 1: 오른쪽 이동
 BLACKSMITH_WALKING_CYCLE = 30
+BLACKSMITH_UMBRELLA_DURATION = int(0.7 * FPS)
+blacksmith_umbrella_active = False
+blacksmith_umbrella_timer = 0
 
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
 smasher_walking_active = False
