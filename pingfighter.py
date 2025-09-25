@@ -4194,12 +4194,28 @@ def _draw_blacksmith_umbrella_overlay(
             # 중앙 반사광
             pygame.draw.circle(surface, (202, 180, 150), highlight_pos, 1)
 
-    # 가장자리 보강 스트랩
-    strap_offset = shield_height * 0.48
+    # 가장자리 보강 스트랩 - 초승달 곡선에 맞춰 조정
     for side in (-1, 1):
-        strap_start = to_world(-shield_width * 0.42 * side, strap_offset)
-        strap_end = to_world(-shield_width * 0.68 * side, -strap_offset * 0.4)
-        pygame.draw.line(surface, (96, 78, 60), _vec_to_int_pair(strap_start), _vec_to_int_pair(strap_end), 5)
+        # 스트랩 시작과 끝 지점의 t 값
+        start_t = (0.42 * side + 0.5)  # x 위치를 t로 변환
+        end_t = (0.68 * side + 0.5)
+        
+        # 초승달 곡선에 맞춘 y 위치 계산
+        start_curve_y = -math.sin(start_t * math.pi) * shield_height * 0.5
+        end_curve_y = -math.sin(end_t * math.pi) * shield_height * 0.6
+        
+        strap_start = to_world(-shield_width * 0.42 * side, start_curve_y + shield_height * 0.35)
+        strap_end = to_world(-shield_width * 0.68 * side, end_curve_y - shield_height * 0.2)
+        
+        # 곡선 스트랩을 위한 중간 점
+        mid_t = (start_t + end_t) / 2
+        mid_x = -shield_width * 0.55 * side
+        mid_curve_y = -math.sin(mid_t * math.pi) * shield_height * 0.55
+        mid_point = to_world(mid_x, mid_curve_y)
+        
+        # 곡선으로 스트랩 그리기
+        strap_points = [_vec_to_int_pair(strap_start), _vec_to_int_pair(mid_point), _vec_to_int_pair(strap_end)]
+        pygame.draw.lines(surface, (96, 78, 60), False, strap_points, 5)
 
     # 중심부 망치 장식 (입체감 강화)
     hammer_length = shield_width * 0.45
