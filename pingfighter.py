@@ -4266,7 +4266,7 @@ def _draw_blacksmith_umbrella_overlay(
     tilt_strength = close_factor ** 0.6
     tilt_angle = tilt_strength * math.radians(75)
     if swing_pre_blend > 0 and swing_main_blend <= 0:
-        tilt_angle -= swing_pre_blend * math.radians(70)
+        tilt_angle -= swing_pre_blend * math.radians(35)
     if swing_main_blend > 0:
         swing_tilt = (swing_pre_blend * 0.5 + swing_main_blend * 1.0) * math.radians(80)
         tilt_angle += swing_tilt
