@@ -4114,8 +4114,8 @@ def _draw_blacksmith_umbrella_overlay(
         swing_main_blend = 0.0
 
     if swing_pre_blend > 0:
-        ready_dir = pygame.math.Vector2(0.6, -0.85).normalize()
-        direction = direction.lerp(ready_dir, swing_pre_blend)
+        ready_dir = pygame.math.Vector2(0.3, -1.0).normalize()
+        direction = direction.lerp(ready_dir, swing_pre_blend * 0.85)
     if swing_main_blend > 0:
         sweep_curve = math.sin(swing_main_blend * math.pi)
         sweep_dir = pygame.math.Vector2(-0.35 - 0.95 * swing_main_blend, -0.78 + 0.35 * sweep_curve)
