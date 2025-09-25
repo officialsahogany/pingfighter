@@ -4175,6 +4175,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     open_amount = max(0.0, (progress - 0.35) / 0.65)
 
     global blacksmith_hammer_head_local_point, blacksmith_hammer_head_surface_point
+    global blacksmith_umbrella_body_offset
 
     base_width = 250
     body_height = 120
@@ -4197,6 +4198,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     body_offset_x = (final_width - base_width) // 2
     body_offset_y = final_height - body_height
     surface.blit(body_surface, (body_offset_x, body_offset_y))
+    blacksmith_umbrella_body_offset = (body_offset_x, body_offset_y)
 
     pivot_point: tuple[float, float] | None = None
     head_point: tuple[float, float] | None = None
@@ -4217,14 +4219,6 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     if pivot_point and head_point:
         _draw_blacksmith_umbrella_overlay(surface, pivot_point, head_point, raise_amount, open_amount)
-
-    try:
-        print(
-            f"[DEBUG umbrella frame] progress={progress:.2f} raise={raise_amount:.2f} open={open_amount:.2f} "
-            f"offset_x={body_offset_x} offset_y={body_offset_y} surface_size={surface.get_size()}"
-        )
-    except Exception:
-        pass
 
     anchor_point = (
         BLACKSMITH_CENTER_X + body_offset_x,
