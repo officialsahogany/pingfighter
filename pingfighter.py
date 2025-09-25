@@ -3775,45 +3775,141 @@ def _draw_blacksmith_upper(
     pygame.draw.circle(surface, (180, 180, 170), (cx + 26 + lean_push + shoulder_roll, torso_y + 6 + shoulder_roll), 6)
 
     # === 왼팔과 방패 ===
-    left_arm_x = cx - 20 + BLACKSMITH_SHIELD_SHIFT_X + arm_dx + left_arm_offset_x
-    left_arm_y = torso_y - 10 + arm_dy + left_arm_offset_y
-    elbow_x = left_arm_x - 8 + elbow_sway
-    elbow_y = left_arm_y - 4 - elbow_sway
+    if umbrella_pose_active:
+        def _round_left(point: tuple[float, float]) -> tuple[int, int]:
+            return (int(round(point[0])), int(round(point[1])))
 
-    arm_points = [
-        (cx - 34 + arm_dx + left_arm_offset_x, torso_y - 4 + arm_dy + left_arm_offset_y),
-        (cx - 36 + arm_dx + left_arm_offset_x, torso_y + 2 + arm_dy + left_arm_offset_y),
-        (elbow_x - 4, elbow_y + 4),
-        (elbow_x - 1, elbow_y - 4),
-        (left_arm_x - 2, left_arm_y - 10),
-        (left_arm_x + 4, left_arm_y - 14),
-        (left_arm_x + 6, left_arm_y - 4),
-        (cx - 24 + arm_dx + left_arm_offset_x, torso_y - 10 + arm_dy + left_arm_offset_y)
-    ]
-    pygame.draw.polygon(surface, (132, 108, 82), arm_points)
+        shoulder_point = (
+            cx - 32 + lean_push - shoulder_roll + arm_dx * 0.4,
+            torso_y + 4 + arm_dy + left_arm_offset_y * 0.25 - shoulder_roll * 0.5,
+        )
+        rest_hand = (
+            cx - 34 + arm_dx + left_arm_offset_x,
+            torso_y + 12 + arm_dy + left_arm_offset_y + 2,
+        )
+        raised_hand = (
+            cx - 38 + arm_dx * 0.2 + left_arm_offset_x * 0.2 + lean_push * 0.3,
+            head_top - 42,
+        )
+        hand_point = (
+            rest_hand[0] + (raised_hand[0] - rest_hand[0]) * umbrella_raise,
+            rest_hand[1] + (raised_hand[1] - rest_hand[1]) * umbrella_raise,
+        )
+        swing_lateral = 18.0 * swing_pre_blend + 38.0 * swing_main_blend
+        swing_vertical = 12.0 * swing_pre_blend + 24.0 * swing_main_blend
+        hand_point = (
+            hand_point[0] - swing_lateral,
+            hand_point[1] - swing_vertical,
+        )
+        elbow_mix = 0.52 - 0.08 * umbrella_raise + 0.05 * swing_main_blend
+        elbow_point = (
+            shoulder_point[0] + (hand_point[0] - shoulder_point[0]) * elbow_mix - 6.0,
+            shoulder_point[1] + (hand_point[1] - shoulder_point[1]) * elbow_mix + 8.0,
+        )
+        upper_arm_poly = [
+            _round_left((shoulder_point[0] - 6.0, shoulder_point[1] - 4.0)),
+            _round_left((shoulder_point[0] + 6.0, shoulder_point[1] + 6.0)),
+            _round_left((elbow_point[0] + 4.5, elbow_point[1] + 8.0)),
+            _round_left((elbow_point[0] - 7.0, elbow_point[1] - 4.0)),
+        ]
+        pygame.draw.polygon(surface, (132, 108, 82), upper_arm_poly)
+        pygame.draw.polygon(surface, (115, 95, 65), [
+            _round_left((shoulder_point[0] + 2.0, shoulder_point[1] + 2.0)),
+            _round_left((elbow_point[0] + 3.0, elbow_point[1] + 6.0)),
+            _round_left((elbow_point[0] - 4.0, elbow_point[1] + 2.0)),
+            _round_left((shoulder_point[0] - 3.0, shoulder_point[1] - 2.0)),
+        ])
+        forearm_poly = [
+            _round_left((elbow_point[0] - 6.0, elbow_point[1] - 2.0)),
+            _round_left((elbow_point[0] + 6.0, elbow_point[1] + 4.0)),
+            _round_left((hand_point[0] + 8.0, hand_point[1] + 4.0)),
+            _round_left((hand_point[0] - 2.0, hand_point[1] - 4.0)),
+        ]
+        pygame.draw.polygon(surface, (122, 98, 72), forearm_poly)
+        pygame.draw.polygon(surface, (108, 88, 62), [
+            _round_left((elbow_point[0] - 2.0, elbow_point[1] + 2.0)),
+            _round_left((hand_point[0] + 4.0, hand_point[1] + 2.0)),
+            _round_left((hand_point[0] + 1.0, hand_point[1] - 2.0)),
+            _round_left((elbow_point[0] - 4.0, elbow_point[1] - 2.0)),
+        ])
+        hand_center = (hand_point[0] + 2.0, hand_point[1] - 4.0)
+        pygame.draw.circle(surface, (205, 185, 155), _round_left(hand_center), 6)
+        pygame.draw.line(
+            surface,
+            (188, 168, 138),
+            _round_left((hand_center[0] - 4.0, hand_center[1] - 3.0)),
+            _round_left((hand_center[0] + 2.0, hand_center[1] - 5.0)),
+            2,
+        )
+        pivot_raise = 10.0 + 6.0 * umbrella_raise + 10.0 * swing_pre_blend + 14.0 * swing_main_blend
+        pivot_point_left = (
+            hand_center[0] - 2.0,
+            hand_center[1] - pivot_raise,
+        )
+        head_offset = 64.0 + 26.0 * umbrella_raise + 18.0 * swing_pre_blend + 30.0 * swing_main_blend
+        head_point_left = (
+            pivot_point_left[0] - 4.0 - 6.0 * swing_main_blend,
+            pivot_point_left[1] - head_offset,
+        )
+        blacksmith_hammer_head_local_point = (float(head_point_left[0]), float(head_point_left[1]))
+        blacksmith_hammer_pivot_local_point = (float(pivot_point_left[0]), float(pivot_point_left[1]))
+        direction_vec_left = pygame.math.Vector2(
+            head_point_left[0] - pivot_point_left[0],
+            head_point_left[1] - pivot_point_left[1],
+        )
+        if direction_vec_left.length_squared() <= 1e-6:
+            direction_vec_left = pygame.math.Vector2(0.0, -1.0)
+        else:
+            direction_vec_left = direction_vec_left.normalize()
+        blacksmith_hammer_forward_vector = (float(direction_vec_left.x), float(direction_vec_left.y))
+        if pose_data is not None:
+            pose_data["pivot"] = (float(pivot_point_left[0]), float(pivot_point_left[1]))
+            pose_data["forward"] = (
+                float(direction_vec_left.x),
+                float(direction_vec_left.y),
+            )
+            pose_data["wrist"] = (float(hand_center[0]), float(hand_center[1]))
+            pose_data["head"] = (float(head_point_left[0]), float(head_point_left[1]))
+    else:
+        left_arm_x = cx - 20 + BLACKSMITH_SHIELD_SHIFT_X + arm_dx + left_arm_offset_x
+        left_arm_y = torso_y - 10 + arm_dy + left_arm_offset_y
+        elbow_x = left_arm_x - 8 + elbow_sway
+        elbow_y = left_arm_y - 4 - elbow_sway
 
-    # 팔 음영
-    pygame.draw.polygon(surface, (115, 95, 65), [
-        (elbow_x - 2, elbow_y - 2),
-        (left_arm_x - 1, left_arm_y - 8),
-        (left_arm_x + 4, left_arm_y - 2),
-        (elbow_x + 3, elbow_y + 4)
-    ])
+        arm_points = [
+            (cx - 34 + arm_dx + left_arm_offset_x, torso_y - 4 + arm_dy + left_arm_offset_y),
+            (cx - 36 + arm_dx + left_arm_offset_x, torso_y + 2 + arm_dy + left_arm_offset_y),
+            (elbow_x - 4, elbow_y + 4),
+            (elbow_x - 1, elbow_y - 4),
+            (left_arm_x - 2, left_arm_y - 10),
+            (left_arm_x + 4, left_arm_y - 14),
+            (left_arm_x + 6, left_arm_y - 4),
+            (cx - 24 + arm_dx + left_arm_offset_x, torso_y - 10 + arm_dy + left_arm_offset_y)
+        ]
+        pygame.draw.polygon(surface, (132, 108, 82), arm_points)
 
-    # 손 (더 정교하게)
-    hand_rect = pygame.Rect(left_arm_x - 6, left_arm_y - 12, 14, 10)
-    pygame.draw.ellipse(surface, (205, 185, 155), hand_rect)
-    pygame.draw.ellipse(surface, (188, 168, 138), hand_rect.inflate(-2, -2))
+        # 팔 음영
+        pygame.draw.polygon(surface, (115, 95, 65), [
+            (elbow_x - 2, elbow_y - 2),
+            (left_arm_x - 1, left_arm_y - 8),
+            (left_arm_x + 4, left_arm_y - 2),
+            (elbow_x + 3, elbow_y + 4)
+        ])
 
-    shield_forward = int(round(20 * lift_curve))
-    shield_lift = int(round(12 * lift_curve))
-    shield_diagonal_shift = int(round(8 * lift_curve))
-    shield_center = (
-        left_arm_x - 20 + shield_forward + shield_diagonal_shift + int(round(left_arm_offset_x * 0.3)),
-        left_arm_y + 22 - shield_lift - shield_diagonal_shift + int(round(-walk_wave * 4))
-    )
-    swing_angle = -12 - 80 * lift_curve + walk_wave * 8 + lean_push * 2
-    _draw_blacksmith_shield(surface, shield_center, angle_deg=swing_angle)
+        # 손 (더 정교하게)
+        hand_rect = pygame.Rect(left_arm_x - 6, left_arm_y - 12, 14, 10)
+        pygame.draw.ellipse(surface, (205, 185, 155), hand_rect)
+        pygame.draw.ellipse(surface, (188, 168, 138), hand_rect.inflate(-2, -2))
+
+        shield_forward = int(round(20 * lift_curve))
+        shield_lift = int(round(12 * lift_curve))
+        shield_diagonal_shift = int(round(8 * lift_curve))
+        shield_center = (
+            left_arm_x - 20 + shield_forward + shield_diagonal_shift + int(round(left_arm_offset_x * 0.3)),
+            left_arm_y + 22 - shield_lift - shield_diagonal_shift + int(round(-walk_wave * 4))
+        )
+        swing_angle = -12 - 80 * lift_curve + walk_wave * 8 + lean_push * 2
+        _draw_blacksmith_shield(surface, shield_center, angle_deg=swing_angle)
 
     # 오른팔과 망치 - 이동 시 자연스러운 기합 자세 유지
     hammer_arm_backward = int(round(18 * hammer_raise))
