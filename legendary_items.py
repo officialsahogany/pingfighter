@@ -62,12 +62,12 @@ KNOCKBACK_PROFILES: Dict[str, KnockbackProfile] = {
         random_bonus=(0.01, 0.04),
         max_power=50.0,
     ),
-    "ragnarok": KnockbackProfile(  # 가장 긴 넉백 (추가 30% 하향 반영)
-        base_power=21.56,
-        speed_weight=0.088,
+    "ragnarok": KnockbackProfile(  # 가장 긴 넉백 (추가 하향 반영)
+        base_power=18.326,
+        speed_weight=0.0748,
         speed_thresholds=_STANDARD_KNOCKBACK_THRESHOLDS,
         random_bonus=(0.02, 0.06),
-        max_power=30.38,
+        max_power=25.823,
     ),
 }
 
