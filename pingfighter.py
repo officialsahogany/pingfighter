@@ -4655,25 +4655,28 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
 
         overlay_bounds = blacksmith_umbrella_overlay_bounds
-        if overlay_bounds is not None and debug_pivot is not None:
+        base_half = (PADDLE_WIDTH / 2) * scale_value
+        default_half = base_half * 0.85 * 1.8
+
+        raw_data = blacksmith_umbrella_hitbox_raw if debug_pivot is not None else None
+        if overlay_bounds is not None and raw_data is not None:
             pivot_x = debug_pivot[0]
             min_x, max_x = overlay_bounds
             left_pixels = max(0.0, pivot_x - min_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
             right_pixels = max(0.0, max_x - pivot_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
 
-            base_half = (PADDLE_WIDTH / 2) * scale_value
             extra_left = max(0.0, left_pixels * scale_value - base_half)
             extra_right = max(0.0, right_pixels * scale_value - base_half)
 
             left_extent = base_half + extra_left * 0.3
             right_extent = base_half + extra_right * 0.3
         else:
-            default_half = (PADDLE_WIDTH / 2) * scale_value
             left_extent = right_extent = default_half
+            raw_data = None
+            blacksmith_umbrella_hitbox_raw = None
 
         blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
 
-        raw_data = blacksmith_umbrella_hitbox_raw
         if raw_data is not None and debug_pivot is not None:
             pivot_y = debug_pivot[1]
             min_y = raw_data.get("min_y", pivot_y)
