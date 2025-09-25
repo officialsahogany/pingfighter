@@ -4043,21 +4043,25 @@ def _draw_blacksmith_umbrella_overlay(
     axis_right = pygame.math.Vector2(-direction.y, direction.x)
     axis_up = (-direction).normalize()
 
-    forward_offset = 46 + open_amount * 48
-    shield_center = pivot_vec + direction * forward_offset
-    shield_width = 220 + open_amount * 140
-    shield_height = (42 + open_amount * 28) * 0.65  # Y축 두께 35% 감소
+    close_factor = 1.0 - open_amount
+    forward_offset = 32 + open_amount * 54 - close_factor * 6
+    shield_center = pivot_vec + direction * forward_offset + axis_right * (close_factor * 18)
+    shield_width = 80 + open_amount * 260
+    shield_height = (18 + open_amount * 40)
 
     def to_world(dx: float, dy: float) -> pygame.math.Vector2:
         return shield_center + axis_right * dx + axis_up * dy
 
-    half_w_top = shield_width * 0.45
-    half_w_mid = shield_width * 0.5
-    half_w_bottom = shield_width * 0.55
+    top_taper = 0.22 + open_amount * 0.18
+    mid_taper = 0.28 + open_amount * 0.24
+    bottom_taper = 0.34 + open_amount * 0.26
+    half_w_top = shield_width * top_taper
+    half_w_mid = shield_width * mid_taper
+    half_w_bottom = shield_width * bottom_taper
     half_h = shield_height * 0.5
 
     # 초승달 모양의 곡선 방패를 위한 포인트 생성
-    num_points = 40  # 부드러운 곡선을 위한 포인트 수 증가
+    num_points = 36  # 부드러운 곡선을 위한 포인트 수 증가
     outline_local = []
     
     # 상단 곡선 (초승달의 바깥쪽 볼록한 부분)
@@ -4066,7 +4070,8 @@ def _draw_blacksmith_umbrella_overlay(
         x = (t - 0.5) * shield_width
         
         # 초승달의 상단 곡선 - 더 얕은 아치
-        y = -math.sin(t * math.pi) * shield_height * 0.6 - shield_height * 0.1
+        outer_curve = 0.5 + 0.15 * open_amount
+        y = -math.sin(t * math.pi) * shield_height * outer_curve - shield_height * 0.08
         outline_local.append((x, y))
     
     # 하단 곡선 (초승달의 안쪽 오목한 부분) - 역순으로 추가
@@ -4075,16 +4080,29 @@ def _draw_blacksmith_umbrella_overlay(
         x = (t - 0.5) * shield_width
         
         # 초승달의 하단 곡선 - 중앙이 얇아지는 효과
-        thickness = 0.2 + 0.5 * (1 - math.sin(t * math.pi))  # 끝이 두꺼움
-        y = -math.sin(t * math.pi) * shield_height * 0.1 + shield_height * thickness
+        inner_wave = 0.08 + 0.28 * open_amount
+        thickness = 0.18 + 0.42 * (1 - math.sin(t * math.pi)) * (0.6 + 0.4 * open_amount)
+        y = -math.sin(t * math.pi) * shield_height * inner_wave + shield_height * thickness
         outline_local.append((x, y))
     outline_world = [to_world(x, y) for x, y in outline_local]
     outline_int = [_vec_to_int_pair(p) for p in outline_world]
 
     # 베이스 금속판 (그라데이션 효과를 위한 다층 구조)
-    base_color = (138, 124, 108)  # 밝은 브론즈
-    shadow_color = (88, 74, 58)   # 어두운 브론즈
-    highlight_color = (168, 154, 138)  # 하이라이트
+    base_color = (
+        int(132 + 12 * open_amount),
+        int(118 + 18 * open_amount),
+        int(102 + 20 * open_amount),
+    )
+    shadow_color = (
+        int(82 + 8 * open_amount),
+        int(68 + 10 * open_amount),
+        int(54 + 12 * open_amount),
+    )
+    highlight_color = (
+        int(164 + 8 * open_amount),
+        int(150 + 12 * open_amount),
+        int(134 + 16 * open_amount),
+    )
     
     # 메인 방패 본체 (그라데이션 레이어)
     for i in range(3):
@@ -4116,7 +4134,7 @@ def _draw_blacksmith_umbrella_overlay(
     pygame.draw.polygon(surface, (188, 174, 158), inner_int, width=2)
 
     # 상하 금속 판재 층 (메탈릭 효과 강화)
-    band_thickness = shield_height * 0.35
+    band_thickness = shield_height * (0.24 + 0.18 * open_amount)
     
     # 상단 밴드 - 초승달 곡선을 따라가는 밴드
     upper_band_base = []
