@@ -24602,6 +24602,16 @@ def draw_objects():
 
     pivot_offset = (0, 0)
     if selected_character_type == "blacksmith":
+        try:
+            print(
+                f"[DEBUG blacksmith pivot] idle_offset={blacksmith_idle_body_offset} "
+                f"umbrella_offset={blacksmith_umbrella_body_offset} "
+                f"scale={scale_ratio:.2f} BASE_CENTER=({BLACKSMITH_CENTER_X},{BLACKSMITH_CENTER_Y}) "
+                f"PLAYER.bottom={PLAYER.bottom} screen_shake_y={screen_shake_offset_y:.1f} "
+                f"knockback_y={player_knockback_y:.1f}"
+            )
+        except Exception:
+            pass
         offset_x, offset_y = (
             blacksmith_umbrella_body_offset
             if blacksmith_umbrella_open
