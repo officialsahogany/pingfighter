@@ -1,6 +1,7 @@
 import math
 import random
-from typing import Dict, List, Optional, Sequence, Tuple
+import sys
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import pygame
 
@@ -70,10 +71,15 @@ class NetTrapGun:
         self.active = False
         self._debug("unequip → 그물덫총 해제")
 
-    def reload(self) -> None:
+    def reload(self, *, track_reload: bool = False) -> None:
         self.ammo_count = self.MAX_AMMO
         self.active = True
         self._debug(f"reload → ammo={self.ammo_count}/{self.MAX_AMMO}")
+
+        if track_reload:
+            tracker = self._get_reload_tracker()
+            if tracker:
+                tracker("net_gun")
 
     # ------------------------------------------------------------------
     # 발사 로직
@@ -596,6 +602,16 @@ class NetTrapGun:
             if net.get("hooked_player") and not net.get("dissolve"):
                 return self.player_slow_factor
         return 1.0
+
+    def _get_reload_tracker(self) -> Callable[[str], None] | None:
+        for module_name in ("__main__", "pingfighter"):
+            module = sys.modules.get(module_name)
+            if not module:
+                continue
+            candidate = getattr(module, "register_weapon_reload", None)
+            if callable(candidate):
+                return candidate
+        return None
 
     def _break_rope(self) -> None:
         broke = False
