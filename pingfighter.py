@@ -4114,8 +4114,8 @@ def _draw_blacksmith_umbrella_overlay(
         swing_main_blend = 0.0
 
     if swing_pre_blend > 0:
-        ready_dir = pygame.math.Vector2(0.3, -1.0).normalize()
-        direction = direction.lerp(ready_dir, swing_pre_blend * 0.85)
+        ready_dir = pygame.math.Vector2(0.85, -0.6).normalize()
+        direction = direction.lerp(ready_dir, min(1.0, swing_pre_blend * 1.1))
     if swing_main_blend > 0:
         sweep_curve = math.sin(swing_main_blend * math.pi)
         sweep_dir = pygame.math.Vector2(-0.35 - 0.95 * swing_main_blend, -0.78 + 0.35 * sweep_curve)
@@ -4139,9 +4139,11 @@ def _draw_blacksmith_umbrella_overlay(
     close_factor = 1.0 - open_amount
     tilt_strength = close_factor ** 0.6
     tilt_angle = tilt_strength * math.radians(75)
-    if swing_pre_blend > 0 or swing_main_blend > 0:
-        swing_tilt = swing_pre_blend * 0.5 + swing_main_blend * 0.95
-        tilt_angle += swing_tilt * math.radians(70)
+    if swing_pre_blend > 0 and swing_main_blend <= 0:
+        tilt_angle -= swing_pre_blend * math.radians(70)
+    if swing_main_blend > 0:
+        swing_tilt = (swing_pre_blend * 0.3 + swing_main_blend) * math.radians(85)
+        tilt_angle += swing_tilt
     if abs(tilt_angle) > 1e-4:
         cos_t = math.cos(tilt_angle)
         sin_t = math.sin(tilt_angle)
@@ -4153,9 +4155,17 @@ def _draw_blacksmith_umbrella_overlay(
             axis_up = rotated_up.normalize()
 
     forward_offset = 32 + open_amount * 54 - close_factor * 6
-    forward_offset += -10 * swing_pre_blend + 26 * swing_main_blend
-    lateral_bias = close_factor * 18 - (28 * swing_pre_blend + 58 * swing_main_blend)
-    vertical_bias = -8 * swing_pre_blend + 28 * swing_main_blend
+    if swing_main_blend > 0:
+        forward_offset += -12 * swing_pre_blend + 32 * swing_main_blend
+        lateral_bias = close_factor * 18 - (34 * swing_pre_blend + 66 * swing_main_blend)
+        vertical_bias = -12 * swing_pre_blend + 34 * swing_main_blend
+    elif swing_pre_blend > 0:
+        forward_offset -= 8 * swing_pre_blend
+        lateral_bias = close_factor * 18 + 52 * swing_pre_blend
+        vertical_bias = -36 * swing_pre_blend
+    else:
+        lateral_bias = close_factor * 18
+        vertical_bias = 0
     shield_center = pivot_vec + direction * forward_offset + axis_right * lateral_bias + axis_up * vertical_bias
     shield_width = (80 + open_amount * 260) * (1.0 + 0.18 * swing_main_blend)
     shield_height = (18 + open_amount * 40) * (1.0 + 0.22 * swing_pre_blend + 0.35 * swing_main_blend)
