@@ -4100,19 +4100,46 @@ def _draw_blacksmith_umbrella_overlay(
     highlight_line_lower = [_vec_to_int_pair(to_world(x, y + band_thickness * 0.1)) for x, y in lower_band_base[2:5]]
     pygame.draw.lines(surface, (200, 186, 150), False, highlight_line_lower, 2)
 
-    # 중앙 룬 라인
-    rune_color = (210, 188, 130)
+    # 중앙 룬 라인 (발광 애니메이션 효과)
+    current_time = pygame.time.get_ticks() / 1000.0  # 초 단위로 변환
+    rune_base_color = (210, 188, 130)
+    rune_glow_color = (255, 235, 180)
     rune_row_y = -shield_height * 0.05
+    
     for i in range(-2, 3):
+        # 각 룬마다 다른 위상으로 펄스 효과
+        phase_offset = i * 0.5
+        pulse_intensity = (math.sin(current_time * 2.0 + phase_offset) + 1.0) / 2.0  # 0~1 범위
+        
+        # 색상 보간
+        rune_color = (
+            int(rune_base_color[0] + (rune_glow_color[0] - rune_base_color[0]) * pulse_intensity),
+            int(rune_base_color[1] + (rune_glow_color[1] - rune_base_color[1]) * pulse_intensity),
+            int(rune_base_color[2] + (rune_glow_color[2] - rune_base_color[2]) * pulse_intensity)
+        )
+        
         rune_x = i * shield_width * 0.16
         top = to_world(rune_x, rune_row_y - shield_height * 0.35)
         bottom = to_world(rune_x, rune_row_y + shield_height * 0.35)
-        pygame.draw.line(surface, rune_color, _vec_to_int_pair(top), _vec_to_int_pair(bottom), 3)
+        
+        # 글로우 효과 (여러 겹으로 그리기)
+        if pulse_intensity > 0.5:
+            glow_alpha = int((pulse_intensity - 0.5) * 100)
+            for glow_size in range(3, 0, -1):
+                glow_surface = pygame.Surface((int(shield_width), int(shield_height * 2)), pygame.SRCALPHA)
+                pygame.draw.line(glow_surface, (*rune_glow_color, glow_alpha // glow_size), 
+                               (int(top.x - shield_center.x + shield_width/2), int(top.y - shield_center.y + shield_height)), 
+                               (int(bottom.x - shield_center.x + shield_width/2), int(bottom.y - shield_center.y + shield_height)), 
+                               3 + glow_size * 2)
+                surface.blit(glow_surface, (int(shield_center.x - shield_width/2), int(shield_center.y - shield_height)), special_flags=pygame.BLEND_ADD)
+        
+        # 메인 룬 라인
+        pygame.draw.line(surface, rune_color, _vec_to_int_pair(top), _vec_to_int_pair(bottom), 4)
         left_tick = to_world(rune_x - shield_width * 0.05, rune_row_y)
         right_tick = to_world(rune_x + shield_width * 0.05, rune_row_y)
-        pygame.draw.line(surface, rune_color, _vec_to_int_pair(left_tick), _vec_to_int_pair(right_tick), 2)
+        pygame.draw.line(surface, rune_color, _vec_to_int_pair(left_tick), _vec_to_int_pair(right_tick), 3)
 
-    # 리벳
+    # 리벳 (메탈릭 효과 강화)
     rivet_y_positions = [-shield_height * 0.45, 0, shield_height * 0.38]
     for y in rivet_y_positions:
         count = 7 if abs(y) < shield_height * 0.2 else 6
@@ -4120,8 +4147,15 @@ def _draw_blacksmith_umbrella_overlay(
             t = j / (count - 1) if count > 1 else 0.5
             x = (t - 0.5) * shield_width * 0.86
             pos = to_world(x, y)
-            pygame.draw.circle(surface, (84, 70, 54), _vec_to_int_pair(pos), 4)
-            pygame.draw.circle(surface, (162, 140, 110), _vec_to_int_pair(pos), 2)
+            # 리벳 그림자
+            pygame.draw.circle(surface, (64, 50, 34), _vec_to_int_pair(pos), 5)
+            # 리벳 본체
+            pygame.draw.circle(surface, (104, 90, 74), _vec_to_int_pair(pos), 4)
+            # 리벳 하이라이트
+            highlight_pos = (int(pos.x - 1), int(pos.y - 1))
+            pygame.draw.circle(surface, (182, 160, 130), highlight_pos, 2)
+            # 중앙 반사광
+            pygame.draw.circle(surface, (202, 180, 150), highlight_pos, 1)
 
     # 가장자리 보강 스트랩
     strap_offset = shield_height * 0.48
