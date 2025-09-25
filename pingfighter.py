@@ -47431,13 +47431,9 @@ def handle_boss():
                     boss_stunned_timer = 90  # 수류탄(120프레임)보다 짧음
                     
                     # 넉백 방향 결정 (수류탄과 동일)
-                    knockback_power = 40  # 수류탄과 동일한 넉백 강도
-                    if explosion["x"] < WIDTH / 2:
-                        # 폭발이 왼쪽에서 터지면 보스를 오른쪽으로 넉백
-                        boss_knockback_vel = _apply_boss_knockback_velocity(knockback_power)
-                    else:
-                        # 폭발이 오른쪽에서 터지면 보스를 왼쪽으로 넉백
-                        boss_knockback_vel = _apply_boss_knockback_velocity(-knockback_power)
+                    direction = 1 if explosion["x"] < WIDTH / 2 else -1
+                    knockback_power = compute_knockback_magnitude("bazooka")
+                    boss_knockback_vel = _apply_boss_knockback_velocity(direction * knockback_power)
                     
                     print(f"🚀💥 바주카포 폭발! 보스 스턴 1.5초, 넉백: {boss_knockback_vel}")
 
