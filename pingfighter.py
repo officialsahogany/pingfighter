@@ -24577,6 +24577,9 @@ def draw_objects():
     if is_devil_dice_active():
         multipliers = get_devil_dice_multipliers()
         scale_ratio *= multipliers['paddle_size']
+
+    global paddle_scale_ratio
+    paddle_scale_ratio = scale_ratio
     
     if scale_ratio != 1.0:
         new_width = int(base_ufo_img.get_width() * scale_ratio)
