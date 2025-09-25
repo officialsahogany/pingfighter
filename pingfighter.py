@@ -15995,6 +15995,43 @@ def handle_player(keys):
     global player_up_pressed, player_up_pressed_prev
     player_up_pressed_prev = player_up_pressed
     player_up_pressed = bool(up_pressed)
+    up_just_pressed = up_pressed and not player_up_pressed_prev
+
+    umbrella_lock_active = False
+    if selected_character_type == "blacksmith":
+        if blacksmith_umbrella_active:
+            if blacksmith_umbrella_timer > 0:
+                blacksmith_umbrella_timer -= 1
+            if blacksmith_umbrella_timer <= 0:
+                blacksmith_umbrella_active = False
+                blacksmith_umbrella_timer = 0
+        elif up_just_pressed and player_stunned_timer <= 0:
+            if (
+                not blacksmith_build_menu_active
+                and not blacksmith_turret_blueprint_active
+                and not blacksmith_hammer_shock_charging
+                and blacksmith_hammer_available
+            ):
+                blacksmith_umbrella_active = True
+                blacksmith_umbrella_timer = BLACKSMITH_UMBRELLA_DURATION
+                blacksmith_walking_active = False
+                blacksmith_walking_timer = 0
+                blacksmith_walk_direction = 0
+                blacksmith_hammer_swing_active = False
+                blacksmith_hammer_swing_phase = 0
+                blacksmith_shield_swing_active = False
+                blacksmith_shield_swing_timer = 0
+                blacksmith_hammer_shock_charging = False
+                blacksmith_hammer_shock_stage = 0
+                blacksmith_hammer_shock_charge_frames = 0
+                blacksmith_hammer_charge_position = None
+                blacksmith_build_menu_active = False
+        if blacksmith_umbrella_active:
+            umbrella_lock_active = True
+
+    if umbrella_lock_active:
+        space_pressed = False
+        down_pressed = False
 
     global soldier_weapon_hold_frames, soldier_weapon_menu_active, soldier_weapon_number_prev
     allow_weapon_switch = (
