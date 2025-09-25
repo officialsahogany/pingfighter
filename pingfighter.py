@@ -4173,7 +4173,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     raise_amount = min(1.0, progress / 0.45)
     open_amount = max(0.0, (progress - 0.35) / 0.65)
 
-    surface = pygame.Surface((250, 140), pygame.SRCALPHA)
+    surface = pygame.Surface((250, 240), pygame.SRCALPHA)
     pose = _draw_blacksmith_upper(
         surface,
         shield_swing=0.0,
