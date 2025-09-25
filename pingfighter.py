@@ -4659,6 +4659,8 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global blacksmith_build_menu_active
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
     global blacksmith_umbrella_retracting, blacksmith_umbrella_anim_direction
+    global blacksmith_umbrella_swing_active, blacksmith_umbrella_swing_timer
+    global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
 
     construction_active = False
     hammer_engaged_this_frame = False
@@ -16448,8 +16450,13 @@ def handle_player(keys):
     # if input_manager.get_control_mode() == "마우스":
     #     mouse_controls = input_manager.handle_mouse_controls(selected_item_index, active_item_slot)
     # 키 입력 변수 초기화
-    space_pressed = keys[pygame.K_SPACE]
-    down_pressed = keys[pygame.K_DOWN]
+    space_pressed_raw = keys[pygame.K_SPACE]
+    down_pressed_raw = keys[pygame.K_DOWN]
+    left_pressed_raw = keys[pygame.K_LEFT]
+    right_pressed_raw = keys[pygame.K_RIGHT]
+
+    space_pressed = space_pressed_raw
+    down_pressed = down_pressed_raw
     
     # 물자보급 스킬 처리 (코만도 캐릭터 전용)
     
