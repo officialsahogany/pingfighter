@@ -40981,7 +40981,8 @@ def calculate_bounce(paddle):
         except Exception as e:
             print(f"[ERROR] 전설 아이템 효과 처리 실패 (calculate_bounce): {e}")
 
-    paddle_centerx = effective_centerx if selected_character_type == "blacksmith" else paddle.centerx
+    base_centerx = paddle.centerx if 'paddle' in locals() else PLAYER.centerx
+    paddle_centerx = effective_centerx if selected_character_type == "blacksmith" else base_centerx
     half_width_pos = umbrella_half_right if BALL.centerx >= paddle_centerx else umbrella_half_left
     half_width_pos = max(half_width_pos, 1.0)
     rel_x = (BALL.centerx - paddle_centerx) / half_width_pos
