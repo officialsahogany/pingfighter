@@ -2121,8 +2121,6 @@ class RagnarokHammer(LegendaryItem):
         if not self.active:
             return 0, 0
             
-        import random
-        
         magnitude = compute_knockback_magnitude("ragnarok", ball_speed=ball_speed)
 
         # 보스 위치에 따라 방향 결정
