@@ -3827,6 +3827,58 @@ def _draw_blacksmith_upper(
         right_shoulder = _blend_point(right_shoulder, target_shoulder)
         right_elbow = _blend_point(right_elbow, target_elbow)
         right_wrist = _blend_point(right_wrist, target_wrist)
+
+    swing_pre_blend = 0.0
+    swing_main_blend = 0.0
+    if umbrella_pose_active:
+        try:
+            umbrella_swing_active = blacksmith_umbrella_swing_active
+            umbrella_swing_stage = blacksmith_umbrella_swing_stage
+            umbrella_swing_progress_value = blacksmith_umbrella_swing_progress
+        except NameError:
+            umbrella_swing_active = False
+            umbrella_swing_stage = 0
+            umbrella_swing_progress_value = 0.0
+        if umbrella_swing_active:
+            if umbrella_swing_stage == 0:
+                swing_pre_blend = 1.0 - pow(1.0 - max(0.0, min(1.0, umbrella_swing_progress_value)), 3)
+            else:
+                swing_pre_blend = 1.0
+                swing_main_blend = max(0.0, min(1.0, umbrella_swing_progress_value))
+        else:
+            swing_pre_blend = 0.0
+
+        if swing_pre_blend > 0:
+            right_shoulder = (
+                right_shoulder[0] - int(round(4 * swing_pre_blend)),
+                right_shoulder[1] - int(round(12 * swing_pre_blend)),
+            )
+            right_elbow = (
+                right_elbow[0] - int(round(12 * swing_pre_blend)),
+                right_elbow[1] - int(round(28 * swing_pre_blend)),
+            )
+            right_wrist = (
+                right_wrist[0] - int(round(20 * swing_pre_blend)),
+                right_wrist[1] - int(round(36 * swing_pre_blend)),
+            )
+
+        if swing_main_blend > 0:
+            swing_curve = math.sin(swing_main_blend * math.pi)
+            lateral_shift = int(round(26 * swing_main_blend))
+            upward_shift = int(round(32 * swing_curve))
+            forward_drop = int(round(8 * swing_main_blend))
+            right_shoulder = (
+                right_shoulder[0] - lateral_shift // 2,
+                right_shoulder[1] - upward_shift // 3,
+            )
+            right_elbow = (
+                right_elbow[0] - int(round(lateral_shift * 0.9)),
+                right_elbow[1] - upward_shift,
+            )
+            right_wrist = (
+                right_wrist[0] - int(round(lateral_shift * 1.35)),
+                right_wrist[1] - upward_shift - forward_drop,
+            )
     pygame.draw.polygon(surface, (132, 108, 82), [
         (right_shoulder[0] - 6, right_shoulder[1] + 2),
         (right_elbow[0] - 10, right_elbow[1] - 2),
