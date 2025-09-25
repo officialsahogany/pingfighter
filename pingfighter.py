@@ -3963,6 +3963,8 @@ def _draw_blacksmith_umbrella_overlay(
     open_amount: float,
 ):
     """발토르 망치를 우산으로 연출하기 위한 오버레이."""
+    global blacksmith_umbrella_overlay_bounds
+    blacksmith_umbrella_overlay_bounds = None
     pivot_vec = pygame.math.Vector2(pivot_point)
     head_vec = pygame.math.Vector2(head_point)
     direction = head_vec - pivot_vec
@@ -4244,26 +4246,17 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
 
-        if debug_pivot is not None:
-            pivot_x = int(round(debug_pivot[0]))
-            pivot_y = int(round(debug_pivot[1]))
-            min_x = surface.get_width()
-            max_x = 0
-            top = max(0, pivot_y - BLACKSMITH_UMBRELLA_TOP_SCAN_HEIGHT)
-            for y in range(top, pivot_y + 1):
-                for x in range(surface.get_width()):
-                    if surface.get_at((x, y))[3] > 0:
-                        min_x = min(min_x, x)
-                        max_x = max(max_x, x)
-            if min_x < surface.get_width():
-                left_pixels = max(0, pivot_x - min_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
-                right_pixels = max(0, max_x - pivot_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
-                left_extent = left_pixels * scale_value
-                right_extent = right_pixels * scale_value
-            else:
-                left_extent = right_extent = PADDLE_WIDTH / 2
+        overlay_bounds = blacksmith_umbrella_overlay_bounds
+        if overlay_bounds is not None and debug_pivot is not None:
+            pivot_x = debug_pivot[0]
+            min_x, max_x = overlay_bounds
+            left_pixels = max(0.0, pivot_x - min_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
+            right_pixels = max(0.0, max_x - pivot_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
+            left_extent = left_pixels * scale_value
+            right_extent = right_pixels * scale_value
         else:
-            left_extent = right_extent = PADDLE_WIDTH / 2
+            default_half = (PADDLE_WIDTH / 2) * scale_value
+            left_extent = right_extent = default_half
 
         blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
     else:
