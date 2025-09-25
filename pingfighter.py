@@ -24587,10 +24587,13 @@ def draw_objects():
         pivot_offset = blacksmith_umbrella_body_offset
 
     if selected_character_type == "blacksmith":
-        pivot_vec = pygame.math.Vector2(
-            BLACKSMITH_CENTER_X + pivot_offset[0],
-            BLACKSMITH_BASELINE_Y + pivot_offset[1],
-        )
+        if blacksmith_umbrella_open:
+            pivot_vec = pygame.math.Vector2(
+                BLACKSMITH_CENTER_X + pivot_offset[0],
+                BLACKSMITH_BASELINE_Y + pivot_offset[1],
+            )
+        else:
+            pivot_vec = pygame.math.Vector2(BLACKSMITH_CENTER_X, BLACKSMITH_BASELINE_Y)
         pivot_rel = pivot_vec - center_vec
         rotated_pivot = pygame.math.Vector2(
             pivot_rel.x * cos_a - pivot_rel.y * sin_a,
