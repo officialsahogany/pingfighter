@@ -4885,6 +4885,7 @@ blacksmith_hammer_forward_vector: tuple[float, float] = (0.0, -1.0)
 blacksmith_umbrella_body_offset: tuple[int, int] = (0, 0)
 blacksmith_umbrella_hitbox_extents: tuple[float, float] = (0.0, 0.0)
 blacksmith_umbrella_overlay_bounds: tuple[float, float] | None = None
+blacksmith_umbrella_overlay_surface: pygame.Surface | None = None
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 paddle_scale_ratio: float = 1.0
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 6
