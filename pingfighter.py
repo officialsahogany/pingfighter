@@ -4114,13 +4114,14 @@ def _draw_blacksmith_umbrella_overlay(
         swing_main_blend = 0.0
 
     if swing_pre_blend > 0:
-        ready_dir = pygame.math.Vector2(0.85, -0.6).normalize()
-        direction = direction.lerp(ready_dir, min(1.0, swing_pre_blend * 1.1))
+        ready_dir = pygame.math.Vector2(0.72, -0.45).normalize()
+        direction = direction.lerp(ready_dir, min(1.0, swing_pre_blend))
     if swing_main_blend > 0:
         sweep_curve = math.sin(swing_main_blend * math.pi)
-        sweep_dir = pygame.math.Vector2(-0.35 - 0.95 * swing_main_blend, -0.78 + 0.35 * sweep_curve)
+        sweep_dir = pygame.math.Vector2(-0.9, -0.45 + 0.2 * sweep_curve)
         if sweep_dir.length_squared() > 1e-6:
-            direction = direction.lerp(sweep_dir.normalize(), 0.9)
+            target_sweep = sweep_dir.normalize()
+            direction = direction.lerp(target_sweep, min(1.0, 1.2 * swing_main_blend))
     if direction.length_squared() <= 1e-4:
         direction = pygame.math.Vector2(0, -1)
     else:
@@ -4142,7 +4143,7 @@ def _draw_blacksmith_umbrella_overlay(
     if swing_pre_blend > 0 and swing_main_blend <= 0:
         tilt_angle -= swing_pre_blend * math.radians(70)
     if swing_main_blend > 0:
-        swing_tilt = (swing_pre_blend * 0.3 + swing_main_blend) * math.radians(85)
+        swing_tilt = (swing_pre_blend * 0.2 + swing_main_blend) * math.radians(100)
         tilt_angle += swing_tilt
     if abs(tilt_angle) > 1e-4:
         cos_t = math.cos(tilt_angle)
@@ -4156,9 +4157,9 @@ def _draw_blacksmith_umbrella_overlay(
 
     forward_offset = 32 + open_amount * 54 - close_factor * 6
     if swing_main_blend > 0:
-        forward_offset += -12 * swing_pre_blend + 32 * swing_main_blend
-        lateral_bias = close_factor * 18 - (34 * swing_pre_blend + 66 * swing_main_blend)
-        vertical_bias = -12 * swing_pre_blend + 34 * swing_main_blend
+        forward_offset += -14 * swing_pre_blend + 36 * swing_main_blend
+        lateral_bias = close_factor * 18 - (40 * swing_pre_blend + 82 * swing_main_blend)
+        vertical_bias = -14 * swing_pre_blend + 38 * swing_main_blend
     elif swing_pre_blend > 0:
         forward_offset -= 8 * swing_pre_blend
         lateral_bias = close_factor * 18 + 52 * swing_pre_blend
