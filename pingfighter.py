@@ -4206,21 +4206,75 @@ def _draw_blacksmith_umbrella_overlay(
     # 방패 충격 효과 (전역 변수 체크)
     global blacksmith_shield_impact_timer
     if 'blacksmith_shield_impact_timer' in globals() and blacksmith_shield_impact_timer > 0:
-        # 충격파 효과
-        impact_radius = (30 - blacksmith_shield_impact_timer) * 4
-        impact_alpha = int(blacksmith_shield_impact_timer * 8)
-        if impact_alpha > 0:
-            impact_surface = pygame.Surface((int(shield_width * 1.5), int(shield_height * 3)), pygame.SRCALPHA)
-            impact_center = (int(shield_width * 0.75), int(shield_height * 1.5))
-            # 여러 겹의 충격파
-            for ring in range(3):
-                ring_radius = impact_radius - ring * 10
-                if ring_radius > 0:
-                    ring_alpha = max(0, impact_alpha - ring * 30)
-                    pygame.draw.circle(impact_surface, (255, 235, 180, ring_alpha), 
-                                     impact_center, int(ring_radius), 3)
-            surface.blit(impact_surface, (int(shield_center.x - shield_width * 0.75), 
-                                         int(shield_center.y - shield_height * 1.5)), 
+        # 초승달 형태의 충격파 효과
+        progress = (30 - blacksmith_shield_impact_timer) / 30.0  # 0.0 ~ 1.0
+        impact_radius = progress * shield_width * 1.2  # 방패 너비의 1.2배까지 확산
+        
+        if impact_radius > 0:
+            impact_surface = pygame.Surface((int(shield_width * 2), int(shield_height * 2)), pygame.SRCALPHA)
+            impact_center = (int(shield_width), int(shield_height))
+            
+            # 여러 겹의 초승달 파동 (얇은 호 형태)
+            for wave in range(5):
+                wave_progress = max(0, progress - wave * 0.1)
+                if wave_progress > 0:
+                    wave_radius = wave_progress * shield_width * 1.2
+                    # 파동이 퍼질수록 더 투명해짐
+                    base_alpha = 200 * (1.0 - progress)
+                    wave_alpha = max(0, base_alpha - wave * 30)
+                    
+                    # 초승달 형태를 위한 호 그리기 (방패 위쪽 반원)
+                    if wave_alpha > 0:
+                        # 그라데이션 효과를 위해 여러 두께로 그리기
+                        for thickness in range(1, 4):
+                            arc_alpha = int(wave_alpha / thickness)
+                            arc_color = (255, 245, 200, arc_alpha)
+                            
+                            # 위쪽 호 (초승달 형태)
+                            start_angle = math.pi * 1.2  # 약 216도
+                            end_angle = math.pi * 1.8    # 약 324도
+                            
+                            # 호를 여러 개의 짧은 선분으로 그리기
+                            num_segments = 20
+                            points = []
+                            for i in range(num_segments + 1):
+                                angle = start_angle + (end_angle - start_angle) * i / num_segments
+                                x = impact_center[0] + int(wave_radius * math.cos(angle))
+                                y = impact_center[1] + int(wave_radius * math.sin(angle))
+                                points.append((x, y))
+                            
+                            if len(points) > 1:
+                                pygame.draw.lines(impact_surface, arc_color, False, points, thickness)
+                        
+                        # 끝부분 페이드 효과
+                        fade_radius = int(wave_radius * 0.1)
+                        for end_fade in range(3):
+                            fade_alpha = int(arc_alpha * (1 - end_fade / 3))
+                            if fade_alpha > 0:
+                                # 왼쪽 끝 페이드
+                                left_x = impact_center[0] + int(wave_radius * math.cos(start_angle))
+                                left_y = impact_center[1] + int(wave_radius * math.sin(start_angle))
+                                pygame.draw.circle(impact_surface, (255, 245, 200, fade_alpha), 
+                                                 (left_x, left_y), fade_radius - end_fade, 0)
+                                
+                                # 오른쪽 끝 페이드
+                                right_x = impact_center[0] + int(wave_radius * math.cos(end_angle))
+                                right_y = impact_center[1] + int(wave_radius * math.sin(end_angle))
+                                pygame.draw.circle(impact_surface, (255, 245, 200, fade_alpha), 
+                                                 (right_x, right_y), fade_radius - end_fade, 0)
+            
+            # 중앙 발광 효과
+            glow_alpha = int(150 * (1.0 - progress))
+            if glow_alpha > 0:
+                for glow in range(10):
+                    glow_size = int(shield_width * 0.3 * (1.0 - glow / 10))
+                    glow_a = int(glow_alpha * (1.0 - glow / 10))
+                    if glow_a > 0:
+                        pygame.draw.circle(impact_surface, (255, 250, 220, glow_a),
+                                         impact_center, glow_size, 0)
+            
+            surface.blit(impact_surface, (int(shield_center.x - shield_width), 
+                                         int(shield_center.y - shield_height)), 
                         special_flags=pygame.BLEND_ADD)
 
     xs = [p.x for p in outline_world]
