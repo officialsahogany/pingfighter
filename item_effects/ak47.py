@@ -313,6 +313,24 @@ class AK47:
             candidate = getattr(module, "register_weapon_reload", None)
             if callable(candidate):
                 return candidate
+            controller = getattr(module, "soldier_controller", None)
+            name_resolver = getattr(module, "get_item_name_korean", None)
+            if controller and hasattr(controller, "register_reload"):
+                def fallback(weapon: str, *, _controller=controller, _resolver=name_resolver) -> None:
+                    if weapon == "pistol":
+                        return
+                    try:
+                        degraded = _controller.register_reload(weapon)
+                    except Exception:
+                        return
+                    if degraded:
+                        try:
+                            label = _resolver(weapon) if callable(_resolver) else weapon
+                            print(f"⚠️ {label} 노후화!")
+                        except Exception:
+                            print(f"⚠️ {weapon} 노후화!")
+
+                return fallback
         return None
 
 # 싱글톤 인스턴스
