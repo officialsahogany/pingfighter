@@ -3979,118 +3979,132 @@ def _draw_blacksmith_umbrella_overlay(
         direction = target_dir
     direction = direction.normalize()
 
-    # 보스 방향(위쪽)으로 고정된 우산 연출
-    base_shaft = 70.0 + open_amount * 110.0
-    shaft_length = max(35.0, base_shaft * 0.5)
-    head_vec = pivot_vec + direction * shaft_length
-    perp = pygame.math.Vector2(-direction.y, direction.x)
+    # 드워프식 망치 방패 컨셉: 금속 판재와 룬 장식
+    # 축 벡터 설정
+    axis_right = pygame.math.Vector2(-direction.y, direction.x)  # 수평
+    axis_up = (-direction).normalize()  # 화면 위쪽이 방패 윗면
 
-    shaft_color = (190, 210, 230)
-    shaft_shadow = (90, 110, 140)
-    pygame.draw.line(surface, shaft_shadow, _vec_to_int_pair(pivot_vec), _vec_to_int_pair(head_vec), 6)
-    pygame.draw.line(surface, shaft_color, _vec_to_int_pair(pivot_vec), _vec_to_int_pair(head_vec), 3)
+    # 방패 중심과 크기 결정
+    shield_forward = 48 + open_amount * 60
+    shield_center = pivot_vec + direction * shield_forward
+    shield_width = 160 + open_amount * 110
+    shield_height = 110 + open_amount * 85
 
-    # 넓은 탑뷰 우산: 보스 패들보다 좌우가 넓도록 반경 확장
-    max_radius = 120.0  # 풀 오픈시 약 240px 폭
-    canopy_radius = 32.0 + open_amount * max_radius
-    canopy_height = 21.0 + open_amount * 33.0
-    canopy_center = head_vec + direction * (24.0 + open_amount * 22.0)
+    def to_world(dx: float, dy: float) -> pygame.math.Vector2:
+        return shield_center + axis_right * dx + axis_up * dy
 
-    canopy_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+    # 육각형에 가까운 방패 외곽 좌표 (상단이 좁은 형태)
+    top_width = shield_width * 0.35
+    mid_width = shield_width * 0.55
+    bottom_width = shield_width * 0.75
+    half_height = shield_height * 0.5
 
-    # 외곽 반원 형태	subdivide for smooth curve
-    rim_points: list[tuple[int, int]] = []
-    rim_points_float: list[tuple[float, float]] = []
-    segments = 12
-    for idx in range(segments + 1):
-        theta = math.pi * (idx / segments)
-        offset_perp = math.cos(theta) * canopy_radius
-        offset_along = math.sin(theta) * canopy_height
-        point_vec = canopy_center + perp * offset_perp - direction * offset_along
-        rim_points_float.append((point_vec.x, point_vec.y))
-        rim_points.append(_vec_to_int_pair(point_vec))
+    points_local = [
+        (-mid_width, -half_height * 0.2),
+        (-top_width, -half_height),
+        (top_width, -half_height),
+        (mid_width, -half_height * 0.2),
+        (bottom_width, half_height * 0.8),
+        (-bottom_width, half_height * 0.8),
+    ]
 
-    tip_vec = canopy_center + direction * (canopy_height * 0.45 + 12.0)
-    handle_cap = head_vec
+    world_points = [to_world(x, y) for x, y in points_local]
+    int_points = [_vec_to_int_pair(p) for p in world_points]
 
-    # 메인 캐노피
-    pygame.draw.polygon(canopy_surface, (184, 228, 255, 235), rim_points + [_vec_to_int_pair(handle_cap)])
-    pygame.draw.lines(canopy_surface, (88, 142, 205, 255), False, rim_points, max(2, int(2 + open_amount * 2)))
+    # 금속 바탕
+    pygame.draw.polygon(surface, (110, 92, 72), int_points)
+    pygame.draw.polygon(surface, (48, 40, 32), int_points, width=4)
 
-    # 반사 하이라이트 (좌우 비대칭으로 깊이감)
-    highlight_perp = perp * 0.48
-    highlight_points: list[tuple[int, int]] = []
-    for idx in range(segments + 1):
-        theta = math.pi * (idx / segments)
-        offset_perp = math.cos(theta) * (canopy_radius * 0.72)
-        offset_along = math.sin(theta) * (canopy_height * 0.65)
-        point_vec = canopy_center + highlight_perp * 20 + perp * offset_perp * 0.85 - direction * offset_along
-        highlight_points.append(_vec_to_int_pair(point_vec))
-    pygame.draw.polygon(canopy_surface, (236, 250, 255, int(110 * open_amount)), highlight_points)
+    # 중앙 보강 플레이트
+    plate_width = shield_width * 0.32
+    plate_height = shield_height * 0.8
+    plate_points = [
+        (-plate_width, -plate_height * 0.5),
+        (-plate_width * 0.6, -plate_height * 0.9),
+        (plate_width * 0.6, -plate_height * 0.9),
+        (plate_width, -plate_height * 0.5),
+        (plate_width * 0.7, plate_height * 0.9),
+        (-plate_width * 0.7, plate_height * 0.9),
+    ]
+    plate_world = [to_world(x, y) for x, y in plate_points]
+    pygame.draw.polygon(surface, (156, 134, 96), [_vec_to_int_pair(p) for p in plate_world])
+    pygame.draw.polygon(surface, (68, 52, 36), [_vec_to_int_pair(p) for p in plate_world], width=3)
 
-    # 스트럿(살대) 표현
-    spoke_count = 6
-    for idx in range(spoke_count):
-        t = idx / (spoke_count - 1)
-        rim_index = min(len(rim_points) - 1, idx * (segments // (spoke_count - 1)))
-        rim_vec = rim_points[rim_index]
-        rim_vec2 = rim_points[min(len(rim_points) - 1, rim_index + 1)]
-        rim_mix = ((rim_vec[0] + rim_vec2[0]) / 2, (rim_vec[1] + rim_vec2[1]) / 2)
-        pygame.draw.line(
-            canopy_surface,
-            (140, 188, 235, 220),
-            _vec_to_int_pair(tip_vec),
-            (int(rim_mix[0]), int(rim_mix[1])),
-            2,
-        )
+    # 세로 리브(보강)
+    rib_count = 4
+    rib_spacing = shield_width * 0.22
+    for idx in range(-rib_count, rib_count + 1):
+        if idx == 0:
+            rib_color = (200, 182, 130)
+            rib_width = 4
+        else:
+            rib_color = (140, 120, 90)
+            rib_width = 3
+        offset = idx * rib_spacing * 0.3
+        start = to_world(offset, -half_height * 0.95)
+        end = to_world(offset, half_height * 0.95)
+        pygame.draw.line(surface, rib_color, _vec_to_int_pair(start), _vec_to_int_pair(end), rib_width)
 
-    # 외곽 그라데이션 (다층)으로 둥근 형태 강조
-    for band in range(3):
-        alpha = int(90 * open_amount * (1 - band / 3))
-        if alpha <= 0:
-            continue
-        band_radius = canopy_radius * (1.0 + band * 0.1)
-        arc_rect = pygame.Rect(
-            int(round(canopy_center.x - band_radius)),
-            int(round(canopy_center.y - canopy_height)),
-            int(round(band_radius * 2)),
-            int(round(canopy_height * 2)),
-        )
-        pygame.draw.arc(
-            canopy_surface,
-            (110, 158, 215, alpha),
-            arc_rect,
-            math.pi,
-            math.pi * 2,
-            width=2,
-        )
+    # 가로 띠
+    band_count = 3
+    for i in range(band_count):
+        t = (i + 1) / (band_count + 1)
+        y = (t - 0.5) * shield_height * 1.1
+        start = to_world(-shield_width * 0.75, y)
+        end = to_world(shield_width * 0.75, y)
+        pygame.draw.line(surface, (86, 72, 60), _vec_to_int_pair(start), _vec_to_int_pair(end), 3)
 
-    # 중앙 캡 & 손잡이 상단 꾸미기
-    cap_radius = max(3, int(4 + open_amount * 2))
-    pygame.draw.circle(canopy_surface, (255, 255, 255, 240), _vec_to_int_pair(tip_vec), cap_radius)
-    pygame.draw.circle(canopy_surface, (150, 200, 250, 255), _vec_to_int_pair(tip_vec), cap_radius, width=1)
+    # 리벳 배치
+    rivet_rows = [(-half_height * 0.85, 6), (-half_height * 0.15, 6), (half_height * 0.55, 8)]
+    for row_y, count in rivet_rows:
+        for i in range(count):
+            t = i / (count - 1) if count > 1 else 0.5
+            x = (t - 0.5) * shield_width * 0.85
+            pos = to_world(x, row_y)
+            pygame.draw.circle(surface, (90, 70, 50), _vec_to_int_pair(pos), 5)
+            pygame.draw.circle(surface, (170, 150, 120), _vec_to_int_pair(pos), 3)
 
-    connector_radius = max(4, int(5 + open_amount * 3))
-    pygame.draw.circle(
-        canopy_surface,
-        (160, 195, 240, 220),
-        _vec_to_int_pair(handle_cap),
-        connector_radius,
-        width=3,
-    )
-    pygame.draw.circle(
-        canopy_surface,
-        (245, 250, 255, 180),
-        _vec_to_int_pair(handle_cap),
-        max(2, connector_radius - 2),
-    )
+    # 룬 패턴 (심볼 라이팅)
+    rune_color = (210, 190, 130)
+    rune_thickness = 3
+    rune_rows = [-half_height * 0.6, 0, half_height * 0.5]
+    for y in rune_rows:
+        start = to_world(-shield_width * 0.28, y)
+        mid = to_world(0, y - shield_height * 0.12)
+        end = to_world(shield_width * 0.28, y)
+        pygame.draw.line(surface, rune_color, _vec_to_int_pair(start), _vec_to_int_pair(mid), rune_thickness)
+        pygame.draw.line(surface, rune_color, _vec_to_int_pair(mid), _vec_to_int_pair(end), rune_thickness)
+        mid2 = to_world(0, y + shield_height * 0.18)
+        pygame.draw.line(surface, rune_color, _vec_to_int_pair(mid), _vec_to_int_pair(mid2), rune_thickness)
 
-    xs = [x for x, _ in rim_points_float]
-    xs.append(tip_vec.x)
-    xs.append(handle_cap.x)
+    # 상단 철재 스파이크 장식
+    spike_count = 5
+    spike_span = shield_width * 0.6
+    for i in range(spike_count):
+        t = i / (spike_count - 1) if spike_count > 1 else 0.5
+        x = (t - 0.5) * spike_span
+        base = to_world(x, -half_height * 0.95)
+        tip = to_world(x, -half_height * 1.25)
+        pygame.draw.line(surface, (220, 200, 150), _vec_to_int_pair(base), _vec_to_int_pair(tip), 3)
+        pygame.draw.circle(surface, (70, 60, 48), _vec_to_int_pair(base), 5)
+
+    # 좌우 측면 보호판
+    side_width = shield_width * 0.18
+    side_height = shield_height * 0.7
+    for side in (-1, 1):
+        side_pts = [
+            to_world(side * (shield_width * 0.6), -side_height * 0.6),
+            to_world(side * (shield_width * 0.9), -side_height * 0.35),
+            to_world(side * (shield_width * 0.85), side_height * 0.75),
+            to_world(side * (shield_width * 0.55), side_height * 0.55),
+        ]
+        pygame.draw.polygon(surface, (96, 80, 58), [_vec_to_int_pair(p) for p in side_pts])
+        pygame.draw.polygon(surface, (52, 44, 32), [_vec_to_int_pair(p) for p in side_pts], width=3)
+
+    # 최종 좌우 범위 기록
+    xs = [p.x for p in world_points]
+    xs += [p.x for p in plate_world]
     blacksmith_umbrella_overlay_bounds = (min(xs), max(xs)) if xs else None
-
-    surface.blit(canopy_surface, (0, 0))
 
 
 def _draw_blacksmith_legs(surface, step=0):
