@@ -3894,8 +3894,9 @@ def _draw_blacksmith_upper(
     hand_center = (right_wrist[0] + 6, right_wrist[1] + 4)
     if umbrella_pose_active:
         hand_center = (
-            right_wrist[0] + 1,
-            right_wrist[1] - int(round(1 + 4 * umbrella_raise)),
+            right_wrist[0] + 1 - int(round(3 * swing_main_blend)),
+            right_wrist[1]
+            - int(round(1 + 4 * umbrella_raise + 10 * swing_pre_blend + 16 * swing_main_blend)),
         )
     pygame.draw.circle(surface, (205, 185, 155), hand_center, 6)
     if umbrella_pose_active:
@@ -3911,14 +3912,19 @@ def _draw_blacksmith_upper(
 
     grip_ratio = 0.5
     if umbrella_pose_active:
-        grip_ratio = 0.35
+        grip_ratio = 0.35 - 0.05 * swing_main_blend
     pivot = pygame.math.Vector2(hand_center[0], hand_center[1])
     if umbrella_pose_active:
-        pivot = pygame.math.Vector2(hand_center[0], hand_center[1] - 1)
+        pivot = pygame.math.Vector2(
+            hand_center[0],
+            hand_center[1] - (1 + 4 * swing_pre_blend + 6 * swing_main_blend),
+        )
     swing_angle = -math.radians(110) + hammer_drop * math.radians(150)
     swing_angle += hammer_raise * math.radians(10)
     if umbrella_pose_active:
         swing_angle = -math.pi / 2 + math.radians(8 * (1.0 - umbrella_raise))
+        swing_angle -= math.radians(18 * swing_pre_blend)
+        swing_angle -= math.radians(32 * swing_main_blend)
     direction_vec = pygame.math.Vector2(math.cos(swing_angle), math.sin(swing_angle))
     if direction_vec.length_squared() == 0:
         direction_vec = pygame.math.Vector2(0, -1)
@@ -3927,7 +3933,7 @@ def _draw_blacksmith_upper(
 
     handle_length = 46
     if umbrella_pose_active:
-        handle_length = 64
+        handle_length = 64 + int(round(10 * swing_main_blend))
     handle_half_width = 5
     if umbrella_pose_active:
         handle_half_width = 4
