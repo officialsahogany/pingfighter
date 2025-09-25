@@ -4137,6 +4137,8 @@ def _draw_blacksmith_umbrella_overlay(
     axis_right = pygame.math.Vector2(-direction.y, direction.x)
     axis_up = (-direction).normalize()
 
+    pivot_anchor = to_world(-shield_width * 0.48, shield_height * 0.15)
+
     close_factor = 1.0 - open_amount
     tilt_strength = close_factor ** 0.6
     tilt_angle = tilt_strength * math.radians(75)
