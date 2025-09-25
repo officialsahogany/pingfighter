@@ -18000,7 +18000,7 @@ def handle_player(keys):
         umbrella_half_left = max(umbrella_half_left, left_extent_scaled)
         umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
 
-        vertical_shift = int(round((left_extent_scaled + right_extent_scaled) * 0.2))
+        vertical_shift = int(round((left_extent_scaled + right_extent_scaled) * 0.4))
         if vertical_shift > 0:
             player_collision_rect.y -= vertical_shift
 
