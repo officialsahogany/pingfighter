@@ -15649,6 +15649,8 @@ def handle_player(keys):
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_charge_position, blacksmith_build_menu_active
+    global soldier_swing_active, soldier_swing_timer
+    global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, blacksmith_turret_projectiles, blacksmith_turret_partial_drain
@@ -17888,10 +17890,6 @@ def handle_player(keys):
             is_player_serve = False
         
         # 코만도 캐릭터 휘두르기 애니메이션 활성화
-        global soldier_swing_active, soldier_swing_timer
-        global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
-        global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
-        global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
         if selected_character_type == "soldier":
             hit_on_right = collision_x >= 0
             if hit_on_right:
