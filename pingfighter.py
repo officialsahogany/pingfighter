@@ -4701,12 +4701,14 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
             blacksmith_umbrella_hitbox_vertical = (0.0, 0.0)
             blacksmith_umbrella_hitbox_center_offset = (0.0, 0.0)
             blacksmith_umbrella_hitbox_direction = (0.0, -1.0)
+            blacksmith_umbrella_hitbox_raw = None
     else:
         blacksmith_umbrella_body_offset = (0, 0)
         blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
         blacksmith_umbrella_hitbox_vertical = (0.0, 0.0)
         blacksmith_umbrella_hitbox_center_offset = (0.0, 0.0)
         blacksmith_umbrella_hitbox_direction = (0.0, -1.0)
+        blacksmith_umbrella_hitbox_raw = None
 
     blacksmith_hammer_head_local_point = prev_head_local
     blacksmith_hammer_head_surface_point = prev_head_surface
