@@ -4074,15 +4074,18 @@ def _draw_blacksmith_upper(
     handle_dir = handle_dir.normalize()
 
     normalized_forward = forward_vec.normalize() if forward_vec.length_squared() else pygame.math.Vector2(0, -1)
-    blacksmith_hammer_pivot_local_point = (float(pivot.x), float(pivot.y))
-    blacksmith_hammer_forward_vector = (float(normalized_forward.x), float(normalized_forward.y))
-    if pose_data is not None:
-        pose_data["pivot"] = (float(pivot.x), float(pivot.y))
-        pose_data["forward"] = (
-            float(normalized_forward.x),
-            float(normalized_forward.y),
-        )
-        pose_data["wrist"] = (float(right_wrist[0]), float(right_wrist[1]))
+    if not umbrella_pose_active:
+        blacksmith_hammer_pivot_local_point = (float(pivot.x), float(pivot.y))
+        blacksmith_hammer_forward_vector = (float(normalized_forward.x), float(normalized_forward.y))
+        if pose_data is not None:
+            pose_data["pivot"] = (float(pivot.x), float(pivot.y))
+            pose_data["forward"] = (
+                float(normalized_forward.x),
+                float(normalized_forward.y),
+            )
+            pose_data["wrist"] = (float(right_wrist[0]), float(right_wrist[1]))
+    elif pose_data is not None and "wrist" not in pose_data:
+        pose_data["wrist"] = (float(hand_center[0]), float(hand_center[1]))
 
     if show_hammer:
         handle_poly = [
@@ -4175,18 +4178,13 @@ def _draw_blacksmith_upper(
         empty_hand = pygame.Rect(0, 0, 10, 18)
         empty_hand.center = hand_center
         pygame.draw.ellipse(surface, (205, 185, 155), empty_hand)
-        blacksmith_hammer_head_local_point = None
-        if pose_data is not None:
-            if umbrella_pose_active:
-                pose_data["head"] = (
-                    float(handle_top.x),
-                    float(handle_top.y),
-                )
-            else:
-                pose_data["head"] = (
-                    float((handle_top + handle_bottom_point).x / 2),
-                    float((handle_top + handle_bottom_point).y / 2),
-                )
+        if not umbrella_pose_active:
+            blacksmith_hammer_head_local_point = None
+        if pose_data is not None and not umbrella_pose_active:
+            pose_data["head"] = (
+                float((handle_top + handle_bottom_point).x / 2),
+                float((handle_top + handle_bottom_point).y / 2),
+            )
 
     # 어깨 장식
     left_shoulder_center = (cx - 32 + lean_push - shoulder_roll, torso_y + 8 - shoulder_roll)
