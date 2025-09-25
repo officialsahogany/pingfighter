@@ -4220,6 +4220,14 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     if pivot_point and head_point:
         _draw_blacksmith_umbrella_overlay(surface, pivot_point, head_point, raise_amount, open_amount)
 
+    try:
+        print(
+            f"[DEBUG umbrella frame] progress={progress:.2f} raise={raise_amount:.2f} open={open_amount:.2f} "
+            f"offset_x={body_offset_x} offset_y={body_offset_y} surface_size={surface.get_size()}"
+        )
+    except Exception:
+        pass
+
     anchor_point = (
         BLACKSMITH_CENTER_X + body_offset_x,
         BLACKSMITH_CENTER_Y + body_offset_y,
