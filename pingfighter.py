@@ -41003,8 +41003,7 @@ def calculate_bounce(paddle):
     umbrella_half_right = PADDLE_WIDTH / 2
 
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
-        total_offset_x = blacksmith_umbrella_body_offset[0] + blacksmith_umbrella_center_offset
-        effective_centerx += int(round(total_offset_x * scale_applied))
+        effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
         umbrella_half_left = max(umbrella_half_left, left_extent)
         umbrella_half_right = max(umbrella_half_right, right_extent)
@@ -42059,8 +42058,7 @@ def handle_ball():
             serve_center_x = PLAYER.centerx
             if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
                 scale_applied = paddle_scale_ratio if paddle_scale_ratio > 0 else 1.0
-                total_offset_x = blacksmith_umbrella_body_offset[0] + blacksmith_umbrella_center_offset
-                serve_center_x += int(round(total_offset_x * scale_applied))
+                serve_center_x += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
             BALL.centerx = serve_center_x
             BALL.bottom = PLAYER.top - 5
         else:
