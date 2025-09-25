@@ -4194,8 +4194,8 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     _draw_blacksmith_legs(body_surface, 0)
 
     surface = pygame.Surface((final_width, final_height), pygame.SRCALPHA)
-    body_offset_x = int(round(final_width / 2 - BLACKSMITH_CENTER_X))
-    body_offset_y = int(round(final_height / 2 - BLACKSMITH_CENTER_Y))
+    body_offset_x = (final_width - base_width) // 2
+    body_offset_y = final_height - body_height
     surface.blit(body_surface, (body_offset_x, body_offset_y))
 
     pivot_point: tuple[float, float] | None = None
