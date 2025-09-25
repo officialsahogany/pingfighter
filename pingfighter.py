@@ -4091,14 +4091,14 @@ def _draw_blacksmith_umbrella_overlay(
 
     # 하단 밴드 - 초승달 곡선을 따라가는 밴드  
     lower_band_base = []
-    for i in range(band_points):
-        t = i / (band_points - 1)
+    for i in range(band_num_points):
+        t = i / (band_num_points - 1)
         x = (t - 0.5) * shield_width * 0.95
         
         # 초승달 모양에 맞춘 하단 밴드 곡선
-        # 위쪽 곡선과 반대로 아래쪽이 오목한 형태
-        base_y = -math.sin(t * math.pi) * shield_height * 0.5 + shield_height * 0.2
-        band_y = base_y + band_thickness * (0.3 + 0.4 * (1 - math.sin(t * math.pi)))
+        thickness = 0.25 + 0.45 * (1 - math.sin(t * math.pi))
+        base_y = -math.sin(t * math.pi) * shield_height * 0.05 + shield_height * (thickness - 0.1)
+        band_y = base_y + band_thickness * 0.2
         
         lower_band_base.append((x, band_y))
     
