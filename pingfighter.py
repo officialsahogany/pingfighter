@@ -24638,7 +24638,9 @@ def draw_objects():
         )
 
         target_bottom = int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y))
-        delta_y = target_bottom - player_rect.bottom
+        rotated_bounds = rotated_player.get_bounding_rect(min_alpha=1)
+        content_bottom = player_rect.y + rotated_bounds.bottom
+        delta_y = target_bottom - content_bottom
         if delta_y != 0:
             player_rect.y += delta_y
             pivot_point.y += delta_y
@@ -24648,7 +24650,7 @@ def draw_objects():
             screen_pivot_y = pivot_point.y + player_rect.y
             print(
                 f"[DEBUG blacksmith screen] pivot=({screen_pivot_x:.1f},{screen_pivot_y:.1f}) "
-                f"rect_bottom={player_rect.bottom} target_bottom={PLAYER.bottom + screen_shake_offset_y + player_knockback_y:.1f}"
+                f"content_bottom={player_rect.y + rotated_bounds.bottom} target_bottom={target_bottom}"
             )
         except Exception:
             pass
