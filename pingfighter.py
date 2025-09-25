@@ -4790,6 +4790,9 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         center_x = surface_rect.centerx
         scale_value = BLACKSMITH_SCALE if abs(BLACKSMITH_SCALE) > 1e-5 else 1.0
         anchor_offset_x = int(round((scaled_anchor[0] - center_x) / scale_value))
+        padding_bias = (left_padding - right_padding) / 2.0
+        if abs(padding_bias) > 0.01:
+            anchor_offset_x -= int(round(padding_bias / scale_value))
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
 
