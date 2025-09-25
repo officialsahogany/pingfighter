@@ -3998,12 +3998,14 @@ def _draw_blacksmith_umbrella_overlay(
 
     # 외곽 반원 형태	subdivide for smooth curve
     rim_points: list[tuple[int, int]] = []
+    rim_points_float: list[tuple[float, float]] = []
     segments = 12
     for idx in range(segments + 1):
         theta = math.pi * (idx / segments)
         offset_perp = math.cos(theta) * canopy_radius
         offset_along = math.sin(theta) * canopy_height
         point_vec = canopy_center + perp * offset_perp - direction * offset_along
+        rim_points_float.append((point_vec.x, point_vec.y))
         rim_points.append(_vec_to_int_pair(point_vec))
 
     tip_vec = canopy_center + direction * (canopy_height * 0.45 + 12.0)
@@ -4080,6 +4082,11 @@ def _draw_blacksmith_umbrella_overlay(
         _vec_to_int_pair(handle_cap),
         max(2, connector_radius - 2),
     )
+
+    xs = [x for x, _ in rim_points_float]
+    xs.append(tip_vec.x)
+    xs.append(handle_cap.x)
+    blacksmith_umbrella_overlay_bounds = (min(xs), max(xs)) if xs else None
 
     surface.blit(canopy_surface, (0, 0))
 
