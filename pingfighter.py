@@ -3839,14 +3839,34 @@ def _draw_blacksmith_upper(
         (right_wrist[0] + 12, right_wrist[1] + 6),
         (right_elbow[0] + 4, right_elbow[1])
     ])
-    pygame.draw.circle(surface, (205, 185, 155), (right_wrist[0] + 6, right_wrist[1] + 4), 6)
+    hand_center = (right_wrist[0] + 6, right_wrist[1] + 4)
+    if umbrella_pose_active:
+        hand_center = (
+            right_wrist[0] + 2,
+            right_wrist[1] - int(round(6 + 18 * umbrella_raise)),
+        )
+    pygame.draw.circle(surface, (205, 185, 155), hand_center, 6)
+    if umbrella_pose_active:
+        pygame.draw.line(
+            surface,
+            (188, 168, 138),
+            (hand_center[0] - 3, hand_center[1] - 4),
+            (hand_center[0] + 3, hand_center[1] - 6),
+            2,
+        )
 
     hammer_ax = right_wrist[0] + 6 - int(round(10 * hammer_raise)) + int(round(16 * hammer_drop))
 
     grip_ratio = 0.5
-    pivot = pygame.math.Vector2(right_wrist[0] + 6, right_wrist[1] + 4)
+    if umbrella_pose_active:
+        grip_ratio = 0.35
+    pivot = pygame.math.Vector2(hand_center[0], hand_center[1])
+    if umbrella_pose_active:
+        pivot = pygame.math.Vector2(hand_center[0], hand_center[1] - 8)
     swing_angle = -math.radians(110) + hammer_drop * math.radians(150)
     swing_angle += hammer_raise * math.radians(10)
+    if umbrella_pose_active:
+        swing_angle = -math.pi / 2 + math.radians(8 * (1.0 - umbrella_raise))
     direction_vec = pygame.math.Vector2(math.cos(swing_angle), math.sin(swing_angle))
     if direction_vec.length_squared() == 0:
         direction_vec = pygame.math.Vector2(0, -1)
@@ -3854,7 +3874,11 @@ def _draw_blacksmith_upper(
     perp_vec = pygame.math.Vector2(-forward_vec.y, forward_vec.x)
 
     handle_length = 46
+    if umbrella_pose_active:
+        handle_length = 96
     handle_half_width = 5
+    if umbrella_pose_active:
+        handle_half_width = 4
     top_offset = handle_length * (1.0 - grip_ratio)
     bottom_offset = handle_length * grip_ratio
     handle_top = pivot + forward_vec * top_offset
