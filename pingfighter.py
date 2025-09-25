@@ -17973,14 +17973,15 @@ def handle_player(keys):
         # 세로 방향으로만 충돌 범위 확장 (위아래로 균등하게)
         player_collision_rect.inflate_ip(0, acceleration_height_bonus)
 
-    scale_applied = paddle_scale_ratio if 'paddle_scale_ratio' in globals() and paddle_scale_ratio > 0 else 1.0
+    scale_applied = paddle_scale_ratio if paddle_scale_ratio > 0 else 1.0
     effective_centerx = PLAYER.centerx
     umbrella_half_left = PADDLE_WIDTH / 2
     umbrella_half_right = PADDLE_WIDTH / 2
 
     global debug_umbrella_hitbox_rect
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
-        effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
+        total_offset_x = blacksmith_umbrella_body_offset[0] + blacksmith_umbrella_center_offset
+        effective_centerx += int(round(total_offset_x * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
         umbrella_half_left = max(umbrella_half_left, left_extent)
         umbrella_half_right = max(umbrella_half_right, right_extent)
