@@ -4195,6 +4195,31 @@ def _draw_blacksmith_umbrella_overlay(
     outline_world = [to_world(x, y) for x, y in outline_local]
     outline_int = [_vec_to_int_pair(p) for p in outline_world]
 
+    global blacksmith_umbrella_hitbox_raw
+    xs = [p.x for p in outline_world]
+    ys = [p.y for p in outline_world]
+    if xs and ys:
+        min_x = min(xs)
+        max_x = max(xs)
+        min_y = min(ys)
+        max_y = max(ys)
+        blacksmith_umbrella_overlay_bounds = (min_x, max_x)
+        blacksmith_umbrella_hitbox_raw = {
+            "pivot_x": float(pivot_vec.x),
+            "pivot_y": float(pivot_vec.y),
+            "center_x": float(shield_center.x),
+            "center_y": float(shield_center.y),
+            "min_x": float(min_x),
+            "max_x": float(max_x),
+            "min_y": float(min_y),
+            "max_y": float(max_y),
+            "dir_x": float(direction.x),
+            "dir_y": float(direction.y),
+        }
+    else:
+        blacksmith_umbrella_overlay_bounds = None
+        blacksmith_umbrella_hitbox_raw = None
+
     # 베이스 금속판 (그라데이션 효과를 위한 다층 구조)
     base_color = (
         int(132 + 12 * open_amount),
