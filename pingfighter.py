@@ -16422,7 +16422,25 @@ def handle_player(keys):
         if blacksmith_umbrella_open:
             if blacksmith_umbrella_anim_timer > 0:
                 blacksmith_umbrella_anim_timer -= 1
-            # 방패 충격 효과 타이머 업데이트
+            else:
+                if blacksmith_umbrella_retracting:
+                    blacksmith_umbrella_open = False
+                    blacksmith_umbrella_retracting = False
+                    blacksmith_umbrella_anim_direction = 1
+                    blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
+                else:
+                    blacksmith_umbrella_anim_direction = 1
+
+            if (
+                up_just_pressed
+                and not blacksmith_umbrella_retracting
+                and blacksmith_umbrella_anim_timer == 0
+                and player_stunned_timer <= 0
+            ):
+                blacksmith_umbrella_retracting = True
+                blacksmith_umbrella_anim_direction = -1
+                blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
+
             if 'blacksmith_shield_impact_timer' in globals() and blacksmith_shield_impact_timer > 0:
                 blacksmith_shield_impact_timer -= 1
         elif up_just_pressed and player_stunned_timer <= 0:
@@ -16433,6 +16451,8 @@ def handle_player(keys):
                 and blacksmith_hammer_available
             ):
                 blacksmith_umbrella_open = True
+                blacksmith_umbrella_retracting = False
+                blacksmith_umbrella_anim_direction = 1
                 blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
                 blacksmith_walking_active = False
                 blacksmith_walking_timer = 0
