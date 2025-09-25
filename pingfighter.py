@@ -4157,19 +4157,18 @@ def _draw_blacksmith_umbrella_overlay(
         if rotated_up.length_squared() > 1e-6:
             axis_up = rotated_up.normalize()
 
-    forward_offset = 32 + open_amount * 54 - close_factor * 6
+    forward_offset = 24 + open_amount * 48 - close_factor * 6
+    base_center = pivot_vec + (pivot_vec - pivot_anchor)
     if swing_main_blend > 0:
-        forward_offset += -14 * swing_pre_blend + 36 * swing_main_blend
-        lateral_bias = close_factor * 18 - (40 * swing_pre_blend + 82 * swing_main_blend)
-        vertical_bias = -14 * swing_pre_blend + 38 * swing_main_blend
+        swing_bias = -52 * swing_pre_blend - 108 * swing_main_blend
+        vertical_bias = -18 * swing_pre_blend + 36 * swing_main_blend
     elif swing_pre_blend > 0:
-        forward_offset -= 8 * swing_pre_blend
-        lateral_bias = close_factor * 18 + 52 * swing_pre_blend
-        vertical_bias = -36 * swing_pre_blend
+        swing_bias = 60 * swing_pre_blend
+        vertical_bias = -40 * swing_pre_blend
     else:
-        lateral_bias = close_factor * 18
+        swing_bias = close_factor * 18
         vertical_bias = 0
-    shield_center = pivot_vec + direction * forward_offset + axis_right * lateral_bias + axis_up * vertical_bias
+    shield_center = pivot_anchor + direction * forward_offset + axis_right * swing_bias + axis_up * vertical_bias
     shield_width = (80 + open_amount * 260) * (1.0 + 0.18 * swing_main_blend)
     shield_height = (18 + open_amount * 40) * (1.0 + 0.22 * swing_pre_blend + 0.35 * swing_main_blend)
 
