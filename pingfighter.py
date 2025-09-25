@@ -4226,7 +4226,11 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     except Exception:
         pass
 
-    scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
+    anchor_point = (
+        BLACKSMITH_CENTER_X + body_offset_x,
+        BLACKSMITH_CENTER_Y + body_offset_y,
+    )
+    scaled_surface, _ = _scale_blacksmith_sprite(surface, anchor_point)
 
     blacksmith_hammer_head_local_point = prev_head_local
     blacksmith_hammer_head_surface_point = prev_head_surface
