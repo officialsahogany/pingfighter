@@ -24574,8 +24574,15 @@ def draw_objects():
     cos_a = math.cos(rad)
     sin_a = math.sin(rad)
 
+    pivot_offset = (0, 0)
+    if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
+        pivot_offset = blacksmith_umbrella_body_offset
+
     if selected_character_type == "blacksmith":
-        pivot_vec = pygame.math.Vector2(BLACKSMITH_CENTER_X, BLACKSMITH_BASELINE_Y)
+        pivot_vec = pygame.math.Vector2(
+            BLACKSMITH_CENTER_X + pivot_offset[0],
+            BLACKSMITH_BASELINE_Y + pivot_offset[1],
+        )
         pivot_rel = pivot_vec - center_vec
         rotated_pivot = pygame.math.Vector2(
             pivot_rel.x * cos_a - pivot_rel.y * sin_a,
@@ -24599,14 +24606,6 @@ def draw_objects():
         pass  # frame_count가 정의되지 않았으면 무시
 
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
-        try:
-            print(
-                f"[DEBUG umbrella rect] player_bottom={PLAYER.bottom} rect_top={player_rect.top} rect_bottom={player_rect.bottom} "
-                f"img_size={base_ufo_img.get_size()} rotated_size={rotated_player.get_size()}"
-            )
-        except Exception:
-            pass
-
     #  보스 vs 보스전과  새로운 보스전에서는 빨간 효과 제거 (게이지를 사용하지 않음)
     if not new_boss_mode_active:
         if not special_active and red_intensity > 0:
