@@ -4173,9 +4173,12 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     raise_amount = min(1.0, progress / 0.45)
     open_amount = max(0.0, (progress - 0.35) / 0.65)
 
-    surface = pygame.Surface((250, 240), pygame.SRCALPHA)
+    base_width = 250
+    body_height = 120
+    final_height = 240
+    body_surface = pygame.Surface((base_width, body_height), pygame.SRCALPHA)
     pose = _draw_blacksmith_upper(
-        surface,
+        body_surface,
         shield_swing=0.0,
         hammer_swing=0.1 + 0.2 * raise_amount,
         walk_wave=0.0,
@@ -4184,17 +4187,37 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         force_hammer_visibility=True,
         request_pose=True,
     )
-    _draw_blacksmith_legs(surface, 0)
+    _draw_blacksmith_legs(body_surface, 0)
+
+    surface = pygame.Surface((base_width, final_height), pygame.SRCALPHA)
+    body_offset_y = final_height - body_height
+    surface.blit(body_surface, (0, body_offset_y))
 
     pivot_point: tuple[float, float] | None = None
     head_point: tuple[float, float] | None = None
     if isinstance(pose, dict):
-        pivot_point = pose.get("pivot")
-        head_point = pose.get("head")
+        pivot_raw = pose.get("pivot")
+        head_raw = pose.get("head")
+        if pivot_raw and head_raw:
+            pivot_point = (pivot_raw[0], pivot_raw[1] + body_offset_y)
+            head_point = (head_raw[0], head_raw[1] + body_offset_y)
+
+    prev_head_local = blacksmith_hammer_head_local_point
+    prev_head_surface = blacksmith_hammer_head_surface_point
+    if blacksmith_hammer_head_local_point is not None:
+        blacksmith_hammer_head_local_point = (
+            blacksmith_hammer_head_local_point[0],
+            blacksmith_hammer_head_local_point[1] + body_offset_y,
+        )
+
     if pivot_point and head_point:
         _draw_blacksmith_umbrella_overlay(surface, pivot_point, head_point, raise_amount, open_amount)
 
     scaled_surface, _ = _scale_blacksmith_sprite(surface, (BLACKSMITH_CENTER_X, BLACKSMITH_CENTER_Y))
+
+    blacksmith_hammer_head_local_point = prev_head_local
+    blacksmith_hammer_head_surface_point = prev_head_surface
+
     return scaled_surface
 
 
