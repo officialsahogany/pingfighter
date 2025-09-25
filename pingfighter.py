@@ -7537,6 +7537,7 @@ BLACKSMITH_BASELINE_GAP = max(
 _blacksmith_base_bounds = BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1)
 BLACKSMITH_CONTACT_EXTRA_Y = 12
 BLACKSMITH_SCREEN_GROUND_OFFSET = 30
+BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 12
 DEBUG_DRAW_UMBRELLA_HITBOX = True
 blacksmith_idle_body_offset: tuple[int, int] = (
     0,
