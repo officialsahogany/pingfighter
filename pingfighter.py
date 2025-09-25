@@ -18117,6 +18117,7 @@ def handle_player(keys):
     # 서브 대기 중에는 충돌 체크하지 않음
     global player_collision_handled, player_collision_cooldown, player_sound_cooldown, last_hit_by
     global mega_smashing_active, mega_smashing_meteor_trail, mega_smashing_ghosts, mega_smashing_ghost_scatter
+    global blacksmith_shield_impact_timer
     # Y속도와 관계없이 충돌 감지 (고스트샷 등 특수 상황 대응)
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
     player_collision_rect = PLAYER.copy()
