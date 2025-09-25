@@ -4242,8 +4242,14 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         anchor_offset_x = int(round((scaled_anchor[0] - center_x) / scale_value))
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
+
+        pivot_surface_x = center_x + anchor_offset_x * scale_value
+        left_extent = max(0.0, pivot_surface_x - bounds.left)
+        right_extent = max(0.0, bounds.right - pivot_surface_x)
+        blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
     else:
         blacksmith_umbrella_body_offset = (0, 0)
+        blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
 
     blacksmith_hammer_head_local_point = prev_head_local
     blacksmith_hammer_head_surface_point = prev_head_surface
@@ -17956,6 +17962,15 @@ def handle_player(keys):
     if acceleration_active and acceleration_height_bonus > 0:
         # 세로 방향으로만 충돌 범위 확장 (위아래로 균등하게)
         player_collision_rect.inflate_ip(0, acceleration_height_bonus)
+
+    if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
+        left_extent, right_extent = blacksmith_umbrella_hitbox_extents
+        half_width = PLAYER.width * 0.5
+        left_extra = int(max(0.0, math.ceil(left_extent - half_width)))
+        right_extra = int(max(0.0, math.ceil(right_extent - half_width)))
+        if left_extra or right_extra:
+            player_collision_rect.x -= left_extra
+            player_collision_rect.width += left_extra + right_extra
     
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     if BALL.colliderect(player_collision_rect) and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
@@ -41995,7 +42010,11 @@ def handle_ball():
     #  서브 대기
     if is_waiting_for_serve:
         if is_player_serve:
-            BALL.centerx = PLAYER.centerx
+            serve_center_x = PLAYER.centerx
+            if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
+                scale_applied = scale_ratio if scale_ratio > 0 else 1.0
+                serve_center_x += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
+            BALL.centerx = serve_center_x
             BALL.bottom = PLAYER.top - 5
         else:
             BALL.centerx = BOSS.centerx
