@@ -9303,7 +9303,7 @@ def trigger_soldier_emergency_supply() -> bool:
 
         bazooka = get_bazooka_instance()
         if bazooka:
-            bazooka.reload_with_special_ammo()
+            bazooka.reload_with_special_ammo(track_reload=True)
             bazooka.equip()
             success = True
         else:
@@ -9325,7 +9325,7 @@ def trigger_soldier_emergency_supply() -> bool:
 
         net_gun = get_net_gun_instance()
         if net_gun:
-            net_gun.reload()
+            net_gun.reload(track_reload=True)
             net_gun.equip()
             success = True
         else:
@@ -9345,7 +9345,8 @@ def trigger_soldier_emergency_supply() -> bool:
 
     consume_special_gauge(SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST)
     soldier_emergency_supply_used = True
-    register_weapon_reload(weapon_name)
+    if weapon_name not in {"bazooka", "net_gun"}:
+        register_weapon_reload(weapon_name)
     soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
     soldier_emergency_supply_toast_timer = 90
     print(f"🪖 비상보급 완료! {get_item_name_korean(weapon_name)} 탄약을 모두 장전했습니다.")
