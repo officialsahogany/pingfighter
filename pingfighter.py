@@ -4293,12 +4293,12 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global blacksmith_divine_stone_state
     global frame_counter
     global blacksmith_build_menu_active
-    global blacksmith_umbrella_active
+    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
 
     construction_active = False
     hammer_engaged_this_frame = False
 
-    if blacksmith_umbrella_active:
+    if blacksmith_umbrella_open and blacksmith_umbrella_anim_timer > 0:
         stop_blacksmith_construction_sound()
         return down_just_pressed
 
@@ -5942,9 +5942,9 @@ def update_blacksmith_hammer_shock(keys):
     global BALL, ball_vel, last_hit_by, player_collision_handled
     global stopwatch_active, stopwatch_timer
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
-    global blacksmith_umbrella_active
+    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
 
-    if blacksmith_umbrella_active:
+    if blacksmith_umbrella_open and blacksmith_umbrella_anim_timer > 0:
         return
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
