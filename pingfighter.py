@@ -4582,7 +4582,14 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     open_amount = max(0.0, (progress - 0.35) / 0.65)
 
     global blacksmith_hammer_head_local_point, blacksmith_hammer_head_surface_point
-    global blacksmith_umbrella_body_offset, blacksmith_umbrella_hitbox_extents
+    global (
+        blacksmith_umbrella_body_offset,
+        blacksmith_umbrella_hitbox_extents,
+        blacksmith_umbrella_hitbox_vertical,
+        blacksmith_umbrella_hitbox_center_offset,
+        blacksmith_umbrella_hitbox_direction,
+        blacksmith_umbrella_hitbox_raw,
+    )
 
     base_width = 250
     body_height = 120
@@ -4667,9 +4674,39 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
             left_extent = right_extent = default_half
 
         blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
+
+        raw_data = blacksmith_umbrella_hitbox_raw
+        if raw_data is not None and debug_pivot is not None:
+            pivot_y = debug_pivot[1]
+            min_y = raw_data.get("min_y", pivot_y)
+            max_y = raw_data.get("max_y", pivot_y)
+            up_pixels = max(0.0, pivot_y - min_y) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
+            down_pixels = max(0.0, max_y - pivot_y) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
+            up_extent = up_pixels * scale_value
+            down_extent = down_pixels * scale_value
+            blacksmith_umbrella_hitbox_vertical = (up_extent, down_extent)
+
+            center_offset_x = (raw_data.get("center_x", pivot_y) - raw_data.get("pivot_x", pivot_y)) * scale_value
+            center_offset_y = (raw_data.get("center_y", pivot_y) - raw_data.get("pivot_y", pivot_y)) * scale_value
+            blacksmith_umbrella_hitbox_center_offset = (center_offset_x, center_offset_y)
+
+            dir_x = raw_data.get("dir_x", 0.0)
+            dir_y = raw_data.get("dir_y", -1.0)
+            mag = math.hypot(dir_x, dir_y)
+            if mag > 1e-4:
+                blacksmith_umbrella_hitbox_direction = (dir_x / mag, dir_y / mag)
+            else:
+                blacksmith_umbrella_hitbox_direction = (0.0, -1.0)
+        else:
+            blacksmith_umbrella_hitbox_vertical = (0.0, 0.0)
+            blacksmith_umbrella_hitbox_center_offset = (0.0, 0.0)
+            blacksmith_umbrella_hitbox_direction = (0.0, -1.0)
     else:
         blacksmith_umbrella_body_offset = (0, 0)
         blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
+        blacksmith_umbrella_hitbox_vertical = (0.0, 0.0)
+        blacksmith_umbrella_hitbox_center_offset = (0.0, 0.0)
+        blacksmith_umbrella_hitbox_direction = (0.0, -1.0)
 
     blacksmith_hammer_head_local_point = prev_head_local
     blacksmith_hammer_head_surface_point = prev_head_surface
