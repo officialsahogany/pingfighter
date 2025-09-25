@@ -24606,6 +24606,13 @@ def draw_objects():
             int(round(PLAYER.bottom + screen_shake_offset_y + player_knockback_y - pivot_point.y)),
         )
         player_rect.bottom = PLAYER.bottom + screen_shake_offset_y + player_knockback_y
+        try:
+            print(
+                f"[DEBUG umbrella rect] player_bottom={PLAYER.bottom} rect_top={player_rect.top} rect_bottom={player_rect.bottom} "
+                f"img_size={base_ufo_img.get_size()} rotated_size={rotated_player.get_size()}"
+            )
+        except Exception:
+            pass
     else:
         player_rect = rotated_player.get_rect(center=(PLAYER.centerx + screen_shake_offset_x,
                                                       PLAYER.centery + screen_shake_offset_y + player_knockback_y))
