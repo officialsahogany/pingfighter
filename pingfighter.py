@@ -4252,8 +4252,13 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
             min_x, max_x = overlay_bounds
             left_pixels = max(0.0, pivot_x - min_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
             right_pixels = max(0.0, max_x - pivot_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
-            left_extent = left_pixels * scale_value
-            right_extent = right_pixels * scale_value
+
+            base_half = (PADDLE_WIDTH / 2) * scale_value
+            extra_left = max(0.0, left_pixels * scale_value - base_half)
+            extra_right = max(0.0, right_pixels * scale_value - base_half)
+
+            left_extent = base_half + extra_left * 0.3
+            right_extent = base_half + extra_right * 0.3
         else:
             default_half = (PADDLE_WIDTH / 2) * scale_value
             left_extent = right_extent = default_half
