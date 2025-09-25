@@ -51081,7 +51081,9 @@ def main(stage_num, new_boss_mode=False):
             down_just_pressed = current_down_state and not last_down_state
             if selected_character_type == "blacksmith":
                 if current_down_state:
-                    if blacksmith_build_menu_active:
+                    if blacksmith_umbrella_open and not blacksmith_umbrella_retracting:
+                        blacksmith_down_hold_frames = 0
+                    elif blacksmith_build_menu_active:
                         blacksmith_down_hold_frames = 0
                     elif (
                         blacksmith_turret_active
