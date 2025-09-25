@@ -4164,9 +4164,23 @@ def _draw_blacksmith_umbrella_overlay(
         strap_end = to_world(-shield_width * 0.68 * side, -strap_offset * 0.4)
         pygame.draw.line(surface, (96, 78, 60), _vec_to_int_pair(strap_start), _vec_to_int_pair(strap_end), 5)
 
-    # 중심부 망치 장식
+    # 중심부 망치 장식 (입체감 강화)
     hammer_length = shield_width * 0.45
     hammer_thickness = shield_height * 0.18
+    
+    # 망치 그림자 레이어
+    shadow_offset = 2
+    hammer_shadow_pts = [
+        to_world(-hammer_length * 0.5 + shadow_offset, -hammer_thickness * 0.5 + shadow_offset),
+        to_world(-hammer_length * 0.15 + shadow_offset, -hammer_thickness * 0.5 + shadow_offset),
+        to_world(hammer_length * 0.15 + shadow_offset, -hammer_thickness * 0.5 + shadow_offset),
+        to_world(hammer_length * 0.5 + shadow_offset, hammer_thickness * 0.1 + shadow_offset),
+        to_world(hammer_length * 0.15 + shadow_offset, hammer_thickness * 0.5 + shadow_offset),
+        to_world(-hammer_length * 0.15 + shadow_offset, hammer_thickness * 0.5 + shadow_offset),
+    ]
+    pygame.draw.polygon(surface, (70, 56, 36), [_vec_to_int_pair(p) for p in hammer_shadow_pts])
+    
+    # 망치 메인 바디
     hammer_pts = [
         to_world(-hammer_length * 0.5, -hammer_thickness * 0.5),
         to_world(-hammer_length * 0.15, -hammer_thickness * 0.5),
@@ -4175,8 +4189,39 @@ def _draw_blacksmith_umbrella_overlay(
         to_world(hammer_length * 0.15, hammer_thickness * 0.5),
         to_world(-hammer_length * 0.15, hammer_thickness * 0.5),
     ]
-    pygame.draw.polygon(surface, (198, 180, 132), [_vec_to_int_pair(p) for p in hammer_pts])
-    pygame.draw.polygon(surface, (90, 76, 56), [_vec_to_int_pair(p) for p in hammer_pts], width=2)
+    pygame.draw.polygon(surface, (218, 200, 152), [_vec_to_int_pair(p) for p in hammer_pts])
+    
+    # 망치 하이라이트
+    highlight_pts = [
+        to_world(-hammer_length * 0.4, -hammer_thickness * 0.3),
+        to_world(-hammer_length * 0.1, -hammer_thickness * 0.3),
+        to_world(hammer_length * 0.1, -hammer_thickness * 0.3),
+        to_world(hammer_length * 0.3, 0),
+    ]
+    pygame.draw.polygon(surface, (238, 220, 172), [_vec_to_int_pair(p) for p in highlight_pts])
+    
+    # 망치 아웃라인
+    pygame.draw.polygon(surface, (90, 76, 56), [_vec_to_int_pair(p) for p in hammer_pts], width=3)
+    
+    # 방패 충격 효과 (전역 변수 체크)
+    global blacksmith_shield_impact_timer
+    if 'blacksmith_shield_impact_timer' in globals() and blacksmith_shield_impact_timer > 0:
+        # 충격파 효과
+        impact_radius = (30 - blacksmith_shield_impact_timer) * 4
+        impact_alpha = int(blacksmith_shield_impact_timer * 8)
+        if impact_alpha > 0:
+            impact_surface = pygame.Surface((int(shield_width * 1.5), int(shield_height * 3)), pygame.SRCALPHA)
+            impact_center = (int(shield_width * 0.75), int(shield_height * 1.5))
+            # 여러 겹의 충격파
+            for ring in range(3):
+                ring_radius = impact_radius - ring * 10
+                if ring_radius > 0:
+                    ring_alpha = max(0, impact_alpha - ring * 30)
+                    pygame.draw.circle(impact_surface, (255, 235, 180, ring_alpha), 
+                                     impact_center, int(ring_radius), 3)
+            surface.blit(impact_surface, (int(shield_center.x - shield_width * 0.75), 
+                                         int(shield_center.y - shield_height * 1.5)), 
+                        special_flags=pygame.BLEND_ADD)
 
     xs = [p.x for p in outline_world]
     blacksmith_umbrella_overlay_bounds = (min(xs), max(xs)) if xs else None
@@ -7853,6 +7898,7 @@ BLACKSMITH_WALKING_CYCLE = 30
 BLACKSMITH_UMBRELLA_ANIM_FRAMES = int(0.7 * FPS)
 blacksmith_umbrella_open = False
 blacksmith_umbrella_anim_timer = 0
+blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
 smasher_walking_active = False
