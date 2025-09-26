@@ -17508,8 +17508,12 @@ def handle_player(keys):
         """우산 가드 중에는 좌우 전환을 점진적으로 적용한다."""
         if not umbrella_guarding:
             return target_value
-        # 같은 방향(또는 정지) 진입은 기존 응답성을 유지한다.
-        if current_value == 0 or (current_value > 0 and target_value >= 0) or (current_value < 0 and target_value <= 0):
+        same_sign = (
+            current_value > 0 and target_value > 0
+        ) or (
+            current_value < 0 and target_value < 0
+        )
+        if same_sign and target_value != 0:
             return target_value
         max_step = abs(target_value) * BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
         max_step = max(0.00007, max_step)
