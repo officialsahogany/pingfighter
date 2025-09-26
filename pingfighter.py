@@ -18841,9 +18841,11 @@ def handle_player(keys):
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
             if blacksmith_umbrella_swing_active:
                 offset_val = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
+                offset_type = "anchor"
             else:
                 offset_val = int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
-            print(f"[DEBUG HITBOX] PLAYER.centerx={PLAYER.centerx}, effective_centerx={effective_centerx}, offset={offset_val}, swing_active={blacksmith_umbrella_swing_active}, swing_dir={swing_dir}")
+                offset_type = "body"
+            print(f"[DEBUG HITBOX] PLAYER.centerx={PLAYER.centerx}, effective_centerx={effective_centerx}, offset={offset_val}({offset_type}), swing_active={blacksmith_umbrella_swing_active}, swing_dir={swing_dir}, anchor_smoothed={blacksmith_umbrella_anchor_smoothed_x:.1f}")
         
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
         center_offset_x_effective = 0.0
