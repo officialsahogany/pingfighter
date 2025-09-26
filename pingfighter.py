@@ -8626,6 +8626,7 @@ BLACKSMITH_SHIELD_SWING_DURATION = 12  # 약 0.2초 동안 방패 스윙 연출
 # === 발토르 망치 스윙 애니메이션 변수 ===
 blacksmith_hammer_swing_active = False
 blacksmith_hammer_swing_phase = 0
+blacksmith_hammer_swing_auto = False
 BLACKSMITH_HAMMER_SWING_DURATION = 18
 blacksmith_manual_hammer_timer = 0
 
@@ -29718,7 +29719,7 @@ def show_start_screen():
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
     global blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
-    global blacksmith_hammer_projectiles_paused
+    global blacksmith_hammer_projectiles_paused, blacksmith_hammer_swing_auto
     blacksmith_hammer_available = True
     blacksmith_hammer_shock_charging = False
     blacksmith_hammer_shock_charge_frames = 0
@@ -29728,6 +29729,7 @@ def show_start_screen():
     blacksmith_hammer_last_update_frame = globals().get("frame_counter", 0)
     blacksmith_hammer_last_update_ms = pygame.time.get_ticks()
     blacksmith_hammer_projectiles_paused = False
+    blacksmith_hammer_swing_auto = False
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     blacksmith_hammer_shock_anchor_x = 0
     blacksmith_hammer_shock_anchor_y = 0
