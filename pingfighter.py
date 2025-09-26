@@ -18830,7 +18830,8 @@ def handle_player(keys):
                 left_extent, right_extent = blacksmith_umbrella_hitbox_extents_strict
             left_extent_scaled = left_extent * scale_applied
             right_extent_scaled = right_extent * scale_applied
-            sweep_bias = 1.5  # 스윙 방향으로 판정 범위를 넓혀 가드 각 강화
+            # 엄격 모드에서는 우산 폴리곤과 1:1 정합을 위해 가산 바이어스 제거
+            sweep_bias = 1.0 if BLACKSMITH_UMBRELLA_HITBOX_STRICT else 1.5
             if swing_dir > 0:
                 umbrella_half_left = max(umbrella_half_left, left_extent_scaled * sweep_bias)
                 umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
