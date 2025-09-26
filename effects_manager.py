@@ -841,6 +841,10 @@ def clear_all_effects():
     construction_smoke_particles = []
 
 
+def has_drive_particles():
+    return bool(drive_particles)
+
+
 # ================================================================================
 # 🎭 SPECIAL EFFECTS SYSTEM (특수 효과 시스템)
 # ================================================================================
@@ -1495,4 +1499,3 @@ def test_effects():
 # 모듈 테스트
 if __name__ == "__main__":
     test_effects()
-
