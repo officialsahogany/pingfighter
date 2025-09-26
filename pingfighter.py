@@ -6702,12 +6702,12 @@ def update_blacksmith_hammer_shock(keys):
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
 
-    if blacksmith_umbrella_open and not blacksmith_umbrella_retracting:
-        if blacksmith_hammer_shock_charging:
-            blacksmith_hammer_shock_charging = False
-            blacksmith_hammer_shock_charge_frames = 0
-            blacksmith_hammer_shock_stage = 0
-        # 우산을 펼친 상태에서도 발사된 해머 투사체는 계속 진행해야 하므로 업데이트를 중단하지 않는다.
+    umbrella_blocks_hammer_shock = blacksmith_umbrella_open and not blacksmith_umbrella_retracting
+    if umbrella_blocks_hammer_shock and blacksmith_hammer_shock_charging:
+        blacksmith_hammer_shock_charging = False
+        blacksmith_hammer_shock_charge_frames = 0
+        blacksmith_hammer_shock_stage = 0
+    # Keep updating cooldowns and projectiles even while the umbrella is open.
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
         blacksmith_hammer_shock_cooldown_timer -= 1
@@ -6717,7 +6717,7 @@ def update_blacksmith_hammer_shock(keys):
             fx_x, fx_y = _get_blacksmith_hammer_effect_center()
             _spawn_blacksmith_hammer_return_fx(fx_x, fx_y)
 
-    if blacksmith_hammer_shock_charging:
+    if blacksmith_hammer_shock_charging and not umbrella_blocks_hammer_shock:
         if 'PLAYER' in globals() and PLAYER is not None:
             blacksmith_hammer_shock_anchor_x = PLAYER.centerx
             blacksmith_hammer_shock_anchor_y = PLAYER.centery
