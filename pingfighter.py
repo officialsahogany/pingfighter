@@ -18804,12 +18804,28 @@ def handle_player(keys):
             center_offset_y_scaled = 0
             pivot_centerx = float(effective_centerx)
 
-        expanded_width = int(math.ceil(umbrella_half_left + umbrella_half_right))
-        if expanded_width > player_collision_rect.width:
-            player_collision_rect.width = expanded_width
+        pivot_x = pivot_centerx
+        pivot_y = PLAYER.bottom
 
-        player_collision_rect.centerx = int(round(pivot_centerx + center_offset_x_effective))
-        player_collision_rect.y += center_offset_y_scaled
+        left_edge = pivot_x - umbrella_half_left
+        right_edge = pivot_x + umbrella_half_right
+        top_edge = pivot_y + center_offset_y_scaled - up_span
+        bottom_edge = pivot_y + center_offset_y_scaled + down_span
+
+        left_int = int(math.floor(left_edge))
+        right_int = int(math.ceil(right_edge))
+        top_int = int(math.floor(top_edge))
+        bottom_int = int(math.ceil(bottom_edge))
+
+        new_width = max(1, right_int - left_int)
+        new_height = max(1, bottom_int - top_int)
+
+        player_collision_rect.left = left_int
+        player_collision_rect.top = top_int
+        player_collision_rect.width = new_width
+        player_collision_rect.height = new_height
+        player_collision_rect.centerx = int(round(pivot_x))
+        player_collision_rect.y = top_int
         if DEBUG_DRAW_UMBRELLA_HITBOX:
             debug_umbrella_hitbox_rect = player_collision_rect.copy()
     else:
