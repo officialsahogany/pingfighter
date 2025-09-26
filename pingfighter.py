@@ -6868,60 +6868,13 @@ def update_blacksmith_hammer_shock(keys):
 
     new_projectiles = []
     for proj in blacksmith_hammer_shock_projectiles:
-        # Some edge cases (opening the umbrella mid-flight) could zero out the projectile velocity;
-        # enforce the default upward travel so the hammer keeps moving until it detonates.
-        if abs(proj.get("vy", 0.0)) < 1e-3:
-            proj["vy"] = -BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
-        proj["x"] += proj.get("vx", 0.0)
-        proj["y"] += proj.get("vy", 0.0)
-        if abs(proj.get("vx", 0.0)) < 1e-3 and proj.get("vy", 0.0) != 0.0:
-            proj["rotation"] = 0.0
-        else:
-            proj["rotation"] = (proj.get("rotation", 0.0) + 18.0) % 360
-        proj["life"] -= 1
-        if proj.get("ball_hit_cooldown", 0) > 0:
-            proj["ball_hit_cooldown"] -= 1
-
-        exploded = False
-
-        if 'BOSS' in globals() and BOSS is not None:
-            boss_rect = BOSS
-            if boss_rect.collidepoint(int(proj["x"]), int(proj["y"])):
-                _trigger_blacksmith_hammer_shock_explosion(proj["stage"], proj["x"], proj["y"])
-                exploded = True
-
-        if (
-            not exploded
-            and not (stopwatch_active and stopwatch_timer > 0)
-            and 'BALL' in globals()
-            and BALL is not None
-        ):
-            ball_centerx, ball_centery = BALL.center
-            dx = float(ball_centerx) - float(proj.get("x", ball_centerx))
-            dy = float(ball_centery) - float(proj.get("y", ball_centery))
-            ball_radius = max(BALL.width, BALL.height) * 0.5
-            collision_radius = ball_radius + BLACKSMITH_HAMMER_SHOCK_PROJECTILE_HITBOX_RADIUS
-            if dx * dx + dy * dy <= collision_radius * collision_radius and proj.get("ball_hit_cooldown", 0) <= 0:
-                _handle_blacksmith_hammer_ball_hit(proj, dx, dy)
-                proj["ball_hit_cooldown"] = BLACKSMITH_HAMMER_SHOCK_BALL_HIT_COOLDOWN_FRAMES
-
-        if not exploded:
-            off_screen = (
-                proj["x"] <= 0
-                or proj["x"] >= WIDTH
-                or proj["y"] <= 0
-                or proj["y"] >= HEIGHT
-            )
-            if off_screen or proj["life"] <= 0:
-                clamped_x = max(10, min(WIDTH - 10, proj["x"]))
-                clamped_y = max(10, min(HEIGHT - 10, proj["y"]))
-                _trigger_blacksmith_hammer_shock_explosion(proj["stage"], clamped_x, clamped_y)
-                exploded = True
-
-        if not exploded:
+        if _advance_blacksmith_hammer_projectile(proj):
+            proj["_last_update_frame"] = frame_counter
             new_projectiles.append(proj)
 
     blacksmith_hammer_shock_projectiles = new_projectiles
+    blacksmith_hammer_last_update_frame = frame_counter
+    _complete_blacksmith_hammer_cooldown_if_ready()
 
     # Update ground cracks auto-decay (natural shatter over time)
     try:
@@ -51414,6 +51367,8 @@ def main(stage_num, new_boss_mode=False):
         global drive_global_cooldown, drive_global_cooldown_frames, last_space_press_time
         # special_gauge, special_ready, special_active는 이미 함수 시작 부분에서 global 선언됨
         global power_smashing_direction, power_smashing_original_speed  #  파워스매싱 관련 변수 (ball_vel은 이미 전역)
+        if selected_character_type == "blacksmith":
+            _sync_blacksmith_hammer_projectiles_to_frame(frame_counter)
         # 프레임 카운터 증가
         frame_counter += 1
         #  대쉬 매니저 업데이트 (매 프레임)
