@@ -5362,6 +5362,9 @@ paddle_scale_ratio: float = 1.0
 BLACKSMITH_UMBRELLA_HITBOX_STRICT = True
 blacksmith_umbrella_hitbox_extents_strict: tuple[float, float] = (0.0, 0.0)
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 6
+# 좌/우 스윙별 미세 보정(px). 우측 스윙에서 히트박스가 도형보다 오른쪽에 치우쳐 보일 때 음수로 좌측 이동.
+BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_LEFT = 0
+BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_RIGHT = -6
 BLACKSMITH_UMBRELLA_DOWNWARD_CAP = 32  # 플레이어 패들 방향으로 내려오는 우산 판정 최대 길이(픽셀)
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
 _BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
