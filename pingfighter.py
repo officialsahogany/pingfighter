@@ -5070,6 +5070,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             pass
         down_just_pressed = False
         blacksmith_hammer_swing_active = False
+        blacksmith_hammer_swing_auto = False
         blacksmith_hammer_swing_phase = 0
         blacksmith_manual_hammer_timer = 0
     elif (
@@ -5149,6 +5150,8 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         except Exception:
                             pass
                         blacksmith_hammer_swing_active = False
+                        blacksmith_hammer_swing_auto = False
+                        blacksmith_hammer_swing_auto = False
                         blacksmith_hammer_swing_phase = 0
                         blacksmith_manual_hammer_timer = 0
                     elif frame_counter % 30 == 0:
