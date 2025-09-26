@@ -17508,7 +17508,7 @@ def handle_player(keys):
         if current_value == 0 or (current_value > 0 and target_value >= 0) or (current_value < 0 and target_value <= 0):
             return target_value
         max_step = abs(target_value) * BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
-        max_step = max(0.0167, max_step)
+        max_step = max(0.0056, max_step)
         delta = target_value - current_value
         if delta > 0:
             return current_value + min(delta, max_step)
