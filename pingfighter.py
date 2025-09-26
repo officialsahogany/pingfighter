@@ -5291,6 +5291,7 @@ blacksmith_umbrella_hitbox_direction: tuple[float, float] = (0.0, -1.0)
 blacksmith_umbrella_hitbox_raw: dict[str, float] | None = None
 blacksmith_umbrella_overlay_bounds: tuple[float, float] | None = None
 blacksmith_umbrella_overlay_surface: pygame.Surface | None = None
+blacksmith_umbrella_swing_direction: int = 1
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 paddle_scale_ratio: float = 1.0
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 6
@@ -16887,13 +16888,20 @@ def handle_player(keys):
             blacksmith_umbrella_swing_active and blacksmith_umbrella_swing_stage == 1
         )
 
+        global blacksmith_umbrella_swing_direction
+        swing_trigger_direction = 0
+        if left_pressed_raw and not right_pressed_raw:
+            swing_trigger_direction = 1
+        elif right_pressed_raw and not left_pressed_raw:
+            swing_trigger_direction = -1
+
         if (
-            blacksmith_umbrella_open
+            swing_trigger_direction != 0
+            and blacksmith_umbrella_open
             and not blacksmith_umbrella_retracting
             and blacksmith_umbrella_anim_timer == 0
             and not blacksmith_umbrella_swing_active
             and space_pressed_raw
-            and left_pressed_raw
             and not player_stunned
         ):
             total_frames = BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES + BLACKSMITH_UMBRELLA_SWING_SWING_FRAMES
@@ -16901,6 +16909,7 @@ def handle_player(keys):
             blacksmith_umbrella_swing_timer = total_frames
             blacksmith_umbrella_swing_stage = 0
             blacksmith_umbrella_swing_progress = 0.0
+            blacksmith_umbrella_swing_direction = swing_trigger_direction
 
     if umbrella_lock_active:
         space_pressed = False
