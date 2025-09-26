@@ -18794,8 +18794,8 @@ def handle_player(keys):
         up_span = 0.0
         down_span = 0.0
 
-        if swing_dir < 0:
-            left_extent, right_extent = right_extent, left_extent
+        # 우측 스윙에서도 좌/우 길이는 피벗 기준 실제 좌우를 그대로 사용한다.
+        # (이전의 스왑은 우산 도형과 히트박스 좌우가 반전되어 보이는 원인이었다.)
 
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
             left_extent_scaled = left_extent * scale_applied
