@@ -4815,9 +4815,11 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         if blacksmith_umbrella_swing_active:
             anchor_offset_x = blacksmith_umbrella_anchor_base_x
             blacksmith_umbrella_anchor_dir = swing_dir
-        else:
+        elif blacksmith_umbrella_swing_direction >= 0:
             blacksmith_umbrella_anchor_base_x = anchor_offset_x
             blacksmith_umbrella_anchor_dir = None
+        else:
+            anchor_offset_x = blacksmith_umbrella_anchor_base_x
 
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
