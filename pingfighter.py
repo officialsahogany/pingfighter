@@ -8628,6 +8628,9 @@ blacksmith_hammer_swing_active = False
 blacksmith_hammer_swing_phase = 0
 BLACKSMITH_HAMMER_SWING_DURATION = 36
 blacksmith_manual_hammer_timer = 0
+blacksmith_hammer_swing_auto = False
+BLACKSMITH_TRAIL_DURATION = 45
+blacksmith_trail_timer = 0
 
 # === 발토르 포탑 설치 시스템 ===
 BLACKSMITH_TURRET_COST = 150
