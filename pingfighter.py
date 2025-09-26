@@ -17053,10 +17053,17 @@ def handle_player(keys):
                 blacksmith_umbrella_anchor_smoothed_x = float(blacksmith_umbrella_anchor_left)
             
             # 넉백 효과로 패들을 부드럽게 이동시킴
-            # anchor 오프셋에 따른 목적지 계산 (스케일 적용)
+            # 스윙 방향과 반대 방향으로 넉백 (더 자연스러운 물리 반응)
             scale_applied = BLACKSMITH_SCALE if abs(BLACKSMITH_SCALE) > 1e-5 else 1.0
-            anchor_offset = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
-            target_player_x = PLAYER.x + anchor_offset
+            base_knockback_distance = 40  # 기본 넉백 거리 (픽셀)
+            
+            # 스윙 방향과 반대로 넉백
+            if swing_trigger_direction > 0:  # 왼쪽 스윙 → 오른쪽으로 넉백
+                knockback_offset = base_knockback_distance
+            else:  # 오른쪽 스윙 → 왼쪽으로 넉백
+                knockback_offset = -base_knockback_distance
+                
+            target_player_x = PLAYER.x + knockback_offset
             
             # 화면 경계 체크
             target_player_x = max(PLAYER.width // 2, min(SCREEN_WIDTH - PLAYER.width // 2, target_player_x))
@@ -17066,7 +17073,7 @@ def handle_player(keys):
                 
             if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
                 print(
-                    f"[DEBUG UMB] swing start dir={swing_trigger_direction} original_player_x={PLAYER.x} target_x={target_player_x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right} smoothed_init={blacksmith_umbrella_anchor_smoothed_x}"
+                    f"[DEBUG UMB] swing start dir={swing_trigger_direction} original_player_x={PLAYER.x} target_x={target_player_x} knockback_offset={knockback_offset} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right}"
                 )
 
     if umbrella_lock_active:
