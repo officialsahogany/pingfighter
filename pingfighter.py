@@ -19278,6 +19278,7 @@ def handle_player(keys):
             else:
                 blacksmith_hammer_swing_active = False
                 blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_auto = False
                 blacksmith_shield_swing_active = True
                 blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
         
@@ -51541,6 +51542,7 @@ def main(stage_num, new_boss_mode=False):
                                 special_ready = False
                             blacksmith_shield_swing_active = False
                             blacksmith_shield_swing_timer = 0
+                            blacksmith_hammer_swing_auto = False
                             blacksmith_hammer_swing_active = True
                             blacksmith_hammer_swing_phase = 0
                             blacksmith_manual_hammer_timer = BLACKSMITH_HAMMER_SWING_DURATION
