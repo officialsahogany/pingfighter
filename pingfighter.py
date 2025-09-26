@@ -4289,7 +4289,7 @@ def _draw_blacksmith_umbrella_overlay(
     forward_offset = 32 + open_amount * 54 - close_factor * 6
     if swing_main_blend > 0:
         swing_bias = (close_factor * 18 - (28 * swing_pre_blend + 58 * swing_main_blend)) * swing_dir
-        swing_bias = -abs(swing_bias)
+        swing_bias = -abs(swing_bias)  # 오른쪽 스윙도 몸 중심 피벗을 공유하도록 좌측 편향 유지
         vertical_bias = -8 * swing_pre_blend + 28 * swing_main_blend
     elif swing_pre_blend > 0:
         swing_bias = (close_factor * 18 + 20 * swing_pre_blend) * swing_dir
