@@ -18790,7 +18790,9 @@ def handle_player(keys):
                 center_offset_x_scaled *= sweep_bias
             elif swing_dir < 0 and center_offset_x_scaled > 0:
                 center_offset_x_scaled *= sweep_bias
-            center_offset_x_scaled = int(round(center_offset_x_scaled))
+            center_offset_adjust = int(round(center_offset_x_scaled))
+            effective_centerx -= center_offset_adjust
+            center_offset_x_scaled = float(center_offset_x_scaled)
             center_offset_y_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[1] * scale_applied))
         else:
             length_multiplier = 0.85 * 1.8
@@ -18810,7 +18812,7 @@ def handle_player(keys):
         if expanded_width > player_collision_rect.width:
             player_collision_rect.width = expanded_width
 
-        player_collision_rect.centerx = effective_centerx + center_offset_x_scaled
+        player_collision_rect.centerx = int(round(effective_centerx + center_offset_x_scaled))
         player_collision_rect.y += center_offset_y_scaled
         if DEBUG_DRAW_UMBRELLA_HITBOX:
             debug_umbrella_hitbox_rect = player_collision_rect.copy()
