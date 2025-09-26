@@ -4810,7 +4810,13 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
             )
         padding_bias = (left_padding - right_padding) / 2.0
         if abs(padding_bias) > 0.01:
-            anchor_offset_x -= int(round(padding_bias / scale_value))
+            if swing_dir > 0:
+                # 왼쪽 스윙 - 현재 로직 유지
+                anchor_offset_x -= int(round(padding_bias / scale_value))
+            else:
+                # 오른쪽 스윙 - bias를 적용하지 않음 (패들 위치 유지)
+                # padding으로 인한 오프셋 조정을 하지 않음
+                pass
 
         raw_anchor_offset_x = anchor_offset_x
 
