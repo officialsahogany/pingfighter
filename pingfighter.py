@@ -5823,6 +5823,7 @@ def release_blacksmith_hammer_shock():
         "stage": stage,
         "life": int(1.5 * FPS),
         "rotation": 0.0,
+        "_last_update_frame": globals().get("frame_counter", 0),
     }
     blacksmith_hammer_shock_projectiles.append(projectile)
     if blacksmith_hammer_charge_position is not None:
