@@ -4807,19 +4807,18 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         if abs(padding_bias) > 0.01:
             anchor_offset_x -= int(round(padding_bias / scale_value))
 
-        global blacksmith_umbrella_anchor_base_x
+        global blacksmith_umbrella_anchor_base_x, blacksmith_umbrella_anchor_dir
+        # 방향 전환 시점에 현재 기준점을 갱신해 좌우 스윙에서 위치가 순간이동하지 않도록 유지한다.
         if blacksmith_umbrella_anchor_base_x is None:
             blacksmith_umbrella_anchor_base_x = anchor_offset_x
+            blacksmith_umbrella_anchor_dir = swing_dir
         elif not blacksmith_umbrella_swing_active:
             blacksmith_umbrella_anchor_base_x = anchor_offset_x
-        elif blacksmith_umbrella_swing_direction >= 0:
+            blacksmith_umbrella_anchor_dir = None
+        elif blacksmith_umbrella_anchor_dir != swing_dir:
             blacksmith_umbrella_anchor_base_x = anchor_offset_x
-
-        if (
-            blacksmith_umbrella_swing_active
-            and blacksmith_umbrella_swing_direction < 0
-            and blacksmith_umbrella_anchor_base_x is not None
-        ):
+            blacksmith_umbrella_anchor_dir = swing_dir
+        elif blacksmith_umbrella_anchor_base_x is not None:
             anchor_offset_x = blacksmith_umbrella_anchor_base_x
 
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
@@ -49992,8 +49991,9 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_swing_progress = 0.0
     global blacksmith_umbrella_swing_direction
     blacksmith_umbrella_swing_direction = 1
-    global blacksmith_umbrella_anchor_base_x
+    global blacksmith_umbrella_anchor_base_x, blacksmith_umbrella_anchor_dir
     blacksmith_umbrella_anchor_base_x = None
+    blacksmith_umbrella_anchor_dir = None
     blacksmith_walking_active = False
     blacksmith_walking_timer = 0
     blacksmith_walk_direction = 0
