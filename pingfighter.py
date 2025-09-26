@@ -4207,6 +4207,7 @@ def _draw_blacksmith_umbrella_overlay(
 ):
     """발토르 망치를 우산으로 연출하기 위한 오버레이."""
     global blacksmith_umbrella_overlay_bounds
+    global blacksmith_umbrella_swing_direction
     blacksmith_umbrella_overlay_bounds = None
     pivot_vec = pygame.math.Vector2(pivot_point)
     head_vec = pygame.math.Vector2(head_point)
@@ -4238,12 +4239,14 @@ def _draw_blacksmith_umbrella_overlay(
         swing_pre_blend = 0.0
         swing_main_blend = 0.0
 
+    swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
+
     if swing_pre_blend > 0:
-        ready_dir = pygame.math.Vector2(0.3, -1.0).normalize()
+        ready_dir = pygame.math.Vector2(0.3 * swing_dir, -1.0).normalize()
         direction = direction.lerp(ready_dir, swing_pre_blend * 0.8)
     if swing_main_blend > 0:
         sweep_curve = math.sin(swing_main_blend * math.pi)
-        sweep_dir = pygame.math.Vector2(-0.9, -0.45 + 0.2 * sweep_curve)
+        sweep_dir = pygame.math.Vector2(-0.9 * swing_dir, -0.45 + 0.2 * sweep_curve)
         if sweep_dir.length_squared() > 1e-6:
             target_sweep = sweep_dir.normalize()
             direction = direction.lerp(target_sweep, min(1.0, 1.2 * swing_main_blend))
@@ -4282,13 +4285,13 @@ def _draw_blacksmith_umbrella_overlay(
 
     forward_offset = 32 + open_amount * 54 - close_factor * 6
     if swing_main_blend > 0:
-        swing_bias = close_factor * 18 - (28 * swing_pre_blend + 58 * swing_main_blend)
+        swing_bias = (close_factor * 18 - (28 * swing_pre_blend + 58 * swing_main_blend)) * swing_dir
         vertical_bias = -8 * swing_pre_blend + 28 * swing_main_blend
     elif swing_pre_blend > 0:
-        swing_bias = close_factor * 18 + 20 * swing_pre_blend
+        swing_bias = (close_factor * 18 + 20 * swing_pre_blend) * swing_dir
         vertical_bias = -12 * swing_pre_blend
     else:
-        swing_bias = close_factor * 18
+        swing_bias = close_factor * 18 * swing_dir
         vertical_bias = 0
     shield_width = (80 + open_amount * 260) * (1.0 + 0.18 * swing_main_blend)
     shield_height = (18 + open_amount * 40) * (1.0 + 0.22 * swing_pre_blend + 0.35 * swing_main_blend)
@@ -18734,12 +18737,17 @@ def handle_player(keys):
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
         effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
+        swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
             left_extent_scaled = left_extent * scale_applied
             right_extent_scaled = right_extent * scale_applied
-            sweep_bias = 1.5  # left side extends further during swing
-            umbrella_half_left = max(umbrella_half_left, left_extent_scaled * sweep_bias)
-            umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
+            sweep_bias = 1.5  # 스윙 방향으로 판정 범위를 넓혀 가드 각 강화
+            if swing_dir > 0:
+                umbrella_half_left = max(umbrella_half_left, left_extent_scaled * sweep_bias)
+                umbrella_half_right = max(umbrella_half_right, right_extent_scaled)
+            else:
+                umbrella_half_left = max(umbrella_half_left, left_extent_scaled)
+                umbrella_half_right = max(umbrella_half_right, right_extent_scaled * sweep_bias)
 
             up_extent, down_extent = blacksmith_umbrella_hitbox_vertical
             up_scaled = up_extent * scale_applied
@@ -18752,7 +18760,12 @@ def handle_player(keys):
             if desired_height > player_collision_rect.height:
                 player_collision_rect.height = desired_height
 
-            center_offset_x_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[0] * scale_applied * sweep_bias))
+            center_offset_x_scaled = blacksmith_umbrella_hitbox_center_offset[0] * scale_applied
+            if swing_dir > 0 and center_offset_x_scaled < 0:
+                center_offset_x_scaled *= sweep_bias
+            elif swing_dir < 0 and center_offset_x_scaled > 0:
+                center_offset_x_scaled *= sweep_bias
+            center_offset_x_scaled = int(round(center_offset_x_scaled))
             center_offset_y_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[1] * scale_applied))
         else:
             length_multiplier = 0.85 * 1.8
