@@ -18804,8 +18804,6 @@ def handle_player(keys):
                                     accel = adjusted_acceleration
                                     if turn_delay_active and input_direction == -1:
                                         accel *= turn_delay_scale
-                                    elif umbrella_guarding and current_speed > 0:
-                                        accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
                                     current_speed -= accel
                             elif right_pressed:
                                 if current_speed < 0:
@@ -18814,8 +18812,6 @@ def handle_player(keys):
                                     accel = adjusted_acceleration
                                     if turn_delay_active and input_direction == 1:
                                         accel *= turn_delay_scale
-                                    elif umbrella_guarding and current_speed < 0:
-                                        accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
                                     current_speed += accel
                             else:
                                 # 키를 떼었을 때 감속 적용 (무중력벨트가 없을 때만)
