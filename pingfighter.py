@@ -50321,6 +50321,7 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_shield_swing_timer = 0
     blacksmith_hammer_swing_active = False
     blacksmith_hammer_swing_phase = 0
+    blacksmith_hammer_swing_auto = False
     blacksmith_manual_hammer_timer = 0
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
     global blacksmith_turret_build_progress, blacksmith_turret_active
