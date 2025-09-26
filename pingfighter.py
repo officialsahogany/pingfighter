@@ -4822,7 +4822,8 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
                 blacksmith_umbrella_anchor_left = raw_anchor_offset_x
             anchor_offset_x = blacksmith_umbrella_anchor_left if blacksmith_umbrella_anchor_left is not None else raw_anchor_offset_x
         else:
-            mirrored_offset = -raw_anchor_offset_x
+            mirror_source = stored_left if stored_left is not None else raw_anchor_offset_x
+            mirrored_offset = -mirror_source
             if not blacksmith_umbrella_swing_active or stored_right is None:
                 blacksmith_umbrella_anchor_right = mirrored_offset
             anchor_offset_x = blacksmith_umbrella_anchor_right if blacksmith_umbrella_anchor_right is not None else mirrored_offset
@@ -18796,6 +18797,9 @@ def handle_player(keys):
         pivot_centerx = float(effective_centerx)
         up_span = 0.0
         down_span = 0.0
+
+        if swing_dir < 0:
+            left_extent, right_extent = right_extent, left_extent
 
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
             left_extent_scaled = left_extent * scale_applied
