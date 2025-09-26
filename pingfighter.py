@@ -6835,6 +6835,7 @@ def update_blacksmith_hammer_shock(keys):
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
     global frame_counter, blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
+    global blacksmith_hammer_projectiles_paused
 
     current_ticks = pygame.time.get_ticks()
 
@@ -6889,9 +6890,15 @@ def update_blacksmith_hammer_shock(keys):
             )
         blacksmith_hammer_charge_position = None
 
+    advance_iterations = 2 if blacksmith_hammer_projectiles_paused else 1
     new_projectiles = []
     for proj in blacksmith_hammer_shock_projectiles:
-        if _advance_blacksmith_hammer_projectile(proj):
+        keep = True
+        for _ in range(advance_iterations):
+            if not _advance_blacksmith_hammer_projectile(proj):
+                keep = False
+                break
+        if keep:
             proj["_last_update_frame"] = frame_counter
             proj["_last_update_ms"] = current_ticks
             new_projectiles.append(proj)
@@ -6899,6 +6906,8 @@ def update_blacksmith_hammer_shock(keys):
     blacksmith_hammer_shock_projectiles = new_projectiles
     blacksmith_hammer_last_update_frame = frame_counter
     blacksmith_hammer_last_update_ms = current_ticks
+    if blacksmith_hammer_projectiles_paused:
+        blacksmith_hammer_projectiles_paused = False
     _complete_blacksmith_hammer_cooldown_if_ready()
 
     # Update ground cracks auto-decay (natural shatter over time)
