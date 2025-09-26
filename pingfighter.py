@@ -42106,6 +42106,7 @@ def calculate_bounce(paddle):
     global perfect_timing_input_used, perfect_direction, perfect_timing_indicator_active
     global rolling_active, is_half_dash_active
     global is_waiting_for_serve, stopwatch_active, stopwatch_timer
+    global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     
     # Stage 2 스피드 디펜스 80% 방어 처리
     if paddle == BOSS and current_stage == 2 and speed_defense_active:
@@ -42251,6 +42252,22 @@ def calculate_bounce(paddle):
     angle = rel_x * (math.pi / 3)
     # 기본 속도 (신성 월계수 효과 적용 후 재계산)
     speed = math.hypot(ball_vel[0], ball_vel[1])
+
+    if (
+        is_player_paddle
+        and selected_character_type == "blacksmith"
+        and blacksmith_umbrella_open
+        and blacksmith_shield_swing_active
+        and blacksmith_shield_swing_timer > 0
+    ):
+        swing_progress = 0.0
+        if BLACKSMITH_SHIELD_SWING_DURATION > 0:
+            swing_progress = 1.0 - (blacksmith_shield_swing_timer / BLACKSMITH_SHIELD_SWING_DURATION)
+        if swing_progress < 0.5:
+            ball_vel[0] *= 2
+            ball_vel[1] *= 2
+            speed = math.hypot(ball_vel[0], ball_vel[1])
+            print("[BLACKSMITH] Shield rising deflect: speed doubled")
 
     # 스매셔 쇼트 발동 처리 (플레이어 패들 전용)
     if (
