@@ -5323,6 +5323,7 @@ blacksmith_umbrella_overlay_surface: pygame.Surface | None = None
 blacksmith_umbrella_swing_direction: int = 1
 blacksmith_umbrella_anchor_left: int | None = None
 blacksmith_umbrella_anchor_right: int | None = None
+blacksmith_umbrella_locked_player_x: int | None = None
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 paddle_scale_ratio: float = 1.0
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 6
@@ -16463,6 +16464,7 @@ def handle_player(keys):
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
     global blacksmith_umbrella_swing_recover_pre, blacksmith_umbrella_swing_recover_main
     global blacksmith_umbrella_swing_direction
+    global blacksmith_umbrella_locked_player_x
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_charge_position, blacksmith_build_menu_active
