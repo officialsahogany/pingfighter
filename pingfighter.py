@@ -8626,7 +8626,7 @@ BLACKSMITH_SHIELD_SWING_DURATION = 12  # 약 0.2초 동안 방패 스윙 연출
 # === 발토르 망치 스윙 애니메이션 변수 ===
 blacksmith_hammer_swing_active = False
 blacksmith_hammer_swing_phase = 0
-BLACKSMITH_HAMMER_SWING_DURATION = 18
+BLACKSMITH_HAMMER_SWING_DURATION = 36
 blacksmith_manual_hammer_timer = 0
 
 # === 발토르 포탑 설치 시스템 ===
