@@ -5091,6 +5091,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             if distance <= BLACKSMITH_TURRET_BUILD_RADIUS:
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_auto = False
                 blacksmith_hammer_swing_active = True
                 blacksmith_hammer_swing_phase = (blacksmith_hammer_swing_phase + 1) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
@@ -5177,6 +5178,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             if distance <= BLACKSMITH_DIVINE_BUILD_RADIUS:
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_auto = False
                 blacksmith_hammer_swing_active = True
                 blacksmith_hammer_swing_phase = (
                     blacksmith_hammer_swing_phase + 1
@@ -5251,6 +5253,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             if engaged_for_upgrade:
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_auto = False
                 blacksmith_hammer_swing_active = True
                 blacksmith_hammer_swing_phase = (blacksmith_hammer_swing_phase + 1) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
@@ -5291,6 +5294,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         if not hammer_engaged_this_frame:
             if not blacksmith_hammer_swing_active:
                 blacksmith_hammer_swing_phase = 0
+            blacksmith_hammer_swing_auto = False
             blacksmith_hammer_swing_active = True
             if BLACKSMITH_HAMMER_SWING_DURATION > 0:
                 blacksmith_hammer_swing_phase = min(
