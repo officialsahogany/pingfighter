@@ -16492,7 +16492,6 @@ def handle_player(keys):
     global long_boost_scale, long_boost_target_scale, LONG_BOOST_TRANSITION_TIME, LONG_BOOST_DURATION
     global player_flame_zone_knockback_vel, player_flame_zone_knockback_cooldown, player_in_flame_zone  #  Stage 5 화염 넉백
     global PLAYER, speedboots_obtained, speedgear_obtained
-    global last_paddle_x
     global acceleration_active, acceleration_height_bonus, acceleration_skill_level, acceleration_flash_particles  #  가속화 스킬 변수
     global aipill_active  #  AI 필 변수 추가
     global wall_installing  #  벽돌 설치 변수 추가
