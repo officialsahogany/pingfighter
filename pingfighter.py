@@ -6824,11 +6824,7 @@ def update_blacksmith_hammer_shock(keys):
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
         blacksmith_hammer_shock_cooldown_timer -= 1
-        if blacksmith_hammer_shock_cooldown_timer <= 0 and not blacksmith_hammer_shock_projectiles:
-            blacksmith_hammer_available = True
-            blacksmith_hammer_shock_cooldown_timer = 0
-            fx_x, fx_y = _get_blacksmith_hammer_effect_center()
-            _spawn_blacksmith_hammer_return_fx(fx_x, fx_y)
+        _complete_blacksmith_hammer_cooldown_if_ready()
 
     if blacksmith_hammer_shock_charging and not umbrella_blocks_hammer_shock:
         if 'PLAYER' in globals() and PLAYER is not None:
