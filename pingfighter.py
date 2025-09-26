@@ -18710,6 +18710,8 @@ def handle_player(keys):
                     # 키보드 조작 (감전 상태가 아닐 때만)
                     if not player_stunned:
                         input_direction = -1 if left_pressed else (1 if right_pressed else 0)
+                        turn_delay_active = False
+                        turn_delay_progress = 1.0
                         if umbrella_guarding:
                             current_dir = 0
                             if current_speed > 0.3:
@@ -18730,17 +18732,27 @@ def handle_player(keys):
                             elif input_direction == 0 or input_direction == current_dir:
                                 blacksmith_umbrella_turn_delay_timer = 0
                                 blacksmith_umbrella_turn_pending_dir = 0
+
                             if (
                                 blacksmith_umbrella_turn_delay_timer > 0
+                                and input_direction != 0
                                 and input_direction == blacksmith_umbrella_turn_pending_dir
                             ):
-                                blacksmith_umbrella_turn_delay_timer -= 1
-                                umbrella_turn_blocked = True
+                                turn_delay_active = True
+                                turn_delay_progress = 1.0 - (
+                                    blacksmith_umbrella_turn_delay_timer
+                                    / BLACKSMITH_UMBRELLA_TURN_DELAY_FRAMES
+                                )
+                                turn_delay_progress = max(0.0, min(1.0, turn_delay_progress))
+                                blacksmith_umbrella_turn_delay_timer = max(
+                                    0, blacksmith_umbrella_turn_delay_timer - 1
+                                )
                                 if blacksmith_umbrella_turn_delay_timer == 0:
                                     blacksmith_umbrella_turn_pending_dir = 0
                         else:
                             blacksmith_umbrella_turn_delay_timer = 0
                             blacksmith_umbrella_turn_pending_dir = 0
+                        turn_delay_scale = turn_delay_progress if turn_delay_active else 1.0
 
                         if gravitybelt_obtained:
                             #  악마의 주사위 플레이어 속도 배율 가져오기
@@ -18755,16 +18767,14 @@ def handle_player(keys):
                             stop_step = DECELERATION * devil_dice_speed_multiplier
                             if left_pressed:
                                 target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
-                                if umbrella_turn_blocked:
-                                    current_speed = max(0.0, current_speed - stop_step)
-                                else:
-                                    current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
+                                if turn_delay_active and input_direction == -1:
+                                    target_speed *= turn_delay_scale
+                                current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
                             elif right_pressed:
                                 target_speed = (effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
-                                if umbrella_turn_blocked:
-                                    current_speed = min(0.0, current_speed + stop_step)
-                                else:
-                                    current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
+                                if turn_delay_active and input_direction == 1:
+                                    target_speed *= turn_delay_scale
+                                current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
                             else:
                                 # 키를 떼면 즉시 정지
                                 current_speed = apply_umbrella_turn_penalty(current_speed, 0.0)
@@ -18789,23 +18799,25 @@ def handle_player(keys):
                             adjusted_max_speed = effective_max_speed * speed_factor * combined_speed_multiplier
                             
                             if left_pressed:
-                                if current_speed > -adjusted_max_speed:
-                                    if umbrella_turn_blocked:
-                                        current_speed = max(0.0, current_speed - adjusted_deceleration)
-                                    else:
-                                        accel = adjusted_acceleration
-                                        if umbrella_guarding and current_speed > 0:
-                                            accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
-                                        current_speed -= accel
+                                if current_speed > 0:
+                                    current_speed = max(0.0, current_speed - adjusted_deceleration)
+                                elif current_speed > -adjusted_max_speed:
+                                    accel = adjusted_acceleration
+                                    if turn_delay_active and input_direction == -1:
+                                        accel *= turn_delay_scale
+                                    elif umbrella_guarding and current_speed > 0:
+                                        accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
+                                    current_speed -= accel
                             elif right_pressed:
-                                if current_speed < adjusted_max_speed:
-                                    if umbrella_turn_blocked:
-                                        current_speed = min(0.0, current_speed + adjusted_deceleration)
-                                    else:
-                                        accel = adjusted_acceleration
-                                        if umbrella_guarding and current_speed < 0:
-                                            accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
-                                        current_speed += accel
+                                if current_speed < 0:
+                                    current_speed = min(0.0, current_speed + adjusted_deceleration)
+                                elif current_speed < adjusted_max_speed:
+                                    accel = adjusted_acceleration
+                                    if turn_delay_active and input_direction == 1:
+                                        accel *= turn_delay_scale
+                                    elif umbrella_guarding and current_speed < 0:
+                                        accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
+                                    current_speed += accel
                             else:
                                 # 키를 떼었을 때 감속 적용 (무중력벨트가 없을 때만)
                                 if not gravitybelt_obtained:
