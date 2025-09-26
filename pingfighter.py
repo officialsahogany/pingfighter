@@ -7092,6 +7092,7 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
     # Draw actual hammers
     hammer_surface = _get_blacksmith_thrown_hammer_surface()
     synced_projectiles: list[dict] = []
+    current_ticks = pygame.time.get_ticks()
     for proj in blacksmith_hammer_shock_projectiles:
         frames_pending = 0
         if 'frame_counter' in globals():
@@ -7099,18 +7100,17 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             frames_pending = max(0, frame_counter - last_frame)
         if frames_pending == 0:
             last_ms = int(proj.get("_last_update_ms", blacksmith_hammer_last_update_ms))
-            now_ms = pygame.time.get_ticks()
-            if now_ms > last_ms:
-                elapsed_ms = now_ms - last_ms
+            if current_ticks > last_ms:
+                elapsed_ms = current_ticks - last_ms
                 frames_pending = int(elapsed_ms * FPS / 1000)
-                if frames_pending <= 0 and elapsed_ms > 0:
-                    frames_pending = 1
-                proj["_last_update_ms"] = now_ms
+                if frames_pending > 0:
+                    proj["_last_update_ms"] = current_ticks
         if frames_pending > 0:
             if not _advance_blacksmith_hammer_projectile(proj, frames_pending):
                 continue
             if 'frame_counter' in globals():
                 proj["_last_update_frame"] = frame_counter
+            proj["_last_update_ms"] = current_ticks
         synced_projectiles.append(proj)
         rotated = pygame.transform.rotate(hammer_surface, proj.get("rotation", 0.0))
         rect = rotated.get_rect(center=(int(proj["x"] + offset_x), int(proj["y"] + offset_y)))
