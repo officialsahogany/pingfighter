@@ -41469,6 +41469,8 @@ def reset_round():
         blacksmith_hammer_swing_active = False
     if 'blacksmith_hammer_swing_phase' in globals():
         blacksmith_hammer_swing_phase = 0
+    if 'blacksmith_hammer_swing_auto' in globals():
+        blacksmith_hammer_swing_auto = False
     if 'blacksmith_manual_hammer_timer' in globals():
         blacksmith_manual_hammer_timer = 0
 
