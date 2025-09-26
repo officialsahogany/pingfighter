@@ -3798,12 +3798,12 @@ def _draw_blacksmith_upper(
         swing_lateral = 18.0 * swing_pre_blend + 38.0 * swing_main_blend
         swing_vertical = 12.0 * swing_pre_blend + 24.0 * swing_main_blend
         hand_point = (
-            hand_point[0] - swing_lateral,
+            hand_point[0] - swing_lateral * swing_dir,
             hand_point[1] - swing_vertical,
         )
         elbow_mix = 0.52 - 0.08 * umbrella_raise + 0.05 * swing_main_blend
         elbow_point = (
-            shoulder_point[0] + (hand_point[0] - shoulder_point[0]) * elbow_mix - 6.0,
+            shoulder_point[0] + (hand_point[0] - shoulder_point[0]) * elbow_mix - 6.0 * swing_dir,
             shoulder_point[1] + (hand_point[1] - shoulder_point[1]) * elbow_mix + 8.0,
         )
         upper_arm_poly = [
@@ -3848,7 +3848,7 @@ def _draw_blacksmith_upper(
         )
         head_offset = 64.0 + 26.0 * umbrella_raise + 18.0 * swing_pre_blend + 30.0 * swing_main_blend
         head_point_left = (
-            pivot_point_left[0] - 4.0 - 6.0 * swing_main_blend,
+            pivot_point_left[0] - 4.0 - 6.0 * swing_main_blend * swing_dir,
             pivot_point_left[1] - head_offset,
         )
         blacksmith_hammer_head_local_point = (float(head_point_left[0]), float(head_point_left[1]))
