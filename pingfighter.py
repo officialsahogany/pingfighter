@@ -16437,6 +16437,7 @@ def handle_player(keys):
     global blacksmith_umbrella_swing_active, blacksmith_umbrella_swing_timer
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
     global blacksmith_umbrella_swing_recover_pre, blacksmith_umbrella_swing_recover_main
+    global blacksmith_umbrella_swing_direction
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_charge_position, blacksmith_build_menu_active
@@ -16900,7 +16901,6 @@ def handle_player(keys):
             blacksmith_umbrella_swing_active and blacksmith_umbrella_swing_stage == 1
         )
 
-        global blacksmith_umbrella_swing_direction
         swing_trigger_direction = 0
         if left_pressed_raw and not right_pressed_raw:
             swing_trigger_direction = 1
