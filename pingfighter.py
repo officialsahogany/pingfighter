@@ -5012,7 +5012,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, special_gauge, special_ready
     global is_waiting_for_serve, is_player_serve
-    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
+    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase, blacksmith_hammer_swing_auto
     global blacksmith_manual_hammer_timer
     global blacksmith_turret_partial_drain, blacksmith_turret_xp_partial_drain
     global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
@@ -19269,6 +19269,7 @@ def handle_player(keys):
                 blacksmith_shield_swing_timer = 0
                 blacksmith_hammer_swing_phase = 0
                 blacksmith_hammer_swing_active = True
+                blacksmith_hammer_swing_auto = True
                 
             else:
                 blacksmith_hammer_swing_active = False
@@ -25732,12 +25733,13 @@ def draw_objects():
             else:
                 base_ufo_img = SOLDIER_PADDLE_IMG if include_right_arm else SOLDIER_PADDLE_IMG_NO_RIGHT_ARM
         elif selected_character_type == "blacksmith":
-            if blacksmith_hammer_swing_active:
+            if blacksmith_hammer_swing_active and blacksmith_hammer_swing_auto:
                 if blacksmith_hammer_swing_phase < BLACKSMITH_HAMMER_SWING_DURATION:
                     blacksmith_hammer_swing_phase += 1
                 else:
                     blacksmith_hammer_swing_active = False
                     blacksmith_hammer_swing_phase = 0
+                    blacksmith_hammer_swing_auto = False
 
             if blacksmith_umbrella_open:
                 if BLACKSMITH_UMBRELLA_ANIM_FRAMES > 0:
