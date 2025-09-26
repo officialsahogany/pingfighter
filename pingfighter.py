@@ -18824,13 +18824,15 @@ def handle_player(keys):
 
     global debug_umbrella_hitbox_rect
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
-        # anchor_smoothed_x 값을 히트박스 계산에 반영 (렌더링과 동일하게)
         swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
         
-        # anchor_smoothed_x는 이미 padding_bias가 적용된 값
-        # 렌더링에서 사용하는 것과 동일한 오프셋 적용
-        anchor_offset = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
-        effective_centerx += anchor_offset
+        # 스윙 중이 아닐 때만 body_offset을 적용 (스윙 중에는 이미 플레이어 위치가 이동됨)
+        if not blacksmith_umbrella_swing_active:
+            effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
+        
+        # 디버그: 히트박스 계산 과정 출력
+        if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
+            print(f"[DEBUG HITBOX] PLAYER.centerx={PLAYER.centerx}, effective_centerx={effective_centerx}, body_offset={blacksmith_umbrella_body_offset[0]}, swing_active={blacksmith_umbrella_swing_active}")
         
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
         center_offset_x_effective = 0.0
