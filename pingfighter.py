@@ -18818,6 +18818,10 @@ def handle_player(keys):
             up_span = span_estimate
             down_span = span_estimate
 
+        down_cap = BLACKSMITH_UMBRELLA_DOWNWARD_CAP * scale_applied
+        if down_span > down_cap:
+            down_span = down_cap
+
         pivot_x = pivot_centerx
         pivot_y = PLAYER.bottom
 
