@@ -5850,6 +5850,118 @@ def release_blacksmith_hammer_shock():
         pass
 
 
+def _complete_blacksmith_hammer_cooldown_if_ready():
+    """Re-arm the hammer once cooldown has expired and no projectiles remain."""
+
+    global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
+    global blacksmith_hammer_available
+
+    if blacksmith_hammer_shock_cooldown_timer <= 0 and not blacksmith_hammer_shock_projectiles:
+        if not blacksmith_hammer_available:
+            fx_x, fx_y = _get_blacksmith_hammer_effect_center()
+            _spawn_blacksmith_hammer_return_fx(fx_x, fx_y)
+        blacksmith_hammer_available = True
+        blacksmith_hammer_shock_cooldown_timer = 0
+
+
+def _advance_blacksmith_hammer_projectile(proj: dict, frames: int = 1) -> bool:
+    """Advance a hammer shock projectile; return True while it remains active."""
+
+    global BOSS, BALL, stopwatch_active, stopwatch_timer
+
+    for _ in range(max(1, frames)):
+        vy = float(proj.get("vy", 0.0))
+        if abs(vy) < 1e-3:
+            vy = -BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
+            proj["vy"] = vy
+        vx = float(proj.get("vx", 0.0))
+        proj["x"] = float(proj.get("x", 0.0)) + vx
+        proj["y"] = float(proj.get("y", 0.0)) + vy
+
+        if abs(vx) < 1e-3 and vy != 0.0:
+            proj["rotation"] = 0.0
+        else:
+            proj["rotation"] = (float(proj.get("rotation", 0.0)) + 18.0) % 360
+
+        proj["life"] = int(proj.get("life", 0)) - 1
+        if proj["life"] < 0:
+            proj["life"] = 0
+
+        if proj.get("ball_hit_cooldown", 0) > 0:
+            proj["ball_hit_cooldown"] -= 1
+
+        exploded = False
+
+        if 'BOSS' in globals() and BOSS is not None:
+            boss_rect = BOSS
+            if boss_rect.collidepoint(int(proj["x"]), int(proj["y"])):
+                _trigger_blacksmith_hammer_shock_explosion(int(proj.get("stage", 1) or 1), proj["x"], proj["y"])
+                exploded = True
+
+        if (
+            not exploded
+            and not (stopwatch_active and stopwatch_timer > 0)
+            and 'BALL' in globals()
+            and BALL is not None
+        ):
+            ball_centerx, ball_centery = BALL.center
+            dx = float(ball_centerx) - float(proj.get("x", ball_centerx))
+            dy = float(ball_centery) - float(proj.get("y", ball_centery))
+            ball_radius = max(BALL.width, BALL.height) * 0.5
+            collision_radius = ball_radius + BLACKSMITH_HAMMER_SHOCK_PROJECTILE_HITBOX_RADIUS
+            if dx * dx + dy * dy <= collision_radius * collision_radius and proj.get("ball_hit_cooldown", 0) <= 0:
+                _handle_blacksmith_hammer_ball_hit(proj, dx, dy)
+                proj["ball_hit_cooldown"] = BLACKSMITH_HAMMER_SHOCK_BALL_HIT_COOLDOWN_FRAMES
+
+        if not exploded:
+            off_screen = (
+                proj["x"] <= 0
+                or proj["x"] >= WIDTH
+                or proj["y"] <= 0
+                or proj["y"] >= HEIGHT
+            )
+            if off_screen or proj["life"] <= 0:
+                clamped_x = max(10, min(WIDTH - 10, proj["x"]))
+                clamped_y = max(10, min(HEIGHT - 10, proj["y"]))
+                _trigger_blacksmith_hammer_shock_explosion(int(proj.get("stage", 1) or 1), clamped_x, clamped_y)
+                exploded = True
+
+        if exploded:
+            return False
+
+    return True
+
+
+def _sync_blacksmith_hammer_projectiles_to_frame(target_frame: int):
+    """Catch projectiles up to the provided frame if the main update was skipped."""
+
+    global blacksmith_hammer_shock_projectiles, blacksmith_hammer_last_update_frame
+    global blacksmith_hammer_shock_cooldown_timer
+
+    if target_frame <= blacksmith_hammer_last_update_frame:
+        return
+
+    frames_elapsed = target_frame - blacksmith_hammer_last_update_frame
+
+    new_projectiles: list[dict] = []
+    for proj in blacksmith_hammer_shock_projectiles:
+        last_frame = int(proj.get("_last_update_frame", blacksmith_hammer_last_update_frame))
+        frames_pending = target_frame - last_frame
+        if frames_pending > 0:
+            if not _advance_blacksmith_hammer_projectile(proj, frames_pending):
+                continue
+            proj["_last_update_frame"] = target_frame
+        new_projectiles.append(proj)
+
+    blacksmith_hammer_shock_projectiles = new_projectiles
+
+    if frames_elapsed > 0 and blacksmith_hammer_shock_cooldown_timer > 0:
+        blacksmith_hammer_shock_cooldown_timer = max(0, blacksmith_hammer_shock_cooldown_timer - frames_elapsed)
+
+    blacksmith_hammer_last_update_frame = target_frame
+    _complete_blacksmith_hammer_cooldown_if_ready()
+
+
 def _check_boss_crack_collision(boss_rect, crack):
     """Check if boss paddle collides with a ground crack using line-rectangle collision"""
     global boss_crack_ignore_until
@@ -6701,6 +6813,7 @@ def update_blacksmith_hammer_shock(keys):
     global stopwatch_active, stopwatch_timer
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
+    global frame_counter, blacksmith_hammer_last_update_frame
 
     umbrella_blocks_hammer_shock = blacksmith_umbrella_open and not blacksmith_umbrella_retracting
     if umbrella_blocks_hammer_shock and blacksmith_hammer_shock_charging:
