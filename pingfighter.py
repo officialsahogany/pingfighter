@@ -8330,6 +8330,7 @@ blacksmith_hammer_available = True
 blacksmith_hammer_shock_charging = False
 blacksmith_hammer_last_update_frame = 0
 blacksmith_hammer_last_update_ms = 0
+blacksmith_hammer_projectiles_paused = False
 BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
 BLACKSMITH_PADDLE_NO_HAMMER_IMG = create_blacksmith_paddle_base(include_hammer=False)
 # 기본 패들 렌더링에서 발 위치가 기준선보다 얼마나 아래에 있는지 기록해 우산 포즈에서도 동일한 간격을 유지한다.
@@ -17086,6 +17087,8 @@ def handle_player(keys):
                 blacksmith_build_menu_active = False
                 blacksmith_umbrella_swing_direction = 1
                 if blacksmith_hammer_shock_projectiles:
+                    global blacksmith_hammer_projectiles_paused
+                    blacksmith_hammer_projectiles_paused = True
                     current_ticks = pygame.time.get_ticks()
                     updated = []
                     for proj in blacksmith_hammer_shock_projectiles:
