@@ -18763,6 +18763,8 @@ def handle_player(keys):
         effective_centerx += int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
         swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
+        center_offset_x_effective = 0.0
+        pivot_centerx = float(effective_centerx)
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
             left_extent_scaled = left_extent * scale_applied
             right_extent_scaled = right_extent * scale_applied
@@ -18790,9 +18792,8 @@ def handle_player(keys):
                 center_offset_x_scaled *= sweep_bias
             elif swing_dir < 0 and center_offset_x_scaled > 0:
                 center_offset_x_scaled *= sweep_bias
-            center_offset_adjust = int(round(center_offset_x_scaled))
-            effective_centerx -= center_offset_adjust
-            center_offset_x_scaled = float(center_offset_x_scaled)
+            center_offset_x_effective = float(center_offset_x_scaled)
+            pivot_centerx = float(effective_centerx) - center_offset_x_effective
             center_offset_y_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[1] * scale_applied))
         else:
             length_multiplier = 0.85 * 1.8
@@ -18805,14 +18806,15 @@ def handle_player(keys):
             if vertical_shift > 0:
                 player_collision_rect.y -= vertical_shift
 
-            center_offset_x_scaled = 0
+            center_offset_x_effective = 0.0
             center_offset_y_scaled = 0
+            pivot_centerx = float(effective_centerx)
 
         expanded_width = int(math.ceil(umbrella_half_left + umbrella_half_right))
         if expanded_width > player_collision_rect.width:
             player_collision_rect.width = expanded_width
 
-        player_collision_rect.centerx = int(round(effective_centerx + center_offset_x_scaled))
+        player_collision_rect.centerx = int(round(pivot_centerx + center_offset_x_effective))
         player_collision_rect.y += center_offset_y_scaled
         if DEBUG_DRAW_UMBRELLA_HITBOX:
             debug_umbrella_hitbox_rect = player_collision_rect.copy()
