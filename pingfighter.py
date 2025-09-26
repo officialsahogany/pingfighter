@@ -38,7 +38,7 @@ from show_credits import show_credits_screen
 import ui_manager
 import effects_manager
 import bgm_manager
-from effects_manager import spawn_drive_particles, update_drive_particles, draw_drive_particles
+from effects_manager import spawn_drive_particles, update_drive_particles, draw_drive_particles, has_drive_particles
 import physics_manager
 import dash_manager
 from trade_point_system import TradePointSystem
@@ -27622,11 +27622,13 @@ def draw_objects():
         if blacksmith_trail_timer % 2 == 0:
             spawn_drive_particles(BALL.centerx, BALL.centery, count=2)
 
-    #  드라이브 별빛가루 파티클 그리기 (공 뒤에 그려서 은은하게)
-    if (drive_ball_active and selected_character_type == "smasher") or trail_active:
-        if drive_ball_active and selected_character_type == "smasher":
-            if random.random() < 0.3:  # 드라이브 활성화 시 기존 연출 유지
-                spawn_drive_particles(BALL.centerx, BALL.centery, count=1)
+    drive_effect_active = drive_ball_active and selected_character_type == "smasher"
+    if trail_active:
+        spawn_drive_particles(BALL.centerx, BALL.centery, count=1)
+
+    if drive_effect_active or trail_active or has_drive_particles():
+        if drive_effect_active and random.random() < 0.3:
+            spawn_drive_particles(BALL.centerx, BALL.centery, count=1)
         update_drive_particles(BALL.centerx, BALL.centery)
         draw_drive_particles(SCREEN)
 
