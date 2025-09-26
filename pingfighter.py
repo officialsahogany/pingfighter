@@ -5323,6 +5323,7 @@ blacksmith_umbrella_hitbox_raw: dict[str, float] | None = None
 blacksmith_umbrella_overlay_bounds: tuple[float, float] | None = None
 blacksmith_umbrella_overlay_surface: pygame.Surface | None = None
 blacksmith_umbrella_swing_direction: int = 1
+blacksmith_umbrella_anchor_base_x: int | None = None
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 paddle_scale_ratio: float = 1.0
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 6
