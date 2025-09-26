@@ -6707,7 +6707,7 @@ def update_blacksmith_hammer_shock(keys):
             blacksmith_hammer_shock_charging = False
             blacksmith_hammer_shock_charge_frames = 0
             blacksmith_hammer_shock_stage = 0
-        return
+        # 우산을 펼친 상태에서도 발사된 해머 투사체는 계속 진행해야 하므로 업데이트를 중단하지 않는다.
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
         blacksmith_hammer_shock_cooldown_timer -= 1
