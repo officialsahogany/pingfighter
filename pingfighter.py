@@ -18719,7 +18719,6 @@ def handle_player(keys):
                                 input_direction != 0
                                 and current_dir != 0
                                 and input_direction != current_dir
-                                and abs(current_speed) > 0.3
                             ):
                                 if (
                                     blacksmith_umbrella_turn_delay_timer <= 0
@@ -18727,17 +18726,12 @@ def handle_player(keys):
                                 ):
                                     blacksmith_umbrella_turn_delay_timer = BLACKSMITH_UMBRELLA_TURN_DELAY_FRAMES
                                     blacksmith_umbrella_turn_pending_dir = input_direction
-                            elif (
-                                input_direction == 0
-                                or abs(current_speed) <= 0.3
-                                or input_direction == current_dir
-                            ):
+                            elif input_direction == 0 or input_direction == current_dir:
                                 blacksmith_umbrella_turn_delay_timer = 0
                                 blacksmith_umbrella_turn_pending_dir = 0
                             if (
                                 blacksmith_umbrella_turn_delay_timer > 0
                                 and input_direction == blacksmith_umbrella_turn_pending_dir
-                                and abs(current_speed) > 0.3
                             ):
                                 blacksmith_umbrella_turn_delay_timer -= 1
                                 umbrella_turn_blocked = True
@@ -18757,16 +18751,17 @@ def handle_player(keys):
 
                             # 무중력벨트: 완전히 기계적인 즉각 이동 (키 누르는 동안만)
                             speed_bonus = 0
+                            stop_step = DECELERATION * devil_dice_speed_multiplier
                             if left_pressed:
                                 target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
                                 if umbrella_turn_blocked and current_speed > 0:
-                                    current_speed = apply_umbrella_turn_penalty(current_speed, 0.0)
+                                    current_speed = max(0.0, current_speed - stop_step)
                                 else:
                                     current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
                             elif right_pressed:
                                 target_speed = (effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
                                 if umbrella_turn_blocked and current_speed < 0:
-                                    current_speed = apply_umbrella_turn_penalty(current_speed, 0.0)
+                                    current_speed = min(0.0, current_speed + stop_step)
                                 else:
                                     current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
                             else:
