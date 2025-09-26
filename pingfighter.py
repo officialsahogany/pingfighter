@@ -4738,12 +4738,9 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     base_width = 250
     body_height = 120
-    if swing_dir > 0:
-        left_padding = 210  # 우산이 왼쪽으로 크게 펼쳐질 때 잘리지 않도록 여유 공간 확보
-        right_padding = 60
-    else:
-        left_padding = 60
-        right_padding = 210
+    # 양쪽 스윙 모두 충분한 패딩 사용하여 우산이 잘리지 않도록 함
+    left_padding = 250
+    right_padding = 250
     final_width = base_width + left_padding + right_padding
     final_height = 620
     body_surface = pygame.Surface((base_width, body_height), pygame.SRCALPHA)
@@ -4810,13 +4807,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
             )
         padding_bias = (left_padding - right_padding) / 2.0
         if abs(padding_bias) > 0.01:
-            if swing_dir > 0:
-                # 왼쪽 스윙 - 현재 로직 유지
-                anchor_offset_x -= int(round(padding_bias / scale_value))
-            else:
-                # 오른쪽 스윙 - bias를 적용하지 않음 (패들 위치 유지)
-                # padding으로 인한 오프셋 조정을 하지 않음
-                pass
+            anchor_offset_x -= int(round(padding_bias / scale_value))
 
         raw_anchor_offset_x = anchor_offset_x
 
