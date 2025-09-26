@@ -8406,6 +8406,7 @@ blacksmith_umbrella_swing_progress = 0.0
 blacksmith_umbrella_swing_recover_pre = 0.0
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
+blacksmith_umbrella_anchor_base_x = None
 BLACKSMITH_UMBRELLA_VISUAL_OFFSET_Y = 32  # 우산 그래픽과 판정이 패들과 겹치도록 추가 하강치
 blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
@@ -49960,6 +49961,8 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_swing_progress = 0.0
     global blacksmith_umbrella_swing_direction
     blacksmith_umbrella_swing_direction = 1
+    global blacksmith_umbrella_anchor_base_x
+    blacksmith_umbrella_anchor_base_x = None
     blacksmith_walking_active = False
     blacksmith_walking_timer = 0
     blacksmith_walk_direction = 0
