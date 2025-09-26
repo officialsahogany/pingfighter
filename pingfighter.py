@@ -18819,14 +18819,14 @@ def handle_player(keys):
             up_span = span_estimate
             down_span = span_estimate
 
-        stationary_guard = (
-            not umbrella_swinging_main
-            and abs(current_speed) <= BLACKSMITH_UMBRELLA_STATIONARY_SPEED_THRESHOLD
-            and abs(PLAYER.x - last_paddle_x) <= BLACKSMITH_UMBRELLA_STATIONARY_DRIFT_TOLERANCE
+        guard_scale = (
+            BLACKSMITH_UMBRELLA_GUARD_VERTICAL_SCALE
+            if not umbrella_swinging_main
+            else 1.0
         )
-        if stationary_guard:
-            up_span *= BLACKSMITH_UMBRELLA_STATIONARY_VERTICAL_SCALE
-            down_span *= BLACKSMITH_UMBRELLA_STATIONARY_VERTICAL_SCALE
+        if guard_scale < 1.0:
+            up_span *= guard_scale
+            down_span *= guard_scale
 
         down_cap = BLACKSMITH_UMBRELLA_DOWNWARD_CAP * scale_applied
         if down_span > down_cap:
