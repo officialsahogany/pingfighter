@@ -17018,7 +17018,7 @@ def handle_player(keys):
                 blacksmith_umbrella_locked_player_x = PLAYER.x
             if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
                 print(
-                    f"[DEBUG UMB] swing start dir={swing_trigger_direction} player_x={PLAYER.x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right}"
+                    f"[DEBUG UMB] swing start dir={swing_trigger_direction} original_player_x={PLAYER.x} locked_x={blacksmith_umbrella_locked_player_x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right}"
                 )
 
     if umbrella_lock_active:
@@ -25676,9 +25676,11 @@ def draw_objects():
         pivot_point = center_vec + rotated_pivot
         player_rect = rotated_player.get_rect()
         # 우산 스윙 시 anchor offset 적용
+        # 오른쪽 스윙의 경우 플레이어 위치가 이미 보정되어 있으므로 추가 offset 불필요
         anchor_x_offset = 0
         if blacksmith_umbrella_open and blacksmith_umbrella_swing_active:
-            anchor_x_offset = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
+            if blacksmith_umbrella_swing_direction >= 0:  # 왼쪽 스윙만 offset 적용
+                anchor_x_offset = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
         player_rect.topleft = (
             int(round(PLAYER.centerx + screen_shake_offset_x + anchor_x_offset - pivot_point.x)),
             int(round((PLAYER.bottom + screen_shake_offset_y + player_knockback_y) - pivot_point.y)),
