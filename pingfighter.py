@@ -4814,27 +4814,24 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         raw_anchor_offset_x = anchor_offset_x
 
         global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
-        # 우산 스윙 방향과 무관하게 현재 프레임에서 산출된 앵커 오프셋을 그대로 사용한다.
-        # (이전에는 왼쪽 앵커를 반사 대칭해 오른쪽에 재사용했는데, space+→ 오른쪽 스윙에서
-        #  그래픽과 히트박스가 어긋나는 문제가 있었다. 비대칭 패딩/포즈 때문에 좌/우 오프셋이 동일하지 않으므로
-        #  각 방향에서 계산된 raw 값을 직접 사용한다.)
         if swing_dir > 0:
             blacksmith_umbrella_anchor_left = raw_anchor_offset_x
         else:
             blacksmith_umbrella_anchor_right = raw_anchor_offset_x
 
-        # 좌/우 스윙 전환 시 플레이어가 좌우로 '튕겨' 보이는 것을 방지하기 위해
-        # 좌/우에서 측정된 앵커 오프셋의 평균값을 사용해 피벗을 고정한다.
-        # (두 값 중 하나만 알려진 초기 상태에서는 해당 방향의 raw 값을 사용)
-        if (
-            blacksmith_umbrella_anchor_left is not None
-            and blacksmith_umbrella_anchor_right is not None
-        ):
-            anchor_offset_x = int(
-                round((blacksmith_umbrella_anchor_left + blacksmith_umbrella_anchor_right) / 2)
-            )
-        else:
-            anchor_offset_x = raw_anchor_offset_x
+        # 스윙 시작 시 피벗이 급격히 변하며 보이는 '순간 이동'을 완화하되,
+        # 그래픽/히트박스 정합성은 유지하기 위해 raw 값을 부드럽게 추적한다.
+        # (도형·히트박스 모두 동일한 오프셋을 사용하므로 정합성 유지)
+        global blacksmith_umbrella_anchor_smoothed_x
+        try:
+            current = float(blacksmith_umbrella_anchor_smoothed_x)
+        except NameError:
+            current = float(raw_anchor_offset_x)
+        target = float(raw_anchor_offset_x)
+        smoothing = 0.28  # 0.0~1.0, 높을수록 빠르게 수렴
+        new_value = current + (target - current) * smoothing
+        blacksmith_umbrella_anchor_smoothed_x = new_value
+        anchor_offset_x = int(round(new_value))
 
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
             print(
