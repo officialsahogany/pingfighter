@@ -25681,8 +25681,11 @@ def draw_objects():
         
         # 디버그: 렌더링된 플레이어 위치 추적
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR and blacksmith_umbrella_open and blacksmith_umbrella_swing_active:
+            # topleft 설정 후에 centerx를 읽어야 정확한 시각적 위치를 얻을 수 있음
             visual_centerx = player_rect.centerx
-            print(f"[DEBUG RENDER] PLAYER.centerx={PLAYER.centerx}, anchor_offset={anchor_x_offset}, visual_centerx={visual_centerx}")
+            # 실제 화면상의 중심 위치는 pivot_point를 고려해야 함
+            actual_visual_x = PLAYER.centerx + anchor_x_offset
+            print(f"[DEBUG RENDER] PLAYER.centerx={PLAYER.centerx}, anchor_offset={anchor_x_offset}, visual_centerx={visual_centerx}, actual_visual_x={actual_visual_x}")
 
         target_bottom = int(
             round(
