@@ -5012,7 +5012,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global blacksmith_turret_build_progress, blacksmith_turret_active
     global blacksmith_turret_state, special_gauge, special_ready
     global is_waiting_for_serve, is_player_serve
-    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase, blacksmith_hammer_swing_auto
+    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_manual_hammer_timer
     global blacksmith_turret_partial_drain, blacksmith_turret_xp_partial_drain
     global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
@@ -5070,7 +5070,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             pass
         down_just_pressed = False
         blacksmith_hammer_swing_active = False
-        blacksmith_hammer_swing_auto = False
         blacksmith_hammer_swing_phase = 0
         blacksmith_manual_hammer_timer = 0
     elif (
@@ -5092,7 +5091,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             if distance <= BLACKSMITH_TURRET_BUILD_RADIUS:
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
-                blacksmith_hammer_swing_auto = False
                 blacksmith_hammer_swing_active = True
                 blacksmith_hammer_swing_phase = (blacksmith_hammer_swing_phase + 1) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
@@ -5150,8 +5148,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         except Exception:
                             pass
                         blacksmith_hammer_swing_active = False
-                        blacksmith_hammer_swing_auto = False
-                        blacksmith_hammer_swing_auto = False
                         blacksmith_hammer_swing_phase = 0
                         blacksmith_manual_hammer_timer = 0
                     elif frame_counter % 30 == 0:
@@ -5181,7 +5177,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             if distance <= BLACKSMITH_DIVINE_BUILD_RADIUS:
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
-                blacksmith_hammer_swing_auto = False
                 blacksmith_hammer_swing_active = True
                 blacksmith_hammer_swing_phase = (
                     blacksmith_hammer_swing_phase + 1
@@ -5256,7 +5251,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             if engaged_for_upgrade:
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
-                blacksmith_hammer_swing_auto = False
                 blacksmith_hammer_swing_active = True
                 blacksmith_hammer_swing_phase = (blacksmith_hammer_swing_phase + 1) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
@@ -5297,7 +5291,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         if not hammer_engaged_this_frame:
             if not blacksmith_hammer_swing_active:
                 blacksmith_hammer_swing_phase = 0
-            blacksmith_hammer_swing_auto = False
             blacksmith_hammer_swing_active = True
             if BLACKSMITH_HAMMER_SWING_DURATION > 0:
                 blacksmith_hammer_swing_phase = min(
@@ -5312,7 +5305,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             blacksmith_hammer_swing_phase = max(0, blacksmith_hammer_swing_phase - 2)
         if blacksmith_hammer_swing_phase <= 0:
             blacksmith_hammer_swing_active = False
-            blacksmith_hammer_swing_auto = False
 
     if construction_active:
         start_blacksmith_construction_sound()
@@ -8634,7 +8626,6 @@ BLACKSMITH_SHIELD_SWING_DURATION = 12  # 약 0.2초 동안 방패 스윙 연출
 # === 발토르 망치 스윙 애니메이션 변수 ===
 blacksmith_hammer_swing_active = False
 blacksmith_hammer_swing_phase = 0
-blacksmith_hammer_swing_auto = False
 BLACKSMITH_HAMMER_SWING_DURATION = 18
 blacksmith_manual_hammer_timer = 0
 
@@ -16633,7 +16624,7 @@ def handle_player(keys):
     global short_shot_active, short_shot_timer, short_shot_vertical_timer
     global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
-    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase, blacksmith_hammer_swing_auto
+    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_shield_impact_timer
     global blacksmith_umbrella_retracting, blacksmith_umbrella_anim_direction
@@ -17097,7 +17088,6 @@ def handle_player(keys):
                 blacksmith_walk_direction = 0
                 blacksmith_hammer_swing_active = False
                 blacksmith_hammer_swing_phase = 0
-                blacksmith_hammer_swing_auto = False
                 blacksmith_shield_swing_active = False
                 blacksmith_shield_swing_timer = 0
                 blacksmith_hammer_shock_charging = False
@@ -19276,14 +19266,12 @@ def handle_player(keys):
             if hit_on_right:
                 blacksmith_shield_swing_active = False
                 blacksmith_shield_swing_timer = 0
-                blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_phase = BLACKSMITH_HAMMER_SWING_DURATION
                 blacksmith_hammer_swing_active = True
-                blacksmith_hammer_swing_auto = True
                 
             else:
                 blacksmith_hammer_swing_active = False
                 blacksmith_hammer_swing_phase = 0
-                blacksmith_hammer_swing_auto = False
                 blacksmith_shield_swing_active = True
                 blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
         
@@ -25743,14 +25731,6 @@ def draw_objects():
             else:
                 base_ufo_img = SOLDIER_PADDLE_IMG if include_right_arm else SOLDIER_PADDLE_IMG_NO_RIGHT_ARM
         elif selected_character_type == "blacksmith":
-            if blacksmith_hammer_swing_active and blacksmith_hammer_swing_auto:
-                if blacksmith_hammer_swing_phase < BLACKSMITH_HAMMER_SWING_DURATION:
-                    blacksmith_hammer_swing_phase += 1
-                else:
-                    blacksmith_hammer_swing_active = False
-                    blacksmith_hammer_swing_phase = 0
-                    blacksmith_hammer_swing_auto = False
-
             if blacksmith_umbrella_open:
                 if BLACKSMITH_UMBRELLA_ANIM_FRAMES > 0:
                     anim_fraction = max(0.0, min(1.0, blacksmith_umbrella_anim_timer / BLACKSMITH_UMBRELLA_ANIM_FRAMES))
@@ -29731,7 +29711,7 @@ def show_start_screen():
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
     global blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
-    global blacksmith_hammer_projectiles_paused, blacksmith_hammer_swing_auto
+    global blacksmith_hammer_projectiles_paused
     blacksmith_hammer_available = True
     blacksmith_hammer_shock_charging = False
     blacksmith_hammer_shock_charge_frames = 0
@@ -29741,7 +29721,6 @@ def show_start_screen():
     blacksmith_hammer_last_update_frame = globals().get("frame_counter", 0)
     blacksmith_hammer_last_update_ms = pygame.time.get_ticks()
     blacksmith_hammer_projectiles_paused = False
-    blacksmith_hammer_swing_auto = False
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     blacksmith_hammer_shock_anchor_x = 0
     blacksmith_hammer_shock_anchor_y = 0
@@ -41469,8 +41448,6 @@ def reset_round():
         blacksmith_hammer_swing_active = False
     if 'blacksmith_hammer_swing_phase' in globals():
         blacksmith_hammer_swing_phase = 0
-    if 'blacksmith_hammer_swing_auto' in globals():
-        blacksmith_hammer_swing_auto = False
     if 'blacksmith_manual_hammer_timer' in globals():
         blacksmith_manual_hammer_timer = 0
 
@@ -50321,7 +50298,6 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_shield_swing_timer = 0
     blacksmith_hammer_swing_active = False
     blacksmith_hammer_swing_phase = 0
-    blacksmith_hammer_swing_auto = False
     blacksmith_manual_hammer_timer = 0
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
     global blacksmith_turret_build_progress, blacksmith_turret_active
@@ -51550,7 +51526,6 @@ def main(stage_num, new_boss_mode=False):
                                 special_ready = False
                             blacksmith_shield_swing_active = False
                             blacksmith_shield_swing_timer = 0
-                            blacksmith_hammer_swing_auto = False
                             blacksmith_hammer_swing_active = True
                             blacksmith_hammer_swing_phase = 0
                             blacksmith_manual_hammer_timer = BLACKSMITH_HAMMER_SWING_DURATION
