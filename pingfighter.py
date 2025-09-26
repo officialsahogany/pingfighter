@@ -4815,12 +4815,18 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
                     anchor_offset_x = blacksmith_umbrella_anchor_left
             else:
                 blacksmith_umbrella_anchor_left = anchor_offset_x
+                if blacksmith_umbrella_anchor_right is None:
+                    blacksmith_umbrella_anchor_right = anchor_offset_x
         else:
             if blacksmith_umbrella_swing_active:
                 if blacksmith_umbrella_anchor_right is not None:
                     anchor_offset_x = blacksmith_umbrella_anchor_right
+                elif blacksmith_umbrella_anchor_left is not None:
+                    anchor_offset_x = blacksmith_umbrella_anchor_left
             else:
                 blacksmith_umbrella_anchor_right = anchor_offset_x
+                if blacksmith_umbrella_anchor_left is None:
+                    blacksmith_umbrella_anchor_left = anchor_offset_x
 
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
@@ -16930,6 +16936,11 @@ def handle_player(keys):
             blacksmith_umbrella_swing_active and blacksmith_umbrella_swing_stage == 1
         )
 
+        if blacksmith_umbrella_swing_active and blacksmith_umbrella_locked_player_x is not None:
+            PLAYER.x = blacksmith_umbrella_locked_player_x
+        elif not blacksmith_umbrella_swing_active:
+            blacksmith_umbrella_locked_player_x = None
+
         swing_trigger_direction = 0
         if left_pressed_raw and not right_pressed_raw:
             swing_trigger_direction = 1
@@ -16951,6 +16962,7 @@ def handle_player(keys):
             blacksmith_umbrella_swing_stage = 0
             blacksmith_umbrella_swing_progress = 0.0
             blacksmith_umbrella_swing_direction = swing_trigger_direction
+            blacksmith_umbrella_locked_player_x = PLAYER.x
 
     if umbrella_lock_active:
         space_pressed = False
@@ -50014,6 +50026,8 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
     blacksmith_umbrella_anchor_left = None
     blacksmith_umbrella_anchor_right = None
+    global blacksmith_umbrella_locked_player_x
+    blacksmith_umbrella_locked_player_x = None
     blacksmith_walking_active = False
     blacksmith_walking_timer = 0
     blacksmith_walk_direction = 0
