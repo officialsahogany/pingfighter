@@ -4817,28 +4817,29 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         stored_left = blacksmith_umbrella_anchor_left
         stored_right = blacksmith_umbrella_anchor_right
 
-        # 스윙 중에는 저장된 기준점을 사용하고, 아닌 경우 현재 값을 저장한다.
+        if stored_left is None:
+            stored_left = raw_anchor_offset_x
+            blacksmith_umbrella_anchor_left = stored_left
+
+        mirror_correction = 0
+        if swing_dir < 0:
+            mirror_correction = stored_left - raw_anchor_offset_x
+
+        anchor_offset_x = raw_anchor_offset_x + mirror_correction
+
         if blacksmith_umbrella_swing_active:
             if swing_dir > 0:
-                if stored_left is None:
-                    blacksmith_umbrella_anchor_left = raw_anchor_offset_x
-                    stored_left = raw_anchor_offset_x
-                anchor_offset_x = stored_left
+                blacksmith_umbrella_anchor_left = anchor_offset_x
             else:
-                if stored_right is None or stored_right == stored_left:
-                    blacksmith_umbrella_anchor_right = raw_anchor_offset_x
-                    stored_right = raw_anchor_offset_x
-                anchor_offset_x = stored_right
+                stored_right = anchor_offset_x
+                blacksmith_umbrella_anchor_right = stored_right
         else:
             if swing_dir > 0:
-                blacksmith_umbrella_anchor_left = raw_anchor_offset_x
-            elif swing_dir < 0:
-                blacksmith_umbrella_anchor_right = raw_anchor_offset_x
-            anchor_offset_x = raw_anchor_offset_x
-            if blacksmith_umbrella_anchor_left is None:
-                blacksmith_umbrella_anchor_left = raw_anchor_offset_x
-            if blacksmith_umbrella_anchor_right is None:
-                blacksmith_umbrella_anchor_right = raw_anchor_offset_x
+                blacksmith_umbrella_anchor_left = anchor_offset_x
+            else:
+                blacksmith_umbrella_anchor_right = anchor_offset_x
+                if blacksmith_umbrella_anchor_right is None:
+                    blacksmith_umbrella_anchor_right = anchor_offset_x
 
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
             print(
