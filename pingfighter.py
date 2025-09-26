@@ -18860,6 +18860,15 @@ def handle_player(keys):
 
             center_offset_x_scaled = blacksmith_umbrella_hitbox_center_offset[0] * scale_applied
             pivot_centerx = float(effective_centerx + center_offset_x_scaled)
+            # 스윙 방향별 미세 보정 적용
+            if BLACKSMITH_UMBRELLA_HITBOX_STRICT:
+                bias = (
+                    BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_LEFT
+                    if swing_dir > 0
+                    else BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_RIGHT
+                )
+                if bias != 0:
+                    pivot_centerx += float(bias) * scale_applied
             center_offset_x_effective = 0.0
             center_offset_y_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[1] * scale_applied))
 
