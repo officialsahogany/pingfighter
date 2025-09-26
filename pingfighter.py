@@ -4811,15 +4811,13 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         # 방향 전환 시점에 현재 기준점을 갱신해 좌우 스윙에서 위치가 순간이동하지 않도록 유지한다.
         if blacksmith_umbrella_anchor_base_x is None:
             blacksmith_umbrella_anchor_base_x = anchor_offset_x
+
+        if blacksmith_umbrella_swing_active:
+            anchor_offset_x = blacksmith_umbrella_anchor_base_x
             blacksmith_umbrella_anchor_dir = swing_dir
-        elif not blacksmith_umbrella_swing_active:
+        else:
             blacksmith_umbrella_anchor_base_x = anchor_offset_x
             blacksmith_umbrella_anchor_dir = None
-        elif blacksmith_umbrella_anchor_dir != swing_dir:
-            anchor_offset_x = blacksmith_umbrella_anchor_base_x
-            blacksmith_umbrella_anchor_dir = swing_dir
-        elif blacksmith_umbrella_anchor_base_x is not None:
-            anchor_offset_x = blacksmith_umbrella_anchor_base_x
 
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
