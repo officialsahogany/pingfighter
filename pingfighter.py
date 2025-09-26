@@ -4725,11 +4725,18 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     global blacksmith_umbrella_body_offset, blacksmith_umbrella_hitbox_extents
     global blacksmith_umbrella_hitbox_vertical, blacksmith_umbrella_hitbox_center_offset
     global blacksmith_umbrella_hitbox_direction, blacksmith_umbrella_hitbox_raw
+    global blacksmith_umbrella_swing_direction
+
+    swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
 
     base_width = 250
     body_height = 120
-    left_padding = 210  # 우산이 왼쪽으로 크게 펼쳐질 때 잘리지 않도록 여유 공간 확보
-    right_padding = 60
+    if swing_dir > 0:
+        left_padding = 210  # 우산이 왼쪽으로 크게 펼쳐질 때 잘리지 않도록 여유 공간 확보
+        right_padding = 60
+    else:
+        left_padding = 60
+        right_padding = 210
     final_width = base_width + left_padding + right_padding
     final_height = 620
     body_surface = pygame.Surface((base_width, body_height), pygame.SRCALPHA)
