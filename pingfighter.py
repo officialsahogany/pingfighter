@@ -3975,15 +3975,15 @@ def _draw_blacksmith_upper(
 
         if effective_pre > 0:
             right_shoulder = (
-                right_shoulder[0] - 4.0 * effective_pre,
+                right_shoulder[0] - 4.0 * effective_pre * swing_dir,
                 right_shoulder[1] - 12.0 * effective_pre,
             )
             right_elbow = (
-                right_elbow[0] - 12.0 * effective_pre,
+                right_elbow[0] - 12.0 * effective_pre * swing_dir,
                 right_elbow[1] - 28.0 * effective_pre,
             )
             right_wrist = (
-                right_wrist[0] - 20.0 * effective_pre,
+                right_wrist[0] - 20.0 * effective_pre * swing_dir,
                 right_wrist[1] - 36.0 * effective_pre,
             )
 
@@ -3993,15 +3993,15 @@ def _draw_blacksmith_upper(
             upward_shift = 36.0 * swing_curve
             forward_drop = 10.0 * effective_main
             right_shoulder = (
-                right_shoulder[0] - lateral_shift * 0.5,
+                right_shoulder[0] - lateral_shift * 0.5 * swing_dir,
                 right_shoulder[1] - upward_shift / 3.0,
             )
             right_elbow = (
-                right_elbow[0] - lateral_shift * 0.9,
+                right_elbow[0] - lateral_shift * 0.9 * swing_dir,
                 right_elbow[1] - upward_shift,
             )
             right_wrist = (
-                right_wrist[0] - lateral_shift * 1.35,
+                right_wrist[0] - lateral_shift * 1.35 * swing_dir,
                 right_wrist[1] - upward_shift - forward_drop,
             )
     arm_polygon_points = [
@@ -4021,7 +4021,7 @@ def _draw_blacksmith_upper(
     hand_center = (right_wrist[0] + 6.0, right_wrist[1] + 4.0)
     if umbrella_pose_active:
         hand_center = (
-            right_wrist[0] + 1.0 - 3.0 * swing_main_blend,
+            right_wrist[0] + 1.0 - 3.0 * swing_main_blend * swing_dir,
             right_wrist[1]
             - (1.0 + 4.0 * umbrella_raise + 10.0 * swing_pre_blend + 16.0 * swing_main_blend),
         )
@@ -4050,8 +4050,8 @@ def _draw_blacksmith_upper(
     swing_angle += hammer_raise * math.radians(10)
     if umbrella_pose_active:
         swing_angle = -math.pi / 2 + math.radians(8 * (1.0 - umbrella_raise))
-        swing_angle -= math.radians(18 * swing_pre_blend)
-        swing_angle -= math.radians(32 * swing_main_blend)
+        swing_angle -= math.radians(18 * swing_pre_blend) * swing_dir
+        swing_angle -= math.radians(32 * swing_main_blend) * swing_dir
     direction_vec = pygame.math.Vector2(math.cos(swing_angle), math.sin(swing_angle))
     if direction_vec.length_squared() == 0:
         direction_vec = pygame.math.Vector2(0, -1)
