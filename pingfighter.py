@@ -17492,12 +17492,27 @@ def handle_player(keys):
     else:
         speed_factor = 1.0
 
-    if (
+    umbrella_guarding = (
         selected_character_type == "blacksmith"
         and blacksmith_umbrella_open
         and not blacksmith_umbrella_retracting
-    ):
+    )
+    if umbrella_guarding:
         speed_factor *= 0.6
+
+    def apply_umbrella_turn_penalty(current_value: float, target_value: float) -> float:
+        """우산 가드 중에는 좌우 전환을 점진적으로 적용한다."""
+        if not umbrella_guarding:
+            return target_value
+        # 같은 방향(또는 정지) 진입은 기존 응답성을 유지한다.
+        if current_value == 0 or (current_value > 0 and target_value >= 0) or (current_value < 0 and target_value <= 0):
+            return target_value
+        max_step = abs(target_value) * BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
+        max_step = max(0.1, max_step)
+        delta = target_value - current_value
+        if delta > 0:
+            return current_value + min(delta, max_step)
+        return current_value + max(delta, -max_step)
     # === 롱부스트 타이머 체크 및 점진적 크기 변화 ===
     if long_boost_active:
         if long_boost_timer > 0:
