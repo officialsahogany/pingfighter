@@ -4814,17 +4814,15 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         raw_anchor_offset_x = anchor_offset_x
 
         global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
-        stored_left = blacksmith_umbrella_anchor_left
-        stored_right = blacksmith_umbrella_anchor_right
-
+        # 우산 스윙 방향과 무관하게 현재 프레임에서 산출된 앵커 오프셋을 그대로 사용한다.
+        # (이전에는 왼쪽 앵커를 반사 대칭해 오른쪽에 재사용했는데, space+→ 오른쪽 스윙에서
+        #  그래픽과 히트박스가 어긋나는 문제가 있었다. 비대칭 패딩/포즈 때문에 좌/우 오프셋이 동일하지 않으므로
+        #  각 방향에서 계산된 raw 값을 직접 사용한다.)
         if swing_dir > 0:
             blacksmith_umbrella_anchor_left = raw_anchor_offset_x
-            anchor_offset_x = raw_anchor_offset_x
-            base_left = raw_anchor_offset_x
         else:
-            base_left = stored_left if stored_left is not None else raw_anchor_offset_x
-            anchor_offset_x = -base_left
-            blacksmith_umbrella_anchor_right = anchor_offset_x
+            blacksmith_umbrella_anchor_right = raw_anchor_offset_x
+        anchor_offset_x = raw_anchor_offset_x
 
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
             print(
