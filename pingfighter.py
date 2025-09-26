@@ -25657,8 +25657,12 @@ def draw_objects():
         )
         pivot_point = center_vec + rotated_pivot
         player_rect = rotated_player.get_rect()
+        # 우산 스윙 시 anchor offset 적용
+        anchor_x_offset = 0
+        if blacksmith_umbrella_open and blacksmith_umbrella_swing_active:
+            anchor_x_offset = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
         player_rect.topleft = (
-            int(round(PLAYER.centerx + screen_shake_offset_x - pivot_point.x)),
+            int(round(PLAYER.centerx + screen_shake_offset_x + anchor_x_offset - pivot_point.x)),
             int(round((PLAYER.bottom + screen_shake_offset_y + player_knockback_y) - pivot_point.y)),
         )
 
