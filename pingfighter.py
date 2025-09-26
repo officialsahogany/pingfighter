@@ -5358,6 +5358,9 @@ blacksmith_umbrella_locked_player_x: int | None = None
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 blacksmith_umbrella_anchor_smoothed_x: float = 0.0
 paddle_scale_ratio: float = 1.0
+# 스윙 메인 단계에서 우산 폴리곤 경계를 1:1로 쓰는 엄격 모드
+BLACKSMITH_UMBRELLA_HITBOX_STRICT = True
+blacksmith_umbrella_hitbox_extents_strict: tuple[float, float] = (0.0, 0.0)
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 6
 BLACKSMITH_UMBRELLA_DOWNWARD_CAP = 32  # 플레이어 패들 방향으로 내려오는 우산 판정 최대 길이(픽셀)
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
@@ -18823,6 +18826,8 @@ def handle_player(keys):
         # (이전의 스왑은 우산 도형과 히트박스 좌우가 반전되어 보이는 원인이었다.)
 
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
+            if BLACKSMITH_UMBRELLA_HITBOX_STRICT:
+                left_extent, right_extent = blacksmith_umbrella_hitbox_extents_strict
             left_extent_scaled = left_extent * scale_applied
             right_extent_scaled = right_extent * scale_applied
             sweep_bias = 1.5  # 스윙 방향으로 판정 범위를 넓혀 가드 각 강화
