@@ -6839,7 +6839,7 @@ def update_blacksmith_hammer_shock(keys):
     current_ticks = pygame.time.get_ticks()
 
     umbrella_blocks_hammer_shock = blacksmith_umbrella_open and not blacksmith_umbrella_retracting
-    if umbrella_blocks_hammer_shock and blacksmith_hammer_shock_charging:
+    if umbrella_blocks_hammer_shock and blacksmith_hammer_shock_charging and not blacksmith_hammer_shock_projectiles:
         blacksmith_hammer_shock_charging = False
         blacksmith_hammer_shock_charge_frames = 0
         blacksmith_hammer_shock_stage = 0
