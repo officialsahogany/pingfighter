@@ -29639,6 +29639,8 @@ def show_start_screen():
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
+    global blacksmith_hammer_last_update_frame
+    global blacksmith_hammer_last_update_frame
     blacksmith_hammer_available = True
     blacksmith_hammer_shock_charging = False
     blacksmith_hammer_shock_charge_frames = 0
