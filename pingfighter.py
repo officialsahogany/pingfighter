@@ -4811,7 +4811,9 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         # 방향 전환과 관계없이 스윙 중에는 고정된 기준점을 사용하고, 스윙이 끝났을 때만 방향별 기준점을 갱신한다.
         if swing_dir > 0:
             if blacksmith_umbrella_swing_active:
-                if blacksmith_umbrella_anchor_left is not None:
+                if blacksmith_umbrella_anchor_left is None:
+                    blacksmith_umbrella_anchor_left = anchor_offset_x
+                else:
                     anchor_offset_x = blacksmith_umbrella_anchor_left
             else:
                 blacksmith_umbrella_anchor_left = anchor_offset_x
@@ -4819,10 +4821,10 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
                     blacksmith_umbrella_anchor_right = anchor_offset_x
         else:
             if blacksmith_umbrella_swing_active:
-                if blacksmith_umbrella_anchor_right is not None:
+                if blacksmith_umbrella_anchor_right is None:
+                    blacksmith_umbrella_anchor_right = anchor_offset_x
+                else:
                     anchor_offset_x = blacksmith_umbrella_anchor_right
-                elif blacksmith_umbrella_anchor_left is not None:
-                    anchor_offset_x = blacksmith_umbrella_anchor_left
             else:
                 blacksmith_umbrella_anchor_right = anchor_offset_x
                 if blacksmith_umbrella_anchor_left is None:
