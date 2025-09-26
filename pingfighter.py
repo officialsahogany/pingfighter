@@ -16513,6 +16513,7 @@ def handle_player(keys):
     global blacksmith_umbrella_anchor_smoothed_x  # 전역 변수 선언 추가
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
+    global blacksmith_hammer_shock_cooldown_timer
     global blacksmith_hammer_charge_position, blacksmith_build_menu_active
     global soldier_swing_active, soldier_swing_timer
     global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
@@ -16948,7 +16949,7 @@ def handle_player(keys):
                 not blacksmith_build_menu_active
                 and not blacksmith_turret_blueprint_active
                 and not blacksmith_hammer_shock_charging
-                and blacksmith_hammer_available
+                and (blacksmith_hammer_available or blacksmith_hammer_shock_cooldown_timer > 0)
             ):
                 blacksmith_umbrella_open = True
                 blacksmith_umbrella_retracting = False
