@@ -7058,10 +7058,23 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
 
     # Draw actual hammers
     hammer_surface = _get_blacksmith_thrown_hammer_surface()
+    synced_projectiles: list[dict] = []
     for proj in blacksmith_hammer_shock_projectiles:
+        if 'frame_counter' in globals():
+            last_frame = int(proj.get("_last_update_frame", frame_counter))
+            frames_pending = max(0, frame_counter - last_frame)
+            if frames_pending > 0:
+                if not _advance_blacksmith_hammer_projectile(proj, frames_pending):
+                    continue
+                proj["_last_update_frame"] = frame_counter
+        synced_projectiles.append(proj)
         rotated = pygame.transform.rotate(hammer_surface, proj.get("rotation", 0.0))
         rect = rotated.get_rect(center=(int(proj["x"] + offset_x), int(proj["y"] + offset_y)))
         surface.blit(rotated, rect)
+
+    # Replace the projectile list with the filtered/synced copy if any changes occurred.
+    if len(synced_projectiles) != len(blacksmith_hammer_shock_projectiles):
+        blacksmith_hammer_shock_projectiles[:] = synced_projectiles
     
     # Draw shatter particles
     for particle in blacksmith_hammer_shock_particles:
