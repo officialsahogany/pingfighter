@@ -18828,10 +18828,9 @@ def handle_player(keys):
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
         swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
         
-        # 스윙 중일 때는 플레이어 위치가 이미 고정되어 있으므로
-        # anchor_smoothed_x를 사용해서 실제 우산 위치를 계산
+        # 렌더링과 동일한 로직으로 offset 적용
         if blacksmith_umbrella_swing_active:
-            # 플레이어가 고정된 상태에서 우산의 실제 위치는 anchor offset만큼 이동
+            # 스윙 중일 때는 anchor_smoothed_x 사용
             anchor_offset = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
             effective_centerx += anchor_offset
         else:
@@ -25670,15 +25669,18 @@ def draw_objects():
         pivot_point = center_vec + rotated_pivot
         player_rect = rotated_player.get_rect()
         # 우산 스윙 시 anchor offset 적용
-        # 오른쪽 스윙의 경우 플레이어 위치가 이미 보정되어 있으므로 추가 offset 불필요
         anchor_x_offset = 0
         if blacksmith_umbrella_open and blacksmith_umbrella_swing_active:
-            if blacksmith_umbrella_swing_direction >= 0:  # 왼쪽 스윙만 offset 적용
-                anchor_x_offset = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
+            anchor_x_offset = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
         player_rect.topleft = (
             int(round(PLAYER.centerx + screen_shake_offset_x + anchor_x_offset - pivot_point.x)),
             int(round((PLAYER.bottom + screen_shake_offset_y + player_knockback_y) - pivot_point.y)),
         )
+        
+        # 디버그: 렌더링된 플레이어 위치 추적
+        if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR and blacksmith_umbrella_open and blacksmith_umbrella_swing_active:
+            visual_centerx = player_rect.centerx
+            print(f"[DEBUG RENDER] PLAYER.centerx={PLAYER.centerx}, anchor_offset={anchor_x_offset}, visual_centerx={visual_centerx}")
 
         target_bottom = int(
             round(
