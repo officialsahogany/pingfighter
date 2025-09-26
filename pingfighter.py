@@ -3654,6 +3654,7 @@ def _draw_blacksmith_upper(
     umbrella_swing_active = False
     umbrella_swing_stage = 0
     umbrella_swing_progress_value = 0.0
+    swing_dir = 1
     if umbrella_pose_active:
         try:
             umbrella_swing_active = blacksmith_umbrella_swing_active
@@ -3661,12 +3662,14 @@ def _draw_blacksmith_upper(
             umbrella_swing_progress_value = blacksmith_umbrella_swing_progress
             recover_pre_blend = blacksmith_umbrella_swing_recover_pre
             recover_main_blend = blacksmith_umbrella_swing_recover_main
+            swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
         except NameError:
             umbrella_swing_active = False
             umbrella_swing_stage = 0
             umbrella_swing_progress_value = 0.0
             recover_pre_blend = 0.0
             recover_main_blend = 0.0
+            swing_dir = 1
         umbrella_swing_progress_value = max(0.0, min(1.0, umbrella_swing_progress_value))
         if umbrella_swing_active:
             if umbrella_swing_stage == 0:
