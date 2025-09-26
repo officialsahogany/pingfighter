@@ -18795,9 +18795,6 @@ def handle_player(keys):
         up_span = 0.0
         down_span = 0.0
 
-        if swing_dir < 0:
-            left_extent, right_extent = right_extent, left_extent
-
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
             left_extent_scaled = left_extent * scale_applied
             right_extent_scaled = right_extent * scale_applied
