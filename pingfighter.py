@@ -4737,9 +4737,12 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     base_width = 250
     body_height = 120
-    # 좌우 스윙 전환 시 기준점이 이동하지 않도록 좌우 패딩을 동일하게 유지한다.
-    left_padding = 210
-    right_padding = 210
+    if swing_dir > 0:
+        left_padding = 210  # 우산이 왼쪽으로 크게 펼쳐질 때 잘리지 않도록 여유 공간 확보
+        right_padding = 60
+    else:
+        left_padding = 60
+        right_padding = 210
     final_width = base_width + left_padding + right_padding
     final_height = 620
     body_surface = pygame.Surface((base_width, body_height), pygame.SRCALPHA)
@@ -4815,9 +4818,11 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         if swing_dir > 0:
             if blacksmith_umbrella_swing_active:
                 if blacksmith_umbrella_anchor_left is None:
-                    blacksmith_umbrella_anchor_left = anchor_offset_x
-                else:
-                    anchor_offset_x = blacksmith_umbrella_anchor_left
+                    if blacksmith_umbrella_anchor_right is not None:
+                        blacksmith_umbrella_anchor_left = blacksmith_umbrella_anchor_right
+                    else:
+                        blacksmith_umbrella_anchor_left = anchor_offset_x
+                anchor_offset_x = blacksmith_umbrella_anchor_left
             else:
                 blacksmith_umbrella_anchor_left = anchor_offset_x
                 if blacksmith_umbrella_anchor_right is None:
@@ -4825,9 +4830,11 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         else:
             if blacksmith_umbrella_swing_active:
                 if blacksmith_umbrella_anchor_right is None:
-                    blacksmith_umbrella_anchor_right = anchor_offset_x
-                else:
-                    anchor_offset_x = blacksmith_umbrella_anchor_right
+                    if blacksmith_umbrella_anchor_left is not None:
+                        blacksmith_umbrella_anchor_right = blacksmith_umbrella_anchor_left
+                    else:
+                        blacksmith_umbrella_anchor_right = anchor_offset_x
+                anchor_offset_x = blacksmith_umbrella_anchor_right
             else:
                 blacksmith_umbrella_anchor_right = anchor_offset_x
                 if blacksmith_umbrella_anchor_left is None:
