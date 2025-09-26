@@ -18830,7 +18830,7 @@ def handle_player(keys):
             down_span *= guard_scale
 
         guard_vertical_offset = (
-            BLACKSMITH_UMBRELLA_GUARD_UPWARD_OFFSET
+            BLACKSMITH_UMBRELLA_GUARD_UPWARD_OFFSET * scale_applied
             if not umbrella_swinging_main
             else 0.0
         )
