@@ -17516,6 +17516,8 @@ def handle_player(keys):
         if delta > 0:
             return current_value + min(delta, max_step)
         return current_value + max(delta, -max_step)
+
+    umbrella_turn_blocked = False
     # === 롱부스트 타이머 체크 및 점진적 크기 변화 ===
     if long_boost_active:
         if long_boost_timer > 0:
