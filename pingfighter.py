@@ -4807,19 +4807,20 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         if abs(padding_bias) > 0.01:
             anchor_offset_x -= int(round(padding_bias / scale_value))
 
-        global blacksmith_umbrella_anchor_base_x, blacksmith_umbrella_anchor_dir
-        # 방향 전환 시점에 현재 기준점을 갱신해 좌우 스윙에서 위치가 순간이동하지 않도록 유지한다.
-        if blacksmith_umbrella_anchor_base_x is None:
-            blacksmith_umbrella_anchor_base_x = anchor_offset_x
-
-        if blacksmith_umbrella_swing_active:
-            anchor_offset_x = blacksmith_umbrella_anchor_base_x
-            blacksmith_umbrella_anchor_dir = swing_dir
-        elif blacksmith_umbrella_swing_direction >= 0:
-            blacksmith_umbrella_anchor_base_x = anchor_offset_x
-            blacksmith_umbrella_anchor_dir = None
+        global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
+        # 방향 전환과 관계없이 스윙 중에는 고정된 기준점을 사용하고, 스윙이 끝났을 때만 방향별 기준점을 갱신한다.
+        if swing_dir > 0:
+            if blacksmith_umbrella_swing_active:
+                if blacksmith_umbrella_anchor_left is not None:
+                    anchor_offset_x = blacksmith_umbrella_anchor_left
+            else:
+                blacksmith_umbrella_anchor_left = anchor_offset_x
         else:
-            anchor_offset_x = blacksmith_umbrella_anchor_base_x
+            if blacksmith_umbrella_swing_active:
+                if blacksmith_umbrella_anchor_right is not None:
+                    anchor_offset_x = blacksmith_umbrella_anchor_right
+            else:
+                blacksmith_umbrella_anchor_right = anchor_offset_x
 
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
@@ -5320,8 +5321,8 @@ blacksmith_umbrella_hitbox_raw: dict[str, float] | None = None
 blacksmith_umbrella_overlay_bounds: tuple[float, float] | None = None
 blacksmith_umbrella_overlay_surface: pygame.Surface | None = None
 blacksmith_umbrella_swing_direction: int = 1
-blacksmith_umbrella_anchor_base_x: int | None = None
-blacksmith_umbrella_anchor_dir: int | None = None
+blacksmith_umbrella_anchor_left: int | None = None
+blacksmith_umbrella_anchor_right: int | None = None
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 paddle_scale_ratio: float = 1.0
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 6
