@@ -7084,12 +7084,23 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
     hammer_surface = _get_blacksmith_thrown_hammer_surface()
     synced_projectiles: list[dict] = []
     for proj in blacksmith_hammer_shock_projectiles:
+        frames_pending = 0
         if 'frame_counter' in globals():
             last_frame = int(proj.get("_last_update_frame", frame_counter))
             frames_pending = max(0, frame_counter - last_frame)
-            if frames_pending > 0:
-                if not _advance_blacksmith_hammer_projectile(proj, frames_pending):
-                    continue
+        if frames_pending == 0:
+            last_ms = int(proj.get("_last_update_ms", blacksmith_hammer_last_update_ms))
+            now_ms = pygame.time.get_ticks()
+            if now_ms > last_ms:
+                elapsed_ms = now_ms - last_ms
+                frames_pending = int(elapsed_ms * FPS / 1000)
+                if frames_pending <= 0 and elapsed_ms > 0:
+                    frames_pending = 1
+                proj["_last_update_ms"] = now_ms
+        if frames_pending > 0:
+            if not _advance_blacksmith_hammer_projectile(proj, frames_pending):
+                continue
+            if 'frame_counter' in globals():
                 proj["_last_update_frame"] = frame_counter
         synced_projectiles.append(proj)
         rotated = pygame.transform.rotate(hammer_surface, proj.get("rotation", 0.0))
@@ -50297,6 +50308,8 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_shock_cooldown_timer = 0
     blacksmith_hammer_shock_projectiles.clear()
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
+    global blacksmith_hammer_last_update_ms
+    blacksmith_hammer_last_update_ms = pygame.time.get_ticks()
     blacksmith_hammer_shock_anchor_x = PLAYER.centerx if 'PLAYER' in globals() and PLAYER else 0
     blacksmith_hammer_shock_anchor_y = PLAYER.centery if 'PLAYER' in globals() and PLAYER else 0
     global blacksmith_ground_cracks
