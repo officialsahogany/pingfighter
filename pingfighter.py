@@ -5939,21 +5939,38 @@ def _sync_blacksmith_hammer_projectiles_to_frame(target_frame: int):
     """Catch projectiles up to the provided frame if the main update was skipped."""
 
     global blacksmith_hammer_shock_projectiles, blacksmith_hammer_last_update_frame
-    global blacksmith_hammer_shock_cooldown_timer
+    global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_last_update_ms
 
-    if target_frame <= blacksmith_hammer_last_update_frame:
+    current_ticks = pygame.time.get_ticks()
+
+    if (
+        target_frame <= blacksmith_hammer_last_update_frame
+        and current_ticks <= blacksmith_hammer_last_update_ms
+    ):
         return
 
-    frames_elapsed = target_frame - blacksmith_hammer_last_update_frame
+    frames_elapsed = max(0, target_frame - blacksmith_hammer_last_update_frame)
+    frames_elapsed_by_time = 0
+    if current_ticks > blacksmith_hammer_last_update_ms:
+        elapsed_ms = current_ticks - blacksmith_hammer_last_update_ms
+        frames_elapsed_by_time = int(elapsed_ms * FPS / 1000)
+    frames_elapsed = max(frames_elapsed, frames_elapsed_by_time)
 
     new_projectiles: list[dict] = []
     for proj in blacksmith_hammer_shock_projectiles:
         last_frame = int(proj.get("_last_update_frame", blacksmith_hammer_last_update_frame))
-        frames_pending = target_frame - last_frame
+        frames_pending = max(0, target_frame - last_frame)
+        if frames_pending == 0 and current_ticks > blacksmith_hammer_last_update_ms:
+            last_ms = int(proj.get("_last_update_ms", blacksmith_hammer_last_update_ms))
+            elapsed_ms = current_ticks - last_ms
+            frames_from_time = int(elapsed_ms * FPS / 1000)
+            frames_pending = max(0, frames_from_time)
         if frames_pending > 0:
             if not _advance_blacksmith_hammer_projectile(proj, frames_pending):
                 continue
-            proj["_last_update_frame"] = target_frame
+            if 'frame_counter' in globals():
+                proj["_last_update_frame"] = target_frame
+            proj["_last_update_ms"] = current_ticks
         new_projectiles.append(proj)
 
     blacksmith_hammer_shock_projectiles = new_projectiles
@@ -5962,6 +5979,7 @@ def _sync_blacksmith_hammer_projectiles_to_frame(target_frame: int):
         blacksmith_hammer_shock_cooldown_timer = max(0, blacksmith_hammer_shock_cooldown_timer - frames_elapsed)
 
     blacksmith_hammer_last_update_frame = target_frame
+    blacksmith_hammer_last_update_ms = current_ticks
     _complete_blacksmith_hammer_cooldown_if_ready()
 
 
@@ -6816,7 +6834,9 @@ def update_blacksmith_hammer_shock(keys):
     global stopwatch_active, stopwatch_timer
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
-    global frame_counter, blacksmith_hammer_last_update_frame
+    global frame_counter, blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
+
+    current_ticks = pygame.time.get_ticks()
 
     umbrella_blocks_hammer_shock = blacksmith_umbrella_open and not blacksmith_umbrella_retracting
     if umbrella_blocks_hammer_shock and blacksmith_hammer_shock_charging:
@@ -6873,10 +6893,12 @@ def update_blacksmith_hammer_shock(keys):
     for proj in blacksmith_hammer_shock_projectiles:
         if _advance_blacksmith_hammer_projectile(proj):
             proj["_last_update_frame"] = frame_counter
+            proj["_last_update_ms"] = current_ticks
             new_projectiles.append(proj)
 
     blacksmith_hammer_shock_projectiles = new_projectiles
     blacksmith_hammer_last_update_frame = frame_counter
+    blacksmith_hammer_last_update_ms = current_ticks
     _complete_blacksmith_hammer_cooldown_if_ready()
 
     # Update ground cracks auto-decay (natural shatter over time)
