@@ -4828,8 +4828,16 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         except NameError:
             current = float(raw_anchor_offset_x)
         target = float(raw_anchor_offset_x)
-        smoothing = 0.28  # 0.0~1.0, 높을수록 빠르게 수렴
-        new_value = current + (target - current) * smoothing
+        # 한 프레임당 최대 이동량을 제한해 갑작스런 점프를 방지
+        max_step = 5.0
+        delta = target - current
+        if delta > max_step:
+            step = max_step
+        elif delta < -max_step:
+            step = -max_step
+        else:
+            step = delta
+        new_value = current + step
         blacksmith_umbrella_anchor_smoothed_x = new_value
         anchor_offset_x = int(round(new_value))
 
@@ -5341,6 +5349,7 @@ blacksmith_umbrella_anchor_left: int | None = None
 blacksmith_umbrella_anchor_right: int | None = None
 blacksmith_umbrella_locked_player_x: int | None = None
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
+blacksmith_umbrella_anchor_smoothed_x: float = 0.0
 paddle_scale_ratio: float = 1.0
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 6
 BLACKSMITH_UMBRELLA_DOWNWARD_CAP = 32  # 플레이어 패들 방향으로 내려오는 우산 판정 최대 길이(픽셀)
@@ -50054,6 +50063,8 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_anchor_right = None
     global blacksmith_umbrella_locked_player_x
     blacksmith_umbrella_locked_player_x = None
+    global blacksmith_umbrella_anchor_smoothed_x
+    blacksmith_umbrella_anchor_smoothed_x = 0.0
     blacksmith_walking_active = False
     blacksmith_walking_timer = 0
     blacksmith_walk_direction = 0
