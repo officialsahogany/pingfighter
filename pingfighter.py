@@ -18789,6 +18789,10 @@ def handle_player(keys):
 
             center_offset_x_effective = 0.0
             center_offset_y_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[1] * scale_applied))
+
+            balanced_half = max(umbrella_half_left, umbrella_half_right)
+            umbrella_half_left = balanced_half
+            umbrella_half_right = balanced_half
         else:
             length_multiplier = 0.85 * 1.8
             left_extent_scaled = left_extent * scale_applied * length_multiplier
