@@ -19490,7 +19490,7 @@ def handle_player(keys):
                 if selected_character_type == "soldier":
                     base_gauge_gain = 50  # 코만도: 게이지 충전 50
                 else:
-                    base_gauge_gain = 80  # 스매셔: 게이지 충전 80
+                    base_gauge_gain = 20  # 발토르(우산)·스매셔 등 기본 게이지 충전 20으로 하향
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
             
