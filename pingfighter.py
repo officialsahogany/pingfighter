@@ -4738,13 +4738,10 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     base_width = 250
     body_height = 120
-    if swing_dir > 0:
-        left_padding = 210  # 우산이 왼쪽으로 크게 펼쳐질 때 잘리지 않도록 여유 공간 확보
-        right_padding = 60
-    else:
-        # 오른쪽 스윙 시에도 우산이 왼쪽으로 펼쳐지므로 충분한 left_padding 필요
-        left_padding = 280  # 우산이 잘리지 않도록 충분한 공간 확보
-        right_padding = 210
+    # 양쪽 스윙 모두 왼쪽 스윙의 padding 값 사용으로 일관된 anchor 계산 보장
+    # 왼쪽 스윙이 정상 동작하므로 이 설정을 양쪽 모두에 적용
+    left_padding = 210  # 우산이 왼쪽으로 크게 펼쳐질 때 잘리지 않도록 여유 공간 확보
+    right_padding = 60
     final_width = base_width + left_padding + right_padding
     final_height = 620
     body_surface = pygame.Surface((base_width, body_height), pygame.SRCALPHA)
@@ -4818,10 +4815,10 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         raw_anchor_offset_x = anchor_offset_x
 
         global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
-        if swing_dir > 0:
-            blacksmith_umbrella_anchor_left = raw_anchor_offset_x
-        else:
-            blacksmith_umbrella_anchor_right = raw_anchor_offset_x
+        # 양쪽 스윙 모두 동일한 anchor 값 사용으로 패들 순간이동 방지
+        # 왼쪽 스윙이 정상 동작하므로 양쪽 모두 동일한 기준점 사용
+        blacksmith_umbrella_anchor_left = raw_anchor_offset_x
+        blacksmith_umbrella_anchor_right = raw_anchor_offset_x
 
         # 스윙 시작 시 피벗이 급격히 변하며 보이는 '순간 이동'을 완화하되,
         # 그래픽/히트박스 정합성은 유지하기 위해 raw 값을 부드럽게 추적한다.
