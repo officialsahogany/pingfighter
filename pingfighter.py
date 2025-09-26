@@ -50059,8 +50059,11 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_umbrella_swing_direction
     blacksmith_umbrella_swing_direction = 1
     global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
+    global blacksmith_umbrella_anchor_adjust_left, blacksmith_umbrella_anchor_adjust_right
     blacksmith_umbrella_anchor_left = None
     blacksmith_umbrella_anchor_right = None
+    blacksmith_umbrella_anchor_adjust_left = 0
+    blacksmith_umbrella_anchor_adjust_right = 0
     global blacksmith_umbrella_locked_player_x
     blacksmith_umbrella_locked_player_x = None
     blacksmith_walking_active = False
