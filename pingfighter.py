@@ -16627,6 +16627,7 @@ def handle_player(keys):
     global short_shot_active, short_shot_timer, short_shot_vertical_timer
     global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
+    global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_shield_impact_timer
@@ -42276,6 +42277,7 @@ def calculate_bounce(paddle):
                 effects_manager.spawn_star_particles(BALL.centerx, BALL.centery, count=10)
             except Exception:
                 pass
+            blacksmith_trail_timer = BLACKSMITH_TRAIL_DURATION
 
     # 스매셔 쇼트 발동 처리 (플레이어 패들 전용)
     if (
