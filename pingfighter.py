@@ -16646,6 +16646,7 @@ def handle_player(keys):
     global blacksmith_umbrella_knockback_active, blacksmith_umbrella_knockback_start_x
     global blacksmith_umbrella_knockback_target_x, blacksmith_umbrella_knockback_velocity, blacksmith_umbrella_knockback_timer
     global blacksmith_umbrella_anchor_smoothed_x  # 전역 변수 선언 추가
+    global blacksmith_umbrella_turn_delay_timer
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_shock_cooldown_timer
