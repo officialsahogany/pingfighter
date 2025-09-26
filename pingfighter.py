@@ -4743,7 +4743,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         right_padding = 60
     else:
         # 오른쪽 스윙 시에도 우산이 왼쪽으로 펼쳐지므로 충분한 left_padding 필요
-        left_padding = 250  # 우산이 잘리지 않도록 충분한 공간 확보
+        left_padding = 280  # 우산이 잘리지 않도록 충분한 공간 확보
         right_padding = 210
     final_width = base_width + left_padding + right_padding
     final_height = 620
