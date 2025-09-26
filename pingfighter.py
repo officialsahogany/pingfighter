@@ -4822,7 +4822,19 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
             blacksmith_umbrella_anchor_left = raw_anchor_offset_x
         else:
             blacksmith_umbrella_anchor_right = raw_anchor_offset_x
-        anchor_offset_x = raw_anchor_offset_x
+
+        # 좌/우 스윙 전환 시 플레이어가 좌우로 '튕겨' 보이는 것을 방지하기 위해
+        # 좌/우에서 측정된 앵커 오프셋의 평균값을 사용해 피벗을 고정한다.
+        # (두 값 중 하나만 알려진 초기 상태에서는 해당 방향의 raw 값을 사용)
+        if (
+            blacksmith_umbrella_anchor_left is not None
+            and blacksmith_umbrella_anchor_right is not None
+        ):
+            anchor_offset_x = int(
+                round((blacksmith_umbrella_anchor_left + blacksmith_umbrella_anchor_right) / 2)
+            )
+        else:
+            anchor_offset_x = raw_anchor_offset_x
 
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
             print(
