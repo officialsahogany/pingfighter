@@ -18828,7 +18828,8 @@ def handle_player(keys):
             if desired_height > player_collision_rect.height:
                 player_collision_rect.height = desired_height
 
-            pivot_centerx = float(effective_centerx)
+            center_offset_x_scaled = blacksmith_umbrella_hitbox_center_offset[0] * scale_applied
+            pivot_centerx = float(effective_centerx + center_offset_x_scaled)
             center_offset_x_effective = 0.0
             center_offset_y_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[1] * scale_applied))
 
