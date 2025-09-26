@@ -17517,7 +17517,7 @@ def handle_player(keys):
             return target_value
         max_step = abs(target_value) * BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
         if target_value == 0:
-            max_step = max(DECELERATION, max_step)
+            max_step = max(0.08, max_step)
         max_step = max(0.00007, max_step)
         delta = target_value - current_value
         if delta > 0:
@@ -18764,7 +18764,6 @@ def handle_player(keys):
 
                             # 무중력벨트: 완전히 기계적인 즉각 이동 (키 누르는 동안만)
                             speed_bonus = 0
-                            stop_step = DECELERATION * devil_dice_speed_multiplier
                             if left_pressed:
                                 target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
                                 if turn_delay_active and input_direction == -1:
