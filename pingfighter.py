@@ -4737,9 +4737,12 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     base_width = 250
     body_height = 120
-    padding_margin = 210
-    left_padding = padding_margin
-    right_padding = padding_margin
+    if swing_dir > 0:
+        left_padding = 210  # 우산이 왼쪽으로 크게 펼쳐질 때 잘리지 않도록 여유 공간 확보
+        right_padding = 60
+    else:
+        left_padding = 60
+        right_padding = 210
     final_width = base_width + left_padding + right_padding
     final_height = 620
     body_surface = pygame.Surface((base_width, body_height), pygame.SRCALPHA)
