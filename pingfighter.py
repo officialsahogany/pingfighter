@@ -16625,7 +16625,7 @@ def handle_player(keys):
     global short_shot_active, short_shot_timer, short_shot_vertical_timer
     global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
-    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
+    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase, blacksmith_hammer_swing_auto
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_shield_impact_timer
     global blacksmith_umbrella_retracting, blacksmith_umbrella_anim_direction
