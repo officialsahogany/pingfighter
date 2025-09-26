@@ -4819,14 +4819,20 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
         # 스윙 중에는 저장된 기준점을 사용하고, 아닌 경우 현재 값을 저장한다.
         if blacksmith_umbrella_swing_active:
-            if swing_dir > 0 and stored_left is not None:
+            if swing_dir > 0:
+                if stored_left is None:
+                    blacksmith_umbrella_anchor_left = raw_anchor_offset_x
+                    stored_left = raw_anchor_offset_x
                 anchor_offset_x = stored_left
-            elif swing_dir <= 0 and stored_right is not None:
+            else:
+                if stored_right is None or stored_right == stored_left:
+                    blacksmith_umbrella_anchor_right = raw_anchor_offset_x
+                    stored_right = raw_anchor_offset_x
                 anchor_offset_x = stored_right
         else:
             if swing_dir > 0:
                 blacksmith_umbrella_anchor_left = raw_anchor_offset_x
-            else:
+            elif swing_dir < 0:
                 blacksmith_umbrella_anchor_right = raw_anchor_offset_x
             anchor_offset_x = raw_anchor_offset_x
             if blacksmith_umbrella_anchor_left is None:
