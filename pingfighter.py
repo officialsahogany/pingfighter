@@ -17005,17 +17005,8 @@ def handle_player(keys):
             blacksmith_umbrella_swing_progress = 0.0
             blacksmith_umbrella_swing_direction = swing_trigger_direction
             
-            # 오른쪽 스윙 시, anchor offset을 고려하여 플레이어 위치 고정
-            # 방패가 왼쪽에 그려지므로, 플레이어도 그에 맞춰 조정
-            if swing_trigger_direction < 0:  # 오른쪽 스윙
-                # anchor_right 값이 이미 계산되어 있다면 사용
-                if blacksmith_umbrella_anchor_right is not None:
-                    offset_compensation = int(round(blacksmith_umbrella_anchor_right * BLACKSMITH_SCALE))
-                    blacksmith_umbrella_locked_player_x = PLAYER.x - offset_compensation
-                else:
-                    blacksmith_umbrella_locked_player_x = PLAYER.x
-            else:
-                blacksmith_umbrella_locked_player_x = PLAYER.x
+            # 플레이어 위치를 고정
+            blacksmith_umbrella_locked_player_x = PLAYER.x
             if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
                 print(
                     f"[DEBUG UMB] swing start dir={swing_trigger_direction} original_player_x={PLAYER.x} locked_x={blacksmith_umbrella_locked_player_x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right}"
@@ -18849,8 +18840,11 @@ def handle_player(keys):
         
         # 디버그: 히트박스 계산 과정 출력
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
-            anchor_val = blacksmith_umbrella_anchor_smoothed_x if blacksmith_umbrella_swing_active else blacksmith_umbrella_body_offset[0]
-            print(f"[DEBUG HITBOX] PLAYER.centerx={PLAYER.centerx}, effective_centerx={effective_centerx}, offset={anchor_val}, swing_active={blacksmith_umbrella_swing_active}")
+            if blacksmith_umbrella_swing_active:
+                offset_val = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
+            else:
+                offset_val = int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
+            print(f"[DEBUG HITBOX] PLAYER.centerx={PLAYER.centerx}, effective_centerx={effective_centerx}, offset={offset_val}, swing_active={blacksmith_umbrella_swing_active}, swing_dir={swing_dir}")
         
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
         center_offset_x_effective = 0.0
