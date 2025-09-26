@@ -8217,6 +8217,7 @@ def draw_blacksmith_turret_ui(surface):
 # 발토르 프리렌더링 시 망치 보유 상태가 필요하므로 기본값을 먼저 지정
 blacksmith_hammer_available = True
 blacksmith_hammer_shock_charging = False
+blacksmith_hammer_last_update_frame = 0
 BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
 BLACKSMITH_PADDLE_NO_HAMMER_IMG = create_blacksmith_paddle_base(include_hammer=False)
 # 기본 패들 렌더링에서 발 위치가 기준선보다 얼마나 아래에 있는지 기록해 우산 포즈에서도 동일한 간격을 유지한다.
