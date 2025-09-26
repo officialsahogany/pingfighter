@@ -4830,6 +4830,11 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
                 if blacksmith_umbrella_anchor_left is None:
                     blacksmith_umbrella_anchor_left = anchor_offset_x
 
+        if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
+            print(
+                f"[DEBUG UMB] swing_dir={swing_dir} active={blacksmith_umbrella_swing_active} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right} offset={anchor_offset_x}"
+            )
+
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
 
@@ -8192,6 +8197,7 @@ BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 12
 BLACKSMITH_UMBRELLA_GUARD_VERTICAL_SCALE = 0.5
 BLACKSMITH_UMBRELLA_GUARD_UPWARD_OFFSET = 62  # 기본 2cm(12px) + 추가 50px 상향 이동 (총 +62px)
 DEBUG_DRAW_UMBRELLA_HITBOX = True
+DEBUG_BLACKSMITH_UMBRELLA_ANCHOR = True
 blacksmith_idle_body_offset: tuple[int, int] = (
     0,
     _blacksmith_base_bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y,
@@ -16940,6 +16946,8 @@ def handle_player(keys):
 
         if blacksmith_umbrella_swing_active and blacksmith_umbrella_locked_player_x is not None:
             PLAYER.x = blacksmith_umbrella_locked_player_x
+            if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
+                print(f"[DEBUG UMB] lock PLAYER.x={PLAYER.x}")
         elif not blacksmith_umbrella_swing_active:
             blacksmith_umbrella_locked_player_x = None
 
@@ -16965,6 +16973,10 @@ def handle_player(keys):
             blacksmith_umbrella_swing_progress = 0.0
             blacksmith_umbrella_swing_direction = swing_trigger_direction
             blacksmith_umbrella_locked_player_x = PLAYER.x
+            if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
+                print(
+                    f"[DEBUG UMB] swing start dir={swing_trigger_direction} player_x={PLAYER.x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right}"
+                )
 
     if umbrella_lock_active:
         space_pressed = False
