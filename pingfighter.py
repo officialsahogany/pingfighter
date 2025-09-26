@@ -27612,16 +27612,24 @@ def draw_objects():
         rotated_ball = pygame.transform.rotate(ball_img_to_draw, ball_angle)
         ball_img_rect = rotated_ball.get_rect(center=ball_rect.center)
         draw_with_shake(rotated_ball, ball_img_rect.topleft)
-    
-    #  드라이브 별빛가루 파티클 그리기 (공 뒤에 그려서 은은하게, 코만도 캐릭터 제외)
-    if drive_ball_active and selected_character_type == "smasher":
-        # 드라이브 활성화 중 계속 파티클 생성 (적은 양으로)
-        if random.random() < 0.3:  # 30% 확률로 파티클 추가 생성
-            spawn_drive_particles(BALL.centerx, BALL.centery, count=1)
-        # 파티클 업데이트 및 그리기
+
+    trail_active = False
+    if blacksmith_trail_timer > 0:
+        blacksmith_trail_timer -= 1
+        trail_active = True
+        effects_manager.spawn_star_particles(BALL.centerx, BALL.centery, count=6)
+        effects_manager.spawn_flame_particles(BALL.centerx, BALL.centery, count=3)
+        if blacksmith_trail_timer % 2 == 0:
+            spawn_drive_particles(BALL.centerx, BALL.centery, count=2)
+
+    #  드라이브 별빛가루 파티클 그리기 (공 뒤에 그려서 은은하게)
+    if (drive_ball_active and selected_character_type == "smasher") or trail_active:
+        if drive_ball_active and selected_character_type == "smasher":
+            if random.random() < 0.3:  # 드라이브 활성화 시 기존 연출 유지
+                spawn_drive_particles(BALL.centerx, BALL.centery, count=1)
         update_drive_particles(BALL.centerx, BALL.centery)
         draw_drive_particles(SCREEN)
-    
+
     # 연기 효과 제거 - 깔끔한 대시 유지
     
     #  라이트닝 마스터 번개 충격 효과 - 공 주위에 번개 고리
