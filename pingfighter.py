@@ -18704,6 +18704,45 @@ def handle_player(keys):
                 else:
                     # 키보드 조작 (감전 상태가 아닐 때만)
                     if not player_stunned:
+                        input_direction = -1 if left_pressed else (1 if right_pressed else 0)
+                        if umbrella_guarding:
+                            current_dir = 0
+                            if current_speed > 0.3:
+                                current_dir = 1
+                            elif current_speed < -0.3:
+                                current_dir = -1
+                            if (
+                                input_direction != 0
+                                and current_dir != 0
+                                and input_direction != current_dir
+                                and abs(current_speed) > 0.3
+                            ):
+                                if (
+                                    blacksmith_umbrella_turn_delay_timer <= 0
+                                    or blacksmith_umbrella_turn_pending_dir != input_direction
+                                ):
+                                    blacksmith_umbrella_turn_delay_timer = BLACKSMITH_UMBRELLA_TURN_DELAY_FRAMES
+                                    blacksmith_umbrella_turn_pending_dir = input_direction
+                            elif (
+                                input_direction == 0
+                                or abs(current_speed) <= 0.3
+                                or input_direction == current_dir
+                            ):
+                                blacksmith_umbrella_turn_delay_timer = 0
+                                blacksmith_umbrella_turn_pending_dir = 0
+                            if (
+                                blacksmith_umbrella_turn_delay_timer > 0
+                                and input_direction == blacksmith_umbrella_turn_pending_dir
+                                and abs(current_speed) > 0.3
+                            ):
+                                blacksmith_umbrella_turn_delay_timer -= 1
+                                umbrella_turn_blocked = True
+                                if blacksmith_umbrella_turn_delay_timer == 0:
+                                    blacksmith_umbrella_turn_pending_dir = 0
+                        else:
+                            blacksmith_umbrella_turn_delay_timer = 0
+                            blacksmith_umbrella_turn_pending_dir = 0
+
                         if gravitybelt_obtained:
                             #  악마의 주사위 플레이어 속도 배율 가져오기
                             devil_dice_speed_multiplier = 1.0
@@ -18716,10 +18755,16 @@ def handle_player(keys):
                             speed_bonus = 0
                             if left_pressed:
                                 target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
-                                current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
+                                if umbrella_turn_blocked and current_speed > 0:
+                                    current_speed = apply_umbrella_turn_penalty(current_speed, 0.0)
+                                else:
+                                    current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
                             elif right_pressed:
                                 target_speed = (effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
-                                current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
+                                if umbrella_turn_blocked and current_speed < 0:
+                                    current_speed = apply_umbrella_turn_penalty(current_speed, 0.0)
+                                else:
+                                    current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
                             else:
                                 # 키를 떼면 즉시 정지
                                 current_speed = apply_umbrella_turn_penalty(current_speed, 0.0)
@@ -18745,16 +18790,22 @@ def handle_player(keys):
                             
                             if left_pressed:
                                 if current_speed > -adjusted_max_speed:
-                                    accel = adjusted_acceleration
-                                    if umbrella_guarding and current_speed > 0:
-                                        accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
-                                    current_speed -= accel
+                                    if umbrella_turn_blocked and current_speed > 0:
+                                        current_speed = max(0.0, current_speed - adjusted_deceleration)
+                                    else:
+                                        accel = adjusted_acceleration
+                                        if umbrella_guarding and current_speed > 0:
+                                            accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
+                                        current_speed -= accel
                             elif right_pressed:
                                 if current_speed < adjusted_max_speed:
-                                    accel = adjusted_acceleration
-                                    if umbrella_guarding and current_speed < 0:
-                                        accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
-                                    current_speed += accel
+                                    if umbrella_turn_blocked and current_speed < 0:
+                                        current_speed = min(0.0, current_speed + adjusted_deceleration)
+                                    else:
+                                        accel = adjusted_acceleration
+                                        if umbrella_guarding and current_speed < 0:
+                                            accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
+                                        current_speed += accel
                             else:
                                 # 키를 떼었을 때 감속 적용 (무중력벨트가 없을 때만)
                                 if not gravitybelt_obtained:
