@@ -5372,7 +5372,7 @@ BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 6
 BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_LEFT = 0
 BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_RIGHT = -6
 BLACKSMITH_UMBRELLA_DOWNWARD_CAP = 32  # 플레이어 패들 방향으로 내려오는 우산 판정 최대 길이(픽셀)
-BLACKSMITH_UMBRELLA_TURN_MULTIPLIER = 0.3  # 우산 가드 중 좌우 전환 속도 배율(기존 대비 ≥3배 감속)
+BLACKSMITH_UMBRELLA_TURN_MULTIPLIER = 0.2  # 우산 가드 중 좌우 전환 속도 배율(기존 대비 ≥5배 감속)
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
 _BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
     1: {
