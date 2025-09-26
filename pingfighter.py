@@ -17077,7 +17077,6 @@ def handle_player(keys):
                 and not blacksmith_turret_blueprint_active
                 and not blacksmith_hammer_shock_charging
                 and (blacksmith_hammer_available or blacksmith_hammer_shock_cooldown_timer > 0)
-                and not blacksmith_hammer_shock_projectiles
             ):
                 blacksmith_umbrella_open = True
                 blacksmith_umbrella_retracting = False
