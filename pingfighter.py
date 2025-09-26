@@ -19266,7 +19266,7 @@ def handle_player(keys):
             if hit_on_right:
                 blacksmith_shield_swing_active = False
                 blacksmith_shield_swing_timer = 0
-                blacksmith_hammer_swing_phase = BLACKSMITH_HAMMER_SWING_DURATION
+                blacksmith_hammer_swing_phase = 0
                 blacksmith_hammer_swing_active = True
                 
             else:
@@ -25731,6 +25731,13 @@ def draw_objects():
             else:
                 base_ufo_img = SOLDIER_PADDLE_IMG if include_right_arm else SOLDIER_PADDLE_IMG_NO_RIGHT_ARM
         elif selected_character_type == "blacksmith":
+            if blacksmith_hammer_swing_active:
+                if blacksmith_hammer_swing_phase < BLACKSMITH_HAMMER_SWING_DURATION:
+                    blacksmith_hammer_swing_phase += 1
+                else:
+                    blacksmith_hammer_swing_active = False
+                    blacksmith_hammer_swing_phase = 0
+
             if blacksmith_umbrella_open:
                 if BLACKSMITH_UMBRELLA_ANIM_FRAMES > 0:
                     anim_fraction = max(0.0, min(1.0, blacksmith_umbrella_anim_timer / BLACKSMITH_UMBRELLA_ANIM_FRAMES))
