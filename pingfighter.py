@@ -4729,6 +4729,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     global blacksmith_hammer_head_local_point, blacksmith_hammer_head_surface_point
     global blacksmith_umbrella_body_offset, blacksmith_umbrella_hitbox_extents
+    global blacksmith_umbrella_hitbox_extents_strict
     global blacksmith_umbrella_hitbox_vertical, blacksmith_umbrella_hitbox_center_offset
     global blacksmith_umbrella_hitbox_direction, blacksmith_umbrella_hitbox_raw
     global blacksmith_umbrella_swing_direction, blacksmith_umbrella_swing_stage
@@ -4860,15 +4861,21 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
             left_pixels = max(0.0, pivot_x - min_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
             right_pixels = max(0.0, max_x - pivot_x) + BLACKSMITH_UMBRELLA_HITBOX_MARGIN
 
+            # 보수적 모드(기존): 기본 패들 절반 + 여분의 30%만 확장
             extra_left = max(0.0, left_pixels * scale_value - base_half)
             extra_right = max(0.0, right_pixels * scale_value - base_half)
-
             left_extent = base_half + extra_left * 0.3
             right_extent = base_half + extra_right * 0.3
+
+            # 엄격 모드: 오버레이 폴리곤 경계와 동일한 반경 사용
+            left_strict = left_pixels * scale_value
+            right_strict = right_pixels * scale_value
+            blacksmith_umbrella_hitbox_extents_strict = (left_strict, right_strict)
         else:
             left_extent = right_extent = default_half
             raw_data = None
             blacksmith_umbrella_hitbox_raw = None
+            blacksmith_umbrella_hitbox_extents_strict = (default_half, default_half)
 
         blacksmith_umbrella_hitbox_extents = (left_extent, right_extent)
 
