@@ -29645,6 +29645,9 @@ def show_start_screen():
     blacksmith_hammer_shock_stage = 0
     blacksmith_hammer_shock_cooldown_timer = 0
     blacksmith_hammer_shock_projectiles.clear()
+    blacksmith_hammer_last_update_frame = globals().get("frame_counter", blacksmith_hammer_last_update_frame)
+    global blacksmith_hammer_last_update_frame
+    blacksmith_hammer_last_update_frame = globals().get("frame_counter", 0)
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     blacksmith_hammer_shock_anchor_x = 0
     blacksmith_hammer_shock_anchor_y = 0
