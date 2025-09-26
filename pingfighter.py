@@ -8179,6 +8179,9 @@ _blacksmith_base_bounds = BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1)
 BLACKSMITH_CONTACT_EXTRA_Y = 12
 BLACKSMITH_SCREEN_GROUND_OFFSET = 30
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 12
+BLACKSMITH_UMBRELLA_STATIONARY_VERTICAL_SCALE = 0.5
+BLACKSMITH_UMBRELLA_STATIONARY_SPEED_THRESHOLD = 1.0
+BLACKSMITH_UMBRELLA_STATIONARY_DRIFT_TOLERANCE = 0.5
 DEBUG_DRAW_UMBRELLA_HITBOX = True
 blacksmith_idle_body_offset: tuple[int, int] = (
     0,
@@ -16491,6 +16494,7 @@ def handle_player(keys):
     global long_boost_scale, long_boost_target_scale, LONG_BOOST_TRANSITION_TIME, LONG_BOOST_DURATION
     global player_flame_zone_knockback_vel, player_flame_zone_knockback_cooldown, player_in_flame_zone  #  Stage 5 화염 넉백
     global PLAYER, speedboots_obtained, speedgear_obtained
+    global last_paddle_x
     global acceleration_active, acceleration_height_bonus, acceleration_skill_level, acceleration_flash_particles  #  가속화 스킬 변수
     global aipill_active  #  AI 필 변수 추가
     global wall_installing  #  벽돌 설치 변수 추가
@@ -18817,6 +18821,15 @@ def handle_player(keys):
             span_estimate = float(max(0, vertical_shift))
             up_span = span_estimate
             down_span = span_estimate
+
+        stationary_guard = (
+            not umbrella_swinging_main
+            and abs(current_speed) <= BLACKSMITH_UMBRELLA_STATIONARY_SPEED_THRESHOLD
+            and abs(PLAYER.x - last_paddle_x) <= BLACKSMITH_UMBRELLA_STATIONARY_DRIFT_TOLERANCE
+        )
+        if stationary_guard:
+            up_span *= BLACKSMITH_UMBRELLA_STATIONARY_VERTICAL_SCALE
+            down_span *= BLACKSMITH_UMBRELLA_STATIONARY_VERTICAL_SCALE
 
         down_cap = BLACKSMITH_UMBRELLA_DOWNWARD_CAP * scale_applied
         if down_span > down_cap:
