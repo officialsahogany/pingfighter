@@ -50009,9 +50009,9 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_swing_progress = 0.0
     global blacksmith_umbrella_swing_direction
     blacksmith_umbrella_swing_direction = 1
-    global blacksmith_umbrella_anchor_base_x, blacksmith_umbrella_anchor_dir
-    blacksmith_umbrella_anchor_base_x = None
-    blacksmith_umbrella_anchor_dir = None
+    global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
+    blacksmith_umbrella_anchor_left = None
+    blacksmith_umbrella_anchor_right = None
     blacksmith_walking_active = False
     blacksmith_walking_timer = 0
     blacksmith_walk_direction = 0
