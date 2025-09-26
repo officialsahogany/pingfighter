@@ -18835,6 +18835,7 @@ def handle_player(keys):
     umbrella_half_right = PADDLE_WIDTH / 2
 
     global debug_umbrella_hitbox_rect
+    global blacksmith_umbrella_anchor_smoothed_x  # 전역 변수 선언 추가
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
         swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
         
