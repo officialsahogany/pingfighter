@@ -18797,21 +18797,23 @@ def handle_player(keys):
                             adjusted_max_speed = effective_max_speed * speed_factor * combined_speed_multiplier
                             
                             if left_pressed:
-                                if current_speed > 0:
-                                    current_speed = max(0.0, current_speed - adjusted_deceleration)
-                                elif current_speed > -adjusted_max_speed:
-                                    accel = adjusted_acceleration
-                                    if turn_delay_active and input_direction == -1:
-                                        accel *= turn_delay_scale
-                                    current_speed -= accel
+                                if current_speed > -adjusted_max_speed:
+                                    if umbrella_turn_blocked and current_speed > 0:
+                                        current_speed = max(0.0, current_speed - adjusted_deceleration)
+                                    else:
+                                        accel = adjusted_acceleration
+                                        if umbrella_guarding and current_speed > 0:
+                                            accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
+                                        current_speed -= accel
                             elif right_pressed:
-                                if current_speed < 0:
-                                    current_speed = min(0.0, current_speed + adjusted_deceleration)
-                                elif current_speed < adjusted_max_speed:
-                                    accel = adjusted_acceleration
-                                    if turn_delay_active and input_direction == 1:
-                                        accel *= turn_delay_scale
-                                    current_speed += accel
+                                if current_speed < adjusted_max_speed:
+                                    if umbrella_turn_blocked and current_speed < 0:
+                                        current_speed = min(0.0, current_speed + adjusted_deceleration)
+                                    else:
+                                        accel = adjusted_acceleration
+                                        if umbrella_guarding and current_speed < 0:
+                                            accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
+                                        current_speed += accel
                             else:
                                 # 키를 떼었을 때 감속 적용 (무중력벨트가 없을 때만)
                                 if not gravitybelt_obtained:
