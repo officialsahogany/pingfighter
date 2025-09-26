@@ -16511,6 +16511,7 @@ def handle_player(keys):
     global blacksmith_umbrella_swing_recover_pre, blacksmith_umbrella_swing_recover_main
     global blacksmith_umbrella_swing_direction
     global blacksmith_umbrella_locked_player_x
+    global blacksmith_umbrella_anchor_smoothed_x  # 전역 변수 선언 추가
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_charge_position, blacksmith_build_menu_active
@@ -18835,7 +18836,6 @@ def handle_player(keys):
     umbrella_half_right = PADDLE_WIDTH / 2
 
     global debug_umbrella_hitbox_rect
-    global blacksmith_umbrella_anchor_smoothed_x  # 전역 변수 선언 추가
     if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
         swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
         
