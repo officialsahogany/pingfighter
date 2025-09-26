@@ -43086,6 +43086,10 @@ def handle_ball():
     global stopwatch_forced_upward, stopwatch_upward_lock_timer
     # 롤링 관련 변수들
     global dashholder_obtained, rolling_charges, rolling_charge_timer, rolling_stun_timer
+    global frame_counter, selected_character_type
+
+    if selected_character_type == "blacksmith":
+        _sync_blacksmith_hammer_projectiles_to_frame(frame_counter)
     # 충돌 쿨다운 감소
     if player_collision_cooldown > 0:
         player_collision_cooldown -= 1
