@@ -42268,6 +42268,11 @@ def calculate_bounce(paddle):
             ball_vel[1] *= 2
             speed = math.hypot(ball_vel[0], ball_vel[1])
             print("[BLACKSMITH] Shield rising deflect: speed doubled")
+            try:
+                effects_manager.create_impact_effect(BALL.centerx, BALL.centery, 32, is_player=True)
+                effects_manager.spawn_star_particles(BALL.centerx, BALL.centery, count=10)
+            except Exception:
+                pass
 
     # 스매셔 쇼트 발동 처리 (플레이어 패들 전용)
     if (
