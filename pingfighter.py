@@ -16642,6 +16642,7 @@ def handle_player(keys):
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_shock_cooldown_timer
     global blacksmith_hammer_charge_position, blacksmith_build_menu_active
+    global blacksmith_hammer_projectiles_paused
     global soldier_swing_active, soldier_swing_timer
     global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
