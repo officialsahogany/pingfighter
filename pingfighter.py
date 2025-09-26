@@ -17004,7 +17004,18 @@ def handle_player(keys):
             blacksmith_umbrella_swing_stage = 0
             blacksmith_umbrella_swing_progress = 0.0
             blacksmith_umbrella_swing_direction = swing_trigger_direction
-            blacksmith_umbrella_locked_player_x = PLAYER.x
+            
+            # 오른쪽 스윙 시, anchor offset을 고려하여 플레이어 위치 고정
+            # 방패가 왼쪽에 그려지므로, 플레이어도 그에 맞춰 조정
+            if swing_trigger_direction < 0:  # 오른쪽 스윙
+                # anchor_right 값이 이미 계산되어 있다면 사용
+                if blacksmith_umbrella_anchor_right is not None:
+                    offset_compensation = int(round(blacksmith_umbrella_anchor_right * BLACKSMITH_SCALE))
+                    blacksmith_umbrella_locked_player_x = PLAYER.x - offset_compensation
+                else:
+                    blacksmith_umbrella_locked_player_x = PLAYER.x
+            else:
+                blacksmith_umbrella_locked_player_x = PLAYER.x
             if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
                 print(
                     f"[DEBUG UMB] swing start dir={swing_trigger_direction} player_x={PLAYER.x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right}"
