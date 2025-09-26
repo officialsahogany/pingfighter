@@ -18765,6 +18765,9 @@ def handle_player(keys):
         swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
         center_offset_x_effective = 0.0
         pivot_centerx = float(effective_centerx)
+        up_span = 0.0
+        down_span = 0.0
+
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
             left_extent_scaled = left_extent * scale_applied
             right_extent_scaled = right_extent * scale_applied
@@ -18787,12 +18790,15 @@ def handle_player(keys):
             if desired_height > player_collision_rect.height:
                 player_collision_rect.height = desired_height
 
+            pivot_centerx = float(effective_centerx)
             center_offset_x_effective = 0.0
             center_offset_y_scaled = int(round(blacksmith_umbrella_hitbox_center_offset[1] * scale_applied))
 
             balanced_half = max(umbrella_half_left, umbrella_half_right)
             umbrella_half_left = balanced_half
             umbrella_half_right = balanced_half
+            up_span = up_scaled
+            down_span = down_scaled
         else:
             length_multiplier = 0.85 * 1.8
             left_extent_scaled = left_extent * scale_applied * length_multiplier
@@ -18807,6 +18813,9 @@ def handle_player(keys):
             center_offset_x_effective = 0.0
             center_offset_y_scaled = 0
             pivot_centerx = float(effective_centerx)
+            span_estimate = float(max(0, vertical_shift))
+            up_span = span_estimate
+            down_span = span_estimate
 
         pivot_x = pivot_centerx
         pivot_y = PLAYER.bottom
