@@ -6759,6 +6759,10 @@ def update_blacksmith_hammer_shock(keys):
 
     new_projectiles = []
     for proj in blacksmith_hammer_shock_projectiles:
+        # Some edge cases (opening the umbrella mid-flight) could zero out the projectile velocity;
+        # enforce the default upward travel so the hammer keeps moving until it detonates.
+        if abs(proj.get("vy", 0.0)) < 1e-3:
+            proj["vy"] = -BLACKSMITH_HAMMER_SHOCK_PROJECTILE_SPEED
         proj["x"] += proj.get("vx", 0.0)
         proj["y"] += proj.get("vy", 0.0)
         if abs(proj.get("vx", 0.0)) < 1e-3 and proj.get("vy", 0.0) != 0.0:
