@@ -18756,13 +18756,13 @@ def handle_player(keys):
                             stop_step = DECELERATION * devil_dice_speed_multiplier
                             if left_pressed:
                                 target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
-                                if umbrella_turn_blocked and current_speed > 0:
+                                if umbrella_turn_blocked:
                                     current_speed = max(0.0, current_speed - stop_step)
                                 else:
                                     current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
                             elif right_pressed:
                                 target_speed = (effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
-                                if umbrella_turn_blocked and current_speed < 0:
+                                if umbrella_turn_blocked:
                                     current_speed = min(0.0, current_speed + stop_step)
                                 else:
                                     current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
@@ -18791,7 +18791,7 @@ def handle_player(keys):
                             
                             if left_pressed:
                                 if current_speed > -adjusted_max_speed:
-                                    if umbrella_turn_blocked and current_speed > 0:
+                                    if umbrella_turn_blocked:
                                         current_speed = max(0.0, current_speed - adjusted_deceleration)
                                     else:
                                         accel = adjusted_acceleration
@@ -18800,7 +18800,7 @@ def handle_player(keys):
                                         current_speed -= accel
                             elif right_pressed:
                                 if current_speed < adjusted_max_speed:
-                                    if umbrella_turn_blocked and current_speed < 0:
+                                    if umbrella_turn_blocked:
                                         current_speed = min(0.0, current_speed + adjusted_deceleration)
                                     else:
                                         accel = adjusted_acceleration
