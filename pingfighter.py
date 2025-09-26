@@ -46276,6 +46276,11 @@ def handle_ball():
                 # 캐릭터별 기본 게이지 충전량
                 if selected_character_type == "soldier":
                     base_gauge_gain = 50  # 코만도: 게이지 충전 50
+                elif selected_character_type == "blacksmith":
+                    if blacksmith_umbrella_open:
+                        base_gauge_gain = 70  # 발토르 우산 활성: 게이지 충전 70
+                    else:
+                        base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 else:
                     base_gauge_gain = 80  # 스매셔: 게이지 충전 80
             skill_gauge_boost = skill.apply_gauge_boost(0)
