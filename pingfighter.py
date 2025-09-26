@@ -41469,6 +41469,10 @@ def reset_round():
         blacksmith_hammer_swing_phase = 0
     if 'blacksmith_manual_hammer_timer' in globals():
         blacksmith_manual_hammer_timer = 0
+    if 'blacksmith_hammer_swing_auto' in globals():
+        blacksmith_hammer_swing_auto = False
+    if 'blacksmith_trail_timer' in globals():
+        blacksmith_trail_timer = 0
 
     global smasher_walking_active, smasher_walking_timer
     global optimus_walking_active, optimus_walking_timer
