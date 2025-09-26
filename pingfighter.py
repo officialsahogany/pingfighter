@@ -17085,6 +17085,15 @@ def handle_player(keys):
                 blacksmith_hammer_charge_position = None
                 blacksmith_build_menu_active = False
                 blacksmith_umbrella_swing_direction = 1
+                if blacksmith_hammer_shock_projectiles:
+                    current_ticks = pygame.time.get_ticks()
+                    updated = []
+                    for proj in blacksmith_hammer_shock_projectiles:
+                        if _advance_blacksmith_hammer_projectile(proj):
+                            proj["_last_update_frame"] = frame_counter
+                            proj["_last_update_ms"] = current_ticks
+                            updated.append(proj)
+                    blacksmith_hammer_shock_projectiles[:] = updated
         if blacksmith_umbrella_open and blacksmith_umbrella_anim_timer > 0:
             umbrella_lock_active = True
 
