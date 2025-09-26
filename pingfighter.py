@@ -5354,7 +5354,12 @@ blacksmith_umbrella_overlay_surface: pygame.Surface | None = None
 blacksmith_umbrella_swing_direction: int = 1
 blacksmith_umbrella_anchor_left: int | None = None
 blacksmith_umbrella_anchor_right: int | None = None
-blacksmith_umbrella_locked_player_x: int | None = None
+# 부드러운 넉백 모션을 위한 변수들
+blacksmith_umbrella_knockback_active: bool = False
+blacksmith_umbrella_knockback_start_x: float = 0.0
+blacksmith_umbrella_knockback_target_x: float = 0.0
+blacksmith_umbrella_knockback_velocity: float = 0.0
+blacksmith_umbrella_knockback_timer: float = 0.0
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 blacksmith_umbrella_anchor_smoothed_x: float = 0.0
 paddle_scale_ratio: float = 1.0
@@ -16503,7 +16508,8 @@ def handle_player(keys):
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
     global blacksmith_umbrella_swing_recover_pre, blacksmith_umbrella_swing_recover_main
     global blacksmith_umbrella_swing_direction
-    global blacksmith_umbrella_locked_player_x
+    global blacksmith_umbrella_knockback_active, blacksmith_umbrella_knockback_start_x
+    global blacksmith_umbrella_knockback_target_x, blacksmith_umbrella_knockback_velocity, blacksmith_umbrella_knockback_timer
     global blacksmith_umbrella_anchor_smoothed_x  # 전역 변수 선언 추가
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_charge_frames
