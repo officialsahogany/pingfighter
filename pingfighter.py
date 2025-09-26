@@ -18811,6 +18811,9 @@ def handle_player(keys):
         up_span = 0.0
         down_span = 0.0
 
+        if swing_dir < 0:
+            left_extent, right_extent = right_extent, left_extent
+
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
             left_extent_scaled = left_extent * scale_applied
             right_extent_scaled = right_extent * scale_applied
@@ -18821,6 +18824,11 @@ def handle_player(keys):
             else:
                 umbrella_half_left = max(umbrella_half_left, left_extent_scaled)
                 umbrella_half_right = max(umbrella_half_right, right_extent_scaled * sweep_bias)
+
+            if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
+                print(
+                    f"[DEBUG UMB HITBOX] swing_dir={swing_dir} left_extent={left_extent:.2f} right_extent={right_extent:.2f} scaled=(L:{left_extent_scaled:.2f}, R:{right_extent_scaled:.2f})"
+                )
 
             up_extent, down_extent = blacksmith_umbrella_hitbox_vertical
             up_scaled = up_extent * scale_applied
