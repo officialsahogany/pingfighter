@@ -8180,6 +8180,7 @@ BLACKSMITH_CONTACT_EXTRA_Y = 12
 BLACKSMITH_SCREEN_GROUND_OFFSET = 30
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 12
 BLACKSMITH_UMBRELLA_GUARD_VERTICAL_SCALE = 0.5
+BLACKSMITH_UMBRELLA_GUARD_UPWARD_OFFSET = 12  # 약 2cm 상당 (픽셀 스케일)
 DEBUG_DRAW_UMBRELLA_HITBOX = True
 blacksmith_idle_body_offset: tuple[int, int] = (
     0,
@@ -18828,6 +18829,12 @@ def handle_player(keys):
             up_span *= guard_scale
             down_span *= guard_scale
 
+        guard_vertical_offset = (
+            BLACKSMITH_UMBRELLA_GUARD_UPWARD_OFFSET
+            if not umbrella_swinging_main
+            else 0.0
+        )
+
         down_cap = BLACKSMITH_UMBRELLA_DOWNWARD_CAP * scale_applied
         if down_span > down_cap:
             down_span = down_cap
@@ -18837,8 +18844,8 @@ def handle_player(keys):
 
         left_edge = pivot_x - umbrella_half_left
         right_edge = pivot_x + umbrella_half_right
-        top_edge = pivot_y + center_offset_y_scaled - up_span
-        bottom_edge = pivot_y + center_offset_y_scaled + down_span
+        top_edge = pivot_y + center_offset_y_scaled - up_span - guard_vertical_offset
+        bottom_edge = pivot_y + center_offset_y_scaled + down_span - guard_vertical_offset
 
         left_int = int(math.floor(left_edge))
         right_int = int(math.ceil(right_edge))
