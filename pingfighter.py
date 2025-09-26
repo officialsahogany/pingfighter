@@ -4814,29 +4814,38 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         raw_anchor_offset_x = anchor_offset_x
 
         global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
+        global blacksmith_umbrella_anchor_adjust_left, blacksmith_umbrella_anchor_adjust_right
         # 방향 전환과 관계없이 스윙 중에는 고정된 기준점을 사용하고, 스윙이 끝났을 때만 방향별 기준점을 갱신한다.
         if swing_dir > 0:
             if blacksmith_umbrella_swing_active:
                 if blacksmith_umbrella_anchor_left is None:
-                    if blacksmith_umbrella_anchor_right is not None:
-                        blacksmith_umbrella_anchor_left = blacksmith_umbrella_anchor_right
-                    else:
-                        blacksmith_umbrella_anchor_left = anchor_offset_x
-                anchor_offset_x = blacksmith_umbrella_anchor_left
+                    blacksmith_umbrella_anchor_left = anchor_offset_x
+                    blacksmith_umbrella_anchor_adjust_left = 0
+                anchor_offset_x = blacksmith_umbrella_anchor_left + blacksmith_umbrella_anchor_adjust_left
             else:
                 blacksmith_umbrella_anchor_left = anchor_offset_x
+                blacksmith_umbrella_anchor_adjust_left = 0
                 if blacksmith_umbrella_anchor_right is None:
                     blacksmith_umbrella_anchor_right = anchor_offset_x
         else:
             if blacksmith_umbrella_swing_active:
                 if blacksmith_umbrella_anchor_right is None:
+                    blacksmith_umbrella_anchor_right = anchor_offset_x
                     if blacksmith_umbrella_anchor_left is not None:
-                        blacksmith_umbrella_anchor_right = blacksmith_umbrella_anchor_left
+                        blacksmith_umbrella_anchor_adjust_right = (
+                            blacksmith_umbrella_anchor_left - blacksmith_umbrella_anchor_right
+                        )
                     else:
-                        blacksmith_umbrella_anchor_right = anchor_offset_x
-                anchor_offset_x = blacksmith_umbrella_anchor_right
+                        blacksmith_umbrella_anchor_adjust_right = blacksmith_umbrella_anchor_adjust_left
+                anchor_offset_x = blacksmith_umbrella_anchor_right + blacksmith_umbrella_anchor_adjust_right
             else:
                 blacksmith_umbrella_anchor_right = anchor_offset_x
+                if blacksmith_umbrella_anchor_left is not None:
+                    blacksmith_umbrella_anchor_adjust_right = (
+                        blacksmith_umbrella_anchor_left - blacksmith_umbrella_anchor_right
+                    )
+                else:
+                    blacksmith_umbrella_anchor_adjust_right = 0
                 if blacksmith_umbrella_anchor_left is None:
                     blacksmith_umbrella_anchor_left = anchor_offset_x
 
@@ -5346,6 +5355,8 @@ blacksmith_umbrella_overlay_surface: pygame.Surface | None = None
 blacksmith_umbrella_swing_direction: int = 1
 blacksmith_umbrella_anchor_left: int | None = None
 blacksmith_umbrella_anchor_right: int | None = None
+blacksmith_umbrella_anchor_adjust_left: int = 0
+blacksmith_umbrella_anchor_adjust_right: int = 0
 blacksmith_umbrella_locked_player_x: int | None = None
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 paddle_scale_ratio: float = 1.0
