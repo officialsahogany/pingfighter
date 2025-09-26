@@ -17007,9 +17007,19 @@ def handle_player(keys):
             
             # 플레이어 위치를 고정
             blacksmith_umbrella_locked_player_x = PLAYER.x
+            
+            # 스윙 시작 시 anchor smoothing 값을 목표값에 가깝게 초기화
+            # 이전 스윙의 잔여값으로 인한 부드러운 전환을 방지
+            if swing_trigger_direction < 0 and blacksmith_umbrella_anchor_right is not None:
+                # 오른쪽 스윙: 목표값은 anchor_right (-30)
+                blacksmith_umbrella_anchor_smoothed_x = float(blacksmith_umbrella_anchor_right)
+            elif swing_trigger_direction > 0 and blacksmith_umbrella_anchor_left is not None:
+                # 왼쪽 스윙: 목표값은 anchor_left (-56)
+                blacksmith_umbrella_anchor_smoothed_x = float(blacksmith_umbrella_anchor_left)
+                
             if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
                 print(
-                    f"[DEBUG UMB] swing start dir={swing_trigger_direction} original_player_x={PLAYER.x} locked_x={blacksmith_umbrella_locked_player_x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right}"
+                    f"[DEBUG UMB] swing start dir={swing_trigger_direction} original_player_x={PLAYER.x} locked_x={blacksmith_umbrella_locked_player_x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right} smoothed_init={blacksmith_umbrella_anchor_smoothed_x}"
                 )
 
     if umbrella_lock_active:
