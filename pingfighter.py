@@ -16891,6 +16891,8 @@ def handle_player(keys):
             blacksmith_umbrella_swing_timer = 0
             blacksmith_umbrella_swing_stage = 0
             blacksmith_umbrella_swing_progress = 0.0
+            if blacksmith_umbrella_swing_direction < 0:
+                blacksmith_umbrella_swing_direction = 1
         if not blacksmith_umbrella_swing_active:
             if blacksmith_umbrella_swing_recover_pre > 0.0 or blacksmith_umbrella_swing_recover_main > 0.0:
                 blacksmith_umbrella_swing_recover_pre *= BLACKSMITH_UMBRELLA_SWING_RECOVER_DAMP
