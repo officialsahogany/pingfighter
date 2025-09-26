@@ -4803,9 +4803,15 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         center_x = surface_rect.centerx
         scale_value = BLACKSMITH_SCALE if abs(BLACKSMITH_SCALE) > 1e-5 else 1.0
         anchor_offset_x = int(round((scaled_anchor[0] - center_x) / scale_value))
+        if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
+            print(
+                f"[DEBUG UMB RAW] swing_dir={swing_dir} scaled_anchor={scaled_anchor} center_x={center_x} scale={scale_value} padding_bias={(left_padding - right_padding) / 2.0}"
+            )
         padding_bias = (left_padding - right_padding) / 2.0
         if abs(padding_bias) > 0.01:
             anchor_offset_x -= int(round(padding_bias / scale_value))
+
+        raw_anchor_offset_x = anchor_offset_x
 
         global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
         # 방향 전환과 관계없이 스윙 중에는 고정된 기준점을 사용하고, 스윙이 끝났을 때만 방향별 기준점을 갱신한다.
@@ -4832,7 +4838,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
             print(
-                f"[DEBUG UMB] swing_dir={swing_dir} active={blacksmith_umbrella_swing_active} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right} offset={anchor_offset_x}"
+                f"[DEBUG UMB] swing_dir={swing_dir} active={blacksmith_umbrella_swing_active} raw_offset={raw_anchor_offset_x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right} final_offset={anchor_offset_x}"
             )
 
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
