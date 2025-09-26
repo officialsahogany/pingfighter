@@ -18705,16 +18705,18 @@ def handle_player(keys):
                             if is_devil_dice_active():
                                 multipliers = get_devil_dice_multipliers()
                                 devil_dice_speed_multiplier = multipliers.get('player_speed', 1.0)
-                            
+
                             # 무중력벨트: 완전히 기계적인 즉각 이동 (키 누르는 동안만)
                             speed_bonus = 0
                             if left_pressed:
-                                current_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
+                                target_speed = -(effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
+                                current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
                             elif right_pressed:
-                                current_speed = (effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
+                                target_speed = (effective_max_speed + speed_bonus) * speed_factor * devil_dice_speed_multiplier
+                                current_speed = apply_umbrella_turn_penalty(current_speed, target_speed)
                             else:
                                 # 키를 떼면 즉시 정지
-                                current_speed = 0
+                                current_speed = apply_umbrella_turn_penalty(current_speed, 0.0)
                         else:
                             #  악마의 주사위 플레이어 속도 배율 가져오기
                             devil_dice_speed_multiplier = 1.0
@@ -18737,10 +18739,16 @@ def handle_player(keys):
                             
                             if left_pressed:
                                 if current_speed > -adjusted_max_speed:
-                                    current_speed -= adjusted_acceleration
+                                    accel = adjusted_acceleration
+                                    if umbrella_guarding and current_speed > 0:
+                                        accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
+                                    current_speed -= accel
                             elif right_pressed:
                                 if current_speed < adjusted_max_speed:
-                                    current_speed += adjusted_acceleration
+                                    accel = adjusted_acceleration
+                                    if umbrella_guarding and current_speed < 0:
+                                        accel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
+                                    current_speed += accel
                             else:
                                 # 키를 떼었을 때 감속 적용 (무중력벨트가 없을 때만)
                                 if not gravitybelt_obtained:
@@ -18769,6 +18777,8 @@ def handle_player(keys):
         direction_change_boost = DIRECTION_CHANGE_BOOST if speedgear_obtained else 1.0  # 150% 더 빠른 방향 전환
         # 빠른 방향 전환 감속 (악마의 주사위 배율 적용)
         adjusted_instant_decel = INSTANT_STOP_DECELERATION * direction_change_boost * devil_dice_speed_multiplier
+        if umbrella_guarding:
+            adjusted_instant_decel *= BLACKSMITH_UMBRELLA_TURN_MULTIPLIER
         if keys[pygame.K_LEFT] and current_speed > 0:
             current_speed -= adjusted_instant_decel
         elif keys[pygame.K_RIGHT] and current_speed < 0:
