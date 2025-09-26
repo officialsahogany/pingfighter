@@ -5815,6 +5815,7 @@ def release_blacksmith_hammer_shock():
         origin_x = float(blacksmith_hammer_charge_position[0])
         origin_y = float(blacksmith_hammer_charge_position[1])
 
+    current_ticks = pygame.time.get_ticks()
     projectile = {
         "x": float(origin_x),
         "y": float(origin_y),
@@ -5824,6 +5825,7 @@ def release_blacksmith_hammer_shock():
         "life": int(1.5 * FPS),
         "rotation": 0.0,
         "_last_update_frame": globals().get("frame_counter", 0),
+        "_last_update_ms": current_ticks,
     }
     blacksmith_hammer_shock_projectiles.append(projectile)
     if blacksmith_hammer_charge_position is not None:
@@ -8294,6 +8296,7 @@ def draw_blacksmith_turret_ui(surface):
 blacksmith_hammer_available = True
 blacksmith_hammer_shock_charging = False
 blacksmith_hammer_last_update_frame = 0
+blacksmith_hammer_last_update_ms = 0
 BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
 BLACKSMITH_PADDLE_NO_HAMMER_IMG = create_blacksmith_paddle_base(include_hammer=False)
 # 기본 패들 렌더링에서 발 위치가 기준선보다 얼마나 아래에 있는지 기록해 우산 포즈에서도 동일한 간격을 유지한다.
