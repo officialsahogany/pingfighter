@@ -8372,6 +8372,7 @@ blacksmith_umbrella_swing_stage = 0  # 0=준비, 1=스윙
 blacksmith_umbrella_swing_progress = 0.0
 blacksmith_umbrella_swing_recover_pre = 0.0
 blacksmith_umbrella_swing_recover_main = 0.0
+blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 BLACKSMITH_UMBRELLA_VISUAL_OFFSET_Y = 32  # 우산 그래픽과 판정이 패들과 겹치도록 추가 하강치
 blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
