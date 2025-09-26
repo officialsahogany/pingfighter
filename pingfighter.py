@@ -5373,6 +5373,8 @@ BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_LEFT = 0
 BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_RIGHT = -6
 BLACKSMITH_UMBRELLA_DOWNWARD_CAP = 32  # 플레이어 패들 방향으로 내려오는 우산 판정 최대 길이(픽셀)
 BLACKSMITH_UMBRELLA_TURN_MULTIPLIER = 0.00005  # 우산 가드 중 좌우 전환 속도 배율(현행 대비 ≥3배 추가 감속)
+BLACKSMITH_UMBRELLA_TURN_DELAY_FRAMES = 18  # 우산 가드 시 좌우 반전 입력 지연(0.3초)
+blacksmith_umbrella_turn_delay_timer: int = 0
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
 _BLACKSMITH_HAMMER_EXPLOSION_PALETTES: dict[int, dict[str, object]] = {
     1: {
@@ -50449,6 +50451,8 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_knockback_timer = 0.0
     global blacksmith_umbrella_anchor_smoothed_x
     blacksmith_umbrella_anchor_smoothed_x = 0.0
+    global blacksmith_umbrella_turn_delay_timer
+    blacksmith_umbrella_turn_delay_timer = 0
     blacksmith_walking_active = False
     blacksmith_walking_timer = 0
     blacksmith_walk_direction = 0
