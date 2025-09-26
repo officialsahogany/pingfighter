@@ -4816,7 +4816,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
             blacksmith_umbrella_anchor_base_x = anchor_offset_x
             blacksmith_umbrella_anchor_dir = None
         elif blacksmith_umbrella_anchor_dir != swing_dir:
-            blacksmith_umbrella_anchor_base_x = anchor_offset_x
+            anchor_offset_x = blacksmith_umbrella_anchor_base_x
             blacksmith_umbrella_anchor_dir = swing_dir
         elif blacksmith_umbrella_anchor_base_x is not None:
             anchor_offset_x = blacksmith_umbrella_anchor_base_x
