@@ -4817,29 +4817,23 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         stored_left = blacksmith_umbrella_anchor_left
         stored_right = blacksmith_umbrella_anchor_right
 
-        if stored_left is None:
-            stored_left = raw_anchor_offset_x
-            blacksmith_umbrella_anchor_left = stored_left
-
-        mirror_correction = 0
-        if swing_dir < 0:
-            mirror_correction = stored_left - raw_anchor_offset_x
-
-        anchor_offset_x = raw_anchor_offset_x + mirror_correction
-
-        if blacksmith_umbrella_swing_active:
+        if not blacksmith_umbrella_swing_active:
             if swing_dir > 0:
-                blacksmith_umbrella_anchor_left = anchor_offset_x
-            else:
-                stored_right = anchor_offset_x
-                blacksmith_umbrella_anchor_right = stored_right
+                blacksmith_umbrella_anchor_left = raw_anchor_offset_x
+            elif swing_dir < 0:
+                blacksmith_umbrella_anchor_right = raw_anchor_offset_x
+            anchor_offset_x = raw_anchor_offset_x
         else:
             if swing_dir > 0:
-                blacksmith_umbrella_anchor_left = anchor_offset_x
+                if stored_left is None:
+                    blacksmith_umbrella_anchor_left = raw_anchor_offset_x
+                    stored_left = raw_anchor_offset_x
+                anchor_offset_x = stored_left
             else:
-                blacksmith_umbrella_anchor_right = anchor_offset_x
-                if blacksmith_umbrella_anchor_right is None:
-                    blacksmith_umbrella_anchor_right = anchor_offset_x
+                if stored_right is None:
+                    blacksmith_umbrella_anchor_right = raw_anchor_offset_x
+                    stored_right = raw_anchor_offset_x
+                anchor_offset_x = stored_right
 
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
             print(
