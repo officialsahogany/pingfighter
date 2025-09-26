@@ -17043,21 +17043,30 @@ def handle_player(keys):
             blacksmith_umbrella_swing_progress = 0.0
             blacksmith_umbrella_swing_direction = swing_trigger_direction
             
-            # 플레이어 위치를 고정
-            blacksmith_umbrella_locked_player_x = PLAYER.x
-            
             # 스윙 시작 시 anchor smoothing 값을 목표값에 가깝게 초기화
             # 이전 스윙의 잔여값으로 인한 부드러운 전환을 방지
             if swing_trigger_direction < 0 and blacksmith_umbrella_anchor_right is not None:
-                # 오른쪽 스윙: 목표값은 anchor_right (-30)
+                # 오른쪽 스윙: 목표값은 anchor_right
                 blacksmith_umbrella_anchor_smoothed_x = float(blacksmith_umbrella_anchor_right)
             elif swing_trigger_direction > 0 and blacksmith_umbrella_anchor_left is not None:
-                # 왼쪽 스윙: 목표값은 anchor_left (-56)
+                # 왼쪽 스윙: 목표값은 anchor_left
                 blacksmith_umbrella_anchor_smoothed_x = float(blacksmith_umbrella_anchor_left)
+            
+            # 넉백 효과로 패들을 부드럽게 이동시킴
+            # anchor 오프셋에 따른 목적지 계산 (스케일 적용)
+            scale_applied = BLACKSMITH_SCALE if abs(BLACKSMITH_SCALE) > 1e-5 else 1.0
+            anchor_offset = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
+            target_player_x = PLAYER.x + anchor_offset
+            
+            # 화면 경계 체크
+            target_player_x = max(PLAYER.width // 2, min(SCREEN_WIDTH - PLAYER.width // 2, target_player_x))
+            
+            # 부드러운 넉백 시작
+            start_umbrella_knockback(target_player_x)
                 
             if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
                 print(
-                    f"[DEBUG UMB] swing start dir={swing_trigger_direction} original_player_x={PLAYER.x} locked_x={blacksmith_umbrella_locked_player_x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right} smoothed_init={blacksmith_umbrella_anchor_smoothed_x}"
+                    f"[DEBUG UMB] swing start dir={swing_trigger_direction} original_player_x={PLAYER.x} target_x={target_player_x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right} smoothed_init={blacksmith_umbrella_anchor_smoothed_x}"
                 )
 
     if umbrella_lock_active:
@@ -50174,8 +50183,14 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
     blacksmith_umbrella_anchor_left = None
     blacksmith_umbrella_anchor_right = None
-    global blacksmith_umbrella_locked_player_x
-    blacksmith_umbrella_locked_player_x = None
+    # 넉백 변수 초기화
+    global blacksmith_umbrella_knockback_active, blacksmith_umbrella_knockback_start_x
+    global blacksmith_umbrella_knockback_target_x, blacksmith_umbrella_knockback_velocity, blacksmith_umbrella_knockback_timer
+    blacksmith_umbrella_knockback_active = False
+    blacksmith_umbrella_knockback_start_x = 0.0
+    blacksmith_umbrella_knockback_target_x = 0.0
+    blacksmith_umbrella_knockback_velocity = 0.0
+    blacksmith_umbrella_knockback_timer = 0.0
     global blacksmith_umbrella_anchor_smoothed_x
     blacksmith_umbrella_anchor_smoothed_x = 0.0
     blacksmith_walking_active = False
