@@ -16811,6 +16811,7 @@ def handle_player(keys):
                     blacksmith_umbrella_hitbox_vertical = (0.0, 0.0)
                     blacksmith_umbrella_hitbox_center_offset = (0.0, 0.0)
                     blacksmith_umbrella_hitbox_direction = (0.0, -1.0)
+                    blacksmith_umbrella_swing_direction = 1
                 else:
                     blacksmith_umbrella_anim_direction = 1
 
@@ -16849,6 +16850,7 @@ def handle_player(keys):
                 blacksmith_hammer_shock_charge_frames = 0
                 blacksmith_hammer_charge_position = None
                 blacksmith_build_menu_active = False
+                blacksmith_umbrella_swing_direction = 1
         if blacksmith_umbrella_open and blacksmith_umbrella_anim_timer > 0:
             umbrella_lock_active = True
 
@@ -49932,6 +49934,8 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_swing_timer = 0
     blacksmith_umbrella_swing_stage = 0
     blacksmith_umbrella_swing_progress = 0.0
+    global blacksmith_umbrella_swing_direction
+    blacksmith_umbrella_swing_direction = 1
     blacksmith_walking_active = False
     blacksmith_walking_timer = 0
     blacksmith_walk_direction = 0
