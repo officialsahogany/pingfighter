@@ -4822,9 +4822,10 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
                 blacksmith_umbrella_anchor_left = raw_anchor_offset_x
             anchor_offset_x = blacksmith_umbrella_anchor_left if blacksmith_umbrella_anchor_left is not None else raw_anchor_offset_x
         else:
+            mirrored_offset = -raw_anchor_offset_x
             if not blacksmith_umbrella_swing_active or stored_right is None:
-                blacksmith_umbrella_anchor_right = raw_anchor_offset_x
-            anchor_offset_x = blacksmith_umbrella_anchor_right if blacksmith_umbrella_anchor_right is not None else raw_anchor_offset_x
+                blacksmith_umbrella_anchor_right = mirrored_offset
+            anchor_offset_x = blacksmith_umbrella_anchor_right if blacksmith_umbrella_anchor_right is not None else mirrored_offset
 
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
             print(
