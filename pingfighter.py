@@ -16547,6 +16547,48 @@ def handle_player(keys):
     global wall_installing  #  벽돌 설치 변수 추가
     global is_waiting_for_serve  #  서브 대기 상태 변수 추가
     global is_player_serve  #  플레이어 서브 상태 변수 추가
+    
+    def update_umbrella_knockback():
+        """부드러운 넉백 모션 업데이트"""
+        global blacksmith_umbrella_knockback_active, blacksmith_umbrella_knockback_timer
+        global blacksmith_umbrella_knockback_velocity, blacksmith_umbrella_knockback_start_x
+        global blacksmith_umbrella_knockback_target_x
+        
+        if not blacksmith_umbrella_knockback_active:
+            return
+            
+        # 넉백 타이머 증가 (60fps 기준)
+        blacksmith_umbrella_knockback_timer += 1.0
+        
+        # 넉백 지속 시간 (프레임): 처음 빠르게 시작해서 감속
+        total_frames = 20  # 약 0.33초
+        
+        if blacksmith_umbrella_knockback_timer >= total_frames:
+            # 넉백 완료 - 목표 위치에 정확히 맞추기
+            PLAYER.x = int(blacksmith_umbrella_knockback_target_x)
+            blacksmith_umbrella_knockback_active = False
+            blacksmith_umbrella_knockback_timer = 0.0
+            return
+        
+        # 진행률 (0.0 ~ 1.0)
+        progress = blacksmith_umbrella_knockback_timer / total_frames
+        
+        # 감속 곡선 (fast start, slow end): 1 - (1-x)^3
+        eased_progress = 1.0 - pow(1.0 - progress, 3.0)
+        
+        # 현재 위치 계산
+        current_x = blacksmith_umbrella_knockback_start_x + (blacksmith_umbrella_knockback_target_x - blacksmith_umbrella_knockback_start_x) * eased_progress
+        PLAYER.x = int(current_x)
+    
+    def start_umbrella_knockback(target_x: float):
+        """넉백 모션 시작"""
+        global blacksmith_umbrella_knockback_active, blacksmith_umbrella_knockback_start_x
+        global blacksmith_umbrella_knockback_target_x, blacksmith_umbrella_knockback_timer
+        
+        blacksmith_umbrella_knockback_active = True
+        blacksmith_umbrella_knockback_start_x = float(PLAYER.x)
+        blacksmith_umbrella_knockback_target_x = target_x
+        blacksmith_umbrella_knockback_timer = 0.0
     global gravitybelt_obtained, dashholder_obtained  #  무중력벨트 및 대쉬홀더 변수 추가
     global rolling_active, rolling_timer, rolling_direction, rolling_speed
     global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y  # 포세이돈 삼지창 대시 플래그
@@ -16976,12 +17018,8 @@ def handle_player(keys):
             blacksmith_umbrella_swing_active and blacksmith_umbrella_swing_stage == 1
         )
 
-        if blacksmith_umbrella_swing_active and blacksmith_umbrella_locked_player_x is not None:
-            PLAYER.x = blacksmith_umbrella_locked_player_x
-            if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
-                print(f"[DEBUG UMB] lock PLAYER.x={PLAYER.x}")
-        elif not blacksmith_umbrella_swing_active:
-            blacksmith_umbrella_locked_player_x = None
+        # 부드러운 넉백 모션 업데이트
+        update_umbrella_knockback()
 
         swing_trigger_direction = 0
         if left_pressed_raw and not right_pressed_raw:
