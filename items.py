@@ -103,6 +103,7 @@ def load_item_icons():
         "fuel_pouch": "fuel_pouch.png",  # 연료파우치 아이콘
         "bluetooth_ring": "bluetooth_ring.png",  # 블루투스링 아이콘
         "foul_whistle": "foul_whistle.png",  # 반칙호루라기 아이콘
+        "star_detector": "star_detector.png",  # 별탐지기 아이콘
         "smartphone": "smartphone.png",  # 스마트폰 아이콘
         "bazooka": "bazooka.png",  # 바주카포 아이콘
         "ammo_box": "ammo_box.png",  # 탄약상자 아이콘
@@ -446,6 +447,15 @@ ITEM_TYPES = [
         "effect": "bluetooth_ring",
         "icon": None,
         "chance": 0.03,  # 확률 1%
+        "duration": 600,
+        "unlock_condition": None
+    },
+    {
+        "name": "star_detector",  # 별탐지기 패시브 아이템
+        "color": (80, 200, 220),  # 청록빛 탐지기 색상
+        "effect": "star_detector",
+        "icon": None,
+        "chance": 0.015,  # 확률 1.5%
         "duration": 600,
         "unlock_condition": None
     },
