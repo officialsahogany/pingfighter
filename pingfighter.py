@@ -12298,6 +12298,8 @@ def go_to_next_round():
     global emotional_overdrive_active, emotional_overdrive_timer
     global overdrive_flash_timer, overdrive_trails
     global boss_special_gauge, boss_special_ready, boss_special_waiting
+
+    stop_blacksmith_construction_sound()
     global boss_red_intensity
     emotional_overdrive_active = False
     emotional_overdrive_timer = 0
