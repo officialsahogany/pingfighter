@@ -5378,11 +5378,12 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         hammer_engaged_this_frame = True
 
     if not hammer_engaged_this_frame and blacksmith_hammer_swing_active:
-        decay = (
-            BLACKSMITH_HAMMER_SWING_DECAY_SLOW
-            if blacksmith_hammer_swing_slow_timer > 0
-            else BLACKSMITH_HAMMER_SWING_DECAY_NORMAL
-        )
+        if blacksmith_hammer_swing_slow_timer > 0:
+            cycle = blacksmith_hammer_slow_decay_step % 3
+            decay = 1 if cycle < 2 else 2
+            blacksmith_hammer_slow_decay_step += 1
+        else:
+            decay = BLACKSMITH_HAMMER_SWING_DECAY_NORMAL
         if blacksmith_hammer_swing_phase > 0:
             blacksmith_hammer_swing_phase = max(0, blacksmith_hammer_swing_phase - decay)
         if blacksmith_hammer_swing_slow_timer > 0:
@@ -5390,6 +5391,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         if blacksmith_hammer_swing_phase <= 0:
             blacksmith_hammer_swing_active = False
             blacksmith_hammer_swing_slow_timer = 0
+            blacksmith_hammer_slow_decay_step = 0
 
     if construction_active:
         start_blacksmith_construction_sound()
