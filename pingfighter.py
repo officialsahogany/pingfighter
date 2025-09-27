@@ -51646,6 +51646,7 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     global blacksmith_umbrella_swing_active, blacksmith_umbrella_swing_timer
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
+    global blacksmith_umbrella_hit_lock
     blacksmith_umbrella_open = False
     blacksmith_umbrella_anim_timer = 0
     blacksmith_umbrella_retracting = False
@@ -51662,6 +51663,7 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_swing_timer = 0
     blacksmith_umbrella_swing_stage = 0
     blacksmith_umbrella_swing_progress = 0.0
+    blacksmith_umbrella_hit_lock = False
     global blacksmith_umbrella_swing_direction
     blacksmith_umbrella_swing_direction = 1
     global blacksmith_umbrella_anchor_left, blacksmith_umbrella_anchor_right
