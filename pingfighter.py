@@ -20193,8 +20193,10 @@ def handle_player(keys):
         if DEBUG_DRAW_UMBRELLA_HITBOX:
             debug_umbrella_hitbox_rect = None
     
+    collision_with_player = BALL.colliderect(player_collision_rect)
+
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
-    if BALL.colliderect(player_collision_rect) and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
+    if collision_with_player and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
         # 발토르 우산 방패 충격 효과
         if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
             blacksmith_shield_impact_timer = 30  # 0.5초간 충격파 효과
@@ -20205,15 +20207,20 @@ def handle_player(keys):
                 frames_since_last_hit = BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
             if (
                 not blacksmith_umbrella_retracting
+                and not blacksmith_umbrella_hit_lock
                 and frames_since_last_hit >= BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
             ):
                 blacksmith_umbrella_last_hit_frame = frame_counter
+                blacksmith_umbrella_hit_lock = True
                 if blacksmith_umbrella_gauge > 0:
                     blacksmith_umbrella_gauge = max(0, blacksmith_umbrella_gauge - 1)
                     blacksmith_umbrella_damage_flash_timer = BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES
                     blacksmith_umbrella_recharge_progress = 0
                     if blacksmith_umbrella_gauge <= 0:
                         request_blacksmith_umbrella_close(play_sound=True, flash=True)
+
+    elif selected_character_type == "blacksmith" and blacksmith_umbrella_hit_lock and not collision_with_player:
+        blacksmith_umbrella_hit_lock = False
 
         # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
         if kuromi_spit_trail_active:
