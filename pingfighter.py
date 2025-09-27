@@ -5350,7 +5350,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         else:
             stop_blacksmith_construction_sound()
 
-    sync_blacksmith_state()
+    push_blacksmith_state()
     return down_just_pressed
 
 
