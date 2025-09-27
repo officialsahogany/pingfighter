@@ -47254,6 +47254,7 @@ def handle_ball():
                 draw_soldier_weapon_ui(SCREEN)
             elif selected_character_type == "blacksmith":
                 draw_blacksmith_turret_ui(SCREEN)
+                draw_blacksmith_divine_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
         go_to_next_round()
         return
@@ -54774,7 +54775,8 @@ def main(stage_num, new_boss_mode=False):
                                                       stage4_magnetic_active)
             if selected_character_type == "blacksmith":
                 draw_blacksmith_turret_ui(SCREEN)
-        
+                draw_blacksmith_divine_ui(SCREEN)
+
         draw_water_trail()  #  물자국 그리기
         # draw_balloons()  # Stage 1 보스 풍선파티 스킬 제거됨
         # draw_whip_waves(SCREEN)  #  상모돌리기 파동 효과 그리기 - 제거됨
