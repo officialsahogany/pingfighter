@@ -8629,10 +8629,42 @@ def _get_blacksmith_divine_ui_icon(size: int) -> pygame.Surface:
     )
     icon_surface.blit(glow, (0, 0), special_flags=pygame.BLEND_ADD)
 
+    shadow = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+    shadow_width = max(6, int(icon_size * 0.58))
+    shadow_height = max(4, int(icon_size * 0.22))
+    shadow_rect = pygame.Rect(
+        icon_size // 2 - shadow_width // 2,
+        int(icon_size * 0.62),
+        shadow_width,
+        shadow_height,
+    )
+    pygame.draw.ellipse(shadow, (20, 18, 28, 110), shadow_rect)
+    icon_surface.blit(shadow, (0, 0))
+
     hammer_rect = hammer_rotated.get_rect(
         center=(icon_size // 2 + int(icon_size * 0.08), icon_size // 2 + 2)
     )
     icon_surface.blit(hammer_rotated, hammer_rect)
+
+    glove_width = max(6, int(icon_size * 0.22))
+    glove_height = max(6, int(icon_size * 0.3))
+    glove_surface = pygame.Surface((glove_width, glove_height), pygame.SRCALPHA)
+    glove_rect = pygame.Rect(0, 0, glove_width, glove_height)
+    pygame.draw.rect(glove_surface, (196, 144, 92), glove_rect, border_radius=max(2, glove_width // 3))
+    strap_rect = glove_rect.inflate(-max(2, glove_width // 4), -max(2, glove_height // 3))
+    pygame.draw.rect(glove_surface, (145, 102, 62), strap_rect, border_radius=max(2, glove_width // 4))
+    pygame.draw.arc(
+        glove_surface,
+        (255, 228, 208),
+        glove_rect.inflate(-2, -2),
+        math.radians(210),
+        math.radians(330),
+        1,
+    )
+    glove_dest = glove_surface.get_rect(
+        center=(icon_size // 2 - int(icon_size * 0.25), icon_size // 2 + int(icon_size * 0.34))
+    )
+    icon_surface.blit(glove_surface, glove_dest)
 
     highlight = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
     pygame.draw.arc(
