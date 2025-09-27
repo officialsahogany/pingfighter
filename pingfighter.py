@@ -8659,60 +8659,7 @@ def draw_blacksmith_turret_ui(surface):
     pygame.draw.rect(surface, panel_color, gauge_panel_rect, border_radius=8)
     pygame.draw.rect(surface, panel_border, gauge_panel_rect, width=1, border_radius=8)
 
-    shield_size = 14
-    shield_rect = pygame.Rect(0, 0, shield_size, shield_size)
-    shield_rect.left = gauge_panel_rect.left + 4
-    shield_rect.centery = gauge_panel_rect.centery
-
-    shield_safe = (94, 142, 194)
-    shield_danger = (204, 112, 108)
-    shield_fill = tuple(
-        _clamp_color_component(shield_safe[i] * (1 - danger_ratio) + shield_danger[i] * danger_ratio + flash_strength * 28)
-        for i in range(3)
-    )
-    shield_outline = tuple(_clamp_color_component(shield_fill[i] * 0.55) for i in range(3))
-
-    pygame.draw.polygon(
-        surface,
-        shield_fill,
-        [
-            (shield_rect.centerx, shield_rect.top),
-            (shield_rect.right, shield_rect.top + shield_rect.height * 0.35),
-            (shield_rect.right - 2, shield_rect.bottom),
-            (shield_rect.left + 2, shield_rect.bottom),
-            (shield_rect.left, shield_rect.top + shield_rect.height * 0.35),
-        ],
-    )
-    pygame.draw.polygon(
-        surface,
-        shield_outline,
-        [
-            (shield_rect.centerx, shield_rect.top),
-            (shield_rect.right, shield_rect.top + shield_rect.height * 0.35),
-            (shield_rect.right - 2, shield_rect.bottom),
-            (shield_rect.left + 2, shield_rect.bottom),
-            (shield_rect.left, shield_rect.top + shield_rect.height * 0.35),
-        ],
-        1,
-    )
-
-    if damage_stage > 0:
-        icon_shadow = tuple(_clamp_color_component(c * 0.55) for c in shield_outline)
-        icon_crack = tuple(_clamp_color_component(shield_fill[i] + 18 + flash_strength * 32) for i in range(3))
-        for stage_idx in range(damage_stage):
-            for start_norm, end_norm in BLACKSMITH_UMBRELLA_CRACK_SEGMENTS[stage_idx]:
-                start_pt = (
-                    int(shield_rect.centerx + start_norm[0] * shield_rect.width * 0.45),
-                    int(shield_rect.centery + start_norm[1] * shield_rect.height * 0.45),
-                )
-                end_pt = (
-                    int(shield_rect.centerx + end_norm[0] * shield_rect.width * 0.45),
-                    int(shield_rect.centery + end_norm[1] * shield_rect.height * 0.45),
-                )
-                pygame.draw.line(surface, icon_shadow, start_pt, end_pt, 2)
-                pygame.draw.line(surface, icon_crack, start_pt, end_pt, 1)
-
-    bar_left = shield_rect.right + 5
+    bar_left = gauge_panel_rect.left + 4
     bar_right = gauge_panel_rect.right - 4
     bar_width = max(10, bar_right - bar_left)
     bar_height = 6
