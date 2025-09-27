@@ -20194,7 +20194,13 @@ def handle_player(keys):
             blacksmith_shield_impact_timer = 30  # 0.5초간 충격파 효과
             if SOUND_BLACKSMITH_UMBRELLA_BLOCK and player_sound_cooldown <= 0:
                 play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_BLOCK)
-            if not blacksmith_umbrella_retracting and frame_counter != blacksmith_umbrella_last_hit_frame:
+            frames_since_last_hit = frame_counter - blacksmith_umbrella_last_hit_frame
+            if frame_counter <= blacksmith_umbrella_last_hit_frame:
+                frames_since_last_hit = BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
+            if (
+                not blacksmith_umbrella_retracting
+                and frames_since_last_hit >= BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
+            ):
                 blacksmith_umbrella_last_hit_frame = frame_counter
                 if blacksmith_umbrella_gauge > 0:
                     blacksmith_umbrella_gauge = max(0, blacksmith_umbrella_gauge - 1)
