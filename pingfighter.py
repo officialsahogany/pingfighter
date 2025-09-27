@@ -8565,6 +8565,7 @@ blacksmith_hammer_available = True
 blacksmith_hammer_shock_charging = False
 blacksmith_hammer_last_update_frame = 0
 blacksmith_hammer_last_update_ms = 0
+blacksmith_hammer_cooldown_remainder_ms = 0.0
 blacksmith_hammer_projectiles_paused = False
 BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
 BLACKSMITH_PADDLE_NO_HAMMER_IMG = create_blacksmith_paddle_base(include_hammer=False)
