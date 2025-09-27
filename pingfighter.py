@@ -8925,6 +8925,42 @@ def reset_blacksmith_state() -> None:
     BLACKSMITH_CONTROLLER.reset()
 
 
+def cancel_blacksmith_construction(push: bool = True) -> None:
+    """진행 중인 발토르 건설(청사진 포함)을 즉시 취소한다."""
+    global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
+    global blacksmith_turret_build_progress, blacksmith_turret_partial_drain
+    global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
+    global blacksmith_divine_build_progress, blacksmith_divine_partial_drain
+
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    turret = state.turret
+    divine = state.divine
+
+    if turret.blueprint_active or blacksmith_turret_blueprint_active:
+        turret.blueprint_active = False
+        turret.blueprint_rect = None
+        turret.build_progress = 0
+        turret.partial_drain = 0.0
+        blacksmith_turret_blueprint_active = False
+        blacksmith_turret_blueprint_rect = None
+        blacksmith_turret_build_progress = 0
+        blacksmith_turret_partial_drain = 0.0
+
+    if divine.blueprint_active or blacksmith_divine_blueprint_active:
+        divine.blueprint_active = False
+        divine.blueprint_rect = None
+        divine.build_progress = 0
+        divine.partial_drain = 0.0
+        blacksmith_divine_blueprint_active = False
+        blacksmith_divine_blueprint_rect = None
+        blacksmith_divine_build_progress = 0
+        blacksmith_divine_partial_drain = 0.0
+
+    if push:
+        push_blacksmith_state()
+
+
 def start_blacksmith_construction_sound():
     if SOUND_CONSTRUCTION is None:
         return
