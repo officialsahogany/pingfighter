@@ -8647,17 +8647,29 @@ def draw_blacksmith_turret_ui(surface):
     def _clamp_color_component(value: float) -> int:
         return max(0, min(255, int(round(value))))
 
-    panel_base = (46, 40, 36)
-    panel_danger = (88, 44, 44)
+    panel_base = (68, 54, 40)
+    panel_danger = (118, 48, 40)
     panel_color = tuple(
         _clamp_color_component(panel_base[i] * (1 - danger_ratio) + panel_danger[i] * danger_ratio + flash_strength * 24)
         for i in range(3)
     )
     panel_border = tuple(
-        _clamp_color_component(panel_color[i] + 22) for i in range(3)
+        _clamp_color_component(panel_color[i] + 28) for i in range(3)
+    )
+    panel_highlight = tuple(
+        _clamp_color_component(panel_color[i] + 42) for i in range(3)
     )
     pygame.draw.rect(surface, panel_color, gauge_panel_rect, border_radius=8)
     pygame.draw.rect(surface, panel_border, gauge_panel_rect, width=1, border_radius=8)
+    highlight_line_rect = gauge_panel_rect.inflate(-4, -gauge_panel_rect.height + 6)
+    if highlight_line_rect.width > 0:
+        pygame.draw.line(
+            surface,
+            panel_highlight,
+            (highlight_line_rect.left, highlight_line_rect.top),
+            (highlight_line_rect.right, highlight_line_rect.top),
+            2,
+        )
 
     bar_left = gauge_panel_rect.left + 4
     bar_right = gauge_panel_rect.right - 4
@@ -8666,8 +8678,8 @@ def draw_blacksmith_turret_ui(surface):
     bar_top = gauge_panel_rect.centery - bar_height // 2
     bar_rect = pygame.Rect(bar_left, bar_top, bar_width, bar_height)
 
-    bar_bg = tuple(_clamp_color_component(panel_color[i] + 18) for i in range(3))
-    bar_border = tuple(_clamp_color_component(bar_bg[i] + 18) for i in range(3))
+    bar_bg = tuple(_clamp_color_component(panel_color[i] - 10) for i in range(3))
+    bar_border = tuple(_clamp_color_component(bar_bg[i] + 26) for i in range(3))
     pygame.draw.rect(surface, bar_bg, bar_rect, border_radius=3)
 
     segment_count = gauge_max
@@ -8678,15 +8690,15 @@ def draw_blacksmith_turret_ui(surface):
     segment_height = inner_rect.height
     seg_x = inner_rect.x
 
-    fill_safe = (108, 198, 236)
-    fill_danger = (228, 126, 122)
+    fill_safe = (220, 196, 128)
+    fill_danger = (236, 118, 84)
     segment_fill = tuple(
         _clamp_color_component(fill_safe[i] * (1 - danger_ratio) + fill_danger[i] * danger_ratio + flash_strength * 36)
         for i in range(3)
     )
-    empty_color = tuple(_clamp_color_component(panel_color[i] + 8) for i in range(3))
-    partial_color = tuple(_clamp_color_component(segment_fill[i] * 0.8) for i in range(3))
-    highlight_color = tuple(_clamp_color_component(segment_fill[i] + 28) for i in range(3))
+    empty_color = tuple(_clamp_color_component(panel_color[i] - 14) for i in range(3))
+    partial_color = tuple(_clamp_color_component(segment_fill[i] * 0.74 + 18) for i in range(3))
+    highlight_color = tuple(_clamp_color_component(segment_fill[i] + 36) for i in range(3))
 
     for idx in range(segment_count):
         seg_rect = pygame.Rect(seg_x, inner_rect.y, segment_width, segment_height)
