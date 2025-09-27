@@ -29866,13 +29866,7 @@ def show_start_screen():
     game_should_exit = False
     frame_count = 0
     smoke_zones = []
-    blacksmith_build_menu_active = False
-    blacksmith_down_hold_frames = 0
-    blacksmith_divine_stone_state = None
-    blacksmith_divine_blueprint_active = False
-    blacksmith_divine_blueprint_rect = None
-    blacksmith_divine_build_progress = 0
-    blacksmith_divine_partial_drain = 0.0
+    reset_blacksmith_state()
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
