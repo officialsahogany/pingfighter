@@ -539,6 +539,7 @@ cooltime_obtained = False  # 쿨타임 아이템 획득 여부
 chargebag_obtained = False  # 충전가방 아이템 획득 여부
 fuel_pouch_obtained = False  # 연료파우치 아이템 획득 여부
 bluetooth_ring_obtained = False  # 블루투스링 아이템 획득 여부
+foul_whistle_obtained = False  # 반칙호루라기 아이템 획득 여부
 spikeboots_obtained = False  # 스파이크부츠 아이템 획득 여부
 dashgear_obtained = False  # 대쉬기어 아이템 획득 여부
 bulkup_obtained = False  # 벌크업 아이템 획득 여부
@@ -596,6 +597,7 @@ unlocked_items = {
     "technical_vest": True,
     "fuel_pouch": True,
     "bluetooth_ring": True,
+    "foul_whistle": True,
     "smartphone": True,
     "ammo_box": True,
     "doping_potion": True,
@@ -635,7 +637,7 @@ def reset_items():
     
     global slot_add_obtained, speedboots_obtained, speedgear_obtained, battery_obtained
     global revival_obtained, revival_used, master_obtained, cooltime_obtained
-    global chargebag_obtained, fuel_pouch_obtained, bluetooth_ring_obtained
+    global chargebag_obtained, fuel_pouch_obtained, bluetooth_ring_obtained, foul_whistle_obtained
     global spikeboots_obtained, dashgear_obtained
     
     slot_add_obtained = 0  # slot_add 획득 카운트 초기화
@@ -650,6 +652,7 @@ def reset_items():
     chargebag_obtained = False  # chargebag 획득 상태 초기화
     fuel_pouch_obtained = False  # fuel_pouch 획득 상태 초기화
     bluetooth_ring_obtained = False  # bluetooth_ring 획득 상태 초기화
+    foul_whistle_obtained = False  # foul_whistle 획득 상태 초기화
     spikeboots_obtained = False  # spikeboots 획득 상태 초기화
     dashgear_obtained = False  # dashgear 획득 상태 초기화
     
@@ -671,7 +674,7 @@ def reset_items():
 # 아이템 생성
 def spawn_random_item():
     # 전역 변수 참조
-    global ragnarok_hammer_obtained, poseidon_trident_obtained
+    global ragnarok_hammer_obtained, poseidon_trident_obtained, foul_whistle_obtained
     
     # 디버그: 포세이돈 플래그 상태 출력
     print(f"[DEBUG spawn_random_item] poseidon_trident_obtained = {poseidon_trident_obtained}")
@@ -770,7 +773,11 @@ def spawn_random_item():
         # bluetooth_ring 아이템은 한 번 획득하면 더 이상 스폰 안함
         if item["name"] == "bluetooth_ring" and bluetooth_ring_obtained:
             continue
-        
+
+        # foul_whistle 아이템은 한 번 획득하면 더 이상 스폰 안함
+        if item["name"] == "foul_whistle" and foul_whistle_obtained:
+            continue
+
         # knee_pads 아이템은 한 번 획득하면 더 이상 스폰 안함
         if item["name"] == "knee_pads" and knee_pads_obtained:
             continue
@@ -946,7 +953,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             item_name = item["type"]["name"]
             print(f"🔍 DEBUG: 아이템 획득 감지: {item_name}")
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
                 # 패시브 아이템 처리
                 print(f"🔍 DEBUG: {item_name}을(를) 패시브 아이템으로 처리 중...")
                 if store_passive_func:
