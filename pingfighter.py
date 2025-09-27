@@ -56316,7 +56316,7 @@ def show_stage_selection(show_character_hint=True):
     clock = pygame.time.Clock()
     
     while True:
-        clock.tick(60)
+         clock.tick(60)
         
         # 배경
         SCREEN.fill((10, 10, 40))
