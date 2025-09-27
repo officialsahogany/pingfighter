@@ -9476,6 +9476,45 @@ BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
 BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES = int(0.5 * FPS)  # 우산 충돌 후 0.5초 동안 추가 게이지 차감 방지
 BLACKSMITH_UMBRELLA_GAUGE_HIT_LOCK_FRAMES = int(0.35 * FPS)  # 게이지 1회 소모 후 추가 차감을 막는 보호 시간
 blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
+
+
+def _is_divine_state_active(state: dict[str, object] | None) -> bool:
+    """디바인스톤 상태 객체가 실제로 필드에 존재하는지 판정한다."""
+
+    if not state:
+        return False
+
+    if state.get("hp", 0) <= 0:
+        return False
+
+    rect = state.get("rect")
+    return rect is not None and getattr(rect, "width", 0) > 0 and getattr(rect, "height", 0) > 0
+
+
+def is_blacksmith_divine_stone_active() -> bool:
+    """디바인스톤이 건설되어 필드에 남아있는지 여부를 반환한다."""
+
+    if _is_divine_state_active(globals().get("blacksmith_divine_stone_state")):
+        return True
+
+    controller = globals().get("BLACKSMITH_CONTROLLER")
+    if controller is None:
+        return False
+
+    try:
+        runtime_state = controller.state.divine.state
+    except AttributeError:
+        return False
+
+    return _is_divine_state_active(runtime_state)
+
+
+def get_blacksmith_umbrella_recover_interval_frames() -> int:
+    """현재 상황에 맞는 우산 게이지 회복 간격(프레임)을 계산한다."""
+
+    if is_blacksmith_divine_stone_active():
+        return BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_DIVINE_FRAMES
+    return BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES
 blacksmith_umbrella_recharge_progress = 0
 blacksmith_umbrella_damage_flash_timer = 0
 blacksmith_umbrella_last_hit_frame = -1000
@@ -18157,8 +18196,9 @@ def handle_player(keys):
             if blacksmith_umbrella_gauge >= BLACKSMITH_UMBRELLA_GAUGE_MAX:
                 blacksmith_umbrella_recharge_progress = 0
             else:
+                recover_interval = max(1, get_blacksmith_umbrella_recover_interval_frames())
                 blacksmith_umbrella_recharge_progress += 1
-                if blacksmith_umbrella_recharge_progress >= BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES:
+                if blacksmith_umbrella_recharge_progress >= recover_interval:
                     blacksmith_umbrella_gauge = min(
                         BLACKSMITH_UMBRELLA_GAUGE_MAX,
                         blacksmith_umbrella_gauge + 1,
