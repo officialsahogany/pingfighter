@@ -1115,6 +1115,8 @@ def handle_player(keys):
             base_gauge_gain = 80  # 사용자 요청에 따라 80으로 설정
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
+            game_state = GameState.get_instance()
+            game_state.last_player_gauge_gain = total_gauge_gain
             
             print(f"🔍 DEBUG: ✅ handle_player에서 게이지 충전 ({total_gauge_gain})")
             special_gauge += total_gauge_gain

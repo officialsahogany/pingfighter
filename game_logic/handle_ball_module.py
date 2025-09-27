@@ -3,10 +3,18 @@ handle_ball 함수 - bosspong.py에서 추출
 1,591줄의 거대한 함수를 별도 모듈로 분리
 """
 
-import pygame
 import math
 import random
+
+import pygame
+
+from core.game_state import GameState
+
 import game_logic.stage2_effects as stage2_effects
+
+
+CHARGBAG_WALL_COOLDOWN_FRAMES = 1
+DEFAULT_CHARGEBAG_BASE_GAIN = 80
 
 def handle_ball():
     # 게임 상태 변수들
