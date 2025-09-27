@@ -50,6 +50,7 @@ def serve_ball(is_player_serve=True, current_stage=1):
     """공 서브"""
     # 기본 서브 속도와 방향 설정
     base_speed = 9
+    speed_scale = 1.2  # 서브공 속도 20% 증가
     
     # 튜토리얼 스테이지(50)도 스테이지 1과 동일한 속도 사용
     if current_stage == 50:
@@ -65,7 +66,9 @@ def serve_ball(is_player_serve=True, current_stage=1):
         stage_multiplier = 1.0  # 스테이지 1과 동일
         ball_vel[0] *= stage_multiplier
         ball_vel[1] *= stage_multiplier
-        
+        ball_vel[0] *= speed_scale
+        ball_vel[1] *= speed_scale
+
         # 튜토리얼 서브 디버깅
         import math
         actual_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -82,11 +85,13 @@ def serve_ball(is_player_serve=True, current_stage=1):
         stage_multiplier = 1.0 + min((current_stage - 1) * 0.03, 0.5)  # 최대 1.5배까지만
         ball_vel[0] *= stage_multiplier
         ball_vel[1] *= stage_multiplier
-        
+        ball_vel[0] *= speed_scale
+        ball_vel[1] *= speed_scale
+
         # 서브 속도 안전 상한 적용
         import math
         current_speed = math.hypot(ball_vel[0], ball_vel[1])
-        max_serve_speed = base_speed * 1.6  # 기본 속도의 1.6배까지만 허용
+        max_serve_speed = base_speed * 1.6 * speed_scale  # 기본 속도의 1.6배까지만 허용 (증속 반영)
         if current_speed > max_serve_speed:
             scale = max_serve_speed / current_speed
             ball_vel[0] *= scale
