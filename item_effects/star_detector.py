@@ -1,4 +1,4 @@
-"""별탐지기 - 스타포인트 드랍 보너스 패시브"""
+"""별탐지기 - 스타포인트 추가 스폰 패시브"""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Tuple
 # 내부 상태
 _active = False
 _bonus_chance = 0.8
-_bonus_amount = 1  # 추가로 얻는 스타포인트 수 (기본 1 → 총 2배)
+_extra_spawn_count = 1  # 추가로 스폰할 별 개수 (기본 1 → 총 2배)
 _last_triggered: Tuple[float, float] | None = None
 
 
@@ -31,17 +31,17 @@ def is_star_detector_active() -> bool:
 
 
 def roll_star_bonus() -> int:
-    """별 획득 시 추가 보너스 수량을 결정한다.
+    """별 드랍 시 추가로 스폰할 별 개수를 결정한다.
 
     Returns:
-        추가로 지급할 스타포인트 수 (0 또는 양수)
+        추가로 스폰할 별 개수 (0 또는 양수)
     """
     global _last_triggered
     if not _active:
         return 0
 
     if random.random() < _bonus_chance:
-        return _bonus_amount
+        return _extra_spawn_count
     return 0
 
 
