@@ -9624,9 +9624,69 @@ def push_blacksmith_state() -> None:
     BLACKSMITH_CONTROLLER.apply_to_globals()
 
 
-def reset_blacksmith_state() -> None:
-    """발토르 전용 런타임 상태 초기화."""
+def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | None = None) -> None:
+    """발토르 전용 런타임 상태 초기화.
+
+    Args:
+        preserve_divine: True일 때 동일 스테이지 내에서 디바인스톤 상태를 유지한다.
+        stage_num: 현재 스테이지 번호. preserve_divine와 함께 전달되어야 한다.
+    """
+
+    global blacksmith_divine_stage_owner
+
+    preserved_divine: dict[str, object] | None = None
+    if preserve_divine:
+        sync_blacksmith_state()
+        state = BLACKSMITH_CONTROLLER.state
+        divine_runtime = state.divine
+        stage_owner = blacksmith_divine_stage_owner
+
+        if stage_owner is not None and (stage_num is None or stage_owner == stage_num):
+            preserved_state = None
+            if divine_runtime.state is not None:
+                preserved_state = dict(divine_runtime.state)
+                rect = preserved_state.get("rect")
+                if rect is not None:
+                    preserved_state["rect"] = rect.copy()
+
+            preserved_blueprint_rect = None
+            if divine_runtime.blueprint_rect is not None:
+                preserved_blueprint_rect = divine_runtime.blueprint_rect.copy()
+
+            preserved_divine = {
+                "state": preserved_state,
+                "blueprint_active": divine_runtime.blueprint_active,
+                "blueprint_rect": preserved_blueprint_rect,
+                "build_progress": divine_runtime.build_progress,
+                "partial_drain": divine_runtime.partial_drain,
+                "stage_owner": stage_owner,
+            }
+
     BLACKSMITH_CONTROLLER.reset()
+
+    if preserved_divine and (
+        preserved_divine["state"] is not None or preserved_divine["blueprint_active"]
+    ):
+        state = BLACKSMITH_CONTROLLER.state
+        divine_runtime = state.divine
+        divine_runtime.state = preserved_divine["state"]
+        divine_runtime.blueprint_active = preserved_divine["blueprint_active"]
+        divine_runtime.blueprint_rect = preserved_divine["blueprint_rect"]
+        divine_runtime.build_progress = preserved_divine["build_progress"]
+        divine_runtime.partial_drain = preserved_divine["partial_drain"]
+        BLACKSMITH_CONTROLLER.apply_to_globals(
+            attrs=(
+                "blacksmith_divine_stone_state",
+                "blacksmith_divine_blueprint_active",
+                "blacksmith_divine_blueprint_rect",
+                "blacksmith_divine_build_progress",
+                "blacksmith_divine_partial_drain",
+            )
+        )
+        blacksmith_divine_stage_owner = preserved_divine["stage_owner"]
+    else:
+        blacksmith_divine_stage_owner = None
+
     global blacksmith_hammer_swing_slow_timer
     global blacksmith_umbrella_gauge, blacksmith_umbrella_recharge_progress
     global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
