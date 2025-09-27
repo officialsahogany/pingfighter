@@ -68,47 +68,75 @@ class TradePointSystem:
             self.font = pygame.font.Font(None, 20)
     
     def spawn_star(self, x, y, source_type="default"):
-        """
-        별 생성
+        """별 생성
+
         Args:
             x, y: 생성 위치
-            source_type: 생성 원인 ("wall", "crow", "balloon", etc.)
+            source_type: 생성 원인 ("wall", "crow", "balloon", 등)
         """
-        # 초기 포물선 효과를 위한 랜덤 방향과 속도
-        initial_direction = random.choice([-1, 1])  # 왼쪽 또는 오른쪽
-        initial_horizontal_speed = random.uniform(1.5, 3.0) * initial_direction  # 수평 속도
-        initial_upward_speed = random.uniform(-4.0, -2.5)  # 위로 튀어오르는 속도
-        
-        star = {
-            'x': x,
-            'y': y,
-            'vx': initial_horizontal_speed,  # 초기 수평 속도 (포물선용)
-            'vy': initial_upward_speed,   # 초기 위쪽 속도 (포물선용)
-            'acceleration': 0.25,  # 중력 가속도 (더 빠르게 떨어지도록 증가)
-            'size': self.star_size,
-            'rotation': random.uniform(0, 2 * math.pi),
-            'rotation_speed': random.uniform(0.05, 0.1),
-            'glow_intensity': 1.0,
-            'glow_timer': 0,
-            'life': self.star_lifetime,
-            'collected': False,
-            'source_type': source_type,
-            'float_timer': random.uniform(0, 2 * math.pi),  # 좌우 흔들림용 타이머
-            'bounce_damping': 0.7  # 벽에 튕길 때 속도 감쇠
-        }
-        self.stars.append(star)
-        
-        # 파티클 생성
-        self._spawn_particles(x, y, source_type)
-        
-        # 디버그 로그
-        print(f" [spawn_star]   !")
-        print(f"    : ({x:.1f}, {y:.1f})")
-        print(f"    : {source_type}")
-        print(f"    : vx={star['vx']:.2f}, vy={star['vy']:.2f}")
-        print(f"       : {len(self.stars)}")
-        
-        return star
+
+        def _create_star(spawn_x: float, spawn_y: float, *, is_bonus_spawn: bool) -> dict:
+            initial_direction = random.choice([-1, 1])  # 왼쪽 또는 오른쪽
+            initial_horizontal_speed = random.uniform(1.5, 3.0) * initial_direction
+            initial_upward_speed = random.uniform(-4.0, -2.5)  # 위로 튀어오르는 속도
+
+            star_data = {
+                'x': spawn_x,
+                'y': spawn_y,
+                'vx': initial_horizontal_speed,
+                'vy': initial_upward_speed,
+                'acceleration': 0.25,
+                'size': self.star_size,
+                'rotation': random.uniform(0, 2 * math.pi),
+                'rotation_speed': random.uniform(0.05, 0.1),
+                'glow_intensity': 1.0,
+                'glow_timer': 0,
+                'life': self.star_lifetime,
+                'collected': False,
+                'source_type': source_type,
+                'float_timer': random.uniform(0, 2 * math.pi),
+                'bounce_damping': 0.7,
+                'is_bonus_spawn': is_bonus_spawn,
+            }
+
+            self.stars.append(star_data)
+            self._spawn_particles(spawn_x, spawn_y, source_type)
+
+            print(f" [spawn_star]   ! bonus={is_bonus_spawn}")
+            print(f"    : ({spawn_x:.1f}, {spawn_y:.1f})")
+            print(f"    : {source_type}")
+            print(f"    : vx={star_data['vx']:.2f}, vy={star_data['vy']:.2f}")
+            print(f"       : {len(self.stars)}")
+
+            return star_data
+
+        spawn_positions: list[tuple[float, float, bool]] = [(x, y, False)]
+        extra_spawn_count = 0
+
+        if is_star_detector_active():
+            try:
+                extra_spawn_count = max(0, roll_star_bonus())
+            except Exception:
+                extra_spawn_count = 0
+
+            if extra_spawn_count > 0:
+                try:
+                    record_trigger((x, y))
+                except Exception:
+                    pass
+
+                for _ in range(extra_spawn_count):
+                    offset_x = random.uniform(-18, 18)
+                    offset_y = random.uniform(-12, 12)
+                    spawn_positions.append((x + offset_x, y + offset_y, True))
+
+        primary_star = None
+        for idx, (spawn_x, spawn_y, is_bonus) in enumerate(spawn_positions):
+            star = _create_star(spawn_x, spawn_y, is_bonus_spawn=is_bonus)
+            if idx == 0:
+                primary_star = star
+
+        return primary_star
     
     def _spawn_particles(self, x, y, source_type):
         """파티클 생성 (내부 함수)"""
@@ -207,33 +235,23 @@ class TradePointSystem:
                 
                 if paddle_rect.colliderect(star_collision_rect):
                     star['collected'] = True
-                    bonus_amount = 0
                     self.collected_count += 1
                     collected_this_frame += 1
 
-                    if is_star_detector_active():
-                        bonus_amount = roll_star_bonus()
-                        if bonus_amount > 0:
-                            self.collected_count += bonus_amount
-                            collected_this_frame += bonus_amount
-                            try:
-                                record_trigger((star['x'], star['y']))
-                            except Exception:
-                                pass
-
-                    total_amount = 1 + bonus_amount
+                    bonus_spawn = bool(star.get('is_bonus_spawn'))
 
                     # 수집 텍스트 추가
                     self._add_collection_text(
                         star['x'],
                         star['y'],
-                        amount=total_amount,
-                        bonus=bonus_amount > 0,
+                        amount=1,
+                        bonus=bonus_spawn,
                     )
 
-                    # 수집 파티클 추가
+                    # 수집 파티클 추가 (보너스 별이면 약간 강화)
+                    intensity_multiplier = 1.4 if bonus_spawn else 1
                     self._spawn_collection_particles(
-                        star['x'], star['y'], intensity_multiplier=1 + bonus_amount
+                        star['x'], star['y'], intensity_multiplier=intensity_multiplier
                     )
                     
                     # 수집 효과음 재생
