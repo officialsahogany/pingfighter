@@ -1258,6 +1258,7 @@ SOUND_RAGNAROK_BOOM = sound_effects['RAGNAROK_BOOM']
 SOUND_RAGNAROK_SHOCK = sound_effects['RAGNAROK_SHOCK']
 SOUND_CONSTRUCTION = sound_effects['CONSTRUCTION']
 SOUND_BLACKSMITH_UMBRELLA_SWING = sound_effects['BLACKSMITH_UMBRELLA_SWING']
+SOUND_BLACKSMITH_UMBRELLA_BLOCK = sound_effects['BLACKSMITH_UMBRELLA_BLOCK']
 if SOUND_CONSTRUCTION is None:
     try:
         SOUND_CONSTRUCTION = pygame.mixer.Sound(resource_path("sounds/construction.wav"))
@@ -19660,7 +19661,9 @@ def handle_player(keys):
         # 발토르 우산 방패 충격 효과
         if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
             blacksmith_shield_impact_timer = 30  # 0.5초간 충격파 효과
-        
+            if SOUND_BLACKSMITH_UMBRELLA_BLOCK and player_sound_cooldown <= 0:
+                play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_BLOCK)
+
         # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
         if kuromi_spit_trail_active:
             kuromi_spit_trail_active = False
