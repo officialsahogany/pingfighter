@@ -8772,6 +8772,10 @@ def draw_blacksmith_divine_ui(surface):
     hammer_rect = hammer_icon.get_rect(center=(icon_rect.centerx + 4, icon_rect.centery + 2))
     surface.blit(hammer_icon, hammer_rect.topleft)
 
+    title_text = tiny_font.render("디바인스톤", True, accent_color)
+    title_rect = title_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
+    surface.blit(title_text, title_rect)
+
     bar_rect = pygame.Rect(icon_rect.x, icon_rect.bottom + 4, icon_rect.width, gauge_height)
     pygame.draw.rect(surface, (35, 35, 45), bar_rect.inflate(4, 4), border_radius=3)
 
@@ -8789,11 +8793,10 @@ def draw_blacksmith_divine_ui(surface):
             fill_rect = pygame.Rect(bar_rect.x, bar_rect.y, fill_width, bar_rect.height)
             pygame.draw.rect(surface, (94, 170, 250), fill_rect, border_radius=3)
         pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
-        status_text = tiny_font.render(f"건설 {int(progress * 100)}%", True, (225, 235, 255))
+        status_text = tiny_font.render(f"{int(progress * 100)}%", True, (210, 220, 240))
         surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
-        label_text = tiny_font.render("디바인스톤 건설중", True, accent_color)
-        label_rect = label_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
-        surface.blit(label_text, label_rect)
+        level_text = tiny_font.render("건설중", True, (210, 220, 240))
+        surface.blit(level_text, level_text.get_rect(midtop=(icon_rect.centerx, bar_rect.bottom + 6)))
     else:
         hp = divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
         max_hp = max(1, divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP))
@@ -8813,10 +8816,6 @@ def draw_blacksmith_divine_ui(surface):
 
         status_text = tiny_font.render(f"HP {hp}/{max_hp}", True, (225, 235, 255))
         surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
-
-        label_text = tiny_font.render("디바인스톤", True, accent_color)
-        label_rect = label_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
-        surface.blit(label_text, label_rect)
 
         if ratio <= 0.33:
             warning_radius = max(4, icon_rect.width // 6)
