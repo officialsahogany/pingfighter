@@ -1317,6 +1317,7 @@ SOUND_RAGNAROK_BOOM = sound_effects['RAGNAROK_BOOM']
 SOUND_RAGNAROK_SHOCK = sound_effects['RAGNAROK_SHOCK']
 SOUND_CONSTRUCTION = sound_effects['CONSTRUCTION']
 SOUND_BLACKSMITH_UMBRELLA_OPEN = sound_effects['BLACKSMITH_UMBRELLA_OPEN']
+SOUND_BLACKSMITH_UMBRELLA_CLOSE = sound_effects['BLACKSMITH_UMBRELLA_CLOSE']
 SOUND_BLACKSMITH_UMBRELLA_SWING = sound_effects['BLACKSMITH_UMBRELLA_SWING']
 SOUND_BLACKSMITH_UMBRELLA_BLOCK = sound_effects['BLACKSMITH_UMBRELLA_BLOCK']
 SOUND_BLACKSMITH_HAMMER_CHARGE = sound_effects['BLACKSMITH_HAMMER_CHARGE']
@@ -17568,6 +17569,8 @@ def handle_player(keys):
                 blacksmith_umbrella_retracting = True
                 blacksmith_umbrella_anim_direction = -1
                 blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
+                if SOUND_BLACKSMITH_UMBRELLA_CLOSE:
+                    play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_CLOSE)
 
             if 'blacksmith_shield_impact_timer' in globals() and blacksmith_shield_impact_timer > 0:
                 blacksmith_shield_impact_timer -= 1
