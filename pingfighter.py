@@ -52748,8 +52748,12 @@ def main(stage_num, new_boss_mode=False):
             #  아이템 사용 처리 (S키 또는 숫자키)
             umbrella_blocks_active_items = (
                 selected_character_type == "blacksmith"
-                and blacksmith_umbrella_open
-                and not blacksmith_umbrella_retracting
+                and (
+                    blacksmith_umbrella_open
+                    or blacksmith_umbrella_anim_timer > 0
+                    or blacksmith_umbrella_retracting
+                    or blacksmith_umbrella_swing_active
+                )
             )
             if (
                 not aipill_active
