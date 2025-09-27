@@ -55997,6 +55997,7 @@ def show_character_item_manager():
         {"name": "bulkup", "type": "passive", "icon": get_icon_safe("bulkup_icon", "bulkup")},
         {"name": "sensor", "type": "passive", "icon": get_icon_safe("sensor_icon", "sensor")},
         {"name": "dashholder", "type": "passive", "icon": get_icon_safe("dashholder_icon", "dashholder")},
+        {"name": "foul_whistle", "type": "passive", "icon": get_icon_safe("foul_whistle_icon", "foul_whistle")},
     ]
     
     # 전설 아이템 추가
