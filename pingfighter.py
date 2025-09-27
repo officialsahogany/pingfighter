@@ -8864,6 +8864,10 @@ def draw_blacksmith_divine_ui(surface):
     turret_runtime = state.turret
     global blacksmith_divine_blueprint_active, blacksmith_divine_build_progress
     global blacksmith_divine_stone_state
+    global blacksmith_hammer_available, blacksmith_hammer_shock_charging
+    global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_cooldown_timer
+    global blacksmith_hammer_shock_projectiles, blacksmith_hammer_shock_charge_frames
+    global blacksmith_hammer_shock_last_stage, blacksmith_hammer_shock_cooldown_total
 
     divine_state = divine_runtime.state or blacksmith_divine_stone_state
     blueprint_active = bool(divine_runtime.blueprint_active or blacksmith_divine_blueprint_active)
@@ -8882,12 +8886,15 @@ def draw_blacksmith_divine_ui(surface):
     icon_rect = pygame.Rect(base_x, base_y, icon_size, icon_size)
 
     gauge_height = 6
+    cooldown_bar_height = 4
     tiny_font = FontStyle.tiny()
     turret_bar_height = 8
     turret_spacing = 6
     level_text_height = tiny_font.get_height()
     turret_vertical_span = (
         icon_rect.height
+        + turret_spacing
+        + cooldown_bar_height
         + turret_spacing
         + turret_bar_height
         + turret_spacing
@@ -8901,31 +8908,198 @@ def draw_blacksmith_divine_ui(surface):
         icon_rect = icon_rect.move(0, -stack_gap)
     icon_rect.y = max(12, icon_rect.y)
 
-    panel_color = (52, 44, 38)
-    border_color = (132, 110, 80)
-    accent_color = (210, 170, 90)
+    hammer_stage_display = 0
+    if blacksmith_hammer_shock_charging:
+        hammer_stage_display = max(hammer_stage_display, int(blacksmith_hammer_shock_stage))
+    if (
+        not blacksmith_hammer_available
+        or blacksmith_hammer_shock_cooldown_timer > 0
+        or blacksmith_hammer_shock_projectiles
+    ):
+        stage_candidate = int(blacksmith_hammer_shock_last_stage)
+        if stage_candidate <= 0 and blacksmith_hammer_shock_projectiles:
+            stage_candidate = max(
+                int(proj.get("stage", 0) or 0)
+                for proj in blacksmith_hammer_shock_projectiles
+            )
+        hammer_stage_display = max(hammer_stage_display, stage_candidate)
+    hammer_stage_display = max(0, min(BLACKSMITH_HAMMER_SHOCK_MAX_STAGE, hammer_stage_display))
+
+    charge_ratio = 0.0
+    if blacksmith_hammer_shock_charging and BLACKSMITH_HAMMER_SHOCK_STAGE1_FRAMES > 0:
+        charge_ratio = max(
+            0.0,
+            min(
+                1.0,
+                blacksmith_hammer_shock_charge_frames / BLACKSMITH_HAMMER_SHOCK_STAGE1_FRAMES,
+            ),
+        )
+
+    style = BLACKSMITH_DIVINE_UI_STAGE_STYLES.get(
+        hammer_stage_display,
+        BLACKSMITH_DIVINE_UI_STAGE_STYLES[0],
+    )
+
+    def _style_color(key: str, fallback: tuple[int, ...]) -> tuple[int, ...]:
+        value = style.get(key, fallback)
+        return tuple(value)
+
+    panel_color = _style_color("panel_color", (52, 44, 38))
+    border_color = _style_color("border_color", (132, 110, 80))
+    accent_color = _style_color("accent_color", (210, 170, 90))
 
     pygame.draw.rect(surface, panel_color, icon_rect, border_radius=6)
     pygame.draw.rect(surface, border_color, icon_rect, width=2, border_radius=6)
 
+    time_ms = pygame.time.get_ticks()
+    pulse_frequency = max(0.1, float(style.get("pulse_frequency", 1.0)))
+    animation_phase = (time_ms / 1000.0) * pulse_frequency
+    pulse_wave = math.sin(animation_phase * math.tau)
+
     glow_surface = pygame.Surface(icon_rect.size, pygame.SRCALPHA)
+    raw_glow_color = list(style.get("glow_color", (120, 140, 210, 90)))
+    if len(raw_glow_color) < 4:
+        raw_glow_color.append(255)
+    glow_alpha_pulse = int(style.get("glow_alpha_pulse", 0))
+    if hammer_stage_display > 0:
+        raw_glow_color[3] = max(0, min(255, raw_glow_color[3] + int(pulse_wave * glow_alpha_pulse)))
+    elif blacksmith_hammer_shock_charging:
+        raw_glow_color[3] = max(0, min(255, raw_glow_color[3] + int(charge_ratio * glow_alpha_pulse)))
+    glow_radius = max(
+        8,
+        int((icon_rect.width // 2) * (1.0 + 0.12 * hammer_stage_display + 0.04 * pulse_wave)),
+    )
     pygame.draw.circle(
         glow_surface,
-        (120, 140, 210, 90),
+        tuple(raw_glow_color),
         (icon_rect.width // 2, icon_rect.height // 2 + 4),
-        icon_rect.width // 2,
+        glow_radius,
     )
     surface.blit(glow_surface, icon_rect.topleft, special_flags=pygame.BLEND_ADD)
 
-    hammer_icon = _get_blacksmith_divine_ui_icon(icon_rect.width)
-    hammer_rect = hammer_icon.get_rect(center=(icon_rect.centerx + 4, icon_rect.centery + 2))
-    surface.blit(hammer_icon, hammer_rect.topleft)
+    hammer_icon_base = _get_blacksmith_divine_ui_icon(icon_rect.width)
+    hammer_center = (icon_rect.centerx + 4, icon_rect.centery + 2)
+    if hammer_stage_display > 0 or blacksmith_hammer_shock_charging:
+        hammer_dynamic = hammer_icon_base.copy()
+        tint_add = style.get("tint_add", (0, 0, 0))
+        if any(tint_add):
+            hammer_dynamic.fill(tuple(tint_add), special_flags=pygame.BLEND_RGB_ADD)
+        scale = max(0.85, 1.0 + pulse_wave * float(style.get("pulse_scale", 0.0)))
+        rotation = pulse_wave * float(style.get("rotation_degrees", 0.0))
+        hammer_render = pygame.transform.rotozoom(hammer_dynamic, rotation, scale)
+    else:
+        hammer_render = hammer_icon_base
+    hammer_rect = hammer_render.get_rect(center=hammer_center)
+    surface.blit(hammer_render, hammer_rect.topleft)
+
+    swirl_color = style.get("swirl_color")
+    if swirl_color and (hammer_stage_display > 0 or blacksmith_hammer_shock_charging):
+        swirl_surface = pygame.Surface(icon_rect.size, pygame.SRCALPHA)
+        swirl_width = max(4, icon_rect.width - 8)
+        swirl_height = max(4, icon_rect.height - 8)
+        swirl_rect = pygame.Rect(4, 4, swirl_width, swirl_height)
+        swirl_counts = {0: 1, 1: 2, 2: 3, 3: 4}
+        swirl_count = swirl_counts.get(hammer_stage_display, 1)
+        swirl_thickness = max(1, min(4, hammer_stage_display + 1))
+        for idx in range(swirl_count):
+            angle_offset = idx / swirl_count
+            start_angle = (animation_phase + angle_offset) * math.tau
+            end_angle = start_angle + math.pi / 2.6
+            pygame.draw.arc(
+                swirl_surface,
+                tuple(swirl_color),
+                swirl_rect,
+                start_angle,
+                end_angle,
+                swirl_thickness,
+            )
+        surface.blit(swirl_surface, icon_rect.topleft, special_flags=pygame.BLEND_ADD)
 
     title_text = tiny_font.render("디바인스톤", True, accent_color)
     title_rect = title_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
     surface.blit(title_text, title_rect)
 
-    bar_rect = pygame.Rect(icon_rect.x, icon_rect.bottom + 4, icon_rect.width, gauge_height)
+    cooldown_bar_rect = pygame.Rect(
+        icon_rect.x,
+        icon_rect.bottom + turret_spacing,
+        icon_rect.width,
+        cooldown_bar_height,
+    )
+    bar_rect = pygame.Rect(
+        icon_rect.x,
+        cooldown_bar_rect.bottom + turret_spacing,
+        icon_rect.width,
+        gauge_height,
+    )
+
+    cooldown_timer = max(0, int(blacksmith_hammer_shock_cooldown_timer))
+    cooldown_total = int(blacksmith_hammer_shock_cooldown_total)
+    cooldown_active = (
+        not building_mode
+        and (not blacksmith_hammer_available or cooldown_timer > 0)
+    )
+    if cooldown_active and cooldown_total <= 0:
+        cooldown_total = max(1, cooldown_timer)
+    cooldown_ratio = 0.0
+    if cooldown_active and cooldown_total > 0:
+        cooldown_ratio = 1.0 - (cooldown_timer / cooldown_total)
+        cooldown_ratio = max(0.0, min(1.0, cooldown_ratio))
+    cooldown_seconds = cooldown_timer / FPS if FPS else 0.0
+
+    if cooldown_active:
+        cooldown_bg = _style_color("cooldown_bg", (32, 34, 42))
+        cooldown_outline = _style_color("cooldown_outline", (90, 105, 140))
+        ring_color = _style_color("ring_color", (94, 170, 250))
+        pygame.draw.rect(
+            surface,
+            cooldown_bg,
+            cooldown_bar_rect.inflate(4, 4),
+            border_radius=3,
+        )
+        if cooldown_ratio > 0:
+            fill_width = max(1, int(cooldown_bar_rect.width * cooldown_ratio))
+            fill_rect = pygame.Rect(
+                cooldown_bar_rect.x,
+                cooldown_bar_rect.y,
+                fill_width,
+                cooldown_bar_rect.height,
+            )
+            pygame.draw.rect(surface, ring_color, fill_rect, border_radius=3)
+        pygame.draw.rect(surface, cooldown_outline, cooldown_bar_rect, 1, border_radius=3)
+        cooldown_text_color = _style_color("cooldown_text_color", (230, 240, 255))
+        cooldown_text = tiny_font.render(f"{cooldown_seconds:4.1f}s", True, cooldown_text_color)
+        cooldown_text_rect = cooldown_text.get_rect(
+            center=(icon_rect.centerx, icon_rect.bottom - icon_rect.height * 0.2),
+        )
+        surface.blit(cooldown_text, cooldown_text_rect)
+
+    if hammer_stage_display > 0:
+        badge_font = FontStyle.tiny()
+        badge_text = badge_font.render(
+            str(hammer_stage_display),
+            True,
+            _style_color("badge_text_color", (255, 255, 255)),
+        )
+        badge_padding_x = 4
+        badge_padding_y = 2
+        badge_surface = pygame.Surface(
+            (badge_text.get_width() + badge_padding_x * 2, badge_text.get_height() + badge_padding_y * 2),
+            pygame.SRCALPHA,
+        )
+        badge_outline = _style_color("badge_outline", _style_color("ring_color", (94, 170, 250)))
+        badge_fill = _style_color("badge_fill", (20, 24, 32, 220))
+        pygame.draw.rect(badge_surface, badge_outline, badge_surface.get_rect(), border_radius=4)
+        pygame.draw.rect(
+            badge_surface,
+            badge_fill,
+            badge_surface.get_rect().inflate(-2, -2),
+            border_radius=3,
+        )
+        badge_surface.blit(badge_text, badge_text.get_rect(center=badge_surface.get_rect().center))
+        badge_dest = badge_surface.get_rect()
+        badge_dest.topright = (icon_rect.right - 4, icon_rect.top + 4)
+        surface.blit(badge_surface, badge_dest)
+
     pygame.draw.rect(surface, (35, 35, 45), bar_rect.inflate(4, 4), border_radius=3)
 
     if building_mode:
