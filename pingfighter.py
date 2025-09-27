@@ -42628,10 +42628,7 @@ def calculate_bounce(paddle):
         if BLACKSMITH_SHIELD_SWING_DURATION > 0:
             swing_progress = 1.0 - (blacksmith_shield_swing_timer / BLACKSMITH_SHIELD_SWING_DURATION)
         if swing_progress < 0.5:
-            ball_vel[0] *= 2
-            ball_vel[1] *= 2
-            speed = math.hypot(ball_vel[0], ball_vel[1])
-            print("[BLACKSMITH] Shield rising deflect: speed doubled")
+            print("[BLACKSMITH] Shield rising deflect triggered (no speed boost)")
             try:
                 effects_manager.create_impact_effect(BALL.centerx, BALL.centery, 32, is_player=True)
                 effects_manager.spawn_star_particles(BALL.centerx, BALL.centery, count=10)
