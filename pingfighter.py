@@ -46449,6 +46449,10 @@ def handle_ball():
             rolling_direction = 0
             rolling_speed = 0
             rolling_stun_timer = 0
+
+            if try_trigger_foul_whistle("deuce"):
+                return
+
             boss_name = boss_names.get(current_stage, "보스")
             show_winner_text(boss_name)
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects)
@@ -46473,6 +46477,10 @@ def handle_ball():
             pygame.event.clear(pygame.KEYDOWN)
             pygame.event.clear(pygame.KEYUP)
             pygame.key.set_repeat()  # 키 반복 리셋
+
+            if try_trigger_foul_whistle("round"):
+                return
+
             # ️ GameState 동기화 및 이벤트 발생
             game_state.round_losses = round_losses
             emit_event(EventType.ROUND_LOSE, {'stage': current_stage, 'score': round_losses})
