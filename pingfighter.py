@@ -8452,42 +8452,52 @@ def _create_turret_icon() -> pygame.Surface:
 def blacksmith_has_available_buildings() -> bool:
     if selected_character_type != "blacksmith":
         return False
-    if blacksmith_turret_blueprint_active or blacksmith_divine_blueprint_active:
-        return False
     if blacksmith_hammer_shock_charging or not blacksmith_hammer_available:
         return False
-    turret_available = not blacksmith_turret_active and not blacksmith_turret_blueprint_active
-    divine_available = (
-        blacksmith_divine_stone_state is None
-        and not blacksmith_divine_blueprint_active
-    )
+
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    turret = state.turret
+    divine = state.divine
+
+    if turret.blueprint_active or divine.blueprint_active:
+        return False
+
+    turret_available = not turret.active and not turret.blueprint_active
+    divine_available = divine.state is None and not divine.blueprint_active
     return turret_available or divine_available
 
 
 def blacksmith_open_build_menu():
-    global blacksmith_build_menu_active, blacksmith_down_hold_frames
     if not blacksmith_has_available_buildings():
         return
     if 'PLAYER' not in globals() or PLAYER is None:
         return
-    blacksmith_build_menu_active = True
-    blacksmith_down_hold_frames = 0
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    state.build_menu_active = True
+    state.down_hold_frames = 0
+    push_blacksmith_state()
 
 
 def blacksmith_close_build_menu():
-    global blacksmith_build_menu_active, blacksmith_down_hold_frames
-    blacksmith_build_menu_active = False
-    blacksmith_down_hold_frames = 0
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    state.build_menu_active = False
+    state.down_hold_frames = 0
+    push_blacksmith_state()
 
 
 def blacksmith_can_build(option: str) -> bool:
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    turret = state.turret
+    divine = state.divine
+
     if option == "turret":
-        return not blacksmith_turret_active and not blacksmith_turret_blueprint_active
+        return not turret.active and not turret.blueprint_active
     if option == "divine_stone":
-        return (
-            blacksmith_divine_stone_state is None
-            and not blacksmith_divine_blueprint_active
-        )
+        return divine.state is None and not divine.blueprint_active
     return False
 
 
