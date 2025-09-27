@@ -8590,9 +8590,13 @@ def draw_blacksmith_build_menu(surface):
         return
     if not blacksmith_has_available_buildings():
         return
-    buildable_options = [
-        option for option in BLACKSMITH_BUILD_OPTIONS if blacksmith_can_build(option)
-    ]
+    turret_runtime = state.turret
+    divine_runtime = state.divine
+    buildable_options: list[str] = []
+    if not turret_runtime.active and not turret_runtime.blueprint_active:
+        buildable_options.append("turret")
+    if divine_runtime.state is None and not divine_runtime.blueprint_active:
+        buildable_options.append("divine_stone")
     if not buildable_options:
         return
 
