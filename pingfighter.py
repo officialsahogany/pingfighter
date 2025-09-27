@@ -6112,7 +6112,10 @@ def release_blacksmith_hammer_shock():
     special_ready = special_gauge >= special_gauge_max
 
     blacksmith_hammer_available = False
-    blacksmith_hammer_shock_cooldown_timer = BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION
+    cooldown_frames = BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION_BY_STAGE.get(
+        stage, BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION
+    )
+    blacksmith_hammer_shock_cooldown_timer = cooldown_frames
 
     blacksmith_hammer_shock_charging = False
     blacksmith_hammer_shock_charge_frames = 0
@@ -9315,6 +9318,11 @@ BLACKSMITH_HAMMER_SHOCK_STAGE1_KNOCKBACK = 16.0
 BLACKSMITH_HAMMER_SHOCK_STAGE2_KNOCKBACK = 22.0
 BLACKSMITH_HAMMER_SHOCK_STAGE3_KNOCKBACK = 28.0
 BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION = int(20 * FPS)
+BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION_BY_STAGE = {
+    1: int(10 * FPS),
+    2: int(15 * FPS),
+    3: BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION,
+}
 BLACKSMITH_HAMMER_SHOCK_STUN_SCALE = 0.3
 BLACKSMITH_HAMMER_SHOCK_EXPLOSION_VISUAL_OFFSET = 28.0
 BLACKSMITH_HAMMER_SHOCK_STUN_DURATION_FRAMES = {
