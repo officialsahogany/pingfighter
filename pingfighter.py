@@ -5070,6 +5070,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_trail_timer
     global blacksmith_manual_hammer_timer
+    global blacksmith_hammer_swing_slow_timer
     global blacksmith_turret_partial_drain, blacksmith_turret_xp_partial_drain
     global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
     global blacksmith_divine_build_progress, blacksmith_divine_partial_drain
@@ -5127,6 +5128,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             pass
         down_just_pressed = False
         blacksmith_hammer_swing_active = False
+        blacksmith_hammer_swing_slow_timer = 0
         blacksmith_hammer_swing_phase = 0
         blacksmith_manual_hammer_timer = 0
     elif (
@@ -5209,6 +5211,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         except Exception:
                             pass
                         blacksmith_hammer_swing_active = False
+                        blacksmith_hammer_swing_slow_timer = 0
                         blacksmith_hammer_swing_phase = 0
                         blacksmith_manual_hammer_timer = 0
                     elif frame_counter % 30 == 0:
@@ -5289,6 +5292,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_divine_build_progress = 0
                         blacksmith_divine_partial_drain = 0.0
                         blacksmith_hammer_swing_active = False
+                        blacksmith_hammer_swing_slow_timer = 0
                         blacksmith_hammer_swing_phase = 0
                 else:
                     if frame_counter % 45 == 0:
@@ -5497,6 +5501,8 @@ def init_blacksmith_globals():
     """Blacksmith 관련 전역 변수 초기화"""
     global blacksmith_hammer_explosions, _blacksmith_hammer_explosion_surface_cache
     global blacksmith_hammer_return_fx
+    global blacksmith_hammer_swing_slow_timer
+    blacksmith_hammer_swing_slow_timer = 0
     _blacksmith_hammer_explosion_surface_cache.clear()
     blacksmith_hammer_explosions.clear()
     blacksmith_hammer_return_fx.clear()
