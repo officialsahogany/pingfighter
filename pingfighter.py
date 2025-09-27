@@ -19846,6 +19846,14 @@ def handle_player(keys):
             blacksmith_shield_impact_timer = 30  # 0.5초간 충격파 효과
             if SOUND_BLACKSMITH_UMBRELLA_BLOCK and player_sound_cooldown <= 0:
                 play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_BLOCK)
+            if not blacksmith_umbrella_retracting and frame_counter != blacksmith_umbrella_last_hit_frame:
+                blacksmith_umbrella_last_hit_frame = frame_counter
+                if blacksmith_umbrella_gauge > 0:
+                    blacksmith_umbrella_gauge = max(0, blacksmith_umbrella_gauge - 1)
+                    blacksmith_umbrella_damage_flash_timer = BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES
+                    blacksmith_umbrella_recharge_progress = 0
+                    if blacksmith_umbrella_gauge <= 0:
+                        request_blacksmith_umbrella_close(play_sound=True, flash=True)
 
         # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
         if kuromi_spit_trail_active:
