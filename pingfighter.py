@@ -7459,11 +7459,12 @@ def update_blacksmith_turret():
     global player_collision_handled, last_hit_by
     global ball_vel, stopwatch_active, stopwatch_timer, game_vars, SCREEN
 
-    update_blacksmith_divine_stone()
-    sync_blacksmith_state()
-
     state = BLACKSMITH_CONTROLLER.state
     turret_runtime = state.turret
+    divine_runtime = state.divine
+
+    update_blacksmith_divine_stone(divine_runtime, auto_sync=False, auto_push=False)
+
     turret_state = turret_runtime.state
 
     if turret_runtime.manual_cooldown > 0:
