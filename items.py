@@ -670,6 +670,13 @@ def reset_items():
     # 전설 아이템 획득 상태는 게임 세션 동안 유지되므로 초기화하지 않음
     # (한 번 획득한 전설 아이템은 더 이상 필드에 나타나지 않도록 함)
 
+    try:
+        from item_effects.foul_whistle import get_foul_whistle_instance
+
+        get_foul_whistle_instance().deactivate()
+    except Exception:
+        pass
+
 
 # 아이템 생성
 def spawn_random_item():

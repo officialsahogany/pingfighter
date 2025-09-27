@@ -25345,6 +25345,8 @@ def draw_objects():
             foul_whistle.draw(SCREEN, WIDTH, HEIGHT)
             if foul_whistle_pending_round_reset and foul_whistle.consume_reset_ready():
                 foul_whistle_pending_round_reset = False
+                foul_whistle.animation_active = False
+                foul_whistle.animation_frame = 0
                 go_to_next_round()
                 return
     except Exception as e:
