@@ -3,9 +3,12 @@ handle_player 함수 - bosspong.py에서 추출
 1,137줄의 거대한 함수를 별도 모듈로 분리
 """
 
-import pygame
 import math
 import random
+
+import pygame
+
+from core.game_state import GameState
 
 def handle_player(keys):
     global ball_angle, special_gauge, special_ready, special_active, recent_dash_time, recent_dash_success_window

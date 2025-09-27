@@ -95,6 +95,10 @@ class GameState:
         self.special_active = False
         self.special_duration = 0
         self.special_gauge_max = 100
+        # 최근 패들 충전량 및 충전가방 보정용 상태
+        self.last_player_gauge_gain = 80
+        self.chargebag_wall_charge_percent = 0.2
+        self.chargebag_wall_charge_cooldown = 0
         self.displayed_gauge = 0
         self.gauge_animation_speed = 0.15
         self.displayed_boss_gauge = 0
