@@ -24744,6 +24744,7 @@ def draw_player_gauge():
     player_gauge_width = 14  # 플레이어 게이지바 폭
     token_start_x = player_gauge_x + player_gauge_width // 2 - (max_tokens * token_spacing) // 2 + token_spacing // 2
     token_y = gauge_y + gauge_height + 15  # 게이지바 아래 15픽셀
+    tokens_bottom = token_y + token_radius
     
     # 토큰 추가 강조 효과 확인
     token_emphasis = False
