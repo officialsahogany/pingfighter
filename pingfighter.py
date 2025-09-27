@@ -7391,87 +7391,87 @@ def update_blacksmith_divine_stone():
 
 def update_blacksmith_turret():
     """발토르 포탑의 발사 및 투사체 동작을 업데이트한다."""
-    global blacksmith_turret_active, blacksmith_turret_state
-    global blacksmith_turret_projectiles, player_collision_handled, last_hit_by
-    global blacksmith_turret_blueprint_active, blacksmith_turret_partial_drain
-    global blacksmith_turret_manual_cooldown, blacksmith_turret_xp_partial_drain
+    global player_collision_handled, last_hit_by
     global ball_vel, stopwatch_active, stopwatch_timer, game_vars, SCREEN
 
-    sync_blacksmith_state()
     update_blacksmith_divine_stone()
+    sync_blacksmith_state()
 
-    if blacksmith_turret_manual_cooldown > 0:
-        blacksmith_turret_manual_cooldown -= 1
+    state = BLACKSMITH_CONTROLLER.state
+    turret_runtime = state.turret
+    turret_state = turret_runtime.state
 
-    if not blacksmith_turret_active or not blacksmith_turret_state:
-        blacksmith_turret_projectiles.clear()
-        blacksmith_turret_manual_cooldown = 0
-        blacksmith_turret_xp_partial_drain = 0.0
-        if not blacksmith_turret_blueprint_active:
+    if turret_runtime.manual_cooldown > 0:
+        turret_runtime.manual_cooldown -= 1
+
+    if not turret_runtime.active or not turret_state:
+        turret_runtime.projectiles.clear()
+        turret_runtime.manual_cooldown = 0
+        turret_runtime.xp_partial_drain = 0.0
+        if not turret_runtime.blueprint_active:
             stop_blacksmith_construction_sound()
-        sync_blacksmith_state()
+        push_blacksmith_state()
         return
 
-    turret_rect = blacksmith_turret_state.get("rect")
+    turret_rect = turret_state.get("rect")
     if turret_rect is None:
-        blacksmith_turret_active = False
-        blacksmith_turret_projectiles.clear()
-        blacksmith_turret_manual_cooldown = 0
-        blacksmith_turret_xp_partial_drain = 0.0
-        if not blacksmith_turret_blueprint_active:
+        turret_runtime.active = False
+        turret_runtime.projectiles.clear()
+        turret_runtime.manual_cooldown = 0
+        turret_runtime.xp_partial_drain = 0.0
+        if not turret_runtime.blueprint_active:
             stop_blacksmith_construction_sound()
-        sync_blacksmith_state()
+        push_blacksmith_state()
         return
 
     scale_factor = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
     boss_rect = BOSS if 'BOSS' in globals() else None
     target_angle = -math.pi / 2
     if boss_rect:
-        target_angle = math.atan2(boss_rect.centery - turret_rect.centery,
-                                  boss_rect.centerx - turret_rect.centerx)
-    current_angle = blacksmith_turret_state.get("display_angle", target_angle)
+        target_angle = math.atan2(
+            boss_rect.centery - turret_rect.centery,
+            boss_rect.centerx - turret_rect.centerx,
+        )
+
+    current_angle = turret_state.get("display_angle", target_angle)
     delta_angle = ((target_angle - current_angle + math.pi) % (2 * math.pi)) - math.pi
     current_angle += delta_angle * BLACKSMITH_TURRET_AIM_LERP
-    blacksmith_turret_state["display_angle"] = current_angle
-    blacksmith_turret_state["aim_angle"] = target_angle
+    turret_state["display_angle"] = current_angle
+    turret_state["aim_angle"] = target_angle
 
-    recoil_timer = blacksmith_turret_state.get("recoil_timer", 0)
+    recoil_timer = turret_state.get("recoil_timer", 0)
     if recoil_timer > 0:
         recoil_timer -= 1
-    blacksmith_turret_state["recoil_timer"] = recoil_timer
+    turret_state["recoil_timer"] = recoil_timer
     if BLACKSMITH_TURRET_RECOIL_FRAMES > 0:
-        blacksmith_turret_state["recoil_offset"] = (
+        turret_state["recoil_offset"] = (
             recoil_timer / BLACKSMITH_TURRET_RECOIL_FRAMES
         ) * BLACKSMITH_TURRET_RECOIL_DISTANCE * scale_factor
     else:
-        blacksmith_turret_state["recoil_offset"] = 0.0
+        turret_state["recoil_offset"] = 0.0
 
     if not (stopwatch_active and stopwatch_timer > 0) and turret_rect.colliderect(BALL):
         ball_rect = pygame.Rect(BALL)
         ball_owner = getattr(game_vars.ball, "last_hit_by", "player")
-        if ball_owner != "player":
-            if blacksmith_turret_state.get("hp", 0) > 0:
-                blacksmith_turret_state["hp"] -= 1
-                BALL.bottom = min(BALL.bottom, turret_rect.top - 4)
-                speed_mag = max(7.0, math.hypot(ball_vel[0], ball_vel[1]))
-                ball_vel[1] = -abs(speed_mag)
-                ball_vel[0] *= 0.6
-                last_hit_by = "player"
-                game_vars.ball.last_hit_by = "player"
-                player_collision_handled = True
-                effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=6)
-                try:
-                    play_paddle_sound()
-                except Exception:
-                    pass
+        if ball_owner != "player" and turret_state.get("hp", 0) > 0:
+            turret_state["hp"] -= 1
+            BALL.bottom = min(BALL.bottom, turret_rect.top - 4)
+            speed_mag = max(7.0, math.hypot(ball_vel[0], ball_vel[1]))
+            ball_vel[1] = -abs(speed_mag)
+            ball_vel[0] *= 0.6
+            last_hit_by = "player"
+            game_vars.ball.last_hit_by = "player"
+            player_collision_handled = True
+            effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=6)
+            try:
+                play_paddle_sound()
+            except Exception:
+                pass
 
-    if stopwatch_active and stopwatch_timer > 0:
-        # 스톱워치 정지 중에는 포탑 발사도 중단
-        pass
-    else:
-        blacksmith_turret_state["fire_timer"] -= 1
-        if blacksmith_turret_state["fire_timer"] <= 0:
-            display_angle = blacksmith_turret_state.get("display_angle", -math.pi / 2)
+    if not (stopwatch_active and stopwatch_timer > 0):
+        turret_state["fire_timer"] -= 1
+        if turret_state["fire_timer"] <= 0:
+            display_angle = turret_state.get("display_angle", -math.pi / 2)
             direction = pygame.math.Vector2(math.cos(display_angle), math.sin(display_angle))
             if direction.length() == 0:
                 direction = pygame.math.Vector2(0, -1)
@@ -7480,13 +7480,13 @@ def update_blacksmith_turret():
 
             scale_x = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
             scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
-            blacksmith_turret_state["recoil_timer"] = BLACKSMITH_TURRET_RECOIL_FRAMES
-            blacksmith_turret_state["recoil_offset"] = BLACKSMITH_TURRET_RECOIL_DISTANCE * scale_x
+            turret_state["recoil_timer"] = BLACKSMITH_TURRET_RECOIL_FRAMES
+            turret_state["recoil_offset"] = BLACKSMITH_TURRET_RECOIL_DISTANCE * scale_x
             pivot_point = pygame.math.Vector2(
                 turret_rect.centerx,
                 turret_rect.top + scale_y * BLACKSMITH_TURRET_HEAD_PIVOT_OFFSET,
             )
-            recoil_offset = blacksmith_turret_state.get("recoil_offset", 0.0)
+            recoil_offset = turret_state.get("recoil_offset", 0.0)
             pivot_point -= direction * recoil_offset
             muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
             spawn_point = pivot_point + direction * (muzzle_distance + BLACKSMITH_TURRET_PROJECTILE_RADIUS + 2)
@@ -7502,8 +7502,8 @@ def update_blacksmith_turret():
                 "radius": BLACKSMITH_TURRET_PROJECTILE_RADIUS,
                 "grace_frames": 6,
             }
-            blacksmith_turret_projectiles.append(projectile)
-            blacksmith_turret_state["fire_timer"] = blacksmith_turret_state["fire_interval"]
+            turret_runtime.projectiles.append(projectile)
+            turret_state["fire_timer"] = turret_state["fire_interval"]
             try:
                 play_sound_with_volume(SOUND_THROW)
             except Exception:
@@ -7513,9 +7513,10 @@ def update_blacksmith_turret():
     boss_target_x = boss_rect.centerx if boss_rect else WIDTH // 2
     boss_target_y = boss_rect.centery if boss_rect else HEIGHT // 3
 
-    if blacksmith_turret_projectiles and not (stopwatch_active and stopwatch_timer > 0):
+    projectiles = turret_runtime.projectiles
+    if projectiles and not (stopwatch_active and stopwatch_timer > 0):
         new_projectiles = []
-        for proj in blacksmith_turret_projectiles:
+        for proj in projectiles:
             speed = proj.get("speed", BLACKSMITH_TURRET_MISSILE_SPEED)
             turn_rate = BLACKSMITH_TURRET_MISSILE_TURN_RATE
 
@@ -7604,10 +7605,10 @@ def update_blacksmith_turret():
                     pass
                 continue
 
-            current_turret_rect = blacksmith_turret_state.get("rect") if blacksmith_turret_state else None
+            current_turret_rect = turret_state.get("rect") if turret_state else None
             if grace_frames <= 0 and current_turret_rect and current_turret_rect.colliderect(projectile_rect):
-                if blacksmith_turret_state.get("hp", 0) > 0:
-                    blacksmith_turret_state["hp"] -= 1
+                if turret_state.get("hp", 0) > 0:
+                    turret_state["hp"] -= 1
                     spark_surface = pygame.Surface((14, 14), pygame.SRCALPHA)
                     pygame.draw.circle(spark_surface, (255, 200, 100, 200), (7, 7), 6)
                     surface_target = pygame.Surface((14, 14), pygame.SRCALPHA)
@@ -7622,24 +7623,29 @@ def update_blacksmith_turret():
 
             new_projectiles.append(proj)
 
-        blacksmith_turret_projectiles = new_projectiles
+        turret_runtime.projectiles = new_projectiles
 
-    if blacksmith_turret_active and blacksmith_turret_state and blacksmith_turret_state.get("hp", 0) <= 0:
+    if turret_runtime.projectiles:
+        BLACKSMITH_TURRET_MISSILE_IMG.set_alpha(255)
+    else:
+        BLACKSMITH_TURRET_MISSILE_IMG.set_alpha(0)
+
+    if turret_runtime.active and turret_state and turret_state.get("hp", 0) <= 0:
         effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.centery, count=12)
         try:
             play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
         except Exception:
             pass
-        blacksmith_turret_active = False
-        blacksmith_turret_state = None
-        blacksmith_turret_blueprint_active = False
-        blacksmith_turret_projectiles.clear()
-        blacksmith_turret_partial_drain = 0.0
-        blacksmith_turret_xp_partial_drain = 0.0
-        blacksmith_turret_manual_cooldown = 0
+        turret_runtime.active = False
+        turret_runtime.state = None
+        turret_runtime.blueprint_active = False
+        turret_runtime.projectiles.clear()
+        turret_runtime.partial_drain = 0.0
+        turret_runtime.xp_partial_drain = 0.0
+        turret_runtime.manual_cooldown = 0
         stop_blacksmith_construction_sound()
 
-    sync_blacksmith_state()
+    push_blacksmith_state()
 
 
 def upgrade_blacksmith_turret():
