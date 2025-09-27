@@ -31707,15 +31707,12 @@ def show_start_screen():
     global blacksmith_hammer_cooldown_remainder_ms, blacksmith_hammer_cooldown_debug_bucket
     global blacksmith_hammer_projectiles_paused, blacksmith_hammer_swing_auto
     global blacksmith_trail_timer
-    global blacksmith_hammer_shock_last_stage, blacksmith_hammer_shock_cooldown_total
     blacksmith_hammer_available = True
     blacksmith_hammer_shock_charging = False
     blacksmith_hammer_shock_charge_frames = 0
     blacksmith_hammer_shock_stage = 0
     blacksmith_hammer_shock_cooldown_timer = 0
     blacksmith_hammer_shock_projectiles.clear()
-    blacksmith_hammer_shock_last_stage = 0
-    blacksmith_hammer_shock_cooldown_total = 0
     blacksmith_hammer_shock_last_stage = 0
     blacksmith_hammer_shock_cooldown_total = 0
     stop_blacksmith_hammer_charge_sound()
