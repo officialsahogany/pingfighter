@@ -78,7 +78,7 @@ from game_state.items import bind_item_state, item_state as item_state_adapter
 
 def check_ball_speed_safety():
     """공 속도 안전성 확인 및 제한"""
-    global ball_vel
+    global ball_vel, blacksmith_divine_stage_owner
     import math
     
     current_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -5437,6 +5437,9 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "pulse": 0,
                             "cooldown": 0,
                         }
+                        stage_value = globals().get("current_stage")
+                        if stage_value is not None:
+                            blacksmith_divine_stage_owner = stage_value
                         divine_runtime.state = blacksmith_divine_stone_state
                         divine_runtime.blueprint_active = False
                         divine_runtime.blueprint_rect = None
@@ -7790,6 +7793,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
             if divine_state["hp"] <= 0:
                 effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
                 divine_runtime.state = None
+                blacksmith_divine_stage_owner = None
                 state_changed = True
 
     if state_changed and auto_push:
@@ -9254,6 +9258,11 @@ def blacksmith_start_divine_stone():
 
     if divine.state is not None or divine.blueprint_active:
         return False
+
+    global blacksmith_divine_stage_owner
+    stage_value = globals().get("current_stage")
+    if stage_value is not None:
+        blacksmith_divine_stage_owner = stage_value
 
     blueprint_width = BLACKSMITH_DIVINE_STONE_SIZE[0]
     blueprint_height = BLACKSMITH_DIVINE_STONE_SIZE[1] + BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT
