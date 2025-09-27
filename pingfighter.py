@@ -24935,6 +24935,7 @@ def draw_player_gauge():
         sensor_token_radius = 8  # 기존 토큰(6)보다 큰 크기
         sensor_token_x = player_gauge_x + player_gauge_width // 2  # 플레이어 게이지바 중앙
         sensor_token_y = token_y + 20  # 기존 토큰볼 아래 20픽셀
+        tokens_bottom = sensor_token_y + sensor_token_radius
         
         # 쿨타임 진행률 계산 (15초 쿨타임)
         sensor_cooldown = 15000  # 15초 in milliseconds
