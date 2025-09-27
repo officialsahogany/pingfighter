@@ -7,6 +7,7 @@ from .state import (
     BlacksmithConstructionAudio,
     blacksmith_state,
 )
+from .controller import BlacksmithController
 
 __all__ = [
     "BlacksmithState",
@@ -14,4 +15,5 @@ __all__ = [
     "BlacksmithDivineRuntime",
     "BlacksmithConstructionAudio",
     "blacksmith_state",
+    "BlacksmithController",
 ]
