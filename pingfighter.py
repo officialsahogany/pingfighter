@@ -20194,6 +20194,12 @@ def handle_player(keys):
             debug_umbrella_hitbox_rect = None
     
     collision_with_player = BALL.colliderect(player_collision_rect)
+    if (
+        selected_character_type == "blacksmith"
+        and blacksmith_umbrella_hit_lock
+        and not collision_with_player
+    ):
+        blacksmith_umbrella_hit_lock = False
 
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     if collision_with_player and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
@@ -20264,13 +20270,6 @@ def handle_player(keys):
                     charge_time_reduction = lightweight_bonus  # 5% per level
                     base_charge_time = 90  # 1.5초
                     rolling_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
-    else:
-        if (
-            selected_character_type == "blacksmith"
-            and blacksmith_umbrella_hit_lock
-            and not collision_with_player
-        ):
-            blacksmith_umbrella_hit_lock = False
                     print(f"  !    (: {rolling_charge_timer} = {rolling_charge_timer/60:.1f})")
                     print(f"[DEBUG]     : {rolling_charge_timer}")
                 else:
