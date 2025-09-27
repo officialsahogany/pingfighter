@@ -30461,6 +30461,7 @@ def show_start_screen():
     blacksmith_hammer_shock_projectiles.clear()
     stop_blacksmith_hammer_charge_sound()
     stop_blacksmith_hammer_charge_sound()
+    stop_blacksmith_hammer_charge_sound()
     blacksmith_hammer_last_update_frame = globals().get("frame_counter", 0)
     blacksmith_hammer_last_update_ms = pygame.time.get_ticks()
     blacksmith_hammer_cooldown_remainder_ms = 0.0
