@@ -9339,6 +9339,7 @@ blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
 blacksmith_umbrella_recharge_progress = 0
 blacksmith_umbrella_damage_flash_timer = 0
 blacksmith_umbrella_last_hit_frame = -1000
+blacksmith_umbrella_hit_lock = False  # 공이 우산을 떠날 때까지 게이지 추가 소모를 차단
 
 # 우산 금/갈라짐 패턴 (정규화 좌표 기반)
 # 각 단계 리스트는 이전 단계와 누적되어 렌더링된다.
