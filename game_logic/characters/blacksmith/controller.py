@@ -1,7 +1,7 @@
 """발토르(Blacksmith) 캐릭터 컨트롤러 뼈대."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
 
 from .state import BlacksmithState, blacksmith_state
@@ -16,7 +16,7 @@ class BlacksmithController:
     """
 
     namespace: Any
-    state: BlacksmithState = blacksmith_state
+    state: BlacksmithState = field(default_factory=lambda: blacksmith_state)
 
     def sync_from_globals(self, attrs: Optional[Iterable[str]] = None) -> None:
         """pingfighter 전역 상태를 내부 상태로 동기화."""
