@@ -20432,7 +20432,7 @@ def store_passive_item(item_data):
         except Exception as e:
             print(f"[WARN] 별탐지기 활성화 실패: {e}")
         else:
-            print("🔭 별탐지기 획득! 스타포인트 드랍 시 추가 별이 나타날 확률이 증가합니다.")
+            print("🔭 별탐지기 획득! 스타포인트 드랍 시 25% 확률로 추가 별이 등장합니다.")
 
         item_state_adapter.append_passive_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
