@@ -20403,6 +20403,24 @@ def store_passive_item(item_data):
         # show_item_acquisition("bluetooth_ring", "블루투스링", None, False,
         #                   (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
+    elif item_data["name"] == "star_detector":
+        # 별탐지기 아이템 획득 (패시브)
+        import items
+        if items.star_detector_obtained:
+            print("별탐지기가 이미 활성화되어 있습니다.")
+            return
+
+        items.star_detector_obtained = True
+        try:
+            from item_effects.star_detector import activate_star_detector
+            activate_star_detector()
+        except Exception as e:
+            print(f"[WARN] 별탐지기 활성화 실패: {e}")
+        else:
+            print("🔭 별탐지기 획득! 스타포인트 보상이 최대 2배로 증가할 수 있습니다.")
+
+        item_state_adapter.append_passive_item(item_data)
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "smartphone":
         # 스마트폰 아이템 획득 (패시브)
         import items

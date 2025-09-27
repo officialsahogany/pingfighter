@@ -690,6 +690,13 @@ def reset_items():
     except Exception:
         pass
 
+    try:
+        from item_effects.star_detector import deactivate_star_detector
+
+        deactivate_star_detector()
+    except Exception:
+        pass
+
 
 # 아이템 생성
 def spawn_random_item():

@@ -145,6 +145,8 @@ def init_gacha(available_items, legendary_bonus=0.0):
             should_skip = True
         elif item_name == "foul_whistle" and getattr(items, 'foul_whistle_obtained', False):
             should_skip = True
+        elif item_name == "star_detector" and getattr(items, 'star_detector_obtained', False):
+            should_skip = True
         elif item_name == "smartphone" and getattr(items, 'smartphone_obtained', False):
             should_skip = True
         elif item_name == "knee_pads" and getattr(items, 'knee_pads_obtained', False):
