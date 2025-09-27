@@ -914,6 +914,60 @@ def play_sound_with_volume(sound, volume=None):
     sound.set_volume(volume)
     return sound.play()
 
+
+blacksmith_hammer_charge_sound_channel = None
+
+
+def start_blacksmith_hammer_charge_sound() -> None:
+    """해머 쇼크 충전 사운드를 루프로 재생."""
+
+    global blacksmith_hammer_charge_sound_channel
+
+    if not SOUND_BLACKSMITH_HAMMER_CHARGE:
+        return
+
+    channel = blacksmith_hammer_charge_sound_channel
+    if channel:
+        try:
+            if channel.get_busy():
+                return
+            channel.stop()
+        except Exception:
+            pass
+        finally:
+            blacksmith_hammer_charge_sound_channel = None
+
+    try:
+        SOUND_BLACKSMITH_HAMMER_CHARGE.set_volume(sfx_volume)
+    except Exception:
+        pass
+
+    try:
+        blacksmith_hammer_charge_sound_channel = SOUND_BLACKSMITH_HAMMER_CHARGE.play(-1)
+    except Exception:
+        blacksmith_hammer_charge_sound_channel = None
+
+
+def stop_blacksmith_hammer_charge_sound() -> None:
+    """충전 사운드를 중지하고 채널을 정리."""
+
+    global blacksmith_hammer_charge_sound_channel
+
+    channel = blacksmith_hammer_charge_sound_channel
+    if channel:
+        try:
+            channel.stop()
+        except Exception:
+            pass
+    elif SOUND_BLACKSMITH_HAMMER_CHARGE:
+        try:
+            SOUND_BLACKSMITH_HAMMER_CHARGE.stop()
+        except Exception:
+            pass
+
+    blacksmith_hammer_charge_sound_channel = None
+
+
 def play_dash_sound():
     #  버스트업 스킬이 있으면 bustup.wav 재생
     if acceleration_skill_level > 0:  # 버스트업 스킬 레벨이 1 이상이면
@@ -5949,6 +6003,8 @@ def release_blacksmith_hammer_shock():
     if not blacksmith_hammer_shock_charging:
         return
 
+    stop_blacksmith_hammer_charge_sound()
+
     stage = _blacksmith_hammer_shock_stage_for_frames(blacksmith_hammer_shock_charge_frames)
     if stage == 0:
         blacksmith_hammer_shock_charging = False
@@ -7063,6 +7119,7 @@ def update_blacksmith_hammer_shock(keys):
         blacksmith_hammer_shock_charging = False
         blacksmith_hammer_shock_charge_frames = 0
         blacksmith_hammer_shock_stage = 0
+        stop_blacksmith_hammer_charge_sound()
     # Keep updating cooldowns and projectiles even while the umbrella is open.
 
     if blacksmith_hammer_shock_cooldown_timer > 0:
@@ -7080,6 +7137,7 @@ def update_blacksmith_hammer_shock(keys):
             blacksmith_hammer_shock_charging = False
             blacksmith_hammer_shock_charge_frames = 0
             blacksmith_hammer_shock_stage = 0
+            stop_blacksmith_hammer_charge_sound()
             if blacksmith_hammer_charge_position is not None:
                 sanitized_charge = _sanitize_blacksmith_hammer_position(blacksmith_hammer_charge_position)
                 if sanitized_charge is not None:
@@ -9031,7 +9089,6 @@ blacksmith_hammer_shock_cooldown_timer = 0
 blacksmith_hammer_shock_projectiles = []
 blacksmith_hammer_shock_anchor_x = 0
 blacksmith_hammer_shock_anchor_y = 0
-blacksmith_hammer_charge_sound_channel = None
 BLACKSMITH_HAMMER_SHOCK_STAGE1_FRAMES = int(1 * FPS)
 BLACKSMITH_HAMMER_SHOCK_STAGE2_FRAMES = int(2 * FPS)
 BLACKSMITH_HAMMER_SHOCK_STAGE3_FRAMES = int(3 * FPS)
