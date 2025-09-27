@@ -8629,8 +8629,98 @@ def draw_blacksmith_turret_ui(surface):
     border_color = (132, 110, 80)
     accent_color = (210, 170, 90)
 
-    pygame.draw.rect(surface, panel_color, icon_rect, border_radius=6)
-    pygame.draw.rect(surface, border_color, icon_rect, width=2, border_radius=6)
+    has_turret_ui = blacksmith_turret_blueprint_active or blacksmith_turret_active
+    if has_turret_ui:
+        pygame.draw.rect(surface, panel_color, icon_rect, border_radius=6)
+        pygame.draw.rect(surface, border_color, icon_rect, width=2, border_radius=6)
+
+        base_points = [
+            (icon_rect.centerx - icon_rect.width * 0.38, icon_rect.bottom - 6),
+            (icon_rect.centerx + icon_rect.width * 0.38, icon_rect.bottom - 6),
+            (icon_rect.centerx + icon_rect.width * 0.28, icon_rect.bottom + 4),
+            (icon_rect.centerx - icon_rect.width * 0.28, icon_rect.bottom + 4)
+        ]
+        pygame.draw.polygon(surface, (66, 60, 92), [(int(x), int(y)) for x, y in base_points])
+        pygame.draw.lines(surface, (118, 110, 160), True, [(int(x), int(y)) for x, y in base_points], 2)
+
+        leg_left = [
+            (icon_rect.centerx - icon_rect.width * 0.22, icon_rect.bottom - 12),
+            (icon_rect.centerx - icon_rect.width * 0.36, icon_rect.bottom - 30),
+            (icon_rect.centerx - icon_rect.width * 0.28, icon_rect.bottom - 44),
+            (icon_rect.centerx - icon_rect.width * 0.14, icon_rect.bottom - 24)
+        ]
+        leg_right = [
+            (icon_rect.centerx + icon_rect.width * 0.22, icon_rect.bottom - 12),
+            (icon_rect.centerx + icon_rect.width * 0.36, icon_rect.bottom - 30),
+            (icon_rect.centerx + icon_rect.width * 0.28, icon_rect.bottom - 44),
+            (icon_rect.centerx + icon_rect.width * 0.14, icon_rect.bottom - 24)
+        ]
+        pygame.draw.polygon(surface, (181, 186, 210), [(int(x), int(y)) for x, y in leg_left])
+        pygame.draw.polygon(surface, (181, 186, 210), [(int(x), int(y)) for x, y in leg_right])
+        pygame.draw.lines(surface, (82, 86, 120), False, [(int(x), int(y)) for x, y in leg_left], 2)
+        pygame.draw.lines(surface, (82, 86, 120), False, [(int(x), int(y)) for x, y in leg_right], 2)
+
+        torso_outer = [
+            (icon_rect.centerx - icon_rect.width * 0.28, icon_rect.bottom - 36),
+            (icon_rect.centerx - icon_rect.width * 0.34, icon_rect.y + icon_rect.height * 0.72),
+            (icon_rect.centerx - icon_rect.width * 0.16, icon_rect.y + icon_rect.height * 0.38),
+            (icon_rect.centerx - icon_rect.width * 0.08, icon_rect.y + icon_rect.height * 0.24),
+            (icon_rect.centerx + icon_rect.width * 0.08, icon_rect.y + icon_rect.height * 0.24),
+            (icon_rect.centerx + icon_rect.width * 0.16, icon_rect.y + icon_rect.height * 0.38),
+            (icon_rect.centerx + icon_rect.width * 0.34, icon_rect.y + icon_rect.height * 0.72),
+            (icon_rect.centerx + icon_rect.width * 0.28, icon_rect.bottom - 36)
+        ]
+        pygame.draw.polygon(surface, (228, 238, 255), [(int(x), int(y)) for x, y in torso_outer])
+        torso_inner = [
+            (icon_rect.centerx - icon_rect.width * 0.18, icon_rect.bottom - 34),
+            (icon_rect.centerx - icon_rect.width * 0.26, icon_rect.y + icon_rect.height * 0.7),
+            (icon_rect.centerx - icon_rect.width * 0.12, icon_rect.y + icon_rect.height * 0.42),
+            (icon_rect.centerx - icon_rect.width * 0.04, icon_rect.y + icon_rect.height * 0.3),
+            (icon_rect.centerx + icon_rect.width * 0.04, icon_rect.y + icon_rect.height * 0.3),
+            (icon_rect.centerx + icon_rect.width * 0.12, icon_rect.y + icon_rect.height * 0.42),
+            (icon_rect.centerx + icon_rect.width * 0.26, icon_rect.y + icon_rect.height * 0.7),
+            (icon_rect.centerx + icon_rect.width * 0.18, icon_rect.bottom - 34)
+        ]
+        pygame.draw.polygon(surface, (210, 70, 78), [(int(x), int(y)) for x, y in torso_inner])
+        pygame.draw.lines(surface, (72, 44, 66), True, [(int(x), int(y)) for x, y in torso_outer], 2)
+
+        shoulder_rect = pygame.Rect(icon_rect.centerx - icon_rect.width * 0.34, icon_rect.y + 6,
+                                    int(icon_rect.width * 0.68), int(icon_rect.height * 0.18))
+        pygame.draw.rect(surface, (212, 64, 68), shoulder_rect, border_radius=6)
+        pygame.draw.rect(surface, (245, 199, 88), shoulder_rect.inflate(-int(icon_rect.width * 0.26), -int(icon_rect.height * 0.12)), border_radius=4)
+
+        cannon_left = [
+            (icon_rect.centerx - icon_rect.width * 0.5, icon_rect.y + icon_rect.height * 0.42),
+            (icon_rect.centerx - icon_rect.width * 0.24, icon_rect.y + icon_rect.height * 0.38),
+            (icon_rect.centerx - icon_rect.width * 0.2, icon_rect.y + icon_rect.height * 0.28),
+            (icon_rect.centerx - icon_rect.width * 0.46, icon_rect.y + icon_rect.height * 0.32)
+        ]
+        cannon_right = [
+            (icon_rect.centerx + icon_rect.width * 0.5, icon_rect.y + icon_rect.height * 0.42),
+            (icon_rect.centerx + icon_rect.width * 0.24, icon_rect.y + icon_rect.height * 0.38),
+            (icon_rect.centerx + icon_rect.width * 0.2, icon_rect.y + icon_rect.height * 0.28),
+            (icon_rect.centerx + icon_rect.width * 0.46, icon_rect.y + icon_rect.height * 0.32)
+        ]
+        pygame.draw.polygon(surface, (242, 182, 62), [(int(x), int(y)) for x, y in cannon_left])
+        pygame.draw.polygon(surface, (242, 182, 62), [(int(x), int(y)) for x, y in cannon_right])
+        pygame.draw.lines(surface, (70, 40, 8), True, [(int(x), int(y)) for x, y in cannon_left], 2)
+        pygame.draw.lines(surface, (70, 40, 8), True, [(int(x), int(y)) for x, y in cannon_right], 2)
+
+        core_center = (icon_rect.centerx, icon_rect.y + int(icon_rect.height * 0.36))
+        pygame.draw.circle(surface, (24, 160, 220), core_center, int(icon_rect.width * 0.18), 2)
+        core_surface = pygame.Surface((int(icon_rect.width * 0.4), int(icon_rect.width * 0.4)), pygame.SRCALPHA)
+        core_radius = core_surface.get_width() // 2
+        pygame.draw.circle(core_surface, (18, 150, 240, 120), (core_radius, core_radius), core_radius)
+        pygame.draw.circle(core_surface, (255, 255, 255, 210), (core_radius, core_radius), max(2, core_radius // 2))
+        surface.blit(core_surface, (core_center[0] - core_radius, core_center[1] - core_radius))
+
+        emitter_rect = pygame.Rect(icon_rect.centerx - icon_rect.width * 0.06, icon_rect.y - icon_rect.height * 0.05,
+                                    int(icon_rect.width * 0.12), int(icon_rect.height * 0.24))
+        pygame.draw.rect(surface, (235, 242, 255), emitter_rect, border_radius=4)
+        muzzle_rect = pygame.Rect(icon_rect.centerx - icon_rect.width * 0.05, icon_rect.y - icon_rect.height * 0.22,
+                                   int(icon_rect.width * 0.1), int(icon_rect.height * 0.18))
+        pygame.draw.rect(surface, (94, 206, 255), muzzle_rect, border_radius=3)
+        pygame.draw.rect(surface, (16, 36, 64), muzzle_rect, 2, border_radius=3)
 
     base_points = [
         (icon_rect.centerx - icon_rect.width * 0.38, icon_rect.bottom - 6),
