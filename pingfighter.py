@@ -14747,7 +14747,6 @@ def handle_lightning_master_as_top():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
             elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
@@ -14765,7 +14764,6 @@ def handle_lightning_master_as_top():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
         # --- 플레이어 서브 차례 ---
         elif boss_fake_during_player_serve:
@@ -14848,7 +14846,6 @@ def handle_ice_queen_as_top():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
             elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
@@ -14866,7 +14863,6 @@ def handle_ice_queen_as_top():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
         # --- 플레이어 서브 차례 ---
         elif boss_fake_during_player_serve:
@@ -47514,7 +47510,6 @@ def handle_boss_pro():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
             elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
@@ -47532,7 +47527,6 @@ def handle_boss_pro():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
         # --- 플레이어 서브 차례 ---
         elif boss_fake_during_player_serve:
@@ -47801,7 +47795,6 @@ def handle_boss_champion():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
             elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
@@ -47819,7 +47812,6 @@ def handle_boss_champion():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
         # --- 플레이어 서브 차례 ---
         elif boss_fake_during_player_serve:
@@ -48095,7 +48087,6 @@ def handle_boss_mythic():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
             if wait_delay == 0:
                 # 즉시 서브 실행
@@ -48113,7 +48104,6 @@ def handle_boss_mythic():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
         elif boss_fake_during_player_serve:  # 플레이어 서브 차례
             # 플레이어 패들을 관찰하는 듯한 미세한 움직임
@@ -48527,7 +48517,6 @@ def handle_boss_junior():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
             elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
@@ -48545,7 +48534,6 @@ def handle_boss_junior():
                 serve_speed = math.hypot(ball_vel[0], ball_vel[1])
                 print(f"🏓 서브 완료: 스테이지={current_stage}, 속도={serve_speed:.2f}, ball_vel={ball_vel}")
                 play_serve_sound()
-                calculate_bounce(BOSS)
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
         # --- 플레이어 서브 차례 ---
         elif boss_fake_during_player_serve:
@@ -49533,7 +49521,6 @@ def handle_boss():
                         fireball_last_cast = serve_result['fireball_last_cast']
                         fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
                     play_serve_sound()
-                    calculate_bounce(BOSS)
                     create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
                 elif wait_delay == 0:
                     # 즉시 서브 실행
@@ -49544,7 +49531,6 @@ def handle_boss():
                         fireball_last_cast = serve_result['fireball_last_cast']
                         fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
                     play_serve_sound()
-                    calculate_bounce(BOSS)
                     create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
             
             return  # 서브 중에는 일반 AI 실행 안함
