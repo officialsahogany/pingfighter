@@ -17593,6 +17593,7 @@ def handle_player(keys):
         global blacksmith_umbrella_open, blacksmith_umbrella_retracting
         global blacksmith_umbrella_anim_direction, blacksmith_umbrella_anim_timer
         global blacksmith_umbrella_damage_flash_timer
+        global blacksmith_umbrella_hit_lock
 
         if not blacksmith_umbrella_open or blacksmith_umbrella_retracting:
             return
@@ -17600,6 +17601,7 @@ def handle_player(keys):
         blacksmith_umbrella_retracting = True
         blacksmith_umbrella_anim_direction = -1
         blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
+        blacksmith_umbrella_hit_lock = False
 
         if flash:
             blacksmith_umbrella_damage_flash_timer = max(
