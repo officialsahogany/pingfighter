@@ -51547,6 +51547,14 @@ def main(stage_num, new_boss_mode=False):
             deactivate_bluetooth_ring()
             items.fuel_pouch_obtained = False
             items.bluetooth_ring_obtained = False
+            try:
+                from item_effects.foul_whistle import get_foul_whistle_instance
+
+                get_foul_whistle_instance().deactivate()
+            except Exception:
+                pass
+            items.foul_whistle_obtained = False
+            foul_whistle_pending_round_reset = False
             return "main_menu"
         # 프로파일러 프레임 시작
         if profiler:
@@ -52540,6 +52548,14 @@ def main(stage_num, new_boss_mode=False):
                     deactivate_bluetooth_ring()
                     items.fuel_pouch_obtained = False
                     items.bluetooth_ring_obtained = False
+                    try:
+                        from item_effects.foul_whistle import get_foul_whistle_instance
+
+                        get_foul_whistle_instance().deactivate()
+                    except Exception:
+                        pass
+                    items.foul_whistle_obtained = False
+                    foul_whistle_pending_round_reset = False
                     return "main_menu"  # 메인 메뉴로 돌아감
             if blacksmith_build_menu_active and event.type == pygame.KEYDOWN:
                 if event.key in (pygame.K_1, pygame.K_KP1):
