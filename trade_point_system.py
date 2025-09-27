@@ -207,14 +207,34 @@ class TradePointSystem:
                 
                 if paddle_rect.colliderect(star_collision_rect):
                     star['collected'] = True
+                    bonus_amount = 0
                     self.collected_count += 1
                     collected_this_frame += 1
-                    
+
+                    if is_star_detector_active():
+                        bonus_amount = roll_star_bonus()
+                        if bonus_amount > 0:
+                            self.collected_count += bonus_amount
+                            collected_this_frame += bonus_amount
+                            try:
+                                record_trigger((star['x'], star['y']))
+                            except Exception:
+                                pass
+
+                    total_amount = 1 + bonus_amount
+
                     # 수집 텍스트 추가
-                    self._add_collection_text(star['x'], star['y'])
-                    
+                    self._add_collection_text(
+                        star['x'],
+                        star['y'],
+                        amount=total_amount,
+                        bonus=bonus_amount > 0,
+                    )
+
                     # 수집 파티클 추가
-                    self._spawn_collection_particles(star['x'], star['y'])
+                    self._spawn_collection_particles(
+                        star['x'], star['y'], intensity_multiplier=1 + bonus_amount
+                    )
                     
                     # 수집 효과음 재생
                     try:
@@ -278,21 +298,26 @@ class TradePointSystem:
         for text in texts_to_remove:
             self.texts.remove(text)
     
-    def _add_collection_text(self, x, y):
+    def _add_collection_text(self, x, y, amount=1, bonus=False):
         """수집 텍스트 추가 (내부 함수)"""
+        label = f"+{amount} 스타포인트"
+        if bonus:
+            label += " (별탐지기!)"
+
         text = {
             'x': x,
             'y': y - 20,
-            'text': "+1 Star Point",
+            'text': label,
             'alpha': 255,
             'speed': 1.5,
             'fade_speed': 4
         }
         self.texts.append(text)
-    
-    def _spawn_collection_particles(self, x, y):
+
+    def _spawn_collection_particles(self, x, y, intensity_multiplier=1):
         """수집 시 특별 파티클 생성 (내부 함수)"""
-        for _ in range(30):  # 수집 시 더 많은 파티클
+        particle_count = int(30 * max(1, intensity_multiplier))
+        for _ in range(particle_count):  # 수집 시 더 많은 파티클
             particle = {
                 'x': x,
                 'y': y,
