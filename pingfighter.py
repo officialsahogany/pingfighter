@@ -5148,7 +5148,12 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
                 blacksmith_hammer_swing_active = True
-                blacksmith_hammer_swing_phase = (blacksmith_hammer_swing_phase + 1) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
+                hammer_increment = 1
+                if frame_counter % 2 == 0:
+                    hammer_increment = 2
+                blacksmith_hammer_swing_phase = (
+                    blacksmith_hammer_swing_phase + hammer_increment
+                ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
                 drain_per_frame = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS
                 gauge_spent = False
@@ -5233,8 +5238,11 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
                 blacksmith_hammer_swing_active = True
+                hammer_increment = 1
+                if frame_counter % 2 == 0:
+                    hammer_increment = 2
                 blacksmith_hammer_swing_phase = (
-                    blacksmith_hammer_swing_phase + 1
+                    blacksmith_hammer_swing_phase + hammer_increment
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
                 drain_per_frame = BLACKSMITH_DIVINE_GAUGE_DRAIN_PER_SEC / FPS
