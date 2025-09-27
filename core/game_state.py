@@ -132,6 +132,7 @@ class GameState:
         self.bulkup_obtained = False
         self.dashholder_obtained = False
         self.gravitybelt_obtained = False
+        self.foul_whistle_obtained = False
         self.danger_sensor_obtained = False
         self.sensor_obtained = False
         

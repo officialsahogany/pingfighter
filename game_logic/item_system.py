@@ -109,6 +109,13 @@ class ItemSystem:
                 'effect': {'gravity_reduction': 0.5},
                 'permanent': True
             },
+            'foul_whistle': {
+                'name': '반칙호루라기',
+                'description': '라운드 패배 시 50% 확률로 무효 선언 후 재경기',
+                'type': 'passive',
+                'effect': {'round_negate_chance': 0.5},
+                'permanent': True
+            },
             'sensor': {
                 'name': '위험감지센서',
                 'description': '위험 상황 경고',
@@ -194,6 +201,8 @@ class ItemSystem:
             return self.game_state.dashholder_obtained
         elif item_name == 'gravitybelt':
             return self.game_state.gravitybelt_obtained
+        elif item_name == 'foul_whistle':
+            return self.game_state.foul_whistle_obtained
         elif item_name == 'sensor':
             return self.game_state.danger_sensor_obtained
         return False
@@ -229,6 +238,8 @@ class ItemSystem:
             self.game_state.dashholder_obtained = obtained
         elif item_name == 'gravitybelt':
             self.game_state.gravitybelt_obtained = obtained
+        elif item_name == 'foul_whistle':
+            self.game_state.foul_whistle_obtained = obtained
         elif item_name == 'sensor':
             self.game_state.danger_sensor_obtained = obtained
             self.game_state.sensor_obtained = obtained  # 호환성

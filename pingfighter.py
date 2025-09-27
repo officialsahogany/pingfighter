@@ -936,6 +936,7 @@ def play_serve_sound():
 def apply_serve_result(serve_result):
     """serve_ball() 결과를 전역 상태에 반영한다."""
     global ball_vel, ball_impact_boost
+    global player_collision_cooldown, boss_collision_cooldown, is_player_serve
 
     new_velocity = serve_result.get('ball_vel', [0.0, 0.0])
     if len(new_velocity) < 2:
@@ -954,6 +955,20 @@ def apply_serve_result(serve_result):
         game_state.ball_vel = [ball_vel[0], ball_vel[1]]
         game_state.ball_impact_boost = ball_impact_boost
     except Exception:
+        pass
+
+    # 서브 직후 패들과의 즉시 재충돌을 막아 속도 급증을 방지
+    try:
+        serve_cooldown_frames = 12  # 약 0.2초 (60fps 기준)
+        half_cooldown = max(4, serve_cooldown_frames // 2)
+        if is_player_serve:
+            player_collision_cooldown = max(player_collision_cooldown, serve_cooldown_frames)
+            boss_collision_cooldown = max(boss_collision_cooldown, half_cooldown)
+        else:
+            boss_collision_cooldown = max(boss_collision_cooldown, serve_cooldown_frames)
+            player_collision_cooldown = max(player_collision_cooldown, half_cooldown)
+    except Exception:
+        # 테스트 환경처럼 쿨다운 변수가 없는 경우를 대비한 가드
         pass
 
 def play_wall_sound():
