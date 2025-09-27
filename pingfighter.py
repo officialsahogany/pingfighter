@@ -8810,24 +8810,55 @@ blacksmith_hammer_shock_particles = []  # Particles for crack shatter effects
 blacksmith_construction_sound_playing = False
 blacksmith_construction_channel = None
 
+# 발토르 전용 상태/컨트롤러 초기화
+BLACKSMITH_CONTROLLER = BlacksmithController(sys.modules[__name__])
+BLACKSMITH_CONTROLLER.sync_from_globals()
+
+
+def sync_blacksmith_state() -> None:
+    """전역 → 상태 객체 동기화."""
+    BLACKSMITH_CONTROLLER.sync_from_globals()
+
+
+def push_blacksmith_state() -> None:
+    """상태 객체 → 전역 동기화."""
+    BLACKSMITH_CONTROLLER.apply_to_globals()
+
+
+def reset_blacksmith_state() -> None:
+    """발토르 전용 런타임 상태 초기화."""
+    BLACKSMITH_CONTROLLER.reset()
+
 
 def start_blacksmith_construction_sound():
-    global blacksmith_construction_sound_playing, blacksmith_construction_channel
     if SOUND_CONSTRUCTION is None:
         return
-    if not blacksmith_construction_sound_playing:
-        if blacksmith_construction_channel:
-            try:
-                blacksmith_construction_channel.unpause()
-                blacksmith_construction_sound_playing = True
-                return
-            except Exception:
-                pass
+
+    sync_blacksmith_state()
+    audio_state = BLACKSMITH_CONTROLLER.state.construction_audio
+
+    if audio_state.playing:
+        return
+
+    channel = audio_state.channel
+    if channel:
         try:
-            blacksmith_construction_channel = SOUND_CONSTRUCTION.play(-1)
+            channel.unpause()
+            audio_state.playing = True
+            audio_state.channel = channel
+            push_blacksmith_state()
+            return
         except Exception:
-            blacksmith_construction_channel = None
-        blacksmith_construction_sound_playing = True
+            channel = None
+
+    try:
+        channel = SOUND_CONSTRUCTION.play(-1)
+    except Exception:
+        channel = None
+
+    audio_state.channel = channel
+    audio_state.playing = True if channel else False
+    push_blacksmith_state()
 
 
 def stop_blacksmith_construction_sound():
