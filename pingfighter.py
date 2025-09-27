@@ -31714,8 +31714,6 @@ def show_start_screen():
     blacksmith_hammer_shock_projectiles.clear()
     blacksmith_hammer_shock_last_stage = 0
     blacksmith_hammer_shock_cooldown_total = 0
-    blacksmith_hammer_shock_last_stage = 0
-    blacksmith_hammer_shock_cooldown_total = 0
     stop_blacksmith_hammer_charge_sound()
     stop_blacksmith_hammer_charge_sound()
     stop_blacksmith_hammer_charge_sound()
