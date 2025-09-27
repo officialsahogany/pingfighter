@@ -5518,6 +5518,30 @@ def _get_blacksmith_hammer_effect_center() -> tuple[float, float]:
     return float(WIDTH // 2), float(HEIGHT // 2)
 
 
+def _sanitize_blacksmith_hammer_position(
+    pos: tuple[float, float] | None,
+) -> tuple[float, float] | None:
+    """Ensure hammer charge coordinates stay within sane, finite bounds."""
+
+    if pos is None:
+        return None
+
+    try:
+        x = float(pos[0])
+        y = float(pos[1])
+    except (TypeError, ValueError, IndexError):
+        return None
+
+    if not math.isfinite(x) or not math.isfinite(y):
+        return None
+
+    limit = 1_000_000
+    if abs(x) > limit or abs(y) > limit:
+        return None
+
+    return (x, y)
+
+
 def _get_blacksmith_hammer_explosion_palette(stage: int) -> dict[str, object]:
     stage_index = max(1, min(stage, BLACKSMITH_HAMMER_SHOCK_MAX_STAGE))
     return _BLACKSMITH_HAMMER_EXPLOSION_PALETTES.get(stage_index, _BLACKSMITH_HAMMER_EXPLOSION_PALETTES[1])
@@ -7043,20 +7067,55 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
     if selected_character_type != "blacksmith":
         return
 
-    if blacksmith_hammer_shock_charging and 'PLAYER' in globals() and PLAYER is not None:
+    if blacksmith_hammer_shock_charging:
+        draw_center: tuple[float, float] | None = None
+
         if blacksmith_hammer_charge_position is not None:
-            cx = int(round(blacksmith_hammer_charge_position[0] + offset_x))
-            cy = int(round(blacksmith_hammer_charge_position[1] + offset_y))
-        else:
-            cx = int(round(PLAYER.right + 18 + offset_x))
-            cy = int(round(PLAYER.centery - 20 + offset_y))
-        _draw_blacksmith_hammer_charge_effect(
-            surface,
-            cx,
-            cy,
-            blacksmith_hammer_shock_stage,
-            blacksmith_hammer_shock_charge_frames,
-        )
+            sanitized_charge = _sanitize_blacksmith_hammer_position(blacksmith_hammer_charge_position)
+            if sanitized_charge is not None:
+                blacksmith_hammer_charge_position = sanitized_charge
+                draw_center = (
+                    sanitized_charge[0] + offset_x,
+                    sanitized_charge[1] + offset_y,
+                )
+            else:
+                blacksmith_hammer_charge_position = None
+
+        if draw_center is None:
+            fallback_base: tuple[float, float] | None = None
+
+            if 'PLAYER' in globals() and PLAYER is not None:
+                fallback_base = _sanitize_blacksmith_hammer_position(
+                    (PLAYER.right + 18, PLAYER.centery - 20)
+                )
+
+            if fallback_base is None and blacksmith_hammer_idle_position is not None:
+                sanitized_idle = _sanitize_blacksmith_hammer_position(blacksmith_hammer_idle_position)
+                if sanitized_idle is not None:
+                    blacksmith_hammer_idle_position = sanitized_idle
+                    fallback_base = sanitized_idle
+                else:
+                    blacksmith_hammer_idle_position = None
+
+            if fallback_base is None:
+                fallback_base = (float(WIDTH // 2), float(HEIGHT // 2))
+
+            draw_center = (
+                fallback_base[0] + offset_x,
+                fallback_base[1] + offset_y,
+            )
+
+        sanitized_center = _sanitize_blacksmith_hammer_position(draw_center)
+        if sanitized_center is not None:
+            cx = int(round(sanitized_center[0]))
+            cy = int(round(sanitized_center[1]))
+            _draw_blacksmith_hammer_charge_effect(
+                surface,
+                cx,
+                cy,
+                blacksmith_hammer_shock_stage,
+                blacksmith_hammer_shock_charge_frames,
+            )
 
     # Draw ground cracks first (below everything)
     for crack in blacksmith_ground_cracks:
