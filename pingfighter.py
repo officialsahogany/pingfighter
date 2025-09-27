@@ -8588,8 +8588,14 @@ def draw_blacksmith_build_menu(surface):
     state = BLACKSMITH_CONTROLLER.state
     if not state.build_menu_active or 'PLAYER' not in globals() or PLAYER is None:
         return
-    buildable_options = _blacksmith_get_buildable_options(state=state)
-    if not buildable_options:
+    turret_runtime = state.turret
+    divine_runtime = state.divine
+    option_states = [
+        ("turret", not turret_runtime.active and not turret_runtime.blueprint_active),
+        ("divine_stone", divine_runtime.state is None and not divine_runtime.blueprint_active),
+    ]
+
+    if not any(available for _, available in option_states):
         state.build_menu_active = False
         state.down_hold_frames = 0
         push_blacksmith_state()
@@ -8599,18 +8605,22 @@ def draw_blacksmith_build_menu(surface):
     base_x = PLAYER.centerx
     base_y = max(60, PLAYER.top - 60)
 
-    option_count = len(buildable_options)
-    for idx, option in enumerate(buildable_options):
+    option_count = len(option_states)
+    for idx, (option, available) in enumerate(option_states):
         icon = BLACKSMITH_TURRET_ICON if option == "turret" else BLACKSMITH_DIVINE_ICON
         icon_surface = icon.copy()
+        if not available:
+            dim = pygame.Surface(icon_surface.get_size(), pygame.SRCALPHA)
+            dim.fill((0, 0, 0, 150))
+            icon_surface.blit(dim, (0, 0))
         offset_x = (idx - (option_count - 1) / 2) * spacing
         dest_rect = icon_surface.get_rect(center=(base_x + offset_x, base_y))
         pygame.draw.rect(surface, (15, 20, 30, 180), dest_rect.inflate(18, 18), border_radius=12)
-        border_color = (90, 150, 240, 220)
+        border_color = (90, 150, 240, 220) if available else (60, 70, 90, 160)
         pygame.draw.rect(surface, border_color, dest_rect.inflate(22, 22), width=2, border_radius=14)
         surface.blit(icon_surface, dest_rect)
         font = FontStyle.tiny()
-        text_color = (255, 255, 255)
+        text_color = (255, 255, 255) if available else (150, 150, 150)
         name = "포탑" if option == "turret" else "디바인스톤"
         label = font.render(name, True, text_color)
         surface.blit(label, label.get_rect(center=(dest_rect.centerx, dest_rect.bottom + 16)))
