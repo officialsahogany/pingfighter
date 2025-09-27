@@ -8998,6 +8998,14 @@ blacksmith_umbrella_anchor_base_x = None
 BLACKSMITH_UMBRELLA_VISUAL_OFFSET_Y = 32  # 우산 그래픽과 판정이 패들과 겹치도록 추가 하강치
 blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
+# === 발토르 우산 게이지/내구도 시스템 ===
+BLACKSMITH_UMBRELLA_GAUGE_MAX = 5
+BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES = int(8 * FPS)
+BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
+blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
+blacksmith_umbrella_recharge_progress = 0
+blacksmith_umbrella_damage_flash_timer = 0
+
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
 smasher_walking_active = False
 smasher_walking_timer = 0
