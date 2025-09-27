@@ -17583,6 +17583,8 @@ def handle_player(keys):
                 blacksmith_umbrella_retracting = False
                 blacksmith_umbrella_anim_direction = 1
                 blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
+                if SOUND_BLACKSMITH_UMBRELLA_OPEN:
+                    play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_OPEN)
                 blacksmith_walking_active = False
                 blacksmith_walking_timer = 0
                 blacksmith_walk_direction = 0
