@@ -29,7 +29,7 @@ class FoulWhistle:
             pygame.font.init()
 
         self.active = False
-        self.negate_chance = 0.5
+        self.negate_chance = 0.1
 
         self.animation_active = False
         self.animation_frame = 0
