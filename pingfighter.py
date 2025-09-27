@@ -7758,25 +7758,17 @@ def draw_blacksmith_turret_elements(surface):
     """발토르 포탑과 청사진, 투사체를 그린다."""
     sync_blacksmith_state()
     state = BLACKSMITH_CONTROLLER.state
-    turret_runtime = state.turret
-    divine_runtime = state.divine
-    blacksmith_turret_state = turret_runtime.state
-    blacksmith_turret_projectiles = turret_runtime.projectiles
-    blacksmith_turret_blueprint_active = turret_runtime.blueprint_active
-    blacksmith_turret_blueprint_rect = turret_runtime.blueprint_rect
-    blacksmith_turret_build_progress = turret_runtime.build_progress
-    blacksmith_divine_blueprint_active = divine_runtime.blueprint_active
-    blacksmith_divine_blueprint_rect = divine_runtime.blueprint_rect
-    blacksmith_divine_build_progress = divine_runtime.build_progress
-    blacksmith_divine_stone_state = divine_runtime.state
-    blacksmith_turret_active = turret_runtime.active
+    turret = state.turret
+    divine = state.divine
+    turret_state = turret.state
+    projectiles = turret.projectiles
 
-    draw_blacksmith_divine_stone(surface)
-    if blacksmith_divine_blueprint_active and blacksmith_divine_blueprint_rect:
-        blueprint_rect = blacksmith_divine_blueprint_rect
+    draw_blacksmith_divine_stone(surface, divine.state)
+    if divine.blueprint_active and divine.blueprint_rect:
+        blueprint_rect = divine.blueprint_rect
         progress_ratio = 0.0
         if BLACKSMITH_DIVINE_BUILD_TIME > 0:
-            progress_ratio = blacksmith_divine_build_progress / BLACKSMITH_DIVINE_BUILD_TIME
+            progress_ratio = divine.build_progress / BLACKSMITH_DIVINE_BUILD_TIME
         progress_ratio = max(0.0, min(1.0, progress_ratio))
 
         width = blueprint_rect.width
