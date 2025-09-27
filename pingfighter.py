@@ -17193,6 +17193,7 @@ def handle_player(keys):
     global wall_installing  #  벽돌 설치 변수 추가
     global is_waiting_for_serve  #  서브 대기 상태 변수 추가
     global is_player_serve  #  플레이어 서브 상태 변수 추가
+    global frame_counter
     
     def update_umbrella_knockback():
         """부드러운 넉백 모션 업데이트"""
@@ -17235,6 +17236,28 @@ def handle_player(keys):
         blacksmith_umbrella_knockback_start_x = float(PLAYER.x)
         blacksmith_umbrella_knockback_target_x = target_x
         blacksmith_umbrella_knockback_timer = 0.0
+
+    def request_blacksmith_umbrella_close(*, play_sound: bool = True, flash: bool = False) -> None:
+        """우산을 접도록 요청한다. 이미 접는 중이면 아무 작업도 하지 않는다."""
+        global blacksmith_umbrella_open, blacksmith_umbrella_retracting
+        global blacksmith_umbrella_anim_direction, blacksmith_umbrella_anim_timer
+        global blacksmith_umbrella_damage_flash_timer
+
+        if not blacksmith_umbrella_open or blacksmith_umbrella_retracting:
+            return
+
+        blacksmith_umbrella_retracting = True
+        blacksmith_umbrella_anim_direction = -1
+        blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
+
+        if flash:
+            blacksmith_umbrella_damage_flash_timer = max(
+                blacksmith_umbrella_damage_flash_timer,
+                BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES,
+            )
+
+        if play_sound and SOUND_BLACKSMITH_UMBRELLA_CLOSE:
+            play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_CLOSE)
     global gravitybelt_obtained, dashholder_obtained  #  무중력벨트 및 대쉬홀더 변수 추가
     global rolling_active, rolling_timer, rolling_direction, rolling_speed
     global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y  # 포세이돈 삼지창 대시 플래그
