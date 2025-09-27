@@ -9605,6 +9605,7 @@ def reset_blacksmith_state() -> None:
     global blacksmith_umbrella_gauge, blacksmith_umbrella_recharge_progress
     global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
     global blacksmith_umbrella_hit_lock
+    global blacksmith_umbrella_hit_lock
     blacksmith_hammer_swing_slow_timer = 0
     stop_blacksmith_hammer_charge_sound()
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
@@ -20035,9 +20036,6 @@ def handle_player(keys):
     # 서브 대기 중에는 충돌 체크하지 않음
     global player_collision_handled, player_collision_cooldown, player_sound_cooldown, last_hit_by
     global mega_smashing_active, mega_smashing_meteor_trail, mega_smashing_ghosts, mega_smashing_ghost_scatter
-    global blacksmith_umbrella_gauge, blacksmith_umbrella_recharge_progress
-    global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
-    global blacksmith_umbrella_hit_lock
     # Y속도와 관계없이 충돌 감지 (고스트샷 등 특수 상황 대응)
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
     player_collision_rect = PLAYER.copy()
