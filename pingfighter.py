@@ -8902,7 +8902,7 @@ blacksmith_umbrella_anim_direction = 1  # 1: 펼치는 중/완료, -1: 접는 �
 BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES = int(0.5 * FPS)
 BLACKSMITH_UMBRELLA_SWING_SWING_FRAMES = int(0.5 * FPS)
 BLACKSMITH_UMBRELLA_SWING_RECOVER_DAMP = 0.72
-BLACKSMITH_UMBRELLA_SWING_SOUND_DELAY_FRAMES = int(0.5 * FPS)
+BLACKSMITH_UMBRELLA_SWING_SOUND_DELAY_FRAMES = HALF_SECOND_FRAMES
 blacksmith_umbrella_swing_active = False
 blacksmith_umbrella_swing_timer = 0
 blacksmith_umbrella_swing_stage = 0  # 0=준비, 1=스윙
