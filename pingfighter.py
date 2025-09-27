@@ -8671,7 +8671,21 @@ def draw_blacksmith_divine_ui(surface):
     icon_rect = pygame.Rect(base_x, base_y, icon_size, icon_size)
 
     gauge_height = 6
-    stack_gap = icon_rect.height + gauge_height + 20
+    tiny_font = FontStyle.tiny()
+    turret_bar_height = 8
+    turret_spacing = 6
+    level_text_height = tiny_font.get_height()
+    turret_vertical_span = (
+        icon_rect.height
+        + turret_spacing
+        + turret_bar_height
+        + turret_spacing
+        + turret_bar_height
+        + turret_spacing
+        + level_text_height
+        + turret_spacing
+    )
+    stack_gap = turret_vertical_span
     if turret_runtime.blueprint_active or turret_runtime.active:
         icon_rect = icon_rect.move(0, -stack_gap)
     icon_rect.y = max(12, icon_rect.y)
@@ -8708,10 +8722,10 @@ def draw_blacksmith_divine_ui(surface):
         pygame.draw.rect(surface, (110, 176, 255), fill_rect, border_radius=3)
     pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
 
-    status_text = FontStyle.tiny().render(f"{hp}/{max_hp}", True, (225, 235, 255))
+    status_text = tiny_font.render(f"{hp}/{max_hp}", True, (225, 235, 255))
     surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
 
-    label_text = FontStyle.tiny().render("디바인스톤", True, accent_color)
+    label_text = tiny_font.render("디바인스톤", True, accent_color)
     label_rect = label_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
     surface.blit(label_text, label_rect)
 
