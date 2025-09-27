@@ -25307,6 +25307,7 @@ def draw_objects():
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_hammer_charge_position, blacksmith_hammer_head_surface_point, blacksmith_hammer_idle_position
     global blacksmith_trail_timer
+    global foul_whistle_pending_round_reset
     new_tear_particles = []  #  함수 시작 시 초기화
     
     # 전설 아이템 물결 효과 그리기 (업데이트는 물리 루프에서 이미 처리됨)
@@ -25334,6 +25335,20 @@ def draw_objects():
                 print(f"[DEBUG] 킥차져 이펙트 활성: flash_timer={knee_pads.flash_timer}")
     except Exception as e:
         print(f"[ERROR] 킥차져 이펙트 그리기 오류: {e}")
+
+    try:
+        from item_effects.foul_whistle import get_foul_whistle_instance
+
+        foul_whistle = get_foul_whistle_instance()
+        if foul_whistle:
+            foul_whistle.update()
+            foul_whistle.draw(SCREEN, WIDTH, HEIGHT)
+            if foul_whistle_pending_round_reset and foul_whistle.consume_reset_ready():
+                foul_whistle_pending_round_reset = False
+                go_to_next_round()
+                return
+    except Exception as e:
+        print(f"[ERROR] 반칙호루라기 이펙트 처리 오류: {e}")
     #  서브 대기 상태 UI (미니멀 디자인)
     if is_waiting_for_serve:
         # 시간 계산
