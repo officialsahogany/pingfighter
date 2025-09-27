@@ -8862,30 +8862,42 @@ def start_blacksmith_construction_sound():
 
 
 def stop_blacksmith_construction_sound():
-    global blacksmith_construction_sound_playing, blacksmith_construction_channel
-    if not blacksmith_construction_sound_playing:
+    sync_blacksmith_state()
+    audio_state = BLACKSMITH_CONTROLLER.state.construction_audio
+
+    if not audio_state.playing and not audio_state.channel:
         return
+
     try:
-        if blacksmith_construction_channel:
-            blacksmith_construction_channel.stop()
+        if audio_state.channel:
+            audio_state.channel.stop()
         elif SOUND_CONSTRUCTION:
             SOUND_CONSTRUCTION.stop()
     except Exception:
         pass
-    blacksmith_construction_channel = None
-    blacksmith_construction_sound_playing = False
+
+    audio_state.channel = None
+    audio_state.playing = False
+    push_blacksmith_state()
 
 
 def pause_blacksmith_construction_sound():
-    global blacksmith_construction_sound_playing, blacksmith_construction_channel
-    if SOUND_CONSTRUCTION is None:
+    sync_blacksmith_state()
+    audio_state = BLACKSMITH_CONTROLLER.state.construction_audio
+
+    if not audio_state.playing:
         return
-    if blacksmith_construction_channel:
-        try:
-            blacksmith_construction_channel.pause()
-        except Exception:
-            pass
-    blacksmith_construction_sound_playing = False
+
+    try:
+        if audio_state.channel:
+            audio_state.channel.pause()
+        elif SOUND_CONSTRUCTION:
+            SOUND_CONSTRUCTION.stop()
+    except Exception:
+        pass
+
+    audio_state.playing = False
+    push_blacksmith_state()
 
 def create_soldier_paddle_animated(*, include_right_arm: bool = True) -> pygame.Surface:
     """휘두르기 애니메이션이 적용된 코만도 패들 이미지 생성"""
