@@ -8649,19 +8649,28 @@ def draw_blacksmith_turret_ui(surface):
         )
     danger_ratio = 1.0 if gauge_value == 0 else 0.55 if gauge_value == 1 else 0.0
 
+    def _clamp_color_component(value: float) -> int:
+        return max(0, min(255, int(round(value))))
+
     panel_base = (48, 42, 38)
     panel_danger = (82, 38, 42)
     panel_color_umbrella = tuple(
-        int(panel_base[i] * (1 - danger_ratio) + panel_danger[i] * danger_ratio + flash_strength * 36)
+        _clamp_color_component(
+            panel_base[i] * (1 - danger_ratio) + panel_danger[i] * danger_ratio + flash_strength * 36
+        )
         for i in range(3)
     )
     panel_border_base = (128, 110, 86)
     panel_border_danger = (186, 96, 90)
     panel_border_color = tuple(
-        int(panel_border_base[i] * (1 - danger_ratio) + panel_border_danger[i] * danger_ratio + flash_strength * 20)
+        _clamp_color_component(
+            panel_border_base[i] * (1 - danger_ratio) + panel_border_danger[i] * danger_ratio + flash_strength * 20
+        )
         for i in range(3)
     )
-    panel_highlight_color = tuple(min(255, panel_color_umbrella[i] + 26) for i in range(3))
+    panel_highlight_color = tuple(
+        _clamp_color_component(panel_color_umbrella[i] + 26) for i in range(3)
+    )
 
     pygame.draw.rect(surface, panel_color_umbrella, gauge_panel_rect, border_radius=12)
     inner_highlight_rect = gauge_panel_rect.inflate(-int(gauge_panel_rect.width * 0.12), -int(gauge_panel_rect.height * 0.5))
@@ -8701,8 +8710,14 @@ def draw_blacksmith_turret_ui(surface):
 
     shield_safe = (96, 142, 196)
     shield_danger = (188, 94, 94)
-    shield_base = tuple(int(shield_safe[i] * (1 - danger_ratio) + shield_danger[i] * danger_ratio) for i in range(3))
-    shield_highlight = tuple(min(255, int(shield_base[i] + 42 + flash_strength * 80)) for i in range(3))
+    shield_base = tuple(
+        _clamp_color_component(shield_safe[i] * (1 - danger_ratio) + shield_danger[i] * danger_ratio)
+        for i in range(3)
+    )
+    shield_highlight = tuple(
+        _clamp_color_component(shield_base[i] + 42 + flash_strength * 80)
+        for i in range(3)
+    )
     shield_outline = (38, 32, 44)
 
     shield_points = [
@@ -8753,13 +8768,29 @@ def draw_blacksmith_turret_ui(surface):
     segment_height = max(10, min(18, shield_rect.height - 4))
     segment_top = shield_rect.centery - segment_height // 2
 
-    segment_bg = tuple(int(52 * (1 - danger_ratio) + 78 * danger_ratio) for _ in range(3))
-    segment_border = tuple(int(96 * (1 - danger_ratio) + 134 * danger_ratio) for _ in range(3))
+    segment_bg = tuple(
+        _clamp_color_component(52 * (1 - danger_ratio) + 78 * danger_ratio)
+        for _ in range(3)
+    )
+    segment_border = tuple(
+        _clamp_color_component(96 * (1 - danger_ratio) + 134 * danger_ratio)
+        for _ in range(3)
+    )
     fill_safe = (102, 192, 230)
     fill_danger = (220, 118, 108)
-    fill_color = tuple(int(fill_safe[i] * (1 - danger_ratio) + fill_danger[i] * danger_ratio + flash_strength * 40) for i in range(3))
-    partial_color = tuple(int(fill_color[i] * 0.82) for i in range(3))
-    empty_inner = tuple(int(36 * (1 - danger_ratio) + 68 * danger_ratio) for _ in range(3))
+    fill_color = tuple(
+        _clamp_color_component(
+            fill_safe[i] * (1 - danger_ratio) + fill_danger[i] * danger_ratio + flash_strength * 40
+        )
+        for i in range(3)
+    )
+    partial_color = tuple(
+        _clamp_color_component(fill_color[i] * 0.82) for i in range(3)
+    )
+    empty_inner = tuple(
+        _clamp_color_component(36 * (1 - danger_ratio) + 68 * danger_ratio)
+        for _ in range(3)
+    )
 
     for idx in range(segment_count):
         seg_x = segments_area_left + idx * (segment_width + segment_spacing)
