@@ -50152,6 +50152,9 @@ def show_result(won):
         if not items.foul_whistle_obtained:
             foul_whistle_icon = get_item_icon("foul_whistle")
             available_items.append({"name": "foul_whistle", "color": (255, 235, 120), "type": "passive", "icon": foul_whistle_icon})
+        if not items.star_detector_obtained:
+            star_detector_icon = get_item_icon("star_detector")
+            available_items.append({"name": "star_detector", "color": (80, 200, 220), "type": "passive", "icon": star_detector_icon})
         if not items.dowsing_pendulum_obtained:
             # 다우징팬들럼 아이콘 로드
             try:
@@ -50400,6 +50403,13 @@ def show_result(won):
         except Exception:
             pass
         foul_whistle_pending_round_reset = False
+        items.star_detector_obtained = False
+        try:
+            from item_effects.star_detector import deactivate_star_detector
+
+            deactivate_star_detector()
+        except Exception:
+            pass
         # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
         rolling_charges = 1
         # 대쉬 매니저 완전 리셋
