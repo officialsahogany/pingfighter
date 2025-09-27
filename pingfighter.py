@@ -6061,6 +6061,7 @@ def _sync_blacksmith_hammer_projectiles_to_frame(target_frame: int):
 
     global blacksmith_hammer_shock_projectiles, blacksmith_hammer_last_update_frame
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_last_update_ms
+    global blacksmith_hammer_cooldown_remainder_ms
 
     current_ticks = pygame.time.get_ticks()
 
@@ -6070,12 +6071,27 @@ def _sync_blacksmith_hammer_projectiles_to_frame(target_frame: int):
     ):
         return
 
-    frames_elapsed = max(0, target_frame - blacksmith_hammer_last_update_frame)
-    frames_elapsed_by_time = 0
+    frame_deficit = max(0, target_frame - blacksmith_hammer_last_update_frame)
+    additional_cooldown_frames = 0
+
+    frame_duration_ms = 1000.0 / FPS
+    elapsed_ms = 0.0
     if current_ticks > blacksmith_hammer_last_update_ms:
-        elapsed_ms = current_ticks - blacksmith_hammer_last_update_ms
-        frames_elapsed_by_time = int(elapsed_ms * FPS / 1000)
-    frames_elapsed = max(frames_elapsed, frames_elapsed_by_time)
+        elapsed_ms = float(current_ticks - blacksmith_hammer_last_update_ms)
+
+    total_ms = elapsed_ms + blacksmith_hammer_cooldown_remainder_ms
+    time_based_frames = 0
+    if total_ms >= frame_duration_ms:
+        time_based_frames = int(total_ms // frame_duration_ms)
+        blacksmith_hammer_cooldown_remainder_ms = total_ms - (time_based_frames * frame_duration_ms)
+    else:
+        blacksmith_hammer_cooldown_remainder_ms = total_ms
+
+    if time_based_frames > 1:
+        additional_cooldown_frames = time_based_frames - 1
+
+    if frame_deficit > 1:
+        additional_cooldown_frames = max(additional_cooldown_frames, frame_deficit - 1)
 
     new_projectiles: list[dict] = []
     for proj in blacksmith_hammer_shock_projectiles:
@@ -6096,8 +6112,8 @@ def _sync_blacksmith_hammer_projectiles_to_frame(target_frame: int):
 
     blacksmith_hammer_shock_projectiles = new_projectiles
 
-    if frames_elapsed > 0 and blacksmith_hammer_shock_cooldown_timer > 0:
-        blacksmith_hammer_shock_cooldown_timer = max(0, blacksmith_hammer_shock_cooldown_timer - frames_elapsed)
+    if additional_cooldown_frames > 0 and blacksmith_hammer_shock_cooldown_timer > 0:
+        blacksmith_hammer_shock_cooldown_timer = max(0, blacksmith_hammer_shock_cooldown_timer - additional_cooldown_frames)
 
     blacksmith_hammer_last_update_frame = target_frame
     blacksmith_hammer_last_update_ms = current_ticks
@@ -30229,6 +30245,7 @@ def show_start_screen():
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
     global blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
+    global blacksmith_hammer_cooldown_remainder_ms
     global blacksmith_hammer_projectiles_paused, blacksmith_hammer_swing_auto
     global blacksmith_trail_timer
     blacksmith_hammer_available = True
@@ -30239,6 +30256,7 @@ def show_start_screen():
     blacksmith_hammer_shock_projectiles.clear()
     blacksmith_hammer_last_update_frame = globals().get("frame_counter", 0)
     blacksmith_hammer_last_update_ms = pygame.time.get_ticks()
+    blacksmith_hammer_cooldown_remainder_ms = 0.0
     blacksmith_hammer_projectiles_paused = False
     blacksmith_hammer_swing_auto = False
     blacksmith_trail_timer = 0
@@ -50860,8 +50878,9 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_shock_cooldown_timer = 0
     blacksmith_hammer_shock_projectiles.clear()
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
-    global blacksmith_hammer_last_update_ms
+    global blacksmith_hammer_last_update_ms, blacksmith_hammer_cooldown_remainder_ms
     blacksmith_hammer_last_update_ms = pygame.time.get_ticks()
+    blacksmith_hammer_cooldown_remainder_ms = 0.0
     blacksmith_hammer_shock_anchor_x = PLAYER.centerx if 'PLAYER' in globals() and PLAYER else 0
     blacksmith_hammer_shock_anchor_y = PLAYER.centery if 'PLAYER' in globals() and PLAYER else 0
     global blacksmith_ground_cracks
