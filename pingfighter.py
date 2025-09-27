@@ -50964,7 +50964,28 @@ def main(stage_num, new_boss_mode=False):
             items.foul_whistle_obtained = True
             if foul_whistle_instance:
                 foul_whistle_instance.activate()
-        
+
+        star_detector_in_list = any(item.get("name") == "star_detector" for item in passive_item_list)
+        try:
+            from item_effects.star_detector import activate_star_detector, deactivate_star_detector
+        except Exception:
+            activate_star_detector = deactivate_star_detector = None
+
+        if not star_detector_in_list:
+            items.star_detector_obtained = False
+            if deactivate_star_detector:
+                try:
+                    deactivate_star_detector()
+                except Exception:
+                    pass
+        else:
+            items.star_detector_obtained = True
+            if activate_star_detector:
+                try:
+                    activate_star_detector()
+                except Exception:
+                    pass
+
         print("")
     
     #  Stage 1 이벤트 매니저 리셋
