@@ -14696,8 +14696,7 @@ def handle_lightning_master_as_top():
             if wait_delay > 0 and time_now - waiting_start_time >= wait_delay:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -14715,8 +14714,7 @@ def handle_lightning_master_as_top():
             elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -14799,8 +14797,7 @@ def handle_ice_queen_as_top():
             if wait_delay > 0 and time_now - waiting_start_time >= wait_delay:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -14818,8 +14815,7 @@ def handle_ice_queen_as_top():
             elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -47465,8 +47461,7 @@ def handle_boss_pro():
             if wait_delay > 0 and time_now - waiting_start_time >= wait_delay:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -47484,8 +47479,7 @@ def handle_boss_pro():
             elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -47754,8 +47748,7 @@ def handle_boss_champion():
             if wait_delay > 0 and time_now - waiting_start_time >= wait_delay:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -47773,8 +47766,7 @@ def handle_boss_champion():
             elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -48050,8 +48042,7 @@ def handle_boss_mythic():
             if wait_delay > 0 and time_now - waiting_start_time >= wait_delay:
                 # 서브 실행
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -48069,8 +48060,7 @@ def handle_boss_mythic():
             if wait_delay == 0:
                 # 즉시 서브 실행
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -48484,8 +48474,7 @@ def handle_boss_junior():
             if wait_delay > 0 and time_now - waiting_start_time >= wait_delay:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -48503,8 +48492,7 @@ def handle_boss_junior():
             elif wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -49499,8 +49487,7 @@ def handle_boss():
                 if wait_delay > 0 and time_now - waiting_start_time >= wait_delay:
                     # 서브 실행 및 상태 업데이트
                     serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                    ball_vel = serve_result['ball_vel']
-                    ball_impact_boost = serve_result['ball_impact_boost']
+                    apply_serve_result(serve_result)
                     is_waiting_for_serve = serve_result['is_waiting_for_serve']
                     if serve_result['fireball_last_cast'] is not None:
                         fireball_last_cast = serve_result['fireball_last_cast']
@@ -49511,8 +49498,7 @@ def handle_boss():
                 elif wait_delay == 0:
                     # 즉시 서브 실행
                     serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                    ball_vel = serve_result['ball_vel']
-                    ball_impact_boost = serve_result['ball_impact_boost']
+                    apply_serve_result(serve_result)
                     is_waiting_for_serve = serve_result['is_waiting_for_serve']
                     if serve_result['fireball_last_cast'] is not None:
                         fireball_last_cast = serve_result['fireball_last_cast']
@@ -49668,8 +49654,7 @@ def handle_boss():
             if wait_delay > 0 and time_now - waiting_start_time >= wait_delay:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -49685,8 +49670,7 @@ def handle_boss():
             if wait_delay == 0:
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
@@ -52500,8 +52484,7 @@ def main(stage_num, new_boss_mode=False):
                     
                     # 서브 실행 및 상태 업데이트
                     serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                    ball_vel = serve_result['ball_vel']
-                    ball_impact_boost = serve_result['ball_impact_boost']
+                    apply_serve_result(serve_result)
                     is_waiting_for_serve = serve_result['is_waiting_for_serve']
                     if serve_result['fireball_last_cast'] is not None:
                         fireball_last_cast = serve_result['fireball_last_cast']
@@ -52632,8 +52615,7 @@ def main(stage_num, new_boss_mode=False):
             if pygame.time.get_ticks() - waiting_start_time >= 3000:  # 3초
                 # 서브 실행 및 상태 업데이트
                 serve_result = physics_manager.serve_ball(is_player_serve, current_stage)
-                ball_vel = serve_result['ball_vel']
-                ball_impact_boost = serve_result['ball_impact_boost']
+                apply_serve_result(serve_result)
                 is_waiting_for_serve = serve_result['is_waiting_for_serve']
                 # Stage 2에서 서브 후 유예 기간 설정 (난이도 하향)
                 if current_stage == 2:
