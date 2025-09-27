@@ -6899,6 +6899,7 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
 
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
     global BOSS, blacksmith_hammer_explosions
+    global SOUND_BLACKSMITH_HAMMER_EXPLOSION, SOUND_GRENADE
     resolved_stage = max(1, stage)
 
     radius = BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS
@@ -6909,6 +6910,14 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
     stage_multiplier = 1.0 + BLACKSMITH_HAMMER_SHOCK_CRACK_SCALE_STEP * max(0, resolved_stage - 1)
 
     render_centerx, render_centery = _clamp_blacksmith_hammer_explosion_center(centerx, centery, radius)
+
+    try:
+        if SOUND_BLACKSMITH_HAMMER_EXPLOSION:
+            play_sound_with_volume(SOUND_BLACKSMITH_HAMMER_EXPLOSION)
+        elif SOUND_GRENADE:
+            play_sound_with_volume(SOUND_GRENADE)
+    except Exception:
+        pass
     visual_centery = max(12.0, render_centery - BLACKSMITH_HAMMER_SHOCK_EXPLOSION_VISUAL_OFFSET)
     contact_adjustment = render_centery - centery
     if contact_adjustment > 1.0:
