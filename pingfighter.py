@@ -6155,9 +6155,7 @@ def _complete_blacksmith_hammer_cooldown_if_ready():
     """Re-arm the hammer once cooldown has expired and no projectiles remain."""
 
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
-    global blacksmith_hammer_shock_last_stage, blacksmith_hammer_shock_cooldown_total
-    global blacksmith_hammer_available, blacksmith_hammer_shock_last_stage
-    global blacksmith_hammer_shock_cooldown_total
+    global blacksmith_hammer_available, blacksmith_hammer_shock_last_stage, blacksmith_hammer_shock_cooldown_total
 
     if blacksmith_hammer_shock_cooldown_timer <= 0 and not blacksmith_hammer_shock_projectiles:
         if not blacksmith_hammer_available:
@@ -52356,12 +52354,15 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
+    global blacksmith_hammer_shock_last_stage, blacksmith_hammer_shock_cooldown_total
     blacksmith_hammer_available = True
     blacksmith_hammer_shock_charging = False
     blacksmith_hammer_shock_charge_frames = 0
     blacksmith_hammer_shock_stage = 0
     blacksmith_hammer_shock_cooldown_timer = 0
     blacksmith_hammer_shock_projectiles.clear()
+    blacksmith_hammer_shock_last_stage = 0
+    blacksmith_hammer_shock_cooldown_total = 0
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     global blacksmith_hammer_last_update_ms, blacksmith_hammer_cooldown_remainder_ms
     global blacksmith_hammer_cooldown_debug_bucket
