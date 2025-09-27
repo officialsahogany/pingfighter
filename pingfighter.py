@@ -5987,6 +5987,34 @@ def _complete_blacksmith_hammer_cooldown_if_ready():
         blacksmith_hammer_available = True
         blacksmith_hammer_shock_cooldown_timer = 0
 
+    _debug_blacksmith_hammer_cooldown()
+
+
+def _debug_blacksmith_hammer_cooldown() -> None:
+    """Log remaining cooldown buckets for debugging when enabled."""
+
+    if not DEBUG_BLACKSMITH_HAMMER_COOLDOWN:
+        return
+
+    global blacksmith_hammer_cooldown_debug_bucket, blacksmith_hammer_shock_cooldown_timer
+
+    try:
+        remaining_frames = int(blacksmith_hammer_shock_cooldown_timer)
+    except Exception:
+        return
+
+    if remaining_frames <= 0:
+        if blacksmith_hammer_cooldown_debug_bucket != 0:
+            print("[DEBUG HAMMER] cooldown finished – hammer ready")
+            blacksmith_hammer_cooldown_debug_bucket = 0
+        return
+
+    bucket = max(0, math.ceil(remaining_frames / FPS))
+    if bucket != blacksmith_hammer_cooldown_debug_bucket:
+        seconds = remaining_frames / FPS
+        print(f"[DEBUG HAMMER] cooldown remaining: {seconds:.2f}s ({remaining_frames} frames)")
+        blacksmith_hammer_cooldown_debug_bucket = bucket
+
 
 def _advance_blacksmith_hammer_projectile(proj: dict, frames: int = 1) -> bool:
     """Advance a hammer shock projectile; return True while it remains active."""
