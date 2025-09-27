@@ -23397,6 +23397,8 @@ def draw_overlay_ui() -> None:
 
     if selected_character_type == "blacksmith":
         draw_blacksmith_turret_ui(SCREEN)
+        draw_blacksmith_divine_ui(SCREEN)
+        draw_blacksmith_divine_ui(SCREEN)
 
 def draw_overlay_ui():
     global current_stage, selected_character_type, new_boss_mode_active
