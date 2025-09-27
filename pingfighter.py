@@ -52517,7 +52517,6 @@ def main(stage_num, new_boss_mode=False):
                         fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
                     play_serve_sound()
                     #  서브 시에도 물리 효과 적용
-                    calculate_bounce(PLAYER)  # 서브는 드라이브 발동 안됨
                     #  서브 시 타격 이펙트 생성
                     create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
                     
@@ -52651,7 +52650,6 @@ def main(stage_num, new_boss_mode=False):
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
                 play_serve_sound()
                 #  플레이어 자동 서브 시에도 물리 효과 적용
-                calculate_bounce(PLAYER)  # 자동 서브는 드라이브 발동 안됨
                 #  플레이어 자동 서브 시 타격 이펙트 생성
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
                 
