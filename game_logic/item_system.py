@@ -111,10 +111,10 @@ class ItemSystem:
             },
             'star_detector': {
                 'name': '별탐지기',
-                'description': '스타포인트가 드랍될 때 25% 확률로 별이 하나 더 등장합니다.',
+                'description': '스타포인트가 드랍될 때 30% 확률로 별이 하나 더 등장합니다.',
                 'type': 'passive',
                 'effect': {
-                    'extra_star_chance': 0.25,
+                    'extra_star_chance': 0.3,
                     'extra_star_spawn': 1
                 },
                 'permanent': True

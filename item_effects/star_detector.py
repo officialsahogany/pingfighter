@@ -7,7 +7,7 @@ from typing import Tuple
 
 # 내부 상태
 _active = False
-_bonus_chance = 0.25
+_bonus_chance = 0.3
 _extra_spawn_count = 1  # 추가로 스폰할 별 개수 (기본 1 → 총 2배)
 _last_triggered: Tuple[float, float] | None = None
 
