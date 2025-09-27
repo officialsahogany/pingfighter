@@ -55428,6 +55428,7 @@ def get_item_name_korean(item_name):
         "technical_vest": "테크니컬조끼",
         "fuel_pouch": "연료파우치",
         "bluetooth_ring": "블루투스링",
+        "foul_whistle": "반칙호루라기",
         "smartphone": "스마트폰",
         "knee_pads": "킥차져",
         "doping_potion": "도핑물약",
