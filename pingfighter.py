@@ -9098,6 +9098,18 @@ def draw_blacksmith_turret_ui(surface):
     pygame.draw.rect(surface, (94, 206, 255), muzzle_rect, border_radius=3)
     pygame.draw.rect(surface, (16, 36, 64), muzzle_rect, 2, border_radius=3)
 
+    title_font = FontStyle.tiny()
+    if blacksmith_turret_active and blacksmith_turret_state:
+        turret_level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
+        title_label = f"포탑 Lv.{turret_level}"
+    elif blacksmith_turret_blueprint_active:
+        title_label = "포탑 건설중"
+    else:
+        title_label = "포탑"
+    title_text = title_font.render(title_label, True, accent_color)
+    title_rect = title_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
+    surface.blit(title_text, title_rect)
+
     bar_height = 8
     bar_rect = pygame.Rect(icon_rect.x, icon_rect.bottom + 6, icon_rect.width, bar_height)
     xp_rect = pygame.Rect(icon_rect.x, bar_rect.bottom + 6, icon_rect.width, bar_height)
