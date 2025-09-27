@@ -45381,16 +45381,8 @@ def handle_ball():
                                 base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                         else:
                             base_gauge_gain = 80  # 스매셔: 게이지 충전 80
-                        skill_gauge_boost = skill.apply_gauge_boost(0)
-                        total_gauge_gain = base_gauge_gain + skill_gauge_boost
-                        
-                        from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
-                        if is_devil_dice_active():
-                            multipliers = get_devil_dice_multipliers()
-                            paddle_charge_multiplier = multipliers.get('paddle_gauge_charge', 1.0)
-                            total_gauge_gain = int(total_gauge_gain * paddle_charge_multiplier)
-                        
-                        chargebag_gain = int(total_gauge_gain * 0.2)  # 20%
+                        # 충전가방은 기본 게이지 충전량의 20%만 적용 (스킬/아이템 보너스 제외)
+                        chargebag_gain = int(base_gauge_gain * 0.2)  # 기본 충전량의 20%
                         old_gauge = special_gauge
                         current_max = get_max_gauge()
                         special_gauge = min(current_max, special_gauge + chargebag_gain)
