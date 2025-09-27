@@ -42,6 +42,8 @@ def handle_ball():
     global mega_smashing_active, mega_smashing_bonus_applied, mega_smashing_meteor_trail
     global mega_smashing_boss_defense_count, mega_smashing_ghost_scatter, mega_smashing_ghost_scatter_time
     global mega_smashing_ghosts, dashholder_obtained, rolling_charges, rolling_charge_timer
+
+    game_state = GameState.get_instance()
     
     # 충돌 쿨다운 감소
     if player_collision_cooldown > 0:
@@ -50,6 +52,8 @@ def handle_ball():
         boss_collision_cooldown -= 1
     if player_sound_cooldown > 0:
         player_sound_cooldown -= 1
+    if game_state.chargebag_wall_charge_cooldown > 0:
+        game_state.chargebag_wall_charge_cooldown -= 1
     
     # 프레임 시작 시 충돌 플래그 리셋 (매 프레임마다 리셋)
     player_collision_handled = False
