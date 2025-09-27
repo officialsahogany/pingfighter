@@ -8611,23 +8611,18 @@ def draw_blacksmith_turret_ui(surface):
     icon_y = HEIGHT - bottom_margin - slot_size - icon_size + 15
     icon_rect = pygame.Rect(icon_x, icon_y, icon_size, icon_size)
 
-    gauge_panel_height = 56
-    gauge_panel_spacing = 12
-    max_panel_width = WIDTH - slot_margin * 2
-    desired_panel_width = max(icon_rect.width + 180, 240)
-    gauge_panel_width = min(desired_panel_width, max_panel_width)
+    gauge_panel_height = 22
+    gauge_panel_spacing = 6
     gauge_panel_rect = pygame.Rect(
         icon_rect.x,
-        icon_rect.y - gauge_panel_height - gauge_panel_spacing,
-        gauge_panel_width,
+        icon_rect.y - gauge_panel_spacing - gauge_panel_height,
+        icon_rect.width,
         gauge_panel_height,
     )
-    if gauge_panel_rect.left < slot_margin:
-        gauge_panel_rect.left = slot_margin
-    if gauge_panel_rect.right > WIDTH - slot_margin:
-        gauge_panel_rect.width = max(60, WIDTH - slot_margin - gauge_panel_rect.left)
     if gauge_panel_rect.top < slot_margin:
-        gauge_panel_rect.top = slot_margin
+        shift = slot_margin - gauge_panel_rect.top
+        gauge_panel_rect.top += shift
+        gauge_panel_rect.height = max(12, gauge_panel_rect.height - shift)
 
     gauge_value = max(
         0,
@@ -8647,173 +8642,122 @@ def draw_blacksmith_turret_ui(surface):
             1.0,
             recharge_progress / max(1, BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES),
         )
-    danger_ratio = 1.0 if gauge_value == 0 else 0.55 if gauge_value == 1 else 0.0
+    danger_ratio = 1.0 if gauge_value == 0 else 0.6 if gauge_value == 1 else 0.0
 
     def _clamp_color_component(value: float) -> int:
         return max(0, min(255, int(round(value))))
 
-    panel_base = (48, 42, 38)
-    panel_danger = (82, 38, 42)
-    panel_color_umbrella = tuple(
-        _clamp_color_component(
-            panel_base[i] * (1 - danger_ratio) + panel_danger[i] * danger_ratio + flash_strength * 36
-        )
+    panel_base = (46, 40, 36)
+    panel_danger = (88, 44, 44)
+    panel_color = tuple(
+        _clamp_color_component(panel_base[i] * (1 - danger_ratio) + panel_danger[i] * danger_ratio + flash_strength * 24)
         for i in range(3)
     )
-    panel_border_base = (128, 110, 86)
-    panel_border_danger = (186, 96, 90)
-    panel_border_color = tuple(
-        _clamp_color_component(
-            panel_border_base[i] * (1 - danger_ratio) + panel_border_danger[i] * danger_ratio + flash_strength * 20
-        )
+    panel_border = tuple(
+        _clamp_color_component(panel_color[i] + 22) for i in range(3)
+    )
+    pygame.draw.rect(surface, panel_color, gauge_panel_rect, border_radius=8)
+    pygame.draw.rect(surface, panel_border, gauge_panel_rect, width=1, border_radius=8)
+
+    shield_size = 14
+    shield_rect = pygame.Rect(0, 0, shield_size, shield_size)
+    shield_rect.left = gauge_panel_rect.left + 4
+    shield_rect.centery = gauge_panel_rect.centery
+
+    shield_safe = (94, 142, 194)
+    shield_danger = (204, 112, 108)
+    shield_fill = tuple(
+        _clamp_color_component(shield_safe[i] * (1 - danger_ratio) + shield_danger[i] * danger_ratio + flash_strength * 28)
         for i in range(3)
     )
-    panel_highlight_color = tuple(
-        _clamp_color_component(panel_color_umbrella[i] + 26) for i in range(3)
+    shield_outline = tuple(_clamp_color_component(shield_fill[i] * 0.55) for i in range(3))
+
+    pygame.draw.polygon(
+        surface,
+        shield_fill,
+        [
+            (shield_rect.centerx, shield_rect.top),
+            (shield_rect.right, shield_rect.top + shield_rect.height * 0.35),
+            (shield_rect.right - 2, shield_rect.bottom),
+            (shield_rect.left + 2, shield_rect.bottom),
+            (shield_rect.left, shield_rect.top + shield_rect.height * 0.35),
+        ],
     )
-
-    pygame.draw.rect(surface, panel_color_umbrella, gauge_panel_rect, border_radius=12)
-    inner_highlight_rect = gauge_panel_rect.inflate(-int(gauge_panel_rect.width * 0.12), -int(gauge_panel_rect.height * 0.5))
-    if inner_highlight_rect.width > 4 and inner_highlight_rect.height > 4:
-        pygame.draw.rect(surface, panel_highlight_color, inner_highlight_rect, border_radius=10)
-    pygame.draw.rect(surface, panel_border_color, gauge_panel_rect, width=2, border_radius=12)
-
-    panel_padding_x = 10
-    panel_padding_y = 6
-    label_color = (242, 234, 224) if danger_ratio < 0.6 else (255, 210, 198)
-    label_surface = FontStyle.tiny().render("우산", True, label_color)
-    label_pos = (gauge_panel_rect.x + panel_padding_x, gauge_panel_rect.y + panel_padding_y)
-    surface.blit(label_surface, label_pos)
-
-    ratio_surface = FontStyle.tiny().render(f"{gauge_value}/{gauge_max}", True, label_color)
-    ratio_pos = (gauge_panel_rect.right - panel_padding_x - ratio_surface.get_width(), label_pos[1])
-    surface.blit(ratio_surface, ratio_pos)
-
-    status_str = "ON" if umbrella_open_flag and gauge_value > 0 else "OFF"
-    status_color = (126, 224, 148) if status_str == "ON" else (232, 134, 118)
-    status_surface = FontStyle.tiny().render(status_str, True, status_color)
-    status_pos = (gauge_panel_rect.right - panel_padding_x - status_surface.get_width(), ratio_pos[1] + status_surface.get_height())
-    surface.blit(status_surface, status_pos)
-
-    shield_size = 26
-    content_top = label_pos[1] + label_surface.get_height() + 6
-    shield_rect = pygame.Rect(gauge_panel_rect.x + panel_padding_x, content_top, shield_size, shield_size)
-    if shield_rect.bottom > gauge_panel_rect.bottom - panel_padding_y:
-        shield_rect.bottom = gauge_panel_rect.bottom - panel_padding_y
-        shield_rect.top = shield_rect.bottom - shield_size
-
-    def _shield_point(nx: float, ny: float) -> tuple[int, int]:
-        return (
-            int(shield_rect.centerx + nx * shield_rect.width * 0.5),
-            int(shield_rect.centery + ny * shield_rect.height * 0.5),
-        )
-
-    shield_safe = (96, 142, 196)
-    shield_danger = (188, 94, 94)
-    shield_base = tuple(
-        _clamp_color_component(shield_safe[i] * (1 - danger_ratio) + shield_danger[i] * danger_ratio)
-        for i in range(3)
+    pygame.draw.polygon(
+        surface,
+        shield_outline,
+        [
+            (shield_rect.centerx, shield_rect.top),
+            (shield_rect.right, shield_rect.top + shield_rect.height * 0.35),
+            (shield_rect.right - 2, shield_rect.bottom),
+            (shield_rect.left + 2, shield_rect.bottom),
+            (shield_rect.left, shield_rect.top + shield_rect.height * 0.35),
+        ],
+        1,
     )
-    shield_highlight = tuple(
-        _clamp_color_component(shield_base[i] + 42 + flash_strength * 80)
-        for i in range(3)
-    )
-    shield_outline = (38, 32, 44)
-
-    shield_points = [
-        _shield_point(0.0, -1.0),
-        _shield_point(0.7, -0.25),
-        _shield_point(0.46, 0.88),
-        _shield_point(0.0, 1.0),
-        _shield_point(-0.46, 0.88),
-        _shield_point(-0.7, -0.25),
-    ]
-    pygame.draw.polygon(surface, shield_base, shield_points)
-    pygame.draw.polygon(surface, shield_outline, shield_points, 2)
-
-    highlight_points = [
-        _shield_point(-0.34, -0.52),
-        _shield_point(0.34, -0.52),
-        _shield_point(0.18, -0.12),
-        _shield_point(-0.18, -0.12),
-    ]
-    pygame.draw.polygon(surface, shield_highlight, highlight_points)
 
     if damage_stage > 0:
-        icon_shadow = (34, 24, 30)
-        icon_crack_color = tuple(min(255, shield_highlight[i] + 18) for i in range(3))
+        icon_shadow = tuple(_clamp_color_component(c * 0.55) for c in shield_outline)
+        icon_crack = tuple(_clamp_color_component(shield_fill[i] + 18 + flash_strength * 32) for i in range(3))
         for stage_idx in range(damage_stage):
             for start_norm, end_norm in BLACKSMITH_UMBRELLA_CRACK_SEGMENTS[stage_idx]:
                 start_pt = (
-                    int(shield_rect.centerx + start_norm[0] * shield_rect.width * 0.9),
-                    int(shield_rect.centery + start_norm[1] * shield_rect.height * 0.9),
+                    int(shield_rect.centerx + start_norm[0] * shield_rect.width * 0.45),
+                    int(shield_rect.centery + start_norm[1] * shield_rect.height * 0.45),
                 )
                 end_pt = (
-                    int(shield_rect.centerx + end_norm[0] * shield_rect.width * 0.9),
-                    int(shield_rect.centery + end_norm[1] * shield_rect.height * 0.9),
+                    int(shield_rect.centerx + end_norm[0] * shield_rect.width * 0.45),
+                    int(shield_rect.centery + end_norm[1] * shield_rect.height * 0.45),
                 )
                 pygame.draw.line(surface, icon_shadow, start_pt, end_pt, 2)
-                pygame.draw.line(surface, icon_crack_color, start_pt, end_pt, 1)
+                pygame.draw.line(surface, icon_crack, start_pt, end_pt, 1)
 
-    segments_area_left = shield_rect.right + 10
-    segments_area_right = gauge_panel_rect.right - panel_padding_x
-    segment_area_width = max(segments_area_right - segments_area_left, 40)
+    bar_left = shield_rect.right + 5
+    bar_right = gauge_panel_rect.right - 4
+    bar_width = max(10, bar_right - bar_left)
+    bar_height = 6
+    bar_top = gauge_panel_rect.centery - bar_height // 2
+    bar_rect = pygame.Rect(bar_left, bar_top, bar_width, bar_height)
+
+    bar_bg = tuple(_clamp_color_component(panel_color[i] + 18) for i in range(3))
+    bar_border = tuple(_clamp_color_component(bar_bg[i] + 18) for i in range(3))
+    pygame.draw.rect(surface, bar_bg, bar_rect, border_radius=3)
+
     segment_count = gauge_max
-    segment_spacing = 4
-    available_width = segment_area_width - segment_spacing * (segment_count - 1)
-    if available_width < segment_count * 10:
-        segment_spacing = 2
-        available_width = segment_area_width - segment_spacing * (segment_count - 1)
-    segment_width = max(8, available_width // segment_count)
-    segment_height = max(10, min(18, shield_rect.height - 4))
-    segment_top = shield_rect.centery - segment_height // 2
+    segment_spacing = 2
+    inner_rect = bar_rect.inflate(-2, -2)
+    segment_width = max(2, (inner_rect.width - segment_spacing * (segment_count - 1)) // segment_count)
+    segment_width = min(segment_width, inner_rect.width // segment_count)
+    segment_height = inner_rect.height
+    seg_x = inner_rect.x
 
-    segment_bg = tuple(
-        _clamp_color_component(52 * (1 - danger_ratio) + 78 * danger_ratio)
-        for _ in range(3)
-    )
-    segment_border = tuple(
-        _clamp_color_component(96 * (1 - danger_ratio) + 134 * danger_ratio)
-        for _ in range(3)
-    )
-    fill_safe = (102, 192, 230)
-    fill_danger = (220, 118, 108)
-    fill_color = tuple(
-        _clamp_color_component(
-            fill_safe[i] * (1 - danger_ratio) + fill_danger[i] * danger_ratio + flash_strength * 40
-        )
+    fill_safe = (108, 198, 236)
+    fill_danger = (228, 126, 122)
+    segment_fill = tuple(
+        _clamp_color_component(fill_safe[i] * (1 - danger_ratio) + fill_danger[i] * danger_ratio + flash_strength * 36)
         for i in range(3)
     )
-    partial_color = tuple(
-        _clamp_color_component(fill_color[i] * 0.82) for i in range(3)
-    )
-    empty_inner = tuple(
-        _clamp_color_component(36 * (1 - danger_ratio) + 68 * danger_ratio)
-        for _ in range(3)
-    )
+    empty_color = tuple(_clamp_color_component(panel_color[i] + 8) for i in range(3))
+    partial_color = tuple(_clamp_color_component(segment_fill[i] * 0.8) for i in range(3))
+    highlight_color = tuple(_clamp_color_component(segment_fill[i] + 28) for i in range(3))
 
     for idx in range(segment_count):
-        seg_x = segments_area_left + idx * (segment_width + segment_spacing)
-        seg_rect = pygame.Rect(seg_x, segment_top, segment_width, segment_height)
-        inner_rect = seg_rect.inflate(-2, -2)
-        pygame.draw.rect(surface, segment_bg, seg_rect, border_radius=3)
-        if inner_rect.width > 0 and inner_rect.height > 0:
-            if idx < gauge_value:
-                pygame.draw.rect(surface, fill_color, inner_rect, border_radius=2)
-                highlight_height = max(1, inner_rect.height // 4)
-                highlight_rect = pygame.Rect(inner_rect.x, inner_rect.y, inner_rect.width, highlight_height)
-                highlight_color = tuple(
-                    _clamp_color_component(fill_color[i] + 30) for i in range(3)
-                )
-                pygame.draw.rect(surface, highlight_color, highlight_rect, border_radius=2)
-            elif idx == gauge_value and gauge_value < gauge_max and recharge_ratio > 0:
-                partial_width = max(1, int(inner_rect.width * recharge_ratio))
-                partial_rect = pygame.Rect(inner_rect.x, inner_rect.y, partial_width, inner_rect.height)
-                pygame.draw.rect(surface, partial_color, partial_rect, border_radius=2)
-                pygame.draw.rect(surface, empty_inner, inner_rect, border_radius=2)
-            else:
-                pygame.draw.rect(surface, empty_inner, inner_rect, border_radius=2)
-        pygame.draw.rect(surface, segment_border, seg_rect, width=1, border_radius=3)
+        seg_rect = pygame.Rect(seg_x, inner_rect.y, segment_width, segment_height)
+        if idx < gauge_value:
+            pygame.draw.rect(surface, segment_fill, seg_rect, border_radius=2)
+            highlight_rect = pygame.Rect(seg_rect.x, seg_rect.y, seg_rect.width, max(1, seg_rect.height // 3))
+            pygame.draw.rect(surface, highlight_color, highlight_rect, border_radius=2)
+        elif idx == gauge_value and gauge_value < gauge_max and recharge_ratio > 0:
+            partial_width = max(1, int(seg_rect.width * recharge_ratio))
+            partial_rect = pygame.Rect(seg_rect.x, seg_rect.y, partial_width, seg_rect.height)
+            pygame.draw.rect(surface, partial_color, partial_rect, border_radius=2)
+            pygame.draw.rect(surface, empty_color, seg_rect, border_radius=2)
+        else:
+            pygame.draw.rect(surface, empty_color, seg_rect, border_radius=2)
+        pygame.draw.rect(surface, bar_border, seg_rect, 1, border_radius=2)
+        seg_x += segment_width + segment_spacing
+
+    pygame.draw.rect(surface, bar_border, bar_rect, 1, border_radius=3)
 
     if not blacksmith_turret_blueprint_active and not blacksmith_turret_active:
         return
