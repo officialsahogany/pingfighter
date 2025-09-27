@@ -7629,16 +7629,21 @@ def update_blacksmith_turret():
         blacksmith_turret_manual_cooldown = 0
         stop_blacksmith_construction_sound()
 
+    sync_blacksmith_state()
+
 
 def upgrade_blacksmith_turret():
     """포탑 레벨 상승과 능력치를 갱신한다."""
     global blacksmith_turret_state
+    sync_blacksmith_state()
     if not blacksmith_turret_active or not blacksmith_turret_state:
+        sync_blacksmith_state()
         return False
 
     level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
     if level >= BLACKSMITH_TURRET_MAX_LEVEL:
         blacksmith_turret_state["xp"] = blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED))
+        sync_blacksmith_state()
         return False
 
     new_level = level + 1
@@ -7675,6 +7680,7 @@ def upgrade_blacksmith_turret():
         pass
 
     print(f"[DEBUG] Turret upgraded to Lv {new_level} (HP {upgraded_max_hp}, fire {upgraded_interval}f)")
+    sync_blacksmith_state()
     return True
 
 
