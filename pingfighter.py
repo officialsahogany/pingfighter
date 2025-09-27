@@ -21606,6 +21606,39 @@ def activate_whip():
     # 최소 Y 속도 보장 (너무 수평으로 가지 않도록)
     if abs(ball_vel[1]) < 8:
         ball_vel[1] = 8
+
+
+def cancel_whip_with_umbrella_block() -> bool:
+    """발토르 우산으로 스테이지 1 상모돌리기를 강제 종료."""
+
+    if current_stage != 1:
+        return False
+
+    global whip_active, whip_deactivation_active, whip_deactivation_timer
+    global whip_deactivation_duration, whip_rotation_speed, whip_animation_timer
+
+    changed = False
+
+    if whip_active:
+        deactivate_whip()
+        whip_animation_timer = 0
+        changed = True
+
+    if not whip_deactivation_active:
+        whip_deactivation_active = True
+        changed = True
+
+    if whip_deactivation_timer < whip_deactivation_duration:
+        whip_deactivation_timer = whip_deactivation_duration
+        changed = True
+
+    if whip_rotation_speed < 20.0:
+        whip_rotation_speed = 20.0
+        changed = True
+
+    return changed
+
+
 def handle_whip():
     global whip_active, whip_timer, whip_wave_phase, whip_hit_by_player, whip_wave_particles
     global whip_deactivation_active, whip_deactivation_timer, whip_rotation_speed
