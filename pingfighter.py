@@ -9334,6 +9334,7 @@ blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 BLACKSMITH_UMBRELLA_GAUGE_MAX = 5
 BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES = int(8 * FPS)
 BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
+BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES = int(0.16 * FPS)
 blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
 blacksmith_umbrella_recharge_progress = 0
 blacksmith_umbrella_damage_flash_timer = 0
