@@ -25509,159 +25509,261 @@ def draw_player_gauge():
         def _clamp_component(value: float) -> int:
             return max(0, min(255, int(round(value))))
 
-        panel_safe = (24, 38, 72)
-        panel_danger = (64, 32, 88)
         if divine_active:
+            time_now = pygame.time.get_ticks()
+            energy_phase_base = (time_now * 0.006) % 1.0
+            energy_pulse = min(1.0, 0.5 + 0.5 * math.sin(time_now * 0.007 + recharge_ratio * math.pi * 2) + 0.25)
+
+            panel_safe = (24, 38, 72)
+            panel_danger = (64, 32, 88)
             panel_safe = tuple(_clamp_component(component + 10) for component in panel_safe)
             panel_danger = tuple(_clamp_component(component + 14) for component in panel_danger)
-        panel_color = tuple(
-            _clamp_component(
-                panel_safe[i] * (1 - danger_ratio)
-                + panel_danger[i] * danger_ratio
-                + flash_strength * 28
-                + energy_pulse * 18
+            panel_color = tuple(
+                _clamp_component(
+                    panel_safe[i] * (1 - danger_ratio)
+                    + panel_danger[i] * danger_ratio
+                    + flash_strength * 28
+                    + energy_pulse * 18
+                )
+                for i in range(3)
             )
-            for i in range(3)
-        )
-        panel_border = tuple(_clamp_component(panel_color[i] + 34) for i in range(3))
-        panel_highlight = tuple(
-            _clamp_component(panel_color[i] + 56 * energy_pulse + (20 if divine_active else 0))
-            for i in range(3)
-        )
-
-        pygame.draw.rect(SCREEN, panel_color, panel_rect, border_radius=6)
-        pygame.draw.rect(SCREEN, panel_border, panel_rect, width=1, border_radius=6)
-        highlight_rect = panel_rect.inflate(-4, -(panel_rect.height - 4))
-        if highlight_rect.width > 0:
-            pygame.draw.line(
-                SCREEN,
-                panel_highlight,
-                (highlight_rect.left, highlight_rect.top),
-                (highlight_rect.right, highlight_rect.top),
-                1,
+            panel_border = tuple(_clamp_component(panel_color[i] + 34) for i in range(3))
+            panel_highlight = tuple(
+                _clamp_component(panel_color[i] + 56 * energy_pulse + 20)
+                for i in range(3)
             )
 
-        glow_strength = gauge_value / max(1, gauge_max)
-        glow_strength = 0.35 + 0.65 * glow_strength
-        if divine_active:
-            glow_strength = min(1.0, glow_strength + 0.15)
-        pulse_alpha = int(32 + 60 * energy_pulse * glow_strength)
-        if pulse_alpha > 0:
-            panel_glow_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
-            pygame.draw.rect(
-                panel_glow_surface,
-                (60, 160, 255, pulse_alpha),
-                panel_glow_surface.get_rect(),
-                border_radius=panel_rect.height // 2,
+            pygame.draw.rect(SCREEN, panel_color, panel_rect, border_radius=6)
+            pygame.draw.rect(SCREEN, panel_border, panel_rect, width=1, border_radius=6)
+            highlight_rect = panel_rect.inflate(-4, -(panel_rect.height - 4))
+            if highlight_rect.width > 0:
+                pygame.draw.line(
+                    SCREEN,
+                    panel_highlight,
+                    (highlight_rect.left, highlight_rect.top),
+                    (highlight_rect.right, highlight_rect.top),
+                    1,
+                )
+
+            glow_strength = min(1.0, 0.35 + 0.65 * (gauge_value / max(1, gauge_max)) + 0.15)
+            pulse_alpha = int(32 + 60 * energy_pulse * glow_strength)
+            if pulse_alpha > 0:
+                panel_glow_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+                pygame.draw.rect(
+                    panel_glow_surface,
+                    (60, 160, 255, pulse_alpha),
+                    panel_glow_surface.get_rect(),
+                    border_radius=panel_rect.height // 2,
+                )
+                SCREEN.blit(panel_glow_surface, panel_rect.topleft, special_flags=pygame.BLEND_ADD)
+
+            fill_safe = (68, 176, 255)
+            fill_danger = (178, 124, 255)
+            segment_fill = tuple(
+                _clamp_component(
+                    fill_safe[i] * (1 - danger_ratio)
+                    + fill_danger[i] * danger_ratio
+                    + flash_strength * 48
+                    + energy_pulse * 60
+                )
+                for i in range(3)
             )
-            SCREEN.blit(panel_glow_surface, panel_rect.topleft, special_flags=pygame.BLEND_ADD)
-
-        fill_safe = (68, 176, 255)
-        fill_danger = (178, 124, 255)
-        segment_fill = tuple(
-            _clamp_component(
-                fill_safe[i] * (1 - danger_ratio)
-                + fill_danger[i] * danger_ratio
-                + flash_strength * 48
-                + energy_pulse * 60
+            empty_color = tuple(_clamp_component(panel_color[i] * 0.55 + 18) for i in range(3))
+            partial_color = tuple(_clamp_component(segment_fill[i] * 0.7 + 40 + energy_pulse * 35) for i in range(3))
+            highlight_color = (
+                _clamp_component(segment_fill[0] + 60 * energy_pulse),
+                _clamp_component(segment_fill[1] + 80 * energy_pulse),
+                _clamp_component(segment_fill[2] + 90 * energy_pulse),
             )
-            for i in range(3)
-        )
-        empty_color = tuple(_clamp_component(panel_color[i] * 0.55 + 18) for i in range(3))
-        partial_color = tuple(_clamp_component(segment_fill[i] * 0.7 + 40 + energy_pulse * 35) for i in range(3))
-        highlight_color = (
-            _clamp_component(segment_fill[0] + 60 * energy_pulse),
-            _clamp_component(segment_fill[1] + 80 * energy_pulse),
-            _clamp_component(segment_fill[2] + 90 * energy_pulse),
-        )
-        shield_outline = tuple(_clamp_component(panel_border[i] + 28) for i in range(3))
+            shield_outline = tuple(_clamp_component(panel_border[i] + 28) for i in range(3))
 
-        def _draw_umbrella_shield(
-            rect: pygame.Rect,
-            fill_ratio: float,
-            *,
-            fill_color: tuple[int, int, int] | None,
-            wave_phase: float,
-        ) -> None:
-            bevel = max(1, int(rect.width * 0.2))
-            crown = int(rect.height * 0.5)
-            shield_points = [
-                (rect.centerx, rect.top),
-                (rect.right, rect.top + crown),
-                (rect.right - bevel, rect.bottom),
-                (rect.left + bevel, rect.bottom),
-                (rect.left, rect.top + crown),
-            ]
+            def _draw_umbrella_shield_divine(
+                rect: pygame.Rect,
+                fill_ratio: float,
+                *,
+                fill_color: tuple[int, int, int] | None,
+                wave_phase: float,
+            ) -> None:
+                bevel = max(1, int(rect.width * 0.2))
+                crown = int(rect.height * 0.5)
+                shield_points = [
+                    (rect.centerx, rect.top),
+                    (rect.right, rect.top + crown),
+                    (rect.right - bevel, rect.bottom),
+                    (rect.left + bevel, rect.bottom),
+                    (rect.left, rect.top + crown),
+                ]
 
-            pygame.draw.polygon(SCREEN, empty_color, shield_points)
-            if fill_ratio > 0.0 and fill_color is not None:
-                previous_clip = SCREEN.get_clip()
-                clip_height = max(1, int(round(rect.height * fill_ratio)))
-                clip_rect = pygame.Rect(rect.left, rect.bottom - clip_height, rect.width, clip_height)
-                SCREEN.set_clip(clip_rect)
-                pygame.draw.polygon(SCREEN, fill_color, shield_points)
+                pygame.draw.polygon(SCREEN, empty_color, shield_points)
+                if fill_ratio > 0.0 and fill_color is not None:
+                    previous_clip = SCREEN.get_clip()
+                    clip_height = max(1, int(round(rect.height * fill_ratio)))
+                    clip_rect = pygame.Rect(rect.left, rect.bottom - clip_height, rect.width, clip_height)
+                    SCREEN.set_clip(clip_rect)
+                    pygame.draw.polygon(SCREEN, fill_color, shield_points)
 
-                energy_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-                base_r, base_g, base_b = fill_color
-                height_scale = max(1, rect.height)
-                width_scale = max(1, rect.width)
-                for y in range(rect.height):
-                    wave_pos = (wave_phase + y / height_scale) % 1.0
-                    band_intensity = max(0.0, 1.0 - abs(wave_pos - 0.5) * 2.0)
-                    if band_intensity <= 0.0:
-                        continue
-                    band_alpha = int(70 + 90 * band_intensity)
-                    band_color = (
-                        _clamp_component(base_r * 0.45 + 40 + 120 * band_intensity),
-                        _clamp_component(base_g * 0.5 + 60 + 120 * band_intensity),
-                        _clamp_component(base_b * 0.6 + 110 + 140 * band_intensity),
-                        band_alpha,
+                    energy_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+                    base_r, base_g, base_b = fill_color
+                    height_scale = max(1, rect.height)
+                    width_scale = max(1, rect.width)
+                    for y in range(rect.height):
+                        wave_pos = (wave_phase + y / height_scale) % 1.0
+                        band_intensity = max(0.0, 1.0 - abs(wave_pos - 0.5) * 2.0)
+                        if band_intensity <= 0.0:
+                            continue
+                        band_alpha = int(70 + 90 * band_intensity)
+                        band_color = (
+                            _clamp_component(base_r * 0.45 + 40 + 120 * band_intensity),
+                            _clamp_component(base_g * 0.5 + 60 + 120 * band_intensity),
+                            _clamp_component(base_b * 0.6 + 110 + 140 * band_intensity),
+                            band_alpha,
+                        )
+                        pygame.draw.line(
+                            energy_surface,
+                            band_color,
+                            (0, rect.height - 1 - y),
+                            (rect.width, rect.height - 1 - y),
+                        )
+
+                    diag_offset = (wave_phase + time_now * 0.0015) % 1.0
+                    for x in range(rect.width):
+                        diag_pos = (diag_offset + x / width_scale) % 1.0
+                        diag_intensity = max(0.0, 1.0 - abs(diag_pos - 0.35) * 3.2)
+                        if diag_intensity <= 0.0:
+                            continue
+                        alpha = int(100 * diag_intensity)
+                        pygame.draw.line(
+                            energy_surface,
+                            (150, 220, 255, alpha),
+                            (x, 0),
+                            (x, rect.height),
+                        )
+
+                    SCREEN.blit(energy_surface, rect.topleft, special_flags=pygame.BLEND_ADD)
+                    SCREEN.set_clip(previous_clip)
+
+                    highlight_clip = pygame.Rect(rect.left, rect.bottom - clip_height, rect.width, max(1, clip_height // 2))
+                    SCREEN.set_clip(highlight_clip)
+                    pygame.draw.polygon(SCREEN, highlight_color, shield_points)
+                    SCREEN.set_clip(previous_clip)
+
+                pygame.draw.polygon(SCREEN, shield_outline, shield_points, 1)
+
+            shield_start_x = panel_rect.centerx - row_width // 2
+            shield_y = panel_rect.y + panel_padding_y
+            current_x = shield_start_x
+            wave_stride = 0.24
+            for idx in range(segment_count):
+                shield_rect = pygame.Rect(int(current_x), shield_y, shield_width, shield_height)
+                wave_phase = (energy_phase_base + idx * wave_stride) % 1.0
+                if idx < gauge_value:
+                    _draw_umbrella_shield_divine(
+                        shield_rect,
+                        1.0,
+                        fill_color=segment_fill,
+                        wave_phase=wave_phase,
                     )
-                    pygame.draw.line(
-                        energy_surface,
-                        band_color,
-                        (0, rect.height - 1 - y),
-                        (rect.width, rect.height - 1 - y),
+                elif idx == gauge_value and gauge_value < gauge_max and recharge_ratio > 0:
+                    _draw_umbrella_shield_divine(
+                        shield_rect,
+                        recharge_ratio,
+                        fill_color=partial_color,
+                        wave_phase=wave_phase,
                     )
-
-                diag_offset = (wave_phase + time_now * 0.0015) % 1.0
-                for x in range(rect.width):
-                    diag_pos = (diag_offset + x / width_scale) % 1.0
-                    diag_intensity = max(0.0, 1.0 - abs(diag_pos - 0.35) * 3.2)
-                    if diag_intensity <= 0.0:
-                        continue
-                    alpha = int(100 * diag_intensity)
-                    pygame.draw.line(
-                        energy_surface,
-                        (150, 220, 255, alpha),
-                        (x, 0),
-                        (x, rect.height),
+                else:
+                    _draw_umbrella_shield_divine(
+                        shield_rect,
+                        0.0,
+                        fill_color=None,
+                        wave_phase=wave_phase,
                     )
+                current_x += shield_width + segment_spacing
 
-                SCREEN.blit(energy_surface, rect.topleft, special_flags=pygame.BLEND_ADD)
-                SCREEN.set_clip(previous_clip)
+        else:
+            panel_base = (68, 54, 40)
+            panel_danger = (118, 48, 40)
+            panel_color = tuple(
+                _clamp_component(
+                    panel_base[i] * (1 - danger_ratio)
+                    + panel_danger[i] * danger_ratio
+                    + flash_strength * 24
+                )
+                for i in range(3)
+            )
+            panel_border = tuple(_clamp_component(panel_color[i] + 28) for i in range(3))
+            panel_highlight = tuple(_clamp_component(panel_color[i] + 42) for i in range(3))
 
-                highlight_clip = pygame.Rect(rect.left, rect.bottom - clip_height, rect.width, max(1, clip_height // 2))
-                SCREEN.set_clip(highlight_clip)
-                pygame.draw.polygon(SCREEN, highlight_color, shield_points)
-                SCREEN.set_clip(previous_clip)
+            pygame.draw.rect(SCREEN, panel_color, panel_rect, border_radius=6)
+            pygame.draw.rect(SCREEN, panel_border, panel_rect, width=1, border_radius=6)
+            highlight_rect = panel_rect.inflate(-4, -(panel_rect.height - 4))
+            if highlight_rect.width > 0:
+                pygame.draw.line(
+                    SCREEN,
+                    panel_highlight,
+                    (highlight_rect.left, highlight_rect.top),
+                    (highlight_rect.right, highlight_rect.top),
+                    1,
+                )
 
-            pygame.draw.polygon(SCREEN, shield_outline, shield_points, 1)
+            fill_safe = (220, 196, 128)
+            fill_danger = (236, 118, 84)
+            segment_fill = tuple(
+                _clamp_component(
+                    fill_safe[i] * (1 - danger_ratio)
+                    + fill_danger[i] * danger_ratio
+                    + flash_strength * 36
+                )
+                for i in range(3)
+            )
+            empty_color = tuple(_clamp_component(panel_color[i] - 14) for i in range(3))
+            partial_color = tuple(_clamp_component(segment_fill[i] * 0.74 + 18) for i in range(3))
+            highlight_color = tuple(_clamp_component(segment_fill[i] + 36) for i in range(3))
+            shield_outline = tuple(_clamp_component(panel_border[i] + 12) for i in range(3))
 
-        shield_start_x = panel_rect.centerx - row_width // 2
-        shield_y = panel_rect.y + panel_padding_y
-        current_x = shield_start_x
-        wave_stride = 0.24 if divine_active else 0.2
-        for idx in range(segment_count):
-            shield_rect = pygame.Rect(int(current_x), shield_y, shield_width, shield_height)
-            wave_phase = (energy_phase_base + idx * wave_stride) % 1.0
-            if idx < gauge_value:
-                _draw_umbrella_shield(shield_rect, 1.0, fill_color=segment_fill, wave_phase=wave_phase)
-            elif idx == gauge_value and gauge_value < gauge_max and recharge_ratio > 0:
-                _draw_umbrella_shield(shield_rect, recharge_ratio, fill_color=partial_color, wave_phase=wave_phase)
-            else:
-                _draw_umbrella_shield(shield_rect, 0.0, fill_color=None, wave_phase=wave_phase)
-            current_x += shield_width + segment_spacing
+            def _draw_umbrella_shield_default(
+                rect: pygame.Rect,
+                fill_ratio: float,
+                *,
+                fill_color: tuple[int, int, int] | None,
+            ) -> None:
+                bevel = max(1, int(rect.width * 0.2))
+                crown = int(rect.height * 0.5)
+                shield_points = [
+                    (rect.centerx, rect.top),
+                    (rect.right, rect.top + crown),
+                    (rect.right - bevel, rect.bottom),
+                    (rect.left + bevel, rect.bottom),
+                    (rect.left, rect.top + crown),
+                ]
+
+                pygame.draw.polygon(SCREEN, empty_color, shield_points)
+                if fill_ratio > 0.0 and fill_color is not None:
+                    previous_clip = SCREEN.get_clip()
+                    clip_height = max(1, int(round(rect.height * fill_ratio)))
+                    clip_rect = pygame.Rect(rect.left, rect.bottom - clip_height, rect.width, clip_height)
+                    SCREEN.set_clip(clip_rect)
+                    pygame.draw.polygon(SCREEN, fill_color, shield_points)
+                    SCREEN.set_clip(previous_clip)
+
+                    highlight_clip = pygame.Rect(rect.left, rect.bottom - clip_height, rect.width, max(1, clip_height // 3))
+                    SCREEN.set_clip(highlight_clip)
+                    pygame.draw.polygon(SCREEN, highlight_color, shield_points)
+                    SCREEN.set_clip(previous_clip)
+
+                pygame.draw.polygon(SCREEN, shield_outline, shield_points, 1)
+
+            shield_start_x = panel_rect.centerx - row_width // 2
+            shield_y = panel_rect.y + panel_padding_y
+            current_x = shield_start_x
+            for idx in range(segment_count):
+                shield_rect = pygame.Rect(int(current_x), shield_y, shield_width, shield_height)
+                if idx < gauge_value:
+                    _draw_umbrella_shield_default(shield_rect, 1.0, fill_color=segment_fill)
+                elif idx == gauge_value and gauge_value < gauge_max and recharge_ratio > 0:
+                    _draw_umbrella_shield_default(shield_rect, recharge_ratio, fill_color=partial_color)
+                else:
+                    _draw_umbrella_shield_default(shield_rect, 0.0, fill_color=None)
+                current_x += shield_width + segment_spacing
 
         umbrella_panel_bottom = panel_rect.bottom
     
