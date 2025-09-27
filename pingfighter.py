@@ -8141,10 +8141,13 @@ def draw_blacksmith_turret_elements(surface):
     draw_blacksmith_build_menu(surface)
 
 
-def draw_blacksmith_divine_stone(surface):
-    sync_blacksmith_state()
-    divine_state = BLACKSMITH_CONTROLLER.state.divine.state
+def draw_blacksmith_divine_stone(surface, divine_state=None):
     if divine_state is None:
+        sync_blacksmith_state()
+        divine_state = BLACKSMITH_CONTROLLER.state.divine.state
+        if divine_state is None:
+            return
+    elif divine_state is None:
         return
     rect = divine_state["rect"]
     pulse = divine_state.get("pulse", 0)
