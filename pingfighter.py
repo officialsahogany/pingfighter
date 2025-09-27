@@ -4782,8 +4782,8 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     leg_step = 0
     if blacksmith_walking_active:
         cycle_frames = max(1, int(BLACKSMITH_WALKING_CYCLE * BLACKSMITH_UMBRELLA_WALK_CYCLE_MULT))
-        progress = (blacksmith_walking_timer % cycle_frames) / cycle_frames
-        phase = progress * 2 * math.pi
+        walk_progress = (blacksmith_walking_timer % cycle_frames) / cycle_frames
+        phase = walk_progress * 2 * math.pi
         base_wave = math.sin(phase)
         base_bob = math.sin(phase + math.pi / 2)
         walk_wave = base_wave * BLACKSMITH_UMBRELLA_WALK_WAVE_SCALE
