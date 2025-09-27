@@ -9060,6 +9060,8 @@ def push_blacksmith_state() -> None:
 def reset_blacksmith_state() -> None:
     """발토르 전용 런타임 상태 초기화."""
     BLACKSMITH_CONTROLLER.reset()
+    global blacksmith_hammer_swing_slow_timer
+    blacksmith_hammer_swing_slow_timer = 0
 
 
 def start_blacksmith_construction_sound():
