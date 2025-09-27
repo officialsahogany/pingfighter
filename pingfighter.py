@@ -50385,6 +50385,7 @@ def show_result(won):
             get_foul_whistle_instance().deactivate()
         except Exception:
             pass
+        foul_whistle_pending_round_reset = False
         # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
         rolling_charges = 1
         # 대쉬 매니저 완전 리셋
@@ -50909,6 +50910,7 @@ def main(stage_num, new_boss_mode=False):
         # passive_item_list를 확인하여 선택된 아이템이 아닌 경우에만 초기화
         from item_effects.fuel_pouch import deactivate_fuel_pouch, get_fuel_pouch_instance
         from item_effects.bluetooth_ring import deactivate_bluetooth_ring, get_bluetooth_ring_instance
+        from item_effects.foul_whistle import get_foul_whistle_instance
         
         # 연료파우치: passive_item_list에 없으면 초기화
         fuel_pouch_in_list = any(item.get("name") == "fuel_pouch" for item in passive_item_list)
@@ -50927,7 +50929,18 @@ def main(stage_num, new_boss_mode=False):
             print("")
         else:
             print("(  )")
-            
+
+        foul_whistle_in_list = any(item.get("name") == "foul_whistle" for item in passive_item_list)
+        foul_whistle_instance = get_foul_whistle_instance()
+        if not foul_whistle_in_list:
+            items.foul_whistle_obtained = False
+            if foul_whistle_instance:
+                foul_whistle_instance.deactivate()
+        else:
+            items.foul_whistle_obtained = True
+            if foul_whistle_instance:
+                foul_whistle_instance.activate()
+        
         print("")
     
     #  Stage 1 이벤트 매니저 리셋
