@@ -6072,7 +6072,6 @@ def _sync_blacksmith_hammer_projectiles_to_frame(target_frame: int):
         return
 
     frame_deficit = max(0, target_frame - blacksmith_hammer_last_update_frame)
-    additional_cooldown_frames = 0
 
     frame_duration_ms = 1000.0 / FPS
     elapsed_ms = 0.0
@@ -6080,18 +6079,22 @@ def _sync_blacksmith_hammer_projectiles_to_frame(target_frame: int):
         elapsed_ms = float(current_ticks - blacksmith_hammer_last_update_ms)
 
     total_ms = elapsed_ms + blacksmith_hammer_cooldown_remainder_ms
-    time_based_frames = 0
+    time_based_additional = 0
     if total_ms >= frame_duration_ms:
         time_based_frames = int(total_ms // frame_duration_ms)
         blacksmith_hammer_cooldown_remainder_ms = total_ms - (time_based_frames * frame_duration_ms)
+        if time_based_frames > 1:
+            time_based_additional = time_based_frames - 1
     else:
         blacksmith_hammer_cooldown_remainder_ms = total_ms
 
-    if time_based_frames > 1:
-        additional_cooldown_frames = time_based_frames - 1
-
+    frame_based_additional = 0
     if frame_deficit > 1:
-        additional_cooldown_frames = max(additional_cooldown_frames, frame_deficit - 1)
+        frame_based_additional = frame_deficit - 1
+
+    additional_cooldown_frames = max(time_based_additional, frame_based_additional)
+    if additional_cooldown_frames == frame_based_additional and frame_based_additional > time_based_additional:
+        blacksmith_hammer_cooldown_remainder_ms = 0.0
 
     new_projectiles: list[dict] = []
     for proj in blacksmith_hammer_shock_projectiles:
