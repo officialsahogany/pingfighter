@@ -43552,7 +43552,7 @@ def handle_ball():
     global soldier_swing_active, soldier_swing_timer
     global soldier_right_hook_active, soldier_right_hook_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
-    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
+    global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
     # 스톱워치 보정/락 상태 (스마트폰)
     global stopwatch_forced_upward, stopwatch_upward_lock_timer
     # 스톱워치 보정/락 상태 (스마트폰)
@@ -44708,7 +44708,11 @@ def handle_ball():
     # 발토르가 우산을 펼친 동안에는 센서 자동 대쉬를 차단한다.
     umbrella_blocks_sensor = (
         selected_character_type == "blacksmith"
-        and (blacksmith_umbrella_open or blacksmith_umbrella_anim_timer > 0)
+        and (
+            blacksmith_umbrella_open
+            or blacksmith_umbrella_anim_timer > 0
+            or blacksmith_umbrella_retracting
+        )
     )
     # 디버깅: 센서 상태 확인
     if danger_sensor_obtained:
