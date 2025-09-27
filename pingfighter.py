@@ -24935,16 +24935,16 @@ def draw_player_gauge():
 
         center_x = player_gauge_x + player_gauge_width // 2
         segment_count = gauge_max
-        segment_spacing = 4
-        shield_width = 18
-        shield_height = 16
+        segment_spacing = 3
+        shield_width = 14
+        shield_height = 8
         row_width = shield_width * segment_count + segment_spacing * (segment_count - 1)
-        panel_padding_x = 6
-        panel_padding_y = 6
+        panel_padding_x = 4
+        panel_padding_y = 4
         panel_width = row_width + panel_padding_x * 2
         panel_height = shield_height + panel_padding_y * 2
         panel_x = int(center_x - panel_width / 2)
-        panel_y = int(tokens_bottom + 12)
+        panel_y = int(tokens_bottom + 8)
         panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
 
         def _clamp_component(value: float) -> int:
@@ -24961,11 +24961,15 @@ def draw_player_gauge():
 
         pygame.draw.rect(SCREEN, panel_color, panel_rect, border_radius=6)
         pygame.draw.rect(SCREEN, panel_border, panel_rect, width=1, border_radius=6)
-        highlight_rect = panel_rect.inflate(-4, -(panel_rect.height - 6))
+        highlight_rect = panel_rect.inflate(-4, -(panel_rect.height - 4))
         if highlight_rect.width > 0:
-            pygame.draw.line(SCREEN, panel_highlight,
-                             (highlight_rect.left, highlight_rect.top),
-                             (highlight_rect.right, highlight_rect.top), 2)
+            pygame.draw.line(
+                SCREEN,
+                panel_highlight,
+                (highlight_rect.left, highlight_rect.top),
+                (highlight_rect.right, highlight_rect.top),
+                1,
+            )
 
         fill_safe = (220, 196, 128)
         fill_danger = (236, 118, 84)
@@ -24979,8 +24983,8 @@ def draw_player_gauge():
         shield_outline = tuple(_clamp_component(panel_border[i] + 12) for i in range(3))
 
         def _draw_umbrella_shield(rect: pygame.Rect, fill_ratio: float, *, fill_color: tuple[int, int, int] | None) -> None:
-            bevel = max(2, int(rect.width * 0.2))
-            crown = int(rect.height * 0.45)
+            bevel = max(1, int(rect.width * 0.2))
+            crown = int(rect.height * 0.5)
             shield_points = [
                 (rect.centerx, rect.top),
                 (rect.right, rect.top + crown),
@@ -25018,19 +25022,7 @@ def draw_player_gauge():
                 _draw_umbrella_shield(shield_rect, 0.0, fill_color=None)
             current_x += shield_width + segment_spacing
 
-        label_color_base = (242, 234, 224)
-        label_color_danger = (255, 210, 198)
-        label_color = tuple(
-            _clamp_component(label_color_base[i] * (1 - danger_ratio) + label_color_danger[i] * danger_ratio + flash_strength * 20)
-            for i in range(3)
-        )
-        umbrella_text_surface = FontStyle.tiny().render(f"{gauge_value}/{gauge_max}", True, label_color)
-        umbrella_text_rect = umbrella_text_surface.get_rect(center=(panel_rect.centerx, panel_rect.bottom + 6))
-        text_bg = umbrella_text_rect.inflate(6, 4)
-        pygame.draw.rect(SCREEN, (0, 0, 0, 140), text_bg, border_radius=3)
-        draw.rect((90, 80, 70), text_bg, 1, border_radius=3)
-        SCREEN.blit(umbrella_text_surface, umbrella_text_rect.topleft)
-        umbrella_panel_bottom = umbrella_text_rect.bottom
+        umbrella_panel_bottom = panel_rect.bottom
     
     gauge_text_width, gauge_text_height = gauge_text_size
     gauge_text_x = gauge_x + gauge_width // 2 - gauge_text_width // 2
