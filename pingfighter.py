@@ -23398,6 +23398,7 @@ def draw_overlay_ui() -> None:
     if selected_character_type == "blacksmith":
         draw_blacksmith_turret_ui(SCREEN)
         draw_blacksmith_divine_ui(SCREEN)
+        draw_blacksmith_divine_ui(SCREEN)
 
 def draw_overlay_ui():
     global current_stage, selected_character_type, new_boss_mode_active
@@ -23451,6 +23452,7 @@ def draw_overlay_ui():
 
     if selected_character_type == "blacksmith":
         draw_blacksmith_turret_ui(SCREEN)
+        draw_blacksmith_divine_ui(SCREEN)
 def apply_white_glow(surface, intensity=60):
     """
     픽셀 단위로 반짝임 효과를 입히는 함수 (최적화 버전)
