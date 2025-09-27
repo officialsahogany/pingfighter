@@ -145,8 +145,11 @@ class FoulWhistle:
     def _load_font(self, size: int) -> pygame.font.Font:
         candidates = [
             "NeoDunggeunmoPro.ttf",
+            os.path.join("..", "NeoDunggeunmoPro.ttf"),
             "NeoDGM.ttf",
+            os.path.join("..", "NeoDGM.ttf"),
             "NanumSquareB.ttf",
+            os.path.join("..", "NanumSquareB.ttf"),
             None,
         ]
         for name in candidates:
