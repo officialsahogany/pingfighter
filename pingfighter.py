@@ -19659,6 +19659,12 @@ def handle_player(keys):
                 blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
                 blacksmith_hammer_swing_slow_timer = 0
                 blacksmith_hammer_slow_decay_step = 0
+
+            if (
+                blacksmith_umbrella_open
+                and not blacksmith_umbrella_retracting
+            ):
+                cancel_whip_with_umbrella_block()
         
         # Chapter 2 튜토리얼: 대쉬 상태에서 충돌 시 첫 대쉬 이벤트 처리
         if current_stage == 50 and tutorial_current_chapter == 2 and rolling_active:
@@ -23888,13 +23894,6 @@ def draw_player_gauge():
     draw.rect((100, 100, 100), text_bg_rect, 1, border_radius=3)
     # 텍스트 렌더링
     SCREEN.blit(gauge_text_surface, (text_x, text_y))
-    if doping_potion_toast_timer > 0:
-        toast_ratio = doping_potion_toast_timer / 120
-        toast_color = (int(120 + 80 * toast_ratio), 255, int(190 + 40 * toast_ratio))
-        toast_text = FontStyle.menu().render("도핑 효과 활성화", True, toast_color)
-        toast_rect = toast_text.get_rect(center=(WIDTH - 40, gauge_y - 60))
-        SCREEN.blit(toast_text, toast_rect)
-
     doping_active = doping_potion_active and doping_potion_timer > 0
     if doping_active:
         gauge_x = WIDTH - 110
@@ -46919,6 +46918,11 @@ def handle_ball():
         elif selected_character_type == "blacksmith" and not player_collision_handled:
             blacksmith_shield_swing_active = True
             blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
+            if (
+                blacksmith_umbrella_open
+                and not blacksmith_umbrella_retracting
+            ):
+                cancel_whip_with_umbrella_block()
         if ball_vel[0] != 0:
             direction = math.copysign(1, ball_vel[0])
             ball_angle += direction * 10
