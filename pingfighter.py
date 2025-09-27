@@ -4776,6 +4776,21 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
 
     swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
 
+    walk_wave = 0.0
+    walk_bob = 0.0
+    walk_lean = 0.0
+    leg_step = 0
+    if blacksmith_walking_active:
+        cycle_frames = max(1, int(BLACKSMITH_WALKING_CYCLE * BLACKSMITH_UMBRELLA_WALK_CYCLE_MULT))
+        progress = (blacksmith_walking_timer % cycle_frames) / cycle_frames
+        phase = progress * 2 * math.pi
+        base_wave = math.sin(phase)
+        base_bob = math.sin(phase + math.pi / 2)
+        walk_wave = base_wave * BLACKSMITH_UMBRELLA_WALK_WAVE_SCALE
+        walk_bob = base_bob * BLACKSMITH_UMBRELLA_WALK_BOB_SCALE
+        walk_lean = blacksmith_walk_direction * BLACKSMITH_UMBRELLA_WALK_LEAN
+        leg_step = int(round(base_wave * BLACKSMITH_UMBRELLA_WALK_STEP_PIXELS))
+
     base_width = 250
     body_height = 120
     # 양쪽 스윙 모두 왼쪽 스윙의 padding 값 사용으로 일관된 anchor 계산 보장
@@ -4789,15 +4804,15 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         body_surface,
         shield_swing=0.0,
         hammer_swing=0.0,
-        walk_wave=0.0,
-        walk_bob=0.0,
-        walk_lean=0.0,
+        walk_wave=walk_wave,
+        walk_bob=walk_bob,
+        walk_lean=walk_lean,
         force_hammer_visibility=False,
         request_pose=True,
         umbrella_pose=True,
         umbrella_raise=raise_amount,
     )
-    _draw_blacksmith_legs(body_surface, 0)
+    _draw_blacksmith_legs(body_surface, leg_step)
 
     surface = pygame.Surface((final_width, final_height), pygame.SRCALPHA)
     body_offset_x = left_padding
