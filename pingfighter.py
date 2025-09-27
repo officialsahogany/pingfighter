@@ -8674,7 +8674,7 @@ def draw_blacksmith_turret_ui(surface):
     bar_left = gauge_panel_rect.left + 4
     bar_right = gauge_panel_rect.right - 4
     bar_width = max(10, bar_right - bar_left)
-    bar_height = 6
+    bar_height = 14
     bar_top = gauge_panel_rect.centery - bar_height // 2
     bar_rect = pygame.Rect(bar_left, bar_top, bar_width, bar_height)
 
@@ -8683,13 +8683,7 @@ def draw_blacksmith_turret_ui(surface):
     pygame.draw.rect(surface, bar_bg, bar_rect, border_radius=3)
 
     segment_count = gauge_max
-    segment_spacing = 2
-    inner_rect = bar_rect.inflate(-2, -2)
-    segment_width = max(2, (inner_rect.width - segment_spacing * (segment_count - 1)) // segment_count)
-    segment_width = min(segment_width, inner_rect.width // segment_count)
-    segment_height = inner_rect.height
-    seg_x = inner_rect.x
-
+    segment_spacing = 4
     fill_safe = (220, 196, 128)
     fill_danger = (236, 118, 84)
     segment_fill = tuple(
@@ -8700,21 +8694,51 @@ def draw_blacksmith_turret_ui(surface):
     partial_color = tuple(_clamp_color_component(segment_fill[i] * 0.74 + 18) for i in range(3))
     highlight_color = tuple(_clamp_color_component(segment_fill[i] + 36) for i in range(3))
 
+    total_width = bar_rect.width - 4
+    base_width = max(10, (total_width - segment_spacing * (segment_count - 1)) // segment_count)
+    shield_width = min(base_width, bar_rect.width // segment_count)
+    shield_height = max(8, min(bar_rect.height - 2, int(shield_width * 0.75)))
+    row_width = shield_width * segment_count + segment_spacing * (segment_count - 1)
+    start_x = bar_rect.left + (bar_rect.width - row_width) // 2
+    base_y = bar_rect.centery - shield_height // 2
+
+    def _draw_segment_shield(rect: pygame.Rect, fill_ratio: float, *, fill_color: tuple[int, int, int] | None) -> None:
+        bevel = max(2, int(rect.width * 0.18))
+        crown = int(rect.height * 0.42)
+        points = [
+            (rect.centerx, rect.top),
+            (rect.right, rect.top + crown),
+            (rect.right - bevel, rect.bottom),
+            (rect.left + bevel, rect.bottom),
+            (rect.left, rect.top + crown),
+        ]
+
+        pygame.draw.polygon(surface, empty_color, points)
+        if fill_ratio > 0.0 and fill_color is not None:
+            prev_clip = surface.get_clip()
+            clip_height = max(1, int(round(rect.height * fill_ratio)))
+            clip_rect = pygame.Rect(rect.left, rect.bottom - clip_height, rect.width, clip_height)
+            surface.set_clip(clip_rect)
+            pygame.draw.polygon(surface, fill_color, points)
+            surface.set_clip(prev_clip)
+
+            highlight_clip = pygame.Rect(rect.left, rect.bottom - clip_height, rect.width, max(1, clip_height // 3))
+            surface.set_clip(highlight_clip)
+            pygame.draw.polygon(surface, highlight_color, points)
+            surface.set_clip(prev_clip)
+
+        pygame.draw.polygon(surface, bar_border, points, 1)
+
+    cursor_x = start_x
     for idx in range(segment_count):
-        seg_rect = pygame.Rect(seg_x, inner_rect.y, segment_width, segment_height)
+        shield_rect = pygame.Rect(int(cursor_x), base_y, shield_width, shield_height)
         if idx < gauge_value:
-            pygame.draw.rect(surface, segment_fill, seg_rect, border_radius=2)
-            highlight_rect = pygame.Rect(seg_rect.x, seg_rect.y, seg_rect.width, max(1, seg_rect.height // 3))
-            pygame.draw.rect(surface, highlight_color, highlight_rect, border_radius=2)
+            _draw_segment_shield(shield_rect, 1.0, fill_color=segment_fill)
         elif idx == gauge_value and gauge_value < gauge_max and recharge_ratio > 0:
-            partial_width = max(1, int(seg_rect.width * recharge_ratio))
-            partial_rect = pygame.Rect(seg_rect.x, seg_rect.y, partial_width, seg_rect.height)
-            pygame.draw.rect(surface, partial_color, partial_rect, border_radius=2)
-            pygame.draw.rect(surface, empty_color, seg_rect, border_radius=2)
+            _draw_segment_shield(shield_rect, recharge_ratio, fill_color=partial_color)
         else:
-            pygame.draw.rect(surface, empty_color, seg_rect, border_radius=2)
-        pygame.draw.rect(surface, bar_border, seg_rect, 1, border_radius=2)
-        seg_x += segment_width + segment_spacing
+            _draw_segment_shield(shield_rect, 0.0, fill_color=None)
+        cursor_x += shield_width + segment_spacing
 
     pygame.draw.rect(surface, bar_border, bar_rect, 1, border_radius=3)
 
