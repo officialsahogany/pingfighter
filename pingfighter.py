@@ -8590,25 +8590,28 @@ def draw_blacksmith_build_menu(surface):
         return
     if not blacksmith_has_available_buildings():
         return
+    buildable_options = [
+        option for option in BLACKSMITH_BUILD_OPTIONS if blacksmith_can_build(option)
+    ]
+    if not buildable_options:
+        return
+
     spacing = BLACKSMITH_BUILD_ICON_SIZE[0] + 16
     base_x = PLAYER.centerx
     base_y = max(60, PLAYER.top - 60)
-    for idx, option in enumerate(BLACKSMITH_BUILD_OPTIONS):
-        available = blacksmith_can_build(option)
+
+    option_count = len(buildable_options)
+    for idx, option in enumerate(buildable_options):
         icon = BLACKSMITH_TURRET_ICON if option == "turret" else BLACKSMITH_DIVINE_ICON
         icon_surface = icon.copy()
-        if not available:
-            dim = pygame.Surface(icon_surface.get_size(), pygame.SRCALPHA)
-            dim.fill((0, 0, 0, 140))
-            icon_surface.blit(dim, (0, 0))
-        offset_x = (idx - (len(BLACKSMITH_BUILD_OPTIONS) - 1) / 2) * spacing
+        offset_x = (idx - (option_count - 1) / 2) * spacing
         dest_rect = icon_surface.get_rect(center=(base_x + offset_x, base_y))
         pygame.draw.rect(surface, (15, 20, 30, 180), dest_rect.inflate(18, 18), border_radius=12)
-        border_color = (90, 150, 240, 220) if available else (90, 90, 90, 160)
+        border_color = (90, 150, 240, 220)
         pygame.draw.rect(surface, border_color, dest_rect.inflate(22, 22), width=2, border_radius=14)
         surface.blit(icon_surface, dest_rect)
         font = FontStyle.tiny()
-        text_color = (255, 255, 255) if available else (150, 150, 150)
+        text_color = (255, 255, 255)
         name = "포탑" if option == "turret" else "디바인스톤"
         label = font.render(name, True, text_color)
         surface.blit(label, label.get_rect(center=(dest_rect.centerx, dest_rect.bottom + 16)))
