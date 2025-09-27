@@ -50495,27 +50495,7 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_swing_active = False
     blacksmith_hammer_swing_phase = 0
     blacksmith_manual_hammer_timer = 0
-    global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
-    global blacksmith_turret_build_progress, blacksmith_turret_active
-    global blacksmith_turret_state, blacksmith_turret_projectiles
-    blacksmith_turret_blueprint_active = False
-    blacksmith_turret_blueprint_rect = None
-    blacksmith_turret_build_progress = 0
-    blacksmith_turret_active = False
-    blacksmith_turret_state = None
-    blacksmith_turret_projectiles.clear()
-    blacksmith_turret_partial_drain = 0.0
-    global blacksmith_turret_manual_cooldown
-    blacksmith_turret_manual_cooldown = 0
-    blacksmith_build_menu_active = False
-    blacksmith_down_hold_frames = 0
-    blacksmith_divine_stone_state = None
-    global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
-    global blacksmith_divine_build_progress, blacksmith_divine_partial_drain
-    blacksmith_divine_blueprint_active = False
-    blacksmith_divine_blueprint_rect = None
-    blacksmith_divine_build_progress = 0
-    blacksmith_divine_partial_drain = 0.0
+    reset_blacksmith_state()
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
