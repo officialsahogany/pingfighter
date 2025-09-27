@@ -52746,7 +52746,17 @@ def main(stage_num, new_boss_mode=False):
             #     if mouse_controls.get("item_use", False):
             #         item_use_pressed = True
             #  아이템 사용 처리 (S키 또는 숫자키)
-            if not aipill_active and active_item_slot and not blacksmith_build_menu_active:
+            umbrella_blocks_active_items = (
+                selected_character_type == "blacksmith"
+                and blacksmith_umbrella_open
+                and not blacksmith_umbrella_retracting
+            )
+            if (
+                not aipill_active
+                and active_item_slot
+                and not blacksmith_build_menu_active
+                and not umbrella_blocks_active_items
+            ):
                 use_item = False
                 target_index = -1
                 # S키로 현재 선택된 아이템 사용
