@@ -45875,9 +45875,8 @@ def handle_ball():
         if current_stage != 2:  # 스테이지 2가 아닐 때만 속도 재계산
             current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
         print(f"  !  : {current_speed:.1f},")
-        # 충전가방 효과: 공이 벽에 닿을 때마다 플레이어 패들 충전량의 20% 충전
+        # 충전가방 효과: 공이 벽에 닿을 때마다 기본 게이지 충전량의 20% 충전
         if chargebag_obtained and not aipill_active:
-            # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
             # 캐릭터별 기본 게이지 충전량
             if selected_character_type == "soldier":
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
@@ -45888,17 +45887,8 @@ def handle_ball():
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
                 base_gauge_gain = 80  # 스매셔: 게이지 충전 80
-            skill_gauge_boost = skill.apply_gauge_boost(0)
-            total_gauge_gain = base_gauge_gain + skill_gauge_boost
-            
-            #  악마의 주사위 패들 게이지 충전량 배율 적용
-            from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
-            if is_devil_dice_active():
-                multipliers = get_devil_dice_multipliers()
-                paddle_charge_multiplier = multipliers.get('paddle_gauge_charge', 1.0)
-                total_gauge_gain = int(total_gauge_gain * paddle_charge_multiplier)
-            
-            chargebag_gain = int(total_gauge_gain * 0.2)  # 20%
+            # 충전가방은 기본 게이지 충전량의 20%만 적용 (스킬/아이템 보너스 제외)
+            chargebag_gain = int(base_gauge_gain * 0.2)  # 기본 충전량의 20%
             print(f" DEBUG:     ( : {chargebag_gain})")
             old_gauge = special_gauge
             #  동적 최대치 계산 적용
