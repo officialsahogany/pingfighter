@@ -43552,6 +43552,7 @@ def handle_ball():
     global soldier_swing_active, soldier_swing_timer
     global soldier_right_hook_active, soldier_right_hook_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
+    global blacksmith_umbrella_open, blacksmith_umbrella_retracting
     # 스톱워치 보정/락 상태 (스마트폰)
     global stopwatch_forced_upward, stopwatch_upward_lock_timer
     # 스톱워치 보정/락 상태 (스마트폰)
@@ -44704,11 +44705,22 @@ def handle_ball():
     if abs(ball_vel[1]) < 0.5:
         ball_vel[1] += random.choice([-1, 1]) * 1.5
     # --- 위험감지센서 자동 대쉬 로직 ---
+    # 발토르가 우산을 펼친 동안에는 센서 자동 대쉬를 차단한다.
+    umbrella_blocks_sensor = (
+        selected_character_type == "blacksmith"
+        and blacksmith_umbrella_open
+    )
     # 디버깅: 센서 상태 확인
     if danger_sensor_obtained:
         print(f"  - obtained: {danger_sensor_obtained}, enabled: {danger_sensor_enabled}, ball_vel[1]: {ball_vel[1]:.2f}, BALL.centery: {BALL.centery:.1f}, HEIGHT*0.75: {HEIGHT * 0.75:.1f}")
     # 공이 화면의 절반 이하(플레이어와 중간지점의 가운데)로 내려왔을 때만 탐지
-    if danger_sensor_obtained and danger_sensor_enabled and ball_vel[1] > 0 and BALL.centery > HEIGHT * 0.75:  # 공이 아래로 내려오고 화면 3/4 지점 이하
+    if (
+        danger_sensor_obtained
+        and danger_sensor_enabled
+        and not umbrella_blocks_sensor
+        and ball_vel[1] > 0
+        and BALL.centery > HEIGHT * 0.75
+    ):  # 공이 아래로 내려오고 화면 3/4 지점 이하
         current_time = pygame.time.get_ticks()
         # 쿨타임 체크 (15초)
         if not hasattr(handle_ball, 'danger_sensor_last_activation_time'):
