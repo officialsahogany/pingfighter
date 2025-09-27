@@ -24935,9 +24935,9 @@ def draw_player_gauge():
 
         center_x = player_gauge_x + player_gauge_width // 2
         segment_count = gauge_max
-        segment_spacing = 3
-        shield_width = 14
-        shield_height = 8
+        segment_spacing = 2
+        shield_width = 10
+        shield_height = 7
         row_width = shield_width * segment_count + segment_spacing * (segment_count - 1)
         panel_padding_x = 4
         panel_padding_y = 4
