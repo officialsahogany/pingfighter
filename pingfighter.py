@@ -20133,7 +20133,7 @@ def store_active_item(item_data):
         print("!")
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -50135,6 +50135,9 @@ def show_result(won):
             available_items.append({"name": "dashgear", "color": (100, 100, 255), "type": "passive", "icon": dashgear_icon})
         if not bulkup_obtained:
             available_items.append({"name": "bulkup", "color": (255, 100, 100), "type": "passive", "icon": bulkup_icon})
+        if not items.foul_whistle_obtained:
+            foul_whistle_icon = get_item_icon("foul_whistle")
+            available_items.append({"name": "foul_whistle", "color": (255, 235, 120), "type": "passive", "icon": foul_whistle_icon})
         if not items.dowsing_pendulum_obtained:
             # 다우징팬들럼 아이콘 로드
             try:
