@@ -5231,6 +5231,8 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
 
     sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    divine_runtime = state.divine
 
     construction_active = False
     hammer_engaged_this_frame = False
@@ -5435,6 +5437,11 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "pulse": 0,
                             "cooldown": 0,
                         }
+                        divine_runtime.state = blacksmith_divine_stone_state
+                        divine_runtime.blueprint_active = False
+                        divine_runtime.blueprint_rect = None
+                        divine_runtime.build_progress = 0
+                        divine_runtime.partial_drain = 0.0
                         effects_manager.spawn_star_particles(stone_rect.centerx, stone_rect.centery, count=12)
                         effects_manager.spawn_construction_smoke(stone_rect.centerx, stone_rect.bottom - 10, count=6, spread=18)
                         try:
@@ -5449,6 +5456,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_hammer_swing_slow_timer = 0
                         blacksmith_hammer_slow_decay_step = 0
                         blacksmith_hammer_swing_phase = 0
+                        push_blacksmith_state()
                 else:
                     if frame_counter % 45 == 0:
                         print(
