@@ -5032,24 +5032,24 @@ def create_blacksmith_paddle_hammering():
 
 def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_blueprint=False):
     """발토르 포탑 설치/건설 입력을 처리한다."""
-    global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
-    global blacksmith_turret_build_progress, blacksmith_turret_active
-    global blacksmith_turret_state, special_gauge, special_ready
+    global special_gauge, special_ready
     global is_waiting_for_serve, is_player_serve
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_trail_timer
     global blacksmith_manual_hammer_timer
-    global blacksmith_turret_partial_drain, blacksmith_turret_xp_partial_drain
-    global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
-    global blacksmith_divine_build_progress, blacksmith_divine_partial_drain
-    global blacksmith_divine_stone_state
     global frame_counter
     global blacksmith_build_menu_active
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
-    global blacksmith_umbrella_retracting, blacksmith_umbrella_anim_direction
+    global blacksmith_umbrella_anim_direction
     global blacksmith_umbrella_swing_active, blacksmith_umbrella_swing_timer
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
 
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    turret_runtime = state.turret
+    divine_runtime = state.divine
+
+    turret_state = turret_runtime.state
     construction_active = False
     hammer_engaged_this_frame = False
 
@@ -5072,23 +5072,21 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         stop_blacksmith_construction_sound()
         return down_just_pressed
 
-    # 포탑/청사진이 모두 없는 상태에서 ↓ 입력 시 청사진 생성
-    if (
-        force_blueprint
-        and not blacksmith_turret_blueprint_active
-        and not blacksmith_turret_active
-    ):
+    if force_blueprint and not turret_runtime.blueprint_active and not turret_runtime.active:
         blueprint_width = BLACKSMITH_TURRET_BLUEPRINT_WIDTH
         blueprint_height = BLACKSMITH_TURRET_BLUEPRINT_HEIGHT
         blueprint_rect = pygame.Rect(0, 0, blueprint_width, blueprint_height)
         base_x = max(blueprint_width // 2, min(WIDTH - blueprint_width // 2, PLAYER.centerx))
         base_y = HEIGHT - 5
         blueprint_rect.midbottom = (base_x, base_y)
-        blacksmith_turret_blueprint_rect = blueprint_rect
-        print(f"[DEBUG] Blueprint created: player_bottom={PLAYER.bottom}, blueprint_bottom={blueprint_rect.bottom}, top={blueprint_rect.top}")
-        blacksmith_turret_build_progress = 0
-        blacksmith_turret_blueprint_active = True
-        blacksmith_turret_partial_drain = 0.0
+        turret_runtime.blueprint_rect = blueprint_rect
+        print(
+            "[DEBUG] Blueprint created: "
+            f"player_bottom={PLAYER.bottom}, blueprint_bottom={blueprint_rect.bottom}, top={blueprint_rect.top}"
+        )
+        turret_runtime.build_progress = 0
+        turret_runtime.blueprint_active = True
+        turret_runtime.partial_drain = 0.0
         try:
             play_sound_with_volume(SOUND_ITEM_GET)
         except Exception:
@@ -5097,59 +5095,50 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         blacksmith_hammer_swing_active = False
         blacksmith_hammer_swing_phase = 0
         blacksmith_manual_hammer_timer = 0
-    elif (
-        down_just_pressed
-        and not blacksmith_turret_blueprint_active
-        and not blacksmith_turret_active
-    ):
+    elif down_just_pressed and not turret_runtime.blueprint_active and not turret_runtime.active:
         stop_blacksmith_construction_sound()
         return down_just_pressed
 
-    # 청사진이 설치된 상태에서 ↓키를 유지하면 건설 진행 (누적)
-    if (
-        blacksmith_turret_blueprint_active
-        and not blacksmith_turret_active
-        and blacksmith_turret_blueprint_rect is not None
-    ):
+    if turret_runtime.blueprint_active and not turret_runtime.active and turret_runtime.blueprint_rect is not None:
         if down_pressed:
-            distance = abs(PLAYER.centerx - blacksmith_turret_blueprint_rect.centerx)
+            distance = abs(PLAYER.centerx - turret_runtime.blueprint_rect.centerx)
             if distance <= BLACKSMITH_TURRET_BUILD_RADIUS:
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
                 blacksmith_hammer_swing_active = True
-                blacksmith_hammer_swing_phase = (blacksmith_hammer_swing_phase + 1) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
+                blacksmith_hammer_swing_phase = (
+                    blacksmith_hammer_swing_phase + 1
+                ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
                 drain_per_frame = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS
                 gauge_spent = False
                 if special_gauge > 0:
                     construction_active = True
-                    blacksmith_turret_partial_drain += drain_per_frame
+                    turret_runtime.partial_drain += drain_per_frame
                     gauge_spent = True
-                    drain_units = int(blacksmith_turret_partial_drain)
+                    drain_units = int(turret_runtime.partial_drain)
                     if drain_units > 0:
                         actual_drain = min(drain_units, special_gauge)
                         if actual_drain > 0:
                             special_gauge -= actual_drain
-                            blacksmith_turret_partial_drain -= actual_drain
+                            turret_runtime.partial_drain -= actual_drain
                             special_ready = special_gauge >= 350
                             construction_active = True
                         else:
                             gauge_spent = False
-                else:
-                    gauge_spent = False
                 if gauge_spent:
-                    blacksmith_turret_build_progress = min(
+                    turret_runtime.build_progress = min(
                         BLACKSMITH_TURRET_BUILD_TIME,
-                        blacksmith_turret_build_progress + 1
+                        turret_runtime.build_progress + 1,
                     )
-                    if frame_counter % 4 == 0 and blacksmith_turret_blueprint_rect:
-                        smoke_x = blacksmith_turret_blueprint_rect.centerx + random.uniform(-8, 8)
-                        smoke_y = blacksmith_turret_blueprint_rect.top + random.uniform(-6, 4)
+                    if frame_counter % 4 == 0 and turret_runtime.blueprint_rect:
+                        smoke_x = turret_runtime.blueprint_rect.centerx + random.uniform(-8, 8)
+                        smoke_y = turret_runtime.blueprint_rect.top + random.uniform(-6, 4)
                         effects_manager.spawn_construction_smoke(smoke_x, smoke_y, count=2)
-                    if blacksmith_turret_build_progress >= BLACKSMITH_TURRET_BUILD_TIME:
+                    if turret_runtime.build_progress >= BLACKSMITH_TURRET_BUILD_TIME:
                         turret_rect = pygame.Rect(0, 0, BLACKSMITH_TURRET_BASE_WIDTH, BLACKSMITH_TURRET_BASE_HEIGHT)
-                        turret_rect.midbottom = blacksmith_turret_blueprint_rect.midbottom
-                        blacksmith_turret_state = {
+                        turret_rect.midbottom = turret_runtime.blueprint_rect.midbottom
+                        turret_runtime.state = {
                             "rect": turret_rect,
                             "fire_timer": BLACKSMITH_TURRET_FIRE_INTERVAL,
                             "fire_interval": BLACKSMITH_TURRET_FIRE_INTERVAL,
@@ -5163,11 +5152,11 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "recoil_timer": 0,
                             "recoil_offset": 0.0,
                         }
-                        blacksmith_turret_active = True
-                        blacksmith_turret_blueprint_active = False
-                        blacksmith_turret_blueprint_rect = None
-                        blacksmith_turret_build_progress = 0
-                        blacksmith_turret_partial_drain = 0.0
+                        turret_runtime.active = True
+                        turret_runtime.blueprint_active = False
+                        turret_runtime.blueprint_rect = None
+                        turret_runtime.build_progress = 0
+                        turret_runtime.partial_drain = 0.0
                         try:
                             play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
                         except Exception:
@@ -5175,30 +5164,34 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_hammer_swing_active = False
                         blacksmith_hammer_swing_phase = 0
                         blacksmith_manual_hammer_timer = 0
+                        turret_state = turret_runtime.state
                     elif frame_counter % 30 == 0:
-                        print(f"[DEBUG] Turret build: {blacksmith_turret_build_progress}/{BLACKSMITH_TURRET_BUILD_TIME}, gauge={special_gauge}, phase={blacksmith_hammer_swing_phase}")
-                else:
-                    if frame_counter % 45 == 0:
-                        print(f"[DEBUG] Turret build paused (gauge={special_gauge}, partial={blacksmith_turret_partial_drain:.2f})")
-        # ↓키를 누르지 않아도 진행도는 유지 (누적 빌드)
+                        print(
+                            f"[DEBUG] Turret build: {turret_runtime.build_progress}/{BLACKSMITH_TURRET_BUILD_TIME}, "
+                            f"gauge={special_gauge}, phase={blacksmith_hammer_swing_phase}"
+                        )
+                elif frame_counter % 45 == 0:
+                    print(
+                        f"[DEBUG] Turret build paused (gauge={special_gauge}, partial={turret_runtime.partial_drain:.2f})"
+                    )
     else:
         if (
-            blacksmith_turret_active
-            and blacksmith_turret_state
+            turret_runtime.active
+            and turret_state
             and down_pressed
-            and blacksmith_turret_state.get("rect") is not None
+            and turret_state.get("rect") is not None
         ):
-            distance = abs(PLAYER.centerx - blacksmith_turret_state["rect"].centerx)
+            distance = abs(PLAYER.centerx - turret_state["rect"].centerx)
             if distance <= BLACKSMITH_TURRET_BUILD_RADIUS:
                 hammer_engaged_this_frame = True
 
     if (
-        blacksmith_divine_blueprint_active
-        and blacksmith_divine_blueprint_rect is not None
-        and blacksmith_divine_stone_state is None
+        divine_runtime.blueprint_active
+        and divine_runtime.blueprint_rect is not None
+        and divine_runtime.state is None
     ):
         if down_pressed:
-            distance = abs(PLAYER.centerx - blacksmith_divine_blueprint_rect.centerx)
+            distance = abs(PLAYER.centerx - divine_runtime.blueprint_rect.centerx)
             if distance <= BLACKSMITH_DIVINE_BUILD_RADIUS:
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
@@ -5211,65 +5204,72 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 gauge_spent = False
                 if special_gauge > 0:
                     construction_active = True
-                    blacksmith_divine_partial_drain += drain_per_frame
-                    drain_units = int(blacksmith_divine_partial_drain)
+                    divine_runtime.partial_drain += drain_per_frame
+                    drain_units = int(divine_runtime.partial_drain)
                     if drain_units > 0:
                         actual_drain = min(drain_units, special_gauge)
                         if actual_drain > 0:
                             special_gauge -= actual_drain
-                            blacksmith_divine_partial_drain -= actual_drain
+                            divine_runtime.partial_drain -= actual_drain
                             special_ready = special_gauge >= 350
                             gauge_spent = True
                 if gauge_spent:
-                    blacksmith_divine_build_progress = min(
+                    divine_runtime.build_progress = min(
                         BLACKSMITH_DIVINE_BUILD_TIME,
-                        blacksmith_divine_build_progress + 1,
+                        divine_runtime.build_progress + 1,
                     )
                     if frame_counter % 6 == 0:
-                        smoke_x = blacksmith_divine_blueprint_rect.centerx + random.uniform(-6, 6)
-                        smoke_y = blacksmith_divine_blueprint_rect.bottom - BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT + random.uniform(-6, 4)
+                        smoke_x = divine_runtime.blueprint_rect.centerx + random.uniform(-6, 6)
+                        smoke_y = (
+                            divine_runtime.blueprint_rect.bottom
+                            - BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT
+                            + random.uniform(-6, 4)
+                        )
                         effects_manager.spawn_construction_smoke(smoke_x, smoke_y, count=2)
-                    if blacksmith_divine_build_progress >= BLACKSMITH_DIVINE_BUILD_TIME:
+                    if divine_runtime.build_progress >= BLACKSMITH_DIVINE_BUILD_TIME:
                         stone_width, stone_height = BLACKSMITH_DIVINE_STONE_SIZE
                         stone_rect = pygame.Rect(0, 0, stone_width, stone_height)
-                        anchor_y = blacksmith_divine_blueprint_rect.bottom - BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT
-                        stone_rect.midbottom = (blacksmith_divine_blueprint_rect.centerx, anchor_y)
-                        blacksmith_divine_stone_state = {
+                        anchor_y = divine_runtime.blueprint_rect.bottom - BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT
+                        stone_rect.midbottom = (divine_runtime.blueprint_rect.centerx, anchor_y)
+                        divine_runtime.state = {
                             "rect": stone_rect,
                             "hp": BLACKSMITH_DIVINE_STONE_MAX_HP,
                             "pulse": 0,
                             "cooldown": 0,
                         }
                         effects_manager.spawn_star_particles(stone_rect.centerx, stone_rect.centery, count=12)
-                        effects_manager.spawn_construction_smoke(stone_rect.centerx, stone_rect.bottom - 10, count=6, spread=18)
+                        effects_manager.spawn_construction_smoke(
+                            stone_rect.centerx,
+                            stone_rect.bottom - 10,
+                            count=6,
+                            spread=18,
+                        )
                         try:
                             play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
                         except Exception:
                             pass
-                        blacksmith_divine_blueprint_active = False
-                        blacksmith_divine_blueprint_rect = None
-                        blacksmith_divine_build_progress = 0
-                        blacksmith_divine_partial_drain = 0.0
+                        divine_runtime.blueprint_active = False
+                        divine_runtime.blueprint_rect = None
+                        divine_runtime.build_progress = 0
+                        divine_runtime.partial_drain = 0.0
                         blacksmith_hammer_swing_active = False
                         blacksmith_hammer_swing_phase = 0
-                else:
-                    if frame_counter % 45 == 0:
-                        print(
-                            f"[DEBUG] Divine build paused (gauge={special_gauge}, partial={blacksmith_divine_partial_drain:.2f})"
-                        )
+                elif frame_counter % 45 == 0:
+                    print(
+                        f"[DEBUG] Divine build paused (gauge={special_gauge}, partial={divine_runtime.partial_drain:.2f})"
+                    )
         else:
-            blacksmith_divine_partial_drain = 0.0
-    elif not blacksmith_divine_blueprint_active:
-        blacksmith_divine_partial_drain = 0.0
+            divine_runtime.partial_drain = 0.0
+    elif not divine_runtime.blueprint_active:
+        divine_runtime.partial_drain = 0.0
 
-    # 포탑이 완성된 후 ↓키를 눌러 경험치를 충전
-    if blacksmith_turret_active and blacksmith_turret_state:
-        level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
-        turret_rect = blacksmith_turret_state.get("rect")
-        xp_max = max(1.0, blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)))
+    if turret_runtime.active and turret_state:
+        turret_rect = turret_state.get("rect")
+        level = turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
+        xp_max = max(1.0, turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)))
         if level >= BLACKSMITH_TURRET_MAX_LEVEL:
-            blacksmith_turret_state["xp"] = min(blacksmith_turret_state.get("xp", xp_max), xp_max)
-            blacksmith_turret_xp_partial_drain = 0.0
+            turret_state["xp"] = min(turret_state.get("xp", xp_max), xp_max)
+            turret_runtime.xp_partial_drain = 0.0
         elif down_pressed and turret_rect is not None:
             distance = abs(PLAYER.centerx - turret_rect.centerx)
             engaged_for_upgrade = distance <= BLACKSMITH_TURRET_BUILD_RADIUS
@@ -5277,40 +5277,42 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
                 blacksmith_hammer_swing_active = True
-                blacksmith_hammer_swing_phase = (blacksmith_hammer_swing_phase + 1) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
+                blacksmith_hammer_swing_phase = (
+                    blacksmith_hammer_swing_phase + 1
+                ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
                 drain_per_frame = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS
                 xp_gain_units = 0
                 if special_gauge > 0:
                     construction_active = True
-                    blacksmith_turret_xp_partial_drain += drain_per_frame
-                    drain_units = int(blacksmith_turret_xp_partial_drain)
+                    turret_runtime.xp_partial_drain += drain_per_frame
+                    drain_units = int(turret_runtime.xp_partial_drain)
                     if drain_units > 0:
                         actual_drain = min(drain_units, special_gauge)
                         if actual_drain > 0:
                             special_gauge -= actual_drain
-                            blacksmith_turret_xp_partial_drain -= actual_drain
+                            turret_runtime.xp_partial_drain -= actual_drain
                             special_ready = special_gauge >= 350
                             xp_gain_units = actual_drain
                 if xp_gain_units > 0:
-                    current_xp = blacksmith_turret_state.get("xp", 0.0) + xp_gain_units
+                    current_xp = turret_state.get("xp", 0.0) + xp_gain_units
                     if current_xp >= xp_max:
-                        blacksmith_turret_state["xp"] = xp_max
+                        turret_state["xp"] = xp_max
                         upgraded = upgrade_blacksmith_turret()
                         if upgraded:
-                            blacksmith_turret_xp_partial_drain = 0.0
+                            turret_runtime.xp_partial_drain = 0.0
                     else:
-                        blacksmith_turret_state["xp"] = current_xp
+                        turret_state["xp"] = current_xp
                         if frame_counter % 45 == 0:
                             print(f"[DEBUG] Turret XP: {current_xp:.1f}/{xp_max:.1f}")
                 if xp_gain_units > 0:
                     construction_active = True
             else:
-                blacksmith_turret_xp_partial_drain = 0.0
+                turret_runtime.xp_partial_drain = 0.0
         else:
-            blacksmith_turret_xp_partial_drain = 0.0
+            turret_runtime.xp_partial_drain = 0.0
     else:
-        blacksmith_turret_xp_partial_drain = 0.0
+        turret_runtime.xp_partial_drain = 0.0
 
     if blacksmith_manual_hammer_timer > 0:
         if not hammer_engaged_this_frame:
@@ -5335,22 +5337,20 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         start_blacksmith_construction_sound()
     else:
         if (
-            blacksmith_turret_blueprint_active
-            or blacksmith_divine_blueprint_active
+            turret_runtime.blueprint_active
+            or divine_runtime.blueprint_active
             or (
-                blacksmith_turret_active
-                and blacksmith_turret_state
-                and blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL) < BLACKSMITH_TURRET_MAX_LEVEL
-                and blacksmith_turret_state.get("xp", 0.0) < blacksmith_turret_state.get(
-                    "xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)
-                )
+                turret_runtime.active
+                and turret_state
+                and turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL) < BLACKSMITH_TURRET_MAX_LEVEL
+                and turret_state.get("xp", 0.0) < turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED))
             )
         ):
             pause_blacksmith_construction_sound()
         else:
             stop_blacksmith_construction_sound()
 
-    sync_blacksmith_state()
+    push_blacksmith_state()
     return down_just_pressed
 
 
