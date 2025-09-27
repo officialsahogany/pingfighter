@@ -9007,6 +9007,16 @@ blacksmith_umbrella_recharge_progress = 0
 blacksmith_umbrella_damage_flash_timer = 0
 blacksmith_umbrella_last_hit_frame = -1000
 
+# 우산 금/갈라짐 패턴 (정규화 좌표 기반)
+# 각 단계 리스트는 이전 단계와 누적되어 렌더링된다.
+BLACKSMITH_UMBRELLA_CRACK_SEGMENTS: list[list[tuple[tuple[float, float], tuple[float, float]]]] = [
+    [((0.0, -0.32), (0.0, 0.30))],
+    [((0.018, -0.20), (0.18, 0.24)), ((-0.018, -0.20), (-0.20, 0.22))],
+    [((-0.05, 0.02), (-0.26, 0.34)), ((0.05, 0.02), (0.28, 0.32))],
+    [((0.0, -0.05), (-0.12, -0.34)), ((0.0, -0.05), (0.14, -0.34))],
+    [((-0.22, 0.04), (-0.36, -0.20)), ((0.22, 0.04), (0.38, -0.22)), ((0.0, 0.26), (-0.12, 0.44)), ((0.0, 0.26), (0.14, 0.46))],
+]
+
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
 smasher_walking_active = False
 smasher_walking_timer = 0
