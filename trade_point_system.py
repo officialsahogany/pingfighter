@@ -9,6 +9,23 @@ import random
 import os
 import sys
 
+try:
+    from item_effects.star_detector import (
+        is_star_detector_active,
+        roll_star_bonus,
+        record_trigger,
+    )
+except Exception:
+
+    def is_star_detector_active() -> bool:  # type: ignore
+        return False
+
+    def roll_star_bonus() -> int:  # type: ignore
+        return 0
+
+    def record_trigger(position):  # type: ignore
+        return None
+
 # 리소스 경로 헬퍼 (PyInstaller 호환)
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and for PyInstaller"""
