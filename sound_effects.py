@@ -40,6 +40,7 @@ SOUND_PATHS = {
     "RAGNAROK_SHOCK": "sounds/ragnarokshock.wav",
     "CONSTRUCTION": "sounds/construction.wav",
     "BLACKSMITH_UMBRELLA_SWING": "sounds/swing.wav",
+    "BLACKSMITH_UMBRELLA_OPEN": "sounds/umbopen.wav",
     "BLACKSMITH_UMBRELLA_BLOCK": "sounds/blocking.wav",
     "BLACKSMITH_HAMMER_CHARGE": "sounds/hammercharge.wav",
     "BLACKSMITH_HAMMER_THROW": "sounds/hammertrhow.wav",
