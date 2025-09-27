@@ -49690,7 +49690,6 @@ def handle_boss():
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
                 play_serve_sound()
                 #  보스 서브 시에도 물리 효과 적용
-                calculate_bounce(BOSS)
                 #  보스 서브 시 타격 이펙트 생성
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
             if wait_delay == 0:
@@ -49706,7 +49705,6 @@ def handle_boss():
                     fireball_cooldown = 1500  # 1.5초 쿨타임 강제 설정
                 play_serve_sound()
                 #  보스 서브 시에도 물리 효과 적용
-                calculate_bounce(BOSS)
                 #  보스 서브 시 타격 이펙트 생성
                 create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
         # --- 플레이어 서브 차례 ---
