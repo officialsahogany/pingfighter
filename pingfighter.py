@@ -7661,10 +7661,12 @@ def update_blacksmith_turret():
 
         turret_runtime.projectiles = new_projectiles
 
-    if turret_runtime.projectiles:
-        BLACKSMITH_TURRET_MISSILE_IMG.set_alpha(255)
-    else:
-        BLACKSMITH_TURRET_MISSILE_IMG.set_alpha(0)
+    missile_img = globals().get("BLACKSMITH_TURRET_MISSILE_IMG")
+    if missile_img is not None:
+        try:
+            missile_img.set_alpha(255 if turret_runtime.projectiles else 0)
+        except Exception:
+            pass
 
     if turret_runtime.active and turret_state and turret_state.get("hp", 0) <= 0:
         effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.centery, count=12)
