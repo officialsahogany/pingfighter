@@ -17369,6 +17369,7 @@ def handle_player(keys):
                 blacksmith_walk_direction = 0
                 blacksmith_hammer_swing_active = False
                 blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_slow_timer = 0
                 blacksmith_shield_swing_active = False
                 blacksmith_shield_swing_timer = 0
                 blacksmith_hammer_shock_charging = False
