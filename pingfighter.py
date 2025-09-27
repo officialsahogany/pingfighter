@@ -8174,7 +8174,9 @@ def draw_blacksmith_divine_stone(surface):
 
 
 def draw_blacksmith_build_menu(surface):
-    if not blacksmith_build_menu_active or 'PLAYER' not in globals() or PLAYER is None:
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    if not state.build_menu_active or 'PLAYER' not in globals() or PLAYER is None:
         return
     if not blacksmith_has_available_buildings():
         return
@@ -8205,6 +8207,14 @@ def draw_blacksmith_build_menu(surface):
 def draw_blacksmith_turret_ui(surface):
     if selected_character_type != "blacksmith":
         return
+
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    turret_runtime = state.turret
+    blacksmith_turret_state = turret_runtime.state
+    blacksmith_turret_blueprint_active = turret_runtime.blueprint_active
+    blacksmith_turret_active = turret_runtime.active
+    blacksmith_turret_build_progress = turret_runtime.build_progress
 
     if not blacksmith_turret_blueprint_active and not blacksmith_turret_active:
         return
