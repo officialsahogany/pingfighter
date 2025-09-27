@@ -20083,6 +20083,46 @@ stage_medal_rewards = {
 }
 session_medal_earned = 0  # main 함수 외부에 선언
 final_wave_direction = [0, 0]  # 공의 마지막 이동 방향 (X, Y)
+
+
+def try_trigger_foul_whistle(loss_type: str) -> bool:
+    """반칙호루라기 발동을 시도하고 성공 여부를 반환."""
+
+    global round_losses, deuce_losses, foul_whistle_pending_round_reset, ball_vel
+
+    try:
+        from item_effects.foul_whistle import get_foul_whistle_instance
+
+        whistle = get_foul_whistle_instance()
+    except Exception as exc:
+        print(f"[WARN] 반칙호루라기 인스턴스 준비 실패: {exc}")
+        return False
+
+    if not whistle.try_trigger():
+        return False
+
+    if loss_type == "deuce":
+        deuce_losses = max(0, deuce_losses - 1)
+    else:
+        round_losses = max(0, round_losses - 1)
+        game_state.round_losses = round_losses
+
+    foul_whistle_pending_round_reset = True
+
+    try:
+        ball_vel[0] = 0
+        ball_vel[1] = 0
+    except Exception:
+        pass
+
+    try:
+        BALL.centerx = WIDTH // 2
+        BALL.centery = HEIGHT // 2
+    except Exception:
+        pass
+
+    print("📢 심판이 무효를 선언합니다! 라운드가 다시 시작됩니다.")
+    return True
 def store_active_item(item_data):
     global active_item_slot, selected_item_index, aipill_active, last_item_use_time, long_boost_active
     # Aipill 활성화 시에는 아이템 획득 불가
