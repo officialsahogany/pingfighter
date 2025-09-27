@@ -1257,6 +1257,7 @@ SOUND_AK47 = sound_effects['AK47']
 SOUND_RAGNAROK_BOOM = sound_effects['RAGNAROK_BOOM']
 SOUND_RAGNAROK_SHOCK = sound_effects['RAGNAROK_SHOCK']
 SOUND_CONSTRUCTION = sound_effects['CONSTRUCTION']
+SOUND_BLACKSMITH_UMBRELLA_SWING = sound_effects['BLACKSMITH_UMBRELLA_SWING']
 if SOUND_CONSTRUCTION is None:
     try:
         SOUND_CONSTRUCTION = pygame.mixer.Sound(resource_path("sounds/construction.wav"))
@@ -8901,6 +8902,7 @@ blacksmith_umbrella_anim_direction = 1  # 1: 펼치는 중/완료, -1: 접는 �
 BLACKSMITH_UMBRELLA_SWING_PREP_FRAMES = int(0.5 * FPS)
 BLACKSMITH_UMBRELLA_SWING_SWING_FRAMES = int(0.5 * FPS)
 BLACKSMITH_UMBRELLA_SWING_RECOVER_DAMP = 0.72
+BLACKSMITH_UMBRELLA_SWING_SOUND_DELAY_FRAMES = int(0.5 * FPS)
 blacksmith_umbrella_swing_active = False
 blacksmith_umbrella_swing_timer = 0
 blacksmith_umbrella_swing_stage = 0  # 0=준비, 1=스윙
@@ -8908,6 +8910,8 @@ blacksmith_umbrella_swing_progress = 0.0
 blacksmith_umbrella_swing_recover_pre = 0.0
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
+blacksmith_umbrella_swing_sound_timer = 0
+blacksmith_umbrella_swing_sound_pending = False
 blacksmith_umbrella_anchor_base_x = None
 BLACKSMITH_UMBRELLA_VISUAL_OFFSET_Y = 32  # 우산 그래픽과 판정이 패들과 겹치도록 추가 하강치
 blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
@@ -17008,6 +17012,7 @@ def handle_player(keys):
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
     global blacksmith_umbrella_swing_recover_pre, blacksmith_umbrella_swing_recover_main
     global blacksmith_umbrella_swing_direction
+    global blacksmith_umbrella_swing_sound_timer, blacksmith_umbrella_swing_sound_pending
     global blacksmith_umbrella_knockback_active, blacksmith_umbrella_knockback_start_x
     global blacksmith_umbrella_knockback_target_x, blacksmith_umbrella_knockback_velocity, blacksmith_umbrella_knockback_timer
     global blacksmith_umbrella_anchor_smoothed_x  # 전역 변수 선언 추가
@@ -17561,6 +17566,8 @@ def handle_player(keys):
             blacksmith_umbrella_swing_stage = 0
             blacksmith_umbrella_swing_progress = 0.0
             blacksmith_umbrella_swing_direction = swing_trigger_direction
+            blacksmith_umbrella_swing_sound_timer = BLACKSMITH_UMBRELLA_SWING_SOUND_DELAY_FRAMES
+            blacksmith_umbrella_swing_sound_pending = True
             
             # 스윙 시작 시 anchor smoothing 값을 목표값에 가깝게 초기화
             # 이전 스윙의 잔여값으로 인한 부드러운 전환을 방지
