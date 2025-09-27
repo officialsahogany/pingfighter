@@ -109,6 +109,16 @@ class ItemSystem:
                 'effect': {'gravity_reduction': 0.5},
                 'permanent': True
             },
+            'star_detector': {
+                'name': '별탐지기',
+                'description': '스타포인트가 드랍될 때 80% 확률로 보상을 2배로 증가시킵니다.',
+                'type': 'passive',
+                'effect': {
+                    'star_bonus_chance': 0.8,
+                    'star_bonus_multiplier': 2
+                },
+                'permanent': True
+            },
             'foul_whistle': {
                 'name': '반칙호루라기',
                 'description': '라운드 패배 시 10% 확률로 무효 선언 후 재경기',
