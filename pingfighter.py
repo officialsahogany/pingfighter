@@ -8865,6 +8865,7 @@ BLACKSMITH_HAMMER_SWING_DURATION = 36
 BLACKSMITH_HAMMER_SWING_DECAY_NORMAL = 2
 BLACKSMITH_HAMMER_SWING_DECAY_SLOW = 1
 blacksmith_hammer_swing_slow_timer = 0
+blacksmith_hammer_slow_decay_step = 0
 blacksmith_manual_hammer_timer = 0
 blacksmith_hammer_swing_auto = False
 BLACKSMITH_TRAIL_DURATION = 45
