@@ -17580,6 +17580,26 @@ def handle_player(keys):
     player_up_pressed = bool(up_pressed)
     up_just_pressed = up_pressed and not player_up_pressed_prev
 
+    if selected_character_type == "blacksmith":
+        if blacksmith_umbrella_damage_flash_timer > 0:
+            blacksmith_umbrella_damage_flash_timer -= 1
+
+        if blacksmith_umbrella_open:
+            blacksmith_umbrella_recharge_progress = 0
+            if blacksmith_umbrella_gauge <= 0:
+                request_blacksmith_umbrella_close(play_sound=True, flash=True)
+        else:
+            if blacksmith_umbrella_gauge >= BLACKSMITH_UMBRELLA_GAUGE_MAX:
+                blacksmith_umbrella_recharge_progress = 0
+            else:
+                blacksmith_umbrella_recharge_progress += 1
+                if blacksmith_umbrella_recharge_progress >= BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES:
+                    blacksmith_umbrella_gauge = min(
+                        BLACKSMITH_UMBRELLA_GAUGE_MAX,
+                        blacksmith_umbrella_gauge + 1,
+                    )
+                    blacksmith_umbrella_recharge_progress = 0
+
     umbrella_lock_active = False
     umbrella_action_block = False
     umbrella_swinging_main = False
@@ -17606,16 +17626,17 @@ def handle_player(keys):
                 and blacksmith_umbrella_anim_timer == 0
                 and player_stunned_timer <= 0
             ):
-                blacksmith_umbrella_retracting = True
-                blacksmith_umbrella_anim_direction = -1
-                blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
-                if SOUND_BLACKSMITH_UMBRELLA_CLOSE:
-                    play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_CLOSE)
+                request_blacksmith_umbrella_close()
 
             if 'blacksmith_shield_impact_timer' in globals() and blacksmith_shield_impact_timer > 0:
                 blacksmith_shield_impact_timer -= 1
         elif up_just_pressed and player_stunned_timer <= 0:
-            if (
+            if blacksmith_umbrella_gauge <= 0:
+                blacksmith_umbrella_damage_flash_timer = max(
+                    blacksmith_umbrella_damage_flash_timer,
+                    int(BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES * 0.75),
+                )
+            elif (
                 not blacksmith_build_menu_active
                 and not blacksmith_hammer_shock_charging
                 and (blacksmith_hammer_available or blacksmith_hammer_shock_cooldown_timer > 0)
