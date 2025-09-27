@@ -17257,10 +17257,12 @@ def handle_player(keys):
         elif up_just_pressed and player_stunned_timer <= 0:
             if (
                 not blacksmith_build_menu_active
-                and not blacksmith_turret_blueprint_active
                 and not blacksmith_hammer_shock_charging
                 and (blacksmith_hammer_available or blacksmith_hammer_shock_cooldown_timer > 0)
             ):
+                if blacksmith_turret_blueprint_active or blacksmith_divine_blueprint_active:
+                    cancel_blacksmith_construction(push=True)
+                    stop_blacksmith_construction_sound()
                 blacksmith_umbrella_open = True
                 blacksmith_umbrella_retracting = False
                 blacksmith_umbrella_anim_direction = 1
