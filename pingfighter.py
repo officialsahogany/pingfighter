@@ -5915,10 +5915,11 @@ def release_blacksmith_hammer_shock():
     }
     blacksmith_hammer_shock_projectiles.append(projectile)
     if blacksmith_hammer_charge_position is not None:
-        blacksmith_hammer_idle_position = (
-            float(blacksmith_hammer_charge_position[0]),
-            float(blacksmith_hammer_charge_position[1]),
-        )
+        sanitized_charge = _sanitize_blacksmith_hammer_position(blacksmith_hammer_charge_position)
+        if sanitized_charge is not None:
+            blacksmith_hammer_idle_position = sanitized_charge
+        else:
+            blacksmith_hammer_idle_position = None
     blacksmith_hammer_charge_position = None
     if selected_character_type != "blacksmith":
         blacksmith_hammer_head_surface_point = None
@@ -6948,10 +6949,11 @@ def update_blacksmith_hammer_shock(keys):
             blacksmith_hammer_shock_charge_frames = 0
             blacksmith_hammer_shock_stage = 0
             if blacksmith_hammer_charge_position is not None:
-                blacksmith_hammer_idle_position = (
-                    float(blacksmith_hammer_charge_position[0]),
-                    float(blacksmith_hammer_charge_position[1]),
-                )
+                sanitized_charge = _sanitize_blacksmith_hammer_position(blacksmith_hammer_charge_position)
+                if sanitized_charge is not None:
+                    blacksmith_hammer_idle_position = sanitized_charge
+                else:
+                    blacksmith_hammer_idle_position = None
             blacksmith_hammer_charge_position = None
         else:
             try:
@@ -6970,10 +6972,11 @@ def update_blacksmith_hammer_shock(keys):
         blacksmith_hammer_shock_stage = 0
         blacksmith_hammer_shock_charge_frames = 0
         if blacksmith_hammer_charge_position is not None:
-            blacksmith_hammer_idle_position = (
-                float(blacksmith_hammer_charge_position[0]),
-                float(blacksmith_hammer_charge_position[1]),
-            )
+            sanitized_charge = _sanitize_blacksmith_hammer_position(blacksmith_hammer_charge_position)
+            if sanitized_charge is not None:
+                blacksmith_hammer_idle_position = sanitized_charge
+            else:
+                blacksmith_hammer_idle_position = None
         blacksmith_hammer_charge_position = None
 
     advance_iterations = 2 if blacksmith_hammer_projectiles_paused else 1
@@ -26422,8 +26425,13 @@ def draw_objects():
             player_rect.left + float(local_point.x),
             player_rect.top + float(local_point.y),
         )
-        blacksmith_hammer_charge_position = new_hammer_pos
-        blacksmith_hammer_idle_position = new_hammer_pos
+        sanitized_pos = _sanitize_blacksmith_hammer_position(new_hammer_pos)
+        if sanitized_pos is not None:
+            blacksmith_hammer_charge_position = sanitized_pos
+            blacksmith_hammer_idle_position = sanitized_pos
+        else:
+            blacksmith_hammer_charge_position = None
+            blacksmith_hammer_idle_position = None
     # 디버깅: player_rect 위치 확인
     if frame_count % 60 == 0:  # 1초마다 한 번씩만 출력
         pass  # print(f"📍 player_rect 위치: {player_rect.topleft}, 크기: {player_rect.size}")
