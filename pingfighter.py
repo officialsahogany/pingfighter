@@ -1475,6 +1475,7 @@ passive_item_list = []               # 패시브 아이템 목록 (어댑터 호
 selected_passive_item = -1           # 패시브 아이템 선택 인덱스 (어댑터 호환용)
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
 last_item_use_time = 0               # 마지막 아이템 사용 시간 (전역 쿨타임용)
+foul_whistle_pending_round_reset = False  # 반칙호루라기 발동 후 라운드 리셋 대기 플래그
 
 # 연금술 텍스트 이펙트
 
