@@ -6054,6 +6054,7 @@ def release_blacksmith_hammer_shock():
     global special_gauge, special_ready, special_gauge_max
     global PLAYER, SOUND_GRENADE, SOUND_BLACKSMITH_HAMMER_THROW
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
+    global blacksmith_divine_stone_state
 
     if not blacksmith_hammer_shock_charging:
         return
@@ -6068,6 +6069,12 @@ def release_blacksmith_hammer_shock():
         return
 
     if special_gauge < BLACKSMITH_HAMMER_SHOCK_COST:
+        blacksmith_hammer_shock_charging = False
+        blacksmith_hammer_shock_charge_frames = 0
+        blacksmith_hammer_shock_stage = 0
+        return
+
+    if blacksmith_divine_stone_state is None:
         blacksmith_hammer_shock_charging = False
         blacksmith_hammer_shock_charge_frames = 0
         blacksmith_hammer_shock_stage = 0
