@@ -9235,6 +9235,7 @@ def reset_blacksmith_state() -> None:
     BLACKSMITH_CONTROLLER.reset()
     global blacksmith_hammer_swing_slow_timer
     blacksmith_hammer_swing_slow_timer = 0
+    stop_blacksmith_hammer_charge_sound()
 
 
 def start_blacksmith_construction_sound():
