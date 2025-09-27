@@ -43553,6 +43553,7 @@ def handle_ball():
     global soldier_right_hook_active, soldier_right_hook_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
+    global blacksmith_umbrella_swing_active
     # 스톱워치 보정/락 상태 (스마트폰)
     global stopwatch_forced_upward, stopwatch_upward_lock_timer
     # 스톱워치 보정/락 상태 (스마트폰)
@@ -44712,6 +44713,7 @@ def handle_ball():
             blacksmith_umbrella_open
             or blacksmith_umbrella_anim_timer > 0
             or blacksmith_umbrella_retracting
+            or blacksmith_umbrella_swing_active
         )
     )
     # 디버깅: 센서 상태 확인
