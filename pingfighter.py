@@ -25050,7 +25050,128 @@ def draw_player_gauge():
                 pygame.draw.circle(wave_surface, (255, 255, 255, wave_alpha), 
                                  (wave_radius, wave_radius), wave_radius, 1)
                 SCREEN.blit(wave_surface, (sensor_token_x - wave_radius, sensor_token_y - wave_radius))
+    umbrella_panel_bottom = tokens_bottom
+    if selected_character_type == "blacksmith":
+        gauge_value = max(0, min(BLACKSMITH_UMBRELLA_GAUGE_MAX, globals().get("blacksmith_umbrella_gauge", BLACKSMITH_UMBRELLA_GAUGE_MAX)))
+        gauge_max = BLACKSMITH_UMBRELLA_GAUGE_MAX
+        recharge_frames = max(1, BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES)
+        recharge_progress = globals().get("blacksmith_umbrella_recharge_progress", 0)
+        recharge_ratio = 0.0
+        if gauge_value < gauge_max and not globals().get("blacksmith_umbrella_open", False):
+            recharge_ratio = max(0.0, min(1.0, recharge_progress / recharge_frames))
+        flash_frames = max(1, BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES)
+        flash_timer = globals().get("blacksmith_umbrella_damage_flash_timer", 0)
+        flash_strength = max(0.0, min(1.0, flash_timer / flash_frames)) if flash_timer > 0 else 0.0
+        danger_ratio = 1.0 if gauge_value == 0 else 0.6 if gauge_value == 1 else 0.0
+
+        center_x = player_gauge_x + player_gauge_width // 2
+        segment_count = gauge_max
+        segment_spacing = 4
+        shield_width = 18
+        shield_height = 16
+        row_width = shield_width * segment_count + segment_spacing * (segment_count - 1)
+        panel_padding_x = 6
+        panel_padding_y = 6
+        panel_width = row_width + panel_padding_x * 2
+        panel_height = shield_height + panel_padding_y * 2
+        panel_x = int(center_x - panel_width / 2)
+        panel_y = int(tokens_bottom + 12)
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+
+        def _clamp_component(value: float) -> int:
+            return max(0, min(255, int(round(value))))
+
+        panel_base = (68, 54, 40)
+        panel_danger = (118, 48, 40)
+        panel_color = tuple(
+            _clamp_component(panel_base[i] * (1 - danger_ratio) + panel_danger[i] * danger_ratio + flash_strength * 24)
+            for i in range(3)
+        )
+        panel_border = tuple(_clamp_component(panel_color[i] + 28) for i in range(3))
+        panel_highlight = tuple(_clamp_component(panel_color[i] + 42) for i in range(3))
+
+        pygame.draw.rect(SCREEN, panel_color, panel_rect, border_radius=6)
+        pygame.draw.rect(SCREEN, panel_border, panel_rect, width=1, border_radius=6)
+        highlight_rect = panel_rect.inflate(-4, -(panel_rect.height - 6))
+        if highlight_rect.width > 0:
+            pygame.draw.line(SCREEN, panel_highlight,
+                             (highlight_rect.left, highlight_rect.top),
+                             (highlight_rect.right, highlight_rect.top), 2)
+
+        fill_safe = (220, 196, 128)
+        fill_danger = (236, 118, 84)
+        segment_fill = tuple(
+            _clamp_component(fill_safe[i] * (1 - danger_ratio) + fill_danger[i] * danger_ratio + flash_strength * 36)
+            for i in range(3)
+        )
+        empty_color = tuple(_clamp_component(panel_color[i] - 14) for i in range(3))
+        partial_color = tuple(_clamp_component(segment_fill[i] * 0.74 + 18) for i in range(3))
+        highlight_color = tuple(_clamp_component(segment_fill[i] + 36) for i in range(3))
+        shield_outline = tuple(_clamp_component(panel_border[i] + 12) for i in range(3))
+
+        def _draw_umbrella_shield(rect: pygame.Rect, fill_ratio: float, *, fill_color: tuple[int, int, int] | None) -> None:
+            bevel = max(2, int(rect.width * 0.2))
+            crown = int(rect.height * 0.45)
+            shield_points = [
+                (rect.centerx, rect.top),
+                (rect.right, rect.top + crown),
+                (rect.right - bevel, rect.bottom),
+                (rect.left + bevel, rect.bottom),
+                (rect.left, rect.top + crown),
+            ]
+
+            pygame.draw.polygon(SCREEN, empty_color, shield_points)
+            if fill_ratio > 0.0 and fill_color is not None:
+                previous_clip = SCREEN.get_clip()
+                clip_height = max(1, int(round(rect.height * fill_ratio)))
+                clip_rect = pygame.Rect(rect.left, rect.bottom - clip_height, rect.width, clip_height)
+                SCREEN.set_clip(clip_rect)
+                pygame.draw.polygon(SCREEN, fill_color, shield_points)
+                SCREEN.set_clip(previous_clip)
+
+                highlight_clip = pygame.Rect(rect.left, rect.bottom - clip_height, rect.width, max(1, clip_height // 3))
+                SCREEN.set_clip(highlight_clip)
+                pygame.draw.polygon(SCREEN, highlight_color, shield_points)
+                SCREEN.set_clip(previous_clip)
+
+            pygame.draw.polygon(SCREEN, shield_outline, shield_points, 1)
+
+        shield_start_x = panel_rect.centerx - row_width // 2
+        shield_y = panel_rect.y + panel_padding_y
+        current_x = shield_start_x
+        for idx in range(segment_count):
+            shield_rect = pygame.Rect(int(current_x), shield_y, shield_width, shield_height)
+            if idx < gauge_value:
+                _draw_umbrella_shield(shield_rect, 1.0, fill_color=segment_fill)
+            elif idx == gauge_value and gauge_value < gauge_max and recharge_ratio > 0:
+                _draw_umbrella_shield(shield_rect, recharge_ratio, fill_color=partial_color)
+            else:
+                _draw_umbrella_shield(shield_rect, 0.0, fill_color=None)
+            current_x += shield_width + segment_spacing
+
+        label_color_base = (242, 234, 224)
+        label_color_danger = (255, 210, 198)
+        label_color = tuple(
+            _clamp_component(label_color_base[i] * (1 - danger_ratio) + label_color_danger[i] * danger_ratio + flash_strength * 20)
+            for i in range(3)
+        )
+        umbrella_text_surface = FontStyle.tiny().render(f"{gauge_value}/{gauge_max}", True, label_color)
+        umbrella_text_rect = umbrella_text_surface.get_rect(center=(panel_rect.centerx, panel_rect.bottom + 6))
+        text_bg = umbrella_text_rect.inflate(6, 4)
+        pygame.draw.rect(SCREEN, (0, 0, 0, 140), text_bg, border_radius=3)
+        draw.rect((90, 80, 70), text_bg, 1, border_radius=3)
+        SCREEN.blit(umbrella_text_surface, umbrella_text_rect.topleft)
+        umbrella_panel_bottom = umbrella_text_rect.bottom
     
+    gauge_text_width, gauge_text_height = gauge_text_size
+    gauge_text_x = gauge_x + gauge_width // 2 - gauge_text_width // 2
+    text_base_bottom = max(tokens_bottom, umbrella_panel_bottom)
+    gauge_text_y = int(text_base_bottom + 10)
+    text_bg_rect = pygame.Rect(gauge_text_x - 2, gauge_text_y - 1, gauge_text_width + 4, gauge_text_height + 2)
+    pygame.draw.rect(SCREEN, (0, 0, 0, 180), text_bg_rect, border_radius=3)
+    draw.rect((100, 100, 100), text_bg_rect, 1, border_radius=3)
+    SCREEN.blit(gauge_text_surface, (gauge_text_x, gauge_text_y))
+
     #  악마의 주사위 게이지 표시
     from item_effects.devil_dice import is_devil_dice_active, get_devil_dice_duration_ratio
     if is_devil_dice_active():
