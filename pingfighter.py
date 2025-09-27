@@ -5010,7 +5010,7 @@ def create_blacksmith_paddle_base(include_hammer: bool = True) -> pygame.Surface
         return surface
     raise RuntimeError("Failed to create blacksmith paddle surface")
 
-def create_blacksmith_paddle_walking():
+def create_blacksmith_paddle_walking(*, force_hammer: bool | None = None):
     global blacksmith_walking_timer, blacksmith_walk_direction
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
     progress = (blacksmith_walking_timer % BLACKSMITH_WALKING_CYCLE) / BLACKSMITH_WALKING_CYCLE
@@ -5024,6 +5024,8 @@ def create_blacksmith_paddle_walking():
         walk_wave=walk_wave,
         walk_bob=walk_bob,
         walk_lean=walk_lean,
+        force_hammer_visibility=force_hammer,
+        hammerless_walk=(force_hammer is False),
     )
     step = int(walk_wave * 8)
     _draw_blacksmith_legs(surface, step)
