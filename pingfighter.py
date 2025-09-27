@@ -53102,6 +53102,14 @@ def main(stage_num, new_boss_mode=False):
                 else:
                     blacksmith_down_hold_frames = 0
                     down_press_frame = -1
+
+                if (
+                    not blacksmith_build_menu_active
+                    and blacksmith_down_hold_frames >= BLACKSMITH_BUILD_MENU_HOLD_FRAMES
+                    and blacksmith_has_available_buildings()
+                ):
+                    blacksmith_open_build_menu()
+                    down_just_pressed = False
             if not blacksmith_build_menu_active:
                 down_just_pressed = handle_blacksmith_turret_input(
                     current_down_state,
