@@ -924,6 +924,11 @@ def start_blacksmith_hammer_charge_sound() -> None:
     global blacksmith_hammer_charge_sound_channel
 
     if not SOUND_BLACKSMITH_HAMMER_CHARGE:
+        if 'SOUND_STAGE6_BEAM_CHARGE' in globals() and SOUND_STAGE6_BEAM_CHARGE:
+            try:
+                play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+            except Exception:
+                pass
         return
 
     channel = blacksmith_hammer_charge_sound_channel
