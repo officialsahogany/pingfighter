@@ -38601,6 +38601,7 @@ def show_item_manager_menu():
         {"name": "fuel_pouch", "type": "passive", "icon": get_icon_safe("fuel_pouch_icon", "fuel_pouch")},
         {"name": "bluetooth_ring", "type": "passive", "icon": get_icon_safe("bluetooth_ring_icon", "bluetooth_ring")},
         {"name": "foul_whistle", "type": "passive", "icon": get_icon_safe("foul_whistle_icon", "foul_whistle")},
+        {"name": "star_detector", "type": "passive", "icon": get_icon_safe("star_detector_icon", "star_detector")},
         {"name": "smartphone", "type": "passive", "icon": get_icon_safe("smartphone_icon", "smartphone")},
         {"name": "knee_pads", "type": "passive", "icon": get_icon_safe("knee_pads_icon", "knee_pads")}
     ]
