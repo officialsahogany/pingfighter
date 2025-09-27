@@ -7403,17 +7403,29 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
 
     blacksmith_hammer_return_fx = updated_return_fx
 
-def update_blacksmith_divine_stone():
-    """디바인 스톤 상태 및 충돌 업데이트"""
+def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_push=True):
+    """디바인 스톤 상태 및 충돌 업데이트.
+
+    Args:
+        divine_runtime: 미리 획득한 런타임 객체. 없으면 컨트롤러에서 가져온다.
+        auto_sync: True일 때 전역→상태 동기화를 수행한다.
+        auto_push: 변경 시 상태→전역 동기화를 수행한다.
+
+    Returns:
+        bool: 상태가 변경되었는지 여부.
+    """
+
     global ball_vel
 
-    sync_blacksmith_state()
-    state = BLACKSMITH_CONTROLLER.state
-    divine_runtime = state.divine
+    if divine_runtime is None:
+        if auto_sync:
+            sync_blacksmith_state()
+        state = BLACKSMITH_CONTROLLER.state
+        divine_runtime = state.divine
     divine_state = divine_runtime.state
 
     if divine_state is None:
-        return
+        return False
 
     rect = divine_state["rect"]
     divine_state["pulse"] = (divine_state.get("pulse", 0) + 1) % 240
@@ -7438,8 +7450,9 @@ def update_blacksmith_divine_stone():
                 divine_runtime.state = None
                 state_changed = True
 
-    if state_changed:
+    if state_changed and auto_push:
         push_blacksmith_state()
+    return state_changed
 
 def update_blacksmith_turret():
     """발토르 포탑의 발사 및 투사체 동작을 업데이트한다."""
