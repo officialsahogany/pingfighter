@@ -8602,6 +8602,120 @@ def draw_blacksmith_build_menu(surface):
         surface.blit(label, label.get_rect(center=(dest_rect.centerx, dest_rect.bottom + 16)))
 
 
+_blacksmith_divine_ui_icon_cache: dict[int, pygame.Surface] = {}
+
+
+def _get_blacksmith_divine_ui_icon(size: int) -> pygame.Surface:
+    icon_size = max(16, int(size))
+    cached = _blacksmith_divine_ui_icon_cache.get(icon_size)
+    if cached is not None:
+        return cached
+
+    hammer_surface = _get_blacksmith_thrown_hammer_surface()
+    target_height = max(12, int(icon_size * 0.9))
+    scale = target_height / max(1, hammer_surface.get_height())
+    scaled_width = max(4, int(hammer_surface.get_width() * scale))
+    scaled_height = max(4, int(hammer_surface.get_height() * scale))
+    hammer_scaled = pygame.transform.smoothscale(hammer_surface, (scaled_width, scaled_height))
+    hammer_rotated = pygame.transform.rotozoom(hammer_scaled, -18, 1.0)
+
+    icon_surface = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+    glow = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+    pygame.draw.circle(
+        glow,
+        (150, 170, 235, 105),
+        (icon_size // 2 - 6, icon_size // 2 + 4),
+        icon_size // 2,
+    )
+    icon_surface.blit(glow, (0, 0), special_flags=pygame.BLEND_ADD)
+
+    hammer_rect = hammer_rotated.get_rect(
+        center=(icon_size // 2 + int(icon_size * 0.08), icon_size // 2 + 2)
+    )
+    icon_surface.blit(hammer_rotated, hammer_rect)
+
+    highlight = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+    pygame.draw.arc(
+        highlight,
+        (240, 245, 255, 180),
+        pygame.Rect(4, 4, icon_size - 8, icon_size - 8),
+        math.radians(210),
+        math.radians(330),
+        2,
+    )
+    icon_surface.blit(highlight, (0, 0))
+
+    _blacksmith_divine_ui_icon_cache[icon_size] = icon_surface
+    return icon_surface
+
+
+def draw_blacksmith_divine_ui(surface):
+    if selected_character_type != "blacksmith":
+        return
+
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    divine_runtime = state.divine
+    turret_runtime = state.turret
+    divine_state = divine_runtime.state
+
+    if divine_state is None:
+        return
+
+    slot_size = 60
+    slot_margin = 10
+    bottom_margin = 80
+    icon_size = int(slot_size * 0.8)
+    base_x = slot_margin
+    base_y = HEIGHT - bottom_margin - slot_size - icon_size + 15
+    icon_rect = pygame.Rect(base_x, base_y, icon_size, icon_size)
+
+    gauge_height = 6
+    stack_gap = icon_rect.height + gauge_height + 20
+    if turret_runtime.blueprint_active or turret_runtime.active:
+        icon_rect = icon_rect.move(0, -stack_gap)
+    icon_rect.y = max(12, icon_rect.y)
+
+    panel_color = (52, 44, 38)
+    border_color = (132, 110, 80)
+    accent_color = (210, 170, 90)
+
+    pygame.draw.rect(surface, panel_color, icon_rect, border_radius=6)
+    pygame.draw.rect(surface, border_color, icon_rect, width=2, border_radius=6)
+
+    glow_surface = pygame.Surface(icon_rect.size, pygame.SRCALPHA)
+    pygame.draw.circle(
+        glow_surface,
+        (120, 140, 210, 90),
+        (icon_rect.width // 2, icon_rect.height // 2 + 4),
+        icon_rect.width // 2,
+    )
+    surface.blit(glow_surface, icon_rect.topleft, special_flags=pygame.BLEND_ADD)
+
+    hammer_icon = _get_blacksmith_divine_ui_icon(icon_rect.width)
+    hammer_rect = hammer_icon.get_rect(center=(icon_rect.centerx + 4, icon_rect.centery + 2))
+    surface.blit(hammer_icon, hammer_rect.topleft)
+
+    hp = divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
+    max_hp = max(1, divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP))
+    ratio = max(0.0, min(1.0, hp / max_hp))
+
+    bar_rect = pygame.Rect(icon_rect.x, icon_rect.bottom + 4, icon_rect.width, gauge_height)
+    pygame.draw.rect(surface, (35, 35, 45), bar_rect.inflate(4, 4), border_radius=3)
+    fill_width = int(bar_rect.width * ratio)
+    if fill_width > 0:
+        fill_rect = pygame.Rect(bar_rect.x, bar_rect.y, fill_width, bar_rect.height)
+        pygame.draw.rect(surface, (110, 176, 255), fill_rect, border_radius=3)
+    pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
+
+    status_text = FontStyle.tiny().render(f"{hp}/{max_hp}", True, (225, 235, 255))
+    surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
+
+    label_text = FontStyle.tiny().render("디바인스톤", True, accent_color)
+    label_rect = label_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
+    surface.blit(label_text, label_rect)
+
+
 def draw_blacksmith_turret_ui(surface):
     if selected_character_type != "blacksmith":
         return
