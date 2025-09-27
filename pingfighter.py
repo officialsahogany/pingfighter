@@ -8713,18 +8713,16 @@ def draw_blacksmith_divine_ui(surface):
     state = BLACKSMITH_CONTROLLER.state
     divine_runtime = state.divine
     turret_runtime = state.turret
-    divine_state = divine_runtime.state
-    building_mode = divine_state is None and divine_runtime.blueprint_active
+    global blacksmith_divine_blueprint_active, blacksmith_divine_build_progress
+    global blacksmith_divine_stone_state
 
-    if not building_mode and divine_state is None:
-        global blacksmith_divine_stone_state
-        if blacksmith_divine_stone_state is not None:
-            divine_runtime.state = blacksmith_divine_stone_state
-            push_blacksmith_state()
-            divine_state = divine_runtime.state
-            building_mode = False
-        else:
-            return
+    divine_state = divine_runtime.state or blacksmith_divine_stone_state
+    blueprint_active = bool(divine_runtime.blueprint_active or blacksmith_divine_blueprint_active)
+
+    if divine_state is None and not blueprint_active:
+        return
+
+    building_mode = blueprint_active and divine_state is None
 
     slot_size = 60
     slot_margin = 10
@@ -8778,9 +8776,13 @@ def draw_blacksmith_divine_ui(surface):
     pygame.draw.rect(surface, (35, 35, 45), bar_rect.inflate(4, 4), border_radius=3)
 
     if building_mode:
+        build_progress = max(
+            divine_runtime.build_progress,
+            float(blacksmith_divine_build_progress),
+        )
         progress = 0.0
         if BLACKSMITH_DIVINE_BUILD_TIME > 0:
-            progress = divine_runtime.build_progress / BLACKSMITH_DIVINE_BUILD_TIME
+            progress = build_progress / BLACKSMITH_DIVINE_BUILD_TIME
         progress = max(0.0, min(1.0, progress))
         fill_width = int(bar_rect.width * progress)
         if fill_width > 0:
