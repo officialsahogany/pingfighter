@@ -7854,11 +7854,11 @@ def draw_blacksmith_turret_elements(surface):
             filled_rect = pygame.Rect(gauge_rect.left, gauge_rect.top, int(gauge_width * progress_ratio), gauge_height)
             pygame.draw.rect(surface, (110, 200, 255), filled_rect, border_radius=3)
         pygame.draw.rect(surface, (150, 200, 255), gauge_rect, 1, border_radius=3)
-    if blacksmith_turret_blueprint_active and blacksmith_turret_blueprint_rect:
-        blueprint_rect = blacksmith_turret_blueprint_rect
+    if turret.blueprint_active and turret.blueprint_rect:
+        blueprint_rect = turret.blueprint_rect
         progress_ratio = 0.0
         if BLACKSMITH_TURRET_BUILD_TIME > 0:
-            progress_ratio = blacksmith_turret_build_progress / BLACKSMITH_TURRET_BUILD_TIME
+            progress_ratio = turret.build_progress / BLACKSMITH_TURRET_BUILD_TIME
         progress_ratio = max(0.0, min(1.0, progress_ratio))
 
         stage_float = progress_ratio * 3.0
@@ -8126,7 +8126,7 @@ def draw_blacksmith_turret_elements(surface):
             special_flags=pygame.BLEND_ADD,
         )
 
-    for proj in blacksmith_turret_projectiles:
+    for proj in projectiles:
         proj_pos = (int(proj["x"]), int(proj["y"]))
         radius = int(proj.get("radius", BLACKSMITH_TURRET_PROJECTILE_RADIUS))
         if 'BLACKSMITH_MISSILE_IMG' in globals() and BLACKSMITH_MISSILE_IMG:
