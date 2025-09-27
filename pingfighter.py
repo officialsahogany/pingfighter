@@ -9603,7 +9603,6 @@ def reset_blacksmith_state() -> None:
     global blacksmith_umbrella_gauge, blacksmith_umbrella_recharge_progress
     global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
     global blacksmith_umbrella_hit_lock
-    global blacksmith_umbrella_hit_lock
     blacksmith_hammer_swing_slow_timer = 0
     stop_blacksmith_hammer_charge_sound()
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
