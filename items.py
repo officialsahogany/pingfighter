@@ -550,6 +550,7 @@ chargebag_obtained = False  # 충전가방 아이템 획득 여부
 fuel_pouch_obtained = False  # 연료파우치 아이템 획득 여부
 bluetooth_ring_obtained = False  # 블루투스링 아이템 획득 여부
 foul_whistle_obtained = False  # 반칙호루라기 아이템 획득 여부
+star_detector_obtained = False  # 별탐지기 아이템 획득 여부
 spikeboots_obtained = False  # 스파이크부츠 아이템 획득 여부
 dashgear_obtained = False  # 대쉬기어 아이템 획득 여부
 bulkup_obtained = False  # 벌크업 아이템 획득 여부
@@ -608,6 +609,7 @@ unlocked_items = {
     "fuel_pouch": True,
     "bluetooth_ring": True,
     "foul_whistle": True,
+    "star_detector": True,
     "smartphone": True,
     "ammo_box": True,
     "doping_potion": True,
@@ -647,7 +649,7 @@ def reset_items():
     
     global slot_add_obtained, speedboots_obtained, speedgear_obtained, battery_obtained
     global revival_obtained, revival_used, master_obtained, cooltime_obtained
-    global chargebag_obtained, fuel_pouch_obtained, bluetooth_ring_obtained, foul_whistle_obtained
+    global chargebag_obtained, fuel_pouch_obtained, bluetooth_ring_obtained, foul_whistle_obtained, star_detector_obtained
     global spikeboots_obtained, dashgear_obtained
     
     slot_add_obtained = 0  # slot_add 획득 카운트 초기화
@@ -663,6 +665,7 @@ def reset_items():
     fuel_pouch_obtained = False  # fuel_pouch 획득 상태 초기화
     bluetooth_ring_obtained = False  # bluetooth_ring 획득 상태 초기화
     foul_whistle_obtained = False  # foul_whistle 획득 상태 초기화
+    star_detector_obtained = False  # star_detector 획득 상태 초기화
     spikeboots_obtained = False  # spikeboots 획득 상태 초기화
     dashgear_obtained = False  # dashgear 획득 상태 초기화
     
