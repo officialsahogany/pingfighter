@@ -9587,6 +9587,7 @@ blacksmith_divine_blueprint_active = False
 blacksmith_divine_blueprint_rect = None
 blacksmith_divine_build_progress = 0
 blacksmith_divine_partial_drain = 0.0
+blacksmith_divine_stage_owner = None
 
 BLACKSMITH_TURRET_ICON = _create_turret_icon()
 BLACKSMITH_DIVINE_ICON = _create_divine_stone_icon()
