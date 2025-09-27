@@ -17257,7 +17257,6 @@ def handle_player(keys):
                 and (blacksmith_hammer_available or blacksmith_hammer_shock_cooldown_timer > 0)
             ):
                 if blacksmith_turret_blueprint_active or blacksmith_divine_blueprint_active:
-                    cancel_blacksmith_construction(push=True)
                     stop_blacksmith_construction_sound()
                 blacksmith_umbrella_open = True
                 blacksmith_umbrella_retracting = False
