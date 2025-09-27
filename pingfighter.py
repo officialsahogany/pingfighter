@@ -30298,6 +30298,8 @@ def show_victory_screen(stage_cleared, reward):
     global final_round_wins, final_round_losses
     global gacha_reroll_stage, gacha_reroll_streak
 
+    stop_blacksmith_construction_sound()
+
     if gacha_reroll_stage != stage_cleared:
         gacha_reroll_stage = stage_cleared
         gacha_reroll_streak = 0
