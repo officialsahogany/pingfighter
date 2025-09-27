@@ -22471,7 +22471,7 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
     global item_obtained_effect
     # 아이템 타입 확인
     item_name = item_data.get("name", "")
-    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "smartphone", "knee_pads", "gravitybelt"]
+    is_passive = item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "smartphone", "knee_pads", "gravitybelt"]
     # 시작 위치 (아이템이 있던 위치 또는 화면 중앙)
     if item_x is not None and item_y is not None:
         start_x = item_x
