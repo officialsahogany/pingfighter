@@ -1259,6 +1259,7 @@ SOUND_RAGNAROK_SHOCK = sound_effects['RAGNAROK_SHOCK']
 SOUND_CONSTRUCTION = sound_effects['CONSTRUCTION']
 SOUND_BLACKSMITH_UMBRELLA_SWING = sound_effects['BLACKSMITH_UMBRELLA_SWING']
 SOUND_BLACKSMITH_UMBRELLA_BLOCK = sound_effects['BLACKSMITH_UMBRELLA_BLOCK']
+SOUND_BLACKSMITH_HAMMER_CHARGE = sound_effects['BLACKSMITH_HAMMER_CHARGE']
 SOUND_BLACKSMITH_HAMMER_THROW = sound_effects['BLACKSMITH_HAMMER_THROW']
 SOUND_BLACKSMITH_HAMMER_EXPLOSION = sound_effects['BLACKSMITH_HAMMER_EXPLOSION']
 if SOUND_CONSTRUCTION is None:
@@ -9030,6 +9031,7 @@ blacksmith_hammer_shock_cooldown_timer = 0
 blacksmith_hammer_shock_projectiles = []
 blacksmith_hammer_shock_anchor_x = 0
 blacksmith_hammer_shock_anchor_y = 0
+blacksmith_hammer_charge_sound_channel = None
 BLACKSMITH_HAMMER_SHOCK_STAGE1_FRAMES = int(1 * FPS)
 BLACKSMITH_HAMMER_SHOCK_STAGE2_FRAMES = int(2 * FPS)
 BLACKSMITH_HAMMER_SHOCK_STAGE3_FRAMES = int(3 * FPS)
