@@ -41928,6 +41928,8 @@ def reset_round():
         blacksmith_hammer_swing_active = False
     if 'blacksmith_hammer_swing_phase' in globals():
         blacksmith_hammer_swing_phase = 0
+    if 'blacksmith_hammer_swing_slow_timer' in globals():
+        blacksmith_hammer_swing_slow_timer = 0
     if 'blacksmith_manual_hammer_timer' in globals():
         blacksmith_manual_hammer_timer = 0
     if 'blacksmith_hammer_swing_auto' in globals():
@@ -50796,6 +50798,8 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_shield_swing_timer = 0
     blacksmith_hammer_swing_active = False
     blacksmith_hammer_swing_phase = 0
+    global blacksmith_hammer_swing_slow_timer
+    blacksmith_hammer_swing_slow_timer = 0
     blacksmith_manual_hammer_timer = 0
     reset_blacksmith_state()
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
