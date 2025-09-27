@@ -51212,6 +51212,8 @@ def show_result(won):
     global whip_active, whip_timer, whip_hit_by_player, whip_original_ball_speed  #  상모돌리기 관련 변수 추가
     global emotional_overdrive_active, emotional_overdrive_timer, overdrive_flash_timer, overdrive_trails  #  사이코볼 관련 변수 추가
     global boss_special_gauge, boss_special_ready, boss_special_waiting, boss_red_intensity  #  멘헤라걸 관련 변수 추가
+
+    stop_blacksmith_construction_sound()
     # 필살기 초기화 (Aipill 활성화 시 또는 배터리 보유 시에는 게이지 유지)
     if not aipill_active and not battery_obtained:
         special_gauge = 0
