@@ -7459,6 +7459,7 @@ def update_blacksmith_turret():
     global player_collision_handled, last_hit_by
     global ball_vel, stopwatch_active, stopwatch_timer, game_vars, SCREEN
 
+    sync_blacksmith_state()
     state = BLACKSMITH_CONTROLLER.state
     turret_runtime = state.turret
     divine_runtime = state.divine
