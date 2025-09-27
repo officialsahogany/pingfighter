@@ -3987,6 +3987,7 @@ def _draw_blacksmith_upper(
         ),
     )
 
+    hammerless_swing = 0.0
     if hammerless_walk_active:
         swing = max(-1.0, min(1.0, walk_wave))
         swing_forward = swing * 16.0
@@ -4003,6 +4004,7 @@ def _draw_blacksmith_upper(
             right_wrist[0] + swing_forward * 1.05,
             right_wrist[1] - swing_vertical * 0.85,
         )
+        hammerless_swing = swing
 
     def _round_point(point: tuple[float, float]) -> tuple[int, int]:
         return (int(round(point[0])), int(round(point[1])))
@@ -4082,6 +4084,11 @@ def _draw_blacksmith_upper(
     ]
     pygame.draw.polygon(surface, (122, 98, 72), [_round_point(p) for p in forearm_polygon_points])
     hand_center = (right_wrist[0] + 6.0, right_wrist[1] + 4.0)
+    if hammerless_walk_active:
+        hand_center = (
+            right_wrist[0] + 4.0,
+            right_wrist[1] + 3.0 + (-hammerless_swing) * 2.5,
+        )
     if umbrella_pose_active:
         hand_center = (
             right_wrist[0] + 1.0 - 3.0 * swing_main_blend * swing_dir,
@@ -4149,6 +4156,11 @@ def _draw_blacksmith_upper(
             pose_data["wrist"] = (float(right_wrist[0]), float(right_wrist[1]))
     elif pose_data is not None and "wrist" not in pose_data:
         pose_data["wrist"] = (float(hand_center[0]), float(hand_center[1]))
+
+    if not show_hammer:
+        blacksmith_hammer_head_local_point = None
+        blacksmith_hammer_pivot_local_point = None
+        blacksmith_hammer_forward_vector = (0.0, -1.0)
 
     if show_hammer:
         handle_poly = [
