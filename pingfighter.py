@@ -56059,6 +56059,7 @@ def show_character_item_manager():
         {"name": "sensor", "type": "passive", "icon": get_icon_safe("sensor_icon", "sensor")},
         {"name": "dashholder", "type": "passive", "icon": get_icon_safe("dashholder_icon", "dashholder")},
         {"name": "foul_whistle", "type": "passive", "icon": get_icon_safe("foul_whistle_icon", "foul_whistle")},
+        {"name": "star_detector", "type": "passive", "icon": get_icon_safe("star_detector_icon", "star_detector")},
     ]
     
     # 전설 아이템 추가
