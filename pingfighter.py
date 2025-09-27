@@ -4750,7 +4750,55 @@ def _draw_blacksmith_umbrella_overlay(
     
     # 망치 아웃라인
     pygame.draw.polygon(surface, (90, 76, 56), [_vec_to_int_pair(p) for p in hammer_pts], width=3)
-    
+
+    # 우산 내구도에 따른 금(크랙) 표현
+    damage_stage = 0
+    gauge_value = BLACKSMITH_UMBRELLA_GAUGE_MAX
+    try:
+        gauge_value = max(0, min(BLACKSMITH_UMBRELLA_GAUGE_MAX, blacksmith_umbrella_gauge))
+    except NameError:
+        gauge_value = BLACKSMITH_UMBRELLA_GAUGE_MAX
+
+    damage_stage = max(0, min(len(BLACKSMITH_UMBRELLA_CRACK_SEGMENTS), BLACKSMITH_UMBRELLA_GAUGE_MAX - gauge_value))
+
+    if damage_stage > 0:
+        flash_timer = globals().get("blacksmith_umbrella_damage_flash_timer", 0)
+        flash_frames = BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES if BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES > 0 else 1
+        flash_strength = max(0.0, min(1.0, flash_timer / flash_frames))
+
+        base_crack_color = (186, 178, 168)
+        highlight_color = (250, 244, 234)
+        crack_color = tuple(
+            min(255, int(base_crack_color[i] + (highlight_color[i] - base_crack_color[i]) * flash_strength + damage_stage * 6))
+            for i in range(3)
+        )
+        crack_shadow = (58, 46, 38)
+        crack_width = max(1, int(shield_height * 0.02) + damage_stage // 2)
+
+        for stage_idx in range(damage_stage):
+            for start_norm, end_norm in BLACKSMITH_UMBRELLA_CRACK_SEGMENTS[stage_idx]:
+                start = to_world(start_norm[0] * shield_width, start_norm[1] * shield_height)
+                end = to_world(end_norm[0] * shield_width, end_norm[1] * shield_height)
+                start_pt = _vec_to_int_pair(start)
+                end_pt = _vec_to_int_pair(end)
+                pygame.draw.line(surface, crack_shadow, start_pt, end_pt, max(1, crack_width + 1))
+                pygame.draw.line(surface, crack_color, start_pt, end_pt, crack_width)
+
+        if damage_stage >= 3:
+            # 교차점에 작은 반짝임 추가
+            junction_color = tuple(min(255, c + 20) for c in crack_color)
+            junction_radius = max(1, int(shield_height * 0.018))
+            core_radius = max(1, junction_radius - 1)
+            junction_points = [
+                to_world(0.0, 0.0),
+                to_world(-0.06 * shield_width, 0.12 * shield_height),
+                to_world(0.06 * shield_width, 0.12 * shield_height),
+            ]
+            for point in junction_points:
+                center = _vec_to_int_pair(point)
+                pygame.draw.circle(surface, crack_shadow, center, junction_radius)
+                pygame.draw.circle(surface, junction_color, center, core_radius)
+
     # 방패 충격 효과 (전역 변수 체크)
     global blacksmith_shield_impact_timer
     if 'blacksmith_shield_impact_timer' in globals() and blacksmith_shield_impact_timer > 0:
