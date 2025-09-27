@@ -46939,6 +46939,9 @@ def handle_ball():
                 draw_soldier_weapon_ui(SCREEN)
             elif selected_character_type == "blacksmith":
                 draw_blacksmith_turret_ui(SCREEN)
+                draw_blacksmith_divine_ui(SCREEN)
+                draw_blacksmith_divine_ui(SCREEN)
+                draw_blacksmith_divine_ui(SCREEN)
             draw_score()  # 3:0 완승 보너스 메시지도 표시
             
             #  Stage 1 듀스 모드 - 타이머 기반으로 변경되어 더 이상 점수 체크하지 않음
@@ -46993,6 +46996,7 @@ def handle_ball():
                 draw_soldier_weapon_ui(SCREEN)
             elif selected_character_type == "blacksmith":
                 draw_blacksmith_turret_ui(SCREEN)
+                draw_blacksmith_divine_ui(SCREEN)
             
             # 3:0 완승 보너스 메시지 표시
             draw_score()
