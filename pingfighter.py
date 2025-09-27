@@ -45903,6 +45903,27 @@ def handle_ball():
         ball_vel[1] *= 0.95  # Y 속도도 약간 감속
         play_wall_sound()
         
+        # 충전가방 효과: 공이 벽에 닿을 때마다 기본 게이지 충전량의 20% 충전
+        if chargebag_obtained and not aipill_active:
+            # 캐릭터별 기본 게이지 충전량
+            if selected_character_type == "soldier":
+                base_gauge_gain = 50  # 코만도: 게이지 충전 50
+            elif selected_character_type == "blacksmith":
+                if blacksmith_umbrella_open:
+                    base_gauge_gain = 70  # 발토르 우산 활성: 게이지 충전 70
+                else:
+                    base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
+            else:
+                base_gauge_gain = 80  # 스매셔: 게이지 충전 80
+            # 충전가방은 기본 게이지 충전량의 20%만 적용 (스킬/아이템 보너스 제외)
+            chargebag_gain = int(base_gauge_gain * 0.2)  # 기본 충전량의 20%
+            print(f" DEBUG:     ( : {chargebag_gain})")
+            old_gauge = special_gauge
+            #  동적 최대치 계산 적용
+            current_max = get_max_gauge()
+            special_gauge = min(current_max, special_gauge + chargebag_gain)
+            print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
+        
         # 무승부 판정 시스템: 좌우 벽 연속 충돌 카운트
         current_time = pygame.time.get_ticks()
         if current_time - last_paddle_hit_time > 100:  # 패들 충돌 후 0.1초 이상 경과
