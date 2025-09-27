@@ -974,18 +974,18 @@ def handle_ball():
             
             # 충전가방 효과: 공이 벽에 닿을 때마다 플레이어 패들 충전량의 20% 충전
             if chargebag_obtained and not aipill_active:
-                pass
-                # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
-                base_gauge_gain = 80
-                skill_gauge_boost = skill.apply_gauge_boost(0)
-                total_gauge_gain = base_gauge_gain + skill_gauge_boost
-                chargebag_gain = int(total_gauge_gain * 0.2)  # 20%
-                
-                old_gauge = special_gauge
-                # 🔧 동적 최대치 계산 적용
-                current_max = get_max_gauge()
-                special_gauge = min(current_max, special_gauge + chargebag_gain)
-                print(f"충전가방 효과! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
+                if game_state.chargebag_wall_charge_cooldown == 0:
+                    gauge_source = game_state.last_player_gauge_gain or DEFAULT_CHARGEBAG_BASE_GAIN
+                    charge_percent = game_state.chargebag_wall_charge_percent or 0.2
+                    chargebag_gain = max(1, int(gauge_source * charge_percent))
+
+                    old_gauge = special_gauge
+                    # 🔧 동적 최대치 계산 적용
+                    current_max = get_max_gauge()
+                    special_gauge = min(current_max, special_gauge + chargebag_gain)
+                    print(f"충전가방 효과! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
+
+                    game_state.chargebag_wall_charge_cooldown = CHARGBAG_WALL_COOLDOWN_FRAMES
             
             # 벽돌이 파괴되면 handle_wall에서 처리됨
             wall_hit = True
@@ -1264,6 +1264,7 @@ def handle_ball():
             base_gauge_gain = 80  # 사용자 요청에 따라 80으로 설정
             skill_gauge_boost = skill.apply_gauge_boost(0)
             total_gauge_gain = base_gauge_gain + skill_gauge_boost
+            game_state.last_player_gauge_gain = total_gauge_gain
             
             print(f"🔍 DEBUG: ✅ handle_ball에서 백업 게이지 충전 (handle_player가 놓친 충돌) ({total_gauge_gain})")
             special_gauge += total_gauge_gain
