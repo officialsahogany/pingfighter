@@ -203,6 +203,8 @@ class ItemSystem:
             return self.game_state.gravitybelt_obtained
         elif item_name == 'foul_whistle':
             return self.game_state.foul_whistle_obtained
+        elif item_name == 'star_detector':
+            return self.game_state.star_detector_obtained
         elif item_name == 'sensor':
             return self.game_state.danger_sensor_obtained
         return False
@@ -240,6 +242,8 @@ class ItemSystem:
             self.game_state.gravitybelt_obtained = obtained
         elif item_name == 'foul_whistle':
             self.game_state.foul_whistle_obtained = obtained
+        elif item_name == 'star_detector':
+            self.game_state.star_detector_obtained = obtained
         elif item_name == 'sensor':
             self.game_state.danger_sensor_obtained = obtained
             self.game_state.sensor_obtained = obtained  # 호환성

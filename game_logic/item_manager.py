@@ -43,6 +43,7 @@ class ItemManager:
             'dashgear_obtained': False,
             'bulkup_obtained': False,
             'foul_whistle_obtained': False,
+            'star_detector_obtained': False,
             'sensor_obtained': False,
             'gravitybelt_obtained': False,
             'dashholder_obtained': False
@@ -132,7 +133,7 @@ class ItemManager:
             'speedboots', 'speedgear', 'battery', 'revival',
             'master', 'cooltime', 'chargebag', 'spikeboots',
             'dashgear', 'bulkup', 'sensor', 'gravitybelt', 'dashholder',
-            'foul_whistle'
+            'foul_whistle', 'star_detector'
         ]
 
         if item_name in one_time_items:
