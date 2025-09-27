@@ -24367,27 +24367,12 @@ def draw_player_gauge():
                                (gauge_x, gauge_y + gauge_height + i),
                                (gauge_x + gauge_width, gauge_y + gauge_height + i), 1)
 
-    #  게이지바 수치 표시 (토큰볼 아래에 배치)
+    #  게이지바 수치 표시용 텍스트(실제 위치는 토큰/우산 HUD 배치 후 계산)
     gauge_text = f"{int(displayed_gauge)}/{current_max_gauge}"
-    text_color = WHITE if displayed_gauge < current_max_gauge else (255, 255, 100)  # 만렙일 때는 노란색
-    # 폰트 로드 (작은 크기)
-    # 픽셀 폰트 (게이지)
-    gauge_font = FontStyle.gauge()  # 16pt 픽셀 폰트
-    gauge_text_surface = gauge_font.render(gauge_text, True, text_color)
-    text_rect = gauge_text_surface.get_rect()
-    # 토큰볼 아래쪽에 중앙 정렬 (센서 토큰이 있으면 그 아래로 내린다)
-    text_x = gauge_x + gauge_width // 2 - text_rect.width // 2
-    text_offset = 15 + 15  # 기본: 게이지 하단 + 토큰 간격 15px 두 번
-    if danger_sensor_obtained:
-        sensor_token_radius = 8  # 위험감지센서 토큰 반지름 (draw block과 동일)
-        text_offset = 15 + 20 + sensor_token_radius + 10  # 토큰 간격 + 센서 토큰 + 여유 10px
-    text_y = gauge_y + gauge_height + text_offset
-    # 텍스트 배경 (반투명 검은 배경으로 가독성 향상)
-    text_bg_rect = pygame.Rect(text_x - 2, text_y - 1, text_rect.width + 4, text_rect.height + 2)
-    pygame.draw.rect(SCREEN, (0, 0, 0, 180), text_bg_rect, border_radius=3)
-    draw.rect((100, 100, 100), text_bg_rect, 1, border_radius=3)
-    # 텍스트 렌더링
-    SCREEN.blit(gauge_text_surface, (text_x, text_y))
+    gauge_text_color = WHITE if displayed_gauge < current_max_gauge else (255, 255, 100)
+    gauge_font = FontStyle.gauge()
+    gauge_text_surface = gauge_font.render(gauge_text, True, gauge_text_color)
+    gauge_text_size = gauge_text_surface.get_size()
     doping_active = doping_potion_active and doping_potion_timer > 0
     if doping_active:
         gauge_x = WIDTH - 110
