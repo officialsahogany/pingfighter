@@ -933,6 +933,29 @@ def play_serve_sound():
     """서브 사운드 재생"""
     play_sound_with_volume(SOUND_SERVE)
 
+def apply_serve_result(serve_result):
+    """serve_ball() 결과를 전역 상태에 반영한다."""
+    global ball_vel, ball_impact_boost
+
+    new_velocity = serve_result.get('ball_vel', [0.0, 0.0])
+    if len(new_velocity) < 2:
+        new_velocity = list(new_velocity) + [0.0] * (2 - len(new_velocity))
+
+    ball_vel = [float(new_velocity[0]), float(new_velocity[1])]
+    ball_impact_boost = float(serve_result.get('ball_impact_boost', 1.0))
+
+    try:
+        game_vars.ball.vel[0] = ball_vel[0]
+        game_vars.ball.vel[1] = ball_vel[1]
+    except Exception:
+        pass
+
+    try:
+        game_state.ball_vel = [ball_vel[0], ball_vel[1]]
+        game_state.ball_impact_boost = ball_impact_boost
+    except Exception:
+        pass
+
 def play_wall_sound():
     """벽 충돌 사운드 재생"""
     play_sound_with_volume(SOUND_WALL)
