@@ -30278,7 +30278,7 @@ def show_start_screen():
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
     global blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
-    global blacksmith_hammer_cooldown_remainder_ms
+    global blacksmith_hammer_cooldown_remainder_ms, blacksmith_hammer_cooldown_debug_bucket
     global blacksmith_hammer_projectiles_paused, blacksmith_hammer_swing_auto
     global blacksmith_trail_timer
     blacksmith_hammer_available = True
@@ -30290,6 +30290,7 @@ def show_start_screen():
     blacksmith_hammer_last_update_frame = globals().get("frame_counter", 0)
     blacksmith_hammer_last_update_ms = pygame.time.get_ticks()
     blacksmith_hammer_cooldown_remainder_ms = 0.0
+    blacksmith_hammer_cooldown_debug_bucket = -1
     blacksmith_hammer_projectiles_paused = False
     blacksmith_hammer_swing_auto = False
     blacksmith_trail_timer = 0
@@ -50912,8 +50913,10 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_shock_projectiles.clear()
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     global blacksmith_hammer_last_update_ms, blacksmith_hammer_cooldown_remainder_ms
+    global blacksmith_hammer_cooldown_debug_bucket
     blacksmith_hammer_last_update_ms = pygame.time.get_ticks()
     blacksmith_hammer_cooldown_remainder_ms = 0.0
+    blacksmith_hammer_cooldown_debug_bucket = -1
     blacksmith_hammer_shock_anchor_x = PLAYER.centerx if 'PLAYER' in globals() and PLAYER else 0
     blacksmith_hammer_shock_anchor_y = PLAYER.centery if 'PLAYER' in globals() and PLAYER else 0
     global blacksmith_ground_cracks
