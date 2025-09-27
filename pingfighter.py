@@ -7354,26 +7354,30 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
 def update_blacksmith_divine_stone():
     """디바인 스톤 상태 및 충돌 업데이트"""
     global blacksmith_divine_stone_state, ball_vel
-    if blacksmith_divine_stone_state is None:
-        return
-    state = blacksmith_divine_stone_state
-    rect = state["rect"]
-    state["pulse"] = (state.get("pulse", 0) + 1) % 240
-    cooldown = state.get("cooldown", 0)
-    if cooldown > 0:
-        state["cooldown"] = cooldown - 1
-    if 'BALL' in globals() and BALL is not None:
-        if rect.colliderect(BALL) and state.get("cooldown", 0) == 0:
-            BALL.bottom = min(BALL.bottom, rect.top - 2)
-            ball_vel[1] = -abs(ball_vel[1]) - 4
-            ball_vel[0] *= 0.6
-            state["hp"] = max(0, state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)
-            state["cooldown"] = int(0.25 * FPS)
-            effects_manager.spawn_star_particles(rect.centerx, rect.top, count=5)
-            effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=4)
-            if state["hp"] <= 0:
-                effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
-                blacksmith_divine_stone_state = None
+    sync_blacksmith_state()
+    try:
+        if blacksmith_divine_stone_state is None:
+            return
+        state = blacksmith_divine_stone_state
+        rect = state["rect"]
+        state["pulse"] = (state.get("pulse", 0) + 1) % 240
+        cooldown = state.get("cooldown", 0)
+        if cooldown > 0:
+            state["cooldown"] = cooldown - 1
+        if 'BALL' in globals() and BALL is not None:
+            if rect.colliderect(BALL) and state.get("cooldown", 0) == 0:
+                BALL.bottom = min(BALL.bottom, rect.top - 2)
+                ball_vel[1] = -abs(ball_vel[1]) - 4
+                ball_vel[0] *= 0.6
+                state["hp"] = max(0, state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)
+                state["cooldown"] = int(0.25 * FPS)
+                effects_manager.spawn_star_particles(rect.centerx, rect.top, count=5)
+                effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=4)
+                if state["hp"] <= 0:
+                    effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
+                    blacksmith_divine_stone_state = None
+    finally:
+        sync_blacksmith_state()
 
 def update_blacksmith_turret():
     """발토르 포탑의 발사 및 투사체 동작을 업데이트한다."""
@@ -7383,6 +7387,7 @@ def update_blacksmith_turret():
     global blacksmith_turret_manual_cooldown, blacksmith_turret_xp_partial_drain
     global ball_vel, stopwatch_active, stopwatch_timer, game_vars, SCREEN
 
+    sync_blacksmith_state()
     update_blacksmith_divine_stone()
 
     if blacksmith_turret_manual_cooldown > 0:
@@ -7394,6 +7399,7 @@ def update_blacksmith_turret():
         blacksmith_turret_xp_partial_drain = 0.0
         if not blacksmith_turret_blueprint_active:
             stop_blacksmith_construction_sound()
+        sync_blacksmith_state()
         return
 
     turret_rect = blacksmith_turret_state.get("rect")
@@ -7404,6 +7410,7 @@ def update_blacksmith_turret():
         blacksmith_turret_xp_partial_drain = 0.0
         if not blacksmith_turret_blueprint_active:
             stop_blacksmith_construction_sound()
+        sync_blacksmith_state()
         return
 
     scale_factor = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
