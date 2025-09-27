@@ -6155,7 +6155,8 @@ def _complete_blacksmith_hammer_cooldown_if_ready():
     """Re-arm the hammer once cooldown has expired and no projectiles remain."""
 
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
-    global blacksmith_hammer_available
+    global blacksmith_hammer_available, blacksmith_hammer_shock_last_stage
+    global blacksmith_hammer_shock_cooldown_total
 
     if blacksmith_hammer_shock_cooldown_timer <= 0 and not blacksmith_hammer_shock_projectiles:
         if not blacksmith_hammer_available:
@@ -6163,6 +6164,8 @@ def _complete_blacksmith_hammer_cooldown_if_ready():
             _spawn_blacksmith_hammer_return_fx(fx_x, fx_y)
         blacksmith_hammer_available = True
         blacksmith_hammer_shock_cooldown_timer = 0
+        blacksmith_hammer_shock_last_stage = 0
+        blacksmith_hammer_shock_cooldown_total = 0
 
     _debug_blacksmith_hammer_cooldown()
 
