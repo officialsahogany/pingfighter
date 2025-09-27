@@ -50378,6 +50378,13 @@ def show_result(won):
         items.gravitybelt_obtained = False
         items.sensor_obtained = False
         items.hermes_shoes_obtained = False  # 헤르메스의 신발 초기화
+        items.foul_whistle_obtained = False
+        try:
+            from item_effects.foul_whistle import get_foul_whistle_instance
+
+            get_foul_whistle_instance().deactivate()
+        except Exception:
+            pass
         # 대쉬 토큰 수 및 시너지 효과 리셋 (대쉬홀더 없이는 기본 1개)
         rolling_charges = 1
         # 대쉬 매니저 완전 리셋
