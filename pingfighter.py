@@ -3676,6 +3676,7 @@ def _draw_blacksmith_upper(
     request_pose: bool = False,
     umbrella_pose: bool = False,
     umbrella_raise: float = 0.0,
+    hammerless_walk: bool = False,
 ):
     global blacksmith_hammer_head_local_point
     global blacksmith_hammer_pivot_local_point, blacksmith_hammer_forward_vector
@@ -3730,6 +3731,8 @@ def _draw_blacksmith_upper(
             show_hammer = True
     if umbrella_pose_active:
         show_hammer = False
+
+    hammerless_walk_active = hammerless_walk or (not show_hammer and not umbrella_pose_active)
 
     hammer_amount = max(0.0, min(1.0, hammer_swing))
     if umbrella_pose_active:
