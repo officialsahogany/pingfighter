@@ -17588,6 +17588,7 @@ def handle_player(keys):
                 blacksmith_hammer_charge_position = None
                 blacksmith_build_menu_active = False
                 blacksmith_umbrella_swing_direction = 1
+                stop_blacksmith_hammer_charge_sound()
                 if blacksmith_hammer_shock_projectiles:
                     global blacksmith_hammer_projectiles_paused
                     blacksmith_hammer_projectiles_paused = True
@@ -30450,6 +30451,8 @@ def show_start_screen():
     blacksmith_hammer_shock_stage = 0
     blacksmith_hammer_shock_cooldown_timer = 0
     blacksmith_hammer_shock_projectiles.clear()
+    stop_blacksmith_hammer_charge_sound()
+    stop_blacksmith_hammer_charge_sound()
     blacksmith_hammer_last_update_frame = globals().get("frame_counter", 0)
     blacksmith_hammer_last_update_ms = pygame.time.get_ticks()
     blacksmith_hammer_cooldown_remainder_ms = 0.0
@@ -52347,12 +52350,7 @@ def main(stage_num, new_boss_mode=False):
                     blacksmith_hammer_swing_phase = 0
                     blacksmith_hammer_shock_anchor_x = PLAYER.centerx
                     blacksmith_hammer_shock_anchor_y = PLAYER.centery
-                    play_sound_safely = globals().get('play_sound_with_volume')
-                    if callable(play_sound_safely):
-                        try:
-                            play_sound_safely(SOUND_STAGE6_BEAM_CHARGE)
-                        except Exception:
-                            pass
+                    start_blacksmith_hammer_charge_sound()
                 if (
                     space_just_released
                     and blacksmith_hammer_shock_charging
