@@ -5319,6 +5319,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             if engaged_for_upgrade:
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_slow_timer = 0
                 blacksmith_hammer_swing_active = True
                 blacksmith_hammer_swing_phase = (
                     blacksmith_hammer_swing_phase + 1
@@ -16921,6 +16922,7 @@ def handle_player(keys):
     global blacksmith_hammer_swing_auto
     global blacksmith_hammer_charge_position, blacksmith_build_menu_active
     global blacksmith_hammer_projectiles_paused
+    global blacksmith_hammer_swing_slow_timer
     global soldier_swing_active, soldier_swing_timer
     global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
@@ -19633,12 +19635,14 @@ def handle_player(keys):
                 blacksmith_shield_swing_timer = 0
                 blacksmith_hammer_swing_phase = BLACKSMITH_HAMMER_SWING_DURATION
                 blacksmith_hammer_swing_active = True
+                blacksmith_hammer_swing_slow_timer = BLACKSMITH_HAMMER_SWING_DURATION
                 
             else:
                 blacksmith_hammer_swing_active = False
                 blacksmith_hammer_swing_phase = 0
                 blacksmith_shield_swing_active = True
                 blacksmith_shield_swing_timer = BLACKSMITH_SHIELD_SWING_DURATION
+                blacksmith_hammer_swing_slow_timer = 0
         
         # Chapter 2 튜토리얼: 대쉬 상태에서 충돌 시 첫 대쉬 이벤트 처리
         if current_stage == 50 and tutorial_current_chapter == 2 and rolling_active:
@@ -52052,6 +52056,7 @@ def main(stage_num, new_boss_mode=False):
                             blacksmith_shield_swing_active = False
                             blacksmith_shield_swing_timer = 0
                             blacksmith_hammer_swing_active = True
+                            blacksmith_hammer_swing_slow_timer = 0
                             blacksmith_hammer_swing_phase = 0
                             blacksmith_manual_hammer_timer = BLACKSMITH_HAMMER_SWING_DURATION
                             blacksmith_turret_manual_cooldown = BLACKSMITH_TURRET_MANUAL_COOLDOWN
