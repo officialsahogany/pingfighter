@@ -8588,16 +8588,11 @@ def draw_blacksmith_build_menu(surface):
     state = BLACKSMITH_CONTROLLER.state
     if not state.build_menu_active or 'PLAYER' not in globals() or PLAYER is None:
         return
-    if not blacksmith_has_available_buildings():
-        return
-    turret_runtime = state.turret
-    divine_runtime = state.divine
-    buildable_options: list[str] = []
-    if not turret_runtime.active and not turret_runtime.blueprint_active:
-        buildable_options.append("turret")
-    if divine_runtime.state is None and not divine_runtime.blueprint_active:
-        buildable_options.append("divine_stone")
+    buildable_options = _blacksmith_get_buildable_options(state=state)
     if not buildable_options:
+        state.build_menu_active = False
+        state.down_hold_frames = 0
+        push_blacksmith_state()
         return
 
     spacing = BLACKSMITH_BUILD_ICON_SIZE[0] + 16
@@ -9203,6 +9198,25 @@ def _create_turret_icon() -> pygame.Surface:
     icon.blit(label, label.get_rect(center=(cx, cy - 24)))
     return icon
 
+def _blacksmith_get_buildable_options(*, state=None) -> list[str]:
+    """현재 건설 가능한 발토르 건물 옵션 목록을 계산한다."""
+
+    if state is None:
+        sync_blacksmith_state()
+        state = BLACKSMITH_CONTROLLER.state
+
+    options: list[str] = []
+    turret = state.turret
+    divine = state.divine
+
+    if not turret.active and not turret.blueprint_active:
+        options.append("turret")
+    if divine.state is None and not divine.blueprint_active:
+        options.append("divine_stone")
+
+    return options
+
+
 def blacksmith_has_available_buildings() -> bool:
     if selected_character_type != "blacksmith":
         return False
@@ -9211,15 +9225,10 @@ def blacksmith_has_available_buildings() -> bool:
 
     sync_blacksmith_state()
     state = BLACKSMITH_CONTROLLER.state
-    turret = state.turret
-    divine = state.divine
-
-    if turret.blueprint_active or divine.blueprint_active:
+    if state.turret.blueprint_active or state.divine.blueprint_active:
         return False
 
-    turret_available = not turret.active and not turret.blueprint_active
-    divine_available = divine.state is None and not divine.blueprint_active
-    return turret_available or divine_available
+    return bool(_blacksmith_get_buildable_options(state=state))
 
 
 def blacksmith_open_build_menu():
