@@ -52605,10 +52605,10 @@ def main(stage_num, new_boss_mode=False):
                         from item_effects.foul_whistle import get_foul_whistle_instance
 
                         get_foul_whistle_instance().deactivate()
-                except Exception:
-                    pass
-                items.foul_whistle_obtained = False
-                foul_whistle_pending_round_reset = False
+                    except Exception:
+                        pass
+                    items.foul_whistle_obtained = False
+                    foul_whistle_pending_round_reset = False
                 try:
                     from item_effects.star_detector import deactivate_star_detector
 
