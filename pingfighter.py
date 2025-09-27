@@ -17538,6 +17538,14 @@ def handle_player(keys):
                 if blacksmith_umbrella_swing_recover_main < 0.01:
                     blacksmith_umbrella_swing_recover_main = 0.0
 
+        if blacksmith_umbrella_swing_sound_pending:
+            if blacksmith_umbrella_swing_sound_timer > 0:
+                blacksmith_umbrella_swing_sound_timer -= 1
+            if blacksmith_umbrella_swing_sound_timer <= 0:
+                blacksmith_umbrella_swing_sound_pending = False
+                if SOUND_BLACKSMITH_UMBRELLA_SWING:
+                    play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_SWING)
+
         umbrella_swinging_main = (
             blacksmith_umbrella_swing_active and blacksmith_umbrella_swing_stage == 1
         )
