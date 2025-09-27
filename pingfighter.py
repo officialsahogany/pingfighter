@@ -5941,7 +5941,7 @@ def release_blacksmith_hammer_shock():
     global blacksmith_hammer_available, blacksmith_hammer_shock_cooldown_timer
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
     global special_gauge, special_ready, special_gauge_max
-    global PLAYER, SOUND_GRENADE
+    global PLAYER, SOUND_GRENADE, SOUND_BLACKSMITH_HAMMER_THROW
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
 
     if not blacksmith_hammer_shock_charging:
@@ -6006,7 +6006,10 @@ def release_blacksmith_hammer_shock():
     blacksmith_hammer_shock_stage = 0
 
     try:
-        play_sound_with_volume(SOUND_GRENADE)
+        if SOUND_BLACKSMITH_HAMMER_THROW:
+            play_sound_with_volume(SOUND_BLACKSMITH_HAMMER_THROW)
+        elif SOUND_GRENADE:
+            play_sound_with_volume(SOUND_GRENADE)
     except Exception:
         pass
 
