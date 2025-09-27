@@ -52602,9 +52602,9 @@ def main(stage_num, new_boss_mode=False):
                     items.fuel_pouch_obtained = False
                     items.bluetooth_ring_obtained = False
                     try:
-                    from item_effects.foul_whistle import get_foul_whistle_instance
+                        from item_effects.foul_whistle import get_foul_whistle_instance
 
-                    get_foul_whistle_instance().deactivate()
+                        get_foul_whistle_instance().deactivate()
                 except Exception:
                     pass
                 items.foul_whistle_obtained = False
