@@ -51802,6 +51802,7 @@ def main(stage_num, new_boss_mode=False):
         global left_press_frame, right_press_frame, space_press_frame, down_press_frame, frame_counter
         global perfect_timing_cooldown, perfect_timing_cooldown_frames, perfect_timing_input_used
         global drive_global_cooldown, drive_global_cooldown_frames, last_space_press_time
+        global blacksmith_turret_manual_cooldown
         # special_gauge, special_ready, special_active는 이미 함수 시작 부분에서 global 선언됨
         global power_smashing_direction, power_smashing_original_speed  #  파워스매싱 관련 변수 (ball_vel은 이미 전역)
         if selected_character_type == "blacksmith":
