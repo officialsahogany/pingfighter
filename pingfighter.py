@@ -7702,6 +7702,21 @@ def upgrade_blacksmith_turret():
 
 def draw_blacksmith_turret_elements(surface):
     """발토르 포탑과 청사진, 투사체를 그린다."""
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    turret_runtime = state.turret
+    divine_runtime = state.divine
+    blacksmith_turret_state = turret_runtime.state
+    blacksmith_turret_projectiles = turret_runtime.projectiles
+    blacksmith_turret_blueprint_active = turret_runtime.blueprint_active
+    blacksmith_turret_blueprint_rect = turret_runtime.blueprint_rect
+    blacksmith_turret_build_progress = turret_runtime.build_progress
+    blacksmith_divine_blueprint_active = divine_runtime.blueprint_active
+    blacksmith_divine_blueprint_rect = divine_runtime.blueprint_rect
+    blacksmith_divine_build_progress = divine_runtime.build_progress
+    blacksmith_divine_stone_state = divine_runtime.state
+    blacksmith_turret_active = turret_runtime.active
+
     draw_blacksmith_divine_stone(surface)
     if blacksmith_divine_blueprint_active and blacksmith_divine_blueprint_rect:
         blueprint_rect = blacksmith_divine_blueprint_rect
@@ -8081,11 +8096,13 @@ def draw_blacksmith_turret_elements(surface):
 
 
 def draw_blacksmith_divine_stone(surface):
-    if blacksmith_divine_stone_state is None:
+    sync_blacksmith_state()
+    divine_state = BLACKSMITH_CONTROLLER.state.divine.state
+    if divine_state is None:
         return
-    rect = blacksmith_divine_stone_state["rect"]
-    pulse = blacksmith_divine_stone_state.get("pulse", 0)
-    hp = blacksmith_divine_stone_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
+    rect = divine_state["rect"]
+    pulse = divine_state.get("pulse", 0)
+    hp = divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
     tower_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
     width, height = rect.size
     cx, cy = width // 2, height // 2
