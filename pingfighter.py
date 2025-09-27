@@ -7176,6 +7176,7 @@ def update_blacksmith_hammer_shock(keys):
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
     global frame_counter, blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
     global blacksmith_hammer_projectiles_paused
+    global blacksmith_divine_stone_state
 
     current_ticks = pygame.time.get_ticks()
 
@@ -52576,6 +52577,7 @@ def main(stage_num, new_boss_mode=False):
                     and not blacksmith_hammer_shock_charging
                     and blacksmith_hammer_shock_cooldown_timer <= 0
                     and special_gauge >= BLACKSMITH_HAMMER_SHOCK_COST
+                    and blacksmith_divine_stone_state is not None
                 )
                 if manual_candidate:
                     # 기본값은 수동 발사 우선, 단 ↓키를 누른 채 해머 게이지가 충분하면 해머 쇼크를 선택할 수 있게 한다.
