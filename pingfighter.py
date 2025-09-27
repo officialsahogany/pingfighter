@@ -10110,6 +10110,7 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
         blacksmith_divine_stage_owner = None
 
     global blacksmith_hammer_swing_slow_timer
+    global blacksmith_hammer_shock_last_stage, blacksmith_hammer_shock_cooldown_total
     global blacksmith_umbrella_gauge, blacksmith_umbrella_recharge_progress
     global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
     global blacksmith_umbrella_hit_lock
@@ -10122,6 +10123,8 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     blacksmith_umbrella_damage_flash_timer = 0
     blacksmith_umbrella_last_hit_frame = -1000
     blacksmith_umbrella_hit_lock = False
+    blacksmith_hammer_shock_last_stage = 0
+    blacksmith_hammer_shock_cooldown_total = 0
 
 
 def start_blacksmith_construction_sound():
@@ -31699,6 +31702,7 @@ def show_start_screen():
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
+    global blacksmith_hammer_shock_last_stage, blacksmith_hammer_shock_cooldown_total
     global blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
     global blacksmith_hammer_cooldown_remainder_ms, blacksmith_hammer_cooldown_debug_bucket
     global blacksmith_hammer_projectiles_paused, blacksmith_hammer_swing_auto
@@ -31710,6 +31714,8 @@ def show_start_screen():
     blacksmith_hammer_shock_stage = 0
     blacksmith_hammer_shock_cooldown_timer = 0
     blacksmith_hammer_shock_projectiles.clear()
+    blacksmith_hammer_shock_last_stage = 0
+    blacksmith_hammer_shock_cooldown_total = 0
     blacksmith_hammer_shock_last_stage = 0
     blacksmith_hammer_shock_cooldown_total = 0
     stop_blacksmith_hammer_charge_sound()
