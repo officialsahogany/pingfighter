@@ -20218,10 +20218,6 @@ def handle_player(keys):
                     blacksmith_umbrella_recharge_progress = 0
                     if blacksmith_umbrella_gauge <= 0:
                         request_blacksmith_umbrella_close(play_sound=True, flash=True)
-
-    elif selected_character_type == "blacksmith" and blacksmith_umbrella_hit_lock and not collision_with_player:
-        blacksmith_umbrella_hit_lock = False
-
         # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
         if kuromi_spit_trail_active:
             kuromi_spit_trail_active = False
@@ -20268,6 +20264,13 @@ def handle_player(keys):
                     charge_time_reduction = lightweight_bonus  # 5% per level
                     base_charge_time = 90  # 1.5초
                     rolling_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
+    else:
+        if (
+            selected_character_type == "blacksmith"
+            and blacksmith_umbrella_hit_lock
+            and not collision_with_player
+        ):
+            blacksmith_umbrella_hit_lock = False
                     print(f"  !    (: {rolling_charge_timer} = {rolling_charge_timer/60:.1f})")
                     print(f"[DEBUG]     : {rolling_charge_timer}")
                 else:
