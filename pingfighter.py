@@ -17692,7 +17692,7 @@ def handle_player(keys):
                 and blacksmith_umbrella_anim_timer == 0
                 and player_stunned_timer <= 0
             ):
-                request_blacksmith_umbrella_close()
+                request_blacksmith_umbrella_close(play_sound=True, flash=False)
 
             if 'blacksmith_shield_impact_timer' in globals() and blacksmith_shield_impact_timer > 0:
                 blacksmith_shield_impact_timer -= 1
