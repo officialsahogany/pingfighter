@@ -23952,15 +23952,6 @@ def draw_player_gauge():
         timer_rect = timer_text.get_rect(center=(gauge_x + gauge_width // 2, gauge_y + gauge_height + 10))
         SCREEN.blit(timer_text, timer_rect)
 
-        head_chance, leg_chance = get_soldier_shot_probabilities()
-        head_text = FontStyle.tiny().render(f"H {head_chance * 100:0.0f}%", True, (185, 250, 215))
-        leg_text = FontStyle.tiny().render(f"L {leg_chance * 100:0.0f}%", True, (170, 240, 205))
-        SCREEN.blit(head_text, (gauge_x - 6, gauge_y + gauge_height + 18))
-        SCREEN.blit(leg_text, (gauge_x - 6, gauge_y + gauge_height + 30))
-        if doping_potion_use_count > 0:
-            count_text = FontStyle.tiny().render(f"누적 {doping_potion_use_count}회", True, (150, 220, 180))
-            SCREEN.blit(count_text, (gauge_x - 2, gauge_y + gauge_height + 42))
-
     if soldier_weapon_menu_active and selected_character_type == "soldier" and soldier_controller.weapons:
         player_rect = PLAYER if 'PLAYER' in globals() else None
         if player_rect:
