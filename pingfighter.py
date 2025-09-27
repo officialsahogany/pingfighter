@@ -8745,21 +8745,36 @@ def draw_blacksmith_divine_ui(surface):
     hp = divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
     max_hp = max(1, divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP))
     ratio = max(0.0, min(1.0, hp / max_hp))
+    if ratio > 0.66:
+        hp_fill_color = (110, 176, 255)
+    elif ratio > 0.33:
+        hp_fill_color = (242, 184, 96)
+    else:
+        hp_fill_color = (236, 92, 92)
 
     bar_rect = pygame.Rect(icon_rect.x, icon_rect.bottom + 4, icon_rect.width, gauge_height)
     pygame.draw.rect(surface, (35, 35, 45), bar_rect.inflate(4, 4), border_radius=3)
     fill_width = int(bar_rect.width * ratio)
     if fill_width > 0:
         fill_rect = pygame.Rect(bar_rect.x, bar_rect.y, fill_width, bar_rect.height)
-        pygame.draw.rect(surface, (110, 176, 255), fill_rect, border_radius=3)
+        pygame.draw.rect(surface, hp_fill_color, fill_rect, border_radius=3)
     pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
 
-    status_text = tiny_font.render(f"{hp}/{max_hp}", True, (225, 235, 255))
+    status_text = tiny_font.render(f"HP {hp}/{max_hp}", True, (225, 235, 255))
     surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
 
     label_text = tiny_font.render("디바인스톤", True, accent_color)
     label_rect = label_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
     surface.blit(label_text, label_rect)
+
+    if ratio <= 0.33:
+        warning_radius = max(4, icon_rect.width // 6)
+        warning_center = (
+            icon_rect.right - warning_radius - 4,
+            icon_rect.top + warning_radius + 4,
+        )
+        pygame.draw.circle(surface, (240, 90, 70), warning_center, warning_radius)
+        pygame.draw.circle(surface, (255, 240, 220), warning_center, max(1, warning_radius // 2))
 
 
 def draw_blacksmith_turret_ui(surface):
