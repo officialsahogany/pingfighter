@@ -8724,6 +8724,7 @@ blacksmith_hammer_last_update_ms = 0
 blacksmith_hammer_cooldown_remainder_ms = 0.0
 blacksmith_hammer_cooldown_debug_bucket = -1
 blacksmith_hammer_projectiles_paused = False
+stop_blacksmith_hammer_charge_sound()
 BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
 BLACKSMITH_PADDLE_NO_HAMMER_IMG = create_blacksmith_paddle_base(include_hammer=False)
 # 기본 패들 렌더링에서 발 위치가 기준선보다 얼마나 아래에 있는지 기록해 우산 포즈에서도 동일한 간격을 유지한다.
