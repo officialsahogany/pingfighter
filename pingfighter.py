@@ -11468,7 +11468,23 @@ def go_to_next_round():
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
     global animated_bg_stage4  # Stage 4 배경 추가
     global round_start_time  # 라운드 시작 시간 추가
-    
+    global selected_character_type
+    global doping_potion_active, doping_potion_timer, doping_potion_use_count, doping_potion_toast_timer
+
+    preserved_doping_state = None
+    if (
+        selected_character_type == "soldier"
+        and doping_potion_active
+        and doping_potion_timer > 0
+    ):
+        gm = _get_global_manager()
+        preserved_duration = gm.get('doping_potion_duration_frames', DOPING_POTION_DURATION_FRAMES) or DOPING_POTION_DURATION_FRAMES
+        preserved_doping_state = {
+            "timer": max(1, int(doping_potion_timer)),
+            "use_count": int(doping_potion_use_count),
+            "duration": max(1, int(preserved_duration)),
+        }
+
     # Stage 4에서 플레이어가 3점 획득한 후 다음 라운드 시작 시 사원 파괴 애니메이션 시작
     if current_stage == 4 and round_wins == 3:
         if animated_bg_stage4 is not None and not animated_bg_stage4.temple_destroyed:
@@ -11767,6 +11783,24 @@ def go_to_next_round():
     #  AI 메모리 정리 (라운드 간 성능 최적화)
     optimize_ai_memory_for_round()
     reset_round()
+    if (
+        preserved_doping_state
+        and round_wins < win_goal
+        and round_losses < win_goal
+    ):
+        doping_potion_active = True
+        doping_potion_timer = min(
+            preserved_doping_state["timer"],
+            preserved_doping_state["duration"],
+        )
+        doping_potion_toast_timer = 0
+        doping_potion_use_count = preserved_doping_state["use_count"]
+        gm = _get_global_manager()
+        gm.set('doping_potion_active', True)
+        gm.set('doping_potion_timer_frames', doping_potion_timer)
+        gm.set('doping_potion_duration_frames', preserved_doping_state["duration"])
+        gm.set('doping_potion_use_count', doping_potion_use_count)
+        gm.set('doping_potion_refresh', False)
     whip_sound.stop()
 # === Stage 4 보스 필살기 관련 전역 변수 ===
 boss_special_gauge_stage4 = 0
