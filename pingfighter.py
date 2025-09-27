@@ -25491,11 +25491,6 @@ def draw_player_gauge():
         danger_ratio = 1.0 if gauge_value == 0 else 0.6 if gauge_value == 1 else 0.0
 
         divine_active = is_blacksmith_divine_stone_active()
-        time_now = pygame.time.get_ticks()
-        energy_phase_base = (time_now * (0.006 if divine_active else 0.004)) % 1.0
-        energy_pulse = 0.5 + 0.5 * math.sin(time_now * 0.007 + recharge_ratio * math.pi * 2)
-        if divine_active:
-            energy_pulse = min(1.0, energy_pulse + 0.25)
 
         center_x = player_gauge_x + player_gauge_width // 2
         segment_count = gauge_max
