@@ -20374,7 +20374,7 @@ def store_passive_item(item_data):
         if items.smartphone_obtained:
             print("스마트폰이 이미 획득되어 있습니다.")
             return
-        
+
         items.smartphone_obtained = True
         smartphone = get_smartphone_instance()
         if smartphone:
@@ -20385,16 +20385,36 @@ def store_passive_item(item_data):
             smartphone.activate(phone_state, current_stage)
             print(f"[DEBUG] 스마트폰 활성화 상태: {smartphone.active}")
         print("스마트폰 획득! 위험 시 자동 아이템 사용!")
-        
+
         # 패시브 아이템 리스트에 추가 (중요!)
         item_state_adapter.append_passive_item(item_data)
-        
+
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
         # show_item_acquisition("smartphone", "스마트폰", None, False,
         #                   (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
         # return 제거 - 함수 끝부분의 show_item_obtained_effect가 호출되도록
+    elif item_data["name"] == "foul_whistle":
+        # 반칙호루라기 아이템 획득 (패시브)
+        import items
+        if items.foul_whistle_obtained:
+            print("반칙호루라기가 이미 활성화되어 있습니다.")
+            return
+
+        items.foul_whistle_obtained = True
+        try:
+            from item_effects.foul_whistle import get_foul_whistle_instance
+            whistle = get_foul_whistle_instance()
+            whistle.activate()
+        except Exception as e:
+            print(f"[WARN] 반칙호루라기 활성화 실패: {e}")
+        else:
+            print("📢 반칙호루라기 획득! 패배를 무효로 만들 기회가 생겼습니다.")
+
+        # 아이템 관리 화면 동기화
+        item_state_adapter.append_passive_item(item_data)
+
     elif item_data["name"] == "knee_pads":
         # 킥차져 아이템 획득 (패시브)
         import items
