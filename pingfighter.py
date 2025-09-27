@@ -8045,20 +8045,83 @@ def update_blacksmith_turret():
         except Exception:
             pass
 
-    if turret_runtime.active and turret_state and turret_state.get("hp", 0) <= 0:
-        effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.centery, count=12)
-        try:
-            play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
-        except Exception:
-            pass
-        turret_runtime.active = False
-        turret_runtime.state = None
-        turret_runtime.blueprint_active = False
-        turret_runtime.projectiles.clear()
-        turret_runtime.partial_drain = 0.0
-        turret_runtime.xp_partial_drain = 0.0
-        turret_runtime.manual_cooldown = 0
-        stop_blacksmith_construction_sound()
+    if turret_runtime.active and turret_state:
+        if turret_state.get("hp", 0) <= 0 and not turret_state.get("pending_destruction"):
+            countdown = max(1, BLACKSMITH_TURRET_PRE_EXPLOSION_DELAY)
+            turret_state["hp"] = 0
+            turret_state["pending_destruction"] = True
+            turret_state["destroy_countdown"] = countdown
+            turret_state["destroy_fx_timer"] = 0
+            turret_runtime.projectiles.clear()
+            try:
+                effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=8)
+                effects_manager.spawn_construction_smoke(
+                    turret_rect.centerx,
+                    turret_rect.top + int(turret_rect.height * 0.3),
+                    count=4,
+                    spread=18,
+                )
+            except Exception:
+                pass
+            push_blacksmith_state()
+            return
+
+        if turret_state.get("pending_destruction"):
+            destroy_countdown = max(0, int(turret_state.get("destroy_countdown", 0)) - 1)
+            turret_state["destroy_countdown"] = destroy_countdown
+            turret_state["hp"] = 0
+            turret_runtime.projectiles.clear()
+            turret_state["fire_timer"] = max(0, turret_state.get("fire_timer", 0))
+
+            fx_timer = int(turret_state.get("destroy_fx_timer", 0)) - 1
+            if fx_timer <= 0:
+                fx_timer = BLACKSMITH_TURRET_PRE_EXPLOSION_FX_INTERVAL
+                try:
+                    effects_manager.spawn_star_particles(
+                        turret_rect.centerx,
+                        turret_rect.centery,
+                        count=6,
+                    )
+                    effects_manager.spawn_construction_smoke(
+                        turret_rect.centerx,
+                        turret_rect.top + int(turret_rect.height * 0.35),
+                        count=3,
+                        spread=20,
+                    )
+                except Exception:
+                    pass
+            turret_state["destroy_fx_timer"] = fx_timer
+
+            if destroy_countdown <= 0:
+                try:
+                    effects_manager.create_impact_effect(
+                        turret_rect.centerx,
+                        turret_rect.centery,
+                        max(turret_rect.width, turret_rect.height) * 1.6,
+                        is_player=False,
+                    )
+                    effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.centery, count=14)
+                    effects_manager.spawn_flame_particles(turret_rect.centerx, turret_rect.centery, count=10)
+                except Exception:
+                    pass
+                try:
+                    play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
+                except Exception:
+                    pass
+                turret_runtime.active = False
+                turret_runtime.state = None
+                turret_runtime.blueprint_active = False
+                turret_runtime.projectiles.clear()
+                turret_runtime.partial_drain = 0.0
+                turret_runtime.xp_partial_drain = 0.0
+                turret_runtime.manual_cooldown = 0
+                turret_state["pending_destruction"] = False
+                turret_state["destroy_fx_timer"] = 0
+                turret_state["destroy_countdown"] = 0
+                stop_blacksmith_construction_sound()
+
+            push_blacksmith_state()
+            return
 
     push_blacksmith_state()
 
