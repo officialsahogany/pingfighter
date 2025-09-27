@@ -8802,7 +8802,9 @@ def draw_blacksmith_turret_ui(surface):
                 pygame.draw.rect(surface, fill_color, inner_rect, border_radius=2)
                 highlight_height = max(1, inner_rect.height // 4)
                 highlight_rect = pygame.Rect(inner_rect.x, inner_rect.y, inner_rect.width, highlight_height)
-                highlight_color = tuple(min(255, fill_color[i] + 30) for i in range(3))
+                highlight_color = tuple(
+                    _clamp_color_component(fill_color[i] + 30) for i in range(3)
+                )
                 pygame.draw.rect(surface, highlight_color, highlight_rect, border_radius=2)
             elif idx == gauge_value and gauge_value < gauge_max and recharge_ratio > 0:
                 partial_width = max(1, int(inner_rect.width * recharge_ratio))
