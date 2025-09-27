@@ -9746,6 +9746,8 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
         stage_num: 현재 스테이지 번호. preserve_divine와 함께 전달되어야 한다.
     """
 
+    stop_blacksmith_construction_sound()
+
     global blacksmith_divine_stage_owner
 
     preserved_divine: dict[str, object] | None = None
@@ -42911,6 +42913,8 @@ def reset_round():
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
 
     _clear_blacksmith_cracks_with_shatter(play_sound=True)
+
+    stop_blacksmith_construction_sound()
 
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
