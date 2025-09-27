@@ -764,19 +764,19 @@ def handle_ball():
         
         # 충전가방 효과: 공이 벽에 닿을 때마다 플레이어 패들 충전량의 20% 충전
         if chargebag_obtained and not aipill_active:
-            pass
-            # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
-            base_gauge_gain = 80
-            skill_gauge_boost = skill.apply_gauge_boost(0)
-            total_gauge_gain = base_gauge_gain + skill_gauge_boost
-            chargebag_gain = int(total_gauge_gain * 0.2)  # 20%
-            
-            print(f"🔍 DEBUG: 충전가방 효과 적용 시도 (게이지 증가: {chargebag_gain})")
-            old_gauge = special_gauge
-            # 🔧 동적 최대치 계산 적용
-            current_max = get_max_gauge()
-            special_gauge = min(current_max, special_gauge + chargebag_gain)
-            print(f"충전가방 효과! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
+            if game_state.chargebag_wall_charge_cooldown == 0:
+                gauge_source = game_state.last_player_gauge_gain or DEFAULT_CHARGEBAG_BASE_GAIN
+                charge_percent = game_state.chargebag_wall_charge_percent or 0.2
+                chargebag_gain = max(1, int(gauge_source * charge_percent))
+
+                print(f"🔍 DEBUG: 충전가방 효과 적용 시도 (기준 게이지: {gauge_source}, 증가량: {chargebag_gain})")
+                old_gauge = special_gauge
+                # 🔧 동적 최대치 계산 적용
+                current_max = get_max_gauge()
+                special_gauge = min(current_max, special_gauge + chargebag_gain)
+                print(f"충전가방 효과! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
+
+                game_state.chargebag_wall_charge_cooldown = CHARGBAG_WALL_COOLDOWN_FRAMES
             
     elif BALL.right >= WIDTH:
         BALL.right = WIDTH
@@ -841,19 +841,19 @@ def handle_ball():
         
         # 충전가방 효과: 공이 벽에 닿을 때마다 플레이어 패들 충전량의 20% 충전
         if chargebag_obtained and not aipill_active:
-            pass
-            # 플레이어 패들이 공에 닿을 때 얻는 게이지량의 20% 계산
-            base_gauge_gain = 80
-            skill_gauge_boost = skill.apply_gauge_boost(0)
-            total_gauge_gain = base_gauge_gain + skill_gauge_boost
-            chargebag_gain = int(total_gauge_gain * 0.2)  # 20%
-            
-            print(f"🔍 DEBUG: 충전가방 효과 적용 시도 (게이지 증가: {chargebag_gain})")
-            old_gauge = special_gauge
-            # 🔧 동적 최대치 계산 적용
-            current_max = get_max_gauge()
-            special_gauge = min(current_max, special_gauge + chargebag_gain)
-            print(f"충전가방 효과! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
+            if game_state.chargebag_wall_charge_cooldown == 0:
+                gauge_source = game_state.last_player_gauge_gain or DEFAULT_CHARGEBAG_BASE_GAIN
+                charge_percent = game_state.chargebag_wall_charge_percent or 0.2
+                chargebag_gain = max(1, int(gauge_source * charge_percent))
+
+                print(f"🔍 DEBUG: 충전가방 효과 적용 시도 (기준 게이지: {gauge_source}, 증가량: {chargebag_gain})")
+                old_gauge = special_gauge
+                # 🔧 동적 최대치 계산 적용
+                current_max = get_max_gauge()
+                special_gauge = min(current_max, special_gauge + chargebag_gain)
+                print(f"충전가방 효과! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
+
+                game_state.chargebag_wall_charge_cooldown = CHARGBAG_WALL_COOLDOWN_FRAMES
 
     # --- 수평만 튕김 카운트 ---
     if abs(ball_vel[1]) < 1 and (BALL.left <= 0 or BALL.right >= WIDTH):
