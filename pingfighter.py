@@ -8502,29 +8502,32 @@ def blacksmith_can_build(option: str) -> bool:
 
 
 def blacksmith_start_divine_stone():
-    global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
-    global blacksmith_divine_build_progress, blacksmith_divine_partial_drain
-    if (
-        blacksmith_divine_stone_state is not None
-        or blacksmith_divine_blueprint_active
-        or 'PLAYER' not in globals()
-    ):
+    if 'PLAYER' not in globals() or PLAYER is None:
         return False
+
+    sync_blacksmith_state()
+    state = BLACKSMITH_CONTROLLER.state
+    divine = state.divine
+
+    if divine.state is not None or divine.blueprint_active:
+        return False
+
     blueprint_width = BLACKSMITH_DIVINE_STONE_SIZE[0]
     blueprint_height = BLACKSMITH_DIVINE_STONE_SIZE[1] + BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT
     rect = pygame.Rect(0, 0, blueprint_width, blueprint_height)
     base_x = max(blueprint_width // 2, min(WIDTH - blueprint_width // 2, PLAYER.centerx))
     base_y = HEIGHT - 5
     rect.midbottom = (base_x, base_y)
-    blacksmith_divine_blueprint_rect = rect
-    blacksmith_divine_build_progress = 0
-    blacksmith_divine_partial_drain = 0.0
-    blacksmith_divine_blueprint_active = True
+    divine.blueprint_rect = rect
+    divine.build_progress = 0
+    divine.partial_drain = 0.0
+    divine.blueprint_active = True
     try:
         play_sound_with_volume(SOUND_ITEM_GET)
     except Exception:
         pass
     effects_manager.spawn_construction_smoke(rect.centerx, rect.bottom - 12, count=6, spread=24)
+    push_blacksmith_state()
     return True
 
 
