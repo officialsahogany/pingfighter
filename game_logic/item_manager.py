@@ -42,6 +42,7 @@ class ItemManager:
             'spikeboots_obtained': False,
             'dashgear_obtained': False,
             'bulkup_obtained': False,
+            'foul_whistle_obtained': False,
             'sensor_obtained': False,
             'gravitybelt_obtained': False,
             'dashholder_obtained': False
@@ -130,13 +131,14 @@ class ItemManager:
         one_time_items = [
             'speedboots', 'speedgear', 'battery', 'revival',
             'master', 'cooltime', 'chargebag', 'spikeboots',
-            'dashgear', 'bulkup', 'sensor', 'gravitybelt', 'dashholder'
+            'dashgear', 'bulkup', 'sensor', 'gravitybelt', 'dashholder',
+            'foul_whistle'
         ]
-        
+
         if item_name in one_time_items:
             if self.item_states.get(f'{item_name}_obtained', False):
                 return True
-                
+
         # 부활 아이템 특별 처리
         if item_name == 'revival' and self.item_states['revival_used']:
             return True
