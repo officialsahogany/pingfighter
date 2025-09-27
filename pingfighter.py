@@ -21617,11 +21617,15 @@ def activate_whip():
 def cancel_whip_with_umbrella_block() -> bool:
     """발토르 우산으로 스테이지 1 상모돌리기를 강제 종료."""
 
+    global whip_active, whip_deactivation_active, whip_deactivation_timer
+    global whip_deactivation_duration, whip_rotation_speed, whip_animation_timer
+
     if current_stage != 1:
         return False
 
-    global whip_active, whip_deactivation_active, whip_deactivation_timer
-    global whip_deactivation_duration, whip_rotation_speed, whip_animation_timer
+    # 스테이지 1 보스가 상모돌리기를 사용 중이 아닐 때는 강제 종료 로직을 건너뛴다.
+    if not whip_active and not whip_deactivation_active:
+        return False
 
     changed = False
 
