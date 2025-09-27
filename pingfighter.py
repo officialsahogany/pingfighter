@@ -9005,6 +9005,7 @@ BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
 blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
 blacksmith_umbrella_recharge_progress = 0
 blacksmith_umbrella_damage_flash_timer = 0
+blacksmith_umbrella_last_hit_frame = -1000
 
 # === 스매셔 / 옵티머스 걷기 애니메이션 변수 ===
 smasher_walking_active = False
@@ -9251,12 +9252,13 @@ def reset_blacksmith_state() -> None:
     BLACKSMITH_CONTROLLER.reset()
     global blacksmith_hammer_swing_slow_timer
     global blacksmith_umbrella_gauge, blacksmith_umbrella_recharge_progress
-    global blacksmith_umbrella_damage_flash_timer
+    global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
     blacksmith_hammer_swing_slow_timer = 0
     stop_blacksmith_hammer_charge_sound()
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
     blacksmith_umbrella_damage_flash_timer = 0
+    blacksmith_umbrella_last_hit_frame = -1000
 
 
 def start_blacksmith_construction_sound():
@@ -17132,7 +17134,7 @@ def handle_player(keys):
     global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_umbrella_gauge, blacksmith_umbrella_recharge_progress
-    global blacksmith_umbrella_damage_flash_timer
+    global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
@@ -42185,6 +42187,7 @@ def reset_round():
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
     blacksmith_umbrella_damage_flash_timer = 0
+    blacksmith_umbrella_last_hit_frame = -1000
 
     stopwatch_active = False
     stopwatch_timer = 0
