@@ -51598,6 +51598,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_power_count, tutorial_displayed_power_count  # Chapter 4 카운터
     global tutorial_power_counter_active, tutorial_power_reminder_active, tutorial_power_reminder_timer  # Chapter 4 알림
     global blacksmith_down_hold_frames, blacksmith_build_menu_active, blacksmith_divine_stone_state
+    global blacksmith_divine_stage_owner
     # 스톱워치 복구 방향 보정 관련 전역
     global stopwatch_forced_upward, stopwatch_upward_lock_timer
     global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done  # Chapter 4 방향별 완료
@@ -51720,7 +51721,11 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_hammer_swing_slow_timer
     blacksmith_hammer_swing_slow_timer = 0
     blacksmith_manual_hammer_timer = 0
-    reset_blacksmith_state()
+    preserve_divine_runtime = blacksmith_divine_stage_owner == stage_num
+    reset_blacksmith_state(
+        preserve_divine=preserve_divine_runtime,
+        stage_num=stage_num,
+    )
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
