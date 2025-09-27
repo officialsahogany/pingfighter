@@ -41,6 +41,7 @@ SOUND_PATHS = {
     "CONSTRUCTION": "sounds/construction.wav",
     "BLACKSMITH_UMBRELLA_SWING": "sounds/swing.wav",
     "BLACKSMITH_UMBRELLA_BLOCK": "sounds/blocking.wav",
+    "BLACKSMITH_HAMMER_CHARGE": "sounds/hammercharge.wav",
     "BLACKSMITH_HAMMER_THROW": "sounds/hammertrhow.wav",
     "BLACKSMITH_HAMMER_EXPLOSION": "sounds/hammerbomb.wav",
     "STAGE6_BOSS_HIT": "sounds/stage6bosshit.wav",
