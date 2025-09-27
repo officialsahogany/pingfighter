@@ -20216,6 +20216,7 @@ def handle_player(keys):
                 not blacksmith_umbrella_retracting
                 and not blacksmith_umbrella_hit_lock
                 and frames_since_last_hit >= BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
+                and last_hit_by != "player"  # 플레이어가 마지막으로 친 공은 내구도 소모 제외
             ):
                 blacksmith_umbrella_last_hit_frame = frame_counter
                 blacksmith_umbrella_hit_lock = True
