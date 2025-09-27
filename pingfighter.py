@@ -6062,6 +6062,7 @@ def release_blacksmith_hammer_shock():
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_projectiles
     global blacksmith_hammer_available, blacksmith_hammer_shock_cooldown_timer
     global blacksmith_hammer_shock_anchor_x, blacksmith_hammer_shock_anchor_y
+    global blacksmith_hammer_shock_last_stage, blacksmith_hammer_shock_cooldown_total
     global special_gauge, special_ready, special_gauge_max
     global PLAYER, SOUND_GRENADE, SOUND_BLACKSMITH_HAMMER_THROW
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
@@ -6134,6 +6135,8 @@ def release_blacksmith_hammer_shock():
         stage, BLACKSMITH_HAMMER_SHOCK_NO_HAMMER_DURATION
     )
     blacksmith_hammer_shock_cooldown_timer = cooldown_frames
+    blacksmith_hammer_shock_last_stage = stage
+    blacksmith_hammer_shock_cooldown_total = cooldown_frames
 
     blacksmith_hammer_shock_charging = False
     blacksmith_hammer_shock_charge_frames = 0
@@ -9260,6 +9263,8 @@ blacksmith_hammer_last_update_ms = 0
 blacksmith_hammer_cooldown_remainder_ms = 0.0
 blacksmith_hammer_cooldown_debug_bucket = -1
 blacksmith_hammer_projectiles_paused = False
+blacksmith_hammer_shock_last_stage = 0
+blacksmith_hammer_shock_cooldown_total = 0
 stop_blacksmith_hammer_charge_sound()
 BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
 BLACKSMITH_PADDLE_NO_HAMMER_IMG = create_blacksmith_paddle_base(include_hammer=False)
@@ -9713,6 +9718,8 @@ blacksmith_hammer_shock_cooldown_timer = 0
 blacksmith_hammer_shock_projectiles = []
 blacksmith_hammer_shock_anchor_x = 0
 blacksmith_hammer_shock_anchor_y = 0
+blacksmith_hammer_shock_last_stage = 0
+blacksmith_hammer_shock_cooldown_total = 0
 stop_blacksmith_hammer_charge_sound()
 BLACKSMITH_HAMMER_SHOCK_STAGE1_FRAMES = int(1 * FPS)
 BLACKSMITH_HAMMER_SHOCK_STAGE2_FRAMES = int(2 * FPS)
