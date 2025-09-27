@@ -5415,6 +5415,7 @@ BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_RIGHT = -6
 BLACKSMITH_UMBRELLA_DOWNWARD_CAP = 32  # 플레이어 패들 방향으로 내려오는 우산 판정 최대 길이(픽셀)
 BLACKSMITH_UMBRELLA_TURN_MULTIPLIER = 0.000016  # 우산 가드 중 좌우 전환 속도 배율(현행 대비 ≥3배 추가 감속)
 BLACKSMITH_UMBRELLA_TURN_DELAY_FRAMES = 42  # 우산 가드 시 좌우 반전 입력 지연(60fps 기준 약 0.7초)
+BLACKSMITH_UMBRELLA_MOVE_MULTIPLIER = 0.42  # 기존 0.6배 감속에 추가 30% 감속 적용 (우산 활성 시 총 0.42배 속도)
 blacksmith_umbrella_turn_delay_timer: int = 0
 blacksmith_umbrella_turn_pending_dir: int = 0
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
@@ -17660,7 +17661,7 @@ def handle_player(keys):
         and not blacksmith_umbrella_retracting
     )
     if umbrella_guarding:
-        speed_factor *= 0.6
+        speed_factor *= BLACKSMITH_UMBRELLA_MOVE_MULTIPLIER
 
     def apply_umbrella_turn_penalty(current_value: float, target_value: float) -> float:
         """우산 가드 중에는 좌우 전환을 점진적으로 적용한다."""
