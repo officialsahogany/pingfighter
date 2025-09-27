@@ -3987,6 +3987,23 @@ def _draw_blacksmith_upper(
         ),
     )
 
+    if hammerless_walk_active:
+        swing = max(-1.0, min(1.0, walk_wave))
+        swing_forward = swing * 16.0
+        swing_vertical = swing * 10.0
+        right_shoulder = (
+            right_shoulder[0] + swing_forward * 0.35,
+            right_shoulder[1] - swing_vertical * 0.25,
+        )
+        right_elbow = (
+            right_elbow[0] + swing_forward * 0.72,
+            right_elbow[1] - swing_vertical * 0.55,
+        )
+        right_wrist = (
+            right_wrist[0] + swing_forward * 1.05,
+            right_wrist[1] - swing_vertical * 0.85,
+        )
+
     def _round_point(point: tuple[float, float]) -> tuple[int, int]:
         return (int(round(point[0])), int(round(point[1])))
 
@@ -26310,7 +26327,11 @@ def draw_objects():
             elif blacksmith_hammer_swing_active:
                 base_ufo_img = create_blacksmith_paddle_hammering()
             elif blacksmith_walking_active:
-                base_ufo_img = create_blacksmith_paddle_walking()
+                if blacksmith_hammer_available or blacksmith_hammer_shock_charging:
+                    base_ufo_img = create_blacksmith_paddle_walking()
+                else:
+                    base_ufo_img = create_blacksmith_paddle_walking(force_hammer=False)
+                    blacksmith_hammer_head_surface_point = None
             else:
                 if blacksmith_hammer_available or blacksmith_hammer_shock_charging:
                     base_ufo_img = BLACKSMITH_PADDLE_IMG
