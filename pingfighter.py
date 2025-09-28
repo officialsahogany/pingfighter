@@ -3801,6 +3801,19 @@ def _draw_blacksmith_upper(
     hammerless_walk_active = hammerless_walk or (not show_hammer and not umbrella_pose_active)
 
     hammer_amount = max(0.0, min(1.0, hammer_swing))
+    try:
+        manual_timer_active = blacksmith_manual_hammer_timer > 0
+    except NameError:
+        manual_timer_active = False
+    if manual_timer_active and hammer_amount > 0.0:
+        exponent = globals().get("BLACKSMITH_TURRET_MANUAL_SWING_EXPONENT", 1.0)
+        if exponent <= 0.0:
+            exponent = 1.0
+        if exponent != 1.0:
+            hammer_amount = math.pow(hammer_amount, exponent if exponent > 0 else 1.0)
+        offset = globals().get("BLACKSMITH_TURRET_MANUAL_SWING_OFFSET", 0.0)
+        if offset != 0.0:
+            hammer_amount = min(1.0, max(0.0, hammer_amount + offset))
     if umbrella_pose_active:
         hammer_amount = 0.0
     if not show_hammer:
@@ -7849,7 +7862,6 @@ def update_blacksmith_turret():
         if turret_state is not None and (
             not turret_runtime.active
             or turret_state.get("hp", 0) <= 0
-            or turret_state.get("pending_destruction")
         ):
             _finalize_blacksmith_turret_removal(turret_runtime)
             turret_state = None
