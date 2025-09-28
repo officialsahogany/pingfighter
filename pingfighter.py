@@ -10241,6 +10241,12 @@ def draw_blacksmith_turret_ui(surface):
         pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
         status_text = FontStyle.tiny().render("건설중", True, (210, 220, 240))
         xp_text = FontStyle.tiny().render(f"{int(ratio * 100)}%", True, (210, 220, 240))
+    elif turret_available:
+        pygame.draw.rect(surface, (75, 95, 130), bar_rect, 1, border_radius=3)
+        pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
+        pygame.draw.rect(surface, (75, 95, 130), xp_rect, 1, border_radius=3)
+        status_text = FontStyle.tiny().render("청사진 준비", True, (210, 220, 240))
+        xp_text = FontStyle.tiny().render("S 키로 건설 선택", True, (195, 210, 235))
 
     if status_text:
         status_rect = status_text.get_rect(center=bar_rect.center)
