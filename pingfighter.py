@@ -8289,6 +8289,15 @@ def update_blacksmith_turret():
             proj["y"] += proj["vy"]
             proj["life"] -= 1
 
+            if proj.get("overdrive"):
+                trail_timer = proj.get("trail_timer", 0) + 1
+                proj["trail_timer"] = trail_timer
+                if trail_timer % 2 == 0:
+                    try:
+                        effects_manager.spawn_flame_particles(proj["x"], proj["y"], count=2)
+                    except Exception:
+                        pass
+
             radius = int(proj.get("radius", BLACKSMITH_TURRET_PROJECTILE_RADIUS))
             grace_frames = proj.get("grace_frames", 0)
             if grace_frames > 0:
@@ -8902,6 +8911,7 @@ def draw_blacksmith_turret_elements(surface):
     for proj in projectiles:
         proj_pos = (int(proj["x"]), int(proj["y"]))
         radius = int(proj.get("radius", BLACKSMITH_TURRET_PROJECTILE_RADIUS))
+        overdrive_proj = proj.get("overdrive")
         if 'BLACKSMITH_MISSILE_IMG' in globals() and BLACKSMITH_MISSILE_IMG:
             velocity_angle = math.degrees(math.atan2(proj["vy"], proj["vx"])) - 180
             scale = max(0.6, radius / 12)
@@ -8909,8 +8919,25 @@ def draw_blacksmith_turret_elements(surface):
             missile_rect = missile_img.get_rect(center=proj_pos)
             surface.blit(missile_img, missile_rect.topleft)
         else:
-            pygame.draw.circle(surface, (240, 210, 120), proj_pos, radius)
-            pygame.draw.circle(surface, (110, 90, 60), proj_pos, int(radius * 1.5), 2)
+            base_color = (240, 210, 120)
+            edge_color = (110, 90, 60)
+            if overdrive_proj:
+                base_color = (255, 150, 80)
+                edge_color = (190, 70, 40)
+            pygame.draw.circle(surface, base_color, proj_pos, radius)
+            pygame.draw.circle(surface, edge_color, proj_pos, int(radius * 1.5), 2)
+
+        if overdrive_proj:
+            glow_size = max(12, radius * 4)
+            glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            glow_center = glow_size // 2
+            pygame.draw.circle(glow_surface, (255, 80, 48, 150), (glow_center, glow_center), glow_center)
+            pygame.draw.circle(glow_surface, (255, 180, 120, 160), (glow_center, glow_center), max(6, glow_center // 2))
+            surface.blit(
+                glow_surface,
+                (proj_pos[0] - glow_center, proj_pos[1] - glow_center),
+                special_flags=pygame.BLEND_ADD,
+            )
     draw_blacksmith_build_menu(surface)
 
 
