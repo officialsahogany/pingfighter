@@ -8082,12 +8082,8 @@ def update_blacksmith_turret():
             pass
 
     if turret_runtime.active and turret_state:
-        if turret_state.get("hp", 0) <= 0 and not turret_state.get("pending_destruction"):
-            countdown = max(1, BLACKSMITH_TURRET_PRE_EXPLOSION_DELAY)
+        if turret_state.get("hp", 0) <= 0:
             turret_state["hp"] = 0
-            turret_state["pending_destruction"] = True
-            turret_state["destroy_countdown"] = countdown
-            turret_state["destroy_fx_timer"] = 0
             turret_runtime.projectiles.clear()
             try:
                 effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=8)
@@ -8097,56 +8093,27 @@ def update_blacksmith_turret():
                     count=4,
                     spread=18,
                 )
+                effects_manager.create_impact_effect(
+                    turret_rect.centerx,
+                    turret_rect.centery,
+                    max(turret_rect.width, turret_rect.height) * 1.6,
+                    is_player=False,
+                )
+                effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.centery, count=14)
+                effects_manager.spawn_flame_particles(turret_rect.centerx, turret_rect.centery, count=10)
+                effects_manager.spawn_construction_smoke(
+                    turret_rect.centerx,
+                    turret_rect.top + int(turret_rect.height * 0.35),
+                    count=3,
+                    spread=20,
+                )
             except Exception:
                 pass
-            push_blacksmith_state()
-            return
-
-        if turret_state.get("pending_destruction"):
-            destroy_countdown = max(0, int(turret_state.get("destroy_countdown", 0)) - 1)
-            turret_state["destroy_countdown"] = destroy_countdown
-            turret_state["hp"] = 0
-            turret_runtime.projectiles.clear()
-            turret_state["fire_timer"] = max(0, turret_state.get("fire_timer", 0))
-
-            fx_timer = int(turret_state.get("destroy_fx_timer", 0)) - 1
-            if fx_timer <= 0:
-                fx_timer = BLACKSMITH_TURRET_PRE_EXPLOSION_FX_INTERVAL
-                try:
-                    effects_manager.spawn_star_particles(
-                        turret_rect.centerx,
-                        turret_rect.centery,
-                        count=6,
-                    )
-                    effects_manager.spawn_construction_smoke(
-                        turret_rect.centerx,
-                        turret_rect.top + int(turret_rect.height * 0.35),
-                        count=3,
-                        spread=20,
-                    )
-                except Exception:
-                    pass
-            turret_state["destroy_fx_timer"] = fx_timer
-
-            if destroy_countdown <= 0:
-                try:
-                    effects_manager.create_impact_effect(
-                        turret_rect.centerx,
-                        turret_rect.centery,
-                        max(turret_rect.width, turret_rect.height) * 1.6,
-                        is_player=False,
-                    )
-                    effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.centery, count=14)
-                    effects_manager.spawn_flame_particles(turret_rect.centerx, turret_rect.centery, count=10)
-                except Exception:
-                    pass
-                try:
-                    play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
-                except Exception:
-                    pass
-                _finalize_blacksmith_turret_removal(turret_runtime)
-                turret_state = None
-
+            try:
+                play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
+            except Exception:
+                pass
+            _finalize_blacksmith_turret_removal(turret_runtime)
             push_blacksmith_state()
             return
 
@@ -9875,6 +9842,8 @@ BLACKSMITH_TURRET_MANUAL_SWING_FRAMES = max(
     (BLACKSMITH_HAMMER_SWING_DURATION + BLACKSMITH_TURRET_MANUAL_SWING_SPEED - 1)
     // BLACKSMITH_TURRET_MANUAL_SWING_SPEED,
 )
+BLACKSMITH_TURRET_MANUAL_SWING_EXPONENT = 0.65
+BLACKSMITH_TURRET_MANUAL_SWING_OFFSET = 0.05
 blacksmith_hammer_swing_slow_timer = 0
 blacksmith_hammer_slow_decay_step = 0
 blacksmith_manual_hammer_timer = 0
