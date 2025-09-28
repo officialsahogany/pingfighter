@@ -9947,13 +9947,6 @@ def draw_blacksmith_turret_ui(surface):
     blacksmith_turret_blueprint_active = turret_runtime.blueprint_active
     blacksmith_turret_active = turret_runtime.active
     blacksmith_turret_build_progress = turret_runtime.build_progress
-    available_options = _blacksmith_get_buildable_options(state=state)
-    turret_available = (
-        turret_runtime.rebuild_ready
-        and ("turret" in available_options)
-        and not blacksmith_turret_blueprint_active
-        and not blacksmith_turret_active
-    )
     overheat_timer = 0
     overheat_active = False
     if blacksmith_turret_state:
@@ -9987,7 +9980,7 @@ def draw_blacksmith_turret_ui(surface):
     icon_y = HEIGHT - bottom_margin - slot_size - icon_size + 15
     icon_rect = pygame.Rect(icon_x, icon_y, icon_size, icon_size)
 
-    if not (blacksmith_turret_active or blacksmith_turret_blueprint_active or turret_available):
+    if not (blacksmith_turret_active or blacksmith_turret_blueprint_active):
         return
 
     panel_color = (52, 44, 38)
@@ -9998,11 +9991,7 @@ def draw_blacksmith_turret_ui(surface):
         border_color = (220, 90, 70)
         accent_color = (255, 150, 120)
 
-    has_turret_ui = (
-        blacksmith_turret_blueprint_active
-        or blacksmith_turret_active
-        or turret_available
-    )
+    has_turret_ui = blacksmith_turret_blueprint_active or blacksmith_turret_active
     if has_turret_ui:
         pygame.draw.rect(surface, panel_color, icon_rect, border_radius=6)
         pygame.draw.rect(surface, border_color, icon_rect, width=2, border_radius=6)
@@ -10197,26 +10186,6 @@ def draw_blacksmith_turret_ui(surface):
     pygame.draw.rect(surface, (94, 206, 255), muzzle_rect, border_radius=3)
     pygame.draw.rect(surface, (16, 36, 64), muzzle_rect, 2, border_radius=3)
 
-    if turret_available:
-        overlay = pygame.Surface(icon_rect.size, pygame.SRCALPHA)
-        overlay.fill((58, 102, 180, 110))
-        surface.blit(overlay, icon_rect.topleft)
-        pygame.draw.rect(surface, (150, 205, 255), icon_rect, 1, border_radius=6)
-        pygame.draw.line(
-            surface,
-            (118, 176, 240),
-            (icon_rect.left + 4, icon_rect.centery),
-            (icon_rect.right - 4, icon_rect.centery),
-            1,
-        )
-        pygame.draw.line(
-            surface,
-            (118, 176, 240),
-            (icon_rect.centerx, icon_rect.top + 4),
-            (icon_rect.centerx, icon_rect.bottom - 4),
-            1,
-        )
-
     title_font = FontStyle.tiny()
     if blacksmith_turret_active and blacksmith_turret_state:
         if overheat_active:
@@ -10232,8 +10201,6 @@ def draw_blacksmith_turret_ui(surface):
             title_label = "포탑"
     elif blacksmith_turret_blueprint_active:
         title_label = "포탑 건설중"
-    elif turret_available:
-        title_label = "포탑 청사진"
     else:
         title_label = "포탑"
     title_text = title_font.render(title_label, True, accent_color)
@@ -10302,12 +10269,6 @@ def draw_blacksmith_turret_ui(surface):
         pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
         status_text = FontStyle.tiny().render("건설중", True, (210, 220, 240))
         xp_text = FontStyle.tiny().render(f"{int(ratio * 100)}%", True, (210, 220, 240))
-    elif turret_available:
-        pygame.draw.rect(surface, (75, 95, 130), bar_rect, 1, border_radius=3)
-        pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
-        pygame.draw.rect(surface, (75, 95, 130), xp_rect, 1, border_radius=3)
-        status_text = FontStyle.tiny().render("청사진 준비", True, (210, 220, 240))
-        xp_text = FontStyle.tiny().render("S 키로 건설 선택", True, (195, 210, 235))
 
     if status_text:
         status_rect = status_text.get_rect(center=bar_rect.center)
