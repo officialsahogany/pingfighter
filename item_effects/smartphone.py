@@ -114,7 +114,7 @@ class Smartphone:
                         break
 
     def _has_blocking_structure(self, ball_x, ball_y, ball_vx, ball_vy, player_center_y, paddle_height):
-        """포탑/디바인스톤/벽돌이 공을 먼저 막는지 간단히 판단"""
+        """포탑/디바인스톤/벽돌이 공을 먼저 막는지 경로 시뮬레이션으로 판단"""
         if ball_vy <= 0:
             return False
 
@@ -141,81 +141,90 @@ class Smartphone:
 
         ball_rect = getattr(main_module, 'BALL', None)
         if ball_rect:
-            ball_radius = max(ball_rect.width, ball_rect.height) / 2
+            ball_width = max(ball_rect.width, 4)
+            ball_height = max(ball_rect.height, 4)
         else:
-            ball_radius = getattr(main_module, 'BALL_RADIUS', 10)
-        ball_radius = max(ball_radius, 1)
+            radius = getattr(main_module, 'BALL_RADIUS', 10)
+            size = max(int(radius * 2), 4)
+            ball_width = ball_height = size
 
-        def collect_defense_rects():
-            rects = []
+        structures = []
+        current_stage = getattr(main_module, 'current_stage', None)
 
-            for wall in getattr(main_module, 'walls', []) or []:
-                rect = wall.get('rect') if isinstance(wall, dict) else None
-                if not rect:
-                    continue
-                if wall.get('hit_count', 0) >= 2:
-                    continue
-                if rect.bottom <= ball_y or rect.top >= player_bottom:
-                    continue
-                rects.append(rect.copy())
+        for wall in getattr(main_module, 'walls', []) or []:
+            rect = wall.get('rect') if isinstance(wall, dict) else None
+            if not rect:
+                continue
+            if wall.get('hit_count', 0) >= 2:
+                continue
+            if rect.bottom <= ball_y or rect.top >= player_bottom:
+                continue
+            structures.append(rect.copy())
 
-            turret_state = getattr(main_module, 'blacksmith_turret_state', None)
-            if getattr(main_module, 'blacksmith_turret_active', False) and isinstance(turret_state, dict):
-                rect = turret_state.get('rect')
-                hp = turret_state.get('hp', 0)
-                if rect and (hp is None or hp > 0):
-                    if rect.bottom > ball_y and rect.top < player_bottom:
-                        rects.append(rect.copy())
+        turret_state = getattr(main_module, 'blacksmith_turret_state', None)
+        if getattr(main_module, 'blacksmith_turret_active', False) and isinstance(turret_state, dict):
+            rect = turret_state.get('rect')
+            hp = turret_state.get('hp', 0)
+            if rect and (hp is None or hp > 0):
+                if rect.bottom > ball_y and rect.top < player_bottom:
+                    structures.append(rect.copy())
 
-            divine_state = getattr(main_module, 'blacksmith_divine_stone_state', None)
+        divine_state = getattr(main_module, 'blacksmith_divine_stone_state', None)
+        is_divine_active = False
+        try:
+            active_fn = getattr(main_module, 'is_blacksmith_divine_stone_active', None)
+            if callable(active_fn):
+                is_divine_active = bool(active_fn())
+        except Exception:
             is_divine_active = False
-            try:
-                active_fn = getattr(main_module, 'is_blacksmith_divine_stone_active', None)
-                if callable(active_fn):
-                    is_divine_active = bool(active_fn())
-            except Exception:
-                is_divine_active = False
-            if not is_divine_active and isinstance(divine_state, dict):
-                is_divine_active = bool(divine_state)
-            if is_divine_active and isinstance(divine_state, dict):
-                rect = divine_state.get('rect')
-                hp = divine_state.get('hp', 0)
-                if rect and (hp is None or hp > 0):
-                    if rect.bottom > ball_y and rect.top < player_bottom:
-                        rects.append(rect.copy())
+        if not is_divine_active and isinstance(divine_state, dict):
+            is_divine_active = bool(divine_state.get('rect'))
+        if is_divine_active and isinstance(divine_state, dict):
+            rect = divine_state.get('rect')
+            hp = divine_state.get('hp', 0)
+            stage_owner = divine_state.get('stage_owner', getattr(main_module, 'blacksmith_divine_stage_owner', None))
+            if rect and (hp is None or hp > 0):
+                if rect.bottom > ball_y and rect.top < player_bottom:
+                    if stage_owner is None or current_stage is None or stage_owner == current_stage:
+                        structures.append(rect.copy())
 
-            return rects
-
-        defense_rects = collect_defense_rects()
-        if not defense_rects:
+        if not structures:
             return False
 
-        for guard_rect in defense_rects:
-            if guard_rect.top <= ball_y + ball_radius and guard_rect.bottom >= ball_y - ball_radius:
+        import pygame
+
+        ball_rect_now = pygame.Rect(0, 0, ball_width, ball_height)
+        ball_rect_now.center = (int(round(ball_x)), int(round(ball_y)))
+
+        inflated_structs = []
+        for rect in structures:
+            guard_rect = rect.inflate(6, 6)
+            inflated_structs.append(guard_rect)
+            if guard_rect.colliderect(ball_rect_now):
                 return True
 
-            if guard_rect.bottom <= ball_y:
-                continue
-            if guard_rect.top >= player_bottom:
-                continue
+        sim_x = float(ball_x)
+        sim_y = float(ball_y)
+        vx = float(ball_vx)
+        vy = ball_vy if ball_vy > 0 else 0.1
 
-            vertical_distance = guard_rect.top - (ball_y + ball_radius)
-            if vertical_distance <= 0:
-                return True
+        vertical_distance = max(0.0, player_top - sim_y)
+        if vertical_distance <= 0:
+            return False
 
-            vy = ball_vy if ball_vy > 0 else 0.1
-            time_to_guard = vertical_distance / vy
-            if time_to_guard < 0:
-                continue
+        max_frames = int(min(120, math.ceil(vertical_distance / max(vy, 0.1))))
+        max_frames = max(max_frames, 1)
 
-            predicted_x = ball_x + ball_vx * time_to_guard
-            margin = ball_radius + 6
-            if predicted_x + margin < guard_rect.left:
-                continue
-            if predicted_x - margin > guard_rect.right:
-                continue
-
-            return True
+        for _ in range(max_frames):
+            sim_x += vx
+            sim_y += vy
+            if sim_y >= player_top:
+                break
+            sim_rect = pygame.Rect(0, 0, ball_width, ball_height)
+            sim_rect.center = (int(round(sim_x)), int(round(sim_y)))
+            for guard_rect in inflated_structs:
+                if sim_rect.colliderect(guard_rect):
+                    return True
 
         return False
 
