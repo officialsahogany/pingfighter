@@ -9736,6 +9736,8 @@ BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES = BLACKSMITH_UMBRELLA_RECOVER_INTERV
 BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
 BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES = int(0.5 * FPS)  # 우산 충돌 후 0.5초 동안 추가 게이지 차감 방지
 BLACKSMITH_UMBRELLA_GAUGE_HIT_LOCK_FRAMES = int(0.35 * FPS)  # 게이지 1회 소모 후 추가 차감을 막는 보호 시간
+BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE = 70
+BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE = 100
 blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
 
 
@@ -9776,6 +9778,14 @@ def get_blacksmith_umbrella_recover_interval_frames() -> int:
     if is_blacksmith_divine_stone_active():
         return BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_DIVINE_FRAMES
     return BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES
+
+
+def get_blacksmith_umbrella_gauge_gain() -> int:
+    """현재 우산 패들 충돌 시 기본 게이지 획득량을 반환한다."""
+
+    if is_blacksmith_divine_stone_active():
+        return BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE
+    return BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE
 blacksmith_umbrella_recharge_progress = 0
 blacksmith_umbrella_damage_flash_timer = 0
 blacksmith_umbrella_last_hit_frame = -1000
@@ -21202,7 +21212,7 @@ def handle_player(keys):
                     base_gauge_gain = 50  # 코만도: 게이지 충전 50
                 elif selected_character_type == "blacksmith":
                     if blacksmith_umbrella_open:
-                        base_gauge_gain = 70  # 발토르 우산 활성: 게이지 충전 70
+                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 우산 활성: 기본 70, 디바인스톤 활성 시 100
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 else:
