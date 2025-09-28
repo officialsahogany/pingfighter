@@ -8248,8 +8248,7 @@ def update_blacksmith_turret():
                 play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
             except Exception:
                 pass
-            # 즉시 파괴하지 않고 타이머 설정
-            blacksmith_turret_destroy_timer = int(0.7 * FPS)  # 0.7초 = 42프레임
+            _finalize_blacksmith_turret_removal(turret_runtime)
             push_blacksmith_state()
             return
 
