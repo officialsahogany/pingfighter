@@ -24993,6 +24993,7 @@ def draw_overlay_ui():
 
     if selected_character_type == "blacksmith":
         draw_blacksmith_overdrive_overlay(SCREEN)
+        draw_blacksmith_overheat_overlay(SCREEN)
         draw_blacksmith_turret_ui(SCREEN)
         draw_blacksmith_divine_ui(SCREEN)
 def apply_white_glow(surface, intensity=60):
