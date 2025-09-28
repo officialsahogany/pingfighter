@@ -7995,6 +7995,67 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     namespace["blacksmith_turret_overdrive_ui_timer"] = 0
 
 
+def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdrive: bool = False) -> None:
+    """포탑에서 포탄을 발사하고 연출을 적용한다."""
+
+    turret_rect = turret_state.get("rect")
+    if turret_rect is None:
+        return
+
+    display_angle = turret_state.get("display_angle", -math.pi / 2)
+    direction = pygame.math.Vector2(math.cos(display_angle), math.sin(display_angle))
+    if direction.length() == 0:
+        direction = pygame.math.Vector2(0, -1)
+    else:
+        direction = direction.normalize()
+
+    scale_x = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
+    scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
+
+    recoil_frames = BLACKSMITH_TURRET_RECOIL_FRAMES
+    recoil_distance = BLACKSMITH_TURRET_RECOIL_DISTANCE * (turret_state.get("overdrive_recoil_boost", 1.0) if overdrive else 1.0)
+
+    turret_state["recoil_timer"] = int(recoil_frames * (1.2 if overdrive else 1.0))
+    turret_state["recoil_offset"] = recoil_distance * scale_x
+
+    pivot_point = pygame.math.Vector2(
+        turret_rect.centerx,
+        turret_rect.top + scale_y * BLACKSMITH_TURRET_HEAD_PIVOT_OFFSET,
+    )
+    pivot_point -= direction * turret_state.get("recoil_offset", 0.0)
+
+    muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
+    spawn_point = pivot_point + direction * (muzzle_distance + BLACKSMITH_TURRET_PROJECTILE_RADIUS + 2)
+
+    base_speed = BLACKSMITH_TURRET_MISSILE_SPEED
+    speed_multiplier = turret_state.get("overdrive_speed_boost", 1.0) if overdrive else 1.0
+    projectile_speed = base_speed * speed_multiplier
+
+    projectile = {
+        "x": float(spawn_point.x),
+        "y": float(spawn_point.y),
+        "vx": direction.x * projectile_speed,
+        "vy": direction.y * projectile_speed,
+        "speed": projectile_speed,
+        "life": BLACKSMITH_TURRET_MISSILE_LIFE,
+        "radius": BLACKSMITH_TURRET_PROJECTILE_RADIUS,
+        "grace_frames": 6,
+    }
+    turret_runtime.projectiles.append(projectile)
+
+    turret_state["fire_timer"] = turret_state.get("fire_interval", BLACKSMITH_TURRET_FIRE_INTERVAL)
+
+    try:
+        play_sound_with_volume(SOUND_THROW)
+    except Exception:
+        pass
+
+    if overdrive:
+        try:
+            effects_manager.spawn_flame_particles(spawn_point.x, spawn_point.y, count=10)
+        except Exception:
+            pass
+
 def update_blacksmith_turret():
     """발토르 포탑의 발사 및 투사체 동작을 업데이트한다."""
     global player_collision_handled, last_hit_by
