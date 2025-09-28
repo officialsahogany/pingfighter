@@ -9689,11 +9689,15 @@ def draw_blacksmith_turret_ui(surface):
     blacksmith_turret_build_progress = turret_runtime.build_progress
     overdrive_ui_timer = max(0, getattr(turret_runtime, "overdrive_ui_timer", 0))
     overdrive_active = bool(blacksmith_turret_state and blacksmith_turret_state.get("overdrive_active"))
+    overdrive_divine_active = bool(blacksmith_turret_state and blacksmith_turret_state.get("overdrive_divine_active"))
     overdrive_ui_pulse = 0.0
+    ui_divine_hint = bool(getattr(turret_runtime, "overdrive_ui_divine", False))
+    ui_divine = False
     if overdrive_active or overdrive_ui_timer > 0:
         duration = max(1, BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION)
         progress = 1.0 - min(1.0, overdrive_ui_timer / duration)
         overdrive_ui_pulse = 0.5 + 0.5 * math.sin(progress * math.pi * 4)
+        ui_divine = (overdrive_active and overdrive_divine_active) or (overdrive_ui_timer > 0 and ui_divine_hint)
 
     slot_size = 60
     slot_margin = 10
