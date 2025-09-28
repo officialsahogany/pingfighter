@@ -10483,7 +10483,6 @@ def blacksmith_start_divine_stone():
     divine.build_progress = 0
     divine.partial_drain = 0.0
     divine.blueprint_active = True
-    divine.rebuild_ready = False
     try:
         play_sound_with_volume(SOUND_ITEM_GET)
     except Exception:
@@ -10978,7 +10977,6 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
                 "blueprint_rect": preserved_blueprint_rect,
                 "build_progress": divine_runtime.build_progress,
                 "partial_drain": divine_runtime.partial_drain,
-                "rebuild_ready": divine_runtime.rebuild_ready,
                 "stage_owner": stage_owner,
             }
 
@@ -10994,7 +10992,6 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
         divine_runtime.blueprint_rect = preserved_divine["blueprint_rect"]
         divine_runtime.build_progress = preserved_divine["build_progress"]
         divine_runtime.partial_drain = preserved_divine["partial_drain"]
-        divine_runtime.rebuild_ready = preserved_divine.get("rebuild_ready", False)
         BLACKSMITH_CONTROLLER.apply_to_globals(
             attrs=(
                 "blacksmith_divine_stone_state",
