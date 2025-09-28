@@ -7982,6 +7982,8 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     turret_runtime.xp_partial_drain = 0.0
     turret_runtime.manual_cooldown = 0
     turret_runtime.overdrive_ui_timer = 0
+    turret_runtime.overdrive_ui_divine = False
+    turret_runtime.overdrive_ui_timer = 0
     stop_blacksmith_construction_sound()
 
     # 레거시 전역 상태도 즉시 정리해 유령 포탑이 남지 않도록 한다.
@@ -8549,7 +8551,7 @@ def update_blacksmith_turret():
 def trigger_blacksmith_turret_overdrive() -> bool:
     """포탑 오버드라이브(게이지 해방) 발동."""
 
-    global blacksmith_turret_state, blacksmith_turret_overdrive_ui_timer
+    global blacksmith_turret_state, blacksmith_turret_overdrive_ui_timer, blacksmith_turret_overdrive_ui_divine
 
     sync_blacksmith_state()
     if not blacksmith_turret_active or not blacksmith_turret_state:
@@ -8591,6 +8593,8 @@ def trigger_blacksmith_turret_overdrive() -> bool:
 
     turret_runtime.overdrive_ui_timer = BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION
     blacksmith_turret_overdrive_ui_timer = BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION
+    turret_runtime.overdrive_ui_divine = divine_active
+    blacksmith_turret_overdrive_ui_divine = divine_active
 
     try:
         if rect:
@@ -8603,7 +8607,10 @@ def trigger_blacksmith_turret_overdrive() -> bool:
     except Exception:
         pass
 
-    print("[DEBUG] Turret Overdrive unleashed!")
+    if divine_active:
+        print("[DEBUG] Turret Mega Drive engaged!")
+    else:
+        print("[DEBUG] Turret Overdrive unleashed!")
     push_blacksmith_state()
     return True
 
