@@ -8033,6 +8033,10 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
     speed_multiplier = turret_state.get("overdrive_speed_boost", 1.0) if overdrive else 1.0
     projectile_speed = base_speed * speed_multiplier
 
+    projectile_radius = BLACKSMITH_TURRET_PROJECTILE_RADIUS
+    if overdrive:
+        projectile_radius = int(round(BLACKSMITH_TURRET_PROJECTILE_RADIUS * 1.2))
+
     projectile = {
         "x": float(spawn_point.x),
         "y": float(spawn_point.y),
@@ -8040,8 +8044,10 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
         "vy": direction.y * projectile_speed,
         "speed": projectile_speed,
         "life": BLACKSMITH_TURRET_MISSILE_LIFE,
-        "radius": BLACKSMITH_TURRET_PROJECTILE_RADIUS,
+        "radius": projectile_radius,
         "grace_frames": 6,
+        "overdrive": overdrive,
+        "trail_timer": 0,
     }
     turret_runtime.projectiles.append(projectile)
 
