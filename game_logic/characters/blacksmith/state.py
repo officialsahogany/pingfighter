@@ -22,7 +22,6 @@ class BlacksmithTurretRuntime:
     overdrive_ui_divine: bool = False
     overheat_timer: int = 0
     overheat_smoke_timer: int = 0
-    rebuild_ready: bool = False
 
 
 @dataclass
@@ -34,7 +33,6 @@ class BlacksmithDivineRuntime:
     blueprint_rect: Any = None
     build_progress: int = 0
     partial_drain: float = 0.0
-    rebuild_ready: bool = False
 
 
 @dataclass
