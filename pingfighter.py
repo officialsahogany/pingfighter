@@ -9731,26 +9731,6 @@ def draw_blacksmith_divine_ui(surface):
     pygame.draw.rect(surface, panel_color, icon_rect, border_radius=6)
     pygame.draw.rect(surface, border_color, icon_rect, width=2, border_radius=6)
 
-    if divine_available:
-        blueprint_overlay = pygame.Surface(icon_rect.size, pygame.SRCALPHA)
-        blueprint_overlay.fill((60, 120, 200, 110))
-        surface.blit(blueprint_overlay, icon_rect.topleft)
-        pygame.draw.rect(surface, (150, 205, 255), icon_rect, 1, border_radius=6)
-        pygame.draw.line(
-            surface,
-            (120, 180, 240),
-            (icon_rect.left + 4, icon_rect.centery),
-            (icon_rect.right - 4, icon_rect.centery),
-            1,
-        )
-        pygame.draw.line(
-            surface,
-            (120, 180, 240),
-            (icon_rect.centerx, icon_rect.top + 4),
-            (icon_rect.centerx, icon_rect.bottom - 4),
-            1,
-        )
-
     time_ms = pygame.time.get_ticks()
     pulse_frequency = max(0.1, float(style.get("pulse_frequency", 1.0)))
     animation_phase = (time_ms / 1000.0) * pulse_frequency
@@ -9819,8 +9799,6 @@ def draw_blacksmith_divine_ui(surface):
         title_label = "디바인스톤 건설중"
     elif divine_state is not None:
         title_label = "디바인스톤"
-    elif divine_available:
-        title_label = "디바인스톤 청사진"
     else:
         title_label = "디바인스톤"
 
@@ -9957,14 +9935,6 @@ def draw_blacksmith_divine_ui(surface):
             )
             pygame.draw.circle(surface, (240, 90, 70), warning_center, warning_radius)
             pygame.draw.circle(surface, (255, 240, 220), warning_center, max(1, warning_radius // 2))
-    else:
-        pygame.draw.rect(surface, (35, 35, 45), bar_rect.inflate(4, 4), border_radius=3)
-        pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
-        status_text = tiny_font.render("청사진 준비", True, (210, 220, 240))
-        surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
-        hint_text = tiny_font.render("S 키로 건설", True, (195, 210, 235))
-        surface.blit(hint_text, hint_text.get_rect(midtop=(icon_rect.centerx, bar_rect.bottom + 6)))
-
 
 def draw_blacksmith_turret_ui(surface):
     if selected_character_type != "blacksmith":
