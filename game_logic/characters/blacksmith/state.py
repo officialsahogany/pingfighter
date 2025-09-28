@@ -20,6 +20,8 @@ class BlacksmithTurretRuntime:
     manual_cooldown: int = 0
     overdrive_ui_timer: int = 0
     overdrive_ui_divine: bool = False
+    overheat_timer: int = 0
+    overheat_smoke_timer: int = 0
 
 
 @dataclass
@@ -73,6 +75,8 @@ class BlacksmithState:
             "blacksmith_turret_manual_cooldown",
             "blacksmith_turret_overdrive_ui_timer",
             "blacksmith_turret_overdrive_ui_divine",
+            "blacksmith_turret_overheat_timer",
+            "blacksmith_turret_overheat_smoke_timer",
             "blacksmith_divine_stone_state",
             "blacksmith_divine_blueprint_active",
             "blacksmith_divine_blueprint_rect",
@@ -110,6 +114,10 @@ class BlacksmithState:
             setattr(namespace, "blacksmith_turret_overdrive_ui_timer", turret.overdrive_ui_timer)
         if "blacksmith_turret_overdrive_ui_divine" in selected:
             setattr(namespace, "blacksmith_turret_overdrive_ui_divine", turret.overdrive_ui_divine)
+        if "blacksmith_turret_overheat_timer" in selected:
+            setattr(namespace, "blacksmith_turret_overheat_timer", turret.overheat_timer)
+        if "blacksmith_turret_overheat_smoke_timer" in selected:
+            setattr(namespace, "blacksmith_turret_overheat_smoke_timer", turret.overheat_smoke_timer)
 
         if "blacksmith_divine_stone_state" in selected:
             setattr(namespace, "blacksmith_divine_stone_state", divine.state)
@@ -145,6 +153,8 @@ class BlacksmithState:
             "blacksmith_turret_manual_cooldown",
             "blacksmith_turret_overdrive_ui_timer",
             "blacksmith_turret_overdrive_ui_divine",
+            "blacksmith_turret_overheat_timer",
+            "blacksmith_turret_overheat_smoke_timer",
             "blacksmith_divine_stone_state",
             "blacksmith_divine_blueprint_active",
             "blacksmith_divine_blueprint_rect",
@@ -182,6 +192,10 @@ class BlacksmithState:
             turret.overdrive_ui_timer = int(getattr(namespace, "blacksmith_turret_overdrive_ui_timer", 0))
         if "blacksmith_turret_overdrive_ui_divine" in selected:
             turret.overdrive_ui_divine = bool(getattr(namespace, "blacksmith_turret_overdrive_ui_divine", False))
+        if "blacksmith_turret_overheat_timer" in selected:
+            turret.overheat_timer = int(getattr(namespace, "blacksmith_turret_overheat_timer", 0))
+        if "blacksmith_turret_overheat_smoke_timer" in selected:
+            turret.overheat_smoke_timer = int(getattr(namespace, "blacksmith_turret_overheat_smoke_timer", 0))
 
         if "blacksmith_divine_stone_state" in selected:
             divine.state = getattr(namespace, "blacksmith_divine_stone_state", None)
