@@ -19687,6 +19687,8 @@ def handle_player(keys):
                         if trident and trident.active:
                             # 대쉬가 완료되고 통제불능 상태에 진입할 때 현재 플레이어 위치 양쪽에 회오리 생성
                             trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, _rolling_get("rolling_direction"))
+                            if SOUND_POSEIDON_WAVE:
+                                play_sound_with_volume(SOUND_POSEIDON_WAVE)
                             poseidon_dash_pending = False  # 플래그 리셋
                 current_speed = 0
             else:
@@ -47028,6 +47030,8 @@ def handle_ball():
                             trident = legendary_manager.get_item("poseidon_trident")
                             if trident and trident.active:
                                 trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, dash_direction)
+                                if SOUND_POSEIDON_WAVE:
+                                    play_sound_with_volume(SOUND_POSEIDON_WAVE)
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
                     
