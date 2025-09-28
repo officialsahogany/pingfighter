@@ -8154,6 +8154,39 @@ def _emit_blacksmith_turret_overheat_smoke(turret_state) -> None:
         pass
 
 
+def _spawn_blacksmith_megadrive_shards(x: float, y: float, radius: float) -> None:
+    """메가드라이브 폭발 시 중입자 파편 이펙트."""
+
+    try:
+        for _ in range(12):
+            angle = random.uniform(0, math.tau)
+            speed = random.uniform(2.0, 5.0)
+            vx = math.cos(angle) * speed
+            vy = math.sin(angle) * speed
+            shard_surface = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.polygon(
+                shard_surface,
+                (120, 230, 255, 200),
+                [(4, 0), (7, 3), (4, 7), (1, 3)],
+            )
+            effects_manager.spawn_custom_particle(
+                shard_surface,
+                x + random.uniform(-radius, radius),
+                y + random.uniform(-radius, radius),
+                vx,
+                vy,
+                lifetime_frames=random.randint(int(0.25 * FPS), int(0.45 * FPS)),
+                rotation_speed=random.uniform(-0.2, 0.2),
+                gravity=-0.02,
+                fade_out=True,
+            )
+    except AttributeError:
+        try:
+            effects_manager.spawn_star_particles(x, y, count=10)
+        except Exception:
+            pass
+
+
 def _end_blacksmith_turret_overdrive(turret_state) -> None:
     """오버드라이브 종료 시 상태를 정리한다."""
 
