@@ -9903,7 +9903,8 @@ blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 BLACKSMITH_UMBRELLA_GAUGE_MAX = 5
 # 발토르 우산 기본 회복 주기를 7초로 단축해 방어-공격 전환을 조금 더 원활히 한다.
 BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES = int(7 * FPS)
-BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_DIVINE_FRAMES = int(5 * FPS)
+# 디바인스톤 활성 시 회복도 4초 주기로 줄여, 우산 운용 안정성을 높인다.
+BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_DIVINE_FRAMES = int(4 * FPS)
 # 레거시 호환을 위해 기본 쿨타임 값을 유지하지만, 실제 사용 시에는 헬퍼 함수를 거쳐 동적으로 계산한다.
 BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES = BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES
 BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
