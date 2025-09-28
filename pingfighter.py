@@ -30790,7 +30790,6 @@ def draw_objects():
                     for _ in range(10):
                         spark_x = PLAYER.x + random.randint(0, PLAYER.width)
                         spark_y = PLAYER.y + random.randint(0, PLAYER.height)
-                        effects_manager.spawn_star_particles(spark_x, spark_y, count=3)
                     # 한 프레임에 한 번만 사운드 재생
                     if not missile_hit_this_frame:
                         play_sound_with_volume(SOUND_MISSILE)  # 미사일 충돌 사운드 재생
