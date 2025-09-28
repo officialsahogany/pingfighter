@@ -9980,7 +9980,7 @@ def draw_blacksmith_turret_ui(surface):
     icon_y = HEIGHT - bottom_margin - slot_size - icon_size + 15
     icon_rect = pygame.Rect(icon_x, icon_y, icon_size, icon_size)
 
-    if not (blacksmith_turret_active or blacksmith_turret_blueprint_active):
+    if not blacksmith_turret_active or not blacksmith_turret_state:
         return
 
     panel_color = (52, 44, 38)
