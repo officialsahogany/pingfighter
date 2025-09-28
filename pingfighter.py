@@ -9842,7 +9842,7 @@ def draw_blacksmith_divine_ui(surface):
         surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
         level_text = tiny_font.render("건설중", True, (210, 220, 240))
         surface.blit(level_text, level_text.get_rect(midtop=(icon_rect.centerx, bar_rect.bottom + 6)))
-    else:
+    elif divine_state is not None:
         hp = divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
         max_hp = max(1, divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP))
         ratio = max(0.0, min(1.0, hp / max_hp))
@@ -9870,6 +9870,13 @@ def draw_blacksmith_divine_ui(surface):
             )
             pygame.draw.circle(surface, (240, 90, 70), warning_center, warning_radius)
             pygame.draw.circle(surface, (255, 240, 220), warning_center, max(1, warning_radius // 2))
+    else:
+        pygame.draw.rect(surface, (35, 35, 45), bar_rect.inflate(4, 4), border_radius=3)
+        pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
+        status_text = tiny_font.render("청사진 준비", True, (210, 220, 240))
+        surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
+        hint_text = tiny_font.render("S 키로 건설", True, (195, 210, 235))
+        surface.blit(hint_text, hint_text.get_rect(midtop=(icon_rect.centerx, bar_rect.bottom + 6)))
 
 
 def draw_blacksmith_turret_ui(surface):
