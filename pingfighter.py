@@ -5217,7 +5217,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     global is_waiting_for_serve, is_player_serve
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_trail_timer
-    global blacksmith_manual_hammer_timer
+    global blacksmith_manual_hammer_timer, blacksmith_manual_hammer_increment
     global blacksmith_hammer_swing_slow_timer, blacksmith_hammer_slow_decay_step
     global blacksmith_turret_partial_drain, blacksmith_turret_xp_partial_drain
     global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
@@ -9847,9 +9847,16 @@ blacksmith_hammer_swing_phase = 0
 BLACKSMITH_HAMMER_SWING_DURATION = 36
 BLACKSMITH_HAMMER_SWING_DECAY_NORMAL = 2
 BLACKSMITH_HAMMER_SWING_DECAY_SLOW = 1
+BLACKSMITH_TURRET_MANUAL_SWING_SPEED = 2
+BLACKSMITH_TURRET_MANUAL_SWING_FRAMES = max(
+    1,
+    (BLACKSMITH_HAMMER_SWING_DURATION + BLACKSMITH_TURRET_MANUAL_SWING_SPEED - 1)
+    // BLACKSMITH_TURRET_MANUAL_SWING_SPEED,
+)
 blacksmith_hammer_swing_slow_timer = 0
 blacksmith_hammer_slow_decay_step = 0
 blacksmith_manual_hammer_timer = 0
+blacksmith_manual_hammer_increment = 1
 blacksmith_hammer_swing_auto = False
 BLACKSMITH_TRAIL_DURATION = 45
 blacksmith_trail_timer = 0
@@ -53629,7 +53636,8 @@ def main(stage_num, new_boss_mode=False):
                             blacksmith_hammer_swing_active = True
                             blacksmith_hammer_swing_slow_timer = 0
                             blacksmith_hammer_swing_phase = 0
-                            blacksmith_manual_hammer_timer = BLACKSMITH_HAMMER_SWING_DURATION
+                            blacksmith_manual_hammer_increment = BLACKSMITH_TURRET_MANUAL_SWING_SPEED
+                            blacksmith_manual_hammer_timer = BLACKSMITH_TURRET_MANUAL_SWING_FRAMES
                             blacksmith_turret_manual_cooldown = BLACKSMITH_TURRET_MANUAL_COOLDOWN
                             blacksmith_turret_state["fire_timer"] = 1
                             space_just_pressed = False
