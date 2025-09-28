@@ -9932,7 +9932,11 @@ def draw_blacksmith_turret_ui(surface):
     border_color = (132, 110, 80)
     accent_color = (210, 170, 90)
 
-    has_turret_ui = blacksmith_turret_blueprint_active or blacksmith_turret_active
+    has_turret_ui = (
+        blacksmith_turret_blueprint_active
+        or blacksmith_turret_active
+        or turret_available
+    )
     if has_turret_ui:
         pygame.draw.rect(surface, panel_color, icon_rect, border_radius=6)
         pygame.draw.rect(surface, border_color, icon_rect, width=2, border_radius=6)
@@ -10126,6 +10130,26 @@ def draw_blacksmith_turret_ui(surface):
                                int(icon_rect.width * 0.1), int(icon_rect.height * 0.18))
     pygame.draw.rect(surface, (94, 206, 255), muzzle_rect, border_radius=3)
     pygame.draw.rect(surface, (16, 36, 64), muzzle_rect, 2, border_radius=3)
+
+    if turret_available:
+        overlay = pygame.Surface(icon_rect.size, pygame.SRCALPHA)
+        overlay.fill((58, 102, 180, 110))
+        surface.blit(overlay, icon_rect.topleft)
+        pygame.draw.rect(surface, (150, 205, 255), icon_rect, 1, border_radius=6)
+        pygame.draw.line(
+            surface,
+            (118, 176, 240),
+            (icon_rect.left + 4, icon_rect.centery),
+            (icon_rect.right - 4, icon_rect.centery),
+            1,
+        )
+        pygame.draw.line(
+            surface,
+            (118, 176, 240),
+            (icon_rect.centerx, icon_rect.top + 4),
+            (icon_rect.centerx, icon_rect.bottom - 4),
+            1,
+        )
 
     title_font = FontStyle.tiny()
     if blacksmith_turret_active and blacksmith_turret_state:
