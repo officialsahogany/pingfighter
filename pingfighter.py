@@ -5529,11 +5529,16 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 blacksmith_hammer_swing_phase = 0
             blacksmith_hammer_swing_active = True
             if BLACKSMITH_HAMMER_SWING_DURATION > 0:
+                increment = blacksmith_manual_hammer_increment
+                if increment <= 0:
+                    increment = 1
                 blacksmith_hammer_swing_phase = min(
                     BLACKSMITH_HAMMER_SWING_DURATION,
-                    blacksmith_hammer_swing_phase + 1,
+                    blacksmith_hammer_swing_phase + increment,
                 )
-        blacksmith_manual_hammer_timer -= 1
+        blacksmith_manual_hammer_timer = max(0, blacksmith_manual_hammer_timer - 1)
+        if blacksmith_manual_hammer_timer == 0:
+            blacksmith_manual_hammer_increment = 1
         hammer_engaged_this_frame = True
 
     if not hammer_engaged_this_frame and blacksmith_hammer_swing_active:
