@@ -103,7 +103,6 @@ def load_item_icons():
         "fuel_pouch": "fuel_pouch.png",  # 연료파우치 아이콘
         "bluetooth_ring": "bluetooth_ring.png",  # 블루투스링 아이콘
         "foul_whistle": "foul_whistle.png",  # 반칙호루라기 아이콘
-        "star_detector": "star_detector.png",  # 별탐지기 아이콘
         "smartphone": "smartphone.png",  # 스마트폰 아이콘
         "bazooka": "bazooka.png",  # 바주카포 아이콘
         "ammo_box": "ammo_box.png",  # 탄약상자 아이콘
@@ -437,7 +436,7 @@ ITEM_TYPES = [
         "color": (180, 100, 40),  # 갈색 (가죽 파우치 색상)
         "effect": "fuel_pouch",
         "icon": None,
-        "chance": 0.005,  # 확률 99.9% (테스트용)
+        "chance": 0.005,  # 
         "duration": 600,
         "unlock_condition": None
     },
@@ -447,15 +446,6 @@ ITEM_TYPES = [
         "effect": "bluetooth_ring",
         "icon": None,
         "chance": 0.03,  # 확률 1%
-        "duration": 600,
-        "unlock_condition": None
-    },
-    {
-        "name": "star_detector",  # 별탐지기 패시브 아이템
-        "color": (80, 200, 220),  # 청록빛 탐지기 색상
-        "effect": "star_detector",
-        "icon": None,
-        "chance": 0.015,  # 확률 1.5%
         "duration": 600,
         "unlock_condition": None
     },
@@ -550,7 +540,6 @@ chargebag_obtained = False  # 충전가방 아이템 획득 여부
 fuel_pouch_obtained = False  # 연료파우치 아이템 획득 여부
 bluetooth_ring_obtained = False  # 블루투스링 아이템 획득 여부
 foul_whistle_obtained = False  # 반칙호루라기 아이템 획득 여부
-star_detector_obtained = False  # 별탐지기 아이템 획득 여부
 spikeboots_obtained = False  # 스파이크부츠 아이템 획득 여부
 dashgear_obtained = False  # 대쉬기어 아이템 획득 여부
 bulkup_obtained = False  # 벌크업 아이템 획득 여부
@@ -609,7 +598,6 @@ unlocked_items = {
     "fuel_pouch": True,
     "bluetooth_ring": True,
     "foul_whistle": True,
-    "star_detector": True,
     "smartphone": True,
     "ammo_box": True,
     "doping_potion": True,
@@ -649,7 +637,7 @@ def reset_items():
     
     global slot_add_obtained, speedboots_obtained, speedgear_obtained, battery_obtained
     global revival_obtained, revival_used, master_obtained, cooltime_obtained
-    global chargebag_obtained, fuel_pouch_obtained, bluetooth_ring_obtained, foul_whistle_obtained, star_detector_obtained
+    global chargebag_obtained, fuel_pouch_obtained, bluetooth_ring_obtained, foul_whistle_obtained
     global spikeboots_obtained, dashgear_obtained
     
     slot_add_obtained = 0  # slot_add 획득 카운트 초기화
@@ -665,7 +653,6 @@ def reset_items():
     fuel_pouch_obtained = False  # fuel_pouch 획득 상태 초기화
     bluetooth_ring_obtained = False  # bluetooth_ring 획득 상태 초기화
     foul_whistle_obtained = False  # foul_whistle 획득 상태 초기화
-    star_detector_obtained = False  # star_detector 획득 상태 초기화
     spikeboots_obtained = False  # spikeboots 획득 상태 초기화
     dashgear_obtained = False  # dashgear 획득 상태 초기화
     
@@ -687,13 +674,6 @@ def reset_items():
         from item_effects.foul_whistle import get_foul_whistle_instance
 
         get_foul_whistle_instance().deactivate()
-    except Exception:
-        pass
-
-    try:
-        from item_effects.star_detector import deactivate_star_detector
-
-        deactivate_star_detector()
     except Exception:
         pass
 
@@ -803,10 +783,6 @@ def spawn_random_item():
 
         # foul_whistle 아이템은 한 번 획득하면 더 이상 스폰 안함
         if item["name"] == "foul_whistle" and foul_whistle_obtained:
-            continue
-
-        # star_detector 아이템은 한 번 획득하면 더 이상 스폰 안함
-        if item["name"] == "star_detector" and star_detector_obtained:
             continue
 
         # knee_pads 아이템은 한 번 획득하면 더 이상 스폰 안함
@@ -984,7 +960,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             item_name = item["type"]["name"]
             print(f"🔍 DEBUG: 아이템 획득 감지: {item_name}")
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
                 # 패시브 아이템 처리
                 print(f"🔍 DEBUG: {item_name}을(를) 패시브 아이템으로 처리 중...")
                 if store_passive_func:
