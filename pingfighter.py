@@ -5552,6 +5552,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_divine_stone_state = {
                             "rect": stone_rect,
                             "hp": BLACKSMITH_DIVINE_STONE_MAX_HP,
+                            "max_hp": BLACKSMITH_DIVINE_STONE_MAX_HP,
                             "pulse": 0,
                             "cooldown": 0,
                         }
@@ -10825,7 +10826,7 @@ BLACKSMITH_BUILD_MENU_HOLD_FRAMES = int(0.5 * FPS)
 BLACKSMITH_BUILD_OPTIONS = ("turret", "divine_stone")
 BLACKSMITH_BUILD_ICON_SIZE = (42, 42)
 BLACKSMITH_DIVINE_STONE_SIZE = (64, 56)
-BLACKSMITH_DIVINE_STONE_MAX_HP = 4
+BLACKSMITH_DIVINE_STONE_MAX_HP = 3
 BLACKSMITH_DIVINE_BUILD_TIME = 240  # 240 게이지 = 5.33초 (게이지 소모 45pt/s)
 BLACKSMITH_DIVINE_GAUGE_DRAIN_PER_SEC = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC
 BLACKSMITH_DIVINE_BUILD_RADIUS = BLACKSMITH_TURRET_BUILD_RADIUS
