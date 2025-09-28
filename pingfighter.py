@@ -9496,6 +9496,13 @@ def draw_blacksmith_turret_ui(surface):
     blacksmith_turret_blueprint_active = turret_runtime.blueprint_active
     blacksmith_turret_active = turret_runtime.active
     blacksmith_turret_build_progress = turret_runtime.build_progress
+    overdrive_ui_timer = max(0, getattr(turret_runtime, "overdrive_ui_timer", 0))
+    overdrive_active = bool(blacksmith_turret_state and blacksmith_turret_state.get("overdrive_active"))
+    overdrive_ui_pulse = 0.0
+    if overdrive_active or overdrive_ui_timer > 0:
+        duration = max(1, BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION)
+        progress = 1.0 - min(1.0, overdrive_ui_timer / duration)
+        overdrive_ui_pulse = 0.5 + 0.5 * math.sin(progress * math.pi * 4)
 
     slot_size = 60
     slot_margin = 10
@@ -9571,6 +9578,12 @@ def draw_blacksmith_turret_ui(surface):
                                     int(icon_rect.width * 0.68), int(icon_rect.height * 0.18))
         pygame.draw.rect(surface, (212, 64, 68), shoulder_rect, border_radius=6)
         pygame.draw.rect(surface, (245, 199, 88), shoulder_rect.inflate(-int(icon_rect.width * 0.26), -int(icon_rect.height * 0.12)), border_radius=4)
+
+        if overdrive_active or overdrive_ui_timer > 0:
+            icon_glow = pygame.Surface(icon_rect.size, pygame.SRCALPHA)
+            glow_alpha = int(60 + 90 * overdrive_ui_pulse)
+            pygame.draw.rect(icon_glow, (255, 90, 60, glow_alpha), icon_glow.get_rect(), border_radius=6)
+            surface.blit(icon_glow, icon_rect.topleft, special_flags=pygame.BLEND_ADD)
 
         cannon_left = [
             (icon_rect.centerx - icon_rect.width * 0.5, icon_rect.y + icon_rect.height * 0.42),
