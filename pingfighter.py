@@ -7846,6 +7846,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
     """
 
     global ball_vel, game_vars, last_hit_by
+    global blacksmith_divine_destroy_timer
 
     if divine_runtime is None:
         if auto_sync:
