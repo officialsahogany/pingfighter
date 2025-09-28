@@ -8169,6 +8169,8 @@ def update_blacksmith_turret():
         if turret_state.get("hp", 0) <= 0:
             turret_state["hp"] = 0
             turret_runtime.projectiles.clear()
+            # 포탑을 즉시 비활성화하여 더 이상 업데이트되지 않도록 함
+            turret_runtime.active = False
             try:
                 effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=8)
                 effects_manager.spawn_construction_smoke(
