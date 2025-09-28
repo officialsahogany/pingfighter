@@ -9746,8 +9746,6 @@ def blacksmith_has_available_buildings() -> bool:
 
     sync_blacksmith_state()
     state = BLACKSMITH_CONTROLLER.state
-    if state.turret.blueprint_active or state.divine.blueprint_active:
-        return False
 
     return bool(_blacksmith_get_buildable_options(state=state))
 
@@ -53883,6 +53881,8 @@ def main(stage_num, new_boss_mode=False):
             current_down_state = keys[pygame.K_DOWN]
             down_just_pressed = current_down_state and not last_down_state
             if selected_character_type == "blacksmith":
+                can_open_build_menu = blacksmith_has_available_buildings()
+
                 if current_down_state:
                     if blacksmith_umbrella_open and not blacksmith_umbrella_retracting:
                         blacksmith_down_hold_frames = 0
@@ -53899,14 +53899,30 @@ def main(stage_num, new_boss_mode=False):
                             blacksmith_down_hold_frames = 0
                         else:
                             blacksmith_down_hold_frames += 1
-                    elif not blacksmith_turret_blueprint_active:
-                        blacksmith_down_hold_frames += 1
+                    elif can_open_build_menu:
+                        engaged_with_active_blueprint = False
                         if (
-                            blacksmith_down_hold_frames >= BLACKSMITH_BUILD_MENU_HOLD_FRAMES
-                            and blacksmith_has_available_buildings()
+                            blacksmith_turret_blueprint_active
+                            and blacksmith_turret_blueprint_rect
+                            and abs(PLAYER.centerx - blacksmith_turret_blueprint_rect.centerx)
+                            <= BLACKSMITH_TURRET_BUILD_RADIUS
                         ):
-                            blacksmith_open_build_menu()
-                            down_just_pressed = False
+                            engaged_with_active_blueprint = True
+                        if (
+                            not engaged_with_active_blueprint
+                            and blacksmith_divine_blueprint_active
+                            and blacksmith_divine_blueprint_rect
+                            and abs(PLAYER.centerx - blacksmith_divine_blueprint_rect.centerx)
+                            <= BLACKSMITH_DIVINE_BUILD_RADIUS
+                        ):
+                            engaged_with_active_blueprint = True
+                        if engaged_with_active_blueprint:
+                            blacksmith_down_hold_frames = 0
+                        else:
+                            blacksmith_down_hold_frames += 1
+                            if blacksmith_down_hold_frames >= BLACKSMITH_BUILD_MENU_HOLD_FRAMES:
+                                blacksmith_open_build_menu()
+                                down_just_pressed = False
                     else:
                         blacksmith_down_hold_frames = 0
                 else:
@@ -53916,7 +53932,7 @@ def main(stage_num, new_boss_mode=False):
                 if (
                     not blacksmith_build_menu_active
                     and blacksmith_down_hold_frames >= BLACKSMITH_BUILD_MENU_HOLD_FRAMES
-                    and blacksmith_has_available_buildings()
+                    and can_open_build_menu
                 ):
                     blacksmith_open_build_menu()
                     down_just_pressed = False
