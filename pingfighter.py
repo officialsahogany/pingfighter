@@ -7887,6 +7887,9 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
 
     global ball_vel, game_vars, last_hit_by
     global blacksmith_divine_destroy_timer, blacksmith_divine_stage_owner
+    global blacksmith_divine_stone_state
+    global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
+    global blacksmith_divine_build_progress, blacksmith_divine_partial_drain
 
     if divine_runtime is None:
         if auto_sync:
@@ -7943,6 +7946,12 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                     divine_runtime.blueprint_rect = None
                     divine_runtime.build_progress = 0
                     divine_runtime.partial_drain = 0.0
+                    # 포탑 없이도 레거시 전역 상태가 남지 않도록 즉시 동기화한다.
+                    blacksmith_divine_stone_state = None
+                    blacksmith_divine_blueprint_active = False
+                    blacksmith_divine_blueprint_rect = None
+                    blacksmith_divine_build_progress = 0
+                    blacksmith_divine_partial_drain = 0.0
                     state_changed = True
 
     if state_changed and auto_push:
