@@ -7895,7 +7895,6 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 if divine_state["hp"] <= 0:
                     effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
                     # 즉시 파괴하지 않고 타이머 설정
-                    global blacksmith_divine_destroy_timer
                     blacksmith_divine_destroy_timer = int(0.7 * FPS)  # 0.7초 = 42프레임
                     state_changed = True
 
@@ -8244,7 +8243,6 @@ def update_blacksmith_turret():
             except Exception:
                 pass
             # 즉시 파괴하지 않고 타이머 설정
-            global blacksmith_turret_destroy_timer
             blacksmith_turret_destroy_timer = int(0.7 * FPS)  # 0.7초 = 42프레임
             push_blacksmith_state()
             return
