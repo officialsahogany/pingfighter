@@ -53815,7 +53815,7 @@ def main(stage_num, new_boss_mode=False):
                     and blacksmith_hammer_available
                     and not blacksmith_hammer_shock_charging
                     and blacksmith_hammer_shock_cooldown_timer <= 0
-                    and special_gauge >= BLACKSMITH_HAMMER_SHOCK_COST
+                    and special_gauge >= BLACKSMITH_HAMMER_SHOCK_MIN_STAGE_COST
                     and blacksmith_divine_stone_state is not None
                 )
                 if manual_candidate:
