@@ -9912,8 +9912,8 @@ blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 BLACKSMITH_UMBRELLA_GAUGE_MAX = 5
 # 발토르 우산 기본 회복 주기를 7초로 단축해 방어-공격 전환을 조금 더 원활히 한다.
 BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES = int(7 * FPS)
-# 디바인스톤 활성 시 회복도 4초 주기로 줄여, 우산 운용 안정성을 높인다.
-BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_DIVINE_FRAMES = int(4 * FPS)
+# 디바인스톤 활성 시 회복 주기는 5초로 유지해 기본 대비 2초 빠르게 회복한다.
+BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_DIVINE_FRAMES = int(5 * FPS)
 # 레거시 호환을 위해 기본 쿨타임 값을 유지하지만, 실제 사용 시에는 헬퍼 함수를 거쳐 동적으로 계산한다.
 BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES = BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES
 BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
@@ -31712,6 +31712,14 @@ def show_victory_screen(stage_cleared, reward):
                 button_text = font_button.render(text, True, (80, 80, 90))
                 text_rect = button_text.get_rect(center=rect.center)
                 SCREEN.blit(button_text, text_rect)
+
+        if animation_complete:
+            remaining_rerolls = max(0, GACHA_REROLL_LIMIT_PER_STAGE - gacha_reroll_streak)
+            remaining_color = (170, 220, 255) if remaining_rerolls > 0 else (255, 150, 150)
+            remaining_text = f"(남은 횟수 {remaining_rerolls}회)"
+            remaining_surface = font_info.render(remaining_text, True, remaining_color)
+            remaining_rect = remaining_surface.get_rect(center=(reroll_rect.centerx, reroll_rect.bottom + 18))
+            SCREEN.blit(remaining_surface, remaining_rect)
 
         if reroll_warning_timer > 0:
             warning_color = (255, 120, 120) if "부족" in reroll_warning_text else (200, 240, 255)
