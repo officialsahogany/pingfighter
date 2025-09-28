@@ -25963,29 +25963,29 @@ def draw_player_gauge():
     gauge_text_size = gauge_text_surface.get_size()
     doping_active = doping_potion_active and doping_potion_timer > 0
     if doping_active:
-        gauge_x = WIDTH - 110
-        gauge_y = HEIGHT - 200
-        gauge_width = 14
-        gauge_height = 100
+        doping_gauge_x = player_gauge_x - 70
+        doping_gauge_y = player_gauge_y
+        doping_gauge_width = player_gauge_width
+        doping_gauge_height = player_gauge_height
         remaining_ratio = doping_potion_timer / max(1, DOPING_POTION_DURATION_FRAMES)
 
-        frame_outer = pygame.Rect(gauge_x - 4, gauge_y - 6, gauge_width + 8, gauge_height + 12)
+        frame_outer = pygame.Rect(doping_gauge_x - 4, doping_gauge_y - 6, doping_gauge_width + 8, doping_gauge_height + 12)
         draw.rect((30, 45, 35), frame_outer, border_radius=5)
         draw.rect((90, 140, 100), frame_outer, 2, border_radius=5)
 
-        inner_rect = pygame.Rect(gauge_x, gauge_y, gauge_width, gauge_height)
+        inner_rect = pygame.Rect(doping_gauge_x, doping_gauge_y, doping_gauge_width, doping_gauge_height)
         draw.rect((18, 26, 20), inner_rect)
 
-        fill_height = int((gauge_height - 4) * remaining_ratio)
+        fill_height = int((doping_gauge_height - 4) * remaining_ratio)
         if fill_height > 0:
-            fill_y = gauge_y + gauge_height - fill_height - 2
+            fill_y = doping_gauge_y + doping_gauge_height - fill_height - 2
             base_color = (80, 210, 140)
             highlight_color = (140, 255, 190)
             for layer in range(3):
-                layer_width = gauge_width - 4 - layer * 2
+                layer_width = doping_gauge_width - 4 - layer * 2
                 if layer_width <= 0:
                     continue
-                layer_rect = pygame.Rect(gauge_x + 2 + layer, fill_y, layer_width, fill_height)
+                layer_rect = pygame.Rect(doping_gauge_x + 2 + layer, fill_y, layer_width, fill_height)
                 layer_color = (
                     min(255, base_color[0] + layer * 25),
                     min(255, base_color[1] + layer * 25),
@@ -25999,12 +25999,12 @@ def draw_player_gauge():
                 int(highlight_color[1] * (0.6 + 0.4 * pulse)),
                 int(highlight_color[2] * (0.6 + 0.4 * pulse))
             )
-            draw.rect(glow_color, (gauge_x + 2, fill_y, gauge_width - 4, 3))
+            draw.rect(glow_color, (doping_gauge_x + 2, fill_y, doping_gauge_width - 4, 3))
 
         icon = get_item_icon("doping_potion")
         if icon:
             icon_rect = icon.get_rect()
-            icon_rect.center = (gauge_x + gauge_width // 2, gauge_y - 22)
+            icon_rect.center = (doping_gauge_x + doping_gauge_width // 2, doping_gauge_y - 22)
             pulse = abs(math.sin(pygame.time.get_ticks() * 0.01))
             glow_alpha = int(120 + 80 * pulse)
             glow_surface = pygame.Surface((36, 36), pygame.SRCALPHA)
@@ -26012,11 +26012,11 @@ def draw_player_gauge():
             SCREEN.blit(glow_surface, (icon_rect.centerx - 18, icon_rect.centery - 18))
             SCREEN.blit(icon, icon_rect)
         label_surface = FontStyle.tiny().render("HEAD/LEG x2", True, (190, 255, 210))
-        label_rect = label_surface.get_rect(center=(gauge_x + gauge_width // 2, gauge_y - 40))
+        label_rect = label_surface.get_rect(center=(doping_gauge_x + doping_gauge_width // 2, doping_gauge_y - 40))
         SCREEN.blit(label_surface, label_rect)
         remaining_seconds = doping_potion_timer / 60.0
         timer_text = FontStyle.gauge().render(f"{remaining_seconds:0.1f}s", True, (180, 255, 210))
-        timer_rect = timer_text.get_rect(center=(gauge_x + gauge_width // 2, gauge_y + gauge_height + 10))
+        timer_rect = timer_text.get_rect(center=(doping_gauge_x + doping_gauge_width // 2, doping_gauge_y + doping_gauge_height + 10))
         SCREEN.blit(timer_text, timer_rect)
 
     if soldier_weapon_menu_active and selected_character_type == "soldier" and soldier_controller.weapons:
@@ -26328,10 +26328,8 @@ def draw_player_gauge():
     amplification_bonus = academy.get_skill_bonus("dash_amplification")
     max_tokens = int(base_charges + holder_bonus + amplification_bonus)
     # 토큰 표시 시작 위치 (플레이어 게이지바 중앙 하단에 항상 고정)
-    player_gauge_x = WIDTH - 40  # 플레이어 게이지바 X 위치
-    player_gauge_width = 14  # 플레이어 게이지바 폭
     token_start_x = player_gauge_x + player_gauge_width // 2 - (max_tokens * token_spacing) // 2 + token_spacing // 2
-    token_y = gauge_y + gauge_height + 15  # 게이지바 아래 15픽셀
+    token_y = player_gauge_y + player_gauge_height + 15  # 게이지바 아래 15픽셀
     tokens_bottom = token_y + token_radius
     
     # 토큰 추가 강조 효과 확인
@@ -26930,7 +26928,7 @@ def draw_player_gauge():
         umbrella_panel_bottom = panel_rect.bottom
     
     gauge_text_width, gauge_text_height = gauge_text_size
-    gauge_text_x = gauge_x + gauge_width // 2 - gauge_text_width // 2
+    gauge_text_x = player_gauge_x + player_gauge_width // 2 - gauge_text_width // 2
     text_base_bottom = max(tokens_bottom, umbrella_panel_bottom)
     gauge_text_y = int(text_base_bottom + 10)
     text_bg_rect = pygame.Rect(gauge_text_x - 2, gauge_text_y - 1, gauge_text_width + 4, gauge_text_height + 2)
