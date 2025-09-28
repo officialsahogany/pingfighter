@@ -8188,8 +8188,62 @@ def _spawn_blacksmith_megadrive_shards(x: float, y: float, radius: float) -> Non
     except AttributeError:
         try:
             effects_manager.spawn_star_particles(x, y, count=10)
-        except Exception:
-            pass
+    except Exception:
+        pass
+
+
+def draw_blacksmith_overheat_overlay(surface: pygame.Surface) -> None:
+    """과부하 상태용 화면 오버레이/중앙 경고 출력."""
+
+    if selected_character_type != "blacksmith":
+        return
+
+    sync_blacksmith_state()
+    turret_state = BLACKSMITH_CONTROLLER.state.turret.state
+    overheat_timer = 0
+    if turret_state:
+        overheat_timer = max(0, int(turret_state.get("overheat_timer", 0)))
+
+    if overheat_timer <= 0:
+        return
+
+    duration = max(1, BLACKSMITH_TURRET_OVERHEAT_DURATION)
+    frame_value = float(globals().get("frame_counter", 0))
+    pulse = 0.5 + 0.5 * math.sin(frame_value * 0.25)
+    intensity = 0.45 + 0.55 * pulse
+
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    tint_alpha = int(70 + 110 * intensity)
+    overlay.fill((255, 90, 60, tint_alpha))
+    surface.blit(overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+    vignette = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    for idx in range(6):
+        radius = max(WIDTH, HEIGHT) - idx * 140
+        if radius <= 0:
+            continue
+        pygame.draw.circle(
+            vignette,
+            (255, 120, 100, int(40 + 60 * intensity) - idx * 5),
+            (WIDTH // 2, HEIGHT // 2),
+            radius,
+            width=10,
+        )
+    surface.blit(vignette, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+    remaining_seconds = overheat_timer / FPS if FPS else overheat_timer
+    title_font = FontStyle.large()
+    timer_font = FontStyle.medium()
+    info_font = FontStyle.tiny()
+
+    title_label = title_font.render("과부하", True, (255, 235, 225))
+    surface.blit(title_label, title_label.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 28)))
+
+    timer_label = timer_font.render(f"복구 {remaining_seconds:4.1f}s", True, (255, 210, 195))
+    surface.blit(timer_label, timer_label.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 12)))
+
+    info_label = info_font.render("게이지 충전 및 포탄 발사 불가", True, (255, 190, 175))
+    surface.blit(info_label, info_label.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 36)))
 
 
 def _end_blacksmith_turret_overdrive(turret_state) -> None:
