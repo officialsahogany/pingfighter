@@ -8410,12 +8410,18 @@ def update_blacksmith_turret():
             if fire_window > 0 and turret_state.get("overdrive_shots_remaining", 0) > 0:
                 frames_left = fire_window
                 shots_left = max(1, turret_state["overdrive_shots_remaining"])
-                interval = BLACKSMITH_TURRET_OVERDRIVE_BASE_INTERVAL
+                base_interval_frames = BLACKSMITH_TURRET_OVERDRIVE_BASE_INTERVAL
+                min_interval_frames = BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL
+                if turret_state.get("overdrive_divine_active"):
+                    base_interval_frames = BLACKSMITH_TURRET_OVERDRIVE_BASE_INTERVAL_DIVINE
+                    min_interval_frames = BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL_DIVINE
+
+                interval = base_interval_frames
                 dynamic_cap = frames_left // shots_left
                 if dynamic_cap > 0:
-                    interval = min(interval, max(BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL, dynamic_cap))
+                    interval = min(interval, max(min_interval_frames, dynamic_cap))
                 else:
-                    interval = BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL
+                    interval = min_interval_frames
 
                 cooldown = max(0, turret_state.get("overdrive_shot_cooldown", 0) - 1)
                 turret_state["overdrive_shot_cooldown"] = cooldown
@@ -8423,7 +8429,7 @@ def update_blacksmith_turret():
                     _blacksmith_fire_turret_projectile(turret_runtime, turret_state, overdrive=True)
                     turret_state["overdrive_shots_remaining"] -= 1
                     turret_state["overdrive_shot_cooldown"] = max(
-                        BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL,
+                        min_interval_frames,
                         interval,
                     )
             elif fire_window <= 0:
@@ -10595,6 +10601,8 @@ BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW_DIVINE = int(3.0 * FPS)
 BLACKSMITH_TURRET_OVERDRIVE_SHOTS = 6
 BLACKSMITH_TURRET_OVERDRIVE_BASE_INTERVAL = max(1, int(0.5 * FPS))
 BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL = max(1, int(0.25 * FPS))
+BLACKSMITH_TURRET_OVERDRIVE_BASE_INTERVAL_DIVINE = max(1, int(0.2 * FPS))
+BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL_DIVINE = max(1, int(0.12 * FPS))
 BLACKSMITH_TURRET_OVERDRIVE_RECOIL_SCL = 1.8
 BLACKSMITH_TURRET_OVERDRIVE_SPEED_BOOST = 1.35
 BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION = int(2.0 * FPS)
