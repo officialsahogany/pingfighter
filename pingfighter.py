@@ -9358,6 +9358,7 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
     rect = divine_state["rect"]
     pulse = divine_state.get("pulse", 0)
     hp = divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
+    max_hp = max(1, divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP))
     tower_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
     width, height = rect.size
     cx, cy = width // 2, height // 2
@@ -9419,13 +9420,28 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
 
     surface.blit(tower_surface, rect.topleft)
 
-    hp_font = FontStyle.tiny()
-    hp_text = hp_font.render(f"HP {hp}", True, (230, 240, 255))
-    surface.blit(hp_text, hp_text.get_rect(center=(rect.centerx, rect.bottom + 10)))
+    hp_ratio = 0.0
+    if max_hp > 0:
+        hp_ratio = max(0.0, min(1.0, hp / max_hp))
 
-    font = FontStyle.tiny()
-    hp_text = font.render(f"HP {hp}", True, (230, 240, 255))
-    surface.blit(hp_text, hp_text.get_rect(center=(rect.centerx, rect.bottom + 10)))
+    bar_height = 8
+    bar_rect = pygame.Rect(
+        rect.left,
+        rect.bottom + 4,
+        rect.width,
+        bar_height,
+    )
+    pygame.draw.rect(surface, (35, 35, 45), bar_rect.inflate(4, 4), border_radius=3)
+
+    fill_width = int(bar_rect.width * hp_ratio)
+    if fill_width > 0:
+        fill_rect = pygame.Rect(bar_rect.left, bar_rect.top, fill_width, bar_rect.height)
+        pygame.draw.rect(surface, (108, 198, 128), fill_rect, border_radius=3)
+    pygame.draw.rect(surface, (90, 100, 110), bar_rect, 1, border_radius=3)
+
+    status_font = FontStyle.tiny()
+    status_text = status_font.render(f"HP {hp}/{max_hp}", True, (220, 230, 235))
+    surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
 
 
 def draw_blacksmith_build_menu(surface):
