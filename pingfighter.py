@@ -8057,6 +8057,23 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
         except Exception:
             pass
 
+
+def _end_blacksmith_turret_overdrive(turret_state) -> None:
+    """오버드라이브 종료 시 상태를 정리한다."""
+
+    base_interval = turret_state.get("base_fire_interval", BLACKSMITH_TURRET_FIRE_INTERVAL)
+    turret_state["overdrive_active"] = False
+    turret_state["overdrive_timer"] = 0
+    turret_state["overdrive_fire_window"] = 0
+    turret_state["overdrive_shots_remaining"] = 0
+    turret_state["overdrive_shot_cooldown"] = 0
+    turret_state["overdrive_glow_phase"] = 0.0
+    turret_state["overdrive_recoil_boost"] = 1.0
+    turret_state["overdrive_speed_boost"] = 1.0
+    turret_state["recoil_base_distance"] = BLACKSMITH_TURRET_RECOIL_DISTANCE
+    turret_state["fire_interval"] = base_interval
+    turret_state["fire_timer"] = max(0, min(turret_state.get("fire_timer", base_interval), base_interval))
+
 def update_blacksmith_turret():
     """발토르 포탑의 발사 및 투사체 동작을 업데이트한다."""
     global player_collision_handled, last_hit_by
