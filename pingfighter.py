@@ -5330,7 +5330,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
 
     sync_blacksmith_state()
     state = BLACKSMITH_CONTROLLER.state
-    turret_runtime = state.turret
     divine_runtime = state.divine
 
     construction_active = False
@@ -5371,7 +5370,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         blacksmith_turret_build_progress = 0
         blacksmith_turret_blueprint_active = True
         blacksmith_turret_partial_drain = 0.0
-        turret_runtime.rebuild_ready = False
         try:
             play_sound_with_volume(SOUND_ITEM_GET)
         except Exception:
@@ -5475,7 +5473,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_turret_blueprint_rect = None
                         blacksmith_turret_build_progress = 0
                         blacksmith_turret_partial_drain = 0.0
-                        turret_runtime.rebuild_ready = False
                         try:
                             play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
                         except Exception:
@@ -5564,7 +5561,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         divine_runtime.blueprint_rect = None
                         divine_runtime.build_progress = 0
                         divine_runtime.partial_drain = 0.0
-                        divine_runtime.rebuild_ready = False
                         effects_manager.spawn_star_particles(stone_rect.centerx, stone_rect.centery, count=12)
                         effects_manager.spawn_construction_smoke(stone_rect.centerx, stone_rect.bottom - 10, count=6, spread=18)
                         try:
