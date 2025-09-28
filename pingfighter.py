@@ -25350,6 +25350,11 @@ def draw_player_gauge():
     gauge_y = HEIGHT - 200  # 하단에서 200px 위 (살짝 조정)
     gauge_width = 14  # 더 얇게
     gauge_height = 100  # 높이
+    # 플레이어 기본 게이지 좌표/크기 백업 (아이템 전용 게이지가 추가돼도 기준 위치 고정)
+    player_gauge_x = gauge_x
+    player_gauge_y = gauge_y
+    player_gauge_width = gauge_width
+    player_gauge_height = gauge_height
     time_now = pygame.time.get_ticks()
     emblem_state = get_blacksmith_emblem_state(time_now)
     pulse_scale = emblem_state["pulse_scale"]
