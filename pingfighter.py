@@ -7846,11 +7846,19 @@ def update_blacksmith_turret():
         turret_runtime.manual_cooldown -= 1
 
     if not turret_runtime.active or not turret_state:
-        turret_runtime.projectiles.clear()
-        turret_runtime.manual_cooldown = 0
-        turret_runtime.xp_partial_drain = 0.0
-        if not turret_runtime.blueprint_active:
-            stop_blacksmith_construction_sound()
+        if turret_state is not None and (
+            not turret_runtime.active
+            or turret_state.get("hp", 0) <= 0
+            or turret_state.get("pending_destruction")
+        ):
+            _finalize_blacksmith_turret_removal(turret_runtime)
+            turret_state = None
+        else:
+            turret_runtime.projectiles.clear()
+            turret_runtime.manual_cooldown = 0
+            turret_runtime.xp_partial_drain = 0.0
+            if not turret_runtime.blueprint_active:
+                stop_blacksmith_construction_sound()
         push_blacksmith_state()
         return
 
@@ -8136,17 +8144,8 @@ def update_blacksmith_turret():
                     play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
                 except Exception:
                     pass
-                turret_runtime.active = False
-                turret_runtime.state = None
-                turret_runtime.blueprint_active = False
-                turret_runtime.projectiles.clear()
-                turret_runtime.partial_drain = 0.0
-                turret_runtime.xp_partial_drain = 0.0
-                turret_runtime.manual_cooldown = 0
-                turret_state["pending_destruction"] = False
-                turret_state["destroy_fx_timer"] = 0
-                turret_state["destroy_countdown"] = 0
-                stop_blacksmith_construction_sound()
+                _finalize_blacksmith_turret_removal(turret_runtime)
+                turret_state = None
 
             push_blacksmith_state()
             return
