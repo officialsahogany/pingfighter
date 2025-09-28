@@ -8205,6 +8205,12 @@ def draw_blacksmith_turret_elements(surface):
     turret_state = turret.state
     projectiles = turret.projectiles
 
+    # 혹시 업데이트 루프가 중단되어 포탑 상태만 남은 경우를 대비한 안전망.
+    if turret_state and turret_state.get("hp", 0) <= 0 and not turret.active:
+        _finalize_blacksmith_turret_removal(turret)
+        push_blacksmith_state()
+        turret_state = None
+
     draw_blacksmith_divine_stone(surface, divine.state)
     if divine.blueprint_active and divine.blueprint_rect:
         blueprint_rect = divine.blueprint_rect
