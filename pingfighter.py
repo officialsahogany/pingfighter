@@ -8171,7 +8171,9 @@ def update_blacksmith_turret():
     else:
         turret_state["recoil_offset"] = 0.0
 
-    if not (stopwatch_active and stopwatch_timer > 0) and turret_rect.colliderect(BALL):
+    time_frozen = stopwatch_active and stopwatch_timer > 0
+
+    if not time_frozen and turret_rect.colliderect(BALL):
         ball_rect = pygame.Rect(BALL)
         ball_owner = getattr(game_vars.ball, "last_hit_by", "player")
         if ball_owner != "player" and turret_state.get("hp", 0) > 0:
