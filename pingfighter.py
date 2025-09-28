@@ -9708,8 +9708,12 @@ def draw_blacksmith_turret_ui(surface):
 
     title_font = FontStyle.tiny()
     if blacksmith_turret_active and blacksmith_turret_state:
-        turret_level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
-        title_label = f"포탑 Lv.{turret_level}"
+        if overdrive_active:
+            title_label = "포탑 • 오버드라이브"
+        elif overdrive_ui_timer > 0:
+            title_label = "포탑 • 점화"
+        else:
+            title_label = "포탑"
     elif blacksmith_turret_blueprint_active:
         title_label = "포탑 건설중"
     else:
