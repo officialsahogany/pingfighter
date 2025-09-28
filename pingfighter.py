@@ -5435,6 +5435,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "overdrive_shots_remaining": 0,
                             "overdrive_shot_cooldown": 0,
                             "overdrive_glow_phase": 0.0,
+                            "overdrive_flash_timer": 0,
                             "overdrive_recoil_boost": 1.0,
                             "overdrive_speed_boost": 1.0,
                         }
@@ -8072,6 +8073,7 @@ def _end_blacksmith_turret_overdrive(turret_state) -> None:
     turret_state["overdrive_shots_remaining"] = 0
     turret_state["overdrive_shot_cooldown"] = 0
     turret_state["overdrive_glow_phase"] = 0.0
+    turret_state["overdrive_flash_timer"] = 0
     turret_state["overdrive_recoil_boost"] = 1.0
     turret_state["overdrive_speed_boost"] = 1.0
     turret_state["recoil_base_distance"] = BLACKSMITH_TURRET_RECOIL_DISTANCE
