@@ -401,7 +401,7 @@ class AcademyUI:
         self.width = width
         self.height = height
         self.skill_system = skill_system  # 전역 스킬 시스템 인스턴스 사용
-        self.selected_tree = "dash"
+        self.selected_tree = self._determine_default_tree(selected_character)
         self.selected_skill_index = 0  # 현재 선택된 스킬 인덱스
         self.tab_selection_mode = False  # 탭 선택 모드 여부
         
@@ -448,6 +448,17 @@ class AcademyUI:
             self.font_large = pygame.font.Font(None, 24)
             self.font_medium = pygame.font.Font(None, 18)
             self.font_small = pygame.font.Font(None, 14)
+
+
+    def _determine_default_tree(self, selected_character: str) -> str:
+        """사용자가 마지막으로 열어본 탭을 기준으로 초기 탭을 선택"""
+        preferred_tree = ACADEMY_LAST_SELECTED_TREE
+        allowed_trees = {"dash", "item", "paddle"}
+        if selected_character == "smasher":
+            allowed_trees.add("smasher")
+        if preferred_tree not in allowed_trees:
+            return "dash"
+        return preferred_tree
 
     
     def _create_glow_cache(self):
@@ -3837,4 +3848,7 @@ def debug_max_dash_skills():
 def show_academy_menu(screen, width, height, selected_character="smasher"):  # 테스트를 위해 기본값을 "smasher"로 변경
     """아카데미 메뉴 표시"""
     academy_ui = AcademyUI(screen, width, height, selected_character)
-    return academy_ui.show_academy()
+    result = academy_ui.show_academy()
+    global ACADEMY_LAST_SELECTED_TREE
+    ACADEMY_LAST_SELECTED_TREE = academy_ui.selected_tree
+    return result
