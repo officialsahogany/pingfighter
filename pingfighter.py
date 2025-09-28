@@ -7344,14 +7344,14 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             current_stage_value = globals().get("current_stage")
             if current_stage_value in boss_health_stages:
                 damage_stage = min(max(1, stage), BLACKSMITH_HAMMER_SHOCK_MAX_STAGE)
-                damage = damage_stage
+                damage = BLACKSMITH_HAMMER_SHOCK_STAGE_DAMAGE.get(damage_stage, damage_stage)
                 if damage > 0:
                     previous_health = boss_current_health
                     boss_current_health = max(0, boss_current_health - damage)
 
                     if current_stage_value == 6:
                         try:
-                            stage6_boss_hit_timer = HALF_SECOND_FRAMES
+                            stage6_boss_hit_timer = max(stage6_boss_hit_timer, HALF_SECOND_FRAMES)
                             stage6_boss_hit_flash = True
                             if SOUND_STAGE6_BOSS_HIT:
                                 SOUND_STAGE6_BOSS_HIT.play()
@@ -10782,6 +10782,11 @@ BLACKSMITH_HAMMER_SHOCK_STAGE_COST = {
     1: 200,
     2: 260,
     3: 320,
+}
+BLACKSMITH_HAMMER_SHOCK_STAGE_DAMAGE = {
+    1: 1,
+    2: 2,
+    3: 3,
 }
 BLACKSMITH_HAMMER_SHOCK_MIN_STAGE_COST = BLACKSMITH_HAMMER_SHOCK_STAGE_COST[1]
 BLACKSMITH_HAMMER_SHOCK_MAX_STAGE_COST = BLACKSMITH_HAMMER_SHOCK_STAGE_COST[3]
