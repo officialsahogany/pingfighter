@@ -9635,7 +9635,11 @@ def draw_blacksmith_divine_ui(surface):
     available_options = _blacksmith_get_buildable_options(state=state)
     divine_state = divine_runtime.state or blacksmith_divine_stone_state
     blueprint_active = bool(divine_runtime.blueprint_active or blacksmith_divine_blueprint_active)
-    divine_available = ("divine_stone" in available_options) and not blueprint_active
+    divine_available = (
+        divine_runtime.rebuild_ready
+        and ("divine_stone" in available_options)
+        and not blueprint_active
+    )
 
     if not (blueprint_active or divine_state is not None or divine_available):
         return
