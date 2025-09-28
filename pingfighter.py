@@ -7194,6 +7194,8 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
 def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, centery: float):
     global BOSS, blacksmith_hammer_explosions
     global SOUND_BLACKSMITH_HAMMER_EXPLOSION, SOUND_GRENADE
+    global boss_health_stages, boss_current_health, boss_max_health
+    global stage6_boss_hit_timer, stage6_boss_hit_flash, SOUND_STAGE6_BOSS_HIT
     resolved_stage = max(1, stage)
 
     radius = BLACKSMITH_HAMMER_SHOCK_BASE_RADIUS
@@ -7338,6 +7340,33 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
                 globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), stun_frames)
             except Exception:
                 pass
+
+            current_stage_value = globals().get("current_stage")
+            if current_stage_value in boss_health_stages:
+                damage_stage = min(max(1, stage), BLACKSMITH_HAMMER_SHOCK_MAX_STAGE)
+                damage = damage_stage
+                if damage > 0:
+                    previous_health = boss_current_health
+                    boss_current_health = max(0, boss_current_health - damage)
+
+                    if current_stage_value == 6:
+                        try:
+                            stage6_boss_hit_timer = HALF_SECOND_FRAMES
+                            stage6_boss_hit_flash = True
+                            if SOUND_STAGE6_BOSS_HIT:
+                                SOUND_STAGE6_BOSS_HIT.play()
+                        except Exception:
+                            pass
+
+                    print(
+                        f"[해머쇼크] 체력형 보스에게 {damage} 데미지! ({boss_current_health}/{boss_max_health})"
+                    )
+
+                    if previous_health > 0 and boss_current_health <= 0:
+                        try:
+                            show_result(True)
+                        except Exception:
+                            pass
 
 
 def update_blacksmith_hammer_shock(keys):
