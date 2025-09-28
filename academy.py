@@ -215,6 +215,9 @@ SKILL_TREES = {
     }
 }
 
+# 아카데미에서 마지막으로 본 탭을 기억해 다음 진입 시 복원한다.
+ACADEMY_LAST_SELECTED_TREE = "dash"
+
 TREE_SUMMARIES = {
     "dash": "대쉬 속도와 통제력을 끌어올려 공격 템포를 높이는 스킬입니다.",
     "item": "필드 드랍률과 가챠, 아이템 쿨타임을 다뤄 보조 능력을 강화합니다.",
