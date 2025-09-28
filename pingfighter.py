@@ -9777,7 +9777,10 @@ def draw_blacksmith_turret_ui(surface):
         if overdrive_active or overdrive_ui_timer > 0:
             icon_glow = pygame.Surface(icon_rect.size, pygame.SRCALPHA)
             glow_alpha = int(60 + 90 * overdrive_ui_pulse)
-            pygame.draw.rect(icon_glow, (255, 90, 60, glow_alpha), icon_glow.get_rect(), border_radius=6)
+            glow_color = (255, 90, 60, glow_alpha)
+            if ui_divine:
+                glow_color = (120, 220, 255, glow_alpha)
+            pygame.draw.rect(icon_glow, glow_color, icon_glow.get_rect(), border_radius=6)
             surface.blit(icon_glow, icon_rect.topleft, special_flags=pygame.BLEND_ADD)
 
         cannon_left = [
@@ -9903,10 +9906,13 @@ def draw_blacksmith_turret_ui(surface):
 
     title_font = FontStyle.tiny()
     if blacksmith_turret_active and blacksmith_turret_state:
-        if overdrive_active:
-            title_label = "포탑 • 오버드라이브"
-        elif overdrive_ui_timer > 0:
-            title_label = "포탑 • 점화"
+        if overdrive_active or overdrive_ui_timer > 0:
+            if ui_divine:
+                title_label = "포탑 • 메가드라이브"
+            elif overdrive_active:
+                title_label = "포탑 • 오버드라이브"
+            else:
+                title_label = "포탑 • 점화"
         else:
             title_label = "포탑"
     elif blacksmith_turret_blueprint_active:
