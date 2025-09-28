@@ -9727,36 +9727,37 @@ def draw_blacksmith_turret_ui(surface):
     xp_rect = pygame.Rect(icon_rect.x, bar_rect.bottom + 6, icon_rect.width, bar_height)
     pygame.draw.rect(surface, (35, 35, 45), bar_rect.inflate(4, 4), border_radius=3)
 
-    level_text = None
     status_text = None
     xp_text = None
-    level_anchor_rect = bar_rect
 
     if blacksmith_turret_active and blacksmith_turret_state:
         hp = blacksmith_turret_state.get("hp", BLACKSMITH_TURRET_BASE_HP)
-        max_hp = blacksmith_turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP)
-        level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
-        max_hp = max(1, max_hp)
-        ratio = max(0.0, min(1.0, hp / max_hp))
-        filled_rect = pygame.Rect(bar_rect.x, bar_rect.y, int(bar_rect.width * ratio), bar_rect.height)
-        pygame.draw.rect(surface, (108, 198, 128), filled_rect, border_radius=3)
+        max_hp = max(1, blacksmith_turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP))
+        hp_ratio = max(0.0, min(1.0, hp / max_hp))
+        hp_fill_rect = pygame.Rect(bar_rect.x, bar_rect.y, int(bar_rect.width * hp_ratio), bar_rect.height)
+        pygame.draw.rect(surface, (108, 198, 128), hp_fill_rect, border_radius=3)
         pygame.draw.rect(surface, (90, 100, 110), bar_rect, 1, border_radius=3)
-        level_text = FontStyle.tiny().render(f"Lv {level}", True, WHITE)
-        status_text = FontStyle.tiny().render(f"{hp}/{max_hp}", True, (220, 230, 235))
+        status_text = FontStyle.tiny().render(f"HP {hp}/{max_hp}", True, (220, 230, 235))
 
         xp = blacksmith_turret_state.get("xp", 0.0)
         xp_max = max(1.0, blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)))
         xp_ratio = max(0.0, min(1.0, xp / xp_max))
         pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
         xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, int(xp_rect.width * xp_ratio), xp_rect.height)
-        fill_color = (242, 188, 96) if xp_ratio < 1.0 else (255, 226, 120)
-        pygame.draw.rect(surface, fill_color, xp_fill_rect, border_radius=3)
+        base_fill_color = (242, 188, 96)
+        if overdrive_active:
+            base_fill_color = (255, 120, 70)
+        pygame.draw.rect(surface, base_fill_color, xp_fill_rect, border_radius=3)
         pygame.draw.rect(surface, (120, 96, 64), xp_rect, 1, border_radius=3)
-        if level >= BLACKSMITH_TURRET_MAX_LEVEL:
-            xp_text = FontStyle.tiny().render("MAX", True, (250, 240, 210))
+
+        if overdrive_active or overdrive_ui_timer > 0:
+            xp_text = FontStyle.tiny().render("🔥 오버드라이브", True, (255, 234, 220))
+            overlay = pygame.Surface(xp_rect.size, pygame.SRCALPHA)
+            glow_alpha = int(120 + 100 * overdrive_ui_pulse)
+            pygame.draw.rect(overlay, (255, 80, 48, glow_alpha), overlay.get_rect(), border_radius=3)
+            surface.blit(overlay, xp_rect.topleft, special_flags=pygame.BLEND_ADD)
         else:
-            xp_text = FontStyle.tiny().render(f"EXP {int(xp_ratio * 100)}%", True, (250, 240, 210))
-        level_anchor_rect = xp_rect
+            xp_text = FontStyle.tiny().render(f"게이지 {int(xp_ratio * 100)}%", True, (250, 240, 210))
     elif blacksmith_turret_blueprint_active:
         ratio = 0.0
         if BLACKSMITH_TURRET_BUILD_TIME > 0:
@@ -9765,8 +9766,8 @@ def draw_blacksmith_turret_ui(surface):
         filled_rect = pygame.Rect(bar_rect.x, bar_rect.y, int(bar_rect.width * ratio), bar_rect.height)
         pygame.draw.rect(surface, (90, 150, 220), filled_rect, border_radius=3)
         pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
-        level_text = FontStyle.tiny().render("건설중", True, (210, 220, 240))
-        status_text = FontStyle.tiny().render(f"{int(ratio * 100)}%", True, (210, 220, 240))
+        status_text = FontStyle.tiny().render("건설중", True, (210, 220, 240))
+        xp_text = FontStyle.tiny().render(f"{int(ratio * 100)}%", True, (210, 220, 240))
 
     if status_text:
         status_rect = status_text.get_rect(center=bar_rect.center)
@@ -9775,14 +9776,6 @@ def draw_blacksmith_turret_ui(surface):
     if xp_text:
         xp_rect_center = xp_rect.center
         surface.blit(xp_text, xp_text.get_rect(center=xp_rect_center))
-
-    if level_text:
-        level_rect = level_text.get_rect(midtop=(icon_rect.centerx, level_anchor_rect.bottom + 6))
-        surface.blit(level_text, level_rect)
-
-    upgrade_hint = FontStyle.tiny().render("⚒", True, accent_color)
-    hint_rect = upgrade_hint.get_rect(center=(icon_rect.right - 10, icon_rect.top + 12))
-    surface.blit(upgrade_hint, hint_rect)
 
 # 발토르 프리렌더링 시 망치 보유 상태가 필요하므로 기본값을 먼저 지정
 blacksmith_hammer_available = True
@@ -54094,7 +54087,7 @@ def main(stage_num, new_boss_mode=False):
                     elif (
                         blacksmith_turret_active
                         and blacksmith_turret_state
-                        and blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL) < BLACKSMITH_TURRET_MAX_LEVEL
+                        and not blacksmith_turret_state.get("overdrive_active")
                         and blacksmith_turret_state.get("xp", 0.0) < blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED))
                     ):
                         turret_rect = blacksmith_turret_state.get("rect")
