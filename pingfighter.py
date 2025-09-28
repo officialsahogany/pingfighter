@@ -31835,8 +31835,8 @@ def show_victory_screen(stage_cleared, reward):
                                     skill_legendary_bonus = 0.0
                             total_legendary_bonus = min(0.45, legendary_bonus_ratio + skill_legendary_bonus)
 
-                            reroll_warning_text = f"별 2개 사용! 전설 확률 +{int(total_legendary_bonus * 100)}%"
-                            reroll_warning_timer = 120
+                            reroll_warning_text = ""
+                            reroll_warning_timer = 0
                             pygame.event.get()
                             bgm_manager.stop_bgm()
                             gacha.init_gacha(template, legendary_bonus=total_legendary_bonus)
