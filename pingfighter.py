@@ -5565,7 +5565,10 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     if blacksmith_turret_active and blacksmith_turret_state:
         turret_rect = blacksmith_turret_state.get("rect")
         xp_max = max(1.0, blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)))
+        overheat_timer = int(blacksmith_turret_state.get("overheat_timer", 0))
         if blacksmith_turret_state.get("overdrive_active"):
+            blacksmith_turret_xp_partial_drain = 0.0
+        elif overheat_timer > 0:
             blacksmith_turret_xp_partial_drain = 0.0
         elif down_pressed and turret_rect is not None:
             distance = abs(PLAYER.centerx - turret_rect.centerx)
