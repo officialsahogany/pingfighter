@@ -31742,6 +31742,8 @@ def show_victory_screen(stage_cleared, reward):
 
     stop_blacksmith_construction_sound()
 
+    star_stack_sound = sound_effects.get("STAR_POINT_STACK")
+
     if gacha_reroll_stage != stage_cleared:
         gacha_reroll_stage = stage_cleared
         gacha_reroll_streak = 0
@@ -32149,6 +32151,8 @@ def show_victory_screen(stage_cleared, reward):
                     'color_inner': random.choice([(255, 220, 130), (170, 210, 255), (255, 185, 225)])
                 })
                 if progress >= 1.0:
+                    if star_stack_sound:
+                        star_stack_sound.play()
                     star_points_display += 1
                     star_animation_index += 1
                     star_animation_star = None
