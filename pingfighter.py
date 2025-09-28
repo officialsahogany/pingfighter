@@ -4559,6 +4559,8 @@ def _draw_blacksmith_umbrella_overlay(
         hammer_body_color = (214, 226, 240)
         hammer_highlight_color = (238, 248, 255)
         hammer_outline_color = (122, 132, 148)
+        hammer_shadow_color = (112, 118, 134)
+        strap_color = (142, 152, 170)
     else:
         base_color = (
             int(132 + 12 * open_amount),
@@ -4596,6 +4598,8 @@ def _draw_blacksmith_umbrella_overlay(
         hammer_body_color = (218, 200, 152)
         hammer_highlight_color = (238, 220, 172)
         hammer_outline_color = (90, 76, 56)
+        hammer_shadow_color = (70, 56, 36)
+        strap_color = (96, 78, 60)
     
     # 메인 방패 본체 (그라데이션 레이어)
     for i in range(3):
@@ -4779,7 +4783,6 @@ def _draw_blacksmith_umbrella_overlay(
         
         # 곡선으로 스트랩 그리기
         strap_points = [_vec_to_int_pair(strap_start), _vec_to_int_pair(mid_point), _vec_to_int_pair(strap_end)]
-        strap_color = (142, 152, 170) if divine_active else (96, 78, 60)
         pygame.draw.lines(surface, strap_color, False, strap_points, 5)
 
     # 중심부 망치 장식 (입체감 강화)
@@ -4796,7 +4799,7 @@ def _draw_blacksmith_umbrella_overlay(
         to_world(hammer_length * 0.15 + shadow_offset, hammer_thickness * 0.5 + shadow_offset),
         to_world(-hammer_length * 0.15 + shadow_offset, hammer_thickness * 0.5 + shadow_offset),
     ]
-    pygame.draw.polygon(surface, (112, 118, 134) if divine_active else (70, 56, 36), [_vec_to_int_pair(p) for p in hammer_shadow_pts])
+    pygame.draw.polygon(surface, hammer_shadow_color, [_vec_to_int_pair(p) for p in hammer_shadow_pts])
     
     # 망치 메인 바디
     hammer_pts = [
