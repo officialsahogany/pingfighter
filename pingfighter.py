@@ -47561,7 +47561,7 @@ def handle_ball():
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
             elif selected_character_type == "blacksmith":
                 if blacksmith_umbrella_open:
-                    base_gauge_gain = 70  # 발토르 우산 활성: 게이지 충전 70
+                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 우산 활성: 기본 70, 디바인스톤 활성 시 100
                 else:
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
@@ -47589,7 +47589,7 @@ def handle_ball():
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
             elif selected_character_type == "blacksmith":
                 if blacksmith_umbrella_open:
-                    base_gauge_gain = 70  # 발토르 우산 활성: 게이지 충전 70
+                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 우산 활성: 기본 70, 디바인스톤 활성 시 100
                 else:
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
