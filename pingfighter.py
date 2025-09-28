@@ -8414,6 +8414,30 @@ def update_blacksmith_turret():
             _end_blacksmith_turret_overdrive(turret_state)
             overdrive_active = False
 
+    overheat_timer_value = int(turret_state.get("overheat_timer", 0))
+    if overheat_timer_value > 0:
+        new_overheat_timer = max(0, overheat_timer_value - 1)
+        turret_state["overheat_timer"] = new_overheat_timer
+        turret_runtime.overheat_timer = new_overheat_timer
+        smoke_timer = int(turret_state.get("overheat_smoke_timer", 0)) + 1
+        turret_state["overheat_smoke_timer"] = smoke_timer
+        turret_runtime.overheat_smoke_timer = smoke_timer
+        if smoke_timer >= BLACKSMITH_TURRET_OVERHEAT_SMOKE_INTERVAL:
+            if not time_frozen:
+                _emit_blacksmith_turret_overheat_smoke(turret_state)
+            turret_state["overheat_smoke_timer"] = 0
+            turret_runtime.overheat_smoke_timer = 0
+        skip_regular_fire = True
+        if turret_state.get("fire_interval"):
+            turret_state["fire_timer"] = max(
+                turret_state.get("fire_interval", BLACKSMITH_TURRET_FIRE_INTERVAL),
+                turret_state.get("fire_timer", 0),
+            )
+    else:
+        turret_state["overheat_smoke_timer"] = 0
+        turret_runtime.overheat_smoke_timer = 0
+        turret_runtime.overheat_timer = 0
+
     if turret_state.get("overdrive_flash_timer", 0) > 0 and not time_frozen:
         turret_state["overdrive_flash_timer"] = max(0, turret_state["overdrive_flash_timer"] - 1)
 
