@@ -8249,7 +8249,10 @@ def update_blacksmith_turret():
                 play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
             except Exception:
                 pass
+
+            blacksmith_turret_destroy_timer = 0
             _finalize_blacksmith_turret_removal(turret_runtime)
+            BLACKSMITH_CONTROLLER.state.turret = BlacksmithTurretRuntime()
             push_blacksmith_state()
             return
 
