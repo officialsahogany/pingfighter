@@ -113,6 +113,112 @@ class Smartphone:
                         del active_items[idx]
                         break
 
+    def _has_blocking_structure(self, ball_x, ball_y, ball_vx, ball_vy, player_center_y, paddle_height):
+        """포탑/디바인스톤/벽돌이 공을 먼저 막는지 간단히 판단"""
+        if ball_vy <= 0:
+            return False
+
+        try:
+            import sys
+            main_module = sys.modules.get('__main__')
+        except Exception:
+            main_module = None
+
+        if not main_module:
+            return False
+
+        player_rect = getattr(main_module, 'PLAYER', None)
+        paddle_height = paddle_height or getattr(main_module, 'PADDLE_HEIGHT', 50)
+        if player_rect:
+            player_top = getattr(player_rect, 'top', player_center_y - paddle_height / 2)
+            player_bottom = getattr(player_rect, 'bottom', player_top + paddle_height)
+        else:
+            player_top = player_center_y - paddle_height / 2
+            player_bottom = player_center_y + paddle_height / 2
+
+        if ball_y >= player_top:
+            return False
+
+        ball_rect = getattr(main_module, 'BALL', None)
+        if ball_rect:
+            ball_radius = max(ball_rect.width, ball_rect.height) / 2
+        else:
+            ball_radius = getattr(main_module, 'BALL_RADIUS', 10)
+        ball_radius = max(ball_radius, 1)
+
+        def collect_defense_rects():
+            rects = []
+
+            for wall in getattr(main_module, 'walls', []) or []:
+                rect = wall.get('rect') if isinstance(wall, dict) else None
+                if not rect:
+                    continue
+                if wall.get('hit_count', 0) >= 2:
+                    continue
+                if rect.bottom <= ball_y or rect.top >= player_bottom:
+                    continue
+                rects.append(rect.copy())
+
+            turret_state = getattr(main_module, 'blacksmith_turret_state', None)
+            if getattr(main_module, 'blacksmith_turret_active', False) and isinstance(turret_state, dict):
+                rect = turret_state.get('rect')
+                hp = turret_state.get('hp', 0)
+                if rect and (hp is None or hp > 0):
+                    if rect.bottom > ball_y and rect.top < player_bottom:
+                        rects.append(rect.copy())
+
+            divine_state = getattr(main_module, 'blacksmith_divine_stone_state', None)
+            is_divine_active = False
+            try:
+                active_fn = getattr(main_module, 'is_blacksmith_divine_stone_active', None)
+                if callable(active_fn):
+                    is_divine_active = bool(active_fn())
+            except Exception:
+                is_divine_active = False
+            if not is_divine_active and isinstance(divine_state, dict):
+                is_divine_active = bool(divine_state)
+            if is_divine_active and isinstance(divine_state, dict):
+                rect = divine_state.get('rect')
+                hp = divine_state.get('hp', 0)
+                if rect and (hp is None or hp > 0):
+                    if rect.bottom > ball_y and rect.top < player_bottom:
+                        rects.append(rect.copy())
+
+            return rects
+
+        defense_rects = collect_defense_rects()
+        if not defense_rects:
+            return False
+
+        for guard_rect in defense_rects:
+            if guard_rect.top <= ball_y + ball_radius and guard_rect.bottom >= ball_y - ball_radius:
+                return True
+
+            if guard_rect.bottom <= ball_y:
+                continue
+            if guard_rect.top >= player_bottom:
+                continue
+
+            vertical_distance = guard_rect.top - (ball_y + ball_radius)
+            if vertical_distance <= 0:
+                return True
+
+            vy = ball_vy if ball_vy > 0 else 0.1
+            time_to_guard = vertical_distance / vy
+            if time_to_guard < 0:
+                continue
+
+            predicted_x = ball_x + ball_vx * time_to_guard
+            margin = ball_radius + 6
+            if predicted_x + margin < guard_rect.left:
+                continue
+            if predicted_x - margin > guard_rect.right:
+                continue
+
+            return True
+
+        return False
+
     def _handle_item_consumption(self, item_name, main_module, game_state, slot_index_hint=None):
         """연금술 처리 후 필요 시 아이템 제거"""
         recycle_triggered = self._apply_academy_effects(main_module, slot_index_hint=slot_index_hint)
@@ -202,6 +308,10 @@ class Smartphone:
 
         # 플레이어 방향(아래)으로 이동 중인지 확인
         if ball_vy <= 0:
+            return False
+
+        # 방어 구조물이 경로를 차단하면 위험 판단하지 않음
+        if self._has_blocking_structure(ball_x, ball_y, ball_vx, ball_vy, PLAYER_CENTERY, PADDLE_HEIGHT):
             return False
 
         # 직전 타자 체크(플레이어가 직전에 친 공이면 제외)
