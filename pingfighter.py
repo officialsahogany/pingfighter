@@ -7991,7 +7991,6 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                     divine_runtime.blueprint_rect = None
                     divine_runtime.build_progress = 0
                     divine_runtime.partial_drain = 0.0
-                    divine_runtime.rebuild_ready = True
                     # 포탑 없이도 레거시 전역 상태가 남지 않도록 즉시 동기화한다.
                     blacksmith_divine_stone_state = None
                     blacksmith_divine_blueprint_active = False
@@ -8008,11 +8007,6 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     """포탑 런타임 상태를 완전히 초기화해 필드에서 제거한다."""
 
     # turret_runtime: BlacksmithTurretRuntime
-    was_built_or_in_progress = bool(
-        turret_runtime.active
-        or turret_runtime.state
-        or turret_runtime.blueprint_active
-    )
     turret_runtime.active = False
     turret_runtime.state = None
     turret_runtime.blueprint_active = False
@@ -8027,7 +8021,6 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     turret_runtime.overheat_timer = 0
     turret_runtime.overheat_smoke_timer = 0
     turret_runtime.overdrive_ui_timer = 0
-    turret_runtime.rebuild_ready = was_built_or_in_progress
     stop_blacksmith_construction_sound()
 
     # 레거시 전역 상태도 즉시 정리해 유령 포탑이 남지 않도록 한다.
@@ -8408,7 +8401,6 @@ def update_blacksmith_turret():
             state = BLACKSMITH_CONTROLLER.state
             divine_runtime = state.divine
             divine_runtime.state = None
-            divine_runtime.rebuild_ready = True
             blacksmith_divine_stage_owner = None
             push_blacksmith_state()
 
@@ -9657,16 +9649,10 @@ def draw_blacksmith_divine_ui(surface):
     global blacksmith_hammer_shock_projectiles, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_shock_last_stage, blacksmith_hammer_shock_cooldown_total
 
-    available_options = _blacksmith_get_buildable_options(state=state)
     divine_state = divine_runtime.state or blacksmith_divine_stone_state
     blueprint_active = bool(divine_runtime.blueprint_active or blacksmith_divine_blueprint_active)
-    divine_available = (
-        divine_runtime.rebuild_ready
-        and ("divine_stone" in available_options)
-        and not blueprint_active
-    )
 
-    if not (blueprint_active or divine_state is not None or divine_available):
+    if divine_state is None and not blueprint_active:
         return
 
     building_mode = blueprint_active and divine_state is None
