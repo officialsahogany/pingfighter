@@ -68,6 +68,7 @@ SOUND_PATHS = {
     "ITEM_GET": "sounds/itemget.wav",
     "NOTIFICATION": "sounds/item_pickup.wav",
     "STAR_POINT_STACK": "sounds/starpointstack.wav",
+    "STAR_POINT_END": "sounds/starpointend.wav",
     "HONGRYUN_CHARGE": "sounds/hongcharge.wav",
     "HONGRYUN_SHOOT": "sounds/hongshoot.wav",
     "BAZOOKA_GOING": "sounds/bazukagoing.wav",

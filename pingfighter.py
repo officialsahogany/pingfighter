@@ -31743,6 +31743,7 @@ def show_victory_screen(stage_cleared, reward):
     stop_blacksmith_construction_sound()
 
     star_stack_sound = sound_effects.get("STAR_POINT_STACK")
+    star_end_sound = sound_effects.get("STAR_POINT_END")
 
     if gacha_reroll_stage != stage_cleared:
         gacha_reroll_stage = stage_cleared
@@ -32159,6 +32160,8 @@ def show_victory_screen(stage_cleared, reward):
                     star_animation_timer = 0
                     star_badge_glow_timer = star_badge_glow_duration
                     if star_animation_index >= star_gain_total:
+                        if star_end_sound:
+                            star_end_sound.play()
                         star_animation_finished = True
                         star_points_display = star_points_target
                         star_animation_state = 'done'
