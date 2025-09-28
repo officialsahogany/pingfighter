@@ -7840,6 +7840,18 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     turret_runtime.manual_cooldown = 0
     stop_blacksmith_construction_sound()
 
+    # 레거시 전역 상태도 즉시 정리해 유령 포탑이 남지 않도록 한다.
+    namespace = globals()
+    namespace["blacksmith_turret_active"] = False
+    namespace["blacksmith_turret_state"] = None
+    namespace["blacksmith_turret_projectiles"] = []
+    namespace["blacksmith_turret_blueprint_active"] = False
+    namespace["blacksmith_turret_blueprint_rect"] = None
+    namespace["blacksmith_turret_build_progress"] = 0
+    namespace["blacksmith_turret_partial_drain"] = 0.0
+    namespace["blacksmith_turret_xp_partial_drain"] = 0.0
+    namespace["blacksmith_turret_manual_cooldown"] = 0
+
 
 def update_blacksmith_turret():
     """발토르 포탑의 발사 및 투사체 동작을 업데이트한다."""
@@ -40044,6 +40056,21 @@ def start_game_with_difficulty(character_id, difficulty_mode):
             print("🦵 메카닉 패들 기본 장비: 킥차져 자동 장착")
         except Exception as e:
             print(f"[WARN] 스매셔 킥차져 초기화 실패: {e}")
+
+        if selected_character_type == "smasher":
+            active_items = item_state_adapter.active_items()
+            if not any(item.get("name") == "gauge_charge" for item in active_items):
+                energy_drink_item = {
+                    "name": "gauge_charge",
+                    "type": "active",
+                    "effect": "gauge_charge",
+                    "icon": get_item_icon("gauge_charge"),
+                    "last_use": last_item_use_time,
+                    "temporary_overflow": False,
+                }
+                item_state_adapter.append_active_item(energy_drink_item)
+                _set_selected_item_index(len(active_items) - 1)
+                print("⚡ 스매셔 전용 시작 보너스: 에너지드링크 1개 지급!")
 
     # 스테이지 1 인트로 표시
     show_stage1_intro()
