@@ -5563,6 +5563,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         divine_runtime.blueprint_rect = None
                         divine_runtime.build_progress = 0
                         divine_runtime.partial_drain = 0.0
+                        divine_runtime.rebuild_ready = False
                         effects_manager.spawn_star_particles(stone_rect.centerx, stone_rect.centery, count=12)
                         effects_manager.spawn_construction_smoke(stone_rect.centerx, stone_rect.bottom - 10, count=6, spread=18)
                         try:
@@ -10550,6 +10551,7 @@ def blacksmith_start_divine_stone():
     divine.build_progress = 0
     divine.partial_drain = 0.0
     divine.blueprint_active = True
+    divine.rebuild_ready = False
     try:
         play_sound_with_volume(SOUND_ITEM_GET)
     except Exception:
