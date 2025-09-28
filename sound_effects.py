@@ -32,6 +32,7 @@ SOUND_PATHS = {
     "BALLOON_BOOM": "sounds/balloonboom.wav",
     "POWER_SMASH": "sounds/power_smash.wav",
     "POWER_SMASH_LAUNCH": "sounds/power_smash_launch.wav",
+    "POSEIDON_WAVE": "sounds/poseidon.wav",
     "MISSILE": "sounds/missle.wav",
     "PISTOL_RELOAD_START": "sounds/pistolreloadstart.wav",
     "RAGNAROK_SHOT": "sounds/ragnarokshot.wav",

@@ -1310,6 +1310,7 @@ SOUND_BARRIER = sound_effects['BARRIER']
 SOUND_BALLOON_BOOM = sound_effects['BALLOON_BOOM']
 SOUND_POWER_SMASH = sound_effects['POWER_SMASH']
 SOUND_POWER_SMASH_LAUNCH = sound_effects['POWER_SMASH_LAUNCH']
+SOUND_POSEIDON_WAVE = sound_effects['POSEIDON_WAVE']
 SOUND_MISSILE = sound_effects['MISSILE']
 SOUND_PISTOL_RELOAD_START = sound_effects['PISTOL_RELOAD_START']
 SOUND_RAGNAROK_SHOT = sound_effects['RAGNAROK_SHOT']
@@ -8594,6 +8595,8 @@ def trigger_blacksmith_turret_overdrive() -> bool:
     blacksmith_turret_state["overdrive_stun_multiplier"] = stun_multiplier
     blacksmith_turret_state["overdrive_knockback_multiplier"] = knockback_multiplier
     blacksmith_turret_state["overdrive_divine_active"] = divine_active
+    blacksmith_turret_state["overheat_timer"] = 0
+    blacksmith_turret_state["overheat_smoke_timer"] = 0
     blacksmith_turret_state["fire_timer"] = 0
     blacksmith_turret_state["fire_interval"] = base_interval
     blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED)
@@ -8603,6 +8606,8 @@ def trigger_blacksmith_turret_overdrive() -> bool:
     blacksmith_turret_overdrive_ui_timer = BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION
     turret_runtime.overdrive_ui_divine = divine_active
     blacksmith_turret_overdrive_ui_divine = divine_active
+    turret_runtime.overheat_timer = 0
+    turret_runtime.overheat_smoke_timer = 0
 
     try:
         if rect:
