@@ -8585,6 +8585,17 @@ def update_blacksmith_turret():
     boss_target_y = boss_rect.centery if boss_rect else HEIGHT // 3
 
     projectiles = turret_runtime.projectiles
+    if blacksmith_turret_state and blacksmith_turret_state.get("overheat_timer", 0) > 0 and turret_rect:
+        frame_value = float(globals().get("frame_counter", 0))
+        pulse = 0.5 + 0.5 * math.sin(frame_value * 0.32)
+        aura_surface = pygame.Surface((turret_rect.width + 22, turret_rect.height + 24), pygame.SRCALPHA)
+        aura_surface.fill((255, 70, 40, int(80 + 120 * pulse)))
+        surface.blit(
+            aura_surface,
+            (turret_rect.left - 11, turret_rect.top - 14),
+            special_flags=pygame.BLEND_RGBA_ADD,
+        )
+
     if projectiles and not (stopwatch_active and stopwatch_timer > 0):
         new_projectiles = []
         for proj in projectiles:
@@ -9992,6 +10003,10 @@ def draw_blacksmith_turret_ui(surface):
     panel_color = (52, 44, 38)
     border_color = (132, 110, 80)
     accent_color = (210, 170, 90)
+    if overheat_active:
+        panel_color = (90, 38, 32)
+        border_color = (220, 90, 70)
+        accent_color = (255, 150, 120)
 
     has_turret_ui = (
         blacksmith_turret_blueprint_active
