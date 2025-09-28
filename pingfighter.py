@@ -7361,9 +7361,9 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
 
             current_stage_value = globals().get("current_stage")
             if current_stage_value in boss_health_stages:
-                damage_stage = min(max(1, stage), BLACKSMITH_HAMMER_SHOCK_MAX_STAGE)
-                damage = BLACKSMITH_HAMMER_SHOCK_STAGE_DAMAGE.get(damage_stage, damage_stage)
+                damage = _blacksmith_hammer_shock_damage_for_stage(stage)
                 if damage > 0:
+                    damage_stage = min(max(1, stage), BLACKSMITH_HAMMER_SHOCK_MAX_STAGE)
                     previous_health = boss_current_health
                     boss_current_health = max(0, boss_current_health - damage)
 
@@ -7377,7 +7377,7 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
                             pass
 
                     print(
-                        f"[해머쇼크] 체력형 보스에게 {damage} 데미지! ({boss_current_health}/{boss_max_health})"
+                        f"[해머쇼크] 체력형 보스에게 {damage} 데미지! (단계 {damage_stage}, {boss_current_health}/{boss_max_health})"
                     )
 
                     if previous_health > 0 and boss_current_health <= 0:
