@@ -8822,10 +8822,31 @@ def draw_blacksmith_turret_elements(surface):
         heat_vent.center = head_point(0, sy_val(2))
         pygame.draw.rect(head_surface, (150, 150, 168, 190), heat_vent, border_radius=max(1, int(sx_val(3))))
 
+        if blacksmith_turret_state.get("overdrive_active"):
+            glow_phase = blacksmith_turret_state.get("overdrive_glow_phase", 0.0)
+            pulse = 0.5 + 0.5 * math.sin(glow_phase)
+            glow_surface = pygame.Surface(head_surface.get_size(), pygame.SRCALPHA)
+            aura_radius = max(head_surface.get_width(), head_surface.get_height()) // 2
+            glow_color = (255, 90, 60, int(90 + 110 * pulse))
+            pygame.draw.circle(glow_surface, glow_color, (int(pivot_local.x), int(pivot_local.y)), aura_radius)
+            head_surface.blit(glow_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+
         angle_degrees = math.degrees(angle)
         rotated_head = pygame.transform.rotozoom(head_surface, -angle_degrees + 90, 1.0)
         rotated_rect = rotated_head.get_rect(center=(pivot_point.x, pivot_point.y))
         surface.blit(rotated_head, rotated_rect.topleft)
+
+        if blacksmith_turret_state.get("overdrive_active"):
+            aura_radius = max(28, int(scale_x * 48))
+            aura_surface = pygame.Surface((aura_radius * 2, aura_radius * 2), pygame.SRCALPHA)
+            pulse = 0.5 + 0.5 * math.sin(blacksmith_turret_state.get("overdrive_glow_phase", 0.0) * 0.8)
+            aura_color = (255, 70, 58, int(80 + 90 * pulse))
+            pygame.draw.circle(aura_surface, aura_color, (aura_radius, aura_radius), aura_radius)
+            surface.blit(
+                aura_surface,
+                (int(pivot_point.x - aura_radius), int(pivot_point.y - aura_radius)),
+                special_flags=pygame.BLEND_ADD,
+            )
 
         muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
         muzzle_world = pivot_point + forward_vec * muzzle_distance
@@ -8841,6 +8862,34 @@ def draw_blacksmith_turret_elements(surface):
             (int(muzzle_world.x - glow_size / 2), int(muzzle_world.y - glow_size / 2)),
             special_flags=pygame.BLEND_ADD,
         )
+
+        flash_timer = blacksmith_turret_state.get("overdrive_flash_timer", 0)
+        if flash_timer > 0:
+            max_flash = max(1, int(0.18 * FPS))
+            flash_ratio = min(1.0, flash_timer / max_flash)
+            flash_radius = int(glow_size * (1.1 + 0.6 * flash_ratio))
+            flash_surface = pygame.Surface((flash_radius * 2, flash_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(
+                flash_surface,
+                (255, 80, 40, int(160 * flash_ratio)),
+                (flash_radius, flash_radius),
+                flash_radius,
+            )
+            surface.blit(
+                flash_surface,
+                (int(muzzle_world.x - flash_radius), int(muzzle_world.y - flash_radius)),
+                special_flags=pygame.BLEND_ADD,
+            )
+
+            beam_length = muzzle_distance + sx_val(40 * flash_ratio)
+            beam_end = muzzle_world + forward_vec * beam_length
+            pygame.draw.line(
+                surface,
+                (255, 140, 70),
+                (int(muzzle_world.x), int(muzzle_world.y)),
+                (int(beam_end.x), int(beam_end.y)),
+                max(2, int(sx_val(3) + flash_ratio * 3)),
+            )
 
     for proj in projectiles:
         proj_pos = (int(proj["x"]), int(proj["y"]))
