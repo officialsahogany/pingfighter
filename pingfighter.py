@@ -4624,7 +4624,12 @@ def _draw_blacksmith_umbrella_overlay(
         inner_outline.append((inner_x, inner_y))
     inner_world = [to_world(x, y) for x, y in inner_outline]
     inner_int = [_vec_to_int_pair(p) for p in inner_world]
-    pygame.draw.polygon(surface, (188, 174, 158), inner_int, width=2)
+    inner_outline_color = (
+        212,
+        206,
+        198,
+    ) if divine_active else (188, 174, 158)
+    pygame.draw.polygon(surface, inner_outline_color, inner_int, width=2)
 
     # 상하 금속 판재 층 (메탈릭 효과 강화)
     band_thickness = shield_height * (0.24 + 0.18 * open_amount)
@@ -4643,22 +4648,17 @@ def _draw_blacksmith_umbrella_overlay(
         upper_band_base.append((x, band_y))
     
     # 상단 밴드 그라데이션 레이어
-    for layer in range(2):
-        layer_color = (
-            194 - layer * 10,
-            170 - layer * 10, 
-            130 - layer * 10
-        )
+    for layer, layer_color in enumerate(upper_band_layer_colors):
         layer_band_points = []
         for x, y in upper_band_base:
             layer_band_points.append(_vec_to_int_pair(to_world(x, y + layer * 1.5)))
         pygame.draw.polygon(surface, layer_color, layer_band_points)
-    
+
     upper_band = [_vec_to_int_pair(to_world(x, y)) for x, y in upper_band_base]
-    pygame.draw.polygon(surface, (80, 68, 48), upper_band, width=2)
+    pygame.draw.polygon(surface, upper_band_outline_color, upper_band, width=2)
     # 상단 하이라이트 라인
     highlight_line = [_vec_to_int_pair(to_world(x, y - band_thickness * 0.15)) for x, y in upper_band_base[:4]]
-    pygame.draw.lines(surface, (210, 196, 160), False, highlight_line, 2)
+    pygame.draw.lines(surface, upper_band_highlight_color, False, highlight_line, 2)
 
     # 하단 밴드 - 초승달 곡선을 따라가는 밴드  
     lower_band_base = []
@@ -4674,27 +4674,20 @@ def _draw_blacksmith_umbrella_overlay(
         lower_band_base.append((x, band_y))
     
     # 하단 밴드 그라데이션 레이어
-    for layer in range(2):
-        layer_color = (
-            164 - layer * 10,
-            140 - layer * 10,
-            110 - layer * 10
-        )
+    for layer, layer_color in enumerate(lower_band_layer_colors):
         layer_band_points = []
         for x, y in lower_band_base:
             layer_band_points.append(_vec_to_int_pair(to_world(x, y - layer * 1.5)))
         pygame.draw.polygon(surface, layer_color, layer_band_points)
-    
+
     lower_band = [_vec_to_int_pair(to_world(x, y)) for x, y in lower_band_base]
-    pygame.draw.polygon(surface, (70, 58, 40), lower_band, width=2)
+    pygame.draw.polygon(surface, lower_band_outline_color, lower_band, width=2)
     # 하단 하이라이트 라인
     highlight_line_lower = [_vec_to_int_pair(to_world(x, y + band_thickness * 0.1)) for x, y in lower_band_base[2:5]]
-    pygame.draw.lines(surface, (200, 186, 150), False, highlight_line_lower, 2)
+    pygame.draw.lines(surface, lower_band_highlight_color, False, highlight_line_lower, 2)
 
     # 중앙 룬 라인 (발광 애니메이션 효과) - 초승달 곡선 따라 배치
     current_time = pygame.time.get_ticks() / 1000.0  # 초 단위로 변환
-    rune_base_color = (210, 188, 130)
-    rune_glow_color = (255, 235, 180)
     
     for i in range(-2, 3):
         # 각 룬마다 다른 위상으로 펄스 효과
@@ -4756,14 +4749,14 @@ def _draw_blacksmith_umbrella_overlay(
             
             pos = to_world(x, y)
             # 리벳 그림자
-            pygame.draw.circle(surface, (64, 50, 34), _vec_to_int_pair(pos), 5)
+            pygame.draw.circle(surface, rivet_shadow_color, _vec_to_int_pair(pos), 5)
             # 리벳 본체
-            pygame.draw.circle(surface, (104, 90, 74), _vec_to_int_pair(pos), 4)
+            pygame.draw.circle(surface, rivet_body_color, _vec_to_int_pair(pos), 4)
             # 리벳 하이라이트
             highlight_pos = (int(pos.x - 1), int(pos.y - 1))
-            pygame.draw.circle(surface, (182, 160, 130), highlight_pos, 2)
+            pygame.draw.circle(surface, rivet_highlight_color, highlight_pos, 2)
             # 중앙 반사광
-            pygame.draw.circle(surface, (202, 180, 150), highlight_pos, 1)
+            pygame.draw.circle(surface, rivet_core_color, highlight_pos, 1)
 
     # 가장자리 보강 스트랩 - 초승달 곡선에 맞춰 조정
     for side in (-1, 1):
@@ -4786,7 +4779,8 @@ def _draw_blacksmith_umbrella_overlay(
         
         # 곡선으로 스트랩 그리기
         strap_points = [_vec_to_int_pair(strap_start), _vec_to_int_pair(mid_point), _vec_to_int_pair(strap_end)]
-        pygame.draw.lines(surface, (96, 78, 60), False, strap_points, 5)
+        strap_color = (142, 152, 170) if divine_active else (96, 78, 60)
+        pygame.draw.lines(surface, strap_color, False, strap_points, 5)
 
     # 중심부 망치 장식 (입체감 강화)
     hammer_length = shield_width * 0.45
@@ -4802,7 +4796,7 @@ def _draw_blacksmith_umbrella_overlay(
         to_world(hammer_length * 0.15 + shadow_offset, hammer_thickness * 0.5 + shadow_offset),
         to_world(-hammer_length * 0.15 + shadow_offset, hammer_thickness * 0.5 + shadow_offset),
     ]
-    pygame.draw.polygon(surface, (70, 56, 36), [_vec_to_int_pair(p) for p in hammer_shadow_pts])
+    pygame.draw.polygon(surface, (112, 118, 134) if divine_active else (70, 56, 36), [_vec_to_int_pair(p) for p in hammer_shadow_pts])
     
     # 망치 메인 바디
     hammer_pts = [
@@ -4813,7 +4807,7 @@ def _draw_blacksmith_umbrella_overlay(
         to_world(hammer_length * 0.15, hammer_thickness * 0.5),
         to_world(-hammer_length * 0.15, hammer_thickness * 0.5),
     ]
-    pygame.draw.polygon(surface, (218, 200, 152), [_vec_to_int_pair(p) for p in hammer_pts])
+    pygame.draw.polygon(surface, hammer_body_color, [_vec_to_int_pair(p) for p in hammer_pts])
     
     # 망치 하이라이트
     highlight_pts = [
@@ -4822,10 +4816,10 @@ def _draw_blacksmith_umbrella_overlay(
         to_world(hammer_length * 0.1, -hammer_thickness * 0.3),
         to_world(hammer_length * 0.3, 0),
     ]
-    pygame.draw.polygon(surface, (238, 220, 172), [_vec_to_int_pair(p) for p in highlight_pts])
+    pygame.draw.polygon(surface, hammer_highlight_color, [_vec_to_int_pair(p) for p in highlight_pts])
     
     # 망치 아웃라인
-    pygame.draw.polygon(surface, (90, 76, 56), [_vec_to_int_pair(p) for p in hammer_pts], width=3)
+    pygame.draw.polygon(surface, hammer_outline_color, [_vec_to_int_pair(p) for p in hammer_pts], width=3)
 
     # 우산 내구도에 따른 금(크랙) 표현
     damage_stage = 0
