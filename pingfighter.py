@@ -7935,6 +7935,32 @@ def update_blacksmith_turret():
     """발토르 포탑의 발사 및 투사체 동작을 업데이트한다."""
     global player_collision_handled, last_hit_by
     global ball_vel, stopwatch_active, stopwatch_timer, game_vars, SCREEN
+    global blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer
+    global blacksmith_divine_stage_owner
+
+    # 포탑 파괴 타이머 처리
+    if blacksmith_turret_destroy_timer > 0:
+        blacksmith_turret_destroy_timer -= 1
+        if blacksmith_turret_destroy_timer == 0:
+            # 타이머가 끝나면 포탑 완전 제거
+            sync_blacksmith_state()
+            state = BLACKSMITH_CONTROLLER.state
+            turret_runtime = state.turret
+            turret_runtime.active = False
+            _finalize_blacksmith_turret_removal(turret_runtime)
+            push_blacksmith_state()
+    
+    # 디바인스톤 파괴 타이머 처리
+    if blacksmith_divine_destroy_timer > 0:
+        blacksmith_divine_destroy_timer -= 1
+        if blacksmith_divine_destroy_timer == 0:
+            # 타이머가 끝나면 디바인스톤 완전 제거
+            sync_blacksmith_state()
+            state = BLACKSMITH_CONTROLLER.state
+            divine_runtime = state.divine
+            divine_runtime.state = None
+            blacksmith_divine_stage_owner = None
+            push_blacksmith_state()
 
     sync_blacksmith_state()
     state = BLACKSMITH_CONTROLLER.state
