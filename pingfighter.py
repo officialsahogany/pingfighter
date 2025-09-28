@@ -5282,6 +5282,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         blacksmith_hammer_slow_decay_step = 0
         blacksmith_hammer_swing_phase = 0
         blacksmith_manual_hammer_timer = 0
+        blacksmith_manual_hammer_increment = 1
     elif (
         down_just_pressed
         and not blacksmith_turret_blueprint_active
@@ -5368,6 +5369,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_hammer_slow_decay_step = 0
                         blacksmith_hammer_swing_phase = 0
                         blacksmith_manual_hammer_timer = 0
+                        blacksmith_manual_hammer_increment = 1
                     elif frame_counter % 30 == 0:
                         print(f"[DEBUG] Turret build: {blacksmith_turret_build_progress}/{BLACKSMITH_TURRET_BUILD_TIME}, gauge={special_gauge}, phase={blacksmith_hammer_swing_phase}")
                 else:
@@ -43431,7 +43433,12 @@ def reset_round():
     global short_shot_active, short_shot_timer, short_shot_vertical_timer
     global short_shot_speed, short_shot_target_vx, short_shot_target_vy, short_shot_original_speed
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
-    global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase, blacksmith_manual_hammer_timer
+    global (
+        blacksmith_hammer_swing_active,
+        blacksmith_hammer_swing_phase,
+        blacksmith_manual_hammer_timer,
+        blacksmith_manual_hammer_increment,
+    )
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -43486,6 +43493,8 @@ def reset_round():
         blacksmith_hammer_swing_slow_timer = 0
     if 'blacksmith_manual_hammer_timer' in globals():
         blacksmith_manual_hammer_timer = 0
+    if 'blacksmith_manual_hammer_increment' in globals():
+        blacksmith_manual_hammer_increment = 1
     if 'blacksmith_hammer_swing_auto' in globals():
         blacksmith_hammer_swing_auto = False
     if 'blacksmith_trail_timer' in globals():
@@ -52366,6 +52375,7 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_hammer_swing_slow_timer
     blacksmith_hammer_swing_slow_timer = 0
     blacksmith_manual_hammer_timer = 0
+    blacksmith_manual_hammer_increment = 1
     preserve_divine_runtime = blacksmith_divine_stage_owner == stage_num
     reset_blacksmith_state(
         preserve_divine=preserve_divine_runtime,
