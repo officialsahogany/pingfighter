@@ -8040,6 +8040,8 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
     if overdrive:
         projectile_radius = int(round(BLACKSMITH_TURRET_PROJECTILE_RADIUS * 1.2))
 
+    divine_overdrive = overdrive and turret_state.get("overdrive_divine_active", False)
+
     projectile = {
         "x": float(spawn_point.x),
         "y": float(spawn_point.y),
@@ -8050,6 +8052,7 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
         "radius": projectile_radius,
         "grace_frames": 6,
         "overdrive": overdrive,
+        "divine_overdrive": divine_overdrive,
         "trail_timer": 0,
     }
     turret_runtime.projectiles.append(projectile)
@@ -8070,6 +8073,12 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
             turret_state.get("overdrive_flash_timer", 0),
             max(6, int(0.18 * FPS)),
         )
+
+        if divine_overdrive:
+            try:
+                effects_manager.spawn_star_particles(spawn_point.x, spawn_point.y, count=6)
+            except Exception:
+                pass
 
 
 def _end_blacksmith_turret_overdrive(turret_state) -> None:
@@ -8547,14 +8556,26 @@ def trigger_blacksmith_turret_overdrive() -> bool:
     base_interval = blacksmith_turret_state.get("base_fire_interval", BLACKSMITH_TURRET_FIRE_INTERVAL)
     blacksmith_turret_state.setdefault("base_fire_interval", base_interval)
 
+    divine_active = is_blacksmith_divine_stone_active()
+    fire_window = BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW
+    stun_multiplier = 1.0
+    knockback_multiplier = 1.0
+    if divine_active:
+        fire_window = BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW_DIVINE
+        stun_multiplier = 2.0  # +100%
+        knockback_multiplier = 1.5  # +50%
+
     blacksmith_turret_state["overdrive_active"] = True
     blacksmith_turret_state["overdrive_timer"] = BLACKSMITH_TURRET_OVERDRIVE_DURATION
-    blacksmith_turret_state["overdrive_fire_window"] = BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW
+    blacksmith_turret_state["overdrive_fire_window"] = fire_window
     blacksmith_turret_state["overdrive_shots_remaining"] = BLACKSMITH_TURRET_OVERDRIVE_SHOTS
     blacksmith_turret_state["overdrive_shot_cooldown"] = 0
     blacksmith_turret_state["overdrive_glow_phase"] = 0.0
     blacksmith_turret_state["overdrive_recoil_boost"] = BLACKSMITH_TURRET_OVERDRIVE_RECOIL_SCL
     blacksmith_turret_state["overdrive_speed_boost"] = BLACKSMITH_TURRET_OVERDRIVE_SPEED_BOOST
+    blacksmith_turret_state["overdrive_stun_multiplier"] = stun_multiplier
+    blacksmith_turret_state["overdrive_knockback_multiplier"] = knockback_multiplier
+    blacksmith_turret_state["overdrive_divine_active"] = divine_active
     blacksmith_turret_state["fire_timer"] = 0
     blacksmith_turret_state["fire_interval"] = base_interval
     blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED)
