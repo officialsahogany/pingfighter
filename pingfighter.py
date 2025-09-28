@@ -5428,6 +5428,15 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "display_angle": -math.pi / 2,
                             "recoil_timer": 0,
                             "recoil_offset": 0.0,
+                            "base_fire_interval": BLACKSMITH_TURRET_FIRE_INTERVAL,
+                            "overdrive_active": False,
+                            "overdrive_timer": 0,
+                            "overdrive_fire_window": 0,
+                            "overdrive_shots_remaining": 0,
+                            "overdrive_shot_cooldown": 0,
+                            "overdrive_glow_phase": 0.0,
+                            "overdrive_recoil_boost": 1.0,
+                            "overdrive_speed_boost": 1.0,
                         }
                         blacksmith_turret_active = True
                         blacksmith_turret_blueprint_active = False
@@ -8306,46 +8315,44 @@ def update_blacksmith_turret():
     push_blacksmith_state()
 
 
-def upgrade_blacksmith_turret():
-    """포탑 레벨 상승과 능력치를 갱신한다."""
-    global blacksmith_turret_state
+def trigger_blacksmith_turret_overdrive() -> bool:
+    """포탑 오버드라이브(게이지 해방) 발동."""
+
+    global blacksmith_turret_state, blacksmith_turret_overdrive_ui_timer
+
     sync_blacksmith_state()
     if not blacksmith_turret_active or not blacksmith_turret_state:
-        sync_blacksmith_state()
         return False
 
-    level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
-    if level >= BLACKSMITH_TURRET_MAX_LEVEL:
-        blacksmith_turret_state["xp"] = blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED))
-        sync_blacksmith_state()
+    if blacksmith_turret_state.get("overdrive_active"):
         return False
 
-    new_level = level + 1
-    blacksmith_turret_state["level"] = new_level
+    turret_runtime = BLACKSMITH_CONTROLLER.state.turret
+    rect = blacksmith_turret_state.get("rect")
 
-    current_max_hp = blacksmith_turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP)
-    upgraded_max_hp = max(current_max_hp + 1, int(math.ceil(current_max_hp * BLACKSMITH_TURRET_LEVEL_HP_MULTIPLIER)))
-    blacksmith_turret_state["max_hp"] = upgraded_max_hp
-    blacksmith_turret_state["hp"] = upgraded_max_hp
+    base_interval = blacksmith_turret_state.get("base_fire_interval", BLACKSMITH_TURRET_FIRE_INTERVAL)
+    blacksmith_turret_state.setdefault("base_fire_interval", base_interval)
 
-    current_interval = blacksmith_turret_state.get("fire_interval", BLACKSMITH_TURRET_FIRE_INTERVAL)
-    upgraded_interval = max(int(current_interval * BLACKSMITH_TURRET_LEVEL_FIRE_RATE_MULTIPLIER), int(2 * FPS))
-    blacksmith_turret_state["fire_interval"] = upgraded_interval
-    blacksmith_turret_state["fire_timer"] = min(blacksmith_turret_state.get("fire_timer", upgraded_interval), upgraded_interval)
+    blacksmith_turret_state["overdrive_active"] = True
+    blacksmith_turret_state["overdrive_timer"] = BLACKSMITH_TURRET_OVERDRIVE_DURATION
+    blacksmith_turret_state["overdrive_fire_window"] = BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW
+    blacksmith_turret_state["overdrive_shots_remaining"] = BLACKSMITH_TURRET_OVERDRIVE_SHOTS
+    blacksmith_turret_state["overdrive_shot_cooldown"] = 0
+    blacksmith_turret_state["overdrive_glow_phase"] = 0.0
+    blacksmith_turret_state["overdrive_recoil_boost"] = BLACKSMITH_TURRET_OVERDRIVE_RECOIL_SCL
+    blacksmith_turret_state["overdrive_speed_boost"] = BLACKSMITH_TURRET_OVERDRIVE_SPEED_BOOST
+    blacksmith_turret_state["fire_timer"] = 0
+    blacksmith_turret_state["fire_interval"] = base_interval
+    blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED)
+    blacksmith_turret_state["xp"] = 0.0
 
-    if new_level >= BLACKSMITH_TURRET_MAX_LEVEL:
-        blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED)
-        blacksmith_turret_state["xp"] = blacksmith_turret_state["xp_max"]
-    else:
-        scaling = 1.5 ** (new_level - 1)
-        blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED * scaling)
-        blacksmith_turret_state["xp"] = 0.0
+    turret_runtime.overdrive_ui_timer = BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION
+    blacksmith_turret_overdrive_ui_timer = BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION
 
     try:
-        rect = blacksmith_turret_state.get("rect")
         if rect:
-            effects_manager.spawn_star_particles(rect.centerx, rect.top - 10, count=18)
-            effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=14)
+            effects_manager.spawn_flame_particles(rect.centerx, rect.top - 12, count=18)
+            effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=10)
     except Exception:
         pass
     try:
@@ -8353,8 +8360,8 @@ def upgrade_blacksmith_turret():
     except Exception:
         pass
 
-    print(f"[DEBUG] Turret upgraded to Lv {new_level} (HP {upgraded_max_hp}, fire {upgraded_interval}f)")
-    sync_blacksmith_state()
+    print("[DEBUG] Turret Overdrive unleashed!")
+    push_blacksmith_state()
     return True
 
 
