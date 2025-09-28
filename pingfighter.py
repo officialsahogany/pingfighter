@@ -8598,6 +8598,11 @@ def update_blacksmith_turret():
                     knockback_multiplier = max(1.0, float(turret_state.get("overdrive_knockback_multiplier", 1.0)))
                 stun_frames = max(1, int(round(BLACKSMITH_TURRET_STUN_DURATION * stun_multiplier)))
                 knockback_speed = BLACKSMITH_TURRET_KNOCKBACK_SPEED * knockback_multiplier
+                if proj.get("overdrive"):
+                    intensity = 4 if not proj.get("divine_overdrive") else 7
+                    global screen_shake_timer, screen_shake_intensity
+                    screen_shake_timer = max(screen_shake_timer, 8)
+                    screen_shake_intensity = max(screen_shake_intensity, intensity)
                 try:
                     current_star_timer = globals().get("boss_stunned_timer", 0)
                     current_star_timer = max(current_star_timer, stun_frames)
@@ -8629,6 +8634,8 @@ def update_blacksmith_turret():
                     effects_manager.spawn_star_particles(cx, cy, count=8)
                     effects_manager.spawn_flame_particles(cx, cy, count=7)
                     effects_manager.spawn_construction_smoke(cx, cy, count=5, spread=20)
+                    if proj.get("divine_overdrive"):
+                        _spawn_blacksmith_megadrive_shards(cx, cy, radius * 2.2)
                 except Exception:
                     pass
                 continue
