@@ -8006,6 +8006,11 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     """포탑 런타임 상태를 완전히 초기화해 필드에서 제거한다."""
 
     # turret_runtime: BlacksmithTurretRuntime
+    was_built_or_in_progress = bool(
+        turret_runtime.active
+        or turret_runtime.state
+        or turret_runtime.blueprint_active
+    )
     turret_runtime.active = False
     turret_runtime.state = None
     turret_runtime.blueprint_active = False
@@ -8020,6 +8025,7 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     turret_runtime.overheat_timer = 0
     turret_runtime.overheat_smoke_timer = 0
     turret_runtime.overdrive_ui_timer = 0
+    turret_runtime.rebuild_ready = was_built_or_in_progress
     stop_blacksmith_construction_sound()
 
     # 레거시 전역 상태도 즉시 정리해 유령 포탑이 남지 않도록 한다.
@@ -9967,7 +9973,12 @@ def draw_blacksmith_turret_ui(surface):
     blacksmith_turret_active = turret_runtime.active
     blacksmith_turret_build_progress = turret_runtime.build_progress
     available_options = _blacksmith_get_buildable_options(state=state)
-    turret_available = "turret" in available_options
+    turret_available = (
+        state.turret.rebuild_ready
+        and ("turret" in available_options)
+        and not blacksmith_turret_blueprint_active
+        and not blacksmith_turret_active
+    )
     overheat_timer = 0
     overheat_active = False
     if blacksmith_turret_state:
