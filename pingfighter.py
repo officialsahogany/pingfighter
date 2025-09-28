@@ -8590,7 +8590,7 @@ def update_blacksmith_turret():
         pulse = 0.5 + 0.5 * math.sin(frame_value * 0.32)
         aura_surface = pygame.Surface((turret_rect.width + 22, turret_rect.height + 24), pygame.SRCALPHA)
         aura_surface.fill((255, 70, 40, int(80 + 120 * pulse)))
-        surface.blit(
+        SCREEN.blit(
             aura_surface,
             (turret_rect.left - 11, turret_rect.top - 14),
             special_flags=pygame.BLEND_RGBA_ADD,
