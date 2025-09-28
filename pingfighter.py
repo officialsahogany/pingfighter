@@ -4629,9 +4629,9 @@ def _draw_blacksmith_umbrella_overlay(
     inner_world = [to_world(x, y) for x, y in inner_outline]
     inner_int = [_vec_to_int_pair(p) for p in inner_world]
     inner_outline_color = (
-        212,
-        206,
-        198,
+        226,
+        232,
+        242,
     ) if divine_active else (188, 174, 158)
     pygame.draw.polygon(surface, inner_outline_color, inner_int, width=2)
 
