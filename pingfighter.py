@@ -7846,7 +7846,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
     """
 
     global ball_vel, game_vars, last_hit_by
-    global blacksmith_divine_destroy_timer
+    global blacksmith_divine_destroy_timer, blacksmith_divine_stage_owner
 
     if divine_runtime is None:
         if auto_sync:
@@ -7895,8 +7895,14 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 state_changed = True
                 if divine_state["hp"] <= 0:
                     effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
-                    # 즉시 파괴하지 않고 타이머 설정
-                    blacksmith_divine_destroy_timer = int(0.7 * FPS)  # 0.7초 = 42프레임
+                    # 런타임/전역 상태를 즉시 정리해 UI와 필드에서 제거한다.
+                    blacksmith_divine_destroy_timer = 0
+                    blacksmith_divine_stage_owner = None
+                    divine_runtime.state = None
+                    divine_runtime.blueprint_active = False
+                    divine_runtime.blueprint_rect = None
+                    divine_runtime.build_progress = 0
+                    divine_runtime.partial_drain = 0.0
                     state_changed = True
 
     if state_changed and auto_push:
