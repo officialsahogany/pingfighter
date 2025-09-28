@@ -9946,16 +9946,20 @@ def draw_blacksmith_turret_ui(surface):
         pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
         xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, int(xp_rect.width * xp_ratio), xp_rect.height)
         base_fill_color = (242, 188, 96)
-        if overdrive_active:
-            base_fill_color = (255, 120, 70)
+        if overdrive_active or overdrive_ui_timer > 0:
+            base_fill_color = (255, 120, 70) if not ui_divine else (120, 220, 255)
         pygame.draw.rect(surface, base_fill_color, xp_fill_rect, border_radius=3)
         pygame.draw.rect(surface, (120, 96, 64), xp_rect, 1, border_radius=3)
 
         if overdrive_active or overdrive_ui_timer > 0:
-            xp_text = FontStyle.tiny().render("🔥 오버드라이브", True, (255, 234, 220))
             overlay = pygame.Surface(xp_rect.size, pygame.SRCALPHA)
             glow_alpha = int(120 + 100 * overdrive_ui_pulse)
-            pygame.draw.rect(overlay, (255, 80, 48, glow_alpha), overlay.get_rect(), border_radius=3)
+            if ui_divine:
+                xp_text = FontStyle.tiny().render("💥 메가드라이브", True, (225, 245, 255))
+                pygame.draw.rect(overlay, (110, 210, 255, glow_alpha), overlay.get_rect(), border_radius=3)
+            else:
+                xp_text = FontStyle.tiny().render("🔥 오버드라이브", True, (255, 234, 220))
+                pygame.draw.rect(overlay, (255, 80, 48, glow_alpha), overlay.get_rect(), border_radius=3)
             surface.blit(overlay, xp_rect.topleft, special_flags=pygame.BLEND_ADD)
         else:
             xp_text = FontStyle.tiny().render(f"게이지 {int(xp_ratio * 100)}%", True, (250, 240, 210))
