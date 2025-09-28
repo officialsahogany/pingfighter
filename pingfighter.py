@@ -9560,10 +9560,12 @@ def draw_blacksmith_divine_ui(surface):
     global blacksmith_hammer_shock_projectiles, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_shock_last_stage, blacksmith_hammer_shock_cooldown_total
 
+    available_options = _blacksmith_get_buildable_options(state=state)
     divine_state = divine_runtime.state or blacksmith_divine_stone_state
     blueprint_active = bool(divine_runtime.blueprint_active or blacksmith_divine_blueprint_active)
+    divine_available = ("divine_stone" in available_options) and not blueprint_active
 
-    if divine_state is None and not blueprint_active:
+    if not (blueprint_active or divine_state is not None or divine_available):
         return
 
     building_mode = blueprint_active and divine_state is None
@@ -9642,6 +9644,26 @@ def draw_blacksmith_divine_ui(surface):
     pygame.draw.rect(surface, panel_color, icon_rect, border_radius=6)
     pygame.draw.rect(surface, border_color, icon_rect, width=2, border_radius=6)
 
+    if divine_available:
+        blueprint_overlay = pygame.Surface(icon_rect.size, pygame.SRCALPHA)
+        blueprint_overlay.fill((60, 120, 200, 110))
+        surface.blit(blueprint_overlay, icon_rect.topleft)
+        pygame.draw.rect(surface, (150, 205, 255), icon_rect, 1, border_radius=6)
+        pygame.draw.line(
+            surface,
+            (120, 180, 240),
+            (icon_rect.left + 4, icon_rect.centery),
+            (icon_rect.right - 4, icon_rect.centery),
+            1,
+        )
+        pygame.draw.line(
+            surface,
+            (120, 180, 240),
+            (icon_rect.centerx, icon_rect.top + 4),
+            (icon_rect.centerx, icon_rect.bottom - 4),
+            1,
+        )
+
     time_ms = pygame.time.get_ticks()
     pulse_frequency = max(0.1, float(style.get("pulse_frequency", 1.0)))
     animation_phase = (time_ms / 1000.0) * pulse_frequency
@@ -9706,7 +9728,16 @@ def draw_blacksmith_divine_ui(surface):
             )
         surface.blit(swirl_surface, icon_rect.topleft, special_flags=pygame.BLEND_ADD)
 
-    title_text = tiny_font.render("디바인스톤", True, accent_color)
+    if building_mode:
+        title_label = "디바인스톤 건설중"
+    elif divine_state is not None:
+        title_label = "디바인스톤"
+    elif divine_available:
+        title_label = "디바인스톤 청사진"
+    else:
+        title_label = "디바인스톤"
+
+    title_text = tiny_font.render(title_label, True, accent_color)
     title_rect = title_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
     surface.blit(title_text, title_rect)
 
