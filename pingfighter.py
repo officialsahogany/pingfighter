@@ -7894,8 +7894,9 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 state_changed = True
                 if divine_state["hp"] <= 0:
                     effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
-                    divine_runtime.state = None
-                    blacksmith_divine_stage_owner = None
+                    # 즉시 파괴하지 않고 타이머 설정
+                    global blacksmith_divine_destroy_timer
+                    blacksmith_divine_destroy_timer = int(0.7 * FPS)  # 0.7초 = 42프레임
                     state_changed = True
 
     if state_changed and auto_push:
