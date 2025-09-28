@@ -10206,6 +10206,7 @@ blacksmith_turret_projectiles = []
 blacksmith_turret_partial_drain = 0.0
 blacksmith_turret_xp_partial_drain = 0.0
 blacksmith_turret_manual_cooldown = 0
+blacksmith_turret_overdrive_ui_timer = 0
 
 blacksmith_down_hold_frames = 0
 blacksmith_build_menu_active = False

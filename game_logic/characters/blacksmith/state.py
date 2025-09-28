@@ -18,6 +18,7 @@ class BlacksmithTurretRuntime:
     partial_drain: float = 0.0
     xp_partial_drain: float = 0.0
     manual_cooldown: int = 0
+    overdrive_ui_timer: int = 0
 
 
 @dataclass
@@ -69,6 +70,7 @@ class BlacksmithState:
             "blacksmith_turret_partial_drain",
             "blacksmith_turret_xp_partial_drain",
             "blacksmith_turret_manual_cooldown",
+            "blacksmith_turret_overdrive_ui_timer",
             "blacksmith_divine_stone_state",
             "blacksmith_divine_blueprint_active",
             "blacksmith_divine_blueprint_rect",
@@ -102,6 +104,8 @@ class BlacksmithState:
             setattr(namespace, "blacksmith_turret_xp_partial_drain", turret.xp_partial_drain)
         if "blacksmith_turret_manual_cooldown" in selected:
             setattr(namespace, "blacksmith_turret_manual_cooldown", turret.manual_cooldown)
+        if "blacksmith_turret_overdrive_ui_timer" in selected:
+            setattr(namespace, "blacksmith_turret_overdrive_ui_timer", turret.overdrive_ui_timer)
 
         if "blacksmith_divine_stone_state" in selected:
             setattr(namespace, "blacksmith_divine_stone_state", divine.state)
@@ -135,6 +139,7 @@ class BlacksmithState:
             "blacksmith_turret_partial_drain",
             "blacksmith_turret_xp_partial_drain",
             "blacksmith_turret_manual_cooldown",
+            "blacksmith_turret_overdrive_ui_timer",
             "blacksmith_divine_stone_state",
             "blacksmith_divine_blueprint_active",
             "blacksmith_divine_blueprint_rect",
@@ -168,6 +173,8 @@ class BlacksmithState:
             turret.xp_partial_drain = float(getattr(namespace, "blacksmith_turret_xp_partial_drain", 0.0))
         if "blacksmith_turret_manual_cooldown" in selected:
             turret.manual_cooldown = int(getattr(namespace, "blacksmith_turret_manual_cooldown", 0))
+        if "blacksmith_turret_overdrive_ui_timer" in selected:
+            turret.overdrive_ui_timer = int(getattr(namespace, "blacksmith_turret_overdrive_ui_timer", 0))
 
         if "blacksmith_divine_stone_state" in selected:
             divine.state = getattr(namespace, "blacksmith_divine_stone_state", None)
