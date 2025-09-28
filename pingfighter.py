@@ -8162,6 +8162,9 @@ def _end_blacksmith_turret_overdrive(turret_state) -> None:
     except Exception:
         pass
 
+    globals()["blacksmith_turret_overheat_timer"] = overheat_total
+    globals()["blacksmith_turret_overheat_smoke_timer"] = 0
+
 
 def _get_blacksmith_overdrive_gradient_surface() -> pygame.Surface | None:
     """오버드라이브 화면 연출용 세로 그라데이션을 반환한다."""
@@ -8422,11 +8425,14 @@ def update_blacksmith_turret():
         smoke_timer = int(turret_state.get("overheat_smoke_timer", 0)) + 1
         turret_state["overheat_smoke_timer"] = smoke_timer
         turret_runtime.overheat_smoke_timer = smoke_timer
+        globals()["blacksmith_turret_overheat_timer"] = new_overheat_timer
+        globals()["blacksmith_turret_overheat_smoke_timer"] = smoke_timer
         if smoke_timer >= BLACKSMITH_TURRET_OVERHEAT_SMOKE_INTERVAL:
             if not time_frozen:
                 _emit_blacksmith_turret_overheat_smoke(turret_state)
             turret_state["overheat_smoke_timer"] = 0
             turret_runtime.overheat_smoke_timer = 0
+            globals()["blacksmith_turret_overheat_smoke_timer"] = 0
         skip_regular_fire = True
         if turret_state.get("fire_interval"):
             turret_state["fire_timer"] = max(
@@ -8437,6 +8443,8 @@ def update_blacksmith_turret():
         turret_state["overheat_smoke_timer"] = 0
         turret_runtime.overheat_smoke_timer = 0
         turret_runtime.overheat_timer = 0
+        globals()["blacksmith_turret_overheat_smoke_timer"] = 0
+        globals()["blacksmith_turret_overheat_timer"] = 0
 
     if turret_state.get("overdrive_flash_timer", 0) > 0 and not time_frozen:
         turret_state["overdrive_flash_timer"] = max(0, turret_state["overdrive_flash_timer"] - 1)
@@ -8683,6 +8691,8 @@ def trigger_blacksmith_turret_overdrive() -> bool:
     blacksmith_turret_overdrive_ui_divine = divine_active
     turret_runtime.overheat_timer = 0
     turret_runtime.overheat_smoke_timer = 0
+    globals()["blacksmith_turret_overheat_timer"] = 0
+    globals()["blacksmith_turret_overheat_smoke_timer"] = 0
 
     try:
         if rect:
