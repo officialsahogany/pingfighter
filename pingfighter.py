@@ -917,6 +917,29 @@ def play_sound_with_volume(sound, volume=None):
 
 
 blacksmith_hammer_charge_sound_channel = None
+poseidon_wave_sound_channel = None
+
+
+def play_poseidon_wave_sound() -> None:
+    """포세이돈 물결 사운드를 단일 채널에서 재생한다."""
+
+    global poseidon_wave_sound_channel
+
+    if not SOUND_POSEIDON_WAVE:
+        return
+
+    channel = poseidon_wave_sound_channel
+    if channel:
+        try:
+            if channel.get_busy():
+                channel.stop()
+        except Exception:
+            poseidon_wave_sound_channel = None
+
+    try:
+        poseidon_wave_sound_channel = play_sound_with_volume(SOUND_POSEIDON_WAVE)
+    except Exception:
+        poseidon_wave_sound_channel = None
 
 
 def start_blacksmith_hammer_charge_sound() -> None:
@@ -19806,8 +19829,7 @@ def handle_player(keys):
                         if trident and trident.active:
                             # 대쉬가 완료되고 통제불능 상태에 진입할 때 현재 플레이어 위치 양쪽에 회오리 생성
                             trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, _rolling_get("rolling_direction"))
-                            if SOUND_POSEIDON_WAVE:
-                                play_sound_with_volume(SOUND_POSEIDON_WAVE)
+                            play_poseidon_wave_sound()
                             poseidon_dash_pending = False  # 플래그 리셋
                 current_speed = 0
             else:
@@ -47149,8 +47171,7 @@ def handle_ball():
                             trident = legendary_manager.get_item("poseidon_trident")
                             if trident and trident.active:
                                 trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, dash_direction)
-                                if SOUND_POSEIDON_WAVE:
-                                    play_sound_with_volume(SOUND_POSEIDON_WAVE)
+                                play_poseidon_wave_sound()
                     except:
                         pass  # 전설 아이템 접근 실패 시 무시
                     
