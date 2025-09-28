@@ -6150,6 +6150,9 @@ def _blacksmith_hammer_shock_max_stage_for_gauge(gauge: float) -> int:
     if gauge <= 0:
         return 0
 
+    if gauge >= BLACKSMITH_HAMMER_SHOCK_MAX_STAGE_COST:
+        return BLACKSMITH_HAMMER_SHOCK_MAX_STAGE
+
     max_stage = 0
     for stage in sorted(BLACKSMITH_HAMMER_SHOCK_STAGE_COST):
         if gauge < BLACKSMITH_HAMMER_SHOCK_STAGE_COST[stage]:
