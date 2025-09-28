@@ -7997,6 +7997,7 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     namespace["blacksmith_turret_manual_cooldown"] = 0
     namespace["blacksmith_turret_destroy_timer"] = 0
     namespace["blacksmith_turret_overdrive_ui_timer"] = 0
+    namespace["blacksmith_turret_overdrive_ui_divine"] = False
 
 
 def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdrive: bool = False) -> None:
@@ -10559,6 +10560,7 @@ blacksmith_turret_partial_drain = 0.0
 blacksmith_turret_xp_partial_drain = 0.0
 blacksmith_turret_manual_cooldown = 0
 blacksmith_turret_overdrive_ui_timer = 0
+blacksmith_turret_overdrive_ui_divine = False
 
 blacksmith_down_hold_frames = 0
 blacksmith_build_menu_active = False
