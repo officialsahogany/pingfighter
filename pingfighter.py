@@ -10703,6 +10703,16 @@ smasher_left_raise_timer = 0
 
 smasher_pending_contact_offset = None  # 파워스매싱 발사 시점용 애니메이션 보류 오프셋
 
+# Shift 길게 누름 기반 탑뷰 연출 관련 상수 및 상태
+SMASHER_HOVERBOARD_HOLD_THRESHOLD = int(0.5 * FPS)
+SMASHER_HOVERBOARD_EXTEND_SPEED = 0.08
+SMASHER_HOVERBOARD_RETRACT_SPEED = 0.12
+SMASHER_HOVERBOARD_CACHE_STEP = 0.05
+SMASHER_HOVERBOARD_CACHE_FACTOR = int(round(1.0 / SMASHER_HOVERBOARD_CACHE_STEP))
+smasher_shift_hold_frames = 0
+smasher_hoverboard_extend_progress = 0.0
+smasher_hoverboard_top_view_cache: dict[int, pygame.Surface] = {}
+
 
 def trigger_smasher_contact_animation(offset_x: float) -> None:
     """공이 맞은 위치에 따라 스매셔의 팔/방패 애니메이션을 트리거한다."""
