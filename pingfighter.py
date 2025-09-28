@@ -8086,6 +8086,98 @@ def _end_blacksmith_turret_overdrive(turret_state) -> None:
     turret_state["fire_interval"] = base_interval
     turret_state["fire_timer"] = max(0, min(turret_state.get("fire_timer", base_interval), base_interval))
 
+
+def _get_blacksmith_overdrive_gradient_surface() -> pygame.Surface | None:
+    """오버드라이브 화면 연출용 세로 그라데이션을 반환한다."""
+
+    global BLACKSMITH_OVERDRIVE_GRADIENT_SURFACE
+
+    existing = BLACKSMITH_OVERDRIVE_GRADIENT_SURFACE
+    if existing is not None and existing.get_width() == WIDTH and existing.get_height() == HEIGHT:
+        return existing
+
+    surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    band_count = 28
+    band_height = max(4, HEIGHT // band_count)
+    for idx in range(band_count + 2):
+        t = idx / max(1, band_count + 1)
+        band_alpha = int(28 + 90 * (1.0 - abs(0.5 - t) * 1.8))
+        band_alpha = max(0, min(140, band_alpha))
+        color = (255, 66, 42, band_alpha)
+        y = int(t * HEIGHT)
+        pygame.draw.rect(surface, color, (0, y, WIDTH, band_height))
+
+    BLACKSMITH_OVERDRIVE_GRADIENT_SURFACE = surface
+    return surface
+
+
+def _get_blacksmith_overdrive_vignette_surface() -> pygame.Surface | None:
+    """오버드라이브 화면 연출용 방사형 비네트를 반환한다."""
+
+    global BLACKSMITH_OVERDRIVE_VIGNETTE_SURFACE
+
+    existing = BLACKSMITH_OVERDRIVE_VIGNETTE_SURFACE
+    if existing is not None and existing.get_width() == WIDTH and existing.get_height() == HEIGHT:
+        return existing
+
+    surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    center_x = WIDTH // 2
+    center_y = int(HEIGHT * 0.42)
+    max_radius = int(math.hypot(WIDTH, HEIGHT))
+    steps = 18
+    for step in range(steps, 0, -1):
+        t = step / steps
+        alpha = int(12 + 70 * (t ** 1.8))
+        radius = max(90, int(max_radius * t))
+        pygame.draw.circle(surface, (255, 60, 38, alpha), (center_x, center_y), radius)
+
+    BLACKSMITH_OVERDRIVE_VIGNETTE_SURFACE = surface
+    return surface
+
+
+def draw_blacksmith_overdrive_overlay(surface: pygame.Surface) -> None:
+    """오버드라이브 동안 화면 전체에 붉은 파동을 입힌다."""
+
+    if selected_character_type != "blacksmith":
+        return
+
+    sync_blacksmith_state()
+    turret_runtime = BLACKSMITH_CONTROLLER.state.turret
+    turret_state = turret_runtime.state
+
+    if not turret_runtime.active or not turret_state or not turret_state.get("overdrive_active"):
+        return
+
+    timer = max(0, turret_state.get("overdrive_timer", 0))
+    duration = max(1, BLACKSMITH_TURRET_OVERDRIVE_DURATION)
+    elapsed = max(0, duration - timer)
+    fade_in = min(1.0, elapsed / max(1.0, 0.35 * FPS))
+    fade_out = min(1.0, timer / max(1.0, 0.45 * FPS))
+    intensity_gate = min(fade_in, fade_out)
+
+    if intensity_gate <= 0:
+        return
+
+    phase = turret_state.get("overdrive_glow_phase", 0.0)
+    pulse = 0.5 + 0.5 * math.sin(phase * 0.85)
+    base_strength = intensity_gate * (0.55 + 0.45 * pulse)
+
+    gradient = _get_blacksmith_overdrive_gradient_surface()
+    vignette = _get_blacksmith_overdrive_vignette_surface()
+
+    if gradient:
+        prev_alpha = gradient.get_alpha()
+        gradient.set_alpha(int(120 * base_strength))
+        surface.blit(gradient, (0, 0))
+        gradient.set_alpha(prev_alpha)
+
+    if vignette:
+        prev_alpha = vignette.get_alpha()
+        vignette.set_alpha(int(150 * base_strength))
+        surface.blit(vignette, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+        vignette.set_alpha(prev_alpha)
+
+
 def update_blacksmith_turret():
     """발토르 포탑의 발사 및 투사체 동작을 업데이트한다."""
     global player_collision_handled, last_hit_by
