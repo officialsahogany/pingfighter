@@ -5438,6 +5438,9 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "overdrive_flash_timer": 0,
                             "overdrive_recoil_boost": 1.0,
                             "overdrive_speed_boost": 1.0,
+                            "overdrive_stun_multiplier": 1.0,
+                            "overdrive_knockback_multiplier": 1.0,
+                            "overdrive_divine_active": False,
                         }
                         blacksmith_turret_active = True
                         blacksmith_turret_blueprint_active = False
@@ -8082,6 +8085,9 @@ def _end_blacksmith_turret_overdrive(turret_state) -> None:
     turret_state["overdrive_flash_timer"] = 0
     turret_state["overdrive_recoil_boost"] = 1.0
     turret_state["overdrive_speed_boost"] = 1.0
+    turret_state["overdrive_stun_multiplier"] = 1.0
+    turret_state["overdrive_knockback_multiplier"] = 1.0
+    turret_state["overdrive_divine_active"] = False
     turret_state["recoil_base_distance"] = BLACKSMITH_TURRET_RECOIL_DISTANCE
     turret_state["fire_interval"] = base_interval
     turret_state["fire_timer"] = max(0, min(turret_state.get("fire_timer", base_interval), base_interval))
@@ -10362,6 +10368,7 @@ BLACKSMITH_TURRET_UPGRADE_TIME = 10  # seconds of charge to upgrade (legacy valu
 BLACKSMITH_TURRET_XP_REQUIRED = 220
 BLACKSMITH_TURRET_OVERDRIVE_DURATION = int(3.0 * FPS)
 BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW = int(2.0 * FPS)
+BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW_DIVINE = int(3.0 * FPS)
 BLACKSMITH_TURRET_OVERDRIVE_SHOTS = 6
 BLACKSMITH_TURRET_OVERDRIVE_BASE_INTERVAL = max(1, int(0.5 * FPS))
 BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL = max(1, int(0.25 * FPS))
