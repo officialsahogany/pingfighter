@@ -10448,6 +10448,9 @@ blacksmith_construction_channel = None
 BLACKSMITH_CONTROLLER = BlacksmithController(sys.modules[__name__])
 BLACKSMITH_CONTROLLER.sync_from_globals()
 
+BLACKSMITH_OVERDRIVE_GRADIENT_SURFACE = None
+BLACKSMITH_OVERDRIVE_VIGNETTE_SURFACE = None
+
 
 def sync_blacksmith_state() -> None:
     """전역 → 상태 객체 동기화."""
