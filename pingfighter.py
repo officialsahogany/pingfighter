@@ -7845,7 +7845,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
         bool: 상태가 변경되었는지 여부.
     """
 
-    global ball_vel
+    global ball_vel, game_vars, last_hit_by
 
     if divine_runtime is None:
         if auto_sync:
@@ -7870,16 +7870,33 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
             BALL.bottom = min(BALL.bottom, rect.top - 2)
             ball_vel[1] = -abs(ball_vel[1]) - 4
             ball_vel[0] *= 0.6
-            divine_state["hp"] = max(0, divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)
-            divine_state["cooldown"] = int(0.25 * FPS)
-            effects_manager.spawn_star_particles(rect.centerx, rect.top, count=5)
-            effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=4)
-            state_changed = True
-            if divine_state["hp"] <= 0:
-                effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
-                divine_runtime.state = None
-                blacksmith_divine_stage_owner = None
+
+            ball_owner = None
+            try:
+                ball_owner = getattr(game_vars.ball, "last_hit_by", None)
+            except Exception:
+                ball_owner = None
+            if not ball_owner:
+                ball_owner = globals().get("last_hit_by", "player")
+
+            if ball_owner == "player":
+                try:
+                    last_hit_by = "player"
+                    game_vars.ball.last_hit_by = "player"
+                except Exception:
+                    pass
+                divine_state["cooldown"] = int(0.25 * FPS)
+            else:
+                divine_state["hp"] = max(0, divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)
+                divine_state["cooldown"] = int(0.25 * FPS)
+                effects_manager.spawn_star_particles(rect.centerx, rect.top, count=5)
+                effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=4)
                 state_changed = True
+                if divine_state["hp"] <= 0:
+                    effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
+                    divine_runtime.state = None
+                    blacksmith_divine_stage_owner = None
+                    state_changed = True
 
     if state_changed and auto_push:
         push_blacksmith_state()
