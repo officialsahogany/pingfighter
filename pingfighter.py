@@ -54346,6 +54346,7 @@ def main(stage_num, new_boss_mode=False):
                     and blacksmith_turret_active
                     and blacksmith_turret_state
                     and blacksmith_turret_state.get("hp", 0) > 0
+                    and blacksmith_turret_state.get("overheat_timer", 0) <= 0
                     and blacksmith_hammer_available
                     and not blacksmith_hammer_shock_charging
                 ):
