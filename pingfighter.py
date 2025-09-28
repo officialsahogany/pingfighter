@@ -8056,6 +8056,10 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
             effects_manager.spawn_flame_particles(spawn_point.x, spawn_point.y, count=10)
         except Exception:
             pass
+        turret_state["overdrive_flash_timer"] = max(
+            turret_state.get("overdrive_flash_timer", 0),
+            max(6, int(0.18 * FPS)),
+        )
 
 
 def _end_blacksmith_turret_overdrive(turret_state) -> None:
