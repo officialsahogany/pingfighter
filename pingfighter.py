@@ -8188,8 +8188,8 @@ def _spawn_blacksmith_megadrive_shards(x: float, y: float, radius: float) -> Non
     except AttributeError:
         try:
             effects_manager.spawn_star_particles(x, y, count=10)
-    except Exception:
-        pass
+        except Exception:
+            pass
 
 
 def draw_blacksmith_overheat_overlay(surface: pygame.Surface) -> None:
