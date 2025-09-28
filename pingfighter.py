@@ -8736,15 +8736,17 @@ def trigger_blacksmith_turret_overdrive() -> bool:
     fire_window = BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW
     stun_multiplier = 1.0
     knockback_multiplier = 1.0
+    shots_remaining = BLACKSMITH_TURRET_OVERDRIVE_SHOTS
     if divine_active:
         fire_window = BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW_DIVINE
         stun_multiplier = 2.0  # +100%
         knockback_multiplier = 1.5  # +50%
+        shots_remaining = 12
 
     blacksmith_turret_state["overdrive_active"] = True
     blacksmith_turret_state["overdrive_timer"] = BLACKSMITH_TURRET_OVERDRIVE_DURATION
     blacksmith_turret_state["overdrive_fire_window"] = fire_window
-    blacksmith_turret_state["overdrive_shots_remaining"] = BLACKSMITH_TURRET_OVERDRIVE_SHOTS
+    blacksmith_turret_state["overdrive_shots_remaining"] = shots_remaining
     blacksmith_turret_state["overdrive_shot_cooldown"] = 0
     blacksmith_turret_state["overdrive_glow_phase"] = 0.0
     blacksmith_turret_state["overdrive_recoil_boost"] = BLACKSMITH_TURRET_OVERDRIVE_RECOIL_SCL
