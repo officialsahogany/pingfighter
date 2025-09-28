@@ -9684,7 +9684,7 @@ def draw_blacksmith_divine_ui(surface):
         + turret_spacing
     )
     stack_gap = max(0, turret_vertical_span - 4)
-    if turret_runtime.blueprint_active or turret_runtime.active:
+    if turret_runtime.active:
         icon_rect = icon_rect.move(0, -stack_gap)
     icon_rect.y = max(12, icon_rect.y)
 
