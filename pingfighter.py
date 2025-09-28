@@ -5547,16 +5547,14 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         blacksmith_divine_partial_drain = 0.0
 
     if blacksmith_turret_active and blacksmith_turret_state:
-        level = blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)
         turret_rect = blacksmith_turret_state.get("rect")
         xp_max = max(1.0, blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)))
-        if level >= BLACKSMITH_TURRET_MAX_LEVEL:
-            blacksmith_turret_state["xp"] = min(blacksmith_turret_state.get("xp", xp_max), xp_max)
+        if blacksmith_turret_state.get("overdrive_active"):
             blacksmith_turret_xp_partial_drain = 0.0
         elif down_pressed and turret_rect is not None:
             distance = abs(PLAYER.centerx - turret_rect.centerx)
-            engaged_for_upgrade = distance <= BLACKSMITH_TURRET_BUILD_RADIUS
-            if engaged_for_upgrade:
+            engaged_for_charge = distance <= BLACKSMITH_TURRET_BUILD_RADIUS
+            if engaged_for_charge:
                 if not blacksmith_hammer_swing_active:
                     blacksmith_hammer_swing_phase = 0
                 blacksmith_hammer_swing_slow_timer = 0
@@ -5567,7 +5565,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
                 drain_per_frame = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS
-                xp_gain_units = 0
+                gained_xp = 0
                 if special_gauge > 0:
                     construction_active = True
                     blacksmith_turret_xp_partial_drain += drain_per_frame
@@ -5578,19 +5576,18 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             special_gauge -= actual_drain
                             blacksmith_turret_xp_partial_drain -= actual_drain
                             special_ready = special_gauge >= 350
-                            xp_gain_units = actual_drain
-                if xp_gain_units > 0:
-                    current_xp = blacksmith_turret_state.get("xp", 0.0) + xp_gain_units
+                            gained_xp = actual_drain
+                if gained_xp > 0:
+                    current_xp = blacksmith_turret_state.get("xp", 0.0) + gained_xp
                     if current_xp >= xp_max:
                         blacksmith_turret_state["xp"] = xp_max
-                        upgraded = upgrade_blacksmith_turret()
-                        if upgraded:
+                        if trigger_blacksmith_turret_overdrive():
                             blacksmith_turret_xp_partial_drain = 0.0
                     else:
                         blacksmith_turret_state["xp"] = current_xp
                         if frame_counter % 45 == 0:
                             print(f"[DEBUG] Turret XP: {current_xp:.1f}/{xp_max:.1f}")
-                if xp_gain_units > 0:
+                if gained_xp > 0:
                     construction_active = True
             else:
                 blacksmith_turret_xp_partial_drain = 0.0
