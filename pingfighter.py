@@ -7994,6 +7994,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                     divine_runtime.blueprint_rect = None
                     divine_runtime.build_progress = 0
                     divine_runtime.partial_drain = 0.0
+                    divine_runtime.rebuild_ready = True
                     # 포탑 없이도 레거시 전역 상태가 남지 않도록 즉시 동기화한다.
                     blacksmith_divine_stone_state = None
                     blacksmith_divine_blueprint_active = False
@@ -8410,6 +8411,7 @@ def update_blacksmith_turret():
             state = BLACKSMITH_CONTROLLER.state
             divine_runtime = state.divine
             divine_runtime.state = None
+            divine_runtime.rebuild_ready = True
             blacksmith_divine_stage_owner = None
             push_blacksmith_state()
 
