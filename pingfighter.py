@@ -5330,6 +5330,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
 
     sync_blacksmith_state()
     state = BLACKSMITH_CONTROLLER.state
+    turret_runtime = state.turret
     divine_runtime = state.divine
 
     construction_active = False
@@ -5370,6 +5371,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         blacksmith_turret_build_progress = 0
         blacksmith_turret_blueprint_active = True
         blacksmith_turret_partial_drain = 0.0
+        turret_runtime.rebuild_ready = False
         try:
             play_sound_with_volume(SOUND_ITEM_GET)
         except Exception:
@@ -5473,6 +5475,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_turret_blueprint_rect = None
                         blacksmith_turret_build_progress = 0
                         blacksmith_turret_partial_drain = 0.0
+                        turret_runtime.rebuild_ready = False
                         try:
                             play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
                         except Exception:
