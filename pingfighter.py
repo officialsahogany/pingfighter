@@ -7929,6 +7929,8 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     namespace["blacksmith_turret_partial_drain"] = 0.0
     namespace["blacksmith_turret_xp_partial_drain"] = 0.0
     namespace["blacksmith_turret_manual_cooldown"] = 0
+    namespace["blacksmith_turret_destroy_timer"] = 0
+    namespace["blacksmith_divine_destroy_timer"] = 0
 
 
 def update_blacksmith_turret():
