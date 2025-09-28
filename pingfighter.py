@@ -8187,8 +8187,6 @@ def update_blacksmith_turret():
         if turret_state.get("hp", 0) <= 0:
             turret_state["hp"] = 0
             turret_runtime.projectiles.clear()
-            # 포탑을 즉시 비활성화하여 더 이상 업데이트되지 않도록 함
-            turret_runtime.active = False
             try:
                 effects_manager.spawn_star_particles(turret_rect.centerx, turret_rect.top, count=8)
                 effects_manager.spawn_construction_smoke(
@@ -8217,7 +8215,9 @@ def update_blacksmith_turret():
                 play_sound_with_volume(SOUND_STAGE6_BOSS_HIT)
             except Exception:
                 pass
-            _finalize_blacksmith_turret_removal(turret_runtime)
+            # 즉시 파괴하지 않고 타이머 설정
+            global blacksmith_turret_destroy_timer
+            blacksmith_turret_destroy_timer = int(0.7 * FPS)  # 0.7초 = 42프레임
             push_blacksmith_state()
             return
 
