@@ -4517,22 +4517,85 @@ def _draw_blacksmith_umbrella_overlay(
         blacksmith_umbrella_overlay_bounds = None
         blacksmith_umbrella_hitbox_raw = None
 
-    # 베이스 금속판 (그라데이션 효과를 위한 다층 구조)
-    base_color = (
-        int(132 + 12 * open_amount),
-        int(118 + 18 * open_amount),
-        int(102 + 20 * open_amount),
-    )
-    shadow_color = (
-        int(82 + 8 * open_amount),
-        int(68 + 10 * open_amount),
-        int(54 + 12 * open_amount),
-    )
-    highlight_color = (
-        int(164 + 8 * open_amount),
-        int(150 + 12 * open_amount),
-        int(134 + 16 * open_amount),
-    )
+    try:
+        divine_active = is_blacksmith_divine_stone_active()
+    except NameError:
+        divine_active = False
+
+    if divine_active:
+        base_color = (
+            int(168 + 18 * open_amount),
+            int(176 + 22 * open_amount),
+            int(186 + 24 * open_amount),
+        )
+        shadow_color = (
+            int(118 + 12 * open_amount),
+            int(126 + 14 * open_amount),
+            int(134 + 16 * open_amount),
+        )
+        highlight_color = (
+            int(222 + 12 * open_amount),
+            int(230 + 14 * open_amount),
+            int(240 + 16 * open_amount),
+        )
+        upper_band_layer_colors = [
+            (212, 220, 236),
+            (192, 204, 224),
+        ]
+        upper_band_outline_color = (136, 148, 168)
+        upper_band_highlight_color = (236, 244, 255)
+        lower_band_layer_colors = [
+            (188, 198, 216),
+            (170, 182, 204),
+        ]
+        lower_band_outline_color = (126, 138, 156)
+        lower_band_highlight_color = (230, 238, 250)
+        rune_base_color = (206, 220, 238)
+        rune_glow_color = (255, 255, 255)
+        rivet_shadow_color = (96, 108, 128)
+        rivet_body_color = (148, 158, 178)
+        rivet_highlight_color = (214, 224, 240)
+        rivet_core_color = (236, 246, 255)
+        hammer_body_color = (214, 226, 240)
+        hammer_highlight_color = (238, 248, 255)
+        hammer_outline_color = (122, 132, 148)
+    else:
+        base_color = (
+            int(132 + 12 * open_amount),
+            int(118 + 18 * open_amount),
+            int(102 + 20 * open_amount),
+        )
+        shadow_color = (
+            int(82 + 8 * open_amount),
+            int(68 + 10 * open_amount),
+            int(54 + 12 * open_amount),
+        )
+        highlight_color = (
+            int(164 + 8 * open_amount),
+            int(150 + 12 * open_amount),
+            int(134 + 16 * open_amount),
+        )
+        upper_band_layer_colors = [
+            (194, 170, 130),
+            (184, 160, 120),
+        ]
+        upper_band_outline_color = (80, 68, 48)
+        upper_band_highlight_color = (210, 196, 160)
+        lower_band_layer_colors = [
+            (164, 140, 110),
+            (154, 130, 100),
+        ]
+        lower_band_outline_color = (70, 58, 40)
+        lower_band_highlight_color = (200, 186, 150)
+        rune_base_color = (210, 188, 130)
+        rune_glow_color = (255, 235, 180)
+        rivet_shadow_color = (64, 50, 34)
+        rivet_body_color = (104, 90, 74)
+        rivet_highlight_color = (182, 160, 130)
+        rivet_core_color = (202, 180, 150)
+        hammer_body_color = (218, 200, 152)
+        hammer_highlight_color = (238, 220, 172)
+        hammer_outline_color = (90, 76, 56)
     
     # 메인 방패 본체 (그라데이션 레이어)
     for i in range(3):
