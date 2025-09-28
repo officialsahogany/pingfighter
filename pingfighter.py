@@ -9986,7 +9986,9 @@ def draw_blacksmith_turret_ui(surface):
 
     title_font = FontStyle.tiny()
     if blacksmith_turret_active and blacksmith_turret_state:
-        if overdrive_active or overdrive_ui_timer > 0:
+        if overheat_active:
+            title_label = "포탑 • 과부하"
+        elif overdrive_display:
             if ui_divine:
                 title_label = "포탑 • 메가드라이브"
             elif overdrive_active:
@@ -10026,12 +10028,24 @@ def draw_blacksmith_turret_ui(surface):
         pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
         xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, int(xp_rect.width * xp_ratio), xp_rect.height)
         base_fill_color = (242, 188, 96)
-        if overdrive_active or overdrive_ui_timer > 0:
+        if overheat_active:
+            base_fill_color = (180, 120, 110)
+        elif overdrive_display:
             base_fill_color = (255, 120, 70) if not ui_divine else (120, 220, 255)
         pygame.draw.rect(surface, base_fill_color, xp_fill_rect, border_radius=3)
         pygame.draw.rect(surface, (120, 96, 64), xp_rect, 1, border_radius=3)
 
-        if overdrive_active or overdrive_ui_timer > 0:
+        if overheat_active:
+            remaining_seconds = overheat_timer / FPS if FPS else overheat_timer
+            xp_text = FontStyle.tiny().render(
+                f"⚠ 과부하 {remaining_seconds:4.1f}s",
+                True,
+                (255, 220, 200),
+            )
+            overlay = pygame.Surface(xp_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(overlay, (180, 110, 90, 120), overlay.get_rect(), border_radius=3)
+            surface.blit(overlay, xp_rect.topleft, special_flags=pygame.BLEND_ADD)
+        elif overdrive_display:
             overlay = pygame.Surface(xp_rect.size, pygame.SRCALPHA)
             glow_alpha = int(120 + 100 * overdrive_ui_pulse)
             if ui_divine:
