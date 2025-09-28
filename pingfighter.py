@@ -8361,6 +8361,8 @@ def update_blacksmith_turret():
 
     if turret_runtime.overdrive_ui_timer > 0:
         turret_runtime.overdrive_ui_timer = max(0, turret_runtime.overdrive_ui_timer - 1)
+        if turret_runtime.overdrive_ui_timer == 0 and not turret_state.get("overdrive_active", False):
+            turret_runtime.overdrive_ui_divine = False
 
     if not time_frozen and not skip_regular_fire:
         turret_state["fire_timer"] -= 1
