@@ -7812,6 +7812,22 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
         push_blacksmith_state()
     return state_changed
 
+def _finalize_blacksmith_turret_removal(turret_runtime):
+    """포탑 런타임 상태를 완전히 초기화해 필드에서 제거한다."""
+
+    # turret_runtime: BlacksmithTurretRuntime
+    turret_runtime.active = False
+    turret_runtime.state = None
+    turret_runtime.blueprint_active = False
+    turret_runtime.blueprint_rect = None
+    turret_runtime.build_progress = 0
+    turret_runtime.projectiles.clear()
+    turret_runtime.partial_drain = 0.0
+    turret_runtime.xp_partial_drain = 0.0
+    turret_runtime.manual_cooldown = 0
+    stop_blacksmith_construction_sound()
+
+
 def update_blacksmith_turret():
     """발토르 포탑의 발사 및 투사체 동작을 업데이트한다."""
     global player_collision_handled, last_hit_by
