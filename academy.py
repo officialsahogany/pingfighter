@@ -1691,6 +1691,14 @@ class AcademyUI:
                         # 디버그 기능: 스킬포인트 99개 생성 (누적 투자는 실제 투자할 때만 증가)
                         self.skill_system.skill_points = 99
                         print(":  99 ! (  TP    )")
+                    elif event.key == pygame.K_TAB and not self.is_animating:
+                        # Tab 키로 오른쪽 탭으로 순환 (Shift+Tab은 왼쪽)
+                        mods = pygame.key.get_mods()
+                        forward = not (mods & pygame.KMOD_SHIFT)
+                        self._cycle_tree(forward=forward)
+                        self.tab_selection_mode = False
+                        self._focus_first_skill_in_current_tree()
+                        continue
                     elif event.key in [pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN] and not self.is_animating:
                         if self.tab_selection_mode:
                             # 탭 선택 모드에서의 키 처리
