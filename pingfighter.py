@@ -8016,6 +8016,7 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
     recoil_distance = BLACKSMITH_TURRET_RECOIL_DISTANCE * (turret_state.get("overdrive_recoil_boost", 1.0) if overdrive else 1.0)
 
     turret_state["recoil_timer"] = int(recoil_frames * (1.2 if overdrive else 1.0))
+    turret_state["recoil_base_distance"] = recoil_distance
     turret_state["recoil_offset"] = recoil_distance * scale_x
 
     pivot_point = pygame.math.Vector2(
@@ -8145,10 +8146,11 @@ def update_blacksmith_turret():
     if recoil_timer > 0:
         recoil_timer -= 1
     turret_state["recoil_timer"] = recoil_timer
+    recoil_base = turret_state.get("recoil_base_distance", BLACKSMITH_TURRET_RECOIL_DISTANCE)
     if BLACKSMITH_TURRET_RECOIL_FRAMES > 0:
         turret_state["recoil_offset"] = (
-            recoil_timer / BLACKSMITH_TURRET_RECOIL_FRAMES
-        ) * BLACKSMITH_TURRET_RECOIL_DISTANCE * scale_factor
+            recoil_timer / max(1, BLACKSMITH_TURRET_RECOIL_FRAMES)
+        ) * recoil_base * scale_factor
     else:
         turret_state["recoil_offset"] = 0.0
 
