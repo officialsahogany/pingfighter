@@ -8191,46 +8191,56 @@ def update_blacksmith_turret():
             except Exception:
                 pass
 
-    if not (stopwatch_active and stopwatch_timer > 0):
+    overdrive_active = turret_state.get("overdrive_active", False)
+    skip_regular_fire = False
+    if overdrive_active:
+        if not time_frozen:
+            remaining = max(0, turret_state.get("overdrive_timer", 0) - 1)
+            turret_state["overdrive_timer"] = remaining
+            turret_state["overdrive_glow_phase"] = turret_state.get("overdrive_glow_phase", 0.0) + 0.12
+
+            fire_window = max(0, turret_state.get("overdrive_fire_window", 0) - 1)
+            turret_state["overdrive_fire_window"] = fire_window
+            if fire_window > 0 and turret_state.get("overdrive_shots_remaining", 0) > 0:
+                frames_left = fire_window
+                shots_left = max(1, turret_state["overdrive_shots_remaining"])
+                interval = BLACKSMITH_TURRET_OVERDRIVE_BASE_INTERVAL
+                dynamic_cap = frames_left // shots_left
+                if dynamic_cap > 0:
+                    interval = min(interval, max(BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL, dynamic_cap))
+                else:
+                    interval = BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL
+
+                cooldown = max(0, turret_state.get("overdrive_shot_cooldown", 0) - 1)
+                turret_state["overdrive_shot_cooldown"] = cooldown
+                if cooldown <= 0 and turret_state["overdrive_shots_remaining"] > 0:
+                    _blacksmith_fire_turret_projectile(turret_runtime, turret_state, overdrive=True)
+                    turret_state["overdrive_shots_remaining"] -= 1
+                    turret_state["overdrive_shot_cooldown"] = max(
+                        BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL,
+                        interval,
+                    )
+            elif fire_window <= 0:
+                turret_state["overdrive_shots_remaining"] = 0
+                turret_state["overdrive_shot_cooldown"] = 0
+
+        if turret_state.get("overdrive_fire_window", 0) > 0 and turret_state.get("overdrive_shots_remaining", 0) > 0:
+            skip_regular_fire = True
+
+        if not time_frozen and turret_state.get("overdrive_timer", 0) <= 0:
+            _end_blacksmith_turret_overdrive(turret_state)
+            overdrive_active = False
+        elif time_frozen and turret_state.get("overdrive_timer", 0) <= 0:
+            _end_blacksmith_turret_overdrive(turret_state)
+            overdrive_active = False
+
+    if turret_runtime.overdrive_ui_timer > 0:
+        turret_runtime.overdrive_ui_timer = max(0, turret_runtime.overdrive_ui_timer - 1)
+
+    if not time_frozen and not skip_regular_fire:
         turret_state["fire_timer"] -= 1
         if turret_state["fire_timer"] <= 0:
-            display_angle = turret_state.get("display_angle", -math.pi / 2)
-            direction = pygame.math.Vector2(math.cos(display_angle), math.sin(display_angle))
-            if direction.length() == 0:
-                direction = pygame.math.Vector2(0, -1)
-            else:
-                direction = direction.normalize()
-
-            scale_x = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
-            scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
-            turret_state["recoil_timer"] = BLACKSMITH_TURRET_RECOIL_FRAMES
-            turret_state["recoil_offset"] = BLACKSMITH_TURRET_RECOIL_DISTANCE * scale_x
-            pivot_point = pygame.math.Vector2(
-                turret_rect.centerx,
-                turret_rect.top + scale_y * BLACKSMITH_TURRET_HEAD_PIVOT_OFFSET,
-            )
-            recoil_offset = turret_state.get("recoil_offset", 0.0)
-            pivot_point -= direction * recoil_offset
-            muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
-            spawn_point = pivot_point + direction * (muzzle_distance + BLACKSMITH_TURRET_PROJECTILE_RADIUS + 2)
-
-            projectile_speed = BLACKSMITH_TURRET_MISSILE_SPEED
-            projectile = {
-                "x": float(spawn_point.x),
-                "y": float(spawn_point.y),
-                "vx": direction.x * projectile_speed,
-                "vy": direction.y * projectile_speed,
-                "speed": projectile_speed,
-                "life": BLACKSMITH_TURRET_MISSILE_LIFE,
-                "radius": BLACKSMITH_TURRET_PROJECTILE_RADIUS,
-                "grace_frames": 6,
-            }
-            turret_runtime.projectiles.append(projectile)
-            turret_state["fire_timer"] = turret_state["fire_interval"]
-            try:
-                play_sound_with_volume(SOUND_THROW)
-            except Exception:
-                pass
+            _blacksmith_fire_turret_projectile(turret_runtime, turret_state, overdrive=False)
 
     boss_rect = BOSS if 'BOSS' in globals() else None
     boss_target_x = boss_rect.centerx if boss_rect else WIDTH // 2
