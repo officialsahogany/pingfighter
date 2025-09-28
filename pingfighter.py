@@ -39,6 +39,7 @@ import ui_manager
 import effects_manager
 import bgm_manager
 from game_logic.characters.blacksmith import BlacksmithController, blacksmith_state
+from game_logic.characters.blacksmith.state import BlacksmithTurretRuntime
 from effects_manager import spawn_drive_particles, update_drive_particles, draw_drive_particles, has_drive_particles
 import physics_manager
 import dash_manager
