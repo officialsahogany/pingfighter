@@ -8091,6 +8091,43 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
                 pass
 
 
+def _emit_blacksmith_turret_overheat_smoke(turret_state) -> None:
+    """과부하 상태에서 총구 연기 이펙트를 뿜는다."""
+
+    turret_rect = turret_state.get("rect")
+    if turret_rect is None:
+        return
+
+    display_angle = turret_state.get("display_angle", -math.pi / 2)
+    direction = pygame.math.Vector2(math.cos(display_angle), math.sin(display_angle))
+    if direction.length() == 0:
+        direction = pygame.math.Vector2(0, -1)
+    else:
+        direction = direction.normalize()
+
+    scale_x = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
+    scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
+
+    pivot_point = pygame.math.Vector2(
+        turret_rect.centerx,
+        turret_rect.top + scale_y * BLACKSMITH_TURRET_HEAD_PIVOT_OFFSET,
+    )
+    pivot_point -= direction * turret_state.get("recoil_offset", 0.0)
+
+    muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
+    muzzle_point = pivot_point + direction * (muzzle_distance + BLACKSMITH_TURRET_PROJECTILE_RADIUS + 2)
+
+    try:
+        effects_manager.spawn_construction_smoke(
+            muzzle_point.x,
+            muzzle_point.y,
+            count=3,
+            spread=14,
+        )
+    except Exception:
+        pass
+
+
 def _end_blacksmith_turret_overdrive(turret_state) -> None:
     """오버드라이브 종료 시 상태를 정리한다."""
 
@@ -8110,6 +8147,17 @@ def _end_blacksmith_turret_overdrive(turret_state) -> None:
     turret_state["recoil_base_distance"] = BLACKSMITH_TURRET_RECOIL_DISTANCE
     turret_state["fire_interval"] = base_interval
     turret_state["fire_timer"] = max(0, min(turret_state.get("fire_timer", base_interval), base_interval))
+
+    overheat_total = BLACKSMITH_TURRET_OVERHEAT_DURATION
+    turret_state["overheat_timer"] = overheat_total
+    turret_state["overheat_smoke_timer"] = 0
+
+    try:
+        runtime = BLACKSMITH_CONTROLLER.state.turret
+        runtime.overheat_timer = overheat_total
+        runtime.overheat_smoke_timer = 0
+    except Exception:
+        pass
 
 
 def _get_blacksmith_overdrive_gradient_surface() -> pygame.Surface | None:
