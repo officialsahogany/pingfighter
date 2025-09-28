@@ -6138,6 +6138,34 @@ def _blacksmith_hammer_shock_stage_for_frames(frames: int) -> int:
     return 0
 
 
+def _blacksmith_hammer_shock_cost_for_stage(stage: int) -> int:
+    """현재 스테이지에 필요한 게이지 비용을 반환한다."""
+
+    return BLACKSMITH_HAMMER_SHOCK_STAGE_COST.get(stage, 0)
+
+
+def _blacksmith_hammer_shock_max_stage_for_gauge(gauge: float) -> int:
+    """보유한 게이지로 도달 가능한 최대 스테이지를 계산한다."""
+
+    if gauge <= 0:
+        return 0
+
+    max_stage = 0
+    for stage in sorted(BLACKSMITH_HAMMER_SHOCK_STAGE_COST):
+        if gauge < BLACKSMITH_HAMMER_SHOCK_STAGE_COST[stage]:
+            break
+        max_stage = stage
+    return max_stage
+
+
+def _blacksmith_hammer_shock_effective_stage(frames: int, gauge: float) -> int:
+    """차지 시간과 현재 게이지를 동시에 고려한 실효 스테이지를 구한다."""
+
+    frame_stage = _blacksmith_hammer_shock_stage_for_frames(frames)
+    max_stage = _blacksmith_hammer_shock_max_stage_for_gauge(gauge)
+    return min(frame_stage, max_stage)
+
+
 def release_blacksmith_hammer_shock():
     global blacksmith_hammer_shock_charging, blacksmith_hammer_shock_charge_frames
     global blacksmith_hammer_shock_stage, blacksmith_hammer_shock_projectiles
@@ -6154,14 +6182,18 @@ def release_blacksmith_hammer_shock():
 
     stop_blacksmith_hammer_charge_sound()
 
-    stage = _blacksmith_hammer_shock_stage_for_frames(blacksmith_hammer_shock_charge_frames)
+    stage = _blacksmith_hammer_shock_effective_stage(
+        blacksmith_hammer_shock_charge_frames,
+        special_gauge,
+    )
+    cost = _blacksmith_hammer_shock_cost_for_stage(stage)
     if stage == 0:
         blacksmith_hammer_shock_charging = False
         blacksmith_hammer_shock_charge_frames = 0
         blacksmith_hammer_shock_stage = 0
         return
 
-    if special_gauge < BLACKSMITH_HAMMER_SHOCK_COST:
+    if cost <= 0 or special_gauge < cost:
         blacksmith_hammer_shock_charging = False
         blacksmith_hammer_shock_charge_frames = 0
         blacksmith_hammer_shock_stage = 0
@@ -6208,7 +6240,7 @@ def release_blacksmith_hammer_shock():
     if selected_character_type != "blacksmith":
         blacksmith_hammer_head_surface_point = None
 
-    special_gauge = max(0, special_gauge - BLACKSMITH_HAMMER_SHOCK_COST)
+    special_gauge = max(0, special_gauge - cost)
     special_ready = special_gauge >= special_gauge_max
 
     blacksmith_hammer_available = False
@@ -7294,9 +7326,13 @@ def update_blacksmith_hammer_shock(keys):
             blacksmith_hammer_shock_anchor_x = PLAYER.centerx
             blacksmith_hammer_shock_anchor_y = PLAYER.centery
         blacksmith_hammer_shock_charge_frames += 1
-        blacksmith_hammer_shock_stage = _blacksmith_hammer_shock_stage_for_frames(blacksmith_hammer_shock_charge_frames)
+        max_stage_for_gauge = _blacksmith_hammer_shock_max_stage_for_gauge(special_gauge)
+        blacksmith_hammer_shock_stage = _blacksmith_hammer_shock_effective_stage(
+            blacksmith_hammer_shock_charge_frames,
+            special_gauge,
+        )
 
-        if special_gauge < BLACKSMITH_HAMMER_SHOCK_COST:
+        if max_stage_for_gauge == 0:
             blacksmith_hammer_shock_charging = False
             blacksmith_hammer_shock_charge_frames = 0
             blacksmith_hammer_shock_stage = 0
