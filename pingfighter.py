@@ -5648,7 +5648,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             or (
                 blacksmith_turret_active
                 and blacksmith_turret_state
-                and blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL) < BLACKSMITH_TURRET_MAX_LEVEL
+                and not blacksmith_turret_state.get("overdrive_active")
                 and blacksmith_turret_state.get("xp", 0.0) < blacksmith_turret_state.get(
                     "xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)
                 )
