@@ -6201,6 +6201,24 @@ def _blacksmith_hammer_shock_max_stage_for_gauge(gauge: float) -> int:
     return max_stage
 
 
+def _blacksmith_hammer_shock_damage_for_stage(stage: int) -> int:
+    """해머쇼크 단계에 따른 체력형 보스 피해량을 반환한다."""
+
+    if stage is None:
+        return 0
+
+    try:
+        stage_value = int(stage)
+    except (TypeError, ValueError):
+        return 0
+
+    if stage_value <= 0:
+        return 0
+
+    clamped_stage = min(stage_value, BLACKSMITH_HAMMER_SHOCK_MAX_STAGE)
+    return BLACKSMITH_HAMMER_SHOCK_STAGE_DAMAGE.get(clamped_stage, clamped_stage)
+
+
 def _blacksmith_hammer_shock_effective_stage(frames: int, gauge: float) -> int:
     """차지 시간과 현재 게이지를 동시에 고려한 실효 스테이지를 구한다."""
 
