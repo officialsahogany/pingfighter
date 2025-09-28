@@ -26119,48 +26119,48 @@ def draw_player_gauge():
     #  통합 아이템 지속시간 게이지바 (거대화포션 & 레이저스코프)
     item_gauge_active = (long_boost_active and long_boost_timer > 0) or (predictor_active and predictor_timer > 0)
     if item_gauge_active:
-        gauge_x = WIDTH - 75  # 필살기 게이지 왼쪽에 배치
-        gauge_y = HEIGHT - 200  # 필살기 게이지와 같은 높이
-        gauge_width = 14  # 플레이어 게이지와 동일한 폭
-        gauge_height = 100
+        item_gauge_x = player_gauge_x - 35  # 필살기 게이지 왼쪽에 배치
+        item_gauge_y = player_gauge_y  # 필살기 게이지와 같은 높이
+        item_gauge_width = player_gauge_width  # 플레이어 게이지와 동일한 폭
+        item_gauge_height = player_gauge_height
         #  육각형 프레임 상단 (플레이어 게이지와 동일)
         hex_top = [
-            (gauge_x + gauge_width // 2, gauge_y - 10),
-            (gauge_x - 3, gauge_y),
-            (gauge_x - 3, gauge_y + 8),
-            (gauge_x + gauge_width + 3, gauge_y + 8),
-            (gauge_x + gauge_width + 3, gauge_y),
+            (item_gauge_x + item_gauge_width // 2, item_gauge_y - 10),
+            (item_gauge_x - 3, item_gauge_y),
+            (item_gauge_x - 3, item_gauge_y + 8),
+            (item_gauge_x + item_gauge_width + 3, item_gauge_y + 8),
+            (item_gauge_x + item_gauge_width + 3, item_gauge_y),
         ]
         draw.polygon((80, 90, 100), hex_top)
         draw.polygon((180, 190, 200), hex_top, 2)
         #  육각형 프레임 하단
         hex_bottom = [
-            (gauge_x - 3, gauge_y + gauge_height - 8),
-            (gauge_x - 3, gauge_y + gauge_height),
-            (gauge_x + gauge_width // 2, gauge_y + gauge_height + 10),
-            (gauge_x + gauge_width + 3, gauge_y + gauge_height),
-            (gauge_x + gauge_width + 3, gauge_y + gauge_height - 8),
+            (item_gauge_x - 3, item_gauge_y + item_gauge_height - 8),
+            (item_gauge_x - 3, item_gauge_y + item_gauge_height),
+            (item_gauge_x + item_gauge_width // 2, item_gauge_y + item_gauge_height + 10),
+            (item_gauge_x + item_gauge_width + 3, item_gauge_y + item_gauge_height),
+            (item_gauge_x + item_gauge_width + 3, item_gauge_y + item_gauge_height - 8),
         ]
         draw.polygon((80, 90, 100), hex_bottom)
         draw.polygon((180, 190, 200), hex_bottom, 2)
         #  메인 프레임 배경
-        main_rect = pygame.Rect(gauge_x - 2, gauge_y, gauge_width + 4, gauge_height)
+        main_rect = pygame.Rect(item_gauge_x - 2, item_gauge_y, item_gauge_width + 4, item_gauge_height)
         draw.rect((25, 28, 35), main_rect)
         # 내부 홈 (음각 효과) - 게이지 채우기 전에만 그리기
-        inner_rect = pygame.Rect(gauge_x, gauge_y + 2, gauge_width, gauge_height - 4)
+        inner_rect = pygame.Rect(item_gauge_x, item_gauge_y + 2, item_gauge_width, item_gauge_height - 4)
         draw.rect((15, 18, 25), inner_rect)
         # 사이드 라인 디테일
         for i in range(3):
-            line_y = gauge_y + 20 + i * 30
-            draw.line((100, 110, 120), 
-                            (gauge_x - 5, line_y), (gauge_x - 2, line_y), 1)
-            draw.line((100, 110, 120), 
-                            (gauge_x + gauge_width + 2, line_y), (gauge_x + gauge_width + 5, line_y), 1)
+            line_y = item_gauge_y + 20 + i * 30
+            draw.line((100, 110, 120),
+                      (item_gauge_x - 5, line_y), (item_gauge_x - 2, line_y), 1)
+            draw.line((100, 110, 120),
+                      (item_gauge_x + item_gauge_width + 2, line_y), (item_gauge_x + item_gauge_width + 5, line_y), 1)
         #  게이지 채우기 - 활성 아이템에 따라 색상 결정
         if long_boost_active and long_boost_timer > 0:
             # 거대화포션 활성화 시
             remaining_ratio = long_boost_timer / LONG_BOOST_DURATION
-            fill_height = int((gauge_height - 4) * remaining_ratio)
+            fill_height = int((item_gauge_height - 4) * remaining_ratio)
             # 거대화포션 색상 (황금빛 -> 주황색)
             if remaining_ratio > 0.6:
                 base_color = (255, 215, 0)  # 골드
@@ -26176,7 +26176,7 @@ def draw_player_gauge():
         elif predictor_active and predictor_timer > 0:
             # 레이저스코프 활성화 시
             remaining_ratio = predictor_timer / 600  # 10초 기준 (60fps * 10초 = 600)
-            fill_height = int((gauge_height - 4) * remaining_ratio)
+            fill_height = int((item_gauge_height - 4) * remaining_ratio)
             # 레이저스코프 색상 (빨간색 레이저)
             if remaining_ratio > 0.6:
                 base_color = (255, 100, 100)  # 밝은 빨강
@@ -26193,13 +26193,13 @@ def draw_player_gauge():
             fill_height = 0
         # 게이지 그리기 (fill_height가 0보다 클 때만)
         if fill_height > 0:
-            fill_y = gauge_y + gauge_height - fill_height - 2
+            fill_y = item_gauge_y + item_gauge_height - fill_height - 2
             # 3층 레이어 구조 (플레이어 게이지와 동일)
             for layer in range(3):
                 layer_alpha = 255 - layer * 50
-                layer_width = gauge_width - 4 - layer * 2
+                layer_width = item_gauge_width - 4 - layer * 2
                 if layer_width > 0:
-                    layer_rect = pygame.Rect(gauge_x + 2 + layer, fill_y, layer_width, fill_height)
+                    layer_rect = pygame.Rect(item_gauge_x + 2 + layer, fill_y, layer_width, fill_height)
                     # 레이어별 색상 조정
                     layer_color = (
                         min(255, base_color[0] + layer * 20),
@@ -26213,14 +26213,14 @@ def draw_player_gauge():
                 if random.random() < 0.3:  # 30% 확률로 반짝임
                     sparkle_y = fill_y + random.randint(0, max(1, fill_height - 1))
                     sparkle_color = (255, 255, 200, 150)
-                    draw.line(sparkle_color, (gauge_x + 2, sparkle_y),
-                                   (gauge_x + gauge_width - 2, sparkle_y), 1)
+                    draw.line(sparkle_color, (item_gauge_x + 2, sparkle_y),
+                               (item_gauge_x + item_gauge_width - 2, sparkle_y), 1)
             elif predictor_active and remaining_ratio > 0.1:
                 # 레이저스코프: 스캔 효과 (정확한 범위 제한)
                 if fill_height > 6:  # 최소 높이 확인 (여유 있게)
                     # 실제 채우기 영역 계산 (내부 홈 영역)
-                    actual_fill_top = max(gauge_y + 2, fill_y)
-                    actual_fill_bottom = min(gauge_y + gauge_height - 2, fill_y + fill_height)
+                    actual_fill_top = max(item_gauge_y + 2, fill_y)
+                    actual_fill_bottom = min(item_gauge_y + item_gauge_height - 2, fill_y + fill_height)
                     actual_fill_height = actual_fill_bottom - actual_fill_top
                     if actual_fill_height > 0:
                         # 스캔 위치 계산 (실제 채우기 영역 내에서만 순환)
@@ -26229,8 +26229,8 @@ def draw_player_gauge():
                         # 스캔 라인 그리기 (정확한 경계 체크)
                         if actual_fill_top <= scan_y < actual_fill_bottom:
                             scan_color = (255, 200, 200, 180)
-                            draw.line(scan_color, (gauge_x + 2, scan_y),
-                                           (gauge_x + gauge_width - 2, scan_y), 2)
+                            draw.line(scan_color, (item_gauge_x + 2, scan_y),
+                                      (item_gauge_x + item_gauge_width - 2, scan_y), 2)
     #  벽돌 설치 게이지 (플레이어 패들 바로 위)
     if wall_install_gauge_visible and wall_installing:
         # 설치 게이지 위치 (플레이어 패들 바로 위)
