@@ -9980,7 +9980,7 @@ def draw_blacksmith_turret_ui(surface):
     blacksmith_turret_build_progress = turret_runtime.build_progress
     available_options = _blacksmith_get_buildable_options(state=state)
     turret_available = (
-        state.turret.rebuild_ready
+        turret_runtime.rebuild_ready
         and ("turret" in available_options)
         and not blacksmith_turret_blueprint_active
         and not blacksmith_turret_active
@@ -11048,6 +11048,7 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
                 "blueprint_rect": preserved_blueprint_rect,
                 "build_progress": divine_runtime.build_progress,
                 "partial_drain": divine_runtime.partial_drain,
+                "rebuild_ready": divine_runtime.rebuild_ready,
                 "stage_owner": stage_owner,
             }
 
@@ -11063,6 +11064,7 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
         divine_runtime.blueprint_rect = preserved_divine["blueprint_rect"]
         divine_runtime.build_progress = preserved_divine["build_progress"]
         divine_runtime.partial_drain = preserved_divine["partial_drain"]
+        divine_runtime.rebuild_ready = preserved_divine.get("rebuild_ready", False)
         BLACKSMITH_CONTROLLER.apply_to_globals(
             attrs=(
                 "blacksmith_divine_stone_state",
