@@ -5441,6 +5441,8 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "overdrive_stun_multiplier": 1.0,
                             "overdrive_knockback_multiplier": 1.0,
                             "overdrive_divine_active": False,
+                            "overheat_timer": 0,
+                            "overheat_smoke_timer": 0,
                         }
                         blacksmith_turret_active = True
                         blacksmith_turret_blueprint_active = False
@@ -7983,6 +7985,8 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     turret_runtime.manual_cooldown = 0
     turret_runtime.overdrive_ui_timer = 0
     turret_runtime.overdrive_ui_divine = False
+    turret_runtime.overheat_timer = 0
+    turret_runtime.overheat_smoke_timer = 0
     turret_runtime.overdrive_ui_timer = 0
     stop_blacksmith_construction_sound()
 
@@ -8000,6 +8004,8 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     namespace["blacksmith_turret_destroy_timer"] = 0
     namespace["blacksmith_turret_overdrive_ui_timer"] = 0
     namespace["blacksmith_turret_overdrive_ui_divine"] = False
+    namespace["blacksmith_turret_overheat_timer"] = 0
+    namespace["blacksmith_turret_overheat_smoke_timer"] = 0
 
 
 def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdrive: bool = False) -> None:
@@ -10584,6 +10590,8 @@ blacksmith_turret_xp_partial_drain = 0.0
 blacksmith_turret_manual_cooldown = 0
 blacksmith_turret_overdrive_ui_timer = 0
 blacksmith_turret_overdrive_ui_divine = False
+blacksmith_turret_overheat_timer = 0
+blacksmith_turret_overheat_smoke_timer = 0
 
 blacksmith_down_hold_frames = 0
 blacksmith_build_menu_active = False
