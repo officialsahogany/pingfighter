@@ -21516,6 +21516,7 @@ trade_point_collected = 0  # 현재 스테이지에서 수집한 트레이드 �
 trade_point_texts = []  # 트레이드 포인트 획득 시 표시할 텍스트 효과
 
 # 승리 화면 가챠 연속 사용 보너스 추적
+GACHA_REROLL_LIMIT_PER_STAGE = 5  # 스테이지당 허용되는 최대 추가 가챠 횟수
 gacha_reroll_stage = None  # 최근 가챠 보너스를 적용한 스테이지 번호
 gacha_reroll_streak = 0    # 현재 스테이지에서 연속으로 수행한 추가 가챠 횟수
 
@@ -31779,6 +31780,12 @@ def show_victory_screen(stage_cleared, reward):
                             # 아카데미에서 돌아오면 계속 승리 화면 표시
                         elif selected == 2:
                             # 트레이드 별로 추가 가챠 실행
+                            if gacha_reroll_streak >= GACHA_REROLL_LIMIT_PER_STAGE:
+                                # 스테이지당 또뽑기 횟수 상한 도달 시 안내
+                                reroll_warning_text = "이번 스테이지에서는 더 이상 또 뽑을 수 없습니다"
+                                reroll_warning_timer = 150
+                                continue
+
                             available_stars = get_trade_point_star_count()
                             if available_stars < 2:
                                 reroll_warning_text = "별이 부족합니다!"
@@ -31805,6 +31812,9 @@ def show_victory_screen(stage_cleared, reward):
                                 continue
 
                             gacha_reroll_streak += 1
+                            if gacha_reroll_streak >= GACHA_REROLL_LIMIT_PER_STAGE:
+                                # 상한을 넘지 않도록 보너스 가중치는 이후에도 동일하게 유지
+                                gacha_reroll_streak = GACHA_REROLL_LIMIT_PER_STAGE
                             legendary_bonus_ratio = min(gacha_reroll_streak * 0.05, 0.20)
                             skill_legendary_bonus = 0.0
                             if 'academy' in globals():
