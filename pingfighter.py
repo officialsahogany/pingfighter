@@ -9890,6 +9890,8 @@ def draw_blacksmith_turret_ui(surface):
     blacksmith_turret_blueprint_active = turret_runtime.blueprint_active
     blacksmith_turret_active = turret_runtime.active
     blacksmith_turret_build_progress = turret_runtime.build_progress
+    available_options = _blacksmith_get_buildable_options(state=state)
+    turret_available = "turret" in available_options
     overheat_timer = 0
     overheat_active = False
     if blacksmith_turret_state:
@@ -9923,7 +9925,7 @@ def draw_blacksmith_turret_ui(surface):
     icon_y = HEIGHT - bottom_margin - slot_size - icon_size + 15
     icon_rect = pygame.Rect(icon_x, icon_y, icon_size, icon_size)
 
-    if not blacksmith_turret_blueprint_active and not blacksmith_turret_active:
+    if not (blacksmith_turret_active or blacksmith_turret_blueprint_active or turret_available):
         return
 
     panel_color = (52, 44, 38)
