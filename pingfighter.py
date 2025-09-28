@@ -8238,6 +8238,9 @@ def update_blacksmith_turret():
             _end_blacksmith_turret_overdrive(turret_state)
             overdrive_active = False
 
+    if turret_state.get("overdrive_flash_timer", 0) > 0 and not time_frozen:
+        turret_state["overdrive_flash_timer"] = max(0, turret_state["overdrive_flash_timer"] - 1)
+
     if turret_runtime.overdrive_ui_timer > 0:
         turret_runtime.overdrive_ui_timer = max(0, turret_runtime.overdrive_ui_timer - 1)
 
