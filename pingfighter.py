@@ -7268,7 +7268,11 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             })
         
         base_thickness = 2 + stage
-        segment_count = max(BLACKSMITH_GROUND_CRACK_BOSS_SEGMENTS_MIN, 3 + stage)
+        required_hits = BLACKSMITH_GROUND_CRACK_REQUIRED_BOSS_HITS.get(stage)
+        if required_hits is None:
+            # 상위 단계는 3단계와 동일한 내구도로 처리
+            required_hits = BLACKSMITH_GROUND_CRACK_REQUIRED_BOSS_HITS[max(BLACKSMITH_GROUND_CRACK_REQUIRED_BOSS_HITS)]
+        segment_count = max(1, required_hits)
 
         crack = {
             "x": centerx,
@@ -7285,7 +7289,8 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             "thickness": max(1, int(round(base_thickness * BLACKSMITH_GROUND_CRACK_RANGE_SCALE))),
             "boss_padding": BLACKSMITH_GROUND_CRACK_BOSS_PADDING,
             "boss_touch_cooldown": 0,
-            "sub_cracks": sub_cracks
+            "sub_cracks": sub_cracks,
+            "required_boss_hits": required_hits,
         }
         try:
             base_time = pygame.time.get_ticks()
@@ -10166,6 +10171,8 @@ def draw_blacksmith_turret_ui(surface):
             title_label = "포탑"
     elif blacksmith_turret_blueprint_active:
         title_label = "포탑 건설중"
+    elif turret_available:
+        title_label = "포탑 청사진"
     else:
         title_label = "포탑"
     title_text = title_font.render(title_label, True, accent_color)
@@ -10791,9 +10798,13 @@ BLACKSMITH_GROUND_CRACK_RANGE_SCALE = 0.5
 BLACKSMITH_GROUND_CRACK_RATIO_OFFSET = 0.2
 BLACKSMITH_GROUND_CRACK_BOSS_PADDING = 1
 BLACKSMITH_GROUND_CRACK_MIN_PADDING = 0
-BLACKSMITH_GROUND_CRACK_BOSS_SEGMENTS_MIN = 6  # 2~3회 충돌 내 파괴 목표
-BLACKSMITH_GROUND_CRACK_BOSS_BREAK_MIN = 4
-BLACKSMITH_GROUND_CRACK_BOSS_BREAK_MAX = 5
+BLACKSMITH_GROUND_CRACK_REQUIRED_BOSS_HITS = {
+    1: 2,
+    2: 4,
+    3: 6,
+}
+BLACKSMITH_GROUND_CRACK_BOSS_BREAK_MIN = 1
+BLACKSMITH_GROUND_CRACK_BOSS_BREAK_MAX = 1
 BLACKSMITH_GROUND_CRACK_BOSS_HIT_COOLDOWN = int(0.2 * FPS)
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES = max(1, int(0.08 * FPS))  # 0.08초(약 5프레임)로 단축
 BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAME_BONUS = 1  # 세그먼트당 추가 넉백 시간을 1프레임으로 축소
