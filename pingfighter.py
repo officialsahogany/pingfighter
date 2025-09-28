@@ -54501,6 +54501,13 @@ def main(stage_num, new_boss_mode=False):
             last_space_state = current_space_state
             if selected_character_type == "blacksmith":
                 down_current_state = keys[pygame.K_DOWN]
+                # 우산이 전개된 동안에는 포탑 수동 발사를 차단한다.
+                umbrella_blocks_manual_fire = (
+                    blacksmith_umbrella_open
+                    or blacksmith_umbrella_anim_timer > 0
+                    or blacksmith_umbrella_retracting
+                    or blacksmith_umbrella_swing_active
+                )
                 turret_rect = None
                 manual_candidate = False
                 if (
@@ -54511,6 +54518,7 @@ def main(stage_num, new_boss_mode=False):
                     and blacksmith_turret_state.get("overheat_timer", 0) <= 0
                     and blacksmith_hammer_available
                     and not blacksmith_hammer_shock_charging
+                    and not umbrella_blocks_manual_fire
                 ):
                     turret_rect = blacksmith_turret_state.get("rect")
                     if turret_rect is not None and PLAYER.colliderect(turret_rect):
@@ -54530,7 +54538,7 @@ def main(stage_num, new_boss_mode=False):
                 else:
                     manual_preferred = False
 
-                if manual_preferred and turret_rect is not None:
+                if manual_preferred and turret_rect is not None and not umbrella_blocks_manual_fire:
                     if blacksmith_turret_manual_cooldown <= 0:
                         if special_gauge >= BLACKSMITH_TURRET_MANUAL_COST:
                             special_gauge = max(0, special_gauge - BLACKSMITH_TURRET_MANUAL_COST)
