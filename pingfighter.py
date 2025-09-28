@@ -7971,6 +7971,7 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     turret_runtime.partial_drain = 0.0
     turret_runtime.xp_partial_drain = 0.0
     turret_runtime.manual_cooldown = 0
+    turret_runtime.overdrive_ui_timer = 0
     stop_blacksmith_construction_sound()
 
     # 레거시 전역 상태도 즉시 정리해 유령 포탑이 남지 않도록 한다.
@@ -7985,6 +7986,7 @@ def _finalize_blacksmith_turret_removal(turret_runtime):
     namespace["blacksmith_turret_xp_partial_drain"] = 0.0
     namespace["blacksmith_turret_manual_cooldown"] = 0
     namespace["blacksmith_turret_destroy_timer"] = 0
+    namespace["blacksmith_turret_overdrive_ui_timer"] = 0
 
 
 def update_blacksmith_turret():
@@ -10066,9 +10068,17 @@ BLACKSMITH_TURRET_MISSILE_ACCEL = 0.12
 BLACKSMITH_TURRET_MISSILE_MAX_SPEED = 24.0
 BLACKSMITH_TURRET_MANUAL_COST = 50
 BLACKSMITH_TURRET_MANUAL_COOLDOWN = int(0.4 * FPS)
-BLACKSMITH_TURRET_MAX_LEVEL = 2
-BLACKSMITH_TURRET_UPGRADE_TIME = 10  # seconds of charge to upgrade
+BLACKSMITH_TURRET_MAX_LEVEL = 1
+BLACKSMITH_TURRET_UPGRADE_TIME = 10  # 유지: 게이지 요구량 산출용
 BLACKSMITH_TURRET_XP_REQUIRED = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC * BLACKSMITH_TURRET_UPGRADE_TIME
+BLACKSMITH_TURRET_OVERDRIVE_DURATION = int(3.0 * FPS)
+BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW = int(2.0 * FPS)
+BLACKSMITH_TURRET_OVERDRIVE_SHOTS = 6
+BLACKSMITH_TURRET_OVERDRIVE_BASE_INTERVAL = max(1, int(0.5 * FPS))
+BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL = max(1, int(0.25 * FPS))
+BLACKSMITH_TURRET_OVERDRIVE_RECOIL_SCL = 1.8
+BLACKSMITH_TURRET_OVERDRIVE_SPEED_BOOST = 1.35
+BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION = int(2.0 * FPS)
 BLACKSMITH_TURRET_LEVEL_HP_MULTIPLIER = 1.5
 BLACKSMITH_TURRET_LEVEL_FIRE_RATE_MULTIPLIER = 0.75
 BLACKSMITH_TURRET_PRE_EXPLOSION_DELAY = int(1.0 * FPS)  # 체력 0 이후 폭발까지의 지연 (1초)
