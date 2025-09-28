@@ -8434,9 +8434,16 @@ def update_blacksmith_turret():
                     pass
 
             if boss_rect and projectile_rect.colliderect(boss_rect):
+                stun_multiplier = 1.0
+                knockback_multiplier = 1.0
+                if proj.get("overdrive"):
+                    stun_multiplier = max(1.0, float(turret_state.get("overdrive_stun_multiplier", 1.0)))
+                    knockback_multiplier = max(1.0, float(turret_state.get("overdrive_knockback_multiplier", 1.0)))
+                stun_frames = max(1, int(round(BLACKSMITH_TURRET_STUN_DURATION * stun_multiplier)))
+                knockback_speed = BLACKSMITH_TURRET_KNOCKBACK_SPEED * knockback_multiplier
                 try:
                     current_star_timer = globals().get("boss_stunned_timer", 0)
-                    current_star_timer = max(current_star_timer, BLACKSMITH_TURRET_STUN_DURATION)
+                    current_star_timer = max(current_star_timer, stun_frames)
                     globals()["boss_stunned_timer"] = current_star_timer
                     globals()["boss_stun_timer"] = 0
                 except Exception:
@@ -8449,8 +8456,8 @@ def update_blacksmith_turret():
                         knockback_direction = -1
                     else:
                         knockback_direction = 1 if proj["x"] < boss_rect.centerx else -1
-                    globals()["boss_knockback_timer"] = BLACKSMITH_TURRET_STUN_DURATION
-                    _apply_boss_knockback_velocity(knockback_direction * BLACKSMITH_TURRET_KNOCKBACK_SPEED)
+                    globals()["boss_knockback_timer"] = stun_frames
+                    _apply_boss_knockback_velocity(knockback_direction * knockback_speed)
                     globals()["boss_knockback_active"] = False
                     globals()["boss_knockback_offset_x"] = 0
                     globals()["boss_knockback_offset_y"] = 0
@@ -9055,6 +9062,26 @@ def draw_blacksmith_turret_elements(surface):
             surface.blit(
                 glow_surface,
                 (proj_pos[0] - glow_center, proj_pos[1] - glow_center),
+                special_flags=pygame.BLEND_ADD,
+            )
+
+        if proj.get("divine_overdrive"):
+            swirl_size = max(24, radius * 5)
+            swirl_surface = pygame.Surface((swirl_size, swirl_size), pygame.SRCALPHA)
+            swirl_rect = swirl_surface.get_rect()
+            phase = (proj.get("trail_timer", 0) * 0.24) % math.tau
+            for idx in range(3):
+                angle = phase + idx * (math.tau / 3)
+                start_angle = angle
+                end_angle = angle + math.pi * 0.9
+                arc_rect = swirl_rect.inflate(-idx * 6, -idx * 6)
+                color_alpha = int(120 - idx * 18)
+                arc_color = (90, 220, 255, max(40, color_alpha))
+                pygame.draw.arc(swirl_surface, arc_color, arc_rect, start_angle, end_angle, max(2, radius // 2))
+            pygame.draw.circle(swirl_surface, (150, 255, 255, 90), swirl_rect.center, max(4, radius))
+            surface.blit(
+                swirl_surface,
+                (proj_pos[0] - swirl_rect.width // 2, proj_pos[1] - swirl_rect.height // 2),
                 special_flags=pygame.BLEND_ADD,
             )
     draw_blacksmith_build_menu(surface)
