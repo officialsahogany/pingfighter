@@ -31660,10 +31660,12 @@ def show_victory_screen(stage_cleared, reward):
             SCREEN.blit(skip_hint, skip_rect)
         
         # 버튼들 (더 현대적인 스타일) - 애니메이션 완료 후에만 표시
+        remaining_rerolls = max(0, GACHA_REROLL_LIMIT_PER_STAGE - gacha_reroll_streak)
+        reroll_label = f"또 뽑기 ({remaining_rerolls}/{GACHA_REROLL_LIMIT_PER_STAGE})"
         buttons = [
             (next_stage_rect, "다음 스테이지로", 0),
             (skill_tree_rect, "아카데미", 1),
-            (reroll_rect, "또 뽑기", 2),
+            (reroll_rect, reroll_label, 2),
             (rest_rect, "복귀", 3)
         ]
         
@@ -31712,14 +31714,6 @@ def show_victory_screen(stage_cleared, reward):
                 button_text = font_button.render(text, True, (80, 80, 90))
                 text_rect = button_text.get_rect(center=rect.center)
                 SCREEN.blit(button_text, text_rect)
-
-        if animation_complete:
-            remaining_rerolls = max(0, GACHA_REROLL_LIMIT_PER_STAGE - gacha_reroll_streak)
-            remaining_color = (170, 220, 255) if remaining_rerolls > 0 else (255, 150, 150)
-            remaining_text = f"(남은 횟수 {remaining_rerolls}회)"
-            remaining_surface = font_info.render(remaining_text, True, remaining_color)
-            remaining_rect = remaining_surface.get_rect(center=(reroll_rect.centerx, reroll_rect.bottom + 18))
-            SCREEN.blit(remaining_surface, remaining_rect)
 
         if reroll_warning_timer > 0:
             warning_color = (255, 120, 120) if "부족" in reroll_warning_text else (200, 240, 255)
