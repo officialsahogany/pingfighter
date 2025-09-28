@@ -9652,10 +9652,10 @@ def draw_blacksmith_divine_ui(surface):
     divine_state = divine_runtime.state or blacksmith_divine_stone_state
     blueprint_active = bool(divine_runtime.blueprint_active or blacksmith_divine_blueprint_active)
 
-    if divine_state is None and not blueprint_active:
+    if divine_state is None:
         return
 
-    building_mode = blueprint_active and divine_state is None
+    building_mode = False
 
     slot_size = 60
     slot_margin = 10
@@ -10259,16 +10259,6 @@ def draw_blacksmith_turret_ui(surface):
             surface.blit(overlay, xp_rect.topleft, special_flags=pygame.BLEND_ADD)
         else:
             xp_text = FontStyle.tiny().render(f"게이지 {int(xp_ratio * 100)}%", True, (250, 240, 210))
-    elif blacksmith_turret_blueprint_active:
-        ratio = 0.0
-        if BLACKSMITH_TURRET_BUILD_TIME > 0:
-            ratio = blacksmith_turret_build_progress / BLACKSMITH_TURRET_BUILD_TIME
-            ratio = max(0.0, min(1.0, ratio))
-        filled_rect = pygame.Rect(bar_rect.x, bar_rect.y, int(bar_rect.width * ratio), bar_rect.height)
-        pygame.draw.rect(surface, (90, 150, 220), filled_rect, border_radius=3)
-        pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
-        status_text = FontStyle.tiny().render("건설중", True, (210, 220, 240))
-        xp_text = FontStyle.tiny().render(f"{int(ratio * 100)}%", True, (210, 220, 240))
 
     if status_text:
         status_rect = status_text.get_rect(center=bar_rect.center)
