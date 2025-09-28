@@ -460,6 +460,38 @@ class AcademyUI:
             return "dash"
         return preferred_tree
 
+    def _get_available_trees(self) -> list[str]:
+        """현재 캐릭터가 접근 가능한 스킬 트리 순서를 반환"""
+        if self.selected_character == "smasher":
+            return ["dash", "item", "paddle", "smasher"]
+        return ["dash", "item", "paddle"]
+
+    def _cycle_tree(self, forward: bool = True):
+        """탭 순서를 기준으로 현재 선택된 스킬 트리를 순환"""
+        trees = self._get_available_trees()
+        if not trees:
+            return
+        if self.selected_tree not in trees:
+            self.selected_tree = trees[0]
+        else:
+            index = trees.index(self.selected_tree)
+            step = 1 if forward else -1
+            self.selected_tree = trees[(index + step) % len(trees)]
+        self._clamp_selection_to_current_tree()
+        self.update_skill_positions()
+
+    def _focus_first_skill_in_current_tree(self):
+        """현재 탭에서 기본으로 보여줄 스킬을 선택"""
+        if self.selected_tree == "smasher" and hasattr(self, 'smasher_skills'):
+            if len(self.smasher_skills.skills) > 0:
+                self.selected_skill_index = 0
+        else:
+            available_skills = self.get_available_skills()
+            if available_skills:
+                self.set_selected_skill_by_id(available_skills[0])
+            else:
+                self.selected_skill_index = 0
+
     
     def _create_glow_cache(self):
         """Glow surface들을 미리 생성하여 캐시"""
