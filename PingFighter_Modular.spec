@@ -21,6 +21,7 @@ a = Analysis(
         ('network', 'network'),
         ('ui', 'ui'),
         ('config', 'config'),
+        ('localization', 'localization'),
         ('achievement', 'achievement'),
         ('replay', 'replay')
     ],

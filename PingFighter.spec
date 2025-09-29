@@ -20,6 +20,7 @@ a = Analysis(
         ('ui', 'ui'),
         ('backgrounds', 'backgrounds'),
         ('config', 'config'),
+        ('localization', 'localization'),
         ('core', 'core'),
         ('events', 'events'),
         ('game_logic', 'game_logic'),
