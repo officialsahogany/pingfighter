@@ -29,7 +29,8 @@ class FireSupportAircraft:
         self.width = 110
         self.height = 32
         self.x = -self.width
-        self.y = cruise_y if cruise_y is not None else max(80, screen_height * 0.35)
+        default_y = screen_height - max(140, screen_height * 0.25)
+        self.y = cruise_y if cruise_y is not None else default_y
         self.speed = 1.8
         self.active = True
         self.crashing = False
@@ -50,7 +51,7 @@ class FireSupportAircraft:
 
         if not self.crashing:
             self.x += self.speed
-            if ball_rect and last_hit_by == "player" and self.spawn_timer >= self.invulnerable_frames:
+            if ball_rect and last_hit_by == "boss" and self.spawn_timer >= self.invulnerable_frames:
                 if self.get_rect().colliderect(ball_rect):
                     self.crashing = True
                     events["hit"] = True
@@ -191,7 +192,10 @@ class FireSupport:
         if self.delay_timer > 0:
             self.delay_timer -= 1
             if self.delay_timer == 0:
-                cruise_y = max(70, min(self.screen_height * 0.65, boss_rect.centery - 140))
+                cruise_y = max(
+                    int(self.screen_height * 0.7),
+                    self.screen_height - 160,
+                )
                 self.aircraft = FireSupportAircraft(self.screen_width, self.screen_height, cruise_y)
 
         if self.aircraft:
