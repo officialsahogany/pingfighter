@@ -492,6 +492,9 @@ class FireSupport:
         if not self.strike_active:
             return
 
+        if self.radio_channel and not self.radio_channel.get_busy():
+            self.radio_channel = None
+
         if self.radio_active and not self.radio_sound_played:
             self._play_radio_sound_once()
 
