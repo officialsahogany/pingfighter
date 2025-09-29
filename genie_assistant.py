@@ -191,6 +191,34 @@ class GenieAssistant:
 
         self._update_smoke_particles(dt_ms)
 
+        if self.phase == "menu" and self._detail_total_height > 0 and self._detail_view_height > 0:
+            overflow = self._detail_total_height - self._detail_view_height
+            if overflow > 4:
+                if self.detail_scroll_wait < self.detail_scroll_pause:
+                    self.detail_scroll_wait = min(self.detail_scroll_pause, self.detail_scroll_wait + dt_ms)
+                else:
+                    step = self.detail_scroll_speed * (dt_ms / 1000.0) * self.detail_scroll_direction
+                    self.detail_scroll_offset += step
+                    max_offset = max(0.0, overflow)
+                    if self.detail_scroll_offset >= max_offset:
+                        self.detail_scroll_offset = max_offset
+                        self.detail_scroll_direction = -1
+                        self.detail_scroll_wait = 0.0
+                    elif self.detail_scroll_offset <= 0.0:
+                        self.detail_scroll_offset = 0.0
+                        self.detail_scroll_direction = 1
+                        self.detail_scroll_wait = 0.0
+            else:
+                if self.detail_scroll_offset != 0.0:
+                    self.detail_scroll_offset = 0.0
+                self.detail_scroll_direction = 1
+                self.detail_scroll_wait = 0.0
+        else:
+            if self.detail_scroll_offset != 0.0:
+                self.detail_scroll_offset = 0.0
+            self.detail_scroll_direction = 1
+            self.detail_scroll_wait = 0.0
+
     def draw(self, surface: pygame.Surface) -> None:
         if not self.active or self.overlay_surface is None:
             return
@@ -239,7 +267,9 @@ class GenieAssistant:
                 pos = event.pos
                 for idx, rect in enumerate(self.menu_item_rects):
                     if rect.collidepoint(pos):
-                        self.selected_index = idx
+                        if idx != self.selected_index:
+                            self.selected_index = idx
+                            self._reset_detail_scroll(reset_layout=True)
                         return True
                 # 메뉴 밖 클릭은 닫기
                 self.deactivate()
@@ -248,7 +278,9 @@ class GenieAssistant:
         elif event.type == pygame.MOUSEMOTION and self.phase == "menu":
             for idx, rect in enumerate(self.menu_item_rects):
                 if rect.collidepoint(event.pos):
-                    self.selected_index = idx
+                    if idx != self.selected_index:
+                        self.selected_index = idx
+                        self._reset_detail_scroll(reset_layout=True)
                     break
         return True
 
