@@ -418,6 +418,8 @@ class FireSupport:
         if ammo_override is not None:
             self.max_ammo = max(1, ammo_override)
         self.ammo_count = self.max_ammo
+        # 화력지원은 재장전 시 곧바로 재사용 가능해야 하므로 equip 상태를 복원한다.
+        self.equip()
         if track_reload:
             tracker = self._get_reload_tracker()
             if tracker:
