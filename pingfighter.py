@@ -54205,6 +54205,9 @@ def show_result(won):
         # 생명수 아이콘 추가 - get_item_icon 함수 사용하여 통일
         life_elixir_icon = get_item_icon("life_elixir")
         available_items.append({"name": "life_elixir", "color": (100, 200, 255), "type": "active", "icon": life_elixir_icon})
+        if selected_character_type == "blacksmith":
+            repair_kit_icon = get_item_icon("repair_kit")
+            available_items.append({"name": "repair_kit", "color": (220, 210, 140), "type": "active", "icon": repair_kit_icon})
         # 판도라의 상자 아이콘 추가 - get_item_icon 함수 사용하여 통일
         pandora_box_icon = get_item_icon("pandora_box")
         available_items.append({"name": "pandora_box", "color": (255, 0, 255), "type": "active", "icon": pandora_box_icon})
