@@ -17078,6 +17078,13 @@ def update_active_repair_jobs() -> None:
                 state["overheat_smoke_timer"] = 0
                 job["tick"] = REPAIR_TICK_FRAMES
                 state_dirty = True
+                
+                # 성스러운 빛 효과 생성
+                if state.get("rect"):
+                    rect = state["rect"]
+                    create_holy_light_particles(rect.centerx, rect.centery, 20)
+                    add_holy_light_flash(rect)
+                
                 if state["hp"] >= max_hp:
                     active_repair_jobs.remove(job)
             continue
@@ -17100,6 +17107,13 @@ def update_active_repair_jobs() -> None:
                 state["cooldown"] = 0
                 job["tick"] = REPAIR_TICK_FRAMES
                 state_dirty = True
+                
+                # 성스러운 빛 효과 생성
+                if state.get("rect"):
+                    rect = state["rect"]
+                    create_holy_light_particles(rect.centerx, rect.centery, 20)
+                    add_holy_light_flash(rect)
+                
                 if state["hp"] >= max_hp:
                     active_repair_jobs.remove(job)
             continue
