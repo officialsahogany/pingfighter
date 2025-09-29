@@ -13,7 +13,13 @@ class AmmoBox:
         self.reloaded_weapon = None  # 재장전된 무기 이름
         
         # 지원하는 화기류 목록
-        self.supported_weapons = ["pistol", "bazooka", "ak47", "net_gun"]  # 권총, 바주카포, AK-47, 그물덫총 재장전 가능
+        self.supported_weapons = [
+            "pistol",
+            "bazooka",
+            "ak47",
+            "net_gun",
+            "fire_support",
+        ]  # 권총, 바주카포, AK-47, 그물덫총, 화력지원 재장전 가능
         
     def activate(self, game_state, current_stage):
         """탄약상자 사용 - 플레이어가 소지한 모든 화기류의 탄약을 100% 충전"""
@@ -115,7 +121,34 @@ class AmmoBox:
                         self.reloaded_weapons.append("ak47")
         except ImportError:
             pass
-        
+
+        # 화력지원 재장전 (폭격 지원 무전기)
+        try:
+            from item_effects.fire_support import get_fire_support_instance
+
+            fire_support = get_fire_support_instance()
+        except ImportError:
+            fire_support = None
+
+        if fire_support:
+            if is_degraded("fire_support"):
+                print("   🚫 화력지원 장비는 노후화되어 재장전되지 않습니다.")
+            elif fire_support.is_calling() or fire_support.is_active():
+                print("   🚫 화력지원 호출 중에는 탄약상자로 재장전할 수 없습니다.")
+            else:
+                prev_ammo = getattr(fire_support, "ammo_count", 0)
+                max_ammo = getattr(fire_support, "max_ammo", getattr(fire_support, "MAX_AMMO", 1))
+                needs_reload = prev_ammo < max_ammo or getattr(fire_support, "finished", False)
+                if needs_reload:
+                    fire_support.rearm(track_reload=True)
+                    print(
+                        f"   ✈️ 화력지원 재장전: {prev_ammo} → {getattr(fire_support, 'ammo_count', max_ammo)}"
+                    )
+                    if "fire_support" not in self.reloaded_weapons:
+                        self.reloaded_weapons.append("fire_support")
+                else:
+                    print("   ✈️ 화력지원은 이미 탄약이 가득 찼습니다.")
+
         # 재장전된 무기가 있는지 확인
         if self.reloaded_weapons:
             print(f"📦 탄약상자: {len(self.reloaded_weapons)}개 화기류 재장전 완료!")
