@@ -32517,6 +32517,7 @@ def draw_objects():
     # 모든 이펙트 업데이트 및 그리기
     effects_manager.update_all_effects()
     effects_manager.draw_all_effects(SCREEN)
+    draw_repair_jobs(SCREEN)
     draw_repair_glow_effects(SCREEN)
     # 터렛 미사일 업데이트 및 그리기 (스테이지 6에서만)
     if current_stage == 6:
@@ -57933,6 +57934,7 @@ def main(stage_num, new_boss_mode=False):
                 handle_aipill()  #  AI 필 타이머 처리
                 handle_wall()  #  벽돌 처리
                 update_brick_particles()  # 벽돌 파티클 업데이트
+                update_active_repair_jobs()
                 update_repair_glow_effects()
 
                 # 다우징팬들럼 효과 적용 (아이템을 끌어당김)
