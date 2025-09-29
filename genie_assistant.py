@@ -53,6 +53,18 @@ TUTORIAL_LIBRARY: dict[str, List[dict]] = {
             "animation": "reload",
         },
         {
+            "id": "weapon_switch",
+            "title": "화기류 교체",
+            "summary": "UP 홀드로 무기 메뉴 열기",
+            "keys": ["↑ 홀드", "숫자 1-3", "SPACE"],
+            "details": [
+                "↑ 키를 0.6초 이상 누르면 무기 선택 메뉴가 나타납니다. 메뉴가 열린 동안에는 지니 안내처럼 현재 보유 무기가 순서대로 표시됩니다.",
+                "숫자 키 1~3 또는 방향키로 원하는 무기를 지정한 뒤 SPACE를 눌러 확정하세요. 확정 전에는 스페이스 사격이 잠시 비활성화되니 주의가 필요합니다.",
+                "전투 중 빠르게 전환해야 한다면, ↑ 키를 짧게 탭해 두 번 눌러 간단히 다음 무기로 넘길 수도 있습니다. (단, 무기 두 자루 이상 보유 시)",
+            ],
+            "animation": "switch",
+        },
+        {
             "id": "supply_drop",
             "title": "물자보급 요청",
             "summary": "↓키 홀드로 보급상자 호출",
@@ -486,6 +498,30 @@ class GenieAssistant:
                 pygame.draw.polygon(surface, arrow_color, jittered)
             tap_text = self.small_font.render("0.25초 이내로 더블탭!", True, COLOR_TEXT_DIM)
             surface.blit(tap_text, tap_text.get_rect(center=(center_x, rect.bottom - 18)))
+        elif animation_id == "switch":
+            panel_rect = pygame.Rect(rect.left + 24, center_y - 40, rect.width - 48, 80)
+            pygame.draw.rect(surface, (55, 70, 110), panel_rect, border_radius=12)
+            pygame.draw.rect(surface, (120, 150, 210), panel_rect, width=1, border_radius=12)
+
+            slots = ["권총", "바주카", "AK-47"]
+            slot_width = (panel_rect.width - 40) // len(slots)
+            base_y = panel_rect.centery
+            highlight = (ticks // 400) % len(slots)
+            for idx, label in enumerate(slots):
+                slot_rect = pygame.Rect(panel_rect.left + 20 + idx * slot_width, base_y - 22, slot_width - 10, 44)
+                is_active = idx == highlight
+                pygame.draw.rect(
+                    surface,
+                    (200, 220, 255) if is_active else (90, 110, 150),
+                    slot_rect,
+                    border_radius=10,
+                )
+                pygame.draw.rect(surface, (255, 255, 255), slot_rect, width=1, border_radius=10)
+                text_surface = self.small_font.render(label, True, (20, 30, 50) if is_active else (220, 230, 255))
+                surface.blit(text_surface, text_surface.get_rect(center=slot_rect.center))
+
+            arrow_surface = self.small_font.render("↑ 홀드", True, COLOR_TEXT_DIM)
+            surface.blit(arrow_surface, arrow_surface.get_rect(center=(center_x, rect.bottom - 20)))
         else:
             idle_text = self.small_font.render("자료 수집 중...", True, COLOR_TEXT_DIM)
             surface.blit(idle_text, idle_text.get_rect(center=rect.center))
