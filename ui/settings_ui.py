@@ -83,10 +83,10 @@ class SettingsUI:
         
         # 폰트
         try:
-            self.font_title = pygame.font.Font("NanumSquareEB.ttf", 36)
-            self.font_category = pygame.font.Font("NanumSquareB.ttf", 28)
-            self.font_option = pygame.font.Font("NanumSquareR.ttf", 20)
-            self.font_small = pygame.font.Font("NanumSquareR.ttf", 16)
+            self.font_title = get_localized_ui_font(36, 'extra_bold')
+            self.font_category = get_localized_ui_font(28, 'bold')
+            self.font_option = get_localized_ui_font(20, 'regular')
+            self.font_small = get_localized_ui_font(16, 'regular')
         except:
             self.font_title = pygame.font.Font(None, 36)
             self.font_category = pygame.font.Font(None, 28)
