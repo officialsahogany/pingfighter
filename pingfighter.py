@@ -13068,6 +13068,50 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
             if hasattr(net, "unequip"):
                 net.unequip()
         fire_support_weapon.unequip()
+    elif current_weapon == "fire_support":
+        fire_support_weapon = get_fire_support_instance()
+        base_x, base_y = weapon_rect.x, weapon_rect.y
+        w, h = weapon_rect.width, weapon_rect.height
+
+        pygame.draw.rect(screen, (60, 82, 130), weapon_rect, border_radius=8)
+        pygame.draw.rect(screen, (25, 38, 70), weapon_rect, 2, border_radius=8)
+
+        body_rect = pygame.Rect(base_x + 12, base_y + h // 2 - 6, w - 24, 12)
+        pygame.draw.rect(screen, (140, 170, 210), body_rect, border_radius=6)
+        pygame.draw.rect(screen, (70, 92, 130), body_rect, 2, border_radius=6)
+        wing_rect = pygame.Rect(base_x + 18, base_y + h // 2 - 16, w - 36, 10)
+        pygame.draw.rect(screen, (95, 120, 160), wing_rect, border_radius=4)
+        tail_rect = pygame.Rect(base_x + w - 34, base_y + h // 2 - 10, 16, 16)
+        pygame.draw.rect(screen, (95, 120, 160), tail_rect, border_radius=4)
+        pygame.draw.rect(screen, (55, 75, 110), tail_rect, 2, border_radius=4)
+
+        status_text = "준비완료"
+        if fire_support_weapon.is_calling():
+            status_text = "무전 중"
+        elif fire_support_weapon.aircraft and getattr(fire_support_weapon.aircraft, "crashing", False):
+            status_text = "격추"
+        elif fire_support_weapon.aircraft:
+            status_text = "폭격 진행"
+        elif fire_support_weapon.strike_active and fire_support_weapon.delay_timer > 0:
+            status_text = f"폭격 대기 {fire_support_weapon.delay_timer / 60:.1f}s"
+        elif fire_support_weapon.ammo_count <= 0 and not fire_support_weapon.strike_active:
+            status_text = "탄약 없음"
+
+        try:
+            if 'font_small' in globals() and font_small:
+                status_surface = font_small.render(status_text, True, (220, 230, 255))
+                screen.blit(status_surface, (weapon_x, weapon_y - 20))
+
+                bombs_label = "폭탄: "
+                if fire_support_weapon.strike_active:
+                    bombs_label += str(max(0, fire_support_weapon.bombs_remaining))
+                else:
+                    bombs_label += "0" if fire_support_weapon.ammo_count <= 0 else "1"
+                bombs_surface = font_small.render(bombs_label, True, (200, 210, 255))
+                screen.blit(bombs_surface, (weapon_x, weapon_y + weapon_size + 6))
+        except Exception:
+            pass
+
     elif current_weapon == "net_gun":
         net = get_net_gun_instance()
         if net and hasattr(net, "equip"):
@@ -42033,6 +42077,12 @@ def apply_selected_items(
         if net_gun:
             net_gun.unequip()
             net_gun.reload()
+
+    if "fire_support" in selected_firearm_items:
+        soldier_controller.add_weapon("fire_support", set_active=False)
+        fire_support_weapon.on_acquired()
+    else:
+        fire_support_weapon.reset_runtime()
 
     soldier_controller.current_index = 0
 
