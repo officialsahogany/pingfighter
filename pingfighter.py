@@ -15797,7 +15797,7 @@ def render_throwing_item_cooldown():
         return
     
     # 화기류 아이템이 있는지 확인 (투척류 + 권총)
-    firearm_items = ["molotov", "grenade", "flare", "smoke_grenade", "spider_mine"]
+    firearm_items = ["molotov", "grenade", "flare", "smoke_grenade", "spider_mine", "fire_support"]
     has_firearm_item = False
     
     # 코만도 캐릭터 권총 확인
@@ -58304,6 +58304,7 @@ def get_item_name_korean(item_name):
         "knee_pads": "킥차져",
         "doping_potion": "도핑물약",
         "ammo_box": "탄약상자",
+        "fire_support": "화력지원",
         "bazooka": "바주카포",
         "ak47": "AK-47",
         "net_gun": "그물덫총",
