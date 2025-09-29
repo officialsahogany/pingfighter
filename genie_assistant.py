@@ -332,6 +332,7 @@ class GenieAssistant:
             return False
 
         if event.type == pygame.KEYDOWN:
+            mods = event.mod if hasattr(event, "mod") else 0
             if event.key in (pygame.K_ESCAPE, pygame.K_t):
                 self.deactivate()
                 return True
@@ -340,7 +341,7 @@ class GenieAssistant:
                 return True
             if self.phase == "menu":
                 if self.detail_focus:
-                    if event.key in (pygame.K_LEFT, pygame.K_a):
+                    if event.key in (pygame.K_LEFT, pygame.K_a) or (event.key == pygame.K_TAB and (mods & pygame.KMOD_SHIFT)):
                         self.detail_focus = False
                         self.detail_scroll_wait = 0.0
                         self.detail_scroll_direction = 1
@@ -364,7 +365,7 @@ class GenieAssistant:
                         self._set_detail_scroll_ratio(1.0)
                         return True
                 else:
-                    if event.key in (pygame.K_RIGHT, pygame.K_d):
+                    if event.key in (pygame.K_RIGHT, pygame.K_d) or (event.key == pygame.K_TAB and not (mods & pygame.KMOD_SHIFT)):
                         self.detail_focus = True
                         self.detail_scroll_wait = 0.0
                         self.detail_scroll_direction = 1
