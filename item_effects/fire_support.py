@@ -386,6 +386,7 @@ class FireSupport:
         self.radio_active = False
         self.last_bomb_y = 0.0
         self.max_ammo = self.MAX_AMMO
+        self._has_initial_load = False
 
     def reset_state(self) -> None:
         self.strike_active = False
@@ -403,12 +404,23 @@ class FireSupport:
         self.last_bomb_y = 0.0
 
     def on_acquired(self) -> None:
-        self.reset_state()
-        self.ammo_count = self.max_ammo
+        track_reload = self._has_initial_load
+        self.rearm(track_reload=track_reload)
+        self._has_initial_load = True
 
     def reset_runtime(self) -> None:
         self.reset_state()
         self.ammo_count = 0
+
+    def rearm(self, *, track_reload: bool = False, ammo_override: Optional[int] = None) -> None:
+        self.reset_state()
+        if ammo_override is not None:
+            self.max_ammo = max(1, ammo_override)
+        self.ammo_count = self.max_ammo
+        if track_reload:
+            tracker = self._get_reload_tracker()
+            if tracker:
+                tracker("fire_support")
 
     def equip(self) -> None:
         self.equipped = True
@@ -543,6 +555,16 @@ class FireSupport:
 
     def clear_finished_flag(self) -> None:
         self.finished = False
+
+    def _get_reload_tracker(self) -> Callable[[str], None] | None:
+        for module_name in ("__main__", "pingfighter"):
+            module = sys.modules.get(module_name)
+            if not module:
+                continue
+            tracker = getattr(module, "register_weapon_reload", None)
+            if callable(tracker):
+                return tracker
+        return None
 
     def _get_aircraft_sound(self) -> Optional[pygame.mixer.Sound]:
         for module_name in ("pingfighter", "__main__"):
