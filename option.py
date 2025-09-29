@@ -3,7 +3,8 @@ import sys
 import os
 
 # 전역 설정 변수들
-LANGUAGE = "한국어"  # 한국어, English
+AVAILABLE_LANGUAGES = ["한국어", "English", "日本語"]
+LANGUAGE = "한국어"  # 기본 언어 (AVAILABLE_LANGUAGES 내 값)
 BGM_VOLUME = 0.7  # 0.0 ~ 1.0
 SFX_VOLUME = 0.8  # 0.0 ~ 1.0
 FULLSCREEN = False  # True: 전체화면, False: 창모드
@@ -13,7 +14,11 @@ def save_settings():
     """설정을 파일에 저장"""
     try:
         with open("settings.txt", "w", encoding="utf-8") as f:
-            f.write(f"LANGUAGE={LANGUAGE}\n")
+            if LANGUAGE not in AVAILABLE_LANGUAGES:
+                language_to_save = AVAILABLE_LANGUAGES[0]
+            else:
+                language_to_save = LANGUAGE
+            f.write(f"LANGUAGE={language_to_save}\n")
             f.write(f"BGM_VOLUME={BGM_VOLUME}\n")
             f.write(f"SFX_VOLUME={SFX_VOLUME}\n")
             f.write(f"FULLSCREEN={FULLSCREEN}\n")
@@ -32,7 +37,7 @@ def load_settings():
                     if "=" in line:
                         key, value = line.strip().split("=", 1)
                         if key == "LANGUAGE":
-                            LANGUAGE = value
+                            LANGUAGE = value if value in AVAILABLE_LANGUAGES else AVAILABLE_LANGUAGES[0]
                         elif key == "BGM_VOLUME":
                             BGM_VOLUME = float(value)
                         elif key == "SFX_VOLUME":
@@ -179,7 +184,7 @@ def show_options_menu(screen, width, height):
         
         # 선택된 카테고리에 따른 내용 표시
         if selected_category == 0:  # 언어
-            languages = ["한국어", "English"]
+            languages = AVAILABLE_LANGUAGES
             for i, lang in enumerate(languages):
                 x = width // 2 - 100
                 y = content_y + i * 60
@@ -256,8 +261,10 @@ def show_options_menu(screen, width, height):
                         
                 elif event.key == pygame.K_UP:
                     if selected_category == 0:  # 언어
-                        current_index = ["한국어", "English"].index(LANGUAGE)
-                        LANGUAGE = ["한국어", "English"][(current_index - 1) % 2]
+                        if LANGUAGE not in AVAILABLE_LANGUAGES:
+                            LANGUAGE = AVAILABLE_LANGUAGES[0]
+                        current_index = AVAILABLE_LANGUAGES.index(LANGUAGE)
+                        LANGUAGE = AVAILABLE_LANGUAGES[(current_index - 1) % len(AVAILABLE_LANGUAGES)]
                         SOUND_BUTTON_HOVER.play()
                     elif selected_category == 2:  # 화면
                         selected_option = (selected_option - 1) % 2
@@ -271,8 +278,10 @@ def show_options_menu(screen, width, height):
                         
                 elif event.key == pygame.K_DOWN:
                     if selected_category == 0:  # 언어
-                        current_index = ["한국어", "English"].index(LANGUAGE)
-                        LANGUAGE = ["한국어", "English"][(current_index + 1) % 2]
+                        if LANGUAGE not in AVAILABLE_LANGUAGES:
+                            LANGUAGE = AVAILABLE_LANGUAGES[0]
+                        current_index = AVAILABLE_LANGUAGES.index(LANGUAGE)
+                        LANGUAGE = AVAILABLE_LANGUAGES[(current_index + 1) % len(AVAILABLE_LANGUAGES)]
                         SOUND_BUTTON_HOVER.play()
                     elif selected_category == 2:  # 화면
                         selected_option = (selected_option + 1) % 2
@@ -337,7 +346,7 @@ def show_options_menu(screen, width, height):
                 
                 # 옵션 버튼 클릭
                 if selected_category == 0:  # 언어
-                    languages = ["한국어", "English"]
+                    languages = AVAILABLE_LANGUAGES
                     for i, lang in enumerate(languages):
                         x = width // 2 - 100
                         y = content_y + i * 60
