@@ -181,7 +181,6 @@ from supply_drop import (
     start_radio_loop as supply_start_radio_loop,
     stop_radio_loop as supply_stop_radio_loop,
     update_radio_animation as supply_update_radio_animation,
-    ensure_radio_audio as supply_ensure_radio_audio,
 )
 from soldier import SoldierWeaponController
 #  전설 아이템 시스템
@@ -57085,8 +57084,6 @@ def main(stage_num, new_boss_mode=False):
                         ),
                     )
                     if fire_support_weapon.radio_active:
-                        if fire_support_radio_loop_active:
-                            supply_ensure_radio_audio(supply_runtime, resource_path)
                         if fire_support_weapon.is_calling():
                             supply_runtime.hold_active = True
                         elif not supply_drop_state.active:
