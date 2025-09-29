@@ -20293,9 +20293,23 @@ def handle_player(keys):
         if supply_drop_state.hold_time > 0:
             print(f"📻 물자보급 홀드 중단: {supply_drop_state.hold_time}/{supply_drop_state.config.hold_required}")
         supply_drop_state.hold_time = 0
-        supply_runtime.hold_active = False
-        if (supply_runtime.hold_active or supply_drop_state.radio_motion) and not supply_drop_state.active:
-            stop_supply_radio_loop(force=True)
+
+        previous_hold_active = supply_runtime.hold_active
+
+        fire_support_radio_locked = False
+        if selected_character_type == "soldier":
+            fire_support_weapon = get_fire_support_instance()
+            fire_support_radio_locked = (
+                fire_support_weapon.radio_active and fire_support_weapon.is_calling()
+            )
+
+        if fire_support_radio_locked:
+            # 화력지원 호출 시에는 무전 애니메이션을 강제로 유지해 0.7초 연출을 보장한다.
+            supply_runtime.hold_active = True
+        else:
+            supply_runtime.hold_active = False
+            if (previous_hold_active or supply_drop_state.radio_motion) and not supply_drop_state.active:
+                stop_supply_radio_loop(force=True)
     
     
     # 튜토리얼 대쉬 도우미는 일정 시간 동안 유지 (바로 끄지 않음)
