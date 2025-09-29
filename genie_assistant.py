@@ -300,6 +300,7 @@ class GenieAssistant:
         if not self.tutorial_items:
             return
         self.selected_index = (self.selected_index + delta) % len(self.tutorial_items)
+        self._reset_detail_scroll(reset_layout=True)
 
     def _init_smoke_particles(self) -> None:
         self.smoke_particles = []
