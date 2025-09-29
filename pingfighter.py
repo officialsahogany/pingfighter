@@ -10734,6 +10734,7 @@ soldier_right_hook_phase = 0.0
 soldier_walking_active = False
 soldier_walking_timer = 0
 SOLDIER_WALKING_CYCLE = 30  # 0.5초 (60fps * 0.5)
+FIRE_SUPPORT_RADIO_FRAMES = int(FPS * 0.7)  # 화력지원 무전 연출 지속시간(0.7초)
 
 # === 발토르 걷기 애니메이션 변수 ===
 blacksmith_walking_active = False
@@ -21709,7 +21710,7 @@ def handle_player(keys):
                             print(f"🔥 화력지원 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
                         else:
                             if fire_support_weapon.start_call(WIDTH, HEIGHT):
-                                start_supply_radio_loop()
+                                start_supply_radio_loop(duration_frames=FIRE_SUPPORT_RADIO_FRAMES)
                                 supply_runtime.hold_active = True
                                 player_stunned_timer = max(player_stunned_timer, fire_support_weapon.CALL_LOCK_FRAMES)
                                 player_knockback_vel = 0
