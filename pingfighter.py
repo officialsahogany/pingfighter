@@ -2303,7 +2303,7 @@ def trigger_grenade_style_explosion(
         else:
             print("💥 보스 넉백 및 스턴 적용")
 
-        global special_gauge, selected_character_type
+        global special_gauge
         if selected_character_type == "soldier":
             gauge_increase = 70 if apply_commando_bonus and items.commando_arm_obtained else 50
             old_gauge = special_gauge
@@ -18987,7 +18987,7 @@ def update_soldier_bullets():
 
 def apply_ak47_boss_hit_effect(hit_event):
     """AK-47 탄환이 보스를 적중했을 때의 후속 효과 적용"""
-    global boss_stunned_timer, boss_knockback_timer, boss_knockback_vel, BOSS
+    global boss_stunned_timer, boss_knockback_timer, boss_knockback_vel, BOSS, soldier_ak47_boss_hit_count
 
     vel_x = hit_event.get("vel_x", 0.0)
     bullet_x = hit_event.get("bullet_x")
@@ -19010,6 +19010,12 @@ def apply_ak47_boss_hit_effect(hit_event):
 
     knockback_strength = AK47_KNOCKBACK_BASE + abs(vel_x) * AK47_KNOCKBACK_SCALE
     boss_knockback_vel = _apply_boss_knockback_velocity(knockback_strength * direction)
+
+    if current_stage in boss_health_stages:
+        soldier_ak47_boss_hit_count += 1
+        if soldier_ak47_boss_hit_count >= 20:
+            apply_health_boss_damage(1, source="soldier_ak47")
+            soldier_ak47_boss_hit_count = 0
 
 
 def update_blood_particles():
@@ -53939,6 +53945,10 @@ def main(stage_num, new_boss_mode=False):
     soldier_gun_target_y = 0
     soldier_gun_muzzle_x = 0
     soldier_gun_muzzle_y = 0
+
+    global soldier_pistol_boss_hit_count, soldier_ak47_boss_hit_count
+    soldier_pistol_boss_hit_count = 0
+    soldier_ak47_boss_hit_count = 0
 
     # 보스 넉백 효과 초기화
     global boss_knockback_active, boss_knockback_offset_x, boss_knockback_offset_y, boss_knockback_timer
