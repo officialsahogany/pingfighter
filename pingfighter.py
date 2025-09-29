@@ -11371,13 +11371,17 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
 
     fire_cycle_ms = 3000
     fire_phase = pygame.time.get_ticks() % fire_cycle_ms
-    firing = fire_phase < 220
+    flash_duration = 220
+    projectile_duration = 1200
+    show_flash = fire_phase < flash_duration
+    projectile_active = fire_phase < projectile_duration
+    progress = min(1.0, fire_phase / projectile_duration) if projectile_active else 0.0
     flash_frames = max(1, int(0.15 * FPS))
-    turret_state_preview["overdrive_flash_timer"] = flash_frames if firing else 0
+    turret_state_preview["overdrive_flash_timer"] = flash_frames if show_flash else 0
     turret_state_preview["overdrive_glow_phase"] = pygame.time.get_ticks() / 240.0
 
     projectiles_preview: list[dict[str, object]] = []
-    if firing:
+    if projectile_active:
         scale_x = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
         scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
         pivot_point = pygame.math.Vector2(
@@ -11392,13 +11396,15 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
             forward_vec = forward_vec.normalize()
         muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
         muzzle_world = pivot_point + forward_vec * muzzle_distance
+        travel_distance = muzzle_distance + rect.width * 0.9 * progress
+        projectile_pos = muzzle_world + forward_vec * travel_distance
         muzzle_tip = muzzle_world + forward_vec * max(4, scale_x * 6)
         projectile_radius = max(3, int(8 * scale))
         missile_speed = 14.0
         projectiles_preview.append(
             {
-                "x": float(muzzle_tip.x),
-                "y": float(muzzle_tip.y),
+                "x": float(projectile_pos.x),
+                "y": float(projectile_pos.y),
                 "vx": float(forward_vec.x * missile_speed),
                 "vy": float(forward_vec.y * missile_speed),
                 "radius": projectile_radius,
