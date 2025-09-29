@@ -24,6 +24,36 @@ def translate(key: str, fallback: str) -> str:
     return get_localization_manager().get_text(key, fallback)
 
 
+FONT_CACHE: Dict[Tuple[str, int, str], pygame.font.Font] = {}
+
+
+def get_localized_ui_font(size: int, weight: str = "regular") -> pygame.font.Font:
+    language_code = get_localization_manager().current_language
+    font_map = {
+        'regular': ("NanumSquareR.ttf", "Pretendard-Regular.ttf"),
+        'bold': ("NanumSquareB.ttf", "Pretendard-Bold.ttf"),
+        'extra_bold': ("NanumSquareEB.ttf", "Pretendard-Bold.ttf")
+    }
+    primary_font, fallback_font = font_map.get(weight, font_map['regular'])
+    font_path = primary_font if language_code != 'ja' else fallback_font
+    cache_key = (font_path, size, weight)
+    if cache_key in FONT_CACHE:
+        return FONT_CACHE[cache_key]
+
+    try:
+        font = pygame.font.Font(font_path, size)
+    except Exception:
+        try:
+            font = pygame.font.Font(fallback_font, size)
+            cache_key = (fallback_font, size, weight)
+        except Exception:
+            font = pygame.font.Font(None, size)
+            cache_key = ("__default__", size, weight)
+
+    FONT_CACHE[cache_key] = font
+    return font
+
+
 class SettingsUI:
     """설정 UI 시스템"""
     
