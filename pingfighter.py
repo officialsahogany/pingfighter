@@ -55704,7 +55704,7 @@ def main(stage_num, new_boss_mode=False):
             # 키보드 이벤트 처리
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_u:
-                    genie_assistant.activate(SCREEN)
+                    genie_assistant.activate(SCREEN, selected_character_type)
                     continue
                 #  일시정지 토글 (P키)
                 if event.key == pygame.K_p:
