@@ -59600,6 +59600,7 @@ def show_stage_selection(show_character_hint=True):
         {"num": 3, "name": "스테이지 3", "desc": "멘헤라걸", "color": (255, 0, 128)},
         {"num": 4, "name": "스테이지 4", "desc": "자석 패들", "color": (255, 128, 0)},
         {"num": 5, "name": "스테이지 5", "desc": "홍련폭염", "color": (255, 50, 50)},
+        {"num": 6, "name": "스테이지 6", "desc": "울트라 배틀크루저", "color": (80, 180, 255)},
         {"num": 50, "name": "튜토리얼", "desc": "게임 방법 익히기", "color": (100, 255, 100)},
     ]
     
@@ -59640,12 +59641,13 @@ def show_stage_selection(show_character_hint=True):
         
         for i, stage in enumerate(stages):
             row = i // cards_per_row
-            col = i % cards_per_row
-            
-            # 카드 위치 계산
-            total_width = cards_per_row * card_width + (cards_per_row - 1) * card_spacing
-            start_x = (WIDTH - total_width) // 2
-            card_x = start_x + col * (card_width + card_spacing)
+            col_in_row = i - row * cards_per_row
+
+            # 카드 위치 계산 (마지막 행 카드 수에 맞춰 중앙 정렬)
+            cards_in_row = min(cards_per_row, len(stages) - row * cards_per_row)
+            row_total_width = cards_in_row * card_width + (cards_in_row - 1) * card_spacing if cards_in_row > 0 else card_width
+            start_x = (WIDTH - row_total_width) // 2
+            card_x = start_x + col_in_row * (card_width + card_spacing)
             card_y = start_y + row * (card_height + card_spacing)
             
             card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
