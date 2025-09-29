@@ -264,12 +264,13 @@ class FireSupport:
                 self.aircraft = None
             if self.aircraft and self.aircraft.can_drop() and self.bombs_remaining > 0:
                 if self.bomb_cooldown <= 0 and self.aircraft.spawn_timer >= 60:
-                    drop_x, drop_y = self.aircraft.drop_anchor(self.last_bomb_y)
+                    drop_x = random.uniform(60, self.screen_width - 60)
+                    drop_y = boss_rect.centery + random.uniform(-50, 50)
                     self.last_bomb_y = drop_y
                     bomb = Bomb(
                         x=drop_x,
                         y=drop_y,
-                        vx=random.uniform(0.4, self.BOMB_HORIZONTAL_JITTER),
+                        vx=0.0,
                         vy=self.BOMB_INITIAL_VY,
                         gravity=self.BOMB_GRAVITY,
                         target_y=min(self.screen_height - 60, boss_rect.centery + random.randint(-50, 50)),
