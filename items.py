@@ -510,7 +510,7 @@ ITEM_TYPES = [
         "color": (255, 160, 70),
         "effect": "fire_support",
         "icon": None,
-        "chance": 0.5,  # 임시로 확률 높임 (테스트용)
+        "chance": 0.0,  # 필드 드롭 금지 (물자보급 전용)
         "duration": 0,
         "unlock_condition": None
     },
@@ -797,6 +797,10 @@ def spawn_random_item():
         
         # bluetooth_ring 아이템은 한 번 획득하면 더 이상 스폰 안함
         if item["name"] == "bluetooth_ring" and bluetooth_ring_obtained:
+            continue
+
+        # 화력지원은 물자보급 전용이므로 필드에서는 절대 스폰하지 않음
+        if item["name"] == "fire_support":
             continue
 
         # foul_whistle 아이템은 한 번 획득하면 더 이상 스폰 안함
