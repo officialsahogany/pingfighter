@@ -16854,14 +16854,14 @@ def activate_repair_kit():
     except Exception:
         pass
 
-    msg_parts = []
-    if healed_turret:
-        msg_parts.append("포탑 내구도 회복")
-    if healed_divine:
-        msg_parts.append("디바인스톤 복구")
-    if repaired_walls:
-        msg_parts.append(f"벽돌 {repaired_walls}개 보수")
-    print("🛠️ 수리키트 작동! " + ", ".join(msg_parts))
+    summary = []
+    if turret_runtime and turret_runtime.state and _is_repair_job_active("turret", state=turret_runtime.state):
+        summary.append("포탑 수리 중")
+    if divine_runtime and divine_runtime.state and _is_repair_job_active("divine", state=divine_runtime.state):
+        summary.append("디바인스톤 수리 중")
+    if wall_jobs:
+        summary.append(f"벽돌 {wall_jobs}개 수리 중")
+    print("🛠️ 수리키트 작동! " + ", ".join(summary))
     return True
 
 
