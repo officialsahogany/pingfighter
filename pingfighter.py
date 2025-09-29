@@ -9584,12 +9584,20 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
     pulse = divine_state.get("pulse", 0)
     hp = divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
     max_hp = max(1, divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP))
-    tower_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
     width, height = rect.size
-    cx, cy = width // 2, height // 2
+    padding_x = max(4, width // 12)
+    padding_top = max(6, height // 10)
+    padding_bottom = 0
+    # 디바인스톤 상단이 잘리지 않도록 여유 패딩을 확보한다.
+    draw_width = width + padding_x * 2
+    draw_height = height + padding_top + padding_bottom
+    tower_surface = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
+    cx = padding_x + width // 2
+    cy = padding_top + height // 2
 
     base_height = max(12, height // 5)
     base_rect = pygame.Rect(6, height - base_height - 2, width - 12, base_height)
+    base_rect.move_ip(padding_x, padding_top)
     pygame.draw.rect(tower_surface, (70, 60, 85), base_rect, border_radius=6)
     pygame.draw.rect(tower_surface, (140, 120, 170), base_rect.inflate(-6, -4), border_radius=4)
     pygame.draw.rect(tower_surface, (220, 200, 255), base_rect.inflate(-10, -8), border_radius=3, width=2)
@@ -9598,6 +9606,8 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
     pillar_height = height - base_height - 18
     left_pillar = pygame.Rect(8, height - base_height - pillar_height, pillar_width, pillar_height)
     right_pillar = pygame.Rect(width - pillar_width - 8, height - base_height - pillar_height, pillar_width, pillar_height)
+    left_pillar.move_ip(padding_x, padding_top)
+    right_pillar.move_ip(padding_x, padding_top)
     pygame.draw.rect(tower_surface, (120, 115, 150), left_pillar, border_radius=4)
     pygame.draw.rect(tower_surface, (120, 115, 150), right_pillar, border_radius=4)
     pygame.draw.rect(tower_surface, (200, 190, 240), left_pillar.inflate(-4, -4), border_radius=3, width=2)
@@ -9637,13 +9647,13 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
     chain_y = mana_center.y - core_radius - 6
     pygame.draw.line(tower_surface, (180, 190, 240), (left_pillar.centerx, int(chain_y)), (right_pillar.centerx, int(chain_y)), 2)
 
-    halo_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+    halo_surface = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
     halo_radius = max(width // 2, height // 2)
     halo_alpha = 40 + int(30 * math.sin(pulse * 0.04))
     pygame.draw.circle(halo_surface, (90, 140, 240, halo_alpha), (cx, cy), halo_radius)
     tower_surface.blit(halo_surface, (0, 0))
 
-    surface.blit(tower_surface, rect.topleft)
+    surface.blit(tower_surface, (rect.left - padding_x, rect.top - padding_top))
 
     hp_ratio = 0.0
     if max_hp > 0:
