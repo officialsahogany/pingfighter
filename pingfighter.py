@@ -20067,6 +20067,7 @@ def handle_player(keys):
                     blacksmith_umbrella_open = False
                     blacksmith_umbrella_retracting = False
                     blacksmith_umbrella_anim_direction = 1
+                    blacksmith_umbrella_retract_start_frame = -1000
                     blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
                     blacksmith_umbrella_hitbox_vertical = (0.0, 0.0)
                     blacksmith_umbrella_hitbox_center_offset = (0.0, 0.0)
@@ -20102,6 +20103,7 @@ def handle_player(keys):
                 blacksmith_umbrella_retracting = False
                 blacksmith_umbrella_anim_direction = 1
                 blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
+                blacksmith_umbrella_retract_start_frame = -1000
                 if SOUND_BLACKSMITH_UMBRELLA_OPEN:
                     play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_OPEN)
                 blacksmith_walking_active = False
@@ -22347,8 +22349,12 @@ def handle_player(keys):
             frames_since_last_hit = frame_counter - blacksmith_umbrella_last_hit_frame
             if frame_counter <= blacksmith_umbrella_last_hit_frame:
                 frames_since_last_hit = BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
+            allow_umbrella_hit_during_retract = (
+                blacksmith_umbrella_retracting
+                and frame_counter == blacksmith_umbrella_retract_start_frame
+            )
             if (
-                not blacksmith_umbrella_retracting
+                (not blacksmith_umbrella_retracting or allow_umbrella_hit_during_retract)
                 and not blacksmith_umbrella_hit_lock
                 and frames_since_last_hit >= BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
                 and last_hit_by != "player"  # 플레이어가 마지막으로 친 공은 내구도 소모 제외
@@ -54083,6 +54089,7 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_open = False
     blacksmith_umbrella_anim_timer = 0
     blacksmith_umbrella_retracting = False
+    blacksmith_umbrella_retract_start_frame = -1000
     blacksmith_umbrella_anim_direction = 1
     global blacksmith_umbrella_hitbox_extents, blacksmith_umbrella_hitbox_vertical
     global blacksmith_umbrella_hitbox_center_offset, blacksmith_umbrella_hitbox_direction
