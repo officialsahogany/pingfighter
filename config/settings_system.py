@@ -13,8 +13,16 @@ from core.events import EventType, emit_event
 from core.global_manager import GlobalManager
 
 
+LANGUAGE_OPTIONS = [
+    ("ko", "한국어"),
+    ("en", "English"),
+    ("ja", "日本語")
+]
+
+
 class SettingCategory(Enum):
     """설정 카테고리"""
+    LANGUAGE = "언어"
     CONTROLS = "조작"
     GRAPHICS = "그래픽"
     AUDIO = "오디오"
@@ -120,6 +128,11 @@ class SettingsManager:
                 'ping_limit': 200,  # ms
                 'interpolation': True,
                 'prediction': True
+            },
+
+            # 언어 설정
+            'language': {
+                'language': LANGUAGE_OPTIONS[0][0]
             },
             
             # 접근성 설정
@@ -385,6 +398,8 @@ class SettingsManager:
             self._apply_audio_setting(key, value)
         elif category == 'gameplay':
             self._apply_gameplay_setting(key, value)
+        elif category == 'language':
+            self._apply_language_setting(key, value)
         elif category == 'network':
             self._apply_network_setting(key, value)
             
