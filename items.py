@@ -398,6 +398,15 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
+        "name": "repair_kit",  # 🛠️ 수리키트 액티브 아이템
+        "color": (220, 210, 140),  # 황동빛 수리 상자
+        "effect": "repair_kit",
+        "icon": None,
+        "chance": 0.006,  # 발토르 전용 희귀 아이템
+        "duration": 600,
+        "unlock_condition": None
+    },
+    {
         "name": "stopwatch",  # ⏱️ 스탑워치 액티브 아이템
         "color": (180, 140, 90),  # 갈색 (시계 색상)
         "effect": "stopwatch",
@@ -604,6 +613,7 @@ unlocked_items = {
     "stopwatch": True,
     "commando_arm": True,
     "life_elixir": True,
+    "repair_kit": True,
     "devil_dice": True,
     "technical_vest": True,
     "fuel_pouch": True,
