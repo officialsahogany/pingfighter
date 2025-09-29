@@ -7,7 +7,7 @@
 import pygame
 import random
 import math
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any
 
 from resource_path import resource_path
 
