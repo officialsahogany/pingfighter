@@ -12,14 +12,6 @@ from typing import Dict, Any, Optional, Tuple
 from resource_path import resource_path
 
 
-def resource_path(relative_path: str) -> str:
-    """PyInstaller 호환 리소스 경로"""
-    try:
-        base_path = sys._MEIPASS  # type: ignore[attr-defined]
-    except Exception:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_path, relative_path)
-
 class DevilDice:
     """악마의 주사위 액티브 아이템"""
     
