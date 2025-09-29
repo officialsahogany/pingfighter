@@ -16892,7 +16892,7 @@ def _start_repair_glow(kind: str, *, rect=None, state=None, wall=None) -> None:
         "duration": REPAIR_GLOW_DURATION_FRAMES,
         "timer": REPAIR_GLOW_DURATION_FRAMES,
         "phase": random.random() * math.tau,
-        "angular_speed": random.uniform(0.08, 0.14),
+        "angular_speed": random.uniform(0.04, 0.08),  # 더 천천히 회전하도록 속도 감소
     }
     if rect is not None:
         entry["rect"] = rect.copy()
