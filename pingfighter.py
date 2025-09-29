@@ -11166,8 +11166,12 @@ def _genie_preview_blit_scaled(surface: pygame.Surface, source: pygame.Surface, 
 def _render_thor_shield_preview(surface: pygame.Surface, rect: pygame.Rect) -> bool:
     overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
     scale = 0.10
-    pivot_point = (rect.width * 0.5, rect.height * (0.5 + 0.32 * scale))
-    head_point = (rect.width * 0.5, rect.height * (0.5 - 0.28 * scale))
+    pivot_x = rect.width * 0.5
+    pivot_y = rect.height * 0.5
+    head_x = pivot_x + rect.width * 0.4
+    head_y = pivot_y - rect.height * 0.05
+    pivot_point = (pivot_x, pivot_y)
+    head_point = (head_x, head_y)
     _draw_blacksmith_umbrella_overlay(
         overlay,
         pivot_point,
