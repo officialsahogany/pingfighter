@@ -18049,24 +18049,41 @@ def draw_soldier_weapon_ui(screen):
         except Exception:
             pass
 
-        ammo_radius = 9
-        ammo_center = (weapon_rect.centerx, weapon_rect.bottom + ammo_radius + 6)
-        filled = fire_support.ammo_count > 0
-        base_color = (255, 205, 110) if filled else (90, 90, 90)
-        border_color = (255, 240, 190) if filled else (130, 130, 130)
-        pygame.draw.circle(screen, base_color, ammo_center, ammo_radius)
-        pygame.draw.circle(screen, border_color, ammo_center, ammo_radius, 2)
+        max_ammo = max(1, getattr(fire_support, "max_ammo", getattr(fire_support, "MAX_AMMO", 1)))
+        ammo_width = 14
+        ammo_height = 18
+        ammo_spacing = 6
+        total_width = max_ammo * ammo_width + (max_ammo - 1) * ammo_spacing
+        ammo_start_x = weapon_rect.x + (weapon_rect.width - total_width) // 2
+        ammo_y = weapon_rect.bottom + 6
 
-        if fire_support.strike_active:
-            pygame.draw.circle(
-                screen,
-                (255, 160, 80),
-                ammo_center,
-                max(2, ammo_radius // 2),
-                2,
+        for idx in range(max_ammo):
+            ammo_rect = pygame.Rect(
+                ammo_start_x + idx * (ammo_width + ammo_spacing),
+                ammo_y,
+                ammo_width,
+                ammo_height,
             )
+            filled = idx < fire_support.ammo_count
+            body_color = (245, 205, 110) if filled else (90, 90, 90)
+            nose_color = (255, 140, 70) if filled else (120, 120, 120)
+            pygame.draw.rect(screen, body_color, ammo_rect, border_radius=3)
+            pygame.draw.rect(screen, (255, 240, 190) if filled else (130, 130, 130), ammo_rect, 2, border_radius=3)
+            nose_height = max(4, ammo_height // 3)
+            nose_rect = pygame.Rect(ammo_rect.x, ammo_rect.y, ammo_rect.width, nose_height)
+            pygame.draw.rect(screen, nose_color, nose_rect, border_radius=3)
 
-        if not filled and not fire_support.strike_active:
+            if fire_support.strike_active and idx == 0:
+                highlight_rect = ammo_rect.inflate(4, 4)
+                pygame.draw.rect(
+                    screen,
+                    (255, 170, 80),
+                    highlight_rect,
+                    2,
+                    border_radius=4,
+                )
+
+        if fire_support.ammo_count <= 0 and not fire_support.strike_active:
             pygame.draw.line(
                 screen,
                 (150, 150, 150),
