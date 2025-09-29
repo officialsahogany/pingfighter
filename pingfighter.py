@@ -16867,6 +16867,8 @@ def activate_repair_kit():
         summary.append("디바인스톤 수리 중")
     if wall_jobs:
         summary.append(f"벽돌 {wall_jobs}개 수리 중")
+    if not summary:
+        summary.append("건물 수리 중")
     print("🛠️ 수리키트 작동! " + ", ".join(summary))
     return True
 
@@ -55013,6 +55015,7 @@ def main(stage_num, new_boss_mode=False):
     global chapter4_serve_reminder_timer, chapter4_serve_reminder_active
     global chapter4_dialogue_completed, chapter4_first_hit_after_dialogue
     global chapter4_power_helper_shown, chapter4_power_helper_timer
+    global tutorial_guide_hint_visible, tutorial_guide_hint_start_ticks
     nine_just_pressed = False
     last_nine_state = False
     
