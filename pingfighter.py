@@ -12816,6 +12816,10 @@ bazooka_recoil_strength = 0  # 반동 강도
 SOLDIER_BULLET_SIZE = 5  # 총알 크기
 SOLDIER_BULLET_COLOR = (255, 215, 0)  # 황금색 총알
 
+# 체력형 보스 상대 전용 누적 카운터 (라운드 전환 시 유지, 스테이지 전환 시 초기화)
+soldier_pistol_boss_hit_count = 0
+soldier_ak47_boss_hit_count = 0
+
 # === 코만도 탄약 시스템 관련 변수 ===
 soldier_ammo_count = 5  # 현재 탄약 개수 (최대 5개)
 soldier_max_ammo = 5  # 최대 탄약 개수
