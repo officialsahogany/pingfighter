@@ -45122,6 +45122,7 @@ def reset_round():
     blacksmith_umbrella_recharge_progress = 0
     blacksmith_umbrella_damage_flash_timer = 0
     blacksmith_umbrella_last_hit_frame = -1000
+    blacksmith_umbrella_retract_start_frame = -1000
 
     stopwatch_active = False
     stopwatch_timer = 0
