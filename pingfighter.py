@@ -16865,6 +16865,60 @@ def activate_repair_kit():
     return True
 
 
+def _get_repair_job_key(job_type: str, *, state=None, wall=None):
+    if job_type in ("turret", "divine"):
+        return (job_type, id(state))
+    if job_type == "wall":
+        return (job_type, id(wall))
+    return (job_type, id(state) if state is not None else id(wall))
+
+
+def _find_repair_job(job_type: str, *, state=None, wall=None):
+    key = _get_repair_job_key(job_type, state=state, wall=wall)
+    for job in active_repair_jobs:
+        if job.get("key") == key:
+            return job
+    return None
+
+
+def _is_repair_job_active(job_type: str, *, state=None, wall=None) -> bool:
+    if job_type == "wall" and wall is None:
+        return False
+    if job_type in ("turret", "divine") and state is None:
+        return False
+    return _find_repair_job(job_type, state=state, wall=wall) is not None
+
+
+def _add_repair_job(job_type: str, *, state=None, wall=None) -> bool:
+    if _is_repair_job_active(job_type, state=state, wall=wall):
+        return False
+
+    job = {
+        "type": job_type,
+        "key": _get_repair_job_key(job_type, state=state, wall=wall),
+        "state": state,
+        "wall": wall,
+        "tick": REPAIR_TICK_FRAMES,
+        "hammer_phase": random.random() * math.tau,
+        "cancelled": False,
+    }
+    active_repair_jobs.append(job)
+
+    if job_type == "turret":
+        _start_repair_glow("turret", state=state)
+    elif job_type == "divine":
+        _start_repair_glow("divine", state=state)
+    elif job_type == "wall":
+        _start_repair_glow("wall", wall=wall)
+    return True
+
+
+def _cancel_repair_job(job_type: str, *, state=None, wall=None) -> None:
+    job = _find_repair_job(job_type, state=state, wall=wall)
+    if job:
+        job["cancelled"] = True
+
+
 def _start_repair_glow(kind: str, *, rect=None, state=None, wall=None) -> None:
     """수리 이펙트를 등록한다."""
     entry = {
