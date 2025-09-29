@@ -8699,6 +8699,7 @@ def update_blacksmith_turret():
             smoke_protected = is_rect_in_smoke(turret_rect)
             if not smoke_protected:
                 turret_state["hp"] -= 1  # 연막 밖에서만 체력 감소
+                _cancel_repair_job("turret", state=turret_state)
             BALL.bottom = min(BALL.bottom, turret_rect.top - 4)
             speed_mag = max(7.0, math.hypot(ball_vel[0], ball_vel[1]))
             ball_vel[1] = -abs(speed_mag)
@@ -8942,6 +8943,7 @@ def update_blacksmith_turret():
             if grace_frames <= 0 and current_turret_rect and current_turret_rect.colliderect(projectile_rect):
                 if turret_state.get("hp", 0) > 0:
                     turret_state["hp"] -= 1
+                    _cancel_repair_job("turret", state=turret_state)
                     spark_surface = pygame.Surface((14, 14), pygame.SRCALPHA)
                     pygame.draw.circle(spark_surface, (255, 200, 100, 200), (7, 7), 6)
                     surface_target = pygame.Surface((14, 14), pygame.SRCALPHA)
