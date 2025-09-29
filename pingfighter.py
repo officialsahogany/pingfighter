@@ -11244,6 +11244,7 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     blacksmith_umbrella_recharge_progress = 0
     blacksmith_umbrella_damage_flash_timer = 0
     blacksmith_umbrella_last_hit_frame = -1000
+    blacksmith_umbrella_retract_start_frame = -1000
     blacksmith_umbrella_hit_lock = False
     blacksmith_hammer_shock_last_stage = 0
     blacksmith_hammer_shock_cooldown_total = 0
