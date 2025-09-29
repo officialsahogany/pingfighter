@@ -25828,7 +25828,7 @@ def draw_player_gauge():
     global rolling_charges, rolling_cooldown  #  대쉬 토큰 표시용
     global gauge_charge_animation_timer, gauge_charge_animation_amount  # 충전 애니메이션
     global selected_character_type  # 캐릭터 타입 확인용
-    global soldier_emergency_supply_toast_timer
+    global soldier_emergency_supply_toast_timer, soldier_emergency_supply_used
     # 필살기 게이지바 위치와 크기 - 엣지있는 주인공 스타일
     gauge_x = WIDTH - 40  # 오른쪽에서 40px
     gauge_y = HEIGHT - 200  # 하단에서 200px 위 (살짝 조정)
@@ -27419,6 +27419,78 @@ def draw_player_gauge():
     pygame.draw.rect(SCREEN, (0, 0, 0, 180), text_bg_rect, border_radius=3)
     draw.rect((100, 100, 100), text_bg_rect, 1, border_radius=3)
     SCREEN.blit(gauge_text_surface, (gauge_text_x, gauge_text_y))
+
+    if selected_character_type == "soldier":
+        remaining_supply = 0 if soldier_emergency_supply_used else 1
+        crate_width = 46
+        crate_height = 28
+        crate_x = player_gauge_x + player_gauge_width // 2 - crate_width // 2
+        crate_y = gauge_text_y + gauge_text_height + 8
+        crate_surface = pygame.Surface((crate_width, crate_height), pygame.SRCALPHA)
+
+        if remaining_supply:
+            body_color = (112, 84, 52)
+            edge_color = (72, 54, 34)
+            highlight_color = (168, 134, 88)
+            strap_color = (92, 72, 46)
+            bullet_body = (230, 202, 120)
+            bullet_tip = (196, 152, 78)
+            label_color = (235, 235, 218)
+        else:
+            body_color = (88, 88, 88)
+            edge_color = (60, 60, 60)
+            highlight_color = (122, 122, 122)
+            strap_color = (74, 74, 74)
+            bullet_body = (158, 158, 158)
+            bullet_tip = (130, 130, 130)
+            label_color = (140, 140, 140)
+
+        pygame.draw.rect(crate_surface, edge_color, (0, crate_height - 5, crate_width, 5))
+        pygame.draw.rect(
+            crate_surface,
+            body_color,
+            pygame.Rect(0, 0, crate_width, crate_height - 4),
+            border_radius=5,
+        )
+        pygame.draw.rect(
+            crate_surface,
+            highlight_color,
+            pygame.Rect(0, 0, crate_width, crate_height - 4),
+            2,
+            border_radius=5,
+        )
+
+        for strap_x in (6, crate_width - 12):
+            strap_rect = pygame.Rect(strap_x, 2, 6, crate_height - 12)
+            pygame.draw.rect(crate_surface, strap_color, strap_rect)
+            pygame.draw.rect(crate_surface, edge_color, strap_rect, 1)
+
+        pygame.draw.line(crate_surface, highlight_color, (4, 10), (crate_width - 4, 10), 2)
+
+        for i in range(2):
+            bullet_x = crate_width // 2 - 7 + i * 8
+            shaft_rect = pygame.Rect(bullet_x, 8, 4, crate_height - 18)
+            pygame.draw.rect(crate_surface, bullet_body, shaft_rect)
+            tip_points = [
+                (bullet_x, 8),
+                (bullet_x + 4, 8),
+                (bullet_x + 4, 4),
+                (bullet_x + 2, 2),
+                (bullet_x, 4),
+            ]
+            pygame.draw.polygon(crate_surface, bullet_tip, tip_points)
+            pygame.draw.rect(crate_surface, edge_color, shaft_rect, 1)
+
+        SCREEN.blit(crate_surface, (crate_x, crate_y))
+
+        try:
+            supply_font = FontStyle.tiny()
+        except Exception:
+            supply_font = pygame.font.Font(None, 18)
+        label_text = f"비상보급 x{remaining_supply}"
+        label_surface = supply_font.render(label_text, True, label_color)
+        label_rect = label_surface.get_rect(center=(crate_x + crate_width // 2, crate_y + crate_height + 10))
+        SCREEN.blit(label_surface, label_rect)
 
     #  악마의 주사위 게이지 표시
     from item_effects.devil_dice import is_devil_dice_active, get_devil_dice_duration_ratio
