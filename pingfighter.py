@@ -26626,8 +26626,6 @@ def draw_overlay_ui():
                 stage4_magnetic_active,
             )
 
-    _draw_tutorial_guide_hint()
-
     if selected_character_type == "blacksmith":
         draw_blacksmith_overdrive_overlay(SCREEN)
         draw_blacksmith_overheat_overlay(SCREEN)
