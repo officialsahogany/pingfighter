@@ -42440,53 +42440,59 @@ def get_item_icon(item_name):
     if item_name in icon_cache:
         return icon_cache[item_name]
     
-    # 화력지원 아이콘 - B-2 폭격기 디자인
+    # 화력지원 아이콘 - 융단폭격 디자인
     if item_name == "fire_support":
         icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
         icon_surface.fill((0, 0, 0, 0))  # 투명 배경
         
-        # B-2 폭격기 아이콘 그리기
-        icon_w = int(ICON_SIZE * 0.8)
-        icon_h = int(ICON_SIZE * 0.5)
+        # 융단폭격 아이콘 그리기
+        icon_w = int(ICON_SIZE * 0.9)
+        icon_h = int(ICON_SIZE * 0.9)
         icon_x = (ICON_SIZE - icon_w) // 2
         icon_y = (ICON_SIZE - icon_h) // 2
         
-        # B-2 색상
-        main_color = (25, 25, 28)
-        outline_color = (10, 10, 12)
-        cockpit_color = (50, 60, 70)
-        engine_color = (20, 20, 23)
+        # 색상
+        bomb_color = (80, 80, 85)
+        bomb_highlight = (120, 120, 125)
+        explosion_color1 = (255, 200, 100)
+        explosion_color2 = (255, 150, 50)
+        smoke_color = (60, 60, 65)
         
-        # B-2 폭격기의 특징적인 삼각형 날개 형태
-        body_points = [
-            # 노즈 (전방)
-            (icon_x + int(icon_w * 0.9), icon_y + icon_h // 2),
-            # 우측 날개 끝
-            (icon_x + int(icon_w * 0.7), icon_y + int(icon_h * 0.1)),
-            # 우측 날개 중간
-            (icon_x + int(icon_w * 0.4), icon_y + int(icon_h * 0.2)),
-            # 중앙 뒤쪽
-            (icon_x + int(icon_w * 0.1), icon_y + icon_h // 2),
-            # 좌측 날개 중간
-            (icon_x + int(icon_w * 0.4), icon_y + int(icon_h * 0.8)),
-            # 좌측 날개 끝
-            (icon_x + int(icon_w * 0.7), icon_y + int(icon_h * 0.9)),
+        # 여러 개의 폭탄 그리기 (융단폭격 표현)
+        bomb_positions = [
+            (icon_x + int(icon_w * 0.2), icon_y + int(icon_h * 0.15)),
+            (icon_x + int(icon_w * 0.5), icon_y + int(icon_h * 0.25)),
+            (icon_x + int(icon_w * 0.8), icon_y + int(icon_h * 0.2)),
+            (icon_x + int(icon_w * 0.35), icon_y + int(icon_h * 0.45)),
+            (icon_x + int(icon_w * 0.65), icon_y + int(icon_h * 0.5)),
         ]
         
-        # 메인 동체 그리기
-        pygame.draw.polygon(icon_surface, main_color, body_points)
-        pygame.draw.polygon(icon_surface, outline_color, body_points, 2)
-        
-        # 콕핏
-        cockpit_center = (icon_x + int(icon_w * 0.65), icon_y + icon_h // 2)
-        cockpit_radius = max(3, int(icon_h * 0.1))
-        pygame.draw.circle(icon_surface, cockpit_color, cockpit_center, cockpit_radius)
-        pygame.draw.circle(icon_surface, outline_color, cockpit_center, cockpit_radius, 1)
-        
-        # 엔진 위치 표시
-        engine_y1 = icon_y + int(icon_h * 0.3)
-        engine_y2 = icon_y + int(icon_h * 0.7)
-        engine_x = icon_x + int(icon_w * 0.3)
+        # 폭탄 그리기
+        for i, (bx, by) in enumerate(bomb_positions):
+            bomb_size = max(5, int(icon_h * 0.15))
+            
+            # 폭탄 본체 (타원형)
+            bomb_rect = pygame.Rect(bx - bomb_size//2, by - bomb_size//2, bomb_size, int(bomb_size * 1.5))
+            pygame.draw.ellipse(icon_surface, bomb_color, bomb_rect)
+            pygame.draw.ellipse(icon_surface, bomb_highlight, bomb_rect, 1)
+            
+            # 폭탄 꼬리날개
+            fin_size = max(3, bomb_size // 2)
+            fin_points = [
+                (bx, by - bomb_size//2),
+                (bx - fin_size//2, by - bomb_size//2 - fin_size//2),
+                (bx + fin_size//2, by - bomb_size//2 - fin_size//2),
+            ]
+            pygame.draw.polygon(icon_surface, bomb_color, fin_points)
+            
+            # 낙하 궤적 (속도선)
+            trail_length = max(5, int(icon_h * 0.2))
+            for j in range(3):
+                alpha = 80 - j * 25
+                trail_color = (*smoke_color, alpha)
+                trail_surface = pygame.Surface((2, trail_length), pygame.SRCALPHA)
+                trail_surface.fill(trail_color)
+                icon_surface.blit(trail_surface, (bx - 1, by - bomb_size - trail_length))
         engine_radius = max(2, int(icon_h * 0.08))
         
         pygame.draw.circle(icon_surface, engine_color, (engine_x, engine_y1), engine_radius)
