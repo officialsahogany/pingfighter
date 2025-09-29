@@ -18109,44 +18109,121 @@ def draw_soldier_weapon_ui(screen):
             pass
 
         max_ammo = max(1, getattr(fire_support, "max_ammo", getattr(fire_support, "MAX_AMMO", 1)))
-        ammo_width = 14
-        ammo_height = 18
-        ammo_spacing = 6
-        total_width = max_ammo * ammo_width + (max_ammo - 1) * ammo_spacing
-        ammo_start_x = weapon_rect.x + (weapon_rect.width - total_width) // 2
-        ammo_y = weapon_rect.bottom + 6
+        # 무전기 스타일 주파수 표시
+        radio_display_width = 50
+        radio_display_height = 24
+        radio_display_x = weapon_rect.x + (weapon_rect.width - radio_display_width) // 2
+        radio_display_y = weapon_rect.bottom + 6
 
-        for idx in range(max_ammo):
-            ammo_rect = pygame.Rect(
-                ammo_start_x + idx * (ammo_width + ammo_spacing),
-                ammo_y,
-                ammo_width,
-                ammo_height,
-            )
-            filled = idx < fire_support.ammo_count
-            if filled:
-                body_color = (245, 205, 110)
-                nose_color = (255, 140, 70)
-                outline_color = (255, 240, 190)
-            else:
-                body_color = (90, 90, 90)
-                nose_color = (120, 120, 120)
-                outline_color = (130, 130, 130)
-            pygame.draw.rect(screen, body_color, ammo_rect, border_radius=3)
-            pygame.draw.rect(screen, outline_color, ammo_rect, 2, border_radius=3)
-            nose_height = max(4, ammo_height // 3)
-            nose_rect = pygame.Rect(ammo_rect.x, ammo_rect.y, ammo_rect.width, nose_height)
-            pygame.draw.rect(screen, nose_color, nose_rect, border_radius=3)
+        # 무전기 디스플레이 배경
+        display_rect = pygame.Rect(
+            radio_display_x,
+            radio_display_y,
+            radio_display_width,
+            radio_display_height,
+        )
+        
+        # 현재 상태에 따른 색상
+        filled = fire_support.ammo_count > 0
+        if filled:
+            bg_color = (25, 35, 45)  # 어두운 무전기 화면
+            screen_color = (40, 60, 80)  # LCD 스크린 색상
+            text_color = (120, 255, 150)  # 밝은 녹색 LED
+            signal_color = (255, 200, 100)  # 신호 강도 표시
+            outline_color = (60, 80, 100)
+        else:
+            bg_color = (35, 35, 35)
+            screen_color = (50, 50, 50)
+            text_color = (80, 80, 80)
+            signal_color = (100, 100, 100)
+            outline_color = (70, 70, 70)
 
-            if fire_support.strike_active and idx == 0:
-                highlight_rect = ammo_rect.inflate(4, 4)
-                pygame.draw.rect(
-                    screen,
-                    (255, 170, 80),
-                    highlight_rect,
-                    2,
-                    border_radius=4,
-                )
+        # 무전기 본체
+        body_rect = display_rect.inflate(10, 6)
+        pygame.draw.rect(screen, bg_color, body_rect, border_radius=4)
+        pygame.draw.rect(screen, outline_color, body_rect, 2, border_radius=4)
+        
+        # LCD 스크린
+        pygame.draw.rect(screen, screen_color, display_rect, border_radius=2)
+        pygame.draw.rect(screen, (20, 30, 40), display_rect, 1, border_radius=2)
+        
+        # 주파수 표시 (화력지원은 1회용이므로 1 또는 0)
+        if filled:
+            # 주파수 숫자 표시
+            freq_text = "144.7"
+            try:
+                if 'font_small' in globals() and font_small:
+                    freq_surface = font_small.render(freq_text, True, text_color)
+                    freq_rect = freq_surface.get_rect(center=(display_rect.centerx, display_rect.centery - 2))
+                    screen.blit(freq_surface, freq_rect)
+            except Exception:
+                # 폴백: 점으로 표시
+                for i in range(5):
+                    dot_x = display_rect.x + 8 + i * 8
+                    dot_y = display_rect.centery
+                    pygame.draw.circle(screen, text_color, (dot_x, dot_y), 2)
+            
+            # 신호 강도 막대
+            signal_bars = 3
+            for i in range(signal_bars):
+                bar_height = 4 + i * 2
+                bar_x = display_rect.right - 12 - i * 4
+                bar_y = display_rect.centery - bar_height // 2
+                bar_color = signal_color if i < 2 else text_color
+                pygame.draw.rect(screen, bar_color, 
+                               (bar_x, bar_y, 2, bar_height))
+            
+            # 활성 표시 LED
+            led_x = display_rect.x + 5
+            led_y = display_rect.centery
+            pygame.draw.circle(screen, (255, 100, 100), (led_x, led_y), 3)
+            pygame.draw.circle(screen, (255, 200, 200), (led_x, led_y), 2)
+            
+            # 폭격 진행 중일 때 깜빡임 효과
+            if fire_support.strike_active:
+                blink = int(pygame.time.get_ticks() / 250) % 2
+                if blink:
+                    highlight_surface = pygame.Surface((display_rect.width, display_rect.height), pygame.SRCALPHA)
+                    highlight_surface.fill((255, 200, 100, 60))
+                    screen.blit(highlight_surface, display_rect)
+                    
+                    # 전파 애니메이션
+                    wave_time = (pygame.time.get_ticks() % 1000) / 1000.0
+                    wave_radius = int(wave_time * 20)
+                    wave_alpha = int(255 * (1 - wave_time))
+                    wave_surface = pygame.Surface((wave_radius * 2, wave_radius * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(wave_surface, (*signal_color, wave_alpha), 
+                                     (wave_radius, wave_radius), wave_radius, 2)
+                    screen.blit(wave_surface, 
+                              (body_rect.centerx - wave_radius, 
+                               body_rect.centery - wave_radius))
+        else:
+            # 탄약 없음 - OFF 표시
+            try:
+                if 'font_small' in globals() and font_small:
+                    off_surface = font_small.render("OFF", True, text_color)
+                    off_rect = off_surface.get_rect(center=display_rect.center)
+                    screen.blit(off_surface, off_rect)
+            except Exception:
+                # 폴백: X 표시
+                x_size = 8
+                x_center = display_rect.center
+                pygame.draw.line(screen, text_color,
+                               (x_center[0] - x_size, x_center[1] - x_size),
+                               (x_center[0] + x_size, x_center[1] + x_size), 2)
+                pygame.draw.line(screen, text_color,
+                               (x_center[0] - x_size, x_center[1] + x_size),
+                               (x_center[0] + x_size, x_center[1] - x_size), 2)
+        
+        # 안테나 표시
+        antenna_x = body_rect.right - 8
+        antenna_bottom = body_rect.top
+        antenna_top = antenna_bottom - 8
+        pygame.draw.line(screen, outline_color, 
+                        (antenna_x, antenna_bottom), 
+                        (antenna_x, antenna_top), 2)
+        pygame.draw.circle(screen, signal_color if filled else (100, 100, 100), 
+                         (antenna_x, antenna_top), 2)
 
         if fire_support.ammo_count <= 0 and not fire_support.strike_active:
             pygame.draw.line(
