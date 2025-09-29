@@ -4549,7 +4549,7 @@ def _draw_blacksmith_umbrella_overlay(
     raise_amount: float,
     open_amount: float,
 ):
-    """발토르 망치를 우산으로 연출하기 위한 오버레이."""
+    """발토르 망치를 토르쉴드로 연출하기 위한 오버레이."""
     global blacksmith_umbrella_overlay_bounds
     global blacksmith_umbrella_swing_direction
     blacksmith_umbrella_overlay_bounds = None
@@ -5014,7 +5014,7 @@ def _draw_blacksmith_umbrella_overlay(
     # 망치 아웃라인
     pygame.draw.polygon(surface, hammer_outline_color, [_vec_to_int_pair(p) for p in hammer_pts], width=3)
 
-    # 우산 내구도에 따른 금(크랙) 표현
+    # 토르쉴드 내구도에 따른 금(크랙) 표현
     damage_stage = 0
     gauge_value = BLACKSMITH_UMBRELLA_GAUGE_MAX
     try:
@@ -5204,7 +5204,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     body_height = 120
     # 양쪽 스윙 모두 왼쪽 스윙의 padding 값 사용으로 일관된 anchor 계산 보장
     # 왼쪽 스윙이 정상 동작하므로 이 설정을 양쪽 모두에 적용
-    left_padding = 210  # 우산이 왼쪽으로 크게 펼쳐질 때 잘리지 않도록 여유 공간 확보
+    left_padding = 210  # 토르쉴드가 왼쪽으로 크게 펼쳐질 때 잘리지 않도록 여유 공간 확보
     right_padding = 60
     final_width = base_width + left_padding + right_padding
     final_height = 620
@@ -5896,17 +5896,17 @@ blacksmith_umbrella_knockback_timer: float = 0.0
 debug_umbrella_hitbox_rect: pygame.Rect | None = None
 blacksmith_umbrella_anchor_smoothed_x: float = 0.0
 paddle_scale_ratio: float = 1.0
-# 스윙 메인 단계에서 우산 폴리곤 경계를 1:1로 쓰는 엄격 모드
+# 스윙 메인 단계에서 토르쉴드 폴리곤 경계를 1:1로 쓰는 엄격 모드
 BLACKSMITH_UMBRELLA_HITBOX_STRICT = True
 blacksmith_umbrella_hitbox_extents_strict: tuple[float, float] = (0.0, 0.0)
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 6
 # 좌/우 스윙별 미세 보정(px). 우측 스윙에서 히트박스가 도형보다 오른쪽에 치우쳐 보일 때 음수로 좌측 이동.
 BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_LEFT = 0
 BLACKSMITH_UMBRELLA_HITBOX_X_BIAS_RIGHT = -6
-BLACKSMITH_UMBRELLA_DOWNWARD_CAP = 32  # 플레이어 패들 방향으로 내려오는 우산 판정 최대 길이(픽셀)
-BLACKSMITH_UMBRELLA_TURN_MULTIPLIER = 0.000016  # 우산 가드 중 좌우 전환 속도 배율(현행 대비 ≥3배 추가 감속)
-BLACKSMITH_UMBRELLA_TURN_DELAY_FRAMES = 42  # 우산 가드 시 좌우 반전 입력 지연(60fps 기준 약 0.7초)
-BLACKSMITH_UMBRELLA_MOVE_MULTIPLIER = 0.25  # 우산 활성 시 이동 속도를 기본 대비 25%로 제한
+BLACKSMITH_UMBRELLA_DOWNWARD_CAP = 32  # 플레이어 패들 방향으로 내려오는 토르쉴드 판정 최대 길이(픽셀)
+BLACKSMITH_UMBRELLA_TURN_MULTIPLIER = 0.000016  # 토르쉴드 가드 중 좌우 전환 속도 배율(현행 대비 ≥3배 추가 감속)
+BLACKSMITH_UMBRELLA_TURN_DELAY_FRAMES = 42  # 토르쉴드 가드 시 좌우 반전 입력 지연(60fps 기준 약 0.7초)
+BLACKSMITH_UMBRELLA_MOVE_MULTIPLIER = 0.25  # 토르쉴드 활성 시 이동 속도를 기본 대비 25%로 제한
 blacksmith_umbrella_turn_delay_timer: int = 0
 blacksmith_umbrella_turn_pending_dir: int = 0
 _blacksmith_hammer_explosion_surface_cache: dict[int, pygame.Surface] = {}
@@ -10498,7 +10498,7 @@ blacksmith_hammer_shock_cooldown_total = 0
 stop_blacksmith_hammer_charge_sound()
 BLACKSMITH_PADDLE_IMG = create_blacksmith_paddle_base()
 BLACKSMITH_PADDLE_NO_HAMMER_IMG = create_blacksmith_paddle_base(include_hammer=False)
-# 기본 패들 렌더링에서 발 위치가 기준선보다 얼마나 아래에 있는지 기록해 우산 포즈에서도 동일한 간격을 유지한다.
+# 기본 패들 렌더링에서 발 위치가 기준선보다 얼마나 아래에 있는지 기록해 토르쉴드 포즈에서도 동일한 간격을 유지한다.
 BLACKSMITH_BASELINE_GAP = max(
     0,
     BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1).bottom - BLACKSMITH_BASELINE_Y,
@@ -10509,7 +10509,7 @@ BLACKSMITH_SCREEN_GROUND_OFFSET = 30
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 12
 BLACKSMITH_UMBRELLA_GUARD_VERTICAL_SCALE = 0.5
 BLACKSMITH_UMBRELLA_GUARD_UPWARD_OFFSET = 62  # 기본 2cm(12px) + 추가 50px 상향 이동 (총 +62px)
-# 기본 빌드에서는 우산 히트박스 디버그 렌더링을 숨긴다.
+# 기본 빌드에서는 토르쉴드 히트박스 디버그 렌더링을 숨긴다.
 DEBUG_DRAW_UMBRELLA_HITBOX = False
 DEBUG_BLACKSMITH_UMBRELLA_ANCHOR = True
 DEBUG_BLACKSMITH_HAMMER_COOLDOWN = True
@@ -10755,7 +10755,7 @@ blacksmith_walking_active = False
 blacksmith_walking_timer = 0
 blacksmith_walk_direction = 0  # -1: 왼쪽 이동, 1: 오른쪽 이동
 BLACKSMITH_WALKING_CYCLE = 30
-BLACKSMITH_UMBRELLA_WALK_CYCLE_MULT = 1.6  # 우산 전개 중에는 한 박자 느릿하게
+BLACKSMITH_UMBRELLA_WALK_CYCLE_MULT = 1.6  # 토르쉴드 전개 중에는 한 박자 느릿하게
 BLACKSMITH_UMBRELLA_WALK_WAVE_SCALE = 0.35  # 어깨 롤링 폭 축소
 BLACKSMITH_UMBRELLA_WALK_BOB_SCALE = 0.2    # 몸통 상하 움직임 축소
 BLACKSMITH_UMBRELLA_WALK_LEAN = 0.25        # 이동 방향으로 살짝 기울기
@@ -10779,19 +10779,19 @@ blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른�
 blacksmith_umbrella_swing_sound_timer = 0
 blacksmith_umbrella_swing_sound_pending = False
 blacksmith_umbrella_anchor_base_x = None
-BLACKSMITH_UMBRELLA_VISUAL_OFFSET_Y = 32  # 우산 그래픽과 판정이 패들과 겹치도록 추가 하강치
+BLACKSMITH_UMBRELLA_VISUAL_OFFSET_Y = 32  # 토르쉴드 그래픽과 판정이 패들과 겹치도록 추가 하강치
 blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
-# === 발토르 우산 게이지/내구도 시스템 ===
+# === 발토르 토르쉴드 게이지/내구도 시스템 ===
 BLACKSMITH_UMBRELLA_GAUGE_MAX = 5
-# 발토르 우산 기본 회복 주기를 7초로 단축해 방어-공격 전환을 조금 더 원활히 한다.
+# 발토르 토르쉴드 기본 회복 주기를 7초로 단축해 방어-공격 전환을 조금 더 원활히 한다.
 BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES = int(7 * FPS)
 # 디바인스톤 활성 시 회복 주기는 5초로 유지해 기본 대비 2초 빠르게 회복한다.
 BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_DIVINE_FRAMES = int(5 * FPS)
 # 레거시 호환을 위해 기본 쿨타임 값을 유지하지만, 실제 사용 시에는 헬퍼 함수를 거쳐 동적으로 계산한다.
 BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES = BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES
 BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
-BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES = int(0.5 * FPS)  # 우산 충돌 후 0.5초 동안 추가 게이지 차감 방지
+BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES = int(0.5 * FPS)  # 토르쉴드 충돌 후 0.5초 동안 추가 게이지 차감 방지
 BLACKSMITH_UMBRELLA_GAUGE_HIT_LOCK_FRAMES = int(0.35 * FPS)  # 게이지 1회 소모 후 추가 차감을 막는 보호 시간
 BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE = 70
 BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE = 100
@@ -10830,7 +10830,7 @@ def is_blacksmith_divine_stone_active() -> bool:
 
 
 def get_blacksmith_umbrella_recover_interval_frames() -> int:
-    """현재 상황에 맞는 우산 게이지 회복 간격(프레임)을 계산한다."""
+    """현재 상황에 맞는 토르쉴드 게이지 회복 간격(프레임)을 계산한다."""
 
     if is_blacksmith_divine_stone_active():
         return BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_DIVINE_FRAMES
@@ -10838,7 +10838,7 @@ def get_blacksmith_umbrella_recover_interval_frames() -> int:
 
 
 def get_blacksmith_umbrella_gauge_gain() -> int:
-    """현재 우산 패들 충돌 시 기본 게이지 획득량을 반환한다."""
+    """현재 토르쉴드 패들 충돌 시 기본 게이지 획득량을 반환한다."""
 
     if is_blacksmith_divine_stone_active():
         return BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE
@@ -10846,10 +10846,10 @@ def get_blacksmith_umbrella_gauge_gain() -> int:
 blacksmith_umbrella_recharge_progress = 0
 blacksmith_umbrella_damage_flash_timer = 0
 blacksmith_umbrella_last_hit_frame = -1000
-blacksmith_umbrella_hit_lock = False  # 공이 우산을 떠날 때까지 게이지 추가 소모를 차단
+blacksmith_umbrella_hit_lock = False  # 공이 토르쉴드를 떠날 때까지 게이지 추가 소모를 차단
 blacksmith_umbrella_hit_lock_timer = 0
 
-# 우산 금/갈라짐 패턴 (정규화 좌표 기반)
+# 토르쉴드 금/갈라짐 패턴 (정규화 좌표 기반)
 # 각 단계 리스트는 이전 단계와 누적되어 렌더링된다.
 BLACKSMITH_UMBRELLA_CRACK_SEGMENTS: list[list[tuple[tuple[float, float], tuple[float, float]]]] = [
     [((0.0, -0.32), (0.0, 0.30))],
@@ -12989,6 +12989,7 @@ def trigger_soldier_emergency_supply() -> bool:
             max_ammo = max(1, getattr(fire_support, "max_ammo", getattr(fire_support, "MAX_AMMO", 1)))
             fire_support.rearm(track_reload=True, ammo_override=max_ammo)
             fire_support.clear_finished_flag()
+            fire_support.equip()
             success = True
         else:
             print("⚠️ 화력지원 상태를 확인할 수 없어 비상보급에 실패했습니다.")
@@ -19572,7 +19573,7 @@ def handle_player(keys):
         blacksmith_umbrella_knockback_timer = 0.0
 
     def request_blacksmith_umbrella_close(*, play_sound: bool = True, flash: bool = False) -> None:
-        """우산을 접도록 요청한다. 이미 접는 중이면 아무 작업도 하지 않는다."""
+        """토르쉴드를 접도록 요청한다. 이미 접는 중이면 아무 작업도 하지 않는다."""
         global blacksmith_umbrella_open, blacksmith_umbrella_retracting
         global blacksmith_umbrella_anim_direction, blacksmith_umbrella_anim_timer
         global blacksmith_umbrella_damage_flash_timer
@@ -20425,7 +20426,7 @@ def handle_player(keys):
         speed_factor *= BLACKSMITH_UMBRELLA_MOVE_MULTIPLIER
 
     def apply_umbrella_turn_penalty(current_value: float, target_value: float) -> float:
-        """우산 가드 중에는 좌우 전환을 점진적으로 적용한다."""
+        """토르쉴드 가드 중에는 좌우 전환을 점진적으로 적용한다."""
         if not umbrella_guarding:
             return target_value
         same_sign = (
@@ -22094,14 +22095,14 @@ def handle_player(keys):
         down_span = 0.0
 
         # 우측 스윙에서도 좌/우 길이는 피벗 기준 실제 좌우를 그대로 사용한다.
-        # (이전의 스왑은 우산 도형과 히트박스 좌우가 반전되어 보이는 원인이었다.)
+        # (이전의 스왑은 토르쉴드 도형과 히트박스 좌우가 반전되어 보이는 원인이었다.)
 
         if umbrella_swinging_main and (left_extent > 0 or right_extent > 0):
             if BLACKSMITH_UMBRELLA_HITBOX_STRICT:
                 left_extent, right_extent = blacksmith_umbrella_hitbox_extents_strict
             left_extent_scaled = left_extent * scale_applied
             right_extent_scaled = right_extent * scale_applied
-            # 엄격 모드에서는 우산 폴리곤과 1:1 정합을 위해 가산 바이어스 제거
+            # 엄격 모드에서는 토르쉴드 폴리곤과 1:1 정합을 위해 가산 바이어스 제거
             sweep_bias = 1.0 if BLACKSMITH_UMBRELLA_HITBOX_STRICT else 1.5
             if swing_dir > 0:
                 umbrella_half_left = max(umbrella_half_left, left_extent_scaled * sweep_bias)
@@ -22221,7 +22222,7 @@ def handle_player(keys):
 
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     if collision_with_player and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
-        # 발토르 우산 방패 충격 효과
+        # 발토르 토르쉴드 방패 충격 효과
         if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
             blacksmith_shield_impact_timer = 30  # 0.5초간 충격파 효과
             if SOUND_BLACKSMITH_UMBRELLA_BLOCK and player_sound_cooldown <= 0:
@@ -22703,7 +22704,7 @@ def handle_player(keys):
                     base_gauge_gain = 50  # 코만도: 게이지 충전 50
                 elif selected_character_type == "blacksmith":
                     if blacksmith_umbrella_open:
-                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 우산 활성: 기본 70, 디바인스톤 활성 시 100
+                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 70, 디바인스톤 활성 시 100
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 else:
@@ -24172,7 +24173,7 @@ def activate_whip():
 
 
 def cancel_whip_with_umbrella_block() -> bool:
-    """발토르 우산으로 스테이지 1 상모돌리기를 강제 종료."""
+    """발토르 토르쉴드로 스테이지 1 상모돌리기를 강제 종료."""
 
     global whip_active, whip_deactivation_active, whip_deactivation_timer
     global whip_deactivation_duration, whip_rotation_speed, whip_animation_timer
@@ -26445,7 +26446,7 @@ def draw_player_gauge():
                                (gauge_x, gauge_y + gauge_height + i),
                                (gauge_x + gauge_width, gauge_y + gauge_height + i), 1)
 
-    #  게이지바 수치 표시용 텍스트(실제 위치는 토큰/우산 HUD 배치 후 계산)
+    #  게이지바 수치 표시용 텍스트(실제 위치는 토큰/토르쉴드 HUD 배치 후 계산)
     gauge_text = f"{int(displayed_gauge)}/{current_max_gauge}"
     gauge_text_color = WHITE if displayed_gauge < current_max_gauge else (255, 255, 100)
     gauge_font = FontStyle.gauge()
@@ -29315,7 +29316,7 @@ def draw_objects():
         )
         pivot_point = center_vec + rotated_pivot
         player_rect = rotated_player.get_rect()
-        # 우산 스윙 시 anchor offset 적용
+        # 토르쉴드 스윙 시 anchor offset 적용
         anchor_x_offset = 0
         if blacksmith_umbrella_open and blacksmith_umbrella_swing_active:
             anchor_x_offset = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
@@ -47915,7 +47916,7 @@ def handle_ball():
     if abs(ball_vel[1]) < 0.5:
         ball_vel[1] += random.choice([-1, 1]) * 1.5
     # --- 위험감지센서 자동 대쉬 로직 ---
-    # 발토르가 우산을 펼친 동안에는 센서 자동 대쉬를 차단한다.
+    # 발토르가 토르쉴드를 펼친 동안에는 센서 자동 대쉬를 차단한다.
     umbrella_blocks_sensor = (
         selected_character_type == "blacksmith"
         and (
@@ -48622,7 +48623,7 @@ def handle_ball():
                             base_gauge_gain = 50  # 코만도: 게이지 충전 50
                         elif selected_character_type == "blacksmith":
                             if blacksmith_umbrella_open:
-                                base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 우산 활성: 기본 70, 디바인스톤 활성 시 100
+                                base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 70, 디바인스톤 활성 시 100
                             else:
                                 base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                         else:
@@ -49128,7 +49129,7 @@ def handle_ball():
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
             elif selected_character_type == "blacksmith":
                 if blacksmith_umbrella_open:
-                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 우산 활성: 기본 70, 디바인스톤 활성 시 100
+                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 70, 디바인스톤 활성 시 100
                 else:
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
@@ -49156,7 +49157,7 @@ def handle_ball():
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
             elif selected_character_type == "blacksmith":
                 if blacksmith_umbrella_open:
-                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 우산 활성: 기본 70, 디바인스톤 활성 시 100
+                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 70, 디바인스톤 활성 시 100
                 else:
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
@@ -50049,7 +50050,7 @@ def handle_ball():
                     base_gauge_gain = 50  # 코만도: 게이지 충전 50
                 elif selected_character_type == "blacksmith":
                     if blacksmith_umbrella_open:
-                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 우산 활성: 기본 70, 디바인스톤 활성 시 100
+                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 70, 디바인스톤 활성 시 100
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 else:
@@ -55167,7 +55168,7 @@ def main(stage_num, new_boss_mode=False):
             last_space_state = current_space_state
             if selected_character_type == "blacksmith":
                 down_current_state = keys[pygame.K_DOWN]
-                # 우산이 전개된 동안에는 포탑 수동 발사를 차단한다.
+                # 토르쉴드가 전개된 동안에는 포탑 수동 발사를 차단한다.
                 umbrella_blocks_manual_fire = (
                     blacksmith_umbrella_open
                     or blacksmith_umbrella_anim_timer > 0

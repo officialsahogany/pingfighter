@@ -32,6 +32,12 @@ class AmmoBox:
         game_module = self._get_game_module()
         soldier_weapons = getattr(game_module, 'soldier_weapons', []) if game_module else []
         soldier_controller = getattr(game_module, 'soldier_controller', None) if game_module else None
+        current_weapon_name = None
+        if soldier_controller and getattr(soldier_controller, 'weapons', None):
+            try:
+                current_weapon_name = soldier_controller.weapons[soldier_controller.current_index]
+            except (AttributeError, IndexError):
+                current_weapon_name = None
         degraded_weapons = set(getattr(soldier_controller, 'degraded', ())) if soldier_controller else set()
 
         def is_degraded(weapon_name: str) -> bool:
@@ -141,6 +147,8 @@ class AmmoBox:
                 needs_reload = prev_ammo < max_ammo or getattr(fire_support, "finished", False)
                 if needs_reload:
                     fire_support.rearm(track_reload=True)
+                    if current_weapon_name == "fire_support":
+                        fire_support.equip()
                     print(
                         f"   ✈️ 화력지원 재장전: {prev_ammo} → {getattr(fire_support, 'ammo_count', max_ammo)}"
                     )
