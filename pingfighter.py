@@ -906,7 +906,6 @@ def store_bgm_volume(value: float) -> float:
     """오디오 상태 모듈과 전역 변수 모두에 BGM 볼륨을 반영."""
 
     global bgm_volume
-    global fire_support_radio_loop_active
     global genie_assistant
     global genie_assistant
     bgm_volume = set_bgm_volume_state(value)
