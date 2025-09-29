@@ -170,6 +170,7 @@ from item_effects.smartphone import get_smartphone_instance
 from item_effects.ammo_box import get_ammo_box_instance
 from item_effects.ak47 import get_ak47_instance
 from item_effects.net_gun import get_net_gun_instance
+from item_effects.fire_support import get_fire_support_instance
 from supply_drop import (
     SupplyDropRuntime,
     SupplyDropState,
