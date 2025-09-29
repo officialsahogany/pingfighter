@@ -2242,6 +2242,7 @@ REPAIR_GLOW_DURATION_FRAMES = int(1.2 * FPS)
 REPAIR_TICK_FRAMES = int(5 * FPS)
 repair_glow_effects: list[dict] = []  # 수리키트 성스러운 빛 이펙트
 active_repair_jobs: list[dict] = []  # 진행 중인 수리 작업
+repair_hammer_surface = None
 # === 화염병 관련 ===
 molotovs = []  # 던져진 화염병 리스트
 fire_zones = []  # 화염 지대 리스트
