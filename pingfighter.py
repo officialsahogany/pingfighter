@@ -13150,6 +13150,21 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
                 ak47.active = True
         fire_support_weapon.unequip()
     elif current_weapon == "fire_support":
+        if fire_support_weapon.is_locked():
+            # 폭격 진행 중에는 다른 화기로 자동 전환한다.
+            fallback_index = None
+            for idx, weapon_name in enumerate(soldier_controller.weapons):
+                if weapon_name != "fire_support":
+                    fallback_index = idx
+                    break
+            if fallback_index is None:
+                fallback_index = safe_index
+            if fallback_index != safe_index:
+                print("⚠️ 화력지원 폭격 진행 중 - 다른 화기로 전환합니다.")
+                return soldier_switch_weapon(fallback_index, play_sound=False)
+            fire_support_weapon.unequip()
+            print("⚠️ 화력지원 무기가 일시적으로 비활성화되었습니다.")
+            return soldier_controller.weapons[soldier_controller.current_index]
         fire_support_weapon.equip()
         if "bazooka" in soldier_controller.weapons:
             from item_effects.bazooka import get_bazooka_instance

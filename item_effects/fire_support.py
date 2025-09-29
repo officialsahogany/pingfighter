@@ -457,6 +457,7 @@ class FireSupport:
         self.radio_active = True
         self.reuse_locked = True
         self.unequip()  # 발동과 동시에 무전 장비를 비활성화해 UI/입력에서 상태를 명확히 표시
+        self._notify_lockout()
         if cruise_y is not None:
             engine_sound = self._get_aircraft_sound()
             direction = random.choice(["left_to_right", "right_to_left"])
@@ -571,6 +572,17 @@ class FireSupport:
 
     def clear_finished_flag(self) -> None:
         self.finished = False
+
+    def _notify_lockout(self) -> None:
+        module = sys.modules.get("pingfighter")
+        if not module:
+            return
+        handler = getattr(module, "handle_fire_support_lockout", None)
+        if callable(handler):
+            try:
+                handler()
+            except Exception:  # noqa: BLE001
+                pass
 
     def _get_reload_tracker(self) -> Callable[[str], None] | None:
         for module_name in ("__main__", "pingfighter"):
