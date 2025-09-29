@@ -42422,6 +42422,7 @@ def show_item_manager_menu():
         {"name": "flare", "type": "active", "icon": get_icon_safe("flare_icon", "flare")},
         {"name": "predictor", "type": "active", "icon": get_icon_safe("predictor_icon", "predictor")},
         {"name": "smoke_grenade", "type": "active", "icon": get_icon_safe("smoke_grenade_icon", "smoke_grenade")},
+        {"name": "repair_kit", "type": "active", "icon": get_icon_safe("repair_kit_icon", "repair_kit")},
         {"name": "ammo_box", "type": "active", "icon": get_icon_safe("ammo_box_icon", "ammo_box")},
         {"name": "doping_potion", "type": "active", "icon": get_icon_safe("doping_potion_icon", "doping_potion")},
         {"name": "pandora_box", "type": "active", "icon": get_icon_safe("pandora_box_icon", "pandora_box")},
