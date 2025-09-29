@@ -110,7 +110,8 @@ class SupplyDropRuntime:
 
         try:
             if self._radio_channel is None or not self._radio_channel.get_busy():
-                self._radio_channel = sound.play()
+                sound.set_volume(volume)
+                self._radio_channel = sound.play(-1)
         except Exception as exc:  # noqa: BLE001
             print(f"무전기 효과음 재생 실패: {exc}")
 
