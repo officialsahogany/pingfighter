@@ -16926,7 +16926,12 @@ def activate_wall():
 
 def activate_repair_kit():
     """수리키트: 발토르 구조물에 수리 작업을 예약한다."""
-    global blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer
+    global blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer, debug_white_circle_detection
+    
+    # 디버그: 하얀 원 감지 활성화
+    debug_white_circle_detection = True
+    detect_white_circles_debug()
+    print("[DEBUG] 수리키트 활성화 - 하얀 원 감지기 시작")
 
     try:
         sync_blacksmith_state()
@@ -17248,13 +17253,7 @@ def draw_repair_glow_effects(surface: pygame.Surface) -> None:
         return
     
     # 디버그: 수리 이펙트가 그려지는지 확인
-    print(f"[DEBUG] draw_repair_glow_effects 호출됨, 이펙트 개수: {len(repair_glow_effects)}")
-    
-    # 추가 디버그: 백트레이스로 어디서 하얀 원이 그려지는지 찾기
-    import traceback
-    for line in traceback.format_stack():
-        if "draw" in line and "circle" in line:
-            print(f"[DEBUG] Circle draw call in stack: {line.strip()}")
+    # print(f"[DEBUG] draw_repair_glow_effects 호출됨, 이펙트 개수: {len(repair_glow_effects)}")
 
     for effect in repair_glow_effects:
         rect = None
@@ -17341,6 +17340,32 @@ def draw_repair_glow_effects(surface: pygame.Surface) -> None:
             surface.blit(soft_glow_surface,
                         (center[0] - rect.width, center[1] - rect.height),
                         special_flags=pygame.BLEND_ADD)
+# 임시 디버그: 하얀 원 감지기
+debug_white_circle_detection = False
+detected_white_circles = []
+
+def detect_white_circles_debug():
+    """디버그: pygame.draw.circle 호출을 가로채서 하얀 원을 감지"""
+    global detected_white_circles
+    original_draw_circle = pygame.draw.circle
+    
+    def debug_draw_circle(surface, color, pos, radius, width=0):
+        # 색상이 흰색 계열인지 확인 (R,G,B가 모두 200 이상)
+        if isinstance(color, (tuple, list)) and len(color) >= 3:
+            if all(c >= 200 for c in color[:3]) and repair_glow_effects:
+                # 수리 이펙트가 활성화되어 있을 때만 감지
+                detected_white_circles.append({
+                    'color': color,
+                    'pos': pos,
+                    'radius': radius,
+                    'width': width
+                })
+                print(f"[DEBUG] 하얀 원 감지! 색상: {color}, 위치: {pos}, 반경: {radius}")
+        
+        return original_draw_circle(surface, color, pos, radius, width)
+    
+    pygame.draw.circle = debug_draw_circle
+
 # === Stage 4 명상타임 관련 전역 변수 ===
 meditation_active = False
 meditation_timer = 0
