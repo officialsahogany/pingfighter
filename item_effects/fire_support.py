@@ -368,8 +368,6 @@ class FireSupport:
     BOMB_INITIAL_VY = 2.0
     BOMB_HORIZONTAL_JITTER = 1.1
     MAX_AMMO = 1
-    RADIO_RELEASE_FRAMES = 90  # 폭격 종료 후 무전 사운드를 유지할 추가 프레임 수
-    RADIO_MIN_FRAMES = int(12.0 * 60)  # 최소 무전 사운드 유지 시간 (12초)
 
     def __init__(self) -> None:
         self.equipped = False
@@ -390,15 +388,11 @@ class FireSupport:
         self.max_ammo = self.MAX_AMMO
         self._has_initial_load = False
         self.reuse_locked = False
-        self.radio_release_timer = 0
         self.radio_channel: Optional[pygame.mixer.Channel] = None
         self._radio_sound: pygame.mixer.Sound | bool | None = None
-        self.radio_volume = 1.0
-        self.radio_volume_call = 0.55
-        self.radio_min_timer = 0
+        self.radio_sound_played = False
 
     def reset_state(self) -> None:
-        self._stop_radio_loop()
         self.strike_active = False
         self.calling = False
         self.call_timer = 0
@@ -413,8 +407,8 @@ class FireSupport:
         self.radio_active = False
         self.last_bomb_y = 0.0
         self.reuse_locked = False
-        self.radio_release_timer = 0
-        self.radio_min_timer = 0
+        self._stop_radio_sound()
+        self.radio_sound_played = False
 
     def on_acquired(self) -> None:
         track_reload = self._has_initial_load
@@ -466,9 +460,9 @@ class FireSupport:
         self.screen_height = screen_height
         self.ammo_count = max(0, self.ammo_count - 1)
         self.radio_active = True
-        self._ensure_radio_loop()
         self.reuse_locked = True
-        self.radio_min_timer = self.RADIO_MIN_FRAMES
+        self.radio_sound_played = False
+        self._play_radio_sound_once()
         self.unequip()  # 발동과 동시에 무전 장비를 비활성화해 UI/입력에서 상태를 명확히 표시
         self._notify_lockout()
         if cruise_y is not None:
@@ -497,13 +491,8 @@ class FireSupport:
         if not self.strike_active:
             return
 
-        if self.radio_active:
-            self._ensure_radio_loop()
-            if self.radio_release_timer <= 0:
-                target_volume = self.radio_volume_call if self.calling else self.radio_volume
-                self._set_radio_volume(target_volume)
-            if self.radio_min_timer > 0:
-                self.radio_min_timer -= 1
+        if self.radio_active and not self.radio_sound_played:
+            self._play_radio_sound_once()
 
         if self.calling:
             if self.call_timer > 0:
@@ -565,23 +554,11 @@ class FireSupport:
             self.bombs = new_bombs
 
         if self.aircraft is None and not self.bombs and self.bombs_remaining <= 0:
-            if self.radio_min_timer > 0:
-                # 최소 유지 시간 동안에는 강한 무전 볼륨을 유지한다.
-                self._set_radio_volume(self.radio_volume)
-            elif self.radio_release_timer <= 0:
-                self.radio_release_timer = self.RADIO_RELEASE_FRAMES
-            else:
-                self.radio_release_timer -= 1
-                fade_ratio = max(0.0, self.radio_release_timer / self.RADIO_RELEASE_FRAMES)
-                self._set_radio_volume(self.radio_volume * fade_ratio)
-                if self.radio_release_timer <= 0:
-                    self.strike_active = False
-                    self.finished = True
-                    self.radio_active = False
-                    self.reuse_locked = False
-                    self._stop_radio_loop()
-                    self.radio_release_timer = 0
-                    self.radio_min_timer = 0
+            self.strike_active = False
+            self.finished = True
+            self.radio_active = False
+            self.reuse_locked = False
+            self._stop_radio_sound()
 
     def draw(self, surface: pygame.Surface) -> None:
         if self.aircraft:
@@ -618,7 +595,7 @@ class FireSupport:
             except Exception:  # noqa: BLE001
                 pass
 
-    def _stop_radio_loop(self) -> None:
+    def _stop_radio_sound(self) -> None:
         if self.radio_channel:
             try:
                 self.radio_channel.stop()
@@ -626,25 +603,19 @@ class FireSupport:
                 pass
             self.radio_channel = None
 
-    def _ensure_radio_loop(self) -> None:
+    def _play_radio_sound_once(self) -> None:
+        if self.radio_sound_played:
+            return
         sound = self._get_radio_sound()
         if sound is None:
             return
         try:
-            if self.radio_channel is None or not self.radio_channel.get_busy():
-                self.radio_channel = sound.play(-1)
-                if self.radio_channel:
-                    self.radio_channel.set_volume(self.radio_volume_call)
+            self.radio_channel = sound.play()
+            if self.radio_channel:
+                self.radio_channel.set_volume(1.0)
         except Exception:  # noqa: BLE001
             self.radio_channel = None
-
-    def _set_radio_volume(self, volume: float) -> None:
-        if self.radio_channel:
-            try:
-                clamped = max(0.0, min(1.0, volume))
-                self.radio_channel.set_volume(clamped)
-            except Exception:  # noqa: BLE001
-                pass
+        self.radio_sound_played = True
 
     def _get_radio_sound(self) -> Optional[pygame.mixer.Sound]:
         if self._radio_sound is None:
