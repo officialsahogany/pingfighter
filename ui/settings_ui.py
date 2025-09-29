@@ -146,7 +146,10 @@ class SettingsUI:
                 'key': 'language',
                 'label': '언어',
                 'options': LANGUAGE_CODES,
-                'format': lambda code: LANGUAGE_LABELS.get(code, code)
+                'format': lambda code: translate(
+                    f"option.language.{code}",
+                    LANGUAGE_LABELS.get(code, code)
+                )
             }
         ]
 
