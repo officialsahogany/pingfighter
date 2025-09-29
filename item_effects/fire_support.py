@@ -369,7 +369,7 @@ class FireSupport:
     BOMB_HORIZONTAL_JITTER = 1.1
     MAX_AMMO = 1
     RADIO_RELEASE_FRAMES = 90  # 폭격 종료 후 무전 사운드를 유지할 추가 프레임 수
-    RADIO_MIN_FRAMES = int(8.0 * 60)  # 최소 무전 사운드 유지 시간 (8초)
+    RADIO_MIN_FRAMES = int(12.0 * 60)  # 최소 무전 사운드 유지 시간 (12초)
 
     def __init__(self) -> None:
         self.equipped = False
