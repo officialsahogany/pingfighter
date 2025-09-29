@@ -18063,22 +18063,58 @@ def draw_soldier_weapon_ui(screen):
             except Exception:
                 pass
         else:
-            radio_body = pygame.Rect(
-                weapon_rect.centerx - weapon_rect.width // 4,
-                weapon_rect.centery - weapon_rect.height // 6,
-                weapon_rect.width // 2,
-                weapon_rect.height // 2,
-            )
-            base_fill = (70, 90, 120) if not is_depleted else (90, 90, 90)
-            base_outline = (40, 60, 90) if not is_depleted else (120, 120, 120)
-            speaker_fill = (120, 150, 190) if not is_depleted else (140, 140, 140)
-            dial_fill = (210, 220, 240) if not is_depleted else (170, 170, 170)
-            pygame.draw.rect(screen, base_fill, radio_body, border_radius=6)
-            pygame.draw.rect(screen, base_outline, radio_body, 2, border_radius=6)
-            speaker_rect = radio_body.inflate(-radio_body.width // 3, -radio_body.height // 3)
-            pygame.draw.rect(screen, speaker_fill, speaker_rect, border_radius=3)
-            dial_center = (radio_body.centerx, radio_body.bottom - radio_body.height // 4)
-            pygame.draw.circle(screen, dial_fill, dial_center, max(2, radio_body.width // 6))
+            # B-2 폭격기 아이콘 그리기
+            icon_w = int(weapon_rect.width * 0.8)
+            icon_h = int(weapon_rect.height * 0.5)
+            icon_x = weapon_rect.centerx - icon_w // 2
+            icon_y = weapon_rect.centery - icon_h // 2
+            
+            # B-2 색상 설정
+            if not is_depleted:
+                main_color = (25, 25, 28)
+                outline_color = (10, 10, 12)
+                highlight_color = (40, 40, 45)
+                cockpit_color = (50, 60, 70)
+            else:
+                main_color = (60, 60, 60)
+                outline_color = (40, 40, 40)
+                highlight_color = (80, 80, 80)
+                cockpit_color = (90, 90, 90)
+            
+            # B-2 폭격기의 특징적인 삼각형 날개 형태 (UI용 단순화)
+            body_points = [
+                # 노즈 (전방)
+                (icon_x + int(icon_w * 0.9), icon_y + icon_h // 2),
+                # 우측 날개 끝
+                (icon_x + int(icon_w * 0.7), icon_y + int(icon_h * 0.1)),
+                # 우측 날개 중간
+                (icon_x + int(icon_w * 0.4), icon_y + int(icon_h * 0.2)),
+                # 중앙 뒤쪽
+                (icon_x + int(icon_w * 0.1), icon_y + icon_h // 2),
+                # 좌측 날개 중간
+                (icon_x + int(icon_w * 0.4), icon_y + int(icon_h * 0.8)),
+                # 좌측 날개 끝
+                (icon_x + int(icon_w * 0.7), icon_y + int(icon_h * 0.9)),
+            ]
+            
+            # 메인 동체 그리기
+            pygame.draw.polygon(screen, main_color, body_points)
+            pygame.draw.polygon(screen, outline_color, body_points, 2)
+            
+            # 콕핏 (중앙 상단)
+            cockpit_center = (icon_x + int(icon_w * 0.65), icon_y + icon_h // 2)
+            cockpit_radius = max(2, int(icon_h * 0.08))
+            pygame.draw.circle(screen, cockpit_color, cockpit_center, cockpit_radius)
+            pygame.draw.circle(screen, outline_color, cockpit_center, cockpit_radius, 1)
+            
+            # 엔진 위치 표시 (작은 원)
+            engine_y1 = icon_y + int(icon_h * 0.3)
+            engine_y2 = icon_y + int(icon_h * 0.7)
+            engine_x = icon_x + int(icon_w * 0.3)
+            engine_radius = max(1, int(icon_h * 0.06))
+            
+            pygame.draw.circle(screen, (20, 20, 23), (engine_x, engine_y1), engine_radius)
+            pygame.draw.circle(screen, (20, 20, 23), (engine_x, engine_y2), engine_radius)
 
         if is_depleted:
             dim_overlay = pygame.Surface((slot_w, slot_h), pygame.SRCALPHA)
