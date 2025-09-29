@@ -21928,9 +21928,12 @@ def handle_player(keys):
                             if fire_support_weapon.start_call(WIDTH, HEIGHT):
                                 start_supply_radio_loop(duration_frames=FIRE_SUPPORT_RADIO_FRAMES)
                                 supply_runtime.hold_active = True
-                                player_stunned_timer = max(player_stunned_timer, fire_support_weapon.CALL_LOCK_FRAMES)
+                                player_stunned_timer = max(player_stunned_timer, FIRE_SUPPORT_CONTROL_LOCK_FRAMES)
                                 player_knockback_vel = 0
-                                soldier_control_lock_timer = max(soldier_control_lock_timer, fire_support_weapon.CALL_LOCK_FRAMES)
+                                soldier_control_lock_timer = max(
+                                    soldier_control_lock_timer,
+                                    FIRE_SUPPORT_CONTROL_LOCK_FRAMES,
+                                )
                                 print("✈️ 화력지원 요청! 폭격기 호출 중")
                 elif current_weapon == "net_gun":
                     net_gun = net_gun_instance or get_net_gun_instance()
