@@ -565,7 +565,10 @@ class FireSupport:
             self.bombs = new_bombs
 
         if self.aircraft is None and not self.bombs and self.bombs_remaining <= 0:
-            if self.radio_release_timer <= 0:
+            if self.radio_min_timer > 0:
+                # 최소 유지 시간 동안에는 강한 무전 볼륨을 유지한다.
+                self._set_radio_volume(self.radio_volume)
+            elif self.radio_release_timer <= 0:
                 self.radio_release_timer = self.RADIO_RELEASE_FRAMES
             else:
                 self.radio_release_timer -= 1
@@ -578,6 +581,7 @@ class FireSupport:
                     self.reuse_locked = False
                     self._stop_radio_loop()
                     self.radio_release_timer = 0
+                    self.radio_min_timer = 0
 
     def draw(self, surface: pygame.Surface) -> None:
         if self.aircraft:
