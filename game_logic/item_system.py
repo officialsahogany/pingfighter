@@ -143,6 +143,15 @@ class ItemSystem:
                     'duration_seconds': 8
                 },
                 'permanent': False
+            },
+            'repair_kit': {
+                'name': '수리키트',
+                'description': '포탑·디바인스톤·벽돌을 즉시 완전 수리합니다.',
+                'type': 'active',
+                'effect': {
+                    'repairs_structures': True
+                },
+                'permanent': False
             }
         }
         
