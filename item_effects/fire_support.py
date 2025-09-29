@@ -390,6 +390,9 @@ class FireSupport:
         self._has_initial_load = False
         self.reuse_locked = False
         self.radio_release_timer = 0
+        self.radio_channel: Optional[pygame.mixer.Channel] = None
+        self._radio_sound: pygame.mixer.Sound | bool | None = None
+        self.radio_volume = 0.6
 
     def reset_state(self) -> None:
         self.strike_active = False
