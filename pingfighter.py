@@ -22765,6 +22765,9 @@ def store_active_item(item_data):
     if item_data["name"] == "long_boost" and long_boost_active:
         print("!")
         return
+    if item_data["name"] == "fire_support" and selected_character_type != "soldier":
+        # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
+        return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
     if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident"]:
         return
