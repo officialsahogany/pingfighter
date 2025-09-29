@@ -472,8 +472,10 @@ class GenieAssistant:
             return
 
         y = text_rect.top - self.detail_scroll_offset
-        top_bound = text_rect.top - self.detail_font.get_height() - 8
-        bottom_bound = text_rect.bottom + 8
+        fade_top = 36
+        fade_bottom = 48
+        top_bound = text_rect.top - fade_top
+        bottom_bound = text_rect.bottom + fade_bottom
 
         for entry in self._detail_lines:
             text = entry["text"]
@@ -491,6 +493,25 @@ class GenieAssistant:
                 break
 
             line_surface = self.detail_font.render(text, True, COLOR_TEXT_MAIN)
+
+            alpha = 255
+            if y < text_rect.top:
+                if y <= top_bound:
+                    y += height
+                    continue
+                ratio = (y - top_bound) / max(1.0, (text_rect.top - top_bound))
+                alpha = int(255 * max(0.0, min(1.0, ratio)))
+            elif y + height > text_rect.bottom:
+                if y + height >= bottom_bound:
+                    y += height
+                    continue
+                ratio = (bottom_bound - (y + height)) / max(1.0, (bottom_bound - text_rect.bottom))
+                alpha = int(255 * max(0.0, min(1.0, ratio)))
+
+            if alpha < 255:
+                line_surface = line_surface.copy()
+                line_surface.set_alpha(alpha)
+
             surface.blit(line_surface, (text_rect.left, y))
             y += height
 
