@@ -74,11 +74,20 @@ class SettingsUI:
         
         # 설정 항목들
         self.setting_items: Dict[SettingCategory, List[Dict]] = {
+            SettingCategory.LANGUAGE: self._get_language_items(),
             SettingCategory.CONTROLS: self._get_control_items(),
             SettingCategory.GRAPHICS: self._get_graphics_items(),
             SettingCategory.AUDIO: self._get_audio_items(),
             SettingCategory.GAMEPLAY: self._get_gameplay_items(),
             SettingCategory.NETWORK: self._get_network_items()
+        }
+
+        self.category_key_map = {
+            SettingCategory.LANGUAGE: 'language',
+            SettingCategory.GRAPHICS: 'graphics',
+            SettingCategory.AUDIO: 'audio',
+            SettingCategory.GAMEPLAY: 'gameplay',
+            SettingCategory.NETWORK: 'network'
         }
         
     def _get_control_items(self) -> List[Dict]:
@@ -94,6 +103,18 @@ class SettingsUI:
             
         return items
         
+    def _get_language_items(self) -> List[Dict]:
+        """언어 설정 항목들"""
+        return [
+            {
+                'type': 'dropdown',
+                'key': 'language',
+                'label': '언어',
+                'options': LANGUAGE_CODES,
+                'format': lambda code: LANGUAGE_LABELS.get(code, code)
+            }
+        ]
+
     def _get_graphics_items(self) -> List[Dict]:
         """그래픽 설정 항목들"""
         return [

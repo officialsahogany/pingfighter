@@ -253,6 +253,8 @@ class GenieAssistant:
         self.phase = "inactive"
         self.overlay_surface = None
         self.smoke_particles.clear()
+        self.detail_focus = False
+        self.detail_manual_scroll = False
 
     def set_preview_renderer(
         self,
