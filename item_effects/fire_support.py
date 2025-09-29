@@ -34,8 +34,8 @@ class FireSupportAircraft:
     ) -> None:
         self.screen_width = screen_width
         self.screen_height = screen_height
-        self.width = 148
-        self.height = 40
+        self.width = 160  # B-2는 더 큰 날개폭
+        self.height = 50  # B-2는 얇은 프로필
         self.direction = direction
         supply_altitude = _get_supply_aircraft_altitude()
         desired_y = cruise_y if cruise_y is not None else supply_altitude
