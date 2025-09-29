@@ -26637,26 +26637,26 @@ def _draw_tutorial_guide_hint() -> None:
     text_surface = hint_font.render(message, True, text_color)
     text_rect = text_surface.get_rect()
 
-    lamp_width = max(28, int(60 * scale))
-    lamp_height = max(22, int(44 * scale))
-    lamp_surface = pygame.Surface((lamp_width, lamp_height), pygame.SRCALPHA)
+    lamp_canvas_width = max(96, int(170 * scale))
+    lamp_canvas_height = max(90, int(190 * scale))
+    lamp_surface = pygame.Surface((lamp_canvas_width, lamp_canvas_height), pygame.SRCALPHA)
     lamp_center = (
-        lamp_width // 2,
-        lamp_height // 2 + int(math.sin(elapsed / 220.0) * 2 * scale),
+        lamp_canvas_width // 2,
+        lamp_canvas_height - max(28, int(60 * scale)) + int(math.sin(elapsed / 220.0) * 2 * scale),
     )
     _draw_hint_lamp(lamp_surface, lamp_center, elapsed, scale)
 
     horizontal_gap = max(12, int(24 * scale))
     vertical_padding = max(6, int(10 * scale))
-    width = lamp_width + horizontal_gap + text_rect.width
-    height = max(lamp_height, text_rect.height + vertical_padding * 2)
+    width = lamp_canvas_width + horizontal_gap + text_rect.width
+    height = max(lamp_canvas_height, text_rect.height + vertical_padding * 2)
     hint_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
-    lamp_y = (height - lamp_height) // 2
+    lamp_y = (height - lamp_canvas_height) // 2
     hint_surface.blit(lamp_surface, (0, lamp_y))
 
     bob_offset = int(math.sin(elapsed / 190.0) * 2 * scale)
-    text_x = lamp_width + horizontal_gap
+    text_x = lamp_canvas_width + horizontal_gap
     text_y = (height - text_rect.height) // 2 + bob_offset
 
     shadow_surface = hint_font.render(message, True, shadow_color)

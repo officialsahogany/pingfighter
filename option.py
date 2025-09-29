@@ -353,7 +353,7 @@ def show_options_menu(screen, width, height):
                         selected_option = (selected_option - 1) % 2
                         SOUND_BUTTON_HOVER.play()
                     elif selected_category == 3:  # 조작
-                        controls = ["키보드", "마우스", "조이패드"]
+                        controls = [value for value, _ in CONTROL_OPTIONS]
                         current_index = controls.index(CONTROL_MODE)
                         CONTROL_MODE = controls[(current_index - 1) % len(controls)]
                         bosspong.CONTROL_MODE = CONTROL_MODE  # 메인 게임 업데이트
@@ -371,11 +371,7 @@ def show_options_menu(screen, width, height):
                         selected_option = (selected_option + 1) % 2
                         SOUND_BUTTON_HOVER.play()
                     elif selected_category == 3:  # 조작
-                        controls = [
-                            translate("option.controls.keyboard", "키보드"),
-                            translate("option.controls.mouse", "마우스"),
-                            translate("option.controls.gamepad", "조이패드")
-                        ]
+                        controls = [value for value, _ in CONTROL_OPTIONS]
                         current_index = controls.index(CONTROL_MODE)
                         CONTROL_MODE = controls[(current_index + 1) % len(controls)]
                         bosspong.CONTROL_MODE = CONTROL_MODE  # 메인 게임 업데이트
@@ -462,16 +458,12 @@ def show_options_menu(screen, width, height):
                             break
                             
                 elif selected_category == 3:  # 조작
-                    controls = [
-                        translate("option.controls.keyboard", "키보드"),
-                        translate("option.controls.mouse", "마우스"),
-                        translate("option.controls.gamepad", "조이패드")
-                    ]
-                    for i, control in enumerate(controls):
+                    for i, (canonical_value, translation_key) in enumerate(CONTROL_OPTIONS):
+                        control_label = translate(translation_key, canonical_value)
                         x = width // 2 - 100
                         y = content_y + i * 60
                         if x <= mouse_x <= x + 200 and y <= mouse_y <= y + 50:
-                            CONTROL_MODE = control
+                            CONTROL_MODE = canonical_value
                             bosspong.CONTROL_MODE = CONTROL_MODE  # 메인 게임 업데이트
                             SOUND_BUTTON_CLICK.play()
                             break
