@@ -10158,6 +10158,35 @@ def draw_blacksmith_divine_ui(surface):
             pygame.draw.circle(surface, (240, 90, 70), warning_center, warning_radius)
             pygame.draw.circle(surface, (255, 240, 220), warning_center, max(1, warning_radius // 2))
 
+def draw_blacksmith_blocking_toast(surface: pygame.Surface) -> None:
+    if selected_character_type != "blacksmith":
+        return
+
+    if blacksmith_blocking_toast_timer <= 0:
+        return
+
+    ratio = max(0.0, min(1.0, blacksmith_blocking_toast_timer / BLACKSMITH_BLOCKING_TOAST_FRAMES))
+    alpha = int(255 * ratio)
+    bounce = int(6 * math.sin(pygame.time.get_ticks() * 0.035))
+
+    font = FontStyle.subtitle()
+    text_surface = font.render("BLOCKING!", True, (255, 232, 120))
+    shadow_surface = font.render("BLOCKING!", True, (30, 30, 30))
+
+    center_x = WIDTH // 2
+    center_y = int(HEIGHT * 0.3) + bounce
+
+    shadow_surface = shadow_surface.copy()
+    shadow_surface.set_alpha(int(alpha * 0.6))
+    shadow_rect = shadow_surface.get_rect(center=(center_x, center_y + 4))
+    surface.blit(shadow_surface, shadow_rect)
+
+    text_surface = text_surface.copy()
+    text_surface.set_alpha(alpha)
+    text_rect = text_surface.get_rect(center=(center_x, center_y))
+    surface.blit(text_surface, text_rect)
+
+
 def draw_blacksmith_turret_ui(surface):
     if selected_character_type != "blacksmith":
         return
@@ -25955,6 +25984,7 @@ def draw_overlay_ui() -> None:
     if selected_character_type == "blacksmith":
         draw_blacksmith_turret_ui(SCREEN)
         draw_blacksmith_divine_ui(SCREEN)
+        draw_blacksmith_blocking_toast(SCREEN)
 
 def draw_overlay_ui():
     global current_stage, selected_character_type, new_boss_mode_active
