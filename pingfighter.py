@@ -11469,6 +11469,11 @@ def draw_supply_radio_motion(screen):
     if not state.radio_motion or state.radio_timer <= 0:
         state.radio_motion = False  # 확실히 비활성화
         return
+
+    duration_frames = max(1, state.radio_duration or 30)
+    remaining_frames = max(0, min(duration_frames, state.radio_timer))
+    progress_ratio = remaining_frames / duration_frames if duration_frames else 0.0
+    elapsed_frames = duration_frames - remaining_frames
     
     # 플레이어 위치
     player_x = PLAYER.centerx
@@ -11558,9 +11563,30 @@ def draw_supply_radio_motion(screen):
     led_color = (0, 255, 0) if state.radio_timer % 10 < 5 else (0, 150, 0)  # 깜빡임
     pygame.draw.circle(screen, led_color, 
                       (radio_x, radio_y - 8), 2)
-    
+
+    # 수신 전파: 안테나를 타고 내려오는 파형 연출
+    wave_length = 20
+    wave_period = wave_length
+    wave_frame = elapsed_frames
+    antenna_tip_x = antenna_base_x - 2
+    antenna_tip_y = antenna_base_y - wave_length
+    for i in range(3):
+        offset = (wave_frame + i * (wave_period // 3)) % wave_period
+        apex_y = antenna_tip_y + offset
+        if apex_y < antenna_base_y - 2:
+            fade_ratio = 1.0 - (offset / wave_length)
+            wave_color = (
+                int(70 + 80 * fade_ratio),
+                int(180 + 60 * fade_ratio),
+                int(120 + 40 * fade_ratio),
+            )
+            upper_y = max(antenna_tip_y, apex_y - 4)
+            pygame.draw.line(screen, wave_color, (antenna_tip_x - 6, upper_y), (antenna_tip_x, apex_y), 2)
+            pygame.draw.line(screen, wave_color, (antenna_tip_x + 6, upper_y), (antenna_tip_x, apex_y), 2)
+            pygame.draw.circle(screen, wave_color, (antenna_tip_x, apex_y), 1)
+
     # === 무전 신호 효과 (전파) ===
-    signal_alpha = int(255 * (state.radio_timer / 30))  # 페이드 효과
+    signal_alpha = int(255 * progress_ratio)  # 페이드 효과
     if signal_alpha > 0:
         # 무전기에서 나오는 전파
         signal_surface = pygame.Surface((120, 120), pygame.SRCALPHA)
@@ -11579,9 +11605,9 @@ def draw_supply_radio_motion(screen):
         screen.blit(signal_surface, (radio_x - 60, radio_y - 60))
     
     # 대사 텍스트 (무전 내용)
-    if state.radio_timer > 20:
+    if progress_ratio > 0.66:
         text = "지원 요청!"
-    elif state.radio_timer > 10:
+    elif progress_ratio > 0.33:
         text = "물자 투하!"
     else:
         text = "알았다!"
@@ -11628,7 +11654,7 @@ def draw_supply_radio_motion(screen):
     except Exception:
         pass
     
-    # 타이머 감소 (30프레임 = 0.5초 동안 유지)
+    # 타이머 감소 (설정된 지속시간 동안 유지)
     previous_timer = state.radio_timer
     supply_update_radio_animation(supply_runtime)
     if previous_timer > 0 and state.radio_timer <= 0:
