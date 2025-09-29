@@ -76,6 +76,7 @@ from game_state.audio import (
     resolve_runtime_bgm_volume,
 )
 from game_state.items import bind_item_state, item_state as item_state_adapter
+from genie_assistant import GenieAssistant
 
 def check_ball_speed_safety():
     """공 속도 안전성 확인 및 제한"""
