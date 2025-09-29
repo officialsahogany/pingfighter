@@ -42,6 +42,7 @@ class SupplyDropState:
     timer: int = 0
     radio_motion: bool = False
     radio_timer: int = 0
+    radio_duration: int = 0
     hold_time: int = 0
 
     def reset(self) -> None:
@@ -52,6 +53,7 @@ class SupplyDropState:
         self.timer = 0
         self.radio_motion = False
         self.radio_timer = 0
+        self.radio_duration = 0
         self.hold_time = 0
 
 
@@ -91,12 +93,15 @@ class SupplyDropRuntime:
         resource_path: Callable[[str], str],
         *,
         volume: float = 0.6,
+        duration_frames: int = 30,
     ) -> None:
         """Activate walkie-talkie animation and start looped audio."""
 
         state = self.state
         state.radio_motion = True
-        state.radio_timer = max(state.radio_timer, 30)
+        safe_duration = max(1, int(duration_frames))
+        state.radio_timer = max(state.radio_timer, safe_duration)
+        state.radio_duration = max(state.radio_duration, safe_duration)
         self.hold_active = True
 
         sound = self.ensure_radio_sound(resource_path, volume=volume)
@@ -125,6 +130,7 @@ class SupplyDropRuntime:
             state = self.state
             state.radio_motion = False
             state.radio_timer = 0
+            state.radio_duration = 0
 
     def tick_radio_animation(self) -> None:
         """Advance the radio animation timer by one frame."""
@@ -134,6 +140,7 @@ class SupplyDropRuntime:
             state.radio_timer -= 1
             if state.radio_timer <= 0:
                 state.radio_motion = False
+                state.radio_duration = 0
         if self._radio_channel and not self._radio_channel.get_busy():
             self._radio_channel = None
 
@@ -150,10 +157,11 @@ def start_radio_loop(
     resource_path: Callable[[str], str],
     *,
     volume: float = 0.6,
+    duration_frames: int = 30,
 ) -> None:
     """Public helper mirroring SupplyDropRuntime.start_radio_loop."""
 
-    runtime.start_radio_loop(resource_path, volume=volume)
+    runtime.start_radio_loop(resource_path, volume=volume, duration_frames=duration_frames)
 
 
 def stop_radio_loop(
