@@ -46,7 +46,7 @@ def show_character_selection():
         {
             "id": "ufo_player",
             "name": "스매셔",
-            "description": "균형잡힌 올라운드 캐릭터",
+            "description": "게이지를 몰아 폭발적인 파워스매시를 연속으로 꽂는 공격 특화 타입",
             "image": "ufo_player.png",
             "stats": {"속도": 5, "파워": 5, "방어": 5},
             "special": "🌟 평범하지만 안정적인 플레이",
@@ -58,7 +58,7 @@ def show_character_selection():
         {
             "id": "speed_player",
             "name": "스피드 레이서",
-            "description": "빠른 속도로 승부하는 캐릭터",
+            "description": "순간 가속과 체공 드리프트로 빈틈을 노리는 초고속 스타일",
             "image": "speed_player.png",
             "stats": {"속도": 8, "파워": 3, "방어": 4},
             "special": "⚡ 고속 이동과 빠른 반응",
@@ -70,7 +70,7 @@ def show_character_selection():
         {
             "id": "power_player", 
             "name": "파워 스매셔",
-            "description": "강력한 파워로 압도하는 캐릭터",
+            "description": "한 방에 필드를 뒤엎는 초고중량 파워샷 전문가",
             "image": "power_player.png",
             "stats": {"속도": 3, "파워": 8, "방어": 4},
             "special": "💪 강력한 스매싱과 파워샷",
@@ -82,7 +82,7 @@ def show_character_selection():
         {
             "id": "defense_player",
             "name": "가디언",
-            "description": "견고한 방어력을 자랑하는 캐릭터",
+            "description": "다층 방벽과 정밀 카운터로 라인을 지키는 철벽 수비수",
             "image": "defense_player.png", 
             "stats": {"속도": 4, "파워": 3, "방어": 8},
             "special": "🛡️ 뛰어난 방어력과 카운터",
@@ -94,7 +94,7 @@ def show_character_selection():
         {
             "id": "tech_player",
             "name": "테크 마스터",
-            "description": "첨단 기술로 무장한 캐릭터",
+            "description": "드론과 트랩을 전개해 전투 리듬을 해킹하는 기계술사",
             "image": "tech_player.png",
             "stats": {"속도": 6, "파워": 6, "방어": 3},
             "special": "🔧 특수 아이템과 기술력",
@@ -106,7 +106,7 @@ def show_character_selection():
         {
             "id": "mystic_player",
             "name": "미스틱",
-            "description": "신비로운 능력을 가진 캐릭터",
+            "description": "시간 왜곡과 궤도 교란으로 패턴을 뒤집는 변칙 능력자",
             "image": "mystic_player.png",
             "stats": {"속도": 7, "파워": 7, "방어": 1},
             "special": "🌟 예측 불가능한 특수 능력",
@@ -1038,4 +1038,3 @@ def show_character_selection():
         
         pygame.display.flip()
         clock.tick(60)
-
