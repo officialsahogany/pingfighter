@@ -18356,29 +18356,30 @@ def draw_soldier_weapon_ui(screen):
                     screen.blit(wave_surface, 
                               (body_rect.centerx - wave_radius, 
                                body_rect.centery - wave_radius))
-                    # 폭격 낙하 애니메이션 (간단한 궤적)
-                    anim_ticks = pygame.time.get_ticks()
-                    lane_period = 900
-                    base_phase = (anim_ticks % lane_period) / lane_period
-                    lane_count = 3
-                    lane_spacing = display_rect.width / (lane_count + 1)
-                    start_y = display_rect.top - 6
-                    travel_height = (display_rect.bottom + 6) - start_y
-                    for lane in range(lane_count):
-                        phase = (base_phase + lane * 0.33) % 1.0
-                        drop_y = start_y + phase * travel_height
-                        lane_x = int(display_rect.left + lane_spacing * (lane + 1))
-                        if drop_y < display_rect.bottom - 6:
-                            bomb_rect = pygame.Rect(lane_x - 2, int(drop_y), 4, 7)
-                            pygame.draw.rect(screen, (255, 176, 104), bomb_rect)
-                            pygame.draw.rect(screen, (120, 72, 44), bomb_rect, 1)
-                            pygame.draw.line(screen, (255, 230, 170), (lane_x, bomb_rect.top - 3), (lane_x, bomb_rect.top), 1)
-                        else:
-                            explosion_progress = min(1.0, (drop_y - (display_rect.bottom - 6)) / 10)
-                            explosion_radius = 3 + int(3 * explosion_progress)
-                            center_pos = (lane_x, display_rect.bottom - 4)
-                            pygame.draw.circle(screen, (255, 204, 140), center_pos, explosion_radius)
-                            pygame.draw.circle(screen, (255, 132, 84), center_pos, max(1, explosion_radius - 2), 1)
+
+                # 폭격 낙하 애니메이션 (간단한 궤적)
+                anim_ticks = pygame.time.get_ticks()
+                lane_period = 900
+                base_phase = (anim_ticks % lane_period) / lane_period
+                lane_count = 3
+                lane_spacing = display_rect.width / (lane_count + 1)
+                start_y = display_rect.top - 6
+                travel_height = (display_rect.bottom + 6) - start_y
+                for lane in range(lane_count):
+                    phase = (base_phase + lane * 0.33) % 1.0
+                    drop_y = start_y + phase * travel_height
+                    lane_x = int(display_rect.left + lane_spacing * (lane + 1))
+                    if drop_y < display_rect.bottom - 6:
+                        bomb_rect = pygame.Rect(lane_x - 2, int(drop_y), 4, 7)
+                        pygame.draw.rect(screen, (255, 176, 104), bomb_rect)
+                        pygame.draw.rect(screen, (120, 72, 44), bomb_rect, 1)
+                        pygame.draw.line(screen, (255, 230, 170), (lane_x, bomb_rect.top - 3), (lane_x, bomb_rect.top), 1)
+                    else:
+                        explosion_progress = min(1.0, (drop_y - (display_rect.bottom - 6)) / 10)
+                        explosion_radius = 3 + int(3 * explosion_progress)
+                        center_pos = (lane_x, display_rect.bottom - 4)
+                        pygame.draw.circle(screen, (255, 204, 140), center_pos, explosion_radius)
+                        pygame.draw.circle(screen, (255, 132, 84), center_pos, max(1, explosion_radius - 2), 1)
         else:
             # 탄약 없음 - OFF 표시
             try:
