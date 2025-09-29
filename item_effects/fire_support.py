@@ -428,8 +428,6 @@ class FireSupport:
                 tracker("fire_support")
 
     def equip(self) -> None:
-        if self.reuse_locked:
-            return
         self.equipped = True
 
     def unequip(self) -> None:
