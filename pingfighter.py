@@ -11858,6 +11858,8 @@ def activate_supply_drop_item(item_name: str) -> None:
 
 # === 군용 비행기 클래스 ===
 class SupplyAircraft:
+    DEFAULT_ALTITUDE = 50
+
     def __init__(
         self,
         direction="left_to_right",
@@ -11886,7 +11888,7 @@ class SupplyAircraft:
         else:
             self.x = self.screen_width + self.width
         
-        self.y = 50  # 화면 상단에서 50픽셀 아래
+        self.y = self.DEFAULT_ALTITUDE  # 화면 상단에서 50픽셀 아래 (전역 고정 고도)
         self.active = True
         
         # 등장 후 대기 시간 (0.8초)
