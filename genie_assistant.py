@@ -46,7 +46,7 @@ TUTORIAL_LIBRARY: dict[str, List[dict]] = {
             "summary": "빈 탄창을 SPACE로 채우기",
             "keys": ["SPACE (탄약 0)"],
             "details": [
-                "탄약이 0이 된 상태에서 SPACE를 누르면 2초간 재장전이 진행되며 스페셜 게이지 150을 소비합니다.",
+                "탄약이 0이 된 상태에서 SPACE를 누르면 2초간 재장전이 진행되며 스킬 게이지 150을 소비합니다.",
                 "재장전 중에는 사격이 불가능하고 화기 UI에 진행도가 표시됩니다.",
                 "UP 키를 누른 채로는 재장전이 시작되지 않으니 물자보급 입력과 겹치지 않도록 주의하세요.",
             ],
@@ -70,7 +70,7 @@ TUTORIAL_LIBRARY: dict[str, List[dict]] = {
             "summary": "↓키 홀드로 보급상자 호출",
             "keys": ["↓ (1초 홀드)", "게이지 350"],
             "details": [
-                "↓ 키를 1초 이상 누르면 무전기가 켜지고, 게이지 350을 소비해 보급 비행기를 호출합니다.",
+                "↓ 키를 1초 이상 누르면 무전기가 켜지고, 스킬 게이지 350을 소비해 보급 비행기를 호출합니다.",
                 "서브 중일 때는 6초가 지나야 호출할 수 있으며, 호출 도중에는 플레이어가 0.5초 동안 고정됩니다.",
                 "보급 상자가 떨어지면 탄약, 화력지원, 특수 아이템 중 하나를 즉시 획득합니다.",
             ],
@@ -82,7 +82,7 @@ TUTORIAL_LIBRARY: dict[str, List[dict]] = {
             "summary": "↓ ↓ 더블탭으로 즉시 장전",
             "keys": ["↓ ↓", "게이지 500"],
             "details": [
-                "↓ 키를 빠르게 두 번 탭하면 스페셜 게이지 500을 소비해 현재 무기의 탄약을 즉시 가득 채웁니다.",
+                "↓ 키를 빠르게 두 번 탭하면 스킬 게이지 500을 소비해 현재 무기의 탄약을 즉시 가득 채웁니다.",
                 "스테이지마다 1회만 사용할 수 있으며, 화력지원 호출 중에는 발동하지 않습니다.",
                 "더블탭 속도는 약 0.25초 이내여야 하므로 연습을 통해 리듬을 익혀 두세요.",
             ],
@@ -546,7 +546,7 @@ class GenieAssistant:
                 end_angle,
                 6,
             )
-            text = self.small_font.render("게이지 150 소모", True, COLOR_TEXT_DIM)
+            text = self.small_font.render("스킬 게이지 150 소모", True, COLOR_TEXT_DIM)
             surface.blit(text, text.get_rect(center=(center_x, center_y + radius + 18)))
         elif animation_id == "supply":
             drop_height = rect.height - 40
@@ -560,7 +560,7 @@ class GenieAssistant:
             pygame.draw.line(surface, (200, 200, 220), (center_x + 10, rope_y), (center_x + 10, crate_rect.top), 2)
             plane = pygame.Rect(center_x - 70, rect.top + 10, 140, 16)
             pygame.draw.rect(surface, (160, 180, 220), plane, border_radius=6)
-            label = self.small_font.render("게이지 350", True, COLOR_TEXT_DIM)
+            label = self.small_font.render("스킬 게이지 350", True, COLOR_TEXT_DIM)
             surface.blit(label, label.get_rect(center=(center_x, rect.bottom - 18)))
         elif animation_id == "emergency":
             arrow_color = (255, 180, 120)
