@@ -5,7 +5,7 @@ a = Analysis(
     ['pingfighter.py'],
     pathex=[],
     binaries=[],
-    datas=[('*.png', '.'), ('*.ttf', '.'), ('*.txt', '.'), ('*.json', '.'), ('*.jpeg', '.'), ('items', 'items'), ('sounds', 'sounds'), ('scenes', 'scenes'), ('ui', 'ui')],
+    datas=[('*.png', '.'), ('*.ttf', '.'), ('*.txt', '.'), ('*.json', '.'), ('*.jpeg', '.'), ('items', 'items'), ('sounds', 'sounds'), ('scenes', 'scenes'), ('ui', 'ui'), ('localization', 'localization')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
