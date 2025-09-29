@@ -17249,6 +17249,12 @@ def draw_repair_glow_effects(surface: pygame.Surface) -> None:
     
     # 디버그: 수리 이펙트가 그려지는지 확인
     print(f"[DEBUG] draw_repair_glow_effects 호출됨, 이펙트 개수: {len(repair_glow_effects)}")
+    
+    # 추가 디버그: 백트레이스로 어디서 하얀 원이 그려지는지 찾기
+    import traceback
+    for line in traceback.format_stack():
+        if "draw" in line and "circle" in line:
+            print(f"[DEBUG] Circle draw call in stack: {line.strip()}")
 
     for effect in repair_glow_effects:
         rect = None
@@ -26573,7 +26579,7 @@ def _draw_trade_point_system() -> None:
     update_trade_point_texts()
     draw_trade_point_texts()
 TUTORIAL_GUIDE_HINT_DURATION_MS = 3000
-TUTORIAL_GUIDE_HINT_SCALE = 0.33
+TUTORIAL_GUIDE_HINT_SCALE = 0.43
 tutorial_guide_hint_start_ticks = 0
 tutorial_guide_hint_visible = False
 
