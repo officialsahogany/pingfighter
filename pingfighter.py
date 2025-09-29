@@ -11244,6 +11244,11 @@ def _render_genie_animation_preview(surface: pygame.Surface, rect: pygame.Rect, 
         return _render_blacksmith_build_preview(surface, rect)
     return False
 
+try:
+    genie_assistant.set_preview_renderer(_render_genie_animation_preview)
+except NameError:
+    pass
+
 blacksmith_hammer_available = True
 blacksmith_hammer_shock_charging = False
 blacksmith_hammer_shock_charge_frames = 0
