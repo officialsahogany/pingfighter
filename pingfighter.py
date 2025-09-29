@@ -2399,6 +2399,11 @@ def trigger_grenade_style_explosion(
             random.randint(10, 15),
         ])
 
+    try:
+        play_wall_sound()
+    except Exception:
+        pass
+
     print(f"📝 폭발 영역 등록: X={explosion_zone['x']:.1f}, Y={explosion_zone['y']:.1f}, 반경={explosion_zone['radius']}")
 # === 조명탄 관련 ===
 flares = []  # 던져진 조명탄 리스트
@@ -11813,6 +11818,18 @@ def activate_supply_drop_item(item_name: str) -> None:
                 pass
         return
 
+    if item_name == "fire_support":
+        if soldier_controller.add_weapon("fire_support"):
+            print(f"✈️ 화력지원 장비 획득! 현재 화기류: {soldier_controller.weapons}")
+            fire_support = get_fire_support_instance()
+            fire_support.on_acquired()
+            try:
+                if SOUND_ITEM_GET:
+                    SOUND_ITEM_GET.play()
+            except Exception:
+                pass
+        return
+
     # 일반 아이템 처리
     item_data = None
     for item in items.ITEM_TYPES:
@@ -12013,8 +12030,9 @@ class SupplyAircraft:
             "ak47": 0.9,
             "net_gun": 0.45,
             "ammo_box": 0.6,
+            "fire_support": 0.35,
         }
-        firearm_names = {"bazooka", "ak47", "net_gun"}
+        firearm_names = {"bazooka", "ak47", "net_gun", "fire_support"}
 
         # 정확한 화기 인벤토리를 읽어 중복 드랍을 방지
         controller = globals().get("soldier_controller")
