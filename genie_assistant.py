@@ -583,8 +583,8 @@ class GenieAssistant:
         self._draw_animation_preview(surface, animation_rect, item.get("animation"))
 
         text_top = animation_rect.bottom + 20
-        scrollbar_width = 10
-        scrollbar_gap = 6
+        scrollbar_width = 12
+        scrollbar_gap = 8
         text_rect = pygame.Rect(
             detail_rect.left + 28,
             text_top,
