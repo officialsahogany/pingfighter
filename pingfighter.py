@@ -2356,19 +2356,48 @@ def trigger_grenade_style_explosion(
         if crows_to_destroy:
             print(f"🪽 까마귀 {len(crows_to_destroy)}마리 격추")
 
+    global tear_particles
     for _ in range(50):
         angle = random.uniform(0, FULL_ROTATION)
         speed = random.uniform(5.0, 15.0)
         vx = math.cos(math.radians(angle)) * speed
         vy = math.sin(math.radians(angle)) * speed
-        create_explosion_particle(
+        tear_particles.append([
+            x + random.uniform(-10, 10),
+            y + random.uniform(-10, 10),
+            vx,
+            vy,
+            255,
+            random.randint(3, 8),
+        ])
+
+    for _ in range(TILE_SIZE):
+        angle = random.uniform(0, FULL_ROTATION)
+        speed = random.uniform(1.0, 4.0)
+        vx = math.cos(math.radians(angle)) * speed
+        vy = math.sin(math.radians(angle)) * speed - 0.5
+        tear_particles.append([
+            x + random.uniform(-30, 30),
+            y + random.uniform(-30, 30),
+            vx,
+            vy,
+            180,
+            random.randint(15, 25),
+        ])
+
+    for _ in range(20):
+        angle = random.uniform(0, FULL_ROTATION)
+        speed = random.uniform(8.0, 12.0)
+        vx = math.cos(math.radians(angle)) * speed
+        vy = math.sin(math.radians(angle)) * speed
+        tear_particles.append([
             x,
             y,
             vx,
             vy,
-            random.randint(8, 14),
-            random.choice([(255, 150, 60), (255, 200, 120), (255, 100, 80)]),
-        )
+            255,
+            random.randint(10, 15),
+        ])
 
     print(f"📝 폭발 영역 등록: X={explosion_zone['x']:.1f}, Y={explosion_zone['y']:.1f}, 반경={explosion_zone['radius']}")
 # === 조명탄 관련 ===
@@ -23187,181 +23216,14 @@ def handle_wall():
         grenade["rotation"] += 15  # 회전 (화염병보다 빠름)
         # 목표 지점에 도달했는지 체크
         if abs(grenade["x"] - grenade["target_x"]) < 30 and abs(grenade["y"] - grenade["target_y"]) < 30:
-            # 폭발 효과 - 화염병보다 넓은 범위
-            import items
-            # 코만도암 효과: 폭발 범위 10% 증가
-            base_radius = 150  # 폭발 반경 (120에서 150으로 증가)
-            if items.commando_arm_obtained:
-                explosion_radius = int(base_radius * 1.1)  # 10% 증가
-                print(f"  !   : {explosion_radius} (: {base_radius})")
-            else:
-                explosion_radius = base_radius
-            
-            explosion_zone = {
-                "x": grenade["x"],
-                "y": grenade["y"],
-                "radius": explosion_radius,  # 코만도암 효과 적용된 폭발 반경
-                "duration": 15,  # 폭발 효과 지속 시간 (짧음)
-                "active": True
-            }
-            # 화면 흔들림 효과 시작 (폭발하면 무조건 흔들림)
-            grenade_shake_timer = 40  # 40프레임 동안 흔들림 (2배로 증가)
-            play_sound_with_volume(SOUND_GRENADE)  #  수류탄 폭발 사운드 재생
-            print(f"  !   : {grenade_shake_timer}")
-            # 보스가 폭발 범위 내에 있는지 체크
-            boss_center_x = BOSS.centerx
-            boss_center_y = BOSS.centery
-            distance = calculate_distance((boss_center_x, boss_center_y), (grenade["x"], grenade["y"]))
-            if distance < explosion_zone["radius"]:
-                # 보스 스턴 및 넉백 효과
-                boss_stunned_timer = 120  # 2초 스턴
-                # 화염병처럼 넉백 효과 (튕겨나가는 느낌)
-                direction = 1 if grenade["x"] < WIDTH / 2 else -1
-                knockback_power = compute_knockback_magnitude("grenade")
-                boss_knockback_vel = _apply_boss_knockback_velocity(direction * knockback_power)
-                #  체력형 보스 수류탄 데미지 적용
-                if current_stage in boss_health_stages:
-                    boss_current_health = max(0, boss_current_health - 3)  # 수류탄 데미지 3
-                    print(f"  !   -{3} (: {boss_current_health}/{boss_max_health})")
-                else:
-                    print(f"  !")
-                
-                # 코만도 캐릭터의 수류탄 보스 명중 시 게이지 50+ 증가
-                global special_gauge, special_ready, selected_character_type
-                if selected_character_type == "soldier":
-                    gauge_increase = 50  # 기본 50 증가
-                    
-                    # 코만도암 착용 시 추가 보너스
-                    if items.commando_arm_obtained:
-                        gauge_increase = 70  # 코만도암 착용 시 70 증가
-                        print("🎯 코만도암 보너스! 수류탄 게이지 70 증가!")
-                    else:
-                        print("💥 수류탄 명중! 게이지 50 증가!")
-                    
-                    # 게이지 증가 적용
-                    old_gauge = special_gauge
-                    special_gauge += gauge_increase
-                    current_max = get_max_gauge()
-                    if special_gauge > current_max:
-                        special_gauge = current_max
-                    
-                    # 필살기 준비 상태 업데이트
-                    if special_gauge >= 350:
-                        special_ready = True
-                    
-                    print(f"수류탄 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
-                
-                #  Stage 5 홍련 수류탄 피격 효과 - 100% 확률
-                if current_stage == 5:
-                    stage5_boss_hurt_active = True
-                    stage5_boss_hurt_timer = 18  # 0.3초 (60 FPS 기준)
-                    
-                    # 피격 사운드 재생 (3개 중 랜덤)
-                    if SOUND_STAGE5_HURTS:
-                        play_sound_with_volume(random.choice(SOUND_STAGE5_HURTS))
-                    
-                    #  트레이드 별 2개 드롭
-                    for i in range(2):
-                        trade_point_system.spawn_star(
-                            BOSS.centerx + random.randint(-50, 50),
-                            BOSS.centery + random.randint(-20, 20),
-                            source_type="hongryun_grenade"
-                        )
-                    
-                    print(f" Stage 5   ! (100% )   2 !")
-            
-            #  폭발 범위 내의 바위들 파괴 (스테이지 2)
-            if current_stage == 2 and animated_bg_stage2 is not None:
-                rocks_to_destroy = []
-                for rock in animated_bg_stage2.crisis_rocks:
-                    if not rock['falling']:  # 떨어진 바위만 체크
-                        rock_center_x = rock['x']
-                        rock_center_y = rock['y']
-                        rock_distance = calculate_distance((rock_center_x, rock_center_y), (grenade["x"], grenade["y"]))
-                        if rock_distance < explosion_zone["radius"]:
-                            rocks_to_destroy.append(rock)
-                
-                # 폭발 범위 내의 모든 바위 파괴
-                for rock in rocks_to_destroy:
-                    # 황금 바위인 경우 Star Point 별 생성
-                    if rock.get('is_golden', False):
-                        trade_point_system.spawn_star(rock['x'], rock['y'], "golden_rock")
-                        print(f"    ! Star Point  !")
-                    
-                    animated_bg_stage2.destroy_rock(rock)
-                    animated_bg_stage2.crisis_rocks.remove(rock)
-                    
-                if rocks_to_destroy:
-                    print(f"    {len(rocks_to_destroy)} !")
-            
-            #  폭발 범위 내의 까마귀들 파괴 (스테이지 4)
-            if current_stage == 4 and animated_bg_stage4 is not None:
-                crow_positions = animated_bg_stage4.get_crow_positions()
-                crows_to_destroy = []
-                
-                for crow_data in crow_positions:
-                    crow_distance = calculate_distance((crow_data['x'], crow_data['y']), (grenade["x"], grenade["y"]))
-                    if crow_distance < explosion_zone["radius"]:
-                        crows_to_destroy.append(crow_data)
-                
-                # 폭발 범위 내의 모든 까마귀 파괴 및 Star Point 별 생성
-                for crow_data in sorted(crows_to_destroy, key=lambda x: x['index'], reverse=True):  # 역순으로 제거
-                    if animated_bg_stage4.catch_crow(crow_data['index']):
-                        # Star Point 별 생성
-                        trade_point_system.spawn_star(crow_data['x'], crow_data['y'], "crow")
-                        print(f"    ! Star Point  !")
-                
-                if crows_to_destroy:
-                    print(f"    {len(crows_to_destroy)} !")
-            
-            # 현실감 있는 수류탄 폭발 효과
-            # 1. 폭발 파편 효과 (다양한 크기와 속도)
-            for _ in range(50):  # 파편 수 증가
-                angle = random.uniform(0, FULL_ROTATION)
-                speed = random.uniform(5.0, 15.0)  # 더 빠른 파편
-                vx = math.cos(math.radians(angle)) * speed
-                vy = math.sin(math.radians(angle)) * speed
-                tear_particles.append([
-                    grenade["x"] + random.uniform(-10, 10),
-                    grenade["y"] + random.uniform(-10, 10),
-                    vx, vy,
-                    255,  # alpha
-                    random.randint(3, 8)  # 다양한 크기의 파편
-                ])
-            # 2. 연기 효과 (회색 파티클)
-            for _ in range(TILE_SIZE):
-                angle = random.uniform(0, FULL_ROTATION)
-                speed = random.uniform(1.0, 4.0)  # 느린 연기
-                vx = math.cos(math.radians(angle)) * speed
-                vy = math.sin(math.radians(angle)) * speed - 0.5  # 위로 올라가는 연기
-                tear_particles.append([
-                    grenade["x"] + random.uniform(-30, 30),
-                    grenade["y"] + random.uniform(-30, 30),
-                    vx, vy,
-                    180,  # alpha
-                    random.randint(15, 25)  # 큰 연기 입자
-                ])
-            # 3. 폭발 섬광 효과 (노란색/주황색 불꽃)
-            for _ in range(20):
-                angle = random.uniform(0, FULL_ROTATION)
-                speed = random.uniform(8.0, 12.0)
-                vx = math.cos(math.radians(angle)) * speed
-                vy = math.sin(math.radians(angle)) * speed
-                tear_particles.append([
-                    grenade["x"],
-                    grenade["y"],
-                    vx, vy,
-                    255,  # alpha
-                    random.randint(10, 15)  # 섬광 크기
-                ])
-            explosion_zones.append(explosion_zone)
+            trigger_grenade_style_explosion(
+                grenade["x"],
+                grenade["y"],
+                apply_commando_bonus=True,
+                source="grenade",
+            )
             grenades.remove(grenade)
-            # 폭발 효과음
-            try:
-                play_wall_sound()
-            except:
-                pass
-            print(f"  ! : X={explosion_zone['x']:.1f}, Y={explosion_zone['y']:.1f}, : {explosion_zone['radius']}")
+            continue
     # 폭발 지역 업데이트 (지속시간 감소)
     explosion_zones = [zone for zone in explosion_zones if zone["duration"] > 0]
     for zone in explosion_zones:
