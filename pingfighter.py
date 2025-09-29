@@ -41203,7 +41203,7 @@ def show_character_selection():
         {
             "id": "ufo_player",
             "name": "스매셔",
-            "description": "게이지를 몰아 폭발적인 파워스매시를 연속으로 꽂는 공격 특화 타입",
+            "description": "게이지 폭발로 연속 파워스매시.\n공격 템포를 쥐는 핵심 스트라이커.",
             "image": "ufo_player.png",
             "stats": {"속도": 4, "파워": 7, "방어": 4},
             "special": " 스매시 전용 스킬트리 보유",
@@ -41215,7 +41215,7 @@ def show_character_selection():
         {
             "id": "soldier",
             "name": "코만도",
-            "description": "보급 호출과 화기 전환으로 흐름을 지배하는 전술 하이브리드",
+            "description": "보급 호출로 전장을 재구성.\n화기 전환으로 템포를 조율.",
             "image": "soldier.png",
             "stats": {"속도": 6, "파워": 6, "방어": 6},
             "special": " 전투 경험과 전술적 우위",
@@ -41227,7 +41227,7 @@ def show_character_selection():
         {
             "id": "blacksmith",
             "name": "발토르",
-            "description": "토르쉴드와 단조 버프로 공세와 방어를 동시에 구축하는 강철 장인",
+            "description": "토르쉴드로 거리 제어.\n단조 버프로 공수 동시 강화.",
             "image": "blacksmith.png",
             "stats": {"속도": 5, "파워": 7, "방어": 5},
             "special": " 전용 스킬 준비 중",
@@ -41239,7 +41239,7 @@ def show_character_selection():
         {
             "id": "optimus",
             "name": "옵티머스",
-            "description": "테슬라 모듈로 전기 충격을 싣는 네온 드라이브 스페셜리스트",
+            "description": "테슬라 모듈이 전기 충격 부여.\n네온 드라이브로 궤적을 가속.",
             "image": "optimus.png",
             "stats": {"속도": 5, "파워": 7, "방어": 5},
             "special": " 스매셔 계열 전용 장비",
@@ -41251,7 +41251,7 @@ def show_character_selection():
         {
             "id": "speed_player",
             "name": "스피드 레이서",
-            "description": "순간 가속과 체공 드리프트로 빈틈을 노리는 초고속 스타일",
+            "description": "순간 가속과 체공 드리프트.\n스텝 페인트로 빈틈을 찌름.",
             "image": "speed_player.png",
             "stats": {"속도": 8, "파워": 3, "방어": 4},
             "special": " 고속 이동과 빠른 반응",
@@ -41263,7 +41263,7 @@ def show_character_selection():
         {
             "id": "power_player", 
             "name": "파워 스매셔",
-            "description": "한 방에 필드를 뒤엎는 초고중량 파워샷 전문가",
+            "description": "초중량 파워샷 한 방 역전.\n충돌 이후에도 압박 지속.",
             "image": "power_player.png",
             "stats": {"속도": 3, "파워": 8, "방어": 4},
             "special": " 강력한 스매싱과 파워샷",
@@ -41275,7 +41275,7 @@ def show_character_selection():
         {
             "id": "defense_player",
             "name": "가디언",
-            "description": "다층 방벽과 정밀 카운터로 라인을 지키는 철벽 수비수",
+            "description": "다층 방벽으로 라인 봉쇄.\n정밀 카운터로 역습 완성.",
             "image": "defense_player.png", 
             "stats": {"속도": 4, "파워": 3, "방어": 8},
             "special": "️ 뛰어난 방어력과 카운터",
@@ -41287,7 +41287,7 @@ def show_character_selection():
         {
             "id": "tech_player",
             "name": "테크 마스터",
-            "description": "드론과 트랩을 전개해 전투 리듬을 해킹하는 기계술사",
+            "description": "드론·트랩으로 리듬 해킹.\n상황별 버프로 멀티 컨트롤.",
             "image": "tech_player.png",
             "stats": {"속도": 6, "파워": 6, "방어": 3},
             "special": " 특수 아이템과 기술력",
@@ -41299,7 +41299,7 @@ def show_character_selection():
         {
             "id": "mystic_player",
             "name": "미스틱",
-            "description": "시간 왜곡과 궤도 교란으로 패턴을 뒤집는 변칙 능력자",
+            "description": "시간 왜곡으로 타이밍 파괴.\n궤도 교란으로 패턴 전복.",
             "image": "mystic_player.png",
             "stats": {"속도": 7, "파워": 7, "방어": 1},
             "special": " 예측 불가능한 특수 능력",
