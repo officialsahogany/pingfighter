@@ -390,6 +390,7 @@ class FireSupport:
         self.reuse_locked = False
         self.radio_channel: Optional[pygame.mixer.Channel] = None
         self._radio_sound: pygame.mixer.Sound | bool | None = None
+        self.radio_volume = 0.85
         self.radio_sound_played = False
 
     def reset_state(self) -> None:
@@ -612,7 +613,7 @@ class FireSupport:
         try:
             self.radio_channel = sound.play()
             if self.radio_channel:
-                self.radio_channel.set_volume(1.0)
+                self.radio_channel.set_volume(self.radio_volume)
         except Exception:  # noqa: BLE001
             self.radio_channel = None
         self.radio_sound_played = True
