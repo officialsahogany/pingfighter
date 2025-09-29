@@ -716,12 +716,15 @@ def spawn_random_item():
     print(f"[DEBUG spawn_random_item] poseidon_trident_obtained = {poseidon_trident_obtained}")
     
     # passive_item_list를 가져와서 이미 보유한 패시브 아이템 확인
+    selected_character = None
     try:
         import pingfighter
         current_passive_items = [item["name"] for item in pingfighter.passive_item_list]
+        selected_character = getattr(pingfighter, "selected_character_type", None)
         print(f"[DEBUG] Current passive items in inventory: {current_passive_items}")
-    except:
+    except Exception:
         current_passive_items = []
+        selected_character = None
     
     # 현재 필드에 떠 있는 아이템들의 이름 목록 생성 (중복 방지)
     items_in_field = [item["type"]["name"] for item in item_list]
@@ -732,6 +735,10 @@ def spawn_random_item():
     
     for item in ITEM_TYPES:
         if not unlocked_items.get(item["name"], False):
+            continue
+
+        # 발토르 전용 수리키트는 타 캐릭터 플레이 시 스폰하지 않음
+        if item["name"] == "repair_kit" and selected_character != "blacksmith":
             continue
 
         # slot_add 아이템은 2개 이상 먹었으면 스폰 안함
