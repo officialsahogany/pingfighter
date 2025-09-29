@@ -46193,6 +46193,7 @@ def reset_round():
     blacksmith_blocking_penalty_timer = 0
     blacksmith_blocking_toast_timer = 0
     repair_glow_effects.clear()
+    active_repair_jobs.clear()
 
     stopwatch_active = False
     stopwatch_timer = 0
