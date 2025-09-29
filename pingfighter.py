@@ -33299,6 +33299,9 @@ def show_tutorial_dialog():
         hint_rect = hint_text.get_rect(center=(WIDTH // 2, dialog_y + dialog_height + 40))
         SCREEN.blit(hint_text, hint_rect)
         
+        if genie_assistant.is_active():
+            genie_assistant.draw(SCREEN)
+
         pygame.display.flip()
         
         # 이벤트 처리
