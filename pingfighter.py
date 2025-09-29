@@ -10170,8 +10170,9 @@ def draw_blacksmith_blocking_toast(surface: pygame.Surface) -> None:
     bounce = int(6 * math.sin(pygame.time.get_ticks() * 0.035))
 
     font = FontStyle.subtitle()
-    text_surface = font.render("BLOCKING!", True, (255, 232, 120))
-    shadow_surface = font.render("BLOCKING!", True, (30, 30, 30))
+    blocking_text = "blocking!"
+    text_surface = font.render(blocking_text, True, (255, 232, 120))
+    shadow_surface = font.render(blocking_text, True, (30, 30, 30))
 
     center_x = WIDTH // 2
     center_y = int(HEIGHT * 0.3) + bounce
