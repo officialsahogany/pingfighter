@@ -16867,12 +16867,7 @@ def activate_repair_kit():
     except Exception:
         pass
 
-    for rect in effect_rects:
-        try:
-            effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=8)
-            effects_manager.spawn_construction_smoke(rect.centerx, rect.centery, count=6, spread=24)
-        except Exception:
-            continue
+    # 기존의 star_particles와 construction_smoke 제거 - 새로운 성스러운 파티클 이펙트로 대체됨
 
     msg_parts = []
     if healed_turret:
