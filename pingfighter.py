@@ -33019,6 +33019,9 @@ def show_victory_screen(stage_cleared, reward):
                             confirm_rest(stage_cleared, reward)
                             return
         
+        if genie_assistant.is_active():
+            genie_assistant.draw(SCREEN)
+
         pygame.display.flip()
         clock.tick(60)  # 60 FPS로 제한
 def confirm_rest(stage_cleared, reward):
