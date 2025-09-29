@@ -24058,30 +24058,56 @@ def handle_aipill():
     # 게이지 기반으로 처리되므로 타이머는 사용하지 않음
     # 공 충돌 시 게이지 감소 및 종료 처리는 handle_player에서 처리됨
     pass
+def is_point_in_smoke(x, y, opacity_threshold=50):
+    """지정 좌표가 활성 연막 안에 있는지 여부를 반환한다."""
+    global smoke_zones
+
+    for smoke_zone in smoke_zones:
+        if smoke_zone.get("opacity", 0) > opacity_threshold:
+            radius_x = smoke_zone.get("radius_x", smoke_zone.get("radius", 0))
+            radius_y = smoke_zone.get("radius", 0)
+            if radius_x > 0 and radius_y > 0:
+                dx = x - smoke_zone["x"]
+                dy = y - smoke_zone["y"]
+                if (dx / radius_x) ** 2 + (dy / radius_y) ** 2 <= 1:
+                    return True
+    return False
+
+
+def is_rect_in_smoke(rect, opacity_threshold=50):
+    """사각형의 주요 지점이 연막 안에 있는지 검사한다."""
+    if rect is None:
+        return False
+
+    key_points = (
+        rect.center,
+        rect.midtop,
+        rect.midbottom,
+        rect.midleft,
+        rect.midright,
+        rect.topleft,
+        rect.topright,
+        rect.bottomleft,
+        rect.bottomright,
+    )
+
+    for px, py in key_points:
+        if is_point_in_smoke(px, py, opacity_threshold=opacity_threshold):
+            return True
+    return False
+
+
 def is_player_in_smoke():
     """플레이어가 연막 안에 있는지 확인하는 함수"""
-    global smoke_zones, PLAYER
-    
-    # 기존 연막탄 연기 체크
-    for smoke_zone in smoke_zones:
-        if smoke_zone["opacity"] > 50:  # 연막이 충분히 진할 때만
-            # 플레이어와 연막 중심 사이의 타원형 거리 계산
-            dx = PLAYER.centerx - smoke_zone["x"]
-            dy = PLAYER.centery - smoke_zone["y"]
-            radius_x = smoke_zone.get("radius_x", smoke_zone["radius"])
-            radius_y = smoke_zone["radius"]
-            # 타원 방정식: (x/a)^2 + (y/b)^2 <= 1
-            if radius_x > 0 and radius_y > 0:
-                ellipse_distance = (dx / radius_x) ** 2 + (dy / radius_y) ** 2
-            else:
-                ellipse_distance = float('inf')
-            if ellipse_distance <= 1:
-                return True
-    
+    global PLAYER
+
+    if is_point_in_smoke(PLAYER.centerx, PLAYER.centery):
+        return True
+
     # 테크니컬조끼 연막 체크
     if check_technical_vest_smoke_collision(PLAYER.centerx, PLAYER.centery):
         return True
-    
+
     return False
 def handle_wall():
     """벽돌 설치 및 관리 함수"""
