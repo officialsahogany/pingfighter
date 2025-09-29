@@ -17136,6 +17136,13 @@ def update_active_repair_jobs() -> None:
                 elif wall.get("crack_level", 0) > 0:
                     wall["crack_level"] = max(0, wall["crack_level"] - 1)
                 job["tick"] = REPAIR_TICK_FRAMES
+                
+                # 성스러운 빛 효과 생성
+                if wall.get("rect"):
+                    rect = wall["rect"]
+                    create_holy_light_particles(rect.centerx, rect.centery, 15)
+                    add_holy_light_flash(rect)
+                
                 if wall.get("hit_count", 0) <= 0 and wall.get("crack_level", 0) <= 0:
                     active_repair_jobs.remove(job)
 
@@ -58109,6 +58116,8 @@ def main(stage_num, new_boss_mode=False):
                 handle_wall()  #  벽돌 처리
                 update_brick_particles()  # 벽돌 파티클 업데이트
                 update_active_repair_jobs()
+                update_holy_light_particles()  # 성스러운 빛 파티클 업데이트
+                update_holy_light_flashes()  # 건물 흰색 반짝임 업데이트
 
                 # 다우징팬들럼 효과 적용 (아이템을 끌어당김)
                 if items.dowsing_pendulum_obtained and dowsing_pendulum_effect.enabled:
