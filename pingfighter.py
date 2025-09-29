@@ -54775,7 +54775,8 @@ def main(stage_num, new_boss_mode=False):
         # 프로파일러 프레임 시작
         if profiler:
             profiler.begin_frame()
-        clock.tick(FPS)
+        dt_ms = clock.tick(FPS)
+        genie_assistant.update(dt_ms)
         # 프로파일러 입력 처리 섹션
         if profiler:
             profiler.start_section("Input")
