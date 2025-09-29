@@ -56234,6 +56234,27 @@ def main(stage_num, new_boss_mode=False):
                     net_gun = get_net_gun_instance()
                     if net_gun.equipped or net_gun.projectiles or net_gun.nets:
                         net_gun.update(PLAYER, BOSS, player_is_dashing=rolling_active)
+                    fire_support_weapon = get_fire_support_instance()
+                    fire_support_weapon.update(
+                        boss_rect=pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height),
+                        ball_rect=pygame.Rect(BALL.x, BALL.y, BALL.width, BALL.height),
+                        last_hit_by=last_hit_by,
+                        create_explosion=lambda ex, ey: trigger_grenade_style_explosion(
+                            ex,
+                            ey,
+                            apply_commando_bonus=False,
+                            source="fire_support",
+                        ),
+                    )
+                    if fire_support_weapon.radio_active and not fire_support_weapon.is_calling():
+                        supply_runtime.hold_active = False
+                        if not supply_drop_state.active:
+                            stop_supply_radio_loop(force=True)
+                        fire_support_weapon.radio_active = False
+                    if fire_support_weapon.should_remove_weapon():
+                        fire_support_weapon.clear_finished_flag()
+                        if "fire_support" in soldier_controller.weapons:
+                            soldier_controller.remove_weapon("fire_support")
                     check_weapon_degradation()
                     # 쿨다운 감소
                     if soldier_gun_cooldown > 0:
