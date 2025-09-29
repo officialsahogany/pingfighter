@@ -510,7 +510,7 @@ ITEM_TYPES = [
         "color": (255, 160, 70),
         "effect": "fire_support",
         "icon": None,
-        "chance": 0,
+        "chance": 0.5,  # 임시로 확률 높임 (테스트용)
         "duration": 0,
         "unlock_condition": None
     },
