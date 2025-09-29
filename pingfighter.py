@@ -56364,10 +56364,8 @@ def main(stage_num, new_boss_mode=False):
                         if not supply_drop_state.active:
                             stop_supply_radio_loop(force=True)
                         fire_support_weapon.radio_active = False
-                    if fire_support_weapon.should_remove_weapon():
+                    if fire_support_weapon.finished and fire_support_weapon.ammo_count <= 0:
                         fire_support_weapon.clear_finished_flag()
-                        if "fire_support" in soldier_controller.weapons:
-                            soldier_controller.remove_weapon("fire_support")
                     check_weapon_degradation()
                     # 쿨다운 감소
                     if soldier_gun_cooldown > 0:
