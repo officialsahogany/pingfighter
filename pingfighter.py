@@ -26282,6 +26282,84 @@ tutorial_guide_hint_start_ticks = 0
 tutorial_guide_hint_visible = False
 
 
+def _draw_hint_lamp(surface: pygame.Surface, center: tuple[float, float], elapsed_ms: float) -> None:
+    wiggle = math.sin(elapsed_ms / 220.0) * 4
+    base_color = (215, 176, 54)
+    accent_color = (255, 222, 140)
+    shadow_color = (120, 96, 32)
+    x, y = center
+
+    body_rect = pygame.Rect(0, 0, 80, 26)
+    body_rect.center = (x + wiggle, y)
+    pygame.draw.ellipse(surface, shadow_color, body_rect.inflate(6, 6))
+    pygame.draw.ellipse(surface, base_color, body_rect)
+    highlight_rect = body_rect.inflate(-int(body_rect.width * 0.45), -int(body_rect.height * 0.6))
+    pygame.draw.ellipse(surface, accent_color, highlight_rect)
+
+    spout = [
+        (x + wiggle + body_rect.width // 2 - 2, y - 6),
+        (x + wiggle + body_rect.width // 2 + 20, y - 3),
+        (x + wiggle + body_rect.width // 2 + 20, y + 3),
+        (x + wiggle + body_rect.width // 2 - 2, y + 6),
+    ]
+    pygame.draw.polygon(surface, shadow_color, spout)
+    pygame.draw.polygon(surface, base_color, spout, 0)
+    pygame.draw.lines(surface, accent_color, False, spout, 2)
+
+    handle_rect = pygame.Rect(0, 0, 18, 18)
+    handle_rect.center = (x + wiggle - body_rect.width // 2 - 8, y)
+    pygame.draw.ellipse(surface, shadow_color, handle_rect.inflate(4, 4))
+    pygame.draw.ellipse(surface, base_color, handle_rect)
+
+    for idx in range(3):
+        smoke_progress = ((elapsed_ms / 450.0) + idx * 0.33) % 1.0
+        smoke_radius = max(3, int(8 - smoke_progress * 5))
+        smoke_alpha = max(0, int(120 * (1.0 - smoke_progress)))
+        smoke_surface = pygame.Surface((smoke_radius * 4, smoke_radius * 4), pygame.SRCALPHA)
+        pygame.draw.circle(
+            smoke_surface,
+            (220, 225, 240, smoke_alpha),
+            (smoke_radius * 2, smoke_radius * 2),
+            smoke_radius * 2,
+        )
+        offset_x = math.sin((elapsed_ms / 260.0) + idx * 1.2) * 6
+        offset_y = -22 - smoke_progress * 34 - idx * 8
+        surface.blit(smoke_surface, (x + offset_x - smoke_radius * 2, y + offset_y - smoke_radius * 2))
+
+
+def _draw_tutorial_guide_hint() -> None:
+    global tutorial_guide_hint_visible
+    if not tutorial_guide_hint_visible:
+        return
+
+    now = pygame.time.get_ticks()
+    elapsed = now - tutorial_guide_hint_start_ticks
+    if elapsed >= TUTORIAL_GUIDE_HINT_DURATION_MS:
+        tutorial_guide_hint_visible = False
+        return
+
+    hint_font = FontStyle.body()
+    message = "튜토리얼 가이드 → T키"
+    text_surface = hint_font.render(message, True, (240, 245, 255))
+    text_rect = text_surface.get_rect()
+
+    padding_x = 60
+    padding_y = 14
+    bg_width = text_rect.width + padding_x + 40
+    bg_height = text_rect.height + padding_y * 2
+    hint_surface = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+    hint_surface.fill((18, 24, 44, 210))
+    pygame.draw.rect(hint_surface, (115, 160, 255, 240), (0, 0, bg_width, bg_height), 2, border_radius=12)
+
+    lamp_center = (28, bg_height // 2)
+    _draw_hint_lamp(hint_surface, lamp_center, elapsed)
+
+    text_pos = (padding_x, (bg_height - text_rect.height) // 2)
+    hint_surface.blit(text_surface, text_pos)
+
+    SCREEN.blit(hint_surface, (36, 36))
+
+
 def _draw_common_hud() -> None:
     update_alchemy_notices()
     items.draw_active_item(
@@ -26380,6 +26458,8 @@ def draw_overlay_ui():
                 boss_special_ready_stage4,
                 stage4_magnetic_active,
             )
+
+    _draw_tutorial_guide_hint()
 
     if selected_character_type == "blacksmith":
         draw_blacksmith_overdrive_overlay(SCREEN)
