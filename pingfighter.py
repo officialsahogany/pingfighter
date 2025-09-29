@@ -54566,6 +54566,7 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_explosions.clear()
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
     global blacksmith_umbrella_retract_start_frame, blacksmith_umbrella_retract_grace_timer
+    global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     global blacksmith_umbrella_swing_active, blacksmith_umbrella_swing_timer
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
@@ -54575,6 +54576,8 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_retracting = False
     blacksmith_umbrella_retract_start_frame = -1000
     blacksmith_umbrella_retract_grace_timer = 0
+    blacksmith_blocking_penalty_timer = 0
+    blacksmith_blocking_toast_timer = 0
     blacksmith_umbrella_anim_direction = 1
     global blacksmith_umbrella_hitbox_extents, blacksmith_umbrella_hitbox_vertical
     global blacksmith_umbrella_hitbox_center_offset, blacksmith_umbrella_hitbox_direction
