@@ -97,6 +97,7 @@ class SoldierWeaponController:
         get_bazooka_instance: Callable[[], object | None],
         get_ak47_instance: Callable[[], object | None],
         get_net_gun_instance: Callable[[], object | None],
+        get_fire_support_instance: Callable[[], object | None],
     ) -> None:
         if "bazooka" in self.degraded:
             bazooka = get_bazooka_instance()
@@ -124,6 +125,21 @@ class SoldierWeaponController:
                     net_gun.unequip()
                 self.remove_weapon("net_gun")
                 print("⚠️ 그물덫총 노후화로 파괴되었습니다.")
+
+        if "fire_support" in self.degraded:
+            fire_support = get_fire_support_instance()
+            if fire_support:
+                ammo_empty = getattr(fire_support, "ammo_count", 0) <= 0
+                inactive = not getattr(fire_support, "strike_active", False) and not getattr(fire_support, "calling", False)
+                no_bombs = not getattr(fire_support, "bombs", [])
+                aircraft_clear = getattr(fire_support, "aircraft", None) is None
+                if ammo_empty and inactive and no_bombs and aircraft_clear:
+                    if hasattr(fire_support, "unequip"):
+                        fire_support.unequip()
+                    if hasattr(fire_support, "reset_state"):
+                        fire_support.reset_state()
+                    self.remove_weapon("fire_support")
+                    print("⚠️ 화력지원 노후화로 폭격 지원 장비가 파괴되었습니다.")
 
     def set_current_weapon(self, index: int) -> None:
         if not self.weapons:
