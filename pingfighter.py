@@ -55330,8 +55330,12 @@ def main(stage_num, new_boss_mode=False):
     boss_fail_timer = 0  # 보스 실수 타이머 초기화
     current_stage = stage_num
     global tutorial_guide_hint_visible, tutorial_guide_hint_start_ticks
-    tutorial_guide_hint_visible = True
-    tutorial_guide_hint_start_ticks = pygame.time.get_ticks()
+    if globals().get("ai_mode") == "junior":
+        tutorial_guide_hint_visible = True
+        tutorial_guide_hint_start_ticks = pygame.time.get_ticks()
+    else:
+        tutorial_guide_hint_visible = False
+        tutorial_guide_hint_start_ticks = 0
     global soldier_emergency_supply_stage, soldier_emergency_supply_used
     global soldier_down_tap_timer, soldier_down_tap_count, soldier_down_tap_suppress_timer
     soldier_emergency_supply_stage = stage_num
