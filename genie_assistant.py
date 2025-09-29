@@ -102,7 +102,7 @@ TUTORIAL_LIBRARY: dict[str, List[dict]] = {
                 "가드 중 이동 속도는 기본의 25%가 되고 건설·아이템·포탑 입력이 잠시 잠금됩니다. 내구도는 기본 7초, 디바인스톤 활성 시 5초 주기로 1칸씩 회복됩니다.",
                 "토르쉴드를 펼친 상태에서 SPACE와 ←/→를 동시에 누르면 반대 방향으로 스윙하며, 넉백과 충격파로 공을 밀어냅니다.",
             ],
-            "animation": "idle",
+            "animation": "thor_shield",
         },
         {
             "id": "build_menu",
@@ -114,7 +114,7 @@ TUTORIAL_LIBRARY: dict[str, List[dict]] = {
                 "숫자 1은 포탑, 2는 디바인스톤을 선택합니다. 선택 즉시 플레이어 발밑에 청사진이 생성됩니다.",
                 "ESC 또는 ↓ 키로 메뉴를 닫을 수 있으며, 건설 메뉴가 열린 동안에는 스페이스·아이템 입력이 잠시 비활성화됩니다.",
             ],
-            "animation": "idle",
+            "animation": "blacksmith_build",
         },
         {
             "id": "turret",
@@ -126,7 +126,7 @@ TUTORIAL_LIBRARY: dict[str, List[dict]] = {
                 "건설 범위는 플레이어 기준 좌우 70px이므로 청사진 중앙에 맞춰 서야 진행도가 올라갑니다. 완성 후에는 5초 간격으로 자동 미사일을 발사합니다.",
                 "포탑 위에서 SPACE를 짧게 누르면 게이지 60을 소모해 즉시 미사일을 발사합니다(쿨다운 0.6초). 토르쉴드가 열린 동안에는 수동 발사가 막힙니다.",
             ],
-            "animation": "idle",
+            "animation": "blacksmith_turret",
         },
         {
             "id": "divine_stone",
@@ -138,7 +138,7 @@ TUTORIAL_LIBRARY: dict[str, List[dict]] = {
                 "완성된 디바인스톤은 공을 튕겨내고 체력이 3칸입니다. 파괴되면 다시 건설해야 하며, 전투 중 자동으로 맵 중앙 근처에 고정됩니다.",
                 "활성 상태에서는 토르쉴드 회복 주기가 7초→5초로 단축되고 해머쇼크 사용 조건을 충족시킵니다.",
             ],
-            "animation": "idle",
+            "animation": "blacksmith_divine",
         },
         {
             "id": "hammer_shock",
@@ -150,7 +150,7 @@ TUTORIAL_LIBRARY: dict[str, List[dict]] = {
                 "SPACE를 유지한 시간에 따라 단계가 상승합니다: 1초(200 게이지), 2초(260), 3초(320). 게이지가 부족하면 해당 단계로 넘어가지 않습니다.",
                 "SPACE를 놓으면 해머를 투척해 충격파를 일으키며 큰 피해와 넉백을 줍니다. 포탑 옆에서 수동 발사를 건너뛰고 해머쇼크를 쓰려면 SPACE를 누를 때 ↓ 키를 함께 눌러 주세요.",
             ],
-            "animation": "idle",
+            "animation": "blacksmith_hammer_shock",
         },
     ],
     "default": [
