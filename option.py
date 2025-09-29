@@ -133,6 +133,8 @@ def show_options_menu(screen, width, height):
     
     # 설정 불러오기
     load_settings()
+    localization_manager = get_localization_manager()
+    localization_manager.set_language(LANGUAGE)
     
     # 메인 게임의 CONTROL_MODE도 업데이트
     import bosspong
@@ -153,6 +155,8 @@ def show_options_menu(screen, width, height):
     # 메뉴 상태
     selected_category = 0  # 0: 언어, 1: 사운드, 2: 화면, 3: 조작
     selected_option = 0  # 각 카테고리 내에서 선택된 옵션
+    category_keys = ["language", "sound", "screen", "controls"]
+    selected_option = 1 if FULLSCREEN else 0
     
     # 애니메이션 변수
     animation_timer = 0
@@ -199,16 +203,17 @@ def show_options_menu(screen, width, height):
         
         # 제목
         title_font = pygame.font.Font("NanumSquareB.ttf", 48)
-        title_text = title_font.render("옵션", True, (255, 255, 255))
+        title_value = translate("option.title", "옵션")
+        title_text = title_font.render(title_value, True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(width // 2, 80))
         
         # 제목 그림자
-        title_shadow = title_font.render("옵션", True, (100, 100, 100))
+        title_shadow = title_font.render(title_value, True, (100, 100, 100))
         screen.blit(title_shadow, (title_rect.x + 2, title_rect.y + 2))
         screen.blit(title_text, title_rect)
         
         # 카테고리 버튼들
-        categories = ["언어", "사운드", "화면", "조작"]
+        categories = [translate(f"option.category.{key}", key.title()) for key in category_keys]
         category_width = 120
         category_height = 40
         category_spacing = 20
@@ -227,59 +232,93 @@ def show_options_menu(screen, width, height):
         
         # 선택된 카테고리에 따른 내용 표시
         if selected_category == 0:  # 언어
-            languages = AVAILABLE_LANGUAGES
-            for i, lang in enumerate(languages):
+            for i, language_code in enumerate(AVAILABLE_LANGUAGE_CODES):
                 x = width // 2 - 100
                 y = content_y + i * 60
-                selected = (LANGUAGE == lang)
-                draw_button(screen, x, y, 200, 50, lang, selected)
+                selected = (LANGUAGE == language_code)
+                draw_button(
+                    screen,
+                    x,
+                    y,
+                    200,
+                    50,
+                    get_language_display_name(language_code),
+                    selected,
+                )
                 
         elif selected_category == 1:  # 사운드
             # BGM 볼륨
             font = pygame.font.Font("NanumSquareR.ttf", 20)
-            bgm_text = font.render("BGM 볼륨", True, (255, 255, 255))
+            bgm_text = font.render(translate("option.sound.bgm_volume", "BGM"), True, (255, 255, 255))
             screen.blit(bgm_text, (width // 2 - 200, content_y))
             draw_slider(screen, width // 2 - 150, content_y + 30, 300, 20, BGM_VOLUME, 0.0, 1.0)
             
             # 효과음 볼륨
-            sfx_text = font.render("효과음 볼륨", True, (255, 255, 255))
+            sfx_text = font.render(translate("option.sound.sfx_volume", "SFX"), True, (255, 255, 255))
             screen.blit(sfx_text, (width // 2 - 200, content_y + 80))
             draw_slider(screen, width // 2 - 150, content_y + 110, 300, 20, SFX_VOLUME, 0.0, 1.0)
             
         elif selected_category == 2:  # 화면
-            modes = ["창모드", "전체화면"]
+            modes = [
+                (0, translate("option.screen.windowed", "Windowed")),
+                (1, translate("option.screen.fullscreen", "Fullscreen"))
+            ]
             for i, mode in enumerate(modes):
                 x = width // 2 - 100
                 y = content_y + i * 60
                 selected = (selected_option == i)  # 선택된 옵션으로 변경
-                draw_button(screen, x, y, 200, 50, mode, selected)
+                draw_button(screen, x, y, 200, 50, mode[1], selected)
                 
             # 안내 텍스트
             guide_font = pygame.font.Font("NanumSquareR.ttf", 16)
-            guide_text = guide_font.render("↑↓ 키로 선택, 스페이스바/엔터로 적용", True, (200, 200, 200))
+            guide_text = guide_font.render(
+                translate("option.screen.guide", "Use ↑↓ to choose, Space/Enter to apply"),
+                True,
+                (200, 200, 200)
+            )
             screen.blit(guide_text, (width // 2 - 150, content_y + 150))
                 
         elif selected_category == 3:  # 조작
-            controls = ["키보드", "마우스", "조이패드"]
-            for i, control in enumerate(controls):
+            control_keys = [
+                ("option.controls.keyboard", "키보드"),
+                ("option.controls.mouse", "마우스"),
+                ("option.controls.gamepad", "조이패드")
+            ]
+            for i, (key, fallback_text) in enumerate(control_keys):
                 x = width // 2 - 100
                 y = content_y + i * 60
-                selected = (CONTROL_MODE == control)
-                draw_button(screen, x, y, 200, 50, control, selected)
+                control_label = translate(key, fallback_text)
+                selected = (CONTROL_MODE == control_label)
+                draw_button(screen, x, y, 200, 50, control_label, selected)
             
             # 마우스 조작 안내 텍스트
-            if CONTROL_MODE == "마우스":
+            mouse_hint = translate("option.controls.mouse_hint", "Mouse hint")
+            if CONTROL_MODE == translate("option.controls.mouse", "마우스"):
                 guide_font = pygame.font.Font("NanumSquareR.ttf", 14)
-                guide_text = guide_font.render("마우스 움직임: 패들 조작, 왼쪽클릭: 필살기, 오른쪽클릭: 대쉬, 휠: 아이템선택, 휠클릭: 아이템사용", True, (200, 200, 200))
+                guide_text = guide_font.render(mouse_hint, True, (200, 200, 200))
                 screen.blit(guide_text, (width // 2 - 200, content_y + 150))
         
         # 뒤로가기 버튼
         back_button_rect = pygame.Rect(50, height - 80, 120, 40)
-        draw_button(screen, back_button_rect.x, back_button_rect.y, back_button_rect.width, back_button_rect.height, "뒤로가기")
+        draw_button(
+            screen,
+            back_button_rect.x,
+            back_button_rect.y,
+            back_button_rect.width,
+            back_button_rect.height,
+            translate("option.back", "Back")
+        )
         
         # 적용 버튼
         apply_button_rect = pygame.Rect(width - 170, height - 80, 120, 40)
-        draw_button(screen, apply_button_rect.x, apply_button_rect.y, apply_button_rect.width, apply_button_rect.height, "적용")
+        draw_button(
+            screen,
+            apply_button_rect.x,
+            apply_button_rect.y,
+            apply_button_rect.width,
+            apply_button_rect.height,
+            translate("option.apply", "Apply")
+        )
         
         pygame.display.flip()
         
@@ -298,16 +337,17 @@ def show_options_menu(screen, width, height):
                         selected_category -= 1
                         SOUND_BUTTON_HOVER.play()
                 elif event.key == pygame.K_RIGHT:
-                    if selected_category < len(categories) - 1:
+                    if selected_category < len(category_keys) - 1:
                         selected_category += 1
                         SOUND_BUTTON_HOVER.play()
                         
                 elif event.key == pygame.K_UP:
                     if selected_category == 0:  # 언어
-                        if LANGUAGE not in AVAILABLE_LANGUAGES:
-                            LANGUAGE = AVAILABLE_LANGUAGES[0]
-                        current_index = AVAILABLE_LANGUAGES.index(LANGUAGE)
-                        LANGUAGE = AVAILABLE_LANGUAGES[(current_index - 1) % len(AVAILABLE_LANGUAGES)]
+                        if LANGUAGE not in AVAILABLE_LANGUAGE_CODES:
+                            LANGUAGE = DEFAULT_LANGUAGE
+                        current_index = AVAILABLE_LANGUAGE_CODES.index(LANGUAGE)
+                        LANGUAGE = AVAILABLE_LANGUAGE_CODES[(current_index - 1) % len(AVAILABLE_LANGUAGE_CODES)]
+                        get_localization_manager().set_language(LANGUAGE)
                         SOUND_BUTTON_HOVER.play()
                     elif selected_category == 2:  # 화면
                         selected_option = (selected_option - 1) % 2
@@ -321,16 +361,21 @@ def show_options_menu(screen, width, height):
                         
                 elif event.key == pygame.K_DOWN:
                     if selected_category == 0:  # 언어
-                        if LANGUAGE not in AVAILABLE_LANGUAGES:
-                            LANGUAGE = AVAILABLE_LANGUAGES[0]
-                        current_index = AVAILABLE_LANGUAGES.index(LANGUAGE)
-                        LANGUAGE = AVAILABLE_LANGUAGES[(current_index + 1) % len(AVAILABLE_LANGUAGES)]
+                        if LANGUAGE not in AVAILABLE_LANGUAGE_CODES:
+                            LANGUAGE = DEFAULT_LANGUAGE
+                        current_index = AVAILABLE_LANGUAGE_CODES.index(LANGUAGE)
+                        LANGUAGE = AVAILABLE_LANGUAGE_CODES[(current_index + 1) % len(AVAILABLE_LANGUAGE_CODES)]
+                        get_localization_manager().set_language(LANGUAGE)
                         SOUND_BUTTON_HOVER.play()
                     elif selected_category == 2:  # 화면
                         selected_option = (selected_option + 1) % 2
                         SOUND_BUTTON_HOVER.play()
                     elif selected_category == 3:  # 조작
-                        controls = ["키보드", "마우스", "조이패드"]
+                        controls = [
+                            translate("option.controls.keyboard", "키보드"),
+                            translate("option.controls.mouse", "마우스"),
+                            translate("option.controls.gamepad", "조이패드")
+                        ]
                         current_index = controls.index(CONTROL_MODE)
                         CONTROL_MODE = controls[(current_index + 1) % len(controls)]
                         bosspong.CONTROL_MODE = CONTROL_MODE  # 메인 게임 업데이트
@@ -389,17 +434,20 @@ def show_options_menu(screen, width, height):
                 
                 # 옵션 버튼 클릭
                 if selected_category == 0:  # 언어
-                    languages = AVAILABLE_LANGUAGES
-                    for i, lang in enumerate(languages):
+                    for i, language_code in enumerate(AVAILABLE_LANGUAGE_CODES):
                         x = width // 2 - 100
                         y = content_y + i * 60
                         if x <= mouse_x <= x + 200 and y <= mouse_y <= y + 50:
-                            LANGUAGE = lang
+                            LANGUAGE = language_code
+                            get_localization_manager().set_language(LANGUAGE)
                             SOUND_BUTTON_CLICK.play()
                             break
                             
                 elif selected_category == 2:  # 화면
-                    modes = ["창모드", "전체화면"]
+                    modes = [
+                        (0, translate("option.screen.windowed", "Windowed")),
+                        (1, translate("option.screen.fullscreen", "Fullscreen"))
+                    ]
                     for i, mode in enumerate(modes):
                         x = width // 2 - 100
                         y = content_y + i * 60
@@ -407,14 +455,18 @@ def show_options_menu(screen, width, height):
                             selected_option = i
                             SOUND_BUTTON_CLICK.play()
                             # 선택된 옵션에 따라 화면 모드 변경
-                            new_fullscreen = (modes[selected_option] == "전체화면")
+                            new_fullscreen = (selected_option == 1)
                             if FULLSCREEN != new_fullscreen:
                                 FULLSCREEN = new_fullscreen
                                 bosspong.toggle_fullscreen()
                             break
                             
                 elif selected_category == 3:  # 조작
-                    controls = ["키보드", "마우스", "조이패드"]
+                    controls = [
+                        translate("option.controls.keyboard", "키보드"),
+                        translate("option.controls.mouse", "마우스"),
+                        translate("option.controls.gamepad", "조이패드")
+                    ]
                     for i, control in enumerate(controls):
                         x = width // 2 - 100
                         y = content_y + i * 60
