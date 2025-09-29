@@ -58991,6 +58991,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_neutralize_particles(SCREEN)
             draw_overlay_ui()
             draw_score()
+            _draw_tutorial_guide_hint()
         except Exception as render_err:
             if __debug__:
                 print(f"[WARN] legacy render hook error: {render_err}")
