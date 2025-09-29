@@ -49752,6 +49752,7 @@ def handle_ball():
                     # 벽돌에 맞은 횟수 증가
                     wall["hit_count"] += 1
                     wall["crack_level"] = wall["hit_count"]
+                    _cancel_repair_job("wall", wall=wall)
                     
                     # 상모돌리기 활성화 시 벽돌 충돌 시 종료
                     if whip_active:
