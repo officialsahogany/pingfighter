@@ -8189,12 +8189,14 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                     pass
                 divine_state["cooldown"] = int(0.25 * FPS)
             else:
-                divine_state["hp"] = max(0, divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)
+                smoke_protected = is_rect_in_smoke(rect)
+                if not smoke_protected:
+                    divine_state["hp"] = max(0, divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)  # 연막 보호 시 체력 유지
                 divine_state["cooldown"] = int(0.25 * FPS)
                 effects_manager.spawn_star_particles(rect.centerx, rect.top, count=5)
                 effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=4)
                 state_changed = True
-                if divine_state["hp"] <= 0:
+                if not smoke_protected and divine_state["hp"] <= 0:
                     effects_manager.create_impact_effect(rect.centerx, rect.centery, 70, is_player=False)
                     # 런타임/전역 상태를 즉시 정리해 UI와 필드에서 제거한다.
                     blacksmith_divine_destroy_timer = 0
@@ -8689,7 +8691,9 @@ def update_blacksmith_turret():
         ball_rect = pygame.Rect(BALL)
         ball_owner = getattr(game_vars.ball, "last_hit_by", "player")
         if ball_owner != "player" and turret_state.get("hp", 0) > 0:
-            turret_state["hp"] -= 1
+            smoke_protected = is_rect_in_smoke(turret_rect)
+            if not smoke_protected:
+                turret_state["hp"] -= 1  # 연막 밖에서만 체력 감소
             BALL.bottom = min(BALL.bottom, turret_rect.top - 4)
             speed_mag = max(7.0, math.hypot(ball_vel[0], ball_vel[1]))
             ball_vel[1] = -abs(speed_mag)
