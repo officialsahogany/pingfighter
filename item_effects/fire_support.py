@@ -160,9 +160,12 @@ class FireSupport:
         self.bombs_remaining = 0
         self.bomb_cooldown = 0
         self.bombs.clear()
+        if self.aircraft:
+            self.aircraft.stop_sound()
         self.aircraft = None
         self.finished = False
         self.radio_active = False
+        self.last_bomb_y = 0.0
 
     def on_acquired(self) -> None:
         self.reset_state()
@@ -196,7 +199,13 @@ class FireSupport:
         self.ammo_count = max(0, self.ammo_count - 1)
         self.radio_active = True
         if cruise_y is not None:
-            self.aircraft = FireSupportAircraft(screen_width, screen_height, cruise_y)
+            engine_sound = self._get_aircraft_sound()
+            self.aircraft = FireSupportAircraft(
+                screen_width,
+                screen_height,
+                cruise_y,
+                engine_sound=engine_sound,
+            )
             self.aircraft.spawn_timer = self.aircraft.invulnerable_frames
             self.calling = False
             self.delay_timer = 0
@@ -227,12 +236,19 @@ class FireSupport:
                     int(boss_rect.centery),
                     int(self.screen_height * 0.6),
                 )
-                self.aircraft = FireSupportAircraft(self.screen_width, self.screen_height, cruise_y)
+                engine_sound = self._get_aircraft_sound()
+                self.aircraft = FireSupportAircraft(
+                    self.screen_width,
+                    self.screen_height,
+                    cruise_y,
+                    engine_sound=engine_sound,
+                )
                 self.last_bomb_y = boss_rect.centery
 
         if self.aircraft:
             events = self.aircraft.update(ball_rect, last_hit_by)
             if events.get("crash_landed") or events.get("finished"):
+                self.aircraft.stop_sound()
                 self.aircraft = None
             if self.aircraft and self.aircraft.can_drop() and self.bombs_remaining > 0:
                 if self.bomb_cooldown <= 0 and self.aircraft.spawn_timer >= 60:
