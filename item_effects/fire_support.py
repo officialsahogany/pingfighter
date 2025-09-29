@@ -414,6 +414,7 @@ class FireSupport:
         self.last_bomb_y = 0.0
         self.reuse_locked = False
         self.radio_release_timer = 0
+        self.radio_min_timer = 0
 
     def on_acquired(self) -> None:
         track_reload = self._has_initial_load
@@ -467,6 +468,7 @@ class FireSupport:
         self.radio_active = True
         self._ensure_radio_loop()
         self.reuse_locked = True
+        self.radio_min_timer = self.RADIO_MIN_FRAMES
         self.unequip()  # 발동과 동시에 무전 장비를 비활성화해 UI/입력에서 상태를 명확히 표시
         self._notify_lockout()
         if cruise_y is not None:
@@ -500,6 +502,8 @@ class FireSupport:
             if self.radio_release_timer <= 0:
                 target_volume = self.radio_volume_call if self.calling else self.radio_volume
                 self._set_radio_volume(target_volume)
+            if self.radio_min_timer > 0:
+                self.radio_min_timer -= 1
 
         if self.calling:
             if self.call_timer > 0:
