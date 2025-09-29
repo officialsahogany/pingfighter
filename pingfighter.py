@@ -54389,6 +54389,7 @@ def main(stage_num, new_boss_mode=False):
     
     # BGM 볼륨 초기화
     global bgm_volume
+    global fire_support_radio_loop_active
     bgm_manager.set_bgm_volume(bgm_volume)
     
     # 관리자 단축키 변수 초기화
