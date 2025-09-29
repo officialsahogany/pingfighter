@@ -141,6 +141,7 @@ class FireSupport:
     BOMB_GRAVITY = 0.35
     BOMB_INITIAL_VY = 2.0
     BOMB_HORIZONTAL_JITTER = 1.1
+    MAX_AMMO = 1
 
     def __init__(self) -> None:
         self.equipped = False
@@ -158,6 +159,7 @@ class FireSupport:
         self.finished = False
         self.radio_active = False
         self.last_bomb_y = 0.0
+        self.max_ammo = self.MAX_AMMO
 
     def reset_state(self) -> None:
         self.strike_active = False
@@ -176,7 +178,7 @@ class FireSupport:
 
     def on_acquired(self) -> None:
         self.reset_state()
-        self.ammo_count = 1
+        self.ammo_count = self.max_ammo
 
     def reset_runtime(self) -> None:
         self.reset_state()
