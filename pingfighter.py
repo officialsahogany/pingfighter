@@ -8197,6 +8197,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 smoke_protected = is_rect_in_smoke(rect)
                 if not smoke_protected:
                     divine_state["hp"] = max(0, divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)  # 연막 보호 시 체력 유지
+                    _cancel_repair_job("divine", state=divine_state)
                 divine_state["cooldown"] = int(0.25 * FPS)
                 effects_manager.spawn_star_particles(rect.centerx, rect.top, count=5)
                 effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=4)
