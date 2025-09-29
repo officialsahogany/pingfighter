@@ -56303,7 +56303,7 @@ def main(stage_num, new_boss_mode=False):
                         create_explosion=lambda ex, ey: trigger_grenade_style_explosion(
                             ex,
                             ey,
-                            apply_commando_bonus=False,
+                            apply_commando_bonus=True,
                             source="fire_support",
                         ),
                     )
