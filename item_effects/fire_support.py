@@ -72,8 +72,10 @@ class FireSupportAircraft:
     def can_drop(self) -> bool:
         return self.active and not self.crashing and self.spawn_timer >= self.invulnerable_frames
 
-    def drop_anchor(self) -> tuple[float, float]:
-        return (self.x + self.width * 0.7, self.y + self.height - 4)
+    def drop_anchor(self, center_y: float) -> tuple[float, float]:
+        drop_x = self.x + self.width * 0.3
+        drop_y = center_y + random.uniform(-40, 40)
+        return drop_x, drop_y
 
     def draw(self, surface: pygame.Surface) -> None:
         if not self.active and not self.crashing:
@@ -99,7 +101,7 @@ class FireSupport:
     CALL_LOCK_FRAMES = 30
     MIN_DELAY_FRAMES = 120
     MAX_DELAY_FRAMES = 180
-    BOMB_INTERVAL_FRAMES = 42
+    BOMB_INTERVAL_FRAMES = 60
     BOMB_MIN_COUNT = 5
     BOMB_MAX_COUNT = 7
     BOMB_GRAVITY = 0.35
@@ -121,6 +123,7 @@ class FireSupport:
         self.screen_height = 0
         self.finished = False
         self.radio_active = False
+        self.last_bomb_y = 0.0
 
     def reset_state(self) -> None:
         self.strike_active = False
@@ -194,30 +197,31 @@ class FireSupport:
             self.delay_timer -= 1
             if self.delay_timer == 0:
                 cruise_y = max(
-                    int(self.screen_height * 0.7),
-                    self.screen_height - 160,
+                    int(boss_rect.centery),
+                    int(self.screen_height * 0.6),
                 )
                 self.aircraft = FireSupportAircraft(self.screen_width, self.screen_height, cruise_y)
+                self.last_bomb_y = boss_rect.centery
 
         if self.aircraft:
             events = self.aircraft.update(ball_rect, last_hit_by)
             if events.get("crash_landed") or events.get("finished"):
                 self.aircraft = None
             if self.aircraft and self.aircraft.can_drop() and self.bombs_remaining > 0:
-                if self.aircraft.get_rect().centerx >= self.screen_width * 0.45:
-                    if self.bomb_cooldown <= 0:
-                        drop_x, drop_y = self.aircraft.drop_anchor()
-                        bomb = Bomb(
-                            x=drop_x + random.uniform(-14, 14),
-                            y=drop_y,
-                            vx=random.uniform(0.4, self.BOMB_HORIZONTAL_JITTER),
-                            vy=self.BOMB_INITIAL_VY,
-                            gravity=self.BOMB_GRAVITY,
-                            target_y=min(self.screen_height - 40, boss_rect.centery + random.randint(-40, 60)),
-                        )
-                        self.bombs.append(bomb)
-                        self.bombs_remaining -= 1
-                        self.bomb_cooldown = self.BOMB_INTERVAL_FRAMES
+                if self.bomb_cooldown <= 0 and self.aircraft.spawn_timer >= 60:
+                    drop_x, drop_y = self.aircraft.drop_anchor(self.last_bomb_y)
+                    self.last_bomb_y = drop_y
+                    bomb = Bomb(
+                        x=drop_x,
+                        y=drop_y,
+                        vx=random.uniform(0.4, self.BOMB_HORIZONTAL_JITTER),
+                        vy=self.BOMB_INITIAL_VY,
+                        gravity=self.BOMB_GRAVITY,
+                        target_y=min(self.screen_height - 60, boss_rect.centery + random.randint(-50, 50)),
+                    )
+                    self.bombs.append(bomb)
+                    self.bombs_remaining -= 1
+                    self.bomb_cooldown = self.BOMB_INTERVAL_FRAMES
                 if self.bomb_cooldown > 0:
                     self.bomb_cooldown -= 1
         else:
