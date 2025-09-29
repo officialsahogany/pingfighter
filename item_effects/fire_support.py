@@ -446,6 +446,7 @@ class FireSupport:
         self.screen_height = screen_height
         self.ammo_count = max(0, self.ammo_count - 1)
         self.radio_active = True
+        self.unequip()  # 발동과 동시에 무전 장비를 비활성화해 UI/입력에서 상태를 명확히 표시
         if cruise_y is not None:
             engine_sound = self._get_aircraft_sound()
             direction = random.choice(["left_to_right", "right_to_left"])
