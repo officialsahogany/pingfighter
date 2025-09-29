@@ -368,6 +368,7 @@ class FireSupport:
     BOMB_INITIAL_VY = 2.0
     BOMB_HORIZONTAL_JITTER = 1.1
     MAX_AMMO = 1
+    RADIO_RELEASE_FRAMES = 90  # 폭격 종료 후 무전 사운드를 유지할 추가 프레임 수
 
     def __init__(self) -> None:
         self.equipped = False
@@ -388,6 +389,7 @@ class FireSupport:
         self.max_ammo = self.MAX_AMMO
         self._has_initial_load = False
         self.reuse_locked = False
+        self.radio_release_timer = 0
 
     def reset_state(self) -> None:
         self.strike_active = False
@@ -404,6 +406,7 @@ class FireSupport:
         self.radio_active = False
         self.last_bomb_y = 0.0
         self.reuse_locked = False
+        self.radio_release_timer = 0
 
     def on_acquired(self) -> None:
         track_reload = self._has_initial_load
@@ -544,10 +547,15 @@ class FireSupport:
             self.bombs = new_bombs
 
         if self.aircraft is None and not self.bombs and self.bombs_remaining <= 0:
-            self.strike_active = False
-            self.finished = True
-            self.radio_active = False
-            self.reuse_locked = False
+            if self.radio_release_timer <= 0:
+                self.radio_release_timer = self.RADIO_RELEASE_FRAMES
+            else:
+                self.radio_release_timer -= 1
+                if self.radio_release_timer <= 0:
+                    self.strike_active = False
+                    self.finished = True
+                    self.radio_active = False
+                    self.reuse_locked = False
 
     def draw(self, surface: pygame.Surface) -> None:
         if self.aircraft:
