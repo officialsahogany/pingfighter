@@ -221,6 +221,8 @@ class GenieAssistant:
         self.detail_scroll_speed: float = 26.0  # px/sec
         self.detail_focus: bool = False
         self.detail_manual_scroll: bool = False
+        self.detail_scroll_input: int = 0
+        self.detail_manual_scroll_speed: float = 220.0
         self._detail_lines: List[dict] = []
         self._detail_total_height: float = 0.0
         self._detail_view_height: float = 0.0
@@ -255,6 +257,7 @@ class GenieAssistant:
         self.smoke_particles.clear()
         self.detail_focus = False
         self.detail_manual_scroll = False
+        self.detail_scroll_input = 0
 
     def set_preview_renderer(
         self,
@@ -303,10 +306,28 @@ class GenieAssistant:
                 self.detail_scroll_direction = 1
                 self.detail_scroll_wait = 0.0
         else:
-            if self.detail_scroll_offset != 0.0:
-                self.detail_scroll_offset = 0.0
-            self.detail_scroll_direction = 1
-            self.detail_scroll_wait = 0.0
+            if not self.detail_focus and not self.detail_manual_scroll:
+                if self.detail_scroll_offset != 0.0:
+                    self.detail_scroll_offset = 0.0
+                self.detail_scroll_direction = 1
+                self.detail_scroll_wait = 0.0
+
+        if (
+            self.phase == "menu"
+            and self.detail_focus
+            and self.detail_scroll_input != 0
+            and self._detail_total_height > self._detail_view_height
+            and self._detail_view_height > 0
+        ):
+            try:
+                mods = pygame.key.get_mods()
+            except pygame.error:
+                mods = 0
+            speed_multiplier = 2.0 if mods & pygame.KMOD_SHIFT else 1.0
+            manual_speed = self.detail_manual_scroll_speed * speed_multiplier
+            delta = manual_speed * (dt_ms / 1000.0) * self.detail_scroll_input
+            if delta:
+                self._scroll_detail_by(delta)
 
     def draw(self, surface: pygame.Surface) -> None:
         if not self.active or self.overlay_surface is None:
@@ -825,6 +846,7 @@ class GenieAssistant:
         self.detail_scroll_wait = 0.0
         self._detail_view_height = 0.0
         self.detail_manual_scroll = False
+        self.detail_scroll_input = 0
         if reset_layout:
             self.detail_focus = False
             self._detail_lines = []

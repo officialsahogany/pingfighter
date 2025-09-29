@@ -17224,109 +17224,86 @@ def draw_repair_jobs(surface: pygame.Surface) -> None:
         surface.blit(arc_surface, (rect.centerx - arc_radius, rect.centery - arc_radius), special_flags=pygame.BLEND_ADD)
 
 
-def create_holy_light_particles(x, y, count=15):
-    """성스러운 빛 파티클 생성"""
+def create_holy_light_particles(rect, count=8):
+    """반딧불 같은 작은 별빛 파티클 생성"""
     global holy_light_particles
-    for _ in range(count):
-        angle = random.uniform(0, 2 * math.pi)
-        speed = random.uniform(0.5, 2.0)
-        vx = math.cos(angle) * speed
-        vy = math.sin(angle) * speed
-        size = random.uniform(2, 6)
-        alpha = random.randint(200, 255)
-        # 성스러운 빛 색상들 (흰색, 황금빛, 연한 파란빛)
+    for i in range(count):
+        # 건물 주위를 도는 초기 각도와 거리
+        angle = (i / count) * 2 * math.pi
+        distance = random.uniform(30, 50)  # 건물에서의 거리
+        size = random.uniform(1.5, 3)  # 아주 작은 별빛
+        alpha = random.randint(150, 255)
+        
+        # 별빛 색상들 (따뜻한 노란빛, 하얀빛)
         color = random.choice([
+            (255, 255, 200),   # 따뜻한 노란색
+            (255, 250, 150),   # 밝은 노란색
             (255, 255, 255),   # 순백색
-            (255, 248, 220),   # 연한 황금색
-            (245, 255, 250),   # 민트크림색
-            (240, 248, 255),   # 앨리스 블루
-            (255, 250, 205),   # 레몬 시폰
+            (250, 250, 200),   # 연한 노란색
         ])
-        life = random.randint(60, 90)  # 1~1.5초
-        holy_light_particles.append([x, y, vx, vy, size, alpha, life, color])
-
-
-def add_holy_light_flash(rect):
-    """건물 흰색 반짝임 효과 추가"""
-    global holy_light_flashes
-    holy_light_flashes.append({
-        'rect': rect.copy(),
-        'alpha': 255,
-        'life': 30  # 0.5초
-    })
+        
+        # 회전 속도 (랜덤하게 설정)
+        orbit_speed = random.uniform(0.01, 0.03)
+        life = random.randint(180, 300)  # 3~5초
+        
+        holy_light_particles.append([rect, angle, distance, size, alpha, life, color, orbit_speed])
 
 
 def update_holy_light_particles():
-    """성스러운 빛 파티클 업데이트"""
+    """반딧불 별빛 파티클 업데이트"""
     global holy_light_particles
     new_particles = []
+    
     for particle in holy_light_particles:
-        x, y, vx, vy, size, alpha, life, color = particle
+        rect, angle, distance, size, alpha, life, color, orbit_speed = particle
         
-        # 위치 업데이트
-        x += vx
-        y += vy - 0.2  # 약간 위로 떠오르는 효과
+        # 각도 업데이트 (회전)
+        angle += orbit_speed
         
-        # 속도 감쇠
-        vx *= 0.98
-        vy *= 0.98
+        # 거리 약간의 변화 (호흡하는 듯한 효과)
+        distance += math.sin(angle * 3) * 0.5
         
-        # 생명력과 투명도 감소
+        # 생명력과 투명도
         life -= 1
-        if life > 30:  # 처음 절반 동안은 밝게 유지
-            alpha = min(255, alpha + 5)
-        else:  # 나머지 절반 동안 페이드 아웃
-            alpha = int(alpha * 0.95)
+        if life > 60:  # 대부분의 시간 동안 밝게 유지
+            alpha = min(255, alpha + 2)
+        else:  # 마지막에 페이드 아웃
+            alpha = int(alpha * 0.97)
+        
+        # 크기도 약간 변화 (반짝이는 효과)
+        size = size * (1 + math.sin(life * 0.1) * 0.2)
         
         if life > 0 and alpha > 10:
-            new_particles.append([x, y, vx, vy, size, alpha, life, color])
+            new_particles.append([rect, angle, distance, size, alpha, life, color, orbit_speed])
     
     holy_light_particles = new_particles
 
 
-def update_holy_light_flashes():
-    """건물 흰색 반짝임 효과 업데이트"""
-    global holy_light_flashes
-    new_flashes = []
-    for flash in holy_light_flashes:
-        flash['life'] -= 1
-        flash['alpha'] = int(255 * (flash['life'] / 30))  # 선형 페이드 아웃
-        
-        if flash['life'] > 0:
-            new_flashes.append(flash)
-    
-    holy_light_flashes = new_flashes
-
-
 def draw_holy_light_particles(surface):
-    """성스러운 빛 파티클 그리기"""
+    """반딧불 별빛 파티클 그리기"""
     for particle in holy_light_particles:
-        x, y, vx, vy, size, alpha, life, color = particle
+        rect, angle, distance, size, alpha, life, color, orbit_speed = particle
         
-        # 파티클 크기 애니메이션
-        anim_size = size * (1 + math.sin(life * 0.3) * 0.2)
+        # 건물 중심 기준으로 회전하는 위치 계산
+        center_x = rect.centerx + screen_shake_offset_x
+        center_y = rect.centery + screen_shake_offset_y
         
-        # 글로우 효과를 위한 여러 레이어
+        x = center_x + math.cos(angle) * distance
+        y = center_y + math.sin(angle) * distance
+        
+        # 작은 별빛 그리기 (여러 레이어로 글로우 효과)
         for i in range(3):
-            layer_size = anim_size * (3 - i)
-            layer_alpha = alpha // (i + 2)
-            glow_surface = pygame.Surface((layer_size * 2, layer_size * 2), pygame.SRCALPHA)
+            layer_size = size * (3 - i)
+            layer_alpha = alpha // (i + 1)
+            if i == 0:
+                # 중심은 더 밝게
+                layer_alpha = min(255, layer_alpha * 1.5)
+            
+            glow_surface = pygame.Surface((layer_size * 4, layer_size * 4), pygame.SRCALPHA)
             pygame.draw.circle(glow_surface, (*color, layer_alpha), 
-                             (layer_size, layer_size), layer_size)
-            surface.blit(glow_surface, (x - layer_size, y - layer_size), 
+                             (layer_size * 2, layer_size * 2), layer_size)
+            surface.blit(glow_surface, (x - layer_size * 2, y - layer_size * 2), 
                         special_flags=pygame.BLEND_ADD)
-
-
-def draw_holy_light_flashes(surface):
-    """건물 흰색 반짝임 효과 그리기"""
-    for flash in holy_light_flashes:
-        rect = flash['rect'].copy()
-        rect.x += screen_shake_offset_x
-        rect.y += screen_shake_offset_y
-        
-        flash_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-        flash_surface.fill((255, 255, 255, flash['alpha']))
-        surface.blit(flash_surface, rect, special_flags=pygame.BLEND_ADD)
 
 
 # === Stage 4 명상타임 관련 전역 변수 ===
