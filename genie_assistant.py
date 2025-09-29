@@ -144,6 +144,16 @@ class GenieAssistant:
         self.small_font = get_font(16)
         self.key_font = get_font(18)
 
+        self.detail_scroll_offset: float = 0.0
+        self.detail_scroll_direction: int = 1
+        self.detail_scroll_wait: float = 0.0
+        self.detail_scroll_pause: float = 1400.0  # ms 대기
+        self.detail_scroll_speed: float = 26.0  # px/sec
+        self._detail_lines: List[dict] = []
+        self._detail_total_height: float = 0.0
+        self._detail_view_height: float = 0.0
+        self._detail_layout_key: Tuple[str | None, int] | None = None
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -163,6 +173,7 @@ class GenieAssistant:
         self.selected_index = 0
         self.menu_item_rects = []
         self._init_smoke_particles()
+        self._reset_detail_scroll(reset_layout=True)
 
     def deactivate(self) -> None:
         self.active = False
