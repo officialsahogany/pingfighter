@@ -10170,9 +10170,8 @@ def draw_blacksmith_blocking_toast(surface: pygame.Surface) -> None:
     bounce = int(6 * math.sin(pygame.time.get_ticks() * 0.035))
 
     font = FontStyle.subtitle()
-    blocking_text = "blocking!"
-    text_surface = font.render(blocking_text, True, (255, 232, 120))
-    shadow_surface = font.render(blocking_text, True, (30, 30, 30))
+    text_surface = font.render("BLOCKING!", True, (255, 232, 120))
+    shadow_surface = font.render("BLOCKING!", True, (30, 30, 30))
 
     center_x = WIDTH // 2
     center_y = int(HEIGHT * 0.3) + bounce
@@ -22814,7 +22813,6 @@ def handle_player(keys):
                 not gauge_reduced
                 and blacksmith_umbrella_retracting
                 and frame_counter == blacksmith_umbrella_retract_start_frame
-                and last_hit_by != "player"
             ):
                 blacksmith_umbrella_hit_lock = True
                 blacksmith_blocking_penalty_timer = BLACKSMITH_BLOCKING_PENALTY_FRAMES
@@ -54568,7 +54566,6 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_hammer_explosions.clear()
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
     global blacksmith_umbrella_retract_start_frame, blacksmith_umbrella_retract_grace_timer
-    global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     global blacksmith_umbrella_swing_active, blacksmith_umbrella_swing_timer
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
@@ -54578,8 +54575,6 @@ def main(stage_num, new_boss_mode=False):
     blacksmith_umbrella_retracting = False
     blacksmith_umbrella_retract_start_frame = -1000
     blacksmith_umbrella_retract_grace_timer = 0
-    blacksmith_blocking_penalty_timer = 0
-    blacksmith_blocking_toast_timer = 0
     blacksmith_umbrella_anim_direction = 1
     global blacksmith_umbrella_hitbox_extents, blacksmith_umbrella_hitbox_vertical
     global blacksmith_umbrella_hitbox_center_offset, blacksmith_umbrella_hitbox_direction
