@@ -169,6 +169,339 @@ TUTORIAL_LIBRARY: dict[str, List[dict]] = {
 }
 
 
+def _create_local_surface(rect: pygame.Rect) -> pygame.Surface:
+    return pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+
+
+def _draw_small_turret_icon(target: pygame.Surface, rect: pygame.Rect, glow: float) -> None:
+    icon = _create_local_surface(rect)
+    w, h = icon.get_size()
+    cx = w / 2
+    base_y = h * 0.82
+
+    base_points = [
+        (cx - w * 0.42, base_y - h * 0.05),
+        (cx + w * 0.42, base_y - h * 0.05),
+        (cx + w * 0.32, base_y + h * 0.08),
+        (cx - w * 0.32, base_y + h * 0.08),
+    ]
+    pygame.draw.polygon(icon, (70, 66, 104), [(int(x), int(y)) for x, y in base_points])
+    pygame.draw.lines(icon, (130, 122, 180), True, [(int(x), int(y)) for x, y in base_points], max(1, int(w * 0.03)))
+
+    leg_color = (178, 182, 206)
+    outline_color = (80, 82, 120)
+    leg_width = w * 0.18
+    leg_height = h * 0.46
+    for direction in (-1, 1):
+        x0 = cx + direction * w * 0.38
+        points = [
+            (x0, base_y - h * 0.15),
+            (x0 + direction * leg_width * 0.4, base_y - leg_height * 0.6),
+            (x0 + direction * leg_width * 0.2, base_y - leg_height),
+            (cx + direction * w * 0.18, base_y - leg_height * 0.45),
+        ]
+        pygame.draw.polygon(icon, leg_color, [(int(x), int(y)) for x, y in points])
+        pygame.draw.lines(icon, outline_color, False, [(int(x), int(y)) for x, y in points], max(1, int(w * 0.025)))
+
+    body_rect = pygame.Rect(0, 0, int(w * 0.42), int(h * 0.34))
+    body_rect.center = (int(cx), int(base_y - h * 0.38))
+    body_color = (116, 120, 158)
+    highlight = int(30 * glow)
+    body_color = tuple(min(255, c + highlight) for c in body_color)
+    pygame.draw.rect(icon, body_color, body_rect, border_radius=int(w * 0.1))
+    pygame.draw.rect(icon, (220, 224, 250), body_rect.inflate(-int(w * 0.12), -int(h * 0.16)), border_radius=int(w * 0.06))
+
+    head_rect = pygame.Rect(0, 0, int(w * 0.36), int(h * 0.18))
+    head_rect.center = (int(cx), int(body_rect.top + head_rect.height * 0.6))
+    pygame.draw.rect(icon, (86, 88, 136), head_rect, border_radius=int(w * 0.08))
+
+    barrel_width = max(2, int(w * 0.12))
+    barrel_length = int(h * 0.32)
+    barrel_rect = pygame.Rect(0, 0, barrel_width, barrel_length)
+    barrel_rect.centerx = int(cx)
+    barrel_rect.top = int(body_rect.top - barrel_length * 0.85)
+    pygame.draw.rect(icon, (190, 198, 220), barrel_rect)
+    pygame.draw.rect(icon, (110, 118, 150), barrel_rect.inflate(-max(1, barrel_width // 3), -max(1, barrel_width // 3)))
+
+    muzzle_radius = max(2, int(barrel_width * 0.8))
+    muzzle_center = (barrel_rect.centerx, barrel_rect.top - muzzle_radius)
+    glow_scale = 0.4 + 0.6 * glow
+    muzzle_color = (255, 200, int(120 + 80 * glow_scale))
+    pygame.draw.circle(icon, muzzle_color, muzzle_center, int(muzzle_radius * (1.0 + 0.2 * glow_scale)))
+    pygame.draw.circle(icon, (255, 255, 220), muzzle_center, max(1, muzzle_radius // 2))
+
+    target.blit(icon, rect.topleft)
+
+
+def _draw_small_divine_icon(target: pygame.Surface, rect: pygame.Rect, pulse: float) -> None:
+    icon = _create_local_surface(rect)
+    w, h = icon.get_size()
+    cx = w / 2
+    base_y = h * 0.8
+
+    base_rect = pygame.Rect(0, 0, int(w * 0.78), int(h * 0.26))
+    base_rect.center = (int(cx), int(base_y))
+    pygame.draw.ellipse(icon, (94, 76, 58, 220), base_rect)
+    pygame.draw.ellipse(icon, (160, 134, 108, 160), base_rect.inflate(-int(w * 0.12), -int(h * 0.12)))
+
+    body_rect = pygame.Rect(0, 0, int(w * 0.52), int(h * 0.5))
+    body_rect.midbottom = (int(cx), int(base_rect.top + h * 0.08))
+    stone_color = (170, 186, 210)
+    pulse_strength = 25 + int(35 * pulse)
+    stone_highlight = tuple(min(255, c + pulse_strength) for c in stone_color)
+    pygame.draw.rect(icon, stone_color, body_rect, border_radius=int(w * 0.12))
+    inner_rect = body_rect.inflate(-int(w * 0.2), -int(h * 0.2))
+    pygame.draw.rect(icon, stone_highlight, inner_rect, border_radius=int(w * 0.08))
+
+    rune_count = 3
+    for idx in range(rune_count):
+        offset = (idx - (rune_count - 1) / 2) * (inner_rect.width / rune_count)
+        x = int(inner_rect.centerx + offset)
+        pygame.draw.line(icon, (80, 110, 200), (x, inner_rect.top + 4), (x, inner_rect.bottom - 4), max(1, int(w * 0.04)))
+        pygame.draw.circle(icon, (240, 250, 255), (x, inner_rect.top + int(inner_rect.height * 0.3)), max(1, int(w * 0.04)))
+
+    aura_radius = int(max(w, h) * 0.46)
+    aura_surf = pygame.Surface((aura_radius * 2, aura_radius * 2), pygame.SRCALPHA)
+    for r in range(aura_radius, 0, -1):
+        alpha = max(0, int(120 * (r / aura_radius) ** 2 * pulse))
+        pygame.draw.circle(aura_surf, (180, 220, 255, alpha), (aura_radius, aura_radius), r, 1)
+    icon.blit(aura_surf, (int(cx - aura_radius), int(body_rect.centery - aura_radius)), special_flags=pygame.BLEND_PREMULTIPLIED)
+
+    target.blit(icon, rect.topleft)
+
+
+def _draw_small_hammer_icon(target: pygame.Surface, rect: pygame.Rect, glow: float) -> None:
+    icon = _create_local_surface(rect)
+    w, h = icon.get_size()
+    cx = w / 2
+    cy = h / 2
+
+    handle_color = (110, 70, 46)
+    handle_width = max(2, int(w * 0.14))
+    handle_rect = pygame.Rect(0, 0, handle_width, int(h * 0.72))
+    handle_rect.center = (int(cx - w * 0.08), int(cy + h * 0.08))
+    pygame.draw.rect(icon, handle_color, handle_rect, border_radius=int(handle_width * 0.4))
+
+    head_width = int(w * 0.6)
+    head_height = int(h * 0.34)
+    head_rect = pygame.Rect(0, 0, head_width, head_height)
+    head_rect.midleft = (handle_rect.right - int(handle_width * 0.3), int(cy))
+    pulse = 30 + int(50 * glow)
+    head_color = (156 + pulse // 2, 164 + pulse // 3, 180 + pulse // 4)
+    pygame.draw.rect(icon, head_color, head_rect, border_radius=int(head_height * 0.3))
+    pygame.draw.rect(icon, (255, 255, 255), head_rect.inflate(-int(head_width * 0.2), -int(head_height * 0.5)), border_radius=int(head_height * 0.2))
+
+    spark_surface = pygame.Surface((w, h), pygame.SRCALPHA)
+    for angle in (-35, -10, 15, 35):
+        length = h * (0.45 + 0.15 * glow)
+        end_x = cx + length * math.cos(math.radians(angle))
+        end_y = cy + length * math.sin(math.radians(angle))
+        pygame.draw.line(
+            spark_surface,
+            (255, 220, 140, 160),
+            (cx + w * 0.12, cy - h * 0.05),
+            (end_x, end_y),
+            max(1, int(w * 0.04)),
+        )
+    icon.blit(spark_surface, (0, 0), special_flags=pygame.BLEND_PREMULTIPLIED)
+
+    target.blit(icon, rect.topleft)
+
+
+def _draw_thor_shield_preview(surface: pygame.Surface, rect: pygame.Rect, ticks: int) -> None:
+    preview = _create_local_surface(rect)
+    w, h = preview.get_size()
+    center = (w // 2, int(h * 0.58))
+
+    outer_rect = pygame.Rect(0, 0, int(w * 0.7), int(h * 0.74))
+    outer_rect.center = center
+    pulse = 0.5 + 0.5 * math.sin(ticks / 320.0)
+    base_color = (72, 112, 168)
+    base_color = tuple(min(255, int(c + 40 * pulse)) for c in base_color)
+    pygame.draw.ellipse(preview, base_color, outer_rect)
+
+    inner_rect = outer_rect.inflate(-int(w * 0.14), -int(h * 0.16))
+    inner_color = (120, 170, 220)
+    pygame.draw.ellipse(preview, inner_color, inner_rect)
+    pygame.draw.ellipse(preview, (230, 238, 250), inner_rect, max(1, int(w * 0.02)))
+
+    brace_width = max(2, int(w * 0.06))
+    vertical_brace = pygame.Rect(0, 0, brace_width, inner_rect.height)
+    vertical_brace.center = center
+    pygame.draw.rect(preview, (50, 60, 90), vertical_brace, border_radius=brace_width // 2)
+    horizontal_brace = pygame.Rect(0, 0, inner_rect.width, brace_width)
+    horizontal_brace.center = (center[0], center[1] - int(h * 0.1))
+    pygame.draw.rect(preview, (50, 60, 90), horizontal_brace, border_radius=brace_width // 2)
+
+    arc_rect = outer_rect.inflate(int(w * 0.24), int(h * 0.2))
+    sweep = math.pi * (0.4 + 1.0 * pulse)
+    pygame.draw.arc(preview, (255, 210, 90), arc_rect, math.pi * 1.1, math.pi * 1.1 + sweep, max(2, int(w * 0.04)))
+
+    for angle in (220, 250, 290, 320):
+        radians = math.radians(angle)
+        radius = outer_rect.width / 2
+        start = (
+            center[0] + radius * math.cos(radians),
+            center[1] + radius * math.sin(radians),
+        )
+        end = (
+            center[0] + (radius + w * 0.12) * math.cos(radians + 0.12 * math.sin(ticks / 200.0)),
+            center[1] + (radius + w * 0.12) * math.sin(radians + 0.12 * math.sin(ticks / 200.0)),
+        )
+        pygame.draw.line(preview, (180, 220, 255), (int(start[0]), int(start[1])), (int(end[0]), int(end[1])), max(1, int(w * 0.025)))
+
+    rim_rect = outer_rect.inflate(int(w * 0.08), int(h * 0.08))
+    pygame.draw.ellipse(preview, (40, 56, 86, 180), rim_rect, max(1, int(w * 0.03)))
+
+    surface.blit(preview, rect.topleft)
+
+
+def _draw_blacksmith_build_preview(surface: pygame.Surface, rect: pygame.Rect, ticks: int, font: pygame.font.Font) -> None:
+    preview = _create_local_surface(rect)
+    w, h = preview.get_size()
+
+    board_rect = pygame.Rect(0, 0, int(w * 0.9), int(h * 0.72))
+    board_rect.center = (w // 2, int(h * 0.55))
+    pygame.draw.rect(preview, (32, 52, 84), board_rect, border_radius=16)
+    pygame.draw.rect(preview, (90, 120, 180), board_rect, width=2, border_radius=16)
+
+    grid_spacing = max(8, int(board_rect.width / 8))
+    for x in range(board_rect.left + grid_spacing, board_rect.right, grid_spacing):
+        pygame.draw.line(preview, (60, 80, 130), (x, board_rect.top + 6), (x, board_rect.bottom - 6))
+    for y in range(board_rect.top + grid_spacing, board_rect.bottom, grid_spacing):
+        pygame.draw.line(preview, (60, 80, 130), (board_rect.left + 6, y), (board_rect.right - 6, y))
+
+    hammer_rect = pygame.Rect(0, 0, int(w * 0.22), int(h * 0.42))
+    hammer_rect.midleft = (board_rect.left + int(board_rect.width * 0.16), board_rect.centery)
+    hammer_glow = 0.5 + 0.5 * math.sin(ticks / 220.0)
+    _draw_small_hammer_icon(preview, hammer_rect, hammer_glow)
+
+    icon_spacing = int(board_rect.width * 0.3)
+    icon_size = pygame.Rect(0, 0, int(w * 0.26), int(h * 0.48))
+    icon_size.center = (board_rect.centerx + icon_spacing // 2, board_rect.centery)
+    turret_glow = 0.5 + 0.5 * math.sin((ticks + 120) / 260.0)
+    _draw_small_turret_icon(preview, icon_size, turret_glow)
+
+    divine_rect = icon_size.copy()
+    divine_rect.midright = (board_rect.right - icon_spacing // 4, board_rect.centery)
+    divine_pulse = 0.4 + 0.6 * (0.5 + 0.5 * math.sin(ticks / 300.0))
+    _draw_small_divine_icon(preview, divine_rect, divine_pulse)
+
+    if font:
+        tips = [
+            ("1", icon_size.midbottom),
+            ("2", divine_rect.midbottom),
+        ]
+        for label, pos in tips:
+            text_surface = font.render(label, True, (235, 240, 255))
+            text_rect = text_surface.get_rect(center=(int(pos[0]), int(pos[1] + h * 0.08)))
+            preview.blit(text_surface, text_rect)
+
+    surface.blit(preview, rect.topleft)
+
+
+def _draw_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect, ticks: int) -> None:
+    preview = _create_local_surface(rect)
+    w, h = preview.get_size()
+    turret_rect = pygame.Rect(0, 0, int(w * 0.68), int(h * 0.7))
+    turret_rect.center = (int(w * 0.5), int(h * 0.6))
+    glow = 0.5 + 0.5 * math.sin(ticks / 240.0)
+    _draw_small_turret_icon(preview, turret_rect, glow)
+
+    muzzle_time = (ticks % 900) / 900.0
+    if muzzle_time < 0.18:
+        muzzle_phase = muzzle_time / 0.18
+        flash_radius = int(max(4, w * 0.12 * (1.2 - muzzle_phase)))
+        flash_center = (turret_rect.centerx, int(turret_rect.top - flash_radius * 0.6))
+        pygame.draw.circle(
+            preview,
+            (255, 220, 140, int(200 * (1.0 - muzzle_phase))),
+            flash_center,
+            flash_radius,
+        )
+
+    particle_count = 6
+    for idx in range(particle_count):
+        angle = (ticks / 80.0) + (idx / particle_count) * math.tau
+        radius = w * 0.34
+        alpha = int(80 + 60 * math.sin(ticks / 200.0 + idx))
+        point = (
+            turret_rect.centerx + radius * math.cos(angle),
+            turret_rect.centery + radius * math.sin(angle * 0.6),
+        )
+        pygame.draw.circle(preview, (120, 180, 240, alpha), (int(point[0]), int(point[1])), max(1, int(w * 0.02)))
+
+    surface.blit(preview, rect.topleft)
+
+
+def _draw_blacksmith_divine_preview(surface: pygame.Surface, rect: pygame.Rect, ticks: int) -> None:
+    preview = _create_local_surface(rect)
+    w, h = preview.get_size()
+    stone_rect = pygame.Rect(0, 0, int(w * 0.62), int(h * 0.68))
+    stone_rect.center = (int(w * 0.52), int(h * 0.6))
+    pulse = 0.5 + 0.5 * math.sin(ticks / 260.0)
+    _draw_small_divine_icon(preview, stone_rect, pulse)
+
+    orbit_radius = int(max(w, h) * 0.44)
+    orbit_surface = pygame.Surface((orbit_radius * 2, orbit_radius * 2), pygame.SRCALPHA)
+    for idx in range(3):
+        progress = ((ticks / 900.0) + idx / 3) % 1.0
+        angle = progress * math.tau
+        x = orbit_radius + orbit_radius * 0.8 * math.cos(angle)
+        y = orbit_radius + orbit_radius * 0.4 * math.sin(angle)
+        pygame.draw.circle(
+            orbit_surface,
+            (200, 240, 255, int(160 * (1.0 - progress))),
+            (int(x), int(y)),
+            max(2, int(w * 0.04)),
+        )
+    preview.blit(orbit_surface, (stone_rect.centerx - orbit_radius, stone_rect.centery - orbit_radius), special_flags=pygame.BLEND_PREMULTIPLIED)
+
+    surface.blit(preview, rect.topleft)
+
+
+def _draw_blacksmith_hammer_shock_preview(surface: pygame.Surface, rect: pygame.Rect, ticks: int) -> None:
+    preview = _create_local_surface(rect)
+    w, h = preview.get_size()
+    hammer_rect = pygame.Rect(0, 0, int(w * 0.6), int(h * 0.48))
+    hammer_rect.center = (int(w * 0.44), int(h * 0.55))
+    glow = 0.5 + 0.5 * math.sin(ticks / 200.0)
+    _draw_small_hammer_icon(preview, hammer_rect, glow)
+
+    trail_surface = pygame.Surface((w, h), pygame.SRCALPHA)
+    center = (hammer_rect.centerx + w * 0.18, hammer_rect.centery - h * 0.2)
+    max_radius = int(max(w, h) * 0.5)
+    for idx in range(3):
+        stage = idx + 1
+        factor = stage / 3.0
+        radius = int(max_radius * (0.45 + 0.22 * factor))
+        alpha = int(90 + 80 * (0.5 + 0.5 * math.sin((ticks / 240.0) + factor * math.pi)))
+        pygame.draw.circle(trail_surface, (120, 200, 255, alpha), center, radius, max(1, int(w * 0.03)))
+    preview.blit(trail_surface, (0, 0), special_flags=pygame.BLEND_PREMULTIPLIED)
+
+    gauge_width = int(w * 0.65)
+    gauge_height = int(h * 0.1)
+    gauge_rect = pygame.Rect(0, 0, gauge_width, gauge_height)
+    gauge_rect.midbottom = (int(w * 0.56), int(h * 0.92))
+    pygame.draw.rect(preview, (44, 52, 80), gauge_rect.inflate(4, 4), border_radius=6)
+
+    stage_time = (ticks % 1800) / 1800.0
+    active_stage = min(3, int(stage_time * 3) + 1)
+    bar_width = gauge_rect.width // 3
+    for idx in range(3):
+        bar_rect = pygame.Rect(
+            gauge_rect.left + idx * bar_width,
+            gauge_rect.top,
+            bar_width - 4,
+            gauge_rect.height,
+        )
+        filled = idx < active_stage
+        color = (255, 210, 120) if filled else (120, 130, 150)
+        pygame.draw.rect(preview, color, bar_rect, border_radius=4)
+        pygame.draw.rect(preview, (30, 36, 60), bar_rect, width=1, border_radius=4)
+
+    surface.blit(preview, rect.topleft)
+
 def _wrap_text(font: pygame.font.Font, text: str, max_width: int) -> List[str]:
     words = text.split()
     if not words:
