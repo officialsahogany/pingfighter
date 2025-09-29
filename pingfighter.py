@@ -10748,6 +10748,7 @@ soldier_walking_active = False
 soldier_walking_timer = 0
 SOLDIER_WALKING_CYCLE = 30  # 0.5초 (60fps * 0.5)
 FIRE_SUPPORT_RADIO_FRAMES = int(FPS * 0.7)  # 화력지원 무전 연출 지속시간(0.7초)
+FIRE_SUPPORT_CONTROL_LOCK_FRAMES = int(FPS * 0.7)  # 화력지원 발동 시 플레이어 통제불능 시간
 
 # === 발토르 걷기 애니메이션 변수 ===
 blacksmith_walking_active = False
