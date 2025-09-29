@@ -1,6 +1,6 @@
 import math
 import random
-from typing import List, Sequence, Tuple
+from typing import List, Tuple
 
 import pygame
 
