@@ -13019,6 +13019,7 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
 
     current_weapon = soldier_controller.weapons[soldier_controller.current_index]
 
+    fire_support_weapon = get_fire_support_instance()
     if current_weapon == "bazooka":
         from item_effects.bazooka import get_bazooka_instance
 
@@ -13029,6 +13030,7 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
             net = get_net_gun_instance()
             if hasattr(net, "unequip"):
                 net.unequip()
+        fire_support_weapon.unequip()
     elif current_weapon == "pistol":
         if "bazooka" in soldier_controller.weapons:
             from item_effects.bazooka import get_bazooka_instance
@@ -13044,6 +13046,7 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
             net = get_net_gun_instance()
             if hasattr(net, "unequip"):
                 net.unequip()
+        fire_support_weapon.unequip()
     elif current_weapon == "ak47":
         if "bazooka" in soldier_controller.weapons:
             from item_effects.bazooka import get_bazooka_instance
@@ -13058,6 +13061,7 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
             net = get_net_gun_instance()
             if hasattr(net, "unequip"):
                 net.unequip()
+        fire_support_weapon.unequip()
     elif current_weapon == "net_gun":
         net = get_net_gun_instance()
         if net and hasattr(net, "equip"):
@@ -13072,7 +13076,23 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
             ak47 = get_ak47_instance()
             if ak47 and (ak47.remaining_time > 0 or ak47.current_ammo > 0 or ak47.bullets):
                 ak47.active = True
+        fire_support_weapon.unequip()
+    elif current_weapon == "fire_support":
+        fire_support_weapon.equip()
+        if "bazooka" in soldier_controller.weapons:
+            from item_effects.bazooka import get_bazooka_instance
 
+            bazooka = get_bazooka_instance()
+            if bazooka and hasattr(bazooka, "unequip"):
+                bazooka.unequip()
+        if "net_gun" in soldier_controller.weapons:
+            net = get_net_gun_instance()
+            if hasattr(net, "unequip"):
+                net.unequip()
+        ak47 = get_ak47_instance()
+        if ak47:
+            ak47.active = False
+    
     print(f"🔄 화기 교체: {current_weapon}")
 
     if play_sound:
