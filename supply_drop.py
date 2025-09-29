@@ -94,6 +94,7 @@ class SupplyDropRuntime:
         *,
         volume: float = 0.6,
         duration_frames: int = 30,
+        play_sound: bool = True,
     ) -> None:
         """Activate walkie-talkie animation and start looped audio."""
 
@@ -106,6 +107,15 @@ class SupplyDropRuntime:
 
         sound = self.ensure_radio_sound(resource_path, volume=volume)
         if sound is None:
+            return
+
+        if not play_sound:
+            if self._radio_channel and self._radio_channel.get_busy():
+                try:
+                    self._radio_channel.stop()
+                except Exception:  # noqa: BLE001
+                    pass
+            self._radio_channel = None
             return
 
         try:
@@ -159,10 +169,16 @@ def start_radio_loop(
     *,
     volume: float = 0.6,
     duration_frames: int = 30,
+    play_sound: bool = True,
 ) -> None:
     """Public helper mirroring SupplyDropRuntime.start_radio_loop."""
 
-    runtime.start_radio_loop(resource_path, volume=volume, duration_frames=duration_frames)
+    runtime.start_radio_loop(
+        resource_path,
+        volume=volume,
+        duration_frames=duration_frames,
+        play_sound=play_sound,
+    )
 
 
 def stop_radio_loop(

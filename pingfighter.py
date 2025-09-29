@@ -19706,6 +19706,7 @@ def handle_player(keys):
     global blacksmith_umbrella_gauge, blacksmith_umbrella_recharge_progress
     global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
     global blacksmith_umbrella_hit_lock
+    global fire_support_radio_loop_active
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
