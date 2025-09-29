@@ -17081,8 +17081,7 @@ def update_active_repair_jobs() -> None:
                 # 성스러운 빛 효과 생성
                 if state.get("rect"):
                     rect = state["rect"]
-                    create_holy_light_particles(rect.centerx, rect.centery, 20)
-                    add_holy_light_flash(rect)
+                    create_holy_light_particles(rect, 10)  # 10개의 반딧불 별빛 생성
                 
                 if state["hp"] >= max_hp:
                     active_repair_jobs.remove(job)
@@ -17110,8 +17109,7 @@ def update_active_repair_jobs() -> None:
                 # 성스러운 빛 효과 생성
                 if state.get("rect"):
                     rect = state["rect"]
-                    create_holy_light_particles(rect.centerx, rect.centery, 20)
-                    add_holy_light_flash(rect)
+                    create_holy_light_particles(rect, 10)  # 10개의 반딧불 별빛 생성
                 
                 if state["hp"] >= max_hp:
                     active_repair_jobs.remove(job)
@@ -17139,8 +17137,7 @@ def update_active_repair_jobs() -> None:
                 # 성스러운 빛 효과 생성
                 if wall.get("rect"):
                     rect = wall["rect"]
-                    create_holy_light_particles(rect.centerx, rect.centery, 15)
-                    add_holy_light_flash(rect)
+                    create_holy_light_particles(rect, 8)  # 8개의 반딧불 별빛 생성
                 
                 if wall.get("hit_count", 0) <= 0 and wall.get("crack_level", 0) <= 0:
                     active_repair_jobs.remove(job)
