@@ -9826,7 +9826,7 @@ def draw_blacksmith_build_menu(surface):
         push_blacksmith_state()
         return
 
-    spacing = BLACKSMITH_BUILD_ICON_SIZE[0] + 16
+    spacing = BLACKSMITH_BUILD_ICON_SIZE[0] + 32
     base_x = PLAYER.centerx
     base_y = max(60, PLAYER.top - 60)
 
@@ -9848,7 +9848,7 @@ def draw_blacksmith_build_menu(surface):
         text_color = (255, 255, 255) if available else (150, 150, 150)
         name = "포탑" if option == "turret" else "디바인스톤"
         label = font.render(name, True, text_color)
-        surface.blit(label, label.get_rect(center=(dest_rect.centerx, dest_rect.bottom + 16)))
+        surface.blit(label, label.get_rect(center=(dest_rect.centerx, dest_rect.top - 18)))
 
 
 _blacksmith_divine_ui_icon_cache: dict[int, pygame.Surface] = {}

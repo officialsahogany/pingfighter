@@ -1,6 +1,7 @@
 import pygame
 import sys
 import os
+from typing import Dict, Tuple
 
 from config.language_options import LANGUAGE_CODES, DEFAULT_LANGUAGE
 from localization.manager import get_localization_manager
@@ -26,6 +27,7 @@ CONTROL_OPTIONS = [
     ("마우스", "option.controls.mouse"),
     ("조이패드", "option.controls.gamepad"),
 ]
+FONT_CACHE: Dict[Tuple[str, int], pygame.font.Font] = {}
 
 def save_settings():
     """설정을 파일에 저장"""
@@ -96,6 +98,36 @@ def translate(key: str, fallback: str) -> str:
 
 def get_language_display_name(code: str) -> str:
     return get_localization_manager().get_language_label(code)
+
+
+def get_localized_font(size: int, bold: bool = False) -> pygame.font.Font:
+    manager = get_localization_manager()
+    language_code = manager.current_language
+    if bold:
+        primary_font = "NanumSquareB.ttf"
+        fallback_font = "Pretendard-Bold.ttf"
+    else:
+        primary_font = "NanumSquareR.ttf"
+        fallback_font = "Pretendard-Regular.ttf"
+
+    font_path = primary_font if language_code != "ja" else fallback_font
+    cache_key = (font_path, size)
+    if cache_key in FONT_CACHE:
+        return FONT_CACHE[cache_key]
+
+    font: pygame.font.Font
+    try:
+        font = pygame.font.Font(font_path, size)
+    except Exception:
+        try:
+            font = pygame.font.Font(fallback_font, size)
+            cache_key = (fallback_font, size)
+        except Exception:
+            font = pygame.font.Font(None, size)
+            cache_key = ("__default__", size)
+
+    FONT_CACHE[cache_key] = font
+    return font
 
 def draw_slider(surface, x, y, width, height, value, min_val, max_val, color=(100, 150, 255)):
     """슬라이더 그리기"""
