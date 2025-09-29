@@ -29665,6 +29665,9 @@ def draw_objects():
 
     draw_blacksmith_turret_elements(SCREEN)
 
+    # 수리 이펙트를 건물 위에 그리기 위해 여기로 이동
+    draw_repair_glow_effects(SCREEN)
+
     # 킥차져 빛나는 이펙트 그리기
     try:
         from item_effects.knee_pads import get_knee_pads_instance
@@ -46220,7 +46223,6 @@ def reset_round():
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_manual_hammer_timer, blacksmith_manual_hammer_increment
     global blacksmith_umbrella_retract_start_frame, blacksmith_umbrella_retract_grace_timer
-    global repair_glow_effects
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
@@ -46238,7 +46240,6 @@ def reset_round():
     blacksmith_umbrella_retract_grace_timer = 0
     blacksmith_blocking_penalty_timer = 0
     blacksmith_blocking_toast_timer = 0
-    repair_glow_effects.clear()
     active_repair_jobs.clear()
 
     stopwatch_active = False
@@ -57988,7 +57989,6 @@ def main(stage_num, new_boss_mode=False):
                 handle_wall()  #  벽돌 처리
                 update_brick_particles()  # 벽돌 파티클 업데이트
                 update_active_repair_jobs()
-                update_repair_glow_effects()
 
                 # 다우징팬들럼 효과 적용 (아이템을 끌어당김)
                 if items.dowsing_pendulum_obtained and dowsing_pendulum_effect.enabled:
