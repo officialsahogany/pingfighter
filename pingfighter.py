@@ -26591,31 +26591,39 @@ def _draw_hint_lamp(
     shadow_color = (120, 96, 32)
     x, y = center
 
-    body_rect = pygame.Rect(0, 0, 80, 26)
+    body_width = max(6, int(80 * scale))
+    body_height = max(4, int(26 * scale))
+    body_rect = pygame.Rect(0, 0, body_width, body_height)
     body_rect.center = (x + wiggle, y)
     pygame.draw.ellipse(surface, shadow_color, body_rect.inflate(6, 6))
     pygame.draw.ellipse(surface, base_color, body_rect)
-    highlight_rect = body_rect.inflate(-int(body_rect.width * 0.45), -int(body_rect.height * 0.6))
+    highlight_rect = body_rect.inflate(
+        -max(1, int(body_rect.width * 0.45)),
+        -max(1, int(body_rect.height * 0.6)),
+    )
     pygame.draw.ellipse(surface, accent_color, highlight_rect)
 
+    half_width = body_rect.width / 2
     spout = [
-        (x + wiggle + body_rect.width // 2 - 2, y - 6),
-        (x + wiggle + body_rect.width // 2 + 20, y - 3),
-        (x + wiggle + body_rect.width // 2 + 20, y + 3),
-        (x + wiggle + body_rect.width // 2 - 2, y + 6),
+        (int(x + wiggle + half_width - 2 * scale), int(y - 6 * scale)),
+        (int(x + wiggle + half_width + 20 * scale), int(y - 3 * scale)),
+        (int(x + wiggle + half_width + 20 * scale), int(y + 3 * scale)),
+        (int(x + wiggle + half_width - 2 * scale), int(y + 6 * scale)),
     ]
     pygame.draw.polygon(surface, shadow_color, spout)
     pygame.draw.polygon(surface, base_color, spout, 0)
     pygame.draw.lines(surface, accent_color, False, spout, 2)
 
-    handle_rect = pygame.Rect(0, 0, 18, 18)
-    handle_rect.center = (x + wiggle - body_rect.width // 2 - 8, y)
+    handle_size = max(4, int(18 * scale))
+    handle_rect = pygame.Rect(0, 0, handle_size, handle_size)
+    handle_rect.center = (int(x + wiggle - half_width - 8 * scale), int(y))
     pygame.draw.ellipse(surface, shadow_color, handle_rect.inflate(4, 4))
     pygame.draw.ellipse(surface, base_color, handle_rect)
 
     for idx in range(3):
         smoke_progress = ((elapsed_ms / 450.0) + idx * 0.33) % 1.0
-        smoke_radius = max(3, int(8 - smoke_progress * 5))
+        base_radius = 8 * scale
+        smoke_radius = max(2, int(base_radius - smoke_progress * 5 * scale))
         smoke_alpha = max(0, int(120 * (1.0 - smoke_progress)))
         smoke_surface = pygame.Surface((smoke_radius * 4, smoke_radius * 4), pygame.SRCALPHA)
         pygame.draw.circle(
@@ -26624,9 +26632,15 @@ def _draw_hint_lamp(
             (smoke_radius * 2, smoke_radius * 2),
             smoke_radius * 2,
         )
-        offset_x = math.sin((elapsed_ms / 260.0) + idx * 1.2) * 6
-        offset_y = -22 - smoke_progress * 34 - idx * 8
-        surface.blit(smoke_surface, (x + offset_x - smoke_radius * 2, y + offset_y - smoke_radius * 2))
+        offset_x = math.sin((elapsed_ms / 260.0) + idx * 1.2) * 6 * scale
+        offset_y = -22 * scale - smoke_progress * 34 * scale - idx * 8 * scale
+        surface.blit(
+            smoke_surface,
+            (
+                int(x + offset_x - smoke_radius * 2),
+                int(y + offset_y - smoke_radius * 2),
+            ),
+        )
 
 
 def _draw_tutorial_guide_hint() -> None:
@@ -26640,26 +26654,39 @@ def _draw_tutorial_guide_hint() -> None:
         tutorial_guide_hint_visible = False
         return
 
-    hint_font = FontStyle.body()
+    scale = TUTORIAL_GUIDE_HINT_SCALE
+    font_size = max(8, int(24 * scale))
+    hint_font = get_font(font_size)
     message = "튜토리얼 가이드 → T키"
     text_surface = hint_font.render(message, True, (240, 245, 255))
     text_rect = text_surface.get_rect()
 
-    padding_x = 60
-    padding_y = 14
-    bg_width = text_rect.width + padding_x + 40
+    left_padding = max(18, int(60 * scale))
+    right_padding = max(12, int(40 * scale))
+    padding_y = max(6, int(14 * scale))
+    bg_width = text_rect.width + left_padding + right_padding
     bg_height = text_rect.height + padding_y * 2
     hint_surface = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
     hint_surface.fill((18, 24, 44, 210))
-    pygame.draw.rect(hint_surface, (115, 160, 255, 240), (0, 0, bg_width, bg_height), 2, border_radius=12)
+    border_width = max(1, int(2 * scale))
+    border_radius = max(4, int(12 * scale))
+    pygame.draw.rect(
+        hint_surface,
+        (115, 160, 255, 240),
+        (0, 0, bg_width, bg_height),
+        border_width,
+        border_radius=border_radius,
+    )
 
-    lamp_center = (28, bg_height // 2)
-    _draw_hint_lamp(hint_surface, lamp_center, elapsed)
+    lamp_center = (left_padding // 2, bg_height // 2)
+    _draw_hint_lamp(hint_surface, lamp_center, elapsed, scale)
 
-    text_pos = (padding_x, (bg_height - text_rect.height) // 2)
+    text_pos = (left_padding, (bg_height - text_rect.height) // 2)
     hint_surface.blit(text_surface, text_pos)
 
-    SCREEN.blit(hint_surface, (36, 36))
+    offset_x = max(10, int(36 * scale))
+    offset_y = max(10, int(36 * scale))
+    SCREEN.blit(hint_surface, (offset_x, offset_y))
 
 
 def _draw_common_hud() -> None:
