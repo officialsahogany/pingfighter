@@ -18002,12 +18002,17 @@ def draw_soldier_weapon_ui(screen):
         slot_w, slot_h = weapon_rect.width, weapon_rect.height
 
         icon_surface = get_item_icon("fire_support")
+        is_depleted = fire_support.ammo_count <= 0 and not fire_support.strike_active
         if icon_surface:
             try:
                 scaled_icon = pygame.transform.smoothscale(
                     icon_surface,
                     (max(12, slot_w - 8), max(12, slot_h - 8)),
                 )
+                if is_depleted:
+                    dim_icon = scaled_icon.copy()
+                    dim_icon.fill((100, 100, 100, 255), special_flags=pygame.BLEND_RGBA_MULT)
+                    scaled_icon = dim_icon
                 icon_rect = scaled_icon.get_rect(center=weapon_rect.center)
                 screen.blit(scaled_icon, icon_rect)
             except Exception:
@@ -18019,12 +18024,21 @@ def draw_soldier_weapon_ui(screen):
                 weapon_rect.width // 2,
                 weapon_rect.height // 2,
             )
-            pygame.draw.rect(screen, (70, 90, 120), radio_body, border_radius=6)
-            pygame.draw.rect(screen, (40, 60, 90), radio_body, 2, border_radius=6)
+            base_fill = (70, 90, 120) if not is_depleted else (90, 90, 90)
+            base_outline = (40, 60, 90) if not is_depleted else (120, 120, 120)
+            speaker_fill = (120, 150, 190) if not is_depleted else (140, 140, 140)
+            dial_fill = (210, 220, 240) if not is_depleted else (170, 170, 170)
+            pygame.draw.rect(screen, base_fill, radio_body, border_radius=6)
+            pygame.draw.rect(screen, base_outline, radio_body, 2, border_radius=6)
             speaker_rect = radio_body.inflate(-radio_body.width // 3, -radio_body.height // 3)
-            pygame.draw.rect(screen, (120, 150, 190), speaker_rect, border_radius=3)
+            pygame.draw.rect(screen, speaker_fill, speaker_rect, border_radius=3)
             dial_center = (radio_body.centerx, radio_body.bottom - radio_body.height // 4)
-            pygame.draw.circle(screen, (210, 220, 240), dial_center, max(2, radio_body.width // 6))
+            pygame.draw.circle(screen, dial_fill, dial_center, max(2, radio_body.width // 6))
+
+        if is_depleted:
+            dim_overlay = pygame.Surface((slot_w, slot_h), pygame.SRCALPHA)
+            dim_overlay.fill((50, 50, 50, 130))
+            screen.blit(dim_overlay, weapon_rect.topleft)
 
         status_text = "준비완료"
         status_color = (150, 220, 255)
@@ -18037,7 +18051,7 @@ def draw_soldier_weapon_ui(screen):
                 status_color = (255, 140, 90)
         elif fire_support.ammo_count <= 0:
             status_text = "탄약 없음"
-            status_color = (220, 120, 120)
+            status_color = (180, 180, 180)
         elif not fire_support.can_call():
             status_text = "대기 중"
             status_color = (200, 200, 200)
@@ -18065,10 +18079,16 @@ def draw_soldier_weapon_ui(screen):
                 ammo_height,
             )
             filled = idx < fire_support.ammo_count
-            body_color = (245, 205, 110) if filled else (90, 90, 90)
-            nose_color = (255, 140, 70) if filled else (120, 120, 120)
+            if filled:
+                body_color = (245, 205, 110)
+                nose_color = (255, 140, 70)
+                outline_color = (255, 240, 190)
+            else:
+                body_color = (90, 90, 90)
+                nose_color = (120, 120, 120)
+                outline_color = (130, 130, 130)
             pygame.draw.rect(screen, body_color, ammo_rect, border_radius=3)
-            pygame.draw.rect(screen, (255, 240, 190) if filled else (130, 130, 130), ammo_rect, 2, border_radius=3)
+            pygame.draw.rect(screen, outline_color, ammo_rect, 2, border_radius=3)
             nose_height = max(4, ammo_height // 3)
             nose_rect = pygame.Rect(ammo_rect.x, ammo_rect.y, ammo_rect.width, nose_height)
             pygame.draw.rect(screen, nose_color, nose_rect, border_radius=3)
