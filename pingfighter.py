@@ -32649,7 +32649,7 @@ def draw_objects():
     effects_manager.update_all_effects()
     effects_manager.draw_all_effects(SCREEN)
     draw_repair_jobs(SCREEN)
-    draw_repair_glow_effects(SCREEN)
+    # draw_repair_glow_effects는 건물 위에 그려지도록 draw_blacksmith_turret_elements 직후로 이동함
     # 터렛 미사일 업데이트 및 그리기 (스테이지 6에서만)
     if current_stage == 6:
         current_time = pygame.time.get_ticks()
