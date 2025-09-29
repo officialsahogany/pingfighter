@@ -11648,6 +11648,12 @@ def draw_supply_drop_system(screen: pygame.Surface) -> None:
     supply_draw_items(screen, supply_drop_state)
 
 
+def draw_fire_support_system(screen: pygame.Surface) -> None:
+    fire_support_weapon = get_fire_support_instance()
+    if fire_support_weapon.is_active() or fire_support_weapon.bombs or fire_support_weapon.aircraft:
+        fire_support_weapon.draw(screen)
+
+
 def draw_bazooka_recoil_effect(screen: pygame.Surface) -> None:
     """바주카포 반동 시각 효과 그리기"""
     global bazooka_recoil_timer, bazooka_recoil_direction, bazooka_recoil_strength
@@ -24983,6 +24989,7 @@ def draw_overlay_ui() -> None:
 
         if selected_character_type == "soldier":
             draw_supply_drop_system(SCREEN)
+            draw_fire_support_system(SCREEN)
             draw_soldier_weapon_ui(SCREEN)
 
         if current_stage == 4 and animated_bg_stage4 is not None:
@@ -25033,6 +25040,7 @@ def draw_overlay_ui():
 
         if selected_character_type == "soldier":
             draw_supply_drop_system(SCREEN)
+            draw_fire_support_system(SCREEN)
             draw_soldier_weapon_ui(SCREEN)
 
         draw_pandora_box_effect()
@@ -56375,6 +56383,7 @@ def main(stage_num, new_boss_mode=False):
                 # 물자보급 시스템 그리기 (코만도 캐릭터 전용)
                 if selected_character_type == "soldier":
                     draw_supply_drop_system(SCREEN)
+                    draw_fire_support_system(SCREEN)
                     # draw_bazooka_recoil_effect(SCREEN)  # 바주카포 반동 효과 비활성화
                 
                 draw_pandora_box_effect()  # 판도라의 상자 무지개 효과
@@ -56450,6 +56459,7 @@ def main(stage_num, new_boss_mode=False):
                 # 물자보급 시스템 그리기 (코만도 캐릭터 전용)
                 if selected_character_type == "soldier":
                     draw_supply_drop_system(SCREEN)
+                    draw_fire_support_system(SCREEN)
                     # draw_bazooka_recoil_effect(SCREEN)  # 바주카포 반동 효과 비활성화
                 
                 draw_pandora_box_effect()  # 판도라의 상자 무지개 효과
