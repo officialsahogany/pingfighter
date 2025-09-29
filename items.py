@@ -108,6 +108,7 @@ def load_item_icons():
         "ammo_box": "ammo_box.png",  # 탄약상자 아이콘
         "doping_potion": "doping_potion.png",  # 도핑물약 아이콘
         "net_gun": "net_gun.png",  # 그물덫총 아이콘
+        "fire_support": "fire_support.png",  # 화력지원 아이콘
         "spider_mine": "spider_mine.png",  # 스파이더지뢰 아이콘
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
@@ -505,6 +506,15 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
+        "name": "fire_support",  # 화력지원 화기류 (물자보급 전용)
+        "color": (255, 160, 70),
+        "effect": "fire_support",
+        "icon": None,
+        "chance": 0,
+        "duration": 0,
+        "unlock_condition": None
+    },
+    {
         "name": "doping_potion",  # 도핑물약 액티브 아이템 (물자보급 전용)
         "color": (120, 220, 160),  # 연두색 계열 강화약
         "effect": "doping_potion",
@@ -600,6 +610,7 @@ unlocked_items = {
     "foul_whistle": True,
     "smartphone": True,
     "ammo_box": True,
+    "fire_support": True,
     "doping_potion": True,
     
     # 전설 아이템 해금 상태
