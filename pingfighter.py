@@ -32669,7 +32669,6 @@ def draw_objects():
     effects_manager.draw_all_effects(SCREEN)
     draw_repair_jobs(SCREEN)
     draw_holy_light_particles(SCREEN)  # 성스러운 빛 파티클 그리기
-    draw_holy_light_flashes(SCREEN)  # 건물 흰색 반짝임 그리기
     # 터렛 미사일 업데이트 및 그리기 (스테이지 6에서만)
     if current_stage == 6:
         current_time = pygame.time.get_ticks()
@@ -58092,7 +58091,6 @@ def main(stage_num, new_boss_mode=False):
                 update_brick_particles()  # 벽돌 파티클 업데이트
                 update_active_repair_jobs()
                 update_holy_light_particles()  # 성스러운 빛 파티클 업데이트
-                update_holy_light_flashes()  # 건물 흰색 반짝임 업데이트
 
                 # 다우징팬들럼 효과 적용 (아이템을 끌어당김)
                 if items.dowsing_pendulum_obtained and dowsing_pendulum_effect.enabled:
