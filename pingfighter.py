@@ -2298,6 +2298,8 @@ def trigger_grenade_style_explosion(
             global boss_current_health
             boss_current_health = max(0, boss_current_health - 3)
             print(f"💥 보스 체력 피해: -3 → {boss_current_health}/{boss_max_health}")
+            if source == "fire_support" and selected_character_type == "soldier":
+                apply_health_boss_damage(1, source="fire_support")
         else:
             print("💥 보스 넉백 및 스턴 적용")
 
