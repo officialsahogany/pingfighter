@@ -84,6 +84,14 @@ def normalize_language_code(value: str) -> str:
         return mapped
     return DEFAULT_LANGUAGE
 
+
+def translate(key: str, fallback: str) -> str:
+    return get_localization_manager().get_text(key, fallback)
+
+
+def get_language_display_name(code: str) -> str:
+    return get_localization_manager().get_language_label(code)
+
 def draw_slider(surface, x, y, width, height, value, min_val, max_val, color=(100, 150, 255)):
     """슬라이더 그리기"""
     # 슬라이더 배경
