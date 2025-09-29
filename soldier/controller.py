@@ -136,8 +136,8 @@ class SoldierWeaponController:
                 if ammo_empty and inactive and no_bombs and aircraft_clear:
                     if hasattr(fire_support, "unequip"):
                         fire_support.unequip()
-                    if hasattr(fire_support, "reset_state"):
-                        fire_support.reset_state()
+                    if hasattr(fire_support, "reset_runtime"):
+                        fire_support.reset_runtime()
                     self.remove_weapon("fire_support")
                     print("⚠️ 화력지원 노후화로 폭격 지원 장비가 파괴되었습니다.")
 
