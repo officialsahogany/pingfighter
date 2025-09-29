@@ -17048,25 +17048,6 @@ def _cancel_repair_job(job_type: str, *, state=None, wall=None) -> None:
     if job:
         job["cancelled"] = True
 
-
-def _start_repair_glow(kind: str, *, rect=None, state=None, wall=None) -> None:
-    """수리 이펙트를 등록한다."""
-    entry = {
-        "type": kind,
-        "duration": REPAIR_GLOW_DURATION_FRAMES,
-        "timer": REPAIR_GLOW_DURATION_FRAMES,
-        "phase": random.random() * math.tau,
-        "angular_speed": random.uniform(0.04, 0.08),  # 더 천천히 회전하도록 속도 감소
-    }
-    if rect is not None:
-        entry["rect"] = rect.copy()
-    if state is not None:
-        entry["state"] = state
-    if wall is not None:
-        entry["wall"] = wall
-    repair_glow_effects.append(entry)
-
-
 def update_active_repair_jobs() -> None:
     if not active_repair_jobs:
         return
