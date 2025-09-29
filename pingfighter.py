@@ -17,6 +17,7 @@ import sys
 import math
 import random
 import importlib
+import copy
 
 # ============================================================
 # 2. 외부 라이브러리 Import
@@ -11223,7 +11224,138 @@ def _render_blacksmith_hammer_preview(surface: pygame.Surface, rect: pygame.Rect
 
 
 def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect) -> bool:
-    return _genie_preview_blit_scaled(surface, BLACKSMITH_TURRET_ICON, rect)
+    try:
+        state_controller = BLACKSMITH_CONTROLLER.state
+    except NameError:
+        return False
+
+    temp_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+
+    scale = min(
+        rect.width / max(1, BLACKSMITH_TURRET_BASE_WIDTH),
+        rect.height / max(1, BLACKSMITH_TURRET_BASE_HEIGHT),
+    )
+    scale = max(scale, 0.25)
+
+    turret_width = max(12, int(BLACKSMITH_TURRET_BASE_WIDTH * scale))
+    turret_height = max(12, int(BLACKSMITH_TURRET_BASE_HEIGHT * scale))
+    turret_rect = pygame.Rect(0, 0, turret_width, turret_height)
+    turret_rect.midbottom = (rect.width // 2, rect.height - 6)
+
+    turret_state_preview = {
+        "rect": turret_rect,
+        "fire_timer": BLACKSMITH_TURRET_FIRE_INTERVAL,
+        "fire_interval": BLACKSMITH_TURRET_FIRE_INTERVAL,
+        "hp": BLACKSMITH_TURRET_BASE_HP,
+        "max_hp": BLACKSMITH_TURRET_BASE_HP,
+        "level": BLACKSMITH_TURRET_BASE_LEVEL,
+        "xp": 0.0,
+        "xp_max": float(BLACKSMITH_TURRET_XP_REQUIRED),
+        "aim_angle": -math.pi / 2,
+        "display_angle": -math.pi / 2,
+        "recoil_timer": 0,
+        "recoil_offset": 0.0,
+        "base_fire_interval": BLACKSMITH_TURRET_FIRE_INTERVAL,
+        "overdrive_active": False,
+        "overdrive_timer": 0,
+        "overdrive_fire_window": 0,
+        "overdrive_shots_remaining": 0,
+        "overdrive_shot_cooldown": 0,
+        "overdrive_glow_phase": 0.0,
+        "overdrive_flash_timer": 0,
+        "overdrive_recoil_boost": 1.0,
+        "overdrive_speed_boost": 1.0,
+        "overdrive_stun_multiplier": 1.0,
+        "overdrive_knockback_multiplier": 1.0,
+        "overdrive_divine_active": False,
+        "overheat_timer": 0,
+        "overheat_smoke_timer": 0,
+        "display_angle_accel": 0.0,
+    }
+
+    # 백업
+    turret_backup = copy.deepcopy(state_controller.turret)
+    divine_backup = copy.deepcopy(state_controller.divine)
+    globals_backup_keys = [
+        "blacksmith_turret_active",
+        "blacksmith_turret_state",
+        "blacksmith_turret_blueprint_active",
+        "blacksmith_turret_blueprint_rect",
+        "blacksmith_turret_projectiles",
+        "blacksmith_turret_build_progress",
+        "blacksmith_turret_partial_drain",
+        "blacksmith_turret_xp_partial_drain",
+        "blacksmith_turret_manual_cooldown",
+        "blacksmith_turret_overdrive_ui_timer",
+        "blacksmith_turret_overdrive_ui_divine",
+        "blacksmith_turret_overheat_timer",
+        "blacksmith_turret_overheat_smoke_timer",
+        "blacksmith_divine_blueprint_active",
+        "blacksmith_divine_blueprint_rect",
+        "blacksmith_divine_build_progress",
+        "blacksmith_divine_partial_drain",
+        "blacksmith_divine_stone_state",
+    ]
+    globals_backup = {k: copy.deepcopy(globals().get(k)) for k in globals_backup_keys}
+
+    try:
+        # 프리뷰용 전역/상태 설정
+        globals()["blacksmith_turret_active"] = True
+        globals()["blacksmith_turret_state"] = turret_state_preview
+        globals()["blacksmith_turret_blueprint_active"] = False
+        globals()["blacksmith_turret_blueprint_rect"] = None
+        globals()["blacksmith_turret_projectiles"] = []
+        globals()["blacksmith_turret_build_progress"] = 0
+        globals()["blacksmith_turret_partial_drain"] = 0.0
+        globals()["blacksmith_turret_xp_partial_drain"] = 0.0
+        globals()["blacksmith_turret_manual_cooldown"] = 0
+        globals()["blacksmith_turret_overdrive_ui_timer"] = 0
+        globals()["blacksmith_turret_overdrive_ui_divine"] = False
+        globals()["blacksmith_turret_overheat_timer"] = 0
+        globals()["blacksmith_turret_overheat_smoke_timer"] = 0
+        globals()["blacksmith_divine_blueprint_active"] = False
+        globals()["blacksmith_divine_blueprint_rect"] = None
+        globals()["blacksmith_divine_build_progress"] = 0
+        globals()["blacksmith_divine_partial_drain"] = 0.0
+        globals()["blacksmith_divine_stone_state"] = None
+
+        state_controller.turret.active = True
+        state_controller.turret.blueprint_active = False
+        state_controller.turret.blueprint_rect = None
+        state_controller.turret.build_progress = 0
+        state_controller.turret.state = turret_state_preview
+        state_controller.turret.projectiles = []
+        state_controller.turret.partial_drain = 0.0
+        state_controller.turret.xp_partial_drain = 0.0
+        state_controller.turret.manual_cooldown = 0
+        state_controller.turret.overdrive_ui_timer = 0
+        state_controller.turret.overdrive_ui_divine = False
+        state_controller.turret.overheat_timer = 0
+        state_controller.turret.overheat_smoke_timer = 0
+
+        state_controller.divine.state = None
+        state_controller.divine.blueprint_active = False
+        state_controller.divine.blueprint_rect = None
+        state_controller.divine.build_progress = 0
+        state_controller.divine.partial_drain = 0.0
+
+        draw_blacksmith_turret_elements(temp_surface)
+
+        surface.blit(temp_surface, rect.topleft, special_flags=pygame.BLEND_PREMULTIPLIED)
+        return True
+    finally:
+        # 상태 복구
+        state_controller.turret = turret_backup
+        state_controller.divine = divine_backup
+
+        for key, value in globals_backup.items():
+            globals()[key] = value
+
+        # 컨트롤러와 전역 동기화
+        try:
+            BLACKSMITH_CONTROLLER.apply_to_globals()
+        except Exception:
+            pass
 
 
 def _render_blacksmith_divine_preview(surface: pygame.Surface, rect: pygame.Rect) -> bool:
