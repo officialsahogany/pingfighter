@@ -18245,13 +18245,28 @@ def draw_soldier_weapon_ui(screen):
         )
         
         # 현재 상태에 따른 색상
+        strike_active = getattr(fire_support, "strike_active", False)
+        calling_in_progress = getattr(fire_support, "calling", False)
         filled = fire_support.ammo_count > 0
         if filled:
-            bg_color = (25, 35, 45)  # 어두운 무전기 화면
-            screen_color = (40, 60, 80)  # LCD 스크린 색상
-            text_color = (120, 255, 150)  # 밝은 녹색 LED
-            signal_color = (255, 200, 100)  # 신호 강도 표시
-            outline_color = (60, 80, 100)
+            if strike_active:
+                bg_color = (30, 22, 18)  # 폭격 알림 시 붉은 기조
+                screen_color = (82, 38, 30)
+                text_color = (255, 198, 132)
+                signal_color = (255, 152, 86)
+                outline_color = (118, 66, 42)
+            elif calling_in_progress:
+                bg_color = (28, 30, 36)
+                screen_color = (58, 60, 66)
+                text_color = (255, 230, 150)
+                signal_color = (255, 210, 120)
+                outline_color = (72, 82, 96)
+            else:
+                bg_color = (25, 35, 45)  # 어두운 무전기 화면
+                screen_color = (40, 60, 80)  # LCD 스크린 색상
+                text_color = (120, 255, 150)  # 밝은 녹색 LED
+                signal_color = (255, 200, 100)  # 신호 강도 표시
+                outline_color = (60, 80, 100)
         else:
             bg_color = (35, 35, 35)
             screen_color = (50, 50, 50)
@@ -18268,15 +18283,38 @@ def draw_soldier_weapon_ui(screen):
         pygame.draw.rect(screen, screen_color, display_rect, border_radius=2)
         pygame.draw.rect(screen, (20, 30, 40), display_rect, 1, border_radius=2)
         
-        # 주파수 표시 (화력지원은 1회용이므로 1 또는 0)
+        # 주파수 및 상태 표시 (화력지원은 1회용이므로 1 또는 0)
         if filled:
-            # 주파수 숫자 표시
-            freq_text = "144.7"
+            display_text = "144.7"
+            text_offset_y = -2
+            if strike_active:
+                display_text = "폭격중.."
+                text_offset_y = -1
+            elif calling_in_progress:
+                display_text = "호출중"
+                text_offset_y = -1
+
             try:
-                if 'font_small' in globals() and font_small:
-                    freq_surface = font_small.render(freq_text, True, text_color)
-                    freq_rect = freq_surface.get_rect(center=(display_rect.centerx, display_rect.centery - 2))
-                    screen.blit(freq_surface, freq_rect)
+                preferred_fonts = []
+                if strike_active or calling_in_progress:
+                    preferred_fonts = ['font_tiny', 'font_small']
+                else:
+                    preferred_fonts = ['font_small', 'font_tiny']
+
+                rendered = False
+                for font_name in preferred_fonts:
+                    font_obj = globals().get(font_name)
+                    if font_obj:
+                        text_surface = font_obj.render(display_text, True, text_color)
+                        text_rect = text_surface.get_rect(center=(
+                            display_rect.centerx,
+                            display_rect.centery + text_offset_y,
+                        ))
+                        screen.blit(text_surface, text_rect)
+                        rendered = True
+                        break
+                if not rendered:
+                    raise RuntimeError("No font for fire_support display")
             except Exception:
                 # 폴백: 점으로 표시
                 for i in range(5):
@@ -18301,7 +18339,7 @@ def draw_soldier_weapon_ui(screen):
             pygame.draw.circle(screen, (255, 200, 200), (led_x, led_y), 2)
             
             # 폭격 진행 중일 때 깜빡임 효과
-            if fire_support.strike_active:
+            if strike_active:
                 blink = int(pygame.time.get_ticks() / 250) % 2
                 if blink:
                     highlight_surface = pygame.Surface((display_rect.width, display_rect.height), pygame.SRCALPHA)
@@ -18318,6 +18356,29 @@ def draw_soldier_weapon_ui(screen):
                     screen.blit(wave_surface, 
                               (body_rect.centerx - wave_radius, 
                                body_rect.centery - wave_radius))
+                    # 폭격 낙하 애니메이션 (간단한 궤적)
+                    anim_ticks = pygame.time.get_ticks()
+                    lane_period = 900
+                    base_phase = (anim_ticks % lane_period) / lane_period
+                    lane_count = 3
+                    lane_spacing = display_rect.width / (lane_count + 1)
+                    start_y = display_rect.top - 6
+                    travel_height = (display_rect.bottom + 6) - start_y
+                    for lane in range(lane_count):
+                        phase = (base_phase + lane * 0.33) % 1.0
+                        drop_y = start_y + phase * travel_height
+                        lane_x = int(display_rect.left + lane_spacing * (lane + 1))
+                        if drop_y < display_rect.bottom - 6:
+                            bomb_rect = pygame.Rect(lane_x - 2, int(drop_y), 4, 7)
+                            pygame.draw.rect(screen, (255, 176, 104), bomb_rect)
+                            pygame.draw.rect(screen, (120, 72, 44), bomb_rect, 1)
+                            pygame.draw.line(screen, (255, 230, 170), (lane_x, bomb_rect.top - 3), (lane_x, bomb_rect.top), 1)
+                        else:
+                            explosion_progress = min(1.0, (drop_y - (display_rect.bottom - 6)) / 10)
+                            explosion_radius = 3 + int(3 * explosion_progress)
+                            center_pos = (lane_x, display_rect.bottom - 4)
+                            pygame.draw.circle(screen, (255, 204, 140), center_pos, explosion_radius)
+                            pygame.draw.circle(screen, (255, 132, 84), center_pos, max(1, explosion_radius - 2), 1)
         else:
             # 탄약 없음 - OFF 표시
             try:
