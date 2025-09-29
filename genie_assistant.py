@@ -591,6 +591,7 @@ class GenieAssistant:
         self.detail_scroll_offset = 0.0
         self.detail_scroll_direction = 1
         self.detail_scroll_wait = 0.0
+        self._detail_view_height = 0.0
         if reset_layout:
             self._detail_lines = []
             self._detail_total_height = 0.0
