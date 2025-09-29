@@ -411,6 +411,7 @@ class FireSupport:
     def reset_runtime(self) -> None:
         self.reset_state()
         self.ammo_count = 0
+        self._has_initial_load = False
 
     def rearm(self, *, track_reload: bool = False, ammo_override: Optional[int] = None) -> None:
         self.reset_state()
