@@ -11167,11 +11167,34 @@ def _render_thor_shield_preview(surface: pygame.Surface, rect: pygame.Rect) -> b
     overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
     scale = 0.10
     pivot_x = rect.width * 0.26
-    pivot_y = rect.height * 0.5
-    head_x = pivot_x + rect.width * 0.4
-    head_y = pivot_y - rect.height * 0.05
+    pivot_y = rect.height * 0.52
+    base_dx = rect.width * 0.4
+    base_dy = -rect.height * 0.05
+
+    cycle_ms = 6000
+    phase = pygame.time.get_ticks() % cycle_ms
+    max_angle = 42.0  # degrees
+
+    if phase < 2000:
+        swing_angle = 0.0
+    elif phase < 3500:
+        t = (phase - 2000) / 1500.0
+        swing_angle = -max_angle * t
+    elif phase < 5000:
+        t = (phase - 3500) / 1500.0
+        swing_angle = -max_angle + (2 * max_angle * t)
+    else:
+        t = (phase - 5000) / 1000.0
+        swing_angle = max_angle * (1.0 - t)
+
+    angle_rad = math.radians(swing_angle)
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+    swing_dx = base_dx * cos_a - base_dy * sin_a
+    swing_dy = base_dx * sin_a + base_dy * cos_a
+
     pivot_point = (pivot_x, pivot_y)
-    head_point = (head_x, head_y)
+    head_point = (pivot_x + swing_dx, pivot_y + swing_dy)
     _draw_blacksmith_umbrella_overlay(
         overlay,
         pivot_point,
