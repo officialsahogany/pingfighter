@@ -9826,7 +9826,7 @@ def draw_blacksmith_build_menu(surface):
         push_blacksmith_state()
         return
 
-    spacing = BLACKSMITH_BUILD_ICON_SIZE[0] + 44
+    spacing = BLACKSMITH_BUILD_ICON_SIZE[0] + 36
     base_x = PLAYER.centerx
     base_y = max(60, PLAYER.top - 60)
 
