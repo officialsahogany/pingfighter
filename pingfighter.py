@@ -17246,6 +17246,9 @@ def update_repair_glow_effects() -> None:
 def draw_repair_glow_effects(surface: pygame.Surface) -> None:
     if not repair_glow_effects:
         return
+    
+    # 디버그: 수리 이펙트가 그려지는지 확인
+    print(f"[DEBUG] draw_repair_glow_effects 호출됨, 이펙트 개수: {len(repair_glow_effects)}")
 
     for effect in repair_glow_effects:
         rect = None
