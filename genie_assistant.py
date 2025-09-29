@@ -337,12 +337,38 @@ class GenieAssistant:
                 self._enter_menu_phase()
                 return True
             if self.phase == "menu":
-                if event.key in (pygame.K_UP, pygame.K_w):
-                    self._move_selection(-1)
-                    return True
-                if event.key in (pygame.K_DOWN, pygame.K_s):
-                    self._move_selection(1)
-                    return True
+                if self.detail_focus:
+                    if event.key in (pygame.K_LEFT, pygame.K_a):
+                        self.detail_focus = False
+                        return True
+                    if event.key in (pygame.K_UP, pygame.K_w):
+                        self._scroll_detail_by(-self._detail_scroll_step())
+                        return True
+                    if event.key in (pygame.K_DOWN, pygame.K_s):
+                        self._scroll_detail_by(self._detail_scroll_step())
+                        return True
+                    if event.key == pygame.K_PAGEUP:
+                        self._scroll_detail_by(-self._page_scroll_step())
+                        return True
+                    if event.key == pygame.K_PAGEDOWN:
+                        self._scroll_detail_by(self._page_scroll_step())
+                        return True
+                    if event.key == pygame.K_HOME:
+                        self._set_detail_scroll_ratio(0.0)
+                        return True
+                    if event.key == pygame.K_END:
+                        self._set_detail_scroll_ratio(1.0)
+                        return True
+                else:
+                    if event.key in (pygame.K_RIGHT, pygame.K_d):
+                        self.detail_focus = True
+                        return True
+                    if event.key in (pygame.K_UP, pygame.K_w):
+                        self._move_selection(-1)
+                        return True
+                    if event.key in (pygame.K_DOWN, pygame.K_s):
+                        self._move_selection(1)
+                        return True
                 if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     # 메뉴에서는 상세 패널이 항상 열려 있으므로 입력을 소비만 한다.
                     return True
@@ -462,7 +488,8 @@ class GenieAssistant:
         pygame.draw.rect(surface, COLOR_MENU_BORDER, menu_rect, width=2, border_radius=18)
 
         pygame.draw.rect(surface, COLOR_DETAIL_BG, detail_rect, border_radius=18)
-        pygame.draw.rect(surface, (90, 120, 190, 140), detail_rect, width=2, border_radius=18)
+        detail_border = COLOR_DETAIL_BORDER_FOCUS if self.detail_focus else COLOR_DETAIL_BORDER
+        pygame.draw.rect(surface, detail_border, detail_rect, width=2, border_radius=18)
 
         self._draw_menu_items(surface, menu_rect)
         self._draw_detail_panel(surface, detail_rect)
@@ -549,10 +576,29 @@ class GenieAssistant:
         self._draw_animation_preview(surface, animation_rect, item.get("animation"))
 
         text_top = animation_rect.bottom + 20
-        text_rect = pygame.Rect(detail_rect.left + 28, text_top, detail_rect.width - 56, detail_rect.bottom - text_top - 24)
+        scrollbar_width = 10
+        scrollbar_gap = 6
+        text_rect = pygame.Rect(
+            detail_rect.left + 28,
+            text_top,
+            detail_rect.width - 56 - scrollbar_width - scrollbar_gap,
+            detail_rect.bottom - text_top - 24,
+        )
+        scrollbar_rect = pygame.Rect(
+            text_rect.right + scrollbar_gap,
+            text_rect.top,
+            scrollbar_width,
+            text_rect.height,
+        )
         self._detail_view_height = text_rect.height
         self._update_detail_layout(item, text_rect.width)
         self._draw_detail_text(surface, text_rect)
+        self._draw_detail_scrollbar(surface, scrollbar_rect)
+
+        hint_color = COLOR_TEXT_MAIN if self.detail_focus else COLOR_TEXT_DIM
+        hint_surface = self.small_font.render("←: 목록   ↑↓: 스크롤", True, hint_color)
+        hint_pos = (detail_rect.left + 24, detail_rect.bottom - 28)
+        surface.blit(hint_surface, hint_pos)
 
     def _draw_detail_text(self, surface: pygame.Surface, text_rect: pygame.Rect) -> None:
         if not self._detail_lines:
