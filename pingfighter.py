@@ -2261,6 +2261,7 @@ def trigger_grenade_style_explosion(
     *,
     apply_commando_bonus: bool,
     source: str = "grenade",
+    radius_scale: float = 1.0,
 ) -> None:
     """수류탄과 동일한 폭발 효과를 발생시킨다."""
 
@@ -2269,6 +2270,7 @@ def trigger_grenade_style_explosion(
     import items
 
     base_radius = 150
+    base_radius = max(10, int(base_radius * radius_scale))
     if apply_commando_bonus and items.commando_arm_obtained:
         explosion_radius = int(base_radius * 1.1)
         print(f"🚨 코만도암 효과 적용: 폭발 반경 {explosion_radius} (기본 {base_radius})")
@@ -56735,6 +56737,7 @@ def main(stage_num, new_boss_mode=False):
                             ey,
                             apply_commando_bonus=True,
                             source="fire_support",
+                            radius_scale=0.8,
                         ),
                     )
                     if fire_support_weapon.radio_active and not fire_support_weapon.is_calling():
