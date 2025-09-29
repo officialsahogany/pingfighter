@@ -10854,9 +10854,18 @@ def get_blacksmith_umbrella_recover_interval_frames() -> int:
 def get_blacksmith_umbrella_gauge_gain() -> int:
     """현재 토르쉴드 패들 충돌 시 기본 게이지 획득량을 반환한다."""
 
+    global blacksmith_blocking_penalty_timer
+
     if is_blacksmith_divine_stone_active():
-        return BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE
-    return BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE
+        base_gain = BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE
+    else:
+        base_gain = BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE
+
+    if blacksmith_blocking_penalty_timer > 0:
+        reduced_gain = int(round(base_gain * (1.0 - BLACKSMITH_BLOCKING_PENALTY_RATIO)))
+        return max(1, reduced_gain)
+
+    return base_gain
 blacksmith_umbrella_recharge_progress = 0
 blacksmith_umbrella_damage_flash_timer = 0
 blacksmith_umbrella_last_hit_frame = -1000
@@ -19948,6 +19957,7 @@ def handle_player(keys):
     global blacksmith_umbrella_gauge, blacksmith_umbrella_recharge_progress
     global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
     global blacksmith_umbrella_hit_lock
+    global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
     global fire_support_radio_loop_active
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
@@ -20401,6 +20411,11 @@ def handle_player(keys):
     up_just_pressed = up_pressed and not player_up_pressed_prev
 
     if selected_character_type == "blacksmith":
+        if blacksmith_blocking_penalty_timer > 0:
+            blacksmith_blocking_penalty_timer -= 1
+        if blacksmith_blocking_toast_timer > 0:
+            blacksmith_blocking_toast_timer -= 1
+
         if blacksmith_umbrella_damage_flash_timer > 0:
             blacksmith_umbrella_damage_flash_timer -= 1
 
