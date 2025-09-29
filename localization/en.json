@@ -1,0 +1,21 @@
+{
+  "option.title": "Options",
+  "option.category.language": "Language",
+  "option.category.sound": "Sound",
+  "option.category.screen": "Display",
+  "option.category.controls": "Controls",
+  "option.back": "Back",
+  "option.apply": "Apply",
+  "option.language.ko": "Korean",
+  "option.language.en": "English",
+  "option.language.ja": "Japanese",
+  "option.sound.bgm_volume": "BGM Volume",
+  "option.sound.sfx_volume": "SFX Volume",
+  "option.screen.windowed": "Windowed",
+  "option.screen.fullscreen": "Fullscreen",
+  "option.screen.guide": "Use ↑↓ to choose, Space/Enter to apply",
+  "option.controls.keyboard": "Keyboard",
+  "option.controls.mouse": "Mouse",
+  "option.controls.gamepad": "Gamepad",
+  "option.controls.mouse_hint": "Mouse: move paddle, Left Click: Ultimate, Right Click: Dash, Wheel: Select Item, Wheel Click: Use Item"
+}

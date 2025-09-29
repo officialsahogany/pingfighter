@@ -1,0 +1,21 @@
+{
+  "option.title": "옵션",
+  "option.category.language": "언어",
+  "option.category.sound": "사운드",
+  "option.category.screen": "화면",
+  "option.category.controls": "조작",
+  "option.back": "뒤로가기",
+  "option.apply": "적용",
+  "option.language.ko": "한국어",
+  "option.language.en": "English",
+  "option.language.ja": "日本語",
+  "option.sound.bgm_volume": "BGM 볼륨",
+  "option.sound.sfx_volume": "효과음 볼륨",
+  "option.screen.windowed": "창모드",
+  "option.screen.fullscreen": "전체화면",
+  "option.screen.guide": "↑↓ 키로 선택, 스페이스바/엔터로 적용",
+  "option.controls.keyboard": "키보드",
+  "option.controls.mouse": "마우스",
+  "option.controls.gamepad": "조이패드",
+  "option.controls.mouse_hint": "마우스 움직임: 패들 조작, 왼쪽클릭: 필살기, 오른쪽클릭: 대쉬, 휠: 아이템선택, 휠클릭: 아이템사용"
+}
