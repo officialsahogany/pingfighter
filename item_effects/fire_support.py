@@ -563,6 +563,8 @@ class FireSupport:
                 self.radio_release_timer = self.RADIO_RELEASE_FRAMES
             else:
                 self.radio_release_timer -= 1
+                fade_ratio = max(0.0, self.radio_release_timer / self.RADIO_RELEASE_FRAMES)
+                self._set_radio_volume(self.radio_volume * fade_ratio)
                 if self.radio_release_timer <= 0:
                     self.strike_active = False
                     self.finished = True

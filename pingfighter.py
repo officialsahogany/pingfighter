@@ -20330,6 +20330,7 @@ def handle_player(keys):
                     blacksmith_umbrella_retracting = False
                     blacksmith_umbrella_anim_direction = 1
                     blacksmith_umbrella_retract_start_frame = -1000
+                    blacksmith_umbrella_retract_grace_timer = 0
                     blacksmith_umbrella_hitbox_extents = (0.0, 0.0)
                     blacksmith_umbrella_hitbox_vertical = (0.0, 0.0)
                     blacksmith_umbrella_hitbox_center_offset = (0.0, 0.0)
@@ -20337,6 +20338,9 @@ def handle_player(keys):
                     blacksmith_umbrella_swing_direction = 1
                 else:
                     blacksmith_umbrella_anim_direction = 1
+
+            if blacksmith_umbrella_retract_grace_timer > 0:
+                blacksmith_umbrella_retract_grace_timer -= 1
 
             if (
                 up_just_pressed
@@ -20366,6 +20370,7 @@ def handle_player(keys):
                 blacksmith_umbrella_anim_direction = 1
                 blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
                 blacksmith_umbrella_retract_start_frame = -1000
+                blacksmith_umbrella_retract_grace_timer = 0
                 if SOUND_BLACKSMITH_UMBRELLA_OPEN:
                     play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_OPEN)
                 blacksmith_walking_active = False
@@ -22623,7 +22628,7 @@ def handle_player(keys):
                 frames_since_last_hit = BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
             allow_umbrella_hit_during_retract = (
                 blacksmith_umbrella_retracting
-                and frame_counter == blacksmith_umbrella_retract_start_frame
+                and blacksmith_umbrella_retract_grace_timer > 0
             )
             if (
                 (not blacksmith_umbrella_retracting or allow_umbrella_hit_during_retract)
