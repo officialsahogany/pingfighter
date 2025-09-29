@@ -16809,7 +16809,8 @@ def activate_repair_kit():
             structure_changed = True
             if rect:
                 effect_rects.append(rect)
-            _start_repair_glow("turret", state=turret_state)
+            if needs_hp:
+                _start_repair_glow("turret", state=turret_state)
 
     if divine_runtime and divine_runtime.state:
         divine_state = divine_runtime.state
