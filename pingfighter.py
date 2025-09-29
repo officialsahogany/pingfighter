@@ -11361,7 +11361,69 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
 
 
 def _render_blacksmith_divine_preview(surface: pygame.Surface, rect: pygame.Rect) -> bool:
-    return _genie_preview_blit_scaled(surface, BLACKSMITH_DIVINE_ICON, rect)
+    try:
+        state_controller = BLACKSMITH_CONTROLLER.state
+    except NameError:
+        return False
+
+    temp_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+
+    width, height = BLACKSMITH_DIVINE_STONE_SIZE
+    scale = min(rect.width / max(1, width), rect.height / max(1, height))
+    scale = max(scale, 0.25)
+    stone_width = max(12, int(width * scale))
+    stone_height = max(12, int(height * scale))
+    stone_rect = pygame.Rect(0, 0, stone_width, stone_height)
+    stone_rect.midbottom = (rect.width // 2, rect.height - 6)
+
+    divine_state_preview = {
+        "rect": stone_rect,
+        "hp": BLACKSMITH_DIVINE_STONE_MAX_HP,
+        "max_hp": BLACKSMITH_DIVINE_STONE_MAX_HP,
+        "cooldown": 0,
+        "pulse": 0,
+    }
+
+    # 백업
+    turret_backup = copy.deepcopy(state_controller.turret)
+    divine_backup = copy.deepcopy(state_controller.divine)
+    globals_backup_keys = [
+        "blacksmith_divine_stone_state",
+        "blacksmith_divine_blueprint_active",
+        "blacksmith_divine_blueprint_rect",
+        "blacksmith_divine_build_progress",
+        "blacksmith_divine_partial_drain",
+    ]
+    globals_backup = {k: copy.deepcopy(globals().get(k)) for k in globals_backup_keys}
+
+    try:
+        globals()["blacksmith_divine_stone_state"] = divine_state_preview
+        globals()["blacksmith_divine_blueprint_active"] = False
+        globals()["blacksmith_divine_blueprint_rect"] = None
+        globals()["blacksmith_divine_build_progress"] = BLACKSMITH_DIVINE_BUILD_TIME
+        globals()["blacksmith_divine_partial_drain"] = 0.0
+
+        state_controller.divine.state = divine_state_preview
+        state_controller.divine.blueprint_active = False
+        state_controller.divine.blueprint_rect = None
+        state_controller.divine.build_progress = BLACKSMITH_DIVINE_BUILD_TIME
+        state_controller.divine.partial_drain = 0.0
+
+        draw_blacksmith_turret_elements(temp_surface)
+
+        surface.blit(temp_surface, rect.topleft, special_flags=pygame.BLEND_PREMULTIPLIED)
+        return True
+    finally:
+        state_controller.turret = turret_backup
+        state_controller.divine = divine_backup
+
+        for key, value in globals_backup.items():
+            globals()[key] = value
+
+        try:
+            BLACKSMITH_CONTROLLER.apply_to_globals()
+        except Exception:
+            pass
 
 
 def _render_genie_animation_preview(surface: pygame.Surface, rect: pygame.Rect, animation_id: str, ticks: int) -> bool:
