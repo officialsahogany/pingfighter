@@ -2249,6 +2249,128 @@ grenade_throwing = False  # 수류탄 투척 모션 중
 grenade_throw_timer = 0  # 투척 모션 타이머
 grenade_target_x = 0  # 수류탄 목표 X 좌표
 grenade_target_y = 0  # 수류탄 목표 Y 좌표
+
+
+def trigger_grenade_style_explosion(
+    x: float,
+    y: float,
+    *,
+    apply_commando_bonus: bool,
+    source: str = "grenade",
+) -> None:
+    """수류탄과 동일한 폭발 효과를 발생시킨다."""
+
+    global grenade_shake_timer, boss_stunned_timer, boss_knockback_vel
+    global special_gauge, special_ready, explosion_zones
+    import items
+
+    base_radius = 150
+    if apply_commando_bonus and items.commando_arm_obtained:
+        explosion_radius = int(base_radius * 1.1)
+        print(f"🚨 코만도암 효과 적용: 폭발 반경 {explosion_radius} (기본 {base_radius})")
+    else:
+        explosion_radius = base_radius
+
+    explosion_zone = {
+        "x": x,
+        "y": y,
+        "radius": explosion_radius,
+        "duration": 15,
+        "active": True,
+        "source": source,
+    }
+    explosion_zones.append(explosion_zone)
+    grenade_shake_timer = 40
+    play_sound_with_volume(SOUND_GRENADE)
+    print(f"💥 {source} 폭발 발생: X={x:.1f}, Y={y:.1f}, 반경={explosion_radius}")
+
+    boss_center_x = BOSS.centerx
+    boss_center_y = BOSS.centery
+    distance = calculate_distance((boss_center_x, boss_center_y), (x, y))
+    if distance < explosion_radius:
+        boss_stunned_timer = 120
+        direction = 1 if x < WIDTH / 2 else -1
+        knockback_power = compute_knockback_magnitude("grenade")
+        boss_knockback_vel = _apply_boss_knockback_velocity(direction * knockback_power)
+
+        if current_stage in boss_health_stages:
+            global boss_current_health
+            boss_current_health = max(0, boss_current_health - 3)
+            print(f"💥 보스 체력 피해: -3 → {boss_current_health}/{boss_max_health}")
+        else:
+            print("💥 보스 넉백 및 스턴 적용")
+
+        global special_gauge, selected_character_type
+        if selected_character_type == "soldier":
+            gauge_increase = 70 if apply_commando_bonus and items.commando_arm_obtained else 50
+            old_gauge = special_gauge
+            special_gauge += gauge_increase
+            current_max = get_max_gauge()
+            if special_gauge > current_max:
+                special_gauge = current_max
+            if special_gauge >= 350:
+                special_ready = True
+            message = "코만도암 보너스" if gauge_increase == 70 else "수류탄 명중"
+            print(f"🎯 {message}! 게이지 {old_gauge} → {special_gauge} (+{gauge_increase})")
+
+        if current_stage == 5:
+            global stage5_boss_hurt_active, stage5_boss_hurt_timer
+            stage5_boss_hurt_active = True
+            stage5_boss_hurt_timer = 18
+            if SOUND_STAGE5_HURTS:
+                play_sound_with_volume(random.choice(SOUND_STAGE5_HURTS))
+            for _ in range(2):
+                trade_point_system.spawn_star(
+                    BOSS.centerx + random.randint(-50, 50),
+                    BOSS.centery + random.randint(-20, 20),
+                    source_type="hongryun_grenade",
+                )
+            print("🔥 Stage5 - 홍련 수류탄 효과 발동 (별 2개)")
+
+    if current_stage == 2 and animated_bg_stage2 is not None:
+        rocks_to_destroy = []
+        for rock in animated_bg_stage2.crisis_rocks:
+            if not rock.get('falling', False):
+                rock_distance = calculate_distance((rock['x'], rock['y']), (x, y))
+                if rock_distance < explosion_radius:
+                    rocks_to_destroy.append(rock)
+        for rock in rocks_to_destroy:
+            if rock.get('is_golden', False):
+                trade_point_system.spawn_star(rock['x'], rock['y'], "golden_rock")
+                print("⭐ 황금 바위 파괴 - 별 생성")
+            animated_bg_stage2.destroy_rock(rock)
+            animated_bg_stage2.crisis_rocks.remove(rock)
+        if rocks_to_destroy:
+            print(f"🪨 바위 {len(rocks_to_destroy)}개 파괴")
+
+    if current_stage == 4 and animated_bg_stage4 is not None:
+        crows_to_destroy = []
+        for crow_data in animated_bg_stage4.get_crow_positions():
+            crow_distance = calculate_distance((crow_data['x'], crow_data['y']), (x, y))
+            if crow_distance < explosion_radius:
+                crows_to_destroy.append(crow_data)
+        for crow_data in sorted(crows_to_destroy, key=lambda v: v['index'], reverse=True):
+            if animated_bg_stage4.catch_crow(crow_data['index']):
+                trade_point_system.spawn_star(crow_data['x'], crow_data['y'], "crow")
+                print("⭐ 까마귀 격추 - 별 생성")
+        if crows_to_destroy:
+            print(f"🪽 까마귀 {len(crows_to_destroy)}마리 격추")
+
+    for _ in range(50):
+        angle = random.uniform(0, FULL_ROTATION)
+        speed = random.uniform(5.0, 15.0)
+        vx = math.cos(math.radians(angle)) * speed
+        vy = math.sin(math.radians(angle)) * speed
+        create_explosion_particle(
+            x,
+            y,
+            vx,
+            vy,
+            random.randint(8, 14),
+            random.choice([(255, 150, 60), (255, 200, 120), (255, 100, 80)]),
+        )
+
+    print(f"📝 폭발 영역 등록: X={explosion_zone['x']:.1f}, Y={explosion_zone['y']:.1f}, 반경={explosion_zone['radius']}")
 # === 조명탄 관련 ===
 flares = []  # 던져진 조명탄 리스트
 flare_zones = []  # 조명 지역 리스트
