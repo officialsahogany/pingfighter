@@ -628,9 +628,7 @@ class SettingsUI:
         screen.blit(label_text, (self.panel_x + 20, y))
         
         # 체크박스
-        value = self.settings_manager.get_setting(
-            self.current_category.value.lower(), item['key']
-        )
+        value = bool(self._get_setting_value(item['key'], False))
         checkbox_x = self.panel_x + 400
         checkbox_rect = pygame.Rect(checkbox_x, y, 20, 20)
         pygame.draw.rect(screen, (100, 100, 100), checkbox_rect, 2)
@@ -646,9 +644,9 @@ class SettingsUI:
         screen.blit(label_text, (self.panel_x + 20, y))
         
         # 슬라이더
-        value = self.settings_manager.get_setting(
-            self.current_category.value.lower(), item['key']
-        )
+        value = self._get_setting_value(item['key'], item['min'])
+        if value is None:
+            value = item['min']
         slider_x = self.panel_x + 250
         slider_width = 150
         
@@ -676,9 +674,11 @@ class SettingsUI:
         screen.blit(label_text, (self.panel_x + 20, y))
         
         # 현재 값
-        value = self.settings_manager.get_setting(
-            self.current_category.value.lower(), item['key']
-        )
+        options = item.get('options', [])
+        default_option = options[0] if options else None
+        value = self._get_setting_value(item['key'], default_option)
+        if options and value not in options:
+            value = options[0]
         formatter = item.get('format', str)
         display_text = formatter(value)
         value_surface = self.font_option.render(display_text, True, (255, 255, 100))
@@ -691,9 +691,7 @@ class SettingsUI:
         screen.blit(label_text, (self.panel_x + 20, y))
         
         # 값
-        value = self.settings_manager.get_setting(
-            self.current_category.value.lower(), item['key']
-        )
+        value = self._get_setting_value(item['key'], "")
         value_surface = self.font_option.render(str(value), True, (255, 255, 100))
         screen.blit(value_surface, (self.panel_x + 300, y))
         
