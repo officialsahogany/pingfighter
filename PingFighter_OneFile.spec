@@ -15,6 +15,7 @@ a = Analysis(
         ('items', 'items'),
         ('sounds', 'sounds'),
         ('fonts/pixel', 'fonts/pixel'),
+        ('localization', 'localization'),
     ],
     hiddenimports=[
         'pygame',

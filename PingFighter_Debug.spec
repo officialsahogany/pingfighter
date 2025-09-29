@@ -24,6 +24,7 @@ a = Analysis(
         ('game_logic/*.py', 'game_logic'),
         ('managers/*.py', 'managers'),
         ('config/*.py', 'config'),
+        ('localization', 'localization'),
     ],
     hiddenimports=[
         'pygame',

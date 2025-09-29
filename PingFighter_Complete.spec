@@ -20,6 +20,7 @@ a = Analysis(
         ('core/*.py', 'core'),
         ('backgrounds/*.py', 'backgrounds'),
         ('academy_save.json', '.'),
+        ('localization', 'localization'),
     ],
     hiddenimports=[
         'items',

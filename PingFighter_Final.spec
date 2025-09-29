@@ -60,6 +60,7 @@ a = Analysis(
         ('utils/*.py', 'utils'),
         ('rendering/*.py', 'rendering'),
         ('core/*.py', 'core'),
+        ('localization', 'localization'),
     ],
     hiddenimports=[
         'pygame',
