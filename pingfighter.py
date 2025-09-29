@@ -2514,7 +2514,7 @@ DRAW_BOUNCE_LIMIT = 6  # 무승부 판정 기준 (좌우 왕복 6회)
 DRAW_TIME_LIMIT = 6000  # 무승부 판정 시간 기준 (6초 = 6000ms)
 # === 일시정지 시스템 ===
 game_paused = False  # 게임 일시정지 상태
-genie_assistant = None  # U키 지니 상담 오버레이
+genie_assistant = GenieAssistant()  # U키 지니 상담 오버레이
 game_should_exit = False  #  게임 완전 종료 플래그
 game_session_active = False  #  게임 세션 활성화 여부 (스테이지 간 전환 구분용)
 boss_fake_move = False
