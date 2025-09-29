@@ -18869,8 +18869,8 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
 
 def update_soldier_bullets():
     """코만도 총알 업데이트"""
-    global soldier_bullets
-    
+    global soldier_bullets, soldier_pistol_boss_hit_count
+
     # 비활성 총알 제거
     soldier_bullets = [b for b in soldier_bullets if b["active"]]
     
@@ -18972,7 +18972,15 @@ def update_soldier_bullets():
                     special_ready = True
                 
                 print(f"코만도 권총 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
-                
+
+                if current_stage in boss_health_stages:
+                    soldier_pistol_boss_hit_count += 1
+                    if shot_roll < head_chance:
+                        apply_health_boss_damage(1, source="soldier_pistol_headshot")
+                    if soldier_pistol_boss_hit_count >= 3:
+                        apply_health_boss_damage(1, source="soldier_pistol_combo")
+                        soldier_pistol_boss_hit_count = 0
+
                 # 넉백 효과 트리거 - 기존 시스템 사용 (boss_knockback_vel을 설정하는 함수)
                 trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
 
@@ -52616,13 +52624,14 @@ def handle_boss():
                 if distance < explosion["radius"]:
                     # 보스 스턴 적용 (1.5초 = 90프레임)
                     boss_stunned_timer = 90  # 수류탄(120프레임)보다 짧음
-                    
+
                     # 넉백 방향 결정 (수류탄과 동일)
                     direction = 1 if explosion["x"] < WIDTH / 2 else -1
                     knockback_power = compute_knockback_magnitude("bazooka")
                     boss_knockback_vel = _apply_boss_knockback_velocity(direction * knockback_power)
-                    
+
                     print(f"🚀💥 바주카포 폭발! 보스 스턴 1.5초, 넉백: {boss_knockback_vel}")
+                    apply_health_boss_damage(2, source="bazooka")
 
     # 헤드샷 스턴 상태 처리 - 1.5초간 보스 완전 정지
     global head_shot_active, head_shot_timer
