@@ -21,6 +21,11 @@ BGM_VOLUME = 0.7  # 0.0 ~ 1.0
 SFX_VOLUME = 0.8  # 0.0 ~ 1.0
 FULLSCREEN = False  # True: 전체화면, False: 창모드
 CONTROL_MODE = "키보드"  # 키보드, 마우스, 조이패드
+CONTROL_OPTIONS = [
+    ("키보드", "option.controls.keyboard"),
+    ("마우스", "option.controls.mouse"),
+    ("조이패드", "option.controls.gamepad"),
+]
 
 def save_settings():
     """설정을 파일에 저장"""
@@ -279,21 +284,16 @@ def show_options_menu(screen, width, height):
             screen.blit(guide_text, (width // 2 - 150, content_y + 150))
                 
         elif selected_category == 3:  # 조작
-            control_keys = [
-                ("option.controls.keyboard", "키보드"),
-                ("option.controls.mouse", "마우스"),
-                ("option.controls.gamepad", "조이패드")
-            ]
-            for i, (key, fallback_text) in enumerate(control_keys):
+            for i, (canonical_value, translation_key) in enumerate(CONTROL_OPTIONS):
                 x = width // 2 - 100
                 y = content_y + i * 60
-                control_label = translate(key, fallback_text)
-                selected = (CONTROL_MODE == control_label)
+                control_label = translate(translation_key, canonical_value)
+                selected = (CONTROL_MODE == canonical_value)
                 draw_button(screen, x, y, 200, 50, control_label, selected)
             
             # 마우스 조작 안내 텍스트
             mouse_hint = translate("option.controls.mouse_hint", "Mouse hint")
-            if CONTROL_MODE == translate("option.controls.mouse", "마우스"):
+            if CONTROL_MODE == "마우스":
                 guide_font = pygame.font.Font("NanumSquareR.ttf", 14)
                 guide_text = guide_font.render(mouse_hint, True, (200, 200, 200))
                 screen.blit(guide_text, (width // 2 - 200, content_y + 150))

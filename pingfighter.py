@@ -26540,7 +26540,7 @@ def _draw_trade_point_system() -> None:
     draw_trade_point_stars()
     update_trade_point_texts()
     draw_trade_point_texts()
-TUTORIAL_GUIDE_HINT_DURATION_MS = 3000
+TUTORIAL_GUIDE_HINT_DURATION_MS = 5000
 TUTORIAL_GUIDE_HINT_SCALE = 0.52
 tutorial_guide_hint_start_ticks = 0
 tutorial_guide_hint_visible = False
