@@ -16716,6 +16716,107 @@ def activate_wall():
             "crack_level": 0
         }
         pending_wall = new_wall
+
+
+def activate_repair_kit():
+    """수리키트: 발토르 구조물을 즉시 수리한다."""
+    global walls, blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer
+    global blacksmith_turret_state, blacksmith_divine_stone_state
+    structure_changed = False
+    healed_turret = False
+    healed_divine = False
+    repaired_walls = 0
+    effect_rects = []
+
+    # 발토르 런타임 상태 동기화
+    try:
+        sync_blacksmith_state()
+    except Exception as err:
+        print(f"⚠️ 수리키트 동기화 실패: {err}")
+        return False
+
+    state = BLACKSMITH_CONTROLLER.state if 'BLACKSMITH_CONTROLLER' in globals() else None
+    turret_runtime = getattr(state, 'turret', None)
+    divine_runtime = getattr(state, 'divine', None)
+
+    if turret_runtime and turret_runtime.active and turret_runtime.state:
+        turret_state = turret_runtime.state
+        rect = turret_state.get("rect")
+        max_hp = max(1, int(turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP)))
+        needs_hp = turret_state.get("hp", max_hp) < max_hp
+        overheated = turret_state.get("overheat_timer", 0) > 0
+        if needs_hp or overheated:
+            turret_state["hp"] = max_hp
+            turret_state["overheat_timer"] = 0
+            turret_state["overheat_smoke_timer"] = 0
+            healed_turret = True
+            structure_changed = True
+            if rect:
+                effect_rects.append(rect)
+
+    if divine_runtime and divine_runtime.state:
+        divine_state = divine_runtime.state
+        rect = divine_state.get("rect")
+        max_hp = max(1, int(divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP)))
+        if divine_state.get("hp", max_hp) < max_hp:
+            divine_state["hp"] = max_hp
+            divine_state["cooldown"] = 0
+            healed_divine = True
+            structure_changed = True
+            if rect:
+                effect_rects.append(rect)
+
+    highlighted_walls = 0
+    for wall in walls:
+        hit = wall.get("hit_count", 0)
+        crack = wall.get("crack_level", 0)
+        if hit > 0 or crack > 0:
+            wall["hit_count"] = 0
+            wall["crack_level"] = 0
+            repaired_walls += 1
+            if highlighted_walls < 3:
+                rect = wall.get("rect")
+                if rect:
+                    effect_rects.append(rect)
+            highlighted_walls += 1
+
+    if structure_changed:
+        try:
+            push_blacksmith_state()
+        except Exception as err:
+            print(f"⚠️ 수리키트 상태 반영 실패: {err}")
+
+    if healed_turret:
+        blacksmith_turret_destroy_timer = 0
+    if healed_divine:
+        blacksmith_divine_destroy_timer = 0
+
+    success = healed_turret or healed_divine or repaired_walls > 0
+    if not success:
+        print("⚠️ 수리 대상이 없습니다. 포탑·디바인스톤·벽돌이 모두 정상입니다.")
+        return False
+
+    try:
+        play_sound_with_volume(SOUND_CONSTRUCTION)
+    except Exception:
+        pass
+
+    for rect in effect_rects:
+        try:
+            effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=8)
+            effects_manager.spawn_construction_smoke(rect.centerx, rect.centery, count=6, spread=24)
+        except Exception:
+            continue
+
+    msg_parts = []
+    if healed_turret:
+        msg_parts.append("포탑 내구도 회복")
+    if healed_divine:
+        msg_parts.append("디바인스톤 복구")
+    if repaired_walls:
+        msg_parts.append(f"벽돌 {repaired_walls}개 보수")
+    print("🛠️ 수리키트 작동! " + ", ".join(msg_parts))
+    return True
 # === Stage 4 명상타임 관련 전역 변수 ===
 meditation_active = False
 meditation_timer = 0
