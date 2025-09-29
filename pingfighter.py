@@ -26643,7 +26643,7 @@ def _draw_tutorial_guide_hint() -> None:
     lamp_surface = pygame.Surface((lamp_canvas_width, lamp_canvas_height), pygame.SRCALPHA)
     lamp_center = (
         lamp_canvas_width // 2,
-        lamp_canvas_height - max(28, int(60 * scale)) + int(math.sin(elapsed / 220.0) * 2 * scale),
+        max(30, int(68 * scale)) + int(math.sin(elapsed / 220.0) * 2 * scale),
     )
     _draw_hint_lamp(lamp_surface, lamp_center, elapsed, scale)
 
