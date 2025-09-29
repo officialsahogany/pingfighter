@@ -17040,12 +17040,6 @@ def _add_repair_job(job_type: str, *, state=None, wall=None) -> bool:
     }
     active_repair_jobs.append(job)
 
-    if job_type == "turret":
-        _start_repair_glow("turret", state=state)
-    elif job_type == "divine":
-        _start_repair_glow("divine", state=state)
-    elif job_type == "wall":
-        _start_repair_glow("wall", wall=wall)
     return True
 
 
@@ -17104,7 +17098,6 @@ def update_active_repair_jobs() -> None:
                 state["hp"] = min(max_hp, current_hp + 1)
                 state["overheat_timer"] = 0
                 state["overheat_smoke_timer"] = 0
-                _start_repair_glow("turret", state=state)
                 job["tick"] = REPAIR_TICK_FRAMES
                 state_dirty = True
                 if state["hp"] >= max_hp:
@@ -17127,7 +17120,6 @@ def update_active_repair_jobs() -> None:
             if job["tick"] <= 0:
                 state["hp"] = min(max_hp, current_hp + 1)
                 state["cooldown"] = 0
-                _start_repair_glow("divine", state=state)
                 job["tick"] = REPAIR_TICK_FRAMES
                 state_dirty = True
                 if state["hp"] >= max_hp:
@@ -17151,7 +17143,6 @@ def update_active_repair_jobs() -> None:
                     wall["crack_level"] = wall["hit_count"]
                 elif wall.get("crack_level", 0) > 0:
                     wall["crack_level"] = max(0, wall["crack_level"] - 1)
-                _start_repair_glow("wall", wall=wall)
                 job["tick"] = REPAIR_TICK_FRAMES
                 if wall.get("hit_count", 0) <= 0 and wall.get("crack_level", 0) <= 0:
                     active_repair_jobs.remove(job)
