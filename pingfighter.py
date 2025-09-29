@@ -22848,6 +22848,45 @@ boss_damage_values = {
 }
 boss_fire_hit_count = 0  # 화염탄 맞은 횟수 (3회마다 체력 1 감소)
 boss_fire_hit_timer = 0  # 화염 타격 쿨다운 타이머 (중복 방지)
+
+
+def apply_health_boss_damage(amount: int, *, source: str = "unknown", trigger_flash: bool = True) -> None:
+    """체력형 보스에게 고정 피해를 적용한다."""
+
+    if amount <= 0:
+        return
+
+    global boss_current_health, boss_max_health, current_stage, boss_displayed_health, boss_damage_preview_health
+
+    if current_stage not in boss_health_stages:
+        return
+
+    previous_health = boss_current_health
+    boss_current_health = max(0, boss_current_health - amount)
+
+    if boss_displayed_health < boss_current_health:
+        boss_displayed_health = boss_current_health
+    if boss_damage_preview_health < boss_current_health:
+        boss_damage_preview_health = boss_current_health
+
+    if trigger_flash and current_stage == 6:
+        try:
+            global stage6_boss_hit_timer, stage6_boss_hit_flash
+            stage6_boss_hit_timer = max(stage6_boss_hit_timer, HALF_SECOND_FRAMES)
+            stage6_boss_hit_flash = True
+            sound = globals().get("SOUND_STAGE6_BOSS_HIT")
+            if sound:
+                sound.play()
+        except Exception:
+            pass
+
+    print(f"[{source}] 체력형 보스 피해: -{amount} → {boss_current_health}/{boss_max_health}")
+
+    if previous_health > 0 and boss_current_health <= 0:
+        try:
+            show_result(True)
+        except Exception:
+            pass
 stage_medal_rewards = {
     1: 10,
     2: 20,
