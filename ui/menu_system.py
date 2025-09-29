@@ -429,7 +429,7 @@ class MenuSystem:
             MenuState.PAUSE: "일시정지",
             MenuState.HELP: "도움말",
             MenuState.CONTROLS: "조작법",
-            MenuState.GAME_OVER: "Game Over",
+            MenuState.GAME_OVER: "GAME OVER",
             MenuState.STAGE_CLEAR: "Stage Clear!",
             MenuState.ACADEMY: "아카데미",
             MenuState.GACHA: "가챠",
