@@ -380,8 +380,7 @@ def show_options_menu(screen, width, height):
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                     if selected_category == 2:  # 화면 카테고리에서
                         # 선택된 옵션에 따라 화면 모드 변경
-                        modes = ["창모드", "전체화면"]
-                        new_fullscreen = (modes[selected_option] == "전체화면")
+                        new_fullscreen = (selected_option == 1)
                         if FULLSCREEN != new_fullscreen:
                             FULLSCREEN = new_fullscreen
                             bosspong.toggle_fullscreen()

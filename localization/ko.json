@@ -17,5 +17,11 @@
   "option.controls.keyboard": "키보드",
   "option.controls.mouse": "마우스",
   "option.controls.gamepad": "조이패드",
-  "option.controls.mouse_hint": "마우스 움직임: 패들 조작, 왼쪽클릭: 필살기, 오른쪽클릭: 대쉬, 휠: 아이템선택, 휠클릭: 아이템사용"
+  "option.controls.mouse_hint": "마우스 움직임: 패들 조작, 왼쪽클릭: 필살기, 오른쪽클릭: 대쉬, 휠: 아이템선택, 휠클릭: 아이템사용",
+  "settings.category.language": "언어",
+  "settings.category.controls": "조작",
+  "settings.category.graphics": "그래픽",
+  "settings.category.audio": "오디오",
+  "settings.category.gameplay": "게임플레이",
+  "settings.category.network": "네트워크"
 }

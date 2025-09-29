@@ -17,5 +17,11 @@
   "option.controls.keyboard": "Keyboard",
   "option.controls.mouse": "Mouse",
   "option.controls.gamepad": "Gamepad",
-  "option.controls.mouse_hint": "Mouse: move paddle, Left Click: Ultimate, Right Click: Dash, Wheel: Select Item, Wheel Click: Use Item"
+  "option.controls.mouse_hint": "Mouse move: paddle control, Left Click: Ultimate, Right Click: Dash, Wheel: Select Item, Wheel Click: Use Item",
+  "settings.category.language": "Language",
+  "settings.category.controls": "Controls",
+  "settings.category.graphics": "Graphics",
+  "settings.category.audio": "Audio",
+  "settings.category.gameplay": "Gameplay",
+  "settings.category.network": "Network"
 }
