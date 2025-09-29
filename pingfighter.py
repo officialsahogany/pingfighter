@@ -8167,6 +8167,12 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
 
     rect = divine_state["rect"]
     divine_state["pulse"] = (divine_state.get("pulse", 0) + 1) % 240
+    deploy_frames = max(1, BLACKSMITH_DIVINE_DEPLOY_FRAMES)
+    current_deploy = int(divine_state.get("deploy_timer", deploy_frames))
+    if current_deploy < deploy_frames:
+        divine_state["deploy_timer"] = current_deploy + 1
+    else:
+        divine_state.setdefault("deploy_timer", deploy_frames)
     cooldown = divine_state.get("cooldown", 0)
     if cooldown > 0:
         divine_state["cooldown"] = cooldown - 1
