@@ -366,30 +366,38 @@ class GenieAssistant:
                         self.detail_focus = False
                         self.detail_scroll_wait = 0.0
                         self.detail_scroll_direction = 1
+                        self.detail_scroll_input = 0
                         return True
                     if event.key in (pygame.K_UP, pygame.K_w):
                         self._scroll_detail_by(-self._detail_scroll_step())
+                        self.detail_scroll_input = -1
                         return True
                     if event.key in (pygame.K_DOWN, pygame.K_s):
                         self._scroll_detail_by(self._detail_scroll_step())
+                        self.detail_scroll_input = 1
                         return True
                     if event.key == pygame.K_PAGEUP:
                         self._scroll_detail_by(-self._page_scroll_step())
+                        self.detail_scroll_input = 0
                         return True
                     if event.key == pygame.K_PAGEDOWN:
                         self._scroll_detail_by(self._page_scroll_step())
+                        self.detail_scroll_input = 0
                         return True
                     if event.key == pygame.K_HOME:
                         self._set_detail_scroll_ratio(0.0)
+                        self.detail_scroll_input = 0
                         return True
                     if event.key == pygame.K_END:
                         self._set_detail_scroll_ratio(1.0)
+                        self.detail_scroll_input = 0
                         return True
                 else:
                     if event.key in (pygame.K_RIGHT, pygame.K_d) or (event.key == pygame.K_TAB and not (mods & pygame.KMOD_SHIFT)):
                         self.detail_focus = True
                         self.detail_scroll_wait = 0.0
                         self.detail_scroll_direction = 1
+                        self.detail_scroll_input = 0
                         return True
                     if event.key in (pygame.K_UP, pygame.K_w):
                         self._move_selection(-1)
@@ -399,6 +407,14 @@ class GenieAssistant:
                         return True
                 if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     # 메뉴에서는 상세 패널이 항상 열려 있으므로 입력을 소비만 한다.
+                    return True
+        elif event.type == pygame.KEYUP:
+            if self.phase == "menu" and self.detail_focus:
+                if event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s):
+                    if self.detail_scroll_input != 0:
+                        self.detail_scroll_input = 0
+                    return True
+                if event.key == pygame.K_TAB:
                     return True
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if self.phase == "animation":
