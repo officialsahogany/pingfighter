@@ -12883,8 +12883,8 @@ doping_potion_timer = 0
 doping_potion_toast_timer = 0
 doping_potion_use_count = 0
 
-# 병기 단축 선택 UI 설정
-SOLDIER_WEAPON_MENU_HOLD_FRAMES = int(0.2 * 60)  # 0.2초 유지 시 활성화
+# 병기 단축 선택 UI 설정 (↑키 0.3초 홀드로 메뉴 호출)
+SOLDIER_WEAPON_MENU_HOLD_FRAMES = int(0.3 * 60)  # 0.3초 유지 시 활성화
 soldier_weapon_hold_frames = 0
 soldier_weapon_menu_active = False
 soldier_weapon_number_prev = [False] * 9
