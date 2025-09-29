@@ -243,7 +243,7 @@ class GenieAssistant:
             return False
 
         if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_ESCAPE, pygame.K_u):
+            if event.key in (pygame.K_ESCAPE, pygame.K_t):
                 self.deactivate()
                 return True
             if self.phase == "animation" and event.key in (pygame.K_RETURN, pygame.K_SPACE):
