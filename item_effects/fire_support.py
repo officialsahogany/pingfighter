@@ -387,6 +387,7 @@ class FireSupport:
         self.last_bomb_y = 0.0
         self.max_ammo = self.MAX_AMMO
         self._has_initial_load = False
+        self.reuse_locked = False
 
     def reset_state(self) -> None:
         self.strike_active = False
@@ -402,6 +403,7 @@ class FireSupport:
         self.finished = False
         self.radio_active = False
         self.last_bomb_y = 0.0
+        self.reuse_locked = False
 
     def on_acquired(self) -> None:
         track_reload = self._has_initial_load
@@ -426,13 +428,20 @@ class FireSupport:
                 tracker("fire_support")
 
     def equip(self) -> None:
+        if self.reuse_locked:
+            return
         self.equipped = True
 
     def unequip(self) -> None:
         self.equipped = False
 
     def can_call(self) -> bool:
-        return self.equipped and self.ammo_count > 0 and not self.strike_active
+        return (
+            self.equipped
+            and self.ammo_count > 0
+            and not self.strike_active
+            and not self.reuse_locked
+        )
 
     def start_call(self, screen_width: int, screen_height: int, cruise_y: Optional[float] = None) -> bool:
         if not self.can_call():
@@ -448,6 +457,7 @@ class FireSupport:
         self.screen_height = screen_height
         self.ammo_count = max(0, self.ammo_count - 1)
         self.radio_active = True
+        self.reuse_locked = True
         self.unequip()  # 발동과 동시에 무전 장비를 비활성화해 UI/입력에서 상태를 명확히 표시
         if cruise_y is not None:
             engine_sound = self._get_aircraft_sound()
@@ -538,6 +548,7 @@ class FireSupport:
             self.strike_active = False
             self.finished = True
             self.radio_active = False
+            self.reuse_locked = False
 
     def draw(self, surface: pygame.Surface) -> None:
         if self.aircraft:
@@ -552,6 +563,9 @@ class FireSupport:
 
     def is_active(self) -> bool:
         return self.strike_active or bool(self.bombs)
+
+    def is_locked(self) -> bool:
+        return self.reuse_locked
 
     def should_remove_weapon(self) -> bool:
         # 화력지원 장비는 탄약이 소진되어도 UI에서 비활성 상태를 표시해야 하므로 슬롯에서 제거하지 않는다.
