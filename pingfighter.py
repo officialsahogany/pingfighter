@@ -906,6 +906,7 @@ def store_bgm_volume(value: float) -> float:
 
     global bgm_volume
     global genie_assistant
+    global genie_assistant
     bgm_volume = set_bgm_volume_state(value)
     return bgm_volume
 
@@ -53723,10 +53724,7 @@ def main(stage_num, new_boss_mode=False):
     if 'tutorial_skip_chapter3_init' not in globals():
         tutorial_skip_chapter3_init = False
 
-    if genie_assistant is None:
-        genie_assistant = GenieAssistant()
-    else:
-        genie_assistant.deactivate()
+    genie_assistant.deactivate()
 
     # ========== 마이그레이션 모드 초기화 ==========
     global migration_bridge
