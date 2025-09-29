@@ -308,6 +308,22 @@ class FireSupport:
     def clear_finished_flag(self) -> None:
         self.finished = False
 
+    def _get_aircraft_sound(self) -> Optional[pygame.mixer.Sound]:
+        for module_name in ("pingfighter", "__main__"):
+            module = sys.modules.get(module_name)
+            if not module:
+                continue
+            sound = getattr(module, "SOUND_AIRPLANE", None)
+            if sound is not None:
+                return sound
+        try:
+            from resource_path import resource_path
+
+            sound_path = resource_path("sounds/airplane.wav")
+            return pygame.mixer.Sound(sound_path)
+        except Exception:  # noqa: BLE001
+            return None
+
 
 _fire_support_instance: Optional[FireSupport] = None
 
