@@ -144,7 +144,7 @@ def draw_slider(surface, x, y, width, height, value, min_val, max_val, color=(10
     pygame.draw.rect(surface, (255, 255, 255), (handle_x, handle_y, 20, 20), 2)
     
     # 값 표시
-    font = pygame.font.Font("NanumSquareR.ttf", 16)
+    font = get_localized_font(16)
     value_text = font.render(f"{int(value * 100)}%", True, (255, 255, 255))
     surface.blit(value_text, (x + width + 10, y + height // 2 - 8))
 
@@ -159,7 +159,7 @@ def draw_button(surface, x, y, width, height, text, selected=False, color=(100, 
         pygame.draw.rect(surface, (100, 100, 120), (x, y, width, height), 2)
     
     # 텍스트
-    font = pygame.font.Font("NanumSquareR.ttf", 18)
+    font = get_localized_font(18)
     text_surface = font.render(text, True, (255, 255, 255))
     text_rect = text_surface.get_rect(center=(x + width // 2, y + height // 2))
     surface.blit(text_surface, text_rect)
@@ -239,7 +239,7 @@ def show_options_menu(screen, width, height):
             pygame.draw.line(screen, (r, g, b), (0, y), (width, y))
         
         # 제목
-        title_font = pygame.font.Font("NanumSquareB.ttf", 48)
+        title_font = get_localized_font(48, bold=True)
         title_value = translate("option.title", "옵션")
         title_text = title_font.render(title_value, True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(width // 2, 80))
@@ -285,7 +285,7 @@ def show_options_menu(screen, width, height):
                 
         elif selected_category == 1:  # 사운드
             # BGM 볼륨
-            font = pygame.font.Font("NanumSquareR.ttf", 20)
+            font = get_localized_font(20)
             bgm_text = font.render(translate("option.sound.bgm_volume", "BGM"), True, (255, 255, 255))
             screen.blit(bgm_text, (width // 2 - 200, content_y))
             draw_slider(screen, width // 2 - 150, content_y + 30, 300, 20, BGM_VOLUME, 0.0, 1.0)
@@ -307,7 +307,7 @@ def show_options_menu(screen, width, height):
                 draw_button(screen, x, y, 200, 50, mode[1], selected)
                 
             # 안내 텍스트
-            guide_font = pygame.font.Font("NanumSquareR.ttf", 16)
+            guide_font = get_localized_font(16)
             guide_text = guide_font.render(
                 translate("option.screen.guide", "Use ↑↓ to choose, Space/Enter to apply"),
                 True,
@@ -326,7 +326,7 @@ def show_options_menu(screen, width, height):
             # 마우스 조작 안내 텍스트
             mouse_hint = translate("option.controls.mouse_hint", "Mouse hint")
             if CONTROL_MODE == "마우스":
-                guide_font = pygame.font.Font("NanumSquareR.ttf", 14)
+                guide_font = get_localized_font(14)
                 guide_text = guide_font.render(mouse_hint, True, (200, 200, 200))
                 screen.blit(guide_text, (width // 2 - 200, content_y + 150))
         
