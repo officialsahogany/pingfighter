@@ -10934,7 +10934,7 @@ BLACKSMITH_TURRET_KNOCKBACK_DISTANCE = 200
 BLACKSMITH_TURRET_KNOCKBACK_SPEED = BLACKSMITH_TURRET_KNOCKBACK_DISTANCE / max(1, BLACKSMITH_TURRET_STUN_DURATION)
 BLACKSMITH_TURRET_MISSILE_ACCEL = 0.12
 BLACKSMITH_TURRET_MISSILE_MAX_SPEED = 24.0
-BLACKSMITH_TURRET_MANUAL_COST = 50
+BLACKSMITH_TURRET_MANUAL_COST = 60
 BLACKSMITH_TURRET_MANUAL_COOLDOWN = int(0.4 * FPS)
 BLACKSMITH_TURRET_MAX_LEVEL = 1
 BLACKSMITH_TURRET_UPGRADE_TIME = 10  # seconds of charge to upgrade (legacy value for ref)
@@ -54923,7 +54923,7 @@ def main(stage_num, new_boss_mode=False):
                             blacksmith_turret_state["fire_timer"] = 1
                             space_just_pressed = False
                             space_press_frame = -1
-                            print("[DEBUG 발토르] 포탑 수동 발사! 게이지 -50, 쿨다운 1초")
+                            print("[DEBUG 발토르] 포탑 수동 발사! 게이지 -60, 쿨다운 1초")
                         else:
                             print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
                     else:
