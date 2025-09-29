@@ -11351,6 +11351,30 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
         "display_angle_accel": 0.0,
     }
 
+    fire_cycle_ms = 3000
+    fire_phase = pygame.time.get_ticks() % fire_cycle_ms
+    firing = fire_phase < 220
+    flash_frames = max(1, int(0.15 * FPS))
+    turret_state_preview["overdrive_flash_timer"] = flash_frames if firing else 0
+    turret_state_preview["overdrive_glow_phase"] = pygame.time.get_ticks() / 240.0
+
+    projectiles_preview: list[dict[str, object]] = []
+    if firing:
+        muzzle_x = turret_rect.centerx + turret_rect.width * 0.42
+        muzzle_y = turret_rect.centery - turret_rect.height * 0.3
+        projectile_radius = max(3, int(8 * scale))
+        projectiles_preview.append(
+            {
+                "x": muzzle_x,
+                "y": muzzle_y,
+                "vx": 14.0,
+                "vy": 0.0,
+                "radius": projectile_radius,
+                "overdrive": False,
+                "trail_timer": int(pygame.time.get_ticks() / 6),
+            }
+        )
+
     # 백업
     turret_backup = copy.deepcopy(state_controller.turret)
     divine_backup = copy.deepcopy(state_controller.divine)
@@ -11382,7 +11406,7 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
         globals()["blacksmith_turret_state"] = turret_state_preview
         globals()["blacksmith_turret_blueprint_active"] = False
         globals()["blacksmith_turret_blueprint_rect"] = None
-        globals()["blacksmith_turret_projectiles"] = []
+        globals()["blacksmith_turret_projectiles"] = projectiles_preview
         globals()["blacksmith_turret_build_progress"] = 0
         globals()["blacksmith_turret_partial_drain"] = 0.0
         globals()["blacksmith_turret_xp_partial_drain"] = 0.0
@@ -11402,7 +11426,7 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
         state_controller.turret.blueprint_rect = None
         state_controller.turret.build_progress = 0
         state_controller.turret.state = turret_state_preview
-        state_controller.turret.projectiles = []
+        state_controller.turret.projectiles = projectiles_preview
         state_controller.turret.partial_drain = 0.0
         state_controller.turret.xp_partial_drain = 0.0
         state_controller.turret.manual_cooldown = 0
