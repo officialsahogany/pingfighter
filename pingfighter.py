@@ -11627,8 +11627,7 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
     global blacksmith_umbrella_hit_lock
     global blacksmith_umbrella_retract_grace_timer
-    global blacksmith_umbrella_hit_lock
-    global blacksmith_umbrella_hit_lock
+    global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
     blacksmith_hammer_swing_slow_timer = 0
     stop_blacksmith_hammer_charge_sound()
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
@@ -11637,6 +11636,8 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     blacksmith_umbrella_last_hit_frame = -1000
     blacksmith_umbrella_retract_start_frame = -1000
     blacksmith_umbrella_retract_grace_timer = 0
+    blacksmith_blocking_penalty_timer = 0
+    blacksmith_blocking_toast_timer = 0
     blacksmith_umbrella_hit_lock = False
     blacksmith_hammer_shock_last_stage = 0
     blacksmith_hammer_shock_cooldown_total = 0
