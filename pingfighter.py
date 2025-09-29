@@ -42426,6 +42426,61 @@ def get_item_icon(item_name):
     if item_name in icon_cache:
         return icon_cache[item_name]
     
+    # 화력지원 아이콘 - B-2 폭격기 디자인
+    if item_name == "fire_support":
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))  # 투명 배경
+        
+        # B-2 폭격기 아이콘 그리기
+        icon_w = int(ICON_SIZE * 0.8)
+        icon_h = int(ICON_SIZE * 0.5)
+        icon_x = (ICON_SIZE - icon_w) // 2
+        icon_y = (ICON_SIZE - icon_h) // 2
+        
+        # B-2 색상
+        main_color = (25, 25, 28)
+        outline_color = (10, 10, 12)
+        cockpit_color = (50, 60, 70)
+        engine_color = (20, 20, 23)
+        
+        # B-2 폭격기의 특징적인 삼각형 날개 형태
+        body_points = [
+            # 노즈 (전방)
+            (icon_x + int(icon_w * 0.9), icon_y + icon_h // 2),
+            # 우측 날개 끝
+            (icon_x + int(icon_w * 0.7), icon_y + int(icon_h * 0.1)),
+            # 우측 날개 중간
+            (icon_x + int(icon_w * 0.4), icon_y + int(icon_h * 0.2)),
+            # 중앙 뒤쪽
+            (icon_x + int(icon_w * 0.1), icon_y + icon_h // 2),
+            # 좌측 날개 중간
+            (icon_x + int(icon_w * 0.4), icon_y + int(icon_h * 0.8)),
+            # 좌측 날개 끝
+            (icon_x + int(icon_w * 0.7), icon_y + int(icon_h * 0.9)),
+        ]
+        
+        # 메인 동체 그리기
+        pygame.draw.polygon(icon_surface, main_color, body_points)
+        pygame.draw.polygon(icon_surface, outline_color, body_points, 2)
+        
+        # 콕핏
+        cockpit_center = (icon_x + int(icon_w * 0.65), icon_y + icon_h // 2)
+        cockpit_radius = max(3, int(icon_h * 0.1))
+        pygame.draw.circle(icon_surface, cockpit_color, cockpit_center, cockpit_radius)
+        pygame.draw.circle(icon_surface, outline_color, cockpit_center, cockpit_radius, 1)
+        
+        # 엔진 위치 표시
+        engine_y1 = icon_y + int(icon_h * 0.3)
+        engine_y2 = icon_y + int(icon_h * 0.7)
+        engine_x = icon_x + int(icon_w * 0.3)
+        engine_radius = max(2, int(icon_h * 0.08))
+        
+        pygame.draw.circle(icon_surface, engine_color, (engine_x, engine_y1), engine_radius)
+        pygame.draw.circle(icon_surface, engine_color, (engine_x, engine_y2), engine_radius)
+        
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+    
     # 전설 아이템들은 정적 스냅샷 생성
     if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "holy_laurel"]:
         # Import already done globally at line 141
