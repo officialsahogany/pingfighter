@@ -2239,7 +2239,9 @@ wall_installing = False  # 벽돌 설치 중
 wall_install_timer = 0  # 설치 타이머 (0.5초 = 30프레임)
 brick_particles = []  # 벽돌 부서지는 파티클 리스트
 REPAIR_GLOW_DURATION_FRAMES = int(1.2 * FPS)
+REPAIR_TICK_FRAMES = int(5 * FPS)
 repair_glow_effects: list[dict] = []  # 수리키트 성스러운 빛 이펙트
+active_repair_jobs: list[dict] = []  # 진행 중인 수리 작업
 # === 화염병 관련 ===
 molotovs = []  # 던져진 화염병 리스트
 fire_zones = []  # 화염 지대 리스트
