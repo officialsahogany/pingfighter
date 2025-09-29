@@ -16924,12 +16924,7 @@ def activate_wall():
 
 def activate_repair_kit():
     """수리키트: 발토르 구조물에 수리 작업을 예약한다."""
-    global blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer, debug_white_circle_detection
-    
-    # 디버그: 하얀 원 감지 활성화
-    debug_white_circle_detection = True
-    detect_white_circles_debug()
-    print("[DEBUG] 수리키트 활성화 - 하얀 원 감지기 시작")
+    global blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer
 
     try:
         sync_blacksmith_state()
