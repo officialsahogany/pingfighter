@@ -22752,6 +22752,7 @@ def handle_player(keys):
         )
 
         if shield_guarding:
+            gauge_reduced = False
             blacksmith_shield_impact_timer = 30  # 0.5초간 충격파 효과
             if SOUND_BLACKSMITH_UMBRELLA_BLOCK and player_sound_cooldown <= 0:
                 play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_BLOCK)
@@ -22776,6 +22777,16 @@ def handle_player(keys):
                     blacksmith_umbrella_recharge_progress = 0
                     if blacksmith_umbrella_gauge <= 0:
                         request_blacksmith_umbrella_close(play_sound=True, flash=True)
+                    gauge_reduced = True
+
+            if (
+                not gauge_reduced
+                and blacksmith_umbrella_retracting
+                and frame_counter == blacksmith_umbrella_retract_start_frame
+            ):
+                blacksmith_umbrella_hit_lock = True
+                blacksmith_blocking_penalty_timer = BLACKSMITH_BLOCKING_PENALTY_FRAMES
+                blacksmith_blocking_toast_timer = BLACKSMITH_BLOCKING_TOAST_FRAMES
         # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
         if kuromi_spit_trail_active:
             kuromi_spit_trail_active = False
