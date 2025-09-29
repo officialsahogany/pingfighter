@@ -9359,8 +9359,21 @@ def draw_blacksmith_turret_elements(surface):
 
         head_width = max(24, int(sx_val(84)))
         head_height = max(24, int(sy_val(84)))
-        head_surface = pygame.Surface((head_width, head_height), pygame.SRCALPHA)
-        pivot_local = pygame.math.Vector2(head_width / 2, head_height * 0.7)
+        padding_x = max(4, int(sx_val(12)))
+        padding_top = max(6, int(sy_val(18)))
+        padding_bottom = max(4, int(sy_val(12)))
+        # 회전 시 터렛 헤드의 상단이 잘리지 않도록 추가 여백을 확보한다.
+        head_surface = pygame.Surface(
+            (
+                head_width + padding_x * 2,
+                head_height + padding_top + padding_bottom,
+            ),
+            pygame.SRCALPHA,
+        )
+        pivot_local = pygame.math.Vector2(
+            padding_x + head_width / 2,
+            padding_top + head_height * 0.7,
+        )
 
         def head_point(dx, dy):
             return (int(pivot_local.x + dx), int(pivot_local.y + dy))
