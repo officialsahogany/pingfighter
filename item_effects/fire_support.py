@@ -30,16 +30,23 @@ class FireSupportAircraft:
         screen_height: int,
         cruise_y: Optional[float] = None,
         engine_sound: Optional[pygame.mixer.Sound] = None,
+        direction: str = "left_to_right",
     ) -> None:
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.width = 110
         self.height = 32
-        self.x = -self.width
+        self.direction = direction
         default_y = screen_height - max(140, screen_height * 0.25)
         self.y = cruise_y if cruise_y is not None else default_y
         self.y = max(80, min(self.screen_height - self.height - 20, self.y))
-        self.speed = 1.8
+        if self.direction == "right_to_left":
+            self.x = self.screen_width + self.width
+            self.speed = -1.8
+        else:
+            self.direction = "left_to_right"
+            self.x = -self.width
+            self.speed = 1.8
         self.active = True
         self.crashing = False
         self.spawn_timer = 0
@@ -72,7 +79,10 @@ class FireSupportAircraft:
                 if self.get_rect().colliderect(ball_rect):
                     self.crashing = True
                     events["hit"] = True
-            if self.x > self.screen_width + self.width:
+            if self.direction == "left_to_right" and self.x > self.screen_width + self.width:
+                self.active = False
+                events["finished"] = True
+            elif self.direction == "right_to_left" and self.x < -self.width:
                 self.active = False
                 events["finished"] = True
         else:
