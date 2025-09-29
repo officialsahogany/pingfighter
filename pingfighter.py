@@ -26661,37 +26661,64 @@ def _draw_tutorial_guide_hint() -> None:
         return
 
     scale = TUTORIAL_GUIDE_HINT_SCALE
-    font_size = max(8, int(24 * scale))
+    pulse = (math.sin(elapsed / 160.0) + 1.0) * 0.5
+    font_size = max(9, int(24 * scale))
     hint_font = get_font(font_size)
     message = "튜토리얼 가이드 → T키"
-    text_surface = hint_font.render(message, True, (240, 245, 255))
+
+    text_color = (
+        int(220 + 28 * pulse),
+        int(234 + 12 * pulse),
+        255,
+    )
+    text_surface = hint_font.render(message, True, text_color)
     text_rect = text_surface.get_rect()
 
-    left_padding = max(18, int(60 * scale))
-    right_padding = max(12, int(40 * scale))
-    padding_y = max(6, int(14 * scale))
+    left_padding = max(22, int(58 * scale))
+    right_padding = max(14, int(36 * scale))
+    padding_y = max(7, int(16 * scale))
     bg_width = text_rect.width + left_padding + right_padding
     bg_height = text_rect.height + padding_y * 2
     hint_surface = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
-    hint_surface.fill((18, 24, 44, 210))
-    border_width = max(1, int(2 * scale))
-    border_radius = max(4, int(12 * scale))
-    pygame.draw.rect(
-        hint_surface,
-        (115, 160, 255, 240),
-        (0, 0, bg_width, bg_height),
-        border_width,
-        border_radius=border_radius,
-    )
 
-    lamp_center = (left_padding // 2, bg_height // 2)
+    base_bg_color = (255, 240, 250, 210)
+    hint_surface.fill(base_bg_color)
+
+    glow_alpha = 70 + int(60 * pulse)
+    glow_rect = pygame.Rect(0, 0, bg_width, bg_height).inflate(-max(2, int(6 * scale)), -max(2, int(4 * scale)))
+    if glow_rect.width > 0 and glow_rect.height > 0:
+        pygame.draw.ellipse(
+            hint_surface,
+            (255, 205, 235, glow_alpha),
+            glow_rect,
+        )
+
+    sparkle_color = (255, 255, 220, 150 + int(80 * pulse))
+    sparkle_radius = max(1, int(3 * scale))
+    sparkle_positions = [
+        (bg_width - int(12 * scale), int(8 * scale)),
+        (bg_width - int(26 * scale), int(18 * scale)),
+        (int(14 * scale), int(10 * scale)),
+    ]
+    for idx, (sx, sy) in enumerate(sparkle_positions):
+        radius = sparkle_radius + (idx % 2)
+        pygame.draw.circle(hint_surface, sparkle_color, (sx, sy), max(1, radius))
+
+    lamp_center = (
+        left_padding // 2,
+        bg_height // 2 + int(math.sin(elapsed / 220.0) * 2 * scale),
+    )
     _draw_hint_lamp(hint_surface, lamp_center, elapsed, scale)
 
-    text_pos = (left_padding, (bg_height - text_rect.height) // 2)
+    bob_offset = int(math.sin(elapsed / 190.0) * 2 * scale)
+    text_pos = (left_padding, (bg_height - text_rect.height) // 2 + bob_offset)
+    shadow_offset = max(1, int(2 * scale))
+    shadow_surface = hint_font.render(message, True, (200, 210, 240))
+    hint_surface.blit(shadow_surface, (text_pos[0], text_pos[1] + shadow_offset))
     hint_surface.blit(text_surface, text_pos)
 
-    offset_x = max(10, int(36 * scale))
-    offset_y = max(10, int(36 * scale))
+    offset_x = max(12, int(34 * scale))
+    offset_y = max(12, int(34 * scale))
     SCREEN.blit(hint_surface, (offset_x, offset_y))
 
 
