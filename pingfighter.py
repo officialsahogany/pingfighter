@@ -22922,7 +22922,6 @@ def handle_player(keys):
                 not gauge_reduced
                 and blacksmith_umbrella_retracting
                 and frame_counter == blacksmith_umbrella_retract_start_frame
-                and last_hit_by != "player"
             ):
                 blacksmith_umbrella_hit_lock = True
                 blacksmith_blocking_penalty_timer = BLACKSMITH_BLOCKING_PENALTY_FRAMES
