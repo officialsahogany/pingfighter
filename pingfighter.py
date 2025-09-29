@@ -53457,7 +53457,7 @@ def show_result(won):
         earned = int(session_medal_earned * 0.5)
         medal_score += earned
         session_medal_earned = 0
-        show_fade_text(f"패배... 획득 메달의 50%({earned})를 보상받았습니다.")
+        show_fade_text("game over")
         SCREEN.fill(BLACK)
         pygame.display.flip()
         pygame.time.delay(MILLISECONDS_PER_SECOND)
