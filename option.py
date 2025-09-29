@@ -2,9 +2,21 @@ import pygame
 import sys
 import os
 
+from config.language_options import LANGUAGE_CODES, DEFAULT_LANGUAGE
+from localization.manager import get_localization_manager
+from config.settings_system import get_settings_manager
+
 # 전역 설정 변수들
-AVAILABLE_LANGUAGES = ["한국어", "English", "日本語"]
-LANGUAGE = "한국어"  # 기본 언어 (AVAILABLE_LANGUAGES 내 값)
+AVAILABLE_LANGUAGE_CODES = LANGUAGE_CODES
+LEGACY_LANGUAGE_MAP = {
+    "한국어": "ko",
+    "English": "en",
+    "english": "en",
+    "日本語": "ja",
+    "Japanese": "ja",
+    "japanese": "ja"
+}
+LANGUAGE = DEFAULT_LANGUAGE  # 언어 코드는 config.language_options 기준
 BGM_VOLUME = 0.7  # 0.0 ~ 1.0
 SFX_VOLUME = 0.8  # 0.0 ~ 1.0
 FULLSCREEN = False  # True: 전체화면, False: 창모드
@@ -14,16 +26,19 @@ def save_settings():
     """설정을 파일에 저장"""
     try:
         with open("settings.txt", "w", encoding="utf-8") as f:
-            if LANGUAGE not in AVAILABLE_LANGUAGES:
-                language_to_save = AVAILABLE_LANGUAGES[0]
-            else:
-                language_to_save = LANGUAGE
-            f.write(f"LANGUAGE={language_to_save}\n")
+            language_code = LANGUAGE if LANGUAGE in AVAILABLE_LANGUAGE_CODES else DEFAULT_LANGUAGE
+            f.write(f"LANGUAGE={language_code}\n")
             f.write(f"BGM_VOLUME={BGM_VOLUME}\n")
             f.write(f"SFX_VOLUME={SFX_VOLUME}\n")
             f.write(f"FULLSCREEN={FULLSCREEN}\n")
             f.write(f"CONTROL_MODE={CONTROL_MODE}\n")
     except:
+        pass
+
+    try:
+        settings_manager = get_settings_manager()
+        settings_manager.set_setting('language', 'language', LANGUAGE)
+    except Exception:
         pass
 
 def load_settings():
@@ -37,7 +52,7 @@ def load_settings():
                     if "=" in line:
                         key, value = line.strip().split("=", 1)
                         if key == "LANGUAGE":
-                            LANGUAGE = value if value in AVAILABLE_LANGUAGES else AVAILABLE_LANGUAGES[0]
+                            LANGUAGE = normalize_language_code(value)
                         elif key == "BGM_VOLUME":
                             BGM_VOLUME = float(value)
                         elif key == "SFX_VOLUME":
@@ -48,6 +63,26 @@ def load_settings():
                             CONTROL_MODE = value
     except:
         pass
+
+    try:
+        settings_manager = get_settings_manager()
+        LANGUAGE = normalize_language_code(
+            settings_manager.get_setting('language', 'language', LANGUAGE)
+        )
+        settings_manager.set_setting('language', 'language', LANGUAGE)
+    except Exception:
+        pass
+
+    get_localization_manager().set_language(LANGUAGE)
+
+
+def normalize_language_code(value: str) -> str:
+    if value in AVAILABLE_LANGUAGE_CODES:
+        return value
+    mapped = LEGACY_LANGUAGE_MAP.get(value, None)
+    if mapped:
+        return mapped
+    return DEFAULT_LANGUAGE
 
 def draw_slider(surface, x, y, width, height, value, min_val, max_val, color=(100, 150, 255)):
     """슬라이더 그리기"""
