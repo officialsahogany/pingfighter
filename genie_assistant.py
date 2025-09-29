@@ -288,7 +288,6 @@ class GenieAssistant:
 
     def _draw_tutorial_menu(self, surface: pygame.Surface) -> None:
         width, height = self.screen_size
-        margin_x = 80
         header_y = 70
 
         header = self.title_font.render("지니 전술 훈련", True, COLOR_TEXT_MAIN)
@@ -298,9 +297,23 @@ class GenieAssistant:
         sub = self.small_font.render(f"코만도 지침" if self.character_type == "soldier" else f"{character_label} 지침", True, COLOR_TEXT_DIM)
         surface.blit(sub, sub.get_rect(midtop=(width // 2, header_y + 48)))
 
-        menu_width = max(300, int(width * 0.32))
-        menu_rect = pygame.Rect(margin_x, header_y + 90, menu_width, height - (header_y + 180))
-        detail_rect = pygame.Rect(menu_rect.right + 24, menu_rect.top, width - margin_x - menu_rect.width - 24 * 2, menu_rect.height)
+        spacing = 36
+        min_padding = 40
+        menu_width = max(300, int(width * 0.3))
+        detail_width = max(420, int(width * 0.4))
+        total_width = menu_width + detail_width + spacing
+
+        if total_width > width - 2 * min_padding:
+            detail_width = width - 2 * min_padding - menu_width - spacing
+            if detail_width < 360:
+                detail_width = 360
+                menu_width = width - 2 * min_padding - spacing - detail_width
+                menu_width = max(260, menu_width)
+                detail_width = width - 2 * min_padding - spacing - menu_width
+
+        container_left = max(min_padding, (width - (menu_width + detail_width + spacing)) // 2)
+        menu_rect = pygame.Rect(container_left, header_y + 90, menu_width, height - (header_y + 180))
+        detail_rect = pygame.Rect(menu_rect.right + spacing, menu_rect.top, detail_width, menu_rect.height)
 
         pygame.draw.rect(surface, COLOR_MENU_BG, menu_rect, border_radius=18)
         pygame.draw.rect(surface, COLOR_MENU_BORDER, menu_rect, width=2, border_radius=18)
