@@ -315,7 +315,8 @@ class FireSupport:
         return self.strike_active or bool(self.bombs)
 
     def should_remove_weapon(self) -> bool:
-        return self.finished and self.ammo_count <= 0
+        # 화력지원 장비는 탄약이 소진되어도 UI에서 비활성 상태를 표시해야 하므로 슬롯에서 제거하지 않는다.
+        return False
 
     def clear_finished_flag(self) -> None:
         self.finished = False
