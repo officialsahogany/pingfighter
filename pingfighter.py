@@ -26700,6 +26700,8 @@ def draw_overlay_ui() -> None:
         draw_blacksmith_divine_ui(SCREEN)
         draw_blacksmith_blocking_toast(SCREEN)
 
+    _draw_tutorial_guide_hint()
+
 def draw_overlay_ui():
     global current_stage, selected_character_type, new_boss_mode_active
 
