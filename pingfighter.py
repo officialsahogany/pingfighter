@@ -8587,7 +8587,7 @@ def update_blacksmith_turret():
     global player_collision_handled, last_hit_by
     global ball_vel, stopwatch_active, stopwatch_timer, game_vars, SCREEN
     global blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer
-    global blacksmith_divine_stage_owner
+    global blacksmith_divine_stage_owner, blacksmith_turret_boss_hit_count
 
     # 포탑 파괴 타이머 처리
     if blacksmith_turret_destroy_timer > 0:
@@ -11116,6 +11116,7 @@ blacksmith_divine_partial_drain = 0.0
 blacksmith_divine_stage_owner = None
 blacksmith_turret_destroy_timer = 0
 blacksmith_divine_destroy_timer = 0
+blacksmith_turret_boss_hit_count = 0  # 체력형 보스 추가 피해 누적 카운터
 
 BLACKSMITH_TURRET_ICON = _create_turret_icon()
 BLACKSMITH_DIVINE_ICON = _create_divine_stone_icon()
@@ -53960,9 +53961,10 @@ def main(stage_num, new_boss_mode=False):
     soldier_gun_muzzle_x = 0
     soldier_gun_muzzle_y = 0
 
-    global soldier_pistol_boss_hit_count, soldier_ak47_boss_hit_count
+    global soldier_pistol_boss_hit_count, soldier_ak47_boss_hit_count, blacksmith_turret_boss_hit_count
     soldier_pistol_boss_hit_count = 0
     soldier_ak47_boss_hit_count = 0
+    blacksmith_turret_boss_hit_count = 0
 
     # 보스 넉백 효과 초기화
     global boss_knockback_active, boss_knockback_offset_x, boss_knockback_offset_y, boss_knockback_timer
@@ -57597,6 +57599,9 @@ def main(stage_num, new_boss_mode=False):
                     print("튜토리얼: Chapter 1 완료, Chapter 2 - DASH 시작")
                     # continue는 이미 while 루프를 계속 진행하므로 추가 작업 불필요
         
+        if genie_assistant.is_active():
+            genie_assistant.draw(SCREEN)
+
         pygame.display.flip()
         # 프로파일러 프레임 종료
         if profiler:
