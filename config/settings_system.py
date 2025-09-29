@@ -11,13 +11,7 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 from core.events import EventType, emit_event
 from core.global_manager import GlobalManager
-
-
-LANGUAGE_OPTIONS = [
-    ("ko", "한국어"),
-    ("en", "English"),
-    ("ja", "日本語")
-]
+from config.language_options import LANGUAGE_OPTIONS, DEFAULT_LANGUAGE, LANGUAGE_CODES
 
 
 class SettingCategory(Enum):
@@ -132,7 +126,7 @@ class SettingsManager:
 
             # 언어 설정
             'language': {
-                'language': LANGUAGE_OPTIONS[0][0]
+                'language': DEFAULT_LANGUAGE
             },
             
             # 접근성 설정
