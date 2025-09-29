@@ -2238,6 +2238,8 @@ pending_wall = None  # 설치 완료 후 생성할 벽돌 정보
 wall_installing = False  # 벽돌 설치 중
 wall_install_timer = 0  # 설치 타이머 (0.5초 = 30프레임)
 brick_particles = []  # 벽돌 부서지는 파티클 리스트
+REPAIR_GLOW_DURATION_FRAMES = int(1.2 * FPS)
+repair_glow_effects: list[dict] = []  # 수리키트 성스러운 빛 이펙트
 # === 화염병 관련 ===
 molotovs = []  # 던져진 화염병 리스트
 fire_zones = []  # 화염 지대 리스트
@@ -16804,6 +16806,7 @@ def activate_repair_kit():
             structure_changed = True
             if rect:
                 effect_rects.append(rect)
+            _start_repair_glow("turret", state=turret_state)
 
     if divine_runtime and divine_runtime.state:
         divine_state = divine_runtime.state
@@ -16816,6 +16819,7 @@ def activate_repair_kit():
             structure_changed = True
             if rect:
                 effect_rects.append(rect)
+            _start_repair_glow("divine", state=divine_state)
 
     highlighted_walls = 0
     for wall in walls:
@@ -16825,6 +16829,7 @@ def activate_repair_kit():
             wall["hit_count"] = 0
             wall["crack_level"] = 0
             repaired_walls += 1
+            _start_repair_glow("wall", wall=wall)
             if highlighted_walls < 3:
                 rect = wall.get("rect")
                 if rect:
