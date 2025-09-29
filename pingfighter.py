@@ -8918,6 +8918,11 @@ def update_blacksmith_turret():
                         _spawn_blacksmith_megadrive_shards(cx, cy, radius * 2.2)
                 except Exception:
                     pass
+                if current_stage in boss_health_stages:
+                    blacksmith_turret_boss_hit_count += 1
+                    if blacksmith_turret_boss_hit_count >= 4:
+                        apply_health_boss_damage(1, source="blacksmith_turret")
+                        blacksmith_turret_boss_hit_count = 0
                 continue
 
             current_turret_rect = turret_state.get("rect") if turret_state else None
