@@ -20356,6 +20356,8 @@ def handle_player(keys):
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
         # 감속
         player_knockback_vel *= 0.85
+        if soldier_control_lock_timer > 0:
+            soldier_control_lock_timer = max(0, soldier_control_lock_timer - 1)
         PLAYER.width = int(PADDLE_WIDTH * long_boost_scale)  # 스턴 중에도 거대화포션 효과 적용
         return  #  스턴 중에는 조작 불가
     
