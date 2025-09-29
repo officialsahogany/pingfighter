@@ -463,19 +463,36 @@ class GenieAssistant:
 
         text_top = animation_rect.bottom + 20
         text_rect = pygame.Rect(detail_rect.left + 28, text_top, detail_rect.width - 56, detail_rect.bottom - text_top - 24)
-        self._draw_detail_text(surface, text_rect, item.get("details", []))
+        self._detail_view_height = text_rect.height
+        self._update_detail_layout(item, text_rect.width)
+        self._draw_detail_text(surface, text_rect)
 
-    def _draw_detail_text(self, surface: pygame.Surface, text_rect: pygame.Rect, lines: Sequence[str]) -> None:
-        y = text_rect.top
-        for paragraph in lines:
-            wrapped = _wrap_text(self.detail_font, paragraph, text_rect.width)
-            for wrapped_line in wrapped:
-                if y > text_rect.bottom - self.detail_font.get_height():
-                    return
-                line_surface = self.detail_font.render(wrapped_line, True, COLOR_TEXT_MAIN)
-                surface.blit(line_surface, (text_rect.left, y))
-                y += self.detail_font.get_height() + 4
-            y += 6
+    def _draw_detail_text(self, surface: pygame.Surface, text_rect: pygame.Rect) -> None:
+        if not self._detail_lines:
+            return
+
+        y = text_rect.top - self.detail_scroll_offset
+        top_bound = text_rect.top - self.detail_font.get_height() - 8
+        bottom_bound = text_rect.bottom + 8
+
+        for entry in self._detail_lines:
+            text = entry["text"]
+            height = entry["height"]
+
+            if text is None:
+                y += height
+                continue
+
+            if y + height < top_bound:
+                y += height
+                continue
+
+            if y > bottom_bound:
+                break
+
+            line_surface = self.detail_font.render(text, True, COLOR_TEXT_MAIN)
+            surface.blit(line_surface, (text_rect.left, y))
+            y += height
 
     def _draw_animation_preview(self, surface: pygame.Surface, rect: pygame.Rect, animation_id: str | None) -> None:
         pygame.draw.rect(surface, (40, 52, 80, 200), rect, border_radius=16)
@@ -569,6 +586,50 @@ class GenieAssistant:
         else:
             idle_text = self.small_font.render("자료 수집 중...", True, COLOR_TEXT_DIM)
             surface.blit(idle_text, idle_text.get_rect(center=rect.center))
+
+    def _reset_detail_scroll(self, *, reset_layout: bool = False) -> None:
+        self.detail_scroll_offset = 0.0
+        self.detail_scroll_direction = 1
+        self.detail_scroll_wait = 0.0
+        if reset_layout:
+            self._detail_lines = []
+            self._detail_total_height = 0.0
+            self._detail_layout_key = None
+
+    def _update_detail_layout(self, item: dict, text_width: int) -> None:
+        key = (item.get("id"), text_width)
+        if self._detail_layout_key == key:
+            return
+
+        base_height = self.detail_font.get_height() + 6
+        lines: List[dict] = []
+        total_height = 0
+
+        paragraphs = item.get("details", [])
+        for idx, paragraph in enumerate(paragraphs):
+            wrapped = _wrap_text(self.detail_font, paragraph, text_width)
+            if not wrapped:
+                wrapped = [""]
+            for line in wrapped:
+                entry = {"text": line, "height": base_height}
+                lines.append(entry)
+                total_height += entry["height"]
+            if idx < len(paragraphs) - 1:
+                gap = {"text": None, "height": 12}
+                lines.append(gap)
+                total_height += gap["height"]
+
+        if not lines:
+            entry = {"text": "", "height": base_height}
+            lines = [entry]
+            total_height = entry["height"]
+
+        self._detail_lines = lines
+        self._detail_total_height = total_height
+        self.detail_scroll_offset = 0.0
+        self.detail_scroll_direction = 1
+        self.detail_scroll_wait = 0.0
+        self._detail_layout_key = key
 
     def _draw_lamp(self, surface: pygame.Surface, center: Tuple[int, int], progress: float) -> None:
         wiggle = math.sin(self.elapsed_ms / 180.0) * 6
