@@ -345,6 +345,7 @@ class NetTrapGun:
             print(
                 f"🕸️ 보스 포획 성공! 지속시간 {self.NET_DURATION_FRAMES/60:.1f}초, 범위 {rect.left}-{rect.right}px"
             )
+            print("🪤 장력 유지: 보스를 묶고 있는 동안 군인의 이동 속도가 50%로 감소합니다.")
         else:
             self._debug(
                 f"deploy → miss rect=({rect.left},{rect.top},{rect.width},{rect.height}), timer={timer}"
