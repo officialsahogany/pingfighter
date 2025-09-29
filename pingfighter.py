@@ -26758,6 +26758,8 @@ def draw_overlay_ui():
         draw_blacksmith_overheat_overlay(SCREEN)
         draw_blacksmith_turret_ui(SCREEN)
         draw_blacksmith_divine_ui(SCREEN)
+
+    _draw_tutorial_guide_hint()
 def apply_white_glow(surface, intensity=60):
     """
     픽셀 단위로 반짝임 효과를 입히는 함수 (최적화 버전)
@@ -59119,7 +59121,6 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_neutralize_particles(SCREEN)
             draw_overlay_ui()
             draw_score()
-            _draw_tutorial_guide_hint()
         except Exception as render_err:
             if __debug__:
                 print(f"[WARN] legacy render hook error: {render_err}")
