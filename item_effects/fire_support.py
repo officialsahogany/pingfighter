@@ -75,10 +75,7 @@ class FireSupportAircraft:
 
         if not self.crashing:
             self.x += self.speed
-            if ball_rect and last_hit_by == "boss" and self.spawn_timer >= self.invulnerable_frames:
-                if self.get_rect().colliderect(ball_rect):
-                    self.crashing = True
-                    events["hit"] = True
+            # 폭격기는 공에 맞아도 추락하지 않는다
             if self.direction == "left_to_right" and self.x > self.screen_width + self.width:
                 self.active = False
                 events["finished"] = True
