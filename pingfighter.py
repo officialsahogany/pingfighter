@@ -11857,6 +11857,7 @@ def activate_supply_drop_item(item_name: str) -> None:
             print(f"✈️ 화력지원 장비 획득! 현재 화기류: {soldier_controller.weapons}")
             fire_support = get_fire_support_instance()
             fire_support.on_acquired()
+            fire_support.equip()
             try:
                 if SOUND_ITEM_GET:
                     SOUND_ITEM_GET.play()
