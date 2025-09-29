@@ -2238,6 +2238,8 @@ pending_wall = None  # 설치 완료 후 생성할 벽돌 정보
 wall_installing = False  # 벽돌 설치 중
 wall_install_timer = 0  # 설치 타이머 (0.5초 = 30프레임)
 brick_particles = []  # 벽돌 부서지는 파티클 리스트
+holy_light_particles = []  # 성스러운 빛 파티클 리스트 [(x, y, vx, vy, size, alpha, life, color)]
+holy_light_flashes = []  # 건물 흰색 반짝임 효과 [(rect, alpha, life)]
 REPAIR_TICK_FRAMES = int(5 * FPS)
 active_repair_jobs: list[dict] = []  # 진행 중인 수리 작업
 repair_hammer_surface = None
