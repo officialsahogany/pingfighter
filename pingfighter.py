@@ -13068,6 +13068,88 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
             if hasattr(net, "unequip"):
                 net.unequip()
         fire_support_weapon.unequip()
+    elif current_weapon == "fire_support":
+        fire_support_weapon = get_fire_support_instance()
+        icon_surface = get_item_icon("fire_support")
+        if icon_surface:
+            try:
+                scaled_icon = pygame.transform.smoothscale(
+                    icon_surface,
+                    (max(12, weapon_rect.width - 8), max(12, weapon_rect.height - 8)),
+                )
+                screen.blit(
+                    scaled_icon,
+                    scaled_icon.get_rect(center=weapon_rect.center),
+                )
+            except Exception:
+                pass
+        else:
+            radio_body = pygame.Rect(
+                weapon_rect.centerx - weapon_rect.width // 4,
+                weapon_rect.centery - weapon_rect.height // 6,
+                weapon_rect.width // 2,
+                weapon_rect.height // 2,
+            )
+            pygame.draw.rect(screen, (70, 90, 120), radio_body, border_radius=6)
+            pygame.draw.rect(screen, (40, 60, 90), radio_body, 2, border_radius=6)
+            speaker_rect = radio_body.inflate(-radio_body.width // 3, -radio_body.height // 3)
+            pygame.draw.rect(screen, (120, 150, 190), speaker_rect, border_radius=3)
+            dial_center = (radio_body.centerx, radio_body.bottom - radio_body.height // 4)
+            pygame.draw.circle(screen, (210, 220, 240), dial_center, radio_body.width // 6)
+
+        indicator_width = 20
+        indicator_height = 16
+        indicator_x = weapon_rect.centerx - indicator_width // 2
+        indicator_y = weapon_y + weapon_size + 6
+        indicator_body = pygame.Rect(indicator_x, indicator_y, indicator_width, indicator_height)
+        pygame.draw.rect(screen, (75, 95, 135), indicator_body, border_radius=4)
+        pygame.draw.rect(screen, (40, 55, 80), indicator_body, 2, border_radius=4)
+        antenna_rect = pygame.Rect(indicator_body.centerx - 1, indicator_body.y - 8, 2, 8)
+        pygame.draw.rect(screen, (210, 220, 235), antenna_rect)
+        pygame.draw.circle(screen, (220, 230, 240), (antenna_rect.centerx, antenna_rect.y), 2)
+        pygame.draw.line(
+            screen,
+            (170, 185, 210),
+            (indicator_body.centerx - 4, indicator_body.y + 4),
+            (indicator_body.centerx + 4, indicator_body.y + 8),
+            2,
+        )
+
+        status_text = "준비완료"
+        status_color = (200, 220, 255)
+        if fire_support_weapon.calling:
+            status_text = "무전 중"
+            status_color = (255, 210, 130)
+        elif fire_support_weapon.strike_active:
+            if fire_support_weapon.aircraft:
+                status_text = "폭격 진행"
+                status_color = (255, 180, 120)
+            elif fire_support_weapon.bombs_remaining > 0:
+                status_text = f"잔여 {fire_support_weapon.bombs_remaining}발"
+                status_color = (255, 200, 150)
+            else:
+                status_text = "폭격 중"
+                status_color = (255, 200, 150)
+        elif fire_support_weapon.ammo_count <= 0:
+            status_text = "탄약 없음"
+            status_color = (220, 140, 140)
+
+        try:
+            if 'font_small' in globals() and font_small:
+                status_surface = font_small.render(status_text, True, status_color)
+                screen.blit(status_surface, (weapon_x, weapon_y - 20))
+        except Exception:
+            pass
+
+        if fire_support_weapon.ammo_count <= 0 and not fire_support_weapon.strike_active:
+            pygame.draw.line(
+                screen,
+                (160, 160, 160),
+                (weapon_rect.left + 4, weapon_rect.top + 4),
+                (weapon_rect.right - 4, weapon_rect.bottom - 4),
+                2,
+            )
+
     elif current_weapon == "net_gun":
         net = get_net_gun_instance()
         if net and hasattr(net, "equip"):
