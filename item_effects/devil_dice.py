@@ -4,12 +4,12 @@
 지속시간: 30초 (다음 라운드 유지, 스테이지 전환시 종료)
 """
 
-import os
-import sys
 import pygame
 import random
 import math
 from typing import Dict, Any, Optional, Tuple
+
+from resource_path import resource_path
 
 
 def resource_path(relative_path: str) -> str:
