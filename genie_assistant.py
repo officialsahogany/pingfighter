@@ -1,6 +1,6 @@
 import math
 import random
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 
 import pygame
 
@@ -217,6 +217,7 @@ class GenieAssistant:
         self._detail_total_height: float = 0.0
         self._detail_view_height: float = 0.0
         self._detail_layout_key: Tuple[str | None, int] | None = None
+        self.preview_renderer: Callable[[pygame.Surface, pygame.Rect, str, int], bool] | None = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -244,6 +245,14 @@ class GenieAssistant:
         self.phase = "inactive"
         self.overlay_surface = None
         self.smoke_particles.clear()
+
+    def set_preview_renderer(
+        self,
+        renderer: Callable[[pygame.Surface, pygame.Rect, str, int], bool] | None,
+    ) -> None:
+        """지니 애니메이션 프리뷰를 커스터마이징하기 위한 렌더러를 설정한다."""
+
+        self.preview_renderer = renderer
 
     def update(self, dt_ms: float) -> None:
         if not self.active:
@@ -585,6 +594,13 @@ class GenieAssistant:
         center_x = rect.centerx
         center_y = rect.centery
         ticks = pygame.time.get_ticks()
+
+        if self.preview_renderer and animation_id is not None:
+            try:
+                if self.preview_renderer(surface, rect, animation_id, ticks):
+                    return
+            except Exception:
+                pass
 
         if animation_id == "fire":
             gun_rect = pygame.Rect(rect.left + 24, center_y - 20, 110, 40)
