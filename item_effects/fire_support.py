@@ -392,7 +392,8 @@ class FireSupport:
         self.radio_release_timer = 0
         self.radio_channel: Optional[pygame.mixer.Channel] = None
         self._radio_sound: pygame.mixer.Sound | bool | None = None
-        self.radio_volume = 0.6
+        self.radio_volume = 0.85
+        self.radio_volume_call = 0.55
 
     def reset_state(self) -> None:
         self._stop_radio_loop()
