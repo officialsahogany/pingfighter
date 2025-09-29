@@ -58393,6 +58393,8 @@ def main(stage_num, new_boss_mode=False):
                 draw_blacksmith_turret_ui(SCREEN)
                 draw_blacksmith_divine_ui(SCREEN)
 
+        _draw_tutorial_guide_hint()
+
         draw_water_trail()  #  물자국 그리기
         # draw_balloons()  # Stage 1 보스 풍선파티 스킬 제거됨
         # draw_whip_waves(SCREEN)  #  상모돌리기 파동 효과 그리기 - 제거됨
