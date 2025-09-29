@@ -21576,6 +21576,21 @@ def handle_player(keys):
                                 SOUND_AK47.play()
                             except:
                                 pass
+                elif current_weapon == "fire_support":
+                    fire_support_weapon = get_fire_support_instance()
+                    if fire_support_weapon.can_call():
+                        current_time = pygame.time.get_ticks()
+                        if round_start_time > 0 and current_time - round_start_time < 3000:
+                            remaining_time = (3000 - (current_time - round_start_time)) / 1000
+                            print(f"🔥 화력지원 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+                        else:
+                            if fire_support_weapon.start_call(WIDTH, HEIGHT):
+                                start_supply_radio_loop()
+                                supply_runtime.hold_active = True
+                                player_stunned_timer = max(player_stunned_timer, fire_support_weapon.CALL_LOCK_FRAMES)
+                                player_knockback_vel = 0
+                                soldier_control_lock_timer = max(soldier_control_lock_timer, fire_support_weapon.CALL_LOCK_FRAMES)
+                                print("✈️ 화력지원 요청! 폭격기 호출 중")
                 elif current_weapon == "net_gun":
                     net_gun = net_gun_instance or get_net_gun_instance()
                     if net_gun and net_gun.can_fire():
