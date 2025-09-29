@@ -42493,10 +42493,19 @@ def get_item_icon(item_name):
                 trail_surface = pygame.Surface((2, trail_length), pygame.SRCALPHA)
                 trail_surface.fill(trail_color)
                 icon_surface.blit(trail_surface, (bx - 1, by - bomb_size - trail_length))
-        engine_radius = max(2, int(icon_h * 0.08))
         
-        pygame.draw.circle(icon_surface, engine_color, (engine_x, engine_y1), engine_radius)
-        pygame.draw.circle(icon_surface, engine_color, (engine_x, engine_y2), engine_radius)
+        # 하단에 폭발 효과 추가
+        explosion_y = icon_y + int(icon_h * 0.75)
+        
+        # 폭발 불꽃
+        for i in range(4):
+            exp_x = icon_x + int(icon_w * (0.15 + i * 0.23))
+            exp_radius = max(5, int(icon_h * 0.12))
+            
+            # 외부 폭발
+            pygame.draw.circle(icon_surface, explosion_color2, (exp_x, explosion_y), exp_radius)
+            # 내부 폭발 (더 밝은 색)
+            pygame.draw.circle(icon_surface, explosion_color1, (exp_x, explosion_y), max(3, exp_radius//2))
         
         icon_cache[item_name] = icon_surface
         return icon_surface
