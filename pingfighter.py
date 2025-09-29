@@ -12964,10 +12964,11 @@ def trigger_soldier_emergency_supply() -> bool:
             if fire_support.is_active() or fire_support.calling:
                 print("⚠️ 화력지원 호출이 진행 중일 때는 비상보급을 사용할 수 없습니다.")
                 return False
-            max_ammo = getattr(fire_support, "max_ammo", getattr(fire_support, "MAX_AMMO", 1))
+            max_ammo = max(1, getattr(fire_support, "max_ammo", getattr(fire_support, "MAX_AMMO", 1)))
             fire_support.reset_state()
             fire_support.ammo_count = max_ammo
             fire_support.clear_finished_flag()
+            soldier_controller.reset_tracking("fire_support")
             success = True
         else:
             print("⚠️ 화력지원 상태를 확인할 수 없어 비상보급에 실패했습니다.")
