@@ -37,9 +37,11 @@ class FireSupportAircraft:
         self.width = 110
         self.height = 32
         self.direction = direction
-        default_y = screen_height - max(140, screen_height * 0.25)
-        self.y = cruise_y if cruise_y is not None else default_y
-        self.y = max(80, min(self.screen_height - self.height - 20, self.y))
+        supply_altitude = _get_supply_aircraft_altitude()
+        desired_y = cruise_y if cruise_y is not None else supply_altitude
+        lower_bound = 20
+        upper_bound = self.screen_height - self.height - 20
+        self.y = max(lower_bound, min(upper_bound, desired_y))
         if self.direction == "right_to_left":
             self.x = self.screen_width + self.width
             self.speed = -1.8
@@ -243,10 +245,7 @@ class FireSupport:
         if self.delay_timer > 0:
             self.delay_timer -= 1
             if self.delay_timer == 0:
-                cruise_y = max(
-                    int(boss_rect.centery),
-                    int(self.screen_height * 0.6),
-                )
+                cruise_y = _get_supply_aircraft_altitude()
                 engine_sound = self._get_aircraft_sound()
                 self.aircraft = FireSupportAircraft(
                     self.screen_width,
@@ -346,3 +345,18 @@ def get_fire_support_instance() -> FireSupport:
     if _fire_support_instance is None:
         _fire_support_instance = FireSupport()
     return _fire_support_instance
+def _get_supply_aircraft_altitude() -> float:
+    """물자보급 비행기의 기본 고도를 조회한다."""
+
+    module = sys.modules.get("pingfighter")
+    if module:
+        supply_cls = getattr(module, "SupplyAircraft", None)
+        if supply_cls is not None:
+            if hasattr(supply_cls, "DEFAULT_ALTITUDE"):
+                return float(getattr(supply_cls, "DEFAULT_ALTITUDE"))
+            if hasattr(supply_cls, "y"):
+                try:
+                    return float(getattr(supply_cls, "y"))
+                except Exception:  # noqa: BLE001
+                    pass
+    return 50.0
