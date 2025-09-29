@@ -147,7 +147,7 @@ class GenieAssistant:
         self.detail_scroll_offset: float = 0.0
         self.detail_scroll_direction: int = 1
         self.detail_scroll_wait: float = 0.0
-        self.detail_scroll_pause: float = 1400.0  # ms 대기
+        self.detail_scroll_pause: float = 4000.0  # ms 대기
         self.detail_scroll_speed: float = 26.0  # px/sec
         self._detail_lines: List[dict] = []
         self._detail_total_height: float = 0.0
