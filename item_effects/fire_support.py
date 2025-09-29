@@ -559,7 +559,6 @@ class FireSupport:
             self.finished = True
             self.radio_active = False
             self.reuse_locked = False
-            self._stop_radio_sound()
 
     def draw(self, surface: pygame.Surface) -> None:
         if self.aircraft:
