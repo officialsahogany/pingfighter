@@ -31,6 +31,7 @@ class FireSupportAircraft:
         self.x = -self.width
         default_y = screen_height - max(140, screen_height * 0.25)
         self.y = cruise_y if cruise_y is not None else default_y
+        self.y = max(80, min(self.screen_height - self.height - 20, self.y))
         self.speed = 1.8
         self.active = True
         self.crashing = False
