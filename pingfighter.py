@@ -17254,7 +17254,10 @@ def draw_repair_glow_effects(surface: pygame.Surface) -> None:
     
     # 디버그: 수리 이펙트가 그려지는지 확인
     # print(f"[DEBUG] draw_repair_glow_effects 호출됨, 이펙트 개수: {len(repair_glow_effects)}")
-
+    
+    # 임시: 기존 하얀 원 효과를 비활성화하고 새로운 파티클 효과만 그리기
+    # 코덱스로 만든 기존 효과를 찾을 수 없어서, 일단 전체 함수를 새로 작성
+    
     for effect in repair_glow_effects:
         rect = None
         if effect["type"] == "wall":
@@ -26604,7 +26607,7 @@ def _draw_trade_point_system() -> None:
     update_trade_point_texts()
     draw_trade_point_texts()
 TUTORIAL_GUIDE_HINT_DURATION_MS = 3000
-TUTORIAL_GUIDE_HINT_SCALE = 0.43
+TUTORIAL_GUIDE_HINT_SCALE = 0.52
 tutorial_guide_hint_start_ticks = 0
 tutorial_guide_hint_visible = False
 
@@ -26687,63 +26690,47 @@ def _draw_tutorial_guide_hint() -> None:
 
     scale = TUTORIAL_GUIDE_HINT_SCALE
     pulse = (math.sin(elapsed / 160.0) + 1.0) * 0.5
-    font_size = max(9, int(24 * scale))
+    font_size = max(10, int(26 * scale))
     hint_font = get_font(font_size)
     message = "튜토리얼 가이드 → T키"
 
     text_color = (
-        int(220 + 28 * pulse),
-        int(234 + 12 * pulse),
+        int(228 + 20 * pulse),
+        int(208 + 32 * pulse),
         255,
     )
+    shadow_color = (200, 210, 240)
     text_surface = hint_font.render(message, True, text_color)
     text_rect = text_surface.get_rect()
 
-    left_padding = max(22, int(58 * scale))
-    right_padding = max(14, int(36 * scale))
-    padding_y = max(7, int(16 * scale))
-    bg_width = text_rect.width + left_padding + right_padding
-    bg_height = text_rect.height + padding_y * 2
-    hint_surface = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
-
-    base_bg_color = (255, 240, 250, 210)
-    hint_surface.fill(base_bg_color)
-
-    glow_alpha = 70 + int(60 * pulse)
-    glow_rect = pygame.Rect(0, 0, bg_width, bg_height).inflate(-max(2, int(6 * scale)), -max(2, int(4 * scale)))
-    if glow_rect.width > 0 and glow_rect.height > 0:
-        pygame.draw.ellipse(
-            hint_surface,
-            (255, 205, 235, glow_alpha),
-            glow_rect,
-        )
-
-    sparkle_color = (255, 255, 220, 150 + int(80 * pulse))
-    sparkle_radius = max(1, int(3 * scale))
-    sparkle_positions = [
-        (bg_width - int(12 * scale), int(8 * scale)),
-        (bg_width - int(26 * scale), int(18 * scale)),
-        (int(14 * scale), int(10 * scale)),
-    ]
-    for idx, (sx, sy) in enumerate(sparkle_positions):
-        radius = sparkle_radius + (idx % 2)
-        pygame.draw.circle(hint_surface, sparkle_color, (sx, sy), max(1, radius))
-
+    lamp_width = max(28, int(60 * scale))
+    lamp_height = max(22, int(44 * scale))
+    lamp_surface = pygame.Surface((lamp_width, lamp_height), pygame.SRCALPHA)
     lamp_center = (
-        left_padding // 2,
-        bg_height // 2 + int(math.sin(elapsed / 220.0) * 2 * scale),
+        lamp_width // 2,
+        lamp_height // 2 + int(math.sin(elapsed / 220.0) * 2 * scale),
     )
-    _draw_hint_lamp(hint_surface, lamp_center, elapsed, scale)
+    _draw_hint_lamp(lamp_surface, lamp_center, elapsed, scale)
+
+    horizontal_gap = max(12, int(24 * scale))
+    vertical_padding = max(6, int(10 * scale))
+    width = lamp_width + horizontal_gap + text_rect.width
+    height = max(lamp_height, text_rect.height + vertical_padding * 2)
+    hint_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+    lamp_y = (height - lamp_height) // 2
+    hint_surface.blit(lamp_surface, (0, lamp_y))
 
     bob_offset = int(math.sin(elapsed / 190.0) * 2 * scale)
-    text_pos = (left_padding, (bg_height - text_rect.height) // 2 + bob_offset)
-    shadow_offset = max(1, int(2 * scale))
-    shadow_surface = hint_font.render(message, True, (200, 210, 240))
-    hint_surface.blit(shadow_surface, (text_pos[0], text_pos[1] + shadow_offset))
-    hint_surface.blit(text_surface, text_pos)
+    text_x = lamp_width + horizontal_gap
+    text_y = (height - text_rect.height) // 2 + bob_offset
 
-    offset_x = max(12, int(34 * scale))
-    offset_y = max(12, int(34 * scale))
+    shadow_surface = hint_font.render(message, True, shadow_color)
+    hint_surface.blit(shadow_surface, (text_x, text_y + max(1, int(2 * scale))))
+    hint_surface.blit(text_surface, (text_x, text_y))
+
+    offset_x = max(12, int(30 * scale))
+    offset_y = max(12, int(32 * scale))
     SCREEN.blit(hint_surface, (offset_x, offset_y))
 
 
