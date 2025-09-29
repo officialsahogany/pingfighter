@@ -176,6 +176,27 @@ def stop_radio_loop(
     runtime.stop_radio_loop(keep_animation=keep_animation, force=force)
 
 
+def ensure_radio_audio(
+    runtime: SupplyDropRuntime,
+    resource_path: Callable[[str], str],
+    *,
+    volume: float = 0.6,
+) -> None:
+    """Ensure the radio loop sound continues without touching animation timers."""
+
+    sound = runtime.ensure_radio_sound(resource_path, volume=volume)
+    if sound is None:
+        return
+
+    try:
+        channel = runtime._radio_channel
+        if channel is None or not channel.get_busy():
+            sound.set_volume(volume)
+            runtime._radio_channel = sound.play(-1)
+    except Exception as exc:  # noqa: BLE001
+        print(f"무전기 효과음 유지 실패: {exc}")
+
+
 def update_radio_animation(runtime: SupplyDropRuntime) -> None:
     """Advance radio animation timers for the given runtime."""
 

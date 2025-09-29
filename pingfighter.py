@@ -181,6 +181,7 @@ from supply_drop import (
     start_radio_loop as supply_start_radio_loop,
     stop_radio_loop as supply_stop_radio_loop,
     update_radio_animation as supply_update_radio_animation,
+    ensure_radio_audio as supply_ensure_radio_audio,
 )
 from soldier import SoldierWeaponController
 #  전설 아이템 시스템
