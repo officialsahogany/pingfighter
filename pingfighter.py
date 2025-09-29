@@ -22538,7 +22538,12 @@ def handle_player(keys):
     umbrella_half_right = PADDLE_WIDTH / 2
 
     global debug_umbrella_hitbox_rect
-    if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
+    umbrella_guard_active = (
+        selected_character_type == "blacksmith"
+        and (blacksmith_umbrella_open or blacksmith_umbrella_retract_grace_timer > 0)
+    )
+
+    if umbrella_guard_active:
         swing_dir = -1 if blacksmith_umbrella_swing_direction < 0 else 1
         
         # 렌더링과 동일한 로직으로 offset 적용
@@ -22695,7 +22700,15 @@ def handle_player(keys):
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     if collision_with_player and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
         # 발토르 토르쉴드 방패 충격 효과
-        if selected_character_type == "blacksmith" and blacksmith_umbrella_open:
+        shield_guarding = (
+            selected_character_type == "blacksmith"
+            and (
+                blacksmith_umbrella_open
+                or blacksmith_umbrella_retract_grace_timer > 0
+            )
+        )
+
+        if shield_guarding:
             blacksmith_shield_impact_timer = 30  # 0.5초간 충격파 효과
             if SOUND_BLACKSMITH_UMBRELLA_BLOCK and player_sound_cooldown <= 0:
                 play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_BLOCK)
