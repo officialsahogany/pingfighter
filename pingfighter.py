@@ -11499,10 +11499,15 @@ SUPPLY_DROP_HOLD_THRESHOLD = supply_drop_state.config.hold_threshold
 SUPPLY_DROP_GAUGE_COST = supply_drop_state.config.gauge_cost
 
 
-def start_supply_radio_loop(*, duration_frames: int = 30) -> None:
+def start_supply_radio_loop(*, duration_frames: int = 30, play_sound: bool = True) -> None:
     """무전기 애니메이션과 사운드를 시작한다."""
 
-    supply_start_radio_loop(supply_runtime, resource_path, duration_frames=duration_frames)
+    supply_start_radio_loop(
+        supply_runtime,
+        resource_path,
+        duration_frames=duration_frames,
+        play_sound=play_sound,
+    )
 
 
 def stop_supply_radio_loop(keep_animation: bool = False, *, force: bool = False) -> None:
@@ -22177,7 +22182,10 @@ def handle_player(keys):
                             print(f"🔥 화력지원 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
                         else:
                             if fire_support_weapon.start_call(WIDTH, HEIGHT):
-                                start_supply_radio_loop(duration_frames=FIRE_SUPPORT_RADIO_FRAMES)
+                                start_supply_radio_loop(
+                                    duration_frames=FIRE_SUPPORT_RADIO_FRAMES,
+                                    play_sound=False,
+                                )
                                 fire_support_radio_loop_active = True
                                 supply_runtime.hold_active = True
                                 player_stunned_timer = max(player_stunned_timer, FIRE_SUPPORT_CONTROL_LOCK_FRAMES)
