@@ -12,6 +12,7 @@ from enum import Enum
 from core.events import EventType, emit_event
 from core.global_manager import GlobalManager
 from config.language_options import LANGUAGE_OPTIONS, DEFAULT_LANGUAGE, LANGUAGE_CODES
+from localization.manager import get_localization_manager
 
 
 class SettingCategory(Enum):
@@ -469,12 +470,12 @@ class SettingsManager:
     def _apply_language_setting(self, key: str, value: Any):
         """언어 설정 적용"""
         if key == 'language':
-            valid_codes = {code for code, _ in LANGUAGE_OPTIONS}
-            if value not in valid_codes:
-                value = LANGUAGE_OPTIONS[0][0]
+            if value not in LANGUAGE_CODES:
+                value = DEFAULT_LANGUAGE
             self.settings.setdefault('language', {})['language'] = value
             self.global_manager.set_setting('language', value)
             self.global_manager.set('language', value)
+            get_localization_manager().set_language(value)
 
     def apply_all_settings(self):
         """모든 설정 적용"""
