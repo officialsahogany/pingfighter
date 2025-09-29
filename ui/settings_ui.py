@@ -14,9 +14,14 @@ from config.settings_system import (
     GraphicsQuality,
     LANGUAGE_OPTIONS,
 )
+from localization.manager import get_localization_manager
 
 LANGUAGE_LABELS = {code: label for code, label in LANGUAGE_OPTIONS}
 LANGUAGE_CODES = [code for code, _ in LANGUAGE_OPTIONS]
+
+
+def translate(key: str, fallback: str) -> str:
+    return get_localization_manager().get_text(key, fallback)
 
 
 class SettingsUI:
@@ -567,7 +572,14 @@ class SettingsUI:
                                (tab_x, tab_y, tab_width, self.tab_height))
                                
             # 탭 텍스트
-            text = self.font_category.render(category.value, True, (255, 255, 255))
+            category_key = self._get_category_key(category)
+            category_label = category.value
+            if category_key:
+                category_label = translate(
+                    f"settings.category.{category_key}",
+                    category_label
+                )
+            text = self.font_category.render(category_label, True, (255, 255, 255))
             text_rect = text.get_rect(center=(tab_x + tab_width // 2, 
                                              tab_y + self.tab_height // 2))
             screen.blit(text, text_rect)

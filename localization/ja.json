@@ -17,5 +17,11 @@
   "option.controls.keyboard": "キーボード",
   "option.controls.mouse": "マウス",
   "option.controls.gamepad": "ゲームパッド",
-  "option.controls.mouse_hint": "マウス移動: パドル操作、左クリック: 必殺技、右クリック: ダッシュ、ホイール: アイテム選択、ホイールクリック: アイテム使用"
+  "option.controls.mouse_hint": "マウス移動: パドル操作、左クリック: 必殺技、右クリック: ダッシュ、ホイール: アイテム選択、ホイールクリック: アイテム使用",
+  "settings.category.language": "言語",
+  "settings.category.controls": "操作",
+  "settings.category.graphics": "グラフィック",
+  "settings.category.audio": "オーディオ",
+  "settings.category.gameplay": "ゲームプレイ",
+  "settings.category.network": "ネットワーク"
 }
