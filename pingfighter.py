@@ -18249,26 +18249,26 @@ def draw_soldier_weapon_ui(screen):
         # 현재 상태에 따른 색상
         strike_active = getattr(fire_support, "strike_active", False)
         calling_in_progress = getattr(fire_support, "calling", False)
-        filled = fire_support.ammo_count > 0
-        if filled:
-            if strike_active:
-                bg_color = (30, 22, 18)  # 폭격 알림 시 붉은 기조
-                screen_color = (82, 38, 30)
-                text_color = (255, 198, 132)
-                signal_color = (255, 152, 86)
-                outline_color = (118, 66, 42)
-            elif calling_in_progress:
-                bg_color = (28, 30, 36)
-                screen_color = (58, 60, 66)
-                text_color = (255, 230, 150)
-                signal_color = (255, 210, 120)
-                outline_color = (72, 82, 96)
-            else:
-                bg_color = (25, 35, 45)  # 어두운 무전기 화면
-                screen_color = (40, 60, 80)  # LCD 스크린 색상
-                text_color = (120, 255, 150)  # 밝은 녹색 LED
-                signal_color = (255, 200, 100)  # 신호 강도 표시
-                outline_color = (60, 80, 100)
+        has_ammo = fire_support.ammo_count > 0
+
+        if strike_active:
+            bg_color = (30, 22, 18)  # 폭격 알림 시 붉은 기조
+            screen_color = (82, 38, 30)
+            text_color = (255, 198, 132)
+            signal_color = (255, 152, 86)
+            outline_color = (118, 66, 42)
+        elif calling_in_progress:
+            bg_color = (28, 30, 36)
+            screen_color = (58, 60, 66)
+            text_color = (255, 230, 150)
+            signal_color = (255, 210, 120)
+            outline_color = (72, 82, 96)
+        elif has_ammo:
+            bg_color = (25, 35, 45)  # 어두운 무전기 화면
+            screen_color = (40, 60, 80)  # LCD 스크린 색상
+            text_color = (120, 255, 150)  # 밝은 녹색 LED
+            signal_color = (255, 200, 100)  # 신호 강도 표시
+            outline_color = (60, 80, 100)
         else:
             bg_color = (35, 35, 35)
             screen_color = (50, 50, 50)
@@ -18286,7 +18286,7 @@ def draw_soldier_weapon_ui(screen):
         pygame.draw.rect(screen, (20, 30, 40), display_rect, 1, border_radius=2)
         
         # 주파수 및 상태 표시 (화력지원은 1회용이므로 1 또는 0)
-        if filled:
+        if has_ammo or strike_active or calling_in_progress:
             display_text = "144.7"
             text_offset_y = -2
             if strike_active:
@@ -18407,7 +18407,8 @@ def draw_soldier_weapon_ui(screen):
         pygame.draw.line(screen, outline_color, 
                         (antenna_x, antenna_bottom), 
                         (antenna_x, antenna_top), 2)
-        pygame.draw.circle(screen, signal_color if filled else (100, 100, 100), 
+        antenna_signal_active = strike_active or calling_in_progress or has_ammo
+        pygame.draw.circle(screen, signal_color if antenna_signal_active else (100, 100, 100), 
                          (antenna_x, antenna_top), 2)
 
         if fire_support.ammo_count <= 0 and not fire_support.strike_active:
