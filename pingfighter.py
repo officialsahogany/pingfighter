@@ -16873,6 +16873,90 @@ def activate_repair_kit():
         msg_parts.append(f"벽돌 {repaired_walls}개 보수")
     print("🛠️ 수리키트 작동! " + ", ".join(msg_parts))
     return True
+
+
+def _start_repair_glow(kind: str, *, rect=None, state=None, wall=None) -> None:
+    """수리 이펙트를 등록한다."""
+    entry = {
+        "type": kind,
+        "duration": REPAIR_GLOW_DURATION_FRAMES,
+        "timer": REPAIR_GLOW_DURATION_FRAMES,
+        "phase": random.random() * math.tau,
+        "angular_speed": random.uniform(0.08, 0.14),
+    }
+    if rect is not None:
+        entry["rect"] = rect.copy()
+    if state is not None:
+        entry["state"] = state
+    if wall is not None:
+        entry["wall"] = wall
+    repair_glow_effects.append(entry)
+
+
+def update_repair_glow_effects() -> None:
+    if not repair_glow_effects:
+        return
+    for effect in repair_glow_effects[:]:
+        effect["timer"] -= 1
+        if effect["timer"] <= 0:
+            repair_glow_effects.remove(effect)
+            continue
+        effect["phase"] += effect.get("angular_speed", 0.1)
+
+
+def draw_repair_glow_effects(surface: pygame.Surface) -> None:
+    if not repair_glow_effects:
+        return
+
+    for effect in repair_glow_effects:
+        rect = None
+        if effect["type"] == "wall":
+            wall = effect.get("wall")
+            if wall:
+                rect = wall.get("rect")
+        elif effect["type"] in {"turret", "divine"}:
+            state = effect.get("state")
+            if state:
+                rect = state.get("rect")
+        else:
+            rect = effect.get("rect")
+
+        if rect is None:
+            continue
+
+        rect = rect.copy()
+        rect.x += screen_shake_offset_x
+        rect.y += screen_shake_offset_y
+
+        center = rect.center
+        life_ratio = max(0.0, min(1.0, effect["timer"] / effect["duration"]))
+        base_radius = int(max(rect.width, rect.height) * 0.75) + 18
+
+        glow_intensity = 0.45 + 0.35 * life_ratio
+        draw_glow_effect(surface, center, base_radius, (252, 244, 212), intensity=glow_intensity)
+        draw_glow_effect(surface, center, max(12, base_radius // 2), (208, 255, 255), intensity=0.25 + 0.25 * life_ratio)
+
+        swirl_radius = base_radius + 12
+        swirl_intensity = 0.2 + 0.4 * life_ratio
+        phase = effect.get("phase", 0.0)
+        for offset in (0.0, math.pi * 2 / 3, math.pi * 4 / 3):
+            angle = phase + offset
+            px = center[0] + math.cos(angle) * swirl_radius
+            py = center[1] + math.sin(angle) * swirl_radius * 0.65
+            draw_glow_effect(surface, (int(px), int(py)), max(8, base_radius // 3), (255, 251, 224), intensity=swirl_intensity)
+
+        ring_alpha = int(180 * life_ratio)
+        if ring_alpha > 0:
+            ring_width = rect.width + 48
+            ring_height = rect.height + 48
+            ring_surface = pygame.Surface((ring_width, ring_height), pygame.SRCALPHA)
+            pygame.draw.ellipse(
+                ring_surface,
+                (255, 255, 230, ring_alpha),
+                pygame.Rect(0, 0, ring_width, ring_height),
+                width=3,
+            )
+            surface.blit(ring_surface, (center[0] - ring_width // 2, center[1] - ring_height // 2), special_flags=pygame.BLEND_ADD)
 # === Stage 4 명상타임 관련 전역 변수 ===
 meditation_active = False
 meditation_timer = 0
