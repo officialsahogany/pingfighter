@@ -16793,16 +16793,9 @@ def activate_wall():
 
 
 def activate_repair_kit():
-    """수리키트: 발토르 구조물을 즉시 수리한다."""
-    global walls, blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer
-    global blacksmith_turret_state, blacksmith_divine_stone_state
-    structure_changed = False
-    healed_turret = False
-    healed_divine = False
-    repaired_walls = 0
-    effect_rects = []
+    """수리키트: 발토르 구조물에 수리 작업을 예약한다."""
+    global blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer
 
-    # 발토르 런타임 상태 동기화
     try:
         sync_blacksmith_state()
     except Exception as err:
@@ -16813,64 +16806,45 @@ def activate_repair_kit():
     turret_runtime = getattr(state, 'turret', None)
     divine_runtime = getattr(state, 'divine', None)
 
+    new_jobs = 0
+    state_dirty = False
+
     if turret_runtime and turret_runtime.active and turret_runtime.state:
         turret_state = turret_runtime.state
-        rect = turret_state.get("rect")
         max_hp = max(1, int(turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP)))
-        needs_hp = turret_state.get("hp", max_hp) < max_hp
-        overheated = turret_state.get("overheat_timer", 0) > 0
-        if needs_hp or overheated:
-            turret_state["hp"] = max_hp
+        current_hp = int(turret_state.get("hp", max_hp))
+        if current_hp < max_hp and not _is_repair_job_active("turret", state=turret_state):
+            _add_repair_job("turret", state=turret_state)
             turret_state["overheat_timer"] = 0
             turret_state["overheat_smoke_timer"] = 0
-            healed_turret = True
-            structure_changed = True
-            if rect:
-                effect_rects.append(rect)
-            if needs_hp:
-                _start_repair_glow("turret", state=turret_state)
+            blacksmith_turret_destroy_timer = 0
+            new_jobs += 1
+            state_dirty = True
 
     if divine_runtime and divine_runtime.state:
         divine_state = divine_runtime.state
-        rect = divine_state.get("rect")
         max_hp = max(1, int(divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP)))
-        if divine_state.get("hp", max_hp) < max_hp:
-            divine_state["hp"] = max_hp
-            divine_state["cooldown"] = 0
-            healed_divine = True
-            structure_changed = True
-            if rect:
-                effect_rects.append(rect)
-            _start_repair_glow("divine", state=divine_state)
+        current_hp = int(divine_state.get("hp", max_hp))
+        if current_hp < max_hp and not _is_repair_job_active("divine", state=divine_state):
+            _add_repair_job("divine", state=divine_state)
+            blacksmith_divine_destroy_timer = 0
+            new_jobs += 1
 
-    highlighted_walls = 0
+    wall_jobs = 0
     for wall in walls:
-        hit = wall.get("hit_count", 0)
-        crack = wall.get("crack_level", 0)
-        if hit > 0 or crack > 0:
-            wall["hit_count"] = 0
-            wall["crack_level"] = 0
-            repaired_walls += 1
-            _start_repair_glow("wall", wall=wall)
-            if highlighted_walls < 3:
-                rect = wall.get("rect")
-                if rect:
-                    effect_rects.append(rect)
-            highlighted_walls += 1
+        if wall.get("hit_count", 0) > 0 or wall.get("crack_level", 0) > 0:
+            if not _is_repair_job_active("wall", wall=wall):
+                _add_repair_job("wall", wall=wall)
+                wall_jobs += 1
+    new_jobs += wall_jobs
 
-    if structure_changed:
+    if state_dirty:
         try:
             push_blacksmith_state()
         except Exception as err:
             print(f"⚠️ 수리키트 상태 반영 실패: {err}")
 
-    if healed_turret:
-        blacksmith_turret_destroy_timer = 0
-    if healed_divine:
-        blacksmith_divine_destroy_timer = 0
-
-    success = healed_turret or healed_divine or repaired_walls > 0
-    if not success:
+    if new_jobs == 0:
         print("⚠️ 수리 대상이 없습니다. 포탑·디바인스톤·벽돌이 모두 정상입니다.")
         return False
 
@@ -16878,8 +16852,6 @@ def activate_repair_kit():
         play_sound_with_volume(SOUND_CONSTRUCTION)
     except Exception:
         pass
-
-    # 기존의 star_particles와 construction_smoke 제거 - 새로운 성스러운 파티클 이펙트로 대체됨
 
     msg_parts = []
     if healed_turret:
