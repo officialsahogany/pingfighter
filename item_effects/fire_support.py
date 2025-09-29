@@ -115,6 +115,7 @@ class FireSupportAircraft:
         if not self.active and not self.crashing and not self.flame_particles:
             return
 
+        # 엔진 배기 화염 그리기
         for particle in self.flame_particles:
             ratio = particle["life"] / particle["max_life"] if particle["max_life"] else 0
             outer_color = (
@@ -141,73 +142,133 @@ class FireSupportAircraft:
         w = self.width
         h = self.height
 
-        body_points = [
-            self._to_screen_point(base_x, base_y, w, h, 0.00, 0.50),
-            self._to_screen_point(base_x, base_y, w, h, 0.06, 0.20),
-            self._to_screen_point(base_x, base_y, w, h, 0.18, 0.08),
-            self._to_screen_point(base_x, base_y, w, h, 0.40, 0.03),
-            self._to_screen_point(base_x, base_y, w, h, 0.70, 0.20),
-            self._to_screen_point(base_x, base_y, w, h, 0.92, 0.50),
-            self._to_screen_point(base_x, base_y, w, h, 0.70, 0.80),
-            self._to_screen_point(base_x, base_y, w, h, 0.40, 0.97),
-            self._to_screen_point(base_x, base_y, w, h, 0.18, 0.85),
-            self._to_screen_point(base_x, base_y, w, h, 0.06, 0.60),
-        ]
+        # B-2 폭격기의 특징적인 삼각형/다이아몬드 날개 형태
+        if self.direction == "left_to_right":
+            body_points = [
+                # 노즈 (전방)
+                self._to_screen_point(base_x, base_y, w, h, 0.95, 0.50),
+                # 우측 날개 끝
+                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.05),
+                # 우측 날개 중간
+                self._to_screen_point(base_x, base_y, w, h, 0.50, 0.15),
+                # 중앙 뒤쪽
+                self._to_screen_point(base_x, base_y, w, h, 0.05, 0.50),
+                # 좌측 날개 중간
+                self._to_screen_point(base_x, base_y, w, h, 0.50, 0.85),
+                # 좌측 날개 끝
+                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.95),
+            ]
+        else:
+            body_points = [
+                # 노즈 (전방)
+                self._to_screen_point(base_x, base_y, w, h, 0.05, 0.50),
+                # 좌측 날개 끝
+                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.05),
+                # 좌측 날개 중간
+                self._to_screen_point(base_x, base_y, w, h, 0.50, 0.15),
+                # 중앙 뒤쪽
+                self._to_screen_point(base_x, base_y, w, h, 0.95, 0.50),
+                # 우측 날개 중간
+                self._to_screen_point(base_x, base_y, w, h, 0.50, 0.85),
+                # 우측 날개 끝
+                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.95),
+            ]
 
-        main_color = (38, 46, 58) if not self.crashing else (96, 70, 50)
-        outline_color = (18, 24, 32)
-        highlight_color = (64, 78, 98)
+        # B-2의 특징적인 검은색
+        main_color = (25, 25, 28) if not self.crashing else (60, 45, 35)
+        outline_color = (10, 10, 12)
+        highlight_color = (40, 40, 45)
+        panel_color = (35, 35, 40)
 
+        # 메인 동체 그리기
         pygame.draw.polygon(surface, main_color, body_points)
-        pygame.draw.lines(surface, outline_color, True, body_points, 2)
+        pygame.draw.polygon(surface, outline_color, body_points, 2)
 
-        leading_edge = [
-            self._to_screen_point(base_x, base_y, w, h, 0.06, 0.20),
-            self._to_screen_point(base_x, base_y, w, h, 0.18, 0.08),
-            self._to_screen_point(base_x, base_y, w, h, 0.40, 0.03),
-            self._to_screen_point(base_x, base_y, w, h, 0.70, 0.20),
-        ]
-        pygame.draw.lines(surface, highlight_color, False, leading_edge, 3)
+        # 날개 패널 라인과 디테일
+        if self.direction == "left_to_right":
+            # 우측 날개 패널
+            panel_lines_right = [
+                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.25),
+                self._to_screen_point(base_x, base_y, w, h, 0.60, 0.35),
+            ]
+            # 좌측 날개 패널
+            panel_lines_left = [
+                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.75),
+                self._to_screen_point(base_x, base_y, w, h, 0.60, 0.65),
+            ]
+            # 엔진 벌지 위치
+            engine_center_right = self._to_screen_point(base_x, base_y, w, h, 0.30, 0.30)
+            engine_center_left = self._to_screen_point(base_x, base_y, w, h, 0.30, 0.70)
+        else:
+            # 좌측 날개 패널
+            panel_lines_right = [
+                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.25),
+                self._to_screen_point(base_x, base_y, w, h, 0.40, 0.35),
+            ]
+            # 우측 날개 패널
+            panel_lines_left = [
+                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.75),
+                self._to_screen_point(base_x, base_y, w, h, 0.40, 0.65),
+            ]
+            # 엔진 벌지 위치
+            engine_center_right = self._to_screen_point(base_x, base_y, w, h, 0.70, 0.30)
+            engine_center_left = self._to_screen_point(base_x, base_y, w, h, 0.70, 0.70)
 
-        cockpit_width = int(w * 0.18)
-        cockpit_height = int(h * 0.32)
-        cockpit_center_x = self._ratio_to_x(base_x, w, 0.68)
+        # 날개 패널 라인
+        pygame.draw.line(surface, panel_color, panel_lines_right[0], panel_lines_right[1], 2)
+        pygame.draw.line(surface, panel_color, panel_lines_left[0], panel_lines_left[1], 2)
+
+        # 엔진 벌지 (B-2의 특징적인 엔진 흡입구)
+        engine_radius = int(h * 0.16)
+        pygame.draw.circle(surface, (20, 20, 23), engine_center_right, engine_radius)
+        pygame.draw.circle(surface, (20, 20, 23), engine_center_left, engine_radius)
+        pygame.draw.circle(surface, outline_color, engine_center_right, engine_radius, 1)
+        pygame.draw.circle(surface, outline_color, engine_center_left, engine_radius, 1)
+
+        # 콕핏 위치 (중앙 상단)
+        if self.direction == "left_to_right":
+            cockpit_center = self._to_screen_point(base_x, base_y, w, h, 0.70, 0.50)
+        else:
+            cockpit_center = self._to_screen_point(base_x, base_y, w, h, 0.30, 0.50)
+        
+        cockpit_width = int(w * 0.08)
+        cockpit_height = int(h * 0.20)
         cockpit_rect = pygame.Rect(
-            int(cockpit_center_x - cockpit_width / 2),
-            int(base_y + h * 0.32),
+            cockpit_center[0] - cockpit_width // 2,
+            cockpit_center[1] - cockpit_height // 2,
             cockpit_width,
             cockpit_height,
         )
-        pygame.draw.ellipse(surface, (90, 120, 150), cockpit_rect)
-        pygame.draw.ellipse(surface, outline_color, cockpit_rect, 2)
+        pygame.draw.ellipse(surface, (50, 60, 70), cockpit_rect)
+        pygame.draw.ellipse(surface, outline_color, cockpit_rect, 1)
 
-        inlet_width = int(w * 0.12)
-        inlet_height = int(h * 0.14)
-        inlet_top = int(base_y + h * 0.40)
-        left_inlet_rect = pygame.Rect(
-            int(self._ratio_to_x(base_x, w, 0.36) - inlet_width / 2),
-            inlet_top,
-            inlet_width,
-            inlet_height,
-        )
-        right_inlet_rect = pygame.Rect(
-            int(self._ratio_to_x(base_x, w, 0.52) - inlet_width / 2),
-            inlet_top,
-            inlet_width,
-            inlet_height,
-        )
-        for inlet in (left_inlet_rect, right_inlet_rect):
-            pygame.draw.rect(surface, (52, 62, 80), inlet, border_radius=3)
-            pygame.draw.rect(surface, outline_color, inlet, 1, border_radius=3)
-
-        tail_line = [
-            self._to_screen_point(base_x, base_y, w, h, 0.06, 0.60),
-            self._to_screen_point(base_x, base_y, w, h, 0.18, 0.85),
-            self._to_screen_point(base_x, base_y, w, h, 0.40, 0.97),
-            self._to_screen_point(base_x, base_y, w, h, 0.70, 0.80),
-            self._to_screen_point(base_x, base_y, w, h, 0.92, 0.50),
-        ]
-        pygame.draw.lines(surface, (24, 30, 40), False, tail_line, 2)
+        # 날개 엣지 하이라이트 (스텔스 코팅 효과)
+        edge_alpha = 80
+        edge_surface = pygame.Surface((2, 2), pygame.SRCALPHA)
+        if self.direction == "left_to_right":
+            # 앞쪽 엣지
+            edge_line = [
+                self._to_screen_point(base_x, base_y, w, h, 0.95, 0.50),
+                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.05),
+            ]
+            pygame.draw.line(surface, (*highlight_color, edge_alpha), edge_line[0], edge_line[1], 2)
+            edge_line2 = [
+                self._to_screen_point(base_x, base_y, w, h, 0.95, 0.50),
+                self._to_screen_point(base_x, base_y, w, h, 0.85, 0.95),
+            ]
+            pygame.draw.line(surface, (*highlight_color, edge_alpha), edge_line2[0], edge_line2[1], 2)
+        else:
+            # 앞쪽 엣지
+            edge_line = [
+                self._to_screen_point(base_x, base_y, w, h, 0.05, 0.50),
+                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.05),
+            ]
+            pygame.draw.line(surface, (*highlight_color, edge_alpha), edge_line[0], edge_line[1], 2)
+            edge_line2 = [
+                self._to_screen_point(base_x, base_y, w, h, 0.05, 0.50),
+                self._to_screen_point(base_x, base_y, w, h, 0.15, 0.95),
+            ]
+            pygame.draw.line(surface, (*highlight_color, edge_alpha), edge_line2[0], edge_line2[1], 2)
 
     def _ratio_to_x(self, base_x: float, width: float, ratio: float) -> float:
         if self.direction == "left_to_right":
@@ -233,10 +294,17 @@ class FireSupportAircraft:
         base_y = self.y
         w = self.width
         h = self.height
-        return [
-            (self._ratio_to_x(base_x, w, 0.44), base_y + h * 0.64),
-            (self._ratio_to_x(base_x, w, 0.56), base_y + h * 0.64),
-        ]
+        # B-2의 엔진은 날개 상단에 매립되어 있음
+        if self.direction == "left_to_right":
+            return [
+                (self._ratio_to_x(base_x, w, 0.25), base_y + h * 0.30),
+                (self._ratio_to_x(base_x, w, 0.25), base_y + h * 0.70),
+            ]
+        else:
+            return [
+                (self._ratio_to_x(base_x, w, 0.75), base_y + h * 0.30),
+                (self._ratio_to_x(base_x, w, 0.75), base_y + h * 0.70),
+            ]
 
     def _spawn_flame_particles(self, *, count: int) -> None:
         if count <= 0:
