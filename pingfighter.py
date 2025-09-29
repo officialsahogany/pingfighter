@@ -29666,7 +29666,6 @@ def draw_objects():
     draw_blacksmith_turret_elements(SCREEN)
 
     # 수리 이펙트를 건물 위에 그리기 위해 여기로 이동
-    draw_repair_glow_effects(SCREEN)
 
     # 킥차져 빛나는 이펙트 그리기
     try:
