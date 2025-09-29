@@ -8,7 +8,15 @@ import math
 from typing import Optional, List, Dict, Any, Tuple
 from core.events import EventType, emit_event
 from core.global_manager import GlobalManager
-from config.settings_system import get_settings_manager, SettingCategory, GraphicsQuality
+from config.settings_system import (
+    get_settings_manager,
+    SettingCategory,
+    GraphicsQuality,
+    LANGUAGE_OPTIONS,
+)
+
+LANGUAGE_LABELS = {code: label for code, label in LANGUAGE_OPTIONS}
+LANGUAGE_CODES = [code for code, _ in LANGUAGE_OPTIONS]
 
 
 class SettingsUI:

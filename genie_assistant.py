@@ -648,6 +648,60 @@ class GenieAssistant:
             surface.blit(line_surface, (text_rect.left, y))
             y += height
 
+    def _draw_detail_scrollbar(self, surface: pygame.Surface, rect: pygame.Rect) -> None:
+        if self._detail_total_height <= 0 or self._detail_view_height <= 0:
+            return
+
+        overflow = self._detail_total_height - self._detail_view_height
+        if overflow <= 4:
+            return
+
+        pygame.draw.rect(surface, COLOR_SCROLL_TRACK, rect, border_radius=4)
+
+        max_offset = max(0.0, overflow)
+        visible_ratio = self._detail_view_height / self._detail_total_height
+        visible_ratio = max(0.08, min(1.0, visible_ratio))
+        handle_height = max(20.0, rect.height * visible_ratio)
+        scroll_ratio = 0.0 if max_offset <= 0 else self.detail_scroll_offset / max_offset
+        scroll_ratio = max(0.0, min(1.0, scroll_ratio))
+        available = rect.height - handle_height
+        handle_top = rect.top + available * scroll_ratio if available > 0 else rect.top
+        handle_rect = pygame.Rect(rect.left + 1, int(handle_top), rect.width - 2, int(handle_height))
+
+        handle_color = COLOR_MENU_ACTIVE if self.detail_focus else COLOR_SCROLL_HANDLE
+        pygame.draw.rect(surface, handle_color, handle_rect, border_radius=4)
+        pygame.draw.rect(surface, (255, 255, 255, 100), handle_rect, width=1, border_radius=4)
+
+    def _detail_scroll_step(self) -> float:
+        return max(24.0, float(self.detail_font.get_height() + 6))
+
+    def _page_scroll_step(self) -> float:
+        if self._detail_view_height <= 0:
+            return self._detail_scroll_step()
+        return max(self._detail_scroll_step(), float(self._detail_view_height) * 0.85)
+
+    def _scroll_detail_by(self, delta: float) -> None:
+        if self._detail_total_height <= self._detail_view_height or self._detail_view_height <= 0:
+            if self.detail_focus:
+                self.detail_manual_scroll = True
+            return
+
+        max_offset = max(0.0, self._detail_total_height - self._detail_view_height)
+        new_offset = max(0.0, min(max_offset, self.detail_scroll_offset + delta))
+        self.detail_scroll_offset = new_offset
+        if self.detail_focus:
+            self.detail_manual_scroll = True
+
+    def _set_detail_scroll_ratio(self, ratio: float) -> None:
+        if self._detail_total_height <= self._detail_view_height or self._detail_view_height <= 0:
+            self.detail_scroll_offset = 0.0
+        else:
+            ratio = max(0.0, min(1.0, ratio))
+            max_offset = max(0.0, self._detail_total_height - self._detail_view_height)
+            self.detail_scroll_offset = max_offset * ratio
+        if self.detail_focus:
+            self.detail_manual_scroll = True
+
     def _draw_animation_preview(self, surface: pygame.Surface, rect: pygame.Rect, animation_id: str | None) -> None:
         pygame.draw.rect(surface, (40, 52, 80, 200), rect, border_radius=16)
         pygame.draw.rect(surface, (90, 120, 190, 120), rect, width=1, border_radius=16)
@@ -763,7 +817,9 @@ class GenieAssistant:
         self.detail_scroll_direction = 1
         self.detail_scroll_wait = 0.0
         self._detail_view_height = 0.0
+        self.detail_manual_scroll = False
         if reset_layout:
+            self.detail_focus = False
             self._detail_lines = []
             self._detail_total_height = 0.0
             self._detail_layout_key = None
