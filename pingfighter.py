@@ -12956,6 +12956,21 @@ def trigger_soldier_emergency_supply() -> bool:
             success = True
         else:
             print("⚠️ 그물덫총 상태를 확인할 수 없어 비상보급에 실패했습니다.")
+    elif weapon_name == "fire_support":
+        from item_effects.fire_support import get_fire_support_instance
+
+        fire_support = get_fire_support_instance()
+        if fire_support:
+            if fire_support.is_active() or fire_support.calling:
+                print("⚠️ 화력지원 호출이 진행 중일 때는 비상보급을 사용할 수 없습니다.")
+                return False
+            max_ammo = getattr(fire_support, "max_ammo", getattr(fire_support, "MAX_AMMO", 1))
+            fire_support.reset_state()
+            fire_support.ammo_count = max_ammo
+            fire_support.clear_finished_flag()
+            success = True
+        else:
+            print("⚠️ 화력지원 상태를 확인할 수 없어 비상보급에 실패했습니다.")
     elif weapon_name == "pistol":
         soldier_ammo_count = soldier_max_ammo
         soldier_reloading = False
@@ -12971,7 +12986,7 @@ def trigger_soldier_emergency_supply() -> bool:
 
     consume_special_gauge(SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST)
     soldier_emergency_supply_used = True
-    if weapon_name not in {"bazooka", "net_gun", "ak47"}:
+    if weapon_name not in {"bazooka", "net_gun", "ak47", "fire_support"}:
         register_weapon_reload(weapon_name)
     soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
     soldier_emergency_supply_toast_timer = 90
