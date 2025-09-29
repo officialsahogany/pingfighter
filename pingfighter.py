@@ -45108,6 +45108,7 @@ def reset_round():
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_manual_hammer_timer, blacksmith_manual_hammer_increment
+    global blacksmith_umbrella_retract_start_frame
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -54082,6 +54083,7 @@ def main(stage_num, new_boss_mode=False):
     global blacksmith_hammer_explosions
     blacksmith_hammer_explosions.clear()
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer
+    global blacksmith_umbrella_retract_start_frame
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     global blacksmith_umbrella_swing_active, blacksmith_umbrella_swing_timer
     global blacksmith_umbrella_swing_stage, blacksmith_umbrella_swing_progress
