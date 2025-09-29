@@ -395,6 +395,7 @@ class FireSupport:
         self.radio_volume = 0.6
 
     def reset_state(self) -> None:
+        self._stop_radio_loop()
         self.strike_active = False
         self.calling = False
         self.call_timer = 0
@@ -461,6 +462,7 @@ class FireSupport:
         self.screen_height = screen_height
         self.ammo_count = max(0, self.ammo_count - 1)
         self.radio_active = True
+        self._ensure_radio_loop()
         self.reuse_locked = True
         self.unequip()  # 발동과 동시에 무전 장비를 비활성화해 UI/입력에서 상태를 명확히 표시
         self._notify_lockout()
@@ -489,6 +491,9 @@ class FireSupport:
     ) -> None:
         if not self.strike_active:
             return
+
+        if self.radio_active:
+            self._ensure_radio_loop()
 
         if self.calling:
             if self.call_timer > 0:
