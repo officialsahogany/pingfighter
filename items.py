@@ -110,6 +110,7 @@ def load_item_icons():
         "net_gun": "net_gun.png",  # 그물덫총 아이콘
         "fire_support": "fire_support.png",  # 화력지원 아이콘
         "spider_mine": "spider_mine.png",  # 스파이더지뢰 아이콘
+        "repair_kit": "repair_kit.png",  # 수리키트 아이콘
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
         "hermes_shoes": "legendary/hermes_shoes.png",
