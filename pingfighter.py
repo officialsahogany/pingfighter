@@ -10926,6 +10926,9 @@ def get_blacksmith_umbrella_gauge_gain() -> int:
         )
         return max(1, reduced_gain)
 
+    if base_gain != BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE:
+        print(f"[DEBUG BLOCKING] no penalty base={base_gain}")
+
     return base_gain
 blacksmith_umbrella_recharge_progress = 0
 blacksmith_umbrella_damage_flash_timer = 0
@@ -23145,10 +23148,11 @@ def handle_player(keys):
             if (
                 not gauge_reduced
                 and blacksmith_umbrella_retracting
-                and frame_counter == blacksmith_umbrella_retract_start_frame
+                and 0 <= frame_counter - blacksmith_umbrella_retract_start_frame <= BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
+                and blacksmith_umbrella_gauge > 0
             ):
                 print(
-                    f"[DEBUG BLOCKING] penalty trigger frame={frame_counter} start={blacksmith_umbrella_retract_start_frame} gauge={blacksmith_umbrella_gauge} penalty_timer={blacksmith_blocking_penalty_timer}"
+                    f"[DEBUG BLOCKING] penalty trigger frame={frame_counter} start={blacksmith_umbrella_retract_start_frame} gauge={blacksmith_umbrella_gauge} delta={frame_counter - blacksmith_umbrella_retract_start_frame}"
                 )
                 blacksmith_umbrella_hit_lock = True
                 blacksmith_blocking_penalty_timer = BLACKSMITH_BLOCKING_PENALTY_FRAMES
