@@ -9600,71 +9600,188 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
     width, height = rect.size
     padding_x = max(4, width // 12)
     padding_top = max(6, height // 10)
-    padding_bottom = 0
-    # 디바인스톤 상단이 잘리지 않도록 여유 패딩을 확보한다.
+    padding_bottom = max(6, height // 12)
     draw_width = width + padding_x * 2
     draw_height = height + padding_top + padding_bottom
-    tower_surface = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
+    structure_surface = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
+    frame_value = float(globals().get("frame_counter", 0))
+    deploy_frames = max(1, BLACKSMITH_DIVINE_DEPLOY_FRAMES)
+    deploy_timer = min(deploy_frames, int(divine_state.get("deploy_timer", deploy_frames)))
+    base_ratio = deploy_timer / deploy_frames
+    structure_progress = 1.0 - pow(1.0 - base_ratio, 3)
+    structure_progress = max(0.0, min(1.0, structure_progress))
+    base_progress = min(1.0, structure_progress / 0.4)
+    pillar_progress = max(0.0, min(1.0, (structure_progress - 0.2) / 0.5))
+    cap_progress = max(0.0, min(1.0, (structure_progress - 0.45) / 0.45))
+    core_progress = max(0.0, min(1.0, (structure_progress - 0.55) / 0.45))
+    idle_wave = math.sin(frame_value * 0.05) * 0.5
+
     cx = padding_x + width // 2
     cy = padding_top + height // 2
 
     base_height = max(12, height // 5)
-    base_rect = pygame.Rect(6, height - base_height - 2, width - 12, base_height)
-    base_rect.move_ip(padding_x, padding_top)
-    pygame.draw.rect(tower_surface, (70, 60, 85), base_rect, border_radius=6)
-    pygame.draw.rect(tower_surface, (140, 120, 170), base_rect.inflate(-6, -4), border_radius=4)
-    pygame.draw.rect(tower_surface, (220, 200, 255), base_rect.inflate(-10, -8), border_radius=3, width=2)
+    base_bottom = padding_top + height - 2
+    base_height_eff = max(2, int(base_height * base_progress))
+    base_top = base_bottom - base_height_eff
+    base_rect = pygame.Rect(padding_x + 6, base_top, width - 12, base_height_eff)
+    pygame.draw.rect(structure_surface, (70, 60, 85), base_rect, border_radius=6)
+    if base_rect.width > 0 and base_rect.height > 4:
+        inner_rect = base_rect.inflate(-6, -4)
+        if inner_rect.width > 0 and inner_rect.height > 0:
+            pygame.draw.rect(structure_surface, (140, 120, 170), inner_rect, border_radius=4)
+        outline_rect = base_rect.inflate(-10, -8)
+        if outline_rect.width > 0 and outline_rect.height > 0:
+            pygame.draw.rect(structure_surface, (220, 200, 255), outline_rect, border_radius=3, width=2)
 
-    pillar_width = max(6, width // 6)
-    pillar_height = height - base_height - 18
-    left_pillar = pygame.Rect(8, height - base_height - pillar_height, pillar_width, pillar_height)
-    right_pillar = pygame.Rect(width - pillar_width - 8, height - base_height - pillar_height, pillar_width, pillar_height)
-    left_pillar.move_ip(padding_x, padding_top)
-    right_pillar.move_ip(padding_x, padding_top)
-    pygame.draw.rect(tower_surface, (120, 115, 150), left_pillar, border_radius=4)
-    pygame.draw.rect(tower_surface, (120, 115, 150), right_pillar, border_radius=4)
-    pygame.draw.rect(tower_surface, (200, 190, 240), left_pillar.inflate(-4, -4), border_radius=3, width=2)
-    pygame.draw.rect(tower_surface, (200, 190, 240), right_pillar.inflate(-4, -4), border_radius=3, width=2)
+    pillar_bottom = base_top
+    pillar_top = pillar_bottom
+    pillar_height_eff = 0
+    left_pillar = None
+    right_pillar = None
 
-    cap_height = max(10, height // 6)
-    cap_rect = pygame.Rect(left_pillar.left - 6, left_pillar.top - cap_height + 4, right_pillar.right - left_pillar.left + 12, cap_height)
-    pygame.draw.rect(tower_surface, (90, 80, 120), cap_rect, border_radius=6)
-    pygame.draw.rect(tower_surface, (150, 140, 200), cap_rect.inflate(-6, -4), border_radius=5)
-    pygame.draw.rect(tower_surface, (210, 200, 255), cap_rect.inflate(-10, -6), border_radius=4, width=2)
+    if pillar_progress > 0:
+        pillar_width = max(6, width // 6)
+        pillar_height = max(12, height - base_height - 18)
+        pillar_height_eff = max(4, int(pillar_height * pillar_progress))
+        pillar_top = pillar_bottom - pillar_height_eff
+        left_pillar = pygame.Rect(padding_x + 8, pillar_top, pillar_width, pillar_height_eff)
+        right_pillar = pygame.Rect(padding_x + width - pillar_width - 8, pillar_top, pillar_width, pillar_height_eff)
+        pygame.draw.rect(structure_surface, (120, 115, 150), left_pillar, border_radius=4)
+        pygame.draw.rect(structure_surface, (120, 115, 150), right_pillar, border_radius=4)
+        inner_left = left_pillar.inflate(-4, -4)
+        inner_right = right_pillar.inflate(-4, -4)
+        if inner_left.width > 0 and inner_left.height > 0:
+            pygame.draw.rect(structure_surface, (200, 190, 240), inner_left, border_radius=3, width=2)
+        if inner_right.width > 0 and inner_right.height > 0:
+            pygame.draw.rect(structure_surface, (200, 190, 240), inner_right, border_radius=3, width=2)
 
-    arch_rect = pygame.Rect(left_pillar.left - 4, left_pillar.top - cap_height - 4, right_pillar.right - left_pillar.left + 8, cap_height + 12)
-    pygame.draw.arc(tower_surface, (130, 120, 200), arch_rect, math.pi, 2 * math.pi, 3)
+    if cap_progress > 0 and left_pillar and right_pillar:
+        cap_height = max(10, height // 6)
+        cap_height_eff = max(2, int(cap_height * cap_progress))
+        cap_bottom = pillar_top
+        cap_top = cap_bottom - cap_height_eff + 4
+        cap_rect = pygame.Rect(left_pillar.left - 6, cap_top, right_pillar.right - left_pillar.left + 12, cap_height_eff)
+        pygame.draw.rect(structure_surface, (90, 80, 120), cap_rect, border_radius=6)
+        inner_cap = cap_rect.inflate(-6, -4)
+        if inner_cap.width > 0 and inner_cap.height > 0:
+            pygame.draw.rect(structure_surface, (150, 140, 200), inner_cap, border_radius=5)
+        detail_cap = cap_rect.inflate(-10, -6)
+        if detail_cap.width > 0 and detail_cap.height > 0:
+            pygame.draw.rect(structure_surface, (210, 200, 255), detail_cap, border_radius=4, width=2)
 
-    float_height = left_pillar.top + (left_pillar.height // 2)
-    orbital_radius = max(6, width // 5)
-    float_offset = math.sin(pulse * 0.08) * 3
-    mana_center = pygame.math.Vector2(cx, float_height + float_offset)
-    core_radius = max(8, width // 6)
-    glow_radius = core_radius + 6
-    pygame.draw.circle(tower_surface, (110, 170, 255, 90), (int(mana_center.x), int(mana_center.y)), glow_radius + 6)
-    pygame.draw.circle(tower_surface, (160, 200, 255, 140), (int(mana_center.x), int(mana_center.y)), glow_radius)
-    pygame.draw.circle(tower_surface, (255, 255, 255, 220), (int(mana_center.x), int(mana_center.y)), core_radius)
-    rune_progress = (pulse % 180) / 180.0
-    for angle_deg in range(0, 360, 60):
-        angle = math.radians(angle_deg + rune_progress * 120)
-        orb_pos = mana_center + pygame.math.Vector2(math.cos(angle), math.sin(angle)) * orbital_radius
-        pygame.draw.circle(tower_surface, (120, 200, 255, 180), _vec_to_int_pair(orb_pos), 3)
+        arch_total_height = cap_height + 12
+        arch_height = max(4, int(arch_total_height * cap_progress))
+        arch_rect = pygame.Rect(
+            left_pillar.left - 4,
+            cap_bottom - arch_height - int(4 * cap_progress),
+            right_pillar.right - left_pillar.left + 8,
+            arch_height,
+        )
+        if arch_rect.height > 2:
+            pygame.draw.arc(
+                structure_surface,
+                (130, 120, 200),
+                arch_rect,
+                math.pi,
+                2 * math.pi,
+                max(1, int(3 * cap_progress)),
+            )
 
-    spark_count = 4
-    for idx in range(spark_count):
-        spark_angle = math.radians((360 / spark_count) * idx + pulse * 4)
-        outer = mana_center + pygame.math.Vector2(math.cos(spark_angle), math.sin(spark_angle)) * (orbital_radius + 10)
-        inner = mana_center + pygame.math.Vector2(math.cos(spark_angle), math.sin(spark_angle)) * (orbital_radius - 2)
-        pygame.draw.line(tower_surface, (150, 220, 255, 180), _vec_to_int_pair(inner), _vec_to_int_pair(outer), 2)
+    mana_center_y = base_top - 10
+    if pillar_height_eff > 0:
+        mana_center_y = pillar_top + pillar_height_eff * 0.5
+    float_offset = (math.sin(pulse * 0.08) + idle_wave) * 3 * core_progress
+    mana_center_y = max(padding_top + 4, mana_center_y + float_offset)
+    mana_center = pygame.math.Vector2(cx, mana_center_y)
 
-    chain_y = mana_center.y - core_radius - 6
-    pygame.draw.line(tower_surface, (180, 190, 240), (left_pillar.centerx, int(chain_y)), (right_pillar.centerx, int(chain_y)), 2)
+    if core_progress > 0:
+        base_orb_radius = max(6, width // 5)
+        orbital_radius = max(2, int(base_orb_radius * core_progress))
+        core_radius = max(4, int((width // 6) * max(0.35, core_progress)))
+        glow_radius = core_radius + max(4, int(6 * core_progress))
+        outer_alpha = int(90 * core_progress)
+        inner_alpha = int(140 * core_progress)
+        core_alpha = int(220 * core_progress)
+        if outer_alpha > 0:
+            pygame.draw.circle(
+                structure_surface,
+                (110, 170, 255, outer_alpha),
+                (int(mana_center.x), int(mana_center.y)),
+                glow_radius + 6,
+            )
+        if inner_alpha > 0:
+            pygame.draw.circle(
+                structure_surface,
+                (160, 200, 255, inner_alpha),
+                (int(mana_center.x), int(mana_center.y)),
+                glow_radius,
+            )
+        if core_alpha > 0:
+            pygame.draw.circle(
+                structure_surface,
+                (255, 255, 255, core_alpha),
+                (int(mana_center.x), int(mana_center.y)),
+                core_radius,
+            )
 
-    halo_surface = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
-    halo_radius = max(width // 2, height // 2)
-    halo_alpha = 40 + int(30 * math.sin(pulse * 0.04))
-    pygame.draw.circle(halo_surface, (90, 140, 240, halo_alpha), (cx, cy), halo_radius)
-    tower_surface.blit(halo_surface, (0, 0))
+        rune_progress = (pulse % 180) / 180.0
+        orb_alpha = int(180 * core_progress)
+        if orb_alpha > 0 and orbital_radius > 1:
+            for angle_deg in range(0, 360, 60):
+                angle = math.radians(angle_deg + rune_progress * 120)
+                orb_pos = mana_center + pygame.math.Vector2(math.cos(angle), math.sin(angle)) * orbital_radius
+                pygame.draw.circle(structure_surface, (120, 200, 255, orb_alpha), _vec_to_int_pair(orb_pos), 3)
+
+        spark_count = 4
+        spark_alpha = int(180 * core_progress)
+        if spark_alpha > 0 and orbital_radius > 1:
+            for idx in range(spark_count):
+                spark_angle = math.radians((360 / spark_count) * idx + pulse * 4)
+                outer = mana_center + pygame.math.Vector2(math.cos(spark_angle), math.sin(spark_angle)) * (orbital_radius + 10)
+                inner = mana_center + pygame.math.Vector2(math.cos(spark_angle), math.sin(spark_angle)) * (orbital_radius - 2)
+                pygame.draw.line(
+                    structure_surface,
+                    (150, 220, 255, spark_alpha),
+                    _vec_to_int_pair(inner),
+                    _vec_to_int_pair(outer),
+                    2,
+                )
+
+        if left_pillar and right_pillar:
+            chain_alpha = int(255 * min(1.0, core_progress * 1.2))
+            chain_y = mana_center.y - core_radius - 6
+            pygame.draw.line(
+                structure_surface,
+                (180, 190, 240, chain_alpha),
+                (left_pillar.centerx, int(chain_y)),
+                (right_pillar.centerx, int(chain_y)),
+                max(1, int(2 * core_progress)),
+            )
+
+        halo_alpha = int((40 + 30 * math.sin(pulse * 0.04)) * core_progress)
+        if halo_alpha > 0:
+            halo_surface = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
+            halo_radius = max(width // 2, height // 2)
+            pygame.draw.circle(halo_surface, (90, 140, 240, min(255, halo_alpha)), (cx, cy), halo_radius)
+            structure_surface.blit(halo_surface, (0, 0))
+
+    tower_surface = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
+    if structure_progress > 0:
+        visible_height = max(2, int(draw_height * structure_progress))
+        clip_top = draw_height - visible_height
+        clip_rect = pygame.Rect(0, clip_top, draw_width, visible_height)
+        tower_surface.blit(structure_surface, (0, clip_top), clip_rect)
+        if structure_progress < 1.0:
+            band_height = max(3, int(6 * (1.0 - structure_progress)))
+            band_y = max(0, clip_top - band_height)
+            band_alpha = int(140 * (1.0 - structure_progress))
+            pygame.draw.rect(tower_surface, (180, 160, 120, band_alpha), (0, band_y, draw_width, band_height))
+            band_color = (150, 120, 90, int(90 * (1.0 - structure_progress)))
+            scan_offset = int((frame_value * 2) % 12)
+            for offset in range(-8, draw_width + 12, 12):
+                start = (offset + scan_offset, band_y)
+                end = (offset + scan_offset + 6, band_y + band_height)
+                pygame.draw.line(tower_surface, band_color, start, end, 1)
 
     surface.blit(tower_surface, (rect.left - padding_x, rect.top - padding_top))
 
