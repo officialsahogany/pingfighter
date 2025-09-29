@@ -18064,58 +18064,71 @@ def draw_soldier_weapon_ui(screen):
             except Exception:
                 pass
         else:
-            # B-2 폭격기 아이콘 그리기
+            # 융단폭격 아이콘 그리기 (폭탄들이 떨어지는 모습)
             icon_w = int(weapon_rect.width * 0.8)
-            icon_h = int(weapon_rect.height * 0.5)
+            icon_h = int(weapon_rect.height * 0.8)
             icon_x = weapon_rect.centerx - icon_w // 2
             icon_y = weapon_rect.centery - icon_h // 2
             
-            # B-2 색상 설정
+            # 색상 설정
             if not is_depleted:
-                main_color = (25, 25, 28)
-                outline_color = (10, 10, 12)
-                highlight_color = (40, 40, 45)
-                cockpit_color = (50, 60, 70)
+                bomb_color = (80, 80, 85)
+                bomb_highlight = (120, 120, 125)
+                explosion_color1 = (255, 200, 100)
+                explosion_color2 = (255, 150, 50)
+                smoke_color = (60, 60, 65)
             else:
-                main_color = (60, 60, 60)
-                outline_color = (40, 40, 40)
-                highlight_color = (80, 80, 80)
-                cockpit_color = (90, 90, 90)
+                bomb_color = (60, 60, 60)
+                bomb_highlight = (80, 80, 80)
+                explosion_color1 = (180, 150, 100)
+                explosion_color2 = (150, 120, 80)
+                smoke_color = (50, 50, 50)
             
-            # B-2 폭격기의 특징적인 삼각형 날개 형태 (UI용 단순화)
-            body_points = [
-                # 노즈 (전방)
-                (icon_x + int(icon_w * 0.9), icon_y + icon_h // 2),
-                # 우측 날개 끝
-                (icon_x + int(icon_w * 0.7), icon_y + int(icon_h * 0.1)),
-                # 우측 날개 중간
-                (icon_x + int(icon_w * 0.4), icon_y + int(icon_h * 0.2)),
-                # 중앙 뒤쪽
-                (icon_x + int(icon_w * 0.1), icon_y + icon_h // 2),
-                # 좌측 날개 중간
-                (icon_x + int(icon_w * 0.4), icon_y + int(icon_h * 0.8)),
-                # 좌측 날개 끝
-                (icon_x + int(icon_w * 0.7), icon_y + int(icon_h * 0.9)),
+            # 여러 개의 폭탄 그리기 (융단폭격 표현)
+            bomb_positions = [
+                (icon_x + int(icon_w * 0.2), icon_y + int(icon_h * 0.2)),
+                (icon_x + int(icon_w * 0.5), icon_y + int(icon_h * 0.3)),
+                (icon_x + int(icon_w * 0.8), icon_y + int(icon_h * 0.25)),
+                (icon_x + int(icon_w * 0.35), icon_y + int(icon_h * 0.5)),
+                (icon_x + int(icon_w * 0.65), icon_y + int(icon_h * 0.55)),
             ]
             
-            # 메인 동체 그리기
-            pygame.draw.polygon(screen, main_color, body_points)
-            pygame.draw.polygon(screen, outline_color, body_points, 2)
+            # 폭탄 그리기
+            for i, (bx, by) in enumerate(bomb_positions):
+                bomb_size = max(3, int(icon_h * 0.12))
+                
+                # 폭탄 본체 (타원형)
+                bomb_rect = pygame.Rect(bx - bomb_size//2, by - bomb_size//2, bomb_size, int(bomb_size * 1.4))
+                pygame.draw.ellipse(screen, bomb_color, bomb_rect)
+                pygame.draw.ellipse(screen, bomb_highlight, bomb_rect, 1)
+                
+                # 폭탄 꼬리날개
+                fin_size = max(2, bomb_size // 3)
+                fin_points = [
+                    (bx, by - bomb_size//2),
+                    (bx - fin_size//2, by - bomb_size//2 - fin_size//2),
+                    (bx + fin_size//2, by - bomb_size//2 - fin_size//2),
+                ]
+                pygame.draw.polygon(screen, bomb_color, fin_points)
+                
+                # 낙하 궤적 (속도선)
+                trail_length = max(3, int(icon_h * 0.15))
+                pygame.draw.line(screen, smoke_color, 
+                               (bx, by - bomb_size), 
+                               (bx, by - bomb_size - trail_length), 1)
             
-            # 콕핏 (중앙 상단)
-            cockpit_center = (icon_x + int(icon_w * 0.65), icon_y + icon_h // 2)
-            cockpit_radius = max(2, int(icon_h * 0.08))
-            pygame.draw.circle(screen, cockpit_color, cockpit_center, cockpit_radius)
-            pygame.draw.circle(screen, outline_color, cockpit_center, cockpit_radius, 1)
+            # 하단에 폭발 효과 추가
+            explosion_y = icon_y + int(icon_h * 0.8)
             
-            # 엔진 위치 표시 (작은 원)
-            engine_y1 = icon_y + int(icon_h * 0.3)
-            engine_y2 = icon_y + int(icon_h * 0.7)
-            engine_x = icon_x + int(icon_w * 0.3)
-            engine_radius = max(1, int(icon_h * 0.06))
-            
-            pygame.draw.circle(screen, (20, 20, 23), (engine_x, engine_y1), engine_radius)
-            pygame.draw.circle(screen, (20, 20, 23), (engine_x, engine_y2), engine_radius)
+            # 폭발 불꽃
+            for i in range(3):
+                exp_x = icon_x + int(icon_w * (0.2 + i * 0.3))
+                exp_radius = max(3, int(icon_h * 0.1))
+                
+                # 외부 폭발
+                pygame.draw.circle(screen, explosion_color2, (exp_x, explosion_y), exp_radius)
+                # 내부 폭발 (더 밝은 색)
+                pygame.draw.circle(screen, explosion_color1, (exp_x, explosion_y), max(2, exp_radius//2))
 
         if is_depleted:
             dim_overlay = pygame.Surface((slot_w, slot_h), pygame.SRCALPHA)
