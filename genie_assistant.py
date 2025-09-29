@@ -1001,6 +1001,16 @@ class GenieAssistant:
 
             arrow_surface = self.small_font.render("↑ 홀드", True, COLOR_TEXT_DIM)
             surface.blit(arrow_surface, arrow_surface.get_rect(center=(center_x, rect.bottom - 20)))
+        elif animation_id == "thor_shield":
+            _draw_thor_shield_preview(surface, rect, ticks)
+        elif animation_id == "blacksmith_build":
+            _draw_blacksmith_build_preview(surface, rect, ticks, self.small_font)
+        elif animation_id == "blacksmith_turret":
+            _draw_blacksmith_turret_preview(surface, rect, ticks)
+        elif animation_id == "blacksmith_divine":
+            _draw_blacksmith_divine_preview(surface, rect, ticks)
+        elif animation_id == "blacksmith_hammer_shock":
+            _draw_blacksmith_hammer_shock_preview(surface, rect, ticks)
         else:
             idle_text = self.small_font.render("자료 수집 중...", True, COLOR_TEXT_DIM)
             surface.blit(idle_text, idle_text.get_rect(center=rect.center))
