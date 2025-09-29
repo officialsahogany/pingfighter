@@ -16940,6 +16940,168 @@ def _start_repair_glow(kind: str, *, rect=None, state=None, wall=None) -> None:
     repair_glow_effects.append(entry)
 
 
+def update_active_repair_jobs() -> None:
+    if not active_repair_jobs:
+        return
+
+    state_dirty = False
+    for job in active_repair_jobs[:]:
+        if job.get("cancelled"):
+            active_repair_jobs.remove(job)
+            continue
+
+        job["hammer_phase"] = job.get("hammer_phase", 0.0) + 0.15
+        job["tick"] -= 1
+        job_type = job["type"]
+
+        if job_type == "turret":
+            state = job.get("state")
+            if not state or state.get("rect") is None:
+                active_repair_jobs.remove(job)
+                continue
+
+            max_hp = max(1, int(state.get("max_hp", BLACKSMITH_TURRET_BASE_HP)))
+            current_hp = int(state.get("hp", max_hp))
+
+            if current_hp >= max_hp:
+                active_repair_jobs.remove(job)
+                continue
+
+            if job["tick"] <= 0:
+                state["hp"] = min(max_hp, current_hp + 1)
+                state["overheat_timer"] = 0
+                state["overheat_smoke_timer"] = 0
+                _start_repair_glow("turret", state=state)
+                job["tick"] = REPAIR_TICK_FRAMES
+                state_dirty = True
+                if state["hp"] >= max_hp:
+                    active_repair_jobs.remove(job)
+            continue
+
+        if job_type == "divine":
+            state = job.get("state")
+            if not state or state.get("rect") is None:
+                active_repair_jobs.remove(job)
+                continue
+
+            max_hp = max(1, int(state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP)))
+            current_hp = int(state.get("hp", max_hp))
+
+            if current_hp >= max_hp:
+                active_repair_jobs.remove(job)
+                continue
+
+            if job["tick"] <= 0:
+                state["hp"] = min(max_hp, current_hp + 1)
+                state["cooldown"] = 0
+                _start_repair_glow("divine", state=state)
+                job["tick"] = REPAIR_TICK_FRAMES
+                state_dirty = True
+                if state["hp"] >= max_hp:
+                    active_repair_jobs.remove(job)
+            continue
+
+        if job_type == "wall":
+            wall = job.get("wall")
+            if wall not in walls:
+                active_repair_jobs.remove(job)
+                continue
+
+            if wall.get("hit_count", 0) <= 0 and wall.get("crack_level", 0) <= 0:
+                active_repair_jobs.remove(job)
+                continue
+
+            if job["tick"] <= 0:
+                if wall.get("hit_count", 0) > 0:
+                    wall["hit_count"] = max(0, wall["hit_count"] - 1)
+                if wall.get("crack_level", 0) > wall.get("hit_count", 0):
+                    wall["crack_level"] = wall["hit_count"]
+                elif wall.get("crack_level", 0) > 0:
+                    wall["crack_level"] = max(0, wall["crack_level"] - 1)
+                _start_repair_glow("wall", wall=wall)
+                job["tick"] = REPAIR_TICK_FRAMES
+                if wall.get("hit_count", 0) <= 0 and wall.get("crack_level", 0) <= 0:
+                    active_repair_jobs.remove(job)
+
+    if state_dirty:
+        try:
+            push_blacksmith_state()
+        except Exception as err:
+            print(f"⚠️ 수리 상태 반영 실패: {err}")
+
+
+def _get_repair_hammer_surface():
+    global repair_hammer_surface
+    if repair_hammer_surface is not None:
+        return repair_hammer_surface
+
+    surf = pygame.Surface((28, 28), pygame.SRCALPHA)
+    pygame.draw.rect(surf, (120, 85, 45), (12, 10, 6, 16), border_radius=3)
+    pygame.draw.rect(surf, (92, 66, 36), (13, 10, 4, 16), border_radius=3)
+    head = pygame.Rect(6, 2, 18, 10)
+    pygame.draw.rect(surf, (204, 210, 218), head, border_radius=3)
+    pygame.draw.rect(surf, (238, 244, 252), head.inflate(-6, -4), border_radius=2)
+    pygame.draw.rect(surf, (110, 118, 128), head, width=2, border_radius=3)
+    repair_hammer_surface = surf
+    return repair_hammer_surface
+
+
+def draw_repair_jobs(surface: pygame.Surface) -> None:
+    if not active_repair_jobs:
+        return
+
+    hammer = _get_repair_hammer_surface()
+    if hammer is None:
+        return
+
+    for job in active_repair_jobs:
+        target_rect = None
+        if job["type"] in {"turret", "divine"}:
+            state = job.get("state")
+            if state:
+                target_rect = state.get("rect")
+        elif job["type"] == "wall":
+            wall = job.get("wall")
+            if wall:
+                target_rect = wall.get("rect")
+
+        if target_rect is None:
+            continue
+
+        rect = target_rect.copy()
+        rect.x += screen_shake_offset_x
+        rect.y += screen_shake_offset_y
+
+        phase = job.get("hammer_phase", 0.0)
+        bounce = math.sin(phase * 2.3) * 6
+        angle = math.sin(phase * 2.6) * 25
+        hammer_pos = pygame.math.Vector2(rect.centerx + math.sin(phase) * 6,
+                                         rect.top - 26 + bounce)
+
+        rotated = pygame.transform.rotate(hammer, angle)
+        rotated_rect = rotated.get_rect(center=(int(hammer_pos.x), int(hammer_pos.y)))
+        surface.blit(rotated, rotated_rect)
+
+        progress = 1.0 - (job["tick"] / REPAIR_TICK_FRAMES)
+        progress = max(0.0, min(1.0, progress))
+        if progress <= 0.0:
+            continue
+
+        arc_radius = max(rect.width, rect.height) // 2 + 18
+        arc_surface = pygame.Surface((arc_radius * 2, arc_radius * 2), pygame.SRCALPHA)
+        start_angle = -math.pi / 2
+        end_angle = start_angle + (progress * math.tau)
+        pygame.draw.arc(
+            arc_surface,
+            (255, 240, 200, 160),
+            (0, 0, arc_radius * 2, arc_radius * 2),
+            start_angle,
+            end_angle,
+            3,
+        )
+        surface.blit(arc_surface, (rect.centerx - arc_radius, rect.centery - arc_radius), special_flags=pygame.BLEND_ADD)
+
+
 def update_repair_glow_effects() -> None:
     if not repair_glow_effects:
         return
