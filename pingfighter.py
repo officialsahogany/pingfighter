@@ -13068,35 +13068,6 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
             if hasattr(net, "unequip"):
                 net.unequip()
         fire_support_weapon.unequip()
-    elif current_weapon == "fire_support":
-        fire_support_weapon = get_fire_support_instance()
-        icon_surface = get_item_icon("fire_support")
-        if icon_surface:
-            try:
-                scaled_icon = pygame.transform.smoothscale(
-                    icon_surface,
-                    (max(12, weapon_rect.width - 8), max(12, weapon_rect.height - 8)),
-                )
-                screen.blit(
-                    scaled_icon,
-                    scaled_icon.get_rect(center=weapon_rect.center),
-                )
-            except Exception:
-                pass
-        else:
-            radio_body = pygame.Rect(
-                weapon_rect.centerx - weapon_rect.width // 4,
-                weapon_rect.centery - weapon_rect.height // 6,
-                weapon_rect.width // 2,
-                weapon_rect.height // 2,
-            )
-            pygame.draw.rect(screen, (70, 90, 120), radio_body, border_radius=6)
-            pygame.draw.rect(screen, (40, 60, 90), radio_body, 2, border_radius=6)
-            speaker_rect = radio_body.inflate(-radio_body.width // 3, -radio_body.height // 3)
-            pygame.draw.rect(screen, (120, 150, 190), speaker_rect, border_radius=3)
-            dial_center = (radio_body.centerx, radio_body.bottom - radio_body.height // 4)
-            pygame.draw.circle(screen, (210, 220, 240), dial_center, max(2, radio_body.width // 6))
-
     elif current_weapon == "net_gun":
         net = get_net_gun_instance()
         if net and hasattr(net, "equip"):
@@ -17701,9 +17672,10 @@ def draw_soldier_weapon_ui(screen):
     # 현재 장착된 무기 확인
     current_weapon = soldier_controller.weapons[soldier_controller.current_index] if soldier_controller.weapons else "pistol"
     
-    # 바주카포가 장착된 경우 바주카포 정보 표시
+    # 바주카포/화력지원 상태 준비
     from item_effects.bazooka import get_bazooka_instance
     bazooka = get_bazooka_instance()
+    fire_support = get_fire_support_instance()
     
     if current_weapon == "bazooka" and bazooka.equipped:
         # 바주카포 무기 정보 표시 (슬롯 내부에 맞춘 간결한 디자인)
@@ -18026,6 +17998,83 @@ def draw_soldier_weapon_ui(screen):
                 (weapon_rect.right - 4, weapon_rect.bottom - 4),
                 2
             )
+    elif current_weapon == "fire_support":
+        slot_w, slot_h = weapon_rect.width, weapon_rect.height
+
+        icon_surface = get_item_icon("fire_support")
+        if icon_surface:
+            try:
+                scaled_icon = pygame.transform.smoothscale(
+                    icon_surface,
+                    (max(12, slot_w - 8), max(12, slot_h - 8)),
+                )
+                icon_rect = scaled_icon.get_rect(center=weapon_rect.center)
+                screen.blit(scaled_icon, icon_rect)
+            except Exception:
+                pass
+        else:
+            radio_body = pygame.Rect(
+                weapon_rect.centerx - weapon_rect.width // 4,
+                weapon_rect.centery - weapon_rect.height // 6,
+                weapon_rect.width // 2,
+                weapon_rect.height // 2,
+            )
+            pygame.draw.rect(screen, (70, 90, 120), radio_body, border_radius=6)
+            pygame.draw.rect(screen, (40, 60, 90), radio_body, 2, border_radius=6)
+            speaker_rect = radio_body.inflate(-radio_body.width // 3, -radio_body.height // 3)
+            pygame.draw.rect(screen, (120, 150, 190), speaker_rect, border_radius=3)
+            dial_center = (radio_body.centerx, radio_body.bottom - radio_body.height // 4)
+            pygame.draw.circle(screen, (210, 220, 240), dial_center, max(2, radio_body.width // 6))
+
+        status_text = "준비완료"
+        status_color = (150, 220, 255)
+        if fire_support.strike_active:
+            if fire_support.calling:
+                status_text = "폭격 호출 중"
+                status_color = (255, 210, 120)
+            else:
+                status_text = "폭격 진행 중"
+                status_color = (255, 140, 90)
+        elif fire_support.ammo_count <= 0:
+            status_text = "탄약 없음"
+            status_color = (220, 120, 120)
+        elif not fire_support.can_call():
+            status_text = "대기 중"
+            status_color = (200, 200, 200)
+
+        try:
+            if 'font_small' in globals() and font_small:
+                status_surface = font_small.render(status_text, True, status_color)
+                screen.blit(status_surface, (weapon_x, weapon_y - 20))
+        except Exception:
+            pass
+
+        ammo_radius = 9
+        ammo_center = (weapon_rect.centerx, weapon_rect.bottom + ammo_radius + 6)
+        filled = fire_support.ammo_count > 0
+        base_color = (255, 205, 110) if filled else (90, 90, 90)
+        border_color = (255, 240, 190) if filled else (130, 130, 130)
+        pygame.draw.circle(screen, base_color, ammo_center, ammo_radius)
+        pygame.draw.circle(screen, border_color, ammo_center, ammo_radius, 2)
+
+        if fire_support.strike_active:
+            pygame.draw.circle(
+                screen,
+                (255, 160, 80),
+                ammo_center,
+                max(2, ammo_radius // 2),
+                2,
+            )
+
+        if not filled and not fire_support.strike_active:
+            pygame.draw.line(
+                screen,
+                (150, 150, 150),
+                (weapon_rect.left + 4, weapon_rect.top + 4),
+                (weapon_rect.right - 4, weapon_rect.bottom - 4),
+                2,
+            )
+
     elif current_weapon == "net_gun":
         net_gun = get_net_gun_instance()
         slot_w, slot_h = weapon_rect.width, weapon_rect.height
@@ -18341,7 +18390,8 @@ def draw_soldier_weapon_ui(screen):
         "pistol": "권총",
         "bazooka": "바주카포",
         "ak47": "AK-47",
-        "net_gun": "그물덫총"
+        "net_gun": "그물덫총",
+        "fire_support": "화력지원",
     }
     
     weapon_name = weapon_names.get(current_weapon, current_weapon)
