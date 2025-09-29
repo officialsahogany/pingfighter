@@ -209,6 +209,75 @@ class FireSupportAircraft:
         ]
         pygame.draw.lines(surface, (24, 30, 40), False, tail_line, 2)
 
+    def _ratio_to_x(self, base_x: float, width: float, ratio: float) -> float:
+        if self.direction == "left_to_right":
+            return base_x + width * ratio
+        return base_x + width * (1 - ratio)
+
+    def _to_screen_point(
+        self,
+        base_x: float,
+        base_y: float,
+        width: float,
+        height: float,
+        px: float,
+        py: float,
+    ) -> tuple[int, int]:
+        return (
+            int(self._ratio_to_x(base_x, width, px)),
+            int(base_y + height * py),
+        )
+
+    def _engine_positions(self) -> list[tuple[float, float]]:
+        base_x = self.x
+        base_y = self.y
+        w = self.width
+        h = self.height
+        return [
+            (self._ratio_to_x(base_x, w, 0.44), base_y + h * 0.64),
+            (self._ratio_to_x(base_x, w, 0.56), base_y + h * 0.64),
+        ]
+
+    def _spawn_flame_particles(self, *, count: int) -> None:
+        if count <= 0:
+            return
+        max_particles = 120
+        if len(self.flame_particles) >= max_particles:
+            return
+
+        direction_sign = 1 if self.direction == "left_to_right" else -1
+        for engine_x, engine_y in self._engine_positions():
+            for _ in range(count):
+                spawn_x = engine_x - direction_sign * random.uniform(5.5, 9.5)
+                spawn_y = engine_y + random.uniform(-2.5, 2.5)
+                particle = {
+                    "x": spawn_x,
+                    "y": spawn_y,
+                    "vx": -direction_sign * random.uniform(0.6, 1.4),
+                    "vy": random.uniform(-0.25, 0.25),
+                    "gravity": 0.02,
+                    "radius": random.uniform(3.2, 5.6),
+                    "life": random.randint(12, 18),
+                }
+                particle["max_life"] = particle["life"]
+                self.flame_particles.append(particle)
+                if len(self.flame_particles) >= max_particles:
+                    return
+
+    def _update_flame_particles(self) -> None:
+        if not self.flame_particles:
+            return
+        updated: list[dict[str, float]] = []
+        for particle in self.flame_particles:
+            particle["x"] += particle["vx"]
+            particle["y"] += particle["vy"]
+            particle["vy"] += particle["gravity"]
+            particle["radius"] = max(1.2, particle["radius"] * 0.94)
+            particle["life"] -= 1
+            if particle["life"] > 0:
+                updated.append(particle)
+        self.flame_particles = updated
+
     def stop_sound(self) -> None:
         if self.sound_channel:
             try:
