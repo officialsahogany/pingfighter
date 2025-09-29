@@ -11503,6 +11503,8 @@ def start_supply_radio_loop(*, duration_frames: int = 30) -> None:
 def stop_supply_radio_loop(keep_animation: bool = False, *, force: bool = False) -> None:
     """무전기 루프 사운드를 중단하고 상태를 정리한다."""
 
+    global fire_support_radio_loop_active
+    fire_support_radio_loop_active = False
     supply_stop_radio_loop(supply_runtime, keep_animation=keep_animation, force=force)
 
 
@@ -22164,6 +22166,7 @@ def handle_player(keys):
                         else:
                             if fire_support_weapon.start_call(WIDTH, HEIGHT):
                                 start_supply_radio_loop(duration_frames=FIRE_SUPPORT_RADIO_FRAMES)
+                                fire_support_radio_loop_active = True
                                 supply_runtime.hold_active = True
                                 player_stunned_timer = max(player_stunned_timer, FIRE_SUPPORT_CONTROL_LOCK_FRAMES)
                                 player_knockback_vel = 0
