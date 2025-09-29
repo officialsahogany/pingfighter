@@ -471,7 +471,17 @@ class SettingsManager:
             self.global_manager.set('player_name', value)
         elif key == 'default_port':
             self.global_manager.set_setting('default_port', value)
-            
+
+    def _apply_language_setting(self, key: str, value: Any):
+        """언어 설정 적용"""
+        if key == 'language':
+            valid_codes = {code for code, _ in LANGUAGE_OPTIONS}
+            if value not in valid_codes:
+                value = LANGUAGE_OPTIONS[0][0]
+            self.settings.setdefault('language', {})['language'] = value
+            self.global_manager.set_setting('language', value)
+            self.global_manager.set('language', value)
+
     def apply_all_settings(self):
         """모든 설정 적용"""
         for category, settings in self.settings.items():

@@ -13,6 +13,10 @@ COLOR_MENU_BG = (26, 36, 62, 220)
 COLOR_MENU_BORDER = (80, 110, 170, 255)
 COLOR_MENU_ACTIVE = (115, 160, 255, 235)
 COLOR_DETAIL_BG = (18, 24, 40, 235)
+COLOR_DETAIL_BORDER = (90, 120, 190, 140)
+COLOR_DETAIL_BORDER_FOCUS = (135, 175, 255, 210)
+COLOR_SCROLL_TRACK = (30, 42, 70, 180)
+COLOR_SCROLL_HANDLE = (145, 170, 220, 220)
 COLOR_TEXT_MAIN = (235, 240, 255)
 COLOR_TEXT_DIM = (170, 185, 210)
 COLOR_KEY_BG = (255, 215, 120)
@@ -215,6 +219,8 @@ class GenieAssistant:
         self.detail_scroll_wait: float = 0.0
         self.detail_scroll_pause: float = 4000.0  # ms 대기
         self.detail_scroll_speed: float = 26.0  # px/sec
+        self.detail_focus: bool = False
+        self.detail_manual_scroll: bool = False
         self._detail_lines: List[dict] = []
         self._detail_total_height: float = 0.0
         self._detail_view_height: float = 0.0
@@ -266,7 +272,13 @@ class GenieAssistant:
 
         self._update_smoke_particles(dt_ms)
 
-        if self.phase == "menu" and self._detail_total_height > 0 and self._detail_view_height > 0:
+        if (
+            self.phase == "menu"
+            and self._detail_total_height > 0
+            and self._detail_view_height > 0
+            and not self.detail_focus
+            and not self.detail_manual_scroll
+        ):
             overflow = self._detail_total_height - self._detail_view_height
             if overflow > 4:
                 if self.detail_scroll_wait < self.detail_scroll_pause:
