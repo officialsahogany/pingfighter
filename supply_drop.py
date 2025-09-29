@@ -26,6 +26,7 @@ class SupplyDropConfig:
         "ak47",
         "net_gun",
         "ammo_box",
+        "fire_support",
         "doping_potion",
     )
 

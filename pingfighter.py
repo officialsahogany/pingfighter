@@ -12593,9 +12593,10 @@ def check_weapon_degradation() -> None:
     if selected_character_type != "soldier":
         return
 
-    from item_effects.bazooka import get_bazooka_instance
-    from item_effects.ak47 import get_ak47_instance
-    from item_effects.net_gun import get_net_gun_instance
+from item_effects.bazooka import get_bazooka_instance
+from item_effects.ak47 import get_ak47_instance
+from item_effects.net_gun import get_net_gun_instance
+from item_effects.fire_support import get_fire_support_instance
 
     soldier_controller.check_degradation(
         get_bazooka_instance=get_bazooka_instance,
