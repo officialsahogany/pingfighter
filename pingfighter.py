@@ -11318,7 +11318,7 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
     turret_width = max(12, int(BLACKSMITH_TURRET_BASE_WIDTH * scale))
     turret_height = max(12, int(BLACKSMITH_TURRET_BASE_HEIGHT * scale))
     turret_rect = pygame.Rect(0, 0, turret_width, turret_height)
-    turret_rect.center = (rect.width // 2, rect.height * 0.45)
+    turret_rect.center = (rect.width // 2, int(rect.height * 0.55))
 
     turret_state_preview = {
         "rect": turret_rect,
@@ -11360,15 +11360,29 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
 
     projectiles_preview: list[dict[str, object]] = []
     if firing:
-        muzzle_x = turret_rect.centerx + turret_rect.width * 0.42
-        muzzle_y = turret_rect.centery - turret_rect.height * 0.3
+        scale_x = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
+        scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
+        pivot_point = pygame.math.Vector2(
+            turret_rect.centerx,
+            turret_rect.top + BLACKSMITH_TURRET_HEAD_PIVOT_OFFSET * scale_y,
+        )
+        angle = turret_state_preview["display_angle"]
+        forward_vec = pygame.math.Vector2(math.cos(angle), math.sin(angle))
+        if forward_vec.length_squared() == 0:
+            forward_vec = pygame.math.Vector2(0, -1)
+        else:
+            forward_vec = forward_vec.normalize()
+        muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
+        muzzle_world = pivot_point + forward_vec * muzzle_distance
+        muzzle_tip = muzzle_world + forward_vec * max(4, scale_x * 6)
         projectile_radius = max(3, int(8 * scale))
+        missile_speed = 14.0
         projectiles_preview.append(
             {
-                "x": muzzle_x,
-                "y": muzzle_y,
-                "vx": 14.0,
-                "vy": 0.0,
+                "x": float(muzzle_tip.x),
+                "y": float(muzzle_tip.y),
+                "vx": float(forward_vec.x * missile_speed),
+                "vy": float(forward_vec.y * missile_speed),
                 "radius": projectile_radius,
                 "overdrive": False,
                 "trail_timer": int(pygame.time.get_ticks() / 6),
