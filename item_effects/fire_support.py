@@ -210,11 +210,13 @@ class FireSupport:
         self.radio_active = True
         if cruise_y is not None:
             engine_sound = self._get_aircraft_sound()
+            direction = random.choice(["left_to_right", "right_to_left"])
             self.aircraft = FireSupportAircraft(
                 screen_width,
                 screen_height,
                 cruise_y,
                 engine_sound=engine_sound,
+                direction=direction,
             )
             self.aircraft.spawn_timer = self.aircraft.invulnerable_frames
             self.calling = False
