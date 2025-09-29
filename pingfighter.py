@@ -9454,7 +9454,7 @@ def draw_blacksmith_turret_elements(surface):
             glow_phase = blacksmith_turret_state.get("overdrive_glow_phase", 0.0)
             pulse = 0.5 + 0.5 * math.sin(glow_phase)
             glow_surface = pygame.Surface(head_surface.get_size(), pygame.SRCALPHA)
-            aura_radius = max(head_surface.get_width(), head_surface.get_height()) // 2
+            aura_radius = max(head_width, head_height) // 2
             glow_color = (255, 90, 60, int(90 + 110 * pulse))
             pygame.draw.circle(glow_surface, glow_color, (int(pivot_local.x), int(pivot_local.y)), aura_radius)
             head_surface.blit(glow_surface, (0, 0), special_flags=pygame.BLEND_ADD)
@@ -10908,6 +10908,9 @@ def get_blacksmith_umbrella_gauge_gain() -> int:
 
     if blacksmith_blocking_penalty_timer > 0:
         reduced_gain = int(round(base_gain * (1.0 - BLACKSMITH_BLOCKING_PENALTY_RATIO)))
+        print(
+            f"[DEBUG BLOCKING] penalty active timer={blacksmith_blocking_penalty_timer} base={base_gain} reduced={reduced_gain}"
+        )
         return max(1, reduced_gain)
 
     return base_gain
@@ -23042,6 +23045,10 @@ def handle_player(keys):
                 blacksmith_umbrella_retracting
                 and blacksmith_umbrella_retract_grace_timer > 0
             )
+            if blacksmith_umbrella_retracting:
+                print(
+                    f"[DEBUG BLOCKING] retracting gauge_reduced={gauge_reduced} frame={frame_counter} start={blacksmith_umbrella_retract_start_frame} grace={blacksmith_umbrella_retract_grace_timer} gauge={blacksmith_umbrella_gauge} last_hit_by={last_hit_by}"
+                )
             if (
                 (not blacksmith_umbrella_retracting or allow_umbrella_hit_during_retract)
                 and not blacksmith_umbrella_hit_lock
@@ -23063,6 +23070,9 @@ def handle_player(keys):
                 and blacksmith_umbrella_retracting
                 and frame_counter == blacksmith_umbrella_retract_start_frame
             ):
+                print(
+                    f"[DEBUG BLOCKING] penalty trigger frame={frame_counter} start={blacksmith_umbrella_retract_start_frame} gauge={blacksmith_umbrella_gauge} penalty_timer={blacksmith_blocking_penalty_timer}"
+                )
                 blacksmith_umbrella_hit_lock = True
                 blacksmith_blocking_penalty_timer = BLACKSMITH_BLOCKING_PENALTY_FRAMES
                 blacksmith_blocking_toast_timer = BLACKSMITH_BLOCKING_TOAST_FRAMES
@@ -32181,6 +32191,7 @@ def draw_objects():
     # 모든 이펙트 업데이트 및 그리기
     effects_manager.update_all_effects()
     effects_manager.draw_all_effects(SCREEN)
+    draw_repair_glow_effects(SCREEN)
     # 터렛 미사일 업데이트 및 그리기 (스테이지 6에서만)
     if current_stage == 6:
         current_time = pygame.time.get_ticks()
@@ -57591,7 +57602,8 @@ def main(stage_num, new_boss_mode=False):
                 handle_aipill()  #  AI 필 타이머 처리
                 handle_wall()  #  벽돌 처리
                 update_brick_particles()  # 벽돌 파티클 업데이트
-                
+                update_repair_glow_effects()
+
                 # 다우징팬들럼 효과 적용 (아이템을 끌어당김)
                 if items.dowsing_pendulum_obtained and dowsing_pendulum_effect.enabled:
                     # 디버그: 효과 적용 전 상태 확인
