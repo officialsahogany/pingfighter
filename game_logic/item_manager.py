@@ -108,18 +108,28 @@ class ItemManager:
     def _get_available_items(self) -> List[Dict]:
         """스폰 가능한 아이템 목록 반환"""
         available = []
-        
+        selected_character = self.global_manager.get('selected_character_type', None)
+        if selected_character is None:
+            try:
+                import pingfighter
+                selected_character = getattr(pingfighter, "selected_character_type", None)
+            except Exception:
+                selected_character = None
+
         for item_type in items.ITEM_TYPES:
             # 해금 체크
             if not items.unlocked_items.get(item_type['name'], False):
                 continue
-                
+
             # 획득 제한 체크
             if self._is_item_limited(item_type['name']):
                 continue
-                
+
+            if item_type['name'] == 'repair_kit' and selected_character != 'blacksmith':
+                continue
+
             available.append(item_type)
-            
+
         return available
         
     def _is_item_limited(self, item_name: str) -> bool:
