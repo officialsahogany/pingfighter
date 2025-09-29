@@ -55014,7 +55014,7 @@ def main(stage_num, new_boss_mode=False):
                             blacksmith_turret_state["fire_timer"] = 1
                             space_just_pressed = False
                             space_press_frame = -1
-                            print("[DEBUG 발토르] 포탑 수동 발사! 게이지 -60, 쿨다운 1초")
+                            print("[DEBUG 발토르] 포탑 수동 발사! 게이지 -60, 쿨다운 0.6초")
                         else:
                             print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
                     else:
