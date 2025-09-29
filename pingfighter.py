@@ -22814,6 +22814,7 @@ def handle_player(keys):
                 not gauge_reduced
                 and blacksmith_umbrella_retracting
                 and frame_counter == blacksmith_umbrella_retract_start_frame
+                and last_hit_by != "player"
             ):
                 blacksmith_umbrella_hit_lock = True
                 blacksmith_blocking_penalty_timer = BLACKSMITH_BLOCKING_PENALTY_FRAMES
@@ -60686,7 +60687,7 @@ def show_quick_character_selection():
                         selected_index = idx
                         play_button_click_sound()
                         return characters[selected_index]["id"]
-
+    
 def apply_character_selection(character_id):
     """선택된 캐릭터 ID를 전역 상태에 반영"""
     global selected_character_type
