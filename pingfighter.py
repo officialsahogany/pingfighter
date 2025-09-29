@@ -905,6 +905,7 @@ def store_bgm_volume(value: float) -> float:
     """오디오 상태 모듈과 전역 변수 모두에 BGM 볼륨을 반영."""
 
     global bgm_volume
+    global genie_assistant
     bgm_volume = set_bgm_volume_state(value)
     return bgm_volume
 
@@ -53709,7 +53710,12 @@ def main(stage_num, new_boss_mode=False):
     # 챕터3 상태 유지 플래그 초기화 (존재하지 않을 경우)
     if 'tutorial_skip_chapter3_init' not in globals():
         tutorial_skip_chapter3_init = False
-    
+
+    if genie_assistant is None:
+        genie_assistant = GenieAssistant()
+    else:
+        genie_assistant.deactivate()
+
     # ========== 마이그레이션 모드 초기화 ==========
     global migration_bridge
     if MIGRATION_MODE:
