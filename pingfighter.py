@@ -11364,10 +11364,10 @@ SUPPLY_DROP_HOLD_THRESHOLD = supply_drop_state.config.hold_threshold
 SUPPLY_DROP_GAUGE_COST = supply_drop_state.config.gauge_cost
 
 
-def start_supply_radio_loop() -> None:
+def start_supply_radio_loop(*, duration_frames: int = 30) -> None:
     """무전기 애니메이션과 사운드를 시작한다."""
 
-    supply_start_radio_loop(supply_runtime, resource_path)
+    supply_start_radio_loop(supply_runtime, resource_path, duration_frames=duration_frames)
 
 
 def stop_supply_radio_loop(keep_animation: bool = False, *, force: bool = False) -> None:

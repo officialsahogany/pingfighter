@@ -358,7 +358,7 @@ class FireSupportAircraft:
 class FireSupport:
     """병사 화력지원 무기."""
 
-    CALL_LOCK_FRAMES = 30
+    CALL_LOCK_FRAMES = 42  # 0.7초 동안 무전 교신 연출 유지 (60fps 기준)
     MIN_DELAY_FRAMES = 120
     MAX_DELAY_FRAMES = 180
     BOMB_INTERVAL_FRAMES = 60
