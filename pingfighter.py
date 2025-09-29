@@ -45847,6 +45847,7 @@ def reset_round():
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_manual_hammer_timer, blacksmith_manual_hammer_increment
     global blacksmith_umbrella_retract_start_frame, blacksmith_umbrella_retract_grace_timer
+    global repair_glow_effects
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
@@ -45864,6 +45865,7 @@ def reset_round():
     blacksmith_umbrella_retract_grace_timer = 0
     blacksmith_blocking_penalty_timer = 0
     blacksmith_blocking_toast_timer = 0
+    repair_glow_effects.clear()
 
     stopwatch_active = False
     stopwatch_timer = 0
