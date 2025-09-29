@@ -86,7 +86,13 @@ class SoldierWeaponController:
             return False
         count = self.reload_counts.get(weapon_name, 0) + 1
         self.reload_counts[weapon_name] = count
-        degradation_threshold = 2 if weapon_name == "fire_support" else 3
+        degradation_thresholds = {
+            "fire_support": 1,
+            "bazooka": 2,
+            "ak47": 2,
+            "net_gun": 2,
+        }
+        degradation_threshold = degradation_thresholds.get(weapon_name, 3)
         if count >= degradation_threshold and weapon_name not in self.degraded:
             self.degraded.add(weapon_name)
             return True

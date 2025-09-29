@@ -16,7 +16,7 @@ class SoldierWeaponControllerTest(unittest.TestCase):
 
     def test_register_reload_marks_degraded(self) -> None:
         self.controller.add_weapon("ak47")
-        for _ in range(3):
+        for _ in range(2):
             self.controller.register_reload("ak47")
         self.assertIn("ak47", self.controller.degraded)
 
