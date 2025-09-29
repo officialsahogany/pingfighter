@@ -34,8 +34,8 @@ class FireSupportAircraft:
     ) -> None:
         self.screen_width = screen_width
         self.screen_height = screen_height
-        self.width = 110
-        self.height = 32
+        self.width = 148
+        self.height = 40
         self.direction = direction
         supply_altitude = _get_supply_aircraft_altitude()
         desired_y = cruise_y if cruise_y is not None else supply_altitude
@@ -57,6 +57,7 @@ class FireSupportAircraft:
         self.crash_gravity = 0.18
         self.engine_sound = engine_sound
         self.sound_channel: Optional[pygame.mixer.Channel] = None
+        self.flame_particles: list[dict[str, float]] = []
         if self.engine_sound is not None:
             try:
                 self.sound_channel = self.engine_sound.play(-1)
@@ -70,6 +71,7 @@ class FireSupportAircraft:
 
     def update(self, ball_rect: Optional[pygame.Rect], last_hit_by: Optional[str]) -> dict:
         if not self.active:
+            self._update_flame_particles()
             return {"finished": True}
 
         self.spawn_timer += 1
@@ -84,6 +86,7 @@ class FireSupportAircraft:
             elif self.direction == "right_to_left" and self.x < -self.width:
                 self.active = False
                 events["finished"] = True
+            self._spawn_flame_particles(count=2)
         else:
             self.x += self.speed * 0.35
             self.crash_velocity_y = min(self.crash_velocity_y + self.crash_gravity, 6)
@@ -91,6 +94,9 @@ class FireSupportAircraft:
             if self.y >= self.screen_height - 96:
                 self.active = False
                 events["crash_landed"] = True
+            self._spawn_flame_particles(count=1)
+
+        self._update_flame_particles()
 
         if not self.active:
             self.stop_sound()
@@ -106,21 +112,102 @@ class FireSupportAircraft:
         return drop_x, drop_y
 
     def draw(self, surface: pygame.Surface) -> None:
+        if not self.active and not self.crashing and not self.flame_particles:
+            return
+
+        for particle in self.flame_particles:
+            ratio = particle["life"] / particle["max_life"] if particle["max_life"] else 0
+            outer_color = (
+                int(120 + 135 * ratio),
+                int(60 + 110 * ratio),
+                int(30 + 70 * ratio),
+            )
+            inner_color = (
+                255,
+                int(200 * ratio + 40),
+                int(120 * ratio + 20),
+            )
+            center = (int(particle["x"]), int(particle["y"]))
+            outer_radius = max(1, int(particle["radius"]))
+            inner_radius = max(1, int(particle["radius"] * 0.55))
+            pygame.draw.circle(surface, outer_color, center, outer_radius)
+            pygame.draw.circle(surface, inner_color, center, inner_radius)
+
         if not self.active and not self.crashing:
             return
-        body_rect = pygame.Rect(int(self.x), int(self.y), self.width, self.height)
-        pygame.draw.rect(surface, (90, 110, 140), body_rect, border_radius=6)
-        pygame.draw.rect(surface, (35, 45, 70), body_rect, 2, border_radius=6)
-        cockpit = pygame.Rect(int(self.x + 12), int(self.y + 6), 26, 14)
-        pygame.draw.rect(surface, (150, 190, 220), cockpit, border_radius=4)
-        pygame.draw.rect(surface, (60, 90, 130), cockpit, 1, border_radius=4)
-        wing = pygame.Rect(int(self.x + self.width * 0.3), int(self.y - 6), int(self.width * 0.55), 10)
-        pygame.draw.rect(surface, (70, 90, 120), wing, border_radius=4)
-        tail = pygame.Rect(int(self.x + self.width * 0.8), int(self.y - 2), 18, 18)
-        pygame.draw.rect(surface, (70, 90, 120), tail, border_radius=4)
-        engine_color = (200, 120, 60) if self.crashing else (230, 170, 90)
-        for offset in (18, 44, 70):
-            pygame.draw.circle(surface, engine_color, (int(self.x + offset), int(self.y + self.height)), 4)
+
+        base_x = self.x
+        base_y = self.y
+        w = self.width
+        h = self.height
+
+        body_points = [
+            self._to_screen_point(base_x, base_y, w, h, 0.00, 0.50),
+            self._to_screen_point(base_x, base_y, w, h, 0.06, 0.20),
+            self._to_screen_point(base_x, base_y, w, h, 0.18, 0.08),
+            self._to_screen_point(base_x, base_y, w, h, 0.40, 0.03),
+            self._to_screen_point(base_x, base_y, w, h, 0.70, 0.20),
+            self._to_screen_point(base_x, base_y, w, h, 0.92, 0.50),
+            self._to_screen_point(base_x, base_y, w, h, 0.70, 0.80),
+            self._to_screen_point(base_x, base_y, w, h, 0.40, 0.97),
+            self._to_screen_point(base_x, base_y, w, h, 0.18, 0.85),
+            self._to_screen_point(base_x, base_y, w, h, 0.06, 0.60),
+        ]
+
+        main_color = (38, 46, 58) if not self.crashing else (96, 70, 50)
+        outline_color = (18, 24, 32)
+        highlight_color = (64, 78, 98)
+
+        pygame.draw.polygon(surface, main_color, body_points)
+        pygame.draw.lines(surface, outline_color, True, body_points, 2)
+
+        leading_edge = [
+            self._to_screen_point(base_x, base_y, w, h, 0.06, 0.20),
+            self._to_screen_point(base_x, base_y, w, h, 0.18, 0.08),
+            self._to_screen_point(base_x, base_y, w, h, 0.40, 0.03),
+            self._to_screen_point(base_x, base_y, w, h, 0.70, 0.20),
+        ]
+        pygame.draw.lines(surface, highlight_color, False, leading_edge, 3)
+
+        cockpit_width = int(w * 0.18)
+        cockpit_height = int(h * 0.32)
+        cockpit_center_x = self._ratio_to_x(base_x, w, 0.68)
+        cockpit_rect = pygame.Rect(
+            int(cockpit_center_x - cockpit_width / 2),
+            int(base_y + h * 0.32),
+            cockpit_width,
+            cockpit_height,
+        )
+        pygame.draw.ellipse(surface, (90, 120, 150), cockpit_rect)
+        pygame.draw.ellipse(surface, outline_color, cockpit_rect, 2)
+
+        inlet_width = int(w * 0.12)
+        inlet_height = int(h * 0.14)
+        inlet_top = int(base_y + h * 0.40)
+        left_inlet_rect = pygame.Rect(
+            int(self._ratio_to_x(base_x, w, 0.36) - inlet_width / 2),
+            inlet_top,
+            inlet_width,
+            inlet_height,
+        )
+        right_inlet_rect = pygame.Rect(
+            int(self._ratio_to_x(base_x, w, 0.52) - inlet_width / 2),
+            inlet_top,
+            inlet_width,
+            inlet_height,
+        )
+        for inlet in (left_inlet_rect, right_inlet_rect):
+            pygame.draw.rect(surface, (52, 62, 80), inlet, border_radius=3)
+            pygame.draw.rect(surface, outline_color, inlet, 1, border_radius=3)
+
+        tail_line = [
+            self._to_screen_point(base_x, base_y, w, h, 0.06, 0.60),
+            self._to_screen_point(base_x, base_y, w, h, 0.18, 0.85),
+            self._to_screen_point(base_x, base_y, w, h, 0.40, 0.97),
+            self._to_screen_point(base_x, base_y, w, h, 0.70, 0.80),
+            self._to_screen_point(base_x, base_y, w, h, 0.92, 0.50),
+        ]
+        pygame.draw.lines(surface, (24, 30, 40), False, tail_line, 2)
 
     def stop_sound(self) -> None:
         if self.sound_channel:
