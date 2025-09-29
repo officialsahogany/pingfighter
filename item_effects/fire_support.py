@@ -602,6 +602,41 @@ class FireSupport:
             except Exception:  # noqa: BLE001
                 pass
 
+    def _stop_radio_loop(self) -> None:
+        if self.radio_channel:
+            try:
+                self.radio_channel.stop()
+            except Exception:  # noqa: BLE001
+                pass
+            self.radio_channel = None
+
+    def _ensure_radio_loop(self) -> None:
+        sound = self._get_radio_sound()
+        if sound is None:
+            return
+        try:
+            if self.radio_channel is None or not self.radio_channel.get_busy():
+                self.radio_channel = sound.play(-1)
+                if self.radio_channel:
+                    self.radio_channel.set_volume(self.radio_volume)
+        except Exception:  # noqa: BLE001
+            self.radio_channel = None
+
+    def _get_radio_sound(self) -> Optional[pygame.mixer.Sound]:
+        if self._radio_sound is None:
+            try:
+                from resource_path import resource_path
+
+                sound_path = resource_path("sounds/radio.wav")
+                sound = pygame.mixer.Sound(sound_path)
+                sound.set_volume(self.radio_volume)
+                self._radio_sound = sound
+            except Exception:  # noqa: BLE001
+                self._radio_sound = False
+        if self._radio_sound is False:
+            return None
+        return self._radio_sound
+
     def _get_reload_tracker(self) -> Callable[[str], None] | None:
         for module_name in ("__main__", "pingfighter"):
             module = sys.modules.get(module_name)
