@@ -26573,12 +26573,19 @@ def _draw_trade_point_system() -> None:
     update_trade_point_texts()
     draw_trade_point_texts()
 TUTORIAL_GUIDE_HINT_DURATION_MS = 3000
+TUTORIAL_GUIDE_HINT_SCALE = 0.33
 tutorial_guide_hint_start_ticks = 0
 tutorial_guide_hint_visible = False
 
 
-def _draw_hint_lamp(surface: pygame.Surface, center: tuple[float, float], elapsed_ms: float) -> None:
-    wiggle = math.sin(elapsed_ms / 220.0) * 4
+def _draw_hint_lamp(
+    surface: pygame.Surface,
+    center: tuple[float, float],
+    elapsed_ms: float,
+    scale: float = 1.0,
+) -> None:
+    scale = max(0.1, scale)
+    wiggle = math.sin(elapsed_ms / 220.0) * 4 * scale
     base_color = (215, 176, 54)
     accent_color = (255, 222, 140)
     shadow_color = (120, 96, 32)
