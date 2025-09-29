@@ -19850,7 +19850,7 @@ def handle_player(keys):
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_shield_impact_timer
     global blacksmith_umbrella_retracting, blacksmith_umbrella_anim_direction
-    global blacksmith_umbrella_retract_start_frame
+    global blacksmith_umbrella_retract_start_frame, blacksmith_umbrella_retract_grace_timer
     global blacksmith_umbrella_hitbox_extents, blacksmith_umbrella_hitbox_vertical
     global blacksmith_umbrella_hitbox_center_offset, blacksmith_umbrella_hitbox_direction
     global blacksmith_umbrella_hitbox_raw
@@ -19954,7 +19954,7 @@ def handle_player(keys):
         global blacksmith_umbrella_anim_direction, blacksmith_umbrella_anim_timer
         global blacksmith_umbrella_damage_flash_timer
         global blacksmith_umbrella_hit_lock
-        global blacksmith_umbrella_retract_start_frame
+        global blacksmith_umbrella_retract_start_frame, blacksmith_umbrella_retract_grace_timer
 
         if not blacksmith_umbrella_open or blacksmith_umbrella_retracting:
             return
@@ -19964,6 +19964,7 @@ def handle_player(keys):
         blacksmith_umbrella_anim_timer = BLACKSMITH_UMBRELLA_ANIM_FRAMES
         blacksmith_umbrella_hit_lock = False
         blacksmith_umbrella_retract_start_frame = frame_counter
+        blacksmith_umbrella_retract_grace_timer = BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
 
         if flash:
             blacksmith_umbrella_damage_flash_timer = max(

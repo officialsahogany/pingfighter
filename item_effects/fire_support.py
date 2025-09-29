@@ -495,6 +495,9 @@ class FireSupport:
 
         if self.radio_active:
             self._ensure_radio_loop()
+            if self.radio_release_timer <= 0:
+                target_volume = self.radio_volume_call if self.calling else self.radio_volume
+                self._set_radio_volume(target_volume)
 
         if self.calling:
             if self.call_timer > 0:
@@ -619,9 +622,17 @@ class FireSupport:
             if self.radio_channel is None or not self.radio_channel.get_busy():
                 self.radio_channel = sound.play(-1)
                 if self.radio_channel:
-                    self.radio_channel.set_volume(self.radio_volume)
+                    self.radio_channel.set_volume(self.radio_volume_call)
         except Exception:  # noqa: BLE001
             self.radio_channel = None
+
+    def _set_radio_volume(self, volume: float) -> None:
+        if self.radio_channel:
+            try:
+                clamped = max(0.0, min(1.0, volume))
+                self.radio_channel.set_volume(clamped)
+            except Exception:  # noqa: BLE001
+                pass
 
     def _get_radio_sound(self) -> Optional[pygame.mixer.Sound]:
         if self._radio_sound is None:
