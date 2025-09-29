@@ -299,8 +299,8 @@ def _draw_small_hammer_icon(target: pygame.Surface, rect: pygame.Rect, glow: flo
         pygame.draw.line(
             spark_surface,
             (255, 220, 140, 160),
-            (cx + w * 0.12, cy - h * 0.05),
-            (end_x, end_y),
+            (int(cx + w * 0.12), int(cy - h * 0.05)),
+            (int(end_x), int(end_y)),
             max(1, int(w * 0.04)),
         )
     icon.blit(spark_surface, (0, 0), special_flags=pygame.BLEND_PREMULTIPLIED)
@@ -469,7 +469,10 @@ def _draw_blacksmith_hammer_shock_preview(surface: pygame.Surface, rect: pygame.
     _draw_small_hammer_icon(preview, hammer_rect, glow)
 
     trail_surface = pygame.Surface((w, h), pygame.SRCALPHA)
-    center = (hammer_rect.centerx + w * 0.18, hammer_rect.centery - h * 0.2)
+    center = (
+        int(hammer_rect.centerx + w * 0.18),
+        int(hammer_rect.centery - h * 0.2),
+    )
     max_radius = int(max(w, h) * 0.5)
     for idx in range(3):
         stage = idx + 1
