@@ -41999,6 +41999,8 @@ def apply_selected_items(
     from item_effects.net_gun import get_net_gun_instance
 
     soldier_controller.reset()
+    fire_support_weapon = get_fire_support_instance()
+    fire_support_weapon.reset_runtime()
 
     bazooka = get_bazooka_instance()
     ak47 = get_ak47_instance()

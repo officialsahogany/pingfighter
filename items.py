@@ -688,6 +688,13 @@ def reset_items():
     except Exception:
         pass
 
+    try:
+        from item_effects.fire_support import get_fire_support_instance
+
+        get_fire_support_instance().reset_runtime()
+    except Exception:
+        pass
+
 
 # 아이템 생성
 def spawn_random_item():
