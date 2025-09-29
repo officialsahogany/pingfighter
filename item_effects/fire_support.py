@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 from typing import Callable, List, Optional
+import sys
 
 import pygame
 
@@ -23,7 +24,13 @@ class Bomb:
 class FireSupportAircraft:
     """화력지원 호출 시 등장하는 폭격기."""
 
-    def __init__(self, screen_width: int, screen_height: int, cruise_y: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        screen_width: int,
+        screen_height: int,
+        cruise_y: Optional[float] = None,
+        engine_sound: Optional[pygame.mixer.Sound] = None,
+    ) -> None:
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.width = 110
@@ -39,6 +46,15 @@ class FireSupportAircraft:
         self.invulnerable_frames = 45
         self.crash_velocity_y = 0.4
         self.crash_gravity = 0.18
+        self.engine_sound = engine_sound
+        self.sound_channel: Optional[pygame.mixer.Channel] = None
+        if self.engine_sound is not None:
+            try:
+                self.sound_channel = self.engine_sound.play(-1)
+                if self.sound_channel:
+                    self.sound_channel.set_volume(0.6)
+            except Exception:  # noqa: BLE001
+                self.sound_channel = None
 
     def get_rect(self) -> pygame.Rect:
         return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
@@ -67,6 +83,9 @@ class FireSupportAircraft:
                 self.active = False
                 events["crash_landed"] = True
 
+        if not self.active:
+            self.stop_sound()
+
         return events
 
     def can_drop(self) -> bool:
@@ -93,6 +112,14 @@ class FireSupportAircraft:
         engine_color = (200, 120, 60) if self.crashing else (230, 170, 90)
         for offset in (18, 44, 70):
             pygame.draw.circle(surface, engine_color, (int(self.x + offset), int(self.y + self.height)), 4)
+
+    def stop_sound(self) -> None:
+        if self.sound_channel:
+            try:
+                self.sound_channel.stop()
+            except Exception:  # noqa: BLE001
+                pass
+            self.sound_channel = None
 
 
 class FireSupport:
