@@ -2518,6 +2518,7 @@ DRAW_TIME_LIMIT = 6000  # 무승부 판정 시간 기준 (6초 = 6000ms)
 # === 일시정지 시스템 ===
 game_paused = False  # 게임 일시정지 상태
 genie_assistant = GenieAssistant()  # U키 지니 상담 오버레이
+genie_assistant.set_preview_renderer(_render_genie_animation_preview)
 game_should_exit = False  #  게임 완전 종료 플래그
 game_session_active = False  #  게임 세션 활성화 여부 (스테이지 간 전환 구분용)
 boss_fake_move = False
@@ -11131,6 +11132,116 @@ blacksmith_turret_boss_hit_count = 0  # 체력형 보스 추가 피해 누적 �
 BLACKSMITH_TURRET_ICON = _create_turret_icon()
 BLACKSMITH_DIVINE_ICON = _create_divine_stone_icon()
 BLACKSMITH_CARD_IMG = _crop_surface_alpha(BLACKSMITH_PADDLE_IMG)
+
+
+def _genie_preview_blit_scaled(surface: pygame.Surface, source: pygame.Surface, dest_rect: pygame.Rect) -> bool:
+    if source is None:
+        return False
+    src_w, src_h = source.get_size()
+    if src_w <= 0 or src_h <= 0 or dest_rect.width <= 0 or dest_rect.height <= 0:
+        return False
+
+    scale = min(dest_rect.width / src_w, dest_rect.height / src_h)
+    if scale <= 0:
+        return False
+
+    new_size = (max(1, int(src_w * scale)), max(1, int(src_h * scale)))
+    if new_size != source.get_size():
+        scaled = pygame.transform.smoothscale(source, new_size)
+    else:
+        scaled = source
+
+    blit_rect = scaled.get_rect(center=dest_rect.center)
+    surface.blit(scaled, blit_rect)
+    return True
+
+
+def _render_thor_shield_preview(surface: pygame.Surface, rect: pygame.Rect) -> bool:
+    overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
+    pivot_point = (rect.width * 0.5, rect.height * 0.82)
+    head_point = (rect.width * 0.5, rect.height * 0.25)
+    _draw_blacksmith_umbrella_overlay(
+        overlay,
+        pivot_point,
+        head_point,
+        raise_amount=1.0,
+        open_amount=1.0,
+    )
+    surface.blit(overlay, rect.topleft, special_flags=pygame.BLEND_PREMULTIPLIED)
+    return True
+
+
+def _render_blacksmith_build_preview(surface: pygame.Surface, rect: pygame.Rect) -> bool:
+    if BLACKSMITH_TURRET_ICON is None or BLACKSMITH_DIVINE_ICON is None:
+        return False
+
+    icon_w, icon_h = BLACKSMITH_BUILD_ICON_SIZE
+    spacing = 12
+    available_width = rect.width - spacing
+    if available_width <= 0:
+        return False
+
+    scale = min(
+        available_width / (icon_w * 2),
+        rect.height / icon_h if icon_h > 0 else 1.0,
+    )
+    scale = max(scale, 0.1)
+    scaled_size = (max(1, int(icon_w * scale)), max(1, int(icon_h * scale)))
+
+    turret_icon = pygame.transform.smoothscale(BLACKSMITH_TURRET_ICON, scaled_size)
+    divine_icon = pygame.transform.smoothscale(BLACKSMITH_DIVINE_ICON, scaled_size)
+
+    offset_x = (scaled_size[0] // 2) + int(spacing * 0.5)
+    center = rect.center
+
+    left_rect = turret_icon.get_rect(center=(center[0] - offset_x, center[1]))
+    right_rect = divine_icon.get_rect(center=(center[0] + offset_x, center[1]))
+
+    surface.blit(turret_icon, left_rect)
+    surface.blit(divine_icon, right_rect)
+
+    return True
+
+
+def _render_blacksmith_hammer_preview(surface: pygame.Surface, rect: pygame.Rect) -> bool:
+    hammer_surface = _get_blacksmith_thrown_hammer_surface()
+    if hammer_surface is None:
+        return False
+
+    _genie_preview_blit_scaled(surface, hammer_surface, rect)
+
+    overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
+    radius = int(min(rect.width, rect.height) * 0.45)
+    pygame.draw.circle(
+        overlay,
+        (120, 200, 255, 110),
+        (rect.width // 2, rect.height // 2),
+        max(1, radius),
+    )
+    surface.blit(overlay, rect.topleft, special_flags=pygame.BLEND_ADD)
+    return True
+
+
+def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect) -> bool:
+    return _genie_preview_blit_scaled(surface, BLACKSMITH_TURRET_ICON, rect)
+
+
+def _render_blacksmith_divine_preview(surface: pygame.Surface, rect: pygame.Rect) -> bool:
+    return _genie_preview_blit_scaled(surface, BLACKSMITH_DIVINE_ICON, rect)
+
+
+def _render_genie_animation_preview(surface: pygame.Surface, rect: pygame.Rect, animation_id: str, ticks: int) -> bool:
+    if animation_id == "thor_shield":
+        return _render_thor_shield_preview(surface, rect)
+    if animation_id == "blacksmith_turret":
+        return _render_blacksmith_turret_preview(surface, rect)
+    if animation_id == "blacksmith_divine":
+        return _render_blacksmith_divine_preview(surface, rect)
+    if animation_id == "blacksmith_hammer_shock":
+        return _render_blacksmith_hammer_preview(surface, rect)
+    if animation_id == "blacksmith_build":
+        return _render_blacksmith_build_preview(surface, rect)
+    return False
 
 blacksmith_hammer_available = True
 blacksmith_hammer_shock_charging = False
