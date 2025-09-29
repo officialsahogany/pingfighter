@@ -393,6 +393,28 @@ class SettingsUI:
                 self.binding_action = None
                 self.binding_type = None
                 
+    def _get_category_key(self, category: SettingCategory) -> Optional[str]:
+        """카테고리 키 문자열 반환"""
+        return self.category_key_map.get(category)
+
+    def _get_setting_value(self, key: str, default: Any = None,
+                            category: Optional[SettingCategory] = None) -> Any:
+        """설정 값 조회"""
+        target_category = category if category is not None else self.current_category
+        category_key = self._get_category_key(target_category)
+        if category_key is None:
+            return default
+        return self.settings_manager.get_setting(category_key, key, default)
+
+    def _set_setting_value(self, key: str, value: Any,
+                            category: Optional[SettingCategory] = None):
+        """설정 값 저장"""
+        target_category = category if category is not None else self.current_category
+        category_key = self._get_category_key(target_category)
+        if category_key is None:
+            return
+        self.settings_manager.set_setting(category_key, key, value)
+
     def _adjust_value(self, direction: int):
         """값 조정
         
@@ -405,39 +427,29 @@ class SettingsUI:
             
             if item['type'] == 'toggle':
                 key = item['key']
-                current = self.settings_manager.get_setting(
-                    self.current_category.value.lower(), key
-                )
-                self.settings_manager.set_setting(
-                    self.current_category.value.lower(), key, not current
-                )
+                current = bool(self._get_setting_value(key, False))
+                self._set_setting_value(key, not current)
                 
             elif item['type'] == 'slider':
                 key = item['key']
-                current = self.settings_manager.get_setting(
-                    self.current_category.value.lower(), key
-                )
+                current = self._get_setting_value(key, item['min'])
                 step = item.get('step', 0.1)
                 new_value = current + (step * direction)
                 new_value = max(item['min'], min(item['max'], new_value))
-                self.settings_manager.set_setting(
-                    self.current_category.value.lower(), key, new_value
-                )
+                self._set_setting_value(key, new_value)
                 
             elif item['type'] == 'dropdown':
                 key = item['key']
                 options = item['options']
-                current = self.settings_manager.get_setting(
-                    self.current_category.value.lower(), key
-                )
-                try:
-                    current_idx = options.index(current)
+                default_option = options[0] if options else None
+                current = self._get_setting_value(key, default_option)
+                if options:
+                    try:
+                        current_idx = options.index(current)
+                    except ValueError:
+                        current_idx = 0
                     new_idx = (current_idx + direction) % len(options)
-                    self.settings_manager.set_setting(
-                        self.current_category.value.lower(), key, options[new_idx]
-                    )
-                except:
-                    pass
+                    self._set_setting_value(key, options[new_idx])
                     
     def _activate_item(self):
         """선택된 항목 활성화"""

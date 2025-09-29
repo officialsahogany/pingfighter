@@ -342,6 +342,8 @@ class GenieAssistant:
                 if self.detail_focus:
                     if event.key in (pygame.K_LEFT, pygame.K_a):
                         self.detail_focus = False
+                        self.detail_scroll_wait = 0.0
+                        self.detail_scroll_direction = 1
                         return True
                     if event.key in (pygame.K_UP, pygame.K_w):
                         self._scroll_detail_by(-self._detail_scroll_step())
@@ -364,6 +366,8 @@ class GenieAssistant:
                 else:
                     if event.key in (pygame.K_RIGHT, pygame.K_d):
                         self.detail_focus = True
+                        self.detail_scroll_wait = 0.0
+                        self.detail_scroll_direction = 1
                         return True
                     if event.key in (pygame.K_UP, pygame.K_w):
                         self._move_selection(-1)
