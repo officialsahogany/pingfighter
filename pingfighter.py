@@ -16940,33 +16940,69 @@ def draw_repair_glow_effects(surface: pygame.Surface) -> None:
 
         center = rect.center
         life_ratio = max(0.0, min(1.0, effect["timer"] / effect["duration"]))
-        base_radius = int(max(rect.width, rect.height) * 0.75) + 18
-
-        glow_intensity = 0.45 + 0.35 * life_ratio
-        draw_glow_effect(surface, center, base_radius, (252, 244, 212), intensity=glow_intensity)
-        draw_glow_effect(surface, center, max(12, base_radius // 2), (208, 255, 255), intensity=0.25 + 0.25 * life_ratio)
-
-        swirl_radius = base_radius + 12
-        swirl_intensity = 0.2 + 0.4 * life_ratio
+        
+        # 성스러운 빛가루 파티클 효과
         phase = effect.get("phase", 0.0)
-        for offset in (0.0, math.pi * 2 / 3, math.pi * 4 / 3):
-            angle = phase + offset
-            px = center[0] + math.cos(angle) * swirl_radius
-            py = center[1] + math.sin(angle) * swirl_radius * 0.65
-            draw_glow_effect(surface, (int(px), int(py)), max(8, base_radius // 3), (255, 251, 224), intensity=swirl_intensity)
-
-        ring_alpha = int(180 * life_ratio)
-        if ring_alpha > 0:
-            ring_width = rect.width + 48
-            ring_height = rect.height + 48
-            ring_surface = pygame.Surface((ring_width, ring_height), pygame.SRCALPHA)
-            pygame.draw.ellipse(
-                ring_surface,
-                (255, 255, 230, ring_alpha),
-                pygame.Rect(0, 0, ring_width, ring_height),
-                width=3,
-            )
-            surface.blit(ring_surface, (center[0] - ring_width // 2, center[1] - ring_height // 2), special_flags=pygame.BLEND_ADD)
+        
+        # 건물 주변을 감싸는 파티클 개수
+        particle_count = 12 + int(8 * life_ratio)
+        base_radius = max(rect.width, rect.height) * 0.6
+        
+        for i in range(particle_count):
+            # 각 파티클의 각도 계산
+            angle = phase + (i / particle_count) * math.pi * 2
+            
+            # 타원형 궤적으로 건물 주변 회전
+            orbit_radius = base_radius + 20 + 10 * math.sin(phase * 2 + i)
+            px = center[0] + math.cos(angle) * orbit_radius * 1.2
+            py = center[1] + math.sin(angle) * orbit_radius * 0.8
+            
+            # 파티클 크기는 생명주기에 따라 변함
+            particle_size = int(3 + 4 * life_ratio + 2 * math.sin(phase * 3 + i * 0.5))
+            
+            # 성스러운 빛가루 색상 (금빛, 은빛, 흰빛 계열)
+            colors = [
+                (255, 251, 224),  # 밝은 크림색
+                (252, 244, 212),  # 연한 금색
+                (255, 255, 255),  # 순백색
+                (208, 255, 255),  # 연한 청백색
+                (255, 248, 220),  # 코니쉬
+            ]
+            color = colors[i % len(colors)]
+            
+            # 파티클 투명도
+            alpha = int(150 + 105 * life_ratio * (0.7 + 0.3 * math.sin(phase * 2 + i)))
+            
+            # 파티클 그리기
+            particle_surface = pygame.Surface((particle_size * 3, particle_size * 3), pygame.SRCALPHA)
+            
+            # 중앙의 밝은 코어
+            pygame.draw.circle(particle_surface, (*color, alpha), 
+                             (particle_size * 3 // 2, particle_size * 3 // 2), 
+                             particle_size // 2)
+            
+            # 부드러운 빛나는 효과
+            for j in range(3):
+                glow_alpha = alpha // (j + 2)
+                glow_size = particle_size * (j + 1)
+                pygame.draw.circle(particle_surface, (*color, glow_alpha), 
+                                 (particle_size * 3 // 2, particle_size * 3 // 2), 
+                                 glow_size, 1)
+            
+            surface.blit(particle_surface, 
+                        (int(px) - particle_size * 3 // 2, int(py) - particle_size * 3 // 2), 
+                        special_flags=pygame.BLEND_ADD)
+        
+        # 중앙에 은은한 빛 효과
+        if life_ratio > 0.3:
+            soft_glow_alpha = int(50 * life_ratio)
+            soft_glow_surface = pygame.Surface((rect.width * 2, rect.height * 2), pygame.SRCALPHA)
+            pygame.draw.ellipse(soft_glow_surface, 
+                               (255, 251, 224, soft_glow_alpha),
+                               pygame.Rect(0, 0, rect.width * 2, rect.height * 2))
+            surface.blit(soft_glow_surface,
+                        (center[0] - rect.width, center[1] - rect.height),
+                        special_flags=pygame.BLEND_ADD)
 # === Stage 4 명상타임 관련 전역 변수 ===
 meditation_active = False
 meditation_timer = 0
