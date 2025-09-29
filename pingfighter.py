@@ -11310,15 +11310,15 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
     temp_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
 
     scale = min(
-        (rect.width / max(1, BLACKSMITH_TURRET_BASE_WIDTH)) * 0.2,
-        (rect.height / max(1, BLACKSMITH_TURRET_BASE_HEIGHT)) * 0.2,
+        (rect.width / max(1, BLACKSMITH_TURRET_BASE_WIDTH)) * 0.3,
+        (rect.height / max(1, BLACKSMITH_TURRET_BASE_HEIGHT)) * 0.3,
     )
-    scale = max(scale, 0.12)
+    scale = max(scale, 0.15)
 
     turret_width = max(12, int(BLACKSMITH_TURRET_BASE_WIDTH * scale))
     turret_height = max(12, int(BLACKSMITH_TURRET_BASE_HEIGHT * scale))
     turret_rect = pygame.Rect(0, 0, turret_width, turret_height)
-    turret_rect.midbottom = (rect.width // 2, rect.height - 6)
+    turret_rect.center = (rect.width // 2, rect.height * 0.45)
 
     turret_state_preview = {
         "rect": turret_rect,
@@ -11446,14 +11446,14 @@ def _render_blacksmith_divine_preview(surface: pygame.Surface, rect: pygame.Rect
 
     width, height = BLACKSMITH_DIVINE_STONE_SIZE
     scale = min(
-        (rect.width / max(1, width)) * 0.2,
-        (rect.height / max(1, height)) * 0.2,
+        (rect.width / max(1, width)) * 0.3,
+        (rect.height / max(1, height)) * 0.3,
     )
-    scale = max(scale, 0.12)
+    scale = max(scale, 0.15)
     stone_width = max(12, int(width * scale))
     stone_height = max(12, int(height * scale))
     stone_rect = pygame.Rect(0, 0, stone_width, stone_height)
-    stone_rect.midbottom = (rect.width // 2, rect.height - 6)
+    stone_rect.center = (rect.width // 2, rect.height * 0.45)
 
     divine_state_preview = {
         "rect": stone_rect,
