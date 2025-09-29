@@ -55685,8 +55685,16 @@ def main(stage_num, new_boss_mode=False):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+
+            if genie_assistant.is_active():
+                genie_assistant.handle_event(event)
+                continue
+
             # 키보드 이벤트 처리
             if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_u:
+                    genie_assistant.activate(SCREEN)
+                    continue
                 #  일시정지 토글 (P키)
                 if event.key == pygame.K_p:
                     global game_paused
@@ -56246,7 +56254,14 @@ def main(stage_num, new_boss_mode=False):
             kuromi_awakening_paused = animated_bg_stage3.kuromi_awakening
         
         #  일시정지 상태가 아닐 때만 게임 로직 업데이트 (악마의 주사위 포함)
-        if not game_paused and not devil_dice_paused and not legendary_effect_paused and not temple_destruction_paused and not kuromi_awakening_paused:
+        if (
+            not game_paused
+            and not genie_assistant.is_active()
+            and not devil_dice_paused
+            and not legendary_effect_paused
+            and not temple_destruction_paused
+            and not kuromi_awakening_paused
+        ):
             # 아이템 스폰 처리 (템스폰) - 전설 애니메이션 중에는 스폰 정지
             # 튜토리얼 스테이지(50)에서는 아이템 스폰 비활성화
             if current_stage != 50 and pygame.time.get_ticks() - last_item_spawn_time >= next_item_spawn_delay:
