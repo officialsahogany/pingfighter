@@ -14632,7 +14632,7 @@ def check_tear_collisions():
     falling_tears = new_tears
 def apply_effect(effect_name):
     global PADDLE_WIDTH, PLAYER_SPEED, special_gauge, special_gauge_max, special_ready
-    global aipill_active  #  AI 필 변수 추가
+    global aipill_active, selected_character_type  #  AI 필 변수 추가
     #  아이템 사용 기록 (효과적인 사용인지 간단히 판단)
     was_effective = True  # 대부분의 아이템은 효과적으로 간주
     if effect_name == "gauge_boost" and special_gauge >= 70:
@@ -14640,6 +14640,11 @@ def apply_effect(effect_name):
     elif effect_name == "gauge_charge" and special_gauge >= (special_gauge_max - 50):
         was_effective = False  # 게이지가 거의 풀일 때는 비효과적
     record_item_usage(effect_name, was_effective=was_effective)
+
+    if effect_name == "repair_kit" and selected_character_type != "blacksmith":
+        print("⚠️ 수리키트는 발토르 전용 아이템입니다.")
+        return False
+
     #  엑티브 아이템 사용 효과음 재생 (패시브 아이템 제외)
     if effect_name not in ["battery", "chargebag", "spikeboots", "dashgear", "gauge_charge", "life_elixir"]:
         play_active_item_sound()
@@ -14725,6 +14730,8 @@ def apply_effect(effect_name):
     elif effect_name == "stopwatch":  # ️ 스탑워치 아이템 활성화
         activate_stopwatch()
         print("!  ...")
+    elif effect_name == "repair_kit":
+        return activate_repair_kit()
     elif effect_name == "commando_arm":  #  코만도암 패시브 아이템 활성화
         import items
         items.commando_arm_obtained = True
