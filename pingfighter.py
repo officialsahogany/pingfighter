@@ -5723,6 +5723,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "max_hp": BLACKSMITH_DIVINE_STONE_MAX_HP,
                             "pulse": 0,
                             "cooldown": 0,
+                            "deploy_timer": 0,
                         }
                         stage_value = globals().get("current_stage")
                         if stage_value is not None:
@@ -11068,6 +11069,7 @@ BLACKSMITH_DIVINE_BUILD_TIME = 360  # 270 게이지 ≈ 6.0초 (게이지 소모
 BLACKSMITH_DIVINE_GAUGE_DRAIN_PER_SEC = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC
 BLACKSMITH_DIVINE_BUILD_RADIUS = BLACKSMITH_TURRET_BUILD_RADIUS
 BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT = 18
+BLACKSMITH_DIVINE_DEPLOY_FRAMES = int(0.9 * FPS)
 BLACKSMITH_HAMMER_SHOCK_STAGE_COST = {
     1: 200,
     2: 260,
