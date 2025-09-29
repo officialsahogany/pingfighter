@@ -10804,7 +10804,12 @@ BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES = int(0.5 * FPS)  # 토르쉴드 �
 BLACKSMITH_UMBRELLA_GAUGE_HIT_LOCK_FRAMES = int(0.35 * FPS)  # 게이지 1회 소모 후 추가 차감을 막는 보호 시간
 BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE = 70
 BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE = 100
+BLACKSMITH_BLOCKING_PENALTY_RATIO = 0.2
+BLACKSMITH_BLOCKING_PENALTY_FRAMES = int(5 * FPS)
+BLACKSMITH_BLOCKING_TOAST_FRAMES = int(1.5 * FPS)
 blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
+blacksmith_blocking_penalty_timer = 0
+blacksmith_blocking_toast_timer = 0
 
 
 def _is_divine_state_active(state: dict[str, object] | None) -> bool:
