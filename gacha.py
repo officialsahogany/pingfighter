@@ -1013,8 +1013,11 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
             "shape": random.choice(["rect", "circle", "star", "triangle"])  # 삼각형 추가
         })
     
+    legendary_manager = None
+
     while running:
         clock.tick(60)
+        dt = clock.get_time() / 1000.0
         animation_timer += 1
         
         for event in pygame.event.get():
@@ -1325,14 +1328,32 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
             name_color = (255, 255, 255)  # 흰색
         
         # 아이템 원래 크기 아이콘 (이름 영역 왼쪽에 배치)
+        icon_x = width // 2 - 200
+        icon_y = container_y + 390 - 32
         icon_surface = None
-        animation_frames = gacha_result.get("icon_animation_frames")
-        if animation_frames:
-            animation_speed = max(1, gacha_result.get("icon_animation_speed", 6))
-            frame_index = (animation_timer // animation_speed) % len(animation_frames)
-            icon_surface = animation_frames[frame_index]
-        elif gacha_result.get("icon"):
-            icon_surface = gacha_result["icon"]
+
+        legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
+        if gacha_result["name"] in legendary_names:
+            if legendary_manager is None:
+                from legendary_items import get_legendary_manager  # 지연 import
+                legendary_manager = get_legendary_manager()
+            legendary_item = None
+            if legendary_manager:
+                legendary_item = legendary_manager.get_item(gacha_result["name"])
+            if legendary_item:
+                legendary_item.update(dt, ui_mode=True)
+                legend_surface = pygame.Surface((64, 64), pygame.SRCALPHA)
+                legendary_item.draw_icon(legend_surface, 0, 0, 64)
+                icon_surface = legend_surface
+
+        if icon_surface is None:
+            animation_frames = gacha_result.get("icon_animation_frames")
+            if animation_frames:
+                animation_speed = max(1, gacha_result.get("icon_animation_speed", 6))
+                frame_index = (animation_timer // animation_speed) % len(animation_frames)
+                icon_surface = animation_frames[frame_index]
+            elif gacha_result.get("icon"):
+                icon_surface = gacha_result["icon"]
 
         if icon_surface is not None:
             if icon_surface.get_size() != (64, 64):
@@ -1340,14 +1361,8 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
             else:
                 original_icon = icon_surface
 
-            icon_x = width // 2 - 200  # 아이템 이름에서 더 멀리 왼쪽에 배치 (간격 확보)
-            icon_y = container_y + 390 - 32  # 이름 영역 중앙에 맞춤
-
-            # 아이콘 배경 (둥근 테두리)
             pygame.draw.circle(screen, gacha_result["color"], (icon_x + 32, icon_y + 32), 36, 3)
             pygame.draw.circle(screen, (255, 255, 255), (icon_x + 32, icon_y + 32), 36, 2)
-
-            # 아이콘 그리기
             screen.blit(original_icon, (icon_x, icon_y))
 
         # 메인 이름 (그림자 효과) - 이름 영역 중앙에 배치
