@@ -5787,6 +5787,10 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         divine_runtime.partial_drain = 0.0
                         effects_manager.spawn_star_particles(stone_rect.centerx, stone_rect.centery, count=12)
                         effects_manager.spawn_construction_smoke(stone_rect.centerx, stone_rect.bottom - 10, count=6, spread=18)
+                        
+                        # 손상 효과 매니저에 디바인스톤 등록
+                        damage_manager = get_damage_manager()
+                        damage_manager.register_building("divine_stone", stone_rect, BLACKSMITH_DIVINE_STONE_MAX_HP)
                         try:
                             play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
                         except Exception:
