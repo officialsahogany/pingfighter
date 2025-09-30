@@ -174,14 +174,12 @@ class BuildingDamageManager:
         state = self.damage_states[building_id]
         state['current_hp'] = current_hp
         
-        # 손상 레벨 결정
-        hp_ratio = current_hp / state['max_hp']
-        
-        if hp_ratio > 0.66:  # 체력 67% 이상
+        # 손상 레벨 결정 - HP 절대값 기준
+        if current_hp >= 3:  # 체력 3 이상
             state['damage_level'] = 0
-        elif hp_ratio > 0.33:  # 체력 34-66%
+        elif current_hp == 2:  # 체력이 정확히 2
             state['damage_level'] = 1
-        else:  # 체력 33% 이하
+        else:  # 체력 1 이하
             state['damage_level'] = 2
             
     def update(self):

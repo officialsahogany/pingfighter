@@ -210,6 +210,8 @@ from effects.item_acquisition import (
 )
 #  픽셀 폰트 매니저 - 네오둥근모
 from pixel_font_manager import get_font, FontStyle, PixelColors
+#  건물 손상 효과 시스템
+from effects.building_damage_effects import get_damage_manager
 
 # ========== PHASE 101: 통합 시스템 ==========
 from rendering.unified_renderer import UnifiedRenderer
