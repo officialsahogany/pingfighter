@@ -38,9 +38,9 @@ class SmokeParticle(DamageParticle):
         super().__init__(x, y)
         self.vx = random.uniform(-0.5, 0.5)
         self.vy = random.uniform(-1.5, -0.5)
-        self.radius = random.uniform(2, 5)
-        self.max_lifetime = random.randint(60, 120)
-        self.color_base = random.randint(40, 80)
+        self.radius = random.uniform(5, 10)  # 더 큰 크기
+        self.max_lifetime = random.randint(90, 150)  # 더 오래 지속
+        self.color_base = random.randint(60, 100)  # 더 밝은 색상
         
     def update(self):
         super().update()
