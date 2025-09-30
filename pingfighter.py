@@ -59286,7 +59286,7 @@ def main(stage_num, new_boss_mode=False):
                     
                     # 1. 플레이어/보스 위치 초기화
                     PLAYER.centerx = WIDTH // 2
-                    PLAYER.bottom = HEIGHT - 40
+                    align_player_to_floor()
                     BOSS.centerx = WIDTH // 2  
                     BOSS.top = 25
                     print(f"튜토리얼: 플레이어/보스 위치 초기화 - Player: ({PLAYER.centerx}, {PLAYER.bottom}), Boss: ({BOSS.centerx}, {BOSS.top})")
