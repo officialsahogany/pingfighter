@@ -58251,10 +58251,9 @@ def main(stage_num, new_boss_mode=False):
                 update_blacksmith_hammer_shock(keys)
                 update_blacksmith_turret()
                 
-                # 발토르 스테이지에서 손상 효과 업데이트
-                if current_stage == 6:
-                    damage_manager = get_damage_manager()
-                    damage_manager.update()
+                # 손상 효과 업데이트 (모든 스테이지에서)
+                damage_manager = get_damage_manager()
+                damage_manager.update()
                 
                 handle_ball()
                 handle_boss()
