@@ -2401,13 +2401,17 @@ def trigger_grenade_style_explosion(
             stage5_boss_hurt_timer = 18
             if SOUND_STAGE5_HURTS:
                 play_sound_with_volume(random.choice(SOUND_STAGE5_HURTS))
-            for _ in range(2):
-                trade_point_system.spawn_star(
-                    BOSS.centerx + random.randint(-50, 50),
-                    BOSS.centery + random.randint(-20, 20),
-                    source_type="hongryun_grenade",
-                )
-            print("🔥 Stage5 - 홍련 수류탄 효과 발동 (별 2개)")
+            star_drop_chance = 0.4  # 홍련 수류탄 스타포인트 드랍 확률 (기존 100% → 40%)
+            if random.random() < star_drop_chance:
+                for _ in range(2):
+                    trade_point_system.spawn_star(
+                        BOSS.centerx + random.randint(-50, 50),
+                        BOSS.centery + random.randint(-20, 20),
+                        source_type="hongryun_grenade",
+                    )
+                print(f"🔥 Stage5 - 홍련 수류탄 효과 발동 (별 2개, 확률 {int(star_drop_chance * 100)}%)")
+            else:
+                print(f"🔥 Stage5 - 홍련 수류탄 효과 미발동 (확률 {int(star_drop_chance * 100)}%)")
 
     _destroy_stage2_rocks_in_radius(x, y, explosion_radius, source=source)
 
