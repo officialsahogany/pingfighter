@@ -58536,6 +58536,10 @@ def main(stage_num, new_boss_mode=False):
             temp_screen = SCREEN
             SCREEN = temp_surface
             draw_field()
+            if current_stage == 2:
+                draw_stage2_jungle_border()
+            elif current_stage == 3:
+                draw_stage3_border()
             draw_objects()
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
@@ -58552,31 +58556,15 @@ def main(stage_num, new_boss_mode=False):
             SCREEN.blit(temp_surface, (screen_shake_offset_x, screen_shake_offset_y))
             
             # 스테이지별 효과를 UI 전에 그리기 (흔들림과 함께 적용)
-            if current_stage == 1:
-                # 스테이지1은 테두리 없음 - 무지개 테두리만 검은색으로 덮음
-                pass
-            elif current_stage == 2:
-                # 임시 서페이스에 정글 효과 그리기 
+            if current_stage == 2:
                 temp_jungle = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                # 정글 테두리를 임시 서페이스에 그리기
                 original_screen = SCREEN
                 SCREEN = temp_jungle
-                draw_stage2_jungle_border()
                 update_stage2_leaves()
                 draw_stage2_leaves()
                 SCREEN = original_screen
-                # 흔들림 적용해서 블릿
                 SCREEN.blit(temp_jungle, (screen_shake_offset_x, screen_shake_offset_y))
-            elif current_stage == 3:
-                # 임시 서페이스에 스테이지3 테두리 그리기
-                temp_border = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                original_screen = SCREEN
-                SCREEN = temp_border
-                draw_stage3_border()
-                SCREEN = original_screen
-                # 흔들림 적용해서 블릿
-                SCREEN.blit(temp_border, (screen_shake_offset_x, screen_shake_offset_y))
-            
+
             # UI 요소들은 화면 흔들림과 별도로 그리기 (게이지, 아이템 등) - 맵 효과 위에
             if not new_boss_mode_active:
                 # 아이템과 게이지는 흔들리지 않도록 별도로 그리기
@@ -58618,6 +58606,10 @@ def main(stage_num, new_boss_mode=False):
         else:
             # 흔들림이 없을 때는 직접 그리기
             draw_field()
+            if current_stage == 2:
+                draw_stage2_jungle_border()
+            elif current_stage == 3:
+                draw_stage3_border()
             draw_objects()
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
@@ -58629,15 +58621,9 @@ def main(stage_num, new_boss_mode=False):
             draw_stage2_boss_gauge_bar()  # 스테이지 2 게이지바
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 스테이지별 테두리 효과를 UI 전에 그리기
-            if current_stage == 1:
-                # 스테이지1은 테두리 없음 - 무지개 테두리만 검은색으로 덮음
-                pass
-            elif current_stage == 2:
-                draw_stage2_jungle_border()
+            if current_stage == 2:
                 update_stage2_leaves()
                 draw_stage2_leaves()
-            elif current_stage == 3:
-                draw_stage3_border()
             
             # 통합 트레이드 포인트 별 시스템 (모든 스테이지에서 사용)
             update_trade_point_stars()
