@@ -60,6 +60,7 @@ from utils.game_helpers import (
     calculate_distance,
 )
 from rendering.draw_helper import DrawHelper
+from effects.building_damage_effects import get_damage_manager
 from display_manager import (
     DisplayFactories,
     change_resolution as dm_change_resolution,
