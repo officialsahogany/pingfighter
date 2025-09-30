@@ -161,8 +161,10 @@ class BuildingDamageManager:
             'smoke_timer': 0,
             'fire_timer': 0,
             'spark_timer': 0,
-            'damage_level': 0  # 0: 정상, 1: 경미한 손상, 2: 심각한 손상
+            'damage_level': 0,  # 0: 정상, 1: 경미한 손상, 2: 심각한 손상
+            'particles': []  # 이 건물의 파티클들
         }
+        print(f"[손상 시스템] {building_id} 등록: rect={rect}, max_hp={max_hp}")
         
     def update_building_hp(self, building_id: str, current_hp: int):
         """건물 체력 업데이트"""
