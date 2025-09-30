@@ -1331,6 +1331,7 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
         icon_x = width // 2 - 200
         icon_y = container_y + 390 - 32
         icon_surface = None
+        drew_legendary_icon = False
 
         legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
         if gacha_result["name"] in legendary_names:
@@ -1345,6 +1346,7 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
                 legend_surface = pygame.Surface((64, 64), pygame.SRCALPHA)
                 legendary_item.draw_icon(legend_surface, 0, 0, 64)
                 icon_surface = legend_surface
+                drew_legendary_icon = True
 
         if icon_surface is None:
             animation_frames = gacha_result.get("icon_animation_frames")
@@ -1361,8 +1363,9 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
             else:
                 original_icon = icon_surface
 
-            pygame.draw.circle(screen, gacha_result["color"], (icon_x + 32, icon_y + 32), 36, 3)
-            pygame.draw.circle(screen, (255, 255, 255), (icon_x + 32, icon_y + 32), 36, 2)
+            if not drew_legendary_icon:
+                pygame.draw.circle(screen, gacha_result["color"], (icon_x + 32, icon_y + 32), 36, 3)
+                pygame.draw.circle(screen, (255, 255, 255), (icon_x + 32, icon_y + 32), 36, 2)
             screen.blit(original_icon, (icon_x, icon_y))
 
         # 메인 이름 (그림자 효과) - 이름 영역 중앙에 배치
