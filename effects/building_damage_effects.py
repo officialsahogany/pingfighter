@@ -186,10 +186,6 @@ class BuildingDamageManager:
             state['damage_level'] = 1
         else:  # 체력 1 이하
             state['damage_level'] = 2
-        
-        # 테스트를 위해 항상 손상 레벨 2로 설정
-        # TODO: 테스트 후 제거
-        state['damage_level'] = 2
             
         # 디버그 로그
         if prev_level != state['damage_level']:
