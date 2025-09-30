@@ -9656,10 +9656,13 @@ def draw_blacksmith_turret_elements(surface):
                 (proj_pos[0] - swirl_rect.width // 2, proj_pos[1] - swirl_rect.height // 2),
                 special_flags=pygame.BLEND_ADD,
             )
-        
-        # 포탑 손상 오버레이 그리기
+    
+    # 포탑 손상 오버레이 그리기 (투사체 루프 밖에서)
+    if turret_rect:
         damage_manager = get_damage_manager()
         damage_manager.draw_damage_overlay(surface, "turret", turret_rect)
+        # 포탑 위치 업데이트
+        damage_manager.update_building_rect("turret", turret_rect)
         
     draw_blacksmith_build_menu(surface)
     
@@ -9871,6 +9874,8 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
     # 디바인스톤 손상 오버레이 그리기
     damage_manager = get_damage_manager()
     damage_manager.draw_damage_overlay(surface, "divine_stone", rect)
+    # 디바인스톤 위치 업데이트
+    damage_manager.update_building_rect("divine_stone", rect)
 
     hp_ratio = 0.0
     if max_hp > 0:
