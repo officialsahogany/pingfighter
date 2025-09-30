@@ -47145,6 +47145,7 @@ def calculate_bounce(paddle):
     global perfect_timing_active, perfect_timing_frame_count, perfect_timing_cooldown
     global perfect_timing_input_used, perfect_direction, perfect_timing_indicator_active
     global rolling_active, is_half_dash_active
+    global ragnarok_original_speed
     global is_waiting_for_serve, stopwatch_active, stopwatch_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
     
@@ -47776,6 +47777,9 @@ def calculate_bounce(paddle):
     
     #  라그나로크 스턴공 효과 적용 (플래그가 설정되어 있으면)
     if is_player_paddle and ragnarok_speed_boost_active:
+        # 라그나로크 발동 당시 공속을 저장해 보스 반격 시 완만하게 복구한다.
+        ragnarok_original_speed = math.hypot(ball_vel[0], ball_vel[1])
+
         # 공속 30% 증가
         speed_boost_multiplier = 1.3
         ball_vel[0] *= speed_boost_multiplier

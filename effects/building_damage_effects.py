@@ -95,24 +95,30 @@ class FireParticle(DamageParticle):
         if self.radius < 1:
             return
             
-        # 열에 따른 색상 (빨강 -> 주황 -> 노랑)
+        # 열에 따른 색상 (더 밝고 선명하게)
         if self.heat > 0.7:
-            r, g, b = 255, 255, int(200 * (1 - self.heat))  # 밝은 노랑
+            r, g, b = 255, 255, 100  # 밝은 노랑
         elif self.heat > 0.4:
-            r, g, b = 255, int(200 * self.heat), 0  # 주황
+            r, g, b = 255, 150, 0  # 밝은 주황
         else:
-            r, g, b = int(255 * self.heat), 0, 0  # 어두운 빨강
+            r, g, b = 255, 50, 0  # 밝은 빨강
             
-        alpha = int(255 * self.heat)
-        
-        # 불꽃 그리기 (빛나는 효과)
-        for i in range(2):
-            radius = int(self.radius * (2 - i * 0.5))
-            temp_alpha = alpha // (i + 1)
-            if temp_alpha > 0 and radius > 0:
-                fire_surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(fire_surf, (r, g, b, temp_alpha), (radius, radius), radius)
-                surface.blit(fire_surf, (int(self.x - radius), int(self.y - radius)))
+        # 불꽃 중심부 그리기 (불투명)
+        radius = int(self.radius)
+        if radius > 0:
+            # 중심부 - 밝고 불투명
+            pygame.draw.circle(surface, (255, 255, 200), (int(self.x), int(self.y)), radius // 2)
+            
+            # 중간 레이어 - 메인 색상
+            pygame.draw.circle(surface, (r, g, b), (int(self.x), int(self.y)), radius, 2)
+            
+            # 외부 광선 효과
+            glow_radius = int(radius * 2)
+            alpha = int(200 * self.heat)
+            if alpha > 0:
+                glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (r, g, b, alpha), (glow_radius, glow_radius), glow_radius)
+                surface.blit(glow_surf, (int(self.x - glow_radius), int(self.y - glow_radius)))
 
 class SparkParticle(DamageParticle):
     """불꽃 튀는 파티클 (작은 불씨)"""
