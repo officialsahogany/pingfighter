@@ -881,6 +881,10 @@ PADDLE_WIDTH, PADDLE_HEIGHT = 155, 50
 PLAYER = game_vars.player.rect
 BOSS_Y = game_vars.boss.y_position
 BOSS = game_vars.boss.rect
+# 난이도별 스케일 적용을 위한 보스 기본 크기
+BOSS_BASE_WIDTH = BOSS.width
+BOSS_BASE_HEIGHT = BOSS.height
+CURRENT_BOSS_SIZE_SCALE = 1.0
 # 공 설정 - game_vars로 관리하되 호환성 유지
 BALL_RADIUS = game_vars.ball.radius
 BALL = game_vars.ball.rect
