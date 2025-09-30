@@ -48832,6 +48832,7 @@ def handle_ball():
                 ball_vel[1] *= scale
         if stage4_magnetic_timer <= 0:
             stage4_magnetic_active = False
+            stop_stage4_magnetic_sound()
             recover_speed = max(player_last_shot_speed, BALL_BASE_SPEED)
             direction = pygame.math.Vector2(ball_vel)
             if direction.length() == 0:
@@ -51865,6 +51866,7 @@ def handle_ball():
             boss_special_ready_stage4 = False
             boss_special_gauge_stage4 = 0
             show_speech("굴절자기장!", duration=90)
+            start_stage4_magnetic_sound()
         if current_stage <= 5 and random.random() < boss_speed_config[current_stage]["fail_chance"]:
             boss_fail_timer = 60
         tear_chance = boss_speed_config[current_stage].get("tear_chance", 0.13) if current_stage <= 5 else 0.13
