@@ -9652,6 +9652,10 @@ def draw_blacksmith_turret_elements(surface):
                 special_flags=pygame.BLEND_ADD,
             )
     draw_blacksmith_build_menu(surface)
+    
+    # 발토르 건물 손상 효과 그리기
+    damage_manager = get_damage_manager()
+    damage_manager.draw(surface)
 
 
 def draw_blacksmith_divine_stone(surface, divine_state=None):
@@ -9853,6 +9857,10 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
                 pygame.draw.line(tower_surface, band_color, start, end, 1)
 
     surface.blit(tower_surface, (rect.left - padding_x, rect.top - padding_top))
+    
+    # 디바인스톤 손상 오버레이 그리기
+    damage_manager = get_damage_manager()
+    damage_manager.draw_damage_overlay(surface, "divine_stone", rect)
 
     hp_ratio = 0.0
     if max_hp > 0:
