@@ -8693,6 +8693,8 @@ def update_blacksmith_turret():
             divine_runtime = state.divine
             divine_runtime.state = None
             blacksmith_divine_stage_owner = None
+            # 손상 효과 매니저에서 디바인스톤 제거
+            damage_manager.clear_building("divine_stone")
             push_blacksmith_state()
 
     sync_blacksmith_state()
@@ -58146,6 +58148,12 @@ def main(stage_num, new_boss_mode=False):
                 handle_player(keys)
                 update_blacksmith_hammer_shock(keys)
                 update_blacksmith_turret()
+                
+                # 발토르 스테이지에서 손상 효과 업데이트
+                if current_stage == 6:
+                    damage_manager = get_damage_manager()
+                    damage_manager.update()
+                
                 handle_ball()
                 handle_boss()
                 
