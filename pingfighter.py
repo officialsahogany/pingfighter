@@ -885,17 +885,21 @@ PLAYER = game_vars.player.rect
 BOSS_Y = game_vars.boss.y_position
 BOSS = game_vars.boss.rect
 CURRENT_PADDLE_SIZE_SCALE = 1.0
+PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
+    "junior": 1.2,
+    "주니어": 1.2,
+    "주니어리그": 1.2,
+    "pro": 1.1,
+    "프로": 1.1,
+    "프로리그": 1.1,
+}
 
 
 def get_player_paddle_scale_for_league(league_mode: str) -> float:
     """난이도에 따른 플레이어 패들 배율."""
     mode_raw = (league_mode or "").strip().lower()
     normalized = "".join(ch for ch in mode_raw if ch.isalnum())
-    if normalized in {"junior", "주니어", "주니어리그"}:
-        return 1.2
-    if normalized in {"pro", "프로", "프로리그"}:
-        return 1.1
-    return 1.0
+    return PLAYER_PADDLE_SCALE_BY_MODE.get(normalized, 1.0)
 
 
 def apply_player_paddle_scale(league_mode: str):
