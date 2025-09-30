@@ -155,8 +155,29 @@ def load_item_icons():
         "poseidon_trident": "legendary/poseidon_trident.png",
         "holy_laurel": "legendary/holy_laurel.png"
     }
-    
+
+    legendary_manager = None
+
     for item_name, icon_file in icon_files.items():
+        if item_name == "poseidon_trident":
+            try:
+                if legendary_manager is None:
+                    from legendary_items import get_legendary_manager  # 순환 의존성 방지용 지연 import
+                    legendary_manager = get_legendary_manager()
+
+                trident = legendary_manager.get_item("poseidon_trident") if legendary_manager else None
+                icon_frames = getattr(trident, "icon_frames", None)
+
+                if icon_frames:
+                    copied_frames = [frame.copy() for frame in icon_frames if frame]
+                    if copied_frames:
+                        ITEM_ICON_ANIMATIONS[item_name] = copied_frames
+                        ITEM_ICONS[item_name] = pygame.transform.smoothscale(copied_frames[0], (32, 32))
+                        if item_name == "poseidon_trident":
+                            continue
+            except Exception as exc:
+                print(f"[WARN] Poseidon icon animation sync failed: {exc}")
+
         try:
             icon_path = resource_path(os.path.join("items", icon_file))
             icon = pygame.image.load(icon_path)
