@@ -173,8 +173,7 @@ def load_item_icons():
                     if copied_frames:
                         ITEM_ICON_ANIMATIONS[item_name] = copied_frames
                         ITEM_ICONS[item_name] = pygame.transform.smoothscale(copied_frames[0], (32, 32))
-                        if item_name == "poseidon_trident":
-                            continue
+                        continue
             except Exception as exc:
                 print(f"[WARN] Poseidon icon animation sync failed: {exc}")
 
@@ -198,6 +197,9 @@ def load_item_icons():
         item_name = item_type["name"]
         if item_name in ITEM_ICONS:
             item_type["icon"] = ITEM_ICONS[item_name]
+        animations_32 = get_item_icon_animation(item_name, (32, 32))
+        if animations_32:
+            item_type["icon_animation_frames"] = animations_32
 
     print(f"Item icons loaded")
 
