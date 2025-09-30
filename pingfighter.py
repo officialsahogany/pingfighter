@@ -26871,6 +26871,11 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
     # 풍선 터지는 효과 생성 (아이템 색상으로) - 모든 아이템에 적용
     item_color = item_data.get("color", WHITE)
     effects_manager.create_balloon_pop_effect(start_x, start_y, item_color)
+
+    animation_frames = None
+    if item_name:
+        animation_frames = items.get_item_icon_animation(item_name, (40, 40))
+
     item_obtained_effect = {
         "icon": item_data.get("icon"),
         "name": item_data.get("name"),
@@ -26882,13 +26887,26 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
         "target_x": target_x,
         "target_y": target_y,
         "start_x": start_x,
-        "start_y": start_y
+        "start_y": start_y,
+        "animation_frames": animation_frames,
+        "animation_index": 0,
+        "animation_counter": 0,
+        "animation_speed": item_data.get("icon_animation_speed", 6)
     }
 def update_item_obtained_effect():
     """아이템 획득 효과 업데이트"""
     global item_obtained_effect
     if item_obtained_effect:
         item_obtained_effect["timer"] -= 1
+
+        frames = item_obtained_effect.get("animation_frames")
+        if frames:
+            speed = max(1, item_obtained_effect.get("animation_speed", 6))
+            item_obtained_effect["animation_counter"] += 1
+            if item_obtained_effect["animation_counter"] >= speed:
+                item_obtained_effect["animation_counter"] = 0
+                item_obtained_effect["animation_index"] = (item_obtained_effect["animation_index"] + 1) % len(frames)
+
         # 위치 업데이트 (모든 아이템이 플레이어 쪽으로 이동)
         progress = 1 - (item_obtained_effect["timer"] / item_effect_duration)
         # 부드러운 이동 (easing)
@@ -26917,9 +26935,17 @@ def draw_item_obtained_effect():
     # 메인 원형 배경 - 크기 50% 감소
     draw.circle((30, 40, 60, 150), (effect_x, effect_y), 30)  # 더 투명하게
     draw.circle((100, 150, 255, 150), (effect_x, effect_y), 30, 2)  # 더 투명하게
-    # 아이템 아이콘 - 크기 50% 감소
-    if item_obtained_effect["icon"]:
-        icon = pygame.transform.scale(item_obtained_effect["icon"], (40, 40))  # 80 -> 40
+    # 아이템 아이콘 - 크기 50% 감소 (전설 아이콘은 애니메이션 프레임 사용)
+    icon_surface = None
+    frames = item_obtained_effect.get("animation_frames")
+    if frames:
+        idx = item_obtained_effect.get("animation_index", 0) % len(frames)
+        icon_surface = frames[idx]
+    elif item_obtained_effect["icon"]:
+        icon_surface = pygame.transform.scale(item_obtained_effect["icon"], (40, 40))
+
+    if icon_surface is not None:
+        icon = icon_surface.copy()
         icon.set_alpha(item_obtained_effect["alpha"])
         icon_rect = icon.get_rect(center=(effect_x, effect_y))
         SCREEN.blit(icon, icon_rect.topleft)
