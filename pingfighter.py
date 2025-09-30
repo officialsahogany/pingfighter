@@ -30578,7 +30578,7 @@ def draw_objects():
         # print(f"🎮 일반 모드: base_ufo_img 크기 = {base_ufo_img.get_size()}")
     # 스킬 효과 적용: 패들 크기 증가
     skill_boosted_width = skill.apply_paddle_size_boost(PADDLE_WIDTH)
-    scale_ratio = skill_boosted_width / 155
+    scale_ratio = skill_boosted_width / PADDLE_BASE_WIDTH
     #  거대화포션 효과 적용 (점진적 크기 변화)
     scale_ratio *= long_boost_scale
     
