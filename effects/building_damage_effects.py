@@ -175,12 +175,17 @@ class BuildingDamageManager:
         state['current_hp'] = current_hp
         
         # 손상 레벨 결정 - HP 절대값 기준
+        prev_level = state.get('damage_level', 0)
         if current_hp >= 3:  # 체력 3 이상
             state['damage_level'] = 0
         elif current_hp == 2:  # 체력이 정확히 2
             state['damage_level'] = 1
         else:  # 체력 1 이하
             state['damage_level'] = 2
+            
+        # 디버그 로그
+        if prev_level != state['damage_level']:
+            print(f"[손상 효과] {building_id}: HP {current_hp}, 손상 레벨 {prev_level} → {state['damage_level']}")
             
     def update(self):
         """파티클 업데이트"""
