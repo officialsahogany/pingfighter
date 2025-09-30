@@ -31,6 +31,9 @@ MENU_ICONS = {
 VERSION_TEXT = "1.4v beta"
 DEV_CODE = [1]
 ITEM_CODE = [2]
+
+MEDAL_FRAME_DURATION = 0.085
+MEDAL_BASE_SIZE = 40
 def _run_idle_cinematic_if_needed(
     ctx: MenuContext,
     state: MenuState,
