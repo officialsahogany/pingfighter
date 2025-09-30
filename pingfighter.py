@@ -885,6 +885,48 @@ BOSS = game_vars.boss.rect
 BOSS_BASE_WIDTH = BOSS.width
 BOSS_BASE_HEIGHT = BOSS.height
 CURRENT_BOSS_SIZE_SCALE = 1.0
+
+
+def get_boss_size_scale_for_league(league_mode: str) -> float:
+    """난이도에 따른 보스 패들 크기 배율."""
+    mode = (league_mode or "").lower()
+    if mode == "junior":
+        return 1.2
+    if mode == "pro":
+        return 1.1
+    return 1.0
+
+
+def apply_boss_size_scale(league_mode: str):
+    """보스 판정 및 렌더 크기를 난이도에 맞춰 갱신."""
+    global CURRENT_BOSS_SIZE_SCALE
+    global BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+    global BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
+    global BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT
+    global BOSS_IMG_TUTORIAL_WIDTH, BOSS_IMG_TUTORIAL_HEIGHT
+
+    scale = get_boss_size_scale_for_league(league_mode)
+    if abs(scale - CURRENT_BOSS_SIZE_SCALE) < 1e-3:
+        return
+
+    CURRENT_BOSS_SIZE_SCALE = scale
+
+    prev_centerx = BOSS.centerx
+    prev_top = BOSS.top
+    new_width = max(1, int(round(BOSS_BASE_WIDTH * scale)))
+    new_height = max(1, int(round(BOSS_BASE_HEIGHT * scale)))
+    BOSS.size = (new_width, new_height)
+    BOSS.centerx = prev_centerx
+    BOSS.top = prev_top
+
+    BOSS_IMG_WIDTH = max(1, int(round(BOSS_IMG_BASE_WIDTH * scale)))
+    BOSS_IMG_HEIGHT = max(1, int(round(BOSS_IMG_BASE_HEIGHT * scale)))
+    BOSS_IMG_STAGE4_WIDTH = max(1, int(round(BOSS_IMG_STAGE4_BASE_WIDTH * scale)))
+    BOSS_IMG_STAGE4_HEIGHT = max(1, int(round(BOSS_IMG_STAGE4_BASE_HEIGHT * scale)))
+    BOSS_IMG_STAGE5_WIDTH = max(1, int(round(BOSS_IMG_STAGE5_BASE_WIDTH * scale)))
+    BOSS_IMG_STAGE5_HEIGHT = max(1, int(round(BOSS_IMG_STAGE5_BASE_HEIGHT * scale)))
+    BOSS_IMG_TUTORIAL_WIDTH = max(1, int(round(BOSS_IMG_TUTORIAL_BASE_WIDTH * scale)))
+    BOSS_IMG_TUTORIAL_HEIGHT = max(1, int(round(BOSS_IMG_TUTORIAL_BASE_HEIGHT * scale)))
 # 공 설정 - game_vars로 관리하되 호환성 유지
 BALL_RADIUS = game_vars.ball.radius
 BALL = game_vars.ball.rect
