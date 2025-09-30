@@ -26876,6 +26876,17 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
     if item_name:
         animation_frames = items.get_item_icon_animation(item_name, (40, 40))
 
+    legendary_item = None
+    legendary_names = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
+    if item_name in legendary_names:
+        try:
+            from legendary_items import get_legendary_manager
+            legendary_manager = get_legendary_manager()
+            if legendary_manager:
+                legendary_item = legendary_manager.get_item(item_name)
+        except Exception:
+            legendary_item = None
+
     item_obtained_effect = {
         "icon": item_data.get("icon"),
         "name": item_data.get("name"),
@@ -26891,7 +26902,8 @@ def show_item_obtained_effect(item_data, item_x=None, item_y=None):
         "animation_frames": animation_frames,
         "animation_index": 0,
         "animation_counter": 0,
-        "animation_speed": item_data.get("icon_animation_speed", 6)
+        "animation_speed": item_data.get("icon_animation_speed", 6),
+        "legendary_item": legendary_item
     }
 def update_item_obtained_effect():
     """아이템 획득 효과 업데이트"""
@@ -26906,6 +26918,10 @@ def update_item_obtained_effect():
             if item_obtained_effect["animation_counter"] >= speed:
                 item_obtained_effect["animation_counter"] = 0
                 item_obtained_effect["animation_index"] = (item_obtained_effect["animation_index"] + 1) % len(frames)
+
+        legendary_item = item_obtained_effect.get("legendary_item")
+        if legendary_item:
+            legendary_item.update(1 / 60.0, ui_mode=True)
 
         # 위치 업데이트 (모든 아이템이 플레이어 쪽으로 이동)
         progress = 1 - (item_obtained_effect["timer"] / item_effect_duration)
@@ -26937,8 +26953,12 @@ def draw_item_obtained_effect():
     draw.circle((100, 150, 255, 150), (effect_x, effect_y), 30, 2)  # 더 투명하게
     # 아이템 아이콘 - 크기 50% 감소 (전설 아이콘은 애니메이션 프레임 사용)
     icon_surface = None
+    legendary_item = item_obtained_effect.get("legendary_item")
     frames = item_obtained_effect.get("animation_frames")
-    if frames:
+    if legendary_item:
+        icon_surface = pygame.Surface((40, 40), pygame.SRCALPHA)
+        legendary_item.draw_icon(icon_surface, 0, 0, 40)
+    elif frames:
         idx = item_obtained_effect.get("animation_index", 0) % len(frames)
         icon_surface = frames[idx]
     elif item_obtained_effect["icon"]:
