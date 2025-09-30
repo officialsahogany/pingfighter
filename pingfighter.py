@@ -877,6 +877,9 @@ effects_manager.init_effects_manager(SCREEN, WIDTH, HEIGHT)
 # 패들 설정
 PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT = 155, 50
 PADDLE_WIDTH, PADDLE_HEIGHT = PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT
+PLAYER_FLOOR_OFFSET = 40
+# 기본 UFO 본체가 패들 히트박스보다 큰 만큼을 반영해 바닥 접점 보정에 사용한다.
+PLAYER_VISUAL_OVERHANG = max(0, (DEFAULT_SIZE - PADDLE_BASE_HEIGHT) // 2)
 #  점진적 리팩토링: 전역 변수를 game_vars로 대체
 # 기존 코드와의 호환성을 위해 참조만 유지
 #  점진적 리팩토링: 전역 변수를 game_vars로 대체
@@ -895,6 +898,20 @@ PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
     "프로리그": 1.1,
     "proleague": 1.1,
 }
+
+
+def _compute_player_floor_bottom(scale: float) -> int:
+    """현재 스케일에 맞춘 패들 바닥 기준선을 반환."""
+    baseline = HEIGHT - PLAYER_FLOOR_OFFSET
+    if PLAYER_VISUAL_OVERHANG > 0:
+        baseline += int(round(PLAYER_VISUAL_OVERHANG * (scale - 1.0)))
+    return baseline
+
+
+def align_player_to_floor(scale_override: float | None = None) -> None:
+    """리그/아이템 배율에 따라 패들을 바닥에 맞춘다."""
+    scale = scale_override if scale_override is not None else CURRENT_PADDLE_SIZE_SCALE
+    PLAYER.bottom = _compute_player_floor_bottom(scale)
 
 
 def get_player_paddle_scale_for_league(league_mode: str) -> float:
@@ -917,7 +934,7 @@ def apply_player_paddle_scale(league_mode: str):
     PADDLE_HEIGHT = max(1, int(round(PADDLE_BASE_HEIGHT * scale)))
 
     prev_centerx = PLAYER.centerx
-    baseline_bottom = HEIGHT - 40
+    baseline_bottom = _compute_player_floor_bottom(scale)
     PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
     PLAYER.centerx = prev_centerx
     PLAYER.bottom = baseline_bottom
@@ -46649,7 +46666,7 @@ def reset_round():
     stage3_trade_point_texts = []  # 텍스트 효과 초기화
     # 패들 위치 초기화
     PLAYER.centerx = WIDTH // 2
-    PLAYER.bottom = HEIGHT - 40
+    align_player_to_floor()
     BOSS.centerx = WIDTH // 2
     BOSS.top = 25
     
@@ -55599,7 +55616,7 @@ def main(stage_num, new_boss_mode=False):
     
     # 플레이어 위치 가운데로 고정
     PLAYER.centerx = WIDTH // 2
-    PLAYER.bottom = HEIGHT - 40
+    align_player_to_floor()
     
     # 모든 움직임 관련 변수 초기화
     player_stunned_timer = 0
