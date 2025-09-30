@@ -11148,7 +11148,7 @@ blacksmith_trail_timer = 0
 # === 발토르 포탑 설치 시스템 ===
 BLACKSMITH_TURRET_COST = 150
 # 건설 진행도는 게이지 1pt당 1씩 증가하므로, 아래 값은 요구 게이지량과 동일하다.
-BLACKSMITH_TURRET_BUILD_TIME = 180  # 180 게이지 = 4.00초 (게이지 소모 45pt/s)
+BLACKSMITH_TURRET_BUILD_TIME = 220  # 220 게이지 ≈ 4.89초 (게이지 소모 45pt/s)
 BLACKSMITH_TURRET_BUILD_RADIUS = 70
 BLACKSMITH_TURRET_FIRE_INTERVAL = int(5 * FPS)  # 미사일 발사 주기 5초 고정
 BLACKSMITH_TURRET_BASE_HP = 3
