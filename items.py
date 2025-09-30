@@ -64,6 +64,53 @@ ITEM_ICONS = {}
 # 전설 아이콘 애니메이션 프레임 캐시
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
+_LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
+
+
+def _render_legendary_icon_frames(item_name, target_size):
+    """legendary_item.draw_icon을 사용해 지정 크기의 프레임을 생성"""
+
+    try:
+        from legendary_items import get_legendary_manager
+    except Exception:
+        return None
+
+    legendary_manager = get_legendary_manager()
+    legendary_item = None
+    if legendary_manager:
+        legendary_item = legendary_manager.get_item(item_name)
+    if legendary_item is None:
+        return None
+
+    base_frames = ITEM_ICON_ANIMATIONS.get(item_name)
+    if not base_frames:
+        return None
+
+    total_frames = len(base_frames)
+    if total_frames == 0:
+        return None
+
+    original_frame = getattr(legendary_item, "current_frame", 0)
+    original_counter = getattr(legendary_item, "frame_counter", 0)
+    original_animation_time = getattr(legendary_item, "animation_time", 0.0)
+    original_offset = getattr(legendary_item, "animation_offset", 0.0)
+
+    rendered = []
+    for idx in range(total_frames):
+        legendary_item.current_frame = idx
+        legendary_item.frame_counter = 0
+        legendary_item.animation_time = idx / max(1, total_frames)
+        legendary_item.animation_offset = 0
+        frame_surface = pygame.Surface(target_size, pygame.SRCALPHA)
+        legendary_item.draw_icon(frame_surface, 0, 0, target_size[0])
+        rendered.append(frame_surface)
+
+    legendary_item.current_frame = original_frame
+    legendary_item.frame_counter = original_counter
+    legendary_item.animation_time = original_animation_time
+    legendary_item.animation_offset = original_offset
+
+    return rendered
 
 
 def get_item_icon_animation(item_name, size=None):
@@ -86,11 +133,22 @@ def get_item_icon_animation(item_name, size=None):
         return _ICON_ANIMATION_SCALE_CACHE[cache_key]
 
     scaled_frames = []
-    for frame in frames:
-        if frame.get_size() == target_size:
-            scaled_frames.append(frame.copy())
+    if item_name in _LEGENDARY_ICON_NAMES and frames and frames[0].get_size() != target_size:
+        rendered_frames = _render_legendary_icon_frames(item_name, target_size)
+        if rendered_frames:
+            scaled_frames = rendered_frames
         else:
-            scaled_frames.append(pygame.transform.smoothscale(frame, target_size))
+            for frame in frames:
+                if frame.get_size() == target_size:
+                    scaled_frames.append(frame.copy())
+                else:
+                    scaled_frames.append(pygame.transform.smoothscale(frame, target_size))
+    else:
+        for frame in frames:
+            if frame.get_size() == target_size:
+                scaled_frames.append(frame.copy())
+            else:
+                scaled_frames.append(pygame.transform.smoothscale(frame, target_size))
 
     _ICON_ANIMATION_SCALE_CACHE[cache_key] = scaled_frames
     return scaled_frames
