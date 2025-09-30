@@ -41611,7 +41611,7 @@ def show_character_selection():
             "description": "토르쉴드로 거리 제어.\n단조 버프로 공수 동시 강화.",
             "image": "blacksmith.png",
             "stats": {"속도": 5, "파워": 7, "방어": 5},
-            "special": " 전용 스킬 준비 중",
+            "special": " 토르쉴드·포탑 시너지 모듈",
             "unlocked": True,
             "card_color": (150, 110, 60),
             "glow_color": (220, 170, 90),
