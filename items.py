@@ -1315,11 +1315,32 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                 continue
 
             # 아이콘 표시
-            if "icon" in item and item["icon"]:
+            item_name = item.get("name") or item.get("effect")
+            if item_name in _LEGENDARY_ICON_NAMES:
+                try:
+                    from legendary_items import get_legendary_manager
+                    legendary_manager = get_legendary_manager()
+                    legendary_item = legendary_manager.get_item(item_name) if legendary_manager else None
+                except Exception:
+                    legendary_item = None
+
+                if legendary_item:
+                    legendary_item.update(1 / 60.0, ui_mode=True)
+                    legend_surface = pygame.Surface(icon_size, pygame.SRCALPHA)
+                    legendary_item.draw_icon(legend_surface, 0, 0, icon_size[0])
+                    screen.blit(legend_surface, (x, y))
+                elif item.get("icon"):
+                    icon = pygame.transform.scale(item["icon"], icon_size)
+                    screen.blit(icon, (x, y))
+                else:
+                    radius = int(SLOT_W * 0.28)
+                    center_x = x + SLOT_W // 2
+                    center_y = y + SLOT_H // 2
+                    pygame.draw.circle(screen, item["color"], (center_x, center_y), radius)
+            elif "icon" in item and item["icon"]:
                 icon = pygame.transform.scale(item["icon"], icon_size)
                 screen.blit(icon, (x, y))
             else:
-                # 원형 표시
                 radius = int(SLOT_W * 0.28)
                 center_x = x + SLOT_W // 2
                 center_y = y + SLOT_H // 2
