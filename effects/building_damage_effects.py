@@ -206,6 +206,10 @@ class BuildingDamageManager:
         else:  # 체력 1 이하
             state['damage_level'] = 2
             
+        # 체력이 증가해서 손상 레벨이 개선되었을 때 파티클 조정
+        if prev_level > state['damage_level']:
+            self._adjust_particles_for_healing(state, prev_level, state['damage_level'])
+            
         # 디버그 로그
         if prev_level != state['damage_level']:
             print(f"[손상 효과] {building_id}: HP {current_hp}, 손상 레벨 {prev_level} → {state['damage_level']}")
@@ -370,6 +374,23 @@ class BuildingDamageManager:
             # 균열 그리기
             if len(points) > 1:
                 pygame.draw.lines(surface, (20, 20, 20, max_alpha), False, points, 2)
+                
+    def _adjust_particles_for_healing(self, state: Dict, old_level: int, new_level: int):
+        """건물이 수리되었을 때 파티클 조정"""
+        # 체력이 회복되어 손상 레벨이 개선됨
+        if new_level == 0:  # 체력 3 이상 - 모든 파티클 제거
+            removed_count = len(state['particles'])
+            state['particles'].clear()
+            print(f"[수리 효과] 체력 완전 회복 - {removed_count}개 파티클 모두 제거")
+            
+        elif new_level == 1 and old_level == 2:  # 체력 2로 회복 - 불꽃/불씨 제거, 연기만 유지
+            # FireParticle과 SparkParticle만 제거
+            fire_particles = [p for p in state['particles'] if isinstance(p, (FireParticle, SparkParticle))]
+            smoke_particles = [p for p in state['particles'] if isinstance(p, SmokeParticle)]
+            
+            removed_count = len(fire_particles)
+            state['particles'] = smoke_particles
+            print(f"[수리 효과] 체력 2로 회복 - {removed_count}개 불꽃/불씨 제거, {len(smoke_particles)}개 연기 유지")
                 
     def clear_building(self, building_id: str):
         """건물 제거"""

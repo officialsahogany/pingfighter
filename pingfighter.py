@@ -17015,6 +17015,10 @@ def update_active_repair_jobs() -> None:
                 job["tick"] = REPAIR_TICK_FRAMES
                 state_dirty = True
                 
+                # 손상 효과 업데이트 - 체력 증가 시 파티클 조정
+                damage_manager = get_damage_manager()
+                damage_manager.update_building_hp("turret", state["hp"])
+                
                 # 성스러운 빛 효과 생성 (비활성화)
                 # if state.get("rect"):
                 #     rect = state["rect"]
@@ -17041,6 +17045,10 @@ def update_active_repair_jobs() -> None:
                 state["hp"] = min(max_hp, current_hp + 1)
                 state["cooldown"] = 0
                 job["tick"] = REPAIR_TICK_FRAMES
+                
+                # 손상 효과 업데이트 - 체력 증가 시 파티클 조정
+                damage_manager = get_damage_manager()
+                damage_manager.update_building_hp("divine_stone", state["hp"])
                 state_dirty = True
                 
                 # 성스러운 빛 효과 생성 (비활성화)
@@ -46669,6 +46677,7 @@ def reset_round():
         supply_drop_state.hold_time = 0
     global boss_stun_timer, ragnarok_shock_playing  #  라그나로크 해머 스턴 관련
     global ragnarok_speed_boost_active, ragnarok_stun_pending, ragnarok_original_speed  #  라그나로크 공속 증가 및 스턴 예약
+    global ragnarok_first_shot_speed
     global boss_knockback_timer, boss_knockback_vel  #  라그나로크 넉백 관련
     global spider_mines, spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
     # 스테이지 2 효과 초기화
@@ -46680,6 +46689,7 @@ def reset_round():
     ragnarok_stun_pending = 0
     ragnarok_speed_boost_active = False
     ragnarok_original_speed = 0.0
+    ragnarok_first_shot_speed = 0.0
     boss_knockback_timer = 0
     boss_knockback_vel = 0
     ragnarok_stun_attempted_this_rally = False  # 랠리별 스턴 시도 플래그 리셋
@@ -47962,6 +47972,7 @@ ragnarok_stun_pending = 0     # 넉백 후 적용할 스턴 시간
 ragnarok_shock_playing = False  # 전기 감전 사운드 재생 중인지
 ragnarok_speed_boost_active = False  # 라그나로크 해머로 인한 공속 증가 상태
 ragnarok_original_speed = 0.0  # 라그나로크 발동 전 공 속도 (보스 반격 감속용)
+ragnarok_first_shot_speed = 0.0  # 라그나로크 스턴 랠리의 최초 플레이어 발사 속도
 boss_crack_stuck_timer = 0
 boss_crack_last_release = 0
 boss_crack_ignore_until = 0
@@ -48934,7 +48945,7 @@ def handle_ball():
     global boss_special_gauge_stage4, boss_special_ready_stage4
     global boss_current_health  #  체력형 보스 체력 변수
     global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
-    global ragnarok_stun_pending, ragnarok_speed_boost_active, ragnarok_stun_attempted_this_rally, ragnarok_original_speed
+    global ragnarok_stun_pending, ragnarok_speed_boost_active, ragnarok_stun_attempted_this_rally, ragnarok_original_speed, ragnarok_first_shot_speed
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
     # 공 물리 & 움직임
@@ -50931,6 +50942,7 @@ def handle_ball():
             rolling_stun_timer = 0
             # 라그나로크 해머 스턴 플래그 리셋
             ragnarok_stun_attempted_this_rally = False
+            ragnarok_first_shot_speed = 0.0
             # 키 입력 버퍼 클리어
             pygame.event.clear(pygame.KEYDOWN)
             pygame.event.clear(pygame.KEYUP)
@@ -51323,6 +51335,7 @@ def handle_ball():
             rolling_stun_timer = 0
             # 라그나로크 해머 스턴 플래그 리셋
             ragnarok_stun_attempted_this_rally = False
+            ragnarok_first_shot_speed = 0.0
             # 키 입력 버퍼 클리어
             pygame.event.clear(pygame.KEYDOWN)
             pygame.event.clear(pygame.KEYUP)
@@ -51516,6 +51529,9 @@ def handle_ball():
                 print(f"     -")
         
         player_last_shot_speed = math.hypot(ball_vel[0], ball_vel[1])
+        if ragnarok_first_shot_speed <= 0.0:
+            # 랠리 첫 타의 속도를 기록해 보스 반격 속도 기준으로 사용
+            ragnarok_first_shot_speed = player_last_shot_speed
         #  타격 이펙트 생성 (공 속도에 따라 강도 조절)
         create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
         #  새로운 보스 모드에서 하단 보스의 스킬 발동 체크
@@ -51863,29 +51879,24 @@ def handle_ball():
         #  라그나로크 스턴공 상태 확인 (스턴공이었는지 먼저 체크)
         was_stun_ball = ragnarok_speed_boost_active  # 스턴공이었는지 저장
         
-        if ragnarok_speed_boost_active:
-            # 보스가 스턴공을 받았을 때: 먼저 원속도로 복구한 뒤 20% 감속한다.
-            original_speed = ragnarok_original_speed if ragnarok_original_speed > 0 else math.hypot(ball_vel[0], ball_vel[1])
+        if was_stun_ball:
+            # 랠리 첫 타 속도를 기준으로 보스 반격 속도를 20% 낮춘다.
+            baseline_speed = ragnarok_first_shot_speed if ragnarok_first_shot_speed > 0 else 0.0
+            if baseline_speed <= 0:
+                fallback_speed = ragnarok_original_speed if ragnarok_original_speed > 0 else math.hypot(ball_vel[0], ball_vel[1])
+                baseline_speed = fallback_speed if fallback_speed > 0 else BALL_BASE_SPEED
+
+            target_speed = baseline_speed * 0.8
             current_speed = math.hypot(ball_vel[0], ball_vel[1])
 
-            # 1단계: 원래 속도로 복원
-            restored_speed = original_speed if original_speed > 0 else (current_speed if current_speed > 0 else BALL_BASE_SPEED)
-            if current_speed > 0 and restored_speed > 0:
-                restore_ratio = restored_speed / current_speed
-                ball_vel[0] *= restore_ratio
-                ball_vel[1] *= restore_ratio
-            else:
-                fallback_component = restored_speed / math.sqrt(2)
-                ball_vel[0] = fallback_component
-                ball_vel[1] = fallback_component
-
-            # 2단계: 원속도의 80%로 감속 (20% 감소)
-            target_speed = restored_speed * 0.8
-            current_speed = math.hypot(ball_vel[0], ball_vel[1])
-            if current_speed > 0 and target_speed > 0:
-                slow_ratio = target_speed / current_speed
-                ball_vel[0] *= slow_ratio
-                ball_vel[1] *= slow_ratio
+            if current_speed > 0:
+                if target_speed > 0:
+                    slow_ratio = target_speed / current_speed
+                    ball_vel[0] *= slow_ratio
+                    ball_vel[1] *= slow_ratio
+                else:
+                    ball_vel[0] = 0.0
+                    ball_vel[1] = 0.0
             else:
                 fallback_component = target_speed / math.sqrt(2) if target_speed > 0 else 0.0
                 ball_vel[0] = fallback_component
@@ -51895,8 +51906,8 @@ def handle_ball():
             ragnarok_original_speed = 0.0
 
             reduced_speed = math.hypot(ball_vel[0], ball_vel[1])
-            print(f"   !   : {reduced_speed:.1f} (원속도 {restored_speed:.1f} → 목표 {target_speed:.1f})")
-            
+            print(f"   !   : {reduced_speed:.1f} (기준 {baseline_speed:.1f} → 목표 {target_speed:.1f})")
+
             # 화면 흔들림 0.2초 추가
             global screen_shake_timer, screen_shake_intensity
             screen_shake_timer = 12  # 0.2초 (60 FPS)
