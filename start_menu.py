@@ -58,7 +58,7 @@ def _ensure_medal_animation_assets(ctx: MenuContext, state: MenuState) -> None:
         pygame.draw.circle(base_icon, (255, 240, 200), (center, center), center - 4)
         pygame.draw.circle(base_icon, (240, 180, 60), (center, center), center - 8)
 
-    scales = [0.9, 0.96, 1.02, 1.08, 1.12, 1.08, 1.02, 0.96]
+    scales = [1.0]
     for scale in scales:
         size = max(8, int(MEDAL_BASE_SIZE * scale))
         frame = pygame.transform.smoothscale(base_icon, (size, size))
@@ -141,26 +141,17 @@ def _render_menu(
     _advance_medal_animation(state, elapsed)
 
     medal_center_x = width - 70
-    medal_center_y_base = 45
-    bob_offset = math.sin(state.animation_timer * 2.5) * 4
-    medal_center_y = medal_center_y_base + bob_offset
+    medal_center_y = 45
 
     if state.medal_icon_frames:
         current_frame = state.medal_icon_frames[state.medal_frame_index]
         frame_rect = current_frame.get_rect(center=(medal_center_x, medal_center_y))
 
-        glow_radius = int(max(frame_rect.width, frame_rect.height) * 0.75)
+        glow_radius = int(max(frame_rect.width, frame_rect.height) * 0.6)
         glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-        glow_alpha = 80 + int(60 * (math.sin(state.animation_timer * 3.5) * 0.5 + 0.5))
-        pygame.draw.circle(glow_surface, (255, 220, 120, glow_alpha), (glow_radius, glow_radius), glow_radius)
+        glow_alpha = 40 + int(30 * (math.sin(state.animation_timer * 2.0) * 0.5 + 0.5))
+        pygame.draw.circle(glow_surface, (255, 215, 140, glow_alpha), (glow_radius, glow_radius), glow_radius)
         screen.blit(glow_surface, (frame_rect.centerx - glow_radius, frame_rect.centery - glow_radius))
-
-        sparkle_surface = pygame.Surface((14, 14), pygame.SRCALPHA)
-        sparkle_alpha = 120 + int(100 * (math.sin(state.animation_timer * 5.0) * 0.5 + 0.5))
-        pygame.draw.circle(sparkle_surface, (255, 255, 255, sparkle_alpha), (7, 7), 4)
-        sparkle_x = frame_rect.centerx + int(frame_rect.width * 0.3)
-        sparkle_y = frame_rect.centery - int(frame_rect.height * 0.35)
-        screen.blit(sparkle_surface, (sparkle_x - 7, sparkle_y - 7))
 
         screen.blit(current_frame, frame_rect)
     else:
