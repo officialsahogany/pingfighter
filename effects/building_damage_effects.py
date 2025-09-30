@@ -54,17 +54,24 @@ class SmokeParticle(DamageParticle):
         alpha = int(255 * (1 - self.lifetime / self.max_lifetime))
         alpha = max(0, min(255, alpha))
         
-        # 연기 색상 (회색)
-        color = (self.color_base, self.color_base, self.color_base, alpha)
+        # 연기 색상 (더 밝은 회색으로)
+        color_value = self.color_base + 50  # 더 밝게
+        color = (color_value, color_value, color_value, alpha)
         
-        # 연기 그리기 (블러 효과를 위해 여러 크기로)
-        for i in range(3):
-            radius = int(self.radius + i * 2)
-            temp_alpha = alpha // (i + 1)
-            if temp_alpha > 0:
-                smoke_surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(smoke_surf, (*color[:3], temp_alpha), (radius, radius), radius)
-                surface.blit(smoke_surf, (int(self.x - radius), int(self.y - radius)))
+        # 연기 그리기 (불투명하게 시작)
+        radius = int(self.radius)
+        if alpha > 0 and radius > 0:
+            # 메인 연기
+            pygame.draw.circle(surface, color[:3], (int(self.x), int(self.y)), radius)
+            
+            # 블러 효과를 위한 추가 레이어
+            for i in range(1, 3):
+                blur_radius = radius + i * 2
+                temp_alpha = alpha // (i + 1)
+                if temp_alpha > 10:  # 최소 알파값
+                    smoke_surf = pygame.Surface((blur_radius * 2, blur_radius * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(smoke_surf, (*color[:3], temp_alpha), (blur_radius, blur_radius), blur_radius)
+                    surface.blit(smoke_surf, (int(self.x - blur_radius), int(self.y - blur_radius)))
 
 class FireParticle(DamageParticle):
     """불꽃 파티클"""

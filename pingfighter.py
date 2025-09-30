@@ -7559,6 +7559,11 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
         pass
 
     try:
+        _destroy_stage2_rocks_in_radius(centerx, centery, radius, source="hammer_shock_explosion")
+    except Exception:
+        pass
+
+    try:
         effects_manager.spawn_star_particles(
             int(render_centerx),
             int(visual_centery),
@@ -47826,6 +47831,7 @@ boss_stun_timer = 0           # 보스 스턴 시간 (라그나로크 해머용)
 ragnarok_stun_pending = 0     # 넉백 후 적용할 스턴 시간
 ragnarok_shock_playing = False  # 전기 감전 사운드 재생 중인지
 ragnarok_speed_boost_active = False  # 라그나로크 해머로 인한 공속 증가 상태
+ragnarok_original_speed = 0.0  # 라그나로크 발동 전 공 속도 (보스 반격 감속용)
 boss_crack_stuck_timer = 0
 boss_crack_last_release = 0
 boss_crack_ignore_until = 0
