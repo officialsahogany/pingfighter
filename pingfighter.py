@@ -207,7 +207,6 @@ from effects.item_acquisition import (
     update_item_effects,
     draw_item_effects
 )
-from effects.building_damage_effects import get_damage_manager
 #  픽셀 폰트 매니저 - 네오둥근모
 from pixel_font_manager import get_font, FontStyle, PixelColors
 
@@ -6590,87 +6589,6 @@ def _debug_blacksmith_hammer_cooldown() -> None:
         blacksmith_hammer_cooldown_debug_bucket = bucket
 
 
-def _handle_blacksmith_hammer_rock_collision(proj: dict) -> bool:
-    """Shatter stage 2 crisis rocks hit by a hammer projectile while keeping it active."""
-
-    if globals().get("current_stage") != 2:
-        return False
-
-    animated_bg = globals().get("animated_bg_stage2")
-    if animated_bg is None:
-        return False
-
-    rocks = getattr(animated_bg, "crisis_rocks", None)
-    if not rocks:
-        return False
-
-    proj_x = float(proj.get("x", 0.0))
-    proj_y = float(proj.get("y", 0.0))
-    radius = BLACKSMITH_HAMMER_SHOCK_PROJECTILE_HITBOX_RADIUS
-
-    destroyed_any = False
-    rocks_to_remove: list[dict] = []
-
-    for rock in list(rocks):
-        if rock.get("falling", False):
-            continue
-
-        rect = rock.get("collision_rect")
-        if rect is None:
-            continue
-
-        closest_x = max(rect.left, min(proj_x, rect.right))
-        closest_y = max(rect.top, min(proj_y, rect.bottom))
-        dx = proj_x - closest_x
-        dy = proj_y - closest_y
-        if dx * dx + dy * dy > radius * radius:
-            continue
-
-        _destroy_stage2_rock_for_blacksmith(rock)
-        rocks_to_remove.append(rock)
-        destroyed_any = True
-
-    for rock in rocks_to_remove:
-        try:
-            animated_bg.crisis_rocks.remove(rock)
-        except ValueError:
-            pass
-
-    return destroyed_any
-
-
-def _destroy_stage2_rock_for_blacksmith(rock: dict) -> None:
-    """Apply destruction effects for a crisis rock broken by the hammer projectile."""
-
-    animated_bg = globals().get("animated_bg_stage2")
-    if animated_bg is not None:
-        try:
-            animated_bg.destroy_rock(rock)
-        except Exception:
-            pass
-
-    rock_size = rock.get("size", 0)
-    try:
-        if rock_size <= 45:
-            play_sound_with_volume(SOUND_STONEBREAK_SMALL)
-        elif rock_size <= 65:
-            play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
-        else:
-            play_sound_with_volume(SOUND_STONEBREAK_LARGE)
-    except Exception:
-        pass
-
-    if rock.get("is_golden", False):
-        trade_points = globals().get("trade_point_system")
-        if trade_points is not None:
-            trade_points.spawn_star(rock.get("x", 0), rock.get("y", 0), "golden_rock")
-            try:
-                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
-                play_sound_with_volume(coin_sound)
-            except Exception:
-                pass
-
-
 def _advance_blacksmith_hammer_projectile(proj: dict, frames: int = 1) -> bool:
     """Advance a hammer shock projectile; return True while it remains active."""
 
@@ -6721,7 +6639,6 @@ def _advance_blacksmith_hammer_projectile(proj: dict, frames: int = 1) -> bool:
                 proj["ball_hit_cooldown"] = BLACKSMITH_HAMMER_SHOCK_BALL_HIT_COOLDOWN_FRAMES
 
         if not exploded:
-            _handle_blacksmith_hammer_rock_collision(proj)
             off_screen = (
                 proj["x"] <= 0
                 or proj["x"] >= WIDTH
@@ -7553,11 +7470,6 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             radius,
         )
         blacksmith_hammer_explosions.append(explosion_entry)
-    except Exception:
-        pass
-
-    try:
-        _destroy_stage2_rocks_in_radius(centerx, centery, radius, source="hammer_shock")
     except Exception:
         pass
 
