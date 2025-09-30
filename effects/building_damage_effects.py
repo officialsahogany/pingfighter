@@ -38,7 +38,7 @@ class SmokeParticle(DamageParticle):
         super().__init__(x, y)
         self.vx = random.uniform(-0.5, 0.5)
         self.vy = random.uniform(-1.5, -0.5)
-        self.radius = random.uniform(5, 10)  # 더 큰 크기
+        self.radius = random.uniform(1.5, 3)  # 70% 감소된 크기 (원래의 30%)
         self.max_lifetime = random.randint(90, 150)  # 더 오래 지속
         self.color_base = random.randint(60, 100)  # 더 밝은 색상
         
@@ -47,7 +47,7 @@ class SmokeParticle(DamageParticle):
         # 연기가 위로 올라가면서 퍼짐
         self.vy -= 0.01  # 약간의 부력
         self.vx *= 0.99  # 수평 속도 감속
-        self.radius += 0.1  # 크기 증가
+        self.radius += 0.03  # 크기 증가 (70% 감소)
         
     def draw(self, surface: pygame.Surface):
         # 알파값 계산 (점점 투명해짐)
