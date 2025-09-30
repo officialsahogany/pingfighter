@@ -8261,6 +8261,9 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 if not smoke_protected:
                     divine_state["hp"] = max(0, divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)  # 연막 보호 시 체력 유지
                     _cancel_repair_job("divine", state=divine_state)
+                    # 손상 효과 업데이트
+                    damage_manager = get_damage_manager()
+                    damage_manager.update_building_hp("divine_stone", divine_state["hp"])
                 divine_state["cooldown"] = int(0.25 * FPS)
                 effects_manager.spawn_star_particles(rect.centerx, rect.top, count=5)
                 effects_manager.spawn_flame_particles(rect.centerx, rect.centery, count=4)
@@ -8290,6 +8293,10 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
 def _finalize_blacksmith_turret_removal(turret_runtime):
     """포탑 런타임 상태를 완전히 초기화해 필드에서 제거한다."""
 
+    # 손상 효과 매니저에서 포탑 제거
+    damage_manager = get_damage_manager()
+    damage_manager.clear_building("turret")
+    
     # turret_runtime: BlacksmithTurretRuntime
     turret_runtime.active = False
     turret_runtime.state = None
