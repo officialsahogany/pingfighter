@@ -8359,6 +8359,9 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                     # 런타임/전역 상태를 즉시 정리해 UI와 필드에서 제거한다.
                     blacksmith_divine_destroy_timer = 0
                     blacksmith_divine_stage_owner = None
+                    # 손상 효과 즉시 제거
+                    damage_manager = get_damage_manager()
+                    damage_manager.clear_building("divine_stone")
                     divine_runtime.state = None
                     divine_runtime.blueprint_active = False
                     divine_runtime.blueprint_rect = None
