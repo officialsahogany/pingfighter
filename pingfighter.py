@@ -878,7 +878,17 @@ effects_manager.init_effects_manager(SCREEN, WIDTH, HEIGHT)
 PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT = 155, 50
 PADDLE_WIDTH, PADDLE_HEIGHT = PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT
 PLAYER_FLOOR_OFFSET = 40
-PLAYER_FLOOR_EXTRA_MULTIPLIER = 30  # 스케일 증가 시 추가로 내려줄 여유값
+PLAYER_FLOOR_BONUS_BY_MODE: dict[str, int] = {
+    "junior": 18,
+    "주니어": 18,
+    "주니어리그": 18,
+    "juniorleague": 18,
+    "pro": 12,
+    "프로": 12,
+    "프로리그": 12,
+    "proleague": 12,
+}
+CURRENT_PADDLE_FLOOR_BONUS = 0
 # 기본 UFO 본체가 패들 히트박스보다 큰 만큼을 반영해 바닥 접점 보정에 사용한다.
 PLAYER_VISUAL_OVERHANG = max(0, (DEFAULT_SIZE - PADDLE_BASE_HEIGHT) // 2)
 #  점진적 리팩토링: 전역 변수를 game_vars로 대체
@@ -901,14 +911,18 @@ PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
 }
 
 
+def _normalize_league_mode(league_mode: str) -> str:
+    mode_raw = (league_mode or "").strip().lower()
+    return "".join(ch for ch in mode_raw if ch.isalnum()) or mode_raw
+
+
 def _compute_player_floor_bottom(scale: float) -> int:
     """현재 스케일에 맞춘 패들 바닥 기준선을 반환."""
-    baseline = HEIGHT - PLAYER_FLOOR_OFFSET
+    baseline = HEIGHT - PLAYER_FLOOR_OFFSET + CURRENT_PADDLE_FLOOR_BONUS
     if PLAYER_VISUAL_OVERHANG > 0:
         scale_delta = max(0.0, scale - 1.0)
         if scale_delta > 0:
             baseline += int(round(PLAYER_VISUAL_OVERHANG * scale_delta))
-            baseline += int(round(PLAYER_FLOOR_EXTRA_MULTIPLIER * scale_delta))
     return baseline
 
 
@@ -920,8 +934,7 @@ def align_player_to_floor(scale_override: float | None = None) -> None:
 
 def get_player_paddle_scale_for_league(league_mode: str) -> float:
     """난이도에 따른 플레이어 패들 배율."""
-    mode_raw = (league_mode or "").strip().lower()
-    normalized = "".join(ch for ch in mode_raw if ch.isalnum())
+    normalized = _normalize_league_mode(league_mode)
     return PLAYER_PADDLE_SCALE_BY_MODE.get(normalized, 1.0)
 
 
@@ -929,11 +942,14 @@ def apply_player_paddle_scale(league_mode: str):
     """난이도에 맞춰 플레이어 패들 판정·이미지 스케일을 조정."""
     global CURRENT_PADDLE_SIZE_SCALE, PADDLE_WIDTH, PADDLE_HEIGHT, paddle_scale_ratio
 
-    scale = get_player_paddle_scale_for_league(league_mode)
+    normalized_mode = _normalize_league_mode(league_mode)
+    scale = PLAYER_PADDLE_SCALE_BY_MODE.get(normalized_mode, 1.0)
     if abs(scale - CURRENT_PADDLE_SIZE_SCALE) < 1e-3:
         return
 
     CURRENT_PADDLE_SIZE_SCALE = scale
+    global CURRENT_PADDLE_FLOOR_BONUS
+    CURRENT_PADDLE_FLOOR_BONUS = PLAYER_FLOOR_BONUS_BY_MODE.get(normalized_mode, 0)
     PADDLE_WIDTH = max(1, int(round(PADDLE_BASE_WIDTH * scale)))
     PADDLE_HEIGHT = max(1, int(round(PADDLE_BASE_HEIGHT * scale)))
 
