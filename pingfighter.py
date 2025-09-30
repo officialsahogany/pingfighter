@@ -204,6 +204,7 @@ from effects.legendary_integration import (
 from effects.item_acquisition import (
     initialize_item_effects,
     show_item_acquisition,
+from effects.building_damage_effects import get_damage_manager
     update_item_effects,
     draw_item_effects
 )
