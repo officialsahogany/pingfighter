@@ -561,8 +561,26 @@ def draw_cyberpunk_gacha_machine(screen, center_x, center_y):
             screen.blit(trail_surf, (fall_x - trail_radius, trail_y - trail_radius))
         
         # 캡슐 내부 아이콘
-        if "icon" in falling_capsule and falling_capsule["icon"]:
-            icon = pygame.transform.scale(falling_capsule["icon"], (20, 20))
+        item_name = falling_capsule.get("name")
+        legendary_fall = False
+        if item_name in {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}:
+            try:
+                from legendary_items import get_legendary_manager
+                legendary_manager = get_legendary_manager()
+                legendary_item = legendary_manager.get_item(item_name) if legendary_manager else None
+            except Exception:
+                legendary_item = None
+
+            if legendary_item:
+                legendary_item.update(1 / 60.0, ui_mode=True)
+                icon_surface = pygame.Surface((24, 24), pygame.SRCALPHA)
+                legendary_item.draw_icon(icon_surface, 0, 0, 24)
+                icon_rect = icon_surface.get_rect(center=(int(fall_x), int(fall_y)))
+                screen.blit(icon_surface, icon_rect)
+                legendary_fall = True
+
+        if not legendary_fall and "icon" in falling_capsule and falling_capsule["icon"]:
+            icon = pygame.transform.smoothscale(falling_capsule["icon"], (20, 20))
             icon_rect = icon.get_rect(center=(int(fall_x), int(fall_y)))
             screen.blit(icon, icon_rect)
     
