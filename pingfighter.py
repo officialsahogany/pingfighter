@@ -204,10 +204,10 @@ from effects.legendary_integration import (
 from effects.item_acquisition import (
     initialize_item_effects,
     show_item_acquisition,
-from effects.building_damage_effects import get_damage_manager
     update_item_effects,
     draw_item_effects
 )
+from effects.building_damage_effects import get_damage_manager
 #  픽셀 폰트 매니저 - 네오둥근모
 from pixel_font_manager import get_font, FontStyle, PixelColors
 
