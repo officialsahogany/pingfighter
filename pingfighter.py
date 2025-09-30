@@ -9651,6 +9651,11 @@ def draw_blacksmith_turret_elements(surface):
                 (proj_pos[0] - swirl_rect.width // 2, proj_pos[1] - swirl_rect.height // 2),
                 special_flags=pygame.BLEND_ADD,
             )
+        
+        # 포탑 손상 오버레이 그리기
+        damage_manager = get_damage_manager()
+        damage_manager.draw_damage_overlay(surface, "turret", turret_rect)
+        
     draw_blacksmith_build_menu(surface)
     
     # 발토르 건물 손상 효과 그리기
