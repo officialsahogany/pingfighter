@@ -899,7 +899,7 @@ def get_player_paddle_scale_for_league(league_mode: str) -> float:
 
 def apply_player_paddle_scale(league_mode: str):
     """난이도에 맞춰 플레이어 패들 판정·이미지 스케일을 조정."""
-    global CURRENT_PADDLE_SIZE_SCALE, PADDLE_WIDTH, PADDLE_HEIGHT
+    global CURRENT_PADDLE_SIZE_SCALE, PADDLE_WIDTH, PADDLE_HEIGHT, paddle_scale_ratio
 
     scale = get_player_paddle_scale_for_league(league_mode)
     if abs(scale - CURRENT_PADDLE_SIZE_SCALE) < 1e-3:
@@ -915,6 +915,7 @@ def apply_player_paddle_scale(league_mode: str):
     PLAYER.centerx = prev_centerx
     PLAYER.bottom = prev_bottom
     PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+    paddle_scale_ratio = scale
 # 공 설정 - game_vars로 관리하되 호환성 유지
 BALL_RADIUS = game_vars.ball.radius
 BALL = game_vars.ball.rect
