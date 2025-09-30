@@ -8672,6 +8672,8 @@ def update_blacksmith_turret():
     global blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer
     global blacksmith_divine_stage_owner, blacksmith_turret_boss_hit_count
 
+    damage_manager = get_damage_manager()
+
     # 포탑 파괴 타이머 처리
     if blacksmith_turret_destroy_timer > 0:
         blacksmith_turret_destroy_timer -= 1
