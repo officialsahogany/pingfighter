@@ -9848,7 +9848,7 @@ def draw_blacksmith_build_menu(surface):
         text_color = (255, 255, 255) if available else (150, 150, 150)
         name = "포탑" if option == "turret" else "디바인스톤"
         label = font.render(name, True, text_color)
-        label_rect = label.get_rect(midbottom=(dest_rect.centerx, dest_rect.top - 8))
+        label_rect = label.get_rect(midbottom=(dest_rect.centerx, dest_rect.top - 12))
         surface.blit(label, label_rect)
 
 
