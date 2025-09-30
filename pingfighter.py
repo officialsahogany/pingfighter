@@ -30088,7 +30088,8 @@ def draw_objects():
         boss_current_speed = abs(BOSS.x - boss_prev_x) if boss_prev_x else 0
         boss_prev_x = BOSS.x
         boss_img = draw_aircraft_carrier_boss(boss_current_speed, BOSS.x)
-        boss_w, boss_h = 220, 85  # 배틀크루저는 더 크고 위용있게
+        boss_w = max(1, int(round(CARRIER_BOSS_BASE_WIDTH * CURRENT_BOSS_SIZE_SCALE)))
+        boss_h = max(1, int(round(CARRIER_BOSS_BASE_HEIGHT * CURRENT_BOSS_SIZE_SCALE)))
     else:
         boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
         boss_img.fill(WHITE)
@@ -42827,6 +42828,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     # AI 모드 설정
     ai_mode = difficulty_mode
     ai_enabled = True
+    apply_boss_size_scale(ai_mode)
     # 캐릭터별 설정
     soldier_initial_grenade_given = False
     items.knee_pads_obtained = False
@@ -42932,6 +42934,7 @@ def show_developer_stage_select():
     # 개발자 모드 진입 시 자동으로 신화리그 설정
     global ai_mode
     ai_mode = "mythic"
+    apply_boss_size_scale(ai_mode)
     print(":")
     stage_buttons = []
     rows = 3
@@ -52298,7 +52301,9 @@ def toggle_ai_mode():
     else:  # mythic
         ai_mode = "junior"
         print("!")
-    
+
+    apply_boss_size_scale(ai_mode)
+
     # AI 모드 업데이트
     if MIGRATION_MODE and boss_ai_system:
         # 새 AI 시스템 업데이트
@@ -61274,6 +61279,7 @@ def show_stage_selection(show_character_hint=True):
     
     # 기본 리그 모드 설정 (아이템 관리자 진입 시 신화 난이도 고정)
     ai_mode = "pro" if show_character_hint else "mythic"
+    apply_boss_size_scale(ai_mode)
       
     # 스테이지 정보
     stages = [
