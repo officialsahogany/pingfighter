@@ -24604,6 +24604,12 @@ def store_active_item(item_data):
     if "icon" not in item_data or item_data["icon"] is None:
         item_data["icon"] = get_item_icon(item_data["name"])
 
+    if "icon_animation_frames" not in item_data:
+        animation_frames = items.get_item_icon_animation(item_data["name"])
+        if animation_frames:
+            item_data["icon_animation_frames"] = animation_frames
+            item_data.setdefault("icon_animation_speed", 6)
+
     # 아이템에 last_use 필드 추가 (전역 쿨타임 적용)
     current_time = pygame.time.get_ticks()
     item_data["last_use"] = last_item_use_time
@@ -24631,7 +24637,13 @@ def store_passive_item(item_data):
     # 모든 패시브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
     if "icon" not in item_data or item_data["icon"] is None:
         item_data["icon"] = get_item_icon(item_data["name"])
-    
+
+    if "icon_animation_frames" not in item_data:
+        animation_frames = items.get_item_icon_animation(item_data["name"])
+        if animation_frames:
+            item_data["icon_animation_frames"] = animation_frames
+            item_data.setdefault("icon_animation_speed", 6)
+
     # 아이콘을 변수로 저장 (show_item_acquisition에서 사용)
     item_icon = item_data.get("icon")
     
