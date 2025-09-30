@@ -46471,6 +46471,7 @@ def reset_round():
     global blacksmith_manual_hammer_timer, blacksmith_manual_hammer_increment
     global blacksmith_umbrella_retract_start_frame, blacksmith_umbrella_retract_grace_timer
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
+    global ai_mode
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
@@ -46513,6 +46514,9 @@ def reset_round():
     short_shot_counter_pending = False
     short_shot_counter_window = 0
     refresh_perfect_timing_indicator()
+
+    # 난이도 유지: 라운드 리셋 후에도 플레이어 패들 크기 유지
+    apply_player_paddle_scale(ai_mode)
 
     blacksmith_shield_swing_active = False
     blacksmith_shield_swing_timer = 0
