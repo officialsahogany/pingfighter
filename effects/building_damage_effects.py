@@ -154,7 +154,7 @@ class BuildingDamageManager:
     def register_building(self, building_id: str, rect: pygame.Rect, max_hp: int):
         """건물 등록"""
         self.damage_states[building_id] = {
-            'rect': rect,
+            'rect': rect.copy() if hasattr(rect, 'copy') else pygame.Rect(rect),
             'max_hp': max_hp,
             'current_hp': max_hp,
             'smoke_timer': 0,
@@ -165,6 +165,11 @@ class BuildingDamageManager:
         }
         print(f"[손상 시스템] {building_id} 등록: rect={rect}, max_hp={max_hp}")
         
+    def update_building_rect(self, building_id: str, rect: pygame.Rect):
+        """건물 위치 업데이트"""
+        if building_id in self.damage_states:
+            self.damage_states[building_id]['rect'] = rect.copy() if hasattr(rect, 'copy') else pygame.Rect(rect)
+    
     def update_building_hp(self, building_id: str, current_hp: int):
         """건물 체력 업데이트"""
         if building_id not in self.damage_states:
