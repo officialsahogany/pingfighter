@@ -147,17 +147,23 @@ class SparkParticle(DamageParticle):
     def draw(self, surface: pygame.Surface):
         alpha = int(255 * (1 - self.lifetime / self.max_lifetime))
         
-        # 궤적 그리기
-        for i, pos in enumerate(self.trail):
-            trail_alpha = alpha * (i + 1) // len(self.trail)
-            if trail_alpha > 0:
-                pygame.draw.circle(surface, (255, 200, 0, trail_alpha), 
-                                 (int(pos[0]), int(pos[1])), 1)
+        # 궤적 그리기 (더 밝고 굵게)
+        if len(self.trail) > 1:
+            # 선으로 연결
+            trail_points = [(int(pos[0]), int(pos[1])) for pos in self.trail]
+            trail_points.append((int(self.x), int(self.y)))
+            if len(trail_points) > 1:
+                pygame.draw.lines(surface, (255, 200, 0), False, trail_points, 2)
         
-        # 불씨 그리기
-        if alpha > 0:
-            pygame.draw.circle(surface, (255, 255, 0, alpha), 
-                             (int(self.x), int(self.y)), int(self.radius))
+        # 불씨 그리기 (더 밝고 선명하게)
+        radius = int(self.radius)
+        if alpha > 0 and radius > 0:
+            # 중심 - 밝은 흰색
+            pygame.draw.circle(surface, (255, 255, 255), 
+                             (int(self.x), int(self.y)), max(1, radius // 2))
+            # 외곽 - 노란색
+            pygame.draw.circle(surface, (255, 255, 0), 
+                             (int(self.x), int(self.y)), radius)
 
 class BuildingDamageManager:
     """건물 손상 효과 관리자"""
@@ -253,7 +259,7 @@ class BuildingDamageManager:
             x = rect.centerx + random.randint(-rect.width//3, rect.width//3)
             y = rect.top + random.randint(0, rect.height//4)
             state['particles'].append(SmokeParticle(x, y))
-        print(f"[연기 생성] {count}개 생성, 위치: ({rect.centerx}, {rect.top}), 현재 파티클 수: {len(state['particles'])}")
+        print(f"[연기 생성] {count}개 생성, 위치: ({rect.centerx}, {rect.top}), rect: {rect}, 현재 파티클 수: {len(state['particles'])}")
             
     def _spawn_fire(self, state: Dict):
         """불꽃 생성"""

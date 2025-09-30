@@ -46543,7 +46543,7 @@ def reset_round():
         stop_supply_radio_loop(force=True)
         supply_drop_state.hold_time = 0
     global boss_stun_timer, ragnarok_shock_playing  #  라그나로크 해머 스턴 관련
-    global ragnarok_speed_boost_active, ragnarok_stun_pending  #  라그나로크 공속 증가 및 스턴 예약
+    global ragnarok_speed_boost_active, ragnarok_stun_pending, ragnarok_original_speed  #  라그나로크 공속 증가 및 스턴 예약
     global boss_knockback_timer, boss_knockback_vel  #  라그나로크 넉백 관련
     global spider_mines, spider_mine_slow_active, spider_mine_slow_timer, spider_mine_slow_text_timer
     # 스테이지 2 효과 초기화
@@ -46554,6 +46554,7 @@ def reset_round():
     boss_stun_timer = 0
     ragnarok_stun_pending = 0
     ragnarok_speed_boost_active = False
+    ragnarok_original_speed = 0.0
     boss_knockback_timer = 0
     boss_knockback_vel = 0
     ragnarok_stun_attempted_this_rally = False  # 랠리별 스턴 시도 플래그 리셋
@@ -51738,12 +51739,25 @@ def handle_ball():
         was_stun_ball = ragnarok_speed_boost_active  # 스턴공이었는지 저장
         
         if ragnarok_speed_boost_active:
-            # 보스가 스턴공을 받으면 속도를 절반으로 감속시켜 원래 흐름으로 복귀
-            ball_vel[0] /= 2.0
-            ball_vel[1] /= 2.0
+            # 보스가 스턴공을 받았을 때: 파워스매싱 감속 로직을 참고해 완만한 속도로 되돌린다.
+            original_speed = ragnarok_original_speed if ragnarok_original_speed > 0 else math.hypot(ball_vel[0], ball_vel[1])
+            target_speed = original_speed * 0.7 if original_speed > 0 else BALL_BASE_SPEED * 0.7
+            current_speed = math.hypot(ball_vel[0], ball_vel[1])
+
+            if current_speed > 0 and target_speed > 0:
+                speed_ratio = target_speed / current_speed
+                ball_vel[0] *= speed_ratio
+                ball_vel[1] *= speed_ratio
+            else:
+                fallback_speed = BALL_BASE_SPEED * 0.7 * 0.7
+                ball_vel[0] = fallback_speed
+                ball_vel[1] = fallback_speed
+
             ragnarok_speed_boost_active = False
+            ragnarok_original_speed = 0.0
+
             reduced_speed = math.hypot(ball_vel[0], ball_vel[1])
-            print(f"   !   : {reduced_speed:.1f}")
+            print(f"   !   : {reduced_speed:.1f} (→ 목표 {target_speed:.1f})")
             
             # 화면 흔들림 0.2초 추가
             global screen_shake_timer, screen_shake_intensity
