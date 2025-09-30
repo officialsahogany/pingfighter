@@ -924,6 +924,7 @@ def play_sound_with_volume(sound, volume=None):
 
 blacksmith_hammer_charge_sound_channel = None
 poseidon_wave_sound_channel = None
+stage4_magnetic_sound_channel = None
 
 
 def play_poseidon_wave_sound() -> None:
@@ -946,6 +947,48 @@ def play_poseidon_wave_sound() -> None:
         poseidon_wave_sound_channel = play_sound_with_volume(SOUND_POSEIDON_WAVE)
     except Exception:
         poseidon_wave_sound_channel = None
+
+
+def start_stage4_magnetic_sound() -> None:
+    """굴절 자기장 사운드를 루프로 재생."""
+
+    global stage4_magnetic_sound_channel
+
+    if not SOUND_STAGE4_MAGNETIC:
+        return
+
+    channel = stage4_magnetic_sound_channel
+    if channel:
+        try:
+            channel.stop()
+        except Exception:
+            stage4_magnetic_sound_channel = None
+
+    try:
+        SOUND_STAGE4_MAGNETIC.set_volume(sfx_volume)
+        stage4_magnetic_sound_channel = SOUND_STAGE4_MAGNETIC.play(-1)
+    except Exception:
+        stage4_magnetic_sound_channel = None
+
+
+def stop_stage4_magnetic_sound() -> None:
+    """굴절 자기장 사운드를 정지."""
+
+    global stage4_magnetic_sound_channel
+
+    channel = stage4_magnetic_sound_channel
+    if channel:
+        try:
+            channel.stop()
+        except Exception:
+            pass
+    elif SOUND_STAGE4_MAGNETIC:
+        try:
+            SOUND_STAGE4_MAGNETIC.stop()
+        except Exception:
+            pass
+
+    stage4_magnetic_sound_channel = None
 
 
 def start_blacksmith_hammer_charge_sound() -> None:
@@ -1340,6 +1383,7 @@ SOUND_BALLOON_BOOM = sound_effects['BALLOON_BOOM']
 SOUND_POWER_SMASH = sound_effects['POWER_SMASH']
 SOUND_POWER_SMASH_LAUNCH = sound_effects['POWER_SMASH_LAUNCH']
 SOUND_POSEIDON_WAVE = sound_effects['POSEIDON_WAVE']
+SOUND_STAGE4_MAGNETIC = sound_effects['STAGE4_MAGNETIC']
 SOUND_MISSILE = sound_effects['MISSILE']
 SOUND_PISTOL_RELOAD_START = sound_effects['PISTOL_RELOAD_START']
 SOUND_RAGNAROK_SHOT = sound_effects['RAGNAROK_SHOT']
