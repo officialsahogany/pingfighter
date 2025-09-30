@@ -14459,6 +14459,7 @@ quake_active = False
 quake_duration = 80
 quake_timer = 0
 quake_rng = None  # 정글지진 전용 난수 발생기 (예측 정확도 향상용)
+QUAKE_SHAKE_SCALE = 0.8  # 정글지진 공 흔들림 강도 20% 감소
 # 화면 흔들림 효과 (라그나로크 해머 등)
 screen_shake_timer = 0
 screen_shake_intensity = 0
@@ -17905,11 +17906,11 @@ def handle_quake():
         quake_timer -= 1
 
         if quake_rng:
-            shake_x = quake_rng.uniform(-3, 3)
-            shake_y = quake_rng.uniform(-2, 2)
+            shake_x = quake_rng.uniform(-3, 3) * QUAKE_SHAKE_SCALE
+            shake_y = quake_rng.uniform(-2, 2) * QUAKE_SHAKE_SCALE
         else:
-            shake_x = random.uniform(-3, 3)
-            shake_y = random.uniform(-2, 2)
+            shake_x = random.uniform(-3, 3) * QUAKE_SHAKE_SCALE
+            shake_y = random.uniform(-2, 2) * QUAKE_SHAKE_SCALE
         ball_vel[0] += shake_x
         ball_vel[1] += shake_y
 
