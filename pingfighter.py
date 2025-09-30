@@ -889,9 +889,11 @@ PLAYER_PADDLE_SCALE_BY_MODE: dict[str, float] = {
     "junior": 1.2,
     "주니어": 1.2,
     "주니어리그": 1.2,
+    "juniorleague": 1.2,
     "pro": 1.1,
     "프로": 1.1,
     "프로리그": 1.1,
+    "proleague": 1.1,
 }
 
 
