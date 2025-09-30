@@ -887,14 +887,6 @@ PLAYER_FLOOR_BONUS_BY_MODE: dict[str, int] = {
     "프로": 12,
     "프로리그": 12,
     "proleague": 12,
-    "champion": 10,
-    "챔피언": 10,
-    "챔피언리그": 10,
-    "championleague": 10,
-    "mythic": 14,
-    "신화": 14,
-    "신화리그": 14,
-    "mythicleague": 14,
 }
 CURRENT_PADDLE_FLOOR_BONUS = 0
 # 기본 UFO 본체가 패들 히트박스보다 큰 만큼을 반영해 바닥 접점 보정에 사용한다.
