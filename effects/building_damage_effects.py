@@ -235,19 +235,23 @@ class BuildingDamageManager:
         """연기 생성"""
         rect = state['rect']
         # 건물 상단에서 연기 생성
-        for _ in range(random.randint(1, 3)):
+        count = random.randint(1, 3)
+        for _ in range(count):
             x = rect.centerx + random.randint(-rect.width//3, rect.width//3)
             y = rect.top + random.randint(0, rect.height//4)
             state['particles'].append(SmokeParticle(x, y))
+        print(f"[연기 생성] {count}개 생성, 위치: ({rect.centerx}, {rect.top}), 현재 파티클 수: {len(state['particles'])}")
             
     def _spawn_fire(self, state: Dict):
         """불꽃 생성"""
         rect = state['rect']
         # 건물 곳곳에서 불꽃 생성
-        for _ in range(random.randint(2, 4)):
+        count = random.randint(2, 4)
+        for _ in range(count):
             x = rect.centerx + random.randint(-rect.width//2, rect.width//2)
             y = rect.centery + random.randint(-rect.height//3, rect.height//3)
             state['particles'].append(FireParticle(x, y))
+        print(f"[불꽃 생성] {count}개 생성, 위치: ({rect.centerx}, {rect.centery})")
             
     def _spawn_sparks(self, state: Dict):
         """불씨 생성"""
