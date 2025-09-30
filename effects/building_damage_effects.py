@@ -149,10 +149,8 @@ class SparkParticle(DamageParticle):
 class BuildingDamageManager:
     """건물 손상 효과 관리자"""
     def __init__(self):
-        self.smoke_particles: List[SmokeParticle] = []
-        self.fire_particles: List[FireParticle] = []
-        self.spark_particles: List[SparkParticle] = []
         self.damage_states: Dict[str, Dict] = {}
+        self.particles: Dict[str, Dict[str, List]] = {}  # 건물별 파티클 관리
         
     def register_building(self, building_id: str, rect: pygame.Rect, max_hp: int):
         """건물 등록"""
@@ -189,6 +187,15 @@ class BuildingDamageManager:
             
     def update(self):
         """파티클 업데이트"""
+        # 디버그: 건물 상태 확인
+        has_damaged = False
+        for building_id, state in self.damage_states.items():
+            if state['damage_level'] > 0:
+                has_damaged = True
+                if not state.get('debug_update_logged'):
+                    print(f"[손상 업데이트] {building_id}: 레벨 {state['damage_level']}, HP {state['current_hp']}/{state['max_hp']}")
+                    state['debug_update_logged'] = True
+        
         # 건물별 파티클 생성
         for building_id, state in self.damage_states.items():
             if state['damage_level'] >= 1:
@@ -250,6 +257,12 @@ class BuildingDamageManager:
             
     def draw(self, surface: pygame.Surface):
         """모든 파티클 그리기"""
+        # 디버그: 파티클 수 확인
+        total_particles = len(self.smoke_particles) + len(self.fire_particles) + len(self.spark_particles)
+        if total_particles > 0 and not hasattr(self, '_draw_logged'):
+            print(f"[손상 그리기] 연기: {len(self.smoke_particles)}, 불꽃: {len(self.fire_particles)}, 불씨: {len(self.spark_particles)}")
+            self._draw_logged = True
+        
         # 연기는 뒤에
         for particle in self.smoke_particles:
             particle.draw(surface)
