@@ -463,7 +463,7 @@ ITEM_TYPES = [
         "color": (220, 210, 140),  # 황동빛 수리 상자
         "effect": "repair_kit",
         "icon": None,
-        "chance": 0.006,  # 발토르 전용 희귀 아이템
+        "chance": 0.999,  # 발토르 전용 희귀 아이템
         "duration": 600,
         "unlock_condition": None
     },
