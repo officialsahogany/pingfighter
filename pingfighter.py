@@ -904,7 +904,9 @@ def _compute_player_floor_bottom(scale: float) -> int:
     """현재 스케일에 맞춘 패들 바닥 기준선을 반환."""
     baseline = HEIGHT - PLAYER_FLOOR_OFFSET
     if PLAYER_VISUAL_OVERHANG > 0:
-        baseline += int(round(PLAYER_VISUAL_OVERHANG * (scale - 1.0)))
+        scale_delta = max(0.0, scale - 1.0)
+        if scale_delta > 0:
+            baseline += int(round(PLAYER_VISUAL_OVERHANG * scale_delta))
     return baseline
 
 
