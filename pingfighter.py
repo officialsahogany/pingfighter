@@ -44662,6 +44662,113 @@ def get_item_icon(item_name):
         icon_cache[item_name] = default_icon
         return default_icon
     
+    elif item_name == "repair_kit":
+        # 수리키트 아이콘 - 천사가 수리해주는 엠블럼
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))  # 투명 배경
+        
+        # 색상 정의
+        angel_color = (255, 248, 220)  # 천사 색상 (아이보리)
+        wing_color = (255, 255, 255)   # 날개 색상 (흰색)
+        halo_color = (255, 215, 0)     # 후광 색상 (황금색)
+        tool_color = (100, 100, 100)   # 도구 색상 (회색)
+        gear_color = (80, 80, 80)      # 톱니바퀴 색상 (진회색)
+        sparkle_color = (255, 255, 200) # 반짝임 색상
+        
+        # 엠블럼 배경 원 (은은한 후광 효과)
+        for i in range(3):
+            radius = ICON_SIZE//2 - i*3
+            alpha = 30 + i*20
+            halo_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+            pygame.draw.circle(halo_surface, (*halo_color, alpha), (ICON_SIZE//2, ICON_SIZE//2), radius)
+            icon_surface.blit(halo_surface, (0, 0))
+        
+        # 천사 머리 (중앙 상단)
+        angel_y = ICON_SIZE//3
+        pygame.draw.circle(icon_surface, angel_color, (ICON_SIZE//2, angel_y), ICON_SIZE//8)
+        # 천사 얼굴 디테일
+        pygame.draw.circle(icon_surface, (0, 0, 0), (ICON_SIZE//2 - 3, angel_y - 2), 1)  # 왼쪽 눈
+        pygame.draw.circle(icon_surface, (0, 0, 0), (ICON_SIZE//2 + 3, angel_y - 2), 1)  # 오른쪽 눈
+        pygame.draw.arc(icon_surface, (255, 182, 193), 
+                       (ICON_SIZE//2 - 3, angel_y, 6, 3), 0, math.pi, 1)  # 미소
+        
+        # 천사 후광 (머리 위)
+        pygame.draw.ellipse(icon_surface, halo_color, 
+                          (ICON_SIZE//2 - ICON_SIZE//6, angel_y - ICON_SIZE//6, 
+                           ICON_SIZE//3, ICON_SIZE//8), 2)
+        
+        # 천사 몸 (삼각형 드레스)
+        body_points = [
+            (ICON_SIZE//2, angel_y + ICON_SIZE//8),
+            (ICON_SIZE//2 - ICON_SIZE//6, angel_y + ICON_SIZE//3),
+            (ICON_SIZE//2 + ICON_SIZE//6, angel_y + ICON_SIZE//3)
+        ]
+        pygame.draw.polygon(icon_surface, angel_color, body_points)
+        
+        # 천사 날개
+        wing_y = angel_y + ICON_SIZE//12
+        # 왼쪽 날개
+        left_wing_points = [
+            (ICON_SIZE//2 - ICON_SIZE//8, wing_y),
+            (ICON_SIZE//2 - ICON_SIZE//3, wing_y - ICON_SIZE//12),
+            (ICON_SIZE//2 - ICON_SIZE//3, wing_y + ICON_SIZE//8),
+            (ICON_SIZE//2 - ICON_SIZE//8, wing_y + ICON_SIZE//10)
+        ]
+        pygame.draw.polygon(icon_surface, wing_color, left_wing_points)
+        pygame.draw.polygon(icon_surface, (230, 230, 230), left_wing_points, 1)  # 윤곽선
+        
+        # 오른쪽 날개
+        right_wing_points = [
+            (ICON_SIZE//2 + ICON_SIZE//8, wing_y),
+            (ICON_SIZE//2 + ICON_SIZE//3, wing_y - ICON_SIZE//12),
+            (ICON_SIZE//2 + ICON_SIZE//3, wing_y + ICON_SIZE//8),
+            (ICON_SIZE//2 + ICON_SIZE//8, wing_y + ICON_SIZE//10)
+        ]
+        pygame.draw.polygon(icon_surface, wing_color, right_wing_points)
+        pygame.draw.polygon(icon_surface, (230, 230, 230), right_wing_points, 1)  # 윤곽선
+        
+        # 수리 도구 (렌치) - 천사가 들고 있는 것처럼
+        tool_x = ICON_SIZE//2 + ICON_SIZE//10
+        tool_y = angel_y + ICON_SIZE//6
+        # 렌치 손잡이
+        pygame.draw.rect(icon_surface, tool_color, 
+                        (tool_x - 1, tool_y, 3, ICON_SIZE//5))
+        # 렌치 머리
+        pygame.draw.circle(icon_surface, tool_color, 
+                         (tool_x, tool_y), 4, 2)
+        pygame.draw.circle(icon_surface, tool_color, 
+                         (tool_x, tool_y + ICON_SIZE//5), 4, 2)
+        
+        # 톱니바퀴 (하단에 작은 장식)
+        gear_y = angel_y + ICON_SIZE//2.5
+        gear_radius = ICON_SIZE//10
+        # 톱니바퀴 본체
+        pygame.draw.circle(icon_surface, gear_color, (ICON_SIZE//2, gear_y), gear_radius)
+        # 톱니 (6개)
+        for i in range(6):
+            angle = i * math.pi / 3
+            tooth_x = ICON_SIZE//2 + int((gear_radius + 2) * math.cos(angle))
+            tooth_y = gear_y + int((gear_radius + 2) * math.sin(angle))
+            pygame.draw.circle(icon_surface, gear_color, (tooth_x, tooth_y), 2)
+        # 중앙 구멍
+        pygame.draw.circle(icon_surface, (60, 60, 60), (ICON_SIZE//2, gear_y), 2)
+        
+        # 반짝임 효과 (3개)
+        sparkle_positions = [
+            (ICON_SIZE//4, ICON_SIZE//4),
+            (ICON_SIZE*3//4, ICON_SIZE//3),
+            (ICON_SIZE//5, ICON_SIZE*2//3)
+        ]
+        for sx, sy in sparkle_positions:
+            # 십자 모양 반짝임
+            pygame.draw.line(icon_surface, sparkle_color, (sx-3, sy), (sx+3, sy), 2)
+            pygame.draw.line(icon_surface, sparkle_color, (sx, sy-3), (sx, sy+3), 2)
+            # 대각선
+            pygame.draw.line(icon_surface, sparkle_color, (sx-2, sy-2), (sx+2, sy+2), 1)
+            pygame.draw.line(icon_surface, sparkle_color, (sx-2, sy+2), (sx+2, sy-2), 1)
+        
+        icon_cache[item_name] = icon_surface
+        return icon_surface
     
     # unknown_item.png 시도 (스마트폰이 아닌 경우만)
     try:
