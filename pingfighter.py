@@ -17079,10 +17079,10 @@ def update_active_repair_jobs() -> None:
                 job["tick"] = REPAIR_TICK_FRAMES
                 state_dirty = True
                 
-                # 성스러운 빛 효과 생성
-                if state.get("rect"):
-                    rect = state["rect"]
-                    create_holy_light_particles(rect, 10)  # 10개의 반딧불 별빛 생성
+                # 성스러운 빛 효과 생성 (비활성화)
+                # if state.get("rect"):
+                #     rect = state["rect"]
+                #     create_holy_light_particles(rect, 10)  # 10개의 반딧불 별빛 생성
                 
                 if state["hp"] >= max_hp:
                     active_repair_jobs.remove(job)
@@ -17107,10 +17107,10 @@ def update_active_repair_jobs() -> None:
                 job["tick"] = REPAIR_TICK_FRAMES
                 state_dirty = True
                 
-                # 성스러운 빛 효과 생성
-                if state.get("rect"):
-                    rect = state["rect"]
-                    create_holy_light_particles(rect, 10)  # 10개의 반딧불 별빛 생성
+                # 성스러운 빛 효과 생성 (비활성화)
+                # if state.get("rect"):
+                #     rect = state["rect"]
+                #     create_holy_light_particles(rect, 10)  # 10개의 반딧불 별빛 생성
                 
                 if state["hp"] >= max_hp:
                     active_repair_jobs.remove(job)
@@ -17135,10 +17135,10 @@ def update_active_repair_jobs() -> None:
                     wall["crack_level"] = max(0, wall["crack_level"] - 1)
                 job["tick"] = REPAIR_TICK_FRAMES
                 
-                # 성스러운 빛 효과 생성
-                if wall.get("rect"):
-                    rect = wall["rect"]
-                    create_holy_light_particles(rect, 8)  # 8개의 반딧불 별빛 생성
+                # 성스러운 빛 효과 생성 (비활성화)
+                # if wall.get("rect"):
+                #     rect = wall["rect"]
+                #     create_holy_light_particles(rect, 8)  # 8개의 반딧불 별빛 생성
                 
                 if wall.get("hit_count", 0) <= 0 and wall.get("crack_level", 0) <= 0:
                     active_repair_jobs.remove(job)
