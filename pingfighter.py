@@ -12209,12 +12209,46 @@ SUPPLY_DROP_GAUGE_COST = supply_drop_state.config.gauge_cost
 
 
 def start_supply_radio_loop(*, duration_frames: int = 30, play_sound: bool = True) -> None:
-    """무전기 애니메이션과 사운드를 시작한다."""
+    """무전기 애니메이션과 사운드를 시작하거나 연장한다."""
+
+    safe_duration = max(1, int(duration_frames))
+
+    if not play_sound:
+        # 화력지원 등에서 애니메이션만 유지하려는 호출은 기존 동작을 그대로 사용한다.
+        supply_start_radio_loop(
+            supply_runtime,
+            resource_path,
+            duration_frames=safe_duration,
+            play_sound=play_sound,
+        )
+        return
+
+    channel_busy = False
+    radio_channel = getattr(supply_runtime, "_radio_channel", None)
+    if radio_channel is not None:
+        try:
+            channel_busy = radio_channel.get_busy()
+        except Exception:
+            channel_busy = False
+
+    if channel_busy:
+        # 이미 루프가 재생 중이면 타이머만 연장하고 중복 재생을 방지한다.
+        state = supply_runtime.state
+        state.radio_motion = True
+        state.radio_timer = max(state.radio_timer, safe_duration)
+        state.radio_duration = max(state.radio_duration, safe_duration)
+        supply_runtime.hold_active = True
+        supply_ensure_radio_audio(
+            supply_runtime,
+            resource_path,
+            volume=0.6,
+        )
+        return
 
     supply_start_radio_loop(
         supply_runtime,
         resource_path,
-        duration_frames=duration_frames,
+        duration_frames=safe_duration,
         play_sound=play_sound,
     )
 
