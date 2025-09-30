@@ -72,8 +72,8 @@ class FireParticle(DamageParticle):
         super().__init__(x, y)
         self.vx = random.uniform(-1.0, 1.0)
         self.vy = random.uniform(-2.5, -1.0)
-        self.radius = random.uniform(3, 6)
-        self.max_lifetime = random.randint(20, 40)
+        self.radius = random.uniform(6, 12)  # 더 큰 크기
+        self.max_lifetime = random.randint(30, 60)  # 더 오래 지속
         self.heat = 1.0  # 열 강도 (색상 결정)
         
     def update(self):
