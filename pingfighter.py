@@ -875,20 +875,20 @@ effects_manager.init_effects_manager(SCREEN, WIDTH, HEIGHT)
 # input_manager.init_input_manager(SCREEN, WIDTH, HEIGHT)
 # 물리 매니저 초기화 (BALL, PLAYER, BOSS 객체 생성 후에 호출해야 함)
 # 패들 설정
-PADDLE_WIDTH, PADDLE_HEIGHT = 155, 50
+PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT = 155, 50
+PADDLE_WIDTH, PADDLE_HEIGHT = PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT
+#  점진적 리팩토링: 전역 변수를 game_vars로 대체
+# 기존 코드와의 호환성을 위해 참조만 유지
 #  점진적 리팩토링: 전역 변수를 game_vars로 대체
 # 기존 코드와의 호환성을 위해 참조만 유지
 PLAYER = game_vars.player.rect
 BOSS_Y = game_vars.boss.y_position
 BOSS = game_vars.boss.rect
-# 난이도별 스케일 적용을 위한 보스 기본 크기
-BOSS_BASE_WIDTH = BOSS.width
-BOSS_BASE_HEIGHT = BOSS.height
-CURRENT_BOSS_SIZE_SCALE = 1.0
+CURRENT_PADDLE_SIZE_SCALE = 1.0
 
 
-def get_boss_size_scale_for_league(league_mode: str) -> float:
-    """난이도에 따른 보스 패들 크기 배율."""
+def get_player_paddle_scale_for_league(league_mode: str) -> float:
+    """난이도에 따른 플레이어 패들 배율."""
     mode = (league_mode or "").lower()
     if mode == "junior":
         return 1.2
@@ -897,36 +897,24 @@ def get_boss_size_scale_for_league(league_mode: str) -> float:
     return 1.0
 
 
-def apply_boss_size_scale(league_mode: str):
-    """보스 판정 및 렌더 크기를 난이도에 맞춰 갱신."""
-    global CURRENT_BOSS_SIZE_SCALE
-    global BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
-    global BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
-    global BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT
-    global BOSS_IMG_TUTORIAL_WIDTH, BOSS_IMG_TUTORIAL_HEIGHT
+def apply_player_paddle_scale(league_mode: str):
+    """난이도에 맞춰 플레이어 패들 판정·이미지 스케일을 조정."""
+    global CURRENT_PADDLE_SIZE_SCALE, PADDLE_WIDTH, PADDLE_HEIGHT
 
-    scale = get_boss_size_scale_for_league(league_mode)
-    if abs(scale - CURRENT_BOSS_SIZE_SCALE) < 1e-3:
+    scale = get_player_paddle_scale_for_league(league_mode)
+    if abs(scale - CURRENT_PADDLE_SIZE_SCALE) < 1e-3:
         return
 
-    CURRENT_BOSS_SIZE_SCALE = scale
+    CURRENT_PADDLE_SIZE_SCALE = scale
+    PADDLE_WIDTH = max(1, int(round(PADDLE_BASE_WIDTH * scale)))
+    PADDLE_HEIGHT = max(1, int(round(PADDLE_BASE_HEIGHT * scale)))
 
-    prev_centerx = BOSS.centerx
-    prev_top = BOSS.top
-    new_width = max(1, int(round(BOSS_BASE_WIDTH * scale)))
-    new_height = max(1, int(round(BOSS_BASE_HEIGHT * scale)))
-    BOSS.size = (new_width, new_height)
-    BOSS.centerx = prev_centerx
-    BOSS.top = prev_top
-
-    BOSS_IMG_WIDTH = max(1, int(round(BOSS_IMG_BASE_WIDTH * scale)))
-    BOSS_IMG_HEIGHT = max(1, int(round(BOSS_IMG_BASE_HEIGHT * scale)))
-    BOSS_IMG_STAGE4_WIDTH = max(1, int(round(BOSS_IMG_STAGE4_BASE_WIDTH * scale)))
-    BOSS_IMG_STAGE4_HEIGHT = max(1, int(round(BOSS_IMG_STAGE4_BASE_HEIGHT * scale)))
-    BOSS_IMG_STAGE5_WIDTH = max(1, int(round(BOSS_IMG_STAGE5_BASE_WIDTH * scale)))
-    BOSS_IMG_STAGE5_HEIGHT = max(1, int(round(BOSS_IMG_STAGE5_BASE_HEIGHT * scale)))
-    BOSS_IMG_TUTORIAL_WIDTH = max(1, int(round(BOSS_IMG_TUTORIAL_BASE_WIDTH * scale)))
-    BOSS_IMG_TUTORIAL_HEIGHT = max(1, int(round(BOSS_IMG_TUTORIAL_BASE_HEIGHT * scale)))
+    prev_centerx = PLAYER.centerx
+    prev_bottom = PLAYER.bottom
+    PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
+    PLAYER.centerx = prev_centerx
+    PLAYER.bottom = prev_bottom
+    PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
 # 공 설정 - game_vars로 관리하되 호환성 유지
 BALL_RADIUS = game_vars.ball.radius
 BALL = game_vars.ball.rect
