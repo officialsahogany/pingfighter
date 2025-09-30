@@ -51746,17 +51746,30 @@ def handle_ball():
         was_stun_ball = ragnarok_speed_boost_active  # 스턴공이었는지 저장
         
         if ragnarok_speed_boost_active:
-            # 보스가 스턴공을 받았을 때: 기존보다 20% 더 느리게 감속한다.
+            # 보스가 스턴공을 받았을 때: 먼저 원속도로 복구한 뒤 20% 감속한다.
             original_speed = ragnarok_original_speed if ragnarok_original_speed > 0 else math.hypot(ball_vel[0], ball_vel[1])
-            target_speed = original_speed * 0.56 if original_speed > 0 else BALL_BASE_SPEED * 0.56
             current_speed = math.hypot(ball_vel[0], ball_vel[1])
 
-            if current_speed > 0 and target_speed > 0:
-                speed_ratio = target_speed / current_speed
-                ball_vel[0] *= speed_ratio
-                ball_vel[1] *= speed_ratio
+            # 1단계: 원래 속도로 복원
+            restored_speed = original_speed if original_speed > 0 else (current_speed if current_speed > 0 else BALL_BASE_SPEED)
+            if current_speed > 0 and restored_speed > 0:
+                restore_ratio = restored_speed / current_speed
+                ball_vel[0] *= restore_ratio
+                ball_vel[1] *= restore_ratio
             else:
-                fallback_component = (BALL_BASE_SPEED * 0.56) / math.sqrt(2)
+                fallback_component = restored_speed / math.sqrt(2)
+                ball_vel[0] = fallback_component
+                ball_vel[1] = fallback_component
+
+            # 2단계: 원속도의 80%로 감속 (20% 감소)
+            target_speed = restored_speed * 0.8
+            current_speed = math.hypot(ball_vel[0], ball_vel[1])
+            if current_speed > 0 and target_speed > 0:
+                slow_ratio = target_speed / current_speed
+                ball_vel[0] *= slow_ratio
+                ball_vel[1] *= slow_ratio
+            else:
+                fallback_component = target_speed / math.sqrt(2) if target_speed > 0 else 0.0
                 ball_vel[0] = fallback_component
                 ball_vel[1] = fallback_component
 
@@ -51764,7 +51777,7 @@ def handle_ball():
             ragnarok_original_speed = 0.0
 
             reduced_speed = math.hypot(ball_vel[0], ball_vel[1])
-            print(f"   !   : {reduced_speed:.1f} (→ 목표 {target_speed:.1f})")
+            print(f"   !   : {reduced_speed:.1f} (원속도 {restored_speed:.1f} → 목표 {target_speed:.1f})")
             
             # 화면 흔들림 0.2초 추가
             global screen_shake_timer, screen_shake_intensity
