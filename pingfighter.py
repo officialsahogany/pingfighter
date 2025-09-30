@@ -41208,8 +41208,15 @@ def create_soldier_front_view():
 
 def show_character_selection():
     """사이버펑크 스타일 홀로그램 캐릭터 선택 화면"""
+    global genie_assistant
     clock = pygame.time.Clock()
     soldier_card_preview: pygame.Surface | None = None
+    tutorial_supported_ids = {"ufo_player", "smasher", "soldier", "blacksmith", "optimus"}
+
+    def resolve_tutorial_character_type(char_id: str) -> str:
+        if char_id == "ufo_player":
+            return "smasher"
+        return char_id
     # 6개 캐릭터 정의 (해금 시스템 포함)
     characters = [
         {
@@ -41388,13 +41395,25 @@ def show_character_selection():
         if glitch_timer > 10:
             glitch_active = False
             glitch_timer = 0
+        dt_ms = clock.get_time()
+        if genie_assistant.is_active():
+            genie_assistant.update(dt_ms)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if genie_assistant.is_active():
+                genie_assistant.handle_event(event)
+                continue
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return None  # 메인 메뉴로 돌아가기
+                elif event.key == pygame.K_t:
+                    current_char_id = characters[selected]["id"]
+                    tutorial_type = resolve_tutorial_character_type(current_char_id)
+                    genie_assistant.activate(SCREEN, tutorial_type)
+                    play_button_click_sound()
+                    continue
                 elif event.key in [pygame.K_LEFT, pygame.K_a]:
                     if not card_transition_active:
                         previous_selected = selected
