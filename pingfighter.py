@@ -11711,6 +11711,229 @@ def _render_blacksmith_divine_preview(surface: pygame.Surface, rect: pygame.Rect
             pass
 
 
+def _snapshot_soldier_genie_state() -> dict[str, object]:
+    """Capture mutable globals required to render soldier previews."""
+
+    snapshot: dict[str, object] = {}
+
+    snapshot["soldier_ammo_count"] = soldier_ammo_count
+    snapshot["soldier_max_ammo"] = soldier_max_ammo
+    snapshot["soldier_reloading"] = soldier_reloading
+    snapshot["soldier_reload_timer"] = soldier_reload_timer
+    snapshot["soldier_last_reload_bullets"] = soldier_last_reload_bullets
+    snapshot["soldier_emergency_supply_toast_timer"] = soldier_emergency_supply_toast_timer
+    snapshot["round_start_time"] = round_start_time
+
+    controller_state = {
+        "weapons": list(soldier_controller.weapons),
+        "current_index": soldier_controller.current_index,
+        "switch_cooldown": soldier_controller.switch_cooldown,
+        "reload_counts": dict(soldier_controller.reload_counts),
+        "degraded": set(soldier_controller.degraded),
+        "ui_highlight_timer": soldier_controller.ui_highlight_timer,
+    }
+    snapshot["soldier_controller"] = controller_state
+
+    supply_state = {
+        "active": supply_drop_state.active,
+        "timer": supply_drop_state.timer,
+        "hold_time": supply_drop_state.hold_time,
+        "radio_motion": supply_drop_state.radio_motion,
+        "radio_timer": supply_drop_state.radio_timer,
+        "radio_duration": supply_drop_state.radio_duration,
+    }
+    snapshot["supply_state"] = supply_state
+    snapshot["supply_hold_active"] = supply_runtime.hold_active
+
+    snapshot["player_rect"] = PLAYER.copy()
+
+    return snapshot
+
+
+def _restore_soldier_genie_state(snapshot: dict[str, object]) -> None:
+    """Restore soldier preview globals from a snapshot."""
+
+    global soldier_ammo_count
+    global soldier_max_ammo
+    global soldier_reloading
+    global soldier_reload_timer
+    global soldier_last_reload_bullets
+    global soldier_emergency_supply_toast_timer
+    global round_start_time
+
+    soldier_ammo_count = snapshot["soldier_ammo_count"]  # type: ignore[assignment]
+    soldier_max_ammo = snapshot["soldier_max_ammo"]  # type: ignore[assignment]
+    soldier_reloading = snapshot["soldier_reloading"]  # type: ignore[assignment]
+    soldier_reload_timer = snapshot["soldier_reload_timer"]  # type: ignore[assignment]
+    soldier_last_reload_bullets = snapshot["soldier_last_reload_bullets"]  # type: ignore[assignment]
+    soldier_emergency_supply_toast_timer = snapshot["soldier_emergency_supply_toast_timer"]  # type: ignore[assignment]
+    round_start_time = snapshot["round_start_time"]  # type: ignore[assignment]
+
+    controller_state = snapshot["soldier_controller"]  # type: ignore[assignment]
+    soldier_controller.weapons[:] = controller_state["weapons"]  # type: ignore[index]
+    soldier_controller.current_index = controller_state["current_index"]  # type: ignore[assignment]
+    soldier_controller.switch_cooldown = controller_state["switch_cooldown"]  # type: ignore[assignment]
+    soldier_controller.reload_counts = dict(controller_state["reload_counts"])
+    soldier_controller.degraded = set(controller_state["degraded"])
+    soldier_controller.ui_highlight_timer = controller_state["ui_highlight_timer"]  # type: ignore[assignment]
+
+    supply_state = snapshot["supply_state"]  # type: ignore[assignment]
+    supply_drop_state.active = supply_state["active"]  # type: ignore[assignment]
+    supply_drop_state.timer = supply_state["timer"]  # type: ignore[assignment]
+    supply_drop_state.hold_time = supply_state["hold_time"]  # type: ignore[assignment]
+    supply_drop_state.radio_motion = supply_state["radio_motion"]  # type: ignore[assignment]
+    supply_drop_state.radio_timer = supply_state["radio_timer"]  # type: ignore[assignment]
+    supply_drop_state.radio_duration = supply_state["radio_duration"]  # type: ignore[assignment]
+    supply_runtime.hold_active = snapshot["supply_hold_active"]  # type: ignore[assignment]
+
+    player_rect: pygame.Rect = snapshot["player_rect"]  # type: ignore[assignment]
+    PLAYER.update(player_rect)
+
+
+def _get_soldier_weapon_ui_preview_rect() -> pygame.Rect:
+    slot_size = 60
+    slot_margin = 10
+    bottom_margin = 80
+    weapon_size = int(slot_size * 0.8)
+    weapon_x = slot_margin
+    weapon_y = HEIGHT - bottom_margin - slot_size - weapon_size + 15
+    preview_width = max(220, weapon_size + 170)
+    preview_height = weapon_size + 120
+    preview_rect = pygame.Rect(weapon_x - 12, weapon_y - 24, preview_width, preview_height)
+    preview_rect.clamp_ip(pygame.Rect(0, 0, WIDTH, HEIGHT))
+    return preview_rect
+
+
+def _configure_soldier_weapon_preview(animation_id: str) -> pygame.Rect:
+    global soldier_ammo_count
+    global soldier_reloading
+    global soldier_reload_timer
+    global soldier_last_reload_bullets
+    global soldier_emergency_supply_toast_timer
+    global round_start_time
+
+    soldier_controller.switch_cooldown = 0
+    soldier_controller.reload_counts.clear()
+    soldier_controller.degraded.clear()
+    soldier_controller.ui_highlight_timer = 0
+
+    round_start_time = pygame.time.get_ticks() - 6000
+
+    if animation_id == "switch":
+        soldier_controller.weapons[:] = ["pistol", "bazooka", "ak47"]
+        soldier_controller.current_index = 1 if len(soldier_controller.weapons) > 1 else 0
+        soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
+        soldier_ammo_count = soldier_max_ammo
+        soldier_reloading = False
+        soldier_reload_timer = SOLDIER_RELOAD_TIME
+        soldier_last_reload_bullets = 0
+        soldier_emergency_supply_toast_timer = 0
+    else:
+        soldier_controller.weapons[:] = ["pistol"]
+        soldier_controller.current_index = 0
+        soldier_emergency_supply_toast_timer = 0
+
+        if animation_id == "fire":
+            soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
+            soldier_ammo_count = max(0, soldier_max_ammo - 1)
+            soldier_reloading = False
+            soldier_reload_timer = SOLDIER_RELOAD_TIME
+            soldier_last_reload_bullets = 0
+        elif animation_id == "reload":
+            soldier_ammo_count = 0
+            soldier_reloading = True
+            soldier_reload_timer = max(1, SOLDIER_RELOAD_TIME // 2)
+            soldier_last_reload_bullets = 0
+        elif animation_id == "emergency":
+            soldier_ammo_count = soldier_max_ammo
+            soldier_reloading = False
+            soldier_reload_timer = SOLDIER_RELOAD_TIME
+            soldier_last_reload_bullets = 0
+            soldier_emergency_supply_toast_timer = 70
+        else:
+            soldier_ammo_count = soldier_max_ammo
+            soldier_reloading = False
+            soldier_reload_timer = SOLDIER_RELOAD_TIME
+            soldier_last_reload_bullets = 0
+
+    return _get_soldier_weapon_ui_preview_rect()
+
+
+def _configure_soldier_supply_preview() -> tuple[pygame.Rect, pygame.Rect]:
+    supply_drop_state.active = False
+    supply_drop_state.timer = 0
+    supply_runtime.hold_active = True
+
+    threshold = supply_drop_state.config.hold_threshold
+    required = supply_drop_state.config.hold_required
+    progress = threshold + max(1, int((required - threshold) * 0.65))
+    supply_drop_state.hold_time = progress
+    supply_drop_state.radio_motion = True
+    supply_drop_state.radio_duration = 45
+    supply_drop_state.radio_timer = 45
+
+    player_width = PADDLE_WIDTH
+    player_height = PADDLE_HEIGHT
+    player_x = WIDTH // 2 - player_width // 2
+    player_y = HEIGHT - 220
+    PLAYER.update(player_x, player_y, player_width, player_height)
+
+    gauge_width = 80
+    gauge_height = 12
+    player_center_x = PLAYER.centerx
+    player_top = PLAYER.top
+    gauge_x = player_center_x - gauge_width // 2 - 6
+    gauge_y = player_top - 52
+    gauge_rect = pygame.Rect(gauge_x, gauge_y, gauge_width + 12, gauge_height + 54)
+
+    radio_rect = pygame.Rect(player_center_x - 80, PLAYER.centery - 120, 160, 170)
+    preview_rect = gauge_rect.union(radio_rect)
+    preview_rect.clamp_ip(pygame.Rect(0, 0, WIDTH, HEIGHT))
+    return gauge_rect, preview_rect
+
+
+def _blit_scaled_preview(
+    source_surface: pygame.Surface,
+    region: pygame.Rect,
+    target_surface: pygame.Surface,
+    target_rect: pygame.Rect,
+) -> bool:
+    region = region.clamp(source_surface.get_rect())
+    if region.width <= 0 or region.height <= 0:
+        return False
+
+    preview_surface = pygame.Surface((region.width, region.height), pygame.SRCALPHA)
+    preview_surface.blit(source_surface, (0, 0), area=region)
+    scaled = pygame.transform.smoothscale(preview_surface, (target_rect.width, target_rect.height))
+    target_surface.blit(scaled, target_rect)
+    return True
+
+
+def _render_soldier_genie_preview(
+    surface: pygame.Surface,
+    rect: pygame.Rect,
+    animation_id: str,
+) -> bool:
+    if animation_id not in {"fire", "reload", "switch", "supply", "emergency"}:
+        return False
+
+    snapshot = _snapshot_soldier_genie_state()
+    temp_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+    try:
+        if animation_id == "supply":
+            _, preview_rect = _configure_soldier_supply_preview()
+            draw_supply_drop_gauge(temp_surface)
+            draw_supply_radio_motion(temp_surface)
+            return _blit_scaled_preview(temp_surface, preview_rect, surface, rect)
+
+        preview_rect = _configure_soldier_weapon_preview(animation_id)
+        draw_soldier_weapon_ui(temp_surface)
+        return _blit_scaled_preview(temp_surface, preview_rect, surface, rect)
+    finally:
+        _restore_soldier_genie_state(snapshot)
+
+
 def _render_genie_animation_preview(surface: pygame.Surface, rect: pygame.Rect, animation_id: str, ticks: int) -> bool:
     if animation_id == "thor_shield":
         return _render_thor_shield_preview(surface, rect)
@@ -11722,6 +11945,8 @@ def _render_genie_animation_preview(surface: pygame.Surface, rect: pygame.Rect, 
         return _render_blacksmith_hammer_preview(surface, rect)
     if animation_id == "blacksmith_build":
         return _render_blacksmith_build_preview(surface, rect)
+    if animation_id in {"fire", "reload", "switch", "supply", "emergency"}:
+        return _render_soldier_genie_preview(surface, rect, animation_id)
     return False
 
 try:
