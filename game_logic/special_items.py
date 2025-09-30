@@ -20,7 +20,6 @@ class ItemType(Enum):
     FLARE = "flare"
     SMOKE_GRENADE = "smoke_grenade"
     GRENADE = "grenade"
-    PREDICTOR = "predictor"
     MOLOTOV = "molotov"
     WALL = "wall"
     MEDITATION = "meditation"
@@ -167,19 +166,6 @@ class SpecialItemManager:
         
         emit_event(EventType.SPECIAL_ACTIVATED, {
             'type': 'grenade'
-        })
-        
-    def activate_predictor(self):
-        """예측기 발동"""
-        # 공의 궤적 예측 표시
-        self.active_effects['predictor'] = {
-            'duration': 300,  # 5초
-            'prediction_steps': 10,
-            'line_color': (100, 255, 100)
-        }
-        
-        emit_event(EventType.SPECIAL_ACTIVATED, {
-            'type': 'predictor'
         })
         
     def activate_molotov(self):
@@ -377,50 +363,12 @@ class SpecialItemManager:
                                    (item.position[0] - item.data['width'] // 2, y),
                                    (item.position[0] + item.data['width'] // 2, y), 3)
                     
-        # 예측기 효과
-        if 'predictor' in self.active_effects:
-            self._draw_trajectory_prediction(screen)
-            
         # 조명탄 효과
         if 'flare' in self.active_effects:
             # 화면 밝게
             overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
             overlay.fill((255, 255, 200, 50))
             screen.blit(overlay, (0, 0))
-            
-    def _draw_trajectory_prediction(self, screen: pygame.Surface):
-        """궤적 예측 그리기"""
-        ball_rect = self.global_manager.get('BALL')
-        if not ball_rect:
-            return
-            
-        ball_vel = [
-            self.global_manager.get('ball_dx', 0),
-            self.global_manager.get('ball_dy', 5)
-        ]
-        
-        # 예측 궤적 계산
-        x, y = ball_rect.centerx, ball_rect.centery
-        dx, dy = ball_vel[0], ball_vel[1]
-        
-        points = [(x, y)]
-        for _ in range(10):
-            x += dx * 5
-            y += dy * 5
-            
-            # 벽 충돌 체크
-            if x <= 10 or x >= self.width - 10:
-                dx = -dx
-            if y <= 10:
-                dy = abs(dy)
-            elif y >= self.height - 10:
-                dy = -abs(dy)
-                
-            points.append((int(x), int(y)))
-            
-        # 궤적 선 그리기
-        if len(points) > 1:
-            pygame.draw.lines(screen, (100, 255, 100), False, points, 2)
             
     def get_active_effects(self) -> Dict[str, Any]:
         """활성 효과 반환"""

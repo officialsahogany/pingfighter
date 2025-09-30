@@ -442,17 +442,6 @@ for item in items.ITEM_TYPES:
             item["icon"] = create_cached_surface((32, 32), transparent=True)
             pygame.draw.circle(item["icon"], (80, 100, 80), (16, 16), 12)
             pygame.draw.rect(item["icon"], (60, 60, 60), (14, 8, 4, 6))
-    elif item["name"] == "predictor":
-        try:
-            pass  # Empty try block fix
-# #             item["icon"] = pygame.image.load("items/predictor.png").convert_alpha()
-#             item["icon"] = pygame.transform.scale(item["icon"], (32, 32))
-        except:
-            # 레이저스코프 기본 아이콘
-            item["icon"] = create_cached_surface((32, 32), transparent=True)
-            pygame.draw.circle(item["icon"], (100, 200, 255), (16, 16), 12, 2)
-            pygame.draw.line(item["icon"], (255, 0, 0), (16, 4), (16, 28), 1)
-            pygame.draw.line(item["icon"], (255, 0, 0), (4, 16), (28, 16), 1)
 '''
 
 # === 롱부스트 관련 ===
@@ -472,12 +461,6 @@ revival_used = False  # 부활 아이템 사용 여부
 
 # === 장인 관련 ===
 master_obtained = False  # 장인 아이템 획득 여부
-
-# === 레이저스코프 관련 ===
-predictor_active = False  # 레이저스코프 활성화 여부
-predictor_timer = 0  # 레이저스코프 남은 시간
-predicted_trajectory = []  # 예측된 궤적 저장
-last_prediction_ball_y = 0  # 마지막 예측 시 공의 Y 위치
 
 # === 쿨타임 관련 ===
 cooltime_obtained = False  # 쿨타임 아이템 획득 여부
@@ -817,4 +800,3 @@ synergy_paddle_width_boost = 1.6  # 패들 가로길이 60% 증가
 # from rendering.object_renderer import get_renderer
 
 # Surface 캐싱 시스템은 이미 임포트됨
-

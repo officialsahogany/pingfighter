@@ -19,6 +19,9 @@ import random
 import importlib
 import copy
 
+# 실행 파일로 직접 구동할 때도 items 등에서 import pingfighter가 동일 모듈을 참조하도록 별칭을 등록
+sys.modules.setdefault("pingfighter", sys.modules[__name__])
+
 # ============================================================
 # 2. 외부 라이브러리 Import
 # ============================================================
@@ -2111,19 +2114,6 @@ except Exception as e:
     flare_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     pygame.draw.circle(flare_icon, (255, 200, 0), (16, 16), 14)  # 노란색 원
 
-# 레이저스코프 아이콘 로드 (predictor)
-predictor_icon = None  # 전역 변수로 선언
-try:
-    predictor_icon = pygame.image.load(resource_path("items/predictor.png")).convert_alpha()
-    predictor_icon = pygame.transform.scale(predictor_icon, (ICON_SIZE, ICON_SIZE))
-    print("Predictor icon loaded successfully")
-except Exception as e:
-    print(f"Failed to load predictor icon: {e}")
-    predictor_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
-    pygame.draw.circle(predictor_icon, (100, 200, 255), (16, 16), 12, 2)
-    pygame.draw.line(predictor_icon, RED, (16, 4), (16, 28), 1)
-    pygame.draw.line(predictor_icon, RED, (4, 16), (28, 16), 1)
-
 # 연막탄 아이콘 로드
 smoke_grenade_icon = None  # 전역 변수로 선언
 try:
@@ -2199,8 +2189,6 @@ for item in items.ITEM_TYPES:
         item["icon"] = grenade_icon
     elif item["name"] == "spider_mine":
         item["icon"] = spider_mine_icon
-    elif item["name"] == "predictor":
-        item["icon"] = predictor_icon
     elif item["name"] == "flare":
         item["icon"] = flare_icon
     elif item["name"] == "smoke_grenade":
@@ -2221,9 +2209,6 @@ revival_obtained = False  # 부활 아이템 획득 여부
 revival_used = False  # 부활 아이템 사용 여부
 # === 장인 관련 ===
 master_obtained = False  # 장인 아이템 획득 여부
-# === 레이저스코프 관련 ===
-predictor_active = False  # 레이저스코프 활성화 여부
-
 # === 튜토리얼 파워스매싱 관련 ===
 tutorial_power_counter_active = False  # 파워스매싱 카운터 활성화 여부
 tutorial_power_count = 0  # 현재 파워스매싱 카운트
@@ -2249,10 +2234,6 @@ chapter4_serve_reminder_timer = 0  # 서브 알림 타이머 (90 frames = 1.5초
 tutorial_half_dash_pending = False  # 하프대쉬 발동 후 공 충돌 대기 중
 tutorial_consecutive_dash_pending = False  # 연속대쉬 발동 후 공 충돌 대기 중  
 tutorial_power_right_done = False  # 오른쪽 파워스매싱 완료 여부
-predictor_timer = 0  # 레이저스코프 남은 시간
-predicted_trajectory = []  # 예측된 궤적 저장
-last_prediction_ball_y = 0  # 마지막 예측 시 공의 Y 위치
-last_prediction_skill_signature = None  # 마지막으로 예측에 사용한 보스 스킬 상태 스냅샷
 # === 쿨타임 관련 ===
 cooltime_obtained = False  # 쿨타임 아이템 획득 여부
 # === 충전가방 관련 ===
@@ -2303,6 +2284,46 @@ grenade_throwing = False  # 수류탄 투척 모션 중
 grenade_throw_timer = 0  # 투척 모션 타이머
 grenade_target_x = 0  # 수류탄 목표 X 좌표
 grenade_target_y = 0  # 수류탄 목표 Y 좌표
+
+
+def _destroy_stage2_rocks_in_radius(
+    center_x: float,
+    center_y: float,
+    radius: float,
+    *,
+    source: str,
+) -> int:
+    """스테이지 2 방어벽 바위를 폭발 반경 내에서 파괴한다."""
+
+    if current_stage != 2 or animated_bg_stage2 is None:
+        return 0
+
+    destroyed_count = 0
+    rocks_to_remove = []
+
+    for rock in list(animated_bg_stage2.crisis_rocks):
+        if rock.get("falling", False):
+            continue
+        rock_x = rock.get("x", 0)
+        rock_y = rock.get("y", 0)
+        if calculate_distance((rock_x, rock_y), (center_x, center_y)) <= radius:
+            rocks_to_remove.append(rock)
+
+    for rock in rocks_to_remove:
+        if rock.get("is_golden", False):
+            trade_point_system.spawn_star(rock["x"], rock["y"], "golden_rock")
+            print("⭐ 황금 바위 파괴 - 별 생성")
+        animated_bg_stage2.destroy_rock(rock)
+        try:
+            animated_bg_stage2.crisis_rocks.remove(rock)
+        except ValueError:
+            pass  # 동시 제거 등으로 이미 빠졌다면 무시
+        destroyed_count += 1
+
+    if destroyed_count > 0:
+        print(f"🪨 {source} 폭발로 바위 {destroyed_count}개 파괴")
+
+    return destroyed_count
 
 
 def trigger_grenade_style_explosion(
@@ -2385,21 +2406,7 @@ def trigger_grenade_style_explosion(
                 )
             print("🔥 Stage5 - 홍련 수류탄 효과 발동 (별 2개)")
 
-    if current_stage == 2 and animated_bg_stage2 is not None:
-        rocks_to_destroy = []
-        for rock in animated_bg_stage2.crisis_rocks:
-            if not rock.get('falling', False):
-                rock_distance = calculate_distance((rock['x'], rock['y']), (x, y))
-                if rock_distance < explosion_radius:
-                    rocks_to_destroy.append(rock)
-        for rock in rocks_to_destroy:
-            if rock.get('is_golden', False):
-                trade_point_system.spawn_star(rock['x'], rock['y'], "golden_rock")
-                print("⭐ 황금 바위 파괴 - 별 생성")
-            animated_bg_stage2.destroy_rock(rock)
-            animated_bg_stage2.crisis_rocks.remove(rock)
-        if rocks_to_destroy:
-            print(f"🪨 바위 {len(rocks_to_destroy)}개 파괴")
+    _destroy_stage2_rocks_in_radius(x, y, explosion_radius, source=source)
 
     if current_stage == 4 and animated_bg_stage4 is not None:
         crows_to_destroy = []
@@ -5316,10 +5323,9 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         center_x = surface_rect.centerx
         scale_value = BLACKSMITH_SCALE if abs(BLACKSMITH_SCALE) > 1e-5 else 1.0
         anchor_offset_x = int(round((scaled_anchor[0] - center_x) / scale_value))
+        # 유지 보수를 위해 디버그 토글은 남겨두되 기본 출력은 비활성화한다.
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
-            print(
-                f"[DEBUG UMB RAW] swing_dir={swing_dir} scaled_anchor={scaled_anchor} center_x={center_x} scale={scale_value} padding_bias={(left_padding - right_padding) / 2.0}"
-            )
+            pass
         padding_bias = (left_padding - right_padding) / 2.0
         if abs(padding_bias) > 0.01:
             # 양쪽 스윙 모두 동일한 padding bias 적용으로 대칭적 동작 보장
@@ -5357,9 +5363,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
         anchor_offset_x = int(round(new_value))
 
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
-            print(
-                f"[DEBUG UMB] swing_dir={swing_dir} active={blacksmith_umbrella_swing_active} raw_offset={raw_anchor_offset_x} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right} final_offset={anchor_offset_x}"
-            )
+            pass
 
         baseline_offset_y = max(0, int(round(bounds.bottom - BLACKSMITH_BASELINE_Y + BLACKSMITH_CONTACT_EXTRA_Y)))
         blacksmith_umbrella_body_offset = (anchor_offset_x, baseline_offset_y)
@@ -6585,6 +6589,87 @@ def _debug_blacksmith_hammer_cooldown() -> None:
         blacksmith_hammer_cooldown_debug_bucket = bucket
 
 
+def _handle_blacksmith_hammer_rock_collision(proj: dict) -> bool:
+    """Shatter stage 2 crisis rocks hit by a hammer projectile while keeping it active."""
+
+    if globals().get("current_stage") != 2:
+        return False
+
+    animated_bg = globals().get("animated_bg_stage2")
+    if animated_bg is None:
+        return False
+
+    rocks = getattr(animated_bg, "crisis_rocks", None)
+    if not rocks:
+        return False
+
+    proj_x = float(proj.get("x", 0.0))
+    proj_y = float(proj.get("y", 0.0))
+    radius = BLACKSMITH_HAMMER_SHOCK_PROJECTILE_HITBOX_RADIUS
+
+    destroyed_any = False
+    rocks_to_remove: list[dict] = []
+
+    for rock in list(rocks):
+        if rock.get("falling", False):
+            continue
+
+        rect = rock.get("collision_rect")
+        if rect is None:
+            continue
+
+        closest_x = max(rect.left, min(proj_x, rect.right))
+        closest_y = max(rect.top, min(proj_y, rect.bottom))
+        dx = proj_x - closest_x
+        dy = proj_y - closest_y
+        if dx * dx + dy * dy > radius * radius:
+            continue
+
+        _destroy_stage2_rock_for_blacksmith(rock)
+        rocks_to_remove.append(rock)
+        destroyed_any = True
+
+    for rock in rocks_to_remove:
+        try:
+            animated_bg.crisis_rocks.remove(rock)
+        except ValueError:
+            pass
+
+    return destroyed_any
+
+
+def _destroy_stage2_rock_for_blacksmith(rock: dict) -> None:
+    """Apply destruction effects for a crisis rock broken by the hammer projectile."""
+
+    animated_bg = globals().get("animated_bg_stage2")
+    if animated_bg is not None:
+        try:
+            animated_bg.destroy_rock(rock)
+        except Exception:
+            pass
+
+    rock_size = rock.get("size", 0)
+    try:
+        if rock_size <= 45:
+            play_sound_with_volume(SOUND_STONEBREAK_SMALL)
+        elif rock_size <= 65:
+            play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
+        else:
+            play_sound_with_volume(SOUND_STONEBREAK_LARGE)
+    except Exception:
+        pass
+
+    if rock.get("is_golden", False):
+        trade_points = globals().get("trade_point_system")
+        if trade_points is not None:
+            trade_points.spawn_star(rock.get("x", 0), rock.get("y", 0), "golden_rock")
+            try:
+                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+                play_sound_with_volume(coin_sound)
+            except Exception:
+                pass
+
+
 def _advance_blacksmith_hammer_projectile(proj: dict, frames: int = 1) -> bool:
     """Advance a hammer shock projectile; return True while it remains active."""
 
@@ -6635,6 +6720,7 @@ def _advance_blacksmith_hammer_projectile(proj: dict, frames: int = 1) -> bool:
                 proj["ball_hit_cooldown"] = BLACKSMITH_HAMMER_SHOCK_BALL_HIT_COOLDOWN_FRAMES
 
         if not exploded:
+            _handle_blacksmith_hammer_rock_collision(proj)
             off_screen = (
                 proj["x"] <= 0
                 or proj["x"] >= WIDTH
@@ -7466,6 +7552,11 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             radius,
         )
         blacksmith_hammer_explosions.append(explosion_entry)
+    except Exception:
+        pass
+
+    try:
+        _destroy_stage2_rocks_in_radius(centerx, centery, radius, source="hammer_shock")
     except Exception:
         pass
 
@@ -10746,7 +10837,9 @@ BLACKSMITH_UMBRELLA_GUARD_VERTICAL_SCALE = 0.5
 BLACKSMITH_UMBRELLA_GUARD_UPWARD_OFFSET = 62  # 기본 2cm(12px) + 추가 50px 상향 이동 (총 +62px)
 # 기본 빌드에서는 토르쉴드 히트박스 디버그 렌더링을 숨긴다.
 DEBUG_DRAW_UMBRELLA_HITBOX = False
-DEBUG_BLACKSMITH_UMBRELLA_ANCHOR = True
+DEBUG_BLACKSMITH_UMBRELLA_ANCHOR = False
+DEBUG_HANDLE_PLAYER_VERBOSE = False
+DEBUG_HANDLE_BALL_VERBOSE = False
 DEBUG_BLACKSMITH_HAMMER_COOLDOWN = True
 blacksmith_idle_body_offset: tuple[int, int] = (
     0,
@@ -11192,7 +11285,7 @@ blacksmith_trail_timer = 0
 # === 발토르 포탑 설치 시스템 ===
 BLACKSMITH_TURRET_COST = 150
 # 건설 진행도는 게이지 1pt당 1씩 증가하므로, 아래 값은 요구 게이지량과 동일하다.
-BLACKSMITH_TURRET_BUILD_TIME = 220  # 220 게이지 ≈ 4.89초 (게이지 소모 45pt/s)
+BLACKSMITH_TURRET_BUILD_TIME = 250  # 250 게이지 ≈ 5.56초 (게이지 소모 45pt/s)
 BLACKSMITH_TURRET_BUILD_RADIUS = 70
 BLACKSMITH_TURRET_FIRE_INTERVAL = int(5 * FPS)  # 미사일 발사 주기 5초 고정
 BLACKSMITH_TURRET_BASE_HP = 3
@@ -13896,6 +13989,7 @@ bazooka_recoil_direction = 0  # 반동 방향 (-1: 왼쪽, 1: 오른쪽)
 bazooka_recoil_strength = 0  # 반동 강도
 SOLDIER_BULLET_SIZE = 5  # 총알 크기
 SOLDIER_BULLET_COLOR = (255, 215, 0)  # 황금색 총알
+SOLDIER_BULLET_MAX_ROCK_BOUNCES = 2  # 바위에 튕길 수 있는 최대 횟수
 
 # 체력형 보스 상대 전용 누적 카운터 (라운드 전환 시 유지, 스테이지 전환 시 초기화)
 soldier_pistol_boss_hit_count = 0
@@ -14968,6 +15062,7 @@ def go_to_next_round():
     #  Stage 4 자기장 강제 종료
     stage4_magnetic_active = False
     stage4_magnetic_timer = 0
+    stop_stage4_magnetic_sound()
     # Stage 4에서는 게이지를 유지 (다른 스테이지에서는 초기화)
     if current_stage != 4:
         boss_special_ready_stage4 = False
@@ -15383,9 +15478,6 @@ def apply_effect(effect_name):
         # 연막탄은 5초 제한 없음 (설치형 아이템)
         activate_smoke_grenade()
         print("!     !")
-    elif effect_name == "predictor":  #  레이저스코프 아이템 활성화
-        activate_predictor()
-        print("! 10   !")
     elif effect_name == "pandora_box":  #  판도라의 상자 아이템 활성화
         activate_pandora_box()
         print("! 3  !")
@@ -16221,759 +16313,6 @@ def throw_flare():
         print(f"[DEBUG]  !")
     
     print(f"  !  : X={flare_target_x:.1f}, Y={flare_target_y:.1f}")
-def activate_predictor():
-    """레이저스코프 활성화 함수 - 10초간 공의 궤적 예측"""
-    global predictor_active, predictor_timer, predicted_trajectory
-    predictor_active = True
-    predictor_timer = 600  # 10초 지속 (60fps * 10초 = 600)
-    predicted_trajectory = []  # 초기화
-    # 효과음 재생
-    try:
-        play_active_item_sound()
-    except:
-        pass
-    print("! 레이저스코프 활성화 - 10초간 궤적 예측 !")
-def calculate_trajectory():
-    """공이 보스 패들에서 출발할 때 한 번만 궤적을 계산하는 함수 (보스 기술 예측 포함)"""
-    global ball_vel, BALL, WIDTH, HEIGHT, PLAYER, BOSS, predicted_trajectory, last_prediction_ball_y
-    global last_prediction_skill_signature
-    global current_stage, boss_special_ready, boss_special_gauge, boss_special_ready_stage4, boss_special_gauge_stage4
-    
-    # BALL이 None인지 확인
-    if BALL is None:
-        return
-    global meditation_active, meditation_timer, stage4_magnetic_active, stage4_magnetic_timer
-    global flame_trail_active, flame_trail_phase, flame_trail_rng, power_smashing_parabola_active, power_smashing_start_time, power_smashing_rng
-    global quake_active, quake_timer, tears_active, tears_timer, quake_last_used_time, last_tears_cast_time
-    global QUAKE_COOLDOWN, TEARS_COOLDOWN
-    global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer, stopwatch_original_ball_vel, stopwatch_forced_upward
-
-    current_skill_signature = (
-        quake_active,
-        quake_timer if quake_active else 0,
-        tears_active,
-        meditation_active,
-        meditation_timer if meditation_active else 0,
-        stage4_magnetic_active,
-        stage4_magnetic_timer if stage4_magnetic_active else 0,
-        flame_trail_active,
-        flame_trail_phase if flame_trail_active else 0,
-        power_smashing_parabola_active,
-        power_smashing_start_time if power_smashing_parabola_active else 0,
-    )
-
-    skill_active_now = (
-        quake_active
-        or tears_active
-        or meditation_active
-        or stage4_magnetic_active
-        or flame_trail_active
-        or power_smashing_parabola_active
-    )
-
-    boss_launch_threshold = 160
-    if BOSS is not None:
-        boss_launch_threshold = max(120, BOSS.bottom + 40)
-
-    recalc_needed = False
-    skill_type_debug = "unknown"
-    if ball_vel[1] > 0 and BALL.centery <= boss_launch_threshold and BALL.centery != last_prediction_ball_y:
-        recalc_needed = True
-        recalc_reason = "ball_launch_window"
-    elif not predicted_trajectory and ball_vel[1] > 0:
-        recalc_needed = True
-        recalc_reason = "trajectory_empty"
-    elif current_skill_signature != last_prediction_skill_signature and (ball_vel[1] > 0 or skill_active_now):
-        recalc_needed = True
-        recalc_reason = "skill_signature_changed"
-    else:
-        recalc_reason = "no_trigger"
-
-    if DEBUG_PREDICTOR:
-        print(f"[Predictor] check stage={current_stage} ball_y={BALL.centery:.1f} vy={ball_vel[1]:.2f} threshold={boss_launch_threshold} needed={recalc_needed} reason={recalc_reason}")
-
-    if not recalc_needed:
-        return
-    
-
-    last_prediction_ball_y = BALL.centery
-    last_prediction_skill_signature = current_skill_signature
-
-    freeze_frames = stopwatch_timer if stopwatch_active and stopwatch_timer > 0 else 0
-    recovery_frames = stopwatch_recovery_timer if stopwatch_active and stopwatch_recovery_timer > 0 else 0
-    resume_velocity = None
-    if stopwatch_original_ball_vel:
-        resume_velocity = [stopwatch_original_ball_vel[0], stopwatch_original_ball_vel[1]]
-    else:
-        recovery_frames = 0
-    resume_pending = freeze_frames > 0 and resume_velocity is not None
-
-    # 시뮬레이션용 변수
-    sim_x = BALL.centerx
-    sim_y = BALL.centery
-    sim_vel_x = ball_vel[0]
-    sim_vel_y = ball_vel[1]
-    # 새로운 궤적 계산
-    predicted_trajectory = []
-
-    #  보스 기술 발동 예측 및 현재 활성 기술 감지
-    skill_probability = 0.0
-    skill_type = None
-
-    # 현재 활성화된 기술 확인 (100% 확률)
-    if quake_active:
-        skill_probability = 1.0
-        skill_type = "quake"
-    elif tears_active:
-        skill_probability = 1.0
-        skill_type = "tears"
-    elif meditation_active:
-        skill_probability = 1.0
-        skill_type = "meditation"
-    elif stage4_magnetic_active:
-        skill_probability = 1.0
-        skill_type = "magnetic"
-    elif flame_trail_active:
-        skill_probability = 1.0
-        skill_type = "flame_trail"
-    elif power_smashing_parabola_active:
-        skill_probability = 1.0
-        skill_type = "power_smashing"
-    else:
-        # 기술이 활성화되지 않은 경우 예측
-        # Stage별 보스 기술 예측
-        if current_stage == 2:
-            # 정글맨 - 정글지진
-            current_time = pygame.time.get_ticks()
-            time_since_last_quake = current_time - quake_last_used_time
-            if time_since_last_quake >= QUAKE_COOLDOWN:
-                # 쿨타임이 끝났으면 높은 확률로 발동 예측
-                skill_probability = 0.6
-                skill_type = "quake"
-            elif time_since_last_quake >= QUAKE_COOLDOWN * 0.8:
-                # 쿨타임 80% 지났으면 중간 확률
-                skill_probability = 0.3
-                skill_type = "quake"
-        elif current_stage == 3:
-            # 멘헤라걸 - 눈물샤워 (플레이어 속도 감소)
-            if boss_special_ready:
-                skill_probability = 0.8
-                skill_type = "tears"
-            elif boss_special_gauge > 70:
-                skill_probability = 0.3
-                skill_type = "tears"
-        elif current_stage == 4:
-            # 대쉬스피릿 - 자기장 또는 명상타임
-            if boss_special_ready_stage4:
-                skill_probability = 0.7
-                if meditation_active:
-                    skill_type = "meditation"
-                elif stage4_magnetic_active:
-                    skill_type = "magnetic"
-                else:
-                    skill_type = "magnetic" if random.random() < 0.6 else "meditation"
-            elif boss_special_gauge_stage4 > 80:
-                skill_probability = 0.4
-                skill_type = "magnetic"
-        elif current_stage == 5:
-            # 홍련봄버 - 화염궤적
-            if boss_special_ready:
-                skill_probability = 0.6
-                skill_type = "flame_trail"
-            elif boss_special_gauge > 60:
-                skill_probability = 0.2
-                skill_type = "flame_trail"
-
-    skill_type_debug = skill_type
-
-    # 파워스매싱 예측 (모든 스테이지)
-    if boss_special_gauge > 90:
-        skill_probability = max(skill_probability, 0.5)
-        if not skill_type:
-            skill_type = "power_smashing"
-    elif boss_special_gauge > 70:
-        skill_probability = max(skill_probability, 0.2)
-        if not skill_type:
-            skill_type = "power_smashing"
-
-    high_detail_skills = {"flame_trail", "power_smashing", "magnetic", "meditation", "quake"}
-    sampling_interval = 1 if skill_type in high_detail_skills else 3
-
-    if ball_vel[1] <= 0 and not skill_type:
-        return
-
-    # 최대 500프레임 예측 (충분한 시간)
-    max_steps = 500
-    random_state = random.getstate()
-    base_ticks = pygame.time.get_ticks()
-    sim_meditation_timer = meditation_timer if meditation_active else meditation_duration
-    sim_meditation_angle = meditation_angle if meditation_active else 0
-    sim_magnetic_curve = magnet_curve_angle if stage4_magnetic_active else 0
-    sim_magnetic_timer = stage4_magnetic_timer if stage4_magnetic_active else 200
-    base_flame_vec = globals().get("flame_trail_base_vel")
-    if isinstance(base_flame_vec, pygame.math.Vector2):
-        sim_flame_base_vel = (base_flame_vec.x, base_flame_vec.y)
-    elif isinstance(base_flame_vec, (list, tuple)):
-        sim_flame_base_vel = (base_flame_vec[0], base_flame_vec[1])
-    else:
-        sim_flame_base_vel = None
-    flame_start_time_snapshot = globals().get("flame_trail_start_time", base_ticks)
-    sim_flame_phase = flame_trail_phase if flame_trail_active else 0
-    sim_flame_timer = flame_trail_timer if flame_trail_active else TWO_SECONDS_FRAMES
-    sim_flame_rng = None
-    if flame_trail_rng is not None:
-        sim_flame_rng = random.Random()
-        sim_flame_rng.setstate(flame_trail_rng.getstate())
-    sim_quake_timer = quake_timer if quake_active else quake_duration
-    sim_quake_restore_speed = original_ball_speed_quake[:] if quake_active else None
-    sim_quake_rng = None
-    if quake_rng is not None:
-        sim_quake_rng = random.Random()
-        sim_quake_rng.setstate(quake_rng.getstate())
-    sim_power_smashing_initial_boost = power_smashing_initial_boost
-    sim_power_smashing_start = power_smashing_start_time
-    sim_power_smashing_direction = power_smashing_direction
-    sim_power_smashing_target_speed = power_smashing_target_speed
-    frame_time_ms = 1000.0 / FPS if FPS else 16.6667
-    sim_power_smashing_rng = None
-    if power_smashing_rng is not None:
-        sim_power_smashing_rng = random.Random()
-        sim_power_smashing_rng.setstate(power_smashing_rng.getstate())
-
-    try:
-        for step in range(max_steps):
-                if DEBUG_PREDICTOR and step < 5:
-                    print(f"[Predictor] step={step} sim=({sim_x:.1f},{sim_y:.1f}) vel=({sim_vel_x:.2f},{sim_vel_y:.2f}) freeze={freeze_frames} recov={recovery_frames}")
-                if freeze_frames > 0:
-                    freeze_frames -= 1
-                    if freeze_frames == 0 and resume_pending:
-                        sim_vel_x = resume_velocity[0]
-                        sim_vel_y = resume_velocity[1]
-                        resume_pending = False
-                    if step % sampling_interval == 0:
-                        predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
-                        if DEBUG_PREDICTOR and len(predicted_trajectory) <= 5:
-                            print(f"[Predictor] append(freeze) step={step} point={(int(sim_x), int(sim_y))}")
-                    continue
-
-                if resume_pending and resume_velocity:
-                    sim_vel_x = resume_velocity[0]
-                    sim_vel_y = resume_velocity[1]
-                    resume_pending = False
-
-                if recovery_frames > 0 and resume_velocity:
-                    recovery_ratio = 1 - (recovery_frames / STOPWATCH_RECOVERY_TIME)
-                    effective_ratio = max(0.3, recovery_ratio)
-                    original_speed = math.hypot(resume_velocity[0], resume_velocity[1])
-                    target_speed = original_speed * effective_ratio
-                    dir_x, dir_y = resume_velocity
-                    direction_norm = math.hypot(dir_x, dir_y)
-                    if direction_norm > 0:
-                        direction_x = dir_x / direction_norm
-                        direction_y = dir_y / direction_norm
-                    else:
-                        direction_x, direction_y = 0.0, -1.0
-                    if stopwatch_forced_upward and direction_y >= 0:
-                        direction_y = -abs(direction_y if abs(direction_y) > 1e-3 else 0.5)
-                    sim_vel_x = direction_x * target_speed
-                    sim_vel_y = direction_y * target_speed
-                    recovery_frames -= 1
-                    if recovery_frames == 0:
-                        sim_vel_x = resume_velocity[0]
-                        sim_vel_y = resume_velocity[1]
-
-                skill_active_now = False
-                if skill_type == "quake" and quake_active:
-                    skill_active_now = True
-                elif skill_type == "meditation" and meditation_active:
-                    skill_active_now = True
-                elif skill_type == "magnetic" and stage4_magnetic_active:
-                    skill_active_now = True
-                elif skill_type == "flame_trail" and flame_trail_active:
-                    skill_active_now = True
-                elif skill_type == "power_smashing" and power_smashing_parabola_active:
-                    skill_active_now = True
-
-                if skill_type and (skill_active_now or step > 30):
-                    if skill_type == "quake":
-                        if skill_active_now:
-                            if sim_quake_timer > 0:
-                                sim_quake_timer -= 1
-                                if sim_quake_rng:
-                                    shake_x = sim_quake_rng.uniform(-3, 3)
-                                    shake_y = sim_quake_rng.uniform(-2, 2)
-                                else:
-                                    shake_x = random.uniform(-3, 3)
-                                    shake_y = random.uniform(-2, 2)
-                                sim_vel_x += shake_x
-                                sim_vel_y += shake_y
-                                dx = PLAYER.centerx - sim_x
-                                dy = PLAYER.centery - sim_y
-                                distance = math.hypot(dx, dy)
-                                if distance > 10:
-                                    influence = 0.15 / distance
-                                    sim_vel_x += dx * influence * 0.01
-                                    sim_vel_y += dy * influence * 0.01
-                                max_speed = 8.0
-                                sim_vel_x = max(-max_speed, min(max_speed, sim_vel_x))
-                                sim_vel_y = max(-max_speed, min(max_speed, sim_vel_y))
-                            elif sim_quake_restore_speed:
-                                sim_vel_x = sim_quake_restore_speed[0]
-                                sim_vel_y = sim_quake_restore_speed[1]
-                        elif step - 30 < quake_duration:
-                            shake_x = random.uniform(-3, 3)
-                            shake_y = random.uniform(-2, 2)
-                            sim_vel_x += shake_x * 0.3
-                            sim_vel_y += shake_y * 0.3
-                            dx = PLAYER.centerx - sim_x
-                            dy = PLAYER.centery - sim_y
-                            distance = math.hypot(dx, dy)
-                            if distance > 10:
-                                influence = 0.15 / distance
-                                sim_vel_x += dx * influence * 0.005
-                                sim_vel_y += dy * influence * 0.005
-                            max_speed = 8
-                            sim_vel_x = max(-max_speed, min(max_speed, sim_vel_x))
-                            sim_vel_y = max(-max_speed, min(max_speed, sim_vel_y))
-
-                    elif skill_type == "tears":
-                        pass
-
-                    elif skill_type == "meditation":
-                        if skill_active_now:
-                            if sim_meditation_timer > 0:
-                                sim_meditation_timer -= 1
-                                prev_x, prev_y = sim_x, sim_y
-                                sim_meditation_angle += (720.0 / meditation_duration)
-                                radian_angle = math.radians(sim_meditation_angle)
-                                scale = meditation_orbit_radius * 1.5
-                                denominator = 1 + math.sin(radian_angle) ** 2
-                                sim_x = BOSS.centerx + scale * math.cos(radian_angle) / denominator
-                                sim_y = BOSS.centery + scale * math.sin(radian_angle) * math.cos(radian_angle) / denominator
-                                sim_vel_x = sim_x - prev_x
-                                sim_vel_y = sim_y - prev_y
-                                continue
-                            else:
-                                angle = random.randint(-45, 45)
-                                speed = BALL_BASE_SPEED * random.uniform(1.3, 1.6)
-                                sim_vel_x = speed * math.sin(math.radians(angle))
-                                sim_vel_y = abs(speed * math.cos(math.radians(angle)))
-                        elif step < 108:
-                            sim_meditation_angle += (540.0 / 108.0)
-                            radian_angle = math.radians(sim_meditation_angle)
-                            scale = 80 * 1.5
-                            denominator = 1 + math.sin(radian_angle) ** 2
-                            sim_x = BOSS.centerx + scale * math.cos(radian_angle) / denominator
-                            sim_y = BOSS.centery + scale * math.sin(radian_angle) * math.cos(radian_angle) / denominator
-                            if step == 107:
-                                angle = random.uniform(-60, 60)
-                                base_speed = math.hypot(sim_vel_x, sim_vel_y)
-                                speed = min(base_speed * 1.1, BALL_BASE_SPEED * 1.2)
-                                sim_vel_x = speed * math.sin(math.radians(angle))
-                                sim_vel_y = speed * math.cos(math.radians(angle))
-                            continue
-
-                    elif skill_type == "magnetic":
-                        if skill_active_now:
-                            if sim_magnetic_timer > 0:
-                                sim_magnetic_timer -= 1
-                                direction_to_player_x = PLAYER.centerx - sim_x
-                                direction_to_player_y = PLAYER.centery - sim_y
-                                distance = math.hypot(direction_to_player_x, direction_to_player_y)
-                                if distance > 0:
-                                    direction_to_player_x /= distance
-                                    direction_to_player_y /= distance
-                                    sim_magnetic_curve += 4.1
-                                    theta = math.radians(sim_magnetic_curve)
-                                    rotated_x = direction_to_player_x * math.cos(theta) - direction_to_player_y * math.sin(theta)
-                                    rotated_y = direction_to_player_x * math.sin(theta) + direction_to_player_y * math.cos(theta)
-                                    sim_vel_x += rotated_x * 1.8
-                                    sim_vel_y += rotated_y * 1.8
-                                    sim_vel_x *= 1.04
-                                    sim_vel_y *= 1.04
-                                    current_speed = math.hypot(sim_vel_x, sim_vel_y)
-                                    max_speed = BALL_BASE_SPEED * 2.2
-                                    if current_speed > max_speed:
-                                        scale_factor = max_speed / current_speed
-                                        sim_vel_x *= scale_factor
-                                        sim_vel_y *= scale_factor
-                            else:
-                                recover_speed = max(player_last_shot_speed, BALL_BASE_SPEED)
-                                direction_length = math.hypot(sim_vel_x, sim_vel_y)
-                                if direction_length == 0:
-                                    sim_vel_x, sim_vel_y = 0.0, recover_speed
-                                else:
-                                    sim_vel_x = (sim_vel_x / direction_length) * recover_speed
-                                    sim_vel_y = (sim_vel_y / direction_length) * recover_speed
-                                sim_magnetic_curve = 0
-                        elif step < 150:
-                            direction_to_player_x = PLAYER.centerx - sim_x
-                            direction_to_player_y = PLAYER.centery - sim_y
-                            distance = math.hypot(direction_to_player_x, direction_to_player_y)
-                            if distance > 0:
-                                direction_to_player_x /= distance
-                                direction_to_player_y /= distance
-                                sim_magnetic_curve += 4.1
-                                curve_x = direction_to_player_x * math.cos(math.radians(sim_magnetic_curve)) * 1.8
-                                curve_y = direction_to_player_y * math.sin(math.radians(sim_magnetic_curve)) * 1.8
-                                sim_vel_x += curve_x * 0.1
-                                sim_vel_y += curve_y * 0.1
-                                sim_vel_x *= 1.02
-                                sim_vel_y *= 1.02
-
-                    elif skill_type == "flame_trail":
-                        if skill_active_now:
-                            sim_flame_timer = max(0, sim_flame_timer - 1)
-                            sim_time_ms = base_ticks + step * frame_time_ms
-                            if sim_flame_phase == 0:
-                                sim_flame_phase = 1
-                                flame_start_time_snapshot = sim_time_ms
-                                dir_x = PLAYER.centerx - sim_x
-                                dir_y = PLAYER.centery - sim_y
-                                length = math.hypot(dir_x, dir_y)
-                                if length != 0:
-                                    sim_flame_base_vel = (dir_x / length, dir_y / length)
-                                else:
-                                    sim_flame_base_vel = (0.0, 1.0)
-                            elapsed = max(0.0, (sim_time_ms - flame_start_time_snapshot) / 1000.0)
-                            prev_x, prev_y = sim_x, sim_y
-                            if elapsed < 1.0:
-                                sim_x += math.sin(elapsed * 25) * 2
-                                sim_y += math.cos(elapsed * 30) * 1
-                                sim_vel_x = sim_x - prev_x
-                                sim_vel_y = sim_y - prev_y
-                                continue
-                            if sim_flame_phase == 1:
-                                sim_flame_phase = 2
-                            accel_elapsed = elapsed - 1.0
-                            max_speed = 6.0
-                            accel_time = 6.0
-                            current_speed = max_speed * min(1.0, accel_elapsed / accel_time)
-                            current_speed = max(0.001, current_speed ** 1.2)
-                            amplitude_x = min(40, 10 + accel_elapsed * 6)
-                            amplitude_y = min(20, 5 + accel_elapsed * 3)
-                            if sim_flame_rng:
-                                noise_x = sim_flame_rng.uniform(-2, 2)
-                                noise_y = sim_flame_rng.uniform(-1, 1)
-                            else:
-                                noise_x = random.uniform(-2, 2)
-                                noise_y = random.uniform(-1, 1)
-                            base_vx = sim_flame_base_vel[0] if sim_flame_base_vel else 0.0
-                            base_vy = sim_flame_base_vel[1] if sim_flame_base_vel else 1.0
-                            sim_x += base_vx * current_speed + math.sin(accel_elapsed * 6) * amplitude_x + noise_x
-                            sim_y += base_vy * current_speed + math.cos(accel_elapsed * 3) * amplitude_y + noise_y
-                            sim_vel_x = sim_x - prev_x
-                            sim_vel_y = sim_y - prev_y
-                            continue
-                        elif step < 120:
-                            wave_amplitude = 50
-                            wave_frequency = 0.05
-                            sim_vel_x += math.sin(step * wave_frequency) * 2
-
-                    elif skill_type == "power_smashing":
-                        if skill_active_now:
-                            sim_time_ms = base_ticks + step * frame_time_ms
-                            elapsed_time = max(0.0, (sim_time_ms - sim_power_smashing_start) / 1000.0)
-
-                            if sim_power_smashing_initial_boost and power_smashing_boost_duration > 0:
-                                current_speed = math.hypot(sim_vel_x, sim_vel_y)
-                                boost_duration = power_smashing_boost_duration / 1000.0
-                                boost_progress = min(1.0, elapsed_time / boost_duration) if boost_duration else 1.0
-                                if sim_power_smashing_direction == 0:
-                                    initial_boosted_speed = power_smashing_target_speed * 1.8
-                                else:
-                                    initial_boosted_speed = power_smashing_target_speed * 2.0
-                                interpolated_speed = initial_boosted_speed - (initial_boosted_speed - power_smashing_target_speed) * boost_progress
-                                if current_speed > 0:
-                                    speed_ratio = interpolated_speed / current_speed
-                                    sim_vel_x *= speed_ratio
-                                    sim_vel_y *= speed_ratio
-                                if boost_progress >= 1.0:
-                                    sim_power_smashing_initial_boost = False
-
-                            horizontal_decay = max(0.8, 1.0 - elapsed_time * 0.05)
-                            chaos_source = sim_power_smashing_rng or random
-                            chaos_factor = math.sin(elapsed_time * 5.0) * 0.05 + chaos_source.uniform(-0.04, 0.04)
-                            horizontal_force = power_smashing_arc_strength * horizontal_decay * (0.5 + chaos_factor * 0.2)
-                            sim_vel_x += horizontal_force
-
-                            if elapsed_time < 1.8:
-                                base_lift = power_smashing_gravity_effect * 1.5 * (1.8 - elapsed_time) / 1.8
-                                vertical_chaos = math.cos(elapsed_time * 5.0) * 0.015
-                                vertical_lift = base_lift + vertical_chaos
-                                sim_vel_y -= vertical_lift
-                            else:
-                                base_pull = power_smashing_gravity_effect * 1.2 * (elapsed_time - 1.8)
-                                descent_chaos = math.sin(elapsed_time * 7.0) * 0.015
-                                vertical_pull = base_pull + descent_chaos
-                                sim_vel_y += vertical_pull
-                        else:
-                            if step < 60:
-                                arc_strength = 0.3
-                                sim_vel_y += arc_strength
-
-                if step % sampling_interval == 0:
-                    if skill_probability > 0.3:
-                        predicted_trajectory.append((int(sim_x), int(sim_y), skill_probability))
-                    else:
-                        predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
-                    if DEBUG_PREDICTOR and len(predicted_trajectory) <= 5:
-                        print(f"[Predictor] append step={step} point={(int(sim_x), int(sim_y))} prob={skill_probability:.2f}")
-
-                sim_x += sim_vel_x
-                sim_y += sim_vel_y
-
-                if sim_x <= BALL.width // 2 or sim_x >= WIDTH - BALL.width // 2:
-                    sim_vel_x = -sim_vel_x
-                    sim_x = max(BALL.width // 2, min(WIDTH - BALL.width // 2, sim_x))
-
-                player_collision_y = PLAYER.top - BALL.height / 2
-                if sim_y >= player_collision_y:
-                    predicted_trajectory.append((int(sim_x), int(sim_y), 1.0))
-                    break
-
-                if sim_y > HEIGHT + LARGE_SIZE:
-                    break
-    finally:
-        random.setstate(random_state)
-
-        if DEBUG_PREDICTOR:
-            print(f"[Predictor] post-sim len={len(predicted_trajectory)} first={predicted_trajectory[:5] if predicted_trajectory else []}")
-
-        if len(predicted_trajectory) < 2:
-            fallback_points = []
-            fallback_x = BALL.centerx
-            fallback_y = BALL.centery
-            fallback_vx = ball_vel[0]
-            fallback_vy = ball_vel[1]
-            for step in range(200):
-                if step % 3 == 0:
-                    fallback_points.append((int(fallback_x), int(fallback_y)))
-                fallback_x += fallback_vx
-                fallback_y += fallback_vy
-                if fallback_x <= BALL.width // 2 or fallback_x >= WIDTH - BALL.width // 2:
-                    fallback_vx = -fallback_vx
-                    fallback_x = max(BALL.width // 2, min(WIDTH - BALL.width // 2, fallback_x))
-                if fallback_y >= HEIGHT - 40:
-                    fallback_points.append((int(fallback_x), int(fallback_y)))
-                    break
-                if fallback_y > HEIGHT + LARGE_SIZE:
-                    break
-            if len(fallback_points) >= 2:
-                predicted_trajectory = fallback_points
-                if DEBUG_PREDICTOR:
-                    print(f"[Predictor] fallback len={len(fallback_points)} first_points={fallback_points[:5]}")
-            else:
-                if DEBUG_PREDICTOR:
-                    print(f"[Predictor] fallback insufficient points len={len(fallback_points)}")
-        else:
-            if DEBUG_PREDICTOR:
-                print(f"[Predictor] primary len={len(predicted_trajectory)} first={predicted_trajectory[:5]}")
-
-        if skill_type in high_detail_skills and len(predicted_trajectory) > 2:
-            raw_trajectory = predicted_trajectory[:]
-            smoothing_radius_map = {
-                "flame_trail": 2,
-                "power_smashing": 2,
-                "magnetic": 2,
-                "meditation": 1,
-                "quake": 5,
-            }
-            smoothing_radius = smoothing_radius_map.get(skill_type, 2)
-            smoothed_trajectory = []
-            for idx, point in enumerate(predicted_trajectory):
-                start = max(0, idx - smoothing_radius)
-                end = min(len(predicted_trajectory) - 1, idx + smoothing_radius)
-
-                weighted_sum_x = 0.0
-                weighted_sum_y = 0.0
-                weight_total = 0.0
-                for j in range(start, end + 1):
-                    neighbor = predicted_trajectory[j]
-                    distance = abs(j - idx)
-                    weight = smoothing_radius - distance + 1
-                    weighted_sum_x += neighbor[0] * weight
-                    weighted_sum_y += neighbor[1] * weight
-                    weight_total += weight
-
-                avg_x = int(weighted_sum_x / weight_total)
-                avg_y = int(weighted_sum_y / weight_total)
-
-                if len(point) == 3:
-                    smoothed_trajectory.append((avg_x, avg_y, point[2]))
-                else:
-                    smoothed_trajectory.append((avg_x, avg_y))
-
-            if len(smoothed_trajectory) >= 2:
-                predicted_trajectory = smoothed_trajectory
-            else:
-                predicted_trajectory = raw_trajectory
-
-        if DEBUG_PREDICTOR:
-            preview = predicted_trajectory[:5]
-            print(f"[Predictor] calculated len={len(predicted_trajectory)} skill={skill_type_debug} freeze={freeze_frames} recovery={recovery_frames} first_points={preview}")
-def draw_predicted_trajectory():
-    """레이저스코프 활성화 시 저장된 궤적을 그리는 함수"""
-    global predicted_trajectory, predictor_active, ball_vel
-    global quake_active, meditation_active, stage4_magnetic_active, flame_trail_active, power_smashing_parabola_active
-    
-    if not predictor_active:
-        return
-    
-    # 공이 위로 향하고 있으면 궤적 지우기 (플레이어가 친 경우)
-    # 하지만 공이 아래로 향하면 궤적 계산 (보스가 친 경우)
-    skill_active_now = (
-        quake_active
-        or meditation_active
-        or stage4_magnetic_active
-        or flame_trail_active
-        or power_smashing_parabola_active
-    )
-    
-    # 공이 아래로 향하고 있을 때만 궤적 계산 (ball_vel[1] > 0)
-    if ball_vel[1] > 0 or skill_active_now:
-        # 궤적 계산 (보스가 방금 친 공의 경우)
-        calculate_trajectory()
-    else:
-        # 플레이어가 친 경우 궤적 지우기
-        predicted_trajectory = []
-        if DEBUG_PREDICTOR:
-            print(f"[Predictor] draw cleared because ball heading up: vy={ball_vel[1]:.2f}")
-        return
-
-    if DEBUG_PREDICTOR:
-        print(f"[Predictor] draw render len={len(predicted_trajectory)} first_points={predicted_trajectory[:5]}")
-    # 저장된 궤적 그리기
-    if len(predicted_trajectory) > 1:
-        # 전체 궤적을 하나의 Surface에 그리기
-        trajectory_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        # 애니메이션을 위한 오프셋 (천천히 움직이는 효과)
-        time_offset = pygame.time.get_ticks() * 0.001  # 천천히 움직이도록
-        for i in range(len(predicted_trajectory) - 1):
-            # 확률 정보가 포함된 경우와 아닌 경우 처리
-            if len(predicted_trajectory[i]) == 3:
-                start_pos = predicted_trajectory[i][:2]
-                probability = predicted_trajectory[i][2]
-            else:
-                start_pos = predicted_trajectory[i]
-                probability = 1.0
-            
-            if len(predicted_trajectory[i + 1]) == 3:
-                end_pos = predicted_trajectory[i + 1][:2]
-            else:
-                end_pos = predicted_trajectory[i + 1]
-            
-            # 선분 길이 계산
-            segment_length = ((end_pos[0] - start_pos[0])**2 + (end_pos[1] - start_pos[1])**2)**0.5
-            # 점선 그리기 (움직이는 효과)
-            dash_length = 15  # 각 대시 길이
-            gap_length = 10   # 간격 길이
-            total_pattern = dash_length + gap_length
-            # 선분을 따라 점선 그리기
-            if segment_length > 0:
-                num_dashes = int(segment_length / total_pattern) + 2
-                for dash in range(num_dashes):
-                    # 애니메이션 오프셋 적용
-                    dash_start = (dash * total_pattern + time_offset * 30) % segment_length
-                    dash_end = min(dash_start + dash_length, segment_length)
-                    if dash_start < segment_length:
-                        # 대시의 시작과 끝 위치 계산
-                        t_start = dash_start / segment_length
-                        t_end = dash_end / segment_length
-                        dash_start_x = start_pos[0] + (end_pos[0] - start_pos[0]) * t_start
-                        dash_start_y = start_pos[1] + (end_pos[1] - start_pos[1]) * t_start
-                        dash_end_x = start_pos[0] + (end_pos[0] - start_pos[0]) * t_end
-                        dash_end_y = start_pos[1] + (end_pos[1] - start_pos[1]) * t_end
-                        # 확률에 따라 색상과 투명도 조절
-                        # 기술별로 다른 색상 사용
-                        if probability < 1.0:
-                            # 보스 기술 예측 경로 (기술별 색상, 확률에 따라 투명도 조절)
-                            alpha = int(200 * probability)
-                            
-                            # Stage별로 색상 다르게 설정
-                            if current_stage == 2:  # 정글맨 - 정글지진 (녹색)
-                                color = (0, 255, 0, alpha)  # 녹색
-                                center_color = (100, 255, 100, int(150 * probability))
-                            elif current_stage == 3 and tears_active:  # 멘헤라걸 - 눈물샤워 (하늘색)
-                                color = (0, 200, 255, alpha)  # 하늘색
-                                center_color = (100, 200, 255, int(150 * probability))
-                            else:
-                                color = (255, 255, 0, alpha)  # 노란색 (기본)
-                                center_color = (255, 255, 100, int(150 * probability))
-                        else:
-                            # 일반 경로 (빨간색)
-                            color = (255, 0, 0, 200)
-                            center_color = (255, 100, 100, 150)
-                        
-                        # 점선 그리기
-                        pygame.draw.line(trajectory_surface, color, 
-                                       (dash_start_x, dash_start_y), 
-                                       (dash_end_x, dash_end_y), 5)
-                        # 밝은 중심선 효과
-                        pygame.draw.line(trajectory_surface, center_color, 
-                                       (dash_start_x, dash_start_y), 
-                                       (dash_end_x, dash_end_y), 3)
-            # 궤적 포인트 표시 (일정 간격으로)
-            if i % 4 == 0:
-                # 빨간색 발광 효과
-                pygame.draw.circle(trajectory_surface, (255, 150, 150, 100), start_pos, 6)
-                pygame.draw.circle(trajectory_surface, (255, 50, 50, 200), start_pos, 4)
-        # 궤적 Surface를 화면에 블릿
-        SCREEN.blit(trajectory_surface, (0, 0))
-    # 최종 도착 예상 지점에 타겟 마커 그리기
-    if predicted_trajectory:
-        # 최종 지점의 확률 정보 확인
-        if len(predicted_trajectory[-1]) == 3:
-            final_point = predicted_trajectory[-1][:2]
-            final_probability = predicted_trajectory[-1][2]
-        else:
-            final_point = predicted_trajectory[-1]
-            final_probability = 1.0
-        
-        # 타겟 십자선 그리기 - 크고 명확하게
-        marker_surface = pygame.Surface((80, 80), pygame.SRCALPHA)
-        
-        # 확률에 따라 색상 결정
-        if final_probability < 1.0:
-            # 기술별 타겟 색상
-            if current_stage == 2:  # 정글지진 (녹색)
-                marker_color = (0, 255, 0, int(200 * final_probability))
-                line_color = (0, 255, 0, int(255 * final_probability))
-                text_color = (0, 255, 0)
-            elif current_stage == 3 and tears_active:  # 눈물샤워 (하늘색)
-                marker_color = (0, 200, 255, int(200 * final_probability))
-                line_color = (0, 200, 255, int(255 * final_probability))
-                text_color = (0, 200, 255)
-            else:  # 기본 (노란색)
-                marker_color = (255, 255, 0, int(200 * final_probability))
-                line_color = (255, 255, 0, int(255 * final_probability))
-                text_color = (255, 255, 0)
-            
-            # 확률 텍스트 표시
-            try:
-                font = pygame.font.Font(resource_path("NeoDGM.ttf"), 16)
-            except:
-                font = pygame.font.Font(None, 16)
-            prob_text = font.render(f"{int(final_probability * 100)}%", True, text_color)
-            marker_surface.blit(prob_text, (25, 5))
-        else:
-            # 일반 타겟 (빨간색)
-            marker_color = (255, 0, 0, 200)
-            line_color = (255, 0, 0, 255)
-        
-        # 외부 원
-        pygame.draw.circle(marker_surface, marker_color, (40, 40), 30, 3)
-        # 십자선
-        pygame.draw.line(marker_surface, line_color, (40, 10), (40, 70), 3)
-        pygame.draw.line(marker_surface, line_color, (10, 40), (70, 40), 3)
-        # 내부 점
-        pygame.draw.circle(marker_surface, (255, 50, 50, 255), (40, 40), 5)
-        # 빛나는 효과
-        for radius in range(10, 35, 5):
-            alpha = 50 - radius
-            pygame.draw.circle(marker_surface, (255, 100, 100, alpha), (40, 40), radius, 1)
-        SCREEN.blit(marker_surface, (final_point[0] - 40, final_point[1] - 40))
-
 def render_throwing_item_cooldown():
     """화기류 아이템 라운드 시작 3초 제한 표시"""
     global round_start_time, active_item_slot
@@ -20288,7 +19627,8 @@ def create_soldier_bullet():
             "y": bullet_start_y,
             "vel_x": dx_norm * SOLDIER_BULLET_SPEED,
             "vel_y": dy_norm * SOLDIER_BULLET_SPEED,
-            "active": True
+            "active": True,
+            "rock_bounces": 0,
         }
         soldier_bullets.append(bullet)
         
@@ -20469,12 +19809,81 @@ def update_soldier_bullets():
                 bullet["y"] < -50 or bullet["y"] > HEIGHT + 50):
                 bullet["active"] = False
             
-            # 보스와의 충돌 검사
-            bullet_rect = pygame.Rect(bullet["x"] - SOLDIER_BULLET_SIZE, 
-                                     bullet["y"] - SOLDIER_BULLET_SIZE,
-                                     SOLDIER_BULLET_SIZE * 2, 
-                                     SOLDIER_BULLET_SIZE * 2)
-            
+            # 바위 및 보스와의 충돌 검사
+            bullet_rect = pygame.Rect(
+                bullet["x"] - SOLDIER_BULLET_SIZE,
+                bullet["y"] - SOLDIER_BULLET_SIZE,
+                SOLDIER_BULLET_SIZE * 2,
+                SOLDIER_BULLET_SIZE * 2,
+            )
+
+            if (
+                bullet["active"]
+                and current_stage == 2
+                and animated_bg_stage2 is not None
+                and animated_bg_stage2.crisis_rocks
+            ):
+                for rock in animated_bg_stage2.crisis_rocks:
+                    if rock.get("falling", False):
+                        continue
+                    rect = rock.get("collision_rect")
+                    if rect is None:
+                        continue
+                    if not bullet_rect.colliderect(rect):
+                        continue
+
+                    if bullet.get("rock_bounces", 0) >= SOLDIER_BULLET_MAX_ROCK_BOUNCES:
+                        bullet["active"] = False
+                        break
+
+                    overlap_left = abs(bullet_rect.right - rect.left)
+                    overlap_right = abs(rect.right - bullet_rect.left)
+                    overlap_top = abs(bullet_rect.bottom - rect.top)
+                    overlap_bottom = abs(rect.bottom - bullet_rect.top)
+
+                    min_overlap = min(overlap_left, overlap_right, overlap_top, overlap_bottom)
+
+                    if min_overlap == overlap_left:
+                        bullet["x"] = rect.left - SOLDIER_BULLET_SIZE - 0.1
+                        bullet["vel_x"] = -abs(bullet["vel_x"])
+                    elif min_overlap == overlap_right:
+                        bullet["x"] = rect.right + SOLDIER_BULLET_SIZE + 0.1
+                        bullet["vel_x"] = abs(bullet["vel_x"])
+                    elif min_overlap == overlap_top:
+                        bullet["y"] = rect.top - SOLDIER_BULLET_SIZE - 0.1
+                        bullet["vel_y"] = -abs(bullet["vel_y"])
+                    else:  # overlap_bottom
+                        bullet["y"] = rect.bottom + SOLDIER_BULLET_SIZE + 0.1
+                        bullet["vel_y"] = abs(bullet["vel_y"])
+
+                    bullet["rock_bounces"] = bullet.get("rock_bounces", 0) + 1
+
+                    # 바위 충돌 스파크 파티클
+                    impact_particles.append(
+                        {
+                            "x": bullet["x"],
+                            "y": bullet["y"],
+                            "vx": random.uniform(-2.0, 2.0),
+                            "vy": random.uniform(-1.0, 1.0),
+                            "size": random.uniform(2.0, 3.5),
+                            "alpha": 200,
+                            "color": (255, 220, 120),
+                            "life": 20,
+                        }
+                    )
+
+                    # 충돌 후 갱신된 총알 경계 재계산
+                    bullet_rect = pygame.Rect(
+                        bullet["x"] - SOLDIER_BULLET_SIZE,
+                        bullet["y"] - SOLDIER_BULLET_SIZE,
+                        SOLDIER_BULLET_SIZE * 2,
+                        SOLDIER_BULLET_SIZE * 2,
+                    )
+                    break
+
+            if not bullet["active"]:
+                continue
+
             if bullet_rect.colliderect(BOSS):
                 bullet["active"] = False
                 global boss_stunned_timer, leg_shot_active, leg_shot_timer, leg_shot_text_timer
@@ -21715,9 +21124,7 @@ def handle_player(keys):
             start_umbrella_knockback(target_player_x)
                 
             if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
-                print(
-                    f"[DEBUG UMB] swing start dir={swing_trigger_direction} original_player_x={PLAYER.x} target_x={target_player_x} knockback_offset={knockback_offset} anchorL={blacksmith_umbrella_anchor_left} anchorR={blacksmith_umbrella_anchor_right}"
-                )
+                pass
 
     if umbrella_lock_active:
         space_pressed = False
@@ -22059,14 +21466,6 @@ def handle_player(keys):
                 long_boost_scale = 1.0
                 long_boost_target_scale = 1.0
                 print("")
-    # === 레이저스코프 타이머 체크 ===
-    global predictor_active, predictor_timer
-    if predictor_active and predictor_timer > 0:
-        predictor_timer -= 1
-        if predictor_timer == 0:
-            predictor_active = False
-            print("!")
-
     global doping_potion_active, doping_potion_timer, doping_potion_toast_timer
     sync_doping_potion_from_global_manager()
     if doping_potion_active:
@@ -23682,13 +23081,7 @@ def handle_player(keys):
         
         # 디버그: 히트박스 계산 과정 출력
         if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
-            if blacksmith_umbrella_swing_active:
-                offset_val = int(round(blacksmith_umbrella_anchor_smoothed_x * scale_applied))
-                offset_type = "anchor"
-            else:
-                offset_val = int(round(blacksmith_umbrella_body_offset[0] * scale_applied))
-                offset_type = "body"
-            print(f"[DEBUG HITBOX] PLAYER.centerx={PLAYER.centerx}, effective_centerx={effective_centerx}, offset={offset_val}({offset_type}), swing_active={blacksmith_umbrella_swing_active}, swing_dir={swing_dir}, anchor_smoothed={blacksmith_umbrella_anchor_smoothed_x:.1f}")
+            pass
         
         left_extent, right_extent = blacksmith_umbrella_hitbox_extents
         center_offset_x_effective = 0.0
@@ -23714,9 +23107,7 @@ def handle_player(keys):
                 umbrella_half_right = max(umbrella_half_right, right_extent_scaled * sweep_bias)
 
             if DEBUG_BLACKSMITH_UMBRELLA_ANCHOR:
-                print(
-                    f"[DEBUG UMB HITBOX] swing_dir={swing_dir} left_extent={left_extent:.2f} right_extent={right_extent:.2f} scaled=(L:{left_extent_scaled:.2f}, R:{right_extent_scaled:.2f})"
-                )
+                pass
 
             up_extent, down_extent = blacksmith_umbrella_hitbox_vertical
             up_scaled = up_extent * scale_applied
@@ -23893,7 +23284,8 @@ def handle_player(keys):
         collision_side = "LEFT" if collision_x < 0 else "RIGHT"
         max_half = umbrella_half_right if collision_x >= 0 else umbrella_half_left
         edge_distance = abs(collision_x) - max_half
-        print(f" handle_player ! : {collision_side}, : {collision_x:.1f}, : {edge_distance:.1f}, Y: {ball_vel[1]:.1f}")
+        if DEBUG_HANDLE_PLAYER_VERBOSE:
+            print(f" handle_player ! : {collision_side}, : {collision_x:.1f}, : {edge_distance:.1f}, Y: {ball_vel[1]:.1f}")
         #  고스트샷 종료 (플레이어 패들에 돌아왔을 때)
         # 고스트샷 첫 2초 동안은 패들 충돌을 무시하고 계속 진행
         if mega_smashing_active:
@@ -24108,9 +23500,11 @@ def handle_player(keys):
         if player_sound_cooldown <= 0 and not ball_in_kuromi:
             play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
-            print(f" handle_player   ( : 20)")
+            if DEBUG_HANDLE_PLAYER_VERBOSE:
+                print(f" handle_player   ( : 20)")
         else:
-            print(f"    ( : {player_sound_cooldown})")
+            if DEBUG_HANDLE_PLAYER_VERBOSE:
+                print(f"    ( : {player_sound_cooldown})")
         #  플레이어 히트 기록
         is_perfect = perfect_timing_active and perfect_direction is not None
         record_player_hit(is_perfect_timing=is_perfect, is_power_smash=drive_activated)
@@ -24364,7 +23758,8 @@ def handle_player(keys):
                 total_gauge_gain = 500
                 print(f"🎮 Chapter 4: 500 게이지 충전!")
             
-            print(f" DEBUG:  handle_player   ({total_gauge_gain})")
+            if DEBUG_HANDLE_PLAYER_VERBOSE:
+                print(f" DEBUG:  handle_player   ({total_gauge_gain})")
             old_gauge = special_gauge  # 이전 게이지 저장
             special_gauge += total_gauge_gain
             #  동적 최대치 제한 적용
@@ -24378,15 +23773,20 @@ def handle_player(keys):
             # 충돌 쿨다운 설정하여 중복 충전 방지
             player_collision_cooldown = 15
         elif rolling_active:
-            print(f" DEBUG:    handle_player   !")
+            if DEBUG_HANDLE_PLAYER_VERBOSE:
+                print(f" DEBUG:    handle_player   !")
         elif rolling_stun_timer > 0:
-            print(f" DEBUG:    handle_player   ! ( : {rolling_stun_timer})")
+            if DEBUG_HANDLE_PLAYER_VERBOSE:
+                print(f" DEBUG:    handle_player   ! ( : {rolling_stun_timer})")
         elif player_collision_cooldown > 0:
-            print(f" DEBUG:       ! ( : {player_collision_cooldown})")
+            if DEBUG_HANDLE_PLAYER_VERBOSE:
+                print(f" DEBUG:       ! ( : {player_collision_cooldown})")
         elif drive_activated:
-            print(f" DEBUG:      !")
+            if DEBUG_HANDLE_PLAYER_VERBOSE:
+                print(f" DEBUG:      !")
         else:
-            print(f" DEBUG:  handle_player")
+            if DEBUG_HANDLE_PLAYER_VERBOSE:
+                print(f" DEBUG:  handle_player")
         
         #  파워스매싱은 이제 퍼펙트 타이밍 윈도우에서 처리됨 (드라이브와 동일한 타이밍)
         # handle_player에서는 제거하고 메인 루프의 퍼펙트 타이밍 윈도우에서 처리
@@ -25290,6 +24690,76 @@ def is_player_in_smoke():
         return True
 
     return False
+
+
+def destroy_stage2_rocks_in_smoke(smoke_zone):
+    """스테이지 2에서 연막 내부의 바위를 파괴한다."""
+    global current_stage, animated_bg_stage2, trade_point_system
+
+    if current_stage != 2 or animated_bg_stage2 is None:
+        return
+
+    if smoke_zone.get("opacity", 0) <= 50:
+        return
+
+    radius_y = smoke_zone.get("radius", 0)
+    radius_x = smoke_zone.get("radius_x", radius_y)
+    if radius_x <= 0 or radius_y <= 0:
+        return
+
+    def _contains_point(px: float, py: float) -> bool:
+        dx = px - smoke_zone["x"]
+        dy = py - smoke_zone["y"]
+        return (dx / radius_x) ** 2 + (dy / radius_y) ** 2 <= 1
+
+    rocks_to_remove = []
+    for rock in list(animated_bg_stage2.crisis_rocks):
+        if rock.get("falling", False):
+            continue
+
+        rect = rock.get("collision_rect")
+        if not rect:
+            continue
+
+        rock_points = (
+            rect.center,
+            rect.topleft,
+            rect.topright,
+            rect.bottomleft,
+            rect.bottomright,
+        )
+
+        if not any(_contains_point(px, py) for px, py in rock_points):
+            continue
+
+        animated_bg_stage2.destroy_rock(rock)
+        rocks_to_remove.append(rock)
+
+        rock_size = rock.get("size", 0)
+
+        try:
+            if rock_size <= 45:
+                play_sound_with_volume(SOUND_STONEBREAK_SMALL)
+            elif rock_size <= 65:
+                play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
+            else:
+                play_sound_with_volume(SOUND_STONEBREAK_LARGE)
+        except Exception:
+            pass
+
+        if rock.get("is_golden", False):
+            trade_point_system.spawn_star(rect.centerx, rect.centery, "golden_rock")
+            try:
+                coin_sound = pygame.mixer.Sound(resource_path("sounds/coin.wav"))
+                play_sound_with_volume(coin_sound)
+            except Exception:
+                pass
+
+        print(f"💨 연막탄이 바위를 제거했습니다! 위치=({rect.centerx}, {rect.centery})")
+
+    for rock in rocks_to_remove:
+        if rock in animated_bg_stage2.crisis_rocks:
+            animated_bg_stage2.crisis_rocks.remove(rock)
 def handle_wall():
     """벽돌 설치 및 관리 함수"""
     global walls, pending_wall, wall_installing, wall_install_timer, wall_install_gauge_visible
@@ -25450,6 +24920,8 @@ def handle_wall():
             smoke_zone["opacity"] = 150
         else:  # 마지막 1초: 페이드아웃
             smoke_zone["opacity"] = max(0, smoke_zone["opacity"] - 3)
+        # 스테이지 2 바위 제거 처리
+        destroy_stage2_rocks_in_smoke(smoke_zone)
         # 파티클 추가 생성 (지속적인 연기 효과, 타원형)
         if smoke_zone["duration"] > 60 and len(smoke_zone["particles"]) < 60:  # 파티클 수 증가
             if random.random() < 0.5:  # 50% 확률로 새 파티클
@@ -28456,8 +27928,8 @@ def draw_player_gauge():
     if soldier_emergency_supply_toast_timer > 0:
         soldier_emergency_supply_toast_timer -= 1
 
-    #  통합 아이템 지속시간 게이지바 (거대화포션 & 레이저스코프)
-    item_gauge_active = (long_boost_active and long_boost_timer > 0) or (predictor_active and predictor_timer > 0)
+    #  거대화포션 지속시간 게이지바
+    item_gauge_active = long_boost_active and long_boost_timer > 0
     if item_gauge_active:
         item_gauge_x = player_gauge_x - 35  # 필살기 게이지 왼쪽에 배치
         item_gauge_y = player_gauge_y  # 필살기 게이지와 같은 높이
@@ -28513,22 +27985,6 @@ def draw_player_gauge():
                 pulse = abs(math.sin(time_now * 0.01))
                 base_color = (255, int(100 + pulse * 65), 0)
                 energy_color = (255, int(150 + pulse * 50), 50)
-        elif predictor_active and predictor_timer > 0:
-            # 레이저스코프 활성화 시
-            remaining_ratio = predictor_timer / 600  # 10초 기준 (60fps * 10초 = 600)
-            fill_height = int((item_gauge_height - 4) * remaining_ratio)
-            # 레이저스코프 색상 (빨간색 레이저)
-            if remaining_ratio > 0.6:
-                base_color = (255, 100, 100)  # 밝은 빨강
-                energy_color = (255, 150, 150)
-            elif remaining_ratio > 0.3:
-                base_color = (255, 50, 50)  # 진한 빨강
-                energy_color = (255, 100, 100)
-            else:
-                # 끝날 때 깜빡임
-                pulse = abs(math.sin(time_now * 0.01))
-                base_color = (255, int(50 * pulse), int(50 * pulse))
-                energy_color = (255, int(100 * pulse), int(100 * pulse))
         else:
             fill_height = 0
         # 게이지 그리기 (fill_height가 0보다 클 때만)
@@ -28555,22 +28011,6 @@ def draw_player_gauge():
                     sparkle_color = (255, 255, 200, 150)
                     draw.line(sparkle_color, (item_gauge_x + 2, sparkle_y),
                                (item_gauge_x + item_gauge_width - 2, sparkle_y), 1)
-            elif predictor_active and remaining_ratio > 0.1:
-                # 레이저스코프: 스캔 효과 (정확한 범위 제한)
-                if fill_height > 6:  # 최소 높이 확인 (여유 있게)
-                    # 실제 채우기 영역 계산 (내부 홈 영역)
-                    actual_fill_top = max(item_gauge_y + 2, fill_y)
-                    actual_fill_bottom = min(item_gauge_y + item_gauge_height - 2, fill_y + fill_height)
-                    actual_fill_height = actual_fill_bottom - actual_fill_top
-                    if actual_fill_height > 0:
-                        # 스캔 위치 계산 (실제 채우기 영역 내에서만 순환)
-                        scan_offset = (time_now // 10) % actual_fill_height
-                        scan_y = actual_fill_top + scan_offset
-                        # 스캔 라인 그리기 (정확한 경계 체크)
-                        if actual_fill_top <= scan_y < actual_fill_bottom:
-                            scan_color = (255, 200, 200, 180)
-                            draw.line(scan_color, (item_gauge_x + 2, scan_y),
-                                      (item_gauge_x + item_gauge_width - 2, scan_y), 2)
     #  벽돌 설치 게이지 (플레이어 패들 바로 위)
     if wall_install_gauge_visible and wall_installing:
         # 설치 게이지 위치 (플레이어 패들 바로 위)
@@ -32673,8 +32113,6 @@ def draw_objects():
                     'color': (200, 230, 255),
                     'type': 'spark'
                 })
-    #  레이저스코프 궤적 그리기 (공 그리기 전에)
-    draw_predicted_trajectory()
     
     #  Stage 5 이벤트 배경 그리기 (공 아래에 그려질 문과 기계) - 공보다 먼저 그려야 함!
     if FIRE_EVENT_AVAILABLE and stage5_events and current_stage == 5:
@@ -43563,7 +43001,6 @@ def show_item_manager_menu():
         {"name": "grenade", "type": "active", "icon": get_icon_safe("grenade_icon", "grenade")},
         {"name": "spider_mine", "type": "active", "icon": get_icon_safe("spider_mine_icon", "spider_mine")},
         {"name": "flare", "type": "active", "icon": get_icon_safe("flare_icon", "flare")},
-        {"name": "predictor", "type": "active", "icon": get_icon_safe("predictor_icon", "predictor")},
         {"name": "smoke_grenade", "type": "active", "icon": get_icon_safe("smoke_grenade_icon", "smoke_grenade")},
         {"name": "repair_kit", "type": "active", "icon": get_icon_safe("repair_kit_icon", "repair_kit")},
         {"name": "ammo_box", "type": "active", "icon": get_icon_safe("ammo_box_icon", "ammo_box")},
@@ -49442,6 +48879,7 @@ def handle_ball():
                 ball_vel[1] *= scale
         if stage4_magnetic_timer <= 0:
             stage4_magnetic_active = False
+            stop_stage4_magnetic_sound()
             recover_speed = max(player_last_shot_speed, BALL_BASE_SPEED)
             direction = pygame.math.Vector2(ball_vel)
             if direction.length() == 0:
@@ -51818,7 +51256,8 @@ def handle_ball():
         collision_x = BALL.centerx - PLAYER.centerx
         collision_side = "LEFT" if collision_x < 0 else "RIGHT"
         edge_distance = abs(collision_x) - (PADDLE_WIDTH / 2)
-        print(f" handle_ball ! (handle_player  ) : {collision_side}, : {collision_x:.1f}, : {edge_distance:.1f}, Y: {ball_vel[1]:.1f}")
+        if DEBUG_HANDLE_BALL_VERBOSE:
+            print(f" handle_ball ! (handle_player  ) : {collision_side}, : {collision_x:.1f}, : {edge_distance:.1f}, Y: {ball_vel[1]:.1f}")
         # ️ 충돌 이벤트 발생
         emit_event(EventType.BALL_HIT_PLAYER, {
             'collision_x': collision_x,
@@ -51846,7 +51285,8 @@ def handle_ball():
                 holder_bonus = 1 if dashholder_obtained else 0
                 amplification_bonus = academy.get_skill_bonus("dash_amplification")
                 max_charges = int(base_charges + holder_bonus + amplification_bonus)
-                print(f"[DEBUG] (handle_ball)   -  : {rolling_charges}/{max_charges}, : {rolling_charge_timer}")
+                if DEBUG_HANDLE_BALL_VERBOSE:
+                    print(f"[DEBUG] (handle_ball)   -  : {rolling_charges}/{max_charges}, : {rolling_charge_timer}")
                 # 토큰이 부족한 경우 무조건 충전 타이머 설정
                 if rolling_charges < max_charges:
                     # 경량화 스킬 효과 적용
@@ -51854,12 +51294,15 @@ def handle_ball():
                     charge_time_reduction = lightweight_bonus
                     base_charge_time = 90  # 1.5초
                     rolling_charge_timer = int(base_charge_time * (1 - charge_time_reduction))
-                    print(f"  ! (handle_ball)    (: {rolling_charge_timer})")
-                    print(f"[DEBUG] (handle_ball)    : {rolling_charge_timer}")
+                    if DEBUG_HANDLE_BALL_VERBOSE:
+                        print(f"  ! (handle_ball)    (: {rolling_charge_timer})")
+                        print(f"[DEBUG] (handle_ball)    : {rolling_charge_timer}")
                 else:
-                    print(f"  ! (handle_ball)   : {rolling_charges}/{max_charges}")
+                    if DEBUG_HANDLE_BALL_VERBOSE:
+                        print(f"  ! (handle_ball)   : {rolling_charges}/{max_charges}")
             else:
-                print(f"     ({elapsed_time:.1f}/2.0) -    (handle_ball)")
+                if DEBUG_HANDLE_BALL_VERBOSE:
+                    print(f"     ({elapsed_time:.1f}/2.0) -    (handle_ball)")
         if current_stage == 4 and boss_special_ready_stage4:
             stage4_magnetic_active = True
             stage4_magnetic_timer = 200  # 150 → 200 (더 긴 지속시간) - 난이도 상향
@@ -51905,12 +51348,15 @@ def handle_ball():
         create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
         #  새로운 보스 모드에서 하단 보스의 스킬 발동 체크
         if new_boss_mode_active:
-            print(f" handle_ball       ! selected_bottom_boss={selected_bottom_boss}")  # 
+            if DEBUG_HANDLE_BALL_VERBOSE:
+                print(f" handle_ball       ! selected_bottom_boss={selected_bottom_boss}")
             if selected_bottom_boss == 1:
-                print("!")
+                if DEBUG_HANDLE_BALL_VERBOSE:
+                    print("!")
                 handle_fire_knight_skills()  # 파이어 나이트 스킬
             elif selected_bottom_boss == 2:
-                print("!")
+                if DEBUG_HANDLE_BALL_VERBOSE:
+                    print("!")
                 handle_wind_spirit_skills()  # 윈드 스피릿 스킬
         #  드라이브 공이 보스 패들에 맞고 다시 플레이어 패들에 맞으면 원래 색상으로 복구
         if drive_ball_active and drive_hit_boss:
@@ -51923,7 +51369,8 @@ def handle_ball():
         if not player_collision_handled and player_sound_cooldown <= 0 and not ball_in_kuromi:
             play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
-            print("handle_ball   (handle_player  )")
+            if DEBUG_HANDLE_BALL_VERBOSE:
+                print("handle_ball   (handle_player  )")
         if not (
             selected_character_type == "blacksmith"
             and blacksmith_umbrella_open
@@ -51942,7 +51389,8 @@ def handle_ball():
                     soldier_right_hook_active = True
                     soldier_right_hook_timer = SOLDIER_RIGHT_HOOK_DURATION
                     soldier_right_hook_phase = 0.0
-                    print(f"[DEBUG] Soldier hook start (handle_ball backup): ball_x={BALL.centerx:.1f}, paddle_center={PLAYER.centerx:.1f}")
+                    if DEBUG_HANDLE_BALL_VERBOSE:
+                        print(f"[DEBUG] Soldier hook start (handle_ball backup): ball_x={BALL.centerx:.1f}, paddle_center={PLAYER.centerx:.1f}")
                 soldier_swing_active = False
                 soldier_swing_timer = 0
             else:
@@ -52012,7 +51460,8 @@ def handle_ball():
             # Chapter 3 드라이브 튜토리얼에서는 게이지 증가율을 200으로 설정
             if ('tutorial_current_chapter' in globals() and tutorial_current_chapter == 4):
                 base_gauge_gain = 500  # Chapter 4: 패들 히트 시 게이지 500 충전 (백업 경로)
-                print(f"🔍 DEBUG: Chapter 4 패들 히트! (handle_ball 백업) 게이지 500 충전 설정")
+                if DEBUG_HANDLE_BALL_VERBOSE:
+                    print(f"🔍 DEBUG: Chapter 4 패들 히트! (handle_ball 백업) 게이지 500 충전 설정")
             elif ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
@@ -52032,7 +51481,8 @@ def handle_ball():
             #  블루투스링 게이지 충전량 증가 적용
             if is_bluetooth_ring_active():
                 total_gauge_gain = calculate_bluetooth_ring_gauge_charge(total_gauge_gain)
-                print(f"   +25%: {total_gauge_gain}")
+                if DEBUG_HANDLE_BALL_VERBOSE:
+                    print(f"   +25%: {total_gauge_gain}")
             
             #  악마의 주사위 패들 게이지 충전량 배율 적용
             from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
@@ -52040,10 +51490,11 @@ def handle_ball():
                 multipliers = get_devil_dice_multipliers()
                 paddle_charge_multiplier = multipliers.get('paddle_gauge_charge', 1.0)
                 total_gauge_gain = int(total_gauge_gain * paddle_charge_multiplier)
-                if paddle_charge_multiplier != 1.0:
+                if DEBUG_HANDLE_BALL_VERBOSE and paddle_charge_multiplier != 1.0:
                     print(f"    : {paddle_charge_multiplier:.1f}x → {total_gauge_gain}")
-            
-            print(f" DEBUG:  handle_ball    (handle_player  ) ({total_gauge_gain})")
+
+            if DEBUG_HANDLE_BALL_VERBOSE:
+                print(f" DEBUG:  handle_ball    (handle_player  ) ({total_gauge_gain})")
             
             # 상모돌리기 활성화 시 플레이어 패들 충돌 시 종료
             if whip_active:
@@ -52068,7 +51519,8 @@ def handle_ball():
             # 충돌 쿨다운 설정
             player_collision_cooldown = 15
         else:
-            print(f" DEBUG:  handle_ball    (: {player_collision_cooldown}, rolling: {rolling_active}, stun: {rolling_stun_timer}, drive_ball: {drive_ball_active})")
+            if DEBUG_HANDLE_BALL_VERBOSE:
+                print(f" DEBUG:  handle_ball    (: {player_collision_cooldown}, rolling: {rolling_active}, stun: {rolling_stun_timer}, drive_ball: {drive_ball_active})")
         #  게이지 상태 실시간 업데이트 (게이지가 감소했을 때도 반영)
         if special_gauge < 350:  # 파워스매시 발동 조건
             special_ready = False
@@ -54694,6 +54146,9 @@ def handle_boss():
             for explosion in all_explosions:
                 # 폭발 이펙트 생성
                 create_bazooka_explosion(explosion["x"], explosion["y"])
+                _destroy_stage2_rocks_in_radius(
+                    explosion["x"], explosion["y"], explosion["radius"], source="bazooka"
+                )
                 
                 # 폭발 사운드 재생
                 try:
@@ -55454,9 +54909,6 @@ def show_result(won):
         # 연막탄 아이콘 추가 - get_item_icon 함수 사용하여 통일
         smoke_grenade_icon = get_item_icon("smoke_grenade")
         available_items.append({"name": "smoke_grenade", "color": (150, 150, 150), "type": "active", "icon": smoke_grenade_icon})
-        # 레이저스코프 아이콘 추가 - get_item_icon 함수 사용하여 통일
-        predictor_icon = get_item_icon("predictor")
-        available_items.append({"name": "predictor", "color": (255, 0, 0), "type": "active", "icon": predictor_icon})
         # 생명수 아이콘 추가 - get_item_icon 함수 사용하여 통일
         life_elixir_icon = get_item_icon("life_elixir")
         available_items.append({"name": "life_elixir", "color": (100, 200, 255), "type": "active", "icon": life_elixir_icon})
@@ -60850,7 +60302,6 @@ def get_item_name_korean(item_name):
         "grenade": "수류탄",
         "spider_mine": "스파이더지뢰",
         "flare": "조명탄",
-        "predictor": "레이저스코프",
         "smoke_grenade": "연막탄",
         "pandora_box": "판도라의 상자",
         "stopwatch": "스탑워치",
@@ -60903,7 +60354,6 @@ def get_item_description(item_name):
         "grenade": "수류탄: 명중 시 상대방을 밀어내고 일정기간 스턴 시킵니다.",
         "spider_mine": "스파이더지뢰: 플레이어 위치 기준 좌·우 바닥과 벽을 타고 보스 진영 모서리에 매설됩니다. 보스가 밟으면 폭발하여 넉백시키고 3초 동안 이동속도가 30% 감소합니다.",
         "flare": "조명탄: 투척 후 1.5초 뒤 폭발하며 명중 시 일정기간 상대방을 혼란 상태로 만듭니다.",
-        "predictor": "레이저스코프: 공의 궤적을 예측하여 표시합니다. 정확도가 항상 100%는 아니지만 꽤 유용할 때가 있습니다",
         "smoke_grenade": "연막탄: 플레이어 근처에 연막을 생성합니다. 연막은 빠른 공의 속도를 감소시켜주며, 각종 보스들의 스킬 공격을 방어해줍니다",
         "pandora_box": "판도라의 상자: 무지개 블랙홀을 발생시켜 아이템이 쏟아집니다!",
         "commando_arm": "코만도암: 숙련된 코만도의 유품, 투척류 아이템 사용시 준비동작이 사라지며 투척 속도 30% 증가, 폭발 범위 10% 증가, 연막탄 지속시간 50%가 증가합니다",
@@ -61412,7 +60862,6 @@ def show_character_item_manager():
         {"name": "grenade", "type": "active", "icon": get_icon_safe("grenade_icon", "grenade")},
         {"name": "spider_mine", "type": "active", "icon": get_icon_safe("spider_mine_icon", "spider_mine")},
         {"name": "flare", "type": "active", "icon": get_icon_safe("flare_icon", "flare")},
-        {"name": "predictor", "type": "active", "icon": get_icon_safe("predictor_icon", "predictor")},
         {"name": "smoke_grenade", "type": "active", "icon": get_icon_safe("smoke_grenade_icon", "smoke_grenade")},
         {"name": "pandora_box", "type": "active", "icon": get_icon_safe("pandora_box_icon", "pandora_box")},
         {"name": "stopwatch", "type": "active", "icon": get_icon_safe("stopwatch_icon", "stopwatch")},

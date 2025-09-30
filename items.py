@@ -177,7 +177,6 @@ def load_item_icons():
         "bulkup": "bulkup.png",
         "sensor": "sensor.png",
         "stopwatch": "stopwatch_icon.png",
-        "predictor": "predictor.png",
         "flare": "flare.png",
         "master": "master.png",
         "chargebag": "chargebag.png",
@@ -481,15 +480,6 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
-        "name": "predictor",  # 🎯 레이저스코프 액티브 아이템
-        "color": (100, 200, 255),  # 하늘색
-        "effect": "predictor",
-        "icon": None,
-        "chance": 0.003,  # 확률 1.5% (밸런스 조정: 2.5% → 1.5%)
-        "duration": 600,
-        "unlock_condition": None
-    },
-    {
         "name": "flare",  # 💡 조명탄 액티브 아이템
         "color": (255, 255, 200),  # 밝은 노란색
         "effect": "flare",
@@ -521,7 +511,7 @@ ITEM_TYPES = [
         "color": (220, 210, 140),  # 황동빛 수리 상자
         "effect": "repair_kit",
         "icon": None,
-        "chance": 0.999,  # 발토르 전용 희귀 아이템
+        "chance": 0.004,  # 발토르 전용 희귀 아이템
         "duration": 600,
         "unlock_condition": None
     },
@@ -725,7 +715,6 @@ unlocked_items = {
     "molotov": True,
     "grenade": True,
     "spider_mine": True,
-    "predictor": True,
     "flare": True,
     "smoke_grenade": True,
     "pandora_box": True,
@@ -840,6 +829,7 @@ def spawn_random_item():
         import pingfighter
         current_passive_items = [item["name"] for item in pingfighter.passive_item_list]
         selected_character = getattr(pingfighter, "selected_character_type", None)
+        print(f"[DEBUG spawn_random_item] selected_character_type: {selected_character}")
         print(f"[DEBUG] Current passive items in inventory: {current_passive_items}")
     except Exception:
         current_passive_items = []

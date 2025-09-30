@@ -116,6 +116,8 @@ class ItemManager:
             except Exception:
                 selected_character = None
 
+        print(f"[DEBUG ItemManager] selected_character_type: {selected_character}")
+
         for item_type in items.ITEM_TYPES:
             # 해금 체크
             if not items.unlocked_items.get(item_type['name'], False):

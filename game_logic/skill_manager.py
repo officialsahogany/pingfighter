@@ -45,7 +45,6 @@ class SkillManager:
             'flare': self.activate_flare,
             'molotov': self.activate_molotov,
             'wall': self.activate_wall,
-            'predictor': self.activate_predictor,
             'long_boost': self.activate_long_boost,
             'balloon': self.activate_balloon,
             'whip': self.activate_whip,
@@ -148,11 +147,6 @@ class SkillManager:
         }
         self.global_manager.set('wall_active', True)
         self.global_manager.set('wall_data', wall_data)
-        
-    def activate_predictor(self):
-        """궤적 예측"""
-        self.global_manager.set('predictor_active', True)
-        self.global_manager.set('predictor_timer', 180)  # 3초
         
     def activate_long_boost(self):
         """롱부스트 발동"""
@@ -402,7 +396,6 @@ class SkillManager:
             'flare': 4.0,
             'molotov': 8.0,
             'wall': 10.0,
-            'predictor': 3.0,
             'long_boost': 15.0,
             'balloon': 6.0,
             'whip': 4.0,

@@ -229,8 +229,8 @@ def draw_player_gauge():
     # 텍스트 렌더링
     SCREEN.blit(gauge_text_surface, (text_x, text_y))
 
-    # 🎯 통합 아이템 지속시간 게이지바 (거대화포션 & 레이저스코프)
-    item_gauge_active = (long_boost_active and long_boost_timer > 0) or (predictor_active and predictor_timer > 0)
+    # 🎯 거대화포션 지속시간 게이지바
+    item_gauge_active = long_boost_active and long_boost_timer > 0
     
     if item_gauge_active:
         gauge_x = WIDTH - 75  # 필살기 게이지 왼쪽에 배치
@@ -278,7 +278,6 @@ def draw_player_gauge():
         
         # ⚡ 게이지 채우기 - 활성 아이템에 따라 색상 결정
         if long_boost_active and long_boost_timer > 0:
-            pass
             # 거대화포션 활성화 시
             remaining_ratio = long_boost_timer / LONG_BOOST_DURATION
             fill_height = int((gauge_height - 4) * remaining_ratio)
@@ -291,31 +290,10 @@ def draw_player_gauge():
                 base_color = (255, 165, 0)  # 주황색
                 energy_color = (255, 195, 50)
             else:
-                pass
                 # 끝날 때 깜빡임 효과
                 pulse = abs(math.sin(time_now * 0.01))
                 base_color = (255, int(100 + pulse * 65), 0)
                 energy_color = (255, int(150 + pulse * 50), 50)
-                
-        elif predictor_active and predictor_timer > 0:
-            pass
-            # 레이저스코프 활성화 시
-            remaining_ratio = predictor_timer / 600  # 10초 기준 (60fps * 10초 = 600)
-            fill_height = int((gauge_height - 4) * remaining_ratio)
-            
-            # 레이저스코프 색상 (빨간색 레이저)
-            if remaining_ratio > 0.6:
-                base_color = (255, 100, 100)  # 밝은 빨강
-                energy_color = (255, 150, 150)
-            elif remaining_ratio > 0.3:
-                base_color = (255, 50, 50)  # 진한 빨강
-                energy_color = (255, 100, 100)
-            else:
-                pass
-                # 끝날 때 깜빡임
-                pulse = abs(math.sin(time_now * 0.01))
-                base_color = (255, int(50 * pulse), int(50 * pulse))
-                energy_color = (255, int(100 * pulse), int(100 * pulse))
         else:
             fill_height = 0
             
@@ -342,34 +320,12 @@ def draw_player_gauge():
             
             # ✨ 특수 효과
             if long_boost_active and remaining_ratio > 0.1:
-                pass
                 # 거대화포션: 반짝임 효과
                 if random.random() < 0.3:  # 30% 확률로 반짝임
                     sparkle_y = fill_y + random.randint(0, max(1, fill_height - 1))
                     sparkle_color = (255, 255, 200, 150)
                     draw.line(sparkle_color, (gauge_x + 2, sparkle_y),
                                    (gauge_x + gauge_width - 2, sparkle_y), 1)
-            elif predictor_active and remaining_ratio > 0.1:
-                pass
-                # 레이저스코프: 스캔 효과 (정확한 범위 제한)
-                if fill_height > 6:  # 최소 높이 확인 (여유 있게)
-                    pass
-                    # 실제 채우기 영역 계산 (내부 홈 영역)
-                    actual_fill_top = max(gauge_y + 2, fill_y)
-                    actual_fill_bottom = min(gauge_y + gauge_height - 2, fill_y + fill_height)
-                    actual_fill_height = actual_fill_bottom - actual_fill_top
-                    
-                    if actual_fill_height > 0:
-                        pass
-                        # 스캔 위치 계산 (실제 채우기 영역 내에서만 순환)
-                        scan_offset = (time_now // 10) % actual_fill_height
-                        scan_y = actual_fill_top + scan_offset
-                        
-                        # 스캔 라인 그리기 (정확한 경계 체크)
-                        if actual_fill_top <= scan_y < actual_fill_bottom:
-                            scan_color = (255, 200, 200, 180)
-                            draw.line(scan_color, (gauge_x + 2, scan_y),
-                                           (gauge_x + gauge_width - 2, scan_y), 2)
     
     # 🆕 벽돌 설치 게이지 (플레이어 패들 바로 위)
     if wall_install_gauge_visible and wall_installing:

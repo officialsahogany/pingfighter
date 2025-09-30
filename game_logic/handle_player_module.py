@@ -147,14 +147,6 @@ def handle_player(keys):
                 long_boost_target_scale = 1.0
                 print("🍄 거대화포션 효과 종료")
     
-    # === 레이저스코프 타이머 체크 ===
-    global predictor_active, predictor_timer
-    if predictor_active and predictor_timer > 0:
-        predictor_timer -= 1
-        if predictor_timer == 0:
-            predictor_active = False
-            print("🎯 레이저스코프 효과 종료!")
-
     # 🆕 AI 필 효과 적용
     if aipill_active:
         pass
