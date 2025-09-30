@@ -34,6 +34,48 @@ ITEM_CODE = [2]
 
 MEDAL_FRAME_DURATION = 0.085
 MEDAL_BASE_SIZE = 40
+
+
+def _ensure_medal_animation_assets(ctx: MenuContext, state: MenuState) -> None:
+    """메달 애니메이션에 필요한 프레임을 초기화."""
+    if state.medal_icon_frames:
+        return
+
+    base_icon: pygame.Surface | None = None
+    try:
+        medal_path = ctx.resource_path("medal.png")
+        base_icon = pygame.image.load(medal_path).convert_alpha()
+    except Exception:
+        base_icon = None
+
+    if base_icon is not None:
+        base_icon = pygame.transform.smoothscale(base_icon, (MEDAL_BASE_SIZE, MEDAL_BASE_SIZE))
+    else:
+        # 이미지 로드 실패 시 간단한 원형 아이콘 생성
+        base_icon = pygame.Surface((MEDAL_BASE_SIZE, MEDAL_BASE_SIZE), pygame.SRCALPHA)
+        center = MEDAL_BASE_SIZE // 2
+        pygame.draw.circle(base_icon, (255, 220, 120), (center, center), center)
+        pygame.draw.circle(base_icon, (255, 240, 200), (center, center), center - 4)
+        pygame.draw.circle(base_icon, (240, 180, 60), (center, center), center - 8)
+
+    scales = [0.9, 0.96, 1.02, 1.08, 1.12, 1.08, 1.02, 0.96]
+    for scale in scales:
+        size = max(8, int(MEDAL_BASE_SIZE * scale))
+        frame = pygame.transform.smoothscale(base_icon, (size, size))
+        state.medal_icon_frames.append(frame)
+
+
+def _advance_medal_animation(state: MenuState, elapsed: float) -> None:
+    """프레임 타이머를 업데이트하고 현재 프레임을 선택."""
+    if not state.medal_icon_frames:
+        return
+
+    state.medal_frame_timer += elapsed
+    if state.medal_frame_timer >= MEDAL_FRAME_DURATION:
+        steps = int(state.medal_frame_timer / MEDAL_FRAME_DURATION)
+        state.medal_frame_timer -= MEDAL_FRAME_DURATION * steps
+        state.medal_frame_index = (state.medal_frame_index + steps) % len(state.medal_icon_frames)
+
 def _run_idle_cinematic_if_needed(
     ctx: MenuContext,
     state: MenuState,
@@ -337,6 +379,10 @@ class MenuState:
     scan_lines: List[dict] = field(default_factory=list)
     input_buffer: List[int] = field(default_factory=list)
     locked_message_timer: int = 0
+    medal_icon_frames: List[pygame.Surface] = field(default_factory=list)
+    medal_frame_index: int = 0
+    medal_frame_timer: float = 0.0
+    medal_anim_prev_time: float = 0.0
 
 
 def _draw_titles(ctx: MenuContext, screen: pygame.Surface, width: int, animation_timer: float) -> None:
