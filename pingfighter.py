@@ -10988,8 +10988,8 @@ BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES = BLACKSMITH_UMBRELLA_RECOVER_INTERV
 BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
 BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES = int(0.5 * FPS)  # 토르쉴드 충돌 후 0.5초 동안 추가 게이지 차감 방지
 BLACKSMITH_UMBRELLA_GAUGE_HIT_LOCK_FRAMES = int(0.35 * FPS)  # 게이지 1회 소모 후 추가 차감을 막는 보호 시간
-BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE = 70
-BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE = 100
+BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE = 60
+BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE = 90
 BLACKSMITH_BLOCKING_PENALTY_RATIO = 0.2
 BLACKSMITH_BLOCKING_PENALTY_FRAMES = int(5 * FPS)
 BLACKSMITH_BLOCKING_TOAST_FRAMES = int(1.5 * FPS)
@@ -24293,7 +24293,7 @@ def handle_player(keys):
                     base_gauge_gain = 50  # 코만도: 게이지 충전 50
                 elif selected_character_type == "blacksmith":
                     if blacksmith_umbrella_open:
-                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 70, 디바인스톤 활성 시 100
+                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 활성 시 90
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 else:
@@ -50489,7 +50489,7 @@ def handle_ball():
                             base_gauge_gain = 50  # 코만도: 게이지 충전 50
                         elif selected_character_type == "blacksmith":
                             if blacksmith_umbrella_open:
-                                base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 70, 디바인스톤 활성 시 100
+                                base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 활성 시 90
                             else:
                                 base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                         else:
@@ -50995,7 +50995,7 @@ def handle_ball():
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
             elif selected_character_type == "blacksmith":
                 if blacksmith_umbrella_open:
-                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 70, 디바인스톤 활성 시 100
+                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 활성 시 90
                 else:
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
@@ -51023,7 +51023,7 @@ def handle_ball():
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
             elif selected_character_type == "blacksmith":
                 if blacksmith_umbrella_open:
-                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 70, 디바인스톤 활성 시 100
+                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 활성 시 90
                 else:
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
@@ -51916,7 +51916,7 @@ def handle_ball():
                     base_gauge_gain = 50  # 코만도: 게이지 충전 50
                 elif selected_character_type == "blacksmith":
                     if blacksmith_umbrella_open:
-                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 70, 디바인스톤 활성 시 100
+                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 활성 시 90
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 else:
