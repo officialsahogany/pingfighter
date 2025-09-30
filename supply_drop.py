@@ -121,7 +121,8 @@ class SupplyDropRuntime:
         try:
             if self._radio_channel is None or not self._radio_channel.get_busy():
                 sound.set_volume(volume)
-                self._radio_channel = sound.play(-1)
+                # Play once to avoid stacking the radio loop.
+                self._radio_channel = sound.play()
         except Exception as exc:  # noqa: BLE001
             print(f"무전기 효과음 재생 실패: {exc}")
 
@@ -204,13 +205,14 @@ def ensure_radio_audio(
     if sound is None:
         return
 
+    channel = runtime._radio_channel
+    if channel is None:
+        return
+
     try:
-        channel = runtime._radio_channel
-        if channel is None or not channel.get_busy():
-            sound.set_volume(volume)
-            runtime._radio_channel = sound.play(-1)
+        channel.set_volume(volume)
     except Exception as exc:  # noqa: BLE001
-        print(f"무전기 효과음 유지 실패: {exc}")
+        print(f"무전기 효과음 볼륨 조정 실패: {exc}")
 
 
 def update_radio_animation(runtime: SupplyDropRuntime) -> None:
