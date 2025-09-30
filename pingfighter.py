@@ -46342,7 +46342,7 @@ def reset_round():
     blacksmith_umbrella_retract_grace_timer = 0
     blacksmith_blocking_penalty_timer = 0
     blacksmith_blocking_toast_timer = 0
-    active_repair_jobs.clear()
+    # 수리키트 지속 효과: 라운드 전환에서도 진행 중인 수리 작업을 유지한다.
 
     stopwatch_active = False
     stopwatch_timer = 0
