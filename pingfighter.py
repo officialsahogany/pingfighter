@@ -9181,6 +9181,11 @@ def draw_blacksmith_turret_elements(surface):
         push_blacksmith_state()
         turret_state = None
 
+    # turret_rect 초기화
+    turret_rect = None
+    if turret_state:
+        turret_rect = turret_state.get("rect")
+
     draw_blacksmith_divine_stone(surface, divine.state)
     if divine.blueprint_active and divine.blueprint_rect:
         blueprint_rect = divine.blueprint_rect
