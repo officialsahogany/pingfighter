@@ -37,15 +37,15 @@ class SmokeParticle(DamageParticle):
     def __init__(self, x: float, y: float):
         super().__init__(x, y)
         self.vx = random.uniform(-0.5, 0.5)
-        self.vy = random.uniform(-1.5, -0.5)
+        self.vy = random.uniform(-0.75, -0.25)  # 상승 속도 50% 감소
         self.radius = random.uniform(1.5, 3)  # 70% 감소된 크기 (원래의 30%)
-        self.max_lifetime = random.randint(90, 150)  # 더 오래 지속
+        self.max_lifetime = random.randint(45, 75)  # 수명 50% 감소 (높이 감소)
         self.color_base = random.randint(60, 100)  # 더 밝은 색상
         
     def update(self):
         super().update()
         # 연기가 위로 올라가면서 퍼짐
-        self.vy -= 0.01  # 약간의 부력
+        self.vy -= 0.005  # 부력 50% 감소
         self.vx *= 0.99  # 수평 속도 감속
         self.radius += 0.03  # 크기 증가 (70% 감소)
         
