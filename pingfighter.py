@@ -889,10 +889,11 @@ CURRENT_PADDLE_SIZE_SCALE = 1.0
 
 def get_player_paddle_scale_for_league(league_mode: str) -> float:
     """난이도에 따른 플레이어 패들 배율."""
-    mode = (league_mode or "").lower()
-    if mode == "junior":
+    mode_raw = (league_mode or "").strip().lower()
+    normalized = "".join(ch for ch in mode_raw if ch.isalnum())
+    if normalized in {"junior", "주니어", "주니어리그"}:
         return 1.2
-    if mode == "pro":
+    if normalized in {"pro", "프로", "프로리그"}:
         return 1.1
     return 1.0
 
