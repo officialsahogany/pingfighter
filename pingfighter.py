@@ -48809,7 +48809,7 @@ def handle_ball():
     global boss_special_gauge_stage4, boss_special_ready_stage4
     global boss_current_health  #  체력형 보스 체력 변수
     global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
-    global ragnarok_stun_pending, ragnarok_speed_boost_active, ragnarok_stun_attempted_this_rally
+    global ragnarok_stun_pending, ragnarok_speed_boost_active, ragnarok_stun_attempted_this_rally, ragnarok_original_speed
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
     # 공 물리 & 움직임
