@@ -66,7 +66,7 @@ class SmokeParticle(DamageParticle):
             
             # 블러 효과를 위한 추가 레이어
             for i in range(1, 3):
-                blur_radius = radius + i * 2
+                blur_radius = radius + i * 1  # 블러 효과도 70% 감소
                 temp_alpha = alpha // (i + 1)
                 if temp_alpha > 10:  # 최소 알파값
                     smoke_surf = pygame.Surface((blur_radius * 2, blur_radius * 2), pygame.SRCALPHA)
@@ -113,7 +113,7 @@ class FireParticle(DamageParticle):
             pygame.draw.circle(surface, (r, g, b), (int(self.x), int(self.y)), radius, 2)
             
             # 외부 광선 효과
-            glow_radius = int(radius * 2)
+            glow_radius = int(radius * 1.5)  # 광선 효과도 감소
             alpha = int(200 * self.heat)
             if alpha > 0:
                 glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)

@@ -51746,9 +51746,9 @@ def handle_ball():
         was_stun_ball = ragnarok_speed_boost_active  # 스턴공이었는지 저장
         
         if ragnarok_speed_boost_active:
-            # 보스가 스턴공을 받았을 때: 파워스매싱 감속 로직을 참고해 완만한 속도로 되돌린다.
+            # 보스가 스턴공을 받았을 때: 기존보다 20% 더 느리게 감속한다.
             original_speed = ragnarok_original_speed if ragnarok_original_speed > 0 else math.hypot(ball_vel[0], ball_vel[1])
-            target_speed = original_speed * 0.7 if original_speed > 0 else BALL_BASE_SPEED * 0.7
+            target_speed = original_speed * 0.56 if original_speed > 0 else BALL_BASE_SPEED * 0.56
             current_speed = math.hypot(ball_vel[0], ball_vel[1])
 
             if current_speed > 0 and target_speed > 0:
@@ -51756,9 +51756,9 @@ def handle_ball():
                 ball_vel[0] *= speed_ratio
                 ball_vel[1] *= speed_ratio
             else:
-                fallback_speed = BALL_BASE_SPEED * 0.7 * 0.7
-                ball_vel[0] = fallback_speed
-                ball_vel[1] = fallback_speed
+                fallback_component = (BALL_BASE_SPEED * 0.56) / math.sqrt(2)
+                ball_vel[0] = fallback_component
+                ball_vel[1] = fallback_component
 
             ragnarok_speed_boost_active = False
             ragnarok_original_speed = 0.0
