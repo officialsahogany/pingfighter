@@ -10970,7 +10970,9 @@ BLACKSMITH_BASELINE_GAP = max(
 )
 _blacksmith_base_bounds = BLACKSMITH_PADDLE_IMG.get_bounding_rect(min_alpha=1)
 BLACKSMITH_CONTACT_EXTRA_Y = 12
-BLACKSMITH_SCREEN_GROUND_OFFSET = 30
+# 발토르 기본 패들이 화면 바닥선에 너무 가깝게 붙어 보여 시각적으로 약간 떠 보이므로
+# 모든 리그에서 조금 위로 올리기 위해 오프셋을 줄였다.
+BLACKSMITH_SCREEN_GROUND_OFFSET = 22
 BLACKSMITH_UMBRELLA_HITBOX_MARGIN = 12
 BLACKSMITH_UMBRELLA_GUARD_VERTICAL_SCALE = 0.5
 BLACKSMITH_UMBRELLA_GUARD_UPWARD_OFFSET = 62  # 기본 2cm(12px) + 추가 50px 상향 이동 (총 +62px)
