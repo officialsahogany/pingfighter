@@ -943,13 +943,17 @@ def apply_player_paddle_scale(league_mode: str):
     global CURRENT_PADDLE_SIZE_SCALE, PADDLE_WIDTH, PADDLE_HEIGHT, paddle_scale_ratio
 
     normalized_mode = _normalize_league_mode(league_mode)
-    scale = PLAYER_PADDLE_SCALE_BY_MODE.get(normalized_mode, 1.0)
-    if abs(scale - CURRENT_PADDLE_SIZE_SCALE) < 1e-3:
+    scale = get_player_paddle_scale_for_league(league_mode)
+    new_floor_bonus = PLAYER_FLOOR_BONUS_BY_MODE.get(normalized_mode, 0)
+    global CURRENT_PADDLE_FLOOR_BONUS
+    if (
+        abs(scale - CURRENT_PADDLE_SIZE_SCALE) < 1e-3
+        and new_floor_bonus == CURRENT_PADDLE_FLOOR_BONUS
+    ):
         return
 
     CURRENT_PADDLE_SIZE_SCALE = scale
-    global CURRENT_PADDLE_FLOOR_BONUS
-    CURRENT_PADDLE_FLOOR_BONUS = PLAYER_FLOOR_BONUS_BY_MODE.get(normalized_mode, 0)
+    CURRENT_PADDLE_FLOOR_BONUS = new_floor_bonus
     PADDLE_WIDTH = max(1, int(round(PADDLE_BASE_WIDTH * scale)))
     PADDLE_HEIGHT = max(1, int(round(PADDLE_BASE_HEIGHT * scale)))
 
