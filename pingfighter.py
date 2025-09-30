@@ -11464,6 +11464,155 @@ def _render_blacksmith_hammer_preview(surface: pygame.Surface, rect: pygame.Rect
     return True
 
 
+def _draw_genie_keycap(
+    surface: pygame.Surface,
+    center: tuple[int, int],
+    label: str,
+    *,
+    width: int = 64,
+    height: int = 44,
+    active: bool = False,
+) -> None:
+    """지니 미리보기에 사용하는 키캡 장식."""
+
+    rect = pygame.Rect(0, 0, width, height)
+    rect.center = center
+
+    base = (255, 228, 168) if active else (236, 240, 255)
+    border = (255, 182, 110) if active else (132, 164, 226)
+    inner = (255, 246, 224) if active else (248, 250, 255)
+
+    pygame.draw.rect(surface, base, rect, border_radius=12)
+    pygame.draw.rect(surface, inner, rect.inflate(-6, -6), border_radius=10)
+    pygame.draw.rect(surface, border, rect, width=2, border_radius=12)
+
+    font = FontStyle.body() if len(label) <= 2 else FontStyle.small()
+    glyph = font.render(label, True, (28, 34, 54))
+    surface.blit(glyph, glyph.get_rect(center=rect.center))
+
+
+def _render_smasher_genie_preview(
+    surface: pygame.Surface,
+    rect: pygame.Rect,
+    animation_id: str,
+    ticks: int,
+) -> bool:
+    """스매셔 전용 지니 튜토리얼 미리보기."""
+
+    preview = pygame.Surface(rect.size, pygame.SRCALPHA)
+    width, height = rect.size
+    center = (width // 2, height // 2)
+    title_font = FontStyle.small()
+    body_font = FontStyle.tiny()
+    pulse = 0.3 + 0.2 * math.sin(ticks / 260.0)
+
+    if animation_id == "smasher_drive":
+        radius = int(min(width, height) * 0.28)
+        ring = pygame.Surface((radius * 2 + 48, radius * 2 + 48), pygame.SRCALPHA)
+        ring_center = (ring.get_width() // 2, ring.get_height() // 2)
+
+        inner_radius = radius + int(12 * pulse)
+        pygame.draw.circle(ring, (40, 210, 255, 60), ring_center, inner_radius + 6)
+        pygame.draw.circle(ring, (40, 210, 255, 150), ring_center, radius, width=4)
+        pygame.draw.circle(ring, (170, 120, 255, 140), ring_center, max(4, radius // 2), width=3)
+        preview.blit(ring, ring.get_rect(center=center))
+
+        headline = title_font.render("PERFECT TIMING", True, (224, 236, 255))
+        preview.blit(headline, headline.get_rect(midtop=(center[0], center[1] - radius - 58)))
+
+        gauge = body_font.render("게이지 160 이상", True, (214, 230, 255))
+        preview.blit(gauge, gauge.get_rect(midtop=(center[0], center[1] + radius + 14)))
+
+        _draw_genie_keycap(preview, (center[0] - radius - 46, center[1] + 2), "←", active=True)
+        _draw_genie_keycap(preview, (center[0] + radius + 46, center[1] + 2), "→", active=True)
+        _draw_genie_keycap(preview, (center[0], center[1] + radius + 62), "SPACE", width=122, active=True)
+
+        ball = pygame.Surface((28, 28), pygame.SRCALPHA)
+        pygame.draw.circle(ball, (255, 255, 200), (14, 14), 14)
+        pygame.draw.circle(ball, (120, 255, 210), (14, 14), 12)
+        pygame.draw.circle(ball, (255, 255, 255), (11, 11), 4)
+        preview.blit(ball, ball.get_rect(center=center))
+
+    elif animation_id == "smasher_power":
+        bar_width = int(width * 0.68)
+        bar_height = 28
+        bar_rect = pygame.Rect(0, 0, bar_width, bar_height)
+        bar_rect.center = (center[0], center[1] - 12)
+        bar_rect.move_ip(int(width * 0.16) - bar_rect.left, 0)
+
+        frame = bar_rect.inflate(28, 22)
+        pygame.draw.rect(preview, (24, 36, 68, 190), frame, border_radius=18)
+        pygame.draw.rect(preview, (120, 150, 210, 90), frame, width=2, border_radius=18)
+
+        ratio = min(1.0, 350 / 500)
+        filled = pygame.Rect(bar_rect.left, bar_rect.top, max(1, int(bar_rect.width * ratio)), bar_rect.height)
+        gradient = pygame.Surface(filled.size, pygame.SRCALPHA)
+        for x in range(filled.width):
+            t = x / max(1, filled.width - 1)
+            color = (
+                int(255 * (0.6 + 0.4 * t)),
+                int(120 + 90 * t),
+                int(90 + 50 * (1 - t)),
+                215,
+            )
+            pygame.draw.line(gradient, color, (x, 0), (x, filled.height))
+        preview.blit(gradient, filled.topleft)
+        pygame.draw.rect(preview, (255, 214, 168), bar_rect, width=2, border_radius=12)
+
+        gauge = title_font.render("350 / 500 게이지", True, (236, 240, 255))
+        preview.blit(gauge, gauge.get_rect(midtop=(center[0], bar_rect.bottom + 10)))
+
+        _draw_genie_keycap(preview, (center[0], bar_rect.top - 54), "SPACE", width=122, active=True)
+        _draw_genie_keycap(preview, (bar_rect.left - 50, bar_rect.centery + 60), "←")
+        _draw_genie_keycap(preview, (center[0], bar_rect.centery + 60), "직선")
+        _draw_genie_keycap(preview, (bar_rect.right + 50, bar_rect.centery + 60), "→")
+
+        arrow_len = int(width * 0.18)
+        for direction, offset in ((-1, -arrow_len), (0, 0), (1, arrow_len)):
+            start = (center[0], center[1] + 18)
+            end = (center[0] + offset, center[1] + (0 if direction else -38))
+            pygame.draw.line(preview, (255, 205, 150), start, end, 4)
+            if direction == 0:
+                tip = [(end[0] - 12, end[1] - 6), (end[0] + 12, end[1] - 6), (end[0], end[1] - 18)]
+            else:
+                tip = [
+                    (end[0], end[1] - 12),
+                    (end[0] + 12 * (-direction), end[1] + 6),
+                    (end[0], end[1] + 12),
+                ]
+            pygame.draw.polygon(preview, (255, 170, 110), tip)
+
+    elif animation_id == "smasher_short":
+        lane_top = int(height * 0.2)
+        lane_bottom = int(height * 0.74)
+        lane = pygame.Rect(center[0] - 3, lane_top, 6, lane_bottom - lane_top)
+        pygame.draw.rect(preview, (90, 160, 255, 150), lane, border_radius=3)
+
+        glow = pygame.Surface((42, 42), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (140, 220, 255, 120), (21, 21), int(17 + 6 * pulse))
+        preview.blit(glow, glow.get_rect(center=(center[0], lane_top)))
+
+        ball = pygame.Surface((28, 28), pygame.SRCALPHA)
+        pygame.draw.circle(ball, (255, 240, 180), (14, 14), 14)
+        pygame.draw.circle(ball, (255, 120, 120), (14, 14), 12)
+        pygame.draw.circle(ball, (255, 255, 255), (10, 10), 4)
+        offset = int(44 * (0.5 + 0.5 * math.sin(ticks / 300.0)))
+        preview.blit(ball, ball.get_rect(center=(center[0], lane_bottom - offset)))
+
+        status = title_font.render("쇼트 카운터 활성", True, (234, 240, 255))
+        preview.blit(status, status.get_rect(midtop=(center[0], lane_bottom + 12)))
+
+        _draw_genie_keycap(preview, (center[0], lane_bottom + 64), "↑", active=True)
+        gauge = body_font.render("게이지 100", True, (214, 230, 255))
+        preview.blit(gauge, gauge.get_rect(midtop=(center[0], lane_bottom + 100)))
+
+    else:
+        return False
+
+    surface.blit(preview, rect.topleft)
+    return True
+
+
 def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect) -> bool:
     try:
         state_controller = BLACKSMITH_CONTROLLER.state
@@ -11946,6 +12095,8 @@ def _render_genie_animation_preview(surface: pygame.Surface, rect: pygame.Rect, 
         return _render_blacksmith_hammer_preview(surface, rect)
     if animation_id == "blacksmith_build":
         return _render_blacksmith_build_preview(surface, rect)
+    if animation_id in {"smasher_drive", "smasher_power", "smasher_short"}:
+        return _render_smasher_genie_preview(surface, rect, animation_id, ticks)
     if animation_id in {"fire", "reload", "switch", "supply", "emergency"}:
         return _render_soldier_genie_preview(surface, rect, animation_id)
     return False
