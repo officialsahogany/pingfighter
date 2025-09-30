@@ -5692,6 +5692,10 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_turret_blueprint_rect = None
                         blacksmith_turret_build_progress = 0
                         blacksmith_turret_partial_drain = 0.0
+                        
+                        # 손상 효과 매니저에 포탑 등록
+                        damage_manager = get_damage_manager()
+                        damage_manager.register_building("turret", turret_rect, BLACKSMITH_TURRET_BASE_HP)
                         try:
                             play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
                         except Exception:
@@ -8756,6 +8760,8 @@ def update_blacksmith_turret():
             if not smoke_protected:
                 turret_state["hp"] -= 1  # 연막 밖에서만 체력 감소
                 _cancel_repair_job("turret", state=turret_state)
+                # 손상 효과 업데이트
+                damage_manager.update_building_hp("turret", turret_state["hp"])
             BALL.bottom = min(BALL.bottom, turret_rect.top - 4)
             speed_mag = max(7.0, math.hypot(ball_vel[0], ball_vel[1]))
             ball_vel[1] = -abs(speed_mag)
@@ -9000,6 +9006,8 @@ def update_blacksmith_turret():
                 if turret_state.get("hp", 0) > 0:
                     turret_state["hp"] -= 1
                     _cancel_repair_job("turret", state=turret_state)
+                    # 손상 효과 업데이트
+                    damage_manager.update_building_hp("turret", turret_state["hp"])
                     spark_surface = pygame.Surface((14, 14), pygame.SRCALPHA)
                     pygame.draw.circle(spark_surface, (255, 200, 100, 200), (7, 7), 6)
                     surface_target = pygame.Surface((14, 14), pygame.SRCALPHA)
