@@ -61,12 +61,50 @@ LONG_BOOST_ICON = None  # 이미지 로딩은 main에서 처리됨
 
 # 아이템 아이콘 dictionary
 ITEM_ICONS = {}
+# 전설 아이콘 애니메이션 프레임 캐시
+ITEM_ICON_ANIMATIONS = {}
+_ICON_ANIMATION_SCALE_CACHE = {}
+
+
+def get_item_icon_animation(item_name, size=None):
+    """아이템 이름과 원하는 크기에 맞는 애니메이션 프레임 리스트를 반환"""
+
+    frames = ITEM_ICON_ANIMATIONS.get(item_name)
+    if not frames:
+        return None
+
+    if size is None:
+        return frames
+
+    if isinstance(size, int):
+        target_size = (size, size)
+    else:
+        target_size = tuple(size)
+
+    cache_key = (item_name, target_size)
+    if cache_key in _ICON_ANIMATION_SCALE_CACHE:
+        return _ICON_ANIMATION_SCALE_CACHE[cache_key]
+
+    scaled_frames = []
+    for frame in frames:
+        if frame.get_size() == target_size:
+            scaled_frames.append(frame.copy())
+        else:
+            scaled_frames.append(pygame.transform.smoothscale(frame, target_size))
+
+    _ICON_ANIMATION_SCALE_CACHE[cache_key] = scaled_frames
+    return scaled_frames
+
 
 def load_item_icons():
     """모든 아이템 아이콘을 로드하는 함수"""
     global ITEM_ICONS, LONG_BOOST_ICON
     print("Loading item icons...")
-    
+
+    ITEM_ICONS.clear()
+    ITEM_ICON_ANIMATIONS.clear()
+    _ICON_ANIMATION_SCALE_CACHE.clear()
+
     icon_files = {
         "long_boost": "long_boost_icon.png",
         "slot_add": "slot_add_icon.png",
