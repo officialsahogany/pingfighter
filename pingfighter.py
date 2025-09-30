@@ -917,10 +917,10 @@ def apply_player_paddle_scale(league_mode: str):
     PADDLE_HEIGHT = max(1, int(round(PADDLE_BASE_HEIGHT * scale)))
 
     prev_centerx = PLAYER.centerx
-    prev_bottom = PLAYER.bottom
+    baseline_bottom = HEIGHT - 40
     PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
     PLAYER.centerx = prev_centerx
-    PLAYER.bottom = prev_bottom
+    PLAYER.bottom = baseline_bottom
     PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
     paddle_scale_ratio = scale
 # 공 설정 - game_vars로 관리하되 호환성 유지
