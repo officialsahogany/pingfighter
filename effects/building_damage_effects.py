@@ -374,7 +374,12 @@ class BuildingDamageManager:
     def clear_building(self, building_id: str):
         """건물 제거"""
         if building_id in self.damage_states:
-            print(f"[손상 시스템] {building_id} 제거")
+            # 파티클 효과 즉시 제거
+            state = self.damage_states[building_id]
+            particle_count = len(state.get('particles', []))
+            state['particles'].clear()  # 모든 파티클 즉시 제거
+            
+            print(f"[손상 시스템] {building_id} 제거 - {particle_count}개의 파티클 효과 종료")
             del self.damage_states[building_id]
 
 # 싱글톤 인스턴스
