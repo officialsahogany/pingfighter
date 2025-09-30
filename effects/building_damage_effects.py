@@ -112,11 +112,11 @@ class SparkParticle(DamageParticle):
     def __init__(self, x: float, y: float):
         super().__init__(x, y)
         angle = random.uniform(0, math.pi * 2)
-        speed = random.uniform(2, 4)
+        speed = random.uniform(3, 6)  # 더 빠른 속도
         self.vx = math.cos(angle) * speed
         self.vy = math.sin(angle) * speed - 1  # 약간 위로
-        self.radius = random.uniform(1, 2)
-        self.max_lifetime = random.randint(10, 20)
+        self.radius = random.uniform(2, 4)  # 더 큰 크기
+        self.max_lifetime = random.randint(20, 40)  # 더 오래 지속
         self.trail = []  # 궤적
         
     def update(self):
@@ -270,17 +270,33 @@ class BuildingDamageManager:
         for building_id, state in self.damage_states.items():
             total_particles += len(state['particles'])
             
-        if total_particles > 0 and not hasattr(self, '_draw_logged'):
-            print(f"[손상 그리기] 총 파티클 수: {total_particles}")
-            for building_id, state in self.damage_states.items():
-                if len(state['particles']) > 0:
-                    print(f"  - {building_id}: {len(state['particles'])} 파티클")
-            self._draw_logged = True
+        if total_particles > 0:
+            if not hasattr(self, '_draw_count'):
+                self._draw_count = 0
+            self._draw_count += 1
+            
+            # 매 60프레임마다 상세 로그
+            if self._draw_count % 60 == 0:
+                print(f"[손상 그리기] 총 파티클 수: {total_particles}")
+                for building_id, state in self.damage_states.items():
+                    if len(state['particles']) > 0:
+                        print(f"  - {building_id}: {len(state['particles'])} 파티클")
+                        # 파티클 타입별 수 확인
+                        smoke_count = sum(1 for p in state['particles'] if isinstance(p, SmokeParticle))
+                        fire_count = sum(1 for p in state['particles'] if isinstance(p, FireParticle))
+                        spark_count = sum(1 for p in state['particles'] if isinstance(p, SparkParticle))
+                        print(f"    연기: {smoke_count}, 불꽃: {fire_count}, 불씨: {spark_count}")
         
         # 모든 건물의 파티클 그리기
+        drawn_count = 0
         for building_id, state in self.damage_states.items():
             for particle in state['particles']:
                 particle.draw(surface)
+                drawn_count += 1
+                
+        # 실제로 그린 파티클 수 확인
+        if drawn_count > 0 and self._draw_count % 60 == 0:
+            print(f"[손상 렌더링] 실제 그린 파티클: {drawn_count}개")
             
     def draw_damage_overlay(self, surface: pygame.Surface, building_id: str, rect: pygame.Rect):
         """건물 손상 오버레이 그리기"""
