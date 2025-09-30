@@ -26941,19 +26941,20 @@ def draw_item_obtained_effect():
         return
     effect_x = int(item_obtained_effect["x"])
     effect_y = int(item_obtained_effect["y"])
-    # 배경 원 (글로우 효과) - 크기 50% 감소
-    glow_radius = 40  # 80 -> 40
-    glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-    for i in range(glow_radius):
-        alpha = int(30 * (1 - i / glow_radius) * (item_obtained_effect["alpha"] / 255))  # 더 투명하게
-        pygame.draw.circle(glow_surface, (255, 255, 255, alpha), (glow_radius, glow_radius), glow_radius - i)
-    SCREEN.blit(glow_surface, (effect_x - glow_radius, effect_y - glow_radius))
-    # 메인 원형 배경 - 크기 50% 감소
-    draw.circle((30, 40, 60, 150), (effect_x, effect_y), 30)  # 더 투명하게
-    draw.circle((100, 150, 255, 150), (effect_x, effect_y), 30, 2)  # 더 투명하게
+    legendary_item = item_obtained_effect.get("legendary_item")
+
+    if not legendary_item:
+        glow_radius = 40  # 80 -> 40
+        glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        for i in range(glow_radius):
+            alpha = int(30 * (1 - i / glow_radius) * (item_obtained_effect["alpha"] / 255))
+            pygame.draw.circle(glow_surface, (255, 255, 255, alpha), (glow_radius, glow_radius), glow_radius - i)
+        SCREEN.blit(glow_surface, (effect_x - glow_radius, effect_y - glow_radius))
+        draw.circle((30, 40, 60, 150), (effect_x, effect_y), 30)
+        draw.circle((100, 150, 255, 150), (effect_x, effect_y), 30, 2)
+
     # 아이템 아이콘 - 크기 50% 감소 (전설 아이콘은 애니메이션 프레임 사용)
     icon_surface = None
-    legendary_item = item_obtained_effect.get("legendary_item")
     frames = item_obtained_effect.get("animation_frames")
     if legendary_item:
         icon_surface = pygame.Surface((40, 40), pygame.SRCALPHA)
