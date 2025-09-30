@@ -150,7 +150,6 @@ class BuildingDamageManager:
     """건물 손상 효과 관리자"""
     def __init__(self):
         self.damage_states: Dict[str, Dict] = {}
-        self.particles: Dict[str, Dict[str, List]] = {}  # 건물별 파티클 관리
         
     def register_building(self, building_id: str, rect: pygame.Rect, max_hp: int):
         """건물 등록"""
@@ -186,6 +185,7 @@ class BuildingDamageManager:
         # 디버그 로그
         if prev_level != state['damage_level']:
             print(f"[손상 효과] {building_id}: HP {current_hp}, 손상 레벨 {prev_level} → {state['damage_level']}")
+            state['debug_update_logged'] = False  # 리셋
             
     def update(self):
         """파티클 업데이트"""
@@ -198,84 +198,80 @@ class BuildingDamageManager:
                     print(f"[손상 업데이트] {building_id}: 레벨 {state['damage_level']}, HP {state['current_hp']}/{state['max_hp']}")
                     state['debug_update_logged'] = True
         
-        # 건물별 파티클 생성
+        # 건물별 파티클 생성 및 업데이트
         for building_id, state in self.damage_states.items():
             if state['damage_level'] >= 1:
                 # 연기 생성
                 state['smoke_timer'] += 1
                 if state['smoke_timer'] >= 5:  # 5프레임마다
-                    self._spawn_smoke(state['rect'])
+                    self._spawn_smoke(state)
                     state['smoke_timer'] = 0
                     
             if state['damage_level'] >= 2:
                 # 불꽃 생성
                 state['fire_timer'] += 1
                 if state['fire_timer'] >= 3:  # 3프레임마다
-                    self._spawn_fire(state['rect'])
+                    self._spawn_fire(state)
                     state['fire_timer'] = 0
                     
                 # 불씨 생성
                 state['spark_timer'] += 1
                 if state['spark_timer'] >= 10:  # 10프레임마다
-                    self._spawn_sparks(state['rect'])
+                    self._spawn_sparks(state)
                     state['spark_timer'] = 0
-        
-        # 파티클 업데이트
-        self._update_particles(self.smoke_particles)
-        self._update_particles(self.fire_particles)
-        self._update_particles(self.spark_particles)
-        
-    def _update_particles(self, particles: List[DamageParticle]):
-        """파티클 리스트 업데이트"""
-        for particle in particles[:]:
-            particle.update()
-            if not particle.alive:
-                particles.remove(particle)
-                
-    def _spawn_smoke(self, rect: pygame.Rect):
+            
+            # 파티클 업데이트
+            for particle in state['particles'][:]:
+                particle.update()
+                if not particle.alive:
+                    state['particles'].remove(particle)
+                    
+    def _spawn_smoke(self, state: Dict):
         """연기 생성"""
+        rect = state['rect']
         # 건물 상단에서 연기 생성
         for _ in range(random.randint(1, 3)):
             x = rect.centerx + random.randint(-rect.width//3, rect.width//3)
             y = rect.top + random.randint(0, rect.height//4)
-            self.smoke_particles.append(SmokeParticle(x, y))
+            state['particles'].append(SmokeParticle(x, y))
             
-    def _spawn_fire(self, rect: pygame.Rect):
+    def _spawn_fire(self, state: Dict):
         """불꽃 생성"""
+        rect = state['rect']
         # 건물 곳곳에서 불꽃 생성
         for _ in range(random.randint(2, 4)):
             x = rect.centerx + random.randint(-rect.width//2, rect.width//2)
             y = rect.centery + random.randint(-rect.height//3, rect.height//3)
-            self.fire_particles.append(FireParticle(x, y))
+            state['particles'].append(FireParticle(x, y))
             
-    def _spawn_sparks(self, rect: pygame.Rect):
+    def _spawn_sparks(self, state: Dict):
         """불씨 생성"""
+        rect = state['rect']
         # 불꽃이 튀는 효과
         x = rect.centerx + random.randint(-rect.width//3, rect.width//3)
         y = rect.centery + random.randint(-rect.height//3, rect.height//3)
         
         for _ in range(random.randint(3, 6)):
-            self.spark_particles.append(SparkParticle(x, y))
+            state['particles'].append(SparkParticle(x, y))
             
     def draw(self, surface: pygame.Surface):
         """모든 파티클 그리기"""
         # 디버그: 파티클 수 확인
-        total_particles = len(self.smoke_particles) + len(self.fire_particles) + len(self.spark_particles)
+        total_particles = 0
+        for building_id, state in self.damage_states.items():
+            total_particles += len(state['particles'])
+            
         if total_particles > 0 and not hasattr(self, '_draw_logged'):
-            print(f"[손상 그리기] 연기: {len(self.smoke_particles)}, 불꽃: {len(self.fire_particles)}, 불씨: {len(self.spark_particles)}")
+            print(f"[손상 그리기] 총 파티클 수: {total_particles}")
+            for building_id, state in self.damage_states.items():
+                if len(state['particles']) > 0:
+                    print(f"  - {building_id}: {len(state['particles'])} 파티클")
             self._draw_logged = True
         
-        # 연기는 뒤에
-        for particle in self.smoke_particles:
-            particle.draw(surface)
-            
-        # 불꽃
-        for particle in self.fire_particles:
-            particle.draw(surface)
-            
-        # 불씨는 맨 위에
-        for particle in self.spark_particles:
-            particle.draw(surface)
+        # 모든 건물의 파티클 그리기
+        for building_id, state in self.damage_states.items():
+            for particle in state['particles']:
+                particle.draw(surface)
             
     def draw_damage_overlay(self, surface: pygame.Surface, building_id: str, rect: pygame.Rect):
         """건물 손상 오버레이 그리기"""
@@ -334,6 +330,7 @@ class BuildingDamageManager:
     def clear_building(self, building_id: str):
         """건물 제거"""
         if building_id in self.damage_states:
+            print(f"[손상 시스템] {building_id} 제거")
             del self.damage_states[building_id]
 
 # 싱글톤 인스턴스
