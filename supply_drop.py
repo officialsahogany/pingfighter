@@ -65,6 +65,7 @@ class SupplyDropRuntime:
         self.hold_active: bool = False
         self._radio_sound: Optional[pygame.mixer.Sound | bool] = None
         self._radio_channel: Optional[pygame.mixer.Channel] = None
+        self._radio_sound_started: bool = False
 
     def ensure_radio_sound(
         self,
@@ -103,6 +104,7 @@ class SupplyDropRuntime:
         safe_duration = max(1, int(duration_frames))
         state.radio_timer = max(state.radio_timer, safe_duration)
         state.radio_duration = max(state.radio_duration, safe_duration)
+        previous_hold_active = self.hold_active
         self.hold_active = True
 
         sound = self.ensure_radio_sound(resource_path, volume=volume)
@@ -116,13 +118,28 @@ class SupplyDropRuntime:
                 except Exception:  # noqa: BLE001
                     pass
             self._radio_channel = None
+            self._radio_sound_started = False
             return
+
+        if self._radio_sound_started:
+            channel = self._radio_channel
+            if channel and channel.get_busy():
+                try:
+                    channel.set_volume(volume)
+                except Exception:  # noqa: BLE001
+                    pass
+                return
+            # Avoid restarting within the same session even if the channel was lost.
+            if previous_hold_active:
+                return
 
         try:
             if self._radio_channel is None or not self._radio_channel.get_busy():
                 sound.set_volume(volume)
                 # Play once to avoid stacking the radio loop.
                 self._radio_channel = sound.play()
+                if self._radio_channel:
+                    self._radio_sound_started = True
         except Exception as exc:  # noqa: BLE001
             print(f"무전기 효과음 재생 실패: {exc}")
 
@@ -137,6 +154,7 @@ class SupplyDropRuntime:
             except Exception:  # noqa: BLE001
                 pass
             self._radio_channel = None
+            self._radio_sound_started = False
 
         if not keep_animation:
             state = self.state
@@ -153,6 +171,8 @@ class SupplyDropRuntime:
             if state.radio_timer <= 0:
                 state.radio_motion = False
                 state.radio_duration = 0
+                if not self.hold_active:
+                    self._radio_sound_started = False
         if self._radio_channel and not self._radio_channel.get_busy():
             self._radio_channel = None
 
