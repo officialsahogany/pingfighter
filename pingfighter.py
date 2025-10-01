@@ -45092,25 +45092,55 @@ def wait_for_stage_intro_confirmation(
 
 
 def show_stage1_intro():
+    stage_text = "STAGE 1"
+    boss_name = "풍악보이"
+    stage_color = (255, 220, 220)
+    boss_color_video = (220, 110, 200)
+    hint_color = (170, 160, 160)
+
+    played_video = False
+    last_frame = None
+    if STAGE1_INTRO_VIDEO_PATH:
+        played_video, last_frame = play_stage_intro_video(
+            STAGE1_INTRO_VIDEO_PATH,
+            stage_text=stage_text,
+            boss_text=boss_name,
+            stage_color=stage_color,
+            boss_color=boss_color_video,
+            hint_color=hint_color,
+            hint_text="Press SPACE to skip",
+        )
+
+    if played_video:
+        wait_for_stage_intro_confirmation(
+            last_frame,
+            stage_text=stage_text,
+            boss_text=boss_name,
+            stage_color=stage_color,
+            boss_color=boss_color_video,
+            hint_color=hint_color,
+        )
+        return
+
     try:
-        boss_img = pygame.image.load(resource_path("stage1.png"))
+        boss_img = pygame.image.load(STAGE1_INTRO_IMAGE_PATH).convert()
         boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
-    except:
+    except Exception:
         boss_img = pygame.Surface((WIDTH, HEIGHT))
         boss_img.fill((50, 0, 0))
-    # 페이드 인 (더 부드럽게)
+
     for alpha in range(0, 256, 8):
         boss_img.set_alpha(alpha)
         SCREEN.fill(BLACK)
         SCREEN.blit(boss_img, (0, 0))
-        # 고급스러운 텍스트 렌더링 (파랑~빨강 계통)
+
         fade_pulse = alpha / 255.0 * 20
         red_component = min(255, 120 + int(fade_pulse * 1.5))
         blue_component = max(80, 200 - int(fade_pulse))
         boss_fade_color = (red_component, 100, blue_component)
-        ui_manager.draw_centered_text("STAGE 1", 56, -120, (255, 220, 220), "elegant")
-        ui_manager.draw_centered_text("풍악보이", 42, -50, boss_fade_color, "glow")
-        # 장식 요소 추가
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_fade_color, "glow")
+
         decoration_alpha = min(255, alpha + 50)
         if decoration_alpha > 0:
             line_color = (220, 160, 160, decoration_alpha)
@@ -45123,44 +45153,46 @@ def show_stage1_intro():
             else:
                 draw.line(line_color[:3], (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
                 draw.line(line_color[:3], (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
+
         pygame.display.flip()
         pygame.time.delay(25)
-    # 대기 중 (SPACE 누를 때까지) - 애니메이션 효과 추가
+
     waiting = True
     frame_count = 0
     while waiting:
         frame_count += 1
         SCREEN.fill(BLACK)
         SCREEN.blit(boss_img, (0, 0))
-        # 맥동하는 효과 (파랑~빨강 계통)
+
         pulse = abs(math.sin(frame_count * 0.03)) * 20
-        stage_color = (255, min(255, 220 + int(pulse)), min(255, 220 + int(pulse)))
-        # 파랑에서 빨강으로 변하는 맥동 효과
+        stage_pulse_color = (255, min(255, 220 + int(pulse)), min(255, 220 + int(pulse)))
         red_component = min(255, 120 + int(pulse * 1.5))
         blue_component = max(80, 200 - int(pulse))
-        boss_color = (red_component, 100, blue_component)
-        ui_manager.draw_centered_text("STAGE 1", 56, -120, stage_color, "elegant")
-        ui_manager.draw_centered_text("풍악보이", 42, -50, boss_color, "glow")
-        # 장식 라인 (맥동 효과)
+        boss_pulse_color = (red_component, 100, blue_component)
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_pulse_color, "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_pulse_color, "glow")
+
         line_intensity = 160 + int(pulse)
         line_color = (min(255, line_intensity + 60), line_intensity, line_intensity)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
-        # 부드러운 Space 키 안내
+
         if frame_count % 120 < FPS:
-            hint_font = get_font(18)  # 18pt 픽셀 폰트
-            hint_text = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-            SCREEN.blit(hint_text, hint_rect)
+            hint_font = get_font(18)
+            hint_surface = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
+            hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
+            SCREEN.blit(hint_surface, hint_rect)
+
         pygame.display.flip()
         pygame.time.delay(16)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 waiting = False
-    # 페이드 아웃 (더 부드럽게)
+
     for alpha in range(255, -1, -8):
         boss_img.set_alpha(alpha)
         SCREEN.fill(BLACK)
