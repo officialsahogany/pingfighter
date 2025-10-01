@@ -45166,15 +45166,29 @@ INTRO_VIDEO_AUDIO_FADE_MS = 700  # 영상 종료 시 오디오 페이드아웃 �
 
 
 def complete_stage_intro_transition(hold_ms: int = 220) -> None:
-    """영상 인트로 종료 후 짧게 블랙 프레임을 보여주고 입력 이벤트를 정리한다."""
+    """영상 인트로 종료 후 짧게 페이드아웃하며 입력 이벤트를 정리한다."""
 
     if hold_ms <= 0:
         pygame.event.pump()
+        pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP])
         return
 
-    SCREEN.fill(BLACK)
-    pygame.display.flip()
-    pygame.time.delay(hold_ms)
+    fade_frames = max(2, min(10, hold_ms // 30))
+    frame_delay = max(10, hold_ms // fade_frames)
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+    for frame_index in range(fade_frames):
+        alpha = int(255 * (frame_index + 1) / fade_frames)
+        overlay.fill((0, 0, 0, alpha))
+        SCREEN.blit(overlay, (0, 0))
+        pygame.display.flip()
+        pygame.time.delay(frame_delay)
+        pygame.event.pump()
+
+    remaining_delay = hold_ms - frame_delay * fade_frames
+    if remaining_delay > 0:
+        pygame.time.delay(remaining_delay)
+
     pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP])
 
 
