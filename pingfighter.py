@@ -45178,45 +45178,6 @@ def complete_stage_intro_transition(hold_ms: int = 120) -> None:
     pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP])
 
 
-def wait_for_stage_intro_confirmation(
-    background_surface: pygame.Surface | None,
-    *,
-    stage_text: str,
-    boss_text: str,
-    stage_color: tuple[int, int, int] = (255, 255, 255),
-    boss_color: tuple[int, int, int] = (255, 255, 255),
-) -> None:
-    """인트로 영상 이후 Space 입력을 대기한다."""
-
-    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 140))
-
-    waiting = True
-    frame_count = 0
-
-    while waiting:
-        frame_count += 1
-        SCREEN.fill(BLACK)
-
-        if background_surface:
-            SCREEN.blit(background_surface, (0, 0))
-
-        SCREEN.blit(overlay, (0, 0))
-
-        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
-        ui_manager.draw_centered_text(boss_text, 42, -50, boss_color, "glow")
-
-        pygame.display.flip()
-        pygame.time.delay(16)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                waiting = False
-
-
 def show_stage1_intro():
     stage_text = "STAGE 1"
     boss_name = "풍악보이"
@@ -45224,9 +45185,8 @@ def show_stage1_intro():
     boss_color_video = (220, 110, 200)
 
     played_video = False
-    last_frame = None
     if STAGE1_INTRO_VIDEO_PATH:
-        played_video, last_frame = play_stage_intro_video(
+        played_video, _ = play_stage_intro_video(
             STAGE1_INTRO_VIDEO_PATH,
             stage_text=stage_text,
             boss_text=boss_name,
@@ -45318,9 +45278,8 @@ def show_stage2_intro():
     boss_name = "악어장군"
 
     played_video = False
-    last_frame = None
     if STAGE2_INTRO_VIDEO_PATH:
-        played_video, last_frame = play_stage_intro_video(
+        played_video, _ = play_stage_intro_video(
             STAGE2_INTRO_VIDEO_PATH,
             stage_text=stage_text,
             boss_text=boss_name,
