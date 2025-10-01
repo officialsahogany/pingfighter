@@ -45011,7 +45011,7 @@ def play_stage_intro_video(
     boss_color: tuple[int, int, int] = (255, 255, 255),
     hint_color: tuple[int, int, int] = (200, 200, 200),
     hint_text: str = "Press SPACE to skip",
-    show_hint: bool = True,
+    show_hint: bool = False,
     fade_out_on_finish: bool = False,
 ) -> tuple[bool, pygame.Surface | None]:
     """인트로 영상을 재생하고 마지막 프레임을 반환한다."""
@@ -45079,7 +45079,7 @@ def play_stage_intro_video(
         ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
         ui_manager.draw_centered_text(boss_text, 42, -50, boss_color, "glow")
 
-        if show_hint:
+        if show_hint and hint_text:
             hint_font = get_font(18)
             hint_surface = hint_font.render(hint_text, True, hint_color)
             hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
@@ -45153,12 +45153,6 @@ def wait_for_stage_intro_confirmation(
 
         ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
         ui_manager.draw_centered_text(boss_text, 42, -50, boss_color, "glow")
-
-        if frame_count % 120 < FPS:
-            hint_font = get_font(18)
-            hint_surface = hint_font.render(hint_text, True, hint_color)
-            hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-            SCREEN.blit(hint_surface, hint_rect)
 
         pygame.display.flip()
         pygame.time.delay(16)
@@ -45249,12 +45243,6 @@ def show_stage1_intro():
         line_color = (min(255, line_intensity + 60), line_intensity, line_intensity)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
-
-        if frame_count % 120 < FPS:
-            hint_font = get_font(18)
-            hint_surface = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-            SCREEN.blit(hint_surface, hint_rect)
 
         pygame.display.flip()
         pygame.time.delay(16)
@@ -45354,12 +45342,6 @@ def show_stage2_intro():
         line_color = (min(255, line_intensity), max(0, line_intensity - 20), max(0, line_intensity - 60))
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
-
-        if frame_count % 120 < FPS:
-            hint_font = get_font(18)
-            hint_text = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-            SCREEN.blit(hint_text, hint_rect)
 
         pygame.display.flip()
         pygame.time.delay(16)
