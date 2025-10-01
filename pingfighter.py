@@ -45076,6 +45076,10 @@ def play_stage_intro_video(
     overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 90))
 
+    text_timer_start = pygame.time.get_ticks()
+    TEXT_VISIBLE_MS = 2000
+    TEXT_FADE_MS = 500
+
     audio_channel = None
     audio_sound = load_stage_intro_audio(absolute_path)
     if audio_sound is not None:
@@ -45106,8 +45110,22 @@ def play_stage_intro_video(
         SCREEN.blit(frame_surface, (0, 0))
         SCREEN.blit(overlay, (0, 0))
 
-        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
-        ui_manager.draw_centered_text(boss_text, 42, -50, boss_color, "glow")
+        elapsed = pygame.time.get_ticks() - text_timer_start
+        text_alpha = 0
+        if elapsed < TEXT_VISIBLE_MS:
+            if TEXT_FADE_MS > 0 and elapsed > TEXT_VISIBLE_MS - TEXT_FADE_MS:
+                fade_progress = (elapsed - (TEXT_VISIBLE_MS - TEXT_FADE_MS)) / TEXT_FADE_MS
+                text_alpha = int(255 * max(0.0, 1.0 - fade_progress))
+            else:
+                text_alpha = 255
+
+        if text_alpha > 0:
+            ui_manager.draw_centered_text(
+                stage_text, 56, -120, stage_color, "elegant", alpha=text_alpha
+            )
+            ui_manager.draw_centered_text(
+                boss_text, 42, -50, boss_color, "glow", alpha=text_alpha
+            )
 
         pygame.display.flip()
 
