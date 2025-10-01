@@ -45153,6 +45153,9 @@ def play_stage_intro_video(
     return played, last_surface
 
 
+INTRO_AUTO_EXIT_MS = 2800  # ms 동안 대기 후 자동으로 인트로 종료
+
+
 def complete_stage_intro_transition(hold_ms: int = 120) -> None:
     """영상 인트로 종료 후 짧게 블랙 프레임을 보여주고 입력 이벤트를 정리한다."""
 
@@ -45264,6 +45267,7 @@ def show_stage1_intro():
 
     waiting = True
     frame_count = 0
+    wait_start = pygame.time.get_ticks()
     while waiting:
         frame_count += 1
         SCREEN.fill(BLACK)
@@ -45291,6 +45295,9 @@ def show_stage1_intro():
                 sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 waiting = False
+
+        if waiting and pygame.time.get_ticks() - wait_start >= INTRO_AUTO_EXIT_MS:
+            waiting = False
 
     for alpha in range(255, -1, -8):
         boss_img.set_alpha(alpha)
