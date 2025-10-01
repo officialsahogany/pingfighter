@@ -45153,6 +45153,19 @@ def play_stage_intro_video(
     return played, last_surface
 
 
+def complete_stage_intro_transition(hold_ms: int = 120) -> None:
+    """영상 인트로 종료 후 짧게 블랙 프레임을 보여주고 입력 이벤트를 정리한다."""
+
+    if hold_ms <= 0:
+        pygame.event.pump()
+        return
+
+    SCREEN.fill(BLACK)
+    pygame.display.flip()
+    pygame.time.delay(hold_ms)
+    pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP])
+
+
 def wait_for_stage_intro_confirmation(
     background_surface: pygame.Surface | None,
     *,
@@ -45211,6 +45224,7 @@ def show_stage1_intro():
         )
 
     if played_video:
+        complete_stage_intro_transition()
         return
 
     try:
@@ -45300,6 +45314,7 @@ def show_stage2_intro():
         )
 
     if played_video:
+        complete_stage_intro_transition()
         return
 
     try:
@@ -45449,6 +45464,7 @@ def show_stage4_intro():
         )
 
     if played_video:
+        complete_stage_intro_transition()
         return
 
     try:
@@ -45525,6 +45541,7 @@ def show_stage5_intro():
         )
 
     if played_video:
+        complete_stage_intro_transition()
         return
 
     try:
