@@ -948,6 +948,8 @@ STAGE4_BG = stage_backgrounds.stage4
 STAGE5_BG = stage_backgrounds.stage5
 STAGE6_BG = stage_backgrounds.stage6
 
+STAGE2_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage2.mov")
+STAGE2_INTRO_IMAGE_PATH = resource_path("stage2.png")
 STAGE5_INTRO_VIDEO_PATH: str | None = None
 STAGE5_INTRO_IMAGE_PATH = resource_path("stage5.png")
 STAGE6_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage6.mov")
