@@ -45010,7 +45010,7 @@ def play_stage_intro_video(
     stage_color: tuple[int, int, int] = (255, 255, 255),
     boss_color: tuple[int, int, int] = (255, 255, 255),
     hint_color: tuple[int, int, int] = (200, 200, 200),
-    hint_text: str = "Press SPACE to skip",
+    hint_text: str = "",
     show_hint: bool = False,
     fade_out_on_finish: bool = False,
 ) -> tuple[bool, pygame.Surface | None]:
@@ -45131,7 +45131,7 @@ def wait_for_stage_intro_confirmation(
     boss_text: str,
     stage_color: tuple[int, int, int] = (255, 255, 255),
     boss_color: tuple[int, int, int] = (255, 255, 255),
-    hint_text: str = "Press SPACE to continue",
+    hint_text: str = "",
     hint_color: tuple[int, int, int] = (200, 200, 200),
 ) -> None:
     """인트로 영상 이후 Space 입력을 대기한다."""
