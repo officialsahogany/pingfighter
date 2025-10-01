@@ -34717,31 +34717,49 @@ def show_victory_screen(stage_cleared, reward):
         
         # 애니메이션 완료 여부에 따라 버튼 표시 방식 변경
         if animation_complete:
-            # 애니메이션 완료 시 정상 버튼 표시
+            # 애니메이션 완료 시 버튼 표시
             for rect, text, idx in buttons:
-                is_selected = (selected == idx)
-                # 버튼 배경 그라데이션
-                if is_selected:
-                    # 선택된 버튼: 황금색 그라데이션
+                transition_highlight = transition_state['active'] and idx == 0
+                is_selected = (selected == idx) or transition_highlight
+
+                if transition_highlight:
+                    flash_timer = transition_state['timer']
+                    flash_frames = max(1, transition_state['flash_frames'])
+                    flash_progress = min(1.0, flash_timer / flash_frames)
+                    pulse = 0.5 + 0.5 * math.sin(flash_timer * 0.45)
+                    top_color = (255, 255, 255)
+                    bottom_color = (
+                        255,
+                        min(255, int(215 + 40 * (1.0 - flash_progress))),
+                        min(255, int(140 + 60 * pulse))
+                    )
+                    height = max(1, rect.height - 1)
+                    for i in range(rect.height):
+                        ratio = i / height
+                        r = int(top_color[0] * (1 - ratio) + bottom_color[0] * ratio)
+                        g = int(top_color[1] * (1 - ratio) + bottom_color[1] * ratio)
+                        b = int(top_color[2] * (1 - ratio) + bottom_color[2] * ratio)
+                        draw.line((r, g, b), (rect.left, rect.top + i), (rect.right, rect.top + i))
+                    border_width = 4 if (flash_timer // 2) % 2 == 0 else 3
+                    draw.rect(WHITE, rect, border_width)
+                    text_color = (20, 20, 20)
+                elif is_selected:
                     for i in range(rect.height):
                         intensity = 1.0 - (i / rect.height) * 0.3
                         color = (int(255 * intensity), int(215 * intensity), int(50 * intensity))
-                        draw.line(color, (rect.left, rect.top + i), 
+                        draw.line(color, (rect.left, rect.top + i),
                                        (rect.right, rect.top + i))
-                    # 선택된 버튼 외곽선
                     draw.rect(WHITE, rect, 3)
                     text_color = (30, 30, 30)
                 else:
-                    # 일반 버튼: 블루 그라데이션
                     for i in range(rect.height):
                         intensity = 1.0 - (i / rect.height) * 0.4
                         color = (int(70 * intensity), int(130 * intensity), int(200 * intensity))
-                        draw.line(color, (rect.left, rect.top + i), 
+                        draw.line(color, (rect.left, rect.top + i),
                                        (rect.right, rect.top + i))
-                    # 일반 버튼 외곽선
                     draw.rect((120, 160, 220), rect, 2)
                     text_color = WHITE
-                # 버튼 텍스트
+
                 button_text = font_button.render(text, True, text_color)
                 text_rect = button_text.get_rect(center=rect.center)
                 SCREEN.blit(button_text, text_rect)
