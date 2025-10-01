@@ -43095,6 +43095,17 @@ def show_difficulty_selection():
                 # 내부 테두리
                 draw.rect((*difficulty["color"], 100),
                                (card_x - 2, card_y - 2, card_width + BORDER_WIDTH, card_height + BORDER_WIDTH), 1, border_radius=13)
+                if confirming and confirm_selected == i and confirm_flash_strength > 0:
+                    flash_glow_size = int(16 + 20 * confirm_flash_strength)
+                    flash_surface = pygame.Surface((card_width + flash_glow_size, card_height + flash_glow_size), pygame.SRCALPHA)
+                    flash_alpha = int(200 * confirm_flash_strength)
+                    pygame.draw.rect(
+                        flash_surface,
+                        (255, 255, 255, flash_alpha),
+                        (0, 0, card_width + flash_glow_size, card_height + flash_glow_size),
+                        border_radius=18,
+                    )
+                    SCREEN.blit(flash_surface, (card_x - flash_glow_size // 2, card_y - flash_glow_size // 2))
             # 홀로그램 카드 배경
             card_surface = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
             # 어두운 배경과 회로 패턴
@@ -43110,6 +43121,10 @@ def show_difficulty_selection():
             # 네온 테두리
             pygame.draw.rect(card_surface, (*difficulty["color"], 150), (0, 0, card_width, card_height), 2, border_radius=12)
             SCREEN.blit(card_surface, (card_x, card_y))
+            if confirming and confirm_selected == i and confirm_flash_strength > 0:
+                flash_inner = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
+                flash_inner.fill((255, 255, 255, int(100 * confirm_flash_strength)))
+                SCREEN.blit(flash_inner, (card_x, card_y))
             # 리그 이름 표시 (선택된 카드만 이름 표시, 네온 효과)
             if i == selected:
                 # 네온 글로우 텍스트
@@ -43315,6 +43330,9 @@ def show_difficulty_selection():
         scan_y = HEIGHT - 20
         scan_alpha = int(abs(math.sin(animation_timer * 0.1)) * 100) + 50
         draw.line((0, 255, 255, scan_alpha), (LARGE_SIZE, scan_y), (WIDTH - LARGE_SIZE, scan_y), 1)
+        if fade_alpha > 0:
+            fade_overlay.set_alpha(fade_alpha)
+            SCREEN.blit(fade_overlay, (0, 0))
         pygame.display.flip()
         clock.tick(60)
 def start_game_with_difficulty(character_id, difficulty_mode):
