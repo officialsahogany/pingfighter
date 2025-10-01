@@ -45008,6 +45008,8 @@ def play_stage_intro_video(
     boss_color: tuple[int, int, int] = (255, 255, 255),
     hint_color: tuple[int, int, int] = (200, 200, 200),
     hint_text: str = "Press SPACE to skip",
+    show_hint: bool = True,
+    fade_out_on_finish: bool = False,
 ) -> tuple[bool, pygame.Surface | None]:
     """인트로 영상을 재생하고 마지막 프레임을 반환한다."""
 
