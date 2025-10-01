@@ -45163,7 +45163,7 @@ def play_stage_intro_video(
     return played, last_surface
 
 
-INTRO_AUTO_EXIT_MS = 2800  # ms 동안 대기 후 자동으로 인트로 종료
+INTRO_AUTO_EXIT_MS = 2400  # ms 동안 대기 후 자동으로 인트로 종료
 INTRO_VIDEO_AUDIO_FADE_MS = 700  # 영상 종료 시 오디오 페이드아웃 시간
 INTRO_TRANSITION_HOLD_MS = 220  # 영상 종료 후 블랙 유지 시간
 
