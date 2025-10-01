@@ -34790,16 +34790,19 @@ def show_victory_screen(stage_cleared, reward):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            elif event.type == pygame.KEYDOWN:
+                continue
+
+            if transition_state['active']:
+                continue
+
+            if event.type == pygame.KEYDOWN:
                 if not animation_complete:
                     if event.key == pygame.K_SPACE:
                         advanced = force_show_next_stage()
-                        # total 단계까지 노출되었지만 별 애니메이션이 진행 중이라면 강제 감상
                         if not advanced and not star_animation_finished:
-                            pass  # 별 애니메이션은 스킵 불가
+                            pass
                     continue
 
-                # 애니메이션이 완료된 경우에만 메뉴 조작 가능 (animation_complete 플래그 사용)
                 if animation_complete:
                     button_count = len(buttons)
                     if event.key in [pygame.K_UP, pygame.K_w]:
@@ -34808,42 +34811,16 @@ def show_victory_screen(stage_cleared, reward):
                         selected = (selected + 1) % button_count
                     elif event.key == pygame.K_SPACE:
                         if selected == 0:
-                            final_stage_reached = display_stage_cleared >= 6
-
-                            if final_stage_reached:
-                                print("!  !")
-                                show_start_screen()
-                                return
-
-                            next_stage_display = display_stage_cleared + 1
-
-                            # 필드 아이템 초기화 (스테이지 전환 시)
-                            items.clear_field_items()
-                            try:
-                                get_net_gun_instance().reset()
-                            except Exception:
-                                pass
-
-                            # 스테이지별 인트로 호출 (표시 스테이지에 맞춰 전환)
-                            if next_stage_display == 2:
-                                preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
-                                show_stage2_intro()
-                            elif next_stage_display == 3:
-                                show_stage3_intro()
-                            elif next_stage_display == 4:
-                                show_stage4_intro()
-                            elif next_stage_display == 5:
-                                preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
-                                show_stage5_intro()
-                            elif next_stage_display == 6:
-                                preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
-                                show_stage6_intro()
-
-                            if not game_should_exit:
-                                main(next_stage_display)
-                            return
+                            if not transition_state['active']:
+                                final_stage_reached = display_stage_cleared >= 6
+                                transition_state['active'] = True
+                                transition_state['timer'] = 0
+                                transition_state['stage_target'] = None if final_stage_reached else display_stage_cleared + 1
+                                transition_state['return_to_start'] = final_stage_reached
+                                transition_state['executed'] = False
+                                selected = 0
+                            continue
                         elif selected == 1:
-                            # 아카데미 화면 표시
                             star_badge_visible = False
                             import academy
                             result = academy.show_academy_menu(SCREEN, WIDTH, HEIGHT, selected_character_type)
@@ -34851,11 +34828,8 @@ def show_victory_screen(stage_cleared, reward):
                             if result == "quit":
                                 pygame.quit()
                                 sys.exit()
-                            # 아카데미에서 돌아오면 계속 승리 화면 표시
                         elif selected == 2:
-                            # 트레이드 별로 추가 가챠 실행
                             if gacha_reroll_streak >= GACHA_REROLL_LIMIT_PER_STAGE:
-                                # 스테이지당 또뽑기 횟수 상한 도달 시 안내
                                 reroll_warning_text = "이번 스테이지에서는 더 이상 또 뽑을 수 없습니다"
                                 reroll_warning_timer = 150
                                 continue
@@ -34875,7 +34849,7 @@ def show_victory_screen(stage_cleared, reward):
                             bonus_percent = min((gacha_reroll_streak + 1) * 5, 20)
                             confirmation_surface = SCREEN.copy()
                             if not show_reroll_confirmation_dialog(bonus_percent):
-                                SCREEN.blit(confirmation_surface, (0, 0))  # 확인창 이전 화면 복원
+                                SCREEN.blit(confirmation_surface, (0, 0))
                                 pygame.display.flip()
                                 pygame.event.get()
                                 continue
@@ -34887,7 +34861,6 @@ def show_victory_screen(stage_cleared, reward):
 
                             gacha_reroll_streak += 1
                             if gacha_reroll_streak >= GACHA_REROLL_LIMIT_PER_STAGE:
-                                # 상한을 넘지 않도록 보너스 가중치는 이후에도 동일하게 유지
                                 gacha_reroll_streak = GACHA_REROLL_LIMIT_PER_STAGE
                             legendary_bonus_ratio = min(gacha_reroll_streak * 0.05, 0.20)
                             skill_legendary_bonus = 0.0
@@ -34917,7 +34890,6 @@ def show_victory_screen(stage_cleared, reward):
                                 legendary_bonus=total_legendary_bonus,
                             )
                             pygame.event.get()
-                            # 가챠로 별을 사용했으므로 승리 화면 우측 상단 별 UI를 즉시 동기화
                             final_star_points = get_trade_point_star_count(include_stage_pending=False)
                             star_points_target = final_star_points
                             star_points_display = final_star_points
