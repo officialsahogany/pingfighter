@@ -45037,6 +45037,7 @@ def play_stage_intro_video(
     boss_color: tuple[int, int, int] = (255, 255, 255),
     fade_out_on_finish: bool = True,
     auto_complete: bool = True,
+    post_hold_ms: int | None = None,
 ) -> tuple[bool, pygame.Surface | None]:
     """인트로 영상을 재생하고 마지막 프레임을 반환한다."""
 
@@ -45156,16 +45157,18 @@ def play_stage_intro_video(
             pygame.event.pump()
 
     if played and auto_complete and fade_out_on_finish:
-        complete_stage_intro_transition()
+        hold_ms = INTRO_TRANSITION_HOLD_MS if post_hold_ms is None else max(0, post_hold_ms)
+        complete_stage_intro_transition(hold_ms)
 
     return played, last_surface
 
 
 INTRO_AUTO_EXIT_MS = 2800  # ms 동안 대기 후 자동으로 인트로 종료
 INTRO_VIDEO_AUDIO_FADE_MS = 700  # 영상 종료 시 오디오 페이드아웃 시간
+INTRO_TRANSITION_HOLD_MS = 220  # 영상 종료 후 블랙 유지 시간
 
 
-def complete_stage_intro_transition(hold_ms: int = 220) -> None:
+def complete_stage_intro_transition(hold_ms: int = INTRO_TRANSITION_HOLD_MS) -> None:
     """영상 인트로 종료 후 짧게 페이드아웃하며 입력 이벤트를 정리한다."""
 
     if hold_ms <= 0:
