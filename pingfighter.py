@@ -45122,7 +45122,11 @@ def play_stage_intro_video(
     cap.release()
     pygame.event.get()
     if audio_channel is not None:
-        audio_channel.stop()
+        try:
+            audio_channel.fadeout(INTRO_VIDEO_AUDIO_FADE_MS)
+        except (AttributeError, pygame.error):
+            audio_channel.stop()
+        audio_channel = None
 
     do_fade = (fade_out_on_finish or skip_triggered) and last_surface is not None
 
