@@ -44971,6 +44971,12 @@ def play_stage_intro_video(
         print(f"[StageIntro] OpenCV 로드 실패: {CV2_IMPORT_ERROR}")
         return False, None
 
+    # 영상 재생 전에는 기존 BGM을 완전히 멈춘다 (인트로 영상 오디오만 재생되도록)
+    try:
+        bgm_manager.stop_bgm()
+    except Exception as exc:
+        print(f"[StageIntro] BGM 정지 실패: {exc}")
+
     cap = cv2.VideoCapture(absolute_path)
     if not cap.isOpened():
         print(f"[StageIntro] Failed to open video: {absolute_path}")
