@@ -45035,7 +45035,7 @@ def play_stage_intro_video(
     boss_text: str,
     stage_color: tuple[int, int, int] = (255, 255, 255),
     boss_color: tuple[int, int, int] = (255, 255, 255),
-    fade_out_on_finish: bool = False,
+    fade_out_on_finish: bool = True,
 ) -> tuple[bool, pygame.Surface | None]:
     """인트로 영상을 재생하고 마지막 프레임을 반환한다."""
 
@@ -45132,6 +45132,18 @@ def play_stage_intro_video(
         for frame_index in range(fade_frames):
             alpha = int(255 * ((frame_index + 1) / fade_frames))
             SCREEN.blit(last_surface, (0, 0))
+            fade_surface.fill((0, 0, 0, alpha))
+            SCREEN.blit(fade_surface, (0, 0))
+            pygame.display.flip()
+            clock.tick(fps)
+            pygame.event.pump()
+
+    # 영상 종료 후 프레임을 남기지 않아도 부드럽게 블랙으로 전환
+    if fade_out_on_finish and last_surface is None:
+        fade_frames = max(12, int(fps * 0.5))
+        fade_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        for frame_index in range(fade_frames):
+            alpha = int(255 * ((frame_index + 1) / fade_frames))
             fade_surface.fill((0, 0, 0, alpha))
             SCREEN.blit(fade_surface, (0, 0))
             pygame.display.flip()
@@ -45288,13 +45300,6 @@ def show_stage2_intro():
         )
 
     if played_video:
-        wait_for_stage_intro_confirmation(
-            last_frame,
-            stage_text=stage_text,
-            boss_text=boss_name,
-            stage_color=(240, 220, 180),
-            boss_color=(200, 110, 160),
-        )
         return
 
     try:
@@ -45444,13 +45449,6 @@ def show_stage4_intro():
         )
 
     if played_video:
-        wait_for_stage_intro_confirmation(
-            last_frame,
-            stage_text=stage_text,
-            boss_text=boss_name,
-            stage_color=(255, 240, 200),
-            boss_color=(220, 150, 120),
-        )
         return
 
     try:
@@ -45527,13 +45525,6 @@ def show_stage5_intro():
         )
 
     if played_video:
-        wait_for_stage_intro_confirmation(
-            last_frame,
-            stage_text=stage_text,
-            boss_text=boss_name,
-            stage_color=(0, 255, 255),
-            boss_color=(150, 200, 255),
-        )
         return
 
     try:
@@ -45618,13 +45609,6 @@ def show_stage6_intro():
         )
 
     if played_video:
-        wait_for_stage_intro_confirmation(
-            last_frame,
-            stage_text=stage_text,
-            boss_text=boss_name,
-            stage_color=(255, 150, 100),
-            boss_color=(200, 80, 120),
-        )
         return
 
     try:
