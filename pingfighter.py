@@ -45156,8 +45156,10 @@ def play_stage_intro_video(
             clock.tick(fps)
             pygame.event.pump()
 
-    if played and auto_complete and fade_out_on_finish:
-        hold_ms = INTRO_TRANSITION_HOLD_MS if post_hold_ms is None else max(0, post_hold_ms)
+    should_complete = played and auto_complete and (fade_out_on_finish or skip_triggered)
+    if should_complete:
+        base_hold = INTRO_TRANSITION_HOLD_MS if post_hold_ms is None else max(0, post_hold_ms)
+        hold_ms = 0 if skip_triggered else base_hold
         complete_stage_intro_transition(hold_ms)
 
     return played, last_surface
