@@ -34953,14 +34953,14 @@ def show_victory_screen(stage_cleared, reward):
                 if next_stage_display == 2:
                     preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
                     show_stage2_intro()
-                            elif next_stage_display == 3:
-                                show_stage3_intro()
-                            elif next_stage_display == 4:
-                                preload_stage_intro_resources(STAGE4_INTRO_VIDEO_PATH)
-                                show_stage4_intro()
-                            elif next_stage_display == 5:
-                                preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
-                                show_stage5_intro()
+                elif next_stage_display == 3:
+                    show_stage3_intro()
+                elif next_stage_display == 4:
+                    preload_stage_intro_resources(STAGE4_INTRO_VIDEO_PATH)
+                    show_stage4_intro()
+                elif next_stage_display == 5:
+                    preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
+                    show_stage5_intro()
                 elif next_stage_display == 6:
                     preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
                     show_stage6_intro()
