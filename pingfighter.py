@@ -45036,6 +45036,7 @@ def play_stage_intro_video(
     stage_color: tuple[int, int, int] = (255, 255, 255),
     boss_color: tuple[int, int, int] = (255, 255, 255),
     fade_out_on_finish: bool = True,
+    auto_complete: bool = True,
 ) -> tuple[bool, pygame.Surface | None]:
     """인트로 영상을 재생하고 마지막 프레임을 반환한다."""
 
@@ -45154,6 +45155,9 @@ def play_stage_intro_video(
             clock.tick(fps)
             pygame.event.pump()
 
+    if played and auto_complete and fade_out_on_finish:
+        complete_stage_intro_transition()
+
     return played, last_surface
 
 
@@ -45232,7 +45236,6 @@ def show_stage1_intro():
         )
 
     if played_video:
-        complete_stage_intro_transition()
         return
 
     try:
@@ -45326,7 +45329,6 @@ def show_stage2_intro():
         )
 
     if played_video:
-        complete_stage_intro_transition()
         return
 
     try:
@@ -45483,7 +45485,6 @@ def show_stage4_intro():
         )
 
     if played_video:
-        complete_stage_intro_transition()
         return
 
     try:
@@ -45564,7 +45565,6 @@ def show_stage5_intro():
         )
 
     if played_video:
-        complete_stage_intro_transition()
         return
 
     try:
@@ -45653,7 +45653,6 @@ def show_stage6_intro():
         )
 
     if played_video:
-        complete_stage_intro_transition()
         return
 
     try:
