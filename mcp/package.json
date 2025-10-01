@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@kirbah/mcp-youtube": "^0.2.6",
+    "@modelcontextprotocol/inspector-cli": "^0.16.8",
+    "@modelcontextprotocol/server-filesystem": "^2025.8.21",
+    "@modelcontextprotocol/server-slack": "^2025.4.25",
+    "@upstash/context7-mcp": "^1.0.20"
+  }
+}

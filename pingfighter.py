@@ -18,6 +18,8 @@ import math
 import random
 import importlib
 import copy
+import glob
+from pathlib import Path
 
 # 실행 파일로 직접 구동할 때도 items 등에서 import pingfighter가 동일 모듈을 참조하도록 별칭을 등록
 sys.modules.setdefault("pingfighter", sys.modules[__name__])
@@ -27,6 +29,7 @@ sys.modules.setdefault("pingfighter", sys.modules[__name__])
 # ============================================================
 import pygame
 import pygame.freetype
+import numpy as np
 
 # ============================================================
 # 3. 게임 핵심 모듈 Import
@@ -116,6 +119,311 @@ def draw_small_star(surface, x, y, radius, color=(255, 255, 100)):
     pygame.draw.polygon(surface, color, points)
     pygame.draw.polygon(surface, (255, 215, 0), points, 2)
 
+
+cv2 = None  # type: ignore
+CV2_IMPORT_ERROR = None
+
+moviepy_editor = None  # type: ignore
+MOVIEPY_IMPORT_ERROR = None
+
+intro_audio_cache: dict[str, pygame.mixer.Sound] = {}
+intro_audio_preloaded_paths: set[str] = set()
+
+
+def ensure_cv2_loaded() -> bool:
+    """OpenCV(cv2) 모듈을 동적으로 로드. 설치 경로가 다르면 탐색."""
+    global cv2, CV2_IMPORT_ERROR
+
+    if cv2 is not None:
+        return True
+
+    try:
+        import cv2 as cv2_module  # type: ignore
+
+        cv2 = cv2_module  # type: ignore
+        CV2_IMPORT_ERROR = None
+        return True
+    except Exception as exc:  # ImportError 등 광범위 처리
+        CV2_IMPORT_ERROR = exc
+
+    candidate_paths = []
+
+    executable_path = Path(sys.executable).resolve()
+    candidate_paths.append(executable_path.parent / "site-packages")
+    candidate_paths.append(executable_path.parent / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages")
+    candidate_paths.append(Path("/Library/Frameworks/Python.framework/Versions"))
+    candidate_paths.append(Path.home() / "Library" / "Python")
+    candidate_paths.append(Path.home() / ".local" / "lib")
+    candidate_paths.append(Path("/opt/homebrew/lib") / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages")
+
+    glob_patterns = [
+        "/Library/Frameworks/Python.framework/Versions/*/lib/python*/site-packages",
+        str(Path.home() / "Library" / "Python" / "*" / "site-packages"),
+        str(Path.home() / ".local" / "lib" / "python*" / "site-packages"),
+        str(Path("/opt/homebrew/lib") / "python*" / "site-packages"),
+    ]
+    for pattern in glob_patterns:
+        for match in glob.glob(pattern):
+            candidate_paths.append(Path(match))
+
+    visited: set[Path] = set()
+    expanded_candidates: list[Path] = []
+    for base in candidate_paths:
+        if not base or not base.exists():
+            continue
+
+        if base.is_dir() and base.name == "Versions":
+            for version_dir in sorted(base.iterdir()):
+                site_packages = version_dir / "lib"
+                for site in site_packages.glob("python*/site-packages"):
+                    expanded_candidates.append(site)
+            continue
+
+        if base.is_dir() and base.name == "Python":
+            for version_dir in sorted(base.iterdir()):
+                site = version_dir / "site-packages"
+                expanded_candidates.append(site)
+            continue
+
+        expanded_candidates.append(base)
+
+    for cand in expanded_candidates:
+        if cand in visited:
+            continue
+        visited.add(cand)
+        if not cand.exists() or not cand.is_dir():
+            continue
+
+        has_cv2 = False
+        try:
+            for item in cand.iterdir():
+                name = item.name
+                if name.startswith("cv2"):
+                    has_cv2 = True
+                    break
+        except PermissionError:
+            continue
+
+        if not has_cv2:
+            continue
+
+        if str(cand) not in sys.path:
+            sys.path.insert(0, str(cand))
+
+        try:
+            import cv2 as cv2_module  # type: ignore
+
+            cv2 = cv2_module  # type: ignore
+            CV2_IMPORT_ERROR = None
+            print(f"[StageIntro] cv2 dynamically loaded from {cand}")
+            return True
+        except Exception as exc:  # pylint: disable=broad-except
+            CV2_IMPORT_ERROR = exc
+
+    return cv2 is not None
+
+
+def ensure_moviepy_loaded() -> bool:
+    """moviepy.editor 모듈 로드 시도."""
+    global moviepy_editor, MOVIEPY_IMPORT_ERROR
+
+    if moviepy_editor is not None:
+        return True
+
+    try:
+        import moviepy.editor as mp  # type: ignore
+
+        moviepy_editor = mp  # type: ignore
+        MOVIEPY_IMPORT_ERROR = None
+        return True
+    except ModuleNotFoundError:
+        try:
+            import moviepy as mp  # type: ignore
+
+            if hasattr(mp, "VideoFileClip"):
+                moviepy_editor = mp  # type: ignore
+                MOVIEPY_IMPORT_ERROR = None
+                return True
+        except Exception as exc:  # pylint: disable=broad-except
+            MOVIEPY_IMPORT_ERROR = exc
+    except Exception as exc:  # pylint: disable=broad-except
+        MOVIEPY_IMPORT_ERROR = exc
+
+    candidate_paths: list[Path] = []
+    executable_path = Path(sys.executable).resolve()
+    candidate_paths.append(executable_path.parent / "site-packages")
+    candidate_paths.append(executable_path.parent / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages")
+    candidate_paths.append(Path("/Library/Frameworks/Python.framework/Versions"))
+    candidate_paths.append(Path.home() / "Library" / "Python")
+    candidate_paths.append(Path.home() / ".local" / "lib")
+    candidate_paths.append(Path("/opt/homebrew/lib") / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages")
+
+    glob_patterns = [
+        "/Library/Frameworks/Python.framework/Versions/*/lib/python*/site-packages",
+        str(Path.home() / "Library" / "Python" / "*" / "site-packages"),
+        str(Path.home() / ".local" / "lib" / "python*" / "site-packages"),
+        str(Path("/opt/homebrew/lib") / "python*" / "site-packages"),
+    ]
+    for pattern in glob_patterns:
+        for match in glob.glob(pattern):
+            candidate_paths.append(Path(match))
+
+    visited: set[Path] = set()
+    expanded_candidates: list[Path] = []
+    for base in candidate_paths:
+        if not base or not base.exists():
+            continue
+
+        if base.is_dir() and base.name == "Versions":
+            for version_dir in sorted(base.iterdir()):
+                site_packages = version_dir / "lib"
+                for site in site_packages.glob("python*/site-packages"):
+                    expanded_candidates.append(site)
+            continue
+
+        if base.is_dir() and base.name == "Python":
+            for version_dir in sorted(base.iterdir()):
+                site = version_dir / "site-packages"
+                expanded_candidates.append(site)
+            continue
+
+        expanded_candidates.append(base)
+
+    for cand in expanded_candidates:
+        if cand in visited:
+            continue
+        visited.add(cand)
+        if not cand.exists() or not cand.is_dir():
+            continue
+
+        has_moviepy = False
+        try:
+            for item in cand.iterdir():
+                if item.name.lower().startswith("moviepy"):
+                    has_moviepy = True
+                    break
+        except PermissionError:
+            continue
+
+        if not has_moviepy:
+            continue
+
+        if str(cand) not in sys.path:
+            sys.path.insert(0, str(cand))
+
+        try:
+            import moviepy.editor as mp  # type: ignore
+
+            moviepy_editor = mp  # type: ignore
+            MOVIEPY_IMPORT_ERROR = None
+            print(f"[StageIntro] moviepy dynamically loaded from {cand}")
+            return True
+        except ModuleNotFoundError:
+            try:
+                import moviepy as mp  # type: ignore
+
+                if hasattr(mp, "VideoFileClip"):
+                    moviepy_editor = mp  # type: ignore
+                    MOVIEPY_IMPORT_ERROR = None
+                    print(f"[StageIntro] moviepy dynamically loaded from {cand}")
+                    return True
+            except Exception as exc:  # pylint: disable=broad-except
+                MOVIEPY_IMPORT_ERROR = exc
+        except Exception as exc:  # pylint: disable=broad-except
+            MOVIEPY_IMPORT_ERROR = exc
+
+    return moviepy_editor is not None
+
+
+def load_stage_intro_audio(video_path: str | os.PathLike[str] | None) -> pygame.mixer.Sound | None:
+    """영상 파일에서 오디오를 추출해 pygame Sound 객체로 반환."""
+    if not video_path:
+        return None
+
+    absolute_path = os.fspath(video_path)
+    cached = intro_audio_cache.get(absolute_path)
+    if cached:
+        return cached
+
+    if not ensure_moviepy_loaded():
+        print(f"[StageIntro] moviepy 로드 실패 - {MOVIEPY_IMPORT_ERROR}")
+        return None
+
+    if not os.path.isfile(absolute_path):
+        return None
+
+    try:
+        clip = moviepy_editor.VideoFileClip(absolute_path)
+        audio_clip = clip.audio
+        if audio_clip is None:
+            clip.close()
+            return None
+
+        mixer_info = pygame.mixer.get_init()
+        if mixer_info:
+            freq, _, mixer_channels = mixer_info
+        else:
+            freq = 44100
+            mixer_channels = 2
+            try:
+                pygame.mixer.init(frequency=freq, channels=mixer_channels)
+            except pygame.error as exc:
+                print(f"[StageIntro] pygame.mixer 초기화 실패 - {exc}")
+                clip.close()
+                return None
+
+        sound_array = audio_clip.to_soundarray(fps=freq)
+        audio_clip.close()
+        clip.close()
+    except Exception as exc:  # pylint: disable=broad-except
+        print(f"[StageIntro] 오디오 추출 실패 - {exc}")
+        return None
+
+    if sound_array.size == 0:
+        return None
+
+    sound_array = np.asarray(sound_array, dtype=np.float32)
+    sound_array = np.clip(sound_array, -1.0, 1.0)
+
+    if sound_array.ndim == 1:
+        sound_array = sound_array[:, None]
+
+    current_channels = sound_array.shape[1]
+    if mixer_channels == 1 and current_channels > 1:
+        sound_array = sound_array.mean(axis=1, keepdims=True)
+    elif mixer_channels > 1 and current_channels == 1:
+        sound_array = np.repeat(sound_array, mixer_channels, axis=1)
+
+    sound_array = np.ascontiguousarray((sound_array * 32767).astype(np.int16))
+
+    try:
+        sound = pygame.sndarray.make_sound(sound_array)
+    except Exception as exc:  # pylint: disable=broad-except
+        print(f"[StageIntro] 사운드 변환 실패 - {exc}")
+        return None
+
+    intro_audio_cache[absolute_path] = sound
+    return sound
+
+
+def preload_stage_intro_resources(video_path: str | os.PathLike[str] | None) -> None:
+    """영상 인트로 재생 전에 필요한 의존성과 오디오를 미리 준비한다."""
+    if not video_path:
+        return
+
+    absolute_path = os.fspath(video_path)
+    if absolute_path in intro_audio_preloaded_paths:
+        return
+
+    if not os.path.isfile(absolute_path):
+        return
+
+    intro_audio_preloaded_paths.add(absolute_path)
+
+    ensure_cv2_loaded()
+
+    if absolute_path not in intro_audio_cache:
+        load_stage_intro_audio(absolute_path)
 
 
 
@@ -639,6 +947,9 @@ STAGE3_BG = stage_backgrounds.stage3
 STAGE4_BG = stage_backgrounds.stage4
 STAGE5_BG = stage_backgrounds.stage5
 STAGE6_BG = stage_backgrounds.stage6
+
+STAGE5_INTRO_VIDEO_PATH = resource_path("stagevideo/stage6.mp4")
+STAGE6_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage6.mov")
 
 animated_bg = stage_backgrounds.animated_bg
 animated_bg_stage2 = stage_backgrounds.animated_bg_stage2
@@ -23979,6 +24290,10 @@ game_state.ai_score = 0
 game_state.round_wins = round_wins
 game_state.round_losses = round_losses
 game_state.current_stage = current_stage
+try:
+    game_state.display_stage = stage_logic_to_display(current_stage)
+except Exception:
+    pass
 game_state.medal_score = medal_score
 game_state.special_gauge = special_gauge
 game_state.special_ready = special_ready
@@ -24118,6 +24433,19 @@ def apply_health_boss_damage(amount: int, *, source: str = "unknown", trigger_fl
             show_result(True)
         except Exception:
             pass
+
+STAGE_SWAP_MAP = {5: 6, 6: 5}
+
+
+def stage_display_to_logic(stage_num: int) -> int:
+    """사용자에게 보이는 스테이지 번호를 실제 로직 스테이지 번호로 변환한다."""
+    return STAGE_SWAP_MAP.get(stage_num, stage_num)
+
+
+def stage_logic_to_display(stage_num: int) -> int:
+    """로직 상 스테이지 번호를 사용자에게 보이는 번호로 변환한다."""
+    return STAGE_SWAP_MAP.get(stage_num, stage_num)
+
 stage_medal_rewards = {
     1: 10,
     2: 20,
@@ -33691,14 +34019,22 @@ def show_victory_screen(stage_cleared, reward):
     global final_round_wins, final_round_losses
     global gacha_reroll_stage, gacha_reroll_streak
 
+    logic_stage_cleared = stage_cleared
+    display_stage_cleared = stage_logic_to_display(logic_stage_cleared)
+
+    if display_stage_cleared == 4:
+        preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
+
     stop_blacksmith_construction_sound()
 
     star_stack_sound = sound_effects.get("STAR_POINT_STACK")
     star_end_sound = sound_effects.get("STAR_POINT_END")
 
-    if gacha_reroll_stage != stage_cleared:
-        gacha_reroll_stage = stage_cleared
+    if gacha_reroll_stage != display_stage_cleared:
+        gacha_reroll_stage = display_stage_cleared
         gacha_reroll_streak = 0
+    if display_stage_cleared == 5:
+        preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
     # 스테이지 클리어 보상으로 스킬 포인트 추가
     import academy
     base_points = 1
@@ -34004,7 +34340,7 @@ def show_victory_screen(stage_cleared, reward):
             color = (int(alpha), int(alpha), int(alpha * 1.2))
             draw.circle(color, (x, y), size)
         # 타이틀 텍스트 (부드러운 효과)
-        title_text = f"Stage {stage_cleared} 클리어!"
+        title_text = f"Stage {display_stage_cleared} 클리어!"
         # 부드러운 그림자 효과
         shadow_surface = font_title.render(title_text, True, (50, 50, 80))
         shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + 3, 153))
@@ -34436,40 +34772,38 @@ def show_victory_screen(stage_cleared, reward):
                         selected = (selected + 1) % button_count
                     elif event.key == pygame.K_SPACE:
                         if selected == 0:
-                            # 다음 스테이지 번호 결정 (커스텀 진행 순서)
-                            if stage_cleared == 4:
-                                next_stage = 6  # Stage 4 → Stage 6
-                            elif stage_cleared == 6:
-                                next_stage = 5  # Stage 6 → Stage 5 
-                            else:
-                                next_stage = stage_cleared + 1  # 나머지는 순차 진행
-                            
+                            final_stage_reached = display_stage_cleared >= 6
+
+                            if final_stage_reached:
+                                print("!  !")
+                                show_start_screen()
+                                return
+
+                            next_stage_display = display_stage_cleared + 1
+
                             # 필드 아이템 초기화 (스테이지 전환 시)
                             items.clear_field_items()
                             try:
                                 get_net_gun_instance().reset()
                             except Exception:
                                 pass
-                            
-                            # 스테이지별 인트로 호출
-                            if next_stage == 2:
+
+                            # 스테이지별 인트로 호출 (표시 스테이지에 맞춰 전환)
+                            if next_stage_display == 2:
                                 show_stage2_intro()
-                            elif next_stage == 3:
+                            elif next_stage_display == 3:
                                 show_stage3_intro()
-                            elif next_stage == 4:
-                                show_stage4_intro()  # 추후 추가할거면 미리 준비
-                            elif next_stage == 5:  #  Stage 5 인트로 추가
+                            elif next_stage_display == 4:
+                                show_stage4_intro()
+                            elif next_stage_display == 5:
+                                preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
                                 show_stage5_intro()
-                            elif next_stage == 6:  #  Stage 6 인트로 추가
+                            elif next_stage_display == 6:
+                                preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
                                 show_stage6_intro()
-                            
-                            if (stage_cleared == 5) or (stage_cleared >= 6 and stage_cleared != 6):  # Stage 5가 마지막
-                                print("!  !")
-                                show_start_screen()  # 메인 메뉴로 돌아가기
-                            else:
-                                #  게임 종료 체크
-                                if not game_should_exit:
-                                    main(next_stage)  # 다음 스테이지로 이동
+
+                            if not game_should_exit:
+                                main(next_stage_display)
                             return
                         elif selected == 1:
                             # 아카데미 화면 표시
@@ -44547,6 +44881,150 @@ def get_item_icon(item_name):
     icon_cache[item_name] = default_icon
     return default_icon
 
+def play_stage_intro_video(
+    video_path: str | os.PathLike[str] | None,
+    *,
+    stage_text: str,
+    boss_text: str,
+    stage_color: tuple[int, int, int] = (255, 255, 255),
+    boss_color: tuple[int, int, int] = (255, 255, 255),
+    hint_color: tuple[int, int, int] = (200, 200, 200),
+    hint_text: str = "Press SPACE to skip",
+) -> tuple[bool, pygame.Surface | None]:
+    """인트로 영상을 재생하고 마지막 프레임을 반환한다."""
+
+    if not video_path:
+        return False, None
+
+    absolute_path = os.fspath(video_path)
+    if not os.path.isfile(absolute_path):
+        print(f"[StageIntro] Video not found: {absolute_path}")
+        return False, None
+
+    if not ensure_cv2_loaded():
+        print(f"[StageIntro] OpenCV 로드 실패: {CV2_IMPORT_ERROR}")
+        return False, None
+
+    cap = cv2.VideoCapture(absolute_path)
+    if not cap.isOpened():
+        print(f"[StageIntro] Failed to open video: {absolute_path}")
+        return False, None
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if not fps or fps <= 1:
+        fps = 30.0
+
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 90))
+
+    audio_channel = None
+    audio_sound = load_stage_intro_audio(absolute_path)
+    if audio_sound is not None:
+        try:
+            audio_channel = audio_sound.play()
+        except pygame.error as exc:
+            print(f"[StageIntro] 오디오 재생 실패: {exc}")
+
+    clock = pygame.time.Clock()
+    last_surface: pygame.Surface | None = None
+
+    played = False
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        played = True
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.resize(frame, (WIDTH, HEIGHT))
+        frame_surface = pygame.image.frombuffer(frame.tobytes(), (WIDTH, HEIGHT), "RGB")
+        frame_surface = frame_surface.convert()
+        last_surface = frame_surface.copy()
+
+        SCREEN.blit(frame_surface, (0, 0))
+        SCREEN.blit(overlay, (0, 0))
+
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
+        ui_manager.draw_centered_text(boss_text, 42, -50, boss_color, "glow")
+
+        hint_font = get_font(18)
+        hint_surface = hint_font.render(hint_text, True, hint_color)
+        hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
+        SCREEN.blit(hint_surface, hint_rect)
+
+        pygame.display.flip()
+
+        skip_video = False
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                skip_video = True
+                break
+
+        if skip_video:
+            break
+
+        clock.tick(fps)
+
+    cap.release()
+    pygame.event.get()
+    if audio_channel is not None:
+        audio_channel.stop()
+
+    return played, last_surface
+
+
+def wait_for_stage_intro_confirmation(
+    background_surface: pygame.Surface | None,
+    *,
+    stage_text: str,
+    boss_text: str,
+    stage_color: tuple[int, int, int] = (255, 255, 255),
+    boss_color: tuple[int, int, int] = (255, 255, 255),
+    hint_text: str = "Press SPACE to continue",
+    hint_color: tuple[int, int, int] = (200, 200, 200),
+) -> None:
+    """인트로 영상 이후 Space 입력을 대기한다."""
+
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 140))
+
+    waiting = True
+    frame_count = 0
+
+    while waiting:
+        frame_count += 1
+        SCREEN.fill(BLACK)
+
+        if background_surface:
+            SCREEN.blit(background_surface, (0, 0))
+
+        SCREEN.blit(overlay, (0, 0))
+
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
+        ui_manager.draw_centered_text(boss_text, 42, -50, boss_color, "glow")
+
+        if frame_count % 120 < FPS:
+            hint_font = get_font(18)
+            hint_surface = hint_font.render(hint_text, True, hint_color)
+            hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
+            SCREEN.blit(hint_surface, hint_rect)
+
+        pygame.display.flip()
+        pygame.time.delay(16)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                waiting = False
+
+
 def show_stage1_intro():
     try:
         boss_img = pygame.image.load(resource_path("stage1.png"))
@@ -44843,7 +45321,7 @@ def show_stage5_intro():
         red_component = min(255, 120 + int(fade_pulse * 1.5))
         blue_component = max(80, 200 - int(fade_pulse))
         boss_fade_color = (red_component, 100, blue_component)
-        ui_manager.draw_centered_text("STAGE 6", 56, -120, (255, 150, 100), "elegant")
+        ui_manager.draw_centered_text("STAGE 5", 56, -120, (255, 150, 100), "elegant")
         ui_manager.draw_centered_text("홍련", 42, -50, boss_fade_color, "glow")
         pygame.display.flip()
         pygame.time.delay(25)
@@ -44861,7 +45339,7 @@ def show_stage5_intro():
         red_component = min(255, 120 + int(pulse * 1.5))
         blue_component = max(80, 200 - int(pulse))
         boss_color = (red_component, 100, blue_component)
-        ui_manager.draw_centered_text("STAGE 6", 56, -120, stage_color, "elegant")
+        ui_manager.draw_centered_text("STAGE 5", 56, -120, stage_color, "elegant")
         ui_manager.draw_centered_text("홍련", 42, -50, boss_color, "glow")
         # 장식 라인 (맥동 효과)
         line_intensity = 160 + int(pulse)
@@ -44891,6 +45369,28 @@ def show_stage5_intro():
         pygame.time.delay(25)
 def show_stage6_intro():
     """Stage 6 항공모함 보스 소개 장면 - 사이버펑크 언더워터 테마"""
+    stage_text = "STAGE 6"
+    boss_name = "네메시스"
+
+    played_video, last_frame = play_stage_intro_video(
+        STAGE6_INTRO_VIDEO_PATH,
+        stage_text=stage_text,
+        boss_text=boss_name,
+        stage_color=(0, 255, 255),
+        boss_color=(150, 200, 255),
+        hint_color=(100, 200, 255),
+    )
+    if played_video:
+        wait_for_stage_intro_confirmation(
+            last_frame,
+            stage_text=stage_text,
+            boss_text=boss_name,
+            stage_color=(0, 255, 255),
+            boss_color=(150, 200, 255),
+            hint_color=(100, 200, 255),
+        )
+        return
+
     try:
         boss_img = pygame.image.load(resource_path("stage6.png"))
         boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
@@ -44934,8 +45434,8 @@ def show_stage6_intro():
         cyan_component = min(255, 100 + int(fade_pulse * 2))
         boss_fade_color = (50, cyan_component, 255)
         
-        ui_manager.draw_centered_text("STAGE 5", 56, -120, (0, 255, 255), "elegant")
-        ui_manager.draw_centered_text("네메시스", 42, -50, boss_fade_color, "glow")
+        ui_manager.draw_centered_text(stage_text, 56, -120, (0, 255, 255), "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_fade_color, "glow")
         ui_manager.draw_centered_text("U.S.S. NEMESIS", 24, 0, (100, 150, 200), "normal")
         
         pygame.display.flip()
@@ -44962,8 +45462,8 @@ def show_stage6_intro():
         stage_color = (min(255, int(pulse)), min(255, 200 + int(pulse)), 255)
         boss_color = (50, min(255, 150 + int(pulse)), 255)
         
-        ui_manager.draw_centered_text("STAGE 5", 56, -120, stage_color, "elegant")
-        ui_manager.draw_centered_text("네메시스", 42, -50, boss_color, "glow")
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow")
         ui_manager.draw_centered_text("U.S.S. NEMESIS", 24, 0, (100, 150, 200), "normal")
         
         # 디지털 간섭 효과
@@ -55005,7 +55505,7 @@ def show_result(won):
         session_medal_earned += reward
         #  스테이지 클리어 기록
         record_stage_result(current_stage, cleared=True)
-        show_fade_text(f"Stage {current_stage} 클리어!")
+        show_fade_text(f"Stage {stage_logic_to_display(current_stage)} 클리어!")
         SCREEN.fill(BLACK)
         pygame.display.flip()
         pygame.time.delay(300)
@@ -55411,6 +55911,8 @@ def show_new_boss_selection_screen():
         pygame.display.flip()
         clock.tick(60)
 def main(stage_num, new_boss_mode=False):
+    display_stage_num = stage_num
+
     #  실시간 평가 시스템으로 변경됨
     # 메인 메뉴 BGM 정지
     bgm_manager.stop_bgm()
@@ -55471,12 +55973,19 @@ def main(stage_num, new_boss_mode=False):
             # 새 게임 서비스 시작
             from services.game_service import GameService
             game_service = GameService()
-            game_service.start_game(stage_num)
-            print(f"[OK] Starting stage {stage_num} with GameService")
+            game_service.start_game(display_stage_num)
+            print(f"[OK] Starting stage {display_stage_num} with GameService")
         except Exception as e:
             print(f"⚠️ 마이그레이션 초기화 실패: {e}")
             migration_bridge = None
-    
+
+    stage_num = stage_display_to_logic(display_stage_num)
+
+    if display_stage_num == 5:
+        preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
+    elif display_stage_num == 6:
+        preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
+
     #  Ultra Smooth 물리 엔진 초기화 (우선)
     if ULTRA_SMOOTH_AVAILABLE:
         ultra_smoother = get_ultra_smooth_movement()
@@ -55730,12 +56239,12 @@ def main(stage_num, new_boss_mode=False):
         print(":")
     else:
         # 스테이지 전환 시 스킬 포인트는 유지
-        print(f"  {stage_num} :")
+        print(f"  {display_stage_num} :")
     
     # 매 스테이지마다 수집 카운터는 초기화 (스킬 포인트와는 별개)
     trade_point_collected = 0  # 현재 스테이지 트레이드 포인트 카운터 초기화
     trade_point_system.reset()  # 별 시스템 리셋
-    print(f"  {stage_num}:")
+    print(f"  {display_stage_num}:")
     if current_stage == 3:
         stage3_hearts_collected = 0  # Stage 3 시작 시 하트 수집 카운터 초기화 (레거시)
     elif current_stage == 4:
@@ -61343,8 +61852,8 @@ def show_stage_selection(show_character_hint=True):
         {"num": 2, "name": "스테이지 2", "desc": "정글 지진", "color": (0, 100, 200)},
         {"num": 3, "name": "스테이지 3", "desc": "멘헤라걸", "color": (255, 0, 128)},
         {"num": 4, "name": "스테이지 4", "desc": "자석 패들", "color": (255, 128, 0)},
-        {"num": 5, "name": "스테이지 5", "desc": "홍련폭염", "color": (255, 50, 50)},
-        {"num": 6, "name": "스테이지 6", "desc": "울트라 배틀크루저", "color": (80, 180, 255)},
+        {"num": 5, "name": "스테이지 5", "desc": "울트라 배틀크루저", "color": (80, 180, 255)},
+        {"num": 6, "name": "스테이지 6", "desc": "홍련폭염", "color": (255, 50, 50)},
         {"num": 50, "name": "튜토리얼", "desc": "게임 방법 익히기", "color": (100, 255, 100)},
     ]
     
