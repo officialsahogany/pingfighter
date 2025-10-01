@@ -45589,7 +45589,6 @@ def show_stage6_intro():
             boss_text=boss_name,
             stage_color=(255, 150, 100),
             boss_color=(200, 80, 120),
-            hint_color=(200, 120, 120),
         )
 
     if played_video:
@@ -45599,7 +45598,6 @@ def show_stage6_intro():
             boss_text=boss_name,
             stage_color=(255, 150, 100),
             boss_color=(200, 80, 120),
-            hint_color=(200, 120, 120),
         )
         return
 
