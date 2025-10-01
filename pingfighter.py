@@ -45210,6 +45210,7 @@ def show_stage1_intro():
             stage_color=stage_color,
             boss_color=boss_color_video,
             fade_out_on_finish=True,
+            post_hold_ms=0,
         )
 
     if played_video:
@@ -45302,6 +45303,7 @@ def show_stage2_intro():
             boss_text=boss_name,
             stage_color=(240, 220, 180),
             boss_color=(200, 110, 160),
+            post_hold_ms=0,
         )
 
     if played_video:
@@ -45457,6 +45459,7 @@ def show_stage4_intro():
             boss_text=boss_name,
             stage_color=(255, 240, 200),
             boss_color=(220, 150, 120),
+            post_hold_ms=0,
         )
 
     if played_video:
@@ -45536,6 +45539,7 @@ def show_stage5_intro():
             boss_text=boss_name,
             stage_color=(0, 255, 255),
             boss_color=(150, 200, 255),
+            post_hold_ms=0,
         )
 
     if played_video:
@@ -45623,6 +45627,7 @@ def show_stage6_intro():
             boss_text=boss_name,
             stage_color=(255, 150, 100),
             boss_color=(200, 80, 120),
+            post_hold_ms=0,
         )
 
     if played_video:
