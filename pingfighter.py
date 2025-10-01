@@ -41891,23 +41891,6 @@ def show_character_selection():
                     else:
                         # 해금 안된 캐릭터 선택 시 효과음 (선택 불가 사운드)
                         pass
-        confirm_flash_strength = 0.0
-        fade_alpha = 0
-        if confirming:
-            if flash_phase < 4:
-                flash_timer += 1
-                if flash_phase in (0, 2):
-                    progress = flash_timer / flash_interval
-                    confirm_flash_strength = max(0.0, 1.0 - progress)
-                if flash_timer >= flash_interval:
-                    flash_timer = 0
-                    flash_phase += 1
-            else:
-                fade_timer += 1
-                fade_alpha = int(min(255, (fade_timer / fade_duration) * 255))
-                if fade_timer >= fade_duration:
-                    return confirm_result
-
         # 사이버펑크 배경 그리기 (그라데이션)
         for y in range(HEIGHT):
             ratio = y / HEIGHT
@@ -42957,6 +42940,22 @@ def show_difficulty_selection():
                     flash_timer = 0
                     fade_timer = 0
                     continue
+        confirm_flash_strength = 0.0
+        fade_alpha = 0
+        if confirming:
+            if flash_phase < 4:
+                flash_timer += 1
+                if flash_phase in (0, 2):
+                    progress = flash_timer / flash_interval
+                    confirm_flash_strength = max(0.0, 1.0 - progress)
+                if flash_timer >= flash_interval:
+                    flash_timer = 0
+                    flash_phase += 1
+            else:
+                fade_timer += 1
+                fade_alpha = int(min(255, (fade_timer / fade_duration) * 255))
+                if fade_timer >= fade_duration:
+                    return confirm_result
         # 사이버펑크 배경 그리기 (그라데이션)
         for y in range(HEIGHT):
             ratio = y / HEIGHT
