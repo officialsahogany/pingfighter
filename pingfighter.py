@@ -45675,6 +45675,7 @@ def show_stage6_intro():
 
     waiting = True
     frame_count = 0
+    wait_start = pygame.time.get_ticks()
     while waiting:
         frame_count += 1
         SCREEN.fill(BLACK)
@@ -45702,6 +45703,9 @@ def show_stage6_intro():
                 sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 waiting = False
+
+        if waiting and pygame.time.get_ticks() - wait_start >= INTRO_AUTO_EXIT_MS:
+            waiting = False
 
     for alpha in range(255, -1, -8):
         boss_img.set_alpha(alpha)
