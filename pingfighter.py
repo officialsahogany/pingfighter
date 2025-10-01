@@ -45626,6 +45626,7 @@ def show_stage6_intro():
         )
 
     if played_video:
+        complete_stage_intro_transition()
         return
 
     try:
