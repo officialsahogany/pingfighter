@@ -952,6 +952,7 @@ STAGE1_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage1.mov")
 STAGE1_INTRO_IMAGE_PATH = resource_path("stage1.png")
 STAGE2_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage2.mov")
 STAGE2_INTRO_IMAGE_PATH = resource_path("stage2.png")
+STAGE4_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage4.mov")
 STAGE5_INTRO_VIDEO_PATH: str | None = None
 STAGE5_INTRO_IMAGE_PATH = resource_path("stage5.png")
 STAGE6_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage6.mov")
