@@ -34257,6 +34257,18 @@ def show_victory_screen(stage_cleared, reward):
                     elif event.key == pygame.K_ESCAPE:
                         return False
 
+    transition_state = {
+        'active': False,
+        'timer': 0,
+        'flash_frames': 18,
+        'fade_frames': 45,
+        'stage_target': None,
+        'return_to_start': False,
+        'executed': False,
+    }
+    transition_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    transition_overlay.fill((0, 0, 0))
+
     while True:
         frame_count += 1
         if star_badge_glow_timer > 0:
