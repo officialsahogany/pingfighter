@@ -45154,6 +45154,7 @@ def play_stage_intro_video(
 
 
 INTRO_AUTO_EXIT_MS = 2800  # ms 동안 대기 후 자동으로 인트로 종료
+INTRO_VIDEO_AUDIO_FADE_MS = 400  # 영상 종료 시 오디오 페이드아웃 시간
 
 
 def complete_stage_intro_transition(hold_ms: int = 120) -> None:
