@@ -45159,7 +45159,6 @@ def show_stage1_intro():
     boss_name = "풍악보이"
     stage_color = (255, 220, 220)
     boss_color_video = (220, 110, 200)
-    hint_color = (170, 160, 160)
 
     played_video = False
     last_frame = None
@@ -45170,8 +45169,6 @@ def show_stage1_intro():
             boss_text=boss_name,
             stage_color=stage_color,
             boss_color=boss_color_video,
-            hint_color=hint_color,
-            show_hint=False,
             fade_out_on_finish=True,
         )
 
@@ -45262,7 +45259,6 @@ def show_stage2_intro():
             boss_text=boss_name,
             stage_color=(240, 220, 180),
             boss_color=(200, 110, 160),
-            hint_color=(170, 160, 150),
         )
 
     if played_video:
@@ -45272,7 +45268,6 @@ def show_stage2_intro():
             boss_text=boss_name,
             stage_color=(240, 220, 180),
             boss_color=(200, 110, 160),
-            hint_color=(170, 160, 150),
         )
         return
 
@@ -45420,7 +45415,6 @@ def show_stage4_intro():
             boss_text=boss_name,
             stage_color=(255, 240, 200),
             boss_color=(220, 150, 120),
-            hint_color=(200, 170, 140),
         )
 
     if played_video:
@@ -45430,7 +45424,6 @@ def show_stage4_intro():
             boss_text=boss_name,
             stage_color=(255, 240, 200),
             boss_color=(220, 150, 120),
-            hint_color=(200, 170, 140),
         )
         return
 
@@ -45505,7 +45498,6 @@ def show_stage5_intro():
             boss_text=boss_name,
             stage_color=(0, 255, 255),
             boss_color=(150, 200, 255),
-            hint_color=(100, 200, 255),
         )
 
     if played_video:
@@ -45515,7 +45507,6 @@ def show_stage5_intro():
             boss_text=boss_name,
             stage_color=(0, 255, 255),
             boss_color=(150, 200, 255),
-            hint_color=(100, 200, 255),
         )
         return
 
