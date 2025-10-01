@@ -45055,6 +45055,7 @@ def play_stage_intro_video(
     last_surface: pygame.Surface | None = None
 
     played = False
+    skip_triggered = False
 
     while True:
         ret, frame = cap.read()
@@ -45075,10 +45076,11 @@ def play_stage_intro_video(
         ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
         ui_manager.draw_centered_text(boss_text, 42, -50, boss_color, "glow")
 
-        hint_font = get_font(18)
-        hint_surface = hint_font.render(hint_text, True, hint_color)
-        hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-        SCREEN.blit(hint_surface, hint_rect)
+        if show_hint:
+            hint_font = get_font(18)
+            hint_surface = hint_font.render(hint_text, True, hint_color)
+            hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
+            SCREEN.blit(hint_surface, hint_rect)
 
         pygame.display.flip()
 
@@ -45089,6 +45091,7 @@ def play_stage_intro_video(
                 sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 skip_video = True
+                skip_triggered = True
                 break
 
         if skip_video:
@@ -45100,6 +45103,20 @@ def play_stage_intro_video(
     pygame.event.get()
     if audio_channel is not None:
         audio_channel.stop()
+
+    do_fade = (fade_out_on_finish or skip_triggered) and last_surface is not None
+
+    if do_fade:
+        fade_frames = max(12, int(fps * 0.5))
+        fade_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        for frame_index in range(fade_frames):
+            alpha = int(255 * ((frame_index + 1) / fade_frames))
+            SCREEN.blit(last_surface, (0, 0))
+            fade_surface.fill((0, 0, 0, alpha))
+            SCREEN.blit(fade_surface, (0, 0))
+            pygame.display.flip()
+            clock.tick(fps)
+            pygame.event.pump()
 
     return played, last_surface
 
@@ -45168,18 +45185,11 @@ def show_stage1_intro():
             stage_color=stage_color,
             boss_color=boss_color_video,
             hint_color=hint_color,
-            hint_text="Press SPACE to skip",
+            show_hint=False,
+            fade_out_on_finish=True,
         )
 
     if played_video:
-        wait_for_stage_intro_confirmation(
-            last_frame,
-            stage_text=stage_text,
-            boss_text=boss_name,
-            stage_color=stage_color,
-            boss_color=boss_color_video,
-            hint_color=hint_color,
-        )
         return
 
     try:
