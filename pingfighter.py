@@ -45361,6 +45361,7 @@ def show_stage2_intro():
 
     waiting = True
     frame_count = 0
+    wait_start = pygame.time.get_ticks()
     while waiting:
         frame_count += 1
         SCREEN.fill(BLACK)
@@ -45389,6 +45390,9 @@ def show_stage2_intro():
                 sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 waiting = False
+
+        if waiting and pygame.time.get_ticks() - wait_start >= INTRO_AUTO_EXIT_MS:
+            waiting = False
 
     for alpha in range(255, -1, -8):
         boss_img.set_alpha(alpha)
@@ -45420,6 +45424,7 @@ def show_stage3_intro():
     # 대기 중 (SPACE 누를 때까지) - 애니메이션 효과 추가
     waiting = True
     frame_count = 0
+    wait_start = pygame.time.get_ticks()
     while waiting:
         frame_count += 1
         SCREEN.fill(BLACK)
@@ -45446,6 +45451,8 @@ def show_stage3_intro():
                 sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 waiting = False
+        if waiting and pygame.time.get_ticks() - wait_start >= INTRO_AUTO_EXIT_MS:
+            waiting = False
     # 페이드 아웃 (더 부드럽게)
     for alpha in range(255, -1, -8):
         boss_img.set_alpha(alpha)
@@ -45498,6 +45505,7 @@ def show_stage4_intro():
 
     waiting = True
     frame_count = 0
+    wait_start = pygame.time.get_ticks()
     while waiting:
         frame_count += 1
         SCREEN.fill(BLACK)
@@ -45525,6 +45533,9 @@ def show_stage4_intro():
                 sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 waiting = False
+
+        if waiting and pygame.time.get_ticks() - wait_start >= INTRO_AUTO_EXIT_MS:
+            waiting = False
 
     for alpha in range(255, -1, -8):
         boss_img.set_alpha(alpha)
@@ -45576,6 +45587,7 @@ def show_stage5_intro():
     waiting = True
     frame_count = 0
     scanline_y = 0
+    wait_start = pygame.time.get_ticks()
 
     while waiting:
         frame_count += 1
@@ -45608,6 +45620,9 @@ def show_stage5_intro():
                 sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 waiting = False
+
+        if waiting and pygame.time.get_ticks() - wait_start >= INTRO_AUTO_EXIT_MS:
+            waiting = False
 
     for alpha in range(255, -1, -8):
         boss_img.set_alpha(alpha)
