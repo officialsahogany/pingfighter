@@ -45487,12 +45487,6 @@ def show_stage4_intro():
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
 
-        if frame_count % 120 < FPS:
-            hint_font = get_font(18)
-            hint_surface = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_surface.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-            SCREEN.blit(hint_surface, hint_rect)
-
         pygame.display.flip()
         pygame.time.delay(16)
 
@@ -45584,12 +45578,6 @@ def show_stage5_intro():
             glitch_rect = pygame.Rect(random.randint(0, WIDTH - 100), random.randint(0, HEIGHT - 50), 100, 50)
             pygame.draw.rect(SCREEN, (0, random.randint(100, 255), random.randint(100, 255), 30), glitch_rect)
 
-        if frame_count % 120 < FPS:
-            hint_font = get_font(18)
-            hint_text = hint_font.render("Press SPACE to continue", True, (100, 200, 255))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-            SCREEN.blit(hint_text, hint_rect)
-
         pygame.display.flip()
         pygame.time.delay(16)
 
@@ -45676,12 +45664,6 @@ def show_stage6_intro():
         line_color = (min(255, line_intensity + 50), max(50, line_intensity - 50), 50)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
-
-        if frame_count % 120 < FPS:
-            hint_font = get_font(18)
-            hint_text = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-            SCREEN.blit(hint_text, hint_rect)
 
         pygame.display.flip()
         pygame.time.delay(16)
