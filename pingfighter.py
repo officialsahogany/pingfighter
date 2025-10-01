@@ -30269,7 +30269,7 @@ def draw_objects():
                     else:
                         countdown_text = info_font.render("Auto serve", True, (255, 255, 100))
                 else:
-                    countdown_text = info_font.render("Press SPACE", True, (200, 200, 200))
+                    countdown_text = info_font.render("Manual serve", True, (200, 200, 200))
                 countdown_rect = countdown_text.get_rect(center=(WIDTH // 2, serve_rect.bottom + 20))
                 SCREEN.blit(countdown_text, countdown_rect)
             else:
