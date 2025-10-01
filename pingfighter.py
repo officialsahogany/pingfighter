@@ -45,7 +45,9 @@ if not getattr(pygame.font.Font, "_press_space_filter", False):
         if isinstance(text, str):
             normalized = text.strip().lower()
             compact = " ".join(normalized.split())
-            if any(compact.startswith(prefix) for prefix in _PRESS_SPACE_PREFIXES):
+            if compact == "press space" or any(
+                compact.startswith(prefix) for prefix in _PRESS_SPACE_PREFIXES
+            ):
                 # 빈 투명 Surface 반환해 안내 문구를 시각적으로 숨긴다.
                 surface = pygame.Surface((1, max(1, self.get_linesize())), pygame.SRCALPHA)
                 surface.fill((0, 0, 0, 0))
