@@ -10840,12 +10840,6 @@ def show_stage1_intro():
         line_color = (min(255, line_intensity + 60), line_intensity, line_intensity)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
-        # 부드러운 Space 키 안내
-        if frame_count % 120 < 60:
-            hint_font = pygame.font.Font("NanumSquareR.ttf", 18)
-            hint_text = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-            SCREEN.blit(hint_text, hint_rect)
         pygame.display.flip()
         pygame.time.delay(16)
         for event in pygame.event.get():
@@ -10917,12 +10911,6 @@ def show_stage2_intro():
         line_color = (min(255, line_intensity), max(0, line_intensity - 20), max(0, line_intensity - 60))
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
-        # 부드러운 Space 키 안내 (하단에)
-        if frame_count % 120 < 60:  # 깜박임 효과
-            hint_font = pygame.font.Font("NanumSquareR.ttf", 18)
-            hint_text = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-            SCREEN.blit(hint_text, hint_rect)
         pygame.display.flip()
         pygame.time.delay(16)  # 60fps
         for event in pygame.event.get():
@@ -10980,12 +10968,6 @@ def show_stage3_intro():
         line_color = (min(255, line_intensity), 100, min(255, line_intensity))
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
-        # 부드러운 Space 키 안내
-        if frame_count % 120 < 60:
-            hint_font = pygame.font.Font("NanumSquareR.ttf", 18)
-            hint_text = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
-            SCREEN.blit(hint_text, hint_rect)
         pygame.display.flip()
         pygame.time.delay(16)
         for event in pygame.event.get():
