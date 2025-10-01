@@ -11992,12 +11992,6 @@ def show_stage4_intro():
         line_color = (min(255, line_intensity + 30), min(255, line_intensity), max(100, line_intensity - 30))
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
-        # 부드러운 Space 키 안내
-        if frame_count % 120 < FPS:
-            hint_font = get_font(18)  # 18pt 픽셀 폰트
-            hint_text = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-            SCREEN.blit(hint_text, hint_rect)
         pygame.display.flip()
         pygame.time.delay(16)
         for event in pygame.event.get():
@@ -12055,12 +12049,6 @@ def show_stage5_intro():
         line_color = (min(255, line_intensity + 50), max(50, line_intensity - 50), 50)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
-        # 부드러운 Space 키 안내
-        if frame_count % 120 < FPS:
-            hint_font = get_font(18)  # 18pt 픽셀 폰트
-            hint_text = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-            SCREEN.blit(hint_text, hint_rect)
         pygame.display.flip()
         pygame.time.delay(16)
         for event in pygame.event.get():
