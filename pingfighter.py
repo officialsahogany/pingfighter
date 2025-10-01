@@ -45305,71 +45305,7 @@ def show_stage4_intro():
         pygame.display.flip()
         pygame.time.delay(25)
 def show_stage5_intro():
-    try:
-        boss_img = pygame.image.load(resource_path("stage5.png"))
-        boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
-    except:
-        boss_img = pygame.Surface((WIDTH, HEIGHT))
-        boss_img.fill((180, 40, 0))
-    # 페이드 인 (더 부드럽게)
-    for alpha in range(0, 256, 8):
-        boss_img.set_alpha(alpha)
-        SCREEN.fill(BLACK)
-        SCREEN.blit(boss_img, (0, 0))
-        # 고급스러운 텍스트 렌더링 (파랑~빨강 계통)
-        fade_pulse = alpha / 255.0 * 20
-        red_component = min(255, 120 + int(fade_pulse * 1.5))
-        blue_component = max(80, 200 - int(fade_pulse))
-        boss_fade_color = (red_component, 100, blue_component)
-        ui_manager.draw_centered_text("STAGE 5", 56, -120, (255, 150, 100), "elegant")
-        ui_manager.draw_centered_text("홍련", 42, -50, boss_fade_color, "glow")
-        pygame.display.flip()
-        pygame.time.delay(25)
-    # 대기 중 (SPACE 누를 때까지) - 애니메이션 효과 추가
-    waiting = True
-    frame_count = 0
-    while waiting:
-        frame_count += 1
-        SCREEN.fill(BLACK)
-        SCREEN.blit(boss_img, (0, 0))
-        # 맥동하는 효과 (파랑~빨강 계통)
-        pulse = abs(math.sin(frame_count * 0.03)) * 20
-        stage_color = (255, min(255, 150 + int(pulse)), min(255, 100 + int(pulse)))
-        # 파랑에서 빨강으로 변하는 맥동 효과
-        red_component = min(255, 120 + int(pulse * 1.5))
-        blue_component = max(80, 200 - int(pulse))
-        boss_color = (red_component, 100, blue_component)
-        ui_manager.draw_centered_text("STAGE 5", 56, -120, stage_color, "elegant")
-        ui_manager.draw_centered_text("홍련", 42, -50, boss_color, "glow")
-        # 장식 라인 (맥동 효과)
-        line_intensity = 160 + int(pulse)
-        line_color = (min(255, line_intensity + 50), max(50, line_intensity - 50), 50)
-        draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
-        draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
-        # 부드러운 Space 키 안내
-        if frame_count % 120 < FPS:
-            hint_font = get_font(18)  # 18pt 픽셀 폰트
-            hint_text = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
-            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
-            SCREEN.blit(hint_text, hint_rect)
-        pygame.display.flip()
-        pygame.time.delay(16)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                waiting = False
-    # 페이드 아웃 (더 부드럽게)
-    for alpha in range(255, -1, -8):
-        boss_img.set_alpha(alpha)
-        SCREEN.fill(BLACK)
-        SCREEN.blit(boss_img, (0, 0))
-        pygame.display.flip()
-        pygame.time.delay(25)
-def show_stage6_intro():
-    """Stage 6 항공모함 보스 소개 장면 - 사이버펑크 언더워터 테마"""
-    stage_text = "STAGE 6"
+    stage_text = "STAGE 5"
     boss_name = "네메시스"
 
     played_video, last_frame = play_stage_intro_video(
@@ -45396,99 +45332,65 @@ def show_stage6_intro():
         boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
     except:
         boss_img = pygame.Surface((WIDTH, HEIGHT))
-        # 깊은 바다 그라데이션 배경
-        for y in range(HEIGHT):
-            depth_ratio = y / HEIGHT
-            blue_val = int(5 + (1 - depth_ratio) * 25)
-            green_val = int(10 + (1 - depth_ratio) * 30) 
-            red_val = int(0 + (1 - depth_ratio) * 5)
-            color = (red_val, green_val, blue_val)
-            pygame.draw.line(boss_img, color, (0, y), (WIDTH, y))
-        
-        # 디지털 그리드 패턴
-        for x in range(0, WIDTH, 40):
-            pygame.draw.line(boss_img, (0, 50, 80, 50), (x, 0), (x, HEIGHT), 1)
-        for y in range(0, HEIGHT, 40):
-            pygame.draw.line(boss_img, (0, 50, 80, 50), (0, y), (WIDTH, y), 1)
-        
-        # 버블 효과
-        for _ in range(15):
-            bubble_x = random.randint(50, WIDTH - 50)
-            bubble_y = random.randint(100, HEIGHT - 100)
-            bubble_size = random.randint(5, 15)
-            pygame.draw.circle(boss_img, (50, 100, 150, 30), (bubble_x, bubble_y), bubble_size, 2)
-        
-        # 네온 라인 장식
-        pygame.draw.line(boss_img, (0, 200, 255), (50, HEIGHT//2), (WIDTH-50, HEIGHT//2), 2)
-        pygame.draw.line(boss_img, (255, 0, 200), (WIDTH//4, 50), (WIDTH//4, HEIGHT-50), 2)
-        pygame.draw.line(boss_img, (255, 0, 200), (WIDTH*3//4, 50), (WIDTH*3//4, HEIGHT-50), 2)
-    
-    # 페이드 인
+        boss_img.fill((20, 40, 60))
+
     for alpha in range(0, 256, 8):
         boss_img.set_alpha(alpha)
         SCREEN.fill(BLACK)
         SCREEN.blit(boss_img, (0, 0))
-        
-        # 사이버펑크 텍스트 효과
+
         fade_pulse = alpha / 255.0 * 20
         cyan_component = min(255, 100 + int(fade_pulse * 2))
         boss_fade_color = (50, cyan_component, 255)
-        
         ui_manager.draw_centered_text(stage_text, 56, -120, (0, 255, 255), "elegant")
         ui_manager.draw_centered_text(boss_name, 42, -50, boss_fade_color, "glow")
         ui_manager.draw_centered_text("U.S.S. NEMESIS", 24, 0, (100, 150, 200), "normal")
-        
+
         pygame.display.flip()
         pygame.time.delay(25)
-    
-    # 대기 중 (SPACE 누를 때까지) - 스캔라인 애니메이션
+
     waiting = True
     frame_count = 0
     scanline_y = 0
-    
+
     while waiting:
         frame_count += 1
         scanline_y = (scanline_y + 2) % HEIGHT
-        
+
         SCREEN.fill(BLACK)
         SCREEN.blit(boss_img, (0, 0))
-        
-        # 스캔라인 효과
+
         pygame.draw.line(SCREEN, (0, 255, 255, 50), (0, scanline_y), (WIDTH, scanline_y), 3)
         pygame.draw.line(SCREEN, (0, 255, 255, 30), (0, (scanline_y + 10) % HEIGHT), (WIDTH, (scanline_y + 10) % HEIGHT), 2)
-        
-        # 맥동하는 사이버펑크 텍스트
+
         pulse = abs(math.sin(frame_count * 0.03)) * 20
         stage_color = (min(255, int(pulse)), min(255, 200 + int(pulse)), 255)
         boss_color = (50, min(255, 150 + int(pulse)), 255)
-        
+
         ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
         ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow")
         ui_manager.draw_centered_text("U.S.S. NEMESIS", 24, 0, (100, 150, 200), "normal")
-        
-        # 디지털 간섭 효과
+
         if random.random() < 0.1:
-            glitch_rect = pygame.Rect(random.randint(0, WIDTH-100), random.randint(0, HEIGHT-50), 100, 50)
+            glitch_rect = pygame.Rect(random.randint(0, WIDTH - 100), random.randint(0, HEIGHT - 50), 100, 50)
             pygame.draw.rect(SCREEN, (0, random.randint(100, 255), random.randint(100, 255), 30), glitch_rect)
-        
-        # Space 키 안내
+
         if frame_count % 120 < FPS:
             hint_font = get_font(18)
             hint_text = hint_font.render("Press SPACE to continue", True, (100, 200, 255))
             hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
             SCREEN.blit(hint_text, hint_rect)
-        
+
         pygame.display.flip()
         pygame.time.delay(16)
-        
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 waiting = False
-    
-    # 페이드 아웃
+
     for alpha in range(255, -1, -8):
         boss_img.set_alpha(alpha)
         SCREEN.fill(BLACK)
@@ -45496,6 +45398,75 @@ def show_stage6_intro():
         pygame.display.flip()
         pygame.time.delay(25)
 
+
+def show_stage6_intro():
+    stage_text = "STAGE 6"
+    boss_name = "홍련"
+
+    try:
+        boss_img = pygame.image.load(resource_path("stage5.png"))
+        boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
+    except:
+        boss_img = pygame.Surface((WIDTH, HEIGHT))
+        boss_img.fill((180, 40, 0))
+
+    for alpha in range(0, 256, 8):
+        boss_img.set_alpha(alpha)
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+
+        fade_pulse = alpha / 255.0 * 20
+        red_component = min(255, 120 + int(fade_pulse * 1.5))
+        blue_component = max(80, 200 - int(fade_pulse))
+        boss_fade_color = (red_component, 100, blue_component)
+        ui_manager.draw_centered_text(stage_text, 56, -120, (255, 150, 100), "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_fade_color, "glow")
+
+        pygame.display.flip()
+        pygame.time.delay(25)
+
+    waiting = True
+    frame_count = 0
+    while waiting:
+        frame_count += 1
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+
+        pulse = abs(math.sin(frame_count * 0.03)) * 20
+        stage_color = (255, min(255, 150 + int(pulse)), min(255, 100 + int(pulse)))
+        red_component = min(255, 120 + int(pulse * 1.5))
+        blue_component = max(80, 200 - int(pulse))
+        boss_color = (red_component, 100, blue_component)
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow")
+
+        line_intensity = 160 + int(pulse)
+        line_color = (min(255, line_intensity + 50), max(50, line_intensity - 50), 50)
+        draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
+        draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
+
+        if frame_count % 120 < FPS:
+            hint_font = get_font(18)
+            hint_text = hint_font.render("Press SPACE to continue", True, (150, 150, 150))
+            hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - LARGE_SIZE))
+            SCREEN.blit(hint_text, hint_rect)
+
+        pygame.display.flip()
+        pygame.time.delay(16)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                waiting = False
+
+    for alpha in range(255, -1, -8):
+        boss_img.set_alpha(alpha)
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+        pygame.display.flip()
+        pygame.time.delay(25)
 
 def draw_stage3_border():
     """스테이지 3 멘헤라 테두리 그리기"""
