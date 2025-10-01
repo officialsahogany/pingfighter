@@ -948,6 +948,8 @@ STAGE4_BG = stage_backgrounds.stage4
 STAGE5_BG = stage_backgrounds.stage5
 STAGE6_BG = stage_backgrounds.stage6
 
+STAGE1_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage1.mov")
+STAGE1_INTRO_IMAGE_PATH = resource_path("stage1.png")
 STAGE2_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage2.mov")
 STAGE2_INTRO_IMAGE_PATH = resource_path("stage2.png")
 STAGE5_INTRO_VIDEO_PATH: str | None = None
@@ -43378,6 +43380,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
                 print("⚡ 스매셔 전용 시작 보너스: 에너지드링크 1개 지급!")
 
     # 스테이지 1 인트로 표시
+    preload_stage_intro_resources(STAGE1_INTRO_VIDEO_PATH)
     show_stage1_intro()
     # 선택한 난이도 정보 표시
     difficulty_names = {
