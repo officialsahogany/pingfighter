@@ -45433,9 +45433,8 @@ def show_stage4_intro():
     preload_stage_intro_resources(STAGE4_INTRO_VIDEO_PATH)
 
     played_video = False
-    last_frame = None
     if STAGE4_INTRO_VIDEO_PATH:
-        played_video, last_frame = play_stage_intro_video(
+        played_video, _ = play_stage_intro_video(
             STAGE4_INTRO_VIDEO_PATH,
             stage_text=stage_text,
             boss_text=boss_name,
@@ -45513,9 +45512,8 @@ def show_stage5_intro():
     boss_name = "네메시스"
 
     played_video = False
-    last_frame = None
     if STAGE5_INTRO_VIDEO_PATH:
-        played_video, last_frame = play_stage_intro_video(
+        played_video, _ = play_stage_intro_video(
             STAGE5_INTRO_VIDEO_PATH,
             stage_text=stage_text,
             boss_text=boss_name,
@@ -45601,9 +45599,8 @@ def show_stage6_intro():
     boss_name = "홍련"
 
     played_video = False
-    last_frame = None
     if STAGE6_INTRO_VIDEO_PATH:
-        played_video, last_frame = play_stage_intro_video(
+        played_video, _ = play_stage_intro_video(
             STAGE6_INTRO_VIDEO_PATH,
             stage_text=stage_text,
             boss_text=boss_name,
