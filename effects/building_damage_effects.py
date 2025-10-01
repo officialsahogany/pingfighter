@@ -403,6 +403,18 @@ class BuildingDamageManager:
             print(f"[손상 시스템] {building_id} 제거 - {particle_count}개의 파티클 효과 종료")
             del self.damage_states[building_id]
 
+    def reset_all(self) -> None:
+        """모든 건물 손상 상태와 파티클을 초기화한다."""
+        if not self.damage_states:
+            return
+
+        for state in self.damage_states.values():
+            particles = state.get('particles')
+            if particles:
+                particles.clear()
+
+        self.damage_states.clear()
+
 # 싱글톤 인스턴스
 _damage_manager = None
 
