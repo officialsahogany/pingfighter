@@ -45310,14 +45310,18 @@ def show_stage5_intro():
     stage_text = "STAGE 5"
     boss_name = "네메시스"
 
-    played_video, last_frame = play_stage_intro_video(
-        STAGE6_INTRO_VIDEO_PATH,
-        stage_text=stage_text,
-        boss_text=boss_name,
-        stage_color=(0, 255, 255),
-        boss_color=(150, 200, 255),
-        hint_color=(100, 200, 255),
-    )
+    played_video = False
+    last_frame = None
+    if STAGE5_INTRO_VIDEO_PATH:
+        played_video, last_frame = play_stage_intro_video(
+            STAGE5_INTRO_VIDEO_PATH,
+            stage_text=stage_text,
+            boss_text=boss_name,
+            stage_color=(0, 255, 255),
+            boss_color=(150, 200, 255),
+            hint_color=(100, 200, 255),
+        )
+
     if played_video:
         wait_for_stage_intro_confirmation(
             last_frame,
@@ -45330,7 +45334,7 @@ def show_stage5_intro():
         return
 
     try:
-        boss_img = pygame.image.load(resource_path("stage6.png"))
+        boss_img = pygame.image.load(STAGE5_INTRO_IMAGE_PATH).convert()
         boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
     except:
         boss_img = pygame.Surface((WIDTH, HEIGHT))
@@ -45405,8 +45409,31 @@ def show_stage6_intro():
     stage_text = "STAGE 6"
     boss_name = "홍련"
 
+    played_video = False
+    last_frame = None
+    if STAGE6_INTRO_VIDEO_PATH:
+        played_video, last_frame = play_stage_intro_video(
+            STAGE6_INTRO_VIDEO_PATH,
+            stage_text=stage_text,
+            boss_text=boss_name,
+            stage_color=(255, 150, 100),
+            boss_color=(200, 80, 120),
+            hint_color=(200, 120, 120),
+        )
+
+    if played_video:
+        wait_for_stage_intro_confirmation(
+            last_frame,
+            stage_text=stage_text,
+            boss_text=boss_name,
+            stage_color=(255, 150, 100),
+            boss_color=(200, 80, 120),
+            hint_color=(200, 120, 120),
+        )
+        return
+
     try:
-        boss_img = pygame.image.load(resource_path("stage5.png"))
+        boss_img = pygame.image.load(STAGE6_INTRO_IMAGE_PATH).convert()
         boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
     except:
         boss_img = pygame.Surface((WIDTH, HEIGHT))
