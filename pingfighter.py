@@ -42853,6 +42853,16 @@ def show_difficulty_selection():
     scroll_offset = 0
     glitch_timer = 0
     glitch_active = False
+    confirming = False
+    confirm_result = None
+    confirm_selected = 0
+    flash_phase = 0
+    flash_timer = 0
+    flash_interval = 12
+    fade_timer = 0
+    fade_duration = 45
+    fade_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    fade_overlay.fill((0, 0, 0))
     # 사이버펑크 배경 효과용 변수들
     neon_particles = []
     for _ in range(50):  # 더 많은 네온 파티클
