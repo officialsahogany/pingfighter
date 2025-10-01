@@ -34971,6 +34971,8 @@ def show_victory_screen(stage_cleared, reward):
                     show_stage6_intro()
 
                 if not game_should_exit:
+                    damage_manager = get_damage_manager()
+                    damage_manager.reset_all()
                     main(next_stage_display)
             return
 def confirm_rest(stage_cleared, reward):
