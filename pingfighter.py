@@ -31,6 +31,30 @@ import pygame
 import pygame.freetype
 import numpy as np
 
+# 특정 영상 힌트 문구 제거 ("Press SPACE …" 시리즈)
+_PRESS_SPACE_PREFIXES = (
+    "press space to continue",
+    "press space to keep",
+    "press space to skip",
+)
+
+if not getattr(pygame.font.Font, "_press_space_filter", False):
+    _original_font_render = pygame.font.Font.render
+
+    def _filtered_font_render(self, text, antialias, color, background=None):
+        if isinstance(text, str):
+            normalized = text.strip().lower()
+            compact = " ".join(normalized.split())
+            if any(compact.startswith(prefix) for prefix in _PRESS_SPACE_PREFIXES):
+                # 빈 투명 Surface 반환해 안내 문구를 시각적으로 숨긴다.
+                surface = pygame.Surface((1, max(1, self.get_linesize())), pygame.SRCALPHA)
+                surface.fill((0, 0, 0, 0))
+                return surface
+        return _original_font_render(self, text, antialias, color, background)
+
+    pygame.font.Font.render = _filtered_font_render
+    pygame.font.Font._press_space_filter = True  # type: ignore[attr-defined]
+
 # ============================================================
 # 3. 게임 핵심 모듈 Import
 # ============================================================
