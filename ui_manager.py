@@ -47,10 +47,11 @@ def init_ui_manager(screen, font, width=600, height=750):
     print("UI")
 
 
-def draw_centered_text(text, size, y_offset=0, color=(255, 255, 255), style="elegant"):
+def draw_centered_text(text, size, y_offset=0, color=(255, 255, 255), style="elegant", alpha=None):
     """고급스러운 중앙 정렬 텍스트 렌더링"""
     # 한글 렌더링 개선을 위해 freetype 사용 시도
     use_freetype = False
+    alpha_value = 255 if alpha is None else max(0, min(255, int(alpha)))
     
     if style == "elegant":
         # 고급스러운 스타일: 세리프체 느낌의 볼드 폰트 + 그림자 효과
@@ -84,10 +85,17 @@ def draw_centered_text(text, size, y_offset=0, color=(255, 255, 255), style="ele
             else:
                 shadow_surface = font.render(text, True, shadow_color[:3])
             if len(shadow_color) > 3:  # 알파 값이 있는 경우
-                shadow_surface.set_alpha(shadow_color[3])
+                shadow_alpha = shadow_color[3]
+            else:
+                shadow_alpha = 255
+            if alpha is not None:
+                shadow_alpha = int(shadow_alpha * alpha_value / 255)
+            shadow_surface.set_alpha(max(0, min(255, shadow_alpha)))
             SCREEN.blit(shadow_surface, (x + offset[0], y + offset[1]))
-        
+
         # 메인 텍스트
+        if alpha is not None:
+            surface.set_alpha(alpha_value)
         SCREEN.blit(surface, (x, y))
         
     elif style == "glow":
@@ -108,7 +116,7 @@ def draw_centered_text(text, size, y_offset=0, color=(255, 255, 255), style="ele
             surface = font.render(text, True, color)
             x = WIDTH // 2 - surface.get_width() // 2
             y = HEIGHT // 2 - surface.get_height() // 2 + y_offset
-        
+
         # 글로우 효과 (바깥쪽부터 안쪽으로)
         glow_color = (min(255, color[0] + 50), min(255, color[1] + 50), min(255, color[2] + 50))
         for radius in range(6, 0, -1):
@@ -117,18 +125,25 @@ def draw_centered_text(text, size, y_offset=0, color=(255, 255, 255), style="ele
                 glow_surface, _ = font.render(text, glow_color)
             else:
                 glow_surface = font.render(text, True, glow_color)
-            glow_surface.set_alpha(alpha)
+            glow_alpha = alpha
+            if alpha_value != 255:
+                glow_alpha = int(glow_alpha * alpha_value / 255)
+            glow_surface.set_alpha(max(0, min(255, glow_alpha)))
             for dx in range(-radius, radius + 1):
                 for dy in range(-radius, radius + 1):
                     if dx*dx + dy*dy <= radius*radius:
                         SCREEN.blit(glow_surface, (x + dx, y + dy))
-        
+
         # 메인 텍스트
+        if alpha is not None:
+            surface.set_alpha(alpha_value)
         SCREEN.blit(surface, (x, y))
     else:
         # 기본 스타일
         font = pygame.font.Font(resource_path("NanumSquareR.ttf"), size)
         surface = font.render(text, True, color)
+        if alpha is not None:
+            surface.set_alpha(alpha_value)
         x = WIDTH // 2 - surface.get_width() // 2
         y = HEIGHT // 2 - surface.get_height() // 2 + y_offset
         SCREEN.blit(surface, (x, y))
