@@ -34796,6 +34796,7 @@ def show_victory_screen(stage_cleared, reward):
 
                             # 스테이지별 인트로 호출 (표시 스테이지에 맞춰 전환)
                             if next_stage_display == 2:
+                                preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
                                 show_stage2_intro()
                             elif next_stage_display == 3:
                                 show_stage3_intro()
@@ -56013,7 +56014,9 @@ def main(stage_num, new_boss_mode=False):
 
     stage_num = stage_display_to_logic(display_stage_num)
 
-    if display_stage_num == 5:
+    if display_stage_num == 2:
+        preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
+    elif display_stage_num == 5:
         preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
     elif display_stage_num == 6:
         preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
