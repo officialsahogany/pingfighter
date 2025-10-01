@@ -34904,8 +34904,55 @@ def show_victory_screen(stage_cleared, reward):
                             confirm_rest(stage_cleared, reward)
                             return
         
+        should_blit_fade = False
+        if transition_state['active']:
+            transition_state['timer'] += 1
+            total_transition_frames = transition_state['flash_frames'] + transition_state['fade_frames']
+
+            if transition_state['timer'] >= transition_state['flash_frames']:
+                fade_elapsed = transition_state['timer'] - transition_state['flash_frames']
+                fade_progress = min(1.0, fade_elapsed / max(1, transition_state['fade_frames']))
+                transition_overlay.set_alpha(int(255 * fade_progress))
+                should_blit_fade = True
+
+            if transition_state['timer'] >= total_transition_frames and not transition_state['executed']:
+                transition_state['executed'] = True
+                if transition_state['return_to_start']:
+                    print("!  !")
+                    show_start_screen()
+                    return
+
+                next_stage_display = transition_state['stage_target']
+
+                items.clear_field_items()
+                try:
+                    get_net_gun_instance().reset()
+                except Exception:
+                    pass
+
+                if next_stage_display == 2:
+                    preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
+                    show_stage2_intro()
+                elif next_stage_display == 3:
+                    show_stage3_intro()
+                elif next_stage_display == 4:
+                    show_stage4_intro()
+                elif next_stage_display == 5:
+                    preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
+                    show_stage5_intro()
+                elif next_stage_display == 6:
+                    preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
+                    show_stage6_intro()
+
+                if not game_should_exit:
+                    main(next_stage_display)
+                return
+
         if genie_assistant.is_active():
             genie_assistant.draw(SCREEN)
+
+        if should_blit_fade:
+            SCREEN.blit(transition_overlay, (0, 0))
 
         pygame.display.flip()
         clock.tick(60)  # 60 FPS로 제한
