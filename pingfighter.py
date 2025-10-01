@@ -45162,10 +45162,10 @@ def play_stage_intro_video(
 
 
 INTRO_AUTO_EXIT_MS = 2800  # ms 동안 대기 후 자동으로 인트로 종료
-INTRO_VIDEO_AUDIO_FADE_MS = 600  # 영상 종료 시 오디오 페이드아웃 시간
+INTRO_VIDEO_AUDIO_FADE_MS = 700  # 영상 종료 시 오디오 페이드아웃 시간
 
 
-def complete_stage_intro_transition(hold_ms: int = 180) -> None:
+def complete_stage_intro_transition(hold_ms: int = 220) -> None:
     """영상 인트로 종료 후 짧게 블랙 프레임을 보여주고 입력 이벤트를 정리한다."""
 
     if hold_ms <= 0:
