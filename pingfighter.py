@@ -34905,6 +34905,7 @@ def show_victory_screen(stage_cleared, reward):
                             return
         
         should_blit_fade = False
+        pending_transition = None
         if transition_state['active']:
             transition_state['timer'] += 1
             total_transition_frames = transition_state['flash_frames'] + transition_state['fade_frames']
@@ -34918,11 +34919,26 @@ def show_victory_screen(stage_cleared, reward):
             if transition_state['timer'] >= total_transition_frames and not transition_state['executed']:
                 transition_state['executed'] = True
                 if transition_state['return_to_start']:
-                    print("!  !")
-                    show_start_screen()
-                    return
+                    pending_transition = ('start', None)
+                else:
+                    pending_transition = ('stage', transition_state['stage_target'])
 
-                next_stage_display = transition_state['stage_target']
+        if genie_assistant.is_active():
+            genie_assistant.draw(SCREEN)
+
+        if should_blit_fade:
+            SCREEN.blit(transition_overlay, (0, 0))
+
+        pygame.display.flip()
+        clock.tick(60)  # 60 FPS로 제한
+
+        if pending_transition:
+            mode, target_stage = pending_transition
+            if mode == 'start':
+                print("!  !")
+                show_start_screen()
+            else:
+                next_stage_display = target_stage
 
                 items.clear_field_items()
                 try:
@@ -34946,16 +34962,7 @@ def show_victory_screen(stage_cleared, reward):
 
                 if not game_should_exit:
                     main(next_stage_display)
-                return
-
-        if genie_assistant.is_active():
-            genie_assistant.draw(SCREEN)
-
-        if should_blit_fade:
-            SCREEN.blit(transition_overlay, (0, 0))
-
-        pygame.display.flip()
-        clock.tick(60)  # 60 FPS로 제한
+            return
 def confirm_rest(stage_cleared, reward):
     font_small = FontStyle.menu()  # 26pt 픽셀 폰트
     yes_rect = pygame.Rect(WIDTH // 2 - 130, 420, 100, LARGE_SIZE)
