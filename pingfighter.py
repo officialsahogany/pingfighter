@@ -11597,6 +11597,7 @@ BLACKSMITH_BLOCKING_SKILL_FRAMES = int(1.2 * FPS)
 blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
 blacksmith_blocking_penalty_timer = 0
 blacksmith_blocking_toast_timer = 0
+blacksmith_blocking_skill_timer = 0
 
 
 def _is_divine_state_active(state: dict[str, object] | None) -> bool:
@@ -12818,6 +12819,8 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     global blacksmith_umbrella_hit_lock
     global blacksmith_umbrella_retract_grace_timer
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
+    global blacksmith_blocking_skill_timer
+    global blacksmith_blocking_skill_timer
     blacksmith_hammer_swing_slow_timer = 0
     stop_blacksmith_hammer_charge_sound()
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
@@ -12828,6 +12831,7 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     blacksmith_umbrella_retract_grace_timer = 0
     blacksmith_blocking_penalty_timer = 0
     blacksmith_blocking_toast_timer = 0
+    blacksmith_blocking_skill_timer = 0
     blacksmith_umbrella_hit_lock = False
     blacksmith_hammer_shock_last_stage = 0
     blacksmith_hammer_shock_cooldown_total = 0
