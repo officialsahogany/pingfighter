@@ -10914,6 +10914,31 @@ def draw_blacksmith_blocking_toast(surface: pygame.Surface) -> None:
     if selected_character_type != "blacksmith":
         return
 
+    font = FontStyle.subtitle()
+    blocking_text = "blocking!"
+
+    if blacksmith_blocking_skill_timer > 0:
+        ratio = max(0.0, min(1.0, blacksmith_blocking_skill_timer / BLACKSMITH_BLOCKING_SKILL_FRAMES))
+        alpha = int(255 * ratio)
+        bounce = int(4 * math.sin(pygame.time.get_ticks() * 0.045))
+
+        text_surface = font.render(blocking_text, True, (255, 232, 120))
+        shadow_surface = font.render(blocking_text, True, (30, 30, 30))
+
+        anchor_x = PLAYER.left - 18
+        anchor_y = PLAYER.centery + bounce
+
+        shadow_surface = shadow_surface.copy()
+        shadow_surface.set_alpha(int(alpha * 0.6))
+        shadow_rect = shadow_surface.get_rect(midright=(anchor_x, anchor_y + 3))
+        surface.blit(shadow_surface, shadow_rect)
+
+        text_surface = text_surface.copy()
+        text_surface.set_alpha(alpha)
+        text_rect = text_surface.get_rect(midright=(anchor_x, anchor_y))
+        surface.blit(text_surface, text_rect)
+        return
+
     if blacksmith_blocking_toast_timer <= 0:
         return
 
@@ -10921,8 +10946,6 @@ def draw_blacksmith_blocking_toast(surface: pygame.Surface) -> None:
     alpha = int(255 * ratio)
     bounce = int(6 * math.sin(pygame.time.get_ticks() * 0.035))
 
-    font = FontStyle.subtitle()
-    blocking_text = "blocking!"
     text_surface = font.render(blocking_text, True, (255, 232, 120))
     shadow_surface = font.render(blocking_text, True, (30, 30, 30))
 
@@ -12821,6 +12844,7 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
     global blacksmith_blocking_skill_timer
     global blacksmith_blocking_skill_timer
+    global blacksmith_blocking_skill_timer
     blacksmith_hammer_swing_slow_timer = 0
     stop_blacksmith_hammer_charge_sound()
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
@@ -12831,6 +12855,7 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     blacksmith_umbrella_retract_grace_timer = 0
     blacksmith_blocking_penalty_timer = 0
     blacksmith_blocking_toast_timer = 0
+    blacksmith_blocking_skill_timer = 0
     blacksmith_blocking_skill_timer = 0
     blacksmith_umbrella_hit_lock = False
     blacksmith_hammer_shock_last_stage = 0
@@ -21387,6 +21412,8 @@ def handle_player(keys):
             blacksmith_blocking_penalty_timer -= 1
         if blacksmith_blocking_toast_timer > 0:
             blacksmith_blocking_toast_timer -= 1
+        if blacksmith_blocking_skill_timer > 0:
+            blacksmith_blocking_skill_timer -= 1
 
         if blacksmith_umbrella_damage_flash_timer > 0:
             blacksmith_umbrella_damage_flash_timer -= 1
