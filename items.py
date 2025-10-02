@@ -216,6 +216,24 @@ def load_item_icons():
     legendary_manager = None
 
     for item_name, icon_file in icon_files.items():
+        if item_name == "ragnarok_hammer":
+            try:
+                if legendary_manager is None:
+                    from legendary_items import get_legendary_manager  # 순환 의존성 방지용 지연 import
+                    legendary_manager = get_legendary_manager()
+
+                hammer = legendary_manager.get_item("ragnarok_hammer") if legendary_manager else None
+                frames = getattr(hammer, "animation_frames", None)
+
+                if frames:
+                    copied_frames = [frame.copy() for frame in frames if frame]
+                    if copied_frames:
+                        ITEM_ICON_ANIMATIONS[item_name] = copied_frames
+                        ITEM_ICONS[item_name] = pygame.transform.smoothscale(copied_frames[0], (32, 32))
+                        continue
+            except Exception as exc:
+                print(f"[WARN] Ragnarok icon animation sync failed: {exc}")
+
         if item_name == "poseidon_trident":
             try:
                 if legendary_manager is None:
