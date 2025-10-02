@@ -1991,6 +1991,8 @@ class HermesShoes(LegendaryItem):
 
 class RagnarokHammer(LegendaryItem):
     """라그나로크 해머 - 강력한 넉백 효과"""
+    _FRAME_CACHE: List[pygame.Surface] = []
+
     def __init__(self):
         super().__init__(
             name="ragnarok_hammer",
@@ -2086,10 +2088,13 @@ class RagnarokHammer(LegendaryItem):
     
     def _load_animation_frames(self):
         """라그나로크 아이콘을 프레임 전용 애니메이션으로 구성한다."""
-        self.animation_frames.clear()
+        if RagnarokHammer._FRAME_CACHE:
+            self.animation_frames = [frame.copy() for frame in RagnarokHammer._FRAME_CACHE]
+            return
 
         total_frames = 8
         base_size = 64
+        generated_frames: List[pygame.Surface] = []
 
         for i in range(total_frames):
             # 푸른 원형 펄스를 살리되 중앙 이미지는 제거한다.
@@ -2099,10 +2104,15 @@ class RagnarokHammer(LegendaryItem):
                 animation_time=sample_time,
                 offset_time=0.0,
             )
-            self.animation_frames.append(frame_surface)
+            generated_frames.append(frame_surface)
 
-        if not self.animation_frames:
+        if not generated_frames:
             print("❌ 라그나로크 해머: 프레임 애니메이션 생성 실패")
+            self.animation_frames = []
+            return
+
+        RagnarokHammer._FRAME_CACHE = [frame.copy() for frame in generated_frames]
+        self.animation_frames = [frame.copy() for frame in generated_frames]
     
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """애니메이션 아이콘 그리기"""

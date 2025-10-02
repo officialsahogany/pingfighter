@@ -35189,6 +35189,17 @@ def show_start_screen():
     _set_menu_system(menu_system_instance)
     simple_bg = SimpleMenuBackground(INTERNAL_WIDTH, INTERNAL_HEIGHT)
 
+    def start_main_tutorial():
+        """튜토리얼 진입 시 플레이어를 스매셔로 강제 동기화"""
+        global selected_character_type
+        previous_character_type = selected_character_type
+        apply_character_selection("ufo_player")
+        try:
+            return main(50)
+        finally:
+            if previous_character_type:
+                apply_character_selection(previous_character_type)
+
     ctx = MenuContext(
         get_screen=lambda: SCREEN,
         get_dimensions=lambda: (WIDTH, HEIGHT),
@@ -35205,7 +35216,7 @@ def show_start_screen():
         show_character_selection=show_character_selection,
         show_difficulty_selection=show_difficulty_selection,
         start_game_with_difficulty=start_game_with_difficulty,
-        start_tutorial_game=lambda: main(50),
+        start_tutorial_game=start_main_tutorial,
         start_test_mode=lambda: main(1, new_boss_mode=True),
         show_item_manager_menu=show_item_manager_menu,
         show_developer_stage_select=show_developer_stage_select,
