@@ -1852,6 +1852,261 @@ class PoseidonTrident(LegendaryItem):
                            int(droplet['y'] - droplet['size'])))
 
 
+class RabbitLegendary(LegendaryItem):
+    """토끼 전설 아이템 - 라그나로크 해머의 실제 내부 테두리 사용"""
+    def __init__(self):
+        super().__init__(
+            name="rabbit_legendary",
+            korean_name="토끼",
+            description="테스트용 전설 아이템입니다",
+            unlock_condition="테스트용 - 항상 해금",
+            icon_path=None  # 고유 애니메이션 사용
+        )
+        # 라그나로크 해머 프레임을 로드 (내부 테두리용)
+        self.ragnarok_frames = []
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8
+        self._load_ragnarok_frames()
+
+    def _load_ragnarok_frames(self):
+        """라그나로크 해머 프레임 로드 (내부 테두리로 사용)"""
+        import pygame
+        self.ragnarok_frames.clear()
+
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                frame = pygame.image.load(frame_path).convert_alpha()
+                # 빨간 배경 제거하지 않고 원본 그대로 사용
+                self.ragnarok_frames.append(frame)
+                print(f"✓ 토끼용 라그나로크 프레임 {i} 로드 성공")
+            except Exception as e:
+                print(f"[ERROR] 토끼용 라그나로크 프레임 {i} 로드 실패: {e}")
+                # 실패 시 빈 프레임 생성
+                empty_frame = pygame.Surface((60, 60), pygame.SRCALPHA)
+                self.ragnarok_frames.append(empty_frame)
+
+        print(f"토끼 아이콘: 라그나로크 프레임 {len([f for f in self.ragnarok_frames if f.get_size() != (60, 60)])}/8개 로드")
+
+    def check_unlock_condition(self, game_stats: Dict) -> bool:
+        """항상 해금"""
+        return True
+
+    def _draw_rabbit(self, surface, x, y, size):
+        """토끼 그리기 (라그나로크 프레임 위에)"""
+        import pygame
+        center_x = x + size // 2
+        center_y = y + size // 2
+
+        # 애니메이션 오프셋 적용 (위아래 움직임)
+        offset_y = int(math.sin(self.animation_time * 2.5) * 2)
+
+        # 토끼 머리 (간단한 버전)
+        head_size = int(size * 0.3)
+        head_y = center_y - int(size * 0.05) + offset_y
+        pygame.draw.circle(surface, (255, 255, 255), (center_x, head_y), head_size//2)
+        pygame.draw.circle(surface, (240, 240, 240), (center_x, head_y), head_size//2, 2)
+
+        # 토끼 귀
+        ear_width = int(size * 0.1)
+        ear_height = int(size * 0.3)
+
+        # 왼쪽 귀
+        left_ear_x = center_x - int(size * 0.1)
+        left_ear_y = head_y - int(size * 0.25) + offset_y
+        pygame.draw.ellipse(surface, (255, 255, 255),
+                          (left_ear_x - ear_width//2, left_ear_y,
+                           ear_width, ear_height))
+        pygame.draw.ellipse(surface, (255, 192, 203),  # 분홍색 내부
+                          (left_ear_x - ear_width//3, left_ear_y + ear_height//4,
+                           ear_width*2//3, ear_height//2))
+
+        # 오른쪽 귀
+        right_ear_x = center_x + int(size * 0.1)
+        right_ear_y = head_y - int(size * 0.25) + offset_y
+        pygame.draw.ellipse(surface, (255, 255, 255),
+                          (right_ear_x - ear_width//2, right_ear_y,
+                           ear_width, ear_height))
+        pygame.draw.ellipse(surface, (255, 192, 203),  # 분홍색 내부
+                          (right_ear_x - ear_width//3, right_ear_y + ear_height//4,
+                           ear_width*2//3, ear_height//2))
+
+        # 눈
+        eye_size = max(2, int(size * 0.04))
+        eye_spacing = int(size * 0.08)
+        pygame.draw.circle(surface, (0, 0, 0),
+                         (center_x - eye_spacing, head_y + offset_y), eye_size)
+        pygame.draw.circle(surface, (0, 0, 0),
+                         (center_x + eye_spacing, head_y + offset_y), eye_size)
+
+        # 코 (분홍색 삼각형)
+        nose_size = max(2, int(size * 0.03))
+        nose_y = head_y + int(size * 0.08) + offset_y
+        nose_points = [
+            (center_x, nose_y),
+            (center_x - nose_size, nose_y - nose_size),
+            (center_x + nose_size, nose_y - nose_size)
+        ]
+        pygame.draw.polygon(surface, (255, 192, 203), nose_points)
+
+        # 입 (W 모양)
+        mouth_y = nose_y + int(size * 0.02) + offset_y
+        pygame.draw.arc(surface, (100, 100, 100),
+                       (center_x - nose_size*2, mouth_y - nose_size,
+                        nose_size*2, nose_size*2),
+                       0, math.pi, 1)
+        pygame.draw.arc(surface, (100, 100, 100),
+                       (center_x, mouth_y - nose_size,
+                        nose_size*2, nose_size*2),
+                       0, math.pi, 1)
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """아이콘 그리기 - 라그나로크 해머의 실제 내부 테두리 사용"""
+        import pygame
+        import math
+
+        # 프레임 오프셋 계산 (위아래 움직임)
+        frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
+        icon_y = y + frame_offset
+
+        # 1. 파란색 글로우 배경 (라그나로크와 동일)
+        pulse = (math.sin(self.animation_time * 4.0) + 1) / 2
+        glow_color = (30 + int(40 * pulse), 90 + int(50 * pulse), 170 + int(30 * pulse))
+
+        # 여러 겹의 원으로 글로우 효과
+        for i in range(3):
+            radius = size // 2 - i * 3
+            alpha = 80 - i * 20
+            glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*glow_color, alpha), (size // 2, size // 2), radius)
+            screen.blit(glow_surf, (x, icon_y))
+
+        # 2. 라그나로크 해머 프레임 그리기 (실제 PNG 프레임 사용)
+        if self.ragnarok_frames and len(self.ragnarok_frames) > 0:
+            # 프레임 애니메이션 업데이트
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.ragnarok_frames)
+
+            # 현재 프레임 가져오기
+            current_ragnarok_frame = self.ragnarok_frames[self.current_frame]
+
+            # 프레임 크기 조정
+            if current_ragnarok_frame.get_size() != (size, size):
+                scaled_frame = pygame.transform.scale(current_ragnarok_frame, (size, size))
+            else:
+                scaled_frame = current_ragnarok_frame
+
+            # 라그나로크 프레임에서 중앙 해머 부분을 투명하게 만들어 토끼를 그릴 공간 확보
+            frame_with_hole = pygame.Surface((size, size), pygame.SRCALPHA)
+
+            # 프레임 복사
+            for py in range(size):
+                for px in range(size):
+                    # 중앙 원형 영역 계산
+                    center_x = size // 2
+                    center_y = size // 2
+                    dist = math.sqrt((px - center_x) ** 2 + (py - center_y) ** 2)
+
+                    # 중앙 반경 (토끼를 위한 공간)
+                    clear_radius = size // 3
+
+                    if dist < clear_radius:
+                        # 중앙은 투명하게 (토끼를 위한 공간)
+                        frame_with_hole.set_at((px, py), (0, 0, 0, 0))
+                    else:
+                        # 테두리 부분은 그대로 복사
+                        color = scaled_frame.get_at((px, py))
+                        frame_with_hole.set_at((px, py), color)
+
+            # 프레임 그리기
+            screen.blit(frame_with_hole, (x, icon_y))
+        else:
+            # 프레임 로드 실패 시 대체 내부 테두리 그리기
+            # 내부 빨간색 테두리 (3중 라인)
+            inner_pulse = (math.sin(self.animation_time * 6.0) + 1) / 2
+
+            outer_inner_color = (
+                int(150 + 70 * inner_pulse),
+                int(30 + 35 * inner_pulse),
+                int(30 + 35 * inner_pulse)
+            )
+            inner_inner_color = (
+                int(120 + 60 * inner_pulse),
+                int(10 + 25 * inner_pulse),
+                int(10 + 25 * inner_pulse)
+            )
+
+            inner_rect_outer = pygame.Rect(x + 2, icon_y + 2, size - 4, size - 4)
+            inner_rect_mid = inner_rect_outer.inflate(-2, -2)
+            inner_rect_inner = inner_rect_outer.inflate(-4, -4)
+
+            mid_inner_color = (
+                (outer_inner_color[0] + inner_inner_color[0]) // 2,
+                (outer_inner_color[1] + inner_inner_color[1]) // 2,
+                (outer_inner_color[2] + inner_inner_color[2]) // 2
+            )
+
+            pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 1)
+            pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 1)
+            pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
+
+        # 3. 토끼 그리기 (중앙에)
+        self._draw_rabbit(screen, x, icon_y, size)
+
+        # 4. 외부 테두리와 코너 장식 (라그나로크와 동일)
+        # 은색-파란색 테두리
+        border_color = (150 + int(50 * pulse), 170 + int(30 * pulse), 200 + int(30 * pulse))
+        border_rect = pygame.Rect(x - 1, icon_y - 1, size + 2, size + 2)
+        pygame.draw.rect(screen, border_color, border_rect, 2)
+
+        # 금색 ㄱ자 코너 장식
+        corner_color = (255, 215, 0)  # 금색
+        corner_size = 8
+
+        # 좌상단
+        pygame.draw.lines(screen, corner_color, False,
+                         [(x - 2, icon_y + corner_size), (x - 2, icon_y - 2),
+                          (x + corner_size, icon_y - 2)], 2)
+        # 우상단
+        pygame.draw.lines(screen, corner_color, False,
+                         [(x + size - corner_size + 2, icon_y - 2),
+                          (x + size + 2, icon_y - 2),
+                          (x + size + 2, icon_y + corner_size)], 2)
+        # 좌하단
+        pygame.draw.lines(screen, corner_color, False,
+                         [(x - 2, icon_y + size - corner_size + 2),
+                          (x - 2, icon_y + size + 2),
+                          (x + corner_size, icon_y + size + 2)], 2)
+        # 우하단
+        pygame.draw.lines(screen, corner_color, False,
+                         [(x + size - corner_size + 2, icon_y + size + 2),
+                          (x + size + 2, icon_y + size + 2),
+                          (x + size + 2, icon_y + size - corner_size + 2)], 2)
+
+        # 코너에 작은 금색 점
+        for cx, cy in [(x, icon_y), (x + size, icon_y),
+                       (x, icon_y + size), (x + size, icon_y + size)]:
+            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
+
+        # 파티클 효과
+        if self.particle_timer > 1.0:
+            self._spawn_particle(screen, x + size//2, icon_y + size//2)
+            self.particle_timer = 0
+
+    def update(self, dt: float, ui_mode: bool = False):
+        """애니메이션 업데이트"""
+        super().update(dt, ui_mode)
+
+        # 프레임 카운터 업데이트
+        self.frame_counter += 1
+        if self.frame_counter >= self.animation_speed:
+            self.frame_counter = 0
+            self.current_frame = (self.current_frame + 1) % 8
+
+
 class HermesShoes(LegendaryItem):
     """헤르메스의 신발 - 이동속도 50% 증가"""
     def __init__(self):
@@ -1988,6 +2243,7 @@ class HermesShoes(LegendaryItem):
         
         print(f"헤르메스 신발: 전용 프레임 {frames_loaded}/8개 로드")
         
+
         # 프레임이 없으면 에러만 표시 (가짜 애니메이션 생성하지 않음)
         if not self.animation_frames or len(self.animation_frames) == 0:
             print("❌ 헤르메스 신발: PNG 프레임을 찾을 수 없습니다!")
@@ -2380,6 +2636,7 @@ class EmptyLegendarySlot(LegendaryItem):
         finally:
             surface.unlock()
 
+
 # 전설 빈 슬롯(variant 1) — 포세이돈의 삼지창과 동일 렌더링
 class EmptyLegendarySlotPoseidon(LegendaryItem):
     """아이템 관리자 전설 탭에서 empty1 슬롯을 포세이돈 스타일 프레임만 표시.
@@ -2424,6 +2681,22 @@ class EmptyLegendarySlotPoseidon(LegendaryItem):
         # 내부 테두리 + 글로우만 그리기(외곽 테두리/코너 장식/오버레이 없음)
         frame_offset = _draw_glow_and_inner_only(screen, x, y, size, self.animation_time)
         # 파티클은 비활성화(빈 슬롯)
+
+
+class LegendaryWaitingSlot(EmptyLegendarySlotPoseidon):
+    """아이템 관리자 전설 탭 전용 대기 슬롯.
+
+    - 포세이돈 프레임과 완전히 동일한 테두리/펄스를 유지한다.
+    - 중앙 아이콘은 비워두어 "전설대기" 상태를 표현한다.
+    - UI용 플레이스홀더이므로 항상 해금된 상태로 취급한다.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.name = "legendary_wait"
+        self.korean_name = "전설대기"
+        self.description = "다가올 전설 아이템을 위해 비워 둔 전용 슬롯입니다."
+        self.unlocked = True
 
 
 class EmptyLegendarySlot2(LegendaryItem):
@@ -2545,36 +2818,35 @@ class LegendaryItemManager:
         self.items["hermes_shoes"] = HermesShoes()
         poseidon_item = PoseidonTrident()
         self.items["poseidon_trident"] = poseidon_item
-        empty_slot = EmptyLegendarySlot()
-        self.items["empty"] = empty_slot
-        empty1_slot = EmptyLegendarySlotPoseidon()
-        self.items["empty1"] = empty1_slot
-        empty2_slot = EmptyLegendarySlot2()
-        self.items["empty2"] = empty2_slot
+        self.items["rabbit_legendary"] = RabbitLegendary()  # 토끼 아이템 추가
+        self.items["legendary_wait"] = LegendaryWaitingSlot()
 
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
         if "ragnarok_hammer" not in self.unlocked_items:
             self.unlocked_items.append("ragnarok_hammer")
-        
+
         self.items["hermes_shoes"].unlocked = True
         if "hermes_shoes" not in self.unlocked_items:
             self.unlocked_items.append("hermes_shoes")
-            
+
+
         self.items["poseidon_trident"].unlocked = True
         if "poseidon_trident" not in self.unlocked_items:
             self.unlocked_items.append("poseidon_trident")
 
-        if empty_slot.unlocked and "empty" not in self.unlocked_items:
-            self.unlocked_items.append("empty")
+        # 토끼 아이템 강제 해금 (테스트용)
+        self.items["rabbit_legendary"].unlocked = True
+        if "rabbit_legendary" not in self.unlocked_items:
+            self.unlocked_items.append("rabbit_legendary")
 
-        if empty1_slot.unlocked and "empty1" not in self.unlocked_items:
-            self.unlocked_items.append("empty1")
+        self.items["legendary_wait"].unlocked = True
+        if "legendary_wait" not in self.unlocked_items:
+            self.unlocked_items.append("legendary_wait")
 
-        if empty2_slot.unlocked and "empty2" not in self.unlocked_items:
-            self.unlocked_items.append("empty2")
+        # empty/empty1/empty2 플레이스홀더는 등록/해금하지 않음(전설 탭 간소화)
 
-        
+
     
     def _init_legendary_items(self):
         """전설 아이템 초기화 (애니메이션용)"""
@@ -2587,22 +2859,12 @@ class LegendaryItemManager:
         # 포세이돈의 삼지창 초기화
         if "poseidon_trident" not in self.items:
             self.items["poseidon_trident"] = PoseidonTrident()
+        # 토끼 아이템 초기화
+        if "rabbit_legendary" not in self.items:
+            self.items["rabbit_legendary"] = RabbitLegendary()
         poseidon_ref = self.items.get("poseidon_trident")
 
-        if "empty" not in self.items:
-            self.items["empty"] = EmptyLegendarySlot()
-            if "empty" not in self.unlocked_items:
-                self.unlocked_items.append("empty")
-
-        if "empty1" not in self.items:
-            self.items["empty1"] = EmptyLegendarySlotPoseidon()
-            if "empty1" not in self.unlocked_items:
-                self.unlocked_items.append("empty1")
-
-        if "empty2" not in self.items:
-            self.items["empty2"] = EmptyLegendarySlot2()
-            if "empty2" not in self.unlocked_items:
-                self.unlocked_items.append("empty2")
+        # empty/empty1/empty2 보정 생성하지 않음
         
     def check_unlocks(self, game_stats: Dict):
         """해금 조건 체크"""
@@ -2622,7 +2884,7 @@ class LegendaryItemManager:
         
     def activate_item(self, name: str, game_state: Dict):
         """아이템 활성화"""
-        if name in ["empty", "empty1", "empty2"]:
+        if name in ["empty", "empty1", "empty2", "legendary_wait"]:
             return
         print(f"🎮 activate_item 호출: name={name}")
         print(f"   - items에 있음: {name in self.items}")

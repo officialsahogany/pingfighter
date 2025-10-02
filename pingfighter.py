@@ -43878,12 +43878,10 @@ def show_item_manager_menu():
     if legendary_manager:
         for item_name, item in legendary_manager.items.items():
             if item.unlocked:  # 해금된 전설 아이템만 표시
-                # 전설 아이템 아이콘 가져오기
-                if item.name == "empty":
-                    # 빈 슬롯은 아이콘 없이 표시
-                    legendary_icon = None
-                else:
-                    legendary_icon = get_item_icon(item.name)
+                # 요청: empty, empty1, empty2는 전설 탭에서 비표시
+                if item.name in ("empty", "empty1", "empty2"):
+                    continue
+                legendary_icon = get_item_icon(item.name)
                 legendary_items.append({
                     "name": item.name,
                     "type": "legendary",
@@ -44673,7 +44671,7 @@ def apply_selected_items(
 
         # 선택된 전설 아이템 활성화 및 패시브 아이템 리스트에 추가
         for item_name in selected_legendary_items:
-            if item_name == "empty":
+            if item_name in ("empty", "empty1", "empty2", "legendary_wait"):
                 continue
 
             # 전설 아이템 획득 플래그 설정 (중복 스폰 방지)
@@ -44834,6 +44832,65 @@ def get_item_icon(item_name):
         icon_cache[item_name] = icon_surface
         return icon_surface
     
+    # Empty2 전설 아이템 - 해머 아이콘 없이 모든 효과만 표시
+    if item_name == "empty2":
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_surface.fill((0, 0, 0, 0))  # 투명 배경
+
+        # 간단한 프레임 효과만 그리기 (애니메이션 없는 정적 버전)
+        size = ICON_SIZE
+        x, y = 0, 0
+
+        # Layer 1: Blue Pulsing Glow (정적 버전)
+        center = (size // 2, size // 2)
+        pygame.draw.circle(icon_surface, (30, 90, 170), center, size // 2 - 2)
+        pygame.draw.circle(icon_surface, (70, 140, 200), center, int((size // 2 - 2) * 0.85))
+        pygame.draw.circle(icon_surface, (140, 190, 220), center, int((size // 2 - 2) * 0.65))
+
+        # Layer 2: Red Inner Borders
+        pygame.draw.rect(icon_surface, (180, 40, 40), (2, 2, size - 4, size - 4), 1)
+        pygame.draw.rect(icon_surface, (160, 30, 30), (3, 3, size - 6, size - 6), 1)
+        pygame.draw.rect(icon_surface, (140, 20, 20), (4, 4, size - 8, size - 8), 1)
+
+        # Layer 4: Silver-Blue Frame
+        pygame.draw.rect(icon_surface, (180, 200, 255), (0, 0, size, size), 2)
+
+        # Layer 5: Golden Corners
+        corner_size = 8
+        corner_color = (255, 215, 0)
+        # Top-left
+        pygame.draw.lines(icon_surface, corner_color, False,
+                         [(0, corner_size), (0, 0), (corner_size, 0)], 2)
+        # Top-right
+        pygame.draw.lines(icon_surface, corner_color, False,
+                         [(size - corner_size, 0), (size - 1, 0), (size - 1, corner_size)], 2)
+        # Bottom-left
+        pygame.draw.lines(icon_surface, corner_color, False,
+                         [(0, size - corner_size), (0, size - 1), (corner_size, size - 1)], 2)
+        # Bottom-right
+        pygame.draw.lines(icon_surface, corner_color, False,
+                         [(size - corner_size, size - 1), (size - 1, size - 1), (size - 1, size - corner_size)], 2)
+
+        # Layer 6: Red Pulsing Border (정적 버전)
+        pygame.draw.rect(icon_surface, (180, 0, 0), (0, 0, size, size), 3)
+
+        # Layer 7: Corner Dots
+        for cx, cy in [(0, 0), (size - 1, 0), (0, size - 1), (size - 1, size - 1)]:
+            pygame.draw.circle(icon_surface, (255, 255, 255), (cx, cy), 2)
+
+        # "EMPTY" 텍스트
+        if pygame.font.get_init():
+            try:
+                font = pygame.font.Font(None, max(12, size // 6))
+                text = font.render("EMPTY", True, (100, 100, 100))
+                text_rect = text.get_rect(center=(size // 2, size // 2))
+                icon_surface.blit(text, text_rect)
+            except:
+                pass
+
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
     # 전설 아이템들은 정적 스냅샷 생성
     if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident"]:
         # Import already done globally at line 141
@@ -59822,11 +59879,38 @@ def main(stage_num, new_boss_mode=False):
                         
                         dash_dialogue_result = show_tutorial_dash_dialogue()
                         if dash_dialogue_result == "skip_chapter":
-                            # 8번키로 챕터 스킵 요청 - Chapter 2에서는 Chapter 3로 직접 이동  
+                            # 8번키로 챕터 스킵 요청 - Chapter 2 → Chapter 3
+                            # 기존 초기화 구간(스테이지 재시작 경로)과 동일하게
+                            # 요약 화면 → 챕터 타이틀(검은 화면) 순서로 표시하고 상태를 정리한다.
                             print("🎮 대쉬 대화에서 챕터 스킵 요청됨 - Chapter 3으로 직접 이동")
+
+                            # Chapter 2 완료 요약 화면
+                            show_chapter_completion_summary(2)
+
+                            # 연습용 대쉬토큰 제거(있을 경우) 및 토큰/게이지 정리
+                            if 'tutorial_practice_bonus_token' in globals() and tutorial_practice_bonus_token:
+                                dashholder_obtained = False
+                                rolling_charges = 1
+                                tutorial_practice_bonus_token = False
+                                tutorial_bonus_token_message = None
+                                print("튜토리얼: Chapter 2 스킵 - 연습용 대쉬토큰 제거 (토큰 1개로 초기화)")
+
+                            # 챕터 상태 전환: 2 → 3
                             tutorial_needs_dash_practice = False
+                            tutorial_chapter2_max_gauge = None
+                            tutorial_current_chapter = 3
                             tutorial_needs_drive_practice = True
                             tutorial_drive_practice_shown = False
+                            tutorial_drive_chapter_max_gauge = 300
+                            # 게이지 리셋
+                            special_gauge = 0
+                            displayed_gauge = 0
+
+                            # 챕터3 타이틀(검은 화면) 즉시 표시
+                            show_chapter_title(3, "DRIVE", "드라이브")
+
+                            # 다음 프레임에서 계속 진행
+                            continue
                         elif dash_dialogue_result:
                             # 대쉬 대화 후 바로 오버레이 도우미 활성화
                             tutorial_dash_helper_active = True
@@ -60080,23 +60164,56 @@ def main(stage_num, new_boss_mode=False):
             
             drive_dialogue_result = show_tutorial_drive_dialogue()
             if drive_dialogue_result == "skip_chapter":
-                # 8번키로 챕터 스킵 요청 - Chapter 3에서는 튜토리얼 완료
-                print("🎮 드라이브 대화에서 챕터 스킵 요청됨 - 튜토리얼 완료")
-                
+                # 8번키로 챕터 스킵 요청 - Chapter 3에서는 Chapter 4로 진행해야 함
+                print("🎮 드라이브 대화에서 챕터 스킵 요청됨 - Chapter 4로 이동")
+
                 # Chapter 3 완료 요약 화면 표시
                 show_chapter_completion_summary(3)
-                
-                # 최종 완료 피드백
-                show_tutorial_success_feedback("🎉 튜토리얼 완료! 🎉", "perfect")
-                
-                # 튜토리얼 챕터별 게이지 오버라이드 해제
+
+                # 게이지 오버라이드 해제(Chapter 4는 500 고정)
                 tutorial_chapter1_max_gauge = None
                 tutorial_chapter2_max_gauge = None
                 tutorial_drive_chapter_max_gauge = None
-                
-                # 튜토리얼 완료 메시지 표시 후 메인 메뉴로
-                print("🎉 튜토리얼 모든 챕터 완료!")
-                return "main_menu"  # 메인 메뉴로 돌아감
+
+                # 챕터4 타이틀(검은 화면) 표시
+                show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
+
+                # 챕터 상태 전환 및 초기화
+                tutorial_current_chapter = 4
+                special_gauge = 0
+                displayed_gauge = 0
+                special_gauge_max = get_max_gauge()  # 500
+                try:
+                    game_state.special_gauge_max = special_gauge_max
+                except Exception:
+                    pass
+
+                # 드라이브 카운터/플래그 종료, 파워 연습 시작 플래그 설정
+                tutorial_drive_counter_active = False
+                tutorial_needs_drive_practice = False
+                tutorial_needs_power_practice = True
+                tutorial_power_practice_shown = False
+                tutorial_power_helper_dialogue_shown = False
+                tutorial_power_completion_dialogue_shown = False
+                tutorial_power_count = 0
+                tutorial_displayed_power_count = 0
+                tutorial_power_counter_active = False
+                tutorial_power_reminder_active = False
+                tutorial_power_reminder_timer = 0
+
+                # 게임 화면을 먼저 그린 뒤 파워스매싱 연습 대화 표시
+                draw_field()
+                draw_objects()
+                pygame.display.flip()
+
+                power_dialogue_result = show_tutorial_power_practice_dialogue()
+                if power_dialogue_result:
+                    tutorial_power_practice_shown = True
+                    tutorial_power_counter_active = True
+                    chapter4_dialogue_completed = True
+                    chapter4_serve_reminder_active = True
+                    chapter4_serve_reminder_timer = int(1.5 * FPS)
+                    print("튜토리얼: 파워스매싱 연습 대화 완료 (챕터3 스킵 경로)")
             elif drive_dialogue_result:
                 # 드라이브 알림 변수는 main 함수 시작부에서 global 선언됨
                 tutorial_drive_practice_shown = True
@@ -61508,6 +61625,10 @@ def get_item_name_korean(item_name):
         "ragnarok_hammer": "라그나로크 해머",
         "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창",
+        "legendary_wait": "전설대기",
+        # 전설탭 전용: baby (헤르메스 아이콘과 동일)
+        "baby": "베이비",
+        "empty2": "빈 전설 슬롯",
     }
     return korean_names.get(item_name, item_name)
 def get_item_description(item_name):
@@ -61559,6 +61680,9 @@ def get_item_description(item_name):
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 1.5배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
+        "legendary_wait": "전설 대기 슬롯: 아직 공개되지 않은 전설 아이템을 위한 예약 자리입니다. 테두리와 펄스는 유지되지만 중앙 아이콘은 비워져 있습니다.",
+        "baby": "베이비: 아이템관리자 전설탭 표시용. 헤르메스의 신발과 동일한 아이콘/연출을 사용합니다.",
+        "empty2": "빈 전설 슬롯: 미개방된 전설 아이템 슬롯입니다. 전설의 테두리 효과만 표시됩니다.",
     }
     return descriptions.get(item_name, "설명이 없습니다.")
 
@@ -62250,11 +62374,10 @@ def show_character_item_manager():
     if legendary_manager:
         for item_name, item in legendary_manager.items.items():
             if item.unlocked:
-                if item.name == "empty":
-                    # 빈 슬롯은 아이콘 없이 표시
-                    legendary_icon = None
-                else:
-                    legendary_icon = get_item_icon(item.name)
+                # 요청: empty, empty1, empty2는 전설 탭에서 비표시
+                if item.name in ("empty", "empty1", "empty2"):
+                    continue
+                legendary_icon = get_item_icon(item.name)
                 legendary_items.append({
                     "name": item.name,
                     "type": "legendary",

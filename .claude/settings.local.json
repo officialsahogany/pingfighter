@@ -133,7 +133,14 @@
       "mcp__codex__codex",
       "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_rAvX8W/**)",
       "Read(//Volumes/T7/윈도우용 백업/윈도우용최신/game/bosspong/**)",
-      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_2Byptj/**)"
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_2Byptj/**)",
+      "Bash(python3:*)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_sHQc4E/**)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_xwzNJi/**)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_FEacla/**)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_q4phTi/**)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_gA9s29/**)",
+      "Read(//var/folders/lw/gqffzfsx2590y76kw26h338c0000gn/T/TemporaryItems/NSIRD_screencaptureui_T5u3os/**)"
     ],
     "defaultMode": "acceptEdits"
   }
