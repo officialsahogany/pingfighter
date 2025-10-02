@@ -21424,6 +21424,11 @@ def handle_player(keys):
             blacksmith_blocking_toast_timer -= 1
         if blacksmith_blocking_skill_timer > 0:
             blacksmith_blocking_skill_timer -= 1
+        if blacksmith_blocking_bonus_window_timer > 0:
+            blacksmith_blocking_bonus_window_timer -= 1
+            if blacksmith_blocking_bonus_window_timer <= 0:
+                blacksmith_blocking_bonus_window_timer = 0
+                blacksmith_blocking_bonus_ready = False
 
         if blacksmith_umbrella_damage_flash_timer > 0:
             blacksmith_umbrella_damage_flash_timer -= 1
@@ -23799,6 +23804,8 @@ def handle_player(keys):
                     if blacksmith_umbrella_gauge <= 0:
                         request_blacksmith_umbrella_close(play_sound=True, flash=True)
                     gauge_reduced = True
+                    blacksmith_blocking_bonus_ready = True
+                    blacksmith_blocking_bonus_window_timer = BLACKSMITH_BLOCKING_BONUS_WINDOW_FRAMES
                     print(
                         "[DEBUG BLOCKING] gauge reduced via shield",
                         {
@@ -23862,6 +23869,8 @@ def handle_player(keys):
                 forced_gauge_loss = True
                 blocking_skill_bonus = True
                 blacksmith_blocking_bonus_pending = True
+                blacksmith_blocking_bonus_ready = False
+                blacksmith_blocking_bonus_window_timer = 0
                 if blacksmith_umbrella_gauge <= 0:
                     request_blacksmith_umbrella_close(play_sound=True, flash=True)
             blacksmith_umbrella_hit_lock = True
