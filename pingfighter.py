@@ -56977,6 +56977,7 @@ def main(stage_num, new_boss_mode=False):
             tutorial_needs_drive_practice = False
             tutorial_drive_practice_shown = False
             tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 초기화
+            tutorial_pending_chapter_title = tutorial_pending_chapter_title or (2, "DASH", "대쉬 연습")
         else:
             # 챕터3 상태 유지 플래그 확인
             skip_chapter3_init = 'tutorial_skip_chapter3_init' in globals() and tutorial_skip_chapter3_init
@@ -57073,6 +57074,7 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_power_right_done = False
                 
                 print("[OK] Chapter 3 시작 상태로 초기화 완료")
+                tutorial_pending_chapter_title = tutorial_pending_chapter_title or (3, "DRIVE", "드라이브")
             else:
                 # 초기 튜토리얼 시작 - 모든 변수 초기화
                 # 개발자용: 4번 키를 누르고 있으면 Chapter 4에서 시작
