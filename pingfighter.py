@@ -56975,6 +56975,9 @@ def main(stage_num, new_boss_mode=False):
             tutorial_needs_drive_practice = False
             tutorial_drive_practice_shown = False
             tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 초기화
+
+            # Chapter 2 진입 타이틀 표시
+            show_chapter_title(2, "DASH", "대쉬 연습")
         else:
             # 챕터3 상태 유지 플래그 확인
             skip_chapter3_init = 'tutorial_skip_chapter3_init' in globals() and tutorial_skip_chapter3_init
