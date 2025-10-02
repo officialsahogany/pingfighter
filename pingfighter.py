@@ -43705,6 +43705,8 @@ def show_item_manager_menu():
                 fallback_entry["item_obj"] = laurel_obj
         legendary_items.append(fallback_entry)
 
+    legendary_items.sort(key=lambda item: 0 if item.get("name") == "holy_laurel" else 1)
+
     
     # 엑티브/패시브/전설 아이템 분리
     active_items = [item for item in all_items if item["type"] == "active"]
@@ -61900,6 +61902,8 @@ def show_character_item_manager():
             if laurel_obj:
                 fallback_entry["item_obj"] = laurel_obj
         legendary_items.append(fallback_entry)
+
+    legendary_items.sort(key=lambda item: 0 if item.get("name") == "holy_laurel" else 1)
 
     
     # 엑티브/패시브/전설 아이템 분리
