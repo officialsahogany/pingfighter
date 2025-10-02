@@ -10178,9 +10178,9 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
     if divine_state is None:
         sync_blacksmith_state()
         divine_state = BLACKSMITH_CONTROLLER.state.divine.state
-        if divine_state is None:
-            return
-    elif divine_state is None:
+
+    if not _is_divine_state_active(divine_state):
+        get_damage_manager().clear_building("divine_stone")
         return
     rect = divine_state["rect"]
     pulse = divine_state.get("pulse", 0)
