@@ -5,6 +5,7 @@ from typing import Callable, List, Tuple
 import pygame
 
 from pixel_font_manager import FontStyle, get_font
+from bgm_manager import bgm_manager as global_bgm_manager
 
 ANIMATION_DURATION_MS = 2000
 SMOKE_PARTICLE_COUNT = 18
@@ -255,6 +256,9 @@ class GenieAssistant:
         self.small_font = get_font(16)
         self.key_font = get_font(18)
 
+        self.previous_bgm: str | None = None
+        self.previous_bgm_was_playing: bool = False
+
         self.detail_scroll_offset: float = 0.0
         self.detail_scroll_direction: int = 1
         self.detail_scroll_wait: float = 0.0
@@ -279,6 +283,8 @@ class GenieAssistant:
     def activate(self, screen: pygame.Surface, character_type: str | None) -> None:
         if self.active:
             self.deactivate()
+        self.previous_bgm = global_bgm_manager.current_bgm
+        self.previous_bgm_was_playing = global_bgm_manager.is_playing()
         self.active = True
         self.phase = "animation"
         self.elapsed_ms = 0.0
@@ -291,7 +297,27 @@ class GenieAssistant:
         self._init_smoke_particles()
         self._reset_detail_scroll(reset_layout=True)
 
+        try:
+            if (
+                global_bgm_manager.current_bgm != 'tutorial_genie'
+                or not global_bgm_manager.is_playing()
+            ):
+                global_bgm_manager.play_bgm('tutorial_genie')
+        except Exception:
+            pass
+
     def deactivate(self) -> None:
+        try:
+            if self.previous_bgm_was_playing and self.previous_bgm:
+                global_bgm_manager.play_bgm(self.previous_bgm)
+            elif not self.previous_bgm_was_playing:
+                global_bgm_manager.stop_bgm()
+        except Exception:
+            pass
+
+        self.previous_bgm = None
+        self.previous_bgm_was_playing = False
+
         self.active = False
         self.phase = "inactive"
         self.overlay_surface = None
