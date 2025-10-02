@@ -2940,13 +2940,14 @@ for stage_num in range(1, 6):
             "fail_error": BOSS_CONFIGS[stage_num]["fail_error"],
         }
 
-# 스테이지 50 (튜토리얼) 보스 설정 - 스테이지 1과 완전히 동일
+# 스테이지 50 (튜토리얼) 보스 설정 - 스테이지 1 기반 + 속도 50% 증폭
+TUTORIAL_BOSS_SPEED_MULTIPLIER = 1.5
 boss_speed_config[50] = {
-    "accel": BOSS_CONFIGS[1]["accel"],  # 스테이지 1과 동일 (0.798)
-    "decel": BOSS_CONFIGS[1]["decel"],  # 스테이지 1과 동일 (0.798)
-    "max_speed": BOSS_CONFIGS[1]["max_speed"],  # 스테이지 1과 동일 (6.3175)
-    "instant_stop": BOSS_CONFIGS[1]["instant_stop"],  # 스테이지 1과 동일 (0.665)
-    # AI 설정 (스테이지 1과 동일)
+    "accel": BOSS_CONFIGS[1]["accel"] * TUTORIAL_BOSS_SPEED_MULTIPLIER,
+    "decel": BOSS_CONFIGS[1]["decel"] * TUTORIAL_BOSS_SPEED_MULTIPLIER,
+    "max_speed": BOSS_CONFIGS[1]["max_speed"] * TUTORIAL_BOSS_SPEED_MULTIPLIER,
+    "instant_stop": BOSS_CONFIGS[1]["instant_stop"] * TUTORIAL_BOSS_SPEED_MULTIPLIER,
+    # AI 설정 (추적 정밀도는 동일, 속도만 상향)
     "predict_chance": 0.45,
     "predict_error": 95,
     "fail_chance": 0.010,
