@@ -2351,23 +2351,35 @@ class EmptyLegendary(LegendaryItem):
         ]
 
         for corner_x, corner_y in corners:
-            # 모서리 점의 중심을 테두리 모서리 끝에 정확히 위치
-            center_x = corner_x
-            center_y = corner_y
+            # 사각형에 가까운 원형 (둥근 사각형) 그리기
+            rect_size = corner_size
 
-            # 외곽 원 (큰 원, 크기 증가)
-            pygame.draw.circle(screen, corner_color, (center_x, center_y), corner_size // 2)
-
-            # 중간 원 (더 밝게, 크기 증가)
-            mid_color = (
-                min(255, corner_color[0] + 20),
-                min(255, corner_color[1] + 20),
-                min(255, corner_color[2] + 10)
+            # 외곽 둥근 사각형
+            outer_rect = pygame.Rect(
+                corner_x - rect_size // 2,
+                corner_y - rect_size // 2,
+                rect_size,
+                rect_size
             )
-            pygame.draw.circle(screen, mid_color, (center_x, center_y), corner_size // 3)
+            pygame.draw.rect(screen, corner_color, outer_rect, border_radius=rect_size // 3)
 
-            # 중심 하이라이트 (더 큰 점)
-            pygame.draw.circle(screen, (255, 255, 255), (center_x, center_y), 2)
+            # 내부 밝은 둥근 사각형
+            inner_size = rect_size - 2
+            inner_rect = pygame.Rect(
+                corner_x - inner_size // 2,
+                corner_y - inner_size // 2,
+                inner_size,
+                inner_size
+            )
+            lighter_color = (
+                min(255, corner_color[0] + 30),
+                min(255, corner_color[1] + 30),
+                min(255, corner_color[2] + 20)
+            )
+            pygame.draw.rect(screen, lighter_color, inner_rect, border_radius=inner_size // 3)
+
+            # 중심 하이라이트 점
+            pygame.draw.circle(screen, (255, 255, 255), (corner_x, corner_y), 1)
 
         # 빈 내부 (투명) - 아이콘 부분만 비움
         if self._cached_icon is None or self._cached_size != size:
