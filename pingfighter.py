@@ -61605,6 +61605,14 @@ def show_item_management_menu(item_list, selected_index, item_type):
                     hammer.update(0.016, ui_mode=True)  # 60fps 기준 16ms, UI 모드
                     # 애니메이션 아이콘 그리기
                     hammer.draw_icon(SCREEN, panel_x + 20, panel_y + 20, 60)
+
+                    # 애니메이션 파트 뷰어 버튼 추가
+                    viewer_button_rect = pygame.Rect(panel_x + panel_width - 140, panel_y + 20, 120, 30)
+                    draw.rect((100, 100, 200), viewer_button_rect)
+                    draw.rect(WHITE, viewer_button_rect, 2)
+                    viewer_text = font_medium.render("애니메이션 보기", True, WHITE)
+                    viewer_text_rect = viewer_text.get_rect(center=viewer_button_rect.center)
+                    SCREEN.blit(viewer_text, viewer_text_rect)
             elif item.get("icon"):
                 # 폴백: 일반 아이콘 사용
                 icon = pygame.transform.scale(item["icon"], (60, 60))
