@@ -2314,6 +2314,17 @@ class EmptyLegendarySlot(LegendaryItem):
                     rgba = (color.r, color.g, color.b, color.a)
                     if rgba in shoe_colors:
                         surface.set_at((x, y), (0, 0, 0, 0))
+
+            # 추가 안전장치: 중심부 전체를 투명하게 비워 실루엣을 제거한다.
+            center_x = surface.get_width() / 2
+            center_y = surface.get_height() / 2
+            inner_radius_sq = 11 ** 2
+            for y in range(min_y, max_y):
+                dy_sq = (y - center_y) ** 2
+                for x in range(min_x, max_x):
+                    dx_sq = (x - center_x) ** 2
+                    if dx_sq + dy_sq <= inner_radius_sq:
+                        surface.set_at((x, y), (0, 0, 0, 0))
         finally:
             surface.unlock()
 
