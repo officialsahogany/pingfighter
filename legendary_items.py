@@ -2309,9 +2309,7 @@ class EmptyLegendarySlot(LegendaryItem):
                     if color.a == 0:
                         continue
                     rgba = (color.r, color.g, color.b, color.a)
-                    is_warm = color.r >= 120 and color.g >= 80 and color.b <= 220
-                    is_dark_brown = color.r >= 40 and color.r <= 120 and color.g <= 120 and color.b <= 120
-                    if rgba in shoe_colors or is_warm or is_dark_brown:
+                    if rgba in shoe_colors:
                         surface.set_at((x, y), (0, 0, 0, 0))
         finally:
             surface.unlock()
