@@ -1857,9 +1857,9 @@ class HolyLaurel(LegendaryItem):
             return
 
         surface = pygame.Surface((60, 60), pygame.SRCALPHA)
-        body_rect = pygame.Rect(8, 8, 44, 44)
-        pygame.draw.rect(surface, (245, 250, 255), body_rect, border_radius=12)
-        pygame.draw.rect(surface, (160, 190, 255), body_rect, 4, border_radius=12)
+        body_rect = pygame.Rect(6, 6, 48, 48)
+        pygame.draw.rect(surface, (245, 250, 255), body_rect, border_radius=14)
+        pygame.draw.rect(surface, (150, 185, 255), body_rect, 4, border_radius=14)
 
         pip_positions = {
             1: [(0.0, 0.0)],
@@ -1869,15 +1869,15 @@ class HolyLaurel(LegendaryItem):
             5: [(-0.45, -0.45), (0.45, -0.45), (0.0, 0.0), (-0.45, 0.45), (0.45, 0.45)],
             6: [(-0.45, -0.5), (0.45, -0.5), (-0.45, 0.0), (0.45, 0.0), (-0.45, 0.5), (0.45, 0.5)],
         }
-        pip_radius = 5
+        pip_radius = 6
         for px, py in pip_positions[6]:
             cx = body_rect.centerx + int(px * body_rect.width / 2.2)
             cy = body_rect.centery + int(py * body_rect.height / 2.4)
             pygame.draw.circle(surface, (120, 160, 230), (cx, cy), pip_radius + 1)
             pygame.draw.circle(surface, (70, 120, 220), (cx, cy), pip_radius)
 
-        highlight_rect = body_rect.inflate(-10, -14)
-        pygame.draw.rect(surface, (255, 255, 255, 140), highlight_rect, border_radius=10)
+        highlight_rect = body_rect.inflate(-8, -12)
+        pygame.draw.rect(surface, (255, 255, 255, 150), highlight_rect, border_radius=12)
 
         self._dice_overlay = surface
         self._scaled_dice_cache.clear()
@@ -1891,7 +1891,7 @@ class HolyLaurel(LegendaryItem):
 
         cached = self._scaled_dice_cache.get(size)
         if cached is None:
-            target = max(28, int(size * 0.78))
+            target = max(32, int(size * 0.82))
             scaled = pygame.transform.smoothscale(self._dice_overlay, (target, target))
             cached = scaled
             self._scaled_dice_cache[size] = cached
