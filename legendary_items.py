@@ -1795,6 +1795,8 @@ class HolyLaurel(LegendaryItem):
         self._frame_animation_time = 0.0
         self._laurel_overlay: Optional[pygame.Surface] = None
         self._scaled_laurel_cache: Dict[int, pygame.Surface] = {}
+        self._dice_overlay: Optional[pygame.Surface] = None
+        self._scaled_dice_cache: Dict[int, pygame.Surface] = {}
         self._use_trident_mask: bool = True
         self._prepare_frames()
 
@@ -1846,6 +1848,64 @@ class HolyLaurel(LegendaryItem):
             return base_surface
 
         base_surface.blit(overlay, (0, 0))
+        return base_surface
+
+    def _ensure_dice_overlay(self) -> None:
+        """천사의 주사위를 상징하는 주사위 오버레이를 준비한다."""
+
+        if self._dice_overlay is not None:
+            return
+
+        surface = pygame.Surface((60, 60), pygame.SRCALPHA)
+        body_rect = pygame.Rect(14, 14, 32, 32)
+        pygame.draw.rect(surface, (245, 250, 255), body_rect, border_radius=10)
+        pygame.draw.rect(surface, (180, 205, 255), body_rect, 3, border_radius=10)
+
+        pip_positions = {
+            1: [(0.0, 0.0)],
+            2: [(-0.45, -0.45), (0.45, 0.45)],
+            3: [(-0.45, -0.45), (0.0, 0.0), (0.45, 0.45)],
+            4: [(-0.45, -0.45), (0.45, -0.45), (-0.45, 0.45), (0.45, 0.45)],
+            5: [(-0.45, -0.45), (0.45, -0.45), (0.0, 0.0), (-0.45, 0.45), (0.45, 0.45)],
+            6: [(-0.45, -0.5), (0.45, -0.5), (-0.45, 0.0), (0.45, 0.0), (-0.45, 0.5), (0.45, 0.5)],
+        }
+        pip_radius = 3
+        for px, py in pip_positions[6]:
+            cx = body_rect.centerx + int(px * body_rect.width / 2.2)
+            cy = body_rect.centery + int(py * body_rect.height / 2.4)
+            pygame.draw.circle(surface, (120, 160, 230), (cx, cy), pip_radius + 1)
+            pygame.draw.circle(surface, (70, 120, 220), (cx, cy), pip_radius)
+
+        highlight_rect = body_rect.inflate(-12, -18)
+        pygame.draw.rect(surface, (255, 255, 255, 120), highlight_rect, border_radius=8)
+
+        self._dice_overlay = surface
+        self._scaled_dice_cache.clear()
+
+    def _get_scaled_dice(self, size: int) -> Optional[pygame.Surface]:
+        """현재 사이즈에 맞는 주사위 오버레이를 반환한다."""
+
+        self._ensure_dice_overlay()
+        if self._dice_overlay is None:
+            return None
+
+        cached = self._scaled_dice_cache.get(size)
+        if cached is None:
+            target = max(16, size // 2)
+            scaled = pygame.transform.smoothscale(self._dice_overlay, (target, target))
+            cached = scaled
+            self._scaled_dice_cache[size] = cached
+        return cached
+
+    def _apply_dice_overlay(self, base_surface: pygame.Surface, size: int) -> pygame.Surface:
+        """월계관 중앙에 주사위 아이콘을 합성한다."""
+
+        dice = self._get_scaled_dice(size)
+        if dice is None:
+            return base_surface
+
+        rect = dice.get_rect(center=(base_surface.get_width() // 2, base_surface.get_height() // 2))
+        base_surface.blit(dice, rect.topleft)
         return base_surface
 
     def _prepare_frames(self) -> None:
@@ -1916,6 +1976,7 @@ class HolyLaurel(LegendaryItem):
             scaled = pygame.transform.smoothscale(frame, (size, size))
             trimmed = self._remove_trident_from_surface(scaled)
             composed = self._compose_with_laurel(trimmed, size)
+            composed = self._apply_dice_overlay(composed, size)
             screen.blit(composed, (x, y + frame_offset))
             return
 
@@ -1927,11 +1988,13 @@ class HolyLaurel(LegendaryItem):
                 composed = self._compose_with_laurel(base_surface, size)
             else:
                 composed = scaled
+            composed = self._apply_dice_overlay(composed, size)
             screen.blit(composed, (x, y + frame_offset))
         else:
             overlay = self._get_scaled_laurel(size)
             if overlay:
-                screen.blit(overlay, (x, y + frame_offset))
+                composed = self._apply_dice_overlay(overlay.copy(), size)
+                screen.blit(composed, (x, y + frame_offset))
             else:
                 super().draw_icon(screen, x, y, size)
 
