@@ -23884,6 +23884,10 @@ def handle_player(keys):
                 blacksmith_blocking_bonus_pending = True
                 blacksmith_blocking_bonus_ready = False
                 blacksmith_blocking_bonus_window_timer = 0
+                blacksmith_blocking_skill_timer = max(
+                    blacksmith_blocking_skill_timer,
+                    BLACKSMITH_BLOCKING_SKILL_FRAMES,
+                )
                 if blacksmith_umbrella_gauge <= 0:
                     request_blacksmith_umbrella_close(play_sound=True, flash=True)
             blacksmith_umbrella_hit_lock = True
