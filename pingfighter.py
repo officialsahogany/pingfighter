@@ -43798,8 +43798,8 @@ def show_item_manager_menu():
             if item.unlocked:  # 해금된 전설 아이템만 표시
                 # 전설 아이템 아이콘 가져오기
                 if item.name == "empty":
-                    # 빈 슬롯도 헤르메스 아이콘을 공유해 비어 보이지 않게 유지
-                    legendary_icon = get_item_icon("hermes_shoes")
+                    # 빈 슬롯은 아이콘 없이 표시
+                    legendary_icon = None
                 else:
                     legendary_icon = get_item_icon(item.name)
                 legendary_items.append({
@@ -57565,7 +57565,8 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 스테이지 50 재시작 (드라이브 튜토리얼로)
                 print("튜토리얼: Chapter 3 - DRIVE 시작, 스테이지 50 재시작")
-                
+                tutorial_pending_chapter_title = (3, "DRIVE", "드라이브")
+
                 return main(50)  # 스테이지 50으로 다시 시작하여 드라이브 튜토리얼 진행
                 
             elif current_chapter_before_skip == 3:
@@ -57598,10 +57599,10 @@ def main(stage_num, new_boss_mode=False):
                     # 드라이브 챕터를 새로 시작해야 하는 상태
                     print("튜토리얼: Chapter 3 준비 상태 감지, 드라이브 튜토리얼을 재시작")
                     show_chapter_completion_summary(2)
-                    show_chapter_title(3, "DRIVE", "드라이브")
                     tutorial_skip_chapter3_init = True
                     if 'tutorial_current_chapter' in globals():
                         tutorial_current_chapter = 3
+                    tutorial_pending_chapter_title = (3, "DRIVE", "드라이브")
                     return main(50)
                 
             elif tutorial_current_chapter == 4:
