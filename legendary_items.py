@@ -2188,6 +2188,8 @@ class LegendaryItemManager:
         self.items["hermes_shoes"] = HermesShoes()
         poseidon_item = PoseidonTrident()
         self.items["poseidon_trident"] = poseidon_item
+        empty_slot = EmptyLegendarySlot()
+        self.items["empty"] = empty_slot
 
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
@@ -2201,6 +2203,9 @@ class LegendaryItemManager:
         self.items["poseidon_trident"].unlocked = True
         if "poseidon_trident" not in self.unlocked_items:
             self.unlocked_items.append("poseidon_trident")
+
+        if empty_slot.unlocked and "empty" not in self.unlocked_items:
+            self.unlocked_items.append("empty")
 
         
     
@@ -2216,6 +2221,11 @@ class LegendaryItemManager:
         if "poseidon_trident" not in self.items:
             self.items["poseidon_trident"] = PoseidonTrident()
         poseidon_ref = self.items.get("poseidon_trident")
+
+        if "empty" not in self.items:
+            self.items["empty"] = EmptyLegendarySlot()
+            if "empty" not in self.unlocked_items:
+                self.unlocked_items.append("empty")
         
     def check_unlocks(self, game_stats: Dict):
         """해금 조건 체크"""
@@ -2235,6 +2245,8 @@ class LegendaryItemManager:
         
     def activate_item(self, name: str, game_state: Dict):
         """아이템 활성화"""
+        if name == "empty":
+            return
         print(f"🎮 activate_item 호출: name={name}")
         print(f"   - items에 있음: {name in self.items}")
         print(f"   - unlocked_items에 있음: {name in self.unlocked_items}")
