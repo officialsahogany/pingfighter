@@ -262,6 +262,70 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
     return frame_offset
 
 
+def _draw_glow_and_inner_only(screen: pygame.Surface,
+                              x: int,
+                              y: int,
+                              size: int,
+                              animation_time: float,
+                              offset_animation_time: Optional[float] = None) -> int:
+    """전설 프레임 중 '파란 글로우 + 내부 붉은 테두리'만 그린다.
+
+    외곽 테두리 및 코너 장식은 그리지 않는다. frame_offset을 반환한다.
+    """
+    offset_source = animation_time if offset_animation_time is None else offset_animation_time
+    frame_offset = int(math.sin(offset_source * 2.5) * 2)
+    frame_y = y + frame_offset
+
+    # 파란색 원형 글로우 (공통 캐시 활용)
+    pulse = (math.sin(animation_time * 4.0) + 1) / 2
+    pulse_bucket = int(pulse * 20)
+    cache_key = (size, pulse_bucket)
+
+    glow_surface = _COMMON_LEGENDARY_BG_CACHE.get(cache_key)
+    if glow_surface is None:
+        pulse_ratio = pulse_bucket / 20 if pulse_bucket else 0
+        base_radius = max(6, int(size * 0.42))
+        outer_radius = min(size // 2, int(base_radius + size * 0.05 * pulse_ratio))
+        inner_radius = max(4, int(outer_radius * 0.65))
+
+        glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        center = (size // 2, size // 2)
+        pygame.draw.circle(glow_surface, (30, 90, 170, 80), center, outer_radius)
+        pygame.draw.circle(glow_surface, (70, 140, 200, 150), center, int(outer_radius * 0.85))
+        pygame.draw.circle(glow_surface, (140, 190, 220, 190), center, inner_radius)
+        _COMMON_LEGENDARY_BG_CACHE[cache_key] = glow_surface
+
+    screen.blit(glow_surface, (x, frame_y))
+
+    # 내부 붉은색 테두리 (3중 라인)
+    inner_pulse = (math.sin(animation_time * 6.0) + 1) / 2
+    outer_inner_color = (
+        int(150 + 70 * inner_pulse),
+        int(30 + 35 * inner_pulse),
+        int(30 + 35 * inner_pulse),
+    )
+    inner_inner_color = (
+        int(120 + 60 * inner_pulse),
+        int(10 + 25 * inner_pulse),
+        int(10 + 25 * inner_pulse),
+    )
+    mid_inner_color = (
+        (outer_inner_color[0] + inner_inner_color[0]) // 2,
+        (outer_inner_color[1] + inner_inner_color[1]) // 2,
+        (outer_inner_color[2] + inner_inner_color[2]) // 2,
+    )
+
+    inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
+    inner_rect_mid = inner_rect_outer.inflate(-2, -2)
+    inner_rect_inner = inner_rect_outer.inflate(-4, -4)
+
+    pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 1)
+    pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 1)
+    pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
+
+    return frame_offset
+
+
 def _strip_legendary_red_ring(frame: pygame.Surface,
                               red_threshold: int = 150,
                               green_threshold: int = 100,
@@ -2332,49 +2396,33 @@ class EmptyLegendarySlotPoseidon(LegendaryItem):
             unlock_condition="항상 사용 가능",
         )
         self.unlocked = True
-        self.animation_frames: List[pygame.Surface] = []  # type: ignore[name-defined]
+        self.animation_frames: List[pygame.Surface] = []  # 사용 안 함 (중앙 오버레이 없음)
         self.current_frame = 0
         self.frame_counter = 0
-        self.animation_speed = 8  # 포세이돈과 동일 속도
-        self._load_ring_overlay_frames()
+        self.animation_speed = 8  # 펄스 주기 동기화용(미사용 가능)
+        self._last_tick: Optional[int] = None
 
     def activate(self, game_state: Dict):
         # UI용이므로 활성화되지 않음
         self.active = False
 
     def _load_ring_overlay_frames(self) -> None:
-        import pygame
+        # 중앙 오버레이를 사용하지 않으므로 noop로 유지
         self.animation_frames.clear()
-        frames_loaded = 0
-        for i in range(8):
-            try:
-                background_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
-                background = pygame.image.load(background_path).convert_alpha()
-                overlay = _extract_ring_overlay(background)
-                self.animation_frames.append(overlay)
-                frames_loaded += 1
-                print(f"✓ empty1 링 오버레이 프레임 {i} 로드")
-            except Exception as e:
-                print(f"[ERROR] empty1 overlay {i} load failed: {e}")
-        if frames_loaded == 0:
-            print("❌ empty1: 오버레이 프레임 로드 실패")
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         import pygame
-        # 공통 프레임(파란 펄스/내부 붉은 테두리/코너)만 그리기
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        # 애니메이션 시간 보정(아이템관리자에서 update 주기가 없을 수 있음)
+        now = pygame.time.get_ticks()
+        if self._last_tick is None:
+            self._last_tick = now
+        else:
+            dt_ms = max(0, now - self._last_tick)
+            self._last_tick = now
+            self.animation_time += dt_ms / 1000.0
 
-        # 링/코너 하이라이트(오버레이)만 애니메이션으로 표시, 중앙 삼지창은 없음
-        if self.animation_frames:
-            self.frame_counter += 1
-            if self.frame_counter >= self.animation_speed:
-                self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
-
-            icon_y = y + frame_offset + int(self.animation_offset)
-            current_icon = self.animation_frames[self.current_frame]
-            scaled_icon = pygame.transform.scale(current_icon, (size, size))
-            screen.blit(scaled_icon, (x, icon_y))
+        # 내부 테두리 + 글로우만 그리기(외곽 테두리/코너 장식/오버레이 없음)
+        frame_offset = _draw_glow_and_inner_only(screen, x, y, size, self.animation_time)
         # 파티클은 비활성화(빈 슬롯)
 
 
