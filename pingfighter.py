@@ -44705,10 +44705,7 @@ def get_item_icon(item_name):
         icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
         icon_surface.fill((0, 0, 0, 0))
         
-        if item_name == "holy_laurel":
-            lookup_name = "poseidon_trident"
-        else:
-            lookup_name = item_name
+        lookup_name = item_name
 
         if lookup_name == "hermes_shoes":
             # 헤르메스 기본 아이콘 (황금 신발)
@@ -61307,7 +61304,6 @@ def get_item_name_korean(item_name):
         "ragnarok_hammer": "라그나로크 해머",
         "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창",
-        "holy_laurel": "신성 월계수"
     }
     return korean_names.get(item_name, item_name)
 def get_item_description(item_name):
@@ -61359,7 +61355,6 @@ def get_item_description(item_name):
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 1.5배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
-        "holy_laurel": "신성 월계수: 포세이돈의 삼지창을 장식하던 월계관을 그대로 재현한 전설 아이콘. 아이템 관리자에서만 감상할 수 있는 특별 전시품입니다.",
     }
     return descriptions.get(item_name, "설명이 없습니다.")
 def show_item_management_menu(item_list, selected_index, item_type):
