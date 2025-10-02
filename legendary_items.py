@@ -2233,11 +2233,6 @@ class LegendaryItemManager:
         self.items["hermes_shoes"] = HermesShoes()
         poseidon_item = PoseidonTrident()
         self.items["poseidon_trident"] = poseidon_item
-        self.items["holy_laurel"] = HolyLaurel(poseidon_item)
-        # 전시 전용 아이콘은 아이템 관리자에서 항상 보이도록 기본 해금 상태로 둔다.
-        self.items["holy_laurel"].unlocked = True
-        if "holy_laurel" not in self.unlocked_items:
-            self.unlocked_items.append("holy_laurel")
 
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
@@ -2252,7 +2247,6 @@ class LegendaryItemManager:
         if "poseidon_trident" not in self.unlocked_items:
             self.unlocked_items.append("poseidon_trident")
 
-        # 신성 월계수는 전시용 아이콘이므로 기본 해금 상태로 유지한다.
         
     
     def _init_legendary_items(self):
@@ -2267,19 +2261,6 @@ class LegendaryItemManager:
         if "poseidon_trident" not in self.items:
             self.items["poseidon_trident"] = PoseidonTrident()
         poseidon_ref = self.items.get("poseidon_trident")
-        if "holy_laurel" not in self.items:
-            self.items["holy_laurel"] = HolyLaurel(poseidon_ref)
-        else:
-            holy_item = self.items.get("holy_laurel")
-            if isinstance(holy_item, HolyLaurel):
-                holy_item._poseidon_ref = poseidon_ref
-                holy_item._prepare_frames()
-        # 전시용 아이콘은 재초기화 시에도 항상 해금 상태를 유지한다.
-        holy_item = self.items.get("holy_laurel")
-        if holy_item:
-            holy_item.unlocked = True
-            if "holy_laurel" not in self.unlocked_items:
-                self.unlocked_items.append("holy_laurel")
         
     def check_unlocks(self, game_stats: Dict):
         """해금 조건 체크"""
