@@ -2187,16 +2187,78 @@ class EmptyLegendarySlot(LegendaryItem):
             unlock_condition="항상 사용 가능",
         )
         self.unlocked = True
+        # 헤르메스 신발과 동일한 애니메이션 템포/프레임 구성 유지
+        self.animation_frames: List[pygame.Surface] = []  # type: ignore[name-defined]
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 4
+        self._load_animation_frames()
 
     def activate(self, game_state: Dict):
         """빈 슬롯은 활성화되지 않는다."""
         self.active = False
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        import pygame
+        frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
+        icon_y = y + frame_offset + int(self.animation_offset)
+
+        if self.animation_frames:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+            current_frame_surface = self.animation_frames[self.current_frame]
+            scaled_frame = pygame.transform.smoothscale(current_frame_surface, (size, size))
+            screen.blit(scaled_frame, (x, icon_y))
+        else:
+            _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+
         if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
+            self._spawn_particle(screen, x + size // 2, icon_y + size // 2)
             self.particle_timer = 0
+
+    def _load_animation_frames(self):
+        """헤르메스와 동일한 프레임 속도로 내부 테두리/코너 그라데이션을 생성한다."""
+        import pygame
+        import math
+
+        self.animation_frames.clear()
+
+        total_frames = 8
+        base_size = 64
+        border_base = COMMON_LEGENDARY_BORDER_COLOR
+        corner_base = COMMON_LEGENDARY_CORNER_COLOR
+
+        for i in range(total_frames):
+            t = (i / total_frames) * (2 * math.pi)
+            pulse = (math.sin(t * 4.0) + 1) / 2
+
+            # 헤르메스와 동일한 톤을 유지하면서 프레임별로 미세하게 밝기 변조
+            border_color = (
+                min(255, int(border_base[0] * (0.85 + 0.15 * pulse))),
+                min(255, int(border_base[1] * (0.85 + 0.15 * pulse))),
+                min(255, int(border_base[2] * (0.85 + 0.15 * pulse))),
+            )
+            corner_color = (
+                min(255, int(corner_base[0] * (0.8 + 0.2 * pulse))),
+                min(255, int(corner_base[1] * (0.8 + 0.2 * pulse))),
+                min(255, int(corner_base[2] * (0.8 + 0.2 * pulse))),
+            )
+
+            frame_surface = pygame.Surface((base_size, base_size), pygame.SRCALPHA)
+            _draw_common_legendary_frame(
+                frame_surface,
+                0,
+                0,
+                base_size,
+                t,
+                border_color=border_color,
+                corner_color=corner_color,
+                offset_animation_time=t,
+            )
+            self.animation_frames.append(frame_surface)
 
 # 전설 아이템 관리자
 class LegendaryItemManager:
