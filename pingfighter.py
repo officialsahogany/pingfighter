@@ -44476,9 +44476,6 @@ def apply_selected_items(
         
         # 선택된 전설 아이템 활성화 및 패시브 아이템 리스트에 추가
         for item_name in selected_legendary_items:
-            if item_name == "holy_laurel":
-                # 신성 월계수는 전시용 프리뷰이므로 실제 효과를 적용하지 않는다.
-                continue
             # 전설 아이템 획득 플래그 설정 (중복 스폰 방지)
             if item_name == "poseidon_trident":
                 print(f"[DEBUG] TAB에서 포세이돈 삼지창 선택 - 획득 플래그 설정")
@@ -44635,12 +44632,12 @@ def get_item_icon(item_name):
         return icon_surface
     
     # 전설 아이템들은 정적 스냅샷 생성
-    if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident", "holy_laurel"]:
+    if item_name in ["hermes_shoes", "ragnarok_hammer", "poseidon_trident"]:
         # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
         if legendary_manager:
             # 아이템이 없으면 초기화
-            lookup_name = "poseidon_trident" if item_name == "holy_laurel" else item_name
+            lookup_name = item_name
             legendary_item = legendary_manager.get_item(lookup_name)
             if not legendary_item:
                 legendary_manager._init_legendary_items()
@@ -44701,14 +44698,7 @@ def get_item_icon(item_name):
                         pygame.draw.line(icon_surface, ocean_color,
                                        (center_x + 10, 15), (center_x, 10), 3)
                 
-                if item_name == "holy_laurel":
-                    laurel_item = legendary_manager.get_item("holy_laurel")
-                    if laurel_item and hasattr(laurel_item, "_remove_trident_from_surface"):
-                        icon_surface = laurel_item._remove_trident_from_surface(icon_surface)
-
                 icon_cache[item_name] = icon_surface
-                if item_name == "holy_laurel":
-                    icon_cache[lookup_name] = icon_surface
                 return icon_surface
 
         # LegendaryManager를 사용할 수 없는 경우 기본 아이콘 생성
@@ -44737,7 +44727,7 @@ def get_item_icon(item_name):
                            (ICON_SIZE//4, ICON_SIZE//6, ICON_SIZE//2, ICON_SIZE//3))
             pygame.draw.rect(icon_surface, (150, 75, 0),  # 갈색 손잡이
                            (ICON_SIZE*2//5, ICON_SIZE//3, ICON_SIZE*2//5, ICON_SIZE*2//3))
-        else:  # poseidon_trident 및 holy_laurel 기본 아이콘
+        else:  # poseidon_trident 기본 아이콘
             ocean_color = (0, 150, 255)  # 바다색
             center_x = ICON_SIZE // 2
             pygame.draw.line(icon_surface, ocean_color,
@@ -44746,16 +44736,7 @@ def get_item_icon(item_name):
                              (center_x - 10, 15), (center_x, 10), 3)
             pygame.draw.line(icon_surface, ocean_color,
                              (center_x + 10, 15), (center_x, 10), 3)
-
-        if item_name == "holy_laurel":
-            legendary_manager = get_legendary_manager()
-            laurel_item = legendary_manager.get_item("holy_laurel") if legendary_manager else None
-            if laurel_item and hasattr(laurel_item, "_remove_trident_from_surface"):
-                icon_surface = laurel_item._remove_trident_from_surface(icon_surface)
-
         icon_cache[item_name] = icon_surface
-        if item_name == "holy_laurel":
-            icon_cache[lookup_name] = icon_surface
         return icon_surface
 
     if item_name == "knee_pads":
