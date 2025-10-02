@@ -56335,16 +56335,19 @@ def main(stage_num, new_boss_mode=False):
         stage_num=stage_num,
     )
     damage_manager = reset_damage_manager()
-    divine_state = BLACKSMITH_CONTROLLER.state.divine.state
-    if not _is_divine_state_active(divine_state):
-        divine_state = globals().get("blacksmith_divine_stone_state")
-    if _is_divine_state_active(divine_state):
-        rect = divine_state.get("rect")
-        if rect is not None:
-            max_hp = int(divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP))
-            hp = int(divine_state.get("hp", max_hp))
-            damage_manager.register_building("divine_stone", rect, max_hp)
-            damage_manager.update_building_hp("divine_stone", hp)
+    if preserve_divine_runtime:
+        divine_state = BLACKSMITH_CONTROLLER.state.divine.state
+        if not _is_divine_state_active(divine_state):
+            divine_state = globals().get("blacksmith_divine_stone_state")
+        if _is_divine_state_active(divine_state):
+            rect = divine_state.get("rect")
+            if rect is not None:
+                max_hp = int(divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP))
+                hp = int(divine_state.get("hp", max_hp))
+                damage_manager.register_building("divine_stone", rect, max_hp)
+                damage_manager.update_building_hp("divine_stone", hp)
+    else:
+        globals()["blacksmith_divine_stone_state"] = None
 
     turret_runtime = BLACKSMITH_CONTROLLER.state.turret
     turret_state = getattr(turret_runtime, "state", None)
