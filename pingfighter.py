@@ -57449,6 +57449,8 @@ def main(stage_num, new_boss_mode=False):
         if current_stage == 50 and keys[pygame.K_8] and not getattr(main, 'key8_pressed', False):
             print("🎮 8번 키: 현재 챕터 완료 및 다음 챕터로 이동")
             
+            current_chapter_before_skip = globals().get('tutorial_current_chapter', 1)
+
             # 현재 챕터의 모든 카운터와 대화를 완료 상태로 설정
             def complete_current_chapter_progress():
                 """현재 챕터의 모든 진행 사항을 완료 상태로 설정"""
@@ -57542,10 +57544,30 @@ def main(stage_num, new_boss_mode=False):
             complete_current_chapter_progress()
             
             # 현재 챕터 확인하고 다음 챕터로 이동
-            if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
+            if current_chapter_before_skip == 2:
+                if 'tutorial_needs_dash_practice' in globals():
+                    tutorial_needs_dash_practice = False
                 # Chapter 2 (대쉬 연습) 진행 중 -> Chapter 3 (드라이브)로 이동
                 print("튜토리얼: Chapter 2 (DASH) 완료, Chapter 3 - DRIVE로 이동")
                 
+                # Chapter 2 완료 요약 화면 표시
+                show_chapter_completion_summary(2)
+                
+                # Chapter 3 타이틀 표시
+                show_chapter_title(3, "DRIVE", "드라이브")
+                
+                # 챕터3 상태를 유지하기 위한 전역 플래그 설정
+                tutorial_skip_chapter3_init = True
+                
+                # 스테이지 50 재시작 (드라이브 튜토리얼로)
+                print("튜토리얼: Chapter 3 - DRIVE 시작, 스테이지 50 재시작")
+                
+                return main(50)  # 스테이지 50으로 다시 시작하여 드라이브 튜토리얼 진행
+                
+            elif current_chapter_before_skip == 3:
+                if 'tutorial_needs_drive_practice' in globals():
+                    tutorial_needs_drive_practice = False
+                # Chapter 2 (대쉬 연습) 진행 중 -> Chapter 3 (드라이브)로 이동
                 # Chapter 2 완료 요약 화면 표시
                 show_chapter_completion_summary(2)
                 
@@ -57616,7 +57638,7 @@ def main(stage_num, new_boss_mode=False):
                 print("🎉 튜토리얼 모든 챕터 완료!")
                 return "main_menu"  # 메인 메뉴로 돌아감
                 
-            else:
+            elif current_chapter_before_skip == 1:
                 # Chapter 1 (BASIC) 진행 중 -> Chapter 2 (DASH)로 이동
                 print("튜토리얼: Chapter 1 (BASIC) 완료, Chapter 2 - DASH로 이동")
                 
@@ -57661,6 +57683,13 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_skip_chapter2_init = True
                 
                 return main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
+            else:
+                # 알 수 없는 상태에서는 보수적으로 Chapter 2부터 다시 시작
+                print(f"⚠️ 튜토리얼: 예기치 않은 챕터 상태({current_chapter_before_skip}) 감지, Chapter 2부터 재시작")
+                show_chapter_completion_summary(1)
+                show_chapter_title(2, "DASH", "대쉬 연습")
+                tutorial_skip_chapter2_init = True
+                return main(50)
         main.key8_pressed = keys[pygame.K_8]
         
         #  퍼펙트 타이밍 시스템: 스페이스바 + 방향키 프레임 단위 입력 감지
