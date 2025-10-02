@@ -1991,8 +1991,6 @@ class HermesShoes(LegendaryItem):
 
 class RagnarokHammer(LegendaryItem):
     """라그나로크 해머 - 강력한 넉백 효과"""
-    _FRAME_CACHE: List[pygame.Surface] = []
-
     def __init__(self):
         super().__init__(
             name="ragnarok_hammer",
@@ -2087,32 +2085,27 @@ class RagnarokHammer(LegendaryItem):
                 })
     
     def _load_animation_frames(self):
-        """라그나로크 아이콘을 프레임 전용 애니메이션으로 구성한다."""
-        if RagnarokHammer._FRAME_CACHE:
-            self.animation_frames = [frame.copy() for frame in RagnarokHammer._FRAME_CACHE]
-            return
+        """애니메이션 프레임 로드"""
+        import pygame
 
-        total_frames = 8
-        base_size = 64
-        generated_frames: List[pygame.Surface] = []
+        self.animation_frames.clear()
 
-        for i in range(total_frames):
-            # 푸른 원형 펄스를 살리되 중앙 이미지는 제거한다.
-            sample_time = (i / total_frames) * (2 * math.pi)
-            frame_surface = _render_empty_legendary_frame(
-                base_size,
-                animation_time=sample_time,
-                offset_time=0.0,
-            )
-            generated_frames.append(frame_surface)
+        frames_loaded = 0
+        for i in range(8):
+            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            try:
+                frame = pygame.image.load(frame_path).convert_alpha()
+                cleaned_frame = _strip_legendary_red_ring(frame)
+                self.animation_frames.append(cleaned_frame)
+                frames_loaded += 1
+                print(f"✓ 프레임 {i} 로드 성공: {frame_path}")
+            except Exception as e:
+                print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")
 
-        if not generated_frames:
-            print("❌ 라그나로크 해머: 프레임 애니메이션 생성 실패")
-            self.animation_frames = []
-            return
+        print(f"라그나로크 해머 프레임 {frames_loaded}/8개 로드")
 
-        RagnarokHammer._FRAME_CACHE = [frame.copy() for frame in generated_frames]
-        self.animation_frames = [frame.copy() for frame in generated_frames]
+        if not self.animation_frames:
+            print(f"❌ 라그나로크 해머: PNG 프레임을 찾을 수 없습니다!")
     
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """애니메이션 아이콘 그리기"""
@@ -2122,12 +2115,26 @@ class RagnarokHammer(LegendaryItem):
         # 공통 배경 프레임 연출
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
-        # 중앙 프레임은 비워둬서 공통 프레임 애니메이션만 보이도록 유지한다.
-        if self.animation_frames and len(self.animation_frames) > 1:
+        # 애니메이션 프레임 그리기
+        if self.animation_frames and len(self.animation_frames) > 0:
             self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
                 self.frame_counter = 0
                 self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+            icon_y = y + frame_offset + int(self.animation_offset)
+            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
+
+            if self.current_frame in [0, 4]:
+                bolt_color = (255, 255, 150)
+                pygame.draw.line(screen, bolt_color,
+                                 (x + size // 4, y + frame_offset - 5),
+                                 (x + size // 3, y + frame_offset + size // 4), 2)
+                pygame.draw.line(screen, bolt_color,
+                                 (x + size * 3 // 4, y + frame_offset - 5),
+                                 (x + size * 2 // 3, y + frame_offset + size // 4), 2)
         
         # 파티클 효과
         if self.particle_timer > 1.0:
