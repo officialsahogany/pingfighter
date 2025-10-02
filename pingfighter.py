@@ -44024,6 +44024,35 @@ def show_item_manager_menu():
             text_color = (128, 0, 128)  # 보라색
         selected_text = font_small.render(selected_items_text, True, text_color)
         SCREEN.blit(selected_text, (50, info_y + 30))
+
+        # 현재 커서가 가리키는 아이템 이름 표시
+        hovered_items = []
+        if selected_category == 0:
+            hovered_items = active_items
+        elif selected_category == 1:
+            hovered_items = passive_items
+        elif selected_category == 2:
+            hovered_items = firearm_items
+        else:
+            hovered_items = legendary_items
+
+        if hovered_items and 0 <= selected_item_index < len(hovered_items):
+            hovered_item = hovered_items[selected_item_index]
+            hovered_name = ""
+            hovered_color = WHITE
+
+            if selected_category == 3:
+                hovered_name = hovered_item.get("korean_name") or get_item_name_korean(hovered_item.get("name", ""))
+            else:
+                hovered_name = get_item_name_korean(hovered_item["name"])
+
+            if hovered_item.get("name") == "gravitybelt":
+                hovered_color = (128, 0, 128)
+
+            if hovered_name:
+                hovered_text = font_small.render(f"현재 선택: {hovered_name}", True, hovered_color)
+                SCREEN.blit(hovered_text, (50, info_y + 60))
+
         # 조작법 안내
         if selected_category == 0:
             controls_message = "방향키: 아이템 선택, SPACE: 수량 설정, TAB: 탭 전환, ENTER: 스테이지 선택"
