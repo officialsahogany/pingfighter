@@ -35021,6 +35021,7 @@ def show_start_screen():
     global game_should_exit, smoke_zones, frame_count
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
 
+    effects_manager.clear_all_effects()
     damage_manager = get_damage_manager()
     damage_manager.reset_all()
 
