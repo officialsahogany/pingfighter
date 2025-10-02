@@ -2318,36 +2318,64 @@ class EmptyLegendarySlot(LegendaryItem):
 
 # 전설 빈 슬롯(variant 1) — 포세이돈의 삼지창과 동일 렌더링
 class EmptyLegendarySlotPoseidon(LegendaryItem):
-    """아이템 관리자 전설 탭에서 empty1 슬롯을 포세이돈 아이콘과 동일하게 표시.
+    """아이템 관리자 전설 탭에서 empty1 슬롯을 포세이돈 스타일 프레임만 표시.
 
-    - 활성화/효과 없음(순수 UI용)
-    - draw_icon 시점에 LegendaryItemManager의 poseidon_trident 인스턴스를 가져와 그대로 위임
+    - 중앙 삼지창 그림 없이, 공통 프레임 + 붉은 링/코너 하이라이트(오버레이)만 사용
+    - 프레임 속도, 그라데이션 감각은 포세이돈과 동일(8프레임)
     """
 
     def __init__(self):
         super().__init__(
             name="empty1",
             korean_name="empty1",
-            description="UI용 빈 슬롯(포세이돈 아이콘 표시)",
+            description="UI용 빈 슬롯(포세이돈 프레임만 표시)",
             unlock_condition="항상 사용 가능",
         )
         self.unlocked = True
+        self.animation_frames: List[pygame.Surface] = []  # type: ignore[name-defined]
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8  # 포세이돈과 동일 속도
+        self._load_ring_overlay_frames()
 
     def activate(self, game_state: Dict):
         # UI용이므로 활성화되지 않음
         self.active = False
 
+    def _load_ring_overlay_frames(self) -> None:
+        import pygame
+        self.animation_frames.clear()
+        frames_loaded = 0
+        for i in range(8):
+            try:
+                background_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+                background = pygame.image.load(background_path).convert_alpha()
+                overlay = _extract_ring_overlay(background)
+                self.animation_frames.append(overlay)
+                frames_loaded += 1
+                print(f"✓ empty1 링 오버레이 프레임 {i} 로드")
+            except Exception as e:
+                print(f"[ERROR] empty1 overlay {i} load failed: {e}")
+        if frames_loaded == 0:
+            print("❌ empty1: 오버레이 프레임 로드 실패")
+
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        manager = globals().get("_legendary_manager")
-        poseidon = None
-        if manager and hasattr(manager, "items"):
-            poseidon = manager.items.get("poseidon_trident")
-        if poseidon:
-            # 포세이돈 아이콘을 그대로 위임 렌더링
-            poseidon.draw_icon(screen, x, y, size)
-        else:
-            # 포세이돈이 아직 초기화되지 않은 경우, 공통 프레임만이라도 표시
-            _draw_common_legendary_frame(screen, x, y, size, getattr(self, "animation_time", 0.0))
+        import pygame
+        # 공통 프레임(파란 펄스/내부 붉은 테두리/코너)만 그리기
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+
+        # 링/코너 하이라이트(오버레이)만 애니메이션으로 표시, 중앙 삼지창은 없음
+        if self.animation_frames:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
+            icon_y = y + frame_offset + int(self.animation_offset)
+            current_icon = self.animation_frames[self.current_frame]
+            scaled_icon = pygame.transform.scale(current_icon, (size, size))
+            screen.blit(scaled_icon, (x, icon_y))
+        # 파티클은 비활성화(빈 슬롯)
 
 
 class EmptyLegendarySlot2(LegendaryItem):

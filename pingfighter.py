@@ -47457,6 +47457,7 @@ def reset_round():
     global blacksmith_manual_hammer_timer, blacksmith_manual_hammer_increment
     global blacksmith_umbrella_retract_start_frame, blacksmith_umbrella_retract_grace_timer
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
+    global blacksmith_blocking_skill_timer, blacksmith_blocking_bonus_pending
     global ai_mode
     # 스톱워치/스마트폰 관련 상태 초기화 (라운드 리셋 시 강제 초기화)
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
@@ -47474,6 +47475,8 @@ def reset_round():
     blacksmith_umbrella_retract_grace_timer = 0
     blacksmith_blocking_penalty_timer = 0
     blacksmith_blocking_toast_timer = 0
+    blacksmith_blocking_skill_timer = 0
+    blacksmith_blocking_bonus_pending = False
     # 수리키트 지속 효과: 라운드 전환에서도 진행 중인 수리 작업을 유지한다.
 
     stopwatch_active = False
