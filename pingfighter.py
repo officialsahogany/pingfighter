@@ -57028,7 +57028,7 @@ def main(stage_num, new_boss_mode=False):
                 
                 # Chapter 3로 설정
                 tutorial_current_chapter = 3
-                
+
                 # Chapter 3 드라이브 관련 변수 초기화
                 tutorial_needs_drive_practice = True  # 드라이브 연습 필요
                 tutorial_drive_practice_shown = False  # 드라이브 대화 아직 안보임
@@ -57126,6 +57126,9 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
                 tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 표시 여부
                 
+                # 드라이브 챕터 시작 타이틀 표시
+                show_chapter_title(3, "DRIVE", "드라이브")
+
                 # Chapter 4 파워스매싱 튜토리얼 변수 초기화
                 tutorial_needs_power_practice = False  # 파워스매싱 연습이 필요한지 여부
                 tutorial_power_practice_shown = False  # 파워스매싱 연습 대화 표시 여부
@@ -57554,9 +57557,6 @@ def main(stage_num, new_boss_mode=False):
                 
                 # Chapter 2 완료 요약 화면 표시
                 show_chapter_completion_summary(2)
-                
-                # Chapter 3 타이틀 표시
-                show_chapter_title(3, "DRIVE", "드라이브")
                 
                 # 챕터3 상태를 유지하기 위한 전역 플래그 설정
                 tutorial_skip_chapter3_init = True
