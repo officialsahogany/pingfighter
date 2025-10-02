@@ -23713,16 +23713,31 @@ def handle_player(keys):
                 blacksmith_umbrella_retracting
                 and blacksmith_umbrella_retract_grace_timer > 0
             )
+            print(
+                "[DEBUG BLOCKING] shield_guarding",
+                {
+                    "frame": frame_counter,
+                    "last_hit_by": last_hit_by,
+                    "retracting": blacksmith_umbrella_retracting,
+                    "allow_retract_hit": allow_umbrella_hit_during_retract,
+                    "hit_lock": blacksmith_umbrella_hit_lock,
+                    "since_last_hit": frames_since_last_hit,
+                    "cooldown": BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES,
+                    "gauge": blacksmith_umbrella_gauge,
+                },
+            )
             if blacksmith_umbrella_retracting:
                 print(
                     f"[DEBUG BLOCKING] retracting gauge_reduced={gauge_reduced} frame={frame_counter} start={blacksmith_umbrella_retract_start_frame} grace={blacksmith_umbrella_retract_grace_timer} gauge={blacksmith_umbrella_gauge} last_hit_by={last_hit_by}"
                 )
-            if (
+            block_triggers_reduction = (
                 (not blacksmith_umbrella_retracting or allow_umbrella_hit_during_retract)
                 and not blacksmith_umbrella_hit_lock
                 and frames_since_last_hit >= BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
                 and last_hit_by != "player"  # 플레이어가 마지막으로 친 공은 내구도 소모 제외
-            ):
+            )
+
+            if block_triggers_reduction:
                 blacksmith_umbrella_last_hit_frame = frame_counter
                 blacksmith_umbrella_hit_lock = True
                 if blacksmith_umbrella_gauge > 0:
@@ -23732,6 +23747,34 @@ def handle_player(keys):
                     if blacksmith_umbrella_gauge <= 0:
                         request_blacksmith_umbrella_close(play_sound=True, flash=True)
                     gauge_reduced = True
+                    print(
+                        "[DEBUG BLOCKING] gauge reduced via shield",
+                        {
+                            "frame": frame_counter,
+                            "new_gauge": blacksmith_umbrella_gauge,
+                            "hit_lock": blacksmith_umbrella_hit_lock,
+                        },
+                    )
+            else:
+                reasons = []
+                if blacksmith_umbrella_retracting and not allow_umbrella_hit_during_retract:
+                    reasons.append("retracting_no_grace")
+                if blacksmith_umbrella_hit_lock:
+                    reasons.append("hit_lock")
+                if frames_since_last_hit < BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES:
+                    reasons.append("cooldown")
+                if last_hit_by == "player":
+                    reasons.append("last_by_player")
+                if not reasons:
+                    reasons.append("no_condition_met")
+                print(
+                    "[DEBUG BLOCKING] gauge not reduced",
+                    {
+                        "frame": frame_counter,
+                        "reasons": reasons,
+                        "gauge": blacksmith_umbrella_gauge,
+                    },
+                )
 
         try:
             penalty_window_active = (
@@ -23759,6 +23802,15 @@ def handle_player(keys):
             )
 
         if penalty_window_active:
+            print(
+                "[DEBUG BLOCKING] penalty_window_active",
+                {
+                    "frame": frame_counter,
+                    "gauge_reduced": gauge_reduced,
+                    "gauge": blacksmith_umbrella_gauge,
+                    "last_hit_by": last_hit_by,
+                },
+            )
             print(
                 f"[DEBUG BLOCKING] penalty trigger frame={frame_counter} start={blacksmith_umbrella_retract_start_frame} gauge={blacksmith_umbrella_gauge} delta={frame_counter - blacksmith_umbrella_retract_start_frame}"
             )
