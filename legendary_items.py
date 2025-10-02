@@ -2340,14 +2340,14 @@ class EmptyLegendary(LegendaryItem):
         # 헤르메스 스타일의 모서리 장식 (20% 감소: 8px → 6px)
         corner_size = 6  # 8 * 0.8 = 6.4 ≈ 6
 
-        # 빨간색 테두리의 정확한 모서리 꼭짓점 위치
-        # 빨간색 테두리가 pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)이므로
-        # 테두리 모서리 끝점들은:
+        # 빨간색 테두리 안쪽에 모서리 점 배치
+        # 빨간색 테두리가 pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)이고 두께가 3픽셀이므로
+        # 테두리 안쪽에 배치하기 위해 +4 오프셋 적용
         corners = [
-            (x + 2, frame_y + 2),  # 좌상단 모서리
-            (x + size - 2, frame_y + 2),  # 우상단 모서리
-            (x + 2, frame_y + size - 2),  # 좌하단 모서리
-            (x + size - 2, frame_y + size - 2),  # 우하단 모서리
+            (x + 4, frame_y + 4),  # 좌상단 모서리 (테두리 안쪽)
+            (x + size - 4, frame_y + 4),  # 우상단 모서리 (테두리 안쪽)
+            (x + 4, frame_y + size - 4),  # 좌하단 모서리 (테두리 안쪽)
+            (x + size - 4, frame_y + size - 4),  # 우하단 모서리 (테두리 안쪽)
         ]
 
         for corner_x, corner_y in corners:
