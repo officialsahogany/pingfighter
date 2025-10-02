@@ -35027,6 +35027,11 @@ def show_start_screen():
 
     effects_manager.clear_all_effects()
     reset_damage_manager()
+    globals()["blacksmith_divine_stone_state"] = None
+    globals()["blacksmith_divine_stage_owner"] = None
+    controller = globals().get("BLACKSMITH_CONTROLLER")
+    if controller is not None:
+        controller.state.divine.state = None
 
     game_should_exit = False
     frame_count = 0
@@ -55907,6 +55912,11 @@ def show_result(won):
         )
         effects_manager.clear_all_effects()
         reset_damage_manager()
+        globals()["blacksmith_divine_stone_state"] = None
+        globals()["blacksmith_divine_stage_owner"] = None
+        controller = globals().get("BLACKSMITH_CONTROLLER")
+        if controller is not None:
+            controller.state.divine.state = None
         show_victory_screen(stage_cleared=current_stage, reward=reward)
         current_stage += 1
         # 스테이지 전환 시 테크니컬조끼 비활성화
