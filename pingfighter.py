@@ -21482,6 +21482,14 @@ def handle_player(keys):
                 and player_stunned_timer <= 0
             ):
                 request_blacksmith_umbrella_close(play_sound=True, flash=False)
+                if blacksmith_blocking_bonus_ready and blacksmith_blocking_bonus_window_timer > 0:
+                    blacksmith_blocking_bonus_pending = True
+                    blacksmith_blocking_bonus_ready = False
+                    blacksmith_blocking_bonus_window_timer = 0
+                    blacksmith_blocking_skill_timer = max(
+                        blacksmith_blocking_skill_timer,
+                        BLACKSMITH_BLOCKING_SKILL_FRAMES,
+                    )
 
             if 'blacksmith_shield_impact_timer' in globals() and blacksmith_shield_impact_timer > 0:
                 blacksmith_shield_impact_timer -= 1
