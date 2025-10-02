@@ -23701,6 +23701,12 @@ def handle_player(keys):
             )
         )
 
+        frames_since_retract = None
+        if blacksmith_umbrella_retracting:
+            frames_since_retract = frame_counter - blacksmith_umbrella_retract_start_frame
+            if frames_since_retract < 0:
+                frames_since_retract = 0
+
         if shield_guarding:
             gauge_reduced = False
             blacksmith_shield_impact_timer = 30  # 0.5초간 충격파 효과
@@ -23711,7 +23717,8 @@ def handle_player(keys):
                 frames_since_last_hit = BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
             allow_umbrella_hit_during_retract = (
                 blacksmith_umbrella_retracting
-                and blacksmith_umbrella_retract_grace_timer > 0
+                and frames_since_retract is not None
+                and frames_since_retract <= BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
             )
             print(
                 "[DEBUG BLOCKING] shield_guarding",
@@ -23724,6 +23731,7 @@ def handle_player(keys):
                     "since_last_hit": frames_since_last_hit,
                     "cooldown": BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES,
                     "gauge": blacksmith_umbrella_gauge,
+                    "frames_since_retract": frames_since_retract,
                 },
             )
             if blacksmith_umbrella_retracting:
@@ -23773,33 +23781,17 @@ def handle_player(keys):
                         "frame": frame_counter,
                         "reasons": reasons,
                         "gauge": blacksmith_umbrella_gauge,
+                        "frames_since_retract": frames_since_retract,
                     },
                 )
 
-        try:
-            penalty_window_active = (
-                not gauge_reduced
-                and blacksmith_umbrella_retracting
-                and 0 <= frame_counter - blacksmith_umbrella_retract_start_frame <= BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
-            )
-        except UnboundLocalError:
-            print(
-                "[DEBUG GAUGE] gauge_reduced undefined before penalty check",
-                {
-                    "collision": collision_with_player,
-                    "shield_guarding": shield_guarding,
-                    "retracting": blacksmith_umbrella_retracting,
-                    "grace_timer": blacksmith_umbrella_retract_grace_timer,
-                    "frame": frame_counter,
-                    "last_hit_by": last_hit_by,
-                },
-            )
-            gauge_reduced = False
-            penalty_window_active = (
-                not gauge_reduced
-                and blacksmith_umbrella_retracting
-                and 0 <= frame_counter - blacksmith_umbrella_retract_start_frame <= BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
-            )
+        penalty_window_active = (
+            not gauge_reduced
+            and blacksmith_umbrella_retracting
+            and frames_since_retract is not None
+            and frames_since_retract > BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
+            and not blacksmith_umbrella_hit_lock
+        )
 
         if penalty_window_active:
             print(
@@ -23809,6 +23801,7 @@ def handle_player(keys):
                     "gauge_reduced": gauge_reduced,
                     "gauge": blacksmith_umbrella_gauge,
                     "last_hit_by": last_hit_by,
+                    "frames_since_retract": frames_since_retract,
                 },
             )
             print(
