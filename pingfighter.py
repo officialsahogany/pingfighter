@@ -36026,6 +36026,7 @@ tutorial_practice_bonus_token = False
 tutorial_bonus_token_message = None
 tutorial_bonus_token_timer = 0
 tutorial_token_just_added = False  # 토큰이 방금 추가되었는지 표시하는 플래그
+tutorial_pending_chapter_title = None
 
 # 튜토리얼 히트 카운터 애니메이션 변수
 tutorial_displayed_hit_count = 0.0
