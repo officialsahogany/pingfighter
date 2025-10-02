@@ -1924,9 +1924,9 @@ class HolyLaurel(LegendaryItem):
             scaled = pygame.transform.smoothscale(frame, (size, size))
             if self._use_trident_mask:
                 base_surface = self._remove_trident_from_surface(scaled)
+                composed = self._compose_with_laurel(base_surface, size)
             else:
-                base_surface = scaled
-            composed = self._compose_with_laurel(base_surface, size)
+                composed = scaled
             screen.blit(composed, (x, y + frame_offset))
         else:
             overlay = self._get_scaled_laurel(size)
