@@ -2225,15 +2225,16 @@ class EmptyLegendarySlot(LegendaryItem):
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         import pygame
 
-        self._sync_with_hermes_state()
+        synced = self._sync_with_hermes_state()
 
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
         if self.animation_frames and len(self.animation_frames) > 0:
-            self.frame_counter += 1
-            if self.frame_counter >= self.animation_speed:
-                self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+            if not synced:
+                self.frame_counter += 1
+                if self.frame_counter >= self.animation_speed:
+                    self.frame_counter = 0
+                    self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
 
             icon_y = y + frame_offset + int(self.animation_offset)
             current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
@@ -2248,9 +2249,9 @@ class EmptyLegendarySlot(LegendaryItem):
         super().update(dt, ui_mode)
 
         # 헤르메스 아이콘과 완전히 동기화
-        self._sync_with_hermes_state()
+        synced = self._sync_with_hermes_state()
 
-        if self.animation_frames and len(self.animation_frames) > 1:
+        if self.animation_frames and len(self.animation_frames) > 1 and not synced:
             self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
                 self.frame_counter = 0
