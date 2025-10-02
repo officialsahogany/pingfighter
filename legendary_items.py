@@ -2191,7 +2191,6 @@ class EmptyLegendarySlot(LegendaryItem):
         self.current_frame = 0
         self.frame_counter = 0
         self.animation_speed = 4  # 헤르메스 아이콘과 동일한 속도로 재생
-        self._last_tick: Optional[int] = None  # UI 모드에서 애니메이션 시간 보정을 위한 타임스탬프
         self._load_animation_frames()
 
     def _sync_with_hermes_state(self) -> bool:
@@ -2224,32 +2223,10 @@ class EmptyLegendarySlot(LegendaryItem):
         self.active = False
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """헤르메스 아이콘과 동일한 프레임/속도로 내부 프레임을 그린다."""
         import pygame
-        import math
 
-        synced = self._sync_with_hermes_state()
-
-        # 아이템 관리자(UI)에서는 update가 주기적으로 호출되지 않을 수 있으므로
-        # draw 호출 시점 기준으로 animation_time을 보정해 펄스/그라데이션 속도를 맞춘다.
-        now = pygame.time.get_ticks()
-        if self._last_tick is None:
-            self._last_tick = now
-        else:
-            dt_ms = max(0, now - self._last_tick)
-            self._last_tick = now
-            # 초 단위로 변환하여 animation_time에 누적 (헤르메스와 동일한 체감 속도)
-            self.animation_time += dt_ms / 1000.0
-
-        # 코너는 사각형(블록) 스타일, 은색 계열을 프레임별 그라데이션으로 변화
-        corner_pulse = (math.sin(self.animation_time * 6.0) + 1) / 2  # 내부선과 동일 주기
-        silver_dark = (160, 170, 185)
-        silver_bright = (235, 240, 250)
-        corner_color = (
-            int(silver_dark[0] + (silver_bright[0] - silver_dark[0]) * corner_pulse),
-            int(silver_dark[1] + (silver_bright[1] - silver_dark[1]) * corner_pulse),
-            int(silver_dark[2] + (silver_bright[2] - silver_dark[2]) * corner_pulse),
-        )
-
+        # 헤르메스와 동일: 공통 프레임 호출 파라미터, 코너 스타일/색상 그대로
         frame_offset = _draw_common_legendary_frame(
             screen,
             x,
@@ -2257,39 +2234,11 @@ class EmptyLegendarySlot(LegendaryItem):
             size,
             self.animation_time,
             border_color=COMMON_LEGENDARY_BORDER_COLOR,
-            corner_color=corner_color,
-            corner_style="block",
+            corner_color=COMMON_LEGENDARY_CORNER_COLOR,
         )
 
-        # 내부 붉은 테두리를 헤르메스와 동일 톤으로, 두께를 보강하고 그라데이션 동기화
-        inner_pulse = (math.sin(self.animation_time * 6.0) + 1) / 2
-        outer_inner_color = (
-            int(150 + 70 * inner_pulse),
-            int(30 + 35 * inner_pulse),
-            int(30 + 35 * inner_pulse),
-        )
-        inner_inner_color = (
-            int(120 + 60 * inner_pulse),
-            int(10 + 25 * inner_pulse),
-            int(10 + 25 * inner_pulse),
-        )
-        mid_inner_color = (
-            (outer_inner_color[0] + inner_inner_color[0]) // 2,
-            (outer_inner_color[1] + inner_inner_color[1]) // 2,
-            (outer_inner_color[2] + inner_inner_color[2]) // 2,
-        )
-
-        inner_rect_outer = pygame.Rect(x + 2, y + frame_offset + 2, size - 4, size - 4)
-        inner_rect_mid = inner_rect_outer.inflate(-2, -2)
-        inner_rect_inner = inner_rect_outer.inflate(-4, -4)
-
-        # 공통 프레임이 그린 1px 라인 위에 2px로 보강하여 가독성/두께 일치
-        pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 2)
-        pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 2)
-        pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 2)
-
+        # 헤르메스와 동일: 프레임 카운터 진행 방식
         if self.animation_frames and len(self.animation_frames) > 0:
-            # 프레임은 항상 진행 (헤르메스 아이콘과 체감 동일)
             self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
                 self.frame_counter = 0
@@ -2300,6 +2249,7 @@ class EmptyLegendarySlot(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
+        # 파티클 처리도 동일
         if self.particle_timer > 1.0:
             self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
             self.particle_timer = 0
