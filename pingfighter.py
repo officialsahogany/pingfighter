@@ -57607,9 +57607,12 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 2 완료 요약 화면 표시
                 show_chapter_completion_summary(2)
                 
+                # Chapter 3 타이틀 즉시 표시
+                show_chapter_title(3, "DRIVE", "드라이브")
+
                 # 챕터3 상태를 유지하기 위한 전역 플래그 설정
                 tutorial_skip_chapter3_init = True
-                
+
                 # 스테이지 50 재시작 (드라이브 튜토리얼로)
                 print("튜토리얼: Chapter 3 - DRIVE 시작, 스테이지 50 재시작")
                 tutorial_pending_chapter_title = (3, "DRIVE", "드라이브")
@@ -57646,6 +57649,7 @@ def main(stage_num, new_boss_mode=False):
                     # 드라이브 챕터를 새로 시작해야 하는 상태
                     print("튜토리얼: Chapter 3 준비 상태 감지, 드라이브 튜토리얼을 재시작")
                     show_chapter_completion_summary(2)
+                    show_chapter_title(3, "DRIVE", "드라이브")
                     tutorial_skip_chapter3_init = True
                     if 'tutorial_current_chapter' in globals():
                         tutorial_current_chapter = 3
@@ -57678,7 +57682,7 @@ def main(stage_num, new_boss_mode=False):
                 
                 # Chapter 1 완료 요약 화면 표시
                 show_chapter_completion_summary(1)
-                
+
                 # 챕터 번호 업데이트
                 tutorial_current_chapter = 2
                 
@@ -57689,12 +57693,13 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 2 최대 게이지를 300으로 설정
                 tutorial_chapter2_max_gauge = 300
                 print(f"DEBUG: Chapter 2 게이지 설정: {tutorial_chapter2_max_gauge}")
-                
+
                 # 게이지 초기화
                 special_gauge = 0
                 displayed_gauge = 0
-                
-                # Chapter 2 타이틀은 재시작 직후 표시되도록 예약
+
+                # Chapter 2 타이틀 즉시 표시
+                show_chapter_title(2, "DASH", "대쉬 연습")
                 print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정")
                 
                 # 대쉬 연습 플래그 설정
@@ -57714,15 +57719,14 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 챕터2 상태를 유지하기 위한 전역 플래그 설정
                 tutorial_skip_chapter2_init = True
-                tutorial_pending_chapter_title = (2, "DASH", "대쉬 연습")
 
                 return main(50)  # 스테이지 50으로 다시 시작하여 대쉬 튜토리얼 진행
             else:
                 # 알 수 없는 상태에서는 보수적으로 Chapter 2부터 다시 시작
                 print(f"⚠️ 튜토리얼: 예기치 않은 챕터 상태({current_chapter_before_skip}) 감지, Chapter 2부터 재시작")
                 show_chapter_completion_summary(1)
+                show_chapter_title(2, "DASH", "대쉬 연습")
                 tutorial_skip_chapter2_init = True
-                tutorial_pending_chapter_title = (2, "DASH", "대쉬 연습")
                 return main(50)
         main.key8_pressed = keys[pygame.K_8]
         
