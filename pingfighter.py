@@ -43690,6 +43690,21 @@ def show_item_manager_menu():
                     "description": item.description
                 })
 
+    if not any(item["name"] == "holy_laurel" for item in legendary_items):
+        holy_laurel_icon = get_item_icon("holy_laurel") or get_item_icon("poseidon_trident")
+        fallback_entry = {
+            "name": "holy_laurel",
+            "type": "legendary",
+            "icon": holy_laurel_icon,
+            "korean_name": get_item_name_korean("holy_laurel"),
+            "description": get_item_description("holy_laurel"),
+        }
+        if legendary_manager:
+            laurel_obj = legendary_manager.get_item("holy_laurel")
+            if laurel_obj:
+                fallback_entry["item_obj"] = laurel_obj
+        legendary_items.append(fallback_entry)
+
     
     # 엑티브/패시브/전설 아이템 분리
     active_items = [item for item in all_items if item["type"] == "active"]
@@ -61865,6 +61880,21 @@ def show_character_item_manager():
                     "korean_name": item.korean_name,
                     "description": item.description
                 })
+
+    if not any(item["name"] == "holy_laurel" for item in legendary_items):
+        holy_laurel_icon = get_item_icon("holy_laurel") or get_item_icon("poseidon_trident")
+        fallback_entry = {
+            "name": "holy_laurel",
+            "type": "legendary",
+            "icon": holy_laurel_icon,
+            "korean_name": get_item_name_korean("holy_laurel"),
+            "description": get_item_description("holy_laurel"),
+        }
+        if legendary_manager:
+            laurel_obj = legendary_manager.get_item("holy_laurel")
+            if laurel_obj:
+                fallback_entry["item_obj"] = laurel_obj
+        legendary_items.append(fallback_entry)
 
     
     # 엑티브/패시브/전설 아이템 분리
