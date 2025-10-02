@@ -2316,6 +2316,81 @@ class EmptyLegendarySlot(LegendaryItem):
         finally:
             surface.unlock()
 
+
+class EmptyLegendarySlot2(LegendaryItem):
+    """라그나로크 해머 스타일의 빈 전설 슬롯 (해머 그림 제외)"""
+
+    def __init__(self):
+        super().__init__(
+            name="empty2",
+            korean_name="empty2",
+            description="라그나로크 해머 스타일의 빈 슬롯",
+            unlock_condition="항상 사용 가능",
+        )
+        self.unlocked = True
+        self.animation_frames: List[pygame.Surface] = []  # type: ignore[name-defined]
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 8  # 라그나로크 해머와 동일한 속도
+        self.hammer_glow_multiplier = 1.8  # 라그나로크 해머와 동일한 글로우
+        self._load_animation_frames()
+
+    def activate(self, game_state: Dict):
+        """빈 슬롯은 활성화되지 않는다."""
+        self.active = False
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """라그나로크 해머와 동일한 스타일이지만 해머 그림 없이"""
+        import pygame
+        import math
+
+        # 공통 배경 프레임 연출 (라그나로크 해머와 동일)
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+
+        # 라그나로크 해머 스타일의 번개 효과만 그리기 (해머 그림 제외)
+        if self.current_frame in [0, 4]:
+            bolt_color = (255, 255, 150)
+            pygame.draw.line(screen, bolt_color,
+                           (x + size // 4, y + frame_offset - 5),
+                           (x + size // 3, y + frame_offset + size // 4), 2)
+            pygame.draw.line(screen, bolt_color,
+                           (x + size * 3 // 4, y + frame_offset - 5),
+                           (x + size * 2 // 3, y + frame_offset + size // 4), 2)
+
+        # 파티클 효과
+        if self.particle_timer > 1.0:
+            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
+            self.particle_timer = 0
+
+        # 프레임 카운터 업데이트 (애니메이션용)
+        self.frame_counter += 1
+        if self.frame_counter >= self.animation_speed:
+            self.frame_counter = 0
+            self.current_frame = (self.current_frame + 1) % 8  # 8프레임 애니메이션
+
+    def update(self, dt: float, ui_mode: bool = False):
+        """애니메이션 업데이트"""
+        super().update(dt, ui_mode)
+
+        # 프레임 카운터 업데이트
+        self.frame_counter += 1
+        if self.frame_counter >= self.animation_speed:
+            self.frame_counter = 0
+            self.current_frame = (self.current_frame + 1) % 8
+
+    def _load_animation_frames(self):
+        """완전 투명한 프레임 생성 (해머 그림 없음)"""
+        import pygame
+        self.animation_frames.clear()
+
+        # 8개의 완전 투명한 프레임 생성
+        for i in range(8):
+            transparent = pygame.Surface((60, 60), pygame.SRCALPHA)
+            transparent.fill((0, 0, 0, 0))  # 완전 투명
+            self.animation_frames.append(transparent)
+
+        print(f"[INFO] empty2 전설 슬롯: 라그나로크 스타일 빈 프레임 8개 생성 (테두리/글로우만 표시)")
+
 # 전설 아이템 관리자
 class LegendaryItemManager:
     """전설 아이템 시스템 관리"""
@@ -2338,6 +2413,8 @@ class LegendaryItemManager:
         self.items["poseidon_trident"] = poseidon_item
         empty_slot = EmptyLegendarySlot()
         self.items["empty"] = empty_slot
+        empty2_slot = EmptyLegendarySlot2()
+        self.items["empty2"] = empty2_slot
 
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
@@ -2354,6 +2431,9 @@ class LegendaryItemManager:
 
         if empty_slot.unlocked and "empty" not in self.unlocked_items:
             self.unlocked_items.append("empty")
+
+        if empty2_slot.unlocked and "empty2" not in self.unlocked_items:
+            self.unlocked_items.append("empty2")
 
         
     
@@ -2374,6 +2454,11 @@ class LegendaryItemManager:
             self.items["empty"] = EmptyLegendarySlot()
             if "empty" not in self.unlocked_items:
                 self.unlocked_items.append("empty")
+
+        if "empty2" not in self.items:
+            self.items["empty2"] = EmptyLegendarySlot2()
+            if "empty2" not in self.unlocked_items:
+                self.unlocked_items.append("empty2")
         
     def check_unlocks(self, game_stats: Dict):
         """해금 조건 체크"""
@@ -2393,7 +2478,7 @@ class LegendaryItemManager:
         
     def activate_item(self, name: str, game_state: Dict):
         """아이템 활성화"""
-        if name == "empty":
+        if name in ["empty", "empty2"]:
             return
         print(f"🎮 activate_item 호출: name={name}")
         print(f"   - items에 있음: {name in self.items}")
