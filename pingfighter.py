@@ -57128,9 +57128,6 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_drive_practice_shown = False  # 드라이브 연습 대화 표시 여부
                 tutorial_drive_completion_dialogue_shown = False  # 드라이브 완료 대화 표시 여부
                 
-                # 드라이브 챕터 시작 타이틀 표시
-                show_chapter_title(3, "DRIVE", "드라이브")
-
                 # Chapter 4 파워스매싱 튜토리얼 변수 초기화
                 tutorial_needs_power_practice = False  # 파워스매싱 연습이 필요한지 여부
                 tutorial_power_practice_shown = False  # 파워스매싱 연습 대화 표시 여부
@@ -57368,7 +57365,12 @@ def main(stage_num, new_boss_mode=False):
             except Exception as e:
                 if __debug__:
                     print(f"⚠️ 마이그레이션 동기화 오류: {e}")
-        
+
+        if tutorial_pending_chapter_title:
+            chapter_num, title, subtitle = tutorial_pending_chapter_title
+            tutorial_pending_chapter_title = None
+            show_chapter_title(chapter_num, title, subtitle)
+
         # 튜토리얼 대화로 인한 일시정지 체크 (나중에 화면이 그려진 후 처리)
         
         #  게임 완전 종료 체크
