@@ -2226,6 +2226,15 @@ class EmptyLegendarySlot(LegendaryItem):
             self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
             self.particle_timer = 0
 
+    def update(self, dt: float, ui_mode: bool = False):
+        super().update(dt, ui_mode)
+
+        if self.animation_frames and len(self.animation_frames) > 1:
+            self.frame_counter += 1
+            if self.frame_counter >= self.animation_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
+
     def _load_animation_frames(self):
         """라그나로크 해머와 동일한 PNG 프레임을 사용한다."""
         import pygame
