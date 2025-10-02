@@ -24360,6 +24360,7 @@ def handle_player(keys):
 
             if blocking_skill_bonus and selected_character_type == "blacksmith":
                 total_gauge_gain = int(round(total_gauge_gain * 2))
+                blacksmith_blocking_bonus_pending = False
                 if DEBUG_HANDLE_PLAYER_VERBOSE:
                     print(f"[BLOCKING!] gauge bonus applied → {total_gauge_gain}")
 
