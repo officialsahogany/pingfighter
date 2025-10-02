@@ -32416,24 +32416,6 @@ def handle_ball():
                         print(f"   : {ball_speed:.1f}")
                         print(f"   : 0.6, : 0.6")
 
-                if laurel and laurel.active:
-                    ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                    horizontal_velocity, stun_duration = laurel.calculate_knockback(ball_speed, BOSS.x)
-
-                    if horizontal_velocity != 0:
-                        boss_knockback_timer = 36
-                        boss_knockback_vel = horizontal_velocity
-                        if stun_duration > 0:
-                            ragnarok_stun_pending = int(stun_duration * 60)
-
-                        screen_shake_timer = 12
-                        screen_shake_intensity = 10
-                        print(f"     !")
-                        print(f"     : {horizontal_velocity:.1f}")
-                        print(f"    : X={BOSS.x:.0f}")
-                        print(f"   : {ball_speed:.1f}")
-                        print(f"   : 0.6, : 0.6")
-        
         #  Stage 5 홍련 피격 효과 - 드라이브/파워스매싱에 따라 확률 변경
         if current_stage == 5:
             # 확률 계산: 파워스매싱 20%, 드라이브 10%, 일반 2%
@@ -35251,7 +35233,6 @@ def show_result(won):
         if not items.poseidon_trident_obtained:
             poseidon_icon = get_item_icon("poseidon_trident")
             available_items.append({"name": "poseidon_trident", "color": (50, 150, 255), "type": "passive", "icon": poseidon_icon})
-            available_items.append({"name": "color": (255, 220, 150), "type": "passive", "icon": laurel_icon})
         # 엑티브 아이템들 추가
         available_items.append({"name": "long_boost", "color": (255, 100, 100), "type": "active", "icon": long_boost_icon})
         available_items.append({"name": "gauge_charge", "color": (100, 255, 100), "type": "active", "icon": gauge_charge_icon})
