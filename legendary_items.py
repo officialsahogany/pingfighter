@@ -2085,28 +2085,24 @@ class RagnarokHammer(LegendaryItem):
                 })
     
     def _load_animation_frames(self):
-        """애니메이션 프레임 로드"""
-        import pygame
-        import os
-        
-        # 8개 프레임 로드 시도
-        frames_loaded = 0
-        for i in range(8):
-            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
-            try:
-                frame = pygame.image.load(frame_path).convert_alpha()
-                cleaned_frame = _strip_legendary_red_ring(frame)
-                self.animation_frames.append(cleaned_frame)
-                frames_loaded += 1
-                print(f"✓ 프레임 {i} 로드 성공: {frame_path}")
-            except Exception as e:
-                print(f"[ERROR] Frame {i} load failed: {frame_path} - {e}")
-        
-        print(f"라그나로크 해머 프레임 {frames_loaded}/8개 로드")
-        
-        # 프레임이 없으면 에러만 표시 (가짜 애니메이션 생성하지 않음)
+        """라그나로크 아이콘을 프레임 전용 애니메이션으로 구성한다."""
+        self.animation_frames.clear()
+
+        total_frames = 8
+        base_size = 64
+
+        for i in range(total_frames):
+            # 푸른 원형 펄스를 살리되 중앙 이미지는 제거한다.
+            sample_time = (i / total_frames) * (2 * math.pi)
+            frame_surface = _render_empty_legendary_frame(
+                base_size,
+                animation_time=sample_time,
+                offset_time=0.0,
+            )
+            self.animation_frames.append(frame_surface)
+
         if not self.animation_frames:
-            print(f"❌ 라그나로크 해머: PNG 프레임을 찾을 수 없습니다!")
+            print("❌ 라그나로크 해머: 프레임 애니메이션 생성 실패")
     
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         """애니메이션 아이콘 그리기"""
