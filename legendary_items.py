@@ -294,6 +294,23 @@ def _strip_legendary_red_ring(frame: pygame.Surface,
 
     return cleaned_frame
 
+
+def _render_empty_legendary_frame(size: int,
+                                  animation_time: float,
+                                  offset_time: float = 0.0) -> pygame.Surface:
+    """외곽/내곽 프레임과 중앙 펄스만을 포함한 프레임 Surface 생성."""
+    frame_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    _draw_common_legendary_frame(
+        frame_surface,
+        0,
+        0,
+        size,
+        animation_time,
+        offset_animation_time=offset_time,
+    )
+    return frame_surface
+
+
 class LegendaryItem:
     """전설 아이템 베이스 클래스"""
     def __init__(self, name: str, korean_name: str, description: str, 
