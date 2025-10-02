@@ -55885,6 +55885,8 @@ def show_result(won):
             spend_trade_point_stars,
             legendary_bonus=skill_legendary_bonus,
         )
+        effects_manager.clear_all_effects()
+        get_damage_manager().reset_all()
         show_victory_screen(stage_cleared=current_stage, reward=reward)
         current_stage += 1
         # 스테이지 전환 시 테크니컬조끼 비활성화
