@@ -2262,32 +2262,22 @@ class EmptyLegendarySlot(LegendaryItem):
 
         - 아이템 관리자 전설 탭의 empty 아이콘 내부에 비치던 '헤르메스의 신발' 그림자를 완전히 제거하기 위함.
         - 공통 프레임(_draw_common_legendary_frame)이 배경/테두리/펄스를 그려주므로, 중앙 오버레이는 비워둔다.
-        - 헤르메스 프레임 개수에 동기화만 맞추고, 각 프레임은 동일 크기의 완전 투명 Surface로 대체한다.
+        - 헤르메스와 동일한 8개 프레임을 사용하되, 모두 완전 투명한 Surface로 생성한다.
         """
         import pygame
 
         self.animation_frames.clear()
 
-        frames_loaded = 0
-        total_frames = 8  # 헤르메스 아이콘과 동일한 프레임 수 유지
+        # 헤르메스와 동일한 8개 프레임, 모두 완전 투명
+        total_frames = 8
         for i in range(total_frames):
-            frame_path = resource_path(f"items/legendary/hermes_shoes_frame_{i}.png")
-            width, height = 60, 60  # 기본값 (실패 시 사용)
-            try:
-                # 크기 동기화를 위해서만 로드하고, 실제 픽셀은 사용하지 않음
-                frame = pygame.image.load(frame_path).convert_alpha()
-                width, height = frame.get_size()
-                loaded = True
-            except Exception as e:
-                loaded = False
-                print(f"[WARN] Empty 슬롯 동기화용 프레임 {i} 로드 실패: {frame_path} - {e}. 기본 크기 {width}x{height} 사용")
-
-            transparent = pygame.Surface((width, height), pygame.SRCALPHA)
-            # 중앙 오버레이를 비우기 위해 아무 것도 그리지 않음 (완전 투명)
+            # 60x60 크기의 완전 투명한 Surface 생성
+            # 헤르메스 신발 이미지를 로드하지 않음
+            transparent = pygame.Surface((60, 60), pygame.SRCALPHA)
+            transparent.fill((0, 0, 0, 0))  # 완전 투명
             self.animation_frames.append(transparent)
-            frames_loaded += 1
 
-        print(f"empty 전설 슬롯: 투명 프레임 {frames_loaded}/{total_frames}개 생성 (헤르메스와 동기화)")
+        print(f"[INFO] empty 전설 슬롯: 투명 프레임 {total_frames}개 생성 (테두리 효과만 표시)")
 
     def _erase_hermes_shoe(self, surface: pygame.Surface) -> None:
         """헤르메스 프레임에서 신발 본체와 잔상만 제거한다."""
