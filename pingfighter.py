@@ -20952,6 +20952,7 @@ def handle_player(keys):
     global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
     global blacksmith_umbrella_hit_lock
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
+    global blacksmith_blocking_skill_timer
     global fire_support_radio_loop_active
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
