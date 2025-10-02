@@ -23851,12 +23851,18 @@ def handle_player(keys):
                 blacksmith_umbrella_recharge_progress = 0
                 gauge_reduced = True
                 forced_gauge_loss = True
+                blocking_skill_bonus = True
                 if blacksmith_umbrella_gauge <= 0:
                     request_blacksmith_umbrella_close(play_sound=True, flash=True)
             blacksmith_umbrella_hit_lock = True
             if not forced_gauge_loss and blacksmith_umbrella_gauge > 0:
                 blacksmith_blocking_penalty_timer = BLACKSMITH_BLOCKING_PENALTY_FRAMES
                 blacksmith_blocking_toast_timer = BLACKSMITH_BLOCKING_TOAST_FRAMES
+        if blocking_skill_bonus:
+            blacksmith_blocking_skill_timer = max(
+                blacksmith_blocking_skill_timer,
+                BLACKSMITH_BLOCKING_SKILL_FRAMES,
+            )
         # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
         if kuromi_spit_trail_active:
             kuromi_spit_trail_active = False
@@ -24346,7 +24352,10 @@ def handle_player(keys):
             if ('tutorial_current_chapter' in globals() and tutorial_current_chapter == 4):
                 total_gauge_gain = 500
                 print(f"🎮 Chapter 4: 500 게이지 충전!")
-            
+
+            if blocking_skill_bonus and selected_character_type == "blacksmith":
+                total_gauge_gain *= 2
+
             if DEBUG_HANDLE_PLAYER_VERBOSE:
                 print(f" DEBUG:  handle_player   ({total_gauge_gain})")
             old_gauge = special_gauge  # 이전 게이지 저장

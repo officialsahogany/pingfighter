@@ -2291,9 +2291,18 @@ class EmptyLegendarySlot(LegendaryItem):
                         continue
 
                     r, g, b = color.r, color.g, color.b
-                    keep_red_ring = r >= 140 and g <= 55 and b <= 80
 
-                    if not keep_red_ring:
+                    keep_red_ring = r >= 140 and g <= 65 and b <= 90
+                    keep_blue_glow = (
+                        b >= 200 and g >= 150
+                    ) or (
+                        b >= 220
+                    )
+                    keep_highlight = (
+                        r >= 230 and g >= 230 and b >= 230
+                    )
+
+                    if not (keep_red_ring or keep_blue_glow or keep_highlight):
                         surface.set_at((x, y), (0, 0, 0, 0))
         finally:
             surface.unlock()
