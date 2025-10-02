@@ -1997,7 +1997,7 @@ class RagnarokHammer(LegendaryItem):
             korean_name="라그나로크 해머",
             description="보스가 공을 받을 때 공속에 비례한 강력한 넉백을 받고 0.6초간 스턴됩니다",
             unlock_condition="누적 넉백 거리 10,000 픽셀 달성",
-            icon_path="items/legendary/ragnarok_hammer.png"  # 아이콘 경로 추가
+            icon_path=None  # 고유 애니메이션만 사용 (중앙 PNG 제거)
         )
         self.knockback_multiplier = 5.0  # 넉백 배율 (3.0 -> 5.0 증가)
         self.max_knockback = 250  # 최대 넉백 거리 (150 -> 250 증가)
