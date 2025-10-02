@@ -2291,12 +2291,8 @@ class EmptyLegendarySlot(LegendaryItem):
                         continue
 
                     r, g, b = color.r, color.g, color.b
-                    keep_red_ring = r >= 140 and g <= 50 and b <= 70
-                    keep_cool_glow = (
-                        b >= 200
-                        and b >= g - 10
-                        and b >= r - 10
-                    )
+                    keep_red_ring = r >= 140 and g <= 55 and b <= 80
+                    keep_cool_glow = (b >= 229 and g >= 140)
 
                     if not (keep_red_ring or keep_cool_glow):
                         surface.set_at((x, y), (0, 0, 0, 0))
