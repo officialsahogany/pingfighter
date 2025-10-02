@@ -424,3 +424,10 @@ def get_damage_manager() -> BuildingDamageManager:
     if _damage_manager is None:
         _damage_manager = BuildingDamageManager()
     return _damage_manager
+
+
+def reset_damage_manager() -> BuildingDamageManager:
+    """손상 효과 관리자를 새 인스턴스로 재설정한다."""
+    global _damage_manager
+    _damage_manager = BuildingDamageManager()
+    return _damage_manager
