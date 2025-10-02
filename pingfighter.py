@@ -59209,6 +59209,8 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 손상 효과 업데이트 (모든 스테이지에서)
                 damage_manager = get_damage_manager()
+                if not is_blacksmith_divine_stone_active():
+                    damage_manager.clear_building("divine_stone")
                 damage_manager.update()
                 
                 handle_ball()

@@ -1797,6 +1797,7 @@ class HolyLaurel(LegendaryItem):
         self._scaled_laurel_cache: Dict[int, pygame.Surface] = {}
         self._dice_overlay: Optional[pygame.Surface] = None
         self._scaled_dice_cache: Dict[int, pygame.Surface] = {}
+        self._scaled_glow_cache: Dict[int, pygame.Surface] = {}
         self._use_trident_mask: bool = True
         self._prepare_frames()
 
@@ -1908,6 +1909,28 @@ class HolyLaurel(LegendaryItem):
         base_surface.blit(dice, rect.topleft)
         return base_surface
 
+    def _get_glow_surface(self, size: int) -> pygame.Surface:
+        cached = self._scaled_glow_cache.get(size)
+        if cached is None:
+            glow = pygame.Surface((size, size), pygame.SRCALPHA)
+            center = (size // 2, size // 2)
+            base_radius = max(int(size * 0.45), 20)
+            for idx, alpha in enumerate((70, 40, 18)):
+                pygame.draw.circle(
+                    glow,
+                    (140, 200, 255, alpha),
+                    center,
+                    max(6, base_radius - idx * 4),
+                )
+            cached = glow
+            self._scaled_glow_cache[size] = cached
+        return cached.copy()
+
+    def _apply_dice_glow(self, base_surface: pygame.Surface, size: int) -> pygame.Surface:
+        glow = self._get_glow_surface(size)
+        base_surface.blit(glow, (0, 0))
+        return base_surface
+
     def _prepare_frames(self) -> None:
         """포세이돈 삼지창 애니메이션을 그대로 참조하여 동기화한다."""
         self._ensure_laurel_overlay()
@@ -1977,6 +2000,7 @@ class HolyLaurel(LegendaryItem):
             trimmed = self._remove_trident_from_surface(scaled)
             composed = self._compose_with_laurel(trimmed, size)
             composed = self._apply_dice_overlay(composed, size)
+            composed = self._apply_dice_glow(composed, size)
             screen.blit(composed, (x, y + frame_offset))
             return
 
@@ -1989,11 +2013,13 @@ class HolyLaurel(LegendaryItem):
             else:
                 composed = scaled
             composed = self._apply_dice_overlay(composed, size)
+            composed = self._apply_dice_glow(composed, size)
             screen.blit(composed, (x, y + frame_offset))
         else:
             overlay = self._get_scaled_laurel(size)
             if overlay:
                 composed = self._apply_dice_overlay(overlay.copy(), size)
+                composed = self._apply_dice_glow(composed, size)
                 screen.blit(composed, (x, y + frame_offset))
             else:
                 super().draw_icon(screen, x, y, size)
