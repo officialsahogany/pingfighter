@@ -23751,11 +23751,7 @@ def handle_player(keys):
                 if blacksmith_umbrella_gauge <= 0:
                     request_blacksmith_umbrella_close(play_sound=True, flash=True)
             blacksmith_umbrella_hit_lock = True
-            if forced_gauge_loss:
-                # 강제 차감이 이루어진 경우 추가 패널티는 생략해 게이지 로직의 일관성을 유지한다.
-                blacksmith_blocking_penalty_timer = 0
-                blacksmith_blocking_toast_timer = 0
-            elif blacksmith_umbrella_gauge > 0:
+            if not forced_gauge_loss and blacksmith_umbrella_gauge > 0:
                 blacksmith_blocking_penalty_timer = BLACKSMITH_BLOCKING_PENALTY_FRAMES
                 blacksmith_blocking_toast_timer = BLACKSMITH_BLOCKING_TOAST_FRAMES
         # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
