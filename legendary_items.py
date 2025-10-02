@@ -2316,6 +2316,39 @@ class EmptyLegendarySlot(LegendaryItem):
         finally:
             surface.unlock()
 
+# 전설 빈 슬롯(variant 1) — 포세이돈의 삼지창과 동일 렌더링
+class EmptyLegendarySlotPoseidon(LegendaryItem):
+    """아이템 관리자 전설 탭에서 empty1 슬롯을 포세이돈 아이콘과 동일하게 표시.
+
+    - 활성화/효과 없음(순수 UI용)
+    - draw_icon 시점에 LegendaryItemManager의 poseidon_trident 인스턴스를 가져와 그대로 위임
+    """
+
+    def __init__(self):
+        super().__init__(
+            name="empty1",
+            korean_name="empty1",
+            description="UI용 빈 슬롯(포세이돈 아이콘 표시)",
+            unlock_condition="항상 사용 가능",
+        )
+        self.unlocked = True
+
+    def activate(self, game_state: Dict):
+        # UI용이므로 활성화되지 않음
+        self.active = False
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        manager = globals().get("_legendary_manager")
+        poseidon = None
+        if manager and hasattr(manager, "items"):
+            poseidon = manager.items.get("poseidon_trident")
+        if poseidon:
+            # 포세이돈 아이콘을 그대로 위임 렌더링
+            poseidon.draw_icon(screen, x, y, size)
+        else:
+            # 포세이돈이 아직 초기화되지 않은 경우, 공통 프레임만이라도 표시
+            _draw_common_legendary_frame(screen, x, y, size, getattr(self, "animation_time", 0.0))
+
 
 class EmptyLegendarySlot2(LegendaryItem):
     """라그나로크 해머 스타일의 빈 전설 슬롯 (해머 그림 제외)"""
