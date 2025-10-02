@@ -56302,6 +56302,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_power_counter_active, tutorial_power_reminder_active, tutorial_power_reminder_timer  # Chapter 4 알림
     global blacksmith_down_hold_frames, blacksmith_build_menu_active, blacksmith_divine_stone_state
     global blacksmith_divine_stage_owner
+    global tutorial_pending_chapter_title
     # 스톱워치 복구 방향 보정 관련 전역
     global stopwatch_forced_upward, stopwatch_upward_lock_timer
     global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done  # Chapter 4 방향별 완료
