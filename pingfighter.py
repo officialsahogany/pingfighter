@@ -61544,6 +61544,166 @@ def get_item_description(item_name):
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
     }
     return descriptions.get(item_name, "설명이 없습니다.")
+
+def show_ragnarok_hammer_animation_viewer():
+    """라그나로크 해머 애니메이션 파트별 뷰어"""
+    import math
+
+    font_title = FontStyle.subtitle()  # 32pt 타이틀
+    font_label = FontStyle.menu()      # 28pt 라벨
+    font_small = FontStyle.body()      # 24pt 설명
+
+    # 창 크기
+    window_width = 700
+    window_height = 500
+    window_x = (WIDTH - window_width) // 2
+    window_y = (HEIGHT - window_height) // 2
+
+    # 애니메이션 파트별 위치
+    parts = [
+        {"name": "배경 프레임", "x": 100, "y": 120, "size": 100},
+        {"name": "해머 아이콘", "x": 250, "y": 120, "size": 100},
+        {"name": "번개 효과", "x": 400, "y": 120, "size": 100},
+        {"name": "글로우 효과", "x": 550, "y": 120, "size": 100},
+        {"name": "파티클", "x": 175, "y": 280, "size": 100},
+        {"name": "테두리", "x": 325, "y": 280, "size": 100},
+        {"name": "전체 조합", "x": 475, "y": 280, "size": 100},
+    ]
+
+    # 애니메이션 변수
+    animation_time = 0
+    frame_counter = 0
+    current_frame = 0
+    animation_speed = 8
+
+    clock = pygame.time.Clock()
+
+    # 전설 아이템 매니저 가져오기
+    legendary_manager = get_legendary_manager()
+    hammer = None
+    if legendary_manager:
+        hammer = legendary_manager.get_item("ragnarok_hammer")
+
+    running = True
+    while running:
+        dt = clock.tick(60) / 1000.0
+        animation_time += dt
+        frame_counter += 1
+
+        # 프레임 업데이트
+        if frame_counter >= animation_speed:
+            frame_counter = 0
+            current_frame = (current_frame + 1) % 8  # 8프레임 애니메이션
+
+        # 배경
+        SCREEN.fill((20, 20, 30))
+
+        # 창 배경
+        draw.rect((40, 40, 50), (window_x, window_y, window_width, window_height))
+        draw.rect((100, 150, 255), (window_x, window_y, window_width, window_height), 3)
+
+        # 타이틀
+        title_text = font_title.render("라그나로크 해머 - 애니메이션 파트 분석", True, WHITE)
+        title_rect = title_text.get_rect(center=(WIDTH // 2, window_y + 40))
+        SCREEN.blit(title_text, title_rect)
+
+        # 각 파트별 렌더링
+        for part in parts:
+            part_x = window_x + part["x"]
+            part_y = window_y + part["y"]
+            size = part["size"]
+
+            # 파트 배경
+            part_rect = pygame.Rect(part_x - 10, part_y - 10, size + 20, size + 20)
+            draw.rect((30, 30, 40), part_rect)
+            draw.rect((80, 80, 100), part_rect, 2)
+
+            # 파트별 애니메이션 그리기
+            if part["name"] == "배경 프레임":
+                # 공통 전설 프레임 그리기 (파란색 원형 배경)
+                from legendary_items import _draw_common_legendary_frame
+                _draw_common_legendary_frame(SCREEN, part_x, part_y, size, animation_time)
+
+            elif part["name"] == "해머 아이콘" and hammer and hammer.animation_frames:
+                # 해머 아이콘만 그리기
+                if len(hammer.animation_frames) > current_frame:
+                    icon = hammer.animation_frames[current_frame]
+                    scaled_icon = pygame.transform.scale(icon, (size, size))
+                    SCREEN.blit(scaled_icon, (part_x, part_y))
+
+            elif part["name"] == "번개 효과":
+                # 번개 효과만 그리기 (프레임 0, 4에서만)
+                if current_frame in [0, 4]:
+                    bolt_color = (255, 255, 150)
+                    pygame.draw.line(SCREEN, bolt_color,
+                                   (part_x + size // 4, part_y - 5),
+                                   (part_x + size // 3, part_y + size // 4), 3)
+                    pygame.draw.line(SCREEN, bolt_color,
+                                   (part_x + size * 3 // 4, part_y - 5),
+                                   (part_x + size * 2 // 3, part_y + size // 4), 3)
+
+            elif part["name"] == "글로우 효과":
+                # 글로우 효과만 그리기
+                glow_intensity = (math.sin(animation_time * 3) + 1) * 0.5
+                glow_size = int(size * (1.2 + glow_intensity * 0.2))
+                glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+                for i in range(3):
+                    alpha = int(80 - i * 20)
+                    color = (220, 50, 50, alpha)
+                    pygame.draw.circle(glow_surf, color,
+                                     (glow_size // 2, glow_size // 2),
+                                     glow_size // 2 - i * 10)
+                SCREEN.blit(glow_surf, (part_x - (glow_size - size) // 2, part_y - (glow_size - size) // 2))
+
+            elif part["name"] == "파티클":
+                # 파티클 효과 그리기
+                import random
+                random.seed(int(animation_time * 10))  # 시드 고정으로 일관된 파티클
+                for _ in range(5):
+                    px = part_x + size // 2 + random.randint(-30, 30)
+                    py = part_y + size // 2 + random.randint(-30, 30)
+                    particle_size = random.randint(2, 4)
+                    pygame.draw.circle(SCREEN, (220, 100, 100), (px, py), particle_size)
+
+            elif part["name"] == "테두리":
+                # 붉은색 테두리만 그리기
+                border_rect = pygame.Rect(part_x - 2, part_y - 2, size + 4, size + 4)
+                pygame.draw.rect(SCREEN, (220, 50, 50), border_rect, 3)
+
+            elif part["name"] == "전체 조합":
+                # 모든 파트 조합하여 그리기
+                if hammer:
+                    hammer.update(dt, ui_mode=True)
+                    hammer.draw_icon(SCREEN, part_x, part_y, size)
+
+            # 라벨 그리기
+            label_text = font_small.render(part["name"], True, (200, 200, 200))
+            label_rect = label_text.get_rect(center=(part_x + size // 2, part_y + size + 20))
+            SCREEN.blit(label_text, label_rect)
+
+        # 프레임 정보
+        frame_info = font_small.render(f"프레임: {current_frame + 1}/8", True, WHITE)
+        frame_rect = frame_info.get_rect(center=(WIDTH // 2, window_y + window_height - 40))
+        SCREEN.blit(frame_info, frame_rect)
+
+        # ESC 안내
+        esc_text = font_small.render("ESC - 닫기", True, (150, 150, 150))
+        esc_rect = esc_text.get_rect(center=(WIDTH // 2, window_y + window_height - 20))
+        SCREEN.blit(esc_text, esc_rect)
+
+        pygame.display.flip()
+
+        # 이벤트 처리
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+
+    return
+
 def show_item_management_menu(item_list, selected_index, item_type):
     """아이템 관리자 메뉴 (버리기/취소)"""
     global active_item_slot, passive_item_list, selected_item_index, selected_passive_item
