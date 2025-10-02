@@ -34971,6 +34971,7 @@ def show_victory_screen(stage_cleared, reward):
                     show_stage6_intro()
 
                 if not game_should_exit:
+                    effects_manager.clear_all_effects()
                     damage_manager = get_damage_manager()
                     damage_manager.reset_all()
                     main(next_stage_display)
