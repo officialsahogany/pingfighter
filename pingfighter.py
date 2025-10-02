@@ -23731,16 +23731,31 @@ def handle_player(keys):
                         request_blacksmith_umbrella_close(play_sound=True, flash=True)
                     gauge_reduced = True
 
-            if (
-                not gauge_reduced
-                and blacksmith_umbrella_retracting
-                and 0 <= frame_counter - blacksmith_umbrella_retract_start_frame <= BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
-                and blacksmith_umbrella_gauge > 0
-            ):
-                print(
-                    f"[DEBUG BLOCKING] penalty trigger frame={frame_counter} start={blacksmith_umbrella_retract_start_frame} gauge={blacksmith_umbrella_gauge} delta={frame_counter - blacksmith_umbrella_retract_start_frame}"
-                )
-                blacksmith_umbrella_hit_lock = True
+        if (
+            not gauge_reduced
+            and blacksmith_umbrella_retracting
+            and 0 <= frame_counter - blacksmith_umbrella_retract_start_frame <= BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
+        ):
+            print(
+                f"[DEBUG BLOCKING] penalty trigger frame={frame_counter} start={blacksmith_umbrella_retract_start_frame} gauge={blacksmith_umbrella_gauge} delta={frame_counter - blacksmith_umbrella_retract_start_frame}"
+            )
+            forced_gauge_loss = False
+            if last_hit_by != "player" and blacksmith_umbrella_gauge > 0:
+                # 즉시 비활성화 입력으로 내구도 차감을 우회하지 못하도록 한 번 더 강제로 차감한다.
+                blacksmith_umbrella_last_hit_frame = frame_counter
+                blacksmith_umbrella_gauge = max(0, blacksmith_umbrella_gauge - 1)
+                blacksmith_umbrella_damage_flash_timer = BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES
+                blacksmith_umbrella_recharge_progress = 0
+                gauge_reduced = True
+                forced_gauge_loss = True
+                if blacksmith_umbrella_gauge <= 0:
+                    request_blacksmith_umbrella_close(play_sound=True, flash=True)
+            blacksmith_umbrella_hit_lock = True
+            if forced_gauge_loss:
+                # 강제 차감이 이루어진 경우 추가 패널티는 생략해 게이지 로직의 일관성을 유지한다.
+                blacksmith_blocking_penalty_timer = 0
+                blacksmith_blocking_toast_timer = 0
+            elif blacksmith_umbrella_gauge > 0:
                 blacksmith_blocking_penalty_timer = BLACKSMITH_BLOCKING_PENALTY_FRAMES
                 blacksmith_blocking_toast_timer = BLACKSMITH_BLOCKING_TOAST_FRAMES
         # 쿠로미 뱉기 궤적 비활성화 (플레이어 패들 충돌)
