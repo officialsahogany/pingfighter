@@ -44538,15 +44538,18 @@ def apply_selected_items(
     if selected_legendary_items:
         # Import already done globally at line 141
         legendary_manager = get_legendary_manager()
-        
+
         # 모든 전설 아이템 비활성화
         for item in legendary_manager.active_items[:]:
             legendary_manager.deactivate_item(item)
-        
+
+        activated_legendary_items = []
+
         # 선택된 전설 아이템 활성화 및 패시브 아이템 리스트에 추가
         for item_name in selected_legendary_items:
             if item_name == "empty":
                 continue
+
             # 전설 아이템 획득 플래그 설정 (중복 스폰 방지)
             if item_name == "poseidon_trident":
                 print(f"[DEBUG] TAB에서 포세이돈 삼지창 선택 - 획득 플래그 설정")
@@ -44555,7 +44558,7 @@ def apply_selected_items(
                 items.ragnarok_hammer_obtained = True
             elif item_name == "hermes_shoes":
                 items.hermes_shoes_obtained = True
-            
+
             # 전설 아이템을 패시브 아이템 리스트에 추가 (TAB 키로 볼 수 있도록)
             legendary_item = legendary_manager.get_item(item_name)
             if legendary_item:
@@ -44567,16 +44570,19 @@ def apply_selected_items(
                     "description": legendary_item.description
                 }
                 passive_item_list.append(item_data)
+                activated_legendary_items.append(legendary_item.korean_name)
                 print(f"  [{legendary_item.korean_name}]   !")
-            
+
             # 전설 아이템 활성화
             legendary_game_state = {
                 'current_stage': 1,
                 'cooldown_multiplier': 1.0
             }
             legendary_manager.activate_item(item_name, legendary_game_state)
-        print(f"  [{item_name}] !")
-        
+
+        if activated_legendary_items:
+            print(f"  [{', '.join(activated_legendary_items)}] !")
+
         print(f"  : {selected_legendary_items}")
 
     play_notification_sound()
