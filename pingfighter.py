@@ -61990,7 +61990,11 @@ def show_character_item_manager():
     if legendary_manager:
         for item_name, item in legendary_manager.items.items():
             if item.unlocked:
-                legendary_icon = get_item_icon(item.name)
+                if item.name == "empty":
+                    # 빈 슬롯도 헤르메스 아이콘을 공유해 비어 보이지 않게 유지
+                    legendary_icon = get_item_icon("hermes_shoes")
+                else:
+                    legendary_icon = get_item_icon(item.name)
                 legendary_items.append({
                     "name": item.name,
                     "type": "legendary",
