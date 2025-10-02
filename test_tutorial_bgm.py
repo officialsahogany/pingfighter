@@ -24,7 +24,7 @@ def test_tutorial_bgm():
     print("=" * 50)
     
     # BGM 파일 확인
-    tutorial_bgm_path = resource_path(os.path.join("bgm", "tutorialbgm.mp3"))
+    tutorial_bgm_path = resource_path(os.path.join("bgm", "tutorialmainbgm.mp3"))
     print(f"\n튜토리얼 BGM 경로: {tutorial_bgm_path}")
     print(f"파일 존재 여부: {os.path.exists(tutorial_bgm_path)}")
     

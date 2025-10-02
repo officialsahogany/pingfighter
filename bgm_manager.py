@@ -29,7 +29,7 @@ class BGMManager:
             'intro': resource_path(os.path.join("bgm", "introbgm.mp3")),
             'menu': resource_path(os.path.join("bgm", "introbgm.mp3")),  # 메뉴도 같은 BGM 사용
             'stage1': resource_path(os.path.join("bgm", "stage1bgm.mp3")),
-            'tutorial': resource_path(os.path.join("bgm", "tutorialbgm.mp3"))
+            'tutorial': resource_path(os.path.join("bgm", "tutorialmainbgm.mp3"))
         }
         self.is_initialized = False
         
