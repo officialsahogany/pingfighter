@@ -23722,6 +23722,7 @@ def handle_player(keys):
         blacksmith_umbrella_hit_lock = False
 
     gauge_reduced = False
+    blocking_skill_bonus = False
 
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     if collision_with_player and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
@@ -23788,6 +23789,7 @@ def handle_player(keys):
                     if blacksmith_umbrella_gauge <= 0:
                         request_blacksmith_umbrella_close(play_sound=True, flash=True)
                     gauge_reduced = True
+                    blocking_skill_bonus = True
                     print(
                         "[DEBUG BLOCKING] gauge reduced via shield",
                         {
