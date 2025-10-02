@@ -2471,6 +2471,8 @@ class LegendaryItemManager:
         self.items["poseidon_trident"] = poseidon_item
         empty_slot = EmptyLegendarySlot()
         self.items["empty"] = empty_slot
+        empty1_slot = EmptyLegendarySlotPoseidon()
+        self.items["empty1"] = empty1_slot
         empty2_slot = EmptyLegendarySlot2()
         self.items["empty2"] = empty2_slot
 
@@ -2489,6 +2491,9 @@ class LegendaryItemManager:
 
         if empty_slot.unlocked and "empty" not in self.unlocked_items:
             self.unlocked_items.append("empty")
+
+        if empty1_slot.unlocked and "empty1" not in self.unlocked_items:
+            self.unlocked_items.append("empty1")
 
         if empty2_slot.unlocked and "empty2" not in self.unlocked_items:
             self.unlocked_items.append("empty2")
@@ -2513,6 +2518,11 @@ class LegendaryItemManager:
             if "empty" not in self.unlocked_items:
                 self.unlocked_items.append("empty")
 
+        if "empty1" not in self.items:
+            self.items["empty1"] = EmptyLegendarySlotPoseidon()
+            if "empty1" not in self.unlocked_items:
+                self.unlocked_items.append("empty1")
+
         if "empty2" not in self.items:
             self.items["empty2"] = EmptyLegendarySlot2()
             if "empty2" not in self.unlocked_items:
@@ -2536,7 +2546,7 @@ class LegendaryItemManager:
         
     def activate_item(self, name: str, game_state: Dict):
         """아이템 활성화"""
-        if name in ["empty", "empty2"]:
+        if name in ["empty", "empty1", "empty2"]:
             return
         print(f"🎮 activate_item 호출: name={name}")
         print(f"   - items에 있음: {name in self.items}")
