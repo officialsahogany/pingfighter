@@ -2190,7 +2190,7 @@ class EmptyLegendarySlot(LegendaryItem):
         self.animation_frames: List[pygame.Surface] = []  # type: ignore[name-defined]
         self.current_frame = 0
         self.frame_counter = 0
-        self.animation_speed = 8
+        self.animation_speed = 4  # 헤르메스 아이콘과 동일한 속도로 재생
         self._load_animation_frames()
 
     def activate(self, game_state: Dict):
@@ -2213,15 +2213,6 @@ class EmptyLegendarySlot(LegendaryItem):
             scaled_icon = pygame.transform.scale(current_icon, (size, size))
             screen.blit(scaled_icon, (x, icon_y))
 
-            if self.current_frame in [0, 4]:
-                bolt_color = (255, 255, 150)
-                pygame.draw.line(screen, bolt_color,
-                                 (x + size // 4, y + frame_offset - 5),
-                                 (x + size // 3, y + frame_offset + size // 4), 2)
-                pygame.draw.line(screen, bolt_color,
-                                 (x + size * 3 // 4, y + frame_offset - 5),
-                                 (x + size * 2 // 3, y + frame_offset + size // 4), 2)
-
         if self.particle_timer > 1.0:
             self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
             self.particle_timer = 0
@@ -2236,27 +2227,25 @@ class EmptyLegendarySlot(LegendaryItem):
                 self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
 
     def _load_animation_frames(self):
-        """라그나로크 해머와 동일한 PNG 프레임을 사용한다."""
+        """헤르메스 신발 프레임을 재사용해 빈 슬롯도 동일한 아이콘을 보여준다."""
         import pygame
 
         self.animation_frames.clear()
 
         frames_loaded = 0
         for i in range(8):
-            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
+            frame_path = resource_path(f"items/legendary/hermes_shoes_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
                 cleaned_frame = _strip_legendary_red_ring(frame)
-
-                empty_surface = pygame.Surface(cleaned_frame.get_size(), pygame.SRCALPHA)
-                self.animation_frames.append(empty_surface)
+                self.animation_frames.append(cleaned_frame)
                 frames_loaded += 1
-                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (중앙 제거)")
+                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (헤르메스 프레임 공유)")
             except Exception as e:
                 print(f"[ERROR] Empty 프레임 {i} load failed: {frame_path} - {e}")
 
         if not self.animation_frames:
-            print("❌ empty 전설 슬롯: 라그나로크 PNG 프레임을 찾을 수 없습니다!")
+            print("❌ empty 전설 슬롯: 헤르메스 신발 PNG 프레임을 찾을 수 없습니다!")
 
 # 전설 아이템 관리자
 class LegendaryItemManager:
