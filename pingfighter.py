@@ -34972,6 +34972,11 @@ def show_victory_screen(stage_cleared, reward):
 
                 if not game_should_exit:
                     effects_manager.clear_all_effects()
+                    globals()["blacksmith_divine_stone_state"] = None
+                    globals()["blacksmith_divine_stage_owner"] = None
+                    controller = globals().get("BLACKSMITH_CONTROLLER")
+                    if controller is not None:
+                        controller.state.divine.state = None
                     reset_damage_manager()
                     main(next_stage_display)
             return
