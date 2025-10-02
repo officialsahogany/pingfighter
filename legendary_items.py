@@ -2268,15 +2268,50 @@ class EmptyLegendarySlot(LegendaryItem):
             frame_path = resource_path(f"items/legendary/hermes_shoes_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
-                empty_surface = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
-                self.animation_frames.append(empty_surface)
+                cleaned_frame = _strip_legendary_red_ring(frame)
+                self._erase_hermes_shoe(cleaned_frame)
+                self.animation_frames.append(cleaned_frame)
                 frames_loaded += 1
-                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (투명 프레임 준비)")
+                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (신발 제거)")
             except Exception as e:
                 print(f"[ERROR] Empty 프레임 {i} load failed: {frame_path} - {e}")
 
         if not self.animation_frames:
             print("❌ empty 전설 슬롯: 헤르메스 신발 PNG 프레임을 찾을 수 없습니다!")
+
+    def _erase_hermes_shoe(self, surface: pygame.Surface) -> None:
+        """헤르메스 프레임에서 신발 본체와 잔상만 제거한다."""
+        width, height = surface.get_size()
+        min_x, max_x = 6, max(0, width - 6)
+        min_y, max_y = 9, max(0, height - 6)
+
+        surface.lock()
+        try:
+            for y in range(min_y, max_y):
+                for x in range(min_x, max_x):
+                    color = surface.get_at((x, y))
+                    if color.a == 0:
+                        continue
+
+                    r, g, b = color.r, color.g, color.b
+
+                    keep_red_ring = g < 40 and b < 80
+                    keep_cool_glow = b >= 200 and b >= g and b >= r
+                    if keep_red_ring or keep_cool_glow:
+                        continue
+
+                    warm_gold = r >= 170 and g >= 110 and b <= 210
+                    pale_highlight = r >= 210 and g >= 195 and b <= 230
+                    dark_brown = r >= 90 and g <= 140 and b <= 140
+                    grey_shadow = r >= 40 and r <= 120 and g >= 40 and g <= 120 and b <= 140
+
+                    if warm_gold or pale_highlight or dark_brown or grey_shadow:
+                        surface.set_at((x, y), (0, 0, 0, 0))
+                    else:
+                        # 마지막으로 남는 중립 톤은 살짝 투명도를 낮춰 잔상을 없앤다.
+                        surface.set_at((x, y), (r, g, b, int(color.a * 0.35)))
+        finally:
+            surface.unlock()
 
 # 전설 아이템 관리자
 class LegendaryItemManager:
