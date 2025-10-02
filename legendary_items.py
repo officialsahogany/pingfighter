@@ -2205,8 +2205,19 @@ class EmptyLegendarySlot(LegendaryItem):
 
         hermes_frames = getattr(hermes, "animation_frames", None)
         if hermes_frames:
-            # 동일한 프레임 리스트를 공유해 스냅샷 차이를 제거한다.
-            self.animation_frames = hermes_frames
+            import pygame
+
+            frame_size = hermes_frames[0].get_size()
+            frame_count = len(hermes_frames)
+
+            # 빈 슬롯 전용 투명 프레임을 준비한다 (헤르메스와 동일한 크기만 유지)
+            if (
+                len(self.animation_frames) != frame_count
+                or (self.animation_frames and self.animation_frames[0].get_size() != frame_size)
+            ):
+                self.animation_frames = [
+                    pygame.Surface(frame_size, pygame.SRCALPHA) for _ in range(frame_count)
+                ]
 
         # 헤르메스의 애니메이션 진행도를 그대로 복제
         self.animation_time = getattr(hermes, "animation_time", self.animation_time)
@@ -2258,7 +2269,7 @@ class EmptyLegendarySlot(LegendaryItem):
                 self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
 
     def _load_animation_frames(self):
-        """헤르메스 신발 프레임을 재사용해 빈 슬롯도 동일한 아이콘을 보여준다."""
+        """헤르메스 프레임 크기와 개수에 맞춰 투명 프레임을 만든다."""
         import pygame
 
         self.animation_frames.clear()
@@ -2269,9 +2280,10 @@ class EmptyLegendarySlot(LegendaryItem):
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
                 cleaned_frame = _strip_legendary_red_ring(frame)
-                self.animation_frames.append(cleaned_frame)
+                empty_surface = pygame.Surface(cleaned_frame.get_size(), pygame.SRCALPHA)
+                self.animation_frames.append(empty_surface)
                 frames_loaded += 1
-                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (헤르메스 프레임 공유)")
+                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (투명 프레임 생성)")
             except Exception as e:
                 print(f"[ERROR] Empty 프레임 {i} load failed: {frame_path} - {e}")
 
