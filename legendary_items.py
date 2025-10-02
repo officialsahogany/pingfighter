@@ -2247,9 +2247,11 @@ class EmptyLegendarySlot(LegendaryItem):
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
                 cleaned_frame = _strip_legendary_red_ring(frame)
-                self.animation_frames.append(cleaned_frame)
+
+                empty_surface = pygame.Surface(cleaned_frame.get_size(), pygame.SRCALPHA)
+                self.animation_frames.append(empty_surface)
                 frames_loaded += 1
-                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path}")
+                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (중앙 제거)")
             except Exception as e:
                 print(f"[ERROR] Empty 프레임 {i} load failed: {frame_path} - {e}")
 
