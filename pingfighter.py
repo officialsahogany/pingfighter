@@ -43992,16 +43992,7 @@ def show_item_manager_menu():
                         (badge_height - badge_text.get_height()) // 2,
                     ))
                     SCREEN.blit(badge_surface, badge_rect.topleft)
-            # 아이템 이름
-            item_name = get_item_name_korean(item["name"])
-            # 시너지 효과일 때 보라색으로 표시
-            if item["name"] == "gravitybelt":
-                name_color = (128, 0, 128)  # 보라색
-            else:
-                name_color = WHITE
-            name_text = font_small.render(item_name, True, name_color)
-            name_rect = name_text.get_rect(center=(x + item_size // 2, y + item_size + 15))
-            SCREEN.blit(name_text, name_rect)
+            # 기존에는 아이콘 하단에 이름을 렌더링했으나 UX 요청으로 숨김 처리
         # 선택된 아이템 정보 표시
         info_y = grid_start_y + (grid_rows * (item_size + item_spacing)) + LARGE_SIZE
         info_text = font_medium.render("선택된 아이템:", True, WHITE)
