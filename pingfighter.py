@@ -57245,36 +57245,11 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 3 타이틀 표시
                 show_chapter_title(3, "DRIVE", "드라이브")
                 
-                # 드라이브 챕터: 플레이어 최대 게이지를 300으로 설정 (Chapter 2와 동일)
-                tutorial_drive_chapter_max_gauge = 300
-                
-                # Chapter 3 시작시 게이지 0으로 초기화
-                special_gauge = 0
-                print(f"튜토리얼: Chapter 3 시작 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
-                
-                # Chapter 3 (드라이브 연습)로 상태 변경
-                tutorial_needs_dash_practice = False  # 대쉬 연습 완료
-                tutorial_needs_drive_practice = True  # 드라이브 연습 필요
-                tutorial_drive_practice_shown = False  # 드라이브 대화 아직 표시 안됨
-                tutorial_dash_counter_active = False
-                tutorial_dash_count = 0
-                
-                # 드라이브 카운터 초기화
-                tutorial_drive_counter_active = False  # 160 게이지 달성시 활성화
-                tutorial_drive_count = 0
-                tutorial_left_drive_count = 0
-                tutorial_right_drive_count = 0
-                tutorial_displayed_drive_count = 0.0
-                tutorial_displayed_left_drive_count = 0.0
-                tutorial_displayed_right_drive_count = 0.0
-                tutorial_drive_helper_dialogue_shown = False
-                
-                # 게임 계속 진행을 위한 설정
-                reset_round()  # 라운드 리셋
-                tutorial_practice_mode = True  # 실습 모드 재활성화
-                
-                print("🎉 Chapter 2 스킵 완료, Chapter 3 - DRIVE 시작")
-                # continue로 메인 루프 계속 진행
+                tutorial_needs_dash_practice = False
+                tutorial_skip_chapter3_init = True
+                tutorial_pending_chapter_title = (3, "DRIVE", "드라이브")
+                print("🎉 Chapter 2 스킵 완료, Chapter 3 - DRIVE 준비")
+                return main(50)
             elif dash_dialogue_result:
                 # 대쉬 대화 후 바로 오버레이 도우미 활성화 (서브 도우미와 동일한 방식)
                 tutorial_dash_helper_active = True
