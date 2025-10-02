@@ -61689,9 +61689,17 @@ def show_item_management_menu(item_list, selected_index, item_type):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                # 라그나로크 해머의 애니메이션 뷰어 버튼 클릭 체크
+                if item_name == "ragnarok_hammer":
+                    viewer_button_rect = pygame.Rect(panel_x + panel_width - 140, panel_y + 20, 120, 30)
+                    if viewer_button_rect.collidepoint(mouse_pos):
+                        # 애니메이션 파트 뷰어 창 열기
+                        show_ragnarok_hammer_animation_viewer()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    return 
+                    return
                 elif event.key == pygame.K_LEFT:
                     if is_sensor_item:
                         selected = (selected - 1) % 3
