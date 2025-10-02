@@ -2268,65 +2268,15 @@ class EmptyLegendarySlot(LegendaryItem):
             frame_path = resource_path(f"items/legendary/hermes_shoes_frame_{i}.png")
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
-                cleaned_frame = _strip_legendary_red_ring(frame)
-                self._erase_hermes_shoe(cleaned_frame)
-                self.animation_frames.append(cleaned_frame)
+                empty_surface = pygame.Surface(frame.get_size(), pygame.SRCALPHA)
+                self.animation_frames.append(empty_surface)
                 frames_loaded += 1
-                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (신발 제거)")
+                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (투명 프레임 준비)")
             except Exception as e:
                 print(f"[ERROR] Empty 프레임 {i} load failed: {frame_path} - {e}")
 
         if not self.animation_frames:
             print("❌ empty 전설 슬롯: 헤르메스 신발 PNG 프레임을 찾을 수 없습니다!")
-
-    def _erase_hermes_shoe(self, surface: pygame.Surface) -> None:
-        """헤르메스 프레임에서 신발 픽셀만 투명하게 만든다."""
-        shoe_colors = {
-            (50, 30, 0, 255),
-            (50, 50, 50, 255),
-            (139, 90, 0, 255),
-            (184, 134, 11, 255),
-            (218, 165, 32, 255),
-            (255, 215, 0, 255),
-            (255, 223, 0, 255),
-            (255, 223, 170, 255),
-            (255, 228, 181, 255),
-            (255, 235, 205, 255),
-            (255, 248, 220, 255),
-            (255, 250, 240, 255),
-            (255, 255, 0, 255),
-            (100, 200, 255, 73),
-            (100, 200, 255, 46),
-            (100, 200, 255, 24),
-        }
-
-        width, height = surface.get_size()
-        min_x, max_x = 6, max(0, width - 6)
-        min_y, max_y = 9, max(0, height - 6)
-
-        surface.lock()
-        try:
-            for y in range(min_y, max_y):
-                for x in range(min_x, max_x):
-                    color = surface.get_at((x, y))
-                    if color.a == 0:
-                        continue
-                    rgba = (color.r, color.g, color.b, color.a)
-                    if rgba in shoe_colors:
-                        surface.set_at((x, y), (0, 0, 0, 0))
-
-            # 추가 안전장치: 중심부 전체를 투명하게 비워 실루엣을 제거한다.
-            center_x = surface.get_width() / 2
-            center_y = surface.get_height() / 2
-            inner_radius_sq = 11 ** 2
-            for y in range(min_y, max_y):
-                dy_sq = (y - center_y) ** 2
-                for x in range(min_x, max_x):
-                    dx_sq = (x - center_x) ** 2
-                    if dx_sq + dy_sq <= inner_radius_sq:
-                        surface.set_at((x, y), (0, 0, 0, 0))
-        finally:
-            surface.unlock()
 
 # 전설 아이템 관리자
 class LegendaryItemManager:
