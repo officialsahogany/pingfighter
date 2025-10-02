@@ -2318,19 +2318,10 @@ class EmptyLegendary(LegendaryItem):
         # 현재 프레임의 테두리 색상
         border_color = red_gradients[self.current_frame]
 
-        # 헤르메스 스타일 2중 내부 테두리 (중간 테두리 제거)
-        # 외곽 테두리 (헤르메스처럼 x+2, y+2 위치, 두께 1픽셀)
-        inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
-        pygame.draw.rect(screen, border_color, inner_rect_outer, 1)
-
-        # 내부 테두리 (더 어둡게, 두께 1픽셀)
-        inner_color = (
-            max(0, border_color[0] - 40),
-            max(0, border_color[1] - 20),
-            max(0, border_color[2] - 20)
-        )
-        inner_rect_inner = inner_rect_outer.inflate(-4, -4)
-        pygame.draw.rect(screen, inner_color, inner_rect_inner, 1)
+        # 헤르메스 스타일 단일 내부 테두리
+        # 내부 테두리 (헤르메스처럼 x+2, y+2 위치, 두께 1픽셀)
+        inner_rect = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
+        pygame.draw.rect(screen, border_color, inner_rect, 1)
 
         # 헤르메스 스타일 모서리 점 - 8프레임 흰색~하늘색 그라데이션 (더 밝고 부드러운 색상)
         corner_gradients = [
