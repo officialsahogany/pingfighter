@@ -2347,6 +2347,31 @@ class EmptyLegendarySlot2(LegendaryItem):
         # 공통 배경 프레임 연출 (라그나로크 해머와 동일)
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
+        # 라그나로크 해머 스타일의 은색 모서리가 있는 내부 테두리 추가
+        # 은색 그라데이션 모서리 그리기
+        corner_size = 6
+        silver_colors = [
+            (200, 200, 200),  # 밝은 은색
+            (160, 160, 160),  # 중간 은색
+            (120, 120, 120),  # 어두운 은색
+        ]
+
+        # 각 모서리에 은색 그라데이션 사각형 그리기
+        corners = [
+            (x + 4, y + frame_offset + 4),  # 좌상단
+            (x + size - corner_size - 4, y + frame_offset + 4),  # 우상단
+            (x + 4, y + frame_offset + size - corner_size - 4),  # 좌하단
+            (x + size - corner_size - 4, y + frame_offset + size - corner_size - 4),  # 우하단
+        ]
+
+        for corner_x, corner_y in corners:
+            # 그라데이션 효과를 위해 여러 레이어 그리기
+            for i, color in enumerate(silver_colors):
+                offset = i * 1
+                pygame.draw.rect(screen, color,
+                               (corner_x + offset, corner_y + offset,
+                                corner_size - offset * 2, corner_size - offset * 2))
+
         # 라그나로크 해머 스타일의 번개 효과만 그리기 (해머 그림 제외)
         if self.current_frame in [0, 4]:
             bolt_color = (255, 255, 150)
