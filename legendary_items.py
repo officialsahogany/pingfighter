@@ -2193,12 +2193,39 @@ class EmptyLegendarySlot(LegendaryItem):
         self.animation_speed = 4  # 헤르메스 아이콘과 동일한 속도로 재생
         self._load_animation_frames()
 
+    def _sync_with_hermes_state(self) -> bool:
+        """현재 전설 매니저에 등록된 헤르메스 아이콘 상태를 그대로 복제한다."""
+        manager = globals().get("_legendary_manager")
+        if not manager or not hasattr(manager, "items"):
+            return False
+
+        hermes = manager.items.get("hermes_shoes")
+        if not hermes:
+            return False
+
+        hermes_frames = getattr(hermes, "animation_frames", None)
+        if hermes_frames:
+            # 동일한 프레임 리스트를 공유해 스냅샷 차이를 제거한다.
+            self.animation_frames = hermes_frames
+
+        # 헤르메스의 애니메이션 진행도를 그대로 복제
+        self.animation_time = getattr(hermes, "animation_time", self.animation_time)
+        self.animation_offset = getattr(hermes, "animation_offset", self.animation_offset)
+        self.glow_intensity = getattr(hermes, "glow_intensity", self.glow_intensity)
+        self.particle_timer = getattr(hermes, "particle_timer", self.particle_timer)
+        self.current_frame = getattr(hermes, "current_frame", self.current_frame)
+        self.frame_counter = getattr(hermes, "frame_counter", self.frame_counter)
+        self.animation_speed = getattr(hermes, "animation_speed", self.animation_speed)
+        return True
+
     def activate(self, game_state: Dict):
         """빈 슬롯은 활성화되지 않는다."""
         self.active = False
 
     def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
         import pygame
+
+        self._sync_with_hermes_state()
 
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
@@ -2219,6 +2246,9 @@ class EmptyLegendarySlot(LegendaryItem):
 
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
+
+        # 헤르메스 아이콘과 완전히 동기화
+        self._sync_with_hermes_state()
 
         if self.animation_frames and len(self.animation_frames) > 1:
             self.frame_counter += 1
