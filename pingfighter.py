@@ -36670,11 +36670,21 @@ def draw_tutorial_serve_reminder():
     
     if not tutorial_serve_reminder_active:
         return
-    
+
+    current_chapter = globals().get('tutorial_current_chapter', 0)
+    if isinstance(current_chapter, int):
+        if current_chapter <= 1:
+            return
+    elif getattr(current_chapter, 'value', None) is not None:
+        if current_chapter.value <= 1:
+            return
+    else:
+        return
+
     # 드라이브 카운터가 활성화되면 서브 알림창 표시 안함
     if 'tutorial_drive_counter_active' in globals() and tutorial_drive_counter_active:
         return
-    
+
     # 폰트 설정
     font_large = FontStyle.subtitle()  # 32pt 메인 텍스트용
     
