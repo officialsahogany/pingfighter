@@ -11613,6 +11613,11 @@ def _is_divine_state_active(state: dict[str, object] | None) -> bool:
 def is_blacksmith_divine_stone_active() -> bool:
     """디바인스톤이 건설되어 필드에 남아있는지 여부를 반환한다."""
 
+    owner_stage = globals().get("blacksmith_divine_stage_owner")
+    current_stage_value = globals().get("current_stage")
+    if owner_stage is not None and current_stage_value is not None and owner_stage != current_stage_value:
+        return False
+
     if _is_divine_state_active(globals().get("blacksmith_divine_stone_state")):
         return True
 
