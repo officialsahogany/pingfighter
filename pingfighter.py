@@ -56319,9 +56319,27 @@ def main(stage_num, new_boss_mode=False):
         preserve_divine=preserve_divine_runtime,
         stage_num=stage_num,
     )
-    damage_manager = get_damage_manager()
-    if not is_blacksmith_divine_stone_active():
-        damage_manager.clear_building("divine_stone")
+    damage_manager = reset_damage_manager()
+    divine_state = BLACKSMITH_CONTROLLER.state.divine.state
+    if not _is_divine_state_active(divine_state):
+        divine_state = globals().get("blacksmith_divine_stone_state")
+    if _is_divine_state_active(divine_state):
+        rect = divine_state.get("rect")
+        if rect is not None:
+            max_hp = int(divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP))
+            hp = int(divine_state.get("hp", max_hp))
+            damage_manager.register_building("divine_stone", rect, max_hp)
+            damage_manager.update_building_hp("divine_stone", hp)
+
+    turret_runtime = BLACKSMITH_CONTROLLER.state.turret
+    turret_state = getattr(turret_runtime, "state", None)
+    if turret_runtime.active and isinstance(turret_state, dict):
+        rect = turret_state.get("rect")
+        if rect is not None:
+            max_hp = int(turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP))
+            hp = int(turret_state.get("hp", max_hp))
+            damage_manager.register_building("turret", rect, max_hp)
+            damage_manager.update_building_hp("turret", hp)
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
