@@ -23789,8 +23789,6 @@ def handle_player(keys):
                     if blacksmith_umbrella_gauge <= 0:
                         request_blacksmith_umbrella_close(play_sound=True, flash=True)
                     gauge_reduced = True
-                    blocking_skill_bonus = True
-                    blacksmith_blocking_bonus_pending = True
                     print(
                         "[DEBUG BLOCKING] gauge reduced via shield",
                         {
