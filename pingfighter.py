@@ -23733,11 +23733,32 @@ def handle_player(keys):
                         request_blacksmith_umbrella_close(play_sound=True, flash=True)
                     gauge_reduced = True
 
-        if (
-            not gauge_reduced
-            and blacksmith_umbrella_retracting
-            and 0 <= frame_counter - blacksmith_umbrella_retract_start_frame <= BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
-        ):
+        try:
+            penalty_window_active = (
+                not gauge_reduced
+                and blacksmith_umbrella_retracting
+                and 0 <= frame_counter - blacksmith_umbrella_retract_start_frame <= BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
+            )
+        except UnboundLocalError:
+            print(
+                "[DEBUG GAUGE] gauge_reduced undefined before penalty check",
+                {
+                    "collision": collision_with_player,
+                    "shield_guarding": shield_guarding,
+                    "retracting": blacksmith_umbrella_retracting,
+                    "grace_timer": blacksmith_umbrella_retract_grace_timer,
+                    "frame": frame_counter,
+                    "last_hit_by": last_hit_by,
+                },
+            )
+            gauge_reduced = False
+            penalty_window_active = (
+                not gauge_reduced
+                and blacksmith_umbrella_retracting
+                and 0 <= frame_counter - blacksmith_umbrella_retract_start_frame <= BLACKSMITH_UMBRELLA_RETRACT_HIT_GRACE_FRAMES
+            )
+
+        if penalty_window_active:
             print(
                 f"[DEBUG BLOCKING] penalty trigger frame={frame_counter} start={blacksmith_umbrella_retract_start_frame} gauge={blacksmith_umbrella_gauge} delta={frame_counter - blacksmith_umbrella_retract_start_frame}"
             )
