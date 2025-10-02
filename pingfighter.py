@@ -57547,6 +57547,8 @@ def main(stage_num, new_boss_mode=False):
             if current_chapter_before_skip == 2:
                 if 'tutorial_needs_dash_practice' in globals():
                     tutorial_needs_dash_practice = False
+                if 'tutorial_current_chapter' in globals():
+                    tutorial_current_chapter = 3
                 # Chapter 2 (대쉬 연습) 진행 중 -> Chapter 3 (드라이브)로 이동
                 print("튜토리얼: Chapter 2 (DASH) 완료, Chapter 3 - DRIVE로 이동")
                 
@@ -57567,56 +57569,38 @@ def main(stage_num, new_boss_mode=False):
             elif current_chapter_before_skip == 3:
                 if 'tutorial_needs_drive_practice' in globals():
                     tutorial_needs_drive_practice = False
-                # Chapter 2 (대쉬 연습) 진행 중 -> Chapter 3 (드라이브)로 이동
-                # Chapter 2 완료 요약 화면 표시
-                show_chapter_completion_summary(2)
-                
-                # Chapter 3 타이틀 표시
-                show_chapter_title(3, "DRIVE", "드라이브")
-                
-                # 챕터3 상태를 유지하기 위한 전역 플래그 설정
-                tutorial_skip_chapter3_init = True
-                
-                # 스테이지 50 재시작 (드라이브 튜토리얼로)
-                print("튜토리얼: Chapter 3 - DRIVE 시작, 스테이지 50 재시작")
-                
-                return main(50)  # 스테이지 50으로 다시 시작하여 드라이브 튜토리얼 진행
-                
-            elif 'tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None:
-                # Chapter 3 (드라이브) 진행 중 -> Chapter 4로 이동
-                print("튜토리얼: Chapter 3 (DRIVE) 완료, Chapter 4 - POWER SMASHING으로 이동")
-                
-                # Chapter 4로 전환
-                print(f"🔍 DEBUG: 8번키 - 전환 전 chapter = {tutorial_current_chapter}")
-                tutorial_current_chapter = 4
-                print(f"🔍 DEBUG: 8번키 - 전환 후 chapter = {tutorial_current_chapter}")
-                
-                # 챕터별 임시 게이지 오버라이드 해제 (Chapter 4는 500 고정)
-                tutorial_chapter1_max_gauge = None
-                tutorial_chapter2_max_gauge = None
-                tutorial_drive_chapter_max_gauge = None
-                print(f"🔍 DEBUG: 게이지 오버라이드 해제 완료, 새 max_gauge = {get_max_gauge()}")
-                
-                # Chapter 3 완료 요약 화면 표시
-                show_chapter_completion_summary(3)
-                
-                # Chapter 4 타이틀 표시
-                show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
-                
-                # Chapter 4 초기 설정
-                special_gauge = 0  # 게이지 리셋
-                tutorial_needs_drive_practice = False  # 드라이브 연습 완료
-                tutorial_needs_power_practice = True  # 파워스매싱 연습 필요
-                tutorial_power_practice_shown = False  # 파워스매싱 대화 아직 안보임
-                
-                # Chapter 4 초기화 후 파워스매싱 도우미 대화 표시
-                show_tutorial_power_practice_dialogue()
-                chapter4_dialogue_completed = True  # 대화 완료 표시
-                
-                # 서브 알림 활성화
-                chapter4_serve_reminder_active = True
-                chapter4_serve_reminder_timer = pygame.time.get_ticks()
-                print("📚 Chapter 4 시작: 서브 알림 활성화")
+                if 'tutorial_current_chapter' in globals():
+                    tutorial_current_chapter = 3
+                if 'tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None:
+                    # Chapter 3 (드라이브) 진행 중 -> Chapter 4로 이동
+                    print("튜토리얼: Chapter 3 (DRIVE) 완료, Chapter 4 - POWER SMASHING으로 이동")
+                    print(f"🔍 DEBUG: 8번키 - 전환 전 chapter = {tutorial_current_chapter}")
+                    tutorial_current_chapter = 4
+                    print(f"🔍 DEBUG: 8번키 - 전환 후 chapter = {tutorial_current_chapter}")
+                    tutorial_chapter1_max_gauge = None
+                    tutorial_chapter2_max_gauge = None
+                    tutorial_drive_chapter_max_gauge = None
+                    print(f"🔍 DEBUG: 게이지 오버라이드 해제 완료, 새 max_gauge = {get_max_gauge()}")
+                    show_chapter_completion_summary(3)
+                    show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
+                    special_gauge = 0
+                    tutorial_needs_drive_practice = False
+                    tutorial_needs_power_practice = True
+                    tutorial_power_practice_shown = False
+                    show_tutorial_power_practice_dialogue()
+                    chapter4_dialogue_completed = True
+                    chapter4_serve_reminder_active = True
+                    chapter4_serve_reminder_timer = pygame.time.get_ticks()
+                    print("📚 Chapter 4 시작: 서브 알림 활성화")
+                else:
+                    # 드라이브 챕터를 새로 시작해야 하는 상태
+                    print("튜토리얼: Chapter 3 준비 상태 감지, 드라이브 튜토리얼을 재시작")
+                    show_chapter_completion_summary(2)
+                    show_chapter_title(3, "DRIVE", "드라이브")
+                    tutorial_skip_chapter3_init = True
+                    if 'tutorial_current_chapter' in globals():
+                        tutorial_current_chapter = 3
+                    return main(50)
                 
             elif tutorial_current_chapter == 4:
                 # Chapter 4 진행 중 -> 튜토리얼 완료
