@@ -43797,7 +43797,8 @@ def show_item_manager_menu():
             if item.unlocked:  # 해금된 전설 아이템만 표시
                 # 전설 아이템 아이콘 가져오기
                 if item.name == "empty":
-                    legendary_icon = None
+                    # 빈 슬롯도 헤르메스 아이콘을 공유해 비어 보이지 않게 유지
+                    legendary_icon = get_item_icon("hermes_shoes")
                 else:
                     legendary_icon = get_item_icon(item.name)
                 legendary_items.append({
