@@ -2204,20 +2204,9 @@ class EmptyLegendarySlot(LegendaryItem):
             return False
 
         hermes_frames = getattr(hermes, "animation_frames", None)
-        if hermes_frames:
-            import pygame
-
-            frame_size = hermes_frames[0].get_size()
-            frame_count = len(hermes_frames)
-
-            # 빈 슬롯 전용 투명 프레임을 준비한다 (헤르메스와 동일한 크기만 유지)
-            if (
-                len(self.animation_frames) != frame_count
-                or (self.animation_frames and self.animation_frames[0].get_size() != frame_size)
-            ):
-                self.animation_frames = [
-                    pygame.Surface(frame_size, pygame.SRCALPHA) for _ in range(frame_count)
-                ]
+        if hermes_frames and len(self.animation_frames) != len(hermes_frames):
+            # 헤르메스 프레임 수가 변경되면 재생성한다.
+            self._load_animation_frames()
 
         # 헤르메스의 애니메이션 진행도를 그대로 복제
         self.animation_time = getattr(hermes, "animation_time", self.animation_time)
@@ -2269,7 +2258,7 @@ class EmptyLegendarySlot(LegendaryItem):
                 self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
 
     def _load_animation_frames(self):
-        """헤르메스 프레임 크기와 개수에 맞춰 투명 프레임을 만든다."""
+        """헤르메스 프레임을 기반으로 신발만 제거한 애니메이션을 생성한다."""
         import pygame
 
         self.animation_frames.clear()
@@ -2280,15 +2269,52 @@ class EmptyLegendarySlot(LegendaryItem):
             try:
                 frame = pygame.image.load(frame_path).convert_alpha()
                 cleaned_frame = _strip_legendary_red_ring(frame)
-                empty_surface = pygame.Surface(cleaned_frame.get_size(), pygame.SRCALPHA)
-                self.animation_frames.append(empty_surface)
+                self._erase_hermes_shoe(cleaned_frame)
+                self.animation_frames.append(cleaned_frame)
                 frames_loaded += 1
-                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (투명 프레임 생성)")
+                print(f"✓ empty 슬롯 프레임 {i} 로드 성공: {frame_path} (신발 제거)")
             except Exception as e:
                 print(f"[ERROR] Empty 프레임 {i} load failed: {frame_path} - {e}")
 
         if not self.animation_frames:
             print("❌ empty 전설 슬롯: 헤르메스 신발 PNG 프레임을 찾을 수 없습니다!")
+
+    def _erase_hermes_shoe(self, surface: pygame.Surface) -> None:
+        """헤르메스 프레임에서 신발 픽셀만 투명하게 만든다."""
+        shoe_colors = {
+            (50, 30, 0, 255),
+            (50, 50, 50, 255),
+            (139, 90, 0, 255),
+            (184, 134, 11, 255),
+            (218, 165, 32, 255),
+            (255, 215, 0, 255),
+            (255, 223, 0, 255),
+            (255, 223, 170, 255),
+            (255, 228, 181, 255),
+            (255, 235, 205, 255),
+            (255, 248, 220, 255),
+            (255, 250, 240, 255),
+            (255, 255, 0, 255),
+        }
+
+        width, height = surface.get_size()
+        min_x, max_x = 6, max(0, width - 6)
+        min_y, max_y = 9, max(0, height - 6)
+
+        surface.lock()
+        try:
+            for y in range(min_y, max_y):
+                for x in range(min_x, max_x):
+                    color = surface.get_at((x, y))
+                    if color.a == 0:
+                        continue
+                    rgba = (color.r, color.g, color.b, color.a)
+                    is_warm = color.r >= 120 and color.g >= 80 and color.b <= 220
+                    is_dark_brown = color.r >= 40 and color.r <= 120 and color.g <= 120 and color.b <= 120
+                    if rgba in shoe_colors or is_warm or is_dark_brown:
+                        surface.set_at((x, y), (0, 0, 0, 0))
+        finally:
+            surface.unlock()
 
 # 전설 아이템 관리자
 class LegendaryItemManager:
