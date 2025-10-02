@@ -2275,10 +2275,10 @@ class EmptyLegendary(LegendaryItem):
         self._cached_icon: Optional[pygame.Surface] = None
         self._cached_size: int | None = None
 
-        # 8프레임 애니메이션을 위한 변수 추가 (사용하지 않지만 호환성 위해 유지)
+        # 8프레임 애니메이션을 위한 변수 추가
         self.current_frame = 0
         self.frame_counter = 0
-        self.animation_speed = 8  # 라그나로크 해머와 동일한 속도
+        self.animation_speed = 4  # 헤르메스의 신발과 동일한 속도 (더 빠른 애니메이션)
 
     def activate(self, game_state: Dict):
         """실제 게임 효과는 존재하지 않는다."""
@@ -2288,7 +2288,7 @@ class EmptyLegendary(LegendaryItem):
         import pygame
         import math
 
-        # 라그나로크/헤르메스와 동일한 방식: 공통 배경 프레임 + 내부 펄스 사용
+        # 헤르메스 스타일: 공통 배경 프레임 (내부 펄스는 비활성화하고 8프레임 애니메이션으로 대체)
         frame_offset = _draw_common_legendary_frame(
             screen,
             x,
@@ -2297,10 +2297,77 @@ class EmptyLegendary(LegendaryItem):
             self.animation_time,
             border_color=COMMON_LEGENDARY_BORDER_COLOR,
             corner_color=COMMON_LEGENDARY_CORNER_COLOR,
-            draw_inner_pulse=True,  # 다른 전설 아이템과 동일하게 내부 펄스 활성화
+            draw_inner_pulse=False,  # 내부 펄스 대신 8프레임 애니메이션 사용
         )
 
         frame_y = y + frame_offset
+
+        # 헤르메스 스타일 8프레임 빨간색 그라데이션 내부 테두리
+        # 더 부드러운 그라데이션 변화
+        red_gradients = [
+            (180, 20, 20),    # 프레임 0: 어두운 빨강
+            (200, 30, 30),    # 프레임 1
+            (220, 40, 40),    # 프레임 2
+            (240, 50, 50),    # 프레임 3: 중간 빨강
+            (255, 60, 60),    # 프레임 4: 밝은 빨강
+            (240, 50, 50),    # 프레임 5
+            (220, 40, 40),    # 프레임 6
+            (200, 30, 30),    # 프레임 7
+        ]
+
+        # 현재 프레임의 테두리 색상
+        border_color = red_gradients[self.current_frame]
+
+        # 헤르메스 스타일 단일 내부 테두리
+        # 내부 테두리 (헤르메스처럼 x+2, y+2 위치, 두께 3픽셀 - 3배 증가)
+        inner_rect = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
+        pygame.draw.rect(screen, border_color, inner_rect, 3)
+
+        # 헤르메스 스타일 모서리 점 - 8프레임 흰색~연한 파랑색 그라데이션 (더 뚜렷한 변화)
+        corner_gradients = [
+            (255, 255, 255),  # 프레임 0: 순수 흰색
+            (235, 240, 255),  # 프레임 1: 거의 흰색에 아주 약간 파란 빛
+            (215, 225, 255),  # 프레임 2: 연한 흰 파랑
+            (195, 210, 255),  # 프레임 3: 밝은 하늘색
+            (175, 195, 255),  # 프레임 4: 연한 파랑색
+            (185, 205, 255),  # 프레임 5: 밝은 하늘색으로 돌아가기
+            (205, 220, 255),  # 프레임 6: 연한 흰 파랑으로 돌아가기
+            (230, 240, 255),  # 프레임 7: 거의 흰색으로 돌아가기
+        ]
+
+        corner_color = corner_gradients[self.current_frame]
+
+        # 헤르메스 스타일의 모서리 장식 (20% 감소: 8px → 6px)
+        corner_size = 6  # 8 * 0.8 = 6.4 ≈ 6
+
+        # 빨간색 테두리의 정확한 모서리 꼭짓점 위치
+        # 빨간색 테두리가 pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)이므로
+        # 테두리 모서리 끝점들은:
+        corners = [
+            (x + 2, frame_y + 2),  # 좌상단 모서리
+            (x + size - 2, frame_y + 2),  # 우상단 모서리
+            (x + 2, frame_y + size - 2),  # 좌하단 모서리
+            (x + size - 2, frame_y + size - 2),  # 우하단 모서리
+        ]
+
+        for corner_x, corner_y in corners:
+            # 모서리 점의 중심을 테두리 모서리 끝에 정확히 위치
+            center_x = corner_x
+            center_y = corner_y
+
+            # 외곽 원 (큰 원, 크기 증가)
+            pygame.draw.circle(screen, corner_color, (center_x, center_y), corner_size // 2)
+
+            # 중간 원 (더 밝게, 크기 증가)
+            mid_color = (
+                min(255, corner_color[0] + 20),
+                min(255, corner_color[1] + 20),
+                min(255, corner_color[2] + 10)
+            )
+            pygame.draw.circle(screen, mid_color, (center_x, center_y), corner_size // 3)
+
+            # 중심 하이라이트 (더 큰 점)
+            pygame.draw.circle(screen, (255, 255, 255), (center_x, center_y), 2)
 
         # 빈 내부 (투명) - 아이콘 부분만 비움
         if self._cached_icon is None or self._cached_size != size:
@@ -2313,6 +2380,12 @@ class EmptyLegendary(LegendaryItem):
         if self._cached_icon:
             screen.blit(self._cached_icon, (x, icon_y))
 
+        # 프레임 카운터 업데이트 (8프레임 애니메이션)
+        self.frame_counter += 1
+        if self.frame_counter >= self.animation_speed:
+            self.frame_counter = 0
+            self.current_frame = (self.current_frame + 1) % 8
+
         # 파티클 효과 (라그나로크 해머와 동일)
         if self.particle_timer > 1.0:
             self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
@@ -2320,7 +2393,14 @@ class EmptyLegendary(LegendaryItem):
 
     def update(self, dt: float, ui_mode: bool = False):
         super().update(dt, ui_mode)
-        # 파티클 타이머는 부모 클래스에서 처리됨
+
+        # 8프레임 애니메이션 업데이트
+        self.frame_counter += 1
+        if self.frame_counter >= self.animation_speed:
+            self.frame_counter = 0
+            self.current_frame = (self.current_frame + 1) % 8
+
+        self.particle_timer = 0
 
 
 class EmptyLegendarySlot(LegendaryItem):
