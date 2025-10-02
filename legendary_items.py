@@ -195,7 +195,8 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
                                  border_color: Tuple[int, int, int] = COMMON_LEGENDARY_BORDER_COLOR,
                                  corner_color: Tuple[int, int, int] = COMMON_LEGENDARY_CORNER_COLOR,
                                  offset_animation_time: Optional[float] = None,
-                                 corner_style: str = "default") -> int:
+                                 corner_style: str = "default",
+                                 draw_inner_pulse: bool = True) -> int:
     """전설 아이콘의 공통 배경 프레임을 그린다.
 
     Returns:
@@ -227,32 +228,33 @@ def _draw_common_legendary_frame(screen: pygame.Surface,
 
     screen.blit(glow_surface, (x, frame_y))
 
-    # 내부 붉은색 테두리 (프레임별 그라데이션)
-    inner_pulse = (math.sin(animation_time * 6.0) + 1) / 2
-    outer_inner_color = (
-        int(150 + 70 * inner_pulse),
-        int(30 + 35 * inner_pulse),
-        int(30 + 35 * inner_pulse)
-    )
-    inner_inner_color = (
-        int(120 + 60 * inner_pulse),
-        int(10 + 25 * inner_pulse),
-        int(10 + 25 * inner_pulse)
-    )
+    if draw_inner_pulse:
+        # 내부 붉은색 테두리 (프레임별 그라데이션)
+        inner_pulse = (math.sin(animation_time * 6.0) + 1) / 2
+        outer_inner_color = (
+            int(150 + 70 * inner_pulse),
+            int(30 + 35 * inner_pulse),
+            int(30 + 35 * inner_pulse)
+        )
+        inner_inner_color = (
+            int(120 + 60 * inner_pulse),
+            int(10 + 25 * inner_pulse),
+            int(10 + 25 * inner_pulse)
+        )
 
-    inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
-    inner_rect_mid = inner_rect_outer.inflate(-2, -2)
-    inner_rect_inner = inner_rect_outer.inflate(-4, -4)
+        inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
+        inner_rect_mid = inner_rect_outer.inflate(-2, -2)
+        inner_rect_inner = inner_rect_outer.inflate(-4, -4)
 
-    mid_inner_color = (
-        (outer_inner_color[0] + inner_inner_color[0]) // 2,
-        (outer_inner_color[1] + inner_inner_color[1]) // 2,
-        (outer_inner_color[2] + inner_inner_color[2]) // 2,
-    )
+        mid_inner_color = (
+            (outer_inner_color[0] + inner_inner_color[0]) // 2,
+            (outer_inner_color[1] + inner_inner_color[1]) // 2,
+            (outer_inner_color[2] + inner_inner_color[2]) // 2,
+        )
 
-    pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 1)
-    pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 1)
-    pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
+        pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 1)
+        pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 1)
+        pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
 
     # 공통 테두리와 코너 장식
     border_rect = pygame.Rect(x - 1, frame_y - 1, size + 2, size + 2)
@@ -1870,499 +1872,6 @@ class PoseidonTrident(LegendaryItem):
                            int(droplet['y'] - droplet['size'])))
 
 
-class RabbitLegendary(LegendaryItem):
-    """토끼 전설 아이템 - 라그나로크 테두리에 전설 대기 글로우를 결합"""
-    def __init__(self):
-        super().__init__(
-            name="rabbit_legendary",
-            korean_name="토끼",
-            description="테스트용 전설 아이템입니다",
-            unlock_condition="테스트용 - 항상 해금",
-            icon_path=None  # 고유 애니메이션 사용
-        )
-        # 라그나로크 해머 프레임을 로드 (내부 테두리용)
-        self.ragnarok_frames = []
-        self.current_frame = 0
-        self.frame_counter = 0
-        self.animation_speed = 8
-        self._load_ragnarok_frames()
-
-    def _load_ragnarok_frames(self):
-        """라그나로크 해머 프레임 로드 (내부 테두리로 사용)"""
-        import pygame
-        self.ragnarok_frames.clear()
-
-        for i in range(8):
-            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
-            try:
-                frame = pygame.image.load(frame_path).convert_alpha()
-                # 빨간 배경 제거하지 않고 원본 그대로 사용
-                self.ragnarok_frames.append(frame)
-                print(f"✓ 토끼용 라그나로크 프레임 {i} 로드 성공")
-            except Exception as e:
-                print(f"[ERROR] 토끼용 라그나로크 프레임 {i} 로드 실패: {e}")
-                # 실패 시 빈 프레임 생성
-                empty_frame = pygame.Surface((60, 60), pygame.SRCALPHA)
-                self.ragnarok_frames.append(empty_frame)
-
-        print(f"토끼 아이콘: 라그나로크 프레임 {len([f for f in self.ragnarok_frames if f.get_size() != (60, 60)])}/8개 로드")
-
-    def check_unlock_condition(self, game_stats: Dict) -> bool:
-        """항상 해금"""
-        return True
-
-    def _draw_rabbit(self, surface, x, y, size):
-        """토끼 그리기 (라그나로크 프레임 위에)"""
-        import pygame
-        center_x = x + size // 2
-        center_y = y + size // 2
-
-        # 애니메이션 오프셋 적용 (위아래 움직임)
-        offset_y = int(math.sin(self.animation_time * 2.5) * 2)
-
-        # 토끼 머리 (간단한 버전)
-        head_size = int(size * 0.3)
-        head_y = center_y - int(size * 0.05) + offset_y
-        pygame.draw.circle(surface, (255, 255, 255), (center_x, head_y), head_size//2)
-        pygame.draw.circle(surface, (240, 240, 240), (center_x, head_y), head_size//2, 2)
-
-        # 토끼 귀
-        ear_width = int(size * 0.1)
-        ear_height = int(size * 0.3)
-
-        # 왼쪽 귀
-        left_ear_x = center_x - int(size * 0.1)
-        left_ear_y = head_y - int(size * 0.25) + offset_y
-        pygame.draw.ellipse(surface, (255, 255, 255),
-                          (left_ear_x - ear_width//2, left_ear_y,
-                           ear_width, ear_height))
-        pygame.draw.ellipse(surface, (255, 192, 203),  # 분홍색 내부
-                          (left_ear_x - ear_width//3, left_ear_y + ear_height//4,
-                           ear_width*2//3, ear_height//2))
-
-        # 오른쪽 귀
-        right_ear_x = center_x + int(size * 0.1)
-        right_ear_y = head_y - int(size * 0.25) + offset_y
-        pygame.draw.ellipse(surface, (255, 255, 255),
-                          (right_ear_x - ear_width//2, right_ear_y,
-                           ear_width, ear_height))
-        pygame.draw.ellipse(surface, (255, 192, 203),  # 분홍색 내부
-                          (right_ear_x - ear_width//3, right_ear_y + ear_height//4,
-                           ear_width*2//3, ear_height//2))
-
-        # 눈
-        eye_size = max(2, int(size * 0.04))
-        eye_spacing = int(size * 0.08)
-        pygame.draw.circle(surface, (0, 0, 0),
-                         (center_x - eye_spacing, head_y + offset_y), eye_size)
-        pygame.draw.circle(surface, (0, 0, 0),
-                         (center_x + eye_spacing, head_y + offset_y), eye_size)
-
-        # 코 (분홍색 삼각형)
-        nose_size = max(2, int(size * 0.03))
-        nose_y = head_y + int(size * 0.08) + offset_y
-        nose_points = [
-            (center_x, nose_y),
-            (center_x - nose_size, nose_y - nose_size),
-            (center_x + nose_size, nose_y - nose_size)
-        ]
-        pygame.draw.polygon(surface, (255, 192, 203), nose_points)
-
-        # 입 (W 모양)
-        mouth_y = nose_y + int(size * 0.02) + offset_y
-        pygame.draw.arc(surface, (100, 100, 100),
-                       (center_x - nose_size*2, mouth_y - nose_size,
-                        nose_size*2, nose_size*2),
-                       0, math.pi, 1)
-        pygame.draw.arc(surface, (100, 100, 100),
-                       (center_x, mouth_y - nose_size,
-                        nose_size*2, nose_size*2),
-                       0, math.pi, 1)
-
-    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """아이콘 그리기 - 라그나로크 테두리와 전설 대기 스타일 글로우 결합"""
-        import pygame
-        import math
-
-        # 프레임 오프셋 계산 (위아래 움직임)
-        frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
-        icon_y = y + frame_offset
-
-        # 1. 파란색 글로우 (내부 테두리 아래에 표현)
-        pulse = (math.sin(self.animation_time * 4.0) + 1) / 2
-
-        # 전설 대기 슬롯과 동일한 파란 글로우를 중앙에 먼저 그려준다.
-        pulse_bucket = int(pulse * 20)
-        cache_key = (size, pulse_bucket)
-        glow_surface = _COMMON_LEGENDARY_BG_CACHE.get(cache_key)
-        if glow_surface is None:
-            pulse_ratio = pulse_bucket / 20 if pulse_bucket else 0
-            base_radius = max(6, int(size * 0.42))
-            outer_radius = min(size // 2, int(base_radius + size * 0.05 * pulse_ratio))
-            inner_radius = max(4, int(outer_radius * 0.65))
-
-            glow_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-            center = (size // 2, size // 2)
-            pygame.draw.circle(glow_surface, (30, 90, 170, 80), center, outer_radius)
-            pygame.draw.circle(glow_surface, (70, 140, 200, 150), center, int(outer_radius * 0.85))
-            pygame.draw.circle(glow_surface, (140, 190, 220, 190), center, inner_radius)
-            _COMMON_LEGENDARY_BG_CACHE[cache_key] = glow_surface
-
-        screen.blit(glow_surface, (x, icon_y))
-
-        # 2. 라그나로크 해머 프레임 그리기 (실제 PNG 프레임 사용)
-        if self.ragnarok_frames and len(self.ragnarok_frames) > 0:
-            # 프레임 애니메이션 업데이트
-            self.frame_counter += 1
-            if self.frame_counter >= self.animation_speed:
-                self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.ragnarok_frames)
-
-            # 현재 프레임 가져오기
-            current_ragnarok_frame = self.ragnarok_frames[self.current_frame]
-
-            # 프레임 크기 조정
-            if current_ragnarok_frame.get_size() != (size, size):
-                scaled_frame = pygame.transform.scale(current_ragnarok_frame, (size, size))
-            else:
-                scaled_frame = current_ragnarok_frame
-
-            # 붉은 링/코너 하이라이트만 추출해 중앙 오브젝트 흔적(망치 손잡이 등)을 제거
-            ring_overlay = _extract_ring_overlay(scaled_frame)
-
-            # 프레임 그리기 (중앙은 투명 영역으로 유지)
-            screen.blit(ring_overlay, (x, icon_y))
-        else:
-            # 프레임 로드 실패 시 대체 내부 테두리 그리기
-            # 내부 빨간색 테두리 (3중 라인)
-            inner_pulse = (math.sin(self.animation_time * 6.0) + 1) / 2
-
-            outer_inner_color = (
-                int(150 + 70 * inner_pulse),
-                int(30 + 35 * inner_pulse),
-                int(30 + 35 * inner_pulse)
-            )
-            inner_inner_color = (
-                int(120 + 60 * inner_pulse),
-                int(10 + 25 * inner_pulse),
-                int(10 + 25 * inner_pulse)
-            )
-
-            inner_rect_outer = pygame.Rect(x + 2, icon_y + 2, size - 4, size - 4)
-            inner_rect_mid = inner_rect_outer.inflate(-2, -2)
-            inner_rect_inner = inner_rect_outer.inflate(-4, -4)
-
-            mid_inner_color = (
-                (outer_inner_color[0] + inner_inner_color[0]) // 2,
-                (outer_inner_color[1] + inner_inner_color[1]) // 2,
-                (outer_inner_color[2] + inner_inner_color[2]) // 2
-            )
-
-            pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 1)
-            pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 1)
-            pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
-
-        # 3. 중앙은 비워둠 (토끼 그리지 않음)
-
-        # 4. 외부 테두리와 코너 장식 (라그나로크와 동일)
-        # 은색-파란색 테두리
-        border_color = (150 + int(50 * pulse), 170 + int(30 * pulse), 200 + int(30 * pulse))
-        border_rect = pygame.Rect(x - 1, icon_y - 1, size + 2, size + 2)
-        pygame.draw.rect(screen, border_color, border_rect, 2)
-
-        # 금색 ㄱ자 코너 장식
-        corner_color = (255, 215, 0)  # 금색
-        corner_size = 8
-
-        # 좌상단
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x - 2, icon_y + corner_size), (x - 2, icon_y - 2),
-                          (x + corner_size, icon_y - 2)], 2)
-        # 우상단
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x + size - corner_size + 2, icon_y - 2),
-                          (x + size + 2, icon_y - 2),
-                          (x + size + 2, icon_y + corner_size)], 2)
-        # 좌하단
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x - 2, icon_y + size - corner_size + 2),
-                          (x - 2, icon_y + size + 2),
-                          (x + corner_size, icon_y + size + 2)], 2)
-        # 우하단
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x + size - corner_size + 2, icon_y + size + 2),
-                          (x + size + 2, icon_y + size + 2),
-                          (x + size + 2, icon_y + size - corner_size + 2)], 2)
-
-        # 코너에 작은 금색 점
-        for cx, cy in [(x, icon_y), (x + size, icon_y),
-                       (x, icon_y + size), (x + size, icon_y + size)]:
-            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
-
-        # 파티클 효과
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size//2, icon_y + size//2)
-            self.particle_timer = 0
-
-    def update(self, dt: float, ui_mode: bool = False):
-        """애니메이션 업데이트"""
-        super().update(dt, ui_mode)
-
-        # 프레임 카운터 업데이트
-        self.frame_counter += 1
-        if self.frame_counter >= self.animation_speed:
-            self.frame_counter = 0
-            self.current_frame = (self.current_frame + 1) % 8
-
-
-class EmptyIcon(LegendaryItem):
-    """빈 아이콘 - 라그나로크 테두리만 있는 전설 아이템"""
-    def __init__(self):
-        super().__init__(
-            name="empty_icon",
-            korean_name="빈아이콘",
-            description="테스트용 빈 전설 아이템입니다",
-            unlock_condition="테스트용 - 항상 해금",
-            icon_path=None  # 고유 애니메이션 사용
-        )
-        # 라그나로크 해머 프레임을 로드 (내부 테두리용)
-        self.ragnarok_frames = []
-        self.current_frame = 0
-        self.frame_counter = 0
-        self.animation_speed = 8
-        self._load_ragnarok_frames()
-
-    def _load_ragnarok_frames(self):
-        """라그나로크 해머 프레임 로드 (내부 테두리로 사용)"""
-        import pygame
-        self.ragnarok_frames.clear()
-
-        for i in range(8):
-            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
-            try:
-                frame = pygame.image.load(frame_path).convert_alpha()
-                self.ragnarok_frames.append(frame)
-                print(f"✓ 빈아이콘용 라그나로크 프레임 {i} 로드 성공")
-            except Exception as e:
-                print(f"[ERROR] 빈아이콘용 라그나로크 프레임 {i} 로드 실패: {e}")
-                empty_frame = pygame.Surface((60, 60), pygame.SRCALPHA)
-                self.ragnarok_frames.append(empty_frame)
-
-        print(f"빈 아이콘: 라그나로크 프레임 {len([f for f in self.ragnarok_frames if f.get_size() != (60, 60)])}/8개 로드")
-
-    def check_unlock_condition(self, game_stats: Dict) -> bool:
-        """항상 해금"""
-        return True
-
-    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """아이콘 그리기 - 라그나로크 해머의 모든 테두리 효과 (중앙은 비움)"""
-        import pygame
-        import math
-
-        # 프레임 오프셋 계산 (위아래 움직임)
-        frame_offset = int(math.sin(self.animation_time * 2.5) * 2)
-        icon_y = y + frame_offset
-
-        # 1. 파란색 글로우 제거 (내부 테두리만 유지)
-        pulse = (math.sin(self.animation_time * 4.0) + 1) / 2
-
-        # 2. 라그나로크 해머 프레임 그리기 (내부 빨간 테두리 + 모서리 장식)
-        if self.ragnarok_frames and len(self.ragnarok_frames) > 0:
-            # 프레임 애니메이션 업데이트
-            self.frame_counter += 1
-            if self.frame_counter >= self.animation_speed:
-                self.frame_counter = 0
-                self.current_frame = (self.current_frame + 1) % len(self.ragnarok_frames)
-
-            # 현재 프레임 가져오기
-            current_ragnarok_frame = self.ragnarok_frames[self.current_frame]
-
-            # 프레임 크기 조정
-            if current_ragnarok_frame.get_size() != (size, size):
-                scaled_frame = pygame.transform.scale(current_ragnarok_frame, (size, size))
-            else:
-                scaled_frame = current_ragnarok_frame
-
-            # 라그나로크 프레임에서 중앙을 비워둠 (해머 부분 투명 처리)
-            frame_with_hole = pygame.Surface((size, size), pygame.SRCALPHA)
-
-            # 프레임 복사
-            for py in range(size):
-                for px in range(size):
-                    # 중앙 원형 영역 계산
-                    center_x = size // 2
-                    center_y = size // 2
-                    dist = math.sqrt((px - center_x) ** 2 + (py - center_y) ** 2)
-
-                    # 중앙 반경 (비워둘 공간)
-                    clear_radius = size // 3
-
-                    if dist < clear_radius:
-                        # 중앙은 완전히 비워둠
-                        frame_with_hole.set_at((px, py), (0, 0, 0, 0))
-                    else:
-                        # 테두리 부분은 그대로 복사
-                        color = scaled_frame.get_at((px, py))
-                        frame_with_hole.set_at((px, py), color)
-
-            # 프레임 그리기
-            screen.blit(frame_with_hole, (x, icon_y))
-        else:
-            # 프레임 로드 실패 시 대체 내부 테두리 그리기
-            inner_pulse = (math.sin(self.animation_time * 6.0) + 1) / 2
-
-            outer_inner_color = (
-                int(150 + 70 * inner_pulse),
-                int(30 + 35 * inner_pulse),
-                int(30 + 35 * inner_pulse)
-            )
-            inner_inner_color = (
-                int(120 + 60 * inner_pulse),
-                int(10 + 25 * inner_pulse),
-                int(10 + 25 * inner_pulse)
-            )
-
-            inner_rect_outer = pygame.Rect(x + 2, icon_y + 2, size - 4, size - 4)
-            inner_rect_mid = inner_rect_outer.inflate(-2, -2)
-            inner_rect_inner = inner_rect_outer.inflate(-4, -4)
-
-            mid_inner_color = (
-                (outer_inner_color[0] + inner_inner_color[0]) // 2,
-                (outer_inner_color[1] + inner_inner_color[1]) // 2,
-                (outer_inner_color[2] + inner_inner_color[2]) // 2
-            )
-
-            pygame.draw.rect(screen, outer_inner_color, inner_rect_outer, 1)
-            pygame.draw.rect(screen, mid_inner_color, inner_rect_mid, 1)
-            pygame.draw.rect(screen, inner_inner_color, inner_rect_inner, 1)
-
-        # 3. 외부 테두리와 코너 장식 (라그나로크와 동일)
-        # 은색-파란색 테두리
-        border_color = (150 + int(50 * pulse), 170 + int(30 * pulse), 200 + int(30 * pulse))
-        border_rect = pygame.Rect(x - 1, icon_y - 1, size + 2, size + 2)
-        pygame.draw.rect(screen, border_color, border_rect, 2)
-
-        # 금색 ㄱ자 코너 장식
-        corner_color = (255, 215, 0)  # 금색
-        corner_size = 8
-
-        # 좌상단
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x - 2, icon_y + corner_size), (x - 2, icon_y - 2),
-                          (x + corner_size, icon_y - 2)], 2)
-        # 우상단
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x + size - corner_size + 2, icon_y - 2),
-                          (x + size + 2, icon_y - 2),
-                          (x + size + 2, icon_y + corner_size)], 2)
-        # 좌하단
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x - 2, icon_y + size - corner_size + 2),
-                          (x - 2, icon_y + size + 2),
-                          (x + corner_size, icon_y + size + 2)], 2)
-        # 우하단
-        pygame.draw.lines(screen, corner_color, False,
-                         [(x + size - corner_size + 2, icon_y + size + 2),
-                          (x + size + 2, icon_y + size + 2),
-                          (x + size + 2, icon_y + size - corner_size + 2)], 2)
-
-        # 코너에 작은 금색 점
-        for cx, cy in [(x, icon_y), (x + size, icon_y),
-                       (x, icon_y + size), (x + size, icon_y + size)]:
-            pygame.draw.circle(screen, corner_color, (cx, cy), 2)
-
-        # 4. 중앙은 전설 대기 슬롯과 동일한 파란 글로우가 노출되도록 유지
-
-        # 파티클 효과
-        if self.particle_timer > 1.0:
-            self._spawn_particle(screen, x + size//2, icon_y + size//2)
-            self.particle_timer = 0
-
-    def update(self, dt: float, ui_mode: bool = False):
-        """애니메이션 업데이트"""
-        super().update(dt, ui_mode)
-
-        # 프레임 카운터 업데이트
-        self.frame_counter += 1
-        if self.frame_counter >= self.animation_speed:
-            self.frame_counter = 0
-            self.current_frame = (self.current_frame + 1) % 8
-
-
-class ExperimentalIcon(LegendaryItem):
-    """실험용 - 내부 테두리만 그리는 전설 아이템"""
-    def __init__(self):
-        super().__init__(
-            name="experimental_icon",
-            korean_name="실험용",
-            description="내부 테두리만 표시되는 실험용 아이템",
-            unlock_condition="테스트 전용",
-            icon_path=None  # 아이콘 경로 없음
-        )
-
-        # 라그나로크 프레임 로드
-        self.ragnarok_frames = []
-        self.current_frame = 0
-        self.frame_counter = 0
-        self.animation_speed = 8  # 라그나로크와 동일한 속도
-        self._load_ragnarok_frames()
-
-    def _load_ragnarok_frames(self):
-        """라그나로크 해머 프레임들을 로드한다."""
-        for i in range(8):
-            frame_path = resource_path(f"items/legendary/ragnarok_hammer_frame_{i}.png")
-            try:
-                frame = pygame.image.load(frame_path).convert_alpha()
-                self.ragnarok_frames.append(frame)
-            except Exception as e:
-                print(f"[WARNING] 라그나로크 프레임 {i} 로드 실패: {e}")
-                # 로드 실패 시 빈 프레임 사용
-                self.ragnarok_frames.append(pygame.Surface((60, 60), pygame.SRCALPHA))
-
-    def update(self, dt: float, ui_mode: bool = False):
-        """애니메이션 업데이트"""
-        super().update(dt, ui_mode)
-
-        if not self.ragnarok_frames:
-            return
-
-        # 프레임 업데이트
-        self.frame_counter += 1
-        if self.frame_counter >= self.animation_speed:
-            self.frame_counter = 0
-            self.current_frame = (self.current_frame + 1) % len(self.ragnarok_frames)
-
-    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
-        """내부 테두리만 그리기"""
-        if not self.ragnarok_frames or not self.active:
-            # 비활성 상태면 아무것도 그리지 않음
-            return
-
-        # 현재 프레임 가져오기
-        original_frame = self.ragnarok_frames[self.current_frame]
-
-        # 크기 조정
-        if original_frame.get_size() != (size, size):
-            scaled_frame = pygame.transform.scale(original_frame, (size, size))
-        else:
-            scaled_frame = original_frame
-
-        # 내부 테두리만 추출
-        border_only = _extract_ring_overlay(scaled_frame)
-
-        # 추출된 테두리만 그리기
-        screen.blit(border_only, (x, y))
-
-    def activate(self, game_state: Dict):
-        """실험용 아이템 활성화"""
-        super().activate(game_state)
-        print(f"실험용 아이템 활성화!")
-
-    def deactivate(self):
-        """실험용 아이템 비활성화"""
-        super().deactivate()
-        print(f"실험용 아이템 비활성화")
-
 class HermesShoes(LegendaryItem):
     """헤르메스의 신발 - 이동속도 50% 증가"""
     def __init__(self):
@@ -2752,6 +2261,166 @@ class RagnarokHammer(LegendaryItem):
                              (int(particle['x']), int(particle['y'])), size)
 
 
+class EmptyLegendary(LegendaryItem):
+    """아이템 관리자 전용 전설 프리뷰 슬롯."""
+
+    def __init__(self):
+        super().__init__(
+            name="empty_legendary",
+            korean_name="빈전설",
+            description="추후 전설 효과를 위한 빈 슬롯",
+            unlock_condition="아이템 관리자 미리보기",
+        )
+        self.unlocked = True
+        self._cached_icon: Optional[pygame.Surface] = None
+        self._cached_size: int | None = None
+
+        # 8프레임 애니메이션을 위한 변수 추가
+        self.current_frame = 0
+        self.frame_counter = 0
+        self.animation_speed = 4  # 헤르메스의 신발과 동일한 속도 (더 빠른 애니메이션)
+
+    def activate(self, game_state: Dict):
+        """실제 게임 효과는 존재하지 않는다."""
+        self.active = False
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        import pygame
+        import math
+
+        # 헤르메스 스타일: 공통 배경 프레임 (내부 펄스는 비활성화하고 8프레임 애니메이션으로 대체)
+        frame_offset = _draw_common_legendary_frame(
+            screen,
+            x,
+            y,
+            size,
+            self.animation_time,
+            border_color=COMMON_LEGENDARY_BORDER_COLOR,
+            corner_color=COMMON_LEGENDARY_CORNER_COLOR,
+            draw_inner_pulse=False,  # 내부 펄스 대신 8프레임 애니메이션 사용
+        )
+
+        frame_y = y + frame_offset
+
+        # 헤르메스 스타일 8프레임 빨간색 그라데이션 내부 테두리
+        # 더 부드러운 그라데이션 변화
+        red_gradients = [
+            (180, 20, 20),    # 프레임 0: 어두운 빨강
+            (200, 30, 30),    # 프레임 1
+            (220, 40, 40),    # 프레임 2
+            (240, 50, 50),    # 프레임 3: 중간 빨강
+            (255, 60, 60),    # 프레임 4: 밝은 빨강
+            (240, 50, 50),    # 프레임 5
+            (220, 40, 40),    # 프레임 6
+            (200, 30, 30),    # 프레임 7
+        ]
+
+        # 현재 프레임의 테두리 색상
+        border_color = red_gradients[self.current_frame]
+
+        # 헤르메스 스타일 3중 내부 테두리 (두께 1.7배 증가)
+        # 외곽 테두리 (헤르메스처럼 x+2, y+2 위치, 두께 2픽셀)
+        inner_rect_outer = pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)
+        pygame.draw.rect(screen, border_color, inner_rect_outer, 2)
+
+        # 중간 테두리 (살짝 더 어둡게, 두께 2픽셀)
+        mid_color = (
+            max(0, border_color[0] - 20),
+            max(0, border_color[1] - 10),
+            max(0, border_color[2] - 10)
+        )
+        inner_rect_mid = inner_rect_outer.inflate(-4, -4)
+        pygame.draw.rect(screen, mid_color, inner_rect_mid, 2)
+
+        # 내부 테두리 (더 어둡게, 두께 1픽셀)
+        inner_color = (
+            max(0, border_color[0] - 40),
+            max(0, border_color[1] - 20),
+            max(0, border_color[2] - 20)
+        )
+        inner_rect_inner = inner_rect_outer.inflate(-8, -8)
+        pygame.draw.rect(screen, inner_color, inner_rect_inner, 1)
+
+        # 헤르메스 스타일 모서리 점 - 8프레임 흰색~하늘색 그라데이션 (더 밝고 부드러운 색상)
+        corner_gradients = [
+            (255, 255, 255),  # 프레임 0: 순수 흰색
+            (245, 245, 255),  # 프레임 1
+            (230, 230, 255),  # 프레임 2
+            (210, 210, 255),  # 프레임 3
+            (190, 190, 255),  # 프레임 4: 연한 하늘색
+            (200, 200, 255),  # 프레임 5
+            (220, 220, 255),  # 프레임 6
+            (240, 240, 255),  # 프레임 7
+        ]
+
+        corner_color = corner_gradients[self.current_frame]
+
+        # 헤르메스 스타일의 모서리 장식 (크기 1.7배 증가)
+        corner_size = 8  # 5 * 1.7 ≈ 8
+
+        # 빨간색 테두리의 정확한 모서리 꼭짓점 위치
+        # 빨간색 테두리가 pygame.Rect(x + 2, frame_y + 2, size - 4, size - 4)이므로
+        # 테두리 모서리 끝점들은:
+        corners = [
+            (x + 2, frame_y + 2),  # 좌상단 모서리
+            (x + size - 2, frame_y + 2),  # 우상단 모서리
+            (x + 2, frame_y + size - 2),  # 좌하단 모서리
+            (x + size - 2, frame_y + size - 2),  # 우하단 모서리
+        ]
+
+        for corner_x, corner_y in corners:
+            # 모서리 점의 중심을 테두리 모서리 끝에 정확히 위치
+            center_x = corner_x
+            center_y = corner_y
+
+            # 외곽 원 (큰 원, 크기 증가)
+            pygame.draw.circle(screen, corner_color, (center_x, center_y), corner_size // 2)
+
+            # 중간 원 (더 밝게, 크기 증가)
+            mid_color = (
+                min(255, corner_color[0] + 20),
+                min(255, corner_color[1] + 20),
+                min(255, corner_color[2] + 10)
+            )
+            pygame.draw.circle(screen, mid_color, (center_x, center_y), corner_size // 3)
+
+            # 중심 하이라이트 (더 큰 점)
+            pygame.draw.circle(screen, (255, 255, 255), (center_x, center_y), 2)
+
+        # 빈 내부 (투명) - 아이콘 부분만 비움
+        if self._cached_icon is None or self._cached_size != size:
+            icon_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+            icon_surface.fill((0, 0, 0, 0))
+            self._cached_icon = icon_surface
+            self._cached_size = size
+
+        icon_y = y + frame_offset + int(self.animation_offset)
+        if self._cached_icon:
+            screen.blit(self._cached_icon, (x, icon_y))
+
+        # 프레임 카운터 업데이트 (8프레임 애니메이션)
+        self.frame_counter += 1
+        if self.frame_counter >= self.animation_speed:
+            self.frame_counter = 0
+            self.current_frame = (self.current_frame + 1) % 8
+
+        # 파티클 효과 (라그나로크 해머와 동일)
+        if self.particle_timer > 1.0:
+            self._spawn_particle(screen, x + size//2, y + frame_offset + size//2)
+            self.particle_timer = 0
+
+    def update(self, dt: float, ui_mode: bool = False):
+        super().update(dt, ui_mode)
+
+        # 8프레임 애니메이션 업데이트
+        self.frame_counter += 1
+        if self.frame_counter >= self.animation_speed:
+            self.frame_counter = 0
+            self.current_frame = (self.current_frame + 1) % 8
+
+        self.particle_timer = 0
+
+
 class EmptyLegendarySlot(LegendaryItem):
     """아이템 관리자에서 사용하는 빈 전설 슬롯"""
 
@@ -2939,22 +2608,6 @@ class EmptyLegendarySlotPoseidon(LegendaryItem):
         # 파티클은 비활성화(빈 슬롯)
 
 
-class LegendaryWaitingSlot(EmptyLegendarySlotPoseidon):
-    """아이템 관리자 전설 탭 전용 대기 슬롯.
-
-    - 포세이돈 프레임과 완전히 동일한 테두리/펄스를 유지한다.
-    - 중앙 아이콘은 비워두어 "전설대기" 상태를 표현한다.
-    - UI용 플레이스홀더이므로 항상 해금된 상태로 취급한다.
-    """
-
-    def __init__(self):
-        super().__init__()
-        self.name = "legendary_wait"
-        self.korean_name = "전설대기"
-        self.description = "다가올 전설 아이템을 위해 비워 둔 전용 슬롯입니다."
-        self.unlocked = True
-
-
 class EmptyLegendarySlot2(LegendaryItem):
     """라그나로크 해머 스타일의 빈 전설 슬롯 (해머 그림 제외)"""
 
@@ -3074,10 +2727,7 @@ class LegendaryItemManager:
         self.items["hermes_shoes"] = HermesShoes()
         poseidon_item = PoseidonTrident()
         self.items["poseidon_trident"] = poseidon_item
-        self.items["rabbit_legendary"] = RabbitLegendary()  # 토끼 아이템 추가
-        self.items["empty_icon"] = EmptyIcon()  # 빈아이콘 추가
-        self.items["experimental_icon"] = ExperimentalIcon()  # 실험용 추가
-        self.items["legendary_wait"] = LegendaryWaitingSlot()
+        self.items["empty_legendary"] = EmptyLegendary()
 
         # 테스트용: 전설 아이템 강제 해금
         self.items["ragnarok_hammer"].unlocked = True
@@ -3093,24 +2743,10 @@ class LegendaryItemManager:
         if "poseidon_trident" not in self.unlocked_items:
             self.unlocked_items.append("poseidon_trident")
 
-        # 토끼 아이템 강제 해금 (테스트용)
-        self.items["rabbit_legendary"].unlocked = True
-        if "rabbit_legendary" not in self.unlocked_items:
-            self.unlocked_items.append("rabbit_legendary")
+        self.items["empty_legendary"].unlocked = True
+        if "empty_legendary" not in self.unlocked_items:
+            self.unlocked_items.append("empty_legendary")
 
-        self.items["legendary_wait"].unlocked = True
-        if "legendary_wait" not in self.unlocked_items:
-            self.unlocked_items.append("legendary_wait")
-
-        # 빈아이콘 강제 해금 (테스트용)
-        self.items["empty_icon"].unlocked = True
-        if "empty_icon" not in self.unlocked_items:
-            self.unlocked_items.append("empty_icon")
-
-        # 실험용 강제 해금 (테스트용)
-        self.items["experimental_icon"].unlocked = True
-        if "experimental_icon" not in self.unlocked_items:
-            self.unlocked_items.append("experimental_icon")
 
         # empty/empty1/empty2 플레이스홀더는 등록/해금하지 않음(전설 탭 간소화)
 
@@ -3127,17 +2763,6 @@ class LegendaryItemManager:
         # 포세이돈의 삼지창 초기화
         if "poseidon_trident" not in self.items:
             self.items["poseidon_trident"] = PoseidonTrident()
-        # 토끼 아이템 초기화
-        if "rabbit_legendary" not in self.items:
-            self.items["rabbit_legendary"] = RabbitLegendary()
-        # 빈아이콘 초기화
-        if "empty_icon" not in self.items:
-            self.items["empty_icon"] = EmptyIcon()
-        # 실험용 초기화
-        if "experimental_icon" not in self.items:
-            self.items["experimental_icon"] = ExperimentalIcon()
-        poseidon_ref = self.items.get("poseidon_trident")
-
         # empty/empty1/empty2 보정 생성하지 않음
         
     def check_unlocks(self, game_stats: Dict):
@@ -3158,7 +2783,7 @@ class LegendaryItemManager:
         
     def activate_item(self, name: str, game_state: Dict):
         """아이템 활성화"""
-        if name in ["empty", "empty1", "empty2", "legendary_wait"]:
+        if name in ["empty", "empty1", "empty2", "empty_legendary"]:
             return
         print(f"🎮 activate_item 호출: name={name}")
         print(f"   - items에 있음: {name in self.items}")

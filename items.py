@@ -267,6 +267,10 @@ def load_item_icons():
             pygame.draw.circle(icon, (200, 200, 200), (16, 16), 14)
             ITEM_ICONS[item_name] = icon
     
+    placeholder_icon = get_item_icon("empty_legendary")
+    if placeholder_icon:
+        ITEM_ICONS["empty_legendary"] = pygame.transform.smoothscale(placeholder_icon, (32, 32))
+
     # ITEM_TYPES 배열의 각 아이템에 아이콘 할당
     for item_type in ITEM_TYPES:
         item_name = item_type["name"]

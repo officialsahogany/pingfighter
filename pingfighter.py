@@ -44671,7 +44671,7 @@ def apply_selected_items(
 
         # 선택된 전설 아이템 활성화 및 패시브 아이템 리스트에 추가
         for item_name in selected_legendary_items:
-            if item_name in ("empty", "empty1", "empty2", "legendary_wait"):
+            if item_name in ("empty", "empty1", "empty2", "empty_legendary"):
                 continue
 
             # 전설 아이템 획득 플래그 설정 (중복 스폰 방지)
@@ -44832,6 +44832,11 @@ def get_item_icon(item_name):
         icon_cache[item_name] = icon_surface
         return icon_surface
     
+    if item_name == "empty_legendary":
+        icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
+        icon_cache[item_name] = icon_surface
+        return icon_surface
+
     # Empty2 전설 아이템 - 해머 아이콘 없이 모든 효과만 표시
     if item_name == "empty2":
         icon_surface = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -61625,9 +61630,9 @@ def get_item_name_korean(item_name):
         "ragnarok_hammer": "라그나로크 해머",
         "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창",
-        "legendary_wait": "전설대기",
         # 전설탭 전용: baby (헤르메스 아이콘과 동일)
         "baby": "베이비",
+        "empty_legendary": "빈전설",
         "empty2": "빈 전설 슬롯",
     }
     return korean_names.get(item_name, item_name)
@@ -61680,8 +61685,8 @@ def get_item_description(item_name):
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 1.5배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
-        "legendary_wait": "전설 대기 슬롯: 아직 공개되지 않은 전설 아이템을 위한 예약 자리입니다. 테두리와 펄스는 유지되지만 중앙 아이콘은 비워져 있습니다.",
         "baby": "베이비: 아이템관리자 전설탭 표시용. 헤르메스의 신발과 동일한 아이콘/연출을 사용합니다.",
+        "empty_legendary": "빈전설: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
         "empty2": "빈 전설 슬롯: 미개방된 전설 아이템 슬롯입니다. 전설의 테두리 효과만 표시됩니다.",
     }
     return descriptions.get(item_name, "설명이 없습니다.")
