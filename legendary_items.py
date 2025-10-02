@@ -1984,7 +1984,6 @@ class RagnarokHammer(LegendaryItem):
         )
         self.knockback_multiplier = 5.0  # 넉백 배율 (3.0 -> 5.0 증가)
         self.max_knockback = 250  # 최대 넉백 거리 (150 -> 250 증가)
-        self.thunder_effects = []  # 번개 효과 리스트
         self.impact_particles = []  # 충격 파티클
         self.stun_duration = 0.6  # 넉백 후 스턴 시간 (초)
         
@@ -2019,26 +2018,13 @@ class RagnarokHammer(LegendaryItem):
         else:  # 보스가 오른쪽에 있으면
             horizontal_velocity = -magnitude  # 왼쪽으로 넉백
 
-        # 번개 효과 추가
-        self._spawn_thunder_effect()
-        
         print(f"[라그나로크 해머 calculate_knockback]")
         print(f"  - 입력 공속: {ball_speed:.1f}")
         print(f"  - 최종 넉백 속도: {horizontal_velocity:.1f}")
         print(f"  - 스턴 시간: {self.stun_duration:.1f}초")
-        
+
         # 넉백 속도와 스턴 시간을 함께 반환
         return horizontal_velocity, self.stun_duration
-        
-    def _spawn_thunder_effect(self):
-        """번개 효과 생성"""
-        import random
-        import time
-        self.thunder_effects.append({
-            'time': time.time(),
-            'duration': 0.5,
-            'intensity': random.uniform(0.7, 1.0)
-        })
         
     def draw_special_effects(self, screen, boss_x: int, boss_y: int):
         """특수 효과 그리기"""
@@ -2046,43 +2032,8 @@ class RagnarokHammer(LegendaryItem):
             return
             
         import pygame
-        import math
-        import random
         import time
-        
         current_time = time.time()
-        
-        # 번개 효과 그리기
-        for effect in self.thunder_effects[:]:
-            elapsed = current_time - effect['time']
-            if elapsed > effect['duration']:
-                self.thunder_effects.remove(effect)
-                continue
-                
-            alpha = int(255 * (1 - elapsed / effect['duration']))
-            
-            # 번개 가지 그리기
-            for _ in range(3):
-                start_x = boss_x + random.randint(-30, 30)
-                start_y = boss_y - 50
-                end_x = boss_x + random.randint(-50, 50)
-                end_y = boss_y + random.randint(-20, 20)
-                
-                # 지그재그 번개
-                points = [(start_x, start_y)]
-                segments = 5
-                for i in range(segments):
-                    t = (i + 1) / segments
-                    x = start_x + (end_x - start_x) * t + random.randint(-20, 20)
-                    y = start_y + (end_y - start_y) * t
-                    points.append((x, y))
-                points.append((end_x, end_y))
-                
-                # 번개 그리기 (두께 변화)
-                for i in range(len(points) - 1):
-                    thickness = max(1, int(5 * (1 - i / len(points)) * effect['intensity']))
-                    color = (255, 255, min(255, 100 + alpha), alpha)
-                    pygame.draw.line(screen, color[:3], points[i], points[i+1], thickness)
         
         # 충격파 효과
         if hasattr(self, 'last_impact_time'):
@@ -2194,6 +2145,28 @@ class RagnarokHammer(LegendaryItem):
             pygame.draw.circle(screen, color, 
                              (int(particle['x']), int(particle['y'])), size)
 
+
+class EmptyLegendarySlot(LegendaryItem):
+    """아이템 관리자에서 사용하는 빈 전설 슬롯"""
+
+    def __init__(self):
+        super().__init__(
+            name="empty",
+            korean_name="empty",
+            description="전설 슬롯을 비워두기 위한 플레이스홀더",
+            unlock_condition="항상 사용 가능",
+        )
+        self.unlocked = True
+
+    def activate(self, game_state: Dict):
+        """빈 슬롯은 활성화되지 않는다."""
+        self.active = False
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
+        if self.particle_timer > 1.0:
+            self._spawn_particle(screen, x + size // 2, y + frame_offset + size // 2)
+            self.particle_timer = 0
 
 # 전설 아이템 관리자
 class LegendaryItemManager:
