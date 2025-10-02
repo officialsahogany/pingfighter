@@ -2281,35 +2281,25 @@ class EmptyLegendarySlot(LegendaryItem):
 
     def _erase_hermes_shoe(self, surface: pygame.Surface) -> None:
         """헤르메스 프레임에서 신발 본체와 잔상만 제거한다."""
-        width, height = surface.get_size()
-        min_x, max_x = 6, max(0, width - 6)
-        min_y, max_y = 9, max(0, height - 6)
-
         surface.lock()
         try:
-            for y in range(min_y, max_y):
-                for x in range(min_x, max_x):
+            width, height = surface.get_size()
+            for y in range(height):
+                for x in range(width):
                     color = surface.get_at((x, y))
                     if color.a == 0:
                         continue
 
                     r, g, b = color.r, color.g, color.b
+                    keep_red_ring = r >= 140 and g <= 50 and b <= 70
+                    keep_cool_glow = (
+                        b >= 200
+                        and b >= g - 10
+                        and b >= r - 10
+                    )
 
-                    keep_red_ring = g < 40 and b < 80
-                    keep_cool_glow = b >= 200 and b >= g and b >= r
-                    if keep_red_ring or keep_cool_glow:
-                        continue
-
-                    warm_gold = r >= 170 and g >= 110 and b <= 210
-                    pale_highlight = r >= 210 and g >= 195 and b <= 230
-                    dark_brown = r >= 90 and g <= 140 and b <= 140
-                    grey_shadow = r >= 40 and r <= 120 and g >= 40 and g <= 120 and b <= 140
-
-                    if warm_gold or pale_highlight or dark_brown or grey_shadow:
+                    if not (keep_red_ring or keep_cool_glow):
                         surface.set_at((x, y), (0, 0, 0, 0))
-                    else:
-                        # 마지막으로 남는 중립 톤은 살짝 투명도를 낮춰 잔상을 없앤다.
-                        surface.set_at((x, y), (r, g, b, int(color.a * 0.35)))
         finally:
             surface.unlock()
 
