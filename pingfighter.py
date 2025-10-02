@@ -11620,6 +11620,7 @@ BLACKSMITH_BLOCKING_SKILL_FRAMES = int(1.2 * FPS)
 blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
 blacksmith_blocking_penalty_timer = 0
 blacksmith_blocking_toast_timer = 0
+blacksmith_blocking_bonus_pending = False
 blacksmith_blocking_skill_timer = 0
 
 
@@ -12843,6 +12844,8 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     global blacksmith_umbrella_retract_grace_timer
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
     global blacksmith_blocking_skill_timer
+    global blacksmith_blocking_bonus_pending
+    global blacksmith_blocking_bonus_pending
     blacksmith_hammer_swing_slow_timer = 0
     stop_blacksmith_hammer_charge_sound()
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
@@ -12854,6 +12857,8 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     blacksmith_blocking_penalty_timer = 0
     blacksmith_blocking_toast_timer = 0
     blacksmith_blocking_skill_timer = 0
+    blacksmith_blocking_bonus_pending = False
+    blacksmith_blocking_bonus_pending = False
     blacksmith_umbrella_hit_lock = False
     blacksmith_hammer_shock_last_stage = 0
     blacksmith_hammer_shock_cooldown_total = 0
@@ -20952,7 +20957,7 @@ def handle_player(keys):
     global blacksmith_umbrella_damage_flash_timer, blacksmith_umbrella_last_hit_frame
     global blacksmith_umbrella_hit_lock
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
-    global blacksmith_blocking_skill_timer
+    global blacksmith_blocking_skill_timer, blacksmith_blocking_bonus_pending
     global fire_support_radio_loop_active
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
@@ -23720,7 +23725,7 @@ def handle_player(keys):
         blacksmith_umbrella_hit_lock = False
 
     gauge_reduced = False
-    blocking_skill_bonus = False
+    blocking_skill_bonus = blacksmith_blocking_bonus_pending
 
     # 스톱워치 정지 중에는 패들 타격 판정 비활성화 (게이지 중복 충전/연타 방지)
     if collision_with_player and not is_waiting_for_serve and not (stopwatch_active and stopwatch_timer > 0) and not ball_in_kuromi:
@@ -23788,6 +23793,7 @@ def handle_player(keys):
                         request_blacksmith_umbrella_close(play_sound=True, flash=True)
                     gauge_reduced = True
                     blocking_skill_bonus = True
+                    blacksmith_blocking_bonus_pending = True
                     print(
                         "[DEBUG BLOCKING] gauge reduced via shield",
                         {
@@ -23850,6 +23856,7 @@ def handle_player(keys):
                 gauge_reduced = True
                 forced_gauge_loss = True
                 blocking_skill_bonus = True
+                blacksmith_blocking_bonus_pending = True
                 if blacksmith_umbrella_gauge <= 0:
                     request_blacksmith_umbrella_close(play_sound=True, flash=True)
             blacksmith_umbrella_hit_lock = True
