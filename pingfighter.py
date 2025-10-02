@@ -10925,7 +10925,7 @@ def draw_blacksmith_blocking_toast(surface: pygame.Surface) -> None:
         text_surface = font.render(blocking_text, True, (255, 232, 120))
         shadow_surface = font.render(blocking_text, True, (30, 30, 30))
 
-        anchor_x = PLAYER.left - 18
+        anchor_x = max(PLAYER.left - 24, 48)
         anchor_y = PLAYER.centery + bounce
 
         shadow_surface = shadow_surface.copy()
@@ -24352,7 +24352,9 @@ def handle_player(keys):
                 print(f"🎮 Chapter 4: 500 게이지 충전!")
 
             if blocking_skill_bonus and selected_character_type == "blacksmith":
-                total_gauge_gain *= 2
+                total_gauge_gain = int(round(total_gauge_gain * 2))
+                if DEBUG_HANDLE_PLAYER_VERBOSE:
+                    print(f"[BLOCKING!] gauge bonus applied → {total_gauge_gain}")
 
             if DEBUG_HANDLE_PLAYER_VERBOSE:
                 print(f" DEBUG:  handle_player   ({total_gauge_gain})")
