@@ -1793,6 +1793,9 @@ class HolyLaurel(LegendaryItem):
         # 아이콘 프레임은 그대로 유지하되, 공통 프레임 연출만 더 과감하게 가속한다.
         self._animation_rate_scale = 3.2
         self._frame_animation_time = 0.0
+        self._laurel_overlay: Optional[pygame.Surface] = None
+        self._scaled_laurel_cache: Dict[int, pygame.Surface] = {}
+        self._use_trident_mask: bool = True
         self._prepare_frames()
 
     def _ensure_poseidon_ref(self) -> Optional[LegendaryItem]:
@@ -1807,24 +1810,66 @@ class HolyLaurel(LegendaryItem):
                 return poseidon
         return None
 
+    def _ensure_laurel_overlay(self) -> None:
+        """천사의 월계관 기본 아이콘을 로드한다."""
+
+        if self._laurel_overlay is not None:
+            return
+
+        try:
+            laurel = pygame.image.load(resource_path("items/legendary/holy_laurel.png")).convert_alpha()
+        except Exception:
+            laurel = pygame.Surface((60, 60), pygame.SRCALPHA)
+            pygame.draw.circle(laurel, (200, 200, 255), (30, 30), 26, 3)
+
+        self._laurel_overlay = laurel
+        self._scaled_laurel_cache.clear()
+
+    def _get_scaled_laurel(self, size: int) -> Optional[pygame.Surface]:
+        """요청 크기에 맞춘 월계관 오버레이를 반환한다."""
+
+        self._ensure_laurel_overlay()
+        if self._laurel_overlay is None:
+            return None
+
+        cached = self._scaled_laurel_cache.get(size)
+        if cached is None:
+            cached = pygame.transform.smoothscale(self._laurel_overlay, (size, size))
+            self._scaled_laurel_cache[size] = cached
+        return cached
+
+    def _compose_with_laurel(self, base_surface: pygame.Surface, size: int) -> pygame.Surface:
+        """기본 표면 위에 월계관 오버레이를 합성한다."""
+
+        overlay = self._get_scaled_laurel(size)
+        if overlay is None:
+            return base_surface
+
+        base_surface.blit(overlay, (0, 0))
+        return base_surface
+
     def _prepare_frames(self) -> None:
         """포세이돈 삼지창 애니메이션을 그대로 참조하여 동기화한다."""
+        self._ensure_laurel_overlay()
+
         if self._sync_with_poseidon:
             poseidon = self._ensure_poseidon_ref()
             if poseidon and hasattr(poseidon, "icon_frames"):
                 self.icon_frames = poseidon.icon_frames
                 self.animation_frames = getattr(poseidon, "animation_frames", poseidon.icon_frames)
                 self.animation_speed = getattr(poseidon, "animation_speed", self.animation_speed)
+                self._use_trident_mask = True
                 return
 
-        try:
-            laurel = pygame.image.load(resource_path("items/legendary/holy_laurel.png")).convert_alpha()
-        except Exception:
+        self._use_trident_mask = False
+        if self._laurel_overlay is None:
             laurel = pygame.Surface((60, 60), pygame.SRCALPHA)
             pygame.draw.circle(laurel, (200, 200, 255), (30, 30), 28, 2)
+            self._laurel_overlay = laurel
+            self._scaled_laurel_cache.clear()
 
-        self.icon_frames = [laurel]
-        self.animation_frames = [laurel]
+        self.icon_frames = [self._laurel_overlay]
+        self.animation_frames = [self._laurel_overlay]
 
     def activate(self, game_state: Dict):
         """전시용 아이콘은 실제 효과가 없다."""
@@ -1870,16 +1915,25 @@ class HolyLaurel(LegendaryItem):
             frame = ref_frames[frame_index]
             scaled = pygame.transform.smoothscale(frame, (size, size))
             trimmed = self._remove_trident_from_surface(scaled)
-            screen.blit(trimmed, (x, y + frame_offset))
+            composed = self._compose_with_laurel(trimmed, size)
+            screen.blit(composed, (x, y + frame_offset))
             return
 
         if self.icon_frames:
             frame = self.icon_frames[self.current_frame % len(self.icon_frames)]
             scaled = pygame.transform.smoothscale(frame, (size, size))
-            trimmed = self._remove_trident_from_surface(scaled)
-            screen.blit(trimmed, (x, y + frame_offset))
+            if self._use_trident_mask:
+                base_surface = self._remove_trident_from_surface(scaled)
+            else:
+                base_surface = scaled
+            composed = self._compose_with_laurel(base_surface, size)
+            screen.blit(composed, (x, y + frame_offset))
         else:
-            super().draw_icon(screen, x, y, size)
+            overlay = self._get_scaled_laurel(size)
+            if overlay:
+                screen.blit(overlay, (x, y + frame_offset))
+            else:
+                super().draw_icon(screen, x, y, size)
 
     def _remove_trident_from_surface(self, surface: pygame.Surface) -> pygame.Surface:
         """중앙 삼지창 픽셀만 투명화한 사본을 반환한다."""
