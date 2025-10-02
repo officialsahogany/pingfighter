@@ -2148,30 +2148,12 @@ class RagnarokHammer(LegendaryItem):
         # 공통 배경 프레임 연출
         frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time)
 
-        # 애니메이션 프레임 그리기
-        if self.animation_frames and len(self.animation_frames) > 0:
-            # 프레임 업데이트 (항상 진행)
+        # 중앙 프레임은 비워둬서 공통 프레임 애니메이션만 보이도록 유지한다.
+        if self.animation_frames and len(self.animation_frames) > 1:
             self.frame_counter += 1
             if self.frame_counter >= self.animation_speed:
                 self.frame_counter = 0
                 self.current_frame = (self.current_frame + 1) % len(self.animation_frames)
-            
-            # 현재 프레임 그리기 (위아래 움직임 효과 포함)
-            icon_y = y + frame_offset + int(self.animation_offset)
-            current_icon = self.animation_frames[self.current_frame % len(self.animation_frames)]
-            scaled_icon = pygame.transform.scale(current_icon, (size, size))
-            screen.blit(scaled_icon, (x, icon_y))
-            
-            # 번개 효과 추가 (프레임 0, 4에서)
-            if self.current_frame in [0, 4]:
-                # 작은 번개 이펙트
-                bolt_color = (255, 255, 150)
-                pygame.draw.line(screen, bolt_color, 
-                               (x + size//4, y + frame_offset - 5), 
-                               (x + size//3, y + frame_offset + size//4), 2)
-                pygame.draw.line(screen, bolt_color,
-                               (x + size*3//4, y + frame_offset - 5),
-                               (x + size*2//3, y + frame_offset + size//4), 2)
         
         # 파티클 효과
         if self.particle_timer > 1.0:
