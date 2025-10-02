@@ -35021,8 +35021,7 @@ def show_start_screen():
     global blacksmith_build_menu_active, blacksmith_down_hold_frames, blacksmith_divine_stone_state
 
     effects_manager.clear_all_effects()
-    damage_manager = get_damage_manager()
-    damage_manager.reset_all()
+    reset_damage_manager()
 
     game_should_exit = False
     frame_count = 0
@@ -55885,7 +55884,7 @@ def show_result(won):
             legendary_bonus=skill_legendary_bonus,
         )
         effects_manager.clear_all_effects()
-        get_damage_manager().reset_all()
+        reset_damage_manager()
         show_victory_screen(stage_cleared=current_stage, reward=reward)
         current_stage += 1
         # 스테이지 전환 시 테크니컬조끼 비활성화
