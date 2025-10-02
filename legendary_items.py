@@ -2295,12 +2295,19 @@ class EmptyLegendarySlot(LegendaryItem):
             (255, 248, 220, 255),
             (255, 250, 240, 255),
             (255, 255, 0, 255),
+            (100, 200, 255, 73),
+            (100, 200, 255, 46),
+            (100, 200, 255, 24),
         }
+
+        width, height = surface.get_size()
+        min_x, max_x = 6, max(0, width - 6)
+        min_y, max_y = 9, max(0, height - 6)
 
         surface.lock()
         try:
-            for y in range(surface.get_height()):
-                for x in range(surface.get_width()):
+            for y in range(min_y, max_y):
+                for x in range(min_x, max_x):
                     color = surface.get_at((x, y))
                     if color.a == 0:
                         continue
