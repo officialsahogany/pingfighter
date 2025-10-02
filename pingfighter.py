@@ -12843,8 +12843,7 @@ def reset_blacksmith_state(*, preserve_divine: bool = False, stage_num: int | No
     global blacksmith_umbrella_hit_lock
     global blacksmith_umbrella_retract_grace_timer
     global blacksmith_blocking_penalty_timer, blacksmith_blocking_toast_timer
-    global blacksmith_blocking_skill_timer
-    global blacksmith_blocking_bonus_pending
+    global blacksmith_blocking_skill_timer, blacksmith_blocking_bonus_pending
     blacksmith_hammer_swing_slow_timer = 0
     stop_blacksmith_hammer_charge_sound()
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
