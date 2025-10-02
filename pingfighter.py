@@ -43774,7 +43774,10 @@ def show_item_manager_menu():
         for item_name, item in legendary_manager.items.items():
             if item.unlocked:  # 해금된 전설 아이템만 표시
                 # 전설 아이템 아이콘 가져오기
-                legendary_icon = get_item_icon(item.name)
+                if item.name == "empty":
+                    legendary_icon = None
+                else:
+                    legendary_icon = get_item_icon(item.name)
                 legendary_items.append({
                     "name": item.name,
                     "type": "legendary",
@@ -44542,6 +44545,8 @@ def apply_selected_items(
         
         # 선택된 전설 아이템 활성화 및 패시브 아이템 리스트에 추가
         for item_name in selected_legendary_items:
+            if item_name == "empty":
+                continue
             # 전설 아이템 획득 플래그 설정 (중복 스폰 방지)
             if item_name == "poseidon_trident":
                 print(f"[DEBUG] TAB에서 포세이돈 삼지창 선택 - 획득 플래그 설정")
