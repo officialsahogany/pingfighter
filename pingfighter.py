@@ -56321,6 +56321,9 @@ def main(stage_num, new_boss_mode=False):
         preserve_divine=preserve_divine_runtime,
         stage_num=stage_num,
     )
+    damage_manager = get_damage_manager()
+    if not is_blacksmith_divine_stone_active():
+        damage_manager.clear_building("divine_stone")
     global blacksmith_hammer_available, blacksmith_hammer_shock_charging
     global blacksmith_hammer_shock_charge_frames, blacksmith_hammer_shock_stage
     global blacksmith_hammer_shock_cooldown_timer, blacksmith_hammer_shock_projectiles
