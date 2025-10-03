@@ -15064,9 +15064,42 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
     return current_weapon
 
 
+def apply_fire_support_slot_restore() -> None:
+    """화력지원 호출 직후 슬롯 복원을 한 프레임 지연해 UI 반짝임을 막는다."""
+    global soldier_controller
+    global fire_support_slot_restore_pending, fire_support_slot_restore_index
+
+    if not fire_support_slot_restore_pending:
+        return
+
+    fire_support_slot_restore_pending = False
+
+    if 'soldier_controller' not in globals() or soldier_controller is None:
+        fire_support_slot_restore_index = None
+        return
+
+    try:
+        weapons = soldier_controller.weapons
+    except AttributeError:
+        fire_support_slot_restore_index = None
+        return
+
+    restore_index = fire_support_slot_restore_index
+    fire_support_slot_restore_index = None
+
+    if restore_index is None or not weapons or not (0 <= restore_index < len(weapons)):
+        return
+
+    if weapons[restore_index] != "fire_support":
+        return
+
+    soldier_controller.set_current_weapon(restore_index)
+
+
 def handle_fire_support_lockout() -> None:
     """화력지원 호출 중에도 슬롯을 유지해 UI 애니메이션을 계속 보여준다."""
     global soldier_controller
+    global fire_support_slot_restore_pending, fire_support_slot_restore_index
 
     if 'soldier_controller' not in globals() or soldier_controller is None:
         return
@@ -15083,6 +15116,8 @@ def handle_fire_support_lockout() -> None:
     if weapons[current_index] != "fire_support":
         return
 
+    fire_support_slot_restore_index = current_index
+    fire_support_slot_restore_pending = True
     # 강제로 현재 슬롯을 재적용해 다른 무기로 튀는 것을 방지한다.
     soldier_controller.set_current_weapon(current_index)
     # 화력지원 애니메이션 유지 및 즉시 재전환 허용.
