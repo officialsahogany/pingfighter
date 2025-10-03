@@ -14571,6 +14571,8 @@ bazooka_recoil_strength = 0  # 반동 강도
 SOLDIER_BULLET_SIZE = 5  # 총알 크기
 SOLDIER_BULLET_COLOR = (255, 215, 0)  # 황금색 총알
 SOLDIER_BULLET_MAX_ROCK_BOUNCES = 2  # 바위에 튕길 수 있는 최대 횟수
+SOLDIER_BULLET_RICOCHET_DAMPING = 0.88  # 바위 충돌 후 속도 감쇠 비율
+SOLDIER_BULLET_MIN_SPEED = 6.0  # 튕김 후 최소 유지 속도
 
 # 체력형 보스 상대 전용 누적 카운터 (라운드 전환 시 유지, 스테이지 전환 시 초기화)
 soldier_pistol_boss_hit_count = 0
