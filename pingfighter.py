@@ -28375,22 +28375,21 @@ def update_stage7_guard_skill(now: int | None = None) -> None:
 
     update_stage7_guard_blocks(now)
 
-    # 아직 설치 중인 블록이 있으면 발동 대기
-    active_or_pending = any(block["state"] != "active" for block in stage7_guard_blocks)
-    if stage7_guard_blocks and not active_or_pending:
-        # 이미 가드가 배치되어 있다면 타이머만 유지
+    # 변경 사항: 활성 블록이 남아 있어도 쿨타임 도달 시 추가 생성 허용.
+    # 다만 설치/파괴 중(홀로그램/배치 이동/파괴 애니메이션)일 때는 중복 연출 충돌을 피하기 위해 대기.
+    installing_or_destroying = any(
+        block.get("state") in ("hologram", "deploy", "destroying") for block in stage7_guard_blocks
+    )
+    if installing_or_destroying:
         return
 
     if stage7_guard_next_trigger_ms == 0:
         _schedule_stage7_guard(now)
 
-    if stage7_guard_blocks:
-        return
-
     if now < stage7_guard_next_trigger_ms:
         return
 
-    # 트리거 시도
+    # 트리거 시도 (게이지가 충분하면 기존 블록과 무관하게 추가 생성)
     if spawn_stage7_guard_blocks(now):
         _schedule_stage7_guard(now)
     else:
