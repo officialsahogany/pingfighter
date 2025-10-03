@@ -57390,9 +57390,8 @@ def main(stage_num, new_boss_mode=False):
     
     # AI 알약 상태 초기화 (스테이지 전환 시 비활성화)
     if aipill_active:
-        aipill_active = False
         print("AI")
-    deactivate_doping_potion()
+    deactivate_aipill("round_transition", allow_override=True)
     deactivate_berserk_potion()
     
     print("/")
