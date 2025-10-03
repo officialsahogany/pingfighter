@@ -150,7 +150,7 @@ class ItemSystem:
                 'type': 'active',
                 'effect': {
                     'construction_speed_multiplier': 3.0,
-                    'manual_cooldown_multiplier': 3.0,
+                    'manual_cooldown_multiplier': 0.25,
                     'duration_seconds': 15
                 },
                 'permanent': False

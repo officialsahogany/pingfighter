@@ -14619,7 +14619,7 @@ doping_potion_use_count = 0
 # 광폭물약(발토르 전용) 효과 관련 상수 및 상태
 BERSERK_POTION_DURATION_FRAMES = 900  # 15초 지속
 BERSERK_POTION_BUILD_MULTIPLIER = 3.0
-BERSERK_POTION_MANUAL_COOLDOWN_MULTIPLIER = 3.0  # 연사 200% 감소 → 기본 쿨다운의 3배
+BERSERK_POTION_MANUAL_COOLDOWN_MULTIPLIER = 0.25  # 연사 400% 증가 → 기본 쿨다운의 1/4
 berserk_potion_active = False
 berserk_potion_timer = 0
 berserk_aura_surface: pygame.Surface | None = None
@@ -16233,7 +16233,7 @@ def apply_effect(effect_name):
         print("도핑물약 발동! 8초간 헤드/레그샷 확률 2배")
     elif effect_name == "berserk_potion":  # 광폭물약 액티브 아이템
         activate_berserk_potion()
-        print("광폭물약 발동! 15초 동안 건설/업그레이드 속도 상승, 포탑 연사 지연")
+        print("광폭물약 발동! 15초 동안 건설/업그레이드 속도 3배, 포탑 수동 발사 쿨다운 400% 단축")
     elif effect_name == "chargebag":  #  충전가방 아이템 (패시브 아이템이므로 apply_effect에서 처리하지 않음)
         # 충전가방은 store_passive_item에서 처리됨
         pass
@@ -61971,7 +61971,7 @@ def get_item_description(item_name):
         "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
         "knee_pads": "킥차져: 하프대쉬로 공을 맞출 때 게이지가 50% 충전됩니다. 성공 시 황금빛 킥 부스터가 번쩍입니다.",
         "doping_potion": "도핑물약: 8초 동안 권총 헤드샷과 레그샷 확률이 2배로 증가합니다.",
-        "berserk_potion": "광폭물약: 발토르 전용 강화 물약. 15초 동안 건설·업그레이드 속도가 3배로 증가하고 포탑 수동 발사 쿨다운이 200% 늘어나 공격 대신 공방 전환에 집중하게 됩니다.",
+        "berserk_potion": "광폭물약: 발토르 전용 강화 물약. 15초 동안 건설·업그레이드 속도가 3배로 증가하고 포탑 수동 발사 쿨다운이 400% 단축돼 구조물 운영에 집중할 수 있습니다.",
         "ammo_box": "탄약상자: 권총을 포함한 모든 보유 화기류의 탄창을 완전히 재장전합니다. 권총, 바주카포, AK-47 등 모든 화기류에 사용 가능합니다.",
         "fire_support": "화력지원: 무전으로 폭격기를 호출해 2~3초 후 보스 진영에 수류탄과 동일한 폭격을 5~7회 투하합니다. 폭격기는 공에 맞으면 격추됩니다.",
         "net_gun": "그물덫총: 작살을 던져 상대 진영에 폭 350px의 그물을 펼칩니다. 전개 순간 범위 안의 보스는 4초 동안 그물 밖으로 이동할 수 없습니다. 장력을 유지하는 동안 군인의 이동 속도는 30% 감소하니 위치를 선점해두세요.",
