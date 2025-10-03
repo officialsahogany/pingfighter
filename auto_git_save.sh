@@ -84,6 +84,7 @@ while true; do
 
         # 커밋
         git commit -m "$commit_message"
+        play_sound "$ALARM_SOUND"
         
         # Push
         current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -96,13 +97,13 @@ while true; do
             echo -e "${GREEN}✅ GitHub에 푸시 완료!${NC}"
             
             # 성공 알림음
-            afplay /System/Library/Sounds/Funk.aiff
+            play_sound "$SUCCESS_SOUND"
             
             echo -e "${GREEN}💾 자동 저장 완료! (총 ${commit_count}회)${NC}"
         else
             echo "❌ Push 실패! 네트워크를 확인하세요."
             # 에러 알림음
-            afplay /System/Library/Sounds/Basso.aiff
+            play_sound "$FAIL_SOUND"
         fi
         
         echo "----------------------------------------"

@@ -24,6 +24,22 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+ALARM_SOUND="${AUTO_GIT_ALARM_SOUND:-/System/Library/Sounds/Glass.aiff}"
+SUCCESS_SOUND="${AUTO_GIT_SUCCESS_SOUND:-/System/Library/Sounds/Funk.aiff}"
+FAIL_SOUND="${AUTO_GIT_FAIL_SOUND:-/System/Library/Sounds/Basso.aiff}"
+
+play_sound() {
+    local sound_path="$1"
+    if [ -z "$sound_path" ]; then
+        return
+    fi
+    if command -v afplay >/dev/null 2>&1 && [ -f "$sound_path" ]; then
+        afplay "$sound_path" &
+    elif command -v osascript >/dev/null 2>&1; then
+        osascript -e 'beep 1' &
+    fi
+}
+
 # 마지막 커밋 시간 (중복 방지)
 last_commit_time=0
 commit_count=0
