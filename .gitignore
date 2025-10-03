@@ -174,3 +174,4 @@ crash_dumps/
 *.avi
 *.mov
 *.mkv
+auto_save.pid
