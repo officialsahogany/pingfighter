@@ -34463,7 +34463,11 @@ def draw_objects():
     if is_devil_dice_active():
         instance = get_devil_dice_instance()
         instance.draw_gauge(SCREEN, WIDTH - 10, 60)  # 게이지만 그리기
-    
+
+    # 발토르 광폭물약 화염 이펙트 그리기
+    if berserk_potion_active and berserk_potion_timer > 0 and selected_character_type == "blacksmith":
+        draw_berserk_aura(SCREEN, PLAYER.center)
+
 def calculate_total_earned_medals(up_to_stage):
     total = 0
     for stage in range(1, up_to_stage + 1):
