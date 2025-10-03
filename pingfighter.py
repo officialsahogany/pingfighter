@@ -47039,6 +47039,124 @@ def show_stage6_intro():
         pygame.display.flip()
         pygame.time.delay(25)
 
+
+def show_stage7_intro():
+    stage_text = "STAGE 7"
+    boss_name = "테트리서"
+
+    played_video = False
+    if STAGE7_INTRO_VIDEO_PATH:
+        played_video, _ = play_stage_intro_video(
+            STAGE7_INTRO_VIDEO_PATH,
+            stage_text=stage_text,
+            boss_text=boss_name,
+            stage_color=(120, 180, 255),
+            boss_color=(90, 210, 255),
+            post_hold_ms=0,
+        )
+
+    if played_video:
+        return
+
+    try:
+        boss_img = pygame.image.load(STAGE7_INTRO_IMAGE_PATH).convert()
+        boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
+    except Exception:
+        boss_img = pygame.Surface((WIDTH, HEIGHT))
+        boss_img.fill((20, 30, 60))
+
+    grid_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    grid_color = (70, 130, 220, 90)
+    cell_size = 40
+    for x in range(0, WIDTH, cell_size):
+        pygame.draw.line(grid_overlay, grid_color, (x, 0), (x, HEIGHT))
+    for y in range(0, HEIGHT, cell_size):
+        pygame.draw.line(grid_overlay, grid_color, (0, y), (WIDTH, y))
+    highlight_surface = pygame.Surface((WIDTH, max(1, cell_size // 2)), pygame.SRCALPHA)
+    highlight_surface.fill((120, 200, 255, 60))
+
+    for alpha in range(0, 256, 8):
+        boss_img.set_alpha(alpha)
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+
+        grid_overlay.set_alpha(min(200, alpha + 40))
+        SCREEN.blit(grid_overlay, (0, 0))
+
+        pulse = alpha / 255.0
+        stage_color = (
+            int(120 + 80 * pulse),
+            int(180 + 50 * pulse),
+            255,
+        )
+        boss_color = (
+            90,
+            int(210 + 30 * pulse),
+            255,
+        )
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow")
+
+        pygame.display.flip()
+        pygame.time.delay(25)
+
+    boss_img.set_alpha(255)
+
+    waiting = True
+    frame_count = 0
+    wait_start = pygame.time.get_ticks()
+    while waiting:
+        frame_count += 1
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+
+        overlay_alpha = 90 + int(50 * math.sin(frame_count * 0.05))
+        grid_overlay.set_alpha(max(40, min(200, overlay_alpha)))
+        SCREEN.blit(grid_overlay, (0, 0))
+
+        highlight_height = highlight_surface.get_height()
+        sweep_y = (frame_count * 3) % (HEIGHT + highlight_height) - highlight_height
+        SCREEN.blit(highlight_surface, (0, sweep_y))
+
+        pulse = abs(math.sin(frame_count * 0.035))
+        stage_color = (
+            int(120 + 80 * pulse),
+            int(180 + 50 * pulse),
+            255,
+        )
+        boss_color = (
+            90,
+            int(210 + 30 * pulse),
+            255,
+        )
+        info_color = (150, 210, 255)
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow")
+        ui_manager.draw_centered_text("FINAL DEFENSE PROTOCOL", 24, 0, info_color, "normal")
+
+        pygame.display.flip()
+        pygame.time.delay(16)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                waiting = False
+
+        if waiting and pygame.time.get_ticks() - wait_start >= INTRO_AUTO_EXIT_MS:
+            waiting = False
+
+    for alpha in range(255, -1, -8):
+        boss_img.set_alpha(alpha)
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+        grid_overlay.set_alpha(alpha)
+        SCREEN.blit(grid_overlay, (0, 0))
+        pygame.display.flip()
+        pygame.time.delay(25)
+
+
 def draw_stage3_border():
     """스테이지 3 멘헤라 테두리 그리기"""
     if current_stage == 3:
