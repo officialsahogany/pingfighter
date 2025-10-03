@@ -303,6 +303,261 @@ class SimpleMenuBackground:
                     })
         
         return planets
+
+    def _create_gradient_surface(self) -> pygame.Surface:
+        """천천히 번지는 트라이톤 그라데이션을 프리렌더"""
+        surface = pygame.Surface((self.width, self.height))
+        mid_y = max(1, int(self.height * 0.55))
+        bottom_span = max(1, self.height - mid_y)
+
+        for y in range(self.height):
+            if y <= mid_y:
+                ratio = y / mid_y
+                r = int(self.colors['bg_top'][0] + (self.colors['bg_mid'][0] - self.colors['bg_top'][0]) * ratio)
+                g = int(self.colors['bg_top'][1] + (self.colors['bg_mid'][1] - self.colors['bg_top'][1]) * ratio)
+                b = int(self.colors['bg_top'][2] + (self.colors['bg_mid'][2] - self.colors['bg_top'][2]) * ratio)
+            else:
+                ratio = (y - mid_y) / bottom_span
+                r = int(self.colors['bg_mid'][0] + (self.colors['bg_bottom'][0] - self.colors['bg_mid'][0]) * ratio)
+                g = int(self.colors['bg_mid'][1] + (self.colors['bg_bottom'][1] - self.colors['bg_mid'][1]) * ratio)
+                b = int(self.colors['bg_mid'][2] + (self.colors['bg_bottom'][2] - self.colors['bg_mid'][2]) * ratio)
+            pygame.draw.line(surface, (r, g, b), (0, y), (self.width, y))
+
+        return surface
+
+    def _create_vignette_surface(self) -> pygame.Surface:
+        """화면 외곽을 다크 퍼플로 감싸는 비네팅"""
+        vignette = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        steps = 12
+        for i in range(steps):
+            padding_x = int(self.width * 0.04 * i)
+            padding_y = int(self.height * 0.05 * i)
+            rect = pygame.Rect(padding_x, padding_y, self.width - padding_x * 2, self.height - padding_y * 2)
+            if rect.width <= 0 or rect.height <= 0:
+                break
+            alpha = min(200, 22 + i * 14)
+            pygame.draw.rect(vignette, (8, 8, 18, alpha), rect, border_radius=max(12, 44 - i * 2))
+        return vignette
+
+    def _create_grid_overlay(self) -> pygame.Surface:
+        """고급스러운 네온 라인 격자"""
+        grid = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        spacing = 48
+        primary = self.colors['grid']
+        secondary = self.colors['grid_soft']
+
+        for x in range(0, self.width, spacing):
+            alpha = primary[3] + (8 if (x // spacing) % 3 == 0 else 0)
+            pygame.draw.line(
+                grid,
+                (primary[0], primary[1], primary[2], min(255, alpha)),
+                (x, 0),
+                (x, self.height),
+            )
+
+        for y in range(0, self.height, spacing):
+            alpha = secondary[3] + (6 if (y // spacing) % 2 == 0 else 0)
+            pygame.draw.line(
+                grid,
+                (secondary[0], secondary[1], secondary[2], min(255, alpha)),
+                (0, y),
+                (self.width, y),
+            )
+
+        # 사선 포물선 느낌의 얇은 라인으로 파라락스 착시 부여
+        for offset in range(-self.width, self.width, spacing * 3):
+            start = (offset, self.height)
+            end = (offset + self.height, 0)
+            pygame.draw.line(grid, (90, 140, 220, 22), start, end, width=1)
+
+        return grid
+
+    def _draw_soft_circle(
+        self,
+        target: pygame.Surface,
+        color: Tuple[int, int, int, int],
+        center: Tuple[int, int],
+        radius: int,
+        *,
+        falloff: float = 1.8,
+        step: int = 6,
+    ) -> None:
+        """알파가 자연스럽게 감쇠하는 원형 하이라이트"""
+        if radius <= 0:
+            return
+        step = max(1, step)
+        circle_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+        for r in range(radius, 0, -step):
+            ratio = r / radius
+            alpha = int(color[3] * (ratio ** falloff))
+            if alpha <= 0:
+                continue
+            pygame.draw.circle(
+                circle_surface,
+                (color[0], color[1], color[2], alpha),
+                (radius, radius),
+                r,
+            )
+        target.blit(circle_surface, (center[0] - radius, center[1] - radius), special_flags=pygame.BLEND_ADD)
+
+    def _create_nebula_layers(self) -> List[dict]:
+        """고급 성운 두 겹"""
+        layers: List[dict] = []
+        base_width = max(self.width, int(self.width * 1.35))
+        base_height = max(int(self.height * 0.7), 260)
+        palettes = [
+            [
+                (120, 70, 200, 28),
+                (70, 120, 255, 20),
+                (255, 120, 200, 18),
+                (60, 205, 220, 16),
+            ],
+            [
+                (255, 190, 140, 18),
+                (140, 200, 255, 20),
+                (180, 120, 255, 22),
+                (255, 120, 170, 16),
+            ],
+        ]
+
+        for idx, palette in enumerate(palettes):
+            nebula = pygame.Surface((base_width, base_height), pygame.SRCALPHA)
+            for _ in range(70):
+                color = random.choice(palette)
+                radius = random.randint(int(base_width * 0.08), int(base_width * 0.15))
+                pos = (
+                    random.randint(radius, base_width - radius),
+                    random.randint(radius, base_height - radius),
+                )
+                self._draw_soft_circle(nebula, color, pos, radius, falloff=1.95, step=6)
+
+            base_x = -base_width // 4 if idx == 0 else self.width - int(base_width * 0.75)
+            base_y = -base_height // 6 if idx == 0 else int(self.height * 0.08)
+            layers.append(
+                {
+                    'surface': nebula,
+                    'base_x': base_x,
+                    'base_y': base_y,
+                    'phase': random.uniform(0, math.pi * 2),
+                    'speed': random.uniform(0.25, 0.45),
+                    'amplitude': random.uniform(14, 24),
+                }
+            )
+
+        return layers
+
+    def _create_star_layers(self) -> List[dict]:
+        """패럴럭스가 적용된 스타필드"""
+        layers: List[dict] = []
+        base_density = max(40, (self.width * self.height) // 11000)
+        layer_specs = [
+            {'count': int(base_density * 1.1), 'speed': 12.0, 'color': (185, 225, 255)},
+            {'count': int(base_density * 0.7), 'speed': 20.0, 'color': (160, 200, 255)},
+            {'count': max(20, int(base_density * 0.45)), 'speed': 32.0, 'color': (255, 215, 175)},
+        ]
+
+        for spec in layer_specs:
+            layer_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            stars = []
+            for _ in range(spec['count']):
+                stars.append(
+                    {
+                        'x': random.uniform(0, self.width),
+                        'y': random.uniform(0, self.height),
+                        'size': random.choice([1, 1, 2]),
+                        'alpha': random.randint(120, 220),
+                        'twinkle': random.uniform(0, math.pi * 2),
+                        'twinkle_speed': random.uniform(0.8, 1.6),
+                        'parallax': random.uniform(0.6, 1.4),
+                        'vy': random.uniform(-4.0, 4.0),
+                    }
+                )
+
+            layers.append(
+                {
+                    'surface': layer_surface,
+                    'stars': stars,
+                    'speed': spec['speed'],
+                    'color': spec['color'],
+                }
+            )
+
+        return layers
+
+    def _create_light_columns(self) -> List[dict]:
+        """은은한 라이트 필라 3겹"""
+        columns: List[dict] = []
+        specs = [
+            {'x_ratio': 0.22, 'width_ratio': 0.18, 'color': (130, 180, 255), 'speed': 0.6, 'amplitude': self.width * 0.02},
+            {'x_ratio': 0.5, 'width_ratio': 0.24, 'color': (255, 210, 170), 'speed': 0.45, 'amplitude': self.width * 0.018},
+            {'x_ratio': 0.78, 'width_ratio': 0.16, 'color': (140, 220, 255), 'speed': 0.72, 'amplitude': self.width * 0.02},
+        ]
+
+        for spec in specs:
+            width = max(48, int(self.width * spec['width_ratio']))
+            column_surface = pygame.Surface((width, self.height), pygame.SRCALPHA)
+            for y in range(self.height):
+                vertical_ratio = 1.0 - abs((y / max(1, self.height)) - 0.35) * 1.9
+                vertical_ratio = max(0.0, vertical_ratio)
+                alpha = int(120 * (vertical_ratio ** 1.8))
+                if alpha <= 0:
+                    continue
+                pygame.draw.line(
+                    column_surface,
+                    (spec['color'][0], spec['color'][1], spec['color'][2], alpha),
+                    (0, y),
+                    (width, y),
+                )
+
+            horizontal_mask = pygame.Surface((width, 1), pygame.SRCALPHA)
+            for x in range(width):
+                horizontal_ratio = 1.0 - abs((x / max(1, width)) - 0.5) * 1.9
+                horizontal_ratio = max(0.0, horizontal_ratio)
+                alpha = int(255 * (horizontal_ratio ** 1.8))
+                horizontal_mask.set_at((x, 0), (255, 255, 255, max(0, min(255, alpha))))
+            horizontal_mask = pygame.transform.smoothscale(horizontal_mask, (width, self.height))
+            column_surface.blit(horizontal_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+            columns.append(
+                {
+                    'surface': column_surface,
+                    'base_x': int(self.width * spec['x_ratio']),
+                    'phase': random.uniform(0, math.pi * 2),
+                    'speed': spec['speed'],
+                    'amplitude': spec['amplitude'],
+                }
+            )
+
+        return columns
+
+    def _create_glass_highlight_surface(self) -> pygame.Surface:
+        """메인 로고 영역을 강조하는 글라스 하이라이트"""
+        height = max(80, int(self.height * 0.38))
+        highlight = pygame.Surface((self.width, height), pygame.SRCALPHA)
+        for y in range(height):
+            ratio = y / max(1, height)
+            alpha = int(90 * max(0.0, 1.0 - ratio ** 1.6))
+            color = (255, 255, 255, alpha)
+            pygame.draw.line(highlight, color, (0, y), (self.width, y))
+
+        ellipse_mask = pygame.Surface((self.width, height), pygame.SRCALPHA)
+        pygame.draw.ellipse(
+            ellipse_mask,
+            (255, 255, 255, 220),
+            (-int(self.width * 0.12), -height // 2, int(self.width * 1.24), height * 2),
+        )
+        highlight.blit(ellipse_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        return highlight
+
+    def _create_frame_surface(self) -> pygame.Surface:
+        """가느다란 금속 프레임"""
+        frame = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        outer_rect = frame.get_rect()
+        pygame.draw.rect(frame, (255, 220, 180, 36), outer_rect, width=2, border_radius=42)
+        inner_rect = outer_rect.inflate(-26, -26)
+        if inner_rect.width > 0 and inner_rect.height > 0:
+            pygame.draw.rect(frame, (120, 200, 255, 20), inner_rect, width=1, border_radius=30)
+        return frame
     
     def update(self, dt: float):
         """배경 업데이트"""
