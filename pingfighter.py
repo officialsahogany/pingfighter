@@ -58436,7 +58436,7 @@ def main(stage_num, new_boss_mode=False):
                     special_gauge = max(0, special_gauge - 350)
                     # 고스트샷 보너스: +50 게이지
                     if mega_smashing_active:
-                        special_gauge += 50
+                        special_gauge += _apply_blacksmith_berserk_gauge_bonus(50)
                         current_max = get_max_gauge()
                         if special_gauge > current_max:
                             special_gauge = current_max  # 파워스매시 게이지 소모: 350
