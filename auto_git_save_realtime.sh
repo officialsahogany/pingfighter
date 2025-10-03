@@ -74,8 +74,7 @@ handle_change() {
         
         user_note=""
         if [ -s "$note_file" ]; then
-            user_note=$(head -n1 "$note_file" | tr -d '
-')
+            user_note=$(head -n1 "$note_file" | tr -d '\r')
             : > "$note_file"
         fi
         
