@@ -52305,7 +52305,7 @@ def handle_ball():
             stage7_guard_hit = False
             if current_stage == 7 and stage7_guard_blocks:
                 for guard_block in stage7_guard_blocks:
-                    if guard_block.get("state") != "active":
+                    if guard_block.get("state") not in ("active", "deploy"):
                         continue
                     for cell in guard_block["cells"]:
                         if BALL.colliderect(cell["rect"]):
