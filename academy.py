@@ -144,7 +144,7 @@ SKILL_TREES = {
             {
                 "id": "item_gauge_mastery",
                 "name": "숙달",
-                "description": "엑티브 아이템 사용 시 게이지 +10\n(누적 ★4 필요)",
+                "description": "엑티브 아이템 사용 시 게이지 +7\n(누적 ★4 필요)",
                 "max_level": 5,
                 "cost": 1,
                 "icon_color": (255, 180, 140),
@@ -3022,7 +3022,7 @@ class AcademyUI:
             "dash_acceleration": "보너스: 추가 +60% 효과 적용",
             "item_luck": "보너스: 추가 -6% 효과 적용",
             "item_cooldown_mastery": "보너스: 추가 -8% 효과 적용",
-            "item_gauge_mastery": "보너스: 추가 +10 게이지 효과 적용",
+            "item_gauge_mastery": "보너스: 추가 +7 게이지 효과 적용",
         }
         return master_bonus_map.get(skill_id)
 
@@ -3727,7 +3727,7 @@ def get_skill_bonus(skill_id):
         
         "item_luck": level,                 # 레벨 정보 (별도 헬퍼에서 사용)
         "item_cooldown_mastery": level,
-        "item_gauge_mastery": level * 10,   # 게이지 +10 per level
+        "item_gauge_mastery": level * 7,    # 게이지 +7 per level
         "item_bag_expansion": level,        # 슬롯 +1 per level
         "item_gamble": level,               # 레벨 정보 (도박 설정용)
         "item_recycle": level,              # 레벨 정보 (연금술 확률용)
@@ -3765,9 +3765,9 @@ def compute_item_cooldown_multiplier(level: int) -> float:
 
 
 def compute_item_gauge_bonus(level: int) -> int:
-    bonus = level * 10
+    bonus = level * 7
     if level >= 5:
-        bonus += 10
+        bonus += 7
     return bonus
 
 
@@ -3786,9 +3786,9 @@ def get_active_item_cooldown_multiplier():
 def get_active_item_gauge_bonus():
     """숙달 스킬에 따른 게이지 보너스"""
     level = get_skill_level("item_gauge_mastery")
-    bonus = level * 10
+    bonus = level * 7
     if level >= 5:
-        bonus += 10
+        bonus += 7
     return bonus
 
 
