@@ -28226,7 +28226,7 @@ def _create_stage7_guard_block(label: str, start_left: float, final_left: float,
 
 
 def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
-    global stage7_guard_blocks, boss_special_gauge
+    global stage7_guard_blocks, boss_special_gauge, stage7_persistent_boss_gauge
     if now is None:
         now = pygame.time.get_ticks()
 
@@ -28237,7 +28237,6 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
         return False
 
     boss_special_gauge = max(0, boss_special_gauge - 100)
-    global stage7_persistent_boss_gauge
     stage7_persistent_boss_gauge = boss_special_gauge
 
     cell_size = STAGE7_GUARD_CELL_SIZE
