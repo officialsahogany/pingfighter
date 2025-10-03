@@ -24646,7 +24646,7 @@ def handle_player(keys):
                 special_ready = False
             # 게이지가 0이 되면 aipill 효과 종료
             if special_gauge <= 0:
-                aipill_active = False
+                deactivate_aipill("gauge_depleted")
                 special_gauge = 0
                 print("Aipill")  # 
             # Aipill 활성화 시에는 절대 게이지 증가 금지
