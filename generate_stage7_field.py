@@ -344,7 +344,6 @@ def create_stage7_background() -> Image.Image:
     _draw_torches(base)
     _draw_playfield_panel(base)
     _draw_center_lines(base)
-    _add_corner_details(base)
     return base
 
 
