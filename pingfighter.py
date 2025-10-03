@@ -28253,12 +28253,16 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     center = float(BOSS.centerx)
     block_top = float(max(12.0, BOSS.top - cell_size - 8))
 
-    shared_start = center - cell_size * 2
-    left_final = max(12.0, center - cell_size * 4)
-    right_final = min(float(WIDTH - cell_size * 4 - 12), center)
+    left_start = center - cell_size * 4
+    right_start = center
+    left_final = max(12.0, BOSS.left - cell_size * 4 - 6)
+    right_final = min(float(WIDTH - cell_size * 4 - 12), BOSS.right + 6)
 
-    left_block = _create_stage7_guard_block("left", shared_start, left_final, block_top, now)
-    right_block = _create_stage7_guard_block("right", shared_start, right_final, block_top, now)
+    # 오른쪽 블록
+    right_block = _create_stage7_guard_block("right", right_start, right_final, block_top, now)
+
+    # 왼쪽 블록 (독립된 시작 위치)
+    left_block = _create_stage7_guard_block("left", left_start, left_final, block_top, now)
 
     print(f"[Stage7Guard] spawn left {shared_start:.1f}->{left_final:.1f}, right {shared_start:.1f}->{right_final:.1f}, top={block_top:.1f}")
 
