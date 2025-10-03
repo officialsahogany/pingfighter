@@ -11626,6 +11626,9 @@ SOLDIER_WALKING_CYCLE = 30  # 0.5초 (60fps * 0.5)
 FIRE_SUPPORT_RADIO_FRAMES = int(FPS * 0.7)  # 화력지원 무전 연출 지속시간(0.7초)
 FIRE_SUPPORT_CONTROL_LOCK_FRAMES = int(FPS * 0.7)  # 화력지원 발동 시 플레이어 통제불능 시간
 fire_support_radio_loop_active = False  # 화력지원 호출 중 무전기 사운드 루프 상태
+# 화력지원 발동 직후 슬롯이 다른 무기로 튀는 현상을 복구하기 위한 임시 저장소
+fire_support_slot_restore_pending = False
+fire_support_slot_restore_index: int | None = None
 
 # === 발토르 걷기 애니메이션 변수 ===
 blacksmith_walking_active = False
