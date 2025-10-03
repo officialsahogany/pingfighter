@@ -15072,7 +15072,7 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
 
 
 def handle_fire_support_lockout() -> None:
-    """화력지원 호출 직후 다른 화기로 전환해 입력을 즉시 복구한다."""
+    """화력지원 호출 중에도 슬롯을 유지해 UI 애니메이션을 계속 보여준다."""
     global soldier_controller
 
     if 'soldier_controller' not in globals() or soldier_controller is None:
@@ -15080,31 +15080,19 @@ def handle_fire_support_lockout() -> None:
 
     try:
         weapons = soldier_controller.weapons
-    except AttributeError:
-        return
-
-    if not weapons or len(weapons) <= 1:
-        return
-
-    try:
         current_index = soldier_controller.current_index
     except AttributeError:
-        current_index = 0
-
-    fallback_index: int | None = None
-    if "pistol" in weapons:
-        fallback_index = weapons.index("pistol")
-    else:
-        for idx, weapon_name in enumerate(weapons):
-            if weapon_name != "fire_support":
-                fallback_index = idx
-                break
-
-    if fallback_index is None or fallback_index == current_index:
         return
 
-    print("⚠️ 화력지원 호출 완료 - 기본 화기로 복귀합니다.")
-    soldier_switch_weapon(fallback_index, play_sound=False)
+    if not weapons or not (0 <= current_index < len(weapons)):
+        return
+
+    if weapons[current_index] != "fire_support":
+        return
+
+    # 화력지원 애니메이션 유지 및 즉시 재전환 허용.
+    soldier_controller.switch_cooldown = 0
+    soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
 
 
 def get_weapon_menu_icon(weapon_name: str, size: int = 40) -> pygame.Surface:
