@@ -28228,22 +28228,19 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     boss_special_gauge = max(0, boss_special_gauge - 100)
 
     cell_size = STAGE7_GUARD_CELL_SIZE
-    final_left = float(WIDTH - cell_size * 4 - 12)
-    start_left = float(BOSS.centerx - cell_size * 2)
-    start_left = max(20.0, min(final_left, start_left))
+    # 오른쪽 블록: 보스 중앙 기준 오른쪽 이동, 오른쪽 벽에 붙음
+    right_start = float(BOSS.centerx)
+    right_final = float(min(WIDTH - cell_size * 4 - 12, BOSS.right + 6))
+    right_top = float(max(60.0, min(HEIGHT - cell_size - 60, BOSS.centery - cell_size // 2)))
+    right_block = _create_stage7_guard_block("right", right_start, right_final, right_top, now)
 
-    vertical_gap = cell_size + 14
-    upper_top = float(max(60.0, BOSS.centery - vertical_gap - cell_size))
-    lower_top = float(min(HEIGHT - cell_size * 2 - 60, BOSS.centery + vertical_gap))
-    if lower_top - upper_top < cell_size * 2:
-        lower_top = min(HEIGHT - cell_size * 2 - 60, upper_top + cell_size * 2)
+    # 왼쪽 블록: 보스 중앙 기준 왼쪽 이동, 왼쪽 벽에 붙음
+    left_start = float(BOSS.centerx - cell_size * 4)
+    left_final = float(max(12.0, BOSS.left - cell_size * 4 - 6))
+    left_top = float(max(60.0, min(HEIGHT - cell_size - 60, BOSS.centery - cell_size // 2)))
+    left_block = _create_stage7_guard_block("left", left_start, left_final, left_top, now)
 
-    top_positions = [upper_top, lower_top]
-    labels = ("upper", "lower")
-    new_blocks = []
-    for label, top in zip(labels, top_positions):
-        block = _create_stage7_guard_block(label, start_left, final_left, top, now)
-        new_blocks.append(block)
+    new_blocks = [right_block, left_block]
 
     stage7_guard_blocks.extend(new_blocks)
     return True
