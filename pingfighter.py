@@ -48935,6 +48935,12 @@ def reset_round():
     short_shot_target_vy = 0.0
     short_shot_original_speed = 0.0
     
+    preserve_stage7_gauge = None
+    preserve_stage7_display = None
+    if current_stage == 7:
+        preserve_stage7_gauge = boss_special_gauge
+        preserve_stage7_display = displayed_boss_gauge
+
     #  상모돌리기 상태 초기화 (라운드 시작 시)
     whip_active = False
     whip_timer = 0
@@ -48964,6 +48970,10 @@ def reset_round():
         boss_special_gauge = 0
         print(f"Stage 2 보스 게이지 초기화 (현재: {boss_special_gauge}/500)")
     # Stage 3과 4는 각자의 게이지 관리 시스템이 있으므로 여기서는 처리하지 않음
+
+    if preserve_stage7_gauge is not None:
+        boss_special_gauge = preserve_stage7_gauge
+        displayed_boss_gauge = preserve_stage7_display if preserve_stage7_display is not None else boss_special_gauge
 def reset_deuce_system():
     """듀스 시스템을 완전히 리셋합니다."""
     global deuce_mode, deuce_wins, deuce_losses, deuce_goal
