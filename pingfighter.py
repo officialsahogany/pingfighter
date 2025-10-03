@@ -2854,6 +2854,7 @@ def trigger_grenade_style_explosion(
         global special_gauge
         if selected_character_type == "soldier":
             gauge_increase = 70 if apply_commando_bonus and items.commando_arm_obtained else 50
+            gauge_increase = _apply_blacksmith_berserk_gauge_bonus(gauge_increase)
             old_gauge = special_gauge
             special_gauge += gauge_increase
             current_max = get_max_gauge()
@@ -14620,6 +14621,7 @@ doping_potion_use_count = 0
 BERSERK_POTION_DURATION_FRAMES = 900  # 15초 지속
 BERSERK_POTION_BUILD_MULTIPLIER = 3.0
 BERSERK_POTION_MANUAL_COOLDOWN_MULTIPLIER = 0.25  # 연사 400% 증가 → 기본 쿨다운의 1/4
+BERSERK_POTION_GAUGE_GAIN_MULTIPLIER = 3.0  # 게이지 충전량 3배
 berserk_potion_active = False
 berserk_potion_timer = 0
 berserk_aura_surface: pygame.Surface | None = None
@@ -14889,6 +14891,17 @@ def get_blacksmith_construction_speed_multiplier() -> float:
 def get_blacksmith_manual_cooldown_multiplier() -> float:
     """발토르 포탑 수동 발사 쿨다운 배수를 반환"""
     return BERSERK_POTION_MANUAL_COOLDOWN_MULTIPLIER if berserk_potion_active and berserk_potion_timer > 0 else 1.0
+
+
+def _apply_blacksmith_berserk_gauge_bonus(amount: int) -> int:
+    """광폭물약 발동 중 발토르 게이지 충전량 배수를 적용"""
+    if (
+        selected_character_type == "blacksmith"
+        and berserk_potion_active
+        and berserk_potion_timer > 0
+    ):
+        return max(1, int(math.ceil(amount * BERSERK_POTION_GAUGE_GAIN_MULTIPLIER)))
+    return amount
 
 
 def draw_berserk_aura(surface: pygame.Surface, center: tuple[int, int]) -> None:
@@ -20660,8 +20673,9 @@ def update_soldier_bullets():
                     print("🎯 레그샷 보너스! 게이지 40 증가!")
                 else:
                     print("🎯 코만도 권총 명중! 게이지 30 증가!")
-                
+
                 # 게이지 증가 적용
+                gauge_increase = _apply_blacksmith_berserk_gauge_bonus(gauge_increase)
                 old_gauge = special_gauge
                 special_gauge += gauge_increase
                 current_max = get_max_gauge()
@@ -24599,6 +24613,7 @@ def handle_player(keys):
 
             if DEBUG_HANDLE_PLAYER_VERBOSE:
                 print(f" DEBUG:  handle_player   ({total_gauge_gain})")
+            total_gauge_gain = _apply_blacksmith_berserk_gauge_bonus(total_gauge_gain)
             old_gauge = special_gauge  # 이전 게이지 저장
             special_gauge += total_gauge_gain
             #  동적 최대치 제한 적용
