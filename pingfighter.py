@@ -57245,6 +57245,7 @@ def main(stage_num, new_boss_mode=False):
             migration_bridge = None
 
     stage_num = stage_display_to_logic(display_stage_num)
+    print(f"[StageSelect] 진입: display={display_stage_num}, logic={stage_num}")
 
     if display_stage_num == 2:
         preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
