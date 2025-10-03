@@ -248,21 +248,6 @@ def _draw_playfield_panel(image: Image.Image) -> None:
         for rivet_y in range(top + 20, bottom - 10, 56):
             draw.ellipse((column_x + column_width // 2 - 3, rivet_y - 3, column_x + column_width // 2 + 3, rivet_y + 3), fill=IRON_RIVET_COLOR)
 
-    # 상부 아치와 문양
-    arch_rect = (left + 46, top - 58, right - 46, top - 26)
-    _draw_gradient_rect(draw, arch_rect, (48, 86, 142), (22, 46, 90), alpha=225)
-    draw.rounded_rectangle(arch_rect, radius=18, outline=(104, 160, 236, 220), width=2)
-    crest_center = ((arch_rect[0] + arch_rect[2]) // 2, arch_rect[1] + 18)
-    draw.ellipse((crest_center[0] - 18, crest_center[1] - 18, crest_center[0] + 18, crest_center[1] + 18), outline=(200, 230, 255, 220), width=2)
-    draw.polygon(
-        [
-            (crest_center[0], crest_center[1] - 12),
-            (crest_center[0] - 10, crest_center[1] + 10),
-            (crest_center[0] + 10, crest_center[1] + 10),
-        ],
-        fill=(212, 236, 255, 200),
-    )
-
     # 철제 보강 브릿지 (최소화된 가이드)
     brace_y_positions = [top + 28, bottom - 32]
     for y in brace_y_positions:
@@ -357,7 +342,6 @@ def create_stage7_background() -> Image.Image:
     _draw_pixel_grid(base)
     _draw_side_glow(base)
     _draw_torches(base)
-    _draw_banners(base)
     _draw_playfield_panel(base)
     _draw_center_lines(base)
     _add_corner_details(base)
