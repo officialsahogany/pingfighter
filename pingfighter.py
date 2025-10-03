@@ -15272,6 +15272,88 @@ falling_tears = []  # [(x, y, speed)] 리스트
 last_tears_cast_time = -9999  # 마지막 눈물샤워 발동 시간
 TEARS_COOLDOWN = 7000        # 쿨타임 (밀리초 단위 = 5초)
 item_state_adapter.clear_passive_items()
+
+
+def _build_stage7_boss_frames(source_surface: pygame.Surface) -> list[pygame.Surface]:
+    """Create lateral-lean animation frames for the stage 7 boss sprite."""
+    width, height = source_surface.get_size()
+    if width == 0 or height == 0:
+        return [source_surface.copy()]
+
+    # Define body segment regions based on relative proportions for robustness.
+    arm_top = int(height * 0.47)
+    arm_width = max(1, int(width * 0.46))
+    left_arm_rect = pygame.Rect(0, arm_top, arm_width, height - arm_top)
+    right_arm_rect = pygame.Rect(width - arm_width, arm_top, arm_width, height - arm_top)
+
+    leg_top = int(height * 0.19)
+    leg_height = max(1, int(height * 0.26))
+    leg_width = max(1, int(width * 0.18))
+    left_leg_x = int(width * 0.32)
+    right_leg_x = width - leg_width - left_leg_x
+    left_leg_rect = pygame.Rect(left_leg_x, leg_top, leg_width, leg_height)
+    right_leg_rect = pygame.Rect(right_leg_x, leg_top, leg_width, leg_height)
+
+    torso = source_surface.copy()
+    for segment_rect in (left_arm_rect, right_arm_rect, left_leg_rect, right_leg_rect):
+        torso.fill((0, 0, 0, 0), segment_rect)
+
+    left_arm = source_surface.subsurface(left_arm_rect).copy()
+    right_arm = source_surface.subsurface(right_arm_rect).copy()
+    left_leg = source_surface.subsurface(left_leg_rect).copy()
+    right_leg = source_surface.subsurface(right_leg_rect).copy()
+
+    body_shift_factor = width * 0.035
+    body_lift_factor = height * 0.01
+    arm_shift_factor = width * 0.05
+    leg_shift_factor = width * 0.04
+    arm_lift_factor = height * 0.015
+    leg_step_factor = height * 0.02
+
+    frames: list[pygame.Surface] = []
+    for lean in (-1.0, -0.5, 0.0, 0.5, 1.0):
+        frame = pygame.Surface((width, height), pygame.SRCALPHA)
+
+        body_dx = int(round(lean * body_shift_factor))
+        body_dy = -int(round(abs(lean) * body_lift_factor))
+
+        step = int(round(abs(lean) * leg_step_factor))
+        if lean > 0:
+            left_leg_dy = body_dy - step
+            right_leg_dy = body_dy + step
+        elif lean < 0:
+            left_leg_dy = body_dy + step
+            right_leg_dy = body_dy - step
+        else:
+            left_leg_dy = right_leg_dy = body_dy
+
+        left_leg_dx = body_dx - int(round(lean * leg_shift_factor))
+        right_leg_dx = body_dx + int(round(lean * leg_shift_factor))
+
+        frame.blit(left_leg, (left_leg_rect.x + left_leg_dx, left_leg_rect.y + left_leg_dy))
+        frame.blit(right_leg, (right_leg_rect.x + right_leg_dx, right_leg_rect.y + right_leg_dy))
+
+        frame.blit(torso, (body_dx, body_dy))
+
+        arm_lift = int(round(abs(lean) * arm_lift_factor))
+        left_arm_dx = body_dx - int(round(lean * arm_shift_factor)) - arm_lift // 2
+        right_arm_dx = body_dx + int(round(lean * arm_shift_factor)) + arm_lift // 2
+
+        if lean > 0:
+            left_arm_dy = body_dy - arm_lift
+            right_arm_dy = body_dy + arm_lift
+        elif lean < 0:
+            left_arm_dy = body_dy + arm_lift
+            right_arm_dy = body_dy - arm_lift
+        else:
+            left_arm_dy = right_arm_dy = body_dy
+
+        frame.blit(left_arm, (left_arm_rect.x + left_arm_dx, left_arm_rect.y + left_arm_dy))
+        frame.blit(right_arm, (right_arm_rect.x + right_arm_dx, right_arm_rect.y + right_arm_dy))
+
+        frames.append(frame)
+
+    return frames
 try:
     BOSS_IMG_STAGE1 = pygame.image.load(resource_path("boss_stage1.png")).convert_alpha()
     BOSS_IMG_STAGE1 = pygame.transform.scale(BOSS_IMG_STAGE1, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
