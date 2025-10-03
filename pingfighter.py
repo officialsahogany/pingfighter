@@ -20697,10 +20697,10 @@ def update_soldier_bullets():
                 and animated_bg_stage2.crisis_rocks
             ):
                 for rock in animated_bg_stage2.crisis_rocks:
-                    if rock.get("falling", False):
-                        continue
                     rect = rock.get("collision_rect")
                     if rect is None:
+                        continue
+                    if rock.get("falling", False) and rock.get("fall_y", rect.centery) < -SOLDIER_BULLET_SIZE:
                         continue
                     if not bullet_rect.colliderect(rect):
                         continue
@@ -20709,25 +20709,47 @@ def update_soldier_bullets():
                         bullet["active"] = False
                         break
 
-                    overlap_left = abs(bullet_rect.right - rect.left)
-                    overlap_right = abs(rect.right - bullet_rect.left)
-                    overlap_top = abs(bullet_rect.bottom - rect.top)
-                    overlap_bottom = abs(rect.bottom - bullet_rect.top)
+                    overlap_left = bullet_rect.right - rect.left
+                    overlap_right = rect.right - bullet_rect.left
+                    overlap_top = bullet_rect.bottom - rect.top
+                    overlap_bottom = rect.bottom - bullet_rect.top
 
-                    min_overlap = min(overlap_left, overlap_right, overlap_top, overlap_bottom)
+                    overlaps = {
+                        "left": overlap_left,
+                        "right": overlap_right,
+                        "top": overlap_top,
+                        "bottom": overlap_bottom,
+                    }
+                    hit_side = min(overlaps, key=overlaps.get)
 
-                    if min_overlap == overlap_left:
+                    if hit_side == "left":
                         bullet["x"] = rect.left - SOLDIER_BULLET_SIZE - 0.1
-                        bullet["vel_x"] = -abs(bullet["vel_x"])
-                    elif min_overlap == overlap_right:
+                        new_speed = max(
+                            abs(bullet["vel_x"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
+                            SOLDIER_BULLET_MIN_SPEED,
+                        )
+                        bullet["vel_x"] = -new_speed
+                    elif hit_side == "right":
                         bullet["x"] = rect.right + SOLDIER_BULLET_SIZE + 0.1
-                        bullet["vel_x"] = abs(bullet["vel_x"])
-                    elif min_overlap == overlap_top:
+                        new_speed = max(
+                            abs(bullet["vel_x"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
+                            SOLDIER_BULLET_MIN_SPEED,
+                        )
+                        bullet["vel_x"] = new_speed
+                    elif hit_side == "top":
                         bullet["y"] = rect.top - SOLDIER_BULLET_SIZE - 0.1
-                        bullet["vel_y"] = -abs(bullet["vel_y"])
-                    else:  # overlap_bottom
+                        new_speed = max(
+                            abs(bullet["vel_y"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
+                            SOLDIER_BULLET_MIN_SPEED,
+                        )
+                        bullet["vel_y"] = -new_speed
+                    else:  # bottom
                         bullet["y"] = rect.bottom + SOLDIER_BULLET_SIZE + 0.1
-                        bullet["vel_y"] = abs(bullet["vel_y"])
+                        new_speed = max(
+                            abs(bullet["vel_y"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
+                            SOLDIER_BULLET_MIN_SPEED,
+                        )
+                        bullet["vel_y"] = new_speed
 
                     bullet["rock_bounces"] = bullet.get("rock_bounces", 0) + 1
 
