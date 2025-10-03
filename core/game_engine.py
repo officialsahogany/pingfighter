@@ -36,7 +36,7 @@ from game_logic.round_manager import RoundManager
 from rendering.renderer import GameRenderer
 
 # UI imports
-from ui.menu_system import MenuSystem, MenuState
+from ui.menu_system import MenuSystem
 from ui.hud_display import HUDDisplay
 from ui.pause_menu import PauseMenu
 
@@ -228,18 +228,11 @@ class GameEngine:
                 self.toggle_pause()
             elif self.mode == GameMode.PAUSED:
                 self.resume_game()
-            return
-
-        if self.mode == GameMode.PAUSED:
-            action = self.pause_menu.handle_keydown(event)
-            if action:
-                self._apply_pause_menu_action(action)
-            return
-
-        if event.key == pygame.K_SPACE and self.mode == GameMode.PLAYING:
+        
+        elif event.key == pygame.K_SPACE and self.mode == GameMode.PLAYING:
             # 대쉬 또는 특수 능력 활성화
             self.paddle.activate_dash()
-
+        
         elif event.key == pygame.K_LEFT:
             self.paddle.start_move_left()
         elif event.key == pygame.K_RIGHT:
@@ -254,15 +247,10 @@ class GameEngine:
     
     def _handle_mousedown(self, event):
         """마우스 다운 이벤트 처리"""
-        if getattr(event, "button", 1) != 1:
-            return
-
         if self.mode == GameMode.MENU:
             self.menu_system.handle_click(event.pos)
         elif self.mode == GameMode.PAUSED:
-            action = self.pause_menu.handle_click(event.pos)
-            if action:
-                self._apply_pause_menu_action(action)
+            self.pause_menu.handle_click(event.pos)
     
     def _update_menu(self):
         """메뉴 업데이트"""
@@ -310,10 +298,12 @@ class GameEngine:
     
     def _update_pause(self):
         """일시정지 상태 업데이트"""
-        action = self.pause_menu.update(self.delta_time)
-        if action:
-            self._apply_pause_menu_action(action)
-
+        result = self.pause_menu.update(self.delta_time)
+        if result == "resume":
+            self.resume_game()
+        elif result == "quit":
+            self.mode = GameMode.MENU
+    
     def _update_game_over(self):
         """게임 오버 상태 업데이트"""
         # 게임 오버 화면 업데이트
@@ -451,7 +441,6 @@ class GameEngine:
     def toggle_pause(self):
         """일시정지 토글"""
         if self.mode == GameMode.PLAYING:
-            self.pause_menu.reset()
             self.mode = GameMode.PAUSED
             self.event_manager.emit(EventType.PAUSE)
             print("⏸️ 게임 일시정지")
@@ -487,37 +476,6 @@ class GameEngine:
     def _on_resume(self, event_data):
         """재개 이벤트 핸들러"""
         pass
-
-    def _apply_pause_menu_action(self, action: Optional[str]) -> None:
-        """일시정지 메뉴에서 선택된 동작을 수행."""
-
-        if not action:
-            return
-
-        if action == "resume":
-            self.resume_game()
-            return
-
-        if action == "restart":
-            self.pause_menu.reset()
-            self.round_wins = 0
-            self.round_losses = 0
-            self.reset_round()
-            self.resume_game()
-            return
-
-        if action == "quit":
-            self.pause_menu.reset()
-            self.round_wins = 0
-            self.round_losses = 0
-            self.reset_round()
-            self.mode = GameMode.MENU
-            if hasattr(self.menu_system, "change_state"):
-                try:
-                    self.menu_system.change_state(MenuState.MAIN)
-                except Exception:
-                    pass
-            return
     
     def _cleanup(self):
         """정리 작업"""
