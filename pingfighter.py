@@ -15304,21 +15304,35 @@ try:
 except:
     BOSS_IMG_STAGE5 = pygame.Surface((BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_STAGE5.fill((255, 80, 0))
-try:
-    _stage7_source = pygame.image.load(resource_path("boss_stage7.png")).convert_alpha()
-    _stage7_frames_raw = _build_stage7_boss_frames(_stage7_source)
-    BOSS_IMG_STAGE7_FRAMES = [
-        pygame.transform.smoothscale(frame, (BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT))
-        for frame in _stage7_frames_raw
-    ]
-    if not BOSS_IMG_STAGE7_FRAMES:
-        raise ValueError("stage7 frames empty")
-    BOSS_IMG_STAGE7 = BOSS_IMG_STAGE7_FRAMES[len(BOSS_IMG_STAGE7_FRAMES) // 2]
-except Exception:
+
+STAGE7_FRAME_FILES = [
+    "boss_stage7_frame_0.png",
+    "boss_stage7_frame_1.png",
+    "boss_stage7_frame_2.png",
+    "boss_stage7_frame_3.png",
+    "boss_stage7_frame_4.png",
+    "boss_stage7_frame_5.png",
+    "boss_stage7_frame_6.png",
+]
+
+_stage7_loaded_frames: list[pygame.Surface] = []
+for frame_name in STAGE7_FRAME_FILES:
+    try:
+        frame_surface = pygame.image.load(resource_path(frame_name)).convert_alpha()
+        frame_surface = pygame.transform.smoothscale(frame_surface, (BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT))
+        _stage7_loaded_frames.append(frame_surface)
+    except Exception:
+        _stage7_loaded_frames = []
+        break
+
+BOSS_IMG_STAGE7_FRAMES = _stage7_loaded_frames
+
+if not BOSS_IMG_STAGE7_FRAMES:
     fallback = pygame.Surface((BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT), pygame.SRCALPHA)
     fallback.fill((240, 120, 220))
     BOSS_IMG_STAGE7_FRAMES = [fallback]
-    BOSS_IMG_STAGE7 = fallback
+
+BOSS_IMG_STAGE7 = BOSS_IMG_STAGE7_FRAMES[len(BOSS_IMG_STAGE7_FRAMES) // 2]
 
 # Tutorial Boss (Stage 50) - Smaller size for instructor
 BOSS_IMG_TUTORIAL_WIDTH = 80
