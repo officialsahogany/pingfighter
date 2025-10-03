@@ -28108,6 +28108,7 @@ stage7_gauge_debug_active = False
 stage7_gauge_debug_last_log = 0
 stage7_gauge_debug_last_stage = None
 stage7_gauge_debug_stage_log_ticks = 0
+stage7_gauge_debug_call_count = 0
 
 
 def draw_stage7_boss_gauge_bar():
@@ -28115,11 +28116,19 @@ def draw_stage7_boss_gauge_bar():
     global current_stage, boss_special_gauge, displayed_boss_gauge
     global stage7_gauge_debug_active, stage7_gauge_debug_last_log
     global stage7_gauge_debug_last_stage, stage7_gauge_debug_stage_log_ticks
+    global stage7_gauge_debug_call_count
 
     time_now = pygame.time.get_ticks()
-    if time_now - stage7_gauge_debug_stage_log_ticks > 300:
-        print(f"[Stage7Gauge] 호출: stage={current_stage}")
+    global stage7_gauge_debug_call_count
+    if stage7_gauge_debug_call_count < 5:
+        stage7_gauge_debug_call_count += 1
+        print(
+            f"[Stage7Gauge] call#{stage7_gauge_debug_call_count}: stage={current_stage},"
+            f" boss={boss_special_gauge}, displayed={displayed_boss_gauge}, ticks={time_now}"
+        )
+    elif time_now - stage7_gauge_debug_stage_log_ticks > 1000:
         stage7_gauge_debug_stage_log_ticks = time_now
+        print(f"[Stage7Gauge] stage={current_stage}, boss={boss_special_gauge}, displayed={displayed_boss_gauge}")
 
     if current_stage != 7:
         time_now = pygame.time.get_ticks()
@@ -57332,6 +57341,7 @@ def main(stage_num, new_boss_mode=False):
 
     boss_fail_timer = 0  # 보스 실수 타이머 초기화
     current_stage = stage_num
+    print(f"[StageSelect] current_stage set -> {current_stage}")
     global tutorial_guide_hint_visible, tutorial_guide_hint_start_ticks
     if globals().get("ai_mode") == "junior":
         tutorial_guide_hint_visible = True
