@@ -28098,13 +28098,21 @@ def draw_stage1_boss_gauge_bar():
     gauge_surface = gauge_font.render(gauge_text, True, (100, 60, 20))
     gauge_rect = gauge_surface.get_rect(centerx=bar_x + bar_width // 2, top=bar_y + bar_height + 25)
     SCREEN.blit(gauge_surface, gauge_rect)
-    
+
+
+stage7_gauge_debug_active = False
+stage7_gauge_debug_last_log = 0
+
 
 def draw_stage7_boss_gauge_bar():
     """Stage 7 보스 스킬 게이지 - 테트리스 블록 콘셉트"""
     global current_stage, boss_special_gauge, displayed_boss_gauge
+    global stage7_gauge_debug_active, stage7_gauge_debug_last_log
 
     if current_stage != 7:
+        if stage7_gauge_debug_active:
+            print("[Stage7Gauge] 스테이지 7 종료 → 게이지 디버그 비활성화")
+            stage7_gauge_debug_active = False
         return
 
     max_gauge = 500
@@ -28115,6 +28123,18 @@ def draw_stage7_boss_gauge_bar():
     gauge_width = 14
     gauge_height = 100
     time_now = pygame.time.get_ticks()
+
+    if not stage7_gauge_debug_active:
+        stage7_gauge_debug_active = True
+        stage7_gauge_debug_last_log = time_now
+        print(
+            f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
+        )
+    elif time_now - stage7_gauge_debug_last_log >= 1000:
+        stage7_gauge_debug_last_log = time_now
+        print(
+            f"[Stage7Gauge] 유지: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, current={current_gauge:.1f}"
+        )
 
     outer_rect = pygame.Rect(gauge_x - 6, gauge_y - 12, gauge_width + 12, gauge_height + 24)
     pygame.draw.rect(SCREEN, (18, 18, 30), outer_rect, border_radius=4)
