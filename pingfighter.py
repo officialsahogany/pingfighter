@@ -15029,19 +15029,9 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
         fire_support_weapon.unequip()
     elif current_weapon == "fire_support":
         if fire_support_weapon.is_locked():
-            # 폭격 진행 중에는 다른 화기로 자동 전환한다.
-            fallback_index = None
-            for idx, weapon_name in enumerate(soldier_controller.weapons):
-                if weapon_name != "fire_support":
-                    fallback_index = idx
-                    break
-            if fallback_index is None:
-                fallback_index = safe_index
-            if fallback_index != safe_index:
-                print("⚠️ 화력지원 폭격 진행 중 - 다른 화기로 전환합니다.")
-                return soldier_switch_weapon(fallback_index, play_sound=False)
-            fire_support_weapon.unequip()
-            print("⚠️ 화력지원 무기가 일시적으로 비활성화되었습니다.")
+            # 폭격 진행 중에도 슬롯을 유지해 HUD 애니메이션이 끊기지 않도록 한다.
+            soldier_controller.switch_cooldown = 0
+            soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
             return soldier_controller.weapons[soldier_controller.current_index]
         fire_support_weapon.equip()
         if "bazooka" in soldier_controller.weapons:
