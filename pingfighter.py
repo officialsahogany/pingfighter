@@ -31233,6 +31233,7 @@ def draw_objects():
             target_lean = math.sin(pygame.time.get_ticks() * 0.004) * 0.25
 
         stage7_lean_value = (stage7_lean_value * 0.72) + (target_lean * 0.28)
+        stage7_lean_value = max(-1.0, min(1.0, stage7_lean_value))
 
         frames = BOSS_IMG_STAGE7_FRAMES if BOSS_IMG_STAGE7_FRAMES else [BOSS_IMG_STAGE7]
         frame_count = len(frames)
