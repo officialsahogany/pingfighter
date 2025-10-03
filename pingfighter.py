@@ -28650,9 +28650,16 @@ def draw_player_gauge():
         inner_rect = pygame.Rect(berserk_gauge_x, berserk_gauge_y, berserk_gauge_width, berserk_gauge_height)
         draw.rect((24, 10, 10), inner_rect)
 
-        fill_height = int((berserk_gauge_height - 4) * berserk_ratio)
-        if fill_height > 0:
-            fill_y = berserk_gauge_y + berserk_gauge_height - fill_height - 2
+        fill_height_raw = int((berserk_gauge_height - 4) * berserk_ratio)
+        if fill_height_raw > 0:
+            fill_height = max(1, fill_height_raw)
+            bottom_y = berserk_gauge_y + berserk_gauge_height - 2
+            min_top = berserk_gauge_y + 2
+            fill_y = bottom_y - fill_height + 1
+            if fill_y < min_top:
+                fill_y = min_top
+                fill_height = max(1, bottom_y - fill_y + 1)
+
             for layer in range(3):
                 layer_width = berserk_gauge_width - 4 - layer * 2
                 if layer_width <= 0:
@@ -28665,12 +28672,15 @@ def draw_player_gauge():
                 layer_rect = pygame.Rect(berserk_gauge_x + 2 + layer, fill_y, layer_width, fill_height)
                 draw.rect(color, layer_rect)
 
-            ember_count = 3
-            for _ in range(ember_count):
-                ember_x = random.randint(berserk_gauge_x + 2, berserk_gauge_x + berserk_gauge_width - 3)
-                ember_y = random.randint(fill_y, berserk_gauge_y + berserk_gauge_height - 4)
-                ember_color = (255, random.randint(110, 180), random.randint(60, 90))
-                pygame.draw.circle(SCREEN, ember_color, (ember_x, ember_y), 1)
+            ember_cap = berserk_gauge_y + berserk_gauge_height - 4
+            ember_start = min(fill_y, ember_cap)
+            if ember_start <= ember_cap:
+                ember_count = 3
+                for _ in range(ember_count):
+                    ember_x = random.randint(berserk_gauge_x + 2, berserk_gauge_x + berserk_gauge_width - 3)
+                    ember_y = random.randint(ember_start, ember_cap)
+                    ember_color = (255, random.randint(110, 180), random.randint(60, 90))
+                    pygame.draw.circle(SCREEN, ember_color, (ember_x, ember_y), 1)
 
         icon = get_item_icon("berserk_potion")
         if icon:
@@ -28710,9 +28720,15 @@ def draw_player_gauge():
         inner_rect = pygame.Rect(doping_gauge_x, doping_gauge_y, doping_gauge_width, doping_gauge_height)
         draw.rect((18, 26, 20), inner_rect)
 
-        fill_height = int((doping_gauge_height - 4) * remaining_ratio)
-        if fill_height > 0:
-            fill_y = doping_gauge_y + doping_gauge_height - fill_height - 2
+        fill_height_raw = int((doping_gauge_height - 4) * remaining_ratio)
+        if fill_height_raw > 0:
+            fill_height = max(1, fill_height_raw)
+            bottom_y = doping_gauge_y + doping_gauge_height - 2
+            min_top = doping_gauge_y + 2
+            fill_y = bottom_y - fill_height + 1
+            if fill_y < min_top:
+                fill_y = min_top
+                fill_height = max(1, bottom_y - fill_y + 1)
             base_color = (80, 210, 140)
             highlight_color = (140, 255, 190)
             for layer in range(3):
@@ -28733,7 +28749,7 @@ def draw_player_gauge():
                 int(highlight_color[1] * (0.6 + 0.4 * pulse)),
                 int(highlight_color[2] * (0.6 + 0.4 * pulse))
             )
-            draw.rect(glow_color, (doping_gauge_x + 2, fill_y, doping_gauge_width - 4, 3))
+            draw.rect(glow_color, (doping_gauge_x + 2, fill_y, doping_gauge_width - 4, min(3, fill_height)))
 
         icon = get_item_icon("doping_potion")
         if icon:
