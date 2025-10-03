@@ -15686,7 +15686,6 @@ def go_to_next_round():
     #  AI 알약 상태 초기화
     aipill_active = False
     deactivate_doping_potion()
-    deactivate_berserk_potion()
     #  대시 상태 초기화
     rolling_active = False
     rolling_timer = 0
@@ -48177,7 +48176,6 @@ def reset_round():
     if boss_stunned_timer > 0 and head_shot_active:
         boss_stunned_timer = 0
     deactivate_doping_potion()
-    deactivate_berserk_potion()
     doping_potion_use_count = 0
 
     # 스매셔 쇼트 기술 상태 초기화 (라운드 시작 시)
@@ -56230,8 +56228,7 @@ def show_result(won):
     if aipill_active:
         print("Aipill  .")
         aipill_active = False
-    deactivate_doping_potion()
-    deactivate_berserk_potion()
+        deactivate_doping_potion()
     #  상모돌리기 완전 초기화 (스테이지 종료 시)
     whip_active = False
     whip_timer = 0
