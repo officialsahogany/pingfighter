@@ -133,6 +133,7 @@ def _draw_tetrimino(draw: ImageDraw.ImageDraw, origin: Tuple[int, int], cells: I
 
 def _draw_tetris_pieces(image: Image.Image) -> None:
     # 더 이상 블록을 그리지 않음 (요청에 따라 바닥 장식 제거)
+    return
 
 
 def _draw_center_lines(image: Image.Image) -> None:
