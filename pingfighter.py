@@ -51504,10 +51504,11 @@ def handle_ball():
                         # 특수 게이지 50% 충전 (캐릭터별)
                         if selected_character_type == "soldier":
                             base_charge = 60  # 코만도 기본 충전량
-                            charge_amount = base_charge * 0.5  # 50% = 30
+                        elif selected_character_type == "blacksmith":
+                            base_charge = 30  # 발토르 기본 충전량
                         else:
-                            base_charge = 80  # 스매셔 기본 충전량
-                            charge_amount = base_charge * 0.5  # 50% = 40
+                            base_charge = 80  # 스매셔/기타 기본 충전량
+                        charge_amount = base_charge * 0.5  # 킥차져는 절반 충전
                         
                         # 블루투스링 효과 적용 (있을 경우)
                         import items
