@@ -28288,15 +28288,17 @@ def update_stage7_guard_blocks(now: int | None = None) -> None:
             elapsed = 0
 
         if block["state"] == "hologram":
+            # 홀로그램 단계: 셀을 순차적으로 드러낸 뒤, 전부 드러난 상태로 일정 시간 유지하고 배치 단계로 전환
             block["hologram_timer"] += elapsed
             while block["visible_cells"] < 4 and block["hologram_timer"] >= STAGE7_GUARD_HOLOGRAM_STEP_MS:
                 block["hologram_timer"] -= STAGE7_GUARD_HOLOGRAM_STEP_MS
                 block["visible_cells"] += 1
-                if block["visible_cells"] >= 4:
-                    block["hologram_hold"] += elapsed
-                    if block["hologram_hold"] >= STAGE7_GUARD_HOLOGRAM_HOLD_MS:
-                        block["state"] = "deploy"
-                        block["move_timer"] = 0.0
+            # BUGFIX: 기존 코드가 hold 누적을 while 내부에서만 수행해, 마지막 셀 노출 이후 유지 시간이 누적되지 않는 문제 수정
+            if block["visible_cells"] >= 4:
+                block["hologram_hold"] += elapsed
+                if block["hologram_hold"] >= STAGE7_GUARD_HOLOGRAM_HOLD_MS:
+                    block["state"] = "deploy"
+                    block["move_timer"] = 0.0
             for cell in block["cells"]:
                 cell.pop("fade", None)
         elif block["state"] == "deploy":
