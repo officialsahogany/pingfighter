@@ -63380,7 +63380,7 @@ def show_quick_character_selection():
         # 안내 문구
         info_text = "방향키 ← → 로 캐릭터 이동 / ENTER·SPACE 로 확정 / ESC 로 돌아가기"
         info_surface = font_small.render(info_text, True, (220, 220, 240))
-        info_ㅣrect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 60))
+        info_rect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 60))
         SCREEN.blit(info_surface, info_rect)
 
         pygame.display.flip()
