@@ -48577,7 +48577,7 @@ def reset_round():
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
     global smasher_pending_contact_offset
-    global boss_special_gauge, current_stage  #  스테이지 1 보스 게이지 감소용 변수 추가
+    global boss_special_gauge, displayed_boss_gauge, current_stage  #  스테이지 1 보스 게이지 관리
     global ragnarok_stun_attempted_this_rally  # 라그나로크 해머 스턴 플래그
     global leg_shot_active, leg_shot_timer, leg_shot_text_timer  # 권총 레그샷 관련 변수
     global head_shot_active, head_shot_timer, head_shot_text_timer, boss_stunned_timer  # 권총 헤드샷 관련 변수
