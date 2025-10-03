@@ -28171,6 +28171,177 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
     stage7_gauge_charge_progress -= charge_units
 
 
+STAGE7_GUARD_CELL_SIZE = 20
+STAGE7_GUARD_GAP_Y = 40
+STAGE7_GUARD_SPAWN_OFFSET_X = 90
+STAGE7_GUARD_HOLOGRAM_STEP_MS = 120
+STAGE7_GUARD_MOVEMENT_DURATION_MS = 320
+STAGE7_GUARD_HOLOGRAM_HOLD_MS = 160
+
+
+def _schedule_stage7_guard(now: int | None = None) -> None:
+    global stage7_guard_next_trigger_ms
+    if now is None:
+        now = pygame.time.get_ticks()
+    stage7_guard_next_trigger_ms = now + random.randint(STAGE7_GUARD_MIN_INTERVAL_MS, STAGE7_GUARD_MAX_INTERVAL_MS)
+
+
+def _create_stage7_guard_block(side: str, start_left: float, target_left: float, bottom: float, now: int) -> dict:
+    cell_size = STAGE7_GUARD_CELL_SIZE
+    cells = []
+    for i in range(4):
+        final_top = bottom - cell_size * (i + 1)
+        rect = pygame.Rect(int(round(start_left)), int(round(final_top)), cell_size, cell_size)
+        cells.append({
+            "rect": rect,
+            "start_left": float(start_left),
+            "final_left": float(target_left),
+            "top": float(final_top),
+        })
+    return {
+        "side": side,
+        "state": "hologram",
+        "visible_cells": 0,
+        "hologram_timer": 0.0,
+        "hologram_hold": 0.0,
+        "move_timer": 0.0,
+        "cells": cells,
+        "last_update": now,
+    }
+
+
+def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
+    global stage7_guard_blocks, boss_special_gauge
+    if now is None:
+        now = pygame.time.get_ticks()
+
+    if BOSS is None:
+        return False
+
+    if boss_special_gauge < 100:
+        return False
+
+    boss_special_gauge = max(0, boss_special_gauge - 100)
+
+    start_left = float(BOSS.centerx - STAGE7_GUARD_CELL_SIZE // 2)
+    block_bottom = float(min(BOSS.bottom + STAGE7_GUARD_GAP_Y, HEIGHT - 80))
+
+    offsets = (-STAGE7_GUARD_SPAWN_OFFSET_X, STAGE7_GUARD_SPAWN_OFFSET_X)
+    new_blocks = []
+    for side, offset in zip(("left", "right"), offsets):
+        target_left = start_left + offset
+        target_left = max(20.0, min(float(WIDTH - STAGE7_GUARD_CELL_SIZE - 20), target_left))
+        block = _create_stage7_guard_block(side, start_left, target_left, block_bottom, now)
+        new_blocks.append(block)
+
+    stage7_guard_blocks.extend(new_blocks)
+    return True
+
+
+def update_stage7_guard_blocks(now: int | None = None) -> None:
+    if now is None:
+        now = pygame.time.get_ticks()
+    if not stage7_guard_blocks:
+        return
+
+    cell_size = STAGE7_GUARD_CELL_SIZE
+    for block in stage7_guard_blocks[:]:
+        elapsed = now - block.get("last_update", now)
+        block["last_update"] = now
+        if elapsed < 0:
+            elapsed = 0
+
+        if block["state"] == "hologram":
+            block["hologram_timer"] += elapsed
+            while block["visible_cells"] < 4 and block["hologram_timer"] >= STAGE7_GUARD_HOLOGRAM_STEP_MS:
+                block["hologram_timer"] -= STAGE7_GUARD_HOLOGRAM_STEP_MS
+                block["visible_cells"] += 1
+            if block["visible_cells"] >= 4:
+                block["hologram_hold"] += elapsed
+                if block["hologram_hold"] >= STAGE7_GUARD_HOLOGRAM_HOLD_MS:
+                    block["state"] = "deploy"
+                    block["move_timer"] = 0.0
+        elif block["state"] == "deploy":
+            block["move_timer"] += elapsed
+            progress = min(1.0, block["move_timer"] / STAGE7_GUARD_MOVEMENT_DURATION_MS)
+            for cell in block["cells"]:
+                start_left = cell["start_left"]
+                final_left = cell["final_left"]
+                current_left = start_left + (final_left - start_left) * progress
+                cell["rect"].x = int(round(current_left))
+                cell["rect"].y = int(round(cell["top"]))
+            if progress >= 1.0:
+                block["state"] = "active"
+        elif block["state"] == "active":
+            for cell in block["cells"]:
+                cell["rect"].x = int(round(cell["final_left"]))
+                cell["rect"].y = int(round(cell["top"]))
+
+
+def draw_stage7_guard_blocks(surface: pygame.Surface) -> None:
+    if not stage7_guard_blocks:
+        return
+
+    base_color = (90, 190, 255)
+    highlight_color = (200, 240, 255)
+    hologram_color = (140, 200, 255)
+    border_color = (30, 90, 160)
+
+    for block in stage7_guard_blocks:
+        state = block.get("state")
+        visible_cells = block.get("visible_cells", 0)
+        for idx, cell in enumerate(block["cells"]):
+            rect = cell["rect"]
+            if state == "hologram" and idx >= visible_cells:
+                alpha = 110
+                fill_col = hologram_color
+                border_alpha = 180
+            else:
+                alpha = 230 if state == "active" else 200
+                fill_col = base_color
+                border_alpha = 255
+
+            temp = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(temp, (*fill_col, alpha), temp.get_rect(), border_radius=4)
+            pygame.draw.rect(temp, (*highlight_color, min(255, alpha + 25)), temp.get_rect().inflate(-4, -4), border_radius=3)
+            pygame.draw.rect(temp, (*border_color, border_alpha), temp.get_rect(), 2, border_radius=4)
+            surface.blit(temp, rect.topleft)
+
+
+def update_stage7_guard_skill(now: int | None = None) -> None:
+    global stage7_guard_next_trigger_ms
+
+    if current_stage != 7 or new_boss_mode_active:
+        return
+
+    if now is None:
+        now = pygame.time.get_ticks()
+
+    update_stage7_guard_blocks(now)
+
+    # 아직 설치 중인 블록이 있으면 발동 대기
+    active_or_pending = any(block["state"] != "active" for block in stage7_guard_blocks)
+    if stage7_guard_blocks and not active_or_pending:
+        # 이미 가드가 배치되어 있다면 타이머만 유지
+        return
+
+    if stage7_guard_next_trigger_ms == 0:
+        _schedule_stage7_guard(now)
+
+    if stage7_guard_blocks:
+        return
+
+    if now < stage7_guard_next_trigger_ms:
+        return
+
+    # 트리거 시도
+    if spawn_stage7_guard_blocks(now):
+        _schedule_stage7_guard(now)
+    else:
+        # 게이지 부족 등으로 실패 시 재시도까지 짧은 대기
+        stage7_guard_next_trigger_ms = now + 1000
+
+
 def draw_stage7_boss_gauge_bar():
     """Stage 7 보스 스킬 게이지 - 테트리스 블록 콘셉트"""
     global current_stage, boss_special_gauge, displayed_boss_gauge
