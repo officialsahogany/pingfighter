@@ -28116,6 +28116,11 @@ def draw_stage7_boss_gauge_bar():
     global stage7_gauge_debug_active, stage7_gauge_debug_last_log
     global stage7_gauge_debug_last_stage, stage7_gauge_debug_stage_log_ticks
 
+    time_now = pygame.time.get_ticks()
+    if time_now - stage7_gauge_debug_stage_log_ticks > 300:
+        print(f"[Stage7Gauge] 호출: stage={current_stage}")
+        stage7_gauge_debug_stage_log_ticks = time_now
+
     if current_stage != 7:
         time_now = pygame.time.get_ticks()
         if current_stage != stage7_gauge_debug_last_stage and time_now - stage7_gauge_debug_stage_log_ticks > 500:
