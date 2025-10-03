@@ -47372,6 +47372,23 @@ def draw_field():
             SCREEN.blit(temp_surface, (GAME_OFFSET_X + screen_shake_offset_x, GAME_OFFSET_Y + screen_shake_offset_y))
         else:
             animated_bg_stage6.draw(SCREEN)
+    elif current_stage == 7 and animated_bg_stage7 is not None:
+        elapsed_ms = clock.get_time() if 'clock' in globals() else 16
+        animated_bg_stage7.update(elapsed_ms)
+        if FULLSCREEN_MODE:
+            SCREEN.fill(BLACK)
+            temp_surface = STAGE7_BG.copy()
+            animated_bg_stage7.draw(temp_surface)
+            SCREEN.blit(
+                temp_surface,
+                (GAME_OFFSET_X + screen_shake_offset_x, GAME_OFFSET_Y + screen_shake_offset_y),
+            )
+        else:
+            SCREEN.blit(STAGE7_BG, (screen_shake_offset_x, screen_shake_offset_y))
+            animated_bg_stage7.draw(
+                SCREEN,
+                offset=(screen_shake_offset_x, screen_shake_offset_y),
+            )
     else:
         # 기본 배경 (화면 흔들림 오프셋 적용)
         if FULLSCREEN_MODE:
