@@ -455,9 +455,12 @@ def _add_corner_details(image: Image.Image) -> None:
 def create_stage7_background() -> Image.Image:
     base = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
     _draw_gradient(base)
+    _draw_stone_texture(base)
     _add_vignette(base)
     _draw_pixel_grid(base)
     _draw_side_glow(base)
+    _draw_torches(base)
+    _draw_banners(base)
     _draw_playfield_panel(base)
     _draw_center_lines(base)
     _add_corner_details(base)
