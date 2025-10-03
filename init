@@ -1,0 +1,6 @@
+[2025-10-03T19:44:00+09:00] 세션형 자동저장 구성 완료
+- ./auto_save_session_start.sh: 워킹 트리가 깨끗한 상태에서 실행하면 기준 커밋을 .git/auto_save_baseline에 기록하고 자동저장을 기동함 (관리자 권한 필요).
+- ./auto_save_session_info.sh: 기준 커밋 정보와 자동저장 프로세스 PID 상태를 확인.
+- ./auto_save_session_rollback.sh: 자동저장을 중단하고 기준 커밋으로 git reset --hard 수행.
+- 자동저장 프로세스는 필요 시 ./stop_auto_save.sh, ./start_auto_save.sh로 개별 제어 가능.
+- 원격 feature/refactor-ui는 chore: add auto-save session helpers 커밋(91e4e887)까지 force-with-lease로 반영됨.
