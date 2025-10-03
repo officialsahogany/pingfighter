@@ -129,6 +129,8 @@ class ItemManager:
 
             if item_type['name'] == 'repair_kit' and selected_character != 'blacksmith':
                 continue
+            if item_type['name'] == 'berserk_potion' and selected_character != 'blacksmith':
+                continue
 
             available.append(item_type)
 

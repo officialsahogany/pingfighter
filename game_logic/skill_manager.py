@@ -48,7 +48,8 @@ class SkillManager:
             'long_boost': self.activate_long_boost,
             'balloon': self.activate_balloon,
             'whip': self.activate_whip,
-            'doping_potion': self.activate_doping_potion
+            'doping_potion': self.activate_doping_potion,
+            'berserk_potion': self.activate_berserk_potion,
         }
         
         # 특수 스킬 상태
@@ -198,7 +199,33 @@ class SkillManager:
                     active_sound.play()
                 except Exception:  # noqa: BLE001
                     pass
-        
+
+    def activate_berserk_potion(self):
+        """광폭물약 발동"""
+        if self.global_manager.get('selected_character_type', None) != 'blacksmith':
+            return
+
+        fps = max(1, self.global_manager.get('FPS', 60))
+        duration_frames = int(8 * fps)
+        self.global_manager.set('berserk_potion_active', True)
+        self.global_manager.set('berserk_potion_timer_frames', duration_frames)
+        self.global_manager.set('berserk_potion_duration_frames', duration_frames)
+        self.global_manager.set('berserk_potion_refresh', True)
+
+        drink_sound = self.global_manager.get('SOUND_DRINK')
+        if drink_sound:
+            try:
+                drink_sound.play()
+            except Exception:  # noqa: BLE001
+                pass
+        else:
+            active_sound = self.global_manager.get('SOUND_ACTIVE_ITEM')
+            if active_sound:
+                try:
+                    active_sound.play()
+                except Exception:  # noqa: BLE001
+                    pass
+
     def activate_tears_of_pain(self):
         """눈물의 비 발동 (Stage 3)"""
         self.tears_active = True

@@ -144,6 +144,17 @@ class ItemSystem:
                 },
                 'permanent': False
             },
+            'berserk_potion': {
+                'name': '광폭물약',
+                'description': '8초 동안 건설·업그레이드 속도 3배, 포탑 수동 연사 쿨다운 증가',
+                'type': 'active',
+                'effect': {
+                    'construction_speed_multiplier': 3.0,
+                    'manual_cooldown_multiplier': 3.0,
+                    'duration_seconds': 8
+                },
+                'permanent': False
+            },
             'repair_kit': {
                 'name': '수리키트',
                 'description': '포탑·디바인스톤·벽돌을 즉시 완전 수리합니다.',

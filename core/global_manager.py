@@ -202,7 +202,11 @@ class GlobalManager:
             'doping_potion_duration_frames': 480,
             'doping_potion_refresh': False,
             'doping_potion_use_count': 0,
-            
+            'berserk_potion_active': False,
+            'berserk_potion_timer_frames': 0,
+            'berserk_potion_duration_frames': 480,
+            'berserk_potion_refresh': False,
+
             # 메뉴/UI 관련
             'menu_selected': 0,
             'show_credits': False,

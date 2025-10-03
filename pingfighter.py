@@ -73,7 +73,7 @@ from background_manager import (
     BackgroundFactory,
     load_stage_backgrounds,
 )
-from sound_effects import load_sound_effects
+from sound_effects import load_sound_effects, SOUND_PATHS
 from item_state_manager import reset_runtime_items
 from start_menu import MenuContext, show_start_menu
 from game_state.audio import (
@@ -1334,6 +1334,8 @@ def store_bgm_volume(value: float) -> float:
 def play_sound_with_volume(sound, volume=None):
     """효과음을 지정된 볼륨으로 재생"""
     global sfx_volume
+    if not sound:
+        return None
     if volume is None:
         volume = sfx_volume
     sound.set_volume(volume)
@@ -1761,6 +1763,7 @@ speech_timer = 0
 speech_text = ""
 tear_particles = []  # 눈물 파티클 리스트
 # 사운드 초기화 (macOS 호환성 개선)
+AUDIO_DISABLED = False
 if not SMOKE_TEST_ENABLED:
     pygame.mixer.pre_init(
         frequency=44100,  # 샘플레이트
@@ -1768,12 +1771,65 @@ if not SMOKE_TEST_ENABLED:
         channels=2,       # 스테레오
         buffer=512        # 작은 버퍼 (낮은 지연시간)
     )
-    pygame.mixer.init()
-    pygame.mixer.set_num_channels(8)  # 동시 재생 가능한 채널 수
+    mixer_initialized = False
+    try:
+        pygame.mixer.init()
+        mixer_initialized = True
+    except pygame.error as exc:
+        print(f"[WARN] pygame.mixer.init() 실패: {exc}")
+        if os.environ.get("SDL_AUDIODRIVER", "").lower() != "dummy":
+            os.environ["SDL_AUDIODRIVER"] = "dummy"
+            try:
+                pygame.mixer.init()
+                mixer_initialized = True
+                print("[INFO] SDL_AUDIODRIVER=dummy로 오디오를 무음 모드로 초기화했습니다.")
+            except pygame.error as dummy_exc:
+                AUDIO_DISABLED = True
+                print(f"[WARN] dummy 오디오 드라이버로도 초기화 실패: {dummy_exc}")
+        else:
+            AUDIO_DISABLED = True
+    if mixer_initialized and not AUDIO_DISABLED:
+        pygame.mixer.set_num_channels(8)  # 동시 재생 가능한 채널 수
 else:
+    AUDIO_DISABLED = True
     print("[INFO] 오디오 초기화 생략 (스모크 테스트 모드)")
 
-sound_effects = load_sound_effects(resource_path)
+if AUDIO_DISABLED:
+    sound_effects = {key: None for key in SOUND_PATHS}
+    class _NullSound:
+        def set_volume(self, *_args, **_kwargs):
+            return None
+
+        def play(self, *_args, **_kwargs):
+            return None
+
+        def stop(self, *_args, **_kwargs):
+            return None
+
+        def fadeout(self, *_args, **_kwargs):
+            return None
+
+    class _NullChannel:
+        def get_busy(self):
+            return False
+
+        def stop(self, *_args, **_kwargs):
+            return None
+
+        def fadeout(self, *_args, **_kwargs):
+            return None
+
+    def _null_sound_factory(*_args, **_kwargs):
+        return _NullSound()
+
+    def _null_channel_factory(*_args, **_kwargs):
+        return _NullChannel()
+
+    pygame.mixer.Sound = _null_sound_factory  # type: ignore[attr-defined]
+    pygame.mixer.Channel = _null_channel_factory  # type: ignore[attr-defined]
+    pygame.mixer.get_num_channels = lambda: 0  # type: ignore[assignment]
+else:
+    sound_effects = load_sound_effects(resource_path)
 
 SOUND_SERVE = sound_effects['SERVE']
 SOUND_WALL = sound_effects['WALL']
@@ -1853,17 +1909,18 @@ SOUND_BAZOOKA_GOING = sound_effects['BAZOOKA_GOING']
 # Stage 5 보스 피격 효과음
 #  Stage 5 홍련 피격 효과음들 (3개 중 랜덤)
 SOUND_STAGE5_HURTS = []
-for i in range(1, 4):
-    try:
-        if i == 1:
-            sound = pygame.mixer.Sound(resource_path("sounds/stage5hurt.wav"))
-        else:
-            sound = pygame.mixer.Sound(f"sounds/stage5hurt{i}.wav")
-        SOUND_STAGE5_HURTS.append(sound)
-        print(f" Stage 5 hurt sound {i} loaded")
-    except:
-        print(f" Stage 5 hurt sound {i} not found")
-        
+if not AUDIO_DISABLED:
+    for i in range(1, 4):
+        try:
+            if i == 1:
+                sound = pygame.mixer.Sound(resource_path("sounds/stage5hurt.wav"))
+            else:
+                sound = pygame.mixer.Sound(resource_path(f"sounds/stage5hurt{i}.wav"))
+            SOUND_STAGE5_HURTS.append(sound)
+            print(f" Stage 5 hurt sound {i} loaded")
+        except Exception as exc:
+            print(f" Stage 5 hurt sound {i} not found: {exc}")
+
 # 하나라도 로드되지 않으면 빈 리스트 유지
 if not SOUND_STAGE5_HURTS:
     print("No Stage 5 hurt sounds available")
@@ -6048,8 +6105,9 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                     blacksmith_hammer_swing_phase + hammer_increment
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
-                drain_per_frame = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS
+                drain_per_frame = (BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS) * get_blacksmith_construction_speed_multiplier()
                 gauge_spent = False
+                progress_gain = 0
                 if special_gauge > 0:
                     construction_active = True
                     blacksmith_turret_partial_drain += drain_per_frame
@@ -6062,14 +6120,15 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             blacksmith_turret_partial_drain -= actual_drain
                             special_ready = special_gauge >= 350
                             construction_active = True
+                            progress_gain = actual_drain
                         else:
                             gauge_spent = False
                 else:
                     gauge_spent = False
-                if gauge_spent:
+                if gauge_spent and progress_gain > 0:
                     blacksmith_turret_build_progress = min(
                         BLACKSMITH_TURRET_BUILD_TIME,
-                        blacksmith_turret_build_progress + 1
+                        blacksmith_turret_build_progress + progress_gain
                     )
                     if frame_counter % 4 == 0 and blacksmith_turret_blueprint_rect:
                         smoke_x = blacksmith_turret_blueprint_rect.centerx + random.uniform(-8, 8)
@@ -6162,8 +6221,9 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                     blacksmith_hammer_swing_phase + hammer_increment
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
-                drain_per_frame = BLACKSMITH_DIVINE_GAUGE_DRAIN_PER_SEC / FPS
+                drain_per_frame = (BLACKSMITH_DIVINE_GAUGE_DRAIN_PER_SEC / FPS) * get_blacksmith_construction_speed_multiplier()
                 gauge_spent = False
+                progress_gain = 0
                 if special_gauge > 0:
                     construction_active = True
                     blacksmith_divine_partial_drain += drain_per_frame
@@ -6175,10 +6235,11 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             blacksmith_divine_partial_drain -= actual_drain
                             special_ready = special_gauge >= 350
                             gauge_spent = True
-                if gauge_spent:
+                            progress_gain = actual_drain
+                if gauge_spent and progress_gain > 0:
                     blacksmith_divine_build_progress = min(
                         BLACKSMITH_DIVINE_BUILD_TIME,
-                        blacksmith_divine_build_progress + 1,
+                        blacksmith_divine_build_progress + progress_gain,
                     )
                     if frame_counter % 6 == 0:
                         smoke_x = blacksmith_divine_blueprint_rect.centerx + random.uniform(-6, 6)
@@ -14555,6 +14616,15 @@ doping_potion_timer = 0
 doping_potion_toast_timer = 0
 doping_potion_use_count = 0
 
+# 광폭물약(발토르 전용) 효과 관련 상수 및 상태
+BERSERK_POTION_DURATION_FRAMES = 480  # 8초 지속
+BERSERK_POTION_BUILD_MULTIPLIER = 3.0
+BERSERK_POTION_MANUAL_COOLDOWN_MULTIPLIER = 3.0  # 연사 200% 감소 → 기본 쿨다운의 3배
+berserk_potion_active = False
+berserk_potion_timer = 0
+berserk_aura_surface: pygame.Surface | None = None
+BERSERK_AURA_SIZE = (160, 160)
+
 # 병기 단축 선택 UI 설정 (↑키 0.3초 홀드로 메뉴 호출)
 SOLDIER_WEAPON_MENU_HOLD_FRAMES = int(0.3 * 60)  # 0.3초 유지 시 활성화
 soldier_weapon_hold_frames = 0
@@ -14744,6 +14814,120 @@ def sync_doping_potion_from_global_manager() -> None:
         gm.set('doping_potion_refresh', False)
     elif not gm_active and doping_potion_active:
         deactivate_doping_potion()
+
+
+def _ensure_berserk_aura_surface() -> pygame.Surface:
+    """광폭 오오라 렌더링용 서피스를 지연 생성"""
+    global berserk_aura_surface
+    if berserk_aura_surface is None:
+        berserk_aura_surface = pygame.Surface(BERSERK_AURA_SIZE, pygame.SRCALPHA)
+    return berserk_aura_surface
+
+
+def activate_berserk_potion(duration_frames: int | None = None, *, play_sound: bool = True) -> None:
+    """광폭물약 효과 활성화"""
+    global berserk_potion_active, berserk_potion_timer
+
+    frames = duration_frames if duration_frames is not None else BERSERK_POTION_DURATION_FRAMES
+    frames = max(0, frames)
+
+    berserk_potion_active = True
+    berserk_potion_timer = frames
+
+    gm = _get_global_manager()
+    gm.set('berserk_potion_active', True)
+    gm.set('berserk_potion_timer_frames', frames)
+    gm.set('berserk_potion_duration_frames', BERSERK_POTION_DURATION_FRAMES)
+    gm.set('berserk_potion_refresh', False)
+
+    if play_sound:
+        try:
+            play_sound_with_volume(SOUND_DRINK)
+        except Exception:  # noqa: BLE001
+            fallback_sound = gm.get('SOUND_ACTIVE_ITEM')
+            if fallback_sound:
+                try:
+                    fallback_sound.play()
+                except Exception:  # noqa: BLE001
+                    pass
+
+
+def deactivate_berserk_potion() -> None:
+    """광폭물약 효과 비활성화"""
+    global berserk_potion_active, berserk_potion_timer
+
+    if not berserk_potion_active and berserk_potion_timer == 0:
+        return
+
+    berserk_potion_active = False
+    berserk_potion_timer = 0
+
+    gm = _get_global_manager()
+    gm.set('berserk_potion_active', False)
+    gm.set('berserk_potion_timer_frames', 0)
+
+
+def sync_berserk_potion_from_global_manager() -> None:
+    """외부 시스템에서 요청된 광폭물약 상태를 동기화"""
+    gm = _get_global_manager()
+    refresh_requested = gm.get('berserk_potion_refresh', False)
+    gm_active = gm.get('berserk_potion_active', False)
+    gm_timer = gm.get('berserk_potion_timer_frames', 0)
+
+    if refresh_requested or (gm_active and not berserk_potion_active):
+        activate_berserk_potion(gm_timer if gm_timer else BERSERK_POTION_DURATION_FRAMES, play_sound=False)
+        gm.set('berserk_potion_refresh', False)
+    elif not gm_active and berserk_potion_active:
+        deactivate_berserk_potion()
+
+
+def get_blacksmith_construction_speed_multiplier() -> float:
+    """발토르 건설/업그레이드 진행 배수를 반환"""
+    return BERSERK_POTION_BUILD_MULTIPLIER if berserk_potion_active and berserk_potion_timer > 0 else 1.0
+
+
+def get_blacksmith_manual_cooldown_multiplier() -> float:
+    """발토르 포탑 수동 발사 쿨다운 배수를 반환"""
+    return BERSERK_POTION_MANUAL_COOLDOWN_MULTIPLIER if berserk_potion_active and berserk_potion_timer > 0 else 1.0
+
+
+def draw_berserk_aura(surface: pygame.Surface, center: tuple[int, int]) -> None:
+    """광폭물약 활성화 시 붉은 화염 오오라를 그린다."""
+    aura_surface = _ensure_berserk_aura_surface()
+    aura_surface.fill((0, 0, 0, 0))
+
+    ticks = pygame.time.get_ticks()
+    base_radius = 56
+
+    for layer in range(4):
+        phase = (ticks * 0.0025) + layer * 1.1
+        sine = math.sin(phase)
+        radius = max(18, base_radius - layer * 10 + sine * 4)
+        offset_y = int(sine * 8)
+        color = (
+            min(255, 210 + layer * 10),
+            max(0, 70 + layer * 35),
+            max(0, 20 + layer * 25),
+            70 + layer * 40,
+        )
+        pygame.draw.circle(
+            aura_surface,
+            color,
+            (BERSERK_AURA_SIZE[0] // 2, BERSERK_AURA_SIZE[1] // 2 + offset_y),
+            int(radius),
+        )
+
+    glow_strength = (math.sin(ticks * 0.01) + 1.0) * 0.5
+    pygame.draw.circle(
+        aura_surface,
+        (255, 180, 110, int(180 * glow_strength)),
+        (BERSERK_AURA_SIZE[0] // 2, BERSERK_AURA_SIZE[1] // 2),
+        22,
+    )
+
+    dest_x = int(center[0] - BERSERK_AURA_SIZE[0] / 2)
+    dest_y = int(center[1] - BERSERK_AURA_SIZE[1] / 2)
+    surface.blit(aura_surface, (dest_x, dest_y), special_flags=pygame.BLEND_ADD)
 
 
 def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
@@ -15502,6 +15686,7 @@ def go_to_next_round():
     #  AI 알약 상태 초기화
     aipill_active = False
     deactivate_doping_potion()
+    deactivate_berserk_potion()
     #  대시 상태 초기화
     rolling_active = False
     rolling_timer = 0
@@ -15597,6 +15782,7 @@ def go_to_next_round():
         print("Aipill  .")
         aipill_active = False
         deactivate_doping_potion()
+        deactivate_berserk_potion()
     # speedgear_obtained = False   # 제거 - 패시브 아이템은 라운드가 바뀌어도 유지
     # items.speedboots_obtained = False  # 제거
     # items.speedgear_obtained = False   # 제거
@@ -15912,6 +16098,9 @@ def apply_effect(effect_name):
     if effect_name == "repair_kit" and selected_character_type != "blacksmith":
         print("⚠️ 수리키트는 발토르 전용 아이템입니다.")
         return False
+    if effect_name == "berserk_potion" and selected_character_type != "blacksmith":
+        print("⚠️ 광폭물약은 발토르 전용 아이템입니다.")
+        return False
 
     #  엑티브 아이템 사용 효과음 재생 (패시브 아이템 제외)
     if effect_name not in ["battery", "chargebag", "spikeboots", "dashgear", "gauge_charge", "life_elixir"]:
@@ -16042,6 +16231,9 @@ def apply_effect(effect_name):
     elif effect_name == "doping_potion":  # 도핑물약 액티브 아이템
         activate_doping_potion()
         print("도핑물약 발동! 8초간 헤드/레그샷 확률 2배")
+    elif effect_name == "berserk_potion":  # 광폭물약 액티브 아이템
+        activate_berserk_potion()
+        print("광폭물약 발동! 8초 동안 건설/업그레이드 속도 상승, 포탑 연사 지연")
     elif effect_name == "chargebag":  #  충전가방 아이템 (패시브 아이템이므로 apply_effect에서 처리하지 않음)
         # 충전가방은 store_passive_item에서 처리됨
         pass
@@ -22003,6 +22195,7 @@ def handle_player(keys):
                 long_boost_target_scale = 1.0
                 print("")
     global doping_potion_active, doping_potion_timer, doping_potion_toast_timer
+    global berserk_potion_active, berserk_potion_timer
     sync_doping_potion_from_global_manager()
     if doping_potion_active:
         if doping_potion_timer > 0:
@@ -22015,7 +22208,18 @@ def handle_player(keys):
         doping_potion_toast_timer -= 1
     if doping_potion_active:
         _get_global_manager().set('doping_potion_timer_frames', doping_potion_timer)
-    
+
+    sync_berserk_potion_from_global_manager()
+    if berserk_potion_active:
+        if berserk_potion_timer > 0:
+            berserk_potion_timer -= 1
+            if berserk_potion_timer <= 0:
+                deactivate_berserk_potion()
+        else:
+            deactivate_berserk_potion()
+    if berserk_potion_active:
+        _get_global_manager().set('berserk_potion_timer_frames', berserk_potion_timer)
+
     # === 킥차져 게이지 충전 애니메이션 타이머 ===
     global gauge_charge_animation_timer
     if gauge_charge_animation_timer > 0:
@@ -28427,6 +28631,70 @@ def draw_player_gauge():
     gauge_font = FontStyle.gauge()
     gauge_text_surface = gauge_font.render(gauge_text, True, gauge_text_color)
     gauge_text_size = gauge_text_surface.get_size()
+    berserk_active = (
+        selected_character_type == "blacksmith"
+        and berserk_potion_active
+        and berserk_potion_timer > 0
+    )
+    if berserk_active:
+        berserk_ratio = berserk_potion_timer / max(1, BERSERK_POTION_DURATION_FRAMES)
+        berserk_gauge_width = 12
+        berserk_gauge_height = player_gauge_height
+        berserk_gauge_x = player_gauge_x - 70
+        berserk_gauge_y = player_gauge_y
+
+        frame_outer = pygame.Rect(berserk_gauge_x - 4, berserk_gauge_y - 6, berserk_gauge_width + 8, berserk_gauge_height + 12)
+        draw.rect((42, 18, 18), frame_outer, border_radius=5)
+        draw.rect((200, 80, 40), frame_outer, 2, border_radius=5)
+
+        inner_rect = pygame.Rect(berserk_gauge_x, berserk_gauge_y, berserk_gauge_width, berserk_gauge_height)
+        draw.rect((24, 10, 10), inner_rect)
+
+        fill_height = int((berserk_gauge_height - 4) * berserk_ratio)
+        if fill_height > 0:
+            fill_y = berserk_gauge_y + berserk_gauge_height - fill_height - 2
+            for layer in range(3):
+                layer_width = berserk_gauge_width - 4 - layer * 2
+                if layer_width <= 0:
+                    continue
+                color = (
+                    min(255, 180 + layer * 25),
+                    max(0, 50 + layer * 20),
+                    max(0, 20 + layer * 15),
+                )
+                layer_rect = pygame.Rect(berserk_gauge_x + 2 + layer, fill_y, layer_width, fill_height)
+                draw.rect(color, layer_rect)
+
+            ember_count = 3
+            for _ in range(ember_count):
+                ember_x = random.randint(berserk_gauge_x + 2, berserk_gauge_x + berserk_gauge_width - 3)
+                ember_y = random.randint(fill_y, berserk_gauge_y + berserk_gauge_height - 4)
+                ember_color = (255, random.randint(110, 180), random.randint(60, 90))
+                pygame.draw.circle(SCREEN, ember_color, (ember_x, ember_y), 1)
+
+        icon = get_item_icon("berserk_potion")
+        if icon:
+            icon_rect = icon.get_rect()
+            icon_rect.center = (berserk_gauge_x + berserk_gauge_width // 2, berserk_gauge_y - 24)
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.012))
+            glow_radius = 18
+            glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (255, 100, 40, int(140 + 70 * pulse)), (glow_radius, glow_radius), glow_radius)
+            SCREEN.blit(glow_surface, (icon_rect.centerx - glow_radius, icon_rect.centery - glow_radius))
+            SCREEN.blit(icon, icon_rect)
+
+        label_surface = FontStyle.tiny().render("광폭", True, (255, 130, 90))
+        label_rect = label_surface.get_rect(center=(berserk_gauge_x + berserk_gauge_width // 2, berserk_gauge_y - 42))
+        SCREEN.blit(label_surface, label_rect)
+
+        remaining_seconds = berserk_potion_timer / 60.0
+        timer_surface = FontStyle.gauge().render(f"{remaining_seconds:0.1f}s", True, (255, 150, 110))
+        timer_rect = timer_surface.get_rect(center=(berserk_gauge_x + berserk_gauge_width // 2, berserk_gauge_y + berserk_gauge_height + 12))
+        SCREEN.blit(timer_surface, timer_rect)
+
+        if 'PLAYER' in globals() and PLAYER:
+            draw_berserk_aura(SCREEN, PLAYER.center)
+
     doping_active = doping_potion_active and doping_potion_timer > 0
     if doping_active:
         doping_gauge_x = player_gauge_x - 70
@@ -43839,6 +44107,7 @@ def show_item_manager_menu():
         {"name": "repair_kit", "type": "active", "icon": get_icon_safe("repair_kit_icon", "repair_kit")},
         {"name": "ammo_box", "type": "active", "icon": get_icon_safe("ammo_box_icon", "ammo_box")},
         {"name": "doping_potion", "type": "active", "icon": get_icon_safe("doping_potion_icon", "doping_potion")},
+        {"name": "berserk_potion", "type": "active", "icon": get_icon_safe("berserk_potion_icon", "berserk_potion")},
         {"name": "pandora_box", "type": "active", "icon": get_icon_safe("pandora_box_icon", "pandora_box")},
         {"name": "stopwatch", "type": "active", "icon": get_icon_safe("stopwatch_icon", "stopwatch")},
         {"name": "devil_dice", "type": "active", "icon": get_icon_safe("devil_dice_icon", "devil_dice")},
@@ -47892,6 +48161,7 @@ def reset_round():
     if boss_stunned_timer > 0 and head_shot_active:
         boss_stunned_timer = 0
     deactivate_doping_potion()
+    deactivate_berserk_potion()
     doping_potion_use_count = 0
 
     # 스매셔 쇼트 기술 상태 초기화 (라운드 시작 시)
@@ -55945,6 +56215,7 @@ def show_result(won):
         print("Aipill  .")
         aipill_active = False
     deactivate_doping_potion()
+    deactivate_berserk_potion()
     #  상모돌리기 완전 초기화 (스테이지 종료 시)
     whip_active = False
     whip_timer = 0
@@ -56127,6 +56398,8 @@ def show_result(won):
         if selected_character_type == "blacksmith":
             repair_kit_icon = get_item_icon("repair_kit")
             available_items.append({"name": "repair_kit", "color": (220, 210, 140), "type": "active", "icon": repair_kit_icon})
+            berserk_icon = get_item_icon("berserk_potion")
+            available_items.append({"name": "berserk_potion", "color": (230, 90, 80), "type": "active", "icon": berserk_icon})
         # 판도라의 상자 아이콘 추가 - get_item_icon 함수 사용하여 통일
         pandora_box_icon = get_item_icon("pandora_box")
         available_items.append({"name": "pandora_box", "color": (255, 0, 255), "type": "active", "icon": pandora_box_icon})
@@ -56995,6 +57268,7 @@ def main(stage_num, new_boss_mode=False):
         aipill_active = False
         print("AI")
     deactivate_doping_potion()
+    deactivate_berserk_potion()
     
     print("/")
     
@@ -57910,11 +58184,13 @@ def main(stage_num, new_boss_mode=False):
                             blacksmith_hammer_swing_phase = 0
                             blacksmith_manual_hammer_increment = BLACKSMITH_TURRET_MANUAL_SWING_SPEED
                             blacksmith_manual_hammer_timer = BLACKSMITH_TURRET_MANUAL_SWING_FRAMES
-                            blacksmith_turret_manual_cooldown = BLACKSMITH_TURRET_MANUAL_COOLDOWN
+                            cooldown_frames = int(BLACKSMITH_TURRET_MANUAL_COOLDOWN * get_blacksmith_manual_cooldown_multiplier())
+                            blacksmith_turret_manual_cooldown = max(1, cooldown_frames)
                             blacksmith_turret_state["fire_timer"] = 1
                             space_just_pressed = False
                             space_press_frame = -1
-                            print("[DEBUG 발토르] 포탑 수동 발사! 게이지 -60, 쿨다운 0.6초")
+                            cooldown_seconds = blacksmith_turret_manual_cooldown / FPS
+                            print(f"[DEBUG 발토르] 포탑 수동 발사! 게이지 -60, 쿨다운 {cooldown_seconds:.2f}초")
                         else:
                             print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
                     else:
@@ -61622,6 +61898,7 @@ def get_item_name_korean(item_name):
         "smartphone": "스마트폰",
         "knee_pads": "킥차져",
         "doping_potion": "도핑물약",
+        "berserk_potion": "광폭물약",
         "ammo_box": "탄약상자",
         "fire_support": "화력지원",
         "bazooka": "바주카포",
@@ -61678,6 +61955,7 @@ def get_item_description(item_name):
         "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
         "knee_pads": "킥차져: 하프대쉬로 공을 맞출 때 게이지가 50% 충전됩니다. 성공 시 황금빛 킥 부스터가 번쩍입니다.",
         "doping_potion": "도핑물약: 8초 동안 권총 헤드샷과 레그샷 확률이 2배로 증가합니다.",
+        "berserk_potion": "광폭물약: 발토르 전용 강화 물약. 8초 동안 건설·업그레이드 속도가 3배로 증가하고 포탑 수동 발사 쿨다운이 200% 늘어나 공격 대신 공방 전환에 집중하게 됩니다.",
         "ammo_box": "탄약상자: 권총을 포함한 모든 보유 화기류의 탄창을 완전히 재장전합니다. 권총, 바주카포, AK-47 등 모든 화기류에 사용 가능합니다.",
         "fire_support": "화력지원: 무전으로 폭격기를 호출해 2~3초 후 보스 진영에 수류탄과 동일한 폭격을 5~7회 투하합니다. 폭격기는 공에 맞으면 격추됩니다.",
         "net_gun": "그물덫총: 작살을 던져 상대 진영에 폭 350px의 그물을 펼칩니다. 전개 순간 범위 안의 보스는 4초 동안 그물 밖으로 이동할 수 없습니다. 장력을 유지하는 동안 군인의 이동 속도는 30% 감소하니 위치를 선점해두세요.",

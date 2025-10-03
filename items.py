@@ -203,6 +203,7 @@ def load_item_icons():
         "bazooka": "bazooka.png",  # 바주카포 아이콘
         "ammo_box": "ammo_box.png",  # 탄약상자 아이콘
         "doping_potion": "doping_potion.png",  # 도핑물약 아이콘
+        "berserk_potion": "berserk_potion.png",  # 광폭물약 아이콘
         "net_gun": "net_gun.png",  # 그물덫총 아이콘
         "fire_support": "fire_support.png",  # 화력지원 아이콘
         "spider_mine": "spider_mine.png",  # 스파이더지뢰 아이콘
@@ -665,6 +666,15 @@ ITEM_TYPES = [
         "unlock_condition": None
     },
     {
+        "name": "berserk_potion",  # 광폭물약 액티브 아이템 (발토르 전용)
+        "color": (230, 90, 80),  # 화염빛 붉은색
+        "effect": "berserk_potion",
+        "icon": None,
+        "chance": 0.004,  # 희귀 전용 아이템 확률 (발토르 전용)
+        "duration": 480,
+        "unlock_condition": None
+    },
+    {
         "name": "doping_potion",  # 도핑물약 액티브 아이템 (물자보급 전용)
         "color": (120, 220, 160),  # 연두색 계열 강화약
         "effect": "doping_potion",
@@ -764,7 +774,8 @@ unlocked_items = {
     "ammo_box": True,
     "fire_support": True,
     "doping_potion": True,
-    
+    "berserk_potion": True,
+
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True,
     "hermes_shoes": True,
@@ -886,8 +897,10 @@ def spawn_random_item():
         if not unlocked_items.get(item["name"], False):
             continue
 
-        # 발토르 전용 수리키트는 타 캐릭터 플레이 시 스폰하지 않음
+        # 발토르 전용 아이템은 타 캐릭터 플레이 시 스폰하지 않음
         if item["name"] == "repair_kit" and selected_character != "blacksmith":
+            continue
+        if item["name"] == "berserk_potion" and selected_character != "blacksmith":
             continue
 
         # slot_add 아이템은 2개 이상 먹었으면 스폰 안함
