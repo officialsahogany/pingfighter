@@ -16,27 +16,43 @@ class SimpleMenuBackground:
         
         # 사이버펑크 색상 팔레트 (차분한 톤)
         self.colors = {
-            'bg_top': (15, 25, 45),      # 상단 (어두운 남색)
-            'bg_bottom': (25, 35, 55),    # 하단 (약간 밝은 남색)
-            'grid': (0, 100, 150, 15),    # 은은한 그리드
-            'neon_cyan': (0, 200, 255),
-            'neon_purple': (150, 100, 255),
-            'particle': (100, 200, 255, 50)
+            'bg_top': (6, 10, 24),        # 상단 딥코스믹 네이비
+            'bg_mid': (24, 12, 44),       # 중간층 자색 포그
+            'bg_bottom': (10, 6, 28),     # 하단 미드나잇 퍼플
+            'grid': (24, 70, 140, 28),    # 메인 라인
+            'grid_soft': (14, 36, 90, 18),  # 서브 라인
+            'neon_cyan': (180, 235, 255),
+            'neon_purple': (200, 150, 255),
+            'particle': (120, 200, 255, 70),
+            'accent_gold': (255, 208, 150),
+            'orbit': (120, 110, 220, 40),
+            'orbit_alt': (255, 208, 150, 38)
         }
-        
+
+        # 프리렌더된 럭셔리 레이어
+        self.gradient_surface = self._create_gradient_surface()
+        self.vignette_surface = self._create_vignette_surface()
+        self.grid_overlay = self._create_grid_overlay()
+        self.nebula_layers = self._create_nebula_layers()
+        self.star_layers = self._create_star_layers()
+        self.light_columns = self._create_light_columns()
+        self.glass_highlight_surface = self._create_glass_highlight_surface()
+        self.frame_surface = self._create_frame_surface()
+        self.particle_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+
         # 심플한 공전 행성들
         self.planets = self._create_planets()
-        
+
         # 배경 파티클 (최소화)
         self.particles = []
-        for _ in range(15):
+        for _ in range(24):
             self.particles.append({
-                'x': random.randint(0, width),
-                'y': random.randint(0, height),
-                'vx': random.uniform(-0.2, 0.2),
-                'vy': random.uniform(-0.2, 0.2),
-                'size': 1,
-                'alpha': random.randint(20, 60)
+                'x': random.uniform(0, width),
+                'y': random.uniform(0, height),
+                'vx': random.uniform(-0.12, 0.12),
+                'vy': random.uniform(-0.08, 0.08),
+                'size': random.choice([1, 1, 2]),
+                'alpha': random.randint(40, 110)
             })
     
     def _create_planets(self) -> List[dict]:
