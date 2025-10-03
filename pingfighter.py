@@ -572,6 +572,7 @@ from ui.stage4_shaolin_temple import ShaolinTempleBackground  # ️ 소림사 �
 # from backgrounds.animated_background_stage5 import AnimatedBackgroundStage5
 from ui.stage5_chinese_market import Stage5ChineseMarket  #  중국 전통시장 맵
 from backgrounds.animated_background_stage6 import AnimatedBackgroundStage6
+from backgrounds.animated_background_stage7 import AnimatedBackgroundStage7
 importlib.reload(items)
 # 설정 파일 임포트
 from config.constants import *
@@ -932,6 +933,7 @@ background_factories = BackgroundFactory(
     animated_stage4=lambda: ShaolinTempleBackground(),
     animated_stage5=lambda: Stage5ChineseMarket(),
     animated_stage6=lambda width, height: AnimatedBackgroundStage6(width, height),
+    animated_stage7=lambda width, height: AnimatedBackgroundStage7(width, height),
 )
 
 stage_backgrounds = load_stage_backgrounds(
