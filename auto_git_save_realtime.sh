@@ -27,7 +27,7 @@ NC='\033[0m'
 # 마지막 커밋 시간 (중복 방지)
 last_commit_time=0
 commit_count=0
-note_file="auto_git_note.txt"
+note_file=".git/auto_git_note"
 
 # 파일 변경 감지 함수
 handle_change() {

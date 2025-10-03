@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 
 # 카운터 초기화
 commit_count=0
-note_file="auto_git_note.txt"
+note_file=".git/auto_git_note"
 
 while true; do
     # Git 상태 체크
