@@ -1943,6 +1943,8 @@ BOSS_SPEED = 1                       # 기본 보스 속도
 BOSS_COLOR = WHITE                   # 기본값: Stage 1 보스는 흰색
 boss_speed_boost_timer = 0           # 타이머 (프레임 단위)
 boss_prev_x = 0                      # 보스 이전 위치 (속도 계산용)
+stage7_prev_x: float | None = None   # Stage 7 보스 이전 X 위치 (측면 애니메이션)
+stage7_lean_value: float = 0.0       # Stage 7 보스 현재 기울기 값
 boss_current_speed = 0               # 현재 AI 보스 속도
 # 보스 AI 움직임 파라미터
 BOSS_ACCELERATION = 0.798            # 가속도 (35% 감소: 1.2 → 0.798)
@@ -15385,11 +15387,20 @@ except:
     BOSS_IMG_STAGE5 = pygame.Surface((BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_STAGE5.fill((255, 80, 0))
 try:
-    BOSS_IMG_STAGE7 = pygame.image.load(resource_path("boss_stage7.png")).convert_alpha()
-    BOSS_IMG_STAGE7 = pygame.transform.scale(BOSS_IMG_STAGE7, (BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT))
-except:
-    BOSS_IMG_STAGE7 = pygame.Surface((BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT), pygame.SRCALPHA)
-    BOSS_IMG_STAGE7.fill((240, 120, 220))
+    _stage7_source = pygame.image.load(resource_path("boss_stage7.png")).convert_alpha()
+    _stage7_frames_raw = _build_stage7_boss_frames(_stage7_source)
+    BOSS_IMG_STAGE7_FRAMES = [
+        pygame.transform.smoothscale(frame, (BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT))
+        for frame in _stage7_frames_raw
+    ]
+    if not BOSS_IMG_STAGE7_FRAMES:
+        raise ValueError("stage7 frames empty")
+    BOSS_IMG_STAGE7 = BOSS_IMG_STAGE7_FRAMES[len(BOSS_IMG_STAGE7_FRAMES) // 2]
+except Exception:
+    fallback = pygame.Surface((BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT), pygame.SRCALPHA)
+    fallback.fill((240, 120, 220))
+    BOSS_IMG_STAGE7_FRAMES = [fallback]
+    BOSS_IMG_STAGE7 = fallback
 
 # Tutorial Boss (Stage 50) - Smaller size for instructor
 BOSS_IMG_TUTORIAL_WIDTH = 80
