@@ -15032,10 +15032,9 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
         fire_support_weapon.unequip()
     elif current_weapon == "fire_support":
         if fire_support_weapon.is_locked():
-            # 폭격 진행 중에도 슬롯을 유지해 HUD 애니메이션이 끊기지 않도록 한다.
+            # 폭격 진행 중에도 슬롯을 유지해 HUD 애니메이션과 상태 확인을 허용한다.
             soldier_controller.switch_cooldown = 0
             soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
-            return soldier_controller.weapons[soldier_controller.current_index]
         fire_support_weapon.equip()
         if "bazooka" in soldier_controller.weapons:
             from item_effects.bazooka import get_bazooka_instance
