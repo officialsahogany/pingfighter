@@ -20663,6 +20663,78 @@ def trigger_soldier_bullet_knockback(bullet_x, bullet_y):
     
     print(f"[DEBUG] 코만도 총알 넉백 - timer: {boss_knockback_timer}, vel: {boss_knockback_vel:.2f}")
 
+def _handle_commando_rock_collision(
+    bullet: dict, bullet_rect: pygame.Rect, rock_rect: pygame.Rect
+) -> pygame.Rect:
+    """스테이지 2 바위와 충돌한 권총 총알에 리코쳇 처리를 적용하고 보정된 경계를 반환한다."""
+
+    global impact_particles
+
+    overlap_left = bullet_rect.right - rock_rect.left
+    overlap_right = rock_rect.right - bullet_rect.left
+    overlap_top = bullet_rect.bottom - rock_rect.top
+    overlap_bottom = rock_rect.bottom - bullet_rect.top
+
+    overlaps = {
+        "left": overlap_left,
+        "right": overlap_right,
+        "top": overlap_top,
+        "bottom": overlap_bottom,
+    }
+    hit_side = min(overlaps, key=overlaps.get)
+
+    if hit_side == "left":
+        bullet["x"] = rock_rect.left - SOLDIER_BULLET_SIZE - 0.1
+        new_speed = max(
+            abs(bullet["vel_x"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
+            SOLDIER_BULLET_MIN_SPEED,
+        )
+        bullet["vel_x"] = -new_speed
+    elif hit_side == "right":
+        bullet["x"] = rock_rect.right + SOLDIER_BULLET_SIZE + 0.1
+        new_speed = max(
+            abs(bullet["vel_x"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
+            SOLDIER_BULLET_MIN_SPEED,
+        )
+        bullet["vel_x"] = new_speed
+    elif hit_side == "top":
+        bullet["y"] = rock_rect.top - SOLDIER_BULLET_SIZE - 0.1
+        new_speed = max(
+            abs(bullet["vel_y"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
+            SOLDIER_BULLET_MIN_SPEED,
+        )
+        bullet["vel_y"] = -new_speed
+    else:  # bottom
+        bullet["y"] = rock_rect.bottom + SOLDIER_BULLET_SIZE + 0.1
+        new_speed = max(
+            abs(bullet["vel_y"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
+            SOLDIER_BULLET_MIN_SPEED,
+        )
+        bullet["vel_y"] = new_speed
+
+    bullet["rock_bounces"] = bullet.get("rock_bounces", 0) + 1
+
+    impact_particles.append(
+        {
+            "x": bullet["x"],
+            "y": bullet["y"],
+            "vx": random.uniform(-2.0, 2.0),
+            "vy": random.uniform(-1.0, 1.0),
+            "size": random.uniform(2.0, 3.5),
+            "alpha": 200,
+            "color": (255, 220, 120),
+            "life": 20,
+        }
+    )
+
+    return pygame.Rect(
+        bullet["x"] - SOLDIER_BULLET_SIZE,
+        bullet["y"] - SOLDIER_BULLET_SIZE,
+        SOLDIER_BULLET_SIZE * 2,
+        SOLDIER_BULLET_SIZE * 2,
+    )
+
+
 def update_soldier_bullets():
     """코만도 총알 업데이트"""
     global soldier_bullets, soldier_pistol_boss_hit_count
