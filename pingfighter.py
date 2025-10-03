@@ -44862,6 +44862,13 @@ def apply_selected_items(
     print(f"[DEBUG]   : {selected_passive_items}")
     print(f"[DEBUG]   : {selected_legendary_items}")
     print(f"[DEBUG]    : {selected_firearm_items}")
+
+    desired_slot_capacity = min(
+        ITEM_MANAGER_ACTIVE_LIMIT,
+        max(len(selected_active_items), item_state_adapter.max_slots()),
+    )
+    _set_max_item_slots(desired_slot_capacity)
+
     # 아이템 슬롯 초기화
     item_state_adapter.clear_active_items()
     clear_alchemy_notices()
