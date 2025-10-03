@@ -35252,6 +35252,8 @@ def show_victory_screen(stage_cleared, reward):
         gacha_reroll_streak = 0
     if display_stage_cleared == 5:
         preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
+    if display_stage_cleared == 6:
+        preload_stage_intro_resources(STAGE7_INTRO_VIDEO_PATH)
     # 스테이지 클리어 보상으로 스킬 포인트 추가
     import academy
     base_points = 1
