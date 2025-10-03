@@ -206,7 +206,7 @@ class SkillManager:
             return
 
         fps = max(1, self.global_manager.get('FPS', 60))
-        duration_frames = int(8 * fps)
+        duration_frames = int(15 * fps)
         self.global_manager.set('berserk_potion_active', True)
         self.global_manager.set('berserk_potion_timer_frames', duration_frames)
         self.global_manager.set('berserk_potion_duration_frames', duration_frames)

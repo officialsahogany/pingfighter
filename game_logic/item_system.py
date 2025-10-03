@@ -146,12 +146,12 @@ class ItemSystem:
             },
             'berserk_potion': {
                 'name': '광폭물약',
-                'description': '8초 동안 건설·업그레이드 속도 3배, 포탑 수동 연사 쿨다운 증가',
+                'description': '15초 동안 건설·업그레이드 속도 3배, 포탑 수동 연사 쿨다운 증가',
                 'type': 'active',
                 'effect': {
                     'construction_speed_multiplier': 3.0,
                     'manual_cooldown_multiplier': 3.0,
-                    'duration_seconds': 8
+                    'duration_seconds': 15
                 },
                 'permanent': False
             },
