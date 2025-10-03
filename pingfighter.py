@@ -1945,6 +1945,8 @@ boss_speed_boost_timer = 0           # 타이머 (프레임 단위)
 boss_prev_x = 0                      # 보스 이전 위치 (속도 계산용)
 stage7_prev_x: float | None = None   # Stage 7 보스 이전 X 위치 (측면 애니메이션)
 stage7_lean_value: float = 0.0       # Stage 7 보스 현재 기울기 값
+stage7_gauge_charge_progress: float = 0.0  # Stage 7 보스 게이지 충전 잔여치 (단위: 게이지)
+stage7_gauge_last_update_ms: int = 0       # Stage 7 보스 게이지 마지막 업데이트 시각(ms)
 boss_current_speed = 0               # 현재 AI 보스 속도
 # 보스 AI 움직임 파라미터
 BOSS_ACCELERATION = 0.798            # 가속도 (35% 감소: 1.2 → 0.798)
