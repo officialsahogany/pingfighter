@@ -63502,7 +63502,9 @@ def show_stage_selection(show_character_hint=True):
                 elif event.key == pygame.K_SPACE:
                     # 선택된 스테이지 반환
                     play_button_click_sound()
-                    return stages[selected_index]["num"]
+                    chosen_stage = stages[selected_index]["num"]
+                    print(f"[StageSelect] 선택된 스테이지: {chosen_stage}")
+                    return chosen_stage
                 elif event.key == pygame.K_LEFT:
                     selected_index = (selected_index - 1) % len(stages)
                     play_button_hover_sound()
