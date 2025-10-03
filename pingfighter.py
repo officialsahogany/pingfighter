@@ -28102,14 +28102,22 @@ def draw_stage1_boss_gauge_bar():
 
 stage7_gauge_debug_active = False
 stage7_gauge_debug_last_log = 0
+stage7_gauge_debug_last_stage = None
+stage7_gauge_debug_stage_log_ticks = 0
 
 
 def draw_stage7_boss_gauge_bar():
     """Stage 7 보스 스킬 게이지 - 테트리스 블록 콘셉트"""
     global current_stage, boss_special_gauge, displayed_boss_gauge
     global stage7_gauge_debug_active, stage7_gauge_debug_last_log
+    global stage7_gauge_debug_last_stage, stage7_gauge_debug_stage_log_ticks
 
     if current_stage != 7:
+        time_now = pygame.time.get_ticks()
+        if current_stage != stage7_gauge_debug_last_stage and time_now - stage7_gauge_debug_stage_log_ticks > 500:
+            stage7_gauge_debug_last_stage = current_stage
+            stage7_gauge_debug_stage_log_ticks = time_now
+            print(f"[Stage7Gauge] 현재 스테이지={current_stage} → 게이지 비활성")
         if stage7_gauge_debug_active:
             print("[Stage7Gauge] 스테이지 7 종료 → 게이지 디버그 비활성화")
             stage7_gauge_debug_active = False
