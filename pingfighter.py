@@ -56706,7 +56706,9 @@ def show_result(won):
             # 부활 후 게임 루프를 다시 시작하기 위해 main 함수를 재귀 호출
             #  게임 종료 체크
             if not game_should_exit:
-                main(current_stage)
+                # current_stage는 로직 번호라서 표시용 스테이지 번호로 되돌린다.
+                restart_stage = stage_logic_to_display(current_stage)
+                main(restart_stage)
             return  # 부활했으므로 게임 계속
         # 부활 아이템이 없거나 이미 사용했다면 일반 패배 처리
         earned = int(session_medal_earned * 0.5)
