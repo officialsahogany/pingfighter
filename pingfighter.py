@@ -11608,6 +11608,8 @@ BOSS_IMG_STAGE4_WIDTH = 130
 BOSS_IMG_STAGE4_HEIGHT = 70
 BOSS_IMG_STAGE5_WIDTH = 130
 BOSS_IMG_STAGE5_HEIGHT = 70
+BOSS_IMG_STAGE7_WIDTH = 150
+BOSS_IMG_STAGE7_HEIGHT = 120
 # 전역 변수 추가 (파일 위쪽에 위치)
 whip_wave_phase = 0
 whip_angle = 0  # 상모돌리기 각도
@@ -15300,6 +15302,12 @@ try:
 except:
     BOSS_IMG_STAGE5 = pygame.Surface((BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_STAGE5.fill((255, 80, 0))
+try:
+    BOSS_IMG_STAGE7 = pygame.image.load(resource_path("boss_stage7.png")).convert_alpha()
+    BOSS_IMG_STAGE7 = pygame.transform.scale(BOSS_IMG_STAGE7, (BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT))
+except:
+    BOSS_IMG_STAGE7 = pygame.Surface((BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT), pygame.SRCALPHA)
+    BOSS_IMG_STAGE7.fill((240, 120, 220))
 
 # Tutorial Boss (Stage 50) - Smaller size for instructor
 BOSS_IMG_TUTORIAL_WIDTH = 80
