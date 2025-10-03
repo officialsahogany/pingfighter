@@ -36172,6 +36172,9 @@ def show_victory_screen(stage_cleared, reward):
                 elif next_stage_display == 6:
                     preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
                     show_stage6_intro()
+                elif next_stage_display == 7:
+                    preload_stage_intro_resources(STAGE7_INTRO_VIDEO_PATH)
+                    show_stage7_intro()
 
                 if not game_should_exit:
                     effects_manager.clear_all_effects()
@@ -57720,6 +57723,8 @@ def main(stage_num, new_boss_mode=False):
         preload_stage_intro_resources(STAGE5_INTRO_VIDEO_PATH)
     elif display_stage_num == 6:
         preload_stage_intro_resources(STAGE6_INTRO_VIDEO_PATH)
+    elif display_stage_num == 7:
+        preload_stage_intro_resources(STAGE7_INTRO_VIDEO_PATH)
 
     #  Ultra Smooth 물리 엔진 초기화 (우선)
     if ULTRA_SMOOTH_AVAILABLE:
