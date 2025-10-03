@@ -671,7 +671,7 @@ ITEM_TYPES = [
         "effect": "berserk_potion",
         "icon": None,
         "chance": 0.004,  # 희귀 전용 아이템 확률 (발토르 전용)
-        "duration": 480,
+        "duration": 900,
         "unlock_condition": None
     },
     {
