@@ -16,17 +16,17 @@ class SimpleMenuBackground:
         
         # 사이버펑크 색상 팔레트 (차분한 톤)
         self.colors = {
-            'bg_top': (6, 10, 24),        # 상단 딥코스믹 네이비
-            'bg_mid': (24, 12, 44),       # 중간층 자색 포그
-            'bg_bottom': (10, 6, 28),     # 하단 미드나잇 퍼플
-            'grid': (24, 70, 140, 28),    # 메인 라인
-            'grid_soft': (14, 36, 90, 18),  # 서브 라인
-            'neon_cyan': (180, 235, 255),
-            'neon_purple': (200, 150, 255),
-            'particle': (120, 200, 255, 70),
+            'bg_top': (10, 20, 40),        # 상단 네온 블루 톤 (캐릭터/난이도 화면과 정렬)
+            'bg_mid': (24, 44, 78),        # 중간층 사이버 청록 그라데이션
+            'bg_bottom': (40, 68, 104),    # 하단 밝은 네이비 블루
+            'grid': (0, 150, 200, 32),     # 메인 홀로그램 라인
+            'grid_soft': (0, 110, 160, 20),  # 서브 라인
+            'neon_cyan': (0, 255, 255),
+            'neon_purple': (210, 140, 255),
+            'particle': (110, 220, 255, 85),
             'accent_gold': (255, 208, 150),
-            'orbit': (120, 110, 220, 40),
-            'orbit_alt': (255, 208, 150, 38)
+            'orbit': (0, 170, 220, 45),
+            'orbit_alt': (255, 90, 200, 38)
         }
 
         # 프리렌더된 럭셔리 레이어
@@ -1456,4 +1456,3 @@ class SimpleMenuBackground:
                                  radius // 3)
 
         surface.blit(self.frame_surface, (0, 0), special_flags=pygame.BLEND_ADD)
-
