@@ -27612,6 +27612,7 @@ def _draw_stage_specific_elements() -> None:
     draw_boss_health_bar()
     draw_stage1_boss_gauge_bar()
     draw_stage2_boss_gauge_bar()
+    draw_stage7_boss_gauge_bar()
     draw_laser_cannon_gauge()
     draw_spinning_top(SCREEN)
 
@@ -27855,6 +27856,9 @@ def draw_overlay_ui():
         draw_blacksmith_overheat_overlay(SCREEN)
         draw_blacksmith_turret_ui(SCREEN)
         draw_blacksmith_divine_ui(SCREEN)
+
+    # Stage 7 게이지는 다른 UI 위에 다시 한 번 그려 최상단을 보장
+    draw_stage7_boss_gauge_bar()
 
     _draw_tutorial_guide_hint()
 def apply_white_glow(surface, intensity=60):
