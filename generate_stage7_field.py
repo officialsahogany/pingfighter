@@ -236,55 +236,64 @@ def _draw_playfield_panel(image: Image.Image) -> None:
     draw.rounded_rectangle((left + 6, top + 6, right - 6, bottom - 6), radius=22, outline=INNER_BORDER_COLOR, width=2)
 
     # 성벽 기둥
-    column_width = 24
-    column_color_top = (52, 88, 140)
-    column_color_bottom = (30, 48, 86)
-    for column_x in (left - 40, right + 16):
-        rect = (column_x, top - 12, column_x + column_width, bottom + 18)
+    column_width = 26
+    column_color_top = (62, 92, 150)
+    column_color_bottom = (30, 48, 88)
+    for column_x in (left - 44, right + 18):
+        rect = (column_x, top - 14, column_x + column_width, bottom + 24)
         _draw_gradient_rect(draw, rect, column_color_top, column_color_bottom, alpha=220)
         draw.rectangle(rect, outline=(18, 32, 58, 200), width=2)
-        for notch_y in range(top, bottom, 48):
-            draw.rectangle((column_x + 4, notch_y, column_x + column_width - 4, notch_y + 6), fill=(22, 42, 74, 180))
-        for rivet_y in range(top + 18, bottom - 8, 54):
+        for notch_y in range(top, bottom, 52):
+            draw.rectangle((column_x + 5, notch_y, column_x + column_width - 5, notch_y + 8), fill=(24, 46, 78, 200))
+        for rivet_y in range(top + 20, bottom - 10, 56):
             draw.ellipse((column_x + column_width // 2 - 3, rivet_y - 3, column_x + column_width // 2 + 3, rivet_y + 3), fill=IRON_RIVET_COLOR)
 
-    # 아치 상부 띠
-    arch_rect = (left + 40, top - 54, right - 40, top - 24)
-    _draw_gradient_rect(draw, arch_rect, (44, 82, 134), (24, 52, 96), alpha=220)
-    draw.rounded_rectangle(arch_rect, radius=18, outline=(90, 140, 220, 220), width=2)
-    for stud_x in range(arch_rect[0] + 16, arch_rect[2] - 12, 40):
-        draw.ellipse((stud_x - 2, arch_rect[1] + 6, stud_x + 2, arch_rect[1] + 10), fill=IRON_RIVET_COLOR)
+    # 상부 아치와 문양
+    arch_rect = (left + 46, top - 58, right - 46, top - 26)
+    _draw_gradient_rect(draw, arch_rect, (48, 86, 142), (22, 46, 90), alpha=225)
+    draw.rounded_rectangle(arch_rect, radius=18, outline=(104, 160, 236, 220), width=2)
+    crest_center = ((arch_rect[0] + arch_rect[2]) // 2, arch_rect[1] + 18)
+    draw.ellipse((crest_center[0] - 18, crest_center[1] - 18, crest_center[0] + 18, crest_center[1] + 18), outline=(200, 230, 255, 220), width=2)
+    draw.polygon(
+        [
+            (crest_center[0], crest_center[1] - 12),
+            (crest_center[0] - 10, crest_center[1] + 10),
+            (crest_center[0] + 10, crest_center[1] + 10),
+        ],
+        fill=(212, 236, 255, 200),
+    )
 
     # 철제 보강 브릿지
-    brace_y_positions = [top + 22, (top + bottom) // 2, bottom - 26]
+    brace_y_positions = [top + 28, (top + bottom) // 2, bottom - 32]
     for y in brace_y_positions:
-        draw.rectangle((left - 12, y - 2, right + 12, y + 2), fill=(46, 74, 120, 180))
-        draw.line((left - 12, y, right + 12, y), fill=(120, 168, 236, 200), width=1)
-        draw.ellipse((left - 14, y - 4, left - 8, y + 4), fill=IRON_RIVET_COLOR)
-        draw.ellipse((right + 8, y - 4, right + 14, y + 4), fill=IRON_RIVET_COLOR)
+        draw.rectangle((left - 14, y - 2, right + 14, y + 2), fill=(46, 74, 120, 190))
+        draw.line((left - 14, y, right + 14, y), fill=(140, 186, 242, 220), width=1)
+        draw.ellipse((left - 16, y - 4, left - 10, y + 4), fill=IRON_RIVET_COLOR)
+        draw.ellipse((right + 10, y - 4, right + 16, y + 4), fill=IRON_RIVET_COLOR)
 
-    # 세부 스트라이프 및 포인트 라이트
-    for idx in range(1, 4):
-        stripe_x = left + idx * ((right - left) // 4)
-        draw.line((stripe_x, top + 16, stripe_x, bottom - 16), fill=(34, 96, 162, 110), width=1)
-    for offset in range(0, right - left, 48):
-        draw.line((left + offset, top + 10, left + offset + 12, top + 10), fill=(150, 210, 255, 130), width=1)
-        draw.line((left + offset, bottom - 10, left + offset + 12, bottom - 10), fill=(90, 160, 230, 130), width=1)
+    # 중앙 바닥 슬랩과 문양
+    floor_rect = (left + 24, top + 36, right - 24, bottom - 36)
+    _draw_gradient_rect(draw, floor_rect, (46, 88, 138), (30, 54, 102), alpha=230)
+    draw.rectangle(floor_rect, outline=(16, 32, 56, 180), width=2)
 
-    scoreboard_rect = (left + 60, top - 72, right - 60, top - 16)
-    _draw_scoreboard(draw, scoreboard_rect)
+    rune_rect = (floor_rect[0] + 40, floor_rect[1] + 48, floor_rect[2] - 40, floor_rect[3] - 48)
+    draw.rounded_rectangle(rune_rect, radius=24, outline=(164, 212, 255, 180), width=3)
+    draw.ellipse(
+        (rune_rect[0] + 60, rune_rect[1] + 60, rune_rect[2] - 60, rune_rect[3] - 60),
+        outline=(96, 186, 255, 160),
+        width=3,
+    )
+    for angle_section in range(0, 360, 60):
+        line_y = int(round(rune_rect[1] + (rune_rect[3] - rune_rect[1]) * angle_section / 360))
+        draw.line((rune_rect[0] + 24, line_y, rune_rect[2] - 24, line_y), fill=(116, 198, 255, 110), width=1)
 
-    hold_rect = (left - 74, top + 24, left - 18, top + 168)
-    next_main_rect = (right + 18, top + 24, right + 74, top + 166)
-    next_sub_rect = (right + 18, top + 176, right + 74, top + 236)
-    _draw_hold_next(draw, hold_rect, next_main_rect, next_sub_rect)
-
-    status_rect = (left + 48, bottom + 28, right - 48, bottom + 64)
-    _draw_status_panel(draw, status_rect)
-
-    for y in range(top + 28, bottom - 20, 48):
-        draw.line((left - 10, y, left - 4, y), fill=(132, 208, 255, 200), width=2)
-        draw.line((right + 4, y, right + 10, y), fill=(132, 208, 255, 200), width=2)
+    # 외곽 계단형 돌판
+    step_height = 12
+    for i in range(3):
+        inset = i * 8
+        step_rect = (left + inset, bottom - step_height * (i + 1), right - inset, bottom - step_height * i)
+        _draw_gradient_rect(draw, step_rect, (40, 68, 104), (24, 40, 72), alpha=220 - i * 30)
+        draw.rectangle(step_rect, outline=(18, 32, 56, 180), width=1)
 
     image.alpha_composite(panel)
 
