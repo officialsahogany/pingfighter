@@ -30944,6 +30944,7 @@ def draw_objects():
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_hammer_charge_position, blacksmith_hammer_head_surface_point, blacksmith_hammer_idle_position
     global blacksmith_trail_timer
+    global stage7_prev_x, stage7_lean_value
     global foul_whistle_pending_round_reset
     new_tear_particles = []  #  함수 시작 시 초기화
     
@@ -31183,6 +31184,7 @@ def draw_objects():
         """  화면 흔들림을 적용하여 원 그리기"""
         draw.circle(color, (int(pos[0] + total_offset_x), int(pos[1] + total_offset_y)), radius, width)
     # === 보스 이미지 선택 + 스테이지별 전용 사이즈 적용 ===
+    boss_img_prescaled = False
     if new_boss_mode_active:
         #  새로운 보스 모드에서는 상단 보스 선택
         if selected_top_boss == 1:
@@ -31212,7 +31214,37 @@ def draw_objects():
         boss_img = BOSS_IMG_STAGE5
         boss_w, boss_h = BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT
     elif current_stage == 7:
-        boss_img = BOSS_IMG_STAGE7
+        boss_img_prescaled = True
+        global stage7_prev_x, stage7_lean_value
+        boss_obj = globals().get("BOSS")
+        boss_x = getattr(boss_obj, "x", None) if boss_obj is not None else None
+
+        if boss_x is not None:
+            if stage7_prev_x is None:
+                stage7_prev_x = float(boss_x)
+            dx = float(boss_x) - stage7_prev_x
+            stage7_prev_x = float(boss_x)
+            target_lean = max(-1.0, min(1.0, dx / 8.0))
+        else:
+            stage7_prev_x = None
+            target_lean = 0.0
+
+        if abs(target_lean) < 0.05:
+            target_lean = math.sin(pygame.time.get_ticks() * 0.004) * 0.25
+
+        stage7_lean_value = (stage7_lean_value * 0.72) + (target_lean * 0.28)
+
+        frames = BOSS_IMG_STAGE7_FRAMES if BOSS_IMG_STAGE7_FRAMES else [BOSS_IMG_STAGE7]
+        frame_count = len(frames)
+        center_index = frame_count // 2
+        max_offset = center_index if frame_count % 2 else max(0, center_index - 1)
+        if max_offset == 0:
+            frame_index = center_index
+        else:
+            frame_index = center_index + int(round(stage7_lean_value * max_offset))
+            frame_index = max(0, min(frame_count - 1, frame_index))
+
+        boss_img = frames[frame_index]
         boss_w, boss_h = BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT
     elif current_stage == 50:
         # Tutorial Stage - Instructor (smaller size)
@@ -31230,7 +31262,11 @@ def draw_objects():
         boss_img = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
         boss_img.fill(WHITE)
         boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
-    boss_img = pygame.transform.scale(boss_img, (boss_w, boss_h))
+    if not boss_img_prescaled:
+        boss_img = pygame.transform.scale(boss_img, (boss_w, boss_h))
+    if current_stage != 7:
+        stage7_prev_x = None
+        stage7_lean_value *= 0.85
     #  풍악보이 상모돌리기 회전 효과
     whip_rotation_angle = 0
     if current_stage == 1 and whip_active:
