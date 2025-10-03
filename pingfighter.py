@@ -52254,7 +52254,28 @@ def handle_ball():
                     
                     wall_hit = True
                     break  # 한 번에 하나의 벽돌만 처리
-            
+
+            stage7_guard_hit = False
+            if current_stage == 7 and stage7_guard_blocks:
+                for guard_block in stage7_guard_blocks:
+                    if guard_block.get("state") != "active":
+                        continue
+                    for cell in guard_block["cells"]:
+                        if BALL.colliderect(cell["rect"]):
+                            BALL.x = old_x
+                            BALL.y = cell["rect"].bottom + 2
+                            if ball_vel[1] <= 0:
+                                ball_vel[1] = max(6.0, abs(ball_vel[1]))
+                            else:
+                                ball_vel[1] = max(6.0, ball_vel[1])
+                            ball_vel[0] += random.uniform(-0.6, 0.6)
+                            destroy_stage7_guard_block(guard_block)
+                            create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                            stage7_guard_hit = True
+                            break
+                    if stage7_guard_hit:
+                        break
+
             #  스테이지 2 바위 충돌 체크 (매 스텝마다)
             if current_stage == 2 and animated_bg_stage2 is not None and not rock_hit:
                 # 파워 스매싱 중에는 바위 충돌 무시 (관통)
