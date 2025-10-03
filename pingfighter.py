@@ -28126,8 +28126,12 @@ def reset_stage7_guard_state(*, reset_timer: bool = True) -> None:
     stage7_guard_blocks.clear()
     if reset_timer:
         stage7_guard_next_trigger_ms = 0
-        global stage7_persistent_boss_gauge
-        stage7_persistent_boss_gauge = 0.0
+        try:
+            if current_stage != 7:
+                global stage7_persistent_boss_gauge
+                stage7_persistent_boss_gauge = 0.0
+        except NameError:
+            pass
 
 
 def initialize_stage7_guard_state(now: int | None = None) -> None:
@@ -28177,6 +28181,8 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
 
     boss_special_gauge = min(500, boss_special_gauge + charge_units)
     stage7_gauge_charge_progress -= charge_units
+    global stage7_persistent_boss_gauge
+    stage7_persistent_boss_gauge = boss_special_gauge
 
 
 STAGE7_GUARD_CELL_SIZE = 20
