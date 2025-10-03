@@ -56340,8 +56340,7 @@ def show_result(won):
     #  Aipill 초기화 (다음 라운드로 넘어가면 Aipill 효과 종료)
     if aipill_active:
         print("Aipill  .")
-        aipill_active = False
-        deactivate_doping_potion()
+        deactivate_aipill("round_transition")
     #  상모돌리기 완전 초기화 (스테이지 종료 시)
     whip_active = False
     whip_timer = 0
