@@ -48618,9 +48618,13 @@ def reset_round():
 
     stop_blacksmith_construction_sound()
 
-    reset_stage7_guard_state()
     if current_stage == 7:
-        initialize_stage7_guard_state()
+        if not stage7_guard_blocks:
+            initialize_stage7_guard_state()
+        else:
+            print(f"[Stage7Guard][ResetRound] retain blocks={len(stage7_guard_blocks)}")
+    else:
+        reset_stage7_guard_state()
 
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
