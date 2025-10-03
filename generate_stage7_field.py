@@ -36,14 +36,6 @@ BANNER_PRIMARY = (180, 40, 52, 240)
 BANNER_SECONDARY = (46, 84, 148, 255)
 IRON_RIVET_COLOR = (112, 146, 210)
 
-BLOCK_COLORS: Sequence[Tuple[int, int, int]] = (
-    (84, 188, 255),  # I
-    (94, 228, 198),  # S
-    (248, 158, 90),  # L
-    (196, 148, 244),  # T
-    (255, 122, 160),  # Z
-)
-
 FONT_PATH = Path(__file__).resolve().parent / "NeoDunggeunmoPro.ttf"
 try:
     FONT_LABEL = ImageFont.truetype(str(FONT_PATH), 18)
@@ -52,14 +44,6 @@ try:
 except OSError:
     fallback_font = ImageFont.load_default()
     FONT_LABEL = FONT_DIGIT = FONT_TINY = fallback_font
-
-TETRIMINO_SHAPES = {
-    "T": [(0, 1), (1, 0), (1, 1), (2, 1)],
-    "J": [(0, 0), (0, 1), (1, 1), (2, 1)],
-    "I": [(0, 1), (1, 1), (2, 1), (3, 1)],
-    "S": [(0, 1), (1, 1), (1, 0), (2, 0)],
-}
-
 
 def _clamp(value: int, low: int = 0, high: int = 255) -> int:
     return max(low, min(high, value))
