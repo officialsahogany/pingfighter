@@ -48979,6 +48979,10 @@ def reset_round():
     if preserve_stage7_gauge is not None:
         boss_special_gauge = preserve_stage7_gauge
         displayed_boss_gauge = preserve_stage7_display if preserve_stage7_display is not None else boss_special_gauge
+        try:
+            game_state.displayed_boss_gauge = displayed_boss_gauge
+        except Exception:
+            pass
 def reset_deuce_system():
     """듀스 시스템을 완전히 리셋합니다."""
     global deuce_mode, deuce_wins, deuce_losses, deuce_goal
