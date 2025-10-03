@@ -6318,6 +6318,12 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
                 drain_per_frame = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS
+                if (
+                    berserk_potion_active
+                    and berserk_potion_timer > 0
+                    and selected_character_type == "blacksmith"
+                ):
+                    drain_per_frame /= BERSERK_POTION_TURRET_CHARGE_SLOW_MULTIPLIER
                 gained_xp = 0
                 if special_gauge > 0:
                     construction_active = True
@@ -14622,6 +14628,7 @@ BERSERK_POTION_DURATION_FRAMES = 900  # 15초 지속
 BERSERK_POTION_BUILD_MULTIPLIER = 3.0
 BERSERK_POTION_MANUAL_COOLDOWN_MULTIPLIER = 0.25  # 연사 400% 증가 → 기본 쿨다운의 1/4
 BERSERK_POTION_GAUGE_GAIN_MULTIPLIER = 3.0  # 게이지 충전량 3배
+BERSERK_POTION_TURRET_CHARGE_SLOW_MULTIPLIER = 100.0  # 광폭물약 발동 중 포탑 수동 충전 속도 역보정
 berserk_potion_active = False
 berserk_potion_timer = 0
 berserk_aura_surface: pygame.Surface | None = None
