@@ -15,15 +15,15 @@ WIDTH = 600
 HEIGHT = 750
 OUTPUT_PATH = Path(__file__).resolve().parent / "stage7_field.png"
 
-TOP_COLOR = (238, 243, 255)
-BOTTOM_COLOR = (204, 219, 248)
-SIDE_GLOW_COLOR = (196, 212, 246, 90)
-GRID_LINE_COLOR = (210, 220, 240, 120)
-PANEL_BORDER_COLOR = (178, 190, 220)
-PANEL_FILL_TOP = (230, 236, 248, 255)
-PANEL_FILL_BOTTOM = (216, 226, 246, 255)
-LINE_COLOR = (70, 96, 164)
-LINE_GLOW_COLOR = (140, 168, 230, 70)
+TOP_COLOR = (190, 202, 230)
+BOTTOM_COLOR = (156, 170, 210)
+SIDE_GLOW_COLOR = (150, 168, 214, 70)
+GRID_LINE_COLOR = (170, 185, 210, 110)
+PANEL_BORDER_COLOR = (140, 152, 188)
+PANEL_FILL_TOP = (188, 198, 226, 245)
+PANEL_FILL_BOTTOM = (170, 184, 214, 240)
+LINE_COLOR = (60, 82, 148)
+LINE_GLOW_COLOR = (110, 138, 200, 60)
 
 BLOCK_COLORS: Sequence[Tuple[int, int, int]] = (
     (115, 180, 255),  # I
@@ -95,7 +95,7 @@ def _draw_tetris_panel(image: Image.Image) -> None:
         (left, top, right, bottom),
         radius=28,
         outline=PANEL_BORDER_COLOR,
-        width=4,
+        width=3,
     )
 
     # 내부 그리드
@@ -108,13 +108,13 @@ def _draw_tetris_panel(image: Image.Image) -> None:
     # 윗부분 미니 헤더
     header_height = 40
     header_rect = (left - 40, top - 70, right + 40, top - 30)
-    draw.rounded_rectangle(header_rect, radius=18, fill=(214, 224, 244, 220))
-    draw.rounded_rectangle(header_rect, radius=18, outline=(184, 194, 214), width=2)
+    draw.rounded_rectangle(header_rect, radius=18, fill=(168, 178, 208, 215))
+    draw.rounded_rectangle(header_rect, radius=18, outline=(148, 158, 188), width=2)
 
     # 아래 상태 표시 바
     footer_rect = (left - 30, bottom + 25, right + 30, bottom + 55)
-    draw.rounded_rectangle(footer_rect, radius=16, fill=(222, 230, 246, 235))
-    draw.rounded_rectangle(footer_rect, radius=16, outline=(190, 198, 214), width=2)
+    draw.rounded_rectangle(footer_rect, radius=16, fill=(176, 186, 212, 230))
+    draw.rounded_rectangle(footer_rect, radius=16, outline=(150, 160, 186), width=2)
 
     image.alpha_composite(panel)
 
@@ -132,32 +132,7 @@ def _draw_tetrimino(draw: ImageDraw.ImageDraw, origin: Tuple[int, int], cells: I
 
 
 def _draw_tetris_pieces(image: Image.Image) -> None:
-    overlay = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    board_left = 90
-    board_top = 110
-    block = 26
-
-    pieces = [
-        ((4, 0), [(0, 0), (1, 0), (2, 0), (3, 0)]),       # I
-        ((1, 3), [(0, 0), (0, 1), (1, 1), (2, 1)]),       # L
-        ((8, 4), [(0, 1), (1, 0), (1, 1), (2, 0)]),       # Z
-        ((5, 7), [(0, 0), (1, 0), (1, 1), (2, 1)]),       # S
-        ((3, 9), [(0, 0), (1, 0), (2, 0), (1, 1)]),       # T
-    ]
-
-    for idx, ((col, row), cells) in enumerate(pieces):
-        color = BLOCK_COLORS[idx % len(BLOCK_COLORS)]
-        origin = (board_left + col * block, board_top + row * block)
-        _draw_tetrimino(draw, origin, cells, color, block)
-
-    # 떨어지는 블록들은 반투명 꼬리로 표현
-    trail = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
-    trail_draw = ImageDraw.Draw(trail)
-    trail_draw.ellipse((260, 40, 340, 120), fill=(120, 180, 255, 80))
-    trail_draw.ellipse((270, 50, 330, 110), fill=(120, 180, 255, 60))
-    image.alpha_composite(trail)
-    image.alpha_composite(overlay)
+    # 더 이상 블록을 그리지 않음 (요청에 따라 바닥 장식 제거)
 
 
 def _draw_center_lines(image: Image.Image) -> None:
@@ -227,7 +202,6 @@ def create_stage7_background() -> Image.Image:
     _draw_gradient(base)
     _draw_side_glow(base)
     _draw_tetris_panel(base)
-    _draw_tetris_pieces(base)
     _draw_center_lines(base)
     _add_corner_details(base)
     return base
