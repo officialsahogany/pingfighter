@@ -28189,20 +28189,21 @@ def _schedule_stage7_guard(now: int | None = None) -> None:
     stage7_guard_next_trigger_ms = now + random.randint(STAGE7_GUARD_MIN_INTERVAL_MS, STAGE7_GUARD_MAX_INTERVAL_MS)
 
 
-def _create_stage7_guard_block(side: str, start_left: float, target_left: float, bottom: float, now: int) -> dict:
+def _create_stage7_guard_block(label: str, start_left: float, final_left: float, top: float, now: int) -> dict:
     cell_size = STAGE7_GUARD_CELL_SIZE
-    cells = []
+    cells: list[dict] = []
     for i in range(4):
-        final_top = bottom - cell_size * (i + 1)
-        rect = pygame.Rect(int(round(start_left)), int(round(final_top)), cell_size, cell_size)
+        start = start_left + i * cell_size
+        final = final_left + i * cell_size
+        rect = pygame.Rect(int(round(start)), int(round(top)), cell_size, cell_size)
         cells.append({
             "rect": rect,
-            "start_left": float(start_left),
-            "final_left": float(target_left),
-            "top": float(final_top),
+            "start_left": float(start),
+            "final_left": float(final),
+            "top": float(top),
         })
     return {
-        "side": side,
+        "side": label,
         "state": "hologram",
         "visible_cells": 0,
         "hologram_timer": 0.0,
@@ -28226,22 +28227,22 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
 
     boss_special_gauge = max(0, boss_special_gauge - 100)
 
-    start_left = float(BOSS.right + 6)
-    block_bottom = float(min(BOSS.centery + STAGE7_GUARD_CELL_SIZE * 2, HEIGHT - 60))
+    cell_size = STAGE7_GUARD_CELL_SIZE
+    final_left = float(WIDTH - cell_size * 4 - 12)
+    start_left = float(BOSS.centerx - cell_size * 2)
+    start_left = max(20.0, min(final_left, start_left))
 
-    offsets = (-STAGE7_GUARD_SPAWN_OFFSET_X, STAGE7_GUARD_SPAWN_OFFSET_X)
+    vertical_gap = cell_size + 14
+    upper_top = float(max(60.0, BOSS.centery - vertical_gap - cell_size))
+    lower_top = float(min(HEIGHT - cell_size * 2 - 60, BOSS.centery + vertical_gap))
+    if lower_top - upper_top < cell_size * 2:
+        lower_top = min(HEIGHT - cell_size * 2 - 60, upper_top + cell_size * 2)
+
+    top_positions = [upper_top, lower_top]
+    labels = ("upper", "lower")
     new_blocks = []
-    for side, offset in zip(("right", "left"), offsets):
-        if side == "right":
-            target_left = float(min(WIDTH - STAGE7_GUARD_CELL_SIZE - 10, start_left))
-        else:
-            mirror_start = float(BOSS.left - STAGE7_GUARD_CELL_SIZE - 6)
-            target_left = float(max(10.0, mirror_start))
-            start_left_local = float(BOSS.left - STAGE7_GUARD_CELL_SIZE // 2)
-            block = _create_stage7_guard_block(side, start_left_local, target_left, block_bottom, now)
-            new_blocks.append(block)
-            continue
-        block = _create_stage7_guard_block(side, start_left, target_left, block_bottom, now)
+    for label, top in zip(labels, top_positions):
+        block = _create_stage7_guard_block(label, start_left, final_left, top, now)
         new_blocks.append(block)
 
     stage7_guard_blocks.extend(new_blocks)
