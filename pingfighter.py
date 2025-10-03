@@ -25958,8 +25958,9 @@ def handle_wall():
                             print("🎯 코만도암 보너스! 조명탄 게이지 70 증가!")
                         else:
                             print("💡 조명탄 명중! 게이지 50 증가!")
-                        
+
                         # 게이지 증가 적용
+                        gauge_increase = _apply_blacksmith_berserk_gauge_bonus(gauge_increase)
                         old_gauge = special_gauge
                         special_gauge += gauge_increase
                         current_max = get_max_gauge()
@@ -52996,6 +52997,7 @@ def handle_ball():
                 whip_angle = 0
                 print("상모돌리기 종료 - 플레이어 패들 충돌")
             
+            total_gauge_gain = _apply_blacksmith_berserk_gauge_bonus(total_gauge_gain)
             special_gauge += total_gauge_gain
             #  동적 최대치 제한 적용
             current_max = get_max_gauge()
