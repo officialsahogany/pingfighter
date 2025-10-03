@@ -963,7 +963,7 @@ STAGE5_INTRO_VIDEO_PATH: str | None = None
 STAGE5_INTRO_IMAGE_PATH = resource_path("stage5.png")
 STAGE6_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage6.mov")
 STAGE6_INTRO_IMAGE_PATH = resource_path("stage6_field.png")
-STAGE7_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage7.mov")
+STAGE7_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage7.mp4")
 STAGE7_INTRO_IMAGE_PATH = resource_path("stage7_field.png")
 
 animated_bg = stage_backgrounds.animated_bg
