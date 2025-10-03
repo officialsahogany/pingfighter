@@ -947,6 +947,7 @@ STAGE3_BG = stage_backgrounds.stage3
 STAGE4_BG = stage_backgrounds.stage4
 STAGE5_BG = stage_backgrounds.stage5
 STAGE6_BG = stage_backgrounds.stage6
+STAGE7_BG = stage_backgrounds.stage7
 
 STAGE1_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage1.mov")
 STAGE1_INTRO_IMAGE_PATH = resource_path("stage1.png")
@@ -967,6 +968,7 @@ animated_bg_stage3 = stage_backgrounds.animated_bg_stage3
 animated_bg_stage4 = stage_backgrounds.animated_bg_stage4
 animated_bg_stage5 = stage_backgrounds.animated_bg_stage5
 animated_bg_stage6 = stage_backgrounds.animated_bg_stage6
+animated_bg_stage7 = stage_backgrounds.animated_bg_stage7
 # 빠칭코 기계 이미지 로드
 try:
     pachinko_machine_img = pygame.image.load(resource_path("itemmachine.png")).convert_alpha()
@@ -2985,7 +2987,7 @@ spider_mine_slow_text_timer = 0
 # 보스별 스피드 및 예측 설정 - config에서 가져온 값에 추가 설정
 # BOSS_CONFIGS에서 기본값을 가져오고 추가 속성만 정의
 boss_speed_config = {}
-for stage_num in range(1, 6):
+for stage_num in range(1, TOTAL_STAGES + 1):
     if stage_num in BOSS_CONFIGS:
         boss_speed_config[stage_num] = {
             "accel": BOSS_CONFIGS[stage_num]["accel"],
@@ -57329,6 +57331,9 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 6:  #  Stage 6 추가 (항공모함)
         CURRENT_BG = STAGE6_BG
         BOSS_COLOR = (150, 200, 255)  # 금속/은색
+    elif stage_num == 7:
+        CURRENT_BG = STAGE7_BG
+        BOSS_COLOR = (120, 170, 255)
     elif stage_num == 50:  # Stage 50 (튜토리얼)
         # 튜토리얼용 배경 Surface 생성
         CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
