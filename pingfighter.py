@@ -28116,6 +28116,7 @@ stage7_gauge_debug_active = False
 stage7_gauge_debug_last_log = 0
 stage7_gauge_debug_last_stage = None
 stage7_gauge_debug_stage_log_ticks = 0
+STAGE7_GAUGE_DEBUG = False
 
 
 def reset_stage7_guard_state(*, reset_timer: bool = True) -> None:
@@ -28387,19 +28388,19 @@ def draw_stage7_boss_gauge_bar():
     global stage7_gauge_debug_last_stage, stage7_gauge_debug_stage_log_ticks
 
     time_now = pygame.time.get_ticks()
-    if time_now - stage7_gauge_debug_stage_log_ticks > 1000:
+    if STAGE7_GAUGE_DEBUG and time_now - stage7_gauge_debug_stage_log_ticks > 1000:
         stage7_gauge_debug_stage_log_ticks = time_now
         print(f"[Stage7Gauge] stage={current_stage}, boss={boss_special_gauge}, displayed={displayed_boss_gauge}")
 
     if current_stage != 7:
         time_now = pygame.time.get_ticks()
-        if current_stage != stage7_gauge_debug_last_stage and time_now - stage7_gauge_debug_stage_log_ticks > 500:
+        if STAGE7_GAUGE_DEBUG and current_stage != stage7_gauge_debug_last_stage and time_now - stage7_gauge_debug_stage_log_ticks > 500:
             stage7_gauge_debug_last_stage = current_stage
             stage7_gauge_debug_stage_log_ticks = time_now
             print(f"[Stage7Gauge] 현재 스테이지={current_stage} → 게이지 비활성")
-        if stage7_gauge_debug_active:
+        if stage7_gauge_debug_active and STAGE7_GAUGE_DEBUG:
             print("[Stage7Gauge] 스테이지 7 종료 → 게이지 디버그 비활성화")
-            stage7_gauge_debug_active = False
+        stage7_gauge_debug_active = False
         return
 
     max_gauge = 500
@@ -28414,10 +28415,11 @@ def draw_stage7_boss_gauge_bar():
     if not stage7_gauge_debug_active:
         stage7_gauge_debug_active = True
         stage7_gauge_debug_last_log = time_now
-        print(
-            f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
-        )
-    elif time_now - stage7_gauge_debug_last_log >= 1000:
+        if STAGE7_GAUGE_DEBUG:
+            print(
+                f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
+            )
+    elif STAGE7_GAUGE_DEBUG and time_now - stage7_gauge_debug_last_log >= 1000:
         stage7_gauge_debug_last_log = time_now
         print(
             f"[Stage7Gauge] 유지: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, current={current_gauge:.1f}"
