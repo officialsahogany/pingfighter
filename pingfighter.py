@@ -21906,6 +21906,9 @@ def handle_player(keys):
         down_pressed = False
 
     global soldier_weapon_hold_frames, soldier_weapon_menu_active, soldier_weapon_number_prev
+    if selected_character_type == "soldier":
+        apply_fire_support_slot_restore()
+
     allow_weapon_switch = (
         selected_character_type == "soldier"
         and len(soldier_controller.weapons) > 1
