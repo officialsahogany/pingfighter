@@ -28256,11 +28256,13 @@ def update_stage7_guard_blocks(now: int | None = None) -> None:
             while block["visible_cells"] < 4 and block["hologram_timer"] >= STAGE7_GUARD_HOLOGRAM_STEP_MS:
                 block["hologram_timer"] -= STAGE7_GUARD_HOLOGRAM_STEP_MS
                 block["visible_cells"] += 1
-            if block["visible_cells"] >= 4:
-                block["hologram_hold"] += elapsed
-                if block["hologram_hold"] >= STAGE7_GUARD_HOLOGRAM_HOLD_MS:
-                    block["state"] = "deploy"
-                    block["move_timer"] = 0.0
+                if block["visible_cells"] >= 4:
+                    block["hologram_hold"] += elapsed
+                    if block["hologram_hold"] >= STAGE7_GUARD_HOLOGRAM_HOLD_MS:
+                        block["state"] = "deploy"
+                        block["move_timer"] = 0.0
+            for cell in block["cells"]:
+                cell.pop("fade", None)
         elif block["state"] == "deploy":
             block["move_timer"] += elapsed
             progress = min(1.0, block["move_timer"] / STAGE7_GUARD_MOVEMENT_DURATION_MS)
@@ -28270,12 +28272,25 @@ def update_stage7_guard_blocks(now: int | None = None) -> None:
                 current_left = start_left + (final_left - start_left) * progress
                 cell["rect"].x = int(round(current_left))
                 cell["rect"].y = int(round(cell["top"]))
+                cell.pop("fade", None)
             if progress >= 1.0:
                 block["state"] = "active"
         elif block["state"] == "active":
             for cell in block["cells"]:
                 cell["rect"].x = int(round(cell["final_left"]))
                 cell["rect"].y = int(round(cell["top"]))
+                cell.pop("fade", None)
+        elif block["state"] == "destroying":
+            block["destroy_timer"] -= elapsed
+            fade = max(0.0, block.get("destroy_timer", 0.0) / max(1.0, block.get("destroy_duration", 1.0)))
+            for cell in block["cells"]:
+                cell["rect"].x = int(round(cell["final_left"]))
+                cell["rect"].y = int(round(cell["top"]))
+                cell["fade"] = fade
+            if block["destroy_timer"] <= 0:
+                stage7_guard_blocks.remove(block)
+                if not stage7_guard_blocks:
+                    _schedule_stage7_guard(now)
 
 
 def draw_stage7_guard_blocks(surface: pygame.Surface) -> None:
@@ -28292,10 +28307,15 @@ def draw_stage7_guard_blocks(surface: pygame.Surface) -> None:
         visible_cells = block.get("visible_cells", 0)
         for idx, cell in enumerate(block["cells"]):
             rect = cell["rect"]
+            fade = cell.get("fade", 1.0)
             if state == "hologram" and idx >= visible_cells:
                 alpha = 110
                 fill_col = hologram_color
                 border_alpha = 180
+            elif state == "destroying":
+                alpha = int(220 * fade)
+                fill_col = highlight_color
+                border_alpha = int(200 * fade)
             else:
                 alpha = 230 if state == "active" else 200
                 fill_col = base_color
@@ -28340,6 +28360,22 @@ def update_stage7_guard_skill(now: int | None = None) -> None:
     else:
         # 게이지 부족 등으로 실패 시 재시도까지 짧은 대기
         stage7_guard_next_trigger_ms = now + 1000
+
+
+def destroy_stage7_guard_block(block: dict, *, now: int | None = None) -> None:
+    if block.get("state") == "destroying":
+        return
+    if now is None:
+        now = pygame.time.get_ticks()
+    block["state"] = "destroying"
+    block["destroy_duration"] = 200
+    block["destroy_timer"] = 200
+    block["last_update"] = now
+    block["visible_cells"] = len(block.get("cells", []))
+    try:
+        play_wall_sound()
+    except Exception:
+        pass
 
 
 def draw_stage7_boss_gauge_bar():
