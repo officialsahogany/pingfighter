@@ -28237,6 +28237,8 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
         return False
 
     boss_special_gauge = max(0, boss_special_gauge - 100)
+    global stage7_persistent_boss_gauge
+    stage7_persistent_boss_gauge = boss_special_gauge
 
     cell_size = STAGE7_GUARD_CELL_SIZE
     # 오른쪽 블록: 보스 중앙 기준 오른쪽 이동, 오른쪽 벽에 붙음
@@ -48585,7 +48587,7 @@ def reset_round():
     global boss_fire_hit_count, boss_fire_hit_timer  #  보스 화염 타격 카운터
     global stage2_border_flash_timer, stage2_leaves  #  스테이지 2 정글 효과
     global smasher_pending_contact_offset
-    global boss_special_gauge, displayed_boss_gauge, current_stage  #  스테이지 1 보스 게이지 관리
+    global boss_special_gauge, displayed_boss_gauge, stage7_persistent_boss_gauge, current_stage  #  스테이지 보스 게이지 관리
     global ragnarok_stun_attempted_this_rally  # 라그나로크 해머 스턴 플래그
     global leg_shot_active, leg_shot_timer, leg_shot_text_timer  # 권총 레그샷 관련 변수
     global head_shot_active, head_shot_timer, head_shot_text_timer, boss_stunned_timer  # 권총 헤드샷 관련 변수
@@ -48990,6 +48992,7 @@ def reset_round():
     if preserve_stage7_gauge is not None:
         boss_special_gauge = preserve_stage7_gauge
         displayed_boss_gauge = preserve_stage7_display if preserve_stage7_display is not None else boss_special_gauge
+        stage7_persistent_boss_gauge = boss_special_gauge
         try:
             game_state.displayed_boss_gauge = displayed_boss_gauge
         except Exception:
