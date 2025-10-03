@@ -57936,7 +57936,6 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 7:
         CURRENT_BG = STAGE7_BG
         BOSS_COLOR = (120, 170, 255)
-        initialize_stage7_guard_state()
     elif stage_num == 50:  # Stage 50 (튜토리얼)
         # 튜토리얼용 배경 Surface 생성
         CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
