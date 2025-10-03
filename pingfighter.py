@@ -27619,6 +27619,7 @@ def _draw_stage_specific_elements() -> None:
     draw_stage1_boss_gauge_bar()
     draw_stage2_boss_gauge_bar()
     draw_stage7_boss_gauge_bar()
+    draw_stage7_guard_blocks(SCREEN)
     draw_laser_cannon_gauge()
     draw_spinning_top(SCREEN)
 
@@ -27820,6 +27821,7 @@ def draw_overlay_ui():
     draw_stage1_boss_gauge_bar()
     draw_stage2_boss_gauge_bar()
     draw_laser_cannon_gauge()
+    draw_stage7_guard_blocks(SCREEN)
     draw_spinning_top(SCREEN)
 
     update_trade_point_stars()
@@ -60712,7 +60714,7 @@ def main(stage_num, new_boss_mode=False):
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
                 draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
                 draw_stage7_boss_gauge_bar()  # 스테이지 7 게이지도 동일하게 표시
-                draw_stage7_boss_gauge_bar()  # 스테이지 7의 테트리스 게이지는 흔들림 없이 유지
+                draw_stage7_guard_blocks(SCREEN)
                 
                 # 코만도 권총 UI 표시
                 if selected_character_type == "soldier":
@@ -60744,6 +60746,7 @@ def main(stage_num, new_boss_mode=False):
             draw_stage1_boss_gauge_bar()  # 스테이지 1 보스 게이지바 그리기
             draw_stage2_boss_gauge_bar()  # 스테이지 2 게이지바
             draw_stage7_boss_gauge_bar()  # 스테이지 7 테트리서 게이지
+            draw_stage7_guard_blocks(SCREEN)
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 스테이지별 테두리 효과를 UI 전에 그리기
             if current_stage == 2:
