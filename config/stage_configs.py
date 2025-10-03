@@ -4,7 +4,7 @@
 """
 
 # ============= 스테이지 정보 =============
-TOTAL_STAGES = 6
+TOTAL_STAGES = 7
 BOSS_HEALTH_STAGES = [6, 11, 16, 21]  # 체력형 보스가 등장하는 스테이지
 
 # ============= 스테이지별 보스 설정 =============
@@ -82,7 +82,19 @@ BOSS_CONFIGS = {
         "special_skill": "ultimate",
         "is_health_boss": True,
         "max_health": 15,
-    }
+    },
+    7: {
+        "name": "테트리서",
+        "color": (120, 170, 255),
+        "accel": 1.05,
+        "decel": 0.95,
+        "max_speed": 8.2,
+        "instant_stop": 0.9,
+        "predict_distance": 140,
+        "skill_power": 0.3,
+        "fail_error": 230,
+        "special_skill": "tetris_field",
+    },
 }
 
 # ============= 스테이지별 배경 설정 =============
@@ -122,6 +134,12 @@ STAGE_BACKGROUNDS = {
         "animated_class": None,  # 스테이지 6은 특별 처리
         "theme": "space_carrier",
         "ambient_color": (20, 20, 40),
+    },
+    7: {
+        "file": "stage7_field.png",
+        "animated_class": None,
+        "theme": "tetris_arena",
+        "ambient_color": (24, 36, 68),
     }
 }
 
@@ -133,6 +151,7 @@ STAGE_DIFFICULTY_MULTIPLIERS = {
     4: 1.6,   # 60% 어려움
     5: 1.8,   # 80% 어려움
     6: 2.0,   # 100% 어려움 (2배)
+    7: 2.2,
 }
 
 # ============= 스테이지별 특수 효과 =============
@@ -166,6 +185,9 @@ STAGE_SPECIAL_EFFECTS = {
         "all_skills_enabled": True,
         "skill_rotation": True,
         "health_system": True,
+    },
+    7: {
+        "tetrimino_field_active": True,
     }
 }
 
