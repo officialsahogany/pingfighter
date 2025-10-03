@@ -18685,6 +18685,33 @@ aipill_turn_boost = 4.0  # AI 필 시 방향 전환 속도 증가 배율
 AIPILL_ALLOWED_DEACTIVATION_REASONS = {"gauge_depleted", "round_transition"}
 aipill_last_deactivation_reason = None
 
+AIPILL_BLOCKED_KEYS = (
+    pygame.K_SPACE,
+    pygame.K_UP,
+    pygame.K_DOWN,
+    pygame.K_LEFT,
+    pygame.K_RIGHT,
+)
+
+_ORIGINAL_GET_PRESSED = pygame.key.get_pressed
+
+
+def _get_effective_key_state_override():
+    """Return key state while clamping inputs during AI pill."""
+
+    raw_keys = _ORIGINAL_GET_PRESSED()
+    if not aipill_active:
+        return raw_keys
+
+    mutable_keys = list(raw_keys)
+    for blocked_key in AIPILL_BLOCKED_KEYS:
+        if blocked_key < len(mutable_keys):
+            mutable_keys[blocked_key] = 0
+    return tuple(mutable_keys)
+
+
+pygame.key.get_pressed = _get_effective_key_state_override
+
 
 def activate_aipill(source: str | None = None) -> bool:
     """Activate AI pill effect if not already active."""
