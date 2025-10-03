@@ -701,7 +701,7 @@ surface.blit(self.particle_surface, (0, 0), special_flags=pygame.BLEND_ADD)
 # 6. 비네팅
 surface.blit(self.vignette_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
-        # 4. 궤도 그리기
+        # 7. 궤도 그리기
         center_x = self.width // 2
         center_y = self.height // 2
         orbit_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
@@ -715,11 +715,12 @@ surface.blit(self.vignette_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT
                     planet['orbit_radius'] * 2,
                     planet['orbit_radius']
                 )
-                pygame.draw.ellipse(orbit_surface, (50, 100, 150, 20), orbit_rect, 1)
+                color = self.colors['orbit'] if (planet['orbit_radius'] // 60) % 2 == 0 else self.colors['orbit_alt']
+                pygame.draw.ellipse(orbit_surface, color, orbit_rect, 1)
         
         surface.blit(orbit_surface, (0, 0))
         
-        # 5. 행성 그리기
+        # 8. 행성 그리기
         sorted_planets = sorted(self.planets, key=lambda p: p.get('y', center_y))
         
         for planet in sorted_planets:
