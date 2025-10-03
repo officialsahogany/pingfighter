@@ -6,7 +6,7 @@
 echo "🚀 PingFighter 자동 저장 시스템 시작!"
 echo "📁 모니터링 디렉토리: $(pwd)"
 echo "⏱️  체크 간격: 30초"
-echo "🔔 알림음: Funk.aiff"
+echo "🔔 알람 사운드: $(basename "${AUTO_GIT_ALARM_SOUND:-Glass.aiff}")"
 echo "----------------------------------------"
 echo "종료하려면 Ctrl+C를 누르세요"
 echo ""
