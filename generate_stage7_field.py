@@ -263,37 +263,23 @@ def _draw_playfield_panel(image: Image.Image) -> None:
         fill=(212, 236, 255, 200),
     )
 
-    # 철제 보강 브릿지
-    brace_y_positions = [top + 28, (top + bottom) // 2, bottom - 32]
+    # 철제 보강 브릿지 (최소화된 가이드)
+    brace_y_positions = [top + 28, bottom - 32]
     for y in brace_y_positions:
-        draw.rectangle((left - 14, y - 2, right + 14, y + 2), fill=(46, 74, 120, 190))
-        draw.line((left - 14, y, right + 14, y), fill=(140, 186, 242, 220), width=1)
-        draw.ellipse((left - 16, y - 4, left - 10, y + 4), fill=IRON_RIVET_COLOR)
-        draw.ellipse((right + 10, y - 4, right + 16, y + 4), fill=IRON_RIVET_COLOR)
+        draw.rectangle((left - 14, y - 1, right + 14, y + 1), fill=(46, 74, 120, 160))
+        draw.ellipse((left - 16, y - 3, left - 10, y + 3), fill=IRON_RIVET_COLOR)
+        draw.ellipse((right + 10, y - 3, right + 16, y + 3), fill=IRON_RIVET_COLOR)
 
-    # 중앙 바닥 슬랩과 문양
-    floor_rect = (left + 24, top + 36, right - 24, bottom - 36)
-    _draw_gradient_rect(draw, floor_rect, (46, 88, 138), (30, 54, 102), alpha=230)
-    draw.rectangle(floor_rect, outline=(16, 32, 56, 180), width=2)
-
-    rune_rect = (floor_rect[0] + 40, floor_rect[1] + 48, floor_rect[2] - 40, floor_rect[3] - 48)
-    draw.rounded_rectangle(rune_rect, radius=24, outline=(164, 212, 255, 180), width=3)
-    draw.ellipse(
-        (rune_rect[0] + 60, rune_rect[1] + 60, rune_rect[2] - 60, rune_rect[3] - 60),
-        outline=(96, 186, 255, 160),
-        width=3,
+    # 중앙 바닥을 미니멀한 하이라이트로 유지
+    floor_rect = (left + 32, top + 44, right - 32, bottom - 44)
+    _draw_gradient_rect(draw, floor_rect, (38, 74, 118), (26, 48, 88), alpha=210)
+    highlight = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
+    hdraw = ImageDraw.Draw(highlight)
+    hdraw.ellipse(
+        (floor_rect[0] + 80, floor_rect[1] + 60, floor_rect[2] - 80, floor_rect[3] - 60),
+        fill=(96, 166, 230, 65),
     )
-    for angle_section in range(0, 360, 60):
-        line_y = int(round(rune_rect[1] + (rune_rect[3] - rune_rect[1]) * angle_section / 360))
-        draw.line((rune_rect[0] + 24, line_y, rune_rect[2] - 24, line_y), fill=(116, 198, 255, 110), width=1)
-
-    # 외곽 계단형 돌판
-    step_height = 12
-    for i in range(3):
-        inset = i * 8
-        step_rect = (left + inset, bottom - step_height * (i + 1), right - inset, bottom - step_height * i)
-        _draw_gradient_rect(draw, step_rect, (40, 68, 104), (24, 40, 72), alpha=220 - i * 30)
-        draw.rectangle(step_rect, outline=(18, 32, 56, 180), width=1)
+    image.alpha_composite(highlight)
 
     image.alpha_composite(panel)
 
