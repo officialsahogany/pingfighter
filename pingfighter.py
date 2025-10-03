@@ -28700,9 +28700,6 @@ def draw_player_gauge():
         timer_rect = timer_surface.get_rect(center=(berserk_gauge_x + berserk_gauge_width // 2, berserk_gauge_y + berserk_gauge_height + 12))
         SCREEN.blit(timer_surface, timer_rect)
 
-        if 'PLAYER' in globals() and PLAYER:
-            draw_berserk_aura(SCREEN, PLAYER.center)
-
     doping_active = doping_potion_active and doping_potion_timer > 0
     if doping_active:
         doping_gauge_x = player_gauge_x - 70
