@@ -27452,7 +27452,7 @@ def update_gauge_animation():
         if displayed_gauge < special_gauge + 1:
             displayed_gauge = special_gauge
     # 보스 게이지 애니메이션 (스테이지 1, 2, 3)
-    if current_stage in [1, 2, 3]:
+    if current_stage in [1, 2, 3, 7]:
         if displayed_boss_gauge < boss_special_gauge:
             displayed_boss_gauge += (boss_special_gauge - displayed_boss_gauge) * boss_gauge_animation_speed
             # 정확히 목표값에 도달하도록 보정
@@ -28112,15 +28112,49 @@ stage7_gauge_debug_last_stage = None
 stage7_gauge_debug_stage_log_ticks = 0
 
 
+def update_stage7_gauge_charge(is_active: bool) -> None:
+    """Stage 7 보스 게이지를 초당 10씩 자동 충전한다."""
+    global stage7_gauge_last_update_ms, stage7_gauge_charge_progress, boss_special_gauge
+
+    now = pygame.time.get_ticks()
+
+    if not is_active:
+        stage7_gauge_last_update_ms = now
+        stage7_gauge_charge_progress = 0.0
+        return
+
+    if stage7_gauge_last_update_ms == 0:
+        stage7_gauge_last_update_ms = now
+        return
+
+    elapsed_ms = now - stage7_gauge_last_update_ms
+    if elapsed_ms <= 0:
+        return
+
+    stage7_gauge_last_update_ms = now
+
+    if boss_special_gauge >= 500:
+        boss_special_gauge = 500
+        stage7_gauge_charge_progress = 0.0
+        return
+
+    stage7_gauge_charge_progress += elapsed_ms * 0.01  # (ms / 1000) * 10
+    charge_units = int(stage7_gauge_charge_progress)
+
+    if charge_units <= 0:
+        return
+
+    boss_special_gauge = min(500, boss_special_gauge + charge_units)
+    stage7_gauge_charge_progress -= charge_units
+
+
 def draw_stage7_boss_gauge_bar():
     """Stage 7 보스 스킬 게이지 - 테트리스 블록 콘셉트"""
     global current_stage, boss_special_gauge, displayed_boss_gauge
     global stage7_gauge_debug_active, stage7_gauge_debug_last_log
     global stage7_gauge_debug_last_stage, stage7_gauge_debug_stage_log_ticks
-    global stage7_gauge_debug_call_count
 
     time_now = pygame.time.get_ticks()
-    global stage7_gauge_debug_call_count
     if time_now - stage7_gauge_debug_stage_log_ticks > 1000:
         stage7_gauge_debug_stage_log_ticks = time_now
         print(f"[Stage7Gauge] stage={current_stage}, boss={boss_special_gauge}, displayed={displayed_boss_gauge}")
@@ -59923,6 +59957,7 @@ def main(stage_num, new_boss_mode=False):
                 # 상태 업데이트
                 #  새로운 보스전에서는 빨간 효과 업데이트 생략 (게이지를 사용하지 않음)
                 if not new_boss_mode_active:
+                    update_stage7_gauge_charge(current_stage == 7)
                     update_red_intensity()
                     update_gauge_animation()  # 게이지 부드러운 애니메이션 업데이트
                 update_item_obtained_effect()  #  아이템 획득 효과 업데이트 - 옛날 버전 활성화
