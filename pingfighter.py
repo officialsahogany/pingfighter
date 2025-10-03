@@ -28192,11 +28192,12 @@ def draw_stage7_boss_gauge_bar():
                 (fill_rect.right - 1, fill_rect.bottom - fill_rect.height // 2),
             )
         if fill_rect.width > 5:
+            mid_x = fill_rect.left + fill_rect.width // 2
             pygame.draw.line(
                 SCREEN,
                 divider_color,
-                (fill_rect.left + fill_rect.width // 2, fill_rect.top),
-                (fill_rect.left + fill_rect_width // 2, fill_rect.bottom - 1),
+                (mid_x, fill_rect.top),
+                (mid_x, fill_rect.bottom - 1),
             )
 
     if boss_special_gauge > current_gauge:
@@ -28227,9 +28228,11 @@ def draw_stage7_boss_gauge_bar():
         pygame.draw.rect(SCREEN, icon_color, rect)
         pygame.draw.rect(SCREEN, brighten(icon_color, 50), rect, 1)
 
-    ghost_offset = int((time_now * 0.04) % (cell_height + cell_gap))
-    ghost_rect = pygame.Rect(cell_x + 1, gauge_y + ghost_offset, cell_width - 2, 2)
-    pygame.draw.rect(SCREEN, (120, 180, 255, 90), ghost_rect)
+    ghost_progress = (time_now * 0.05) % (gauge_height + cell_height)
+    ghost_y = int(gauge_y + gauge_height - ghost_progress)
+    ghost_rect = pygame.Rect(cell_x + 1, ghost_y, cell_width - 2, 2)
+    if gauge_y <= ghost_rect.top <= gauge_y + gauge_height:
+        pygame.draw.rect(SCREEN, (120, 180, 255), ghost_rect)
 
 
 def draw_stage2_boss_gauge_bar():
