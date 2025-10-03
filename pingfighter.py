@@ -14961,6 +14961,7 @@ def draw_berserk_aura(surface: pygame.Surface, center: tuple[int, int]) -> None:
 def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
     """코만도 화기 인덱스 변경 및 관련 장비 상태 정리"""
     global soldier_controller
+    global fire_support_slot_restore_pending, fire_support_slot_restore_index
 
     if not soldier_controller.weapons:
         return "pistol"
@@ -15049,7 +15050,11 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
         ak47 = get_ak47_instance()
         if ak47:
             ak47.active = False
-    
+
+    if current_weapon != "fire_support":
+        fire_support_slot_restore_pending = False
+        fire_support_slot_restore_index = None
+
     print(f"🔄 화기 교체: {current_weapon}")
 
     if play_sound:
