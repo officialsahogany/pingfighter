@@ -28172,8 +28172,9 @@ def draw_stage7_boss_gauge_bar():
             cell_rect.width - 2,
             fill_height,
         )
+        fill_border_radius = min(2, fill_rect.width // 2, fill_rect.height // 2)
         color = tetromino_colors[row % len(tetromino_colors)]
-        pygame.draw.rect(SCREEN, color, fill_rect, border_radius=2)
+        pygame.draw.rect(SCREEN, color, fill_rect, border_radius=fill_border_radius)
 
         highlight_rect = pygame.Rect(
             fill_rect.left + 1,
