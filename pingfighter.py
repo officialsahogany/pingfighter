@@ -15065,35 +15065,53 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
 
 
 def apply_fire_support_slot_restore() -> None:
-    """화력지원 호출 직후 슬롯 복원을 한 프레임 지연해 UI 반짝임을 막는다."""
+    """화력지원 호출 중 UI 슬롯이 다른 무기로 튀지 않도록 보호한다."""
     global soldier_controller
     global fire_support_slot_restore_pending, fire_support_slot_restore_index
+    global player_up_pressed, soldier_weapon_menu_active
 
     if not fire_support_slot_restore_pending:
         return
 
-    fire_support_slot_restore_pending = False
-
     if 'soldier_controller' not in globals() or soldier_controller is None:
+        fire_support_slot_restore_pending = False
         fire_support_slot_restore_index = None
         return
 
     try:
         weapons = soldier_controller.weapons
+        current_index = soldier_controller.current_index
     except AttributeError:
+        fire_support_slot_restore_pending = False
         fire_support_slot_restore_index = None
         return
 
     restore_index = fire_support_slot_restore_index
-    fire_support_slot_restore_index = None
-
     if restore_index is None or not weapons or not (0 <= restore_index < len(weapons)):
+        fire_support_slot_restore_pending = False
+        fire_support_slot_restore_index = None
         return
 
     if weapons[restore_index] != "fire_support":
+        fire_support_slot_restore_pending = False
+        fire_support_slot_restore_index = None
         return
 
-    soldier_controller.set_current_weapon(restore_index)
+    fire_support_weapon = get_fire_support_instance()
+    if not fire_support_weapon.is_active() and not fire_support_weapon.is_locked():
+        fire_support_slot_restore_pending = False
+        fire_support_slot_restore_index = None
+        return
+
+    player_forcing_switch = player_up_pressed or soldier_weapon_menu_active
+    if player_forcing_switch and current_index != restore_index:
+        fire_support_slot_restore_pending = False
+        fire_support_slot_restore_index = None
+        return
+
+    if current_index != restore_index:
+        soldier_controller.set_current_weapon(restore_index)
+        soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
 
 
 def handle_fire_support_lockout() -> None:
