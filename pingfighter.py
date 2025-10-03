@@ -15781,7 +15781,6 @@ def go_to_next_round():
         print("Aipill  .")
         aipill_active = False
         deactivate_doping_potion()
-        deactivate_berserk_potion()
     # speedgear_obtained = False   # 제거 - 패시브 아이템은 라운드가 바뀌어도 유지
     # items.speedboots_obtained = False  # 제거
     # items.speedgear_obtained = False   # 제거
