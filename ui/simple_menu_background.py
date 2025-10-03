@@ -561,9 +561,36 @@ class SimpleMenuBackground:
     
     def update(self, dt: float):
         """배경 업데이트"""
-        self.time += dt
-        
-        # 행성 공전 업데이트
+
+self.time += dt
+
+# 럭셔리 배경 레이어 애니메이션
+for nebula in self.nebula_layers:
+    nebula['phase'] += nebula['speed'] * dt
+
+for column in self.light_columns:
+    column['phase'] += column['speed'] * dt
+
+for layer in self.star_layers:
+    for star in layer['stars']:
+        star['x'] -= layer['speed'] * star['parallax'] * dt
+        star['y'] += star['vy'] * dt * 0.1
+
+        if star['x'] < -5:
+            star['x'] = self.width + random.uniform(0, self.width * 0.15)
+            star['y'] = random.uniform(0, self.height)
+        elif star['x'] > self.width + 5:
+            star['x'] = -random.uniform(0, self.width * 0.15)
+            star['y'] = random.uniform(0, self.height)
+
+        if star['y'] < -5:
+            star['y'] = self.height + random.uniform(0, 10)
+        elif star['y'] > self.height + 5:
+            star['y'] = -random.uniform(0, 10)
+
+        star['twinkle'] += star['twinkle_speed'] * dt * 1.6
+
+# 행성 공전 업데이트
         center_x = self.width // 2
         center_y = self.height // 2
         
