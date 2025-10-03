@@ -19,6 +19,7 @@ class BackgroundFactory:
     animated_stage4: Callable[[], object]
     animated_stage5: Callable[[], object]
     animated_stage6: Callable[[int, int], object]
+    animated_stage7: Optional[Callable[[int, int], object]] = None
 
 
 @dataclass
@@ -29,12 +30,14 @@ class StageBackgrounds:
     stage4: pygame.Surface
     stage5: pygame.Surface
     stage6: pygame.Surface
+    stage7: pygame.Surface
     animated_bg: Optional[object]
     animated_bg_stage2: Optional[object]
     animated_bg_stage3: Optional[object]
     animated_bg_stage4: Optional[object]
     animated_bg_stage5: Optional[object]
     animated_bg_stage6: Optional[object]
+    animated_bg_stage7: Optional[object]
 
 
 def _scaled_surface(surface: pygame.Surface, width: int, height: int) -> pygame.Surface:
@@ -177,6 +180,23 @@ def load_stage_backgrounds(
             blue = int(25 + 35 * depth_factor)
             pygame.draw.line(stage6, (red, green, blue), (0, y), (width, y))
 
+    try:
+        stage7 = pygame.image.load(rp("stage7_field.png")).convert()
+        stage7 = _scaled_surface(stage7, width, height)
+    except Exception:
+        stage7 = pygame.Surface((width, height))
+        for y in range(height):
+            ratio = y / max(1, height - 1)
+            base = 200 - int(ratio * 40)
+            pygame.draw.line(stage7, (base, base + 10, 255), (0, y), (width, y))
+
+    animated_bg_stage7 = None
+    if factories.animated_stage7 is not None:
+        try:
+            animated_bg_stage7 = factories.animated_stage7(width, height)
+        except Exception:
+            animated_bg_stage7 = None
+
     return StageBackgrounds(
         stage1=stage1,
         stage2=stage2,
@@ -184,10 +204,12 @@ def load_stage_backgrounds(
         stage4=stage4,
         stage5=stage5,
         stage6=stage6,
+        stage7=stage7,
         animated_bg=animated_bg,
         animated_bg_stage2=animated_bg_stage2,
         animated_bg_stage3=animated_bg_stage3,
         animated_bg_stage4=animated_bg_stage4,
         animated_bg_stage5=animated_bg_stage5,
         animated_bg_stage6=animated_bg_stage6,
+        animated_bg_stage7=animated_bg_stage7,
     )
