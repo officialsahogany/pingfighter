@@ -1945,6 +1945,7 @@ boss_speed_boost_timer = 0           # 타이머 (프레임 단위)
 boss_prev_x = 0                      # 보스 이전 위치 (속도 계산용)
 stage7_prev_x: float | None = None   # Stage 7 보스 이전 X 위치 (측면 애니메이션)
 stage7_lean_value: float = 0.0       # Stage 7 보스 현재 기울기 값
+stage7_persistent_boss_gauge: float = 0.0  # Stage 7 라운드 간 유지되는 보스 게이지
 stage7_gauge_charge_progress: float = 0.0  # Stage 7 보스 게이지 충전 잔여치 (단위: 게이지)
 stage7_gauge_last_update_ms: int = 0       # Stage 7 보스 게이지 마지막 업데이트 시각(ms)
 stage7_guard_blocks: list[dict] = []       # Stage 7 가드 블록 목록
@@ -28125,6 +28126,8 @@ def reset_stage7_guard_state(*, reset_timer: bool = True) -> None:
     stage7_guard_blocks.clear()
     if reset_timer:
         stage7_guard_next_trigger_ms = 0
+        global stage7_persistent_boss_gauge
+        stage7_persistent_boss_gauge = 0.0
 
 
 def initialize_stage7_guard_state(now: int | None = None) -> None:
@@ -28136,6 +28139,8 @@ def initialize_stage7_guard_state(now: int | None = None) -> None:
     stage7_guard_next_trigger_ms = now + random.randint(STAGE7_GUARD_MIN_INTERVAL_MS, STAGE7_GUARD_MAX_INTERVAL_MS)
     stage7_gauge_charge_progress = 0.0
     stage7_gauge_last_update_ms = now
+    global stage7_persistent_boss_gauge
+    stage7_persistent_boss_gauge = boss_special_gauge
 
 
 def update_stage7_gauge_charge(is_active: bool) -> None:
