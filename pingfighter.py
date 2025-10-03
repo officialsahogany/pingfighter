@@ -28054,7 +28054,7 @@ def draw_stage1_boss_gauge_bar():
                 
                 sparkle_alpha = int(charge_intensity * 150)
                 pygame.draw.circle(SCREEN, (255, 255, 200), (sparkle_x, sparkle_y), 1)
-        
+
         # 웨이브 애니메이션 효과 (상단)
         if filled_height > 5:
             wave_offset = math.sin(time_offset * 4) * 1.5
