@@ -27612,7 +27612,6 @@ def _draw_stage_specific_elements() -> None:
     draw_boss_health_bar()
     draw_stage1_boss_gauge_bar()
     draw_stage2_boss_gauge_bar()
-    draw_stage7_boss_gauge_bar()
     draw_laser_cannon_gauge()
     draw_spinning_top(SCREEN)
 
@@ -27813,7 +27812,6 @@ def draw_overlay_ui():
     draw_boss_health_bar()
     draw_stage1_boss_gauge_bar()
     draw_stage2_boss_gauge_bar()
-    draw_stage7_boss_gauge_bar()
     draw_laser_cannon_gauge()
     draw_spinning_top(SCREEN)
 
@@ -61255,6 +61253,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_neutralize_particles(SCREEN)
             draw_overlay_ui()
             draw_score()
+            draw_stage7_boss_gauge_bar()
         except Exception as render_err:
             if __debug__:
                 print(f"[WARN] legacy render hook error: {render_err}")
