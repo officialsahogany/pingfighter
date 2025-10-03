@@ -28187,6 +28187,7 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
     stage7_gauge_charge_progress -= charge_units
     global stage7_persistent_boss_gauge
     stage7_persistent_boss_gauge = boss_special_gauge
+    print(f"[Stage7Gauge][Charge] +{charge_units} → {boss_special_gauge}")
 
 
 STAGE7_GUARD_CELL_SIZE = 20
@@ -28242,6 +28243,7 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
 
     boss_special_gauge = max(0, boss_special_gauge - 100)
     stage7_persistent_boss_gauge = boss_special_gauge
+    print(f"[Stage7Gauge][Spawn] cost 100 → {boss_special_gauge}")
 
     cell_size = STAGE7_GUARD_CELL_SIZE
     # 오른쪽 블록: 보스 중앙 기준 오른쪽 이동, 오른쪽 벽에 붙음
@@ -48961,6 +48963,7 @@ def reset_round():
     if current_stage == 7:
         preserve_stage7_gauge = boss_special_gauge
         preserve_stage7_display = displayed_boss_gauge
+        print(f"[Stage7Gauge][ResetRound] Preserve gauge={preserve_stage7_gauge}, display={preserve_stage7_display}")
 
     #  상모돌리기 상태 초기화 (라운드 시작 시)
     whip_active = False
@@ -48996,6 +48999,7 @@ def reset_round():
         boss_special_gauge = preserve_stage7_gauge
         displayed_boss_gauge = preserve_stage7_display if preserve_stage7_display is not None else boss_special_gauge
         stage7_persistent_boss_gauge = boss_special_gauge
+        print(f"[Stage7Gauge][ResetRound] Restore gauge={boss_special_gauge}, display={displayed_boss_gauge}")
         try:
             game_state.displayed_boss_gauge = displayed_boss_gauge
         except Exception:
