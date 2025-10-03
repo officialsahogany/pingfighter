@@ -670,7 +670,7 @@ ITEM_TYPES = [
         "color": (230, 90, 80),  # 화염빛 붉은색
         "effect": "berserk_potion",
         "icon": None,
-        "chance": 0.999,  # 희귀 전용 아이템 확률 (발토르 전용)
+        "chance": 0.004,  # 희귀 전용 아이템 확률 (발토르 전용)
         "duration": 900,
         "unlock_condition": None
     },
