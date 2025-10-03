@@ -19225,6 +19225,7 @@ def update_soldier_reload():
 
 def draw_soldier_weapon_ui(screen):
     """코만도 화기류 UI 그리기 - 현재 장착된 무기 표시"""
+    apply_fire_support_slot_restore()
     import math
     import pygame
     global soldier_ammo_count, soldier_max_ammo, soldier_reloading, soldier_reload_timer
