@@ -28264,7 +28264,7 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     # 왼쪽 블록 (독립된 시작 위치)
     left_block = _create_stage7_guard_block("left", left_start, left_final, block_top, now)
 
-    print(f"[Stage7Guard] spawn left {shared_start:.1f}->{left_final:.1f}, right {shared_start:.1f}->{right_final:.1f}, top={block_top:.1f}")
+    print(f"[Stage7Guard] spawn left {left_start:.1f}->{left_final:.1f}, right {right_start:.1f}->{right_final:.1f}, top={block_top:.1f}")
 
     new_blocks = [right_block, left_block]
 
