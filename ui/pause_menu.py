@@ -3,13 +3,156 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import pygame
 
 from pixel_font_manager import FontStyle
 from game_state.audio import clamp_volume
 from config import constants as const
+
+__all__ = ["PauseMenu", "PauseOptionsContext", "show_pause_options"]
+
+
+class PauseMenu:
+    """간단한 일시정지 메뉴.
+
+    레거시 함수 기반 일시정지 UI 대신 객체 지향 인터페이스를 제공해
+    `core.game_engine.GameEngine`에서 쉽게 제어할 수 있도록 한다.
+    """
+
+    _OPTIONS: Sequence[Tuple[str, str]] = (
+        ("계속하기", "resume"),
+        ("라운드 재시작", "restart"),
+        ("메인 메뉴", "quit"),
+    )
+
+    def __init__(self, screen: pygame.Surface):
+        self.screen = screen
+        self.width, self.height = screen.get_size()
+        self.options: List[Tuple[str, str]] = list(self._OPTIONS)
+        self.selected_index = 0
+        self._pending_action: Optional[str] = None
+        self._option_rects: List[pygame.Rect] = []
+
+        # 폰트는 반복적으로 로드하지 않도록 캐시한다.
+        self._font_title = None
+        self._font_option = None
+        self._font_hint = None
+        self._ensure_fonts()
+
+    # 공개 API ---------------------------------------------------------------
+    def reset(self) -> None:
+        """화면 크기와 선택 상태를 초기화."""
+
+        self.width, self.height = self.screen.get_size()
+        self.selected_index = 0
+        self._pending_action = None
+
+    def update(self, _dt: float) -> Optional[str]:
+        """대기 중이던 액션을 반환한다."""
+
+        action = self._pending_action
+        self._pending_action = None
+        return action
+
+    def render(self) -> None:
+        """일시정지 오버레이를 그린다."""
+
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+
+        box_rect, option_rects = self._compute_layout()
+        self._option_rects = option_rects
+
+        pygame.draw.rect(self.screen, (25, 25, 35), box_rect, border_radius=12)
+        pygame.draw.rect(self.screen, const.CYAN, box_rect, 3, border_radius=12)
+
+        title_surface = self._font_title.render("일시정지", True, const.WHITE)
+        title_rect = title_surface.get_rect(center=(self.width // 2, box_rect.top + 60))
+        self.screen.blit(title_surface, title_rect)
+
+        hint_surface = self._font_hint.render("↑↓ 선택 · Enter/Space 확인 · Esc 취소", True, (170, 170, 180))
+        hint_rect = hint_surface.get_rect(center=(self.width // 2, box_rect.bottom - 40))
+        self.screen.blit(hint_surface, hint_rect)
+
+        for idx, (label, _) in enumerate(self.options):
+            option_rect = option_rects[idx]
+            is_selected = idx == self.selected_index
+
+            if is_selected:
+                highlight = option_rect.inflate(20, 8)
+                pygame.draw.rect(self.screen, (const.CYAN[0], const.CYAN[1], const.CYAN[2], 40), highlight, border_radius=10)
+                pygame.draw.rect(self.screen, const.CYAN, highlight, 2, border_radius=10)
+
+            text_color = const.CYAN if is_selected else const.WHITE
+            option_surface = self._font_option.render(label, True, text_color)
+            text_rect = option_surface.get_rect(center=option_rect.center)
+            self.screen.blit(option_surface, text_rect)
+
+    def handle_click(self, pos: Tuple[int, int]) -> Optional[str]:
+        """클릭 위치에 따라 액션을 결정한다."""
+
+        if not self._option_rects:
+            _, option_rects = self._compute_layout()
+        else:
+            option_rects = self._option_rects
+
+        for idx, rect in enumerate(option_rects):
+            if rect.collidepoint(pos):
+                self.selected_index = idx
+                return self._select_current()
+        return None
+
+    def handle_keydown(self, event: pygame.event.Event) -> Optional[str]:
+        """키보드 입력 처리."""
+
+        if event.key in (pygame.K_UP, pygame.K_w):
+            self.selected_index = (self.selected_index - 1) % len(self.options)
+        elif event.key in (pygame.K_DOWN, pygame.K_s):
+            self.selected_index = (self.selected_index + 1) % len(self.options)
+        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+            return self._select_current()
+        elif event.key == pygame.K_TAB:
+            self.selected_index = (self.selected_index + 1) % len(self.options)
+        return None
+
+    # 내부 --------------------------------------------------------------------
+    def _ensure_fonts(self) -> None:
+        if self._font_title is None:
+            try:
+                self._font_title = pygame.font.Font("NanumSquareEB.ttf", 44)
+                self._font_option = pygame.font.Font("NanumSquareB.ttf", 30)
+                self._font_hint = pygame.font.Font("NanumSquareR.ttf", 20)
+            except Exception:
+                self._font_title = pygame.font.Font(None, 44)
+                self._font_option = pygame.font.Font(None, 30)
+                self._font_hint = pygame.font.Font(None, 20)
+
+    def _select_current(self) -> Optional[str]:
+        action = self.options[self.selected_index][1]
+        self._pending_action = action
+        return action
+
+    def _compute_layout(self) -> Tuple[pygame.Rect, List[pygame.Rect]]:
+        box_width = min(480, max(320, int(self.width * 0.65)))
+        box_height = 180 + len(self.options) * 60
+        box_x = (self.width - box_width) // 2
+        box_y = (self.height - box_height) // 2
+
+        box_rect = pygame.Rect(box_x, box_y, box_width, box_height)
+
+        option_rects: List[pygame.Rect] = []
+        for idx in range(len(self.options)):
+            center_y = box_y + 120 + idx * 60
+            option_rects.append(pygame.Rect(
+                box_x + 60,
+                center_y - 22,
+                box_width - 120,
+                44,
+            ))
+        return box_rect, option_rects
 
 
 @dataclass(slots=True)
