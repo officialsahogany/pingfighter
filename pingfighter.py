@@ -2087,6 +2087,7 @@ active_item_slot = []                # 리스트로 바꿔서 최대 3개 보관
 soldier_initial_grenade_given = False
 selected_item_index = 0              # 현재 선택 중인 아이템 인덱스
 MAX_ITEM_SLOTS = 3                   # 최대 아이템 슬롯 수 (기본값)
+ITEM_MANAGER_ACTIVE_LIMIT = 10       # 아이템 관리자에서 허용할 엑티브 아이템 최대 선택 수
 passive_item_list = []               # 패시브 아이템 목록 (어댑터 호환용)
 selected_passive_item = -1           # 패시브 아이템 선택 인덱스 (어댑터 호환용)
 active_item_icon_size = (28, 28)     # 화면에 표시할 크기
@@ -44336,7 +44337,7 @@ def show_item_manager_menu():
 
     def update_quantity_bounds(item_name: str) -> int:
         other_total = sum(count for name, count in selected_active_counts.items() if name != item_name)
-        return max(0, get_effective_max_item_slots() - other_total)
+        return max(0, ITEM_MANAGER_ACTIVE_LIMIT - other_total)
 
     def flatten_active_selection() -> list[str]:
         result: list[str] = []
