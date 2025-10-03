@@ -648,27 +648,59 @@ for layer in self.star_layers:
     def draw(self, surface: pygame.Surface):
         """배경 그리기"""
         
-        # 1. 그라데이션 배경
-        for y in range(self.height):
-            ratio = y / self.height
-            r = int(self.colors['bg_top'][0] + ratio * (self.colors['bg_bottom'][0] - self.colors['bg_top'][0]))
-            g = int(self.colors['bg_top'][1] + ratio * (self.colors['bg_bottom'][1] - self.colors['bg_top'][1]))
-            b = int(self.colors['bg_top'][2] + ratio * (self.colors['bg_bottom'][2] - self.colors['bg_top'][2]))
-            pygame.draw.line(surface, (r, g, b), (0, y), (self.width, y))
-        
-        # 2. 은은한 격자 패턴
-        grid_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        for x in range(0, self.width, 40):
-            pygame.draw.line(grid_surface, self.colors['grid'], (x, 0), (x, self.height))
-        for y in range(0, self.height, 40):
-            pygame.draw.line(grid_surface, self.colors['grid'], (0, y), (self.width, y))
-        surface.blit(grid_surface, (0, 0))
-        
-        # 3. 배경 파티클
-        for particle in self.particles:
-            pygame.draw.circle(surface, (*self.colors['particle'][:3], particle['alpha']),
-                             (int(particle['x']), int(particle['y'])), particle['size'])
-        
+
+# 1. 프리렌더 코스믹 그라데이션
+surface.blit(self.gradient_surface, (0, 0))
+
+# 2. 성운과 라이트 필라
+for nebula in self.nebula_layers:
+    sway = math.sin(nebula['phase']) * nebula['amplitude']
+    offset_x = int(nebula['base_x'] + sway)
+    offset_y = int(nebula['base_y'] + sway * 0.25)
+    surface.blit(nebula['surface'], (offset_x, offset_y), special_flags=pygame.BLEND_ADD)
+
+for column in self.light_columns:
+    offset = math.sin(column['phase']) * column['amplitude']
+    x_pos = int(column['base_x'] + offset - column['surface'].get_width() // 2)
+    surface.blit(column['surface'], (x_pos, 0), special_flags=pygame.BLEND_ADD)
+
+# 3. 스타필드 패럴럭스
+for layer in self.star_layers:
+    layer_surface = layer['surface']
+    layer_surface.fill((0, 0, 0, 0))
+    for star in layer['stars']:
+        twinkle = 0.6 + 0.4 * math.sin(star['twinkle'])
+        alpha = max(0, min(255, int(star['alpha'] * twinkle)))
+        if alpha <= 0:
+            continue
+        pygame.draw.circle(
+            layer_surface,
+            (layer['color'][0], layer['color'][1], layer['color'][2], alpha),
+            (int(star['x']), int(star['y'])),
+            star['size'],
+        )
+    surface.blit(layer_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+
+# 4. 글래스 하이라이트와 격자
+surface.blit(self.grid_overlay, (0, 0), special_flags=pygame.BLEND_ADD)
+surface.blit(self.glass_highlight_surface, (0, int(self.height * 0.08)), special_flags=pygame.BLEND_ADD)
+
+# 5. 부유 파티클 글로우
+self.particle_surface.fill((0, 0, 0, 0))
+for particle in self.particles:
+    twinkle = 0.5 + 0.5 * math.sin(self.time * 0.002 + particle['x'] * 0.01 + particle['y'] * 0.01)
+    alpha = max(10, min(180, int(particle['alpha'] * twinkle)))
+    pygame.draw.circle(
+        self.particle_surface,
+        (self.colors['particle'][0], self.colors['particle'][1], self.colors['particle'][2], alpha),
+        (int(particle['x']), int(particle['y'])),
+        particle['size'],
+    )
+surface.blit(self.particle_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+
+# 6. 비네팅
+surface.blit(self.vignette_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
         # 4. 궤도 그리기
         center_x = self.width // 2
         center_y = self.height // 2
