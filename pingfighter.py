@@ -28226,14 +28226,21 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
 
     boss_special_gauge = max(0, boss_special_gauge - 100)
 
-    start_left = float(BOSS.centerx - STAGE7_GUARD_CELL_SIZE // 2)
-    block_bottom = float(min(BOSS.bottom + STAGE7_GUARD_GAP_Y, HEIGHT - 80))
+    start_left = float(BOSS.right + 6)
+    block_bottom = float(min(BOSS.centery + STAGE7_GUARD_CELL_SIZE * 2, HEIGHT - 60))
 
     offsets = (-STAGE7_GUARD_SPAWN_OFFSET_X, STAGE7_GUARD_SPAWN_OFFSET_X)
     new_blocks = []
-    for side, offset in zip(("left", "right"), offsets):
-        target_left = start_left + offset
-        target_left = max(20.0, min(float(WIDTH - STAGE7_GUARD_CELL_SIZE - 20), target_left))
+    for side, offset in zip(("right", "left"), offsets):
+        if side == "right":
+            target_left = float(min(WIDTH - STAGE7_GUARD_CELL_SIZE - 10, start_left))
+        else:
+            mirror_start = float(BOSS.left - STAGE7_GUARD_CELL_SIZE - 6)
+            target_left = float(max(10.0, mirror_start))
+            start_left_local = float(BOSS.left - STAGE7_GUARD_CELL_SIZE // 2)
+            block = _create_stage7_guard_block(side, start_left_local, target_left, block_bottom, now)
+            new_blocks.append(block)
+            continue
         block = _create_stage7_guard_block(side, start_left, target_left, block_bottom, now)
         new_blocks.append(block)
 
