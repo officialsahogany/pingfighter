@@ -1,6 +1,8 @@
-import pygame
 import math
+import os
 import sys
+
+import pygame
 
 class AmmoBox:
     """탄약상자 액티브 아이템 - 활성화된 화기류의 탄창을 재장전"""
@@ -11,6 +13,7 @@ class AmmoBox:
         self.RELOAD_ANIMATION_TIME = 60  # 1초간 재장전 애니메이션
         self.reload_progress = 0  # 재장전 진행도 (0~1)
         self.reloaded_weapon = None  # 재장전된 무기 이름
+        self._text_font = None  # 한글 메시지를 안정적으로 렌더링하기 위한 폰트 캐시
         
         # 지원하는 화기류 목록
         self.supported_weapons = [
@@ -268,22 +271,87 @@ class AmmoBox:
         
         # 재장전 완료 텍스트
         if self.reload_progress > 0.8:
-            try:
-                from pygame import freetype as pg_freetype
-                font = pg_freetype.Font(None, 20)
-                text = "재장전 완료!"
-                text_surface, text_rect = font.render(text, (255, 255, 100))
-                text_rect.center = (center_x, center_y - 30)
+            text_surface = self._render_text_surface("재장전 완료!", (255, 255, 100))
+            if text_surface:
+                text_rect = text_surface.get_rect(center=(center_x, center_y - 30))
                 screen.blit(text_surface, text_rect)
-            except Exception:
-                pass
-                
+
     def reset(self):
         """아이템 효과 리셋"""
         self.active = False
         self.reload_animation_timer = 0
         self.reload_progress = 0
         self.reloaded_weapon = None
+
+    def _render_text_surface(self, text: str, color: tuple[int, int, int]) -> pygame.Surface | None:
+        """한글이 깨지지 않는 폰트로 메시지를 렌더링한다."""
+        font = self._get_text_font()
+        if not font:
+            return None
+
+        try:
+            import pygame.freetype as pg_freetype
+
+            if isinstance(font, pg_freetype.Font):  # freetype 폰트라면 별도 처리
+                surface, _ = font.render(text, color)
+                return surface
+        except Exception:
+            pass
+
+        try:
+            # pygame.font.Font 기반 폰트
+            return font.render(text, True, color)
+        except Exception:
+            try:
+                rendered = font.render(text, color)
+                if isinstance(rendered, tuple):  # freetype 대비
+                    return rendered[0]
+                return rendered
+            except Exception:
+                return None
+
+    def _get_text_font(self):
+        if self._text_font is not None:
+            return self._text_font
+
+        game_module = self._get_game_module()
+
+        # ui_manager에 등록된 한국어 폰트를 우선 사용
+        ui_manager = getattr(game_module, 'ui_manager', None) if game_module else None
+        korean_font = getattr(ui_manager, 'korean_font', None) if ui_manager else None
+        if korean_font:
+            self._text_font = korean_font
+            return self._text_font
+
+        resource_path = getattr(game_module, 'resource_path', None) if game_module else None
+        font_candidates = (
+            "fonts/pixel/NeoDunggeunmoPro.ttf",
+            "fonts/NanumSquareB.ttf",
+            "fonts/Pretendard-Regular.ttf",
+        )
+
+        for relative_path in font_candidates:
+            resolved_path = None
+            if callable(resource_path):
+                try:
+                    resolved_path = resource_path(relative_path)
+                except Exception:
+                    resolved_path = None
+            if resolved_path is None:
+                resolved_path = relative_path
+            if os.path.exists(resolved_path):
+                try:
+                    self._text_font = pygame.font.Font(resolved_path, 22)
+                    return self._text_font
+                except Exception:
+                    continue
+
+        # 최후의 수단: 기본 시스템 폰트
+        try:
+            self._text_font = pygame.font.Font(None, 22)
+        except Exception:
+            self._text_font = None
+        return self._text_font
 
     def _get_game_module(self):
         for name in ('__main__', 'pingfighter'):
