@@ -63091,6 +63091,7 @@ def show_stage_selection(show_character_hint=True):
         {"num": 4, "name": "스테이지 4", "desc": "자석 패들", "color": (255, 128, 0)},
         {"num": 5, "name": "스테이지 5", "desc": "울트라 배틀크루저", "color": (80, 180, 255)},
         {"num": 6, "name": "스테이지 6", "desc": "홍련폭염", "color": (255, 50, 50)},
+        {"num": 7, "name": "스테이지 7", "desc": "테트리서", "color": (120, 170, 255)},
         {"num": 50, "name": "튜토리얼", "desc": "게임 방법 익히기", "color": (100, 255, 100)},
     ]
     
