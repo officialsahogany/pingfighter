@@ -21264,7 +21264,9 @@ def handle_player(keys):
     global player_stun_immunity_timer  # ️ 스턴 면역 타이머
     global bazooka_recoil_timer, bazooka_recoil_direction, bazooka_recoil_strength  # 바주카포 반동
     global round_start_time
-    
+
+    apply_fire_support_slot_restore()
+
     # 공 위치를 최신으로 유지 (AK-47 조준 등에서 사용)
     ball_centerx = BALL.centerx
     ball_centery = BALL.centery
