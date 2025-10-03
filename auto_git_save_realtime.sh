@@ -27,6 +27,7 @@ NC='\033[0m'
 # 마지막 커밋 시간 (중복 방지)
 last_commit_time=0
 commit_count=0
+note_file="auto_git_note.txt"
 
 # 파일 변경 감지 함수
 handle_change() {
@@ -46,26 +47,53 @@ handle_change() {
         echo "$changed_files"
         
         # 주요 변경사항 분석
+        summary_key=""
         if echo "$changed_files" | grep -q "pingfighter.py"; then
             change_type="🎮 메인 게임 로직"
+            summary_key="메인 게임 로직 작업"
         elif echo "$changed_files" | grep -q "supply_drop.py"; then
             change_type="📦 보급 시스템"
+            summary_key="보급 시스템 작업"
         elif echo "$changed_files" | grep -q "supply_aircraft"; then
             change_type="✈️ 보급기 디자인"
+            summary_key="보급기 디자인 작업"
         elif echo "$changed_files" | grep -q "item_effects/"; then
             change_type="💎 아이템 효과"
+            summary_key="아이템 효과 작업"
         else
             change_type="🔧 코드 업데이트"
+            summary_key="코드 업데이트 작업"
         fi
         
         # Git 저장
         git add -A
         
         commit_count=$((commit_count + 1))
-        timestamp=$(date '+%H:%M:%S')
+        timestamp_full=$(date '+%Y-%m-%d %H:%M:%S')
+        brief_time=$(date '+%H:%M')
         
+        user_note=""
+        if [ -s "$note_file" ]; then
+            user_note=$(head -n1 "$note_file" | tr -d '
+')
+            : > "$note_file"
+        fi
+        
+        summary="$summary_key"
+        if [ -n "$user_note" ]; then
+            summary="$user_note"
+        fi
+        if [ -z "$summary" ]; then
+            summary="자동 저장 작업"
+        fi
+        
+        brief_line="▌${brief_time} - ${summary}"
+        echo "$brief_line"
+        
+        printf -v commit_message 'Auto-save #%s: %s - %s' "$commit_count" "$summary" "$timestamp_full"
+
         # 커밋 메시지
-        git commit -m "Auto-save #${commit_count}: ${change_type} - ${timestamp}"
+        git commit -m "$commit_message"
         
         # Push (백그라운드)
         current_branch=$(git rev-parse --abbrev-ref HEAD)

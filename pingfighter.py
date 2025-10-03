@@ -6318,12 +6318,6 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
                 drain_per_frame = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS
-                if (
-                    berserk_potion_active
-                    and berserk_potion_timer > 0
-                    and selected_character_type == "blacksmith"
-                ):
-                    drain_per_frame /= BERSERK_POTION_TURRET_CHARGE_SLOW_MULTIPLIER
                 gained_xp = 0
                 if special_gauge > 0:
                     construction_active = True

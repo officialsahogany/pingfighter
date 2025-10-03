@@ -18,6 +18,7 @@ NC='\033[0m' # No Color
 
 # 카운터 초기화
 commit_count=0
+note_file="auto_git_note.txt"
 
 while true; do
     # Git 상태 체크
@@ -36,17 +37,37 @@ while true; do
         commit_count=$((commit_count + 1))
         
         # 주요 변경 파일 확인
-        main_changes=""
+        summary_key=""
         if git diff --cached --name-only | grep -q "pingfighter.py"; then
-            main_changes="메인 게임 로직 업데이트"
+            summary_key="메인 게임 로직 작업"
         elif git diff --cached --name-only | grep -q "\.py$"; then
-            main_changes="Python 코드 업데이트"
+            summary_key="Python 코드 작업"
         else
-            main_changes="프로젝트 파일 업데이트"
+            summary_key="프로젝트 파일 작업"
         fi
         
+        user_note=""
+        if [ -s "$note_file" ]; then
+            user_note=$(head -n1 "$note_file" | tr -d '\r')
+            : > "$note_file"
+        fi
+
+        summary="$summary_key"
+        if [ -n "$user_note" ]; then
+            summary="$user_note"
+        fi
+        if [ -z "$summary" ]; then
+            summary="자동 저장 작업"
+        fi
+
+        brief_time=$(date '+%H:%M')
+        brief_line="▌${brief_time} - ${summary}"
+        echo "$brief_line"
+
+        printf -v commit_message 'Auto-save #%s: %s - %s' "$commit_count" "$summary" "$timestamp"
+
         # 커밋
-        git commit -m "Auto-save #${commit_count}: ${main_changes} - ${timestamp}"
+        git commit -m "$commit_message"
         
         # Push
         current_branch=$(git rev-parse --abbrev-ref HEAD)
