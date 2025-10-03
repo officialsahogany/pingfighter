@@ -17477,8 +17477,10 @@ def activate_wall():
         # 벽돌 위치 설정 (플레이어 패들 하단, 가로 2cm 정도)
         wall_height = 20  # 높이를 20픽셀로 복원
         wall_x = PLAYER.centerx - wall_width // 2
-        wall_y = PLAYER.bottom + 10  # 패들 아래 10픽셀로 복원
+        floor_bottom = _compute_player_floor_bottom(CURRENT_PADDLE_SIZE_SCALE)
+        wall_y = floor_bottom - wall_height
         wall_rect = pygame.Rect(wall_x, wall_y, wall_width, wall_height)
+        wall_rect.bottom = floor_bottom  # 리그별 바닥 보정에 맞춰 하단을 고정
         # 설치 완료 시 추가할 벽돌 정보 저장
         new_wall = {
             "rect": wall_rect,
