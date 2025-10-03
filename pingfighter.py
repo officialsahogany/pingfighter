@@ -17477,10 +17477,17 @@ def activate_wall():
         # 벽돌 위치 설정 (플레이어 패들 하단, 가로 2cm 정도)
         wall_height = 20  # 높이를 20픽셀로 복원
         wall_x = PLAYER.centerx - wall_width // 2
-        floor_bottom = _compute_player_floor_bottom(CURRENT_PADDLE_SIZE_SCALE)
-        wall_y = floor_bottom - wall_height + 15
+        # 주니어 리그 배치를 기준 높이로 고정해 리그별 바닥 보정 차이를 제거한다.
+        junior_mode = _normalize_league_mode("junior")
+        junior_floor_bonus = PLAYER_FLOOR_BONUS_BY_MODE.get(junior_mode, 0)
+        standard_floor_bottom = HEIGHT - PLAYER_FLOOR_OFFSET + junior_floor_bonus
+        junior_scale = get_player_paddle_scale_for_league("junior")
+        if PLAYER_VISUAL_OVERHANG > 0 and junior_scale > 1.0:
+            scale_delta = junior_scale - 1.0
+            standard_floor_bottom += int(round(PLAYER_VISUAL_OVERHANG * scale_delta))
+        wall_y = standard_floor_bottom - wall_height + 15
         wall_rect = pygame.Rect(wall_x, wall_y, wall_width, wall_height)
-        wall_rect.bottom = floor_bottom + 15  # 리그별 바닥 보정 대비 15px 내려 배치
+        wall_rect.bottom = standard_floor_bottom + 15  # 주니어 기준으로 15px 내려 배치해 바닥에 밀착
         # 설치 완료 시 추가할 벽돌 정보 저장
         new_wall = {
             "rect": wall_rect,
