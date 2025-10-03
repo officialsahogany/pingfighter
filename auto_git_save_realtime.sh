@@ -68,7 +68,13 @@ handle_change() {
         git commit -m "Auto-save #${commit_count}: ${change_type} - ${timestamp}"
         
         # Push (백그라운드)
-        git push origin feature/refactor-ui &
+        current_branch=$(git rev-parse --abbrev-ref HEAD)
+        if [ -z "$current_branch" ]; then
+            echo "❌ 현재 브랜치를 확인할 수 없습니다. 자동 저장을 중단합니다."
+            exit 1
+        fi
+        remote_name="${AUTO_GIT_REMOTE:-origin}"
+        git push "$remote_name" "$current_branch" &
         push_pid=$!
         
         # Push 완료 대기 (최대 5초)

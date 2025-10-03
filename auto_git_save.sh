@@ -49,13 +49,13 @@ while true; do
         git commit -m "Auto-save #${commit_count}: ${main_changes} - ${timestamp}"
         
         # Push
-        current_branch=\$(git rev-parse --abbrev-ref HEAD)
-        if [ -z "\$current_branch" ]; then
+        current_branch=$(git rev-parse --abbrev-ref HEAD)
+        if [ -z "$current_branch" ]; then
             echo "❌ 현재 브랜치를 확인할 수 없습니다. 저장을 종료합니다."
             exit 1
         fi
-        remote_name="\${AUTO_GIT_REMOTE:-origin}"
-        if git push "\$remote_name" "\$current_branch"; then
+        remote_name="${AUTO_GIT_REMOTE:-origin}"
+        if git push "$remote_name" "$current_branch"; then
             echo -e "${GREEN}✅ GitHub에 푸시 완료!${NC}"
             
             # 성공 알림음
