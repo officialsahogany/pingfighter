@@ -18693,22 +18693,41 @@ AIPILL_BLOCKED_KEYS = (
     pygame.K_LEFT,
     pygame.K_RIGHT,
 )
+_AIPILL_BLOCKED_KEY_SET = set(AIPILL_BLOCKED_KEYS)
 
 _ORIGINAL_GET_PRESSED = pygame.key.get_pressed
 
 
-def _get_effective_key_state_override():
-    """Return key state while clamping inputs during AI pill."""
+class _KeyStateProxy:
+    __slots__ = ("_raw",)
 
+    def __init__(self, raw):
+        self._raw = raw
+
+    def __getitem__(self, key):
+        if key in _AIPILL_BLOCKED_KEY_SET:
+            return 0
+        try:
+            return self._raw[key]
+        except (IndexError, TypeError):
+            return 0
+
+    def __len__(self):
+        return len(self._raw)
+
+    def __iter__(self):
+        for idx, value in enumerate(self._raw):
+            yield 0 if idx in _AIPILL_BLOCKED_KEY_SET else value
+
+    def __getattr__(self, name):
+        return getattr(self._raw, name)
+
+
+def _get_effective_key_state_override():
     raw_keys = _ORIGINAL_GET_PRESSED()
     if not aipill_active:
         return raw_keys
-
-    mutable_keys = list(raw_keys)
-    for blocked_key in AIPILL_BLOCKED_KEYS:
-        if blocked_key < len(mutable_keys):
-            mutable_keys[blocked_key] = 0
-    return tuple(mutable_keys)
+    return _KeyStateProxy(raw_keys)
 
 
 pygame.key.get_pressed = _get_effective_key_state_override
