@@ -60152,6 +60152,7 @@ def main(stage_num, new_boss_mode=False):
                 #  새로운 보스전에서는 빨간 효과 업데이트 생략 (게이지를 사용하지 않음)
                 if not new_boss_mode_active:
                     update_stage7_gauge_charge(current_stage == 7)
+                    update_stage7_guard_skill(now)
                     update_red_intensity()
                     update_gauge_animation()  # 게이지 부드러운 애니메이션 업데이트
                 update_item_obtained_effect()  #  아이템 획득 효과 업데이트 - 옛날 버전 활성화
