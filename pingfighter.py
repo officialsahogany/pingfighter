@@ -28134,6 +28134,7 @@ def reset_stage7_guard_state(*, reset_timer: bool = True) -> None:
             if current_stage != 7:
                 global stage7_persistent_boss_gauge
                 stage7_persistent_boss_gauge = 0.0
+                print("[Stage7Gauge][ResetGuard] stage != 7 → persistent cleared")
         except NameError:
             pass
 
@@ -28149,6 +28150,7 @@ def initialize_stage7_guard_state(now: int | None = None) -> None:
     stage7_gauge_last_update_ms = now
     global stage7_persistent_boss_gauge
     stage7_persistent_boss_gauge = boss_special_gauge
+    print(f"[Stage7Gauge][Init] persistent set to {stage7_persistent_boss_gauge}")
 
 
 def update_stage7_gauge_charge(is_active: bool) -> None:
