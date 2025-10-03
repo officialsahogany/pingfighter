@@ -52437,13 +52437,60 @@ def handle_ball():
                         continue
                     for cell in guard_block["cells"]:
                         if BALL.colliderect(cell["rect"]):
-                            BALL.x = old_x
-                            BALL.y = cell["rect"].bottom + 2
-                            if ball_vel[1] <= 0:
-                                ball_vel[1] = max(6.0, abs(ball_vel[1]))
+                            # 플레이어가 설치한 벽돌과 유사한 반사 처리:
+                            # 이전 프레임 위치를 사용해 충돌 면을 판정하고 해당 축 속도를 반전.
+                            cell_rect = cell["rect"]
+                            prev_rect = pygame.Rect(old_x, old_y, BALL.width, BALL.height)
+
+                            min_v_speed = 6.0
+                            min_h_speed = 3.0
+
+                            if prev_rect.bottom <= cell_rect.top:
+                                # 위에서 내려와 윗면 충돌 → 위로 반사
+                                BALL.y = cell_rect.top - BALL.height - 1
+                                ball_vel[1] = -max(min_v_speed, abs(ball_vel[1]))
+                            elif prev_rect.top >= cell_rect.bottom:
+                                # 아래에서 올라와 아랫면 충돌 → 아래로 반사
+                                BALL.y = cell_rect.bottom + 1
+                                ball_vel[1] = max(min_v_speed, abs(ball_vel[1]))
+                            elif prev_rect.right <= cell_rect.left:
+                                # 왼쪽에서 들어와 왼쪽 면 충돌 → 좌로 반사
+                                BALL.x = cell_rect.left - BALL.width - 1
+                                ball_vel[0] = -max(min_h_speed, abs(ball_vel[0]))
+                            elif prev_rect.left >= cell_rect.right:
+                                # 오른쪽에서 들어와 오른쪽 면 충돌 → 우로 반사
+                                BALL.x = cell_rect.right + 1
+                                ball_vel[0] = max(min_h_speed, abs(ball_vel[0]))
                             else:
-                                ball_vel[1] = max(6.0, ball_vel[1])
-                            ball_vel[0] += random.uniform(-0.6, 0.6)
+                                # 예외 상황: 겹침 판정이 모호할 때 축 중 최소 침투 축 기준으로 처리
+                                overlap_left = BALL.right - cell_rect.left
+                                overlap_right = cell_rect.right - BALL.left
+                                overlap_top = BALL.bottom - cell_rect.top
+                                overlap_bottom = cell_rect.bottom - BALL.top
+                                overlaps = {
+                                    "left": overlap_left,
+                                    "right": overlap_right,
+                                    "top": overlap_top,
+                                    "bottom": overlap_bottom,
+                                }
+                                side, _ = min(overlaps.items(), key=lambda kv: kv[1])
+                                if side == "top":
+                                    BALL.y = cell_rect.top - BALL.height - 1
+                                    ball_vel[1] = -max(min_v_speed, abs(ball_vel[1]))
+                                elif side == "bottom":
+                                    BALL.y = cell_rect.bottom + 1
+                                    ball_vel[1] = max(min_v_speed, abs(ball_vel[1]))
+                                elif side == "left":
+                                    BALL.x = cell_rect.left - BALL.width - 1
+                                    ball_vel[0] = -max(min_h_speed, abs(ball_vel[0]))
+                                else:  # right
+                                    BALL.x = cell_rect.right + 1
+                                    ball_vel[0] = max(min_h_speed, abs(ball_vel[0]))
+
+                            # 약간의 랜덤성으로 각도 단조로움 방지 (수평 반사 시만 약하게)
+                            ball_vel[0] += random.uniform(-0.4, 0.4)
+
+                            # 블록은 즉시 소멸
                             destroy_stage7_guard_block(guard_block)
                             create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
                             stage7_guard_hit = True
