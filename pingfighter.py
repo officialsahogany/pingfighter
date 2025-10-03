@@ -15749,8 +15749,7 @@ def go_to_next_round():
     boss_throwing = False
     boss_throw_timer = 0
     #  AI 알약 상태 초기화
-    aipill_active = False
-    deactivate_doping_potion()
+    deactivate_aipill("round_transition", allow_override=True)
     #  대시 상태 초기화
     rolling_active = False
     rolling_timer = 0
@@ -15844,8 +15843,7 @@ def go_to_next_round():
     #  Aipill 초기화 (라운드가 바뀌면 Aipill 효과 종료)
     if aipill_active:
         print("Aipill  .")
-        aipill_active = False
-        deactivate_doping_potion()
+        deactivate_aipill("round_transition")
     # speedgear_obtained = False   # 제거 - 패시브 아이템은 라운드가 바뀌어도 유지
     # items.speedboots_obtained = False  # 제거
     # items.speedgear_obtained = False   # 제거
