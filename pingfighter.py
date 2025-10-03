@@ -31118,6 +31118,9 @@ def draw_objects():
     elif current_stage == 5:
         boss_img = BOSS_IMG_STAGE5
         boss_w, boss_h = BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT
+    elif current_stage == 7:
+        boss_img = BOSS_IMG_STAGE7
+        boss_w, boss_h = BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT
     elif current_stage == 50:
         # Tutorial Stage - Instructor (smaller size)
         boss_img = BOSS_IMG_TUTORIAL
