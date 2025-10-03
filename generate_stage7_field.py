@@ -115,6 +115,36 @@ def _add_vignette(image: Image.Image) -> None:
     image.alpha_composite(vignette)
 
 
+def _draw_stone_texture(image: Image.Image) -> None:
+    texture = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(texture)
+    block_w = 54
+    block_h = 36
+    for row, y in enumerate(range(0, HEIGHT + block_h, block_h)):
+        offset = (block_w // 2) if row % 2 else 0
+        for x in range(-offset, WIDTH + block_w, block_w):
+            rect = (x, y, x + block_w, y + block_h)
+            color_shift = (row * 7 + x) % 24
+            fill = (
+                _clamp(STONE_BASE_COLOR[0] + color_shift),
+                _clamp(STONE_BASE_COLOR[1] + color_shift // 2),
+                _clamp(STONE_BASE_COLOR[2] + color_shift // 3),
+                STONE_BASE_COLOR[3],
+            )
+            draw.rectangle(rect, fill=fill)
+            draw.rectangle(rect, outline=(40, 52, 88, 140), width=1)
+            # 중앙 하이라이트
+            hx0 = rect[0] + 6
+            hy0 = rect[1] + 6
+            hx1 = rect[2] - 6
+            hy1 = rect[3] - 8
+            draw.rectangle((hx0, hy0, hx1, hy1), outline=(70, 96, 148, 80), width=1)
+    # 세로 보강 줄
+    for x in range(0, WIDTH, 120):
+        draw.rectangle((x + 50, 0, x + 54, HEIGHT), fill=STONE_ACCENT_COLOR)
+    image.alpha_composite(texture)
+
+
 def _draw_pixel_grid(image: Image.Image) -> None:
     grid = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
     draw = ImageDraw.Draw(grid)
@@ -141,6 +171,56 @@ def _draw_side_glow(image: Image.Image) -> None:
             width=2,
         )
     image.alpha_composite(glow)
+
+
+def _draw_torches(image: Image.Image) -> None:
+    overlay = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    positions = [
+        (96, 176),
+        (WIDTH - 96, 176),
+        (96, HEIGHT - 220),
+        (WIDTH - 96, HEIGHT - 220),
+    ]
+    for x, y in positions:
+        draw.ellipse((x - 14, y - 20, x + 14, y + 18), fill=TORCH_GLOW_COLOR)
+        draw.ellipse((x - 9, y - 12, x + 9, y + 12), fill=TORCH_CORE_COLOR)
+        draw.rectangle((x - 3, y + 12, x + 3, y + 38), fill=(66, 40, 24, 255))
+        draw.rectangle((x - 6, y + 34, x + 6, y + 50), fill=(46, 28, 18, 255))
+    image.alpha_composite(overlay)
+
+
+def _draw_banners(image: Image.Image) -> None:
+    overlay = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    banner_width = 48
+    banner_height = 180
+    offsets = [120, WIDTH - 120 - banner_width]
+    for x in offsets:
+        top_rect = (x, 86, x + banner_width, 86 + banner_height)
+        draw.rectangle(top_rect, fill=BANNER_PRIMARY)
+        emblem_rect = (x + 10, 86 + 48, x + banner_width - 10, 86 + 48 + 68)
+        draw.rounded_rectangle(emblem_rect, radius=10, fill=BANNER_SECONDARY)
+        crest_path = [
+            (x + banner_width // 2, 86 + 56),
+            (x + 18, 86 + 96),
+            (x + banner_width // 2, 86 + 132),
+            (x + banner_width - 18, 86 + 96),
+        ]
+        draw.polygon(crest_path, fill=(220, 232, 255, 200))
+        draw.rectangle((x, 86 + banner_height, x + banner_width, 86 + banner_height + 36), fill=BANNER_PRIMARY)
+        draw.polygon(
+            [
+                (x, 86 + banner_height + 12),
+                (x + banner_width // 2, 86 + banner_height + 36),
+                (x + banner_width, 86 + banner_height + 12),
+            ],
+            fill=BANNER_SECONDARY,
+        )
+        pole_rect = (x + banner_width // 2 - 4, 70, x + banner_width // 2 + 4, 86)
+        draw.rectangle(pole_rect, fill=(84, 110, 170, 255))
+        draw.ellipse((pole_rect[0] - 6, 62, pole_rect[2] + 6, 70), fill=(210, 230, 255, 200))
+    image.alpha_composite(overlay)
 
 
 def _draw_gradient_rect(draw: ImageDraw.ImageDraw, rect: Tuple[int, int, int, int], top_color: Tuple[int, int, int], bottom_color: Tuple[int, int, int], *, alpha: int = 255) -> None:
