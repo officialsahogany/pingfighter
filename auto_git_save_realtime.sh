@@ -109,6 +109,7 @@ handle_change() {
 
         # 커밋 메시지
         git commit -m "$commit_message"
+        play_sound "$ALARM_SOUND"
         
         # Push (백그라운드)
         current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -129,7 +130,7 @@ handle_change() {
         
         if ! kill -0 $push_pid 2>/dev/null; then
             echo -e "${GREEN}✅ 저장 완료! (${change_type})${NC}"
-            afplay /System/Library/Sounds/Funk.aiff &
+            play_sound "$SUCCESS_SOUND"
         else
             echo "⏳ Push 진행 중..."
         fi
