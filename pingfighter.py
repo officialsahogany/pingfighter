@@ -28116,6 +28116,25 @@ stage7_gauge_debug_last_stage = None
 stage7_gauge_debug_stage_log_ticks = 0
 
 
+def reset_stage7_guard_state(*, reset_timer: bool = True) -> None:
+    """Stage 7 가드 스킬 상태 초기화."""
+    global stage7_guard_blocks, stage7_guard_next_trigger_ms
+    stage7_guard_blocks.clear()
+    if reset_timer:
+        stage7_guard_next_trigger_ms = 0
+
+
+def initialize_stage7_guard_state(now: int | None = None) -> None:
+    """스테이지 7 시작 또는 라운드 리셋 시 가드 스킬 초기화."""
+    global stage7_guard_next_trigger_ms, stage7_gauge_charge_progress, stage7_gauge_last_update_ms
+    if now is None:
+        now = pygame.time.get_ticks()
+    reset_stage7_guard_state(reset_timer=False)
+    stage7_guard_next_trigger_ms = now + random.randint(STAGE7_GUARD_MIN_INTERVAL_MS, STAGE7_GUARD_MAX_INTERVAL_MS)
+    stage7_gauge_charge_progress = 0.0
+    stage7_gauge_last_update_ms = now
+
+
 def update_stage7_gauge_charge(is_active: bool) -> None:
     """Stage 7 보스 게이지를 초당 10씩 자동 충전한다."""
     global stage7_gauge_last_update_ms, stage7_gauge_charge_progress, boss_special_gauge
