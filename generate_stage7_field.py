@@ -220,8 +220,8 @@ def _draw_playfield_panel(image: Image.Image) -> None:
     panel = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
     draw = ImageDraw.Draw(panel)
     padding_x = 96
-    padding_y_top = 118
-    padding_y_bottom = 96
+    padding_y_top = 138
+    padding_y_bottom = 100
     left = padding_x
     top = padding_y_top
     right = WIDTH - padding_x
