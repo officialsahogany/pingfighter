@@ -28253,13 +28253,14 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     # 오른쪽 블록: 보스 중앙 기준 오른쪽 이동, 오른쪽 벽에 붙음
     right_start = float(BOSS.centerx)
     right_final = float(min(WIDTH - cell_size * 4 - 12, BOSS.right + 6))
-    right_top = float(max(60.0, min(HEIGHT - cell_size - 60, BOSS.centery - cell_size // 2)))
+    block_top = float(max(12.0, BOSS.top - cell_size - 8))
+    right_top = block_top
     right_block = _create_stage7_guard_block("right", right_start, right_final, right_top, now)
 
     # 왼쪽 블록: 보스 중앙 기준 왼쪽 이동, 왼쪽 벽에 붙음
     left_start = float(BOSS.centerx - cell_size * 4)
     left_final = float(max(12.0, BOSS.left - cell_size * 4 - 6))
-    left_top = float(max(60.0, min(HEIGHT - cell_size - 60, BOSS.centery - cell_size // 2)))
+    left_top = block_top
     left_block = _create_stage7_guard_block("left", left_start, left_final, left_top, now)
 
     new_blocks = [right_block, left_block]
