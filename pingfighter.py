@@ -20781,71 +20781,7 @@ def update_soldier_bullets():
                         bullet["active"] = False
                         break
 
-                    overlap_left = bullet_rect.right - rect.left
-                    overlap_right = rect.right - bullet_rect.left
-                    overlap_top = bullet_rect.bottom - rect.top
-                    overlap_bottom = rect.bottom - bullet_rect.top
-
-                    overlaps = {
-                        "left": overlap_left,
-                        "right": overlap_right,
-                        "top": overlap_top,
-                        "bottom": overlap_bottom,
-                    }
-                    hit_side = min(overlaps, key=overlaps.get)
-
-                    if hit_side == "left":
-                        bullet["x"] = rect.left - SOLDIER_BULLET_SIZE - 0.1
-                        new_speed = max(
-                            abs(bullet["vel_x"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
-                            SOLDIER_BULLET_MIN_SPEED,
-                        )
-                        bullet["vel_x"] = -new_speed
-                    elif hit_side == "right":
-                        bullet["x"] = rect.right + SOLDIER_BULLET_SIZE + 0.1
-                        new_speed = max(
-                            abs(bullet["vel_x"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
-                            SOLDIER_BULLET_MIN_SPEED,
-                        )
-                        bullet["vel_x"] = new_speed
-                    elif hit_side == "top":
-                        bullet["y"] = rect.top - SOLDIER_BULLET_SIZE - 0.1
-                        new_speed = max(
-                            abs(bullet["vel_y"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
-                            SOLDIER_BULLET_MIN_SPEED,
-                        )
-                        bullet["vel_y"] = -new_speed
-                    else:  # bottom
-                        bullet["y"] = rect.bottom + SOLDIER_BULLET_SIZE + 0.1
-                        new_speed = max(
-                            abs(bullet["vel_y"]) * SOLDIER_BULLET_RICOCHET_DAMPING,
-                            SOLDIER_BULLET_MIN_SPEED,
-                        )
-                        bullet["vel_y"] = new_speed
-
-                    bullet["rock_bounces"] = bullet.get("rock_bounces", 0) + 1
-
-                    # 바위 충돌 스파크 파티클
-                    impact_particles.append(
-                        {
-                            "x": bullet["x"],
-                            "y": bullet["y"],
-                            "vx": random.uniform(-2.0, 2.0),
-                            "vy": random.uniform(-1.0, 1.0),
-                            "size": random.uniform(2.0, 3.5),
-                            "alpha": 200,
-                            "color": (255, 220, 120),
-                            "life": 20,
-                        }
-                    )
-
-                    # 충돌 후 갱신된 총알 경계 재계산
-                    bullet_rect = pygame.Rect(
-                        bullet["x"] - SOLDIER_BULLET_SIZE,
-                        bullet["y"] - SOLDIER_BULLET_SIZE,
-                        SOLDIER_BULLET_SIZE * 2,
-                        SOLDIER_BULLET_SIZE * 2,
-                    )
+                    bullet_rect = _handle_commando_rock_collision(bullet, bullet_rect, rect)
                     break
 
             if not bullet["active"]:
