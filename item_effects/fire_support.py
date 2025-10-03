@@ -464,7 +464,7 @@ class FireSupport:
         self.reuse_locked = True
         self.radio_sound_played = False
         self._play_radio_sound_once()
-        self.unequip()  # 발동과 동시에 무전 장비를 비활성화해 UI/입력에서 상태를 명확히 표시
+        # equip 상태를 유지해 화기 슬롯 UI 애니메이션이 끊기지 않도록 한다.
         self._notify_lockout()
         if cruise_y is not None:
             engine_sound = self._get_aircraft_sound()
