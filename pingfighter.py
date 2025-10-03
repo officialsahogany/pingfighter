@@ -48619,10 +48619,7 @@ def reset_round():
     stop_blacksmith_construction_sound()
 
     if current_stage == 7:
-        if not stage7_guard_blocks:
-            initialize_stage7_guard_state()
-        else:
-            print(f"[Stage7Guard][ResetRound] retain blocks={len(stage7_guard_blocks)}")
+        pass
     else:
         reset_stage7_guard_state()
 
