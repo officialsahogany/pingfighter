@@ -16,6 +16,22 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+ALARM_SOUND="${AUTO_GIT_ALARM_SOUND:-/System/Library/Sounds/Glass.aiff}"
+SUCCESS_SOUND="${AUTO_GIT_SUCCESS_SOUND:-/System/Library/Sounds/Funk.aiff}"
+FAIL_SOUND="${AUTO_GIT_FAIL_SOUND:-/System/Library/Sounds/Basso.aiff}"
+
+play_sound() {
+    local sound_path="$1"
+    if [ -z "$sound_path" ]; then
+        return
+    fi
+    if command -v afplay >/dev/null 2>&1 && [ -f "$sound_path" ]; then
+        afplay "$sound_path" &
+    elif command -v osascript >/dev/null 2>&1; then
+        osascript -e 'beep 1' &
+    fi
+}
+
 # 카운터 초기화
 commit_count=0
 note_file=".git/auto_git_note"
