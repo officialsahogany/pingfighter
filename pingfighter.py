@@ -15849,6 +15849,8 @@ def go_to_next_round():
             boss_special_waiting = False
         # 붉은 정도를 게이지에 비례하여 다시 계산
         boss_red_intensity = (boss_special_gauge / 500) * 220
+    elif current_stage == 7:
+        boss_red_intensity = (boss_special_gauge / 500) * 220
     else:
         # 스테이지 1과 3이 아닌 경우 게이지 초기화
         # 스테이지 2로 넘어갈 때도 보스 게이지를 초기화해야 함
