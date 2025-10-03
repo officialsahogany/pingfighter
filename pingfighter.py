@@ -28102,6 +28102,136 @@ def draw_stage1_boss_gauge_bar():
     SCREEN.blit(gauge_surface, gauge_rect)
     
 
+def draw_stage7_boss_gauge_bar():
+    """Stage 7 보스 스킬 게이지 - 테트리스 블록 콘셉트"""
+    global current_stage, boss_special_gauge, displayed_boss_gauge
+
+    if current_stage != 7:
+        return
+
+    max_gauge = 500
+    current_gauge = max(0, displayed_boss_gauge)
+
+    gauge_x = WIDTH - 45
+    gauge_y = 60
+    gauge_width = 14
+    gauge_height = 100
+    time_now = pygame.time.get_ticks()
+
+    outer_rect = pygame.Rect(gauge_x - 6, gauge_y - 12, gauge_width + 12, gauge_height + 24)
+    pygame.draw.rect(SCREEN, (18, 18, 30), outer_rect, border_radius=4)
+    pygame.draw.rect(SCREEN, (90, 150, 255), outer_rect, 2, border_radius=4)
+
+    inner_rect = pygame.Rect(gauge_x, gauge_y, gauge_width, gauge_height)
+    pygame.draw.rect(SCREEN, (10, 10, 20), inner_rect)
+    pygame.draw.rect(SCREEN, (48, 68, 108), inner_rect, 1)
+
+    total_rows = 10
+    cell_height = 8
+    cell_gap = 2
+    cell_width = gauge_width - 4
+    cell_x = gauge_x + 2
+    block_value = max_gauge / total_rows
+
+    tetromino_colors = [
+        (0, 228, 255),   # I
+        (0, 91, 255),    # J
+        (255, 142, 0),   # L
+        (253, 230, 48),  # O
+        (0, 220, 120),   # S
+        (176, 0, 255),   # T
+        (240, 64, 64),   # Z
+    ]
+
+    def brighten(color, amount):
+        return tuple(min(255, max(0, c + amount)) for c in color)
+
+    for row in range(total_rows):
+        row_low = row * block_value
+        row_high = (row + 1) * block_value
+        if current_gauge >= row_high:
+            fill_ratio = 1.0
+        elif current_gauge <= row_low:
+            fill_ratio = 0.0
+        else:
+            fill_ratio = (current_gauge - row_low) / block_value
+
+        base_y = gauge_y + gauge_height - (row + 1) * (cell_height + cell_gap) + cell_gap
+        cell_rect = pygame.Rect(cell_x, base_y, cell_width, cell_height)
+
+        pygame.draw.rect(SCREEN, (26, 30, 52), cell_rect, border_radius=2)
+        pygame.draw.rect(SCREEN, (36, 42, 66), cell_rect, 1, border_radius=2)
+
+        if fill_ratio <= 0:
+            continue
+
+        fill_height = max(1, int(cell_height * fill_ratio))
+        fill_rect = pygame.Rect(
+            cell_rect.left + 1,
+            cell_rect.bottom - fill_height,
+            cell_rect.width - 2,
+            fill_height,
+        )
+        color = tetromino_colors[row % len(tetromino_colors)]
+        pygame.draw.rect(SCREEN, color, fill_rect, border_radius=2)
+
+        highlight_rect = pygame.Rect(
+            fill_rect.left + 1,
+            fill_rect.top,
+            max(1, fill_rect.width - 2),
+            min(2, fill_rect.height),
+        )
+        pygame.draw.rect(SCREEN, brighten(color, 40), highlight_rect)
+
+        divider_color = brighten(color, -60)
+        if fill_rect.height > 3:
+            pygame.draw.line(
+                SCREEN,
+                divider_color,
+                (fill_rect.left, fill_rect.bottom - fill_rect.height // 2),
+                (fill_rect.right - 1, fill_rect.bottom - fill_rect.height // 2),
+            )
+        if fill_rect.width > 5:
+            pygame.draw.line(
+                SCREEN,
+                divider_color,
+                (fill_rect.left + fill_rect.width // 2, fill_rect.top),
+                (fill_rect.left + fill_rect_width // 2, fill_rect.bottom - 1),
+            )
+
+    if boss_special_gauge > current_gauge:
+        gain_ratio = min((boss_special_gauge - current_gauge) / max_gauge, 1.0)
+        sparkle_color = (200, 240, 255)
+        sparkle_count = int(3 + gain_ratio * 4)
+        for _ in range(sparkle_count):
+            sparkle_row = random.randint(0, total_rows - 1)
+            base_y = gauge_y + gauge_height - (sparkle_row + 1) * (cell_height + cell_gap) + cell_gap
+            sparkle_y = random.randint(base_y, base_y + cell_height - 1)
+            sparkle_x = random.randint(cell_x + 1, cell_x + cell_width - 2)
+            SCREEN.fill(sparkle_color, (sparkle_x, sparkle_y, 1, 1))
+
+    icon_center_x = gauge_x + gauge_width // 2
+    icon_center_y = gauge_y - 28
+    icon_color = tetromino_colors[int((time_now // 400) % len(tetromino_colors))]
+    shadow_color = (0, 0, 0)
+    block_size = 6
+    layout = [(0, 0), (-1, 0), (1, 0), (0, -1)]  # T자 형태
+    for dx, dy in layout:
+        rect = pygame.Rect(
+            icon_center_x + dx * (block_size + 1) - block_size // 2,
+            icon_center_y + dy * (block_size + 1) - block_size // 2,
+            block_size,
+            block_size,
+        )
+        SCREEN.fill(shadow_color, rect.move(1, 1))
+        pygame.draw.rect(SCREEN, icon_color, rect)
+        pygame.draw.rect(SCREEN, brighten(icon_color, 50), rect, 1)
+
+    ghost_offset = int((time_now * 0.04) % (cell_height + cell_gap))
+    ghost_rect = pygame.Rect(cell_x + 1, gauge_y + ghost_offset, cell_width - 2, 2)
+    pygame.draw.rect(SCREEN, (120, 180, 255, 90), ghost_rect)
+
+
 def draw_stage2_boss_gauge_bar():
     """Stage 2 보스 스킬 게이지"""
     global current_stage, boss_special_gauge, displayed_boss_gauge
