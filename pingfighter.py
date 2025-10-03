@@ -16194,7 +16194,7 @@ def apply_effect(effect_name):
             special_ready = True
         print("!   220 !")
     elif effect_name == "aipill":  #  AI 필 아이템 활성화
-        aipill_active = True
+        activate_aipill("active_item")
         print("Aipill  -  :", special_gauge)
         print("Aipill  !")
     elif effect_name == "battery":  #  배터리 아이템 (패시브 아이템이므로 apply_effect에서 처리하지 않음)
@@ -18684,6 +18684,44 @@ water_trail_timer = 0  # 물자국 생성 타이머
 aipill_active = False  # AI 필 활성화 상태
 aipill_speed_boost = 4.0  # AI 필 시 스피드 증가 배율
 aipill_turn_boost = 4.0  # AI 필 시 방향 전환 속도 증가 배율
+AIPILL_ALLOWED_DEACTIVATION_REASONS = {"gauge_depleted", "round_transition"}
+aipill_last_deactivation_reason = None
+
+
+def activate_aipill(source: str | None = None) -> bool:
+    """Activate AI pill effect if not already active."""
+
+    global aipill_active, aipill_last_deactivation_reason
+
+    if not aipill_active:
+        aipill_active = True
+        aipill_last_deactivation_reason = None
+    else:
+        # 효과가 이미 유지 중이라면 최근 종료 원인만 초기화
+        aipill_last_deactivation_reason = None
+    return True
+
+
+def deactivate_aipill(reason: str, *, allow_override: bool = False) -> bool:
+    """Disable AI pill effect only for approved reasons."""
+
+    global aipill_active, aipill_last_deactivation_reason
+
+    if not allow_override and reason not in AIPILL_ALLOWED_DEACTIVATION_REASONS:
+        # 허용되지 않은 종료 요청은 무시하고 상태를 유지한다.
+        aipill_last_deactivation_reason = f"ignored:{reason}"
+        return False
+
+    if not aipill_active:
+        if allow_override:
+            # 외부 초기화 흐름에서는 도핑 물약만 정리
+            deactivate_doping_potion()
+        return False
+
+    aipill_active = False
+    aipill_last_deactivation_reason = reason
+    deactivate_doping_potion()
+    return True
 # 대쉬 관리자 초기화 (기존 변수들은 호환성을 위해 유지)
 dash = None  # 대쉬 매니저 인스턴스 (나중에 초기화됨)
 # 대쉬 관련 변수 (더블대쉬 제거 후 단순화) - 호환성을 위해 유지
