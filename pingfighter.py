@@ -6317,7 +6317,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                     blacksmith_hammer_swing_phase + 1
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
-                drain_per_frame = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS
+                drain_per_frame = (BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS) * get_blacksmith_turret_charge_speed_multiplier()
                 gained_xp = 0
                 if special_gauge > 0:
                     construction_active = True
@@ -14622,7 +14622,7 @@ BERSERK_POTION_DURATION_FRAMES = 900  # 15초 지속
 BERSERK_POTION_BUILD_MULTIPLIER = 3.0
 BERSERK_POTION_MANUAL_COOLDOWN_MULTIPLIER = 0.25  # 연사 400% 증가 → 기본 쿨다운의 1/4
 BERSERK_POTION_GAUGE_GAIN_MULTIPLIER = 3.0  # 게이지 충전량 3배
-BERSERK_POTION_TURRET_CHARGE_SLOW_MULTIPLIER = 100.0  # 광폭물약 발동 중 포탑 수동 충전 속도 역보정
+BERSERK_POTION_TURRET_CHARGE_SPEED_MULTIPLIER = 3.0  # 광폭물약 발동 중 포탑 수동 충전 속도 200% 가속 (총 3배)
 berserk_potion_active = False
 berserk_potion_timer = 0
 berserk_aura_surface: pygame.Surface | None = None
@@ -14892,6 +14892,17 @@ def get_blacksmith_construction_speed_multiplier() -> float:
 def get_blacksmith_manual_cooldown_multiplier() -> float:
     """발토르 포탑 수동 발사 쿨다운 배수를 반환"""
     return BERSERK_POTION_MANUAL_COOLDOWN_MULTIPLIER if berserk_potion_active and berserk_potion_timer > 0 else 1.0
+
+
+def get_blacksmith_turret_charge_speed_multiplier() -> float:
+    """발토르 포탑 수동 게이지 충전 속도 배수를 반환"""
+    if (
+        selected_character_type == "blacksmith"
+        and berserk_potion_active
+        and berserk_potion_timer > 0
+    ):
+        return BERSERK_POTION_TURRET_CHARGE_SPEED_MULTIPLIER
+    return 1.0
 
 
 def _apply_blacksmith_berserk_gauge_bonus(amount: int) -> int:

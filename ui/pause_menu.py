@@ -82,9 +82,11 @@ class PauseMenu:
             is_selected = idx == self.selected_index
 
             if is_selected:
-                highlight = option_rect.inflate(20, 8)
-                pygame.draw.rect(self.screen, (const.CYAN[0], const.CYAN[1], const.CYAN[2], 40), highlight, border_radius=10)
-                pygame.draw.rect(self.screen, const.CYAN, highlight, 2, border_radius=10)
+                highlight_rect = option_rect.inflate(20, 8)
+                highlight_surface = pygame.Surface(highlight_rect.size, pygame.SRCALPHA)
+                highlight_surface.fill((*const.CYAN, 60))
+                self.screen.blit(highlight_surface, highlight_rect.topleft)
+                pygame.draw.rect(self.screen, const.CYAN, highlight_rect, 2, border_radius=10)
 
             text_color = const.CYAN if is_selected else const.WHITE
             option_surface = self._font_option.render(label, True, text_color)
