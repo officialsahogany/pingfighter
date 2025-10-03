@@ -1454,3 +1454,6 @@ surface.blit(self.vignette_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT
                 pygame.draw.circle(surface, (255, 255, 255, 40),
                                  (int(x - highlight_offset), int(y - highlight_offset)),
                                  radius // 3)
+
+        surface.blit(self.frame_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+
