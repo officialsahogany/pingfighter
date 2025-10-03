@@ -28250,18 +28250,17 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     print(f"[Stage7Gauge][Spawn] cost 100 → {boss_special_gauge}")
 
     cell_size = STAGE7_GUARD_CELL_SIZE
-    # 오른쪽 블록: 보스 중앙 기준 오른쪽 이동, 오른쪽 벽에 붙음
-    right_start = float(BOSS.centerx)
-    right_final = float(min(WIDTH - cell_size * 4 - 12, BOSS.right + 6))
+    center = float(BOSS.centerx)
     block_top = float(max(12.0, BOSS.top - cell_size - 8))
-    right_top = block_top
-    right_block = _create_stage7_guard_block("right", right_start, right_final, right_top, now)
 
-    # 왼쪽 블록: 보스 중앙 기준 왼쪽 이동, 왼쪽 벽에 붙음
-    left_start = float(BOSS.centerx - cell_size * 4)
-    left_final = float(max(12.0, BOSS.left - cell_size * 4 - 6))
-    left_top = block_top
-    left_block = _create_stage7_guard_block("left", left_start, left_final, left_top, now)
+    shared_start = center - cell_size * 2
+    left_final = max(12.0, center - cell_size * 4)
+    right_final = min(float(WIDTH - cell_size * 4 - 12), center)
+
+    left_block = _create_stage7_guard_block("left", shared_start, left_final, block_top, now)
+    right_block = _create_stage7_guard_block("right", shared_start, right_final, block_top, now)
+
+    print(f"[Stage7Guard] spawn left {shared_start:.1f}->{left_final:.1f}, right {shared_start:.1f}->{right_final:.1f}, top={block_top:.1f}")
 
     new_blocks = [right_block, left_block]
 
