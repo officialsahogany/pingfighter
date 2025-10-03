@@ -633,8 +633,8 @@ for layer in self.star_layers:
         
         # 파티클 업데이트
         for particle in self.particles:
-            particle['x'] += particle['vx']
-            particle['y'] += particle['vy']
+            particle['x'] += particle['vx'] * dt * 60
+            particle['y'] += particle['vy'] * dt * 60
             
             if particle['x'] < 0:
                 particle['x'] = self.width
