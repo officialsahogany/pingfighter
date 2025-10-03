@@ -57930,6 +57930,7 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 7:
         CURRENT_BG = STAGE7_BG
         BOSS_COLOR = (120, 170, 255)
+        initialize_stage7_guard_state()
     elif stage_num == 50:  # Stage 50 (튜토리얼)
         # 튜토리얼용 배경 Surface 생성
         CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
@@ -57943,6 +57944,8 @@ def main(stage_num, new_boss_mode=False):
     round_start_time = pygame.time.get_ticks()
     
     reset_round()
+    if stage_num != 7:
+        reset_stage7_guard_state()
     
     #  DEBUG: 하늘빛 아지랑이 효과 테스트용 (나중에 제거)
     # academy.debug_max_dash_skills()  # 디버그 코드 비활성화 - 실제 게임에서는 사용하지 않음
