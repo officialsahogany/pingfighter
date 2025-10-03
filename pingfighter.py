@@ -44659,10 +44659,10 @@ def show_item_manager_menu():
 
             other_total = sum(count for name, count in selected_active_counts.items() if name != quantity_target_item)
             current_total = other_total + quantity_current_value
-            effective_slots = get_effective_max_item_slots()
-            remaining_slots = max(0, effective_slots - current_total)
+            manager_slot_cap = ITEM_MANAGER_ACTIVE_LIMIT
+            remaining_slots = max(0, manager_slot_cap - current_total)
             limit_surface = font_small.render(
-                f"최대 {quantity_max_value}개 | 현재 {current_total}/{effective_slots} 슬롯 (남은 {remaining_slots})",
+                f"이 아이템 최대 {quantity_max_value}개 | 현재 {current_total}/{manager_slot_cap} 슬롯 (남은 {remaining_slots})",
                 True,
                 (200, 200, 200),
             )
