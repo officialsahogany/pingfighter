@@ -27468,6 +27468,10 @@ def update_gauge_animation():
             # 정확히 목표값에 도달하도록 보정
             if displayed_boss_gauge < boss_special_gauge + 1:
                 displayed_boss_gauge = boss_special_gauge
+    try:
+        game_state.displayed_boss_gauge = displayed_boss_gauge
+    except Exception:
+        pass
 def show_item_obtained_effect(item_data, item_x=None, item_y=None):
     """아이템 획득 효과 표시"""
     global item_obtained_effect
