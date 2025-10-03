@@ -57021,7 +57021,7 @@ def show_result(won):
     #  멘헤라걸 필살기 게이지 초기화 (스테이지 종료 시)
     # 스테이지 1의 경우 게이지 유지, 다른 스테이지는 초기화
     global displayed_boss_gauge
-    if current_stage != 1:
+    if current_stage not in (1, 7):
         boss_special_gauge = 0
         displayed_boss_gauge = 0  # 표시 게이지도 초기화
         boss_special_ready = False
