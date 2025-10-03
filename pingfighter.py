@@ -15080,6 +15080,8 @@ def handle_fire_support_lockout() -> None:
     if weapons[current_index] != "fire_support":
         return
 
+    # 강제로 현재 슬롯을 재적용해 다른 무기로 튀는 것을 방지한다.
+    soldier_controller.set_current_weapon(current_index)
     # 화력지원 애니메이션 유지 및 즉시 재전환 허용.
     soldier_controller.switch_cooldown = 0
     soldier_controller.ui_highlight_timer = soldier_controller.ui_highlight_duration
