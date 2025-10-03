@@ -36024,7 +36024,7 @@ def show_victory_screen(stage_cleared, reward):
                     elif event.key == pygame.K_SPACE:
                         if selected == 0:
                             if not transition_state['active']:
-                                final_stage_reached = display_stage_cleared >= 6
+                                final_stage_reached = display_stage_cleared >= 7
                                 transition_state['active'] = True
                                 transition_state['timer'] = 0
                                 transition_state['stage_target'] = None if final_stage_reached else display_stage_cleared + 1
