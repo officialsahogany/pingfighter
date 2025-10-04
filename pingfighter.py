@@ -28198,6 +28198,12 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
 
     now = pygame.time.get_ticks()
 
+    # 초인테트리서 발동 중에는 충전을 정지 (드레인만 수행)
+    if globals().get('stage7_super_active', False):
+        stage7_gauge_last_update_ms = now
+        stage7_gauge_charge_progress = 0.0
+        return
+
     if not is_active:
         stage7_gauge_last_update_ms = now
         stage7_gauge_charge_progress = 0.0
