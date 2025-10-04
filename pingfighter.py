@@ -29377,6 +29377,9 @@ def draw_stage7_boss_gauge_bar():
                 (mid_x, fill_rect.bottom - 1),
             )
 
+    # 상단 테트리서 엠블럼 (게이지 상단 아이콘)
+    # [REMOVED: stray emblem block moved into draw_stage7_boss_gauge_bar]
+
 
 def update_stage7_super_state(now: int | None = None) -> None:
     """초인테트리서 게이지 및 상태 업데이트. 게이지 500 도달 시 자동 발동."""
