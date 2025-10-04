@@ -29291,6 +29291,33 @@ def draw_stage7_boss_gauge_bar():
             )
 
 
+def update_stage7_super_state(now: int | None = None) -> None:
+    """초인테트리서 게이지 및 상태 업데이트. 게이지 500 도달 시 자동 발동."""
+    global stage7_super_active, stage7_super_ends_at_ms
+    global boss_special_gauge, stage7_persistent_boss_gauge
+    if current_stage != 7 or new_boss_mode_active:
+        stage7_super_active = False
+        return
+    if now is None:
+        now = pygame.time.get_ticks()
+    if stage7_super_active:
+        if now >= stage7_super_ends_at_ms:
+            stage7_super_active = False
+        return
+    # 비활성 → 발동 조건 체크
+    if boss_special_gauge >= 500:
+        stage7_super_active = True
+        stage7_super_ends_at_ms = now + STAGE7_SUPER_DURATION_MS
+        # 게이지 소모 및 동기화
+        boss_special_gauge = 0
+        stage7_persistent_boss_gauge = 0
+        try:
+            play_wall_sound()
+        except Exception:
+            pass
+        print(f"[Stage7Super] {STAGE7_SUPER_NAME} 발동! 15s")
+
+
 def draw_stage7_super_bar() -> None:
     """초인테트리서(궁극기) 남은 시간을 보스 게이지 좌측에 표시."""
     if not stage7_super_active:
@@ -61365,6 +61392,8 @@ def main(stage_num, new_boss_mode=False):
                 #  새로운 보스전에서는 빨간 효과 업데이트 생략 (게이지를 사용하지 않음)
                 if not new_boss_mode_active:
                     update_stage7_gauge_charge(current_stage == 7)
+                    # 궁극기 활성/유지 업데이트
+                    update_stage7_super_state()
                     update_stage7_guard_skill()
                     update_stage7_tetromino_skill()
                     update_red_intensity()
