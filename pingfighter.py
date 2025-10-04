@@ -27636,6 +27636,7 @@ def _draw_stage_specific_elements() -> None:
     draw_stage2_boss_gauge_bar()
     draw_stage7_boss_gauge_bar()
     draw_stage7_guard_blocks(SCREEN)
+    draw_stage7_tetrominoes(SCREEN)
     draw_laser_cannon_gauge()
     draw_spinning_top(SCREEN)
 
@@ -27838,6 +27839,7 @@ def draw_overlay_ui():
     draw_stage2_boss_gauge_bar()
     draw_laser_cannon_gauge()
     draw_stage7_guard_blocks(SCREEN)
+    draw_stage7_tetrominoes(SCREEN)
     draw_spinning_top(SCREEN)
 
     update_trade_point_stars()
@@ -28420,6 +28422,173 @@ def destroy_stage7_guard_block(block: dict, *, now: int | None = None) -> None:
         play_wall_sound()
     except Exception:
         pass
+
+
+# =====================
+# Stage 7: T(ㅗ) 테트로미노 낙하 스킬
+# =====================
+
+# 낙하 모션은 테트리스처럼 셀 단위(뚝뚝)로만 이동
+STAGE7_TETRO_CELL_SIZE = 20
+STAGE7_TETRO_STEP_MS = 110
+
+
+def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
+    """Stage 7 테트로미노 스킬 상태 초기화."""
+    global stage7_tetrominoes, stage7_tetromino_next_trigger_ms
+    stage7_tetrominoes.clear()
+    if reset_timer:
+        stage7_tetromino_next_trigger_ms = 0
+
+
+def _schedule_stage7_tetro(now: int | None = None) -> None:
+    global stage7_tetromino_next_trigger_ms
+    if now is None:
+        now = pygame.time.get_ticks()
+    stage7_tetromino_next_trigger_ms = now + random.randint(STAGE7_TETRO_MIN_INTERVAL_MS, STAGE7_TETRO_MAX_INTERVAL_MS)
+
+
+def spawn_stage7_tetromino(now: int | None = None) -> bool:
+    """보스 패들 중앙에서 'ㅗ' 형상 T 블록을 생성하여 수직 낙하시킨다.
+    게이지 50 소모. 보스가 없거나 게이지 부족 시 실패.
+    """
+    global boss_special_gauge, stage7_persistent_boss_gauge, stage7_tetrominoes
+    if now is None:
+        now = pygame.time.get_ticks()
+
+    if BOSS is None:
+        return False
+
+    if boss_special_gauge < STAGE7_TETRO_GAUGE_COST:
+        return False
+
+    # 게이지 차감
+    boss_special_gauge = max(0, boss_special_gauge - STAGE7_TETRO_GAUGE_COST)
+    stage7_persistent_boss_gauge = boss_special_gauge
+    print(f"[Stage7Tetro][Spawn] cost {STAGE7_TETRO_GAUGE_COST} → {boss_special_gauge}")
+
+    s = STAGE7_TETRO_CELL_SIZE
+    cx = float(BOSS.centerx)
+    # 보스 패들 바로 아래에서 시작하되, 윗부분(ㅗ의 막대) 셀이 보스에 닿지 않도록 여유를 둔다.
+    base_top = float(BOSS.bottom + s + 6)
+
+    # ㅗ 모양: 바닥 가로 3칸 + 중앙 위 1칸 — 좌표계(dx, dy): dy는 행(위가 -1)
+    layout = [(-1, 0), (0, 0), (1, 0), (0, -1)]
+    cells = []
+    for dx, dy in layout:
+        left = int(round(cx + dx * s - s / 2))
+        top = int(round(base_top + dy * s))
+        cells.append({"rect": pygame.Rect(left, top, s, s)})
+
+    mino = {
+        "state": "falling",
+        "cells": cells,
+        "last_update": now,
+        "step_accum": 0.0,
+    }
+    stage7_tetrominoes.append(mino)
+    return True
+
+
+def update_stage7_tetrominoes(now: int | None = None) -> None:
+    if now is None:
+        now = pygame.time.get_ticks()
+    if not stage7_tetrominoes:
+        return
+
+    s = STAGE7_TETRO_CELL_SIZE
+    for mino in stage7_tetrominoes[:]:
+        elapsed = now - mino.get("last_update", now)
+        if elapsed < 0:
+            elapsed = 0
+        mino["last_update"] = now
+
+        state = mino.get("state")
+        if state == "falling":
+            mino["step_accum"] += elapsed
+            while mino["step_accum"] >= STAGE7_TETRO_STEP_MS:
+                mino["step_accum"] -= STAGE7_TETRO_STEP_MS
+                # 한 스텝(셀 크기)만큼 하강
+                for c in mino["cells"]:
+                    c["rect"].y += s
+
+            # 화면 밖으로 완전히 벗어나면 제거
+            if all(c["rect"].top >= HEIGHT for c in mino["cells"]):
+                stage7_tetrominoes.remove(mino)
+        elif state == "destroying":
+            duration = max(1.0, float(mino.get("destroy_duration", 160)))
+            timer = max(0.0, float(mino.get("destroy_timer", 0.0)) - elapsed)
+            mino["destroy_timer"] = timer
+            fade = max(0.0, timer / duration)
+            for c in mino["cells"]:
+                c["fade"] = fade
+            if timer <= 0.0:
+                stage7_tetrominoes.remove(mino)
+
+
+def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
+    if not stage7_tetrominoes:
+        return
+
+    base_color = (170, 90, 255)       # 보라색
+    highlight_color = (220, 180, 255)
+    border_color = (80, 40, 140)
+
+    for mino in stage7_tetrominoes:
+        state = mino.get("state")
+        for cell in mino["cells"]:
+            rect = cell["rect"]
+            fade = cell.get("fade", 1.0)
+            if state == "destroying":
+                alpha = int(220 * fade)
+                border_alpha = int(210 * fade)
+            else:
+                alpha = 230
+                border_alpha = 255
+
+            temp = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(temp, (*base_color, alpha), temp.get_rect(), border_radius=4)
+            pygame.draw.rect(temp, (*highlight_color, min(255, alpha + 20)), temp.get_rect().inflate(-4, -4), border_radius=3)
+            pygame.draw.rect(temp, (*border_color, border_alpha), temp.get_rect(), 2, border_radius=4)
+            surface.blit(temp, rect.topleft)
+
+
+def destroy_stage7_tetromino(mino: dict, *, now: int | None = None) -> None:
+    if mino.get("state") == "destroying":
+        return
+    if now is None:
+        now = pygame.time.get_ticks()
+    mino["state"] = "destroying"
+    mino["destroy_duration"] = 180
+    mino["destroy_timer"] = 180
+    mino["last_update"] = now
+
+
+def update_stage7_tetromino_skill(now: int | None = None) -> None:
+    """15~30초 쿨타임으로 ㅗ 블록을 플레이어 방향(수직 하강)으로 투척.
+    가드 스킬과 독립된 스케줄/게이지를 사용한다.
+    """
+    global stage7_tetromino_next_trigger_ms
+
+    if current_stage != 7 or new_boss_mode_active:
+        return
+
+    if now is None:
+        now = pygame.time.get_ticks()
+
+    update_stage7_tetrominoes(now)
+
+    if stage7_tetromino_next_trigger_ms == 0:
+        _schedule_stage7_tetro(now)
+
+    if now < stage7_tetromino_next_trigger_ms:
+        return
+
+    if spawn_stage7_tetromino(now):
+        _schedule_stage7_tetro(now)
+    else:
+        # 게이지 부족 시 1초 후 재시도
+        stage7_tetromino_next_trigger_ms = now + 1000
 
 
 def draw_stage7_boss_gauge_bar():
@@ -60445,6 +60614,7 @@ def main(stage_num, new_boss_mode=False):
                 if not new_boss_mode_active:
                     update_stage7_gauge_charge(current_stage == 7)
                     update_stage7_guard_skill()
+                    update_stage7_tetromino_skill()
                     update_red_intensity()
                     update_gauge_animation()  # 게이지 부드러운 애니메이션 업데이트
                 update_item_obtained_effect()  #  아이템 획득 효과 업데이트 - 옛날 버전 활성화
@@ -60973,6 +61143,7 @@ def main(stage_num, new_boss_mode=False):
             draw_stage2_boss_gauge_bar()  # 스테이지 2 게이지바
             draw_stage7_boss_gauge_bar()  # 스테이지 7 테트리서 게이지
             draw_stage7_guard_blocks(SCREEN)
+            draw_stage7_tetrominoes(SCREEN)
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 스테이지별 테두리 효과를 UI 전에 그리기
             if current_stage == 2:
