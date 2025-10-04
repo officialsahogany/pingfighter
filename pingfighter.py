@@ -27655,6 +27655,7 @@ def _draw_stage_specific_elements() -> None:
     draw_stage1_boss_gauge_bar()
     draw_stage2_boss_gauge_bar()
     draw_stage7_boss_gauge_bar()
+    draw_stage7_super_bar()
     draw_stage7_guard_blocks(SCREEN)
     draw_stage7_tetrominoes(SCREEN)
     draw_laser_cannon_gauge()
@@ -61889,9 +61890,10 @@ def main(stage_num, new_boss_mode=False):
                 
                 draw_pandora_box_effect()  # 판도라의 상자 무지개 효과
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
-                draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
-                draw_stage7_boss_gauge_bar()  # 스테이지 7 게이지도 동일하게 표시
-                draw_stage7_guard_blocks(SCREEN)
+            draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
+            draw_stage7_boss_gauge_bar()  # 스테이지 7 게이지도 동일하게 표시
+            draw_stage7_super_bar()
+            draw_stage7_guard_blocks(SCREEN)
                 draw_stage7_tetrominoes(SCREEN)
                 
                 # 코만도 권총 UI 표시
@@ -61924,6 +61926,7 @@ def main(stage_num, new_boss_mode=False):
             draw_stage1_boss_gauge_bar()  # 스테이지 1 보스 게이지바 그리기
             draw_stage2_boss_gauge_bar()  # 스테이지 2 게이지바
             draw_stage7_boss_gauge_bar()  # 스테이지 7 테트리서 게이지
+            draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
             draw_stage7_tetrominoes(SCREEN)
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
