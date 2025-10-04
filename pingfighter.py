@@ -29389,27 +29389,15 @@ def update_stage7_super_state(now: int | None = None) -> None:
     global boss_special_gauge, stage7_persistent_boss_gauge
     global stage7_boss_orig_size
     if current_stage != 7 or new_boss_mode_active:
-        # 종료 시 원상복귀
-        if stage7_super_active:
-            try:
-                if stage7_boss_orig_size:
-                    BOSS.width, BOSS.height = stage7_boss_orig_size
-            except Exception:
-                pass
+        # 스테이지 벗어나면 비활성 목표로 스무딩 복귀
         stage7_super_active = False
-        return
+        stage7_super_target_scale = 1.0
     if now is None:
         now = pygame.time.get_ticks()
     if stage7_super_active:
         if now >= stage7_super_ends_at_ms:
             stage7_super_active = False
-            # 원상복귀
-            try:
-                if stage7_boss_orig_size:
-                    BOSS.width, BOSS.height = stage7_boss_orig_size
-            except Exception:
-                pass
-        return
+            stage7_super_target_scale = 1.0
     # 비활성 → 발동 조건 체크
     if boss_special_gauge >= 500:
         stage7_super_active = True
@@ -29418,18 +29406,32 @@ def update_stage7_super_state(now: int | None = None) -> None:
         boss_special_gauge = 0
         stage7_persistent_boss_gauge = 0
         # 보스 패들 사이즈 2배 (충돌 판정 포함)
-        try:
-            if stage7_boss_orig_size is None:
-                stage7_boss_orig_size = (BOSS.width, BOSS.height)
-            BOSS.width = int(BOSS.width * 2)
-            BOSS.height = int(BOSS.height * 2)
-        except Exception:
-            pass
+        # 목표 스케일만 2.0으로 설정 (실제 적용은 하단 스무딩에서 처리)
+        if stage7_boss_orig_size is None:
+            stage7_boss_orig_size = (BOSS.width, BOSS.height)
+        stage7_super_target_scale = 2.0
         try:
             play_wall_sound()
         except Exception:
             pass
         print(f"[Stage7Super] {STAGE7_SUPER_NAME} 발동! 15s")
+    # 스케일 스무딩/적용 (항상 호출)
+    try:
+        if stage7_boss_orig_size is None:
+            stage7_boss_orig_size = (BOSS.width, BOSS.height)
+        smoothing = 0.18
+        globals()['stage7_super_scale'] += (stage7_super_target_scale - stage7_super_scale) * smoothing
+        # 적용 시 중심 유지
+        cx, cy = BOSS.centerx, BOSS.centery
+        base_w, base_h = stage7_boss_orig_size
+        new_w = max(10, int(base_w * stage7_super_scale))
+        new_h = max(6, int(base_h * stage7_super_scale))
+        BOSS.width = new_w
+        BOSS.height = new_h
+        BOSS.centerx = cx
+        BOSS.centery = cy
+    except Exception:
+        pass
 
 
 def draw_stage7_super_bar() -> None:
@@ -32541,10 +32543,10 @@ def draw_objects():
 
         boss_img = frames[frame_index]
         boss_w, boss_h = BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT
-        # 초인테트리서 동안 보스 이미지도 2배 스케일 + 붉은 펄스
-        boss_scale = 2 if stage7_super_active else 1
-        boss_w *= boss_scale
-        boss_h *= boss_scale
+        # 초인테트리서 동안 보스 이미지도 부드럽게 스케일
+        img_scale = max(1.0, float(globals().get('stage7_super_scale', 1.0)))
+        boss_w = max(1, int(boss_w * img_scale))
+        boss_h = max(1, int(boss_h * img_scale))
     elif current_stage == 50:
         # Tutorial Stage - Instructor (smaller size)
         boss_img = BOSS_IMG_TUTORIAL
