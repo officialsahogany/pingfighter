@@ -258,6 +258,8 @@ class PlayableBossPong:
             # 히트 위치에 따른 각도 조정
             hit_pos = (self.ball.centerx - self.player.centerx) / (self.player.width / 2)
             self.ball_dx = 8 * hit_pos
+            # 마지막 타격 주체 갱신
+            self.global_manager.set('last_hit_by', 'player')
             
             # 점수 추가
             self.player_score += 10
@@ -270,6 +272,8 @@ class PlayableBossPong:
         if self.ball.colliderect(self.boss):
             self.ball_dy = abs(self.ball_dy)
             self.ball_dx = random.uniform(-8, 8)
+            # 마지막 타격 주체 갱신
+            self.global_manager.set('last_hit_by', 'boss')
             
             # 보스 데미지
             damage = 5
@@ -298,7 +302,12 @@ class PlayableBossPong:
         self.perfect_timing.update(dt)
         self.power_smashing.update(dt)
         self.boss_skills.update(dt)
-        
+
+        # StageFeatures 등에서 공 속도를 변경했을 수 있으므로 동기화
+        gm_dx = self.global_manager.get('ball_dx', self.ball_dx)
+        gm_dy = self.global_manager.get('ball_dy', self.ball_dy)
+        self.ball_dx, self.ball_dy = gm_dx, gm_dy
+
         # 글로벌 매니저 업데이트
         self.global_manager.set('ball_dx', self.ball_dx)
         self.global_manager.set('ball_dy', self.ball_dy)
@@ -314,7 +323,7 @@ class PlayableBossPong:
         print(f"🎉 Stage {self.current_stage} 클리어!")
         self.player_score += 1000
         
-        if self.current_stage < 6:
+        if self.current_stage < 7:
             self.setup_stage(self.current_stage + 1)
         else:
             print("🏆 게임 클리어! 축하합니다!")

@@ -220,6 +220,9 @@ class GlobalManager:
             'PLAYER_IMG': None,
             'BALL_IMG': None,
             'FONT': None,
+
+            # 공 타격 주체 추적 (스테이지7 테트로미노 타격조건 일치용)
+            'last_hit_by': 'player',  # 'player' or 'boss'
             
             # 배경 이미지
             'STAGE1_BG': None,

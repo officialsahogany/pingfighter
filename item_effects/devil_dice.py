@@ -396,21 +396,9 @@ class DevilDice:
                              (int(particle['x']), int(particle['y'])), 
                              int(particle['size']))
         
-        # 패들 주변 어두운 오라
-        if self.active:
-            # 펄스 효과
-            pulse = abs(math.sin(self.gauge_glow_timer * 2)) * 0.3 + 0.2
-            
-            # 어두운 오라 그리기
-            for i in range(3):
-                aura_size = i * 5 + 5
-                aura_alpha = pulse * (0.3 - i * 0.1)
-                if aura_alpha > 0:
-                    aura_surface = pygame.Surface((paddle_rect.width + aura_size * 2, 
-                                                  paddle_rect.height + aura_size * 2), pygame.SRCALPHA)
-                    pygame.draw.rect(aura_surface, (139, 0, 0, int(255 * aura_alpha)),
-                                   aura_surface.get_rect(), border_radius=5)
-                    screen.blit(aura_surface, (paddle_rect.x - aura_size, paddle_rect.y - aura_size))
+        # 패들 주변 사각 오라 비활성화
+        # 사용자 요청: "사각 범위를 투명하게" → 기존의 사각형 오라(반투명 사각 Surface)는 그리지 않음.
+        # 색상 변화는 패들 이미지 자체 틴트로 pingfighter.py에서 처리한다.
 
     def _draw_dice_animation(self, screen: pygame.Surface, center_x: int, center_y: int):
         """붉은 기운이 도는 주사위 애니메이션을 그린다."""

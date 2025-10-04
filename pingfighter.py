@@ -1930,6 +1930,18 @@ if not AUDIO_DISABLED:
 # 하나라도 로드되지 않으면 빈 리스트 유지
 if not SOUND_STAGE5_HURTS:
     print("No Stage 5 hurt sounds available")
+
+# Stage 7 테트로미노 해체 사운드 (개별 로드)
+try:
+    SOUND_TETRISBREAK = pygame.mixer.Sound(resource_path("sounds/tetrisbreak.wav"))
+except Exception:
+    SOUND_TETRISBREAK = None
+
+# Stage 7 대량 벽 테트로미노 소환 사운드
+try:
+    SOUND_TETRISWALL = pygame.mixer.Sound(resource_path("sounds/tetriswall.wav"))
+except Exception:
+    SOUND_TETRISWALL = None
 # 메뉴 사운드 (자동 생성된 파일들)
 SOUND_BUTTON_CLICK = sound_effects['BUTTON_CLICK'] or SOUND_ACTIVE_ITEM
 SOUND_BUTTON_HOVER = sound_effects['BUTTON_HOVER'] or SOUND_ACTIVE_ITEM
@@ -1978,6 +1990,12 @@ stage7_super_target_scale: float = 1.0
 stage7_super_last_update_ms: int = 0
 stage7_super_drain_progress: float = 0.0  # 누적 드레인 양(게이지 단위)
 
+# Stage 7 초인 파티클(악마의 주사위풍 어둠의 불꽃)
+stage7_super_particles: list[dict] = []
+
+# 초인 발동 연출(포효 포즈) 기간: 0.6초 동안 제자리에서 양팔 벌리고 포효
+stage7_super_intro_until_ms: int = 0
+
 # 디버그/테스트: 환경변수로 쿨타임 축소
 try:
     if _bool_from_env("PINGFIGHTER_TETRO_TEST"):
@@ -1986,6 +2004,17 @@ try:
         print("[Stage7Tetro][TEST] 쿨타임 3~6초로 단축")
 except Exception:
     pass
+
+# Stage 7: 대량 테트로미노 벽 소환 스킬 (양쪽 벽에 10개씩 쌓기)
+stage7_tetro_wall_left: list[pygame.Rect] = []
+stage7_tetro_wall_right: list[pygame.Rect] = []
+stage7_tetro_wall_next_trigger_ms: int = 0
+STAGE7_TETRO_WALL_INTERVAL_MS = 30000
+STAGE7_TETRO_WALL_GAUGE_COST = 50
+# 주의: STAGE7_TETRO_CELL_SIZE 정의 위치보다 이 블록이 먼저 로드되므로 직접 값 지정
+# (낙하 테트로와 동일한 셀 크기 20px)
+STAGE7_TETRO_WALL_TILE = 20
+STAGE7_TETRO_WALL_COLS = 5
 boss_current_speed = 0               # 현재 AI 보스 속도
 # 보스 AI 움직임 파라미터
 BOSS_ACCELERATION = 0.798            # 가속도 (35% 감소: 1.2 → 0.798)
@@ -2105,11 +2134,16 @@ player_missile_knockback_vel = 0  # 미사일 넉백 속도
 player_missile_stunned_timer = 0  # 미사일 스턴 타이머
 # STAGE7 초인 테트로 폭발 스턴 시 텍스트 숨김 타이머(ms 단위)
 player_stun_text_hidden_until_ms = 0
+# 초인 테트로 폭발 시 등 특정 원인에서 스턴 텍스트 완전 숨김 여부
+player_stun_text_suppress = False
 # 스테이지 6 보스 피격 효과 (소닉 스타일)
 stage6_boss_hit_timer = 0  # 보스 피격 타이머 (깜빡임 지속 시간)
 stage6_boss_hit_flash = False  # 보스 피격 깜빡임 상태
 # 스테이지 6 장막 충돌 효과
 stage6_barrier_flash_timer = 0  # 장막 깜빡임 타이머
+
+# 스테이지 6: 홍련폭염 가드 보상 플래그
+stage6_hongryun_guarded_during_inferno = False  # 홍련폭염 활성 중 토르쉴드 가드 성공 여부
 # 스매셔 쇼트 기술 관련 변수
 short_shot_active = False      # 쇼트 기술 활성화 여부
 short_shot_timer = 0           # 쇼트 기술 남은 프레임
@@ -2862,6 +2896,7 @@ def trigger_grenade_style_explosion(
     global special_gauge, special_ready, explosion_zones
     import items
 
+    # 기본 반경: 백업 메인 기준 150 유지 (화력지원은 호출부에서 radius_scale=0.8 적용)
     base_radius = 150
     base_radius = max(10, int(base_radius * radius_scale))
     if apply_commando_bonus and items.commando_arm_obtained:
@@ -2883,120 +2918,131 @@ def trigger_grenade_style_explosion(
     play_sound_with_volume(SOUND_GRENADE)
     print(f"💥 {source} 폭발 발생: X={x:.1f}, Y={y:.1f}, 반경={explosion_radius}")
 
-    boss_center_x = BOSS.centerx
-    boss_center_y = BOSS.centery
-    distance = calculate_distance((boss_center_x, boss_center_y), (x, y))
-    if distance < explosion_radius:
-        boss_stunned_timer = 120
-        direction = 1 if x < WIDTH / 2 else -1
-        knockback_power = compute_knockback_magnitude("grenade")
-        boss_knockback_vel = _apply_boss_knockback_velocity(direction * knockback_power)
 
-        if current_stage in boss_health_stages:
-            global boss_current_health
-            boss_current_health = max(0, boss_current_health - 3)
-            print(f"💥 보스 체력 피해: -3 → {boss_current_health}/{boss_max_health}")
-            if source == "fire_support" and selected_character_type == "soldier":
-                apply_health_boss_damage(1, source="fire_support")
-        else:
-            print("💥 보스 넉백 및 스턴 적용")
+# =====================
+# Stage 7 EMP 펄스(파문) 이펙트
+# =====================
+stage7_emp_pulses: list[dict] = []
 
-        global special_gauge
-        if selected_character_type == "soldier":
-            gauge_increase = 70 if apply_commando_bonus and items.commando_arm_obtained else 50
-            gauge_increase = _apply_blacksmith_berserk_gauge_bonus(gauge_increase)
-            old_gauge = special_gauge
-            special_gauge += gauge_increase
-            current_max = get_max_gauge()
-            if special_gauge > current_max:
-                special_gauge = current_max
-            if special_gauge >= 350:
-                special_ready = True
-            message = "코만도암 보너스" if gauge_increase == 70 else "수류탄 명중"
-            print(f"🎯 {message}! 게이지 {old_gauge} → {special_gauge} (+{gauge_increase})")
 
-        if current_stage == 5:
-            global stage5_boss_hurt_active, stage5_boss_hurt_timer
-            stage5_boss_hurt_active = True
-            stage5_boss_hurt_timer = 18
-            if SOUND_STAGE5_HURTS:
-                play_sound_with_volume(random.choice(SOUND_STAGE5_HURTS))
-            star_drop_chance = 0.4  # 홍련 수류탄 스타포인트 드랍 확률 (기존 100% → 40%)
-            if random.random() < star_drop_chance:
-                for _ in range(2):
-                    trade_point_system.spawn_star(
-                        BOSS.centerx + random.randint(-50, 50),
-                        BOSS.centery + random.randint(-20, 20),
-                        source_type="hongryun_grenade",
-                    )
-                print(f"🔥 Stage5 - 홍련 수류탄 효과 발동 (별 2개, 확률 {int(star_drop_chance * 100)}%)")
-            else:
-                print(f"🔥 Stage5 - 홍련 수류탄 효과 미발동 (확률 {int(star_drop_chance * 100)}%)")
+def spawn_stage7_emp_pulse(cx: int, cy: int) -> None:
+    """스테이지7 중앙 큐브 폭발 시 EMP 파문(네온 블루 링) 연속 파동을 스폰."""
+    if current_stage != 7:
+        return
+    # 4회의 연속 링을 약간의 지연을 두고 방출
+    for i in range(4):
+        stage7_emp_pulses.append(
+            {
+                "x": cx,
+                "y": cy,
+                "delay": i * 3,          # 프레임 단위 지연(빠르게 연속)
+                "radius": 24,
+                "max_radius": int(min(WIDTH, HEIGHT) * 0.9),
+                "speed": 28,            # 프레임당 확장 속도(px)
+                "thickness": 6,         # 링 두께(px)
+                "alpha": 200,
+                "alpha_decay": 9,       # 프레임당 알파 감소
+                "color": (120, 200, 255),
+                "active": True,
+            }
+        )
 
-    _destroy_stage2_rocks_in_radius(x, y, explosion_radius, source=source)
 
-    if current_stage == 4 and animated_bg_stage4 is not None:
-        crows_to_destroy = []
-        for crow_data in animated_bg_stage4.get_crow_positions():
-            crow_distance = calculate_distance((crow_data['x'], crow_data['y']), (x, y))
-            if crow_distance < explosion_radius:
-                crows_to_destroy.append(crow_data)
-        for crow_data in sorted(crows_to_destroy, key=lambda v: v['index'], reverse=True):
-            if animated_bg_stage4.catch_crow(crow_data['index']):
-                trade_point_system.spawn_star(crow_data['x'], crow_data['y'], "crow")
-                print("⭐ 까마귀 격추 - 별 생성")
-        if crows_to_destroy:
-            print(f"🪽 까마귀 {len(crows_to_destroy)}마리 격추")
+def update_stage7_emp_pulses() -> None:
+    if current_stage != 7 or not stage7_emp_pulses:
+        return
+    for pulse in stage7_emp_pulses[:]:
+        if not pulse.get("active", False):
+            stage7_emp_pulses.remove(pulse)
+            continue
+        if pulse["delay"] > 0:
+            pulse["delay"] -= 1
+            continue
+        pulse["radius"] += pulse["speed"]
+        pulse["alpha"] = max(0, pulse["alpha"] - pulse["alpha_decay"])
+        if pulse["radius"] >= pulse["max_radius"] or pulse["alpha"] <= 0:
+            pulse["active"] = False
+            stage7_emp_pulses.remove(pulse)
 
-    global tear_particles
-    for _ in range(50):
-        angle = random.uniform(0, FULL_ROTATION)
-        speed = random.uniform(5.0, 15.0)
-        vx = math.cos(math.radians(angle)) * speed
-        vy = math.sin(math.radians(angle)) * speed
-        tear_particles.append([
-            x + random.uniform(-10, 10),
-            y + random.uniform(-10, 10),
-            vx,
-            vy,
-            255,
-            random.randint(3, 8),
-        ])
 
-    for _ in range(TILE_SIZE):
-        angle = random.uniform(0, FULL_ROTATION)
-        speed = random.uniform(1.0, 4.0)
-        vx = math.cos(math.radians(angle)) * speed
-        vy = math.sin(math.radians(angle)) * speed - 0.5
-        tear_particles.append([
-            x + random.uniform(-30, 30),
-            y + random.uniform(-30, 30),
-            vx,
-            vy,
-            180,
-            random.randint(15, 25),
-        ])
+def draw_stage7_emp_pulses(surface: pygame.Surface) -> None:
+    if current_stage != 7 or not stage7_emp_pulses:
+        return
+    # EMP 링은 화면 전체를 대상으로 하므로 직접 그린다(가벼운 선 그리기만 수행)
+    for pulse in stage7_emp_pulses:
+        if pulse["delay"] > 0:
+            continue
+        alpha = int(pulse["alpha"])
+        if alpha <= 0:
+            continue
+        color = (*pulse["color"], alpha)
+        # 외곽선+글로우 2중 링(네온 느낌)
+        pygame.draw.circle(surface, color, (int(pulse["x"]), int(pulse["y"])), int(pulse["radius"]), width=pulse["thickness"])
+        glow_alpha = max(0, alpha // 2)
+        glow_color = (pulse["color"][0], pulse["color"][1], pulse["color"][2], glow_alpha)
+        pygame.draw.circle(surface, glow_color, (int(pulse["x"]), int(pulse["y"])), int(pulse["radius"]) + 8, width=max(1, pulse["thickness"] // 2))
 
-    for _ in range(20):
-        angle = random.uniform(0, FULL_ROTATION)
-        speed = random.uniform(8.0, 12.0)
-        vx = math.cos(math.radians(angle)) * speed
-        vy = math.sin(math.radians(angle)) * speed
-        tear_particles.append([
-            x,
-            y,
-            vx,
-            vy,
-            255,
-            random.randint(10, 15),
-        ])
+# -------------------------------
+# Stage 7 Super (초인) 파티클
+# -------------------------------
+def spawn_stage7_super_particles(boss_rect: pygame.Rect) -> None:
+    """보스 주변에 어두운 불꽃 파티클을 소량 생성한다."""
+    if current_stage != 7 or not globals().get('stage7_super_active', False):
+        return
+    # 1~2개 확률 생성 (프레임당) – 은은하게
+    count = 1
+    if random.random() < 0.3:
+        count += 1
+    palette = [
+        (139, 0, 0),    # 다크 레드
+        (75, 0, 130),   # 인디고
+        (25, 25, 112),  # 미드나잇 블루
+        (128, 0, 128),  # 퍼플
+    ]
+    for _ in range(count):
+        px = random.randint(boss_rect.left - 8, boss_rect.right + 8)
+        py = random.randint(boss_rect.top - 6, boss_rect.bottom)
+        vx = random.uniform(-0.5, 0.5)
+        vy = random.uniform(-1.8, -0.7)
+        size = random.uniform(2.0, 5.0)
+        life = random.randint(22, 40)
+        color = random.choice(palette)
+        stage7_super_particles.append({
+            'x': float(px), 'y': float(py), 'vx': vx, 'vy': vy,
+            'size': float(size), 'life': int(life), 'color': color
+        })
+    # 개수 상한 (성능 보호)
+    if len(stage7_super_particles) > 140:
+        del stage7_super_particles[: len(stage7_super_particles) - 140]
 
-    try:
-        play_wall_sound()
-    except Exception:
-        pass
 
-    print(f"📝 폭발 영역 등록: X={explosion_zone['x']:.1f}, Y={explosion_zone['y']:.1f}, 반경={explosion_zone['radius']}")
+def update_stage7_super_particles() -> None:
+    if not stage7_super_particles:
+        return
+    for p in stage7_super_particles[:]:
+        p['x'] += p['vx']
+        p['y'] += p['vy']
+        p['vy'] *= 0.96
+        p['size'] *= 0.96
+        p['life'] -= 1
+        if p['life'] <= 0 or p['size'] < 1.0:
+            stage7_super_particles.remove(p)
+
+
+def draw_stage7_super_particles(surface: pygame.Surface) -> None:
+    if not stage7_super_particles:
+        return
+    # 간단한 글로우: 중심점 원 + 희미한 외곽 2겹
+    for p in stage7_super_particles:
+        base_r = int(max(1, p['size']))
+        # 바깥 글로우
+        for i, alpha_scale in enumerate((0.12, 0.06)):
+            rr = int(base_r * (1.6 + i * 0.6))
+            if rr > 0:
+                glow_alpha = int(255 * alpha_scale)
+                pygame.draw.circle(surface, (*p['color'], glow_alpha), (int(p['x']), int(p['y'])), rr)
+        # 중심
+        pygame.draw.circle(surface, (*p['color'], 150), (int(p['x']), int(p['y'])), base_r)
 # === 조명탄 관련 ===
 flares = []  # 던져진 조명탄 리스트
 flare_zones = []  # 조명 지역 리스트
@@ -7168,6 +7214,269 @@ def _handle_blacksmith_hammer_rock_collision(proj: dict) -> None:
             pass
 
 
+def _handle_blacksmith_hammer_tetro_collision(proj: dict) -> None:
+    """Stage 7: 해머쇼크 발사체가 테트로미노에 닿으면 증발 처리.
+
+    - 낙하형(falling)과 설치형(installed) 모두 대상.
+    - 벽 설치형(wall_generated=True)은 덩어리 전체를 빠른 증발로 전환하고, 충돌 리스트를 즉시 제거.
+    - 발사체는 계속 진행(폭발 없음).
+    """
+    try:
+        if globals().get('current_stage') != 7:
+            return
+        if 'stage7_tetrominoes' not in globals() or not stage7_tetrominoes:
+            return
+        proj_x = float(proj.get("x", 0.0))
+        proj_y = float(proj.get("y", 0.0))
+        radius = BLACKSMITH_HAMMER_SHOCK_PROJECTILE_HITBOX_RADIUS
+
+        for mino in list(stage7_tetrominoes):
+            state = mino.get('state')
+            if state not in ('falling', 'installed'):
+                continue
+            # 셀 단위 원-사각형 충돌 체크
+            hit = False
+            for c in mino.get('cells', []) or []:
+                rect = c.get('rect')
+                if not rect:
+                    continue
+                closest_x = max(rect.left, min(proj_x, rect.right))
+                closest_y = max(rect.top, min(proj_y, rect.bottom))
+                dx = proj_x - closest_x
+                dy = proj_y - closest_y
+                if dx * dx + dy * dy <= radius * radius:
+                    hit = True
+                    break
+            if not hit:
+                continue
+            # 히트 플래시
+            try:
+                mino["hit_flash_duration"] = 130
+                mino["hit_flash_until"] = pygame.time.get_ticks() + 130
+            except Exception:
+                pass
+            # 벽 생성물은 충돌 리스트 즉시 제거(유령 충돌 방지)
+            if mino.get('wall_generated'):
+                try:
+                    for c in mino.get('cells', []) or []:
+                        _remove_wall_cell_rect(c.get('rect'))
+                except Exception:
+                    pass
+            # 빠른 증발 경로로 전환 (대쉬와 동일 처리)
+            destroy_stage7_tetromino(mino, by_player=True, by_dash=True)
+            break
+
+        # 가드 라인(보스 뒤 1자 블럭)도 동일하게 파괴
+        if 'stage7_guard_blocks' in globals() and stage7_guard_blocks:
+            for block in list(stage7_guard_blocks):
+                state = block.get('state')
+                if state not in ('assembling', 'hologram', 'deploy', 'active'):
+                    continue
+                hit = False
+                for c in block.get('cells', []) or []:
+                    rect = c.get('rect')
+                    if not rect:
+                        continue
+                    closest_x = max(rect.left, min(proj_x, rect.right))
+                    closest_y = max(rect.top, min(proj_y, rect.bottom))
+                    dx = proj_x - closest_x
+                    dy = proj_y - closest_y
+                    if dx * dx + dy * dy <= radius * radius:
+                        hit = True
+                        break
+                if hit:
+                    destroy_stage7_guard_block(block, by_player=False)
+                    break
+    except Exception:
+        pass
+
+
+def _evaporate_single_tetro_cell(mino: dict, cell: dict, *, bullet_dx: float = 0.0, bullet_dy: float = 0.0) -> None:
+    """테트로미노의 단일 셀만 증발 처리한다.
+
+    - 벽 생성물(wall_generated)인 경우 충돌 리스트에서도 해당 셀을 제거한다.
+    - 시각 효과는 소규모 임팩트 이펙트만 남기고, 미노 전체 상태는 유지한다.
+    - 모든 셀이 제거되면 미노 자체를 목록에서 제거한다.
+    """
+    try:
+        # 히트 플래시(짧게)
+        mino["hit_flash_duration"] = 130
+        mino["hit_flash_until"] = pygame.time.get_ticks() + 130
+    except Exception:
+        pass
+
+    # 벽 스킬로 생성된 블럭이면 충돌 리스트에서 해당 셀 제거
+    try:
+        if mino.get("wall_generated") and cell.get("rect"):
+            _remove_wall_cell_rect(cell["rect"])
+    except Exception:
+        pass
+
+    # 소규모 충돌 이펙트 표시
+    try:
+        cx, cy = cell["rect"].centerx, cell["rect"].centery
+        effects_manager.create_impact_effect(int(cx), int(cy), 32, is_player=False)
+    except Exception:
+        # effects_manager 미사용 버전(속도 벡터 기반)도 시도
+        try:
+            create_impact_effect(cell["rect"].centerx, cell["rect"].centery, [bullet_dx, bullet_dy], is_player=False)
+        except Exception:
+            pass
+
+    # 실제 셀 제거(목록에서 제거)
+    try:
+        if cell in mino.get("cells", []):
+            mino["cells"].remove(cell)
+    except Exception:
+        pass
+
+    # 모든 셀이 제거되면 미노 정리
+    try:
+        if not mino.get("cells"):
+            # 해체 사운드 재생 (셀 모두 제거되어 미노 해체 시)
+            try:
+                if SOUND_TETRISBREAK:
+                    play_sound_with_volume(SOUND_TETRISBREAK)
+            except Exception:
+                pass
+            _maybe_drop_star_for_tetro(mino)
+            if mino in stage7_tetrominoes:
+                stage7_tetrominoes.remove(mino)
+    except Exception:
+        pass
+
+
+def _handle_ak47_tetro_collisions() -> None:
+    """스테이지7에서 AK-47 탄환이 테트로미노에 닿았을 때, 닿은 블록 1개만 증발.
+
+    - 낙하/설치 상태의 미노에 대해 셀 단위 충돌을 검사한다.
+    - 히트 시 해당 탄환은 소모되며, 미노의 해당 셀만 제거한다.
+    - 벽 생성물(wall_generated)은 충돌 리스트에서 해당 셀을 즉시 제거하여 유령 충돌을 방지한다.
+    """
+    if globals().get("current_stage") != 7:
+        return
+    if 'stage7_tetrominoes' not in globals() or not stage7_tetrominoes:
+        return
+    # 코만도 + AK-47 활성 상태가 아니면 스킵
+    if globals().get("selected_character_type") != "soldier":
+        return
+    try:
+        ak47 = get_ak47_instance()
+    except Exception:
+        return
+    if not ak47 or not getattr(ak47, "active", False):
+        return
+
+    bullets = getattr(ak47, "bullets", [])
+    if not bullets:
+        return
+
+    remaining: list[dict] = []
+    for bullet in bullets:
+        bx = float(bullet.get("x", 0.0))
+        by = float(bullet.get("y", 0.0))
+        bdx = float(bullet.get("dx", 0.0))
+        bdy = float(bullet.get("dy", 0.0))
+        brect = pygame.Rect(int(bx) - 3, int(by) - 3, 6, 6)
+
+        hit = False
+        for mino in list(stage7_tetrominoes):
+            state = mino.get("state")
+            if state not in ("falling", "installed"):
+                continue
+            cells = list(mino.get("cells", []))
+            for c in cells:
+                rect = c.get("rect")
+                if not rect:
+                    continue
+                # 증발 표시가 이미 된 셀은 무시(보수적)
+                if c.get("evaporated", False):
+                    continue
+                if brect.colliderect(rect):
+                    _evaporate_single_tetro_cell(mino, c, bullet_dx=bdx, bullet_dy=bdy)
+                    hit = True
+                    break
+            if hit:
+                break
+        # 가드 블록(보스 뒤 1자 방어 블록)에도 단일 셀 제거 적용
+        if (not hit) and 'stage7_guard_blocks' in globals() and stage7_guard_blocks:
+            for block in list(stage7_guard_blocks):
+                state = block.get('state')
+                if state in ('destroying', None):
+                    continue
+                # 활성 후보 상태만 처리
+                if state not in ('assembling', 'hologram', 'deploy', 'active', 'spread'):
+                    continue
+                for c in list(block.get('cells', [])):
+                    rect = c.get('rect')
+                    if not rect:
+                        continue
+                    if brect.colliderect(rect):
+                        _evaporate_single_guard_cell(block, c, bullet_dx=bdx, bullet_dy=bdy)
+                        hit = True
+                        break
+                if hit:
+                    break
+        if not hit:
+            remaining.append(bullet)
+
+    # 명중하지 못한 탄환만 유지
+    ak47.bullets = remaining
+
+
+def _evaporate_single_guard_cell(block: dict, cell: dict, *, bullet_dx: float = 0.0, bullet_dy: float = 0.0) -> None:
+    """가드 테트로미노(보스 뒤 1자)의 특정 셀만 제거한다."""
+    try:
+        # 임팩트 이펙트
+        try:
+            cx, cy = cell["rect"].centerx, cell["rect"].centery
+            effects_manager.create_impact_effect(int(cx), int(cy), 28, is_player=False)
+        except Exception:
+            create_impact_effect(cell["rect"].centerx, cell["rect"].centery, [bullet_dx, bullet_dy], is_player=False)
+    except Exception:
+        pass
+
+    # 실제 셀 제거
+    try:
+        if cell in block.get("cells", []):
+            block["cells"].remove(cell)
+    except Exception:
+        pass
+
+    # 모든 셀이 제거되면 블록 정리 및 보상 처리
+    try:
+        if not block.get("cells"):
+            now = pygame.time.get_ticks()
+            # 스타 포인트(황금 블럭) 드랍 처리 복제
+            try:
+                if block.get("golden"):
+                    tps = globals().get("trade_point_system")
+                    # 마지막 제거된 셀 위치를 사용
+                    cx, cy = cell["rect"].centerx, cell["rect"].centery
+                    if tps is not None and hasattr(tps, "spawn_star"):
+                        tps.spawn_star(int(cx), int(cy), "rainbow_tetro")
+            except Exception:
+                pass
+            # 해체 사운드 재생
+            try:
+                if SOUND_TETRISBREAK:
+                    play_sound_with_volume(SOUND_TETRISBREAK)
+                else:
+                    play_wall_sound()
+            except Exception:
+                pass
+            # 리스트에서 제거 및 재스폰 스케줄 보정
+            try:
+                stage7_guard_blocks.remove(block)
+            except ValueError:
+                pass
+            remaining_active = sum(1 for b in stage7_guard_blocks if b.get("state") in ("assembling", "hologram", "deploy", "active"))
+            if remaining_active <= 3:
+                globals()['stage7_guard_next_trigger_ms'] = now
+    except Exception:
+        pass
+
+
 def _destroy_stage2_rock_for_blacksmith(rock: dict) -> None:
     """Apply shared destruction effects when hammer projectiles break rocks."""
 
@@ -7253,6 +7562,8 @@ def _advance_blacksmith_hammer_projectile(proj: dict, frames: int = 1) -> bool:
 
         if not exploded:
             _handle_blacksmith_hammer_rock_collision(proj)
+            # Stage 7: 해머쇼크 발사체로 테트로미노 증발 처리
+            _handle_blacksmith_hammer_tetro_collision(proj)
             off_screen = (
                 proj["x"] <= 0
                 or proj["x"] >= WIDTH
@@ -8084,6 +8395,64 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             radius,
         )
         blacksmith_hammer_explosions.append(explosion_entry)
+    except Exception:
+        pass
+
+    # Stage 7: 폭발 반경 내 모든 테트로미노를 증발 처리
+    try:
+        if globals().get('current_stage') == 7:
+            radius_sq = radius * radius
+            if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+                for mino in list(stage7_tetrominoes):
+                    if mino.get('state') in ('destroying', 'evaporating'):
+                        continue
+                    hit = False
+                    for c in mino.get('cells', []) or []:
+                        rect = c.get('rect')
+                        if not rect:
+                            continue
+                        closest_x = max(rect.left, min(centerx, rect.right))
+                        closest_y = max(rect.top, min(centery, rect.bottom))
+                        dx = centerx - closest_x
+                        dy = centery - closest_y
+                        if dx * dx + dy * dy <= radius_sq:
+                            hit = True
+                            break
+                    if not hit:
+                        continue
+                    try:
+                        mino["hit_flash_duration"] = 130
+                        mino["hit_flash_until"] = pygame.time.get_ticks() + 130
+                    except Exception:
+                        pass
+                    if mino.get('wall_generated'):
+                        try:
+                            for c in mino.get('cells', []) or []:
+                                _remove_wall_cell_rect(c.get('rect'))
+                        except Exception:
+                            pass
+                    destroy_stage7_tetromino(mino, by_player=True, by_dash=True)
+
+            # 가드 라인 블럭도 반경 내 파괴
+            if 'stage7_guard_blocks' in globals() and stage7_guard_blocks:
+                for block in list(stage7_guard_blocks):
+                    state = block.get('state')
+                    if state not in ('assembling', 'hologram', 'deploy', 'active'):
+                        continue
+                    hit = False
+                    for c in block.get('cells', []) or []:
+                        rect = c.get('rect')
+                        if not rect:
+                            continue
+                        closest_x = max(rect.left, min(centerx, rect.right))
+                        closest_y = max(rect.top, min(centery, rect.bottom))
+                        dx = centerx - closest_x
+                        dy = centery - closest_y
+                        if dx * dx + dy * dy <= radius_sq:
+                            hit = True
+                            break
+                    if hit:
+                        destroy_stage7_guard_block(block, by_player=False)
     except Exception:
         pass
 
@@ -9629,6 +9998,88 @@ def update_blacksmith_turret():
                         apply_health_boss_damage(1, source="blacksmith_turret")
                         blacksmith_turret_boss_hit_count = 0
                 continue
+
+            # Stage 7: 포탑 미사일 ↔ 테트로/가드 충돌 → 미사일 폭발 + 대상 파괴
+            if (
+                globals().get('current_stage') == 7
+                and 'stage7_tetrominoes' in globals()
+            ):
+                tetro_hit = None
+                # 원(미사일 반경) - 사각형(셀) 근접 판정
+                if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+                    for mino in list(stage7_tetrominoes):
+                        if mino.get('state') in ('destroying', 'evaporating'):
+                            continue
+                        hit = False
+                        for c in mino.get('cells', []) or []:
+                            rect = c.get('rect')
+                            if not rect:
+                                continue
+                            closest_x = max(rect.left, min(projectile_rect.centerx, rect.right))
+                            closest_y = max(rect.top, min(projectile_rect.centery, rect.bottom))
+                            dx = projectile_rect.centerx - closest_x
+                            dy = projectile_rect.centery - closest_y
+                            if dx * dx + dy * dy <= (radius * radius):
+                                hit = True
+                                break
+                        if hit:
+                            tetro_hit = mino
+                            break
+                if tetro_hit is None and 'stage7_guard_blocks' in globals() and stage7_guard_blocks:
+                    for block in list(stage7_guard_blocks):
+                        if block.get('state') not in ('assembling', 'hologram', 'deploy', 'active'):
+                            continue
+                        hit = False
+                        for c in (block.get('cells', []) or []):
+                            rect = c.get('rect')
+                            if not rect:
+                                continue
+                            closest_x = max(rect.left, min(projectile_rect.centerx, rect.right))
+                            closest_y = max(rect.top, min(projectile_rect.centery, rect.bottom))
+                            dx = projectile_rect.centerx - closest_x
+                            dy = projectile_rect.centery - closest_y
+                            if dx * dx + dy * dy <= (radius * radius):
+                                hit = True
+                                break
+                        if hit:
+                            # 폭발 이펙트
+                            cx, cy = int(projectile_rect.centerx), int(projectile_rect.centery)
+                            try:
+                                effects_manager.create_impact_effect(cx, cy, radius * 2.0, is_player=False)
+                                effects_manager.spawn_star_particles(cx, cy, count=8)
+                                effects_manager.spawn_flame_particles(cx, cy, count=7)
+                                effects_manager.spawn_construction_smoke(cx, cy, count=5, spread=20)
+                            except Exception:
+                                pass
+                            destroy_stage7_guard_block(block, by_player=True)
+                            continue
+                if tetro_hit is not None:
+                    # 영향 이펙트 + 파티클(보스 히트와 동일 스타일)
+                    cx, cy = int(projectile_rect.centerx), int(projectile_rect.centery)
+                    try:
+                        effects_manager.create_impact_effect(cx, cy, radius * 2.0, is_player=False)
+                        effects_manager.spawn_star_particles(cx, cy, count=8)
+                        effects_manager.spawn_flame_particles(cx, cy, count=7)
+                        effects_manager.spawn_construction_smoke(cx, cy, count=5, spread=20)
+                    except Exception:
+                        pass
+                    # 히트 플래시
+                    try:
+                        tetro_hit["hit_flash_duration"] = 130
+                        tetro_hit["hit_flash_until"] = pygame.time.get_ticks() + 130
+                    except Exception:
+                        pass
+                    # 벽 생성물인 경우 충돌 리스트 즉시 제거
+                    if tetro_hit.get('wall_generated'):
+                        try:
+                            for c in tetro_hit.get('cells', []) or []:
+                                _remove_wall_cell_rect(c.get('rect'))
+                        except Exception:
+                            pass
+                    # 빠른 증발로 전환
+                    destroy_stage7_tetromino(tetro_hit, by_player=True, by_dash=True)
+                    # 미사일은 여기서 소멸 (폭발 처리 완료)
+                    continue
 
             current_turret_rect = turret_state.get("rect") if turret_state else None
             if grace_frames <= 0 and current_turret_rect and current_turret_rect.colliderect(projectile_rect):
@@ -11655,6 +12106,9 @@ BOSS_IMG_STAGE5_WIDTH = 130
 BOSS_IMG_STAGE5_HEIGHT = 70
 BOSS_IMG_STAGE7_WIDTH = 95
 BOSS_IMG_STAGE7_HEIGHT = 76
+# Stage 7 보스 프레임 패딩(캔버스 여백) – 팔/외곽이 잘리는 느낌 최소화
+STAGE7_FRAME_PAD_X = 16  # 좌우 여백(px)
+STAGE7_FRAME_PAD_Y = 10  # 상하 여백(px)
 # 전역 변수 추가 (파일 위쪽에 위치)
 whip_wave_phase = 0
 whip_angle = 0  # 상모돌리기 각도
@@ -15362,8 +15816,14 @@ _stage7_loaded_frames: list[pygame.Surface] = []
 for frame_name in STAGE7_FRAME_FILES:
     try:
         frame_surface = pygame.image.load(resource_path(frame_name)).convert_alpha()
+        # 원본을 표준 크기로 스케일
         frame_surface = pygame.transform.smoothscale(frame_surface, (BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT))
-        _stage7_loaded_frames.append(frame_surface)
+        # 패딩 캔버스 위에 중앙 정렬로 배치 (투명 여백 추가)
+        padded_w = BOSS_IMG_STAGE7_WIDTH + STAGE7_FRAME_PAD_X * 2
+        padded_h = BOSS_IMG_STAGE7_HEIGHT + STAGE7_FRAME_PAD_Y * 2
+        padded = pygame.Surface((padded_w, padded_h), pygame.SRCALPHA)
+        padded.blit(frame_surface, (STAGE7_FRAME_PAD_X, STAGE7_FRAME_PAD_Y))
+        _stage7_loaded_frames.append(padded)
     except Exception:
         _stage7_loaded_frames = []
         break
@@ -15371,7 +15831,7 @@ for frame_name in STAGE7_FRAME_FILES:
 BOSS_IMG_STAGE7_FRAMES = _stage7_loaded_frames
 
 if not BOSS_IMG_STAGE7_FRAMES:
-    fallback = pygame.Surface((BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT), pygame.SRCALPHA)
+    fallback = pygame.Surface((BOSS_IMG_STAGE7_WIDTH + STAGE7_FRAME_PAD_X * 2, BOSS_IMG_STAGE7_HEIGHT + STAGE7_FRAME_PAD_Y * 2), pygame.SRCALPHA)
     fallback.fill((240, 120, 220))
     BOSS_IMG_STAGE7_FRAMES = [fallback]
 
@@ -20958,6 +21418,57 @@ def update_soldier_bullets():
                 # 넉백 효과 트리거 - 기존 시스템 사용 (boss_knockback_vel을 설정하는 함수)
                 trigger_soldier_bullet_knockback(bullet["x"], bullet["y"])
 
+            # Stage 7: 코만도 권총 탄환이 테트로/가드에 닿으면 증발/파괴(탄환은 소멸)
+            if bullet["active"] and current_stage == 7:
+                tetro_destroyed = False
+                # 낙하/설치/벽 테트로
+                if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+                    for mino in list(stage7_tetrominoes):
+                        if mino.get('state') in ('destroying', 'evaporating'):
+                            continue
+                        hit = False
+                        for c in mino.get('cells', []) or []:
+                            r = c.get('rect')
+                            if r and bullet_rect.colliderect(r):
+                                hit = True
+                                break
+                        if not hit:
+                            continue
+                        # 히트 플래시
+                        try:
+                            mino["hit_flash_duration"] = 130
+                            mino["hit_flash_until"] = pygame.time.get_ticks() + 130
+                        except Exception:
+                            pass
+                        # 벽 생성물은 충돌 리스트 즉시 제거
+                        if mino.get('wall_generated'):
+                            try:
+                                for c in mino.get('cells', []) or []:
+                                    _remove_wall_cell_rect(c.get('rect'))
+                            except Exception:
+                                pass
+                        destroy_stage7_tetromino(mino, by_player=True, by_dash=True)
+                        bullet["active"] = False
+                        tetro_destroyed = True
+                        try:
+                            effects_manager.create_impact_effect(int(bullet["x"]), int(bullet["y"]), 40, is_player=False)
+                        except Exception:
+                            pass
+                        break
+                # 가드 라인(1자 블럭)
+                if bullet["active"] and not tetro_destroyed and 'stage7_guard_blocks' in globals() and stage7_guard_blocks:
+                    for block in list(stage7_guard_blocks):
+                        if block.get('state') not in ('assembling', 'hologram', 'deploy', 'active'):
+                            continue
+                        if any(bullet_rect.colliderect(c.get('rect')) for c in (block.get('cells', []) or []) if c.get('rect')):
+                            destroy_stage7_guard_block(block, by_player=True)
+                            bullet["active"] = False
+                            try:
+                                effects_manager.create_impact_effect(int(bullet["x"]), int(bullet["y"]), 40, is_player=False)
+                            except Exception:
+                                pass
+                            break
+
 
 def apply_ak47_boss_hit_effect(hit_event):
     """AK-47 탄환이 보스를 적중했을 때의 후속 효과 적용"""
@@ -22273,9 +22784,9 @@ def handle_player(keys):
                 # 무전기 모션 활성화 (0.5초)
                 start_supply_radio_loop()
 
-                # 플레이어 통제불능 상태 (0.5초) - 프레임 단위 정확한 타이밍
-                player_stunned_timer = 30  # 정확히 30프레임 = 0.5초
-                player_knockback_vel = 0  # 넉백 속도 초기화 (물자보급은 넉백 없음)
+                # 플레이어 통제불능 상태 (0.5초) - 스턴 UI 없이 입력만 잠금
+                soldier_control_lock_timer = max(soldier_control_lock_timer, 30)
+                player_knockback_vel = 0  # 넉백 없음
 
                 print("📻 물자보급 요청! 무전기 모션 시작")
                 print(f"물자보급 발동! {timer_value/60:.1f}초 후 비행기 출현")
@@ -23945,7 +24456,7 @@ def handle_player(keys):
                                 )
                                 fire_support_radio_loop_active = True
                                 supply_runtime.hold_active = True
-                                player_stunned_timer = max(player_stunned_timer, FIRE_SUPPORT_CONTROL_LOCK_FRAMES)
+                                # 입력/사격만 잠그고 스턴 UI는 띄우지 않음
                                 player_knockback_vel = 0
                                 soldier_control_lock_timer = max(
                                     soldier_control_lock_timer,
@@ -24223,6 +24734,49 @@ def handle_player(keys):
         if DEBUG_DRAW_UMBRELLA_HITBOX:
             debug_umbrella_hitbox_rect = None
     
+    # Stage 7: 토르쉴드 스윙 중 낙하형/가드 라인 테트로 파괴 처리
+    try:
+        if (
+            current_stage == 7
+            and umbrella_guard_active
+            and 'stage7_tetrominoes' in globals()
+            and stage7_tetrominoes
+        ):
+            # 스윙 메인 단계에서만 발동 (타격판정/방패 각도 변화 구간)
+            if 'umbrella_swinging_main' in locals() and umbrella_swinging_main:
+                for mino in list(stage7_tetrominoes):
+                    if mino.get('state') != 'falling':
+                        continue
+                    if mino.get('wall_generated'):
+                        # 벽 생성물은 제외 (요청: 낙하형만)
+                        continue
+                    hit = False
+                    for cell in mino.get('cells', []):
+                        if player_collision_rect.colliderect(cell.get('rect')):
+                            hit = True
+                            break
+                    if hit:
+                        try:
+                            # 히트 플래시(번쩍) 효과
+                            mino["hit_flash_duration"] = 130
+                            mino["hit_flash_until"] = pygame.time.get_ticks() + 130
+                        except Exception:
+                            pass
+                        # 토르쉴드 스윙에 맞으면 빠른 증발(대쉬와 동일 경로)
+                        destroy_stage7_tetromino(mino, by_player=True, by_dash=True)
+                        break  # 한 번에 하나만 처리
+            # 가드 라인 블럭도 스윙 판정에 닿으면 파괴
+            if 'stage7_guard_blocks' in globals() and stage7_guard_blocks:
+                for block in list(stage7_guard_blocks):
+                    if block.get('state') not in ('assembling', 'hologram', 'deploy', 'active'):
+                        continue
+                    hit = any(player_collision_rect.colliderect(c.get('rect')) for c in block.get('cells', []) or [])
+                    if hit:
+                        destroy_stage7_guard_block(block, by_player=True)
+                        break
+    except Exception:
+        pass
+
     collision_with_player = BALL.colliderect(player_collision_rect)
     if (
         selected_character_type == "blacksmith"
@@ -24256,6 +24810,12 @@ def handle_player(keys):
             blacksmith_shield_impact_timer = 30  # 0.5초간 충격파 효과
             if SOUND_BLACKSMITH_UMBRELLA_BLOCK and player_sound_cooldown <= 0:
                 play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_BLOCK)
+            # Stage 6: 홍련폭염 활성 중 토르쉴드 가드 성공 기록
+            try:
+                if current_stage == 6 and flame_trail_active:
+                    globals()['stage6_hongryun_guarded_during_inferno'] = True
+            except Exception:
+                pass
             frames_since_last_hit = frame_counter - blacksmith_umbrella_last_hit_frame
             if frame_counter <= blacksmith_umbrella_last_hit_frame:
                 frames_since_last_hit = BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES
@@ -26004,10 +26564,124 @@ def handle_wall():
             )
             grenades.remove(grenade)
             continue
-    # 폭발 지역 업데이트 (지속시간 감소)
+    # 폭발 지역 업데이트 (지속시간 감소 + 테트로 증발 처리)
     explosion_zones = [zone for zone in explosion_zones if zone["duration"] > 0]
     for zone in explosion_zones:
         zone["duration"] -= 1
+        # 보스 넉백+스턴 적용 (수류탄/화력지원 폭발만 1회 적용)
+        try:
+            if (
+                zone.get("active", False)
+                and zone.get("source") in ("grenade", "fire_support")
+                and not zone.get("boss_applied", False)
+                and 'BOSS' in globals() and BOSS is not None
+            ):
+                bx, by = get_center_pos(BOSS)
+                cx = float(zone.get("x", 0.0))
+                cy = float(zone.get("y", 0.0))
+                r = float(zone.get("radius", 0.0))
+                # 중심 거리 기반 판정 (간단/일관)
+                if calculate_distance((bx, by), (cx, cy)) <= r:
+                    # 스턴(백업값 복구: 84프레임 = 1.4초)
+                    boss_stunned_timer = max(boss_stunned_timer, 84)
+                    # 폭심지로부터 멀어지는 방향
+                    direction = 1 if bx >= cx else -1
+                    # 넉백 세기(백업값 복구: 40)
+                    power = 40.0
+                    boss_knockback_vel = _apply_boss_knockback_velocity(direction * power)
+                    zone["boss_applied"] = True
+        except Exception:
+            pass
+        # Stage 7: 수류탄 폭발 반경 내 테트로/가드 증발(한 번만 적용)
+        try:
+            if (
+                current_stage == 7
+                and zone.get("active", False)
+                and zone.get("source") in ("grenade", "fire_support")
+                and not zone.get("tetro_applied", False)
+                and 'stage7_tetrominoes' in globals()
+                and stage7_tetrominoes
+            ):
+                cx = float(zone.get("x", 0.0))
+                cy = float(zone.get("y", 0.0))
+                r = float(zone.get("radius", 0.0))
+                r2 = r * r
+                affected = 0
+                for mino in list(stage7_tetrominoes):
+                    state = mino.get("state")
+                    if state in ("destroying", "evaporating"):
+                        continue
+                    # 원-사각형 근접 판정: 셀 중 하나라도 반경 내면 파괴
+                    touched = False
+                    for c in mino.get("cells", []) or []:
+                        rect = c.get("rect")
+                        if not rect:
+                            continue
+                        closest_x = max(rect.left, min(cx, rect.right))
+                        closest_y = max(rect.top, min(cy, rect.bottom))
+                        dx = cx - closest_x
+                        dy = cy - closest_y
+                        if dx * dx + dy * dy <= r2:
+                            touched = True
+                            break
+                    if not touched:
+                        continue
+                    # 히트 플래시(번쩍)
+                    try:
+                        mino["hit_flash_duration"] = 130
+                        mino["hit_flash_until"] = pygame.time.get_ticks() + 130
+                    except Exception:
+                        pass
+                    # 벽 생성물은 충돌 리스트 즉시 제거
+                    if mino.get("wall_generated"):
+                        try:
+                            for c in mino.get("cells", []) or []:
+                                _remove_wall_cell_rect(c.get("rect"))
+                        except Exception:
+                            pass
+                    destroy_stage7_tetromino(mino, by_player=True, by_dash=True)
+                    affected += 1
+                if affected > 0:
+                    zone["tetro_applied"] = True
+            # 가드 라인 블럭도 동일 처리
+            if (
+                current_stage == 7
+                and zone.get("active", False)
+                and zone.get("source") in ("grenade", "fire_support")
+                and not zone.get("guard_applied", False)
+                and 'stage7_guard_blocks' in globals()
+                and stage7_guard_blocks
+            ):
+                cx = float(zone.get("x", 0.0))
+                cy = float(zone.get("y", 0.0))
+                r = float(zone.get("radius", 0.0))
+                r2 = r * r
+                affected = 0
+                for block in list(stage7_guard_blocks):
+                    state = block.get("state")
+                    if state not in ("assembling", "hologram", "deploy", "active"):
+                        continue
+                    hit = False
+                    for c in block.get("cells", []) or []:
+                        rect = c.get("rect")
+                        if not rect:
+                            continue
+                        closest_x = max(rect.left, min(cx, rect.right))
+                        closest_y = max(rect.top, min(cy, rect.bottom))
+                        dx = cx - closest_x
+                        dy = cy - closest_y
+                        if dx * dx + dy * dy <= r2:
+                            hit = True
+                            break
+                    if hit:
+                        destroy_stage7_guard_block(block, by_player=True)
+                        affected += 1
+                if affected > 0:
+                    zone["guard_applied"] = True
+        except Exception:
+            pass
+    # Stage7 EMP 파문 업데이트
+    update_stage7_emp_pulses()
     # 연막탄 업데이트
     for smoke_grenade in smoke_grenades[:]:
         if not smoke_grenade["arrived"]:
@@ -28343,6 +29017,8 @@ def _create_stage7_guard_block(label: str, start_left: float, final_left: float,
         "move_timer": 0.0,
         "cells": cells,
         "last_update": now,
+        "golden": True if random.random() < 0.03 else False,
+        "golden_seed": random.randint(0, 1000),
     }
 
 
@@ -28601,6 +29277,18 @@ def update_stage7_guard_blocks(now: int | None = None) -> None:
                 cell["fade"] = fade
             if block["destroy_timer"] <= 0:
                 # 파괴 완료 → 리스트에서 제거
+                try:
+                    if block.get("golden"):
+                        xs = [c["rect"].centerx for c in block.get("cells", []) if c.get("rect")]
+                        ys = [c["rect"].centery for c in block.get("cells", []) if c.get("rect")]
+                        if xs and ys:
+                            cx = int(sum(xs) / len(xs))
+                            cy = int(sum(ys) / len(ys))
+                            tps = globals().get("trade_point_system")
+                            if tps is not None and hasattr(tps, "spawn_star"):
+                                tps.spawn_star(cx, cy, "rainbow_tetro")
+                except Exception:
+                    pass
                 stage7_guard_blocks.remove(block)
                 # 플레이어가 파괴했고, 남은 활성 블록(assembling/hologram/deploy/active)이 3개 이하라면 즉시 재스폰 예약
                 remaining_active = sum(1 for b in stage7_guard_blocks if b.get("state") in ("assembling", "hologram", "deploy", "active"))
@@ -28615,13 +29303,44 @@ def draw_stage7_guard_blocks(surface: pygame.Surface) -> None:
     if not stage7_guard_blocks:
         return
 
-    base_color = (90, 190, 255)
-    highlight_color = (200, 240, 255)
-    hologram_color = (140, 200, 255)
-    border_color = (30, 90, 160)
+    base_color_default = (90, 190, 255)
+    highlight_color_default = (200, 240, 255)
+    hologram_color_default = (140, 200, 255)
+    border_color_default = (30, 90, 160)
 
     for block in stage7_guard_blocks:
         state = block.get("state")
+        # 황금 블럭 색상 적용
+        if block.get("golden"):
+            try:
+                seed = int(block.get("golden_seed", 0))
+                t = (pygame.time.get_ticks() + seed) * 0.006
+                r = int(128 + 127 * math.sin(t))
+                g = int(128 + 127 * math.sin(t + 2.094))
+                b = int(128 + 127 * math.sin(t + 4.188))
+                base_color = (_clamp(r), _clamp(g), _clamp(b)) if ' _clamp' in locals() else (max(0,min(255,r)), max(0,min(255,g)), max(0,min(255,b)))
+            except Exception:
+                base_color = (200, 200, 255)
+            # 파생 색상(라이트/홀로그램/보더)
+            highlight_color = (min(255, base_color[0] + 25), min(255, base_color[1] + 25), min(255, base_color[2] + 25))
+            hologram_color = (min(255, base_color[0] + 10), min(255, base_color[1] + 10), min(255, base_color[2] + 10))
+            border_color = (max(0, base_color[0] - 90), max(0, base_color[1] - 90), max(0, base_color[2] - 90))
+        else:
+            base_color = base_color_default
+            highlight_color = highlight_color_default
+            hologram_color = hologram_color_default
+            border_color = border_color_default
+        # 황금 번쩍(스테이지2 황금 바위 느낌) 펄스
+        try:
+            if block.get("golden"):
+                seed = int(block.get("golden_seed", 0))
+                t = (pygame.time.get_ticks() + seed) * 0.016
+                pulse = 0.6 + 0.4 * math.sin(t * 0.35)
+                boost = int(35 * pulse)
+                base_color = (min(255, base_color[0] + boost), min(255, base_color[1] + int(boost * 0.6)), max(0, base_color[2] - int(boost * 0.35)))
+                highlight_color = (min(255, highlight_color[0] + boost), min(255, highlight_color[1] + int(boost * 0.7)), highlight_color[2])
+        except Exception:
+            pass
         visible_cells = block.get("visible_cells", 0)
         for idx, cell in enumerate(block["cells"]):
             rect = cell["rect"]
@@ -28647,6 +29366,24 @@ def draw_stage7_guard_blocks(surface: pygame.Surface) -> None:
             pygame.draw.rect(temp, (*highlight_color, min(255, alpha + 25)), temp.get_rect().inflate(-4, -4), border_radius=3)
             pygame.draw.rect(temp, (*border_color, border_alpha), temp.get_rect(), 2, border_radius=4)
             surface.blit(temp, rect.topleft)
+            # 황금 십자 글린트
+            if block.get("golden") and idx == 0:
+                try:
+                    glint = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+                    seed = int(block.get("golden_seed", 0))
+                    glow_alpha = int(70 + 65 * abs(math.sin((pygame.time.get_ticks() + seed) * 0.01)))
+                    pygame.draw.rect(glint, (255, 245, 140, glow_alpha), (rect.width//2 - 1, 0, 2, rect.height))
+                    pygame.draw.rect(glint, (255, 245, 140, glow_alpha), (0, rect.height//2 - 1, rect.width, 2))
+                    surface.blit(glint, rect.topleft, special_flags=pygame.BLEND_ADD)
+                    # 대각 쉬머
+                    shift = int(((pygame.time.get_ticks() + seed) * 0.05) % (rect.width + rect.height))
+                    shimmer = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+                    c = (255, 255, 200, 85)
+                    pygame.draw.line(shimmer, c, (max(0, shift - rect.height), 0), (min(rect.width, shift), min(rect.height, shift)), 2)
+                    pygame.draw.line(shimmer, c, (max(0, shift - rect.height) - 5, 0), (min(rect.width, shift - 5), min(rect.height, shift - 5)), 2)
+                    surface.blit(shimmer, rect.topleft, special_flags=pygame.BLEND_ADD)
+                except Exception:
+                    pass
 
 
 def update_stage7_guard_skill(now: int | None = None) -> None:
@@ -28689,6 +29426,288 @@ def update_stage7_guard_skill(now: int | None = None) -> None:
         stage7_guard_next_trigger_ms = now + 1000
 
 
+# =====================
+# Stage 7: 대량 테트로 벽 스킬
+# =====================
+
+def reset_stage7_tetro_wall_state(*, reset_timer: bool = True) -> None:
+    """Stage 7 대량 테트로 벽 상태 초기화"""
+    global stage7_tetro_wall_left, stage7_tetro_wall_right, stage7_tetro_wall_next_trigger_ms
+    stage7_tetro_wall_left.clear()
+    stage7_tetro_wall_right.clear()
+    if reset_timer:
+        stage7_tetro_wall_next_trigger_ms = 0
+    # 시각용으로 추가했던 벽 테트로(mino) 제거
+    try:
+        for m in list(stage7_tetrominoes):
+            if m.get('wall_generated'):
+                stage7_tetrominoes.remove(m)
+    except Exception:
+        pass
+
+
+def _tetro_wall_shapes():
+    # 기본 테트로미노 셀 좌표 세트
+    return {
+        'I': [(0,0),(1,0),(2,0),(3,0)],
+        'O': [(0,0),(1,0),(0,1),(1,1)],
+        'T': [(0,0),(1,0),(2,0),(1,1)],
+        'S': [(1,0),(2,0),(0,1),(1,1)],
+        'Z': [(0,0),(1,0),(1,1),(2,1)],
+        'J': [(0,0),(0,1),(1,1),(2,1)],
+        'L': [(2,0),(0,1),(1,1),(2,1)],
+    }
+
+
+def _rotate_cells(cells, times: int):
+    pts = cells
+    for _ in range(times % 4):
+        pts = [(-y, x) for (x, y) in pts]
+        min_x = min(p[0] for p in pts)
+        min_y = min(p[1] for p in pts)
+        pts = [(x - min_x, y - min_y) for (x, y) in pts]
+    return pts
+
+
+def _spawn_tetro_wall_for_side(out_list: list, origin_x: int, origin_bottom_y: int, cols: int, rows: int, tile: int, *, side: str):
+    """측면 하나에 테트로 10개를 쌓고, 시각용 mino(dict)도 반환.
+    - out_list에는 즉시 충돌 rect를 넣지 않음(조립 완료 후 설치 단계에서 추가)
+    - side: 'left' 또는 'right'
+    """
+    occupied = set()
+    shapes = _tetro_wall_shapes()
+    # 공용 스펙(레거시 호환)에서 개수 참조; 실패 시 10 유지
+    try:
+        from game_logic.stage7_tetriser import get_tetro_wall_spawn_spec_legacy
+        spec = get_tetro_wall_spawn_spec_legacy(width=WIDTH, height=HEIGHT)
+        pieces = int(spec.get('pieces_per_side', 10))
+    except Exception:
+        pieces = 10
+    now = pygame.time.get_ticks()
+    minos = []
+    for _ in range(pieces):
+        shape_name = random.choice(list(shapes.keys()))
+        base = shapes[shape_name]
+        cells = _rotate_cells(base, random.randint(0, 3))
+        max_cx = max(c[0] for c in cells)
+        max_cy = max(c[1] for c in cells)
+        width_cells = max_cx + 1
+        start_col = random.randint(0, max(0, cols - width_cells))
+
+        row = 0
+        while True:
+            blocked = False
+            for (cx, cy) in cells:
+                nx = start_col + cx
+                ny = row + cy + 1
+                if ny >= rows or (nx, ny) in occupied:
+                    blocked = True
+                    break
+            if blocked:
+                break
+            row += 1
+            if row + max_cy >= rows - 1:
+                break
+
+        cell_rects = []
+        for (cx, cy) in cells:
+            col = start_col + cx
+            r = row + cy
+            occupied.add((col, r))
+            final_left = float(origin_x + col * tile)
+            final_top = float(origin_bottom_y - r * tile - tile)
+            # 조립 연출: 최종 위치 주변에서 살짝 흩어져 있다가 모이는 효과
+            start_left = final_left + random.uniform(-8.0, 8.0)
+            start_top = final_top + random.uniform(-8.0, 8.0)
+            rect = pygame.Rect(int(round(start_left)), int(round(start_top)), tile, tile)
+            cell_rects.append({
+                'rect': rect,
+                'start_left': start_left,
+                'start_top': start_top,
+                'final_left': final_left,
+                'final_top': final_top,
+            })
+
+        # 시각용 테트로(설치 상태) 생성
+        minos.append({
+            'state': 'assembling',
+            'cells': cell_rects,
+            'shape': shape_name,
+            'visible_cells': 0,
+            'assembly_elapsed': 0.0,
+            'installed_duration_ms': 6000,
+            'pulse_enabled': True,
+            'wall_generated': True,  # 벽 스킬이 만든 것임을 표시
+            'wall_side': side,
+            'last_update': now,
+            'golden': True if random.random() < 0.01 else False,
+            'golden_seed': random.randint(0, 1000),
+        })
+
+    return minos
+
+
+def spawn_stage7_tetro_walls(now: int | None = None) -> bool:
+    """양쪽 벽에 테트로미노 10개씩 쌓아 스폰. 게이지 50 소모."""
+    global boss_special_gauge
+    if current_stage != 7:
+        return False
+    if now is None:
+        now = pygame.time.get_ticks()
+    # 스펙에서 코스트 참조(레거시 값=50), 실패 시 상수 사용
+    try:
+        from game_logic.stage7_tetriser import get_tetro_wall_spawn_spec_legacy
+        _spec = get_tetro_wall_spawn_spec_legacy(width=WIDTH, height=HEIGHT)
+        _cost = int(_spec.get('skill_cost', STAGE7_TETRO_WALL_GAUGE_COST))
+    except Exception:
+        _cost = STAGE7_TETRO_WALL_GAUGE_COST
+    if boss_special_gauge < _cost:
+        return False
+
+    # 게이지 차감
+    boss_special_gauge = max(0, boss_special_gauge - _cost)
+
+    # 화면/그리드 파라미터
+    # 스펙에서 타일/열 참조(레거시 값 유지: tile=20, cols=5)
+    try:
+        _spec = get_tetro_wall_spawn_spec_legacy(width=WIDTH, height=HEIGHT)  # type: ignore[name-defined]
+        tile = int(_spec.get('tile', STAGE7_TETRO_WALL_TILE))
+        cols = int(_spec.get('cols', STAGE7_TETRO_WALL_COLS))
+    except Exception:
+        tile = STAGE7_TETRO_WALL_TILE
+        cols = STAGE7_TETRO_WALL_COLS
+    grid_w = cols * tile
+    rows = max(1, HEIGHT // tile)
+
+    # 기존 벽 제거 후 새로 생성(누적 방지)
+    stage7_tetro_wall_left.clear()
+    stage7_tetro_wall_right.clear()
+
+    # 테트로 셀 생성 + 시각용 mino 수집
+    left_minos = _spawn_tetro_wall_for_side(stage7_tetro_wall_left, 0, HEIGHT - tile, cols, rows, tile, side='left')
+    right_minos = _spawn_tetro_wall_for_side(stage7_tetro_wall_right, WIDTH - grid_w, HEIGHT - tile, cols, rows, tile, side='right')
+    # 기존 벽 생성물 제거 후 다시 추가(중복 방지)
+    try:
+        for m in list(stage7_tetrominoes):
+            if m.get('wall_generated'):
+                stage7_tetrominoes.remove(m)
+    except Exception:
+        pass
+    stage7_tetrominoes.extend(left_minos)
+    stage7_tetrominoes.extend(right_minos)
+    try:
+        _cost_str = str(_cost)
+    except Exception:
+        _cost_str = str(STAGE7_TETRO_WALL_GAUGE_COST)
+    print(f"[Stage7TetroWall] Spawned L={len(stage7_tetro_wall_left)} R={len(stage7_tetro_wall_right)} cost={_cost_str} gauge→{boss_special_gauge}")
+    # 소환 사운드 재생
+    try:
+        if SOUND_TETRISWALL:
+            play_sound_with_volume(SOUND_TETRISWALL)
+        else:
+            # 폴백: 기존 벽 사운드 사용
+            play_wall_sound()
+    except Exception:
+        pass
+    return True
+
+
+def update_stage7_tetro_wall_skill(now: int | None = None) -> None:
+    """30초마다 게이지 50 소모로 대량 테트로 벽 소환"""
+    global stage7_tetro_wall_next_trigger_ms
+    if current_stage != 7:
+        return
+    if now is None:
+        now = pygame.time.get_ticks()
+
+    # 공용 스펙(레거시 호환)에서 간격(sec) 참조; 실패 시 상수 사용
+    try:
+        from game_logic.stage7_tetriser import get_tetro_wall_spawn_spec_legacy
+        _spec = get_tetro_wall_spawn_spec_legacy(width=WIDTH, height=HEIGHT)
+        _interval_ms = int(float(_spec.get('interval_sec', STAGE7_TETRO_WALL_INTERVAL_MS / 1000.0)) * 1000)
+    except Exception:
+        _interval_ms = STAGE7_TETRO_WALL_INTERVAL_MS
+
+    if stage7_tetro_wall_next_trigger_ms == 0:
+        stage7_tetro_wall_next_trigger_ms = now + _interval_ms
+
+    if now < stage7_tetro_wall_next_trigger_ms:
+        return
+
+    if spawn_stage7_tetro_walls(now):
+        stage7_tetro_wall_next_trigger_ms = now + _interval_ms
+    else:
+        # 게이지 부족 등 → 1초 뒤 재시도
+        stage7_tetro_wall_next_trigger_ms = now + 1000
+
+
+def draw_stage7_tetro_walls(surface: pygame.Surface) -> None:
+    if current_stage != 7:
+        return
+    # 반투명 채움 + 짙은 외곽선으로 가시성 보장
+    color_l = (90, 180, 255, 220)
+    color_r = (255, 200, 90, 220)
+    border = (30, 30, 30)
+    for r in stage7_tetro_wall_left:
+        s = pygame.Surface((r.width, r.height), pygame.SRCALPHA)
+        s.fill(color_l)
+        surface.blit(s, r.topleft)
+        pygame.draw.rect(surface, border, r, 2)
+    for r in stage7_tetro_wall_right:
+        s = pygame.Surface((r.width, r.height), pygame.SRCALPHA)
+        s.fill(color_r)
+        surface.blit(s, r.topleft)
+        pygame.draw.rect(surface, border, r, 2)
+
+
+def _remove_wall_cell_rect(rect: pygame.Rect) -> None:
+    """벽 충돌리스트에서 해당 셀 rect를 제거 (양쪽 리스트 모두 시도)."""
+    try:
+        if rect in stage7_tetro_wall_left:
+            stage7_tetro_wall_left.remove(rect)
+    except Exception:
+        pass
+    # 오른쪽 리스트에도 동일하게 존재할 수 있으므로 보수적으로 제거 시도
+    try:
+        if rect in stage7_tetro_wall_right:
+            stage7_tetro_wall_right.remove(rect)
+    except Exception:
+        pass
+
+def _mark_wall_cell_evaporated(rect: pygame.Rect) -> None:
+    """벽 스킬 미노가 공에 맞았을 때: 낙하형과 동일한 해체(증발) 애니메이션을 트리거.
+
+    - 해당 rect를 소유한 wall_generated 미노를 찾아 destroy_stage7_tetromino(by_player=True) 호출
+      → 빠른 증발(간격 111ms, 스팀 파티클)로 사라짐.
+    - 찾지 못하면 보수적으로 해당 rect만 충돌 리스트에서 제거.
+    """
+    try:
+        for m in stage7_tetrominoes:
+            if not m.get('wall_generated'):
+                continue
+            if any(c.get('rect') is rect for c in m.get('cells', [])):
+                # 히트 플래시 부여(짧게 반짝임)
+                try:
+                    m["hit_flash_duration"] = 130
+                    m["hit_flash_until"] = pygame.time.get_ticks() + 130
+                except Exception:
+                    pass
+                # 이미 해체 중이면 중복 호출 방지
+                if m.get('state') not in ('destroying', 'evaporating'):
+                    destroy_stage7_tetromino(m, by_player=True)
+                # 충돌 비활성화를 즉시 보장(애니메이션은 유지)
+                try:
+                    for c in m.get('cells', []):
+                        _remove_wall_cell_rect(c.get('rect'))
+                except Exception:
+                    pass
+                return
+    except Exception:
+        pass
+    # 소유 미노를 찾지 못한 경우: 해당 셀만 제거
+    _remove_wall_cell_rect(rect)
+
+
 def destroy_stage7_guard_block(block: dict, *, now: int | None = None, by_player: bool = False) -> None:
     if block.get("state") == "destroying":
         return
@@ -28700,8 +29719,12 @@ def destroy_stage7_guard_block(block: dict, *, now: int | None = None, by_player
     block["last_update"] = now
     block["visible_cells"] = len(block.get("cells", []))
     block["destroy_reason"] = "player" if by_player else "other"
+    # 해체 사운드: 테트로 해체 효과음을 우선 사용, 없으면 기본 벽 사운드
     try:
-        play_wall_sound()
+        if SOUND_TETRISBREAK:
+            play_sound_with_volume(SOUND_TETRISBREAK)
+        else:
+            play_wall_sound()
     except Exception:
         pass
 
@@ -28719,6 +29742,248 @@ STAGE7_TETRO_ASSEMBLY_TOTAL_MS = 1000
 STAGE7_TETRO_ASSEMBLY_STEP_MS = 250      # 4개의 셀이 0.25초 간격으로 등장 → 총 1초
 STAGE7_TETRO_ASSEMBLY_MOVE_MS = 200      # 각 셀이 등장 후 목표 위치까지 이동하는 시간
 
+# =====================
+# Stage 7: 중앙 큐브 시스템 (3x3 정사각형 그리드로 표현)
+# - 맵 중앙(원형 서클) 내부에 큐브를 표시
+# - 공이 원 내부를 '진입'할 때마다 큐브를 무작위로 회전/섞기
+# - 큐브의 3x3 칸 색이 모두 일치하면 1초 후 폭발 → 맵의 테트로미노들을 제거(증발)
+# - 이후 보스 테트로미노가 공/대쉬로 사라질 때마다 큐브 재조립 진행
+# - 5개 증발 시 큐브 완성 → 다시 활성화(새 큐브 생성)
+# =====================
+
+# 중앙 큐브 전역 상태
+stage7_center_cube_state: dict | None = None
+
+STAGE7_CUBE_RADIUS = 90  # 원형 서클 반지름
+STAGE7_CUBE_GRID_SIZE = 3
+STAGE7_CUBE_CELL_GAP = 3
+STAGE7_CUBE_SOLVE_DELAY_MS = 1000
+
+
+def _stage7_init_center_cube(now: int | None = None) -> None:
+    """중앙 큐브 상태를 초기화한다 (스테이지7 전용)."""
+    if now is None:
+        now = pygame.time.get_ticks()
+    global stage7_center_cube_state
+    # 6면 색상 팔레트(루빅 느낌). 화면 가독성 높은 계열로 선정
+    palette = [
+        (255, 80, 80),   # R
+        (80, 180, 255),  # B
+        (255, 200, 60),  # Y
+        (80, 230, 120),  # G
+        (255, 150, 0),   # O
+        (240, 240, 240), # W
+    ]
+    # 3x3 무작위 색 그리드 생성 (완전 단색 방지)
+    grid = [[random.choice(palette) for _ in range(STAGE7_CUBE_GRID_SIZE)] for _ in range(STAGE7_CUBE_GRID_SIZE)]
+    # 만약 우연히 단색이면 한 칸 바꿔 단색 해제
+    flat = [c for row in grid for c in row]
+    if all(c == flat[0] for c in flat):
+        i = random.randrange(0, 9)
+        r, c = divmod(i, 3)
+        grid[r][c] = random.choice([p for p in palette if p != flat[0]])
+
+    stage7_center_cube_state = {
+        "active": True,
+        "rebuild": False,
+        "rebuild_progress": 0,   # 0~5
+        "grid": grid,
+        "palette": palette,
+        "cx": WIDTH // 2,
+        "cy": HEIGHT // 2,
+        "ball_inside": False,
+        "solve_pending": False,
+        "solve_at": 0,           # ms
+        # 공 통과 횟수에 따른 자발적 정답 유도(게임 진행성을 위해)
+        "passes_to_solve": random.randint(4, 8),
+        "last_updated": now,
+    }
+
+
+def _stage7_cube_is_uniform(grid: list[list[tuple]]) -> bool:
+    base = grid[0][0]
+    for r in range(3):
+        for c in range(3):
+            if grid[r][c] != base:
+                return False
+    return True
+
+
+def _stage7_cube_random_rotate(state: dict) -> None:
+    """랜덤 회전/섞기: 전체 90도 회전 또는 특정 행/열을 순환 이동."""
+    grid = state["grid"]
+    mode = random.choice(("rot90", "row", "col"))
+    if mode == "rot90":
+        # 시계방향 90도 회전
+        new_grid = [[grid[2 - c][r] for c in range(3)] for r in range(3)]
+        state["grid"] = new_grid
+    elif mode == "row":
+        r = random.randrange(0, 3)
+        shift = random.choice((-1, 1))
+        row = grid[r][:]
+        state["grid"][r] = row[-shift:] + row[:-shift]
+    else:  # col
+        c = random.randrange(0, 3)
+        col = [grid[r][c] for r in range(3)]
+        shift = random.choice((-1, 1))
+        col2 = col[-shift:] + col[:-shift]
+        for r in range(3):
+            grid[r][c] = col2[r]
+
+
+def _stage7_cube_force_uniform(state: dict) -> None:
+    """그리드를 단색으로 맞춘다(연출/진행용)."""
+    palette = state.get("palette") or []
+    color = random.choice(palette) if palette else (255, 255, 100)
+    state["grid"] = [[color for _ in range(3)] for _ in range(3)]
+
+
+def _stage7_cube_explode_and_clear_tetros(now: int | None = None) -> None:
+    """큐브 폭발 연출 및 스테이지7 테트로미노 제거(증발 처리)."""
+    if now is None:
+        now = pygame.time.get_ticks()
+    global stage7_center_cube_state
+    if not stage7_center_cube_state:
+        return
+    cx = stage7_center_cube_state.get("cx", WIDTH // 2)
+    cy = stage7_center_cube_state.get("cy", HEIGHT // 2)
+    # 시각/사운드: 수류탄 스타일 폭발 재사용 (반경 약간 큼)
+    try:
+        trigger_grenade_style_explosion(cx, cy, apply_commando_bonus=False, source="center_cube", radius_scale=1.2)
+    except Exception:
+        pass
+    # 스타포인트 1개 드랍
+    try:
+        if 'trade_point_system' in globals() and trade_point_system:
+            trade_point_system.spawn_star(cx, cy, "stage7_center_cube")
+    except Exception:
+        pass
+    # 모든 테트로미노를 증발 처리 (연막 파괴와 동일한 경로)
+    try:
+        if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+            for mino in list(stage7_tetrominoes):
+                if mino.get("state") not in ("evaporating", "destroying"):
+                    destroy_stage7_tetromino(mino, by_smoke=True)
+    except Exception:
+        pass
+    # 상태 전환: 재조립 모드로
+    stage7_center_cube_state["active"] = False
+    stage7_center_cube_state["rebuild"] = True
+    stage7_center_cube_state["rebuild_progress"] = 0
+    stage7_center_cube_state["solve_pending"] = False
+    stage7_center_cube_state["solve_at"] = 0
+
+
+def stage7_cube_notify_tetro_evaporated(reason: str) -> None:
+    """테트로미노가 사라졌을 때(공/대쉬) 재조립 진행도를 증가."""
+    if current_stage != 7:
+        return
+    global stage7_center_cube_state
+    st = stage7_center_cube_state
+    if not st or not st.get("rebuild"):
+        return
+    if reason not in ("player", "dash"):
+        return
+    st["rebuild_progress"] = min(5, int(st.get("rebuild_progress", 0)) + 1)
+    if st["rebuild_progress"] >= 5:
+        # 완성 → 새 큐브 생성
+        _stage7_init_center_cube()
+
+
+def update_stage7_center_cube(now: int | None = None) -> None:
+    if current_stage != 7:
+        return
+    if now is None:
+        now = pygame.time.get_ticks()
+    global stage7_center_cube_state
+    if stage7_center_cube_state is None:
+        _stage7_init_center_cube(now)
+    st = stage7_center_cube_state
+    if not st:
+        return
+    st["last_updated"] = now
+
+    cx, cy = st.get("cx", WIDTH // 2), st.get("cy", HEIGHT // 2)
+    # 공이 원 내부에 있는지 확인
+    dx = BALL.centerx - cx
+    dy = BALL.centery - cy
+    inside = (dx * dx + dy * dy) <= (STAGE7_CUBE_RADIUS * STAGE7_CUBE_RADIUS)
+    # 진입 에지에서만 동작
+    if inside and not st.get("ball_inside", False) and st.get("active", False):
+        _stage7_cube_random_rotate(st)
+        # 진행성 보장: 몇 번 진입하면 강제 단색
+        passes_to_solve = max(0, int(st.get("passes_to_solve", 0)) - 1)
+        st["passes_to_solve"] = passes_to_solve
+        if passes_to_solve == 0:
+            _stage7_cube_force_uniform(st)
+        # 일치 판정
+        if _stage7_cube_is_uniform(st["grid"]) and not st.get("solve_pending", False):
+            st["solve_pending"] = True
+            st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
+    st["ball_inside"] = inside
+
+    # 폭발 예약 처리
+    if st.get("solve_pending") and now >= int(st.get("solve_at", 0)):
+        _stage7_cube_explode_and_clear_tetros(now)
+
+
+def draw_stage7_center_cube(surface: pygame.Surface) -> None:
+    if current_stage != 7:
+        return
+    st = stage7_center_cube_state
+    if not st:
+        return
+    cx, cy = st.get("cx", WIDTH // 2), st.get("cy", HEIGHT // 2)
+    # 중앙 원(경계) 표시
+    pygame.draw.circle(surface, (30, 40, 60), (cx, cy), STAGE7_CUBE_RADIUS + 10, width=2)
+    pygame.draw.circle(surface, (12, 18, 28), (cx, cy), STAGE7_CUBE_RADIUS, width=2)
+
+    # 큐브(정면 3x3) 렌더: 활성 상태에서는 전체, 재조립 상태에서는 진행도에 따라 일부 채움
+    grid = st.get("grid")
+    if not grid:
+        return
+    # 그리드 렌더 영역 계산 (원 내부 정사각형)
+    half = int(STAGE7_CUBE_RADIUS * 0.9)
+    size = half * 2
+    left = cx - half
+    top = cy - half
+    cell = (size - (STAGE7_CUBE_CELL_GAP * (STAGE7_CUBE_GRID_SIZE - 1))) // STAGE7_CUBE_GRID_SIZE
+
+    # 재조립 모드일 때 채움 개수 계산
+    rebuild = bool(st.get("rebuild", False))
+    filled_count = 9
+    if rebuild:
+        prog = int(st.get("rebuild_progress", 0))
+        # 0~5를 0~9로 매핑 (올림)
+        filled_count = max(0, min(9, int(round(9 * (prog / 5.0)))))
+    # 채움 순서(가독성 위주 좌→우, 상→하)
+    order = [(r, c) for r in range(3) for c in range(3)]
+    # 타겟 단색 (재조립 중에는 단색 목표로 보이도록)
+    target_color = grid[0][0]
+    if rebuild:
+        # 재조립 중에는 단색 목표의 색으로 표시
+        target_color = (255, 255, 100)
+
+    idx = 0
+    for r in range(3):
+        for c in range(3):
+            x = left + c * (cell + STAGE7_CUBE_CELL_GAP)
+            y = top + r * (cell + STAGE7_CUBE_CELL_GAP)
+            rect = pygame.Rect(x, y, cell, cell)
+            if rebuild:
+                if idx < filled_count:
+                    base = target_color
+                else:
+                    base = (40, 40, 50)
+            else:
+                base = grid[r][c]
+            # 셀 채움 + 하이라이트 테두리로 큐브 타일 느낌
+            pygame.draw.rect(surface, base, rect, border_radius=4)
+            pygame.draw.rect(surface, (20, 20, 28), rect, 2, border_radius=4)
+            inner = rect.inflate(-4, -4)
+            hl = tuple(min(255, int(v * 1.15)) for v in base[:3])
+            pygame.draw.rect(surface, hl, inner, 1, border_radius=3)
+            idx += 1
 
 def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
     """Stage 7 테트로미노 스킬 상태 초기화."""
@@ -28731,6 +29996,10 @@ def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
         stage7_tetro_followup_remaining = 0
         stage7_super_active = False
         stage7_super_ends_at_ms = 0
+        try:
+            stage7_super_particles.clear()
+        except Exception:
+            pass
 
 
 def _schedule_stage7_tetro(now: int | None = None) -> None:
@@ -28829,6 +30098,16 @@ def spawn_stage7_tetromino(now: int | None = None) -> bool:
         "shape": shape,
         "scale": scale,
         "super": bool(stage7_super_active),
+        "golden": True if random.random() < 0.03 else False,
+        # 낙하 중 가끔 좌우로 1~2칸 이동 (셀 크기 단위)
+        # 40% 확률로 -2..-1..1..2 중 하나 선택, 그 외 0(이동 없음)
+        "drift_cells_remaining": (random.choice([-2, -1, 1, 2]) if random.random() < 0.4 else 0),
+        "drift_cooldown": 0,  # 스텝 단위 쿨다운
+        # 낙하 중 가끔 회전(90도) 1~2회
+        "rotate_times_remaining": (random.choice([1, 2]) if random.random() < 0.35 else 0),
+        "rotate_timer_ms": 0.0,
+        "rotate_interval_ms": random.randint(200, 340),
+        "rotate_dir": random.choice([-1, 1]),  # -1: CCW, 1: CW
     }
     stage7_tetrominoes.append(mino)
     return True
@@ -28873,13 +30152,37 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
                 c["rect"].x = int(round(c_left))
                 c["rect"].y = int(round(c_top))
 
-            # 총 1초 경과 시 낙하 상태로 전환, 위치를 최종값으로 스냅
+            # 총 1초 경과 시 다음 단계로 전환, 위치를 최종값으로 스냅
             if mino["assembly_elapsed"] >= STAGE7_TETRO_ASSEMBLY_TOTAL_MS:
                 for c in mino["cells"]:
                     c["rect"].x = int(round(c["final_left"]))
                     c["rect"].y = int(round(c["final_top"]))
-                mino["state"] = "falling"
-                mino["step_accum"] = 0.0
+                # 벽 생성물은 낙하 없이 곧바로 설치 상태로 전환하고 충돌 리스트에 등록
+                if mino.get("wall_generated"):
+                    mino["state"] = "installed"
+                    mino["installed_at"] = now
+                    side = mino.get("wall_side", 'left')
+                    target_list = stage7_tetro_wall_left if side == 'left' else stage7_tetro_wall_right
+                    for c in mino["cells"]:
+                        if c["rect"] not in target_list:
+                            target_list.append(c["rect"])
+                else:
+                    mino["state"] = "falling"
+                    mino["step_accum"] = 0.0
+                    # 낙하 시작 시점 기록 및 랜덤 발동 시점(0.5~1.2초) 스케줄링
+                    mino["falling_started_at"] = now
+                    try:
+                        if int(mino.get("drift_cells_remaining", 0)) != 0:
+                            mino["drift_start_due_ms"] = now + random.randint(500, 1200)
+                        else:
+                            mino["drift_start_due_ms"] = 0
+                        if int(mino.get("rotate_times_remaining", 0)) > 0:
+                            mino["rotate_start_due_ms"] = now + random.randint(500, 1200)
+                        else:
+                            mino["rotate_start_due_ms"] = 0
+                    except Exception:
+                        mino["drift_start_due_ms"] = 0
+                        mino["rotate_start_due_ms"] = 0
         elif state == "falling":
             mino["step_accum"] += elapsed
             floor_y = HEIGHT - 12
@@ -28889,11 +30192,116 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
                 if other is mino:
                     continue
                 if other.get("state") == "installed":
-                    installed_cells.extend([c["rect"] for c in other.get("cells", [])])
+                    # 증발된 셀은 충돌 후보에서 제외
+                    installed_cells.extend([c["rect"] for c in other.get("cells", []) if not c.get("evaporated", False)])
 
             while mino["step_accum"] >= STAGE7_TETRO_STEP_MS:
                 mino["step_accum"] -= STAGE7_TETRO_STEP_MS
                 step_s = STAGE7_TETRO_CELL_SIZE * max(1, int(mino.get("scale", 1)))
+
+                # A) 낙하 중 좌우 드리프트(셀 단위) 시도 — 낙하 후 0.5~1.2초 사이 랜덤 시점부터 활성화
+                try:
+                    drift = int(mino.get("drift_cells_remaining", 0))
+                    if drift != 0:
+                        due = int(mino.get("drift_start_due_ms", 0))
+                        if due and now < due:
+                            # 아직 발동 시점이 아님
+                            pass
+                        else:
+                            dcool = int(mino.get("drift_cooldown", 0))
+                            if dcool <= 0:
+                                dx_px = step_s if drift > 0 else -step_s
+                                can_move = True
+                                for c in mino["cells"]:
+                                    test_rect = c["rect"].copy()
+                                    test_rect.x += dx_px
+                                    if test_rect.left < 0 or test_rect.right > WIDTH:
+                                        can_move = False
+                                        break
+                                    for rc in installed_cells:
+                                        if test_rect.colliderect(rc):
+                                            can_move = False
+                                            break
+                                    if not can_move:
+                                        break
+                                if can_move:
+                                    for c in mino["cells"]:
+                                        c["rect"].x += dx_px
+                                    # 1칸 이동 완료 → 남은 칸 수 갱신
+                                    mino["drift_cells_remaining"] = drift - (1 if drift > 0 else -1)
+                                    mino["drift_cooldown"] = 1  # 다음 스텝까지 대기
+                                else:
+                                    # 막혔으면 중단
+                                    mino["drift_cells_remaining"] = 0
+                            else:
+                                # 쿨다운 중이면 카운트 다운
+                                mino["drift_cooldown"] = max(0, dcool - 1)
+                except Exception:
+                    pass
+
+                # B) 낙하 중 90도 회전 시도(최대 1~2회) — 낙하 후 0.5~1.2초 사이 랜덤 시점부터 활성화
+                try:
+                    rleft = int(mino.get("rotate_times_remaining", 0))
+                    if rleft > 0:
+                        rdue = int(mino.get("rotate_start_due_ms", 0))
+                        if rdue and now < rdue:
+                            # 아직 발동 시점이 아님: 타이머는 축적하지만 시도는 보류
+                            mino["rotate_timer_ms"] = float(mino.get("rotate_timer_ms", 0.0)) + STAGE7_TETRO_STEP_MS
+                            # 다음 스텝으로 진행
+                            pass
+                        else:
+                            rtimer = float(mino.get("rotate_timer_ms", 0.0)) + STAGE7_TETRO_STEP_MS
+                            rinterval = float(mino.get("rotate_interval_ms", 260.0))
+                            if rtimer >= rinterval:
+                                xs = [c["rect"].centerx for c in mino.get("cells", [])]
+                                ys = [c["rect"].centery for c in mino.get("cells", [])]
+                                if xs and ys:
+                                    cx = sum(xs) / len(xs)
+                                    cy = sum(ys) / len(ys)
+                                    dir_sign = 1 if int(mino.get("rotate_dir", 1)) >= 0 else -1
+                                    new_rects = []
+                                    for c in mino.get("cells", []):
+                                        ox = c["rect"].centerx - cx
+                                        oy = c["rect"].centery - cy
+                                        if dir_sign >= 0:  # CW 90°
+                                            nx = cx + oy
+                                            ny = cy - ox
+                                        else:             # CCW 90°
+                                            nx = cx - oy
+                                            ny = cy + ox
+                                        test_rect = c["rect"].copy()
+                                        test_rect.centerx = int(round(nx))
+                                        test_rect.centery = int(round(ny))
+                                        new_rects.append(test_rect)
+                                    ok = True
+                                    for tr in new_rects:
+                                        if tr.left < 0 or tr.right > WIDTH or tr.top < 0 or tr.bottom > HEIGHT:
+                                            ok = False
+                                            break
+                                        for rc in installed_cells:
+                                            if tr.colliderect(rc):
+                                                ok = False
+                                                break
+                                        if not ok:
+                                            break
+                                    if ok:
+                                        for i, c in enumerate(mino["cells"]):
+                                            c["rect"].centerx = new_rects[i].centerx
+                                            c["rect"].centery = new_rects[i].centery
+                                        mino["rotation"] = (int(mino.get("rotation", 0)) + (90 if dir_sign >= 0 else -90)) % 360
+                                        mino["rotate_times_remaining"] = rleft - 1
+                                        mino["rotate_interval_ms"] = random.randint(200, 340)
+                                        mino["rotate_dir"] = random.choice([-1, 1])  # 다음 회전 방향 랜덤
+                                        mino["rotate_timer_ms"] = 0.0
+                                    else:
+                                        # 실패: 타이머 일부만 유지해 다음 시도까지 대기시간 축소
+                                        mino["rotate_timer_ms"] = max(0.0, rtimer - rinterval * 0.5)
+                                else:
+                                    mino["rotate_timer_ms"] = 0.0
+                            else:
+                                mino["rotate_timer_ms"] = rtimer
+                except Exception:
+                    pass
 
                 # 1) 바닥 충돌 예측: 다음 스텝 이동 시 바닥을 넘는지
                 bottom_now = max(c["rect"].bottom for c in mino["cells"])
@@ -28936,6 +30344,7 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
 
             # 화면 밖으로 완전히 벗어나면 제거
             if all(c["rect"].top >= HEIGHT for c in mino["cells"]):
+                _maybe_drop_star_for_tetro(mino)
                 stage7_tetrominoes.remove(mino)
                 # 삭제된 경우에는 last_update 갱신 불필요
                 continue
@@ -28943,8 +30352,18 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
             # 설치 후 일정 시간이 지나면 증발 해체 시퀀스 시작
             installed_at = int(mino.get("installed_at", now))
             since = now - installed_at
-            # 증발 상태 진입 (3초 경과)
-            if since >= 3000 and mino.get("state") != "evaporating":
+            # 모든 셀이 충돌 등으로 이미 제거되었으면 즉시 정리
+            if all(c.get("evaporated", False) for c in mino.get("cells", [])):
+                # 안전 정리: 남은 충돌 셀 제거
+                if mino.get("wall_generated"):
+                    for c in mino.get("cells", []):
+                        _remove_wall_cell_rect(c["rect"])
+                _maybe_drop_star_for_tetro(mino)
+                stage7_tetrominoes.remove(mino)
+                continue
+            # 증발 상태 진입 (낙하형 기본 1.5초, 벽 생성물은 개별 지정(6초))
+            expire_ms = int(mino.get("installed_duration_ms", 1500))
+            if since >= expire_ms and mino.get("state") != "evaporating":
                 mino["state"] = "evaporating"
                 mino["evap_timer"] = 0.0
                 mino["evap_interval"] = 160  # 셀 1개당 0.16초 간격으로 증발
@@ -28970,6 +30389,9 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
                     c = mino["cells"][idx]
                     if not c.get("evaporated", False):
                         c["evaporated"] = True
+                        # 벽 스킬 생성물: 시각적으로 사라질 때 충돌 셀도 제거
+                        if mino.get("wall_generated"):
+                            _remove_wall_cell_rect(c["rect"])
                         # 수증기 파티클 생성
                         cx, cy = c["rect"].centerx, c["rect"].centery
                         parts = []
@@ -29004,6 +30426,11 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
             # 모든 셀이 증발했는지 확인
             all_gone = all(c.get("evaporated", False) for c in mino.get("cells", []))
             if all_gone and not particles:
+                # 안전 정리: 남아있을 수 있는 충돌 셀 제거
+                if mino.get("wall_generated"):
+                    for c in mino.get("cells", []):
+                        _remove_wall_cell_rect(c["rect"])
+                _maybe_drop_star_for_tetro(mino)
                 stage7_tetrominoes.remove(mino)
                 continue
         elif state == "destroying":
@@ -29021,12 +30448,30 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
                     mino["state"] = "installed"
                     # last_update는 아래에서 갱신됨
                 else:
+                    _maybe_drop_star_for_tetro(mino)
                     stage7_tetrominoes.remove(mino)
                     continue
 
         # 마지막에 업데이트 시간 반영
         mino["last_update"] = now
 
+
+# Stage 7 테트로 렌더링용 임시 Surface 캐시(크기별 1장 재사용)
+_stage7_cache_cell: dict[tuple[int, int], pygame.Surface] = {}
+_stage7_cache_glint: dict[tuple[int, int], pygame.Surface] = {}
+_stage7_cache_shimmer: dict[tuple[int, int], pygame.Surface] = {}
+_stage7_cache_ring: dict[tuple[int, int], pygame.Surface] = {}
+_stage7_cache_bubble: dict[tuple[int, int], pygame.Surface] = {}
+
+def _stage7_get_temp_surface(cache: dict, size: tuple[int, int]) -> pygame.Surface:
+    surf = cache.get(size)
+    if surf is None:
+        surf = pygame.Surface(size, pygame.SRCALPHA)
+        cache[size] = surf
+    else:
+        # 완전 투명으로 초기화 (alpha 포함)
+        surf.fill((0, 0, 0, 0))
+    return surf
 
 def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
     if not stage7_tetrominoes:
@@ -29046,19 +30491,52 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
         def _darken(c: tuple[int,int,int], amt: int = 50) -> tuple[int,int,int]:
             return (_clamp(c[0] - amt), _clamp(c[1] - amt), _clamp(c[2] - amt))
 
-        # 도형별 색상 매핑
-        if shape == 'T':
-            base_color = (255, 105, 180)   # 핑크
-        elif shape == 'I':
-            base_color = (90, 160, 255)    # 파랑
-        elif shape == 'O':
-            base_color = (255, 220, 60)    # 노랑
-        elif shape == 'L':
-            base_color = (255, 165, 60)    # 주황
-        elif shape == 'Z':
-            base_color = (80, 220, 120)    # 초록
+        # 도형별 색상 매핑 (특수=무지개 애니메이션)
+        is_golden = bool(mino.get("golden"))
+        if is_golden:
+            try:
+                seed = int(mino.get("golden_seed", 0))
+                t = (pygame.time.get_ticks() + seed) * 0.006
+                r = int(128 + 127 * math.sin(t))
+                g = int(128 + 127 * math.sin(t + 2.094))  # +120°
+                b = int(128 + 127 * math.sin(t + 4.188))  # +240°
+                base_color = (_clamp(r), _clamp(g), _clamp(b))
+            except Exception:
+                base_color = (200, 200, 255)
         else:
-            base_color = (170, 90, 255)    # 기본 보라
+            if shape == 'T':
+                base_color = (255, 105, 180)   # 핑크
+            elif shape == 'I':
+                base_color = (90, 160, 255)    # 파랑
+            elif shape == 'O':
+                base_color = (255, 220, 60)    # 노랑
+            elif shape == 'L':
+                base_color = (255, 165, 60)    # 주황
+            elif shape == 'Z':
+                base_color = (80, 220, 120)    # 초록
+            else:
+                base_color = (170, 90, 255)    # 기본 보라
+        # 특수 번쩍: 주기적인 강한 펄스 적용(무지개 색상에도 강/약 변조)
+        if is_golden:
+            try:
+                seed = int(mino.get("golden_seed", 0))
+                t2 = (pygame.time.get_ticks() + seed) * 0.016
+                pulse = 0.55 + 0.45 * math.sin(t2 * 0.35)
+                boost = int(36 * pulse)
+                base_color = _lighten(base_color, boost)
+            except Exception:
+                pass
+        # 피격 순간 반짝임(히트 플래시): 짧은 시간 동안 밝기를 크게 올린다
+        try:
+            now_ms = pygame.time.get_ticks()
+            flash_until = int(mino.get("hit_flash_until", 0))
+            if flash_until > now_ms:
+                duration = int(mino.get("hit_flash_duration", 130)) or 130
+                strength = max(0.0, min(1.0, (flash_until - now_ms) / float(duration)))
+                boost = int(120 * strength)  # 최대 +120 밝기 부스트
+                base_color = _lighten(base_color, boost)
+        except Exception:
+            pass
         highlight_color = _lighten(base_color, 35)
         border_color = _darken(base_color, 70)
         for idx, cell in enumerate(mino["cells"]):
@@ -29083,18 +30561,40 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
                 else:
                     alpha = 230
                     border_alpha = 255
-                # 증발 중 이미 사라진 셀은 표시하지 않음
-                if state == "evaporating" and cell.get("evaporated", False):
+                # 이미 사라진 셀은 표시하지 않음(벽 충돌 혹은 증발 과정)
+                if cell.get("evaporated", False):
                     continue
             else:
                 alpha = 230
                 border_alpha = 255
 
-            temp = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+            temp = _stage7_get_temp_surface(_stage7_cache_cell, (rect.width, rect.height))
             pygame.draw.rect(temp, (*base_color, alpha), temp.get_rect(), border_radius=4)
             pygame.draw.rect(temp, (*highlight_color, min(255, alpha + 20)), temp.get_rect().inflate(-4, -4), border_radius=3)
             pygame.draw.rect(temp, (*border_color, border_alpha), temp.get_rect(), 2, border_radius=4)
             surface.blit(temp, rect.topleft)
+            # 특수 글린트(십자 섬광 + 슬라이딩 쉬머) 추가
+            if is_golden and idx == 0:
+                try:
+                    cx, cy = rect.centerx, rect.centery
+                    glint = _stage7_get_temp_surface(_stage7_cache_glint, (rect.width, rect.height))
+                    seed = int(mino.get("golden_seed", 0))
+                    glow_alpha = int(80 + 70 * abs(math.sin((pygame.time.get_ticks() + seed) * 0.01)))
+                    glint_color = (_clamp(base_color[0] + 40), _clamp(base_color[1] + 40), _clamp(base_color[2] + 40), glow_alpha)
+                    # 수직/수평 얇은 십자(현재 base_color 계열)
+                    pygame.draw.rect(glint, glint_color, (rect.width//2 - 1, 0, 2, rect.height))
+                    pygame.draw.rect(glint, glint_color, (0, rect.height//2 - 1, rect.width, 2))
+                    surface.blit(glint, rect.topleft, special_flags=pygame.BLEND_ADD)
+                    # 대각 쉬머 라인 (슬라이딩)
+                    shift = int(((pygame.time.get_ticks() + seed) * 0.05) % (rect.width + rect.height))
+                    shimmer = _stage7_get_temp_surface(_stage7_cache_shimmer, (rect.width, rect.height))
+                    c = (_clamp(base_color[0] + 55), _clamp(base_color[1] + 55), _clamp(base_color[2] + 55), 85)
+                    # 두 개의 대각선 라인만 그려 퍼포먼스 유지
+                    pygame.draw.line(shimmer, c, (max(0, shift - rect.height), 0), (min(rect.width, shift), min(rect.height, shift)), 2)
+                    pygame.draw.line(shimmer, c, (max(0, shift - rect.height) - 5, 0), (min(rect.width, shift - 5), min(rect.height, shift - 5)), 2)
+                    surface.blit(shimmer, rect.topleft, special_flags=pygame.BLEND_ADD)
+                except Exception:
+                    pass
 
         # 파편 대신 홀로그램 링 팝 효과(파괴 상태에서만 추가 렌더)
         if state == "destroying":
@@ -29109,7 +30609,7 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
             ring_alpha = int(200 * (1.0 - prog))
             if radius > 2 and ring_alpha > 0:
                 ring_size = radius * 2 + 4
-                ring = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
+                ring = _stage7_get_temp_surface(_stage7_cache_ring, (ring_size, ring_size))
                 pygame.draw.circle(ring, (*highlight_color, ring_alpha), (ring_size // 2, ring_size // 2), radius, width=3)
                 pygame.draw.circle(ring, (*border_color, int(ring_alpha * 0.8)), (ring_size // 2, ring_size // 2), max(1, radius - 2), width=1)
                 surface.blit(ring, (cx - ring_size // 2, cy - ring_size // 2))
@@ -29125,7 +30625,7 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
                 size = int(max(1, p.get("size", 2) * (1.0 + (1.0 - k) * 0.6)))
                 if alpha_p <= 0:
                     continue
-                bubble = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                bubble = _stage7_get_temp_surface(_stage7_cache_bubble, (size * 2, size * 2))
                 pygame.draw.circle(bubble, (230, 230, 255, alpha_p), (size, size), size)
                 surface.blit(bubble, (int(p["x"]) - size, int(p["y"]) - size))
 
@@ -29157,6 +30657,12 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: b
         mino["pulse_enabled"] = False  # 깜빡임 금지
         mino["nonblocking"] = True     # 플레이어 차단하지 않음
         mino["last_update"] = now
+        # 해체 사운드 재생
+        try:
+            if SOUND_TETRISBREAK:
+                play_sound_with_volume(SOUND_TETRISBREAK)
+        except Exception:
+            pass
         return
 
     # 그 외(예: 기타 효과)에 의한 파괴: 기존 링 이펙트를 사용하고, 이후 설치→증발 순서로 진행
@@ -29179,8 +30685,32 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: b
         pass
 
 
+def _maybe_drop_star_for_tetro(mino: dict) -> None:
+    """무지개(특수) 테트로가 해체될 때 스타 포인트 1개 드랍."""
+    try:
+        if not mino.get("golden") or mino.get("star_dropped"):
+            return
+        # 중심 좌표 계산
+        xs = [c["rect"].centerx for c in mino.get("cells", []) if c.get("rect")]
+        ys = [c["rect"].centery for c in mino.get("cells", []) if c.get("rect")]
+        if not xs or not ys:
+            return
+        cx = int(sum(xs) / len(xs))
+        cy = int(sum(ys) / len(ys))
+        tps = globals().get("trade_point_system")
+        if tps is not None and hasattr(tps, "spawn_star"):
+            tps.spawn_star(cx, cy, "rainbow_tetro")
+            mino["star_dropped"] = True
+    except Exception:
+        pass
+
+
 def stage7_tetromino_explode(mino: dict, *, now: int | None = None) -> None:
-    """초인 테트리서 기간 중 착지 시 폭발. 플레이어가 반경 내에 있으면 넉백+스턴(0.5s)."""
+    """초인 테트리서 기간 중 착지 시 폭발.
+
+    - 기본: 넉백 + 스턴 0.5s
+    - 초인(슈퍼) 활성 시: 넉백 2배 + 스턴 1.0s
+    """
     if now is None:
         now = pygame.time.get_ticks()
     # 폭발 중심
@@ -29209,21 +30739,28 @@ def stage7_tetromino_explode(mino: dict, *, now: int | None = None) -> None:
         dist = math.hypot(dx, dy)
         if dist <= radius:
             direction = -1 if player_cx < cx else 1
-            knock = STAGE7_TETRO_EXPLOSION_KNOCKBACK * direction
-            # 스턴 0.5초
+            # 초인 모드일 때 넉백 2배
+            knock_scale = 2.0 if (globals().get('stage7_super_active', False) or mino.get('super')) else 1.0
+            knock = (STAGE7_TETRO_EXPLOSION_KNOCKBACK * knock_scale) * direction
+            # 스턴: 기본 0.5초, 초인 시 1.0초
+            stun_seconds = 1.0 if (globals().get('stage7_super_active', False) or mino.get('super')) else STAGE7_TETRO_EXPLOSION_STUN_S
             global player_stunned_timer, player_knockback_vel
-            player_stunned_timer = max(player_stunned_timer, int(STAGE7_TETRO_EXPLOSION_STUN_S * FPS))
+            player_stunned_timer = max(player_stunned_timer, int(stun_seconds * FPS))
             player_knockback_vel = knock
             # 초인 테트로 폭발 스턴 동안 STUN 텍스트 숨김
             try:
-                global player_stun_text_hidden_until_ms
-                player_stun_text_hidden_until_ms = now + int(STAGE7_TETRO_EXPLOSION_STUN_S * 1000)
+                global player_stun_text_hidden_until_ms, player_stun_text_suppress
+                player_stun_text_hidden_until_ms = now + int(stun_seconds * 1000)
+                # 요청: 초인 폭발 스턴 동안 플레이어 머리 위 STUN 텍스트 비표시
+                if knock_scale > 1.0:
+                    player_stun_text_suppress = True
             except Exception:
                 pass
     except Exception:
         pass
     # 블럭 제거
     try:
+        _maybe_drop_star_for_tetro(mino)
         stage7_tetrominoes.remove(mino)
     except ValueError:
         pass
@@ -29275,6 +30812,52 @@ def enforce_player_blocking_by_installed_tetro() -> None:
     if adjusted:
         # 화면 경계 재클램프
         PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
+
+
+def stage7_center_cube_explode_and_clear_tetros(now: int | None = None) -> None:
+    """중앙 큐브 폭발: 시각 이펙트 + 스테이지7 테트로미노들을 증발 처리.
+
+    - 폭발 위치: 화면 중앙
+    - 테트로미노 제거: destroy_stage7_tetromino(by_smoke=True) 경로 재사용(연막 해체와 동일 연출)
+    """
+    if current_stage != 7:
+        return
+    if now is None:
+        now = pygame.time.get_ticks()
+    cx, cy = WIDTH // 2, HEIGHT // 2
+    # 폭발 시각/사운드 연출 (테트로 폭발에서 사용하는 유틸 재사용)
+    try:
+        trigger_grenade_style_explosion(cx, cy, apply_commando_bonus=False, source="center_cube", radius_scale=1.2)
+    except Exception:
+        pass
+    # 스타포인트 1개 드랍
+    try:
+        if 'trade_point_system' in globals() and trade_point_system:
+            trade_point_system.spawn_star(cx, cy, "stage7_center_cube")
+    except Exception:
+        pass
+    # EMP 파문 이펙트 스폰
+    try:
+        spawn_stage7_emp_pulse(cx, cy)
+    except Exception:
+        pass
+    # 모든 테트로미노를 증발 처리(연막과 동일 경로)
+    try:
+        if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+            for mino in list(stage7_tetrominoes):
+                if mino.get("state") not in ("evaporating", "destroying"):
+                    destroy_stage7_tetromino(mino, by_smoke=True)
+    except Exception:
+        pass
+
+    # 보스 진영 1자(라인) 가드 테트로미노도 모두 제거
+    try:
+        if 'stage7_guard_blocks' in globals() and stage7_guard_blocks:
+            for block in list(stage7_guard_blocks):
+                if block.get("state") != "destroying":
+                    destroy_stage7_guard_block(block, now=now, by_player=False)
+    except Exception:
+        pass
 
 
 def update_stage7_tetromino_skill(now: int | None = None) -> None:
@@ -29571,6 +31154,10 @@ def update_stage7_super_state(now: int | None = None) -> None:
         # 스테이지 벗어나면 비활성 방향으로 자연 복귀
         stage7_super_active = False
         stage7_super_target_scale = 1.0
+        try:
+            stage7_super_particles.clear()
+        except Exception:
+            pass
     else:
         # 발동 트리거: 500 도달
         if not stage7_super_active and boss_special_gauge >= 500:
@@ -29580,6 +31167,13 @@ def update_stage7_super_state(now: int | None = None) -> None:
                 stage7_boss_orig_size = (BOSS.width, BOSS.height)
             stage7_super_last_update_ms = now
             stage7_super_drain_progress = 0.0
+            # 0.6초 포효 포즈 시작: 제자리 고정 + 사운드 재생
+            try:
+                globals()['stage7_super_intro_until_ms'] = now + 600
+                if SOUND_CRY:
+                    play_sound_with_volume(SOUND_CRY)
+            except Exception:
+                globals()['stage7_super_intro_until_ms'] = now + 600
             try:
                 play_wall_sound()
             except Exception:
@@ -29602,6 +31196,10 @@ def update_stage7_super_state(now: int | None = None) -> None:
             if boss_special_gauge <= 0:
                 stage7_super_active = False
                 stage7_super_target_scale = 1.0
+                try:
+                    stage7_super_particles.clear()
+                except Exception:
+                    pass
 
     # 스케일 스무딩/적용 (항상 호출)
     try:
@@ -32676,6 +34274,7 @@ def draw_objects():
         global stage7_prev_x, stage7_lean_value
         boss_obj = globals().get("BOSS")
         boss_x = getattr(boss_obj, "x", None) if boss_obj is not None else None
+        now_ms_for_pose = pygame.time.get_ticks()
 
         if boss_x is not None:
             if stage7_prev_x is None:
@@ -32690,8 +34289,12 @@ def draw_objects():
         if abs(target_lean) < 0.05:
             target_lean = math.sin(pygame.time.get_ticks() * 0.004) * 0.25
 
-        stage7_lean_value = (stage7_lean_value * 0.72) + (target_lean * 0.28)
-        stage7_lean_value = max(-1.0, min(1.0, stage7_lean_value))
+        # 초인 인트로 포즈 동안에는 기울기(lean) 고정
+        if globals().get('stage7_super_intro_until_ms', 0) > now_ms_for_pose:
+            stage7_lean_value = 0.0
+        else:
+            stage7_lean_value = (stage7_lean_value * 0.72) + (target_lean * 0.28)
+            stage7_lean_value = max(-1.0, min(1.0, stage7_lean_value))
 
         frames = BOSS_IMG_STAGE7_FRAMES if BOSS_IMG_STAGE7_FRAMES else [BOSS_IMG_STAGE7]
         frame_count = len(frames)
@@ -32700,11 +34303,17 @@ def draw_objects():
         if max_offset == 0:
             frame_index = center_index
         else:
-            frame_index = center_index + int(round(stage7_lean_value * max_offset))
-            frame_index = max(0, min(frame_count - 1, frame_index))
+            # 인트로 포즈 동안에는 중앙 프레임 고정
+            if globals().get('stage7_super_intro_until_ms', 0) > now_ms_for_pose:
+                frame_index = center_index
+            else:
+                frame_index = center_index + int(round(stage7_lean_value * max_offset))
+                frame_index = max(0, min(frame_count - 1, frame_index))
 
         boss_img = frames[frame_index]
-        boss_w, boss_h = BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT
+        # 실제 프레임(패딩 포함) 크기를 기준으로 그리기 폭/높이 계산
+        base_w, base_h = boss_img.get_width(), boss_img.get_height()
+        boss_w, boss_h = base_w, base_h
         # 초인테트리서 동안 보스 이미지도 부드럽게 스케일
         img_scale = max(1.0, float(globals().get('stage7_super_scale', 1.0)))
         boss_w = max(1, int(boss_w * img_scale))
@@ -32810,16 +34419,45 @@ def draw_objects():
         rotated_boss = pygame.transform.rotate(rotated_boss, tilt_angle_boss)
         boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x, 
                                                   BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
-    # 초인 펄스(붉은 페이드 인/아웃) - 이미지 픽셀만 가산, 투명 배경은 유지
+    # 초인 오라(배경) + 강렬 펄싱 + 파티클
     if current_stage == 7 and stage7_super_active:
         try:
-            t = pygame.time.get_ticks() * 0.01
-            # 0~1 진폭으로 변환하여 레드 강도 산출
-            factor = (math.sin(t) + 1.0) * 0.5  # 0~1
-            red_amount = int(30 + 50 * factor)  # 30~80 사이 가산
-            red_overlay = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
-            red_overlay.fill((red_amount, 0, 0, 0))  # 알파 0, RGB만 가산
-            rotated_boss.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+            time_now = pygame.time.get_ticks()
+            pulse = 0.5 + 0.5 * math.sin(time_now * 0.016)
+            # 1) 배경 오라(원형, 가장자리로 갈수록 은은하게 희미해지는 그라데이션)
+            # 요청: 오라 크기 50% 감소 (1.6x → 0.8x)
+            aura_d = int(max(boss_w, boss_h) * 0.8)
+            aura_r = max(4, aura_d // 2)
+            aura_surface = pygame.Surface((aura_d, aura_d), pygame.SRCALPHA)
+            # 은은함: 중심 알파를 낮추고, 완곡한 감소 곡선 사용
+            center_alpha = int(40 + 40 * pulse)  # 40~80 범위
+            layers = 10  # 성능/품질 밸런스: 10겹 원형 그라데이션
+            for layer in range(layers, 0, -1):
+                t = layer / layers              # 0→1 (외곽→중심)
+                rr = int(aura_r * t)
+                # 외곽으로 갈수록 급격히 사라지는 대신 매우 부드럽게 감소
+                alpha = int(center_alpha * (t ** 1.6))
+                color = (170, 50, 170, alpha)         # 살짝 더 보라 기조, 은은함 유지
+                if rr > 0 and alpha > 0:
+                    pygame.draw.circle(aura_surface, color, (aura_r, aura_r), rr)
+            aura_rect = aura_surface.get_rect(center=boss_rect.center)
+            draw_with_shake(aura_surface, aura_rect.topleft)
+
+            # 2) 보스 이미지 색상 펄스(마젠타) – 은은하게
+            tint = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
+            # 녹색 성분을 아주 약하게만 줄여 전체적으로 과하지 않게
+            g = int(235 - 15 * pulse)
+            tint.fill((255, max(0, g), 255, 255))
+            rotated_boss.blit(tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            add_tint = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
+            # ADD 성분도 낮게 유지
+            add_tint.fill((int(15 + 35 * pulse), int(10 + 20 * (1 - pulse)), int(15 + 35 * pulse), 0))
+            rotated_boss.blit(add_tint, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+
+            # 3) 파티클 스폰/업데이트/그리기(보스 위로 올라가는 어둠의 불꽃)
+            spawn_stage7_super_particles(boss_rect)
+            update_stage7_super_particles()
+            draw_stage7_super_particles(SCREEN)
         except Exception:
             pass
     # === Stage 2 스피드 디펜스 꼬리효과 ===
@@ -32892,6 +34530,37 @@ def draw_objects():
                 glow_intensity = (BOSS_HIT_ANIMATION_DURATION - boss_hit_animation_timer) * 20
                 apply_white_glow(rotated_boss, intensity=glow_intensity)
             draw_with_shake(rotated_boss, boss_rect.topleft)
+            # Stage 7 초인 인트로(0.6초) 동안: 양팔 벌린 포효 오버레이 + 매서운 표정
+            try:
+                if current_stage == 7 and globals().get('stage7_super_intro_until_ms', 0) > pygame.time.get_ticks():
+                    rem = globals().get('stage7_super_intro_until_ms', 0) - pygame.time.get_ticks()
+                    rem = max(0, min(600, rem))
+                    prog = 1.0 - (rem / 600.0)  # 0→1
+                    # 팔: 양쪽으로 뻗는 광선형 라인
+                    cx, cy = boss_rect.centerx + total_offset_x, boss_rect.centery + boss_offset_y + total_offset_y + boss_rage_offset_y
+                    span = int(max(20, (boss_w * 0.55) * (0.6 + 0.4 * prog)))
+                    lift = int(boss_h * 0.12)
+                    arm_color = (250, 220, 120)
+                    arm_w = max(4, boss_h // 14)
+                    pygame.draw.line(SCREEN, arm_color, (cx - boss_w // 8, cy), (cx - span, cy - lift), arm_w)
+                    pygame.draw.line(SCREEN, arm_color, (cx + boss_w // 8, cy), (cx + span, cy - lift), arm_w)
+                    # 매서운 눈썹(사선)
+                    brow_color = (40, 40, 40)
+                    bx_off = boss_w // 10
+                    by = cy - boss_h // 6
+                    pygame.draw.line(SCREEN, brow_color, (cx - bx_off - 10, by - 4), (cx - 4, by - 10), 3)
+                    pygame.draw.line(SCREEN, brow_color, (cx + bx_off + 10, by - 4), (cx + 4, by - 10), 3)
+                    # 입: 포효 타원(세로로 커졌다 줄어듦)
+                    mouth_h = int(boss_h * (0.18 + 0.06 * math.sin(pygame.time.get_ticks() * 0.025)))
+                    mouth_w = int(boss_w * 0.12)
+                    mouth_rect = pygame.Rect(0, 0, mouth_w, max(4, mouth_h))
+                    mouth_rect.center = (cx, cy - boss_h // 12)
+                    pygame.draw.ellipse(SCREEN, (30, 10, 10), mouth_rect)
+                    inner = mouth_rect.inflate(-mouth_w // 3, -mouth_h // 3)
+                    if inner.width > 0 and inner.height > 0:
+                        pygame.draw.ellipse(SCREEN, (200, 40, 40), inner)
+            except Exception:
+                pass
     
     #  Stage 5 보스 피격 효과 (움찔거림) - 일반 그리기에도 적용
     if current_stage == 5 and stage5_boss_hurt_active and stage5_boss_hurt_timer > 0:
@@ -33905,6 +35574,18 @@ def draw_objects():
             bright_ufo.blit(bright_overlay, (0, 0), special_flags=pygame.BLEND_ADD)
             if aipill_active:
                 bright_ufo = apply_ai_glitch_effect(bright_ufo, time_now)
+            # 😈 악마의 주사위 발동 시: 패들 이미지에만 색상 변화(마젠타 계열 틴트)
+            try:
+                from item_effects.devil_dice import is_devil_dice_active
+                if is_devil_dice_active():
+                    _tint = pygame.Surface(bright_ufo.get_size(), pygame.SRCALPHA)
+                    # 녹색 성분만 약간 줄여 붉은-보라 기조, 약한 펄싱
+                    _pulse = 0.5 + 0.5 * math.sin(time_now * 0.012)
+                    _g = int(215 - 55 * _pulse)  # 160~215
+                    _tint.fill((255, _g, 255, 255))
+                    bright_ufo.blit(_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            except Exception:
+                pass
             # 미사일 무적 시간이면 반투명 처리
             if is_missile_invulnerable and (time_now // 100) % 2 == 0:
                 bright_ufo.set_alpha(100)
@@ -33916,6 +35597,17 @@ def draw_objects():
                 player_to_draw.set_alpha(100)
             if aipill_active:
                 player_to_draw = apply_ai_glitch_effect(player_to_draw, time_now)
+            # 😈 악마의 주사위 틴트 (특수 준비 중에도 동일하게 적용)
+            try:
+                from item_effects.devil_dice import is_devil_dice_active
+                if is_devil_dice_active():
+                    _tint = pygame.Surface(player_to_draw.get_size(), pygame.SRCALPHA)
+                    _pulse = 0.5 + 0.5 * math.sin(time_now * 0.012)
+                    _g = int(215 - 55 * _pulse)
+                    _tint.fill((255, _g, 255, 255))
+                    player_to_draw.blit(_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            except Exception:
+                pass
             draw_with_shake(player_to_draw, player_rect.topleft)
     else:
         player_to_draw = rotated_player.copy()
@@ -33943,6 +35635,17 @@ def draw_objects():
 
         if aipill_active:
             player_to_draw = apply_ai_glitch_effect(player_to_draw, time_now)
+        # 😈 악마의 주사위 발동 시 패들 이미지 틴트 적용
+        try:
+            from item_effects.devil_dice import is_devil_dice_active
+            if is_devil_dice_active():
+                _tint = pygame.Surface(player_to_draw.get_size(), pygame.SRCALPHA)
+                _pulse = 0.5 + 0.5 * math.sin(time_now * 0.012)
+                _g = int(215 - 55 * _pulse)
+                _tint.fill((255, _g, 255, 255))
+                player_to_draw.blit(_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+        except Exception:
+            pass
         
         draw_with_shake(player_to_draw, player_rect.topleft)
 
@@ -34042,15 +35745,24 @@ def draw_objects():
         # 스턴 텍스트 표시 (초인 테트로 폭발 유발 스턴 동안은 숨김)
         try:
             hide_until = globals().get('player_stun_text_hidden_until_ms', 0)
+            suppress_text = bool(globals().get('player_stun_text_suppress', False))
         except Exception:
             hide_until = 0
-        if pygame.time.get_ticks() >= hide_until:
+            suppress_text = False
+        # 초인 폭발 스턴 중에는 STUN 텍스트를 완전히 숨김
+        if (not suppress_text) and pygame.time.get_ticks() >= hide_until:
             if player_missile_stunned_timer % 30 == 0:  # 0.5초마다
                 stun_text = "STUN!"
                 text_surface = FONT.render(stun_text, True, (255, 100, 100))
                 text_x = PLAYER.centerx - text_surface.get_width() // 2
                 text_y = PLAYER.y - 60
                 SCREEN.blit(text_surface, (text_x, text_y))
+        # 스턴이 풀리면 텍스트 억제 플래그 해제
+        if player_missile_stunned_timer <= 0 and player_stunned_timer <= 0:
+            try:
+                globals()['player_stun_text_suppress'] = False
+            except Exception:
+                pass
     #  투척 모션 중 아이템 표시
     if molotov_throwing or grenade_throwing or flare_throwing:
         throw_progress = 0
@@ -34171,6 +35883,8 @@ def draw_objects():
                                    (int(center), int(center)), 
                                    (int(spark_end_x), int(spark_end_y)), 2)
             SCREEN.blit(explosion_surface, (zone["x"] - center, zone["y"] - center))
+    # Stage7 EMP 파문 그리기(폭발 효과 위에)
+    draw_stage7_emp_pulses(SCREEN)
     # 연막탄 그리기
     for smoke_grenade in smoke_grenades:
         if smoke_grenade["arrived"]:
@@ -49170,6 +50884,29 @@ def draw_field():
             animated_bg_stage6.draw(SCREEN)
     elif current_stage == 7 and animated_bg_stage7 is not None:
         elapsed_ms = clock.get_time() if 'clock' in globals() else 16
+        # 공 좌표를 전달해 중앙 링 진입 이벤트를 감지하고 면 채움/진동/폭발을 진행
+        try:
+            if 'BALL' in globals() and BALL is not None:
+                animated_bg_stage7.update_ball(BALL.centerx, BALL.centery)
+                # 히트 이벤트 처리: 타격 이펙트 + 사운드 + 0.5s 진동은 배경 내부에서 처리됨
+                hit_pos = animated_bg_stage7.pop_hit_event()
+                if hit_pos is not None:
+                    # 타격 이펙트: 공 속도 벡터 사용해 강도 자동 결정
+                    try:
+                        create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                    except Exception:
+                        # 폴백: 이펙트 매니저 간단 이펙트 사용
+                        try:
+                            effects_manager.create_impact_effect(hit_pos[0], hit_pos[1], 32, is_player=False)
+                        except Exception:
+                            pass
+                    # 효과음: 방어 피격 SFX 재사용(조용한 짧은 타격음)
+                    try:
+                        play_sound_with_volume(SOUND_DEFENSE_HIT)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         animated_bg_stage7.update(elapsed_ms)
         if FULLSCREEN_MODE:
             SCREEN.fill(BLACK)
@@ -49185,6 +50922,12 @@ def draw_field():
                 SCREEN,
                 offset=(screen_shake_offset_x, screen_shake_offset_y),
             )
+        # 폭발 요청이 발생한 프레임에 테트로미노 일괄 해체 및 폭발 이펙트 실행
+        try:
+            if animated_bg_stage7.pop_explosion_request():
+                stage7_center_cube_explode_and_clear_tetros()
+        except Exception:
+            pass
     else:
         # 기본 배경 (화면 흔들림 오프셋 적용)
         if FULLSCREEN_MODE:
@@ -49830,11 +51573,17 @@ def reset_round():
 
     stop_blacksmith_construction_sound()
 
-    if current_stage == 7:
-        pass
-    else:
+    try:
+        from game_logic.stage7_tetriser import should_reset_transient_on_round_reset
+        _reset_stage7_now = should_reset_transient_on_round_reset(current_stage=current_stage)
+    except Exception:
+        _reset_stage7_now = (current_stage != 7)
+
+    if _reset_stage7_now:
         reset_stage7_guard_state()
         reset_stage7_tetromino_state()
+        reset_stage7_tetro_wall_state()
+        reset_stage7_tetro_wall_state()
 
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
@@ -50001,12 +51750,14 @@ def reset_round():
     player_stunned = False
     player_stun_end_time = 0
     try:
-        global player_stun_text_hidden_until_ms
+        global player_stun_text_hidden_until_ms, player_stun_text_suppress
         player_stun_text_hidden_until_ms = 0
+        player_stun_text_suppress = False
     except Exception:
         pass
     player_stun_text_hidden_until_ms = 0
     player_stun_text_hidden_until_ms = 0
+    player_stun_text_suppress = False
     player_burn_timer = 0
     player_burn_effect = False
     
@@ -52546,6 +54297,15 @@ def handle_ball():
         
         if BALL.colliderect(player_collision_rect) and not ball_in_kuromi:
             flame_trail_active = False
+            # Stage 6: 홍련폭염 종료 시, 가드 성공이 있었으면 50% 확률로 스타포인트 1개 드랍
+            try:
+                if current_stage == 6 and globals().get('stage6_hongryun_guarded_during_inferno', False):
+                    globals()['stage6_hongryun_guarded_during_inferno'] = False
+                    if random.random() < 0.5:
+                        if 'trade_point_system' in globals() and trade_point_system:
+                            trade_point_system.spawn_star(PLAYER.centerx, PLAYER.top, "stage6_hongryun_guard")
+            except Exception:
+                pass
             flame_trail_positions.clear()
             flame_trail_rng = None
             
@@ -53531,6 +55291,15 @@ def handle_ball():
                         continue
                     for cell in guard_block["cells"]:
                         if BALL.colliderect(cell["rect"]):
+                            # 파워스매싱 중에는 관통: 반사/위치 보정 없이 가드 블록 증발 처리
+                            if globals().get('power_smashing_parabola_active', False):
+                                destroy_stage7_guard_block(guard_block, by_player=(last_hit_by == "player"))
+                                try:
+                                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                                except Exception:
+                                    pass
+                                stage7_guard_hit = True
+                                break
                             # 플레이어가 설치한 벽돌과 유사한 반사 처리:
                             # 이전 프레임 위치를 사용해 충돌 면을 판정하고 해당 축 속도를 반전.
                             cell_rect = cell["rect"]
@@ -53600,9 +55369,27 @@ def handle_ball():
                     if mino.get("state") not in ("falling",):
                         continue
                     for cell in mino["cells"]:
+                        # AK-47 등에 의해 제거된 셀은 충돌에서 제외
+                        if cell.get("evaporated", False):
+                            continue
                         if BALL.colliderect(cell["rect"]):
                             cell_rect = cell["rect"]
                             prev_rect = pygame.Rect(old_x, old_y, BALL.width, BALL.height)
+
+                            # 파워스매싱 중에는 관통: 반사/위치 보정 없이 미노를 증발
+                            if globals().get('power_smashing_parabola_active', False):
+                                try:
+                                    mino["hit_flash_duration"] = 130
+                                    mino["hit_flash_until"] = pygame.time.get_ticks() + 130
+                                except Exception:
+                                    pass
+                                destroy_stage7_tetromino(mino, by_player=True, by_dash=True)
+                                try:
+                                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                                except Exception:
+                                    pass
+                                stage7_tetro_hit = True
+                                break
 
                             min_v_speed = 6.0
                             min_h_speed = 3.0
@@ -53646,11 +55433,82 @@ def handle_ball():
 
                             ball_vel[0] += random.uniform(-0.35, 0.35)
 
+                            # 히트 플래시: 피격 즉시 짧게 반짝임
+                            try:
+                                mino["hit_flash_duration"] = 130
+                                mino["hit_flash_until"] = pygame.time.get_ticks() + 130
+                            except Exception:
+                                pass
                             destroy_stage7_tetromino(mino, by_player=(last_hit_by == "player"))
                             create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
                             stage7_tetro_hit = True
                             break
                     if stage7_tetro_hit:
+                        break
+
+            # Stage 7: 대량 테트로 벽과 충돌 처리 (플레이어가 마지막으로 친 공만 반응)
+            if current_stage == 7 and (stage7_tetro_wall_left or stage7_tetro_wall_right) and last_hit_by == "player":
+                wall_hit = False
+                for blocks in (stage7_tetro_wall_left, stage7_tetro_wall_right):
+                    for cell_rect in list(blocks):
+                        if BALL.colliderect(cell_rect):
+                            if globals().get('power_smashing_parabola_active', False):
+                                # 관통: 반사/위치 보정 없이 해당 덩어리 제거
+                                try:
+                                    blocks.remove(cell_rect)
+                                except ValueError:
+                                    pass
+                                _mark_wall_cell_evaporated(cell_rect)
+                                try:
+                                    create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                                except Exception:
+                                    pass
+                                wall_hit = True
+                                break
+                            prev_rect = pygame.Rect(old_x, old_y, BALL.width, BALL.height)
+                            min_v_speed = 6.0
+                            min_h_speed = 3.0
+                            # 공용 규칙으로 축 결정(레거시 호환)
+                            try:
+                                from game_logic.stage7_tetriser import choose_reflection_axis
+                                axis = choose_reflection_axis(prev_rect, BALL, cell_rect)
+                            except Exception:
+                                # 폴백: 단순 겹침량 비교
+                                overlap_left = BALL.right - cell_rect.left
+                                overlap_right = cell_rect.right - BALL.left
+                                overlap_top = BALL.bottom - cell_rect.top
+                                overlap_bottom = cell_rect.bottom - BALL.top
+                                if min(overlap_left, overlap_right) < min(overlap_top, overlap_bottom):
+                                    axis = 'h'
+                                else:
+                                    axis = 'v'
+
+                            if axis == 'v':
+                                if prev_rect.centery < cell_rect.centery:
+                                    BALL.y = cell_rect.top - BALL.height - 1
+                                    ball_vel[1] = -max(min_v_speed, abs(ball_vel[1]))
+                                else:
+                                    BALL.y = cell_rect.bottom + 1
+                                    ball_vel[1] = max(min_v_speed, abs(ball_vel[1]))
+                            else:
+                                if prev_rect.centerx < cell_rect.centerx:
+                                    BALL.x = cell_rect.left - BALL.width - 1
+                                    ball_vel[0] = -max(min_h_speed, abs(ball_vel[0]))
+                                else:
+                                    BALL.x = cell_rect.right + 1
+                                    ball_vel[0] = max(min_h_speed, abs(ball_vel[0]))
+
+                            ball_vel[0] += random.uniform(-0.35, 0.35)
+                            # 블록 파괴(제거)
+                            try:
+                                blocks.remove(cell_rect)
+                            except ValueError:
+                                pass
+                            _mark_wall_cell_evaporated(cell_rect)
+                            create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                            wall_hit = True
+                            break
+                    if wall_hit:
                         break
 
             #  스테이지 2 바위 충돌 체크 (매 스텝마다)
@@ -55831,6 +57689,15 @@ def handle_boss_pro():
     # ️ 스탑워치로 시간이 멈춘 경우 보스도 정지
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
+    # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
+    if current_stage == 7:
+        try:
+            now_ms = pygame.time.get_ticks()
+            if globals().get('stage7_super_intro_until_ms', 0) > now_ms:
+                boss_current_speed = 0
+                return
+        except Exception:
+            pass
     
     #  라그나로크 해머 스턴 처리 (넉백 후 스턴)
     if boss_stun_timer > 0:
@@ -56116,6 +57983,15 @@ def handle_boss_champion():
     # ️ 스탑워치로 시간이 멈춘 경우 보스도 정지
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
+    # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
+    if current_stage == 7:
+        try:
+            now_ms = pygame.time.get_ticks()
+            if globals().get('stage7_super_intro_until_ms', 0) > now_ms:
+                boss_current_speed = 0
+                return
+        except Exception:
+            pass
     
     #  라그나로크 해머 스턴 처리 (넉백 후 스턴)
     if boss_stun_timer > 0:
@@ -56417,6 +58293,15 @@ def handle_boss_mythic():
     # ️ 스탑워치로 시간이 멈춘 경우 보스도 정지
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
+    # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
+    if current_stage == 7:
+        try:
+            now_ms = pygame.time.get_ticks()
+            if globals().get('stage7_super_intro_until_ms', 0) > now_ms:
+                boss_current_speed = 0
+                return
+        except Exception:
+            pass
     
     #  라그나로크 해머 스턴 처리 (넉백 후 스턴)
     if boss_stun_timer > 0:
@@ -56842,6 +58727,15 @@ def handle_boss_junior():
     # ️ 스탑워치로 시간이 멈춘 경우 보스도 정지
     if stopwatch_active and stopwatch_timer > 0:
         return  # 시간 정지 중에는 AI 비활성화
+    # Stage 7 초인 포효 인트로(0.6초) 동안 제자리 고정
+    if current_stage == 7:
+        try:
+            now_ms = pygame.time.get_ticks()
+            if globals().get('stage7_super_intro_until_ms', 0) > now_ms:
+                boss_current_speed = 0
+                return
+        except Exception:
+            pass
     
     #  라그나로크 해머 스턴 처리 (넉백 후 스턴)
     if boss_stun_timer > 0:
@@ -57767,8 +59661,50 @@ def handle_boss():
         from item_effects.bazooka import get_bazooka_instance
         bazooka_inst = get_bazooka_instance()
         if bazooka_inst.equipped:
-            # 모든 폭발 수집 (직접 명중 + 벽 충돌)
+            # 모든 폭발 수집 (발사체-테트로/가드 접촉, 직접 명중, 벽 충돌)
             all_explosions = []
+
+            # A) 발사체 ↔ 테트로/가드 사전 충돌 검사 → 즉시 폭발 생성
+            try:
+                if current_stage == 7 and getattr(bazooka_inst, 'projectiles', None):
+                    for proj in list(bazooka_inst.projectiles):
+                        if not proj.get('active', False):
+                            continue
+                        proj_rect = pygame.Rect(
+                            int(proj.get('x', 0)) - 10,
+                            int(proj.get('y', 0)) - 10,
+                            20, 30
+                        )
+                        hit_any = False
+                        # 테트로미노 충돌
+                        if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+                            for mino in list(stage7_tetrominoes):
+                                if mino.get('state') in ('destroying', 'evaporating'):
+                                    continue
+                                for c in (mino.get('cells', []) or []):
+                                    rect = c.get('rect')
+                                    if rect and proj_rect.colliderect(rect):
+                                        hit_any = True
+                                        break
+                                if hit_any:
+                                    break
+                        # 가드 블럭 충돌
+                        if not hit_any and 'stage7_guard_blocks' in globals() and stage7_guard_blocks:
+                            for block in list(stage7_guard_blocks):
+                                if block.get('state') not in ('assembling', 'hologram', 'deploy', 'active'):
+                                    continue
+                                if any(proj_rect.colliderect(c.get('rect')) for c in (block.get('cells', []) or []) if c.get('rect')):
+                                    hit_any = True
+                                    break
+                        if hit_any:
+                            all_explosions.append({
+                                'x': float(proj.get('x', 0.0)),
+                                'y': float(proj.get('y', 0.0)),
+                                'radius': float(getattr(bazooka_inst, 'EXPLOSION_RADIUS', 110)),
+                            })
+                            proj['active'] = False
+            except Exception:
+                pass
             
             # 보스와의 직접 충돌 체크
             direct_explosions = bazooka_inst.check_boss_collision(BOSS, WIDTH)
@@ -57785,6 +59721,66 @@ def handle_boss():
                 _destroy_stage2_rocks_in_radius(
                     explosion["x"], explosion["y"], explosion["radius"], source="bazooka"
                 )
+                # Stage 7: 바주카포 폭발 반경 내 테트로/가드 파괴
+                try:
+                    if current_stage == 7:
+                        cx = float(explosion["x"])
+                        cy = float(explosion["y"])
+                        r = float(explosion.get("radius", 0))
+                        r2 = r * r
+                        # 테트로미노
+                        if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+                            for mino in list(stage7_tetrominoes):
+                                if mino.get('state') in ('destroying', 'evaporating'):
+                                    continue
+                                hit = False
+                                for c in mino.get('cells', []) or []:
+                                    rect = c.get('rect')
+                                    if not rect:
+                                        continue
+                                    closest_x = max(rect.left, min(cx, rect.right))
+                                    closest_y = max(rect.top, min(cy, rect.bottom))
+                                    dx = cx - closest_x
+                                    dy = cy - closest_y
+                                    if dx * dx + dy * dy <= r2:
+                                        hit = True
+                                        break
+                                if not hit:
+                                    continue
+                                try:
+                                    mino["hit_flash_duration"] = 130
+                                    mino["hit_flash_until"] = pygame.time.get_ticks() + 130
+                                except Exception:
+                                    pass
+                                if mino.get('wall_generated'):
+                                    try:
+                                        for c in mino.get('cells', []) or []:
+                                            _remove_wall_cell_rect(c.get('rect'))
+                                    except Exception:
+                                        pass
+                                destroy_stage7_tetromino(mino, by_player=True, by_dash=True)
+                        # 가드 라인(1자 블럭)
+                        if 'stage7_guard_blocks' in globals() and stage7_guard_blocks:
+                            for block in list(stage7_guard_blocks):
+                                state = block.get('state')
+                                if state not in ('assembling', 'hologram', 'deploy', 'active'):
+                                    continue
+                                hit = False
+                                for c in block.get('cells', []) or []:
+                                    rect = c.get('rect')
+                                    if not rect:
+                                        continue
+                                    closest_x = max(rect.left, min(cx, rect.right))
+                                    closest_y = max(rect.top, min(cy, rect.bottom))
+                                    dx = cx - closest_x
+                                    dy = cy - closest_y
+                                    if dx * dx + dy * dy <= r2:
+                                        hit = True
+                                        break
+                                if hit:
+                                    destroy_stage7_guard_block(block, by_player=True)
+                except Exception:
+                    pass
                 
                 # 폭발 사운드 재생
                 try:
@@ -61436,6 +63432,21 @@ def main(stage_num, new_boss_mode=False):
         
         # 테크니컬조끼 업데이트 (플레이어 패들 위치 전달)
         update_technical_vest(PLAYER)
+        # Stage 7: 테크니컬조끼 연막이 테트로미노에 닿으면 증발 처리
+        # - 기존 연막탄 파괴 경로(destroy_stage7_tetrominoes_in_smoke)를 재사용해 성능/일관성 유지
+        if current_stage == 7:
+            try:
+                for area in (get_technical_vest_smoke_areas() or []):
+                    smoke_zone = {
+                        "x": area.get("x"),
+                        "y": area.get("y"),
+                        "radius": area.get("radius", 0),
+                        "radius_x": area.get("radius", 0),  # 원형 영역을 타원 처리와 동일 키로 전달
+                        "opacity": 150,  # 분출 중 연막은 충분히 짙다고 간주
+                    }
+                    destroy_stage7_tetrominoes_in_smoke(smoke_zone)
+            except Exception:
+                pass
         
         # 📦 탄약상자 업데이트
         ammo_box = get_ammo_box_instance()
@@ -61590,11 +63601,23 @@ def main(stage_num, new_boss_mode=False):
                 # 상태 업데이트
                 #  새로운 보스전에서는 빨간 효과 업데이트 생략 (게이지를 사용하지 않음)
                 if not new_boss_mode_active:
-                    update_stage7_gauge_charge(current_stage == 7)
+                    # 스탑워치 정지 중에는 게이지 비충전 (불변식 보강)
+                    try:
+                        from game_logic.stage7_tetriser import should_charge_gauge
+                        _charge = should_charge_gauge(
+                            current_stage=current_stage,
+                            stopwatch_active=stopwatch_active,
+                            stopwatch_timer=stopwatch_timer,
+                        )
+                    except Exception:
+                        # 문제가 있어도 기존 동작 유지(안전 가드)
+                        _charge = (current_stage == 7) and not (stopwatch_active and stopwatch_timer > 0)
+                    update_stage7_gauge_charge(_charge)
                     # 궁극기 활성/유지 업데이트
                     update_stage7_super_state()
                     update_stage7_guard_skill()
                     update_stage7_tetromino_skill()
+                    update_stage7_tetro_wall_skill()
                     update_red_intensity()
                     update_gauge_animation()  # 게이지 부드러운 애니메이션 업데이트
                 update_item_obtained_effect()  #  아이템 획득 효과 업데이트 - 옛날 버전 활성화
@@ -61945,6 +63968,12 @@ def main(stage_num, new_boss_mode=False):
                         for event in hit_events:
                             if event.get("type") == "boss_hit":
                                 apply_ak47_boss_hit_effect(event)
+
+                        # 스테이지7 테트로미노와 AK-47 탄환 충돌 처리(단일 블록 증발)
+                        try:
+                            _handle_ak47_tetro_collisions()
+                        except Exception:
+                            pass
 
                     # 그물덫총 시스템 업데이트
                     net_gun = get_net_gun_instance()
@@ -62894,8 +64923,9 @@ def main(stage_num, new_boss_mode=False):
                     player_knockback_vel = 0
                     player_stunned = False
                     try:
-                        global player_stun_text_hidden_until_ms
+                        global player_stun_text_hidden_until_ms, player_stun_text_suppress
                         player_stun_text_hidden_until_ms = 0
+                        player_stun_text_suppress = False
                     except Exception:
                         pass
                     current_speed = 0
@@ -65128,8 +67158,15 @@ def show_stage_selection(show_character_hint=True):
             SCREEN.blit(hint_text, hint_rect)
         
         # 스테이지 카드들
-        card_width = 200
-        card_height = 150
+        # 기본 카드 크기(메인 흐름)는 200x150. 아이템 관리자 흐름(show_character_hint=False)에서는
+        # 스테이지 아이콘(카드) 크기를 줄여달라는 요청 반영: 160x120으로 축소.
+        # 레이아웃/간격은 유지해 안전한 최소 변경으로 적용.
+        if show_character_hint:
+            card_width = 200
+            card_height = 150
+        else:
+            card_width = 160  # 아이템 관리자 전용 축소 크기
+            card_height = 120
         cards_per_row = 3
         card_spacing = 40
         start_y = 180

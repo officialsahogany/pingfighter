@@ -11,6 +11,7 @@ from core.global_manager import GlobalManager
 from core.events import EventType, emit_event
 from managers.effects_manager import get_effects_manager
 from entities.entity import get_entity_manager
+from game_logic.stage7_tetriser import get_tetro_wall_spawn_spec
 
 
 class StageFeatures:
@@ -91,6 +92,28 @@ class StageFeatures:
             'yamato_cannon_charging': False,
             'yamato_charge': 0
         }
+
+        # 스테이지 7: 테트리스 벽 시스템
+        # - 30초마다 양쪽 벽에 랜덤 테트로미노 10개씩을 쌓아 생성
+        # - 보스 스킬 게이지 소모량: 50
+        # - 충돌: 공과 충돌 시 축에 따라 반사 처리
+        spec = get_tetro_wall_spawn_spec(
+            width=self.global_manager.get('WIDTH', 600),
+            height=self.global_manager.get('HEIGHT', 750),
+        )
+        self.stage7_tetris = {
+            'enabled': False,
+            'interval': float(spec.get('interval_sec', 30.0)),
+            'timer': 0.0,
+            'skill_cost': int(spec.get('skill_cost', 50)),
+            'gauge_current': 0.0,
+            'gauge_max': 200.0,
+            'recharge_per_sec': 2.0,
+            'tile': int(spec.get('tile', 24)),
+            'cols': int(spec.get('cols', 5)),
+            'left_blocks': [],
+            'right_blocks': [],
+        }
         
     def set_stage(self, stage: int):
         """스테이지 설정
@@ -100,6 +123,17 @@ class StageFeatures:
         """
         self.current_stage = stage
         self.reset_all_features()
+        if stage == 7:
+            self.stage7_tetris['enabled'] = True
+            # 화면 크기 변화에 따른 스펙 반영(안전 재설정)
+            spec = get_tetro_wall_spawn_spec(
+                width=self.global_manager.get('WIDTH', 600),
+                height=self.global_manager.get('HEIGHT', 750),
+            )
+            self.stage7_tetris['interval'] = float(spec.get('interval_sec', self.stage7_tetris['interval']))
+            self.stage7_tetris['skill_cost'] = int(spec.get('skill_cost', self.stage7_tetris['skill_cost']))
+            self.stage7_tetris['tile'] = int(spec.get('tile', self.stage7_tetris['tile']))
+            self.stage7_tetris['cols'] = int(spec.get('cols', self.stage7_tetris['cols']))
         
     def reset_all_features(self):
         """모든 특수 기능 리셋"""
@@ -124,6 +158,13 @@ class StageFeatures:
         self.stage6_battleship['missile_barrage_active'] = False
         self.stage6_battleship['missiles'].clear()
         self.stage6_battleship['yamato_charge'] = 0
+
+        # 스테이지7 초기화
+        self.stage7_tetris['enabled'] = False
+        self.stage7_tetris['timer'] = 0.0
+        self.stage7_tetris['gauge_current'] = 0.0
+        self.stage7_tetris['left_blocks'].clear()
+        self.stage7_tetris['right_blocks'].clear()
         
     def update(self, dt: float):
         """스테이지 기능 업데이트
@@ -143,6 +184,8 @@ class StageFeatures:
             self._update_stage5(dt)
         elif self.current_stage == 6:
             self._update_stage6(dt)
+        elif self.current_stage == 7:
+            self._update_stage7(dt)
             
     def _update_stage1(self, dt: float):
         """스테이지 1 업데이트 - 채찍"""
@@ -633,6 +676,8 @@ class StageFeatures:
             self._render_stage5(screen)
         elif self.current_stage == 6:
             self._render_stage6(screen)
+        elif self.current_stage == 7:
+            self._render_stage7(screen)
             
     def _render_stage1(self, screen: pygame.Surface):
         """스테이지 1 렌더링 - 채찍"""
@@ -760,6 +805,209 @@ class StageFeatures:
             pygame.draw.circle(screen, color, 
                              (int(missile['x']), int(missile['y'])), missile['size'])
                              
+    # -------------------------
+    # Stage 7: 테트로미노 벽
+    # -------------------------
+    def _update_stage7(self, dt: float):
+        """스테이지 7 업데이트 - 테트리스 벽 소환 및 충돌"""
+        t7 = self.stage7_tetris
+        if not t7['enabled']:
+            return
+
+        # 간이 보스 게이지 충전 (스탑워치 중 비충전 불변식 적용)
+        try:
+            from game_logic.stage7_tetriser import should_charge_gauge
+            stop_active = bool(self.global_manager.get('stopwatch_active', False))
+            stop_timer = int(self.global_manager.get('stopwatch_timer', 0) or 0)
+            if should_charge_gauge(current_stage=self.current_stage,
+                                   stopwatch_active=stop_active,
+                                   stopwatch_timer=stop_timer):
+                t7['gauge_current'] = min(t7['gauge_max'], t7['gauge_current'] + t7['recharge_per_sec'] * dt)
+        except Exception:
+            t7['gauge_current'] = min(t7['gauge_max'], t7['gauge_current'] + t7['recharge_per_sec'] * dt)
+
+        # 30초마다 소환 시도
+        t7['timer'] += dt
+        if t7['timer'] >= t7['interval']:
+            if t7['gauge_current'] >= t7['skill_cost']:
+                t7['gauge_current'] -= t7['skill_cost']
+                self._spawn_tetris_clusters()
+                emit_event(EventType.BOSS_SPECIAL_ATTACK, {
+                    'attack': 'tetromino_walls',
+                    'stage': 7,
+                    'cost': t7['skill_cost']
+                })
+            t7['timer'] = 0.0
+
+        # 공-블록 충돌 처리
+        ball_rect: pygame.Rect = self.global_manager.get('BALL')
+        if not ball_rect:
+            return
+        ball_dx = self.global_manager.get('ball_dx', 0)
+        ball_dy = self.global_manager.get('ball_dy', 0)
+        prev_rect = pygame.Rect(ball_rect.x - ball_dx, ball_rect.y - ball_dy, ball_rect.width, ball_rect.height)
+
+        # 기존 테트로미노 타격 조건과 동일: 플레이어가 마지막으로 친 공만 타격 처리
+        last_hit_by = self.global_manager.get('last_hit_by', 'player')
+
+        for blocks in (t7['left_blocks'], t7['right_blocks']):
+            for b in blocks:
+                if ball_rect.colliderect(b):
+                    if last_hit_by != 'player':
+                        continue
+                    try:
+                        from game_logic.stage7_tetriser import choose_reflection_axis
+                        axis = choose_reflection_axis(prev_rect, ball_rect, b)
+                    except Exception:
+                        # 폴백: 간단 비교
+                        overlap_x = min(ball_rect.right - b.left, b.right - ball_rect.left)
+                        overlap_y = min(ball_rect.bottom - b.top, b.bottom - ball_rect.top)
+                        axis = 'h' if overlap_x < overlap_y else 'v'
+
+                    if axis == 'h':
+                        ball_dx = -ball_dx
+                        if prev_rect.centerx < b.centerx:
+                            ball_rect.right = b.left
+                        else:
+                            ball_rect.left = b.right
+                    else:
+                        ball_dy = -ball_dy
+                        if prev_rect.centery < b.centery:
+                            ball_rect.bottom = b.top
+                        else:
+                            ball_rect.top = b.bottom
+                    # 최소 속도 보정 및 각도 단조 완화(원본 규칙 유사)
+                    min_v_speed = 6.0
+                    min_h_speed = 3.0
+                    if abs(ball_dy) < min_v_speed:
+                        ball_dy = -min_v_speed if ball_dy < 0 else min_v_speed
+                    if abs(ball_dx) < min_h_speed:
+                        ball_dx = -min_h_speed if ball_dx < 0 else min_h_speed
+                    ball_dx += random.uniform(-0.35, 0.35)
+                    # 플레이어 타격 시 해당 블록은 파괴(제거)
+                    try:
+                        blocks.remove(b)
+                    except ValueError:
+                        pass
+                    # 한 프레임에 다중 반사를 방지하기 위해 첫 충돌만 처리
+                    break
+
+        self.global_manager.set('ball_dx', ball_dx)
+        self.global_manager.set('ball_dy', ball_dy)
+
+    def _spawn_tetris_clusters(self):
+        """양쪽 벽에 테트로미노 클러스터(각 10개) 소환"""
+        t7 = self.stage7_tetris
+        width = self.global_manager.get('WIDTH', 600)
+        height = self.global_manager.get('HEIGHT', 750)
+
+        tile = t7['tile']
+        cols = t7['cols']
+        grid_w = cols * tile
+        rows = max(1, height // tile)
+
+        # 기존 블록 교체 (누적 방지)
+        t7['left_blocks'].clear()
+        t7['right_blocks'].clear()
+
+        left_origin = (0, height - tile)
+        right_origin = (width - grid_w, height - tile)
+
+        self._spawn_tetris_cluster_for_side(t7['left_blocks'], left_origin, cols, rows, tile)
+        self._spawn_tetris_cluster_for_side(t7['right_blocks'], right_origin, cols, rows, tile)
+
+    @staticmethod
+    def _tetromino_shapes():
+        return {
+            'I': [(0,0),(1,0),(2,0),(3,0)],
+            'O': [(0,0),(1,0),(0,1),(1,1)],
+            'T': [(0,0),(1,0),(2,0),(1,1)],
+            'S': [(1,0),(2,0),(0,1),(1,1)],
+            'Z': [(0,0),(1,0),(1,1),(2,1)],
+            'J': [(0,0),(0,1),(1,1),(2,1)],
+            'L': [(2,0),(0,1),(1,1),(2,1)],
+        }
+
+    @staticmethod
+    def _rotate(shape_cells, times: int):
+        cells = shape_cells
+        for _ in range(times % 4):
+            cells = [(-y, x) for (x, y) in cells]
+            min_x = min(c[0] for c in cells)
+            min_y = min(c[1] for c in cells)
+            cells = [(x - min_x, y - min_y) for (x, y) in cells]
+        return cells
+
+    def _spawn_tetris_cluster_for_side(self, out_list: list, origin: tuple, cols: int, rows: int, tile: int):
+        grid_x, bottom_y = origin
+        occupied = set()
+        shapes = self._tetromino_shapes()
+
+        # 공용 스펙의 기본 개수 사용(없으면 10)
+        spec = get_tetro_wall_spawn_spec(
+            width=self.global_manager.get('WIDTH', 600),
+            height=self.global_manager.get('HEIGHT', 750),
+        )
+        pieces = int(spec.get('pieces_per_side', 10))
+        for _ in range(pieces):
+            base_cells = shapes[random.choice(list(shapes.keys()))]
+            cells = self._rotate(base_cells, random.randint(0, 3))
+            max_cx = max(c[0] for c in cells)
+            max_cy = max(c[1] for c in cells)
+            width_cells = max_cx + 1
+            start_col = random.randint(0, max(0, cols - width_cells))
+
+            row = 0
+            while True:
+                blocked = False
+                for (cx, cy) in cells:
+                    nx = start_col + cx
+                    ny = row + cy + 1
+                    if ny >= rows or (nx, ny) in occupied:
+                        blocked = True
+                        break
+                if blocked:
+                    break
+                row += 1
+                if row + max_cy >= rows - 1:
+                    break
+
+            for (cx, cy) in cells:
+                col = start_col + cx
+                r = row + cy
+                occupied.add((col, r))
+                x = grid_x + col * tile
+                y = bottom_y - r * tile - tile
+                out_list.append(pygame.Rect(x, y, tile, tile))
+
+    def _render_stage7(self, screen: pygame.Surface):
+        t7 = self.stage7_tetris
+        if not t7['enabled']:
+            return
+
+        # 블록 렌더링(반투명 채움 + 외곽선) - 가시성 강화
+        colors = [(90, 180, 255, 220), (90, 220, 180, 220), (255, 200, 90, 220), (220, 120, 255, 220), (255, 120, 120, 220)]
+        for idx, blocks in enumerate((t7['left_blocks'], t7['right_blocks'])):
+            color = colors[idx % len(colors)]
+            for r in blocks:
+                s = pygame.Surface((r.width, r.height), pygame.SRCALPHA)
+                s.fill(color)
+                screen.blit(s, r.topleft)
+                pygame.draw.rect(screen, (30, 30, 30), r, 2)
+
+        # 간이 보스 스킬 게이지 표시(상단 중앙)
+        gauge = t7['gauge_current']
+        gmax = t7['gauge_max']
+        bar_w, bar_h = 180, 10
+        x = (self.global_manager.get('WIDTH', 600) - bar_w) // 2
+        y = 48
+        pygame.draw.rect(screen, (50, 50, 50), (x, y, bar_w, bar_h))
+        fill = int(bar_w * max(0.0, min(1.0, gauge / gmax)))
+        pygame.draw.rect(screen, (255, 120, 120), (x, y, fill, bar_h))
+        pygame.draw.rect(screen, (255, 255, 255), (x, y, bar_w, bar_h), 2)
+        need_x = x + int(bar_w * (t7['skill_cost'] / gmax))
+        pygame.draw.line(screen, (255, 255, 255), (need_x, y - 2), (need_x, y + bar_h + 2), 1)
+
     def get_stats(self) -> Dict:
         """스테이지 특수 기능 상태 반환"""
         stats = {
