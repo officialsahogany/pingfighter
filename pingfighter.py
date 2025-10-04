@@ -28713,7 +28713,9 @@ def spawn_stage7_tetromino(now: int | None = None) -> bool:
     except Exception:
         pass
 
-    s = STAGE7_TETRO_CELL_SIZE
+    # 스케일: 초인 테트리서 활성 중에는 2배
+    scale = 2 if stage7_super_active else 1
+    s = STAGE7_TETRO_CELL_SIZE * scale
     cx = float(BOSS.centerx)
     # 보스 패들 바로 아래에서 시작하되, 윗부분(ㅗ의 막대) 셀이 보스에 닿지 않도록 여유를 둔다.
     base_top = float(BOSS.bottom + s + 6)
@@ -28749,6 +28751,8 @@ def spawn_stage7_tetromino(now: int | None = None) -> bool:
         "assembly_elapsed": 0.0,
         "rotation": rotation,
         "shape": shape,
+        "scale": scale,
+        "super": bool(stage7_super_active),
     }
     stage7_tetrominoes.append(mino)
     return True
