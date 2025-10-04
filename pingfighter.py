@@ -1962,6 +1962,15 @@ STAGE7_TETRO_MIN_INTERVAL_MS = 15000       # 15~30초 쿨타임
 STAGE7_TETRO_MAX_INTERVAL_MS = 30000
 STAGE7_TETRO_GAUGE_COST = 50               # 소모 게이지 50
 stage7_tetro_reserve: bool = False          # 테트로미노가 게이지를 확보할 때까지 가드 스폰 잠시 보류
+
+# 디버그/테스트: 환경변수로 쿨타임 축소
+try:
+    if _bool_from_env("PINGFIGHTER_TETRO_TEST"):
+        STAGE7_TETRO_MIN_INTERVAL_MS = 3000
+        STAGE7_TETRO_MAX_INTERVAL_MS = 6000
+        print("[Stage7Tetro][TEST] 쿨타임 3~6초로 단축")
+except Exception:
+    pass
 boss_current_speed = 0               # 현재 AI 보스 속도
 # 보스 AI 움직임 파라미터
 BOSS_ACCELERATION = 0.798            # 가속도 (35% 감소: 1.2 → 0.798)
@@ -28401,6 +28410,12 @@ def update_stage7_guard_skill(now: int | None = None) -> None:
     if now < stage7_guard_next_trigger_ms:
         return
 
+    # 테트로미노 스킬이 게이지를 예약 중이면, 테트로미노가 쓸 50을 먼저 확보하도록 가드 스폰을 잠시 보류
+    if globals().get('stage7_tetro_reserve', False) and boss_special_gauge < STAGE7_TETRO_GAUGE_COST:
+        # 0.5초 뒤 재확인
+        stage7_guard_next_trigger_ms = now + 500
+        return
+
     # 트리거 시도 (게이지가 충분하면 기존 블록과 무관하게 추가 생성)
     if spawn_stage7_guard_blocks(now):
         _schedule_stage7_guard(now)
@@ -28472,6 +28487,11 @@ def spawn_stage7_tetromino(now: int | None = None) -> bool:
     boss_special_gauge = max(0, boss_special_gauge - STAGE7_TETRO_GAUGE_COST)
     stage7_persistent_boss_gauge = boss_special_gauge
     print(f"[Stage7Tetro][Spawn] cost {STAGE7_TETRO_GAUGE_COST} → {boss_special_gauge}")
+    # 테트로 게이지 예약 해제 (성공적으로 소모했으므로)
+    try:
+        globals()['stage7_tetro_reserve'] = False
+    except Exception:
+        pass
 
     s = STAGE7_TETRO_CELL_SIZE
     cx = float(BOSS.centerx)
@@ -28641,6 +28661,12 @@ def update_stage7_tetromino_skill(now: int | None = None) -> None:
         _schedule_stage7_tetro(now)
 
     if now < stage7_tetromino_next_trigger_ms:
+        return
+
+    if boss_special_gauge < STAGE7_TETRO_GAUGE_COST:
+        # 게이지 부족: 테트로 예약 플래그를 켜서 가드가 게이지를 잠식하지 않도록 함
+        globals()['stage7_tetro_reserve'] = True
+        stage7_tetromino_next_trigger_ms = now + 1000
         return
 
     if spawn_stage7_tetromino(now):
