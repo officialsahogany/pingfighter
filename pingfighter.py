@@ -1962,6 +1962,7 @@ STAGE7_TETRO_MIN_INTERVAL_MS = 5000        # 5~10초 쿨타임
 STAGE7_TETRO_MAX_INTERVAL_MS = 10000
 STAGE7_TETRO_GAUGE_COST = 30               # 소모 게이지 30
 stage7_tetro_reserve: bool = False          # 테트로미노가 게이지를 확보할 때까지 가드 스폰 잠시 보류
+stage7_tetro_followup_due_ms: int = 0       # 테트로미노 추가 발사(50% 확률) 예약 시각(ms)
 
 # 디버그/테스트: 환경변수로 쿨타임 축소
 try:
@@ -28636,10 +28637,11 @@ STAGE7_TETRO_ASSEMBLY_MOVE_MS = 200      # 각 셀이 등장 후 목표 위치�
 
 def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
     """Stage 7 테트로미노 스킬 상태 초기화."""
-    global stage7_tetrominoes, stage7_tetromino_next_trigger_ms
+    global stage7_tetrominoes, stage7_tetromino_next_trigger_ms, stage7_tetro_followup_due_ms
     stage7_tetrominoes.clear()
     if reset_timer:
         stage7_tetromino_next_trigger_ms = 0
+        stage7_tetro_followup_due_ms = 0
 
 
 def _schedule_stage7_tetro(now: int | None = None) -> None:
@@ -29137,6 +29139,16 @@ def update_stage7_tetromino_skill(now: int | None = None) -> None:
 
     update_stage7_tetrominoes(now)
 
+    # 50% 확률로 예약된 추가 발사 처리 (0.3~0.9초 후 1회 시도)
+    global stage7_tetro_followup_due_ms
+    if stage7_tetro_followup_due_ms and now >= stage7_tetro_followup_due_ms:
+        # 게이지가 충분하면 즉시 추가 발사 시도 (예약은 소멸)
+        due = stage7_tetro_followup_due_ms
+        stage7_tetro_followup_due_ms = 0
+        if current_stage == 7 and not new_boss_mode_active and boss_special_gauge >= STAGE7_TETRO_GAUGE_COST:
+            if spawn_stage7_tetromino(now):
+                print(f"[Stage7Tetro][FollowUp] extra spawn at +{now - due}ms")
+
     if stage7_tetromino_next_trigger_ms == 0:
         _schedule_stage7_tetro(now)
 
@@ -29151,6 +29163,9 @@ def update_stage7_tetromino_skill(now: int | None = None) -> None:
 
     if spawn_stage7_tetromino(now):
         _schedule_stage7_tetro(now)
+        # 50% 확률로 0.3~0.9초 뒤 추가 발사 예약
+        if random.random() < 0.5:
+            stage7_tetro_followup_due_ms = now + random.randint(300, 900)
     else:
         # 게이지 부족 시 1초 후 재시도
         stage7_tetromino_next_trigger_ms = now + 1000
