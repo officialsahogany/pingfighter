@@ -33929,11 +33929,13 @@ def draw_objects():
                    (PLAYER.centerx - (PADDLE_WIDTH + 40) // 2 + screen_shake_offset_x,
                     PLAYER.centery - (PADDLE_HEIGHT + 40) // 2 + screen_shake_offset_y))
     
-    # 플레이어 스턴 효과 (물자보급 비행기 폭발, 미사일 등)
-    if player_missile_stunned_timer > 0:
+    # 플레이어 스턴 효과 (미사일/폭발/초인 테트로 폭발 등 공통)
+    if player_missile_stunned_timer > 0 or player_stunned_timer > 0:
         # 스턴 중일 때 머리 위에 별 효과
         stars_y = PLAYER.y - 40
-        rotation_angle = (18 - player_missile_stunned_timer) * 20  # 회전 각도
+        # 우선순위: 미사일 스턴 타이머, 없으면 일반 스턴 타이머 사용
+        local_timer = player_missile_stunned_timer if player_missile_stunned_timer > 0 else player_stunned_timer
+        rotation_angle = (18 - min(18, local_timer)) * 20  # 회전 각도(느슨)
         
         # 별 3개가 머리 위에서 회전
         for i in range(3):
