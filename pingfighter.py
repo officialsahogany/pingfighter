@@ -1973,6 +1973,8 @@ STAGE7_SUPER_NAME = "초인테트리서"
 STAGE7_TETRO_EXPLOSION_KNOCKBACK = 12.0
 STAGE7_TETRO_EXPLOSION_STUN_S = 0.5
 stage7_boss_orig_size: tuple[int,int] | None = None  # (width, height)
+stage7_super_scale: float = 1.0
+stage7_super_target_scale: float = 1.0
 
 # 디버그/테스트: 환경변수로 쿨타임 축소
 try:
