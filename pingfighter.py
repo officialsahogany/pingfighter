@@ -29298,6 +29298,13 @@ def update_stage7_super_state(now: int | None = None) -> None:
     global stage7_super_active, stage7_super_ends_at_ms
     global boss_special_gauge, stage7_persistent_boss_gauge
     if current_stage != 7 or new_boss_mode_active:
+        # 종료 시 원상복귀
+        if stage7_super_active:
+            try:
+                if stage7_boss_orig_size:
+                    BOSS.width, BOSS.height = stage7_boss_orig_size
+            except Exception:
+                pass
         stage7_super_active = False
         return
     if now is None:
@@ -29305,6 +29312,12 @@ def update_stage7_super_state(now: int | None = None) -> None:
     if stage7_super_active:
         if now >= stage7_super_ends_at_ms:
             stage7_super_active = False
+            # 원상복귀
+            try:
+                if stage7_boss_orig_size:
+                    BOSS.width, BOSS.height = stage7_boss_orig_size
+            except Exception:
+                pass
         return
     # 비활성 → 발동 조건 체크
     if boss_special_gauge >= 500:
@@ -29313,6 +29326,15 @@ def update_stage7_super_state(now: int | None = None) -> None:
         # 게이지 소모 및 동기화
         boss_special_gauge = 0
         stage7_persistent_boss_gauge = 0
+        # 보스 패들 사이즈 2배 (충돌 판정 포함)
+        global stage7_boss_orig_size
+        try:
+            if stage7_boss_orig_size is None:
+                stage7_boss_orig_size = (BOSS.width, BOSS.height)
+            BOSS.width = int(BOSS.width * 2)
+            BOSS.height = int(BOSS.height * 2)
+        except Exception:
+            pass
         try:
             play_wall_sound()
         except Exception:
@@ -32550,6 +32572,10 @@ def draw_objects():
 
         boss_img = frames[frame_index]
         boss_w, boss_h = BOSS_IMG_STAGE7_WIDTH, BOSS_IMG_STAGE7_HEIGHT
+        # 초인테트리서 동안 보스 이미지도 2배 스케일 + 붉은 펄스
+        boss_scale = 2 if stage7_super_active else 1
+        boss_w *= boss_scale
+        boss_h *= boss_scale
     elif current_stage == 50:
         # Tutorial Stage - Instructor (smaller size)
         boss_img = BOSS_IMG_TUTORIAL
@@ -32645,10 +32671,24 @@ def draw_objects():
     else:
         # 원래 보스 회전 로직 (화면 흔들림 오프셋 적용)
         rotated_boss = pygame.Surface((boss_w, boss_h), pygame.SRCALPHA)
-        rotated_boss.blit(boss_img, (0, 0))
+        # 시각 펄스를 위해 먼저 스케일된 보스 이미지를 준비
+        base_img = pygame.transform.scale(boss_img, (boss_w, boss_h))
+        rotated_boss.blit(base_img, (0, 0))
         rotated_boss = pygame.transform.rotate(rotated_boss, tilt_angle_boss)
         boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x, 
                                                   BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
+    # 초인 펄스(붉은 페이드 인/아웃)
+    if current_stage == 7 and stage7_super_active:
+        try:
+            pulse_phase = (pygame.time.get_ticks() // 80) % 20  # 약 12.5Hz/20스텝
+            # 사인파 기반 알파 (70~160 사이)
+            t = pygame.time.get_ticks() * 0.01
+            alpha = int(115 + 45 * math.sin(t))
+            tint = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
+            tint.fill((255, 40, 40, max(0, min(255, alpha))))
+            rotated_boss.blit(tint, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+        except Exception:
+            pass
     # === Stage 2 스피드 디펜스 꼬리효과 ===
     if current_stage == 2 and speed_defense_active:
         # 원래 꼬리 효과 (매 프레임 추가) - 더 많은 잔상 추가
