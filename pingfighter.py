@@ -34007,29 +34007,37 @@ def draw_objects():
         local_timer = player_missile_stunned_timer if player_missile_stunned_timer > 0 else player_stunned_timer
         rotation_angle = (18 - min(18, local_timer)) * 20  # 회전 각도(느슨)
         
-        # 별 3개가 머리 위에서 회전
-        for i in range(3):
-            angle = rotation_angle + i * 120  # 120도 간격
-            star_x = PLAYER.centerx + math.cos(math.radians(angle)) * 25
-            star_y = stars_y + math.sin(math.radians(angle)) * 15
-            
-            # 별 그리기 (노란색)
-            points = []
-            for j in range(5):
-                outer_angle = math.radians(j * 72 - 90 + rotation_angle)
-                inner_angle = math.radians(j * 72 + 36 - 90 + rotation_angle)
-                
-                # 바깥쪽 점
-                outer_x = star_x + math.cos(outer_angle) * 12
-                outer_y = star_y + math.sin(outer_angle) * 12
-                points.append((outer_x, outer_y))
-                
-                # 안쪽 점
-                inner_x = star_x + math.cos(inner_angle) * 6
-                inner_y = star_y + math.sin(inner_angle) * 6
-                points.append((inner_x, inner_y))
-            
-            pygame.draw.polygon(SCREEN, (255, 255, 0), points)
+        # 별 3개가 머리 위에서 회전 (보스 스턴 별과 동일 스타일)
+        num_stars = 3
+        radius = DEFAULT_RADIUS
+        for i in range(num_stars):
+            angle = (rotation_angle + i * (FULL_ROTATION / num_stars)) % FULL_ROTATION
+            angle_rad = math.radians(angle)
+            # 보스 별과 동일한 궤도/배치 방식
+            star_x = PLAYER.centerx + radius * math.cos(angle_rad)
+            star_y = stars_y + radius * math.sin(angle_rad) * 0.5
+
+            # 보스 별과 동일한 10포인트(외곽/내곽) 별 모양, 크기 8
+            star_size = 8
+            star_points = []
+            for j in range(10):
+                angle_star = j * 36 - QUARTER_ROTATION
+                angle_star_rad = math.radians(angle_star)
+                if j % 2 == 0:
+                    px = star_x + star_size * math.cos(angle_star_rad)
+                    py = star_y + star_size * math.sin(angle_star_rad)
+                else:
+                    px = star_x + (star_size * 0.4) * math.cos(angle_star_rad)
+                    py = star_y + (star_size * 0.4) * math.sin(angle_star_rad)
+                star_points.append((px, py))
+
+            # 색상/테두리/글로우를 보스 스턴 별과 동일하게 적용
+            star_color = (255, 255, 100)
+            draw.polygon(star_color, star_points)
+            draw.polygon((255, 200, 0), star_points, 1)
+            glow_surface = pygame.Surface((star_size * 3, star_size * 3), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surface, (255, 255, 100, 60), (star_size * 1.5, star_size * 1.5), star_size)
+            SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
             
         # 스턴 텍스트 표시 (초인 테트로 폭발 유발 스턴 동안은 숨김)
         try:
