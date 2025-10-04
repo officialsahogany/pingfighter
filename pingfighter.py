@@ -49983,6 +49983,8 @@ def reset_round():
     # 🔧 플레이어 움직임 관련 변수 완전 초기화
     global player_stunned_timer, player_knockback_vel, player_missile_knockback_vel
     global player_missile_stunned_timer, player_stunned, player_stun_end_time
+    global player_stun_text_hidden_until_ms
+    global player_stun_text_hidden_until_ms
     global player_burn_timer, player_burn_effect
     player_stunned_timer = 0
     player_knockback_vel = 0
@@ -49990,6 +49992,13 @@ def reset_round():
     player_missile_stunned_timer = 0
     player_stunned = False
     player_stun_end_time = 0
+    try:
+        global player_stun_text_hidden_until_ms
+        player_stun_text_hidden_until_ms = 0
+    except Exception:
+        pass
+    player_stun_text_hidden_until_ms = 0
+    player_stun_text_hidden_until_ms = 0
     player_burn_timer = 0
     player_burn_effect = False
     
@@ -62876,6 +62885,11 @@ def main(stage_num, new_boss_mode=False):
                     player_stunned_timer = 0
                     player_knockback_vel = 0
                     player_stunned = False
+                    try:
+                        global player_stun_text_hidden_until_ms
+                        player_stun_text_hidden_until_ms = 0
+                    except Exception:
+                        pass
                     current_speed = 0
                     print("튜토리얼: 플레이어 상태 초기화 완료 (롤링, 스턴, 이동속도 리셋)")
                     
