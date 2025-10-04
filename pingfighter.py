@@ -28179,7 +28179,7 @@ def initialize_stage7_guard_state(now: int | None = None) -> None:
 
 
 def update_stage7_gauge_charge(is_active: bool) -> None:
-    """Stage 7 보스 게이지를 초당 10씩 자동 충전한다."""
+    """Stage 7 보스 게이지를 초당 20씩 자동 충전한다."""
     global stage7_gauge_last_update_ms, stage7_gauge_charge_progress, boss_special_gauge
 
     now = pygame.time.get_ticks()
@@ -28204,7 +28204,7 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
         stage7_gauge_charge_progress = 0.0
         return
 
-    stage7_gauge_charge_progress += elapsed_ms * 0.01  # (ms / 1000) * 10
+    stage7_gauge_charge_progress += elapsed_ms * 0.02  # (ms / 1000) * 20
     charge_units = int(stage7_gauge_charge_progress)
 
     if charge_units <= 0:
