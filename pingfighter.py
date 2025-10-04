@@ -28854,13 +28854,17 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
                         # 수증기 파티클 생성
                         cx, cy = c["rect"].centerx, c["rect"].centery
                         parts = []
+                        speed_mult = float(mino.get("evap_speed_mult", 1.0))
                         for _ in range(random.randint(8, 12)):
+                            vx = random.uniform(-0.35, 0.35) * speed_mult
+                            vy = random.uniform(-0.9, -0.4) * speed_mult
+                            life = int(420 / max(0.1, speed_mult))  # 빠를수록 수명 단축
                             parts.append({
                                 "x": float(cx + random.uniform(-3, 3)),
                                 "y": float(cy + random.uniform(-3, 3)),
-                                "vx": random.uniform(-0.35, 0.35),
-                                "vy": random.uniform(-0.9, -0.4),
-                                "life": 420,  # ms
+                                "vx": vx,
+                                "vy": vy,
+                                "life": life,  # ms
                                 "age": 0.0,
                                 "size": random.randint(2, 4),
                             })
