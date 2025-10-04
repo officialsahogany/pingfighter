@@ -29361,7 +29361,11 @@ def draw_stage7_guard_blocks(surface: pygame.Surface) -> None:
                 fill_col = base_color
                 border_alpha = 255
 
-            temp = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+            # 캐시된 임시 Surface 사용으로 할당/GC 부하 경감
+            try:
+                temp = _stage7_get_temp_surface(_stage7_cache_cell, (rect.width, rect.height))
+            except Exception:
+                temp = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
             pygame.draw.rect(temp, (*fill_col, alpha), temp.get_rect(), border_radius=4)
             pygame.draw.rect(temp, (*highlight_color, min(255, alpha + 25)), temp.get_rect().inflate(-4, -4), border_radius=3)
             pygame.draw.rect(temp, (*border_color, border_alpha), temp.get_rect(), 2, border_radius=4)
@@ -29369,7 +29373,10 @@ def draw_stage7_guard_blocks(surface: pygame.Surface) -> None:
             # 황금 십자 글린트
             if block.get("golden") and idx == 0:
                 try:
-                    glint = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+                    try:
+                        glint = _stage7_get_temp_surface(_stage7_cache_glint, (rect.width, rect.height))
+                    except Exception:
+                        glint = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
                     seed = int(block.get("golden_seed", 0))
                     glow_alpha = int(70 + 65 * abs(math.sin((pygame.time.get_ticks() + seed) * 0.01)))
                     pygame.draw.rect(glint, (255, 245, 140, glow_alpha), (rect.width//2 - 1, 0, 2, rect.height))
@@ -29377,7 +29384,10 @@ def draw_stage7_guard_blocks(surface: pygame.Surface) -> None:
                     surface.blit(glint, rect.topleft, special_flags=pygame.BLEND_ADD)
                     # 대각 쉬머
                     shift = int(((pygame.time.get_ticks() + seed) * 0.05) % (rect.width + rect.height))
-                    shimmer = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+                    try:
+                        shimmer = _stage7_get_temp_surface(_stage7_cache_shimmer, (rect.width, rect.height))
+                    except Exception:
+                        shimmer = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
                     c = (255, 255, 200, 85)
                     pygame.draw.line(shimmer, c, (max(0, shift - rect.height), 0), (min(rect.width, shift), min(rect.height, shift)), 2)
                     pygame.draw.line(shimmer, c, (max(0, shift - rect.height) - 5, 0), (min(rect.width, shift - 5), min(rect.height, shift - 5)), 2)
