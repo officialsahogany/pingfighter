@@ -175,3 +175,6 @@ crash_dumps/
 *.mov
 *.mkv
 auto_save.pid
+
+# Auto-commit state
+.autocommit/
