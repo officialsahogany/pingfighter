@@ -1958,9 +1958,9 @@ STAGE7_GUARD_MAX_INTERVAL_MS = 15000
 # Stage 7 테트리서: 테트리스 T(ㅗ) 블록 낙하 스킬
 stage7_tetrominoes: list[dict] = []        # 활성화된 T 블록 투사체 목록
 stage7_tetromino_next_trigger_ms: int = 0  # 테트로미노 스킬 다음 발동 예정 시각(ms)
-STAGE7_TETRO_MIN_INTERVAL_MS = 15000       # 15~30초 쿨타임
-STAGE7_TETRO_MAX_INTERVAL_MS = 30000
-STAGE7_TETRO_GAUGE_COST = 50               # 소모 게이지 50
+STAGE7_TETRO_MIN_INTERVAL_MS = 5000        # 5~10초 쿨타임
+STAGE7_TETRO_MAX_INTERVAL_MS = 10000
+STAGE7_TETRO_GAUGE_COST = 30               # 소모 게이지 30
 stage7_tetro_reserve: bool = False          # 테트로미노가 게이지를 확보할 때까지 가드 스폰 잠시 보류
 
 # 디버그/테스트: 환경변수로 쿨타임 축소
