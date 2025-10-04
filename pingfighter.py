@@ -28308,7 +28308,7 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     def _collect_existing_final_cells() -> list[pygame.Rect]:
         rects: list[pygame.Rect] = []
         for b in stage7_guard_blocks:
-            if b.get("state") not in ("hologram", "deploy", "active"):
+            if b.get("state") not in ("assembling", "hologram", "deploy", "active"):
                 continue
             for c in b.get("cells", []):
                 fx = int(round(c.get("final_left", c["rect"].x)))
@@ -28325,29 +28325,34 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
         if t >= 12.0:
             candidates.append(t)
     chosen_top: float | None = None
-    chosen_left_cells: list[pygame.Rect] | None = None
-    chosen_right_cells: list[pygame.Rect] | None = None
+    chosen_sides: list[str] = []  # 'left'/'right'
     for t in candidates:
         left_cells, right_cells = _build_final_cells(t)
-        overlap = False
-        for rc in existing_final:
-            if any(rc.colliderect(nc) for nc in left_cells) or any(rc.colliderect(nc) for nc in right_cells):
-                overlap = True
-                break
-        if not overlap:
+        left_ok = not any(any(rc.colliderect(nc) for nc in left_cells) for rc in existing_final)
+        right_ok = not any(any(rc.colliderect(nc) for nc in right_cells) for rc in existing_final)
+        sides = []
+        if right_ok:
+            sides.append('right')
+        if left_ok:
+            sides.append('left')
+        if allowed_to_spawn == 2 and len(sides) == 2:
             chosen_top = t
-            chosen_left_cells = left_cells
-            chosen_right_cells = right_cells
+            chosen_sides = ['right', 'left']
+            break
+        if allowed_to_spawn == 1 and len(sides) >= 1:
+            chosen_top = t
+            # 우측 우선, 아니면 좌측
+            chosen_sides = ['right'] if 'right' in sides else ['left']
             break
 
     if chosen_top is None:
         # 배치할 수 있는 자리가 없으면 실패 (게이지 소모 없음)
         return False
 
-    # 3) 최종 배치가 확정되었으므로 게이지 차감 후 실제 블록 생성
-    boss_special_gauge = max(0, boss_special_gauge - 100)
+    # 3) 최종 배치가 확정되었으므로 게이지 차감 후 실제 블록 생성 (블록수에 따라 50/100)
+    boss_special_gauge = max(0, boss_special_gauge - required_gauge)
     stage7_persistent_boss_gauge = boss_special_gauge
-    print(f"[Stage7Gauge][Spawn] cost 100 → {boss_special_gauge}")
+    print(f"[Stage7Gauge][Spawn] cost {required_gauge} → {boss_special_gauge}")
 
     left_start = left_start_base
     right_start = right_start_base
@@ -28355,11 +28360,14 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     right_final = right_final_base
     block_top = chosen_top
 
-    right_block = _create_stage7_guard_block("right", right_start, right_final, block_top, now)
-    left_block = _create_stage7_guard_block("left", left_start, left_final, block_top, now)
+    new_blocks: list[dict] = []
+    if 'right' in chosen_sides:
+        new_blocks.append(_create_stage7_guard_block("right", right_start, right_final, block_top, now))
+    if 'left' in chosen_sides and allowed_to_spawn == 2:
+        new_blocks.append(_create_stage7_guard_block("left", left_start, left_final, block_top, now))
 
     # ㅗ 블럭과 동일한 조립 애니메이션 적용: 1초간 순차 등장 후 자리 고정
-    for blk in (right_block, left_block):
+    for blk in new_blocks:
         blk["state"] = "assembling"
         blk["assembly_elapsed"] = 0.0
         blk["visible_cells"] = 0
@@ -28369,9 +28377,9 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
             c["start_left"] = float(c.get("start_left", c["rect"].x)) + jitter
             c["rect"].x = int(round(c["start_left"]))
 
-    print(f"[Stage7Guard] spawn left {left_start:.1f}->{left_final:.1f}, right {right_start:.1f}->{right_final:.1f}, top={block_top:.1f}")
+    print(f"[Stage7Guard] spawn sides={chosen_sides} top={block_top:.1f}")
 
-    stage7_guard_blocks.extend([right_block, left_block])
+    stage7_guard_blocks.extend(new_blocks)
     return True
 
 
@@ -52921,7 +52929,7 @@ def handle_ball():
                             ball_vel[0] += random.uniform(-0.4, 0.4)
 
                             # 블록은 즉시 소멸
-                            destroy_stage7_guard_block(guard_block)
+                            destroy_stage7_guard_block(guard_block, by_player=(last_hit_by == "player"))
                             create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
                             stage7_guard_hit = True
                             break
