@@ -28443,7 +28443,13 @@ def update_stage7_guard_blocks(now: int | None = None) -> None:
                 cell["rect"].y = int(round(cell["top"]))
                 cell["fade"] = fade
             if block["destroy_timer"] <= 0:
+                # 파괴 완료 → 리스트에서 제거
                 stage7_guard_blocks.remove(block)
+                # 플레이어가 파괴했고, 남은 활성 블록(assembling/hologram/deploy/active)이 3개 이하라면 즉시 재스폰 예약
+                remaining_active = sum(1 for b in stage7_guard_blocks if b.get("state") in ("assembling", "hologram", "deploy", "active"))
+                if block.get("destroy_reason") == "player" and remaining_active <= 3:
+                    globals()['stage7_guard_next_trigger_ms'] = now
+                # 전부 사라진 경우도 안전하게 스케줄
                 if not stage7_guard_blocks:
                     _schedule_stage7_guard(now)
 
@@ -28525,7 +28531,7 @@ def update_stage7_guard_skill(now: int | None = None) -> None:
         stage7_guard_next_trigger_ms = now + 1000
 
 
-def destroy_stage7_guard_block(block: dict, *, now: int | None = None) -> None:
+def destroy_stage7_guard_block(block: dict, *, now: int | None = None, by_player: bool = False) -> None:
     if block.get("state") == "destroying":
         return
     if now is None:
@@ -28535,6 +28541,7 @@ def destroy_stage7_guard_block(block: dict, *, now: int | None = None) -> None:
     block["destroy_timer"] = 200
     block["last_update"] = now
     block["visible_cells"] = len(block.get("cells", []))
+    block["destroy_reason"] = "player" if by_player else "other"
     try:
         play_wall_sound()
     except Exception:
