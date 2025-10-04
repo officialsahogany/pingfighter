@@ -28995,6 +28995,11 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: b
     mino["pop_min_radius"] = 16
     mino["last_update"] = now
     mino["destroy_reason"] = "dash" if by_dash else ("player" if by_player else "other")
+    # 파괴 후에도 5초 뒤 증발 애니메이션을 동일하게 적용하기 위해 링 이펙트 후 설치 상태로 전환
+    mino["linger_evap"] = True
+    mino["installed_at"] = now  # 링 이펙트 후부터 타이머 카운트
+    # 대쉬/공으로 파괴된 상태의 블럭은 플레이어를 막지 않도록 표시
+    mino["nonblocking"] = True
     # 소리 재생 (가드 블록과 동일한 효과 재사용)
     try:
         play_wall_sound()
