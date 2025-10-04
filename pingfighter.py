@@ -29066,20 +29066,20 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
                 surface.blit(bubble, (int(p["x"]) - size, int(p["y"]) - size))
 
 
-def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: bool = False, by_dash: bool = False) -> None:
+def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: bool = False, by_dash: bool = False, by_smoke: bool = False) -> None:
     if mino.get("state") in ("destroying", "evaporating"):
         return
     if now is None:
         now = pygame.time.get_ticks()
 
-    reason = "dash" if by_dash else ("player" if by_player else "other")
+    reason = "dash" if by_dash else ("player" if by_player else ("smoke" if by_smoke else "other"))
     mino["destroy_reason"] = reason
 
-    # 공/대쉬로 파괴된 경우: 링 이펙트/펄스 없이 즉시 2초간 증발 해체 시작
-    if by_player or by_dash:
+    # 공/대쉬/연막으로 파괴된 경우: 링 이펙트 없이 즉시 증발 해체 시작
+    if by_player or by_dash or by_smoke:
         mino["state"] = "evaporating"
         mino["evap_timer"] = 0.0
-        # 4셀 기준 총 2.0초 → 요청: 3배 빠르게 → 셀당 약 166.7ms
+        # 대쉬/플레이어/연막 접촉 시 빠르게 분해되는 동일 연출 사용
         mino["evap_interval"] = 111.0
         mino["evap_speed_mult"] = 1.5
         mino["evap_index"] = 0
