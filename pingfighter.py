@@ -28820,6 +28820,69 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
                 stage7_tetrominoes.remove(mino)
                 # 삭제된 경우에는 last_update 갱신 불필요
                 continue
+        elif state == "installed":
+            # 설치 후 일정 시간이 지나면 증발 해체 시퀀스 시작
+            installed_at = int(mino.get("installed_at", now))
+            since = now - installed_at
+            # 증발 상태 진입 (5초 경과)
+            if since >= 5000 and mino.get("state") != "evaporating":
+                mino["state"] = "evaporating"
+                mino["evap_timer"] = 0.0
+                mino["evap_interval"] = 160  # 셀 1개당 0.16초 간격으로 증발
+                mino["evap_index"] = 0
+                # 셀 순서를 살짝 섞어 자연스러움 부여
+                order = list(range(len(mino.get("cells", []))))
+                random.shuffle(order)
+                mino["evap_order"] = order
+                # 각 셀 증발 플래그 초기화
+                for c in mino.get("cells", []):
+                    c["evaporated"] = False
+                # 파티클 컨테이너
+                mino["steam_particles"] = []
+        elif state == "evaporating":
+            # 증발 파티클 및 셀 제거 진행
+            mino["evap_timer"] = float(mino.get("evap_timer", 0.0)) + elapsed
+            interval = max(40.0, float(mino.get("evap_interval", 160.0)))
+            # 셀을 하나씩 증발 처리
+            while mino["evap_timer"] >= interval and mino.get("evap_index", 0) < len(mino.get("cells", [])):
+                mino["evap_timer"] -= interval
+                idx = mino["evap_order"][mino["evap_index"]]
+                if 0 <= idx < len(mino["cells"]):
+                    c = mino["cells"][idx]
+                    if not c.get("evaporated", False):
+                        c["evaporated"] = True
+                        # 수증기 파티클 생성
+                        cx, cy = c["rect"].centerx, c["rect"].centery
+                        parts = []
+                        for _ in range(random.randint(8, 12)):
+                            parts.append({
+                                "x": float(cx + random.uniform(-3, 3)),
+                                "y": float(cy + random.uniform(-3, 3)),
+                                "vx": random.uniform(-0.35, 0.35),
+                                "vy": random.uniform(-0.9, -0.4),
+                                "life": 420,  # ms
+                                "age": 0.0,
+                                "size": random.randint(2, 4),
+                            })
+                        mino.setdefault("steam_particles", []).extend(parts)
+                mino["evap_index"] += 1
+            # 파티클 업데이트
+            particles = mino.get("steam_particles", [])
+            if particles:
+                for p in particles[:]:
+                    p["age"] += elapsed
+                    p["x"] += p["vx"] * (elapsed / 16.0)
+                    p["y"] += p["vy"] * (elapsed / 16.0)
+                    # 살짝 퍼지게
+                    p["vx"] *= 0.98
+                    p["vy"] *= 0.99
+                    if p["age"] >= p["life"]:
+                        particles.remove(p)
+            # 모든 셀이 증발했는지 확인
+            all_gone = all(c.get("evaporated", False) for c in mino.get("cells", []))
+            if all_gone and not particles:
+                stage7_tetrominoes.remove(mino)
+                continue
         elif state == "destroying":
             duration = max(1.0, float(mino.get("destroy_duration", 160)))
             timer = max(0.0, float(mino.get("destroy_timer", 0.0)) - elapsed)
@@ -28855,6 +28918,22 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
             elif state == "destroying":
                 alpha = int(200 * fade)
                 border_alpha = int(190 * fade)
+            elif state in ("installed", "evaporating"):
+                # 설치 후 3~5초 구간에서 페이드 인/아웃 펄스
+                installed_at = int(mino.get("installed_at", 0))
+                t = pygame.time.get_ticks() - installed_at if installed_at else 0
+                if 3000 <= t <= 5000:
+                    # 2Hz 정도의 펄스
+                    phase = (t - 3000) / 1000.0  # 0~2초
+                    pulse = 0.5 + 0.5 * math.sin(phase * math.pi * 2.0)  # 0~1
+                    alpha = int(150 + 100 * pulse)
+                    border_alpha = int(150 + 90 * pulse)
+                else:
+                    alpha = 230
+                    border_alpha = 255
+                # 증발 중 이미 사라진 셀은 표시하지 않음
+                if state == "evaporating" and cell.get("evaporated", False):
+                    continue
             else:
                 alpha = 230
                 border_alpha = 255
@@ -28882,6 +28961,21 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
                 pygame.draw.circle(ring, (*highlight_color, ring_alpha), (ring_size // 2, ring_size // 2), radius, width=3)
                 pygame.draw.circle(ring, (*border_color, int(ring_alpha * 0.8)), (ring_size // 2, ring_size // 2), max(1, radius - 2), width=1)
                 surface.blit(ring, (cx - ring_size // 2, cy - ring_size // 2))
+
+        # 증발 파티클 렌더링
+        if state == "evaporating":
+            for p in mino.get("steam_particles", []) or []:
+                # 나이에 따라 알파/크기 보간
+                life = max(1.0, float(p.get("life", 420)))
+                age = min(life, float(p.get("age", 0.0)))
+                k = 1.0 - (age / life)
+                alpha_p = int(180 * k)
+                size = int(max(1, p.get("size", 2) * (1.0 + (1.0 - k) * 0.6)))
+                if alpha_p <= 0:
+                    continue
+                bubble = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(bubble, (230, 230, 255, alpha_p), (size, size), size)
+                surface.blit(bubble, (int(p["x"]) - size, int(p["y"]) - size))
 
 
 def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: bool = False, by_dash: bool = False) -> None:
