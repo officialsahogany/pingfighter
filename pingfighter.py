@@ -28573,6 +28573,7 @@ def update_stage7_guard_skill(now: int | None = None) -> None:
         now = pygame.time.get_ticks()
 
     update_stage7_guard_blocks(now)
+    enforce_player_blocking_by_installed_tetro()
 
     # 변경 사항: 활성 블록이 남아 있어도 쿨타임 도달 시 추가 생성 허용.
     # 다만 설치/파괴 중(홀로그램/배치 이동/파괴 애니메이션)일 때는 중복 연출 충돌을 피하기 위해 대기.
@@ -28884,6 +28885,49 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: b
         print(f"[Stage7Tetro][Pop] center=({mino['pop_cx']},{mino['pop_cy']})")
     except Exception:
         pass
+
+
+def enforce_player_blocking_by_installed_tetro() -> None:
+    """플레이어 패들이 설치된 ㅗ 블럭을 가로질러 이동하지 못하도록 막는다.
+    - 대쉬(rolling_active 또는 is_half_dash_active) 중 충돌 시 블럭을 파괴하며 통과 가능.
+    - 일반 이동 중 충돌 시 플레이어를 블럭 밖으로 되돌린다.
+    """
+    if current_stage != 7 or not stage7_tetrominoes:
+        return
+    try:
+        dash_like = bool(globals().get('rolling_active', False) or globals().get('is_half_dash_active', False))
+    except Exception:
+        dash_like = False
+    player_rect = pygame.Rect(PLAYER.x, PLAYER.y, PLAYER.width, PLAYER.height)
+    adjusted = False
+    for mino in stage7_tetrominoes[:]:
+        if mino.get("state") != "installed":
+            continue
+        hit = False
+        for c in mino.get("cells", []):
+            if player_rect.colliderect(c["rect"]):
+                hit = True
+                break
+        if not hit:
+            continue
+        if dash_like:
+            destroy_stage7_tetromino(mino, by_player=True, by_dash=True)
+            continue
+        # 일반 이동: 플레이어를 블럭 바깥으로 밀어냄
+        # 좌우 어느 쪽이 가까운지 기준으로 정리
+        # 블럭 전체 경계
+        minx = min(c["rect"].left for c in mino["cells"])
+        maxx = max(c["rect"].right for c in mino["cells"])
+        if player_rect.centerx >= (minx + maxx) // 2:
+            # 오른쪽에 있다 → 오른쪽으로 밀기
+            PLAYER.x = max(PLAYER.x, maxx + 1)
+        else:
+            # 왼쪽으로 밀기
+            PLAYER.x = min(PLAYER.x, minx - PLAYER.width - 1)
+        adjusted = True
+    if adjusted:
+        # 화면 경계 재클램프
+        PLAYER.x = max(0, min(WIDTH - PLAYER.width, PLAYER.x))
 
 
 def update_stage7_tetromino_skill(now: int | None = None) -> None:
