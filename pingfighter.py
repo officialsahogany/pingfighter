@@ -48928,6 +48928,7 @@ def reset_round():
         pass
     else:
         reset_stage7_guard_state()
+        reset_stage7_tetromino_state()
 
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
@@ -58407,6 +58408,7 @@ def main(stage_num, new_boss_mode=False):
     reset_round()
     if stage_num != 7:
         reset_stage7_guard_state()
+        reset_stage7_tetromino_state()
     
     #  DEBUG: 하늘빛 아지랑이 효과 테스트용 (나중에 제거)
     # academy.debug_max_dash_skills()  # 디버그 코드 비활성화 - 실제 게임에서는 사용하지 않음
