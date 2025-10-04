@@ -28735,6 +28735,7 @@ STAGE7_TETRO_ASSEMBLY_TOTAL_MS = 1000
 STAGE7_TETRO_ASSEMBLY_STEP_MS = 250      # 4개의 셀이 0.25초 간격으로 등장 → 총 1초
 STAGE7_TETRO_ASSEMBLY_MOVE_MS = 200      # 각 셀이 등장 후 목표 위치까지 이동하는 시간
 
+<<<<<<< HEAD
 # =====================
 # Stage 7: 중앙 큐브 시스템 (3x3 정사각형 그리드로 표현)
 # - 맵 중앙(원형 서클) 내부에 큐브를 표시
@@ -29269,6 +29270,8 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
                 pygame.draw.polygon(surface, col, poly)
                 pygame.draw.polygon(surface, (20,20,28), poly, 1)
                 idx += 1
+=======
+>>>>>>> parent of 2d055489 (Auto-save #147: 메인 게임 로직 작업 - 2025-10-04 19:10:23)
 
 def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
     """Stage 7 테트로미노 스킬 상태 초기화."""
