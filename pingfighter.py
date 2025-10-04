@@ -28263,33 +28263,92 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     if BOSS is None:
         return False
 
+    # 1) 가로 블럭(4셀 가로) 개수가 4개 이상이면 발동 금지
+    active_horizontal = sum(1 for b in stage7_guard_blocks if b.get("state") in ("hologram", "deploy", "active"))
+    if active_horizontal >= 4:
+        return False
+
     if boss_special_gauge < 100:
         return False
 
+    cell_size = STAGE7_GUARD_CELL_SIZE
+    center = float(BOSS.centerx)
+    base_top = float(max(12.0, BOSS.top - cell_size - 8))
+
+    left_start_base = center - cell_size * 4
+    right_start_base = center
+    left_final_base = max(12.0, BOSS.left - cell_size * 4 - 6)
+    right_final_base = min(float(WIDTH - cell_size * 4 - 12), BOSS.right + 6)
+
+    # 도우미: 새로 배치하려는 두 블록(좌/우)의 '최종' 셀 렉트 목록 생성
+    def _build_final_cells(block_top: float) -> tuple[list[pygame.Rect], list[pygame.Rect]]:
+        left_cells = []
+        right_cells = []
+        for i in range(4):
+            lx = int(round(left_final_base + i * cell_size))
+            rx = int(round(right_final_base + i * cell_size))
+            ty = int(round(block_top))
+            left_cells.append(pygame.Rect(lx, ty, cell_size, cell_size))
+            right_cells.append(pygame.Rect(rx, ty, cell_size, cell_size))
+        return left_cells, right_cells
+
+    # 도우미: 기존 블록의 '최종' 셀 렉트 수집 (겹침 금지 판단용)
+    def _collect_existing_final_cells() -> list[pygame.Rect]:
+        rects: list[pygame.Rect] = []
+        for b in stage7_guard_blocks:
+            if b.get("state") not in ("hologram", "deploy", "active"):
+                continue
+            for c in b.get("cells", []):
+                fx = int(round(c.get("final_left", c["rect"].x)))
+                fy = int(round(c.get("top", c["rect"].y)))
+                rects.append(pygame.Rect(fx, fy, cell_size, cell_size))
+        return rects
+
+    existing_final = _collect_existing_final_cells()
+
+    # 2) 겹치지 않게 설치: 위쪽으로 층을 올려 최대 4개 층까지 후보 탐색
+    candidates: list[float] = []
+    for n in range(4):
+        t = base_top - n * max(12.0, float(STAGE7_GUARD_GAP_Y))
+        if t >= 12.0:
+            candidates.append(t)
+    chosen_top: float | None = None
+    chosen_left_cells: list[pygame.Rect] | None = None
+    chosen_right_cells: list[pygame.Rect] | None = None
+    for t in candidates:
+        left_cells, right_cells = _build_final_cells(t)
+        overlap = False
+        for rc in existing_final:
+            if any(rc.colliderect(nc) for nc in left_cells) or any(rc.colliderect(nc) for nc in right_cells):
+                overlap = True
+                break
+        if not overlap:
+            chosen_top = t
+            chosen_left_cells = left_cells
+            chosen_right_cells = right_cells
+            break
+
+    if chosen_top is None:
+        # 배치할 수 있는 자리가 없으면 실패 (게이지 소모 없음)
+        return False
+
+    # 3) 최종 배치가 확정되었으므로 게이지 차감 후 실제 블록 생성
     boss_special_gauge = max(0, boss_special_gauge - 100)
     stage7_persistent_boss_gauge = boss_special_gauge
     print(f"[Stage7Gauge][Spawn] cost 100 → {boss_special_gauge}")
 
-    cell_size = STAGE7_GUARD_CELL_SIZE
-    center = float(BOSS.centerx)
-    block_top = float(max(12.0, BOSS.top - cell_size - 8))
+    left_start = left_start_base
+    right_start = right_start_base
+    left_final = left_final_base
+    right_final = right_final_base
+    block_top = chosen_top
 
-    left_start = center - cell_size * 4
-    right_start = center
-    left_final = max(12.0, BOSS.left - cell_size * 4 - 6)
-    right_final = min(float(WIDTH - cell_size * 4 - 12), BOSS.right + 6)
-
-    # 오른쪽 블록
     right_block = _create_stage7_guard_block("right", right_start, right_final, block_top, now)
-
-    # 왼쪽 블록 (독립된 시작 위치)
     left_block = _create_stage7_guard_block("left", left_start, left_final, block_top, now)
 
     print(f"[Stage7Guard] spawn left {left_start:.1f}->{left_final:.1f}, right {right_start:.1f}->{right_final:.1f}, top={block_top:.1f}")
 
-    new_blocks = [right_block, left_block]
-
-    stage7_guard_blocks.extend(new_blocks)
+    stage7_guard_blocks.extend([right_block, left_block])
     return True
 
 
