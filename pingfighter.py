@@ -28449,16 +28449,20 @@ def update_stage7_guard_blocks(now: int | None = None) -> None:
                     t_since = max(0.0, block["assembly_elapsed"] - appear_t)
                     prog = min(1.0, t_since / STAGE7_GUARD_ASSEMBLY_MOVE_MS)
                     start_left = float(cell.get("start_left", cell["rect"].x))
-                    final_left = float(cell.get("final_left", cell["rect"].x))
-                    current_left = start_left + (final_left - start_left) * prog
+                    target_left = float(cell.get("assemble_left", start_left))
+                    current_left = start_left + (target_left - start_left) * prog
                 cell["rect"].x = int(round(current_left))
                 cell["rect"].y = int(round(cell.get("top", cell["rect"].y)))
                 cell.pop("fade", None)
             if block["assembly_elapsed"] >= STAGE7_GUARD_ASSEMBLY_TOTAL_MS:
+                # 조립 완료 → 벌어지기(spread) 단계로 전환
                 for cell in block["cells"]:
-                    cell["rect"].x = int(round(cell.get("final_left", cell["rect"].x)))
+                    # spread용 시작점 업데이트
+                    cell["rect"].x = int(round(cell.get("assemble_left", cell["rect"].x)))
                     cell["rect"].y = int(round(cell.get("top", cell["rect"].y)))
-                block["state"] = "active"
+                    cell["start_left"] = float(cell["rect"].x)
+                block["state"] = "spread"
+                block["move_timer"] = 0.0
         elif block["state"] == "hologram":
             # 홀로그램 단계: 셀을 순차적으로 드러낸 뒤, 전부 드러난 상태로 일정 시간 유지하고 배치 단계로 전환
             block["hologram_timer"] += elapsed
@@ -28479,6 +28483,18 @@ def update_stage7_guard_blocks(now: int | None = None) -> None:
             for cell in block["cells"]:
                 start_left = cell["start_left"]
                 final_left = cell["final_left"]
+                current_left = start_left + (final_left - start_left) * progress
+                cell["rect"].x = int(round(current_left))
+                cell["rect"].y = int(round(cell["top"]))
+                cell.pop("fade", None)
+            if progress >= 1.0:
+                block["state"] = "active"
+        elif block["state"] == "spread":
+            block["move_timer"] += elapsed
+            progress = min(1.0, block["move_timer"] / STAGE7_GUARD_MOVEMENT_DURATION_MS)
+            for cell in block["cells"]:
+                start_left = float(cell.get("start_left", cell["rect"].x))
+                final_left = float(cell.get("final_left", cell["rect"].x))
                 current_left = start_left + (final_left - start_left) * progress
                 cell["rect"].x = int(round(current_left))
                 cell["rect"].y = int(round(cell["top"]))
@@ -28561,7 +28577,7 @@ def update_stage7_guard_skill(now: int | None = None) -> None:
     # 변경 사항: 활성 블록이 남아 있어도 쿨타임 도달 시 추가 생성 허용.
     # 다만 설치/파괴 중(홀로그램/배치 이동/파괴 애니메이션)일 때는 중복 연출 충돌을 피하기 위해 대기.
     installing_or_destroying = any(
-        block.get("state") in ("assembling", "hologram", "deploy", "destroying") for block in stage7_guard_blocks
+        block.get("state") in ("assembling", "spread", "hologram", "deploy", "destroying") for block in stage7_guard_blocks
     )
     if installing_or_destroying:
         return
