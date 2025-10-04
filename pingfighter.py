@@ -29297,6 +29297,7 @@ def update_stage7_super_state(now: int | None = None) -> None:
     """초인테트리서 게이지 및 상태 업데이트. 게이지 500 도달 시 자동 발동."""
     global stage7_super_active, stage7_super_ends_at_ms
     global boss_special_gauge, stage7_persistent_boss_gauge
+    global stage7_boss_orig_size
     if current_stage != 7 or new_boss_mode_active:
         # 종료 시 원상복귀
         if stage7_super_active:
@@ -29327,7 +29328,6 @@ def update_stage7_super_state(now: int | None = None) -> None:
         boss_special_gauge = 0
         stage7_persistent_boss_gauge = 0
         # 보스 패들 사이즈 2배 (충돌 판정 포함)
-        global stage7_boss_orig_size
         try:
             if stage7_boss_orig_size is None:
                 stage7_boss_orig_size = (BOSS.width, BOSS.height)
