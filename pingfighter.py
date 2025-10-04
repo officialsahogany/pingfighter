@@ -28847,6 +28847,10 @@ def _try_load_stage7_cube_gif() -> None:
             stage7_cube_gif_frames = frames
             stage7_cube_gif_durations = durations
             stage7_cube_gif_loaded = True
+            try:
+                print(f"[Stage7Cube][GIF] Loaded {len(frames)} frames from: {img_path}")
+            except Exception:
+                pass
     except Exception:
         stage7_cube_gif_loaded = True
 
