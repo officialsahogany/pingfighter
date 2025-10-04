@@ -29142,14 +29142,23 @@ def update_stage7_tetromino_skill(now: int | None = None) -> None:
     update_stage7_tetrominoes(now)
 
     # 50% 확률로 예약된 추가 발사 처리 (0.3~0.9초 후 1회 시도)
-    global stage7_tetro_followup_due_ms
+    global stage7_tetro_followup_due_ms, stage7_tetro_followup_remaining
     if stage7_tetro_followup_due_ms and now >= stage7_tetro_followup_due_ms:
         # 게이지가 충분하면 즉시 추가 발사 시도 (예약은 소멸)
         due = stage7_tetro_followup_due_ms
         stage7_tetro_followup_due_ms = 0
         if current_stage == 7 and not new_boss_mode_active and boss_special_gauge >= STAGE7_TETRO_GAUGE_COST:
             if spawn_stage7_tetromino(now):
-                print(f"[Stage7Tetro][FollowUp] extra spawn at +{now - due}ms")
+                print(f"[Stage7Tetro][FollowUp] extra spawn at +{now - due}ms (remain={stage7_tetro_followup_remaining})")
+                # 체인 연속 시도: 남은 횟수가 있고 50% 확률이면 또 예약
+                if stage7_tetro_followup_remaining > 0 and random.random() < 0.5:
+                    stage7_tetro_followup_due_ms = now + random.randint(300, 900)
+                # 남은 횟수 감소 (성공 시에만)
+                if stage7_tetro_followup_remaining > 0:
+                    stage7_tetro_followup_remaining -= 1
+        else:
+            # 게이지 부족 등 실패 시 체인 종료
+            stage7_tetro_followup_remaining = 0
 
     if stage7_tetromino_next_trigger_ms == 0:
         _schedule_stage7_tetro(now)
@@ -29165,7 +29174,8 @@ def update_stage7_tetromino_skill(now: int | None = None) -> None:
 
     if spawn_stage7_tetromino(now):
         _schedule_stage7_tetro(now)
-        # 50% 확률로 0.3~0.9초 뒤 추가 발사 예약
+        # 체인 최대 6회: 첫 성공 시 남은 횟수 6으로 설정하고 50% 확률로 첫 예약
+        stage7_tetro_followup_remaining = 6
         if random.random() < 0.5:
             stage7_tetro_followup_due_ms = now + random.randint(300, 900)
     else:
