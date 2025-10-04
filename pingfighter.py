@@ -28649,6 +28649,28 @@ def _schedule_stage7_tetro(now: int | None = None) -> None:
     stage7_tetromino_next_trigger_ms = now + random.randint(STAGE7_TETRO_MIN_INTERVAL_MS, STAGE7_TETRO_MAX_INTERVAL_MS)
 
 
+def _rotate_offsets(offsets: list[tuple[int, int]], rotation: int) -> list[tuple[int, int]]:
+    k = (rotation // 90) % 4
+    pts = offsets[:]
+    for _ in range(k):
+        pts = [(-y, x) for (x, y) in pts]
+    return pts
+
+
+def _get_shape_layout(shape: str, rotation: int) -> list[tuple[int, int]]:
+    if shape == 'T':
+        base = [(-1, 0), (0, 0), (1, 0), (0, -1)]
+    elif shape == 'L':
+        base = [(-1, 0), (0, 0), (1, 0), (1, -1)]
+    elif shape == 'Z':
+        base = [(-1, -1), (0, -1), (0, 0), (1, 0)]
+    elif shape == 'I':
+        base = [(0, -1), (0, 0), (0, 1), (0, 2)]
+    else:
+        base = [(-1, 0), (0, 0), (1, 0), (0, -1)]
+    return _rotate_offsets(base, rotation)
+
+
 def spawn_stage7_tetromino(now: int | None = None) -> bool:
     """보스 패들 중앙에서 'ㅗ' 형상 T 블록을 생성하여 수직 낙하시킨다.
     게이지 50 소모. 보스가 없거나 게이지 부족 시 실패.
@@ -28678,21 +28700,10 @@ def spawn_stage7_tetromino(now: int | None = None) -> bool:
     # 보스 패들 바로 아래에서 시작하되, 윗부분(ㅗ의 막대) 셀이 보스에 닿지 않도록 여유를 둔다.
     base_top = float(BOSS.bottom + s + 6)
 
-    # T(ㅗ) 테트로미노를 0/90/180/270 중 임의 각도로 조립
-    # 좌표계(dx, dy): dx는 좌우 셀 오프셋, dy는 위(음수)/아래(양수) 셀 오프셋
+    # 4가지 블럭(T, L, Z, I) 중 랜덤, 각 0/90/180/270 회전 랜덤
     rotation = random.choice((0, 90, 180, 270))
-    if rotation == 0:
-        # ㅗ (막대가 가로, 기둥이 위)
-        layout = [(-1, 0), (0, 0), (1, 0), (0, -1)]
-    elif rotation == 90:
-        # ┛ 모양에 해당(막대가 세로, 기둥이 오른쪽)
-        layout = [(0, -1), (0, 0), (0, 1), (1, 0)]
-    elif rotation == 180:
-        # ㅜ (막대가 가로, 기둥이 아래)
-        layout = [(-1, 0), (0, 0), (1, 0), (0, 1)]
-    else:  # 270
-        # ┗ 모양에 해당(막대가 세로, 기둥이 왼쪽)
-        layout = [(0, -1), (0, 0), (0, 1), (-1, 0)]
+    shape = random.choice(['T', 'L', 'Z', 'I'])
+    layout = _get_shape_layout(shape, rotation)
     cells = []
     # 조립 애니메이션을 위해 각 셀의 시작 위치를 소폭 랜덤 오프셋으로 지정(제자리에서 모이는 느낌)
     for dx, dy in layout:
@@ -28719,6 +28730,7 @@ def spawn_stage7_tetromino(now: int | None = None) -> bool:
         "visible_cells": 0,
         "assembly_elapsed": 0.0,
         "rotation": rotation,
+        "shape": shape,
     }
     stage7_tetrominoes.append(mino)
     return True
