@@ -29095,7 +29095,6 @@ def update_stage7_center_cube(now: int | None = None) -> None:
             pass
         # 진행성 보장(폴백): GIF가 없을 때만 사용
         try:
-            global stage7_cube_gif_frames
             if not stage7_cube_gif_frames:
                 passes_to_solve = max(0, int(st.get("passes_to_solve", 0)) - 1)
                 st["passes_to_solve"] = passes_to_solve
