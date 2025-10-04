@@ -29148,9 +29148,28 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
     if not st:
         return
     cx, cy = st.get("cx", WIDTH // 2), st.get("cy", HEIGHT // 2)
+    # 디버그/튜닝: 환경변수로 반경/디버그 표시 제어
+    try:
+        dbg = os.getenv('PINGFIGHTER_CUBE_DEBUG', '0') == '1'
+        radius_override = os.getenv('PINGFIGHTER_CUBE_RADIUS', '')
+        r = STAGE7_CUBE_RADIUS
+        if radius_override.strip().isdigit():
+            r = max(20, min(150, int(radius_override)))
+    except Exception:
+        dbg = False
+        r = STAGE7_CUBE_RADIUS
     # 중앙 원(경계) 표시
-    pygame.draw.circle(surface, (30, 40, 60), (cx, cy), STAGE7_CUBE_RADIUS + 10, width=2)
-    pygame.draw.circle(surface, (12, 18, 28), (cx, cy), STAGE7_CUBE_RADIUS, width=2)
+    pygame.draw.circle(surface, (30, 40, 60), (cx, cy), r + 10, width=2)
+    pygame.draw.circle(surface, (12, 18, 28), (cx, cy), r, width=2)
+    if dbg:
+        halo = pygame.Surface((r*2+12, r*2+12), pygame.SRCALPHA)
+        pygame.draw.circle(halo, (255, 255, 0, 24), (halo.get_width()//2, halo.get_height()//2), r+6)
+        surface.blit(halo, (cx - halo.get_width()//2, cy - halo.get_height()//2))
+        try:
+            label = FONT.render("CUBE", True, (255, 255, 0))
+            surface.blit(label, (cx - label.get_width()//2, cy - r - 18))
+        except Exception:
+            pass
     # 3D 큐브(정면/상면/우측면) 간단한 등각 렌더
     # 사용자 제공 GIF가 있으면 우선 표시(요청: 실제 파일과 동일한 애니메이션)
     global stage7_cube_gif_frames, stage7_cube_gif_durations, stage7_cube_gif_index, stage7_cube_gif_next_time
@@ -29174,7 +29193,7 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
                 pass
         # 스케일링 후 중앙 블릿
         frame = stage7_cube_gif_frames[stage7_cube_gif_index]
-        max_w = max_h = STAGE7_CUBE_RADIUS * 2
+        max_w = max_h = r * 2
         fw, fh = frame.get_width(), frame.get_height()
         scale = min(max_w / fw, max_h / fh)
         new_size = (max(1, int(fw * scale)), max(1, int(fh * scale)))
