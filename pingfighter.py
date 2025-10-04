@@ -28812,8 +28812,12 @@ def _try_load_stage7_cube_gif() -> None:
         stage7_cube_gif_loaded = True  # 재시도 방지
         return
 
-    # 후보 경로(리소스 경로 기준)
-    candidates = [
+    # 후보 경로(리소스 경로 + 환경변수)
+    env_path = os.getenv('PINGFIGHTER_CUBE_GIF')
+    candidates = []
+    if env_path and os.path.exists(env_path):
+        candidates.append(env_path)
+    candidates += [
         "images/cube/cube.gif",
         "images/cube.gif",
         "items/cube.gif",
