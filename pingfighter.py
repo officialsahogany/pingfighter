@@ -29052,6 +29052,25 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
     pygame.draw.circle(surface, (30, 40, 60), (cx, cy), STAGE7_CUBE_RADIUS + 10, width=2)
     pygame.draw.circle(surface, (12, 18, 28), (cx, cy), STAGE7_CUBE_RADIUS, width=2)
     # 3D 큐브(정면/상면/우측면) 간단한 등각 렌더
+    # 사용자 제공 GIF가 있으면 우선 표시(요청: 실제 파일과 동일한 애니메이션)
+    global stage7_cube_gif_frames, stage7_cube_gif_durations, stage7_cube_gif_index, stage7_cube_gif_next_time
+    if stage7_cube_gif_frames and stage7_cube_gif_durations:
+        # 프레임 시간 업데이트
+        now = pygame.time.get_ticks()
+        if now >= stage7_cube_gif_next_time:
+            stage7_cube_gif_index = (stage7_cube_gif_index + 1) % len(stage7_cube_gif_frames)
+            stage7_cube_gif_next_time = now + stage7_cube_gif_durations[stage7_cube_gif_index]
+        # 스케일링 후 중앙 블릿
+        frame = stage7_cube_gif_frames[stage7_cube_gif_index]
+        max_w = max_h = STAGE7_CUBE_RADIUS * 2
+        fw, fh = frame.get_width(), frame.get_height()
+        scale = min(max_w / fw, max_h / fh)
+        new_size = (max(1, int(fw * scale)), max(1, int(fh * scale)))
+        blit_surf = pygame.transform.smoothscale(frame, new_size)
+        surface.blit(blit_surf, (cx - new_size[0] // 2, cy - new_size[1] // 2))
+        return
+
+    # GIF가 없을 경우 기존 3D 근사 렌더 유지
     faces = st.get("faces")
     if not faces:
         return
@@ -29060,7 +29079,6 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
     yaw = math.radians(float(st.get("spin_angle", 0.0)))
     pitch = math.radians(float(st.get("pitch", 24.0)))
 
-    # 3D 헬퍼
     def rot_x(p, a):
         x, y, z = p
         ca, sa = math.cos(a), math.sin(a)
@@ -29076,21 +29094,13 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
         scale = 1.0
         return (int(cx + x * scale), int(cy - y * scale))
 
-    # 큐브 절반 길이 (원 반지름 대비 스케일)
     s = STAGE7_CUBE_RADIUS * 0.75
-
-    # 페이스 정의: 원점과 u,v 벡터(길이 2s/3씩 셀 단위 계산)
-    # 기준 좌표계: +X 오른쪽, +Y 위, +Z 화면 바깥쪽
     face_defs = {
-        'F': ((-s, s, s), (2*s, 0, 0), (0, -2*s, 0)),    # u:+X, v:-Y
-        'R': ((s, s, s), (0, 0, -2*s), (0, -2*s, 0)),     # u:-Z, v:-Y
-        'U': ((-s, s, -s), (2*s, 0, 0), (0, 0, 2*s)),     # u:+X, v:+Z
+        'F': ((-s, s, s), (2*s, 0, 0), (0, -2*s, 0)),
+        'R': ((s, s, s), (0, 0, -2*s), (0, -2*s, 0)),
+        'U': ((-s, s, -s), (2*s, 0, 0), (0, 0, 2*s)),
     }
-
-    # 가시 면만 렌더(단순: 언제나 U/F/R 표시)
-    order = ['U', 'R', 'F']  # 뒤에 그릴수록 위에
-
-    # 재조립 모드 표시용 채움 개수(면별 9칸 중 공통 비율)
+    order = ['U', 'R', 'F']
     rebuild = bool(st.get("rebuild", False))
     visible_fill = 9
     if rebuild:
@@ -29100,14 +29110,11 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
     for face_name in order:
         face = faces[face_name]
         origin, uvec, vvec = face_defs[face_name]
-        # 회전 적용
         def _rot(p):
             return rot_y(rot_x(p, pitch), yaw)
         o = _rot(origin)
         ux = tuple(c/3.0 for c in _rot((uvec[0]/3.0, uvec[1]/3.0, uvec[2]/3.0)))
         vx = tuple(c/3.0 for c in _rot((vvec[0]/3.0, vvec[1]/3.0, vvec[2]/3.0)))
-
-        # 3x3 스티커 그리기
         idx = 0
         for r in range(3):
             for c in range(3):
@@ -29116,12 +29123,10 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
                 p2 = (p1[0] + vx[0], p1[1] + vx[1], p1[2] + vx[2])
                 p3 = (p0[0] + vx[0], p0[1] + vx[1], p0[2] + vx[2])
                 poly = [proj(p0), proj(p1), proj(p2), proj(p3)]
-                # 색상 선택(재조립 중에는 일부만 채움)
                 if rebuild and idx >= visible_fill:
                     base = (40, 40, 50)
                 else:
                     base = face[r][c]
-                # 면별 음영
                 shade = 1.15 if face_name == 'U' else (0.85 if face_name == 'R' else 1.0)
                 col = (min(255, int(base[0]*shade)), min(255, int(base[1]*shade)), min(255, int(base[2]*shade)))
                 pygame.draw.polygon(surface, col, poly)
