@@ -28875,10 +28875,21 @@ def _stage7_cube_random_move(state: dict) -> None:
 
 
 def _stage7_cube_force_uniform(state: dict) -> None:
-    """그리드를 단색으로 맞춘다(연출/진행용)."""
+    """큐브를 '해결됨' 상태로 맞춘다(각 면 단색)."""
     palette = state.get("palette") or []
-    color = random.choice(palette) if palette else (255, 255, 100)
-    state["grid"] = [[color for _ in range(3)] for _ in range(3)]
+    faces = state.get("faces")
+    if not faces:
+        return
+    color_map = {
+        'U': palette[5] if len(palette) > 5 else (240,240,240),
+        'D': palette[2] if len(palette) > 2 else (255,200,60),
+        'F': palette[3] if len(palette) > 3 else (80,230,120),
+        'B': palette[1] if len(palette) > 1 else (80,180,255),
+        'L': palette[4] if len(palette) > 4 else (255,150,0),
+        'R': palette[0] if len(palette) > 0 else (255,80,80),
+    }
+    for k, col in color_map.items():
+        faces[k] = [[col for _ in range(3)] for _ in range(3)]
 
 
 def _stage7_cube_explode_and_clear_tetros(now: int | None = None) -> None:
