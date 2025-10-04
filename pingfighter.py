@@ -29163,8 +29163,11 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
             stage7_cube_gif_step_remaining -= 1
             # 해결 프레임(6면 동일 색 근사) 감지 시 1초 후 폭발 예약
             try:
+                solved_by_uniform = False
                 if stage7_cube_gif_uniform_flags and 0 <= stage7_cube_gif_index < len(stage7_cube_gif_uniform_flags):
-                    if stage7_cube_gif_uniform_flags[stage7_cube_gif_index] and not st.get("solve_pending", False):
+                    solved_by_uniform = stage7_cube_gif_uniform_flags[stage7_cube_gif_index]
+                solved_by_manual = stage7_cube_gif_index in globals().get('stage7_cube_gif_manual_solved', set())
+                if (solved_by_uniform or solved_by_manual) and not st.get("solve_pending", False):
                         st["solve_pending"] = True
                         st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
             except Exception:
