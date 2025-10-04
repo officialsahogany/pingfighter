@@ -22,6 +22,8 @@ AUTO_SOUND_VOLUME=${AUTO_SOUND_VOLUME:-1.0}
 # Use repo-local state dir instead of .git to avoid sandbox restrictions
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || true
 STATE_DIR="${AUTO_COMMIT_STATE_DIR:-${REPO_ROOT}/.autocommit}"
+# Path relative to repo root (for git pathspec excludes)
+REL_STATE_DIR="${STATE_DIR#${REPO_ROOT}/}"
 mkdir -p "$STATE_DIR" 2>/dev/null || true
 PIDFILE="${STATE_DIR}/pid"
 LOGFILE="${STATE_DIR}/log"
@@ -51,8 +53,10 @@ ensure_identity() {
 }
 
 has_changes() {
-  # Use porcelain to respect .gitignore and be script-friendly
-  [[ -n "$(git status --porcelain)" ]]
+  # Only consider repo changes excluding our state dir
+  local out
+  out=$(git status --porcelain -- . ":(exclude)${REL_STATE_DIR}")
+  [[ -n "$out" ]]
 }
 
 maybe_push() {
@@ -71,7 +75,8 @@ commit_once() {
   local ts msg
   ts=$(date '+%Y-%m-%d %H:%M:%S')
   msg="$MSG_PREFIX: $ts"
-  git add -A
+  # Stage everything except our state dir
+  git add -A -- . ":(exclude)${REL_STATE_DIR}"
   # If nothing to commit, `git commit` exits non-zero; guard via conditional
   if git commit -qm "$msg"; then
     echo "[auto-commit] committed: $msg" | tee -a "$LOGFILE"
