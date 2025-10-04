@@ -29387,6 +29387,49 @@ def draw_stage7_boss_gauge_bar():
                 (mid_x, fill_rect.bottom - 1),
             )
 
+    # 초인 상태임을 나타내는 '타오르는' 임펙트 (게이지 내부 불꽃 애니메이션)
+    if globals().get('stage7_super_active', False):
+        try:
+            flame_surface = pygame.Surface((gauge_width - 2, gauge_height - 2), pygame.SRCALPHA)
+            cx_local = (gauge_width - 2) // 2
+            # 불꽃 혀 5~6가닥을 시간에 따라 위로 올리며 그리기
+            for i in range(6):
+                # 상승 속도/위치
+                tip = (time_now * 0.12 + i * 37) % (gauge_height - 8)
+                tip_y = int((gauge_height - 2) - tip)
+                base_y = min(gauge_height - 3, tip_y + 10)
+                # 좌우 흔들림(뫼비우스 느낌의 이어짐)
+                wobble = math.sin(time_now * 0.02 + i * 0.8) * 2
+                cx = cx_local + int(wobble)
+                # 폭 변화
+                flame_w = 4 + int(2 + 2 * math.sin(time_now * 0.03 + i))
+                left_x = max(1, cx - flame_w)
+                right_x = min(gauge_width - 3, cx + flame_w)
+                color_outer = (255, 90, 30, 110)
+                color_inner = (255, 160, 80, 140)
+                # 외피(삼각형)
+                pygame.draw.polygon(
+                    flame_surface,
+                    color_outer,
+                    [(left_x, base_y), (right_x, base_y), (cx, tip_y)],
+                )
+                # 심지(더 밝은 중심선)
+                pygame.draw.line(
+                    flame_surface,
+                    color_inner,
+                    (cx, base_y - 2),
+                    (cx, tip_y + 2),
+                    1,
+                )
+            # 전체 붉은 펄스(가벼운 호흡감)
+            pulse = 0.5 + 0.5 * math.sin(time_now * 0.01)
+            tint = pygame.Surface((gauge_width - 2, gauge_height - 2), pygame.SRCALPHA)
+            tint.fill((180, 30, 30, int(40 * pulse)))
+            flame_surface.blit(tint, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+            SCREEN.blit(flame_surface, (gauge_x + 1, gauge_y + 1), special_flags=pygame.BLEND_RGBA_ADD)
+        except Exception:
+            pass
+
     # 상단 테트리서 엠블럼 (애니메이션: 2.5초마다 모양 크로스페이드, 지속 회전)
     icon_center_x = gauge_x + gauge_width // 2
     icon_center_y = gauge_y - 22
