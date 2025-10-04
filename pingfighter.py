@@ -1961,6 +1961,7 @@ stage7_tetromino_next_trigger_ms: int = 0  # 테트로미노 스킬 다음 발�
 STAGE7_TETRO_MIN_INTERVAL_MS = 15000       # 15~30초 쿨타임
 STAGE7_TETRO_MAX_INTERVAL_MS = 30000
 STAGE7_TETRO_GAUGE_COST = 50               # 소모 게이지 50
+stage7_tetro_reserve: bool = False          # 테트로미노가 게이지를 확보할 때까지 가드 스폰 잠시 보류
 boss_current_speed = 0               # 현재 AI 보스 속도
 # 보스 AI 움직임 파라미터
 BOSS_ACCELERATION = 0.798            # 가속도 (35% 감소: 1.2 → 0.798)
