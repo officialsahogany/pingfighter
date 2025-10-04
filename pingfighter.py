@@ -28929,7 +28929,7 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
                 # 설치 후 3~5초 구간에서 페이드 인/아웃 펄스
                 installed_at = int(mino.get("installed_at", 0))
                 t = pygame.time.get_ticks() - installed_at if installed_at else 0
-                if 3000 <= t <= 5000:
+                if 3000 <= t <= 5000 and mino.get("pulse_enabled", True):
                     # 2Hz 정도의 펄스
                     phase = (t - 3000) / 1000.0  # 0~2초
                     pulse = 0.5 + 0.5 * math.sin(phase * math.pi * 2.0)  # 0~1
@@ -28986,14 +28986,37 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
 
 
 def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: bool = False, by_dash: bool = False) -> None:
-    if mino.get("state") == "destroying":
+    if mino.get("state") in ("destroying", "evaporating"):
         return
     if now is None:
         now = pygame.time.get_ticks()
+
+    reason = "dash" if by_dash else ("player" if by_player else "other")
+    mino["destroy_reason"] = reason
+
+    # 공/대쉬로 파괴된 경우: 링 이펙트/펄스 없이 즉시 2초간 증발 해체 시작
+    if by_player or by_dash:
+        mino["state"] = "evaporating"
+        mino["evap_timer"] = 0.0
+        # 4셀 기준 총 2.0초 → 셀당 500ms
+        mino["evap_interval"] = 500.0
+        mino["evap_index"] = 0
+        order = list(range(len(mino.get("cells", []))))
+        random.shuffle(order)
+        mino["evap_order"] = order
+        for c in mino.get("cells", []):
+            c["evaporated"] = False
+            c.pop("fade", None)
+        mino["steam_particles"] = []
+        mino["pulse_enabled"] = False  # 깜빡임 금지
+        mino["nonblocking"] = True     # 플레이어 차단하지 않음
+        mino["last_update"] = now
+        return
+
+    # 그 외(예: 기타 효과)에 의한 파괴: 기존 링 이펙트를 사용하고, 이후 설치→증발 순서로 진행
     mino["state"] = "destroying"
     mino["destroy_duration"] = 220
     mino["destroy_timer"] = 220
-    # 홀로그램 팝 효과 중심점 계산 (블럭의 중심)
     xs = [c["rect"].centerx for c in mino["cells"]]
     ys = [c["rect"].centery for c in mino["cells"]]
     mino["pop_cx"] = int(sum(xs) / len(xs)) if xs else 0
@@ -29001,19 +29024,11 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: b
     mino["pop_max_radius"] = 42
     mino["pop_min_radius"] = 16
     mino["last_update"] = now
-    mino["destroy_reason"] = "dash" if by_dash else ("player" if by_player else "other")
-    # 파괴 후에도 5초 뒤 증발 애니메이션을 동일하게 적용하기 위해 링 이펙트 후 설치 상태로 전환
     mino["linger_evap"] = True
-    mino["installed_at"] = now  # 링 이펙트 후부터 타이머 카운트
-    # 대쉬/공으로 파괴된 상태의 블럭은 플레이어를 막지 않도록 표시
-    mino["nonblocking"] = True
-    # 소리 재생 (가드 블록과 동일한 효과 재사용)
+    mino["installed_at"] = now
+    mino["pulse_enabled"] = True
     try:
         play_wall_sound()
-    except Exception:
-        pass
-    try:
-        print(f"[Stage7Tetro][Pop] center=({mino['pop_cx']},{mino['pop_cy']})")
     except Exception:
         pass
 
