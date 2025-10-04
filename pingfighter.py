@@ -25895,6 +25895,66 @@ def destroy_stage2_rocks_in_smoke(smoke_zone):
     for rock in rocks_to_remove:
         if rock in animated_bg_stage2.crisis_rocks:
             animated_bg_stage2.crisis_rocks.remove(rock)
+
+
+def destroy_stage7_tetrominoes_in_smoke(smoke_zone):
+    """스테이지 7에서 연막 내부에 들어온 테트로미노를 즉시 분해(증발) 처리한다.
+    - 연막 불투명도(opacity)가 충분할 때만 작동
+    - 블럭 상태가 assembling/falling/installed 인 경우에만 트리거
+    - 분해 연출은 대쉬/플레이어 파괴와 동일(셀 단위로 빠르게 증발)
+    """
+    try:
+        if current_stage != 7:
+            return
+        # 전역 리스트가 없거나 비어있으면 종료
+        if 'stage7_tetrominoes' not in globals() or not stage7_tetrominoes:
+            return
+    except Exception:
+        return
+
+    if smoke_zone.get("opacity", 0) <= 50:
+        return
+
+    radius_y = smoke_zone.get("radius", 0)
+    radius_x = smoke_zone.get("radius_x", radius_y)
+    if radius_x <= 0 or radius_y <= 0:
+        return
+
+    def _contains(px: float, py: float) -> bool:
+        dx = px - smoke_zone["x"]
+        dy = py - smoke_zone["y"]
+        return (dx / radius_x) ** 2 + (dy / radius_y) ** 2 <= 1
+
+    for mino in list(stage7_tetrominoes):
+        state = mino.get("state")
+        if state in ("evaporating", "destroying"):
+            continue
+        # 셀 중 하나라도 연막 타원에 들어가면 파괴
+        touched = False
+        for c in mino.get("cells", []):
+            if c.get("evaporated", False):
+                continue
+            rect = c.get("rect")
+            if not rect:
+                continue
+            # 주요 지점 샘플링(센터+4변 중점+4코너)
+            points = (
+                rect.center,
+                rect.midtop,
+                rect.midbottom,
+                rect.midleft,
+                rect.midright,
+                rect.topleft,
+                rect.topright,
+                rect.bottomleft,
+                rect.bottomright,
+            )
+            if any(_contains(px, py) for (px, py) in points):
+                touched = True
+                break
+        if touched:
+            # 연막 접촉으로 인한 즉시 증발 처리
+            destroy_stage7_tetromino(mino, by_smoke=True)
 def handle_wall():
     """벽돌 설치 및 관리 함수"""
     global walls, pending_wall, wall_installing, wall_install_timer, wall_install_gauge_visible
@@ -26057,6 +26117,8 @@ def handle_wall():
             smoke_zone["opacity"] = max(0, smoke_zone["opacity"] - 3)
         # 스테이지 2 바위 제거 처리
         destroy_stage2_rocks_in_smoke(smoke_zone)
+        # 스테이지 7 테트로미노를 연막에 닿으면 분해 처리
+        destroy_stage7_tetrominoes_in_smoke(smoke_zone)
         # 파티클 추가 생성 (지속적인 연기 효과, 타원형)
         if smoke_zone["duration"] > 60 and len(smoke_zone["particles"]) < 60:  # 파티클 수 증가
             if random.random() < 0.5:  # 50% 확률로 새 파티클
