@@ -28782,6 +28782,18 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
                 stage7_tetrominoes.remove(mino)
                 # 삭제된 경우에는 last_update 갱신 불필요
                 continue
+
+            # 플레이어 쪽 바닥 착지 처리: 하단 경계(HEIGHT-12)에 닿으면 설치 상태로 전환
+            floor_y = HEIGHT - 12
+            bottom = max(c["rect"].bottom for c in mino["cells"])
+            if bottom >= floor_y:
+                dy = floor_y - bottom
+                for c in mino["cells"]:
+                    c["rect"].y += dy  # 바닥선에 맞춰 스냅
+                mino["state"] = "installed"
+                mino["installed_at"] = now
+                # 설치 후에는 더 이상 낙하/충돌로 파괴되지 않음(플레이어 대쉬로만 파괴)
+                continue
         elif state == "destroying":
             duration = max(1.0, float(mino.get("destroy_duration", 160)))
             timer = max(0.0, float(mino.get("destroy_timer", 0.0)) - elapsed)
@@ -28846,7 +28858,7 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
                 surface.blit(ring, (cx - ring_size // 2, cy - ring_size // 2))
 
 
-def destroy_stage7_tetromino(mino: dict, *, now: int | None = None) -> None:
+def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: bool = False, by_dash: bool = False) -> None:
     if mino.get("state") == "destroying":
         return
     if now is None:
@@ -28862,6 +28874,7 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None) -> None:
     mino["pop_max_radius"] = 42
     mino["pop_min_radius"] = 16
     mino["last_update"] = now
+    mino["destroy_reason"] = "dash" if by_dash else ("player" if by_player else "other")
     # 소리 재생 (가드 블록과 동일한 효과 재사용)
     try:
         play_wall_sound()
@@ -53046,7 +53059,7 @@ def handle_ball():
 
                             ball_vel[0] += random.uniform(-0.35, 0.35)
 
-                            destroy_stage7_tetromino(mino)
+                            destroy_stage7_tetromino(mino, by_player=(last_hit_by == "player"))
                             create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
                             stage7_tetro_hit = True
                             break
