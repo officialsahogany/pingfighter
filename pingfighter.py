@@ -28817,22 +28817,27 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
 
             while mino["step_accum"] >= STAGE7_TETRO_STEP_MS:
                 mino["step_accum"] -= STAGE7_TETRO_STEP_MS
+                step_s = STAGE7_TETRO_CELL_SIZE * max(1, int(mino.get("scale", 1)))
 
                 # 1) 바닥 충돌 예측: 다음 스텝 이동 시 바닥을 넘는지
                 bottom_now = max(c["rect"].bottom for c in mino["cells"])
-                if bottom_now + s >= floor_y:
+                if bottom_now + step_s >= floor_y:
                     dy = floor_y - bottom_now
                     for c in mino["cells"]:
                         c["rect"].y += dy
-                    mino["state"] = "installed"
-                    mino["installed_at"] = now
-                    break
+                    if mino.get("super", False):
+                        stage7_tetromino_explode(mino, now=now)
+                        break
+                    else:
+                        mino["state"] = "installed"
+                        mino["installed_at"] = now
+                        break
 
                 # 2) 설치된 블럭과의 충돌 예측: 다음 스텝 이동 시 겹침 여부
                 will_overlap = False
                 for c in mino["cells"]:
                     test_rect = c["rect"].copy()
-                    test_rect.y += s
+                    test_rect.y += step_s
                     for rc in installed_cells:
                         if test_rect.colliderect(rc):
                             will_overlap = True
@@ -28841,13 +28846,17 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
                         break
                 if will_overlap:
                     # 바로 위에 정착 (현재 위치 유지)
-                    mino["state"] = "installed"
-                    mino["installed_at"] = now
-                    break
+                    if mino.get("super", False):
+                        stage7_tetromino_explode(mino, now=now)
+                        break
+                    else:
+                        mino["state"] = "installed"
+                        mino["installed_at"] = now
+                        break
 
                 # 3) 이동 수행
                 for c in mino["cells"]:
-                    c["rect"].y += s
+                    c["rect"].y += step_s
 
             # 화면 밖으로 완전히 벗어나면 제거
             if all(c["rect"].top >= HEIGHT for c in mino["cells"]):
