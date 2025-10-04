@@ -28818,6 +28818,9 @@ def _try_load_stage7_cube_gif() -> None:
     if env_path and os.path.exists(env_path):
         candidates.append(env_path)
     candidates += [
+        # 사용자가 지정한 한글 경로(프로젝트 내 images/큐브.gif) 우선 매칭
+        "images/큐브.gif",
+        "images/큐브.gif",
         "images/cube/cube.gif",
         "images/cube.gif",
         "items/cube.gif",
