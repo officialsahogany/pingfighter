@@ -28752,6 +28752,8 @@ stage7_cube_gif_frames: list | None = None
 stage7_cube_gif_durations: list | None = None  # ms 단위
 stage7_cube_gif_index: int = 0
 stage7_cube_gif_next_time: int = 0
+stage7_cube_gif_step_remaining: int = 0  # 공 통과 시에만 1회 재생할 프레임 수
+stage7_cube_gif_uniform_flags: list | None = None
 stage7_cube_gif_loaded: bool = False
 
 
