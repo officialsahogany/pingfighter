@@ -28719,6 +28719,242 @@ STAGE7_TETRO_ASSEMBLY_TOTAL_MS = 1000
 STAGE7_TETRO_ASSEMBLY_STEP_MS = 250      # 4개의 셀이 0.25초 간격으로 등장 → 총 1초
 STAGE7_TETRO_ASSEMBLY_MOVE_MS = 200      # 각 셀이 등장 후 목표 위치까지 이동하는 시간
 
+# =====================
+# Stage 7: 중앙 큐브 시스템 (3x3 정사각형 그리드로 표현)
+# - 맵 중앙(원형 서클) 내부에 큐브를 표시
+# - 공이 원 내부를 '진입'할 때마다 큐브를 무작위로 회전/섞기
+# - 큐브의 3x3 칸 색이 모두 일치하면 1초 후 폭발 → 맵의 테트로미노들을 제거(증발)
+# - 이후 보스 테트로미노가 공/대쉬로 사라질 때마다 큐브 재조립 진행
+# - 5개 증발 시 큐브 완성 → 다시 활성화(새 큐브 생성)
+# =====================
+
+# 중앙 큐브 전역 상태
+stage7_center_cube_state: dict | None = None
+
+STAGE7_CUBE_RADIUS = 90  # 원형 서클 반지름
+STAGE7_CUBE_GRID_SIZE = 3
+STAGE7_CUBE_CELL_GAP = 3
+STAGE7_CUBE_SOLVE_DELAY_MS = 1000
+
+
+def _stage7_init_center_cube(now: int | None = None) -> None:
+    """중앙 큐브 상태를 초기화한다 (스테이지7 전용)."""
+    if now is None:
+        now = pygame.time.get_ticks()
+    global stage7_center_cube_state
+    # 6면 색상 팔레트(루빅 느낌). 화면 가독성 높은 계열로 선정
+    palette = [
+        (255, 80, 80),   # R
+        (80, 180, 255),  # B
+        (255, 200, 60),  # Y
+        (80, 230, 120),  # G
+        (255, 150, 0),   # O
+        (240, 240, 240), # W
+    ]
+    # 3x3 무작위 색 그리드 생성 (완전 단색 방지)
+    grid = [[random.choice(palette) for _ in range(STAGE7_CUBE_GRID_SIZE)] for _ in range(STAGE7_CUBE_GRID_SIZE)]
+    # 만약 우연히 단색이면 한 칸 바꿔 단색 해제
+    flat = [c for row in grid for c in row]
+    if all(c == flat[0] for c in flat):
+        i = random.randrange(0, 9)
+        r, c = divmod(i, 3)
+        grid[r][c] = random.choice([p for p in palette if p != flat[0]])
+
+    stage7_center_cube_state = {
+        "active": True,
+        "rebuild": False,
+        "rebuild_progress": 0,   # 0~5
+        "grid": grid,
+        "palette": palette,
+        "cx": WIDTH // 2,
+        "cy": HEIGHT // 2,
+        "ball_inside": False,
+        "solve_pending": False,
+        "solve_at": 0,           # ms
+        # 공 통과 횟수에 따른 자발적 정답 유도(게임 진행성을 위해)
+        "passes_to_solve": random.randint(4, 8),
+        "last_updated": now,
+    }
+
+
+def _stage7_cube_is_uniform(grid: list[list[tuple]]) -> bool:
+    base = grid[0][0]
+    for r in range(3):
+        for c in range(3):
+            if grid[r][c] != base:
+                return False
+    return True
+
+
+def _stage7_cube_random_rotate(state: dict) -> None:
+    """랜덤 회전/섞기: 전체 90도 회전 또는 특정 행/열을 순환 이동."""
+    grid = state["grid"]
+    mode = random.choice(("rot90", "row", "col"))
+    if mode == "rot90":
+        # 시계방향 90도 회전
+        new_grid = [[grid[2 - c][r] for c in range(3)] for r in range(3)]
+        state["grid"] = new_grid
+    elif mode == "row":
+        r = random.randrange(0, 3)
+        shift = random.choice((-1, 1))
+        row = grid[r][:]
+        state["grid"][r] = row[-shift:] + row[:-shift]
+    else:  # col
+        c = random.randrange(0, 3)
+        col = [grid[r][c] for r in range(3)]
+        shift = random.choice((-1, 1))
+        col2 = col[-shift:] + col[:-shift]
+        for r in range(3):
+            grid[r][c] = col2[r]
+
+
+def _stage7_cube_force_uniform(state: dict) -> None:
+    """그리드를 단색으로 맞춘다(연출/진행용)."""
+    palette = state.get("palette") or []
+    color = random.choice(palette) if palette else (255, 255, 100)
+    state["grid"] = [[color for _ in range(3)] for _ in range(3)]
+
+
+def _stage7_cube_explode_and_clear_tetros(now: int | None = None) -> None:
+    """큐브 폭발 연출 및 스테이지7 테트로미노 제거(증발 처리)."""
+    if now is None:
+        now = pygame.time.get_ticks()
+    global stage7_center_cube_state
+    if not stage7_center_cube_state:
+        return
+    cx = stage7_center_cube_state.get("cx", WIDTH // 2)
+    cy = stage7_center_cube_state.get("cy", HEIGHT // 2)
+    # 시각/사운드: 수류탄 스타일 폭발 재사용 (반경 약간 큼)
+    try:
+        trigger_grenade_style_explosion(cx, cy, apply_commando_bonus=False, source="center_cube", radius_scale=1.2)
+    except Exception:
+        pass
+    # 모든 테트로미노를 증발 처리 (연막 파괴와 동일한 경로)
+    try:
+        if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+            for mino in list(stage7_tetrominoes):
+                if mino.get("state") not in ("evaporating", "destroying"):
+                    destroy_stage7_tetromino(mino, by_smoke=True)
+    except Exception:
+        pass
+    # 상태 전환: 재조립 모드로
+    stage7_center_cube_state["active"] = False
+    stage7_center_cube_state["rebuild"] = True
+    stage7_center_cube_state["rebuild_progress"] = 0
+    stage7_center_cube_state["solve_pending"] = False
+    stage7_center_cube_state["solve_at"] = 0
+
+
+def stage7_cube_notify_tetro_evaporated(reason: str) -> None:
+    """테트로미노가 사라졌을 때(공/대쉬) 재조립 진행도를 증가."""
+    if current_stage != 7:
+        return
+    global stage7_center_cube_state
+    st = stage7_center_cube_state
+    if not st or not st.get("rebuild"):
+        return
+    if reason not in ("player", "dash"):
+        return
+    st["rebuild_progress"] = min(5, int(st.get("rebuild_progress", 0)) + 1)
+    if st["rebuild_progress"] >= 5:
+        # 완성 → 새 큐브 생성
+        _stage7_init_center_cube()
+
+
+def update_stage7_center_cube(now: int | None = None) -> None:
+    if current_stage != 7:
+        return
+    if now is None:
+        now = pygame.time.get_ticks()
+    global stage7_center_cube_state
+    if stage7_center_cube_state is None:
+        _stage7_init_center_cube(now)
+    st = stage7_center_cube_state
+    if not st:
+        return
+    st["last_updated"] = now
+
+    cx, cy = st.get("cx", WIDTH // 2), st.get("cy", HEIGHT // 2)
+    # 공이 원 내부에 있는지 확인
+    dx = BALL.centerx - cx
+    dy = BALL.centery - cy
+    inside = (dx * dx + dy * dy) <= (STAGE7_CUBE_RADIUS * STAGE7_CUBE_RADIUS)
+    # 진입 에지에서만 동작
+    if inside and not st.get("ball_inside", False) and st.get("active", False):
+        _stage7_cube_random_rotate(st)
+        # 진행성 보장: 몇 번 진입하면 강제 단색
+        passes_to_solve = max(0, int(st.get("passes_to_solve", 0)) - 1)
+        st["passes_to_solve"] = passes_to_solve
+        if passes_to_solve == 0:
+            _stage7_cube_force_uniform(st)
+        # 일치 판정
+        if _stage7_cube_is_uniform(st["grid"]) and not st.get("solve_pending", False):
+            st["solve_pending"] = True
+            st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
+    st["ball_inside"] = inside
+
+    # 폭발 예약 처리
+    if st.get("solve_pending") and now >= int(st.get("solve_at", 0)):
+        _stage7_cube_explode_and_clear_tetros(now)
+
+
+def draw_stage7_center_cube(surface: pygame.Surface) -> None:
+    if current_stage != 7:
+        return
+    st = stage7_center_cube_state
+    if not st:
+        return
+    cx, cy = st.get("cx", WIDTH // 2), st.get("cy", HEIGHT // 2)
+    # 중앙 원(경계) 표시
+    pygame.draw.circle(surface, (30, 40, 60), (cx, cy), STAGE7_CUBE_RADIUS + 10, width=2)
+    pygame.draw.circle(surface, (12, 18, 28), (cx, cy), STAGE7_CUBE_RADIUS, width=2)
+
+    # 큐브(정면 3x3) 렌더: 활성 상태에서는 전체, 재조립 상태에서는 진행도에 따라 일부 채움
+    grid = st.get("grid")
+    if not grid:
+        return
+    # 그리드 렌더 영역 계산 (원 내부 정사각형)
+    half = int(STAGE7_CUBE_RADIUS * 0.9)
+    size = half * 2
+    left = cx - half
+    top = cy - half
+    cell = (size - (STAGE7_CUBE_CELL_GAP * (STAGE7_CUBE_GRID_SIZE - 1))) // STAGE7_CUBE_GRID_SIZE
+
+    # 재조립 모드일 때 채움 개수 계산
+    rebuild = bool(st.get("rebuild", False))
+    filled_count = 9
+    if rebuild:
+        prog = int(st.get("rebuild_progress", 0))
+        # 0~5를 0~9로 매핑 (올림)
+        filled_count = max(0, min(9, int(round(9 * (prog / 5.0)))))
+    # 채움 순서(가독성 위주 좌→우, 상→하)
+    order = [(r, c) for r in range(3) for c in range(3)]
+    # 타겟 단색 (재조립 중에는 단색 목표로 보이도록)
+    target_color = grid[0][0]
+    if rebuild:
+        # 재조립 중에는 단색 목표의 색으로 표시
+        target_color = (255, 255, 100)
+
+    idx = 0
+    for r in range(3):
+        for c in range(3):
+            x = left + c * (cell + STAGE7_CUBE_CELL_GAP)
+            y = top + r * (cell + STAGE7_CUBE_CELL_GAP)
+            rect = pygame.Rect(x, y, cell, cell)
+            if rebuild:
+                if idx < filled_count:
+                    base = target_color
+                else:
+                    base = (40, 40, 50)
+            else:
+                base = grid[r][c]
+            # 셀 채움 + 하이라이트 테두리로 큐브 타일 느낌
+            pygame.draw.rect(surface, base, rect, border_radius=4)
+            pygame.draw.rect(surface, (20, 20, 28), rect, 2, border_radius=4)
+            inner = rect.inflate(-4, -4)
+            hl = tuple(min(255, int(v * 1.15)) for v in base[:3])
+            pygame.draw.rect(surface, hl, inner, 1, border_radius=3)
+            idx += 1
 
 def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
     """Stage 7 테트로미노 스킬 상태 초기화."""
