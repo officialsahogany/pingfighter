@@ -29020,10 +29020,12 @@ def enforce_player_blocking_by_installed_tetro() -> None:
     player_rect = pygame.Rect(PLAYER.x, PLAYER.y, PLAYER.width, PLAYER.height)
     adjusted = False
     for mino in stage7_tetrominoes[:]:
-        if mino.get("state") != "installed":
+        if mino.get("state") not in ("installed", "evaporating"):
             continue
         hit = False
         for c in mino.get("cells", []):
+            if c.get("evaporated", False):
+                continue
             if player_rect.colliderect(c["rect"]):
                 hit = True
                 break
