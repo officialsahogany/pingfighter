@@ -28541,13 +28541,10 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
         elapsed = now - mino.get("last_update", now)
         if elapsed < 0:
             elapsed = 0
-        mino["last_update"] = now
 
         state = mino.get("state")
         if state == "assembling":
-            elapsed = now - mino.get("last_update", now)
-            if elapsed < 0:
-                elapsed = 0
+            # 누적 조립 시간 업데이트 (last_update는 분기 처리 후 갱신)
             mino["assembly_elapsed"] = mino.get("assembly_elapsed", 0.0) + elapsed
 
             # 셀 순차 공개(0.25초 간격)
@@ -28590,6 +28587,8 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
             # 화면 밖으로 완전히 벗어나면 제거
             if all(c["rect"].top >= HEIGHT for c in mino["cells"]):
                 stage7_tetrominoes.remove(mino)
+                # 삭제된 경우에는 last_update 갱신 불필요
+                continue
         elif state == "destroying":
             duration = max(1.0, float(mino.get("destroy_duration", 160)))
             timer = max(0.0, float(mino.get("destroy_timer", 0.0)) - elapsed)
@@ -28599,6 +28598,10 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
                 c["fade"] = fade
             if timer <= 0.0:
                 stage7_tetrominoes.remove(mino)
+                continue
+
+        # 마지막에 업데이트 시간 반영
+        mino["last_update"] = now
 
 
 def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
