@@ -28739,6 +28739,13 @@ STAGE7_CUBE_GRID_SIZE = 3
 STAGE7_CUBE_CELL_GAP = 3
 STAGE7_CUBE_SOLVE_DELAY_MS = 1000
 
+# 중앙 큐브 GIF(사용자 제공) 애니메이션 캐시
+stage7_cube_gif_frames: list | None = None
+stage7_cube_gif_durations: list | None = None  # ms 단위
+stage7_cube_gif_index: int = 0
+stage7_cube_gif_next_time: int = 0
+stage7_cube_gif_loaded: bool = False
+
 
 def _stage7_init_center_cube(now: int | None = None) -> None:
     """중앙 큐브 상태를 초기화한다 (스테이지7 전용)."""
@@ -28783,6 +28790,57 @@ def _stage7_init_center_cube(now: int | None = None) -> None:
         "pitch": 24.0,  # 상면이 보이도록 약간 기울임
         "last_updated": now,
     }
+
+
+def _try_load_stage7_cube_gif() -> None:
+    """사용자 제공 GIF(`/images/cube/cube.gif` 등)를 로드해 프레임/지속시간 캐시.
+    - Pillow가 없으면 무시(다음 프레임에서 다시 시도하지 않음).
+    - 존재하지 않으면 무시(다음 프레임에서 다시 시도).
+    """
+    global stage7_cube_gif_frames, stage7_cube_gif_durations, stage7_cube_gif_loaded
+    try:
+        from PIL import Image, ImageSequence  # type: ignore
+    except Exception:
+        stage7_cube_gif_loaded = True  # 재시도 방지
+        return
+
+    # 후보 경로(리소스 경로 기준)
+    candidates = [
+        "images/cube/cube.gif",
+        "images/cube.gif",
+        "items/cube.gif",
+        "assets/cube.gif",
+    ]
+    img_path = None
+    for c in candidates:
+        p = resource_path(c)
+        if os.path.exists(p):
+            img_path = p
+            break
+    if not img_path:
+        return
+
+    try:
+        im = Image.open(img_path)
+        frames = []
+        durations = []
+        for frame in ImageSequence.Iterator(im):
+            # duration(ms) 기본값 100ms
+            dur = int(frame.info.get("duration", 100))
+            # RGBA 변환
+            fr = frame.convert("RGBA")
+            mode = fr.mode
+            size = fr.size
+            data = fr.tobytes()
+            surf = pygame.image.frombuffer(data, size, mode)
+            frames.append(surf.convert_alpha())
+            durations.append(max(16, dur))
+        if frames:
+            stage7_cube_gif_frames = frames
+            stage7_cube_gif_durations = durations
+            stage7_cube_gif_loaded = True
+    except Exception:
+        stage7_cube_gif_loaded = True
 
 
 def _stage7_cube_is_solved(faces: dict) -> bool:
@@ -28946,6 +29004,10 @@ def update_stage7_center_cube(now: int | None = None) -> None:
     global stage7_center_cube_state
     if stage7_center_cube_state is None:
         _stage7_init_center_cube(now)
+    # GIF 로드 시도(한 번만)
+    global stage7_cube_gif_loaded
+    if not stage7_cube_gif_loaded:
+        _try_load_stage7_cube_gif()
     st = stage7_center_cube_state
     if not st:
         return
