@@ -28733,7 +28733,8 @@ STAGE7_TETRO_ASSEMBLY_MOVE_MS = 200      # 각 셀이 등장 후 목표 위치�
 # 중앙 큐브 전역 상태
 stage7_center_cube_state: dict | None = None
 
-STAGE7_CUBE_RADIUS = 90  # 원형 서클 반지름
+# 크기 50% 축소
+STAGE7_CUBE_RADIUS = 45  # 원형 서클 반지름(기존 90 → 45)
 STAGE7_CUBE_GRID_SIZE = 3
 STAGE7_CUBE_CELL_GAP = 3
 STAGE7_CUBE_SOLVE_DELAY_MS = 1000
@@ -28753,20 +28754,21 @@ def _stage7_init_center_cube(now: int | None = None) -> None:
         (255, 150, 0),   # O
         (240, 240, 240), # W
     ]
-    # 3x3 무작위 색 그리드 생성 (완전 단색 방지)
-    grid = [[random.choice(palette) for _ in range(STAGE7_CUBE_GRID_SIZE)] for _ in range(STAGE7_CUBE_GRID_SIZE)]
-    # 만약 우연히 단색이면 한 칸 바꿔 단색 해제
-    flat = [c for row in grid for c in row]
-    if all(c == flat[0] for c in flat):
-        i = random.randrange(0, 9)
-        r, c = divmod(i, 3)
-        grid[r][c] = random.choice([p for p in palette if p != flat[0]])
+    # 6면 초기화(각 면 단색)
+    faces = {
+        'U': [[palette[5] for _ in range(3)] for _ in range(3)],  # W
+        'D': [[palette[2] for _ in range(3)] for _ in range(3)],  # Y
+        'F': [[palette[3] for _ in range(3)] for _ in range(3)],  # G
+        'B': [[palette[1] for _ in range(3)] for _ in range(3)],  # B
+        'L': [[palette[4] for _ in range(3)] for _ in range(3)],  # O
+        'R': [[palette[0] for _ in range(3)] for _ in range(3)],  # R
+    }
 
     stage7_center_cube_state = {
         "active": True,
         "rebuild": False,
         "rebuild_progress": 0,   # 0~5
-        "grid": grid,
+        "faces": faces,
         "palette": palette,
         "cx": WIDTH // 2,
         "cy": HEIGHT // 2,
@@ -28775,39 +28777,101 @@ def _stage7_init_center_cube(now: int | None = None) -> None:
         "solve_at": 0,           # ms
         # 공 통과 횟수에 따른 자발적 정답 유도(게임 진행성을 위해)
         "passes_to_solve": random.randint(4, 8),
+        # 지속 회전(무작위 방향/속도)
+        "spin_angle": random.uniform(0, 360),
+        "spin_speed": random.choice((-1, 1)) * random.uniform(8.0, 16.0),  # deg/sec
+        "pitch": 24.0,  # 상면이 보이도록 약간 기울임
         "last_updated": now,
     }
 
 
-def _stage7_cube_is_uniform(grid: list[list[tuple]]) -> bool:
-    base = grid[0][0]
-    for r in range(3):
-        for c in range(3):
-            if grid[r][c] != base:
-                return False
+def _stage7_cube_is_solved(faces: dict) -> bool:
+    for key in ('U','D','F','B','L','R'):
+        face = faces.get(key)
+        base = face[0][0]
+        for r in range(3):
+            for c in range(3):
+                if face[r][c] != base:
+                    return False
     return True
 
 
-def _stage7_cube_random_rotate(state: dict) -> None:
-    """랜덤 회전/섞기: 전체 90도 회전 또는 특정 행/열을 순환 이동."""
-    grid = state["grid"]
-    mode = random.choice(("rot90", "row", "col"))
-    if mode == "rot90":
-        # 시계방향 90도 회전
-        new_grid = [[grid[2 - c][r] for c in range(3)] for r in range(3)]
-        state["grid"] = new_grid
-    elif mode == "row":
-        r = random.randrange(0, 3)
-        shift = random.choice((-1, 1))
-        row = grid[r][:]
-        state["grid"][r] = row[-shift:] + row[:-shift]
-    else:  # col
-        c = random.randrange(0, 3)
-        col = [grid[r][c] for r in range(3)]
-        shift = random.choice((-1, 1))
-        col2 = col[-shift:] + col[:-shift]
-        for r in range(3):
-            grid[r][c] = col2[r]
+def _rot_cw(face: list[list[tuple]]) -> list[list[tuple]]:
+    return [[face[2 - c][r] for c in range(3)] for r in range(3)]
+
+
+def _rot_ccw(face: list[list[tuple]]) -> list[list[tuple]]:
+    return [[face[c][2 - r] for c in range(3)] for r in range(3)]
+
+
+def _stage7_cube_turn(state: dict, move: str) -> None:
+    """간단한 3x3 큐브 레이어 턴(U/R/F 및 역방향). 시각적/게임플레이용 근사 매핑."""
+    f = state["faces"]
+    prime = False
+    if move.endswith("'"):
+        move = move[0]
+        prime = True
+
+    def cw(m):
+        _stage7_cube_turn(state, m)
+
+    if move == 'U':
+        # U face
+        f['U'] = _rot_ccw(f['U']) if prime else _rot_cw(f['U'])
+        if prime:
+            # reverse cycle: F0<-R0<-B0<-L0<-F0
+            tmp = [x for x in f['F'][0]]
+            f['F'][0] = [x for x in f['R'][0]]
+            f['R'][0] = [x for x in f['B'][0]]
+            f['B'][0] = [x for x in f['L'][0]]
+            f['L'][0] = tmp
+        else:
+            tmp = [x for x in f['F'][0]]
+            f['F'][0] = [x for x in f['L'][0]]
+            f['L'][0] = [x for x in f['B'][0]]
+            f['B'][0] = [x for x in f['R'][0]]
+            f['R'][0] = tmp
+        return
+    if move == 'R':
+        f['R'] = _rot_ccw(f['R']) if prime else _rot_cw(f['R'])
+        if prime:
+            # R'
+            tmp = [f['U'][i][2] for i in range(3)]
+            for i in range(3): f['U'][i][2] = f['F'][i][2]
+            for i in range(3): f['F'][i][2] = f['D'][i][2]
+            for i in range(3): f['D'][i][2] = f['B'][2 - i][0]
+            for i in range(3): f['B'][i][0] = tmp[2 - i]
+        else:
+            # R
+            tmp = [f['U'][i][2] for i in range(3)]
+            for i in range(3): f['U'][i][2] = f['B'][2 - i][0]
+            for i in range(3): f['B'][i][0] = f['D'][2 - i][2]
+            for i in range(3): f['D'][i][2] = f['F'][i][2]
+            for i in range(3): f['F'][i][2] = tmp[i]
+        return
+    if move == 'F':
+        f['F'] = _rot_ccw(f['F']) if prime else _rot_cw(f['F'])
+        if prime:
+            # F'
+            tmp = [x for x in f['U'][2]]
+            for i in range(3): f['U'][2][i] = f['R'][i][0]
+            for i in range(3): f['R'][i][0] = f['D'][0][2 - i]
+            for i in range(3): f['D'][0][i] = f['L'][i][2]
+            for i in range(3): f['L'][i][2] = tmp[2 - i]
+        else:
+            # F
+            tmp = [x for x in f['U'][2]]
+            for i in range(3): f['U'][2][i] = f['L'][2 - i][2]
+            for i in range(3): f['L'][i][2] = f['D'][0][i]
+            for i in range(3): f['D'][0][i] = f['R'][2 - i][0]
+            for i in range(3): f['R'][i][0] = tmp[i]
+        return
+
+
+def _stage7_cube_random_move(state: dict) -> None:
+    # 실제 큐브처럼 한 줄(레이어)만 도는 무브 중에서 임의 선택
+    move = random.choice(['U', "U'", 'R', "R'", 'F', "F'"])
+    _stage7_cube_turn(state, move)
 
 
 def _stage7_cube_force_uniform(state: dict) -> None:
@@ -28874,6 +28938,10 @@ def update_stage7_center_cube(now: int | None = None) -> None:
     st = stage7_center_cube_state
     if not st:
         return
+    # 지속 회전 (deg/sec 기반)
+    prev = float(st.get("last_updated", now))
+    dt = max(0.0, (now - prev) / 1000.0)
+    st["spin_angle"] = (float(st.get("spin_angle", 0.0)) + float(st.get("spin_speed", 12.0)) * dt) % 360.0
     st["last_updated"] = now
 
     cx, cy = st.get("cx", WIDTH // 2), st.get("cy", HEIGHT // 2)
@@ -28883,14 +28951,14 @@ def update_stage7_center_cube(now: int | None = None) -> None:
     inside = (dx * dx + dy * dy) <= (STAGE7_CUBE_RADIUS * STAGE7_CUBE_RADIUS)
     # 진입 에지에서만 동작
     if inside and not st.get("ball_inside", False) and st.get("active", False):
-        _stage7_cube_random_rotate(st)
+        _stage7_cube_random_move(st)
         # 진행성 보장: 몇 번 진입하면 강제 단색
         passes_to_solve = max(0, int(st.get("passes_to_solve", 0)) - 1)
         st["passes_to_solve"] = passes_to_solve
         if passes_to_solve == 0:
             _stage7_cube_force_uniform(st)
         # 일치 판정
-        if _stage7_cube_is_uniform(st["grid"]) and not st.get("solve_pending", False):
+        if _stage7_cube_is_solved(st["faces"]) and not st.get("solve_pending", False):
             st["solve_pending"] = True
             st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
     st["ball_inside"] = inside
@@ -28910,53 +28978,82 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
     # 중앙 원(경계) 표시
     pygame.draw.circle(surface, (30, 40, 60), (cx, cy), STAGE7_CUBE_RADIUS + 10, width=2)
     pygame.draw.circle(surface, (12, 18, 28), (cx, cy), STAGE7_CUBE_RADIUS, width=2)
-
-    # 큐브(정면 3x3) 렌더: 활성 상태에서는 전체, 재조립 상태에서는 진행도에 따라 일부 채움
-    grid = st.get("grid")
-    if not grid:
+    # 3D 큐브(정면/상면/우측면) 간단한 등각 렌더
+    faces = st.get("faces")
+    if not faces:
         return
-    # 그리드 렌더 영역 계산 (원 내부 정사각형)
-    half = int(STAGE7_CUBE_RADIUS * 0.9)
-    size = half * 2
-    left = cx - half
-    top = cy - half
-    cell = (size - (STAGE7_CUBE_CELL_GAP * (STAGE7_CUBE_GRID_SIZE - 1))) // STAGE7_CUBE_GRID_SIZE
 
-    # 재조립 모드일 때 채움 개수 계산
+    # 회전 각/피치
+    yaw = math.radians(float(st.get("spin_angle", 0.0)))
+    pitch = math.radians(float(st.get("pitch", 24.0)))
+
+    # 3D 헬퍼
+    def rot_x(p, a):
+        x, y, z = p
+        ca, sa = math.cos(a), math.sin(a)
+        return (x, y * ca - z * sa, y * sa + z * ca)
+
+    def rot_y(p, a):
+        x, y, z = p
+        ca, sa = math.cos(a), math.sin(a)
+        return (x * ca + z * sa, y, -x * sa + z * ca)
+
+    def proj(p):
+        x, y, z = p
+        scale = 1.0
+        return (int(cx + x * scale), int(cy - y * scale))
+
+    # 큐브 절반 길이 (원 반지름 대비 스케일)
+    s = STAGE7_CUBE_RADIUS * 0.75
+
+    # 페이스 정의: 원점과 u,v 벡터(길이 2s/3씩 셀 단위 계산)
+    # 기준 좌표계: +X 오른쪽, +Y 위, +Z 화면 바깥쪽
+    face_defs = {
+        'F': ((-s, s, s), (2*s, 0, 0), (0, -2*s, 0)),    # u:+X, v:-Y
+        'R': ((s, s, s), (0, 0, -2*s), (0, -2*s, 0)),     # u:-Z, v:-Y
+        'U': ((-s, s, -s), (2*s, 0, 0), (0, 0, 2*s)),     # u:+X, v:+Z
+    }
+
+    # 가시 면만 렌더(단순: 언제나 U/F/R 표시)
+    order = ['U', 'R', 'F']  # 뒤에 그릴수록 위에
+
+    # 재조립 모드 표시용 채움 개수(면별 9칸 중 공통 비율)
     rebuild = bool(st.get("rebuild", False))
-    filled_count = 9
+    visible_fill = 9
     if rebuild:
         prog = int(st.get("rebuild_progress", 0))
-        # 0~5를 0~9로 매핑 (올림)
-        filled_count = max(0, min(9, int(round(9 * (prog / 5.0)))))
-    # 채움 순서(가독성 위주 좌→우, 상→하)
-    order = [(r, c) for r in range(3) for c in range(3)]
-    # 타겟 단색 (재조립 중에는 단색 목표로 보이도록)
-    target_color = grid[0][0]
-    if rebuild:
-        # 재조립 중에는 단색 목표의 색으로 표시
-        target_color = (255, 255, 100)
+        visible_fill = max(0, min(9, int(round(9 * (prog / 5.0)))))
 
-    idx = 0
-    for r in range(3):
-        for c in range(3):
-            x = left + c * (cell + STAGE7_CUBE_CELL_GAP)
-            y = top + r * (cell + STAGE7_CUBE_CELL_GAP)
-            rect = pygame.Rect(x, y, cell, cell)
-            if rebuild:
-                if idx < filled_count:
-                    base = target_color
-                else:
+    for face_name in order:
+        face = faces[face_name]
+        origin, uvec, vvec = face_defs[face_name]
+        # 회전 적용
+        def _rot(p):
+            return rot_y(rot_x(p, pitch), yaw)
+        o = _rot(origin)
+        ux = tuple(c/3.0 for c in _rot((uvec[0]/3.0, uvec[1]/3.0, uvec[2]/3.0)))
+        vx = tuple(c/3.0 for c in _rot((vvec[0]/3.0, vvec[1]/3.0, vvec[2]/3.0)))
+
+        # 3x3 스티커 그리기
+        idx = 0
+        for r in range(3):
+            for c in range(3):
+                p0 = (o[0] + ux[0]*c + vx[0]*r, o[1] + ux[1]*c + vx[1]*r, o[2] + ux[2]*c + vx[2]*r)
+                p1 = (p0[0] + ux[0], p0[1] + ux[1], p0[2] + ux[2])
+                p2 = (p1[0] + vx[0], p1[1] + vx[1], p1[2] + vx[2])
+                p3 = (p0[0] + vx[0], p0[1] + vx[1], p0[2] + vx[2])
+                poly = [proj(p0), proj(p1), proj(p2), proj(p3)]
+                # 색상 선택(재조립 중에는 일부만 채움)
+                if rebuild and idx >= visible_fill:
                     base = (40, 40, 50)
-            else:
-                base = grid[r][c]
-            # 셀 채움 + 하이라이트 테두리로 큐브 타일 느낌
-            pygame.draw.rect(surface, base, rect, border_radius=4)
-            pygame.draw.rect(surface, (20, 20, 28), rect, 2, border_radius=4)
-            inner = rect.inflate(-4, -4)
-            hl = tuple(min(255, int(v * 1.15)) for v in base[:3])
-            pygame.draw.rect(surface, hl, inner, 1, border_radius=3)
-            idx += 1
+                else:
+                    base = face[r][c]
+                # 면별 음영
+                shade = 1.15 if face_name == 'U' else (0.85 if face_name == 'R' else 1.0)
+                col = (min(255, int(base[0]*shade)), min(255, int(base[1]*shade)), min(255, int(base[2]*shade)))
+                pygame.draw.polygon(surface, col, poly)
+                pygame.draw.polygon(surface, (20,20,28), poly, 1)
+                idx += 1
 
 def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
     """Stage 7 테트로미노 스킬 상태 초기화."""
