@@ -29093,15 +29093,20 @@ def update_stage7_center_cube(now: int | None = None) -> None:
                 stage7_cube_gif_step_remaining = max(6, min(12, len(stage7_cube_gif_frames)))
         except Exception:
             pass
-        # 진행성 보장: 몇 번 진입하면 강제 단색
-        passes_to_solve = max(0, int(st.get("passes_to_solve", 0)) - 1)
-        st["passes_to_solve"] = passes_to_solve
-        if passes_to_solve == 0:
-            _stage7_cube_force_uniform(st)
-        # 일치 판정
-        if _stage7_cube_is_solved(st["faces"]) and not st.get("solve_pending", False):
-            st["solve_pending"] = True
-            st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
+        # 진행성 보장(폴백): GIF가 없을 때만 사용
+        try:
+            global stage7_cube_gif_frames
+            if not stage7_cube_gif_frames:
+                passes_to_solve = max(0, int(st.get("passes_to_solve", 0)) - 1)
+                st["passes_to_solve"] = passes_to_solve
+                if passes_to_solve == 0:
+                    _stage7_cube_force_uniform(st)
+                # 일치 판정(폴백)
+                if _stage7_cube_is_solved(st["faces"]) and not st.get("solve_pending", False):
+                    st["solve_pending"] = True
+                    st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
+        except Exception:
+            pass
     st["ball_inside"] = inside
 
     # 폭발 예약 처리
