@@ -26121,6 +26121,8 @@ def handle_wall():
         destroy_stage2_rocks_in_smoke(smoke_zone)
         # 스테이지 7 테트로미노를 연막에 닿으면 분해 처리
         destroy_stage7_tetrominoes_in_smoke(smoke_zone)
+        # 중앙 큐브가 활성일 때 시각적으로 약간의 연무가 흐르는 효과를 유도(부하 거의 없음)
+        # 기능적 영향 없음. 퍼포먼스 고려로 최소 연산만 수행.
         # 파티클 추가 생성 (지속적인 연기 효과, 타원형)
         if smoke_zone["duration"] > 60 and len(smoke_zone["particles"]) < 60:  # 파티클 수 증가
             if random.random() < 0.5:  # 50% 확률로 새 파티클
@@ -27727,6 +27729,10 @@ def _draw_stage_specific_elements() -> None:
     draw_stage7_super_bar()
     draw_stage7_guard_blocks(SCREEN)
     draw_stage7_tetrominoes(SCREEN)
+    try:
+        draw_stage7_center_cube(SCREEN)
+    except Exception:
+        pass
     draw_laser_cannon_gauge()
     draw_spinning_top(SCREEN)
 
@@ -27930,6 +27936,10 @@ def draw_overlay_ui():
     draw_laser_cannon_gauge()
     draw_stage7_guard_blocks(SCREEN)
     draw_stage7_tetrominoes(SCREEN)
+    try:
+        draw_stage7_center_cube(SCREEN)
+    except Exception:
+        pass
     draw_spinning_top(SCREEN)
 
     update_trade_point_stars()
@@ -27972,6 +27982,12 @@ def draw_overlay_ui():
         draw_blacksmith_overheat_overlay(SCREEN)
         draw_blacksmith_turret_ui(SCREEN)
         draw_blacksmith_divine_ui(SCREEN)
+
+    # 중앙 큐브를 최상단에서 한 번 더 렌더해 가려지지 않도록 보장
+    try:
+        draw_stage7_center_cube(SCREEN)
+    except Exception:
+        pass
 
     # Stage 7 게이지는 다른 UI 위에 다시 한 번 그려 최상단을 보장
     draw_stage7_boss_gauge_bar()
@@ -28719,6 +28735,543 @@ STAGE7_TETRO_ASSEMBLY_TOTAL_MS = 1000
 STAGE7_TETRO_ASSEMBLY_STEP_MS = 250      # 4개의 셀이 0.25초 간격으로 등장 → 총 1초
 STAGE7_TETRO_ASSEMBLY_MOVE_MS = 200      # 각 셀이 등장 후 목표 위치까지 이동하는 시간
 
+<<<<<<< HEAD
+# =====================
+# Stage 7: 중앙 큐브 시스템 (3x3 정사각형 그리드로 표현)
+# - 맵 중앙(원형 서클) 내부에 큐브를 표시
+# - 공이 원 내부를 '진입'할 때마다 큐브를 무작위로 회전/섞기
+# - 큐브의 3x3 칸 색이 모두 일치하면 1초 후 폭발 → 맵의 테트로미노들을 제거(증발)
+# - 이후 보스 테트로미노가 공/대쉬로 사라질 때마다 큐브 재조립 진행
+# - 5개 증발 시 큐브 완성 → 다시 활성화(새 큐브 생성)
+# =====================
+
+# 중앙 큐브 전역 상태
+stage7_center_cube_state: dict | None = None
+
+# 크기 50% 축소
+STAGE7_CUBE_RADIUS = 45  # 원형 서클 반지름(기존 90 → 45)
+STAGE7_CUBE_GRID_SIZE = 3
+STAGE7_CUBE_CELL_GAP = 3
+STAGE7_CUBE_SOLVE_DELAY_MS = 1000
+
+# 중앙 큐브 GIF(사용자 제공) 애니메이션 캐시
+stage7_cube_gif_frames: list | None = None
+stage7_cube_gif_durations: list | None = None  # ms 단위
+stage7_cube_gif_index: int = 0
+stage7_cube_gif_next_time: int = 0
+stage7_cube_gif_step_remaining: int = 0  # 공 통과 시에만 1회 재생할 프레임 수
+stage7_cube_gif_uniform_flags: list | None = None
+stage7_cube_gif_manual_solved: set[int] = set()
+stage7_cube_gif_step_frames_default: int = 10
+stage7_cube_gif_uniform_threshold: float = 0.90
+stage7_cube_gif_loaded: bool = False
+
+
+def _stage7_init_center_cube(now: int | None = None) -> None:
+    """중앙 큐브 상태를 초기화한다 (스테이지7 전용)."""
+    if now is None:
+        now = pygame.time.get_ticks()
+    global stage7_center_cube_state
+    # 6면 색상 팔레트(루빅 느낌). 화면 가독성 높은 계열로 선정
+    palette = [
+        (255, 80, 80),   # R
+        (80, 180, 255),  # B
+        (255, 200, 60),  # Y
+        (80, 230, 120),  # G
+        (255, 150, 0),   # O
+        (240, 240, 240), # W
+    ]
+    # 6면 초기화(각 면 단색)
+    faces = {
+        'U': [[palette[5] for _ in range(3)] for _ in range(3)],  # W
+        'D': [[palette[2] for _ in range(3)] for _ in range(3)],  # Y
+        'F': [[palette[3] for _ in range(3)] for _ in range(3)],  # G
+        'B': [[palette[1] for _ in range(3)] for _ in range(3)],  # B
+        'L': [[palette[4] for _ in range(3)] for _ in range(3)],  # O
+        'R': [[palette[0] for _ in range(3)] for _ in range(3)],  # R
+    }
+
+    stage7_center_cube_state = {
+        "active": True,
+        "rebuild": False,
+        "rebuild_progress": 0,   # 0~5
+        "faces": faces,
+        "palette": palette,
+        "cx": WIDTH // 2,
+        "cy": HEIGHT // 2,
+        "ball_inside": False,
+        "solve_pending": False,
+        "solve_at": 0,           # ms
+        # 공 통과 횟수에 따른 자발적 정답 유도(게임 진행성을 위해)
+        "passes_to_solve": random.randint(4, 8),
+        # 지속 회전(무작위 방향/속도)
+        "spin_angle": random.uniform(0, 360),
+        "spin_speed": random.choice((-1, 1)) * random.uniform(8.0, 16.0),  # deg/sec
+        "pitch": 24.0,  # 상면이 보이도록 약간 기울임
+        "last_updated": now,
+    }
+
+
+def _try_load_stage7_cube_gif() -> None:
+    """사용자 제공 GIF(`/images/cube/cube.gif` 등)를 로드해 프레임/지속시간 캐시.
+    - Pillow가 없으면 무시(다음 프레임에서 다시 시도하지 않음).
+    - 존재하지 않으면 무시(다음 프레임에서 다시 시도).
+    """
+    global stage7_cube_gif_frames, stage7_cube_gif_durations, stage7_cube_gif_loaded
+    try:
+        from PIL import Image, ImageSequence  # type: ignore
+    except Exception:
+        stage7_cube_gif_loaded = True  # 재시도 방지
+        return
+
+    # 후보 경로(리소스 경로 + 환경변수)
+    env_path = os.getenv('PINGFIGHTER_CUBE_GIF')
+    candidates = []
+    if env_path and os.path.exists(env_path):
+        candidates.append(env_path)
+    candidates += [
+        # 사용자가 지정한 한글 경로(프로젝트 내 images/큐브.gif) 우선 매칭
+        "images/큐브.gif",
+        "images/큐브.gif",
+        "images/cube/cube.gif",
+        "images/cube.gif",
+        "items/cube.gif",
+        "assets/cube.gif",
+    ]
+    img_path = None
+    for c in candidates:
+        # 절대경로 허용 (env 지정 시)
+        if os.path.isabs(c):
+            if os.path.exists(c):
+                img_path = c
+                break
+            continue
+        p = resource_path(c)
+        if os.path.exists(p):
+            img_path = p
+            break
+    # 사용자 홈/다운로드 폴더 후보도 스캔(개발 편의)
+    if not img_path:
+        try:
+            home = str(Path.home())
+            dl = os.path.join(home, "Downloads")
+            extra_candidates = [
+                os.path.join(dl, "cube.gif"),
+                os.path.join(dl, "Cube.gif"),
+                os.path.join(dl, "큐브.gif"),
+                os.path.join(dl, "큐브.gif"),  # NFD 이름 대비
+            ]
+            # 간단한 glob 검색(한글/영문 혼합 이름 대비)
+            for name in ("*cube*.gif", "*Cube*.gif", "*큐브*.gif", "*큐브*.gif"):
+                extra_candidates.extend(glob.glob(os.path.join(dl, name)))
+            for p in extra_candidates:
+                if os.path.exists(p):
+                    img_path = p
+                    break
+        except Exception:
+            pass
+    if not img_path:
+        return
+
+    try:
+        im = Image.open(img_path)
+        frames = []
+        durations = []
+        uniform_flags = []
+        # 환경 변수 튜닝
+        try:
+            thr = float(os.getenv('PINGFIGHTER_CUBE_GIF_UNIFORM_THRESH', '0.90'))
+            globals()['stage7_cube_gif_uniform_threshold'] = max(0.5, min(0.99, thr))
+        except Exception:
+            pass
+        try:
+            step_frames = int(os.getenv('PINGFIGHTER_CUBE_GIF_STEP', '10'))
+            globals()['stage7_cube_gif_step_frames_default'] = max(1, min(60, step_frames))
+        except Exception:
+            pass
+        try:
+            manual = os.getenv('PINGFIGHTER_CUBE_GIF_SOLVED_FRAMES', '')
+            if manual.strip():
+                indices = {int(x.strip()) for x in manual.split(',') if x.strip().isdigit()}
+                globals()['stage7_cube_gif_manual_solved'] = set(indices)
+        except Exception:
+            pass
+        for frame in ImageSequence.Iterator(im):
+            # duration(ms) 기본값 100ms
+            dur = int(frame.info.get("duration", 100))
+            # RGBA 변환
+            fr = frame.convert("RGBA")
+            mode = fr.mode
+            size = fr.size
+            data = fr.tobytes()
+            surf = pygame.image.frombuffer(data, size, mode)
+            frames.append(surf.convert_alpha())
+            durations.append(max(16, dur))
+            # 간단한 균일 프레임 감지: 24x24로 축소 후 색상 빈도 상위 비율
+            try:
+                small = fr.resize((24, 24))
+                pix = small.getdata()
+                counts = {}
+                for (r, g, b, a) in pix:
+                    if a < 30:
+                        continue
+                    key = (r // 32, g // 32, b // 32)  # 8단계 양자화
+                    counts[key] = counts.get(key, 0) + 1
+                total = max(1, sum(counts.values()))
+                top = max(counts.values()) if counts else 0
+                uniform_flags.append(top / total >= globals().get('stage7_cube_gif_uniform_threshold', 0.90))
+            except Exception:
+                uniform_flags.append(False)
+        if frames:
+            stage7_cube_gif_frames = frames
+            stage7_cube_gif_durations = durations
+            stage7_cube_gif_uniform_flags = uniform_flags if uniform_flags else [False] * len(frames)
+            stage7_cube_gif_loaded = True
+            try:
+                print(f"[Stage7Cube][GIF] Loaded {len(frames)} frames from: {img_path}")
+            except Exception:
+                pass
+    except Exception:
+        stage7_cube_gif_loaded = True
+
+
+def _stage7_cube_is_solved(faces: dict) -> bool:
+    for key in ('U','D','F','B','L','R'):
+        face = faces.get(key)
+        base = face[0][0]
+        for r in range(3):
+            for c in range(3):
+                if face[r][c] != base:
+                    return False
+    return True
+
+
+def _rot_cw(face: list[list[tuple]]) -> list[list[tuple]]:
+    return [[face[2 - c][r] for c in range(3)] for r in range(3)]
+
+
+def _rot_ccw(face: list[list[tuple]]) -> list[list[tuple]]:
+    return [[face[c][2 - r] for c in range(3)] for r in range(3)]
+
+
+def _stage7_cube_turn(state: dict, move: str) -> None:
+    """간단한 3x3 큐브 레이어 턴(U/R/F 및 역방향). 시각적/게임플레이용 근사 매핑."""
+    f = state["faces"]
+    prime = False
+    if move.endswith("'"):
+        move = move[0]
+        prime = True
+
+    def cw(m):
+        _stage7_cube_turn(state, m)
+
+    if move == 'U':
+        # U face
+        f['U'] = _rot_ccw(f['U']) if prime else _rot_cw(f['U'])
+        if prime:
+            # reverse cycle: F0<-R0<-B0<-L0<-F0
+            tmp = [x for x in f['F'][0]]
+            f['F'][0] = [x for x in f['R'][0]]
+            f['R'][0] = [x for x in f['B'][0]]
+            f['B'][0] = [x for x in f['L'][0]]
+            f['L'][0] = tmp
+        else:
+            tmp = [x for x in f['F'][0]]
+            f['F'][0] = [x for x in f['L'][0]]
+            f['L'][0] = [x for x in f['B'][0]]
+            f['B'][0] = [x for x in f['R'][0]]
+            f['R'][0] = tmp
+        return
+    if move == 'R':
+        f['R'] = _rot_ccw(f['R']) if prime else _rot_cw(f['R'])
+        if prime:
+            # R'
+            tmp = [f['U'][i][2] for i in range(3)]
+            for i in range(3): f['U'][i][2] = f['F'][i][2]
+            for i in range(3): f['F'][i][2] = f['D'][i][2]
+            for i in range(3): f['D'][i][2] = f['B'][2 - i][0]
+            for i in range(3): f['B'][i][0] = tmp[2 - i]
+        else:
+            # R
+            tmp = [f['U'][i][2] for i in range(3)]
+            for i in range(3): f['U'][i][2] = f['B'][2 - i][0]
+            for i in range(3): f['B'][i][0] = f['D'][2 - i][2]
+            for i in range(3): f['D'][i][2] = f['F'][i][2]
+            for i in range(3): f['F'][i][2] = tmp[i]
+        return
+    if move == 'F':
+        f['F'] = _rot_ccw(f['F']) if prime else _rot_cw(f['F'])
+        if prime:
+            # F'
+            tmp = [x for x in f['U'][2]]
+            for i in range(3): f['U'][2][i] = f['R'][i][0]
+            for i in range(3): f['R'][i][0] = f['D'][0][2 - i]
+            for i in range(3): f['D'][0][i] = f['L'][i][2]
+            for i in range(3): f['L'][i][2] = tmp[2 - i]
+        else:
+            # F
+            tmp = [x for x in f['U'][2]]
+            for i in range(3): f['U'][2][i] = f['L'][2 - i][2]
+            for i in range(3): f['L'][i][2] = f['D'][0][i]
+            for i in range(3): f['D'][0][i] = f['R'][2 - i][0]
+            for i in range(3): f['R'][i][0] = tmp[i]
+        return
+
+
+def _stage7_cube_random_move(state: dict) -> None:
+    # 실제 큐브처럼 한 줄(레이어)만 도는 무브 중에서 임의 선택
+    move = random.choice(['U', "U'", 'R', "R'", 'F', "F'"])
+    _stage7_cube_turn(state, move)
+
+
+def _stage7_cube_force_uniform(state: dict) -> None:
+    """큐브를 '해결됨' 상태로 맞춘다(각 면 단색)."""
+    palette = state.get("palette") or []
+    faces = state.get("faces")
+    if not faces:
+        return
+    color_map = {
+        'U': palette[5] if len(palette) > 5 else (240,240,240),
+        'D': palette[2] if len(palette) > 2 else (255,200,60),
+        'F': palette[3] if len(palette) > 3 else (80,230,120),
+        'B': palette[1] if len(palette) > 1 else (80,180,255),
+        'L': palette[4] if len(palette) > 4 else (255,150,0),
+        'R': palette[0] if len(palette) > 0 else (255,80,80),
+    }
+    for k, col in color_map.items():
+        faces[k] = [[col for _ in range(3)] for _ in range(3)]
+
+
+def _stage7_cube_explode_and_clear_tetros(now: int | None = None) -> None:
+    """큐브 폭발 연출 및 스테이지7 테트로미노 제거(증발 처리)."""
+    if now is None:
+        now = pygame.time.get_ticks()
+    global stage7_center_cube_state
+    if not stage7_center_cube_state:
+        return
+    cx = stage7_center_cube_state.get("cx", WIDTH // 2)
+    cy = stage7_center_cube_state.get("cy", HEIGHT // 2)
+    # 시각/사운드: 수류탄 스타일 폭발 재사용 (반경 약간 큼)
+    try:
+        trigger_grenade_style_explosion(cx, cy, apply_commando_bonus=False, source="center_cube", radius_scale=1.2)
+    except Exception:
+        pass
+    # 모든 테트로미노를 증발 처리 (연막 파괴와 동일한 경로)
+    try:
+        if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+            for mino in list(stage7_tetrominoes):
+                if mino.get("state") not in ("evaporating", "destroying"):
+                    destroy_stage7_tetromino(mino, by_smoke=True)
+    except Exception:
+        pass
+    # 상태 전환: 재조립 모드로
+    stage7_center_cube_state["active"] = False
+    stage7_center_cube_state["rebuild"] = True
+    stage7_center_cube_state["rebuild_progress"] = 0
+    stage7_center_cube_state["solve_pending"] = False
+    stage7_center_cube_state["solve_at"] = 0
+
+
+def stage7_cube_notify_tetro_evaporated(reason: str) -> None:
+    """테트로미노가 사라졌을 때(공/대쉬) 재조립 진행도를 증가."""
+    if current_stage != 7:
+        return
+    global stage7_center_cube_state
+    st = stage7_center_cube_state
+    if not st or not st.get("rebuild"):
+        return
+    if reason not in ("player", "dash"):
+        return
+    st["rebuild_progress"] = min(5, int(st.get("rebuild_progress", 0)) + 1)
+    if st["rebuild_progress"] >= 5:
+        # 완성 → 새 큐브 생성
+        _stage7_init_center_cube()
+
+
+def update_stage7_center_cube(now: int | None = None) -> None:
+    if current_stage != 7:
+        return
+    if now is None:
+        now = pygame.time.get_ticks()
+    global stage7_center_cube_state
+    if stage7_center_cube_state is None:
+        _stage7_init_center_cube(now)
+    # GIF 로드 시도(한 번만)
+    global stage7_cube_gif_loaded
+    if not stage7_cube_gif_loaded:
+        _try_load_stage7_cube_gif()
+    st = stage7_center_cube_state
+    if not st:
+        return
+    # 지속 회전은 중지(요청: 공이 지날 때만 1회 움직임)
+    st["last_updated"] = now
+
+    cx, cy = st.get("cx", WIDTH // 2), st.get("cy", HEIGHT // 2)
+    # 공이 원 내부에 있는지 확인
+    dx = BALL.centerx - cx
+    dy = BALL.centery - cy
+    inside = (dx * dx + dy * dy) <= (STAGE7_CUBE_RADIUS * STAGE7_CUBE_RADIUS)
+    # 진입 에지에서만 동작
+    if inside and not st.get("ball_inside", False) and st.get("active", False):
+        _stage7_cube_random_move(st)
+        # GIF가 있으면 1회만 재생: 6~10프레임 정도를 한 번 진행
+        try:
+            global stage7_cube_gif_frames, stage7_cube_gif_step_remaining, stage7_cube_gif_step_frames_default
+            if stage7_cube_gif_frames:
+                stage7_cube_gif_step_remaining = max(1, min(len(stage7_cube_gif_frames), int(stage7_cube_gif_step_frames_default)))
+        except Exception:
+            pass
+        # 진행성 보장(폴백): GIF가 없을 때만 사용
+        try:
+            if not stage7_cube_gif_frames:
+                passes_to_solve = max(0, int(st.get("passes_to_solve", 0)) - 1)
+                st["passes_to_solve"] = passes_to_solve
+                if passes_to_solve == 0:
+                    _stage7_cube_force_uniform(st)
+                # 일치 판정(폴백)
+                if _stage7_cube_is_solved(st["faces"]) and not st.get("solve_pending", False):
+                    st["solve_pending"] = True
+                    st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
+        except Exception:
+            pass
+        # GIF 유무와 관계없이 내부 큐브가 해결되면 폭발 예약
+        try:
+            if _stage7_cube_is_solved(st["faces"]) and not st.get("solve_pending", False):
+                st["solve_pending"] = True
+                st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
+        except Exception:
+            pass
+    st["ball_inside"] = inside
+
+    # 폭발 예약 처리
+    if st.get("solve_pending") and now >= int(st.get("solve_at", 0)):
+        _stage7_cube_explode_and_clear_tetros(now)
+
+
+def draw_stage7_center_cube(surface: pygame.Surface) -> None:
+    if current_stage != 7:
+        return
+    st = stage7_center_cube_state
+    if not st:
+        return
+    cx, cy = st.get("cx", WIDTH // 2), st.get("cy", HEIGHT // 2)
+    # 디버그/튜닝: 환경변수로 반경/디버그 표시 제어
+    try:
+        dbg = os.getenv('PINGFIGHTER_CUBE_DEBUG', '0') == '1'
+        radius_override = os.getenv('PINGFIGHTER_CUBE_RADIUS', '')
+        r = STAGE7_CUBE_RADIUS
+        if radius_override.strip().isdigit():
+            r = max(20, min(150, int(radius_override)))
+    except Exception:
+        dbg = False
+        r = STAGE7_CUBE_RADIUS
+    # 중앙 원(경계) 표시
+    pygame.draw.circle(surface, (30, 40, 60), (cx, cy), r + 10, width=2)
+    pygame.draw.circle(surface, (12, 18, 28), (cx, cy), r, width=2)
+    if dbg:
+        halo = pygame.Surface((r*2+12, r*2+12), pygame.SRCALPHA)
+        pygame.draw.circle(halo, (255, 255, 0, 24), (halo.get_width()//2, halo.get_height()//2), r+6)
+        surface.blit(halo, (cx - halo.get_width()//2, cy - halo.get_height()//2))
+        try:
+            label = FONT.render("CUBE", True, (255, 255, 0))
+            surface.blit(label, (cx - label.get_width()//2, cy - r - 18))
+        except Exception:
+            pass
+    # 3D 큐브(정면/상면/우측면) 간단한 등각 렌더
+    # 사용자 제공 GIF가 있으면 우선 표시(요청: 실제 파일과 동일한 애니메이션)
+    global stage7_cube_gif_frames, stage7_cube_gif_durations, stage7_cube_gif_index, stage7_cube_gif_next_time
+    if stage7_cube_gif_frames and stage7_cube_gif_durations:
+        # 프레임 시간 업데이트: 공 통과 시에만 1회성으로 N프레임 진행
+        now = pygame.time.get_ticks()
+        if stage7_cube_gif_step_remaining > 0 and now >= stage7_cube_gif_next_time:
+            stage7_cube_gif_index = (stage7_cube_gif_index + 1) % len(stage7_cube_gif_frames)
+            stage7_cube_gif_next_time = now + stage7_cube_gif_durations[stage7_cube_gif_index]
+            stage7_cube_gif_step_remaining -= 1
+            # 해결 프레임(6면 동일 색 근사) 감지 시 1초 후 폭발 예약
+            try:
+                solved_by_uniform = False
+                if stage7_cube_gif_uniform_flags and 0 <= stage7_cube_gif_index < len(stage7_cube_gif_uniform_flags):
+                    solved_by_uniform = stage7_cube_gif_uniform_flags[stage7_cube_gif_index]
+                solved_by_manual = stage7_cube_gif_index in globals().get('stage7_cube_gif_manual_solved', set())
+                if (solved_by_uniform or solved_by_manual) and not st.get("solve_pending", False):
+                        st["solve_pending"] = True
+                        st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
+            except Exception:
+                pass
+        # 스케일링 후 중앙 블릿
+        frame = stage7_cube_gif_frames[stage7_cube_gif_index]
+        max_w = max_h = r * 2
+        fw, fh = frame.get_width(), frame.get_height()
+        scale = min(max_w / fw, max_h / fh)
+        new_size = (max(1, int(fw * scale)), max(1, int(fh * scale)))
+        blit_surf = pygame.transform.smoothscale(frame, new_size)
+        surface.blit(blit_surf, (cx - new_size[0] // 2, cy - new_size[1] // 2))
+        return
+
+    # GIF가 없을 경우 기존 3D 근사 렌더 유지
+    faces = st.get("faces")
+    if not faces:
+        return
+
+    # 회전 각/피치
+    yaw = math.radians(float(st.get("spin_angle", 0.0)))
+    pitch = math.radians(float(st.get("pitch", 24.0)))
+
+    def rot_x(p, a):
+        x, y, z = p
+        ca, sa = math.cos(a), math.sin(a)
+        return (x, y * ca - z * sa, y * sa + z * ca)
+
+    def rot_y(p, a):
+        x, y, z = p
+        ca, sa = math.cos(a), math.sin(a)
+        return (x * ca + z * sa, y, -x * sa + z * ca)
+
+    def proj(p):
+        x, y, z = p
+        scale = 1.0
+        return (int(cx + x * scale), int(cy - y * scale))
+
+    s = STAGE7_CUBE_RADIUS * 0.75
+    face_defs = {
+        'F': ((-s, s, s), (2*s, 0, 0), (0, -2*s, 0)),
+        'R': ((s, s, s), (0, 0, -2*s), (0, -2*s, 0)),
+        'U': ((-s, s, -s), (2*s, 0, 0), (0, 0, 2*s)),
+    }
+    order = ['U', 'R', 'F']
+    rebuild = bool(st.get("rebuild", False))
+    visible_fill = 9
+    if rebuild:
+        prog = int(st.get("rebuild_progress", 0))
+        visible_fill = max(0, min(9, int(round(9 * (prog / 5.0)))))
+
+    for face_name in order:
+        face = faces[face_name]
+        origin, uvec, vvec = face_defs[face_name]
+        def _rot(p):
+            return rot_y(rot_x(p, pitch), yaw)
+        o = _rot(origin)
+        ux = tuple(c/3.0 for c in _rot((uvec[0]/3.0, uvec[1]/3.0, uvec[2]/3.0)))
+        vx = tuple(c/3.0 for c in _rot((vvec[0]/3.0, vvec[1]/3.0, vvec[2]/3.0)))
+        idx = 0
+        for r in range(3):
+            for c in range(3):
+                p0 = (o[0] + ux[0]*c + vx[0]*r, o[1] + ux[1]*c + vx[1]*r, o[2] + ux[2]*c + vx[2]*r)
+                p1 = (p0[0] + ux[0], p0[1] + ux[1], p0[2] + ux[2])
+                p2 = (p1[0] + vx[0], p1[1] + vx[1], p1[2] + vx[2])
+                p3 = (p0[0] + vx[0], p0[1] + vx[1], p0[2] + vx[2])
+                poly = [proj(p0), proj(p1), proj(p2), proj(p3)]
+                if rebuild and idx >= visible_fill:
+                    base = (40, 40, 50)
+                else:
+                    base = face[r][c]
+                shade = 1.15 if face_name == 'U' else (0.85 if face_name == 'R' else 1.0)
+                col = (min(255, int(base[0]*shade)), min(255, int(base[1]*shade)), min(255, int(base[2]*shade)))
+                pygame.draw.polygon(surface, col, poly)
+                pygame.draw.polygon(surface, (20,20,28), poly, 1)
+                idx += 1
+=======
+>>>>>>> parent of 2d055489 (Auto-save #147: 메인 게임 로직 작업 - 2025-10-04 19:10:23)
 
 def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
     """Stage 7 테트로미노 스킬 상태 초기화."""
@@ -29157,6 +29710,12 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: b
         mino["pulse_enabled"] = False  # 깜빡임 금지
         mino["nonblocking"] = True     # 플레이어 차단하지 않음
         mino["last_update"] = now
+        # 중앙 큐브 재조립 진행 알림 (스테이지7 전용)
+        try:
+            if by_player or by_dash:
+                stage7_cube_notify_tetro_evaporated("player" if by_player else "dash")
+        except Exception:
+            pass
         return
 
     # 그 외(예: 기타 효과)에 의한 파괴: 기존 링 이펙트를 사용하고, 이후 설치→증발 순서로 진행
@@ -29290,6 +29849,11 @@ def update_stage7_tetromino_skill(now: int | None = None) -> None:
         now = pygame.time.get_ticks()
 
     update_stage7_tetrominoes(now)
+    # 중앙 큐브 업데이트 (스테이지7 전용)
+    try:
+        update_stage7_center_cube(now)
+    except Exception:
+        pass
 
     # 50% 확률로 예약된 추가 발사 처리 (0.3~0.9초 후 1회 시도)
     global stage7_tetro_followup_due_ms, stage7_tetro_followup_remaining
@@ -62094,6 +62658,11 @@ def main(stage_num, new_boss_mode=False):
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
             draw_stage7_tetrominoes(SCREEN)
+            # 중앙 큐브 렌더 (스테이지7 전용)
+            try:
+                draw_stage7_center_cube(SCREEN)
+            except Exception:
+                pass
 
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
@@ -62128,6 +62697,11 @@ def main(stage_num, new_boss_mode=False):
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
             draw_stage7_tetrominoes(SCREEN)
+            # 중앙 큐브 렌더 (스테이지7 전용)
+            try:
+                draw_stage7_center_cube(SCREEN)
+            except Exception:
+                pass
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 스테이지별 테두리 효과를 UI 전에 그리기
             if current_stage == 2:
@@ -65501,4 +66075,4 @@ def get_character_name(character_id):
 if __name__ == "__main__":
     # 무조건 오프닝 애니메이션 표시
     opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
-    game_loop()            
+    game_loop()
