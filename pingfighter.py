@@ -28999,7 +28999,8 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: b
         mino["state"] = "evaporating"
         mino["evap_timer"] = 0.0
         # 4셀 기준 총 2.0초 → 요청: 3배 빠르게 → 셀당 약 166.7ms
-        mino["evap_interval"] = 167.0
+        mino["evap_interval"] = 111.0
+        mino["evap_speed_mult"] = 1.5
         mino["evap_index"] = 0
         order = list(range(len(mino.get("cells", []))))
         random.shuffle(order)
