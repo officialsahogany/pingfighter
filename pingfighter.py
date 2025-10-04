@@ -1965,6 +1965,14 @@ stage7_tetro_reserve: bool = False          # 테트로미노가 게이지를 �
 stage7_tetro_followup_due_ms: int = 0       # 테트로미노 추가 발사(50% 확률) 예약 시각(ms)
 stage7_tetro_followup_remaining: int = 0    # 연속 추가 발사 남은 횟수 (최대 6)
 
+# Stage 7 초인 테트리서(궁극기) 상태
+stage7_super_active: bool = False
+stage7_super_ends_at_ms: int = 0
+STAGE7_SUPER_DURATION_MS = 15000
+STAGE7_SUPER_NAME = "초인테트리서"
+STAGE7_TETRO_EXPLOSION_KNOCKBACK = 12.0
+STAGE7_TETRO_EXPLOSION_STUN_S = 0.5
+
 # 디버그/테스트: 환경변수로 쿨타임 축소
 try:
     if _bool_from_env("PINGFIGHTER_TETRO_TEST"):
@@ -28639,11 +28647,14 @@ STAGE7_TETRO_ASSEMBLY_MOVE_MS = 200      # 각 셀이 등장 후 목표 위치�
 def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
     """Stage 7 테트로미노 스킬 상태 초기화."""
     global stage7_tetrominoes, stage7_tetromino_next_trigger_ms, stage7_tetro_followup_due_ms, stage7_tetro_followup_remaining
+    global stage7_super_active, stage7_super_ends_at_ms
     stage7_tetrominoes.clear()
     if reset_timer:
         stage7_tetromino_next_trigger_ms = 0
         stage7_tetro_followup_due_ms = 0
         stage7_tetro_followup_remaining = 0
+        stage7_super_active = False
+        stage7_super_ends_at_ms = 0
 
 
 def _schedule_stage7_tetro(now: int | None = None) -> None:
