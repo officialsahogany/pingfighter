@@ -28772,9 +28772,46 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
                 mino["step_accum"] = 0.0
         elif state == "falling":
             mino["step_accum"] += elapsed
+            floor_y = HEIGHT - 12
+            # 설치된 ㅗ 블럭 셀 모음(자기 자신 제외)
+            installed_cells: list[pygame.Rect] = []
+            for other in stage7_tetrominoes:
+                if other is mino:
+                    continue
+                if other.get("state") == "installed":
+                    installed_cells.extend([c["rect"] for c in other.get("cells", [])])
+
             while mino["step_accum"] >= STAGE7_TETRO_STEP_MS:
                 mino["step_accum"] -= STAGE7_TETRO_STEP_MS
-                # 한 스텝(셀 크기)만큼 하강
+
+                # 1) 바닥 충돌 예측: 다음 스텝 이동 시 바닥을 넘는지
+                bottom_now = max(c["rect"].bottom for c in mino["cells"])
+                if bottom_now + s >= floor_y:
+                    dy = floor_y - bottom_now
+                    for c in mino["cells"]:
+                        c["rect"].y += dy
+                    mino["state"] = "installed"
+                    mino["installed_at"] = now
+                    break
+
+                # 2) 설치된 블럭과의 충돌 예측: 다음 스텝 이동 시 겹침 여부
+                will_overlap = False
+                for c in mino["cells"]:
+                    test_rect = c["rect"].copy()
+                    test_rect.y += s
+                    for rc in installed_cells:
+                        if test_rect.colliderect(rc):
+                            will_overlap = True
+                            break
+                    if will_overlap:
+                        break
+                if will_overlap:
+                    # 바로 위에 정착 (현재 위치 유지)
+                    mino["state"] = "installed"
+                    mino["installed_at"] = now
+                    break
+
+                # 3) 이동 수행
                 for c in mino["cells"]:
                     c["rect"].y += s
 
@@ -28782,18 +28819,6 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
             if all(c["rect"].top >= HEIGHT for c in mino["cells"]):
                 stage7_tetrominoes.remove(mino)
                 # 삭제된 경우에는 last_update 갱신 불필요
-                continue
-
-            # 플레이어 쪽 바닥 착지 처리: 하단 경계(HEIGHT-12)에 닿으면 설치 상태로 전환
-            floor_y = HEIGHT - 12
-            bottom = max(c["rect"].bottom for c in mino["cells"])
-            if bottom >= floor_y:
-                dy = floor_y - bottom
-                for c in mino["cells"]:
-                    c["rect"].y += dy  # 바닥선에 맞춰 스냅
-                mino["state"] = "installed"
-                mino["installed_at"] = now
-                # 설치 후에는 더 이상 낙하/충돌로 파괴되지 않음(플레이어 대쉬로만 파괴)
                 continue
         elif state == "destroying":
             duration = max(1.0, float(mino.get("destroy_duration", 160)))
