@@ -2103,6 +2103,8 @@ player_missile_invulnerable_time = 0  # 미사일 무적 종료 시간
 # 미사일 넉백 시스템 (스테이지 5 화염탄과 동일)
 player_missile_knockback_vel = 0  # 미사일 넉백 속도
 player_missile_stunned_timer = 0  # 미사일 스턴 타이머
+# STAGE7 초인 테트로 폭발 스턴 시 텍스트 숨김 타이머(ms 단위)
+player_stun_text_hidden_until_ms = 0
 # 스테이지 6 보스 피격 효과 (소닉 스타일)
 stage6_boss_hit_timer = 0  # 보스 피격 타이머 (깜빡임 지속 시간)
 stage6_boss_hit_flash = False  # 보스 피격 깜빡임 상태
@@ -29212,6 +29214,12 @@ def stage7_tetromino_explode(mino: dict, *, now: int | None = None) -> None:
             global player_stunned_timer, player_knockback_vel
             player_stunned_timer = max(player_stunned_timer, int(STAGE7_TETRO_EXPLOSION_STUN_S * FPS))
             player_knockback_vel = knock
+            # 초인 테트로 폭발 스턴 동안 STUN 텍스트 숨김
+            try:
+                global player_stun_text_hidden_until_ms
+                player_stun_text_hidden_until_ms = now + int(STAGE7_TETRO_EXPLOSION_STUN_S * 1000)
+            except Exception:
+                pass
     except Exception:
         pass
     # 블럭 제거
@@ -34023,13 +34031,18 @@ def draw_objects():
             
             pygame.draw.polygon(SCREEN, (255, 255, 0), points)
             
-        # 스턴 텍스트 표시
-        if player_missile_stunned_timer % 30 == 0:  # 0.5초마다
-            stun_text = "STUN!"
-            text_surface = FONT.render(stun_text, True, (255, 100, 100))
-            text_x = PLAYER.centerx - text_surface.get_width() // 2
-            text_y = PLAYER.y - 60
-            SCREEN.blit(text_surface, (text_x, text_y))
+        # 스턴 텍스트 표시 (초인 테트로 폭발 유발 스턴 동안은 숨김)
+        try:
+            hide_until = globals().get('player_stun_text_hidden_until_ms', 0)
+        except Exception:
+            hide_until = 0
+        if pygame.time.get_ticks() >= hide_until:
+            if player_missile_stunned_timer % 30 == 0:  # 0.5초마다
+                stun_text = "STUN!"
+                text_surface = FONT.render(stun_text, True, (255, 100, 100))
+                text_x = PLAYER.centerx - text_surface.get_width() // 2
+                text_y = PLAYER.y - 60
+                SCREEN.blit(text_surface, (text_x, text_y))
     #  투척 모션 중 아이템 표시
     if molotov_throwing or grenade_throwing or flare_throwing:
         throw_progress = 0
