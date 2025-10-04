@@ -28222,6 +28222,11 @@ STAGE7_GUARD_HOLOGRAM_STEP_MS = 120
 STAGE7_GUARD_MOVEMENT_DURATION_MS = 320
 STAGE7_GUARD_HOLOGRAM_HOLD_MS = 160
 
+# 조립(한 조각씩) 애니메이션 – ㅗ 블럭과 동일 컨셉
+STAGE7_GUARD_ASSEMBLY_TOTAL_MS = 1000
+STAGE7_GUARD_ASSEMBLY_STEP_MS = 250
+STAGE7_GUARD_ASSEMBLY_MOVE_MS = 200
+
 
 def _schedule_stage7_guard(now: int | None = None) -> None:
     global stage7_guard_next_trigger_ms
@@ -28346,6 +28351,17 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     right_block = _create_stage7_guard_block("right", right_start, right_final, block_top, now)
     left_block = _create_stage7_guard_block("left", left_start, left_final, block_top, now)
 
+    # ㅗ 블럭과 동일한 조립 애니메이션 적용: 1초간 순차 등장 후 자리 고정
+    for blk in (right_block, left_block):
+        blk["state"] = "assembling"
+        blk["assembly_elapsed"] = 0.0
+        blk["visible_cells"] = 0
+        # 시작 위치를 소폭 랜덤 오프셋으로 조정해 모이는 느낌 강화
+        for c in blk["cells"]:
+            jitter = random.uniform(-8.0, 8.0)
+            c["start_left"] = float(c.get("start_left", c["rect"].x)) + jitter
+            c["rect"].x = int(round(c["start_left"]))
+
     print(f"[Stage7Guard] spawn left {left_start:.1f}->{left_final:.1f}, right {right_start:.1f}->{right_final:.1f}, top={block_top:.1f}")
 
     stage7_guard_blocks.extend([right_block, left_block])
@@ -28365,7 +28381,30 @@ def update_stage7_guard_blocks(now: int | None = None) -> None:
         if elapsed < 0:
             elapsed = 0
 
-        if block["state"] == "hologram":
+        if block["state"] == "assembling":
+            # 1초간 한 조각씩(0.25초 간격) 공개하면서 각 조각은 등장 즉시 목표 위치로 선형 이동
+            block["assembly_elapsed"] = block.get("assembly_elapsed", 0.0) + elapsed
+            while block.get("visible_cells", 0) < 4 and block["assembly_elapsed"] >= (block["visible_cells"] + 1) * STAGE7_GUARD_ASSEMBLY_STEP_MS:
+                block["visible_cells"] = block.get("visible_cells", 0) + 1
+            for idx, cell in enumerate(block["cells"]):
+                if idx >= block.get("visible_cells", 0):
+                    current_left = cell.get("start_left", cell["rect"].x)
+                else:
+                    appear_t = idx * STAGE7_GUARD_ASSEMBLY_STEP_MS
+                    t_since = max(0.0, block["assembly_elapsed"] - appear_t)
+                    prog = min(1.0, t_since / STAGE7_GUARD_ASSEMBLY_MOVE_MS)
+                    start_left = float(cell.get("start_left", cell["rect"].x))
+                    final_left = float(cell.get("final_left", cell["rect"].x))
+                    current_left = start_left + (final_left - start_left) * prog
+                cell["rect"].x = int(round(current_left))
+                cell["rect"].y = int(round(cell.get("top", cell["rect"].y)))
+                cell.pop("fade", None)
+            if block["assembly_elapsed"] >= STAGE7_GUARD_ASSEMBLY_TOTAL_MS:
+                for cell in block["cells"]:
+                    cell["rect"].x = int(round(cell.get("final_left", cell["rect"].x)))
+                    cell["rect"].y = int(round(cell.get("top", cell["rect"].y)))
+                block["state"] = "active"
+        elif block["state"] == "hologram":
             # 홀로그램 단계: 셀을 순차적으로 드러낸 뒤, 전부 드러난 상태로 일정 시간 유지하고 배치 단계로 전환
             block["hologram_timer"] += elapsed
             while block["visible_cells"] < 4 and block["hologram_timer"] >= STAGE7_GUARD_HOLOGRAM_STEP_MS:
@@ -28424,6 +28463,9 @@ def draw_stage7_guard_blocks(surface: pygame.Surface) -> None:
         for idx, cell in enumerate(block["cells"]):
             rect = cell["rect"]
             fade = cell.get("fade", 1.0)
+            if state == "assembling" and idx >= visible_cells:
+                # 조립 중 아직 공개되지 않은 셀은 표시하지 않음
+                continue
             if state == "hologram" and idx >= visible_cells:
                 alpha = 110
                 fill_col = hologram_color
@@ -28458,7 +28500,7 @@ def update_stage7_guard_skill(now: int | None = None) -> None:
     # 변경 사항: 활성 블록이 남아 있어도 쿨타임 도달 시 추가 생성 허용.
     # 다만 설치/파괴 중(홀로그램/배치 이동/파괴 애니메이션)일 때는 중복 연출 충돌을 피하기 위해 대기.
     installing_or_destroying = any(
-        block.get("state") in ("hologram", "deploy", "destroying") for block in stage7_guard_blocks
+        block.get("state") in ("assembling", "hologram", "deploy", "destroying") for block in stage7_guard_blocks
     )
     if installing_or_destroying:
         return
