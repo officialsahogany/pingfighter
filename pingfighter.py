@@ -52675,6 +52675,66 @@ def handle_ball():
                             break
                     if stage7_guard_hit:
                         break
+            
+            # Stage 7: 테트로미노(ㅗ) 낙하체와 충돌 처리
+            stage7_tetro_hit = False
+            if current_stage == 7 and 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+                for mino in stage7_tetrominoes:
+                    if mino.get("state") not in ("falling",):
+                        continue
+                    for cell in mino["cells"]:
+                        if BALL.colliderect(cell["rect"]):
+                            cell_rect = cell["rect"]
+                            prev_rect = pygame.Rect(old_x, old_y, BALL.width, BALL.height)
+
+                            min_v_speed = 6.0
+                            min_h_speed = 3.0
+
+                            if prev_rect.bottom <= cell_rect.top:
+                                BALL.y = cell_rect.top - BALL.height - 1
+                                ball_vel[1] = -max(min_v_speed, abs(ball_vel[1]))
+                            elif prev_rect.top >= cell_rect.bottom:
+                                BALL.y = cell_rect.bottom + 1
+                                ball_vel[1] = max(min_v_speed, abs(ball_vel[1]))
+                            elif prev_rect.right <= cell_rect.left:
+                                BALL.x = cell_rect.left - BALL.width - 1
+                                ball_vel[0] = -max(min_h_speed, abs(ball_vel[0]))
+                            elif prev_rect.left >= cell_rect.right:
+                                BALL.x = cell_rect.right + 1
+                                ball_vel[0] = max(min_h_speed, abs(ball_vel[0]))
+                            else:
+                                overlap_left = BALL.right - cell_rect.left
+                                overlap_right = cell_rect.right - BALL.left
+                                overlap_top = BALL.bottom - cell_rect.top
+                                overlap_bottom = cell_rect.bottom - BALL.top
+                                overlaps = {
+                                    "left": overlap_left,
+                                    "right": overlap_right,
+                                    "top": overlap_top,
+                                    "bottom": overlap_bottom,
+                                }
+                                side, _ = min(overlaps.items(), key=lambda kv: kv[1])
+                                if side == "top":
+                                    BALL.y = cell_rect.top - BALL.height - 1
+                                    ball_vel[1] = -max(min_v_speed, abs(ball_vel[1]))
+                                elif side == "bottom":
+                                    BALL.y = cell_rect.bottom + 1
+                                    ball_vel[1] = max(min_v_speed, abs(ball_vel[1]))
+                                elif side == "left":
+                                    BALL.x = cell_rect.left - BALL.width - 1
+                                    ball_vel[0] = -max(min_h_speed, abs(ball_vel[0]))
+                                else:
+                                    BALL.x = cell_rect.right + 1
+                                    ball_vel[0] = max(min_h_speed, abs(ball_vel[0]))
+
+                            ball_vel[0] += random.uniform(-0.35, 0.35)
+
+                            destroy_stage7_tetromino(mino)
+                            create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
+                            stage7_tetro_hit = True
+                            break
+                    if stage7_tetro_hit:
+                        break
 
             #  스테이지 2 바위 충돌 체크 (매 스텝마다)
             if current_stage == 2 and animated_bg_stage2 is not None and not rock_hit:
@@ -61111,6 +61171,7 @@ def main(stage_num, new_boss_mode=False):
                 draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
                 draw_stage7_boss_gauge_bar()  # 스테이지 7 게이지도 동일하게 표시
                 draw_stage7_guard_blocks(SCREEN)
+                draw_stage7_tetrominoes(SCREEN)
                 
                 # 코만도 권총 UI 표시
                 if selected_character_type == "soldier":
