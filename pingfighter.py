@@ -29292,6 +29292,91 @@ def draw_stage7_boss_gauge_bar():
                 f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
             )
 
+    # 게이지 바 외곽/배경
+    outer_rect = pygame.Rect(gauge_x - 6, gauge_y - 12, gauge_width + 12, gauge_height + 24)
+    pygame.draw.rect(SCREEN, (18, 18, 30), outer_rect, border_radius=4)
+    pygame.draw.rect(SCREEN, (90, 150, 255), outer_rect, 2, border_radius=4)
+
+    inner_rect = pygame.Rect(gauge_x, gauge_y, gauge_width, gauge_height)
+    pygame.draw.rect(SCREEN, (10, 10, 20), inner_rect)
+    pygame.draw.rect(SCREEN, (48, 68, 108), inner_rect, 1)
+
+    # 테트로미노 색 라인 게이지 (분할 표시)
+    total_rows = 10
+    cell_height = 8
+    cell_gap = 2
+    cell_width = gauge_width - 4
+    cell_x = gauge_x + 2
+    block_value = max_gauge / total_rows
+
+    tetromino_colors = [
+        (0, 228, 255),   # I
+        (0, 91, 255),    # J
+        (255, 142, 0),   # L
+        (253, 230, 48),  # O
+        (0, 220, 120),   # S
+        (176, 0, 255),   # T
+        (240, 64, 64),   # Z
+    ]
+
+    def brighten(color, amount):
+        return tuple(min(255, max(0, c + amount)) for c in color)
+
+    for row in range(total_rows):
+        row_low = row * block_value
+        row_high = (row + 1) * block_value
+        if current_gauge >= row_high:
+            fill_ratio = 1.0
+        elif current_gauge <= row_low:
+            fill_ratio = 0.0
+        else:
+            fill_ratio = (current_gauge - row_low) / block_value
+
+        base_y = gauge_y + gauge_height - (row + 1) * (cell_height + cell_gap) + cell_gap
+        cell_rect = pygame.Rect(cell_x, base_y, cell_width, cell_height)
+
+        pygame.draw.rect(SCREEN, (26, 30, 52), cell_rect, border_radius=2)
+        pygame.draw.rect(SCREEN, (36, 42, 66), cell_rect, 1, border_radius=2)
+
+        if fill_ratio <= 0:
+            continue
+
+        fill_height = max(1, int(cell_height * fill_ratio))
+        fill_rect = pygame.Rect(
+            cell_rect.left + 1,
+            cell_rect.bottom - fill_height,
+            cell_rect.width - 2,
+            fill_height,
+        )
+        fill_border_radius = min(2, fill_rect.width // 2, fill_rect.height // 2)
+        color = tetromino_colors[row % len(tetromino_colors)]
+        pygame.draw.rect(SCREEN, color, fill_rect, border_radius=fill_border_radius)
+
+        highlight_rect = pygame.Rect(
+            fill_rect.left + 1,
+            fill_rect.top,
+            max(1, fill_rect.width - 2),
+            min(2, fill_rect.height),
+        )
+        pygame.draw.rect(SCREEN, brighten(color, 40), highlight_rect)
+
+        divider_color = brighten(color, -60)
+        if fill_rect.height > 3:
+            pygame.draw.line(
+                SCREEN,
+                divider_color,
+                (fill_rect.left, fill_rect.bottom - fill_rect.height // 2),
+                (fill_rect.right - 1, fill_rect.bottom - fill_rect.height // 2),
+            )
+        if fill_rect.width > 5:
+            mid_x = fill_rect.left + fill_rect.width // 2
+            pygame.draw.line(
+                SCREEN,
+                divider_color,
+                (mid_x, fill_rect.top),
+                (mid_x, fill_rect.bottom - 1),
+            )
+
 
 def update_stage7_super_state(now: int | None = None) -> None:
     """초인테트리서 게이지 및 상태 업데이트. 게이지 500 도달 시 자동 발동."""
@@ -29369,75 +29454,6 @@ def draw_stage7_super_bar() -> None:
         SCREEN.blit(label, (gauge_x - 2, gauge_y - 12))
     except Exception:
         pass
-    block_value = max_gauge / total_rows
-
-    tetromino_colors = [
-        (0, 228, 255),   # I
-        (0, 91, 255),    # J
-        (255, 142, 0),   # L
-        (253, 230, 48),  # O
-        (0, 220, 120),   # S
-        (176, 0, 255),   # T
-        (240, 64, 64),   # Z
-    ]
-
-    def brighten(color, amount):
-        return tuple(min(255, max(0, c + amount)) for c in color)
-
-    for row in range(total_rows):
-        row_low = row * block_value
-        row_high = (row + 1) * block_value
-        if current_gauge >= row_high:
-            fill_ratio = 1.0
-        elif current_gauge <= row_low:
-            fill_ratio = 0.0
-        else:
-            fill_ratio = (current_gauge - row_low) / block_value
-
-        base_y = gauge_y + gauge_height - (row + 1) * (cell_height + cell_gap) + cell_gap
-        cell_rect = pygame.Rect(cell_x, base_y, cell_width, cell_height)
-
-        pygame.draw.rect(SCREEN, (26, 30, 52), cell_rect, border_radius=2)
-        pygame.draw.rect(SCREEN, (36, 42, 66), cell_rect, 1, border_radius=2)
-
-        if fill_ratio <= 0:
-            continue
-
-        fill_height = max(1, int(cell_height * fill_ratio))
-        fill_rect = pygame.Rect(
-            cell_rect.left + 1,
-            cell_rect.bottom - fill_height,
-            cell_rect.width - 2,
-            fill_height,
-        )
-        fill_border_radius = min(2, fill_rect.width // 2, fill_rect.height // 2)
-        color = tetromino_colors[row % len(tetromino_colors)]
-        pygame.draw.rect(SCREEN, color, fill_rect, border_radius=fill_border_radius)
-
-        highlight_rect = pygame.Rect(
-            fill_rect.left + 1,
-            fill_rect.top,
-            max(1, fill_rect.width - 2),
-            min(2, fill_rect.height),
-        )
-        pygame.draw.rect(SCREEN, brighten(color, 40), highlight_rect)
-
-        divider_color = brighten(color, -60)
-        if fill_rect.height > 3:
-            pygame.draw.line(
-                SCREEN,
-                divider_color,
-                (fill_rect.left, fill_rect.bottom - fill_rect.height // 2),
-                (fill_rect.right - 1, fill_rect.bottom - fill_rect.height // 2),
-            )
-        if fill_rect.width > 5:
-            mid_x = fill_rect.left + fill_rect.width // 2
-            pygame.draw.line(
-                SCREEN,
-                divider_color,
-                (mid_x, fill_rect.top),
-                (mid_x, fill_rect.bottom - 1),
-            )
 
     if boss_special_gauge > current_gauge:
         gain_ratio = min((boss_special_gauge - current_gauge) / max_gauge, 1.0)
