@@ -28825,10 +28825,36 @@ def _try_load_stage7_cube_gif() -> None:
     ]
     img_path = None
     for c in candidates:
+        # 절대경로 허용 (env 지정 시)
+        if os.path.isabs(c):
+            if os.path.exists(c):
+                img_path = c
+                break
+            continue
         p = resource_path(c)
         if os.path.exists(p):
             img_path = p
             break
+    # 사용자 홈/다운로드 폴더 후보도 스캔(개발 편의)
+    if not img_path:
+        try:
+            home = str(Path.home())
+            dl = os.path.join(home, "Downloads")
+            extra_candidates = [
+                os.path.join(dl, "cube.gif"),
+                os.path.join(dl, "Cube.gif"),
+                os.path.join(dl, "큐브.gif"),
+                os.path.join(dl, "큐브.gif"),  # NFD 이름 대비
+            ]
+            # 간단한 glob 검색(한글/영문 혼합 이름 대비)
+            for name in ("*cube*.gif", "*Cube*.gif", "*큐브*.gif", "*큐브*.gif"):
+                extra_candidates.extend(glob.glob(os.path.join(dl, name)))
+            for p in extra_candidates:
+                if os.path.exists(p):
+                    img_path = p
+                    break
+        except Exception:
+            pass
     if not img_path:
         return
 
