@@ -29103,6 +29103,50 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: b
         pass
 
 
+def stage7_tetromino_explode(mino: dict, *, now: int | None = None) -> None:
+    """초인 테트리서 기간 중 착지 시 폭발. 플레이어가 반경 내에 있으면 넉백+스턴(0.5s)."""
+    if now is None:
+        now = pygame.time.get_ticks()
+    # 폭발 중심
+    xs = [c["rect"].centerx for c in mino.get("cells", [])]
+    ys = [c["rect"].centery for c in mino.get("cells", [])]
+    if not xs or not ys:
+        if mino in stage7_tetrominoes:
+            stage7_tetrominoes.remove(mino)
+        return
+    cx = int(sum(xs) / len(xs))
+    cy = int(sum(ys) / len(ys))
+    # 반경: 셀 크기 기준 스케일
+    scale = max(1, int(mino.get("scale", 1)))
+    radius = 80 * scale
+    # 시각/사운드 (수류탄 폭발 재사용, 코만도 보너스 없음)
+    try:
+        trigger_grenade_style_explosion(cx, cy, apply_commando_bonus=False, source="tetro_explosion", radius_scale=radius / 150.0)
+    except Exception:
+        pass
+    # 플레이어 넉백/스턴 적용
+    try:
+        player_cx = PLAYER.centerx
+        player_cy = PLAYER.centery
+        dx = player_cx - cx
+        dy = player_cy - cy
+        dist = math.hypot(dx, dy)
+        if dist <= radius:
+            direction = -1 if player_cx < cx else 1
+            knock = STAGE7_TETRO_EXPLOSION_KNOCKBACK * direction
+            # 스턴 0.5초
+            global player_stunned_timer, player_knockback_vel
+            player_stunned_timer = max(player_stunned_timer, int(STAGE7_TETRO_EXPLOSION_STUN_S * FPS))
+            player_knockback_vel = knock
+    except Exception:
+        pass
+    # 블럭 제거
+    try:
+        stage7_tetrominoes.remove(mino)
+    except ValueError:
+        pass
+
+
 def enforce_player_blocking_by_installed_tetro() -> None:
     """플레이어 패들이 설치된 ㅗ 블럭을 가로질러 이동하지 못하도록 막는다.
     - 대쉬(rolling_active 또는 is_half_dash_active) 중 충돌 시 블럭을 파괴하며 통과 가능.
@@ -29245,6 +29289,35 @@ def draw_stage7_boss_gauge_bar():
             print(
                 f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
             )
+
+
+def draw_stage7_super_bar() -> None:
+    """초인테트리서(궁극기) 남은 시간을 보스 게이지 좌측에 표시."""
+    if not stage7_super_active:
+        return
+    try:
+        now = pygame.time.get_ticks()
+        remain = max(0, stage7_super_ends_at_ms - now)
+        total = STAGE7_SUPER_DURATION_MS
+        ratio = 0.0 if total <= 0 else min(1.0, remain / total)
+        # 위치: 보스 게이지 왼쪽에 세로 바(같은 크기) 배치
+        gauge_x = WIDTH - 45 - 20  # 보스 게이지보다 20px 왼쪽
+        gauge_y = 60
+        gauge_width = 10
+        gauge_height = 100
+        # 배경
+        pygame.draw.rect(SCREEN, (40, 30, 60), (gauge_x, gauge_y, gauge_width, gauge_height))
+        pygame.draw.rect(SCREEN, (90, 70, 140), (gauge_x, gauge_y, gauge_width, gauge_height), 2)
+        # 남은 시간 바(보라)
+        fill_h = int(gauge_height * ratio)
+        fill_y = gauge_y + (gauge_height - fill_h)
+        pygame.draw.rect(SCREEN, (200, 120, 255), (gauge_x + 1, fill_y, gauge_width - 2, fill_h))
+        # 라벨 소형 텍스트
+        small_font = pygame.font.SysFont("Courier", 10, bold=True)
+        label = small_font.render("초인", True, (220, 200, 255))
+        SCREEN.blit(label, (gauge_x - 2, gauge_y - 12))
+    except Exception:
+        pass
     elif STAGE7_GAUGE_DEBUG and time_now - stage7_gauge_debug_last_log >= 1000:
         stage7_gauge_debug_last_log = time_now
         print(
