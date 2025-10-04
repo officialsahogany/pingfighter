@@ -29379,25 +29379,62 @@ def draw_stage7_boss_gauge_bar():
                 (mid_x, fill_rect.bottom - 1),
             )
 
-    # 상단 테트리서 엠블럼 (ㅗ 모양 테트리미노 아이콘)
+    # 상단 테트리서 엠블럼 (애니메이션: 2.5초마다 모양 크로스페이드, 지속 회전)
     icon_center_x = gauge_x + gauge_width // 2
     icon_center_y = gauge_y - 22
     block_size = 6
-    # ㅗ(T) 레이아웃: 가운데 + 좌/우 + 상단
-    t_layout = [(0, 0), (-1, 0), (1, 0), (0, -1)]
-    t_color = (255, 105, 180)  # 핑크 (요청 색상)
-    for dx, dy in t_layout:
-        rect = pygame.Rect(
-            icon_center_x + dx * (block_size + 1) - block_size // 2,
-            icon_center_y + dy * (block_size + 1) - block_size // 2,
-            block_size,
-            block_size,
-        )
-        # 그림자
-        SCREEN.fill((0, 0, 0), rect.move(1, 1))
-        # 본체 + 하이라이트 테두리
-        pygame.draw.rect(SCREEN, t_color, rect)
-        pygame.draw.rect(SCREEN, brighten(t_color, 40), rect, 1)
+
+    # 도형 레이아웃 정의 (T, I, L, Z)
+    layouts = {
+        'T': [(0, 0), (-1, 0), (1, 0), (0, -1)],
+        'I': [(0, -1), (0, 0), (0, 1), (0, 2)],
+        'L': [(-1, 0), (0, 0), (1, 0), (1, -1)],
+        'Z': [(-1, -1), (0, -1), (0, 0), (1, 0)],
+    }
+    colors = {
+        'T': (255, 105, 180),  # 핑크
+        'I': (90, 160, 255),   # 파랑
+        'L': (255, 165, 60),   # 주황
+        'Z': (80, 220, 120),   # 초록
+    }
+    seq = ['T', 'I', 'L', 'Z']
+    period = 2500  # 2.5초마다 모양 전환
+    t_ms = pygame.time.get_ticks()
+    phase = (t_ms // period) % len(seq)
+    next_phase = (phase + 1) % len(seq)
+    blend = (t_ms % period) / period  # 0→1
+    shape_a = seq[phase]
+    shape_b = seq[next_phase]
+    # 회전(연속): 약 2.2초/회전
+    rot = (t_ms % 2200) / 2200.0 * math.tau
+
+    def draw_shape(layout, color, alpha):
+        # 레이아웃을 회전하여 배치(셀 위치만 회전)
+        cosr = math.cos(rot)
+        sinr = math.sin(rot)
+        for dx, dy in layout:
+            # 회전 좌표(연속) – 정수 스냅으로 부드러움 유지
+            rx = dx * cosr - dy * sinr
+            ry = dx * sinr + dy * cosr
+            px = int(round(icon_center_x + rx * (block_size + 2))) - block_size // 2
+            py = int(round(icon_center_y + ry * (block_size + 2))) - block_size // 2
+            rect = pygame.Rect(px, py, block_size, block_size)
+            # 그림자
+            sh = rect.move(1, 1)
+            shadow = pygame.Surface((block_size, block_size), pygame.SRCALPHA)
+            shadow.fill((0, 0, 0, int(120 * alpha)))
+            SCREEN.blit(shadow, sh.topleft)
+            # 본체
+            body = pygame.Surface((block_size, block_size), pygame.SRCALPHA)
+            r, g, b = color
+            body.fill((r, g, b, int(255 * alpha)))
+            SCREEN.blit(body, rect.topleft)
+            # 하이라이트 테두리
+            pygame.draw.rect(SCREEN, brighten(color, 40), rect, 1)
+
+    # 크로스페이드 렌더
+    draw_shape(layouts[shape_a], colors[shape_a], 1.0 - blend)
+    draw_shape(layouts[shape_b], colors[shape_b], blend)
 
 
 def update_stage7_super_state(now: int | None = None) -> None:
