@@ -29446,44 +29446,56 @@ def draw_stage7_boss_gauge_bar():
 
 
 def update_stage7_super_state(now: int | None = None) -> None:
-    """초인테트리서 게이지 및 상태 업데이트. 게이지 500 도달 시 자동 발동."""
-    global stage7_super_active, stage7_super_ends_at_ms
-    global boss_special_gauge, stage7_persistent_boss_gauge
-    global stage7_boss_orig_size
-    if current_stage != 7 or new_boss_mode_active:
-        # 스테이지 벗어나면 비활성 목표로 스무딩 복귀
-        stage7_super_active = False
-        stage7_super_target_scale = 1.0
+    """초인테트리서: 500 도달 시 발동, 발동 중에는 초당 게이지 30 감소, 0이 되면 종료."""
+    global stage7_super_active, boss_special_gauge, stage7_persistent_boss_gauge
+    global stage7_boss_orig_size, stage7_super_target_scale, stage7_super_scale
+    global stage7_super_last_update_ms, stage7_super_drain_progress
+
     if now is None:
         now = pygame.time.get_ticks()
-    if stage7_super_active:
-        if now >= stage7_super_ends_at_ms:
-            stage7_super_active = False
-            stage7_super_target_scale = 1.0
-    # 비활성 → 발동 조건 체크
-    if boss_special_gauge >= 500:
-        stage7_super_active = True
-        stage7_super_ends_at_ms = now + STAGE7_SUPER_DURATION_MS
-        # 게이지 소모 및 동기화
-        boss_special_gauge = 0
-        stage7_persistent_boss_gauge = 0
-        # 보스 패들 사이즈 2배 (충돌 판정 포함)
-        # 목표 스케일만 2.0으로 설정 (실제 적용은 하단 스무딩에서 처리)
-        if stage7_boss_orig_size is None:
-            stage7_boss_orig_size = (BOSS.width, BOSS.height)
-        stage7_super_target_scale = 2.0
-        try:
-            play_wall_sound()
-        except Exception:
-            pass
-        print(f"[Stage7Super] {STAGE7_SUPER_NAME} 발동! 15s")
+
+    if current_stage != 7 or new_boss_mode_active:
+        # 스테이지 벗어나면 비활성 방향으로 자연 복귀
+        stage7_super_active = False
+        stage7_super_target_scale = 1.0
+    else:
+        # 발동 트리거: 500 도달
+        if not stage7_super_active and boss_special_gauge >= 500:
+            stage7_super_active = True
+            stage7_super_target_scale = 2.0
+            if stage7_boss_orig_size is None:
+                stage7_boss_orig_size = (BOSS.width, BOSS.height)
+            stage7_super_last_update_ms = now
+            stage7_super_drain_progress = 0.0
+            try:
+                play_wall_sound()
+            except Exception:
+                pass
+            print(f"[Stage7Super] {STAGE7_SUPER_NAME} 발동! (게이지 소모형)")
+
+        # 발동 중: 초당 30 드레인, 0이면 종료
+        if stage7_super_active:
+            if stage7_super_last_update_ms == 0:
+                stage7_super_last_update_ms = now
+            elapsed = now - stage7_super_last_update_ms
+            stage7_super_last_update_ms = now
+            if elapsed > 0:
+                stage7_super_drain_progress += elapsed * 0.03
+                drain_units = int(stage7_super_drain_progress)
+                if drain_units > 0:
+                    boss_special_gauge = max(0, boss_special_gauge - drain_units)
+                    stage7_persistent_boss_gauge = boss_special_gauge
+                    stage7_super_drain_progress -= drain_units
+            if boss_special_gauge <= 0:
+                stage7_super_active = False
+                stage7_super_target_scale = 1.0
+
     # 스케일 스무딩/적용 (항상 호출)
     try:
         if stage7_boss_orig_size is None:
             stage7_boss_orig_size = (BOSS.width, BOSS.height)
         smoothing = 0.18
-        globals()['stage7_super_scale'] += (stage7_super_target_scale - stage7_super_scale) * smoothing
-        # 적용 시 중심 유지
+        stage7_super_scale += (stage7_super_target_scale - stage7_super_scale) * smoothing
         cx, cy = BOSS.centerx, BOSS.centery
         base_w, base_h = stage7_boss_orig_size
         new_w = max(10, int(base_w * stage7_super_scale))
@@ -29497,33 +29509,8 @@ def update_stage7_super_state(now: int | None = None) -> None:
 
 
 def draw_stage7_super_bar() -> None:
-    """초인테트리서(궁극기) 남은 시간을 보스 게이지 좌측에 표시."""
-    if not stage7_super_active:
-        return
-    try:
-        now = pygame.time.get_ticks()
-        remain = max(0, stage7_super_ends_at_ms - now)
-        total = STAGE7_SUPER_DURATION_MS
-        ratio = 0.0 if total <= 0 else min(1.0, remain / total)
-        # 위치: 보스 게이지 왼쪽에 세로 바(같은 크기) 배치
-        gauge_x = WIDTH - 45 - 20  # 보스 게이지보다 20px 왼쪽
-        gauge_y = 60
-        gauge_width = 10
-        gauge_height = 100
-        # 배경
-        pygame.draw.rect(SCREEN, (40, 30, 60), (gauge_x, gauge_y, gauge_width, gauge_height))
-        pygame.draw.rect(SCREEN, (90, 70, 140), (gauge_x, gauge_y, gauge_width, gauge_height), 2)
-        # 남은 시간 바(보라)
-        fill_h = int(gauge_height * ratio)
-        fill_y = gauge_y + (gauge_height - fill_h)
-        pygame.draw.rect(SCREEN, (200, 120, 255), (gauge_x + 1, fill_y, gauge_width - 2, fill_h))
-        # 라벨 소형 텍스트
-        small_font = pygame.font.SysFont("Courier", 10, bold=True)
-        label = small_font.render("초인", True, (220, 200, 255))
-        SCREEN.blit(label, (gauge_x - 2, gauge_y - 12))
-    except Exception:
-        pass
-    # 초인 게이지 외에는 추가 장식 없음
+    """요청에 따라 초인 타이머 게이지바는 비활성(표시하지 않음)."""
+    return
 
 
 def draw_stage2_boss_gauge_bar():
