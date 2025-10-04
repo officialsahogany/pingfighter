@@ -29457,40 +29457,7 @@ def draw_stage7_super_bar() -> None:
         SCREEN.blit(label, (gauge_x - 2, gauge_y - 12))
     except Exception:
         pass
-
-    if boss_special_gauge > current_gauge:
-        gain_ratio = min((boss_special_gauge - current_gauge) / max_gauge, 1.0)
-        sparkle_color = (200, 240, 255)
-        sparkle_count = int(3 + gain_ratio * 4)
-        for _ in range(sparkle_count):
-            sparkle_row = random.randint(0, total_rows - 1)
-            base_y = gauge_y + gauge_height - (sparkle_row + 1) * (cell_height + cell_gap) + cell_gap
-            sparkle_y = random.randint(base_y, base_y + cell_height - 1)
-            sparkle_x = random.randint(cell_x + 1, cell_x + cell_width - 2)
-            SCREEN.fill(sparkle_color, (sparkle_x, sparkle_y, 1, 1))
-
-    icon_center_x = gauge_x + gauge_width // 2
-    icon_center_y = gauge_y - 28
-    icon_color = tetromino_colors[int((time_now // 400) % len(tetromino_colors))]
-    shadow_color = (0, 0, 0)
-    block_size = 6
-    layout = [(0, 0), (-1, 0), (1, 0), (0, -1)]  # T자 형태
-    for dx, dy in layout:
-        rect = pygame.Rect(
-            icon_center_x + dx * (block_size + 1) - block_size // 2,
-            icon_center_y + dy * (block_size + 1) - block_size // 2,
-            block_size,
-            block_size,
-        )
-        SCREEN.fill(shadow_color, rect.move(1, 1))
-        pygame.draw.rect(SCREEN, icon_color, rect)
-        pygame.draw.rect(SCREEN, brighten(icon_color, 50), rect, 1)
-
-    ghost_progress = (time_now * 0.05) % (gauge_height + cell_height)
-    ghost_y = int(gauge_y + gauge_height - ghost_progress)
-    ghost_rect = pygame.Rect(cell_x + 1, ghost_y, cell_width - 2, 2)
-    if gauge_y <= ghost_rect.top <= gauge_y + gauge_height:
-        pygame.draw.rect(SCREEN, (120, 180, 255), ghost_rect)
+    # 초인 게이지 외에는 추가 장식 없음
 
 
 def draw_stage2_boss_gauge_bar():
