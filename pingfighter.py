@@ -28839,8 +28839,8 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
             # 설치 후 일정 시간이 지나면 증발 해체 시퀀스 시작
             installed_at = int(mino.get("installed_at", now))
             since = now - installed_at
-            # 증발 상태 진입 (5초 경과)
-            if since >= 5000 and mino.get("state") != "evaporating":
+            # 증발 상태 진입 (3초 경과)
+            if since >= 3000 and mino.get("state") != "evaporating":
                 mino["state"] = "evaporating"
                 mino["evap_timer"] = 0.0
                 mino["evap_interval"] = 160  # 셀 1개당 0.16초 간격으로 증발
@@ -28967,12 +28967,12 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
                 alpha = int(200 * fade)
                 border_alpha = int(190 * fade)
             elif state in ("installed", "evaporating"):
-                # 설치 후 3~5초 구간에서 페이드 인/아웃 펄스
+                # 설치 후 1~3초 구간에서 페이드 인/아웃 펄스
                 installed_at = int(mino.get("installed_at", 0))
                 t = pygame.time.get_ticks() - installed_at if installed_at else 0
-                if 3000 <= t <= 5000 and mino.get("pulse_enabled", True):
+                if 1000 <= t <= 3000 and mino.get("pulse_enabled", True):
                     # 2Hz 정도의 펄스
-                    phase = (t - 3000) / 1000.0  # 0~2초
+                    phase = (t - 1000) / 1000.0  # 0~2초
                     pulse = 0.5 + 0.5 * math.sin(phase * math.pi * 2.0)  # 0~1
                     alpha = int(150 + 100 * pulse)
                     border_alpha = int(150 + 90 * pulse)
