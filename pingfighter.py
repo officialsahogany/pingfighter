@@ -28666,8 +28666,11 @@ def _get_shape_layout(shape: str, rotation: int) -> list[tuple[int, int]]:
         base = [(-1, -1), (0, -1), (0, 0), (1, 0)]
     elif shape == 'I':
         base = [(0, -1), (0, 0), (0, 1), (0, 2)]
+    elif shape == 'O':  # 정사각형 (2x2)
+        base = [(-1, 0), (0, 0), (-1, -1), (0, -1)]
     else:
         base = [(-1, 0), (0, 0), (1, 0), (0, -1)]
+    # O는 회전해도 동일하지만, 일반화된 회전 함수를 적용해도 문제 없음
     return _rotate_offsets(base, rotation)
 
 
@@ -28700,9 +28703,9 @@ def spawn_stage7_tetromino(now: int | None = None) -> bool:
     # 보스 패들 바로 아래에서 시작하되, 윗부분(ㅗ의 막대) 셀이 보스에 닿지 않도록 여유를 둔다.
     base_top = float(BOSS.bottom + s + 6)
 
-    # 4가지 블럭(T, L, Z, I) 중 랜덤, 각 0/90/180/270 회전 랜덤
+    # 5가지 블럭(T, L, Z, I, O) 중 랜덤, 각 0/90/180/270 회전 랜덤
     rotation = random.choice((0, 90, 180, 270))
-    shape = random.choice(['T', 'L', 'Z', 'I'])
+    shape = random.choice(['T', 'L', 'Z', 'I', 'O'])
     layout = _get_shape_layout(shape, rotation)
     cells = []
     # 조립 애니메이션을 위해 각 셀의 시작 위치를 소폭 랜덤 오프셋으로 지정(제자리에서 모이는 느낌)
