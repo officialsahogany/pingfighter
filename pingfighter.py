@@ -28432,6 +28432,11 @@ def destroy_stage7_guard_block(block: dict, *, now: int | None = None) -> None:
 STAGE7_TETRO_CELL_SIZE = 20
 STAGE7_TETRO_STEP_MS = 110
 
+# 발사 전 조립(모이기) 애니메이션: 1초 동안 셀들이 순차적으로 도착
+STAGE7_TETRO_ASSEMBLY_TOTAL_MS = 1000
+STAGE7_TETRO_ASSEMBLY_STEP_MS = 250      # 4개의 셀이 0.25초 간격으로 등장 → 총 1초
+STAGE7_TETRO_ASSEMBLY_MOVE_MS = 200      # 각 셀이 등장 후 목표 위치까지 이동하는 시간
+
 
 def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
     """Stage 7 테트로미노 스킬 상태 초기화."""
@@ -28475,16 +28480,30 @@ def spawn_stage7_tetromino(now: int | None = None) -> bool:
     # ㅗ 모양: 바닥 가로 3칸 + 중앙 위 1칸 — 좌표계(dx, dy): dy는 행(위가 -1)
     layout = [(-1, 0), (0, 0), (1, 0), (0, -1)]
     cells = []
+    # 조립 애니메이션을 위해 각 셀의 시작 위치를 소폭 랜덤 오프셋으로 지정(제자리에서 모이는 느낌)
     for dx, dy in layout:
-        left = int(round(cx + dx * s - s / 2))
-        top = int(round(base_top + dy * s))
-        cells.append({"rect": pygame.Rect(left, top, s, s)})
+        final_left = float(cx + dx * s - s / 2)
+        final_top = float(base_top + dy * s)
+        # ±8px 범위의 작은 오프셋에서 시작 → 제자리 모임 연출
+        start_left = final_left + random.uniform(-8.0, 8.0)
+        start_top = final_top + random.uniform(-8.0, 8.0)
+        rect = pygame.Rect(int(round(start_left)), int(round(start_top)), s, s)
+        cells.append({
+            "rect": rect,
+            "start_left": start_left,
+            "start_top": start_top,
+            "final_left": final_left,
+            "final_top": final_top,
+            "assemble_timer": 0.0,
+        })
 
     mino = {
-        "state": "falling",
+        "state": "assembling",             # 1초간 조립 후 낙하 시작
         "cells": cells,
         "last_update": now,
         "step_accum": 0.0,
+        "visible_cells": 0,
+        "assembly_elapsed": 0.0,
     }
     stage7_tetrominoes.append(mino)
     return True
@@ -28504,7 +28523,42 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
         mino["last_update"] = now
 
         state = mino.get("state")
-        if state == "falling":
+        if state == "assembling":
+            elapsed = now - mino.get("last_update", now)
+            if elapsed < 0:
+                elapsed = 0
+            mino["assembly_elapsed"] = mino.get("assembly_elapsed", 0.0) + elapsed
+
+            # 셀 순차 공개(0.25초 간격)
+            while mino.get("visible_cells", 0) < 4 and mino["assembly_elapsed"] >= (mino["visible_cells"] + 1) * STAGE7_TETRO_ASSEMBLY_STEP_MS:
+                mino["visible_cells"] += 1
+
+            # 각 셀은 공개된 이후 목표 위치까지 선형 이동
+            for idx, c in enumerate(mino["cells"]):
+                # 아직 공개 전이면 위치 유지(스타트 위치)
+                if idx >= mino["visible_cells"]:
+                    c_left = c["start_left"]
+                    c_top = c["start_top"]
+                else:
+                    # 공개된 시간 계산 → move_ms 기준 0→1 진행
+                    # 공개 시점: idx * step
+                    appear_t = idx * STAGE7_TETRO_ASSEMBLY_STEP_MS
+                    t_since = max(0.0, mino["assembly_elapsed"] - appear_t)
+                    prog = min(1.0, t_since / STAGE7_TETRO_ASSEMBLY_MOVE_MS)
+                    c_left = c["start_left"] + (c["final_left"] - c["start_left"]) * prog
+                    c_top = c["start_top"] + (c["final_top"] - c["start_top"]) * prog
+
+                c["rect"].x = int(round(c_left))
+                c["rect"].y = int(round(c_top))
+
+            # 총 1초 경과 시 낙하 상태로 전환, 위치를 최종값으로 스냅
+            if mino["assembly_elapsed"] >= STAGE7_TETRO_ASSEMBLY_TOTAL_MS:
+                for c in mino["cells"]:
+                    c["rect"].x = int(round(c["final_left"]))
+                    c["rect"].y = int(round(c["final_top"]))
+                mino["state"] = "falling"
+                mino["step_accum"] = 0.0
+        elif state == "falling":
             mino["step_accum"] += elapsed
             while mino["step_accum"] >= STAGE7_TETRO_STEP_MS:
                 mino["step_accum"] -= STAGE7_TETRO_STEP_MS
@@ -28536,10 +28590,14 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
 
     for mino in stage7_tetrominoes:
         state = mino.get("state")
-        for cell in mino["cells"]:
+        visible_cells = mino.get("visible_cells", 4 if state != "assembling" else 0)
+        for idx, cell in enumerate(mino["cells"]):
             rect = cell["rect"]
             fade = cell.get("fade", 1.0)
-            if state == "destroying":
+            if state == "assembling" and idx >= visible_cells:
+                # 아직 차례가 오지 않은 셀은 표시하지 않음(하나씩 모이는 연출)
+                continue
+            elif state == "destroying":
                 alpha = int(220 * fade)
                 border_alpha = int(210 * fade)
             else:
