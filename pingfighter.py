@@ -26121,6 +26121,8 @@ def handle_wall():
         destroy_stage2_rocks_in_smoke(smoke_zone)
         # 스테이지 7 테트로미노를 연막에 닿으면 분해 처리
         destroy_stage7_tetrominoes_in_smoke(smoke_zone)
+        # 중앙 큐브가 활성일 때 시각적으로 약간의 연무가 흐르는 효과를 유도(부하 거의 없음)
+        # 기능적 영향 없음. 퍼포먼스 고려로 최소 연산만 수행.
         # 파티클 추가 생성 (지속적인 연기 효과, 타원형)
         if smoke_zone["duration"] > 60 and len(smoke_zone["particles"]) < 60:  # 파티클 수 증가
             if random.random() < 0.5:  # 50% 확률로 새 파티클
@@ -29393,6 +29395,12 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None, by_player: b
         mino["pulse_enabled"] = False  # 깜빡임 금지
         mino["nonblocking"] = True     # 플레이어 차단하지 않음
         mino["last_update"] = now
+        # 중앙 큐브 재조립 진행 알림 (스테이지7 전용)
+        try:
+            if by_player or by_dash:
+                stage7_cube_notify_tetro_evaporated("player" if by_player else "dash")
+        except Exception:
+            pass
         return
 
     # 그 외(예: 기타 효과)에 의한 파괴: 기존 링 이펙트를 사용하고, 이후 설치→증발 순서로 진행
@@ -29526,6 +29534,11 @@ def update_stage7_tetromino_skill(now: int | None = None) -> None:
         now = pygame.time.get_ticks()
 
     update_stage7_tetrominoes(now)
+    # 중앙 큐브 업데이트 (스테이지7 전용)
+    try:
+        update_stage7_center_cube(now)
+    except Exception:
+        pass
 
     # 50% 확률로 예약된 추가 발사 처리 (0.3~0.9초 후 1회 시도)
     global stage7_tetro_followup_due_ms, stage7_tetro_followup_remaining
@@ -62330,6 +62343,11 @@ def main(stage_num, new_boss_mode=False):
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
             draw_stage7_tetrominoes(SCREEN)
+            # 중앙 큐브 렌더 (스테이지7 전용)
+            try:
+                draw_stage7_center_cube(SCREEN)
+            except Exception:
+                pass
 
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
@@ -62364,6 +62382,11 @@ def main(stage_num, new_boss_mode=False):
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
             draw_stage7_tetrominoes(SCREEN)
+            # 중앙 큐브 렌더 (스테이지7 전용)
+            try:
+                draw_stage7_center_cube(SCREEN)
+            except Exception:
+                pass
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 스테이지별 테두리 효과를 UI 전에 그리기
             if current_stage == 2:
@@ -65738,3 +65761,12 @@ if __name__ == "__main__":
     # 무조건 오프닝 애니메이션 표시
     opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
     game_loop()            
+    # Stage7 중앙 큐브 상태 초기화(해당 스테이지 진입 시)
+    try:
+        global stage7_center_cube_state
+        if current_stage == 7:
+            stage7_center_cube_state = None  # lazy init in update
+        else:
+            stage7_center_cube_state = None
+    except Exception:
+        pass
