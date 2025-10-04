@@ -29369,25 +29369,6 @@ def draw_stage7_super_bar() -> None:
         SCREEN.blit(label, (gauge_x - 2, gauge_y - 12))
     except Exception:
         pass
-    elif STAGE7_GAUGE_DEBUG and time_now - stage7_gauge_debug_last_log >= 1000:
-        stage7_gauge_debug_last_log = time_now
-        print(
-            f"[Stage7Gauge] 유지: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, current={current_gauge:.1f}"
-        )
-
-    outer_rect = pygame.Rect(gauge_x - 6, gauge_y - 12, gauge_width + 12, gauge_height + 24)
-    pygame.draw.rect(SCREEN, (18, 18, 30), outer_rect, border_radius=4)
-    pygame.draw.rect(SCREEN, (90, 150, 255), outer_rect, 2, border_radius=4)
-
-    inner_rect = pygame.Rect(gauge_x, gauge_y, gauge_width, gauge_height)
-    pygame.draw.rect(SCREEN, (10, 10, 20), inner_rect)
-    pygame.draw.rect(SCREEN, (48, 68, 108), inner_rect, 1)
-
-    total_rows = 10
-    cell_height = 8
-    cell_gap = 2
-    cell_width = gauge_width - 4
-    cell_x = gauge_x + 2
     block_value = max_gauge / total_rows
 
     tetromino_colors = [
