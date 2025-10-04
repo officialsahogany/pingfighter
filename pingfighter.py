@@ -65760,13 +65760,4 @@ def get_character_name(character_id):
 if __name__ == "__main__":
     # 무조건 오프닝 애니메이션 표시
     opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
-    game_loop()            
-    # Stage7 중앙 큐브 상태 초기화(해당 스테이지 진입 시)
-    try:
-        global stage7_center_cube_state
-        if current_stage == 7:
-            stage7_center_cube_state = None  # lazy init in update
-        else:
-            stage7_center_cube_state = None
-    except Exception:
-        pass
+    game_loop()
