@@ -61912,22 +61912,23 @@ def main(stage_num, new_boss_mode=False):
                 
                 draw_pandora_box_effect()  # 판도라의 상자 무지개 효과
                 draw_stopwatch_effect()  # 스탑워치 시계 애니메이션
+            # 흔들림과 무관하게 그려지는 UI
             draw_player_gauge()  # 플레이어 게이지바는 흔들리지 않게
             draw_stage7_boss_gauge_bar()  # 스테이지 7 게이지도 동일하게 표시
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
             draw_stage7_tetrominoes(SCREEN)
-                
-                # 코만도 권총 UI 표시
-                if selected_character_type == "soldier":
-                    draw_soldier_weapon_ui(SCREEN)
-                
-                # Stage 4: 보스 퐁크의 굴절자기장 게이지 그리기
-                if current_stage == 4 and animated_bg_stage4 is not None:
-                    animated_bg_stage4.draw_ponk_gauge(SCREEN, 
-                                                      boss_special_gauge_stage4, 
-                                                      boss_special_ready_stage4,
-                                                      stage4_magnetic_active)
+
+            # 코만도 권총 UI 표시
+            if selected_character_type == "soldier":
+                draw_soldier_weapon_ui(SCREEN)
+
+            # Stage 4: 보스 퐁크의 굴절자기장 게이지 그리기
+            if current_stage == 4 and animated_bg_stage4 is not None:
+                animated_bg_stage4.draw_ponk_gauge(SCREEN, 
+                                                  boss_special_gauge_stage4, 
+                                                  boss_special_ready_stage4,
+                                                  stage4_magnetic_active)
             if selected_character_type == "blacksmith":
                 draw_blacksmith_turret_ui(SCREEN)
                 draw_blacksmith_divine_ui(SCREEN)
