@@ -28269,11 +28269,18 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
         return False
 
     # 1) 가로 블럭(4셀 가로) 개수가 4개 이상이면 발동 금지
-    active_horizontal = sum(1 for b in stage7_guard_blocks if b.get("state") in ("hologram", "deploy", "active"))
+    active_horizontal = sum(1 for b in stage7_guard_blocks if b.get("state") in ("assembling", "hologram", "deploy", "active"))
     if active_horizontal >= 4:
         return False
 
-    if boss_special_gauge < 100:
+    # 현재 상황에서 추가로 배치 가능한 개수(최대 2)
+    allowed_to_spawn = min(4 - active_horizontal, 2)
+    if allowed_to_spawn <= 0:
+        return False
+
+    # 필요 게이지: 블록 1개면 50, 2개면 100
+    required_gauge = 50 if allowed_to_spawn == 1 else 100
+    if boss_special_gauge < required_gauge:
         return False
 
     cell_size = STAGE7_GUARD_CELL_SIZE
