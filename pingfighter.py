@@ -28928,13 +28928,35 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
     if not stage7_tetrominoes:
         return
 
-    base_color = (170, 90, 255)       # 보라색
-    highlight_color = (220, 180, 255)
-    border_color = (80, 40, 140)
-
     for mino in stage7_tetrominoes:
         state = mino.get("state")
         visible_cells = mino.get("visible_cells", 4 if state != "assembling" else 0)
+        shape = mino.get("shape", 'T')
+
+        def _clamp(x: int) -> int:
+            return max(0, min(255, x))
+
+        def _lighten(c: tuple[int,int,int], amt: int = 40) -> tuple[int,int,int]:
+            return (_clamp(c[0] + amt), _clamp(c[1] + amt), _clamp(c[2] + amt))
+
+        def _darken(c: tuple[int,int,int], amt: int = 50) -> tuple[int,int,int]:
+            return (_clamp(c[0] - amt), _clamp(c[1] - amt), _clamp(c[2] - amt))
+
+        # 도형별 색상 매핑
+        if shape == 'T':
+            base_color = (255, 105, 180)   # 핑크
+        elif shape == 'I':
+            base_color = (90, 160, 255)    # 파랑
+        elif shape == 'O':
+            base_color = (255, 220, 60)    # 노랑
+        elif shape == 'L':
+            base_color = (255, 165, 60)    # 주황
+        elif shape == 'Z':
+            base_color = (80, 220, 120)    # 초록
+        else:
+            base_color = (170, 90, 255)    # 기본 보라
+        highlight_color = _lighten(base_color, 35)
+        border_color = _darken(base_color, 70)
         for idx, cell in enumerate(mino["cells"]):
             rect = cell["rect"]
             fade = cell.get("fade", 1.0)
