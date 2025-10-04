@@ -28326,23 +28326,50 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
             candidates.append(t)
     chosen_top: float | None = None
     chosen_sides: list[str] = []  # 'left'/'right'
+    # 최종 정착 위치 계산 시, 해당 자리에 블럭이 있으면 약간 더 멀리로 밀어서 회피
+    def _nudge_cells(cells: list[pygame.Rect], *, direction: str) -> list[pygame.Rect]:
+        # direction: 'right'는 +x로, 'left'는 -x로 셀 크기 간격만큼 최대 3칸까지 이동
+        max_shift = 3
+        for k in range(max_shift + 1):
+            if k == 0:
+                test = cells
+            else:
+                dx = (cell_size * k) if direction == 'right' else (-cell_size * k)
+                test = [r.move(dx, 0) for r in cells]
+            # 경계 검사
+            if any(r.left < 12 or r.right > WIDTH - 12 for r in test):
+                continue
+            # 기존과 겹침 검사
+            if not any(any(rc.colliderect(nc) for nc in test) for rc in existing_final):
+                return test
+        return None  # 실패
+
     for t in candidates:
         left_cells, right_cells = _build_final_cells(t)
-        left_ok = not any(any(rc.colliderect(nc) for nc in left_cells) for rc in existing_final)
-        right_ok = not any(any(rc.colliderect(nc) for nc in right_cells) for rc in existing_final)
+        settled_left = _nudge_cells(left_cells, direction='left')
+        settled_right = _nudge_cells(right_cells, direction='right')
         sides = []
-        if right_ok:
+        if settled_right is not None:
             sides.append('right')
-        if left_ok:
+        if settled_left is not None:
             sides.append('left')
         if allowed_to_spawn == 2 and len(sides) == 2:
             chosen_top = t
             chosen_sides = ['right', 'left']
+            # 선택된 셀 리스트를 저장해 놓는다
+            chosen_right_cells = settled_right
+            chosen_left_cells = settled_left
             break
         if allowed_to_spawn == 1 and len(sides) >= 1:
             chosen_top = t
-            # 우측 우선, 아니면 좌측
-            chosen_sides = ['right'] if 'right' in sides else ['left']
+            if 'right' in sides:
+                chosen_sides = ['right']
+                chosen_right_cells = settled_right
+                chosen_left_cells = None
+            else:
+                chosen_sides = ['left']
+                chosen_left_cells = settled_left
+                chosen_right_cells = None
             break
 
     if chosen_top is None:
@@ -28354,17 +28381,28 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     stage7_persistent_boss_gauge = boss_special_gauge
     print(f"[Stage7Gauge][Spawn] cost {required_gauge} → {boss_special_gauge}")
 
-    left_start = left_start_base
-    right_start = right_start_base
-    left_final = left_final_base
-    right_final = right_final_base
     block_top = chosen_top
 
     new_blocks: list[dict] = []
+    # 조립은 보스 패들 옆에서 시작 → 셀 assemble_left를 패들 옆으로 잡고, spread 단계에서 최종 위치로 이동
     if 'right' in chosen_sides:
-        new_blocks.append(_create_stage7_guard_block("right", right_start, right_final, block_top, now))
-    if 'left' in chosen_sides and allowed_to_spawn == 2:
-        new_blocks.append(_create_stage7_guard_block("left", left_start, left_final, block_top, now))
+        # assemble 위치: 보스 오른쪽 붙어서 시작
+        right_assemble_start = BOSS.right + 6
+        # 최종 위치: chosen_right_cells 기준으로 설정
+        right_block = _create_stage7_guard_block("right", right_assemble_start, right_assemble_start, block_top, now)
+        # 각 셀의 최종 left를 chosen_right_cells로 갱신
+        for i, c in enumerate(right_block["cells"]):
+            c["assemble_left"] = float(right_assemble_start + i * cell_size)
+            c["final_left"] = float(chosen_right_cells[i].x)
+        new_blocks.append(right_block)
+    if 'left' in chosen_sides and (allowed_to_spawn >= 2 or active_horizontal == 3):
+        # assemble 위치: 보스 왼쪽 붙어서 시작
+        left_assemble_start = BOSS.left - (cell_size * 4) - 6
+        left_block = _create_stage7_guard_block("left", left_assemble_start, left_assemble_start, block_top, now)
+        for i, c in enumerate(left_block["cells"]):
+            c["assemble_left"] = float(left_assemble_start + i * cell_size)
+            c["final_left"] = float(chosen_left_cells[i].x)
+        new_blocks.append(left_block)
 
     # ㅗ 블럭과 동일한 조립 애니메이션 적용: 1초간 순차 등장 후 자리 고정
     for blk in new_blocks:
@@ -28374,7 +28412,9 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
         # 시작 위치를 소폭 랜덤 오프셋으로 조정해 모이는 느낌 강화
         for c in blk["cells"]:
             jitter = random.uniform(-8.0, 8.0)
-            c["start_left"] = float(c.get("start_left", c["rect"].x)) + jitter
+            # assembling 동안에는 assemble_left로 모이게 하고, spread에서는 final_left로 이동
+            start_l = float(c.get("assemble_left", c["rect"].x))
+            c["start_left"] = start_l + jitter
             c["rect"].x = int(round(c["start_left"]))
 
     print(f"[Stage7Guard] spawn sides={chosen_sides} top={block_top:.1f}")
