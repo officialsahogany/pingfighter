@@ -32644,16 +32644,16 @@ def draw_objects():
         rotated_boss = pygame.transform.rotate(rotated_boss, tilt_angle_boss)
         boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x, 
                                                   BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
-    # 초인 펄스(붉은 페이드 인/아웃)
+    # 초인 펄스(붉은 페이드 인/아웃) - 이미지 픽셀만 가산, 투명 배경은 유지
     if current_stage == 7 and stage7_super_active:
         try:
-            pulse_phase = (pygame.time.get_ticks() // 80) % 20  # 약 12.5Hz/20스텝
-            # 사인파 기반 알파 (70~160 사이)
             t = pygame.time.get_ticks() * 0.01
-            alpha = int(115 + 45 * math.sin(t))
-            tint = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
-            tint.fill((255, 40, 40, max(0, min(255, alpha))))
-            rotated_boss.blit(tint, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+            # 0~1 진폭으로 변환하여 레드 강도 산출
+            factor = (math.sin(t) + 1.0) * 0.5  # 0~1
+            red_amount = int(30 + 50 * factor)  # 30~80 사이 가산
+            red_overlay = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
+            red_overlay.fill((red_amount, 0, 0, 0))  # 알파 0, RGB만 가산
+            rotated_boss.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
         except Exception:
             pass
     # === Stage 2 스피드 디펜스 꼬리효과 ===
