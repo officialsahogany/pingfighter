@@ -28622,8 +28622,8 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
                 # 아직 차례가 오지 않은 셀은 표시하지 않음(하나씩 모이는 연출)
                 continue
             elif state == "destroying":
-                alpha = int(220 * fade)
-                border_alpha = int(210 * fade)
+                alpha = int(200 * fade)
+                border_alpha = int(190 * fade)
             else:
                 alpha = 230
                 border_alpha = 255
@@ -28634,6 +28634,24 @@ def draw_stage7_tetrominoes(surface: pygame.Surface) -> None:
             pygame.draw.rect(temp, (*border_color, border_alpha), temp.get_rect(), 2, border_radius=4)
             surface.blit(temp, rect.topleft)
 
+        # 파편 대신 홀로그램 링 팝 효과(파괴 상태에서만 추가 렌더)
+        if state == "destroying":
+            duration = max(1.0, float(mino.get("destroy_duration", 220)))
+            timer = float(mino.get("destroy_timer", 0.0))
+            prog = 1.0 - max(0.0, min(timer / duration, 1.0))  # 0→1
+            cx = int(mino.get("pop_cx", 0))
+            cy = int(mino.get("pop_cy", 0))
+            r0 = int(mino.get("pop_min_radius", 16))
+            r1 = int(mino.get("pop_max_radius", 42))
+            radius = int(r0 + (r1 - r0) * prog)
+            ring_alpha = int(200 * (1.0 - prog))
+            if radius > 2 and ring_alpha > 0:
+                ring_size = radius * 2 + 4
+                ring = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
+                pygame.draw.circle(ring, (*highlight_color, ring_alpha), (ring_size // 2, ring_size // 2), radius, width=3)
+                pygame.draw.circle(ring, (*border_color, int(ring_alpha * 0.8)), (ring_size // 2, ring_size // 2), max(1, radius - 2), width=1)
+                surface.blit(ring, (cx - ring_size // 2, cy - ring_size // 2))
+
 
 def destroy_stage7_tetromino(mino: dict, *, now: int | None = None) -> None:
     if mino.get("state") == "destroying":
@@ -28641,9 +28659,25 @@ def destroy_stage7_tetromino(mino: dict, *, now: int | None = None) -> None:
     if now is None:
         now = pygame.time.get_ticks()
     mino["state"] = "destroying"
-    mino["destroy_duration"] = 180
-    mino["destroy_timer"] = 180
+    mino["destroy_duration"] = 220
+    mino["destroy_timer"] = 220
+    # 홀로그램 팝 효과 중심점 계산 (블럭의 중심)
+    xs = [c["rect"].centerx for c in mino["cells"]]
+    ys = [c["rect"].centery for c in mino["cells"]]
+    mino["pop_cx"] = int(sum(xs) / len(xs)) if xs else 0
+    mino["pop_cy"] = int(sum(ys) / len(ys)) if ys else 0
+    mino["pop_max_radius"] = 42
+    mino["pop_min_radius"] = 16
     mino["last_update"] = now
+    # 소리 재생 (가드 블록과 동일한 효과 재사용)
+    try:
+        play_wall_sound()
+    except Exception:
+        pass
+    try:
+        print(f"[Stage7Tetro][Pop] center=({mino['pop_cx']},{mino['pop_cy']})")
+    except Exception:
+        pass
 
 
 def update_stage7_tetromino_skill(now: int | None = None) -> None:
