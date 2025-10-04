@@ -28867,6 +28867,7 @@ def _try_load_stage7_cube_gif() -> None:
         im = Image.open(img_path)
         frames = []
         durations = []
+        uniform_flags = []
         for frame in ImageSequence.Iterator(im):
             # duration(ms) 기본값 100ms
             dur = int(frame.info.get("duration", 100))
@@ -28878,9 +28879,25 @@ def _try_load_stage7_cube_gif() -> None:
             surf = pygame.image.frombuffer(data, size, mode)
             frames.append(surf.convert_alpha())
             durations.append(max(16, dur))
+            # 간단한 균일 프레임 감지: 24x24로 축소 후 색상 빈도 상위 비율
+            try:
+                small = fr.resize((24, 24))
+                pix = small.getdata()
+                counts = {}
+                for (r, g, b, a) in pix:
+                    if a < 30:
+                        continue
+                    key = (r // 32, g // 32, b // 32)  # 8단계 양자화
+                    counts[key] = counts.get(key, 0) + 1
+                total = max(1, sum(counts.values()))
+                top = max(counts.values()) if counts else 0
+                uniform_flags.append(top / total >= 0.9)
+            except Exception:
+                uniform_flags.append(False)
         if frames:
             stage7_cube_gif_frames = frames
             stage7_cube_gif_durations = durations
+            stage7_cube_gif_uniform_flags = uniform_flags if uniform_flags else [False] * len(frames)
             stage7_cube_gif_loaded = True
             try:
                 print(f"[Stage7Cube][GIF] Loaded {len(frames)} frames from: {img_path}")
@@ -29058,10 +29075,7 @@ def update_stage7_center_cube(now: int | None = None) -> None:
     st = stage7_center_cube_state
     if not st:
         return
-    # 지속 회전 (deg/sec 기반)
-    prev = float(st.get("last_updated", now))
-    dt = max(0.0, (now - prev) / 1000.0)
-    st["spin_angle"] = (float(st.get("spin_angle", 0.0)) + float(st.get("spin_speed", 12.0)) * dt) % 360.0
+    # 지속 회전은 중지(요청: 공이 지날 때만 1회 움직임)
     st["last_updated"] = now
 
     cx, cy = st.get("cx", WIDTH // 2), st.get("cy", HEIGHT // 2)
@@ -29072,6 +29086,13 @@ def update_stage7_center_cube(now: int | None = None) -> None:
     # 진입 에지에서만 동작
     if inside and not st.get("ball_inside", False) and st.get("active", False):
         _stage7_cube_random_move(st)
+        # GIF가 있으면 1회만 재생: 6~10프레임 정도를 한 번 진행
+        try:
+            global stage7_cube_gif_frames, stage7_cube_gif_step_remaining
+            if stage7_cube_gif_frames:
+                stage7_cube_gif_step_remaining = max(6, min(12, len(stage7_cube_gif_frames)))
+        except Exception:
+            pass
         # 진행성 보장: 몇 번 진입하면 강제 단색
         passes_to_solve = max(0, int(st.get("passes_to_solve", 0)) - 1)
         st["passes_to_solve"] = passes_to_solve
@@ -29102,11 +29123,20 @@ def draw_stage7_center_cube(surface: pygame.Surface) -> None:
     # 사용자 제공 GIF가 있으면 우선 표시(요청: 실제 파일과 동일한 애니메이션)
     global stage7_cube_gif_frames, stage7_cube_gif_durations, stage7_cube_gif_index, stage7_cube_gif_next_time
     if stage7_cube_gif_frames and stage7_cube_gif_durations:
-        # 프레임 시간 업데이트
+        # 프레임 시간 업데이트: 공 통과 시에만 1회성으로 N프레임 진행
         now = pygame.time.get_ticks()
-        if now >= stage7_cube_gif_next_time:
+        if stage7_cube_gif_step_remaining > 0 and now >= stage7_cube_gif_next_time:
             stage7_cube_gif_index = (stage7_cube_gif_index + 1) % len(stage7_cube_gif_frames)
             stage7_cube_gif_next_time = now + stage7_cube_gif_durations[stage7_cube_gif_index]
+            stage7_cube_gif_step_remaining -= 1
+            # 해결 프레임(6면 동일 색 근사) 감지 시 1초 후 폭발 예약
+            try:
+                if stage7_cube_gif_uniform_flags and 0 <= stage7_cube_gif_index < len(stage7_cube_gif_uniform_flags):
+                    if stage7_cube_gif_uniform_flags[stage7_cube_gif_index] and not st.get("solve_pending", False):
+                        st["solve_pending"] = True
+                        st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
+            except Exception:
+                pass
         # 스케일링 후 중앙 블릿
         frame = stage7_cube_gif_frames[stage7_cube_gif_index]
         max_w = max_h = STAGE7_CUBE_RADIUS * 2
