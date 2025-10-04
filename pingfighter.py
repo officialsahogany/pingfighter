@@ -28891,8 +28891,15 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
             for c in mino["cells"]:
                 c["fade"] = fade
             if timer <= 0.0:
-                stage7_tetrominoes.remove(mino)
-                continue
+                if mino.get("linger_evap"):
+                    # 링 이펙트 종료 → 설치 상태로 전환하여 3~5초 펄스 후 증발 루틴 적용
+                    for c in mino.get("cells", []):
+                        c.pop("fade", None)
+                    mino["state"] = "installed"
+                    # last_update는 아래에서 갱신됨
+                else:
+                    stage7_tetrominoes.remove(mino)
+                    continue
 
         # 마지막에 업데이트 시간 반영
         mino["last_update"] = now
@@ -29026,6 +29033,9 @@ def enforce_player_blocking_by_installed_tetro() -> None:
     adjusted = False
     for mino in stage7_tetrominoes[:]:
         if mino.get("state") not in ("installed", "evaporating"):
+            continue
+        if mino.get("nonblocking", False):
+            # 대쉬/공에 의해 파괴된 뒤 남은 잔상은 차단하지 않음
             continue
         hit = False
         for c in mino.get("cells", []):
