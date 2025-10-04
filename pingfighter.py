@@ -1963,6 +1963,7 @@ STAGE7_TETRO_MAX_INTERVAL_MS = 10000
 STAGE7_TETRO_GAUGE_COST = 30               # 소모 게이지 30
 stage7_tetro_reserve: bool = False          # 테트로미노가 게이지를 확보할 때까지 가드 스폰 잠시 보류
 stage7_tetro_followup_due_ms: int = 0       # 테트로미노 추가 발사(50% 확률) 예약 시각(ms)
+stage7_tetro_followup_remaining: int = 0    # 연속 추가 발사 남은 횟수 (최대 6)
 
 # 디버그/테스트: 환경변수로 쿨타임 축소
 try:
@@ -28637,11 +28638,12 @@ STAGE7_TETRO_ASSEMBLY_MOVE_MS = 200      # 각 셀이 등장 후 목표 위치�
 
 def reset_stage7_tetromino_state(*, reset_timer: bool = True) -> None:
     """Stage 7 테트로미노 스킬 상태 초기화."""
-    global stage7_tetrominoes, stage7_tetromino_next_trigger_ms, stage7_tetro_followup_due_ms
+    global stage7_tetrominoes, stage7_tetromino_next_trigger_ms, stage7_tetro_followup_due_ms, stage7_tetro_followup_remaining
     stage7_tetrominoes.clear()
     if reset_timer:
         stage7_tetromino_next_trigger_ms = 0
         stage7_tetro_followup_due_ms = 0
+        stage7_tetro_followup_remaining = 0
 
 
 def _schedule_stage7_tetro(now: int | None = None) -> None:
