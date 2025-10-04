@@ -61916,7 +61916,7 @@ def main(stage_num, new_boss_mode=False):
             draw_stage7_boss_gauge_bar()  # 스테이지 7 게이지도 동일하게 표시
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
-                draw_stage7_tetrominoes(SCREEN)
+            draw_stage7_tetrominoes(SCREEN)
                 
                 # 코만도 권총 UI 표시
                 if selected_character_type == "soldier":
