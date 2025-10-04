@@ -27983,6 +27983,12 @@ def draw_overlay_ui():
         draw_blacksmith_turret_ui(SCREEN)
         draw_blacksmith_divine_ui(SCREEN)
 
+    # 중앙 큐브를 최상단에서 한 번 더 렌더해 가려지지 않도록 보장
+    try:
+        draw_stage7_center_cube(SCREEN)
+    except Exception:
+        pass
+
     # Stage 7 게이지는 다른 UI 위에 다시 한 번 그려 최상단을 보장
     draw_stage7_boss_gauge_bar()
 
