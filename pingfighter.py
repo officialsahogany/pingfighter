@@ -29379,8 +29379,25 @@ def draw_stage7_boss_gauge_bar():
                 (mid_x, fill_rect.bottom - 1),
             )
 
-    # 상단 테트리서 엠블럼 (게이지 상단 아이콘)
-    # [REMOVED: stray emblem block moved into draw_stage7_boss_gauge_bar]
+    # 상단 테트리서 엠블럼 (ㅗ 모양 테트리미노 아이콘)
+    icon_center_x = gauge_x + gauge_width // 2
+    icon_center_y = gauge_y - 22
+    block_size = 6
+    # ㅗ(T) 레이아웃: 가운데 + 좌/우 + 상단
+    t_layout = [(0, 0), (-1, 0), (1, 0), (0, -1)]
+    t_color = (255, 105, 180)  # 핑크 (요청 색상)
+    for dx, dy in t_layout:
+        rect = pygame.Rect(
+            icon_center_x + dx * (block_size + 1) - block_size // 2,
+            icon_center_y + dy * (block_size + 1) - block_size // 2,
+            block_size,
+            block_size,
+        )
+        # 그림자
+        SCREEN.fill((0, 0, 0), rect.move(1, 1))
+        # 본체 + 하이라이트 테두리
+        pygame.draw.rect(SCREEN, t_color, rect)
+        pygame.draw.rect(SCREEN, brighten(t_color, 40), rect, 1)
 
 
 def update_stage7_super_state(now: int | None = None) -> None:
