@@ -23,6 +23,9 @@ class StageFeatures:
         self.entity_manager = get_entity_manager()
         
         self.current_stage = 1
+
+        # Stage7 렌더링용 임시 Surface 캐시(크기별 1장 재사용)
+        self._t7_cache_cell: dict[tuple[int, int], pygame.Surface] = {}
         
         # 스테이지 1: 채찍 시스템
         self.stage1_whip = {
@@ -990,7 +993,13 @@ class StageFeatures:
         for idx, blocks in enumerate((t7['left_blocks'], t7['right_blocks'])):
             color = colors[idx % len(colors)]
             for r in blocks:
-                s = pygame.Surface((r.width, r.height), pygame.SRCALPHA)
+                key = (r.width, r.height)
+                s = self._t7_cache_cell.get(key)
+                if s is None:
+                    s = pygame.Surface(key, pygame.SRCALPHA)
+                    self._t7_cache_cell[key] = s
+                else:
+                    s.fill((0, 0, 0, 0))
                 s.fill(color)
                 screen.blit(s, r.topleft)
                 pygame.draw.rect(screen, (30, 30, 30), r, 2)

@@ -29659,12 +29659,18 @@ def draw_stage7_tetro_walls(surface: pygame.Surface) -> None:
     color_r = (255, 200, 90, 220)
     border = (30, 30, 30)
     for r in stage7_tetro_wall_left:
-        s = pygame.Surface((r.width, r.height), pygame.SRCALPHA)
+        try:
+            s = _stage7_get_temp_surface(_stage7_cache_cell, (r.width, r.height))
+        except Exception:
+            s = pygame.Surface((r.width, r.height), pygame.SRCALPHA)
         s.fill(color_l)
         surface.blit(s, r.topleft)
         pygame.draw.rect(surface, border, r, 2)
     for r in stage7_tetro_wall_right:
-        s = pygame.Surface((r.width, r.height), pygame.SRCALPHA)
+        try:
+            s = _stage7_get_temp_surface(_stage7_cache_cell, (r.width, r.height))
+        except Exception:
+            s = pygame.Surface((r.width, r.height), pygame.SRCALPHA)
         s.fill(color_r)
         surface.blit(s, r.topleft)
         pygame.draw.rect(surface, border, r, 2)
