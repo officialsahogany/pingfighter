@@ -27729,6 +27729,10 @@ def _draw_stage_specific_elements() -> None:
     draw_stage7_super_bar()
     draw_stage7_guard_blocks(SCREEN)
     draw_stage7_tetrominoes(SCREEN)
+    try:
+        draw_stage7_center_cube(SCREEN)
+    except Exception:
+        pass
     draw_laser_cannon_gauge()
     draw_spinning_top(SCREEN)
 
@@ -27932,6 +27936,10 @@ def draw_overlay_ui():
     draw_laser_cannon_gauge()
     draw_stage7_guard_blocks(SCREEN)
     draw_stage7_tetrominoes(SCREEN)
+    try:
+        draw_stage7_center_cube(SCREEN)
+    except Exception:
+        pass
     draw_spinning_top(SCREEN)
 
     update_trade_point_stars()
