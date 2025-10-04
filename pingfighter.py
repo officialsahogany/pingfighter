@@ -52860,7 +52860,8 @@ def handle_ball():
             
             # Stage 7: 테트로미노(ㅗ) 낙하체와 충돌 처리
             stage7_tetro_hit = False
-            if current_stage == 7 and 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
+            # 보스가 마지막으로 친 공은 테트로미노에 타격 판정을 주지 않는다
+            if current_stage == 7 and 'stage7_tetrominoes' in globals() and stage7_tetrominoes and last_hit_by == "player":
                 for mino in stage7_tetrominoes:
                     if mino.get("state") not in ("falling",):
                         continue
