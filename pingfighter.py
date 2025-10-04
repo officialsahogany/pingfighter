@@ -28754,6 +28754,9 @@ stage7_cube_gif_index: int = 0
 stage7_cube_gif_next_time: int = 0
 stage7_cube_gif_step_remaining: int = 0  # 공 통과 시에만 1회 재생할 프레임 수
 stage7_cube_gif_uniform_flags: list | None = None
+stage7_cube_gif_manual_solved: set[int] = set()
+stage7_cube_gif_step_frames_default: int = 10
+stage7_cube_gif_uniform_threshold: float = 0.90
 stage7_cube_gif_loaded: bool = False
 
 
@@ -28868,6 +28871,24 @@ def _try_load_stage7_cube_gif() -> None:
         frames = []
         durations = []
         uniform_flags = []
+        # 환경 변수 튜닝
+        try:
+            thr = float(os.getenv('PINGFIGHTER_CUBE_GIF_UNIFORM_THRESH', '0.90'))
+            globals()['stage7_cube_gif_uniform_threshold'] = max(0.5, min(0.99, thr))
+        except Exception:
+            pass
+        try:
+            step_frames = int(os.getenv('PINGFIGHTER_CUBE_GIF_STEP', '10'))
+            globals()['stage7_cube_gif_step_frames_default'] = max(1, min(60, step_frames))
+        except Exception:
+            pass
+        try:
+            manual = os.getenv('PINGFIGHTER_CUBE_GIF_SOLVED_FRAMES', '')
+            if manual.strip():
+                indices = {int(x.strip()) for x in manual.split(',') if x.strip().isdigit()}
+                globals()['stage7_cube_gif_manual_solved'] = set(indices)
+        except Exception:
+            pass
         for frame in ImageSequence.Iterator(im):
             # duration(ms) 기본값 100ms
             dur = int(frame.info.get("duration", 100))
@@ -28891,7 +28912,7 @@ def _try_load_stage7_cube_gif() -> None:
                     counts[key] = counts.get(key, 0) + 1
                 total = max(1, sum(counts.values()))
                 top = max(counts.values()) if counts else 0
-                uniform_flags.append(top / total >= 0.9)
+                uniform_flags.append(top / total >= globals().get('stage7_cube_gif_uniform_threshold', 0.90))
             except Exception:
                 uniform_flags.append(False)
         if frames:
@@ -29088,9 +29109,9 @@ def update_stage7_center_cube(now: int | None = None) -> None:
         _stage7_cube_random_move(st)
         # GIF가 있으면 1회만 재생: 6~10프레임 정도를 한 번 진행
         try:
-            global stage7_cube_gif_frames, stage7_cube_gif_step_remaining
+            global stage7_cube_gif_frames, stage7_cube_gif_step_remaining, stage7_cube_gif_step_frames_default
             if stage7_cube_gif_frames:
-                stage7_cube_gif_step_remaining = max(6, min(12, len(stage7_cube_gif_frames)))
+                stage7_cube_gif_step_remaining = max(1, min(len(stage7_cube_gif_frames), int(stage7_cube_gif_step_frames_default)))
         except Exception:
             pass
         # 진행성 보장(폴백): GIF가 없을 때만 사용
@@ -29104,6 +29125,13 @@ def update_stage7_center_cube(now: int | None = None) -> None:
                 if _stage7_cube_is_solved(st["faces"]) and not st.get("solve_pending", False):
                     st["solve_pending"] = True
                     st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
+        except Exception:
+            pass
+        # GIF 유무와 관계없이 내부 큐브가 해결되면 폭발 예약
+        try:
+            if _stage7_cube_is_solved(st["faces"]) and not st.get("solve_pending", False):
+                st["solve_pending"] = True
+                st["solve_at"] = now + STAGE7_CUBE_SOLVE_DELAY_MS
         except Exception:
             pass
     st["ball_inside"] = inside
