@@ -11088,6 +11088,16 @@ def draw_blacksmith_turret_elements(surface):
         def sy_val(value):
             return value * scale_y
 
+        # 보스/플레이어 패들의 위치에 따른 방향 편향(좌우 기울기용)
+        direction_factor = 0.0
+        try:
+            player_obj = globals().get("PLAYER")
+            if player_obj is not None:
+                dx = player_obj.centerx - cx
+                direction_factor = max(-1.0, min(1.0, dx / max(1.0, sx_val(80))))
+        except Exception:
+            direction_factor = 0.0
+
         # 강화 여부에 따라 색상 팔레트 결정
         if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
             base_color = (70, 46, 120)
