@@ -36647,6 +36647,44 @@ def draw_objects():
         time_now = pygame.time.get_ticks()
         if (time_now // 250) % 2 == 0:
             apply_white_glow(rotated_boss, intensity=60)
+    #  보스 대쉬 잔상 효과 (보스 실제 이미지 기반)
+    global boss_dash_afterimages, boss_dashing
+    if boss_dashing:
+        try:
+            boss_dash_afterimages.append(
+                {
+                    "x": boss_rect.centerx,
+                    "y": boss_rect.centery,
+                    "alpha": 160,
+                    "life": 10,
+                    "image": rotated_boss.copy(),
+                }
+            )
+            if len(boss_dash_afterimages) > 6:
+                boss_dash_afterimages.pop(0)
+        except Exception:
+            pass
+
+    if boss_dash_afterimages:
+        new_boss_after = []
+        for after in boss_dash_afterimages:
+            img = after.get("image")
+            alpha = after.get("alpha", 0)
+            life = after.get("life", 0)
+            x = after.get("x", 0)
+            y = after.get("y", 0)
+            if img is None or alpha <= 0 or life <= 0:
+                continue
+            surf = img.copy()
+            surf.set_alpha(alpha)
+            rect = surf.get_rect(center=(x, y))
+            SCREEN.blit(surf, rect.topleft)
+            after["alpha"] = alpha - 25
+            after["life"] = life - 1
+            if after["alpha"] > 0 and after["life"] > 0:
+                new_boss_after.append(after)
+        boss_dash_afterimages = new_boss_after
+
     # === Stage 3 빨간 오버레이 ===
     if current_stage == 3 and boss_red_intensity > 0:
         rotated_boss_copy = rotated_boss.copy()
@@ -36793,28 +36831,6 @@ def draw_objects():
                 spark_offset = random.randint(-5, 5)
                 draw.circle((200, 220, 255), 
                                   (antenna_right_x + spark_offset, antenna_tip_y + random.randint(-3, 3)), 1)
-    #  보스 대쉬 잔상 효과 렌더링
-    global boss_dash_afterimages
-    if boss_dash_afterimages:
-        new_boss_after = []
-        for after in boss_dash_afterimages:
-            img = after.get("image")
-            alpha = after.get("alpha", 0)
-            life = after.get("life", 0)
-            x = after.get("x", 0)
-            y = after.get("y", 0)
-            if img is None or alpha <= 0 or life <= 0:
-                continue
-            surf = img.copy()
-            surf.set_alpha(alpha)
-            rect = surf.get_rect(center=(x, y))
-            SCREEN.blit(surf, rect.topleft)
-            after["alpha"] = alpha - 25
-            after["life"] = life - 1
-            if after["alpha"] > 0 and after["life"] > 0:
-                new_boss_after.append(after)
-        boss_dash_afterimages = new_boss_after
-
     #  보스 확장 히트박스 디버그 표시 (개발용)
     DEBUG_SHOW_HITBOX = False  # True로 변경하면 히트박스가 보임
     if DEBUG_SHOW_HITBOX:
@@ -60912,11 +60928,18 @@ def _boss_try_emergency_dash() -> bool:
 
     # 보스 대쉬 상태 설정 (플레이어 rolling 대쉬와 비슷한 스펙)
     boss_dash_direction = direction
-    boss_dash_duration_frames = 15
+    boss_dash_duration_frames = 30
     boss_dash_timer = boss_dash_duration_frames
     boss_dash_target_x = float(target_centerx)
-    boss_dash_speed = dash_distance / float(boss_dash_duration_frames)
+    boss_dash_speed = 40.0  # 플레이어 대쉬와 비슷한 기본 속도 (px/frame 기준)
     boss_dashing = True
+
+    # 보스 대쉬 효과음 재생 (플레이어 대쉬와 동일 사운드)
+    try:
+        if "SOUND_DASH" in globals() and SOUND_DASH:
+            play_sound_with_volume(SOUND_DASH)
+    except Exception:
+        pass
 
     # 게이지 소모
     boss_special_gauge = max(0, boss_special_gauge - BOSS_DASH_GAUGE_COST)
@@ -62842,41 +62865,31 @@ def handle_boss():
     global head_shot_active, head_shot_timer  # 헤드샷 스턴 관련 변수
     
     
-    #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사)
+    #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사: 초반 고속, 이후 감속)
     if boss_dashing and boss_dash_timer > 0:
         boss_dash_timer -= 1
-        # 프레임당 빠르게 이동
-        move_step = boss_dash_speed * boss_dash_direction
+
+        # 플레이어 rolling 대쉬 패턴과 유사한 속도 곡선
+        high_phase_frames = 20
+        if boss_dash_timer > high_phase_frames:
+            move_step = boss_dash_speed * boss_dash_direction
+        else:
+            decel_factor = max(0.0, boss_dash_timer / float(high_phase_frames))
+            move_step = boss_dash_speed * boss_dash_direction * decel_factor
+
         BOSS.centerx += move_step
-        # 목표를 너무 지나치지 않도록 클램프
+
+        # 목표를 크게 지나치지 않도록 보정
         if boss_dash_direction > 0 and BOSS.centerx > boss_dash_target_x:
             BOSS.centerx = int(boss_dash_target_x)
         elif boss_dash_direction < 0 and BOSS.centerx < boss_dash_target_x:
             BOSS.centerx = int(boss_dash_target_x)
-        BOSS.centerx = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, BOSS.centerx))
 
-        # 보스 잔상 추가 (플레이어 대쉬 잔상과 유사)
-        try:
-            boss_img_width = BOSS.width
-            boss_img_height = BOSS.height
-            after_surf = pygame.Surface((boss_img_width, boss_img_height), pygame.SRCALPHA)
-            after_surf.fill((255, 255, 255, 160))
-            boss_dash_afterimages.append(
-                {
-                    "x": BOSS.centerx,
-                    "y": BOSS.centery,
-                    "alpha": 160,
-                    "life": 10,
-                    "image": after_surf,
-                }
-            )
-            if len(boss_dash_afterimages) > 6:
-                boss_dash_afterimages.pop(0)
-        except Exception:
-            pass
+        BOSS.centerx = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, BOSS.centerx))
 
         if boss_dash_timer <= 0:
             boss_dashing = False
+
         # 대쉬 중에는 다른 AI 처리 건너뜀
         return
 
