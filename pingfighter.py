@@ -10314,17 +10314,28 @@ def update_blacksmith_turret():
 
     time_frozen = stopwatch_active and stopwatch_timer > 0
 
-    if not time_frozen and turret_rect.colliderect(BALL):
-        ball_rect = pygame.Rect(BALL)
+    # 포탑 충돌 판정: 머리/포신까지 포함되도록 상단 여유를 둔 히트박스를 사용한다.
+    turret_hit_rect = turret_rect
+    if BLACKSMITH_TURRET_DESIGN_HEIGHT:
+        scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
+    else:
+        scale_y = 1.0
+    extra_top = int(BLACKSMITH_TURRET_COLLISION_EXTRA_TOP * scale_y)
+    if extra_top > 0:
+        turret_hit_rect = turret_rect.copy()
+        turret_hit_rect.height += extra_top
+        turret_hit_rect.top -= extra_top
+
+    if not time_frozen and turret_hit_rect.colliderect(BALL):
         ball_owner = getattr(game_vars.ball, "last_hit_by", "player")
         if ball_owner != "player" and turret_state.get("hp", 0) > 0:
-            smoke_protected = is_rect_in_smoke(turret_rect)
+            smoke_protected = is_rect_in_smoke(turret_hit_rect)
             if not smoke_protected:
                 turret_state["hp"] -= 1  # 연막 밖에서만 체력 감소
                 _cancel_repair_job("turret", state=turret_state)
                 # 손상 효과 업데이트
                 damage_manager.update_building_hp("turret", turret_state["hp"])
-            BALL.bottom = min(BALL.bottom, turret_rect.top - 4)
+            BALL.bottom = min(BALL.bottom, turret_hit_rect.top - 4)
             speed_mag = max(7.0, math.hypot(ball_vel[0], ball_vel[1]))
             ball_vel[1] = -abs(speed_mag)
             ball_vel[0] *= 0.6
@@ -13823,6 +13834,9 @@ BLACKSMITH_GROUND_CRACK_APPROACH_DISTANCE = 220
 BLACKSMITH_GROUND_CRACK_APPROACH_VERTICAL_MARGIN = 160
 BLACKSMITH_TURRET_DESIGN_WIDTH = 37  # 20% 축소
 BLACKSMITH_TURRET_DESIGN_HEIGHT = 43  # 20% 축소
+# 포탑 헤드/포신이 기본 베이스 상단보다 약 44 디자인 단위 위로 돌출되므로,
+# 충돌 판정 시 이 여유만큼 상단으로 확장된 히트박스를 사용한다.
+BLACKSMITH_TURRET_COLLISION_EXTRA_TOP = 44
 BLACKSMITH_TURRET_BASE_WIDTH = int(BLACKSMITH_TURRET_DESIGN_WIDTH * 1.2)
 BLACKSMITH_TURRET_BASE_HEIGHT = int(BLACKSMITH_TURRET_DESIGN_HEIGHT * 1.2)
 BLACKSMITH_TURRET_BLUEPRINT_WIDTH = int(48 * 0.8 * 1.2)
