@@ -10411,10 +10411,11 @@ def update_blacksmith_turret():
         globals()["blacksmith_turret_overheat_smoke_timer"] = 0
         globals()["blacksmith_turret_overheat_timer"] = 0
 
-    # 강화 포탑 전용 유도 미사일 버스트 (레벨 2 이상에서만)
+    # 강화 포탑 전용 유도 미사일 버스트 (레벨 2 이상에서만, 과부하 아닐 때)
     if (
         not time_frozen
         and turret_state.get("hp", 0) > 0
+        and overheat_timer_value <= 0
         and int(turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)) >= BLACKSMITH_TURRET_MAX_LEVEL
     ):
         homing_cd = int(turret_state.get("homing_cooldown", 0))
