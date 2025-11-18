@@ -62792,9 +62792,49 @@ def handle_boss():
     global whip_deactivation_active, boss_stunned_after_whip  #  상모돌리기 강제 해제 관련 변수
     global boss_knockback_timer, boss_knockback_distance  #  라그나로크 해머 넉백 관련 변수
     global boss_stun_timer, ragnarok_stun_pending  #  라그나로크 해머 스턴 관련 변수
+    global boss_dashing, boss_dash_timer, boss_dash_duration_frames
+    global boss_dash_speed, boss_dash_target_x, boss_dash_direction, boss_dash_afterimages
     global head_shot_active, head_shot_timer  # 헤드샷 스턴 관련 변수
     
     
+    #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사)
+    if boss_dashing and boss_dash_timer > 0:
+        boss_dash_timer -= 1
+        # 프레임당 빠르게 이동
+        move_step = boss_dash_speed * boss_dash_direction
+        BOSS.centerx += move_step
+        # 목표를 너무 지나치지 않도록 클램프
+        if boss_dash_direction > 0 and BOSS.centerx > boss_dash_target_x:
+            BOSS.centerx = int(boss_dash_target_x)
+        elif boss_dash_direction < 0 and BOSS.centerx < boss_dash_target_x:
+            BOSS.centerx = int(boss_dash_target_x)
+        BOSS.centerx = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, BOSS.centerx))
+
+        # 보스 잔상 추가 (플레이어 대쉬 잔상과 유사)
+        try:
+            boss_img_width = BOSS.width
+            boss_img_height = BOSS.height
+            after_surf = pygame.Surface((boss_img_width, boss_img_height), pygame.SRCALPHA)
+            after_surf.fill((255, 255, 255, 160))
+            boss_dash_afterimages.append(
+                {
+                    "x": BOSS.centerx,
+                    "y": BOSS.centery,
+                    "alpha": 160,
+                    "life": 10,
+                    "image": after_surf,
+                }
+            )
+            if len(boss_dash_afterimages) > 6:
+                boss_dash_afterimages.pop(0)
+        except Exception:
+            pass
+
+        if boss_dash_timer <= 0:
+            boss_dashing = False
+        # 대쉬 중에는 다른 AI 처리 건너뜀
+        return
+
     #  수평 넉백 처리 (라그나로크 해머 + 코만도 총알)
     if boss_knockback_timer > 0:
         boss_knockback_timer -= 1
