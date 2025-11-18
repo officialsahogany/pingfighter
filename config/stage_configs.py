@@ -13,13 +13,15 @@ BOSS_CONFIGS = {
         "name": "풍악보이",
         "color": (255, 255, 255),
         "accel": 0.798,       # 35% 감소
-        "decel": 0.798,       
+        "decel": 0.798,
         "max_speed": 6.3175,  # 35% 감소
         "instant_stop": 0.665,
         "predict_distance": 160,
         "skill_power": 1.0,
         "fail_error": 315,    # 10% 감소
         "special_skill": "whip",  # 상모돌리기
+        # 보스 대쉬 쿨타임 (초 단위, 최소~최대)
+        "dash_cooldown_range": (45.0, 60.0),
     },
     2: {
         "name": "악어장군",
@@ -32,6 +34,8 @@ BOSS_CONFIGS = {
         "skill_power": 0.8,
         "fail_error": 285,
         "special_skill": "speed_defense",  # 스피드디펜스
+        # 스테이지 2: 대쉬 쿨타임 42~57초
+        "dash_cooldown_range": (42.0, 57.0),
     },
     3: {
         "name": "멘헤라걸",
@@ -44,6 +48,8 @@ BOSS_CONFIGS = {
         "skill_power": 0.6,
         "fail_error": 260,
         "special_skill": "emotional_overdrive",  # 감정 폭주
+        # 스테이지 3: 대쉬 쿨타임 38~52초
+        "dash_cooldown_range": (38.0, 52.0),
     },
     4: {
         "name": "퐁크",
@@ -56,6 +62,8 @@ BOSS_CONFIGS = {
         "skill_power": 0.4,
         "fail_error": 260,  # 사용자 요청 값
         "special_skill": "grenade",  # 수류탄
+        # 스테이지 4: 조금 더 짧은 대쉬 쿨타임
+        "dash_cooldown_range": (34.0, 48.0),
     },
     5: {
         "name": "홍련",
@@ -68,6 +76,8 @@ BOSS_CONFIGS = {
         "skill_power": 0.2,
         "fail_error": 245,
         "special_skill": "chaos_ball",  # 카오스볼
+        # 스테이지 5: 고난이도 구간, 쿨타임 추가 단축
+        "dash_cooldown_range": (30.0, 44.0),
     },
     6: {
         "name": "보스러시",
@@ -82,6 +92,8 @@ BOSS_CONFIGS = {
         "special_skill": "ultimate",
         "is_health_boss": True,
         "max_health": 15,
+        # 스테이지 6: 체력형 보스, 더 자주 대쉬
+        "dash_cooldown_range": (26.0, 38.0),
     },
     7: {
         "name": "테트리서",
@@ -94,6 +106,8 @@ BOSS_CONFIGS = {
         "skill_power": 0.3,
         "fail_error": 230,
         "special_skill": "tetris_field",
+        # 스테이지 7: 최종 보스, 가장 짧은 대쉬 쿨타임
+        "dash_cooldown_range": (22.0, 32.0),
     },
 }
 
