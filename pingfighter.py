@@ -11114,70 +11114,143 @@ def draw_blacksmith_turret_elements(surface):
             column_fill_color = (86, 96, 138)
             column_inner_color = (158, 198, 255)
 
-        base_points = [
-            (cx - sx_val(36), bottom - sy_val(6)),
-            (cx + sx_val(36), bottom - sy_val(6)),
-            (cx + sx_val(24), bottom + sy_val(8)),
-            (cx - sx_val(24), bottom + sy_val(8))
-        ]
+        # 받침대: 강화 포탑일 때는 더 넓고 두꺼운 이중 베이스로 표현
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            base_points = [
+                (cx - sx_val(40), bottom - sy_val(10)),
+                (cx + sx_val(40), bottom - sy_val(10)),
+                (cx + sx_val(30), bottom + sy_val(10)),
+                (cx - sx_val(30), bottom + sy_val(10)),
+            ]
+            upper_base = [
+                (cx - sx_val(26), bottom - sy_val(16)),
+                (cx + sx_val(26), bottom - sy_val(16)),
+                (cx + sx_val(18), bottom - sy_val(8)),
+                (cx - sx_val(18), bottom - sy_val(8)),
+            ]
+        else:
+            base_points = [
+                (cx - sx_val(36), bottom - sy_val(6)),
+                (cx + sx_val(36), bottom - sy_val(6)),
+                (cx + sx_val(24), bottom + sy_val(8)),
+                (cx - sx_val(24), bottom + sy_val(8)),
+            ]
+            upper_base = None
+
         pygame.draw.polygon(surface, base_color, [(int(x), int(y)) for x, y in base_points])
         pygame.draw.lines(surface, base_border_color, True, [(int(x), int(y)) for x, y in base_points], max(1, int(sx_val(2))))
+        if upper_base is not None:
+            pygame.draw.polygon(surface, base_color, [(int(x), int(y)) for x, y in upper_base])
+            pygame.draw.lines(surface, base_border_color, True, [(int(x), int(y)) for x, y in upper_base], max(1, int(sx_val(2))))
 
-        left_leg = [
-            (left + sx_val(2), bottom - sy_val(12)),
-            (left - sx_val(12), bottom - sy_val(42)),
-            (left - sx_val(6), bottom - sy_val(60)),
-            (left + sx_val(10), bottom - sy_val(34))
-        ]
-        right_leg = [
-            (right - sx_val(2), bottom - sy_val(12)),
-            (right + sx_val(12), bottom - sy_val(42)),
-            (right + sx_val(6), bottom - sy_val(60)),
-            (right - sx_val(10), bottom - sy_val(34))
-        ]
+        # 다리: 강화 포탑은 더 길고 기울어진 지지대 형태
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            left_leg = [
+                (left + sx_val(4), bottom - sy_val(16)),
+                (left - sx_val(18), bottom - sy_val(52)),
+                (left - sx_val(10), bottom - sy_val(72)),
+                (left + sx_val(8), bottom - sy_val(38)),
+            ]
+            right_leg = [
+                (right - sx_val(4), bottom - sy_val(16)),
+                (right + sx_val(18), bottom - sy_val(52)),
+                (right + sx_val(10), bottom - sy_val(72)),
+                (right - sx_val(8), bottom - sy_val(38)),
+            ]
+        else:
+            left_leg = [
+                (left + sx_val(2), bottom - sy_val(12)),
+                (left - sx_val(12), bottom - sy_val(42)),
+                (left - sx_val(6), bottom - sy_val(60)),
+                (left + sx_val(10), bottom - sy_val(34)),
+            ]
+            right_leg = [
+                (right - sx_val(2), bottom - sy_val(12)),
+                (right + sx_val(12), bottom - sy_val(42)),
+                (right + sx_val(6), bottom - sy_val(60)),
+                (right - sx_val(10), bottom - sy_val(34)),
+            ]
         pygame.draw.polygon(surface, leg_fill_color, [(int(x), int(y)) for x, y in left_leg])
         pygame.draw.polygon(surface, leg_fill_color, [(int(x), int(y)) for x, y in right_leg])
         pygame.draw.lines(surface, leg_border_color, False, [(int(x), int(y)) for x, y in left_leg], max(1, int(sx_val(2))))
         pygame.draw.lines(surface, leg_border_color, False, [(int(x), int(y)) for x, y in right_leg], max(1, int(sx_val(2))))
 
-        left_claw = [
-            (cx - sx_val(18), bottom - sy_val(26)),
-            (cx - sx_val(40), bottom - sy_val(8)),
-            (cx - sx_val(26), bottom + sy_val(4)),
-            (cx - sx_val(10), bottom - sy_val(14))
-        ]
-        right_claw = [
-            (cx + sx_val(18), bottom - sy_val(26)),
-            (cx + sx_val(40), bottom - sy_val(8)),
-            (cx + sx_val(26), bottom + sy_val(4)),
-            (cx + sx_val(10), bottom - sy_val(14))
-        ]
+        # 발톱: 강화 포탑은 더 길고 뾰족한 형태
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            left_claw = [
+                (cx - sx_val(22), bottom - sy_val(30)),
+                (cx - sx_val(48), bottom - sy_val(6)),
+                (cx - sx_val(30), bottom + sy_val(6)),
+                (cx - sx_val(10), bottom - sy_val(16)),
+            ]
+            right_claw = [
+                (cx + sx_val(22), bottom - sy_val(30)),
+                (cx + sx_val(48), bottom - sy_val(6)),
+                (cx + sx_val(30), bottom + sy_val(6)),
+                (cx + sx_val(10), bottom - sy_val(16)),
+            ]
+        else:
+            left_claw = [
+                (cx - sx_val(18), bottom - sy_val(26)),
+                (cx - sx_val(40), bottom - sy_val(8)),
+                (cx - sx_val(26), bottom + sy_val(4)),
+                (cx - sx_val(10), bottom - sy_val(14)),
+            ]
+            right_claw = [
+                (cx + sx_val(18), bottom - sy_val(26)),
+                (cx + sx_val(40), bottom - sy_val(8)),
+                (cx + sx_val(26), bottom + sy_val(4)),
+                (cx + sx_val(10), bottom - sy_val(14)),
+            ]
         pygame.draw.polygon(surface, claw_fill_color, [(int(x), int(y)) for x, y in left_claw])
         pygame.draw.polygon(surface, claw_fill_color, [(int(x), int(y)) for x, y in right_claw])
         pygame.draw.lines(surface, claw_edge_color, True, [(int(x), int(y)) for x, y in left_claw], max(1, int(sx_val(2))))
         pygame.draw.lines(surface, claw_edge_color, True, [(int(x), int(y)) for x, y in right_claw], max(1, int(sx_val(2))))
 
-        torso_points = [
-            (cx - sx_val(18), bottom - sy_val(46)),
-            (cx - sx_val(28), top + sy_val(48)),
-            (cx - sx_val(14), top + sy_val(22)),
-            (cx - sx_val(6), top + sy_val(12)),
-            (cx + sx_val(6), top + sy_val(12)),
-            (cx + sx_val(14), top + sy_val(22)),
-            (cx + sx_val(28), top + sy_val(48)),
-            (cx + sx_val(18), bottom - sy_val(46))
-        ]
+        # 몸통: 강화 포탑은 더 두껍고 각진 실루엣
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            torso_points = [
+                (cx - sx_val(20), bottom - sy_val(50)),
+                (cx - sx_val(32), top + sy_val(52)),
+                (cx - sx_val(16), top + sy_val(18)),
+                (cx - sx_val(6), top + sy_val(8)),
+                (cx + sx_val(6), top + sy_val(8)),
+                (cx + sx_val(16), top + sy_val(18)),
+                (cx + sx_val(32), top + sy_val(52)),
+                (cx + sx_val(20), bottom - sy_val(50)),
+            ]
+            inner_torso = [
+                (cx - sx_val(14), bottom - sy_val(46)),
+                (cx - sx_val(22), top + sy_val(50)),
+                (cx - sx_val(10), top + sy_val(26)),
+                (cx - sx_val(2), top + sy_val(14)),
+                (cx + sx_val(2), top + sy_val(14)),
+                (cx + sx_val(10), top + sy_val(26)),
+                (cx + sx_val(22), top + sy_val(50)),
+                (cx + sx_val(14), bottom - sy_val(46)),
+            ]
+        else:
+            torso_points = [
+                (cx - sx_val(18), bottom - sy_val(46)),
+                (cx - sx_val(28), top + sy_val(48)),
+                (cx - sx_val(14), top + sy_val(22)),
+                (cx - sx_val(6), top + sy_val(12)),
+                (cx + sx_val(6), top + sy_val(12)),
+                (cx + sx_val(14), top + sy_val(22)),
+                (cx + sx_val(28), top + sy_val(48)),
+                (cx + sx_val(18), bottom - sy_val(46)),
+            ]
+            inner_torso = [
+                (cx - sx_val(12), bottom - sy_val(44)),
+                (cx - sx_val(20), top + sy_val(46)),
+                (cx - sx_val(10), top + sy_val(26)),
+                (cx - sx_val(2), top + sy_val(16)),
+                (cx + sx_val(2), top + sy_val(16)),
+                (cx + sx_val(10), top + sy_val(26)),
+                (cx + sx_val(20), top + sy_val(46)),
+                (cx + sx_val(12), bottom - sy_val(44)),
+            ]
         pygame.draw.polygon(surface, torso_outer_color, [(int(x), int(y)) for x, y in torso_points])
-        inner_torso = [
-            (cx - sx_val(12), bottom - sy_val(44)),
-            (cx - sx_val(20), top + sy_val(46)),
-            (cx - sx_val(10), top + sy_val(26)),
-            (cx - sx_val(2), top + sy_val(16)),
-            (cx + sx_val(2), top + sy_val(16)),
-            (cx + sx_val(10), top + sy_val(26)),
-            (cx + sx_val(20), top + sy_val(46)),
-            (cx + sx_val(12), bottom - sy_val(44))
-        ]
         pygame.draw.polygon(surface, torso_inner_color, [(int(x), int(y)) for x, y in inner_torso])
         pygame.draw.lines(surface, torso_border_color, True, [(int(x), int(y)) for x, y in torso_points], max(1, int(sx_val(2))))
 
