@@ -24,6 +24,8 @@ BOSS_CONFIGS = {
         "dash_cooldown_range": (40.0, 55.0),
         # 보스 대쉬 발동 확률 (0.0~1.0)
         "dash_trigger_chance": 0.30,
+        # 보스 대쉬 후 통제불능 시간(초)
+        "dash_stun_duration": 0.60,
     },
     2: {
         "name": "악어장군",
@@ -39,6 +41,7 @@ BOSS_CONFIGS = {
         # 스테이지 2: 대쉬 쿨타임 38~53초
         "dash_cooldown_range": (38.0, 53.0),
         "dash_trigger_chance": 0.33,
+        "dash_stun_duration": 0.56,
     },
     3: {
         "name": "멘헤라걸",
@@ -54,6 +57,7 @@ BOSS_CONFIGS = {
         # 스테이지 3: 대쉬 쿨타임 36~51초
         "dash_cooldown_range": (36.0, 51.0),
         "dash_trigger_chance": 0.36,
+        "dash_stun_duration": 0.52,
     },
     4: {
         "name": "퐁크",
