@@ -42,12 +42,12 @@
       "damage_numbers": true,
       "auto_pause_on_focus_loss": true
     },
-      "controls": {
-        "control_scheme": "mouse_keyboard",
-        "force_half_dash_rmb": false,
-        "enable_wheel_weapon_switch": true,
-        "enable_wheel_middle_pistol": true
-      },
+    "controls": {
+      "control_scheme": "mouse_keyboard",
+      "force_half_dash_rmb": false,
+      "enable_wheel_weapon_switch": true,
+      "enable_wheel_middle_pistol": true
+    },
     "network": {
       "default_port": 12345,
       "player_name": "Player",
