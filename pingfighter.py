@@ -11065,6 +11065,7 @@ def draw_blacksmith_turret_elements(surface):
 
     if blacksmith_turret_active and blacksmith_turret_state and blacksmith_turret_state.get("rect"):
         turret_rect = blacksmith_turret_state["rect"]
+        turret_level = int(blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL))
         cx = turret_rect.centerx
         top = turret_rect.top
         bottom = turret_rect.bottom
@@ -11260,6 +11261,43 @@ def draw_blacksmith_turret_elements(surface):
         heat_vent.center = head_point(0, sy_val(2))
         pygame.draw.rect(head_surface, (150, 150, 168, 190), heat_vent, border_radius=max(1, int(sx_val(3))))
 
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            # 강화된 포탑: 헤드 주변에 청백색 오라와 문양을 추가해 보다 화려하게 표현
+            enhanced_surface = pygame.Surface(head_surface.get_size(), pygame.SRCALPHA)
+            halo_radius = max(head_width, head_height)
+            center_pos = (int(pivot_local.x), int(pivot_local.y - sy_val(8)))
+            pygame.draw.circle(
+                enhanced_surface,
+                (110, 210, 255, 85),
+                center_pos,
+                max(halo_radius // 2, int(sx_val(26))),
+            )
+            pygame.draw.circle(
+                enhanced_surface,
+                (220, 245, 255, 150),
+                center_pos,
+                max(4, int(sx_val(10))),
+                width=max(2, int(sx_val(2))),
+            )
+            # 회전하면서 빛나는 작은 룬 조각들
+            ticks = pygame.time.get_ticks()
+            rune_phase = (ticks * 0.003) % (2 * math.pi)
+            rune_radius = max(10, int(sx_val(14)))
+            for idx in range(4):
+                angle = rune_phase + idx * (math.tau / 4)
+                offset = pygame.math.Vector2(
+                    math.cos(angle) * rune_radius,
+                    math.sin(angle) * rune_radius * 0.6,
+                )
+                rune_center = (int(center_pos[0] + offset.x), int(center_pos[1] + offset.y))
+                pygame.draw.circle(
+                    enhanced_surface,
+                    (160, 230, 255, 180),
+                    rune_center,
+                    max(2, int(sx_val(3))),
+                )
+            head_surface.blit(enhanced_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+
         if blacksmith_turret_state.get("overdrive_active"):
             glow_phase = blacksmith_turret_state.get("overdrive_glow_phase", 0.0)
             pulse = 0.5 + 0.5 * math.sin(glow_phase)
@@ -11331,7 +11369,8 @@ def draw_blacksmith_turret_elements(surface):
 
         # === SPACE 키캡 힌트 (작게, 포탑 좌상단 옆, 애니메이션) ===
         try:
-            if (blacksmith_turret_state.get("overdrive_ready", False)
+            if (turret_level >= BLACKSMITH_TURRET_MAX_LEVEL
+                and blacksmith_turret_state.get("overdrive_ready", False)
                 and not blacksmith_turret_state.get("overdrive_active", False)
                 and int(blacksmith_turret_state.get("overheat_timer", 0)) <= 0):
                 t_rect = blacksmith_turret_state.get("rect")
