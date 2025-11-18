@@ -10562,7 +10562,8 @@ def update_blacksmith_turret():
             if boss_rect and projectile_rect.colliderect(boss_rect):
                 if proj.get("homing"):
                     stun_frames = max(1, BLACKSMITH_TURRET_HOMING_STUN_DURATION)
-                    knockback_speed = BLACKSMITH_TURRET_KNOCKBACK_SPEED * 0.5
+                    # 기존(0.5배) 대비 넉백 속도를 40%로 줄여 총 거리 약 60% 감소
+                    knockback_speed = BLACKSMITH_TURRET_KNOCKBACK_SPEED * 0.2
                 else:
                     stun_multiplier = 1.0
                     knockback_multiplier = 1.0
@@ -13653,8 +13654,8 @@ BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW_DIVINE = int(3.0 * FPS)
 # 강화 포탑 전용 유도 미사일 설정
 BLACKSMITH_TURRET_HOMING_BURST_COUNT = 3
 BLACKSMITH_TURRET_HOMING_INTERVAL = int(0.2 * FPS)  # 0.2초 간격
-# 유도 미사일은 기존 자동 미사일 속도의 약 30% 속도로 이동
-BLACKSMITH_TURRET_HOMING_SPEED_MULT = 0.30
+# 유도 미사일은 기존 자동 미사일 속도의 약 45% 속도로 이동
+BLACKSMITH_TURRET_HOMING_SPEED_MULT = 0.45
 BLACKSMITH_TURRET_HOMING_RADIUS_SCALE = 0.7  # 기본 미사일 반경의 70%
 BLACKSMITH_TURRET_HOMING_STUN_DURATION = int(0.4 * FPS)  # 0.4초 스턴
 BLACKSMITH_TURRET_HOMING_KNOCKBACK_DIST = int(BLACKSMITH_TURRET_KNOCKBACK_DISTANCE * 0.5)
