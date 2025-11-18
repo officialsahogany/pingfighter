@@ -9952,6 +9952,7 @@ def _blacksmith_spawn_homing_missile(turret_runtime, turret_state) -> None:
         "divine_overdrive": False,
         "trail_timer": 0,
         "homing": True,
+        "wobble_phase": random.uniform(0.0, math.tau) if hasattr(math, "tau") else random.uniform(0.0, 2.0 * math.pi),
     }
     turret_runtime.projectiles.append(projectile)
 
