@@ -10493,13 +10493,23 @@ def update_blacksmith_turret():
                     proj["vy"] = (1 - turn_rate) * proj["vy"] + turn_rate * desired_vy
 
             if proj.get("homing"):
-                # 유도 미사일은 가속 없이 일정한 느린 속도를 유지
                 proj["speed"] = speed
                 current_speed = math.hypot(proj["vx"], proj["vy"])
                 if current_speed > 0:
                     scale = speed / current_speed
                     proj["vx"] *= scale
                     proj["vy"] *= scale
+
+                # 유도 미사일은 이동 경로에 약한 물결을 추가
+                wobble_phase = float(proj.get("wobble_phase", 0.0)) + 0.18
+                proj["wobble_phase"] = wobble_phase
+                wobble_amp = max(2.0, proj.get("radius", BLACKSMITH_TURRET_PROJECTILE_RADIUS) * 0.6)
+                base_vec = pygame.math.Vector2(proj["vx"], proj["vy"])
+                if base_vec.length() > 0:
+                    perp = pygame.math.Vector2(-base_vec.y, base_vec.x).normalize()
+                    offset = math.sin(wobble_phase) * wobble_amp
+                    proj["x"] += perp.x * offset
+                    proj["y"] += perp.y * offset
             else:
                 speed = min(BLACKSMITH_TURRET_MISSILE_MAX_SPEED, speed * (1 + BLACKSMITH_TURRET_MISSILE_ACCEL))
                 proj["speed"] = speed
