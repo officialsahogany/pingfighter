@@ -20510,6 +20510,16 @@ rolling_charge_timer = 0  # 구르기 충전 타이머
 rolling_consecutive_count = 0  #  연속 대쉬 사용 횟수 (할인 계산용)
 rolling_consecutive_timer = 0  #  연속 대쉬 타이머 (일정 시간 내에 사용해야 할인)
 half_dash_used_flag = False  #  하프대쉬 사용 플래그 (연속 대쉬 방지)
+
+# 보스 대쉬 상태 (플레이어 대쉬와 유사한 모션용)
+boss_dashing = False
+boss_dash_timer = 0
+boss_dash_duration_frames = 0
+boss_dash_speed = 0.0
+boss_dash_target_x = 0.0
+boss_dash_direction = 0  # -1: 왼쪽, 1: 오른쪽
+boss_dash_afterimages: list[dict] = []
+
 # 빠칭코 관련 변수
 pachinko_active = False  # 빠칭코 활성화 상태
 pachinko_phase = 0  # 0: 대기, 1: 슬롯 돌아감, 2: 슬로우다운, 3: 완료
