@@ -12543,7 +12543,9 @@ def draw_blacksmith_turret_ui(surface):
     pygame.draw.rect(surface, (16, 36, 64), muzzle_rect, 2, border_radius=3)
 
     title_font = FontStyle.tiny()
+    turret_level: int | None = None
     if blacksmith_turret_active and blacksmith_turret_state:
+        turret_level = int(blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL))
         if overheat_active:
             title_label = "포탑 • 과부하"
         elif overdrive_display:
@@ -12554,7 +12556,8 @@ def draw_blacksmith_turret_ui(surface):
             else:
                 title_label = "포탑 • 점화"
         else:
-            title_label = "포탑"
+            # 레벨 2 이상에서는 UI에서 '강화 포탑'으로 표시
+            title_label = "강화 포탑" if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL else "포탑"
     elif blacksmith_turret_blueprint_active:
         title_label = "포탑 건설중"
     else:
@@ -12590,10 +12593,20 @@ def draw_blacksmith_turret_ui(surface):
             base_fill_color = (180, 120, 110)
         elif overdrive_display:
             base_fill_color = (255, 120, 70) if not ui_divine else (120, 220, 255)
+
+        if turret_level is None:
+            turret_level = int(blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL))
+        # 레벨 1에서는 '강화 진행도'를 강조하기 위해 색상을 차별화
+        if turret_level < BLACKSMITH_TURRET_MAX_LEVEL and not overheat_active and not overdrive_display:
+            base_fill_color = (120, 210, 255)
+
         pygame.draw.rect(surface, base_fill_color, xp_fill_rect, border_radius=3)
         pygame.draw.rect(surface, (120, 96, 64), xp_rect, 1, border_radius=3)
 
-        if overheat_active:
+        if turret_level < BLACKSMITH_TURRET_MAX_LEVEL and not overheat_active and not overdrive_display:
+            # 강화 게이지 표시 (레벨 1 전용)
+            xp_text = FontStyle.tiny().render(f"강화 {int(xp_ratio * 100)}%", True, (250, 240, 210))
+        elif overheat_active:
             remaining_seconds = overheat_timer / FPS if FPS else overheat_timer
             xp_text = FontStyle.tiny().render(
                 f"⚠ 과부하 {remaining_seconds:4.1f}s",
@@ -12614,7 +12627,7 @@ def draw_blacksmith_turret_ui(surface):
                 pygame.draw.rect(overlay, (255, 80, 48, glow_alpha), overlay.get_rect(), border_radius=3)
             surface.blit(overlay, xp_rect.topleft, special_flags=pygame.BLEND_ADD)
         else:
-            # 준비완료: 포탑 앞에서 SPACE 입력으로 점화
+            # 준비완료: 포탑 앞에서 SPACE 입력으로 점화 (레벨 2 이상 전용)
             if xp_ratio >= 1.0 and not overheat_active and not blacksmith_turret_state.get("overdrive_active", False):
                 ready_divine = is_blacksmith_divine_stone_active()
                 label = "메가드라이브 준비 · SPACE" if ready_divine else "오버드라이브 준비 · SPACE"
