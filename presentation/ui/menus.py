@@ -201,7 +201,7 @@ class MenuSystem:
     
     def show_character_selection(self):
         """캐릭터 선택 화면
-        
+
         Returns:
             str: 선택된 캐릭터 ("ufo", "eagle", "back")
         """
@@ -228,6 +228,18 @@ class MenuSystem:
                         return characters[selected]["id"]
                     elif event.key == pygame.K_ESCAPE:
                         return "back"
+                elif event.type == pygame.MOUSEWHEEL:
+                    # 휠 위=이전, 아래=다음 + 수평 스크롤 지원
+                    if getattr(event, 'x', 0) > 0 or event.y < 0:
+                        selected = (selected + 1) % len(characters)
+                    elif getattr(event, 'x', 0) < 0 or event.y > 0:
+                        selected = (selected - 1) % len(characters)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    # 레거시 휠(버튼 4/5)도 지원
+                    if event.button == 4:
+                        selected = (selected - 1) % len(characters)
+                    elif event.button == 5:
+                        selected = (selected + 1) % len(characters)
             
             # 배경
             self.draw_gradient_background((20, 10, 40), (60, 30, 80))

@@ -1,6 +1,12 @@
 """
 Sound Manager - 사운드 시스템 관리
 모든 사운드 효과 및 음악 재생 관리
+
+개선 사항
+- 카테고리 볼륨 분리: SFX / ENV(환경) / UI
+- 소프트 리미터(이벤트 기반): 동시 효과음 피크 억제
+- 간단한 뮤직 덕킹: 큰 SFX 시 BGM 일시 감쇄
+- 리소스 로딩 일원화: resource_path 사용
 """
 
 import pygame
@@ -8,6 +14,7 @@ import os
 import math
 import struct
 import wave
+import sys
 from typing import Dict, Optional
 from core.global_manager import GlobalManager
 from core.events import EventType, EventManager
@@ -31,8 +38,17 @@ class SoundManager:
         
         # 볼륨 설정
         self.master_volume = 1.0
+        # SFX 기본 볼륨(게임플레이 효과음)
         self.sound_volume = 1.0
+        # 카테고리 볼륨(SFX/ENV/UI)
+        self.category_volume = {
+            'sfx': 1.0,
+            'env': 0.8,   # 환경음(군중, 앰비언트 등)
+            'ui': 0.8,    # UI 클릭/호버 등
+        }
+        # 음악 볼륨
         self.music_volume = 0.7
+        # 기존 ambient 참조(호환성)
         self.ambient_volume = 0.5
         
         # 현재 재생 중인 음악
@@ -59,6 +75,21 @@ class SoundManager:
         # 3D 오디오 설정
         self.enable_3d_audio = True
         self.listener_position = (300, 375)  # 화면 중앙
+
+        # 소프트 리미터(이벤트 기반)
+        self.limiter_enabled = True
+        self._limiter_threshold = 1.0   # 목표 피크(상대치)
+        self._limiter_tau_ms = 180      # 감쇠 시상수
+        self._peak_level = 0.0
+        self._peak_last_ms = pygame.time.get_ticks()
+
+        # 뮤직 덕킹(큰 SFX 시 BGM 감소)
+        self.duck_music_enabled = True
+        self._duck_amount = 0.6         # duck 시 남기는 비율(0.0~1.0)
+        self._duck_ms = 350
+        self._duck_until_ms = 0
+        # 덕킹 트리거 채널(사용자 설정 가능)
+        self.duck_trigger_channels = {"boss", "explosion"}
         
         # 기본 사운드 로드
         self.load_sounds()
@@ -124,7 +155,7 @@ class SoundManager:
         
         # 사운드 파일 로드 또는 생성
         for sound_name, filename in sound_files.items():
-            filepath = os.path.join(sounds_dir, filename)
+            filepath = self._resource_path(os.path.join(sounds_dir, filename))
             
             if os.path.exists(filepath):
                 try:
@@ -259,7 +290,7 @@ class SoundManager:
             if sound_name in self.sounds:
                 self.global_manager.set(global_name, self.sounds[sound_name])
                 
-    def play_sound(self, sound_name: str, channel: str = None, 
+    def play_sound(self, sound_name: str, channel: str = None,
                    position: tuple = None, volume_override: float = None):
         """사운드 재생
         
@@ -269,6 +300,9 @@ class SoundManager:
             position: 3D 오디오용 위치 (x, y)
             volume_override: 볼륨 오버라이드
         """
+        # 덕킹 회복 체크(이벤트 구동)
+        self._maybe_recover_ducking()
+
         if sound_name not in self.sounds:
             return
             
@@ -277,15 +311,25 @@ class SoundManager:
         # 3D 오디오 적용
         if position and self.enable_3d_audio:
             volume, pan = self._calculate_3d_audio(position)
-            if volume_override:
+            if volume_override is not None:
                 volume *= volume_override
         else:
-            volume = volume_override if volume_override else 1.0
+            volume = volume_override if volume_override is not None else 1.0
             pan = 0.0
+
+        # 카테고리 볼륨
+        category = self._category_from_channel(channel)
+        cat_vol = self.category_volume.get(category, 1.0)
+
+        # 리미터 업데이트 및 게인 계산(신규 사운드 기준 추정)
+        limiter_gain = 1.0
+        if self.limiter_enabled:
+            limiter_gain = self._compute_limiter_gain(sound_name, channel, volume * self.sound_volume * cat_vol * self.master_volume)
             
         # 사운드 복사본 생성 (볼륨 독립 설정용)
         temp_sound = sound
-        temp_sound.set_volume(volume * self.sound_volume * self.master_volume)
+        final_vol = max(0.0, min(1.0, volume * self.sound_volume * cat_vol * self.master_volume * limiter_gain))
+        temp_sound.set_volume(final_vol)
         
         if channel and channel in self.channels:
             ch = self.channels[channel]
@@ -299,6 +343,10 @@ class SoundManager:
             if self.enable_3d_audio and position:
                 ch.set_volume(volume * (1.0 - pan), volume * (1.0 + pan))
             self.next_pool_channel = (self.next_pool_channel + 1) % len(self.pool_channels)
+
+        # 큰 SFX에 대해 뮤직 덕킹
+        if self.duck_music_enabled and self._is_loud_event(sound_name, channel):
+            self._trigger_ducking()
             
     def play_music(self, music_file: str, loops: int = -1, fade_in: bool = True):
         """배경 음악 재생
@@ -315,10 +363,11 @@ class SoundManager:
                 pygame.time.wait(self.music_fade_time)
                 
             # 음악 파일이 없으면 생성
-            if not os.path.exists(music_file):
-                self._generate_music(music_file)
-                
-            pygame.mixer.music.load(music_file)
+            full_path = self._resource_path(music_file)
+            if not os.path.exists(full_path):
+                self._generate_music(full_path)
+
+            pygame.mixer.music.load(full_path)
             pygame.mixer.music.set_volume(self.music_volume * self.master_volume)
             
             if fade_in:
@@ -326,7 +375,7 @@ class SoundManager:
             else:
                 pygame.mixer.music.play(loops)
                 
-            self.current_music = music_file
+            self.current_music = full_path
             self.music_paused = False
         except Exception as e:
             print(f"음악 재생 실패: {e}")
@@ -400,8 +449,153 @@ class SoundManager:
     def _update_volumes(self):
         """모든 볼륨 업데이트"""
         for sound in self.sounds.values():
+            # 카테고리별 개별 갱신은 재생 시점에 반영하므로 여기서는 마스터/SFX만 적용
             sound.set_volume(self.sound_volume * self.master_volume)
         pygame.mixer.music.set_volume(self.music_volume * self.master_volume)
+
+    # --- 카테고리 볼륨 API ---
+    def set_ui_volume(self, volume: float):
+        self.category_volume['ui'] = max(0.0, min(1.0, float(volume)))
+
+    def set_env_volume(self, volume: float):
+        self.category_volume['env'] = max(0.0, min(1.0, float(volume)))
+
+    def set_category_volume(self, category: str, volume: float):
+        if category in self.category_volume:
+            self.category_volume[category] = max(0.0, min(1.0, float(volume)))
+
+    # --- 리미터/덕킹 설정 ---
+    def set_limiter_enabled(self, enabled: bool):
+        self.limiter_enabled = bool(enabled)
+
+    def set_limiter_params(self, threshold: float | None = None, tau_ms: int | None = None):
+        if threshold is not None:
+            self._limiter_threshold = max(0.1, min(2.0, float(threshold)))
+        if tau_ms is not None:
+            self._limiter_tau_ms = max(30, int(tau_ms))
+
+    def set_ducking(self, enabled: bool | None = None, amount: float | None = None, duration_ms: int | None = None):
+        if enabled is not None:
+            self.duck_music_enabled = bool(enabled)
+        if amount is not None:
+            self._duck_amount = max(0.0, min(1.0, float(amount)))
+        if duration_ms is not None:
+            self._duck_ms = max(50, int(duration_ms))
+
+    def set_ducking_triggers(self, channels: list[str] | set[str]):
+        """덕킹을 유발하는 채널 집합을 설정한다.
+
+        Args:
+            channels: 예) {"boss", "explosion"}
+        """
+        try:
+            self.duck_trigger_channels = set(channels)
+        except Exception:
+            pass
+
+    # -----------------------------
+    # 내부 유틸리티
+    # -----------------------------
+
+    def _resource_path(self, relative_path: str) -> str:
+        """PyInstaller/개발 환경 겸용 리소스 경로"""
+        try:
+            base_path = sys._MEIPASS  # type: ignore[attr-defined]
+        except Exception:
+            base_path = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(base_path, relative_path)
+
+    def _category_from_channel(self, channel: Optional[str]) -> str:
+        if channel in ('ui',):
+            return 'ui'
+        if channel in ('ambient',):
+            return 'env'
+        # 그 외는 SFX로 취급
+        return 'sfx'
+
+    def _update_peak_meter(self) -> None:
+        now = pygame.time.get_ticks()
+        dt = max(0, now - self._peak_last_ms)
+        self._peak_last_ms = now
+        if dt <= 0:
+            return
+        # 지수 감쇠
+        decay = math.exp(-dt / float(self._limiter_tau_ms))
+        self._peak_level *= decay
+
+    def _event_weight(self, sound_name: str, channel: Optional[str]) -> float:
+        # 대략적인 상대 라우드니스 추정
+        if channel in ('explosion', 'boss'):
+            return 1.2
+        if channel in ('skill', 'wall', 'paddle'):
+            return 0.9
+        if channel in ('ambient',):
+            return 0.6
+        if channel in ('ui',):
+            return 0.5
+        # 키워드 기반 보정
+        lname = (sound_name or '').lower()
+        if any(k in lname for k in ('explosion', 'boom', 'yamato', 'ragnarok')):
+            return 1.1
+        return 0.8
+
+    def _compute_limiter_gain(self, sound_name: str, channel: Optional[str], incoming_gain: float) -> float:
+        self._update_peak_meter()
+        weight = self._event_weight(sound_name, channel)
+        projected = self._peak_level + max(0.0, incoming_gain) * weight
+        if projected <= self._limiter_threshold:
+            # 업데이트만 수행
+            self._peak_level = projected
+            return 1.0
+        # 초과분 비율만큼 신호 축소
+        gain = max(0.3, self._limiter_threshold / projected)
+        # 실제 반영된 최종 볼륨을 기준으로 피크 업데이트
+        self._peak_level += max(0.0, incoming_gain) * weight * gain
+        return gain
+
+    def _is_loud_event(self, sound_name: str, channel: Optional[str]) -> bool:
+        """덕킹 트리거 판단.
+
+        우선순위:
+        1) 사용자가 지정한 duck_trigger_channels가 있으면 그 집합만 따른다.
+           - 'boss'가 포함되면 boss 채널에 반응
+           - 'explosion'이 포함되면 explosion 채널 또는 키워드 매칭에 반응
+        2) 지정이 비어있으면(예외적 케이스) 기본 키워드 규칙 사용
+        """
+        lname = (sound_name or '').lower()
+        triggers = getattr(self, 'duck_trigger_channels', set()) or set()
+
+        if triggers:
+            if 'boss' in triggers and channel == 'boss':
+                return True
+            if 'explosion' in triggers:
+                if channel == 'explosion':
+                    return True
+                if any(k in lname for k in ('explosion', 'boom', 'yamato', 'ragnarok')):
+                    return True
+            return False
+
+        # 트리거가 정의되지 않은 경우의 안전한 기본(키워드 기반)
+        if channel == 'boss':
+            return True
+        return any(k in lname for k in ('explosion', 'boom', 'yamato', 'ragnarok'))
+
+    def _trigger_ducking(self) -> None:
+        now = pygame.time.get_ticks()
+        self._duck_until_ms = now + self._duck_ms
+        vol = self.music_volume * self.master_volume * self._duck_amount
+        pygame.mixer.music.set_volume(vol)
+        # 덕킹 해제는 다음 재생 이벤트나 외부 호출에서 자연 복귀 처리
+        self._maybe_recover_ducking()
+
+    def _maybe_recover_ducking(self) -> None:
+        if not self.duck_music_enabled:
+            return
+        if self._duck_until_ms == 0:
+            return
+        if pygame.time.get_ticks() >= self._duck_until_ms:
+            self._duck_until_ms = 0
+            pygame.mixer.music.set_volume(self.music_volume * self.master_volume)
         
     def on_collision(self, event):
         """충돌 이벤트 처리"""
@@ -483,12 +677,13 @@ class SoundManager:
         
     def on_round_win(self, event):
         """라운드 승리 이벤트 처리"""
-        self.play_sound('crowd_cheer', 'ambient')
+        # 요청: 라운드 승리 사운드 비활성화
+        return
         
     def on_round_lose(self, event):
         """라운드 패배 이벤트 처리"""
-        # 실망의 사운드
-        self.play_sound('game_over', 'ui', volume_override=0.5)
+        # 요청: 라운드 패배 사운드 비활성화
+        return
         
     def _calculate_3d_audio(self, position: tuple) -> tuple:
         """3D 오디오 효과 계산

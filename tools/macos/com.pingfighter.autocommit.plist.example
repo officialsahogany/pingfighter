@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.pingfighter.autocommit</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>REPO_ROOT/tools/auto-commit.sh</string>
+    <string>run</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>REPO_ROOT</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>AUTO_SOUND</key>
+    <string>1</string>
+    <key>AUTO_SKIP_IDENTITY</key>
+    <string>1</string>
+    <key>AUTO_COMMIT_INTERVAL</key>
+    <string>20</string>
+    <key>AUTO_COMMIT_PREFIX</key>
+    <string>chore(auto): save</string>
+  </dict>
+  <key>KeepAlive</key>
+  <true/>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>REPO_ROOT/.autocommit/launchd.out</string>
+  <key>StandardErrorPath</key>
+  <string>REPO_ROOT/.autocommit/launchd.err</string>
+</dict>
+</plist>
+

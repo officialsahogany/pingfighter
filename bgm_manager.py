@@ -25,12 +25,39 @@ class BGMManager:
         """BGM 매니저 초기화"""
         self.current_bgm = None
         self.volume = 0.4  # 기본 볼륨 40%
-        self.bgm_paths = {
-            'intro': resource_path(os.path.join("bgm", "introbgm.mp3")),
-            'menu': resource_path(os.path.join("bgm", "introbgm.mp3")),  # 메뉴도 같은 BGM 사용
-            'stage1': resource_path(os.path.join("bgm", "stage1bgm.mp3")),
-            'tutorial': resource_path(os.path.join("bgm", "tutorialmainbgm.mp3")),
-            'tutorial_genie': resource_path(os.path.join("bgm", "tutorialbgm.mp3")),
+        # 포맷 호환성 확보: mp3 실패 시 ogg/wav 순으로 대체 시도
+        # Windows PyInstaller 번들에서 mp3 코덱 누락 시 재생 실패할 수 있음
+        self.bgm_candidates = {
+            'intro': [
+                os.path.join("bgm", "introbgm.ogg"),
+                os.path.join("bgm", "introbgm.mp3"),
+                os.path.join("bgm", "introbgm.wav"),
+            ],
+            'menu': [
+                os.path.join("bgm", "introbgm.ogg"),
+                os.path.join("bgm", "introbgm.mp3"),
+                os.path.join("bgm", "introbgm.wav"),
+            ],
+            'stage1': [
+                os.path.join("bgm", "stage1bgm.ogg"),
+                os.path.join("bgm", "stage1bgm.mp3"),
+                os.path.join("bgm", "stage1bgm.wav"),
+            ],
+            'stage2': [
+                os.path.join("bgm", "stage2bgm.ogg"),
+                os.path.join("bgm", "stage2bgm.mp3"),
+                os.path.join("bgm", "stage2bgm.wav"),
+            ],
+            'tutorial': [
+                os.path.join("bgm", "tutorialmainbgm.ogg"),
+                os.path.join("bgm", "tutorialmainbgm.mp3"),
+                os.path.join("bgm", "tutorialmainbgm.wav"),
+            ],
+            'tutorial_genie': [
+                os.path.join("bgm", "tutorialbgm.ogg"),
+                os.path.join("bgm", "tutorialbgm.mp3"),
+                os.path.join("bgm", "tutorialbgm.wav"),
+            ],
         }
         self.is_initialized = False
         
@@ -41,6 +68,22 @@ class BGMManager:
         self.is_initialized = True
         print("BGM Manager 초기화 완료")
         
+    def _resolve_bgm_path(self, bgm_name: str) -> str | None:
+        """여러 포맷 후보 중 가장 먼저 존재하는 파일 경로를 반환."""
+        import os
+        # 환경변수로 포맷 강제 (예: PINGF_BGM_EXT=ogg)
+        ext_pref = os.getenv('PINGF_BGM_EXT')
+        candidates = list(self.bgm_candidates.get(bgm_name, []))
+        if ext_pref:
+            base_names = set(os.path.splitext(p)[0] for p in candidates)
+            forced = [f"{b}.{ext_pref.lstrip('.')}" for b in base_names]
+            candidates = forced + candidates
+        for rel in candidates:
+            full = resource_path(rel)
+            if os.path.exists(full):
+                return full
+        return None
+
     def play_bgm(self, bgm_name, loop=-1):
         """
         지정된 BGM 재생
@@ -57,21 +100,35 @@ class BGMManager:
             print(f"{bgm_name} BGM이 이미 재생 중입니다.")
             return
             
-        bgm_path = self.bgm_paths.get(bgm_name)
+        bgm_path = self._resolve_bgm_path(bgm_name)
         if not bgm_path:
             print(f"BGM '{bgm_name}'을 찾을 수 없습니다.")
             return
             
-        if not os.path.exists(bgm_path):
-            print(f"BGM 파일이 존재하지 않습니다: {bgm_path}")
-            return
-            
         try:
-            pygame.mixer.music.load(bgm_path)
+            try:
+                pygame.mixer.music.load(bgm_path)
+            except Exception as e:
+                print(f"BGM 로드 실패(코덱/포맷 문제 가능): {e}")
+                # mp3 실패 시 ogg/wav 재시도 (후보 목록에서 현재 경로 제외)
+                retry = None
+                for rel in self.bgm_candidates.get(bgm_name, []):
+                    alt = resource_path(rel)
+                    if alt != bgm_path and os.path.exists(alt):
+                        try:
+                            pygame.mixer.music.load(alt)
+                            retry = alt
+                            break
+                        except Exception:
+                            continue
+                if not retry:
+                    raise
+                else:
+                    bgm_path = retry
             pygame.mixer.music.set_volume(self.volume)
             pygame.mixer.music.play(loop)
             self.current_bgm = bgm_name
-            print(f"{bgm_name} BGM 재생 시작")
+            print(f"{bgm_name} BGM 재생 시작: {os.path.basename(bgm_path)}")
         except Exception as e:
             print(f"BGM 로드 실패 ({bgm_name}): {e}")
             
@@ -130,6 +187,8 @@ class BGMManager:
         """
         if stage_num == 1:
             self.play_bgm('stage1')
+        elif stage_num == 2:
+            self.play_bgm('stage2')
         elif stage_num == 50:  # 튜토리얼
             self.play_bgm('tutorial')
         # 다른 스테이지 BGM은 추후 추가

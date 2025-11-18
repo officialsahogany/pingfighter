@@ -88,7 +88,7 @@ commit_once() {
 loop() {
   # Run from repo root for stable behavior
   cd "$(git rev-parse --show-toplevel)"
-  echo "[auto-commit] starting loop (every ${INTERVAL_SECS}s, push=${DO_PUSH})" | tee -a "$LOGFILE"
+  echo "[auto-commit] starting loop (every ${INTERVAL_SECS}s, push=${DO_PUSH}, sound=${AUTO_SOUND})" | tee -a "$LOGFILE"
   while true; do
     if has_changes; then
       commit_once
@@ -140,13 +140,22 @@ stop() {
 
 status() {
   ensure_git_repo
-  if [[ -f "$PIDFILE" ]] && ps -p "$(cat "$PIDFILE" 2>/dev/null)" >/dev/null 2>&1; then
-    echo "[auto-commit] running (pid $(cat "$PIDFILE"))"
+  local pid=""
+  if [[ -f "$PIDFILE" ]]; then pid=$(cat "$PIDFILE" 2>/dev/null || true); fi
+  if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
+    echo "[auto-commit] running (pid $pid)"
   else
     echo "[auto-commit] stopped"
   fi
   echo "[auto-commit] interval=${INTERVAL_SECS}s prefix='${MSG_PREFIX}' push=${DO_PUSH}"
-  echo "[auto-commit] sound=${AUTO_SOUND} file='${AUTO_SOUND_FILE:-default}' volume=${AUTO_SOUND_VOLUME}"
+  # Report the last started runtime config from log if available
+  if [[ -f "$LOGFILE" ]]; then
+    local last
+    last=$(grep -n "starting loop (every" "$LOGFILE" | tail -n1 | sed 's/^[0-9]*://')
+    if [[ -n "$last" ]]; then
+      echo "[auto-commit] last-start: ${last}"
+    fi
+  fi
   echo "[auto-commit] log: $LOGFILE"
 }
 
@@ -200,11 +209,15 @@ case "${1:-}" in
   stop)  stop  ;;
   status) status ;;
   run)   loop  ;;
+  start-fg|fg)
+    ensure_git_repo; ensure_identity; loop ;;
+  once)
+    ensure_git_repo; ensure_identity; if has_changes; then commit_once; else echo "[auto-commit] no changes"; fi ;;
   sound|beep|test-sound)
     # One-shot sound test
     AUTO_SOUND=1 play_sound ;;
   *)
-    echo "Usage: $0 {start|stop|status}" >&2
+    echo "Usage: $0 {start|stop|status|run|start-fg|once|sound}" >&2
     exit 2
     ;;
 esac

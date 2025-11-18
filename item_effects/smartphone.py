@@ -1,12 +1,20 @@
 """
 스마트폰 (Smartphone) - 패시브 아이템
-플레이어가 스탑워치나 AI알약을 소지하고 있을 경우,
-공을 놓치기 직전 순간에 자동으로 해당 아이템을 사용합니다.
+위험 상황에서 스톱워치를 자동으로 사용합니다.
+
+변경 사항(요청 반영):
+- AI 알약 자동 사용을 비활성화했습니다. (수동 사용은 기존대로 가능)
+  - 모듈 상수 `SMARTPHONE_ALLOW_AI_PILL_AUTOUSE = False`로 가드합니다.
+  - 위험 감지 시에도 AI 알약 경로로는 진입하지 않습니다.
 """
 
 import pygame
 import math
 import random
+
+# 스마트폰이 AI 알약을 자동 사용하도록 허용할지 여부
+# 기본값: False (요청에 따라 자동 사용 금지)
+SMARTPHONE_ALLOW_AI_PILL_AUTOUSE = False
 
 class Smartphone:
     def __init__(self):
@@ -969,10 +977,12 @@ class Smartphone:
                                 stopwatch_slot_index = i
                             print(f"[DEBUG] ✅ 스탑워치 발견! (슬롯 {i})")
                         elif item_name.lower() in ['aipill', 'ai_pill']:
-                            ai_pill_available = True
-                            if aipill_slot_index is None:
-                                aipill_slot_index = i
-                            print(f"[DEBUG] ✅ AI알약 발견! (슬롯 {i})")
+                            # 자동 사용은 비활성화. 필요 시 슬롯 인덱스만 기록 가능
+                            if SMARTPHONE_ALLOW_AI_PILL_AUTOUSE:
+                                ai_pill_available = True
+                                if aipill_slot_index is None:
+                                    aipill_slot_index = i
+                                print(f"[DEBUG] ✅ AI알약 발견! (슬롯 {i})")
                             
                 # Auto-activate appropriate item (스톱워치 우선)
                 can_fire = ((self.last_activation_time <= 0) and allow_persistent) or self.urgent_override
@@ -983,7 +993,7 @@ class Smartphone:
                     # 긴급 발동 후에도 기본 쿨타임 설정
                     self.last_activation_time = self.activation_cooldown
                     self.urgent_override = False
-                elif ai_pill_available and can_fire:
+                elif ai_pill_available and can_fire and SMARTPHONE_ALLOW_AI_PILL_AUTOUSE:
                     print("🚨 스마트폰: 위험 감지! AI알약 자동 사용!")
                     self.activate_ai_pill(game_state, current_stage, slot_index_hint=aipill_slot_index)
                     self.auto_activated = True
@@ -1011,6 +1021,10 @@ class Smartphone:
             
     def activate_ai_pill(self, game_state, current_stage, slot_index_hint=None):
         """AI알약 자동 활성화"""
+        # 자동 사용 비활성화: 가드 후 바로 반환 (수동 사용은 pingfighter 측 로직으로 가능)
+        if not SMARTPHONE_ALLOW_AI_PILL_AUTOUSE:
+            print("[SMARTPHONE] AI알약 자동 사용은 비활성화되어 있습니다.")
+            return
         # Call the global activate_aipill function from pingfighter.py
         import sys
         # Get the main module (pingfighter.py)

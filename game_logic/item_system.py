@@ -144,6 +144,16 @@ class ItemSystem:
                 },
                 'permanent': False
             },
+            'vitamin_pill': {
+                'name': '비타민약',
+                'description': '8초 동안 이동속도 50% 증가 (우측 하단 전용 게이지)',
+                'type': 'active',
+                'effect': {
+                    'speed_multiplier': 1.5,
+                    'duration_seconds': 8
+                },
+                'permanent': False
+            },
             'berserk_potion': {
                 'name': '광폭물약',
                 'description': '15초 동안 건설·업그레이드 속도 3배, 포탑 수동 연사 쿨다운 증가',

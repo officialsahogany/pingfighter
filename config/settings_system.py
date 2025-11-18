@@ -96,6 +96,12 @@ class SettingsManager:
                 'sfx_volume': 1.0,
                 'music_volume': 0.7,
                 'ambient_volume': 0.5,
+                'ui_volume': 0.8,
+                'env_volume': 0.8,
+                'enable_limiter': True,
+                'ducking_enabled': True,
+                'duck_boss_trigger': True,
+                'duck_explosion_trigger': True,
                 'mute_all': False,
                 'spatial_audio': True,
                 'dynamic_music': True
@@ -112,6 +118,18 @@ class SettingsManager:
                 'slow_motion_effect': True,
                 'damage_numbers': True,
                 'auto_pause_on_focus_loss': True
+            },
+
+            # 컨트롤 설정
+            'controls': {
+                # 'keyboard' | 'mouse_keyboard'
+                'control_scheme': 'keyboard',
+                # RMB(우클릭) 사용 시 게이지가 충분해도 하프대쉬를 우선시할지 여부 (기본: False)
+                'force_half_dash_rmb': False,
+                # 코만도: 마우스 휠로 무기 순환 허용
+                'enable_wheel_weapon_switch': False,
+                # 코만도: 휠 클릭 시 권총으로 복귀 허용
+                'enable_wheel_middle_pistol': False
             },
             
             # 네트워크 설정
@@ -397,6 +415,8 @@ class SettingsManager:
             self._apply_language_setting(key, value)
         elif category == 'network':
             self._apply_network_setting(key, value)
+        elif category == 'controls':
+            self._apply_controls_setting(key, value)
             
     def _apply_graphics_setting(self, key: str, value: Any):
         """그래픽 설정 적용"""
@@ -445,6 +465,34 @@ class SettingsManager:
             sound_manager.set_sfx_volume(value)
         elif key == 'music_volume':
             sound_manager.set_music_volume(value)
+        elif key == 'ui_volume':
+            # UI 효과음 카테고리 볼륨
+            sound_manager.set_ui_volume(value)
+        elif key == 'env_volume':
+            # 환경음(앰비언트/군중 등) 카테고리 볼륨
+            sound_manager.set_env_volume(value)
+        elif key == 'enable_limiter':
+            # 소프트 리미터 온/오프
+            sound_manager.set_limiter_enabled(bool(value))
+        elif key == 'ducking_enabled':
+            # 뮤직 덕킹 온/오프
+            sound_manager.set_ducking(enabled=bool(value))
+        elif key in ('duck_boss_trigger', 'duck_explosion_trigger'):
+            # 트리거 채널 재구성
+            audio = self.settings.get('audio', {})
+            # 현재 변경된 값 반영
+            audio[key] = value
+            channels = set()
+            if audio.get('duck_boss_trigger', True):
+                channels.add('boss')
+            if audio.get('duck_explosion_trigger', True):
+                channels.add('explosion')
+            if not channels:
+                # 최소 1개는 유지: 사용자가 모두 끄면 덕킹만 비활성화
+                sound_manager.set_ducking(enabled=False)
+            else:
+                sound_manager.set_ducking(enabled=bool(audio.get('ducking_enabled', True)))
+                sound_manager.set_ducking_triggers(channels)
         elif key == 'mute_all':
             if value:
                 sound_manager.mute()
@@ -466,6 +514,12 @@ class SettingsManager:
             self.global_manager.set('player_name', value)
         elif key == 'default_port':
             self.global_manager.set_setting('default_port', value)
+
+    def _apply_controls_setting(self, key: str, value: Any):
+        """컨트롤 설정 적용"""
+        if key == 'control_scheme':
+            # 전역에 현재 입력 스킴 저장하여 런타임에서 참조 가능
+            self.global_manager.set('control_scheme', value)
 
     def _apply_language_setting(self, key: str, value: Any):
         """언어 설정 적용"""

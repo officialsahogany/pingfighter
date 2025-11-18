@@ -18,6 +18,7 @@ def show_credits_screen():
     # 크레딧 정보
     credits_data = [
         {"role": "Game Director", "name": "Caisetgames", "color": (255, 215, 0)},
+        {"role": "특별감독", "name": "노현학", "color": (255, 230, 120)},
         {"role": "BGM Sound Director", "name": "BK", "color": (100, 200, 255)},
         {"role": "Programming", "name": "Jaeyeob Woo", "color": (0, 255, 150)},
         {"role": "Special Thanks", "name": "All Players", "color": (255, 150, 200)},

@@ -21,6 +21,12 @@
       "sfx_volume": 1.0,
       "music_volume": 0.7,
       "ambient_volume": 0.5,
+      "ui_volume": 0.8,
+      "env_volume": 0.8,
+      "enable_limiter": true,
+      "ducking_enabled": true,
+      "duck_boss_trigger": true,
+      "duck_explosion_trigger": true,
       "mute_all": false,
       "spatial_audio": true,
       "dynamic_music": true
@@ -36,6 +42,12 @@
       "damage_numbers": true,
       "auto_pause_on_focus_loss": true
     },
+      "controls": {
+        "control_scheme": "mouse_keyboard",
+        "force_half_dash_rmb": false,
+        "enable_wheel_weapon_switch": true,
+        "enable_wheel_middle_pistol": true
+      },
     "network": {
       "default_port": 12345,
       "player_name": "Player",
@@ -44,6 +56,9 @@
       "ping_limit": 200,
       "interpolation": true,
       "prediction": true
+    },
+    "language": {
+      "language": "ko"
     },
     "accessibility": {
       "colorblind_mode": "none",

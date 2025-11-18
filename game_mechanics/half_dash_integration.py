@@ -51,12 +51,15 @@ def check_and_activate_half_dash(game_state):
     rolling_stun_timer = game_state.get('rolling_stun_timer', 0)
     down_pressed = game_state.get('down_pressed', False)
     keys = game_state.get('keys', {})
+    # 대체 키(예: A/D) 지원을 위한 보조 플래그
+    left_key_alt = bool(game_state.get('left_key_alt', False))
+    right_key_alt = bool(game_state.get('right_key_alt', False))
     jump_bonus = game_state.get('jump_bonus', 0)
     dashgear_obtained = game_state.get('dashgear_obtained', False)
     
     # 키 상태 확인 (keys는 pygame.key.get_pressed() 결과)
-    left_key = keys[pygame.K_LEFT] if keys else False
-    right_key = keys[pygame.K_RIGHT] if keys else False
+    left_key = (keys[pygame.K_LEFT] if keys else False) or left_key_alt
+    right_key = (keys[pygame.K_RIGHT] if keys else False) or right_key_alt
     
     # 하프 대쉬 체크
     activated, direction, base_timer, token_cost = half_dash.check_half_dash_activation(

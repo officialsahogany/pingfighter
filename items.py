@@ -52,7 +52,7 @@ def get_alchemy_font():
 
 # 사운드 로드
 try:
-    SOUND_ITEM_GET = pygame.mixer.Sound("sounds/itemget.wav")
+    SOUND_ITEM_GET = pygame.mixer.Sound(resource_path(os.path.join("sounds", "itemget.wav")))
     SOUND_ITEM_GET.set_volume(0.5)  # 볼륨 조절 (0.0 ~ 1.0)
 except:
     SOUND_ITEM_GET = None
@@ -65,6 +65,140 @@ ITEM_ICONS = {}
 ITEM_ICON_ANIMATIONS = {}
 _ICON_ANIMATION_SCALE_CACHE = {}
 _LEGENDARY_ICON_NAMES = {"ragnarok_hammer", "hermes_shoes", "poseidon_trident"}
+
+def _draw_vitamin_bottle_icon_flat(size: int = 32) -> pygame.Surface:
+    """깔끔한 '갈색병 + 파란 라벨' 평면 아이콘(정적). 오라/엠블럼/애니 없음."""
+    s = pygame.Surface((size, size), pygame.SRCALPHA)
+    cx, cy = size // 2, size // 2
+    k = size / 32.0
+
+    # 병 바디(호박색 유리) - 하단 평평, 상단만 둥글게
+    body_w = int(14*k)
+    body_h = int(20*k)
+    body_left = cx - body_w//2
+    body_top = cy + int(2*k) - body_h//2
+    top_curve_h = max(4, int(8*k))  # 상단 곡면 높이
+    amber = (155, 95, 45)
+    amber_dark = (100, 60, 28)
+    # 하단 직사각 영역(폭 유지, 바닥 납작)
+    rect_lower = pygame.Rect(body_left, body_top + top_curve_h, body_w, body_h - top_curve_h)
+    pygame.draw.rect(s, amber, rect_lower)
+    # 상단 곡면(타원)
+    ellipse_top = pygame.Rect(body_left, body_top, body_w, top_curve_h*2//2)
+    pygame.draw.ellipse(s, amber, ellipse_top)
+    # 외곽선: 좌/우/바닥은 직선, 윗부분만 아크
+    pygame.draw.line(s, amber_dark, (body_left, rect_lower.top), (body_left, rect_lower.bottom), 1)
+    pygame.draw.line(s, amber_dark, (body_left + body_w, rect_lower.top), (body_left + body_w, rect_lower.bottom), 1)
+    pygame.draw.line(s, amber_dark, (body_left, rect_lower.bottom), (body_left + body_w, rect_lower.bottom), 1)
+    try:
+        pygame.draw.arc(s, amber_dark, ellipse_top, math.pi, 0, 1)
+    except Exception:
+        pass
+
+    # 목 부분(간단)
+    neck = pygame.Rect(0, 0, int(10*k), int(6*k))
+    neck.center = (cx, body_top + int(3*k))
+    pygame.draw.rect(s, amber, neck, border_radius=int(2*k))
+    pygame.draw.rect(s, amber_dark, neck, 1, border_radius=int(2*k))
+
+    # 캡(단색, 과한 디테일 제거)
+    cap = pygame.Rect(0, 0, int(12*k), int(4*k))
+    cap.center = (cx, neck.top - int(2*k))
+    cap_col = (190, 160, 65)
+    cap_edge = (120, 100, 40)
+    pygame.draw.rect(s, cap_col, cap, border_radius=int(2*k))
+    pygame.draw.rect(s, cap_edge, cap, 1, border_radius=int(2*k))
+
+    # 라벨(파란색)
+    label = pygame.Rect(0, 0, int(13*k), int(7*k))
+    label.center = (cx, cy + int(4*k))
+    blue = (38, 90, 210)
+    blue_edge = (20, 55, 130)
+    pygame.draw.rect(s, blue, label, border_radius=int(2*k))
+    pygame.draw.rect(s, blue_edge, label, 1, border_radius=int(2*k))
+
+    # 유리 미세 하이라이트(세로 얇은 반사)
+    hi = pygame.Surface((size, size), pygame.SRCALPHA)
+    slim = pygame.Rect(body_left+int(2*k), body_top+int(4*k), int(2*k), int(12*k))
+    pygame.draw.rect(hi, (255,255,255,40), slim)
+    s.blit(hi, (0,0), special_flags=pygame.BLEND_PREMULTIPLIED)
+
+    return s
+
+def _draw_vitamin_bottle_icon_hires(size: int = 32, glow_phase: float = 0.0, ss: int = 3) -> pygame.Surface:
+    """슈퍼샘플링(SSAA)로 더 깔끔한 박카스풍 아이콘 생성."""
+    hi = size * ss
+    surf = pygame.Surface((hi, hi), pygame.SRCALPHA)
+    cx, cy = hi // 2, hi // 2
+
+    def sc(v):
+        return int(round(v * ss))
+
+    # 배경 오라(다중 원으로 그라데이션)
+    for i in range(6):
+        rr = sc(10 + i * 2)
+        alpha = int(40 * (1 - i / 6.0) * (0.6 + 0.4 * (0.5 + 0.5 * math.sin(glow_phase * 2 * math.pi))))
+        pygame.draw.circle(surf, (70, 130, 255, alpha), (cx, cy), rr)
+
+    # 병 본체 (유리 그라데이션)
+    body = pygame.Rect(0, 0, sc(14), sc(20))
+    body.center = (cx, cy + sc(2))
+    glass_cols = [(110, 65, 28, 255), (150, 92, 44, 235), (200, 135, 78, 210)]
+    for i, (r, g, b, a) in enumerate(glass_cols):
+        inner = body.inflate(-sc(i * 1.2), -sc(i * 1.2))
+        pygame.draw.ellipse(surf, (r, g, b, a), inner)
+    # 외곽선
+    pygame.draw.ellipse(surf, (60, 35, 15, 200), body, sc(0.8))
+
+    # 목 부분
+    neck = pygame.Rect(0, 0, sc(10), sc(7))
+    neck.center = (cx, body.top + sc(3))
+    pygame.draw.rect(surf, (150, 92, 44, 235), neck, border_radius=sc(2))
+    pygame.draw.rect(surf, (80, 45, 18, 210), neck, sc(0.8), border_radius=sc(2))
+
+    # 캡(금색) + 홈 라인
+    cap = pygame.Rect(0, 0, sc(12), sc(5))
+    cap.center = (cx, neck.top - sc(2))
+    pygame.draw.rect(surf, (220, 190, 80), cap, border_radius=sc(1.5))
+    pygame.draw.rect(surf, (140, 110, 40), cap, sc(0.8), border_radius=sc(1.5))
+    # 홈
+    for x in range(cap.left + sc(2), cap.right - sc(2), sc(2)):
+        pygame.draw.line(surf, (180, 150, 60), (x, cap.top + sc(1)), (x, cap.bottom - sc(1)))
+    # 캡 하이라이트
+    pygame.draw.rect(surf, (255, 240, 160), (cap.left + sc(2), cap.top + sc(1), sc(6), sc(1)))
+
+    # 라벨(블루)
+    label = pygame.Rect(0, 0, sc(13), sc(7))
+    label.center = (cx, cy + sc(4))
+    pygame.draw.rect(surf, (35, 90, 205), label, border_radius=sc(2.5))
+    pygame.draw.rect(surf, (18, 56, 130), label, sc(0.8), border_radius=sc(2.5))
+    # 중앙 엠블럼 (붉은 원 + 날개형 V)
+    pygame.draw.circle(surf, (225, 40, 40), label.center, sc(2.6))
+    lx, ly = label.center
+    wing = [
+        (lx - sc(4.2), ly), (lx - sc(1.2), ly - sc(2.0)), (lx, ly),
+        (lx + sc(1.2), ly - sc(2.0)), (lx + sc(4.2), ly), (lx, ly + sc(2.2))
+    ]
+    pygame.draw.polygon(surf, (248, 248, 252), wing)
+
+    # 유리 하이라이트(사선 반사)
+    hl = pygame.Surface((hi, hi), pygame.SRCALPHA)
+    pygame.draw.ellipse(hl, (255, 255, 255, 70), body.inflate(sc(3), sc(2)))
+    hl = pygame.transform.rotate(hl, -25)
+    surf.blit(hl, (0, 0), special_flags=pygame.BLEND_PREMULTIPLIED)
+
+    # 바닥 그림자
+    pygame.draw.ellipse(surf, (0, 0, 0, 110), (cx - sc(7), cy + sc(9), sc(14), sc(4)))
+
+    # 다운샘플링으로 안티앨리어싱 적용
+    return pygame.transform.smoothscale(surf, (size, size))
+
+def _make_vitamin_icon_frames(size: int = 32, frame_count: int = 8) -> list[pygame.Surface]:
+    frames = []
+    for i in range(frame_count):
+        phase = i / frame_count
+        frames.append(_draw_vitamin_bottle_icon_hires(size, glow_phase=phase, ss=3))
+    return frames
 
 
 def _render_legendary_icon_frames(item_name, target_size):
@@ -208,6 +342,7 @@ def load_item_icons():
         "fire_support": "fire_support.png",  # 화력지원 아이콘
         "spider_mine": "spider_mine.png",  # 스파이더지뢰 아이콘
         "repair_kit": "repair_kit.png",  # 수리키트 아이콘
+        "vitamin_pill": "vitamin_pill.png",  # 비타민약 아이콘 (없을 시 코드로 그립니다)
         # 전설 아이템(아이콘)
         "ragnarok_hammer": "legendary/ragnarok_hammer.png",
         "hermes_shoes": "legendary/hermes_shoes.png",
@@ -217,6 +352,17 @@ def load_item_icons():
     legendary_manager = None
 
     for item_name, icon_file in icon_files.items():
+        # 비타민약: 고정 아이콘(갈색병+파란 라벨), 애니메이션/오라 제거
+        if item_name == "vitamin_pill":
+            try:
+                ITEM_ICONS[item_name] = _draw_vitamin_bottle_icon_flat(32)
+            except Exception:
+                fallback = pygame.Surface((32,32), pygame.SRCALPHA)
+                pygame.draw.rect(fallback, (150,90,45), (12,10,8,14))
+                pygame.draw.rect(fallback, (38,90,210), (10,16,12,6))
+                ITEM_ICONS[item_name] = fallback
+            # 애니메이션 프레임은 등록하지 않음(정적 아이콘 요구)
+            continue
         if item_name == "ragnarok_hammer":
             try:
                 if legendary_manager is None:
@@ -263,10 +409,23 @@ def load_item_icons():
             if item_name == "long_boost":
                 LONG_BOOST_ICON = icon
         except:
-            # 아이콘 로드 실패 시 기본 Surface 생성
-            icon = pygame.Surface((32, 32), pygame.SRCALPHA)
-            pygame.draw.circle(icon, (200, 200, 200), (16, 16), 14)
-            ITEM_ICONS[item_name] = icon
+            # 아이콘 로드 실패 시 고품질 절차적 아이콘 생성
+            if item_name == "vitamin_pill":
+                try:
+                    frames = _make_vitamin_icon_frames(32, 8)
+                    ITEM_ICON_ANIMATIONS[item_name] = frames
+                    ITEM_ICONS[item_name] = frames[0]
+                except Exception:
+                    # 안전 폴백: 간단한 병 실루엣
+                    icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    pygame.draw.rect(icon, (160, 100, 60), (12, 10, 8, 14))
+                    pygame.draw.rect(icon, (230, 200, 90), (11, 7, 10, 4))
+                    pygame.draw.rect(icon, (30, 90, 200), (10, 16, 12, 6))
+                    ITEM_ICONS[item_name] = icon
+            else:
+                icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                pygame.draw.circle(icon, (200, 200, 200), (16, 16), 14)
+                ITEM_ICONS[item_name] = icon
     
     placeholder_icon = get_item_icon("empty_legendary")
     if placeholder_icon:
@@ -682,6 +841,15 @@ ITEM_TYPES = [
         "chance": 0,
         "duration": 0,
         "unlock_condition": None
+    },
+    {
+        "name": "vitamin_pill",  # 비타민약 액티브 아이템
+        "color": (80, 170, 255),  # 청량한 블루
+        "effect": "vitamin_pill",
+        "icon": None,
+        "chance": 0.012,  # 기본 1.2%
+        "duration": 600,
+        "unlock_condition": None
     }
 ]
 
@@ -775,6 +943,7 @@ unlocked_items = {
     "fire_support": True,
     "doping_potion": True,
     "berserk_potion": True,
+    "vitamin_pill": True,
 
     # 전설 아이템 해금 상태
     "ragnarok_hammer": True,

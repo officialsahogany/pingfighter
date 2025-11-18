@@ -291,6 +291,34 @@ def _handle_menu_events(
     state: MenuState,
     current_menu_options: List[str],
 ) -> bool:
+    # 첫 진입 그레이스: 이벤트 큐를 읽기 전에 현재 마우스 다운 상태를 1회 클릭으로 취급
+    # 최신 입력 상태 반영을 위해 우선 pump 수행
+    pygame.event.pump()
+    if state.first_click_grace_frames > 0:
+        mb = pygame.mouse.get_pressed()
+        if mb and len(mb) >= 1:
+            left_now = bool(mb[0])
+            if left_now and not state.last_mb_left_state:
+                mouse_pos = pygame.mouse.get_pos()
+                width = ctx.get_dimensions()[0]
+                height = ctx.get_dimensions()[1]
+                menu_y = height - 180
+                menu_item_width = 120
+                menu_spacing = 15
+                total_width = len(current_menu_options) * menu_item_width + (len(current_menu_options) - 1) * menu_spacing
+                menu_start_x = (width - total_width) // 2
+                for idx, option in enumerate(current_menu_options):
+                    x = menu_start_x + idx * (menu_item_width + menu_spacing)
+                    option_rect = pygame.Rect(x, menu_y, menu_item_width, 54)
+                    if option_rect.collidepoint(mouse_pos):
+                        state.selected = idx
+                        ctx.play_click_sound()
+                        if _activate_menu_choice(ctx, state, option):
+                            return False
+                        break
+            state.last_mb_left_state = left_now
+        state.first_click_grace_frames = max(0, state.first_click_grace_frames - 1)
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -358,6 +386,29 @@ def _handle_menu_events(
                         if _activate_menu_choice(ctx, state, option):
                             return False
                         break
+        # 그레이스 윈도 내에 MOUSEBUTTONUP만 들어와도 클릭으로 인정 (경계에서 DOWN이 소거된 경우 보정)
+        if (
+            event.type == pygame.MOUSEBUTTONUP
+            and getattr(event, 'button', None) == 1
+            and state.first_click_grace_frames > 0
+        ):
+            mouse_pos = pygame.mouse.get_pos()
+            width = ctx.get_dimensions()[0]
+            height = ctx.get_dimensions()[1]
+            menu_y = height - 180
+            menu_item_width = 120
+            menu_spacing = 15
+            total_width = len(current_menu_options) * menu_item_width + (len(current_menu_options) - 1) * menu_spacing
+            menu_start_x = (width - total_width) // 2
+            for idx, option in enumerate(current_menu_options):
+                x = menu_start_x + idx * (menu_item_width + menu_spacing)
+                option_rect = pygame.Rect(x, menu_y, menu_item_width, 54)
+                if option_rect.collidepoint(mouse_pos):
+                    state.selected = idx
+                    ctx.play_click_sound()
+                    if _activate_menu_choice(ctx, state, option):
+                        return False
+                    break
     return True
 
 
@@ -411,6 +462,9 @@ class MenuState:
     medal_frame_index: int = 0
     medal_frame_timer: float = 0.0
     medal_anim_prev_time: float = 0.0
+    # 첫 진입 원클릭 보장: 초반 N프레임 동안 다운/업 보정 허용
+    first_click_grace_frames: int = 12
+    last_mb_left_state: bool = False
 
 
 def _draw_titles(ctx: MenuContext, screen: pygame.Surface, width: int, animation_timer: float) -> None:
@@ -487,6 +541,9 @@ def _handle_resolution_change(ctx: MenuContext, state: MenuState, direction: int
 def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuState:
     if state is None:
         state = MenuState()
+    # 메뉴 진입 시 항상 원클릭 그레이스 리셋
+    state.first_click_grace_frames = 12
+    state.last_mb_left_state = False
 
     clock = pygame.time.Clock()
     state.idle_start_time = pygame.time.get_ticks()

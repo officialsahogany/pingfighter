@@ -2074,6 +2074,261 @@ class HermesShoes(LegendaryItem):
             self.particle_timer = 0
 
 
+class DivineStone(LegendaryItem):
+    """디바인스톤 — 보스 공 하강 차단 번개
+
+    - 10초 쿨다운으로 발동
+    - 보스가 친 공이 화면 하단(높이 50% 이하)으로 내려왔을 때 즉시 번개가 공을 타격
+    - 번개는 디바인스톤 위치에서 공까지 '순간 도달' 형태(1~2프레임 표시)
+    - 접촉 지점에서 전기 폭발 연출 후 공을 위쪽(Y-)으로 임의 각도로 재발사
+
+    렌더/파티클은 발동 시에만 경량 생성하여 프레임 부하를 피한다.
+    """
+    def __init__(self):
+        super().__init__(
+            name="divine_stone",
+            korean_name="디바인스톤",
+            description="보스 공이 하강해 오면 10초마다 번개로 요격하고 위로 쏘아올립니다",
+            unlock_condition="스테이지 5 클리어",
+            icon_path=None,
+        )
+        # 트리거/쿨다운
+        self.cooldown_ms = 10000
+        self.last_strike_ms = -999999
+        # 번개 이펙트
+        self.lightning_active = False
+        self.lightning_ms = 0
+        self.lightning_life_ms = 120
+        self.lightning_path = []  # [(x,y), ...]
+        self.lightning_branches = []  # [ [(x,y), ...], ... ]
+        self.stone_pos = (0, 0)
+        self.strike_pos = (0, 0)
+        # 전기 폭발 이펙트
+        self.explosion_ms = 0
+        self.explosion_life_ms = 220
+        self.explosion_radius = 0
+        self.explosion_center = (0, 0)
+        # 스파크 파티클(경량)
+        self.spark_particles = []  # [{'x','y','vx','vy','life','size'}]
+
+    # ---------- 내부 유틸 ----------
+    def _gen_lightning(self, start: tuple[int, int], end: tuple[int, int]) -> tuple[list[tuple[int,int]], list[list[tuple[int,int]]]]:
+        """프랙탈 중점 변위로 단일 번개 경로와 소규모 가지를 생성한다."""
+        sx, sy = start
+        ex, ey = end
+        points = [(sx, sy), (ex, ey)]
+
+        def subdivide(pts: list[tuple[int,int]], disp: float) -> list[tuple[int,int]]:
+            if disp < 6:
+                return pts
+            new_pts = [pts[0]]
+            for i in range(len(pts) - 1):
+                x1, y1 = pts[i]
+                x2, y2 = pts[i + 1]
+                mx = (x1 + x2) / 2
+                my = (y1 + y2) / 2
+                # 수직 방향 오프셋(좌/우 랜덤)
+                dx = x2 - x1
+                dy = y2 - y1
+                length = math.hypot(dx, dy) or 1.0
+                nx = -dy / length
+                ny = dx / length
+                offset = random.uniform(-disp, disp)
+                mx += nx * offset
+                my += ny * offset
+                new_pts.append((int(mx), int(my)))
+                new_pts.append((x2, y2))
+            return subdivide(new_pts, disp * 0.55)
+
+        base_disp = max(12.0, math.hypot(ex - sx, ey - sy) * 0.08)
+        main = subdivide(points, base_disp)
+
+        # 가지는 1~2개 소량만, 말단 쪽 짧게
+        branches: list[list[tuple[int,int]]] = []
+        if len(main) > 4:
+            branch_count = 1 if random.random() < 0.6 else 2
+            for _ in range(branch_count):
+                idx = random.randrange(len(main) // 2, len(main) - 2)
+                bx, by = main[idx]
+                # 종단을 향하는 짧은 가지
+                dirx = ex - bx
+                diry = ey - by
+                blen = max(18, int(math.hypot(dirx, diry) * 0.25))
+                ang = math.atan2(diry, dirx) + random.uniform(-0.6, 0.6)
+                ex2 = int(bx + math.cos(ang) * blen)
+                ey2 = int(by + math.sin(ang) * blen)
+                branch = subdivide([(bx, by), (ex2, ey2)], max(8.0, blen * 0.12))
+                branches.append(branch)
+
+        return main, branches
+
+    def _spawn_sparks(self, x: float, y: float, count: int = 14):
+        for _ in range(count):
+            ang = random.uniform(0, math.tau)
+            spd = random.uniform(3.0, 7.0)
+            self.spark_particles.append({
+                'x': float(x), 'y': float(y),
+                'vx': math.cos(ang) * spd,
+                'vy': math.sin(ang) * spd,
+                'life': random.randint(14, 24),
+                'size': random.uniform(1.5, 3.0)
+            })
+
+    # ---------- 외부 API ----------
+    def should_trigger(self, ball_y: float, actual_step_vy: float, height: int, now_ms: int) -> bool:
+        # 스톱워치/정지 상태에서는 작동 금지(외부에서 이미 step이 막히지만 안전 가드)
+        if now_ms - self.last_strike_ms < self.cooldown_ms:
+            return False
+        # 보스가 친 공(아래로 이동) + 화면 하단 50% 이하
+        return (actual_step_vy > 0) and (ball_y >= height * 0.5)
+
+    def perform_strike(self, stone_pos: tuple[int, int], ball_pos: tuple[int, int],
+                       actual_step_vel: tuple[float, float]) -> tuple[float, float]:
+        """번개 발동과 동시에 반환 속도를 계산해 준다(실제 스텝 벨로시티 기준)."""
+        self.stone_pos = (int(stone_pos[0]), int(stone_pos[1]))
+        self.strike_pos = (int(ball_pos[0]), int(ball_pos[1]))
+        self.last_strike_ms = pygame.time.get_ticks()
+
+        # 번개/폭발 타이머 시작
+        self.lightning_active = True
+        self.lightning_ms = self.lightning_life_ms
+        self.explosion_ms = self.explosion_life_ms
+        self.explosion_center = self.strike_pos
+        self.explosion_radius = 0
+
+        # 경로 생성(1회)
+        self.lightning_path, self.lightning_branches = self._gen_lightning(self.stone_pos, self.strike_pos)
+        self._spawn_sparks(self.strike_pos[0], self.strike_pos[1])
+
+        # 위쪽(보스 방향) 임의 각도로 재발사. 속도는 현재 속도 유지(과도한 상향 방지)
+        step_vx, step_vy = actual_step_vel
+        step_speed = max(1.0, math.hypot(step_vx, step_vy))
+        base_angle = -math.pi / 2  # 위쪽
+        random_offset = random.uniform(-math.pi/4, math.pi/4)  # ±45도 범위
+        ang = base_angle + random_offset
+        new_step_vx = math.cos(ang) * step_speed
+        new_step_vy = math.sin(ang) * step_speed
+        if new_step_vy >= -1.0:
+            new_step_vy = -1.0  # 반드시 위쪽으로
+        return new_step_vx, new_step_vy
+
+    def update(self, dt: float, ui_mode: bool = False):
+        super().update(dt, ui_mode)
+        # ms 단위로 통일
+        ms = int(dt if dt > 1.5 else dt * 1000)
+        if self.lightning_active:
+            self.lightning_ms -= ms
+            if self.lightning_ms <= 0:
+                self.lightning_active = False
+                self.lightning_path = []
+                self.lightning_branches = []
+        if self.explosion_ms > 0:
+            self.explosion_ms -= ms
+            # 반지름은 초반 급팽창 후 서서히 감쇠
+            life_ratio = self.explosion_ms / max(1, self.explosion_life_ms)
+            self.explosion_radius = int(8 + (1 - life_ratio) * 36)
+        # 스파크 파티클 업데이트
+        if self.spark_particles:
+            for p in self.spark_particles:
+                p['x'] += p['vx']
+                p['y'] += p['vy']
+                p['vy'] += 0.08  # 약간의 중력감
+                p['life'] -= 1
+            self.spark_particles = [p for p in self.spark_particles if p['life'] > 0]
+
+    def draw_world_effects(self, screen: pygame.Surface):
+        """필드 상 번개/전기 폭발 시각 효과를 그린다."""
+        # 번개: 얇은 본선 + 흐릿한 외곽선으로 가시성 확보
+        if self.lightning_active and self.lightning_path:
+            core = (255, 255, 180)
+            glow = (170, 210, 255, 90)
+            # 번개 경로의 경계 박스 계산(성능 최적화: 전체 화면 표면 생성 회피)
+            all_pts = self.lightning_path[:]
+            for br in self.lightning_branches:
+                all_pts.extend(br)
+            min_x = min(p[0] for p in all_pts)
+            max_x = max(p[0] for p in all_pts)
+            min_y = min(p[1] for p in all_pts)
+            max_y = max(p[1] for p in all_pts)
+            margin = 18
+            w = max(2, (max_x - min_x) + margin * 2)
+            h = max(2, (max_y - min_y) + margin * 2)
+            offx, offy = min_x - margin, min_y - margin
+            glow_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+            # 좌표를 로컬로 오프셋하여 그린 후 화면에 블릿
+            def _offset(pts):
+                return [(px - offx, py - offy) for (px, py) in pts]
+            if len(self.lightning_path) >= 2:
+                pygame.draw.lines(glow_surf, glow, False, _offset(self.lightning_path), 6)
+            for br in self.lightning_branches:
+                if len(br) >= 2:
+                    pygame.draw.lines(glow_surf, glow, False, _offset(br), 4)
+            screen.blit(glow_surf, (offx, offy))
+            # 코어 라인(가늘고 밝게)
+            pygame.draw.lines(screen, core, False, self.lightning_path, 2)
+            for br in self.lightning_branches:
+                pygame.draw.lines(screen, core, False, br, 1)
+
+        # 전기 폭발: 링 + 코어 플래시 + 스파크
+        if self.explosion_ms > 0:
+            cx, cy = self.explosion_center
+            r = max(2, self.explosion_radius)
+            life_ratio = self.explosion_ms / max(1, self.explosion_life_ms)
+            alpha = int(220 * life_ratio)
+            # 코어 플래시
+            core_surf = pygame.Surface((r*4, r*4), pygame.SRCALPHA)
+            pygame.draw.circle(core_surf, (255, 255, 200, alpha), (r*2, r*2), int(r*0.6))
+            pygame.draw.circle(core_surf, (255, 255, 255, int(alpha*0.6)), (r*2, r*2), int(r*0.35))
+            screen.blit(core_surf, (cx - r*2, cy - r*2), special_flags=pygame.BLEND_ADD)
+            # 링 파동
+            ring_alpha = int(180 * life_ratio)
+            pygame.draw.circle(screen, (180, 220, 255), (cx, cy), r, 2)
+            if ring_alpha > 0 and r > 4:
+                ring_surf = pygame.Surface((r*2+6, r*2+6), pygame.SRCALPHA)
+                pygame.draw.circle(ring_surf, (180, 220, 255, ring_alpha), (r+3, r+3), r, 2)
+                screen.blit(ring_surf, (cx - r - 3, cy - r - 3))
+            # 스파크
+            for p in self.spark_particles:
+                s = max(1, int(p['size']))
+                pygame.draw.line(screen, (255, 240, 180), (int(p['x']), int(p['y'])), (int(p['x'] + p['vx']*0.6), int(p['y'] + p['vy']*0.6)), 1)
+                pygame.draw.circle(screen, (255, 255, 255), (int(p['x']), int(p['y'])), max(1, s//2))
+
+    def reset_round_effects(self):
+        """라운드/스테이지 전환 시 모든 일시 상태 초기화"""
+        self.lightning_active = False
+        self.lightning_ms = 0
+        self.lightning_path = []
+        self.lightning_branches = []
+        self.explosion_ms = 0
+        self.explosion_radius = 0
+        self.spark_particles.clear()
+        # 쿨다운은 초기화하지 않음(남은 쿨다운 유지). 즉시 발동이 필요하면 아래 라인 사용
+        # self.last_strike_ms = -999999
+
+    def draw_icon(self, screen: pygame.Surface, x: int, y: int, size: int = 60):
+        """아이콘(이미지 없이 벡터 드로잉) + 공통 전설 프레임."""
+        frame_offset = _draw_common_legendary_frame(screen, x, y, size, self.animation_time,
+                                                    border_color=COMMON_LEGENDARY_BORDER_COLOR,
+                                                    corner_color=COMMON_LEGENDARY_CORNER_COLOR)
+        cx = x + size//2
+        cy = y + frame_offset + size//2
+        # 중앙 보석(디바인 스톤)
+        gem = [
+            (cx, cy - size//3),
+            (cx + size//5, cy - size//8),
+            (cx + size//7, cy + size//4),
+            (cx, cy + size//3),
+            (cx - size//7, cy + size//4),
+            (cx - size//5, cy - size//8),
+        ]
+        pygame.draw.polygon(screen, (200, 230, 255), gem)
+        pygame.draw.polygon(screen, (120, 170, 255), gem, 2)
+        # 미니 번개 장식
+        bx1 = cx - size//6; by1 = cy - size//10
+        bx2 = cx - size//10; by2 = cy + size//10
+        bx3 = cx + size//12; by3 = cy
+        pygame.draw.lines(screen, (255, 255, 180), False, [(bx1, by1), (bx2, by2), (bx3, by3)], 2)
+
 class RagnarokHammer(LegendaryItem):
     """라그나로크 해머 - 강력한 넉백 효과"""
     def __init__(self):
@@ -2740,6 +2995,8 @@ class LegendaryItemManager:
         self.items["empty_legendary"].unlocked = True
         if "empty_legendary" not in self.unlocked_items:
             self.unlocked_items.append("empty_legendary")
+
+        # 디바인스톤(건설형으로 전환): 전설 탭에는 노출하지 않음
 
 
         # empty/empty1/empty2 플레이스홀더는 등록/해금하지 않음(전설 탭 간소화)

@@ -8,6 +8,8 @@ from typing import Callable, List, Optional, Sequence, Tuple
 import pygame
 
 from pixel_font_manager import FontStyle
+from config.settings_system import get_settings_manager
+from managers.sound_manager import get_sound_manager
 from game_state.audio import clamp_volume
 from config import constants as const
 
@@ -186,38 +188,52 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
     current_bgm_volume = clamp_volume(ctx.get_bgm_runtime_volume())
     current_sfx_volume = clamp_volume(ctx.get_sfx_volume())
+    # 사운드 매니저 기반 옵션 읽기
+    sm = get_sound_manager()
+    limiter_enabled = bool(getattr(sm, 'limiter_enabled', True))
+    duck_enabled = bool(getattr(sm, 'duck_music_enabled', True))
+    # 컨트롤 설정
+    settings = get_settings_manager()
+    control_scheme = settings.get_setting('controls', 'control_scheme', 'keyboard')
+    duck_triggers = set(getattr(sm, 'duck_trigger_channels', {"boss", "explosion"}))
+    duck_boss = 'boss' in duck_triggers
+    duck_explosion = 'explosion' in duck_triggers
     modern_loop_enabled = ctx.get_modern_loop_enabled()
 
-    slider_width = 400
+    # 크고 겹치지 않는 고급 레이아웃
     slider_height = 10
-    handle_size = 20
+    handle_size = 14
 
-    panel_width = 600
-    panel_height = 400
+    panel_width = min(900, max(640, int(ctx.width * 0.82)))
+    panel_height = 440
     panel_x = (ctx.width - panel_width) // 2
     panel_y = (ctx.height - panel_height) // 2
 
-    bgm_slider_x = panel_x + (panel_width - slider_width) // 2
-    bgm_slider_y = panel_y + 120
-    sfx_slider_x = panel_x + (panel_width - slider_width) // 2
-    sfx_slider_y = panel_y + 220
+    margin_x = 29
+    label_w = 160
+    value_w = 48
+    slider_width = max(360, panel_width - (margin_x * 2 + label_w + value_w))
 
-    back_button_width = 150
-    back_button_height = 50
+    bgm_slider_x = panel_x + margin_x + label_w
+    bgm_slider_y = panel_y + 100
+    sfx_slider_x = panel_x + margin_x + label_w
+    sfx_slider_y = panel_y + 150
+
+    back_button_width = 144
+    back_button_height = 45
     back_button_x = panel_x + (panel_width - back_button_width) // 2
-    back_button_y = panel_y + 320
+    back_button_y = panel_y + panel_height - 70
     back_button_rect = pygame.Rect(back_button_x, back_button_y, back_button_width, back_button_height)
 
-    toggle_width = 300
-    toggle_height = 40
-    toggle_rect = pygame.Rect(
-        panel_x + (panel_width - toggle_width) // 2,
-        panel_y + 260,
-        toggle_width,
-        toggle_height,
-    )
+    toggle_width = panel_width - 2 * margin_x
+    toggle_height = 35
+    limiter_toggle_rect = pygame.Rect(panel_x + margin_x, panel_y + 205, toggle_width, toggle_height)
+    duck_toggle_rect = pygame.Rect(panel_x + margin_x, panel_y + 245, toggle_width, toggle_height)
+    duck_boss_toggle_rect = pygame.Rect(panel_x + margin_x, panel_y + 285, toggle_width, toggle_height)
+    duck_explosion_toggle_rect = pygame.Rect(panel_x + margin_x, panel_y + 325, toggle_width, toggle_height)
 
-    selected_slider: str | None = None
+    selected_slider: str | None = None  # 드래그 중인 슬라이더 식별자
+    focus: str = "bgm"  # 키보드 포커스: bgm / sfx / limiter / duck /(duck_boss/duck_explosion)/ back
     dragging = False
 
     clock = ctx.clock_factory()
@@ -233,99 +249,151 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         overlay.fill((0, 0, 0, 180))
         ctx.screen.blit(overlay, (0, 0))
 
+        # 고급 패널 스타일: 반투명 박스 + 이중 외곽선 + 상단 헤더
         panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
-        panel.fill((30, 30, 40, 240))
-        pygame.draw.rect(panel, const.CYAN, (0, 0, panel_width, panel_height), 3, border_radius=10)
+        pygame.draw.rect(panel, (28, 30, 40, 230), (0, 0, panel_width, panel_height), border_radius=12)
+        pygame.draw.rect(panel, (90, 160, 220, 200), (1, 1, panel_width - 2, panel_height - 2), 2, border_radius=10)
+        pygame.draw.rect(panel, (40, 80, 120, 180), (4, 4, panel_width - 8, panel_height - 8), 2, border_radius=8)
+        header_rect = pygame.Rect(0, 0, panel_width, 60)
+        pygame.draw.rect(panel, (38, 50, 70, 230), header_rect, border_radius=10)
+        pygame.draw.line(panel, (90, 160, 220, 180), (14, 60), (panel_width - 14, 60), 2)
         ctx.screen.blit(panel, (panel_x, panel_y))
 
-        title_text = font_large.render("음악 설정", True, const.WHITE)
-        title_rect = title_text.get_rect(center=(ctx.width // 2, panel_y + 40))
-        ctx.screen.blit(title_text, title_rect)
+        # 탭 렌더링
+        current_tab = locals().get('current_tab', 'sound')  # 유지용
+        # 탭 영역
+        tabs_y = panel_y + 10
+        tab_w = 120
+        tab_h = 36
+        sound_tab_rect = pygame.Rect(panel_x + 20, tabs_y, tab_w, tab_h)
+        ctrl_tab_rect = pygame.Rect(panel_x + 20 + tab_w + 12, tabs_y, tab_w, tab_h)
+        # 현재 탭 상태 유지
+        if 'current_tab' not in locals():
+            current_tab = 'sound'
+        # 그리기 함수
+        def _draw_tab(rect: pygame.Rect, label: str, active: bool):
+            base = (70, 100, 140) if active else (50, 60, 80)
+            pygame.draw.rect(ctx.screen, base, rect, border_radius=8)
+            pygame.draw.rect(ctx.screen, (140, 180, 220), rect, 2, border_radius=8)
+            t = font_small.render(label, True, const.WHITE)
+            ctx.screen.blit(t, t.get_rect(center=rect.center))
+        _draw_tab(sound_tab_rect, '사운드', current_tab == 'sound')
+        _draw_tab(ctrl_tab_rect, '컨트롤', current_tab == 'controls')
 
-        bgm_label = font_medium.render("BGM 볼륨", True, const.WHITE)
-        bgm_label_rect = bgm_label.get_rect(left=bgm_slider_x, bottom=bgm_slider_y - 10)
-        ctx.screen.blit(bgm_label, bgm_label_rect)
+        # 컨텐츠 렌더링 -------------------------------------------------------
+        if current_tab == 'controls':
+            # 조작 방식 선택(키보드만 / 마우스+키보드)
+            label = font_medium.render("조작 방식", True, const.WHITE)
+            ctx.screen.blit(label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
+            # 두 개의 선택 버튼
+            pill_w, pill_h = 180, 36
+            kb_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 8, pill_w, pill_h)
+            mk_rect = pygame.Rect(bgm_slider_x + pill_w + 14, bgm_slider_y - 8, pill_w + 20, pill_h)
+            def _draw_pill(rect: pygame.Rect, text: str, selected: bool, focused: bool):
+                col = (60, 90, 130) if selected else (45, 55, 70)
+                pygame.draw.rect(ctx.screen, col, rect, border_radius=18)
+                pygame.draw.rect(ctx.screen, (140, 180, 220) if focused else const.WHITE, rect, 2, border_radius=18)
+                s = font_small.render(text, True, const.WHITE)
+                ctx.screen.blit(s, s.get_rect(center=rect.center))
+            _draw_pill(kb_rect, '키보드만', control_scheme == 'keyboard', locals().get('focus','bgm') == 'scheme')
+            _draw_pill(mk_rect, '마우스+키보드', control_scheme == 'mouse_keyboard', locals().get('focus','bgm') == 'scheme')
+        else:
+            # -------- 사운드 탭 --------
+            bgm_label = font_medium.render("BGM 볼륨", True, const.WHITE)
+            bgm_label_rect = bgm_label.get_rect(left=panel_x + margin_x, centery=bgm_slider_y + slider_height // 2)
+            ctx.screen.blit(bgm_label, bgm_label_rect)
 
-        pygame.draw.rect(ctx.screen, (60, 60, 60), (bgm_slider_x, bgm_slider_y, slider_width, slider_height), border_radius=5)
-        pygame.draw.rect(
-            ctx.screen,
-            (0, 200, 255),
-            (bgm_slider_x, bgm_slider_y, int(slider_width * current_bgm_volume), slider_height),
-            border_radius=5,
-        )
+        if current_tab == 'sound':
+            pygame.draw.rect(ctx.screen, (64, 66, 76), (bgm_slider_x, bgm_slider_y, slider_width, slider_height), border_radius=6)
+            pygame.draw.rect(
+                ctx.screen,
+                (0, 200, 255),
+                (bgm_slider_x, bgm_slider_y, int(slider_width * current_bgm_volume), slider_height),
+                border_radius=6,
+            )
 
-        bgm_handle_x = bgm_slider_x + int(slider_width * current_bgm_volume)
-        bgm_handle_rect = pygame.Rect(
-            bgm_handle_x - handle_size // 2,
-            bgm_slider_y - (handle_size - slider_height) // 2,
-            handle_size,
-            handle_size,
-        )
-        pygame.draw.circle(
-            ctx.screen,
-            const.WHITE if selected_slider == "bgm" else (200, 200, 200),
-            (bgm_handle_x, bgm_slider_y + slider_height // 2),
-            handle_size // 2,
-        )
+            bgm_handle_x = bgm_slider_x + int(slider_width * current_bgm_volume)
+            bgm_handle_rect = pygame.Rect(
+                bgm_handle_x - handle_size // 2,
+                bgm_slider_y - (handle_size - slider_height) // 2,
+                handle_size,
+                handle_size,
+            )
+            pygame.draw.circle(
+                ctx.screen,
+                const.WHITE if (selected_slider == "bgm" or focus == "bgm") else (210, 210, 210),
+                (bgm_handle_x, bgm_slider_y + slider_height // 2),
+                handle_size // 2,
+            )
 
-        bgm_percent = font_small.render(f"{int(current_bgm_volume * 100)}%", True, const.CYAN)
-        bgm_percent_rect = bgm_percent.get_rect(left=bgm_slider_x + slider_width + 20, centery=bgm_slider_y + slider_height // 2)
-        ctx.screen.blit(bgm_percent, bgm_percent_rect)
+            bgm_percent = font_small.render(f"{int(current_bgm_volume * 100)}%", True, const.CYAN)
+            bgm_percent_rect = bgm_percent.get_rect(left=bgm_slider_x + slider_width + 12, centery=bgm_slider_y + slider_height // 2)
+            ctx.screen.blit(bgm_percent, bgm_percent_rect)
 
-        sfx_label = font_medium.render("효과음 볼륨", True, const.WHITE)
-        sfx_label_rect = sfx_label.get_rect(left=sfx_slider_x, bottom=sfx_slider_y - 10)
-        ctx.screen.blit(sfx_label, sfx_label_rect)
+            sfx_label = font_medium.render("효과음 볼륨", True, const.WHITE)
+            sfx_label_rect = sfx_label.get_rect(left=panel_x + margin_x, centery=sfx_slider_y + slider_height // 2)
+            ctx.screen.blit(sfx_label, sfx_label_rect)
 
-        pygame.draw.rect(ctx.screen, (60, 60, 60), (sfx_slider_x, sfx_slider_y, slider_width, slider_height), border_radius=5)
-        pygame.draw.rect(
-            ctx.screen,
-            (0, 255, 100),
-            (sfx_slider_x, sfx_slider_y, int(slider_width * current_sfx_volume), slider_height),
-            border_radius=5,
-        )
+            pygame.draw.rect(ctx.screen, (64, 66, 76), (sfx_slider_x, sfx_slider_y, slider_width, slider_height), border_radius=6)
+            pygame.draw.rect(
+                ctx.screen,
+                (0, 255, 100),
+                (sfx_slider_x, sfx_slider_y, int(slider_width * current_sfx_volume), slider_height),
+                border_radius=6,
+            )
 
-        sfx_handle_x = sfx_slider_x + int(slider_width * current_sfx_volume)
-        sfx_handle_rect = pygame.Rect(
-            sfx_handle_x - handle_size // 2,
-            sfx_slider_y - (handle_size - slider_height) // 2,
-            handle_size,
-            handle_size,
-        )
-        pygame.draw.circle(
-            ctx.screen,
-            const.WHITE if selected_slider == "sfx" else (200, 200, 200),
-            (sfx_handle_x, sfx_slider_y + slider_height // 2),
-            handle_size // 2,
-        )
+            sfx_handle_x = sfx_slider_x + int(slider_width * current_sfx_volume)
+            sfx_handle_rect = pygame.Rect(
+                sfx_handle_x - handle_size // 2,
+                sfx_slider_y - (handle_size - slider_height) // 2,
+                handle_size,
+                handle_size,
+            )
+            pygame.draw.circle(
+                ctx.screen,
+                const.WHITE if (selected_slider == "sfx" or focus == "sfx") else (210, 210, 210),
+                (sfx_handle_x, sfx_slider_y + slider_height // 2),
+                handle_size // 2,
+            )
 
-        sfx_percent = font_small.render(f"{int(current_sfx_volume * 100)}%", True, (0, 255, 100))
-        sfx_percent_rect = sfx_percent.get_rect(left=sfx_slider_x + slider_width + 20, centery=sfx_slider_y + slider_height // 2)
-        ctx.screen.blit(sfx_percent, sfx_percent_rect)
+            sfx_percent = font_small.render(f"{int(current_sfx_volume * 100)}%", True, (0, 255, 100))
+            sfx_percent_rect = sfx_percent.get_rect(left=sfx_slider_x + slider_width + 12, centery=sfx_slider_y + slider_height // 2)
+            ctx.screen.blit(sfx_percent, sfx_percent_rect)
 
-        toggle_hover = toggle_rect.collidepoint(pygame.mouse.get_pos())
-        toggle_color = (70, 110, 170) if toggle_hover else (45, 55, 70)
-        pygame.draw.rect(ctx.screen, toggle_color, toggle_rect, border_radius=6)
-        pygame.draw.rect(ctx.screen, const.WHITE, toggle_rect, 2, border_radius=6)
-        toggle_text = font_medium.render("모던 루프 사용", True, const.WHITE)
-        toggle_text_rect = toggle_text.get_rect(left=toggle_rect.x + 50, centery=toggle_rect.centery)
-        ctx.screen.blit(toggle_text, toggle_text_rect)
+        # (미니멀 구성: UI/환경 슬라이더 제거)
 
-        checkbox_size = 22
-        checkbox_rect = pygame.Rect(
-            toggle_rect.x + 15,
-            toggle_rect.centery - checkbox_size // 2,
-            checkbox_size,
-            checkbox_size,
-        )
-        pygame.draw.rect(ctx.screen, const.WHITE, checkbox_rect, 2, border_radius=4)
-        if modern_loop_enabled:
-            pygame.draw.rect(ctx.screen, (0, 220, 180), checkbox_rect.inflate(-6, -6), border_radius=3)
+        # 리미터 토글
+        def draw_toggle(rect: pygame.Rect, label: str, checked: bool, hover_color=(70, 110, 170), focused: bool = False, enabled: bool = True):
+            toggle_hover = rect.collidepoint(pygame.mouse.get_pos()) and enabled
+            base_color = (45, 55, 70)
+            toggle_color = hover_color if toggle_hover else base_color
+            pygame.draw.rect(ctx.screen, toggle_color, rect, border_radius=6)
+            border_col = const.WHITE if enabled else (140, 140, 140)
+            pygame.draw.rect(ctx.screen, border_col, rect, 2, border_radius=6)
+            if focused:
+                # 포커스 시 하이라이트 링 추가
+                pygame.draw.rect(ctx.screen, (90, 160, 220), rect.inflate(6, 6), 2, border_radius=8)
+            text_col = const.WHITE if enabled else (170, 170, 170)
+            text_surface = font_medium.render(label, True, text_col)
+            text_rect = text_surface.get_rect(left=rect.x + 50, centery=rect.centery)
+            ctx.screen.blit(text_surface, text_rect)
+            checkbox_size = 18
+            checkbox_rect = pygame.Rect(rect.x + 15, rect.centery - checkbox_size // 2, checkbox_size, checkbox_size)
+            pygame.draw.rect(ctx.screen, border_col, checkbox_rect, 2, border_radius=4)
+            if checked:
+                fill_col = (0, 220, 180) if enabled else (120, 180, 180)
+                pygame.draw.rect(ctx.screen, fill_col, checkbox_rect.inflate(-6, -6), border_radius=3)
+            return checkbox_rect
 
-        note_text = font_small.render("다음 게임부터 적용", True, (160, 160, 160))
-        note_rect = note_text.get_rect(left=toggle_rect.x, top=toggle_rect.bottom + 4)
-        ctx.screen.blit(note_text, note_rect)
+        if current_tab == 'sound':
+            draw_toggle(limiter_toggle_rect, "효과음 리미터 켜기(피크 억제)", limiter_enabled, focused=(focus == "limiter"))
+            draw_toggle(duck_toggle_rect, "특정 효과음이 날 때 BGM 자동 낮춤", duck_enabled, focused=(focus == "duck"))
+            # 세부 항목(보스/폭발)은 메인 토글이 켜졌을 때만 활성
+            draw_toggle(duck_boss_toggle_rect, "적용 대상: 보스 효과음", duck_boss, focused=(focus == "duck_boss"), enabled=duck_enabled)
+            draw_toggle(duck_explosion_toggle_rect, "적용 대상: 폭발 효과음", duck_explosion, focused=(focus == "duck_explosion"), enabled=duck_enabled)
 
-        button_color = (100, 150, 255) if back_button_rect.collidepoint(pygame.mouse.get_pos()) else (50, 50, 50)
+        button_hover = back_button_rect.collidepoint(pygame.mouse.get_pos()) or (focus == "back")
+        button_color = (100, 150, 255) if button_hover else (50, 50, 50)
         pygame.draw.rect(ctx.screen, button_color, back_button_rect, border_radius=5)
         pygame.draw.rect(ctx.screen, const.WHITE, back_button_rect, 2, border_radius=5)
 
@@ -333,9 +401,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         back_text_rect = back_text.get_rect(center=back_button_rect.center)
         ctx.screen.blit(back_text, back_text_rect)
 
-        hint_text = font_small.render("마우스 클릭/드래그/휠로 조절, M키로 모던 루프 토글, ESC로 돌아가기", True, (150, 150, 150))
-        hint_rect = hint_text.get_rect(center=(ctx.width // 2, panel_y + panel_height - 30))
-        ctx.screen.blit(hint_text, hint_rect)
+        # 하단 힌트 문구 제거(요청)
 
         pygame.display.flip()
         clock.tick(60)
@@ -348,67 +414,185 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 if event.key == pygame.K_ESCAPE:
                     current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
                     current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
-                    ctx.set_modern_loop_enabled(modern_loop_enabled)
+                    # 옵션 반영
+                    sm.set_limiter_enabled(limiter_enabled)
+                    sm.set_ducking(enabled=duck_enabled)
+                    # 트리거 반영
+                    triggers = set()
+                    if duck_boss:
+                        triggers.add('boss')
+                    if duck_explosion:
+                        triggers.add('explosion')
+                    sm.set_ducking_triggers(triggers)
+                    # 컨트롤 스킴 저장
+                    settings.set_setting('controls','control_scheme', control_scheme)
+                    settings.save_settings()
                     return
+                if event.key == pygame.K_TAB:
+                    current_tab = 'controls' if current_tab == 'sound' else 'sound'
                 if event.key == pygame.K_LEFT:
-                    if selected_slider == "bgm":
+                    if current_tab == 'controls':
+                        if locals().get('focus','bgm') in ('scheme','duck','limiter','back'):
+                            control_scheme = 'keyboard'
+                    elif focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume - 0.05)
                         ctx.apply_bgm_volume(current_bgm_volume)
-                    elif selected_slider == "sfx":
+                        selected_slider = "bgm"
+                    elif focus == "sfx":
                         current_sfx_volume = clamp_volume(current_sfx_volume - 0.05)
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        selected_slider = "sfx"
+                    elif focus == "limiter":
+                        limiter_enabled = not limiter_enabled
+                        sm.set_limiter_enabled(limiter_enabled)
+                    elif focus == "duck":
+                        duck_enabled = not duck_enabled
+                        sm.set_ducking(enabled=duck_enabled)
                 elif event.key == pygame.K_RIGHT:
-                    if selected_slider == "bgm":
+                    if current_tab == 'controls':
+                        if locals().get('focus','bgm') in ('scheme','duck','limiter','back'):
+                            control_scheme = 'mouse_keyboard'
+                    elif focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume + 0.05)
                         ctx.apply_bgm_volume(current_bgm_volume)
-                    elif selected_slider == "sfx":
+                        selected_slider = "bgm"
+                    elif focus == "sfx":
                         current_sfx_volume = clamp_volume(current_sfx_volume + 0.05)
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        selected_slider = "sfx"
+                    elif focus == "limiter":
+                        limiter_enabled = not limiter_enabled
+                        sm.set_limiter_enabled(limiter_enabled)
+                    elif focus == "duck":
+                        duck_enabled = not duck_enabled
+                        sm.set_ducking(enabled=duck_enabled)
                 elif event.key == pygame.K_UP:
-                    selected_slider = "bgm"
+                    order = ["scheme"] if current_tab == 'controls' else ["bgm", "sfx", "limiter", "duck"]
+                    if duck_enabled:
+                        order += ["duck_boss", "duck_explosion"]
+                    order += ["back"]
+                    focus = order[(order.index(focus) - 1) % len(order)] if focus in order else "bgm"
                 elif event.key == pygame.K_DOWN:
-                    selected_slider = "sfx"
-                elif event.key == pygame.K_m:
-                    ctx.play_button_click_sound()
-                    modern_loop_enabled = not modern_loop_enabled
-                    ctx.set_modern_loop_enabled(modern_loop_enabled)
+                    order = ["scheme"] if current_tab == 'controls' else ["bgm", "sfx", "limiter", "duck"]
+                    if duck_enabled:
+                        order += ["duck_boss", "duck_explosion"]
+                    order += ["back"]
+                    focus = order[(order.index(focus) + 1) % len(order)] if focus in order else "bgm"
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
-                    if toggle_rect.collidepoint(pygame.mouse.get_pos()):
+                    if current_tab == 'controls' and focus == 'scheme':
+                        control_scheme = 'mouse_keyboard' if control_scheme == 'keyboard' else 'keyboard'
+                    elif focus == "limiter":
+                        limiter_enabled = not limiter_enabled
+                        sm.set_limiter_enabled(limiter_enabled)
+                    elif focus == "duck":
+                        duck_enabled = not duck_enabled
+                        sm.set_ducking(enabled=duck_enabled)
+                    elif focus == "duck_boss" and duck_enabled:
+                        duck_boss = not duck_boss
+                        triggers = set()
+                        if duck_boss:
+                            triggers.add('boss')
+                        if duck_explosion:
+                            triggers.add('explosion')
+                        sm.set_ducking_triggers(triggers)
+                    elif focus == "duck_explosion" and duck_enabled:
+                        duck_explosion = not duck_explosion
+                        triggers = set()
+                        if duck_boss:
+                            triggers.add('boss')
+                        if duck_explosion:
+                            triggers.add('explosion')
+                        sm.set_ducking_triggers(triggers)
+                    elif focus == "back":
                         ctx.play_button_click_sound()
-                        modern_loop_enabled = not modern_loop_enabled
-                        ctx.set_modern_loop_enabled(modern_loop_enabled)
-
+                        current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
+                        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        sm.set_limiter_enabled(limiter_enabled)
+                        sm.set_ducking(enabled=duck_enabled)
+                        triggers = set()
+                        if duck_boss:
+                            triggers.add('boss')
+                        if duck_explosion:
+                            triggers.add('explosion')
+                        sm.set_ducking_triggers(triggers)
+                        return
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = pygame.mouse.get_pos()
-                mouse_x = mouse_pos[0]
+                # 왼쪽 버튼(1)으로만 토글/슬라이더 조작 허용
+                if event.button == 1:
+                    mouse_pos = pygame.mouse.get_pos()
+                    mouse_x = mouse_pos[0]
 
-                if back_button_rect.collidepoint(mouse_pos):
-                    ctx.play_button_click_sound()
-                    current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
-                    current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
-                    ctx.set_modern_loop_enabled(modern_loop_enabled)
-                    return
-                if toggle_rect.collidepoint(mouse_pos):
-                    ctx.play_button_click_sound()
-                    modern_loop_enabled = not modern_loop_enabled
-                    ctx.set_modern_loop_enabled(modern_loop_enabled)
-                    continue
+                    # 탭 클릭 처리
+                    if sound_tab_rect.collidepoint(mouse_pos):
+                        current_tab = 'sound'
+                        continue
+                    if ctrl_tab_rect.collidepoint(mouse_pos):
+                        current_tab = 'controls'
+                        continue
 
-                bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
-                if bgm_slider_rect.collidepoint(mouse_pos) or bgm_handle_rect.collidepoint(mouse_pos):
-                    selected_slider = "bgm"
-                    dragging = True
-                    relative_x = mouse_x - bgm_slider_x
-                    current_bgm_volume = clamp_volume(relative_x / slider_width)
-                    ctx.apply_bgm_volume(current_bgm_volume)
+                    if back_button_rect.collidepoint(mouse_pos):
+                        ctx.play_button_click_sound()
+                        current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
+                        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        sm.set_limiter_enabled(limiter_enabled)
+                        sm.set_ducking(enabled=duck_enabled)
+                        # 단순 구성: 덕킹 트리거는 기본값 유지
+                        return
+                    # 토글류
+                    if current_tab == 'controls':
+                        if 'kb_rect' in locals() and kb_rect.collidepoint(mouse_pos):
+                            control_scheme = 'keyboard'
+                            continue
+                        if 'mk_rect' in locals() and mk_rect.collidepoint(mouse_pos):
+                            control_scheme = 'mouse_keyboard'
+                            continue
+                    if current_tab == 'sound' and limiter_toggle_rect.collidepoint(mouse_pos):
+                        ctx.play_button_click_sound()
+                        limiter_enabled = not limiter_enabled
+                        sm.set_limiter_enabled(limiter_enabled)
+                        continue
+                    if current_tab == 'sound' and duck_toggle_rect.collidepoint(mouse_pos):
+                        ctx.play_button_click_sound()
+                        duck_enabled = not duck_enabled
+                        sm.set_ducking(enabled=duck_enabled)
+                        continue
+                    if current_tab == 'sound' and duck_enabled and duck_boss_toggle_rect.collidepoint(mouse_pos):
+                        ctx.play_button_click_sound()
+                        duck_boss = not duck_boss
+                        triggers = set()
+                        if duck_boss:
+                            triggers.add('boss')
+                        if duck_explosion:
+                            triggers.add('explosion')
+                        sm.set_ducking_triggers(triggers)
+                        continue
+                    if current_tab == 'sound' and duck_enabled and duck_explosion_toggle_rect.collidepoint(mouse_pos):
+                        ctx.play_button_click_sound()
+                        duck_explosion = not duck_explosion
+                        triggers = set()
+                        if duck_boss:
+                            triggers.add('boss')
+                        if duck_explosion:
+                            triggers.add('explosion')
+                        sm.set_ducking_triggers(triggers)
+                        continue
 
-                sfx_slider_rect = pygame.Rect(sfx_slider_x, sfx_slider_y - 10, slider_width, slider_height + 20)
-                if sfx_slider_rect.collidepoint(mouse_pos) or sfx_handle_rect.collidepoint(mouse_pos):
-                    selected_slider = "sfx"
-                    dragging = True
-                    relative_x = mouse_x - sfx_slider_x
-                    current_sfx_volume = clamp_volume(relative_x / slider_width)
-                    current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                    bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
+                    if current_tab == 'sound' and (bgm_slider_rect.collidepoint(mouse_pos) or ('bgm_handle_rect' in locals() and bgm_handle_rect.collidepoint(mouse_pos))):
+                        selected_slider = "bgm"
+                        dragging = True
+                        relative_x = mouse_x - bgm_slider_x
+                        current_bgm_volume = clamp_volume(relative_x / slider_width)
+                        ctx.apply_bgm_volume(current_bgm_volume)
+
+                    sfx_slider_rect = pygame.Rect(sfx_slider_x, sfx_slider_y - 10, slider_width, slider_height + 20)
+                    if current_tab == 'sound' and (sfx_slider_rect.collidepoint(mouse_pos) or ('sfx_handle_rect' in locals() and sfx_handle_rect.collidepoint(mouse_pos))):
+                        selected_slider = "sfx"
+                        dragging = True
+                        relative_x = mouse_x - sfx_slider_x
+                        current_sfx_volume = clamp_volume(relative_x / slider_width)
+                        current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+
 
             elif event.type == pygame.MOUSEBUTTONUP:
                 dragging = False
@@ -417,29 +601,33 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
             elif event.type == pygame.MOUSEMOTION and dragging:
                 mouse_x = pygame.mouse.get_pos()[0]
-                if selected_slider == "bgm":
+                if current_tab == 'sound' and selected_slider == "bgm":
                     relative_x = mouse_x - bgm_slider_x
                     current_bgm_volume = clamp_volume(relative_x / slider_width)
                     ctx.apply_bgm_volume(current_bgm_volume)
-                elif selected_slider == "sfx":
+                elif current_tab == 'sound' and selected_slider == "sfx":
                     relative_x = mouse_x - sfx_slider_x
                     current_sfx_volume = clamp_volume(relative_x / slider_width)
                     current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                # (미니멀 구성: UI/ENV 슬라이더 제거)
 
             elif event.type == pygame.MOUSEWHEEL:
                 mouse_pos = pygame.mouse.get_pos()
                 bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
                 sfx_slider_rect = pygame.Rect(sfx_slider_x, sfx_slider_y - 10, slider_width, slider_height + 20)
 
-                if bgm_slider_rect.collidepoint(mouse_pos) or selected_slider == "bgm":
+                if current_tab == 'sound' and (bgm_slider_rect.collidepoint(mouse_pos) or selected_slider == "bgm"):
                     current_bgm_volume = clamp_volume(current_bgm_volume + event.y * 0.02)
                     ctx.apply_bgm_volume(current_bgm_volume)
                     selected_slider = "bgm"
-                elif sfx_slider_rect.collidepoint(mouse_pos) or selected_slider == "sfx":
+                elif current_tab == 'sound' and (sfx_slider_rect.collidepoint(mouse_pos) or selected_slider == "sfx"):
                     current_sfx_volume = clamp_volume(current_sfx_volume + event.y * 0.02)
                     current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                     selected_slider = "sfx"
+                # (미니멀 구성: UI/ENV 휠 조정 제거)
 
     ctx.store_bgm_volume(current_bgm_volume)
     ctx.set_sfx_volume(current_sfx_volume)
-    ctx.set_modern_loop_enabled(modern_loop_enabled)
+    sm.set_limiter_enabled(limiter_enabled)
+    sm.set_ducking(enabled=duck_enabled)
+    # 단순 구성: 덕킹 트리거는 기본값 유지

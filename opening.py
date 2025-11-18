@@ -68,6 +68,26 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
     while True:
         animation_timer += 1
         typing_timer += typing_speed
+
+        # 단일 이벤트 수집(프레임당 1회) 후 처리: ESC만 즉시 스킵, 그 외 입력은 연출 트리거
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                # ESC는 즉시 스킵 허용
+                if event.key == pygame.K_ESCAPE:
+                    return
+                # 안내 표시 이후에는 키 입력으로 특별 연출 시작
+                if show_press_key and not special_animation_active:
+                    special_animation_active = True
+                    special_animation_timer = 0
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                # 안내 표시 이후에는 클릭으로도 특별 연출 시작
+                if show_press_key and not special_animation_active:
+                    special_animation_active = True
+                    special_animation_timer = 0
         
         # 1초 후에 "Press any key" 표시 시작
         if animation_timer > 60:  # 1초 = 60프레임 (60fps)
@@ -140,19 +160,7 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
                     'size': random.randint(5, 15)
                 })
         
-        # 이벤트 처리
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.KEYDOWN:
-                if show_press_key:  # 3초 후에만 키 입력 받기
-                    if not special_animation_active:
-                        # 특별 애니메이션 시작
-                        special_animation_active = True
-                        special_animation_timer = 0
-                        print("!")
-                    # 특별 애니메이션이 이미 활성화되어 있으면 무시
+        # 추가 이벤트 처리는 위 단일 루프에서 처리함 (중복 소비 방지)
         
         # 화면 그리기
         SCREEN.fill((0, 0, 0))  # BLACK

@@ -9,6 +9,8 @@
 import pygame
 import random
 import math
+import os
+from resource_path import resource_path
 
 
 # 전역 변수들
@@ -978,7 +980,7 @@ class WhipEffect(SpecialEffect):
         # 사운드 로드 시도
         try:
             import pygame
-            self.whip_sound = pygame.mixer.Sound("sounds/whip_effect.wav")
+            self.whip_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "whip_effect.wav")))
         except:
             self.whip_sound = None
     
@@ -1061,7 +1063,7 @@ class BalloonEffect(SpecialEffect):
         # 사운드 로드
         try:
             import pygame
-            self.balloon_boom_sound = pygame.mixer.Sound("sounds/balloonboom.wav")
+            self.balloon_boom_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "balloonboom.wav")))
         except:
             self.balloon_boom_sound = None
     
@@ -1194,7 +1196,7 @@ class TearsEffect(SpecialEffect):
         # 눈물 이미지 로드 시도
         try:
             import pygame
-            self.tear_img = pygame.image.load("tear_drop.png").convert_alpha()
+            self.tear_img = pygame.image.load(resource_path("tear_drop.png")).convert_alpha()
         except:
             self.tear_img = None
     
@@ -1286,7 +1288,7 @@ class QuakeEffect(SpecialEffect):
         # 사운드 로드
         try:
             import pygame
-            self.quake_sound = pygame.mixer.Sound("sounds/quake_sound.wav")
+            self.quake_sound = pygame.mixer.Sound(resource_path(os.path.join("sounds", "quake_sound.wav")))
         except:
             self.quake_sound = None
     

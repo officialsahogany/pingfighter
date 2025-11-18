@@ -1,0 +1,45 @@
+Windows PyInstaller packaging hints for PingFighter (BGM fix)
+-----------------------------------------------------------
+
+Symptom: After packaging, BGM (background music) does not play.
+
+Most-common causes
+- Data files were not bundled (bgm/*.mp3|*.ogg missing in dist).
+- MP3 decoder DLLs are not available at runtime; OGG works but MP3 fails.
+
+Quick fix (CLI)
+1) Prefer OGG in runtime or ship both:
+   - Set env to prefer OGG at runtime:
+     set PINGF_BGM_EXT=ogg
+   - Or keep both .mp3 and .ogg copies under bgm/.
+
+2) Include data folders explicitly when building (PyInstaller >= 5):
+   - One-folder:
+     pyinstaller -y -n PingFighter --clean --windowed \
+       --add-data "bgm;bgm" --add-data "sounds;sounds" --add-data "fonts;fonts" \
+       --add-data "images;images" playable_bosspong.py
+
+   - One-file:
+     pyinstaller -y -n PingFighter --clean --windowed --onefile \
+       --add-data "bgm;bgm" --add-data "sounds;sounds" --add-data "fonts;fonts" \
+       --add-data "images;images" playable_bosspong.py
+
+   Note: On Windows, the --add-data separator is a semicolon: "src;dest".
+
+3) If using a .spec file, add datas entries:
+   datas = [
+       ("bgm", "bgm"),
+       ("sounds", "sounds"),
+       ("fonts", "fonts"),
+       ("images", "images"),
+   ]
+   and pass datas=datas to Analysis(...).
+
+Mixer init
+- Ensure pygame.mixer.init() is called before BGM playback.
+- The game already initializes the BGM manager lazily; no extra changes needed.
+
+Verification
+- Run the packaged EXE with "set PINGF_STAGE7_HUD=1" to verify HUD displays.
+- Check console logs for "BGM 재생 시작"; it prints the actual filename used.
+

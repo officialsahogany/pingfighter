@@ -88,7 +88,7 @@ BOSS_CONFIGS = {
         "color": (120, 170, 255),
         "accel": 0.3,
         "decel": 0.4,
-        "max_speed": 4.5,
+        "max_speed": 4.95,
         "instant_stop": 0.5,
         "predict_distance": 140,
         "skill_power": 0.3,

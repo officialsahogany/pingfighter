@@ -778,7 +778,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     # 안내 텍스트 (더 크고 깔끔하게)
     if gacha_phase == 0:
         guide_font = pygame.font.Font(resource_path("NanumSquareB.ttf"), 32)
-        guide_text = "SPACE를 눌러 뽑기 시작!"
+        guide_text = "클릭 또는 SPACE로 뽑기 시작!"
         text = guide_font.render(guide_text, True, (255, 255, 255))
         # 텍스트 그림자
         shadow_text = guide_font.render(guide_text, True, (80, 80, 80))
@@ -926,6 +926,16 @@ def run_gacha(screen, width, height, get_item_name_korean, store_passive_item, s
                             gacha_active = False
                             running = False
 
+                # 마우스 클릭으로도 시작/종료 지원
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if gacha_phase == 0:
+                        gacha_phase = 1
+                        gacha_spin_timer = 0
+                        gacha_start_time = pygame.time.get_ticks()
+                    elif gacha_phase == 3:
+                        gacha_active = False
+                        running = False
+
             update_extra_gacha_notice()
             # 뽑기 업데이트
             update_gacha()
@@ -1043,32 +1053,32 @@ def show_gacha_result_page(screen, width, height, gacha_result, get_item_name_ko
                 pygame.quit()
                 sys.exit()
 
-            if event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_SPACE, pygame.K_RETURN):
-                    print(f"  : {gacha_result['name']} (: {gacha_result['type']})")
-                    if gacha_result["type"] == "passive":
-                        item_data = {
-                            "name": gacha_result["name"],
-                            "color": gacha_result["color"],
-                            "effect": gacha_result["name"],
-                            "icon": gacha_result.get("icon"),
-                            "x": width // 2,
-                            "y": height // 2
-                        }
-                        store_passive_item(item_data)
-                    else:
-                        item_data = {
-                            "name": gacha_result["name"],
-                            "color": gacha_result["color"],
-                            "effect": gacha_result["name"],
-                            "icon": gacha_result.get("icon"),
-                            "x": width // 2,
-                            "y": height // 2,
-                            "allow_overflow": True
-                        }
-                        store_active_item(item_data)
+            # 스페이스/엔터 또는 마우스 클릭으로 결과 확정
+            if (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)) or (event.type == pygame.MOUSEBUTTONDOWN):
+                print(f"  : {gacha_result['name']} (: {gacha_result['type']})")
+                if gacha_result["type"] == "passive":
+                    item_data = {
+                        "name": gacha_result["name"],
+                        "color": gacha_result["color"],
+                        "effect": gacha_result["name"],
+                        "icon": gacha_result.get("icon"),
+                        "x": width // 2,
+                        "y": height // 2
+                    }
+                    store_passive_item(item_data)
+                else:
+                    item_data = {
+                        "name": gacha_result["name"],
+                        "color": gacha_result["color"],
+                        "effect": gacha_result["name"],
+                        "icon": gacha_result.get("icon"),
+                        "x": width // 2,
+                        "y": height // 2,
+                        "allow_overflow": True
+                    }
+                    store_active_item(item_data)
 
-                    running = False
+                running = False
         
         # 사이버펑크 그라데이션 배경
         for y in range(height):

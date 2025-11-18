@@ -38,6 +38,12 @@ import ui_manager
 
 # 🏗️ 새로운 아키텍처 시스템
 importlib.reload(items)
+# 설정/입력 스킴 조회용 싱글톤
+try:
+    # settings_system은 런타임 설정을 관리하며, controls.control_scheme 값을 제공합니다.
+    from config.settings_system import get_settings_manager  # 가벼운 딕셔너리 조회 (60fps 안전)
+except Exception:
+    get_settings_manager = None
 # 설정 파일 임포트
 effect_renderer = EffectRenderer()
 try:
@@ -2546,8 +2552,22 @@ def handle_player(keys):
             handle_wind_spirit_as_bottom()  # 윈드 스피릿
         return
     mouse_controls = {}
-    # 키 입력 변수 초기화
-    down_pressed = keys[pygame.K_DOWN]
+    # 키 입력 변수 초기화 (+ 마우스+키보드 스킴일 때 우클릭=아래키 매핑)
+    control_scheme = 'keyboard'
+    mouse_buttons = (False, False, False)
+    if get_settings_manager is not None:
+        try:
+            control_scheme = get_settings_manager().get_setting('controls', 'control_scheme', 'keyboard')
+        except Exception:
+            control_scheme = 'keyboard'
+    if control_scheme == 'mouse_keyboard':
+        # (left, middle, right)
+        try:
+            mouse_buttons = pygame.mouse.get_pressed(3)
+        except Exception:
+            mouse_buttons = (False, False, False)
+    # ↓키 또는 (마우스+키보드 스킴에서) 우클릭을 아래키로 간주
+    down_pressed = keys[pygame.K_DOWN] or (control_scheme == 'mouse_keyboard' and mouse_buttons[2])
     special_gauge_max = get_max_gauge()  # 🔧 아카데미 스킬 적용된 최대치
     # ✅ 스턴 상태 처리
     if player_stunned_timer > 0:
@@ -2916,7 +2936,7 @@ def handle_player(keys):
                 if serve_wait_time >= 6000:  # 6초 이상 대기했을 때만
                     can_use_rolling = True
             # 디버깅: 대쉬 조건 확인
-            if keys[pygame.K_DOWN]:
+            if down_pressed:
                 print(f"아래키 눌림 - 대쉬 조건: charges={rolling_charges}, stun_timer={rolling_stun_timer}, waiting_serve={is_waiting_for_serve}, player_serve={is_player_serve}, can_use={can_use_rolling}")
                 if is_player_serve and is_waiting_for_serve:
                     serve_wait_time = pygame.time.get_ticks() - waiting_start_time
@@ -2932,7 +2952,8 @@ def handle_player(keys):
                     discounted_cost = int(discounted_cost * 0.8)  # 대쉬기어 20% 할인
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(DEFAULT_TIMER, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
-                if keys[pygame.K_LEFT] and keys[pygame.K_DOWN] and special_gauge >= required_gauge:
+                # 좌/우 + 아래(또는 우클릭) 조합으로 대쉬 발동
+                if keys[pygame.K_LEFT] and down_pressed and special_gauge >= required_gauge:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     rolling_active = True
                     # 🆕 대쉬 효과음 재생
@@ -3018,7 +3039,7 @@ def handle_player(keys):
                 # 🔧 대쉬 매니저와 4번째 대쉬 위치 동기화
                 if dash is not None and rolling_charge_timer > 0:
                     dash.sync_with_legacy_system(rolling_charges, rolling_charge_timer, rolling_consecutive_count)
-                elif keys[pygame.K_RIGHT] and keys[pygame.K_DOWN] and special_gauge >= required_gauge:
+                elif keys[pygame.K_RIGHT] and down_pressed and special_gauge >= required_gauge:
                     # 아래키 + 오른쪽 - 대쉬 실행
                     rolling_active = True
                     # 🆕 대쉬 효과음 재생
@@ -8527,6 +8548,27 @@ def show_character_selection():
                         return characters[selected]["id"]
                     else:
                         pass
+            elif event.type == pygame.MOUSEWHEEL:
+                # 마우스 휠로 카드 전환 (위=이전, 아래=다음) + 수평 스크롤 지원
+                if not card_transition_active:
+                    previous_selected = selected
+                    if getattr(event, 'x', 0) > 0 or event.y < 0:
+                        selected = (selected + 1) % len(characters)
+                    elif getattr(event, 'x', 0) < 0 or event.y > 0:
+                        selected = (selected - 1) % len(characters)
+                    start_card_transition()
+                    play_sound_safe(SOUND_BUTTON_HOVER)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                # 레거시 백엔드(버튼 4/5) 지원
+                if event.button == 4 or event.button == 5:
+                    if not card_transition_active:
+                        previous_selected = selected
+                        if event.button == 4:
+                            selected = (selected - 1) % len(characters)
+                        else:
+                            selected = (selected + 1) % len(characters)
+                        start_card_transition()
+                        play_sound_safe(SOUND_BUTTON_HOVER)
         for y in range(HEIGHT):
             ratio = y / HEIGHT
             r = int(10 + ratio * 30)  # 더 밝은 빨강
@@ -9243,10 +9285,43 @@ def show_difficulty_selection():
         })
     while True:
         animation_timer += 1
+        # 카드 레이아웃을 먼저 계산하여 마우스 이벤트에서 즉시 사용
+        cards_per_row = 2
+        card_width = 250
+        card_height = 170
+        card_margin = 40
+        start_x = (WIDTH - (cards_per_row * card_width + (cards_per_row - 1) * card_margin)) // 2
+        start_y = 120
+        difficulty_rects = []
+        for i in range(len(difficulties)):
+            row = i // cards_per_row
+            col = i % cards_per_row
+            card_x = start_x + col * (card_width + card_margin)
+            card_y = start_y + row * (card_height + card_margin + 20)
+            difficulty_rects.append(pygame.Rect(card_x, card_y, card_width, card_height))
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            elif event.type == pygame.MOUSEMOTION:
+                # 호버 시 선택 이동
+                mx, my = event.pos
+                for idx, rect in enumerate(difficulty_rects):
+                    if rect.collidepoint(mx, my):
+                        if selected != idx:
+                            selected = idx
+                            play_sound_safe(SOUND_BUTTON_HOVER)
+                        break
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    # 좌클릭으로 난이도 확정 반환
+                    mx, my = event.pos
+                    for idx, rect in enumerate(difficulty_rects):
+                        if rect.collidepoint(mx, my):
+                            selected = idx
+                            play_sound_safe(SOUND_BUTTON_CLICK)
+                            return difficulties[selected]["ai_mode"]
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return None  # 캐릭터 선택으로 돌아가기
@@ -15174,7 +15249,20 @@ def main(stage_num, new_boss_mode=False):
             return
         last_nine_state = current_nine_state
         if not player_stunned:
-            current_space_state = keys[pygame.K_SPACE]
+            # 스페이스(대시/파워스매시) 입력: 마우스+키보드 스킴일 때는 좌클릭을 스페이스로 간주
+            control_scheme = 'keyboard'
+            mouse_buttons = (False, False, False)
+            if get_settings_manager is not None:
+                try:
+                    control_scheme = get_settings_manager().get_setting('controls', 'control_scheme', 'keyboard')
+                except Exception:
+                    control_scheme = 'keyboard'
+            if control_scheme == 'mouse_keyboard':
+                try:
+                    mouse_buttons = pygame.mouse.get_pressed(3)
+                except Exception:
+                    mouse_buttons = (False, False, False)
+            current_space_state = bool(keys[pygame.K_SPACE] or (control_scheme == 'mouse_keyboard' and mouse_buttons[0]))
             space_just_pressed = current_space_state and not last_space_state
             if space_just_pressed:
                 space_press_frame = frame_counter
@@ -15241,7 +15329,7 @@ def main(stage_num, new_boss_mode=False):
                 max_frame_gap = 2  # 최대 2프레임(0.033초) 차이까지 동시 입력으로 인정 (3 → 2)
                 max_input_age = 8  # 최대 8프레임(약 0.13초) 전까지의 입력만 유효
                                     # 🚀 파워스매싱/고스트샷 발동: 게이지가 준비되었고 스페이스를 홀드하고 있다면
-                if special_gauge >= 350 and keys[pygame.K_SPACE]:  # 파워스매시 발동 조건: 350 이상
+                if special_gauge >= 350 and current_space_state:  # 파워스매시 발동 조건: 350 이상
                     # 먼저 고스트샷 조건 체크
                     global mega_smashing_active, mega_smashing_bonus_applied, recent_dash_time, mega_smashing_start_time, power_smashing_parabola_active  # global 선언을 먼저
                     current_time = pygame.time.get_ticks()

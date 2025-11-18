@@ -119,6 +119,7 @@ class SettingsUI:
 
         self.category_key_map = {
             SettingCategory.LANGUAGE: 'language',
+            SettingCategory.CONTROLS: 'controls',
             SettingCategory.GRAPHICS: 'graphics',
             SettingCategory.AUDIO: 'audio',
             SettingCategory.GAMEPLAY: 'gameplay',
@@ -128,6 +129,15 @@ class SettingsUI:
     def _get_control_items(self) -> List[Dict]:
         """조작 설정 항목들"""
         items = []
+
+        # 조작 방식 선택(키보드 / 마우스+키보드)
+        items.append({
+            'type': 'dropdown',
+            'key': 'control_scheme',
+            'label': '조작 방식',
+            'options': ['keyboard', 'mouse_keyboard'],
+            'format': lambda x: '키보드만' if x == 'keyboard' else '마우스+키보드'
+        })
         
         for action, binding in self.settings_manager.key_bindings.items():
             items.append({
@@ -211,12 +221,12 @@ class SettingsUI:
         ]
         
     def _get_audio_items(self) -> List[Dict]:
-        """오디오 설정 항목들"""
+        """오디오 설정(미니멀) - BGM, 효과음, 리미터, BGM 자동 낮춤"""
         return [
             {
                 'type': 'slider',
-                'key': 'master_volume',
-                'label': '마스터 볼륨',
+                'key': 'music_volume',
+                'label': 'BGM 볼륨',
                 'min': 0,
                 'max': 1,
                 'step': 0.1
@@ -230,27 +240,14 @@ class SettingsUI:
                 'step': 0.1
             },
             {
-                'type': 'slider',
-                'key': 'music_volume',
-                'label': '음악 볼륨',
-                'min': 0,
-                'max': 1,
-                'step': 0.1
+                'type': 'toggle',
+                'key': 'enable_limiter',
+                'label': '효과음 리미터 켜기(피크 억제)'
             },
             {
                 'type': 'toggle',
-                'key': 'mute_all',
-                'label': '모두 음소거'
-            },
-            {
-                'type': 'toggle',
-                'key': 'spatial_audio',
-                'label': '공간 음향'
-            },
-            {
-                'type': 'toggle',
-                'key': 'dynamic_music',
-                'label': '동적 음악'
+                'key': 'ducking_enabled',
+                'label': '특정 효과음이 날 때 BGM 자동 낮춤'
             }
         ]
         

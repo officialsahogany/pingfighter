@@ -563,65 +563,13 @@ class AcademyUI:
         return surface
 
     def handle_mouse_click(self, pos):
-        """마우스 클릭 처리"""
-        x, y = pos
-        
-        # 탭 클릭 확인
-        tab_y = 160
-        tab_height = 30
-        tab_width = 100
-        
-        # 대쉬 탭
-        if 200 <= x <= 200 + tab_width and tab_y <= y <= tab_y + tab_height:
-            self.selected_tree = "dash"
-            self._clamp_selection_to_current_tree()
-            self.tab_selection_mode = False
-            self.update_skill_positions()
-            return None
-            
-        # 아이템 탭
-        if 300 <= x <= 300 + tab_width and tab_y <= y <= tab_y + tab_height:
-            self.selected_tree = "item"
-            self._clamp_selection_to_current_tree()
-            self.tab_selection_mode = False
-            self.update_skill_positions()
-            if ACADEMY_DEBUG:
-                print("[AcademyUI] mouse tab -> item")
-            return None
-            
-        # 패들 탭
-        if 400 <= x <= 400 + tab_width and tab_y <= y <= tab_y + tab_height:
-            self.selected_tree = "paddle"
-            self._clamp_selection_to_current_tree()
-            self.tab_selection_mode = False
-            self.update_skill_positions()
-            return None
-        
-        # 스킬 클릭 확인
-        if hasattr(self, 'skill_positions'):
-            for skill_id, pos_data in self.skill_positions.items():
-                skill_x = pos_data['x']
-                skill_y = pos_data['y']
-                skill_size = 60
-                
-                # 스킬 박스 영역 체크
-                if skill_x <= x <= skill_x + skill_size and skill_y <= y <= skill_y + skill_size:
-                    # 스킬 선택
-                    self.set_selected_skill_by_id(skill_id)
-                    
-                    # 더블클릭처럼 바로 업그레이드 시도
-                    tree_data = SKILL_TREES.get(self.selected_tree)
-                    if tree_data:
-                        for i, skill in enumerate(tree_data["skills"]):
-                            if skill["id"] == skill_id:
-                                self.selected_skill_index = i
-                                if self.skill_system.can_upgrade_skill(skill_id):
-                                    self.skill_system.upgrade_skill(skill_id)
-                                    self.start_levelup_animation(skill_id)
-                                break
-                    return None
-        
-        return None
+        """마우스 클릭 처리(드로잉 좌표계와 동일한 탭/아이콘 영역 사용).
+
+        기존 하드코딩 좌표를 제거하고, draw_academy_screen/handle_click과
+        동일한 계산식으로 탭과 스킬 아이콘을 판정합니다.
+        """
+        # 최신 통합 클릭 처리 사용
+        return self.handle_click(pos)
     
     def handle_mouse_hover(self, pos):
         """마우스 호버 처리"""
@@ -1899,32 +1847,45 @@ class AcademyUI:
                         self.skill_system.register_manual_investment("smasher", cost)
                     return None
         elif self.selected_tree in SKILL_TREES:
-            tree_data = SKILL_TREES[self.selected_tree]
-            start_y = 200
-            skill_size = 80
-            margin = 20
-            
-            for i, skill in enumerate(tree_data["skills"]):
-                skill_x = self.width // 2 - skill_size // 2
-                skill_y = start_y + i * (skill_size + margin)
+            # 아카데미 화면에서 실제로 그려진 아이콘 좌표(self.skill_positions)를 기준으로
+            # 클릭된 스킬을 판정한다. 이렇게 해야 마우스로 찍은 아이콘과 업그레이드되는
+            # 스킬이 정확히 일치한다.
+            self.update_skill_positions()
+
+            # 브랜치형 트리(dash/item/paddle)는 아이콘 크기 60, 선형 트리는 50을 사용
+            if self.selected_tree in ("dash", "item", "paddle"):
+                skill_size = 60
+            else:
+                skill_size = 50
+
+            clicked_skill_id = None
+            for skill_id, pos_data in self.skill_positions.items():
+                skill_x = pos_data["x"]
+                skill_y = pos_data["y"]
                 skill_rect = pygame.Rect(skill_x, skill_y, skill_size, skill_size)
-                
+
                 if skill_rect.collidepoint(pos):
-                    if self.skill_system.can_upgrade_skill(skill["id"]):
-                        # 스킬 업귵58이드 전 레벨 확인
-                        old_level = self.skill_system.get_skill_level(skill["id"])
-                        self.skill_system.upgrade_skill(skill["id"])
-                        new_level = self.skill_system.get_skill_level(skill["id"])
-                        
-                        # 레벨이 올랐으면 애니메이션 시작
-                        if new_level > old_level:
-                            # 레벨업 애니메이션 시작 (모든 레벨업에서)
-                            self.start_levelup_animation(skill["id"])
-                            
-                            # 0→1 전환시에만 언락 애니메이션
-                            if old_level == 0:
-                                self.start_unlock_animation(skill["id"])
-                    return None
+                    clicked_skill_id = skill_id
+                    break
+
+            if clicked_skill_id is not None:
+                if self.skill_system.can_upgrade_skill(clicked_skill_id):
+                    # 선택 상태도 클릭된 스킬로 동기화
+                    self.set_selected_skill_by_id(clicked_skill_id)
+
+                    old_level = self.skill_system.get_skill_level(clicked_skill_id)
+                    self.skill_system.upgrade_skill(clicked_skill_id)
+                    new_level = self.skill_system.get_skill_level(clicked_skill_id)
+
+                    # 레벨이 올랐으면 애니메이션 시작
+                    if new_level > old_level:
+                        # 레벨업 애니메이션 시작 (모든 레벨업에서)
+                        self.start_levelup_animation(clicked_skill_id)
+
+                        # 0→1 전환시에만 언락 애니메이션
+                        if old_level == 0:
+                            self.start_unlock_animation(clicked_skill_id)
+                return None
         
         # 닫기 버튼 클릭 확인
         close_button = pygame.Rect(self.width - 100, 20, 80, 40)

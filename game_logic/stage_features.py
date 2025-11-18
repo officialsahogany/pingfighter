@@ -23,6 +23,12 @@ class StageFeatures:
         self.entity_manager = get_entity_manager()
         
         self.current_stage = 1
+        # Stage7 디버그 플래그(모듈 런타임 전용)
+        self.stage7_debug = {
+            'HUD': False,   # 화면 좌측 상단 간단 HUD
+            'GAUGE': False, # 게이지 로그 출력(미사용, 향후 확장)
+        }
+        self._hud_font = None
 
         # Stage7 렌더링용 임시 Surface 캐시(크기별 1장 재사용)
         self._t7_cache_cell: dict[tuple[int, int], pygame.Surface] = {}
@@ -1016,6 +1022,60 @@ class StageFeatures:
         pygame.draw.rect(screen, (255, 255, 255), (x, y, bar_w, bar_h), 2)
         need_x = x + int(bar_w * (t7['skill_cost'] / gmax))
         pygame.draw.line(screen, (255, 255, 255), (need_x, y - 2), (need_x, y + bar_h + 2), 1)
+
+        # 디버그 HUD (옵션)
+        if self.stage7_debug.get('HUD', False):
+            self._render_stage7_hud(screen)
+
+    def _render_stage7_hud(self, screen: pygame.Surface):
+        t7 = self.stage7_tetris
+        try:
+            if self._hud_font is None:
+                self._hud_font = pygame.font.Font(None, 16)
+        except Exception:
+            return
+        # 다음 스폰 ETA 계산
+        timer = float(t7.get('timer', 0.0))
+        interval = float(t7.get('interval', 30.0))
+        eta = max(0.0, interval - timer)
+        left_cnt = len(t7.get('left_blocks', []))
+        right_cnt = len(t7.get('right_blocks', []))
+        gauge = int(t7.get('gauge_current', 0))
+        gmax = int(t7.get('gauge_max', 200))
+        cost = int(t7.get('skill_cost', 50))
+        lines = [
+            "Stage7 HUD",
+            f"Gauge {gauge}/{gmax} (cost {cost})",
+            f"Timer {timer:0.1f}/{interval:0.1f} (ETA {eta:0.1f}s)",
+            f"Walls L{left_cnt}/R{right_cnt}",
+        ]
+        pad = 6
+        # 크기 산정
+        w = 0
+        h = pad
+        renders = []
+        for s in lines:
+            r = self._hud_font.render(s, True, (220, 235, 255))
+            renders.append(r)
+            w = max(w, r.get_width())
+            h += r.get_height() + 2
+        w += pad * 2
+        h += pad - 2
+        bg = pygame.Surface((w, h), pygame.SRCALPHA)
+        bg.fill((10, 18, 30, 150))
+        pygame.draw.rect(bg, (40, 80, 160, 220), bg.get_rect(), 1)
+        screen.blit(bg, (8, 52))
+        cy = 52 + pad
+        for r in renders:
+            screen.blit(r, (8 + pad, cy))
+            cy += r.get_height() + 2
+
+    # 외부에서 디버그 토글 용이하도록 제공
+    def set_stage7_debug(self, *, hud: bool | None = None, gauge: bool | None = None):
+        if hud is not None:
+            self.stage7_debug['HUD'] = bool(hud)
+        if gauge is not None:
+            self.stage7_debug['GAUGE'] = bool(gauge)
 
     def get_stats(self) -> Dict:
         """스테이지 특수 기능 상태 반환"""

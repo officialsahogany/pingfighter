@@ -5,6 +5,7 @@ BossPong v2.0 - 플레이 가능한 통합 버전
 """
 
 import pygame
+import os
 import sys
 import math
 import random
@@ -151,6 +152,14 @@ class PlayableBossPong:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
+                # F7: Stage7 디버그 HUD 토글
+                elif event.key == pygame.K_F7:
+                    try:
+                        cur = bool(self.stage_features.stage7_debug.get('HUD', False))
+                        self.stage_features.set_stage7_debug(hud=not cur)
+                        print(f"[Stage7][HUD] {'ON' if not cur else 'OFF'}")
+                    except Exception:
+                        pass
                     
                 elif event.key == pygame.K_p:
                     self.paused = not self.paused
@@ -453,3 +462,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+        # Stage7 디버그 HUD 환경변수 토글 (개발 편의)
+        try:
+            if os.getenv('BP_STAGE7_HUD') == '1':
+                self.stage_features.set_stage7_debug(hud=True)
+        except Exception:
+            pass
