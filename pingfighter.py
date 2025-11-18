@@ -60962,6 +60962,7 @@ def _boss_try_emergency_dash() -> bool:
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
     global boss_dash_cooldown_until_ms
+    global ai_mode, ai_enabled
 
     now_ms = pygame.time.get_ticks()
 
@@ -60984,8 +60985,19 @@ def _boss_try_emergency_dash() -> bool:
 
     time_to_boss = dy / max(1.0, abs(ball_vel[1]))  # 프레임 단위 예상 시간
 
-    # 보스 최대 속도 기준으로 "단순 이동" 가능한 거리 계산
-    max_travel = BOSS_MAX_SPEED * time_to_boss
+    # 공이 아직 너무 멀리 있을 때는 일반 이동으로 대응 가능하므로 대쉬 사용 안 함
+    if time_to_boss > 40.0:  # 약 0.66초 이상 남으면 굳이 대쉬 안 씀
+        return False
+
+    # 스테이지/리그 설정 기반 보스 최대 속도 추정 (일반 이동 성능을 낙관적으로 계산)
+    try:
+        cfg = get_final_boss_config(current_stage, ai_mode if ai_enabled else "pro")
+        effective_speed = cfg.get("max_speed", BOSS_MAX_SPEED) * 1.5  # 가속/스무딩 여유 포함
+    except Exception:
+        effective_speed = BOSS_MAX_SPEED * 1.5
+
+    # 보스가 남은 시간 동안 일반 이동으로 커버할 수 있는 최대 거리
+    max_travel = effective_speed * time_to_boss
 
     # --- 사이드 벽 반사를 고려한 공의 예상 X 위치 계산 ---
     def _predict_x_with_walls(x: float, vx: float, frames: float) -> float:
@@ -61026,12 +61038,12 @@ def _boss_try_emergency_dash() -> bool:
 
     required = abs(predicted_x - BOSS.centerx)
 
-    # 일반 이동으로도 커버 가능한 거리라면 대쉬 불필요
-    if required <= max_travel * 1.1:
+    # 일반 이동으로도 충분히 커버 가능한 거리라면 대쉬 불필요
+    if required <= max_travel:
         return False
 
-    # 보스 폭의 60% 이상 차이날 때만 대쉬 사용
-    if required < BOSS.width * 0.6:
+    # 작은 보정만으로 막을 수 있는 상황(보스 폭의 80% 미만 차이)에서는 대쉬 사용 안 함
+    if required < BOSS.width * 0.8:
         return False
 
     # 실제 대쉬 실행 (빠른 이동 + 잔상/사운드)
