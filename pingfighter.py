@@ -10491,13 +10491,22 @@ def update_blacksmith_turret():
                     proj["vx"] = (1 - turn_rate) * proj["vx"] + turn_rate * desired_vx
                     proj["vy"] = (1 - turn_rate) * proj["vy"] + turn_rate * desired_vy
 
-            speed = min(BLACKSMITH_TURRET_MISSILE_MAX_SPEED, speed * (1 + BLACKSMITH_TURRET_MISSILE_ACCEL))
-            proj["speed"] = speed
-            current_speed = math.hypot(proj["vx"], proj["vy"])
-            if current_speed > 0:
-                scale = speed / current_speed
-                proj["vx"] *= scale
-                proj["vy"] *= scale
+            if proj.get("homing"):
+                # 유도 미사일은 가속 없이 일정한 느린 속도를 유지
+                proj["speed"] = speed
+                current_speed = math.hypot(proj["vx"], proj["vy"])
+                if current_speed > 0:
+                    scale = speed / current_speed
+                    proj["vx"] *= scale
+                    proj["vy"] *= scale
+            else:
+                speed = min(BLACKSMITH_TURRET_MISSILE_MAX_SPEED, speed * (1 + BLACKSMITH_TURRET_MISSILE_ACCEL))
+                proj["speed"] = speed
+                current_speed = math.hypot(proj["vx"], proj["vy"])
+                if current_speed > 0:
+                    scale = speed / current_speed
+                    proj["vx"] *= scale
+                    proj["vy"] *= scale
 
             proj["x"] += proj["vx"]
             proj["y"] += proj["vy"]
@@ -13644,8 +13653,8 @@ BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW_DIVINE = int(3.0 * FPS)
 # 강화 포탑 전용 유도 미사일 설정
 BLACKSMITH_TURRET_HOMING_BURST_COUNT = 3
 BLACKSMITH_TURRET_HOMING_INTERVAL = int(0.2 * FPS)  # 0.2초 간격
-# 유도 미사일은 기존 자동 미사일 속도의 약 21%(현재 속도의 30% 수준)로 매우 느리게 시작
-BLACKSMITH_TURRET_HOMING_SPEED_MULT = 0.21
+# 유도 미사일은 기존 자동 미사일 속도의 약 15%로 매우 느리게 시작
+BLACKSMITH_TURRET_HOMING_SPEED_MULT = 0.15
 BLACKSMITH_TURRET_HOMING_RADIUS_SCALE = 0.7  # 기본 미사일 반경의 70%
 BLACKSMITH_TURRET_HOMING_STUN_DURATION = int(0.4 * FPS)  # 0.4초 스턴
 BLACKSMITH_TURRET_HOMING_KNOCKBACK_DIST = int(BLACKSMITH_TURRET_KNOCKBACK_DISTANCE * 0.5)
