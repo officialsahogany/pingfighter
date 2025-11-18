@@ -6221,6 +6221,83 @@ def create_blacksmith_paddle_hammering():
     return scaled_surface
 
 
+def _get_blacksmith_existing_building_rects() -> list[pygame.Rect]:
+    """현재 필드에 존재하는 발토르 건물(포탑/디바인/청사진) 사각형 목록을 반환한다.
+
+    - 포탑 본체 및 포탑 청사진
+    - 디바인스톤 본체 및 디바인스톤 청사진
+    """
+    rects: list[pygame.Rect] = []
+
+    # 포탑 본체
+    if blacksmith_turret_active and blacksmith_turret_state:
+        turret_rect = blacksmith_turret_state.get("rect")
+        if turret_rect is not None:
+            rects.append(turret_rect)
+
+    # 포탑 청사진
+    if blacksmith_turret_blueprint_active and blacksmith_turret_blueprint_rect is not None:
+        rects.append(blacksmith_turret_blueprint_rect)
+
+    # 디바인스톤 본체
+    if blacksmith_divine_stone_state is not None:
+        stone_rect = blacksmith_divine_stone_state.get("rect")
+        if stone_rect is not None:
+            rects.append(stone_rect)
+
+    # 디바인스톤 청사진
+    if blacksmith_divine_blueprint_active and blacksmith_divine_blueprint_rect is not None:
+        rects.append(blacksmith_divine_blueprint_rect)
+
+    return rects
+
+
+def _resolve_blacksmith_blueprint_position(blueprint_rect: pygame.Rect, margin: int = 8) -> pygame.Rect:
+    """발토르 건물 청사진이 기존 건물과 겹치지 않도록 가로 위치를 조정한다.
+
+    이미 포탑/디바인스톤이 있는 위치에 청사진이 생성되면,
+    좌우로 한 칸씩 옮겨가며 겹치지 않는 위치를 탐색한다.
+    """
+    existing_rects = _get_blacksmith_existing_building_rects()
+    if not existing_rects:
+        return blueprint_rect
+
+    def collides(test_rect: pygame.Rect) -> bool:
+        for other in existing_rects:
+            # 약간의 여유 간격을 두고 충돌 판정
+            expanded = other.inflate(margin * 2, margin * 2)
+            if test_rect.colliderect(expanded):
+                return True
+        return False
+
+    # 처음 위치가 겹치지 않으면 그대로 사용
+    if not collides(blueprint_rect):
+        return blueprint_rect
+
+    min_center_x = blueprint_rect.width // 2
+    max_center_x = WIDTH - blueprint_rect.width // 2
+    original_center_x = blueprint_rect.centerx
+
+    # 청사진 너비 기준으로 좌우로 한 칸씩 이동하며 위치 탐색
+    step = max(1, blueprint_rect.width + margin)
+    max_steps = max(1, (WIDTH // step) + 2)
+
+    for offset in range(1, max_steps + 1):
+        for direction in (1, -1):
+            new_center_x = original_center_x + direction * offset * step
+            if new_center_x < min_center_x or new_center_x > max_center_x:
+                continue
+            candidate = blueprint_rect.copy()
+            candidate.centerx = new_center_x
+            if not collides(candidate):
+                blueprint_rect.centerx = new_center_x
+                return blueprint_rect
+
+    # 적절한 위치를 찾지 못한 경우, 화면 경계 안에서만 정규화하여 반환
+    blueprint_rect.centerx = max(min_center_x, min(max_center_x, original_center_x))
+    return blueprint_rect
+
+
 def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_blueprint=False):
     """발토르 포탑 설치/건설 입력을 처리한다."""
     global blacksmith_turret_blueprint_active, blacksmith_turret_blueprint_rect
@@ -6280,6 +6357,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
         base_x = max(blueprint_width // 2, min(WIDTH - blueprint_width // 2, PLAYER.centerx))
         base_y = HEIGHT - 5
         blueprint_rect.midbottom = (base_x, base_y)
+        blueprint_rect = _resolve_blacksmith_blueprint_position(blueprint_rect)
         blacksmith_turret_blueprint_rect = blueprint_rect
         print(f"[DEBUG] Blueprint created: player_bottom={PLAYER.bottom}, blueprint_bottom={blueprint_rect.bottom}, top={blueprint_rect.top}")
         blacksmith_turret_build_progress = 0
