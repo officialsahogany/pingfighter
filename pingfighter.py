@@ -11336,66 +11336,122 @@ def draw_blacksmith_turret_elements(surface):
         def head_point(dx, dy):
             return (int(pivot_local.x + dx), int(pivot_local.y + dy))
 
-        body_poly = [
-            head_point(-sx_val(12), sy_val(12)),
-            head_point(-sx_val(24), -sy_val(10)),
-            head_point(-sx_val(10), -sy_val(34)),
-            head_point(-sx_val(4), -sy_val(48)),
-            head_point(0, -sy_val(54)),
-            head_point(sx_val(4), -sy_val(48)),
-            head_point(sx_val(10), -sy_val(34)),
-            head_point(sx_val(24), -sy_val(10)),
-            head_point(sx_val(12), sy_val(12)),
-        ]
+        # 헤드 실루엣: 강화 포탑은 더 높고 날카로운 형태
         if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            body_poly = [
+                head_point(-sx_val(14), sy_val(14)),
+                head_point(-sx_val(26), -sy_val(6)),
+                head_point(-sx_val(14), -sy_val(40)),
+                head_point(-sx_val(6), -sy_val(58)),
+                head_point(0, -sy_val(66)),
+                head_point(sx_val(6), -sy_val(58)),
+                head_point(sx_val(14), -sy_val(40)),
+                head_point(sx_val(26), -sy_val(6)),
+                head_point(sx_val(14), sy_val(14)),
+            ]
             head_body_color = (232, 228, 255)
             head_core_color = (168, 92, 214)
             head_border_color = (70, 38, 100)
         else:
+            body_poly = [
+                head_point(-sx_val(12), sy_val(12)),
+                head_point(-sx_val(24), -sy_val(10)),
+                head_point(-sx_val(10), -sy_val(34)),
+                head_point(-sx_val(4), -sy_val(48)),
+                head_point(0, -sy_val(54)),
+                head_point(sx_val(4), -sy_val(48)),
+                head_point(sx_val(10), -sy_val(34)),
+                head_point(sx_val(24), -sy_val(10)),
+                head_point(sx_val(12), sy_val(12)),
+            ]
             head_body_color = (228, 238, 255)
             head_core_color = (210, 70, 78)
             head_border_color = (70, 40, 60)
         pygame.draw.polygon(head_surface, head_body_color, body_poly)
-        pygame.draw.polygon(head_surface, head_core_color, [
-            head_point(-sx_val(10), sy_val(10)),
-            head_point(-sx_val(18), -sy_val(8)),
-            head_point(-sx_val(6), -sy_val(30)),
-            head_point(0, -sy_val(40)),
-            head_point(sx_val(6), -sy_val(30)),
-            head_point(sx_val(18), -sy_val(8)),
-            head_point(sx_val(10), sy_val(10)),
-        ])
+
+        # 헤드 중앙 코어 패널
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            core_poly = [
+                head_point(-sx_val(10), sy_val(8)),
+                head_point(-sx_val(18), -sy_val(10)),
+                head_point(-sx_val(8), -sy_val(34)),
+                head_point(0, -sy_val(46)),
+                head_point(sx_val(8), -sy_val(34)),
+                head_point(sx_val(18), -sy_val(10)),
+                head_point(sx_val(10), sy_val(8)),
+            ]
+        else:
+            core_poly = [
+                head_point(-sx_val(10), sy_val(10)),
+                head_point(-sx_val(18), -sy_val(8)),
+                head_point(-sx_val(6), -sy_val(30)),
+                head_point(0, -sy_val(40)),
+                head_point(sx_val(6), -sy_val(30)),
+                head_point(sx_val(18), -sy_val(8)),
+                head_point(sx_val(10), sy_val(10)),
+            ]
+        pygame.draw.polygon(head_surface, head_core_color, core_poly)
         pygame.draw.lines(head_surface, head_border_color, True, body_poly, max(1, int(sx_val(2))))
 
-        claw_left = [
-            head_point(-sx_val(18), sy_val(8)),
-            head_point(-sx_val(36), sy_val(18)),
-            head_point(-sx_val(28), sy_val(30)),
-            head_point(-sx_val(12), sy_val(20)),
-        ]
-        claw_right = [
-            head_point(sx_val(18), sy_val(8)),
-            head_point(sx_val(36), sy_val(18)),
-            head_point(sx_val(28), sy_val(30)),
-            head_point(sx_val(12), sy_val(20)),
-        ]
+        # 헤드 양옆 클로: 강화 포탑은 더 크게 전개
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            claw_left = [
+                head_point(-sx_val(22), sy_val(6)),
+                head_point(-sx_val(42), sy_val(18)),
+                head_point(-sx_val(32), sy_val(34)),
+                head_point(-sx_val(14), sy_val(22)),
+            ]
+            claw_right = [
+                head_point(sx_val(22), sy_val(6)),
+                head_point(sx_val(42), sy_val(18)),
+                head_point(sx_val(32), sy_val(34)),
+                head_point(sx_val(14), sy_val(22)),
+            ]
+        else:
+            claw_left = [
+                head_point(-sx_val(18), sy_val(8)),
+                head_point(-sx_val(36), sy_val(18)),
+                head_point(-sx_val(28), sy_val(30)),
+                head_point(-sx_val(12), sy_val(20)),
+            ]
+            claw_right = [
+                head_point(sx_val(18), sy_val(8)),
+                head_point(sx_val(36), sy_val(18)),
+                head_point(sx_val(28), sy_val(30)),
+                head_point(sx_val(12), sy_val(20)),
+            ]
         pygame.draw.polygon(head_surface, claw_fill_color, claw_left)
         pygame.draw.polygon(head_surface, claw_fill_color, claw_right)
         pygame.draw.lines(head_surface, claw_edge_color, True, claw_left, max(1, int(sx_val(2))))
         pygame.draw.lines(head_surface, claw_edge_color, True, claw_right, max(1, int(sx_val(2))))
 
-        cannon_left = [
-            head_point(-sx_val(16), -sy_val(14)),
-            head_point(-sx_val(32), -sy_val(32)),
-            head_point(-sx_val(26), -sy_val(48)),
-            head_point(-sx_val(10), -sy_val(30)),
-        ]
-        cannon_right = [
-            head_point(sx_val(16), -sy_val(14)),
-            head_point(sx_val(32), -sy_val(32)),
-            head_point(sx_val(26), -sy_val(48)),
-            head_point(sx_val(10), -sy_val(30)),
-        ]
+        # 포신: 강화 포탑은 더 길고 각진 실루엣
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            cannon_left = [
+                head_point(-sx_val(18), -sy_val(16)),
+                head_point(-sx_val(38), -sy_val(38)),
+                head_point(-sx_val(30), -sy_val(58)),
+                head_point(-sx_val(10), -sy_val(32)),
+            ]
+            cannon_right = [
+                head_point(sx_val(18), -sy_val(16)),
+                head_point(sx_val(38), -sy_val(38)),
+                head_point(sx_val(30), -sy_val(58)),
+                head_point(sx_val(10), -sy_val(32)),
+            ]
+        else:
+            cannon_left = [
+                head_point(-sx_val(16), -sy_val(14)),
+                head_point(-sx_val(32), -sy_val(32)),
+                head_point(-sx_val(26), -sy_val(48)),
+                head_point(-sx_val(10), -sy_val(30)),
+            ]
+            cannon_right = [
+                head_point(sx_val(16), -sy_val(14)),
+                head_point(sx_val(32), -sy_val(32)),
+                head_point(sx_val(26), -sy_val(48)),
+                head_point(sx_val(10), -sy_val(30)),
+            ]
         if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
             cannon_fill = (212, 178, 255)
             cannon_edge = (80, 40, 112)
@@ -11407,7 +11463,11 @@ def draw_blacksmith_turret_elements(surface):
         pygame.draw.lines(head_surface, cannon_edge, True, cannon_left, max(1, int(sx_val(2))))
         pygame.draw.lines(head_surface, cannon_edge, True, cannon_right, max(1, int(sx_val(2))))
 
-        core_radius = max(3, int(sx_val(9)))
+        # 코어 크기와 광채: 강화 포탑은 더 크고 밝게
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            core_radius = max(4, int(sx_val(11)))
+        else:
+            core_radius = max(3, int(sx_val(9)))
         core_center = (int(pivot_local.x), int(pivot_local.y - sy_val(12)))
         if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
             core_outer = (120, 220, 255, 210)
