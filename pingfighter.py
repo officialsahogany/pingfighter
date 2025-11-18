@@ -65331,6 +65331,7 @@ def main(stage_num, new_boss_mode=False):
                     space_just_pressed
                     and blacksmith_turret_active
                     and blacksmith_turret_state
+                    and int(blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)) >= BLACKSMITH_TURRET_MAX_LEVEL
                     and not blacksmith_turret_state.get("overdrive_active", False)
                     and blacksmith_turret_state.get("overheat_timer", 0) <= 0
                     and blacksmith_turret_state.get("overdrive_ready", False)
