@@ -6439,10 +6439,12 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                     if blacksmith_turret_build_progress >= BLACKSMITH_TURRET_BUILD_TIME:
                         turret_rect = pygame.Rect(0, 0, BLACKSMITH_TURRET_BASE_WIDTH, BLACKSMITH_TURRET_BASE_HEIGHT)
                         turret_rect.midbottom = blacksmith_turret_blueprint_rect.midbottom
+                        # 레벨 1 포탑 기본 자동 발사 주기(5초)
+                        base_interval = BLACKSMITH_TURRET_FIRE_INTERVAL
                         blacksmith_turret_state = {
                             "rect": turret_rect,
-                            "fire_timer": BLACKSMITH_TURRET_FIRE_INTERVAL,
-                            "fire_interval": BLACKSMITH_TURRET_FIRE_INTERVAL,
+                            "fire_timer": base_interval,
+                            "fire_interval": base_interval,
                             "hp": BLACKSMITH_TURRET_BASE_HP,
                             "max_hp": BLACKSMITH_TURRET_BASE_HP,
                             "level": BLACKSMITH_TURRET_BASE_LEVEL,
@@ -6454,7 +6456,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "display_angle": -math.pi / 2,
                             "recoil_timer": 0,
                             "recoil_offset": 0.0,
-                            "base_fire_interval": BLACKSMITH_TURRET_FIRE_INTERVAL,
+                            "base_fire_interval": base_interval,
                             "overdrive_active": False,
                             "overdrive_timer": 0,
                             "overdrive_fire_window": 0,
@@ -6647,6 +6649,15 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             # 강화된 포탑(레벨 2)으로 업그레이드
                             new_level = min(BLACKSMITH_TURRET_MAX_LEVEL, turret_level + 1)
                             blacksmith_turret_state["level"] = new_level
+                            # 강화 포탑은 자동 발사 주기를 4초로 단축
+                            if new_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+                                new_interval = BLACKSMITH_TURRET_FIRE_INTERVAL_LVL2
+                                blacksmith_turret_state["base_fire_interval"] = new_interval
+                                blacksmith_turret_state["fire_interval"] = new_interval
+                                blacksmith_turret_state["fire_timer"] = min(
+                                    blacksmith_turret_state.get("fire_timer", new_interval),
+                                    new_interval,
+                                )
                             # 업그레이드 후에는 오버드라이브용 게이지로 전환
                             blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED)
                             blacksmith_turret_state["xp"] = 0.0
@@ -13970,10 +13981,11 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
     turret_rect = pygame.Rect(0, 0, turret_width, turret_height)
     turret_rect.center = (rect.width // 2, int(rect.height * 0.55))
 
+    base_interval = BLACKSMITH_TURRET_FIRE_INTERVAL
     turret_state_preview = {
         "rect": turret_rect,
-        "fire_timer": BLACKSMITH_TURRET_FIRE_INTERVAL,
-        "fire_interval": BLACKSMITH_TURRET_FIRE_INTERVAL,
+        "fire_timer": base_interval,
+        "fire_interval": base_interval,
         "hp": BLACKSMITH_TURRET_BASE_HP,
         "max_hp": BLACKSMITH_TURRET_BASE_HP,
         "level": BLACKSMITH_TURRET_BASE_LEVEL,
@@ -13983,7 +13995,7 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
         "display_angle": -math.pi / 2,
         "recoil_timer": 0,
         "recoil_offset": 0.0,
-        "base_fire_interval": BLACKSMITH_TURRET_FIRE_INTERVAL,
+        "base_fire_interval": base_interval,
         "overdrive_active": False,
         "overdrive_timer": 0,
         "overdrive_fire_window": 0,
