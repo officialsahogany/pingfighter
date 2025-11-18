@@ -2084,7 +2084,7 @@ STAGE7_TETRO_WALL_COLS = 5
 boss_current_speed = 0               # 현재 AI 보스 속도
 
 # 보스 대쉬 관련 설정 및 상태
-BOSS_DASH_GAUGE_COST = 150           # 보스 대쉬 게이지 소모량
+BOSS_DASH_GAUGE_COST = 50            # 보스 대쉬 게이지 소모량
 boss_dash_cooldown_until_ms = 0      # 다음 대쉬 가능 시각 (ms, 0이면 바로 사용 가능)
 
 # 보스 AI 움직임 파라미터
