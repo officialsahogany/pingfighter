@@ -62935,11 +62935,11 @@ def handle_boss():
         boss_dash_timer -= 1
 
         # 플레이어 rolling 대쉬 패턴과 유사한 속도 곡선
-        high_phase_frames = 20
+        high_phase_frames = min(20, boss_dash_duration_frames)
         if boss_dash_timer > high_phase_frames:
             move_step = boss_dash_speed * boss_dash_direction
         else:
-            decel_factor = max(0.0, boss_dash_timer / float(high_phase_frames))
+            decel_factor = max(0.0, boss_dash_timer / float(high_phase_frames)) if high_phase_frames > 0 else 0.0
             move_step = boss_dash_speed * boss_dash_direction * decel_factor
 
         BOSS.centerx += move_step
