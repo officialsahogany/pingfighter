@@ -9955,22 +9955,6 @@ def _blacksmith_spawn_homing_missile(turret_runtime, turret_state) -> None:
     }
     turret_runtime.projectiles.append(projectile)
 
-    if overdrive:
-        try:
-            effects_manager.spawn_flame_particles(spawn_point.x, spawn_point.y, count=10)
-        except Exception:
-            pass
-        turret_state["overdrive_flash_timer"] = max(
-            turret_state.get("overdrive_flash_timer", 0),
-            max(6, int(0.18 * FPS)),
-        )
-
-        if divine_overdrive:
-            try:
-                effects_manager.spawn_star_particles(spawn_point.x, spawn_point.y, count=6)
-            except Exception:
-                pass
-
 
 def _emit_blacksmith_turret_overheat_smoke(turret_state) -> None:
     """과부하 상태에서 총구 연기 이펙트를 뿜는다."""
