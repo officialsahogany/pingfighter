@@ -11181,6 +11181,47 @@ def draw_blacksmith_turret_elements(surface):
         pygame.draw.polygon(surface, torso_inner_color, [(int(x), int(y)) for x, y in inner_torso])
         pygame.draw.lines(surface, torso_border_color, True, [(int(x), int(y)) for x, y in torso_points], max(1, int(sx_val(2))))
 
+        # 강화 포탑일 때 추가 장식 가시(스파이크) – 실루엣은 유지하되 디테일만 증가
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            spike_outer_color = (196, 176, 242)
+            spike_inner_color = (236, 220, 255)
+            # 받침대 좌우에 짧은 가시
+            left_base_spike = [
+                (cx - sx_val(40), bottom - sy_val(10)),
+                (cx - sx_val(26), bottom - sy_val(10)),
+                (cx - sx_val(33), bottom - sy_val(26)),
+            ]
+            right_base_spike = [
+                (cx + sx_val(40), bottom - sy_val(10)),
+                (cx + sx_val(26), bottom - sy_val(10)),
+                (cx + sx_val(33), bottom - sy_val(26)),
+            ]
+            pygame.draw.polygon(surface, spike_outer_color, [(int(x), int(y)) for x, y in left_base_spike])
+            pygame.draw.polygon(surface, spike_outer_color, [(int(x), int(y)) for x, y in right_base_spike])
+            # 몸통 상단에 왕관처럼 솟은 스파이크 3개
+            crown_y = top + sy_val(18)
+            crown_height = sy_val(16)
+            center_spike = [
+                (cx - sx_val(6), crown_y),
+                (cx + sx_val(6), crown_y),
+                (cx, crown_y - crown_height),
+            ]
+            left_spike = [
+                (cx - sx_val(18), crown_y + sy_val(2)),
+                (cx - sx_val(8), crown_y + sy_val(2)),
+                (cx - sx_val(13), crown_y - crown_height * 0.8),
+            ]
+            right_spike = [
+                (cx + sx_val(8), crown_y + sy_val(2)),
+                (cx + sx_val(18), crown_y + sy_val(2)),
+                (cx + sx_val(13), crown_y - crown_height * 0.8),
+            ]
+            for spike in (center_spike, left_spike, right_spike):
+                pygame.draw.polygon(surface, spike_outer_color, [(int(x), int(y)) for x, y in spike])
+                # 안쪽에 살짝 밝은 색으로 한 번 더
+                inner = [(x, y + sy_val(1)) for (x, y) in spike]
+                pygame.draw.polygon(surface, spike_inner_color, [(int(x), int(y)) for x, y in inner])
+
         column_width = max(4, int(sx_val(14)))
         column_height = max(18, int(sy_val(24)))
         center_column = pygame.Rect(int(cx - column_width / 2), int(top + sy_val(26)), column_width, column_height)
