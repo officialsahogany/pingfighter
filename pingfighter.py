@@ -60695,8 +60695,8 @@ def _boss_try_emergency_dash() -> bool:
     boss_dash_cooldown_until_ms = now_ms + random.randint(min_ms, max_ms)
 
     print(
-        f\"[BossDash] Stage {current_stage} emergency dash → {BOSS.centerx} "
-        f\"(dist={dash_distance:.1f}, gauge={boss_special_gauge})\"
+        f"[BossDash] Stage {current_stage} emergency dash → {BOSS.centerx} "
+        f"(dist={dash_distance:.1f}, gauge={boss_special_gauge})"
     )
     return True
 
