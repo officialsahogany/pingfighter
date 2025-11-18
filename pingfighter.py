@@ -9904,6 +9904,57 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
     except Exception:
         pass
 
+
+def _blacksmith_spawn_homing_missile(turret_runtime, turret_state) -> None:
+    """강화 포탑 전용 유도 미사일 한 발을 보스 방향으로 발사."""
+
+    turret_rect = turret_state.get("rect")
+    if turret_rect is None:
+        return
+
+    boss_rect = BOSS if "BOSS" in globals() else None
+    if not boss_rect:
+        return
+
+    direction = pygame.math.Vector2(
+        boss_rect.centerx - turret_rect.centerx,
+        boss_rect.centery - turret_rect.centery,
+    )
+    if direction.length() == 0:
+        direction = pygame.math.Vector2(0, -1)
+    else:
+        direction = direction.normalize()
+
+    scale_x = turret_rect.width / BLACKSMITH_TURRET_DESIGN_WIDTH
+    scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
+
+    pivot_point = pygame.math.Vector2(
+        turret_rect.centerx,
+        turret_rect.top + scale_y * BLACKSMITH_TURRET_HEAD_PIVOT_OFFSET,
+    )
+
+    radius = int(round(BLACKSMITH_TURRET_PROJECTILE_RADIUS * BLACKSMITH_TURRET_HOMING_RADIUS_SCALE))
+    muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
+    spawn_point = pivot_point + direction * (muzzle_distance + radius + 2)
+
+    base_speed = BLACKSMITH_TURRET_MISSILE_SPEED * BLACKSMITH_TURRET_HOMING_SPEED_MULT
+
+    projectile = {
+        "x": float(spawn_point.x),
+        "y": float(spawn_point.y),
+        "vx": direction.x * base_speed,
+        "vy": direction.y * base_speed,
+        "speed": base_speed,
+        "life": BLACKSMITH_TURRET_MISSILE_LIFE,
+        "radius": radius,
+        "grace_frames": 4,
+        "overdrive": False,
+        "divine_overdrive": False,
+        "trail_timer": 0,
+        "homing": True,
+    }
+    turret_runtime.projectiles.append(projectile)
+
     if overdrive:
         try:
             effects_manager.spawn_flame_particles(spawn_point.x, spawn_point.y, count=10)
@@ -10375,6 +10426,43 @@ def update_blacksmith_turret():
         globals()["blacksmith_turret_overheat_smoke_timer"] = 0
         globals()["blacksmith_turret_overheat_timer"] = 0
 
+    # 강화 포탑 전용 유도 미사일 버스트 (레벨 2 이상에서만)
+    if (
+        not time_frozen
+        and turret_state.get("hp", 0) > 0
+        and int(turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)) >= BLACKSMITH_TURRET_MAX_LEVEL
+    ):
+        homing_cd = int(turret_state.get("homing_cooldown", 0))
+        homing_timer = int(turret_state.get("homing_burst_timer", 0))
+        homing_shots = int(turret_state.get("homing_burst_shots", 0))
+
+        if homing_cd > 0:
+            homing_cd -= 1
+        else:
+            if homing_shots <= 0:
+                boss_rect_local = BOSS if "BOSS" in globals() else None
+                if boss_rect_local:
+                    homing_shots = BLACKSMITH_TURRET_HOMING_BURST_COUNT
+                    homing_timer = 0
+
+            if homing_shots > 0:
+                if homing_timer <= 0:
+                    _blacksmith_spawn_homing_missile(turret_runtime, turret_state)
+                    homing_shots -= 1
+                    if homing_shots > 0:
+                        homing_timer = BLACKSMITH_TURRET_HOMING_INTERVAL
+                    else:
+                        homing_cd = random.randint(
+                            BLACKSMITH_TURRET_HOMING_COOLDOWN_MIN,
+                            BLACKSMITH_TURRET_HOMING_COOLDOWN_MAX,
+                        )
+                else:
+                    homing_timer -= 1
+
+        turret_state["homing_cooldown"] = homing_cd
+        turret_state["homing_burst_timer"] = homing_timer
+        turret_state["homing_burst_shots"] = homing_shots
+
     if turret_state.get("overdrive_flash_timer", 0) > 0 and not time_frozen:
         turret_state["overdrive_flash_timer"] = max(0, turret_state["overdrive_flash_timer"] - 1)
 
@@ -10431,12 +10519,22 @@ def update_blacksmith_turret():
             proj["y"] += proj["vy"]
             proj["life"] -= 1
 
-            if proj.get("overdrive"):
+            if proj.get("overdrive") or proj.get("homing"):
                 trail_timer = proj.get("trail_timer", 0) + 1
                 proj["trail_timer"] = trail_timer
-                if trail_timer % 2 == 0:
+                if proj.get("overdrive") and trail_timer % 2 == 0:
                     try:
                         effects_manager.spawn_flame_particles(proj["x"], proj["y"], count=2)
+                    except Exception:
+                        pass
+                if proj.get("homing") and trail_timer % 2 == 0:
+                    try:
+                        effects_manager.spawn_construction_smoke(
+                            proj["x"],
+                            proj["y"],
+                            count=1,
+                            spread=14,
+                        )
                     except Exception:
                         pass
 
@@ -10469,18 +10567,22 @@ def update_blacksmith_turret():
                     pass
 
             if boss_rect and projectile_rect.colliderect(boss_rect):
-                stun_multiplier = 1.0
-                knockback_multiplier = 1.0
-                if proj.get("overdrive"):
-                    stun_multiplier = max(1.0, float(turret_state.get("overdrive_stun_multiplier", 1.0)))
-                    knockback_multiplier = max(1.0, float(turret_state.get("overdrive_knockback_multiplier", 1.0)))
-                stun_frames = max(1, int(round(BLACKSMITH_TURRET_STUN_DURATION * stun_multiplier)))
-                knockback_speed = BLACKSMITH_TURRET_KNOCKBACK_SPEED * knockback_multiplier
-                if proj.get("overdrive"):
-                    intensity = 4 if not proj.get("divine_overdrive") else 7
-                    global screen_shake_timer, screen_shake_intensity
-                    screen_shake_timer = max(screen_shake_timer, 8)
-                    screen_shake_intensity = max(screen_shake_intensity, intensity)
+                if proj.get("homing"):
+                    stun_frames = max(1, BLACKSMITH_TURRET_HOMING_STUN_DURATION)
+                    knockback_speed = BLACKSMITH_TURRET_KNOCKBACK_SPEED * 0.5
+                else:
+                    stun_multiplier = 1.0
+                    knockback_multiplier = 1.0
+                    if proj.get("overdrive"):
+                        stun_multiplier = max(1.0, float(turret_state.get("overdrive_stun_multiplier", 1.0)))
+                        knockback_multiplier = max(1.0, float(turret_state.get("overdrive_knockback_multiplier", 1.0)))
+                    stun_frames = max(1, int(round(BLACKSMITH_TURRET_STUN_DURATION * stun_multiplier)))
+                    knockback_speed = BLACKSMITH_TURRET_KNOCKBACK_SPEED * knockback_multiplier
+                    if proj.get("overdrive"):
+                        intensity = 4 if not proj.get("divine_overdrive") else 7
+                        global screen_shake_timer, screen_shake_intensity
+                        screen_shake_timer = max(screen_shake_timer, 8)
+                        screen_shake_intensity = max(screen_shake_intensity, intensity)
                 try:
                     current_star_timer = globals().get("boss_stunned_timer", 0)
                     current_star_timer = max(current_star_timer, stun_frames)
@@ -11717,22 +11819,53 @@ def draw_blacksmith_turret_elements(surface):
         proj_pos = (int(proj["x"]), int(proj["y"]))
         radius = int(proj.get("radius", BLACKSMITH_TURRET_PROJECTILE_RADIUS))
         overdrive_proj = proj.get("overdrive")
-        if 'BLACKSMITH_MISSILE_IMG' in globals() and BLACKSMITH_MISSILE_IMG:
-            velocity_angle = math.degrees(math.atan2(proj["vy"], proj["vx"])) - 180
-            scale = max(0.6, radius / 12)
-            missile_img = pygame.transform.rotozoom(BLACKSMITH_MISSILE_IMG, -velocity_angle, scale)
-            missile_rect = missile_img.get_rect(center=proj_pos)
-            surface.blit(missile_img, missile_rect.topleft)
-        else:
-            base_color = (240, 210, 120)
-            edge_color = (110, 90, 60)
-            if overdrive_proj:
-                base_color = (255, 150, 80)
-                edge_color = (190, 70, 40)
-            pygame.draw.circle(surface, base_color, proj_pos, radius)
-            pygame.draw.circle(surface, edge_color, proj_pos, int(radius * 1.5), 2)
+        homing_proj = proj.get("homing")
 
-        if overdrive_proj:
+        if homing_proj:
+            # 강화 포탑 유도 미사일: 더 작고 보랏빛 계열 디자인
+            core_color = (200, 180, 255)
+            shell_color = (120, 80, 200)
+            glow_color = (255, 120, 220, 140)
+            pygame.draw.circle(surface, shell_color, proj_pos, radius + 2)
+            pygame.draw.circle(surface, core_color, proj_pos, max(1, radius - 1))
+            # 진행 방향 반대편에 작은 꼬리
+            tail_len = max(4, int(radius * 1.5))
+            angle = math.atan2(proj["vy"], proj["vx"])
+            tail_dx = -math.cos(angle) * tail_len
+            tail_dy = -math.sin(angle) * tail_len
+            tail_end = (int(proj_pos[0] + tail_dx), int(proj_pos[1] + tail_dy))
+            pygame.draw.line(surface, core_color, proj_pos, tail_end, 2)
+            # 주변에 약한 글로우
+            glow_size = max(8, radius * 3)
+            glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            pygame.draw.circle(
+                glow_surface,
+                glow_color,
+                (glow_size // 2, glow_size // 2),
+                glow_size // 2,
+            )
+            surface.blit(
+                glow_surface,
+                (proj_pos[0] - glow_size // 2, proj_pos[1] - glow_size // 2),
+                special_flags=pygame.BLEND_ADD,
+            )
+        else:
+            if 'BLACKSMITH_MISSILE_IMG' in globals() and BLACKSMITH_MISSILE_IMG:
+                velocity_angle = math.degrees(math.atan2(proj["vy"], proj["vx"])) - 180
+                scale = max(0.6, radius / 12)
+                missile_img = pygame.transform.rotozoom(BLACKSMITH_MISSILE_IMG, -velocity_angle, scale)
+                missile_rect = missile_img.get_rect(center=proj_pos)
+                surface.blit(missile_img, missile_rect.topleft)
+            else:
+                base_color = (240, 210, 120)
+                edge_color = (110, 90, 60)
+                if overdrive_proj:
+                    base_color = (255, 150, 80)
+                    edge_color = (190, 70, 40)
+                pygame.draw.circle(surface, base_color, proj_pos, radius)
+                pygame.draw.circle(surface, edge_color, proj_pos, int(radius * 1.5), 2)
+
+        if overdrive_proj and not homing_proj:
             glow_size = max(12, radius * 4)
             glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
             glow_center = glow_size // 2
