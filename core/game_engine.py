@@ -15,6 +15,10 @@ from enum import Enum
 from core.game_state import GameState
 from core.events import EventManager, EventType
 from core.constants import *
+from core.input_keys import (
+    is_move_left_key,
+    is_move_right_key,
+)
 
 # Manager imports
 from managers.sound_manager import SoundManager
@@ -39,31 +43,6 @@ from rendering.renderer import GameRenderer
 from ui.menu_system import MenuSystem
 from ui.hud_display import HUDDisplay
 from ui.pause_menu import PauseMenu
-
-
-MOVE_LEFT_KEYS = {
-    pygame.K_LEFT,
-    pygame.K_a,
-    0x61,
-    0x6E,
-}
-
-MOVE_RIGHT_KEYS = {
-    pygame.K_RIGHT,
-    pygame.K_d,
-    0x64,
-    0x6F,
-}
-
-
-def is_move_left_key(key_code: int) -> bool:
-    """왼쪽 이동 입력 여부 (한글/영어 키보드 모두 지원)"""
-    return key_code in MOVE_LEFT_KEYS
-
-
-def is_move_right_key(key_code: int) -> bool:
-    """오른쪽 이동 입력 여부 (한글/영어 키보드 모두 지원)"""
-    return key_code in MOVE_RIGHT_KEYS
 
 
 class GameMode(Enum):
