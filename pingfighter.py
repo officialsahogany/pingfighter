@@ -6596,6 +6596,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
 
     if blacksmith_turret_active and blacksmith_turret_state:
         turret_rect = blacksmith_turret_state.get("rect")
+        turret_level = int(blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL))
         xp_max = max(1.0, blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)))
         overheat_timer = int(blacksmith_turret_state.get("overheat_timer", 0))
         if blacksmith_turret_state.get("overdrive_active"):
@@ -6615,7 +6616,13 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                     blacksmith_hammer_swing_phase + 1
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
-                drain_per_frame = (BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC / FPS) * get_blacksmith_turret_charge_speed_multiplier()
+                # 레벨 1: 강화 포탑으로 업그레이드하기 위한 게이지(300pt, 약 12초)
+                # 레벨 2 이상: 오버드라이브 게이지 충전(기존 속도 유지)
+                if turret_level < BLACKSMITH_TURRET_MAX_LEVEL:
+                    drain_per_sec = BLACKSMITH_TURRET_REINFORCE_GAUGE_DRAIN_PER_SEC
+                else:
+                    drain_per_sec = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC
+                drain_per_frame = (drain_per_sec / FPS) * get_blacksmith_turret_charge_speed_multiplier()
                 gained_xp = 0
                 if special_gauge > 0:
                     construction_active = True
@@ -6631,17 +6638,39 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 if gained_xp > 0:
                     current_xp = blacksmith_turret_state.get("xp", 0.0) + gained_xp
                     if current_xp >= xp_max:
-                        # 포탑 드라이브 준비완료. 자동 발동하지 않고 SPACE 입력을 기다린다.
-                        blacksmith_turret_state["xp"] = xp_max
-                        blacksmith_turret_state["overdrive_ready"] = True
-                        # UI 힌트: 잠시 점화 이펙트 강조 및 디바인 힌트 유지
-                        try:
-                            turret_runtime.overdrive_ui_timer = BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION
-                            turret_runtime.overdrive_ui_divine = is_blacksmith_divine_stone_active()
-                        except Exception:
-                            pass
-                        push_blacksmith_state()
-                        blacksmith_turret_xp_partial_drain = 0.0
+                        if turret_level < BLACKSMITH_TURRET_MAX_LEVEL:
+                            # 강화된 포탑(레벨 2)으로 업그레이드
+                            new_level = min(BLACKSMITH_TURRET_MAX_LEVEL, turret_level + 1)
+                            blacksmith_turret_state["level"] = new_level
+                            # 업그레이드 후에는 오버드라이브용 게이지로 전환
+                            blacksmith_turret_state["xp_max"] = float(BLACKSMITH_TURRET_XP_REQUIRED)
+                            blacksmith_turret_state["xp"] = 0.0
+                            blacksmith_turret_xp_partial_drain = 0.0
+                            try:
+                                rect = blacksmith_turret_state.get("rect")
+                                if rect is not None:
+                                    effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=14)
+                                    effects_manager.spawn_flame_particles(rect.centerx, rect.top - 8, count=10)
+                            except Exception:
+                                pass
+                            try:
+                                play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+                            except Exception:
+                                pass
+                            print(f"[DEBUG] Turret upgraded to level {new_level} (reinforced)")
+                            push_blacksmith_state()
+                        else:
+                            # 포탑 드라이브 준비완료. 자동 발동하지 않고 SPACE 입력을 기다린다.
+                            blacksmith_turret_state["xp"] = xp_max
+                            blacksmith_turret_state["overdrive_ready"] = True
+                            # UI 힌트: 잠시 점화 이펙트 강조 및 디바인 힌트 유지
+                            try:
+                                turret_runtime.overdrive_ui_timer = BLACKSMITH_TURRET_OVERDRIVE_UI_DURATION
+                                turret_runtime.overdrive_ui_divine = is_blacksmith_divine_stone_active()
+                            except Exception:
+                                pass
+                            push_blacksmith_state()
+                            blacksmith_turret_xp_partial_drain = 0.0
                     else:
                         blacksmith_turret_state["xp"] = current_xp
                         if frame_counter % 45 == 0:
