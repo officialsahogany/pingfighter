@@ -63046,6 +63046,7 @@ def handle_boss():
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction, boss_dash_afterimages
     global head_shot_active, head_shot_timer  # 헤드샷 스턴 관련 변수
+    global boss_dash_stun_timer
     
     
     #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사: 초반 고속, 이후 감속)
@@ -63072,8 +63073,21 @@ def handle_boss():
 
         if boss_dash_timer <= 0:
             boss_dashing = False
+            # 대쉬 종료 후 통제불능 시간 설정 (스테이지별 설정 기반)
+            try:
+                stage_cfg = BOSS_CONFIGS.get(current_stage, {})
+                stun_seconds = float(stage_cfg.get("dash_stun_duration", 0.5))
+            except Exception:
+                stun_seconds = 0.5
+            boss_dash_stun_timer = max(1, int(stun_seconds * FPS))
 
         # 대쉬 중에는 다른 AI 처리 건너뜀
+        return
+
+    # 대쉬 후 통제불능 시간 처리
+    if boss_dash_stun_timer > 0:
+        boss_dash_stun_timer -= 1
+        boss_current_speed = 0
         return
 
     #  수평 넉백 처리 (라그나로크 해머 + 코만도 총알)
