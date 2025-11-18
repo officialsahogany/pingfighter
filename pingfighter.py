@@ -60987,8 +60987,41 @@ def _boss_try_emergency_dash() -> bool:
     # 보스 최대 속도 기준으로 "단순 이동" 가능한 거리 계산
     max_travel = BOSS_MAX_SPEED * time_to_boss
 
-    # 공의 예상 X 위치 (단순 직선 예측 + 화면 경계 보정)
-    predicted_x = BALL.centerx + ball_vel[0] * time_to_boss
+    # --- 사이드 벽 반사를 고려한 공의 예상 X 위치 계산 ---
+    def _predict_x_with_walls(x: float, vx: float, frames: float) -> float:
+        """보스 라인에 도달할 때의 공 X 위치를, 좌우 벽 반사를 고려해서 예측."""
+        if abs(vx) < 1e-3 or frames <= 0:
+            return x
+
+        remaining = frames
+        x_min = 0.0
+        x_max = float(WIDTH)
+
+        # 최대 4번 정도만 반사 시도 (안전 가드)
+        for _ in range(4):
+            if remaining <= 0:
+                break
+
+            if vx > 0:
+                t_wall = (x_max - x) / vx if vx != 0 else float("inf")
+            else:
+                t_wall = (x_min - x) / vx if vx != 0 else float("inf")
+
+            # 벽에 닿기 전에 보스 라인에 도달하거나, 유효하지 않은 시간인 경우
+            if t_wall <= 0 or t_wall >= remaining:
+                x += vx * remaining
+                remaining = 0
+                break
+
+            # 먼저 벽에 부딪힌 후, 방향 전환
+            x += vx * t_wall
+            remaining -= t_wall
+            vx = -vx  # 사이드 벽 반사
+
+        # 화면 범위로 보정
+        return max(x_min, min(x_max, x))
+
+    predicted_x = _predict_x_with_walls(float(BALL.centerx), float(ball_vel[0]), float(time_to_boss))
     predicted_x = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, predicted_x))
 
     required = abs(predicted_x - BOSS.centerx)
