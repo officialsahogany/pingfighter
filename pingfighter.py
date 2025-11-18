@@ -6471,6 +6471,9 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "overdrive_divine_active": False,
                             "overheat_timer": 0,
                             "overheat_smoke_timer": 0,
+                            "homing_cooldown": 0,
+                            "homing_burst_timer": 0,
+                            "homing_burst_shots": 0,
                         }
                         blacksmith_turret_active = True
                         blacksmith_turret_blueprint_active = False
@@ -13520,6 +13523,16 @@ BLACKSMITH_TURRET_MANUAL_COOLDOWN = int(0.6 * FPS)
 BLACKSMITH_TURRET_OVERDRIVE_DURATION = int(3.0 * FPS)
 BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW = int(2.0 * FPS)
 BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW_DIVINE = int(3.0 * FPS)
+
+# 강화 포탑 전용 유도 미사일 설정
+BLACKSMITH_TURRET_HOMING_BURST_COUNT = 3
+BLACKSMITH_TURRET_HOMING_INTERVAL = int(0.2 * FPS)  # 0.2초 간격
+BLACKSMITH_TURRET_HOMING_SPEED_MULT = 0.7  # 기본 자동 미사일 속도의 70%
+BLACKSMITH_TURRET_HOMING_RADIUS_SCALE = 0.7  # 기본 미사일 반경의 70%
+BLACKSMITH_TURRET_HOMING_STUN_DURATION = int(0.4 * FPS)  # 0.4초 스턴
+BLACKSMITH_TURRET_HOMING_KNOCKBACK_DIST = int(BLACKSMITH_TURRET_KNOCKBACK_DISTANCE * 0.5)
+BLACKSMITH_TURRET_HOMING_COOLDOWN_MIN = int(15 * FPS)
+BLACKSMITH_TURRET_HOMING_COOLDOWN_MAX = int(20 * FPS)
 BLACKSMITH_TURRET_OVERDRIVE_SHOTS = 6
 BLACKSMITH_TURRET_OVERDRIVE_BASE_INTERVAL = max(1, int(0.5 * FPS))
 BLACKSMITH_TURRET_OVERDRIVE_MIN_INTERVAL = max(1, int(0.25 * FPS))
@@ -14011,6 +14024,9 @@ def _render_blacksmith_turret_preview(surface: pygame.Surface, rect: pygame.Rect
         "overheat_timer": 0,
         "overheat_smoke_timer": 0,
         "display_angle_accel": 0.0,
+        "homing_cooldown": 0,
+        "homing_burst_timer": 0,
+        "homing_burst_shots": 0,
     }
 
     fire_cycle_ms = 3000
