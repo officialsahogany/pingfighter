@@ -8,6 +8,10 @@ import math
 from typing import Tuple, Optional, Dict, Any
 from entities.entity import Entity
 from core.events import EventType, emit_event
+from core.input_keys import (
+    is_move_left_pressed,
+    is_move_right_pressed,
+)
 from dash_manager import DashManager
 
 
@@ -136,11 +140,11 @@ class Paddle(Entity):
         """
         keys = pygame.key.get_pressed()
         
-        # 이동 입력
+        # 이동 입력 (한글/영문 레이아웃 공통 처리)
         self.input_direction = 0
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+        if is_move_left_pressed(keys):
             self.input_direction = -1
-        elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+        elif is_move_right_pressed(keys):
             self.input_direction = 1
             
         # 대시 입력

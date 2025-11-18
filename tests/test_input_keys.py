@@ -8,7 +8,12 @@ import unittest
 import pygame
 
 from tests.test_framework import GameTestCase
-from core.game_engine import is_move_left_key, is_move_right_key
+from core.input_keys import (
+    is_move_left_key,
+    is_move_right_key,
+    is_move_left_pressed,
+    is_move_right_pressed,
+)
 
 
 class TestInputKeyMapping(GameTestCase):
@@ -46,7 +51,28 @@ class TestInputKeyMapping(GameTestCase):
                     msg=f"Right move key not recognized: {key_code}",
                 )
 
+    def test_move_left_pressed_state_helper(self):
+        """get_pressed() 결과에 대해 왼쪽 이동 상태 헬퍼가 정상 동작하는지 확인"""
+        size = max(pygame.K_LEFT, pygame.K_a, 0x61, 0x6E) + 10
+        keys = [False] * size
+
+        for key_code in (pygame.K_LEFT, pygame.K_a, 0x61, 0x6E):
+            keys_local = keys[:]
+            keys_local[key_code] = True
+            with self.subTest(pressed_key=key_code):
+                self.assertTrue(is_move_left_pressed(keys_local))
+
+    def test_move_right_pressed_state_helper(self):
+        """get_pressed() 결과에 대해 오른쪽 이동 상태 헬퍼가 정상 동작하는지 확인"""
+        size = max(pygame.K_RIGHT, pygame.K_d, 0x64, 0x6F) + 10
+        keys = [False] * size
+
+        for key_code in (pygame.K_RIGHT, pygame.K_d, 0x64, 0x6F):
+            keys_local = keys[:]
+            keys_local[key_code] = True
+            with self.subTest(pressed_key=key_code):
+                self.assertTrue(is_move_right_pressed(keys_local))
+
 
 if __name__ == "__main__":
     unittest.main()
-
