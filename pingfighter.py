@@ -36615,6 +36615,28 @@ def draw_objects():
                 spark_offset = random.randint(-5, 5)
                 draw.circle((200, 220, 255), 
                                   (antenna_right_x + spark_offset, antenna_tip_y + random.randint(-3, 3)), 1)
+    #  보스 대쉬 잔상 효과 렌더링
+    global boss_dash_afterimages
+    if boss_dash_afterimages:
+        new_boss_after = []
+        for after in boss_dash_afterimages:
+            img = after.get("image")
+            alpha = after.get("alpha", 0)
+            life = after.get("life", 0)
+            x = after.get("x", 0)
+            y = after.get("y", 0)
+            if img is None or alpha <= 0 or life <= 0:
+                continue
+            surf = img.copy()
+            surf.set_alpha(alpha)
+            rect = surf.get_rect(center=(x, y))
+            SCREEN.blit(surf, rect.topleft)
+            after["alpha"] = alpha - 25
+            after["life"] = life - 1
+            if after["alpha"] > 0 and after["life"] > 0:
+                new_boss_after.append(after)
+        boss_dash_afterimages = new_boss_after
+
     #  보스 확장 히트박스 디버그 표시 (개발용)
     DEBUG_SHOW_HITBOX = False  # True로 변경하면 히트박스가 보임
     if DEBUG_SHOW_HITBOX:
