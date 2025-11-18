@@ -11274,28 +11274,45 @@ def draw_blacksmith_turret_elements(surface):
         pygame.draw.polygon(surface, torso_inner_color, [(int(x), int(y)) for x, y in inner_torso])
         pygame.draw.lines(surface, torso_border_color, True, [(int(x), int(y)) for x, y in torso_points], max(1, int(sx_val(2))))
 
-        # 강화 포탑 전용 바닥 광채(기본 상태에서도 계속 숨쉬는 느낌)
+        # 강화 포탑 전용 바닥 오로라 + 강철 보랏빛 가시
         if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL and idle_pulse > 0.0:
-            halo_radius = max(18, int(sx_val(48)))
-            halo_surface = pygame.Surface((halo_radius * 2, halo_radius * 2), pygame.SRCALPHA)
-            halo_center = (halo_radius, halo_radius)
-            outer_alpha = int(40 + 70 * idle_pulse)
-            inner_alpha = int(80 + 90 * idle_pulse)
-            pygame.draw.circle(
+            halo_width = int(max(40, sx_val(120)))
+            halo_height = int(max(16, sy_val(36)))
+            halo_surface = pygame.Surface((halo_width, halo_height), pygame.SRCALPHA)
+            center_x = halo_width // 2
+            base_y = halo_height - 1
+            outer_alpha = int(50 + 90 * idle_pulse)
+            inner_alpha = int(100 + 110 * idle_pulse)
+            # 붉은 융단 오로라
+            pygame.draw.ellipse(
                 halo_surface,
-                (80, 40, 160, outer_alpha),
-                halo_center,
-                halo_radius,
+                (220, 40, 40, outer_alpha),
+                pygame.Rect(0, int(halo_height * 0.25), halo_width, int(halo_height * 0.8)),
             )
-            pygame.draw.circle(
+            pygame.draw.ellipse(
                 halo_surface,
-                (180, 150, 255, inner_alpha),
-                halo_center,
-                max(8, halo_radius // 2),
+                (255, 180, 120, inner_alpha),
+                pygame.Rect(int(halo_width * 0.1), int(halo_height * 0.4), int(halo_width * 0.8), int(halo_height * 0.5)),
             )
+            # 강철 보랏빛 가시들
+            spike_surface = pygame.Surface((halo_width, halo_height), pygame.SRCALPHA)
+            spike_base_color = (130, 110, 210, 170)
+            spike_edge_color = (220, 210, 255, 210)
+            for idx, offset in enumerate((-0.6, -0.2, 0.2, 0.6)):
+                base_x = center_x + int(offset * halo_width * 0.35)
+                height = int((0.4 + 0.18 * idle_pulse) * halo_height * (1.0 + 0.15 * (idx % 2)))
+                lean = int(direction_factor * height * 0.3)
+                pts = [
+                    (base_x - 3, base_y),
+                    (base_x + 3, base_y),
+                    (base_x + lean, base_y - height),
+                ]
+                pygame.draw.polygon(spike_surface, spike_base_color, pts)
+                pygame.draw.lines(spike_surface, spike_edge_color, True, pts, 1)
+            halo_surface.blit(spike_surface, (0, 0), special_flags=pygame.BLEND_ADD)
             surface.blit(
                 halo_surface,
-                (int(cx - halo_radius), int(bottom - sy_val(4) - halo_radius)),
+                (int(cx - halo_width / 2), int(bottom - sy_val(4) - halo_height)),
                 special_flags=pygame.BLEND_ADD,
             )
 
@@ -11347,6 +11364,31 @@ def draw_blacksmith_turret_elements(surface):
         inner_column = center_column.inflate(-max(2, int(sx_val(6))), -max(2, int(sy_val(8))))
         if inner_column.width > 0 and inner_column.height > 0:
             pygame.draw.rect(surface, column_inner_color, inner_column, border_radius=int(max(1, sx_val(3))))
+
+        # 강화 포탑 전용 방향성 핀: 플레이어 패들의 위치에 따라 기울기 변경
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL and abs(direction_factor) > 0.02:
+            fin_height = max(6, int(sy_val(14)))
+            fin_length = max(8, int(sx_val(22)))
+            tilt = fin_length * 0.4 * direction_factor
+            mid_y = center_column.centery
+            # 왼쪽 핀
+            left_base_x = center_column.left - sx_val(4)
+            left_pts = [
+                (int(left_base_x), int(mid_y - fin_height // 2)),
+                (int(left_base_x), int(mid_y + fin_height // 2)),
+                (int(left_base_x - fin_length + tilt), int(mid_y)),
+            ]
+            pygame.draw.polygon(surface, leg_fill_color, left_pts)
+            pygame.draw.lines(surface, leg_border_color, True, left_pts, max(1, int(sx_val(2))))
+            # 오른쪽 핀
+            right_base_x = center_column.right + sx_val(4)
+            right_pts = [
+                (int(right_base_x), int(mid_y - fin_height // 2)),
+                (int(right_base_x), int(mid_y + fin_height // 2)),
+                (int(right_base_x + fin_length + tilt), int(mid_y)),
+            ]
+            pygame.draw.polygon(surface, leg_fill_color, right_pts)
+            pygame.draw.lines(surface, leg_border_color, True, right_pts, max(1, int(sx_val(2))))
 
         angle = blacksmith_turret_state.get("display_angle", -math.pi / 2)
         forward_vec = pygame.math.Vector2(math.cos(angle), math.sin(angle))
