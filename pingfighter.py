@@ -6442,7 +6442,9 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "max_hp": BLACKSMITH_TURRET_BASE_HP,
                             "level": BLACKSMITH_TURRET_BASE_LEVEL,
                             "xp": 0.0,
-                            "xp_max": float(BLACKSMITH_TURRET_XP_REQUIRED),
+                            # 1레벨 포탑은 먼저 강화(레벨 2) 단계까지 게이지를 채운 뒤,
+                            # 이후부터는 오버드라이브 게이지(Blacksmith_TURRET_XP_REQUIRED)를 사용한다.
+                            "xp_max": float(BLACKSMITH_TURRET_REINFORCE_COST),
                             "aim_angle": -math.pi / 2,
                             "display_angle": -math.pi / 2,
                             "recoil_timer": 0,
@@ -12807,6 +12809,7 @@ def blacksmith_start_divine_stone():
     base_x = max(blueprint_width // 2, min(WIDTH - blueprint_width // 2, PLAYER.centerx))
     base_y = HEIGHT - 5
     rect.midbottom = (base_x, base_y)
+    rect = _resolve_blacksmith_blueprint_position(rect)
     divine.blueprint_rect = rect
     divine.build_progress = 0
     divine.partial_drain = 0.0
@@ -13099,10 +13102,20 @@ BLACKSMITH_TURRET_COST = 150
 # 건설 진행도는 게이지 1pt당 1씩 증가하므로, 아래 값은 요구 게이지량과 동일하다.
 BLACKSMITH_TURRET_BUILD_TIME = 250  # 250 게이지 ≈ 5.56초 (게이지 소모 45pt/s)
 BLACKSMITH_TURRET_BUILD_RADIUS = 70
+# 기본 포탑 사양
 BLACKSMITH_TURRET_FIRE_INTERVAL = int(5 * FPS)  # 미사일 발사 주기 5초 고정
 BLACKSMITH_TURRET_BASE_HP = 3
 BLACKSMITH_TURRET_BASE_LEVEL = 1
+# 건설/충전용 게이지 소모 속도
 BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC = 45
+# 강화 포탑(레벨 2) 관련 설정
+BLACKSMITH_TURRET_MAX_LEVEL = 2
+BLACKSMITH_TURRET_REINFORCE_COST = 300  # 게이지 300을 소모해 강화
+BLACKSMITH_TURRET_REINFORCE_TIME = 12.0  # 약 12초 동안 망치질
+BLACKSMITH_TURRET_REINFORCE_GAUGE_DRAIN_PER_SEC = BLACKSMITH_TURRET_REINFORCE_COST / BLACKSMITH_TURRET_REINFORCE_TIME
+# 오버드라이브(게이지 해방) 준비에 필요한 충전량
+BLACKSMITH_TURRET_XP_REQUIRED = 220
+
 BLACKSMITH_TURRET_PROJECTILE_RADIUS = 12
 BLACKSMITH_TURRET_MISSILE_SPEED = 8.5
 BLACKSMITH_TURRET_MISSILE_TURN_RATE = 0.12
@@ -13114,9 +13127,6 @@ BLACKSMITH_TURRET_MISSILE_ACCEL = 0.12
 BLACKSMITH_TURRET_MISSILE_MAX_SPEED = 24.0
 BLACKSMITH_TURRET_MANUAL_COST = 60
 BLACKSMITH_TURRET_MANUAL_COOLDOWN = int(0.6 * FPS)
-BLACKSMITH_TURRET_MAX_LEVEL = 1
-BLACKSMITH_TURRET_UPGRADE_TIME = 10  # seconds of charge to upgrade (legacy value for ref)
-BLACKSMITH_TURRET_XP_REQUIRED = 220
 BLACKSMITH_TURRET_OVERDRIVE_DURATION = int(3.0 * FPS)
 BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW = int(2.0 * FPS)
 BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW_DIVINE = int(3.0 * FPS)
