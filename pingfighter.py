@@ -10667,6 +10667,10 @@ def trigger_blacksmith_turret_overdrive() -> bool:
     if not blacksmith_turret_active or not blacksmith_turret_state:
         return False
 
+    # 강화되지 않은 포탑(레벨 1)에서는 오버드라이브를 사용할 수 없다.
+    if int(blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL)) < BLACKSMITH_TURRET_MAX_LEVEL:
+        return False
+
     if blacksmith_turret_state.get("overdrive_active"):
         return False
 
