@@ -20771,6 +20771,7 @@ boss_dash_speed = 0.0
 boss_dash_target_x = 0.0
 boss_dash_direction = 0  # -1: 왼쪽, 1: 오른쪽
 boss_dash_afterimages: list[dict] = []
+boss_dash_stun_timer = 0  # 대쉬 후 통제불능 시간(프레임)
 
 # 빠칭코 관련 변수
 pachinko_active = False  # 빠칭코 활성화 상태
