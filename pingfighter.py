@@ -60937,10 +60937,10 @@ def _boss_try_emergency_dash() -> bool:
 
     # 공이 보스 라인 아래 특정 Y 구간에 있을 때만 대쉬 고려
     dy = BALL.centery - BOSS.bottom
-    if dy <= 0 or dy > 220:
+    if dy <= 0 or dy > 260:
         return False
 
-    time_to_boss = dy / max(1.0, abs(ball_vel[1]))
+    time_to_boss = dy / max(1.0, abs(ball_vel[1]))  # 프레임 단위 예상 시간
 
     # 보스 최대 속도 기준으로 "단순 이동" 가능한 거리 계산
     max_travel = BOSS_MAX_SPEED * time_to_boss
@@ -60968,12 +60968,35 @@ def _boss_try_emergency_dash() -> bool:
     if dash_distance < 20:
         return False
 
-    # 보스 대쉬 상태 설정 (플레이어 rolling 대쉬와 비슷한 스펙)
+    # 보스 대쉬 상태 설정 (플레이어 rolling 대쉬와 유사한 속도 곡선)
     boss_dash_direction = direction
-    boss_dash_duration_frames = 30
+    # 공이 도달하기 전에 미리 도착하도록 80% 정도 시간만 사용 (5~30프레임 범위)
+    time_to_boss_frames = max(1.0, time_to_boss)
+    boss_dash_duration_frames = int(
+        max(5.0, min(time_to_boss_frames * 0.8, 30.0))
+    )
     boss_dash_timer = boss_dash_duration_frames
     boss_dash_target_x = float(target_centerx)
-    boss_dash_speed = 40.0  # 플레이어 대쉬와 비슷한 기본 속도 (px/frame 기준)
+
+    # 플레이어 rolling 대쉬 패턴과 비슷한 가속/감속 곡선을 사용하기 위해
+    # 프레임별 이동 계수 합을 계산한 뒤, 그에 맞춰 속도를 결정
+    high_phase_frames = min(20, boss_dash_duration_frames)
+    pattern_sum = 0.0
+    # timer가 boss_dash_duration_frames → 0 으로 감소한다고 가정하고 계수 합산
+    for i in range(boss_dash_duration_frames):
+        t = boss_dash_duration_frames - (i + 1)
+        if t > high_phase_frames:
+            factor = 1.0
+        else:
+            factor = max(0.0, t / float(high_phase_frames)) if high_phase_frames > 0 else 0.0
+        pattern_sum += factor
+
+    if pattern_sum <= 0:
+        boss_dash_speed = dash_distance  # 안전 가드
+    else:
+        # 약간 여유 있게 10% 더 빠르게 설정
+        boss_dash_speed = (dash_distance / pattern_sum) * 1.1
+
     boss_dashing = True
 
     # 보스 대쉬 효과음 재생 (플레이어 대쉬와 동일 사운드)
