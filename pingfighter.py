@@ -60961,6 +60961,13 @@ def _boss_try_emergency_dash() -> bool:
     global BOSS, BALL, ball_vel, current_stage
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
+    global boss_dash_cooldown_until_ms
+
+    now_ms = pygame.time.get_ticks()
+
+    # 쿨타임 중이면 대쉬 불가
+    if boss_dash_cooldown_until_ms and now_ms < boss_dash_cooldown_until_ms:
+        return False
 
     # 공이 위쪽(보스 방향)으로 향하지 않으면 사용하지 않음
     if ball_vel[1] >= 0:
@@ -61003,6 +61010,16 @@ def _boss_try_emergency_dash() -> bool:
     if dash_distance < 20:
         return False
 
+    # 스테이지별 대쉬 발동 확률 적용
+    try:
+        stage_cfg = BOSS_CONFIGS.get(current_stage, {})
+        trigger_chance = float(stage_cfg.get("dash_trigger_chance", 0.30))
+    except Exception:
+        trigger_chance = 0.30
+
+    if random.random() >= trigger_chance:
+        return False
+
     # 보스 대쉬 상태 설정 (플레이어 rolling 대쉬와 유사한 속도 곡선)
     boss_dash_direction = direction
     # 공이 도달하기 전에 미리 도착하도록 80% 정도 시간만 사용 (5~30프레임 범위)
@@ -61043,6 +61060,26 @@ def _boss_try_emergency_dash() -> bool:
 
     # 게이지 소모
     boss_special_gauge = max(0, boss_special_gauge - BOSS_DASH_GAUGE_COST)
+
+    # 스테이지별 대쉬 쿨타임 설정 (초 단위 → ms)
+    try:
+        stage_cfg = BOSS_CONFIGS.get(current_stage, {})
+        cooldown_range = stage_cfg.get("dash_cooldown_range")
+    except Exception:
+        cooldown_range = None
+
+    if cooldown_range and len(cooldown_range) == 2:
+        min_s, max_s = cooldown_range
+    else:
+        # 설정이 없으면 스테이지 1 기본값 사용
+        min_s, max_s = 40.0, 55.0
+
+    min_ms = int(min_s * 1000)
+    max_ms = int(max_s * 1000)
+    if max_ms < min_ms:
+        max_ms = min_ms
+
+    boss_dash_cooldown_until_ms = now_ms + random.randint(min_ms, max_ms)
 
     print(
         f"[BossDash] Stage {current_stage} emergency dash start → target={boss_dash_target_x:.1f} "
