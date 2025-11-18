@@ -11114,6 +11114,26 @@ def draw_blacksmith_turret_elements(surface):
             column_fill_color = (86, 96, 138)
             column_inner_color = (158, 198, 255)
 
+        # 강화 포탑 전용 호흡 애니메이션(색상 펄스)
+        idle_pulse = 0.0
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            ticks = pygame.time.get_ticks()
+            idle_phase = ticks / 280.0
+            idle_pulse = 0.5 + 0.5 * math.sin(idle_phase * 2.2)
+
+            def _brighten(color, factor: float) -> tuple[int, int, int]:
+                r, g, b = color
+                delta = int(24 * factor)
+                r = min(255, max(0, r + delta))
+                g = min(255, max(0, g + delta))
+                b = min(255, max(0, b + delta))
+                return (r, g, b)
+
+            base_color = _brighten(base_color, idle_pulse)
+            leg_fill_color = _brighten(leg_fill_color, idle_pulse * 0.85)
+            torso_inner_color = _brighten(torso_inner_color, idle_pulse)
+            column_inner_color = _brighten(column_inner_color, idle_pulse * 0.9)
+
         # 받침대: 강화 포탑일 때는 더 넓고 두꺼운 이중 베이스로 표현
         if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
             base_points = [
@@ -11253,6 +11273,31 @@ def draw_blacksmith_turret_elements(surface):
         pygame.draw.polygon(surface, torso_outer_color, [(int(x), int(y)) for x, y in torso_points])
         pygame.draw.polygon(surface, torso_inner_color, [(int(x), int(y)) for x, y in inner_torso])
         pygame.draw.lines(surface, torso_border_color, True, [(int(x), int(y)) for x, y in torso_points], max(1, int(sx_val(2))))
+
+        # 강화 포탑 전용 바닥 광채(기본 상태에서도 계속 숨쉬는 느낌)
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL and idle_pulse > 0.0:
+            halo_radius = max(18, int(sx_val(48)))
+            halo_surface = pygame.Surface((halo_radius * 2, halo_radius * 2), pygame.SRCALPHA)
+            halo_center = (halo_radius, halo_radius)
+            outer_alpha = int(40 + 70 * idle_pulse)
+            inner_alpha = int(80 + 90 * idle_pulse)
+            pygame.draw.circle(
+                halo_surface,
+                (80, 40, 160, outer_alpha),
+                halo_center,
+                halo_radius,
+            )
+            pygame.draw.circle(
+                halo_surface,
+                (180, 150, 255, inner_alpha),
+                halo_center,
+                max(8, halo_radius // 2),
+            )
+            surface.blit(
+                halo_surface,
+                (int(cx - halo_radius), int(bottom - sy_val(4) - halo_radius)),
+                special_flags=pygame.BLEND_ADD,
+            )
 
         # 강화 포탑일 때 추가 장식 가시(스파이크) – 실루엣은 유지하되 디테일만 증가
         if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
