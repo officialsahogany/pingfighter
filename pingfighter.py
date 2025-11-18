@@ -20069,6 +20069,38 @@ def handle_quake():
         backup_speed=math.hypot(original_ball_speed_quake[0], original_ball_speed_quake[1]),
         eq_active=eq_active,
     )
+def force_end_quake_on_player_hit():
+    """Stage 2 정글지진이 플레이어 패들에 맞았을 때 지진 효과를 즉시 종료한다."""
+    global quake_active, quake_timer, quake_rng, PLAYER_SPEED, ball_vel
+
+    if not quake_active:
+        return
+
+    # 정글지진 상태 및 플레이어 속도 복구
+    quake_active = False
+    quake_timer = 0
+    quake_rng = None
+    PLAYER_SPEED = 1
+
+    # 효과음 정지
+    stop_quake_sound()
+
+    # Stage 2 배경 지진 효과도 즉시 종료
+    if current_stage == 2 and "animated_bg_stage2" in globals() and animated_bg_stage2 is not None:
+        try:
+            animated_bg_stage2.earthquake_active = False
+            animated_bg_stage2.earthquake_timer = 0
+            animated_bg_stage2.rock_spawn_triggered = False
+        except Exception:
+            # 배경 객체 상태 복구 중 오류가 나더라도 게임 진행에는 영향을 주지 않는다.
+            pass
+
+    if DEBUG_STAGE2_QUAKE:
+        debug_stage2_quake(
+            "force_end_player",
+            stage=current_stage,
+            ball_speed=math.hypot(ball_vel[0], ball_vel[1]),
+        )
 def draw_shaking_screen():
     """정글지진 시 화면 흔들림 효과 (더 효율적인 방식)"""
     global screen_shake_offset_x, screen_shake_offset_y, grenade_shake_timer, bazooka_screen_shake_timer
@@ -55552,6 +55584,9 @@ def calculate_bounce(paddle):
     
     # 패들 타입 확인 (플레이어 vs 보스)
     is_player_paddle = (paddle == PLAYER)
+    # Stage 2 정글지진: 플레이어 패들에 공이 닿으면 지진 효과를 강제 종료
+    if is_player_paddle and current_stage == 2 and quake_active:
+        force_end_quake_on_player_hit()
     # 드라이브 발동 여부를 반환하기 위한 변수
     drive_activated = False
     counter_bonus_applied = False
