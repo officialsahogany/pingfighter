@@ -11088,14 +11088,40 @@ def draw_blacksmith_turret_elements(surface):
         def sy_val(value):
             return value * scale_y
 
+        # 강화 여부에 따라 색상 팔레트 결정
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            base_color = (70, 46, 120)
+            base_border_color = (170, 144, 230)
+            leg_fill_color = (164, 142, 216)
+            leg_border_color = (96, 78, 150)
+            claw_fill_color = (194, 92, 214)
+            claw_edge_color = (245, 226, 255)
+            torso_outer_color = (226, 218, 255)
+            torso_inner_color = (156, 70, 210)
+            torso_border_color = (74, 40, 96)
+            column_fill_color = (90, 72, 144)
+            column_inner_color = (176, 186, 242)
+        else:
+            base_color = (66, 60, 92)
+            base_border_color = (130, 122, 170)
+            leg_fill_color = (178, 182, 206)
+            leg_border_color = (82, 86, 120)
+            claw_fill_color = (204, 68, 76)
+            claw_edge_color = (255, 220, 130)
+            torso_outer_color = (228, 238, 255)
+            torso_inner_color = (210, 70, 78)
+            torso_border_color = (70, 40, 60)
+            column_fill_color = (86, 96, 138)
+            column_inner_color = (158, 198, 255)
+
         base_points = [
             (cx - sx_val(36), bottom - sy_val(6)),
             (cx + sx_val(36), bottom - sy_val(6)),
             (cx + sx_val(24), bottom + sy_val(8)),
             (cx - sx_val(24), bottom + sy_val(8))
         ]
-        pygame.draw.polygon(surface, (66, 60, 92), [(int(x), int(y)) for x, y in base_points])
-        pygame.draw.lines(surface, (130, 122, 170), True, [(int(x), int(y)) for x, y in base_points], max(1, int(sx_val(2))))
+        pygame.draw.polygon(surface, base_color, [(int(x), int(y)) for x, y in base_points])
+        pygame.draw.lines(surface, base_border_color, True, [(int(x), int(y)) for x, y in base_points], max(1, int(sx_val(2))))
 
         left_leg = [
             (left + sx_val(2), bottom - sy_val(12)),
@@ -11109,10 +11135,10 @@ def draw_blacksmith_turret_elements(surface):
             (right + sx_val(6), bottom - sy_val(60)),
             (right - sx_val(10), bottom - sy_val(34))
         ]
-        pygame.draw.polygon(surface, (178, 182, 206), [(int(x), int(y)) for x, y in left_leg])
-        pygame.draw.polygon(surface, (178, 182, 206), [(int(x), int(y)) for x, y in right_leg])
-        pygame.draw.lines(surface, (82, 86, 120), False, [(int(x), int(y)) for x, y in left_leg], max(1, int(sx_val(2))))
-        pygame.draw.lines(surface, (82, 86, 120), False, [(int(x), int(y)) for x, y in right_leg], max(1, int(sx_val(2))))
+        pygame.draw.polygon(surface, leg_fill_color, [(int(x), int(y)) for x, y in left_leg])
+        pygame.draw.polygon(surface, leg_fill_color, [(int(x), int(y)) for x, y in right_leg])
+        pygame.draw.lines(surface, leg_border_color, False, [(int(x), int(y)) for x, y in left_leg], max(1, int(sx_val(2))))
+        pygame.draw.lines(surface, leg_border_color, False, [(int(x), int(y)) for x, y in right_leg], max(1, int(sx_val(2))))
 
         left_claw = [
             (cx - sx_val(18), bottom - sy_val(26)),
@@ -11126,10 +11152,10 @@ def draw_blacksmith_turret_elements(surface):
             (cx + sx_val(26), bottom + sy_val(4)),
             (cx + sx_val(10), bottom - sy_val(14))
         ]
-        pygame.draw.polygon(surface, (204, 68, 76), [(int(x), int(y)) for x, y in left_claw])
-        pygame.draw.polygon(surface, (204, 68, 76), [(int(x), int(y)) for x, y in right_claw])
-        pygame.draw.lines(surface, (255, 220, 130), True, [(int(x), int(y)) for x, y in left_claw], max(1, int(sx_val(2))))
-        pygame.draw.lines(surface, (255, 220, 130), True, [(int(x), int(y)) for x, y in right_claw], max(1, int(sx_val(2))))
+        pygame.draw.polygon(surface, claw_fill_color, [(int(x), int(y)) for x, y in left_claw])
+        pygame.draw.polygon(surface, claw_fill_color, [(int(x), int(y)) for x, y in right_claw])
+        pygame.draw.lines(surface, claw_edge_color, True, [(int(x), int(y)) for x, y in left_claw], max(1, int(sx_val(2))))
+        pygame.draw.lines(surface, claw_edge_color, True, [(int(x), int(y)) for x, y in right_claw], max(1, int(sx_val(2))))
 
         torso_points = [
             (cx - sx_val(18), bottom - sy_val(46)),
@@ -11141,7 +11167,7 @@ def draw_blacksmith_turret_elements(surface):
             (cx + sx_val(28), top + sy_val(48)),
             (cx + sx_val(18), bottom - sy_val(46))
         ]
-        pygame.draw.polygon(surface, (228, 238, 255), [(int(x), int(y)) for x, y in torso_points])
+        pygame.draw.polygon(surface, torso_outer_color, [(int(x), int(y)) for x, y in torso_points])
         inner_torso = [
             (cx - sx_val(12), bottom - sy_val(44)),
             (cx - sx_val(20), top + sy_val(46)),
@@ -11152,16 +11178,16 @@ def draw_blacksmith_turret_elements(surface):
             (cx + sx_val(20), top + sy_val(46)),
             (cx + sx_val(12), bottom - sy_val(44))
         ]
-        pygame.draw.polygon(surface, (210, 70, 78), [(int(x), int(y)) for x, y in inner_torso])
-        pygame.draw.lines(surface, (70, 40, 60), True, [(int(x), int(y)) for x, y in torso_points], max(1, int(sx_val(2))))
+        pygame.draw.polygon(surface, torso_inner_color, [(int(x), int(y)) for x, y in inner_torso])
+        pygame.draw.lines(surface, torso_border_color, True, [(int(x), int(y)) for x, y in torso_points], max(1, int(sx_val(2))))
 
         column_width = max(4, int(sx_val(14)))
         column_height = max(18, int(sy_val(24)))
         center_column = pygame.Rect(int(cx - column_width / 2), int(top + sy_val(26)), column_width, column_height)
-        pygame.draw.rect(surface, (86, 96, 138), center_column, border_radius=int(max(2, sx_val(4))))
+        pygame.draw.rect(surface, column_fill_color, center_column, border_radius=int(max(2, sx_val(4))))
         inner_column = center_column.inflate(-max(2, int(sx_val(6))), -max(2, int(sy_val(8))))
         if inner_column.width > 0 and inner_column.height > 0:
-            pygame.draw.rect(surface, (158, 198, 255), inner_column, border_radius=int(max(1, sx_val(3))))
+            pygame.draw.rect(surface, column_inner_color, inner_column, border_radius=int(max(1, sx_val(3))))
 
         angle = blacksmith_turret_state.get("display_angle", -math.pi / 2)
         forward_vec = pygame.math.Vector2(math.cos(angle), math.sin(angle))
@@ -11207,8 +11233,16 @@ def draw_blacksmith_turret_elements(surface):
             head_point(sx_val(24), -sy_val(10)),
             head_point(sx_val(12), sy_val(12)),
         ]
-        pygame.draw.polygon(head_surface, (228, 238, 255), body_poly)
-        pygame.draw.polygon(head_surface, (210, 70, 78), [
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            head_body_color = (232, 228, 255)
+            head_core_color = (168, 92, 214)
+            head_border_color = (70, 38, 100)
+        else:
+            head_body_color = (228, 238, 255)
+            head_core_color = (210, 70, 78)
+            head_border_color = (70, 40, 60)
+        pygame.draw.polygon(head_surface, head_body_color, body_poly)
+        pygame.draw.polygon(head_surface, head_core_color, [
             head_point(-sx_val(10), sy_val(10)),
             head_point(-sx_val(18), -sy_val(8)),
             head_point(-sx_val(6), -sy_val(30)),
@@ -11217,7 +11251,7 @@ def draw_blacksmith_turret_elements(surface):
             head_point(sx_val(18), -sy_val(8)),
             head_point(sx_val(10), sy_val(10)),
         ])
-        pygame.draw.lines(head_surface, (70, 40, 60), True, body_poly, max(1, int(sx_val(2))))
+        pygame.draw.lines(head_surface, head_border_color, True, body_poly, max(1, int(sx_val(2))))
 
         claw_left = [
             head_point(-sx_val(18), sy_val(8)),
@@ -11231,10 +11265,10 @@ def draw_blacksmith_turret_elements(surface):
             head_point(sx_val(28), sy_val(30)),
             head_point(sx_val(12), sy_val(20)),
         ]
-        pygame.draw.polygon(head_surface, (204, 68, 76), claw_left)
-        pygame.draw.polygon(head_surface, (204, 68, 76), claw_right)
-        pygame.draw.lines(head_surface, (255, 220, 130), True, claw_left, max(1, int(sx_val(2))))
-        pygame.draw.lines(head_surface, (255, 220, 130), True, claw_right, max(1, int(sx_val(2))))
+        pygame.draw.polygon(head_surface, claw_fill_color, claw_left)
+        pygame.draw.polygon(head_surface, claw_fill_color, claw_right)
+        pygame.draw.lines(head_surface, claw_edge_color, True, claw_left, max(1, int(sx_val(2))))
+        pygame.draw.lines(head_surface, claw_edge_color, True, claw_right, max(1, int(sx_val(2))))
 
         cannon_left = [
             head_point(-sx_val(16), -sy_val(14)),
@@ -11248,23 +11282,43 @@ def draw_blacksmith_turret_elements(surface):
             head_point(sx_val(26), -sy_val(48)),
             head_point(sx_val(10), -sy_val(30)),
         ]
-        pygame.draw.polygon(head_surface, (242, 182, 62), cannon_left)
-        pygame.draw.polygon(head_surface, (242, 182, 62), cannon_right)
-        pygame.draw.lines(head_surface, (70, 40, 8), True, cannon_left, max(1, int(sx_val(2))))
-        pygame.draw.lines(head_surface, (70, 40, 8), True, cannon_right, max(1, int(sx_val(2))))
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            cannon_fill = (212, 178, 255)
+            cannon_edge = (80, 40, 112)
+        else:
+            cannon_fill = (242, 182, 62)
+            cannon_edge = (70, 40, 8)
+        pygame.draw.polygon(head_surface, cannon_fill, cannon_left)
+        pygame.draw.polygon(head_surface, cannon_fill, cannon_right)
+        pygame.draw.lines(head_surface, cannon_edge, True, cannon_left, max(1, int(sx_val(2))))
+        pygame.draw.lines(head_surface, cannon_edge, True, cannon_right, max(1, int(sx_val(2))))
 
         core_radius = max(3, int(sx_val(9)))
-        pygame.draw.circle(head_surface, (40, 200, 255, 180), (int(pivot_local.x), int(pivot_local.y - sy_val(12))), core_radius)
-        pygame.draw.circle(head_surface, (255, 255, 255, 200), (int(pivot_local.x), int(pivot_local.y - sy_val(12))), max(1, core_radius // 2))
+        core_center = (int(pivot_local.x), int(pivot_local.y - sy_val(12)))
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            core_outer = (120, 220, 255, 210)
+            core_inner = (255, 255, 255, 230)
+        else:
+            core_outer = (40, 200, 255, 180)
+            core_inner = (255, 255, 255, 200)
+        pygame.draw.circle(head_surface, core_outer, core_center, core_radius)
+        pygame.draw.circle(head_surface, core_inner, core_center, max(1, core_radius // 2))
 
         muzzle_rect = pygame.Rect(0, 0, max(3, int(sx_val(6))), max(4, int(sy_val(16))))
         muzzle_rect.center = head_point(0, -sy_val(54))
-        pygame.draw.rect(head_surface, (94, 206, 255), muzzle_rect, border_radius=max(1, int(sx_val(2))))
-        pygame.draw.rect(head_surface, (16, 36, 64), muzzle_rect, max(1, int(sx_val(1))), border_radius=max(1, int(sx_val(2))))
+        if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
+            muzzle_fill = (148, 122, 255)
+            muzzle_edge = (32, 24, 80)
+        else:
+            muzzle_fill = (94, 206, 255)
+            muzzle_edge = (16, 36, 64)
+        pygame.draw.rect(head_surface, muzzle_fill, muzzle_rect, border_radius=max(1, int(sx_val(2))))
+        pygame.draw.rect(head_surface, muzzle_edge, muzzle_rect, max(1, int(sx_val(1))), border_radius=max(1, int(sx_val(2))))
 
         heat_vent = pygame.Rect(0, 0, max(6, int(sx_val(18))), max(4, int(sy_val(10))))
         heat_vent.center = head_point(0, sy_val(2))
-        pygame.draw.rect(head_surface, (150, 150, 168, 190), heat_vent, border_radius=max(1, int(sx_val(3))))
+        heat_color = (168, 150, 210, 190) if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL else (150, 150, 168, 190)
+        pygame.draw.rect(head_surface, heat_color, heat_vent, border_radius=max(1, int(sx_val(3))))
 
         if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL:
             # 강화된 포탑: 헤드 주변에 청백색 오라와 문양을 추가해 보다 화려하게 표현
