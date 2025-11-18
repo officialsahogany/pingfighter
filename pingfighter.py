@@ -9937,14 +9937,15 @@ def _blacksmith_spawn_homing_missile(turret_runtime, turret_state) -> None:
     muzzle_distance = BLACKSMITH_TURRET_MUZZLE_LENGTH * scale_x
     spawn_point = pivot_point + direction * (muzzle_distance + radius + 2)
 
-    base_speed = BLACKSMITH_TURRET_MISSILE_SPEED * BLACKSMITH_TURRET_HOMING_SPEED_MULT
+    base_speed = BLACKSMITH_TURRET_MISSILE_SPEED
+    initial_speed = base_speed * BLACKSMITH_TURRET_HOMING_SPEED_MULT
 
     projectile = {
         "x": float(spawn_point.x),
         "y": float(spawn_point.y),
-        "vx": direction.x * base_speed,
-        "vy": direction.y * base_speed,
-        "speed": base_speed,
+        "vx": direction.x * initial_speed,
+        "vy": direction.y * initial_speed,
+        "speed": initial_speed,
         "life": BLACKSMITH_TURRET_MISSILE_LIFE,
         "radius": radius,
         "grace_frames": 4,
@@ -9952,6 +9953,9 @@ def _blacksmith_spawn_homing_missile(turret_runtime, turret_state) -> None:
         "divine_overdrive": False,
         "trail_timer": 0,
         "homing": True,
+        "homing_initial_speed": initial_speed,
+        "homing_base_speed": base_speed,
+        "homing_age": 0,
         "wobble_phase": random.uniform(0.0, math.tau) if hasattr(math, "tau") else random.uniform(0.0, 2.0 * math.pi),
     }
     turret_runtime.projectiles.append(projectile)
@@ -10494,6 +10498,15 @@ def update_blacksmith_turret():
                     proj["vy"] = (1 - turn_rate) * proj["vy"] + turn_rate * desired_vy
 
             if proj.get("homing"):
+                # 등가속도: 1초당 기본 속도의 60%씩 속도 증가 (선형)
+                age = int(proj.get("homing_age", 0)) + 1
+                proj["homing_age"] = age
+                base_speed_val = proj.get("homing_base_speed", BLACKSMITH_TURRET_MISSILE_SPEED)
+                initial_speed = proj.get("homing_initial_speed", base_speed_val * BLACKSMITH_TURRET_HOMING_SPEED_MULT)
+                delta_per_sec = base_speed_val * 0.6
+                speed = initial_speed + delta_per_sec * (age / FPS)
+                # 상한은 일반 미사일 최대 속도와 동일하게 제한
+                speed = min(BLACKSMITH_TURRET_MISSILE_MAX_SPEED, speed)
                 proj["speed"] = speed
                 current_speed = math.hypot(proj["vx"], proj["vy"])
                 if current_speed > 0:
@@ -13666,8 +13679,8 @@ BLACKSMITH_TURRET_OVERDRIVE_FIRE_WINDOW_DIVINE = int(3.0 * FPS)
 # 강화 포탑 전용 유도 미사일 설정
 BLACKSMITH_TURRET_HOMING_BURST_COUNT = 3
 BLACKSMITH_TURRET_HOMING_INTERVAL = int(0.2 * FPS)  # 0.2초 간격
-# 유도 미사일은 기존 자동 미사일 속도의 약 58% 속도로 이동 (직전보다 약 30% 가속)
-BLACKSMITH_TURRET_HOMING_SPEED_MULT = 0.58
+# 유도 미사일 초기 속도는 기존 자동 미사일의 50% (이후 선형 가속)
+BLACKSMITH_TURRET_HOMING_SPEED_MULT = 0.5
 BLACKSMITH_TURRET_HOMING_RADIUS_SCALE = 0.7  # 기본 미사일 반경의 70%
 BLACKSMITH_TURRET_HOMING_STUN_DURATION = int(0.4 * FPS)  # 0.4초 스턴
 BLACKSMITH_TURRET_HOMING_KNOCKBACK_DIST = int(BLACKSMITH_TURRET_KNOCKBACK_DISTANCE * 0.5)
