@@ -2082,6 +2082,11 @@ STAGE7_TETRO_WALL_COLS = 5
 # 실제 런타임 수치는 game_logic.stage7_tetriser.get_tetro_wall_spawn_spec_legacy()
 # 결과를 우선 사용하며, 위 상수들은 예외/폴백 경로에서만 참조됨.
 boss_current_speed = 0               # 현재 AI 보스 속도
+
+# 보스 대쉬 관련 설정 및 상태
+BOSS_DASH_GAUGE_COST = 150           # 보스 대쉬 게이지 소모량
+boss_dash_cooldown_until_ms = 0      # 다음 대쉬 가능 시각 (ms, 0이면 바로 사용 가능)
+
 # 보스 AI 움직임 파라미터
 BOSS_ACCELERATION = 0.798            # 가속도 (35% 감소: 1.2 → 0.798)
 BOSS_DECELERATION = 0.798            # 감속도 (35% 감소: 1.2 → 0.798)
@@ -60584,6 +60589,118 @@ def toggle_ai_mode():
     elif enhanced_ai:
         # 레거시 AI 시스템 업데이트
         enhanced_ai.ai_mode = ai_mode
+def _boss_try_emergency_dash() -> bool:
+    """보스 긴급 대쉬 시도.
+
+    공을 일반 이동으로는 가드하기 어려운 상황에서만 발동한다.
+    스테이지 1~3에서, 보스 특수 게이지가 충분하고
+    대쉬 쿨타임이 지난 경우에만 사용된다.
+    """
+    global boss_special_gauge, boss_dash_cooldown_until_ms
+    global BOSS, BALL, ball_vel, current_stage, ai_mode, ai_enabled
+
+    # 튜토리얼/특수 스테이지는 제외
+    if current_stage not in (1, 2, 3):
+        return False
+
+    # AI가 꺼져 있으면 레거시 로직 유지
+    if not ai_enabled:
+        return False
+
+    # 공이 위쪽(보스 방향)으로 향하지 않으면 사용하지 않음
+    if ball_vel[1] >= 0:
+        return False
+
+    # 보스 특수 게이지 부족 시 사용 불가
+    if boss_special_gauge < BOSS_DASH_GAUGE_COST:
+        return False
+
+    now_ms = pygame.time.get_ticks()
+    if boss_dash_cooldown_until_ms and now_ms < boss_dash_cooldown_until_ms:
+        return False
+
+    # 공이 보스 라인까지 도달하는 데 걸리는 시간 대략 계산
+    dy = BALL.centery - BOSS.bottom
+    if dy <= 0:
+        return False
+
+    time_to_boss = dy / max(1.0, abs(ball_vel[1]))
+
+    # 스테이지/리그 기반 최대 속도 추정
+    try:
+        cfg = get_final_boss_config(current_stage, ai_mode if ai_enabled else "pro")
+        max_speed = cfg.get("max_speed", BOSS_MAX_SPEED)
+    except Exception:
+        max_speed = BOSS_MAX_SPEED
+
+    max_travel = max_speed * time_to_boss
+
+    # 공의 예상 X 위치 (단순 직선 예측 + 화면 경계 보정)
+    predicted_x = BALL.centerx + ball_vel[0] * time_to_boss
+    predicted_x = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, predicted_x))
+
+    required = abs(predicted_x - BOSS.centerx)
+
+    # 일반 이동으로도 커버 가능한 거리라면 대쉬 불필요
+    if required <= max_travel * 1.1:
+        return False
+
+    # 실제 대쉬 실행 (순간 이동 + 이펙트/사운드)
+    direction = 1 if predicted_x > BOSS.centerx else -1
+    old_centerx = BOSS.centerx
+
+    target_centerx = int(predicted_x)
+    target_centerx = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx))
+
+    dash_distance = abs(target_centerx - old_centerx)
+    if dash_distance < 20:
+        return False
+
+    # 위치 순간 이동
+    BOSS.centerx = target_centerx
+
+    # 플레이어 대쉬와 동일한 이펙트/사운드 사용
+    try:
+        create_dash_spirit_laser(BOSS.centerx, BOSS.centery, direction, dash_distance)
+    except Exception:
+        pass
+
+    try:
+        if "SOUND_DASH" in globals():
+            play_sound_with_volume(SOUND_DASH)
+    except Exception:
+        pass
+
+    # 게이지 소모
+    boss_special_gauge = max(0, boss_special_gauge - BOSS_DASH_GAUGE_COST)
+
+    # 스테이지 설정에 따른 대쉬 쿨타임 범위 적용 (초 → ms)
+    try:
+        stage_cfg = BOSS_CONFIGS.get(current_stage, {})
+        cooldown_range = stage_cfg.get("dash_cooldown_range")
+    except Exception:
+        cooldown_range = None
+
+    if cooldown_range and len(cooldown_range) == 2:
+        min_s, max_s = cooldown_range
+    else:
+        # 설정이 없으면 Stage 1 기본값과 동일하게 사용
+        min_s, max_s = 45.0, 60.0
+
+    min_ms = int(min_s * 1000)
+    max_ms = int(max_s * 1000)
+    if max_ms < min_ms:
+        max_ms = min_ms
+
+    boss_dash_cooldown_until_ms = now_ms + random.randint(min_ms, max_ms)
+
+    print(
+        f\"[BossDash] Stage {current_stage} emergency dash → {BOSS.centerx} "
+        f\"(dist={dash_distance:.1f}, gauge={boss_special_gauge})\"
+    )
+    return True
+
+
 def handle_boss_pro():
     """ 프로리그: 표준 AI (15% 실수율)"""
     global boss_current_speed, boss_fail_timer
@@ -62736,7 +62853,11 @@ def handle_boss():
             head_shot_active = False
             print("🎯 헤드샷 스턴 종료!")
         return  # 헤드샷 스턴 중에는 AI 완전 정지
-    
+
+    # 일반 AI 움직임 전에 긴급 대쉬 시도
+    if _boss_try_emergency_dash():
+        return
+
     #  리그별 AI 모드 체크 및 분기 (4단계 리그 시스템)
     if ai_enabled and ai_mode == "junior":
         #  주니어리그: 초심자용 쉬운 AI (실수 25%)
