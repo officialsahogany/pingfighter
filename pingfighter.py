@@ -9467,6 +9467,26 @@ def update_blacksmith_hammer_shock(keys):
             ):
                 try:
                     trigger_boss_knockback(slash_rect.centerx, slash_rect.centery)
+                    # 검기 전용: 기존보다 더 빠르고 멀리 넉백되도록 즉시 추가 밀기 적용
+                    try:
+                        boss_obj = globals().get("BOSS")
+                        if boss_obj is not None:
+                            hit_center_x = slash_rect.centerx
+                            boss_center_x = boss_obj.centerx
+                            direction = 1 if boss_center_x >= hit_center_x else -1
+
+                            extra_push = 32  # 기본 추가 넉백 거리 (픽셀)
+                            if direction > 0:
+                                # 오른쪽으로 밀릴 때 화면 경계 고려
+                                extra_push = min(extra_push, max(0, WIDTH - boss_obj.right))
+                            else:
+                                # 왼쪽으로 밀릴 때 화면 경계 고려
+                                extra_push = min(extra_push, max(0, boss_obj.left))
+
+                            boss_obj.x += direction * extra_push
+                            boss_obj.x = max(0, min(WIDTH - boss_obj.width, boss_obj.x))
+                    except Exception:
+                        pass
                 except Exception:
                     pass
                 # 넉백과 동시에 0.3초(18프레임) 스턴 부여
