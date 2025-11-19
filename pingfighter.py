@@ -6623,6 +6623,13 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 blacksmith_hammer_swing_slow_timer = 0
                 blacksmith_hammer_slow_decay_step = 0
                 blacksmith_hammer_swing_active = True
+                # 포탑 강화와 동일하게 망치질 애니메이션 진행
+                hammer_increment = 1
+                if frame_counter % 2 == 0:
+                    hammer_increment = 2
+                blacksmith_hammer_swing_phase = (
+                    blacksmith_hammer_swing_phase + hammer_increment
+                ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
 
                 drain_per_sec = 400.0 / 15.0
