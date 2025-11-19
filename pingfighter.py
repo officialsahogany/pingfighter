@@ -6568,7 +6568,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "deploy_timer": 0,
                             "level": 1,
                             "xp": 0.0,
-                            "xp_max": float(BLACKSMITH_DIVINE_REINFORCE_COST),
+                            "xp_max": 400.0,
                             "reinforced": False,
                         }
                         stage_value = globals().get("current_stage")
