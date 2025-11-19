@@ -60327,7 +60327,10 @@ def handle_ball():
                             brick_particles.append(particle)
 
                     # 벽돌 파괴 시 효과음 재생
-                    if hit_count >= 2:
+                    # - 일반 벽돌: 2타에 파괴
+                    # - 보호형(그룹) 벽돌: 3타에 파괴
+                    destroy_threshold = 3 if group_id is not None else 2
+                    if hit_count >= destroy_threshold:
                         # 벽돌 완전 파괴
                         if 'SOUND_BRICK_DESTROY' in globals() and SOUND_BRICK_DESTROY:
                             try:
