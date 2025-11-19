@@ -9787,7 +9787,12 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
         shield_timer -= 1
         divine_state["shield_timer"] = shield_timer
         if shield_timer <= 0:
+            # 디바인쉴드 종료 → 과부하 시작
             divine_state["shield_active"] = False
+            divine_state["shield_overheat"] = max(
+                int(divine_state.get("shield_overheat", 0)),
+                BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES,
+            )
     overheat_timer = int(divine_state.get("shield_overheat", 0))
     if overheat_timer > 0:
         divine_state["shield_overheat"] = overheat_timer - 1
@@ -10032,6 +10037,59 @@ def _divine_draw_effects(surface, divine_state):
             core_color = (255, 255, 255)
         pygame.draw.line(surface, spark_color, (int(p['x']), int(p['y'])), (ex, ey), 1)
         pygame.draw.circle(surface, core_color, (int(p['x']), int(p['y'])), max(1, s // 2))
+
+    # 디바인쉴드 비주얼: 강화디바인스톤이 쉴드 활성 중일 때 건물 주변에 비누방울 같은 구체를 그린다.
+    shield_active = bool(divine_state.get("shield_active", False))
+    if shield_active:
+        try:
+            centers: list[tuple[int, int]] = []
+            # 디바인스톤 중심
+            rect = divine_state.get("rect")
+            if rect is not None:
+                centers.append(rect.center)
+            # 포탑 중심 (필드에 있을 때만)
+            turret_state = BLACKSMITH_CONTROLLER.state.turret.state
+            if turret_state and turret_state.get("rect") is not None:
+                centers.append(turret_state["rect"].center)
+            if centers:
+                t = pygame.time.get_ticks() / 1000.0
+                for idx, (cx, cy) in enumerate(centers):
+                    phase = t * 2.0 + idx * 0.7
+                    base_radius = 40
+                    pulse = 1.0 + 0.08 * math.sin(phase * 2.5)
+                    radius = int(base_radius * pulse)
+                    bubble_surf = pygame.Surface((radius * 2 + 8, radius * 2 + 8), pygame.SRCALPHA)
+                    center = (radius + 4, radius + 4)
+                    # 외곽 연한 푸른빛
+                    pygame.draw.circle(
+                        bubble_surf,
+                        (190, 230, 255, 90),
+                        center,
+                        radius,
+                        2,
+                    )
+                    # 안쪽 은은한 채움
+                    pygame.draw.circle(
+                        bubble_surf,
+                        (210, 245, 255, 40),
+                        center,
+                        max(1, radius - 3),
+                    )
+                    # 하이라이트(비누방울 느낌)
+                    highlight_offset = int(radius * 0.35)
+                    pygame.draw.circle(
+                        bubble_surf,
+                        (255, 255, 255, 110),
+                        (center[0] - highlight_offset, center[1] - highlight_offset),
+                        max(2, radius // 4),
+                    )
+                    surface.blit(
+                        bubble_surf,
+                        bubble_surf.get_rect(center=(int(cx), int(cy))),
+                        special_flags=pygame.BLEND_ADD,
+                    )
+        except Exception:
+            pass
 
 def draw_divine_stone_world_effects(surface):
     sync_blacksmith_state()
@@ -58708,7 +58766,9 @@ def handle_ball():
                             cond_hp_ok = (cur_hp >= 2)
                         else:
                             cond_hp_ok = (cur_hp == max_hp)
-                        if cond_owner and cond_descend and cond_position and cond_cd and cond_hp_ok:
+                        # 과부하 상태에서는 번개 요격 비활성화
+                        cond_overheat_ok = (int(divine_state.get("shield_overheat", 0)) <= 0)
+                        if cond_owner and cond_descend and cond_position and cond_cd and cond_hp_ok and cond_overheat_ok:
                             sx, sy = int(divine_state["rect"].centerx), int(divine_state["rect"].centery)
                             bx, by = BALL.centerx, BALL.centery
                             main, branches = _divine_gen_lightning((sx, sy), (bx, by))
