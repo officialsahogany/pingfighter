@@ -9789,6 +9789,9 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
         if shield_timer <= 0:
             # 디바인쉴드 종료 → 과부하 시작
             divine_state["shield_active"] = False
+            # 디바인쉴드 게이지는 다시 0부터 시작하도록 리셋
+            divine_state["shield_xp"] = 0.0
+            divine_state["shield_ready"] = False
             divine_state["shield_overheat"] = max(
                 int(divine_state.get("shield_overheat", 0)),
                 BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES,
