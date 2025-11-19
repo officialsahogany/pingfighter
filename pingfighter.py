@@ -9459,6 +9459,15 @@ def update_blacksmith_hammer_shock(keys):
                     trigger_boss_knockback(slash_rect.centerx, slash_rect.centery)
                 except Exception:
                     pass
+                # 넉백과 동시에 0.3초(18프레임) 스턴 부여
+                try:
+                    stun_frames = int(0.3 * FPS)
+                    globals()["boss_stunned_timer"] = max(
+                        globals().get("boss_stunned_timer", 0),
+                        stun_frames,
+                    )
+                except Exception:
+                    pass
                 proj["boss_hit"] = True
 
             # 화면 밖으로 완전히 벗어나면 제거
