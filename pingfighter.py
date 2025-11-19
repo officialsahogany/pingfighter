@@ -12712,7 +12712,11 @@ def draw_blacksmith_divine_ui(surface):
     if building_mode:
         title_label = "디바인스톤 건설중"
     elif divine_state is not None:
-        title_label = "디바인스톤"
+        # 강화 여부에 따라 이름 변경
+        if divine_state.get("reinforced", False):
+            title_label = "강화디바인스톤"
+        else:
+            title_label = "디바인스톤"
     else:
         title_label = "디바인스톤"
 
