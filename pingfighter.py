@@ -9367,10 +9367,21 @@ def update_blacksmith_hammer_shock(keys):
 
         for proj in blacksmith_divine_slash_projectiles:
             try:
-                x = float(proj.get("x", 0.0)) + float(proj.get("vx", 0.0))
-                y = float(proj.get("y", 0.0)) + float(proj.get("vy", 0.0))
+                old_x = float(proj.get("x", 0.0))
+                old_y = float(proj.get("y", 0.0))
+                x = old_x + float(proj.get("vx", 0.0))
+                y = old_y + float(proj.get("vy", 0.0))
             except Exception:
                 continue
+
+            # 궤적 업데이트 (최대 20개 포인트 유지)
+            trail = proj.get("trail", [])
+            if not isinstance(trail, list):
+                trail = []
+            trail.append((old_x, old_y))
+            if len(trail) > 20:
+                trail = trail[-20:]
+            proj["trail"] = trail
 
             proj["x"] = x
             proj["y"] = y
@@ -14282,6 +14293,8 @@ def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
         "life": int(BLACKSMITH_DIVINE_SLASH_LIFETIME_FRAMES),
         "bounced": False,
         "boss_hit": False,
+        "trail": [],  # 궤적 저장용 리스트
+        "swing_dir": swing_direction,  # 스윙 방향 저장
     }
     blacksmith_divine_slash_projectiles.append(projectile)
 
