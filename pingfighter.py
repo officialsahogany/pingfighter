@@ -12986,7 +12986,129 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
 
         rune_progress = (pulse % 180) / 180.0
         orb_alpha = int(180 * core_progress)
-        if orb_alpha > 0 and orbital_radius > 1:
+
+        # === 강화 디바인스톤: 에너지 응집/폭발 시스템 ===
+        if reinforced and orb_alpha > 0 and orbital_radius > 1:
+            # 번개 쿨타임 기반 충전 상태 계산
+            lightning_cd = divine_state.get("lightning_cd", 0)
+            lightning_max_cd = int(18 * FPS)  # 평균 쿨타임 (13~23초)
+
+            # 충전 진행도 (0.0 = 충전 완료/발사 직후, 1.0 = 쿨타임 막 시작)
+            if lightning_cd > 0:
+                charge_progress = 1.0 - (lightning_cd / lightning_max_cd)
+                charge_progress = max(0.0, min(1.0, charge_progress))
+            else:
+                charge_progress = 1.0  # 완전 충전
+
+            # 폭발 상태 감지 (번개 발사 직후)
+            explosion_ttl = divine_state.get("explosion_ttl", 0)
+            is_exploding = explosion_ttl > 0
+
+            # === 위/아래 떠다니는 에너지 구체 ===
+            for orb_idx in range(2):
+                # 기본 위치: 위쪽(0), 아래쪽(1)
+                base_offset_y = -25 if orb_idx == 0 else 25
+
+                # 둥둥 떠다니는 애니메이션
+                float_anim = math.sin(pulse * 0.1 + orb_idx * math.pi) * 5
+
+                if is_exploding:
+                    # 폭발 시: 에너지 쉴드가 바깥으로 터짐
+                    explosion_ratio = explosion_ttl / max(1, int(0.22 * FPS))
+                    burst_distance = (1.0 - explosion_ratio) * 40
+                    orb_y = mana_center.y + base_offset_y * (1 + burst_distance / 25)
+                    orb_size = int(5 + (1.0 - explosion_ratio) * 8)
+                    orb_intensity = int(255 * explosion_ratio)
+                    # 폭발 색상: 붉은 보라색
+                    orb_color = (255, 150 + int(105 * explosion_ratio), 200, orb_intensity)
+                else:
+                    # 충전 중: 에너지 응집
+                    # 충전이 진행될수록 중심으로 모임
+                    concentrate_factor = charge_progress * 0.4
+                    orb_y = mana_center.y + base_offset_y * (1.0 - concentrate_factor) + float_anim
+
+                    # 충전이 진행될수록 크기와 강도 증가
+                    base_size = 4 + charge_progress * 4
+                    orb_size = int(base_size)
+                    orb_intensity = int(120 + charge_progress * 135)
+
+                    # 충전 상태에 따른 색상 변화 (파랑 → 보라 → 붉은보라)
+                    r = int(120 + charge_progress * 135)
+                    g = int(200 - charge_progress * 100)
+                    b = int(255 - charge_progress * 55)
+                    orb_color = (r, g, b, orb_intensity)
+
+                orb_x = mana_center.x
+
+                # 에너지 구체 글로우
+                glow_size = orb_size + 6
+                glow_alpha = min(80, int(orb_intensity * 0.4))
+                if glow_alpha > 0:
+                    pygame.draw.circle(
+                        structure_surface,
+                        (orb_color[0], orb_color[1], orb_color[2], glow_alpha),
+                        (int(orb_x), int(orb_y)),
+                        glow_size,
+                    )
+
+                # 에너지 구체 본체
+                pygame.draw.circle(
+                    structure_surface,
+                    orb_color,
+                    (int(orb_x), int(orb_y)),
+                    orb_size,
+                )
+
+                # 구체 중심 하이라이트
+                if orb_size > 2:
+                    pygame.draw.circle(
+                        structure_surface,
+                        (255, 255, 255, min(200, orb_intensity)),
+                        (int(orb_x), int(orb_y)),
+                        max(1, orb_size // 2),
+                    )
+
+            # === 충전 중 주변 회전 에너지 입자 ===
+            if charge_progress > 0.3:
+                particle_count = int(4 + charge_progress * 4)
+                particle_radius = orbital_radius * (1.2 - charge_progress * 0.5)
+                for idx in range(particle_count):
+                    # 회전 속도: 충전될수록 빨라짐
+                    rot_speed = 2 + charge_progress * 6
+                    angle = math.radians((360 / particle_count) * idx + pulse * rot_speed)
+                    px = mana_center.x + math.cos(angle) * particle_radius
+                    py = mana_center.y + math.sin(angle) * particle_radius
+
+                    # 입자 색상과 크기
+                    p_intensity = int(100 + charge_progress * 155)
+                    p_size = 2 + int(charge_progress * 2)
+                    p_r = int(150 + charge_progress * 105)
+                    p_g = int(180 - charge_progress * 80)
+                    p_b = 255
+
+                    pygame.draw.circle(
+                        structure_surface,
+                        (p_r, p_g, p_b, p_intensity),
+                        (int(px), int(py)),
+                        p_size,
+                    )
+
+            # === 폭발 파동 효과 ===
+            if is_exploding:
+                explosion_ratio = explosion_ttl / max(1, int(0.22 * FPS))
+                wave_radius = int((1.0 - explosion_ratio) * 35)
+                wave_alpha = int(200 * explosion_ratio)
+                if wave_radius > 0 and wave_alpha > 0:
+                    pygame.draw.circle(
+                        structure_surface,
+                        (255, 180, 220, wave_alpha),
+                        (int(mana_center.x), int(mana_center.y)),
+                        wave_radius,
+                        2,
+                    )
+
+        # === 기본 디바인스톤: 기존 오비탈 구체 ===
+        elif not reinforced and orb_alpha > 0 and orbital_radius > 1:
             for angle_deg in range(0, 360, 60):
                 angle = math.radians(angle_deg + rune_progress * 120)
                 orb_pos = mana_center + pygame.math.Vector2(math.cos(angle), math.sin(angle)) * orbital_radius
