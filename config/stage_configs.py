@@ -27,7 +27,7 @@ BOSS_CONFIGS = {
         # 보스 대쉬 후 통제불능 시간(초)
         "dash_stun_duration": 0.60,
         # 보스 대쉬 최대 이동 거리(px)
-        "dash_max_distance": 300,
+        "dash_max_distance": 240,
     },
     2: {
         "name": "악어장군",
@@ -44,7 +44,7 @@ BOSS_CONFIGS = {
         "dash_cooldown_range": (38.0, 53.0),
         "dash_trigger_chance": 0.33,
         "dash_stun_duration": 0.56,
-        "dash_max_distance": 320,
+        "dash_max_distance": 250,
     },
     3: {
         "name": "멘헤라걸",
@@ -61,7 +61,7 @@ BOSS_CONFIGS = {
         "dash_cooldown_range": (36.0, 51.0),
         "dash_trigger_chance": 0.36,
         "dash_stun_duration": 0.52,
-        "dash_max_distance": 340,
+        "dash_max_distance": 260,
     },
     4: {
         "name": "퐁크",
@@ -76,7 +76,7 @@ BOSS_CONFIGS = {
         "special_skill": "grenade",  # 수류탄
         # 스테이지 4: 조금 더 짧은 대쉬 쿨타임
         "dash_cooldown_range": (34.0, 48.0),
-        "dash_max_distance": 360,
+        "dash_max_distance": 270,
     },
     5: {
         "name": "홍련",
@@ -91,7 +91,7 @@ BOSS_CONFIGS = {
         "special_skill": "chaos_ball",  # 카오스볼
         # 스테이지 5: 고난이도 구간, 쿨타임 추가 단축
         "dash_cooldown_range": (30.0, 44.0),
-        "dash_max_distance": 380,
+        "dash_max_distance": 280,
     },
     6: {
         "name": "보스러시",
@@ -108,7 +108,7 @@ BOSS_CONFIGS = {
         "max_health": 15,
         # 스테이지 6: 체력형 보스, 더 자주 대쉬
         "dash_cooldown_range": (26.0, 38.0),
-        "dash_max_distance": 400,
+        "dash_max_distance": 290,
     },
     7: {
         "name": "테트리서",
@@ -123,7 +123,7 @@ BOSS_CONFIGS = {
         "special_skill": "tetris_field",
         # 스테이지 7: 최종 보스, 가장 짧은 대쉬 쿨타임
         "dash_cooldown_range": (22.0, 32.0),
-        "dash_max_distance": 420,
+        "dash_max_distance": 300,
     },
 }
 
