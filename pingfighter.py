@@ -14387,6 +14387,7 @@ def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
         "boss_hit": False,
         "trail": [],  # 궤적 저장용 리스트
         "swing_dir": swing_direction,  # 스윙 방향 저장
+        "ball_gauge_given": False,  # 공 타격 시 게이지 보상 1회 제한
     }
     blacksmith_divine_slash_projectiles.append(projectile)
 
