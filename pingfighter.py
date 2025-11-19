@@ -6570,6 +6570,13 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "xp": 0.0,
                             "xp_max": 400.0,
                             "reinforced": False,
+                            # 디바인쉴드(강화디바인스톤 전용) 게이지/상태
+                            "shield_xp": 0.0,
+                            "shield_xp_max": float(BLACKSMITH_DIVINE_SHIELD_COST),
+                            "shield_ready": False,
+                            "shield_active": False,
+                            "shield_timer": 0,
+                            "shield_overheat": 0,
                         }
                         stage_value = globals().get("current_stage")
                         if stage_value is not None:
@@ -9698,6 +9705,16 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
     cooldown = divine_state.get("cooldown", 0)
     if cooldown > 0:
         divine_state["cooldown"] = cooldown - 1
+    # 디바인쉴드 지속시간/과부하 타이머 업데이트
+    shield_timer = int(divine_state.get("shield_timer", 0))
+    if shield_timer > 0:
+        shield_timer -= 1
+        divine_state["shield_timer"] = shield_timer
+        if shield_timer <= 0:
+            divine_state["shield_active"] = False
+    overheat_timer = int(divine_state.get("shield_overheat", 0))
+    if overheat_timer > 0:
+        divine_state["shield_overheat"] = overheat_timer - 1
     # 건설형 디바인스톤 번개 이펙트/쿨다운 프레임 업데이트
     if divine_state.get("lightning_cd", 0) > 0:
         divine_state["lightning_cd"] = int(divine_state["lightning_cd"]) - 1
@@ -9739,7 +9756,9 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
                 divine_state["cooldown"] = int(0.25 * FPS)
             else:
                 smoke_protected = is_rect_in_smoke(rect)
-                if not smoke_protected:
+                # 디바인쉴드 활성 중에는 체력이 감소하지 않는다.
+                shield_active = bool(divine_state.get("shield_active", False))
+                if not smoke_protected and not shield_active:
                     divine_state["hp"] = max(0, divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP) - 1)  # 연막 보호 시 체력 유지
                     _cancel_repair_job("divine", state=divine_state)
                     # 손상 효과 업데이트
@@ -13933,6 +13952,11 @@ BLACKSMITH_DIVINE_GAUGE_DRAIN_PER_SEC = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC
 BLACKSMITH_DIVINE_BUILD_RADIUS = BLACKSMITH_TURRET_BUILD_RADIUS
 BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT = 18
 BLACKSMITH_DIVINE_DEPLOY_FRAMES = int(0.9 * FPS)
+BLACKSMITH_DIVINE_SHIELD_COST = 200
+BLACKSMITH_DIVINE_SHIELD_TIME = 7.0
+BLACKSMITH_DIVINE_SHIELD_GAUGE_DRAIN_PER_SEC = BLACKSMITH_DIVINE_SHIELD_COST / BLACKSMITH_DIVINE_SHIELD_TIME
+BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES = int(25.0 * FPS)
+BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES = int(30.0 * FPS)
 BLACKSMITH_HAMMER_SHOCK_STAGE_COST = {
     1: 200,
     2: 260,
