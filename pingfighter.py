@@ -36216,6 +36216,19 @@ def draw_player_gauge():
         danger_ratio = 1.0 if gauge_value == 0 else 0.6 if gauge_value == 1 else 0.0
 
         divine_active = is_blacksmith_divine_stone_active()
+        reinforced_divine = False
+        if divine_active:
+            try:
+                state = globals().get("blacksmith_divine_stone_state")
+                if not _is_divine_state_active(state):
+                    controller = globals().get("BLACKSMITH_CONTROLLER")
+                    try:
+                        state = controller.state.divine.state if controller is not None else None
+                    except AttributeError:
+                        state = None
+                reinforced_divine = bool(state and state.get("reinforced", False))
+            except Exception:
+                reinforced_divine = False
 
         center_x = player_gauge_x + player_gauge_width // 2
         segment_count = gauge_max
@@ -36239,8 +36252,13 @@ def draw_player_gauge():
             energy_phase_base = (time_now * 0.006) % 1.0
             energy_pulse = min(1.0, 0.5 + 0.5 * math.sin(time_now * 0.007 + recharge_ratio * math.pi * 2) + 0.25)
 
-            panel_safe = (24, 38, 72)
-            panel_danger = (64, 32, 88)
+            if reinforced_divine:
+                # 강화디바인스톤 활성 시: 토르쉴드 토큰 배경을 검붉은 보라 계열로 변경
+                panel_safe = (58, 18, 60)
+                panel_danger = (110, 26, 82)
+            else:
+                panel_safe = (24, 38, 72)
+                panel_danger = (64, 32, 88)
             panel_safe = tuple(_clamp_component(component + 10) for component in panel_safe)
             panel_danger = tuple(_clamp_component(component + 14) for component in panel_danger)
             panel_color = tuple(
