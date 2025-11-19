@@ -6847,20 +6847,26 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             blacksmith_hammer_slow_decay_step = 0
 
     if construction_active:
+        # 포탑/디바인스톤/벽돌 등 어떤 건설 작업이든
+        # 실제 게이지가 소모되는 프레임에서는 동일한 건설 사운드를 재생한다.
         start_blacksmith_construction_sound()
     else:
-        if (
-            blacksmith_turret_blueprint_active
-            or blacksmith_divine_blueprint_active
-            or (
-                blacksmith_turret_active
-                and blacksmith_turret_state
-                and not blacksmith_turret_state.get("overdrive_active")
-                and blacksmith_turret_state.get("xp", 0.0) < blacksmith_turret_state.get(
-                    "xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)
-                )
-            )
-        ):
+        # 건설 중이지만 잠시 멈춘 상태(게이지 소모 없음)에서는 사운드를 일시정지만 하고,
+        # 더 이상 어떤 건설/강화도 진행 중이 아니면 완전히 정지한다.
+        turret_xp_pending = (
+            blacksmith_turret_active
+            and blacksmith_turret_state
+            and not blacksmith_turret_state.get("overdrive_active")
+            and blacksmith_turret_state.get("xp", 0.0)
+            < blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED))
+        )
+        divine_xp_pending = (
+            blacksmith_divine_stone_state is not None
+            and not blacksmith_divine_stone_state.get("reinforced", False)
+            and blacksmith_divine_stone_state.get("xp", 0.0)
+            < float(blacksmith_divine_stone_state.get("xp_max", 400.0))
+        )
+        if blacksmith_turret_blueprint_active or blacksmith_divine_blueprint_active or turret_xp_pending or divine_xp_pending:
             pause_blacksmith_construction_sound()
         else:
             stop_blacksmith_construction_sound()
