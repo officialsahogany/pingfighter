@@ -12959,30 +12959,7 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
         orbital_radius = max(2, int(base_orb_radius * core_progress))
         core_radius = max(4, int((width // 6) * max(0.35, core_progress)))
         glow_radius = core_radius + max(4, int(6 * core_progress))
-        outer_alpha = int(90 * core_progress)
-        inner_alpha = int(140 * core_progress)
-        core_alpha = int(220 * core_progress)
-        if outer_alpha > 0:
-            pygame.draw.circle(
-                structure_surface,
-                (110, 170, 255, outer_alpha),
-                (int(mana_center.x), int(mana_center.y)),
-                glow_radius + 6,
-            )
-        if inner_alpha > 0:
-            pygame.draw.circle(
-                structure_surface,
-                (160, 200, 255, inner_alpha),
-                (int(mana_center.x), int(mana_center.y)),
-                glow_radius,
-            )
-        if core_alpha > 0:
-            pygame.draw.circle(
-                structure_surface,
-                (255, 255, 255, core_alpha),
-                (int(mana_center.x), int(mana_center.y)),
-                core_radius,
-            )
+        # 중심 에너지 구체 이펙트 제거 (시야 방해)
 
         rune_progress = (pulse % 180) / 180.0
         orb_alpha = int(180 * core_progress)
