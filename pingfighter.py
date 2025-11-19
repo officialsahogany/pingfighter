@@ -6703,10 +6703,80 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                     else:
                         blacksmith_divine_stone_state["xp"] = current_xp
                         if frame_counter % 45 == 0:
-                            print(f"[DEBUG] Divine XP: {current_xp:.1f}/{xp_max:.1f}")
+                        print(f"[DEBUG] Divine XP: {current_xp:.1f}/{xp_max:.1f}")
             else:
                 # 범위 밖으로 벗어나면 부분 드레인만 리셋
                 blacksmith_divine_stone_state["reinforce_partial"] = 0.0
+
+    # 강화디바인스톤 전용 디바인쉴드 차지(↓ 키/마우스 우클릭 유지)
+    if (
+        blacksmith_divine_stone_state is not None
+        and down_pressed
+        and blacksmith_divine_stone_state.get("reinforced", False)
+    ):
+        divine_state = blacksmith_divine_stone_state
+        stone_rect = divine_state.get("rect")
+        if stone_rect is not None:
+            # 과부하 상태에서는 디바인쉴드 게이지를 채울 수 없다.
+            shield_overheat = int(divine_state.get("shield_overheat", 0))
+            shield_active = bool(divine_state.get("shield_active", False))
+            if shield_overheat <= 0 and not shield_active:
+                distance = abs(PLAYER.centerx - stone_rect.centerx)
+                vertical_front_overlap = PLAYER.bottom >= (stone_rect.top - 12)
+                standing_in_front = PLAYER.centerx <= stone_rect.centerx
+                engaged_for_shield = (
+                    distance <= BLACKSMITH_DIVINE_BUILD_RADIUS
+                    and vertical_front_overlap
+                    and standing_in_front
+                )
+                if engaged_for_shield:
+                    if not blacksmith_hammer_swing_active:
+                        blacksmith_hammer_swing_phase = 0
+                    blacksmith_hammer_swing_slow_timer = 0
+                    blacksmith_hammer_slow_decay_step = 0
+                    blacksmith_hammer_swing_active = True
+                    hammer_increment = 1
+                    if frame_counter % 2 == 0:
+                        hammer_increment = 2
+                    blacksmith_hammer_swing_phase = (
+                        blacksmith_hammer_swing_phase + hammer_increment
+                    ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
+                    hammer_engaged_this_frame = True
+
+                    drain_per_sec = BLACKSMITH_DIVINE_SHIELD_GAUGE_DRAIN_PER_SEC
+                    drain_per_frame = (drain_per_sec / FPS) * get_blacksmith_construction_speed_multiplier()
+                    gained_xp = 0
+
+                    if special_gauge > 0:
+                        construction_active = True
+                        partial = float(divine_state.get("shield_partial", 0.0))
+                        partial += drain_per_frame
+                        drain_units = int(partial)
+                        if drain_units > 0:
+                            actual_drain = min(drain_units, special_gauge)
+                            if actual_drain > 0:
+                                special_gauge -= actual_drain
+                                partial -= actual_drain
+                                special_ready = special_gauge >= 350
+                                gained_xp = actual_drain
+                        divine_state["shield_partial"] = partial
+
+                    if gained_xp > 0:
+                        shield_xp = float(divine_state.get("shield_xp", 0.0)) + gained_xp
+                        shield_xp_max = max(
+                            1.0, float(divine_state.get("shield_xp_max", float(BLACKSMITH_DIVINE_SHIELD_COST)))
+                        )
+                        if shield_xp >= shield_xp_max:
+                            divine_state["shield_xp"] = shield_xp_max
+                            divine_state["shield_ready"] = True
+                            divine_state["shield_partial"] = 0.0
+                            print("[DEBUG] Divine shield ready")
+                        else:
+                            divine_state["shield_xp"] = shield_xp
+                            if frame_counter % 45 == 0:
+                                print(
+                                    f"[DEBUG] Divine shield XP: {shield_xp:.1f}/{shield_xp_max:.1f}"
+                                )
 
     if blacksmith_turret_active and blacksmith_turret_state:
         turret_rect = blacksmith_turret_state.get("rect")
