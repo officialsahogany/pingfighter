@@ -66833,7 +66833,7 @@ def main(stage_num, new_boss_mode=False):
             if selected_character_type == "blacksmith":
                 can_open_build_menu = blacksmith_has_available_buildings()
 
-                if current_down_state:
+        if current_down_state:
                     if blacksmith_umbrella_open and not blacksmith_umbrella_retracting:
                         blacksmith_down_hold_frames = 0
                     elif blacksmith_build_menu_active:
@@ -66874,13 +66874,14 @@ def main(stage_num, new_boss_mode=False):
                             if stone_rect is not None:
                                 horizontal_distance = abs(PLAYER.centerx - stone_rect.centerx)
                                 vertical_front_overlap = PLAYER.bottom >= (stone_rect.top - 12)
-                                standing_in_front = PLAYER.centerx <= stone_rect.centerx
+                                # 중앙/약간 오른쪽까지는 디바인스톤 상호작용 우선, HUD는 띄우지 않는다.
+                                standing_in_front = PLAYER.centerx <= stone_rect.centerx + stone_rect.width // 4
                                 if (
                                     horizontal_distance <= BLACKSMITH_DIVINE_BUILD_RADIUS
                                     and vertical_front_overlap
                                     and standing_in_front
                                 ):
-                                    # 디바인스톤 전면에서 건설/수리 중에는 빌드 HUD를 띄우지 않는다.
+                                    # 디바인스톤 전면/중앙에서 건설/강화/디바인쉴드 상호작용 중에는 빌드 HUD를 띄우지 않는다.
                                     engaged_with_active_blueprint = True
                         if engaged_with_active_blueprint:
                             blacksmith_down_hold_frames = 0
