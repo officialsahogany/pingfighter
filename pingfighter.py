@@ -60162,11 +60162,27 @@ def handle_ball():
             wall_hit = False
             for wall in walls[:]:  # 리스트 복사본으로 순회
                 if BALL.colliderect(wall["rect"]):
-                    # 벽돌에 맞은 횟수 증가
-                    wall["hit_count"] += 1
-                    wall["crack_level"] = wall["hit_count"]
-                    _cancel_repair_job("wall", wall=wall)
-                    
+                    # 그룹 내구도(발토르 건물 보호용 3면 벽돌) 처리
+                    group_id = wall.get("group_id")
+                    hit_count = 0
+                    group_walls: list[dict] | None = None
+                    if group_id is not None:
+                        group_walls = [w for w in walls if w.get("group_id") == group_id]
+                        prev_hit = 0
+                        for gw in group_walls:
+                            prev_hit = max(prev_hit, gw.get("hit_count", 0))
+                        hit_count = prev_hit + 1
+                        for gw in group_walls:
+                            gw["hit_count"] = hit_count
+                            gw["crack_level"] = hit_count
+                            _cancel_repair_job("wall", wall=gw)
+                    else:
+                        # 단일 벽돌
+                        wall["hit_count"] += 1
+                        wall["crack_level"] = wall["hit_count"]
+                        _cancel_repair_job("wall", wall=wall)
+                        hit_count = wall["hit_count"]
+
                     # 상모돌리기 활성화 시 벽돌 충돌 시 종료
                     if whip_active:
                         print(f"[DEBUG] 상모돌리기 벽돌 충돌 감지!")
@@ -60176,26 +60192,26 @@ def handle_ball():
                         print(f"  - whip_angle: {globals().get('whip_angle', 0):.2f}")
                         print(f"  - power_smashing_parabola_active: {power_smashing_parabola_active}")
                         print(f"  - power_smashing_freeze_active: {power_smashing_freeze_active}")
-                        
+
                         deactivate_whip()  # 통합된 비활성화 함수 사용
                         whip_angle = 0
                         print("상모돌리기 종료 - 벽돌 충돌")
-                    
+
                     # 공 튕기기 (백업 파일의 간단한 방식 사용)
                     ball_vel[1] = -abs(ball_vel[1])  # 위로 튕기기
                     ball_vel[0] *= 0.8  # 좌우 속도 감소
-                    
+
                     # 벽돌 타격 시 작은 파티클 효과 (균열 생성 시)
-                    if wall["hit_count"] == 1:
+                    if hit_count == 1:
                         # 첫 타격 시 작은 파편들
                         impact_x = BALL.centerx
                         impact_y = BALL.centery
-                        
+
                         # 작은 먼지 파티클 생성
                         for _ in range(random.randint(5, 8)):
                             angle = random.uniform(0, 2 * math.pi)
                             speed = random.uniform(2, 5)
-                            
+
                             particle = {
                                 "x": impact_x,
                                 "y": impact_y,
@@ -60206,12 +60222,12 @@ def handle_ball():
                                 "life": random.randint(15, 25),
                                 "rotation": 0,
                                 "angular_vel": 0,
-                                "type": "dust"
+                                "type": "dust",
                             }
                             brick_particles.append(particle)
-                    
+
                     # 벽돌 파괴 시 효과음 재생
-                    if wall["hit_count"] >= 2:
+                    if hit_count >= 2:
                         # 벽돌 완전 파괴
                         if 'SOUND_BRICK_DESTROY' in globals() and SOUND_BRICK_DESTROY:
                             try:
@@ -60220,16 +60236,24 @@ def handle_ball():
                                 play_wall_sound()
                         else:
                             play_wall_sound()
-                        print(f"벽돌 완전 파괴! ({wall['hit_count']}/2)")
-                        # 벽돌 파괴 효과 생성
-                        create_brick_destruction_effect(wall["rect"])
-                        # 벽돌 제거
-                        walls.remove(wall)
+                        print(f"벽돌 완전 파괴! ({hit_count}/2)")
+
+                        # 벽돌 파괴 효과 생성 및 제거
+                        if group_walls is not None:
+                            for gw in group_walls:
+                                create_brick_destruction_effect(gw["rect"])
+                            for gw in group_walls:
+                                if gw in walls:
+                                    walls.remove(gw)
+                        else:
+                            create_brick_destruction_effect(wall["rect"])
+                            if wall in walls:
+                                walls.remove(wall)
                     else:
                         # 일반 벽돌 타격 소리
                         play_wall_sound()
-                        print(f"벽돌 타격 ({wall['hit_count']}/2)")
-                    
+                        print(f"벽돌 타격 ({hit_count}/2)")
+
                     # 충전가방 효과
                     if chargebag_obtained and not aipill_active:
                         # 캐릭터별 기본 게이지 충전량
@@ -60248,7 +60272,7 @@ def handle_ball():
                         current_max = get_max_gauge()
                         special_gauge = min(current_max, special_gauge + chargebag_gain)
                         print(f"충전가방! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
-                    
+
                     wall_hit = True
                     break  # 한 번에 하나의 벽돌만 처리
 
@@ -65565,6 +65589,7 @@ def show_result(won):
     wall_installing = False
     wall_install_timer = 0
     wall_install_gauge_visible = False
+    globals()["next_wall_group_id"] = 1
     #  Aipill 초기화 (다음 라운드로 넘어가면 Aipill 효과 종료)
     if aipill_active:
         print("Aipill  .")
