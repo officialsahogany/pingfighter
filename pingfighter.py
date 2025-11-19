@@ -9685,29 +9685,33 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             radius = float(BLACKSMITH_DIVINE_SLASH_RADIUS)
 
             try:
-                # === 1. 검붉은보라색 궤적 그리기 ===
+                # === 1. 검붉은보라색 궤적 그리기 (경량화 버전) ===
+                #  - 매 프레임 전체 화면 서피스를 여러 번 생성하던 방식은 GPU/CPU 부하가 매우 크므로
+                #    여기서는 단순 라인 드로잉만 사용해 가벼운 궤적 효과만 남긴다.
                 if trail and len(trail) >= 2:
                     trail_points = [(int(tx + offset_x), int(ty + offset_y)) for tx, ty in trail]
                     trail_points.append((int(world_x), int(world_y)))
 
-                    # 궤적을 세그먼트별로 그리기 (점점 투명해지는 효과)
-                    for i in range(len(trail_points) - 1):
-                        progress = i / max(1, len(trail_points) - 1)
-                        alpha = int(180 * progress)
-                        # 검붉은보라색 (dark red-purple): RGB(120, 30, 90) ~ (160, 50, 120)
-                        r_col = int(100 + 60 * progress)
-                        g_col = int(20 + 30 * progress)
-                        b_col = int(70 + 50 * progress)
-                        width = max(1, int(3 + 5 * progress))
+                    segment_count = len(trail_points) - 1
+                    if segment_count > 0:
+                        # 최근 궤적 일부만 사용해 과도한 드로잉을 방지
+                        max_segments = min(segment_count, 10)
+                        start_index = segment_count - max_segments
 
-                        # 발광 효과를 위한 여러 레이어
-                        for layer in range(3):
-                            layer_alpha = max(20, alpha - layer * 40)
-                            layer_width = width + (2 - layer) * 2
-                            trail_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                            pygame.draw.line(trail_surf, (r_col, g_col, b_col, layer_alpha),
-                                           trail_points[i], trail_points[i + 1], layer_width)
-                            surface.blit(trail_surf, (0, 0))
+                        for i in range(start_index, segment_count):
+                            progress = (i - start_index) / max(1, max_segments)
+                            # 검붉은보라색 (dark red-purple) 계열 그라데이션
+                            r_col = int(110 + 40 * progress)
+                            g_col = int(25 + 20 * progress)
+                            b_col = int(80 + 40 * progress)
+                            width = max(1, int(2 + 4 * progress))
+                            pygame.draw.line(
+                                surface,
+                                (r_col, g_col, b_col),
+                                trail_points[i],
+                                trail_points[i + 1],
+                                width,
+                            )
 
                 # === 2. 화려한 U자형 에너지 검기 ===
                 size = int(radius * 8)
