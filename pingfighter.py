@@ -9217,10 +9217,24 @@ def update_blacksmith_hammer_shock(keys):
     global frame_counter, blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
     global blacksmith_hammer_projectiles_paused
     global blacksmith_divine_stone_state
-    global blacksmith_divine_slash_projectiles
+    global blacksmith_divine_slash_projectiles, blacksmith_divine_slash_scheduled
     global BOSS
 
     current_ticks = pygame.time.get_ticks()
+
+    # 강화디바인스톤 검기 예약 발사 처리 (스윙 후 0.4초 지연)
+    if blacksmith_divine_slash_scheduled is not None:
+        try:
+            trigger_time = int(blacksmith_divine_slash_scheduled.get("trigger_time", 0))
+        except Exception:
+            trigger_time = 0
+        if current_ticks >= trigger_time:
+            try:
+                direction = int(blacksmith_divine_slash_scheduled.get("direction", 0))
+            except Exception:
+                direction = 0
+            _spawn_blacksmith_divine_slash_from_shield(direction)
+            blacksmith_divine_slash_scheduled = None
 
     umbrella_blocks_hammer_shock = blacksmith_umbrella_open and not blacksmith_umbrella_retracting
     if umbrella_blocks_hammer_shock and blacksmith_hammer_shock_charging and not blacksmith_hammer_shock_projectiles:
@@ -14153,6 +14167,8 @@ BLACKSMITH_DIVINE_SLASH_WALL_MARGIN = 8
 BLACKSMITH_DIVINE_SLASH_MIN_ANGLE_DEG = 35.0
 BLACKSMITH_DIVINE_SLASH_MAX_ANGLE_DEG = 50.0
 blacksmith_divine_slash_projectiles: list[dict[str, object]] = []
+BLACKSMITH_DIVINE_SLASH_DELAY_MS = int(0.4 * 1000)
+blacksmith_divine_slash_scheduled: dict[str, object] | None = None
 
 
 def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
@@ -24990,9 +25006,16 @@ def handle_player(keys):
             blacksmith_umbrella_swing_direction = swing_trigger_direction
             blacksmith_umbrella_swing_sound_timer = BLACKSMITH_UMBRELLA_SWING_SOUND_DELAY_FRAMES
             blacksmith_umbrella_swing_sound_pending = True
-
-            # 강화디바인스톤 시 토르쉴드 스윙과 동시에 보랏빛 검기 발사
-            _spawn_blacksmith_divine_slash_from_shield(swing_trigger_direction)
+            
+            # 강화디바인스톤 시 토르쉴드 스윙 후 0.4초 뒤 보랏빛 검기 발사 예약
+            try:
+                global blacksmith_divine_slash_scheduled
+                blacksmith_divine_slash_scheduled = {
+                    "direction": swing_trigger_direction,
+                    "trigger_time": pygame.time.get_ticks() + BLACKSMITH_DIVINE_SLASH_DELAY_MS,
+                }
+            except Exception:
+                pass
             
             # 스윙 시작 시 anchor smoothing 값을 목표값에 가깝게 초기화
             # 이전 스윙의 잔여값으로 인한 부드러운 전환을 방지
