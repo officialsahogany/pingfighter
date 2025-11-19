@@ -9874,14 +9874,83 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
     for particle in blacksmith_hammer_shock_particles:
         alpha = min(255, particle["life"] * 10)
         color = (*particle["color"], alpha)
-        particle_rect = pygame.Rect(
-            int(particle["x"] - particle["size"] / 2 + offset_x),
-            int(particle["y"] - particle["size"] / 2 + offset_y),
-            particle["size"],
-            particle["size"]
-        )
-        # pygame.draw가 RGBA를 지원하므로 직접 그린다.
-        pygame.draw.rect(surface, color, particle_rect)
+        px = int(particle["x"] + offset_x)
+        py = int(particle["y"] + offset_y)
+        psize = particle["size"]
+
+        particle_type = particle.get("type", "default")
+
+        if particle_type == "dark_smoke":
+            # 어둠의 연기 파티클: 부드러운 원형 + 글로우
+            try:
+                max_life = particle.get("max_life", 50)
+                life_ratio = particle["life"] / max_life
+                smoke_alpha = int(180 * life_ratio)
+                smoke_size = int(psize * (1.5 - 0.5 * life_ratio))  # 서서히 커짐
+
+                # 외곽 글로우
+                glow_surf = pygame.Surface((smoke_size * 3, smoke_size * 3), pygame.SRCALPHA)
+                glow_center = (smoke_size * 3 // 2, smoke_size * 3 // 2)
+                for glow_layer in range(3):
+                    glow_r = smoke_size + (2 - glow_layer) * 4
+                    glow_alpha = max(10, smoke_alpha // (glow_layer + 2))
+                    glow_color = (*particle["color"], glow_alpha)
+                    pygame.draw.circle(glow_surf, glow_color, glow_center, glow_r)
+
+                # 중심부 연기
+                core_color = (*particle["color"], smoke_alpha)
+                pygame.draw.circle(glow_surf, core_color, glow_center, smoke_size)
+
+                surface.blit(glow_surf, glow_surf.get_rect(center=(px, py)), special_flags=pygame.BLEND_ADD)
+            except Exception:
+                pygame.draw.circle(surface, color[:3], (px, py), psize // 2)
+
+        elif particle_type == "dark_explosion":
+            # 어둠의 폭발 파티클: 빛나는 원형 + 꼬리
+            try:
+                max_life = particle.get("max_life", 25)
+                life_ratio = particle["life"] / max_life
+                explosion_alpha = int(255 * life_ratio)
+                explosion_size = int(psize * life_ratio)
+
+                # 꼬리 효과 (이전 위치로부터)
+                tail_length = 3
+                vx = particle.get("vx", 0)
+                vy = particle.get("vy", 0)
+                for t in range(tail_length):
+                    tail_x = px - int(vx * t * 0.5)
+                    tail_y = py - int(vy * t * 0.5)
+                    tail_alpha = max(20, explosion_alpha // (t + 2))
+                    tail_size = max(1, explosion_size - t)
+                    tail_color = (*particle["color"], tail_alpha)
+                    tail_surf = pygame.Surface((tail_size * 2 + 4, tail_size * 2 + 4), pygame.SRCALPHA)
+                    pygame.draw.circle(tail_surf, tail_color, (tail_size + 2, tail_size + 2), tail_size)
+                    surface.blit(tail_surf, tail_surf.get_rect(center=(tail_x, tail_y)), special_flags=pygame.BLEND_ADD)
+
+                # 메인 폭발 파티클
+                explosion_surf = pygame.Surface((explosion_size * 3, explosion_size * 3), pygame.SRCALPHA)
+                exp_center = (explosion_size * 3 // 2, explosion_size * 3 // 2)
+                # 외곽 글로우
+                pygame.draw.circle(explosion_surf, (*particle["color"], explosion_alpha // 3), exp_center, explosion_size + 4)
+                # 코어
+                pygame.draw.circle(explosion_surf, (150, 80, 180, explosion_alpha), exp_center, explosion_size)
+                # 밝은 중심
+                pygame.draw.circle(explosion_surf, (200, 150, 220, explosion_alpha), exp_center, max(1, explosion_size // 2))
+
+                surface.blit(explosion_surf, explosion_surf.get_rect(center=(px, py)), special_flags=pygame.BLEND_ADD)
+            except Exception:
+                pygame.draw.circle(surface, color[:3], (px, py), psize // 2)
+
+        else:
+            # 기본 파티클 (기존 로직)
+            particle_rect = pygame.Rect(
+                int(particle["x"] - psize / 2 + offset_x),
+                int(particle["y"] - psize / 2 + offset_y),
+                psize,
+                psize
+            )
+            # pygame.draw가 RGBA를 지원하므로 직접 그린다.
+            pygame.draw.rect(surface, color, particle_rect)
 
     global blacksmith_hammer_explosions, screen_shake_timer, screen_shake_intensity
     global blacksmith_hammer_return_fx
