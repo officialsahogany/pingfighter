@@ -13217,6 +13217,25 @@ def draw_blacksmith_turret_ui(surface):
         if turret_level < BLACKSMITH_TURRET_MAX_LEVEL and not overheat_active and not overdrive_display:
             # 강화 게이지 표시 (레벨 1 전용)
             xp_text = FontStyle.tiny().render(f"강화 {int(xp_ratio * 100)}%", True, (250, 240, 210))
+
+            # 디바인스톤 강화 게이지 표시
+            if blacksmith_divine_stone_state is not None:
+                divine_xp = float(blacksmith_divine_stone_state.get("xp", 0.0))
+                divine_xp_max = max(1.0, float(blacksmith_divine_stone_state.get("xp_max", 400.0)))
+                if divine_xp_max > 0 and not blacksmith_divine_stone_state.get("reinforced", False):
+                    divine_ratio = max(0.0, min(1.0, divine_xp / divine_xp_max))
+                    divine_text = FontStyle.tiny().render(
+                        f"강화 {int(divine_ratio * 100)}%",
+                        True,
+                        (230, 180, 190),
+                    )
+                    surface = pygame.display.get_surface()
+                    if surface is not None:
+                        stone_rect = blacksmith_divine_stone_state.get("rect")
+                        if stone_rect is not None:
+                            text_rect = divine_text.get_rect()
+                            text_rect.midbottom = (stone_rect.centerx, stone_rect.top - 4)
+                            surface.blit(divine_text, text_rect)
         elif overheat_active:
             remaining_seconds = overheat_timer / FPS if FPS else overheat_timer
             xp_text = FontStyle.tiny().render(
