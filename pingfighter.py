@@ -10193,6 +10193,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
     global ball_vel, game_vars, last_hit_by
     global blacksmith_divine_destroy_timer, blacksmith_divine_stage_owner
     global blacksmith_divine_stone_state
+    global walls
     global blacksmith_divine_blueprint_active, blacksmith_divine_blueprint_rect
     global blacksmith_divine_build_progress, blacksmith_divine_partial_drain
 
@@ -10266,7 +10267,18 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
         except Exception:
             hit_rect = rect
 
-        if hit_rect.colliderect(BALL) and divine_state.get("cooldown", 0) == 0:
+        # 디바인스톤 앞에 벽돌이 있을 경우, 벽돌이 먼저 공을 막도록 하고
+        # 이 프레임에서는 디바인스톤 충돌 처리를 건너뛴다.
+        wall_blocked = False
+        try:
+            for wall in walls:
+                if BALL.colliderect(wall["rect"]):
+                    wall_blocked = True
+                    break
+        except Exception:
+            wall_blocked = False
+
+        if (not wall_blocked) and hit_rect.colliderect(BALL) and divine_state.get("cooldown", 0) == 0:
             BALL.bottom = min(BALL.bottom, rect.top - 2)
             ball_vel[1] = -abs(ball_vel[1]) - 4
             ball_vel[0] *= 0.6
@@ -11102,6 +11114,7 @@ def update_blacksmith_turret():
     global ball_vel, stopwatch_active, stopwatch_timer, game_vars, SCREEN
     global blacksmith_turret_destroy_timer, blacksmith_divine_destroy_timer
     global blacksmith_divine_stage_owner, blacksmith_turret_boss_hit_count
+    global walls
 
     damage_manager = get_damage_manager()
 
@@ -11211,7 +11224,18 @@ def update_blacksmith_turret():
         turret_hit_rect.height += extra_top
         turret_hit_rect.top -= extra_top
 
-    if not time_frozen and turret_hit_rect.colliderect(BALL):
+    # 포탑 앞에 벽돌(발토르 방어벽 포함)이 있을 경우, 우선 벽돌이 공을 막도록 하고
+    # 이 프레임에서는 포탑 충돌 처리를 건너뛴다.
+    wall_blocked = False
+    try:
+        for wall in walls:
+            if BALL.colliderect(wall["rect"]):
+                wall_blocked = True
+                break
+    except Exception:
+        wall_blocked = False
+
+    if not time_frozen and not wall_blocked and turret_hit_rect.colliderect(BALL):
         ball_owner = getattr(game_vars.ball, "last_hit_by", "player")
         if ball_owner != "player" and turret_state.get("hp", 0) > 0:
             smoke_protected = is_rect_in_smoke(turret_hit_rect)
