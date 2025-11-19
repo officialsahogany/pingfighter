@@ -60254,15 +60254,15 @@ def handle_ball():
                     else:
                         frame_single_wall_hits.add(id(wall))
 
-                    # 그룹 내구도(발토르 건물 보호용 3면 벽돌) 처리
+                    # 그룹 내구도(발토르 건물 보호용 3면 벽돌) 처리:
+                    # wall_group_hits를 통해 그룹별 누적 피격 횟수를 추적한다.
                     hit_count = 0
                     group_walls: list[dict] | None = None
                     if group_id is not None:
                         group_walls = [w for w in walls if w.get("group_id") == group_id]
-                        prev_hit = 0
-                        for gw in group_walls:
-                            prev_hit = max(prev_hit, gw.get("hit_count", 0))
+                        prev_hit = wall_group_hits.get(group_id, 0)
                         hit_count = prev_hit + 1
+                        wall_group_hits[group_id] = hit_count
                         for gw in group_walls:
                             gw["hit_count"] = hit_count
                             gw["crack_level"] = hit_count
@@ -60336,6 +60336,9 @@ def handle_ball():
                             for gw in group_walls:
                                 if gw in walls:
                                     walls.remove(gw)
+                            # 그룹형 보호벽 파괴 시 그룹 카운터도 정리
+                            if group_id is not None:
+                                wall_group_hits.pop(group_id, None)
                         else:
                             create_brick_destruction_effect(wall["rect"])
                             if wall in walls:
