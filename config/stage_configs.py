@@ -90,7 +90,7 @@ BOSS_CONFIGS = {
         "fail_error": 245,
         "special_skill": "chaos_ball",  # 카오스볼
         # 스테이지 5: 고난이도 구간, 쿨타임 추가 단축
-        "dash_cooldown_range": (30.0, 44.0),
+        "dash_cooldown_range": (32.0, 46.0),
         "dash_max_distance": 280,
     },
     6: {
@@ -122,7 +122,7 @@ BOSS_CONFIGS = {
         "fail_error": 230,
         "special_skill": "tetris_field",
         # 스테이지 7: 최종 보스, 가장 짧은 대쉬 쿨타임
-        "dash_cooldown_range": (22.0, 32.0),
+        "dash_cooldown_range": (28.0, 40.0),
         "dash_max_distance": 300,
     },
 }
