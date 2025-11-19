@@ -58991,6 +58991,7 @@ def handle_ball():
     global short_shot_counter_window, short_shot_counter_pending
     # 블랙스미스 해머쇼크 관련
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
+    global wall_group_hits
     # 한 프레임 동안 벽돌/그룹별 중복 피격을 방지하기 위한 집합
     frame_wall_hit_groups = set()
     frame_single_wall_hits = set()
