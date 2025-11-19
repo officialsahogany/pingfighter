@@ -58988,6 +58988,9 @@ def handle_ball():
     global short_shot_counter_window, short_shot_counter_pending
     # 블랙스미스 해머쇼크 관련
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
+    # 한 프레임 동안 벽돌/그룹별 중복 피격을 방지하기 위한 집합
+    frame_wall_hit_groups = set()
+    frame_single_wall_hits = set()
     # 충돌 쿨다운 감소
     if player_collision_cooldown > 0:
         player_collision_cooldown -= 1
@@ -60230,11 +60233,25 @@ def handle_ball():
             ball_owner = globals().get("last_hit_by", None)
             for wall in walls[:]:  # 리스트 복사본으로 순회
                 # 플레이어가 친 공이라면 건물 보호용(group_id가 있는) 벽돌은 스킵
-                if ball_owner == "player" and wall.get("group_id") is not None:
+                group_id = wall.get("group_id")
+                if ball_owner == "player" and group_id is not None:
                     continue
+                # 한 프레임 안에서 이미 처리한 벽돌/그룹이면 중복 피격을 방지한다.
+                if group_id is not None:
+                    if group_id in frame_wall_hit_groups:
+                        continue
+                else:
+                    wall_id = id(wall)
+                    if wall_id in frame_single_wall_hits:
+                        continue
                 if BALL.colliderect(wall["rect"]):
+                    # 중복 피격 방지를 위해 프레임 히트 기록
+                    if group_id is not None:
+                        frame_wall_hit_groups.add(group_id)
+                    else:
+                        frame_single_wall_hits.add(id(wall))
+
                     # 그룹 내구도(발토르 건물 보호용 3면 벽돌) 처리
-                    group_id = wall.get("group_id")
                     hit_count = 0
                     group_walls: list[dict] | None = None
                     if group_id is not None:
