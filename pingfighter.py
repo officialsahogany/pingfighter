@@ -12960,27 +12960,94 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
         core_radius = max(4, int((width // 6) * max(0.35, core_progress)))
         glow_radius = core_radius + max(4, int(6 * core_progress))
 
-        # 일반 디바인스톤: 중심 에너지 구체 이펙트 (기존 스타일)
+        # 일반 디바인스톤: 중심 에너지 구체 응집/폭발 시스템
         if not reinforced:
-            outer_alpha = max(0, min(255, int(10 * core_progress)))
-            inner_alpha = max(0, min(255, int(8 * core_progress)))
-            core_alpha = max(0, min(255, int(6 * core_progress)))
+            # 번개 쿨타임 기반 충전 상태 계산
+            lightning_cd = divine_state.get("lightning_cd", 0)
+            lightning_max_cd = int(20 * FPS)  # 평균 쿨타임 (15~25초)
 
-            # 외부 글로우
-            outer_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-            pygame.draw.circle(outer_surf, (100, 150, 255, outer_alpha), (glow_radius, glow_radius), glow_radius)
-            surface.blit(outer_surf, (int(mana_center.x - glow_radius), int(mana_center.y - glow_radius)))
+            # 충전 진행도 (0.0 = 발사 직후, 1.0 = 완전 충전)
+            if lightning_cd > 0:
+                charge_progress = 1.0 - (lightning_cd / lightning_max_cd)
+                charge_progress = max(0.0, min(1.0, charge_progress))
+            else:
+                charge_progress = 1.0
 
-            # 내부 글로우
-            inner_surf = pygame.Surface((core_radius * 2, core_radius * 2), pygame.SRCALPHA)
-            pygame.draw.circle(inner_surf, (150, 200, 255, inner_alpha), (core_radius, core_radius), core_radius)
-            surface.blit(inner_surf, (int(mana_center.x - core_radius), int(mana_center.y - core_radius)))
+            # 폭발 상태 감지
+            explosion_ttl = divine_state.get("explosion_ttl", 0)
+            is_exploding = explosion_ttl > 0
 
-            # 중심 하얀 코어
-            core_surf_size = max(2, core_radius - 2)
-            core_surf = pygame.Surface((core_surf_size * 2, core_surf_size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(core_surf, (255, 255, 255, core_alpha), (core_surf_size, core_surf_size), core_surf_size)
-            surface.blit(core_surf, (int(mana_center.x - core_surf_size), int(mana_center.y - core_surf_size)))
+            if is_exploding:
+                # 폭발 시: 에너지 구슬이 바깥으로 터짐
+                explosion_ratio = explosion_ttl / max(1, int(0.25 * FPS))
+
+                # 폭발 파동 (바깥으로 퍼져나감)
+                wave_radius = int(glow_radius * (1 + (1.0 - explosion_ratio) * 3))
+                wave_alpha = int(180 * explosion_ratio)
+                wave_surf = pygame.Surface((wave_radius * 2, wave_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(wave_surf, (150, 200, 255, wave_alpha),
+                                 (wave_radius, wave_radius), wave_radius, 2)
+                surface.blit(wave_surf, (int(mana_center.x - wave_radius), int(mana_center.y - wave_radius)))
+
+                # 중심 잔여 에너지 (작아지면서 사라짐)
+                shrink_size = int(core_radius * explosion_ratio * 0.5)
+                if shrink_size > 0:
+                    shrink_alpha = int(255 * explosion_ratio)
+                    shrink_surf = pygame.Surface((shrink_size * 2, shrink_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(shrink_surf, (255, 255, 255, shrink_alpha),
+                                     (shrink_size, shrink_size), shrink_size)
+                    surface.blit(shrink_surf, (int(mana_center.x - shrink_size), int(mana_center.y - shrink_size)))
+            else:
+                # 충전 중: 에너지 구슬이 점점 커짐
+                # 크기가 충전에 따라 증가
+                current_glow = int(glow_radius * (0.3 + charge_progress * 0.7))
+                current_core = int(core_radius * (0.3 + charge_progress * 0.7))
+
+                # 알파값도 충전에 따라 증가
+                outer_alpha = max(0, min(255, int((5 + charge_progress * 10) * core_progress)))
+                inner_alpha = max(0, min(255, int((4 + charge_progress * 8) * core_progress)))
+                core_alpha = max(0, min(255, int((3 + charge_progress * 6) * core_progress)))
+
+                # 색상이 충전에 따라 변화 (파랑 → 밝은 파랑/흰색)
+                r_outer = int(100 + charge_progress * 50)
+                g_outer = int(150 + charge_progress * 50)
+                b_outer = 255
+
+                r_inner = int(150 + charge_progress * 50)
+                g_inner = int(200 + charge_progress * 30)
+                b_inner = 255
+
+                # 외부 글로우
+                if current_glow > 0:
+                    outer_surf = pygame.Surface((current_glow * 2, current_glow * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(outer_surf, (r_outer, g_outer, b_outer, outer_alpha),
+                                     (current_glow, current_glow), current_glow)
+                    surface.blit(outer_surf, (int(mana_center.x - current_glow), int(mana_center.y - current_glow)))
+
+                # 내부 글로우
+                if current_core > 0:
+                    inner_surf = pygame.Surface((current_core * 2, current_core * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(inner_surf, (r_inner, g_inner, b_inner, inner_alpha),
+                                     (current_core, current_core), current_core)
+                    surface.blit(inner_surf, (int(mana_center.x - current_core), int(mana_center.y - current_core)))
+
+                # 중심 하얀 코어
+                core_surf_size = max(2, current_core - 2)
+                if core_surf_size > 0:
+                    core_surf = pygame.Surface((core_surf_size * 2, core_surf_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(core_surf, (255, 255, 255, core_alpha),
+                                     (core_surf_size, core_surf_size), core_surf_size)
+                    surface.blit(core_surf, (int(mana_center.x - core_surf_size), int(mana_center.y - core_surf_size)))
+
+                # 충전 완료 시 맥동 효과
+                if charge_progress > 0.9:
+                    pulse_intensity = (math.sin(pulse * 0.3) + 1) * 0.5
+                    pulse_size = int(current_glow + pulse_intensity * 3)
+                    pulse_alpha = int(30 * pulse_intensity)
+                    pulse_surf = pygame.Surface((pulse_size * 2, pulse_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(pulse_surf, (200, 230, 255, pulse_alpha),
+                                     (pulse_size, pulse_size), pulse_size)
+                    surface.blit(pulse_surf, (int(mana_center.x - pulse_size), int(mana_center.y - pulse_size)))
 
         rune_progress = (pulse % 180) / 180.0
         orb_alpha = int(180 * core_progress)
