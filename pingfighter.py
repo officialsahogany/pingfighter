@@ -6672,7 +6672,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
 
-                drain_per_sec = 400.0 / 15.0
+                drain_per_sec = 300.0 / 13.0
                 drain_per_frame = (drain_per_sec / FPS) * get_blacksmith_construction_speed_multiplier()
                 gained_xp = 0
 
@@ -6692,7 +6692,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
 
                 if gained_xp > 0:
                     current_xp = blacksmith_divine_stone_state.get("xp", 0.0) + gained_xp
-                    xp_max = max(1.0, float(blacksmith_divine_stone_state.get("xp_max", 400.0)))
+                    xp_max = max(1.0, float(blacksmith_divine_stone_state.get("xp_max", 300.0)))
                     if current_xp >= xp_max:
                         # 강화 디바인스톤으로 업그레이드
                         blacksmith_divine_stone_state["xp"] = xp_max
@@ -6979,7 +6979,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
             blacksmith_divine_stone_state is not None
             and not blacksmith_divine_stone_state.get("reinforced", False)
             and blacksmith_divine_stone_state.get("xp", 0.0)
-            < float(blacksmith_divine_stone_state.get("xp_max", 400.0))
+            < float(blacksmith_divine_stone_state.get("xp_max", 300.0))
         )
         if blacksmith_turret_blueprint_active or blacksmith_divine_blueprint_active or turret_xp_pending or divine_xp_pending:
             pause_blacksmith_construction_sound()
@@ -14950,7 +14950,7 @@ blacksmith_trail_timer = 0
 # === 발토르 포탑 설치 시스템 ===
 BLACKSMITH_TURRET_COST = 150
 # 건설 진행도는 게이지 1pt당 1씩 증가하므로, 아래 값은 요구 게이지량과 동일하다.
-BLACKSMITH_TURRET_BUILD_TIME = 250  # 250 게이지 ≈ 5.56초 (게이지 소모 45pt/s)
+BLACKSMITH_TURRET_BUILD_TIME = 220  # 220 게이지 ≈ 4.9초 (게이지 소모 45pt/s)
 BLACKSMITH_TURRET_BUILD_RADIUS = 70
 # 기본 포탑 사양
 BLACKSMITH_TURRET_FIRE_INTERVAL = int(5 * FPS)  # 레벨 1 포탑 자동 발사 주기 5초
@@ -14961,8 +14961,8 @@ BLACKSMITH_TURRET_BASE_LEVEL = 1
 BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC = 45
 # 강화 포탑(레벨 2) 관련 설정
 BLACKSMITH_TURRET_MAX_LEVEL = 2
-BLACKSMITH_TURRET_REINFORCE_COST = 300  # 게이지 300을 소모해 강화
-BLACKSMITH_TURRET_REINFORCE_TIME = 12.0  # 약 12초 동안 망치질
+BLACKSMITH_TURRET_REINFORCE_COST = 250  # 게이지 250을 소모해 강화
+BLACKSMITH_TURRET_REINFORCE_TIME = 10.0  # 약 10초 동안 망치질
 BLACKSMITH_TURRET_REINFORCE_GAUGE_DRAIN_PER_SEC = BLACKSMITH_TURRET_REINFORCE_COST / BLACKSMITH_TURRET_REINFORCE_TIME
 # 오버드라이브(게이지 해방) 준비에 필요한 충전량
 BLACKSMITH_TURRET_XP_REQUIRED = 220
@@ -15010,7 +15010,7 @@ BLACKSMITH_BUILD_OPTIONS = ("turret", "divine_stone")
 BLACKSMITH_BUILD_ICON_SIZE = (42, 42)
 BLACKSMITH_DIVINE_STONE_SIZE = (64, 56)
 BLACKSMITH_DIVINE_STONE_MAX_HP = 3
-BLACKSMITH_DIVINE_BUILD_TIME = 360  # 270 게이지 ≈ 6.0초 (게이지 소모 45pt/s)
+BLACKSMITH_DIVINE_BUILD_TIME = 330  # 330 게이지 ≈ 7.3초 (게이지 소모 45pt/s)
 BLACKSMITH_DIVINE_GAUGE_DRAIN_PER_SEC = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC
 BLACKSMITH_DIVINE_BUILD_RADIUS = BLACKSMITH_TURRET_BUILD_RADIUS
 BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT = 18
