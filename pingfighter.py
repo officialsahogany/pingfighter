@@ -14135,7 +14135,8 @@ BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
 BLACKSMITH_UMBRELLA_GAUGE_HIT_COOLDOWN_FRAMES = int(0.5 * FPS)  # 토르쉴드 충돌 후 0.5초 동안 추가 게이지 차감 방지
 BLACKSMITH_UMBRELLA_GAUGE_HIT_LOCK_FRAMES = int(0.35 * FPS)  # 게이지 1회 소모 후 추가 차감을 막는 보호 시간
 BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE = 60
-BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE = 90
+BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE = 80
+BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_REINFORCED_DIVINE = 100
 BLACKSMITH_BLOCKING_PENALTY_RATIO = 0.2
 BLACKSMITH_BLOCKING_PENALTY_FRAMES = int(5 * FPS)
 BLACKSMITH_BLOCKING_TOAST_FRAMES = int(1.5 * FPS)
@@ -14200,7 +14201,24 @@ def get_blacksmith_umbrella_gauge_gain() -> int:
     global blacksmith_blocking_penalty_timer
 
     if is_blacksmith_divine_stone_active():
-        base_gain = BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE
+        # 디바인스톤이 활성화된 경우, 강화 여부에 따라 게이지 획득량을 달리 적용한다.
+        try:
+            state = globals().get("blacksmith_divine_stone_state")
+            # 전역 상태가 비어 있으면 컨트롤러 런타임 상태를 참조
+            if not _is_divine_state_active(state):
+                controller = globals().get("BLACKSMITH_CONTROLLER")
+                try:
+                    state = controller.state.divine.state if controller is not None else None
+                except AttributeError:
+                    state = None
+            reinforced = bool(state and state.get("reinforced", False))
+        except Exception:
+            reinforced = False
+
+        if reinforced:
+            base_gain = BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_REINFORCED_DIVINE
+        else:
+            base_gain = BLACKSMITH_UMBRELLA_GAUGE_GAIN_WITH_DIVINE
     else:
         base_gain = BLACKSMITH_UMBRELLA_GAUGE_GAIN_BASE
 
@@ -28041,7 +28059,7 @@ def handle_player(keys):
                         print(f"[SoldierGauge] weapon={dbg_weapon} non_pistol={_is_soldier_non_pistol_selected()} base={base_gauge_gain}")
                 elif selected_character_type == "blacksmith":
                     if blacksmith_umbrella_open:
-                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 활성 시 90
+                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 else:
