@@ -12969,18 +12969,18 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
             # 외부 글로우
             outer_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
             pygame.draw.circle(outer_surf, (100, 150, 255, outer_alpha), (glow_radius, glow_radius), glow_radius)
-            screen.blit(outer_surf, (int(mana_center.x - glow_radius), int(mana_center.y - glow_radius)))
+            surface.blit(outer_surf, (int(mana_center.x - glow_radius), int(mana_center.y - glow_radius)))
 
             # 내부 글로우
             inner_surf = pygame.Surface((core_radius * 2, core_radius * 2), pygame.SRCALPHA)
             pygame.draw.circle(inner_surf, (150, 200, 255, inner_alpha), (core_radius, core_radius), core_radius)
-            screen.blit(inner_surf, (int(mana_center.x - core_radius), int(mana_center.y - core_radius)))
+            surface.blit(inner_surf, (int(mana_center.x - core_radius), int(mana_center.y - core_radius)))
 
             # 중심 하얀 코어
             core_surf_size = max(2, core_radius - 2)
             core_surf = pygame.Surface((core_surf_size * 2, core_surf_size * 2), pygame.SRCALPHA)
             pygame.draw.circle(core_surf, (255, 255, 255, core_alpha), (core_surf_size, core_surf_size), core_surf_size)
-            screen.blit(core_surf, (int(mana_center.x - core_surf_size), int(mana_center.y - core_surf_size)))
+            surface.blit(core_surf, (int(mana_center.x - core_surf_size), int(mana_center.y - core_surf_size)))
 
         rune_progress = (pulse % 180) / 180.0
         orb_alpha = int(180 * core_progress)
