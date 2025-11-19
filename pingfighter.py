@@ -61734,9 +61734,23 @@ def _boss_try_emergency_dash() -> bool:
 
     # 실제 대쉬 실행 (빠른 이동 + 잔상/사운드)
     direction = 1 if predicted_x > BOSS.centerx else -1
-    target_centerx = int(predicted_x)
-    target_centerx = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx))
 
+    # 스테이지별 최대 대쉬 거리(px) 적용
+    try:
+        stage_cfg = BOSS_CONFIGS.get(current_stage, {})
+        max_dash_distance = float(stage_cfg.get("dash_max_distance", 9999))
+    except Exception:
+        max_dash_distance = 9999.0
+
+    raw_distance = abs(predicted_x - BOSS.centerx)
+    dash_distance = min(raw_distance, max_dash_distance)
+
+    if direction > 0:
+        target_centerx = BOSS.centerx + dash_distance
+    else:
+        target_centerx = BOSS.centerx - dash_distance
+
+    target_centerx = int(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_centerx)))
     dash_distance = abs(target_centerx - BOSS.centerx)
     if dash_distance < 20:
         return False
