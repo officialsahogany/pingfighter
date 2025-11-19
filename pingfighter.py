@@ -6652,6 +6652,23 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             # 강화된 포탑(레벨 2)으로 업그레이드
                             new_level = min(BLACKSMITH_TURRET_MAX_LEVEL, turret_level + 1)
                             blacksmith_turret_state["level"] = new_level
+                            # 포탑 최대 체력 +1 및 전부 회복
+                            try:
+                                current_max_hp = int(
+                                    blacksmith_turret_state.get("max_hp", BLACKSMITH_TURRET_BASE_HP)
+                                )
+                            except Exception:
+                                current_max_hp = BLACKSMITH_TURRET_BASE_HP
+                            new_max_hp = current_max_hp + 1
+                            blacksmith_turret_state["max_hp"] = new_max_hp
+                            blacksmith_turret_state["hp"] = new_max_hp
+                            try:
+                                rect = blacksmith_turret_state.get("rect")
+                                if rect is not None:
+                                    damage_manager = get_damage_manager()
+                                    damage_manager.register_building("turret", rect, new_max_hp)
+                            except Exception:
+                                pass
                             # 강화 포탑은 자동 발사 주기를 4초로 단축
                             if new_level >= BLACKSMITH_TURRET_MAX_LEVEL:
                                 new_interval = BLACKSMITH_TURRET_FIRE_INTERVAL_LVL2
