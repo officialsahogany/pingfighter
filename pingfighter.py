@@ -9706,7 +9706,18 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
     state_changed = False
 
     if 'BALL' in globals() and BALL is not None:
-        if rect.colliderect(BALL) and divine_state.get("cooldown", 0) == 0:
+        # 강화 디바인스톤에서만 약간 옆쪽 타격이 누락되는 느낌을 줄이기 위해
+        # 충돌 판정을 소폭 넓힌 별도 히트박스를 사용한다.
+        hit_rect = rect
+        try:
+            if divine_state.get("reinforced", False):
+                # 좌우로만 살짝 확장해 시각적 실루엣과 충돌 판정을 더 잘 맞춘다.
+                margin_x = max(2, rect.width // 10)
+                hit_rect = rect.inflate(margin_x * 2, 0)
+        except Exception:
+            hit_rect = rect
+
+        if hit_rect.colliderect(BALL) and divine_state.get("cooldown", 0) == 0:
             BALL.bottom = min(BALL.bottom, rect.top - 2)
             ball_vel[1] = -abs(ball_vel[1]) - 4
             ball_vel[0] *= 0.6
