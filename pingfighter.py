@@ -9673,63 +9673,31 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
             radius = float(BLACKSMITH_DIVINE_SLASH_RADIUS)
 
             try:
-                # 주작 느낌의 반달 + 뒤를 따르는 길쭉한 검기
+                # U자 형태의 대칭 검기 (여러 개의 호가 겹친 형태)
                 size = int(radius * 6)
                 if size <= 0:
                     continue
 
                 slash_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-                cx = int(size * 0.65)
+                cx = int(size * 0.55)
                 cy = size // 2
 
-                # 반달(초승달) 형상 생성
-                outer_r = radius * 1.8
-                inner_r = radius * 0.9
-                arc_start = -70
-                arc_end = 70
-                step = 10
+                base_r = radius * 1.6
+                stripe_count = 4
+                dr = radius * 0.35
 
-                outer_points: list[tuple[float, float]] = []
-                for deg in range(arc_start, arc_end + 1, step):
-                    rad = math.radians(deg)
-                    px = cx + math.cos(rad) * outer_r
-                    py = cy + math.sin(rad) * outer_r
-                    outer_points.append((px, py))
+                # 오른쪽이 열린 U자(C자) 모양 호를 여러 겹으로 그림
+                arc_start = math.radians(110)
+                arc_end = math.radians(250)
 
-                inner_points: list[tuple[float, float]] = []
-                for deg in range(arc_end, arc_start - 1, -step):
-                    rad = math.radians(deg)
-                    px = cx + math.cos(rad) * inner_r
-                    py = cy + math.sin(rad) * inner_r
-                    inner_points.append((px, py))
-
-                crescent = outer_points + inner_points
-
-                glow_color = (100, 30, 160, 120)
-                core_color = (230, 150, 255, 230)
-                tail_color = (200, 160, 255, 210)
-
-                # 반달 외곽 글로우
-                pygame.draw.polygon(slash_surface, glow_color, crescent)
-                # 안쪽 코어를 조금 축소해서 다시 한 번 채워 넣어 선명하게
-                scaled_inner: list[tuple[float, float]] = []
-                for px, py in crescent:
-                    sx = cx + (px - cx) * 0.8
-                    sy = cy + (py - cy) * 0.8
-                    scaled_inner.append((sx, sy))
-                pygame.draw.polygon(slash_surface, core_color, scaled_inner)
-
-                # 이동 궤적을 따르는 길쭉한 검기(꼬리)
-                base_x = cx - inner_r * 0.8
-                tail_len = radius * 3.2
-                tail_half = radius * 0.6
-                tail_points = [
-                    (base_x, cy - tail_half),
-                    (base_x, cy + tail_half),
-                    (base_x - tail_len, cy + tail_half * 0.4),
-                    (base_x - tail_len, cy - tail_half * 0.4),
-                ]
-                pygame.draw.polygon(slash_surface, tail_color, tail_points)
+                for i in range(stripe_count):
+                    r = base_r + dr * i
+                    rect = pygame.Rect(0, 0, int(r * 2), int(r * 2))
+                    rect.center = (cx, cy)
+                    alpha = max(40, 220 - i * 40)
+                    color = (230, 160 + i * 15 if 160 + i * 15 <= 255 else 255, 255, alpha)
+                    width = max(2, int(radius * 0.45 - i))
+                    pygame.draw.arc(slash_surface, color, rect, arc_start, arc_end, width)
 
                 # 이동 방향(vx, vy)에 맞추어 회전
                 angle_deg = 0.0
