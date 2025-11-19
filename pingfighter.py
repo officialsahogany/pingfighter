@@ -14018,6 +14018,77 @@ def get_blacksmith_umbrella_gauge_gain() -> int:
         print(f"[DEBUG BLOCKING] no penalty base={base_gain}")
 
     return base_gain
+
+
+# === 강화디바인스톤 토르쉴드 검기 발사체 설정 ===
+BLACKSMITH_DIVINE_SLASH_SPEED = 15.0
+BLACKSMITH_DIVINE_SLASH_LIFETIME_FRAMES = int(1.6 * FPS)
+BLACKSMITH_DIVINE_SLASH_RADIUS = 14
+BLACKSMITH_DIVINE_SLASH_WALL_MARGIN = 8
+BLACKSMITH_DIVINE_SLASH_MIN_ANGLE_DEG = 35.0
+BLACKSMITH_DIVINE_SLASH_MAX_ANGLE_DEG = 50.0
+blacksmith_divine_slash_projectiles: list[dict[str, object]] = []
+
+
+def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
+    """강화디바인스톤이 있을 때 토르쉴드 스윙으로 검기 발사체를 생성한다."""
+
+    global blacksmith_divine_slash_projectiles
+
+    if swing_direction == 0:
+        return
+
+    # 디바인스톤이 실제 필드에 존재하고 강화된 상태인지 확인
+    state = globals().get("blacksmith_divine_stone_state")
+    if not _is_divine_state_active(state):
+        return
+    if not bool(state.get("reinforced", False)):
+        return
+
+    if "PLAYER" not in globals() or PLAYER is None:
+        return
+
+    # 발사체 수를 제한해 과도한 스팸을 방지
+    if len(blacksmith_divine_slash_projectiles) >= 6:
+        return
+
+    try:
+        angle_deg = random.uniform(
+            BLACKSMITH_DIVINE_SLASH_MIN_ANGLE_DEG,
+            BLACKSMITH_DIVINE_SLASH_MAX_ANGLE_DEG,
+        )
+    except Exception:
+        angle_deg = (BLACKSMITH_DIVINE_SLASH_MIN_ANGLE_DEG + BLACKSMITH_DIVINE_SLASH_MAX_ANGLE_DEG) * 0.5
+
+    angle_rad = math.radians(angle_deg)
+    speed = BLACKSMITH_DIVINE_SLASH_SPEED
+
+    # swing_direction: +1 = 왼쪽 스윙, -1 = 오른쪽 스윙
+    dir_sign = -1 if swing_direction < 0 else 1
+    vx = dir_sign * speed * math.sin(angle_rad)
+    vy = -speed * math.cos(angle_rad)  # 항상 위쪽(y 축 음수)으로 진행
+
+    origin_x = float(PLAYER.centerx)
+    origin_y = float(PLAYER.centery - 40)
+
+    projectile: dict[str, object] = {
+        "x": origin_x,
+        "y": origin_y,
+        "vx": vx,
+        "vy": vy,
+        "life": int(BLACKSMITH_DIVINE_SLASH_LIFETIME_FRAMES),
+        "bounced": False,
+        "boss_hit": False,
+    }
+    blacksmith_divine_slash_projectiles.append(projectile)
+
+    # 검기 시작 이펙트
+    try:
+        effects_manager.spawn_star_particles(int(origin_x), int(origin_y), count=6)
+    except Exception:
+        pass
+
+
 blacksmith_umbrella_recharge_progress = 0
 blacksmith_umbrella_damage_flash_timer = 0
 blacksmith_umbrella_last_hit_frame = -1000
