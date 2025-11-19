@@ -9678,47 +9678,126 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
                 world_y = float(proj.get("y", 0.0)) + float(offset_y)
                 vx = float(proj.get("vx", 0.0))
                 vy = float(proj.get("vy", -1.0))
+                trail = proj.get("trail", [])
             except Exception:
                 continue
 
             radius = float(BLACKSMITH_DIVINE_SLASH_RADIUS)
 
             try:
-                # U자 형태의 대칭 검기 (여러 개의 호가 겹친 형태)
-                size = int(radius * 6)
+                # === 1. 검붉은보라색 궤적 그리기 ===
+                if trail and len(trail) >= 2:
+                    trail_points = [(int(tx + offset_x), int(ty + offset_y)) for tx, ty in trail]
+                    trail_points.append((int(world_x), int(world_y)))
+
+                    # 궤적을 세그먼트별로 그리기 (점점 투명해지는 효과)
+                    for i in range(len(trail_points) - 1):
+                        progress = i / max(1, len(trail_points) - 1)
+                        alpha = int(180 * progress)
+                        # 검붉은보라색 (dark red-purple): RGB(120, 30, 90) ~ (160, 50, 120)
+                        r_col = int(100 + 60 * progress)
+                        g_col = int(20 + 30 * progress)
+                        b_col = int(70 + 50 * progress)
+                        width = max(1, int(3 + 5 * progress))
+
+                        # 발광 효과를 위한 여러 레이어
+                        for layer in range(3):
+                            layer_alpha = max(20, alpha - layer * 40)
+                            layer_width = width + (2 - layer) * 2
+                            trail_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+                            pygame.draw.line(trail_surf, (r_col, g_col, b_col, layer_alpha),
+                                           trail_points[i], trail_points[i + 1], layer_width)
+                            surface.blit(trail_surf, (0, 0))
+
+                # === 2. 화려한 U자형 에너지 검기 ===
+                size = int(radius * 8)
                 if size <= 0:
                     continue
 
                 slash_surface = pygame.Surface((size, size), pygame.SRCALPHA)
-                cx = int(size * 0.55)
-                cy = size // 2
+                cx = int(size * 0.5)
+                cy = int(size * 0.5)
 
-                base_r = radius * 1.6
-                stripe_count = 4
-                dr = radius * 0.35
+                # 진행 방향에 따라 열린 방향 결정
+                # vx > 0: 오른쪽으로 이동 → 오른쪽이 열린 호
+                # vx < 0: 왼쪽으로 이동 → 왼쪽이 열린 호
+                if vx >= 0:
+                    arc_start = math.radians(100)  # 위에서 시작
+                    arc_end = math.radians(260)    # 아래에서 끝
+                else:
+                    arc_start = math.radians(-80)  # 위에서 시작
+                    arc_end = math.radians(80)     # 아래에서 끝
 
-                # 오른쪽이 열린 U자(C자) 모양 호를 여러 겹으로 그림
-                arc_start = math.radians(110)
-                arc_end = math.radians(250)
+                # 멀티 레이어 에너지 아크 (참조 이미지처럼)
+                layer_count = 6
+                base_radius = radius * 2.0
 
-                for i in range(stripe_count):
-                    r = base_r + dr * i
+                for layer in range(layer_count):
+                    # 바깥 레이어부터 안쪽으로
+                    r = base_radius + (layer_count - 1 - layer) * radius * 0.4
                     rect = pygame.Rect(0, 0, int(r * 2), int(r * 2))
                     rect.center = (cx, cy)
-                    alpha = max(40, 220 - i * 40)
-                    color = (230, 160 + i * 15 if 160 + i * 15 <= 255 else 255, 255, alpha)
-                    width = max(2, int(radius * 0.45 - i))
+
+                    # 색상: 보라-파랑-시안 그라데이션 (더 화려하게)
+                    if layer < 2:
+                        # 외곽: 진한 보라 + 글로우
+                        color = (180, 100, 255, 60 + layer * 20)
+                    elif layer < 4:
+                        # 중간: 밝은 파랑
+                        color = (100, 180, 255, 100 + layer * 20)
+                    else:
+                        # 코어: 밝은 시안-화이트
+                        color = (200, 240, 255, 200 + layer * 10)
+
+                    width = max(2, int(radius * 0.6 - layer * 0.08 * radius))
                     pygame.draw.arc(slash_surface, color, rect, arc_start, arc_end, width)
 
-                # 이동 방향(vx, vy)에 맞추어 회전
+                # 에너지 파티클/스파크 효과 (호 따라)
+                spark_count = 8
+                for i in range(spark_count):
+                    angle = arc_start + (arc_end - arc_start) * (i / (spark_count - 1))
+                    spark_r = base_radius + random.uniform(-radius * 0.3, radius * 0.5)
+                    sx = cx + math.cos(angle) * spark_r
+                    sy = cy + math.sin(angle) * spark_r
+                    spark_alpha = random.randint(150, 255)
+                    spark_size = random.randint(1, 3)
+                    pygame.draw.circle(slash_surface, (220, 200, 255, spark_alpha),
+                                     (int(sx), int(sy)), spark_size)
+
+                # 중심부 글로우 효과
+                glow_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+                for glow_layer in range(4):
+                    glow_r = int(radius * (1.5 - glow_layer * 0.3))
+                    glow_alpha = 30 - glow_layer * 5
+                    pygame.draw.circle(glow_surf, (150, 120, 255, max(10, glow_alpha)),
+                                     (cx, cy), glow_r)
+                slash_surface.blit(glow_surf, (0, 0))
+
+                # 이동 방향(vx, vy)에 맞추어 회전 (열린 방향이 진행 방향을 향하도록)
                 angle_deg = 0.0
                 if abs(vx) > 1e-3 or abs(vy) > 1e-3:
-                    angle_deg = math.degrees(math.atan2(vy, vx))
+                    # 진행 방향 각도 계산
+                    angle_deg = math.degrees(math.atan2(-vy, vx))  # Y축 반전
+                    # 호의 열린 방향이 이미 오른쪽/왼쪽을 향하고 있으므로
+                    # 진행 방향에 맞게 추가 회전
+                    if vx >= 0:
+                        angle_deg = angle_deg - 0  # 오른쪽으로 열린 호는 그대로
+                    else:
+                        angle_deg = angle_deg + 180  # 왼쪽으로 열린 호는 180도 보정
+
                 rotated = pygame.transform.rotate(slash_surface, angle_deg)
                 slash_rect = rotated.get_rect(center=(int(world_x), int(world_y)))
                 surface.blit(rotated, slash_rect)
+
+                # 추가 외곽 글로우 (전체 이펙트에 생동감)
+                outer_glow = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(outer_glow, (120, 80, 200, 25),
+                                 (size, size), int(radius * 3))
+                glow_rect = outer_glow.get_rect(center=(int(world_x), int(world_y)))
+                surface.blit(outer_glow, glow_rect)
+
             except Exception:
-                pygame.draw.circle(surface, (210, 120, 255), (int(world_x), int(world_y)), int(radius), 2)
+                pygame.draw.circle(surface, (180, 80, 200), (int(world_x), int(world_y)), int(radius), 2)
     
     # Draw shatter particles (경량화: per-frame 임시 서피스 생성 제거)
     for particle in blacksmith_hammer_shock_particles:
