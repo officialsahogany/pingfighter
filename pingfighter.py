@@ -9444,6 +9444,16 @@ def update_blacksmith_hammer_shock(keys):
                         effects_manager.spawn_star_particles(BALL.centerx, BALL.centery, count=8)
                     except Exception:
                         pass
+
+                    # 검기로 공을 맞출 경우 플레이어 스킬 게이지 +30 (1회 한정)
+                    if not proj.get("ball_gauge_given", False):
+                        try:
+                            gain = 30
+                            special_gauge = min(special_gauge_max, special_gauge + gain)
+                            special_ready = special_gauge >= special_gauge_max
+                        except Exception:
+                            pass
+                        proj["ball_gauge_given"] = True
                 except Exception:
                     pass
 
