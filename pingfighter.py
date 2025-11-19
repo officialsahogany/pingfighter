@@ -58580,8 +58580,14 @@ def handle_ball():
                         cond_cd = (divine_state.get("lightning_cd", 0) <= 0)
                         max_hp = int(divine_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP))
                         cur_hp = int(divine_state.get("hp", max_hp))
-                        cond_hp_full = (cur_hp == max_hp)  # 체력이 가득(기본 3)일 때만 활성화
-                        if cond_owner and cond_descend and cond_position and cond_cd and cond_hp_full:
+                        reinforced = bool(divine_state.get("reinforced", False))
+                        # 기본 디바인스톤: 체력이 가득 찼을 때만 번개 요격 활성화
+                        # 강화디바인스톤: 체력이 2 이상이면 번개 요격 활성화 (1이 되면 비활성화)
+                        if reinforced:
+                            cond_hp_ok = (cur_hp >= 2)
+                        else:
+                            cond_hp_ok = (cur_hp == max_hp)
+                        if cond_owner and cond_descend and cond_position and cond_cd and cond_hp_ok:
                             sx, sy = int(divine_state["rect"].centerx), int(divine_state["rect"].centery)
                             bx, by = BALL.centerx, BALL.centery
                             main, branches = _divine_gen_lightning((sx, sy), (bx, by))
@@ -58595,7 +58601,9 @@ def handle_ball():
                             # 번개 사운드 재생
                             if 'SOUND_DIVINE_THUNDER' in globals() and SOUND_DIVINE_THUNDER:
                                 play_sound_with_volume(SOUND_DIVINE_THUNDER)
-                            divine_state["lightning_cd"] = int(random.randint(15, 25) * FPS)
+                            # 쿨타임: 기본 디바인스톤 15~25초, 강화디바인스톤 13~23초
+                            cd_min, cd_max = (13, 23) if reinforced else (15, 25)
+                            divine_state["lightning_cd"] = int(random.randint(cd_min, cd_max) * FPS)
 
                             step_speed = max(1.0, math.hypot(actual_vel_x, actual_vel_y))
                             base_angle = -math.pi / 2
