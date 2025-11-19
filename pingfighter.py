@@ -10271,7 +10271,14 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
         # 이 프레임에서는 디바인스톤 충돌 처리를 건너뛴다.
         wall_blocked = False
         try:
+            try:
+                ball_owner = getattr(game_vars.ball, "last_hit_by", None)
+            except Exception:
+                ball_owner = globals().get("last_hit_by", None)
             for wall in walls:
+                # 플레이어가 친 공(서브 포함)에 대해서는 건물 보호용(group_id) 벽돌은 디바인스톤을 막지 않는다.
+                if ball_owner == "player" and wall.get("group_id") is not None:
+                    continue
                 if BALL.colliderect(wall["rect"]):
                     wall_blocked = True
                     break
@@ -11228,7 +11235,14 @@ def update_blacksmith_turret():
     # 이 프레임에서는 포탑 충돌 처리를 건너뛴다.
     wall_blocked = False
     try:
+        try:
+            ball_owner = getattr(game_vars.ball, "last_hit_by", None)
+        except Exception:
+            ball_owner = globals().get("last_hit_by", None)
         for wall in walls:
+            # 플레이어가 친 공(서브 포함)에 대해서는 건물 보호용(group_id) 벽돌은 포탑을 막지 않는다.
+            if ball_owner == "player" and wall.get("group_id") is not None:
+                continue
             if BALL.colliderect(wall["rect"]):
                 wall_blocked = True
                 break
@@ -60212,7 +60226,12 @@ def handle_ball():
             
             # 벽돌 충돌 체크 (매 스텝마다)
             wall_hit = False
+            # 건물 보호형 벽돌(group_id가 있는 경우)은 플레이어가 친 공(서브공 포함)에는 맞지 않도록 처리한다.
+            ball_owner = globals().get("last_hit_by", None)
             for wall in walls[:]:  # 리스트 복사본으로 순회
+                # 플레이어가 친 공이라면 건물 보호용(group_id가 있는) 벽돌은 스킵
+                if ball_owner == "player" and wall.get("group_id") is not None:
+                    continue
                 if BALL.colliderect(wall["rect"]):
                     # 그룹 내구도(발토르 건물 보호용 3면 벽돌) 처리
                     group_id = wall.get("group_id")
