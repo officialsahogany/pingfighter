@@ -67517,10 +67517,11 @@ def main(stage_num, new_boss_mode=False):
                 # 전설 아이템 효과가 스페이스바를 기다리는 중이면 처리
                 if handle_legendary_space_press():
                     continue  # 전설 효과가 스페이스바를 처리했으면 다른 처리 건너뛰기
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # 마우스 좌클릭으로도 전설 획득 애니메이션 진행
-                if handle_legendary_space_press():
-                    continue
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    # 마우스 좌클릭으로도 전설 획득 애니메이션 진행
+                    if handle_legendary_space_press():
+                        continue
             
             # 플레이어 서브 입력
             # - 좌클릭을 스페이스바와 동일하게 처리하여 서브가 되도록 함
