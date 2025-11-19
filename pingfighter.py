@@ -13093,7 +13093,7 @@ def draw_blacksmith_divine_ui(surface):
             xp_text = tiny_font.render(f"강화 {int(xp_ratio * 100)}%", True, (235, 220, 230))
             surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
         else:
-            # 디바인쉴드 게이지 (강화디바인스톤 전용)
+            # 디바인쉴드 게이지 / 남은 지속시간 (강화디바인스톤 전용)
             shield_active = bool(divine_state.get("shield_active", False))
             shield_overheat = int(divine_state.get("shield_overheat", 0))
             shield_xp = float(divine_state.get("shield_xp", 0.0))
@@ -13102,16 +13102,29 @@ def draw_blacksmith_divine_ui(surface):
             )
             if shield_overheat <= 0:
                 pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
-                xp_ratio = max(0.0, min(1.0, shield_xp / shield_xp_max))
-                xp_fill_width = int(xp_rect.width * xp_ratio)
-                if xp_fill_width > 0:
-                    xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, xp_fill_width, xp_rect.height)
-                    color = (120, 210, 255) if not shield_active else (180, 240, 255)
-                    pygame.draw.rect(surface, color, xp_fill_rect, border_radius=3)
-                pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
-                label = "쉴드" if not shield_active else "쉴드 활성"
-                xp_text = tiny_font.render(f"{label} {int(xp_ratio * 100)}%", True, (225, 235, 255))
-                surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
+                if shield_active:
+                    # 활성화 중에는 디바인쉴드 남은 지속시간을 게이지로 표시
+                    shield_timer = int(divine_state.get("shield_timer", 0))
+                    duration = max(1, BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES)
+                    time_ratio = max(0.0, min(1.0, shield_timer / duration))
+                    xp_fill_width = int(xp_rect.width * time_ratio)
+                    if xp_fill_width > 0:
+                        xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, xp_fill_width, xp_rect.height)
+                        pygame.draw.rect(surface, (180, 240, 255), xp_fill_rect, border_radius=3)
+                    pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
+                    remaining_seconds = shield_timer / FPS if FPS else 0.0
+                    xp_text = tiny_font.render(f"쉴드 {remaining_seconds:4.1f}s", True, (225, 235, 255))
+                    surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
+                else:
+                    # 차지 중에는 쉴드 게이지 진행도 표시
+                    xp_ratio = max(0.0, min(1.0, shield_xp / shield_xp_max))
+                    xp_fill_width = int(xp_rect.width * xp_ratio)
+                    if xp_fill_width > 0:
+                        xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, xp_fill_width, xp_rect.height)
+                        pygame.draw.rect(surface, (120, 210, 255), xp_fill_rect, border_radius=3)
+                    pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
+                    xp_text = tiny_font.render(f"쉴드 {int(xp_ratio * 100)}%", True, (225, 235, 255))
+                    surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
 
         if ratio <= 0.33:
             warning_radius = max(4, icon_rect.width // 6)
