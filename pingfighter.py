@@ -66833,7 +66833,7 @@ def main(stage_num, new_boss_mode=False):
             if selected_character_type == "blacksmith":
                 can_open_build_menu = blacksmith_has_available_buildings()
 
-        if current_down_state:
+                if current_down_state:
                     if blacksmith_umbrella_open and not blacksmith_umbrella_retracting:
                         blacksmith_down_hold_frames = 0
                     elif blacksmith_build_menu_active:
@@ -66842,15 +66842,23 @@ def main(stage_num, new_boss_mode=False):
                         blacksmith_turret_active
                         and blacksmith_turret_state
                         and not blacksmith_turret_state.get("overdrive_active")
-                        and blacksmith_turret_state.get("xp", 0.0) < blacksmith_turret_state.get("xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED))
+                        and blacksmith_turret_state.get("xp", 0.0)
+                        < blacksmith_turret_state.get(
+                            "xp_max", float(BLACKSMITH_TURRET_XP_REQUIRED)
+                        )
                     ):
                         turret_rect = blacksmith_turret_state.get("rect")
-                        if turret_rect and abs(PLAYER.centerx - turret_rect.centerx) <= BLACKSMITH_TURRET_BUILD_RADIUS:
+                        if (
+                            turret_rect
+                            and abs(PLAYER.centerx - turret_rect.centerx)
+                            <= BLACKSMITH_TURRET_BUILD_RADIUS
+                        ):
                             blacksmith_down_hold_frames = 0
                         else:
                             blacksmith_down_hold_frames += 1
                     elif can_open_build_menu:
                         engaged_with_active_blueprint = False
+                        # 포탑 청사진과의 상호작용
                         if (
                             blacksmith_turret_blueprint_active
                             and blacksmith_turret_blueprint_rect
@@ -66858,6 +66866,7 @@ def main(stage_num, new_boss_mode=False):
                             <= BLACKSMITH_TURRET_BUILD_RADIUS
                         ):
                             engaged_with_active_blueprint = True
+                        # 디바인스톤 청사진과의 상호작용
                         if (
                             not engaged_with_active_blueprint
                             and blacksmith_divine_blueprint_active
@@ -66866,6 +66875,7 @@ def main(stage_num, new_boss_mode=False):
                             <= BLACKSMITH_DIVINE_BUILD_RADIUS
                         ):
                             engaged_with_active_blueprint = True
+                        # 완성된 디바인스톤과의 상호작용
                         if (
                             not engaged_with_active_blueprint
                             and blacksmith_divine_stone_state is not None
@@ -66875,7 +66885,10 @@ def main(stage_num, new_boss_mode=False):
                                 horizontal_distance = abs(PLAYER.centerx - stone_rect.centerx)
                                 vertical_front_overlap = PLAYER.bottom >= (stone_rect.top - 12)
                                 # 중앙/약간 오른쪽까지는 디바인스톤 상호작용 우선, HUD는 띄우지 않는다.
-                                standing_in_front = PLAYER.centerx <= stone_rect.centerx + stone_rect.width // 4
+                                standing_in_front = (
+                                    PLAYER.centerx
+                                    <= stone_rect.centerx + stone_rect.width // 4
+                                )
                                 if (
                                     horizontal_distance <= BLACKSMITH_DIVINE_BUILD_RADIUS
                                     and vertical_front_overlap
@@ -66903,6 +66916,7 @@ def main(stage_num, new_boss_mode=False):
                 ):
                     blacksmith_open_build_menu()
                     down_just_pressed = False
+
             if not blacksmith_build_menu_active:
                 down_just_pressed = handle_blacksmith_turret_input(
                     current_down_state,
