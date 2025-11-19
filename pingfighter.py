@@ -62372,13 +62372,12 @@ def handle_ball():
                 show_speech("정글지진!", duration=quake_duration)
                 quake_last_used_time = time_now
         elif not new_boss_mode_active and current_stage == 3:
-            if not boss_special_ready:
-                boss_special_gauge += 50
-                if boss_special_gauge >= 500:
-                    boss_special_gauge = 500
-                    boss_special_ready = True
-                    boss_special_waiting = True
-                    boss_special_timer = pygame.time.get_ticks() + random.randint(700, 1500)
+            # 패들 충돌 시 충전된 게이지가 500 이상이 되었을 때만 필살기 준비 상태로 전환
+            if not boss_special_ready and boss_special_gauge >= 500:
+                boss_special_gauge = 500
+                boss_special_ready = True
+                boss_special_waiting = True
+                boss_special_timer = pygame.time.get_ticks() + random.randint(700, 1500)
             target = 220 if boss_special_gauge >= 500 else (boss_special_gauge / 500) * 220
             if boss_red_intensity < target:
                 boss_red_intensity += (target - boss_red_intensity) * 0.1
