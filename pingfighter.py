@@ -10603,21 +10603,10 @@ def _divine_draw_effects(surface, divine_state):
                                      (int(ox - orb_size * 0.3), int(oy - orb_size * 0.3)), max(1, orb_size // 3))
 
                 # 4. 내부 에너지 필드 (반투명 구체)
-                pulse = 1.0 + 0.05 * math.sin(t * 4)
-                inner_radius = int(group_radius * 0.85 * pulse)
-
-                # 여러 겹의 반투명 구체
-                for layer in range(4):
-                    layer_radius = inner_radius - layer * 5
-                    if layer_radius <= 0:
-                        continue
-                    layer_alpha = 10 - layer * 2  # 투명도 대폭 감소 (10, 8, 6, 4)
-                    # 시안-금색 그라데이션
-                    blend = (math.sin(t * 2) + 1) / 2
-                    r = int(100 + 155 * blend)
-                    g = int(230 - 30 * blend)
-                    b = int(255 - 155 * blend)
-                    pygame.draw.circle(shield_surf, (r, g, b, layer_alpha), shield_center, layer_radius)
+                #    └ 디자인 변경: 가운데 원형 에너지 필드는
+                #       시야를 가려 게임 플레이에 방해가 되어 비활성화한다.
+                #       (외곽 링 / 룬 / 구체 / 스파클 등 나머지 디바인쉴드
+                #        연출은 그대로 유지)
 
                 # 5. 에너지 파동 효과 (확장되는 링)
                 wave_period = 2.0
