@@ -6608,6 +6608,87 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
     elif not blacksmith_divine_blueprint_active:
         blacksmith_divine_partial_drain = 0.0
 
+    # 강화 디바인스톤 업그레이드 (포탑과 동일하게 망치질로 강화)
+    if (
+        blacksmith_divine_stone_state is not None
+        and down_pressed
+        and not blacksmith_divine_stone_state.get("reinforced", False)
+    ):
+        stone_rect = blacksmith_divine_stone_state.get("rect")
+        if stone_rect is not None:
+            distance = abs(PLAYER.centerx - stone_rect.centerx)
+            if distance <= BLACKSMITH_DIVINE_BUILD_RADIUS:
+                if not blacksmith_hammer_swing_active:
+                    blacksmith_hammer_swing_phase = 0
+                blacksmith_hammer_swing_slow_timer = 0
+                blacksmith_hammer_slow_decay_step = 0
+                blacksmith_hammer_swing_active = True
+                hammer_engaged_this_frame = True
+
+                drain_per_sec = 400.0 / 15.0
+                drain_per_frame = (drain_per_sec / FPS) * get_blacksmith_construction_speed_multiplier()
+                gained_xp = 0
+
+                if special_gauge > 0:
+                    construction_active = True
+                    partial = float(blacksmith_divine_stone_state.get("reinforce_partial", 0.0))
+                    partial += drain_per_frame
+                    drain_units = int(partial)
+                    if drain_units > 0:
+                        actual_drain = min(drain_units, special_gauge)
+                        if actual_drain > 0:
+                            special_gauge -= actual_drain
+                            partial -= actual_drain
+                            special_ready = special_gauge >= 350
+                            gained_xp = actual_drain
+                    blacksmith_divine_stone_state["reinforce_partial"] = partial
+
+                if gained_xp > 0:
+                    current_xp = blacksmith_divine_stone_state.get("xp", 0.0) + gained_xp
+                    xp_max = max(1.0, float(blacksmith_divine_stone_state.get("xp_max", 400.0)))
+                    if current_xp >= xp_max:
+                        # 강화 디바인스톤으로 업그레이드
+                        blacksmith_divine_stone_state["xp"] = xp_max
+                        blacksmith_divine_stone_state["reinforced"] = True
+                        blacksmith_divine_stone_state["level"] = int(
+                            blacksmith_divine_stone_state.get("level", 1)
+                        ) + 1
+                        max_hp = int(
+                            blacksmith_divine_stone_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
+                        )
+                        blacksmith_divine_stone_state["hp"] = max_hp
+
+                        # 손상 이펙트 매니저에 재등록하여 체력 상태를 초기화
+                        try:
+                            damage_manager = get_damage_manager()
+                            damage_manager.register_building("divine_stone", stone_rect, max_hp)
+                        except Exception:
+                            pass
+
+                        # 강화 연출 효과
+                        try:
+                            effects_manager.spawn_star_particles(stone_rect.centerx, stone_rect.centery, count=14)
+                            effects_manager.spawn_construction_smoke(
+                                stone_rect.centerx,
+                                stone_rect.bottom - 10,
+                                count=8,
+                                spread=20,
+                            )
+                            play_sound_with_volume(SOUND_STAGE6_BEAM_CHARGE)
+                        except Exception:
+                            pass
+
+                        blacksmith_divine_stone_state["reinforce_partial"] = 0.0
+                        print("[DEBUG] Divine stone reinforced (upgraded)")
+                        push_blacksmith_state()
+                    else:
+                        blacksmith_divine_stone_state["xp"] = current_xp
+                        if frame_counter % 45 == 0:
+                            print(f"[DEBUG] Divine XP: {current_xp:.1f}/{xp_max:.1f}")
+            else:
+                # 범위 밖으로 벗어나면 부분 드레인만 리셋
+                blacksmith_divine_stone_state["reinforce_partial"] = 0.0
+
     if blacksmith_turret_active and blacksmith_turret_state:
         turret_rect = blacksmith_turret_state.get("rect")
         turret_level = int(blacksmith_turret_state.get("level", BLACKSMITH_TURRET_BASE_LEVEL))
