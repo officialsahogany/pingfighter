@@ -7581,7 +7581,7 @@ def release_blacksmith_hammer_shock():
     global special_gauge, special_ready, special_gauge_max
     global PLAYER, SOUND_GRENADE, SOUND_BLACKSMITH_HAMMER_THROW
     global blacksmith_hammer_charge_position, blacksmith_hammer_idle_position
-    global blacksmith_divine_stone_state
+    global blacksmith_divine_stone_state, space_just_pressed
 
     if not blacksmith_hammer_shock_charging:
         return
@@ -66485,11 +66485,42 @@ def main(stage_num, new_boss_mode=False):
                 f"just={space_just_pressed}",
             )
             if space_just_pressed:
-                space_press_frame = frame_counter
-                #  악마의 주사위 결과 화면 닫기
-                from item_effects.devil_dice import handle_devil_dice_spacebar, is_devil_dice_waiting_confirm
-                if is_devil_dice_waiting_confirm():
-                    handle_devil_dice_spacebar()
+                # 강화디바인스톤 • 디바인쉴드 발동 입력 처리 (SPACE 또는 좌클릭)
+                try:
+                    divine_state = globals().get("blacksmith_divine_stone_state") or BLACKSMITH_CONTROLLER.state.divine.state
+                except Exception:
+                    divine_state = None
+                if (
+                    selected_character_type == "blacksmith"
+                    and divine_state is not None
+                    and divine_state.get("reinforced", False)
+                    and divine_state.get("shield_ready", False)
+                    and not divine_state.get("shield_active", False)
+                    and int(divine_state.get("shield_overheat", 0)) <= 0
+                ):
+                    divine_state["shield_active"] = True
+                    divine_state["shield_ready"] = False
+                    divine_state["shield_xp"] = float(divine_state.get("shield_xp_max", float(BLACKSMITH_DIVINE_SHIELD_COST)))
+                    divine_state["shield_timer"] = BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES
+                    # 활성화 연출/사운드
+                    try:
+                        rect = divine_state.get("rect")
+                        if rect is not None:
+                            effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=18)
+                            effects_manager.spawn_construction_smoke(rect.centerx, rect.bottom - 10, count=10, spread=26)
+                        if 'SOUND_DIVINE_THUNDER' in globals() and SOUND_DIVINE_THUNDER:
+                            play_sound_with_volume(SOUND_DIVINE_THUNDER)
+                    except Exception:
+                        pass
+                    print("[DEBUG] Divine shield activated (25s)")
+                    # 이 프레임의 스페이스 입력은 다른 시스템에서 소비하지 않도록 플래그만 갱신
+                    space_press_frame = frame_counter
+                else:
+                    space_press_frame = frame_counter
+                    #  악마의 주사위 결과 화면 닫기
+                    from item_effects.devil_dice import handle_devil_dice_spacebar, is_devil_dice_waiting_confirm
+                    if is_devil_dice_waiting_confirm():
+                        handle_devil_dice_spacebar()
             last_space_state = current_space_state
             if selected_character_type == "blacksmith":
                 down_current_state = keys[pygame.K_DOWN]
