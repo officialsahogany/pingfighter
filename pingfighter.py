@@ -20901,6 +20901,7 @@ def _find_blacksmith_building_under_player() -> pygame.Rect | None:
 
     실제 완성된 포탑/디바인스톤만 대상으로 하며, 청사진은 포함하지 않는다.
     여러 건물과 겹칠 경우 플레이어 중심과 가장 가까운 건물을 선택한다.
+    포탑은 머리/포신까지 포함한 충돌 히트박스를 사용해 보호 범위를 넉넉히 잡는다.
     """
     if selected_character_type != "blacksmith":
         return None
@@ -20910,21 +20911,43 @@ def _find_blacksmith_building_under_player() -> pygame.Rect | None:
 
     candidates: list[pygame.Rect] = []
 
-    # 포탑 본체
+    # 포탑 본체 (머리/포신까지 포함한 확장 히트박스 사용)
     if globals().get("blacksmith_turret_active") and globals().get("blacksmith_turret_state"):
         turret_state = globals()["blacksmith_turret_state"]
         turret_rect = turret_state.get("rect")
         hp = turret_state.get("hp", 0)
-        if turret_rect is not None and hp > 0 and PLAYER.colliderect(turret_rect):
-            candidates.append(turret_rect)
+        if turret_rect is not None and hp > 0:
+            turret_hit_rect = turret_rect
+            try:
+                if BLACKSMITH_TURRET_DESIGN_HEIGHT:
+                    scale_y = turret_rect.height / BLACKSMITH_TURRET_DESIGN_HEIGHT
+                else:
+                    scale_y = 1.0
+                extra_top = int(BLACKSMITH_TURRET_COLLISION_EXTRA_TOP * scale_y)
+                if extra_top > 0:
+                    turret_hit_rect = turret_rect.copy()
+                    turret_hit_rect.height += extra_top
+                    turret_hit_rect.top -= extra_top
+            except Exception:
+                turret_hit_rect = turret_rect
+            if PLAYER.colliderect(turret_hit_rect):
+                candidates.append(turret_hit_rect)
 
-    # 디바인스톤 본체
+    # 디바인스톤 본체 (강화 시 사용되는 확장 히트박스를 공유)
     if globals().get("blacksmith_divine_stone_state") is not None:
         stone_state = globals()["blacksmith_divine_stone_state"]
         stone_rect = stone_state.get("rect")
         hp = stone_state.get("hp", 0)
-        if stone_rect is not None and hp > 0 and PLAYER.colliderect(stone_rect):
-            candidates.append(stone_rect)
+        if stone_rect is not None and hp > 0:
+            hit_rect = stone_rect
+            try:
+                if stone_state.get("reinforced", False):
+                    margin_x = max(2, stone_rect.width // 10)
+                    hit_rect = stone_rect.inflate(margin_x * 2, 0)
+            except Exception:
+                hit_rect = stone_rect
+            if PLAYER.colliderect(hit_rect):
+                candidates.append(hit_rect)
 
     if not candidates:
         return None
@@ -20951,28 +20974,33 @@ def _create_blacksmith_building_shield(building_rect: pygame.Rect, wall_height: 
 
     thickness = wall_height
 
-    # 상단 가로 벽돌: 건물 너비를 그대로 따라가도록 설정
+    # 보호용 외곽 사각형을 약간 키워 건물 주변을 넉넉히 감싼다.
+    pad_x = max(thickness // 2, 8)
+    pad_y = max(thickness // 2, 6)
+    protect_rect = building_rect.inflate(pad_x * 2, pad_y * 2)
+
+    # 상단 가로 벽돌: 보호 영역 전체를 가로질러 배치
     top_rect = pygame.Rect(
-        building_rect.left,
-        building_rect.top - thickness,
-        building_rect.width,
+        protect_rect.left,
+        protect_rect.top - thickness,
+        protect_rect.width,
         thickness,
     )
 
     # 좌측 세로 벽돌
     left_rect = pygame.Rect(
-        building_rect.left - thickness,
-        building_rect.top,
+        protect_rect.left - thickness,
+        protect_rect.top,
         thickness,
-        building_rect.height,
+        protect_rect.height,
     )
 
     # 우측 세로 벽돌
     right_rect = pygame.Rect(
-        building_rect.right,
-        building_rect.top,
+        protect_rect.right,
+        protect_rect.top,
         thickness,
-        building_rect.height,
+        protect_rect.height,
     )
 
     # 화면 경계 안으로 살짝 보정
