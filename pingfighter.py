@@ -6649,7 +6649,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                     current_xp = blacksmith_turret_state.get("xp", 0.0) + gained_xp
                     if current_xp >= xp_max:
                         if turret_level < BLACKSMITH_TURRET_MAX_LEVEL:
-                            # 강화된 포탑(레벨 2)으로 업그레이드
+                            # 강화 포탑(레벨 2)으로 업그레이드
                             new_level = min(BLACKSMITH_TURRET_MAX_LEVEL, turret_level + 1)
                             blacksmith_turret_state["level"] = new_level
                             # 포탑 최대 체력 +1 및 전부 회복
