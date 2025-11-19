@@ -7554,12 +7554,18 @@ def _blacksmith_hammer_shock_effective_stage(frames: int, gauge: float) -> int:
     frame_stage = _blacksmith_hammer_shock_stage_for_frames(frames)
     max_stage = _blacksmith_hammer_shock_max_stage_for_gauge(gauge)
 
-    # 디바인스톤이 아직 강화되지 않았다면 해머쇼크 3단계는 잠금 상태로 유지한다.
-    # 강화디바인스톤이 완성되면( divine_state['reinforced'] == True ) 3단계를 포함한 전체 단계가 해금된다.
+    # 디바인스톤/강화디바인스톤 상태에 따라 해머쇼크 최대 단계를 제한한다.
+    # - 디바인스톤(강화 전): 1~2단계까지
+    # - 강화디바인스톤: 기본적으로 3단계까지, 디바인쉴드 과부하 중에는 1단계까지만
     try:
         divine_state = globals().get("blacksmith_divine_stone_state")
-        if not (divine_state and divine_state.get("reinforced", False)):
-            max_stage = min(max_stage, 2)
+        if divine_state:
+            reinforced = bool(divine_state.get("reinforced", False))
+            overheat = int(divine_state.get("shield_overheat", 0)) > 0
+            if overheat:
+                max_stage = min(max_stage, 1)
+            elif not reinforced:
+                max_stage = min(max_stage, 2)
     except Exception:
         max_stage = min(max_stage, 2)
 
