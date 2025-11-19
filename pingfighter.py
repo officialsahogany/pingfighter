@@ -66598,6 +66598,8 @@ def main(stage_num, new_boss_mode=False):
                     divine_state = globals().get("blacksmith_divine_stone_state") or BLACKSMITH_CONTROLLER.state.divine.state
                 except Exception:
                     divine_state = None
+
+                shield_handled = False
                 if (
                     selected_character_type == "blacksmith"
                     and divine_state is not None
@@ -66606,24 +66608,35 @@ def main(stage_num, new_boss_mode=False):
                     and not divine_state.get("shield_active", False)
                     and int(divine_state.get("shield_overheat", 0)) <= 0
                 ):
-                    divine_state["shield_active"] = True
-                    divine_state["shield_ready"] = False
-                    divine_state["shield_xp"] = float(divine_state.get("shield_xp_max", float(BLACKSMITH_DIVINE_SHIELD_COST)))
-                    divine_state["shield_timer"] = BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES
-                    # 활성화 연출/사운드
+                    rect = divine_state.get("rect")
                     try:
-                        rect = divine_state.get("rect")
-                        if rect is not None:
-                            effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=18)
-                            effects_manager.spawn_construction_smoke(rect.centerx, rect.bottom - 10, count=10, spread=26)
-                        if 'SOUND_DIVINE_THUNDER' in globals() and SOUND_DIVINE_THUNDER:
-                            play_sound_with_volume(SOUND_DIVINE_THUNDER)
+                        player_rect_ok = ('PLAYER' in globals() and PLAYER is not None)
                     except Exception:
-                        pass
-                    print("[DEBUG] Divine shield activated (25s)")
-                    # 이 프레임의 스페이스 입력은 다른 시스템에서 소비하지 않도록 플래그만 갱신
-                    space_press_frame = frame_counter
-                else:
+                        player_rect_ok = False
+                    # 디바인스톤에 패들이 실제로 닿아있는 상태에서만 발동 (포탑 오버드라이브처럼 위치 조건 추가)
+                    if rect is not None and player_rect_ok and PLAYER.colliderect(rect):
+                        divine_state["shield_active"] = True
+                        divine_state["shield_ready"] = False
+                        divine_state["shield_xp"] = float(
+                            divine_state.get("shield_xp_max", float(BLACKSMITH_DIVINE_SHIELD_COST))
+                        )
+                        divine_state["shield_timer"] = BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES
+                        # 활성화 연출/사운드
+                        try:
+                            effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=18)
+                            effects_manager.spawn_construction_smoke(
+                                rect.centerx, rect.bottom - 10, count=10, spread=26
+                            )
+                            if 'SOUND_DIVINE_THUNDER' in globals() and SOUND_DIVINE_THUNDER:
+                                play_sound_with_volume(SOUND_DIVINE_THUNDER)
+                        except Exception:
+                            pass
+                        print("[DEBUG] Divine shield activated (25s)")
+                        shield_handled = True
+                        # 이 프레임의 스페이스 입력은 다른 시스템에서 소비하지 않도록 처리 완료
+                        space_press_frame = frame_counter
+
+                if not shield_handled:
                     space_press_frame = frame_counter
                     #  악마의 주사위 결과 화면 닫기
                     from item_effects.devil_dice import handle_devil_dice_spacebar, is_devil_dice_waiting_confirm
