@@ -5485,29 +5485,62 @@ def _draw_blacksmith_umbrella_overlay(
             int(230 + 14 * open_amount),
             int(240 + 16 * open_amount),
         )
-        upper_band_layer_colors = [
-            (212, 220, 236),
-            (192, 204, 224),
-        ]
-        upper_band_outline_color = (136, 148, 168)
-        upper_band_highlight_color = (236, 244, 255)
-        lower_band_layer_colors = [
-            (188, 198, 216),
-            (170, 182, 204),
-        ]
-        lower_band_outline_color = (126, 138, 156)
-        lower_band_highlight_color = (230, 238, 250)
-        rune_base_color = (206, 220, 238)
-        rune_glow_color = (255, 255, 255)
-        rivet_shadow_color = (96, 108, 128)
-        rivet_body_color = (148, 158, 178)
-        rivet_highlight_color = (214, 224, 240)
-        rivet_core_color = (236, 246, 255)
-        hammer_body_color = (214, 226, 240)
-        hammer_highlight_color = (238, 248, 255)
-        hammer_outline_color = (122, 132, 148)
-        hammer_shadow_color = (112, 118, 134)
-        strap_color = (142, 152, 170)
+        # 강화 디바인스톤 여부에 따라 토르쉴드 색상 팔레트를 변경
+        try:
+            divine_state = globals().get("blacksmith_divine_stone_state")
+            reinforced_divine = bool(divine_state and divine_state.get("reinforced", False))
+        except Exception:
+            reinforced_divine = False
+
+        if reinforced_divine:
+            # 검붉은 보라색 계열 팔레트
+            upper_band_layer_colors = [
+                (120, 80, 130),
+                (100, 60, 110),
+            ]
+            upper_band_outline_color = (70, 36, 90)
+            upper_band_highlight_color = (210, 180, 235)
+            lower_band_layer_colors = [
+                (90, 50, 105),
+                (72, 38, 88),
+            ]
+            lower_band_outline_color = (60, 30, 78)
+            lower_band_highlight_color = (195, 160, 225)
+            rune_base_color = (200, 160, 230)
+            rune_glow_color = (255, 220, 255)
+            rivet_shadow_color = (70, 40, 90)
+            rivet_body_color = (150, 110, 185)
+            rivet_highlight_color = (220, 190, 245)
+            rivet_core_color = (245, 230, 255)
+            hammer_body_color = (210, 140, 210)
+            hammer_highlight_color = (240, 200, 250)
+            hammer_outline_color = (110, 70, 130)
+            hammer_shadow_color = (80, 46, 102)
+            strap_color = (130, 80, 150)
+        else:
+            upper_band_layer_colors = [
+                (212, 220, 236),
+                (192, 204, 224),
+            ]
+            upper_band_outline_color = (136, 148, 168)
+            upper_band_highlight_color = (236, 244, 255)
+            lower_band_layer_colors = [
+                (188, 198, 216),
+                (170, 182, 204),
+            ]
+            lower_band_outline_color = (126, 138, 156)
+            lower_band_highlight_color = (230, 238, 250)
+            rune_base_color = (206, 220, 238)
+            rune_glow_color = (255, 255, 255)
+            rivet_shadow_color = (96, 108, 128)
+            rivet_body_color = (148, 158, 178)
+            rivet_highlight_color = (214, 224, 240)
+            rivet_core_color = (236, 246, 255)
+            hammer_body_color = (214, 226, 240)
+            hammer_highlight_color = (238, 248, 255)
+            hammer_outline_color = (122, 132, 148)
+            hammer_shadow_color = (112, 118, 134)
+            strap_color = (142, 152, 170)
     else:
         base_color = (
             int(132 + 12 * open_amount),
