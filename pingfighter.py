@@ -9663,25 +9663,83 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
     if "blacksmith_divine_slash_projectiles" in globals() and blacksmith_divine_slash_projectiles:
         for proj in blacksmith_divine_slash_projectiles:
             try:
-                x = int(float(proj.get("x", 0.0)) + offset_x)
-                y = int(float(proj.get("y", 0.0)) + offset_y)
+                world_x = float(proj.get("x", 0.0)) + float(offset_x)
+                world_y = float(proj.get("y", 0.0)) + float(offset_y)
+                vx = float(proj.get("vx", 0.0))
+                vy = float(proj.get("vy", -1.0))
             except Exception:
                 continue
 
-            radius = BLACKSMITH_DIVINE_SLASH_RADIUS
+            radius = float(BLACKSMITH_DIVINE_SLASH_RADIUS)
 
-            # 부드러운 비누방울 느낌의 보랏빛 검기 (중심 코어 + 글로우)
             try:
-                slash_surface = pygame.Surface((radius * 4, radius * 4), pygame.SRCALPHA)
-                center = (radius * 2, radius * 2)
-                glow_color = (110, 30, 160, 110)
-                core_color = (210, 120, 255, 240)
-                pygame.draw.circle(slash_surface, glow_color, center, radius * 2)
-                pygame.draw.circle(slash_surface, core_color, center, radius)
-                slash_rect = slash_surface.get_rect(center=(x, y))
-                surface.blit(slash_surface, slash_rect)
+                # 주작 느낌의 반달 + 뒤를 따르는 길쭉한 검기
+                size = int(radius * 6)
+                if size <= 0:
+                    continue
+
+                slash_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+                cx = int(size * 0.65)
+                cy = size // 2
+
+                # 반달(초승달) 형상 생성
+                outer_r = radius * 1.8
+                inner_r = radius * 0.9
+                arc_start = -70
+                arc_end = 70
+                step = 10
+
+                outer_points: list[tuple[float, float]] = []
+                for deg in range(arc_start, arc_end + 1, step):
+                    rad = math.radians(deg)
+                    px = cx + math.cos(rad) * outer_r
+                    py = cy + math.sin(rad) * outer_r
+                    outer_points.append((px, py))
+
+                inner_points: list[tuple[float, float]] = []
+                for deg in range(arc_end, arc_start - 1, -step):
+                    rad = math.radians(deg)
+                    px = cx + math.cos(rad) * inner_r
+                    py = cy + math.sin(rad) * inner_r
+                    inner_points.append((px, py))
+
+                crescent = outer_points + inner_points
+
+                glow_color = (100, 30, 160, 120)
+                core_color = (230, 150, 255, 230)
+                tail_color = (200, 160, 255, 210)
+
+                # 반달 외곽 글로우
+                pygame.draw.polygon(slash_surface, glow_color, crescent)
+                # 안쪽 코어를 조금 축소해서 다시 한 번 채워 넣어 선명하게
+                scaled_inner: list[tuple[float, float]] = []
+                for px, py in crescent:
+                    sx = cx + (px - cx) * 0.8
+                    sy = cy + (py - cy) * 0.8
+                    scaled_inner.append((sx, sy))
+                pygame.draw.polygon(slash_surface, core_color, scaled_inner)
+
+                # 이동 궤적을 따르는 길쭉한 검기(꼬리)
+                base_x = cx - inner_r * 0.8
+                tail_len = radius * 3.2
+                tail_half = radius * 0.6
+                tail_points = [
+                    (base_x, cy - tail_half),
+                    (base_x, cy + tail_half),
+                    (base_x - tail_len, cy + tail_half * 0.4),
+                    (base_x - tail_len, cy - tail_half * 0.4),
+                ]
+                pygame.draw.polygon(slash_surface, tail_color, tail_points)
+
+                # 이동 방향(vx, vy)에 맞추어 회전
+                angle_deg = 0.0
+                if abs(vx) > 1e-3 or abs(vy) > 1e-3:
+                    angle_deg = math.degrees(math.atan2(vy, vx))
+                rotated = pygame.transform.rotate(slash_surface, angle_deg)
+                slash_rect = rotated.get_rect(center=(int(world_x), int(world_y)))
+                surface.blit(rotated, slash_rect)
             except Exception:
-                pygame.draw.circle(surface, (210, 120, 255), (x, y), radius, 2)
+                pygame.draw.circle(surface, (210, 120, 255), (int(world_x), int(world_y)), int(radius), 2)
     
     # Draw shatter particles (경량화: per-frame 임시 서피스 생성 제거)
     for particle in blacksmith_hammer_shock_particles:
