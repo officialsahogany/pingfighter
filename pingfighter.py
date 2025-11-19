@@ -9478,6 +9478,54 @@ def update_blacksmith_hammer_shock(keys):
                     )
                 except Exception:
                     pass
+
+                # 어둠의 폭발 이펙트 생성 (다크 스모크 + 폭발)
+                try:
+                    hit_x = BOSS.centerx
+                    hit_y = BOSS.centery
+
+                    # 다크 스모크 파티클 생성
+                    for _ in range(15):
+                        smoke_particle = {
+                            "x": hit_x + random.uniform(-20, 20),
+                            "y": hit_y + random.uniform(-15, 15),
+                            "vx": random.uniform(-2, 2),
+                            "vy": random.uniform(-3, -0.5),
+                            "size": random.randint(8, 16),
+                            "life": random.randint(30, 50),
+                            "max_life": 50,
+                            "color": random.choice([
+                                (40, 20, 50),   # 어둠의 보라
+                                (30, 15, 40),   # 진한 보라
+                                (50, 25, 60),   # 다크 마젠타
+                                (20, 10, 30),   # 검은 보라
+                            ]),
+                            "type": "dark_smoke"
+                        }
+                        blacksmith_hammer_shock_particles.append(smoke_particle)
+
+                    # 다크 폭발 링 파티클 생성
+                    for i in range(8):
+                        angle = (2 * math.pi * i / 8) + random.uniform(-0.2, 0.2)
+                        speed = random.uniform(3, 6)
+                        explosion_particle = {
+                            "x": hit_x,
+                            "y": hit_y,
+                            "vx": math.cos(angle) * speed,
+                            "vy": math.sin(angle) * speed,
+                            "size": random.randint(4, 8),
+                            "life": random.randint(15, 25),
+                            "max_life": 25,
+                            "color": (80, 40, 100),  # 어둠의 보라 폭발
+                            "type": "dark_explosion"
+                        }
+                        blacksmith_hammer_shock_particles.append(explosion_particle)
+
+                    # 이펙트 매니저를 통한 추가 임팩트 효과
+                    effects_manager.create_impact_effect(hit_x, hit_y, 50, is_player=True)
+                except Exception:
+                    pass
+
                 proj["boss_hit"] = True
 
             # 화면 밖으로 완전히 벗어나면 제거
