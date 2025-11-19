@@ -14797,6 +14797,12 @@ def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
         return
     if not bool(state.get("reinforced", False)):
         return
+    # 디바인쉴드 과부하 상태에서는 검기를 발사하지 않는다.
+    try:
+        if int(state.get("shield_overheat", 0)) > 0:
+            return
+    except Exception:
+        pass
 
     if "PLAYER" not in globals() or PLAYER is None:
         return
