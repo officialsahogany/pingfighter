@@ -9825,10 +9825,15 @@ def _divine_update_effects(divine_state):
 def _divine_draw_effects(surface, divine_state):
     if divine_state is None:
         return
+    reinforced = bool(divine_state.get("reinforced", False))
     # 번개
     if divine_state.get("lightning_ttl", 0) > 0 and divine_state.get("lightning_path"):
-        core = (255, 255, 180)
-        glow = (170, 210, 255, 90)
+        if reinforced:
+            core = (255, 150, 140)
+            glow = (220, 70, 90, 110)
+        else:
+            core = (255, 255, 180)
+            glow = (170, 210, 255, 90)
         all_pts = list(divine_state["lightning_path"])
         for br in divine_state.get("lightning_branches", []):
             all_pts.extend(br)
@@ -9863,13 +9868,21 @@ def _divine_draw_effects(surface, divine_state):
         r = int(8 + (1 - life_ratio) * 36)
         alpha = int(220 * life_ratio)
         core_surf = pygame.Surface((r * 4, r * 4), pygame.SRCALPHA)
-        pygame.draw.circle(core_surf, (255, 255, 200, alpha), (r * 2, r * 2), int(r * 0.6))
-        pygame.draw.circle(core_surf, (255, 255, 255, int(alpha * 0.6)), (r * 2, r * 2), int(r * 0.35))
+        if reinforced:
+            core_color = (255, 150, 150, alpha)
+            inner_color = (255, 230, 230, int(alpha * 0.6))
+            ring_color = (220, 80, 120, ring_alpha)
+        else:
+            core_color = (255, 255, 200, alpha)
+            inner_color = (255, 255, 255, int(alpha * 0.6))
+            ring_color = (180, 220, 255, ring_alpha)
+        pygame.draw.circle(core_surf, core_color, (r * 2, r * 2), int(r * 0.6))
+        pygame.draw.circle(core_surf, inner_color, (r * 2, r * 2), int(r * 0.35))
         surface.blit(core_surf, (cx - r * 2, cy - r * 2), special_flags=pygame.BLEND_ADD)
         ring_alpha = int(180 * life_ratio)
         if ring_alpha > 0 and r > 4:
             ring_surf = pygame.Surface((r * 2 + 6, r * 2 + 6), pygame.SRCALPHA)
-            pygame.draw.circle(ring_surf, (180, 220, 255, ring_alpha), (r + 3, r + 3), r, 2)
+            pygame.draw.circle(ring_surf, ring_color, (r + 3, r + 3), r, 2)
             surface.blit(ring_surf, (cx - r - 3, cy - r - 3))
     # 스파크
     sparks = divine_state.get("sparks") or []
@@ -9877,8 +9890,14 @@ def _divine_draw_effects(surface, divine_state):
         s = max(1, int(p['size']))
         ex = int(p['x'] + p['vx'] * 0.6)
         ey = int(p['y'] + p['vy'] * 0.6)
-        pygame.draw.line(surface, (255, 240, 180), (int(p['x']), int(p['y'])), (ex, ey), 1)
-        pygame.draw.circle(surface, (255, 255, 255), (int(p['x']), int(p['y'])), max(1, s // 2))
+        if reinforced:
+            spark_color = (255, 170, 150)
+            core_color = (255, 230, 220)
+        else:
+            spark_color = (255, 240, 180)
+            core_color = (255, 255, 255)
+        pygame.draw.line(surface, spark_color, (int(p['x']), int(p['y'])), (ex, ey), 1)
+        pygame.draw.circle(surface, core_color, (int(p['x']), int(p['y'])), max(1, s // 2))
 
 def draw_divine_stone_world_effects(surface):
     sync_blacksmith_state()
