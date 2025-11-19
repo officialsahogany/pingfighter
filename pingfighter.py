@@ -10611,7 +10611,7 @@ def _divine_draw_effects(surface, divine_state):
                     layer_radius = inner_radius - layer * 5
                     if layer_radius <= 0:
                         continue
-                    layer_alpha = 30 - layer * 5
+                    layer_alpha = 10 - layer * 2  # 투명도 대폭 감소 (10, 8, 6, 4)
                     # 시안-금색 그라데이션
                     blend = (math.sin(t * 2) + 1) / 2
                     r = int(100 + 155 * blend)
