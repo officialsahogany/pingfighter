@@ -2888,12 +2888,13 @@ sensor_auto_dash_cooldown = 0  # 자동 대쉬 쿨타임
 sensor_last_auto_dash_time = 0  # 마지막 자동 대쉬 시간
 boss_hit_timer = 0  # 보스가 공을 때린 후 경과 시간
 # === 벽돌 관련 ===
-walls = []  # 벽돌 리스트 [{"rect": pygame.Rect, "hit_count": int, "crack_level": int}]
+walls = []  # 벽돌 리스트 [{"rect": pygame.Rect, "hit_count": int, "crack_level": int, "group_id": Optional[int]}]
 pending_wall = None  # 설치 완료 후 생성할 벽돌 정보
 wall_installing = False  # 벽돌 설치 중
 wall_install_timer = 0  # 설치 타이머 (0.5초 = 30프레임)
 brick_particles = []  # 벽돌 부서지는 파티클 리스트
 holy_light_particles = []  # 성스러운 빛 파티클 리스트 [(rect, angle, distance, size, alpha, life, color, orbit_speed)]
+next_wall_group_id = 1  # 발토르 건물 보호용 벽돌 그룹 ID
 REPAIR_TICK_FRAMES = int(5 * FPS)
 active_repair_jobs: list[dict] = []  # 진행 중인 수리 작업
 repair_hammer_surface = None
