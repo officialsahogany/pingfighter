@@ -2895,6 +2895,7 @@ wall_install_timer = 0  # 설치 타이머 (0.5초 = 30프레임)
 brick_particles = []  # 벽돌 부서지는 파티클 리스트
 holy_light_particles = []  # 성스러운 빛 파티클 리스트 [(rect, angle, distance, size, alpha, life, color, orbit_speed)]
 next_wall_group_id = 1  # 발토르 건물 보호용 벽돌 그룹 ID
+wall_group_hits: dict[int, int] = {}  # 그룹형(건물 보호용) 벽돌의 누적 피격 횟수
 REPAIR_TICK_FRAMES = int(5 * FPS)
 active_repair_jobs: list[dict] = []  # 진행 중인 수리 작업
 repair_hammer_surface = None
@@ -21005,10 +21006,12 @@ def _create_blacksmith_building_shield(building_rect: pygame.Rect, wall_height: 
 
     세 면은 공통 내구도(2히트)를 공유하며, 2히트 시 세 벽돌이 동시에 파괴된다.
     """
-    global next_wall_group_id
+    global next_wall_group_id, wall_group_hits
 
     group_id = next_wall_group_id
     next_wall_group_id += 1
+    # 그룹형 보호벽 초기 피격 카운터
+    wall_group_hits[group_id] = 0
 
     thickness = wall_height
 
@@ -65678,6 +65681,7 @@ def show_result(won):
     wall_install_timer = 0
     wall_install_gauge_visible = False
     globals()["next_wall_group_id"] = 1
+    globals()["wall_group_hits"].clear()
     #  Aipill 초기화 (다음 라운드로 넘어가면 Aipill 효과 종료)
     if aipill_active:
         print("Aipill  .")
