@@ -67331,7 +67331,11 @@ def main(stage_num, new_boss_mode=False):
                     elif event.key in (pygame.K_2, pygame.K_KP2):
                         blacksmith_select_build_option("divine_stone")
                     elif event.key in (pygame.K_ESCAPE, pygame.K_DOWN):
+                        # ↓ 키도 한 번 눌렀을 때 마우스 우클릭처럼
+                        # 아무 것도 건설하지 않고 건설 HUD를 닫는다.
                         blacksmith_close_build_menu()
+                        # 빌드 메뉴를 닫았으므로, 아래 입력 상태는 다음 프레임에서 다시 처리
+                        continue
                     continue
                 # 발토르 건설 HUD 마우스 선택/취소
                 if event.type == pygame.MOUSEBUTTONDOWN:
