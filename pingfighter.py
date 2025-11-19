@@ -9216,6 +9216,7 @@ def update_blacksmith_hammer_shock(keys):
     global blacksmith_umbrella_open, blacksmith_umbrella_anim_timer, blacksmith_umbrella_retracting
     global frame_counter, blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
     global blacksmith_hammer_projectiles_paused
+    global blacksmith_hammer_shock_particles, blacksmith_hammer_explosions
     global blacksmith_divine_stone_state
     global blacksmith_divine_slash_projectiles, blacksmith_divine_slash_scheduled
     global BOSS
@@ -9557,7 +9558,6 @@ def update_blacksmith_hammer_shock(keys):
         blacksmith_divine_slash_projectiles = updated_slashes
 
     # Update hammer shock particles (for shatter effects)
-    global blacksmith_hammer_shock_particles
     updated_particles = []
     for particle in blacksmith_hammer_shock_particles:
         # Update particle position
@@ -9572,7 +9572,6 @@ def update_blacksmith_hammer_shock(keys):
             updated_particles.append(particle)
     blacksmith_hammer_shock_particles = updated_particles
 
-    global blacksmith_hammer_explosions
     blacksmith_hammer_explosions = [
         exp for exp in blacksmith_hammer_explosions if exp.get("life", 0) > 0
     ]
