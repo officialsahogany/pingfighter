@@ -10509,7 +10509,14 @@ def update_blacksmith_turret():
         ball_owner = getattr(game_vars.ball, "last_hit_by", "player")
         if ball_owner != "player" and turret_state.get("hp", 0) > 0:
             smoke_protected = is_rect_in_smoke(turret_hit_rect)
-            if not smoke_protected:
+            # 디바인쉴드 활성 중에는 포탑 체력이 감소하지 않는다.
+            shield_active = False
+            try:
+                divine_state = globals().get("blacksmith_divine_stone_state")
+                shield_active = bool(divine_state and divine_state.get("shield_active", False))
+            except Exception:
+                shield_active = False
+            if not smoke_protected and not shield_active:
                 turret_state["hp"] -= 1  # 연막 밖에서만 체력 감소
                 _cancel_repair_job("turret", state=turret_state)
                 # 손상 효과 업데이트
@@ -12936,20 +12943,23 @@ def draw_blacksmith_divine_ui(surface):
         status_text = tiny_font.render(f"HP {hp}/{max_hp}", True, (225, 235, 255))
         surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
 
-        # 강화 진행도 게이지 (강화디바인스톤 업그레이드용)
+        # 디바인쉴드 게이지 (강화디바인스톤 전용)
         reinforced = bool(divine_state.get("reinforced", False))
-        xp = float(divine_state.get("xp", 0.0))
-        xp_max = max(1.0, float(divine_state.get("xp_max", 400.0)))
-        if not reinforced and xp_max > 0:
+        shield_active = bool(divine_state.get("shield_active", False))
+        shield_overheat = int(divine_state.get("shield_overheat", 0))
+        shield_xp = float(divine_state.get("shield_xp", 0.0))
+        shield_xp_max = max(1.0, float(divine_state.get("shield_xp_max", float(BLACKSMITH_DIVINE_SHIELD_COST))))
+        if reinforced and shield_overheat <= 0:
             pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
-            xp_ratio = max(0.0, min(1.0, xp / xp_max))
+            xp_ratio = max(0.0, min(1.0, shield_xp / shield_xp_max))
             xp_fill_width = int(xp_rect.width * xp_ratio)
             if xp_fill_width > 0:
                 xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, xp_fill_width, xp_rect.height)
-                # 검붉은 계열 색상으로 강화 진행 표시
-                pygame.draw.rect(surface, (186, 72, 104), xp_fill_rect, border_radius=3)
+                color = (120, 210, 255) if not shield_active else (180, 240, 255)
+                pygame.draw.rect(surface, color, xp_fill_rect, border_radius=3)
             pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
-            xp_text = tiny_font.render(f"강화 {int(xp_ratio * 100)}%", True, (235, 220, 230))
+            label = "쉴드" if not shield_active else "쉴드 활성"
+            xp_text = tiny_font.render(f"{label} {int(xp_ratio * 100)}%", True, (225, 235, 255))
             surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
 
         if ratio <= 0.33:
