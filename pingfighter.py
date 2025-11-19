@@ -13077,24 +13077,41 @@ def draw_blacksmith_divine_ui(surface):
         status_text = tiny_font.render(f"HP {hp}/{max_hp}", True, (225, 235, 255))
         surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
 
-        # 디바인쉴드 게이지 (강화디바인스톤 전용)
         reinforced = bool(divine_state.get("reinforced", False))
-        shield_active = bool(divine_state.get("shield_active", False))
-        shield_overheat = int(divine_state.get("shield_overheat", 0))
-        shield_xp = float(divine_state.get("shield_xp", 0.0))
-        shield_xp_max = max(1.0, float(divine_state.get("shield_xp_max", float(BLACKSMITH_DIVINE_SHIELD_COST))))
-        if reinforced and shield_overheat <= 0:
+        # 강화 진행도 게이지 (강화디바인스톤 업그레이드용) – 강화 전 상태에서만 표시
+        if not reinforced:
+            xp = float(divine_state.get("xp", 0.0))
+            xp_max = max(1.0, float(divine_state.get("xp_max", 400.0)))
             pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
-            xp_ratio = max(0.0, min(1.0, shield_xp / shield_xp_max))
+            xp_ratio = max(0.0, min(1.0, xp / xp_max))
             xp_fill_width = int(xp_rect.width * xp_ratio)
             if xp_fill_width > 0:
                 xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, xp_fill_width, xp_rect.height)
-                color = (120, 210, 255) if not shield_active else (180, 240, 255)
-                pygame.draw.rect(surface, color, xp_fill_rect, border_radius=3)
+                # 포탑 강화 UI와 톤을 맞춘 푸른색 게이지
+                pygame.draw.rect(surface, (120, 210, 255), xp_fill_rect, border_radius=3)
             pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
-            label = "쉴드" if not shield_active else "쉴드 활성"
-            xp_text = tiny_font.render(f"{label} {int(xp_ratio * 100)}%", True, (225, 235, 255))
+            xp_text = tiny_font.render(f"강화 {int(xp_ratio * 100)}%", True, (235, 220, 230))
             surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
+        else:
+            # 디바인쉴드 게이지 (강화디바인스톤 전용)
+            shield_active = bool(divine_state.get("shield_active", False))
+            shield_overheat = int(divine_state.get("shield_overheat", 0))
+            shield_xp = float(divine_state.get("shield_xp", 0.0))
+            shield_xp_max = max(
+                1.0, float(divine_state.get("shield_xp_max", float(BLACKSMITH_DIVINE_SHIELD_COST)))
+            )
+            if shield_overheat <= 0:
+                pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
+                xp_ratio = max(0.0, min(1.0, shield_xp / shield_xp_max))
+                xp_fill_width = int(xp_rect.width * xp_ratio)
+                if xp_fill_width > 0:
+                    xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, xp_fill_width, xp_rect.height)
+                    color = (120, 210, 255) if not shield_active else (180, 240, 255)
+                    pygame.draw.rect(surface, color, xp_fill_rect, border_radius=3)
+                pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
+                label = "쉴드" if not shield_active else "쉴드 활성"
+                xp_text = tiny_font.render(f"{label} {int(xp_ratio * 100)}%", True, (225, 235, 255))
+                surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
 
         if ratio <= 0.33:
             warning_radius = max(4, icon_rect.width // 6)
