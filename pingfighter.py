@@ -9217,6 +9217,8 @@ def update_blacksmith_hammer_shock(keys):
     global frame_counter, blacksmith_hammer_last_update_frame, blacksmith_hammer_last_update_ms
     global blacksmith_hammer_projectiles_paused
     global blacksmith_divine_stone_state
+    global blacksmith_divine_slash_projectiles
+    global BOSS
 
     current_ticks = pygame.time.get_ticks()
 
@@ -9342,6 +9344,105 @@ def update_blacksmith_hammer_shock(keys):
                 continue
 
             _schedule_next_crack_auto_break(crack, base_time_ms=current_ticks)
+
+    # Update divine slash projectiles (강화디바인스톤 토르쉴드 검기)
+    if "blacksmith_divine_slash_projectiles" in globals() and blacksmith_divine_slash_projectiles:
+        radius = BLACKSMITH_DIVINE_SLASH_RADIUS
+        margin = BLACKSMITH_DIVINE_SLASH_WALL_MARGIN
+        updated_slashes: list[dict[str, object]] = []
+
+        for proj in blacksmith_divine_slash_projectiles:
+            try:
+                x = float(proj.get("x", 0.0)) + float(proj.get("vx", 0.0))
+                y = float(proj.get("y", 0.0)) + float(proj.get("vy", 0.0))
+            except Exception:
+                continue
+
+            proj["x"] = x
+            proj["y"] = y
+
+            life = int(proj.get("life", 0)) - 1
+            proj["life"] = life
+            if life <= 0:
+                continue
+
+            # 좌우 벽에 한 번만 반사
+            bounced = bool(proj.get("bounced", False))
+            if not bounced and (x <= margin or x >= WIDTH - margin):
+                try:
+                    proj["vx"] = -float(proj.get("vx", 0.0))
+                    proj["bounced"] = True
+                except Exception:
+                    pass
+                if x <= margin:
+                    x = margin
+                elif x >= WIDTH - margin:
+                    x = WIDTH - margin
+                proj["x"] = x
+
+            # 슬래시 판정 영역
+            try:
+                slash_rect = pygame.Rect(int(x - radius), int(y - radius), radius * 2, radius * 2)
+            except Exception:
+                slash_rect = None
+
+            # 공 타격: 검기 진행 방향으로 공을 위쪽으로 쏘아 올린다.
+            if (
+                slash_rect is not None
+                and "BALL" in globals()
+                and BALL is not None
+                and slash_rect.colliderect(BALL)
+            ):
+                try:
+                    dir_x = float(proj.get("vx", 0.0))
+                    dir_y = float(proj.get("vy", -1.0))
+                    mag = math.hypot(dir_x, dir_y)
+                    if mag <= 0.001:
+                        dir_x, dir_y = 0.0, -1.0
+                        mag = 1.0
+                    dir_x /= mag
+                    dir_y /= mag
+
+                    speed = math.hypot(ball_vel[0], ball_vel[1])
+                    if speed <= 0:
+                        speed = BALL_BASE_SPEED
+                    target_speed = max(speed * 1.05, BALL_BASE_SPEED * 1.1)
+
+                    ball_vel[0] = dir_x * target_speed
+                    ball_vel[1] = dir_y * target_speed
+
+                    last_hit_by = "player"
+                    player_collision_handled = True
+
+                    try:
+                        effects_manager.create_impact_effect(BALL.centerx, BALL.centery, 40, is_player=True)
+                        effects_manager.spawn_star_particles(BALL.centerx, BALL.centery, count=8)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+
+            # 보스 타격: 한 번만 넉백 적용
+            if (
+                slash_rect is not None
+                and not proj.get("boss_hit", False)
+                and "BOSS" in globals()
+                and BOSS is not None
+                and slash_rect.colliderect(BOSS)
+            ):
+                try:
+                    trigger_boss_knockback(slash_rect.centerx, slash_rect.centery)
+                except Exception:
+                    pass
+                proj["boss_hit"] = True
+
+            # 화면 밖으로 완전히 벗어나면 제거
+            if y < -radius * 2 or y > HEIGHT + radius * 2:
+                continue
+
+            updated_slashes.append(proj)
+
+        blacksmith_divine_slash_projectiles = updated_slashes
 
     # Update hammer shock particles (for shatter effects)
     global blacksmith_hammer_shock_particles
@@ -9543,6 +9644,30 @@ def draw_blacksmith_hammer_shock(surface, offset_x: float = 0.0, offset_y: float
     # Replace the projectile list with the filtered/synced copy if any changes occurred.
     if len(synced_projectiles) != len(blacksmith_hammer_shock_projectiles):
         blacksmith_hammer_shock_projectiles[:] = synced_projectiles
+
+    # Draw divine slash projectiles (강화디바인스톤 토르쉴드 검기)
+    if "blacksmith_divine_slash_projectiles" in globals() and blacksmith_divine_slash_projectiles:
+        for proj in blacksmith_divine_slash_projectiles:
+            try:
+                x = int(float(proj.get("x", 0.0)) + offset_x)
+                y = int(float(proj.get("y", 0.0)) + offset_y)
+            except Exception:
+                continue
+
+            radius = BLACKSMITH_DIVINE_SLASH_RADIUS
+
+            # 부드러운 비누방울 느낌의 보랏빛 검기 (중심 코어 + 글로우)
+            try:
+                slash_surface = pygame.Surface((radius * 4, radius * 4), pygame.SRCALPHA)
+                center = (radius * 2, radius * 2)
+                glow_color = (110, 30, 160, 110)
+                core_color = (210, 120, 255, 240)
+                pygame.draw.circle(slash_surface, glow_color, center, radius * 2)
+                pygame.draw.circle(slash_surface, core_color, center, radius)
+                slash_rect = slash_surface.get_rect(center=(x, y))
+                surface.blit(slash_surface, slash_rect)
+            except Exception:
+                pygame.draw.circle(surface, (210, 120, 255), (x, y), radius, 2)
     
     # Draw shatter particles (경량화: per-frame 임시 서피스 생성 제거)
     for particle in blacksmith_hammer_shock_particles:
@@ -24865,6 +24990,9 @@ def handle_player(keys):
             blacksmith_umbrella_swing_direction = swing_trigger_direction
             blacksmith_umbrella_swing_sound_timer = BLACKSMITH_UMBRELLA_SWING_SOUND_DELAY_FRAMES
             blacksmith_umbrella_swing_sound_pending = True
+
+            # 강화디바인스톤 시 토르쉴드 스윙과 동시에 보랏빛 검기 발사
+            _spawn_blacksmith_divine_slash_from_shield(swing_trigger_direction)
             
             # 스윙 시작 시 anchor smoothing 값을 목표값에 가깝게 초기화
             # 이전 스윙의 잔여값으로 인한 부드러운 전환을 방지
