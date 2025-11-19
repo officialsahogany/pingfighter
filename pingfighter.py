@@ -12272,14 +12272,10 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
                 start = (offset + scan_offset, band_y)
                 end = (offset + scan_offset + 6, band_y + band_height)
                 pygame.draw.line(tower_surface, band_color, start, end, 1)
-    # 강화 디바인스톤은 전체 구조물을 검붉은 빛으로 틴트
+    # 강화 디바인스톤은 구조물 자체만 약하게 검붉게 틴트 (배경 사각형 전체가 물들지 않도록 가산 오버레이는 사용하지 않는다)
     if reinforced:
         try:
-            # 기본 색조를 어둡고 붉게 만들기 위해 곱셈 + 가산 블렌딩 조합
-            tower_surface.fill((220, 120, 140, 255), special_flags=pygame.BLEND_RGBA_MULT)
-            tint_overlay = pygame.Surface((draw_width, draw_height), pygame.SRCALPHA)
-            tint_overlay.fill((120, 20, 40, 80))
-            tower_surface.blit(tint_overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+            tower_surface.fill((215, 110, 135, 255), special_flags=pygame.BLEND_RGBA_MULT)
         except Exception:
             pass
 
