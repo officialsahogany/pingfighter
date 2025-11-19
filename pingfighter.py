@@ -60256,7 +60256,19 @@ def handle_ball():
                     wall_id = id(wall)
                     if wall_id in frame_single_wall_hits:
                         continue
-                if BALL.colliderect(wall["rect"]):
+
+                wall_rect = wall["rect"]
+                # 이전 위치에서는 충돌하지 않았고, 현재 위치에서만 충돌하는 경우에만
+                # 새로운 피격으로 간주한다(지속 접촉에 의한 중복 카운트 방지).
+                prev_ball_rect = pygame.Rect(old_x, old_y, BALL.width, BALL.height)
+                if not prev_ball_rect.colliderect(wall_rect) and not BALL.colliderect(wall_rect):
+                    continue
+                if prev_ball_rect.colliderect(wall_rect):
+                    # 이미 이전 위치에서 겹쳐 있었으면 이번 스텝은 지속 접촉으로 간주하고 스킵
+                    continue
+
+                # 여기까지 왔으면 이번 스텝에서 새로 벽돌에 진입한 것
+                if BALL.colliderect(wall_rect):
                     # 중복 피격 방지를 위해 프레임 히트 기록
                     if group_id is not None:
                         frame_wall_hit_groups.add(group_id)
