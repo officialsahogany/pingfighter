@@ -20895,6 +20895,105 @@ def draw_brick_particles(screen):
             rotated_rect.center = (int(particle["x"]), int(particle["y"]))
             screen.blit(rotated_surface, rotated_rect)
 
+
+def _find_blacksmith_building_under_player() -> pygame.Rect | None:
+    """발토르 전용: 플레이어 패들과 겹치는 건물(rect)을 반환한다.
+
+    실제 완성된 포탑/디바인스톤만 대상으로 하며, 청사진은 포함하지 않는다.
+    여러 건물과 겹칠 경우 플레이어 중심과 가장 가까운 건물을 선택한다.
+    """
+    if selected_character_type != "blacksmith":
+        return None
+
+    if "PLAYER" not in globals():
+        return None
+
+    candidates: list[pygame.Rect] = []
+
+    # 포탑 본체
+    if globals().get("blacksmith_turret_active") and globals().get("blacksmith_turret_state"):
+        turret_state = globals()["blacksmith_turret_state"]
+        turret_rect = turret_state.get("rect")
+        hp = turret_state.get("hp", 0)
+        if turret_rect is not None and hp > 0 and PLAYER.colliderect(turret_rect):
+            candidates.append(turret_rect)
+
+    # 디바인스톤 본체
+    if globals().get("blacksmith_divine_stone_state") is not None:
+        stone_state = globals()["blacksmith_divine_stone_state"]
+        stone_rect = stone_state.get("rect")
+        hp = stone_state.get("hp", 0)
+        if stone_rect is not None and hp > 0 and PLAYER.colliderect(stone_rect):
+            candidates.append(stone_rect)
+
+    if not candidates:
+        return None
+
+    player_cx, player_cy = PLAYER.center
+
+    def _dist2(rect: pygame.Rect) -> float:
+        dx = rect.centerx - player_cx
+        dy = rect.centery - player_cy
+        return dx * dx + dy * dy
+
+    return min(candidates, key=_dist2)
+
+
+def _create_blacksmith_building_shield(building_rect: pygame.Rect, wall_height: int) -> list[dict]:
+    """발토르 건물 3면(위/좌/우)을 감싸는 벽돌 방어막을 생성한다.
+
+    세 면은 공통 내구도(2히트)를 공유하며, 2히트 시 세 벽돌이 동시에 파괴된다.
+    """
+    global next_wall_group_id
+
+    group_id = next_wall_group_id
+    next_wall_group_id += 1
+
+    thickness = wall_height
+
+    # 상단 가로 벽돌: 건물 너비를 그대로 따라가도록 설정
+    top_rect = pygame.Rect(
+        building_rect.left,
+        building_rect.top - thickness,
+        building_rect.width,
+        thickness,
+    )
+
+    # 좌측 세로 벽돌
+    left_rect = pygame.Rect(
+        building_rect.left - thickness,
+        building_rect.top,
+        thickness,
+        building_rect.height,
+    )
+
+    # 우측 세로 벽돌
+    right_rect = pygame.Rect(
+        building_rect.right,
+        building_rect.top,
+        thickness,
+        building_rect.height,
+    )
+
+    # 화면 경계 안으로 살짝 보정
+    arena_rect = pygame.Rect(0, 0, WIDTH, HEIGHT)
+    top_rect.clamp_ip(arena_rect)
+    left_rect.clamp_ip(arena_rect)
+    right_rect.clamp_ip(arena_rect)
+
+    shield_walls = []
+    for rect in (top_rect, left_rect, right_rect):
+        shield_walls.append(
+            {
+                "rect": rect,
+                "hit_count": 0,
+                "crack_level": 0,
+                "group_id": group_id,
+            }
+        )
+    return shield_walls
+
+
 def activate_wall():
     """벽돌 설치 함수"""
     global walls, pending_wall, wall_installing, wall_install_timer, wall_install_gauge_visible, master_obtained
@@ -20912,26 +21011,38 @@ def activate_wall():
             wall_width = 80  # 기본 길이
             print(f"  ! 0.5    . ( {len(walls)})")
         wall_install_gauge_visible = True  # 설치 게이지 표시 시작
-        # 벽돌 위치 설정 (플레이어 패들 하단, 가로 2cm 정도)
+        # 벽돌 기본 높이
         wall_height = 20  # 높이를 20픽셀로 복원
-        wall_x = PLAYER.centerx - wall_width // 2
-        # 주니어 리그 배치를 기준 높이로 고정해 리그별 바닥 보정 차이를 제거한다.
-        junior_mode = _normalize_league_mode("junior")
-        junior_floor_bonus = PLAYER_FLOOR_BONUS_BY_MODE.get(junior_mode, 0)
-        standard_floor_bottom = HEIGHT - PLAYER_FLOOR_OFFSET + junior_floor_bonus
-        junior_scale = get_player_paddle_scale_for_league("junior")
-        if PLAYER_VISUAL_OVERHANG > 0 and junior_scale > 1.0:
-            scale_delta = junior_scale - 1.0
-            standard_floor_bottom += int(round(PLAYER_VISUAL_OVERHANG * scale_delta))
-        wall_y = standard_floor_bottom - wall_height + 15
-        wall_rect = pygame.Rect(wall_x, wall_y, wall_width, wall_height)
-        wall_rect.bottom = standard_floor_bottom + 15  # 주니어 기준으로 15px 내려 배치해 바닥에 밀착
-        # 설치 완료 시 추가할 벽돌 정보 저장
-        new_wall = {
-            "rect": wall_rect,
-            "hit_count": 0,
-            "crack_level": 0
-        }
+
+        new_wall: dict | list[dict] | None = None
+
+        # 발토르 전용: 건물 위에서 사용 시 건물 3면을 감싸는 방어벽 생성
+        building_rect = _find_blacksmith_building_under_player()
+        if building_rect is not None:
+            new_wall = _create_blacksmith_building_shield(building_rect, wall_height)
+
+        # 그 외에는 기존처럼 바닥에 단일 벽돌 설치
+        if new_wall is None:
+            # 벽돌 위치 설정 (플레이어 패들 하단, 가로 2cm 정도)
+            wall_x = PLAYER.centerx - wall_width // 2
+            # 주니어 리그 배치를 기준 높이로 고정해 리그별 바닥 보정 차이를 제거한다.
+            junior_mode = _normalize_league_mode("junior")
+            junior_floor_bonus = PLAYER_FLOOR_BONUS_BY_MODE.get(junior_mode, 0)
+            standard_floor_bottom = HEIGHT - PLAYER_FLOOR_OFFSET + junior_floor_bonus
+            junior_scale = get_player_paddle_scale_for_league("junior")
+            if PLAYER_VISUAL_OVERHANG > 0 and junior_scale > 1.0:
+                scale_delta = junior_scale - 1.0
+                standard_floor_bottom += int(round(PLAYER_VISUAL_OVERHANG * scale_delta))
+            wall_y = standard_floor_bottom - wall_height + 15
+            wall_rect = pygame.Rect(wall_x, wall_y, wall_width, wall_height)
+            wall_rect.bottom = standard_floor_bottom + 15  # 주니어 기준으로 15px 내려 배치해 바닥에 밀착
+            # 설치 완료 시 추가할 벽돌 정보 저장
+            new_wall = {
+                "rect": wall_rect,
+                "hit_count": 0,
+                "crack_level": 0,
+            }
+
         pending_wall = new_wall
 
 
@@ -29758,7 +29869,10 @@ def handle_wall():
             wall_installing = False
             wall_install_gauge_visible = False  # 설치 게이지 숨기기
             if pending_wall is not None:
-                walls.append(pending_wall)
+                if isinstance(pending_wall, list):
+                    walls.extend(pending_wall)
+                else:
+                    walls.append(pending_wall)
                 pending_wall = None
             print("!    .")
             # 설치 종료 시, 벽돌 트리거로 재생 중이던 건설 사운드는 정리(다른 건설이 없으면 정지됨)
