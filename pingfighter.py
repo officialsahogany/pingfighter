@@ -29950,11 +29950,19 @@ def handle_wall():
             except Exception:
                 pass
     # 파괴된 벽돌들 제거 (부서지는 이펙트 생성)
-    destroyed_walls = [wall for wall in walls if wall["hit_count"] >= 2]
+    destroyed_walls = []
+    for wall in walls:
+        group_id = wall.get("group_id")
+        # 일반 벽돌: 2타에 파괴, 보호형(그룹) 벽돌: 3타에 파괴
+        if group_id is None and wall.get("hit_count", 0) >= 2:
+            destroyed_walls.append(wall)
+        elif group_id is not None and wall.get("hit_count", 0) >= 3:
+            destroyed_walls.append(wall)
+
     for wall in destroyed_walls:
         # 벽돌 부서지는 파티클 이펙트 생성
         create_brick_destruction_effect(wall["rect"])
-    walls = [wall for wall in walls if wall["hit_count"] < 2]
+    walls = [wall for wall in walls if wall not in destroyed_walls]
     # 스파이더지뢰 이동 업데이트
     update_spider_mines()
     # 수류탄 업데이트
