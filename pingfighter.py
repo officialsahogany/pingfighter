@@ -6660,15 +6660,20 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                         blacksmith_divine_stone_state["level"] = int(
                             blacksmith_divine_stone_state.get("level", 1)
                         ) + 1
-                        max_hp = int(
-                            blacksmith_divine_stone_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
-                        )
-                        blacksmith_divine_stone_state["hp"] = max_hp
+                        try:
+                            current_max_hp = int(
+                                blacksmith_divine_stone_state.get("max_hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
+                            )
+                        except Exception:
+                            current_max_hp = BLACKSMITH_DIVINE_STONE_MAX_HP
+                        new_max_hp = current_max_hp + 1
+                        blacksmith_divine_stone_state["max_hp"] = new_max_hp
+                        blacksmith_divine_stone_state["hp"] = new_max_hp
 
                         # 손상 이펙트 매니저에 재등록하여 체력 상태를 초기화
                         try:
                             damage_manager = get_damage_manager()
-                            damage_manager.register_building("divine_stone", stone_rect, max_hp)
+                            damage_manager.register_building("divine_stone", stone_rect, new_max_hp)
                         except Exception:
                             pass
 
