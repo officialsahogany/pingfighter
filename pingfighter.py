@@ -58782,6 +58782,13 @@ def handle_ball():
                             # 번개 사운드 재생
                             if 'SOUND_DIVINE_THUNDER' in globals() and SOUND_DIVINE_THUNDER:
                                 play_sound_with_volume(SOUND_DIVINE_THUNDER)
+                            # 플레이어 스킬 게이지 증가 (기본 +40, 강화디바인스톤 +50)
+                            try:
+                                gauge_gain = 50 if reinforced else 40
+                                special_gauge = min(special_gauge_max, special_gauge + gauge_gain)
+                                special_ready = special_gauge >= 350
+                            except Exception:
+                                pass
                             # 쿨타임: 기본 디바인스톤 15~25초, 강화디바인스톤 13~23초
                             cd_min, cd_max = (13, 23) if reinforced else (15, 25)
                             divine_state["lightning_cd"] = int(random.randint(cd_min, cd_max) * FPS)
