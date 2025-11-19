@@ -67323,23 +67323,31 @@ def main(stage_num, new_boss_mode=False):
                         pass
                     items.star_detector_obtained = False
                     return "main_menu"  # 메인 메뉴로 돌아감
-            if blacksmith_build_menu_active and event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_1, pygame.K_KP1):
-                    blacksmith_select_build_option("turret")
-                elif event.key in (pygame.K_2, pygame.K_KP2):
-                    blacksmith_select_build_option("divine_stone")
-                elif event.key in (pygame.K_ESCAPE, pygame.K_DOWN):
-                    blacksmith_close_build_menu()
-                continue
-            # 발토르 건설 HUD 마우스 클릭 선택
-            if blacksmith_build_menu_active and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                try:
-                    for opt, rect, available in blacksmith_get_build_menu_option_rects():
-                        if rect.collidepoint(event.pos) and available:
-                            blacksmith_select_build_option(opt)
-                            break
-                except Exception:
-                    pass
+            if blacksmith_build_menu_active:
+                # 발토르 건설 HUD 키보드 선택/취소
+                if event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_1, pygame.K_KP1):
+                        blacksmith_select_build_option("turret")
+                    elif event.key in (pygame.K_2, pygame.K_KP2):
+                        blacksmith_select_build_option("divine_stone")
+                    elif event.key in (pygame.K_ESCAPE, pygame.K_DOWN):
+                        blacksmith_close_build_menu()
+                    continue
+                # 발토르 건설 HUD 마우스 선택/취소
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    # 좌클릭: 아이콘 선택
+                    if event.button == 1:
+                        try:
+                            for opt, rect, available in blacksmith_get_build_menu_option_rects():
+                                if rect.collidepoint(event.pos) and available:
+                                    blacksmith_select_build_option(opt)
+                                    break
+                        except Exception:
+                            pass
+                    # 우클릭: 아무것도 건설하지 않고 HUD 닫기
+                    elif event.button == 3:
+                        blacksmith_close_build_menu()
+                    continue
             # Tab 키로 정보창 패시브 탭으로 이동
             if event.type == pygame.KEYDOWN and event.key == pygame.K_TAB:
                 show_game_info()
