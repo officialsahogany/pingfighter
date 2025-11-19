@@ -12766,6 +12766,13 @@ def draw_blacksmith_divine_ui(surface):
         icon_rect.width,
         gauge_height,
     )
+    # 강화 진행도 표시용 보조 게이지(포탑 UI와 동일한 구조)
+    xp_rect = pygame.Rect(
+        icon_rect.x,
+        bar_rect.bottom + turret_spacing,
+        icon_rect.width,
+        gauge_height,
+    )
 
     cooldown_timer = max(0, int(blacksmith_hammer_shock_cooldown_timer))
     cooldown_total = int(blacksmith_hammer_shock_cooldown_total)
@@ -12874,6 +12881,22 @@ def draw_blacksmith_divine_ui(surface):
 
         status_text = tiny_font.render(f"HP {hp}/{max_hp}", True, (225, 235, 255))
         surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
+
+        # 강화 진행도 게이지 (강화디바인스톤 업그레이드용)
+        reinforced = bool(divine_state.get("reinforced", False))
+        xp = float(divine_state.get("xp", 0.0))
+        xp_max = max(1.0, float(divine_state.get("xp_max", 400.0)))
+        if not reinforced and xp_max > 0:
+            pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
+            xp_ratio = max(0.0, min(1.0, xp / xp_max))
+            xp_fill_width = int(xp_rect.width * xp_ratio)
+            if xp_fill_width > 0:
+                xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, xp_fill_width, xp_rect.height)
+                # 검붉은 계열 색상으로 강화 진행 표시
+                pygame.draw.rect(surface, (186, 72, 104), xp_fill_rect, border_radius=3)
+            pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
+            xp_text = tiny_font.render(f"강화 {int(xp_ratio * 100)}%", True, (235, 220, 230))
+            surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
 
         if ratio <= 0.33:
             warning_radius = max(4, icon_rect.width // 6)
