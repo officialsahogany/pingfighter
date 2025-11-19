@@ -12982,15 +12982,23 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
                 explosion_ratio = explosion_ttl / max(1, int(0.25 * FPS))
 
                 # 폭발 파동 (바깥으로 퍼져나감)
-                wave_radius = int(glow_radius * (1 + (1.0 - explosion_ratio) * 3))
-                wave_alpha = int(180 * explosion_ratio)
+                wave_radius = int(glow_radius * (1 + (1.0 - explosion_ratio) * 4))
+                wave_alpha = int(220 * explosion_ratio)
                 wave_surf = pygame.Surface((wave_radius * 2, wave_radius * 2), pygame.SRCALPHA)
                 pygame.draw.circle(wave_surf, (150, 200, 255, wave_alpha),
-                                 (wave_radius, wave_radius), wave_radius, 2)
+                                 (wave_radius, wave_radius), wave_radius, 3)
                 surface.blit(wave_surf, (int(mana_center.x - wave_radius), int(mana_center.y - wave_radius)))
 
+                # 두 번째 파동
+                wave2_radius = int(glow_radius * (1 + (1.0 - explosion_ratio) * 2.5))
+                wave2_alpha = int(160 * explosion_ratio)
+                wave2_surf = pygame.Surface((wave2_radius * 2, wave2_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(wave2_surf, (200, 230, 255, wave2_alpha),
+                                 (wave2_radius, wave2_radius), wave2_radius, 2)
+                surface.blit(wave2_surf, (int(mana_center.x - wave2_radius), int(mana_center.y - wave2_radius)))
+
                 # 중심 잔여 에너지 (작아지면서 사라짐)
-                shrink_size = int(core_radius * explosion_ratio * 0.5)
+                shrink_size = int(core_radius * explosion_ratio * 0.6)
                 if shrink_size > 0:
                     shrink_alpha = int(255 * explosion_ratio)
                     shrink_surf = pygame.Surface((shrink_size * 2, shrink_size * 2), pygame.SRCALPHA)
@@ -12999,22 +13007,22 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
                     surface.blit(shrink_surf, (int(mana_center.x - shrink_size), int(mana_center.y - shrink_size)))
             else:
                 # 충전 중: 에너지 구슬이 점점 커짐
-                # 크기가 충전에 따라 증가
-                current_glow = int(glow_radius * (0.3 + charge_progress * 0.7))
-                current_core = int(core_radius * (0.3 + charge_progress * 0.7))
+                # 크기가 충전에 따라 증가 (0.15 → 1.0 로 더 극적으로)
+                current_glow = int(glow_radius * (0.15 + charge_progress * 0.85))
+                current_core = int(core_radius * (0.15 + charge_progress * 0.85))
 
-                # 알파값도 충전에 따라 증가
-                outer_alpha = max(0, min(255, int((5 + charge_progress * 10) * core_progress)))
-                inner_alpha = max(0, min(255, int((4 + charge_progress * 8) * core_progress)))
-                core_alpha = max(0, min(255, int((3 + charge_progress * 6) * core_progress)))
+                # 알파값도 충전에 따라 증가 (더 밝게)
+                outer_alpha = max(0, min(255, int((20 + charge_progress * 40) * core_progress)))
+                inner_alpha = max(0, min(255, int((15 + charge_progress * 35) * core_progress)))
+                core_alpha = max(0, min(255, int((10 + charge_progress * 30) * core_progress)))
 
                 # 색상이 충전에 따라 변화 (파랑 → 밝은 파랑/흰색)
-                r_outer = int(100 + charge_progress * 50)
-                g_outer = int(150 + charge_progress * 50)
+                r_outer = int(100 + charge_progress * 80)
+                g_outer = int(150 + charge_progress * 80)
                 b_outer = 255
 
-                r_inner = int(150 + charge_progress * 50)
-                g_inner = int(200 + charge_progress * 30)
+                r_inner = int(150 + charge_progress * 80)
+                g_inner = int(200 + charge_progress * 40)
                 b_inner = 255
 
                 # 외부 글로우
@@ -13039,11 +13047,11 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
                                      (core_surf_size, core_surf_size), core_surf_size)
                     surface.blit(core_surf, (int(mana_center.x - core_surf_size), int(mana_center.y - core_surf_size)))
 
-                # 충전 완료 시 맥동 효과
-                if charge_progress > 0.9:
-                    pulse_intensity = (math.sin(pulse * 0.3) + 1) * 0.5
-                    pulse_size = int(current_glow + pulse_intensity * 3)
-                    pulse_alpha = int(30 * pulse_intensity)
+                # 충전 완료 시 맥동 효과 (더 강하게)
+                if charge_progress > 0.85:
+                    pulse_intensity = (math.sin(pulse * 0.4) + 1) * 0.5
+                    pulse_size = int(current_glow + pulse_intensity * 5)
+                    pulse_alpha = int(60 * pulse_intensity)
                     pulse_surf = pygame.Surface((pulse_size * 2, pulse_size * 2), pygame.SRCALPHA)
                     pygame.draw.circle(pulse_surf, (200, 230, 255, pulse_alpha),
                                      (pulse_size, pulse_size), pulse_size)
