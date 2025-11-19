@@ -6703,7 +6703,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                     else:
                         blacksmith_divine_stone_state["xp"] = current_xp
                         if frame_counter % 45 == 0:
-                        print(f"[DEBUG] Divine XP: {current_xp:.1f}/{xp_max:.1f}")
+                            print(f"[DEBUG] Divine XP: {current_xp:.1f}/{xp_max:.1f}")
             else:
                 # 범위 밖으로 벗어나면 부분 드레인만 리셋
                 blacksmith_divine_stone_state["reinforce_partial"] = 0.0
