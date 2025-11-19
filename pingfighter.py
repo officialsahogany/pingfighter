@@ -59544,7 +59544,7 @@ def handle_ball():
                             base_gauge_gain = 50  # 코만도: 게이지 충전 50
                         elif selected_character_type == "blacksmith":
                             if blacksmith_umbrella_open:
-                                base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 활성 시 90
+                                base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
                             else:
                                 base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                         else:
@@ -60249,7 +60249,7 @@ def handle_ball():
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
             elif selected_character_type == "blacksmith":
                 if blacksmith_umbrella_open:
-                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 활성 시 90
+                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
                 else:
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
@@ -60277,7 +60277,7 @@ def handle_ball():
                 base_gauge_gain = 50  # 코만도: 게이지 충전 50
             elif selected_character_type == "blacksmith":
                 if blacksmith_umbrella_open:
-                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 활성 시 90
+                    base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
                 else:
                     base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
             else:
@@ -61199,7 +61199,7 @@ def handle_ball():
                             print(f"[SoldierGauge][backup] weapon={dbg_weapon} non_pistol=True base={base_gauge_gain}")
                 elif selected_character_type == "blacksmith":
                     if blacksmith_umbrella_open:
-                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 활성 시 90
+                        base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
                     else:
                         base_gauge_gain = 30  # 발토르 기본 패들: 게이지 충전 30
                 else:
