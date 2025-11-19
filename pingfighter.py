@@ -66613,8 +66613,24 @@ def main(stage_num, new_boss_mode=False):
                         player_rect_ok = ('PLAYER' in globals() and PLAYER is not None)
                     except Exception:
                         player_rect_ok = False
-                    # 디바인스톤에 패들이 실제로 닿아있는 상태에서만 발동 (포탑 오버드라이브처럼 위치 조건 추가)
-                    if rect is not None and player_rect_ok and PLAYER.colliderect(rect):
+                    # 디바인스톤 근처(앞/중앙 포함)에서만 발동:
+                    # 패들이 디바인스톤에 닿아있거나, 좌우 반경 내 중앙선 근처에 있을 때 허용
+                    engaged = False
+                    if rect is not None and player_rect_ok:
+                        # 직접 충돌(접촉)
+                        if PLAYER.colliderect(rect):
+                            engaged = True
+                        else:
+                            horizontal_distance = abs(PLAYER.centerx - rect.centerx)
+                            vertical_front_overlap = PLAYER.bottom >= (rect.top - 12)
+                            standing_in_front = PLAYER.centerx <= rect.centerx + rect.width // 4
+                            if (
+                                horizontal_distance <= BLACKSMITH_DIVINE_BUILD_RADIUS
+                                and vertical_front_overlap
+                                and standing_in_front
+                            ):
+                                engaged = True
+                    if engaged:
                         divine_state["shield_active"] = True
                         divine_state["shield_ready"] = False
                         divine_state["shield_xp"] = float(
