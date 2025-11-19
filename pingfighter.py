@@ -14251,6 +14251,9 @@ def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
     """강화디바인스톤이 있을 때 토르쉴드 스윙으로 검기 발사체를 생성한다."""
 
     global blacksmith_divine_slash_projectiles
+    global paddle_scale_ratio
+    global blacksmith_umbrella_body_offset, blacksmith_umbrella_hitbox_center_offset
+    global blacksmith_umbrella_open
 
     if swing_direction == 0:
         return
@@ -14281,12 +14284,27 @@ def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
     speed = BLACKSMITH_DIVINE_SLASH_SPEED
 
     # swing_direction: +1 = 왼쪽 스윙, -1 = 오른쪽 스윙
-    dir_sign = -1 if swing_direction < 0 else 1
+    # → 입력 방향과 동일하게 발사되도록 매핑
+    #    (왼쪽 스윙(+1) → 왼쪽으로, 오른쪽 스윙(-1) → 오른쪽으로)
+    dir_sign = -1 if swing_direction > 0 else 1
     vx = dir_sign * speed * math.sin(angle_rad)
     vy = -speed * math.cos(angle_rad)  # 항상 위쪽(y 축 음수)으로 진행
 
+    # 토르쉴드 방패의 중앙 근처에서 발사
+    scale_applied = paddle_scale_ratio if paddle_scale_ratio > 0 else 1.0
     origin_x = float(PLAYER.centerx)
-    origin_y = float(PLAYER.centery - 40)
+    origin_y = float(PLAYER.centery)
+    try:
+        if blacksmith_umbrella_open:
+            body_offset_x, body_offset_y = blacksmith_umbrella_body_offset
+            center_off_x, center_off_y = blacksmith_umbrella_hitbox_center_offset
+            origin_x += int(round(body_offset_x * scale_applied))
+            origin_x += int(round(center_off_x * scale_applied))
+            origin_y += int(round(center_off_y * scale_applied))
+            # 방패 중심이 패들보다 약간 위에 있으므로 소폭 위로 보정
+            origin_y -= 10
+    except Exception:
+        origin_y -= 40
 
     projectile: dict[str, object] = {
         "x": origin_x,
