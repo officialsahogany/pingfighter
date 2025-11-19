@@ -10352,7 +10352,7 @@ def _divine_draw_effects(surface, divine_state):
         pygame.draw.line(surface, spark_color, (int(p['x']), int(p['y'])), (ex, ey), 1)
         pygame.draw.circle(surface, core_color, (int(p['x']), int(p['y'])), max(1, s // 2))
 
-    # 디바인쉴드 비주얼: 강화디바인스톤이 쉴드 활성 중일 때 건물 주변에 비누방울 같은 구체를 그린다.
+    # 디바인쉴드 비주얼: 신비로운 고대 드워프 마법 쉴드 구체가 건물들을 감싸며 회전
     shield_active = bool(divine_state.get("shield_active", False))
     if shield_active:
         try:
@@ -10367,41 +10367,173 @@ def _divine_draw_effects(surface, divine_state):
                 centers.append(turret_state["rect"].center)
             if centers:
                 t = pygame.time.get_ticks() / 1000.0
+
+                # 전체 건물들을 감싸는 중심점과 반경 계산
+                if len(centers) == 1:
+                    group_cx, group_cy = centers[0]
+                    group_radius = 55
+                else:
+                    # 여러 건물일 경우 중심점 계산
+                    sum_x = sum(c[0] for c in centers)
+                    sum_y = sum(c[1] for c in centers)
+                    group_cx = sum_x // len(centers)
+                    group_cy = sum_y // len(centers)
+                    # 모든 건물을 포함하는 반경
+                    max_dist = max(math.hypot(c[0] - group_cx, c[1] - group_cy) for c in centers)
+                    group_radius = int(max_dist + 50)
+
+                # === 신비로운 고대 드워프 마법 쉴드 ===
+                shield_size = group_radius * 3
+                shield_surf = pygame.Surface((shield_size, shield_size), pygame.SRCALPHA)
+                shield_center = (shield_size // 2, shield_size // 2)
+
+                # 1. 외곽 마법진 링 (회전하는 룬 문양)
+                for ring_layer in range(3):
+                    ring_radius = group_radius + 10 - ring_layer * 8
+                    ring_alpha = 120 - ring_layer * 30
+                    # 황금빛 + 청록빛 그라데이션 (드워프 마법)
+                    if ring_layer == 0:
+                        ring_color = (255, 215, 100, ring_alpha)  # 금색
+                    elif ring_layer == 1:
+                        ring_color = (100, 200, 255, ring_alpha)  # 시안
+                    else:
+                        ring_color = (180, 160, 255, ring_alpha)  # 연보라
+
+                    pygame.draw.circle(shield_surf, ring_color, shield_center, ring_radius, 2)
+
+                # 2. 회전하는 룬 심볼들 (고대 드워프 문자)
+                rune_count = 8
+                rune_orbit_radius = group_radius + 5
+                rune_rotation_speed = 0.8
+                for i in range(rune_count):
+                    base_angle = (2 * math.pi * i / rune_count) + t * rune_rotation_speed
+                    rx = shield_center[0] + math.cos(base_angle) * rune_orbit_radius
+                    ry = shield_center[1] + math.sin(base_angle) * rune_orbit_radius
+
+                    # 룬 심볼 (작은 다이아몬드 형태)
+                    rune_size = 4
+                    rune_alpha = int(180 + 50 * math.sin(t * 3 + i))
+                    rune_color = (255, 230, 150, rune_alpha)
+
+                    # 다이아몬드 형태의 룬
+                    rune_points = [
+                        (rx, ry - rune_size),
+                        (rx + rune_size, ry),
+                        (rx, ry + rune_size),
+                        (rx - rune_size, ry)
+                    ]
+                    pygame.draw.polygon(shield_surf, rune_color, rune_points)
+
+                    # 룬 글로우
+                    pygame.draw.circle(shield_surf, (255, 200, 100, 40), (int(rx), int(ry)), rune_size + 3)
+
+                # 3. 회전하는 에너지 구체들 (건물을 감싸며 공전)
+                orb_count = 6
+                orb_orbit_radius = group_radius - 5
+                orb_rotation_speed = 1.2
+                for i in range(orb_count):
+                    # 각 구체는 다른 속도와 궤도로 회전
+                    orb_angle = (2 * math.pi * i / orb_count) + t * orb_rotation_speed * (1 + i * 0.1)
+                    # 3D 효과를 위한 상하 움직임
+                    orb_y_offset = math.sin(t * 2 + i * 0.5) * 8
+
+                    ox = shield_center[0] + math.cos(orb_angle) * orb_orbit_radius
+                    oy = shield_center[1] + math.sin(orb_angle) * (orb_orbit_radius * 0.6) + orb_y_offset
+
+                    # 구체 크기 (원근감)
+                    depth = math.sin(orb_angle)
+                    orb_size = int(6 + 3 * depth)
+                    orb_alpha = int(200 + 55 * depth)
+
+                    # 구체 색상 (시안-청록-금색 그라데이션)
+                    if i % 3 == 0:
+                        orb_base_color = (100, 255, 230)  # 시안
+                    elif i % 3 == 1:
+                        orb_base_color = (255, 220, 100)  # 금색
+                    else:
+                        orb_base_color = (180, 200, 255)  # 연청색
+
+                    orb_color = (*orb_base_color, orb_alpha)
+
+                    # 구체 본체
+                    pygame.draw.circle(shield_surf, orb_color, (int(ox), int(oy)), orb_size)
+                    # 구체 글로우
+                    for glow in range(3):
+                        glow_alpha = max(10, orb_alpha // (glow + 2))
+                        glow_color = (*orb_base_color, glow_alpha)
+                        pygame.draw.circle(shield_surf, glow_color, (int(ox), int(oy)), orb_size + glow * 3)
+                    # 구체 하이라이트
+                    pygame.draw.circle(shield_surf, (255, 255, 255, 150),
+                                     (int(ox - orb_size * 0.3), int(oy - orb_size * 0.3)), max(1, orb_size // 3))
+
+                # 4. 내부 에너지 필드 (반투명 구체)
+                pulse = 1.0 + 0.05 * math.sin(t * 4)
+                inner_radius = int(group_radius * 0.85 * pulse)
+
+                # 여러 겹의 반투명 구체
+                for layer in range(4):
+                    layer_radius = inner_radius - layer * 5
+                    if layer_radius <= 0:
+                        continue
+                    layer_alpha = 30 - layer * 5
+                    # 시안-금색 그라데이션
+                    blend = (math.sin(t * 2) + 1) / 2
+                    r = int(100 + 155 * blend)
+                    g = int(230 - 30 * blend)
+                    b = int(255 - 155 * blend)
+                    pygame.draw.circle(shield_surf, (r, g, b, layer_alpha), shield_center, layer_radius)
+
+                # 5. 에너지 파동 효과 (확장되는 링)
+                wave_period = 2.0
+                wave_progress = (t % wave_period) / wave_period
+                wave_radius = int(group_radius * 0.3 + group_radius * 0.7 * wave_progress)
+                wave_alpha = int(80 * (1 - wave_progress))
+                pygame.draw.circle(shield_surf, (200, 255, 255, wave_alpha), shield_center, wave_radius, 2)
+
+                # 6. 마법 입자들 (스파클)
+                spark_count = 12
+                for i in range(spark_count):
+                    spark_angle = random.uniform(0, 2 * math.pi)
+                    spark_dist = random.uniform(group_radius * 0.3, group_radius * 0.9)
+                    sx = shield_center[0] + math.cos(spark_angle) * spark_dist
+                    sy = shield_center[1] + math.sin(spark_angle) * spark_dist
+                    spark_alpha = random.randint(100, 255)
+                    spark_size = random.randint(1, 2)
+                    spark_color = random.choice([
+                        (255, 255, 200, spark_alpha),  # 금색
+                        (200, 255, 255, spark_alpha),  # 시안
+                        (255, 200, 255, spark_alpha),  # 연분홍
+                    ])
+                    pygame.draw.circle(shield_surf, spark_color, (int(sx), int(sy)), spark_size)
+
+                # 서피스를 화면에 그리기
+                surface.blit(
+                    shield_surf,
+                    shield_surf.get_rect(center=(int(group_cx), int(group_cy))),
+                    special_flags=pygame.BLEND_ADD,
+                )
+
+                # 7. 각 건물 주변 개별 보호막 효과
                 for idx, (cx, cy) in enumerate(centers):
-                    phase = t * 2.0 + idx * 0.7
-                    base_radius = 40
-                    pulse = 1.0 + 0.08 * math.sin(phase * 2.5)
-                    radius = int(base_radius * pulse)
-                    bubble_surf = pygame.Surface((radius * 2 + 8, radius * 2 + 8), pygame.SRCALPHA)
-                    center = (radius + 4, radius + 4)
-                    # 외곽 연한 푸른빛
-                    pygame.draw.circle(
-                        bubble_surf,
-                        (190, 230, 255, 90),
-                        center,
-                        radius,
-                        2,
-                    )
-                    # 안쪽 은은한 채움
-                    pygame.draw.circle(
-                        bubble_surf,
-                        (210, 245, 255, 40),
-                        center,
-                        max(1, radius - 3),
-                    )
-                    # 하이라이트(비누방울 느낌)
-                    highlight_offset = int(radius * 0.35)
-                    pygame.draw.circle(
-                        bubble_surf,
-                        (255, 255, 255, 110),
-                        (center[0] - highlight_offset, center[1] - highlight_offset),
-                        max(2, radius // 4),
-                    )
+                    # 각 건물 주위의 작은 보호 구체
+                    local_radius = 35
+                    local_pulse = 1.0 + 0.1 * math.sin(t * 3 + idx)
+                    local_r = int(local_radius * local_pulse)
+
+                    local_surf = pygame.Surface((local_r * 2 + 20, local_r * 2 + 20), pygame.SRCALPHA)
+                    local_center = (local_r + 10, local_r + 10)
+
+                    # 보호막 외곽
+                    pygame.draw.circle(local_surf, (100, 255, 230, 60), local_center, local_r, 2)
+                    # 보호막 내부 글로우
+                    pygame.draw.circle(local_surf, (180, 255, 240, 25), local_center, local_r - 3)
+
                     surface.blit(
-                        bubble_surf,
-                        bubble_surf.get_rect(center=(int(cx), int(cy))),
+                        local_surf,
+                        local_surf.get_rect(center=(int(cx), int(cy))),
                         special_flags=pygame.BLEND_ADD,
                     )
+
         except Exception:
             pass
 
