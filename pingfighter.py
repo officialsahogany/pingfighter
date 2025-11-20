@@ -24806,8 +24806,8 @@ def draw_soldier_weapon_ui(screen):
     }
     
     weapon_name = weapon_names.get(current_weapon, current_weapon)
-    # 글자 짤림 방지: 폰트를 소폭 축소
-    font_size = 20 if highlight_active else 16
+    # 글자 짤림 방지: 권총 UI와 동일하게 더 작게
+    font_size = 18 if highlight_active else 14
     text_color = (255, 255, 100) if highlight_active else (200, 200, 200)
 
     try:
