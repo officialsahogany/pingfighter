@@ -23699,13 +23699,12 @@ def draw_soldier_weapon_ui(screen):
         ammo_to_show = max(0, bazooka.ammo_count)
         max_ammo = bazooka.max_ammo
 
-        # 로켓 탄약 UI를 사각형 내부에 맞추어 축소 배치
+        # 로켓 탄약 UI: 슬롯 아래쪽에 다른 화기 탄약 행과 동일한 Y축 라인에 배치
         rocket_width = 5
         rocket_height = 12
-        rocket_spacing = 7
-        total_span = rocket_width + rocket_spacing * (max_ammo - 1)
-        rocket_start_x = weapon_rect.left + max(3, (weapon_rect.width - total_span) // 2)
-        rocket_y = weapon_rect.bottom - rocket_height - 4
+        rocket_spacing = 9
+        rocket_start_x = weapon_x + 3
+        rocket_y = weapon_y + weapon_size + 6  # 권총/다른 화기 탄약 라인과 맞춤
 
         for i in range(max_ammo):
             rocket_x = rocket_start_x + i * rocket_spacing
