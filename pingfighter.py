@@ -19056,6 +19056,9 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
     suicide_drone_rect.x += int(suicide_drone_vel[0])
     suicide_drone_rect.y += int(suicide_drone_vel[1])
 
+    # 로터 속도는 현재 속도에 따라 가변
+    speed_now = (suicide_drone_vel[0] ** 2 + suicide_drone_vel[1] ** 2) ** 0.5
+    globals()['suicide_drone_rotor_speed'] = 18.0 + min(20.0, speed_now * 2.0)
     # 화면 경계 클램프
     suicide_drone_rect.clamp_ip(pygame.Rect(0, 0, WIDTH, HEIGHT))
 
@@ -42246,6 +42249,21 @@ def draw_objects():
                 pygame.draw.line(SCREEN, (90, 120, 150), start, end, 1)
             # 카메라/신관 포인트
             pygame.draw.circle(SCREEN, (255, 210, 120), (cx + int(r * 0.3), cy), max(2, int(r * 0.18)))
+            # 플레이어가 무선 조종기를 들고 있는 연출
+            controller_w, controller_h = 28, 14
+            ctrl_rect = pygame.Rect(
+                PLAYER.centerx - controller_w // 2,
+                PLAYER.top - controller_h - 6,
+                controller_w,
+                controller_h,
+            )
+            pygame.draw.rect(SCREEN, (55, 55, 65), ctrl_rect, border_radius=4)
+            pygame.draw.rect(SCREEN, (30, 30, 35), ctrl_rect, 2, border_radius=4)
+            # 조이스틱 좌/우
+            stick_r = 4
+            pygame.draw.circle(SCREEN, (120, 160, 200), (ctrl_rect.left + 8, ctrl_rect.centery), stick_r)
+            pygame.draw.circle(SCREEN, (120, 160, 200), (ctrl_rect.right - 8, ctrl_rect.centery), stick_r)
+            pygame.draw.line(SCREEN, (90, 110, 140), (ctrl_rect.centerx, ctrl_rect.top + 3), (ctrl_rect.centerx, ctrl_rect.top - 6), 2)
 
     # === 피 파티클 그리기 ===
     if selected_character_type == "soldier":
