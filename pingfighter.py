@@ -62660,9 +62660,15 @@ def handle_ball():
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
-        
+
         # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
-        
+
+        # 디바인쉴드 어둠의 오오라 비활성화 (보스 패들에 닿았을 때)
+        try:
+            deactivate_divine_shield_dark_aura()
+        except:
+            pass
+
         # 포세이돈의 삼지창 물 궤적 비활성화
         try:
             legendary_manager = get_legendary_manager()
@@ -70218,6 +70224,7 @@ def main(stage_num, new_boss_mode=False):
                 try:
                     check_divine_shield_ball_collision()
                     update_divine_shield_boost()
+                    update_divine_shield_dark_aura()
                 except Exception:
                     pass
 
