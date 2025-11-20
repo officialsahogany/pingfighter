@@ -67963,7 +67963,32 @@ def main(stage_num, new_boss_mode=False):
                     and special_gauge >= BLACKSMITH_HAMMER_SHOCK_MIN_STAGE_COST
                     and blacksmith_divine_stone_state is not None
                 )
+                # 포탑 수동 발사: 빠른 더블 입력(SPACE 또는 마우스 좌클릭 두 번)일 때만 발동
+                double_input_for_manual = False
                 if manual_candidate:
+                    max_double_frames = int(0.3 * FPS)  # 약 0.3초 이내 더블 입력 허용
+                    # SPACE 더블 프레스
+                    if (
+                        space_just_pressed
+                        and space_press_frame >= 0
+                        and frame_counter - space_press_frame <= max_double_frames
+                    ):
+                        double_input_for_manual = True
+                    # 마우스 좌클릭 더블 클릭 (마우스+키보드 스킴에서만)
+                    try:
+                        if _scheme2 == 'mouse_keyboard' and mb_left_just_pressed:
+                            # 이전 좌클릭 이후 경과 프레임이 짧으면 더블클릭으로 인정
+                            if (
+                                left_press_frame >= 0
+                                and frame_counter - left_press_frame <= max_double_frames
+                            ):
+                                double_input_for_manual = True
+                            # 좌클릭 시각을 항상 갱신해 다음 입력 기준으로 사용
+                            left_press_frame = frame_counter
+                    except Exception:
+                        pass
+
+                if manual_candidate and double_input_for_manual:
                     # 기본값은 수동 발사 우선, 단 ↓키를 누른 채 해머 게이지가 충분하면 해머 쇼크를 선택할 수 있게 한다.
                     manual_preferred = (not down_current_state) or (not hammer_ready)
                 else:
