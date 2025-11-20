@@ -19051,13 +19051,11 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
     except Exception:
         pass
 
-    # 보스 뒷벽 라인 도달 시 폭발 (공 실점 라인과 동일 Y 기준)
+    # 보스 뒷벽(상단) 충돌 시 폭발: 공 실점 라인과 동일하게 화면 상단에 닿으면 폭발
     try:
-        boss_back_wall_y = BOSS.bottom + 20  # 보스 뒤쪽 패들-벽 사이 여유
-        if globals().get('suicide_drone_grace_timer', 0) <= 0 and suicide_drone_rect.top <= boss_back_wall_y:
-            if suicide_drone_rect.centerx >= BOSS.left and suicide_drone_rect.centerx <= BOSS.right:
-                _detonate_suicide_drone("boss_back_wall")
-                return
+        if globals().get('suicide_drone_grace_timer', 0) <= 0 and suicide_drone_rect.top <= 0:
+            _detonate_suicide_drone("boss_back_wall")
+            return
     except Exception:
         pass
     
