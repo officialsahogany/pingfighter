@@ -41526,6 +41526,13 @@ def draw_objects():
     # 모든 이펙트 업데이트 및 그리기
     effects_manager.update_all_effects()
     effects_manager.draw_all_effects(SCREEN)
+
+    # 디바인쉴드 어둠의 오오라 그리기
+    try:
+        draw_divine_shield_dark_aura(SCREEN)
+    except:
+        pass
+
     draw_repair_jobs(SCREEN)
     draw_holy_light_particles(SCREEN)  # 성스러운 빛 파티클 그리기
     # 터렛 미사일 업데이트 및 그리기 (스테이지 6에서만)
