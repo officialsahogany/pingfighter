@@ -34252,7 +34252,7 @@ def stage7_tetromino_explode(mino: dict, *, now: int | None = None) -> None:
     """초인 테트리서 기간 중 착지 시 폭발.
 
     - 기본: 넉백 + 스턴 0.5s
-    - 초인(슈퍼) 활성 시: 넉백 2배 + 스턴 1.0s
+    - 초인(슈퍼) 활성 시: 넉백 2배 + 스턴 0.9s
     """
     if now is None:
         now = pygame.time.get_ticks()
@@ -34265,9 +34265,10 @@ def stage7_tetromino_explode(mino: dict, *, now: int | None = None) -> None:
         return
     cx = int(sum(xs) / len(xs))
     cy = int(sum(ys) / len(ys))
-    # 반경: 셀 크기 기준 스케일
-    scale = max(1, int(mino.get("scale", 1)))
-    radius = 80 * scale
+    # 반경: 실제 셀 픽셀 크기 비율을 그대로 반영
+    cell_size = float(mino.get("cell_size", STAGE7_TETRO_CELL_SIZE))
+    cell_scale = max(0.1, cell_size / float(STAGE7_TETRO_CELL_SIZE))
+    radius = STAGE7_TETRO_EXPLOSION_BASE_RADIUS * cell_scale
     # 시각/사운드 (수류탄 폭발 재사용, 코만도 보너스 없음)
     try:
         trigger_grenade_style_explosion(cx, cy, apply_commando_bonus=False, source="tetro_explosion", radius_scale=radius / 150.0)
@@ -34283,10 +34284,11 @@ def stage7_tetromino_explode(mino: dict, *, now: int | None = None) -> None:
         if dist <= radius:
             direction = -1 if player_cx < cx else 1
             # 초인 모드일 때 넉백 2배
-            knock_scale = 2.0 if (globals().get('stage7_super_active', False) or mino.get('super')) else 1.0
+            super_active = bool(globals().get('stage7_super_active', False) or mino.get('super'))
+            knock_scale = 2.0 if super_active else 1.0
             knock = (STAGE7_TETRO_EXPLOSION_KNOCKBACK * knock_scale) * direction
             # 스턴: 기본 0.5초, 초인 시 1.0초
-            stun_seconds = 1.0 if (globals().get('stage7_super_active', False) or mino.get('super')) else STAGE7_TETRO_EXPLOSION_STUN_S
+            stun_seconds = STAGE7_TETRO_SUPER_STUN_S if super_active else STAGE7_TETRO_EXPLOSION_STUN_S
             global player_stunned_timer, player_knockback_vel
             player_stunned_timer = max(player_stunned_timer, int(stun_seconds * FPS))
             player_knockback_vel = knock
