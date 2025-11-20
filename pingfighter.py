@@ -63291,6 +63291,27 @@ def handle_ball():
         # 다른 스테이지는 원래 크기 사용
         boss_hitbox_expanded = BOSS
     if boss_hitbox_expanded.colliderect(BALL) and boss_collision_cooldown <= 0 and not is_waiting_for_serve:
+        # 자폭드론 부스트 상태면 보스 맞는 순간 바로 복원 처리 (우선 적용)
+        try:
+            if suicide_drone_ball_boost_active and suicide_drone_ball_speed_backup > 0:
+                current_speed = math.hypot(ball_vel[0], ball_vel[1])
+                if current_speed > 0:
+                    restore_speed = suicide_drone_ball_speed_backup / 3.0  # 약 3배 느리게 복원
+                    scale = restore_speed / current_speed
+                    print(f"[DRONE] 보스 반격: 현재속도 {current_speed:.2f} -> 복원속도 {restore_speed:.2f} (backup {suicide_drone_ball_speed_backup:.2f})")
+                    ball_vel[0] *= scale
+                    ball_vel[1] *= scale
+                    try:
+                        game_vars.ball.vel[0] = ball_vel[0]
+                        game_vars.ball.vel[1] = ball_vel[1]
+                    except Exception:
+                        pass
+                    print(f"[DRONE] 보스 반격 후 vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
+                suicide_drone_ball_boost_active = False
+                suicide_drone_ball_speed_backup = 0.0
+        except Exception:
+            pass
+
         # 스테이지 1 보스 게이지 충전 (+50)
         if current_stage == 1:
             boss_special_gauge = min(boss_special_gauge + 50, 500)
