@@ -18974,8 +18974,6 @@ def _reset_suicide_drone_state() -> None:
     globals()['suicide_drone_grace_timer'] = 0
     globals()['suicide_drone_vel'] = [0.0, 0.0]
     globals()['suicide_drone_rotor_angle'] = 0.0
-    globals()['suicide_drone_ball_speed_backup'] = 0.0
-    globals()['suicide_drone_ball_boost_active'] = False
 
 
 def _launch_suicide_drone() -> bool:
@@ -19050,6 +19048,10 @@ def _detonate_suicide_drone(reason: str = "manual") -> None:
     except Exception:
         pass
     _spawn_drone_fire_zone(cx, cy)
+    # ball_hit 시에는 공속 복원 정보 유지, 그 외에는 즉시 초기화
+    if reason != "ball_hit":
+        suicide_drone_ball_speed_backup = 0.0
+        suicide_drone_ball_boost_active = False
     _reset_suicide_drone_state()
     # 무기 전환 중복 입력을 막기 위해 짧은 쿨다운
     soldier_controller.switch_cooldown = max(soldier_controller.switch_cooldown, soldier_controller.switch_cooldown_frames // 2)
