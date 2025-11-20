@@ -24802,6 +24802,7 @@ def draw_soldier_weapon_ui(screen):
         "ak47": "AK-47",
         "net_gun": "그물덫총",
         "fire_support": "화력지원",
+        "suicide_drone": "자폭드론",
     }
     
     weapon_name = weapon_names.get(current_weapon, current_weapon)
@@ -36707,6 +36708,8 @@ def draw_player_gauge():
                 "bazooka": "바주카포",
                 "ak47": "AK-47",
                 "net_gun": "그물덫총",
+                "fire_support": "화력지원",
+                "suicide_drone": "자폭드론",
             }
 
             bazooka_instance = None
@@ -36760,6 +36763,9 @@ def draw_player_gauge():
                     )
                 elif weapon == "net_gun":
                     weapon_available = bool(net_gun_instance and getattr(net_gun_instance, "ammo_count", 0) > 0)
+                elif weapon == "suicide_drone":
+                    # 탄약이 있거나 이미 띄워진 드론이 있으면 사용 가능 표시
+                    weapon_available = bool(globals().get("soldier_drone_ammo", 0) > 0 or globals().get("suicide_drone_active", False))
 
                 # 현재 선택/호버 상태에 따라 테두리 강조
                 is_current = (idx == soldier_controller.current_index)
@@ -36798,6 +36804,7 @@ def draw_player_gauge():
                             "ak47": "AK-47",
                             "net_gun": "그물덫총",
                             "fire_support": "화력지원",
+                            "suicide_drone": "자폭드론",
                         }
                         title = weapon_display_names.get(weapon, weapon.upper())
                         # 상태/탄약 표시
@@ -36825,6 +36832,13 @@ def draw_player_gauge():
                                 detail = "활성중" if fs and fs.is_active() else "대기중"
                             except Exception:
                                 detail = ""
+                        elif weapon == "suicide_drone":
+                            ammo = globals().get("soldier_drone_ammo", 0)
+                            active = globals().get("suicide_drone_active", False)
+                            if active:
+                                detail = "발진 중"
+                            else:
+                                detail = f"탄약 {ammo}/{SUICIDE_DRONE_MAX_AMMO}"
 
                         # 툴팁 렌더링
                         tip_font = FontStyle.tiny()
