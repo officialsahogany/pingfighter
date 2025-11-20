@@ -18228,6 +18228,7 @@ soldier_controller = SoldierWeaponController()
 soldier_last_weapon_before_pistol: str | None = None  # 중클릭으로 권총 전환 직전 화기 저장
 last_net_constrict_dir = 0
 last_net_constrict_tick = 0
+net_capture_animation_start_time = None  # 그물덫총 포획 애니메이션 시작 시간
 
 
 def reset_weapon_tracking(weapon_name: str) -> None:
