@@ -330,6 +330,7 @@ class NetTrapGun:
             "rope_broken": False,
             "rope_snap_timer": 0,
             "rope_snap_duration": self.dash_break_duration,
+            "constrict_factor": 1.0,
         }
 
         if dissolve:
@@ -354,9 +355,10 @@ class NetTrapGun:
 
     def _clamp_boss_to_net(self, boss_rect: pygame.Rect, net: Dict[str, object]) -> None:
         net_rect: pygame.Rect = net["rect"]
-        # 포획 시 X축을 70%로 조여 실제 이동 범위도 축소
-        if net.get("hooked_player") and not net.get("dissolve"):
-            shrink_w = int(net_rect.width * 0.7)
+        # 포획 시 플레이어 입력 기반으로 축소되는 constrict_factor 적용
+        constrict_factor = net.get("constrict_factor", 1.0)
+        if net.get("hooked_player") and not net.get("dissolve") and constrict_factor < 1.0:
+            shrink_w = int(net_rect.width * constrict_factor)
             shrink_w = max(boss_rect.width + 10, shrink_w)  # 과도한 축소 방지
             shrink_rect = pygame.Rect(0, 0, shrink_w, net_rect.height)
             shrink_rect.center = net_rect.center
@@ -420,7 +422,7 @@ class NetTrapGun:
         cx = rect.width / 2
         cy = rect.height / 2
         jittered_points = []
-        constrict_x = 0.7 if net.get("hooked_player") and not dissolve else 1.0
+        constrict_x = net.get("constrict_factor", 1.0) if net.get("hooked_player") and not dissolve else 1.0
         if dissolve:
             shrink = remaining_ratio ** 1.4
             jitter_amp = 4 + (1 - remaining_ratio) * 8
