@@ -28423,8 +28423,8 @@ def handle_player(keys):
                                     bazooka_sound = pygame.mixer.Sound(resource_path("sounds/rocket_launch.wav"))
                                     bazooka_sound.set_volume(0.5)
                                     bazooka_sound.play()
-                            except:
-                                pass
+                                except:
+                                    pass
                                 
                 elif current_weapon == "ak47":
                     # AK-47 발사 (보스 조준) — 연사 홀드 안정화
