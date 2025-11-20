@@ -59114,6 +59114,23 @@ def calculate_bounce(paddle):
             effects_manager.spawn_short_shot_flash(BALL.centerx, BALL.centery)
             effects_manager.spawn_short_shot_flash(PLAYER.centerx, PLAYER.centery)
 
+    # 자폭드론 부스트 공을 보스가 쳤다면 무조건 원속도로 복원 (핵심 가드레일)
+    if not is_player_paddle and suicide_drone_ball_boost_active and suicide_drone_ball_speed_backup > 0:
+        current_speed = math.hypot(ball_vel[0], ball_vel[1])
+        if current_speed > 0:
+            restore_speed = suicide_drone_ball_speed_backup
+            scale = restore_speed / current_speed
+            ball_vel[0] *= scale
+            ball_vel[1] *= scale
+            try:
+                game_vars.ball.vel[0] = ball_vel[0]
+                game_vars.ball.vel[1] = ball_vel[1]
+            except Exception:
+                pass
+            print(f\"[DRONE] 보스 반격(보정): {current_speed:.2f} -> {restore_speed:.2f}, vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})\")
+        suicide_drone_ball_boost_active = False
+        suicide_drone_ball_speed_backup = 0.0
+
     #  드라이브 발동 여부 반환
     return drive_activated
 #  화염탄 맞았을 때 플레이어 스턴 관련 변수
