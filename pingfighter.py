@@ -40378,14 +40378,14 @@ def draw_objects():
                 text_x = base_x + shake_x
                 text_y = base_y + shake_y - 25
 
-                # 간단한 텍스트 렌더링 (font_large 사용)
+                # 한글 텍스트 렌더링 (ui_manager.korean_font 사용)
                 try:
-                    text_surf = pygame.font.Font(None, 36).render("연타!", True, (255, 230, 100))
+                    text_surf = ui_manager.korean_font.render("연타!", True, (255, 230, 100))
                     text_surf.set_alpha(text_alpha)
                     text_rect = text_surf.get_rect(center=(text_x, text_y))
 
                     # 그림자
-                    shadow_surf = pygame.font.Font(None, 36).render("연타!", True, (0, 0, 0))
+                    shadow_surf = ui_manager.korean_font.render("연타!", True, (0, 0, 0))
                     shadow_surf.set_alpha(150)
                     shadow_rect = shadow_surf.get_rect(center=(text_x + 2, text_y + 2))
 
