@@ -18531,6 +18531,11 @@ def trigger_soldier_emergency_supply() -> bool:
             success = True
         else:
             print("⚠️ 그물덫총 상태를 확인할 수 없어 비상보급에 실패했습니다.")
+    elif weapon_name == "suicide_drone":
+        # 자폭드론 탄약 리필 및 상태 초기화
+        globals()['soldier_drone_ammo'] = SUICIDE_DRONE_MAX_AMMO
+        _reset_suicide_drone_state()
+        success = True
     elif weapon_name == "fire_support":
         from item_effects.fire_support import get_fire_support_instance
 
