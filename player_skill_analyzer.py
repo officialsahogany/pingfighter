@@ -714,29 +714,84 @@ class PlayerSkillAnalyzer:
         
         return min(penalty, 800)  # 최대 800점 감점 (균형잡힌 수준)
 
+    # --- 캐릭터별 가중치/프로필 -------------------------------------------------
+    def _get_character_type(self) -> Optional[str]:
+        """현재 선택된 캐릭터 타입을 가져온다 (없으면 None)."""
+        try:
+            import pingfighter  # 지연 임포트로 순환 의존 최소화
+            return getattr(pingfighter, "selected_character_type", None)
+        except Exception:
+            return None
+
+    def _get_weight_profile(self) -> Dict[str, float]:
+        """
+        캐릭터별 능력 가중치 프로필을 반환.
+        합은 1.0, 기본값은 균등 분배.
+        """
+        char_type = self._get_character_type() or "default"
+        weight_map = {
+            # 드라이브/파워스매싱이 핵심
+            "smasher": {
+                "skill": 0.32,
+                "dash": 0.26,
+                "item": 0.16,
+                "guard": 0.26,
+            },
+            # 무기·지원 아이템 중심(솔저/코만도)
+            "soldier": {
+                "skill": 0.14,
+                "dash": 0.24,
+                "item": 0.34,
+                "guard": 0.28,
+            },
+            # 발토르(대장장이) - 방어·아이템 비중 높음
+            "blacksmith": {
+                "skill": 0.16,
+                "dash": 0.22,
+                "item": 0.34,
+                "guard": 0.28,
+            },
+            # 그 외 캐릭터는 균등
+            "default": {
+                "skill": 0.25,
+                "dash": 0.25,
+                "item": 0.25,
+                "guard": 0.25,
+            },
+        }
+        return weight_map.get(char_type, weight_map["default"])
+
     def calculate_skill_score(self, current_stage: int = 1) -> int:
         """실력 점수 계산 (0-1000점) - 스테이지별 난이도 반영"""
-        
+        weights = self._get_weight_profile()
         # 스테이지별 난이도 보정
         stage_multiplier = self.get_stage_difficulty_multiplier(current_stage)
         
         score = 0
+
+        # 능력별 최대 캡을 가중치로 조정 (총 1000점 → 각 캡 = 1000 * weight)
+        ability_caps = {
+            "skill": 1000 * weights["skill"],
+            "dash": 1000 * weights["dash"],
+            "item": 1000 * weights["item"],
+            "guard": 1000 * weights["guard"],
+        }
         
-        # 1. 스킬 활용 능력 (0-250점) - 드라이브/파워스매싱으로 승리
+        # 1. 스킬 활용 능력
         skill_score = self.get_skill_mastery_score()
-        score += min(250, skill_score * 2.5 * stage_multiplier)  # 2.5배 균형잡힌 보정
+        score += min(ability_caps["skill"], skill_score * 2.5 * stage_multiplier)
         
-        # 2. 대쉬 활용 능력 (0-250점) - 위기 모면과 승리 기여
+        # 2. 대쉬 활용 능력
         dash_score = self.get_dash_mastery_score()
-        score += min(250, dash_score * 2.5 * stage_multiplier)  # 2.5배 균형잡힌 보정
+        score += min(ability_caps["dash"], dash_score * 2.5 * stage_multiplier)
         
-        # 3. 아이템 활용 능력 (0-250점) - 상황에 맞는 적절한 사용
+        # 3. 아이템 활용 능력
         item_score = self.get_item_mastery_score()
-        score += min(250, item_score * 2.5 * stage_multiplier)  # 2.5배 균형잡힌 보정
+        score += min(ability_caps["item"], item_score * 2.5 * stage_multiplier)
         
-        # 4. 가드 능력 (0-250점) - 정확한 공 막아내기
+        # 4. 가드 능력
         guard_score = self.get_guard_ability_score()
-        score += min(250, guard_score * 2.5 * stage_multiplier)  # 2.5배 균형잡힌 보정
+        score += min(ability_caps["guard"], guard_score * 2.5 * stage_multiplier)
         
         # 5. 스테이지별 특별 보너스 (높은 스테이지 도전 보상)
         stage_bonus = self.get_stage_challenge_bonus(current_stage)

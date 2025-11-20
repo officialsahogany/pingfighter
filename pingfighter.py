@@ -53464,6 +53464,7 @@ def apply_selected_items(
     global dashholder_obtained
     global gravitybelt_obtained, items, rolling_charges
     global hermes_shoes_obtained  # 헤르메스의 신발 전역 변수 추가
+    global soldier_last_weapon_before_pistol
     
     if selected_legendary_items is None:
         selected_legendary_items = []
