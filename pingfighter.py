@@ -63542,7 +63542,7 @@ def handle_ball():
                         game_vars.ball.vel[1] = ball_vel[1]
                     except Exception:
                         pass
-                    print(f\"[RAGNAROK] 보스 반격 감속: {current_speed:.2f} -> {target_speed:.2f} (orig {restore_speed:.2f})\")
+                    print(f"[RAGNAROK] 보스 반격 감속: {current_speed:.2f} -> {target_speed:.2f} (orig {restore_speed:.2f})")
             except Exception:
                 pass
 
@@ -63572,6 +63572,9 @@ def handle_ball():
 
         # 보스가 공을 되받은 이후에는 다시 스턴공 시도를 허용
         ragnarok_stun_attempted_this_rally = False
+        # 라그나로크 속도 복원 상태 리셋
+        ragnarok_original_speed = 0.0
+        ragnarok_first_shot_speed = 0.0
         
         #  라그나로크 보스 반격 사운드 (스턴공이었을 때만)
         if was_stun_ball:
