@@ -15223,6 +15223,41 @@ def check_divine_shield_ball_collision():
 
     return False
 
+
+def update_divine_shield_boost():
+    """디바인쉴드 반사 부스트 효과를 업데이트한다."""
+    global divine_shield_boost_active, divine_shield_boost_timer
+    global divine_shield_boost_original_speed, divine_shield_boost_curve_direction
+    global ball_vel
+
+    if not divine_shield_boost_active:
+        return
+
+    divine_shield_boost_timer -= 1
+
+    # 커브 효과 적용 (x축으로 약간씩 휘어짐)
+    curve_strength = 0.3  # 커브 강도
+    progress = divine_shield_boost_timer / divine_shield_boost_duration
+    # 처음에 강하게, 점점 약해지는 커브
+    curve_amount = curve_strength * progress * divine_shield_boost_curve_direction
+    ball_vel[0] += curve_amount
+
+    # 타이머 종료 시 원래 속도로 복구
+    if divine_shield_boost_timer <= 0:
+        # 현재 방향 유지하면서 원래 속도 크기로 복구
+        current_speed = math.hypot(ball_vel[0], ball_vel[1])
+        original_speed = math.hypot(divine_shield_boost_original_speed[0],
+                                   divine_shield_boost_original_speed[1])
+        if current_speed > 0:
+            speed_ratio = original_speed / current_speed
+            ball_vel[0] *= speed_ratio
+            ball_vel[1] *= speed_ratio
+
+        divine_shield_boost_active = False
+        divine_shield_boost_timer = 0
+        print("[DEBUG] Divine shield boost ended, speed restored")
+
+
 BLACKSMITH_HAMMER_SHOCK_STAGE_COST = {
     1: 200,
     2: 260,
@@ -70022,9 +70057,10 @@ def main(stage_num, new_boss_mode=False):
                 update_blacksmith_hammer_shock(keys)
                 update_blacksmith_turret()
 
-                # 디바인쉴드 보호막 공 반사 체크
+                # 디바인쉴드 보호막 공 반사 체크 및 부스트 효과 업데이트
                 try:
                     check_divine_shield_ball_collision()
+                    update_divine_shield_boost()
                 except Exception:
                     pass
 
