@@ -25594,6 +25594,15 @@ def handle_player(keys):
     # 좌우 이동은 공용 헬퍼로 처리하여 IME/레이아웃 변환과 스캔코드까지 포괄
     left_pressed_raw = is_move_left_pressed(keys)
     right_pressed_raw = is_move_right_pressed(keys)
+    # 간헐적으로 초기 프레임에서 키 상태가 비어있는 WIN+IME 조합을 대비해 한 번 더 리프레시
+    if not left_pressed_raw and not right_pressed_raw:
+        try:
+            pygame.event.pump()
+            _keys_rescanned = pygame.key.get_pressed()
+            left_pressed_raw = is_move_left_pressed(_keys_rescanned)
+            right_pressed_raw = is_move_right_pressed(_keys_rescanned)
+        except Exception:
+            pass
 
     # 프레임 입력 스냅샷이 유효하면 방향키/AD도 스냅샷을 우선 사용해 프레임 경계에서의 불안정 제거
     # (Prompt/오버레이 갱신 타이밍에 따른 간헐적 끊김 방지)
