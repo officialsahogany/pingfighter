@@ -15278,12 +15278,12 @@ def update_divine_shield_boost():
 
     divine_shield_boost_timer -= 1
 
-    # 커브 효과 적용 (x축으로 약간씩 휘어짐)
-    curve_strength = 0.3  # 커브 강도
+    # 강한 커브 효과 적용 (y축 - 보스 방향인 위쪽으로 강하게 휘어짐)
+    curve_strength = 0.8  # 강한 커브 강도
     progress = divine_shield_boost_timer / divine_shield_boost_duration
-    # 처음에 강하게, 점점 약해지는 커브
-    curve_amount = curve_strength * progress * divine_shield_boost_curve_direction
-    ball_vel[0] += curve_amount
+    # 처음에 강하게, 점점 약해지는 커브 (음수 = 위쪽 방향)
+    curve_amount = -curve_strength * progress  # 항상 위쪽(보스 방향)으로 휘어짐
+    ball_vel[1] += curve_amount
 
     # 타이머 종료 시 원래 속도로 복구
     if divine_shield_boost_timer <= 0:
