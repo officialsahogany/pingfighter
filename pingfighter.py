@@ -18464,7 +18464,7 @@ def trigger_soldier_emergency_supply() -> bool:
         return False
 
     if special_gauge < SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST:
-            print(f"⚠️ 게이지 부족으로 비상보급을 사용할 수 없습니다. ({special_gauge}/{SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST})")
+        print(f"⚠️ 게이지 부족으로 비상보급을 사용할 수 없습니다. ({special_gauge}/{SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST})")
         return False
 
     if not soldier_controller.weapons:
