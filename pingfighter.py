@@ -6690,6 +6690,8 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "shield_active": False,
                             "shield_timer": 0,
                             "shield_overheat": 0,
+                            "shield_hits": 0,
+                            "shield_ripple_effects": [],
                         }
                         stage_value = globals().get("current_stage")
                         if stage_value is not None:
