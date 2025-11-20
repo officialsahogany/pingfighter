@@ -15310,6 +15310,97 @@ def update_divine_shield_boost():
         print("[DEBUG] Divine shield boost ended, speed restored")
 
 
+def update_divine_shield_dark_aura():
+    """디바인쉴드 어둠의 오오라 효과를 업데이트한다."""
+    global divine_shield_dark_aura_active, divine_shield_dark_aura_trail
+
+    if not divine_shield_dark_aura_active:
+        return
+
+    # 현재 공 위치를 궤적에 추가
+    ball_cx, ball_cy = BALL.center
+    divine_shield_dark_aura_trail.append({"x": ball_cx, "y": ball_cy, "alpha": 255})
+
+    # 궤적의 알파값 감소 (페이드 아웃)
+    for trail in divine_shield_dark_aura_trail:
+        trail["alpha"] -= 12  # 빠르게 페이드
+
+    # 알파값이 0 이하인 궤적 제거
+    divine_shield_dark_aura_trail = [t for t in divine_shield_dark_aura_trail if t["alpha"] > 0]
+
+    # 최대 궤적 개수 제한
+    if len(divine_shield_dark_aura_trail) > 30:
+        divine_shield_dark_aura_trail = divine_shield_dark_aura_trail[-30:]
+
+
+def draw_divine_shield_dark_aura(screen):
+    """디바인쉴드 어둠의 오오라를 그린다."""
+    global divine_shield_dark_aura_active, divine_shield_dark_aura_trail
+
+    if not divine_shield_dark_aura_active:
+        return
+
+    # 궤적 그리기 (어두운 보라색 그라데이션)
+    for trail in divine_shield_dark_aura_trail:
+        alpha = max(0, min(255, trail["alpha"]))
+        size = int(12 + (alpha / 255) * 8)  # 알파값에 따라 크기 변화
+
+        # 어둠의 오오라 색상 (어두운 보라색)
+        trail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+
+        # 외곽 글로우
+        pygame.draw.circle(trail_surf, (80, 20, 120, int(alpha * 0.3)),
+                          (size, size), size)
+        # 내부 코어
+        pygame.draw.circle(trail_surf, (60, 10, 100, int(alpha * 0.5)),
+                          (size, size), int(size * 0.7))
+
+        screen.blit(trail_surf, (trail["x"] - size, trail["y"] - size))
+
+    # 공 주변 어둠의 오오라 그리기
+    ball_cx, ball_cy = BALL.center
+    ball_radius = BALL.width // 2
+
+    # 외곽 어둠 오오라 (맥동 효과)
+    pulse = math.sin(pygame.time.get_ticks() * 0.01) * 0.3 + 0.7
+    aura_size = int(ball_radius * 2.5 * pulse)
+    aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+
+    # 다중 레이어 오오라
+    for i in range(4):
+        layer_size = int(aura_size * (1 - i * 0.15))
+        layer_alpha = int(180 - i * 40)
+        # 어두운 보라색 계열
+        r = 100 - i * 15
+        g = 20 - i * 5
+        b = 150 - i * 20
+        pygame.draw.circle(aura_surf, (r, g, b, layer_alpha),
+                          (aura_size, aura_size), layer_size)
+
+    screen.blit(aura_surf, (ball_cx - aura_size, ball_cy - aura_size))
+
+    # 어둠 파티클 효과
+    for _ in range(2):
+        particle_angle = random.uniform(0, math.pi * 2)
+        particle_dist = random.uniform(ball_radius * 1.2, ball_radius * 2.2)
+        px = int(ball_cx + math.cos(particle_angle) * particle_dist)
+        py = int(ball_cy + math.sin(particle_angle) * particle_dist)
+        particle_size = random.randint(2, 4)
+        particle_alpha = random.randint(100, 180)
+
+        particle_surf = pygame.Surface((particle_size * 2, particle_size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(particle_surf, (80, 10, 130, particle_alpha),
+                          (particle_size, particle_size), particle_size)
+        screen.blit(particle_surf, (px - particle_size, py - particle_size))
+
+
+def deactivate_divine_shield_dark_aura():
+    """디바인쉴드 어둠의 오오라를 비활성화한다."""
+    global divine_shield_dark_aura_active, divine_shield_dark_aura_trail
+    divine_shield_dark_aura_active = False
+    divine_shield_dark_aura_trail = []
+
+
 BLACKSMITH_HAMMER_SHOCK_STAGE_COST = {
     1: 200,
     2: 260,
