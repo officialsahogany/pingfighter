@@ -42248,32 +42248,6 @@ def draw_objects():
         if net_gun.nets:
             net_gun.draw_nets(SCREEN)
             net_gun.draw_rope(SCREEN, PLAYER)
-            # 포획 시 연타 안내 오버레이
-            try:
-                trapped = any(n.get("hooked_player") and not n.get("dissolve") for n in net_gun.nets)
-            except Exception:
-                trapped = False
-            if trapped:
-                pulse = (math.sin(pygame.time.get_ticks() * 0.01) + 1.0) * 0.5
-                alpha = int(120 + 80 * pulse)
-                overlay = pygame.Surface((PLAYER.width + 40, PLAYER.height + 26), pygame.SRCALPHA)
-                pygame.draw.rect(overlay, (255, 210, 120, alpha), overlay.get_rect(), 3, border_radius=10)
-                def _arrow(center, direction):
-                    w, h = 14, 10
-                    cx, cy = center
-                    if direction < 0:
-                        pts = [(cx + w // 2, cy - h // 2), (cx + w // 2, cy + h // 2), (cx - w // 2, cy)]
-                    else:
-                        pts = [(cx - w // 2, cy - h // 2), (cx - w // 2, cy + h // 2), (cx + w // 2, cy)]
-                    pygame.draw.polygon(overlay, (255, 255, 200, alpha), pts)
-                _arrow((overlay.get_width() * 0.25, overlay.get_height() * 0.5), -1)
-                _arrow((overlay.get_width() * 0.75, overlay.get_height() * 0.5), 1)
-                SCREEN.blit(overlay, (PLAYER.centerx - overlay.get_width() // 2, PLAYER.centery - overlay.get_height() // 2))
-                try:
-                    prompt = font_small.render("← → 연타!", True, (255, 240, 200))
-                    SCREEN.blit(prompt, (PLAYER.centerx - prompt.get_width() // 2, PLAYER.top - 28))
-                except Exception:
-                    pass
 
         # === 자폭드론 표시 ===
         if suicide_drone_active and suicide_drone_rect:
