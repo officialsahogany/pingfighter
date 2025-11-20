@@ -19059,6 +19059,7 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
     """자폭드론 조종 및 충돌 체크"""
     if not suicide_drone_active or suicide_drone_rect is None:
         return
+    global suicide_drone_ball_speed_backup, suicide_drone_ball_boost_active
     # 입력 벡터
     dx = (-1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 0) + (1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0)
     dy = (-1 if (keys[pygame.K_UP] or keys[pygame.K_w]) else 0) + (1 if (keys[pygame.K_DOWN] or keys[pygame.K_s]) else 0)
@@ -19116,9 +19117,21 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
     except Exception:
         pass
 
-    # 공과 충돌 시 즉시 폭발
+    # 공과 충돌 시: 공 속도/각도 부채꼴 가속 후 폭발
     try:
         if globals().get('suicide_drone_grace_timer', 0) <= 0 and suicide_drone_rect.colliderect(BALL):
+            # 원래 속도 백업 (보스 반격 시 복원용)
+            original_speed = math.hypot(ball_vel[0], ball_vel[1]) if ball_vel else 0.0
+            suicide_drone_ball_speed_backup = original_speed
+            suicide_drone_ball_boost_active = True
+
+            # 가속 및 방향 재설정: 보스(위쪽) 방향으로 부채꼴 랜덤
+            base_speed = original_speed if original_speed > 0 else BALL_BASE_SPEED
+            boosted_speed = base_speed * 2.5
+            angle_deg = random.uniform(-45, 45)  # 좌우 45도 범위
+            rad = math.radians(angle_deg)
+            ball_vel[0] = boosted_speed * math.sin(rad)
+            ball_vel[1] = -abs(boosted_speed * math.cos(rad))  # 항상 보스(위) 방향
             _detonate_suicide_drone("ball_hit")
             return
     except Exception:
@@ -63368,6 +63381,19 @@ def handle_ball():
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
+
+        # 자폭드론 부스트가 적용된 공이라면 속도 원복
+        try:
+            if suicide_drone_ball_boost_active and suicide_drone_ball_speed_backup > 0:
+                current_speed = math.hypot(ball_vel[0], ball_vel[1])
+                if current_speed > 0:
+                    scale = suicide_drone_ball_speed_backup / current_speed
+                    ball_vel[0] *= scale
+                    ball_vel[1] *= scale
+                suicide_drone_ball_boost_active = False
+                suicide_drone_ball_speed_backup = 0.0
+        except Exception:
+            pass
 
         # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
 
