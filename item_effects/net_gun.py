@@ -354,8 +354,16 @@ class NetTrapGun:
 
     def _clamp_boss_to_net(self, boss_rect: pygame.Rect, net: Dict[str, object]) -> None:
         net_rect: pygame.Rect = net["rect"]
+        # 포획 시 X축을 70%로 조여 실제 이동 범위도 축소
+        if net.get("hooked_player") and not net.get("dissolve"):
+            shrink_w = int(net_rect.width * 0.7)
+            shrink_w = max(boss_rect.width + 10, shrink_w)  # 과도한 축소 방지
+            shrink_rect = pygame.Rect(0, 0, shrink_w, net_rect.height)
+            shrink_rect.center = net_rect.center
+        else:
+            shrink_rect = net_rect
         # 보스 좌표를 그물 내부로 제한
-        boss_rect.x = max(net_rect.left, min(net_rect.right - boss_rect.width, boss_rect.x))
+        boss_rect.x = max(shrink_rect.left, min(shrink_rect.right - boss_rect.width, boss_rect.x))
 
     # ------------------------------------------------------------------
     # 렌더링 헬퍼
