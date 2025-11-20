@@ -34687,7 +34687,7 @@ def draw_stage7_boss_gauge_bar():
 
 
 def update_stage7_super_state(now: int | None = None) -> None:
-    """초인테트리서: 500 도달 시 발동, 발동 중에는 초당 게이지 20 감소, 0이 되면 종료."""
+    """초인테트리서: 500 도달 시 발동, 발동 중에는 초당 게이지 25 감소, 0이 되면 종료."""
     global stage7_super_active, boss_special_gauge, stage7_persistent_boss_gauge
     global stage7_boss_orig_size, stage7_super_target_scale, stage7_super_scale
     global stage7_super_last_update_ms, stage7_super_drain_progress
@@ -34725,14 +34725,14 @@ def update_stage7_super_state(now: int | None = None) -> None:
                 pass
             print(f"[Stage7Super] {STAGE7_SUPER_NAME} 발동! (게이지 소모형)")
 
-        # 발동 중: 초당 20 드레인, 0이면 종료
+        # 발동 중: 초당 25 드레인, 0이면 종료
         if stage7_super_active:
             if stage7_super_last_update_ms == 0:
                 stage7_super_last_update_ms = now
             elapsed = now - stage7_super_last_update_ms
             stage7_super_last_update_ms = now
             if elapsed > 0:
-                stage7_super_drain_progress += elapsed * 0.02
+                stage7_super_drain_progress += elapsed * 0.025
                 drain_units = int(stage7_super_drain_progress)
                 if drain_units > 0:
                     boss_special_gauge = max(0, boss_special_gauge - drain_units)
