@@ -15285,29 +15285,40 @@ def update_divine_shield_boost():
     if not divine_shield_boost_active:
         return
 
-    divine_shield_boost_timer -= 1
+    # 커브 효과는 0.6초 동안만 적용
+    if divine_shield_boost_timer > 0:
+        divine_shield_boost_timer -= 1
 
-    # 강한 커브 효과 적용 (y축 - 보스 방향인 위쪽으로 강하게 휘어짐)
-    curve_strength = 0.8  # 강한 커브 강도
-    progress = divine_shield_boost_timer / divine_shield_boost_duration
-    # 처음에 강하게, 점점 약해지는 커브 (음수 = 위쪽 방향)
-    curve_amount = -curve_strength * progress  # 항상 위쪽(보스 방향)으로 휘어짐
-    ball_vel[1] += curve_amount
+        # 강한 커브 효과 적용 (y축 - 보스 방향인 위쪽으로 강하게 휘어짐)
+        curve_strength = 0.8  # 강한 커브 강도
+        progress = divine_shield_boost_timer / divine_shield_boost_duration
+        # 처음에 강하게, 점점 약해지는 커브 (음수 = 위쪽 방향)
+        curve_amount = -curve_strength * progress  # 항상 위쪽(보스 방향)으로 휘어짐
+        ball_vel[1] += curve_amount
 
-    # 타이머 종료 시 원래 속도로 복구
-    if divine_shield_boost_timer <= 0:
-        # 현재 방향 유지하면서 원래 속도 크기로 복구
-        current_speed = math.hypot(ball_vel[0], ball_vel[1])
-        original_speed = math.hypot(divine_shield_boost_original_speed[0],
-                                   divine_shield_boost_original_speed[1])
-        if current_speed > 0:
-            speed_ratio = original_speed / current_speed
-            ball_vel[0] *= speed_ratio
-            ball_vel[1] *= speed_ratio
+    # 속도 복구는 보스 패들에 닿았을 때 처리 (deactivate_divine_shield_boost에서)
 
-        divine_shield_boost_active = False
-        divine_shield_boost_timer = 0
-        print("[DEBUG] Divine shield boost ended, speed restored")
+
+def deactivate_divine_shield_boost():
+    """디바인쉴드 부스트를 비활성화하고 속도를 복구한다."""
+    global divine_shield_boost_active, divine_shield_boost_timer
+    global divine_shield_boost_original_speed, ball_vel
+
+    if not divine_shield_boost_active:
+        return
+
+    # 현재 방향 유지하면서 원래 속도 크기로 복구
+    current_speed = math.hypot(ball_vel[0], ball_vel[1])
+    original_speed = math.hypot(divine_shield_boost_original_speed[0],
+                               divine_shield_boost_original_speed[1])
+    if current_speed > 0:
+        speed_ratio = original_speed / current_speed
+        ball_vel[0] *= speed_ratio
+        ball_vel[1] *= speed_ratio
+
+    divine_shield_boost_active = False
+    divine_shield_boost_timer = 0
+    print("[DEBUG] Divine shield boost ended by boss hit, speed restored")
 
 
 def update_divine_shield_dark_aura():
@@ -62670,8 +62681,9 @@ def handle_ball():
 
         # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
 
-        # 디바인쉴드 어둠의 오오라 비활성화 (보스 패들에 닿았을 때)
+        # 디바인쉴드 부스트 비활성화 및 속도 복구 (보스 패들에 닿았을 때)
         try:
+            deactivate_divine_shield_boost()
             deactivate_divine_shield_dark_aura()
         except:
             pass
