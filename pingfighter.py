@@ -69953,7 +69953,13 @@ def main(stage_num, new_boss_mode=False):
                 handle_player(keys_now)
                 update_blacksmith_hammer_shock(keys)
                 update_blacksmith_turret()
-                
+
+                # 디바인쉴드 보호막 공 반사 체크
+                try:
+                    check_divine_shield_ball_collision()
+                except Exception:
+                    pass
+
                 # 손상 효과 업데이트 (모든 스테이지에서)
                 damage_manager = get_damage_manager()
                 if not is_blacksmith_divine_stone_active():
