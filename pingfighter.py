@@ -67928,6 +67928,7 @@ def main(stage_num, new_boss_mode=False):
                     and not blacksmith_hammer_shock_charging
                     and not umbrella_blocks_manual_fire
                 ):
+                    turret_rect = blacksmith_turret_state.get("rect")
                     if turret_rect is not None and PLAYER.colliderect(turret_rect):
                         manual_candidate = True
 
