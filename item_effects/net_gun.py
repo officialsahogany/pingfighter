@@ -407,7 +407,7 @@ class NetTrapGun:
             surface = pygame.Surface(rect.size, pygame.SRCALPHA)
             surface.fill((0, 0, 0, 0))
 
-            phase = net["phase"]
+        phase = net["phase"]
         polygon_points = net["shape"]
         cx = rect.width / 2
         cy = rect.height / 2
@@ -418,34 +418,34 @@ class NetTrapGun:
             jitter_amp = 4 + (1 - remaining_ratio) * 8
             vertical_scale = 0.45 + 0.25 * remaining_ratio
         else:
-                shrink = 0.9 + 0.1 * remaining_ratio
-                jitter_amp = 3
-                vertical_scale = 0.6 + 0.3 * remaining_ratio
+            shrink = 0.9 + 0.1 * remaining_ratio
+            jitter_amp = 3
+            vertical_scale = 0.6 + 0.3 * remaining_ratio
 
-            for px, py in polygon_points:
-                rel_x = px - cx
-                rel_y = py - cy
-                sine_seed = phase + (px + py) * 0.03
-                jitter_x = math.sin(sine_seed) * jitter_amp
-                jitter_y = math.cos(sine_seed * 0.8) * (jitter_amp * 0.5)
-                final_x = cx + rel_x * shrink * constrict_x + jitter_x
-                final_y = cy + rel_y * vertical_scale + jitter_y
-                if dissolve:
-                    final_y += (1 - remaining_ratio) ** 1.2 * rect.height * 0.6
-                    final_x += math.sin(phase * 1.7 + px * 0.05) * (1 - remaining_ratio) * 10
-                jittered_points.append((final_x, final_y))
+        for px, py in polygon_points:
+            rel_x = px - cx
+            rel_y = py - cy
+            sine_seed = phase + (px + py) * 0.03
+            jitter_x = math.sin(sine_seed) * jitter_amp
+            jitter_y = math.cos(sine_seed * 0.8) * (jitter_amp * 0.5)
+            final_x = cx + rel_x * shrink * constrict_x + jitter_x
+            final_y = cy + rel_y * vertical_scale + jitter_y
+            if dissolve:
+                final_y += (1 - remaining_ratio) ** 1.2 * rect.height * 0.6
+                final_x += math.sin(phase * 1.7 + px * 0.05) * (1 - remaining_ratio) * 10
+            jittered_points.append((final_x, final_y))
 
-            fill_alpha = max(20, int(alpha * (0.4 if dissolve else 0.55)))
-            outline_color = (210, 240, 255, max(60, alpha))
-            fill_color = (95, 140, 180, fill_alpha)
+        fill_alpha = max(20, int(alpha * (0.4 if dissolve else 0.55)))
+        outline_color = (210, 240, 255, max(60, alpha))
+        fill_color = (95, 140, 180, fill_alpha)
 
-            pygame.draw.polygon(surface, fill_color, jittered_points)
-            pygame.draw.polygon(surface, outline_color, jittered_points, 2)
+        pygame.draw.polygon(surface, fill_color, jittered_points)
+        pygame.draw.polygon(surface, outline_color, jittered_points, 2)
 
-            lattice_color = (175, 215, 245, int(alpha * 0.7))
-            self._draw_mesh(surface, jittered_points, lattice_color, dissolve, remaining_ratio)
+        lattice_color = (175, 215, 245, int(alpha * 0.7))
+        self._draw_mesh(surface, jittered_points, lattice_color, dissolve, remaining_ratio)
 
-            screen.blit(surface, rect.topleft)
+        screen.blit(surface, rect.topleft)
 
     def draw_throw_pose(self, screen: pygame.Surface, player_rect: pygame.Rect) -> None:
         if self.throw_pose_timer <= 0:
