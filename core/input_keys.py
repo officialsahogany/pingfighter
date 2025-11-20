@@ -50,6 +50,10 @@ MOVE_RIGHT_SCANCODES = _iter_present(
     )
 )
 
+# 레이아웃/IME에 따라 keycode가 UNKNOWN으로 떨어질 때 unicode로만 전달되는 경우를 위한 보조 매핑
+MOVE_LEFT_UNICODES = {"a", "A", "ㅁ"}  # ㅁ: 한글 두벌식에서 A 위치
+MOVE_RIGHT_UNICODES = {"d", "D", "ㅇ"}  # ㅇ: 한글 두벌식에서 D 위치
+
 
 def _is_pressed(keys: Sequence[bool], code: int) -> bool:
     """keys[code] 접근 시 발생할 수 있는 예외를 모두 흡수하고 bool 결과만 반환."""
@@ -79,12 +83,22 @@ def is_move_right_key(key_code: int, scancode: int | None = None) -> bool:
 
 def is_move_left_event(event) -> bool:
     """pygame 이벤트 객체가 왼쪽 이동 입력인지 확인."""
-    return is_move_left_key(getattr(event, "key", None), getattr(event, "scancode", None))
+    if is_move_left_key(getattr(event, "key", None), getattr(event, "scancode", None)):
+        return True
+    uni = getattr(event, "unicode", None)
+    if uni and uni in MOVE_LEFT_UNICODES:
+        return True
+    return False
 
 
 def is_move_right_event(event) -> bool:
     """pygame 이벤트 객체가 오른쪽 이동 입력인지 확인."""
-    return is_move_right_key(getattr(event, "key", None), getattr(event, "scancode", None))
+    if is_move_right_key(getattr(event, "key", None), getattr(event, "scancode", None)):
+        return True
+    uni = getattr(event, "unicode", None)
+    if uni and uni in MOVE_RIGHT_UNICODES:
+        return True
+    return False
 
 
 def is_move_left_pressed(keys: Sequence[bool]) -> bool:

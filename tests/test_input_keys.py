@@ -13,6 +13,8 @@ from core.input_keys import (
     is_move_right_key,
     is_move_left_pressed,
     is_move_right_pressed,
+    is_move_left_event,
+    is_move_right_event,
 )
 
 
@@ -93,6 +95,13 @@ class TestInputKeyMapping(GameTestCase):
             keys_sc = [False] * size
             keys_sc[sc_right] = True
             self.assertTrue(is_move_right_pressed(keys_sc))
+
+    def test_unicode_only_keydown_events_are_recognized(self):
+        """IME 한글 모드처럼 keycode가 비어도 unicode 값으로 이동키를 감지한다."""
+        left_evt = pygame.event.Event(pygame.KEYDOWN, {"key": pygame.K_UNKNOWN, "scancode": None, "unicode": "ㅁ"})
+        right_evt = pygame.event.Event(pygame.KEYDOWN, {"key": pygame.K_UNKNOWN, "scancode": None, "unicode": "ㅇ"})
+        self.assertTrue(is_move_left_event(left_evt))
+        self.assertTrue(is_move_right_event(right_evt))
 
 
 if __name__ == "__main__":
