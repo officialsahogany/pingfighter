@@ -63296,7 +63296,8 @@ def handle_ball():
             if suicide_drone_ball_boost_active and suicide_drone_ball_speed_backup > 0:
                 current_speed = math.hypot(ball_vel[0], ball_vel[1])
                 if current_speed > 0:
-                    restore_speed = suicide_drone_ball_speed_backup / 3.0  # 약 3배 느리게 복원
+                    # 보스가 반격하면 부스트된 속도의 1/3로 감속 (≈ 원속도 수준)
+                    restore_speed = current_speed / 3.0
                     scale = restore_speed / current_speed
                     print(f"[DRONE] 보스 반격: 현재속도 {current_speed:.2f} -> 복원속도 {restore_speed:.2f} (backup {suicide_drone_ball_speed_backup:.2f})")
                     ball_vel[0] *= scale
@@ -63491,7 +63492,7 @@ def handle_ball():
             if suicide_drone_ball_boost_active and suicide_drone_ball_speed_backup > 0:
                 current_speed = math.hypot(ball_vel[0], ball_vel[1])
                 if current_speed > 0:
-                    restore_speed = suicide_drone_ball_speed_backup / 3.0
+                    restore_speed = current_speed / 3.0  # 부스트 속도의 1/3로 감속
                     scale = restore_speed / current_speed
                     print(f"[DRONE] 보스 반격(반사 후): 현재속도 {current_speed:.2f} -> 복원속도 {restore_speed:.2f} (backup {suicide_drone_ball_speed_backup:.2f})")
                     ball_vel[0] *= scale
