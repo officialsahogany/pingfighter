@@ -42210,8 +42210,32 @@ def draw_objects():
 
         # === 자폭드론 표시 ===
         if suicide_drone_active and suicide_drone_rect:
-            pygame.draw.circle(SCREEN, (200, 220, 255), suicide_drone_rect.center, suicide_drone_rect.width // 2)
-            pygame.draw.circle(SCREEN, (80, 120, 200), suicide_drone_rect.center, max(2, suicide_drone_rect.width // 2 - 3), 1)
+            cx, cy = suicide_drone_rect.center
+            r = suicide_drone_rect.width // 2
+            # 몸체
+            body_rect = pygame.Rect(cx - r * 0.6, cy - r * 0.25, r * 1.2, r * 0.5)
+            pygame.draw.ellipse(SCREEN, (70, 80, 95), body_rect)
+            pygame.draw.ellipse(SCREEN, (50, 55, 70), body_rect, 2)
+            # 노즈
+            nose_rect = pygame.Rect(cx + r * 0.05, cy - r * 0.2, r * 0.5, r * 0.4)
+            pygame.draw.ellipse(SCREEN, (235, 130, 90), nose_rect)
+            pygame.draw.ellipse(SCREEN, (120, 70, 60), nose_rect, 1)
+            # 로터(앞/뒤) 회전
+            angle = math.radians(globals().get('suicide_drone_rotor_angle', 0.0))
+            blades = []
+            for offset in (-r * 0.9, r * 0.9):
+                bx = cx + offset
+                by = cy
+                blade_len = r * 0.55
+                dx = math.cos(angle) * blade_len
+                dy = math.sin(angle) * blade_len
+                blades.append(((bx - dx, by - dy), (bx + dx, by + dy)))
+                blades.append(((bx - dy, by + dx), (bx + dy, by - dx)))
+            for start, end in blades:
+                pygame.draw.line(SCREEN, (210, 220, 230), start, end, 3)
+                pygame.draw.line(SCREEN, (90, 120, 150), start, end, 1)
+            # 카메라/신관 포인트
+            pygame.draw.circle(SCREEN, (255, 210, 120), (cx + int(r * 0.3), cy), max(2, int(r * 0.18)))
 
     # === 피 파티클 그리기 ===
     if selected_character_type == "soldier":
