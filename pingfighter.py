@@ -69776,14 +69776,9 @@ def main(stage_num, new_boss_mode=False):
                         _scheme_snap2 = _sm_snap2.get_setting('controls', 'control_scheme', 'keyboard')
                     except Exception:
                         _scheme_snap2 = 'keyboard'
-                    # 좌/우: 화살표 + A/D + (IME 보조: n/o) 를 모두 스냅샷에 병합
-                    SNAP_left_state = bool(keys_now[pygame.K_LEFT] or keys_now[pygame.K_a])
-                    SNAP_right_state = bool(keys_now[pygame.K_RIGHT] or keys_now[pygame.K_d])
-                    try:
-                        SNAP_left_state = SNAP_left_state or bool(keys_now[pygame.K_n])
-                        SNAP_right_state = SNAP_right_state or bool(keys_now[pygame.K_o])
-                    except Exception:
-                        pass
+                    # 좌/우: 공용 헬퍼로 스캔코드/IME 변환까지 포함해 스냅샷
+                    SNAP_left_state = is_move_left_pressed(keys_now)
+                    SNAP_right_state = is_move_right_pressed(keys_now)
                     SNAP_down_state = bool(keys_now[pygame.K_DOWN] or (_scheme_snap2 == 'mouse_keyboard' and keys_now[pygame.K_s]))
                     SNAP_up_state = bool(keys_now[pygame.K_UP] or (_scheme_snap2 == 'mouse_keyboard' and keys_now[pygame.K_w]))
                     space_state2 = bool(keys_now[pygame.K_SPACE]) or (_scheme_snap2 == 'mouse_keyboard' and bool(mb_now and len(mb_now) >= 1 and mb_now[0]))
