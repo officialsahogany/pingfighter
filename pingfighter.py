@@ -37360,15 +37360,21 @@ def draw_player_gauge():
                         )
 
                     diag_offset = (wave_phase + time_now * 0.0015) % 1.0
+                    # fill_color의 R > B 이면 강화디바인스톤 (검붉은색)
+                    is_red_theme = fill_color[0] > fill_color[2]
                     for x in range(rect.width):
                         diag_pos = (diag_offset + x / width_scale) % 1.0
                         diag_intensity = max(0.0, 1.0 - abs(diag_pos - 0.35) * 3.2)
                         if diag_intensity <= 0.0:
                             continue
                         alpha = int(100 * diag_intensity)
+                        if is_red_theme:
+                            diag_color = (255, 150, 160, alpha)  # 검붉은색 대각선
+                        else:
+                            diag_color = (150, 220, 255, alpha)  # 파란색 대각선
                         pygame.draw.line(
                             energy_surface,
-                            (150, 220, 255, alpha),
+                            diag_color,
                             (x, 0),
                             (x, rect.height),
                         )
