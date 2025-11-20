@@ -15,7 +15,7 @@ class NetTrapGun:
     전개 순간 보스 패들이 그물 범위 안에 있으면 수평 이동이 280px 폭 내부로 제한된다.
     """
 
-    MAX_AMMO = 3
+    MAX_AMMO = 4
     CONTROL_LOCK_FRAMES = 30  # 0.5초 (60fps)
     COOLDOWN_FRAMES = 120  # 2초 쿨다운
     NET_WIDTH = 280

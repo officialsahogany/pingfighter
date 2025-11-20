@@ -219,7 +219,7 @@ class AmmoBox:
         
         # 탄약 재장전 효과 (1발씩 올라가는 애니메이션)
         if self.reloaded_weapon == "bazooka":
-            # 바주카포 탄약 (3발)
+            # 바주카포 탄약 (5발)
             for i in range(3):
                 # 각 탄약의 애니메이션 타이밍
                 bullet_progress = max(0, min(1, (self.reload_progress * 3) - i))
