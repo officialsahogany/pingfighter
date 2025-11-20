@@ -32406,7 +32406,8 @@ def reset_stage7_guard_state(*, reset_timer: bool = True) -> None:
             if current_stage != 7:
                 global stage7_persistent_boss_gauge
                 stage7_persistent_boss_gauge = 0.0
-                print("[Stage7Gauge][ResetGuard] stage != 7 → persistent cleared")
+                if STAGE7_DEBUG.get('GAUGE', False):
+                    print("[Stage7Gauge][ResetGuard] stage != 7 → persistent cleared")
         except NameError:
             pass
 
@@ -32422,7 +32423,8 @@ def initialize_stage7_guard_state(now: int | None = None) -> None:
     stage7_gauge_last_update_ms = now
     global stage7_persistent_boss_gauge
     stage7_persistent_boss_gauge = boss_special_gauge
-    print(f"[Stage7Gauge][Init] persistent set to {stage7_persistent_boss_gauge}")
+    if STAGE7_DEBUG.get('GAUGE', False):
+        print(f"[Stage7Gauge][Init] persistent set to {stage7_persistent_boss_gauge}")
 
 
 def update_stage7_gauge_charge(is_active: bool) -> None:
@@ -32467,7 +32469,8 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
     stage7_gauge_charge_progress -= charge_units
     global stage7_persistent_boss_gauge
     stage7_persistent_boss_gauge = boss_special_gauge
-    print(f"[Stage7Gauge][Charge] +{charge_units} → {boss_special_gauge}")
+    if STAGE7_DEBUG.get('GAUGE', False):
+        print(f"[Stage7Gauge][Charge] +{charge_units} → {boss_special_gauge}")
 
 
 STAGE7_GUARD_CELL_SIZE = 20
@@ -32636,7 +32639,8 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     # 3) 최종 배치가 확정되었으므로 게이지 차감 후 실제 블록 생성 (블록수에 따라 50/100)
     boss_special_gauge = max(0, boss_special_gauge - required_gauge)
     stage7_persistent_boss_gauge = boss_special_gauge
-    print(f"[Stage7Gauge][Spawn] cost {required_gauge} → {boss_special_gauge}")
+    if STAGE7_DEBUG.get('GAUGE', False):
+        print(f"[Stage7Gauge][Spawn] cost {required_gauge} → {boss_special_gauge}")
 
     block_top = chosen_top
 
