@@ -15289,12 +15289,29 @@ def update_divine_shield_boost():
     if divine_shield_boost_timer > 0:
         divine_shield_boost_timer -= 1
 
-        # 강한 커브 효과 적용 (y축 - 보스 방향인 위쪽으로 강하게 휘어짐)
-        curve_strength = 0.8  # 강한 커브 강도
-        progress = divine_shield_boost_timer / divine_shield_boost_duration
-        # 처음에 강하게, 점점 약해지는 커브 (음수 = 위쪽 방향)
-        curve_amount = -curve_strength * progress  # 항상 위쪽(보스 방향)으로 휘어짐
-        ball_vel[1] += curve_amount
+        # 기괴한 사인/코사인 움직임 효과 적용
+        elapsed = divine_shield_boost_duration - divine_shield_boost_timer  # 경과 프레임
+        progress = divine_shield_boost_timer / divine_shield_boost_duration  # 0~1 (끝에서 처음)
+
+        # 다중 주파수 사인/코사인 웨이브 조합으로 기괴한 움직임 생성
+        # X축: 좌우로 급격하게 흔들리는 움직임
+        wave_x1 = math.sin(elapsed * 0.8) * 1.2  # 저주파 큰 진폭
+        wave_x2 = math.cos(elapsed * 2.1) * 0.7  # 고주파 중진폭
+        wave_x3 = math.sin(elapsed * 3.7) * 0.4  # 초고주파 소진폭
+
+        # Y축: 위아래로 급격하게 흔들리면서 전체적으로 위로 향함
+        wave_y1 = math.cos(elapsed * 1.3) * 0.9  # 저주파 큰 진폭
+        wave_y2 = math.sin(elapsed * 2.9) * 0.6  # 고주파 중진폭
+        wave_y3 = math.cos(elapsed * 4.3) * 0.3  # 초고주파 소진폭
+        base_upward = -0.5 * progress  # 기본 위쪽 방향 유지
+
+        # 모든 웨이브 합산
+        bizarre_x = (wave_x1 + wave_x2 + wave_x3) * progress  # 시간이 지날수록 약해짐
+        bizarre_y = (wave_y1 + wave_y2 + wave_y3 + base_upward) * progress
+
+        # 속도에 기괴한 움직임 적용
+        ball_vel[0] += bizarre_x
+        ball_vel[1] += bizarre_y
 
     # 속도 복구는 보스 패들에 닿았을 때 처리 (deactivate_divine_shield_boost에서)
 
