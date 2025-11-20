@@ -18368,7 +18368,7 @@ soldier_weapon_menu_close_suppress_frames = 0
 # 무기 교체 직후 발사 억제(좌클릭 잔류 포함) 프레임 카운터
 soldier_weapon_switch_suppress_frames = 0
 soldier_weapon_number_prev = [False] * 9
-SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST = 500
+SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST = 300
 SOLDIER_EMERGENCY_SUPPLY_TAP_WINDOW = int(0.25 * 60)
 soldier_down_tap_timer = 0
 soldier_down_tap_count = 0
@@ -18464,7 +18464,7 @@ def trigger_soldier_emergency_supply() -> bool:
         return False
 
     if special_gauge < SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST:
-        print(f"⚠️ 게이지 부족으로 비상보급을 사용할 수 없습니다. ({special_gauge}/{SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST})")
+            print(f"⚠️ 게이지 부족으로 비상보급을 사용할 수 없습니다. ({special_gauge}/{SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST})")
         return False
 
     if not soldier_controller.weapons:
