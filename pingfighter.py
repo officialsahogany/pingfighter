@@ -73595,6 +73595,7 @@ def show_quick_character_selection():
             SCREEN.blit(stat_surface, stat_rect)
 
         # 방향키 안내 아이콘
+        pygame.event.pump()
         keys = pygame.key.get_pressed()
         arrow_y = card_y + card_height // 2
         left_center_x = max(70, start_x - 60)
