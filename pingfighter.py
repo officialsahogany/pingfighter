@@ -24544,18 +24544,26 @@ def draw_soldier_weapon_ui(screen):
 
         ammo_to_show = soldier_drone_ammo
         max_ammo = SUICIDE_DRONE_MAX_AMMO
-        ammo_x = weapon_x + 3
         ammo_y = weapon_y + weapon_size + 6
-        ammo_w = 10
-        ammo_h = 8
-        ammo_spacing = 12
+        padding = 6
+        available_w = weapon_rect.width - padding * 2
+        spacing = max(4, available_w // (max_ammo * 3))
+        ammo_w = max(12, (available_w - spacing * (max_ammo - 1)) // max_ammo)
+        ammo_h = 10
+        total_width = ammo_w * max_ammo + spacing * (max_ammo - 1)
+        ammo_start_x = weapon_rect.left + (weapon_rect.width - total_width) // 2
         for i in range(max_ammo):
-            rect = pygame.Rect(ammo_x + i * ammo_spacing, ammo_y, ammo_w, ammo_h)
-            if i < ammo_to_show:
-                pygame.draw.rect(screen, (200, 230, 255), rect, border_radius=2)
-                pygame.draw.rect(screen, (80, 120, 180), rect, 1, border_radius=2)
-            else:
-                pygame.draw.rect(screen, (80, 80, 90), rect, 1, border_radius=2)
+            rect = pygame.Rect(ammo_start_x + i * (ammo_w + spacing), ammo_y, ammo_w, ammo_h)
+            filled = i < ammo_to_show
+            body = (195, 225, 250) if filled else (70, 80, 95)
+            outline = (80, 120, 180) if filled else (90, 90, 100)
+            pygame.draw.rect(screen, body, rect, border_radius=3)
+            pygame.draw.rect(screen, outline, rect, 1, border_radius=3)
+            # 프롭 표시
+            prop_r = max(2, ammo_h // 3)
+            pygame.draw.circle(screen, outline, rect.center, prop_r, 2)
+            pygame.draw.line(screen, outline, (rect.centerx - prop_r, rect.centery), (rect.centerx + prop_r, rect.centery), 2)
+            pygame.draw.line(screen, outline, (rect.centerx, rect.centery - prop_r), (rect.centerx, rect.centery + prop_r), 2)
         try:
             if 'font_small' in globals() and font_small:
                 status_surface = font_small.render(f"자폭드론 {ammo_to_show}/{max_ammo}", True, (180, 220, 255))
