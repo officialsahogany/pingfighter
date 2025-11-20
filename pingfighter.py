@@ -58446,6 +58446,7 @@ def calculate_bounce(paddle):
     global ragnarok_original_speed
     global is_waiting_for_serve, stopwatch_active, stopwatch_timer
     global blacksmith_shield_swing_active, blacksmith_shield_swing_timer
+    global suicide_drone_ball_boost_active, suicide_drone_ball_speed_backup
     
     # Stage 2 스피드 디펜스 80% 방어 처리
     if paddle == BOSS and current_stage == 2 and speed_defense_active:
