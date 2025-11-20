@@ -66406,7 +66406,7 @@ def main(stage_num, new_boss_mode=False):
     global perfect_timing_indicator_active, short_shot_counter_window
     global perfect_timing_cooldown, perfect_timing_cooldown_frames, perfect_timing_input_used
     global drive_global_cooldown, drive_global_cooldown_frames, last_space_press_time
-    global blacksmith_turret_manual_cooldown
+    global blacksmith_turret_manual_cooldown, blacksmith_manual_fire_last_space_frame, blacksmith_manual_fire_last_click_frame
     # ↓ 선입력 락(대쉬 순서 규칙 강제)
     global dash_down_first_lock
     # 입력 에지/스냅샷(초기 프레임 잔류 검사 방지)
@@ -67970,23 +67970,26 @@ def main(stage_num, new_boss_mode=False):
                 if manual_candidate:
                     max_double_frames = int(0.3 * FPS)  # 약 0.3초 이내 더블 입력 허용
                     # SPACE 더블 프레스
-                    if (
-                        space_just_pressed
-                        and space_press_frame >= 0
-                        and frame_counter - space_press_frame <= max_double_frames
-                    ):
-                        double_input_for_manual = True
+                    if space_just_pressed:
+                        if (
+                            blacksmith_manual_fire_last_space_frame >= 0
+                            and frame_counter - blacksmith_manual_fire_last_space_frame <= max_double_frames
+                        ):
+                            double_input_for_manual = True
+                        # 현재 프레임을 마지막 SPACE 입력 프레임으로 기록
+                        blacksmith_manual_fire_last_space_frame = frame_counter
+
                     # 마우스 좌클릭 더블 클릭 (마우스+키보드 스킴에서만)
                     try:
-                        if _scheme2 == 'mouse_keyboard' and mb_left_just_pressed:
-                            # 이전 좌클릭 이후 경과 프레임이 짧으면 더블클릭으로 인정
-                            if (
-                                left_press_frame >= 0
-                                and frame_counter - left_press_frame <= max_double_frames
-                            ):
-                                double_input_for_manual = True
-                            # 좌클릭 시각을 항상 갱신해 다음 입력 기준으로 사용
-                            left_press_frame = frame_counter
+                        if _scheme2 == 'mouse_keyboard' and mb_left_just_pressed and turret_rect is not None:
+                            if PLAYER.colliderect(turret_rect):
+                                if (
+                                    blacksmith_manual_fire_last_click_frame >= 0
+                                    and frame_counter - blacksmith_manual_fire_last_click_frame <= max_double_frames
+                                ):
+                                    double_input_for_manual = True
+                                # 현재 프레임을 마지막 좌클릭 입력 프레임으로 기록
+                                blacksmith_manual_fire_last_click_frame = frame_counter
                     except Exception:
                         pass
 
