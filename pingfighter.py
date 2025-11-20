@@ -20049,6 +20049,10 @@ def apply_effect(effect_name):
         print("⚠️ 광폭물약은 발토르 전용 아이템입니다.")
         return False
 
+    # 캐릭터 고유 스킬성 아이템 사용을 실력 분석에 반영
+    if effect_name in ("repair_kit", "berserk_potion"):
+        record_character_skill_usage()
+
     #  엑티브 아이템 사용 효과음 재생 (패시브 아이템 제외)
     if effect_name not in ["battery", "chargebag", "spikeboots", "dashgear", "gauge_charge", "life_elixir"]:
         play_active_item_sound()
@@ -26502,6 +26506,9 @@ def handle_player(keys):
 
                 # 무전기 모션 활성화 (0.5초)
                 start_supply_radio_loop()
+
+                # 코만도(솔저) 전용 스킬 사용을 실력 분석에 반영
+                record_character_skill_usage()
 
                 # 입력 잠금 제거: 물자보급 발동 시 이동을 멈추지 않음
                 # (기존: soldier_control_lock_timer 30프레임)
@@ -65045,6 +65052,14 @@ def record_skill_usage(success=False):
             player_analyzer.record_skill_usage(success)
         except:
             pass  # 조용히 실패
+
+# 캐릭터별 특수 행동을 스킬 사용으로 함께 기록해 공정성 보정
+def record_character_skill_usage():
+    """각 캐릭터 고유 액션을 스킬 사용으로 반영"""
+    # 스매셔는 드라이브/파워스매시 분기에서 이미 기록됨
+    if globals().get("selected_character_type") == "smasher":
+        return
+    record_skill_usage(success=True)
 def record_dash_usage(success=False):
     """대쉬 사용 기록"""
     global player_analyzer
