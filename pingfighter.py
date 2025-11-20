@@ -10552,19 +10552,39 @@ def _divine_draw_effects(surface, divine_state):
                 shield_surf = pygame.Surface((shield_size, shield_size), pygame.SRCALPHA)
                 shield_center = (shield_size // 2, shield_size // 2)
 
-                # 1. 외곽 마법진 링 (회전하는 룬 문양)
-                for ring_layer in range(3):
-                    ring_radius = group_radius + 10 - ring_layer * 8
-                    ring_alpha = 120 - ring_layer * 30
+                # 1. 외곽 마법진 링 (회전하는 룬 문양) - 피격시 사라짐
+                shield_hits = divine_state.get("shield_hits", 0)
+                remaining_rings = max(0, 4 - shield_hits)  # 4개 링 중 남은 개수
+
+                for ring_layer in range(remaining_rings):
+                    ring_radius = group_radius + 10 - ring_layer * 6
+                    ring_alpha = 140 - ring_layer * 25
                     # 황금빛 + 청록빛 그라데이션 (드워프 마법)
                     if ring_layer == 0:
                         ring_color = (255, 215, 100, ring_alpha)  # 금색
                     elif ring_layer == 1:
                         ring_color = (100, 200, 255, ring_alpha)  # 시안
-                    else:
+                    elif ring_layer == 2:
                         ring_color = (180, 160, 255, ring_alpha)  # 연보라
+                    else:
+                        ring_color = (255, 180, 220, ring_alpha)  # 연분홍
 
                     pygame.draw.circle(shield_surf, ring_color, shield_center, ring_radius, 2)
+
+                # 파장 출렁임 이펙트 (피격 시 발생)
+                ripple_effects = divine_state.get("shield_ripple_effects", [])
+                for ripple in ripple_effects[:]:
+                    ripple_progress = ripple["progress"]
+                    ripple_radius = int(group_radius * (0.8 + 0.4 * ripple_progress))
+                    ripple_alpha = int(200 * (1 - ripple_progress))
+                    ripple_thickness = max(1, int(4 * (1 - ripple_progress)))
+                    pygame.draw.circle(shield_surf, (255, 255, 255, ripple_alpha),
+                                     shield_center, ripple_radius, ripple_thickness)
+                    # 진행 업데이트
+                    ripple["progress"] += 0.05
+                    if ripple["progress"] >= 1.0:
+                        ripple_effects.remove(ripple)
+                divine_state["shield_ripple_effects"] = ripple_effects
 
                 # 2. 회전하는 룬 심볼들 (고대 드워프 문자)
                 rune_count = 8
@@ -67986,6 +68006,8 @@ def main(stage_num, new_boss_mode=False):
                             divine_state.get("shield_xp_max", float(BLACKSMITH_DIVINE_SHIELD_COST))
                         )
                         divine_state["shield_timer"] = BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES
+                        divine_state["shield_hits"] = 0  # 보호막 피격 카운터 초기화
+                        divine_state["shield_ripple_effects"] = []  # 파장 이펙트 리스트
                         # 활성화 연출/사운드
                         try:
                             effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=18)
