@@ -21021,43 +21021,71 @@ def _create_blacksmith_building_shield(
     # 기본 두께
     thickness = wall_height
 
-    # 포탑/강화포탑 보호형 벽돌은 가로 폭을 조금 더 넓히고, 세로 두께를 약 10% 줄인다.
     if building_type == "turret":
+        # 포탑/강화포탑 보호형 벽돌:
+        # - x축으로 좀 더 넓게 감싸고
+        # - 세로 두께(벽 자체의 높이)는 약 10% 줄인다.
         thickness = max(4, int(wall_height * 0.9))
-        base_pad_x = max(thickness // 2, 8)
-        pad_x = int(base_pad_x * 1.15)
-        pad_y = max(thickness // 2, 6)
+        try:
+            ball_r = int(globals().get("BALL_RADIUS", 8))
+        except Exception:
+            ball_r = 8
+        # 좌우 확장을 위해 터렛 폭의 양 옆으로 최소 2배 공 반지름만큼 여유를준다.
+        margin_x = max(ball_r * 2, thickness * 2)
+
+        # 상단 가로 벽돌
+        top_width = building_rect.width + margin_x * 2
+        top_x = building_rect.centerx - top_width // 2
+        top_y = building_rect.top - thickness
+        top_rect = pygame.Rect(top_x, top_y, top_width, thickness)
+
+        # 좌우 세로 벽돌: 전체 높이보다 약간 짧게(70%) 만들어도 된다고 하셨으므로,
+        # 중앙을 기준으로 위/아래 15%씩만 남기고 70%만 감싼다.
+        side_height = max(thickness * 2, int(building_rect.height * 0.7))
+        side_top = building_rect.centery - side_height // 2
+
+        left_rect = pygame.Rect(
+            building_rect.left - margin_x - thickness,
+            side_top,
+            thickness,
+            side_height,
+        )
+        right_rect = pygame.Rect(
+            building_rect.right + margin_x,
+            side_top,
+            thickness,
+            side_height,
+        )
     else:
-        # 디바인스톤 등은 기존 패딩 유지
+        # 디바인스톤 등은 기존 패딩 기반 보호 영역 유지
         pad_x = max(thickness // 2, 8)
         pad_y = max(thickness // 2, 6)
 
-    # 보호용 외곽 사각형을 약간 키워 건물 주변을 넉넉히 감싼다.
-    protect_rect = building_rect.inflate(pad_x * 2, pad_y * 2)
+        protect_rect = building_rect.inflate(pad_x * 2, pad_y * 2)
 
-    # 상단 가로 벽돌: 보호 영역 전체를 가로질러 배치
-    top_rect = pygame.Rect(
-        protect_rect.left,
-        protect_rect.top - thickness,
-        protect_rect.width,
-        thickness,
-    )
+        # 상단 가로 벽돌: 보호 영역 전체를 가로질러 배치
+        top_rect = pygame.Rect(
+            protect_rect.left,
+            protect_rect.top - thickness,
+            protect_rect.width,
+            thickness,
+        )
 
-    # 좌측 세로 벽돌
-    left_rect = pygame.Rect(
-        protect_rect.left - thickness,
-        protect_rect.top,
-        thickness,
-        protect_rect.height,
-    )
+        # 좌측 세로 벽돌
+        left_rect = pygame.Rect(
+            protect_rect.left - thickness,
+            protect_rect.top,
+            thickness,
+            protect_rect.height,
+        )
 
-    # 우측 세로 벽돌
-    right_rect = pygame.Rect(
-        protect_rect.right,
-        protect_rect.top,
-        thickness,
-        protect_rect.height,
-    )
+        # 우측 세로 벽돌
+        right_rect = pygame.Rect(
+            protect_rect.right,
+            protect_rect.top,
+            thickness,
+            protect_rect.height,
+        )
 
     # 화면 경계 안으로 살짝 보정
     arena_rect = pygame.Rect(0, 0, WIDTH, HEIGHT)
