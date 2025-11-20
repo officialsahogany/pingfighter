@@ -26629,7 +26629,7 @@ def handle_player(keys):
 
         # 휠/중클릭 전환은 메인 이벤트 루프에서만 처리 (여기서는 비움)
 
-        if up_pressed and not space_pressed and allow_weapon_switch:
+        if up_pressed and not space_pressed and allow_weapon_switch and not suicide_drone_active:
             soldier_weapon_hold_frames += 1
             if soldier_weapon_hold_frames >= SOLDIER_WEAPON_MENU_HOLD_FRAMES:
                 soldier_weapon_menu_active = True
@@ -26665,7 +26665,7 @@ def handle_player(keys):
             )
             if soldier_weapon_menu_active:
                 soldier_weapon_menu_active = False
-            elif short_press and allow_weapon_switch and soldier_controller.switch_cooldown <= 0:
+            elif short_press and allow_weapon_switch and soldier_controller.switch_cooldown <= 0 and not suicide_drone_active:
                 next_index = (soldier_controller.current_index + 1) % len(soldier_controller.weapons)
                 soldier_switch_weapon(next_index)
                 soldier_weapon_hold_frames = 0
