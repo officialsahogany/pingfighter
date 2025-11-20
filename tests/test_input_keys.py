@@ -34,6 +34,13 @@ class TestInputKeyMapping(GameTestCase):
                     is_move_left_key(key_code),
                     msg=f"Left move key not recognized: {key_code}",
                 )
+        # 스캔코드(레이아웃 무관)도 지원하는지 확인
+        sc_left = getattr(pygame, "SCANCODE_A", None)
+        if sc_left is not None:
+            self.assertTrue(
+                is_move_left_key(-1, sc_left),
+                msg="Left move scancode not recognized",
+            )
 
     def test_move_right_keys_support_korean_and_english_layouts(self):
         """오른쪽 이동 키가 한/영 모두에서 인식되는지 확인"""
@@ -61,6 +68,13 @@ class TestInputKeyMapping(GameTestCase):
             keys_local[key_code] = True
             with self.subTest(pressed_key=key_code):
                 self.assertTrue(is_move_left_pressed(keys_local))
+        # 스캔코드 전용 상태도 인식하는지 확인
+        sc_left = getattr(pygame, "SCANCODE_A", None)
+        if sc_left is not None:
+            size = sc_left + 10
+            keys_sc = [False] * size
+            keys_sc[sc_left] = True
+            self.assertTrue(is_move_left_pressed(keys_sc))
 
     def test_move_right_pressed_state_helper(self):
         """get_pressed() 결과에 대해 오른쪽 이동 상태 헬퍼가 정상 동작하는지 확인"""
@@ -72,6 +86,13 @@ class TestInputKeyMapping(GameTestCase):
             keys_local[key_code] = True
             with self.subTest(pressed_key=key_code):
                 self.assertTrue(is_move_right_pressed(keys_local))
+        # 스캔코드 전용 상태도 인식하는지 확인
+        sc_right = getattr(pygame, "SCANCODE_D", None)
+        if sc_right is not None:
+            size = sc_right + 10
+            keys_sc = [False] * size
+            keys_sc[sc_right] = True
+            self.assertTrue(is_move_right_pressed(keys_sc))
 
 
 if __name__ == "__main__":
