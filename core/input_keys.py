@@ -16,9 +16,15 @@ def _get_scancode(name: str) -> Optional[int]:
     return getattr(pygame, f"SCANCODE_{name}", None)
 
 
-def _iter_present(values: Iterable[Optional[int]]) -> set[int]:
+def _iter_present(values: Iterable[Optional[int] | int]) -> set[int]:
     return {v for v in values if v is not None}
 
+
+# SDL 기본 스캔코드(플랫폼 공통) – pygame 2.6.x는 SCANCODE_* 상수를 노출하지 않아 직접 지정
+SCANCODE_LEFT_FALLBACK = 80
+SCANCODE_RIGHT_FALLBACK = 79
+SCANCODE_A_FALLBACK = 4
+SCANCODE_D_FALLBACK = 7
 
 # 이동 관련 키 세트 (keycode 기반)
 # - 0x6E/0x6F: 한글 IME 활성화 시 드물게 보고된 Windows 한글 전환 버그 대응 임시 매핑
@@ -41,12 +47,16 @@ MOVE_LEFT_SCANCODES = _iter_present(
     (
         _get_scancode("LEFT"),
         _get_scancode("A"),
+        SCANCODE_LEFT_FALLBACK,
+        SCANCODE_A_FALLBACK,
     )
 )
 MOVE_RIGHT_SCANCODES = _iter_present(
     (
         _get_scancode("RIGHT"),
         _get_scancode("D"),
+        SCANCODE_RIGHT_FALLBACK,
+        SCANCODE_D_FALLBACK,
     )
 )
 
