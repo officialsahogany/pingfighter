@@ -19136,6 +19136,11 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
             rad = math.radians(angle_deg)
             ball_vel[0] = boosted_speed * math.sin(rad)
             ball_vel[1] = -abs(boosted_speed * math.cos(rad))  # 항상 보스(위) 방향
+            try:
+                game_vars.ball.vel[0] = ball_vel[0]
+                game_vars.ball.vel[1] = ball_vel[1]
+            except Exception:
+                pass
             print(f"[DRONE] 가속 후 속도 {boosted_speed:.2f}, 각도 {angle_deg:.1f}°, vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
             _detonate_suicide_drone("ball_hit")
             return
@@ -63400,6 +63405,11 @@ def handle_ball():
                     ball_vel[0] *= scale
                     ball_vel[1] *= scale
                     print(f"[DRONE] 보스 반격 후 vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
+                    try:
+                        game_vars.ball.vel[0] = ball_vel[0]
+                        game_vars.ball.vel[1] = ball_vel[1]
+                    except Exception:
+                        pass
                 suicide_drone_ball_boost_active = False
                 suicide_drone_ball_speed_backup = 0.0
         except Exception:
