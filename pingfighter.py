@@ -21027,36 +21027,46 @@ def _create_blacksmith_building_shield(
 
     if building_type == "turret":
         # 포탑/강화포탑 보호형 벽돌:
-        # - x축으로 좀 더 넓게 감싸고
-        # - 세로 두께(벽 자체의 높이)는 약 10% 줄인다.
+        # - x축으로 넉넉하게 감싸고
+        # - 세로 길이는 약간 줄이되, 윗/옆 벽이 매끄럽게 이어지도록 구성한다.
         thickness = max(4, int(wall_height * 0.9))
         try:
             ball_r = int(globals().get("BALL_RADIUS", 8))
         except Exception:
             ball_r = 8
-        # 좌우 확장을 위해 터렛 폭의 양 옆으로 최소 2배 공 반지름만큼 여유를준다.
+
+        # 좌우 확장을 위해 터렛 폭의 양 옆으로 최소 2배 공 반지름만큼 여유를 준다.
         margin_x = max(ball_r * 2, thickness * 2)
 
-        # 상단 가로 벽돌
+        # 세로 방향으로는 포탑 전체 높이보다 약간 짧게 감싸되,
+        # top/side가 끊기지 않도록 하나의 보호 영역을 기준으로 만든다.
+        height = building_rect.height
+        # 아래쪽은 포탑 바닥에서 20% 정도는 비워두되 최소 여백 확보
+        margin_bottom = max(thickness, int(height * 0.2))
+
+        shield_top = building_rect.top - thickness
+        shield_bottom = max(
+            shield_top + thickness * 2,
+            building_rect.bottom - margin_bottom,
+        )
+
+        # 상단 가로 벽돌: 보호 영역 전체를 가로질러 배치
         top_width = building_rect.width + margin_x * 2
         top_x = building_rect.centerx - top_width // 2
-        top_y = building_rect.top - thickness
-        top_rect = pygame.Rect(top_x, top_y, top_width, thickness)
+        top_rect = pygame.Rect(top_x, shield_top, top_width, thickness)
 
-        # 좌우 세로 벽돌: 전체 높이보다 약간 짧게(70%) 만들어도 된다고 하셨으므로,
-        # 중앙을 기준으로 위/아래 15%씩만 남기고 70%만 감싼다.
-        side_height = max(thickness * 2, int(building_rect.height * 0.7))
-        side_top = building_rect.centery - side_height // 2
+        # 좌우 세로 벽돌: 상단 벽과 정확히 이어지도록 동일한 top을 사용
+        side_height = max(thickness * 2, int(shield_bottom - shield_top))
 
         left_rect = pygame.Rect(
-            building_rect.left - margin_x - thickness,
-            side_top,
+            top_rect.left - thickness,
+            shield_top,
             thickness,
             side_height,
         )
         right_rect = pygame.Rect(
-            building_rect.right + margin_x,
-            side_top,
+            top_rect.right,
+            shield_top,
             thickness,
             side_height,
         )
