@@ -15076,6 +15076,88 @@ BLACKSMITH_DIVINE_SHIELD_TIME = 7.0
 BLACKSMITH_DIVINE_SHIELD_GAUGE_DRAIN_PER_SEC = BLACKSMITH_DIVINE_SHIELD_COST / BLACKSMITH_DIVINE_SHIELD_TIME
 BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES = int(25.0 * FPS)
 BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES = int(30.0 * FPS)
+
+def check_divine_shield_ball_collision():
+    """디바인쉴드 보호막과 공의 충돌을 체크하고 보스 공을 반사한다."""
+    global BALL, ball_vel, last_hit_by
+
+    # 디바인쉴드 활성 확인
+    try:
+        divine_state = globals().get("blacksmith_divine_stone_state")
+        if divine_state is None or not divine_state.get("shield_active", False):
+            return False
+    except Exception:
+        return False
+
+    # 보스가 발사한 공만 반사
+    if last_hit_by != "boss":
+        return False
+
+    # 보호막 영역 계산
+    centers = []
+    rect = divine_state.get("rect")
+    if rect is not None:
+        centers.append(rect.center)
+
+    try:
+        turret_state = BLACKSMITH_CONTROLLER.state.turret.state
+        if turret_state and turret_state.get("rect") is not None:
+            centers.append(turret_state["rect"].center)
+    except Exception:
+        pass
+
+    if not centers:
+        return False
+
+    # 그룹 중심과 반경 계산
+    if len(centers) == 1:
+        group_cx, group_cy = centers[0]
+        group_radius = 55
+    else:
+        sum_x = sum(c[0] for c in centers)
+        sum_y = sum(c[1] for c in centers)
+        group_cx = sum_x // len(centers)
+        group_cy = sum_y // len(centers)
+        max_dist = max(math.hypot(c[0] - group_cx, c[1] - group_cy) for c in centers)
+        group_radius = int(max_dist + 50)
+
+    # 공과 보호막 원의 충돌 체크
+    ball_cx, ball_cy = BALL.center
+    dist = math.hypot(ball_cx - group_cx, ball_cy - group_cy)
+
+    # 보호막 외곽 링 반경 (가장 바깥 링)
+    shield_ring_radius = group_radius + 10
+    ball_radius = BALL.width // 2
+
+    # 충돌 감지 (공이 보호막 링에 닿았을 때)
+    if abs(dist - shield_ring_radius) <= ball_radius + 3:
+        # 반사 벡터 계산 (원형 표면에서의 반사)
+        normal_x = (ball_cx - group_cx) / max(dist, 1)
+        normal_y = (ball_cy - group_cy) / max(dist, 1)
+
+        # 반사 공식: v' = v - 2(v·n)n
+        dot = ball_vel[0] * normal_x + ball_vel[1] * normal_y
+        if dot < 0:  # 공이 보호막을 향해 들어오는 경우만
+            ball_vel[0] = ball_vel[0] - 2 * dot * normal_x
+            ball_vel[1] = ball_vel[1] - 2 * dot * normal_y
+
+            # 공을 보호막 바깥으로 밀어냄
+            push_dist = shield_ring_radius + ball_radius + 5
+            BALL.centerx = int(group_cx + normal_x * push_dist)
+            BALL.centery = int(group_cy + normal_y * push_dist)
+
+            # 반사 효과음 및 이펙트
+            try:
+                play_sound_with_volume(SOUND_WALL)
+                effects_manager.spawn_star_particles(BALL.centerx, BALL.centery, count=8)
+            except Exception:
+                pass
+
+            print(f"[DEBUG] Divine shield reflected boss ball at ({BALL.centerx}, {BALL.centery})")
+            return True
+
+    return False
+
 BLACKSMITH_HAMMER_SHOCK_STAGE_COST = {
     1: 200,
     2: 260,
