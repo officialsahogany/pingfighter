@@ -25849,6 +25849,20 @@ def handle_player(keys):
         # 스냅샷 전역이 아직 초기화되지 않은 극초기 프레임 등은 조용히 기본값 사용
         pass
 
+    # 입력 추적 로그 (간헐적 먹통 조사용)
+    _log_input_trace(
+        frame_counter,
+        keys,
+        left_pressed_raw,
+        right_pressed_raw,
+        SNAP_left_state if 'SNAP_left_state' in globals() else False,
+        SNAP_right_state if 'SNAP_right_state' in globals() else False,
+        player_stunned_timer > 0,
+        is_waiting_for_serve,
+        serve_completed_timer,
+        current_speed,
+    )
+
     # 컨트롤 스킴: 마우스+키보드일 때 WASD를 화살표 입력에 병합
     try:
         _sm = get_settings_manager()
