@@ -63415,27 +63415,7 @@ def handle_ball():
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
 
-        # 자폭드론 부스트가 적용된 공이라면 속도 원복(약 3배 느리게)
-        try:
-            if suicide_drone_ball_boost_active and suicide_drone_ball_speed_backup > 0:
-                current_speed = math.hypot(ball_vel[0], ball_vel[1])
-                if current_speed > 0:
-                    restore_speed = suicide_drone_ball_speed_backup / 3.0  # 약 3배 느리게 복원
-                    scale = restore_speed / current_speed
-                    print(f"[DRONE] 보스 반격: 현재속도 {current_speed:.2f} -> 복원속도 {restore_speed:.2f} (backup {suicide_drone_ball_speed_backup:.2f})")
-                    ball_vel[0] *= scale
-                    ball_vel[1] *= scale
-                    print(f"[DRONE] 보스 반격 후 vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
-                    try:
-                        game_vars.ball.vel[0] = ball_vel[0]
-                        game_vars.ball.vel[1] = ball_vel[1]
-                    except Exception:
-                        pass
-                suicide_drone_ball_boost_active = False
-                suicide_drone_ball_speed_backup = 0.0
-        except Exception:
-            pass
-
+        # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
         # 서브 상태는 보스가 받을 때는 이미 False이므로 특별한 처리 불필요
 
         # 디바인쉴드 부스트 비활성화 및 속도 복구 (보스 패들에 닿았을 때)
