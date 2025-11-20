@@ -52837,6 +52837,19 @@ def show_item_manager_menu():
 
             return net_icon
 
+        if item_name == "suicide_drone":
+            drone_icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+            # 본체
+            pygame.draw.rect(drone_icon, (60, 60, 70), (10, 12, 12, 8), border_radius=3)
+            pygame.draw.rect(drone_icon, (180, 40, 40), (12, 10, 8, 4), border_radius=2)
+            # 프로펠러
+            for dx in (6, 26):
+                pygame.draw.circle(drone_icon, (200, 200, 200), (dx, 10), 4, 2)
+                pygame.draw.circle(drone_icon, (200, 200, 200), (dx, 22), 4, 2)
+            # 카메라/신관 포인트
+            pygame.draw.circle(drone_icon, (255, 200, 80), (22, 16), 2)
+            return drone_icon
+
         if item_name == "knee_pads":
             return create_knee_pads_icon(32)
 
