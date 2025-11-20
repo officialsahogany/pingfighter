@@ -28440,6 +28440,29 @@ def handle_player(keys):
     if selected_character_type == "soldier" and 'net_gun' in soldier_controller.weapons:
         net_gun_instance = get_net_gun_instance()
 
+    def _update_net_constrict() -> None:
+        """보스 포획 그물 축소 입력 처리(좌우 번갈아 연타 시 8%씩, 최대 40%)."""
+        global last_net_constrict_dir, last_net_constrict_tick
+        if not net_gun_instance or not net_gun_instance.nets:
+            return
+        active_nets = [
+            n for n in net_gun_instance.nets
+            if n.get("hooked_player") and not n.get("dissolve") and n.get("constrict_factor", 1.0) > 0.6
+        ]
+        if not active_nets:
+            return
+        dir_input = (-1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 0) + (1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0)
+        if dir_input == 0:
+            return
+        now = pygame.time.get_ticks()
+        if dir_input != last_net_constrict_dir:
+            if now - last_net_constrict_tick <= 400:  # 0.4초 내 좌우 전환 시 축소
+                for net in active_nets:
+                    cf = net.get("constrict_factor", 1.0)
+                    net["constrict_factor"] = max(0.6, cf - 0.08)
+            last_net_constrict_dir = dir_input
+            last_net_constrict_tick = now
+
     if not player_stunned:
         if suicide_drone_active:
             current_speed = 0
@@ -28588,6 +28611,9 @@ def handle_player(keys):
                 else:
                     # 권총 발사
                     fire_soldier_bullet()
+
+        if selected_character_type == "soldier" and net_gun_instance:
+            _update_net_constrict()
 
         # 자폭드론 조종/상태 업데이트
         if selected_character_type == "soldier" and 'suicide_drone' in soldier_controller.weapons:
