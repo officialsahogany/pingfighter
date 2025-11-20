@@ -14039,14 +14039,6 @@ def draw_blacksmith_divine_ui(surface):
                     pygame.draw.rect(surface, (90, 105, 140), seg_rect, 1, border_radius=3)
 
                 pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
-
-                # 잔여 스택 텍스트
-                xp_text = tiny_font.render(
-                    f"쉴드 {remaining_layers}/{max_layers}",
-                    True,
-                    (225, 235, 255),
-                )
-                surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
             else:
                 # 차지 중에는 쉴드 게이지 진행도 표시
                 xp_ratio = max(0.0, min(1.0, shield_xp / shield_xp_max))
