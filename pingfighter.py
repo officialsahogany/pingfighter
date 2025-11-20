@@ -18230,6 +18230,11 @@ soldier_last_weapon_before_pistol: str | None = None  # 중클릭으로 권총 �
 
 def reset_weapon_tracking(weapon_name: str) -> None:
     soldier_controller.reset_tracking(weapon_name)
+    if weapon_name == "suicide_drone":
+        globals()["soldier_drone_ammo"] = SUICIDE_DRONE_MAX_AMMO
+        globals()["suicide_drone_active"] = False
+        globals()["suicide_drone_rect"] = None
+        globals()["suicide_drone_player_lock"] = None
 
 
 def register_weapon_reload(weapon_name: str) -> None:
@@ -18284,6 +18289,14 @@ soldier_last_reload_bullets = 0  # 재장전 중 마지막으로 표시된 총�
 # 권총 탄약 관련 변수
 soldier_pistol_ammo = 15  # 권총 현재 탄약
 SOLDIER_PISTOL_MAX_AMMO = 15  # 권총 최대 탄약
+
+# 자폭드론 관련 변수
+SUICIDE_DRONE_MAX_AMMO = 3
+soldier_drone_ammo = SUICIDE_DRONE_MAX_AMMO
+suicide_drone_active = False
+suicide_drone_rect: pygame.Rect | None = None
+suicide_drone_speed = 10
+suicide_drone_player_lock: tuple[int, int] | None = None
 
 # === 코만도 총 발사 애니메이션 관련 변수 ===
 soldier_gun_animation_active = False  # 총 발사 애니메이션 진행 중인지
@@ -53671,6 +53684,10 @@ def apply_selected_items(
 
     soldier_controller.reset()
     soldier_last_weapon_before_pistol = None
+    globals()['soldier_drone_ammo'] = SUICIDE_DRONE_MAX_AMMO
+    globals()['suicide_drone_active'] = False
+    globals()['suicide_drone_rect'] = None
+    globals()['suicide_drone_player_lock'] = None
     fire_support_weapon = get_fire_support_instance()
     fire_support_weapon.reset_runtime()
 
