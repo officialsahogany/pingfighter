@@ -25887,6 +25887,8 @@ def handle_player(keys):
     if 'soldier_weapon_switch_suppress_frames' in globals() and soldier_weapon_switch_suppress_frames > 0:
         soldier_weapon_switch_suppress_frames -= 1
     global short_shot_counter_window, short_shot_counter_pending
+    # 자폭드론 공속 부스트 백업/상태
+    global suicide_drone_ball_speed_backup, suicide_drone_ball_boost_active
     global special_gauge
     global player_stunned_timer, player_knockback_vel  #  스턴 전역
     global player_stun_immunity_timer  # ️ 스턴 면역 타이머
