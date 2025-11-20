@@ -10,8 +10,8 @@ class Bazooka:
     def __init__(self):
         self.active = False
         self.equipped = False  # 현재 장착 중인지
-        self.ammo_count = 5  # 총알 5개
-        self.max_ammo = 5
+        self.ammo_count = 4  # 총알 4개
+        self.max_ammo = 4
         self.cooldown_timer = 0  # 발사 쿨타임
         self.COOLDOWN_TIME = 120  # 2초 쿨타임 (60fps)
         self.CONTROL_LOCK_TIME = 30  # 통제불능 시간 0.5초 (60fps)
