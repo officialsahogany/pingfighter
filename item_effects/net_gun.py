@@ -408,15 +408,16 @@ class NetTrapGun:
             surface.fill((0, 0, 0, 0))
 
             phase = net["phase"]
-            polygon_points = net["shape"]
-            cx = rect.width / 2
-            cy = rect.height / 2
-            jittered_points = []
-            if dissolve:
-                shrink = remaining_ratio ** 1.4
-                jitter_amp = 4 + (1 - remaining_ratio) * 8
-                vertical_scale = 0.45 + 0.25 * remaining_ratio
-            else:
+        polygon_points = net["shape"]
+        cx = rect.width / 2
+        cy = rect.height / 2
+        jittered_points = []
+        constrict_x = 0.7 if net.get("hooked_player") and not dissolve else 1.0
+        if dissolve:
+            shrink = remaining_ratio ** 1.4
+            jitter_amp = 4 + (1 - remaining_ratio) * 8
+            vertical_scale = 0.45 + 0.25 * remaining_ratio
+        else:
                 shrink = 0.9 + 0.1 * remaining_ratio
                 jitter_amp = 3
                 vertical_scale = 0.6 + 0.3 * remaining_ratio
@@ -427,7 +428,7 @@ class NetTrapGun:
                 sine_seed = phase + (px + py) * 0.03
                 jitter_x = math.sin(sine_seed) * jitter_amp
                 jitter_y = math.cos(sine_seed * 0.8) * (jitter_amp * 0.5)
-                final_x = cx + rel_x * shrink + jitter_x
+                final_x = cx + rel_x * shrink * constrict_x + jitter_x
                 final_y = cy + rel_y * vertical_scale + jitter_y
                 if dissolve:
                     final_y += (1 - remaining_ratio) ** 1.2 * rect.height * 0.6
