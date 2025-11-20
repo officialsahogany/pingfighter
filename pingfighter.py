@@ -28459,7 +28459,7 @@ def handle_player(keys):
             if now - last_net_constrict_tick <= 400:  # 0.4초 내 좌우 전환 시 축소
                 for net in active_nets:
                     cf = net.get("constrict_factor", 1.0)
-                    net["constrict_factor"] = max(0.6, cf - 0.08)
+                    net["constrict_factor"] = max(0.6, cf - 0.04)
             last_net_constrict_dir = dir_input
             last_net_constrict_tick = now
 
