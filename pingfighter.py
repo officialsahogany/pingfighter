@@ -33662,13 +33662,13 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
     if not stage7_tetrominoes:
         return
 
-    s = STAGE7_TETRO_CELL_SIZE
     for mino in stage7_tetrominoes[:]:
         elapsed = now - mino.get("last_update", now)
         if elapsed < 0:
             elapsed = 0
 
         state = mino.get("state")
+        cell_size = max(1, int(mino.get("cell_size", STAGE7_TETRO_CELL_SIZE)))
         if state == "assembling":
             # 누적 조립 시간 업데이트 (last_update는 분기 처리 후 갱신)
             mino["assembly_elapsed"] = mino.get("assembly_elapsed", 0.0) + elapsed
@@ -33740,7 +33740,7 @@ def update_stage7_tetrominoes(now: int | None = None) -> None:
 
             while mino["step_accum"] >= STAGE7_TETRO_STEP_MS:
                 mino["step_accum"] -= STAGE7_TETRO_STEP_MS
-                step_s = STAGE7_TETRO_CELL_SIZE * max(1, int(mino.get("scale", 1)))
+                step_s = cell_size
 
                 # A) 낙하 중 좌우 드리프트(셀 단위) 시도 — 낙하 후 0.5~1.2초 사이 랜덤 시점부터 활성화
                 try:
