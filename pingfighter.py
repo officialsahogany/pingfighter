@@ -28441,7 +28441,7 @@ def handle_player(keys):
         net_gun_instance = get_net_gun_instance()
 
     def _update_net_constrict() -> None:
-        """보스 포획 그물 축소 입력 처리(좌우 번갈아 연타 시 8%씩, 최대 40%)."""
+        """보스 포획 그물 축소 입력 처리(좌우 번갈아 연타 시 4%씩, 최대 40%)."""
         global last_net_constrict_dir, last_net_constrict_tick
         if not net_gun_instance or not net_gun_instance.nets:
             return
