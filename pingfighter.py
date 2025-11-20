@@ -704,7 +704,7 @@ except ImportError as e:
     print("AI . TensorFlow : pip install tensorflow")
 #  플레이어 실력 분석 시스템 임포트
 try:
-    from player_skill_analyzer import get_player_analyzer
+    from player_skill_analyzer import get_player_analyzer, PlayerSkillAnalyzer
     SKILL_ANALYZER_AVAILABLE = True
     print("!")
 except ImportError as e:
@@ -2235,6 +2235,7 @@ ai_frame_counter = 0
 #  플레이어 실력 분석 시스템
 # 플레이어 분석기 인스턴스
 player_analyzer = None
+player_analyzer_profiles = {}  # 캐릭터별 별도 분석기 저장
 skill_display_enabled = True
 last_skill_update_time = 0
 #  플레이어 설정
@@ -63234,19 +63235,41 @@ def initialize_enhanced_ai():
         print("AI   .  AI .")
         ai_enabled = False
         return False
-def initialize_player_analyzer():
-    """플레이어 실력 분석 시스템 초기화"""
-    global player_analyzer
+def initialize_player_analyzer(reset_session: bool = False):
+    """플레이어 실력 분석 시스템 초기화/전환
+
+    - 캐릭터별 프로필(player_analyzer_profiles)에 저장
+    - 새 게임 시작(stage 1 첫 진입) 또는 캐릭터 변경 시 reset_session=True로 호출
+    """
+    global player_analyzer, player_analyzer_profiles
     if not SKILL_ANALYZER_AVAILABLE:
         print(".")
         return False
-    try:
-        player_analyzer = get_player_analyzer()
-        print("!")
-        return True
-    except Exception as e:
-        print(f"    : {e}")
-        return False
+
+    # 현재 캐릭터 타입 파악 (없으면 default)
+    char_type = globals().get("selected_character_type", "default") or "default"
+
+    # 캐릭터 변경 시 강제 리셋
+    if player_analyzer and getattr(player_analyzer, "_char_type", None) != char_type:
+        reset_session = True
+
+    # 캐릭터별 프로필 딕셔너리 보장
+    if player_analyzer_profiles is None or not isinstance(player_analyzer_profiles, dict):
+        player_analyzer_profiles = {}
+
+    # 필요하면 새 인스턴스 생성
+    if reset_session or char_type not in player_analyzer_profiles:
+        try:
+            player_analyzer_profiles[char_type] = PlayerSkillAnalyzer()
+            # 추적용 메타 필드
+            player_analyzer_profiles[char_type]._char_type = char_type
+            print(f"Player analyzer created for '{char_type}'")
+        except Exception as e:
+            print(f"    : {e}")
+            return False
+
+    player_analyzer = player_analyzer_profiles[char_type]
+    return True
     try:
         enhanced_ai = EnhancedBossAI(ai_mode)
         ai_enabled = True
@@ -67293,7 +67316,7 @@ def main(stage_num, new_boss_mode=False):
     #  딥러닝 AI 시스템 초기화
     initialize_enhanced_ai()
     #  플레이어 실력 분석 시스템 초기화
-    initialize_player_analyzer()
+    initialize_player_analyzer(reset_session=(stage_num == 1 and not game_session_active))
     # 새로운 보스 배틀 모드 설정
     new_boss_mode_active = new_boss_mode
     if new_boss_mode_active:
