@@ -17308,6 +17308,18 @@ def activate_supply_drop_item(item_name: str) -> None:
                 pass
         return
 
+    if item_name == "suicide_drone":
+        if soldier_controller.add_weapon("suicide_drone"):
+            print(f"🚁 자폭드론 획득! 현재 화기류: {soldier_controller.weapons}")
+            globals()["soldier_drone_ammo"] = SUICIDE_DRONE_MAX_AMMO
+            _reset_suicide_drone_state()
+            try:
+                if SOUND_ITEM_GET:
+                    SOUND_ITEM_GET.play()
+            except Exception:
+                pass
+        return
+
     # 일반 아이템 처리
     item_data = None
     for item in items.ITEM_TYPES:
