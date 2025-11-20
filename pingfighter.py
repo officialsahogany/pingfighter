@@ -67813,13 +67813,18 @@ def main(stage_num, new_boss_mode=False):
                 _scheme2 = _sm2.get_setting('controls', 'control_scheme', 'keyboard')
             except Exception:
                 _scheme2 = 'keyboard'
+            # 좌클릭 에지(더블탭 감지용)를 스킴과 무관하게 계산
+            left_pressed = False
+            try:
+                mb = pygame.mouse.get_pressed()
+                left_pressed = bool(mb[0])
+            except Exception:
+                left_pressed = False
+            mb_left_just_pressed = left_pressed and not last_mb_left_state
+            last_mb_left_state = left_pressed
             if _scheme2 == 'mouse_keyboard':
-                try:
-                    mb = pygame.mouse.get_pressed()
-                    # 좌클릭을 Space 상태에 병합만 수행 (에지는 아래 space_just_pressed 계산에 일괄 반영)
-                    current_space_state = current_space_state or bool(mb[0])
-                except Exception:
-                    pass
+                # 마우스 스킴에서는 좌클릭을 Space 입력으로도 병합
+                current_space_state = current_space_state or left_pressed
             # 코만도 무기 HUD가 열려 있을 때는 스페이스 에지 입력을 무시해 발사/액션이 나가지 않게 한다.
             if selected_character_type == "soldier" and (
                 ('soldier_weapon_menu_active' in globals() and soldier_weapon_menu_active)
@@ -68054,6 +68059,8 @@ def main(stage_num, new_boss_mode=False):
             space_just_pressed = False
             current_space_state = False
             last_space_state = False
+            mb_left_just_pressed = False
+            last_mb_left_state = False
         #  방향키 입력 감지 (감전 상태일 때는 무시)
         if not player_stunned:
             # 방향 입력: 스냅샷 우선 사용, 없으면 키 상태 + IME 보조 매핑
