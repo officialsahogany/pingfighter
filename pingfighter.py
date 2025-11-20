@@ -70301,14 +70301,14 @@ def main(stage_num, new_boss_mode=False):
                     pygame.event.pump()
                     keys_now = pygame.key.get_pressed()
                     mb_now = pygame.mouse.get_pressed()
-    try:
-        _sm_snap2 = get_settings_manager()
-        _scheme_snap2 = _sm_snap2.get_setting('controls', 'control_scheme', 'keyboard')
-    except Exception:
-        _scheme_snap2 = 'keyboard'
-    # 좌/우: 공용 헬퍼로 스캔코드/IME 변환까지 포함해 스냅샷
-    SNAP_left_state = is_move_left_pressed(keys_now) or MOVE_EVENT_LEFT
-    SNAP_right_state = is_move_right_pressed(keys_now) or MOVE_EVENT_RIGHT
+                    try:
+                        _sm_snap2 = get_settings_manager()
+                        _scheme_snap2 = _sm_snap2.get_setting('controls', 'control_scheme', 'keyboard')
+                    except Exception:
+                        _scheme_snap2 = 'keyboard'
+                    # 좌/우: 공용 헬퍼로 스캔코드/IME 변환까지 포함해 스냅샷
+                    SNAP_left_state = is_move_left_pressed(keys_now) or MOVE_EVENT_LEFT
+                    SNAP_right_state = is_move_right_pressed(keys_now) or MOVE_EVENT_RIGHT
                     SNAP_down_state = bool(keys_now[pygame.K_DOWN] or (_scheme_snap2 == 'mouse_keyboard' and keys_now[pygame.K_s]))
                     SNAP_up_state = bool(keys_now[pygame.K_UP] or (_scheme_snap2 == 'mouse_keyboard' and keys_now[pygame.K_w]))
                     space_state2 = bool(keys_now[pygame.K_SPACE]) or (_scheme_snap2 == 'mouse_keyboard' and bool(mb_now and len(mb_now) >= 1 and mb_now[0]))
