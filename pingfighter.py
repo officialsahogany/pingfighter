@@ -59127,7 +59127,7 @@ def calculate_bounce(paddle):
                 game_vars.ball.vel[1] = ball_vel[1]
             except Exception:
                 pass
-            print(f\"[DRONE] 보스 반격(보정): {current_speed:.2f} -> {restore_speed:.2f}, vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})\")
+            print(f"[DRONE] 보스 반격(보정): {current_speed:.2f} -> {restore_speed:.2f}, vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
         suicide_drone_ball_boost_active = False
         suicide_drone_ball_speed_backup = 0.0
 
