@@ -14038,6 +14038,8 @@ def draw_blacksmith_divine_ui(surface):
                     pygame.draw.rect(surface, fill_color, seg_rect, border_radius=3)
                     pygame.draw.rect(surface, (90, 105, 140), seg_rect, 1, border_radius=3)
 
+                pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
+
                 # 잔여 스택 텍스트
                 xp_text = tiny_font.render(
                     f"쉴드 {remaining_layers}/{max_layers}",
