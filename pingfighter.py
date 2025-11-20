@@ -63486,6 +63486,27 @@ def handle_ball():
             
         calculate_bounce(BOSS)
 
+        # 자폭드론 부스트가 적용된 공이라면 반사 계산 후 최종 속도를 강제 복원(약 3배 느리게)
+        try:
+            if suicide_drone_ball_boost_active and suicide_drone_ball_speed_backup > 0:
+                current_speed = math.hypot(ball_vel[0], ball_vel[1])
+                if current_speed > 0:
+                    restore_speed = suicide_drone_ball_speed_backup / 3.0
+                    scale = restore_speed / current_speed
+                    print(f"[DRONE] 보스 반격(반사 후): 현재속도 {current_speed:.2f} -> 복원속도 {restore_speed:.2f} (backup {suicide_drone_ball_speed_backup:.2f})")
+                    ball_vel[0] *= scale
+                    ball_vel[1] *= scale
+                    try:
+                        game_vars.ball.vel[0] = ball_vel[0]
+                        game_vars.ball.vel[1] = ball_vel[1]
+                    except Exception:
+                        pass
+                    print(f"[DRONE] 보스 반격 후 최종 vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
+                suicide_drone_ball_boost_active = False
+                suicide_drone_ball_speed_backup = 0.0
+        except Exception:
+            pass
+
         if was_stun_ball:
             current_speed = math.hypot(ball_vel[0], ball_vel[1])
             softened_speed = current_speed
