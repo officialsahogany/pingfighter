@@ -105,6 +105,41 @@ _input_log_prev_right = False
 _input_log_last_frame = -9999
 _input_log_last_time = 0.0
 
+
+def _log_input_trace(frame: int,
+                     keys,
+                     left_raw: bool,
+                     right_raw: bool,
+                     snap_left: bool,
+                     snap_right: bool,
+                     stunned: bool,
+                     wait_serve: bool,
+                     serve_timer: int,
+                     speed: float) -> None:
+    """간헐적 이동 미반응을 추적하기 위한 경량 로그"""
+    global _input_log_prev_left, _input_log_prev_right, _input_log_last_frame, _input_log_last_time
+    if not INPUT_TRACE:
+        return
+    now = time.time()
+    # 변화가 없으면 2초(120프레임)마다만 찍기
+    changed = (left_raw != _input_log_prev_left) or (right_raw != _input_log_prev_right)
+    if not changed and frame - _input_log_last_frame < 120:
+        return
+    _input_log_prev_left = left_raw
+    _input_log_prev_right = right_raw
+    _input_log_last_frame = frame
+    _input_log_last_time = now
+    print(
+        "[INPUT_TRACE]"
+        f" frame={frame}"
+        f" left_raw={int(left_raw)} right_raw={int(right_raw)}"
+        f" snapL={int(bool(snap_left))} snapR={int(bool(snap_right))}"
+        f" K_LEFT={int(keys[pygame.K_LEFT])} K_RIGHT={int(keys[pygame.K_RIGHT])}"
+        f" K_a={int(keys[pygame.K_a])} K_d={int(keys[pygame.K_d])}"
+        f" stunned={stunned} wait_serve={wait_serve} serve_t={serve_timer}"
+        f" speed={speed:.3f}"
+    )
+
 def _adapt_input_events(events):
     """입력 어댑터(안전 모드)
 
