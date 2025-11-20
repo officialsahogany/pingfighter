@@ -69253,15 +69253,38 @@ def main(stage_num, new_boss_mode=False):
                 if event.type == pygame.MOUSEBUTTONDOWN and _mid_ok and getattr(event, 'button', 0) == 2:
                     # 중클릭 디바운스 180ms
                     global last_mb_middle_ms
+                    global soldier_last_weapon_before_pistol
                     if 'last_mb_middle_ms' not in globals():
                         last_mb_middle_ms = 0
                     now_ms = pygame.time.get_ticks()
                     if now_ms - last_mb_middle_ms >= 180 and 'pistol' in soldier_controller.weapons:
                         pistol_idx = soldier_controller.weapons.index('pistol')
                         if pistol_idx != soldier_controller.current_index and soldier_controller.switch_cooldown <= 0 and not soldier_weapon_menu_active:
+                            soldier_last_weapon_before_pistol = soldier_controller.weapons[soldier_controller.current_index]
                             soldier_switch_weapon(pistol_idx)
                             last_mb_middle_ms = now_ms
                             continue
+                if event.type == pygame.MOUSEBUTTONDOWN and _mid_ok and getattr(event, 'button', 0) == 3:
+                    try:
+                        if (
+                            soldier_controller.switch_cooldown <= 0
+                            and not soldier_weapon_menu_active
+                            and soldier_controller.weapons
+                            and 0 <= soldier_controller.current_index < len(soldier_controller.weapons)
+                        ):
+                            current_weapon = soldier_controller.weapons[soldier_controller.current_index]
+                            if current_weapon == "pistol":
+                                prev_weapon = soldier_last_weapon_before_pistol
+                                if prev_weapon and prev_weapon in soldier_controller.weapons:
+                                    target_idx = soldier_controller.weapons.index(prev_weapon)
+                                    if target_idx != soldier_controller.current_index:
+                                        soldier_switch_weapon(target_idx)
+                                        soldier_last_weapon_before_pistol = None
+                                        continue
+                                else:
+                                    soldier_last_weapon_before_pistol = None
+                    except Exception:
+                        pass
 
             # 코만도: 무기 HUD(↑ 홀드) 표시 중 좌클릭으로 해당 무기 선택
             if (
