@@ -28503,7 +28503,7 @@ def handle_player(keys):
                 mb_state = pygame.mouse.get_pressed()
             except Exception:
                 mb_state = None
-            update_suicide_drone(keys, space_pressed or space_just_pressed, mb_state)
+            update_suicide_drone(keys, space_just_pressed, mb_left_just_pressed if 'mb_left_just_pressed' in globals() else False)
         else:
             _reset_suicide_drone_state()
         
@@ -28530,7 +28530,7 @@ def handle_player(keys):
     # === 코만도 캐릭터 걷기 애니메이션 처리 ===
     if selected_character_type == "soldier":
         # 플레이어가 움직이고 있는지 확인 (속도가 충분히 클 때)
-        if abs(current_speed) > 1.0:
+        if abs(current_speed) > 1.0 and not suicide_drone_active:
             # 걷기 애니메이션 활성화
             if not soldier_walking_active:
                 soldier_walking_active = True
