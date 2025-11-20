@@ -20,6 +20,7 @@ import importlib
 import copy
 import glob
 from pathlib import Path
+import time
 
 # 실행 파일로 직접 구동할 때도 items 등에서 import pingfighter가 동일 모듈을 참조하도록 별칭을 등록
 sys.modules.setdefault("pingfighter", sys.modules[__name__])
@@ -96,6 +97,13 @@ from core.input_keys import (
 # - 좌클릭 → Space (serve/스킬 등)
 # - 우클릭 → Down
 _orig_pygame_event_get = pygame.event.get
+
+# 입력 추적(디버그) 플래그 – 기본 켜둠(사용자 요청), PINGF_INPUT_TRACE=0 으로 끌 수 있음
+INPUT_TRACE = os.environ.get("PINGF_INPUT_TRACE", "1").lower() not in ("0", "false", "off")
+_input_log_prev_left = False
+_input_log_prev_right = False
+_input_log_last_frame = -9999
+_input_log_last_time = 0.0
 
 def _adapt_input_events(events):
     """입력 어댑터(안전 모드)
