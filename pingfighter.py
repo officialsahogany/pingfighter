@@ -23699,23 +23699,25 @@ def draw_soldier_weapon_ui(screen):
         ammo_to_show = max(0, bazooka.ammo_count)
         max_ammo = bazooka.max_ammo
 
-        rocket_start_x = weapon_x + 5
-        rocket_y = weapon_y + weapon_size + 8
-        rocket_width = 8
-        rocket_height = 16
-        rocket_spacing = 15
+        # 로켓 탄약 UI를 사각형 내부에 맞추어 축소 배치
+        rocket_width = 5
+        rocket_height = 12
+        rocket_spacing = 7
+        total_span = rocket_width + rocket_spacing * (max_ammo - 1)
+        rocket_start_x = weapon_rect.left + max(3, (weapon_rect.width - total_span) // 2)
+        rocket_y = weapon_rect.bottom - rocket_height - 4
 
         for i in range(max_ammo):
             rocket_x = rocket_start_x + i * rocket_spacing
 
             if i < ammo_to_show:
-                warhead_rect = pygame.Rect(rocket_x, rocket_y, rocket_width, 6)
+                warhead_rect = pygame.Rect(rocket_x, rocket_y, rocket_width, 5)
                 pygame.draw.rect(screen, (200, 50, 50), warhead_rect)
 
-                body_rect = pygame.Rect(rocket_x, rocket_y + 6, rocket_width, 8)
+                body_rect = pygame.Rect(rocket_x, rocket_y + warhead_rect.height, rocket_width, 5)
                 pygame.draw.rect(screen, (80, 80, 80), body_rect)
 
-                thruster_rect = pygame.Rect(rocket_x + 2, rocket_y + 14, rocket_width - 4, 2)
+                thruster_rect = pygame.Rect(rocket_x + 1, rocket_y + warhead_rect.height + body_rect.height, rocket_width - 2, 2)
                 pygame.draw.rect(screen, (255, 200, 0), thruster_rect)
 
                 pygame.draw.rect(screen, (150, 30, 30), warhead_rect, 1)
