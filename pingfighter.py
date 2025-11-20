@@ -26049,6 +26049,10 @@ def handle_player(keys):
         space_pressed = SNAP_space_pressed
     else:
         space_pressed = space_pressed_raw
+
+    # 포커스 상실 시에도 이벤트 기반 플래그로 보정
+    left_pressed_raw = left_pressed_raw or MOVE_EVENT_LEFT
+    right_pressed_raw = right_pressed_raw or MOVE_EVENT_RIGHT
     # 무기 HUD(↑ 홀드) 활성화 중에는 코만도 Space(좌클릭 병합 포함)를 무시해
     # HUD 클릭 선택 시 발사가 나가지 않도록 가드
     # (닫힘 억제 프레임은 연사(ak47) 홀드에 영향 주지 않도록 여기서는 고려하지 않음)
@@ -70297,14 +70301,14 @@ def main(stage_num, new_boss_mode=False):
                     pygame.event.pump()
                     keys_now = pygame.key.get_pressed()
                     mb_now = pygame.mouse.get_pressed()
-                    try:
-                        _sm_snap2 = get_settings_manager()
-                        _scheme_snap2 = _sm_snap2.get_setting('controls', 'control_scheme', 'keyboard')
-                    except Exception:
-                        _scheme_snap2 = 'keyboard'
-                    # 좌/우: 공용 헬퍼로 스캔코드/IME 변환까지 포함해 스냅샷
-                    SNAP_left_state = is_move_left_pressed(keys_now)
-                    SNAP_right_state = is_move_right_pressed(keys_now)
+    try:
+        _sm_snap2 = get_settings_manager()
+        _scheme_snap2 = _sm_snap2.get_setting('controls', 'control_scheme', 'keyboard')
+    except Exception:
+        _scheme_snap2 = 'keyboard'
+    # 좌/우: 공용 헬퍼로 스캔코드/IME 변환까지 포함해 스냅샷
+    SNAP_left_state = is_move_left_pressed(keys_now) or MOVE_EVENT_LEFT
+    SNAP_right_state = is_move_right_pressed(keys_now) or MOVE_EVENT_RIGHT
                     SNAP_down_state = bool(keys_now[pygame.K_DOWN] or (_scheme_snap2 == 'mouse_keyboard' and keys_now[pygame.K_s]))
                     SNAP_up_state = bool(keys_now[pygame.K_UP] or (_scheme_snap2 == 'mouse_keyboard' and keys_now[pygame.K_w]))
                     space_state2 = bool(keys_now[pygame.K_SPACE]) or (_scheme_snap2 == 'mouse_keyboard' and bool(mb_now and len(mb_now) >= 1 and mb_now[0]))
