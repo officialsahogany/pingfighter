@@ -20995,7 +20995,7 @@ def render_throwing_item_cooldown():
         return
     
     # 화기류 아이템이 있는지 확인 (투척류 + 권총)
-    firearm_items = ["molotov", "grenade", "flare", "smoke_grenade", "spider_mine", "fire_support"]
+    firearm_items = ["molotov", "grenade", "flare", "smoke_grenade", "spider_mine", "fire_support", "suicide_drone"]
     has_firearm_item = False
     
     # 코만도 캐릭터 권총 확인
@@ -52888,6 +52888,7 @@ def show_item_manager_menu():
         {"name": "ak47", "type": "firearm", "icon": get_icon_safe("ak47_icon", "ak47")},
         {"name": "net_gun", "type": "firearm", "icon": get_icon_safe("net_gun_icon", "net_gun")},
         {"name": "fire_support", "type": "firearm", "icon": get_icon_safe("fire_support_icon", "fire_support")},
+        {"name": "suicide_drone", "type": "firearm", "icon": get_icon_safe("suicide_drone_icon", "suicide_drone")},
         {"name": "slot_add", "type": "passive", "icon": get_icon_safe("slot_add_icon", "slot_add")},
         {"name": "revival", "type": "passive", "icon": get_icon_safe("revival_icon", "revival")},
         {"name": "master", "type": "passive", "icon": get_icon_safe("master_icon", "master")},
@@ -72736,6 +72737,7 @@ def get_item_name_korean(item_name):
         "bazooka": "바주카포",
         "ak47": "AK-47",
         "net_gun": "그물덫총",
+        "suicide_drone": "자폭드론",
         "ragnarok_hammer": "라그나로크 해머",
         "hermes_shoes": "헤르메스의 신발",
         "poseidon_trident": "포세이돈의 삼지창",
@@ -72793,6 +72795,7 @@ def get_item_description(item_name):
         "fire_support": "화력지원: 무전으로 폭격기를 호출해 2~3초 후 보스 진영에 수류탄과 동일한 폭격을 5~7회 투하합니다. 폭격기는 공에 맞으면 격추됩니다.",
         "net_gun": "그물덫총: 작살을 던져 상대 진영에 폭 350px의 그물을 펼칩니다. 전개 순간 범위 안의 보스는 4초 동안 그물 밖으로 이동할 수 없습니다. 장력을 유지하는 동안 군인의 이동 속도는 30% 감소하니 위치를 선점해두세요.",
         "ak47": "AK-47: 강력한 자동소총. 90발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
+        "suicide_drone": "자폭드론: 보급요청 스킬을 통해 투입되는 코만도 전용 드론 슬롯. 추후 성능이 정의되기 전까지는 장비 슬롯 표시 및 전환만 지원합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 플레이어가 공을 칠 때 번개의 힘이 깃들어 1.5배 속도의 스턴볼로 변환됩니다. 보스가 받으면 0.5초 감전 스턴+강력한 넉백! 보스가 반격하면 거대한 충격파와 함께 1초간 화면이 흔들립니다. 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
