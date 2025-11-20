@@ -15097,9 +15097,18 @@ BLACKSMITH_DIVINE_SHIELD_GAUGE_DRAIN_PER_SEC = BLACKSMITH_DIVINE_SHIELD_COST / B
 BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES = int(25.0 * FPS)
 BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES = int(30.0 * FPS)
 
+# 디바인쉴드 반사 부스트 효과 변수
+divine_shield_boost_active = False
+divine_shield_boost_timer = 0
+divine_shield_boost_duration = 36  # 0.6초 (60fps)
+divine_shield_boost_original_speed = [0, 0]
+divine_shield_boost_curve_direction = 0  # -1: 왼쪽, 1: 오른쪽
+
 def check_divine_shield_ball_collision():
     """디바인쉴드 보호막과 공의 충돌을 체크하고 보스 공을 반사한다."""
     global BALL, ball_vel, last_hit_by
+    global divine_shield_boost_active, divine_shield_boost_timer
+    global divine_shield_boost_original_speed, divine_shield_boost_curve_direction
 
     # 디바인쉴드 활성 확인
     try:
@@ -15166,6 +15175,16 @@ def check_divine_shield_ball_collision():
             BALL.centerx = int(group_cx + normal_x * push_dist)
             BALL.centery = int(group_cy + normal_y * push_dist)
 
+            # 속도 부스트 효과 적용 (0.6초간 빠르게 튕겨나감)
+            divine_shield_boost_original_speed = [ball_vel[0], ball_vel[1]]
+            boost_multiplier = 2.5  # 속도 2.5배 증가
+            ball_vel[0] *= boost_multiplier
+            ball_vel[1] *= boost_multiplier
+            divine_shield_boost_active = True
+            divine_shield_boost_timer = divine_shield_boost_duration
+            # 커브 방향 결정 (반사 방향에 따라)
+            divine_shield_boost_curve_direction = 1 if normal_x > 0 else -1
+
             # 보호막 피격 카운터 증가
             shield_hits = divine_state.get("shield_hits", 0) + 1
             divine_state["shield_hits"] = shield_hits
@@ -15182,7 +15201,7 @@ def check_divine_shield_ball_collision():
             except Exception:
                 pass
 
-            print(f"[DEBUG] Divine shield hit {shield_hits}/4 - reflected boss ball at ({BALL.centerx}, {BALL.centery})")
+            print(f"[DEBUG] Divine shield hit {shield_hits}/4 - reflected boss ball at ({BALL.centerx}, {BALL.centery}) with boost")
 
             # 4회 피격 시 쉴드 종료
             if shield_hits >= 4:
