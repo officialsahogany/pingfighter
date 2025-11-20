@@ -19125,10 +19125,10 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
             suicide_drone_ball_speed_backup = original_speed
             suicide_drone_ball_boost_active = True
 
-            # 가속 및 방향 재설정: 보스(위쪽) 방향으로 부채꼴 랜덤
+            # 가속 및 방향 재설정: 보스(위쪽) 방향으로 좁은 부채꼴 랜덤 (거의 수직)
             base_speed = original_speed if original_speed > 0 else BALL_BASE_SPEED
             boosted_speed = base_speed * 3.0
-            angle_deg = random.uniform(-45, 45)  # 좌우 45도 범위
+            angle_deg = random.uniform(-25, 25)  # 좌우 25도 범위로 더 수직에 가깝게
             rad = math.radians(angle_deg)
             ball_vel[0] = boosted_speed * math.sin(rad)
             ball_vel[1] = -abs(boosted_speed * math.cos(rad))  # 항상 보스(위) 방향
@@ -63384,12 +63384,12 @@ def handle_ball():
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
 
-        # 자폭드론 부스트가 적용된 공이라면 속도 원복(조금 더 느리게)
+        # 자폭드론 부스트가 적용된 공이라면 속도 원복(약 3배 느리게)
         try:
             if suicide_drone_ball_boost_active and suicide_drone_ball_speed_backup > 0:
                 current_speed = math.hypot(ball_vel[0], ball_vel[1])
                 if current_speed > 0:
-                    restore_speed = suicide_drone_ball_speed_backup * 0.85  # 15% 감속하여 복원
+                    restore_speed = suicide_drone_ball_speed_backup / 3.0  # 약 3배 느리게 복원
                     scale = restore_speed / current_speed
                     ball_vel[0] *= scale
                     ball_vel[1] *= scale
