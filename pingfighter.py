@@ -67925,8 +67925,9 @@ def main(stage_num, new_boss_mode=False):
                 )
                 turret_rect = None
                 manual_candidate = False
+                manual_input_edge = space_just_pressed or mb_left_just_pressed
                 if (
-                    space_just_pressed
+                    manual_input_edge
                     and blacksmith_turret_active
                     and blacksmith_turret_state
                     and blacksmith_turret_state.get("hp", 0) > 0
@@ -67974,29 +67975,29 @@ def main(stage_num, new_boss_mode=False):
                 double_input_for_manual = False
                 if manual_candidate:
                     max_double_frames = int(0.3 * FPS)  # 약 0.3초 이내 더블 입력 허용
+                    double_space = False
+                    double_click = False
                     # SPACE 더블 프레스
                     if space_just_pressed:
                         if (
                             blacksmith_manual_fire_last_space_frame >= 0
                             and frame_counter - blacksmith_manual_fire_last_space_frame <= max_double_frames
                         ):
-                            double_input_for_manual = True
+                            double_space = True
                         # 현재 프레임을 마지막 SPACE 입력 프레임으로 기록
                         blacksmith_manual_fire_last_space_frame = frame_counter
 
-                    # 마우스 좌클릭 더블 클릭 (마우스+키보드 스킴에서만)
-                    try:
-                        if _scheme2 == 'mouse_keyboard' and mb_left_just_pressed and turret_rect is not None:
-                            if PLAYER.colliderect(turret_rect):
-                                if (
-                                    blacksmith_manual_fire_last_click_frame >= 0
-                                    and frame_counter - blacksmith_manual_fire_last_click_frame <= max_double_frames
-                                ):
-                                    double_input_for_manual = True
-                                # 현재 프레임을 마지막 좌클릭 입력 프레임으로 기록
-                                blacksmith_manual_fire_last_click_frame = frame_counter
-                    except Exception:
-                        pass
+                    # 마우스 좌클릭 더블 클릭 (스킴과 관계없이 허용)
+                    if mb_left_just_pressed and turret_rect is not None:
+                        if (
+                            blacksmith_manual_fire_last_click_frame >= 0
+                            and frame_counter - blacksmith_manual_fire_last_click_frame <= max_double_frames
+                        ):
+                            double_click = True
+                        # 현재 프레임을 마지막 좌클릭 입력 프레임으로 기록
+                        blacksmith_manual_fire_last_click_frame = frame_counter
+
+                    double_input_for_manual = double_space or double_click
 
                 if manual_candidate and double_input_for_manual:
                     # 기본값은 수동 발사 우선, 단 ↓키를 누른 채 해머 게이지가 충분하면 해머 쇼크를 선택할 수 있게 한다.
