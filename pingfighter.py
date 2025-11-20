@@ -23911,15 +23911,17 @@ def draw_soldier_weapon_ui(screen):
         ammo_to_show = max(0, bazooka.ammo_count)
         max_ammo = bazooka.max_ammo
 
-        # 로켓 탄약 UI: 슬롯 아래쪽에 다른 화기 탄약 행과 동일한 Y축 라인에 배치
-        rocket_width = 5
+        # 로켓 탄약 UI: 슬롯 너비에 맞춰 균등 간격으로 정렬
+        padding_x = 6
+        available_w = weapon_rect.width - padding_x * 2
+        rocket_spacing = available_w / max(1, max_ammo - 1) if max_ammo > 1 else 0
+        rocket_width = max(6, min(12, int((available_w / max_ammo) * 0.55)))
         rocket_height = 12
-        rocket_spacing = 9
-        rocket_start_x = weapon_x + 3
         rocket_y = weapon_y + weapon_size + 6  # 권총/다른 화기 탄약 라인과 맞춤
 
         for i in range(max_ammo):
-            rocket_x = rocket_start_x + i * rocket_spacing
+            center_x = weapon_rect.left + padding_x + (rocket_spacing * i if max_ammo > 1 else available_w / 2)
+            rocket_x = int(center_x - rocket_width / 2)
 
             if i < ammo_to_show:
                 warhead_rect = pygame.Rect(rocket_x, rocket_y, rocket_width, 5)
@@ -23928,7 +23930,7 @@ def draw_soldier_weapon_ui(screen):
                 body_rect = pygame.Rect(rocket_x, rocket_y + warhead_rect.height, rocket_width, 5)
                 pygame.draw.rect(screen, (80, 80, 80), body_rect)
 
-                thruster_rect = pygame.Rect(rocket_x + 1, rocket_y + warhead_rect.height + body_rect.height, rocket_width - 2, 2)
+                thruster_rect = pygame.Rect(rocket_x + 1, rocket_y + warhead_rect.height + body_rect.height, max(2, rocket_width - 2), 2)
                 pygame.draw.rect(screen, (255, 200, 0), thruster_rect)
 
                 pygame.draw.rect(screen, (150, 30, 30), warhead_rect, 1)
@@ -24098,9 +24100,10 @@ def draw_soldier_weapon_ui(screen):
             )
 
         # 탄약 게이지 바 (아이콘 아래 가로형)
-        gauge_width = weapon_rect.width - 10
+        gauge_padding = 6
+        gauge_width = weapon_rect.width - gauge_padding * 2
         gauge_height = 6
-        gauge_x = weapon_rect.x + (weapon_rect.width - gauge_width) // 2
+        gauge_x = weapon_rect.x + gauge_padding
         gauge_y = weapon_rect.bottom + 6
 
         gauge_bg_color = (30, 30, 30) if ak47_active else (45, 45, 45)
