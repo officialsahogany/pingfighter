@@ -40285,8 +40285,9 @@ def draw_objects():
 
     # 그물덫총 보스 포획 시 화살표 키 연타 애니메이션
     if (selected_character_type == "soldier" and
-        'net_gun' in soldier_controller.weapons and
-        net_gun_instance and net_gun_instance.boss_is_trapped()):
+        'net_gun' in soldier_controller.weapons):
+        _net_gun = get_net_gun_instance()
+        if _net_gun and _net_gun.boss_is_trapped():
         try:
             # 애니메이션 타이밍
             ticks = pygame.time.get_ticks()
