@@ -37252,16 +37252,47 @@ def draw_player_gauge():
             pulse_alpha = int(32 + 60 * energy_pulse * glow_strength)
             if pulse_alpha > 0:
                 panel_glow_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+                if reinforced_divine:
+                    # 강화디바인스톤: 검붉은색 글로우
+                    glow_color = (180, 50, 80, pulse_alpha)
+                else:
+                    # 일반 디바인스톤: 파란색 글로우
+                    glow_color = (60, 160, 255, pulse_alpha)
                 pygame.draw.rect(
                     panel_glow_surface,
-                    (60, 160, 255, pulse_alpha),
+                    glow_color,
                     panel_glow_surface.get_rect(),
                     border_radius=panel_rect.height // 2,
                 )
                 SCREEN.blit(panel_glow_surface, panel_rect.topleft, special_flags=pygame.BLEND_ADD)
 
-            fill_safe = (68, 176, 255)
-            fill_danger = (178, 124, 255)
+                # 강화디바인스톤: 검붉은 오오라 방출 애니메이션
+                if reinforced_divine:
+                    aura_time = time_now * 0.004
+                    for aura_i in range(3):
+                        aura_offset = (aura_time + aura_i * 0.33) % 1.0
+                        aura_expand = int(4 + aura_offset * 12)
+                        aura_alpha = int(80 * (1.0 - aura_offset) * glow_strength)
+                        if aura_alpha > 0:
+                            aura_rect = panel_rect.inflate(aura_expand * 2, aura_expand * 2)
+                            aura_surface = pygame.Surface(aura_rect.size, pygame.SRCALPHA)
+                            pygame.draw.rect(
+                                aura_surface,
+                                (160, 40, 60, aura_alpha),
+                                aura_surface.get_rect(),
+                                width=2,
+                                border_radius=panel_rect.height // 2 + aura_expand
+                            )
+                            SCREEN.blit(aura_surface, aura_rect.topleft, special_flags=pygame.BLEND_ADD)
+
+            if reinforced_divine:
+                # 강화디바인스톤: 검붉은색 채우기
+                fill_safe = (200, 60, 90)
+                fill_danger = (255, 100, 130)
+            else:
+                # 일반 디바인스톤: 파란색 채우기
+                fill_safe = (68, 176, 255)
+                fill_danger = (178, 124, 255)
             segment_fill = tuple(
                 _clamp_component(
                     fill_safe[i] * (1 - danger_ratio)
