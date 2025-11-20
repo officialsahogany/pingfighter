@@ -28421,8 +28421,8 @@ def handle_player(keys):
                                     bazooka_sound = pygame.mixer.Sound(resource_path("sounds/rocket_launch.wav"))
                                     bazooka_sound.set_volume(0.5)
                                     bazooka_sound.play()
-                                except:
-                                    pass
+                            except:
+                                pass
                                 
                 elif current_weapon == "ak47":
                     # AK-47 발사 (보스 조준) — 연사 홀드 안정화
@@ -28478,16 +28478,39 @@ def handle_player(keys):
                                     SOUND_THROW.play()
                                 except Exception:
                                     pass
+                elif current_weapon == "suicide_drone":
+                    current_time = pygame.time.get_ticks()
+                    if round_start_time > 0 and current_time - round_start_time < 3000:
+                        remaining_time = (3000 - (current_time - round_start_time)) / 1000
+                        print(f"💥 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+                    else:
+                        if suicide_drone_active:
+                            _detonate_suicide_drone("manual")
+                        else:
+                            if soldier_drone_ammo > 0 and _launch_suicide_drone():
+                                soldier_control_lock_timer = 0
+                                print(f"🚁 자폭드론 발진! 남은 탄약 {soldier_drone_ammo}/{SUICIDE_DRONE_MAX_AMMO}")
                 else:
                     # 권총 발사
                     fire_soldier_bullet()
+
+        # 자폭드론 조종/상태 업데이트
+        if selected_character_type == "soldier" and 'suicide_drone' in soldier_controller.weapons:
+            try:
+                mb_state = pygame.mouse.get_pressed()
+            except Exception:
+                mb_state = None
+            update_suicide_drone(keys, space_pressed or space_just_pressed, mb_state)
+        else:
+            _reset_suicide_drone_state()
         
         if umbrella_lock_active:
             current_speed = 0
 
         # 통제불능 상태가 아닐 때만 이동 가능
         if soldier_control_lock_timer <= 0:
-            PLAYER.x += current_speed
+            if not suicide_drone_active:
+                PLAYER.x += current_speed
         else:
             # 통제불능 시간 감소
             soldier_control_lock_timer -= 1
