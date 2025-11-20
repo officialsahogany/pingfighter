@@ -67620,7 +67620,8 @@ def main(stage_num, new_boss_mode=False):
         # 프로파일러 입력 처리 섹션
         if profiler:
             profiler.start_section("Input")
-        # 키 입력 처리
+        # 키 입력 처리 (항상 pump 후 읽어 키 상태가 stale 되지 않도록)
+        pygame.event.pump()
         keys = pygame.key.get_pressed()
         
         # 점수 관련 전역 변수 선언 (8번, 9번 키에서 사용)
