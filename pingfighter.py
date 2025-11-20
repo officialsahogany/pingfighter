@@ -69827,33 +69827,37 @@ def main(stage_num, new_boss_mode=False):
                         last_mb_middle_ms = 0
                     now_ms = pygame.time.get_ticks()
                     if now_ms - last_mb_middle_ms >= 180 and 'pistol' in soldier_controller.weapons:
-                        pistol_idx = soldier_controller.weapons.index('pistol')
-                        if pistol_idx != soldier_controller.current_index and soldier_controller.switch_cooldown <= 0 and not soldier_weapon_menu_active:
-                            soldier_last_weapon_before_pistol = soldier_controller.weapons[soldier_controller.current_index]
-                            soldier_switch_weapon(pistol_idx)
-                            last_mb_middle_ms = now_ms
-                            continue
-                if event.type == pygame.MOUSEBUTTONDOWN and _mid_ok and getattr(event, 'button', 0) == 3:
-                    try:
-                        if (
-                            soldier_controller.switch_cooldown <= 0
-                            and not soldier_weapon_menu_active
-                            and soldier_controller.weapons
-                            and 0 <= soldier_controller.current_index < len(soldier_controller.weapons)
-                        ):
-                            current_weapon = soldier_controller.weapons[soldier_controller.current_index]
-                            if current_weapon == "pistol":
-                                prev_weapon = soldier_last_weapon_before_pistol
-                                if prev_weapon and prev_weapon in soldier_controller.weapons:
-                                    target_idx = soldier_controller.weapons.index(prev_weapon)
-                                    if target_idx != soldier_controller.current_index:
-                                        soldier_switch_weapon(target_idx)
-                                        soldier_last_weapon_before_pistol = None
-                                        continue
-                                else:
+                        try:
+                            if (
+                                soldier_controller.switch_cooldown <= 0
+                                and not soldier_weapon_menu_active
+                                and soldier_controller.weapons
+                                and 0 <= soldier_controller.current_index < len(soldier_controller.weapons)
+                            ):
+                                pistol_idx = soldier_controller.weapons.index('pistol')
+                                current_idx = soldier_controller.current_index
+                                current_weapon = soldier_controller.weapons[current_idx]
+
+                                # 중클릭: 권총 <-> 직전 무기 토글
+                                if current_weapon == 'pistol':
+                                    prev_weapon = soldier_last_weapon_before_pistol
+                                    if prev_weapon and prev_weapon in soldier_controller.weapons:
+                                        target_idx = soldier_controller.weapons.index(prev_weapon)
+                                        if target_idx != current_idx:
+                                            soldier_switch_weapon(target_idx)
+                                    # 직전 무기가 없어도 상태를 리셋해 중첩 저장 방지
                                     soldier_last_weapon_before_pistol = None
-                    except Exception:
-                        pass
+                                    last_mb_middle_ms = now_ms
+                                    continue
+
+                                # 권총이 아닌 무기에서 중클릭 시 권총으로 전환하며 직전 무기 기억
+                                if pistol_idx != current_idx:
+                                    soldier_last_weapon_before_pistol = current_weapon
+                                    soldier_switch_weapon(pistol_idx)
+                                    last_mb_middle_ms = now_ms
+                                    continue
+                        except Exception:
+                            pass
 
             # 코만도: 무기 HUD(↑ 홀드) 표시 중 좌클릭으로 해당 무기 선택
             if (
