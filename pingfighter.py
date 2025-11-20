@@ -10312,24 +10312,19 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
     cooldown = divine_state.get("cooldown", 0)
     if cooldown > 0:
         divine_state["cooldown"] = cooldown - 1
-    # 디바인쉴드 지속시간/과부하 타이머 업데이트
-    shield_timer = int(divine_state.get("shield_timer", 0))
-    if shield_timer > 0:
-        shield_timer -= 1
-        divine_state["shield_timer"] = shield_timer
-        if shield_timer <= 0:
-            # 디바인쉴드 종료 → 과부하 시작
-            divine_state["shield_active"] = False
-            # 디바인쉴드 게이지는 다시 0부터 시작하도록 리셋
-            divine_state["shield_xp"] = 0.0
-            divine_state["shield_ready"] = False
-            divine_state["shield_overheat"] = max(
-                int(divine_state.get("shield_overheat", 0)),
-                BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES,
-            )
+
+    # 디바인쉴드 보호막/과부하 상태 업데이트 (타이머 → 4겹 보호막 소진형)
+    if divine_state.get("shield_active", False):
+        shield_hits = int(divine_state.get("shield_hits", 0))
+        if shield_hits >= BLACKSMITH_DIVINE_SHIELD_LAYERS:
+            _end_divine_shield(divine_state)
+
+    # 과부하 카운트다운
     overheat_timer = int(divine_state.get("shield_overheat", 0))
     if overheat_timer > 0:
         divine_state["shield_overheat"] = overheat_timer - 1
+    elif overheat_timer < 0:
+        divine_state["shield_overheat"] = 0
     # 건설형 디바인스톤 번개 이펙트/쿨다운 프레임 업데이트
     if divine_state.get("lightning_cd", 0) > 0:
         divine_state["lightning_cd"] = int(divine_state["lightning_cd"]) - 1
@@ -10627,7 +10622,7 @@ def _divine_draw_effects(surface, divine_state):
 
                 # 1. 외곽 마법진 링 (회전하는 룬 문양) - 피격시 사라짐
                 shield_hits = divine_state.get("shield_hits", 0)
-                remaining_rings = max(0, 4 - shield_hits)  # 4개 링 중 남은 개수
+                remaining_rings = max(0, BLACKSMITH_DIVINE_SHIELD_LAYERS - shield_hits)
 
                 for ring_layer in range(remaining_rings):
                     ring_radius = group_radius + 10 - ring_layer * 6
@@ -68349,27 +68344,29 @@ def main(stage_num, new_boss_mode=False):
                                 and standing_in_front
                             ):
                                 engaged = True
-                    if engaged:
-                        divine_state["shield_active"] = True
-                        divine_state["shield_ready"] = False
-                        divine_state["shield_xp"] = float(
-                            divine_state.get("shield_xp_max", float(BLACKSMITH_DIVINE_SHIELD_COST))
-                        )
-                        divine_state["shield_timer"] = BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES
-                        divine_state["shield_hits"] = 0  # 보호막 피격 카운터 초기화
-                        divine_state["shield_ripple_effects"] = []  # 파장 이펙트 리스트
-                        # 활성화 연출/사운드
-                        try:
-                            effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=18)
-                            effects_manager.spawn_construction_smoke(
-                                rect.centerx, rect.bottom - 10, count=10, spread=26
+                        if engaged:
+                            divine_state["shield_active"] = True
+                            divine_state["shield_ready"] = False
+                            divine_state["shield_xp"] = float(
+                                divine_state.get("shield_xp_max", float(BLACKSMITH_DIVINE_SHIELD_COST))
                             )
-                            if 'SOUND_DIVINE_THUNDER' in globals() and SOUND_DIVINE_THUNDER:
-                                play_sound_with_volume(SOUND_DIVINE_THUNDER)
-                        except Exception:
-                            pass
-                        print("[DEBUG] Divine shield activated (25s)")
-                        shield_handled = True
+                            # 시간형 → 4겹 스택형 보호막
+                            divine_state["shield_timer"] = 0
+                            divine_state["shield_hits"] = 0  # 보호막 피격 카운터 초기화
+                            divine_state["shield_overheat"] = 0
+                            divine_state["shield_ripple_effects"] = []  # 파장 이펙트 리스트
+                            # 활성화 연출/사운드
+                            try:
+                                effects_manager.spawn_star_particles(rect.centerx, rect.centery, count=18)
+                                effects_manager.spawn_construction_smoke(
+                                    rect.centerx, rect.bottom - 10, count=10, spread=26
+                                )
+                                if 'SOUND_DIVINE_THUNDER' in globals() and SOUND_DIVINE_THUNDER:
+                                    play_sound_with_volume(SOUND_DIVINE_THUNDER)
+                            except Exception:
+                                pass
+                            print(f"[DEBUG] Divine shield activated ({BLACKSMITH_DIVINE_SHIELD_LAYERS}-layer)")
+                            shield_handled = True
                         # 이 프레임의 스페이스 입력은 다른 시스템에서 소비하지 않도록 처리 완료
                         space_press_frame = frame_counter
 
