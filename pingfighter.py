@@ -18954,7 +18954,7 @@ def _launch_suicide_drone() -> bool:
     global soldier_drone_ammo, suicide_drone_active, suicide_drone_rect, suicide_drone_player_lock, suicide_drone_vel, suicide_drone_rotor_angle
     if suicide_drone_active or soldier_drone_ammo <= 0:
         return False
-    drone_size = 24
+    drone_size = 48  # 기존 대비 2배 크기
     suicide_drone_rect = pygame.Rect(
         PLAYER.centerx - drone_size // 2,
         PLAYER.top - drone_size - 6,
