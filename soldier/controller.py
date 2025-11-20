@@ -149,6 +149,19 @@ class SoldierWeaponController:
                     self.remove_weapon("fire_support")
                     print("⚠️ 화력지원 노후화로 폭격 지원 장비가 파괴되었습니다.")
 
+        if "suicide_drone" in self.degraded:
+            try:
+                import pingfighter as game_module  # 드론 탄약/상태는 메인 모듈 전역에 존재
+                ammo = getattr(game_module, "soldier_drone_ammo", 0)
+                active = getattr(game_module, "suicide_drone_active", False)
+                rect = getattr(game_module, "suicide_drone_rect", None)
+                if ammo <= 0 and (not active) and rect is None:
+                    self.remove_weapon("suicide_drone")
+                    print("⚠️ 자폭드론 노후화로 파괴되었습니다.")
+            except Exception:
+                # 상태 조회 실패 시 제거는 건너뛴다 (런타임 안전 가드)
+                pass
+
     def set_current_weapon(self, index: int) -> None:
         if not self.weapons:
             return
