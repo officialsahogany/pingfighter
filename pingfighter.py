@@ -19486,6 +19486,8 @@ def go_to_next_round():
     global doping_potion_active, doping_potion_timer, doping_potion_use_count, doping_potion_toast_timer
 
     preserved_doping_state = None
+    # 라운드 시작 카운트 기록
+    record_round_start()
     if (
         selected_character_type == "soldier"
         and doping_potion_active
@@ -65447,6 +65449,27 @@ def record_missed_opportunity():
             player_analyzer.record_missed_opportunity()
         except:
             pass  # 조용히 실패
+
+# --- 라운드/게임 시작 기록 ----------------------------------------------------
+def record_game_start():
+    """새 게임(세션) 시작을 실력 분석에 반영"""
+    global player_analyzer
+    if player_analyzer:
+        try:
+            player_analyzer.stats.total_games += 1
+            # 세션 시작 시각 갱신
+            player_analyzer.stats.session_start_time = time.time()
+        except Exception:
+            pass
+
+def record_round_start():
+    """라운드 시작을 실력 분석에 반영"""
+    global player_analyzer
+    if player_analyzer:
+        try:
+            player_analyzer.stats.total_rounds += 1
+        except Exception:
+            pass
 def handle_boss():
     global boss_speed_boost_timer, BOSS_SPEED
     global boss_fake_move, boss_fake_start_time
@@ -67261,6 +67284,7 @@ def main(stage_num, new_boss_mode=False):
         # 게임이 처음 시작될 때만 스킬 포인트 초기화
         academy.reset_skill_points()  # 포인트만 0으로 초기화, 스킬 레벨은 유지
         game_session_active = True  # 게임 세션 활성화
+        record_game_start()  # 새 세션을 실력 분석에 반영
         print(":")
     else:
         # 스테이지 전환 시 스킬 포인트는 유지
