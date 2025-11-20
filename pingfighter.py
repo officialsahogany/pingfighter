@@ -14018,17 +14018,32 @@ def draw_blacksmith_divine_ui(surface):
                 xp_text = tiny_font.render(f"⚠ 과부하 {remaining_seconds:4.1f}s", True, (255, 220, 200))
                 surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
             elif shield_active:
-                # 활성화 중에는 디바인쉴드 남은 지속시간을 게이지로 표시
-                shield_timer = int(divine_state.get("shield_timer", 0))
-                duration = max(1, BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES)
-                time_ratio = max(0.0, min(1.0, shield_timer / duration))
-                xp_fill_width = int(xp_rect.width * time_ratio)
-                if xp_fill_width > 0:
-                    xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, xp_fill_width, xp_rect.height)
-                    pygame.draw.rect(surface, (180, 240, 255), xp_fill_rect, border_radius=3)
-                pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
-                remaining_seconds = shield_timer / FPS if FPS else 0.0
-                xp_text = tiny_font.render(f"쉴드 {remaining_seconds:4.1f}s", True, (225, 235, 255))
+                # 활성화 중에는 4겹 보호막 잔여 스택을 게이지로 표시
+                max_layers = BLACKSMITH_DIVINE_SHIELD_LAYERS
+                shield_hits = int(divine_state.get("shield_hits", 0))
+                remaining_layers = max(0, max_layers - shield_hits)
+
+                pygame.draw.rect(surface, (35, 35, 45), xp_rect.inflate(4, 4), border_radius=3)
+
+                segment_gap = 3
+                usable_width = xp_rect.width - segment_gap * (max_layers - 1)
+                segment_width = max(4, usable_width // max_layers)
+                segment_height = xp_rect.height
+                for idx in range(max_layers):
+                    seg_x = xp_rect.x + idx * (segment_width + segment_gap)
+                    seg_rect = pygame.Rect(seg_x, xp_rect.y, segment_width, segment_height)
+                    active_color = (180, 240, 255)
+                    empty_color = (60, 72, 100)
+                    fill_color = active_color if idx < remaining_layers else empty_color
+                    pygame.draw.rect(surface, fill_color, seg_rect, border_radius=3)
+                    pygame.draw.rect(surface, (90, 105, 140), seg_rect, 1, border_radius=3)
+
+                # 잔여 스택 텍스트
+                xp_text = tiny_font.render(
+                    f"쉴드 {remaining_layers}/{max_layers}",
+                    True,
+                    (225, 235, 255),
+                )
                 surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
             else:
                 # 차지 중에는 쉴드 게이지 진행도 표시
