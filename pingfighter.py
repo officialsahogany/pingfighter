@@ -21041,8 +21041,10 @@ def _create_blacksmith_building_shield(
         # 세로 방향으로는 포탑 전체 높이보다 약간 짧게 감싸되,
         # top/side가 끊기지 않도록 하나의 보호 영역을 기준으로 만든다.
         height = building_rect.height
-        # 아래쪽은 포탑 바닥에서 20% 정도는 비워두되 최소 여백 확보
-        margin_bottom = max(thickness, int(height * 0.2))
+        # 아래쪽은 포탑 바닥에서 너무 떠 보이지 않도록,
+        # 여백을 살짝 줄여서 보호벽이 더 아래까지 내려가게 한다.
+        # (기존 약 20% → 약 10% 여백)
+        margin_bottom = max(thickness // 2, int(height * 0.1))
 
         shield_top = building_rect.top - thickness
         shield_bottom = max(
