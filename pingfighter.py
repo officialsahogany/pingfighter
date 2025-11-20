@@ -15166,6 +15166,15 @@ def check_divine_shield_ball_collision():
             BALL.centerx = int(group_cx + normal_x * push_dist)
             BALL.centery = int(group_cy + normal_y * push_dist)
 
+            # 보호막 피격 카운터 증가
+            shield_hits = divine_state.get("shield_hits", 0) + 1
+            divine_state["shield_hits"] = shield_hits
+
+            # 파장 출렁임 이펙트 추가
+            ripple_effects = divine_state.get("shield_ripple_effects", [])
+            ripple_effects.append({"progress": 0.0})
+            divine_state["shield_ripple_effects"] = ripple_effects
+
             # 반사 효과음 및 이펙트
             try:
                 play_sound_with_volume(SOUND_WALL)
@@ -15173,7 +15182,24 @@ def check_divine_shield_ball_collision():
             except Exception:
                 pass
 
-            print(f"[DEBUG] Divine shield reflected boss ball at ({BALL.centerx}, {BALL.centery})")
+            print(f"[DEBUG] Divine shield hit {shield_hits}/4 - reflected boss ball at ({BALL.centerx}, {BALL.centery})")
+
+            # 4회 피격 시 쉴드 종료
+            if shield_hits >= 4:
+                divine_state["shield_active"] = False
+                divine_state["shield_timer"] = 0
+                divine_state["overheat_timer"] = BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES
+                divine_state["shield_hits"] = 0
+                divine_state["shield_ripple_effects"] = []
+                print("[DEBUG] Divine shield destroyed by 4 hits!")
+                # 파괴 이펙트
+                try:
+                    effects_manager.spawn_star_particles(int(group_cx), int(group_cy), count=20)
+                    if 'SOUND_GLASS_BREAK' in globals() and SOUND_GLASS_BREAK:
+                        play_sound_with_volume(SOUND_GLASS_BREAK)
+                except Exception:
+                    pass
+
             return True
 
     return False
