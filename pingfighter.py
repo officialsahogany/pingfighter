@@ -15156,6 +15156,7 @@ def check_divine_shield_ball_collision():
     global BALL, ball_vel, last_hit_by
     global divine_shield_boost_active, divine_shield_boost_timer
     global divine_shield_boost_original_speed, divine_shield_boost_curve_direction
+    global divine_shield_dark_aura_active, divine_shield_dark_aura_trail
 
     # 디바인쉴드 활성 확인
     try:
@@ -15231,6 +15232,10 @@ def check_divine_shield_ball_collision():
             divine_shield_boost_timer = divine_shield_boost_duration
             # 커브 방향 결정 (반사 방향에 따라)
             divine_shield_boost_curve_direction = 1 if normal_x > 0 else -1
+
+            # 어둠의 오오라 효과 활성화
+            divine_shield_dark_aura_active = True
+            divine_shield_dark_aura_trail = []  # 궤적 초기화
 
             # 보호막 피격 카운터 증가
             shield_hits = divine_state.get("shield_hits", 0) + 1
