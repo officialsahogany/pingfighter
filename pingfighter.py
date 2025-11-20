@@ -17252,8 +17252,12 @@ def activate_supply_drop_item(item_name: str) -> None:
     """Handle collection of a supply-drop item."""
 
     import items
+    try:
+        item_label = get_item_name_korean(item_name)
+    except Exception:
+        item_label = item_name
 
-    print(f"🔍 아이템 검색 시작: {item_name}")
+    print(f"🔍 아이템 검색 시작: {item_label}")
 
     # 화기류 특수 처리
     if item_name == "bazooka":
@@ -17310,7 +17314,7 @@ def activate_supply_drop_item(item_name: str) -> None:
 
     if item_name == "suicide_drone":
         if soldier_controller.add_weapon("suicide_drone"):
-            print(f"🚁 자폭드론 획득! 현재 화기류: {soldier_controller.weapons}")
+            print(f"🚁 {get_item_name_korean('suicide_drone')} 획득! 현재 화기류: {soldier_controller.weapons}")
             globals()["soldier_drone_ammo"] = SUICIDE_DRONE_MAX_AMMO
             _reset_suicide_drone_state()
             try:
