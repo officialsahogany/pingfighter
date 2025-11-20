@@ -20935,8 +20935,8 @@ def draw_brick_particles(screen):
             screen.blit(rotated_surface, rotated_rect)
 
 
-def _find_blacksmith_building_under_player() -> pygame.Rect | None:
-    """발토르 전용: 플레이어 패들과 겹치는 건물(rect)을 반환한다.
+def _find_blacksmith_building_under_player() -> tuple[pygame.Rect, str] | None:
+    """발토르 전용: 플레이어 패들과 겹치는 건물(rect)과 종류를 반환한다.
 
     실제 완성된 포탑/디바인스톤만 대상으로 하며, 청사진은 포함하지 않는다.
     여러 건물과 겹칠 경우 플레이어 중심과 가장 가까운 건물을 선택한다.
@@ -20948,7 +20948,7 @@ def _find_blacksmith_building_under_player() -> pygame.Rect | None:
     if "PLAYER" not in globals():
         return None
 
-    candidates: list[pygame.Rect] = []
+    candidates: list[tuple[pygame.Rect, str]] = []
 
     # 포탑 본체 (머리/포신까지 포함한 확장 히트박스 사용)
     if globals().get("blacksmith_turret_active") and globals().get("blacksmith_turret_state"):
@@ -20970,7 +20970,7 @@ def _find_blacksmith_building_under_player() -> pygame.Rect | None:
             except Exception:
                 turret_hit_rect = turret_rect
             if PLAYER.colliderect(turret_hit_rect):
-                candidates.append(turret_hit_rect)
+                candidates.append((turret_hit_rect, "turret"))
 
     # 디바인스톤 본체 (강화 시 사용되는 확장 히트박스를 공유)
     if globals().get("blacksmith_divine_stone_state") is not None:
@@ -20986,14 +20986,15 @@ def _find_blacksmith_building_under_player() -> pygame.Rect | None:
             except Exception:
                 hit_rect = stone_rect
             if PLAYER.colliderect(hit_rect):
-                candidates.append(hit_rect)
+                candidates.append((hit_rect, "divine"))
 
     if not candidates:
         return None
 
     player_cx, player_cy = PLAYER.center
 
-    def _dist2(rect: pygame.Rect) -> float:
+    def _dist2(entry: tuple[pygame.Rect, str]) -> float:
+        rect = entry[0]
         dx = rect.centerx - player_cx
         dy = rect.centery - player_cy
         return dx * dx + dy * dy
@@ -21001,7 +21002,11 @@ def _find_blacksmith_building_under_player() -> pygame.Rect | None:
     return min(candidates, key=_dist2)
 
 
-def _create_blacksmith_building_shield(building_rect: pygame.Rect, wall_height: int) -> list[dict]:
+def _create_blacksmith_building_shield(
+    building_rect: pygame.Rect,
+    wall_height: int,
+    building_type: str = "generic",
+) -> list[dict]:
     """발토르 건물 3면(위/좌/우)을 감싸는 벽돌 방어막을 생성한다.
 
     세 면은 공통 내구도(2히트)를 공유하며, 2히트 시 세 벽돌이 동시에 파괴된다.
@@ -21013,11 +21018,21 @@ def _create_blacksmith_building_shield(building_rect: pygame.Rect, wall_height: 
     # 그룹형 보호벽 초기 피격 카운터
     wall_group_hits[group_id] = 0
 
+    # 기본 두께
     thickness = wall_height
 
+    # 포탑/강화포탑 보호형 벽돌은 가로 폭을 조금 더 넓히고, 세로 두께를 약 10% 줄인다.
+    if building_type == "turret":
+        thickness = max(4, int(wall_height * 0.9))
+        base_pad_x = max(thickness // 2, 8)
+        pad_x = int(base_pad_x * 1.15)
+        pad_y = max(thickness // 2, 6)
+    else:
+        # 디바인스톤 등은 기존 패딩 유지
+        pad_x = max(thickness // 2, 8)
+        pad_y = max(thickness // 2, 6)
+
     # 보호용 외곽 사각형을 약간 키워 건물 주변을 넉넉히 감싼다.
-    pad_x = max(thickness // 2, 8)
-    pad_y = max(thickness // 2, 6)
     protect_rect = building_rect.inflate(pad_x * 2, pad_y * 2)
 
     # 상단 가로 벽돌: 보호 영역 전체를 가로질러 배치
@@ -21086,9 +21101,10 @@ def activate_wall():
         new_wall: dict | list[dict] | None = None
 
         # 발토르 전용: 건물 위에서 사용 시 건물 3면을 감싸는 방어벽 생성
-        building_rect = _find_blacksmith_building_under_player()
-        if building_rect is not None:
-            new_wall = _create_blacksmith_building_shield(building_rect, wall_height)
+        building_info = _find_blacksmith_building_under_player()
+        if building_info is not None:
+            building_rect, building_type = building_info
+            new_wall = _create_blacksmith_building_shield(building_rect, wall_height, building_type)
 
         # 그 외에는 기존처럼 바닥에 단일 벽돌 설치
         if new_wall is None:
