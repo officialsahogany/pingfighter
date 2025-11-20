@@ -40283,6 +40283,61 @@ def draw_objects():
     if hermes_shoes_obtained:
         update_and_draw_hermes_particles()
 
+    # 그물덫총 보스 포획 시 화살표 키 연타 애니메이션
+    if (selected_character_type == "soldier" and
+        'net_gun' in soldier_controller.weapons and
+        net_gun_instance and net_gun_instance.boss_is_trapped()):
+        try:
+            # 애니메이션 타이밍
+            ticks = pygame.time.get_ticks()
+            bounce_offset = int(8 * math.sin(ticks * 0.015))  # 위아래 튕기기
+            pulse_alpha = int(180 + 75 * math.sin(ticks * 0.01))  # 깜빡임
+
+            # 화살표 크기 및 위치
+            arrow_size = 30
+            arrow_spacing = 50
+            paddle_top_y = PLAYER.centery - (PADDLE_HEIGHT + acceleration_height_bonus) // 2
+            arrow_y = paddle_top_y - 60 + bounce_offset  # 패들 위쪽에 표시
+
+            # 왼쪽 화살표 (←)
+            left_arrow_x = PLAYER.centerx - arrow_spacing
+            left_arrow_surface = pygame.Surface((arrow_size, arrow_size), pygame.SRCALPHA)
+            arrow_points_left = [
+                (arrow_size * 0.7, arrow_size * 0.2),  # 상단
+                (arrow_size * 0.3, arrow_size * 0.5),  # 중앙 (왼쪽 끝)
+                (arrow_size * 0.7, arrow_size * 0.8),  # 하단
+            ]
+            pygame.draw.polygon(left_arrow_surface, (255, 230, 100, pulse_alpha), arrow_points_left)
+            pygame.draw.polygon(left_arrow_surface, (255, 255, 255, min(255, pulse_alpha + 30)), arrow_points_left, 3)
+            SCREEN.blit(left_arrow_surface, (left_arrow_x - arrow_size // 2, arrow_y - arrow_size // 2))
+
+            # 오른쪽 화살표 (→)
+            right_arrow_x = PLAYER.centerx + arrow_spacing
+            right_arrow_surface = pygame.Surface((arrow_size, arrow_size), pygame.SRCALPHA)
+            arrow_points_right = [
+                (arrow_size * 0.3, arrow_size * 0.2),  # 상단
+                (arrow_size * 0.7, arrow_size * 0.5),  # 중앙 (오른쪽 끝)
+                (arrow_size * 0.3, arrow_size * 0.8),  # 하단
+            ]
+            pygame.draw.polygon(right_arrow_surface, (255, 230, 100, pulse_alpha), arrow_points_right)
+            pygame.draw.polygon(right_arrow_surface, (255, 255, 255, min(255, pulse_alpha + 30)), arrow_points_right, 3)
+            SCREEN.blit(right_arrow_surface, (right_arrow_x - arrow_size // 2, arrow_y - arrow_size // 2))
+
+            # "연타!" 텍스트
+            if 'font_large' in globals() and font_large:
+                text_surface = font_large.render("연타!", True, (255, 230, 100))
+                text_rect = text_surface.get_rect(center=(PLAYER.centerx, arrow_y - arrow_size - 15))
+
+                # 텍스트 배경 (가독성 향상)
+                bg_surface = pygame.Surface((text_rect.width + 20, text_rect.height + 10), pygame.SRCALPHA)
+                pygame.draw.rect(bg_surface, (0, 0, 0, 150), bg_surface.get_rect(), border_radius=5)
+                SCREEN.blit(bg_surface, (text_rect.x - 10, text_rect.y - 5))
+
+                # 텍스트 그리기
+                SCREEN.blit(text_surface, text_rect)
+        except Exception as e:
+            pass  # 애니메이션 오류 무시
+
     # 호버보드 이동 방향에 따른 파란 글로우 연출
     if (not new_boss_mode_active
             and selected_character_type not in ("soldier", "blacksmith")
