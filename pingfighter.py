@@ -150,8 +150,22 @@ def _adapt_input_events(events):
     return events
 
 def _patched_event_get(*args, **kwargs):
-    # 현재는 이벤트 합성/변형을 하지 않는다. (안정성 우선)
-    return _orig_pygame_event_get(*args, **kwargs)
+    events = _orig_pygame_event_get(*args, **kwargs)
+    if INPUT_TRACE:
+        for ev in events:
+            if ev.type in (pygame.KEYDOWN, pygame.KEYUP):
+                ev_sc = getattr(ev, "scancode", None)
+                ev_uni = getattr(ev, "unicode", "")
+                ev_mod = getattr(ev, "mod", 0)
+                print(
+                    "[INPUT_TRACE][EVENT]"
+                    f" type={'DOWN' if ev.type == pygame.KEYDOWN else 'UP'}"
+                    f" key={ev.key} sc={ev_sc} uni={ev_uni!r} mod={ev_mod}"
+                    f" focus={pygame.key.get_focused()}"
+                )
+            elif ev.type in (pygame.ACTIVEEVENT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST):
+                print(f"[INPUT_TRACE][FOCUS] type={ev.type} gain={getattr(ev,'gain',None)} state={getattr(ev,'state',None)} focus={pygame.key.get_focused()}")
+    return events
 
 # 안정성 모드: pygame.event.get를 변경하지 않는다.
 # (필요 시, 명시적으로 켜는 플래그를 도입할 수 있음)
