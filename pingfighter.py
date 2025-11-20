@@ -15147,6 +15147,10 @@ divine_shield_boost_duration = 36  # 0.6초 (60fps)
 divine_shield_boost_original_speed = [0, 0]
 divine_shield_boost_curve_direction = 0  # -1: 왼쪽, 1: 오른쪽
 
+# 디바인쉴드 어둠의 오오라 효과 변수
+divine_shield_dark_aura_active = False
+divine_shield_dark_aura_trail = []  # 궤적 저장 리스트 [(x, y, alpha), ...]
+
 def check_divine_shield_ball_collision():
     """디바인쉴드 보호막과 공의 충돌을 체크하고 보스 공을 반사한다."""
     global BALL, ball_vel, last_hit_by
