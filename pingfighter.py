@@ -19009,8 +19009,13 @@ def _detonate_suicide_drone(reason: str = "manual") -> None:
         trigger_grenade_style_explosion(cx, cy, apply_commando_bonus=False, source="suicide_drone", radius_scale=1.0)
     except Exception:
         pass
+    # 보스가 폭발 반경 내에 있을 때만 스턴 적용
     try:
-        boss_stunned_timer = max(boss_stunned_timer, int(0.8 * 60))
+        if 'BOSS' in globals() and BOSS is not None:
+            bx, by = get_center_pos(BOSS)
+            explosion_radius = 150  # suicide_drone은 radius_scale=1.0, 코만도암 보너스 미적용
+            if calculate_distance((bx, by), (cx, cy)) <= explosion_radius:
+                boss_stunned_timer = max(boss_stunned_timer, int(0.8 * 60))
     except Exception:
         pass
     _spawn_drone_fire_zone(cx, cy)
