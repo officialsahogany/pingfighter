@@ -18292,11 +18292,13 @@ SOLDIER_PISTOL_MAX_AMMO = 15  # 권총 최대 탄약
 
 # 자폭드론 관련 변수
 SUICIDE_DRONE_MAX_AMMO = 3
+SUICIDE_DRONE_GRACE_FRAMES = 6
 soldier_drone_ammo = SUICIDE_DRONE_MAX_AMMO
 suicide_drone_active = False
 suicide_drone_rect: pygame.Rect | None = None
 suicide_drone_speed = 10
 suicide_drone_player_lock: tuple[int, int] | None = None
+suicide_drone_grace_timer = 0
 
 # === 코만도 총 발사 애니메이션 관련 변수 ===
 soldier_gun_animation_active = False  # 총 발사 애니메이션 진행 중인지
@@ -18932,6 +18934,7 @@ def _reset_suicide_drone_state() -> None:
     globals()['suicide_drone_active'] = False
     globals()['suicide_drone_rect'] = None
     globals()['suicide_drone_player_lock'] = None
+    globals()['suicide_drone_grace_timer'] = 0
 
 
 def _launch_suicide_drone() -> bool:
@@ -18942,13 +18945,14 @@ def _launch_suicide_drone() -> bool:
     drone_size = 24
     suicide_drone_rect = pygame.Rect(
         PLAYER.centerx - drone_size // 2,
-        PLAYER.centery - drone_size // 2,
+        PLAYER.top - drone_size - 6,
         drone_size,
         drone_size,
     )
     soldier_drone_ammo = max(0, soldier_drone_ammo - 1)
     suicide_drone_active = True
     suicide_drone_player_lock = (PLAYER.centerx, PLAYER.centery)
+    globals()['suicide_drone_grace_timer'] = SUICIDE_DRONE_GRACE_FRAMES
     return True
 
 
@@ -19001,7 +19005,7 @@ def _detonate_suicide_drone(reason: str = "manual") -> None:
     soldier_controller.switch_cooldown = max(soldier_controller.switch_cooldown, soldier_controller.switch_cooldown_frames // 2)
 
 
-def update_suicide_drone(keys, space_pressed: bool, mouse_pressed: tuple | None = None) -> None:
+def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bool = False) -> None:
     """자폭드론 조종 및 충돌 체크"""
     if not suicide_drone_active or suicide_drone_rect is None:
         return
@@ -19023,20 +19027,17 @@ def update_suicide_drone(keys, space_pressed: bool, mouse_pressed: tuple | None 
     if suicide_drone_player_lock:
         PLAYER.centerx, PLAYER.centery = suicide_drone_player_lock
 
-    # 수동 폭발 입력
-    manual_trigger = space_pressed
-    if mouse_pressed is not None:
-        try:
-            manual_trigger = manual_trigger or bool(mouse_pressed[0])
-        except Exception:
-            pass
-    if manual_trigger:
+    if globals().get('suicide_drone_grace_timer', 0) > 0:
+        globals()['suicide_drone_grace_timer'] -= 1
+
+    # 수동 폭발 입력 (에지 트리거 + 그레이스 이후)
+    if globals().get('suicide_drone_grace_timer', 0) <= 0 and (manual_trigger_edge or mouse_pressed_edge):
         _detonate_suicide_drone("manual")
         return
 
     # 보스 충돌 시 즉시 폭발
     try:
-        if suicide_drone_rect.colliderect(BOSS):
+        if globals().get('suicide_drone_grace_timer', 0) <= 0 and suicide_drone_rect.colliderect(BOSS):
             _detonate_suicide_drone("boss_hit")
             return
     except Exception:
@@ -19044,7 +19045,7 @@ def update_suicide_drone(keys, space_pressed: bool, mouse_pressed: tuple | None 
 
     # 공과 충돌 시 즉시 폭발
     try:
-        if suicide_drone_rect.colliderect(BALL):
+        if globals().get('suicide_drone_grace_timer', 0) <= 0 and suicide_drone_rect.colliderect(BALL):
             _detonate_suicide_drone("ball_hit")
             return
     except Exception:
