@@ -40290,113 +40290,139 @@ def draw_objects():
         _net_gun = get_net_gun_instance()
         if _net_gun and _net_gun.boss_is_trapped():
             try:
+                global net_capture_animation_start_time
+
                 ticks = pygame.time.get_ticks()
 
-                # 빠른 펄스 효과 (격투 게임 스타일)
-                fast_pulse = abs(math.sin(ticks * 0.02))  # 빠른 깜빡임
-                shake_x = int(3 * math.sin(ticks * 0.025))  # 좌우 흔들림
-                shake_y = int(2 * math.sin(ticks * 0.03))  # 상하 흔들림
+                # 애니메이션 시작 시간 기록
+                if net_capture_animation_start_time is None:
+                    net_capture_animation_start_time = ticks
 
-                # 위치 설정 (패들 오른쪽 상단)
-                paddle_right = PLAYER.centerx + (PADDLE_WIDTH // 2)
-                paddle_top = PLAYER.centery - (PADDLE_HEIGHT + acceleration_height_bonus) // 2
-                base_x = paddle_right + 80
-                base_y = paddle_top - 40
+                # 경과 시간 계산 (ms)
+                elapsed = ticks - net_capture_animation_start_time
 
-                # 배경 박스 (강조 효과)
-                box_width = 140
-                box_height = 70
-                box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+                # 2초(2000ms) 후부터 페이드아웃 (0.5초간)
+                if elapsed < 2000:
+                    # 0~2초: 풀 애니메이션
+                    fade_alpha = 1.0
+                elif elapsed < 2500:
+                    # 2~2.5초: 페이드아웃
+                    fade_progress = (elapsed - 2000) / 500.0
+                    fade_alpha = 1.0 - fade_progress
+                else:
+                    # 2.5초 이후: 완전히 사라짐
+                    fade_alpha = 0.0
 
-                # 펄스 테두리
-                border_alpha = int(150 + 105 * fast_pulse)
-                border_color = (255, 200, 0, border_alpha)
-                pygame.draw.rect(box_surface, border_color, (0, 0, box_width, box_height), 3, border_radius=8)
-
-                # 내부 그라데이션 배경
-                inner_alpha = int(80 + 50 * fast_pulse)
-                pygame.draw.rect(box_surface, (0, 0, 0, inner_alpha), (3, 3, box_width-6, box_height-6), border_radius=6)
-
-                SCREEN.blit(box_surface, (base_x + shake_x - box_width // 2, base_y + shake_y - box_height // 2))
-
-                # 화살표 애니메이션 (좌우 번갈아 강조)
-                arrow_size = 35
-                arrow_spacing = 45
-                current_phase = (ticks // 200) % 2  # 200ms마다 좌우 전환
-
-                # 왼쪽 화살표
-                left_x = base_x - arrow_spacing // 2 + shake_x
-                left_y = base_y + shake_y
-                left_scale = 1.2 if current_phase == 0 else 0.9  # 강조 시 크게
-                left_alpha = int(255 if current_phase == 0 else 180)
-
-                left_arrow_surf = pygame.Surface((int(arrow_size * left_scale), int(arrow_size * left_scale)), pygame.SRCALPHA)
-                scaled_size = int(arrow_size * left_scale)
-                arrow_left_points = [
-                    (scaled_size * 0.75, scaled_size * 0.15),
-                    (scaled_size * 0.25, scaled_size * 0.5),
-                    (scaled_size * 0.75, scaled_size * 0.85),
-                ]
-
-                # 그림자 효과
-                shadow_points = [(x + 2, y + 2) for x, y in arrow_left_points]
-                pygame.draw.polygon(left_arrow_surf, (0, 0, 0, 100), shadow_points)
-
-                # 화살표 본체
-                pygame.draw.polygon(left_arrow_surf, (255, 230, 100, left_alpha), arrow_left_points)
-                pygame.draw.polygon(left_arrow_surf, (255, 255, 255, min(255, left_alpha + 30)), arrow_left_points, 4)
-
-                SCREEN.blit(left_arrow_surf, (left_x - scaled_size // 2, left_y - scaled_size // 2))
-
-                # 오른쪽 화살표
-                right_x = base_x + arrow_spacing // 2 + shake_x
-                right_y = base_y + shake_y
-                right_scale = 1.2 if current_phase == 1 else 0.9
-                right_alpha = int(255 if current_phase == 1 else 180)
-
-                right_arrow_surf = pygame.Surface((int(arrow_size * right_scale), int(arrow_size * right_scale)), pygame.SRCALPHA)
-                scaled_size = int(arrow_size * right_scale)
-                arrow_right_points = [
-                    (scaled_size * 0.25, scaled_size * 0.15),
-                    (scaled_size * 0.75, scaled_size * 0.5),
-                    (scaled_size * 0.25, scaled_size * 0.85),
-                ]
-
-                # 그림자 효과
-                shadow_points = [(x + 2, y + 2) for x, y in arrow_right_points]
-                pygame.draw.polygon(right_arrow_surf, (0, 0, 0, 100), shadow_points)
-
-                # 화살표 본체
-                pygame.draw.polygon(right_arrow_surf, (255, 230, 100, right_alpha), arrow_right_points)
-                pygame.draw.polygon(right_arrow_surf, (255, 255, 255, min(255, right_alpha + 30)), arrow_right_points, 4)
-
-                SCREEN.blit(right_arrow_surf, (right_x - scaled_size // 2, right_y - scaled_size // 2))
-
-                # "연타!" 텍스트 (깜빡임 효과)
-                text_alpha = int(200 + 55 * fast_pulse)
-
-                # 텍스트 위치 (화살표 위쪽)
-                text_x = base_x + shake_x
-                text_y = base_y + shake_y - 25
-
-                # 한글 텍스트 렌더링 (ui_manager.korean_font 사용)
-                try:
-                    text_surf = ui_manager.korean_font.render("연타!", True, (255, 230, 100))
-                    text_surf.set_alpha(text_alpha)
-                    text_rect = text_surf.get_rect(center=(text_x, text_y))
-
-                    # 그림자
-                    shadow_surf = ui_manager.korean_font.render("연타!", True, (0, 0, 0))
-                    shadow_surf.set_alpha(150)
-                    shadow_rect = shadow_surf.get_rect(center=(text_x + 2, text_y + 2))
-
-                    SCREEN.blit(shadow_surf, shadow_rect)
-                    SCREEN.blit(text_surf, text_rect)
-                except:
+                # 완전히 사라지면 애니메이션 스킵
+                if fade_alpha <= 0:
                     pass
+                else:
+                    # 매우 빠른 펄스 효과 (박진감)
+                    fast_pulse = abs(math.sin(ticks * 0.035))  # 더 빠른 깜빡임
+
+                    # 강렬한 흔들림 효과
+                    shake_x = int(6 * math.sin(ticks * 0.04))  # 2배 더 강한 좌우 흔들림
+                    shake_y = int(4 * math.sin(ticks * 0.045))  # 2배 더 강한 상하 흔들림
+
+                    # 위치 설정 (패들 오른쪽 상단)
+                    paddle_right = PLAYER.centerx + (PADDLE_WIDTH // 2)
+                    paddle_top = PLAYER.centery - (PADDLE_HEIGHT + acceleration_height_bonus) // 2
+                    base_x = paddle_right + 80
+                    base_y = paddle_top - 40
+
+                    # 화살표 애니메이션 (좌우 번갈아 강조) - 더 빠른 전환
+                    arrow_size = 40  # 기본 크기 증가
+                    arrow_spacing = 50
+                    current_phase = (ticks // 150) % 2  # 150ms마다 좌우 전환 (더 빠름)
+
+                    # 왼쪽 화살표
+                    left_x = base_x - arrow_spacing // 2 + shake_x
+                    left_y = base_y + shake_y
+                    left_scale = 1.5 if current_phase == 0 else 0.8  # 더 큰 크기 변화
+                    left_base_alpha = 255 if current_phase == 0 else 150
+                    left_alpha = int(left_base_alpha * fade_alpha)
+
+                    left_arrow_surf = pygame.Surface((int(arrow_size * left_scale), int(arrow_size * left_scale)), pygame.SRCALPHA)
+                    scaled_size = int(arrow_size * left_scale)
+                    arrow_left_points = [
+                        (scaled_size * 0.75, scaled_size * 0.15),
+                        (scaled_size * 0.25, scaled_size * 0.5),
+                        (scaled_size * 0.75, scaled_size * 0.85),
+                    ]
+
+                    # 강렬한 그림자 효과
+                    shadow_points = [(x + 3, y + 3) for x, y in arrow_left_points]
+                    pygame.draw.polygon(left_arrow_surf, (0, 0, 0, int(150 * fade_alpha)), shadow_points)
+
+                    # 강렬한 화살표 색상 (빨강-노랑 그라데이션)
+                    arrow_color = (255, 50 + int(150 * fast_pulse), 0)  # 빨강에서 주황으로
+                    pygame.draw.polygon(left_arrow_surf, (*arrow_color, left_alpha), arrow_left_points)
+
+                    # 강렬한 하이라이트
+                    highlight_alpha = min(255, int((left_alpha + 80) * fade_alpha))
+                    pygame.draw.polygon(left_arrow_surf, (255, 255, 255, highlight_alpha), arrow_left_points, 5)
+
+                    SCREEN.blit(left_arrow_surf, (left_x - scaled_size // 2, left_y - scaled_size // 2))
+
+                    # 오른쪽 화살표
+                    right_x = base_x + arrow_spacing // 2 + shake_x
+                    right_y = base_y + shake_y
+                    right_scale = 1.5 if current_phase == 1 else 0.8
+                    right_base_alpha = 255 if current_phase == 1 else 150
+                    right_alpha = int(right_base_alpha * fade_alpha)
+
+                    right_arrow_surf = pygame.Surface((int(arrow_size * right_scale), int(arrow_size * right_scale)), pygame.SRCALPHA)
+                    scaled_size = int(arrow_size * right_scale)
+                    arrow_right_points = [
+                        (scaled_size * 0.25, scaled_size * 0.15),
+                        (scaled_size * 0.75, scaled_size * 0.5),
+                        (scaled_size * 0.25, scaled_size * 0.85),
+                    ]
+
+                    # 강렬한 그림자 효과
+                    shadow_points = [(x + 3, y + 3) for x, y in arrow_right_points]
+                    pygame.draw.polygon(right_arrow_surf, (0, 0, 0, int(150 * fade_alpha)), shadow_points)
+
+                    # 강렬한 화살표 색상
+                    pygame.draw.polygon(right_arrow_surf, (*arrow_color, right_alpha), arrow_right_points)
+
+                    # 강렬한 하이라이트
+                    highlight_alpha = min(255, int((right_alpha + 80) * fade_alpha))
+                    pygame.draw.polygon(right_arrow_surf, (255, 255, 255, highlight_alpha), arrow_right_points, 5)
+
+                    SCREEN.blit(right_arrow_surf, (right_x - scaled_size // 2, right_y - scaled_size // 2))
+
+                    # "연타!" 텍스트 (매우 강렬한 깜빡임)
+                    text_base_alpha = int(230 + 25 * fast_pulse)
+                    text_alpha = int(text_base_alpha * fade_alpha)
+
+                    # 텍스트 위치 (화살표 위쪽) + 약간의 흔들림
+                    text_x = base_x + shake_x
+                    text_y = base_y + shake_y - 30
+
+                    # 한글 텍스트 렌더링
+                    try:
+                        # 강렬한 빨강-노랑 색상
+                        text_color = (255, 100 + int(155 * fast_pulse), 0)
+                        text_surf = ui_manager.korean_font.render("연타!", True, text_color)
+                        text_surf.set_alpha(text_alpha)
+                        text_rect = text_surf.get_rect(center=(text_x, text_y))
+
+                        # 강렬한 그림자
+                        shadow_surf = ui_manager.korean_font.render("연타!", True, (0, 0, 0))
+                        shadow_surf.set_alpha(int(200 * fade_alpha))
+                        shadow_rect = shadow_surf.get_rect(center=(text_x + 3, text_y + 3))
+
+                        SCREEN.blit(shadow_surf, shadow_rect)
+                        SCREEN.blit(text_surf, text_rect)
+                    except:
+                        pass
 
             except Exception as e:
                 pass
+        else:
+            # 포획 상태가 아니면 애니메이션 타이머 리셋
+            net_capture_animation_start_time = None
 
     # 호버보드 이동 방향에 따른 파란 글로우 연출
     if (not new_boss_mode_active
