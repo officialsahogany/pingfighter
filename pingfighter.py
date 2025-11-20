@@ -63481,7 +63481,6 @@ def handle_ball():
                 ball_vel[1] = fallback_component
 
             ragnarok_speed_boost_active = False
-            ragnarok_original_speed = 0.0
 
             reduced_speed = math.hypot(ball_vel[0], ball_vel[1])
             print(f"   !   : {reduced_speed:.1f} (기준 {baseline_speed:.1f} → 목표 {target_speed:.1f})")
@@ -63528,6 +63527,25 @@ def handle_ball():
             pass
 
         if was_stun_ball:
+            # 라그나로크 스턴공: 반사 후에도 원속도 수준으로 추가 감속
+            try:
+                current_speed = math.hypot(ball_vel[0], ball_vel[1])
+                restore_speed = ragnarok_original_speed if ragnarok_original_speed > 0 else (
+                    ragnarok_first_shot_speed if ragnarok_first_shot_speed > 0 else BALL_BASE_SPEED)
+                target_speed = max(BALL_BASE_SPEED * 0.9, restore_speed)  # 최소 기본속도 90%
+                if current_speed > 0 and target_speed > 0 and current_speed > target_speed:
+                    scale = target_speed / current_speed
+                    ball_vel[0] *= scale
+                    ball_vel[1] *= scale
+                    try:
+                        game_vars.ball.vel[0] = ball_vel[0]
+                        game_vars.ball.vel[1] = ball_vel[1]
+                    except Exception:
+                        pass
+                    print(f\"[RAGNAROK] 보스 반격 감속: {current_speed:.2f} -> {target_speed:.2f} (orig {restore_speed:.2f})\")
+            except Exception:
+                pass
+
             current_speed = math.hypot(ball_vel[0], ball_vel[1])
             softened_speed = current_speed
             if current_speed > 0:
