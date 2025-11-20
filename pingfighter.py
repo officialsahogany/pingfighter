@@ -17555,7 +17555,11 @@ class SupplyAircraft:
             available_weights = [1, 1, 1]
 
         item_name = random.choices(available_items, weights=available_weights, k=1)[0]
-        print(f"🎁🎁🎁 [물자보급 드롭] {item_name} 드롭! 🎁🎁🎁")
+        try:
+            item_label = get_item_name_korean(item_name)
+        except Exception:
+            item_label = item_name
+        print(f"🎁🎁🎁 [물자보급 드롭] {item_label} 드롭! 🎁🎁🎁")
         
         # 아이템 투척 위치를 비행기 위치에서 약간 랜덤하게
         drop_offset_x = random.randint(-20, 20)  # 좌우로 약간 흔들림
