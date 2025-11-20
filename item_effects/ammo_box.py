@@ -131,6 +131,20 @@ class AmmoBox:
         except ImportError:
             pass
 
+        # 자폭드론 재장전 (단순 카운트 리셋)
+        try:
+            import pingfighter as game_module
+
+            if hasattr(game_module, "soldier_drone_ammo") and hasattr(game_module, "SUICIDE_DRONE_MAX_AMMO"):
+                prev_drone = game_module.soldier_drone_ammo
+                if prev_drone < game_module.SUICIDE_DRONE_MAX_AMMO:
+                    game_module.soldier_drone_ammo = game_module.SUICIDE_DRONE_MAX_AMMO
+                    if "suicide_drone" not in self.reloaded_weapons:
+                        self.reloaded_weapons.append("suicide_drone")
+                    print(f"   🚁 자폭드론 재장전: {prev_drone} → {game_module.soldier_drone_ammo}")
+        except ImportError:
+            pass
+
         # 화력지원 재장전 (폭격 지원 무전기)
         try:
             from item_effects.fire_support import get_fire_support_instance

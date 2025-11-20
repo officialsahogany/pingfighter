@@ -28348,6 +28348,8 @@ def handle_player(keys):
         net_gun_instance = get_net_gun_instance()
 
     if not player_stunned:
+        if suicide_drone_active:
+            current_speed = 0
         # 코만도 캐릭터 총알 발사 처리 (마우스+키보드: 좌클릭도 SPACE로 인정)
         # NOTE: AK-47은 '홀드 연사'를 지원해야 하므로 space 에지(press) 뿐 아니라
         #       유지 입력 동안에도 매 프레임 발사 체크가 이뤄져야 한다.
@@ -42127,6 +42129,11 @@ def draw_objects():
         if net_gun.nets:
             net_gun.draw_nets(SCREEN)
             net_gun.draw_rope(SCREEN, PLAYER)
+
+        # === 자폭드론 표시 ===
+        if suicide_drone_active and suicide_drone_rect:
+            pygame.draw.circle(SCREEN, (200, 220, 255), suicide_drone_rect.center, suicide_drone_rect.width // 2)
+            pygame.draw.circle(SCREEN, (80, 120, 200), suicide_drone_rect.center, max(2, suicide_drone_rect.width // 2 - 3), 1)
 
     # === 피 파티클 그리기 ===
     if selected_character_type == "soldier":
