@@ -138,6 +138,7 @@ def _log_input_trace(frame: int,
         f" K_a={int(keys[pygame.K_a])} K_d={int(keys[pygame.K_d])}"
         f" stunned={stunned} wait_serve={wait_serve} serve_t={serve_timer}"
         f" speed={speed:.3f}"
+        f" focus={pygame.key.get_focused()}"
     )
 
 def _adapt_input_events(events):
@@ -167,8 +168,9 @@ def _patched_event_get(*args, **kwargs):
                 print(f"[INPUT_TRACE][FOCUS] type={ev.type} gain={getattr(ev,'gain',None)} state={getattr(ev,'state',None)} focus={pygame.key.get_focused()}")
     return events
 
-# 안정성 모드: pygame.event.get를 변경하지 않는다.
-# (필요 시, 명시적으로 켜는 플래그를 도입할 수 있음)
+# INPUT_TRACE가 켜져 있으면 이벤트 후킹을 활성화한다.
+if INPUT_TRACE:
+    pygame.event.get = _patched_event_get
 
 # ---- 프레임 입력 스냅샷(한 번만 계산) ---------------------------------------
 INPUT_SNAPSHOT_VALID = False
