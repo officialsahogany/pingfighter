@@ -2051,6 +2051,9 @@ STAGE7_SUPER_DURATION_MS = 15000
 STAGE7_SUPER_NAME = "초인테트리서"
 STAGE7_TETRO_EXPLOSION_KNOCKBACK = 12.0
 STAGE7_TETRO_EXPLOSION_STUN_S = 0.5
+STAGE7_TETRO_SUPER_SCALE = 1.7              # 기존 2.0 → 15% 축소
+STAGE7_TETRO_SUPER_STUN_S = 0.9             # 기존 1.0s → 10% 감소
+STAGE7_TETRO_EXPLOSION_BASE_RADIUS = 80.0
 stage7_boss_orig_size: tuple[int,int] | None = None  # (width, height)
 stage7_super_scale: float = 1.0
 stage7_super_target_scale: float = 1.0
@@ -33595,9 +33598,11 @@ def spawn_stage7_tetromino(now: int | None = None) -> bool:
     except Exception:
         pass
 
-    # 스케일: 초인 테트리서 활성 중에는 2배
-    scale = 2 if stage7_super_active else 1
-    s = STAGE7_TETRO_CELL_SIZE * scale
+    # 스케일: 초인 테트리서 활성 중에는 15% 축소된 강화형(기존 2배 → 1.7배)
+    super_firing = bool(stage7_super_active)
+    scale = STAGE7_TETRO_SUPER_SCALE if super_firing else 1.0
+    cell_size = max(1, int(round(STAGE7_TETRO_CELL_SIZE * scale)))
+    s = cell_size
     cx = float(BOSS.centerx)
     # 보스 패들 바로 아래에서 시작하되, 윗부분(ㅗ의 막대) 셀이 보스에 닿지 않도록 여유를 둔다.
     base_top = float(BOSS.bottom + s + 6)
@@ -33634,7 +33639,8 @@ def spawn_stage7_tetromino(now: int | None = None) -> bool:
         "rotation": rotation,
         "shape": shape,
         "scale": scale,
-        "super": bool(stage7_super_active),
+        "cell_size": cell_size,
+        "super": super_firing,
         "golden": True if random.random() < 0.03 else False,
         # 낙하 중 가끔 좌우로 1~2칸 이동 (셀 크기 단위)
         # 40% 확률로 -2..-1..1..2 중 하나 선택, 그 외 0(이동 없음)
