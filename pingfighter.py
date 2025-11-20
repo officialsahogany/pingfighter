@@ -18925,6 +18925,130 @@ def soldier_switch_weapon(index: int, *, play_sound: bool = True) -> str:
             pass
 
     return current_weapon
+
+
+# === 자폭드론 조작/폭발 유틸리티 ===
+def _reset_suicide_drone_state() -> None:
+    globals()['suicide_drone_active'] = False
+    globals()['suicide_drone_rect'] = None
+    globals()['suicide_drone_player_lock'] = None
+
+
+def _launch_suicide_drone() -> bool:
+    """자폭드론을 발진시킨다. 탄환 1개 소모, 플레이어 위치에 생성."""
+    global soldier_drone_ammo, suicide_drone_active, suicide_drone_rect, suicide_drone_player_lock
+    if suicide_drone_active or soldier_drone_ammo <= 0:
+        return False
+    drone_size = 24
+    suicide_drone_rect = pygame.Rect(
+        PLAYER.centerx - drone_size // 2,
+        PLAYER.centery - drone_size // 2,
+        drone_size,
+        drone_size,
+    )
+    soldier_drone_ammo = max(0, soldier_drone_ammo - 1)
+    suicide_drone_active = True
+    suicide_drone_player_lock = (PLAYER.centerx, PLAYER.centery)
+    return True
+
+
+def _spawn_drone_fire_zone(cx: float, cy: float) -> None:
+    """자폭드론 폭발 후 화염 궤적(화염병과 동일 규격)을 남긴다."""
+    import items
+    base_width = 150
+    base_height = 60
+    fire_width = int(base_width * (1.1 if items.commando_arm_obtained else 1.0))
+    fire_height = int(base_height * (1.1 if items.commando_arm_obtained else 1.0))
+    fire_zone = {
+        "x": cx,
+        "y": cy,
+        "width": fire_width,
+        "height": fire_height,
+        "duration": 150,  # 2.5초
+        "flames": [],
+        "spread_timer": 0,
+        "push_timer": 0,
+    }
+    for _ in range(15):
+        flame = {
+            "x": cx + random.uniform(-30, 30),
+            "y": cy + random.uniform(-10, 10),
+            "size": random.uniform(8, 20),
+            "lifetime": random.uniform(20, 40),
+            "color_phase": random.uniform(0, 1),
+        }
+        fire_zone["flames"].append(flame)
+    fire_zones.append(fire_zone)
+
+
+def _detonate_suicide_drone(reason: str = "manual") -> None:
+    """자폭드론 폭발 처리"""
+    global suicide_drone_active, suicide_drone_rect, suicide_drone_player_lock, boss_stunned_timer
+    if not suicide_drone_active or suicide_drone_rect is None:
+        return
+    cx, cy = suicide_drone_rect.center
+    try:
+        trigger_grenade_style_explosion(cx, cy, apply_commando_bonus=False, source="suicide_drone", radius_scale=1.0)
+    except Exception:
+        pass
+    try:
+        boss_stunned_timer = max(boss_stunned_timer, int(0.8 * 60))
+    except Exception:
+        pass
+    _spawn_drone_fire_zone(cx, cy)
+    _reset_suicide_drone_state()
+    # 무기 전환 중복 입력을 막기 위해 짧은 쿨다운
+    soldier_controller.switch_cooldown = max(soldier_controller.switch_cooldown, soldier_controller.switch_cooldown_frames // 2)
+
+
+def update_suicide_drone(keys, space_pressed: bool, mouse_pressed: tuple | None = None) -> None:
+    """자폭드론 조종 및 충돌 체크"""
+    if not suicide_drone_active or suicide_drone_rect is None:
+        return
+
+    dx = (-1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 0) + (1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0)
+    dy = (-1 if (keys[pygame.K_UP] or keys[pygame.K_w]) else 0) + (1 if (keys[pygame.K_DOWN] or keys[pygame.K_s]) else 0)
+    # 대각선 속도 보정
+    if dx != 0 and dy != 0:
+        scale = 0.7071
+        dx *= scale
+        dy *= scale
+    suicide_drone_rect.x += int(dx * suicide_drone_speed)
+    suicide_drone_rect.y += int(dy * suicide_drone_speed)
+
+    # 화면 경계 클램프
+    suicide_drone_rect.clamp_ip(pygame.Rect(0, 0, WIDTH, HEIGHT))
+
+    # 플레이어는 제자리 고정
+    if suicide_drone_player_lock:
+        PLAYER.centerx, PLAYER.centery = suicide_drone_player_lock
+
+    # 수동 폭발 입력
+    manual_trigger = space_pressed
+    if mouse_pressed is not None:
+        try:
+            manual_trigger = manual_trigger or bool(mouse_pressed[0])
+        except Exception:
+            pass
+    if manual_trigger:
+        _detonate_suicide_drone("manual")
+        return
+
+    # 보스 충돌 시 즉시 폭발
+    try:
+        if suicide_drone_rect.colliderect(BOSS):
+            _detonate_suicide_drone("boss_hit")
+            return
+    except Exception:
+        pass
+
+    # 공과 충돌 시 즉시 폭발
+    try:
+        if suicide_drone_rect.colliderect(BALL):
+            _detonate_suicide_drone("ball_hit")
+            return
+    except Exception:
+        pass
     
 
 
