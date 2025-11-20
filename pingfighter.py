@@ -18324,6 +18324,9 @@ suicide_drone_speed = 10
 suicide_drone_player_lock: tuple[int, int] | None = None
 suicide_drone_grace_timer = 0
 suicide_drone_vel = [0.0, 0.0]
+# 드론 폭발로 인한 공속 부스트 원복용 백업
+suicide_drone_ball_speed_backup = 0.0
+suicide_drone_ball_boost_active = False
 SUICIDE_DRONE_ACCEL = 1.2
 SUICIDE_DRONE_MAX_SPEED = 14.0
 suicide_drone_rotor_angle = 0.0
@@ -18971,11 +18974,14 @@ def _reset_suicide_drone_state() -> None:
     globals()['suicide_drone_grace_timer'] = 0
     globals()['suicide_drone_vel'] = [0.0, 0.0]
     globals()['suicide_drone_rotor_angle'] = 0.0
+    globals()['suicide_drone_ball_speed_backup'] = 0.0
+    globals()['suicide_drone_ball_boost_active'] = False
 
 
 def _launch_suicide_drone() -> bool:
     """자폭드론을 발진시킨다. 탄환 1개 소모, 플레이어 위치에 생성."""
     global soldier_drone_ammo, suicide_drone_active, suicide_drone_rect, suicide_drone_player_lock, suicide_drone_vel, suicide_drone_rotor_angle
+    global suicide_drone_ball_speed_backup, suicide_drone_ball_boost_active
     if suicide_drone_active or soldier_drone_ammo <= 0:
         return False
     drone_size = 48  # 기존 대비 2배 크기
@@ -19026,6 +19032,7 @@ def _spawn_drone_fire_zone(cx: float, cy: float) -> None:
 def _detonate_suicide_drone(reason: str = "manual") -> None:
     """자폭드론 폭발 처리"""
     global suicide_drone_active, suicide_drone_rect, suicide_drone_player_lock, boss_stunned_timer
+    global suicide_drone_ball_speed_backup, suicide_drone_ball_boost_active
     if not suicide_drone_active or suicide_drone_rect is None:
         return
     cx, cy = suicide_drone_rect.center
