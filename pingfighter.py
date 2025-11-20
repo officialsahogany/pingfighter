@@ -53725,6 +53725,12 @@ def apply_selected_items(
 
     if "suicide_drone" in selected_firearm_items:
         soldier_controller.add_weapon("suicide_drone", set_active=False)
+        globals()['soldier_drone_ammo'] = SUICIDE_DRONE_MAX_AMMO
+    else:
+        globals()['soldier_drone_ammo'] = SUICIDE_DRONE_MAX_AMMO
+        globals()['suicide_drone_active'] = False
+        globals()['suicide_drone_rect'] = None
+        globals()['suicide_drone_player_lock'] = None
 
     if "fire_support" in selected_firearm_items:
         soldier_controller.add_weapon("fire_support", set_active=False)
