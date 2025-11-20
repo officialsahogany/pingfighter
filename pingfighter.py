@@ -18224,6 +18224,7 @@ SOLDIER_CONTROL_LOCK_TIME = 18  # 0.3초 통제불능
 
 # === 코만도 화기류 컨트롤러 ===
 soldier_controller = SoldierWeaponController()
+soldier_last_weapon_before_pistol: str | None = None  # 중클릭으로 권총 전환 직전 화기 저장
 
 
 def reset_weapon_tracking(weapon_name: str) -> None:
@@ -53649,6 +53650,7 @@ def apply_selected_items(
     from item_effects.net_gun import get_net_gun_instance
 
     soldier_controller.reset()
+    soldier_last_weapon_before_pistol = None
     fire_support_weapon = get_fire_support_instance()
     fire_support_weapon.reset_runtime()
 
