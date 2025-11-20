@@ -86,6 +86,10 @@ from game_state.audio import (
 )
 from game_state.items import bind_item_state, item_state as item_state_adapter
 from genie_assistant import GenieAssistant
+from core.input_keys import (
+    is_move_left_pressed,
+    is_move_right_pressed,
+)
 
 # ---- 입력 스킴 어댑터 -------------------------------------------------------
 # 옵션에서 '마우스+키보드'를 선택하면 마우스 버튼을 키 입력으로 매핑한다.
@@ -25575,20 +25579,9 @@ def handle_player(keys):
     # 키 입력 변수 초기화 (기본: 현재 스냅샷 keys)
     space_pressed_raw = keys[pygame.K_SPACE]
     down_pressed_raw = keys[pygame.K_DOWN]
-    left_pressed_raw = keys[pygame.K_LEFT]
-    right_pressed_raw = keys[pygame.K_RIGHT]
-
-    # 컨트롤 스킴과 무관하게 A/D도 좌우 이동으로 허용(편의)
-    left_pressed_raw = left_pressed_raw or keys[pygame.K_a]
-    right_pressed_raw = right_pressed_raw or keys[pygame.K_d]
-    # Windows 한글 입력기(IME) 활성 시 간헐적으로 문자 키 매핑이 달라지는 사례에 대한 보조 매핑
-    # - 과거 백업 코드에서 A↔'n'(0x6E), D↔'o'(0x6F) 키심으로 보고된 바 있어 동시 허용
-    # - 텍스트 입력 UI가 없으므로 부작용(영문 n/o로 이동)이 크지 않음
-    try:
-        left_pressed_raw = left_pressed_raw or keys[pygame.K_n]
-        right_pressed_raw = right_pressed_raw or keys[pygame.K_o]
-    except Exception:
-        pass
+    # 좌우 이동은 공용 헬퍼로 처리하여 IME/레이아웃 변환과 스캔코드까지 포괄
+    left_pressed_raw = is_move_left_pressed(keys)
+    right_pressed_raw = is_move_right_pressed(keys)
 
     # 프레임 입력 스냅샷이 유효하면 방향키/AD도 스냅샷을 우선 사용해 프레임 경계에서의 불안정 제거
     # (Prompt/오버레이 갱신 타이밍에 따른 간헐적 끊김 방지)

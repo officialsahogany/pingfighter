@@ -237,16 +237,16 @@ class GameEngine:
             # 대쉬 또는 특수 능력 활성화
             self.paddle.activate_dash()
         
-        elif is_move_left_key(event.key):
+        elif is_move_left_key(event.key, getattr(event, "scancode", None)):
             self.paddle.start_move_left()
-        elif is_move_right_key(event.key):
+        elif is_move_right_key(event.key, getattr(event, "scancode", None)):
             self.paddle.start_move_right()
     
     def _handle_keyup(self, event):
         """키 업 이벤트 처리"""
-        if is_move_left_key(event.key):
+        if is_move_left_key(event.key, getattr(event, "scancode", None)):
             self.paddle.stop_move_left()
-        elif is_move_right_key(event.key):
+        elif is_move_right_key(event.key, getattr(event, "scancode", None)):
             self.paddle.stop_move_right()
     
     def _handle_mousedown(self, event):
