@@ -6681,7 +6681,8 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
 
-                drain_per_sec = 300.0 / 13.0
+                # 강화 디바인스톤 업그레이드 소요 시간을 약 11초로 맞춘다 (300 게이지 / 11초)
+                drain_per_sec = 300.0 / 11.0
                 drain_per_frame = (drain_per_sec / FPS) * get_blacksmith_construction_speed_multiplier()
                 gained_xp = 0
 
