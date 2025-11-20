@@ -14806,10 +14806,12 @@ blacksmith_shield_impact_timer = 0  # 방패 충격 효과 타이머
 
 # === 발토르 토르쉴드 게이지/내구도 시스템 ===
 BLACKSMITH_UMBRELLA_GAUGE_MAX = 5
-# 발토르 토르쉴드 기본 회복 주기를 8초로 맞춰 공격 전환까지의 텀을 조금 더 확보한다.
-BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES = int(8 * FPS)
-# 디바인스톤 활성 시 회복 주기는 5초로 유지해 기본 대비 2초 빠르게 회복한다.
+# 발토르 토르쉴드 기본 회복 주기를 6초로 단축 (요청: 7초 → 6초)
+BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES = int(6 * FPS)
+# 디바인스톤 활성 시 회복 주기는 5초 유지 (변경 없음)
 BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_DIVINE_FRAMES = int(5 * FPS)
+# 강화 디바인스톤 업그레이드 시 회복 주기를 4초로 더 단축
+BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_REINFORCED_FRAMES = int(4 * FPS)
 # 레거시 호환을 위해 기본 쿨타임 값을 유지하지만, 실제 사용 시에는 헬퍼 함수를 거쳐 동적으로 계산한다.
 BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_FRAMES = BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES
 BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES = int(0.3 * FPS)
@@ -14872,6 +14874,21 @@ def get_blacksmith_umbrella_recover_interval_frames() -> int:
     """현재 상황에 맞는 토르쉴드 게이지 회복 간격(프레임)을 계산한다."""
 
     if is_blacksmith_divine_stone_active():
+        # 강화 여부까지 확인하여 단계별 회복 주기 적용
+        try:
+            state = globals().get("blacksmith_divine_stone_state")
+            if not _is_divine_state_active(state):
+                controller = globals().get("BLACKSMITH_CONTROLLER")
+                try:
+                    state = controller.state.divine.state if controller is not None else None
+                except AttributeError:
+                    state = None
+            reinforced = bool(state and state.get("reinforced", False))
+        except Exception:
+            reinforced = False
+
+        if reinforced:
+            return BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_REINFORCED_FRAMES
         return BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_DIVINE_FRAMES
     return BLACKSMITH_UMBRELLA_RECOVER_INTERVAL_BASE_FRAMES
 
