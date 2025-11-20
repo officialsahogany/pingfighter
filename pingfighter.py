@@ -56984,7 +56984,8 @@ def reset_round():
             game_state.displayed_boss_gauge = displayed_boss_gauge
         except Exception:
             pass
-        print(f"[Stage7Gauge][ResetRound] Restore persistent gauge={boss_special_gauge}")
+        if STAGE7_DEBUG.get('GAUGE', False):
+            print(f"[Stage7Gauge][ResetRound] Restore persistent gauge={boss_special_gauge}")
 
     #  상모돌리기 상태 초기화 (라운드 시작 시)
     whip_active = False
