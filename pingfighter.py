@@ -40335,34 +40335,55 @@ def draw_objects():
                     arrow_spacing = 50
                     current_phase = (ticks // 150) % 2  # 150ms마다 좌우 전환 (더 빠름)
 
-                    # 왼쪽 화살표
+                    # 왼쪽 화살표 (←)
                     left_x = base_x - arrow_spacing // 2 + shake_x
                     left_y = base_y + shake_y
                     left_scale = 1.5 if current_phase == 0 else 0.8  # 더 큰 크기 변화
                     left_base_alpha = 255 if current_phase == 0 else 150
                     left_alpha = int(left_base_alpha * fade_alpha)
 
-                    left_arrow_surf = pygame.Surface((int(arrow_size * left_scale), int(arrow_size * left_scale)), pygame.SRCALPHA)
                     scaled_size = int(arrow_size * left_scale)
-                    arrow_left_points = [
-                        (scaled_size * 0.75, scaled_size * 0.15),
-                        (scaled_size * 0.25, scaled_size * 0.5),
-                        (scaled_size * 0.75, scaled_size * 0.85),
-                    ]
-
-                    # 강렬한 그림자 효과
-                    shadow_points = [(x + 3, y + 3) for x, y in arrow_left_points]
-                    pygame.draw.polygon(left_arrow_surf, (0, 0, 0, int(150 * fade_alpha)), shadow_points)
+                    left_arrow_surf = pygame.Surface((int(scaled_size * 1.5), scaled_size), pygame.SRCALPHA)
 
                     # 강렬한 화살표 색상 (빨강-노랑 그라데이션)
                     arrow_color = (255, 50 + int(150 * fast_pulse), 0)  # 빨강에서 주황으로
-                    pygame.draw.polygon(left_arrow_surf, (*arrow_color, left_alpha), arrow_left_points)
+
+                    # 화살촉 (삼각형) - 왼쪽
+                    arrow_head_width = scaled_size * 0.6
+                    arrow_head = [
+                        (0, scaled_size * 0.5),  # 왼쪽 끝 (화살촉 끝)
+                        (arrow_head_width, scaled_size * 0.2),  # 위쪽 꼭지점
+                        (arrow_head_width, scaled_size * 0.8),  # 아래쪽 꼭지점
+                    ]
+
+                    # 화살대 (사각형) - 오른쪽
+                    shaft_start_x = arrow_head_width * 0.7
+                    shaft_width = scaled_size * 0.8
+                    shaft_height = scaled_size * 0.3
+                    arrow_shaft = [
+                        (shaft_start_x, scaled_size * 0.5 - shaft_height / 2),
+                        (shaft_start_x + shaft_width, scaled_size * 0.5 - shaft_height / 2),
+                        (shaft_start_x + shaft_width, scaled_size * 0.5 + shaft_height / 2),
+                        (shaft_start_x, scaled_size * 0.5 + shaft_height / 2),
+                    ]
+
+                    # 그림자 효과
+                    shadow_offset = 3
+                    shadow_head = [(x + shadow_offset, y + shadow_offset) for x, y in arrow_head]
+                    shadow_shaft = [(x + shadow_offset, y + shadow_offset) for x, y in arrow_shaft]
+                    pygame.draw.polygon(left_arrow_surf, (0, 0, 0, int(150 * fade_alpha)), shadow_head)
+                    pygame.draw.polygon(left_arrow_surf, (0, 0, 0, int(150 * fade_alpha)), shadow_shaft)
+
+                    # 화살표 본체
+                    pygame.draw.polygon(left_arrow_surf, (*arrow_color, left_alpha), arrow_head)
+                    pygame.draw.polygon(left_arrow_surf, (*arrow_color, left_alpha), arrow_shaft)
 
                     # 강렬한 하이라이트
                     highlight_alpha = min(255, int((left_alpha + 80) * fade_alpha))
-                    pygame.draw.polygon(left_arrow_surf, (255, 255, 255, highlight_alpha), arrow_left_points, 5)
+                    pygame.draw.polygon(left_arrow_surf, (255, 255, 255, highlight_alpha), arrow_head, 4)
+                    pygame.draw.polygon(left_arrow_surf, (255, 255, 255, highlight_alpha), arrow_shaft, 4)
 
-                    SCREEN.blit(left_arrow_surf, (left_x - scaled_size // 2, left_y - scaled_size // 2))
+                    SCREEN.blit(left_arrow_surf, (left_x - int(scaled_size * 0.75), left_y - scaled_size // 2))
 
                     # 오른쪽 화살표
                     right_x = base_x + arrow_spacing // 2 + shake_x
