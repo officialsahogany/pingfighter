@@ -104,6 +104,9 @@ _input_log_prev_left = False
 _input_log_prev_right = False
 _input_log_last_frame = -9999
 _input_log_last_time = 0.0
+# 이벤트 기반 이동 상태(포커스 상실 시 fallback)
+MOVE_EVENT_LEFT = False
+MOVE_EVENT_RIGHT = False
 
 
 def _log_input_trace(frame: int,
@@ -136,6 +139,7 @@ def _log_input_trace(frame: int,
         f" snapL={int(bool(snap_left))} snapR={int(bool(snap_right))}"
         f" K_LEFT={int(keys[pygame.K_LEFT])} K_RIGHT={int(keys[pygame.K_RIGHT])}"
         f" K_a={int(keys[pygame.K_a])} K_d={int(keys[pygame.K_d])}"
+        f" evtL={int(MOVE_EVENT_LEFT)} evtR={int(MOVE_EVENT_RIGHT)}"
         f" stunned={stunned} wait_serve={wait_serve} serve_t={serve_timer}"
         f" speed={speed:.3f}"
         f" focus={pygame.key.get_focused()}"
@@ -158,6 +162,14 @@ def _patched_event_get(*args, **kwargs):
                 ev_sc = getattr(ev, "scancode", None)
                 ev_uni = getattr(ev, "unicode", "")
                 ev_mod = getattr(ev, "mod", 0)
+                # 이동키 상태를 이벤트 기반으로 갱신 (포커스 없는 상태 대응)
+                try:
+                    if is_move_left_key(getattr(ev, "key", None), ev_sc):
+                        globals()["MOVE_EVENT_LEFT"] = ev.type == pygame.KEYDOWN
+                    elif is_move_right_key(getattr(ev, "key", None), ev_sc):
+                        globals()["MOVE_EVENT_RIGHT"] = ev.type == pygame.KEYDOWN
+                except Exception:
+                    pass
                 print(
                     "[INPUT_TRACE][EVENT]"
                     f" type={'DOWN' if ev.type == pygame.KEYDOWN else 'UP'}"
