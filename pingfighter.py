@@ -15164,6 +15164,7 @@ BLACKSMITH_DIVINE_SHIELD_TIME = 7.0
 BLACKSMITH_DIVINE_SHIELD_GAUGE_DRAIN_PER_SEC = BLACKSMITH_DIVINE_SHIELD_COST / BLACKSMITH_DIVINE_SHIELD_TIME
 BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES = int(25.0 * FPS)
 BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES = int(30.0 * FPS)
+BLACKSMITH_DIVINE_SHIELD_LAYERS = 4
 
 # 디바인쉴드 반사 부스트 효과 변수
 divine_shield_boost_active = False
@@ -15175,6 +15176,24 @@ divine_shield_boost_curve_direction = 0  # -1: 왼쪽, 1: 오른쪽
 # 디바인쉴드 어둠의 오오라 효과 변수
 divine_shield_dark_aura_active = False
 divine_shield_dark_aura_trail = []  # 궤적 저장 리스트 [(x, y, alpha), ...]
+
+
+def _end_divine_shield(divine_state: dict) -> None:
+    """4겹 보호막이 모두 소진됐을 때 쉴드를 종료하고 과부하를 시작한다."""
+
+    if not divine_state:
+        return
+
+    divine_state["shield_active"] = False
+    divine_state["shield_timer"] = 0
+    divine_state["shield_ready"] = False
+    divine_state["shield_xp"] = 0.0
+    divine_state["shield_overheat"] = max(
+        int(divine_state.get("shield_overheat", 0)),
+        BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES,
+    )
+    divine_state["shield_hits"] = 0
+    divine_state["shield_ripple_effects"] = []
 
 def check_divine_shield_ball_collision():
     """디바인쉴드 보호막과 공의 충돌을 체크하고 보스 공을 반사한다."""
@@ -15278,16 +15297,14 @@ def check_divine_shield_ball_collision():
             except Exception:
                 pass
 
-            print(f"[DEBUG] Divine shield hit {shield_hits}/4 - reflected boss ball at ({BALL.centerx}, {BALL.centery}) with boost")
+            print(
+                f"[DEBUG] Divine shield hit {shield_hits}/{BLACKSMITH_DIVINE_SHIELD_LAYERS} - reflected boss ball at ({BALL.centerx}, {BALL.centery}) with boost"
+            )
 
-            # 4회 피격 시 쉴드 종료
-            if shield_hits >= 4:
-                divine_state["shield_active"] = False
-                divine_state["shield_timer"] = 0
-                divine_state["overheat_timer"] = BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES
-                divine_state["shield_hits"] = 0
-                divine_state["shield_ripple_effects"] = []
-                print("[DEBUG] Divine shield destroyed by 4 hits!")
+            # 모든 보호막 소진 시 즉시 과부하 시작
+            if shield_hits >= BLACKSMITH_DIVINE_SHIELD_LAYERS:
+                _end_divine_shield(divine_state)
+                print(f"[DEBUG] Divine shield destroyed by {BLACKSMITH_DIVINE_SHIELD_LAYERS} hits!")
                 # 파괴 이펙트
                 try:
                     effects_manager.spawn_star_particles(int(group_cx), int(group_cy), count=20)
