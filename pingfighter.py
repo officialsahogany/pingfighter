@@ -18299,6 +18299,11 @@ suicide_drone_rect: pygame.Rect | None = None
 suicide_drone_speed = 10
 suicide_drone_player_lock: tuple[int, int] | None = None
 suicide_drone_grace_timer = 0
+suicide_drone_vel = [0.0, 0.0]
+SUICIDE_DRONE_ACCEL = 1.2
+SUICIDE_DRONE_MAX_SPEED = 14.0
+suicide_drone_rotor_angle = 0.0
+suicide_drone_rotor_speed = 22.0
 
 # === 코만도 총 발사 애니메이션 관련 변수 ===
 soldier_gun_animation_active = False  # 총 발사 애니메이션 진행 중인지
@@ -18935,11 +18940,13 @@ def _reset_suicide_drone_state() -> None:
     globals()['suicide_drone_rect'] = None
     globals()['suicide_drone_player_lock'] = None
     globals()['suicide_drone_grace_timer'] = 0
+    globals()['suicide_drone_vel'] = [0.0, 0.0]
+    globals()['suicide_drone_rotor_angle'] = 0.0
 
 
 def _launch_suicide_drone() -> bool:
     """자폭드론을 발진시킨다. 탄환 1개 소모, 플레이어 위치에 생성."""
-    global soldier_drone_ammo, suicide_drone_active, suicide_drone_rect, suicide_drone_player_lock
+    global soldier_drone_ammo, suicide_drone_active, suicide_drone_rect, suicide_drone_player_lock, suicide_drone_vel, suicide_drone_rotor_angle
     if suicide_drone_active or soldier_drone_ammo <= 0:
         return False
     drone_size = 24
@@ -18953,6 +18960,8 @@ def _launch_suicide_drone() -> bool:
     suicide_drone_active = True
     suicide_drone_player_lock = (PLAYER.centerx, PLAYER.centery)
     globals()['suicide_drone_grace_timer'] = SUICIDE_DRONE_GRACE_FRAMES
+    suicide_drone_vel = [0.0, 0.0]
+    suicide_drone_rotor_angle = 0.0
     return True
 
 
@@ -19009,19 +19018,39 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
     """자폭드론 조종 및 충돌 체크"""
     if not suicide_drone_active or suicide_drone_rect is None:
         return
-
+    # 입력 벡터
     dx = (-1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 0) + (1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0)
     dy = (-1 if (keys[pygame.K_UP] or keys[pygame.K_w]) else 0) + (1 if (keys[pygame.K_DOWN] or keys[pygame.K_s]) else 0)
-    # 대각선 속도 보정
-    if dx != 0 and dy != 0:
-        scale = 0.7071
-        dx *= scale
-        dy *= scale
-    suicide_drone_rect.x += int(dx * suicide_drone_speed)
-    suicide_drone_rect.y += int(dy * suicide_drone_speed)
+    # 가속 기반 이동
+    if dx == 0 and dy == 0:
+        # 감속
+        suicide_drone_vel[0] *= 0.90
+        suicide_drone_vel[1] *= 0.90
+        if abs(suicide_drone_vel[0]) < 0.05:
+            suicide_drone_vel[0] = 0.0
+        if abs(suicide_drone_vel[1]) < 0.05:
+            suicide_drone_vel[1] = 0.0
+    else:
+        if dx != 0 and dy != 0:
+            dx *= 0.7071
+            dy *= 0.7071
+        suicide_drone_vel[0] += dx * SUICIDE_DRONE_ACCEL
+        suicide_drone_vel[1] += dy * SUICIDE_DRONE_ACCEL
+        # 최고속 제한
+        speed = (suicide_drone_vel[0] ** 2 + suicide_drone_vel[1] ** 2) ** 0.5
+        if speed > SUICIDE_DRONE_MAX_SPEED:
+            scale = SUICIDE_DRONE_MAX_SPEED / speed
+            suicide_drone_vel[0] *= scale
+            suicide_drone_vel[1] *= scale
+
+    suicide_drone_rect.x += int(suicide_drone_vel[0])
+    suicide_drone_rect.y += int(suicide_drone_vel[1])
 
     # 화면 경계 클램프
     suicide_drone_rect.clamp_ip(pygame.Rect(0, 0, WIDTH, HEIGHT))
+
+    # 로터 애니메이션
+    globals()['suicide_drone_rotor_angle'] = (globals().get('suicide_drone_rotor_angle', 0.0) + suicide_drone_rotor_speed) % 360
 
     # 플레이어는 제자리 고정
     if suicide_drone_player_lock:
