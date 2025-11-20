@@ -3,10 +3,13 @@
 
 한/영 키보드 및 IME 환경에서 A/D 기반 좌우 이동을
 항상 안정적으로 인식하기 위한 공용 헬퍼를 제공한다.
+디버깅이 필요할 때는 환경변수 `PINGF_INPUT_DEBUG=1`을 설정하면
+키 판정 상태가 0.5초 간격으로 콘솔에 출력된다.
 """
 
 from __future__ import annotations
 
+import os
 import pygame
 from typing import Sequence, Iterable, Optional
 
@@ -25,6 +28,16 @@ SCANCODE_LEFT_FALLBACK = 80
 SCANCODE_RIGHT_FALLBACK = 79
 SCANCODE_A_FALLBACK = 4
 SCANCODE_D_FALLBACK = 7
+# 디버그 플래그
+INPUT_DEBUG = os.environ.get("PINGF_INPUT_DEBUG", "").lower() in ("1", "true", "yes", "on")
+_last_debug_ms = 0
+
+
+def _safe_key_state(keys: Sequence[bool], idx: int) -> int:
+    try:
+        return int(keys[idx])
+    except Exception:
+        return -1  # 인덱스 오류 등
 
 # 이동 관련 키 세트 (keycode 기반)
 # - 0x6E/0x6F: 한글 IME 활성화 시 드물게 보고된 Windows 한글 전환 버그 대응 임시 매핑
@@ -140,9 +153,24 @@ def is_move_left_pressed(keys: Sequence[bool]) -> bool:
         pygame.event.pump()
         refreshed = pygame.key.get_pressed()
         if refreshed is not keys:
-            return _any_move_left_pressed(refreshed)
+            if _any_move_left_pressed(refreshed):
+                return True
     except Exception:
         pass
+    if INPUT_DEBUG:
+        global _last_debug_ms
+        now = pygame.time.get_ticks() if pygame.get_init() else 0
+        if now - _last_debug_ms >= 500:
+            _last_debug_ms = now
+            print(
+                "[INPUT_DEBUG][LEFT]"
+                f" focus={pygame.key.get_focused()}"
+                f" K_LEFT={_safe_key_state(keys, pygame.K_LEFT)}"
+                f" K_a={_safe_key_state(keys, pygame.K_a)}"
+                f" 0x61={_safe_key_state(keys, 0x61)}"
+                f" sc_left={_safe_key_state(keys, SCANCODE_LEFT_FALLBACK)}"
+                f" sc_a={_safe_key_state(keys, SCANCODE_A_FALLBACK)}"
+            )
     return False
 
 
@@ -154,7 +182,22 @@ def is_move_right_pressed(keys: Sequence[bool]) -> bool:
         pygame.event.pump()
         refreshed = pygame.key.get_pressed()
         if refreshed is not keys:
-            return _any_move_right_pressed(refreshed)
+            if _any_move_right_pressed(refreshed):
+                return True
     except Exception:
         pass
+    if INPUT_DEBUG:
+        global _last_debug_ms
+        now = pygame.time.get_ticks() if pygame.get_init() else 0
+        if now - _last_debug_ms >= 500:
+            _last_debug_ms = now
+            print(
+                "[INPUT_DEBUG][RIGHT]"
+                f" focus={pygame.key.get_focused()}"
+                f" K_RIGHT={_safe_key_state(keys, pygame.K_RIGHT)}"
+                f" K_d={_safe_key_state(keys, pygame.K_d)}"
+                f" 0x64={_safe_key_state(keys, 0x64)}"
+                f" sc_right={_safe_key_state(keys, SCANCODE_RIGHT_FALLBACK)}"
+                f" sc_d={_safe_key_state(keys, SCANCODE_D_FALLBACK)}"
+            )
     return False
