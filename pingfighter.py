@@ -24522,6 +24522,38 @@ def draw_soldier_weapon_ui(screen):
                 (weapon_rect.right - 4, weapon_rect.bottom - 4),
                 2
             )
+    elif current_weapon == "suicide_drone":
+        # 자폭드론 HUD
+        slot_w, slot_h = weapon_rect.width, weapon_rect.height
+        body_color = (70, 80, 95)
+        prop_color = (190, 210, 230)
+        nose_color = (230, 120, 80)
+        pygame.draw.rect(screen, body_color, (weapon_rect.x + slot_w * 0.28, weapon_rect.y + slot_h * 0.44, slot_w * 0.44, slot_h * 0.16), border_radius=4)
+        pygame.draw.rect(screen, nose_color, (weapon_rect.x + slot_w * 0.5 - slot_w * 0.08, weapon_rect.y + slot_h * 0.36, slot_w * 0.16, slot_h * 0.14), border_radius=3)
+        for dx in (slot_w * 0.18, slot_w * 0.82):
+            pygame.draw.circle(screen, prop_color, (int(weapon_rect.x + dx), int(weapon_rect.y + slot_h * 0.38)), int(slot_h * 0.12), 2)
+            pygame.draw.circle(screen, prop_color, (int(weapon_rect.x + dx), int(weapon_rect.y + slot_h * 0.62)), int(slot_h * 0.12), 2)
+
+        ammo_to_show = soldier_drone_ammo
+        max_ammo = SUICIDE_DRONE_MAX_AMMO
+        ammo_x = weapon_x + 3
+        ammo_y = weapon_y + weapon_size + 6
+        ammo_w = 10
+        ammo_h = 8
+        ammo_spacing = 12
+        for i in range(max_ammo):
+            rect = pygame.Rect(ammo_x + i * ammo_spacing, ammo_y, ammo_w, ammo_h)
+            if i < ammo_to_show:
+                pygame.draw.rect(screen, (200, 230, 255), rect, border_radius=2)
+                pygame.draw.rect(screen, (80, 120, 180), rect, 1, border_radius=2)
+            else:
+                pygame.draw.rect(screen, (80, 80, 90), rect, 1, border_radius=2)
+        try:
+            if 'font_small' in globals() and font_small:
+                status_surface = font_small.render(f"자폭드론 {ammo_to_show}/{max_ammo}", True, (180, 220, 255))
+                screen.blit(status_surface, (weapon_x, weapon_y - 20))
+        except Exception:
+            pass
     else:
         # 권총 무기 정보 표시 (활성/비활성 상태에 따라 색상 변경)
         gun_center_x, gun_center_y = weapon_rect.center
