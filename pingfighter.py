@@ -53667,6 +53667,7 @@ def apply_selected_items(
     from item_effects.bazooka import get_bazooka_instance
     from item_effects.ak47 import get_ak47_instance
     from item_effects.net_gun import get_net_gun_instance
+    # 자폭드론은 추후 전용 모듈이 추가되기 전까지 단순 슬롯 추가만 수행
 
     soldier_controller.reset()
     soldier_last_weapon_before_pistol = None
@@ -53704,6 +53705,9 @@ def apply_selected_items(
         if net_gun:
             net_gun.unequip()
             net_gun.reload()
+
+    if "suicide_drone" in selected_firearm_items:
+        soldier_controller.add_weapon("suicide_drone", set_active=False)
 
     if "fire_support" in selected_firearm_items:
         soldier_controller.add_weapon("fire_support", set_active=False)
