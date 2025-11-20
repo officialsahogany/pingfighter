@@ -40385,33 +40385,53 @@ def draw_objects():
 
                     SCREEN.blit(left_arrow_surf, (left_x - int(scaled_size * 0.75), left_y - scaled_size // 2))
 
-                    # 오른쪽 화살표
+                    # 오른쪽 화살표 (→)
                     right_x = base_x + arrow_spacing // 2 + shake_x
                     right_y = base_y + shake_y
                     right_scale = 1.5 if current_phase == 1 else 0.8
                     right_base_alpha = 255 if current_phase == 1 else 150
                     right_alpha = int(right_base_alpha * fade_alpha)
 
-                    right_arrow_surf = pygame.Surface((int(arrow_size * right_scale), int(arrow_size * right_scale)), pygame.SRCALPHA)
                     scaled_size = int(arrow_size * right_scale)
-                    arrow_right_points = [
-                        (scaled_size * 0.25, scaled_size * 0.15),
-                        (scaled_size * 0.75, scaled_size * 0.5),
-                        (scaled_size * 0.25, scaled_size * 0.85),
+                    right_arrow_surf = pygame.Surface((int(scaled_size * 1.5), scaled_size), pygame.SRCALPHA)
+
+                    # 화살촉 (삼각형) - 오른쪽
+                    arrow_head_width = scaled_size * 0.6
+                    arrow_total_width = scaled_size * 1.5
+                    arrow_head = [
+                        (arrow_total_width, scaled_size * 0.5),  # 오른쪽 끝 (화살촉 끝)
+                        (arrow_total_width - arrow_head_width, scaled_size * 0.2),  # 위쪽 꼭지점
+                        (arrow_total_width - arrow_head_width, scaled_size * 0.8),  # 아래쪽 꼭지점
                     ]
 
-                    # 강렬한 그림자 효과
-                    shadow_points = [(x + 3, y + 3) for x, y in arrow_right_points]
-                    pygame.draw.polygon(right_arrow_surf, (0, 0, 0, int(150 * fade_alpha)), shadow_points)
+                    # 화살대 (사각형) - 왼쪽
+                    shaft_end_x = arrow_total_width - arrow_head_width * 0.7
+                    shaft_width = scaled_size * 0.8
+                    shaft_height = scaled_size * 0.3
+                    arrow_shaft = [
+                        (shaft_end_x - shaft_width, scaled_size * 0.5 - shaft_height / 2),
+                        (shaft_end_x, scaled_size * 0.5 - shaft_height / 2),
+                        (shaft_end_x, scaled_size * 0.5 + shaft_height / 2),
+                        (shaft_end_x - shaft_width, scaled_size * 0.5 + shaft_height / 2),
+                    ]
 
-                    # 강렬한 화살표 색상
-                    pygame.draw.polygon(right_arrow_surf, (*arrow_color, right_alpha), arrow_right_points)
+                    # 그림자 효과
+                    shadow_offset = 3
+                    shadow_head = [(x + shadow_offset, y + shadow_offset) for x, y in arrow_head]
+                    shadow_shaft = [(x + shadow_offset, y + shadow_offset) for x, y in arrow_shaft]
+                    pygame.draw.polygon(right_arrow_surf, (0, 0, 0, int(150 * fade_alpha)), shadow_head)
+                    pygame.draw.polygon(right_arrow_surf, (0, 0, 0, int(150 * fade_alpha)), shadow_shaft)
+
+                    # 화살표 본체
+                    pygame.draw.polygon(right_arrow_surf, (*arrow_color, right_alpha), arrow_head)
+                    pygame.draw.polygon(right_arrow_surf, (*arrow_color, right_alpha), arrow_shaft)
 
                     # 강렬한 하이라이트
                     highlight_alpha = min(255, int((right_alpha + 80) * fade_alpha))
-                    pygame.draw.polygon(right_arrow_surf, (255, 255, 255, highlight_alpha), arrow_right_points, 5)
+                    pygame.draw.polygon(right_arrow_surf, (255, 255, 255, highlight_alpha), arrow_head, 4)
+                    pygame.draw.polygon(right_arrow_surf, (255, 255, 255, highlight_alpha), arrow_shaft, 4)
 
-                    SCREEN.blit(right_arrow_surf, (right_x - scaled_size // 2, right_y - scaled_size // 2))
+                    SCREEN.blit(right_arrow_surf, (right_x - int(scaled_size * 0.75), right_y - scaled_size // 2))
 
                     # "연타!" 텍스트 (매우 강렬한 깜빡임)
                     text_base_alpha = int(230 + 25 * fast_pulse)
