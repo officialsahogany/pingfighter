@@ -10666,26 +10666,28 @@ def _divine_draw_effects(surface, divine_state):
                     special_flags=pygame.BLEND_ADD,
                 )
 
-                # 7. 각 건물 주변 개별 보호막 효과
-                for idx, (cx, cy) in enumerate(centers):
-                    # 각 건물 주위의 작은 보호 구체
-                    local_radius = 35
-                    local_pulse = 1.0 + 0.1 * math.sin(t * 3 + idx)
-                    local_r = int(local_radius * local_pulse)
-
-                    local_surf = pygame.Surface((local_r * 2 + 20, local_r * 2 + 20), pygame.SRCALPHA)
-                    local_center = (local_r + 10, local_r + 10)
-
-                    # 보호막 외곽
-                    pygame.draw.circle(local_surf, (100, 255, 230, 60), local_center, local_r, 2)
-                    # 보호막 내부 글로우
-                    pygame.draw.circle(local_surf, (180, 255, 240, 25), local_center, local_r - 3)
-
-                    surface.blit(
-                        local_surf,
-                        local_surf.get_rect(center=(int(cx), int(cy))),
-                        special_flags=pygame.BLEND_ADD,
-                    )
+                # 7. 각 건물 주변 개별 보호막 효과 (비활성화)
+                #    └ 디자인 변경: 각 건물에 덮어지는 흰색 원구체가
+                #       건물 시인성을 해쳐 비활성화함.
+                # for idx, (cx, cy) in enumerate(centers):
+                #     # 각 건물 주위의 작은 보호 구체
+                #     local_radius = 35
+                #     local_pulse = 1.0 + 0.1 * math.sin(t * 3 + idx)
+                #     local_r = int(local_radius * local_pulse)
+                #
+                #     local_surf = pygame.Surface((local_r * 2 + 20, local_r * 2 + 20), pygame.SRCALPHA)
+                #     local_center = (local_r + 10, local_r + 10)
+                #
+                #     # 보호막 외곽
+                #     pygame.draw.circle(local_surf, (100, 255, 230, 60), local_center, local_r, 2)
+                #     # 보호막 내부 글로우
+                #     pygame.draw.circle(local_surf, (180, 255, 240, 25), local_center, local_r - 3)
+                #
+                #     surface.blit(
+                #         local_surf,
+                #         local_surf.get_rect(center=(int(cx), int(cy))),
+                #         special_flags=pygame.BLEND_ADD,
+                #     )
 
         except Exception:
             pass
