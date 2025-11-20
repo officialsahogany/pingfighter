@@ -19127,6 +19127,8 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
             suicide_drone_ball_speed_backup = original_speed
             suicide_drone_ball_boost_active = True
 
+            print(f"[DRONE] 공 충돌: 원속도 {original_speed:.2f} -> 3.0배 가속")
+
             # 가속 및 방향 재설정: 보스(위쪽) 방향으로 좁은 부채꼴 랜덤 (거의 수직)
             base_speed = original_speed if original_speed > 0 else BALL_BASE_SPEED
             boosted_speed = base_speed * 3.0
@@ -19134,6 +19136,7 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
             rad = math.radians(angle_deg)
             ball_vel[0] = boosted_speed * math.sin(rad)
             ball_vel[1] = -abs(boosted_speed * math.cos(rad))  # 항상 보스(위) 방향
+            print(f"[DRONE] 가속 후 속도 {boosted_speed:.2f}, 각도 {angle_deg:.1f}°, vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
             _detonate_suicide_drone("ball_hit")
             return
     except Exception:
@@ -63393,8 +63396,10 @@ def handle_ball():
                 if current_speed > 0:
                     restore_speed = suicide_drone_ball_speed_backup / 3.0  # 약 3배 느리게 복원
                     scale = restore_speed / current_speed
+                    print(f"[DRONE] 보스 반격: 현재속도 {current_speed:.2f} -> 복원속도 {restore_speed:.2f} (backup {suicide_drone_ball_speed_backup:.2f})")
                     ball_vel[0] *= scale
                     ball_vel[1] *= scale
+                    print(f"[DRONE] 보스 반격 후 vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
                 suicide_drone_ball_boost_active = False
                 suicide_drone_ball_speed_backup = 0.0
         except Exception:
