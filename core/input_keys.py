@@ -63,6 +63,26 @@ def _is_pressed(keys: Sequence[bool], code: int) -> bool:
         return False
 
 
+def _any_move_left_pressed(keys: Sequence[bool]) -> bool:
+    for key_code in MOVE_LEFT_KEYS:
+        if _is_pressed(keys, key_code):
+            return True
+    for scancode in MOVE_LEFT_SCANCODES:
+        if _is_pressed(keys, scancode):
+            return True
+    return False
+
+
+def _any_move_right_pressed(keys: Sequence[bool]) -> bool:
+    for key_code in MOVE_RIGHT_KEYS:
+        if _is_pressed(keys, key_code):
+            return True
+    for scancode in MOVE_RIGHT_SCANCODES:
+        if _is_pressed(keys, scancode):
+            return True
+    return False
+
+
 def is_move_left_key(key_code: int, scancode: int | None = None) -> bool:
     """왼쪽 이동 키인지 여부 (KEYDOWN/KEYUP용, 스캔코드 보조 지원)"""
     if key_code in MOVE_LEFT_KEYS:
@@ -103,21 +123,28 @@ def is_move_right_event(event) -> bool:
 
 def is_move_left_pressed(keys: Sequence[bool]) -> bool:
     """현재 프레임에서 왼쪽 이동 키가 눌려 있는지 확인 (keycode + scancode)"""
-    for key_code in MOVE_LEFT_KEYS:
-        if _is_pressed(keys, key_code):
-            return True
-    for scancode in MOVE_LEFT_SCANCODES:
-        if _is_pressed(keys, scancode):
-            return True
+    if _any_move_left_pressed(keys):
+        return True
+    # 드물게 초기 프레임에서 키 상태가 비어 있는 경우 한 번 더 펌프 후 재조회
+    try:
+        pygame.event.pump()
+        refreshed = pygame.key.get_pressed()
+        if refreshed is not keys:
+            return _any_move_left_pressed(refreshed)
+    except Exception:
+        pass
     return False
 
 
 def is_move_right_pressed(keys: Sequence[bool]) -> bool:
     """현재 프레임에서 오른쪽 이동 키가 눌려 있는지 확인 (keycode + scancode)"""
-    for key_code in MOVE_RIGHT_KEYS:
-        if _is_pressed(keys, key_code):
-            return True
-    for scancode in MOVE_RIGHT_SCANCODES:
-        if _is_pressed(keys, scancode):
-            return True
+    if _any_move_right_pressed(keys):
+        return True
+    try:
+        pygame.event.pump()
+        refreshed = pygame.key.get_pressed()
+        if refreshed is not keys:
+            return _any_move_right_pressed(refreshed)
+    except Exception:
+        pass
     return False
