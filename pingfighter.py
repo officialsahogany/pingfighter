@@ -40373,25 +40373,24 @@ def draw_objects():
 
                 # "연타!" 텍스트 (깜빡임 효과)
                 text_alpha = int(200 + 55 * fast_pulse)
-                text_scale = 1.0 + 0.1 * fast_pulse
 
+                # 텍스트 위치 (화살표 위쪽)
+                text_x = base_x + shake_x
+                text_y = base_y + shake_y - 25
+
+                # 간단한 텍스트 렌더링 (font_large 사용)
                 try:
-                    import pygame.freetype
-                    if 'font_large' in globals() and font_large:
-                        text_surface, text_rect = font_large.render("연타!", (255, 230, 100))
-                        text_surface.set_alpha(text_alpha)
+                    text_surf = pygame.font.Font(None, 36).render("연타!", True, (255, 230, 100))
+                    text_surf.set_alpha(text_alpha)
+                    text_rect = text_surf.get_rect(center=(text_x, text_y))
 
-                        # 텍스트 위치 (화살표 위쪽)
-                        text_x = base_x + shake_x
-                        text_y = base_y + shake_y - 25
+                    # 그림자
+                    shadow_surf = pygame.font.Font(None, 36).render("연타!", True, (0, 0, 0))
+                    shadow_surf.set_alpha(150)
+                    shadow_rect = shadow_surf.get_rect(center=(text_x + 2, text_y + 2))
 
-                        # 그림자
-                        shadow_surface, _ = font_large.render("연타!", (0, 0, 0))
-                        shadow_surface.set_alpha(150)
-                        SCREEN.blit(shadow_surface, (text_x - text_rect.width // 2 + 2, text_y - text_rect.height // 2 + 2))
-
-                        # 본체
-                        SCREEN.blit(text_surface, (text_x - text_rect.width // 2, text_y - text_rect.height // 2))
+                    SCREEN.blit(shadow_surf, shadow_rect)
+                    SCREEN.blit(text_surf, text_rect)
                 except:
                     pass
 
