@@ -17511,8 +17511,9 @@ class SupplyAircraft:
             "net_gun": 0.45,
             "ammo_box": 0.6,
             "fire_support": 0.35,
+            "suicide_drone": 0.35,
         }
-        firearm_names = {"bazooka", "ak47", "net_gun", "fire_support"}
+        firearm_names = {"bazooka", "ak47", "net_gun", "fire_support", "suicide_drone"}
 
         # 정확한 화기 인벤토리를 읽어 중복 드랍을 방지
         controller = globals().get("soldier_controller")

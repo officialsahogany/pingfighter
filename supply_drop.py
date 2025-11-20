@@ -27,6 +27,7 @@ class SupplyDropConfig:
         "net_gun",
         "ammo_box",
         "fire_support",
+        "suicide_drone",
         "doping_potion",
     )
 
