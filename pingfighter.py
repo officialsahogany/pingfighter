@@ -36236,6 +36236,7 @@ def update_stage8_shadow_clones() -> None:
     global stage8_shadow_clones, stage8_shadow_casting, boss_special_gauge
     global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     global stage8_shadow_anchor_x, stage8_shadow_anchor_y
+    global ball_vel
     if current_stage != 8:
         stage8_shadow_clones.clear()
         stage8_shadow_casting = False
@@ -36286,8 +36287,13 @@ def update_stage8_shadow_clones() -> None:
                 scale = 15.0 / speed
                 clone["vx"] *= scale
 
-        # 공과 충돌 시 바로 소멸 (연기 처리 간소화)
+        # 공과 충돌 시 소멸 + 보스 패들과 동일한 반사
         if rect.colliderect(BALL):
+            try:
+                calculate_bounce(rect)
+            except Exception:
+                # 실패 시라도 플레이어 쪽으로 튕기기
+                ball_vel[1] = abs(ball_vel[1])
             continue
 
         new_clones.append(clone)
