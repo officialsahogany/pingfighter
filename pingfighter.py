@@ -14883,6 +14883,8 @@ STAGE8_CLOUD_MAX_COOLDOWN_MS = 20000
 STAGE8_CLOUD_COST = 200
 STAGE8_CLOUD_DASH_MS = 220  # 내려가기/올라가기 각각
 STAGE8_CLOUD_PRECAST_MS = 400  # 발동 전 정지/오로라 연출
+STAGE8_CLOUD_EXPAND_MS = 400  # 구름 퍼짐 애니메이션 시간
+stage8_cloud_spawn_x: int = 0  # 구름 생성 위치 (보스 착지 위치)
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 blacksmith_umbrella_swing_sound_timer = 0
