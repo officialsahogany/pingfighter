@@ -36276,13 +36276,16 @@ def _start_stage8_cloud(now: int) -> None:
 def _finish_stage8_cloud(now: int) -> None:
     """구름 폭발 및 지속 타이머 시작."""
     global stage8_cloud_active, stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_rect
+    global stage8_cloud_spawn_x
     stage8_cloud_active = True
     stage8_cloud_start_ms = now
-    stage8_cloud_end_ms = now + STAGE8_CLOUD_VISIBLE_MS + stage8_cloud_fade_ms
+    stage8_cloud_end_ms = now + STAGE8_CLOUD_VISIBLE_MS + stage8_cloud_fade_ms + STAGE8_CLOUD_EXPAND_MS
     width = 420
     height = 260
     stage8_cloud_rect = pygame.Rect(0, 0, width, height)
     stage8_cloud_rect.center = (PLAYER.centerx, PLAYER.centery - 10)
+    # 보스 착지 위치 저장 (구름 퍼짐 애니메이션 기준점)
+    stage8_cloud_spawn_x = BOSS.centerx
 
 
 def update_stage8_shadow_clones() -> None:
