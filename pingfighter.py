@@ -1088,6 +1088,7 @@ STAGE4_BG = stage_backgrounds.stage4
 STAGE5_BG = stage_backgrounds.stage5
 STAGE6_BG = stage_backgrounds.stage6
 STAGE7_BG = stage_backgrounds.stage7
+STAGE8_BG = STAGE7_BG  # 임시: 스테이지7 배경 재사용 (전용 맵 추가 예정)
 
 STAGE1_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage1.mov")
 STAGE1_INTRO_IMAGE_PATH = resource_path("stage1.png")
@@ -14755,6 +14756,8 @@ BOSS_IMG_STAGE5_WIDTH = 130
 BOSS_IMG_STAGE5_HEIGHT = 70
 BOSS_IMG_STAGE7_WIDTH = 95
 BOSS_IMG_STAGE7_HEIGHT = 76
+BOSS_IMG_STAGE8_WIDTH = 110
+BOSS_IMG_STAGE8_HEIGHT = 96
 # Stage 7 보스 프레임 패딩(캔버스 여백) – 팔/외곽이 잘리는 느낌 최소화
 STAGE7_FRAME_PAD_X = 16  # 좌우 여백(px)
 STAGE7_FRAME_PAD_Y = 10  # 상하 여백(px)
@@ -19478,6 +19481,12 @@ try:
 except:
     BOSS_IMG_STAGE5 = pygame.Surface((BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_STAGE5.fill((255, 80, 0))
+try:
+    BOSS_IMG_STAGE8 = pygame.image.load(resource_path("boss_stage8.png")).convert_alpha()
+    BOSS_IMG_STAGE8 = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT))
+except:
+    BOSS_IMG_STAGE8 = pygame.Surface((BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT), pygame.SRCALPHA)
+    BOSS_IMG_STAGE8.fill((60, 80, 120))
 
 STAGE7_FRAME_FILES = [
     "boss_stage7_frame_0.png",
@@ -39327,6 +39336,9 @@ def draw_objects():
     elif current_stage == 5:
         boss_img = BOSS_IMG_STAGE5
         boss_w, boss_h = BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT
+    elif current_stage == 8:
+        boss_img = BOSS_IMG_STAGE8
+        boss_w, boss_h = BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT
     elif current_stage == 7:
         boss_img_prescaled = True
         global stage7_prev_x, stage7_lean_value
@@ -44172,7 +44184,7 @@ def show_victory_screen(stage_cleared, reward):
                     elif event.key == pygame.K_SPACE:
                         if selected == 0:
                             if not transition_state['active']:
-                                final_stage_reached = display_stage_cleared >= 7
+                                final_stage_reached = display_stage_cleared >= TOTAL_STAGES
                                 transition_state['active'] = True
                                 transition_state['timer'] = 0
                                 transition_state['stage_target'] = None if final_stage_reached else display_stage_cleared + 1
@@ -44284,7 +44296,7 @@ def show_victory_screen(stage_cleared, reward):
                     # 클릭된 버튼 실행 (키보드 SPACE와 동일 로직)
                     if clicked == 0:
                         if not transition_state['active']:
-                            final_stage_reached = display_stage_cleared >= 7
+                            final_stage_reached = display_stage_cleared >= TOTAL_STAGES
                             transition_state['active'] = True
                             transition_state['timer'] = 0
                             transition_state['stage_target'] = None if final_stage_reached else display_stage_cleared + 1
