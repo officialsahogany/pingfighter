@@ -20,6 +20,7 @@ class BackgroundFactory:
     animated_stage5: Callable[[], object]
     animated_stage6: Callable[[int, int], object]
     animated_stage7: Optional[Callable[[int, int], object]] = None
+    animated_stage8: Optional[Callable[[int, int], object]] = None
 
 
 @dataclass
