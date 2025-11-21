@@ -63917,7 +63917,7 @@ def handle_ball():
                 if random.random() <= 0.15:
                     stage8_shadow_casting = True
                     stage8_shadow_cast_start_ms = pygame.time.get_ticks()
-                    show_fade_text("그림자분신!")
+                    show_speech("그림자분신!", duration=90)
         
         # 쿠로미 뱃기 궤적 비활성화 (보스 패들 충돌)
         if kuromi_spit_trail_active:
