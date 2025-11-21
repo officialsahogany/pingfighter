@@ -60869,10 +60869,13 @@ def handle_ball():
     global wall_group_hits
     # 스테이지8 그림자분신 상태
     global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms, stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
+    # 스테이지8 표창 상태
+    global stage8_shuriken_casting, stage8_shuriken_cast_start_ms, stage8_shuriken_next_ready_ms
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
     if current_stage == 8:
         update_stage8_shadow_clones()
+        update_stage8_shurikens()
     # 한 프레임 동안 벽돌/그룹별 중복 피격을 방지하기 위한 집합
     frame_wall_hit_groups = set()
     frame_single_wall_hits = set()
