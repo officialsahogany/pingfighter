@@ -29840,8 +29840,8 @@ whip_original_ball_speed = [0, 0]  # 상모돌리기 발동 전 공 속도 저�
 
 # 상모돌리기 강제 해제 시 슬로우다운 효과 관련 변수
 whip_deactivation_active = False  # 강제 해제 모션 활성화 여부
-whip_deactivation_timer = 0  # 강제 해제 모션 타이머 (1.2초 = 72프레임)
-whip_deactivation_duration = 72  # 1.2초 동안 지속
+whip_deactivation_timer = 0  # 강제 해제 모션 타이머 (1.5초 = 90프레임)
+whip_deactivation_duration = int(1.5 * FPS)  # 1.5초 동안 느려지며 멈춤
 whip_rotation_speed = 0.0  # 현재 회전 속도 (점차 감소)
 boss_stunned_after_whip = False  # 회전 종료 후 통제불능 상태
 boss_stunned_after_whip_timer = 0  # 통제불능 타이머 (0.5초 = 30프레임)
@@ -31534,11 +31534,20 @@ def handle_wall():
 def deactivate_whip():
     """상모돌리기 완전 비활성화 - 사운드 정지 보장"""
     global whip_active, whip_timer, whip_wave_particles
+    global whip_deactivation_active, whip_deactivation_timer, whip_rotation_speed
+    global boss_stunned_after_whip
     whip_active = False
     whip_timer = 0
     whip_sound.stop()  # 반드시 사운드 정지
     whip_wave_particles.clear()
     print("[DEBUG] 상모돌리기 완전 비활성화 - 사운드 정지 완료")
+
+    # Stage 1: 종료 후 감속/정지 연출을 항상 시작
+    if current_stage == 1 and not whip_deactivation_active and not boss_stunned_after_whip:
+        whip_deactivation_active = True
+        whip_deactivation_timer = whip_deactivation_duration
+        # 이미 회전 중이었다면 기존 속도를 유지하고, 아닐 경우 최소 속도 보장
+        whip_rotation_speed = max(whip_rotation_speed, 20.0)
 
 def activate_whip():
     global whip_active, whip_timer, whip_wave_phase, whip_original_ball_speed, whip_wave_particles
@@ -31646,6 +31655,16 @@ def handle_whip():
             whip_deactivation_active = False
             whip_rotation_speed = 0.0
             whip_wave_particles.clear()
+
+            # 이동도 완전히 멈춤
+            global boss_current_speed
+            boss_current_speed = 0
+            if ULTRA_SMOOTH_AVAILABLE:
+                try:
+                    smoother = get_ultra_smooth_movement()
+                    smoother.physics.velocity = 0.0
+                except Exception:
+                    pass
             
             # 0.5초 통제불능 상태 시작
             boss_stunned_after_whip = True
