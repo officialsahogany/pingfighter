@@ -28708,7 +28708,10 @@ def handle_player(keys):
         ]
         if not active_nets:
             return
-        dir_input = (-1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 0) + (1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0)
+        # 한글 IME/레이아웃에서도 안정적으로 감지하기 위해 공용 입력 헬퍼 사용
+        left_input = is_move_left_pressed(keys) or MOVE_EVENT_LEFT
+        right_input = is_move_right_pressed(keys) or MOVE_EVENT_RIGHT
+        dir_input = (-1 if left_input else 0) + (1 if right_input else 0)
         if dir_input == 0:
             return
         now = pygame.time.get_ticks()
