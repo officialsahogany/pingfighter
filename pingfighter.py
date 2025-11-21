@@ -14864,6 +14864,11 @@ STAGE8_SHURIKEN_MAX_COOLDOWN_MS = 25000
 STAGE8_SHURIKEN_SPEED = 20.0  # 25% 가속
 STAGE8_SHURIKEN_COST = 60
 STAGE8_SHURIKEN_SLOW_FRAMES = 120  # 2초 (60fps 기준)
+STAGE8_SHURIKEN_SLOW_FACTOR = 0.5  # 이동속도 50%
+STAGE8_SHURIKEN_GAUGE_TICK_FRAMES = 30  # 0.5초마다
+STAGE8_SHURIKEN_GAUGE_TICK_AMOUNT = 15  # 게이지 15씩 감소
+stage8_shuriken_gauge_ticks_left: int = 0
+stage8_shuriken_gauge_tick_timer: int = 0
 
 # Stage 8 구름장막 상태
 stage8_cloud_active: bool = False
