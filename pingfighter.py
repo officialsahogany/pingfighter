@@ -36651,7 +36651,7 @@ def draw_stage8_shurikens(surface: pygame.Surface) -> None:
 
 
 def draw_stage8_cloud(surface: pygame.Surface) -> None:
-    """스테이지8 닌자 구름장막 스킬 - 실제 구름 같은 자연스러운 이펙트 (불투명)"""
+    """스테이지8 닌자 구름장막 스킬 - 보스 착지 위치에서 양쪽으로 퍼지는 구름 이펙트"""
     if current_stage != 8:
         return
     now = pygame.time.get_ticks()
@@ -36669,15 +36669,104 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         return
     if now >= stage8_cloud_end_ms:
         return
+
+    # 퍼짐 애니메이션 진행률 계산
+    elapsed = now - stage8_cloud_start_ms
+    expand_progress = min(1.0, elapsed / STAGE8_CLOUD_EXPAND_MS)
+    # ease-out 효과로 부드럽게 퍼지기
+    expand_progress = 1 - (1 - expand_progress) ** 3
+
     remaining = stage8_cloud_end_ms - now
     base_alpha = 255  # 완전 불투명
     if remaining < stage8_cloud_fade_ms:
         base_alpha = int(255 * (remaining / max(1, stage8_cloud_fade_ms)))
 
-    # 구름 영역을 더 넓게 확장 (플레이어 영역 전체를 덮도록)
+    # 구름 영역 설정
     expand = 60
-    cloud_w = stage8_cloud_rect.width + expand * 2
-    cloud_h = stage8_cloud_rect.height + expand * 2
+    full_cloud_w = stage8_cloud_rect.width + expand * 2
+    full_cloud_h = stage8_cloud_rect.height + expand * 2
+
+    # 보스 착지 위치를 기준으로 구름 rect의 상대적 위치 계산
+    cloud_rect_center_x = stage8_cloud_rect.centerx
+    spawn_relative_x = stage8_cloud_spawn_x - cloud_rect_center_x  # 착지점과 구름 중심의 차이
+
+    # 퍼짐 애니메이션: 착지 위치에서 양쪽으로 확장
+    if expand_progress < 1.0:
+        # 애니메이션 중: 좌우로 나눠서 그리기
+        cloud_surface = pygame.Surface((full_cloud_w, full_cloud_h), pygame.SRCALPHA)
+        center_x, center_y = full_cloud_w // 2, full_cloud_h // 2
+        spawn_x_in_surface = center_x + spawn_relative_x  # 서피스 내 착지 위치
+
+        # 현재 퍼진 범위 계산
+        left_expand = spawn_x_in_surface * expand_progress  # 왼쪽으로 퍼진 거리
+        right_expand = (full_cloud_w - spawn_x_in_surface) * expand_progress  # 오른쪽으로 퍼진 거리
+
+        current_left = int(spawn_x_in_surface - left_expand)
+        current_right = int(spawn_x_in_surface + right_expand)
+        current_width = current_right - current_left
+
+        if current_width > 20:
+            # 클리핑 마스크 적용 (현재 퍼진 영역만 표시)
+            cloud_seed = int(stage8_cloud_start_ms) % 10000
+            random.seed(cloud_seed)
+
+            # 구름 생성 (전체 영역용이지만 클리핑됨)
+            temp_center_x = current_width // 2
+
+            # 중앙 불투명 베이스 (현재 영역에 맞게)
+            core_color = (90, 100, 120, 255)
+            for _ in range(int(50 * expand_progress) + 10):
+                offset_x = random.gauss(0, current_width * 0.22)
+                offset_y = random.gauss(0, full_cloud_h * 0.22)
+                cx = int(current_left + temp_center_x + offset_x)
+                cy = int(center_y + offset_y)
+                r = random.randint(40, int(80 * expand_progress + 40))
+                if current_left - r < cx < current_right + r:
+                    pygame.draw.circle(cloud_surface, core_color, (cx, cy), r)
+
+            # 기본 구름층
+            for _ in range(int(40 * expand_progress) + 8):
+                offset_x = random.gauss(0, current_width * 0.3)
+                offset_y = random.gauss(0, full_cloud_h * 0.3)
+                cx = int(current_left + temp_center_x + offset_x)
+                cy = int(center_y + offset_y)
+                r = random.randint(35, int(70 * expand_progress + 30))
+                if current_left - r < cx < current_right + r:
+                    pygame.draw.circle(cloud_surface, (95, 105, 125, 255), (cx, cy), r)
+                    pygame.draw.circle(cloud_surface, (130, 140, 155, 255), (cx, cy), int(r * 0.7))
+
+            # 가장자리 폭발 이펙트 (퍼지는 느낌)
+            edge_intensity = 1.0 - expand_progress
+            if edge_intensity > 0.1:
+                # 왼쪽 가장자리 폭발
+                for i in range(8):
+                    burst_x = current_left + random.randint(-30, 30)
+                    burst_y = center_y + random.randint(-60, 60)
+                    burst_r = int((30 + random.randint(0, 40)) * edge_intensity)
+                    burst_alpha = int(200 * edge_intensity)
+                    pygame.draw.circle(cloud_surface, (150, 160, 180, burst_alpha), (burst_x, burst_y), burst_r)
+
+                # 오른쪽 가장자리 폭발
+                for i in range(8):
+                    burst_x = current_right + random.randint(-30, 30)
+                    burst_y = center_y + random.randint(-60, 60)
+                    burst_r = int((30 + random.randint(0, 40)) * edge_intensity)
+                    burst_alpha = int(200 * edge_intensity)
+                    pygame.draw.circle(cloud_surface, (150, 160, 180, burst_alpha), (burst_x, burst_y), burst_r)
+
+            random.seed()
+
+        # 블릿
+        cloud_x = stage8_cloud_rect.x - expand
+        cloud_y = stage8_cloud_rect.y - expand
+        if base_alpha < 255:
+            cloud_surface.set_alpha(base_alpha)
+        surface.blit(cloud_surface, (cloud_x, cloud_y))
+        return
+
+    # 퍼짐 완료 후: 기존 전체 구름 그리기
+    cloud_w = full_cloud_w
+    cloud_h = full_cloud_h
     cloud_x = stage8_cloud_rect.x - expand
     cloud_y = stage8_cloud_rect.y - expand
 
@@ -36690,12 +36779,11 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     center_x, center_y = cloud_w // 2, cloud_h // 2
 
     # 레이어 0: 완전 불투명 베이스 (플레이어를 완전히 가림)
-    # 전체 영역을 덮는 불투명 사각형 베이스
     pygame.draw.rect(cloud_surface, (85, 95, 115, base_alpha),
                      (20, 20, cloud_w - 40, cloud_h - 40))
 
-    # 중앙 영역을 완전히 덮는 불투명 구름 덩어리 (더 많이, 더 크게)
-    core_color = (90, 100, 120, 255)  # 항상 완전 불투명
+    # 중앙 영역을 완전히 덮는 불투명 구름 덩어리
+    core_color = (90, 100, 120, 255)
     for _ in range(50):
         offset_x = random.gauss(0, cloud_w * 0.22)
         offset_y = random.gauss(0, cloud_h * 0.22)
@@ -36704,7 +36792,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         r = random.randint(60, 120)
         pygame.draw.circle(cloud_surface, core_color, (cx, cy), r)
 
-    # 레이어 1: 기본 구름층 (큰 원들로 자연스러운 형태) - 완전 불투명
+    # 레이어 1: 기본 구름층 - 완전 불투명
     base_clouds = []
     for _ in range(40):
         offset_x = random.gauss(0, cloud_w * 0.3)
@@ -36714,7 +36802,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         r = random.randint(50, 100)
         base_clouds.append((cx, cy, r))
 
-    # 레이어 2: 구름 테두리 (부드러운 경계) - 완전 불투명
+    # 레이어 2: 구름 테두리 - 완전 불투명
     edge_clouds = []
     for _ in range(60):
         angle = random.uniform(0, math.pi * 2)
@@ -36734,7 +36822,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
             r = random.randint(25, 55)
             detail_clouds.append((cx, cy, r))
 
-    random.seed()  # 랜덤 시드 리셋
+    random.seed()
 
     # 애니메이션 효과 (부드럽게 흔들림)
     time_offset = now * 0.001
@@ -36745,11 +36833,8 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     for cx, cy, r in base_clouds:
         anim_cx = int(cx + sway_x * (r / 60))
         anim_cy = int(cy + sway_y * (r / 60))
-        # 외곽 (어두운 회색) - 완전 불투명
         pygame.draw.circle(cloud_surface, (95, 105, 125, 255), (anim_cx, anim_cy), r)
-        # 내부 (밝은 회색)
         pygame.draw.circle(cloud_surface, (130, 140, 155, 255), (anim_cx, anim_cy), int(r * 0.7))
-        # 하이라이트 (흰색)
         highlight_x = anim_cx - int(r * 0.2)
         highlight_y = anim_cy - int(r * 0.2)
         pygame.draw.circle(cloud_surface, (160, 165, 175, 255), (highlight_x, highlight_y), int(r * 0.35))
