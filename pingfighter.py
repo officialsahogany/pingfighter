@@ -36735,29 +36735,29 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
             temp_center_x = current_left + current_width // 2
             half_height = full_cloud_h * 0.4
 
-            # 레이어 0: 중앙 코어 구름 (불투명, 타원형 배치)
+            # 레이어 0: 중앙 코어 구름 (불투명, 타원형 배치) - 30% 축소
             core_color = (90, 100, 120, 255)
             for _ in range(int(40 * expand_progress) + 10):
                 angle = random.uniform(0, math.pi * 2)
                 dist = random.gauss(0, current_width * 0.24)
                 cx = int(temp_center_x + math.cos(angle) * dist * 0.9)
                 cy = int(center_y + math.sin(angle) * dist * 0.75)
-                r = random.randint(30, max(31, int(60 * expand_progress + 30)))
+                r = random.randint(21, max(22, int(42 * expand_progress + 21)))  # 30% 축소
                 if current_left - r < cx < current_right + r:
                     pygame.draw.circle(cloud_surface, core_color, (cx, cy), r)
 
-            # 레이어 1: 기본 구름층 - 타원형 분포
+            # 레이어 1: 기본 구름층 - 타원형 분포 - 30% 축소
             for _ in range(int(30 * expand_progress) + 8):
                 angle = random.uniform(0, math.pi * 2)
                 dist = random.gauss(0, current_width * 0.36)
                 cx = int(temp_center_x + math.cos(angle) * dist * 0.95)
                 cy = int(center_y + math.sin(angle) * dist * 0.75)
-                r = random.randint(24, max(25, int(54 * expand_progress + 24)))
+                r = random.randint(17, max(18, int(38 * expand_progress + 17)))  # 30% 축소
                 if current_left - r < cx < current_right + r:
                     pygame.draw.circle(cloud_surface, (95, 105, 125, 255), (cx, cy), r)
                     pygame.draw.circle(cloud_surface, (130, 140, 155, 255), (cx, cy), int(r * 0.7))
 
-            # 레이어 2: 구름 테두리 - 자연스러운 구름 모양 가장자리
+            # 레이어 2: 구름 테두리 - 자연스러운 구름 모양 가장자리 - 30% 축소
             for _ in range(int(25 * expand_progress) + 6):
                 angle = random.uniform(0, math.pi * 2)
                 base_dist = current_width * 0.45
@@ -36765,30 +36765,30 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                 dist = base_dist + variation
                 cx = int(temp_center_x + math.cos(angle) * dist * 0.9)
                 cy = int(center_y + math.sin(angle) * dist * 0.75)
-                r = random.randint(18, max(19, int(45 * expand_progress + 18)))
+                r = random.randint(13, max(14, int(32 * expand_progress + 13)))  # 30% 축소
                 if current_left - r < cx < current_right + r:
                     pygame.draw.circle(cloud_surface, (100, 110, 130, 255), (cx, cy), r)
 
             # 가장자리 폭발 이펙트 (퍼지는 느낌) - 구름 모양으로
             edge_intensity = 1.0 - expand_progress
             if edge_intensity > 0.1:
-                # 왼쪽 가장자리 구름 폭발
+                # 왼쪽 가장자리 구름 폭발 - 30% 축소
                 for i in range(12):
                     angle = random.uniform(-math.pi * 0.4, math.pi * 0.4) + math.pi  # 왼쪽 방향
-                    burst_dist = random.randint(20, 50)
+                    burst_dist = random.randint(14, 35)  # 30% 축소
                     burst_x = current_left + int(math.cos(angle) * burst_dist)
-                    burst_y = center_y + random.randint(-70, 70)
-                    burst_r = int((35 + random.randint(0, 45)) * edge_intensity)
+                    burst_y = center_y + random.randint(-49, 49)  # 30% 축소
+                    burst_r = int((25 + random.randint(0, 32)) * edge_intensity)  # 30% 축소
                     burst_alpha = int(220 * edge_intensity)
                     pygame.draw.circle(cloud_surface, (140, 150, 170, burst_alpha), (burst_x, burst_y), burst_r)
 
-                # 오른쪽 가장자리 구름 폭발
+                # 오른쪽 가장자리 구름 폭발 - 30% 축소
                 for i in range(12):
                     angle = random.uniform(-math.pi * 0.4, math.pi * 0.4)  # 오른쪽 방향
-                    burst_dist = random.randint(20, 50)
+                    burst_dist = random.randint(14, 35)  # 30% 축소
                     burst_x = current_right + int(math.cos(angle) * burst_dist)
-                    burst_y = center_y + random.randint(-70, 70)
-                    burst_r = int((35 + random.randint(0, 45)) * edge_intensity)
+                    burst_y = center_y + random.randint(-49, 49)  # 30% 축소
+                    burst_r = int((25 + random.randint(0, 32)) * edge_intensity)  # 30% 축소
                     burst_alpha = int(220 * edge_intensity)
                     pygame.draw.circle(cloud_surface, (140, 150, 170, burst_alpha), (burst_x, burst_y), burst_r)
 
