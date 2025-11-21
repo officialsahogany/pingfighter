@@ -1641,6 +1641,7 @@ def apply_serve_result(serve_result):
     """serve_ball() 결과를 전역 상태에 반영한다."""
     global ball_vel, ball_impact_boost
     global player_collision_cooldown, boss_collision_cooldown, is_player_serve
+    global serve_power_smash_lockout, selected_character_type
 
     new_velocity = serve_result.get('ball_vel', [0.0, 0.0])
     if len(new_velocity) < 2:
@@ -1673,6 +1674,13 @@ def apply_serve_result(serve_result):
             player_collision_cooldown = max(player_collision_cooldown, half_cooldown)
     except Exception:
         # 테스트 환경처럼 쿨다운 변수가 없는 경우를 대비한 가드
+        pass
+
+    # 스매셔가 서브를 시작할 때 파워스매싱이 즉시 발동되지 않도록 짧은 잠금 적용
+    try:
+        if is_player_serve and selected_character_type == "smasher":
+            serve_power_smash_lockout = POWER_SMASH_SERVE_LOCKOUT_FRAMES
+    except Exception:
         pass
 
 def play_wall_sound():
@@ -3367,6 +3375,8 @@ is_waiting_for_serve = True
 waiting_start_time = 0
 wait_delay = 0
 serve_completed_timer = 0  # 서브 완료 후 3초간 물자보급/대시 금지용 타이머
+POWER_SMASH_SERVE_LOCKOUT_FRAMES = int(0.5 * FPS)  # 서브 직후 파워스매싱 금지 시간 (약 0.5초)
+serve_power_smash_lockout = 0  # 서브 직후 파워스매싱 입력 잠금 (스매셔 전용)
 # === 무승부 판정 시스템 ===
 wall_bounce_count = 0  # 좌우 벽 연속 충돌 카운터
 last_wall_hit = None  # 마지막으로 맞은 벽 ('left' or 'right')
