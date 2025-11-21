@@ -36422,14 +36422,14 @@ def draw_stage8_shurikens(surface: pygame.Surface) -> None:
             # 날 외곽선
             pygame.draw.polygon(blade, (60, 70, 80), blade_points, 1)
 
-        # 중앙 원형 허브 (표창 중심부)
-        hub_radius = 5
+        # 중앙 원형 허브 (표창 중심부) - 50% 크게
+        hub_radius = 7
         pygame.draw.circle(blade, (80, 90, 100), (cx, cy), hub_radius)  # 어두운 금속
-        pygame.draw.circle(blade, (120, 130, 140), (cx, cy), hub_radius - 2)  # 밝은 금속
+        pygame.draw.circle(blade, (120, 130, 140), (cx, cy), hub_radius - 3)  # 밝은 금속
         pygame.draw.circle(blade, (40, 50, 60), (cx, cy), hub_radius, 1)  # 외곽선
 
         # 중앙 구멍 (전통적인 표창 디자인)
-        pygame.draw.circle(blade, (30, 30, 40), (cx, cy), 2)
+        pygame.draw.circle(blade, (30, 30, 40), (cx, cy), 3)
 
         # 표창 그리기 위치 조정 (rect 중심에 맞춤)
         blit_x = rect.centerx - size // 2
