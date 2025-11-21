@@ -36479,21 +36479,19 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         death_elapsed = now - dying["death_start_ms"]
         death_progress = min(1.0, death_elapsed / STAGE8_SHADOW_DEATH_MS)  # 0.0 ~ 1.0
 
-        # 보스 이미지 기반
-        scaled_h = int(rect.height * 1.16)
-        scaled_w = int(rect.width * 0.94)
-        pose_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (scaled_w, scaled_h))
+        # 보스 이미지와 동일한 크기로 렌더링
+        img_w = BOSS_IMG_STAGE8_WIDTH
+        img_h = BOSS_IMG_STAGE8_HEIGHT
+        pose_surface = BOSS_IMG_STAGE8.copy()
 
         draw_rect = rect.copy()
-        draw_rect.y -= (scaled_h - rect.height) // 2
-        draw_rect.x += (rect.width - scaled_w) // 2
 
         # 홀로그램 증발 효과
         # 1. 전체 알파 감소 (180 → 0)
         base_alpha = int(180 * (1.0 - death_progress))
 
         # 2. 위쪽부터 서서히 사라지는 효과 (스캔라인)
-        scanline_progress = death_progress * scaled_h
+        scanline_progress = death_progress * img_h
 
         # 3. 홀로그램 글리치 효과 (색상 분리 + 떨림)
         glitch_intensity = death_progress * 15  # 점점 강해지는 글리치
@@ -36501,13 +36499,13 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         glitch_offset_y = int(math.cos(now * 0.07 + death_progress * 15) * glitch_intensity * 0.5)
 
         # 홀로그램 증발 서피스 생성
-        dying_surface = pygame.Surface((scaled_w + 20, scaled_h), pygame.SRCALPHA)
+        dying_surface = pygame.Surface((img_w + 20, img_h), pygame.SRCALPHA)
 
         # 기본 그림자 이미지 복사
         shadow_base = pose_surface.copy()
 
         # 스캔라인 효과: 위에서부터 점점 투명해지는 효과
-        for y in range(scaled_h):
+        for y in range(img_h):
             line_alpha = base_alpha
             if y < scanline_progress:
                 # 이미 지나간 부분: 완전 투명 또는 파티클로 대체
@@ -36520,11 +36518,11 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
                 if random.random() < 0.3:
                     glitch_color = random.choice([(0, 255, 255), (255, 0, 255), (255, 255, 0)])
                     pygame.draw.line(dying_surface, (*glitch_color, int(line_alpha * 0.5)),
-                                   (0, y), (scaled_w, y), 1)
+                                   (0, y), (img_w, y), 1)
 
             # 각 라인에 알파 적용
             if line_alpha > 0:
-                line_rect = pygame.Rect(0, y, scaled_w, 1)
+                line_rect = pygame.Rect(0, y, img_w, 1)
                 try:
                     line_surface = shadow_base.subsurface(line_rect).copy()
                     line_surface.fill((40, 40, 60, line_alpha), special_flags=pygame.BLEND_RGBA_MULT)
@@ -36551,7 +36549,7 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         if death_progress > 0.1:
             num_particles = int(10 * death_progress)
             for _ in range(num_particles):
-                px = draw_rect.x + random.randint(0, scaled_w)
+                px = draw_rect.x + random.randint(0, img_w)
                 py = draw_rect.y + random.randint(0, int(scanline_progress))
                 particle_alpha = int(150 * (1.0 - death_progress))
                 particle_color = random.choice([
