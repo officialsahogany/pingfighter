@@ -83,11 +83,11 @@ class AnimatedBackgroundStage8:
             state = self.lantern_states[i]
             intensity = state["intensity"]
 
-            # 여러 겹의 글로우
-            base_color = (120, 60, 20)
-            for layer in range(4):
-                radius = int(25 + layer * 15)
-                alpha = int(30 * intensity - layer * 6)
+            # 은은한 글로우 (2겹만)
+            base_color = (100, 50, 20)
+            for layer in range(2):
+                radius = int(20 + layer * 12)
+                alpha = int(15 * intensity - layer * 5)
                 if alpha > 0:
                     glow_color = (
                         min(255, int(base_color[0] * intensity)),
@@ -96,82 +96,6 @@ class AnimatedBackgroundStage8:
                         alpha
                     )
                     pygame.draw.circle(overlay, glow_color, (lx, ly), radius)
-
-            # 밝은 중심부
-            core_alpha = int(60 * intensity)
-            core_color = (200, 120, 50, core_alpha)
-            pygame.draw.circle(overlay, core_color, (lx, ly), 8)
-
-    def _draw_moonbeam(self, overlay: pygame.Surface) -> None:
-        """달빛 광선 효과"""
-        # 오른쪽 위에서 들어오는 빛
-        beam_alpha = int(12 * self.moonbeam_intensity)
-        if beam_alpha <= 0:
-            return
-
-        # 빛 줄기 (시간에 따라 약간 흔들림)
-        wobble = math.sin(self.moonbeam_phase) * 10
-        start_x = self.width - 80 + wobble
-        start_y = 30
-
-        for i in range(20):
-            points = [
-                (start_x - i * 5, start_y),
-                (start_x + 60 - i * 3, start_y),
-                (start_x - 60 - i * 8, start_y + 350),
-                (start_x - 120 - i * 8, start_y + 350)
-            ]
-            alpha = max(0, beam_alpha - i)
-            pygame.draw.polygon(overlay, (80, 85, 100, alpha), points)
-
-    def _draw_dust(self, overlay: pygame.Surface) -> None:
-        """떠다니는 먼지 입자"""
-        for dust in self.dust_particles:
-            # 먼지 크기 변동
-            wobble = 0.3 * math.sin(self.time * 2 + dust["phase"])
-            radius = max(1, int(dust["radius"] + wobble))
-
-            # 달빛에 비치는 먼지는 약간 밝게
-            if dust["x"] > self.width * 0.6:
-                color = (100, 95, 90, dust["alpha"] + 10)
-            else:
-                color = (70, 65, 60, dust["alpha"])
-
-            pygame.draw.circle(overlay, color, (int(dust["x"]), int(dust["y"])), radius)
-
-    def _draw_ninja_shadow(self, overlay: pygame.Surface) -> None:
-        """스쳐 지나가는 닌자 그림자"""
-        # 빠르게 지나가는 검은 실루엣
-        shadow_height = 200
-        shadow_width = 80
-        shadow_y = self.height // 2 - shadow_height // 2
-
-        # 잔상 효과 (여러 겹)
-        for i in range(5):
-            trail_offset = i * (-15 if self.ninja_shadow_speed > 0 else 15)
-            trail_alpha = max(0, 60 - i * 15)
-
-            shadow_surf = pygame.Surface((shadow_width, shadow_height), pygame.SRCALPHA)
-
-            # 닌자 실루엣 (간단한 형태)
-            # 머리
-            pygame.draw.circle(shadow_surf, (0, 0, 0, trail_alpha), (shadow_width // 2, 30), 20)
-            # 몸통
-            pygame.draw.ellipse(shadow_surf, (0, 0, 0, trail_alpha),
-                              (shadow_width // 2 - 15, 45, 30, 80))
-            # 망토/옷자락 (동적)
-            cape_wobble = math.sin(self.time * 15 + i) * 10
-            points = [
-                (shadow_width // 2, 60),
-                (shadow_width // 2 - 30 + cape_wobble, 150),
-                (shadow_width // 2, 130),
-                (shadow_width // 2 + 30 - cape_wobble, 150)
-            ]
-            pygame.draw.polygon(shadow_surf, (0, 0, 0, trail_alpha // 2), points)
-
-            overlay.blit(shadow_surf,
-                        (int(self.ninja_shadow_x - shadow_width // 2 + trail_offset),
-                         shadow_y))
 
     def _draw_stadium_pulse(self, overlay: pygame.Surface) -> None:
         """스타디움 라인 펄스 효과"""
