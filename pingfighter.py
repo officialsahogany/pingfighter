@@ -69506,9 +69506,10 @@ def main(stage_num, new_boss_mode=False):
                                 _blacksmith_fire_turret_projectile(turret_runtime, blacksmith_turret_state, overdrive=False)
                                 if overheat_active:
                                     try:
+                                        # 과부하 수동 발사 시 포구 바로 위에서 가느다른 연기 연출
                                         effects_manager.spawn_construction_smoke(
                                             turret_rect.centerx,
-                                            turret_rect.top + 6,
+                                            turret_rect.top - 6,
                                             count=3,
                                             spread=8,
                                         )
