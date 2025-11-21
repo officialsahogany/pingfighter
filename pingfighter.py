@@ -31547,7 +31547,7 @@ def cancel_whip_with_umbrella_block() -> bool:
 def handle_whip():
     global whip_active, whip_timer, whip_wave_phase, whip_hit_by_player, whip_wave_particles
     global whip_deactivation_active, whip_deactivation_timer, whip_rotation_speed
-    global boss_stunned_after_whip, boss_stunned_after_whip_timer
+    global boss_stunned_after_whip, boss_stunned_after_whip_timer, whip_animation_timer
     
     # 보스 통제불능 상태 처리 (회전 종료 후)
     if boss_stunned_after_whip:
