@@ -69408,12 +69408,12 @@ def main(stage_num, new_boss_mode=False):
                 turret_rect = None
                 manual_candidate = False
                 manual_input_edge = space_just_pressed or mb_left_just_pressed
-                overheat_active = False
                 if (
                     manual_input_edge
                     and blacksmith_turret_active
                     and blacksmith_turret_state
                     and blacksmith_turret_state.get("hp", 0) > 0
+                    and blacksmith_turret_state.get("overheat_timer", 0) <= 0
                     and blacksmith_hammer_available
                     and not blacksmith_hammer_shock_charging
                     and not umbrella_blocks_manual_fire
@@ -69421,7 +69421,6 @@ def main(stage_num, new_boss_mode=False):
                     turret_rect = blacksmith_turret_state.get("rect")
                     if turret_rect is not None and PLAYER.colliderect(turret_rect):
                         manual_candidate = True
-                        overheat_active = int(blacksmith_turret_state.get("overheat_timer", 0)) > 0
 
                 # 오버드라이브/메가드라이브: 준비완료 상태일 때 포탑 앞에서 SPACE로 발동
                 if (
@@ -69490,12 +69489,10 @@ def main(stage_num, new_boss_mode=False):
 
                 if manual_preferred and turret_rect is not None and not umbrella_blocks_manual_fire:
                     if blacksmith_turret_manual_cooldown <= 0:
-                        required_cost = 0 if overheat_active else BLACKSMITH_TURRET_MANUAL_COST
-                        if special_gauge >= required_cost:
-                            if required_cost > 0:
-                                special_gauge = max(0, special_gauge - required_cost)
-                                if special_gauge < special_gauge_max:
-                                    special_ready = False
+                        if special_gauge >= BLACKSMITH_TURRET_MANUAL_COST:
+                            special_gauge = max(0, special_gauge - BLACKSMITH_TURRET_MANUAL_COST)
+                            if special_gauge < special_gauge_max:
+                                special_ready = False
                             blacksmith_shield_swing_active = False
                             blacksmith_shield_swing_timer = 0
                             blacksmith_hammer_swing_active = True
@@ -69505,32 +69502,11 @@ def main(stage_num, new_boss_mode=False):
                             blacksmith_manual_hammer_timer = BLACKSMITH_TURRET_MANUAL_SWING_FRAMES
                             cooldown_frames = int(BLACKSMITH_TURRET_MANUAL_COOLDOWN * get_blacksmith_manual_cooldown_multiplier())
                             blacksmith_turret_manual_cooldown = max(1, cooldown_frames)
-                            try:
-                                turret_runtime = BLACKSMITH_CONTROLLER.state.turret
-                                _blacksmith_fire_turret_projectile(turret_runtime, blacksmith_turret_state, overdrive=False)
-                                # 수동 발사 직후에는 런타임 projectile 리스트가 최신이지만, 직전에 draw 단계에서
-                                # sync_blacksmith_state()가 호출돼 전역 리스트와 분리돼 있을 수 있다.
-                                # 다음 업데이트에서 수동 발사 투사체가 유실되지 않도록 전역 리스트도 즉시 반영한다.
-                                turret_runtime.manual_cooldown = blacksmith_turret_manual_cooldown
-                                blacksmith_turret_projectiles = turret_runtime.projectiles
-                                if overheat_active:
-                                    try:
-                                        # 과부하 수동 발사 시 포구 바로 위에서 가느다른 연기 연출
-                                        effects_manager.spawn_construction_smoke(
-                                            turret_rect.centerx,
-                                            turret_rect.top - 6,
-                                            count=3,
-                                            spread=8,
-                                        )
-                                    except Exception:
-                                        pass
-                            except Exception:
-                                pass
+                            blacksmith_turret_state["fire_timer"] = 1
                             space_just_pressed = False
                             space_press_frame = -1
                             cooldown_seconds = blacksmith_turret_manual_cooldown / FPS
-                            cost_info = f"-{BLACKSMITH_TURRET_MANUAL_COST}" if not overheat_active else "0 (과부하 무료)"
-                            print(f"[DEBUG 발토르] 포탑 수동 발사! 게이지 {cost_info}, 쿨다운 {cooldown_seconds:.2f}초")
+                            print(f"[DEBUG 발토르] 포탑 수동 발사! 게이지 -60, 쿨다운 {cooldown_seconds:.2f}초")
                         else:
                             print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
                     else:

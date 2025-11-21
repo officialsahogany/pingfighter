@@ -164,13 +164,13 @@ def draw_head(draw: ImageDraw.ImageDraw) -> None:
 
 
 def draw_arms(draw: ImageDraw.ImageDraw) -> Tuple[Tuple[int, int], Tuple[int, int]]:
-    # More human proportions: tapered upper arm + slimmer forearm
-    left_shoulder = (CENTER - 116, 218)
-    right_shoulder = (CENTER + 116, 218)
-    upper_len = 78
-    fore_len = 74
-    shoulder_width = 34
-    fore_width = 24
+    # Chibi arms with clear forearm/hand separation
+    left_shoulder = (CENTER - 130, 228)
+    right_shoulder = (CENTER + 130, 228)
+    upper_len = 74
+    fore_len = 70
+    shoulder_width = 36
+    fore_width = 26
 
     def limb(shoulder: Tuple[int, int], side: int):
         sx, sy = shoulder
@@ -200,10 +200,10 @@ def draw_arms(draw: ImageDraw.ImageDraw) -> Tuple[Tuple[int, int], Tuple[int, in
         )
         # glove
         draw.rectangle(
-            (wrist[0] - 18, wrist[1] - 6, wrist[0] + 18, wrist[1] + 34),
+            (wrist[0] - 18, wrist[1] - 4, wrist[0] + 18, wrist[1] + 36),
             fill=GLOVE,
-            outline=(42, 48, 62, 200),
-            width=2,
+            outline=(42, 48, 62, 220),
+            width=3,
         )
         return wrist
 
@@ -213,32 +213,31 @@ def draw_arms(draw: ImageDraw.ImageDraw) -> Tuple[Tuple[int, int], Tuple[int, in
 
 
 def draw_shuriken(draw: ImageDraw.ImageDraw, hand_center: Tuple[int, int]) -> None:
-    cx, cy = hand_center[0] - 6, hand_center[1] + 70
-    pts = star_points(cx, cy, outer=40, inner=16, spikes=4, rotation_deg=-6)
-    draw.polygon(pts, fill=SHURIKEN_EDGE, outline=(60, 70, 82, 255))
-    draw.polygon([(cx, cy - 10), (cx + 10, cy), (cx, cy + 10), (cx - 10, cy)], fill=SHURIKEN_CORE)
-    draw.ellipse((cx - 6, cy - 6, cx + 6, cy + 6), fill=(90, 96, 112, 255))
+    cx, cy = hand_center[0] - 10, hand_center[1] + 78
+    pts = star_points(cx, cy, outer=42, inner=16, spikes=4, rotation_deg=-2)
+    draw.polygon(pts, fill=SHURIKEN_EDGE, outline=INK)
+    draw.ellipse((cx - 8, cy - 8, cx + 8, cy + 8), fill=SHURIKEN_CORE, outline=INK, width=2)
 
 
 def draw_paddle(draw: ImageDraw.ImageDraw, hand_center: Tuple[int, int]) -> None:
-    handle = rotated_rect(hand_center[0] + 14, hand_center[1] + 90, w=22, h=86, deg=28)
+    handle = rotated_rect(hand_center[0] + 18, hand_center[1] + 96, w=22, h=88, deg=30)
     draw.polygon(handle, fill=PADDLE_HANDLE, outline=PADDLE_EDGE)
-    blade_center = (hand_center[0] + 46, hand_center[1] + 46)
+    blade_center = (hand_center[0] + 54, hand_center[1] + 50)
     draw.ellipse(
-        (blade_center[0] - 64, blade_center[1] - 78, blade_center[0] + 64, blade_center[1] + 78),
+        (blade_center[0] - 70, blade_center[1] - 84, blade_center[0] + 70, blade_center[1] + 84),
         fill=PADDLE_FACE,
         outline=PADDLE_EDGE,
         width=6,
     )
     draw.ellipse(
-        (blade_center[0] - 44, blade_center[1] - 58, blade_center[0] + 44, blade_center[1] + 58),
+        (blade_center[0] - 48, blade_center[1] - 64, blade_center[0] + 48, blade_center[1] + 64),
         outline=(110, 114, 128, 255),
-        width=3,
+        width=4,
     )
     # surface texture lines
     for i in range(5):
-        y = blade_center[1] - 46 + i * 18
-        draw.line([(blade_center[0] - 36, y), (blade_center[0] + 36, y)], fill=(46, 46, 52, 160), width=2)
+        y = blade_center[1] - 48 + i * 20
+        draw.line([(blade_center[0] - 42, y), (blade_center[0] + 42, y)], fill=(46, 46, 52, 160), width=2)
 
 
 def draw_harness(draw: ImageDraw.ImageDraw) -> None:
