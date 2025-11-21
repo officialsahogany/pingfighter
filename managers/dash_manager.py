@@ -8,6 +8,7 @@ from typing import Dict, Optional, Tuple
 from core.global_manager import GlobalManager
 from core.events import EventType, emit_event
 from managers.effects_manager import get_effects_manager
+from core.input_keys import is_move_down_pressed, is_move_left_pressed, is_move_right_pressed
 
 
 class DashManager:
@@ -154,11 +155,11 @@ class DashManager:
             
         # Shift + 방향키로 대시
         if keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]:
-            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            if is_move_left_pressed(keys):
                 self.start_dash(-1)
-            elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            elif is_move_right_pressed(keys):
                 self.start_dash(1)
-            elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            elif is_move_down_pressed(keys):
                 self.start_dash(0)  # 제자리 회피
                 
     def is_invulnerable(self) -> bool:

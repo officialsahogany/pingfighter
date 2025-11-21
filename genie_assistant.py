@@ -443,7 +443,7 @@ class GenieAssistant:
                         self._scroll_detail_by(-self._detail_scroll_step())
                         self.detail_scroll_input = -1
                         return True
-                    if event.key in (pygame.K_DOWN, pygame.K_s):
+                    if event.key in (pygame.K_DOWN, pygame.K_s) or is_move_down_event(event):
                         self._scroll_detail_by(self._detail_scroll_step())
                         self.detail_scroll_input = 1
                         return True
@@ -473,7 +473,7 @@ class GenieAssistant:
                     if event.key in (pygame.K_UP, pygame.K_w):
                         self._move_selection(-1)
                         return True
-                    if event.key in (pygame.K_DOWN, pygame.K_s):
+                    if event.key in (pygame.K_DOWN, pygame.K_s) or is_move_down_event(event):
                         self._move_selection(1)
                         return True
                 if event.key in (pygame.K_RETURN, pygame.K_SPACE):
@@ -481,7 +481,7 @@ class GenieAssistant:
                     return True
         elif event.type == pygame.KEYUP:
             if self.phase == "menu" and self.detail_focus:
-                if event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s):
+                if event.key in (pygame.K_UP, pygame.K_w) or is_move_down_event(event):
                     if self.detail_scroll_input != 0:
                         self.detail_scroll_input = 0
                     return True

@@ -9,6 +9,7 @@ import random
 import sys
 import effects_manager
 import academy
+from core.input_keys import is_move_down_event
 from .stage2_effects import update_stage2_leaves, draw_stage2_leaves, stage2_leaves
 
 
