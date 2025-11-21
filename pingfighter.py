@@ -14838,6 +14838,7 @@ STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 7000
 STAGE8_SHADOW_EMERGE_MS = 600
 STAGE8_SHADOW_COOLDOWN_MS = 8000
+STAGE8_SHADOW_Y_OFFSET = -6  # 분신을 보스 패들과 같은 높이에 가깝게 올리기
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 blacksmith_umbrella_swing_sound_timer = 0
@@ -36159,7 +36160,7 @@ def _spawn_stage8_shadows(now: int) -> None:
     """탁닌자 그림자분신 2개 생성."""
     global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
     base_x = stage8_shadow_freeze_posx or BOSS.centerx
-    base_y = stage8_shadow_freeze_posy or BOSS.centery
+    base_y = (stage8_shadow_freeze_posy or BOSS.centery) + STAGE8_SHADOW_Y_OFFSET
     stage8_shadow_clones = []
     for direction in (-1, 1):
         rect = pygame.Rect(0, 0, BOSS.width, BOSS.height)
