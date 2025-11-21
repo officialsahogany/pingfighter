@@ -113,6 +113,8 @@ _input_log_last_time = 0.0
 # 이벤트 기반 이동 상태(포커스 상실 시 fallback)
 MOVE_EVENT_LEFT = False
 MOVE_EVENT_RIGHT = False
+MOVE_EVENT_DOWN = False
+MOVE_EVENT_UP = False
 
 
 def _log_input_trace(frame: int,
@@ -168,12 +170,16 @@ def _patched_event_get(*args, **kwargs):
                 ev_sc = getattr(ev, "scancode", None)
                 ev_uni = getattr(ev, "unicode", "")
                 ev_mod = getattr(ev, "mod", 0)
-                # 이동키 상태를 이벤트 기반으로 갱신 (포커스 없는 상태 대응)
+                # 이동키 상태를 이벤트/스캔코드/유니코드 기반으로 갱신 (IME/레이아웃 불문)
                 try:
-                    if is_move_left_key(getattr(ev, "key", None), ev_sc):
+                    if is_move_left_event(ev):
                         globals()["MOVE_EVENT_LEFT"] = ev.type == pygame.KEYDOWN
-                    elif is_move_right_key(getattr(ev, "key", None), ev_sc):
+                    elif is_move_right_event(ev):
                         globals()["MOVE_EVENT_RIGHT"] = ev.type == pygame.KEYDOWN
+                    elif is_move_down_event(ev):
+                        globals()["MOVE_EVENT_DOWN"] = ev.type == pygame.KEYDOWN
+                    elif is_move_up_event(ev):
+                        globals()["MOVE_EVENT_UP"] = ev.type == pygame.KEYDOWN
                 except Exception:
                     pass
                 print(
@@ -183,6 +189,10 @@ def _patched_event_get(*args, **kwargs):
                     f" focus={pygame.key.get_focused()}"
                 )
             elif ev.type in (pygame.ACTIVEEVENT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST):
+                globals()["MOVE_EVENT_LEFT"] = False
+                globals()["MOVE_EVENT_RIGHT"] = False
+                globals()["MOVE_EVENT_DOWN"] = False
+                globals()["MOVE_EVENT_UP"] = False
                 print(f"[INPUT_TRACE][FOCUS] type={ev.type} gain={getattr(ev,'gain',None)} state={getattr(ev,'state',None)} focus={pygame.key.get_focused()}")
     return events
 
