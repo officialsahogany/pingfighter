@@ -116,8 +116,18 @@ def draw_torso(draw: ImageDraw.ImageDraw) -> None:
 
 
 def draw_head(draw: ImageDraw.ImageDraw) -> None:
-    gradient_ellipse(draw, (CENTER - 74, 120, CENTER + 74, 264), NINJA_LIGHT, NINJA_BASE)
-    draw.ellipse((CENTER - 72, 118, CENTER + 72, 262), outline=(10, 12, 18, 180), width=3)
+    # neck
+    draw.rectangle((CENTER - 18, 186, CENTER + 18, 214), fill=NINJA_MID, outline=(18, 22, 30, 180), width=2)
+    gradient_ellipse(draw, (CENTER - 70, 122, CENTER + 70, 258), NINJA_LIGHT, NINJA_BASE)
+    draw.ellipse((CENTER - 68, 120, CENTER + 68, 256), outline=(10, 12, 18, 180), width=3)
+    # angular jaw hint
+    jaw = [
+        (CENTER - 52, 226),
+        (CENTER + 52, 226),
+        (CENTER + 42, 246),
+        (CENTER - 42, 246),
+    ]
+    draw.polygon(jaw, fill=NINJA_MID)
     # band
     draw.rectangle((CENTER - 78, 160, CENTER + 78, 188), fill=BAND_RED)
     draw.rectangle((CENTER - 78, 182, CENTER + 78, 192), fill=(120, 24, 30, 255))
