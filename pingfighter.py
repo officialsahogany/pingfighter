@@ -88,7 +88,13 @@ from game_state.audio import (
 from game_state.items import bind_item_state, item_state as item_state_adapter
 from genie_assistant import GenieAssistant
 from core.input_keys import (
+    is_move_left_event,
     is_move_left_pressed,
+    is_move_down_event,
+    is_move_down_pressed,
+    is_move_up_event,
+    is_move_up_pressed,
+    is_move_right_event,
     is_move_right_pressed,
 )
 
