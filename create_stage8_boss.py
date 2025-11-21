@@ -174,17 +174,24 @@ def draw_weapons(draw: ImageDraw.ImageDraw, left_hand: Tuple[int, int], right_ha
     )
 
 
-def draw_leg_stub(draw: ImageDraw.ImageDraw) -> None:
-    # Subtle leg hint at bottom to break roundness
-    draw.rectangle((CENTER - 32, 348, CENTER + 32, 378), fill=SUIT_DARK, outline=INK, width=2)
-    draw.rectangle((CENTER - 18, 378, CENTER + 18, 398), fill=SUIT_MID, outline=INK, width=2)
+def draw_leg_stub(draw: ImageDraw.ImageDraw, phase: float) -> None:
+    # Simple two-leg sway
+    spread = 14 + 6 * sin(phase * 2 * pi)
+    lift = 6 * sin(phase * 2 * pi + pi / 2)
+    left_x = CENTER - spread
+    right_x = CENTER + spread
+    y_top = 348 - lift
+    draw.rectangle((left_x - 18, y_top, left_x + 18, y_top + 34), fill=SUIT_DARK, outline=INK, width=2)
+    draw.rectangle((right_x - 18, y_top, right_x + 18, y_top + 34), fill=SUIT_DARK, outline=INK, width=2)
+    draw.rectangle((left_x - 10, y_top + 34, left_x + 10, y_top + 52), fill=SUIT_MID, outline=INK, width=2)
+    draw.rectangle((right_x - 10, y_top + 34, right_x + 10, y_top + 52), fill=SUIT_MID, outline=INK, width=2)
 
 
-def build_sprite() -> Image.Image:
+def build_sprite(phase: float = 0.0) -> Image.Image:
     base = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
     soft_shadow(base, (CENTER - 140, 360, CENTER + 140, 420), blur=14)
     draw = ImageDraw.Draw(base, "RGBA")
-    draw_leg_stub(draw)
+    draw_leg_stub(draw, phase)
     draw_torso(draw)
     left_hand, right_hand = draw_arms(draw)
     draw_weapons(draw, left_hand, right_hand)
@@ -193,8 +200,16 @@ def build_sprite() -> Image.Image:
 
 
 def main() -> None:
-    sprite = build_sprite()
-    sprite.save("boss_stage8.png")
+    # Generate looping frames for idle/bounce animation
+    frames = 4
+    images = []
+    for i in range(frames):
+        phase = i / frames
+        img = build_sprite(phase)
+        img.save(f"boss_stage8_frame_{i}.png")
+        images.append(img)
+    # Save a default still frame for backward compatibility
+    images[0].save("boss_stage8.png")
 
 
 if __name__ == "__main__":
