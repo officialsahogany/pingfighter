@@ -36262,7 +36262,9 @@ def _start_stage8_cloud(now: int) -> None:
     global stage8_cloud_dash_active, stage8_cloud_dash_phase, stage8_cloud_dash_start_ms
     global stage8_cloud_origin, stage8_cloud_target_y, stage8_cloud_start_ms, stage8_cloud_end_ms
     global stage8_cloud_rect, stage8_cloud_active, stage8_cloud_next_ready_ms, stage8_cloud_precast_ms, stage8_cloud_spawn_pos
-    stage8_cloud_origin = (BOSS.centerx, BOSS.centery)
+    mid_x = WIDTH // 2
+    stage8_cloud_origin = (mid_x, BOSS.centery)
+    BOSS.centerx = mid_x
     stage8_cloud_target_y = max(BOSS.centery, PLAYER.centery - 40)
     stage8_cloud_spawn_pos = stage8_cloud_origin
     stage8_cloud_dash_active = True
@@ -36425,6 +36427,7 @@ def update_stage8_cloud(now: int | None = None) -> None:
             dash_ms = int(STAGE8_CLOUD_DASH_MS * 1.44)  # 추가로 20% 더 느리게 (기존 대비 총 약 -40%)
             progress = min(1.0, elapsed / dash_ms) if dash_ms > 0 else 1.0
             if stage8_cloud_dash_phase == "down":
+                BOSS.centerx = WIDTH // 2
                 BOSS.centery = int(stage8_cloud_origin[1] + (stage8_cloud_target_y - stage8_cloud_origin[1]) * progress)
                 if progress >= 1.0:
                     # 구름 터뜨림
@@ -36433,6 +36436,7 @@ def update_stage8_cloud(now: int | None = None) -> None:
                     stage8_cloud_dash_phase = "up"
                     stage8_cloud_dash_start_ms = now
             elif stage8_cloud_dash_phase == "up":
+                BOSS.centerx = WIDTH // 2
                 BOSS.centery = int(stage8_cloud_target_y + (stage8_cloud_origin[1] - stage8_cloud_target_y) * progress)
                 if progress >= 1.0:
                     stage8_cloud_dash_active = False
