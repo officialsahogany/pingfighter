@@ -63758,9 +63758,9 @@ def handle_ball():
         elif current_stage == 2:
             boss_special_gauge = min(boss_special_gauge + 70, 500)
             print(f"스테이지2 악어장군 게이지 충전: +70 (현재: {boss_special_gauge}/500)")
-        # 스테이지 3~6 공통: 대쉬/필살기 겸용 게이지 충전 (중간값 60 사용)
+        # 스테이지 3~6, 8 공통: 대쉬/필살기 겸용 게이지 충전 (중간값 60 사용)
         # 스테이지 7은 초인테트리서 전용 게이지 체계가 별도로 동작하므로 충전 없음
-        elif current_stage in (3, 4, 5, 6):
+        elif current_stage in (3, 4, 5, 6, 8):
             boss_special_gauge = min(boss_special_gauge + 60, 500)
             print(f"스테이지{current_stage} 보스 게이지 충전: +60 (현재: {boss_special_gauge}/500)")
         
