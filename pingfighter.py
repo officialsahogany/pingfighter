@@ -19864,6 +19864,7 @@ def go_to_next_round():
     global animated_bg_stage4  # Stage 4 배경 추가
     global round_start_time  # 라운드 시작 시간 추가
     global selected_character_type
+    global serve_power_smash_lockout
     global doping_potion_active, doping_potion_timer, doping_potion_use_count, doping_potion_toast_timer
 
     preserved_doping_state = None
@@ -19956,6 +19957,7 @@ def go_to_next_round():
     # 공 정지
     ball_vel = [0, 0]
     physics_manager.reset_ball(is_player_serve)
+    serve_power_smash_lockout = 0  # 라운드 시작 시 파워스매싱 서브 잠금 해제
     
     # 무승부 판정 시스템 변수 초기화
     wall_bounce_count = 0
@@ -26025,6 +26027,7 @@ def handle_player(keys):
     global ball_x, ball_y  # AK-47 연사용 공 위치 공유
     global half_dash_used_flag  #  하프대쉬 사용 플래그
     global serve_completed_timer  # 서브 완료 후 타이머
+    global serve_power_smash_lockout  # 서브 직후 파워스매싱 입력 잠금
     global long_boost_active, long_boost_timer, PADDLE_WIDTH
     global long_boost_animating, long_boost_shrinking, long_boost_growing
     global short_shot_active, short_shot_timer, short_shot_vertical_timer
