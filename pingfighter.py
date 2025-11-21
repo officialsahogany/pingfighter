@@ -25980,6 +25980,8 @@ def handle_player(keys):
     global player_stun_immunity_timer  # ️ 스턴 면역 타이머
     global bazooka_recoil_timer, bazooka_recoil_direction, bazooka_recoil_strength  # 바주카포 반동
     global round_start_time
+    # 이벤트 기반 이동 플래그(포커스 상실 대비)
+    global MOVE_EVENT_LEFT, MOVE_EVENT_RIGHT, MOVE_EVENT_DOWN, MOVE_EVENT_UP
 
     apply_fire_support_slot_restore()
 
