@@ -72195,6 +72195,7 @@ def main(stage_num, new_boss_mode=False):
             draw_objects()
             draw_stage8_shadow_clones(SCREEN)
             draw_stage8_shurikens(SCREEN)
+            draw_stage8_cloud(SCREEN)
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
             draw_tutorial_drive_counter()  # 튜토리얼 드라이브 카운터 표시
@@ -72276,6 +72277,7 @@ def main(stage_num, new_boss_mode=False):
             draw_objects()
             draw_stage8_shadow_clones(SCREEN)
             draw_stage8_shurikens(SCREEN)
+            draw_stage8_cloud(SCREEN)
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
             draw_tutorial_drive_counter()  # 튜토리얼 드라이브 카운터 표시
@@ -73146,6 +73148,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_objects()
             draw_stage8_shadow_clones(SCREEN)
             draw_stage8_shurikens(SCREEN)
+            draw_stage8_cloud(SCREEN)
             draw_water_trail()
             draw_item_obtained_effect()
             draw_dash_spirit_lasers(SCREEN, PLAYER, dash_spirit_lasers)
