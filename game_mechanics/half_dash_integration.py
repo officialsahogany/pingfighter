@@ -51,15 +51,32 @@ def check_and_activate_half_dash(game_state):
     rolling_stun_timer = game_state.get('rolling_stun_timer', 0)
     down_pressed = game_state.get('down_pressed', False)
     keys = game_state.get('keys', {})
-    # 대체 키(예: A/D) 지원을 위한 보조 플래그
+    # 대체 키(예: A/D) 지원을 위한 보조 플래그 (해당 값이 있으면 우선 사용)
     left_key_alt = bool(game_state.get('left_key_alt', False))
     right_key_alt = bool(game_state.get('right_key_alt', False))
+    left_press_frame = game_state.get('left_press_frame', -1)
+    right_press_frame = game_state.get('right_press_frame', -1)
     jump_bonus = game_state.get('jump_bonus', 0)
     dashgear_obtained = game_state.get('dashgear_obtained', False)
-    
+
     # 키 상태 확인 (keys는 pygame.key.get_pressed() 결과)
-    left_key = (keys[pygame.K_LEFT] if keys else False) or left_key_alt
-    right_key = (keys[pygame.K_RIGHT] if keys else False) or right_key_alt
+    # alt 값이 있으면 이를 우선 사용하여 IME/Hangul 이중 보고로 인한 방향 뒤바뀜을 방지한다.
+    if left_key_alt or right_key_alt:
+        left_key = left_key_alt
+        right_key = right_key_alt
+        # 둘 다 True로 들어올 경우 가장 최근 누른 방향만 남긴다.
+        if left_key and right_key:
+            if right_press_frame > left_press_frame:
+                left_key = False
+            elif left_press_frame > right_press_frame:
+                right_key = False
+            else:
+                # 동일 프레임이면 대쉬 반전 방지를 위해 둘 다 해제
+                left_key = False
+                right_key = False
+    else:
+        left_key = keys[pygame.K_LEFT] if keys else False
+        right_key = keys[pygame.K_RIGHT] if keys else False
     
     # 하프 대쉬 체크
     activated, direction, base_timer, token_cost = half_dash.check_half_dash_activation(
