@@ -27991,6 +27991,8 @@ def handle_player(keys):
                             # A/D 보조 키 플래그 (하프대쉬 방향 판단 보조)
                             'left_key_alt': left_active_for_dash,
                             'right_key_alt': right_active_for_dash,
+                            'left_press_frame': left_press_frame,
+                            'right_press_frame': right_press_frame,
                             'jump_bonus': jump_bonus,  # 도약 스킬 보너스 전달
                             'dashgear_obtained': dashgear_obtained  # 대쉬기어 상태 전달
                         }
