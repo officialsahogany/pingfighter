@@ -69389,10 +69389,13 @@ def main(stage_num, new_boss_mode=False):
 
                 if manual_preferred and turret_rect is not None and not umbrella_blocks_manual_fire:
                     if blacksmith_turret_manual_cooldown <= 0:
-                        if special_gauge >= BLACKSMITH_TURRET_MANUAL_COST:
-                            special_gauge = max(0, special_gauge - BLACKSMITH_TURRET_MANUAL_COST)
-                            if special_gauge < special_gauge_max:
-                                special_ready = False
+                        overheat_active = int(blacksmith_turret_state.get("overheat_timer", 0)) > 0
+                        required_cost = 0 if overheat_active else BLACKSMITH_TURRET_MANUAL_COST
+                        if special_gauge >= required_cost:
+                            if required_cost > 0:
+                                special_gauge = max(0, special_gauge - required_cost)
+                                if special_gauge < special_gauge_max:
+                                    special_ready = False
                             blacksmith_shield_swing_active = False
                             blacksmith_shield_swing_timer = 0
                             blacksmith_hammer_swing_active = True
@@ -69405,12 +69408,23 @@ def main(stage_num, new_boss_mode=False):
                             try:
                                 turret_runtime = BLACKSMITH_CONTROLLER.state.turret
                                 _blacksmith_fire_turret_projectile(turret_runtime, blacksmith_turret_state, overdrive=False)
+                                if overheat_active:
+                                    try:
+                                        effects_manager.spawn_construction_smoke(
+                                            turret_rect.centerx,
+                                            turret_rect.top + 6,
+                                            count=3,
+                                            spread=8,
+                                        )
+                                    except Exception:
+                                        pass
                             except Exception:
                                 pass
                             space_just_pressed = False
                             space_press_frame = -1
                             cooldown_seconds = blacksmith_turret_manual_cooldown / FPS
-                            print(f"[DEBUG 발토르] 포탑 수동 발사! 게이지 -60, 쿨다운 {cooldown_seconds:.2f}초")
+                            cost_info = f"-{BLACKSMITH_TURRET_MANUAL_COST}" if not overheat_active else "0 (과부하 무료)"
+                            print(f"[DEBUG 발토르] 포탑 수동 발사! 게이지 {cost_info}, 쿨다운 {cooldown_seconds:.2f}초")
                         else:
                             print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
                     else:
