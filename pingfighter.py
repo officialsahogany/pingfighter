@@ -20058,6 +20058,12 @@ def go_to_next_round():
         boss_red_intensity = (boss_special_gauge / 500) * 220
     elif current_stage == 7:
         boss_red_intensity = (boss_special_gauge / 500) * 220
+    elif current_stage == 8:
+        # 라운드 전환 시 30% 감소만 적용 (초기화하지 않음)
+        boss_special_gauge = max(0, int(boss_special_gauge * 0.7))
+        boss_special_ready = False
+        boss_special_waiting = False
+        boss_red_intensity = (boss_special_gauge / 500) * 220 if boss_special_gauge > 0 else 0
     else:
         # 스테이지 1과 3이 아닌 경우 게이지 초기화
         # 스테이지 2로 넘어갈 때도 보스 게이지를 초기화해야 함
