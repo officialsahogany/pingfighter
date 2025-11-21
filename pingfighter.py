@@ -60756,7 +60756,7 @@ def handle_ball():
     # 스테이지8 그림자분신 상태
     global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
     # 스테이지8 그림자분신
-    global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
+    global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms, stage8_shadow_invuln_until_ms
     global stage8_shadow_invuln_until_ms, stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
