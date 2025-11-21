@@ -19,6 +19,7 @@ NINJA_GLOSS = (114, 136, 170, 180)
 BAND_RED = (176, 34, 46, 255)
 BAND_SHADOW = (122, 22, 30, 255)
 GLOVE = (68, 78, 100, 255)
+GEAR_TRIM = (88, 110, 142, 255)
 SKIN = (230, 198, 156, 255)
 SKIN_SHADOW = (188, 152, 112, 255)
 PADDLE_FACE = (14, 14, 18, 255)
@@ -122,7 +123,7 @@ def draw_torso(draw: ImageDraw.ImageDraw) -> None:
         outline=INK,
     )
     draw.rectangle((CENTER - 60, 304, CENTER + 60, 338), fill=BAND_SHADOW, outline=INK, width=3)
-    draw.rectangle((CENTER - 22, 310, CENTER + 22, 332), fill=GEAR_TRIM := (88, 110, 142, 255), outline=INK, width=3)
+    draw.rectangle((CENTER - 22, 310, CENTER + 22, 332), fill=GEAR_TRIM, outline=INK, width=3)
 
 
 def draw_head(draw: ImageDraw.ImageDraw) -> None:
