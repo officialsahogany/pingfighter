@@ -69250,7 +69250,7 @@ def main(stage_num, new_boss_mode=False):
                         handle_devil_dice_spacebar()
             last_space_state = current_space_state
             if selected_character_type == "blacksmith":
-                down_current_state = keys[pygame.K_DOWN]
+                down_current_state = is_move_down_pressed(keys)
                 if _scheme2 == 'mouse_keyboard':
                     try:
                         mb = pygame.mouse.get_pressed()
@@ -69411,22 +69411,16 @@ def main(stage_num, new_boss_mode=False):
                 current_right_state = bool(SNAP_right_state)
                 current_down_state = bool(SNAP_down_state)
             else:
-                current_left_state = keys[pygame.K_LEFT] or keys[pygame.K_a]
-                current_right_state = keys[pygame.K_RIGHT] or keys[pygame.K_d]
-                current_down_state = keys[pygame.K_DOWN]
-                # IME 보조 매핑
-                try:
-                    current_left_state = current_left_state or keys[pygame.K_n]
-                    current_right_state = current_right_state or keys[pygame.K_o]
-                except Exception:
-                    pass
+                current_left_state = is_move_left_pressed(keys)
+                current_right_state = is_move_right_pressed(keys)
+                current_down_state = is_move_down_pressed(keys)
             # 마우스+키보드 스킴에서는 A/D/S와 우클릭까지 병합
             try:
                 _sm_dir_scheme = get_settings_manager().get_setting('controls', 'control_scheme', 'keyboard')
             except Exception:
                 _sm_dir_scheme = 'keyboard'
             if _sm_dir_scheme == 'mouse_keyboard':
-                current_down_state = current_down_state or keys[pygame.K_s]
+                current_down_state = current_down_state or is_move_down_pressed(keys)
                 try:
                     _mb = pygame.mouse.get_pressed()
                     # 우클릭=아래키 (상태 + 에지)
