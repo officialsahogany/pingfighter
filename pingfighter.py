@@ -14832,6 +14832,8 @@ stage8_shadow_cast_start_ms: int = 0
 stage8_shadow_next_ready_ms: int = 0
 stage8_shadow_freeze_posx: int = 0
 stage8_shadow_freeze_posy: int = 0
+stage8_shadow_anchor_x: int = 0
+stage8_shadow_anchor_y: int = 0
 STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 7000
 STAGE8_SHADOW_EMERGE_MS = 600
@@ -36162,17 +36164,15 @@ def _spawn_stage8_shadows(now: int) -> None:
     for direction in (-1, 1):
         rect = pygame.Rect(0, 0, BOSS.width, BOSS.height)
         rect.center = (base_x, base_y)
-        vx = random.choice([-3.0, -2.2, 2.2, 3.0]) * direction
-        vy = random.uniform(-2.2, 2.2)
         stage8_shadow_clones.append(
             {
                 "rect": rect,
-                "vx": vx,
-                "vy": vy,
                 "spawn_ms": now,
                 "base_x": base_x,
                 "base_y": base_y,
                 "direction": direction,
+                "offset_x": direction * 90,
+                "offset_y": 0,
             }
         )
     stage8_shadow_casting = False
