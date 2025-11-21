@@ -36282,12 +36282,13 @@ def _finish_stage8_cloud(now: int) -> None:
 
 def update_stage8_shadow_clones() -> None:
     """그림자분신 이동/수명/충돌 갱신."""
-    global stage8_shadow_clones, stage8_shadow_casting, boss_special_gauge
+    global stage8_shadow_clones, stage8_shadow_dying, stage8_shadow_casting, boss_special_gauge
     global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     global stage8_shadow_anchor_x, stage8_shadow_anchor_y
     global ball_vel
     if current_stage != 8:
         stage8_shadow_clones.clear()
+        stage8_shadow_dying.clear()
         stage8_shadow_casting = False
         return
 
@@ -36301,6 +36302,14 @@ def update_stage8_shadow_clones() -> None:
         if boss_special_gauge >= 200:
             boss_special_gauge = max(0, boss_special_gauge - 200)
         _spawn_stage8_shadows(now)
+
+    # 소멸 중인 분신 업데이트 (0.7초 후 완전 삭제)
+    new_dying = []
+    for dying in stage8_shadow_dying:
+        death_elapsed = now - dying["death_start_ms"]
+        if death_elapsed < STAGE8_SHADOW_DEATH_MS:
+            new_dying.append(dying)
+    stage8_shadow_dying = new_dying
 
     if not stage8_shadow_clones:
         return
@@ -36336,13 +36345,18 @@ def update_stage8_shadow_clones() -> None:
                 scale = 15.0 / speed
                 clone["vx"] *= scale
 
-        # 공과 충돌 시 소멸 + 보스 패들과 동일한 반사
+        # 공과 충돌 시 소멸 애니메이션 시작 + 보스 패들과 동일한 반사
         if rect.colliderect(BALL):
             try:
                 calculate_bounce(rect)
             except Exception:
                 # 실패 시라도 플레이어 쪽으로 튕기기
                 ball_vel[1] = abs(ball_vel[1])
+            # 소멸 애니메이션용 dying 리스트로 이동
+            dying_clone = clone.copy()
+            dying_clone["death_start_ms"] = now
+            dying_clone["rect"] = rect.copy()  # 위치 고정
+            stage8_shadow_dying.append(dying_clone)
             continue
 
         new_clones.append(clone)
