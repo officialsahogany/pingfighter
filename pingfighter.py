@@ -36286,8 +36286,8 @@ def _finish_stage8_cloud(now: int) -> None:
     stage8_cloud_active = True
     stage8_cloud_start_ms = now
     stage8_cloud_end_ms = now + STAGE8_CLOUD_VISIBLE_MS + stage8_cloud_fade_ms + STAGE8_CLOUD_EXPAND_MS
-    width = 336   # 420 * 0.8 = 336 (20% 축소)
-    height = 80  # 플레이어 패들 높이 정도
+    width = 235   # 336 * 0.7 = 235 (30% 추가 축소)
+    height = 56   # 80 * 0.7 = 56 (30% 추가 축소)
     stage8_cloud_rect = pygame.Rect(0, 0, width, height)
     cx, cy = stage8_cloud_spawn_pos if stage8_cloud_spawn_pos != (0, 0) else (BOSS.centerx, BOSS.centery)
     stage8_cloud_rect.center = (cx, cy)
@@ -36703,7 +36703,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
         base_alpha = int(base_alpha * fade_ratio)
 
     # 구름 영역 설정 (캔버스를 넉넉하게 잡아 구름이 잘리지 않게)
-    expand = 300  # 200 * 1.5 = 300 (캔버스 세로 50% 증가)
+    expand = 210  # 300 * 0.7 = 210 (30% 축소)
     full_cloud_w = stage8_cloud_rect.width + expand * 2
     full_cloud_h = stage8_cloud_rect.height + expand * 2
 
