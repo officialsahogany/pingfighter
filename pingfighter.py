@@ -26376,7 +26376,8 @@ def handle_player(keys):
     #     mouse_controls = input_manager.handle_mouse_controls(selected_item_index, active_item_slot)
     # 키 입력 변수 초기화 (기본: 현재 스냅샷 keys)
     space_pressed_raw = keys[pygame.K_SPACE]
-    down_pressed_raw = keys[pygame.K_DOWN]
+    down_pressed_raw = is_move_down_pressed(keys)
+    up_pressed_raw = is_move_up_pressed(keys)
     # 좌우 이동은 공용 헬퍼로 처리하여 IME/레이아웃 변환과 스캔코드까지 포괄
     left_pressed_raw = is_move_left_pressed(keys)
     right_pressed_raw = is_move_right_pressed(keys)
@@ -26398,6 +26399,7 @@ def handle_player(keys):
             left_pressed_raw = bool(SNAP_left_state)
             right_pressed_raw = bool(SNAP_right_state)
             down_pressed_raw = bool(SNAP_down_state)
+            up_pressed_raw = bool(SNAP_up_state)
     except Exception:
         # 스냅샷 전역이 아직 초기화되지 않은 극초기 프레임 등은 조용히 기본값 사용
         pass
@@ -26425,7 +26427,7 @@ def handle_player(keys):
     if _scheme == 'mouse_keyboard':
         left_pressed_raw = left_pressed_raw or keys[pygame.K_a]
         right_pressed_raw = right_pressed_raw or keys[pygame.K_d]
-        down_pressed_raw = down_pressed_raw or keys[pygame.K_s]
+        down_pressed_raw = down_pressed_raw or is_move_down_pressed(keys)
         # 마우스 버튼을 상태에도 병합: 좌클릭→Space, 우클릭→Down
         m_buttons = pygame.mouse.get_pressed()
         if m_buttons and len(m_buttons) >= 3:
@@ -26447,9 +26449,24 @@ def handle_player(keys):
     else:
         space_pressed = space_pressed_raw
 
-    # 포커스 상실 시에도 이벤트 기반 플래그로 보정
-    left_pressed_raw = left_pressed_raw or MOVE_EVENT_LEFT
-    right_pressed_raw = right_pressed_raw or MOVE_EVENT_RIGHT
+    # 포커스 상실 시에도 이벤트 기반 플래그로 보정하되,
+    # 현재 키 스냅샷과 불일치하면 즉시 플래그를 해제해 드리프트를 방지한다.
+    if MOVE_EVENT_LEFT and not left_pressed_raw:
+        left_pressed_raw = True
+    if MOVE_EVENT_RIGHT and not right_pressed_raw:
+        right_pressed_raw = True
+    if MOVE_EVENT_DOWN and not down_pressed_raw:
+        down_pressed_raw = True
+    if MOVE_EVENT_UP and not up_pressed_raw:
+        up_pressed_raw = True
+    if MOVE_EVENT_LEFT and not is_move_left_pressed(keys):
+        MOVE_EVENT_LEFT = False
+    if MOVE_EVENT_RIGHT and not is_move_right_pressed(keys):
+        MOVE_EVENT_RIGHT = False
+    # 한글 IME 환경에서는 get_pressed()가 ↓ 입력을 놓치는 경우가 있어
+    # KEYUP 이벤트에서만 MOVE_EVENT_DOWN을 해제한다.
+    if MOVE_EVENT_UP and not is_move_up_pressed(keys):
+        MOVE_EVENT_UP = False
     # 무기 HUD(↑ 홀드) 활성화 중에는 코만도 Space(좌클릭 병합 포함)를 무시해
     # HUD 클릭 선택 시 발사가 나가지 않도록 가드
     # (닫힘 억제 프레임은 연사(ak47) 홀드에 영향 주지 않도록 여기서는 고려하지 않음)
@@ -26471,7 +26488,7 @@ def handle_player(keys):
     if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
         up_pressed = bool(SNAP_up_state)
     else:
-        up_pressed = keys[pygame.K_UP] or (keys[pygame.K_w] if _scheme == 'mouse_keyboard' else False)
+        up_pressed = is_move_up_pressed(keys) or (_scheme == 'mouse_keyboard' and is_move_up_pressed(keys))
     global player_up_pressed, player_up_pressed_prev
     player_up_pressed_prev = player_up_pressed
     player_up_pressed = bool(up_pressed)
@@ -71190,8 +71207,8 @@ def main(stage_num, new_boss_mode=False):
                     # 좌/우: 공용 헬퍼로 스캔코드/IME 변환까지 포함해 스냅샷
                     SNAP_left_state = is_move_left_pressed(keys_now) or MOVE_EVENT_LEFT
                     SNAP_right_state = is_move_right_pressed(keys_now) or MOVE_EVENT_RIGHT
-                    SNAP_down_state = bool(keys_now[pygame.K_DOWN] or (_scheme_snap2 == 'mouse_keyboard' and keys_now[pygame.K_s]))
-                    SNAP_up_state = bool(keys_now[pygame.K_UP] or (_scheme_snap2 == 'mouse_keyboard' and keys_now[pygame.K_w]))
+                    SNAP_down_state = is_move_down_pressed(keys_now) or MOVE_EVENT_DOWN
+                    SNAP_up_state = is_move_up_pressed(keys_now) or MOVE_EVENT_UP
                     space_state2 = bool(keys_now[pygame.K_SPACE]) or (_scheme_snap2 == 'mouse_keyboard' and bool(mb_now and len(mb_now) >= 1 and mb_now[0]))
                     if selected_character_type == 'soldier' and soldier_weapon_menu_active:
                         space_state2 = False
