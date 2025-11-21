@@ -36827,49 +36827,49 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     # 레이어 0: 중앙 코어 구름 (불투명, 밀집된 원형 배치)
     core_color = (90, 100, 120, 255)
     # 중앙 영역을 원형 구름으로 채움 (사각형 티가 나지 않게)
-    for _ in range(40):
+    for _ in range(50):
         # 타원형 분포로 중앙에 집중
         angle = random.uniform(0, math.pi * 2)
-        dist = random.gauss(0, cloud_w * 0.08)
+        dist = random.gauss(0, cloud_w * 0.24)
         cx = int(center_x + math.cos(angle) * dist * 0.9)
-        cy = int(center_y + math.sin(angle) * dist * 0.25)
-        r = random.randint(10, 30)
+        cy = int(center_y + math.sin(angle) * dist * 0.75)
+        r = random.randint(30, 90)
         pygame.draw.circle(cloud_surface, core_color, (cx, cy), r)
 
     # 레이어 1: 기본 구름층 - 완전 불투명, 타원형 분포
     base_clouds = []
-    for _ in range(30):
+    for _ in range(38):
         angle = random.uniform(0, math.pi * 2)
-        dist = random.gauss(0, cloud_w * 0.12)
+        dist = random.gauss(0, cloud_w * 0.36)
         cx = int(center_x + math.cos(angle) * dist * 0.95)
-        cy = int(center_y + math.sin(angle) * dist * 0.25)
-        r = random.randint(8, 26)
+        cy = int(center_y + math.sin(angle) * dist * 0.75)
+        r = random.randint(24, 78)
         base_clouds.append((cx, cy, r))
 
     # 레이어 2: 구름 테두리 - 자연스러운 구름 모양 경계
     edge_clouds = []
-    for _ in range(35):
+    for _ in range(31):
         angle = random.uniform(0, math.pi * 2)
         # 가장자리에 불규칙하게 배치
-        base_dist = cloud_w * 0.15
-        variation = random.gauss(0, cloud_w * 0.05)
+        base_dist = cloud_w * 0.45
+        variation = random.gauss(0, cloud_w * 0.15)
         dist = base_dist + variation
         # 타원형으로 x는 넓게, y는 좁게
         cx = int(center_x + math.cos(angle) * dist * 0.95)
-        cy = int(center_y + math.sin(angle) * dist * 0.25)
-        r = random.randint(6, 21)
+        cy = int(center_y + math.sin(angle) * dist * 0.75)
+        r = random.randint(18, 63)
         edge_clouds.append((cx, cy, r))
 
     # 레이어 3: 디테일 층 - 중앙에서 멀어질수록 확률 감소 (타원형)
     detail_clouds = []
-    for _ in range(40):
+    for _ in range(45):
         angle = random.uniform(0, math.pi * 2)
-        max_dist_x = cloud_w * 0.18
-        max_dist_y = cloud_h * 0.12
+        max_dist_x = cloud_w * 0.40
+        max_dist_y = cloud_h * 0.35
         dist_factor = random.uniform(0, 1) ** 0.7  # 중앙에 더 집중
         cx = int(center_x + math.cos(angle) * max_dist_x * dist_factor)
         cy = int(center_y + math.sin(angle) * max_dist_y * dist_factor)
-        r = random.randint(5, 15)
+        r = random.randint(15, 45)
         detail_clouds.append((cx, cy, r))
 
     random.seed()
