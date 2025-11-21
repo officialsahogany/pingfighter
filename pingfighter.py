@@ -14763,7 +14763,6 @@ BOSS_IMG_STAGE8_WIDTH = 110
 BOSS_IMG_STAGE8_HEIGHT = 96
 STAGE8_WALK_BOB_PX = 6
 STAGE8_WALK_SWAY_DEG = 4.5
-STAGE8_WALK_LEG_SWING_PX = 12
 STAGE8_WALK_CANVAS_PAD = 10
 # Stage 7 보스 프레임 패딩(캔버스 여백) – 팔/외곽이 잘리는 느낌 최소화
 STAGE7_FRAME_PAD_X = 16  # 좌우 여백(px)
@@ -39100,28 +39099,6 @@ def _build_stage8_walk_pose(base_img, boss_rect):
     pose_surface = pygame.Surface((canvas_w, canvas_h), pygame.SRCALPHA)
     baseline_y = STAGE8_WALK_CANVAS_PAD + base_h + STAGE8_WALK_BOB_PX
 
-    legs = pygame.Surface((canvas_w, canvas_h), pygame.SRCALPHA)
-    swing = math.sin(phase * math.tau) * STAGE8_WALK_LEG_SWING_PX * speed_ratio
-    lift = (1 - math.cos(phase * math.tau)) * (4 + 4 * speed_ratio) * speed_ratio
-    hip_y = baseline_y - 12 - int(round(bob_offset))
-    hip_left_x = STAGE8_WALK_CANVAS_PAD + int(base_w * 0.36)
-    hip_right_x = STAGE8_WALK_CANVAS_PAD + int(base_w * 0.64)
-    leg_dark = (35, 45, 70, 210)
-    leg_light = (70, 90, 130, 235)
-
-    def _draw_leg(hip_x, swing_dir):
-        knee = (int(round(hip_x + swing_dir)), int(round(hip_y + 8 + lift)))
-        foot = (int(round(hip_x + swing_dir * 0.6)), int(round(baseline_y + 12)))
-        pygame.draw.line(legs, leg_dark, (hip_x, hip_y), knee, 5)
-        pygame.draw.circle(legs, leg_dark, (hip_x, hip_y), 3)
-        pygame.draw.line(legs, leg_light, knee, foot, 6)
-        pygame.draw.circle(legs, leg_light, foot, 3)
-
-    if speed_ratio > 0.01:
-        _draw_leg(hip_left_x, swing)
-        _draw_leg(hip_right_x, -swing)
-
-    pose_surface.blit(legs, (0, 0))
     body_surface = pygame.transform.rotozoom(base_img, lean_angle, 1.0)
     body_rect = body_surface.get_rect(
         midbottom=(
