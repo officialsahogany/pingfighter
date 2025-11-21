@@ -14877,6 +14877,7 @@ stage8_cloud_origin: tuple[int, int] = (0, 0)
 stage8_cloud_target_y: int = 0
 stage8_cloud_next_ready_ms: int = 0
 stage8_cloud_precast_ms: int = 0
+stage8_cloud_burst_center: tuple[int, int] = (0, 0)
 STAGE8_CLOUD_VISIBLE_MS = 5000
 STAGE8_CLOUD_MIN_COOLDOWN_MS = 10000
 STAGE8_CLOUD_MAX_COOLDOWN_MS = 20000
