@@ -36661,89 +36661,94 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
     center_x, center_y = cloud_w // 2, cloud_h // 2
 
-    # 레이어 0: 불투명 베이스 (플레이어를 완전히 가림)
-    # 중앙 영역을 완전히 덮는 불투명 구름 덩어리
-    core_color = (90, 100, 120, base_alpha)
-    for _ in range(35):
-        offset_x = random.gauss(0, cloud_w * 0.2)
-        offset_y = random.gauss(0, cloud_h * 0.2)
+    # 레이어 0: 완전 불투명 베이스 (플레이어를 완전히 가림)
+    # 전체 영역을 덮는 불투명 사각형 베이스
+    pygame.draw.rect(cloud_surface, (85, 95, 115, base_alpha),
+                     (20, 20, cloud_w - 40, cloud_h - 40))
+
+    # 중앙 영역을 완전히 덮는 불투명 구름 덩어리 (더 많이, 더 크게)
+    core_color = (90, 100, 120, 255)  # 항상 완전 불투명
+    for _ in range(50):
+        offset_x = random.gauss(0, cloud_w * 0.22)
+        offset_y = random.gauss(0, cloud_h * 0.22)
+        cx = int(center_x + offset_x)
+        cy = int(center_y + offset_y)
+        r = random.randint(60, 120)
+        pygame.draw.circle(cloud_surface, core_color, (cx, cy), r)
+
+    # 레이어 1: 기본 구름층 (큰 원들로 자연스러운 형태) - 완전 불투명
+    base_clouds = []
+    for _ in range(40):
+        offset_x = random.gauss(0, cloud_w * 0.3)
+        offset_y = random.gauss(0, cloud_h * 0.3)
         cx = int(center_x + offset_x)
         cy = int(center_y + offset_y)
         r = random.randint(50, 100)
-        pygame.draw.circle(cloud_surface, core_color, (cx, cy), r)
-
-    # 레이어 1: 기본 구름층 (큰 원들로 자연스러운 형태)
-    base_clouds = []
-    for _ in range(30):
-        offset_x = random.gauss(0, cloud_w * 0.28)
-        offset_y = random.gauss(0, cloud_h * 0.28)
-        cx = int(center_x + offset_x)
-        cy = int(center_y + offset_y)
-        r = random.randint(45, 90)
         base_clouds.append((cx, cy, r))
 
-    # 레이어 2: 구름 테두리 (부드러운 경계)
+    # 레이어 2: 구름 테두리 (부드러운 경계) - 완전 불투명
     edge_clouds = []
-    for _ in range(50):
+    for _ in range(60):
         angle = random.uniform(0, math.pi * 2)
-        dist = random.uniform(cloud_w * 0.25, cloud_w * 0.45)
-        cx = int(center_x + math.cos(angle) * dist * 0.85)
-        cy = int(center_y + math.sin(angle) * dist * 0.65)
-        r = random.randint(30, 60)
+        dist = random.uniform(cloud_w * 0.2, cloud_w * 0.48)
+        cx = int(center_x + math.cos(angle) * dist * 0.9)
+        cy = int(center_y + math.sin(angle) * dist * 0.7)
+        r = random.randint(35, 70)
         edge_clouds.append((cx, cy, r))
 
-    # 레이어 3: 디테일 층
+    # 레이어 3: 디테일 층 - 완전 불투명
     detail_clouds = []
-    for _ in range(70):
-        cx = random.randint(15, cloud_w - 15)
-        cy = random.randint(15, cloud_h - 15)
+    for _ in range(80):
+        cx = random.randint(10, cloud_w - 10)
+        cy = random.randint(10, cloud_h - 10)
         dist_from_center = math.sqrt((cx - center_x)**2 + (cy - center_y)**2)
-        if random.random() < 0.8 - (dist_from_center / (cloud_w * 0.6)):
-            r = random.randint(20, 45)
+        if random.random() < 0.9 - (dist_from_center / (cloud_w * 0.55)):
+            r = random.randint(25, 55)
             detail_clouds.append((cx, cy, r))
 
     random.seed()  # 랜덤 시드 리셋
 
     # 애니메이션 효과 (부드럽게 흔들림)
     time_offset = now * 0.001
-    sway_x = math.sin(time_offset * 0.5) * 3
-    sway_y = math.cos(time_offset * 0.3) * 2
+    sway_x = math.sin(time_offset * 0.5) * 2
+    sway_y = math.cos(time_offset * 0.3) * 1.5
 
-    # 레이어 1 그리기: 기본 구름층 (불투명)
+    # 레이어 1 그리기: 기본 구름층 (완전 불투명)
     for cx, cy, r in base_clouds:
         anim_cx = int(cx + sway_x * (r / 60))
         anim_cy = int(cy + sway_y * (r / 60))
         # 외곽 (어두운 회색) - 완전 불투명
-        pygame.draw.circle(cloud_surface, (100, 110, 130, base_alpha), (anim_cx, anim_cy), r)
+        pygame.draw.circle(cloud_surface, (95, 105, 125, 255), (anim_cx, anim_cy), r)
         # 내부 (밝은 회색)
-        pygame.draw.circle(cloud_surface, (140, 150, 165, base_alpha), (anim_cx, anim_cy), int(r * 0.7))
+        pygame.draw.circle(cloud_surface, (130, 140, 155, 255), (anim_cx, anim_cy), int(r * 0.7))
         # 하이라이트 (흰색)
         highlight_x = anim_cx - int(r * 0.2)
         highlight_y = anim_cy - int(r * 0.2)
-        pygame.draw.circle(cloud_surface, (170, 175, 185, min(255, int(base_alpha * 0.8))), (highlight_x, highlight_y), int(r * 0.4))
+        pygame.draw.circle(cloud_surface, (160, 165, 175, 255), (highlight_x, highlight_y), int(r * 0.35))
 
-    # 레이어 2 그리기: 테두리 구름층 (높은 불투명도)
+    # 레이어 2 그리기: 테두리 구름층 (완전 불투명)
     for cx, cy, r in edge_clouds:
+        anim_cx = int(cx + sway_x * 1.3)
+        anim_cy = int(cy + sway_y * 1.0)
+        pygame.draw.circle(cloud_surface, (100, 110, 130, 255), (anim_cx, anim_cy), r)
+        pygame.draw.circle(cloud_surface, (120, 130, 150, 255), (anim_cx, anim_cy), int(r * 0.75))
+
+    # 레이어 3 그리기: 디테일 층 (완전 불투명)
+    for cx, cy, r in detail_clouds:
         anim_cx = int(cx + sway_x * 1.5)
         anim_cy = int(cy + sway_y * 1.2)
-        edge_alpha = min(255, int(base_alpha * 0.95))
-        pygame.draw.circle(cloud_surface, (110, 120, 140, edge_alpha), (anim_cx, anim_cy), r)
-        pygame.draw.circle(cloud_surface, (130, 140, 160, edge_alpha), (anim_cx, anim_cy), int(r * 0.75))
+        pygame.draw.circle(cloud_surface, (140, 150, 165, 255), (anim_cx, anim_cy), r)
 
-    # 레이어 3 그리기: 디테일 층 (높은 불투명도)
-    for cx, cy, r in detail_clouds:
-        anim_cx = int(cx + sway_x * 2)
-        anim_cy = int(cy + sway_y * 1.5)
-        detail_alpha = min(255, int(base_alpha * 0.9))
-        pygame.draw.circle(cloud_surface, (150, 160, 175, detail_alpha), (anim_cx, anim_cy), r)
+    # 레이어 4: 움직이는 안개 효과 (완전 불투명)
+    for i in range(15):
+        mist_x = int(center_x + math.sin(time_offset + i * 0.5) * cloud_w * 0.25)
+        mist_y = int(center_y + math.cos(time_offset * 0.6 + i * 0.4) * cloud_h * 0.2)
+        mist_r = 65 + (i % 5) * 12
+        pygame.draw.circle(cloud_surface, (110, 120, 140, 255), (mist_x, mist_y), mist_r)
 
-    # 레이어 4: 움직이는 안개 효과 (불투명)
-    mist_alpha = min(255, int(base_alpha * 0.85))
-    for i in range(12):
-        mist_x = int(center_x + math.sin(time_offset + i * 0.6) * cloud_w * 0.28)
-        mist_y = int(center_y + math.cos(time_offset * 0.7 + i * 0.4) * cloud_h * 0.22)
-        mist_r = 60 + (i % 4) * 15  # 고정 크기로 깜빡임 방지
-        pygame.draw.circle(cloud_surface, (120, 130, 150, mist_alpha), (mist_x, mist_y), mist_r)
+    # 페이드 아웃 시에만 투명도 적용
+    if base_alpha < 255:
+        cloud_surface.set_alpha(base_alpha)
 
     # 최종 블릿 (확장된 위치로)
     surface.blit(cloud_surface, (cloud_x, cloud_y))
