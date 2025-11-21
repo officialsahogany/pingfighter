@@ -72983,6 +72983,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_shaking_screen()
             draw_objects()
             draw_stage8_shadow_clones(SCREEN)
+            draw_stage8_shurikens(SCREEN)
             draw_water_trail()
             draw_item_obtained_effect()
             draw_dash_spirit_lasers(SCREEN, PLAYER, dash_spirit_lasers)
