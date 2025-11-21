@@ -704,6 +704,7 @@ from ui.stage4_shaolin_temple import ShaolinTempleBackground  # ️ 소림사 �
 from ui.stage5_chinese_market import Stage5ChineseMarket  #  중국 전통시장 맵
 from backgrounds.animated_background_stage6 import AnimatedBackgroundStage6
 from backgrounds.animated_background_stage7 import AnimatedBackgroundStage7
+from backgrounds.animated_background_stage8 import AnimatedBackgroundStage8
 importlib.reload(items)
 # 설정 파일 임포트
 from config.constants import *

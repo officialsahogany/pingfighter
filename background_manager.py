@@ -32,6 +32,7 @@ class StageBackgrounds:
     stage5: pygame.Surface
     stage6: pygame.Surface
     stage7: pygame.Surface
+    stage8: pygame.Surface
     animated_bg: Optional[object]
     animated_bg_stage2: Optional[object]
     animated_bg_stage3: Optional[object]
@@ -39,6 +40,7 @@ class StageBackgrounds:
     animated_bg_stage5: Optional[object]
     animated_bg_stage6: Optional[object]
     animated_bg_stage7: Optional[object]
+    animated_bg_stage8: Optional[object]
 
 
 def _scaled_surface(surface: pygame.Surface, width: int, height: int) -> pygame.Surface:
@@ -198,6 +200,31 @@ def load_stage_backgrounds(
         except Exception:
             animated_bg_stage7 = None
 
+    # Stage 8: 닌자 저택 배경
+    try:
+        stage8 = pygame.image.load(rp("stage8_field.png")).convert()
+        stage8 = _scaled_surface(stage8, width, height)
+    except Exception:
+        # 폴백: 어두운 일본풍 배경
+        stage8 = pygame.Surface((width, height))
+        for y in range(height):
+            ratio = y / height
+            r = int(15 + ratio * 20)
+            g = int(12 + ratio * 18)
+            b = int(18 + ratio * 15)
+            pygame.draw.line(stage8, (r, g, b), (0, y), (width, y))
+        # 스타디움 라인
+        center_y = height // 2
+        pygame.draw.line(stage8, (100, 40, 40), (0, center_y), (width, center_y), 2)
+        pygame.draw.circle(stage8, (100, 40, 40), (width // 2, center_y), 80, 3)
+
+    animated_bg_stage8 = None
+    if factories.animated_stage8 is not None:
+        try:
+            animated_bg_stage8 = factories.animated_stage8(width, height)
+        except Exception:
+            animated_bg_stage8 = None
+
     return StageBackgrounds(
         stage1=stage1,
         stage2=stage2,
@@ -206,6 +233,7 @@ def load_stage_backgrounds(
         stage5=stage5,
         stage6=stage6,
         stage7=stage7,
+        stage8=stage8,
         animated_bg=animated_bg,
         animated_bg_stage2=animated_bg_stage2,
         animated_bg_stage3=animated_bg_stage3,
@@ -213,4 +241,5 @@ def load_stage_backgrounds(
         animated_bg_stage5=animated_bg_stage5,
         animated_bg_stage6=animated_bg_stage6,
         animated_bg_stage7=animated_bg_stage7,
+        animated_bg_stage8=animated_bg_stage8,
     )
