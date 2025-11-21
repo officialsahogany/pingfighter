@@ -50,15 +50,19 @@ class AnimatedBackgroundStage8:
             (width - 55, 280, 50, 120),
             (width - 55, 480, 50, 120),
         ]
-        self.window_positions_top = [
-            (90, 55, 100, 80),
-            (width // 2 - 50, 55, 100, 80),
-            (width - 190, 55, 100, 80),
-        ]
+        # 상단 창문 위치 (5개 연속 창문) - 오동나무 저택
+        total_win_width = width - 120 - 60
+        num_windows = 5
+        win_margin = 8
+        win_w = (total_win_width - (num_windows + 1) * win_margin) // num_windows
+        self.window_positions_top = []
+        for i in range(num_windows):
+            wx = 60 + win_margin + i * (win_w + win_margin)
+            self.window_positions_top.append((wx, 25, win_w, 85))
 
-        # 창문 빛 상태
+        # 창문 빛 상태 (6 + 5 = 11개)
         self.window_states: List[dict] = []
-        for _ in range(9):
+        for _ in range(11):
             self.window_states.append({
                 "phase": random.uniform(0, math.tau),
                 "intensity": random.uniform(0.3, 0.6),
@@ -536,18 +540,30 @@ class AnimatedBackgroundStage8:
         all_windows = self.window_positions_left + self.window_positions_right + self.window_positions_top
 
         for i, (wx, wy, ww, wh) in enumerate(all_windows):
+            if i >= len(self.window_states):
+                break
             state = self.window_states[i]
             intensity = state["intensity"]
 
-            glow_alpha = int(25 * intensity)
+            # 상단 창문은 더 밝은 따뜻한 빛 (오동나무 저택)
+            is_top_window = i >= 6
+            if is_top_window:
+                glow_alpha = int(40 * intensity)
+                glow_color = (140, 110, 70, glow_alpha)  # 따뜻한 황색 빛
+                spread_color = (120, 95, 60)
+            else:
+                glow_alpha = int(25 * intensity)
+                glow_color = (60, 50, 40, glow_alpha)
+                spread_color = (50, 40, 30)
+
             if glow_alpha > 0:
                 glow_surf = pygame.Surface((ww, wh), pygame.SRCALPHA)
-                pygame.draw.rect(glow_surf, (60, 50, 40, glow_alpha), (0, 0, ww, wh))
+                pygame.draw.rect(glow_surf, glow_color, (0, 0, ww, wh))
                 overlay.blit(glow_surf, (wx + 4, wy + 4))
 
                 for r in range(3):
                     spread_alpha = max(0, glow_alpha - r * 8)
-                    pygame.draw.rect(overlay, (50, 40, 30, spread_alpha),
+                    pygame.draw.rect(overlay, (*spread_color, spread_alpha),
                                    (wx - r * 3, wy - r * 3, ww + r * 6, wh + r * 6), 1)
 
     def _draw_lantern_glow(self, overlay: pygame.Surface) -> None:
