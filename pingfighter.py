@@ -14970,6 +14970,17 @@ def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
     except Exception:
         pass
 
+    # 강화디바인스톤이 필드에 있고 발토르가 플레이 중일 때
+    # 게이지가 40 미만이면 검기를 발사하지 않는다.
+    try:
+        if globals().get("selected_character_type") == "blacksmith":
+            current_gauge = float(globals().get("special_gauge", 0))
+            if current_gauge < BLACKSMITH_DIVINE_SLASH_GAUGE_COST:
+                return
+    except Exception:
+        # 테스트나 초기화 단계에서 게이지가 없을 수 있으므로 조용히 무시
+        pass
+
     if "PLAYER" not in globals() or PLAYER is None:
         return
 
