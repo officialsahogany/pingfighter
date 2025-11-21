@@ -36748,7 +36748,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                 dist = random.gauss(0, current_width * 0.18)
                 cx = int(temp_center_x + math.cos(angle) * dist * 0.9)
                 cy = int(center_y + math.sin(angle) * dist * 0.5)
-                r = random.randint(45, max(46, int(90 * expand_progress + 45)))
+                r = random.randint(20, max(21, int(40 * expand_progress + 20)))
                 if current_left - r < cx < current_right + r:
                     pygame.draw.circle(cloud_surface, core_color, (cx, cy), r)
 
@@ -36758,7 +36758,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                 dist = random.gauss(0, current_width * 0.25)
                 cx = int(temp_center_x + math.cos(angle) * dist * 0.95)
                 cy = int(center_y + math.sin(angle) * dist * 0.55)
-                r = random.randint(40, max(41, int(75 * expand_progress + 35)))
+                r = random.randint(18, max(19, int(35 * expand_progress + 18)))
                 if current_left - r < cx < current_right + r:
                     pygame.draw.circle(cloud_surface, (95, 105, 125, 255), (cx, cy), r)
                     pygame.draw.circle(cloud_surface, (130, 140, 155, 255), (cx, cy), int(r * 0.7))
@@ -36771,7 +36771,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
                 dist = base_dist + variation
                 cx = int(temp_center_x + math.cos(angle) * dist * 0.9)
                 cy = int(center_y + math.sin(angle) * dist * 0.5)
-                r = random.randint(35, max(36, int(65 * expand_progress + 30)))
+                r = random.randint(15, max(16, int(30 * expand_progress + 15)))
                 if current_left - r < cx < current_right + r:
                     pygame.draw.circle(cloud_surface, (100, 110, 130, 255), (cx, cy), r)
 
