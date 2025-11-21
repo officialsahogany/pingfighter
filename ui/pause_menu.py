@@ -7,6 +7,8 @@ from typing import Callable, List, Optional, Sequence, Tuple
 
 import pygame
 
+from core.input_keys import is_move_down_event
+
 from pixel_font_manager import FontStyle
 from config.settings_system import get_settings_manager
 from managers.sound_manager import get_sound_manager
@@ -114,7 +116,7 @@ class PauseMenu:
 
         if event.key in (pygame.K_UP, pygame.K_w):
             self.selected_index = (self.selected_index - 1) % len(self.options)
-        elif event.key in (pygame.K_DOWN, pygame.K_s):
+        elif event.key in (pygame.K_DOWN, pygame.K_s) or is_move_down_event(event):
             self.selected_index = (self.selected_index + 1) % len(self.options)
         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
             return self._select_current()

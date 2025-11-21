@@ -4,6 +4,8 @@ from typing import Callable, List, Tuple
 
 import pygame
 
+from core.input_keys import is_move_down_event
+
 from pixel_font_manager import FontStyle, get_font
 from bgm_manager import bgm_manager as global_bgm_manager
 
