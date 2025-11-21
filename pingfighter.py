@@ -35544,6 +35544,7 @@ def draw_stage7_boss_gauge_bar():
     global current_stage, boss_special_gauge, displayed_boss_gauge
     global stage7_gauge_debug_active, stage7_gauge_debug_last_log
     global stage7_gauge_debug_last_stage, stage7_gauge_debug_stage_log_ticks
+    global stage8_shuriken_casting, stage8_shuriken_cast_start_ms
 
     time_now = pygame.time.get_ticks()
     if STAGE7_DEBUG.get('GAUGE', False) and time_now - stage7_gauge_debug_stage_log_ticks > 1000:
@@ -35574,9 +35575,9 @@ def draw_stage7_boss_gauge_bar():
         stage7_gauge_debug_active = True
         stage7_gauge_debug_last_log = time_now
         if STAGE7_DEBUG.get('GAUGE', False):
-            print(
-                f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
-            )
+        print(
+            f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
+        )
 
     # 게이지 바 외곽/배경
     outer_rect = pygame.Rect(gauge_x - 6, gauge_y - 12, gauge_width + 12, gauge_height + 24)
@@ -36353,6 +36354,37 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         pygame.draw.circle(aura, (120, 180, 220, 90), (radius + 1, radius + 1), radius)
         pygame.draw.circle(aura, (70, 120, 200, 140), (radius + 1, radius + 1), max(1, radius - 4), 2)
         surface.blit(aura, (BOSS.centerx - radius - 1, BOSS.centery - radius - 60))
+
+
+def draw_stage8_shurikens(surface: pygame.Surface) -> None:
+    if current_stage != 8 or not stage8_shurikens:
+        return
+    for sh in stage8_shurikens:
+        rect = sh["rect"]
+        # 간단한 표창 형태(회전 없이 빠르게)
+        blade = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        pygame.draw.polygon(
+            blade,
+            (200, 220, 240),
+            [
+                (0, rect.height // 2),
+                (rect.width // 2, 0),
+                (rect.width - 1, rect.height // 2),
+                (rect.width // 2, rect.height - 1),
+            ],
+        )
+        pygame.draw.polygon(
+            blade,
+            (80, 120, 180),
+            [
+                (rect.width // 2, 2),
+                (rect.width - 3, rect.height // 2),
+                (rect.width // 2, rect.height - 3),
+                (3, rect.height // 2),
+            ],
+            1,
+        )
+        surface.blit(blade, rect.topleft)
 
 
 
