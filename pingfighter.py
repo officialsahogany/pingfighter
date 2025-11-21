@@ -27962,15 +27962,25 @@ def handle_player(keys):
                     discounted_cost = int(discounted_cost * 0.8)  # 대쉬기어 20% 할인
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
-                # A/D도 왼/오 입력으로 인정 (마우스+키보드 스킴 포함)
+                # A/D/화살표/IME 변형 모두 왼/오 입력으로 인정 (스냅샷+이벤트 포함)
+                left_active_for_dash = (
+                    is_move_left_pressed(keys)
+                    or MOVE_EVENT_LEFT
+                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_left_state))
+                )
+                right_active_for_dash = (
+                    is_move_right_pressed(keys)
+                    or MOVE_EVENT_RIGHT
+                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_right_state))
+                )
                 left_before_down = (
-                    (keys[pygame.K_LEFT] or keys[pygame.K_a])
+                    left_active_for_dash
                     and left_press_frame >= 0
                     and down_press_frame >= 0
                     and left_press_frame < down_press_frame
                 )
                 right_before_down = (
-                    (keys[pygame.K_RIGHT] or keys[pygame.K_d])
+                    right_active_for_dash
                     and right_press_frame >= 0
                     and down_press_frame >= 0
                     and right_press_frame < down_press_frame
