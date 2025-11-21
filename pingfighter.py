@@ -69508,6 +69508,11 @@ def main(stage_num, new_boss_mode=False):
                             try:
                                 turret_runtime = BLACKSMITH_CONTROLLER.state.turret
                                 _blacksmith_fire_turret_projectile(turret_runtime, blacksmith_turret_state, overdrive=False)
+                                # 수동 발사 직후에는 런타임 projectile 리스트가 최신이지만, 직전에 draw 단계에서
+                                # sync_blacksmith_state()가 호출돼 전역 리스트와 분리돼 있을 수 있다.
+                                # 다음 업데이트에서 수동 발사 투사체가 유실되지 않도록 전역 리스트도 즉시 반영한다.
+                                turret_runtime.manual_cooldown = blacksmith_turret_manual_cooldown
+                                blacksmith_turret_projectiles = turret_runtime.projectiles
                                 if overheat_active:
                                     try:
                                         # 과부하 수동 발사 시 포구 바로 위에서 가느다른 연기 연출

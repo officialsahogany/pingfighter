@@ -83,6 +83,7 @@ class AnimatedBackgroundStage8:
         self.ninja_shadow_y = height // 2
         self.ninja_shadow_speed = 0
         self.ninja_shadow_cooldown = random.uniform(8.0, 15.0)
+        self.ninja_run_phase = 0.0  # 달리기 애니메이션 페이즈
 
         # 연기/안개 효과
         self.smoke_particles: List[dict] = []
@@ -195,9 +196,11 @@ class AnimatedBackgroundStage8:
 
         if self.ninja_shadow_active:
             self.ninja_shadow_x += self.ninja_shadow_speed * dt
+            self.ninja_run_phase += dt * 18  # 빠른 달리기 애니메이션 속도
             if self.ninja_shadow_x > self.width + 150 or self.ninja_shadow_x < -150:
                 self.ninja_shadow_active = False
                 self.ninja_shadow_cooldown = random.uniform(10.0, 20.0)
+                self.ninja_run_phase = 0.0
 
         # 연기 업데이트
         for smoke in self.smoke_particles:
