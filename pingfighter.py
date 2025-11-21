@@ -1073,6 +1073,7 @@ background_factories = BackgroundFactory(
     animated_stage5=lambda: Stage5ChineseMarket(),
     animated_stage6=lambda width, height: AnimatedBackgroundStage6(width, height),
     animated_stage7=lambda width, height: AnimatedBackgroundStage7(width, height),
+    animated_stage8=lambda width, height: AnimatedBackgroundStage8(width, height),
 )
 
 stage_backgrounds = load_stage_backgrounds(
@@ -1089,7 +1090,7 @@ STAGE4_BG = stage_backgrounds.stage4
 STAGE5_BG = stage_backgrounds.stage5
 STAGE6_BG = stage_backgrounds.stage6
 STAGE7_BG = stage_backgrounds.stage7
-STAGE8_BG = STAGE7_BG  # 임시: 스테이지7 배경 재사용 (전용 맵 추가 예정)
+STAGE8_BG = stage_backgrounds.stage8  # 닌자 저택 배경
 
 STAGE1_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage1.mov")
 STAGE1_INTRO_IMAGE_PATH = resource_path("stage1.png")
@@ -1113,6 +1114,7 @@ animated_bg_stage4 = stage_backgrounds.animated_bg_stage4
 animated_bg_stage5 = stage_backgrounds.animated_bg_stage5
 animated_bg_stage6 = stage_backgrounds.animated_bg_stage6
 animated_bg_stage7 = stage_backgrounds.animated_bg_stage7
+animated_bg_stage8 = stage_backgrounds.animated_bg_stage8
 # 빠칭코 기계 이미지 로드
 try:
     pachinko_machine_img = pygame.image.load(resource_path("itemmachine.png")).convert_alpha()
@@ -57257,6 +57259,24 @@ def draw_field():
                 stage7_center_cube_explode_and_clear_tetros()
         except Exception:
             pass
+    elif current_stage == 8 and animated_bg_stage8 is not None:
+        # 스테이지8: 닌자 저택 애니메이션 배경
+        elapsed_ms = clock.get_time() if 'clock' in globals() else 16
+        animated_bg_stage8.update(elapsed_ms)
+        if FULLSCREEN_MODE:
+            SCREEN.fill(BLACK)
+            temp_surface = STAGE8_BG.copy()
+            animated_bg_stage8.draw(temp_surface)
+            SCREEN.blit(
+                temp_surface,
+                (GAME_OFFSET_X + screen_shake_offset_x, GAME_OFFSET_Y + screen_shake_offset_y),
+            )
+        else:
+            SCREEN.blit(STAGE8_BG, (screen_shake_offset_x, screen_shake_offset_y))
+            animated_bg_stage8.draw(
+                SCREEN,
+                offset=(screen_shake_offset_x, screen_shake_offset_y),
+            )
     else:
         # 기본 배경 (화면 흔들림 오프셋 적용)
         if FULLSCREEN_MODE:
