@@ -24669,11 +24669,15 @@ def draw_soldier_weapon_ui(screen):
                 2
             )
     elif current_weapon == "suicide_drone":
-        # 자폭드론 HUD
+        # 자폭드론 HUD (탄약 소진 시 비활성화 표시)
+        drone_ready = (soldier_drone_ammo > 0) or suicide_drone_active
         slot_w, slot_h = weapon_rect.width, weapon_rect.height
-        body_color = (70, 80, 95)
-        prop_color = (190, 210, 230)
-        nose_color = (230, 120, 80)
+        base_body_color = (70, 80, 95)
+        base_prop_color = (190, 210, 230)
+        base_nose_color = (230, 120, 80)
+        body_color = base_body_color if drone_ready else (45, 50, 60)
+        prop_color = base_prop_color if drone_ready else (120, 135, 150)
+        nose_color = base_nose_color if drone_ready else (150, 90, 70)
         pygame.draw.rect(screen, body_color, (weapon_rect.x + slot_w * 0.28, weapon_rect.y + slot_h * 0.44, slot_w * 0.44, slot_h * 0.16), border_radius=4)
         pygame.draw.rect(screen, nose_color, (weapon_rect.x + slot_w * 0.5 - slot_w * 0.08, weapon_rect.y + slot_h * 0.36, slot_w * 0.16, slot_h * 0.14), border_radius=3)
         for dx in (slot_w * 0.18, slot_w * 0.82):
@@ -24704,10 +24708,27 @@ def draw_soldier_weapon_ui(screen):
             pygame.draw.line(screen, outline, (rect.centerx, rect.centery - prop_r), (rect.centerx, rect.centery + prop_r), 2)
         try:
             if 'font_small' in globals() and font_small:
-                status_surface = font_small.render(f"자폭드론 {ammo_to_show}/{max_ammo}", True, (180, 220, 255))
+                if suicide_drone_active:
+                    status_text = "발진 중"
+                    status_color = (255, 220, 180)
+                elif ammo_to_show > 0:
+                    status_text = f"자폭드론 {ammo_to_show}/{max_ammo}"
+                    status_color = (180, 220, 255)
+                else:
+                    status_text = "탄약 없음"
+                    status_color = (220, 150, 150)
+                status_surface = font_small.render(status_text, True, status_color)
                 screen.blit(status_surface, (weapon_x, weapon_y - 20))
         except Exception:
             pass
+        if not drone_ready:
+            pygame.draw.line(
+                screen,
+                (150, 150, 150),
+                (weapon_rect.left + 4, weapon_rect.top + 4),
+                (weapon_rect.right - 4, weapon_rect.bottom - 4),
+                2
+            )
     else:
         # 권총 무기 정보 표시 (활성/비활성 상태에 따라 색상 변경)
         gun_center_x, gun_center_y = weapon_rect.center
