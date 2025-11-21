@@ -1,8 +1,6 @@
-"""Stage 8 전용 애니메이션 배경.
+"""Stage 8 전용 애니메이션 배경 - 미니멀 버전.
 
-음습하고 어두운 일본풍 닌자 저택 분위기를 유지하면서
-은은한 등불 깜빡임, 먼지 입자, 그림자 움직임을 추가하여
-정적인 배경 위에 생동감을 더한다.
+깔끔한 배경 위에 은은한 등불 깜빡임과 스타디움 펄스만 추가.
 """
 
 from __future__ import annotations
@@ -17,7 +15,7 @@ Color = Tuple[int, int, int]
 
 
 class AnimatedBackgroundStage8:
-    """Stage 8 배경 위에 얹는 경량 애니메이션 오버레이."""
+    """Stage 8 배경 위에 얹는 경량 애니메이션 오버레이 - 미니멀 버전."""
 
     def __init__(self, width: int, height: int) -> None:
         self.width = width
@@ -38,43 +36,8 @@ class AnimatedBackgroundStage8:
             self.lantern_states.append({
                 "phase": random.uniform(0, math.tau),
                 "intensity": random.uniform(0.7, 1.0),
-                "flicker_speed": random.uniform(3.0, 5.0),
+                "flicker_speed": random.uniform(2.0, 4.0),
             })
-
-        # 떠다니는 먼지 입자
-        self.dust_particles: List[dict] = []
-        for _ in range(30):
-            self.dust_particles.append({
-                "x": random.uniform(70, width - 70),
-                "y": random.uniform(50, height - 50),
-                "speed_x": random.uniform(-8.0, 8.0),
-                "speed_y": random.uniform(-5.0, 5.0),
-                "phase": random.uniform(0, math.tau),
-                "radius": random.uniform(1.0, 3.0),
-                "alpha": random.randint(15, 40),
-            })
-
-        # 그림자 패치 (느리게 움직이는 어두운 영역)
-        self.shadow_patches: List[dict] = []
-        for _ in range(8):
-            self.shadow_patches.append({
-                "x": random.uniform(100, width - 100),
-                "y": random.uniform(100, height - 100),
-                "base_x": 0,  # 초기화 후 설정
-                "base_y": 0,
-                "width": random.randint(60, 120),
-                "height": random.randint(40, 80),
-                "phase": random.uniform(0, math.tau),
-                "move_speed": random.uniform(0.3, 0.8),
-                "alpha": random.randint(20, 40),
-            })
-        for patch in self.shadow_patches:
-            patch["base_x"] = patch["x"]
-            patch["base_y"] = patch["y"]
-
-        # 달빛 광선 효과
-        self.moonbeam_phase = 0.0
-        self.moonbeam_intensity = 0.7
 
         # 스타디움 라인 펄스 효과
         self.stadium_pulse_phase = 0.0
@@ -82,12 +45,6 @@ class AnimatedBackgroundStage8:
         self.stadium_circle_radius = 80
         self.stadium_color = (100, 40, 40)
         self.stadium_glow_color = (140, 50, 50)
-
-        # 닌자 그림자 (가끔 스쳐 지나가는 효과)
-        self.ninja_shadow_active = False
-        self.ninja_shadow_x = -100
-        self.ninja_shadow_speed = 0
-        self.ninja_shadow_cooldown = random.uniform(15.0, 30.0)
 
     def update(self, elapsed_ms: int | float | None = None) -> None:
         """프레임마다 호출. elapsed_ms는 pygame clock 값(ms)"""
