@@ -36217,7 +36217,8 @@ def _spawn_stage8_shadows(now: int) -> None:
     base_y = (stage8_shadow_freeze_posy or BOSS.centery) + STAGE8_SHADOW_Y_OFFSET
     stage8_shadow_clones = []
     for direction in (-1, 1):
-        rect = pygame.Rect(0, 0, BOSS.width, BOSS.height)
+        # 실제 보스8 이미지 크기와 동일하게 설정
+        rect = pygame.Rect(0, 0, BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT)
         rect.center = (base_x, base_y)
         stage8_shadow_clones.append(
             {
@@ -36463,17 +36464,12 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         fade = min(1.0, remaining / 1500)  # 마지막 1.5초 페이드아웃
         alpha = int(180 * emerge * fade)
 
-        # 보스 이미지 기반 + 더 큰 세로 스케일, 폴짝 모션
-        scaled_h = int(rect.height * 1.16)  # 세로 약간 더 길게
-        scaled_w = int(rect.width * 0.94)   # 가로 약간 더 좁게
-        pose_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (scaled_w, scaled_h))
+        # 보스 이미지와 동일한 크기로 렌더링 (폴짝 모션)
         hop = int(6 * math.sin(now * 0.012 + rect.x * 0.02))  # 폴짝폴짝 위아래
         draw_rect = rect.copy()
-        draw_rect.y -= (scaled_h - rect.height) // 2
-        draw_rect.x += (rect.width - scaled_w) // 2
         draw_rect.y += hop
 
-        shadow_surface = pose_surface.copy()
+        shadow_surface = BOSS_IMG_STAGE8.copy()
         shadow_surface.fill((40, 40, 60, alpha), special_flags=pygame.BLEND_RGBA_MULT)
         surface.blit(shadow_surface, draw_rect)
 
