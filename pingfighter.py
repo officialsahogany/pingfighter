@@ -36426,9 +36426,11 @@ def update_stage8_cloud(now: int | None = None) -> None:
 
 def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
     """그림자분신 렌더링."""
-    if current_stage != 8 or not stage8_shadow_clones:
+    if current_stage != 8:
         return
     now = pygame.time.get_ticks()
+
+    # 일반 분신 그리기
     for clone in stage8_shadow_clones:
         rect: pygame.Rect = clone["rect"]
         elapsed = now - clone["spawn_ms"]
@@ -36450,6 +36452,96 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         shadow_surface = pose_surface.copy()
         shadow_surface.fill((40, 40, 60, alpha), special_flags=pygame.BLEND_RGBA_MULT)
         surface.blit(shadow_surface, draw_rect)
+
+    # 소멸 중인 분신 그리기 (홀로그램 증발 효과)
+    for dying in stage8_shadow_dying:
+        rect: pygame.Rect = dying["rect"]
+        death_elapsed = now - dying["death_start_ms"]
+        death_progress = min(1.0, death_elapsed / STAGE8_SHADOW_DEATH_MS)  # 0.0 ~ 1.0
+
+        # 보스 이미지 기반
+        scaled_h = int(rect.height * 1.16)
+        scaled_w = int(rect.width * 0.94)
+        pose_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (scaled_w, scaled_h))
+
+        draw_rect = rect.copy()
+        draw_rect.y -= (scaled_h - rect.height) // 2
+        draw_rect.x += (rect.width - scaled_w) // 2
+
+        # 홀로그램 증발 효과
+        # 1. 전체 알파 감소 (180 → 0)
+        base_alpha = int(180 * (1.0 - death_progress))
+
+        # 2. 위쪽부터 서서히 사라지는 효과 (스캔라인)
+        scanline_progress = death_progress * scaled_h
+
+        # 3. 홀로그램 글리치 효과 (색상 분리 + 떨림)
+        glitch_intensity = death_progress * 15  # 점점 강해지는 글리치
+        glitch_offset_x = int(math.sin(now * 0.05 + death_progress * 20) * glitch_intensity)
+        glitch_offset_y = int(math.cos(now * 0.07 + death_progress * 15) * glitch_intensity * 0.5)
+
+        # 홀로그램 증발 서피스 생성
+        dying_surface = pygame.Surface((scaled_w + 20, scaled_h), pygame.SRCALPHA)
+
+        # 기본 그림자 이미지 복사
+        shadow_base = pose_surface.copy()
+
+        # 스캔라인 효과: 위에서부터 점점 투명해지는 효과
+        for y in range(scaled_h):
+            line_alpha = base_alpha
+            if y < scanline_progress:
+                # 이미 지나간 부분: 완전 투명 또는 파티클로 대체
+                line_alpha = 0
+            elif y < scanline_progress + 30:
+                # 경계 부분: 글리치 + 페이드
+                boundary_progress = (y - scanline_progress) / 30
+                line_alpha = int(base_alpha * boundary_progress)
+                # 스캔라인 경계에 시안/마젠타 글리치
+                if random.random() < 0.3:
+                    glitch_color = random.choice([(0, 255, 255), (255, 0, 255), (255, 255, 0)])
+                    pygame.draw.line(dying_surface, (*glitch_color, int(line_alpha * 0.5)),
+                                   (0, y), (scaled_w, y), 1)
+
+            # 각 라인에 알파 적용
+            if line_alpha > 0:
+                line_rect = pygame.Rect(0, y, scaled_w, 1)
+                try:
+                    line_surface = shadow_base.subsurface(line_rect).copy()
+                    line_surface.fill((40, 40, 60, line_alpha), special_flags=pygame.BLEND_RGBA_MULT)
+                    dying_surface.blit(line_surface, (10, y))
+                except ValueError:
+                    pass
+
+        # 홀로그램 색상 분리 (RGB shift)
+        if death_progress > 0.2:
+            shift_amount = int((death_progress - 0.2) * 8)
+            # 시안 고스트 (오른쪽 이동)
+            cyan_ghost = pose_surface.copy()
+            cyan_ghost.fill((0, 255, 255, int(base_alpha * 0.3)), special_flags=pygame.BLEND_RGBA_MULT)
+            surface.blit(cyan_ghost, (draw_rect.x + shift_amount + glitch_offset_x, draw_rect.y + glitch_offset_y))
+            # 마젠타 고스트 (왼쪽 이동)
+            magenta_ghost = pose_surface.copy()
+            magenta_ghost.fill((255, 0, 255, int(base_alpha * 0.3)), special_flags=pygame.BLEND_RGBA_MULT)
+            surface.blit(magenta_ghost, (draw_rect.x - shift_amount + glitch_offset_x, draw_rect.y + glitch_offset_y))
+
+        # 메인 소멸 이미지 그리기
+        surface.blit(dying_surface, (draw_rect.x - 10 + glitch_offset_x, draw_rect.y + glitch_offset_y))
+
+        # 파티클 효과: 위쪽으로 흩어지는 픽셀들
+        if death_progress > 0.1:
+            num_particles = int(10 * death_progress)
+            for _ in range(num_particles):
+                px = draw_rect.x + random.randint(0, scaled_w)
+                py = draw_rect.y + random.randint(0, int(scanline_progress))
+                particle_alpha = int(150 * (1.0 - death_progress))
+                particle_color = random.choice([
+                    (100, 200, 255, particle_alpha),  # 시안
+                    (200, 150, 255, particle_alpha),  # 라벤더
+                    (150, 255, 200, particle_alpha),  # 민트
+                ])
+                if particle_alpha > 0:
+                    particle_size = random.randint(1, 3)
+                    pygame.draw.circle(surface, particle_color, (px, py - int(death_progress * 20)), particle_size)
 
     # 주문 중 효과 (보스 위 오라)
     if stage8_shadow_casting:
