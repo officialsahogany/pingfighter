@@ -36647,9 +36647,21 @@ def draw_stage8_shurikens(surface: pygame.Surface) -> None:
 
 def draw_stage8_cloud(surface: pygame.Surface) -> None:
     """스테이지8 닌자 구름장막 스킬 - 실제 구름 같은 자연스러운 이펙트 (불투명)"""
-    if current_stage != 8 or not stage8_cloud_active or stage8_cloud_rect is None:
+    if current_stage != 8:
         return
     now = pygame.time.get_ticks()
+
+    # 프리/대시 단계 오로라
+    if stage8_cloud_dash_active and stage8_cloud_dash_phase in ("pre", "down", "up"):
+        pulse = 0.6 + 0.4 * math.sin(now * 0.02)
+        radius = int(30 * pulse)
+        aura = pygame.Surface((radius * 2 + 2, radius * 2 + 2), pygame.SRCALPHA)
+        pygame.draw.circle(aura, (180, 210, 255, 70), (radius + 1, radius + 1), radius)
+        pygame.draw.circle(aura, (120, 170, 240, 140), (radius + 1, radius + 1), max(1, radius - 6), 2)
+        surface.blit(aura, (BOSS.centerx - radius - 1, BOSS.centery - radius - 50))
+
+    if not stage8_cloud_active or stage8_cloud_rect is None:
+        return
     if now >= stage8_cloud_end_ms:
         return
     remaining = stage8_cloud_end_ms - now
