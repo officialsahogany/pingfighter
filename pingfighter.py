@@ -39071,6 +39071,66 @@ def draw_aircraft_carrier_boss(boss_speed=0, boss_x=0):
         pygame.draw.circle(carrier_surface, WHITE, 
                           (antenna_right_x, antenna_y - 5), 2)
     return carrier_surface
+
+def _build_stage8_walk_pose(base_img, boss_rect):
+    """스테이지8 닌자 보스의 걸음 모션을 절차적으로 생성한다."""
+    global stage8_prev_x, stage8_walk_cycle, stage8_idle_phase
+    base_w, base_h = base_img.get_size()
+    dx = 0.0
+    if stage8_prev_x is not None:
+        dx = float(boss_rect.x - stage8_prev_x)
+    stage8_prev_x = float(boss_rect.x)
+    speed = abs(dx)
+    moving = speed > 0.15
+    speed_ratio = min(1.0, speed / 12.0)
+    if moving:
+        step_delta = 0.055 + speed_ratio * 0.12
+        stage8_walk_cycle = (stage8_walk_cycle + step_delta) % 1.0
+        stage8_idle_phase = 0.0
+    else:
+        stage8_walk_cycle = stage8_walk_cycle * 0.9
+        stage8_idle_phase = (stage8_idle_phase + 0.01) % 1.0
+    phase = stage8_walk_cycle if moving else stage8_idle_phase
+    bob_strength = STAGE8_WALK_BOB_PX * (0.35 + (speed_ratio * 0.65 if moving else 0.0))
+    bob_offset = math.sin(phase * math.tau) * bob_strength
+    lean_angle = math.sin(phase * math.tau * 0.5) * STAGE8_WALK_SWAY_DEG * (0.5 + (speed_ratio * 0.5))
+
+    canvas_w = base_w + STAGE8_WALK_CANVAS_PAD * 2
+    canvas_h = base_h + STAGE8_WALK_CANVAS_PAD * 2 + STAGE8_WALK_BOB_PX * 2
+    pose_surface = pygame.Surface((canvas_w, canvas_h), pygame.SRCALPHA)
+    baseline_y = STAGE8_WALK_CANVAS_PAD + base_h + STAGE8_WALK_BOB_PX
+
+    legs = pygame.Surface((canvas_w, canvas_h), pygame.SRCALPHA)
+    swing = math.sin(phase * math.tau) * STAGE8_WALK_LEG_SWING_PX * speed_ratio
+    lift = (1 - math.cos(phase * math.tau)) * (4 + 4 * speed_ratio) * speed_ratio
+    hip_y = baseline_y - 12 - int(round(bob_offset))
+    hip_left_x = STAGE8_WALK_CANVAS_PAD + int(base_w * 0.36)
+    hip_right_x = STAGE8_WALK_CANVAS_PAD + int(base_w * 0.64)
+    leg_dark = (35, 45, 70, 210)
+    leg_light = (70, 90, 130, 235)
+
+    def _draw_leg(hip_x, swing_dir):
+        knee = (int(round(hip_x + swing_dir)), int(round(hip_y + 8 + lift)))
+        foot = (int(round(hip_x + swing_dir * 0.6)), int(round(baseline_y + 12)))
+        pygame.draw.line(legs, leg_dark, (hip_x, hip_y), knee, 5)
+        pygame.draw.circle(legs, leg_dark, (hip_x, hip_y), 3)
+        pygame.draw.line(legs, leg_light, knee, foot, 6)
+        pygame.draw.circle(legs, leg_light, foot, 3)
+
+    if speed_ratio > 0.01:
+        _draw_leg(hip_left_x, swing)
+        _draw_leg(hip_right_x, -swing)
+
+    pose_surface.blit(legs, (0, 0))
+    body_surface = pygame.transform.rotozoom(base_img, lean_angle, 1.0)
+    body_rect = body_surface.get_rect(
+        midbottom=(
+            STAGE8_WALK_CANVAS_PAD + base_w // 2,
+            baseline_y - int(round(bob_offset)),
+        )
+    )
+    pose_surface.blit(body_surface, body_rect)
+    return pose_surface, pose_surface.get_width(), pose_surface.get_height()
 def draw_objects():
     global quake_offset_y, rainbow_index, ball_angle
     global hit_animation_active, hit_animation_timer
