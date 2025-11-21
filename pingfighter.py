@@ -36189,7 +36189,7 @@ def _spawn_stage8_shadows(now: int) -> None:
                 "direction": direction,
                 "offset_x": direction * 90,
                 "offset_y": 0,
-                "vx": random.uniform(5.0, 8.0) * direction,
+                "vx": random.uniform(7.5, 12.0) * direction,
                 "vy": 0.0,
             }
         )
@@ -36245,11 +36245,11 @@ def update_stage8_shadow_clones() -> None:
                 clone["vx"] = -vx
                 rect.x = max(10, min(rect.x, WIDTH - rect.width - 10))
             # 약간의 난수 가속으로 불규칙성 추가
-            clone["vx"] += random.uniform(-0.4, 0.4)
+            clone["vx"] += random.uniform(-0.6, 0.6)
             # 속도 클램프
             speed = abs(clone["vx"])
-            if speed > 10.0:
-                scale = 10.0 / speed
+            if speed > 15.0:
+                scale = 15.0 / speed
                 clone["vx"] *= scale
 
         # 공과 충돌 시 바로 소멸 (연기 처리 간소화)
