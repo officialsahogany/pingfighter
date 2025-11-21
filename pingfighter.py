@@ -19486,30 +19486,11 @@ except:
     BOSS_IMG_STAGE5 = pygame.Surface((BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_STAGE5.fill((255, 80, 0))
 try:
-    _stage8_frames: list[pygame.Surface] = []
-    for fname in (
-        "boss_stage8_frame_0.png",
-        "boss_stage8_frame_1.png",
-        "boss_stage8_frame_2.png",
-        "boss_stage8_frame_3.png",
-    ):
-        frame_surface = pygame.image.load(resource_path(fname)).convert_alpha()
-        frame_surface = pygame.transform.smoothscale(frame_surface, (BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT))
-        padded = pygame.Surface(
-            (BOSS_IMG_STAGE8_WIDTH + BOSS_IMG_STAGE8_PAD_X * 2, BOSS_IMG_STAGE8_HEIGHT + BOSS_IMG_STAGE8_PAD_Y * 2),
-            pygame.SRCALPHA,
-        )
-        padded.blit(frame_surface, (BOSS_IMG_STAGE8_PAD_X, BOSS_IMG_STAGE8_PAD_Y))
-        _stage8_frames.append(padded)
-    BOSS_IMG_STAGE8_FRAMES = _stage8_frames
+    BOSS_IMG_STAGE8 = pygame.image.load(resource_path("boss_stage8.png")).convert_alpha()
+    BOSS_IMG_STAGE8 = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT))
 except:
-    _fallback = pygame.Surface(
-        (BOSS_IMG_STAGE8_WIDTH + BOSS_IMG_STAGE8_PAD_X * 2, BOSS_IMG_STAGE8_HEIGHT + BOSS_IMG_STAGE8_PAD_Y * 2),
-        pygame.SRCALPHA,
-    )
-    _fallback.fill((60, 80, 120))
-    BOSS_IMG_STAGE8_FRAMES = [_fallback]
-BOSS_IMG_STAGE8 = BOSS_IMG_STAGE8_FRAMES[0]
+    BOSS_IMG_STAGE8 = pygame.Surface((BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT), pygame.SRCALPHA)
+    BOSS_IMG_STAGE8.fill((60, 80, 120))
 
 STAGE7_FRAME_FILES = [
     "boss_stage7_frame_0.png",
@@ -39392,6 +39373,9 @@ def draw_objects():
     elif current_stage == 5:
         boss_img = BOSS_IMG_STAGE5
         boss_w, boss_h = BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT
+    elif current_stage == 8:
+        boss_img = BOSS_IMG_STAGE8
+        boss_w, boss_h = BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT
     elif current_stage == 7:
         boss_img_prescaled = True
         global stage7_prev_x, stage7_lean_value
@@ -39459,13 +39443,6 @@ def draw_objects():
         boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     if not boss_img_prescaled:
         boss_img = pygame.transform.scale(boss_img, (boss_w, boss_h))
-    # Stage 8 idle bobbing animation
-    if current_stage == 8:
-        frames = BOSS_IMG_STAGE8_FRAMES if BOSS_IMG_STAGE8_FRAMES else [BOSS_IMG_STAGE8]
-        idx = (pygame.time.get_ticks() // 120) % len(frames)
-        boss_img = frames[idx]
-        boss_w, boss_h = boss_img.get_width(), boss_img.get_height()
-        boss_img_prescaled = True
     if current_stage != 7:
         stage7_prev_x = None
         stage7_lean_value *= 0.85
