@@ -18479,6 +18479,7 @@ soldier_weapon_switch_suppress_frames = 0
 soldier_weapon_number_prev = [False] * 9
 SOLDIER_EMERGENCY_SUPPLY_GAUGE_COST = 300
 SOLDIER_EMERGENCY_SUPPLY_TAP_WINDOW = int(0.25 * 60)
+SOLDIER_EMERGENCY_SUPPLY_IDLE_SPEED_THRESHOLD = 0.2  # 좌우 이동 중에는 비상보급 금지
 soldier_down_tap_timer = 0
 soldier_down_tap_count = 0
 soldier_down_tap_suppress_timer = 0
