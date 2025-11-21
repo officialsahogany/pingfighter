@@ -36274,17 +36274,15 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         fade = min(1.0, remaining / 1500)  # 마지막 1.5초 페이드아웃
         alpha = int(180 * emerge * fade)
 
-        # 보스와 동일한 워크 포즈를 사용해 실시간 애니메이션 동기화
-        try:
-            pose_surface, _, _ = _build_stage8_walk_pose(BOSS_IMG_STAGE8, rect)
-        except Exception:
-            pose_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (rect.width, rect.height))
+        # 보스 이미지에 부드러운 위아래 호흡 애니메이션만 적용하여 여유로운 모션
+        pose_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (rect.width, rect.height))
+        bob = int(2 * math.sin(now * 0.004 + rect.x * 0.01))  # 완만한 위아래 이동
         shadow_surface = pose_surface.copy()
         shadow_surface.fill((40, 40, 60, alpha), special_flags=pygame.BLEND_RGBA_MULT)
-        surface.blit(shadow_surface, rect)
+        surface.blit(shadow_surface, rect.move(0, bob))
 
         ring_alpha = int(alpha * 0.6)
-        pygame.draw.rect(surface, (80, 140, 200, ring_alpha), rect, 2)
+        pygame.draw.rect(surface, (80, 140, 200, ring_alpha), rect.move(0, bob), 2)
 
     # 주문 중 효과 (보스 위 오라)
     if stage8_shadow_casting:
@@ -68244,7 +68242,7 @@ def main(stage_num, new_boss_mode=False):
     global BOSS_ACCELERATION, BOSS_DECELERATION, BOSS_MAX_SPEED, BOSS_INSTANT_STOP_DECELERATION
     global BOSS_ACCELERATION_DEFAULT, BOSS_DECELERATION_DEFAULT, BOSS_MAX_SPEED_DEFAULT, BOSS_INSTANT_STOP_DECELERATION_DEFAULT
     # 게임 진행 & 타이밍
-    global is_waiting_for_serve, is_player_serve, last_item_spawn_time, next_item_spawn_delay
+    global is_waiting_for_serve, is_player_serve, serve_power_smash_lockout, last_item_spawn_time, next_item_spawn_delay
     global tutorial_needs_dash_practice  # 대쉬 튜토리얼 플래그
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown  # 드라이브 튜토리얼 플래그
     global boss_fail_timer, session_medal_earned, medal_score
