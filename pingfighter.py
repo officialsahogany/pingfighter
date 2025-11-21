@@ -36681,8 +36681,8 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     if remaining < stage8_cloud_fade_ms:
         base_alpha = int(255 * (remaining / max(1, stage8_cloud_fade_ms)))
 
-    # 구름 영역 설정
-    expand = 60
+    # 구름 영역 설정 (캔버스를 넉넉하게 잡아 구름이 잘리지 않게)
+    expand = 120
     full_cloud_w = stage8_cloud_rect.width + expand * 2
     full_cloud_h = stage8_cloud_rect.height + expand * 2
 
