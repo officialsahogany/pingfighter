@@ -52801,7 +52801,7 @@ def show_difficulty_selection():
                     continue
                 if event.key == pygame.K_ESCAPE:
                     return None  # 캐릭터 선택으로 돌아가기
-                elif event.key in [pygame.K_UP, pygame.K_w]:
+                elif event.key in [pygame.K_UP, pygame.K_w] or is_move_up_event(event):
                     # 2x2 그리드에서 위로 이동
                     current_row = selected // cards_per_row
                     current_col = selected % cards_per_row
@@ -52810,7 +52810,7 @@ def show_difficulty_selection():
                     if selected >= len(difficulties):  # 인덱스 범위 초과 시 조정
                         selected = (len(difficulties) - 1)
                     play_button_hover_sound()
-                elif event.key in [pygame.K_DOWN, pygame.K_s]:
+                elif is_move_down_event(event):
                     # 2x2 그리드에서 아래로 이동
                     current_row = selected // cards_per_row
                     current_col = selected % cards_per_row
@@ -52819,7 +52819,7 @@ def show_difficulty_selection():
                     if selected >= len(difficulties):  # 인덱스 범위 초과 시 조정
                         selected = current_col if current_col < len(difficulties) else 0
                     play_button_hover_sound()
-                elif event.key in [pygame.K_LEFT, pygame.K_a]:
+                elif is_move_left_event(event):
                     # 2x2 그리드에서 왼쪽으로 이동
                     current_row = selected // cards_per_row
                     current_col = selected % cards_per_row
@@ -52828,7 +52828,7 @@ def show_difficulty_selection():
                     if selected >= len(difficulties):  # 인덱스 범위 초과 시 조정
                         selected = current_row * cards_per_row + (new_col % len(difficulties))
                     play_button_hover_sound()
-                elif event.key in [pygame.K_RIGHT, pygame.K_d]:
+                elif is_move_right_event(event):
                     # 2x2 그리드에서 오른쪽으로 이동
                     current_row = selected // cards_per_row
                     current_col = selected % cards_per_row
