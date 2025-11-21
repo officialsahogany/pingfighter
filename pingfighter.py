@@ -36146,6 +36146,117 @@ def draw_stage8_boss_gauge_bar():
     SCREEN.blit(gauge_surface, gauge_rect)
 
 
+def _spawn_stage8_shadows(now: int) -> None:
+    """탁닌자 그림자분신 2개 생성."""
+    global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
+    base_x = BOSS.centerx
+    base_y = BOSS.centery
+    stage8_shadow_clones = []
+    for direction in (-1, 1):
+        rect = pygame.Rect(0, 0, BOSS.width, BOSS.height)
+        rect.center = (base_x, base_y)
+        vx = random.choice([-3.0, -2.2, 2.2, 3.0]) * direction
+        vy = random.uniform(-2.2, 2.2)
+        stage8_shadow_clones.append(
+            {
+                "rect": rect,
+                "vx": vx,
+                "vy": vy,
+                "spawn_ms": now,
+                "base_x": base_x,
+                "base_y": base_y,
+                "direction": direction,
+            }
+        )
+    stage8_shadow_casting = False
+    stage8_shadow_next_ready_ms = now + STAGE8_SHADOW_COOLDOWN_MS
+
+
+def update_stage8_shadow_clones() -> None:
+    """그림자분신 이동/수명/충돌 갱신."""
+    global stage8_shadow_clones, stage8_shadow_casting, boss_special_gauge
+    if current_stage != 8:
+        stage8_shadow_clones.clear()
+        stage8_shadow_casting = False
+        return
+
+    now = pygame.time.get_ticks()
+
+    # 주문 완료 후 분신 생성
+    if stage8_shadow_casting and now - stage8_shadow_cast_start_ms >= STAGE8_SHADOW_CAST_MS:
+        if boss_special_gauge >= 200:
+            boss_special_gauge = max(0, boss_special_gauge - 200)
+        _spawn_stage8_shadows(now)
+
+    if not stage8_shadow_clones:
+        return
+
+    new_clones = []
+    for clone in stage8_shadow_clones:
+        elapsed = now - clone["spawn_ms"]
+        if elapsed >= STAGE8_SHADOW_DURATION_MS:
+            continue
+
+        rect: pygame.Rect = clone["rect"]
+        direction = clone["direction"]
+        # 등장 애니메이션: 양쪽으로 벌어지며 나타남
+        if elapsed < STAGE8_SHADOW_EMERGE_MS:
+            t = elapsed / STAGE8_SHADOW_EMERGE_MS
+            rect.centerx = clone["base_x"] + int(direction * 90 * t)
+            rect.centery = clone["base_y"]
+        else:
+            rect.x += int(clone["vx"])
+            rect.y += int(clone["vy"])
+            # 벽 반사
+            if rect.left < 10 or rect.right > WIDTH - 10:
+                clone["vx"] *= -1
+                rect.x = max(10, min(rect.x, WIDTH - rect.width - 10))
+            if rect.top < 20 or rect.bottom > HEIGHT - 20:
+                clone["vy"] *= -1
+                rect.y = max(20, min(rect.y, HEIGHT - rect.height - 20))
+
+        # 공과 충돌 시 바로 소멸 (연기 처리 간소화)
+        if rect.colliderect(BALL):
+            continue
+
+        new_clones.append(clone)
+
+    stage8_shadow_clones = new_clones
+
+
+def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
+    """그림자분신 렌더링."""
+    if current_stage != 8 or not stage8_shadow_clones:
+        return
+    now = pygame.time.get_ticks()
+    for clone in stage8_shadow_clones:
+        rect: pygame.Rect = clone["rect"]
+        elapsed = now - clone["spawn_ms"]
+        emerge = min(1.0, elapsed / STAGE8_SHADOW_EMERGE_MS)
+        remaining = max(0, STAGE8_SHADOW_DURATION_MS - elapsed)
+        fade = min(1.0, remaining / 1500)  # 마지막 1.5초 페이드아웃
+        alpha = int(180 * emerge * fade)
+
+        shadow_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (rect.width, rect.height))
+        shadow_surface = shadow_surface.copy()
+        shadow_surface.fill((40, 40, 60, alpha), special_flags=pygame.BLEND_RGBA_MULT)
+        surface.blit(shadow_surface, rect)
+
+        ring_alpha = int(alpha * 0.6)
+        pygame.draw.rect(surface, (80, 140, 200, ring_alpha), rect, 2)
+
+    # 주문 중 효과 (보스 위 오라)
+    if stage8_shadow_casting:
+        pulse = 0.6 + 0.4 * math.sin(now * 0.02)
+        radius = int(26 * pulse)
+        aura = pygame.Surface((radius * 2 + 2, radius * 2 + 2), pygame.SRCALPHA)
+        pygame.draw.circle(aura, (120, 180, 220, 90), (radius + 1, radius + 1), radius)
+        pygame.draw.circle(aura, (70, 120, 200, 140), (radius + 1, radius + 1), max(1, radius - 4), 2)
+        surface.blit(aura, (BOSS.centerx - radius - 1, BOSS.centery - radius - 60))
+
+
+
+
 def draw_player_gauge():
     """플레이어 게이지바를 오른쪽 하단에 세로로 표시 - 고급스러운 버전"""
     global special_gauge, special_gauge_max, special_ready, aipill_active
@@ -58125,6 +58236,12 @@ def reset_round():
         reset_stage7_tetromino_state()
         reset_stage7_tetro_wall_state()
 
+    # Stage 8 그림자분신 상태 초기화
+    global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
+    stage8_shadow_clones = []
+    stage8_shadow_casting = False
+    stage8_shadow_next_ready_ms = 0
+
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
     blacksmith_umbrella_damage_flash_timer = 0
@@ -64340,6 +64457,21 @@ def handle_ball():
                 if boss_special_gauge_stage4 >= 500:  # 250 → 500 (최대 게이지 상향)
                     boss_special_gauge_stage4 = 500
                     boss_special_ready_stage4 = True
+        elif not new_boss_mode_active and current_stage == 8:
+            now = pygame.time.get_ticks()
+            # 주문 중이 아니고, 게이지 200 이상 & 쿨다운 종료 시 20% 확률로 발동 시도
+            if (
+                not stage8_shadow_casting
+                and not stage8_shadow_clones
+                and boss_special_gauge >= 200
+                and now >= stage8_shadow_next_ready_ms
+                and random.random() <= 0.20
+            ):
+                stage8_shadow_casting = True
+                stage8_shadow_cast_start_ms = now
+                show_fade_text("그림자분신!")
+            # 그림자 상태 갱신
+            update_stage8_shadow_clones()
 def predict_ball_position(frames=20):
     predict_x = BALL.centerx + ball_vel[0] * frames
     predict_x = max(0, min(WIDTH, predict_x))  # 벽 충돌 예외처리
