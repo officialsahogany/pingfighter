@@ -36778,49 +36778,55 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
     center_x, center_y = cloud_w // 2, cloud_h // 2
 
-    # 레이어 0: 완전 불투명 베이스 (플레이어를 완전히 가림)
-    pygame.draw.rect(cloud_surface, (85, 95, 115, base_alpha),
-                     (20, 20, cloud_w - 40, cloud_h - 40))
+    # 사각형 베이스 제거 - 구름 모양으로만 테두리 구성
 
-    # 중앙 영역을 완전히 덮는 불투명 구름 덩어리
+    # 레이어 0: 중앙 코어 구름 (불투명, 밀집된 원형 배치)
     core_color = (90, 100, 120, 255)
-    for _ in range(50):
-        offset_x = random.gauss(0, cloud_w * 0.22)
-        offset_y = random.gauss(0, cloud_h * 0.22)
-        cx = int(center_x + offset_x)
-        cy = int(center_y + offset_y)
-        r = random.randint(60, 120)
+    # 중앙 영역을 원형 구름으로 채움 (사각형 티가 나지 않게)
+    for _ in range(70):
+        # 타원형 분포로 중앙에 집중
+        angle = random.uniform(0, math.pi * 2)
+        dist = random.gauss(0, cloud_w * 0.18)
+        cx = int(center_x + math.cos(angle) * dist * 0.9)
+        cy = int(center_y + math.sin(angle) * dist * 0.65)
+        r = random.randint(55, 110)
         pygame.draw.circle(cloud_surface, core_color, (cx, cy), r)
 
-    # 레이어 1: 기본 구름층 - 완전 불투명
+    # 레이어 1: 기본 구름층 - 완전 불투명, 타원형 분포
     base_clouds = []
-    for _ in range(40):
-        offset_x = random.gauss(0, cloud_w * 0.3)
-        offset_y = random.gauss(0, cloud_h * 0.3)
-        cx = int(center_x + offset_x)
-        cy = int(center_y + offset_y)
-        r = random.randint(50, 100)
+    for _ in range(50):
+        angle = random.uniform(0, math.pi * 2)
+        dist = random.gauss(0, cloud_w * 0.25)
+        cx = int(center_x + math.cos(angle) * dist * 0.95)
+        cy = int(center_y + math.sin(angle) * dist * 0.7)
+        r = random.randint(45, 95)
         base_clouds.append((cx, cy, r))
 
-    # 레이어 2: 구름 테두리 - 완전 불투명
+    # 레이어 2: 구름 테두리 - 자연스러운 구름 모양 경계
     edge_clouds = []
-    for _ in range(60):
+    for _ in range(80):
         angle = random.uniform(0, math.pi * 2)
-        dist = random.uniform(cloud_w * 0.2, cloud_w * 0.48)
-        cx = int(center_x + math.cos(angle) * dist * 0.9)
-        cy = int(center_y + math.sin(angle) * dist * 0.7)
-        r = random.randint(35, 70)
+        # 가장자리에 불규칙하게 배치
+        base_dist = cloud_w * 0.32
+        variation = random.gauss(0, cloud_w * 0.12)
+        dist = base_dist + variation
+        # 타원형으로 x는 넓게, y는 좁게
+        cx = int(center_x + math.cos(angle) * dist * 0.95)
+        cy = int(center_y + math.sin(angle) * dist * 0.65)
+        r = random.randint(40, 80)
         edge_clouds.append((cx, cy, r))
 
-    # 레이어 3: 디테일 층 - 완전 불투명
+    # 레이어 3: 디테일 층 - 중앙에서 멀어질수록 확률 감소 (타원형)
     detail_clouds = []
-    for _ in range(80):
-        cx = random.randint(10, cloud_w - 10)
-        cy = random.randint(10, cloud_h - 10)
-        dist_from_center = math.sqrt((cx - center_x)**2 + (cy - center_y)**2)
-        if random.random() < 0.9 - (dist_from_center / (cloud_w * 0.55)):
-            r = random.randint(25, 55)
-            detail_clouds.append((cx, cy, r))
+    for _ in range(90):
+        angle = random.uniform(0, math.pi * 2)
+        max_dist_x = cloud_w * 0.42
+        max_dist_y = cloud_h * 0.38
+        dist_factor = random.uniform(0, 1) ** 0.7  # 중앙에 더 집중
+        cx = int(center_x + math.cos(angle) * max_dist_x * dist_factor)
+        cy = int(center_y + math.sin(angle) * max_dist_y * dist_factor)
+        r = random.randint(25, 55)
+        detail_clouds.append((cx, cy, r))
 
     random.seed()
 
