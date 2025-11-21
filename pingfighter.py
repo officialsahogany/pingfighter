@@ -58382,6 +58382,10 @@ def reset_round():
         stage8_shadow_freeze_posy = 0
         stage8_shadow_anchor_x = 0
         stage8_shadow_anchor_y = 0
+        stage8_shuriken_casting = False
+        stage8_shuriken_cast_start_ms = 0
+        stage8_shuriken_next_ready_ms = 0
+        stage8_shurikens.clear()
 
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
@@ -64620,9 +64624,32 @@ def handle_ball():
                 if boss_special_gauge_stage4 >= 500:  # 250 → 500 (최대 게이지 상향)
                     boss_special_gauge_stage4 = 500
                     boss_special_ready_stage4 = True
-        elif not new_boss_mode_active and current_stage == 8:
-            # 그림자 상태 갱신만 수행 (트리거는 보스 패들 히트 시 처리)
-            update_stage8_shadow_clones()
+    elif not new_boss_mode_active and current_stage == 8:
+        # 표창던지기 스킬 발동 체크
+        if stage8_shuriken_next_ready_ms == 0:
+            stage8_shuriken_next_ready_ms = pygame.time.get_ticks() + random.randint(
+                STAGE8_SHURIKEN_MIN_COOLDOWN_MS, STAGE8_SHURIKEN_MAX_COOLDOWN_MS
+            )
+        now = pygame.time.get_ticks()
+        if (
+            not stage8_shadow_casting
+            and not stage8_shuriken_casting
+            and boss_special_gauge >= STAGE8_SHURIKEN_COST
+            and now >= stage8_shuriken_next_ready_ms
+        ):
+            stage8_shuriken_casting = True
+            stage8_shuriken_cast_start_ms = now
+            stage8_shadow_freeze_posx = BOSS.centerx
+            stage8_shadow_freeze_posy = BOSS.centery
+            boss_special_gauge = max(0, boss_special_gauge - STAGE8_SHURIKEN_COST)
+            show_speech("표창!!", duration=60)
+
+        # 표창 캐스팅 완료 시 발사
+        if stage8_shuriken_casting and pygame.time.get_ticks() - stage8_shuriken_cast_start_ms >= STAGE8_SHURIKEN_CAST_MS:
+            _spawn_stage8_shuriken(pygame.time.get_ticks())
+
+        # 그림자 상태 갱신만 수행 (트리거는 보스 패들 히트 시 처리)
+        update_stage8_shadow_clones()
 def predict_ball_position(frames=20):
     predict_x = BALL.centerx + ball_vel[0] * frames
     predict_x = max(0, min(WIDTH, predict_x))  # 벽 충돌 예외처리
@@ -66905,6 +66932,10 @@ def handle_boss():
         except Exception:
             pass
         # 주문 중에는 이동 로직만 묶어서 건너뛰고, 이후 로직은 계속 진행
+        # 표창 캐스팅 시 위치를 최신으로 유지
+        if stage8_shuriken_casting:
+            stage8_shadow_freeze_posx = BOSS.centerx
+            stage8_shadow_freeze_posy = BOSS.centery
     if boss_dashing and boss_dash_timer > 0:
         boss_dash_timer -= 1
 
@@ -72001,6 +72032,7 @@ def main(stage_num, new_boss_mode=False):
                 draw_stage3_border()
             draw_objects()
             draw_stage8_shadow_clones(SCREEN)
+            draw_stage8_shurikens(SCREEN)
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
             draw_tutorial_drive_counter()  # 튜토리얼 드라이브 카운터 표시
@@ -72081,6 +72113,7 @@ def main(stage_num, new_boss_mode=False):
                 draw_stage3_border()
             draw_objects()
             draw_stage8_shadow_clones(SCREEN)
+            draw_stage8_shurikens(SCREEN)
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
             draw_tutorial_drive_counter()  # 튜토리얼 드라이브 카운터 표시
