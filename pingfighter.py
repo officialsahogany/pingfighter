@@ -14837,6 +14837,7 @@ stage8_idle_phase = 0.0
 
 # Stage 8 그림자분신 상태
 stage8_shadow_clones: list[dict] = []
+stage8_shadow_dying: list[dict] = []  # 소멸 중인 분신 (홀로그램 증발 애니메이션)
 stage8_shadow_casting: bool = False
 stage8_shadow_cast_start_ms: int = 0
 stage8_shadow_next_ready_ms: int = 0
@@ -14849,6 +14850,7 @@ STAGE8_SHADOW_DURATION_MS = 7000
 STAGE8_SHADOW_EMERGE_MS = 600
 STAGE8_SHADOW_COOLDOWN_MS = 8000
 STAGE8_SHADOW_Y_OFFSET = -150  # 분신을 맵 가운데 쪽(위쪽)으로 이동해 소환 (px)
+STAGE8_SHADOW_DEATH_MS = 700  # 소멸 애니메이션 지속 시간 (0.7초)
 
 # Stage 8 표창던지기 상태
 stage8_shuriken_casting: bool = False
