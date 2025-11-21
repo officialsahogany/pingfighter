@@ -36016,6 +36016,124 @@ def draw_stage2_boss_gauge_bar():
     SCREEN.blit(gauge_surface, gauge_rect)
 
 
+def draw_stage8_boss_gauge_bar():
+    """Stage 8 탁닌자 보스 스킬 게이지 - 수리검/연막 테마"""
+    global current_stage, boss_special_gauge, displayed_boss_gauge
+
+    if current_stage != 8:
+        return
+
+    max_gauge = 500
+    current_gauge = max(0, displayed_boss_gauge)
+
+    gauge_width = 14
+    gauge_height = 108
+    gauge_x = WIDTH - 52
+    gauge_y = 42
+    time_now = pygame.time.get_ticks()
+
+    # 프레임: 어두운 금속 + 자홍색 포인트
+    frame_rect = pygame.Rect(gauge_x - 8, gauge_y - 14, gauge_width + 16, gauge_height + 28)
+    pygame.draw.rect(SCREEN, (16, 16, 22), frame_rect, border_radius=6)
+    pygame.draw.rect(SCREEN, (124, 50, 94), frame_rect, 2, border_radius=6)
+
+    # 닌자 두건 포인트 라인
+    pygame.draw.line(SCREEN, (180, 40, 60), (frame_rect.left + 4, frame_rect.top + 6), (frame_rect.right - 4, frame_rect.top + 2), 2)
+    pygame.draw.line(SCREEN, (32, 140, 180), (frame_rect.left + 6, frame_rect.top + 12), (frame_rect.right - 6, frame_rect.top + 18), 2)
+
+    inner_rect = pygame.Rect(gauge_x, gauge_y, gauge_width, gauge_height)
+    pygame.draw.rect(SCREEN, (10, 10, 16), inner_rect)
+    pygame.draw.rect(SCREEN, (70, 32, 60), inner_rect, 1)
+
+    # 대각선 패턴 (수리검 자국 느낌)
+    pattern = pygame.Surface((gauge_width, gauge_height), pygame.SRCALPHA)
+    for offset in range(-gauge_height, gauge_width + gauge_height, 6):
+        pygame.draw.line(pattern, (120, 120, 140, 40), (offset, gauge_height), (offset + gauge_height, 0), 2)
+    SCREEN.blit(pattern, (gauge_x, gauge_y))
+
+    gauge_ratio = min(current_gauge / max_gauge, 1.0)
+    filled_height = int(gauge_height * gauge_ratio)
+
+    if filled_height > 0:
+        for i in range(filled_height):
+            row_ratio = i / max(1, filled_height - 1)
+            r = int(70 + 120 * row_ratio)
+            g = int(24 + 40 * (1 - row_ratio))
+            b = int(120 + 80 * (1 - row_ratio))
+            y_pos = gauge_y + gauge_height - i - 1
+            pygame.draw.line(SCREEN, (r, g, b), (gauge_x + 2, y_pos), (gauge_x + gauge_width - 3, y_pos))
+
+        # 상단 파도 라인 (연막 흐름)
+        wave_top = gauge_y + gauge_height - filled_height
+        shimmer = 0.55 + 0.45 * math.sin(time_now * 0.02)
+        wave_color = (int(80 + 90 * shimmer), int(180 * shimmer), int(180 + 40 * shimmer))
+        pygame.draw.line(SCREEN, wave_color, (gauge_x + 1, wave_top), (gauge_x + gauge_width - 2, wave_top), 1)
+
+        # 연막 입자
+        for idx in range(3):
+            t = (time_now * 0.001 + idx * 0.33) % 1.0
+            smoke_y = gauge_y + gauge_height - int(filled_height * t) - 4
+            if gauge_y < smoke_y < gauge_y + gauge_height - 2:
+                smoke_x = gauge_x + gauge_width // 2 + int(math.sin(time_now * 0.005 + idx) * 3)
+                radius = 3 + int(2 * (1 - t))
+                alpha = int(70 * (1 - t))
+                smoke = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(smoke, (140, 140, 150, alpha), (radius, radius), radius)
+                SCREEN.blit(smoke, (smoke_x - radius, smoke_y - radius))
+
+        # 게이지 충전 펄스
+        if boss_special_gauge > current_gauge:
+            gain_ratio = min((boss_special_gauge - current_gauge) / 80, 1.0)
+            pulse_y = wave_top + int((math.sin(time_now * 0.018) * 0.5 + 0.5) * max(1, filled_height - 6))
+            pulse_color = (
+                int(100 + 100 * gain_ratio),
+                int(180 + 50 * gain_ratio),
+                int(190 + 50 * gain_ratio)
+            )
+            pygame.draw.line(SCREEN, pulse_color, (gauge_x + 2, pulse_y), (gauge_x + gauge_width - 3, pulse_y), 1)
+
+        # 준비 완료 효과
+        if current_gauge >= 350:
+            glow = pygame.Surface((gauge_width, 6), pygame.SRCALPHA)
+            alpha = int(120 + 80 * math.sin(time_now * 0.012))
+            glow.fill((220, 90, 140, alpha))
+            SCREEN.blit(glow, (gauge_x, wave_top - 2))
+
+    # 엠블럼: 회전 수리검 + 눈동자
+    emblem_x = gauge_x + gauge_width // 2
+    emblem_y = gauge_y - 30
+    rot = time_now * 0.01
+    star_points = []
+    long_r = 15
+    short_r = 7
+    for i in range(8):
+        angle = rot + i * math.pi / 4
+        radius = long_r if i % 2 == 0 else short_r
+        star_points.append((emblem_x + math.cos(angle) * radius, emblem_y + math.sin(angle) * radius))
+    pygame.draw.polygon(SCREEN, (50, 90, 120), star_points)
+    pygame.draw.polygon(SCREEN, (150, 210, 220), star_points, 2)
+
+    eye_radius = 6
+    eye_surface = pygame.Surface((eye_radius * 4, eye_radius * 2 + 2), pygame.SRCALPHA)
+    pygame.draw.ellipse(eye_surface, (20, 20, 30, 160), (0, 0, eye_radius * 4, eye_radius * 2 + 2))
+    pygame.draw.ellipse(eye_surface, (220, 80, 110, 220), (1, 2, eye_radius * 4 - 2, eye_radius * 2 - 2))
+    pupil_x = eye_surface.get_width() // 2 + int(math.sin(time_now * 0.006) * 2)
+    pygame.draw.circle(eye_surface, (10, 10, 14), (pupil_x, eye_surface.get_height() // 2), 3)
+    SCREEN.blit(eye_surface, (emblem_x - eye_surface.get_width() // 2, emblem_y - eye_surface.get_height() // 2))
+
+    ring_radius = 18 + int(2 * math.sin(time_now * 0.012))
+    ring_surface = pygame.Surface((ring_radius * 2 + 4, ring_radius * 2 + 4), pygame.SRCALPHA)
+    pygame.draw.circle(ring_surface, (90, 150, 190, 70), (ring_radius + 2, ring_radius + 2), ring_radius, 2)
+    SCREEN.blit(ring_surface, (emblem_x - ring_radius - 2, emblem_y - ring_radius - 2))
+
+    # 게이지 수치
+    gauge_font = FontStyle.tiny()
+    gauge_text = f"{int(current_gauge)}/{max_gauge}"
+    gauge_surface = gauge_font.render(gauge_text, True, (150, 110, 170))
+    gauge_rect = gauge_surface.get_rect(centerx=gauge_x + gauge_width // 2, top=gauge_y + gauge_height + 24)
+    SCREEN.blit(gauge_surface, gauge_rect)
+
+
 def draw_player_gauge():
     """플레이어 게이지바를 오른쪽 하단에 세로로 표시 - 고급스러운 버전"""
     global special_gauge, special_gauge_max, special_ready, aipill_active
