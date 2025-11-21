@@ -14861,6 +14861,24 @@ STAGE8_SHURIKEN_MAX_COOLDOWN_MS = 25000
 STAGE8_SHURIKEN_SPEED = 16.0
 STAGE8_SHURIKEN_COST = 60
 STAGE8_SHURIKEN_SLOW_FRAMES = 90  # 1.5초 (60fps 기준)
+
+# Stage 8 구름장막 상태
+stage8_cloud_active: bool = False
+stage8_cloud_start_ms: int = 0
+stage8_cloud_end_ms: int = 0
+stage8_cloud_fade_ms: int = 1500
+stage8_cloud_rect: pygame.Rect | None = None
+stage8_cloud_dash_active: bool = False
+stage8_cloud_dash_phase: str | None = None  # 'down' or 'up'
+stage8_cloud_dash_start_ms: int = 0
+stage8_cloud_origin: tuple[int, int] = (0, 0)
+stage8_cloud_target_y: int = 0
+stage8_cloud_next_ready_ms: int = 0
+STAGE8_CLOUD_VISIBLE_MS = 5000
+STAGE8_CLOUD_MIN_COOLDOWN_MS = 20000
+STAGE8_CLOUD_MAX_COOLDOWN_MS = 40000
+STAGE8_CLOUD_COST = 250
+STAGE8_CLOUD_DASH_MS = 220  # 내려가기/올라가기 각각
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 blacksmith_umbrella_swing_sound_timer = 0
@@ -36229,6 +36247,35 @@ def _spawn_stage8_shuriken(now: int) -> None:
     stage8_shuriken_next_ready_ms = now + random.randint(
         STAGE8_SHURIKEN_MIN_COOLDOWN_MS, STAGE8_SHURIKEN_MAX_COOLDOWN_MS
     )
+
+
+def _start_stage8_cloud(now: int) -> None:
+    """구름장막 발동: 보스가 내려와서 터뜨릴 준비."""
+    global stage8_cloud_dash_active, stage8_cloud_dash_phase, stage8_cloud_dash_start_ms
+    global stage8_cloud_origin, stage8_cloud_target_y, stage8_cloud_start_ms, stage8_cloud_end_ms
+    global stage8_cloud_rect, stage8_cloud_active, stage8_cloud_next_ready_ms
+    stage8_cloud_origin = (BOSS.centerx, BOSS.centery)
+    stage8_cloud_target_y = max(BOSS.centery, PLAYER.centery - 40)
+    stage8_cloud_dash_active = True
+    stage8_cloud_dash_phase = "down"
+    stage8_cloud_dash_start_ms = now
+    stage8_cloud_active = False
+    stage8_cloud_rect = None
+    stage8_cloud_next_ready_ms = now + random.randint(
+        STAGE8_CLOUD_MIN_COOLDOWN_MS, STAGE8_CLOUD_MAX_COOLDOWN_MS
+    )
+
+
+def _finish_stage8_cloud(now: int) -> None:
+    """구름 폭발 및 지속 타이머 시작."""
+    global stage8_cloud_active, stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_rect
+    stage8_cloud_active = True
+    stage8_cloud_start_ms = now
+    stage8_cloud_end_ms = now + STAGE8_CLOUD_VISIBLE_MS + stage8_cloud_fade_ms
+    width = 420
+    height = 260
+    stage8_cloud_rect = pygame.Rect(0, 0, width, height)
+    stage8_cloud_rect.center = (PLAYER.centerx, PLAYER.centery - 10)
 
 
 def update_stage8_shadow_clones() -> None:
