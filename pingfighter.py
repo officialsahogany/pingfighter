@@ -58262,9 +58262,14 @@ def reset_round():
     
     # 보스 게이지 관리 (라운드 전환 시)
     if current_stage == 1:
-        # Stage 1: 라운드간 게이지 유지하되 100씩 감소
-        boss_special_gauge = max(0, boss_special_gauge - 100)
-        print(f"Stage 1 보스 게이지 감소: -100 (현재: {boss_special_gauge}/500)")
+        # Stage 1: 라운드 간 게이지를 유지하되 30%만 감소시키며 다음 라운드로 이월
+        boss_special_gauge = max(0, int(boss_special_gauge * 0.7))
+        displayed_boss_gauge = boss_special_gauge
+        try:
+            game_state.displayed_boss_gauge = displayed_boss_gauge
+        except Exception:
+            pass
+        print(f"Stage 1 보스 게이지 30% 감소 적용 (현재: {boss_special_gauge}/500)")
     elif current_stage == 2:
         # Stage 2: 매 라운드 시작 시 게이지 초기화
         boss_special_gauge = 0
