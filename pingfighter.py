@@ -14830,6 +14830,8 @@ stage8_shadow_clones: list[dict] = []
 stage8_shadow_casting: bool = False
 stage8_shadow_cast_start_ms: int = 0
 stage8_shadow_next_ready_ms: int = 0
+stage8_shadow_freeze_posx: int = 0
+stage8_shadow_freeze_posy: int = 0
 STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 7000
 STAGE8_SHADOW_EMERGE_MS = 600
@@ -36154,8 +36156,8 @@ def draw_stage8_boss_gauge_bar():
 def _spawn_stage8_shadows(now: int) -> None:
     """탁닌자 그림자분신 2개 생성."""
     global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
-    base_x = BOSS.centerx
-    base_y = BOSS.centery
+    base_x = stage8_shadow_freeze_posx or BOSS.centerx
+    base_y = stage8_shadow_freeze_posy or BOSS.centery
     stage8_shadow_clones = []
     for direction in (-1, 1):
         rect = pygame.Rect(0, 0, BOSS.width, BOSS.height)
@@ -60733,7 +60735,7 @@ def handle_ball():
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
     global wall_group_hits
     # 스테이지8 그림자분신 상태
-    global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
+    global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms, stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     # 한 프레임 동안 벽돌/그룹별 중복 피격을 방지하기 위한 집합
     frame_wall_hit_groups = set()
     frame_single_wall_hits = set()
