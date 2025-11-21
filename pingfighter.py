@@ -39584,7 +39584,15 @@ def draw_objects():
                 # 파워스매싱 충돌 직후 3프레임 동안 빛나는 효과
                 glow_intensity = (BOSS_HIT_ANIMATION_DURATION - boss_hit_animation_timer) * 20
                 apply_white_glow(rotated_boss, intensity=glow_intensity)
-            draw_with_shake(rotated_boss, boss_rect.topleft)
+            # 상모돌리기 종료 후 헐떡임(호흡) 연출: 패들을 위아래로 작게 이동
+            bob_offset = 0
+            if current_stage == 1 and boss_stunned_after_whip:
+                breath_total = 30  # 0.5초
+                breath_elapsed = breath_total - boss_stunned_after_whip_timer
+                breath_progress = max(0.0, min(1.0, breath_elapsed / breath_total))
+                # 빠른 호흡 느낌을 위해 2회 상하 진동 후 점차 감쇠
+                bob_offset = math.sin(breath_progress * math.pi * 4) * 6 * (1.0 - 0.4 * breath_progress)
+            draw_with_shake(rotated_boss, (boss_rect.x, boss_rect.y + bob_offset))
             # Stage 7 초인 인트로(0.6초) 동안: 양팔 벌린 포효 오버레이 + 매서운 표정
             try:
                 if current_stage == 7 and globals().get('stage7_super_intro_until_ms', 0) > pygame.time.get_ticks():
