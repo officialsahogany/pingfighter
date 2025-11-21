@@ -36286,7 +36286,7 @@ def _finish_stage8_cloud(now: int) -> None:
     stage8_cloud_start_ms = now
     stage8_cloud_end_ms = now + STAGE8_CLOUD_VISIBLE_MS + stage8_cloud_fade_ms + STAGE8_CLOUD_EXPAND_MS
     width = 336   # 420 * 0.8 = 336 (20% 축소)
-    height = 21  # 42 * 0.5 = 21 (세로 추가 50% 축소)
+    height = 80  # 플레이어 패들 높이 정도
     stage8_cloud_rect = pygame.Rect(0, 0, width, height)
     cx, cy = stage8_cloud_spawn_pos if stage8_cloud_spawn_pos != (0, 0) else (BOSS.centerx, BOSS.centery)
     stage8_cloud_rect.center = (cx, cy)
