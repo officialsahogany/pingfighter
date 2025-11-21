@@ -66741,6 +66741,7 @@ def handle_boss():
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction, boss_dash_afterimages
     global head_shot_active, head_shot_timer  # 헤드샷 스턴 관련 변수
     global boss_dash_stun_timer
+    global stage8_shadow_casting, stage8_shadow_cast_start_ms, stage8_shadow_clones, stage8_shadow_next_ready_ms
     
     
     #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사: 초반 고속, 이후 감속)
