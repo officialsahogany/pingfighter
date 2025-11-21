@@ -36363,8 +36363,9 @@ def draw_stage8_shurikens(surface: pygame.Surface) -> None:
     now = pygame.time.get_ticks()
     for sh in stage8_shurikens:
         rect = sh["rect"]
-        # 표창 크기 설정 (정사각형으로 변경하여 회전 시 균등)
-        size = max(rect.width, rect.height) + 8  # 약간 더 크게
+        # 표창 크기 설정 (정사각형으로 변경하여 회전 시 균등) - 50% 크게
+        base_size = max(rect.width, rect.height) + 8
+        size = int(base_size * 1.5)  # 50% 크게
         cx, cy = size // 2, size // 2  # 중심점
 
         # 회전 각도 계산 (시간에 따라 빠르게 회전)
@@ -36377,8 +36378,8 @@ def draw_stage8_shurikens(surface: pygame.Surface) -> None:
 
         # 4방향 수리검 날 그리기 (전통적인 십자형 수리검)
         num_blades = 4
-        blade_length = size // 2 - 2  # 날 길이
-        blade_width = 6  # 날 너비
+        blade_length = size // 2 - 3  # 날 길이
+        blade_width = 9  # 날 너비 (50% 크게)
 
         # 각 날 그리기
         for i in range(num_blades):
@@ -36390,7 +36391,7 @@ def draw_stage8_shurikens(surface: pygame.Surface) -> None:
 
             # 날의 양쪽 모서리 (중심에서 약간 떨어진 위치)
             perp_angle = blade_angle + math.pi / 2  # 수직 방향
-            inner_dist = 4  # 중심에서 날 시작점까지 거리
+            inner_dist = 6  # 중심에서 날 시작점까지 거리 (50% 크게)
 
             # 날 시작점
             start_x = cx + math.cos(blade_angle) * inner_dist
