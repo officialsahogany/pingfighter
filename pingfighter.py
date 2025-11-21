@@ -35575,9 +35575,9 @@ def draw_stage7_boss_gauge_bar():
         stage7_gauge_debug_active = True
         stage7_gauge_debug_last_log = time_now
         if STAGE7_DEBUG.get('GAUGE', False):
-        print(
-            f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
-        )
+            print(
+                f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
+            )
 
     # 게이지 바 외곽/배경
     outer_rect = pygame.Rect(gauge_x - 6, gauge_y - 12, gauge_width + 12, gauge_height + 24)
@@ -66889,11 +66889,12 @@ def handle_boss():
     global boss_dash_stun_timer
     global stage8_shadow_casting, stage8_shadow_cast_start_ms, stage8_shadow_clones, stage8_shadow_next_ready_ms
     global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
-    
-    
+    global stage8_shuriken_casting, stage8_shuriken_cast_start_ms, stage8_shuriken_next_ready_ms
+
+
     #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사: 초반 고속, 이후 감속)
     #  스테이지8 그림자분신 주문 중에는 패들을 고정
-    if current_stage == 8 and stage8_shadow_casting:
+    if current_stage == 8 and (stage8_shadow_casting or stage8_shuriken_casting):
         try:
             if stage8_shadow_freeze_posx and stage8_shadow_freeze_posy:
                 BOSS.centerx = stage8_shadow_freeze_posx
