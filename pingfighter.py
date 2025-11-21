@@ -66767,8 +66767,7 @@ def handle_boss():
                 BOSS.centery = stage8_shadow_freeze_posy
         except Exception:
             pass
-        # 주문 중에는 다른 움직임/AI를 건너뛰어 제자리 유지
-        return
+        # 주문 중에는 이동 로직만 묶어서 건너뛰고, 이후 로직은 계속 진행
     if boss_dashing and boss_dash_timer > 0:
         boss_dash_timer -= 1
 
