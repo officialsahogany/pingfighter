@@ -60080,6 +60080,8 @@ def handle_ball():
     global boss_current_health  #  체력형 보스 체력 변수
     global boss_knockback_timer, boss_knockback_vel, boss_stun_timer
     global ragnarok_stun_pending
+    # 스테이지8 그림자분신 상태
+    global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
     # 스테이지8 그림자분신
     global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
     # 충돌 쿨다운
