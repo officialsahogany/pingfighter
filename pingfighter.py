@@ -32738,8 +32738,8 @@ def update_gauge_animation():
         # 정확히 목표값에 도달하도록 보정
         if displayed_gauge < special_gauge + 1:
             displayed_gauge = special_gauge
-    # 보스 게이지 애니메이션 (스테이지 1, 2, 3)
-    if current_stage in [1, 2, 3, 7]:
+    # 보스 게이지 애니메이션 (스테이지 1, 2, 3, 7, 8)
+    if current_stage in [1, 2, 3, 7, 8]:
         if displayed_boss_gauge < boss_special_gauge:
             displayed_boss_gauge += (boss_special_gauge - displayed_boss_gauge) * boss_gauge_animation_speed
             # 정확히 목표값에 도달하도록 보정
