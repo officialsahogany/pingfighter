@@ -14849,6 +14849,18 @@ STAGE8_SHADOW_DURATION_MS = 7000
 STAGE8_SHADOW_EMERGE_MS = 600
 STAGE8_SHADOW_COOLDOWN_MS = 8000
 STAGE8_SHADOW_Y_OFFSET = -6  # 분신을 보스 패들과 같은 높이에 가깝게 올리기
+
+# Stage 8 표창던지기 상태
+stage8_shuriken_casting: bool = False
+stage8_shuriken_cast_start_ms: int = 0
+stage8_shuriken_next_ready_ms: int = 0
+stage8_shurikens: list[dict] = []  # {'rect','vx','vy','spawn_ms'}
+STAGE8_SHURIKEN_CAST_MS = 300  # 0.3초 캐스팅
+STAGE8_SHURIKEN_MIN_COOLDOWN_MS = 8000
+STAGE8_SHURIKEN_MAX_COOLDOWN_MS = 25000
+STAGE8_SHURIKEN_SPEED = 16.0
+STAGE8_SHURIKEN_COST = 60
+STAGE8_SHURIKEN_SLOW_FRAMES = 90  # 1.5초 (60fps 기준)
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 blacksmith_umbrella_swing_sound_timer = 0
@@ -36197,6 +36209,27 @@ def _spawn_stage8_shadows(now: int) -> None:
     stage8_shadow_next_ready_ms = now + STAGE8_SHADOW_COOLDOWN_MS
 
 
+def _spawn_stage8_shuriken(now: int) -> None:
+    """표창 1개를 플레이어 방향으로 발사."""
+    global stage8_shurikens, stage8_shuriken_casting, stage8_shuriken_next_ready_ms
+    target_x = PLAYER.centerx
+    target_y = PLAYER.centery
+    dx = target_x - BOSS.centerx
+    dy = target_y - BOSS.centery
+    length = math.hypot(dx, dy) or 1.0
+    vx = dx / length * STAGE8_SHURIKEN_SPEED
+    vy = dy / length * STAGE8_SHURIKEN_SPEED
+    rect = pygame.Rect(0, 0, 18, 10)
+    rect.center = (BOSS.centerx, BOSS.centery)
+    stage8_shurikens.append(
+        {"rect": rect, "vx": vx, "vy": vy, "spawn_ms": now}
+    )
+    stage8_shuriken_casting = False
+    stage8_shuriken_next_ready_ms = now + random.randint(
+        STAGE8_SHURIKEN_MIN_COOLDOWN_MS, STAGE8_SHURIKEN_MAX_COOLDOWN_MS
+    )
+
+
 def update_stage8_shadow_clones() -> None:
     """그림자분신 이동/수명/충돌 갱신."""
     global stage8_shadow_clones, stage8_shadow_casting, boss_special_gauge
@@ -36259,6 +36292,30 @@ def update_stage8_shadow_clones() -> None:
         new_clones.append(clone)
 
     stage8_shadow_clones = new_clones
+
+
+def update_stage8_shurikens() -> None:
+    """표창 이동/충돌 처리."""
+    global stage8_shurikens, player_slow_timer, player_slow_timer_max
+    if current_stage != 8:
+        stage8_shurikens = []
+        return
+    now = pygame.time.get_ticks()
+    new_list = []
+    for sh in stage8_shurikens:
+        rect = sh["rect"]
+        rect.x += int(sh["vx"])
+        rect.y += int(sh["vy"])
+        # 화면 밖이면 삭제
+        if rect.right < -20 or rect.left > WIDTH + 20 or rect.bottom < -20 or rect.top > HEIGHT + 20:
+            continue
+        # 플레이어 패들과 충돌 시 슬로우 적용
+        if rect.colliderect(PLAYER):
+            player_slow_timer = STAGE8_SHURIKEN_SLOW_FRAMES
+            player_slow_timer_max = STAGE8_SHURIKEN_SLOW_FRAMES
+            continue
+        new_list.append(sh)
+    stage8_shurikens = new_list
 
 
 def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
