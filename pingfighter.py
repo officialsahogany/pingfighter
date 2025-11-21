@@ -6917,12 +6917,12 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                     blacksmith_hammer_swing_phase + 1
                 ) % max(1, BLACKSMITH_HAMMER_SWING_DURATION)
                 hammer_engaged_this_frame = True
-                # 레벨 1: 강화 포탑으로 업그레이드하기 위한 게이지(300pt, 약 12초)
-                # 레벨 2 이상: 오버드라이브 게이지 충전(기존 속도 유지)
+                # 레벨 1: 강화 포탑으로 업그레이드하기 위한 게이지(250pt, 약 10초)
+                # 레벨 2 이상: 오버드라이브 게이지 충전(300pt, 약 3초)
                 if turret_level < BLACKSMITH_TURRET_MAX_LEVEL:
                     drain_per_sec = BLACKSMITH_TURRET_REINFORCE_GAUGE_DRAIN_PER_SEC
                 else:
-                    drain_per_sec = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC
+                    drain_per_sec = BLACKSMITH_TURRET_OVERDRIVE_GAUGE_DRAIN_PER_SEC
                 drain_per_frame = (drain_per_sec / FPS) * get_blacksmith_turret_charge_speed_multiplier()
                 gained_xp = 0
                 if special_gauge > 0:
@@ -15155,8 +15155,10 @@ BLACKSMITH_TURRET_MAX_LEVEL = 2
 BLACKSMITH_TURRET_REINFORCE_COST = 250  # 게이지 250을 소모해 강화
 BLACKSMITH_TURRET_REINFORCE_TIME = 10.0  # 약 10초 동안 망치질
 BLACKSMITH_TURRET_REINFORCE_GAUGE_DRAIN_PER_SEC = BLACKSMITH_TURRET_REINFORCE_COST / BLACKSMITH_TURRET_REINFORCE_TIME
-# 오버드라이브(게이지 해방) 준비에 필요한 충전량
-BLACKSMITH_TURRET_XP_REQUIRED = 220
+# 오버드라이브(게이지 해방) 준비에 필요한 충전량 및 차지 시간
+BLACKSMITH_TURRET_XP_REQUIRED = 300
+BLACKSMITH_TURRET_OVERDRIVE_CHARGE_TIME = 3.0  # 약 3초 동안 망치질
+BLACKSMITH_TURRET_OVERDRIVE_GAUGE_DRAIN_PER_SEC = BLACKSMITH_TURRET_XP_REQUIRED / BLACKSMITH_TURRET_OVERDRIVE_CHARGE_TIME
 
 BLACKSMITH_TURRET_PROJECTILE_RADIUS = 12
 BLACKSMITH_TURRET_MISSILE_SPEED = 8.5
@@ -15206,8 +15208,8 @@ BLACKSMITH_DIVINE_GAUGE_DRAIN_PER_SEC = BLACKSMITH_TURRET_GAUGE_DRAIN_PER_SEC
 BLACKSMITH_DIVINE_BUILD_RADIUS = BLACKSMITH_TURRET_BUILD_RADIUS
 BLACKSMITH_DIVINE_BLUEPRINT_EXTRA_HEIGHT = 18
 BLACKSMITH_DIVINE_DEPLOY_FRAMES = int(0.9 * FPS)
-BLACKSMITH_DIVINE_SHIELD_COST = 200
-BLACKSMITH_DIVINE_SHIELD_TIME = 7.0
+BLACKSMITH_DIVINE_SHIELD_COST = 400
+BLACKSMITH_DIVINE_SHIELD_TIME = 6.0
 BLACKSMITH_DIVINE_SHIELD_GAUGE_DRAIN_PER_SEC = BLACKSMITH_DIVINE_SHIELD_COST / BLACKSMITH_DIVINE_SHIELD_TIME
 BLACKSMITH_DIVINE_SHIELD_DURATION_FRAMES = int(25.0 * FPS)
 BLACKSMITH_DIVINE_SHIELD_OVERHEAT_FRAMES = int(30.0 * FPS)
