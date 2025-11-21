@@ -60756,7 +60756,7 @@ def handle_ball():
     # 스테이지8 그림자분신 상태
     global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
     # 스테이지8 그림자분신
-    global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms, stage8_shadow_invuln_until_ms
+    global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
     global stage8_shadow_invuln_until_ms, stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
@@ -74780,7 +74780,7 @@ def get_item_description(item_name):
         "bluetooth_ring": "블루투스링: 플레이어가 공을 칠 때 게이지 충전량이 25% 증가합니다.",
         "foul_whistle": "반칙호루라기: 라운드 패배 시 10% 확률로 심판이 호루라기를 불어 라운드를 무효로 만들고 즉시 재경기를 시작합니다.",
         "star_detector": "별탐지기: 스타포인트가 드랍될 때 30% 확률로 별이 하나 더 등장합니다.",
-        "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
+        ㅇ"smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
         "knee_pads": "킥차져: 하프대쉬로 공을 맞출 때 게이지가 50% 충전됩니다. 성공 시 황금빛 킥 부스터가 번쩍입니다.",
         "doping_potion": "도핑물약: 8초 동안 권총 헤드샷/레그샷 확률 2배, 권총 사격 쿨타임 0.5초(컨트롤락 0.15초, 나머지 0.35초)로 단축.",
         "vitamin_pill": "비타민약: 10초 동안 이동속도가 50% 증가합니다. 지속시간은 우측 하단의 파란 전용 게이지로 표시되며, 게이지 위 신발 엠블럼이 경쾌하게 움직입니다.",
