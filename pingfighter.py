@@ -58241,6 +58241,8 @@ def reset_round():
     stage8_shadow_clones = []
     stage8_shadow_casting = False
     stage8_shadow_next_ready_ms = 0
+    global stage8_shadow_cast_start_ms
+    stage8_shadow_cast_start_ms = 0
 
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
