@@ -14845,7 +14845,6 @@ stage8_shadow_freeze_posx: int = 0
 stage8_shadow_freeze_posy: int = 0
 stage8_shadow_anchor_x: int = 0
 stage8_shadow_anchor_y: int = 0
-stage8_shadow_invuln_until_ms: int = 0  # 그림자 분신 연출 중(하강/상승) 무적 종료 시각
 STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 10000
 STAGE8_SHADOW_EMERGE_MS = 600
@@ -58898,7 +58897,7 @@ def reset_round():
 
     # Stage 8 그림자분신 상태 초기화
     global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
-    global stage8_shadow_anchor_x, stage8_shadow_anchor_y, stage8_shadow_invuln_until_ms
+    global stage8_shadow_anchor_x, stage8_shadow_anchor_y
     if current_stage != 8:
         stage8_shadow_clones = []
         stage8_shadow_casting = False
@@ -58909,7 +58908,6 @@ def reset_round():
         stage8_shadow_freeze_posy = 0
         stage8_shadow_anchor_x = 0
         stage8_shadow_anchor_y = 0
-        stage8_shadow_invuln_until_ms = 0
         stage8_shuriken_casting = False
         stage8_shuriken_cast_start_ms = 0
         stage8_shuriken_next_ready_ms = 0
@@ -60757,7 +60755,7 @@ def handle_ball():
     global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
     # 스테이지8 그림자분신
     global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms
-    global stage8_shadow_invuln_until_ms, stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
+    global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
     # 공 물리 & 움직임
@@ -64603,7 +64601,6 @@ def handle_ball():
                     if random.random() <= 0.15:
                         stage8_shadow_casting = True
                         stage8_shadow_cast_start_ms = pygame.time.get_ticks()
-                        stage8_shadow_invuln_until_ms = stage8_shadow_cast_start_ms + STAGE8_SHADOW_CAST_MS + STAGE8_SHADOW_INVULN_BUFFER_MS
                         stage8_shadow_freeze_posx = BOSS.centerx
                         stage8_shadow_freeze_posy = BOSS.centery
                         show_speech("그림자분신!", duration=90)
