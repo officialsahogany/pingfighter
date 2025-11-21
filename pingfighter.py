@@ -36402,11 +36402,12 @@ def update_stage8_cloud(now: int | None = None) -> None:
     """구름장막 대시/지속 관리."""
     global stage8_cloud_dash_active, stage8_cloud_dash_phase, stage8_cloud_dash_start_ms
     global stage8_cloud_origin, stage8_cloud_target_y, stage8_cloud_active
-    global stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_rect
+    global stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_rect, stage8_cloud_spawn_pos
     if current_stage != 8:
         stage8_cloud_dash_active = False
         stage8_cloud_active = False
         stage8_cloud_rect = None
+        stage8_cloud_spawn_pos = (0, 0)
         return
     if now is None:
         now = pygame.time.get_ticks()
