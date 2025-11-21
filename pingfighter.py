@@ -36257,11 +36257,12 @@ def _start_stage8_cloud(now: int) -> None:
     """구름장막 발동: 보스가 내려와서 터뜨릴 준비."""
     global stage8_cloud_dash_active, stage8_cloud_dash_phase, stage8_cloud_dash_start_ms
     global stage8_cloud_origin, stage8_cloud_target_y, stage8_cloud_start_ms, stage8_cloud_end_ms
-    global stage8_cloud_rect, stage8_cloud_active, stage8_cloud_next_ready_ms
+    global stage8_cloud_rect, stage8_cloud_active, stage8_cloud_next_ready_ms, stage8_cloud_precast_ms
     stage8_cloud_origin = (BOSS.centerx, BOSS.centery)
     stage8_cloud_target_y = max(BOSS.centery, PLAYER.centery - 40)
     stage8_cloud_dash_active = True
-    stage8_cloud_dash_phase = "down"
+    stage8_cloud_dash_phase = "pre"  # 0.4초 정지 + 오로라
+    stage8_cloud_precast_ms = now
     stage8_cloud_dash_start_ms = now
     stage8_cloud_active = False
     stage8_cloud_rect = None
@@ -36406,19 +36407,27 @@ def update_stage8_cloud(now: int | None = None) -> None:
     # 대시 처리
     if stage8_cloud_dash_active:
         elapsed = now - stage8_cloud_dash_start_ms
-        progress = min(1.0, elapsed / STAGE8_CLOUD_DASH_MS) if STAGE8_CLOUD_DASH_MS > 0 else 1.0
-        if stage8_cloud_dash_phase == "down":
-            BOSS.centery = int(stage8_cloud_origin[1] + (stage8_cloud_target_y - stage8_cloud_origin[1]) * progress)
-            if progress >= 1.0:
-                # 구름 터뜨림
-                _finish_stage8_cloud(now)
-                stage8_cloud_dash_phase = "up"
+        if stage8_cloud_dash_phase == "pre":
+            if elapsed >= STAGE8_CLOUD_PRECAST_MS:
+                stage8_cloud_dash_phase = "down"
                 stage8_cloud_dash_start_ms = now
-        elif stage8_cloud_dash_phase == "up":
-            BOSS.centery = int(stage8_cloud_target_y + (stage8_cloud_origin[1] - stage8_cloud_target_y) * progress)
-            if progress >= 1.0:
-                stage8_cloud_dash_active = False
-                stage8_cloud_dash_phase = None
+            else:
+                return  # 정지 상태 유지
+        else:
+            dash_ms = int(STAGE8_CLOUD_DASH_MS * 1.2)  # 속도 20% 감소 → 시간 20% 증가
+            progress = min(1.0, elapsed / dash_ms) if dash_ms > 0 else 1.0
+            if stage8_cloud_dash_phase == "down":
+                BOSS.centery = int(stage8_cloud_origin[1] + (stage8_cloud_target_y - stage8_cloud_origin[1]) * progress)
+                if progress >= 1.0:
+                    # 구름 터뜨림
+                    _finish_stage8_cloud(now)
+                    stage8_cloud_dash_phase = "up"
+                    stage8_cloud_dash_start_ms = now
+            elif stage8_cloud_dash_phase == "up":
+                BOSS.centery = int(stage8_cloud_target_y + (stage8_cloud_origin[1] - stage8_cloud_target_y) * progress)
+                if progress >= 1.0:
+                    stage8_cloud_dash_active = False
+                    stage8_cloud_dash_phase = None
 
     # 지속 시간 관리
     if stage8_cloud_active and stage8_cloud_end_ms <= now:
