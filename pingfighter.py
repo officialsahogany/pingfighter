@@ -32905,6 +32905,7 @@ def _draw_stage_specific_elements() -> None:
     draw_boss_health_bar()
     draw_stage1_boss_gauge_bar()
     draw_stage2_boss_gauge_bar()
+    draw_stage8_boss_gauge_bar()
     draw_stage7_boss_gauge_bar()
     draw_stage7_super_bar()
     draw_stage7_guard_blocks(SCREEN)
@@ -71691,6 +71692,7 @@ def main(stage_num, new_boss_mode=False):
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_stage1_boss_gauge_bar()  # 스테이지 1 보스 게이지바 그리기
             draw_stage2_boss_gauge_bar()  # 스테이지 2 게이지바
+            draw_stage8_boss_gauge_bar()  # 스테이지 8 닌자 게이지바
             draw_stage7_boss_gauge_bar()  # 스테이지 7 테트리서 게이지
             draw_laser_cannon_gauge()  #  레이저 쿨타임 게이지바
             # 원래 화면으로 복원하고 흔들림 적용
@@ -71769,6 +71771,7 @@ def main(stage_num, new_boss_mode=False):
             draw_boss_health_bar()  #  체력형 보스 체력바 그리기
             draw_stage1_boss_gauge_bar()  # 스테이지 1 보스 게이지바 그리기
             draw_stage2_boss_gauge_bar()  # 스테이지 2 게이지바
+            draw_stage8_boss_gauge_bar()  # 스테이지 8 닌자 게이지바
             draw_stage7_boss_gauge_bar()  # 스테이지 7 테트리서 게이지
             draw_stage7_super_bar()
             draw_stage7_guard_blocks(SCREEN)
