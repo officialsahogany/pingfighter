@@ -36705,8 +36705,9 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
     # 구름 영역 설정 (캔버스를 넉넉하게 잡아 구름이 잘리지 않게)
     expand = 210  # 300 * 0.7 = 210 (30% 축소)
+    expand_top = 100  # 상단 추가 여백 (구름 상단 잘림 방지)
     full_cloud_w = stage8_cloud_rect.width + expand * 2
-    full_cloud_h = stage8_cloud_rect.height + expand * 2
+    full_cloud_h = stage8_cloud_rect.height + expand * 2 + expand_top
 
     # 보스 착지 위치를 기준으로 구름 rect의 상대적 위치 계산
     cloud_rect_center_x = stage8_cloud_rect.centerx
@@ -36716,7 +36717,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     if expand_progress < 1.0:
         # 애니메이션 중: 좌우로 나눠서 그리기
         cloud_surface = pygame.Surface((full_cloud_w, full_cloud_h), pygame.SRCALPHA)
-        center_x, center_y = full_cloud_w // 2, full_cloud_h // 2
+        center_x, center_y = full_cloud_w // 2, (full_cloud_h + expand_top) // 2  # 상단 여백 고려
         spawn_x_in_surface = center_x + spawn_relative_x  # 서피스 내 착지 위치
 
         # 현재 퍼진 범위 계산
