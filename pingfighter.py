@@ -69504,8 +69504,8 @@ def main(stage_num, new_boss_mode=False):
                             blacksmith_turret_manual_cooldown = max(1, cooldown_frames)
                             try:
                                 turret_runtime = BLACKSMITH_CONTROLLER.state.turret
+                                _blacksmith_fire_turret_projectile(turret_runtime, blacksmith_turret_state, overdrive=False)
                                 if overheat_active:
-                                    _blacksmith_fire_turret_projectile(turret_runtime, blacksmith_turret_state, overdrive=False)
                                     try:
                                         # 과부하 수동 발사 시 포구 바로 위에서 가느다른 연기 연출
                                         effects_manager.spawn_construction_smoke(
@@ -69516,14 +69516,6 @@ def main(stage_num, new_boss_mode=False):
                                         )
                                     except Exception:
                                         pass
-                                else:
-                                    _blacksmith_fire_turret_projectile(turret_runtime, blacksmith_turret_state, overdrive=False)
-                                    # 즉시 발사 후 자동 루프는 기본 인터벌로 재설정
-                                    base_interval = blacksmith_turret_state.get(
-                                        "fire_interval",
-                                        blacksmith_turret_state.get("base_fire_interval", BLACKSMITH_TURRET_FIRE_INTERVAL),
-                                    )
-                                    blacksmith_turret_state["fire_timer"] = max(1, int(base_interval))
                             except Exception:
                                 pass
                             space_just_pressed = False
