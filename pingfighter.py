@@ -14761,6 +14761,10 @@ BOSS_IMG_STAGE7_WIDTH = 95
 BOSS_IMG_STAGE7_HEIGHT = 76
 BOSS_IMG_STAGE8_WIDTH = 110
 BOSS_IMG_STAGE8_HEIGHT = 96
+STAGE8_WALK_BOB_PX = 6
+STAGE8_WALK_SWAY_DEG = 4.5
+STAGE8_WALK_LEG_SWING_PX = 12
+STAGE8_WALK_CANVAS_PAD = 10
 # Stage 7 보스 프레임 패딩(캔버스 여백) – 팔/외곽이 잘리는 느낌 최소화
 STAGE7_FRAME_PAD_X = 16  # 좌우 여백(px)
 STAGE7_FRAME_PAD_Y = 10  # 상하 여백(px)
@@ -14818,6 +14822,9 @@ blacksmith_umbrella_swing_timer = 0
 blacksmith_umbrella_swing_stage = 0  # 0=준비, 1=스윙
 blacksmith_umbrella_swing_progress = 0.0
 blacksmith_umbrella_swing_recover_pre = 0.0
+stage8_prev_x: float | None = None
+stage8_walk_cycle = 0.0
+stage8_idle_phase = 0.0
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 blacksmith_umbrella_swing_sound_timer = 0
