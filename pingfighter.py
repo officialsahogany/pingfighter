@@ -36357,34 +36357,83 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
 
 
 def draw_stage8_shurikens(surface: pygame.Surface) -> None:
+    """실제 닌자 수리검(표창) 디자인으로 그리기 - 회전 애니메이션 포함"""
     if current_stage != 8 or not stage8_shurikens:
         return
+    now = pygame.time.get_ticks()
     for sh in stage8_shurikens:
         rect = sh["rect"]
-        # 간단한 표창 형태(회전 없이 빠르게)
-        blade = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-        pygame.draw.polygon(
-            blade,
-            (200, 220, 240),
-            [
-                (0, rect.height // 2),
-                (rect.width // 2, 0),
-                (rect.width - 1, rect.height // 2),
-                (rect.width // 2, rect.height - 1),
-            ],
-        )
-        pygame.draw.polygon(
-            blade,
-            (80, 120, 180),
-            [
-                (rect.width // 2, 2),
-                (rect.width - 3, rect.height // 2),
-                (rect.width // 2, rect.height - 3),
-                (3, rect.height // 2),
-            ],
-            1,
-        )
-        surface.blit(blade, rect.topleft)
+        # 표창 크기 설정 (정사각형으로 변경하여 회전 시 균등)
+        size = max(rect.width, rect.height) + 8  # 약간 더 크게
+        cx, cy = size // 2, size // 2  # 중심점
+
+        # 회전 각도 계산 (시간에 따라 빠르게 회전)
+        spawn_time = sh.get("spawn_ms", now)
+        elapsed = now - spawn_time
+        rotation_speed = 15  # 초당 회전 횟수
+        angle = (elapsed / 1000.0) * rotation_speed * 360  # 도(degrees)
+
+        blade = pygame.Surface((size, size), pygame.SRCALPHA)
+
+        # 4방향 수리검 날 그리기 (전통적인 십자형 수리검)
+        num_blades = 4
+        blade_length = size // 2 - 2  # 날 길이
+        blade_width = 6  # 날 너비
+
+        # 각 날 그리기
+        for i in range(num_blades):
+            blade_angle = math.radians(angle + i * (360 / num_blades))
+
+            # 날의 끝점
+            tip_x = cx + math.cos(blade_angle) * blade_length
+            tip_y = cy + math.sin(blade_angle) * blade_length
+
+            # 날의 양쪽 모서리 (중심에서 약간 떨어진 위치)
+            perp_angle = blade_angle + math.pi / 2  # 수직 방향
+            inner_dist = 4  # 중심에서 날 시작점까지 거리
+
+            # 날 시작점
+            start_x = cx + math.cos(blade_angle) * inner_dist
+            start_y = cy + math.sin(blade_angle) * inner_dist
+
+            # 날의 좌우 모서리
+            left_x = start_x + math.cos(perp_angle) * (blade_width // 2)
+            left_y = start_y + math.sin(perp_angle) * (blade_width // 2)
+            right_x = start_x - math.cos(perp_angle) * (blade_width // 2)
+            right_y = start_y - math.sin(perp_angle) * (blade_width // 2)
+
+            # 날 폴리곤 (삼각형 형태)
+            blade_points = [
+                (tip_x, tip_y),  # 날 끝
+                (left_x, left_y),  # 왼쪽 모서리
+                (right_x, right_y),  # 오른쪽 모서리
+            ]
+
+            # 날 메인 색상 (은빛 금속)
+            pygame.draw.polygon(blade, (180, 190, 200), blade_points)
+            # 날 하이라이트 (반짝이는 효과)
+            highlight_points = [
+                (tip_x, tip_y),
+                ((tip_x + left_x) / 2, (tip_y + left_y) / 2),
+                (start_x, start_y),
+            ]
+            pygame.draw.polygon(blade, (220, 230, 240), highlight_points)
+            # 날 외곽선
+            pygame.draw.polygon(blade, (60, 70, 80), blade_points, 1)
+
+        # 중앙 원형 허브 (표창 중심부)
+        hub_radius = 5
+        pygame.draw.circle(blade, (80, 90, 100), (cx, cy), hub_radius)  # 어두운 금속
+        pygame.draw.circle(blade, (120, 130, 140), (cx, cy), hub_radius - 2)  # 밝은 금속
+        pygame.draw.circle(blade, (40, 50, 60), (cx, cy), hub_radius, 1)  # 외곽선
+
+        # 중앙 구멍 (전통적인 표창 디자인)
+        pygame.draw.circle(blade, (30, 30, 40), (cx, cy), 2)
+
+        # 표창 그리기 위치 조정 (rect 중심에 맞춤)
+        blit_x = rect.centerx - size // 2
+        blit_y = rect.centery - size // 2
+        surface.blit(blade, (blit_x, blit_y))
 
 
 
