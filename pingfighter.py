@@ -36275,11 +36275,13 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         alpha = int(180 * emerge * fade)
 
         # 보스 이미지 기반 + 더 큰 세로 스케일, 폴짝 모션
-        scaled_h = int(rect.height * 1.1)
-        pose_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (rect.width, scaled_h))
+        scaled_h = int(rect.height * 1.16)  # 세로 약간 더 길게
+        scaled_w = int(rect.width * 0.94)   # 가로 약간 더 좁게
+        pose_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (scaled_w, scaled_h))
         hop = int(6 * math.sin(now * 0.012 + rect.x * 0.02))  # 폴짝폴짝 위아래
         draw_rect = rect.copy()
         draw_rect.y -= (scaled_h - rect.height) // 2
+        draw_rect.x += (rect.width - scaled_w) // 2
         draw_rect.y += hop
 
         shadow_surface = pose_surface.copy()
