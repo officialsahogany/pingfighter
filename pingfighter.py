@@ -36685,9 +36685,28 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     expand_progress = 1 - (1 - expand_progress) ** 3
 
     remaining = stage8_cloud_end_ms - now
-    base_alpha = 255  # 완전 불투명
+
+    # 3초(3000ms) 후부터 점진적으로 투명해지기 시작
+    CLOUD_SOLID_MS = 3000  # 완전 불투명 유지 시간
+    CLOUD_FADE_TO_SEMI_MS = 2000  # 반투명까지 전환 시간
+
+    elapsed = now - stage8_cloud_start_ms
+
+    if elapsed < CLOUD_SOLID_MS:
+        # 처음 3초: 완전 불투명
+        base_alpha = 255
+    elif elapsed < CLOUD_SOLID_MS + CLOUD_FADE_TO_SEMI_MS:
+        # 3초~5초: 255에서 120으로 점진적 감소 (플레이어 패들 보이기 시작)
+        fade_progress = (elapsed - CLOUD_SOLID_MS) / CLOUD_FADE_TO_SEMI_MS
+        base_alpha = int(255 - (255 - 120) * fade_progress)
+    else:
+        # 5초 이후: 반투명 상태 유지
+        base_alpha = 120
+
+    # 완전 사라지기 직전 페이드아웃
     if remaining < stage8_cloud_fade_ms:
-        base_alpha = int(255 * (remaining / max(1, stage8_cloud_fade_ms)))
+        fade_ratio = remaining / max(1, stage8_cloud_fade_ms)
+        base_alpha = int(base_alpha * fade_ratio)
 
     # 구름 영역 설정 (캔버스를 넉넉하게 잡아 구름이 잘리지 않게)
     expand = 200
