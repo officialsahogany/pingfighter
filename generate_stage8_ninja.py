@@ -1,7 +1,7 @@
-"""Stage 8 닌자 저택 배경 생성기 - 깔끔한 버전 v2.
+"""Stage 8 닌자 저택 배경 생성기 - 아름다운 버전.
 
-사각형 패턴 없이 부드러운 그라데이션 기반의 어두운 분위기.
-게임 오브젝트와 균형을 맞추기 위해 최소한의 디테일만 사용.
+닌자 저택 분위기: 창문, 다다미 바닥, 조화로운 디자인.
+스타디움 서클 정확히 중앙 정렬.
 """
 
 import os
@@ -21,105 +21,215 @@ HEIGHT = 700
 
 
 def generate_stage8_background():
-    """깔끔한 닌자 저택 배경 생성 - 미니멀 버전."""
+    """아름다운 닌자 저택 배경 생성."""
     pygame.init()
     surface = pygame.Surface((WIDTH, HEIGHT))
 
-    # 1. 기본 배경 - 부드러운 수직 그라데이션 (아주 어두운 색상)
+    # 1. 기본 배경 - 어두운 따뜻한 그라데이션
     for y in range(HEIGHT):
         ratio = y / HEIGHT
-        # 상단: 약간 푸른 어둠, 하단: 따뜻한 어둠
-        r = int(18 + ratio * 8)   # 18-26
-        g = int(15 + ratio * 10)  # 15-25
-        b = int(22 + ratio * 5)   # 22-27
+        r = int(22 + ratio * 10)   # 22-32
+        g = int(18 + ratio * 8)    # 18-26
+        b = int(20 + ratio * 6)    # 20-26
         pygame.draw.line(surface, (r, g, b), (0, y), (WIDTH, y))
 
-    # 2. 미묘한 비네팅 효과 (모서리 어둡게)
-    vignette = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    center_x, center_y = WIDTH // 2, HEIGHT // 2
-    max_dist = math.sqrt(center_x**2 + center_y**2)
+    # 2. 다다미 바닥 패턴 (은은하게)
+    draw_tatami_floor(surface)
 
-    for y in range(0, HEIGHT, 4):  # 성능을 위해 4픽셀 단위
-        for x in range(0, WIDTH, 4):
-            dist = math.sqrt((x - center_x)**2 + (y - center_y)**2)
-            alpha = int((dist / max_dist) * 35)  # 최대 35 알파
-            pygame.draw.rect(vignette, (0, 0, 0, alpha), (x, y, 4, 4))
+    # 3. 양쪽 벽 - 창문/장지문
+    draw_wall_windows(surface)
 
-    surface.blit(vignette, (0, 0))
+    # 4. 천장 영역 (어두운 처마)
+    draw_ceiling(surface)
 
-    # 3. 등불 위치 (4개의 코너에 은은한 빛)
-    lantern_positions = [
-        (35, 195),              # 왼쪽 상단
-        (35, HEIGHT - 205),     # 왼쪽 하단
-        (WIDTH - 35, 195),      # 오른쪽 상단
-        (WIDTH - 35, HEIGHT - 205),  # 오른쪽 하단
-    ]
+    # 5. 등불 (4개 코너)
+    draw_lanterns(surface)
 
-    # 등불 빛 글로우 (매우 은은하게)
-    for lx, ly in lantern_positions:
-        glow = pygame.Surface((120, 120), pygame.SRCALPHA)
-        for radius in range(60, 5, -5):
-            alpha = int(8 * (60 - radius) / 55)  # 최대 8 알파
-            color = (80, 50, 30, alpha)
-            pygame.draw.circle(glow, color, (60, 60), radius)
-        surface.blit(glow, (lx - 60, ly - 60))
+    # 6. 스타디움 라인과 서클 (정확히 중앙)
+    draw_stadium_elements(surface)
 
-    # 4. 등불 본체 (작은 사각형 - 매우 심플)
-    for lx, ly in lantern_positions:
-        # 등불 몸체
-        lantern_color = (60, 45, 35)
-        pygame.draw.rect(surface, lantern_color, (lx - 8, ly - 20, 16, 30))
-        # 등불 빛 (중심)
-        light_color = (100, 70, 40)
-        pygame.draw.rect(surface, light_color, (lx - 5, ly - 15, 10, 20))
-        # 등불 고리
-        pygame.draw.rect(surface, (50, 40, 30), (lx - 10, ly - 22, 20, 3))
-        # 등불 줄
-        pygame.draw.line(surface, (40, 35, 30), (lx, ly - 22), (lx, ly - 50), 1)
-
-    # 5. 스타디움 라인 (진한 붉은색)
-    stadium_color = (100, 40, 40)
-    center_y = HEIGHT // 2
-
-    # 중앙 가로선
-    pygame.draw.line(surface, stadium_color, (0, center_y), (WIDTH, center_y), 2)
-
-    # 중앙 원
-    pygame.draw.circle(surface, stadium_color, (WIDTH // 2, center_y), 80, 3)
-
-    # 중앙 점
-    pygame.draw.circle(surface, stadium_color, (WIDTH // 2, center_y), 5)
-
-    # 6. 중앙 원 안의 십자 표시 (닌자 수리검 느낌)
-    cx, cy = WIDTH // 2, center_y
-    cross_color = (80, 35, 35)
-    # 대각선 십자
-    for angle in [45, 135, 225, 315]:
-        rad = math.radians(angle)
-        x1 = cx + int(math.cos(rad) * 15)
-        y1 = cy + int(math.sin(rad) * 15)
-        x2 = cx + int(math.cos(rad) * 50)
-        y2 = cy + int(math.sin(rad) * 50)
-        pygame.draw.line(surface, cross_color, (x1, y1), (x2, y2), 1)
+    # 7. 미묘한 비네팅
+    draw_vignette(surface)
 
     return surface
 
 
+def draw_tatami_floor(surface):
+    """은은한 다다미 바닥 패턴."""
+    tatami_width = 90
+    tatami_height = 45
+
+    # 바닥 영역 (전체 화면에 은은하게)
+    for row in range(0, HEIGHT, tatami_height):
+        offset = ((row // tatami_height) % 2) * (tatami_width // 2)
+        for col in range(-tatami_width, WIDTH + tatami_width, tatami_width):
+            x = col + offset
+            y = row
+
+            # 다다미 색상 (매우 은은하게)
+            base_brightness = 28 + (y / HEIGHT) * 8  # 아래로 갈수록 약간 밝게
+            color_var = random.randint(-2, 2)
+            tatami_color = (
+                int(base_brightness + color_var),
+                int(base_brightness - 2 + color_var),
+                int(base_brightness - 4 + color_var)
+            )
+
+            # 다다미 매트 영역
+            rect = pygame.Rect(x + 1, y + 1, tatami_width - 2, tatami_height - 2)
+            pygame.draw.rect(surface, tatami_color, rect)
+
+            # 다다미 테두리 (아주 은은한 라인)
+            border_color = (20, 17, 15)
+            pygame.draw.rect(surface, border_color,
+                           pygame.Rect(x, y, tatami_width, tatami_height), 1)
+
+
+def draw_wall_windows(surface):
+    """양쪽 벽의 창문/장지문."""
+    window_width = 50
+    window_height = 120
+    wall_color = (30, 25, 22)
+    frame_color = (45, 38, 32)
+    paper_color = (40, 36, 32)  # 어두운 창호지
+
+    # 왼쪽 벽
+    pygame.draw.rect(surface, wall_color, (0, 0, 60, HEIGHT))
+
+    # 왼쪽 창문들
+    window_positions_left = [
+        (5, 80),
+        (5, 280),
+        (5, 480),
+    ]
+
+    for wx, wy in window_positions_left:
+        # 창문 프레임
+        pygame.draw.rect(surface, frame_color,
+                        (wx, wy, window_width, window_height))
+        # 창호지 (내부)
+        pygame.draw.rect(surface, paper_color,
+                        (wx + 4, wy + 4, window_width - 8, window_height - 8))
+        # 창살 (세로 2개, 가로 3개)
+        for i in range(1, 3):
+            gx = wx + 4 + (window_width - 8) * i // 3
+            pygame.draw.line(surface, frame_color, (gx, wy + 4), (gx, wy + window_height - 4), 2)
+        for i in range(1, 4):
+            gy = wy + 4 + (window_height - 8) * i // 4
+            pygame.draw.line(surface, frame_color, (wx + 4, gy), (wx + window_width - 4, gy), 2)
+
+    # 오른쪽 벽
+    pygame.draw.rect(surface, wall_color, (WIDTH - 60, 0, 60, HEIGHT))
+
+    # 오른쪽 창문들
+    window_positions_right = [
+        (WIDTH - 55, 80),
+        (WIDTH - 55, 280),
+        (WIDTH - 55, 480),
+    ]
+
+    for wx, wy in window_positions_right:
+        pygame.draw.rect(surface, frame_color,
+                        (wx, wy, window_width, window_height))
+        pygame.draw.rect(surface, paper_color,
+                        (wx + 4, wy + 4, window_width - 8, window_height - 8))
+        for i in range(1, 3):
+            gx = wx + 4 + (window_width - 8) * i // 3
+            pygame.draw.line(surface, frame_color, (gx, wy + 4), (gx, wy + window_height - 4), 2)
+        for i in range(1, 4):
+            gy = wy + 4 + (window_height - 8) * i // 4
+            pygame.draw.line(surface, frame_color, (wx + 4, gy), (wx + window_width - 4, gy), 2)
+
+
+def draw_ceiling(surface):
+    """천장 처마 영역."""
+    # 상단 어두운 영역 (천장 느낌)
+    ceiling_height = 50
+    for y in range(ceiling_height):
+        ratio = y / ceiling_height
+        darkness = int(15 + ratio * 10)
+        pygame.draw.line(surface, (darkness, darkness - 2, darkness - 3),
+                        (60, y), (WIDTH - 60, y))
+
+    # 처마 라인
+    pygame.draw.line(surface, (35, 30, 25), (60, ceiling_height), (WIDTH - 60, ceiling_height), 3)
+
+
+def draw_lanterns(surface):
+    """4개 코너의 등불."""
+    lantern_positions = [
+        (30, 200),              # 왼쪽 상단 (창문 사이)
+        (30, HEIGHT - 200),     # 왼쪽 하단
+        (WIDTH - 30, 200),      # 오른쪽 상단
+        (WIDTH - 30, HEIGHT - 200),  # 오른쪽 하단
+    ]
+
+    for lx, ly in lantern_positions:
+        # 등불 빛 글로우
+        glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
+        for radius in range(40, 5, -3):
+            alpha = int(12 * (40 - radius) / 35)
+            pygame.draw.circle(glow_surf, (100, 60, 25, alpha), (40, 40), radius)
+        surface.blit(glow_surf, (lx - 40, ly - 40))
+
+        # 등불 본체
+        pygame.draw.rect(surface, (50, 40, 30), (lx - 6, ly - 15, 12, 25))
+        pygame.draw.rect(surface, (90, 60, 30), (lx - 4, ly - 12, 8, 19))
+        # 등불 고리
+        pygame.draw.rect(surface, (40, 35, 28), (lx - 8, ly - 17, 16, 3))
+        # 등불 줄
+        pygame.draw.line(surface, (35, 30, 25), (lx, ly - 17), (lx, ly - 40), 1)
+
+
+def draw_stadium_elements(surface):
+    """스타디움 라인과 서클 - 정확히 중앙."""
+    # 정확한 중앙 좌표
+    center_x = WIDTH // 2  # 300
+    center_y = HEIGHT // 2  # 350
+
+    stadium_color = (90, 40, 40)
+    stadium_light = (110, 50, 50)
+
+    # 중앙 가로선
+    pygame.draw.line(surface, stadium_color, (60, center_y), (WIDTH - 60, center_y), 2)
+
+    # 중앙 서클 (정확히 중앙)
+    pygame.draw.circle(surface, stadium_color, (center_x, center_y), 80, 3)
+
+    # 내부 장식 원
+    pygame.draw.circle(surface, stadium_light, (center_x, center_y), 75, 1)
+
+    # 중앙 점
+    pygame.draw.circle(surface, stadium_color, (center_x, center_y), 5)
+    pygame.draw.circle(surface, stadium_light, (center_x, center_y), 3)
+
+
+def draw_vignette(surface):
+    """미묘한 비네팅 효과."""
+    vignette = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    center_x, center_y = WIDTH // 2, HEIGHT // 2
+    max_dist = math.sqrt(center_x**2 + center_y**2)
+
+    for y in range(0, HEIGHT, 6):
+        for x in range(0, WIDTH, 6):
+            dist = math.sqrt((x - center_x)**2 + (y - center_y)**2)
+            alpha = int((dist / max_dist) * 25)
+            pygame.draw.rect(vignette, (0, 0, 0, alpha), (x, y, 6, 6))
+
+    surface.blit(vignette, (0, 0))
+
+
 def main():
-    """메인 실행 함수"""
-    # 더미 디스플레이 (headless)
+    """메인 실행 함수."""
     pygame.display.set_mode((1, 1), pygame.HIDDEN)
 
-    # 배경 생성
     background = generate_stage8_background()
 
-    # 저장
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_path = os.path.join(script_dir, "stage8_field.png")
     pygame.image.save(background, output_path)
 
     print(f"Stage 8 background saved to: {output_path}")
-
     pygame.quit()
 
 
