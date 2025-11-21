@@ -26476,6 +26476,8 @@ def handle_player(keys):
         # 디버그 로그: 매 초 또는 마지막 5프레임에만 출력하여 소음 감소
         if serve_completed_timer % 60 == 0 or serve_completed_timer <= 5:
             print(f"⏱️ serve_completed_timer: {serve_completed_timer} ({serve_completed_timer/60:.1f}초 남음)")
+    if serve_power_smash_lockout > 0:
+        serve_power_smash_lockout -= 1
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
     blacksmith_hammer_charge_position = None
 
@@ -70149,6 +70151,7 @@ def main(stage_num, new_boss_mode=False):
                 if (
                     special_gauge >= 350
                     and current_space_state
+                    and serve_power_smash_lockout <= 0
                     and selected_character_type == "smasher"
                 ):  # 파워스매싱은 스매셔 전용
                     # 파워스매싱 발동 (고스트샷 제거됨)
