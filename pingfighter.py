@@ -53926,9 +53926,9 @@ def show_item_manager_menu():
 
         # 조작법 안내
         if selected_category == 0:
-            controls_message = "방향키: 아이템 선택, SPACE: 수량 설정, TAB: 탭 전환, ENTER: 스테이지 선택"
+            controls_message = "방향키: 아이템 선택, 마우스 클릭/휠: 수량 설정, TAB: 탭 전환, ENTER/SPACE: 스테이지 선택"
         else:
-            controls_message = "방향키: 아이템 선택, SPACE: 선택/해제, TAB: 탭 전환, ENTER: 스테이지 선택"
+            controls_message = "방향키: 아이템 선택, 마우스 클릭: 선택/해제, TAB: 탭 전환, ENTER/SPACE: 스테이지 선택"
         controls_text = font_small.render(controls_message, True, (150, 150, 150))
         SCREEN.blit(controls_text, (LARGE_SIZE, HEIGHT - LARGE_SIZE))
 
@@ -54088,7 +54088,7 @@ def show_item_manager_menu():
                 elif event.key == pygame.K_ESCAPE:
                     # 취소하고 메인 메뉴로 돌아가기
                     return
-                elif event.key == pygame.K_RETURN:
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     # 선택된 아이템들을 적용하고 관리자 모드로 이동
                     apply_selected_items(
                         flatten_active_selection(),
@@ -54105,7 +54105,7 @@ def show_item_manager_menu():
                     apply_character_selection(character_id)
                     main(stage_num)
                     return
-                elif True:
+                elif event.key in [pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN]:
                     # 아이템 선택
                     if selected_category == 0:
                         current_items = active_items
@@ -54115,59 +54115,20 @@ def show_item_manager_menu():
                         current_items = firearm_items
                     else:  # 전설
                         current_items = legendary_items
-                    dir_left = is_move_left_event(event)
-                    dir_right = is_move_right_event(event)
-                    dir_up = is_move_up_event(event)
-                    dir_down = is_move_down_event(event)
-                    if not (dir_left or dir_right or dir_up or dir_down):
-                        continue
                     if current_items:
                         current_row = selected_item_index // grid_cols
                         current_col = selected_item_index % grid_cols
-                        if dir_right:
+                        if event.key == pygame.K_RIGHT:
                             current_col = (current_col + 1) % grid_cols
-                        elif dir_left:
+                        elif event.key == pygame.K_LEFT:
                             current_col = (current_col - 1) % grid_cols
-                        elif dir_down:
+                        elif event.key == pygame.K_DOWN:
                             current_row = (current_row + 1) % ((len(current_items) + grid_cols - 1) // grid_cols)
-                        elif dir_up:
+                        elif event.key == pygame.K_UP:
                             current_row = (current_row - 1) % ((len(current_items) + grid_cols - 1) // grid_cols)
                         new_index = current_row * grid_cols + current_col
                         if new_index < len(current_items):
                             selected_item_index = new_index
-                elif event.key == pygame.K_SPACE:
-                    # 아이템 선택/해제
-                    if selected_category == 0:
-                        current_items = active_items
-                    elif selected_category == 1:
-                        current_items = passive_items
-                    elif selected_category == 2:
-                        current_items = firearm_items
-                    else:  # 전설
-                        current_items = legendary_items
-                    
-                    if current_items and selected_item_index < len(current_items):
-                        selected_item = current_items[selected_item_index]
-                        item_name = selected_item["name"]
-                        if selected_category == 0:
-                            enter_quantity_mode(item_name)
-                        elif selected_category == 1:
-                            if item_name in selected_passive_items:
-                                selected_passive_items.remove(item_name)
-                            else:
-                                selected_passive_items.append(item_name)
-                        elif selected_category == 2:
-                            if item_name in selected_firearm_items:
-                                selected_firearm_items.remove(item_name)
-                            else:
-                                selected_firearm_items.append(item_name)
-                        else:  # 전설 카테고리
-                            if item_name in selected_legendary_items:
-                                selected_legendary_items.remove(item_name)
-                                print(f"[DEBUG]    : {item_name}")
-                            else:
-                                selected_legendary_items.append(item_name)
-                                print(f"[DEBUG]   : {item_name}")
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
                 # 탭 클릭 처리
