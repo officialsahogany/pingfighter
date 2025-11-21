@@ -31661,7 +31661,18 @@ def handle_whip():
                     ball_vel[1] = -8
         else:
             # 상모돌리기 효과 완전 종료
-            deactivate_whip()  # 통합된 비활성화 함수 사용
+            if current_stage == 1 and not whip_deactivation_active:
+                # 자연 종료 시에도 회전 감속 모션 + 잠깐 멈춤 연출
+                whip_active = False
+                whip_deactivation_active = True
+                whip_deactivation_timer = whip_deactivation_duration
+                whip_rotation_speed = 20.0  # 시작은 빠르게, 이후 handle_whip에서 점감
+                whip_wave_particles.clear()
+                whip_sound.stop()
+                whip_animation_timer = 0
+                print("[DEBUG] 상모돌리기 종료 → 회전 감속 모션 시작")
+            else:
+                deactivate_whip()  # 통합된 비활성화 함수 사용
 def activate_balloon():
     """풍선 스킬 활성화"""
     global balloon_active, balloon_timer, balloons, balloon_used_this_round
