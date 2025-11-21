@@ -44057,7 +44057,7 @@ def show_victory_screen(stage_cleared, reward):
                     button_count = len(buttons)
                     if event.key in [pygame.K_UP, pygame.K_w]:
                         selected = (selected - 1) % button_count
-                    elif event.key in [pygame.K_DOWN, pygame.K_s]:
+                    elif is_move_down_event(event):
                         selected = (selected + 1) % button_count
                     elif event.key == pygame.K_SPACE:
                         if selected == 0:
