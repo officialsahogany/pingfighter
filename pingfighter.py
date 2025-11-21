@@ -26853,8 +26853,18 @@ def handle_player(keys):
         if soldier_down_tap_suppress_timer > 0:
             soldier_down_tap_suppress_timer -= 1
 
+        # 비상보급(↓ 두 번)은 좌우 이동 중엔 발동하지 않도록, 정지 상태에서만 입력을 받는다.
+        soldier_idle_for_emergency = (
+            not left_pressed_raw
+            and not right_pressed_raw
+            and abs(current_speed) <= SOLDIER_EMERGENCY_SUPPLY_IDLE_SPEED_THRESHOLD
+        )
+
         if down_just_pressed:
-            if soldier_down_tap_timer > 0 and soldier_down_tap_count == 1:
+            if not soldier_idle_for_emergency:
+                soldier_down_tap_timer = 0
+                soldier_down_tap_count = 0
+            elif soldier_down_tap_timer > 0 and soldier_down_tap_count == 1:
                 if trigger_soldier_emergency_supply():
                     soldier_down_tap_suppress_timer = int(0.3 * 60)
                     supply_drop_state.hold_time = 0
