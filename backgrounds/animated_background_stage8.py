@@ -55,102 +55,27 @@ class AnimatedBackgroundStage8:
 
         # 등불 상태 업데이트
         for state in self.lantern_states:
-            state["intensity"] = 0.6 + 0.4 * (0.5 + 0.5 * math.sin(
+            state["intensity"] = 0.7 + 0.3 * (0.5 + 0.5 * math.sin(
                 self.time * state["flicker_speed"] + state["phase"]))
             # 가끔 깜빡임 (랜덤 플리커)
-            if random.random() < 0.01:
-                state["intensity"] *= random.uniform(0.3, 0.7)
-
-        # 먼지 입자 업데이트
-        for dust in self.dust_particles:
-            # 부유하는 움직임
-            dust["x"] += dust["speed_x"] * dt
-            dust["y"] += dust["speed_y"] * dt + math.sin(self.time * 0.5 + dust["phase"]) * 0.3
-
-            # 화면 경계 처리 (부드러운 래핑)
-            if dust["x"] < 50:
-                dust["x"] = self.width - 50
-            elif dust["x"] > self.width - 50:
-                dust["x"] = 50
-            if dust["y"] < 30:
-                dust["y"] = self.height - 30
-            elif dust["y"] > self.height - 30:
-                dust["y"] = 30
-
-        # 그림자 패치 업데이트
-        for patch in self.shadow_patches:
-            patch["x"] = patch["base_x"] + math.sin(
-                self.time * patch["move_speed"] + patch["phase"]) * 15
-            patch["y"] = patch["base_y"] + math.cos(
-                self.time * patch["move_speed"] * 0.7 + patch["phase"]) * 10
-
-        # 달빛 효과 업데이트
-        self.moonbeam_phase = self.time * 0.2
-        self.moonbeam_intensity = 0.5 + 0.3 * math.sin(self.time * 0.15)
+            if random.random() < 0.005:
+                state["intensity"] *= random.uniform(0.5, 0.8)
 
         # 스타디움 펄스 업데이트
-        self.stadium_pulse_phase = self.time * 1.5
-
-        # 닌자 그림자 업데이트
-        self.ninja_shadow_cooldown -= dt
-        if self.ninja_shadow_cooldown <= 0 and not self.ninja_shadow_active:
-            self._trigger_ninja_shadow()
-
-        if self.ninja_shadow_active:
-            self.ninja_shadow_x += self.ninja_shadow_speed * dt
-            if self.ninja_shadow_x > self.width + 100 or self.ninja_shadow_x < -200:
-                self.ninja_shadow_active = False
-                self.ninja_shadow_cooldown = random.uniform(20.0, 40.0)
-
-    def _trigger_ninja_shadow(self) -> None:
-        """닌자 그림자 효과 트리거"""
-        self.ninja_shadow_active = True
-        # 랜덤 방향
-        if random.random() > 0.5:
-            self.ninja_shadow_x = -150
-            self.ninja_shadow_speed = random.uniform(400, 700)
-        else:
-            self.ninja_shadow_x = self.width + 150
-            self.ninja_shadow_speed = -random.uniform(400, 700)
+        self.stadium_pulse_phase = self.time * 1.2
 
     def draw(self, surface: pygame.Surface, *, offset: Tuple[int, int] = (0, 0)) -> None:
         """애니메이션 레이어를 그린다."""
         ox, oy = offset
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
 
-        # 1. 움직이는 그림자 패치
-        self._draw_shadow_patches(overlay)
-
-        # 2. 등불 빛 효과
+        # 1. 등불 빛 효과
         self._draw_lantern_glow(overlay)
 
-        # 3. 달빛 효과
-        self._draw_moonbeam(overlay)
-
-        # 4. 먼지 입자
-        self._draw_dust(overlay)
-
-        # 5. 닌자 그림자 (지나가는 효과)
-        if self.ninja_shadow_active:
-            self._draw_ninja_shadow(overlay)
-
-        # 6. 스타디움 라인 펄스 효과
+        # 2. 스타디움 라인 펄스 효과
         self._draw_stadium_pulse(overlay)
 
         surface.blit(overlay, (ox, oy))
-
-    def _draw_shadow_patches(self, overlay: pygame.Surface) -> None:
-        """움직이는 그림자 패치"""
-        for patch in self.shadow_patches:
-            shadow_surf = pygame.Surface((patch["width"], patch["height"]), pygame.SRCALPHA)
-            # 타원형 그림자
-            pygame.draw.ellipse(
-                shadow_surf,
-                (0, 0, 10, patch["alpha"]),
-                (0, 0, patch["width"], patch["height"])
-            )
-            overlay.blit(shadow_surf, (int(patch["x"] - patch["width"] // 2),
-                                       int(patch["y"] - patch["height"] // 2)))
 
     def _draw_lantern_glow(self, overlay: pygame.Surface) -> None:
         """등불 빛 효과 (깜빡이는 따뜻한 빛)"""
