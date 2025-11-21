@@ -50,10 +50,16 @@ class AnimatedBackgroundStage8:
             (width - 55, 280, 50, 120),
             (width - 55, 480, 50, 120),
         ]
+        # 상단 창문 (보스 쪽)
+        self.window_positions_top = [
+            (90, 55, 100, 80),
+            (width // 2 - 50, 55, 100, 80),
+            (width - 190, 55, 100, 80),
+        ]
 
-        # 창문 빛 상태
+        # 창문 빛 상태 (좌 3 + 우 3 + 상단 3 = 9개)
         self.window_states: List[dict] = []
-        for _ in range(6):
+        for _ in range(9):
             self.window_states.append({
                 "phase": random.uniform(0, math.tau),
                 "intensity": random.uniform(0.3, 0.6),
@@ -135,7 +141,7 @@ class AnimatedBackgroundStage8:
 
     def _draw_window_glow(self, overlay: pygame.Surface) -> None:
         """창문에서 나오는 은은한 빛."""
-        all_windows = self.window_positions_left + self.window_positions_right
+        all_windows = self.window_positions_left + self.window_positions_right + self.window_positions_top
 
         for i, (wx, wy, ww, wh) in enumerate(all_windows):
             state = self.window_states[i]
