@@ -39999,9 +39999,19 @@ def draw_objects():
             if hit_animation_timer <= 0:
                 hit_animation_active = False
     elif not umbrella_guarding:
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+        # IME/한글 모드에서도 방향 입력을 놓치지 않도록 공용 헬퍼/스냅샷/이벤트 플래그 사용
+        if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
+            left_tilt = bool(SNAP_left_state)
+            right_tilt = bool(SNAP_right_state)
+        else:
+            left_tilt = is_move_left_pressed(keys)
+            right_tilt = is_move_right_pressed(keys)
+        # 이벤트 기반(포커스 상실 대비) 플래그 병합
+        left_tilt = left_tilt or MOVE_EVENT_LEFT
+        right_tilt = right_tilt or MOVE_EVENT_RIGHT
+        if left_tilt and not right_tilt:
             tilt_angle = 10
-        elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+        elif right_tilt and not left_tilt:
             tilt_angle = -10
 
     if selected_character_type == "smasher":
