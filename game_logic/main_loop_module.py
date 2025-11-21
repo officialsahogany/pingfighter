@@ -823,7 +823,7 @@ def main(stage_num, new_boss_mode=False):
             
             # 키보드 조작
             if event.type == pygame.KEYDOWN:
-                if event.key in [pygame.K_s, 0x73, 0x6D]:  # 영어 S, 한글 ㅁ
+                if is_move_down_event(event):
                     item_use_pressed = True
                 
                 # 🔢 숫자키로 아이템 직접 사용 (1~6)

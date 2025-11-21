@@ -8,6 +8,8 @@ import random
 import sys
 import os
 
+from core.input_keys import is_move_left_event, is_move_right_event, is_move_down_event
+
 # bosspong.py의 경로를 sys.path에 추가
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -160,7 +162,7 @@ def show_difficulty_selection():
                     if selected >= len(difficulties):  # 인덱스 범위 초과 시 조정
                         selected = (len(difficulties) - 1)
                     SOUND_BUTTON_HOVER.play()
-                elif event.key in [pygame.K_DOWN, pygame.K_s]:
+                elif is_move_down_event(event):
                     pass
                     # 2x2 그리드에서 아래로 이동
                     current_row = selected // cards_per_row
@@ -170,7 +172,7 @@ def show_difficulty_selection():
                     if selected >= len(difficulties):  # 인덱스 범위 초과 시 조정
                         selected = current_col if current_col < len(difficulties) else 0
                     SOUND_BUTTON_HOVER.play()
-                elif event.key in [pygame.K_LEFT, pygame.K_a]:
+                elif is_move_left_event(event):
                     pass
                     # 2x2 그리드에서 왼쪽으로 이동
                     current_row = selected // cards_per_row
@@ -180,7 +182,7 @@ def show_difficulty_selection():
                     if selected >= len(difficulties):  # 인덱스 범위 초과 시 조정
                         selected = current_row * cards_per_row + (new_col % len(difficulties))
                     SOUND_BUTTON_HOVER.play()
-                elif event.key in [pygame.K_RIGHT, pygame.K_d]:
+                elif is_move_right_event(event):
                     pass
                     # 2x2 그리드에서 오른쪽으로 이동
                     current_row = selected // cards_per_row
@@ -629,4 +631,3 @@ def show_difficulty_selection():
         
         pygame.display.flip()
         clock.tick(60)
-

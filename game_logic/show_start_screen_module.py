@@ -7,6 +7,7 @@ import math
 import random
 import items
 import academy
+from core.input_keys import is_move_down_event
 from ui.menu_system import MenuSystem
 from game_logic.show_character_selection_module import show_character_selection
 from game_logic.show_difficulty_selection_module import show_difficulty_selection
@@ -580,7 +581,7 @@ def show_start_screen():
                     if input_buffer[-4:] == item_code:
                         item_manager_unlocked = True
 
-                if event.key in [pygame.K_DOWN, pygame.K_s]:
+                if is_move_down_event(event) or event.key == pygame.K_DOWN:
                     selected = (selected + 1) % len(all_options)
                     # SOUND_BUTTON_HOVER.play()  # 🎵 호버 사운드
                 elif event.key in [pygame.K_UP, pygame.K_w]:
@@ -623,4 +624,3 @@ def show_start_screen():
                         show_developer_stage_select()
                     elif choice == "아이템관리":
                         show_item_manager_menu()
-
