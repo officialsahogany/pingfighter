@@ -73286,7 +73286,7 @@ def show_game_info():
                             selected_category = 0  # 엑티브 탭
                         elif event.key == pygame.K_RIGHT:
                             selected_category = 1  # 패시브 탭
-                        elif event.key == pygame.K_DOWN:
+                        elif is_move_down_event(event):
                             # 탭에서 아이템 선택 모드로 이동
                             in_tab_selection = False
                             current_items = active_item_slot if selected_category == 0 else passive_item_list
@@ -73297,9 +73297,13 @@ def show_game_info():
                                     selected_passive_item = 0  # 첫 번째 아이템 선택
                     else:  # 아이템 선택 모드
                         current_items = active_item_slot if selected_category == 0 else passive_item_list
-                        if current_items and event.key in [pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN]:
+                        dir_left = is_move_left_event(event)
+                        dir_right = is_move_right_event(event)
+                        dir_up = is_move_up_event(event)
+                        dir_down = is_move_down_event(event)
+                        if current_items and (dir_left or dir_right or dir_up or dir_down):
                             current_index = selected_active_item if selected_category == 0 else selected_passive_item
-                            if event.key == pygame.K_RIGHT:
+                            if dir_right:
                                 # 오른쪽: 같은 줄에서 다음 아이템으로 (줄 끝에서 줄 처음으로 순환)
                                 grid_cols = 8
                                 current_row = current_index // grid_cols
@@ -73314,7 +73318,7 @@ def show_game_info():
                                 else:
                                     # 다음 아이템으로
                                     new_index = current_index + 1
-                            elif event.key == pygame.K_LEFT:
+                            elif dir_left:
                                 # 왼쪽: 같은 줄에서 이전 아이템으로 (줄 처음에서 줄 끝으로 순환)
                                 grid_cols = 8
                                 current_row = current_index // grid_cols
@@ -73329,7 +73333,7 @@ def show_game_info():
                                 else:
                                     # 이전 아이템으로
                                     new_index = current_index - 1
-                            elif event.key == pygame.K_DOWN:
+                            elif dir_down:
                                 # 아래: 그리드 기반 이동
                                 grid_cols = 8
                                 current_row = current_index // grid_cols
@@ -73341,7 +73345,7 @@ def show_game_info():
                                     new_index = current_col
                                     if new_index >= len(current_items):
                                         new_index = current_index  # 변경 없음
-                            elif event.key == pygame.K_UP:
+                            elif dir_up:
                                 # 위: 그리드 기반 이동 또는 탭으로 복귀
                                 grid_cols = 8
                                 current_row = current_index // grid_cols
