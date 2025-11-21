@@ -142,7 +142,7 @@ def draw_wall_windows(surface):
 
 
 def draw_ceiling(surface):
-    """천장 처마 영역."""
+    """천장 처마 영역 + 상단 창문."""
     # 상단 어두운 영역 (천장 느낌)
     ceiling_height = 50
     for y in range(ceiling_height):
@@ -153,6 +153,35 @@ def draw_ceiling(surface):
 
     # 처마 라인
     pygame.draw.line(surface, (35, 30, 25), (60, ceiling_height), (WIDTH - 60, ceiling_height), 3)
+
+    # 상단 창문들 (보스 쪽) - 3개의 창문
+    frame_color = (45, 38, 32)
+    paper_color = (40, 36, 32)
+    top_window_y = 55
+    top_window_height = 80
+    top_window_width = 100
+
+    # 창문 위치 (좌, 중앙, 우)
+    top_window_positions = [
+        (90, top_window_y),
+        (WIDTH // 2 - top_window_width // 2, top_window_y),
+        (WIDTH - 90 - top_window_width, top_window_y),
+    ]
+
+    for wx, wy in top_window_positions:
+        # 창문 프레임
+        pygame.draw.rect(surface, frame_color,
+                        (wx, wy, top_window_width, top_window_height))
+        # 창호지 (내부)
+        pygame.draw.rect(surface, paper_color,
+                        (wx + 4, wy + 4, top_window_width - 8, top_window_height - 8))
+        # 창살 (세로 3개, 가로 2개)
+        for i in range(1, 4):
+            gx = wx + 4 + (top_window_width - 8) * i // 4
+            pygame.draw.line(surface, frame_color, (gx, wy + 4), (gx, wy + top_window_height - 4), 2)
+        for i in range(1, 3):
+            gy = wy + 4 + (top_window_height - 8) * i // 3
+            pygame.draw.line(surface, frame_color, (wx + 4, gy), (wx + top_window_width - 4, gy), 2)
 
 
 def draw_lanterns(surface):

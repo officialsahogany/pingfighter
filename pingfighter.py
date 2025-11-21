@@ -69405,6 +69405,7 @@ def main(stage_num, new_boss_mode=False):
                 turret_rect = None
                 manual_candidate = False
                 manual_input_edge = space_just_pressed or mb_left_just_pressed
+                overheat_active = False
                 if (
                     manual_input_edge
                     and blacksmith_turret_active
@@ -69417,6 +69418,7 @@ def main(stage_num, new_boss_mode=False):
                     turret_rect = blacksmith_turret_state.get("rect")
                     if turret_rect is not None and PLAYER.colliderect(turret_rect):
                         manual_candidate = True
+                        overheat_active = int(blacksmith_turret_state.get("overheat_timer", 0)) > 0
 
                 # 오버드라이브/메가드라이브: 준비완료 상태일 때 포탑 앞에서 SPACE로 발동
                 if (
@@ -69485,7 +69487,6 @@ def main(stage_num, new_boss_mode=False):
 
                 if manual_preferred and turret_rect is not None and not umbrella_blocks_manual_fire:
                     if blacksmith_turret_manual_cooldown <= 0:
-                        overheat_active = int(blacksmith_turret_state.get("overheat_timer", 0)) > 0
                         required_cost = 0 if overheat_active else BLACKSMITH_TURRET_MANUAL_COST
                         if special_gauge >= required_cost:
                             if required_cost > 0:
