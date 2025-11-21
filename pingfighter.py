@@ -14940,6 +14940,7 @@ BLACKSMITH_DIVINE_SLASH_RADIUS = 14
 BLACKSMITH_DIVINE_SLASH_WALL_MARGIN = 8
 BLACKSMITH_DIVINE_SLASH_MIN_ANGLE_DEG = 35.0
 BLACKSMITH_DIVINE_SLASH_MAX_ANGLE_DEG = 50.0
+BLACKSMITH_DIVINE_SLASH_GAUGE_COST = 40  # 강화디바인스톤 검기 발사 시 소모 게이지
 blacksmith_divine_slash_projectiles: list[dict[str, object]] = []
 BLACKSMITH_DIVINE_SLASH_DELAY_MS = int(0.4 * 1000)
 blacksmith_divine_slash_scheduled: dict[str, object] | None = None
@@ -15023,6 +15024,14 @@ def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
         "ball_gauge_given": False,  # 공 타격 시 게이지 보상 1회 제한
     }
     blacksmith_divine_slash_projectiles.append(projectile)
+
+    # 발토르가 플레이 중이고 검기가 실제로 발사될 때 게이지 40 소모
+    if globals().get("selected_character_type") == "blacksmith":
+        try:
+            consume_special_gauge(BLACKSMITH_DIVINE_SLASH_GAUGE_COST)
+        except Exception:
+            # 튜토리얼/테스트 등 게이지 시스템이 초기화되지 않은 경우에도 검기 발사는 유지
+            pass
 
     # 검기 시작 이펙트
     try:
