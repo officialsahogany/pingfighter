@@ -11101,7 +11101,7 @@ def draw_blacksmith_overheat_overlay(surface: pygame.Surface) -> None:
     timer_label = timer_font.render(f"복구 {remaining_seconds:4.1f}s", True, (255, 210, 195))
     surface.blit(timer_label, timer_label.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 12)))
 
-    info_label = info_font.render("게이지 충전 및 포탄 발사 불가", True, (255, 190, 175))
+    info_label = info_font.render("게이지 충전/자동 발사 불가 · 수동 발사만 가능", True, (255, 190, 175))
     surface.blit(info_label, info_label.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 36)))
 
 
@@ -69314,7 +69314,6 @@ def main(stage_num, new_boss_mode=False):
                     and blacksmith_turret_active
                     and blacksmith_turret_state
                     and blacksmith_turret_state.get("hp", 0) > 0
-                    and blacksmith_turret_state.get("overheat_timer", 0) <= 0
                     and blacksmith_hammer_available
                     and not blacksmith_hammer_shock_charging
                     and not umbrella_blocks_manual_fire
@@ -69403,7 +69402,11 @@ def main(stage_num, new_boss_mode=False):
                             blacksmith_manual_hammer_timer = BLACKSMITH_TURRET_MANUAL_SWING_FRAMES
                             cooldown_frames = int(BLACKSMITH_TURRET_MANUAL_COOLDOWN * get_blacksmith_manual_cooldown_multiplier())
                             blacksmith_turret_manual_cooldown = max(1, cooldown_frames)
-                            blacksmith_turret_state["fire_timer"] = 1
+                            try:
+                                turret_runtime = BLACKSMITH_CONTROLLER.state.turret
+                                _blacksmith_fire_turret_projectile(turret_runtime, blacksmith_turret_state, overdrive=False)
+                            except Exception:
+                                pass
                             space_just_pressed = False
                             space_press_frame = -1
                             cooldown_seconds = blacksmith_turret_manual_cooldown / FPS
