@@ -36372,6 +36372,42 @@ def update_stage8_shurikens() -> None:
     stage8_shurikens = new_list
 
 
+def update_stage8_cloud(now: int | None = None) -> None:
+    """구름장막 대시/지속 관리."""
+    global stage8_cloud_dash_active, stage8_cloud_dash_phase, stage8_cloud_dash_start_ms
+    global stage8_cloud_origin, stage8_cloud_target_y, stage8_cloud_active
+    global stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_rect
+    if current_stage != 8:
+        stage8_cloud_dash_active = False
+        stage8_cloud_active = False
+        stage8_cloud_rect = None
+        return
+    if now is None:
+        now = pygame.time.get_ticks()
+
+    # 대시 처리
+    if stage8_cloud_dash_active:
+        elapsed = now - stage8_cloud_dash_start_ms
+        progress = min(1.0, elapsed / STAGE8_CLOUD_DASH_MS) if STAGE8_CLOUD_DASH_MS > 0 else 1.0
+        if stage8_cloud_dash_phase == "down":
+            BOSS.centery = int(stage8_cloud_origin[1] + (stage8_cloud_target_y - stage8_cloud_origin[1]) * progress)
+            if progress >= 1.0:
+                # 구름 터뜨림
+                _finish_stage8_cloud(now)
+                stage8_cloud_dash_phase = "up"
+                stage8_cloud_dash_start_ms = now
+        elif stage8_cloud_dash_phase == "up":
+            BOSS.centery = int(stage8_cloud_target_y + (stage8_cloud_origin[1] - stage8_cloud_target_y) * progress)
+            if progress >= 1.0:
+                stage8_cloud_dash_active = False
+                stage8_cloud_dash_phase = None
+
+    # 지속 시간 관리
+    if stage8_cloud_active and stage8_cloud_end_ms <= now:
+        stage8_cloud_active = False
+        stage8_cloud_rect = None
+
+
 def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
     """그림자분신 렌더링."""
     if current_stage != 8 or not stage8_shadow_clones:
