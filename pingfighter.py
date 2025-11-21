@@ -14848,7 +14848,7 @@ STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 7000
 STAGE8_SHADOW_EMERGE_MS = 600
 STAGE8_SHADOW_COOLDOWN_MS = 8000
-STAGE8_SHADOW_Y_OFFSET = 100  # 분신을 보스 패들 기준 아래쪽에서 소환 (px)
+STAGE8_SHADOW_Y_OFFSET = -150  # 분신을 맵 가운데 쪽(위쪽)으로 이동해 소환 (px)
 
 # Stage 8 표창던지기 상태
 stage8_shuriken_casting: bool = False
