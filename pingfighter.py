@@ -58509,6 +58509,15 @@ def reset_round():
         # Stage 2: 매 라운드 시작 시 게이지 초기화
         boss_special_gauge = 0
         print(f"Stage 2 보스 게이지 초기화 (현재: {boss_special_gauge}/500)")
+    elif current_stage == 8:
+        # Stage 8: 라운드 전환 시 30% 감소만 적용 (닌자 기운 유지)
+        boss_special_gauge = max(0, int(boss_special_gauge * 0.7))
+        displayed_boss_gauge = boss_special_gauge
+        try:
+            game_state.displayed_boss_gauge = displayed_boss_gauge
+        except Exception:
+            pass
+        print(f"Stage 8 보스 게이지 30% 감소 적용 (현재: {boss_special_gauge}/500)")
     # Stage 3과 4는 각자의 게이지 관리 시스템이 있으므로 여기서는 처리하지 않음
     if current_stage == 7:
         stage7_persistent_boss_gauge = boss_special_gauge
