@@ -53391,13 +53391,13 @@ def show_developer_stage_select():
             elif event.type == pygame.KEYDOWN:
                 row = selected_index // cols
                 col = selected_index % cols
-                if event.key in [pygame.K_RIGHT, pygame.K_d]:
+                if is_move_right_event(event):
                     col = (col + 1) % cols
-                elif event.key in [pygame.K_LEFT, pygame.K_a]:
+                elif is_move_left_event(event):
                     col = (col - 1) % cols
-                elif event.key in [pygame.K_DOWN, pygame.K_s]:
+                elif is_move_down_event(event):
                     row = (row + 1) % rows
-                elif event.key in [pygame.K_UP, pygame.K_w]:
+                elif event.key in [pygame.K_UP, pygame.K_w] or is_move_up_event(event):
                     row = (row - 1) % rows
                 selected_index = row * cols + col
                 selected_index = max(0, min(selected_index, len(stage_buttons) - 1))
