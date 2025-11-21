@@ -27488,6 +27488,17 @@ def handle_player(keys):
                     or MOVE_EVENT_RIGHT
                     or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_right_state))
                 )
+                # IME/한글 배열에서 좌우가 동시에 눌린 것으로 보고되는 사례 방지:
+                # 양쪽 모두 활성으로 감지되면 더 최근에 눌린 방향만 남기고 나머지는 해제한다.
+                if left_active_for_dash and right_active_for_dash:
+                    if right_press_frame > left_press_frame:
+                        left_active_for_dash = False
+                    elif left_press_frame > right_press_frame:
+                        right_active_for_dash = False
+                    else:
+                        # 동일 프레임이면 대쉬 오동작을 막기 위해 둘 다 해제
+                        left_active_for_dash = False
+                        right_active_for_dash = False
                 left_before_down = (
                     left_active_for_dash
                     and left_press_frame >= 0
@@ -27908,6 +27919,16 @@ def handle_player(keys):
                     or MOVE_EVENT_RIGHT
                     or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_right_state))
                 )
+                # 한글 IME 환경에서 좌우가 동시에 눌렸다고 잡히는 경우가 있어
+                # 더 최근에 눌린 방향만 남기고 반대쪽 플래그는 해제한다.
+                if left_active_for_dash and right_active_for_dash:
+                    if right_press_frame > left_press_frame:
+                        left_active_for_dash = False
+                    elif left_press_frame > right_press_frame:
+                        right_active_for_dash = False
+                    else:
+                        left_active_for_dash = False
+                        right_active_for_dash = False
                 left_before_down_half = (
                     left_active_for_dash
                     and left_press_frame >= 0
