@@ -68268,6 +68268,9 @@ def main(stage_num, new_boss_mode=False):
     elif stage_num == 7:
         CURRENT_BG = STAGE7_BG
         BOSS_COLOR = (120, 170, 255)
+    elif stage_num == 8:
+        CURRENT_BG = STAGE8_BG
+        BOSS_COLOR = (70, 90, 140)
     elif stage_num == 50:  # Stage 50 (튜토리얼)
         # 튜토리얼용 배경 Surface 생성
         CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
