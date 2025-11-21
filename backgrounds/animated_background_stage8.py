@@ -1,6 +1,6 @@
 """Stage 8 전용 애니메이션 배경 - 닌자 저택.
 
-창문 빛 효과, 등불 깜빡임, 스타디움 펄스 애니메이션.
+닌자 컨셉 애니메이션: 수리검, 닌자 그림자, 연기, 창문 빛 효과.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ class AnimatedBackgroundStage8:
                 "flicker_speed": random.uniform(2.0, 4.0),
             })
 
-        # 창문 위치 (왼쪽, 오른쪽)
+        # 창문 위치
         self.window_positions_left = [
             (5, 80, 50, 120),
             (5, 280, 50, 120),
@@ -50,14 +50,13 @@ class AnimatedBackgroundStage8:
             (width - 55, 280, 50, 120),
             (width - 55, 480, 50, 120),
         ]
-        # 상단 창문 (보스 쪽)
         self.window_positions_top = [
             (90, 55, 100, 80),
             (width // 2 - 50, 55, 100, 80),
             (width - 190, 55, 100, 80),
         ]
 
-        # 창문 빛 상태 (좌 3 + 우 3 + 상단 3 = 9개)
+        # 창문 빛 상태
         self.window_states: List[dict] = []
         for _ in range(9):
             self.window_states.append({
@@ -71,7 +70,48 @@ class AnimatedBackgroundStage8:
         self.stadium_line_y = height // 2
         self.stadium_circle_radius = 80
 
-        # 먼지 입자 (적게)
+        # === 닌자 애니메이션 요소들 ===
+
+        # 회전하는 수리검들
+        self.shurikens: List[dict] = []
+        for _ in range(3):
+            self._spawn_shuriken()
+
+        # 스쳐 지나가는 닌자 그림자
+        self.ninja_shadow_active = False
+        self.ninja_shadow_x = -100
+        self.ninja_shadow_y = height // 2
+        self.ninja_shadow_speed = 0
+        self.ninja_shadow_cooldown = random.uniform(8.0, 15.0)
+
+        # 연기/안개 효과
+        self.smoke_particles: List[dict] = []
+        for _ in range(12):
+            self.smoke_particles.append({
+                "x": random.uniform(70, width - 70),
+                "y": random.uniform(height - 150, height - 50),
+                "size": random.uniform(20, 50),
+                "alpha": random.randint(15, 35),
+                "speed_x": random.uniform(-10, 10),
+                "speed_y": random.uniform(-8, -2),
+                "phase": random.uniform(0, math.tau),
+            })
+
+        # 떨어지는 벚꽃잎 (닌자 저택 분위기)
+        self.petals: List[dict] = []
+        for _ in range(8):
+            self.petals.append({
+                "x": random.uniform(70, width - 70),
+                "y": random.uniform(-50, height),
+                "speed_y": random.uniform(15, 35),
+                "sway_phase": random.uniform(0, math.tau),
+                "sway_speed": random.uniform(1.5, 3.0),
+                "size": random.randint(3, 6),
+                "rotation": random.uniform(0, math.tau),
+                "rot_speed": random.uniform(1, 3),
+            })
+
+        # 먼지 입자
         self.dust_particles: List[dict] = []
         for _ in range(15):
             self.dust_particles.append({
@@ -83,6 +123,36 @@ class AnimatedBackgroundStage8:
                 "radius": random.uniform(1.0, 2.0),
                 "alpha": random.randint(20, 40),
             })
+
+    def _spawn_shuriken(self) -> None:
+        """새 수리검 생성."""
+        side = random.choice(["left", "right", "top"])
+        if side == "left":
+            x = -30
+            y = random.randint(100, self.height - 100)
+            speed_x = random.uniform(60, 120)
+            speed_y = random.uniform(-30, 30)
+        elif side == "right":
+            x = self.width + 30
+            y = random.randint(100, self.height - 100)
+            speed_x = random.uniform(-120, -60)
+            speed_y = random.uniform(-30, 30)
+        else:
+            x = random.randint(100, self.width - 100)
+            y = -30
+            speed_x = random.uniform(-30, 30)
+            speed_y = random.uniform(60, 100)
+
+        self.shurikens.append({
+            "x": x,
+            "y": y,
+            "speed_x": speed_x,
+            "speed_y": speed_y,
+            "rotation": 0,
+            "rot_speed": random.uniform(8, 15),
+            "size": random.randint(12, 18),
+            "alpha": random.randint(60, 100),
+        })
 
     def update(self, elapsed_ms: int | float | None = None) -> None:
         """프레임마다 호출."""
@@ -106,6 +176,56 @@ class AnimatedBackgroundStage8:
         # 스타디움 펄스
         self.stadium_pulse_phase = self.time * 1.0
 
+        # 수리검 업데이트
+        for shuriken in self.shurikens[:]:
+            shuriken["x"] += shuriken["speed_x"] * dt
+            shuriken["y"] += shuriken["speed_y"] * dt
+            shuriken["rotation"] += shuriken["rot_speed"] * dt
+
+            # 화면 밖으로 나가면 재생성
+            if (shuriken["x"] < -50 or shuriken["x"] > self.width + 50 or
+                shuriken["y"] < -50 or shuriken["y"] > self.height + 50):
+                self.shurikens.remove(shuriken)
+                self._spawn_shuriken()
+
+        # 닌자 그림자 업데이트
+        self.ninja_shadow_cooldown -= dt
+        if self.ninja_shadow_cooldown <= 0 and not self.ninja_shadow_active:
+            self._trigger_ninja_shadow()
+
+        if self.ninja_shadow_active:
+            self.ninja_shadow_x += self.ninja_shadow_speed * dt
+            if self.ninja_shadow_x > self.width + 150 or self.ninja_shadow_x < -150:
+                self.ninja_shadow_active = False
+                self.ninja_shadow_cooldown = random.uniform(10.0, 20.0)
+
+        # 연기 업데이트
+        for smoke in self.smoke_particles:
+            smoke["x"] += smoke["speed_x"] * dt
+            smoke["y"] += smoke["speed_y"] * dt
+            smoke["size"] += dt * 3  # 서서히 커짐
+            smoke["alpha"] -= dt * 8  # 서서히 투명해짐
+
+            # 리셋
+            if smoke["alpha"] <= 0 or smoke["y"] < self.height - 200:
+                smoke["x"] = random.uniform(70, self.width - 70)
+                smoke["y"] = random.uniform(self.height - 100, self.height - 30)
+                smoke["size"] = random.uniform(20, 40)
+                smoke["alpha"] = random.randint(20, 40)
+                smoke["speed_x"] = random.uniform(-10, 10)
+                smoke["speed_y"] = random.uniform(-15, -5)
+
+        # 벚꽃잎 업데이트
+        for petal in self.petals:
+            petal["y"] += petal["speed_y"] * dt
+            petal["x"] += math.sin(self.time * petal["sway_speed"] + petal["sway_phase"]) * 20 * dt
+            petal["rotation"] += petal["rot_speed"] * dt
+
+            # 화면 아래로 나가면 위에서 다시
+            if petal["y"] > self.height + 20:
+                petal["y"] = -20
+                petal["x"] = random.uniform(70, self.width - 70)
+
         # 먼지 입자 업데이트
         for dust in self.dust_particles:
             dust["x"] += dust["speed_x"] * dt
@@ -120,24 +240,157 @@ class AnimatedBackgroundStage8:
             elif dust["y"] > self.height - 60:
                 dust["y"] = 60
 
+    def _trigger_ninja_shadow(self) -> None:
+        """닌자 그림자 트리거."""
+        self.ninja_shadow_active = True
+        self.ninja_shadow_y = random.randint(150, self.height - 150)
+        if random.random() > 0.5:
+            self.ninja_shadow_x = -120
+            self.ninja_shadow_speed = random.uniform(350, 550)
+        else:
+            self.ninja_shadow_x = self.width + 120
+            self.ninja_shadow_speed = -random.uniform(350, 550)
+
     def draw(self, surface: pygame.Surface, *, offset: Tuple[int, int] = (0, 0)) -> None:
         """애니메이션 레이어를 그린다."""
         ox, oy = offset
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
 
-        # 1. 창문 빛 효과
+        # 1. 연기 효과 (뒤쪽)
+        self._draw_smoke(overlay)
+
+        # 2. 창문 빛 효과
         self._draw_window_glow(overlay)
 
-        # 2. 등불 빛 효과
+        # 3. 등불 빛 효과
         self._draw_lantern_glow(overlay)
 
-        # 3. 먼지 입자
+        # 4. 벚꽃잎
+        self._draw_petals(overlay)
+
+        # 5. 먼지 입자
         self._draw_dust(overlay)
 
-        # 4. 스타디움 펄스
+        # 6. 수리검
+        self._draw_shurikens(overlay)
+
+        # 7. 닌자 그림자
+        if self.ninja_shadow_active:
+            self._draw_ninja_shadow(overlay)
+
+        # 8. 스타디움 펄스
         self._draw_stadium_pulse(overlay)
 
         surface.blit(overlay, (ox, oy))
+
+    def _draw_smoke(self, overlay: pygame.Surface) -> None:
+        """연기/안개 효과."""
+        for smoke in self.smoke_particles:
+            if smoke["alpha"] <= 0:
+                continue
+            size = int(smoke["size"])
+            alpha = int(max(0, smoke["alpha"]))
+            smoke_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            # 여러 겹의 원으로 부드러운 연기
+            for i in range(3):
+                r = size - i * (size // 4)
+                a = alpha - i * (alpha // 4)
+                if r > 0 and a > 0:
+                    pygame.draw.circle(smoke_surf, (50, 45, 40, a), (size, size), r)
+            overlay.blit(smoke_surf, (int(smoke["x"] - size), int(smoke["y"] - size)))
+
+    def _draw_petals(self, overlay: pygame.Surface) -> None:
+        """떨어지는 벚꽃잎."""
+        for petal in self.petals:
+            x, y = int(petal["x"]), int(petal["y"])
+            size = petal["size"]
+            rot = petal["rotation"]
+
+            # 꽃잎 모양 (타원)
+            petal_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            # 연한 분홍색
+            color = (180, 120, 130, 80)
+            pygame.draw.ellipse(petal_surf, color, (size // 2, 0, size, size * 2))
+
+            # 회전 적용
+            rotated = pygame.transform.rotate(petal_surf, math.degrees(rot))
+            rect = rotated.get_rect(center=(x, y))
+            overlay.blit(rotated, rect)
+
+    def _draw_shurikens(self, overlay: pygame.Surface) -> None:
+        """회전하는 수리검."""
+        for shuriken in self.shurikens:
+            x, y = int(shuriken["x"]), int(shuriken["y"])
+            size = shuriken["size"]
+            rot = shuriken["rotation"]
+            alpha = shuriken["alpha"]
+
+            # 수리검 그리기 (4개의 뾰족한 날)
+            shuriken_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            center = size
+
+            for i in range(4):
+                angle = rot + i * (math.pi / 2)
+                # 바깥 뾰족점
+                outer_x = center + math.cos(angle) * size
+                outer_y = center + math.sin(angle) * size
+                # 안쪽 점 (양 옆)
+                left_angle = angle - 0.4
+                right_angle = angle + 0.4
+                inner_dist = size * 0.3
+                left_x = center + math.cos(left_angle) * inner_dist
+                left_y = center + math.sin(left_angle) * inner_dist
+                right_x = center + math.cos(right_angle) * inner_dist
+                right_y = center + math.sin(right_angle) * inner_dist
+
+                points = [(center, center), (left_x, left_y), (outer_x, outer_y), (right_x, right_y)]
+                pygame.draw.polygon(shuriken_surf, (60, 60, 70, alpha), points)
+                pygame.draw.polygon(shuriken_surf, (100, 100, 110, alpha), points, 1)
+
+            # 중앙 원
+            pygame.draw.circle(shuriken_surf, (50, 50, 55, alpha), (center, center), size // 4)
+
+            overlay.blit(shuriken_surf, (x - size, y - size))
+
+    def _draw_ninja_shadow(self, overlay: pygame.Surface) -> None:
+        """스쳐 지나가는 닌자 그림자."""
+        x = int(self.ninja_shadow_x)
+        y = int(self.ninja_shadow_y)
+
+        # 잔상 효과
+        for i in range(6):
+            trail_offset = i * (-20 if self.ninja_shadow_speed > 0 else 20)
+            trail_alpha = max(0, 70 - i * 12)
+
+            shadow_surf = pygame.Surface((80, 120), pygame.SRCALPHA)
+
+            # 닌자 실루엣
+            # 머리
+            pygame.draw.circle(shadow_surf, (0, 0, 0, trail_alpha), (40, 20), 15)
+            # 몸통
+            pygame.draw.ellipse(shadow_surf, (0, 0, 0, trail_alpha), (25, 30, 30, 50))
+            # 달리는 자세 - 뒤로 뻗은 팔
+            arm_wobble = math.sin(self.time * 20 + i) * 8
+            pygame.draw.line(shadow_surf, (0, 0, 0, trail_alpha),
+                           (40, 45), (15 + arm_wobble, 35), 4)
+            pygame.draw.line(shadow_surf, (0, 0, 0, trail_alpha),
+                           (40, 45), (65 - arm_wobble, 55), 4)
+            # 다리
+            leg_wobble = math.sin(self.time * 25 + i) * 10
+            pygame.draw.line(shadow_surf, (0, 0, 0, trail_alpha),
+                           (35, 75), (25 + leg_wobble, 110), 4)
+            pygame.draw.line(shadow_surf, (0, 0, 0, trail_alpha),
+                           (45, 75), (55 - leg_wobble, 110), 4)
+            # 망토
+            cape_points = [
+                (40, 35),
+                (20 + arm_wobble, 70),
+                (40, 60),
+                (60 - arm_wobble, 70),
+            ]
+            pygame.draw.polygon(shadow_surf, (0, 0, 0, trail_alpha // 2), cape_points)
+
+            overlay.blit(shadow_surf, (x - 40 + trail_offset, y - 60))
 
     def _draw_window_glow(self, overlay: pygame.Surface) -> None:
         """창문에서 나오는 은은한 빛."""
@@ -147,15 +400,12 @@ class AnimatedBackgroundStage8:
             state = self.window_states[i]
             intensity = state["intensity"]
 
-            # 창문 내부 빛
             glow_alpha = int(25 * intensity)
             if glow_alpha > 0:
-                # 창문 영역에 은은한 빛
                 glow_surf = pygame.Surface((ww, wh), pygame.SRCALPHA)
                 pygame.draw.rect(glow_surf, (60, 50, 40, glow_alpha), (0, 0, ww, wh))
                 overlay.blit(glow_surf, (wx + 4, wy + 4))
 
-                # 창문 주변 빛 번짐
                 for r in range(3):
                     spread_alpha = max(0, glow_alpha - r * 8)
                     pygame.draw.rect(overlay, (50, 40, 30, spread_alpha),
@@ -167,7 +417,6 @@ class AnimatedBackgroundStage8:
             state = self.lantern_states[i]
             intensity = state["intensity"]
 
-            # 글로우
             for layer in range(3):
                 radius = int(18 + layer * 10)
                 alpha = int(18 * intensity - layer * 5)
@@ -197,7 +446,6 @@ class AnimatedBackgroundStage8:
         glow_alpha = int(15 + 10 * pulse)
         glow_color = (130, 50, 50)
 
-        # 중앙 라인 글로우
         for i in range(2):
             line_alpha = max(0, glow_alpha - i * 6)
             pygame.draw.line(overlay, (*glow_color, line_alpha),
@@ -205,7 +453,6 @@ class AnimatedBackgroundStage8:
             pygame.draw.line(overlay, (*glow_color, line_alpha),
                            (60, center_y + i), (self.width - 60, center_y + i), 1)
 
-        # 중앙 서클 글로우
         for i in range(3):
             circle_alpha = max(0, glow_alpha - i * 4)
             pygame.draw.circle(overlay, (*glow_color, circle_alpha),
