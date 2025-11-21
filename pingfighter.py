@@ -36290,6 +36290,7 @@ def _finish_stage8_cloud(now: int) -> None:
     height = 56   # 80 * 0.7 = 56 (30% 추가 축소)
     stage8_cloud_rect = pygame.Rect(0, 0, width, height)
     cx, cy = stage8_cloud_spawn_pos if stage8_cloud_spawn_pos != (0, 0) else (BOSS.centerx, BOSS.centery)
+    cy += 80  # 구름 위치를 아래로 80픽셀 이동 (상단 구름 잘림 방지)
     stage8_cloud_rect.center = (cx, cy)
 
 
