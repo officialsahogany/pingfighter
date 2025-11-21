@@ -36389,7 +36389,9 @@ def update_stage8_shadow_clones() -> None:
 
 def update_stage8_shurikens() -> None:
     """표창 이동/충돌 처리."""
-    global stage8_shurikens, player_slow_timer, player_slow_timer_max
+    global stage8_shurikens, player_slow_timer, player_slow_timer_max, player_slow_factor
+    global stage8_shuriken_gauge_ticks_left, stage8_shuriken_gauge_tick_timer
+    global special_gauge, special_ready, special_gauge_max
     if current_stage != 8:
         stage8_shurikens = []
         return
@@ -36406,9 +36408,25 @@ def update_stage8_shurikens() -> None:
         if rect.colliderect(PLAYER):
             player_slow_timer = STAGE8_SHURIKEN_SLOW_FRAMES
             player_slow_timer_max = STAGE8_SHURIKEN_SLOW_FRAMES
+            player_slow_factor = STAGE8_SHURIKEN_SLOW_FACTOR
+            stage8_shuriken_gauge_ticks_left = 4  # 0.5초 간격 4회(총 2초)
+            stage8_shuriken_gauge_tick_timer = STAGE8_SHURIKEN_GAUGE_TICK_FRAMES
             continue
         new_list.append(sh)
     stage8_shurikens = new_list
+
+    # 표창 피격 시 게이지 도트 감소 처리 (0.5초마다 -15, 총 -60)
+    if stage8_shuriken_gauge_ticks_left > 0:
+        stage8_shuriken_gauge_tick_timer -= 1
+        if stage8_shuriken_gauge_tick_timer <= 0:
+            drain = min(STAGE8_SHURIKEN_GAUGE_TICK_AMOUNT, special_gauge)
+            if drain > 0:
+                special_gauge -= drain
+                special_ready = special_gauge >= special_gauge_max
+            stage8_shuriken_gauge_ticks_left -= 1
+            stage8_shuriken_gauge_tick_timer = (
+                STAGE8_SHURIKEN_GAUGE_TICK_FRAMES if stage8_shuriken_gauge_ticks_left > 0 else 0
+            )
 
 
 def update_stage8_cloud(now: int | None = None) -> None:
@@ -58906,6 +58924,7 @@ def reset_round():
     # Stage 8 그림자분신 상태 초기화
     global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
     global stage8_shadow_anchor_x, stage8_shadow_anchor_y
+    global stage8_shuriken_gauge_ticks_left, stage8_shuriken_gauge_tick_timer
     if current_stage != 8:
         stage8_shadow_clones = []
         stage8_shadow_casting = False
@@ -58920,6 +58939,8 @@ def reset_round():
         stage8_shuriken_cast_start_ms = 0
         stage8_shuriken_next_ready_ms = 0
         stage8_shurikens.clear()
+        stage8_shuriken_gauge_ticks_left = 0
+        stage8_shuriken_gauge_tick_timer = 0
 
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
