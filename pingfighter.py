@@ -39441,8 +39441,8 @@ def draw_objects():
         boss_img = BOSS_IMG_STAGE5
         boss_w, boss_h = BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT
     elif current_stage == 8:
-        boss_img = BOSS_IMG_STAGE8
-        boss_w, boss_h = BOSS_IMG_STAGE8_WIDTH, BOSS_IMG_STAGE8_HEIGHT
+        boss_img_prescaled = True
+        boss_img, boss_w, boss_h = _build_stage8_walk_pose(BOSS_IMG_STAGE8, BOSS)
     elif current_stage == 7:
         boss_img_prescaled = True
         global stage7_prev_x, stage7_lean_value
@@ -39513,6 +39513,8 @@ def draw_objects():
     if current_stage != 7:
         stage7_prev_x = None
         stage7_lean_value *= 0.85
+    if current_stage != 8:
+        stage8_prev_x = None
     #  풍악보이 상모돌리기 회전 효과
     whip_rotation_angle = 0
     if current_stage == 1 and whip_active:
