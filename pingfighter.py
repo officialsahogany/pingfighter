@@ -58898,7 +58898,7 @@ def reset_round():
 
     # Stage 8 그림자분신 상태 초기화
     global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
-    global stage8_shadow_anchor_x, stage8_shadow_anchor_y
+    global stage8_shadow_anchor_x, stage8_shadow_anchor_y, stage8_shadow_invuln_until_ms
     if current_stage != 8:
         stage8_shadow_clones = []
         stage8_shadow_casting = False
