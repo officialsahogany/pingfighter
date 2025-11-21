@@ -14877,6 +14877,7 @@ stage8_cloud_origin: tuple[int, int] = (0, 0)
 stage8_cloud_target_y: int = 0
 stage8_cloud_next_ready_ms: int = 0
 stage8_cloud_precast_ms: int = 0
+stage8_cloud_spawn_pos: tuple[int, int] = (0, 0)
 stage8_cloud_burst_center: tuple[int, int] = (0, 0)
 STAGE8_CLOUD_VISIBLE_MS = 5000
 STAGE8_CLOUD_MIN_COOLDOWN_MS = 10000
@@ -36260,9 +36261,10 @@ def _start_stage8_cloud(now: int) -> None:
     """구름장막 발동: 보스가 내려와서 터뜨릴 준비."""
     global stage8_cloud_dash_active, stage8_cloud_dash_phase, stage8_cloud_dash_start_ms
     global stage8_cloud_origin, stage8_cloud_target_y, stage8_cloud_start_ms, stage8_cloud_end_ms
-    global stage8_cloud_rect, stage8_cloud_active, stage8_cloud_next_ready_ms, stage8_cloud_precast_ms
+    global stage8_cloud_rect, stage8_cloud_active, stage8_cloud_next_ready_ms, stage8_cloud_precast_ms, stage8_cloud_spawn_pos
     stage8_cloud_origin = (BOSS.centerx, BOSS.centery)
     stage8_cloud_target_y = max(BOSS.centery, PLAYER.centery - 40)
+    stage8_cloud_spawn_pos = stage8_cloud_origin
     stage8_cloud_dash_active = True
     stage8_cloud_dash_phase = "pre"  # 0.4초 정지 + 오로라
     stage8_cloud_precast_ms = now
@@ -36277,16 +36279,15 @@ def _start_stage8_cloud(now: int) -> None:
 def _finish_stage8_cloud(now: int) -> None:
     """구름 폭발 및 지속 타이머 시작."""
     global stage8_cloud_active, stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_rect
-    global stage8_cloud_spawn_x
+    global stage8_cloud_spawn_pos
     stage8_cloud_active = True
     stage8_cloud_start_ms = now
     stage8_cloud_end_ms = now + STAGE8_CLOUD_VISIBLE_MS + stage8_cloud_fade_ms + STAGE8_CLOUD_EXPAND_MS
     width = 336   # 420 * 0.8 = 336 (20% 축소)
     height = 166  # 208 * 0.8 = 166 (세로 추가 20% 축소)
     stage8_cloud_rect = pygame.Rect(0, 0, width, height)
-    stage8_cloud_rect.center = (PLAYER.centerx, PLAYER.centery - 10)
-    # 보스 착지 위치 저장 (구름 퍼짐 애니메이션 기준점)
-    stage8_cloud_spawn_x = BOSS.centerx
+    cx, cy = stage8_cloud_spawn_pos if stage8_cloud_spawn_pos != (0, 0) else (BOSS.centerx, BOSS.centery)
+    stage8_cloud_rect.center = (cx, cy)
 
 
 def update_stage8_shadow_clones() -> None:
@@ -36426,6 +36427,7 @@ def update_stage8_cloud(now: int | None = None) -> None:
                 BOSS.centery = int(stage8_cloud_origin[1] + (stage8_cloud_target_y - stage8_cloud_origin[1]) * progress)
                 if progress >= 1.0:
                     # 구름 터뜨림
+                    stage8_cloud_spawn_pos = (BOSS.centerx, BOSS.centery)
                     _finish_stage8_cloud(now)
                     stage8_cloud_dash_phase = "up"
                     stage8_cloud_dash_start_ms = now
