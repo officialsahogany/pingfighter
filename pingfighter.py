@@ -53978,9 +53978,9 @@ def show_item_manager_menu():
                         cancel_quantity_selection()
                     elif event.key == pygame.K_SPACE:
                         apply_quantity_selection()
-                    elif event.key in (pygame.K_LEFT, pygame.K_DOWN, pygame.K_MINUS):
+                    elif event.key in (pygame.K_LEFT, pygame.K_MINUS) or is_move_down_event(event):
                         quantity_current_value = max(0, quantity_current_value - 1)
-                    elif event.key in (pygame.K_RIGHT, pygame.K_UP, pygame.K_EQUALS, pygame.K_PLUS):
+                    elif event.key in (pygame.K_RIGHT, pygame.K_EQUALS, pygame.K_PLUS) or is_move_up_event(event):
                         quantity_current_value = min(quantity_max_value, quantity_current_value + 1)
                     elif pygame.K_0 <= event.key <= pygame.K_9:
                         digit = event.key - pygame.K_0
