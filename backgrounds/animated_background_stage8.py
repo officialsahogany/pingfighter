@@ -353,80 +353,104 @@ class AnimatedBackgroundStage8:
             overlay.blit(shuriken_surf, (x - size, y - size))
 
     def _draw_ninja_shadow(self, overlay: pygame.Surface) -> None:
-        """스쳐 지나가는 닌자 그림자 - 낮게 질주하는 자세."""
+        """스쳐 지나가는 닌자 그림자 - 대각선 점프 자세."""
         x = int(self.ninja_shadow_x)
         y = int(self.ninja_shadow_y)
         facing_right = self.ninja_shadow_speed > 0
 
         # 잔상 효과
         for i in range(5):
-            trail_offset = i * (-18 if facing_right else 18)
-            trail_alpha = max(0, 90 - i * 18)
+            trail_offset = i * (-20 if facing_right else 20)
+            trail_alpha = max(0, 100 - i * 20)
 
-            shadow_surf = pygame.Surface((100, 60), pygame.SRCALPHA)
-            color = (0, 0, 0, trail_alpha)
+            shadow_surf = pygame.Surface((90, 70), pygame.SRCALPHA)
+            color = (10, 10, 15, trail_alpha)
 
             # 기준점
-            cx, cy = 50, 35
+            cx, cy = 45, 35
 
             if facing_right:
-                # 머리 (앞으로 숙임)
-                pygame.draw.circle(shadow_surf, color, (cx + 15, cy - 5), 10)
-                # 복면 끈
-                mask_wobble = math.sin(self.time * 18 + i) * 4
-                pygame.draw.line(shadow_surf, color, (cx + 5, cy - 5),
-                               (cx - 10 - mask_wobble, cy - 8), 2)
+                # === 대각선 점프 자세 (오른쪽으로 이동) ===
 
-                # 몸통 (낮게 숙인 자세 - 수평에 가깝게)
-                pygame.draw.ellipse(shadow_surf, color, (cx - 15, cy - 8, 35, 18))
+                # 머리 (앞아래로 향함)
+                pygame.draw.circle(shadow_surf, color, (cx + 25, cy - 8), 9)
 
-                # 앞팔 (칼 든 팔 - 앞으로 뻗음)
-                pygame.draw.line(shadow_surf, color, (cx + 20, cy), (cx + 40, cy - 8), 4)
-                # 칼 (짧게)
-                pygame.draw.line(shadow_surf, color, (cx + 40, cy - 8), (cx + 55, cy - 5), 2)
+                # 몸통 (대각선으로 기울어짐 - 우하향)
+                body_points = [
+                    (cx + 18, cy - 15),  # 어깨 위
+                    (cx + 30, cy - 5),   # 어깨 앞
+                    (cx + 5, cy + 15),   # 엉덩이
+                    (cx - 5, cy + 5),    # 등
+                ]
+                pygame.draw.polygon(shadow_surf, color, body_points)
 
-                # 뒷팔 (뒤로 뻗음)
-                arm_wobble = math.sin(self.time * 15 + i) * 3
-                pygame.draw.line(shadow_surf, color, (cx - 10, cy),
-                               (cx - 25, cy + 5 + arm_wobble), 3)
+                # 앞팔 (아래로 뻗음 - 칼 들고)
+                pygame.draw.line(shadow_surf, color, (cx + 28, cy - 2), (cx + 40, cy + 15), 4)
+                # 손
+                pygame.draw.circle(shadow_surf, color, (cx + 40, cy + 15), 4)
+                # 칼 (아래로 향함)
+                pygame.draw.line(shadow_surf, color, (cx + 40, cy + 15), (cx + 50, cy + 30), 3)
 
-                # 다리 (크게 벌린 달리기 자세)
-                leg_wobble = math.sin(self.time * 22 + i) * 6
-                # 앞다리
-                pygame.draw.line(shadow_surf, color, (cx + 5, cy + 8),
-                               (cx + 25 + leg_wobble, cy + 20), 4)
-                # 뒷다리
-                pygame.draw.line(shadow_surf, color, (cx - 5, cy + 8),
-                               (cx - 25 - leg_wobble, cy + 18), 4)
+                # 뒷팔 (위로 뻗음)
+                pygame.draw.line(shadow_surf, color, (cx + 5, cy - 5), (cx - 15, cy - 20), 4)
+                # 손
+                pygame.draw.circle(shadow_surf, color, (cx - 15, cy - 20), 3)
+
+                # 앞다리 (앞아래로 뻗음)
+                pygame.draw.line(shadow_surf, color, (cx + 8, cy + 12), (cx + 30, cy + 35), 5)
+                # 발
+                pygame.draw.line(shadow_surf, color, (cx + 30, cy + 35), (cx + 38, cy + 38), 3)
+
+                # 뒷다리 (뒤로 접힘)
+                pygame.draw.line(shadow_surf, color, (cx, cy + 12), (cx - 15, cy + 5), 5)
+                pygame.draw.line(shadow_surf, color, (cx - 15, cy + 5), (cx - 10, cy + 20), 4)
+
+                # 스카프/복면 끈 (뒤로 펄럭)
+                scarf_wobble = math.sin(self.time * 15 + i) * 3
+                pygame.draw.line(shadow_surf, color, (cx + 18, cy - 10),
+                               (cx - 5 + scarf_wobble, cy - 15), 3)
+                pygame.draw.line(shadow_surf, color, (cx - 5 + scarf_wobble, cy - 15),
+                               (cx - 15 + scarf_wobble, cy - 12), 2)
             else:
-                # 머리 (앞으로 숙임)
-                pygame.draw.circle(shadow_surf, color, (cx - 15, cy - 5), 10)
-                # 복면 끈
-                mask_wobble = math.sin(self.time * 18 + i) * 4
-                pygame.draw.line(shadow_surf, color, (cx - 5, cy - 5),
-                               (cx + 10 + mask_wobble, cy - 8), 2)
+                # === 대각선 점프 자세 (왼쪽으로 이동) ===
 
-                # 몸통
-                pygame.draw.ellipse(shadow_surf, color, (cx - 20, cy - 8, 35, 18))
+                # 머리
+                pygame.draw.circle(shadow_surf, color, (cx - 25, cy - 8), 9)
 
-                # 앞팔 (칼 든 팔)
-                pygame.draw.line(shadow_surf, color, (cx - 20, cy), (cx - 40, cy - 8), 4)
-                # 칼
-                pygame.draw.line(shadow_surf, color, (cx - 40, cy - 8), (cx - 55, cy - 5), 2)
+                # 몸통 (좌하향)
+                body_points = [
+                    (cx - 18, cy - 15),
+                    (cx - 30, cy - 5),
+                    (cx - 5, cy + 15),
+                    (cx + 5, cy + 5),
+                ]
+                pygame.draw.polygon(shadow_surf, color, body_points)
+
+                # 앞팔 + 칼
+                pygame.draw.line(shadow_surf, color, (cx - 28, cy - 2), (cx - 40, cy + 15), 4)
+                pygame.draw.circle(shadow_surf, color, (cx - 40, cy + 15), 4)
+                pygame.draw.line(shadow_surf, color, (cx - 40, cy + 15), (cx - 50, cy + 30), 3)
 
                 # 뒷팔
-                arm_wobble = math.sin(self.time * 15 + i) * 3
-                pygame.draw.line(shadow_surf, color, (cx + 10, cy),
-                               (cx + 25, cy + 5 + arm_wobble), 3)
+                pygame.draw.line(shadow_surf, color, (cx - 5, cy - 5), (cx + 15, cy - 20), 4)
+                pygame.draw.circle(shadow_surf, color, (cx + 15, cy - 20), 3)
 
-                # 다리
-                leg_wobble = math.sin(self.time * 22 + i) * 6
-                pygame.draw.line(shadow_surf, color, (cx - 5, cy + 8),
-                               (cx - 25 - leg_wobble, cy + 20), 4)
-                pygame.draw.line(shadow_surf, color, (cx + 5, cy + 8),
-                               (cx + 25 + leg_wobble, cy + 18), 4)
+                # 앞다리
+                pygame.draw.line(shadow_surf, color, (cx - 8, cy + 12), (cx - 30, cy + 35), 5)
+                pygame.draw.line(shadow_surf, color, (cx - 30, cy + 35), (cx - 38, cy + 38), 3)
 
-            overlay.blit(shadow_surf, (x - 50 + trail_offset, y - 30))
+                # 뒷다리
+                pygame.draw.line(shadow_surf, color, (cx, cy + 12), (cx + 15, cy + 5), 5)
+                pygame.draw.line(shadow_surf, color, (cx + 15, cy + 5), (cx + 10, cy + 20), 4)
+
+                # 스카프
+                scarf_wobble = math.sin(self.time * 15 + i) * 3
+                pygame.draw.line(shadow_surf, color, (cx - 18, cy - 10),
+                               (cx + 5 - scarf_wobble, cy - 15), 3)
+                pygame.draw.line(shadow_surf, color, (cx + 5 - scarf_wobble, cy - 15),
+                               (cx + 15 - scarf_wobble, cy - 12), 2)
+
+            overlay.blit(shadow_surf, (x - 45 + trail_offset, y - 35))
 
     def _draw_window_glow(self, overlay: pygame.Surface) -> None:
         """창문에서 나오는 은은한 빛."""
