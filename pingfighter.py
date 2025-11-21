@@ -36173,6 +36173,8 @@ def _spawn_stage8_shadows(now: int) -> None:
                 "direction": direction,
                 "offset_x": direction * 90,
                 "offset_y": 0,
+                "vx": random.uniform(2.0, 3.5) * direction,
+                "vy": random.uniform(-2.5, 2.5),
             }
         )
     stage8_shadow_casting = False
@@ -36190,7 +36192,7 @@ def update_stage8_shadow_clones() -> None:
         return
 
     now = pygame.time.get_ticks()
-    # 보스 현재 위치 저장(동기 이동용)
+    # 보스 현재 위치 저장(등장 기준)
     stage8_shadow_anchor_x = BOSS.centerx
     stage8_shadow_anchor_y = BOSS.centery
 
@@ -36212,14 +36214,32 @@ def update_stage8_shadow_clones() -> None:
         rect: pygame.Rect = clone["rect"]
         offset_x = clone.get("offset_x", 0)
         offset_y = clone.get("offset_y", 0)
+        vx = clone.get("vx", 0.0)
+        vy = clone.get("vy", 0.0)
         # 등장 애니메이션: 양쪽으로 벌어지며 나타남 (기준: 캐스팅 시 위치)
         if elapsed < STAGE8_SHADOW_EMERGE_MS:
             t = elapsed / STAGE8_SHADOW_EMERGE_MS
             rect.centerx = stage8_shadow_freeze_posx + int(offset_x * t)
             rect.centery = stage8_shadow_freeze_posy + int(offset_y * t)
         else:
-            rect.centerx = stage8_shadow_anchor_x + offset_x
-            rect.centery = stage8_shadow_anchor_y + offset_y
+            rect.x += int(vx)
+            rect.y += int(vy)
+            # 좌우/상하 반사로 불규칙 이동
+            if rect.left < 10 or rect.right > WIDTH - 10:
+                clone["vx"] = -vx * 0.95
+                rect.x = max(10, min(rect.x, WIDTH - rect.width - 10))
+            if rect.top < 20 or rect.bottom > HEIGHT - 20:
+                clone["vy"] = -vy * 0.95
+                rect.y = max(20, min(rect.y, HEIGHT - rect.height - 20))
+            # 약간의 난수 가속으로 불규칙성 추가
+            clone["vx"] += random.uniform(-0.15, 0.15)
+            clone["vy"] += random.uniform(-0.10, 0.10)
+            # 속도 클램프
+            speed = math.hypot(clone["vx"], clone["vy"])
+            if speed > 4.0:
+                scale = 4.0 / speed
+                clone["vx"] *= scale
+                clone["vy"] *= scale
 
         # 공과 충돌 시 바로 소멸 (연기 처리 간소화)
         if rect.colliderect(BALL):
