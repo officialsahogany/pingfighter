@@ -36419,7 +36419,7 @@ def update_stage8_cloud(now: int | None = None) -> None:
             else:
                 return  # 정지 상태 유지
         else:
-            dash_ms = int(STAGE8_CLOUD_DASH_MS * 1.2)  # 속도 20% 감소 → 시간 20% 증가
+            dash_ms = int(STAGE8_CLOUD_DASH_MS * 1.44)  # 추가로 20% 더 느리게 (기존 대비 총 약 -40%)
             progress = min(1.0, elapsed / dash_ms) if dash_ms > 0 else 1.0
             if stage8_cloud_dash_phase == "down":
                 BOSS.centery = int(stage8_cloud_origin[1] + (stage8_cloud_target_y - stage8_cloud_origin[1]) * progress)
