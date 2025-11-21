@@ -14824,6 +14824,16 @@ blacksmith_umbrella_swing_recover_pre = 0.0
 stage8_prev_x: float | None = None
 stage8_walk_cycle = 0.0
 stage8_idle_phase = 0.0
+
+# Stage 8 그림자분신 상태
+stage8_shadow_clones: list[dict] = []
+stage8_shadow_casting: bool = False
+stage8_shadow_cast_start_ms: int = 0
+stage8_shadow_next_ready_ms: int = 0
+STAGE8_SHADOW_CAST_MS = 500
+STAGE8_SHADOW_DURATION_MS = 7000
+STAGE8_SHADOW_EMERGE_MS = 600
+STAGE8_SHADOW_COOLDOWN_MS = 8000
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
 blacksmith_umbrella_swing_sound_timer = 0
