@@ -14845,12 +14845,14 @@ stage8_shadow_freeze_posx: int = 0
 stage8_shadow_freeze_posy: int = 0
 stage8_shadow_anchor_x: int = 0
 stage8_shadow_anchor_y: int = 0
+stage8_shadow_invuln_until_ms: int = 0  # 그림자 분신 연출 중(하강/상승) 무적 종료 시각
 STAGE8_SHADOW_CAST_MS = 500
 STAGE8_SHADOW_DURATION_MS = 10000
 STAGE8_SHADOW_EMERGE_MS = 600
 STAGE8_SHADOW_COOLDOWN_MS = 8000
 STAGE8_SHADOW_Y_OFFSET = -150  # 분신을 맵 가운데 쪽(위쪽)으로 이동해 소환 (px)
 STAGE8_SHADOW_DEATH_MS = 700  # 소멸 애니메이션 지속 시간 (0.7초)
+STAGE8_SHADOW_INVULN_BUFFER_MS = 600  # 하강 후 상승까지의 추가 무적 시간(ms)
 
 # Stage 8 표창던지기 상태
 stage8_shuriken_casting: bool = False
