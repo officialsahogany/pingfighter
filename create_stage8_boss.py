@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a top-down stage 8 boss (탁닌자) with more realistic proportions."""
+"""Generate a top-down stage 8 boss (탁닌자) in chunky ninja style (hood + bold eyes)."""
 
 from math import cos, sin, pi
 from typing import Iterable, List, Tuple
@@ -10,22 +10,25 @@ from PIL import Image, ImageDraw, ImageFilter
 CANVAS = 512
 CENTER = CANVAS // 2
 
-# Palette aimed at a grounded, gritty ninja look
-NINJA_BASE = (18, 22, 30, 255)
-NINJA_MID = (32, 40, 58, 255)
-NINJA_LIGHT = (62, 80, 116, 255)
-GEAR_TRIM = (96, 172, 196, 255)
-BAND_RED = (192, 38, 42, 255)
-GLOVE = (78, 86, 110, 255)
-SKIN = (214, 186, 150, 255)
-SKIN_SHADOW = (172, 144, 112, 255)
-PADDLE_FACE = (18, 18, 22, 255)
-PADDLE_EDGE = (70, 70, 78, 255)
-PADDLE_HANDLE = (158, 116, 84, 255)
-SHURIKEN_CORE = (196, 210, 224, 255)
-SHURIKEN_EDGE = (120, 132, 148, 255)
-EYE_WHITE = (238, 244, 250, 255)
-EYE_SHADOW = (32, 38, 52, 255)
+# Palette inspired by chunky cartoon ninja
+INK = (10, 12, 16, 255)
+NINJA_BASE = (26, 32, 44, 255)
+NINJA_MID = (42, 50, 64, 255)
+NINJA_LIGHT = (72, 88, 118, 255)
+NINJA_GLOSS = (114, 136, 170, 180)
+BAND_RED = (176, 34, 46, 255)
+BAND_SHADOW = (122, 22, 30, 255)
+GLOVE = (68, 78, 100, 255)
+SKIN = (230, 198, 156, 255)
+SKIN_SHADOW = (188, 152, 112, 255)
+PADDLE_FACE = (14, 14, 18, 255)
+PADDLE_EDGE = (78, 82, 96, 255)
+PADDLE_HANDLE = (170, 120, 92, 255)
+SHURIKEN_CORE = (210, 220, 232, 255)
+SHURIKEN_EDGE = (124, 136, 148, 255)
+EYE_WHITE = (248, 250, 255, 255)
+EYE_IRIS = (54, 124, 214, 255)
+EYE_SHADOW = (26, 30, 42, 255)
 SHADOW_COLOR = (0, 0, 0)
 
 
