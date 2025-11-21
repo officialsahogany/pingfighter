@@ -36274,15 +36274,17 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         fade = min(1.0, remaining / 1500)  # 마지막 1.5초 페이드아웃
         alpha = int(180 * emerge * fade)
 
-        # 보스 이미지에 부드러운 위아래 호흡 애니메이션만 적용하여 여유로운 모션
-        pose_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (rect.width, rect.height))
-        bob = int(2 * math.sin(now * 0.004 + rect.x * 0.01))  # 완만한 위아래 이동
+        # 보스 이미지 기반 + 더 큰 세로 스케일, 폴짝 모션
+        scaled_h = int(rect.height * 1.1)
+        pose_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (rect.width, scaled_h))
+        hop = int(6 * math.sin(now * 0.012 + rect.x * 0.02))  # 폴짝폴짝 위아래
+        draw_rect = rect.copy()
+        draw_rect.y -= (scaled_h - rect.height) // 2
+        draw_rect.y += hop
+
         shadow_surface = pose_surface.copy()
         shadow_surface.fill((40, 40, 60, alpha), special_flags=pygame.BLEND_RGBA_MULT)
-        surface.blit(shadow_surface, rect.move(0, bob))
-
-        ring_alpha = int(alpha * 0.6)
-        pygame.draw.rect(surface, (80, 140, 200, ring_alpha), rect.move(0, bob), 2)
+        surface.blit(shadow_surface, draw_rect)
 
     # 주문 중 효과 (보스 위 오라)
     if stage8_shadow_casting:
