@@ -36280,8 +36280,8 @@ def _finish_stage8_cloud(now: int) -> None:
     stage8_cloud_active = True
     stage8_cloud_start_ms = now
     stage8_cloud_end_ms = now + STAGE8_CLOUD_VISIBLE_MS + stage8_cloud_fade_ms + STAGE8_CLOUD_EXPAND_MS
-    width = 420
-    height = 260
+    width = 336   # 420 * 0.8 = 336 (20% 축소)
+    height = 208  # 260 * 0.8 = 208 (20% 축소)
     stage8_cloud_rect = pygame.Rect(0, 0, width, height)
     stage8_cloud_rect.center = (PLAYER.centerx, PLAYER.centery - 10)
     # 보스 착지 위치 저장 (구름 퍼짐 애니메이션 기준점)
