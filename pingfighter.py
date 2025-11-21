@@ -26869,11 +26869,11 @@ def handle_player(keys):
         if soldier_down_tap_suppress_timer > 0:
             soldier_down_tap_suppress_timer -= 1
 
-        # 비상보급(↓ 두 번)은 좌우 이동 중엔 발동하지 않도록, 정지 상태에서만 입력을 받는다.
+        # 비상보급(↓ 두 번)은 좌우 이동 입력 중에만 차단하고, 입력이 없으면 즉시 허용한다.
+        # (속도 잔류로 인한 오검지를 방지하기 위해 이동 속도 조건은 제거)
         soldier_idle_for_emergency = (
             not left_pressed_raw
             and not right_pressed_raw
-            and abs(current_speed) <= SOLDIER_EMERGENCY_SUPPLY_IDLE_SPEED_THRESHOLD
         )
 
         if down_just_pressed:
