@@ -4,7 +4,7 @@
 """
 
 # ============= 스테이지 정보 =============
-TOTAL_STAGES = 7
+TOTAL_STAGES = 8
 BOSS_HEALTH_STAGES = [6, 11, 16, 21]  # 체력형 보스가 등장하는 스테이지
 
 # ============= 스테이지별 보스 설정 =============
@@ -125,6 +125,20 @@ BOSS_CONFIGS = {
         "dash_cooldown_range": (28.0, 40.0),
         "dash_max_distance": 300,
     },
+    8: {
+        "name": "공닌자",
+        "color": (60, 80, 120),
+        "accel": 0.92,
+        "decel": 0.92,
+        "max_speed": 7.0,
+        "instant_stop": 0.78,
+        "predict_distance": 150,
+        "skill_power": 0.35,
+        "fail_error": 220,
+        "special_skill": None,  # 스킬은 추후 구현 예정
+        "dash_cooldown_range": (26.0, 38.0),
+        "dash_max_distance": 310,
+    },
 }
 
 # ============= 스테이지별 배경 설정 =============
@@ -170,6 +184,13 @@ STAGE_BACKGROUNDS = {
         "animated_class": None,
         "theme": "tetris_arena",
         "ambient_color": (24, 36, 68),
+    },
+    8: {
+        # 임시로 스테이지7 필드를 재사용 (전용 맵/애니메이션 추후 추가 예정)
+        "file": "stage7_field.png",
+        "animated_class": None,
+        "theme": "shadow_dojo",
+        "ambient_color": (20, 28, 48),
     }
 }
 
@@ -182,6 +203,7 @@ STAGE_DIFFICULTY_MULTIPLIERS = {
     5: 1.8,   # 80% 어려움
     6: 2.0,   # 100% 어려움 (2배)
     7: 2.2,
+    8: 2.35,
 }
 
 # ============= 스테이지별 특수 효과 =============
@@ -218,6 +240,9 @@ STAGE_SPECIAL_EFFECTS = {
     },
     7: {
         "tetrimino_field_active": True,
+    },
+    8: {
+        # 공닌자 스킬/이펙트는 추후 추가 예정
     }
 }
 

@@ -19364,6 +19364,46 @@ def get_weapon_menu_icon(weapon_name: str, size: int = 40) -> pygame.Surface:
         grip = pygame.Rect(body_rect.centerx - int(size * 0.06), body_rect.bottom - 2, int(size * 0.12), int(size * 0.18))
         pygame.draw.rect(icon_surface, (55, 55, 70), grip)
 
+    elif weapon_name == "suicide_drone":
+        body_rect = pygame.Rect(0, 0, int(size * 0.46), int(size * 0.18))
+        body_rect.center = (center[0], center[1])
+        pygame.draw.rect(icon_surface, (72, 86, 104), body_rect, border_radius=4)
+        pygame.draw.rect(icon_surface, (36, 44, 52), body_rect, 2, border_radius=4)
+
+        nose_rect = pygame.Rect(body_rect.right - int(size * 0.06), body_rect.top - int(size * 0.12), int(size * 0.16), int(size * 0.24))
+        nose_rect.centery = body_rect.centery
+        pygame.draw.rect(icon_surface, (210, 132, 92), nose_rect, border_radius=3)
+        pygame.draw.rect(icon_surface, (120, 84, 62), nose_rect, 2, border_radius=3)
+
+        cockpit_rect = body_rect.inflate(-int(size * 0.24), -int(size * 0.06))
+        pygame.draw.rect(icon_surface, (150, 190, 220), cockpit_rect, border_radius=3)
+        pygame.draw.rect(icon_surface, (110, 150, 190), cockpit_rect, 1, border_radius=3)
+
+        rotor_radius = max(3, int(size * 0.12))
+        spread_x = int(size * 0.26)
+        spread_y = int(size * 0.18)
+        rotor_positions = [
+            (center[0] - spread_x, center[1] - spread_y),
+            (center[0] + spread_x, center[1] - spread_y),
+            (center[0] - spread_x, center[1] + spread_y),
+            (center[0] + spread_x, center[1] + spread_y),
+        ]
+        for pos in rotor_positions:
+            pygame.draw.circle(icon_surface, (186, 208, 228), pos, rotor_radius, 2)
+            pygame.draw.circle(icon_surface, (96, 116, 136), pos, max(2, rotor_radius // 2), 1)
+            pygame.draw.line(icon_surface, (186, 208, 228), (pos[0] - rotor_radius + 1, pos[1]), (pos[0] + rotor_radius - 1, pos[1]), 2)
+            pygame.draw.line(icon_surface, (186, 208, 228), (pos[0], pos[1] - rotor_radius + 1), (pos[0], pos[1] + rotor_radius - 1), 2)
+
+        tail_rect = pygame.Rect(0, 0, int(size * 0.08), int(size * 0.12))
+        tail_rect.midleft = (body_rect.left - int(size * 0.06), body_rect.centery)
+        pygame.draw.rect(icon_surface, (60, 72, 88), tail_rect, border_radius=2)
+        pygame.draw.rect(icon_surface, (38, 46, 56), tail_rect, 1, border_radius=2)
+
+        beacon = pygame.Rect(0, 0, int(size * 0.10), int(size * 0.10))
+        beacon.center = (body_rect.centerx, body_rect.top - int(size * 0.1))
+        pygame.draw.rect(icon_surface, (255, 210, 140), beacon, border_radius=3)
+        pygame.draw.rect(icon_surface, (200, 150, 90), beacon, 1, border_radius=3)
+
     else:
         fallback_rect = pygame.Rect(int(size * 0.2), int(size * 0.2), int(size * 0.6), int(size * 0.6))
         pygame.draw.rect(icon_surface, (90, 100, 110), fallback_rect, border_radius=6)
@@ -74592,6 +74632,7 @@ def show_stage_selection(show_character_hint=True):
         {"num": 5, "name": "스테이지 5", "desc": "울트라 배틀크루저", "color": (80, 180, 255)},
         {"num": 6, "name": "스테이지 6", "desc": "홍련폭염", "color": (255, 50, 50)},
         {"num": 7, "name": "스테이지 7", "desc": "테트리서", "color": (120, 170, 255)},
+        {"num": 8, "name": "스테이지 8", "desc": "공닌자", "color": (70, 90, 140)},
         {"num": 50, "name": "튜토리얼", "desc": "게임 방법 익히기", "color": (100, 255, 100)},
     ]
     
