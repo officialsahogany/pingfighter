@@ -19624,8 +19624,10 @@ BALL_IMG = pygame.transform.smoothscale(BALL_IMG, (36, 36))
 hit_animation_active = False
 hit_animation_timer = 0
 HIT_ANIMATION_DURATION = 6  # 프레임 수
+PLAYER_SLOW_DEFAULT_FACTOR = 0.3
 player_slow_timer = 0  # 눈물 디버프 지속 시간 (프레임 단위)
 player_slow_timer_max = 0  # 느려짐 이펙트 강도 계산용
+player_slow_factor = PLAYER_SLOW_DEFAULT_FACTOR  # 느려짐 배율(1.0=정상)
 quake_offset_y = 0  # ← 전역 초기화 (draw_objects에서 사용)
 # 화면 흔들림 오프셋 변수들
 screen_shake_offset_x = 0
@@ -26060,7 +26062,7 @@ def draw_soldier_gun_animation(screen, paddle_rect):
 def handle_player(keys):
     global ball_angle, special_gauge, special_gauge_max, special_ready, special_active, recent_dash_time, recent_half_dash_time, recent_dash_success_window
     global power_smashing_direction, mega_smashing_bonus_applied
-    global current_speed, player_slow_timer
+    global current_speed, player_slow_timer, player_slow_timer_max, player_slow_factor
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
     global rolling_consecutive_count, rolling_consecutive_timer  #  연속 대쉬 카운터 및 타이머
     global ball_x, ball_y  # AK-47 연사용 공 위치 공유
@@ -27208,10 +27210,11 @@ def handle_player(keys):
     # 연막탄 투척 모션 제거 (즉시 발동으로 변경됨)
     #  디버프 적용: 느려지는 효과
     if player_slow_timer > 0:
-        speed_factor = 0.3
+        speed_factor = player_slow_factor
         player_slow_timer -= 1
     else:
         speed_factor = 1.0
+        player_slow_factor = PLAYER_SLOW_DEFAULT_FACTOR
 
     # 코만도 물자보급요청(홀드) 중 이동속도 -40% 감속
     # 조건: 코만도이며 ↓키를 누르고 있고, 물자보급 대기/홀드 상태일 때만 적용
