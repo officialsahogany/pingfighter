@@ -58233,6 +58233,7 @@ def reset_round():
     global balloon_event_delay, balloon_event_reserved_score  #  풍선 이벤트 타이머와 예약 점수
     global ai_frame_counter  #  AI 프레임 카운터 리셋
     global drive_global_cooldown, last_space_press_time  #  강화된 연타 방지 변수들
+    global serve_power_smash_lockout  # 서브 직후 파워스매싱 잠금 리셋
     global whip_active, whip_timer, whip_hit_by_player, whip_original_ball_speed  #  상모돌리기 관련 변수 추가
     global emotional_overdrive_active, emotional_overdrive_timer, overdrive_flash_timer, overdrive_trails  #  사이코볼 관련 변수 추가
     global round_start_time  #  불꽃탄 지연 시간 관련 변수 추가
@@ -58753,6 +58754,7 @@ def choose_server(show_text=True):
     # 서브 완료 타이머 초기화
     global serve_completed_timer
     serve_completed_timer = 0
+    serve_power_smash_lockout = 0
     
     # Stage 3 쿠로미 신비로운 궤적 효과 초기화
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
