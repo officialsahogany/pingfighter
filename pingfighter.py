@@ -70300,7 +70300,7 @@ def main(stage_num, new_boss_mode=False):
                         blacksmith_select_build_option("turret")
                     elif event.key in (pygame.K_2, pygame.K_KP2):
                         blacksmith_select_build_option("divine_stone")
-                    elif event.key in (pygame.K_ESCAPE, pygame.K_DOWN):
+                    elif event.key == pygame.K_ESCAPE or is_move_down_event(event):
                         # ↓ 키도 한 번 눌렀을 때 마우스 우클릭처럼
                         # 아무 것도 건설하지 않고 건설 HUD를 닫는다.
                         blacksmith_close_build_menu()
@@ -72413,10 +72413,10 @@ def show_pause_menu():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return "continue"  # ESC로 메뉴 닫기
-                elif event.key == pygame.K_UP:
+                elif event.key == pygame.K_UP or is_move_up_event(event):
                     selected = (selected - 1) % 4
                     play_button_hover_sound()  #  호버 사운드
-                elif event.key == pygame.K_DOWN:
+                elif event.key == pygame.K_DOWN or is_move_down_event(event):
                     selected = (selected + 1) % 4
                     play_button_hover_sound()  #  호버 사운드
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
