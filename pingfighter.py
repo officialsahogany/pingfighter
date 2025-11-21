@@ -36181,7 +36181,7 @@ def _spawn_stage8_shadows(now: int) -> None:
 
 def update_stage8_shadow_clones() -> None:
     """그림자분신 이동/수명/충돌 갱신."""
-    global stage8_shadow_clones, stage8_shadow_casting, boss_special_gauge
+    global stage8_shadow_clones, stage8_shadow_casting, boss_special_gauge, stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     if current_stage != 8:
         stage8_shadow_clones.clear()
         stage8_shadow_casting = False
@@ -63919,6 +63919,8 @@ def handle_ball():
                 if random.random() <= 0.15:
                     stage8_shadow_casting = True
                     stage8_shadow_cast_start_ms = pygame.time.get_ticks()
+                    stage8_shadow_freeze_posx = BOSS.centerx
+                    stage8_shadow_freeze_posy = BOSS.centery
                     show_speech("그림자분신!", duration=90)
         
         # 쿠로미 뱃기 궤적 비활성화 (보스 패들 충돌)
@@ -66749,9 +66751,20 @@ def handle_boss():
     global head_shot_active, head_shot_timer  # 헤드샷 스턴 관련 변수
     global boss_dash_stun_timer
     global stage8_shadow_casting, stage8_shadow_cast_start_ms, stage8_shadow_clones, stage8_shadow_next_ready_ms
+    global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     
     
     #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사: 초반 고속, 이후 감속)
+    #  스테이지8 그림자분신 주문 중에는 패들을 고정
+    if current_stage == 8 and stage8_shadow_casting:
+        try:
+            if stage8_shadow_freeze_posx and stage8_shadow_freeze_posy:
+                BOSS.centerx = stage8_shadow_freeze_posx
+                BOSS.centery = stage8_shadow_freeze_posy
+        except Exception:
+            pass
+        # 주문 중에는 다른 움직임/AI를 건너뛰어 제자리 유지
+        return
     if boss_dashing and boss_dash_timer > 0:
         boss_dash_timer -= 1
 
