@@ -58269,15 +58269,16 @@ def reset_round():
     # Stage 8 그림자분신 상태 초기화
     global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
     global stage8_shadow_anchor_x, stage8_shadow_anchor_y
-    stage8_shadow_clones = []
-    stage8_shadow_casting = False
-    stage8_shadow_next_ready_ms = 0
-    global stage8_shadow_cast_start_ms
-    stage8_shadow_cast_start_ms = 0
-    stage8_shadow_freeze_posx = 0
-    stage8_shadow_freeze_posy = 0
-    stage8_shadow_anchor_x = 0
-    stage8_shadow_anchor_y = 0
+    if current_stage != 8:
+        stage8_shadow_clones = []
+        stage8_shadow_casting = False
+        stage8_shadow_next_ready_ms = 0
+        global stage8_shadow_cast_start_ms
+        stage8_shadow_cast_start_ms = 0
+        stage8_shadow_freeze_posx = 0
+        stage8_shadow_freeze_posy = 0
+        stage8_shadow_anchor_x = 0
+        stage8_shadow_anchor_y = 0
 
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
