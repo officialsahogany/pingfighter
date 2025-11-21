@@ -63906,6 +63906,12 @@ def handle_ball():
         elif current_stage in (3, 4, 5, 6, 8):
             boss_special_gauge = min(boss_special_gauge + 60, 500)
             print(f"스테이지{current_stage} 보스 게이지 충전: +60 (현재: {boss_special_gauge}/500)")
+            # 스테이지 8: 패들 피격 시 15% 확률로 그림자분신 캐스팅 시작 (게이지 200 이상)
+            if current_stage == 8 and boss_special_gauge >= 200 and not stage8_shadow_casting and not stage8_shadow_clones:
+                if random.random() <= 0.15:
+                    stage8_shadow_casting = True
+                    stage8_shadow_cast_start_ms = pygame.time.get_ticks()
+                    show_fade_text("그림자분신!")
         
         # 쿠로미 뱃기 궤적 비활성화 (보스 패들 충돌)
         if kuromi_spit_trail_active:
@@ -64465,19 +64471,7 @@ def handle_ball():
                     boss_special_gauge_stage4 = 500
                     boss_special_ready_stage4 = True
         elif not new_boss_mode_active and current_stage == 8:
-            now = pygame.time.get_ticks()
-            # 주문 중이 아니고, 게이지 200 이상 & 쿨다운 종료 시 20% 확률로 발동 시도
-            if (
-                not stage8_shadow_casting
-                and not stage8_shadow_clones
-                and boss_special_gauge >= 200
-                and now >= stage8_shadow_next_ready_ms
-                and random.random() <= 0.20
-            ):
-                stage8_shadow_casting = True
-                stage8_shadow_cast_start_ms = now
-                show_fade_text("그림자분신!")
-            # 그림자 상태 갱신
+            # 그림자 상태 갱신만 수행 (트리거는 보스 패들 히트 시 처리)
             update_stage8_shadow_clones()
 def predict_ball_position(frames=20):
     predict_x = BALL.centerx + ball_vel[0] * frames
