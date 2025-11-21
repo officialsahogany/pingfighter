@@ -91,46 +91,60 @@ def gradient_ellipse(draw: ImageDraw.ImageDraw, bbox: Tuple[int, int, int, int],
 
 
 def draw_torso(draw: ImageDraw.ImageDraw) -> None:
-    # Slight V-shape upper body instead of round blob
-    torso_poly = [
-        (CENTER - 68, 192),
-        (CENTER + 68, 192),
-        (CENTER + 86, 270),
-        (CENTER + 54, 352),
-        (CENTER - 54, 352),
-        (CENTER - 86, 270),
+    # Compact chibi torso with belt and folds
+    torso = [
+        (CENTER - 70, 194),
+        (CENTER + 70, 194),
+        (CENTER + 92, 272),
+        (CENTER + 66, 348),
+        (CENTER - 66, 348),
+        (CENTER - 92, 272),
     ]
-    draw.polygon(torso_poly, fill=NINJA_MID, outline=(20, 24, 30, 180))
-    inner_poly = [(x * 0.94 + CENTER * 0.06, y + 6) for x, y in torso_poly]
-    draw.polygon(inner_poly, fill=NINJA_BASE)
-    # chest panel
+    draw.polygon(torso, fill=NINJA_MID, outline=INK)
+
+    inner = [(x * 0.94 + CENTER * 0.06, y + 8) for x, y in torso]
+    draw.polygon(inner, fill=NINJA_BASE)
+
+    # rib folds
+    for i, xoff in enumerate((-30, 0, 30)):
+        y1 = 230 + i * 18
+        draw.line([(CENTER - 16 + xoff, y1), (CENTER + 16 + xoff, y1)], fill=NINJA_GLOSS, width=2)
+
+    # chest panel & belt
     draw.polygon(
         [
-            (CENTER - 28, 206),
-            (CENTER + 28, 206),
-            (CENTER + 34, 312),
-            (CENTER - 34, 312),
+            (CENTER - 30, 210),
+            (CENTER + 30, 210),
+            (CENTER + 38, 314),
+            (CENTER - 38, 314),
         ],
         fill=NINJA_LIGHT,
+        outline=INK,
     )
-    # belt
-    draw.rectangle((CENTER - 54, 306, CENTER + 54, 334), fill=GEAR_TRIM, outline=NINJA_LIGHT, width=3)
-    draw.rectangle((CENTER - 16, 312, CENTER + 16, 330), fill=(220, 230, 240, 255), outline=NINJA_MID, width=2)
+    draw.rectangle((CENTER - 60, 304, CENTER + 60, 338), fill=BAND_SHADOW, outline=INK, width=3)
+    draw.rectangle((CENTER - 22, 310, CENTER + 22, 332), fill=GEAR_TRIM := (88, 110, 142, 255), outline=INK, width=3)
 
 
 def draw_head(draw: ImageDraw.ImageDraw) -> None:
     # neck
-    draw.rectangle((CENTER - 18, 186, CENTER + 18, 214), fill=NINJA_MID, outline=(18, 22, 30, 180), width=2)
-    gradient_ellipse(draw, (CENTER - 70, 122, CENTER + 70, 258), NINJA_LIGHT, NINJA_BASE)
-    draw.ellipse((CENTER - 68, 120, CENTER + 68, 256), outline=(10, 12, 18, 180), width=3)
-    # angular jaw hint
-    jaw = [
-        (CENTER - 52, 226),
-        (CENTER + 52, 226),
-        (CENTER + 42, 246),
-        (CENTER - 42, 246),
-    ]
-    draw.polygon(jaw, fill=NINJA_MID)
+    draw.rectangle((CENTER - 18, 186, CENTER + 18, 214), fill=NINJA_MID, outline=INK, width=2)
+    # hood (large, chunky)
+    gradient_ellipse(draw, (CENTER - 90, 108, CENTER + 90, 270), NINJA_LIGHT, NINJA_BASE)
+    draw.ellipse((CENTER - 94, 104, CENTER + 94, 274), outline=INK, width=6)
+    # hood inner shadow
+    draw.ellipse((CENTER - 80, 132, CENTER + 80, 254), outline=(0, 0, 0, 140), width=8)
+    # eye slit
+    draw.rectangle((CENTER - 64, 196, CENTER + 64, 222), fill=EYE_SHADOW, outline=INK, width=3)
+    draw.rectangle((CENTER - 60, 200, CENTER + 60, 214), fill=(56, 64, 82, 255))
+    for offset in (-28, 28):
+        draw.ellipse((CENTER + offset - 16, 200, CENTER + offset + 16, 220), fill=EYE_WHITE, outline=INK, width=2)
+        draw.ellipse((CENTER + offset - 10, 204, CENTER + offset + 2, 218), fill=EYE_IRIS)
+        draw.ellipse((CENTER + offset - 6, 208, CENTER + offset + 0, 216), fill=EYE_SHADOW)
+    # brow hint
+    draw.arc((CENTER - 68, 188, CENTER + 68, 210), 200, 340, fill=INK, width=4)
+    # band wrap
+    draw.rectangle((CENTER - 86, 172, CENTER + 86, 192), fill=BAND_RED, outline=INK, width=3)
+    draw.rectangle((CENTER - 86, 188, CENTER + 86, 196), fill=BAND_SHADOW)
     # band
     draw.rectangle((CENTER - 78, 160, CENTER + 78, 188), fill=BAND_RED)
     draw.rectangle((CENTER - 78, 182, CENTER + 78, 192), fill=(120, 24, 30, 255))
