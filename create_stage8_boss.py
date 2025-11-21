@@ -88,16 +88,31 @@ def gradient_ellipse(draw: ImageDraw.ImageDraw, bbox: Tuple[int, int, int, int],
 
 
 def draw_torso(draw: ImageDraw.ImageDraw) -> None:
-    gradient_ellipse(draw, (CENTER - 96, 190, CENTER + 96, 370), NINJA_MID, NINJA_BASE)
-    draw.ellipse((CENTER - 86, 206, CENTER + 86, 356), outline=(20, 24, 30, 180), width=4)
-    draw.rectangle((CENTER - 20, 206, CENTER + 20, 318), fill=NINJA_LIGHT)
-    draw.rectangle((CENTER - 24, 206, CENTER - 6, 318), fill=NINJA_MID)
-    draw.rectangle((CENTER + 6, 206, CENTER + 24, 318), fill=NINJA_MID)
-    draw.rectangle((CENTER - 46, 306, CENTER + 46, 332), fill=GEAR_TRIM)
-    draw.rectangle((CENTER - 48, 310, CENTER + 48, 336), outline=NINJA_LIGHT, width=3)
-    # belt buckle
-    draw.rectangle((CENTER - 14, 312, CENTER + 14, 328), fill=(220, 230, 240, 255))
-    draw.rectangle((CENTER - 14, 312, CENTER + 14, 328), outline=NINJA_MID, width=2)
+    # Slight V-shape upper body instead of round blob
+    torso_poly = [
+        (CENTER - 68, 192),
+        (CENTER + 68, 192),
+        (CENTER + 86, 270),
+        (CENTER + 54, 352),
+        (CENTER - 54, 352),
+        (CENTER - 86, 270),
+    ]
+    draw.polygon(torso_poly, fill=NINJA_MID, outline=(20, 24, 30, 180))
+    inner_poly = [(x * 0.94 + CENTER * 0.06, y + 6) for x, y in torso_poly]
+    draw.polygon(inner_poly, fill=NINJA_BASE)
+    # chest panel
+    draw.polygon(
+        [
+            (CENTER - 28, 206),
+            (CENTER + 28, 206),
+            (CENTER + 34, 312),
+            (CENTER - 34, 312),
+        ],
+        fill=NINJA_LIGHT,
+    )
+    # belt
+    draw.rectangle((CENTER - 54, 306, CENTER + 54, 334), fill=GEAR_TRIM, outline=NINJA_LIGHT, width=3)
+    draw.rectangle((CENTER - 16, 312, CENTER + 16, 330), fill=(220, 230, 240, 255), outline=NINJA_MID, width=2)
 
 
 def draw_head(draw: ImageDraw.ImageDraw) -> None:
@@ -122,13 +137,52 @@ def draw_head(draw: ImageDraw.ImageDraw) -> None:
 
 
 def draw_arms(draw: ImageDraw.ImageDraw) -> Tuple[Tuple[int, int], Tuple[int, int]]:
-    left = (CENTER - 150, 256)
-    right = (CENTER + 150, 256)
-    for cx, cy in (left, right):
-        gradient_ellipse(draw, (cx - 52, cy - 40, cx + 52, cy + 50), NINJA_LIGHT, NINJA_BASE)
-        draw.ellipse((cx - 46, cy - 34, cx + 46, cy + 44), outline=(18, 22, 28, 180), width=3)
-        draw.rectangle((cx - 24, cy + 22, cx + 24, cy + 70), fill=GLOVE, outline=(42, 48, 62, 200), width=2)
-    return left, right
+    # More human proportions: tapered upper arm + slimmer forearm
+    left_shoulder = (CENTER - 116, 218)
+    right_shoulder = (CENTER + 116, 218)
+    upper_len = 78
+    fore_len = 74
+    shoulder_width = 34
+    fore_width = 24
+
+    def limb(shoulder: Tuple[int, int], side: int):
+        sx, sy = shoulder
+        elbow = (sx + side * 24, sy + upper_len)
+        wrist = (elbow[0] + side * 10, elbow[1] + fore_len)
+        # upper arm
+        draw.polygon(
+            [
+                (sx - shoulder_width // 2, sy),
+                (sx + shoulder_width // 2, sy),
+                (elbow[0] + side * 10, elbow[1]),
+                (elbow[0] - side * 10, elbow[1]),
+            ],
+            fill=NINJA_MID,
+            outline=(18, 22, 28, 180),
+        )
+        # forearm
+        draw.polygon(
+            [
+                (elbow[0] - side * (fore_width // 2), elbow[1]),
+                (elbow[0] + side * (fore_width // 2), elbow[1]),
+                (wrist[0] + side * 6, wrist[1]),
+                (wrist[0] - side * 6, wrist[1]),
+            ],
+            fill=NINJA_LIGHT,
+            outline=(18, 22, 28, 180),
+        )
+        # glove
+        draw.rectangle(
+            (wrist[0] - 18, wrist[1] - 6, wrist[0] + 18, wrist[1] + 34),
+            fill=GLOVE,
+            outline=(42, 48, 62, 200),
+            width=2,
+        )
+        return wrist
+
+    left_wrist = limb(left_shoulder, -1)
+    right_wrist = limb(right_shoulder, 1)
+    return left_wrist, right_wrist
 
 
 def draw_shuriken(draw: ImageDraw.ImageDraw, hand_center: Tuple[int, int]) -> None:
