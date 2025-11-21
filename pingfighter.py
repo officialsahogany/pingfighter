@@ -36181,13 +36181,18 @@ def _spawn_stage8_shadows(now: int) -> None:
 
 def update_stage8_shadow_clones() -> None:
     """그림자분신 이동/수명/충돌 갱신."""
-    global stage8_shadow_clones, stage8_shadow_casting, boss_special_gauge, stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
+    global stage8_shadow_clones, stage8_shadow_casting, boss_special_gauge
+    global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
+    global stage8_shadow_anchor_x, stage8_shadow_anchor_y
     if current_stage != 8:
         stage8_shadow_clones.clear()
         stage8_shadow_casting = False
         return
 
     now = pygame.time.get_ticks()
+    # 보스 현재 위치 저장(동기 이동용)
+    stage8_shadow_anchor_x = BOSS.centerx
+    stage8_shadow_anchor_y = BOSS.centery
 
     # 주문 완료 후 분신 생성
     if stage8_shadow_casting and now - stage8_shadow_cast_start_ms >= STAGE8_SHADOW_CAST_MS:
@@ -36205,22 +36210,16 @@ def update_stage8_shadow_clones() -> None:
             continue
 
         rect: pygame.Rect = clone["rect"]
-        direction = clone["direction"]
-        # 등장 애니메이션: 양쪽으로 벌어지며 나타남
+        offset_x = clone.get("offset_x", 0)
+        offset_y = clone.get("offset_y", 0)
+        # 등장 애니메이션: 양쪽으로 벌어지며 나타남 (기준: 캐스팅 시 위치)
         if elapsed < STAGE8_SHADOW_EMERGE_MS:
             t = elapsed / STAGE8_SHADOW_EMERGE_MS
-            rect.centerx = clone["base_x"] + int(direction * 90 * t)
-            rect.centery = clone["base_y"]
+            rect.centerx = stage8_shadow_freeze_posx + int(offset_x * t)
+            rect.centery = stage8_shadow_freeze_posy + int(offset_y * t)
         else:
-            rect.x += int(clone["vx"])
-            rect.y += int(clone["vy"])
-            # 벽 반사
-            if rect.left < 10 or rect.right > WIDTH - 10:
-                clone["vx"] *= -1
-                rect.x = max(10, min(rect.x, WIDTH - rect.width - 10))
-            if rect.top < 20 or rect.bottom > HEIGHT - 20:
-                clone["vy"] *= -1
-                rect.y = max(20, min(rect.y, HEIGHT - rect.height - 20))
+            rect.centerx = stage8_shadow_anchor_x + offset_x
+            rect.centery = stage8_shadow_anchor_y + offset_y
 
         # 공과 충돌 시 바로 소멸 (연기 처리 간소화)
         if rect.colliderect(BALL):
@@ -36244,8 +36243,12 @@ def draw_stage8_shadow_clones(surface: pygame.Surface) -> None:
         fade = min(1.0, remaining / 1500)  # 마지막 1.5초 페이드아웃
         alpha = int(180 * emerge * fade)
 
-        shadow_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (rect.width, rect.height))
-        shadow_surface = shadow_surface.copy()
+        # 보스와 동일한 워크 포즈를 사용해 실시간 애니메이션 동기화
+        try:
+            pose_surface, _, _ = _build_stage8_walk_pose(BOSS_IMG_STAGE8, rect)
+        except Exception:
+            pose_surface = pygame.transform.smoothscale(BOSS_IMG_STAGE8, (rect.width, rect.height))
+        shadow_surface = pose_surface.copy()
         shadow_surface.fill((40, 40, 60, alpha), special_flags=pygame.BLEND_RGBA_MULT)
         surface.blit(shadow_surface, rect)
 
@@ -58245,11 +58248,16 @@ def reset_round():
 
     # Stage 8 그림자분신 상태 초기화
     global stage8_shadow_clones, stage8_shadow_casting, stage8_shadow_next_ready_ms
+    global stage8_shadow_anchor_x, stage8_shadow_anchor_y
     stage8_shadow_clones = []
     stage8_shadow_casting = False
     stage8_shadow_next_ready_ms = 0
     global stage8_shadow_cast_start_ms
     stage8_shadow_cast_start_ms = 0
+    stage8_shadow_freeze_posx = 0
+    stage8_shadow_freeze_posy = 0
+    stage8_shadow_anchor_x = 0
+    stage8_shadow_anchor_y = 0
 
     blacksmith_umbrella_gauge = BLACKSMITH_UMBRELLA_GAUGE_MAX
     blacksmith_umbrella_recharge_progress = 0
