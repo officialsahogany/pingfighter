@@ -54036,7 +54036,7 @@ def show_item_manager_menu():
                     apply_character_selection(character_id)
                     main(stage_num)
                     return
-                elif event.key in [pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN]:
+                elif True:
                     # 아이템 선택
                     if selected_category == 0:
                         current_items = active_items
@@ -54046,16 +54046,22 @@ def show_item_manager_menu():
                         current_items = firearm_items
                     else:  # 전설
                         current_items = legendary_items
+                    dir_left = is_move_left_event(event)
+                    dir_right = is_move_right_event(event)
+                    dir_up = is_move_up_event(event)
+                    dir_down = is_move_down_event(event)
+                    if not (dir_left or dir_right or dir_up or dir_down):
+                        continue
                     if current_items:
                         current_row = selected_item_index // grid_cols
                         current_col = selected_item_index % grid_cols
-                        if event.key == pygame.K_RIGHT:
+                        if dir_right:
                             current_col = (current_col + 1) % grid_cols
-                        elif event.key == pygame.K_LEFT:
+                        elif dir_left:
                             current_col = (current_col - 1) % grid_cols
-                        elif event.key == pygame.K_DOWN:
+                        elif dir_down:
                             current_row = (current_row + 1) % ((len(current_items) + grid_cols - 1) // grid_cols)
-                        elif event.key == pygame.K_UP:
+                        elif dir_up:
                             current_row = (current_row - 1) % ((len(current_items) + grid_cols - 1) // grid_cols)
                         new_index = current_row * grid_cols + current_col
                         if new_index < len(current_items):
@@ -74646,16 +74652,16 @@ def show_stage_selection(show_character_hint=True):
                     chosen_stage = stages[selected_index]["num"]
                     print(f"[StageSelect] 선택된 스테이지: {chosen_stage}")
                     return chosen_stage
-                elif event.key == pygame.K_LEFT:
+                elif is_move_left_event(event):
                     selected_index = (selected_index - 1) % len(stages)
                     play_button_hover_sound()
-                elif event.key == pygame.K_RIGHT:
+                elif is_move_right_event(event):
                     selected_index = (selected_index + 1) % len(stages)
                     play_button_hover_sound()
-                elif event.key == pygame.K_UP:
+                elif is_move_up_event(event) or event.key == pygame.K_UP:
                     selected_index = (selected_index - cards_per_row) % len(stages)
                     play_button_hover_sound()
-                elif event.key == pygame.K_DOWN:
+                elif is_move_down_event(event) or event.key == pygame.K_DOWN:
                     selected_index = (selected_index + cards_per_row) % len(stages)
                     play_button_hover_sound()
 
