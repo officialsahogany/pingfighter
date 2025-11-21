@@ -126,7 +126,7 @@ BOSS_CONFIGS = {
         "dash_max_distance": 300,
     },
     8: {
-        "name": "공닌자",
+        "name": "탁닌자",
         "color": (60, 80, 120),
         "accel": 0.92,
         "decel": 0.92,

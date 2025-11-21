@@ -24741,9 +24741,24 @@ def draw_soldier_weapon_ui(screen):
         base_body_color = (70, 80, 95)
         base_prop_color = (190, 210, 230)
         base_nose_color = (230, 120, 80)
-        body_color = base_body_color if drone_ready else (45, 50, 60)
-        prop_color = base_prop_color if drone_ready else (120, 135, 150)
-        nose_color = base_nose_color if drone_ready else (150, 90, 70)
+
+        def _to_gray(color: tuple[int, ...], min_value: int = 0) -> tuple[int, ...]:
+            """RGB/ RGBA 튜플을 단일 명도값으로 변환해 흑백으로 반환."""
+            r, g, b = color[:3]
+            gray = max(min_value, int(r * 0.299 + g * 0.587 + b * 0.114))
+            if len(color) == 4:
+                return (gray, gray, gray, color[3])
+            return (gray, gray, gray)
+
+        if drone_ready:
+            body_color = base_body_color
+            prop_color = base_prop_color
+            nose_color = base_nose_color
+        else:
+            # 비활성화 상태는 다른 UI와 동일하게 흑백 톤으로 표현
+            body_color = _to_gray(base_body_color, 40)
+            prop_color = _to_gray(base_prop_color, 60)
+            nose_color = _to_gray(base_nose_color, 50)
         pygame.draw.rect(screen, body_color, (weapon_rect.x + slot_w * 0.28, weapon_rect.y + slot_h * 0.44, slot_w * 0.44, slot_h * 0.16), border_radius=4)
         pygame.draw.rect(screen, nose_color, (weapon_rect.x + slot_w * 0.5 - slot_w * 0.08, weapon_rect.y + slot_h * 0.36, slot_w * 0.16, slot_h * 0.14), border_radius=3)
         for dx in (slot_w * 0.18, slot_w * 0.82):
@@ -24765,6 +24780,9 @@ def draw_soldier_weapon_ui(screen):
             filled = i < ammo_to_show
             body = (195, 225, 250) if filled else (70, 80, 95)
             outline = (80, 120, 180) if filled else (90, 90, 100)
+            if not drone_ready:
+                body = _to_gray(body, 60)
+                outline = _to_gray(outline, 80)
             pygame.draw.rect(screen, body, rect, border_radius=3)
             pygame.draw.rect(screen, outline, rect, 1, border_radius=3)
             # 프롭 표시
@@ -24782,7 +24800,9 @@ def draw_soldier_weapon_ui(screen):
                     status_color = (180, 220, 255)
                 else:
                     status_text = "탄약 없음"
-                    status_color = (220, 150, 150)
+                    status_color = _to_gray((220, 150, 150), 140)
+                if not drone_ready:
+                    status_color = _to_gray(status_color)
                 status_surface = font_small.render(status_text, True, status_color)
                 screen.blit(status_surface, (weapon_x, weapon_y - 20))
         except Exception:
@@ -74647,7 +74667,7 @@ def show_stage_selection(show_character_hint=True):
         {"num": 5, "name": "스테이지 5", "desc": "울트라 배틀크루저", "color": (80, 180, 255)},
         {"num": 6, "name": "스테이지 6", "desc": "홍련폭염", "color": (255, 50, 50)},
         {"num": 7, "name": "스테이지 7", "desc": "테트리서", "color": (120, 170, 255)},
-        {"num": 8, "name": "스테이지 8", "desc": "공닌자", "color": (70, 90, 140)},
+        {"num": 8, "name": "스테이지 8", "desc": "탁닌자", "color": (70, 90, 140)},
         {"num": 50, "name": "튜토리얼", "desc": "게임 방법 익히기", "color": (100, 255, 100)},
     ]
     
