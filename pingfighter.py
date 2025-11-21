@@ -27305,15 +27305,25 @@ def handle_player(keys):
                     discounted_cost = int(discounted_cost * 0.8)  # 대쉬기어 20% 할인
                 battery_bonus = academy.get_skill_bonus("dash_battery_pack")
                 required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))  # 실제 필요 게이지
-                # 좌/우는 컨트롤 스킴과 무관하게 화살표+A/D 모두 허용
+                # 좌/우는 컨트롤 스킴/IME 여부와 무관하게 인식 (스냅샷+이벤트+스캔코드)
+                left_active_for_dash = (
+                    is_move_left_pressed(keys)
+                    or MOVE_EVENT_LEFT
+                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_left_state))
+                )
+                right_active_for_dash = (
+                    is_move_right_pressed(keys)
+                    or MOVE_EVENT_RIGHT
+                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_right_state))
+                )
                 left_before_down = (
-                    (keys[pygame.K_LEFT] or keys[pygame.K_a])
+                    left_active_for_dash
                     and left_press_frame >= 0
                     and down_press_frame >= 0
                     and left_press_frame < down_press_frame
                 )
                 right_before_down = (
-                    (keys[pygame.K_RIGHT] or keys[pygame.K_d])
+                    right_active_for_dash
                     and right_press_frame >= 0
                     and down_press_frame >= 0
                     and right_press_frame < down_press_frame
@@ -27716,14 +27726,24 @@ def handle_player(keys):
                     can_use_half_dash = True
             
             if HALF_DASH_ENABLED and down_pressed and not globals().get('dash_down_first_lock', False) and can_use_half_dash and not rolling_active:
+                left_active_for_dash = (
+                    is_move_left_pressed(keys)
+                    or MOVE_EVENT_LEFT
+                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_left_state))
+                )
+                right_active_for_dash = (
+                    is_move_right_pressed(keys)
+                    or MOVE_EVENT_RIGHT
+                    or ('INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and bool(SNAP_right_state))
+                )
                 left_before_down_half = (
-                    (keys[pygame.K_LEFT] or keys[pygame.K_a])
+                    left_active_for_dash
                     and left_press_frame >= 0
                     and down_press_frame >= 0
                     and left_press_frame < down_press_frame
                 )
                 right_before_down_half = (
-                    (keys[pygame.K_RIGHT] or keys[pygame.K_d])
+                    right_active_for_dash
                     and right_press_frame >= 0
                     and down_press_frame >= 0
                     and right_press_frame < down_press_frame
@@ -27776,8 +27796,8 @@ def handle_player(keys):
                             'down_pressed': down_pressed,
                             'keys': keys,
                             # A/D 보조 키 플래그 (하프대쉬 방향 판단 보조)
-                            'left_key_alt': bool(keys[pygame.K_a]),
-                            'right_key_alt': bool(keys[pygame.K_d]),
+                            'left_key_alt': left_active_for_dash,
+                            'right_key_alt': right_active_for_dash,
                             'jump_bonus': jump_bonus,  # 도약 스킬 보너스 전달
                             'dashgear_obtained': dashgear_obtained  # 대쉬기어 상태 전달
                         }
