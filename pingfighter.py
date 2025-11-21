@@ -58909,6 +58909,7 @@ def reset_round():
         stage8_shadow_freeze_posy = 0
         stage8_shadow_anchor_x = 0
         stage8_shadow_anchor_y = 0
+        stage8_shadow_invuln_until_ms = 0
         stage8_shuriken_casting = False
         stage8_shuriken_cast_start_ms = 0
         stage8_shuriken_next_ready_ms = 0
@@ -64552,7 +64553,14 @@ def handle_ball():
     else:
         # 다른 스테이지는 원래 크기 사용
         boss_hitbox_expanded = BOSS
-    if boss_hitbox_expanded.colliderect(BALL) and boss_collision_cooldown <= 0 and not is_waiting_for_serve:
+    # 스테이지8 그림자분신 연출(하강/상승) 중에는 공 충돌 무시
+    stage8_shadow_intangible = False
+    if current_stage == 8:
+        now_ms = pygame.time.get_ticks()
+        if stage8_shadow_casting or now_ms < stage8_shadow_invuln_until_ms:
+            stage8_shadow_intangible = True
+
+    if boss_hitbox_expanded.colliderect(BALL) and boss_collision_cooldown <= 0 and not is_waiting_for_serve and not stage8_shadow_intangible:
         # 자폭드론 부스트 상태면 보스 맞는 순간 바로 복원 처리 (우선 적용)
         try:
             if suicide_drone_ball_boost_active and suicide_drone_ball_speed_backup > 0:
@@ -64594,6 +64602,7 @@ def handle_ball():
                     if random.random() <= 0.15:
                         stage8_shadow_casting = True
                         stage8_shadow_cast_start_ms = pygame.time.get_ticks()
+                        stage8_shadow_invuln_until_ms = stage8_shadow_cast_start_ms + STAGE8_SHADOW_CAST_MS + STAGE8_SHADOW_INVULN_BUFFER_MS
                         stage8_shadow_freeze_posx = BOSS.centerx
                         stage8_shadow_freeze_posy = BOSS.centery
                         show_speech("그림자분신!", duration=90)
@@ -67455,6 +67464,7 @@ def handle_boss():
     global boss_dash_stun_timer
     global stage8_shadow_casting, stage8_shadow_cast_start_ms, stage8_shadow_clones, stage8_shadow_next_ready_ms
     global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
+    global stage8_shadow_invuln_until_ms
     global stage8_shuriken_casting, stage8_shuriken_cast_start_ms, stage8_shuriken_next_ready_ms
 
 
