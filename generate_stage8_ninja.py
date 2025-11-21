@@ -142,46 +142,114 @@ def draw_wall_windows(surface):
 
 
 def draw_ceiling(surface):
-    """천장 처마 영역 + 상단 창문."""
-    # 상단 어두운 영역 (천장 느낌)
-    ceiling_height = 50
-    for y in range(ceiling_height):
-        ratio = y / ceiling_height
-        darkness = int(15 + ratio * 10)
-        pygame.draw.line(surface, (darkness, darkness - 2, darkness - 3),
-                        (60, y), (WIDTH - 60, y))
+    """천장 처마 영역 + 오동나무 닌자 저택 + 밝은 창문."""
+    # === 보스 쪽 닌자 저택 배경 (오동나무 톤) ===
+    mansion_height = 140  # 저택 높이
 
-    # 처마 라인
-    pygame.draw.line(surface, (35, 30, 25), (60, ceiling_height), (WIDTH - 60, ceiling_height), 3)
+    # 오동나무 색상 팔레트
+    paulownia_dark = (55, 45, 38)      # 오동나무 어두운 부분
+    paulownia_mid = (70, 58, 48)       # 오동나무 중간
+    paulownia_light = (85, 70, 58)     # 오동나무 밝은 부분
+    paulownia_highlight = (95, 80, 65) # 하이라이트
 
-    # 상단 창문들 (보스 쪽) - 3개의 창문
-    frame_color = (45, 38, 32)
-    paper_color = (40, 36, 32)
-    top_window_y = 55
-    top_window_height = 80
-    top_window_width = 100
+    # 저택 벽면 기본 (오동나무 그라데이션)
+    for y in range(mansion_height):
+        ratio = y / mansion_height
+        r = int(paulownia_dark[0] + (paulownia_mid[0] - paulownia_dark[0]) * ratio)
+        g = int(paulownia_dark[1] + (paulownia_mid[1] - paulownia_dark[1]) * ratio)
+        b = int(paulownia_dark[2] + (paulownia_mid[2] - paulownia_dark[2]) * ratio)
+        pygame.draw.line(surface, (r, g, b), (60, y), (WIDTH - 60, y))
 
-    # 창문 위치 (좌, 중앙, 우)
-    top_window_positions = [
-        (90, top_window_y),
-        (WIDTH // 2 - top_window_width // 2, top_window_y),
-        (WIDTH - 90 - top_window_width, top_window_y),
-    ]
+    # 나무 판자 무늬 (수평 라인)
+    plank_color = (50, 40, 33)
+    for i in range(0, mansion_height, 22):
+        pygame.draw.line(surface, plank_color, (60, i), (WIDTH - 60, i), 1)
 
-    for wx, wy in top_window_positions:
-        # 창문 프레임
+    # === 밝은 창문들 (연속으로 이어짐) ===
+    window_y = 25
+    window_height = 85
+    window_margin = 8  # 창문 사이 간격
+
+    # 밝은 창문 색상 (따뜻한 빛)
+    window_glow_outer = (120, 100, 70)   # 외부 글로우
+    window_paper = (160, 140, 100)       # 창호지 (밝은 황색)
+    window_light = (200, 180, 130)       # 창문 내부 빛
+    window_bright = (230, 210, 160)      # 가장 밝은 부분
+    frame_color = (60, 50, 42)           # 프레임 (오동나무)
+
+    # 5개의 연속된 창문
+    total_width = WIDTH - 120 - 60  # 양쪽 벽 제외
+    num_windows = 5
+    window_width = (total_width - (num_windows + 1) * window_margin) // num_windows
+
+    for i in range(num_windows):
+        wx = 60 + window_margin + i * (window_width + window_margin)
+        wy = window_y
+
+        # 창문 글로우 효과 (빛이 새어나오는 느낌)
+        glow_surf = pygame.Surface((window_width + 20, window_height + 20), pygame.SRCALPHA)
+        for g in range(3):
+            glow_alpha = 30 - g * 10
+            pygame.draw.rect(glow_surf, (*window_glow_outer, glow_alpha),
+                           (10 - g*3, 10 - g*3, window_width + g*6, window_height + g*6),
+                           border_radius=3)
+        surface.blit(glow_surf, (wx - 10, wy - 10))
+
+        # 창문 프레임 (외부)
         pygame.draw.rect(surface, frame_color,
-                        (wx, wy, top_window_width, top_window_height))
-        # 창호지 (내부)
-        pygame.draw.rect(surface, paper_color,
-                        (wx + 4, wy + 4, top_window_width - 8, top_window_height - 8))
-        # 창살 (세로 3개, 가로 2개)
-        for i in range(1, 4):
-            gx = wx + 4 + (top_window_width - 8) * i // 4
-            pygame.draw.line(surface, frame_color, (gx, wy + 4), (gx, wy + top_window_height - 4), 2)
-        for i in range(1, 3):
-            gy = wy + 4 + (top_window_height - 8) * i // 3
-            pygame.draw.line(surface, frame_color, (wx + 4, gy), (wx + top_window_width - 4, gy), 2)
+                        (wx - 3, wy - 3, window_width + 6, window_height + 6), border_radius=2)
+
+        # 창호지 배경 (밝은 황색 빛)
+        pygame.draw.rect(surface, window_paper,
+                        (wx, wy, window_width, window_height))
+
+        # 창문 내부 그라데이션 (중앙이 더 밝음)
+        inner_surf = pygame.Surface((window_width - 6, window_height - 6), pygame.SRCALPHA)
+        center_x = (window_width - 6) // 2
+        center_y = (window_height - 6) // 2
+        for iy in range(window_height - 6):
+            for ix in range(0, window_width - 6, 3):
+                dist = math.sqrt((ix - center_x)**2 + (iy - center_y)**2)
+                max_dist = math.sqrt(center_x**2 + center_y**2)
+                brightness = 1 - (dist / max_dist) * 0.3
+                r = min(255, int(window_light[0] * brightness))
+                g = min(255, int(window_light[1] * brightness))
+                b = min(255, int(window_light[2] * brightness))
+                pygame.draw.rect(inner_surf, (r, g, b), (ix, iy, 3, 1))
+        surface.blit(inner_surf, (wx + 3, wy + 3))
+
+        # 창살 (세로 2개, 가로 2개)
+        grid_color = (70, 58, 48)
+        # 세로 창살
+        for j in range(1, 3):
+            gx = wx + window_width * j // 3
+            pygame.draw.line(surface, grid_color, (gx, wy + 2), (gx, wy + window_height - 2), 3)
+        # 가로 창살
+        for j in range(1, 3):
+            gy = wy + window_height * j // 3
+            pygame.draw.line(surface, grid_color, (wx + 2, gy), (wx + window_width - 2, gy), 3)
+
+    # === 처마 (저택 아래 부분) ===
+    eave_y = mansion_height
+    eave_height = 15
+
+    # 처마 그라데이션
+    for y in range(eave_height):
+        ratio = y / eave_height
+        darkness = int(paulownia_dark[0] - 15 + ratio * 20)
+        pygame.draw.line(surface, (darkness, darkness - 5, darkness - 8),
+                        (55, eave_y + y), (WIDTH - 55, eave_y + y))
+
+    # 처마 끝 라인 (그림자)
+    pygame.draw.line(surface, (35, 28, 22), (55, eave_y + eave_height), (WIDTH - 55, eave_y + eave_height), 4)
+    pygame.draw.line(surface, (45, 38, 30), (55, eave_y + eave_height + 2), (WIDTH - 55, eave_y + eave_height + 2), 2)
+
+    # === 지붕 장식 (처마 위) ===
+    # 작은 기와 느낌
+    tile_color = (45, 38, 32)
+    for x in range(60, WIDTH - 60, 30):
+        # 기와 곡선
+        pygame.draw.arc(surface, tile_color, (x, eave_y - 8, 30, 16), 0, math.pi, 2)
 
 
 def draw_lanterns(surface):
