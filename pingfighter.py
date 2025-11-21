@@ -64328,14 +64328,20 @@ def handle_ball():
         elif current_stage in (3, 4, 5, 6, 8):
             boss_special_gauge = min(boss_special_gauge + 60, 500)
             print(f"스테이지{current_stage} 보스 게이지 충전: +60 (현재: {boss_special_gauge}/500)")
-            # 스테이지 8: 패들 피격 시 15% 확률로 그림자분신 캐스팅 시작 (게이지 200 이상)
-            if current_stage == 8 and boss_special_gauge >= 200 and not stage8_shadow_casting and not stage8_shadow_clones:
-                if random.random() <= 0.15:
-                    stage8_shadow_casting = True
-                    stage8_shadow_cast_start_ms = pygame.time.get_ticks()
-                    stage8_shadow_freeze_posx = BOSS.centerx
-                    stage8_shadow_freeze_posy = BOSS.centery
-                    show_speech("그림자분신!", duration=90)
+            # 스테이지 8: 패들 피격 시 15% 확률 그림자분신 / 40% 확률 구름장막 (조건 만족 시)
+            if current_stage == 8:
+                if boss_special_gauge >= 200 and not stage8_shadow_casting and not stage8_shadow_clones:
+                    if random.random() <= 0.15:
+                        stage8_shadow_casting = True
+                        stage8_shadow_cast_start_ms = pygame.time.get_ticks()
+                        stage8_shadow_freeze_posx = BOSS.centerx
+                        stage8_shadow_freeze_posy = BOSS.centery
+                        show_speech("그림자분신!", duration=90)
+                if boss_special_gauge >= STAGE8_CLOUD_COST and not stage8_cloud_dash_active and not stage8_cloud_active:
+                    if pygame.time.get_ticks() >= stage8_cloud_next_ready_ms and random.random() <= 0.40:
+                        _start_stage8_cloud(pygame.time.get_ticks())
+                        boss_special_gauge = max(0, boss_special_gauge - STAGE8_CLOUD_COST)
+                        show_speech("구름장막!", duration=80)
         
         # 쿠로미 뱃기 궤적 비활성화 (보스 패들 충돌)
         if kuromi_spit_trail_active:
