@@ -36526,6 +36526,26 @@ def draw_stage8_shurikens(surface: pygame.Surface) -> None:
         surface.blit(blade, (blit_x, blit_y))
 
 
+def draw_stage8_cloud(surface: pygame.Surface) -> None:
+    if current_stage != 8 or not stage8_cloud_active or stage8_cloud_rect is None:
+        return
+    now = pygame.time.get_ticks()
+    if now >= stage8_cloud_end_ms:
+        return
+    remaining = stage8_cloud_end_ms - now
+    alpha = 200
+    if remaining < stage8_cloud_fade_ms:
+        alpha = int(alpha * (remaining / max(1, stage8_cloud_fade_ms)))
+    cloud_surface = pygame.Surface((stage8_cloud_rect.width, stage8_cloud_rect.height), pygame.SRCALPHA)
+    cloud_surface.fill((120, 130, 160, max(0, alpha // 2)))
+    for _ in range(40):
+        cx = random.randint(0, stage8_cloud_rect.width)
+        cy = random.randint(0, stage8_cloud_rect.height)
+        r = random.randint(12, 26)
+        ca = max(40, alpha - random.randint(0, 80))
+        pygame.draw.circle(cloud_surface, (160, 170, 190, ca), (cx, cy), r)
+    surface.blit(cloud_surface, stage8_cloud_rect.topleft)
+
 
 
 def draw_player_gauge():
@@ -61014,11 +61034,14 @@ def handle_ball():
     global stage8_shadow_casting, stage8_shadow_clones, stage8_shadow_cast_start_ms, stage8_shadow_next_ready_ms, stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     # 스테이지8 표창 상태
     global stage8_shuriken_casting, stage8_shuriken_cast_start_ms, stage8_shuriken_next_ready_ms
+    # 스테이지8 구름장막 상태
+    global stage8_cloud_active, stage8_cloud_rect, stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_dash_active, stage8_cloud_dash_phase, stage8_cloud_dash_start_ms, stage8_cloud_next_ready_ms
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
     if current_stage == 8:
         update_stage8_shadow_clones()
         update_stage8_shurikens()
+        update_stage8_cloud()
     # 한 프레임 동안 벽돌/그룹별 중복 피격을 방지하기 위한 집합
     frame_wall_hit_groups = set()
     frame_single_wall_hits = set()
