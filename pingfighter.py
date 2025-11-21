@@ -19118,8 +19118,8 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
         return
     global suicide_drone_ball_speed_backup, suicide_drone_ball_boost_active
     # 입력 벡터
-    dx = (-1 if (keys[pygame.K_LEFT] or keys[pygame.K_a]) else 0) + (1 if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) else 0)
-    dy = (-1 if (keys[pygame.K_UP] or keys[pygame.K_w]) else 0) + (1 if (keys[pygame.K_DOWN] or keys[pygame.K_s]) else 0)
+    dx = (-1 if is_move_left_pressed(keys) else 0) + (1 if is_move_right_pressed(keys) else 0)
+    dy = (-1 if is_move_up_pressed(keys) else 0) + (1 if is_move_down_pressed(keys) else 0)
     # 가속 기반 이동
     if dx == 0 and dy == 0:
         # 감속
