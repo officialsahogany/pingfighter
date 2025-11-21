@@ -36798,7 +36798,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
 
         # 블릿
         cloud_x = stage8_cloud_rect.x - expand
-        cloud_y = stage8_cloud_rect.y - expand
+        cloud_y = stage8_cloud_rect.y - expand - expand_top  # 상단 여백 고려
         if base_alpha < 255:
             cloud_surface.set_alpha(base_alpha)
         surface.blit(cloud_surface, (cloud_x, cloud_y))
@@ -36808,7 +36808,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     cloud_w = full_cloud_w
     cloud_h = full_cloud_h
     cloud_x = stage8_cloud_rect.x - expand
-    cloud_y = stage8_cloud_rect.y - expand
+    cloud_y = stage8_cloud_rect.y - expand - expand_top  # 상단 여백 고려
 
     cloud_surface = pygame.Surface((cloud_w, cloud_h), pygame.SRCALPHA)
 
@@ -36816,7 +36816,7 @@ def draw_stage8_cloud(surface: pygame.Surface) -> None:
     cloud_seed = int(stage8_cloud_start_ms) % 10000
     random.seed(cloud_seed)
 
-    center_x, center_y = cloud_w // 2, cloud_h // 2
+    center_x, center_y = cloud_w // 2, (cloud_h + expand_top) // 2  # 상단 여백 고려
 
     # 사각형 베이스 제거 - 구름 모양으로만 테두리 구성
 
