@@ -14875,9 +14875,9 @@ stage8_cloud_origin: tuple[int, int] = (0, 0)
 stage8_cloud_target_y: int = 0
 stage8_cloud_next_ready_ms: int = 0
 STAGE8_CLOUD_VISIBLE_MS = 5000
-STAGE8_CLOUD_MIN_COOLDOWN_MS = 20000
-STAGE8_CLOUD_MAX_COOLDOWN_MS = 40000
-STAGE8_CLOUD_COST = 250
+STAGE8_CLOUD_MIN_COOLDOWN_MS = 10000
+STAGE8_CLOUD_MAX_COOLDOWN_MS = 20000
+STAGE8_CLOUD_COST = 200
 STAGE8_CLOUD_DASH_MS = 220  # 내려가기/올라가기 각각
 blacksmith_umbrella_swing_recover_main = 0.0
 blacksmith_umbrella_swing_direction = 1  # +1=기존(왼쪽) 스윙, -1=오른쪽 스윙
