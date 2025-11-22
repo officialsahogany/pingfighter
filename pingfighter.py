@@ -67868,6 +67868,10 @@ def handle_boss():
     global stage8_shadow_casting, stage8_shadow_cast_start_ms, stage8_shadow_clones, stage8_shadow_next_ready_ms
     global stage8_shadow_freeze_posx, stage8_shadow_freeze_posy
     global stage8_shuriken_casting, stage8_shuriken_cast_start_ms, stage8_shuriken_next_ready_ms
+    global stage8_stun_escape_active, stage8_stun_escape_ready_ms, stage8_stun_escape_attempted
+    global stage8_stun_escape_start_ms, stage8_stun_escape_start_x, stage8_stun_escape_target_x, stage8_stun_escape_dx
+
+    now_ms = pygame.time.get_ticks()
 
 
     #  보스 대쉬 모션 처리 (플레이어 대쉬와 유사: 초반 고속, 이후 감속)
