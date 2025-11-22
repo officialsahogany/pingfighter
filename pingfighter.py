@@ -72491,27 +72491,29 @@ def main(stage_num, new_boss_mode=False):
                     # 파워스매싱 방향 설정
                     global power_smashing_direction, power_smashing_start_time, power_smashing_arc_strength
                     global power_smashing_freeze_start_time, power_smashing_freeze_active
-                    # 방향 입력: 스킴이 마우스+키보드면 A/D도 인정
-                    _dir_left = keys[pygame.K_LEFT]
-                    _dir_right = keys[pygame.K_RIGHT]
+                    # 방향 입력: 스냅샷 → 헬퍼(IME/한글 포함) → 스킴 보정
                     try:
                         _sm_scheme = get_settings_manager().get_setting('controls', 'control_scheme', 'keyboard')
                     except Exception:
                         _sm_scheme = 'keyboard'
-                    # 스냅샷이 있으면 스킴과 무관하게 좌/우 입력 병합
                     if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
-                        _dir_left = _dir_left or bool(SNAP_left_state)
-                        _dir_right = _dir_right or bool(SNAP_right_state)
+                        _dir_left = bool(SNAP_left_state)
+                        _dir_right = bool(SNAP_right_state)
                     else:
-                        # 스냅샷 없으면 기존 스킴 규칙 + IME 보조 매핑
-                        if _sm_scheme == 'mouse_keyboard':
-                            _dir_left = _dir_left or keys[pygame.K_a]
-                            _dir_right = _dir_right or keys[pygame.K_d]
-                        try:
-                            _dir_left = _dir_left or keys[pygame.K_n]
-                            _dir_right = _dir_right or keys[pygame.K_o]
-                        except Exception:
-                            pass
+                        # 헬퍼는 한글 IME/스캔코드까지 포함해 좌우 입력을 판정
+                        _dir_left = is_move_left_pressed(keys)
+                        _dir_right = is_move_right_pressed(keys)
+                    if _sm_scheme == 'mouse_keyboard':
+                        _dir_left = _dir_left or bool(keys[pygame.K_a])
+                        _dir_right = _dir_right or bool(keys[pygame.K_d])
+                    # 좌우가 동시에 잡히는 IME 노이즈를 최근 입력으로 정리
+                    if _dir_left and _dir_right:
+                        if right_press_frame > left_press_frame:
+                            _dir_left = False
+                        elif left_press_frame > right_press_frame:
+                            _dir_right = False
+                        else:
+                            _dir_left = _dir_right = False  # 애매하면 중앙 발사
                     if _dir_left:
                         power_smashing_direction = -1  # 왼쪽
                         # 수직에 가까운 곡선 효과 적용
