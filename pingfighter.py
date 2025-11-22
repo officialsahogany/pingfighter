@@ -73347,7 +73347,8 @@ def main(stage_num, new_boss_mode=False):
                 update_laser_evaporation_particles()
                 # 보스 처리는(스턴/넉백 적용 포함) 병사 무기/아이템 업데이트 이후에 호출하여
                 # 같은 프레임 내 즉시 반영되도록 순서를 조정한다.
-                handle_boss()
+                if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
+                    handle_boss()
 
                 if profiler:
                     profiler.end_section("GameLogic")
