@@ -36393,9 +36393,14 @@ def _try_stage8_stun_escape(now: int) -> bool:
     if current_stage != 8 or (boss_stunned_timer <= 0 and not trapped_by_net):
         return False
 
-    # 스턴/포획 즉시 시도 (지연 없음)
+    # 스턴/포획 시도 시 대기 시간 설정 (넷 포획: 0.5초 지연)
     if stage8_stun_escape_ready_ms == 0:
-        stage8_stun_escape_ready_ms = now  # 즉시 가능
+        delay = STAGE8_NET_ESCAPE_DELAY_MS if (trapped_by_net and boss_stunned_timer <= 0) else 0
+        stage8_stun_escape_ready_ms = now + delay
+        stage8_stun_escape_attempted = False
+    # 넷 포획 상태에서 준비 시간이 지난 상태라면 재설정(포획 후 0.5초 대기 보장)
+    if trapped_by_net and boss_stunned_timer <= 0 and stage8_stun_escape_ready_ms < now:
+        stage8_stun_escape_ready_ms = now + STAGE8_NET_ESCAPE_DELAY_MS
         stage8_stun_escape_attempted = False
 
     if (
