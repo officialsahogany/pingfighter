@@ -55918,6 +55918,10 @@ def show_item_manager_menu():
                             selected_item_index = new_index
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
+                # 스킬트리(테스트) 버튼 클릭 처리
+                if skill_tree_button_rect.collidepoint(mx, my):
+                    open_skill_tree_test_mode()
+                    continue
                 # 탭 클릭 처리
                 for idx, rect in enumerate(tab_rects):
                     if rect.collidepoint(mx, my):
