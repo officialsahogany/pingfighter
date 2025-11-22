@@ -71885,6 +71885,9 @@ def main(stage_num, new_boss_mode=False):
                 left_pressed = False
             mb_left_just_pressed = left_pressed and not last_mb_left_state
             last_mb_left_state = left_pressed
+            # 스매셔 드라이브용: 좌클릭도 스페이스 입력 프레임으로 간주해 프레임 기반 드라이브 판정에 사용
+            if mb_left_just_pressed and selected_character_type == "smasher":
+                space_press_frame = frame_counter
             if _scheme2 == 'mouse_keyboard':
                 # 마우스 스킴에서는 좌클릭을 Space 입력으로도 병합
                 current_space_state = current_space_state or left_pressed
@@ -72348,8 +72351,8 @@ def main(stage_num, new_boss_mode=False):
                 perfect_timing_cooldown == 0 and not perfect_timing_input_used and 
                 drive_global_cooldown == 0):
                 #  개선된 동시 입력 감지 (2프레임 허용 범위) - 선입력 방지
-                max_frame_gap = 3  # 최대 3프레임(0.05초) 차이까지 동시 입력으로 인정 (조금 더 관대하게)
-                max_input_age = 12  # 최대 12프레임(약 0.2초) 전까지의 입력만 유효
+                max_frame_gap = 2  # 최대 2프레임(0.033초) 차이까지 동시 입력으로 인정
+                max_input_age = 8   # 최대 8프레임(약 0.13초) 전까지의 입력만 유효
                                     #  파워스매싱/고스트샷 발동: 게이지가 준비되었고 스페이스를 홀드하고 있다면
                 if (
                     special_gauge >= 350
